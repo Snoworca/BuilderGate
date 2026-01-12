@@ -43,6 +43,13 @@ nul
 .env.local
 .env.*.local
 
+# Config files (contain sensitive data)
+server/config.json5
+server/config.json5.bak
+
+# SSL certificates (auto-generated)
+server/certs/
+
 # TypeScript cache
 *.tsbuildinfo
 

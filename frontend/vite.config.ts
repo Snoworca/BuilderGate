@@ -1,5 +1,10 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+/**
+ * Vite Configuration
+ * Phase 7: Frontend Security - HTTPS proxy for self-signed certificates
+ */
+
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -8,9 +13,10 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:4242',
+        target: 'https://localhost:4242',
         changeOrigin: true,
+        secure: false,  // Accept self-signed certificates
       },
     },
   },
-})
+});

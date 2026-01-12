@@ -10,6 +10,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Architecture**: Full-stack Node.js + React with TypeScript
 - **Communication**: SSE (Server→Client) + HTTP POST (Client→Server)
 
+## Important Rules for Claude Code
+
+### Server Process Management
+
+**NEVER use `taskkill /F /IM node.exe` or similar commands to kill Node.js processes.**
+
+The development server runs in the background with hot reload enabled (`tsx watch`). When you modify code:
+- The server automatically detects changes and restarts
+- No manual process killing is required
+- Using `taskkill` will disrupt the user's development environment
+
+If you need to verify server status, use:
+```bash
+curl -k https://localhost:4242/health
+```
+
+---
+
 ## Development Commands
 
 ### Backend (server/)

@@ -1,0 +1,168 @@
+/**
+ * Configuration Types for Claude Web Shell Server
+ * Phase 1: Security Infrastructure
+ */
+
+// ============================================================================
+// SSL Configuration
+// ============================================================================
+
+export interface SSLConfig {
+  /** Path to SSL certificate file (empty for auto-generation) */
+  certPath: string;
+  /** Path to SSL private key file (empty for auto-generation) */
+  keyPath: string;
+  /** Path to CA chain file (optional) */
+  caPath: string;
+}
+
+export interface SSLCredentials {
+  cert: string;
+  key: string;
+  ca?: string;
+}
+
+export interface CertExpiryInfo {
+  expiresAt: Date;
+  daysRemaining: number;
+  isExpiringSoon: boolean;
+}
+
+// ============================================================================
+// Security Configuration
+// ============================================================================
+
+export interface CORSConfig {
+  /** Allowed origins (empty array = allow all in dev, block in prod) */
+  allowedOrigins: string[];
+  /** Allow credentials (cookies, authorization headers) */
+  credentials: boolean;
+  /** Preflight request cache duration in seconds */
+  maxAge: number;
+}
+
+export interface SecurityConfig {
+  cors: CORSConfig;
+}
+
+// ============================================================================
+// Logging Configuration
+// ============================================================================
+
+export interface LoggingConfig {
+  /** Log level: error, warn, info, debug */
+  level: 'error' | 'warn' | 'info' | 'debug';
+  /** Enable audit logging */
+  audit: boolean;
+  /** Log directory path */
+  directory: string;
+  /** Max log file size (e.g., "10m", "1g") */
+  maxSize: string;
+  /** Max number of log files to keep */
+  maxFiles: number;
+}
+
+// ============================================================================
+// Server Configuration
+// ============================================================================
+
+export interface ServerConfig {
+  port: number;
+}
+
+// ============================================================================
+// PTY Configuration
+// ============================================================================
+
+export interface PTYConfig {
+  termName: string;
+  defaultCols: number;
+  defaultRows: number;
+  useConpty: boolean;
+  maxBufferSize: number;
+}
+
+// ============================================================================
+// Session Configuration
+// ============================================================================
+
+export interface SessionConfig {
+  idleDelayMs: number;
+}
+
+// ============================================================================
+// Two-Factor Authentication Configuration
+// ============================================================================
+
+export interface SMTPTLSConfig {
+  rejectUnauthorized: boolean;
+  minVersion: 'TLSv1.2' | 'TLSv1.3';
+}
+
+export interface SMTPAuthConfig {
+  user: string;
+  password: string;
+}
+
+export interface SMTPConfig {
+  host: string;
+  port: number;
+  secure: boolean;
+  auth: SMTPAuthConfig;
+  tls?: SMTPTLSConfig;
+}
+
+export interface TwoFactorConfig {
+  enabled: boolean;
+  email: string;
+  otpLength: number;
+  otpExpiryMs: number;
+  smtp: SMTPConfig;
+}
+
+// ============================================================================
+// Authentication Configuration (Phase 2)
+// ============================================================================
+
+export interface AuthConfig {
+  password: string;
+  durationMs: number;
+  maxDurationMs: number;
+  jwtSecret: string;
+}
+
+// ============================================================================
+// Rate Limiting Configuration (Phase 5)
+// ============================================================================
+
+export interface RateLimitConfig {
+  windowMs: number;
+  maxRequests: number;
+}
+
+export interface LockoutConfig {
+  maxAttempts: number;
+  lockoutDurationMs: number;
+  progressiveDelay: boolean;
+}
+
+export interface BruteForceConfig {
+  rateLimit: RateLimitConfig;
+  lockout: LockoutConfig;
+}
+
+// ============================================================================
+// Full Configuration Interface
+// ============================================================================
+
+export interface Config {
+  server: ServerConfig;
+  pty: PTYConfig;
+  session: SessionConfig;
+  ssl?: SSLConfig;
+  security?: SecurityConfig;
+  logging?: LoggingConfig;
+  twoFactor?: TwoFactorConfig;
+  auth?: AuthConfig;
+  bruteForce?: BruteForceConfig;
+}

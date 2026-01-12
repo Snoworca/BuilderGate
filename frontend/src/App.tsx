@@ -1,7 +1,15 @@
+/**
+ * Main Application
+ * Phase 7: Frontend Security - Auth integration added
+ */
+
 import { useRef, useCallback } from 'react';
+import { useAuth } from './contexts/AuthContext';
 import { useSession } from './hooks/useSession';
 import { useSSE } from './hooks/useSSE';
+import { useHeartbeat } from './hooks/useHeartbeat';
 import { sessionApi } from './services/api';
+import { AuthGuard } from './components/Auth';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { TerminalView } from './components/Terminal';
@@ -9,8 +17,9 @@ import type { TerminalHandle } from './components/Terminal';
 import { StatusBar } from './components/StatusBar';
 import './styles/globals.css';
 
-function App() {
+function AppContent() {
   const terminalRef = useRef<TerminalHandle>(null);
+  const { logout } = useAuth();
   const {
     sessions,
     activeSessionId,
@@ -20,6 +29,13 @@ function App() {
     deleteSession,
     updateSessionStatus,
   } = useSession();
+
+  // Heartbeat for token refresh
+  useHeartbeat({
+    onSessionExpired: () => {
+      alert('Session expired. Please login again.');
+    }
+  });
 
   // SSE connection for active session
   useSSE(activeSessionId, {
@@ -34,9 +50,11 @@ function App() {
     onError: (message) => {
       console.error('Session error:', message);
     },
+    onAuthError: () => {
+      logout();
+    }
   });
 
-  // Fire-and-forget input for low latency
   const handleInput = useCallback((data: string) => {
     if (activeSessionId) {
       sessionApi.sendInput(activeSessionId, data);
@@ -57,9 +75,13 @@ function App() {
     await createSession();
   }, [createSession]);
 
+  const handleLogout = useCallback(async () => {
+    await logout();
+  }, [logout]);
+
   return (
     <div className="app">
-      <Header />
+      <Header onLogout={handleLogout} />
       <div className="main">
         <Sidebar
           sessions={sessions}
@@ -89,6 +111,14 @@ function App() {
         sessionName={activeSession?.name}
       />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthGuard>
+      <AppContent />
+    </AuthGuard>
   );
 }
 

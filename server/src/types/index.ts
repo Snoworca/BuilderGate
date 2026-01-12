@@ -1,3 +1,4 @@
+// Session Types (Step 1)
 export interface Session {
   id: string;
   name: string;
@@ -5,6 +6,46 @@ export interface Session {
   createdAt: Date;
   lastActiveAt: Date;
 }
+
+// Configuration Types (Phase 1)
+export type {
+  Config,
+  ServerConfig,
+  PTYConfig,
+  SessionConfig,
+  SSLConfig,
+  SSLCredentials,
+  CertExpiryInfo,
+  SecurityConfig,
+  CORSConfig,
+  LoggingConfig,
+  TwoFactorConfig,
+  SMTPConfig,
+  SMTPAuthConfig,
+  SMTPTLSConfig,
+  AuthConfig,
+  BruteForceConfig,
+  RateLimitConfig,
+  LockoutConfig
+} from './config.types.js';
+
+// Authentication Types (Phase 2 & 3)
+export type {
+  JWTPayload,
+  TokenBlacklistEntry,
+  LoginRequest,
+  LoginResponse,
+  LogoutResponse,
+  AuthenticatedRequest,
+  HeartbeatRequest,
+  HeartbeatResponse,
+  // Phase 3: Two-Factor Authentication
+  OTPData,
+  PendingAuth,
+  VerifyRequest,
+  VerifyResponse,
+  OTPVerifyResult
+} from './auth.types.js';
 
 export type SessionStatus = 'running' | 'idle';
 

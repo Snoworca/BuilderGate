@@ -1,25 +1,53 @@
+/**
+ * Header Styles
+ * Phase 7: Frontend Security - Logout button styles added
+ */
+
 .header {
   background-color: #323233;
   padding: 0 16px;
   height: 48px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   border-bottom: 1px solid #3c3c3c;
 }
 
-.header-logo {
+.header-left {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.logo-icon {
+.header-logo {
   font-size: 20px;
 }
 
-.header h1 {
+.header-title {
   font-size: 16px;
   font-weight: 500;
   color: #ffffff;
   margin: 0;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.logout-button {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid #4c4c4c;
+  border-radius: 4px;
+  color: #9d9d9d;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logout-button:hover {
+  background: #3c3c3c;
+  color: #fff;
+  border-color: #5c5c5c;
 }
