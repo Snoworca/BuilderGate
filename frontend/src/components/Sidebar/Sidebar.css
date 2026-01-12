@@ -1,0 +1,47 @@
+.sidebar {
+  width: 260px;
+  min-width: 260px;
+  background-color: #252526;
+  border-right: 1px solid #3c3c3c;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid #3c3c3c;
+}
+
+.sidebar-header h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #cccccc;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sidebar-footer {
+  padding: 12px;
+  border-top: 1px solid #3c3c3c;
+}
+
+.new-session-btn {
+  width: 100%;
+  padding: 10px 16px;
+  background-color: #0e639c;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.new-session-btn:hover {
+  background-color: #1177bb;
+}
+
+.new-session-btn:active {
+  background-color: #0d5a8c;
+}

@@ -1,0 +1,45 @@
+.statusbar {
+  height: 24px;
+  background-color: #007acc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-size: 12px;
+  color: white;
+}
+
+.statusbar-left,
+.statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.connection-status.connected .status-dot {
+  background-color: #89d185;
+}
+
+.connection-status.disconnected .status-dot {
+  background-color: #f48771;
+}
+
+.connection-status.disconnected {
+  opacity: 0.8;
+}
+
+.current-session {
+  opacity: 0.9;
+}

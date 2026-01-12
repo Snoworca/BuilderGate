@@ -1,0 +1,18 @@
+.status-indicator {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.status-indicator.running {
+  background-color: #EF4444;
+  box-shadow: 0 0 6px #EF4444;
+}
+
+.status-indicator.idle {
+  background-color: #22C55E;
+  box-shadow: 0 0 6px #22C55E;
+}

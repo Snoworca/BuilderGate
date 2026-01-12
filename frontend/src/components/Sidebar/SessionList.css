@@ -1,0 +1,13 @@
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.session-list.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6e6e6e;
+  font-size: 13px;
+}
