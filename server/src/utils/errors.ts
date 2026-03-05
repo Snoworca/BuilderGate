@@ -36,6 +36,18 @@ export enum ErrorCode {
   // Session Errors
   SESSION_NOT_FOUND = 'SESSION_NOT_FOUND',
   SESSION_UNAUTHORIZED = 'SESSION_UNAUTHORIZED',
+  DUPLICATE_SESSION_NAME = 'DUPLICATE_SESSION_NAME',
+
+  // File Manager Errors (Phase 4)
+  PATH_TRAVERSAL = 'PATH_TRAVERSAL',
+  PATH_NOT_FOUND = 'PATH_NOT_FOUND',
+  PATH_BLOCKED = 'PATH_BLOCKED',
+  FILE_TOO_LARGE = 'FILE_TOO_LARGE',
+  BINARY_FILE = 'BINARY_FILE',
+  DIRECTORY_TOO_LARGE = 'DIRECTORY_TOO_LARGE',
+  FILE_OPERATION_FAILED = 'FILE_OPERATION_FAILED',
+  FILE_ALREADY_EXISTS = 'FILE_ALREADY_EXISTS',
+  PERMISSION_DENIED = 'PERMISSION_DENIED',
 
   // Server Errors
   INTERNAL_ERROR = 'INTERNAL_ERROR',
@@ -72,6 +84,17 @@ export const ErrorMessages: Record<ErrorCode, string> = {
 
   [ErrorCode.SESSION_NOT_FOUND]: 'Session not found',
   [ErrorCode.SESSION_UNAUTHORIZED]: 'Not authorized to access this session',
+  [ErrorCode.DUPLICATE_SESSION_NAME]: 'Session name already exists',
+
+  [ErrorCode.PATH_TRAVERSAL]: 'Path traversal detected',
+  [ErrorCode.PATH_NOT_FOUND]: 'Path not found',
+  [ErrorCode.PATH_BLOCKED]: 'Access to this path is blocked',
+  [ErrorCode.FILE_TOO_LARGE]: 'File is too large',
+  [ErrorCode.BINARY_FILE]: 'Binary files are not supported',
+  [ErrorCode.DIRECTORY_TOO_LARGE]: 'Directory has too many entries',
+  [ErrorCode.FILE_OPERATION_FAILED]: 'File operation failed',
+  [ErrorCode.FILE_ALREADY_EXISTS]: 'File already exists',
+  [ErrorCode.PERMISSION_DENIED]: 'Permission denied',
 
   [ErrorCode.INTERNAL_ERROR]: 'Internal server error',
   [ErrorCode.ENCRYPTION_ERROR]: 'Encryption failed',
@@ -107,6 +130,17 @@ export const ErrorStatusCodes: Record<ErrorCode, number> = {
 
   [ErrorCode.SESSION_NOT_FOUND]: 404,
   [ErrorCode.SESSION_UNAUTHORIZED]: 403,
+  [ErrorCode.DUPLICATE_SESSION_NAME]: 409,
+
+  [ErrorCode.PATH_TRAVERSAL]: 403,
+  [ErrorCode.PATH_NOT_FOUND]: 404,
+  [ErrorCode.PATH_BLOCKED]: 403,
+  [ErrorCode.FILE_TOO_LARGE]: 413,
+  [ErrorCode.BINARY_FILE]: 415,
+  [ErrorCode.DIRECTORY_TOO_LARGE]: 413,
+  [ErrorCode.FILE_OPERATION_FAILED]: 500,
+  [ErrorCode.FILE_ALREADY_EXISTS]: 409,
+  [ErrorCode.PERMISSION_DENIED]: 403,
 
   [ErrorCode.INTERNAL_ERROR]: 500,
   [ErrorCode.ENCRYPTION_ERROR]: 500,

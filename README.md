@@ -1,6 +1,6 @@
-# Claude Web Shell
+# BuilderGate
 
-Claude AI 전용 웹 기반 쉘 인터페이스입니다.
+코딩 에이전트 병렬 운용을 위한 웹 기반 통합 개발 환경입니다.
 
 ## Features
 

@@ -1,5 +1,5 @@
 /**
- * Configuration Types for Claude Web Shell Server
+ * Configuration Types for BuilderGate Server
  * Phase 1: Security Infrastructure
  */
 
@@ -80,6 +80,8 @@ export interface PTYConfig {
   defaultRows: number;
   useConpty: boolean;
   maxBufferSize: number;
+  /** Shell type: 'auto' (OS default), 'powershell', 'wsl' (WSL bash), 'bash' */
+  shell: 'auto' | 'powershell' | 'wsl' | 'bash';
 }
 
 // ============================================================================
@@ -152,6 +154,19 @@ export interface BruteForceConfig {
 }
 
 // ============================================================================
+// File Manager Configuration (Phase 4)
+// ============================================================================
+
+export interface FileManagerConfig {
+  maxFileSize: number;
+  maxCodeFileSize: number;
+  maxDirectoryEntries: number;
+  blockedExtensions: string[];
+  blockedPaths: string[];
+  cwdCacheTtlMs: number;
+}
+
+// ============================================================================
 // Full Configuration Interface
 // ============================================================================
 
@@ -165,4 +180,5 @@ export interface Config {
   twoFactor?: TwoFactorConfig;
   auth?: AuthConfig;
   bruteForce?: BruteForceConfig;
+  fileManager?: FileManagerConfig;
 }

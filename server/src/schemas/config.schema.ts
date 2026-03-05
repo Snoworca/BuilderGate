@@ -58,7 +58,8 @@ export const ptySchema = z.object({
   defaultCols: z.number().min(20).max(500).default(80),
   defaultRows: z.number().min(5).max(200).default(24),
   useConpty: z.boolean().default(false),
-  maxBufferSize: z.number().min(1024).max(10485760).default(65536)
+  maxBufferSize: z.number().min(1024).max(10485760).default(65536),
+  shell: z.enum(['auto', 'powershell', 'wsl', 'bash']).default('auto'),
 });
 
 // ============================================================================
@@ -134,6 +135,19 @@ export const bruteForceSchema = z.object({
 });
 
 // ============================================================================
+// File Manager Schema (Phase 4)
+// ============================================================================
+
+export const fileManagerSchema = z.object({
+  maxFileSize: z.number().min(1024).max(104857600).default(1048576),
+  maxCodeFileSize: z.number().min(1024).max(10485760).default(524288),
+  maxDirectoryEntries: z.number().min(100).max(100000).default(10000),
+  blockedExtensions: z.array(z.string()).default(['.exe', '.dll', '.so', '.bin']),
+  blockedPaths: z.array(z.string()).default(['.ssh', '.gnupg', '.aws']),
+  cwdCacheTtlMs: z.number().min(100).max(60000).default(1000),
+});
+
+// ============================================================================
 // Full Configuration Schema
 // ============================================================================
 
@@ -146,7 +160,8 @@ export const configSchema = z.object({
   logging: loggingSchema.optional(),
   twoFactor: twoFactorSchema.optional(),
   auth: authSchema.optional(),
-  bruteForce: bruteForceSchema.optional()
+  bruteForce: bruteForceSchema.optional(),
+  fileManager: fileManagerSchema.optional()
 });
 
 export type ConfigSchema = z.infer<typeof configSchema>;

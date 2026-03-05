@@ -1,0 +1,14 @@
+.confirm-message {
+  color: #ccc;
+  font-size: 14px;
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+
+.btn-destructive {
+  background: #dc2626 !important;
+}
+
+.btn-destructive:hover:not(:disabled) {
+  background: #ef4444 !important;
+}

@@ -55,6 +55,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Listen for auth-expired events from API layer (e.g. 401 responses)
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      tokenStorage.clearToken();
+      setState({
+        isAuthenticated: false,
+        isLoading: false,
+        error: 'Session expired. Please login again.',
+        requires2FA: false,
+        tempToken: null,
+        maskedEmail: null,
+        expiresAt: null
+      });
+    };
+    window.addEventListener('auth-expired', handleAuthExpired);
+    return () => window.removeEventListener('auth-expired', handleAuthExpired);
+  }, []);
+
   // Login handler
   const login = useCallback(async (password: string): Promise<boolean> => {
     setState(s => ({ ...s, isLoading: true, error: null }));
@@ -171,6 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 // Hook
 // ============================================================================
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (!context) {

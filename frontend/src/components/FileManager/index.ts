@@ -1,0 +1,1 @@
+export { MdirPanel } from './MdirPanel';

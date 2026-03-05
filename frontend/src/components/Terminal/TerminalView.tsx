@@ -1,25 +1,25 @@
-import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
+import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { usePinchZoom } from '../../hooks/usePinchZoom';
+import { useResponsive } from '../../hooks/useResponsive';
+import { FontSizeToast } from './FontSizeToast';
 import '@xterm/xterm/css/xterm.css';
 import './TerminalView.css';
 
+const FONT_MIN = 8;
+const FONT_MAX = 32;
+const FONT_DEFAULT = 14;
+const FONT_STORAGE_KEY = 'terminal_font_size';
+
 // Control character sequences for IME bypass
-// These keys are handled directly to prevent IME from intercepting them
-// Note: Enter and Tab are NOT included - they work correctly with IME
-// and need xterm.js default handling for proper shell integration
 const KEY_SEQUENCES: Record<string, string> = {
-  // Essential control characters (IME-problematic keys only)
   Backspace: '\x7f',
   Escape: '\x1b',
-
-  // Arrow keys (Normal mode)
   ArrowUp: '\x1b[A',
   ArrowDown: '\x1b[B',
   ArrowRight: '\x1b[C',
   ArrowLeft: '\x1b[D',
-
-  // Navigation keys
   Home: '\x1b[H',
   End: '\x1b[F',
   PageUp: '\x1b[5~',
@@ -43,8 +43,28 @@ interface Props {
 export const TerminalView = forwardRef<TerminalHandle, Props>(
   ({ sessionId, onInput, onResize }, ref) => {
     const terminalRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
+    const [toastFontSize, setToastFontSize] = useState<number | null>(null);
+    const { isMobile } = useResponsive();
+
+    const handleFontSizeChange = useCallback((size: number) => {
+      const term = xtermRef.current;
+      const fitAddon = fitAddonRef.current;
+      if (term && fitAddon) {
+        term.options.fontSize = size;
+        fitAddon.fit();
+        setToastFontSize(size);
+      }
+    }, []);
+
+    const { handleTouchStart, handleTouchMove, handleTouchEnd, getInitialFontSize } = usePinchZoom({
+      minSize: FONT_MIN,
+      maxSize: FONT_MAX,
+      defaultSize: FONT_DEFAULT,
+      onFontSizeChange: handleFontSizeChange,
+    });
 
     useImperativeHandle(ref, () => ({
       write: (data: string) => {
@@ -61,9 +81,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     useEffect(() => {
       if (!terminalRef.current) return;
 
+      const initialFontSize = getInitialFontSize();
+
       const term = new Terminal({
         cursorBlink: true,
-        fontSize: 14,
+        fontSize: initialFontSize,
         fontFamily: '"Cascadia Code", "Fira Code", Consolas, monospace',
         theme: {
           background: '#1e1e1e',
@@ -96,66 +118,59 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       term.loadAddon(fitAddon);
       term.open(terminalRef.current);
 
-      // Handle control characters directly to bypass IME
-      // This ensures Backspace, Enter, Arrow keys, etc. work correctly
-      // even when Korean IME (or other CJK IME) is active
       term.attachCustomKeyEventHandler((ev: KeyboardEvent) => {
-        // Only handle keydown events
-        if (ev.type !== 'keydown') {
-          return true;
-        }
+        if (ev.type !== 'keydown') return true;
 
         const key = ev.key;
 
-        // 1. Handle basic control characters (Backspace, Enter, Tab, Escape, Arrows, etc.)
         if (key in KEY_SEQUENCES) {
           onInput(KEY_SEQUENCES[key]);
-          return false; // Prevent xterm.js default handling
+          return false;
         }
 
-        // 2. Handle Ctrl+key combinations (Ctrl+C, Ctrl+D, Ctrl+Z, etc.)
         if (ev.ctrlKey && !ev.altKey && !ev.metaKey && key.length === 1) {
           const char = key.toLowerCase();
+
+          // Ctrl+C: 텍스트 선택 시 클립보드에 복사, 미선택 시 SIGINT(\x03) 전송
+          if (char === 'c' && term.hasSelection()) {
+            navigator.clipboard.writeText(term.getSelection());
+            term.clearSelection();
+            return false;
+          }
+
+          // Ctrl+V: 클립보드에서 읽어 PTY로 전송
+          if (char === 'v') {
+            navigator.clipboard.readText().then((text) => {
+              if (text) onInput(text);
+            });
+            return false;
+          }
+
           if (char >= 'a' && char <= 'z') {
-            // Ctrl+A = \x01, Ctrl+B = \x02, ..., Ctrl+Z = \x1a
-            const code = char.charCodeAt(0) - 96; // 'a' = 97, so 97-96 = 1
+            const code = char.charCodeAt(0) - 96;
             onInput(String.fromCharCode(code));
             return false;
           }
         }
 
-        // 3. Let xterm.js handle everything else (regular characters, IME input)
         return true;
       });
 
-      // Fit after a small delay to ensure container is rendered
       setTimeout(() => {
         fitAddon.fit();
         onResize(term.cols, term.rows);
-        // Auto-focus the terminal for immediate input
         term.focus();
       }, 0);
 
       xtermRef.current = term;
       fitAddonRef.current = fitAddon;
 
-      // Handle user input
       term.onData((data) => {
-        // Filter out empty strings (can happen with IME)
-        if (data.length === 0) {
-          return;
-        }
-
-        // Filter out Focus In/Out sequences (ESC[I and ESC[O)
-        // These are sent when Focus Reporting is enabled by the application
-        if (data === '\x1b[I' || data === '\x1b[O') {
-          return;
-        }
-
+        if (data.length === 0) return;
+        if (data === '\x1b[I' || data === '\x1b[O') return;
         onInput(data);
       });
 
-      // Handle window resize
       const handleResize = () => {
         fitAddon.fit();
         onResize(term.cols, term.rows);
@@ -163,7 +178,6 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       window.addEventListener('resize', handleResize);
 
-      // Use ResizeObserver for container size changes
       const resizeObserver = new ResizeObserver(() => {
         fitAddon.fit();
         onResize(term.cols, term.rows);
@@ -175,16 +189,61 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         resizeObserver.disconnect();
         term.dispose();
       };
-    }, [sessionId, onInput, onResize]);
+    }, [sessionId, onInput, onResize, getInitialFontSize]);
 
-    // Click handler to ensure focus
+    // Desktop: Ctrl+Wheel font zoom
+    useEffect(() => {
+      if (isMobile) return;
+      const container = containerRef.current;
+      if (!container) return;
+
+      const handleWheel = (e: WheelEvent) => {
+        if (e.ctrlKey) {
+          e.preventDefault();
+          const currentSize = xtermRef.current?.options.fontSize || FONT_DEFAULT;
+          const delta = e.deltaY < 0 ? 1 : -1;
+          const newSize = Math.max(FONT_MIN, Math.min(FONT_MAX, currentSize + delta));
+          handleFontSizeChange(newSize);
+          localStorage.setItem(FONT_STORAGE_KEY, newSize.toString());
+        }
+      };
+
+      container.addEventListener('wheel', handleWheel, { passive: false });
+      return () => container.removeEventListener('wheel', handleWheel);
+    }, [isMobile, handleFontSizeChange]);
+
+    // Mobile: Pinch-to-zoom touch events
+    useEffect(() => {
+      if (!isMobile) return;
+      const container = containerRef.current;
+      if (!container) return;
+
+      container.addEventListener('touchstart', handleTouchStart, { passive: false });
+      container.addEventListener('touchmove', handleTouchMove, { passive: false });
+      container.addEventListener('touchend', handleTouchEnd);
+
+      return () => {
+        container.removeEventListener('touchstart', handleTouchStart);
+        container.removeEventListener('touchmove', handleTouchMove);
+        container.removeEventListener('touchend', handleTouchEnd);
+      };
+    }, [isMobile, handleTouchStart, handleTouchMove, handleTouchEnd]);
+
+    // Auto-hide toast
+    useEffect(() => {
+      if (toastFontSize === null) return;
+      const timer = setTimeout(() => setToastFontSize(null), 1200);
+      return () => clearTimeout(timer);
+    }, [toastFontSize]);
+
     const handleClick = useCallback(() => {
       xtermRef.current?.focus();
     }, []);
 
     return (
-      <div className="terminal-view" onClick={handleClick}>
+      <div className="terminal-view" ref={containerRef} onClick={handleClick}>
         <div ref={terminalRef} className="terminal-container" />
+        <FontSizeToast fontSize={toastFontSize} />
       </div>
     );
   }

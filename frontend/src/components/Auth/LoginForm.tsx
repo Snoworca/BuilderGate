@@ -29,7 +29,7 @@ export function LoginForm() {
       <div className="auth-card">
         <div className="auth-logo">
           <span className="auth-logo-icon">&#x1F4BB;</span>
-          <h1>Claude Web Shell</h1>
+          <h1>BuilderGate</h1>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">

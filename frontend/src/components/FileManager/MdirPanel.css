@@ -1,0 +1,243 @@
+/* Mdir Theme CSS Variables */
+.mdir-panel {
+  --mdir-bg: #000000;
+  --mdir-text: #FFFFFF;
+  --mdir-border: #FFFFFF;
+  --mdir-dir: #FFFF55;
+  --mdir-md: #55FF55;
+  --mdir-selected-bg: #FFFFFF;
+  --mdir-selected-text: #000000;
+  --mdir-status-text: #AAAAAA;
+  --mdir-input-bg: #333333;
+
+  font-family: Consolas, "Courier New", monospace;
+  background: var(--mdir-bg);
+  color: var(--mdir-text);
+  border: 1px solid var(--mdir-border);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  font-size: 13px;
+}
+
+/* Header - Path Bar (inverted: white bg, black text) */
+.mdir-header {
+  flex-shrink: 0;
+  background: var(--mdir-selected-bg);
+  color: var(--mdir-selected-text);
+  padding: 2px 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mdir-path {
+  font-size: 13px;
+}
+
+/* File List - scroll wrapper */
+.mdir-file-list-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2px 0;
+}
+
+/* File List - 2-column grid */
+.mdir-file-list {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 0;
+}
+
+/* Individual file entry */
+.mdir-entry {
+  display: flex;
+  gap: 2px;
+  padding: 1px 4px;
+  cursor: pointer;
+  min-width: 0;
+  color: var(--mdir-text);
+  line-height: 1.4;
+}
+
+.mdir-entry:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Selected entry (inverted colors) */
+.mdir-entry-selected {
+  background: var(--mdir-selected-bg) !important;
+  color: var(--mdir-selected-text) !important;
+}
+
+/* Marked entry (directory open in right pane) */
+.mdir-entry-marked {
+  color: #00FFFF !important;
+  font-weight: bold;
+}
+
+/* Highlighted entry (pending copy/move source) */
+.mdir-entry-highlighted {
+  background: #555500 !important;
+  color: #FFFF55 !important;
+}
+
+/* Column 2 divider */
+.mdir-entry-col2 {
+  border-left: 1px solid #555;
+  padding-left: 6px;
+}
+
+.mdir-entry-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+
+.mdir-entry-ext {
+  width: 5ch;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.mdir-entry-size {
+  width: 10ch;
+  flex-shrink: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.mdir-entry-date {
+  width: 9ch;
+  flex-shrink: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.mdir-entry-time {
+  width: 6ch;
+  flex-shrink: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Footer */
+.mdir-footer {
+  flex-shrink: 0;
+}
+
+/* Status Bar */
+.mdir-status-bar {
+  background: var(--mdir-bg);
+  color: var(--mdir-status-text);
+  padding: 2px 4px;
+  font-size: 12px;
+}
+
+/* Function Key Bar (inverted: white bg, black text) */
+.mdir-function-bar {
+  display: flex;
+  background: var(--mdir-bg);
+  padding: 0;
+  border-top: 1px solid #444;
+}
+
+.mdir-fkey {
+  flex: 1;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 0;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  color: inherit;
+}
+
+.mdir-fkey:hover {
+  background: #333;
+}
+
+.mdir-fkey-num {
+  background: var(--mdir-bg);
+  color: var(--mdir-text);
+  padding: 0 2px;
+  font-size: 11px;
+}
+
+.mdir-fkey-label {
+  background: var(--mdir-selected-bg);
+  color: var(--mdir-selected-text);
+  padding: 0 3px;
+}
+
+/* Active function key (highlight mode) */
+.mdir-fkey-active .mdir-fkey-label {
+  background: #555500;
+  color: #FFFF55;
+}
+
+.mdir-fkey-active .mdir-fkey-num {
+  color: #FFFF55;
+}
+
+/* Dual Pane Container */
+.mdir-dual-pane {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Individual Pane */
+.mdir-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Pane Divider */
+.mdir-pane-divider {
+  width: 1px;
+  background: #555;
+  flex-shrink: 0;
+}
+
+/* Empty Right Pane */
+.mdir-pane-empty {
+  flex: 1;
+  background: var(--mdir-bg);
+}
+
+/* Inactive Header */
+.mdir-header-inactive {
+  background: #666666;
+  color: #CCCCCC;
+}
+
+/* Inactive Pane Selected Entry */
+.mdir-entry-selected-inactive {
+  background: #444444 !important;
+  color: #CCCCCC !important;
+}
+
+/* Loading / Error states */
+.mdir-loading,
+.mdir-error {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mdir-status-text);
+}
+
+.mdir-error {
+  color: #ff5555;
+}

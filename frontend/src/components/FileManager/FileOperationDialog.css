@@ -1,0 +1,82 @@
+.mdir-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.mdir-dialog {
+  background: #000;
+  border: 1px solid #fff;
+  max-width: 400px;
+  width: 90%;
+  font-family: Consolas, "Courier New", monospace;
+  color: #fff;
+}
+
+.mdir-dialog-title {
+  text-align: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid #fff;
+  font-weight: bold;
+}
+
+.mdir-dialog-body {
+  padding: 8px 12px;
+}
+
+.mdir-dialog-body p {
+  margin: 0 0 6px;
+}
+
+.mdir-dialog-input {
+  width: 100%;
+  background: #333;
+  color: #fff;
+  border: 1px solid #666;
+  padding: 4px 6px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.mdir-dialog-input:focus {
+  outline: none;
+  border-color: #aaa;
+}
+
+.mdir-dialog-error {
+  color: #ff5555;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.mdir-dialog-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-top: 1px solid #444;
+}
+
+.mdir-dialog-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 8px;
+}
+
+.mdir-dialog-btn:hover {
+  background: #444;
+}
+
+.mdir-dialog-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

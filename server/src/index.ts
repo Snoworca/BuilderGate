@@ -1,5 +1,5 @@
 /**
- * Claude Web Shell Server - Main Entry Point
+ * BuilderGate Server - Main Entry Point
  * Phase 1: Security Infrastructure (HTTPS + Security Headers)
  * Phase 2: Authentication Core (JWT + Password)
  * Phase 3: Two-Factor Authentication
@@ -12,7 +12,10 @@ import http from 'http';
 import os from 'os';
 import sessionRoutes from './routes/sessionRoutes.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
+import { createFileRoutes } from './routes/fileRoutes.js';
 import { config } from './utils/config.js';
+import { FileService } from './services/FileService.js';
+import { sessionManager } from './services/SessionManager.js';
 import { SSLService } from './services/SSLService.js';
 import { CryptoService } from './services/CryptoService.js';
 import { AuthService } from './services/AuthService.js';
@@ -101,6 +104,19 @@ function setupRoutes(): void {
   const authMiddleware = createAuthMiddleware(authService);
   app.use('/api/sessions', authMiddleware, sessionRoutes);
 
+  // File manager routes (auth required, same base path)
+  const fileManagerConfig = config.fileManager || {
+    maxFileSize: 1048576,
+    maxCodeFileSize: 524288,
+    maxDirectoryEntries: 10000,
+    blockedExtensions: ['.exe', '.dll', '.so', '.bin'],
+    blockedPaths: ['.ssh', '.gnupg', '.aws'],
+    cwdCacheTtlMs: 1000,
+  };
+  const fileService = new FileService(sessionManager, fileManagerConfig);
+  const fileRoutes = createFileRoutes(fileService);
+  app.use('/api/sessions', authMiddleware, fileRoutes);
+
   console.log('[Routes] API routes configured');
   console.log('  - GET  /health (public)');
   console.log('  - POST /api/auth/login (public)');
@@ -111,6 +127,8 @@ function setupRoutes(): void {
   console.log('  - POST /api/auth/refresh (protected)');
   console.log('  - GET  /api/auth/status (protected)');
   console.log('  - /api/sessions/* (protected)');
+  console.log('  - /api/sessions/:id/cwd (protected, File API)');
+  console.log('  - /api/sessions/:id/files (protected, File API)');
 }
 
 // ============================================================================
@@ -183,7 +201,7 @@ async function startServer(): Promise<void> {
       const twoFAStatus = twoFactorService?.isEnabled() ? 'Enabled (Email OTP)' : 'Disabled';
       console.log('');
       console.log('╔════════════════════════════════════════════════════════════════╗');
-      console.log('║           Claude Web Shell Server (HTTPS)                      ║');
+      console.log('║           BuilderGate Server (HTTPS)                             ║');
       console.log('╠════════════════════════════════════════════════════════════════╣');
       console.log(`║  HTTPS Server: https://localhost:${PORT}                        ║`);
       console.log(`║  Health Check: https://localhost:${PORT}/health                 ║`);

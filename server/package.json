@@ -1,5 +1,5 @@
 {
-  "name": "claude-web-shell-server",
+  "name": "buildergate-server",
   "version": "0.1.0",
   "type": "module",
   "scripts": {

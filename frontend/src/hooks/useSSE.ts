@@ -18,7 +18,9 @@ interface SSEHandlers {
 export function useSSE(sessionId: string | null, handlers: SSEHandlers) {
   // IMPORTANT: Use ref to avoid reconnecting on handler changes
   const handlersRef = useRef(handlers);
-  handlersRef.current = handlers;
+  useEffect(() => {
+    handlersRef.current = handlers;
+  });
 
   useEffect(() => {
     if (!sessionId) {

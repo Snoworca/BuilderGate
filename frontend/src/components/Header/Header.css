@@ -1,6 +1,7 @@
 /**
  * Header Styles
  * Phase 7: Frontend Security - Logout button styles added
+ * Phase 1-Step3: Mobile responsive - Hamburger styles added
  */
 
 .header {
@@ -11,6 +12,7 @@
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid #3c3c3c;
+  flex-shrink: 0;
 }
 
 .header-left {
@@ -28,6 +30,24 @@
   font-weight: 500;
   color: #ffffff;
   margin: 0;
+}
+
+.header-cwd {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+}
+
+.header-cwd-path {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 12px;
+  color: #9d9d9d;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header-right {
@@ -50,4 +70,36 @@
   background: #3c3c3c;
   color: #fff;
   border-color: #5c5c5c;
+}
+
+/* Hamburger button (mobile only, controlled by React) */
+.hamburger-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.hamburger-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.hamburger-icon {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 20px;
+  height: 14px;
+}
+
+.hamburger-icon span {
+  display: block;
+  height: 2px;
+  background: #d4d4d4;
+  border-radius: 1px;
 }

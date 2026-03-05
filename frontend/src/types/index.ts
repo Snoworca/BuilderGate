@@ -8,9 +8,24 @@ export interface Session {
   status: SessionStatus;
   createdAt: string;
   lastActiveAt: string;
+  sortOrder: number;
+}
+
+export interface UpdateSessionRequest {
+  name?: string;
+  sortOrder?: number;
 }
 
 export type SessionStatus = 'running' | 'idle';
+
+// Shell Types
+export type ShellType = 'auto' | 'powershell' | 'wsl' | 'bash';
+
+export interface ShellInfo {
+  id: ShellType;
+  label: string;
+  icon: string;
+}
 
 // ============================================================================
 // Auth Types (Phase 7)
@@ -52,6 +67,36 @@ export interface ErrorResponse {
     details?: Record<string, unknown>;
     timestamp: string;
   };
+}
+
+// ============================================================================
+// Tab & File Manager Types (Phase 4)
+// ============================================================================
+
+// ActiveTab removed — useTabManager manages dynamic tab IDs
+
+export interface DirectoryEntry {
+  name: string;
+  type: 'file' | 'directory';
+  size: number;
+  extension?: string;
+  modified: string;
+}
+
+export interface DirectoryListing {
+  cwd: string;
+  path: string;
+  entries: DirectoryEntry[];
+  totalEntries: number;
+}
+
+export interface FileContent {
+  path: string;
+  content: string;
+  size: number;
+  encoding: string;
+  extension: string;
+  mimeType: string;
 }
 
 export interface AuthState {

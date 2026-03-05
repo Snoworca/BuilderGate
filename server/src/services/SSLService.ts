@@ -1,5 +1,5 @@
 /**
- * SSL/TLS Service for Claude Web Shell Server
+ * SSL/TLS Service for BuilderGate Server
  * Phase 1: Security Infrastructure
  *
  * Handles SSL certificate loading, self-signed certificate generation,
@@ -114,7 +114,7 @@ export class SSLService {
     // Use shortName format for X.509 attributes
     const attrs = [
       { shortName: 'CN', value: 'localhost' },
-      { shortName: 'O', value: 'Claude Web Shell' },
+      { shortName: 'O', value: 'BuilderGate' },
       { shortName: 'OU', value: 'Development' }
     ];
 

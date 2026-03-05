@@ -1,5 +1,5 @@
 /**
- * Constants for Claude Web Shell Server
+ * Constants for BuilderGate Server
  * Phase 1: Security Infrastructure
  */
 

@@ -31,7 +31,7 @@ export class CryptoService {
    */
   constructor(masterKeySource: string) {
     // Derive master key from source using a fixed salt for consistency
-    const fixedSalt = Buffer.from('claude-web-shell-master-key-salt', 'utf-8');
+    const fixedSalt = Buffer.from('buildergate-master-key-salt-v1', 'utf-8');
     this.masterKey = crypto.pbkdf2Sync(
       masterKeySource,
       fixedSalt,

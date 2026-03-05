@@ -1,0 +1,29 @@
+.terminal-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.terminal-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: bold;
+  color: #fff;
+  line-height: 1;
+}
+
+.badge-idle {
+  background-color: #22C55E;
+}
+
+.badge-running {
+  background-color: #EF4444;
+}

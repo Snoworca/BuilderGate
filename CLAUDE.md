@@ -1,174 +1,63 @@
-# CLAUDE.md
+# BuilderGate
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+코딩 에이전트 병렬 운용을 위한 웹 기반 통합 개발 환경. 상세 비전은 [PRD.md](./PRD.md) 참조.
 
-## Project Overview
+## 목적
 
-**Claude Web Shell** (CodeName: ProjectMaster) - A web-based shell interface for Claude AI to execute shell commands with real-time output streaming.
+브라우저 하나로 다수의 셸 세션을 관리하고, 파일 탐색/편집하며, 세션 간 에이전트 명령을 중계한다. 최종 목표는 원격에서 N개 코딩 에이전트를 동시 운용하여 병렬 개발을 수행하는 것.
 
-- **Status**: MVP (Pilot phase)
-- **Architecture**: Full-stack Node.js + React with TypeScript
-- **Communication**: SSE (Server→Client) + HTTP POST (Client→Server)
+- 웹 터미널 (다중 세션/탭, PTY 기반)
+- Mdir 스타일 파일 매니저 + 마크다운/코드 뷰어
+- Task 관리자 + MCP 통합 (예정)
+- 세션 간 에이전트 오케스트레이션 (예정)
 
-## Important Rules for Claude Code
-
-### Server Process Management
-
-**NEVER use `taskkill /F /IM node.exe` or similar commands to kill Node.js processes.**
-
-The development server runs in the background with hot reload enabled (`tsx watch`). When you modify code:
-- The server automatically detects changes and restarts
-- No manual process killing is required
-- Using `taskkill` will disrupt the user's development environment
-
-If you need to verify server status, use:
-```bash
-curl -k https://localhost:4242/health
-```
-
----
-
-## Development Commands
-
-### Backend (server/)
+## Quick Start
 
 ```bash
-cd server
-npm install          # Install dependencies
-npm run dev          # Development with hot reload (tsx watch)
-npm run build        # Compile TypeScript to dist/
-npm start            # Run compiled version (node dist/index.js)
+node dev.js          # 서버(4242) + 프론트(4545) 동시 실행
 ```
 
-Server runs on `http://localhost:4242`
+브라우저에서 `http://localhost:4545` 접속. 서버 상태 확인: `curl -k https://localhost:4242/health`
 
-### Frontend (frontend/)
+## Tech Stack
 
-```bash
-cd frontend
-npm install          # Install dependencies
-npm run dev          # Vite dev server with HMR
-npm run build        # TypeScript check + Vite production build
-npm run lint         # ESLint validation
-npm run preview      # Preview production build
-```
+- **Backend**: Node.js + Express + TypeScript, node-pty, JWT auth
+- **Frontend**: React 18 + TypeScript, Vite, xterm.js
+- **Communication**: SSE (server→client) + HTTP POST (client→server)
+- **Config**: `server/config.json5` (JSON5 + Zod validation)
 
-Frontend runs on `http://localhost:3000` with API proxy to backend.
-
-### Full Stack Development
-
-Run both in separate terminals:
-```bash
-# Terminal 1
-cd server && npm run dev
-
-# Terminal 2
-cd frontend && npm run dev
-```
-
-Open `http://localhost:3000` in browser.
-
-## Architecture
-
-### Communication Pattern
+## Project Structure
 
 ```
-Frontend (React)                    Backend (Express)
-     │                                    │
-     │──── POST /api/sessions ───────────>│  Create session
-     │<─── Session JSON ──────────────────│
-     │                                    │
-     │──── GET /api/sessions/:id/stream ─>│  SSE connection
-     │<═══ SSE: output, status events ════│  Real-time streaming
-     │                                    │
-     │──── POST /api/sessions/:id/input ─>│  Send command (fire-and-forget)
-     │                                    │
+server/src/
+  services/SessionManager.ts   # PTY 세션 관리 + SSE 브로드캐스트
+  services/FileService.ts      # 파일 탐색/CRUD
+  services/AuthService.ts      # JWT 인증
+  routes/sessionRoutes.ts      # REST API
+  routes/fileRoutes.ts         # 파일 API
+
+frontend/src/
+  hooks/useSession.ts          # 세션 상태
+  hooks/useSSE.ts              # SSE 연결
+  hooks/useTabManager.ts       # 탭 상태 머신
+  components/Terminal/          # xterm.js 래퍼
+  components/FileManager/       # Mdir 스타일 파일 매니저
+  components/Viewer/            # Markdown + Code 뷰어
 ```
 
-### Key Backend Components
+## Rules
 
-- **SessionManager** (`server/src/services/SessionManager.ts`): Core service managing session lifecycle, PTY processes, and SSE client connections
-- **sessionRoutes** (`server/src/routes/sessionRoutes.ts`): REST API endpoints
-- **config** (`server/src/utils/config.ts`): JSON5-based configuration loader
+- **`taskkill /F /IM node.exe` 절대 금지** — dev.js가 hot reload로 자동 재시작함
+- **스크린샷 저장 경로**: `.playwright-mcp/` (루트에 png 파일 두지 말 것)
+- **보안**: HTTPS + JWT + 2FA(선택) + 파일 경로 보안. localhost 전용
 
-### Key Frontend Components
-
-- **useSession** (`frontend/src/hooks/useSession.ts`): Session state management hook
-- **useSSE** (`frontend/src/hooks/useSSE.ts`): SSE connection and event handling
-- **TerminalView** (`frontend/src/components/Terminal/TerminalView.tsx`): xterm.js wrapper
-- **api** (`frontend/src/services/api.ts`): HTTP client for REST endpoints
-
-### Data Flow
-
-1. User creates session → POST creates PTY process with UUID
-2. Frontend opens SSE stream → receives buffered output + live events
-3. User types command → POST to input endpoint → writes to PTY
-4. PTY outputs → Backend broadcasts via SSE → Frontend renders in xterm.js
-5. Idle detection (200ms) → status change broadcast
-
-## API Reference
+## API (주요)
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| GET | `/api/sessions` | List all sessions |
-| POST | `/api/sessions` | Create new session |
-| GET | `/api/sessions/:id` | Get session details |
-| DELETE | `/api/sessions/:id` | Delete session and kill PTY |
-| POST | `/api/sessions/:id/input` | Send input to PTY |
-| POST | `/api/sessions/:id/resize` | Resize terminal (cols, rows) |
-| GET | `/api/sessions/:id/stream` | SSE stream for output/status |
-| GET | `/health` | Health check |
-
-### SSE Events
-
-- `output`: Shell output data `{ data: string }`
-- `status`: Session status change `{ status: 'running' | 'idle' }`
-- `error`: Error messages `{ message: string }`
-
-## Configuration
-
-Backend configuration via `server/config.json5`:
-
-```json5
-{
-  server: { port: 4242 },
-  pty: {
-    termName: "xterm-256color",
-    cols: 80,
-    rows: 24,
-    maxBufferSize: 65536,
-    idleTimeout: 200,
-    // Windows-specific: "conpty" or "winpty"
-    windowsBackend: "conpty"
-  }
-}
-```
-
-## Session Status Indicators
-
-- 🔴 Red (`#EF4444`): Command running
-- 🟢 Green (`#22C55E`): Idle, waiting for input
-
-## TypeScript Interfaces
-
-Shared interfaces are defined in:
-- Backend: `server/src/types/index.ts`
-- Frontend: `frontend/src/types/index.ts`
-
-Key types: `Session`, `SessionStatus`, `CreateSessionRequest`, `InputRequest`, `ResizeRequest`
-
-## Vite Proxy Configuration
-
-Frontend proxies `/api/*` requests to backend via `vite.config.ts`:
-```typescript
-proxy: {
-  '/api': {
-    target: 'http://localhost:4242',
-    changeOrigin: true
-  }
-}
-```
-
-## Security Notice
-
-This application is designed for **localhost only**. Exposing to public networks poses serious security risks as it provides shell access without authentication.
+| POST | `/api/sessions` | 세션 생성 |
+| DELETE | `/api/sessions/:id` | 세션 삭제 |
+| POST | `/api/sessions/:id/input` | PTY 입력 |
+| GET | `/api/sessions/:id/stream` | SSE 스트림 |
+| GET | `/api/sessions/:id/files` | 파일 목록 |
+| GET | `/health` | 상태 확인 |

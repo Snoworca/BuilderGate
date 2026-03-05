@@ -154,7 +154,7 @@ export class TwoFactorService {
     const mailOptions = {
       from: this.config.smtp?.auth.user,
       to: email,
-      subject: '[Claude Web Shell] Login Verification Code',
+      subject: '[BuilderGate] Login Verification Code',
       text: this.getEmailTemplate(otp, expiryMinutes),
       html: this.getEmailTemplateHTML(otp, expiryMinutes)
     };
@@ -348,7 +348,7 @@ If you did not request this code, please ignore this email.
 Do not share this code with anyone.
 
 ---
-Claude Web Shell`;
+BuilderGate`;
   }
 
   private getEmailTemplateHTML(otp: string, expiryMinutes: number): string {
@@ -372,7 +372,7 @@ Claude Web Shell`;
       If you did not request this code, please ignore this email.<br>
       Do not share this code with anyone.
     </p>
-    <p style="color: #999; font-size: 12px; margin-bottom: 0;">Claude Web Shell</p>
+    <p style="color: #999; font-size: 12px; margin-bottom: 0;">BuilderGate</p>
   </div>
 </body>
 </html>`;
