@@ -301,6 +301,19 @@ export class TwoFactorService {
     return this.config.email;
   }
 
+  /**
+   * Clear pending auth state before replacing or disabling the runtime 2FA service.
+   */
+  destroy(): void {
+    this.otpStore.clear();
+    this.decryptedSmtpPassword = '';
+
+    if (this.smtpTransport) {
+      this.smtpTransport.close();
+      this.smtpTransport = null;
+    }
+  }
+
   // ==========================================================================
   // Cleanup Methods
   // ==========================================================================

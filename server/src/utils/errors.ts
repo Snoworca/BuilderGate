@@ -32,6 +32,11 @@ export enum ErrorCode {
   // Validation Errors
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   INVALID_INPUT = 'INVALID_INPUT',
+  UNSUPPORTED_SETTING = 'UNSUPPORTED_SETTING',
+  CURRENT_PASSWORD_REQUIRED = 'CURRENT_PASSWORD_REQUIRED',
+  INVALID_CURRENT_PASSWORD = 'INVALID_CURRENT_PASSWORD',
+  PASSWORD_CONFIRM_MISMATCH = 'PASSWORD_CONFIRM_MISMATCH',
+  CURRENT_ORIGIN_BLOCKED = 'CURRENT_ORIGIN_BLOCKED',
 
   // Session Errors
   SESSION_NOT_FOUND = 'SESSION_NOT_FOUND',
@@ -53,7 +58,9 @@ export enum ErrorCode {
   INTERNAL_ERROR = 'INTERNAL_ERROR',
   ENCRYPTION_ERROR = 'ENCRYPTION_ERROR',
   DECRYPTION_ERROR = 'DECRYPTION_ERROR',
-  CONFIG_ERROR = 'CONFIG_ERROR'
+  CONFIG_ERROR = 'CONFIG_ERROR',
+  CONFIG_APPLY_FAILED = 'CONFIG_APPLY_FAILED',
+  CONFIG_PERSIST_FAILED = 'CONFIG_PERSIST_FAILED'
 }
 
 // ============================================================================
@@ -81,6 +88,11 @@ export const ErrorMessages: Record<ErrorCode, string> = {
 
   [ErrorCode.VALIDATION_ERROR]: 'Validation failed',
   [ErrorCode.INVALID_INPUT]: 'Invalid input provided',
+  [ErrorCode.UNSUPPORTED_SETTING]: 'Unsupported setting',
+  [ErrorCode.CURRENT_PASSWORD_REQUIRED]: 'Current password is required',
+  [ErrorCode.INVALID_CURRENT_PASSWORD]: 'Current password is invalid',
+  [ErrorCode.PASSWORD_CONFIRM_MISMATCH]: 'New password confirmation does not match',
+  [ErrorCode.CURRENT_ORIGIN_BLOCKED]: 'Current origin would be blocked by this CORS change',
 
   [ErrorCode.SESSION_NOT_FOUND]: 'Session not found',
   [ErrorCode.SESSION_UNAUTHORIZED]: 'Not authorized to access this session',
@@ -99,7 +111,9 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.INTERNAL_ERROR]: 'Internal server error',
   [ErrorCode.ENCRYPTION_ERROR]: 'Encryption failed',
   [ErrorCode.DECRYPTION_ERROR]: 'Decryption failed',
-  [ErrorCode.CONFIG_ERROR]: 'Configuration error'
+  [ErrorCode.CONFIG_ERROR]: 'Configuration error',
+  [ErrorCode.CONFIG_APPLY_FAILED]: 'Failed to apply runtime settings',
+  [ErrorCode.CONFIG_PERSIST_FAILED]: 'Failed to persist configuration'
 };
 
 // ============================================================================
@@ -127,6 +141,11 @@ export const ErrorStatusCodes: Record<ErrorCode, number> = {
 
   [ErrorCode.VALIDATION_ERROR]: 400,
   [ErrorCode.INVALID_INPUT]: 400,
+  [ErrorCode.UNSUPPORTED_SETTING]: 400,
+  [ErrorCode.CURRENT_PASSWORD_REQUIRED]: 400,
+  [ErrorCode.INVALID_CURRENT_PASSWORD]: 400,
+  [ErrorCode.PASSWORD_CONFIRM_MISMATCH]: 400,
+  [ErrorCode.CURRENT_ORIGIN_BLOCKED]: 409,
 
   [ErrorCode.SESSION_NOT_FOUND]: 404,
   [ErrorCode.SESSION_UNAUTHORIZED]: 403,
@@ -145,7 +164,9 @@ export const ErrorStatusCodes: Record<ErrorCode, number> = {
   [ErrorCode.INTERNAL_ERROR]: 500,
   [ErrorCode.ENCRYPTION_ERROR]: 500,
   [ErrorCode.DECRYPTION_ERROR]: 500,
-  [ErrorCode.CONFIG_ERROR]: 500
+  [ErrorCode.CONFIG_ERROR]: 500,
+  [ErrorCode.CONFIG_APPLY_FAILED]: 422,
+  [ErrorCode.CONFIG_PERSIST_FAILED]: 500
 };
 
 // ============================================================================

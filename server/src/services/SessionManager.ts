@@ -5,6 +5,7 @@ import os from 'os';
 import path from 'path';
 import { unlinkSync } from 'fs';
 import { Session, SessionDTO, SessionStatus, UpdateSessionRequest, ShellType, ShellInfo } from '../types/index.js';
+import type { PTYConfig, SessionConfig } from '../types/config.types.js';
 import { sendSSE } from '../utils/sse.js';
 import { config } from '../utils/config.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
@@ -19,11 +20,16 @@ interface SessionData {
   cwdFilePath?: string;  // Windows CWD tracking temp file path
 }
 
-class SessionManager {
+export class SessionManager {
   private sessions: Map<string, SessionData> = new Map();
   private sessionCounter: number = 0;
-  private readonly IDLE_DELAY_MS = config.session.idleDelayMs;
-  private readonly MAX_BUFFER_SIZE = config.pty.maxBufferSize;
+  private runtimePtyConfig: PTYConfig;
+  private runtimeSessionConfig: SessionConfig;
+
+  constructor(initialConfig: { pty: PTYConfig; session: SessionConfig } = { pty: config.pty, session: config.session }) {
+    this.runtimePtyConfig = clonePtyConfig(initialConfig.pty);
+    this.runtimeSessionConfig = { idleDelayMs: initialConfig.session.idleDelayMs };
+  }
 
   createSession(name?: string, shell?: ShellType, cwd?: string): SessionDTO {
     const id = uuidv4();
@@ -33,13 +39,13 @@ class SessionManager {
     const { shell: shellCmd, args: shellArgs, shellType } = this.resolveShell(shell);
     const initialCwd = cwd || process.env.HOME || process.env.USERPROFILE || '/';
     const ptyProcess = pty.spawn(shellCmd, shellArgs, {
-      name: config.pty.termName,
-      cols: config.pty.defaultCols,
-      rows: config.pty.defaultRows,
+      name: this.runtimePtyConfig.termName,
+      cols: this.runtimePtyConfig.defaultCols,
+      rows: this.runtimePtyConfig.defaultRows,
       cwd: initialCwd,
       env: process.env as { [key: string]: string },
       // Windows PTY backend (ConPTY vs winpty)
-      useConpty: config.pty.useConpty,
+      useConpty: this.runtimePtyConfig.useConpty,
     });
 
     const session: Session = {
@@ -73,11 +79,7 @@ class SessionManager {
       const sData = this.sessions.get(id);
       if (sData) {
         if (sData.sseClients.size === 0) {
-          // Buffer output (limit size)
-          sData.outputBuffer += data;
-          if (sData.outputBuffer.length > this.MAX_BUFFER_SIZE) {
-            sData.outputBuffer = sData.outputBuffer.slice(-this.MAX_BUFFER_SIZE);
-          }
+          this.appendBufferedOutput(sData, data);
         } else {
           // Send to connected clients
           this.broadcast(id, 'output', { data });
@@ -112,7 +114,7 @@ class SessionManager {
 
     data.idleTimer = setTimeout(() => {
       this.updateStatus(id, 'idle');
-    }, this.IDLE_DELAY_MS);
+    }, this.runtimeSessionConfig.idleDelayMs);
   }
 
   private updateStatus(id: string, status: SessionStatus): void {
@@ -275,7 +277,7 @@ class SessionManager {
    * Resolve shell command and arguments based on config and platform.
    */
   private resolveShell(shellOverride?: ShellType): { shell: string; args: string[]; shellType: 'powershell' | 'bash' } {
-    const shellConfig = shellOverride || config.pty.shell || 'auto';
+    const shellConfig = shellOverride || this.runtimePtyConfig.shell || 'auto';
 
     if (shellConfig === 'powershell') {
       return { shell: 'powershell.exe', args: [], shellType: 'powershell' };
@@ -294,6 +296,25 @@ class SessionManager {
       return { shell: 'powershell.exe', args: [], shellType: 'powershell' };
     }
     return { shell: 'bash', args: [], shellType: 'bash' };
+  }
+
+  updateRuntimeConfig(next: { idleDelayMs?: number; pty?: Partial<PTYConfig> }): void {
+    if (next.idleDelayMs !== undefined) {
+      this.runtimeSessionConfig.idleDelayMs = next.idleDelayMs;
+    }
+
+    if (next.pty) {
+      this.runtimePtyConfig = {
+        ...this.runtimePtyConfig,
+        ...next.pty,
+      };
+    }
+
+    for (const data of this.sessions.values()) {
+      if (data.outputBuffer.length > this.runtimePtyConfig.maxBufferSize) {
+        data.outputBuffer = data.outputBuffer.slice(-this.runtimePtyConfig.maxBufferSize);
+      }
+    }
   }
 
   /**
@@ -348,6 +369,24 @@ class SessionManager {
       sortOrder: session.sortOrder,
     };
   }
+
+  private appendBufferedOutput(sessionData: SessionData, data: string): void {
+    sessionData.outputBuffer += data;
+    if (sessionData.outputBuffer.length > this.runtimePtyConfig.maxBufferSize) {
+      sessionData.outputBuffer = sessionData.outputBuffer.slice(-this.runtimePtyConfig.maxBufferSize);
+    }
+  }
 }
 
 export const sessionManager = new SessionManager();
+
+function clonePtyConfig(source: PTYConfig): PTYConfig {
+  return {
+    termName: source.termName,
+    defaultCols: source.defaultCols,
+    defaultRows: source.defaultRows,
+    useConpty: source.useConpty,
+    maxBufferSize: source.maxBufferSize,
+    shell: source.shell,
+  };
+}

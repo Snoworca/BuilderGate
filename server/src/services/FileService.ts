@@ -59,11 +59,18 @@ interface SessionManagerLike {
 
 export class FileService {
   private cwdCache = new Map<string, { cwd: string; timestamp: number }>();
+  private config: FileManagerConfig;
 
   constructor(
     private sessionManager: SessionManagerLike,
-    private config: FileManagerConfig
-  ) {}
+    config: FileManagerConfig
+  ) {
+    this.config = cloneFileManagerConfig(config);
+  }
+
+  updateConfig(next: FileManagerConfig): void {
+    this.config = cloneFileManagerConfig(next);
+  }
 
   /**
    * Get the current working directory for a session's PTY process.
@@ -490,4 +497,15 @@ export class FileService {
       throw new AppError(ErrorCode.SESSION_NOT_FOUND);
     }
   }
+}
+
+function cloneFileManagerConfig(config: FileManagerConfig): FileManagerConfig {
+  return {
+    maxFileSize: config.maxFileSize,
+    maxCodeFileSize: config.maxCodeFileSize,
+    maxDirectoryEntries: config.maxDirectoryEntries,
+    blockedExtensions: [...config.blockedExtensions],
+    blockedPaths: [...config.blockedPaths],
+    cwdCacheTtlMs: config.cwdCacheTtlMs,
+  };
 }

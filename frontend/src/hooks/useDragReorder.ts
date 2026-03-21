@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
 interface UseDragReorderOptions {
-  tabCount: number;
   onReorder: (fromIndex: number, toIndex: number) => void;
   isLocked: (index: number) => boolean;
   longPressMs?: number;
@@ -18,7 +17,6 @@ export interface UseDragReorderReturn {
 }
 
 export function useDragReorder({
-  tabCount,
   onReorder,
   isLocked,
   longPressMs = 300,

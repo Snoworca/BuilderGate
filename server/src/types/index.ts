@@ -56,6 +56,25 @@ export type {
   LockoutConfig
 } from './config.types.js';
 
+export type {
+  EditableSettingsKey,
+  EditableSettingsSnapshot,
+  EditableSettingsValues,
+  FieldApplyScope,
+  FieldCapability,
+  AuthEditableSettings,
+  PasswordChangeRequest,
+  TwoFactorEditableSettings,
+  SecurityEditableSettings,
+  EditablePtySettings,
+  EditableSessionSettings,
+  EditableFileManagerSettings,
+  SettingsPatchRequest,
+  SecretFieldState,
+  SettingsApplySummary,
+  SettingsSaveResponse
+} from './settings.types.js';
+
 // Authentication Types (Phase 2 & 3)
 export type {
   JWTPayload,

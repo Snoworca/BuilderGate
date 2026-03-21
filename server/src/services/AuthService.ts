@@ -65,6 +65,8 @@ export class AuthService {
    * Initialize password from config
    */
   private initializePassword(): void {
+    this.decryptedPassword = null;
+
     if (!this.config.password) {
       console.warn('[Auth] No password configured - authentication will fail');
       return;
@@ -227,6 +229,20 @@ export class AuthService {
    */
   getSessionDuration(): number {
     return this.config.durationMs || AUTH_DEFAULTS.SESSION_DURATION_MS;
+  }
+
+  /**
+   * Update the runtime-editable auth settings without rotating immutable secrets.
+   */
+  updateRuntimeConfig(next: Pick<AuthConfig, 'password' | 'durationMs'>): void {
+    if (next.durationMs !== undefined) {
+      this.config.durationMs = next.durationMs;
+    }
+
+    if (next.password !== undefined) {
+      this.config.password = next.password;
+      this.initializePassword();
+    }
   }
 
   /**

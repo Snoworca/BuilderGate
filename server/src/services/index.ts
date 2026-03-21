@@ -18,6 +18,11 @@ export { AuthService } from './AuthService.js';
 // Two-Factor Service (Phase 3)
 export { TwoFactorService } from './TwoFactorService.js';
 
+// Step 5 Runtime Settings
+export { RuntimeConfigStore } from './RuntimeConfigStore.js';
+export { ConfigFileRepository } from './ConfigFileRepository.js';
+export { SettingsService } from './SettingsService.js';
+
 // Future service exports will be added here:
 // - RateLimitService (Phase 5)
 // - AuditService (Phase 6)

@@ -8,7 +8,7 @@
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import type { AuthService } from '../services/AuthService.js';
 import type { JWTPayload } from '../types/auth.types.js';
-import { AppError, ErrorCode, createErrorResponse } from '../utils/errors.js';
+import { ErrorCode, createErrorResponse } from '../utils/errors.js';
 
 // ============================================================================
 // Extend Express Request
@@ -26,6 +26,12 @@ declare global {
 // Auth Middleware Factory
 // ============================================================================
 
+type AuthServiceSource = AuthService | (() => AuthService);
+
+function resolveAuthService(source: AuthServiceSource): AuthService {
+  return typeof source === 'function' ? source() : source;
+}
+
 /**
  * Create authentication middleware
  * @param authService - AuthService instance for token verification
@@ -35,8 +41,10 @@ declare global {
  * 1. Authorization header: "Bearer <token>" (standard)
  * 2. Query parameter: ?token=<token> (for SSE - EventSource doesn't support headers)
  */
-export function createAuthMiddleware(authService: AuthService): RequestHandler {
+export function createAuthMiddleware(authService: AuthServiceSource): RequestHandler {
   return (req: Request, res: Response, next: NextFunction): void => {
+    const resolvedAuthService = resolveAuthService(authService);
+
     // Extract token from Authorization header first
     let token: string | undefined;
     const authHeader = req.headers.authorization;
@@ -56,7 +64,7 @@ export function createAuthMiddleware(authService: AuthService): RequestHandler {
     }
 
     // Verify token
-    const result = authService.verifyToken(token);
+    const result = resolvedAuthService.verifyToken(token);
 
     if (!result.valid) {
       res.status(401).json(createErrorResponse(result.error));
@@ -80,13 +88,14 @@ export function createAuthMiddleware(authService: AuthService): RequestHandler {
  * @param authService - AuthService instance for token verification
  * @returns Express middleware function
  */
-export function createOptionalAuthMiddleware(authService: AuthService): RequestHandler {
+export function createOptionalAuthMiddleware(authService: AuthServiceSource): RequestHandler {
   return (req: Request, _res: Response, next: NextFunction): void => {
+    const resolvedAuthService = resolveAuthService(authService);
     const authHeader = req.headers.authorization;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.slice(7);
-      const result = authService.verifyToken(token);
+      const result = resolvedAuthService.verifyToken(token);
 
       if (result.valid) {
         req.user = result.payload;

@@ -9,12 +9,21 @@ import './Header.css';
 
 interface HeaderProps {
   onLogout?: () => void;
+  onOpenSettings?: () => void;
+  isSettingsActive?: boolean;
   isMobile?: boolean;
   onMenuClick?: () => void;
   activeCwd?: string | null;
 }
 
-export function Header({ onLogout, isMobile, onMenuClick, activeCwd }: HeaderProps) {
+export function Header({
+  onLogout,
+  onOpenSettings,
+  isSettingsActive,
+  isMobile,
+  onMenuClick,
+  activeCwd,
+}: HeaderProps) {
   const maxLen = isMobile ? 25 : 60;
   const displayCwd = activeCwd ? truncatePathLeft(activeCwd, maxLen) : null;
 
@@ -42,8 +51,17 @@ export function Header({ onLogout, isMobile, onMenuClick, activeCwd }: HeaderPro
           <span className="header-cwd-path">{displayCwd}</span>
         </div>
       )}
-      {onLogout && (
+      {(onOpenSettings || onLogout) && (
         <div className="header-right">
+          {onOpenSettings && (
+            <button
+              className={`header-action-button${isSettingsActive ? ' is-active' : ''}`}
+              onClick={onOpenSettings}
+              aria-pressed={isSettingsActive}
+            >
+              Settings
+            </button>
+          )}
           <button className="logout-button" onClick={onLogout}>
             Logout
           </button>

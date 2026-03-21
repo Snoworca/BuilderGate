@@ -53,8 +53,10 @@
 .header-right {
   display: flex;
   align-items: center;
+  gap: 8px;
 }
 
+.header-action-button,
 .logout-button {
   padding: 0.5rem 1rem;
   background: transparent;
@@ -66,6 +68,13 @@
   transition: all 0.2s;
 }
 
+.header-action-button.is-active {
+  background: #3f5b3f;
+  color: #d7f2d7;
+  border-color: #507850;
+}
+
+.header-action-button:hover,
 .logout-button:hover {
   background: #3c3c3c;
   color: #fff;

@@ -47,7 +47,7 @@ frontend/src/
 
 ## Rules
 
-- **`taskkill /F /IM node.exe` 절대 금지** — dev.js가 hot reload로 자동 재시작함
+- **`kill {pid}`** 또는  **`taskkill /F /IM node.exe` 절대 금지** — dev.js가 hot reload로 자동 재시작함
 - **스크린샷 저장 경로**: `.playwright-mcp/` (루트에 png 파일 두지 말 것)
 - **보안**: HTTPS + JWT + 2FA(선택) + 파일 경로 보안. localhost 전용
 

@@ -31,18 +31,19 @@ const verifySchema = z.object({
 // Route Factory
 // ============================================================================
 
+interface AuthRouteAccessors {
+  getAuthService: () => AuthService;
+  getTwoFactorService: () => TwoFactorService | undefined;
+}
+
 /**
  * Create authentication routes
- * @param authService - AuthService instance
- * @param twoFactorService - Optional TwoFactorService instance for 2FA
+ * @param accessors - Runtime service accessors
  * @returns Express router
  */
-export function createAuthRoutes(
-  authService: AuthService,
-  twoFactorService?: TwoFactorService
-): Router {
+export function createAuthRoutes(accessors: AuthRouteAccessors): Router {
   const router = Router();
-  const authMiddleware = createAuthMiddleware(authService);
+  const authMiddleware = createAuthMiddleware(() => accessors.getAuthService());
 
   // ========================================================================
   // POST /api/auth/login
@@ -61,6 +62,8 @@ export function createAuthRoutes(
       }
 
       const { password } = parseResult.data;
+      const authService = accessors.getAuthService();
+      const twoFactorService = accessors.getTwoFactorService();
 
       // Validate password
       const isValid = authService.validatePassword(password);
@@ -126,6 +129,7 @@ export function createAuthRoutes(
   // ========================================================================
   router.post('/logout', authMiddleware, (req: Request, res: Response): void => {
     try {
+      const authService = accessors.getAuthService();
       if (req.user) {
         // Revoke the token
         authService.revokeToken(req.user.jti, req.user.exp);
@@ -149,6 +153,9 @@ export function createAuthRoutes(
   // ========================================================================
   router.post('/verify', async (req: Request, res: Response): Promise<void> => {
     try {
+      const authService = accessors.getAuthService();
+      const twoFactorService = accessors.getTwoFactorService();
+
       // Check if 2FA service is available
       if (!twoFactorService?.isEnabled()) {
         res.status(400).json(createErrorResponse(
@@ -211,6 +218,7 @@ export function createAuthRoutes(
   // ========================================================================
   router.post('/refresh', authMiddleware, (req: Request, res: Response): void => {
     try {
+      const authService = accessors.getAuthService();
       // Extract current token
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith('Bearer ')) {

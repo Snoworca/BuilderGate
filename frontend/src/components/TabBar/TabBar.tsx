@@ -52,7 +52,6 @@ export function TabBar({
   const isLocked = useCallback((index: number) => index === 0, []);
 
   const { dragIndex, dropTargetIndex, ghostStyle, getTabHandlers, tabRefs } = useDragReorder({
-    tabCount: tabs.length,
     onReorder: onReorderTabs,
     isLocked,
   });

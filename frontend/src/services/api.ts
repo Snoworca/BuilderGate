@@ -15,7 +15,10 @@ import type {
   DirectoryListing,
   FileContent,
   ShellInfo,
-  ShellType
+  ShellType,
+  SettingsSnapshot,
+  SettingsPatchRequest,
+  SettingsSaveResponse
 } from '../types';
 
 const API_BASE = '/api';
@@ -280,6 +283,29 @@ export const fileApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ path: dirPath, name }),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+};
+
+export const settingsApi = {
+  getSettings: async (): Promise<SettingsSnapshot> => {
+    const res = await authFetch(`${API_BASE}/settings`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  patchSettings: async (patch: SettingsPatchRequest): Promise<SettingsSaveResponse> => {
+    const res = await authFetch(`${API_BASE}/settings`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(patch),
     });
     if (!res.ok) throw await parseError(res);
     return res.json();

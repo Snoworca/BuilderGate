@@ -22,7 +22,7 @@ const __dirname = dirname(__filename);
 /**
  * Get config file path
  */
-function getConfigPath(): string {
+export function getConfigPath(): string {
   return join(__dirname, '../../config.json5');
 }
 

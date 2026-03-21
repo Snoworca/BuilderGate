@@ -13,9 +13,13 @@ import os from 'os';
 import sessionRoutes from './routes/sessionRoutes.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
 import { createFileRoutes } from './routes/fileRoutes.js';
+import { createSettingsRoutes } from './routes/settingsRoutes.js';
 import { config } from './utils/config.js';
 import { FileService } from './services/FileService.js';
-import { sessionManager } from './services/SessionManager.js';
+import { RuntimeConfigStore } from './services/RuntimeConfigStore.js';
+import { ConfigFileRepository } from './services/ConfigFileRepository.js';
+import { SettingsService } from './services/SettingsService.js';
+import { SessionManager, sessionManager } from './services/SessionManager.js';
 import { SSLService } from './services/SSLService.js';
 import { CryptoService } from './services/CryptoService.js';
 import { AuthService } from './services/AuthService.js';
@@ -38,6 +42,9 @@ const HTTP_PORT = Number(PORT) - 1; // HTTP redirect port
 let cryptoService: CryptoService;
 let authService: AuthService;
 let twoFactorService: TwoFactorService | undefined;
+let fileService: FileService;
+let runtimeConfigStore: RuntimeConfigStore;
+let settingsService: SettingsService;
 
 // ============================================================================
 // Security Middleware Stack (Phase 1)
@@ -58,15 +65,36 @@ const noCacheMiddleware = createNoCacheMiddleware();
 // CORS Configuration
 // ============================================================================
 
-const corsOptions: cors.CorsOptions = {
-  origin: config.security?.cors.allowedOrigins.length
-    ? config.security.cors.allowedOrigins
-    : true, // Allow all in development
-  credentials: config.security?.cors.credentials ?? true,
-  maxAge: config.security?.cors.maxAge ?? 86400,
-};
+app.use(cors((req, callback) => {
+  try {
+    const runtimeCors = runtimeConfigStore?.getEditableValues().security.cors ?? {
+      allowedOrigins: config.security?.cors.allowedOrigins ?? [],
+      credentials: config.security?.cors.credentials ?? true,
+      maxAge: config.security?.cors.maxAge ?? 86400,
+    };
 
-app.use(cors(corsOptions));
+    const requestOrigin = req.header('Origin');
+    const allowAllOrigins = runtimeCors.allowedOrigins.length === 0 && process.env.NODE_ENV !== 'production';
+    const origin = !requestOrigin
+      ? true
+      : allowAllOrigins
+        ? true
+        : runtimeCors.allowedOrigins.includes(requestOrigin)
+          ? requestOrigin
+          : false;
+
+    callback(null, {
+      origin,
+      credentials: runtimeCors.credentials,
+      maxAge: runtimeCors.maxAge,
+    });
+  } catch (error) {
+    callback(error as Error, {
+      origin: false,
+      credentials: false,
+    });
+  }
+}));
 
 // ============================================================================
 // Body Parser & General Middleware
@@ -97,23 +125,19 @@ function setupRoutes(): void {
   });
 
   // Auth routes (no auth required for login)
-  const authRoutes = createAuthRoutes(authService, twoFactorService);
+  const authRoutes = createAuthRoutes({
+    getAuthService: () => authService,
+    getTwoFactorService: () => twoFactorService,
+  });
   app.use('/api/auth', authRoutes);
 
   // Protected session routes (auth required)
-  const authMiddleware = createAuthMiddleware(authService);
+  const authMiddleware = createAuthMiddleware(() => authService);
+  const settingsRoutes = createSettingsRoutes(settingsService);
+  app.use('/api/settings', authMiddleware, settingsRoutes);
   app.use('/api/sessions', authMiddleware, sessionRoutes);
 
   // File manager routes (auth required, same base path)
-  const fileManagerConfig = config.fileManager || {
-    maxFileSize: 1048576,
-    maxCodeFileSize: 524288,
-    maxDirectoryEntries: 10000,
-    blockedExtensions: ['.exe', '.dll', '.so', '.bin'],
-    blockedPaths: ['.ssh', '.gnupg', '.aws'],
-    cwdCacheTtlMs: 1000,
-  };
-  const fileService = new FileService(sessionManager, fileManagerConfig);
   const fileRoutes = createFileRoutes(fileService);
   app.use('/api/sessions', authMiddleware, fileRoutes);
 
@@ -126,6 +150,8 @@ function setupRoutes(): void {
   console.log('  - POST /api/auth/logout (protected)');
   console.log('  - POST /api/auth/refresh (protected)');
   console.log('  - GET  /api/auth/status (protected)');
+  console.log('  - GET  /api/settings (protected)');
+  console.log('  - PATCH /api/settings (protected)');
   console.log('  - /api/sessions/* (protected)');
   console.log('  - /api/sessions/:id/cwd (protected, File API)');
   console.log('  - /api/sessions/:id/files (protected, File API)');
@@ -155,6 +181,12 @@ async function startServer(): Promise<void> {
     console.log('[Crypto] CryptoService initialized');
 
     // ========================================================================
+    // Initialize Runtime Settings Services (Step 5)
+    // ========================================================================
+    runtimeConfigStore = new RuntimeConfigStore(config);
+    const configRepository = new ConfigFileRepository();
+
+    // ========================================================================
     // Initialize Auth Service (Phase 2)
     // ========================================================================
     const authConfig = config.auth || {
@@ -175,6 +207,28 @@ async function startServer(): Promise<void> {
     } else {
       console.log('[2FA] Two-factor authentication is disabled');
     }
+
+    const fileManagerConfig = config.fileManager || {
+      maxFileSize: 1048576,
+      maxCodeFileSize: 524288,
+      maxDirectoryEntries: 10000,
+      blockedExtensions: ['.exe', '.dll', '.so', '.bin'],
+      blockedPaths: ['.ssh', '.gnupg', '.aws'],
+      cwdCacheTtlMs: 1000,
+    };
+    fileService = new FileService(sessionManager, fileManagerConfig);
+    settingsService = new SettingsService({
+      runtimeConfigStore,
+      configRepository,
+      cryptoService,
+      authService,
+      getTwoFactorService: () => twoFactorService,
+      setTwoFactorService: (service) => {
+        twoFactorService = service;
+      },
+      getFileService: () => fileService,
+      sessionManager,
+    });
 
     // ========================================================================
     // Setup Routes (after services are initialized)

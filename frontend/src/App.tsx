@@ -26,12 +26,14 @@ import { MdirPanel } from './components/FileManager';
 import { ViewerPanel } from './components/Viewer';
 import { ConfirmModal } from './components/Modal';
 import { StatusBar } from './components/StatusBar';
+import { SettingsPage } from './components/Settings/SettingsPage';
 import type { SessionStatus, ShellInfo, ShellType } from './types';
 import './styles/globals.css';
 import { useEffect } from 'react';
 
 function AppContent() {
   const { logout } = useAuth();
+  const [screen, setScreen] = useState<'workspace' | 'settings'>('workspace');
   const { isMobile, sidebarOpen, toggleSidebar, closeSidebar } = useResponsive();
   const {
     sessions,
@@ -48,7 +50,7 @@ function AppContent() {
     tabs, reorderTabs,
     terminalTabs, filesTabs, activeTabId, viewerFile,
     pendingOp, setPendingOp,
-    setActiveTerminal, setActiveTab, setActiveFilesTab, setActiveViewer,
+    setActiveTerminal, setActiveTab, setActiveViewer,
     addTerminalTab, closeTerminalTab, getAllTerminalSessionIds,
     addFilesTab, closeFilesTab, renameTab,
     openViewer, closeViewer, removeTabState,
@@ -336,6 +338,8 @@ function AppContent() {
     <div className="app">
       <Header
         onLogout={handleLogout}
+        onOpenSettings={() => setScreen('settings')}
+        isSettingsActive={screen === 'settings'}
         isMobile={isMobile}
         onMenuClick={toggleSidebar}
         activeCwd={activeCwd}
@@ -357,72 +361,77 @@ function AppContent() {
           availableShells={availableShells}
         />
         <main className="content">
-          {activeSessionId ? (
-            <>
-              <TabBar
-                tabs={tabs}
-                activeTabId={activeTabId}
-                viewerFile={viewerFile}
-                isMobile={isMobile}
-                onSelectTab={setActiveTab}
-                onAddTerminalTab={handleAddTerminalTab}
-                onAddFilesTab={addFilesTab}
-                onCloseTerminalTab={handleCloseTerminalTab}
-                onCloseFilesTab={closeFilesTab}
-                onSelectViewer={setActiveViewer}
-                onReorderTabs={reorderTabs}
-                onRenameTab={handleRenameTab}
-                onCloseOtherTabs={handleCloseOtherTabs}
-                onCloseAllTabs={handleCloseAllTabs}
-              />
-              <div className="tab-content">
-                {/* Terminal tabs: show/hide for state preservation */}
-                {terminalTabs.map(tab => (
-                  <TerminalContainer
-                    key={`${activeSessionId}-${tab.id}`}
-                    sessionId={tab.sessionId}
-                    isVisible={activeTabId === tab.id}
-                    onStatusChange={handleTerminalStatusChange}
-                    onAuthError={handleAuthError}
-                  />
-                ))}
-
-                {/* Files tabs: show/hide for state preservation */}
-                {filesTabs.map(tab => (
-                  <div
-                    key={`${activeSessionId}-${tab.id}`}
-                    className="tab-content-panel"
-                    style={{ display: activeTabId === tab.id ? 'flex' : 'none' }}
-                  >
-                    <MdirPanel
-                      sessionId={activeSessionId}
-                      onOpenViewer={(fp) => openViewer(fp, tab.id)}
-                      onEscToTerminal={handleEscToTerminal}
-                      onPathChange={(path) => {
-                        const seg = path.split(/[/\\]/).filter(Boolean);
-                        renameTab(tab.id, `/${seg[seg.length - 1] || ''}`);
-                      }}
-                      pendingOp={pendingOp}
-                      setPendingOp={setPendingOp}
+          <div className="workspace-screen" style={{ display: screen === 'workspace' ? 'flex' : 'none' }}>
+            {activeSessionId ? (
+              <>
+                <TabBar
+                  tabs={tabs}
+                  activeTabId={activeTabId}
+                  viewerFile={viewerFile}
+                  isMobile={isMobile}
+                  onSelectTab={setActiveTab}
+                  onAddTerminalTab={handleAddTerminalTab}
+                  onAddFilesTab={addFilesTab}
+                  onCloseTerminalTab={handleCloseTerminalTab}
+                  onCloseFilesTab={closeFilesTab}
+                  onSelectViewer={setActiveViewer}
+                  onReorderTabs={reorderTabs}
+                  onRenameTab={handleRenameTab}
+                  onCloseOtherTabs={handleCloseOtherTabs}
+                  onCloseAllTabs={handleCloseAllTabs}
+                />
+                <div className="tab-content">
+                  {terminalTabs.map(tab => (
+                    <TerminalContainer
+                      key={`${activeSessionId}-${tab.id}`}
+                      sessionId={tab.sessionId}
+                      isVisible={activeTabId === tab.id}
+                      onStatusChange={handleTerminalStatusChange}
+                      onAuthError={handleAuthError}
                     />
-                  </div>
-                ))}
+                  ))}
 
-                {activeTabId === 'viewer' && viewerFile && (
-                  <ViewerPanel
-                    sessionId={activeSessionId}
-                    filePath={viewerFile}
-                    onClose={closeViewer}
-                  />
-                )}
+                  {filesTabs.map(tab => (
+                    <div
+                      key={`${activeSessionId}-${tab.id}`}
+                      className="tab-content-panel"
+                      style={{ display: activeTabId === tab.id ? 'flex' : 'none' }}
+                    >
+                      <MdirPanel
+                        sessionId={activeSessionId}
+                        onOpenViewer={(fp) => openViewer(fp, tab.id)}
+                        onEscToTerminal={handleEscToTerminal}
+                        onPathChange={(path) => {
+                          const seg = path.split(/[/\\]/).filter(Boolean);
+                          renameTab(tab.id, `/${seg[seg.length - 1] || ''}`);
+                        }}
+                        pendingOp={pendingOp}
+                        setPendingOp={setPendingOp}
+                      />
+                    </div>
+                  ))}
+
+                  {activeTabId === 'viewer' && viewerFile && (
+                    <ViewerPanel
+                      sessionId={activeSessionId}
+                      filePath={viewerFile}
+                      onClose={closeViewer}
+                    />
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="no-session">
+                <div className="no-session-icon">&#x1F4BB;</div>
+                <p className="no-session-text">Select or create a session to start</p>
               </div>
-            </>
-          ) : (
-            <div className="no-session">
-              <div className="no-session-icon">&#x1F4BB;</div>
-              <p className="no-session-text">Select or create a session to start</p>
-            </div>
-          )}
+            )}
+          </div>
+
+          <SettingsPage
+            visible={screen === 'settings'}
+            onBack={() => setScreen('workspace')}
+          />
         </main>
         {isMobile && sidebarOpen && (
           <div
