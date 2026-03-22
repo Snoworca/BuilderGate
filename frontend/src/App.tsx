@@ -7,6 +7,7 @@
  * Phase 5: ViewerPanel integration (Markdown + Code viewer)
  * Phase 6: Multi-tab Files, cross-tab copy/move, viewer filter
  * Phase 8: Multi-terminal tabs + Sidebar terminal badges
+ * Step 6: tmux-style Pane Split System
  */
 
 import { useState, useCallback, useMemo } from 'react';
@@ -16,6 +17,8 @@ import { useHeartbeat } from './hooks/useHeartbeat';
 import { useResponsive } from './hooks/useResponsive';
 import { useTabManager } from './hooks/useTabManager';
 import { useCwd } from './hooks/useCwd';
+import { usePaneManager } from './hooks/usePaneManager';
+import { usePaneDB } from './hooks/usePaneDB';
 import { sessionApi } from './services/api';
 import { AuthGuard } from './components/Auth';
 import { Header } from './components/Header';
@@ -24,6 +27,7 @@ import { TabBar } from './components/TabBar';
 import { TerminalContainer } from './components/Terminal';
 import { MdirPanel } from './components/FileManager';
 import { ViewerPanel } from './components/Viewer';
+import { PaneRenderer } from './components/PaneSystem/PaneRenderer';
 import { ConfirmModal } from './components/Modal';
 import { StatusBar } from './components/StatusBar';
 import { SettingsPage } from './components/Settings/SettingsPage';
@@ -87,17 +91,26 @@ function AppContent() {
   // Terminal statuses: { [parentSessionId]: { [childSessionId]: status } }
   const [terminalStatuses, setTerminalStatuses] = useState<Record<string, Record<string, SessionStatus>>>({});
 
-  // Child session IDs (hidden from sidebar) — persisted in localStorage
-  const [childSessionIds, setChildSessionIds] = useState<Set<string>>(() => {
-    try {
-      const raw = localStorage.getItem('child_session_ids');
-      return raw ? new Set(JSON.parse(raw)) : new Set();
-    } catch { return new Set(); }
+  // Pane system (Step 6: tmux-style split)
+  const paneDB = usePaneDB();
+  const paneManager = usePaneManager({
+    activeSessionId,
+    createSession: async (name, shell, cwd, visible) => {
+      const s = await createSession(name, shell as ShellType | undefined, cwd, visible);
+      return s;
+    },
+    deleteSession: async (sid) => {
+      await sessionApi.delete(sid).catch(console.error);
+    },
+    getCwd: (sid) => cwdMap[sid],
+    paneDB,
   });
 
-  useEffect(() => {
-    localStorage.setItem('child_session_ids', JSON.stringify([...childSessionIds]));
-  }, [childSessionIds]);
+  // childSessionIds: computed from pane tree (replaces old localStorage-based Set)
+  const childSessionIds = useMemo(
+    () => new Set(paneManager.allSessionIds.filter(id => id !== activeSessionId)),
+    [paneManager.allSessionIds, activeSessionId]
+  );
 
   // Confirm modal state
   const [pendingCloseTab, setPendingCloseTab] = useState<string | null>(null);
@@ -123,16 +136,12 @@ function AppContent() {
     logout();
   }, [logout]);
 
-  // Add terminal tab handler
+  // Add terminal tab handler — now uses paneManager.splitPane for pane splitting
   const handleAddTerminalTab = useCallback(async () => {
     if (!activeSessionId) return;
-    const parentCwd = cwdMap[activeSessionId];
-    const subSession = await createSession('Sub-Terminal', undefined, parentCwd, false);
-    if (subSession) {
-      setChildSessionIds(prev => new Set(prev).add(subSession.id));
-      addTerminalTab(subSession.id);
-    }
-  }, [activeSessionId, cwdMap, createSession, addTerminalTab]);
+    // Use pane manager to split the focused pane (creates sub-session automatically)
+    await paneManager.splitPane(paneManager.layout.focusedPaneId, 'vertical');
+  }, [activeSessionId, paneManager]);
 
   // Close terminal tab with confirmation for running terminals
   const handleCloseTerminalTab = useCallback((tabId: string) => {
@@ -146,13 +155,7 @@ function AppContent() {
     if (tabStatus === 'running') {
       setPendingCloseTab(tabId);
     } else {
-      // Idle: close immediately
       sessionApi.delete(tab.sessionId).catch(console.error);
-      setChildSessionIds(prev => {
-        const next = new Set(prev);
-        next.delete(tab.sessionId);
-        return next;
-      });
       setTerminalStatuses(prev => {
         const parentMap = { ...(prev[activeSessionId] || {}) };
         delete parentMap[tab.sessionId];
@@ -173,11 +176,7 @@ function AppContent() {
       if (t.type === 'terminal') {
         const termTab = t as any;
         sessionApi.delete(termTab.sessionId).catch(console.error);
-        setChildSessionIds(prev => {
-          const next = new Set(prev);
-          next.delete(termTab.sessionId);
-          return next;
-        });
+        // childSessionIds is now computed from pane tree
         setTerminalStatuses(prev => {
           const parentMap = { ...(prev[activeSessionId] || {}) };
           delete parentMap[termTab.sessionId];
@@ -196,11 +195,7 @@ function AppContent() {
       if (t.type === 'terminal') {
         const termTab = t as any;
         sessionApi.delete(termTab.sessionId).catch(console.error);
-        setChildSessionIds(prev => {
-          const next = new Set(prev);
-          next.delete(termTab.sessionId);
-          return next;
-        });
+        // childSessionIds is now computed from pane tree
         setTerminalStatuses(prev => {
           const parentMap = { ...(prev[activeSessionId] || {}) };
           delete parentMap[termTab.sessionId];
@@ -217,11 +212,7 @@ function AppContent() {
     const tab = terminalTabs.find(t => t.id === pendingCloseTab);
     if (tab) {
       sessionApi.delete(tab.sessionId).catch(console.error);
-      setChildSessionIds(prev => {
-        const next = new Set(prev);
-        next.delete(tab.sessionId);
-        return next;
-      });
+      // childSessionIds is now computed from pane tree
       setTerminalStatuses(prev => {
         const parentMap = { ...(prev[activeSessionId] || {}) };
         delete parentMap[tab.sessionId];
@@ -257,11 +248,7 @@ function AppContent() {
           console.error('Failed to delete sub-terminal:', e);
         }
       }
-      setChildSessionIds(prev => {
-        const next = new Set(prev);
-        for (const subId of subIds) next.delete(subId);
-        return next;
-      });
+      // childSessionIds is now computed from pane tree
       setTerminalStatuses(prev => {
         const next = { ...prev };
         delete next[pendingDeleteSession];
@@ -381,11 +368,49 @@ function AppContent() {
                   onCloseAllTabs={handleCloseAllTabs}
                 />
                 <div className="tab-content">
-                  {terminalTabs.map(tab => (
+                  {/* Pane split terminal area (visible for active terminal tab) */}
+                  {activeTabId && terminalTabs.some(t => t.id === activeTabId) && (
+                    <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+                      <PaneRenderer
+                        layout={paneManager.layout}
+                        isMobile={isMobile}
+                        swapSource={paneManager.swapSource}
+                        paneNumberOverlay={paneManager.paneNumberOverlay}
+                        onFocus={paneManager.setFocusedPane}
+                        onContextMenu={(e, paneId) => {
+                          e.preventDefault();
+                          // Phase 3 will add context menu handling
+                        }}
+                        onResizerContextMenu={(e, splitId) => {
+                          e.preventDefault();
+                          // Phase 3 will add resizer context menu
+                        }}
+                        onResize={paneManager.resizePane}
+                        onResizeEnd={() => {
+                          // Immediate save on resize end
+                          if (activeSessionId) {
+                            paneDB.saveLayout(activeSessionId, paneManager.layout);
+                          }
+                        }}
+                        renderTerminal={(sessionId, paneId) => (
+                          <TerminalContainer
+                            key={`pane-${paneId}-${sessionId}`}
+                            sessionId={sessionId}
+                            isVisible={true}
+                            onStatusChange={handleTerminalStatusChange}
+                            onAuthError={handleAuthError}
+                          />
+                        )}
+                      />
+                    </div>
+                  )}
+
+                  {/* Non-pane terminal tabs (legacy, kept for compatibility) */}
+                  {terminalTabs.filter(t => t.id !== activeTabId || !terminalTabs.some(tt => tt.id === activeTabId)).map(tab => (
                     <TerminalContainer
                       key={`${activeSessionId}-${tab.id}`}
                       sessionId={tab.sessionId}
-                      isVisible={activeTabId === tab.id}
+                      isVisible={false}
                       onStatusChange={handleTerminalStatusChange}
                       onAuthError={handleAuthError}
                     />
