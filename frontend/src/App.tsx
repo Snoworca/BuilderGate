@@ -414,16 +414,7 @@ function AppContent() {
                     </div>
                   )}
 
-                  {/* Non-pane terminal tabs (legacy, kept for compatibility) */}
-                  {terminalTabs.filter(t => t.id !== activeTabId || !terminalTabs.some(tt => tt.id === activeTabId)).map(tab => (
-                    <TerminalContainer
-                      key={`${activeSessionId}-${tab.id}`}
-                      sessionId={tab.sessionId}
-                      isVisible={false}
-                      onStatusChange={handleTerminalStatusChange}
-                      onAuthError={handleAuthError}
-                    />
-                  ))}
+                  {/* Non-active terminal tabs hidden (Pane system handles active tab) */}
 
                   {filesTabs.map(tab => (
                     <div

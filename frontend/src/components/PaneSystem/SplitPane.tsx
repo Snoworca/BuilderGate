@@ -229,7 +229,7 @@ const LeafPane: React.FC<LeafPaneProps> = ({
         e.preventDefault();
         onContextMenu(e, leaf.id);
       }}
-      style={{ width: '100%', height: '100%', position: 'relative' }}
+      style={{ width: '100%', height: '100%', position: 'relative', display: 'flex', flexDirection: 'column' }}
     >
       {/* Focus indicator bar */}
       {isFocused && <div className="pane-focus-bar" />}
