@@ -5,6 +5,7 @@ import { ContextMenu } from '../ContextMenu/ContextMenu';
 import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
 import { AddTabModal } from '../Modal/AddTabModal';
 import { TabContextModal } from '../Modal/TabContextModal';
+import type { PaneContextMenuItem } from '../../types/pane.types';
 import './TabBar.css';
 
 interface Props {
@@ -22,6 +23,21 @@ interface Props {
   onRenameTab: (tabId: string, title: string) => void;
   onCloseOtherTabs: (tabId: string) => void;
   onCloseAllTabs: () => void;
+  paneMenuItems?: PaneContextMenuItem[];
+}
+
+// Convert PaneContextMenuItem (which supports children/separator) to ContextMenuItem
+function convertPaneMenuItem(item: PaneContextMenuItem): ContextMenuItem {
+  return {
+    label: item.label,
+    icon: item.icon,
+    onClick: item.onClick ?? (() => {}),
+    disabled: item.disabled,
+    destructive: item.destructive,
+    shortcut: item.shortcut,
+    children: item.children?.map(convertPaneMenuItem),
+    separator: item.separator,
+  };
 }
 
 export function TabBar({
@@ -39,6 +55,7 @@ export function TabBar({
   onRenameTab,
   onCloseOtherTabs,
   onCloseAllTabs,
+  paneMenuItems,
 }: Props) {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -143,8 +160,15 @@ export function TabBar({
       });
     }
 
+    // Append pane preset menu items for terminal-type tabs
+    if (tab?.type === 'terminal' && paneMenuItems && paneMenuItems.length > 0) {
+      for (const pItem of paneMenuItems) {
+        items.push(convertPaneMenuItem(pItem));
+      }
+    }
+
     return items;
-  }, [tabs, viewerFile, onCloseTerminalTab, onCloseFilesTab, onCloseOtherTabs, onCloseAllTabs, onSelectTab]);
+  }, [tabs, viewerFile, onCloseTerminalTab, onCloseFilesTab, onCloseOtherTabs, onCloseAllTabs, onSelectTab, paneMenuItems]);
 
   // The ghost tab: a clone of the dragged tab that follows the pointer
   const draggedTab = dragIndex !== null ? tabs[dragIndex] : null;

@@ -28,6 +28,7 @@ import { TerminalContainer } from './components/Terminal';
 import { MdirPanel } from './components/FileManager';
 import { ViewerPanel } from './components/Viewer';
 import { PaneRenderer } from './components/PaneSystem/PaneRenderer';
+import { flattenPaneTree } from './utils/paneTree';
 import { ConfirmModal } from './components/Modal';
 import { StatusBar } from './components/StatusBar';
 import { SettingsPage } from './components/Settings/SettingsPage';
@@ -316,6 +317,14 @@ function AppContent() {
     return map;
   }, [visibleSessions, terminalStatuses]);
 
+  // Pane info for StatusBar
+  const paneInfo = useMemo(() => {
+    if (paneManager.paneCount <= 1) return undefined;
+    const leaves = flattenPaneTree(paneManager.layout.root);
+    const idx = leaves.findIndex(l => l.id === paneManager.layout.focusedPaneId);
+    return { current: idx + 1, total: leaves.length };
+  }, [paneManager.layout, paneManager.paneCount]);
+
   // Count sub-terminals for delete confirmation message
   const pendingDeleteSubCount = pendingDeleteSession === activeSessionId
     ? getAllTerminalSessionIds().length
@@ -469,6 +478,9 @@ function AppContent() {
       <StatusBar
         connected={!!activeSessionId}
         sessionName={activeSession?.name}
+        prefixMode={paneManager.prefixMode}
+        isZoomed={paneManager.isZoomed}
+        paneInfo={paneInfo}
       />
 
       {/* Confirm close running terminal */}

@@ -4,10 +4,12 @@
 // mobile renders single focused pane (Phase 4 will add PaneCarousel).
 // ============================================================================
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import type { PaneLayout } from '../../types/pane.types';
 import { flattenPaneTree, findPane } from '../../utils/paneTree';
 import { SplitPane } from './SplitPane';
+import { PaneCarousel } from './PaneCarousel';
+import { PaneIndicator } from './PaneIndicator';
 import './PaneSystem.css';
 
 interface PaneRendererProps {
@@ -46,53 +48,51 @@ export const PaneRenderer: React.FC<PaneRendererProps> = ({
   }, [layout.root]);
 
   // -------------------------------------------------------------------
-  // Mobile: render single focused pane only (Phase 4 → PaneCarousel)
+  // Mobile: PaneCarousel + PaneIndicator (Phase 4)
   // -------------------------------------------------------------------
 
-  if (isMobile) {
-    const focusedLeaf = findPane(layout.root, layout.focusedPaneId);
+  const leaves = useMemo(() => flattenPaneTree(layout.root), [layout.root]);
+  const focusedIdx = useMemo(
+    () => Math.max(0, leaves.findIndex((l) => l.id === layout.focusedPaneId)),
+    [leaves, layout.focusedPaneId],
+  );
 
-    if (!focusedLeaf) {
-      // Fallback: render first leaf if focused pane not found
-      const leaves = flattenPaneTree(layout.root);
-      if (leaves.length === 0) {
-        return <div className="pane-renderer pane-renderer-empty">No panes</div>;
+  const handleSwipe = useCallback(
+    (newIndex: number) => {
+      if (newIndex >= 0 && newIndex < leaves.length) {
+        onFocus(leaves[newIndex].id);
       }
-      const fallback = leaves[0];
-      return (
-        <div className="pane-renderer pane-renderer-mobile">
-          <div
-            className="pane-leaf pane-leaf-focused"
-            data-pane-id={fallback.id}
-            onClick={() => onFocus(fallback.id)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              onContextMenu(e, fallback.id);
-            }}
-            style={{ width: '100%', height: '100%', position: 'relative' }}
-          >
-            <div className="pane-focus-bar" />
-            {renderTerminal(fallback.sessionId, fallback.id)}
-          </div>
-        </div>
-      );
+    },
+    [leaves, onFocus],
+  );
+
+  const handleDotClick = useCallback(
+    (index: number) => {
+      if (index >= 0 && index < leaves.length) {
+        onFocus(leaves[index].id);
+      }
+    },
+    [leaves, onFocus],
+  );
+
+  if (isMobile) {
+    if (leaves.length === 0) {
+      return <div className="pane-renderer pane-renderer-empty">No panes</div>;
     }
 
     return (
       <div className="pane-renderer pane-renderer-mobile">
-        <div
-          className="pane-leaf pane-leaf-focused"
-          data-pane-id={focusedLeaf.id}
-          onClick={() => onFocus(focusedLeaf.id)}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            onContextMenu(e, focusedLeaf.id);
-          }}
-          style={{ width: '100%', height: '100%', position: 'relative' }}
-        >
-          <div className="pane-focus-bar" />
-          {renderTerminal(focusedLeaf.sessionId, focusedLeaf.id)}
-        </div>
+        <PaneIndicator
+          total={leaves.length}
+          current={focusedIdx}
+          onDotClick={handleDotClick}
+        />
+        <PaneCarousel
+          leaves={leaves}
+          focusedIndex={focusedIdx}
+          onSwipe={handleSwipe}
+          renderTerminal={renderTerminal}
+        />
       </div>
     );
   }
