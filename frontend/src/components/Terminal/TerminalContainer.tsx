@@ -1,18 +1,19 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import { useSSE } from '../../hooks/useSSE';
 import { TerminalView } from './TerminalView';
 import type { TerminalHandle } from './TerminalView';
-import { sessionApi } from '../../services/api';
+import { sessionApi, fileApi } from '../../services/api';
 import type { SessionStatus } from '../../types';
 
 interface Props {
   sessionId: string;
   isVisible: boolean;
   onStatusChange: (sessionId: string, status: SessionStatus) => void;
+  onCwdChange?: (sessionId: string, cwd: string) => void;
   onAuthError: () => void;
 }
 
-export function TerminalContainer({ sessionId, isVisible, onStatusChange, onAuthError }: Props) {
+export function TerminalContainer({ sessionId, isVisible, onStatusChange, onCwdChange, onAuthError }: Props) {
   const terminalRef = useRef<TerminalHandle>(null);
 
   useSSE(sessionId, {
@@ -27,6 +28,21 @@ export function TerminalContainer({ sessionId, isVisible, onStatusChange, onAuth
     },
     onAuthError,
   });
+
+  // Poll CWD every 3 seconds
+  useEffect(() => {
+    if (!onCwdChange) return;
+    let mounted = true;
+    const poll = async () => {
+      try {
+        const { cwd } = await fileApi.getCwd(sessionId);
+        if (mounted && cwd) onCwdChange(sessionId, cwd);
+      } catch { /* ignore */ }
+    };
+    poll(); // initial fetch
+    const timer = setInterval(poll, 3000);
+    return () => { mounted = false; clearInterval(timer); };
+  }, [sessionId, onCwdChange]);
 
   const handleInput = useCallback((data: string) => {
     sessionApi.sendInput(sessionId, data);

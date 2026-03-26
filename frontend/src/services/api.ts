@@ -289,6 +289,113 @@ export const fileApi = {
   },
 };
 
+// ============================================================================
+// Workspace API (Step 7)
+// ============================================================================
+
+export const workspaceApi = {
+  getAll: async (): Promise<any> => {
+    const res = await authFetch(`${API_BASE}/workspaces`, { headers: getAuthHeaders() });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  create: async (name?: string): Promise<any> => {
+    const res = await authFetch(`${API_BASE}/workspaces`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  update: async (id: string, updates: Record<string, any>): Promise<any> => {
+    const res = await authFetch(`${API_BASE}/workspaces/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  delete: async (id: string): Promise<void> => {
+    const res = await authFetch(`${API_BASE}/workspaces/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+  },
+
+  reorderWorkspaces: async (workspaceIds: string[]): Promise<void> => {
+    const res = await authFetch(`${API_BASE}/workspaces/order`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ workspaceIds }),
+    });
+    if (!res.ok) throw await parseError(res);
+  },
+
+  addTab: async (workspaceId: string, shell?: string, name?: string): Promise<any> => {
+    const res = await authFetch(`${API_BASE}/workspaces/${workspaceId}/tabs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ shell, name }),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  updateTab: async (workspaceId: string, tabId: string, updates: Record<string, any>): Promise<any> => {
+    const res = await authFetch(`${API_BASE}/workspaces/${workspaceId}/tabs/${tabId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  deleteTab: async (workspaceId: string, tabId: string): Promise<void> => {
+    const res = await authFetch(`${API_BASE}/workspaces/${workspaceId}/tabs/${tabId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+  },
+
+  reorderTabs: async (workspaceId: string, tabIds: string[]): Promise<void> => {
+    const res = await authFetch(`${API_BASE}/workspaces/${workspaceId}/tab-order`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ tabIds }),
+    });
+    if (!res.ok) throw await parseError(res);
+  },
+
+  updateGrid: async (workspaceId: string, layout: Record<string, any>): Promise<any> => {
+    const res = await authFetch(`${API_BASE}/workspaces/${workspaceId}/grid`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(layout),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  restartTab: async (workspaceId: string, tabId: string): Promise<any> => {
+    const res = await authFetch(`${API_BASE}/workspaces/${workspaceId}/tabs/${tabId}/restart`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  getStreamUrl: (): string => `${API_BASE}/workspaces/stream`,
+};
+
 export const settingsApi = {
   getSettings: async (): Promise<SettingsSnapshot> => {
     const res = await authFetch(`${API_BASE}/settings`, {

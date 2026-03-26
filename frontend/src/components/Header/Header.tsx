@@ -14,6 +14,8 @@ interface HeaderProps {
   isMobile?: boolean;
   onMenuClick?: () => void;
   activeCwd?: string | null;
+  viewMode?: 'tab' | 'grid';
+  onToggleViewMode?: () => void;
 }
 
 export function Header({
@@ -23,6 +25,8 @@ export function Header({
   isMobile,
   onMenuClick,
   activeCwd,
+  viewMode,
+  onToggleViewMode,
 }: HeaderProps) {
   const maxLen = isMobile ? 25 : 60;
   const displayCwd = activeCwd ? truncatePathLeft(activeCwd, maxLen) : null;
@@ -53,6 +57,15 @@ export function Header({
       )}
       {(onOpenSettings || onLogout) && (
         <div className="header-right">
+          {onToggleViewMode && !isMobile && (
+            <button
+              className="header-action-button"
+              onClick={onToggleViewMode}
+              title={viewMode === 'tab' ? 'Switch to Grid' : 'Switch to Tabs'}
+            >
+              {viewMode === 'tab' ? '⊞' : '☰'}
+            </button>
+          )}
           {onOpenSettings && (
             <button
               className={`header-action-button${isSettingsActive ? ' is-active' : ''}`}

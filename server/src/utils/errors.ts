@@ -60,7 +60,16 @@ export enum ErrorCode {
   DECRYPTION_ERROR = 'DECRYPTION_ERROR',
   CONFIG_ERROR = 'CONFIG_ERROR',
   CONFIG_APPLY_FAILED = 'CONFIG_APPLY_FAILED',
-  CONFIG_PERSIST_FAILED = 'CONFIG_PERSIST_FAILED'
+  CONFIG_PERSIST_FAILED = 'CONFIG_PERSIST_FAILED',
+
+  // Workspace Errors (Step 7)
+  WORKSPACE_NOT_FOUND = 'WORKSPACE_NOT_FOUND',
+  TAB_NOT_FOUND = 'TAB_NOT_FOUND',
+  TAB_LIMIT_EXCEEDED = 'TAB_LIMIT_EXCEEDED',
+  WORKSPACE_LIMIT_EXCEEDED = 'WORKSPACE_LIMIT_EXCEEDED',
+  SESSION_LIMIT_EXCEEDED = 'SESSION_LIMIT_EXCEEDED',
+  LAST_WORKSPACE = 'LAST_WORKSPACE',
+  INVALID_NAME = 'INVALID_NAME'
 }
 
 // ============================================================================
@@ -113,7 +122,15 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.DECRYPTION_ERROR]: 'Decryption failed',
   [ErrorCode.CONFIG_ERROR]: 'Configuration error',
   [ErrorCode.CONFIG_APPLY_FAILED]: 'Failed to apply runtime settings',
-  [ErrorCode.CONFIG_PERSIST_FAILED]: 'Failed to persist configuration'
+  [ErrorCode.CONFIG_PERSIST_FAILED]: 'Failed to persist configuration',
+
+  [ErrorCode.WORKSPACE_NOT_FOUND]: 'Workspace not found',
+  [ErrorCode.TAB_NOT_FOUND]: 'Tab not found',
+  [ErrorCode.TAB_LIMIT_EXCEEDED]: 'Maximum tabs per workspace exceeded',
+  [ErrorCode.WORKSPACE_LIMIT_EXCEEDED]: 'Maximum workspaces exceeded',
+  [ErrorCode.SESSION_LIMIT_EXCEEDED]: 'Maximum total sessions exceeded',
+  [ErrorCode.LAST_WORKSPACE]: 'Cannot delete the last workspace',
+  [ErrorCode.INVALID_NAME]: 'Invalid name'
 };
 
 // ============================================================================
@@ -166,7 +183,15 @@ export const ErrorStatusCodes: Record<ErrorCode, number> = {
   [ErrorCode.DECRYPTION_ERROR]: 500,
   [ErrorCode.CONFIG_ERROR]: 500,
   [ErrorCode.CONFIG_APPLY_FAILED]: 422,
-  [ErrorCode.CONFIG_PERSIST_FAILED]: 500
+  [ErrorCode.CONFIG_PERSIST_FAILED]: 500,
+
+  [ErrorCode.WORKSPACE_NOT_FOUND]: 404,
+  [ErrorCode.TAB_NOT_FOUND]: 404,
+  [ErrorCode.TAB_LIMIT_EXCEEDED]: 409,
+  [ErrorCode.WORKSPACE_LIMIT_EXCEEDED]: 409,
+  [ErrorCode.SESSION_LIMIT_EXCEEDED]: 409,
+  [ErrorCode.LAST_WORKSPACE]: 409,
+  [ErrorCode.INVALID_NAME]: 400
 };
 
 // ============================================================================

@@ -138,12 +138,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             return false;
           }
 
-          // Ctrl+V: 클립보드에서 읽어 PTY로 전송
+          // Ctrl+V: xterm 네이티브 paste에 위임 (수동 처리 시 이중 붙여넣기 발생)
           if (char === 'v') {
-            navigator.clipboard.readText().then((text) => {
-              if (text) onInput(text);
-            });
-            return false;
+            return true;
           }
 
           if (char >= 'a' && char <= 'z') {
@@ -160,6 +157,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         fitAddon.fit();
         onResize(term.cols, term.rows);
         term.focus();
+
+        // Set terminal background as CSS variable from theme config
+        const bg = term.options.theme?.background || '#1e1e1e';
+        document.documentElement.style.setProperty('--terminal-bg', bg);
       }, 0);
 
       xtermRef.current = term;
@@ -182,7 +183,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         fitAddon.fit();
         onResize(term.cols, term.rows);
       });
-      resizeObserver.observe(terminalRef.current);
+      // Observe the parent (.terminal-view) so that flex layout changes trigger fit()
+      resizeObserver.observe(containerRef.current!);
 
       return () => {
         window.removeEventListener('resize', handleResize);

@@ -2,22 +2,27 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #1e1e1e;
-  padding: 8px;
+  background-color: var(--terminal-bg, #1e1e1e);
+  padding: 0;
   overflow: hidden;
   position: relative;
+  box-sizing: border-box;
 }
 
 .terminal-container {
   flex: 1;
   overflow: hidden;
+  background-color: var(--terminal-bg, #1e1e1e);
+  box-sizing: border-box;
 }
 
 .terminal-container .xterm {
   height: 100%;
-  padding: 4px;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 .terminal-container .xterm-viewport {
   overflow-y: auto !important;
+  background-color: var(--terminal-bg, #1e1e1e) !important;
 }

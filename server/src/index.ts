@@ -14,6 +14,8 @@ import sessionRoutes from './routes/sessionRoutes.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
 import { createFileRoutes } from './routes/fileRoutes.js';
 import { createSettingsRoutes } from './routes/settingsRoutes.js';
+import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
+import { WorkspaceService } from './services/WorkspaceService.js';
 import { config } from './utils/config.js';
 import { FileService } from './services/FileService.js';
 import { RuntimeConfigStore } from './services/RuntimeConfigStore.js';
@@ -45,6 +47,7 @@ let twoFactorService: TwoFactorService | undefined;
 let fileService: FileService;
 let runtimeConfigStore: RuntimeConfigStore;
 let settingsService: SettingsService;
+let workspaceService: WorkspaceService;
 
 // ============================================================================
 // Security Middleware Stack (Phase 1)
@@ -136,6 +139,10 @@ function setupRoutes(): void {
   const settingsRoutes = createSettingsRoutes(settingsService);
   app.use('/api/settings', authMiddleware, settingsRoutes);
   app.use('/api/sessions', authMiddleware, sessionRoutes);
+
+  // Workspace routes (auth required, Step 7)
+  const workspaceRoutes = createWorkspaceRoutes(workspaceService);
+  app.use('/api/workspaces', authMiddleware, workspaceRoutes);
 
   // File manager routes (auth required, same base path)
   const fileRoutes = createFileRoutes(fileService);
@@ -231,6 +238,17 @@ async function startServer(): Promise<void> {
     });
 
     // ========================================================================
+    // Initialize Workspace Service (Step 7)
+    // ========================================================================
+    workspaceService = new WorkspaceService(sessionManager);
+    await workspaceService.initialize();
+    const orphanTabs = await workspaceService.checkOrphanTabs();
+    if (orphanTabs.length > 0) {
+      console.log(`[Workspace] ${orphanTabs.length} orphan tab(s) detected (server restart recovery)`);
+    }
+    console.log('[Workspace] WorkspaceService initialized');
+
+    // ========================================================================
     // Setup Routes (after services are initialized)
     // ========================================================================
     setupRoutes();
@@ -296,5 +314,21 @@ async function startServer(): Promise<void> {
   }
 }
 
+// Graceful shutdown — flush workspace state (Step 7)
+function setupGracefulShutdown(): void {
+  const shutdown = async (signal: string) => {
+    console.log(`[Shutdown] ${signal} received, flushing workspace state...`);
+    try {
+      await workspaceService?.forceFlush();
+      console.log('[Shutdown] Workspace state saved');
+    } catch (err) {
+      console.error('[Shutdown] Failed to save workspace state:', err);
+    }
+    process.exit(0);
+  };
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+}
+
 // Start the server
-startServer();
+startServer().then(() => setupGracefulShutdown());

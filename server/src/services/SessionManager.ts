@@ -298,6 +298,17 @@ export class SessionManager {
     return { shell: 'bash', args: [], shellType: 'bash' };
   }
 
+  // Step 7: Workspace support
+  hasSession(id: string): boolean {
+    return this.sessions.has(id);
+  }
+
+  deleteMultipleSessions(ids: string[]): void {
+    for (const id of ids) {
+      this.deleteSession(id);
+    }
+  }
+
   updateRuntimeConfig(next: { idleDelayMs?: number; pty?: Partial<PTYConfig> }): void {
     if (next.idleDelayMs !== undefined) {
       this.runtimeSessionConfig.idleDelayMs = next.idleDelayMs;

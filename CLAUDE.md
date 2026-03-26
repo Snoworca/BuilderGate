@@ -18,6 +18,8 @@ node dev.js          # 서버(4242) + 프론트(4545) 동시 실행
 ```
 
 브라우저에서 `http://localhost:4545` 접속. 서버 상태 확인: `curl -k https://localhost:4242/health`
+- 비밀번호 1234
+- 코드 수정하면 자동으로 갱신됨
 
 ## Tech Stack
 

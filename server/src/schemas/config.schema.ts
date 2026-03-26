@@ -148,6 +148,18 @@ export const fileManagerSchema = z.object({
 });
 
 // ============================================================================
+// Workspace Schema (Step 7)
+// ============================================================================
+
+export const workspaceSchema = z.object({
+  dataPath: z.string().default('./data/workspaces.json'),
+  maxWorkspaces: z.number().min(1).max(50).default(10),
+  maxTabsPerWorkspace: z.number().min(1).max(16).default(8),
+  maxTotalSessions: z.number().min(1).max(128).default(32),
+  flushDebounceMs: z.number().min(1000).max(30000).default(5000),
+});
+
+// ============================================================================
 // Full Configuration Schema
 // ============================================================================
 
@@ -161,7 +173,8 @@ export const configSchema = z.object({
   twoFactor: twoFactorSchema.optional(),
   auth: authSchema.optional(),
   bruteForce: bruteForceSchema.optional(),
-  fileManager: fileManagerSchema.optional()
+  fileManager: fileManagerSchema.optional(),
+  workspace: workspaceSchema.optional()
 });
 
 export type ConfigSchema = z.infer<typeof configSchema>;

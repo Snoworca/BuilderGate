@@ -23,6 +23,9 @@ export function useHeartbeat(config?: Partial<HeartbeatConfig>) {
 
   const intervalMs = config?.intervalMs ?? DEFAULT_INTERVAL;
 
+  const configRef = useRef(config);
+  configRef.current = config;
+
   const sendHeartbeat = useCallback(async () => {
     const success = await refreshToken();
 
@@ -35,11 +38,11 @@ export function useHeartbeat(config?: Partial<HeartbeatConfig>) {
 
       if (retryCountRef.current >= MAX_RETRY_COUNT) {
         console.error('[Heartbeat] Max retries reached, session expired');
-        config?.onSessionExpired?.();
+        configRef.current?.onSessionExpired?.();
         logout();
       }
     }
-  }, [refreshToken, logout, config]);
+  }, [refreshToken, logout]);
 
   const start = useCallback(() => {
     if (timerRef.current) return;
