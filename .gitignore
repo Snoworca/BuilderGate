@@ -69,3 +69,4 @@ temp/
 
 # Claude Code temporary files
 tmpclaude-*
+.screenshot/

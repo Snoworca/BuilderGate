@@ -1,9 +1,10 @@
 .terminal-view {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   background-color: var(--terminal-bg, #1e1e1e);
-  padding: 0;
+  padding: 10px;
   overflow: hidden;
   position: relative;
   box-sizing: border-box;
@@ -11,6 +12,7 @@
 
 .terminal-container {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   background-color: var(--terminal-bg, #1e1e1e);
   box-sizing: border-box;
@@ -25,4 +27,21 @@
 .terminal-container .xterm-viewport {
   overflow-y: auto !important;
   background-color: var(--terminal-bg, #1e1e1e) !important;
+}
+
+.terminal-container .xterm-viewport::-webkit-scrollbar {
+  width: 4px;
+}
+
+.terminal-container .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.terminal-container .xterm-viewport::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 2px;
+}
+
+.terminal-container .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: #777;
 }

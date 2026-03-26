@@ -153,15 +153,18 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         return true;
       });
 
-      setTimeout(() => {
-        fitAddon.fit();
-        onResize(term.cols, term.rows);
-        term.focus();
+      // Double rAF ensures layout is fully settled before measuring
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          fitAddon.fit();
+          onResize(term.cols, term.rows);
+          term.focus();
 
-        // Set terminal background as CSS variable from theme config
-        const bg = term.options.theme?.background || '#1e1e1e';
-        document.documentElement.style.setProperty('--terminal-bg', bg);
-      }, 0);
+          // Set terminal background as CSS variable from theme config
+          const bg = term.options.theme?.background || '#1e1e1e';
+          document.documentElement.style.setProperty('--terminal-bg', bg);
+        });
+      });
 
       xtermRef.current = term;
       fitAddonRef.current = fitAddon;
@@ -172,22 +175,31 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         onInput(data);
       });
 
-      const handleResize = () => {
-        fitAddon.fit();
-        onResize(term.cols, term.rows);
-      };
+      // window.resize listener removed — ResizeObserver covers all size changes
 
-      window.addEventListener('resize', handleResize);
-
+      let rafId: number | null = null;
+      let resizeTimer: ReturnType<typeof setTimeout> | null = null;
       const resizeObserver = new ResizeObserver(() => {
-        fitAddon.fit();
-        onResize(term.cols, term.rows);
+        // rAF throttle: visual fit at most once per frame
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          fitAddon.fit();
+          rafId = null;
+          // Debounce server PTY resize to avoid flooding during drag
+          if (resizeTimer !== null) clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(() => {
+            onResize(term.cols, term.rows);
+            resizeTimer = null;
+          }, 100);
+        });
       });
-      // Observe the parent (.terminal-view) so that flex layout changes trigger fit()
+      // Observe both .terminal-view and .terminal-container (FitAddon measures the latter)
       resizeObserver.observe(containerRef.current!);
+      resizeObserver.observe(terminalRef.current!);
 
       return () => {
-        window.removeEventListener('resize', handleResize);
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        if (resizeTimer !== null) clearTimeout(resizeTimer);
         resizeObserver.disconnect();
         term.dispose();
       };

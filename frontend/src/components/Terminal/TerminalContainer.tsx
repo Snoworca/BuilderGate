@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { memo, useRef, useCallback, useEffect } from 'react';
 import { useSSE } from '../../hooks/useSSE';
 import { TerminalView } from './TerminalView';
 import type { TerminalHandle } from './TerminalView';
@@ -13,7 +13,7 @@ interface Props {
   onAuthError: () => void;
 }
 
-export function TerminalContainer({ sessionId, isVisible, onStatusChange, onCwdChange, onAuthError }: Props) {
+export const TerminalContainer = memo(function TerminalContainer({ sessionId, isVisible, onStatusChange, onCwdChange, onAuthError }: Props) {
   const terminalRef = useRef<TerminalHandle>(null);
 
   useSSE(sessionId, {
@@ -57,7 +57,7 @@ export function TerminalContainer({ sessionId, isVisible, onStatusChange, onCwdC
   }, [sessionId]);
 
   return (
-    <div style={{ display: isVisible ? 'flex' : 'none', flex: 1 }}>
+    <div style={{ display: isVisible ? 'flex' : 'none', flex: 1, minWidth: 0 }}>
       <TerminalView
         ref={terminalRef}
         sessionId={sessionId}
@@ -66,4 +66,4 @@ export function TerminalContainer({ sessionId, isVisible, onStatusChange, onCwdC
       />
     </div>
   );
-}
+});
