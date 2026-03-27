@@ -144,11 +144,8 @@ function AppContent() {
 
   const renderTerminal = useCallback((tab: WorkspaceTabRuntime) => {
     if (tab.status === 'disconnected') {
-      return (
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-          <DisconnectedOverlay onRestart={() => handleRestartTab(tab.id)} />
-        </div>
-      );
+      // GridCell already renders DisconnectedOverlay — return empty container
+      return <div style={{ width: '100%', height: '100%' }} />;
     }
     return (
       <TerminalContainer
@@ -160,7 +157,7 @@ function AppContent() {
         onAuthError={handleAuthError}
       />
     );
-  }, [handleTerminalStatusChange, handleCwdChange, handleAuthError, handleRestartTab]);
+  }, []);
 
   // ============================================================================
   // Pending delete info
@@ -261,7 +258,7 @@ function AppContent() {
                           </div>
                         ) : (
                           <TerminalContainer
-                            key={`tab-${activeTab.id}-${activeTab.sessionId}`}
+                            key={`ws-${activeTab.id}-${activeTab.sessionId}`}
                             sessionId={activeTab.sessionId}
                             isVisible={true}
                             onStatusChange={handleTerminalStatusChange}

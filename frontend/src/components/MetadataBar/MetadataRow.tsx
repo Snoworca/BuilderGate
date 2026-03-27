@@ -91,37 +91,14 @@ export function MetadataRow({ tab, isOdd }: Props) {
         {tab.name}
       </span>
 
-      {/* Elapsed time */}
-      <span style={{
-        color: '#e0e0e0',
-        marginLeft: 'auto',
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        flexShrink: 0,
-      }}>
-        {elapsed}
-      </span>
-
-      {/* Separator */}
-      {displayPath && (
-        <span style={{
-          color: '#555',
-          margin: '0 3px',
-          flexShrink: 0,
-          fontSize: '16px',
-          lineHeight: '1',
-          position: 'relative',
-          top: '-1px',
-        }}>│</span>
-      )}
-
-      {/* CWD path — click to copy, right-aligned */}
+      {/* CWD path — click to copy */}
       {displayPath && (
         <span
           onClick={handleCopy}
           title={copied ? 'Copied!' : (tab.cwd || '')}
           style={{
             color: copied ? '#22c55e' : '#e0e0e0',
+            marginLeft: 'auto',
             cursor: 'pointer',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -140,6 +117,30 @@ export function MetadataRow({ tab, isOdd }: Props) {
           {copied ? '✓ Copied' : displayPath}
         </span>
       )}
+
+      {/* Separator */}
+      {displayPath && (
+        <span style={{
+          color: '#555',
+          margin: '0 3px',
+          flexShrink: 0,
+          fontSize: '16px',
+          lineHeight: '1',
+          position: 'relative',
+          top: '-1px',
+        }}>│</span>
+      )}
+
+      {/* Elapsed time */}
+      <span style={{
+        color: '#e0e0e0',
+        marginLeft: displayPath ? '0' : 'auto',
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        flexShrink: 0,
+      }}>
+        {elapsed}
+      </span>
     </div>
   );
 }

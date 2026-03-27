@@ -12,20 +12,10 @@ export default defineConfig({
   server: {
     port: 4545,
     hmr: {
+      path: '/__vite_hmr',
       port: 4545,
-    },
-    proxy: {
-      '/api': {
-        target: 'https://localhost:4242',
-        changeOrigin: true,
-        secure: false,  // Accept self-signed certificates
-      },
-      '/ws': {
-        target: 'https://localhost:4242',
-        changeOrigin: true,
-        secure: false,
-        ws: true,  // WebSocket proxy
-      },
+      clientPort: 4242,
+      protocol: 'wss',
     },
   },
 });

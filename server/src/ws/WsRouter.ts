@@ -7,7 +7,6 @@
  */
 
 import { WebSocket, WebSocketServer } from 'ws';
-import https from 'https';
 import { v4 as uuidv4 } from 'uuid';
 import type { IncomingMessage } from 'http';
 import type { Duplex } from 'stream';
@@ -23,12 +22,13 @@ export class WsRouter {
   private sessionSubscribers: Map<string, Set<WebSocket>> = new Map();
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private sessionManager: SessionManager;
+  private authService: AuthService;
 
-  constructor(server: https.Server, authService: AuthService, sessionManager: SessionManager) {
+  constructor(authService: AuthService, sessionManager: SessionManager) {
+    this.authService = authService;
     this.sessionManager = sessionManager;
     this.wss = new WebSocketServer({ noServer: true });
 
-    this.setupUpgradeHandler(server, authService);
     this.setupConnectionHandler();
     this.startHeartbeat();
 
@@ -39,35 +39,31 @@ export class WsRouter {
   // Upgrade Handler (JWT Authentication)
   // ==========================================================================
 
-  private setupUpgradeHandler(server: https.Server, authService: AuthService): void {
-    server.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {
-      // Only handle /ws path
-      const url = new URL(req.url || '/', `https://${req.headers.host || 'localhost'}`);
-      if (url.pathname !== '/ws') {
-        socket.destroy();
-        return;
-      }
+  /**
+   * Handle WebSocket upgrade requests for /ws path.
+   * Called from index.ts upgrade event dispatcher.
+   */
+  public handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
+    // Extract JWT token from query parameter
+    const url = new URL(req.url || '/', `https://${req.headers.host || 'localhost'}`);
+    const token = url.searchParams.get('token');
+    if (!token) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
+    }
 
-      // Extract JWT token from query parameter
-      const token = url.searchParams.get('token');
-      if (!token) {
-        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-        socket.destroy();
-        return;
-      }
+    // Verify JWT
+    const result = this.authService.verifyToken(token);
+    if (!result.valid) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
+    }
 
-      // Verify JWT
-      const result = authService.verifyToken(token);
-      if (!result.valid) {
-        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-        socket.destroy();
-        return;
-      }
-
-      // Complete the upgrade
-      this.wss.handleUpgrade(req, socket, head, (ws) => {
-        this.wss.emit('connection', ws, req, result.payload);
-      });
+    // Complete the upgrade
+    this.wss.handleUpgrade(req, socket, head, (ws) => {
+      this.wss.emit('connection', ws, req, result.payload);
     });
   }
 
@@ -153,11 +149,13 @@ export class WsRouter {
     const results: Array<{ sessionId: string; status: string; cwd?: string }> = [];
 
     for (const id of sessionIds) {
-      // Register subscription
+      // Register subscription — Set ensures no duplicates
       if (!this.sessionSubscribers.has(id)) {
         this.sessionSubscribers.set(id, new Set());
       }
-      this.sessionSubscribers.get(id)!.add(ws);
+      const subs = this.sessionSubscribers.get(id)!;
+      const alreadySubscribed = subs.has(ws);
+      subs.add(ws);
 
       const meta = this.clients.get(ws);
       if (meta) meta.subscribedSessions.add(id);
@@ -167,8 +165,12 @@ export class WsRouter {
       if (session) {
         const cwd = this.sessionManager.getLastCwd(id) ?? undefined;
         results.push({ sessionId: id, status: session.status, cwd });
-        // Flush buffered output to this WS client
-        this.sessionManager.flushBufferToWs(id, ws);
+        // Only flush buffer on FIRST subscription — prevents double output
+        // when client re-subscribes (e.g., React StrictMode double mount,
+        // WS reconnect + individual TerminalContainer subscribe)
+        if (!alreadySubscribed) {
+          this.sessionManager.flushBufferToWs(id, ws);
+        }
       } else {
         results.push({ sessionId: id, status: 'error' });
       }

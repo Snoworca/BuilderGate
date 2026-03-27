@@ -55,6 +55,7 @@ server.on('close', (code) => {
 // 2. Wait 3s then start frontend (Vite dev server with HMR)
 setTimeout(() => {
   console.log('Starting frontend (Vite dev server with HMR)...');
+  console.log('Open https://localhost:4242 in your browser');
   const frontend = spawn('npx', ['vite', '--host'], {
     cwd: path.join(ROOT, 'frontend'),
     shell: true,

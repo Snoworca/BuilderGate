@@ -8,8 +8,9 @@
 import express from 'express';
 import cors from 'cors';
 import https from 'https';
-import http from 'http';
+import http, { type ServerResponse } from 'http';
 import os from 'os';
+import httpProxy from 'http-proxy';
 import sessionRoutes from './routes/sessionRoutes.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
 import { createFileRoutes } from './routes/fileRoutes.js';
@@ -55,8 +56,27 @@ let workspaceService: WorkspaceService;
 // ============================================================================
 
 // Security headers (helmet)
+// In development, relax CSP to allow Vite's inline scripts and HMR WebSocket
+const isDev = process.env.NODE_ENV !== 'production';
 app.use(createSecurityHeadersMiddleware({
-  enableHSTS: true
+  enableHSTS: true,
+  ...(isDev && {
+    cspDirectives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      connectSrc: ["'self'", "wss:", "ws:"],
+      workerSrc: ["'self'", "blob:"],
+      imgSrc: ["'self'", "data:"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'none'"],
+      frameSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      formAction: ["'self'"],
+      baseUri: ["'self'"],
+    }
+  })
 }));
 
 // Permissions-Policy header
@@ -255,6 +275,34 @@ async function startServer(): Promise<void> {
     setupRoutes();
 
     // ========================================================================
+    // Vite Dev Server Proxy (development only)
+    // ========================================================================
+    let viteProxy: ReturnType<typeof httpProxy.createProxyServer> | null = null;
+    if (process.env.NODE_ENV !== 'production') {
+      viteProxy = httpProxy.createProxyServer({
+        target: 'http://localhost:4545',
+        ws: true,
+      });
+      viteProxy.on('error', (err, _req, res) => {
+        console.warn('[ViteProxy]', err.message);
+        if (res && typeof res === 'object' && 'writeHead' in (res as object)) {
+          const httpRes = res as ServerResponse;
+          if (!httpRes.headersSent) {
+            httpRes.writeHead(502);
+            httpRes.end('Vite dev server unavailable');
+          }
+        }
+      });
+
+      // Fallback: proxy non-API requests to Vite dev server
+      app.use((req, res) => {
+        viteProxy!.web(req, res);
+      });
+
+      console.log('[ViteProxy] Development proxy to http://localhost:4545 enabled');
+    }
+
+    // ========================================================================
     // Initialize SSL Service (Phase 1)
     // ========================================================================
     const sslConfig = config.ssl || { certPath: '', keyPath: '', caPath: '' };
@@ -270,10 +318,22 @@ async function startServer(): Promise<void> {
     httpsServer.headersTimeout = 125000;
 
     // Initialize WebSocket Router (Step 8)
-    const wsRouter = new WsRouter(httpsServer, authService, sessionManager);
+    const wsRouter = new WsRouter(authService, sessionManager);
     sessionManager.setWsRouter(wsRouter);
     // Make wsRouter accessible to workspace routes via Express app
     app.set('wsRouter', wsRouter);
+
+    // Upgrade event dispatcher: /ws → WsRouter, others → Vite (dev only)
+    httpsServer.on('upgrade', (req, socket, head) => {
+      const pathname = new URL(req.url || '/', `https://${req.headers.host || 'localhost'}`).pathname;
+      if (pathname === '/ws') {
+        wsRouter.handleUpgrade(req, socket, head);
+      } else if (viteProxy) {
+        viteProxy.ws(req, socket, head);
+      } else {
+        socket.destroy();
+      }
+    });
 
     // Start HTTPS server
     httpsServer.listen(PORT, () => {

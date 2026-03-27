@@ -12,29 +12,42 @@ interface Props {
   onAuthError: () => void;
 }
 
+// Custom memo: only re-render when sessionId or isVisible changes.
+// Callback prop changes (from parent useCallback recreation) are ignored
+// since we access them via refs inside useEffect.
+function propsAreEqual(prev: Props, next: Props): boolean {
+  return prev.sessionId === next.sessionId && prev.isVisible === next.isVisible;
+}
+
 export const TerminalContainer = memo(function TerminalContainer({ sessionId, isVisible, onStatusChange, onCwdChange, onAuthError }: Props) {
   const terminalRef = useRef<TerminalHandle>(null);
   const ws = useWebSocket();
 
-  // Subscribe to session via WebSocket
+  // Keep latest callbacks in refs to avoid useEffect re-subscription on callback change
+  const onStatusChangeRef = useRef(onStatusChange);
+  onStatusChangeRef.current = onStatusChange;
+  const onCwdChangeRef = useRef(onCwdChange);
+  onCwdChangeRef.current = onCwdChange;
+
+  // Subscribe to session via WebSocket — depends only on sessionId and ws
   useEffect(() => {
     const unsubscribe = ws.subscribeSession(sessionId, {
       onOutput: (data) => {
         terminalRef.current?.write(data);
       },
       onStatus: (status) => {
-        onStatusChange(sessionId, status as SessionStatus);
+        onStatusChangeRef.current(sessionId, status as SessionStatus);
       },
       onError: (message) => {
         console.error('Session error:', message);
-        onStatusChange(sessionId, 'disconnected');
+        onStatusChangeRef.current(sessionId, 'disconnected');
       },
       onCwd: (cwd) => {
-        onCwdChange?.(sessionId, cwd);
+        onCwdChangeRef.current?.(sessionId, cwd);
       },
     });
     return unsubscribe;
-  }, [sessionId, ws, onStatusChange, onCwdChange]);
+  }, [sessionId, ws]);
 
   const handleInput = useCallback((data: string) => {
     ws.send({ type: 'input', sessionId, data });
@@ -54,4 +67,4 @@ export const TerminalContainer = memo(function TerminalContainer({ sessionId, is
       />
     </div>
   );
-});
+}, propsAreEqual);

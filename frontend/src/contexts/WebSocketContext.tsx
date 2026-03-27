@@ -52,8 +52,7 @@ function getReconnectDelay(attempt: number): number {
 
 function getWsUrl(): string {
   const token = tokenStorage.getToken();
-  // Use same host/port as the page (Vite proxy handles /ws → backend)
-  // This avoids self-signed cert issues in dev mode
+  // Same origin — backend serves both API and frontend assets
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = window.location.host; // includes port
   return `${protocol}//${host}/ws?token=${encodeURIComponent(token || '')}`;
@@ -166,7 +165,14 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    ws.onmessage = handleMessage;
+    ws.onmessage = (event) => {
+      // Ignore messages from stale WebSocket connections (e.g., WS1 closing
+      // while WS2 is already active after React StrictMode double mount).
+      // Without this guard, both WS1 and WS2 deliver the same PTY output
+      // to handleMessage, causing double writes to the terminal.
+      if (wsRef.current !== ws) return;
+      handleMessage(event);
+    };
 
     ws.onclose = () => {
       if (!mountedRef.current) return;
@@ -227,24 +233,39 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const subscribeSession = useCallback((sessionId: string, handlers: SessionHandlers): (() => void) => {
+    // Always update handlers (re-render may provide new callbacks)
     sessionHandlersRef.current.set(sessionId, handlers);
+
+    // Only send WS subscribe if not already subscribed (prevents duplicate on re-mount)
+    const alreadySubscribed = activeSubscriptionsRef.current.has(sessionId);
     activeSubscriptionsRef.current.add(sessionId);
 
-    // Send subscribe message if connected
-    const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'subscribe', sessionIds: [sessionId] }));
+    if (!alreadySubscribed) {
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'subscribe', sessionIds: [sessionId] }));
+      }
     }
+
+    // Capture this specific handlers reference for cleanup identity check
+    const myHandlers = handlers;
 
     // Return cleanup function
     return () => {
-      sessionHandlersRef.current.delete(sessionId);
-      activeSubscriptionsRef.current.delete(sessionId);
+      // Only remove if this cleanup's handlers are still the active ones.
+      // During grid↔tab view transitions, a new instance may have already
+      // registered its handlers via set() before this cleanup runs.
+      const currentHandlers = sessionHandlersRef.current.get(sessionId);
+      if (currentHandlers === myHandlers) {
+        sessionHandlersRef.current.delete(sessionId);
+        activeSubscriptionsRef.current.delete(sessionId);
 
-      const currentWs = wsRef.current;
-      if (currentWs && currentWs.readyState === WebSocket.OPEN) {
-        currentWs.send(JSON.stringify({ type: 'unsubscribe', sessionIds: [sessionId] }));
+        const currentWs = wsRef.current;
+        if (currentWs && currentWs.readyState === WebSocket.OPEN) {
+          currentWs.send(JSON.stringify({ type: 'unsubscribe', sessionIds: [sessionId] }));
+        }
       }
+      // If currentHandlers !== myHandlers, a newer instance already took over — skip cleanup
     };
   }, []);
 
