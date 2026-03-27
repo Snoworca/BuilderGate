@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 
@@ -21,6 +21,21 @@ function formatElapsed(createdAt: string): string {
   return `${mm}:${ss}`;
 }
 
+/** Truncate absolute path if it would exceed ~30% of status bar width.
+ *  Heuristic: status bar ≈ 50 chars at 12px mono. 30% ≈ 15 chars budget.
+ *  Subtract name (~10) + elapsed (~8) + padding → path budget ≈ 30 chars.
+ */
+function truncatePath(cwd: string, maxChars = 30): string {
+  if (cwd.length <= maxChars) return cwd;
+  // Find last separator
+  const sep = cwd.includes('/') ? '/' : '\\';
+  const lastSep = cwd.lastIndexOf(sep);
+  if (lastSep <= 0) return cwd;
+  const tail = cwd.slice(lastSep);
+  if (tail.length >= maxChars - 4) return '...' + tail.slice(-(maxChars - 3));
+  return '...' + tail;
+}
+
 export function MetadataRow({ tab, isOdd }: Props) {
   const [elapsed, setElapsed] = useState(() => formatElapsed(tab.createdAt));
   const [copied, setCopied] = useState(false);
@@ -39,15 +54,20 @@ export function MetadataRow({ tab, isOdd }: Props) {
     } catch { /* clipboard API failure */ }
   }, [tab.cwd]);
 
+  const displayPath = useMemo(() => {
+    if (!tab.cwd) return '';
+    return truncatePath(tab.cwd);
+  }, [tab.cwd]);
+
   const color = TAB_COLORS[tab.colorIndex] || TAB_COLORS[0];
 
   return (
     <div style={{
       display: 'flex',
       alignItems: 'center',
-      height: '24px',
+      height: '28px',
       backgroundColor: '#2a2a2a',
-      fontSize: '12px',
+      fontSize: '13px',
       padding: '0 8px 0 0',
     }}>
       {/* Color label */}
@@ -66,40 +86,60 @@ export function MetadataRow({ tab, isOdd }: Props) {
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
         maxWidth: '150px',
-        flex: 1,
+        flexShrink: 0,
       }}>
         {tab.name}
       </span>
 
-      {/* Elapsed time — pushed to right end */}
+      {/* Elapsed time */}
       <span style={{
-        color: '#888',
+        color: '#e0e0e0',
         marginLeft: 'auto',
-        marginRight: '8px',
         fontFamily: 'monospace',
-        fontSize: '11px',
+        fontSize: '12px',
         flexShrink: 0,
       }}>
         {elapsed}
       </span>
 
-      {/* CWD copy button */}
-      <button
-        onClick={handleCopy}
-        disabled={!tab.cwd}
-        title={tab.cwd || 'Loading...'}
-        style={{
-          background: 'none',
-          border: 'none',
-          color: copied ? '#22c55e' : '#888',
-          cursor: tab.cwd ? 'pointer' : 'default',
-          fontSize: '13px',
-          padding: '0 2px',
+      {/* Separator */}
+      {displayPath && (
+        <span style={{
+          color: '#555',
+          margin: '0 3px',
           flexShrink: 0,
-        }}
-      >
-        {copied ? '✓' : '📋'}
-      </button>
+          fontSize: '16px',
+          lineHeight: '1',
+          position: 'relative',
+          top: '-1px',
+        }}>│</span>
+      )}
+
+      {/* CWD path — click to copy, right-aligned */}
+      {displayPath && (
+        <span
+          onClick={handleCopy}
+          title={copied ? 'Copied!' : (tab.cwd || '')}
+          style={{
+            color: copied ? '#22c55e' : '#e0e0e0',
+            cursor: 'pointer',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            fontFamily: '"Cascadia Code", "Fira Code", Consolas, "Courier New", monospace',
+            fontSize: '12px',
+            textDecorationLine: 'underline',
+            textDecorationColor: '#666',
+            textDecorationStyle: 'solid' as const,
+            textUnderlineOffset: '3px',
+            letterSpacing: '0.5px',
+            flexShrink: 1,
+            minWidth: 0,
+          }}
+        >
+          {copied ? '✓ Copied' : displayPath}
+        </span>
+      )}
     </div>
   );
 }

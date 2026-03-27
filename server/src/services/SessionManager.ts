@@ -219,6 +219,11 @@ export class SessionManager {
     return data ? data.initialCwd : null;
   }
 
+  getLastCwd(sessionId: string): string | null {
+    const data = this.sessions.get(sessionId);
+    return data?.lastCwd ?? data?.initialCwd ?? null;
+  }
+
   getCwdFilePath(sessionId: string): string | null {
     const data = this.sessions.get(sessionId);
     return data?.cwdFilePath ?? null;

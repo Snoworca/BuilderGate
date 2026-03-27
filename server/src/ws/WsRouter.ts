@@ -165,7 +165,8 @@ export class WsRouter {
       // Check session existence and get status
       const session = this.sessionManager.getSession(id);
       if (session) {
-        results.push({ sessionId: id, status: session.status });
+        const cwd = this.sessionManager.getLastCwd(id) ?? undefined;
+        results.push({ sessionId: id, status: session.status, cwd });
         // Flush buffered output to this WS client
         this.sessionManager.flushBufferToWs(id, ws);
       } else {
