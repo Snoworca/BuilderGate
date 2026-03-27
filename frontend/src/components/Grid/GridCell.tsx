@@ -21,12 +21,12 @@ export function GridCell({ tab, color, onRestart, children }: Props) {
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
-        borderTop: `2px solid ${color}`,
         backgroundColor: 'var(--terminal-bg, #1e1e1e)',
         overflow: 'hidden',
         minWidth: '120px',
         minHeight: '80px',
-      }}
+        '--tab-color': color,
+      } as React.CSSProperties}
     >
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {children}

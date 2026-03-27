@@ -249,7 +249,10 @@ function AppContent() {
                     activeTab ? (
                       <div
                         className={activeTab.status === 'running' ? 'terminal-running' : ''}
-                        style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}
+                        style={{
+                          width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+                          '--tab-color': TAB_COLORS[activeTab.colorIndex] || TAB_COLORS[0],
+                        } as React.CSSProperties}
                       >
                         {activeTab.status === 'disconnected' ? (
                           <div style={{ position: 'relative', width: '100%', height: '100%' }}>

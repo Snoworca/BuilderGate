@@ -1,5 +1,18 @@
-.terminal-running {
-  outline: 2px solid #22c55e;
+/* Base: invisible outline ready for transition */
+.terminal-running .terminal-view {
+  outline: 2px solid transparent;
   outline-offset: -2px;
-  box-shadow: inset 0 0 20px rgba(34, 197, 94, 0.15);
+  transition: outline-color 2s ease-in; /* fade out: starts fast, slows down */
+}
+
+/* Running + output active: fade in colored outline */
+.terminal-running .terminal-view.output-active {
+  outline-color: var(--tab-color, #22c55e);
+  transition: outline-color 2s ease-out; /* fade in: starts fast, slows down */
+}
+
+/* Suppress indicator when user is actively typing */
+.terminal-running .terminal-view.user-active {
+  outline-color: transparent;
+  transition: outline-color 0.3s ease;
 }

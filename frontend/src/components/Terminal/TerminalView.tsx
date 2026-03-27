@@ -47,6 +47,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
     const [toastFontSize, setToastFontSize] = useState<number | null>(null);
+    const userActiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const outputTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const { isMobile } = useResponsive();
 
     const handleFontSizeChange = useCallback((size: number) => {
@@ -69,6 +71,15 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     useImperativeHandle(ref, () => ({
       write: (data: string) => {
         xtermRef.current?.write(data);
+        // Track output activity — fade out indicator after 2s of silence
+        const el = containerRef.current;
+        if (el && !el.classList.contains('output-active')) {
+          el.classList.add('output-active');
+        }
+        if (outputTimerRef.current) clearTimeout(outputTimerRef.current);
+        outputTimerRef.current = setTimeout(() => {
+          containerRef.current?.classList.remove('output-active');
+        }, 2000);
       },
       clear: () => {
         xtermRef.current?.clear();
@@ -120,6 +131,17 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       term.attachCustomKeyEventHandler((ev: KeyboardEvent) => {
         if (ev.type !== 'keydown') return true;
+
+        // Mark user as actively typing — suppresses breathing animation for 3s
+        // Uses direct DOM manipulation to avoid React re-renders on every keystroke
+        const el = containerRef.current;
+        if (el && !el.classList.contains('user-active')) {
+          el.classList.add('user-active');
+        }
+        if (userActiveTimerRef.current) clearTimeout(userActiveTimerRef.current);
+        userActiveTimerRef.current = setTimeout(() => {
+          containerRef.current?.classList.remove('user-active');
+        }, 3000);
 
         const key = ev.key;
 
@@ -200,6 +222,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       return () => {
         if (rafId !== null) cancelAnimationFrame(rafId);
         if (resizeTimer !== null) clearTimeout(resizeTimer);
+        if (userActiveTimerRef.current) clearTimeout(userActiveTimerRef.current);
+        if (outputTimerRef.current) clearTimeout(outputTimerRef.current);
         resizeObserver.disconnect();
         term.dispose();
       };
