@@ -1,23 +1,23 @@
 import * as pty from 'node-pty';
 import { v4 as uuidv4 } from 'uuid';
-import { Response } from 'express';
 import os from 'os';
 import path from 'path';
-import { unlinkSync } from 'fs';
+import { unlinkSync, watchFile, unwatchFile, readFileSync } from 'fs';
 import { Session, SessionDTO, SessionStatus, UpdateSessionRequest, ShellType, ShellInfo } from '../types/index.js';
 import type { PTYConfig, SessionConfig } from '../types/config.types.js';
-import { sendSSE } from '../utils/sse.js';
 import { config } from '../utils/config.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import type { WebSocket } from 'ws';
+import type { WsRouter } from '../ws/WsRouter.js';
 
 interface SessionData {
   session: Session;
   pty: pty.IPty;
-  sseClients: Set<Response>;
   idleTimer: NodeJS.Timeout | null;
   outputBuffer: string; // Buffer for initial output
   initialCwd: string;   // CWD at session creation
   cwdFilePath?: string;  // Windows CWD tracking temp file path
+  lastCwd?: string;      // Last known CWD for change detection
 }
 
 export class SessionManager {
@@ -25,6 +25,7 @@ export class SessionManager {
   private sessionCounter: number = 0;
   private runtimePtyConfig: PTYConfig;
   private runtimeSessionConfig: SessionConfig;
+  private wsRouter: WsRouter | null = null;
 
   constructor(initialConfig: { pty: PTYConfig; session: SessionConfig } = { pty: config.pty, session: config.session }) {
     this.runtimePtyConfig = clonePtyConfig(initialConfig.pty);
@@ -60,7 +61,6 @@ export class SessionManager {
     const sessionData: SessionData = {
       session,
       pty: ptyProcess,
-      sseClients: new Set(),
       idleTimer: null,
       outputBuffer: '',
       initialCwd,
@@ -75,14 +75,13 @@ export class SessionManager {
     ptyProcess.onData((data: string) => {
       this.updateStatus(id, 'running');
 
-      // If no SSE clients connected, buffer the output
       const sData = this.sessions.get(id);
       if (sData) {
-        if (sData.sseClients.size === 0) {
+        const hasWsSubscribers = this.wsRouter?.hasSubscribers(id) ?? false;
+        if (!hasWsSubscribers) {
           this.appendBufferedOutput(sData, data);
         } else {
-          // Send to connected clients
-          this.broadcast(id, 'output', { data });
+          this.broadcastWs(id, 'output', { data });
         }
       }
 
@@ -91,14 +90,7 @@ export class SessionManager {
 
     // Handle PTY exit
     ptyProcess.onExit(({ exitCode }) => {
-      this.broadcast(id, 'error', { message: `Shell exited with code ${exitCode}` });
-      // Clean up SSE clients
-      const data = this.sessions.get(id);
-      if (data) {
-        data.sseClients.forEach(client => {
-          client.end();
-        });
-      }
+      this.broadcastWs(id, 'session:exited', { exitCode });
     });
 
     return this.toDTO(session);
@@ -123,7 +115,7 @@ export class SessionManager {
 
     data.session.status = status;
     data.session.lastActiveAt = new Date();
-    this.broadcast(id, 'status', { status });
+    this.broadcastWs(id, 'status', { status });
   }
 
   getSession(id: string): SessionDTO | null {
@@ -147,15 +139,11 @@ export class SessionManager {
     // Kill PTY process
     data.pty.kill();
 
-    // Clean up CWD tracking file
+    // Clean up CWD file watching and temp file
     if (data.cwdFilePath) {
+      unwatchFile(data.cwdFilePath);
       try { unlinkSync(data.cwdFilePath); } catch { /* ignore */ }
     }
-
-    // Close all SSE clients
-    data.sseClients.forEach(client => {
-      client.end();
-    });
 
     // Remove from map
     this.sessions.delete(id);
@@ -220,30 +208,6 @@ export class SessionManager {
     return true;
   }
 
-  addSSEClient(id: string, res: Response): boolean {
-    const data = this.sessions.get(id);
-    if (!data) return false;
-
-    data.sseClients.add(res);
-
-    // Send buffered output first (initial prompt, etc.)
-    if (data.outputBuffer.length > 0) {
-      sendSSE(res, 'output', { data: data.outputBuffer });
-      data.outputBuffer = ''; // Clear buffer after sending
-    }
-
-    // Send current status
-    sendSSE(res, 'status', { status: data.session.status });
-
-    return true;
-  }
-
-  removeSSEClient(id: string, res: Response): void {
-    const data = this.sessions.get(id);
-    if (data) {
-      data.sseClients.delete(res);
-    }
-  }
 
   getPtyPid(sessionId: string): number | null {
     const data = this.sessions.get(sessionId);
@@ -359,15 +323,51 @@ export class SessionManager {
         ptyProcess.write(hookScript);
       }, 500);
     }
+
+    // Watch CWD file for changes and push via WS
+    watchFile(cwdFile, { interval: 1000 }, () => {
+      try {
+        const cwd = readFileSync(cwdFile, 'utf8').trim();
+        if (cwd && cwd !== sessionData.lastCwd) {
+          sessionData.lastCwd = cwd;
+          this.broadcastWs(id, 'cwd', { cwd });
+        }
+      } catch { /* file may not exist yet — ignore */ }
+    });
   }
 
-  private broadcast(id: string, event: string, payload: object): void {
-    const data = this.sessions.get(id);
+  // ==========================================================================
+  // WebSocket Integration (Step 8)
+  // ==========================================================================
+
+  setWsRouter(router: WsRouter): void {
+    this.wsRouter = router;
+  }
+
+  /** Flush buffered output to a specific WS client (called on subscribe) */
+  flushBufferToWs(sessionId: string, ws: WebSocket): void {
+    const data = this.sessions.get(sessionId);
     if (!data) return;
 
-    data.sseClients.forEach(client => {
-      sendSSE(client, event, payload);
-    });
+    if (data.outputBuffer.length > 0) {
+      const msg = JSON.stringify({ type: 'output', sessionId, data: data.outputBuffer });
+      if (ws.readyState === 1) ws.send(msg);
+      data.outputBuffer = '';
+    }
+
+    // Send current status
+    const statusMsg = JSON.stringify({ type: 'status', sessionId, status: data.session.status });
+    if (ws.readyState === 1) ws.send(statusMsg);
+  }
+
+  /** Broadcast to all WS subscribers of a session */
+  broadcastWs(sessionId: string, event: string, payload: object): void {
+    const subscribers = this.wsRouter?.getSubscribers(sessionId);
+    if (!subscribers) return;
+    const msg = JSON.stringify({ type: event, sessionId, ...payload });
+    for (const ws of subscribers) {
+      if (ws.readyState === 1) ws.send(msg);
+    }
   }
 
   private toDTO(session: Session): SessionDTO {

@@ -32,6 +32,7 @@ import {
   createPermissionsPolicyMiddleware,
   createAuthMiddleware
 } from './middleware/index.js';
+import { WsRouter } from './ws/WsRouter.js';
 
 const app = express();
 const PORT = process.env.PORT || config.server.port;
@@ -267,6 +268,12 @@ async function startServer(): Promise<void> {
     const httpsServer = https.createServer(tlsOptions, app);
     httpsServer.keepAliveTimeout = 120000;
     httpsServer.headersTimeout = 125000;
+
+    // Initialize WebSocket Router (Step 8)
+    const wsRouter = new WsRouter(httpsServer, authService, sessionManager);
+    sessionManager.setWsRouter(wsRouter);
+    // Make wsRouter accessible to workspace routes via Express app
+    app.set('wsRouter', wsRouter);
 
     // Start HTTPS server
     httpsServer.listen(PORT, () => {

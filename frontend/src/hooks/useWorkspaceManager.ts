@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { workspaceApi } from '../services/api';
-import { useWorkspaceSSE } from './useWorkspaceSSE';
+import { useWebSocket } from '../contexts/WebSocketContext';
 import type { Workspace, WorkspaceTab, WorkspaceTabRuntime, GridLayout, WorkspaceState } from '../types/workspace';
 
 // ============================================================================
@@ -117,81 +117,97 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   }, []);
 
   // ============================================================================
-  // SSE Event Handlers
+  // WebSocket Event Handlers (Step 8: replaced useWorkspaceSSE)
   // ============================================================================
 
-  useWorkspaceSSE({
-    onConnected: (data) => setClientId(data.clientId),
+  const ws = useWebSocket();
 
-    onWorkspaceCreated: (ws) => setWorkspaces(prev => {
-      if (prev.some(w => w.id === ws.id)) return prev;
-      return [...prev, ws];
-    }),
+  // Use WS clientId instead of SSE clientId
+  useEffect(() => {
+    if (ws.clientId) setClientId(ws.clientId);
+  }, [ws.clientId]);
 
-    onWorkspaceUpdated: ({ id, changes }) => {
-      setWorkspaces(prev => prev.map(w => w.id === id ? { ...w, ...changes } : w));
-    },
+  // Register workspace event handlers via WS
+  useEffect(() => {
+    ws.setWorkspaceHandlers({
+      'workspace:created': (data) => {
+        const wsData = data as Workspace;
+        setWorkspaces(prev => {
+          if (prev.some(w => w.id === wsData.id)) return prev;
+          return [...prev, wsData];
+        });
+      },
 
-    onWorkspaceDeleted: ({ id }) => {
-      setWorkspaces(prev => prev.filter(w => w.id !== id));
-      setTabs(prev => prev.filter(t => t.workspaceId !== id));
-      setGridLayouts(prev => prev.filter(g => g.workspaceId !== id));
-    },
+      'workspace:updated': (data) => {
+        const { id, changes } = data as { id: string; changes: Partial<Workspace> };
+        setWorkspaces(prev => prev.map(w => w.id === id ? { ...w, ...changes } : w));
+      },
 
-    onWorkspaceReordered: ({ workspaceIds }) => {
-      setWorkspaces(prev => {
-        const map = new Map(prev.map(w => [w.id, w]));
-        return workspaceIds.map((id, i) => {
-          const ws = map.get(id);
-          return ws ? { ...ws, sortOrder: i } : ws!;
-        }).filter(Boolean);
-      });
-    },
+      'workspace:deleted': (data) => {
+        const { id } = data as { id: string };
+        setWorkspaces(prev => prev.filter(w => w.id !== id));
+        setTabs(prev => prev.filter(t => t.workspaceId !== id));
+        setGridLayouts(prev => prev.filter(g => g.workspaceId !== id));
+      },
 
-    onTabAdded: (tab) => {
-      const runtime: WorkspaceTabRuntime = { ...tab, status: 'idle', cwd: '' };
-      setTabs(prev => {
-        // Prevent duplicate (API response already added it)
-        if (prev.some(t => t.id === tab.id)) return prev;
-        return [...prev, runtime];
-      });
-    },
+      'workspace:reordered': (data) => {
+        const { workspaceIds } = data as { workspaceIds: string[] };
+        setWorkspaces(prev => {
+          const map = new Map(prev.map(w => [w.id, w]));
+          return workspaceIds.map((id, i) => {
+            const wsItem = map.get(id);
+            return wsItem ? { ...wsItem, sortOrder: i } : wsItem!;
+          }).filter(Boolean);
+        });
+      },
 
-    onTabUpdated: ({ id, changes }) => {
-      setTabs(prev => prev.map(t => t.id === id ? { ...t, ...changes } : t));
-    },
+      'tab:added': (data) => {
+        const tab = data as WorkspaceTab;
+        const runtime: WorkspaceTabRuntime = { ...tab, status: 'idle', cwd: '' };
+        setTabs(prev => {
+          if (prev.some(t => t.id === tab.id)) return prev;
+          return [...prev, runtime];
+        });
+      },
 
-    onTabRemoved: ({ id }) => {
-      setTabs(prev => prev.filter(t => t.id !== id));
-    },
+      'tab:updated': (data) => {
+        const { id, changes } = data as { id: string; changes: Partial<WorkspaceTab> };
+        setTabs(prev => prev.map(t => t.id === id ? { ...t, ...changes } : t));
+      },
 
-    onTabReordered: ({ workspaceId, tabIds }) => {
-      setTabs(prev => prev.map(t => {
-        if (t.workspaceId !== workspaceId) return t;
-        const idx = tabIds.indexOf(t.id);
-        return idx >= 0 ? { ...t, sortOrder: idx } : t;
-      }));
-    },
+      'tab:removed': (data) => {
+        const { id } = data as { id: string };
+        setTabs(prev => prev.filter(t => t.id !== id));
+      },
 
-    onTabDisconnected: ({ id }) => {
-      setTabs(prev => prev.map(t => t.id === id ? { ...t, status: 'disconnected' } : t));
-    },
+      'tab:reordered': (data) => {
+        const { workspaceId, tabIds } = data as { workspaceId: string; tabIds: string[] };
+        setTabs(prev => prev.map(t => {
+          if (t.workspaceId !== workspaceId) return t;
+          const idx = tabIds.indexOf(t.id);
+          return idx >= 0 ? { ...t, sortOrder: idx } : t;
+        }));
+      },
 
-    onGridUpdated: (layout) => {
-      setGridLayouts(prev => {
-        const idx = prev.findIndex(g => g.workspaceId === layout.workspaceId);
-        if (idx >= 0) {
-          const next = [...prev];
-          next[idx] = layout;
-          return next;
-        }
-        return [...prev, layout];
-      });
-    },
+      'tab:disconnected': (data) => {
+        const { id } = data as { id: string };
+        setTabs(prev => prev.map(t => t.id === id ? { ...t, status: 'disconnected' } : t));
+      },
 
-    onDisconnect: () => { /* Phase 8에서 배너 UI 연결 */ },
-    onReconnect: () => { /* reconnect handled by SSE itself, no full refresh to avoid render loop */ },
-  });
+      'grid:updated': (data) => {
+        const layout = data as GridLayout;
+        setGridLayouts(prev => {
+          const idx = prev.findIndex(g => g.workspaceId === layout.workspaceId);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = layout;
+            return next;
+          }
+          return [...prev, layout];
+        });
+      },
+    });
+  }, [ws]);
 
   // ============================================================================
   // Derived State

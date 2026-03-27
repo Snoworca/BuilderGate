@@ -180,7 +180,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         requestAnimationFrame(() => {
           fitAddon.fit();
           onResize(term.cols, term.rows);
-          term.focus();
+          // term.focus() removed — focus only on user click (handleClick) to prevent
+          // focus stealing when multiple terminals are mounted in grid mode (R7)
 
           // Set terminal background as CSS variable from theme config
           const bg = term.options.theme?.background || '#1e1e1e';

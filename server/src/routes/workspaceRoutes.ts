@@ -1,66 +1,29 @@
 import { Router, Request, Response } from 'express';
-import { v4 as uuidv4 } from 'uuid';
-import { initSSE, sendSSE } from '../utils/sse.js';
 import { AppError } from '../utils/errors.js';
 import type { WorkspaceService } from '../services/WorkspaceService.js';
+import type { WsRouter } from '../ws/WsRouter.js';
 import type { ShellType } from '../types/index.js';
-
-// SSE client tracking
-interface SSEClient {
-  id: string;
-  res: Response;
-}
 
 export function createWorkspaceRoutes(workspaceService: WorkspaceService): Router {
   const router = Router();
-  const sseClients: Set<SSEClient> = new Set();
 
-  // ============================================================================
-  // SSE Broadcast Helper
-  // ============================================================================
-
-  function broadcast(event: string, data: object, excludeClientId?: string): void {
-    for (const client of sseClients) {
-      if (client.id !== excludeClientId) {
-        try {
-          sendSSE(client.res, event, data);
-        } catch {
-          sseClients.delete(client);
-        }
-      }
-    }
+  // Helper to get WsRouter from Express app
+  function getWsRouter(req: Request): WsRouter | undefined {
+    return req.app.get('wsRouter') as WsRouter | undefined;
   }
 
   // ============================================================================
-  // Workspace SSE Endpoint — GET /api/workspaces/stream
-  // Must be registered BEFORE /:id routes
+  // Broadcast Helper (WS only — SSE removed in Step 8)
   // ============================================================================
 
-  router.get('/stream', (req: Request, res: Response) => {
-    initSSE(res);
+  function broadcast(event: string, data: object, excludeClientId?: string, req?: Request): void {
+    if (req) {
+      const wsRouter = getWsRouter(req);
+      wsRouter?.broadcastAll(event, data, excludeClientId);
+    }
+  }
 
-    const clientId = uuidv4();
-    const client: SSEClient = { id: clientId, res };
-    sseClients.add(client);
-
-    // Send client ID so frontend can pass it in API calls
-    sendSSE(res, 'connected', { clientId });
-
-    // Heartbeat every 30 seconds
-    const heartbeat = setInterval(() => {
-      try {
-        res.write(`: heartbeat\n\n`);
-      } catch {
-        clearInterval(heartbeat);
-        sseClients.delete(client);
-      }
-    }, 30000);
-
-    req.on('close', () => {
-      clearInterval(heartbeat);
-      sseClients.delete(client);
-    });
-  });
+  // NOTE: GET /stream SSE endpoint removed — now handled via WebSocket (Step 8)
 
   // ============================================================================
   // Workspace CRUD — PUT /order must be before /:id
@@ -82,7 +45,7 @@ export function createWorkspaceRoutes(workspaceService: WorkspaceService): Route
       const { workspaceIds } = req.body;
       await workspaceService.reorderWorkspaces(workspaceIds);
       const clientId = req.headers['x-client-id'] as string | undefined;
-      broadcast('workspace:reordered', { workspaceIds }, clientId);
+      broadcast('workspace:reordered', { workspaceIds }, clientId, req);
       res.json({ success: true });
     } catch (error) {
       handleError(res, error);
@@ -95,7 +58,7 @@ export function createWorkspaceRoutes(workspaceService: WorkspaceService): Route
       const { name } = req.body;
       const workspace = await workspaceService.createWorkspace(name);
       const clientId = req.headers['x-client-id'] as string | undefined;
-      broadcast('workspace:created', workspace, clientId);
+      broadcast('workspace:created', workspace, clientId, req);
       res.status(201).json(workspace);
     } catch (error) {
       handleError(res, error);
@@ -107,7 +70,7 @@ export function createWorkspaceRoutes(workspaceService: WorkspaceService): Route
     try {
       const workspace = await workspaceService.updateWorkspace(req.params.id, req.body);
       const clientId = req.headers['x-client-id'] as string | undefined;
-      broadcast('workspace:updated', { id: workspace.id, changes: req.body }, clientId);
+      broadcast('workspace:updated', { id: workspace.id, changes: req.body }, clientId, req);
       res.json(workspace);
     } catch (error) {
       handleError(res, error);
@@ -118,9 +81,9 @@ export function createWorkspaceRoutes(workspaceService: WorkspaceService): Route
   router.delete('/:id', async (req: Request, res: Response) => {
     try {
       const clientId = req.headers['x-client-id'] as string | undefined;
-      broadcast('workspace:deleting', { id: req.params.id }, clientId);
+      broadcast('workspace:deleting', { id: req.params.id }, clientId, req);
       await workspaceService.deleteWorkspace(req.params.id);
-      broadcast('workspace:deleted', { id: req.params.id }, clientId);
+      broadcast('workspace:deleted', { id: req.params.id }, clientId, req);
       res.json({ success: true });
     } catch (error) {
       handleError(res, error);
@@ -137,7 +100,7 @@ export function createWorkspaceRoutes(workspaceService: WorkspaceService): Route
       const { shell, name } = req.body;
       const tab = await workspaceService.addTab(req.params.id, shell as ShellType | undefined, name);
       const clientId = req.headers['x-client-id'] as string | undefined;
-      broadcast('tab:added', tab, clientId);
+      broadcast('tab:added', tab, clientId, req);
       res.status(201).json(tab);
     } catch (error) {
       handleError(res, error);
@@ -150,7 +113,7 @@ export function createWorkspaceRoutes(workspaceService: WorkspaceService): Route
       const { tabIds } = req.body;
       await workspaceService.reorderTabs(req.params.id, tabIds);
       const clientId = req.headers['x-client-id'] as string | undefined;
-      broadcast('tab:reordered', { workspaceId: req.params.id, tabIds }, clientId);
+      broadcast('tab:reordered', { workspaceId: req.params.id, tabIds }, clientId, req);
       res.json({ success: true });
     } catch (error) {
       handleError(res, error);
@@ -162,7 +125,7 @@ export function createWorkspaceRoutes(workspaceService: WorkspaceService): Route
     try {
       const tab = await workspaceService.updateTab(req.params.tid, req.body);
       const clientId = req.headers['x-client-id'] as string | undefined;
-      broadcast('tab:updated', { id: tab.id, workspaceId: tab.workspaceId, changes: req.body }, clientId);
+      broadcast('tab:updated', { id: tab.id, workspaceId: tab.workspaceId, changes: req.body }, clientId, req);
       res.json(tab);
     } catch (error) {
       handleError(res, error);
@@ -174,7 +137,7 @@ export function createWorkspaceRoutes(workspaceService: WorkspaceService): Route
     try {
       await workspaceService.deleteTab(req.params.wid, req.params.tid);
       const clientId = req.headers['x-client-id'] as string | undefined;
-      broadcast('tab:removed', { id: req.params.tid, workspaceId: req.params.wid }, clientId);
+      broadcast('tab:removed', { id: req.params.tid, workspaceId: req.params.wid }, clientId, req);
       res.json({ success: true });
     } catch (error) {
       handleError(res, error);
@@ -186,7 +149,7 @@ export function createWorkspaceRoutes(workspaceService: WorkspaceService): Route
     try {
       const tab = await workspaceService.restartTab(req.params.wid, req.params.tid);
       const clientId = req.headers['x-client-id'] as string | undefined;
-      broadcast('tab:updated', { id: tab.id, workspaceId: tab.workspaceId, changes: { sessionId: tab.sessionId } }, clientId);
+      broadcast('tab:updated', { id: tab.id, workspaceId: tab.workspaceId, changes: { sessionId: tab.sessionId } }, clientId, req);
       res.json(tab);
     } catch (error) {
       handleError(res, error);
@@ -203,7 +166,7 @@ export function createWorkspaceRoutes(workspaceService: WorkspaceService): Route
       const { columns, rows, tabOrder, cellSizes } = req.body;
       const layout = await workspaceService.updateGridLayout(req.params.id, { columns, rows, tabOrder, cellSizes });
       const clientId = req.headers['x-client-id'] as string | undefined;
-      broadcast('grid:updated', layout, clientId);
+      broadcast('grid:updated', layout, clientId, req);
       res.json(layout);
     } catch (error) {
       handleError(res, error);

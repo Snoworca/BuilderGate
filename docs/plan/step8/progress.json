@@ -1,0 +1,8 @@
+[
+  {"step": "spec-analysis", "status": "completed", "completed_at": "2026-03-27"},
+  {"step": "architecture", "status": "completed", "completed_at": "2026-03-27"},
+  {"step": "phase-generation", "status": "completed", "phases_count": 5, "completed_at": "2026-03-27"},
+  {"step": "evaluation", "status": "pending"},
+  {"step": "spec-verification", "status": "pending"},
+  {"step": "plan-generation-complete", "status": "pending"}
+]

@@ -20,6 +20,7 @@ import { MetadataRow } from './components/MetadataBar/MetadataRow';
 import { TAB_COLORS } from './types/workspace';
 import type { WorkspaceTabRuntime } from './types/workspace';
 import type { SessionStatus } from './types';
+import { WebSocketProvider } from './contexts/WebSocketContext';
 import './styles/globals.css';
 import './components/Workspace/breathing.css';
 
@@ -304,7 +305,9 @@ function AppContent() {
 function App() {
   return (
     <AuthGuard>
-      <AppContent />
+      <WebSocketProvider>
+        <AppContent />
+      </WebSocketProvider>
     </AuthGuard>
   );
 }

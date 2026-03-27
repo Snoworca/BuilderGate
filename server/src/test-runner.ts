@@ -405,7 +405,7 @@ async function testSessionManagerRuntimeConfig(): Promise<void> {
   const sessionData = {
     session: fakeSession,
     pty: {} as never,
-    sseClients: new Set(),
+
     idleTimer: null as NodeJS.Timeout | null,
     outputBuffer: 'abcdefgh',
     initialCwd: process.cwd(),

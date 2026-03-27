@@ -20,6 +20,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,  // Accept self-signed certificates
       },
+      '/ws': {
+        target: 'https://localhost:4242',
+        changeOrigin: true,
+        secure: false,
+        ws: true,  // WebSocket proxy
+      },
     },
   },
 });

@@ -23,6 +23,13 @@ import type {
 
 const API_BASE = '/api';
 
+// WebSocket client ID for x-client-id header (set by WebSocketContext)
+let _wsClientId: string | null = null;
+
+export function setWsClientId(id: string | null): void {
+  _wsClientId = id;
+}
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -40,11 +47,14 @@ async function parseError(res: Response): Promise<Error> {
 }
 
 /**
- * Get authorization headers with token
+ * Get authorization headers with token (+ x-client-id for WS self-exclusion)
  */
 function getAuthHeaders(): HeadersInit {
   const token = tokenStorage.getToken();
-  return token ? { 'Authorization': `Bearer ${token}` } : {};
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (_wsClientId) headers['x-client-id'] = _wsClientId;
+  return headers;
 }
 
 /**
@@ -165,29 +175,7 @@ export const sessionApi = {
     if (!res.ok) throw new Error('Failed to delete session');
   },
 
-  // Fire-and-forget for low latency input
-  sendInput: (id: string, data: string): void => {
-    authFetch(`${API_BASE}/sessions/${id}/input`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders()
-      },
-      body: JSON.stringify({ data }),
-    }).catch(err => console.error('Input error:', err));
-  },
-
-  resize: async (id: string, cols: number, rows: number): Promise<void> => {
-    const res = await authFetch(`${API_BASE}/sessions/${id}/resize`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders()
-      },
-      body: JSON.stringify({ cols, rows }),
-    });
-    if (!res.ok) throw new Error('Failed to resize terminal');
-  },
+  // NOTE: sendInput and resize removed — now handled via WebSocket (Step 8)
 
   patchSession: async (id: string, updates: UpdateSessionRequest): Promise<Session> => {
     const res = await authFetch(`${API_BASE}/sessions/${id}`, {
@@ -214,9 +202,7 @@ export const sessionApi = {
     if (!res.ok) throw await parseError(res);
   },
 
-  getStreamUrl: (id: string): string => {
-    return `${API_BASE}/sessions/${id}/stream`;
-  },
+  // NOTE: getStreamUrl removed — SSE replaced by WebSocket (Step 8)
 };
 
 // ============================================================================
@@ -393,7 +379,7 @@ export const workspaceApi = {
     return res.json();
   },
 
-  getStreamUrl: (): string => `${API_BASE}/workspaces/stream`,
+  // NOTE: getStreamUrl removed — SSE replaced by WebSocket (Step 8)
 };
 
 export const settingsApi = {
