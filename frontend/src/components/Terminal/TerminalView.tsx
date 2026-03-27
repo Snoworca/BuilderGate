@@ -198,6 +198,13 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         onInput(data);
       });
 
+      // Track terminal focus via DOM events (xterm v5 has no onFocus/onBlur API)
+      const termEl = terminalRef.current!;
+      const onFocusIn = () => containerRef.current?.classList.add('terminal-focused');
+      const onFocusOut = () => containerRef.current?.classList.remove('terminal-focused');
+      termEl.addEventListener('focusin', onFocusIn);
+      termEl.addEventListener('focusout', onFocusOut);
+
       // window.resize listener removed — ResizeObserver covers all size changes
 
       let rafId: number | null = null;
@@ -225,6 +232,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         if (resizeTimer !== null) clearTimeout(resizeTimer);
         if (userActiveTimerRef.current) clearTimeout(userActiveTimerRef.current);
         if (outputTimerRef.current) clearTimeout(outputTimerRef.current);
+        termEl.removeEventListener('focusin', onFocusIn);
+        termEl.removeEventListener('focusout', onFocusOut);
         resizeObserver.disconnect();
         term.dispose();
       };

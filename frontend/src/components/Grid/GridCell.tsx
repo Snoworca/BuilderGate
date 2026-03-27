@@ -16,7 +16,7 @@ export function GridCell({ tab, color, onRestart, children }: Props) {
 
   return (
     <div
-      className={isRunning ? 'terminal-running' : ''}
+      className={`grid-cell${isRunning ? ' terminal-running' : ''}`}
       style={{
         position: 'relative',
         display: 'flex',

@@ -1,18 +1,95 @@
-/* Base: invisible outline ready for transition */
-.terminal-running .terminal-view {
-  outline: 2px solid transparent;
-  outline-offset: -2px;
-  transition: outline-color 2s ease-in; /* fade out: starts fast, slows down */
+/* ==========================================================================
+   Terminal border states — uses ::after pseudo-element overlay
+   (never clipped by parents, never hidden by child content)
+   Priority (low → high):
+   1. Default:        #444 border on .terminal-view
+   2. Focused:        white border overlay on .grid-cell
+   3. Output active:  tab-colored border overlay (overrides white)
+   4. User typing:    suppress activity color, revert to white/none
+   ========================================================================== */
+
+/* --- Base: prepare ::after overlay on every grid cell --- */
+
+.grid-cell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  border: 2px solid transparent;
+  transition: border-color 1s ease-in;
 }
 
-/* Running + output active: fade in colored outline */
-.terminal-running .terminal-view.output-active {
-  outline-color: var(--tab-color, #22c55e);
-  transition: outline-color 2s ease-out; /* fade in: starts fast, slows down */
+/* --- Activity: colored border when output is active --- */
+
+.grid-cell.terminal-running:has(.terminal-view.output-active)::after {
+  border-color: var(--tab-color, #22c55e);
+  transition: border-color 2s ease-out;
 }
 
-/* Suppress indicator when user is actively typing */
-.terminal-running .terminal-view.user-active {
-  outline-color: transparent;
-  transition: outline-color 0.3s ease;
+/* --- Suppress activity when user is typing --- */
+
+.grid-cell.terminal-running:has(.terminal-view.user-active)::after {
+  border-color: transparent;
+  transition: border-color 0.3s ease;
+}
+
+/* --- Focused: white border --- */
+
+.grid-cell:has(.terminal-view.terminal-focused)::after {
+  border-color: #ffffff;
+  border-width: 1px;
+  transition: border-color 0.15s ease;
+}
+
+/* Hide terminal-view's own border when focused (parent cell handles it) */
+.grid-cell .terminal-view.terminal-focused {
+  border-color: transparent !important;
+}
+
+/* --- Output active overrides focused white (activity > focus) --- */
+
+.grid-cell.terminal-running:has(.terminal-view.terminal-focused.output-active)::after {
+  border-color: var(--tab-color, #22c55e);
+  border-width: 2px;
+  transition: border-color 0.3s ease;
+}
+
+/* --- User typing suppresses activity, reverts to white --- */
+
+.grid-cell:has(.terminal-view.terminal-focused.user-active)::after {
+  border-color: #ffffff;
+  border-width: 1px;
+  transition: border-color 0.3s ease;
+}
+
+/* --- Tab mode fallback (no .grid-cell wrapper) --- */
+
+.terminal-running:not(.grid-cell) .terminal-view {
+  transition: box-shadow 1s ease-in;
+}
+
+.terminal-running:not(.grid-cell) .terminal-view.output-active {
+  box-shadow: inset 0 0 0 2px var(--tab-color, #22c55e);
+  transition: box-shadow 2s ease-out;
+}
+
+.terminal-running:not(.grid-cell) .terminal-view.user-active {
+  box-shadow: none;
+  transition: box-shadow 0.3s ease;
+}
+
+.terminal-running:not(.grid-cell) .terminal-view.terminal-focused {
+  border-color: #ffffff !important;
+  box-shadow: none;
+  transition: border-color 0.15s ease !important;
+}
+
+.terminal-running:not(.grid-cell) .terminal-view.terminal-focused.output-active {
+  box-shadow: inset 0 0 0 2px var(--tab-color, #22c55e) !important;
+  transition: box-shadow 0.3s ease !important;
+}
+
+.terminal-running:not(.grid-cell) .terminal-view.terminal-focused.user-active {
+  box-shadow: none !important;
 }
