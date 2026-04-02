@@ -12,7 +12,7 @@ interface MosaicTileProps {
   tab: WorkspaceTabRuntime | undefined;
   layoutMode: LayoutMode;
   onContextMenu: (x: number, y: number, tabId: string) => void;
-  onLayoutModeChange: (mode: LayoutMode) => void;
+  onLayoutModeChange: (mode: LayoutMode, focusTabId?: string) => void;
   onRestart: () => void;
   onAdd: () => void;
   /** Called when the user presses down on this tile (focus tracking) */
@@ -92,8 +92,17 @@ export function MosaicTile({
         overflow: 'hidden',
       }}
     >
-      {/* Toolbar overlay */}
-      <MosaicToolbar layoutMode={layoutMode} onLayoutModeChange={onLayoutModeChange} />
+      {/* Toolbar overlay — focus mode passes this tile's tabId */}
+      <MosaicToolbar
+        layoutMode={layoutMode}
+        onLayoutModeChange={(mode) => {
+          if (mode === 'focus') {
+            onLayoutModeChange('focus', tabId);
+          } else {
+            onLayoutModeChange(mode);
+          }
+        }}
+      />
 
       {/* Terminal content */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
