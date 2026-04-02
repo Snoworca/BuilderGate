@@ -1,8 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { MosaicToolbar } from './MosaicToolbar';
 import { EmptyCell } from './EmptyCell';
 import { DisconnectedOverlay } from '../Workspace/DisconnectedOverlay';
 import { MetadataRow } from '../MetadataBar/MetadataRow';
+import { useLongPress } from '../../hooks/useLongPress';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import type { LayoutMode } from '../../hooks/useMosaicLayout';
 
@@ -14,6 +15,10 @@ interface MosaicTileProps {
   onLayoutModeChange: (mode: LayoutMode) => void;
   onRestart: () => void;
   onAdd: () => void;
+  /** Called when the user presses down on this tile (focus tracking) */
+  onFocus?: () => void;
+  /** Receives the tile root DOM element for external focus management */
+  onRegisterRef?: (el: HTMLElement | null) => void;
   children: React.ReactNode;
 }
 
@@ -25,8 +30,21 @@ export function MosaicTile({
   onLayoutModeChange,
   onRestart,
   onAdd,
+  onFocus,
+  onRegisterRef,
   children,
 }: MosaicTileProps) {
+  const tileRef = useRef<HTMLDivElement>(null);
+
+  // Register DOM element with parent on first render
+  const setTileRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      (tileRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+      onRegisterRef?.(el);
+    },
+    [onRegisterRef],
+  );
+
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -34,6 +52,21 @@ export function MosaicTile({
     },
     [tabId, onContextMenu],
   );
+
+  // Long-press opens context menu on touch devices
+  const longPress = useLongPress(
+    useCallback(
+      ({ clientX, clientY }) => {
+        onContextMenu(clientX, clientY, tabId);
+      },
+      [tabId, onContextMenu],
+    ),
+    500,
+  );
+
+  const handlePointerDown = useCallback(() => {
+    onFocus?.();
+  }, [onFocus]);
 
   if (!tab) {
     return <EmptyCell onAdd={onAdd} />;
@@ -43,7 +76,12 @@ export function MosaicTile({
 
   return (
     <div
+      ref={setTileRef}
       onContextMenu={handleContextMenu}
+      onPointerDown={handlePointerDown}
+      onTouchStart={longPress.onTouchStart}
+      onTouchMove={longPress.onTouchMove}
+      onTouchEnd={longPress.onTouchEnd}
       style={{
         position: 'relative',
         display: 'flex',

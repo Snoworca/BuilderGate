@@ -32,6 +32,9 @@ export interface TerminalHandle {
   write: (data: string) => void;
   clear: () => void;
   focus: () => void;
+  hasSelection: () => boolean;
+  getSelection: () => string;
+  clearSelection: () => void;
 }
 
 interface Props {
@@ -87,10 +90,20 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       focus: () => {
         xtermRef.current?.focus();
       },
+      hasSelection: () => xtermRef.current?.hasSelection() ?? false,
+      getSelection: () => xtermRef.current?.getSelection() ?? '',
+      clearSelection: () => xtermRef.current?.clearSelection(),
     }));
 
     useEffect(() => {
       if (!terminalRef.current) return;
+
+      // Guard: clear any leftover DOM from previous instance (React StrictMode
+      // double-mount can leave orphan elements if dispose() is async)
+      const container = terminalRef.current;
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
 
       const initialFontSize = getInitialFontSize();
 
