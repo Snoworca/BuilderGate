@@ -1,0 +1,7 @@
+[
+  {"step": "spec-analysis", "status": "completed", "completed_at": "2026-04-03"},
+  {"step": "code-analysis", "status": "completed", "completed_at": "2026-04-03"},
+  {"step": "architecture", "status": "completed", "completed_at": "2026-04-03"},
+  {"step": "phase-generation", "status": "completed", "phases_count": 5, "completed_at": "2026-04-03"},
+  {"step": "plan-generation-complete", "status": "completed", "completed_at": "2026-04-03"}
+]
