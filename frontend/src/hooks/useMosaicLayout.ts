@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { MosaicNode } from '../types/workspace';
-import { isValidMosaicTree } from '../utils/mosaic';
+import { buildEqualMosaicTree, isValidMosaicTree, restoreLayoutWithSessionRecovery } from '../utils/mosaic';
 
 export type LayoutMode = 'equal' | 'focus' | 'auto';
 
@@ -58,10 +58,15 @@ export interface UseMosaicLayoutReturn {
   setFocusTarget: (target: string | null) => void;
 }
 
-export function useMosaicLayout(workspaceId: string): UseMosaicLayoutReturn {
+export function useMosaicLayout(workspaceId: string, currentTabIds?: string[]): UseMosaicLayoutReturn {
   const [mosaicTree, setMosaicTree] = useState<MosaicNode<string> | null>(() => {
     const persisted = loadLayout(workspaceId);
-    return persisted?.tree ?? null;
+    if (!persisted?.tree) return null;
+    if (currentTabIds && currentTabIds.length > 0) {
+      const { tree } = restoreLayoutWithSessionRecovery(persisted.tree, currentTabIds);
+      return tree;
+    }
+    return persisted.tree;
   });
   const [layoutMode, setLayoutMode] = useState<LayoutMode>(() => {
     const persisted = loadLayout(workspaceId);
@@ -85,10 +90,25 @@ export function useMosaicLayout(workspaceId: string): UseMosaicLayoutReturn {
   // Re-load when workspaceId changes
   useEffect(() => {
     const persisted = loadLayout(workspaceId);
-    setMosaicTree(persisted?.tree ?? null);
-    setLayoutMode(persisted?.mode ?? 'equal');
-    setFocusTarget(persisted?.focusTarget ?? null);
-  }, [workspaceId]);
+    if (persisted?.tree) {
+      if (currentTabIds && currentTabIds.length > 0) {
+        const { tree } = restoreLayoutWithSessionRecovery(persisted.tree, currentTabIds);
+        setMosaicTree(tree);
+      } else {
+        setMosaicTree(persisted.tree);
+      }
+      setLayoutMode(persisted.mode ?? 'equal');
+      setFocusTarget(persisted.focusTarget ?? null);
+    } else if (currentTabIds && currentTabIds.length > 0) {
+      setMosaicTree(buildEqualMosaicTree(currentTabIds));
+      setLayoutMode('equal');
+      setFocusTarget(null);
+    } else {
+      setMosaicTree(null);
+      setLayoutMode('equal');
+      setFocusTarget(null);
+    }
+  }, [workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const debouncedSave = useCallback(() => {
     if (debounceTimerRef.current) {

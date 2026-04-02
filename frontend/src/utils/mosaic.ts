@@ -198,6 +198,47 @@ export function applyMultiFocusApprox(
 }
 
 // ============================================================================
+// Restore layout with session recovery
+// ============================================================================
+
+export function restoreLayoutWithSessionRecovery(
+  persistedTree: MosaicNode<string>,
+  currentTabIds: string[],
+): { tree: MosaicNode<string>; missingIds: string[] } {
+  const persistedIds = extractLeafIds(persistedTree);
+  const currentSet = new Set(currentTabIds);
+  const validIds = persistedIds.filter(id => currentSet.has(id));
+  const missingIds = persistedIds.filter(id => !currentSet.has(id));
+
+  if (validIds.length === 0) {
+    // 전부 소멸 → 균등 폴백
+    return { tree: buildEqualMosaicTree(currentTabIds), missingIds };
+  }
+
+  if (missingIds.length === 0) {
+    // 모든 세션 존재 → 그대로 복원
+    return { tree: persistedTree, missingIds: [] };
+  }
+
+  // 부분 소멸: 소멸된 leaf를 currentTabIds에서 아직 미배치된 ID로 교체
+  // 미배치 ID = currentTabIds 중 persistedIds에 없는 것
+  const persistedSet = new Set(persistedIds);
+  const unassigned = currentTabIds.filter(id => !persistedSet.has(id));
+  let tree: MosaicNode<string> = persistedTree;
+
+  for (let i = 0; i < missingIds.length; i++) {
+    if (i < unassigned.length) {
+      tree = replaceLeafId(tree, missingIds[i], unassigned[i]);
+    } else {
+      // 교체할 ID가 없으면 leaf 제거
+      tree = removeFromMosaicTree(tree, missingIds[i]) ?? buildEqualMosaicTree(currentTabIds);
+    }
+  }
+
+  return { tree, missingIds };
+}
+
+// ============================================================================
 // Clamp split percentages to min value
 // ============================================================================
 

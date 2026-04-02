@@ -37,8 +37,9 @@ export function MosaicContainer({
   onRestartTab,
   renderTerminal,
 }: MosaicContainerProps) {
+  const currentTabIds = tabs.map(t => t.id);
   const { mosaicTree, setMosaicTree, debouncedSave, layoutMode: persistedMode, focusTarget: persistedFocusTarget } =
-    useMosaicLayout(workspaceId);
+    useMosaicLayout(workspaceId, currentTabIds);
 
   const { mode: layoutMode, focusTarget, setMode } = useLayoutMode(
     persistedMode,
