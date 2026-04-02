@@ -27,13 +27,17 @@ export interface WorkspaceTabRuntime extends WorkspaceTab {
 
 export interface GridLayout {
   workspaceId: string;
-  columns: number;
-  rows: number;
-  tabOrder: string[];
-  cellSizes: {
-    colWidths: number[];
-    rowHeights: number[];
-  } | null;
+  mosaicTree: MosaicNode<string> | null;
+}
+
+// React Mosaic v6 tree types (re-exported for convenience)
+export type MosaicNode<T> = MosaicParent<T> | T;
+
+export interface MosaicParent<T> {
+  direction: 'row' | 'column';
+  first: MosaicNode<T>;
+  second: MosaicNode<T>;
+  splitPercentage?: number;
 }
 
 export interface WorkspaceState {

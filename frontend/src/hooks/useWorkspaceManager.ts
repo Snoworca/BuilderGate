@@ -47,7 +47,7 @@ export interface UseWorkspaceManagerReturn {
   reorderWorkspaces: (workspaceIds: string[]) => Promise<void>;
 
   // Tab CRUD
-  addTab: (workspaceId: string, shell?: string, name?: string) => Promise<void>;
+  addTab: (workspaceId: string, shell?: string, name?: string, cwd?: string) => Promise<void>;
   updateTab: (workspaceId: string, tabId: string, updates: { name?: string }) => Promise<void>;
   closeTab: (workspaceId: string, tabId: string) => Promise<void>;
   reorderTabs: (workspaceId: string, tabIds: string[]) => Promise<void>;
@@ -293,9 +293,9 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   // Tab Actions (FR-7205: close tab transition policy)
   // ============================================================================
 
-  const addTab = useCallback(async (workspaceId: string, shell?: string, name?: string) => {
+  const addTab = useCallback(async (workspaceId: string, shell?: string, name?: string, cwd?: string) => {
     try {
-      const tab = await workspaceApi.addTab(workspaceId, shell, name);
+      const tab = await workspaceApi.addTab(workspaceId, shell, name, cwd);
       // Don't add locally — SSE onTabAdded will handle it to avoid duplicates.
       // Only update activeTabId which SSE doesn't cover.
       setWorkspaces(prev => prev.map(w =>

@@ -97,8 +97,8 @@ export function createWorkspaceRoutes(workspaceService: WorkspaceService): Route
   // POST /api/workspaces/:id/tabs — Add tab
   router.post('/:id/tabs', async (req: Request, res: Response) => {
     try {
-      const { shell, name } = req.body;
-      const tab = await workspaceService.addTab(req.params.id, shell as ShellType | undefined, name);
+      const { shell, name, cwd } = req.body;
+      const tab = await workspaceService.addTab(req.params.id, shell as ShellType | undefined, name, cwd);
       const clientId = req.headers['x-client-id'] as string | undefined;
       broadcast('tab:added', tab, clientId, req);
       res.status(201).json(tab);
@@ -163,8 +163,8 @@ export function createWorkspaceRoutes(workspaceService: WorkspaceService): Route
   // PUT /api/workspaces/:id/grid — Update grid layout
   router.put('/:id/grid', async (req: Request, res: Response) => {
     try {
-      const { columns, rows, tabOrder, cellSizes } = req.body;
-      const layout = await workspaceService.updateGridLayout(req.params.id, { columns, rows, tabOrder, cellSizes });
+      const { mosaicTree } = req.body;
+      const layout = await workspaceService.updateGridLayout(req.params.id, { mosaicTree: mosaicTree ?? null });
       const clientId = req.headers['x-client-id'] as string | undefined;
       broadcast('grid:updated', layout, clientId, req);
       res.json(layout);

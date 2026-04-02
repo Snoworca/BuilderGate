@@ -71,6 +71,9 @@ export class WorkspaceService {
       }
     }
 
+    // Migrate legacy GridLayout (columns/rows/cellSizes → mosaicTree)
+    this.migrateGridLayouts();
+
     // Ensure at least one workspace exists
     if (this.state.workspaces.length === 0) {
       this.state = this.createDefaultState();
@@ -187,7 +190,7 @@ export class WorkspaceService {
   // Tab CRUD
   // ============================================================================
 
-  async addTab(workspaceId: string, shell?: ShellType, name?: string): Promise<WorkspaceTab> {
+  async addTab(workspaceId: string, shell?: ShellType, name?: string, cwd?: string): Promise<WorkspaceTab> {
     const ws = this.getWorkspace(workspaceId);
     const wsTabs = this.getWorkspaceTabs(workspaceId);
 
@@ -203,7 +206,8 @@ export class WorkspaceService {
     const shellType = shell || 'auto';
     const sessionDTO = this.sessionManager.createSession(
       name || `Terminal-${wsTabs.length + 1}`,
-      shellType
+      shellType,
+      cwd
     );
 
     const colorIndex = ws.colorCounter % 8;
@@ -315,6 +319,22 @@ export class WorkspaceService {
   // ============================================================================
   // Internal
   // ============================================================================
+
+  private migrateGridLayouts(): void {
+    let migrated = false;
+    this.state.gridLayouts = this.state.gridLayouts.map((g: any) => {
+      if ('mosaicTree' in g) return g; // already new format
+      if ('tabOrder' in g && Array.isArray(g.tabOrder) && g.tabOrder.length > 0) {
+        migrated = true;
+        return { workspaceId: g.workspaceId, mosaicTree: null }; // will rebuild on client
+      }
+      return { workspaceId: g.workspaceId, mosaicTree: null };
+    });
+    if (migrated) {
+      console.log('[WorkspaceService] Migrated legacy GridLayout to mosaicTree format');
+      this.save(true);
+    }
+  }
 
   private createDefaultState(): WorkspaceState {
     const now = new Date().toISOString();

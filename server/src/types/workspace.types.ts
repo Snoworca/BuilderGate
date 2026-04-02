@@ -28,13 +28,7 @@ export interface WorkspaceTab {
 
 export interface GridLayout {
   workspaceId: string;
-  columns: number;
-  rows: number;
-  tabOrder: string[];
-  cellSizes: {
-    colWidths: number[];
-    rowHeights: number[];
-  } | null;
+  mosaicTree: any | null; // MosaicNode<string> — 서버는 타입을 직접 의존하지 않음
 }
 
 export interface WorkspaceState {

@@ -1,7 +1,8 @@
-import { useMemo, useRef, useCallback } from 'react';
+import { useMemo, useRef } from 'react';
 import { GridCell } from './GridCell';
 import { EmptyCell } from './EmptyCell';
 import { TAB_COLORS } from '../../types/workspace';
+import { extractLeafIds } from '../../utils/mosaic';
 import type { WorkspaceTabRuntime, GridLayout } from '../../types/workspace';
 
 interface Props {
@@ -12,49 +13,38 @@ interface Props {
   renderTerminal: (tab: WorkspaceTabRuntime) => React.ReactNode;
 }
 
+// Legacy GridContainer — will be replaced by MosaicContainer in Phase 2
 export function GridContainer({ tabs, gridLayout, onAddTab, onRestartTab, renderTerminal }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const count = tabs.length;
 
-  // Auto grid calculation: cols = ceil(sqrt(n)), rows = ceil(n/cols)
   const { cols, rows } = useMemo(() => {
     if (count === 0) return { cols: 1, rows: 1 };
-    let c = Math.ceil(Math.sqrt(count));
-    let r = Math.ceil(count / c);
-    // Portrait detection: swap if container is taller than wide
-    // (simplified — assume landscape for SSR, resize handled by CSS)
+    const c = Math.ceil(Math.sqrt(count));
+    const r = Math.ceil(count / c);
     return { cols: c, rows: r };
   }, [count]);
 
   const totalCells = cols * rows;
 
-  // Order tabs by gridLayout.tabOrder or sortOrder
+  // Order tabs by mosaicTree leaf order or sortOrder
   const orderedTabs = useMemo(() => {
-    if (gridLayout?.tabOrder && gridLayout.tabOrder.length > 0) {
+    if (gridLayout?.mosaicTree) {
+      const leafIds = extractLeafIds(gridLayout.mosaicTree);
       const map = new Map(tabs.map(t => [t.id, t]));
-      return gridLayout.tabOrder.map(id => map.get(id)).filter(Boolean) as WorkspaceTabRuntime[];
+      return leafIds.map(id => map.get(id)).filter(Boolean) as WorkspaceTabRuntime[];
     }
     return [...tabs].sort((a, b) => a.sortOrder - b.sortOrder);
   }, [tabs, gridLayout]);
-
-  // Grid template
-  const colWidths = gridLayout?.cellSizes?.colWidths;
-  const rowHeights = gridLayout?.cellSizes?.rowHeights;
-  const gridTemplateColumns = colWidths
-    ? colWidths.map(w => `${(w * 100).toFixed(2)}%`).join(' ')
-    : `repeat(${cols}, 1fr)`;
-  const gridTemplateRows = rowHeights
-    ? rowHeights.map(h => `${(h * 100).toFixed(2)}%`).join(' ')
-    : `repeat(${rows}, 1fr)`;
 
   return (
     <div
       ref={containerRef}
       style={{
         display: 'grid',
-        gridTemplateColumns,
-        gridTemplateRows,
+        gridTemplateColumns: `repeat(${cols}, 1fr)`,
+        gridTemplateRows: `repeat(${rows}, 1fr)`,
         width: '100%',
         height: '100%',
         gap: 0,

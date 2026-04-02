@@ -323,11 +323,11 @@ export const workspaceApi = {
     if (!res.ok) throw await parseError(res);
   },
 
-  addTab: async (workspaceId: string, shell?: string, name?: string): Promise<any> => {
+  addTab: async (workspaceId: string, shell?: string, name?: string, cwd?: string): Promise<any> => {
     const res = await authFetch(`${API_BASE}/workspaces/${workspaceId}/tabs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify({ shell, name }),
+      body: JSON.stringify({ shell, name, cwd }),
     });
     if (!res.ok) throw await parseError(res);
     return res.json();
