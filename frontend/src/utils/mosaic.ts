@@ -115,6 +115,89 @@ export function applyEqualMode(tree: MosaicNode<string>): MosaicNode<string> {
 }
 
 // ============================================================================
+// Apply focus mode: keep existing tree structure, adjust ancestor splitPercentages
+// so the subtree containing focusTabId gets more space.
+// Focus side = 100 - (opposite leaf count × minPercent)
+// ============================================================================
+
+export function applyFocusMode(
+  tree: MosaicNode<string>,
+  focusTabId: string,
+  minPercent: number,
+): MosaicNode<string> {
+  if (typeof tree === 'string') return tree;
+
+  const parent = tree as MosaicParent<string>;
+  const firstHasFocus = containsLeaf(parent.first, focusTabId);
+  const secondHasFocus = containsLeaf(parent.second, focusTabId);
+
+  // Recurse into children first
+  const newFirst = applyFocusMode(parent.first, focusTabId, minPercent);
+  const newSecond = applyFocusMode(parent.second, focusTabId, minPercent);
+
+  let splitPercentage = parent.splitPercentage ?? 50;
+
+  if (firstHasFocus && !secondHasFocus) {
+    // Focus is in first: give it more space
+    const oppositeLeaves = countLeaves(parent.second);
+    const opponentSpace = oppositeLeaves * minPercent;
+    splitPercentage = Math.min(100 - minPercent, Math.max(minPercent, 100 - opponentSpace));
+  } else if (secondHasFocus && !firstHasFocus) {
+    // Focus is in second: give it more space
+    const oppositeLeaves = countLeaves(parent.first);
+    const opponentSpace = oppositeLeaves * minPercent;
+    splitPercentage = Math.max(minPercent, Math.min(100 - minPercent, opponentSpace));
+  }
+
+  return { ...parent, first: newFirst, second: newSecond, splitPercentage };
+}
+
+// ============================================================================
+// Apply multi-focus approx: idle sessions get less space, non-idle get more.
+// The side with more idle sessions is shrunk by ~30%.
+// ============================================================================
+
+export function applyMultiFocusApprox(
+  tree: MosaicNode<string>,
+  idleIds: Set<string>,
+  minPercent: number,
+): MosaicNode<string> {
+  if (typeof tree === 'string') return tree;
+
+  const parent = tree as MosaicParent<string>;
+
+  // Recurse into children
+  const newFirst = applyMultiFocusApprox(parent.first, idleIds, minPercent);
+  const newSecond = applyMultiFocusApprox(parent.second, idleIds, minPercent);
+
+  const firstLeaves = extractLeafIds(parent.first);
+  const secondLeaves = extractLeafIds(parent.second);
+
+  const firstIdleCount = firstLeaves.filter(id => idleIds.has(id)).length;
+  const secondIdleCount = secondLeaves.filter(id => idleIds.has(id)).length;
+
+  const firstActiveCount = firstLeaves.length - firstIdleCount;
+  const secondActiveCount = secondLeaves.length - secondIdleCount;
+
+  let splitPercentage = parent.splitPercentage ?? 50;
+
+  if (firstActiveCount !== secondActiveCount) {
+    // Bias toward whichever side has more active (non-idle) sessions
+    const totalLeaves = firstLeaves.length + secondLeaves.length;
+    const baseSplit = (firstLeaves.length / totalLeaves) * 100;
+
+    // ±30% correction based on active count difference
+    const totalActive = firstActiveCount + secondActiveCount;
+    const activeRatio = totalActive > 0 ? firstActiveCount / totalActive : 0.5;
+    const correction = (activeRatio - 0.5) * 60; // maps [-0.5, 0.5] → [-30, 30]
+
+    splitPercentage = Math.max(minPercent, Math.min(100 - minPercent, baseSplit + correction));
+  }
+
+  return { ...parent, first: newFirst, second: newSecond, splitPercentage };
+}
+
+// ============================================================================
 // Clamp split percentages to min value
 // ============================================================================
 

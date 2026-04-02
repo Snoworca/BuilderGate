@@ -5,9 +5,18 @@ import { MosaicTile } from './MosaicTile';
 import { ContextMenu } from '../ContextMenu';
 import { ConfirmModal } from '../Modal';
 import { useMosaicLayout } from '../../hooks/useMosaicLayout';
+import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useFocusHistory } from '../../hooks/useFocusHistory';
-import { buildEqualMosaicTree, clampSplitPercentages, getMinPercentage, removeFromMosaicTree } from '../../utils/mosaic';
+import {
+  applyEqualMode,
+  applyFocusMode,
+  applyMultiFocusApprox,
+  buildEqualMosaicTree,
+  clampSplitPercentages,
+  getMinPercentage,
+  removeFromMosaicTree,
+} from '../../utils/mosaic';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import type { MosaicNode } from '../../types/workspace';
 
@@ -28,8 +37,13 @@ export function MosaicContainer({
   onRestartTab,
   renderTerminal,
 }: MosaicContainerProps) {
-  const { mosaicTree, setMosaicTree, debouncedSave, layoutMode, setLayoutMode, focusTarget, setFocusTarget } =
+  const { mosaicTree, setMosaicTree, debouncedSave, layoutMode: persistedMode, focusTarget: persistedFocusTarget } =
     useMosaicLayout(workspaceId);
+
+  const { mode: layoutMode, focusTarget, setMode } = useLayoutMode(
+    persistedMode,
+    persistedFocusTarget,
+  );
 
   const contextMenu = useContextMenu();
   const focusHistory = useFocusHistory();
@@ -62,6 +76,25 @@ export function MosaicContainer({
     if (prevCount !== tabs.length) {
       const ids = tabs.map(t => t.id);
       setMosaicTree(buildEqualMosaicTree(ids));
+    }
+  }, [tabs.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto mode: re-apply tree when tab statuses change
+  const tabStatusKey = tabs.map(t => `${t.id}:${t.status}`).join(',');
+  useEffect(() => {
+    if (layoutMode !== 'auto') return;
+    if (!mosaicTree) return;
+    const idleIds = new Set(tabs.filter(t => t.status === 'idle').map(t => t.id));
+    const minPct = getMinPercentage(tabs.length);
+    setMosaicTree(applyMultiFocusApprox(mosaicTree, idleIds, minPct));
+  }, [tabStatusKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Focus mode: if focus target tab is closed, revert to equal mode
+  useEffect(() => {
+    if (layoutMode !== 'focus' || !focusTarget) return;
+    const targetStillExists = tabs.some(t => t.id === focusTarget);
+    if (!targetStillExists) {
+      handleLayoutModeChange('equal');
     }
   }, [tabs.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -101,11 +134,26 @@ export function MosaicContainer({
   );
 
   const handleLayoutModeChange = useCallback(
-    (mode: typeof layoutMode) => {
-      setLayoutMode(mode);
+    (mode: typeof layoutMode, focusTabId?: string) => {
+      setMode(mode, focusTabId);
+      // Apply immediately to tree
+      if (mosaicTree) {
+        const minPct = getMinPercentage(tabs.length);
+        let newTree: MosaicNode<string>;
+        if (mode === 'equal') {
+          newTree = applyEqualMode(mosaicTree);
+        } else if (mode === 'focus') {
+          const target = focusTabId ?? null;
+          newTree = target ? applyFocusMode(mosaicTree, target, minPct) : applyEqualMode(mosaicTree);
+        } else {
+          const idleIds = new Set(tabs.filter(t => t.status === 'idle').map(t => t.id));
+          newTree = applyMultiFocusApprox(mosaicTree, idleIds, minPct);
+        }
+        setMosaicTree(newTree);
+      }
       debouncedSave();
     },
-    [setLayoutMode, debouncedSave],
+    [setMode, mosaicTree, tabs, setMosaicTree, debouncedSave],
   );
 
   // Clipboard: copy selected text from terminal (reads from clipboard after xterm writes it)
