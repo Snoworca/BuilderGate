@@ -15,7 +15,7 @@ import { TerminalContainer } from './components/Terminal';
 import { ConfirmModal } from './components/Modal';
 import { SettingsPage } from './components/Settings/SettingsPage';
 import { WorkspaceSidebar, WorkspaceTabBar, MobileDrawer, EmptyState, DisconnectedOverlay } from './components/Workspace';
-import { GridContainer } from './components/Grid';
+import { MosaicContainer } from './components/Grid';
 import { MetadataRow } from './components/MetadataBar/MetadataRow';
 import { TAB_COLORS } from './types/workspace';
 import type { WorkspaceTabRuntime } from './types/workspace';
@@ -170,7 +170,6 @@ function AppContent() {
   // Render
   // ============================================================================
   const viewMode = wm.activeWorkspace?.viewMode || 'tab';
-  const gridLayout = wm.gridLayouts.find(g => g.workspaceId === wm.activeWorkspaceId);
 
   const sidebarContent = (
     <WorkspaceSidebar
@@ -235,10 +234,11 @@ function AppContent() {
 
                 <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
                   {viewMode === 'grid' && !isMobile ? (
-                    <GridContainer
+                    <MosaicContainer
                       tabs={wm.activeWorkspaceTabs}
-                      gridLayout={gridLayout}
+                      workspaceId={wm.activeWorkspaceId!}
                       onAddTab={handleAddTab}
+                      onCloseTab={handleCloseTab}
                       onRestartTab={handleRestartTab}
                       renderTerminal={renderTerminal}
                     />
