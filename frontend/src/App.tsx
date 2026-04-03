@@ -76,9 +76,12 @@ function AppContent() {
   // ============================================================================
   // Tab actions
   // ============================================================================
-  const handleAddTab = useCallback((cwd?: string) => {
-    if (wmRef.current.activeWorkspaceId) {
-      wmRef.current.addTab(wmRef.current.activeWorkspaceId, undefined, undefined, cwd);
+  const handleAddTab = useCallback((cwdOrEvent?: string | React.MouseEvent) => {
+    const wsId = wmRef.current.activeWorkspaceId;
+    // Guard: onClick passes a SyntheticEvent — ignore non-string arguments
+    const cwd = typeof cwdOrEvent === 'string' ? cwdOrEvent : undefined;
+    if (wsId) {
+      wmRef.current.addTab(wsId, undefined, undefined, cwd);
     }
   }, []);
 

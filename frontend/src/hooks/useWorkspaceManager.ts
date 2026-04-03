@@ -296,8 +296,9 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   const addTab = useCallback(async (workspaceId: string, shell?: string, name?: string, cwd?: string) => {
     try {
       const tab = await workspaceApi.addTab(workspaceId, shell, name, cwd);
-      // Don't add locally — SSE onTabAdded will handle it to avoid duplicates.
-      // Only update activeTabId which SSE doesn't cover.
+      // Add tab locally — WS tab:added is excluded for the originating client (x-client-id).
+      const runtime: WorkspaceTabRuntime = { ...tab, status: 'idle', cwd: '' };
+      setTabs(prev => prev.some(t => t.id === tab.id) ? prev : [...prev, runtime]);
       setWorkspaces(prev => prev.map(w =>
         w.id === workspaceId ? { ...w, activeTabId: tab.id } : w
       ));
