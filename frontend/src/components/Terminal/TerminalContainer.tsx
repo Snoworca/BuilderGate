@@ -58,7 +58,7 @@ export const TerminalContainer = memo(function TerminalContainer({ sessionId, is
   }, [sessionId, ws]);
 
   return (
-    <div style={{ display: isVisible ? 'flex' : 'none', flex: 1, minWidth: 0 }}>
+    <div style={{ display: isVisible ? 'flex' : 'none', flex: 1, minWidth: 0, minHeight: 0 }}>
       <TerminalView
         ref={terminalRef}
         sessionId={sessionId}

@@ -50,6 +50,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
     const [toastFontSize, setToastFontSize] = useState<number | null>(null);
+    const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const userActiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const outputTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const { isMobile } = useResponsive();
@@ -60,7 +61,14 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       if (term && fitAddon) {
         term.options.fontSize = size;
         fitAddon.fit();
+        term.scrollToBottom();
+        // Show toast — always reset timer even for same size value
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         setToastFontSize(size);
+        toastTimerRef.current = setTimeout(() => {
+          setToastFontSize(null);
+          toastTimerRef.current = null;
+        }, 1200);
       }
     }, []);
 
@@ -245,6 +253,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         if (resizeTimer !== null) clearTimeout(resizeTimer);
         if (userActiveTimerRef.current) clearTimeout(userActiveTimerRef.current);
         if (outputTimerRef.current) clearTimeout(outputTimerRef.current);
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         termEl.removeEventListener('focusin', onFocusIn);
         termEl.removeEventListener('focusout', onFocusOut);
         resizeObserver.disconnect();
@@ -269,8 +278,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         }
       };
 
-      container.addEventListener('wheel', handleWheel, { passive: false });
-      return () => container.removeEventListener('wheel', handleWheel);
+      // Use capture phase to intercept Ctrl+Wheel before xterm's viewport scrolls
+      container.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+      return () => container.removeEventListener('wheel', handleWheel, { capture: true });
     }, [isMobile, handleFontSizeChange]);
 
     // Mobile: Pinch-to-zoom touch events
@@ -290,12 +300,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       };
     }, [isMobile, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
-    // Auto-hide toast
-    useEffect(() => {
-      if (toastFontSize === null) return;
-      const timer = setTimeout(() => setToastFontSize(null), 1200);
-      return () => clearTimeout(timer);
-    }, [toastFontSize]);
+
 
     const handleClick = useCallback(() => {
       xtermRef.current?.focus();
