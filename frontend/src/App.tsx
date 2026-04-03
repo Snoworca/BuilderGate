@@ -93,32 +93,32 @@ function AppContent() {
 
   const handleSelectTab = useCallback((tabId: string) => {
     if (wmRef.current.activeWorkspaceId) {
-      wmRef.current.setActiveTab(wm.activeWorkspaceId, tabId);
+      wmRef.current.setActiveTab(wmRef.current.activeWorkspaceId, tabId);
     }
   }, []);
 
   const handleRenameTab = useCallback((tabId: string, name: string) => {
     if (wmRef.current.activeWorkspaceId) {
-      wmRef.current.updateTab(wm.activeWorkspaceId, tabId, { name });
+      wmRef.current.updateTab(wmRef.current.activeWorkspaceId, tabId, { name });
     }
   }, []);
 
   const handleReorderTabs = useCallback((tabIds: string[]) => {
     if (wmRef.current.activeWorkspaceId) {
-      wmRef.current.reorderTabs(wm.activeWorkspaceId, tabIds);
+      wmRef.current.reorderTabs(wmRef.current.activeWorkspaceId, tabIds);
     }
   }, []);
 
   const handleToggleViewMode = useCallback(() => {
     if (wmRef.current.activeWorkspace) {
       const next = wmRef.current.activeWorkspace.viewMode === 'tab' ? 'grid' : 'tab';
-      wmRef.current.setViewMode(wm.activeWorkspaceId!, next);
+      wmRef.current.setViewMode(wmRef.current.activeWorkspaceId!, next);
     }
   }, []);
 
   const handleRestartTab = useCallback((tabId: string) => {
     if (wmRef.current.activeWorkspaceId) {
-      wmRef.current.restartTab(wm.activeWorkspaceId, tabId);
+      wmRef.current.restartTab(wmRef.current.activeWorkspaceId, tabId);
     }
   }, []);
 

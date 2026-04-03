@@ -1,0 +1,28 @@
+.workspace-tabbar {
+  display: flex;
+  align-items: center;
+  background-color: #1e1e2e;
+  border-bottom: 1px solid #333;
+  padding: 0 4px;
+  height: 36px;
+  gap: 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.workspace-tabbar::-webkit-scrollbar {
+  height: 3px;
+}
+
+.workspace-tabbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.workspace-tabbar::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 2px;
+}
+
+.workspace-tabbar::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}

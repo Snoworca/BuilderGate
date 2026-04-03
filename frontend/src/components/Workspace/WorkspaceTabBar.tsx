@@ -5,6 +5,7 @@ import { ContextMenu } from '../ContextMenu/ContextMenu';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
+import './WorkspaceTabBar.css';
 
 interface Props {
   tabs: WorkspaceTabRuntime[];
@@ -62,16 +63,7 @@ export function WorkspaceTabBar({
   return (
     <div
       role="tablist"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        backgroundColor: '#1e1e2e',
-        borderBottom: '1px solid #333',
-        padding: '0 4px',
-        height: '36px',
-        gap: '2px',
-        overflowX: 'auto',
-      }}
+      className="workspace-tabbar"
     >
       {sorted.map((tab, index) => {
         const color = TAB_COLORS[tab.colorIndex] || TAB_COLORS[0];
@@ -99,7 +91,7 @@ export function WorkspaceTabBar({
               borderRadius: '4px 4px 0 0',
               cursor: 'pointer',
               minWidth: '60px',
-              maxWidth: '150px',
+              flexShrink: 0,
               opacity: drag.dragIndex === index ? 0.4 : 1,
               outline: drag.dropTargetIndex === index ? `2px dashed ${color}` : 'none',
             }}
@@ -131,8 +123,6 @@ export function WorkspaceTabBar({
               <span style={{
                 fontSize: '12px',
                 color: isActive ? '#fff' : '#aaa',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
               }}>
                 {tab.name}
