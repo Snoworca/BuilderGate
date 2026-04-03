@@ -84,7 +84,25 @@ frontend/src/
 2. 두 개의 Haiku 서브에이전트가 각각 보고서/로그를 검증 (A+~F 등급)
 3. 모든 등급이 A+가 될 때까지 반복 개선
 
-### 4. 예외: snoworca-* 스킬 작업
+### 4. CLI 도구 사용법
+
+```bash
+# 작업 로그 추가
+node tools/worklog.mjs add \
+  --request "사용자 요청" \
+  --analysis "문제 원인 분석" \
+  --solution "해결 방법" \
+  --files "file1.ts,file2.tsx" \
+  --commit "abc1234 fix: 커밋 메시지"
+
+# 오늘 로그 조회
+node tools/worklog.mjs list
+
+# 특정 날짜 로그 조회
+node tools/worklog.mjs list 2026-04-03
+```
+
+### 5. 예외: snoworca-* 스킬 작업
 
 `snoworca-*` 스킬(아래 목록)을 통해 수행한 작업은 스킬 자체가 completion-report를 생성하므로 **별도 수정 완료 보고서(docs/report/)를 작성하지 않는다.** 단, JSONL 작업 로그는 기록한다.
 
