@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Mosaic } from 'react-mosaic-component';
 import 'react-mosaic-component/react-mosaic-component.css';
+import './MosaicOverrides.css';
 import { MosaicTile } from './MosaicTile';
 import { ContextMenu } from '../ContextMenu';
 import { ConfirmModal } from '../Modal';

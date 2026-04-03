@@ -1,0 +1,28 @@
+/* Slim down mosaic tile gaps and split bars */
+.mosaic-tile {
+  margin: 1px !important;
+}
+
+.mosaic-split.-row {
+  margin-left: -2px;
+  width: 4px;
+}
+
+.mosaic-split.-column {
+  margin-top: -2px;
+  height: 4px;
+}
+
+.mosaic-split.-row .mosaic-split-line {
+  left: 1px;
+  right: 1px;
+}
+
+.mosaic-split.-column .mosaic-split-line {
+  top: 1px;
+  bottom: 1px;
+}
+
+.mosaic-split:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
