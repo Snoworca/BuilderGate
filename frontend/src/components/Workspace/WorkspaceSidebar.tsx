@@ -80,6 +80,8 @@ export function WorkspaceSidebar({
               onRename={onRename}
               onDelete={onDelete}
               onAddTab={onAddTab}
+              tabCount={tabs.filter(t => t.workspaceId === ws.id).length}
+              maxTabs={8}
               dragHandlers={drag.getTabHandlers(index)}
               isDragTarget={drag.dropTargetIndex === index}
             />

@@ -13,13 +13,15 @@ interface Props {
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
   onAddTab: (id: string) => void;
+  tabCount: number;
+  maxTabs: number;
   dragHandlers?: { onPointerDown: (e: React.PointerEvent) => void };
   isDragTarget?: boolean;
 }
 
 export function WorkspaceItem({
   workspace, isActive, runningCount, isLast,
-  onClick, onRename, onDelete, onAddTab,
+  onClick, onRename, onDelete, onAddTab, tabCount, maxTabs,
   dragHandlers, isDragTarget,
 }: Props) {
   const [editing, setEditing] = useState(false);
@@ -43,7 +45,7 @@ export function WorkspaceItem({
     { label: 'Rename', onClick: () => { setEditName(workspace.name); setEditing(true); } },
     ...(!isLast ? [{ label: 'Delete', destructive: true, onClick: () => onDelete(workspace.id) }] : []),
     { separator: true } as ContextMenuItem,
-    { label: 'Add Terminal', onClick: () => onAddTab(workspace.id) },
+    { label: 'Add Terminal', onClick: () => onAddTab(workspace.id), disabled: tabCount >= maxTabs },
   ];
 
   return (

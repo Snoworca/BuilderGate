@@ -205,6 +205,7 @@ export function MosaicContainer({
         {
           label: '새 세션',
           icon: '+',
+          disabled: tabs.length >= 8,
           onClick: () => {
             onAddTab(tab?.cwd);
           },
