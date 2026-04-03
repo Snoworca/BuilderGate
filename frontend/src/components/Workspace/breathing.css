@@ -17,14 +17,14 @@
   pointer-events: none;
   z-index: 10;
   border: 2px solid transparent;
-  transition: border-color 1s ease-in;
+  transition: border-color 200ms ease-in;
 }
 
 /* --- Activity: colored border when output is active --- */
 
 .grid-cell.terminal-running:has(.terminal-view.output-active)::after {
   border-color: var(--tab-color, #22c55e);
-  transition: border-color 2s ease-out;
+  transition: border-color 200ms ease-out;
 }
 
 /* --- Suppress activity when user is typing --- */

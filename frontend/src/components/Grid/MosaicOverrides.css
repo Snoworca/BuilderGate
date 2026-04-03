@@ -30,3 +30,8 @@
 .mosaic-split .mosaic-split-line {
   background: rgba(255, 255, 255, 0.04);
 }
+
+/* Override blueprint theme background (visible as border around the grid) */
+.mosaic.mosaic-blueprint-theme {
+  background: rgba(255, 255, 255, 0.03);
+}
