@@ -76,15 +76,15 @@ function AppContent() {
   // ============================================================================
   // Tab actions
   // ============================================================================
-  const handleAddTab = useCallback(() => {
+  const handleAddTab = useCallback((cwd?: string) => {
     if (wmRef.current.activeWorkspaceId) {
-      wmRef.current.addTab(wm.activeWorkspaceId);
+      wmRef.current.addTab(wmRef.current.activeWorkspaceId, undefined, undefined, cwd);
     }
   }, []);
 
   const handleCloseTab = useCallback((tabId: string) => {
     if (wmRef.current.activeWorkspaceId) {
-      wmRef.current.closeTab(wm.activeWorkspaceId, tabId);
+      wmRef.current.closeTab(wmRef.current.activeWorkspaceId, tabId);
     }
   }, []);
 
