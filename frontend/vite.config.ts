@@ -27,5 +27,10 @@ export default defineConfig({
       clientPort: 4242,
       protocol: 'wss',
     },
+    proxy: {
+      '/api': { target: 'https://localhost:4242', secure: false, changeOrigin: true },
+      '/health': { target: 'https://localhost:4242', secure: false, changeOrigin: true },
+      '/ws': { target: 'wss://localhost:4242', secure: false, ws: true, changeOrigin: true },
+    },
   },
 });

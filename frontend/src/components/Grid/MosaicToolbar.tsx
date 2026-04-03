@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useContext } from 'react';
+import { MosaicWindowContext } from 'react-mosaic-component';
 import type { LayoutMode } from '../../hooks/useMosaicLayout';
 
 interface MosaicToolbarProps {
@@ -44,6 +45,10 @@ export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarP
   const [expanded, setExpanded] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // FR-1.2: connectDragSource from MosaicWindowContext for grip icon
+  const mosaicWindowContext = useContext(MosaicWindowContext);
+  const connectDragSource = mosaicWindowContext?.mosaicWindowActions?.connectDragSource;
+
   const clearHideTimer = useCallback(() => {
     if (hideTimerRef.current) {
       clearTimeout(hideTimerRef.current);
@@ -71,6 +76,28 @@ export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarP
     return () => clearHideTimer();
   }, [clearHideTimer]);
 
+  // Grip icon element — drag handle for tile DnD
+  const gripDiv = (
+    <div
+      style={{
+        width: '24px',
+        height: '24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'grab',
+        color: 'rgba(255,255,255,0.4)',
+        fontSize: '14px',
+        flexShrink: 0,
+      }}
+      title="드래그하여 타일 이동"
+    >
+      ⠿
+    </div>
+  );
+  // connectDragSource may be undefined outside MosaicWindowContext (e.g. unit tests)
+  const gripIcon = connectDragSource ? connectDragSource(gripDiv) : gripDiv;
+
   return (
     <div
       style={{
@@ -84,28 +111,13 @@ export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarP
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* Trigger zone — always visible as tiny dot */}
-      <div
-        style={{
-          width: '24px',
-          height: '24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: '4px',
-          backgroundColor: expanded ? 'transparent' : 'rgba(128,128,128,0.3)',
-          cursor: 'pointer',
-          flexShrink: 0,
-        }}
-      >
-        {!expanded && (
-          <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', lineHeight: 1 }}>⋯</span>
-        )}
-      </div>
+      {/* Grip icon — always visible, serves as drag handle */}
+      {gripIcon}
 
       {/* Toolbar panel — visible on hover */}
       {expanded && (
         <div
+          draggable={false}
           style={{
             display: 'flex',
             alignItems: 'center',

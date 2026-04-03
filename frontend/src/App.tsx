@@ -3,7 +3,7 @@
  * Workspace-based multi-terminal management
  */
 
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { useHeartbeat } from './hooks/useHeartbeat';
 import { useResponsive } from './hooks/useResponsive';
@@ -115,6 +115,18 @@ function AppContent() {
       wmRef.current.setViewMode(wmRef.current.activeWorkspaceId!, next);
     }
   }, []);
+
+  // FR-2: 모바일에서 그리드 모드 자동 해제
+  useEffect(() => {
+    if (
+      isMobile &&
+      wm.activeWorkspace?.viewMode === 'grid' &&
+      wm.activeWorkspaceId
+    ) {
+      wmRef.current.setViewMode(wm.activeWorkspaceId, 'tab');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, wm.activeWorkspace?.viewMode, wm.activeWorkspaceId]);
 
   const handleRestartTab = useCallback((tabId: string) => {
     if (wmRef.current.activeWorkspaceId) {

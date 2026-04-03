@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Mosaic } from 'react-mosaic-component';
+import { Mosaic, MosaicWindow } from 'react-mosaic-component';
+import type { MosaicBranch } from 'react-mosaic-component';
 import 'react-mosaic-component/react-mosaic-component.css';
 import './MosaicOverrides.css';
 import { MosaicTile } from './MosaicTile';
+import { MosaicToolbar } from './MosaicToolbar';
 import { ContextMenu } from '../ContextMenu';
 import { ConfirmModal } from '../Modal';
 import { useMosaicLayout } from '../../hooks/useMosaicLayout';
@@ -202,6 +204,7 @@ export function MosaicContainer({
   const buildTerminalContextMenuItems = useCallback(
     (tabId: string) => {
       const tab = tabMap.get(tabId);
+      const hasSelection = (window.getSelection()?.toString() ?? '').length > 0;
       return [
         {
           label: '새 세션',
@@ -224,6 +227,7 @@ export function MosaicContainer({
         {
           label: '복사',
           icon: '⎘',
+          disabled: !hasSelection,
           onClick: () => {
             handleCopy();
           },
@@ -281,24 +285,41 @@ export function MosaicContainer({
     }
   }, []);
 
-  // Render each tile
+  // Render each tile — wrapped in MosaicWindow for DnD support (FR-1.1)
   const renderTile = useCallback(
-    (tabId: string) => {
+    (tabId: string, path: MosaicBranch[]) => {
       const tab = tabMap.get(tabId);
       return (
-        <MosaicTile
-          tabId={tabId}
-          tab={tab}
-          layoutMode={layoutMode}
-          onContextMenu={contextMenu.open}
-          onLayoutModeChange={handleLayoutModeChange}
-          onRestart={() => onRestartTab(tabId)}
-          onAdd={() => onAddTab(tab?.cwd)}
-          onFocus={() => handleTileFocus(tabId)}
-          onRegisterRef={(el) => registerTileRef(tabId, el)}
+        <MosaicWindow<string>
+          path={path}
+          title={tabId}
+          renderToolbar={() => (
+            <div style={{ position: 'relative', width: '100%', height: 0 }}>
+              <MosaicToolbar
+                layoutMode={layoutMode}
+                onLayoutModeChange={(mode) => {
+                  if (mode === 'focus') {
+                    handleLayoutModeChange('focus', tabId);
+                  } else {
+                    handleLayoutModeChange(mode);
+                  }
+                }}
+              />
+            </div>
+          )}
         >
-          {tab ? renderTerminal(tab) : null}
-        </MosaicTile>
+          <MosaicTile
+            tabId={tabId}
+            tab={tab}
+            onContextMenu={contextMenu.open}
+            onRestart={() => onRestartTab(tabId)}
+            onAdd={() => onAddTab(tab?.cwd)}
+            onFocus={() => handleTileFocus(tabId)}
+            onRegisterRef={(el) => registerTileRef(tabId, el)}
+          >
+            {tab ? renderTerminal(tab) : null}
+          </MosaicTile>
+        </MosaicWindow>
       );
     },
     [

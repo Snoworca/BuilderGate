@@ -1,19 +1,15 @@
 import { useCallback, useRef } from 'react';
-import { MosaicToolbar } from './MosaicToolbar';
 import { EmptyCell } from './EmptyCell';
 import { DisconnectedOverlay } from '../Workspace/DisconnectedOverlay';
 import { MetadataRow } from '../MetadataBar/MetadataRow';
 import { useLongPress } from '../../hooks/useLongPress';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
-import type { LayoutMode } from '../../hooks/useMosaicLayout';
 
 interface MosaicTileProps {
   tabId: string;
   tab: WorkspaceTabRuntime | undefined;
-  layoutMode: LayoutMode;
   onContextMenu: (x: number, y: number, tabId: string) => void;
-  onLayoutModeChange: (mode: LayoutMode, focusTabId?: string) => void;
   onRestart: () => void;
   onAdd: () => void;
   /** Called when the user presses down on this tile (focus tracking) */
@@ -26,9 +22,7 @@ interface MosaicTileProps {
 export function MosaicTile({
   tabId,
   tab,
-  layoutMode,
   onContextMenu,
-  onLayoutModeChange,
   onRestart,
   onAdd,
   onFocus,
@@ -97,19 +91,7 @@ export function MosaicTile({
         '--tab-color': tabColor,
       } as React.CSSProperties}
     >
-      {/* Toolbar overlay — focus mode passes this tile's tabId */}
-      <MosaicToolbar
-        layoutMode={layoutMode}
-        onLayoutModeChange={(mode) => {
-          if (mode === 'focus') {
-            onLayoutModeChange('focus', tabId);
-          } else {
-            onLayoutModeChange(mode);
-          }
-        }}
-      />
-
-      {/* Terminal content */}
+      {/* Terminal content — toolbar is now rendered by MosaicWindow's renderToolbar */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {children}
       </div>

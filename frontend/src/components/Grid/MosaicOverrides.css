@@ -35,3 +35,44 @@
 .mosaic.mosaic-blueprint-theme {
   background: rgba(255, 255, 255, 0.03);
 }
+
+/* MosaicWindow 기본 레이아웃 초기화 (FR-1.1) */
+.mosaic-window {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  inset: 0;
+}
+
+/* mosaic-window-body: MosaicWindow가 children을 감싸는 div */
+.mosaic-window .mosaic-window-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* MosaicWindow 기본 툴바 영역 — renderToolbar로 교체하므로 높이 제거 */
+.mosaic-window-toolbar {
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  /* overflow: visible 유지하여 absolute 자식(그립 아이콘)이 보이도록 */
+}
+
+/* 드롭 프리뷰 — 기본 제목 표시 방지, 드래그 중에만 시각 피드백 */
+.mosaic-preview .mosaic-window-toolbar {
+  display: none !important;
+}
+
+.mosaic-preview .mosaic-window-body {
+  display: none !important;
+}
+
+/* 드롭 오버레이 — 타일 이동 중 드롭 가능 영역 하이라이트 */
+.drop-target-hover .mosaic-preview {
+  background: rgba(100, 149, 237, 0.15) !important;
+  border: 2px solid rgba(100, 149, 237, 0.5) !important;
+}
