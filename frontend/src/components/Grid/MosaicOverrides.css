@@ -1,28 +1,32 @@
-/* Slim down mosaic tile gaps and split bars */
+/* Minimal mosaic tile gaps — nearly invisible */
 .mosaic-tile {
-  margin: 1px !important;
+  margin: 0 !important;
 }
 
 .mosaic-split.-row {
-  margin-left: -2px;
-  width: 4px;
+  margin-left: -1px;
+  width: 2px;
 }
 
 .mosaic-split.-column {
-  margin-top: -2px;
-  height: 4px;
+  margin-top: -1px;
+  height: 2px;
 }
 
 .mosaic-split.-row .mosaic-split-line {
-  left: 1px;
-  right: 1px;
+  left: 0;
+  right: 0;
 }
 
 .mosaic-split.-column .mosaic-split-line {
-  top: 1px;
-  bottom: 1px;
+  top: 0;
+  bottom: 0;
 }
 
 .mosaic-split:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.mosaic-split .mosaic-split-line {
+  background: rgba(255, 255, 255, 0.04);
 }

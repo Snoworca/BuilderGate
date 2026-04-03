@@ -4,6 +4,7 @@ import { EmptyCell } from './EmptyCell';
 import { DisconnectedOverlay } from '../Workspace/DisconnectedOverlay';
 import { MetadataRow } from '../MetadataBar/MetadataRow';
 import { useLongPress } from '../../hooks/useLongPress';
+import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import type { LayoutMode } from '../../hooks/useMosaicLayout';
 
@@ -73,10 +74,13 @@ export function MosaicTile({
   }
 
   const isDisconnected = tab.status === 'disconnected';
+  const isRunning = tab.status === 'running';
+  const tabColor = TAB_COLORS[tab.colorIndex] || TAB_COLORS[0];
 
   return (
     <div
       ref={setTileRef}
+      className={`grid-cell${isRunning ? ' terminal-running' : ''}`}
       onContextMenu={handleContextMenu}
       onPointerDown={handlePointerDown}
       onTouchStart={longPress.onTouchStart}
@@ -90,7 +94,8 @@ export function MosaicTile({
         height: '100%',
         backgroundColor: 'var(--terminal-bg, #1e1e1e)',
         overflow: 'hidden',
-      }}
+        '--tab-color': tabColor,
+      } as React.CSSProperties}
     >
       {/* Toolbar overlay — focus mode passes this tile's tabId */}
       <MosaicToolbar
