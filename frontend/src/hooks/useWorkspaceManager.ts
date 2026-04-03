@@ -238,8 +238,11 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
 
   const createWorkspace = useCallback(async (name?: string) => {
     try {
-      await workspaceApi.create(name);
-      // Don't add locally — SSE onWorkspaceCreated will handle it to avoid duplicates.
+      const ws = await workspaceApi.create(name);
+      // Add locally — WS workspace:created is excluded for the originating client (x-client-id).
+      setWorkspaces(prev => prev.some(w => w.id === ws.id) ? prev : [...prev, ws]);
+      setActiveWorkspaceIdState(ws.id);
+      saveActiveWorkspaceId(ws.id);
     } catch (err: any) {
       setError(err.message);
     }
