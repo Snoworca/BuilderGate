@@ -135,7 +135,7 @@ function AppContent() {
   }, []);
 
   // ============================================================================
-  // Terminal status/CWD updates (from per-session SSE)
+  // Terminal status/CWD updates
   // ============================================================================
   const handleTerminalStatusChange = useCallback((sessionId: string, status: SessionStatus) => {
     wmRef.current.updateTabStatus(sessionId, status);

@@ -58,7 +58,7 @@ export interface UseWorkspaceManagerReturn {
   // Grid
   updateGrid: (workspaceId: string, layout: Omit<GridLayout, 'workspaceId'>) => Promise<void>;
 
-  // Session status update (from per-session SSE)
+  // Session status update
   updateTabStatus: (sessionId: string, status: 'running' | 'idle') => void;
   updateTabCwd: (sessionId: string, cwd: string) => void;
 }
@@ -117,12 +117,12 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   }, []);
 
   // ============================================================================
-  // WebSocket Event Handlers (Step 8: replaced useWorkspaceSSE)
+  // WebSocket Event Handlers
   // ============================================================================
 
   const ws = useWebSocket();
 
-  // Use WS clientId instead of SSE clientId
+  // Use WS clientId
   useEffect(() => {
     if (ws.clientId) setClientId(ws.clientId);
   }, [ws.clientId]);
@@ -416,7 +416,7 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   }, []);
 
   // ============================================================================
-  // Session Status (called from per-session SSE in TerminalContainer)
+  // Session Status
   // ============================================================================
 
   const updateTabStatus = useCallback((sessionId: string, status: 'running' | 'idle') => {

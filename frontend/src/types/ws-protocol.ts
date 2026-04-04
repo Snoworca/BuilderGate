@@ -1,7 +1,5 @@
 /**
  * WebSocket Message Protocol Types
- * Step 8: SSE+HTTP → WebSocket single channel migration
- *
  * Shared type definitions for client-server WS communication.
  * Server has a copy at server/src/types/ws-protocol.ts
  */

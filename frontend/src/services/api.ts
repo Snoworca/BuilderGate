@@ -202,7 +202,6 @@ export const sessionApi = {
     if (!res.ok) throw await parseError(res);
   },
 
-  // NOTE: getStreamUrl removed — SSE replaced by WebSocket (Step 8)
 };
 
 // ============================================================================
@@ -379,7 +378,6 @@ export const workspaceApi = {
     return res.json();
   },
 
-  // NOTE: getStreamUrl removed — SSE replaced by WebSocket (Step 8)
 };
 
 export const settingsApi = {
