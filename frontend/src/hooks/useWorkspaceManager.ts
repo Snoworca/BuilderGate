@@ -422,7 +422,7 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   const updateTabStatus = useCallback((sessionId: string, status: 'running' | 'idle') => {
     setTabs(prev => {
       const tab = prev.find(t => t.sessionId === sessionId);
-      if (!tab || tab.status === status) return prev; // no change → no rerender
+      if (!tab || tab.status === status) return prev;
       return prev.map(t => t.sessionId === sessionId ? { ...t, status } : t);
     });
   }, []);

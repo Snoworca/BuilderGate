@@ -1,0 +1,28 @@
+{
+  "version": "2.0",
+  "intent": "세션 idle 상태: 셸 에코와 명령 출력을 구분하여 타이핑 중 idle 유지. Tier1(에코 휴리스틱) + Tier2(OSC 133 Shell Integration)",
+  "started_at": "2026-04-04T14:00:00",
+  "updated_at": "2026-04-04T14:35:00",
+  "mode": "auto",
+  "mode_flags": { "auto": true, "qna": false, "skip_feasibility": true },
+  "language": "TypeScript",
+  "framework": "Node.js + Express + React 18 + xterm.js",
+  "start_stage": "PLAN",
+  "current_stage": "COMPLETE",
+  "completed_stages": ["PLAN", "CODE", "REVIEW"],
+  "input_docs": ["TF 연구 보고서 v2"],
+  "ref_paths": ["docs/plan/step9/"],
+  "dew_files": {
+    "PLAN": "docs/pm/dew/plan.dew.md",
+    "CODE": "docs/pm/dew/code.dew.md",
+    "REVIEW": "docs/pm/dew/review.dew.md"
+  },
+  "stages": {
+    "PRD": { "status": "skipped", "reason": "연구 보고서가 완전한 요구사항 제공" },
+    "SRS": { "status": "skipped", "reason": "연구 보고서가 완전한 기술 스펙 제공" },
+    "FEASIBILITY": { "status": "skipped", "reason": "TF 전원 실현 가능성 확인 완료" },
+    "PLAN": { "status": "completed", "output": "docs/plan/step9/", "completed_at": "2026-04-04T14:15:00" },
+    "CODE": { "status": "completed", "output": "server/src/services/SessionManager.ts, server/src/services/OscDetector.ts, server/src/shell-integration/", "completed_at": "2026-04-04T14:30:00" },
+    "REVIEW": { "status": "completed", "output": "PASS (18/18)", "completed_at": "2026-04-04T14:35:00" }
+  }
+}

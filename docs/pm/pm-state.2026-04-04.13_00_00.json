@@ -1,0 +1,39 @@
+{
+  "version": "2.0",
+  "intent": "세션 idle 상태 관리 개선: writeInput/resize에서 idle 타이머 리셋 + 프론트 idle debounce",
+  "started_at": "2026-04-04T13:00:00",
+  "updated_at": "2026-04-04T13:10:00",
+  "mode": "auto",
+  "mode_flags": {
+    "auto": true,
+    "qna": false,
+    "skip_feasibility": true
+  },
+  "language": "TypeScript",
+  "framework": "Node.js + Express + React 18",
+  "start_stage": "CODE",
+  "current_stage": "COMPLETE",
+  "completed_stages": ["CODE", "REVIEW"],
+  "input_docs": ["TF 보고서 (세션 컨텍스트)"],
+  "ref_paths": [],
+  "dew_files": {
+    "CODE": "docs/pm/dew/code.dew.md",
+    "REVIEW": "docs/pm/dew/review.dew.md"
+  },
+  "stages": {
+    "PRD": { "status": "skipped", "reason": "TF 보고서가 완전한 스펙 제공" },
+    "SRS": { "status": "skipped", "reason": "TF 보고서가 완전한 스펙 제공" },
+    "FEASIBILITY": { "status": "skipped", "reason": "4줄 변경, 복잡도 극히 낮음" },
+    "PLAN": { "status": "skipped", "reason": "TF 보고서에 구체적 코드 변경 명시" },
+    "CODE": {
+      "status": "completed",
+      "output": "server/src/services/SessionManager.ts, server/src/types/ws-protocol.ts, frontend/src/hooks/useWorkspaceManager.ts",
+      "completed_at": "2026-04-04T13:05:00"
+    },
+    "REVIEW": {
+      "status": "completed",
+      "output": "PASS (5/5)",
+      "completed_at": "2026-04-04T13:10:00"
+    }
+  }
+}

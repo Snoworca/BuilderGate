@@ -9,6 +9,19 @@ import { config } from '../utils/config.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import type { WebSocket } from 'ws';
 import type { WsRouter } from '../ws/WsRouter.js';
+import { OscDetector } from './OscDetector.js';
+
+interface EchoTracker {
+  /** writeInput이 호출된 시각 (ms, Date.now) */
+  lastInputAt: number;
+  /** 마지막 입력 데이터의 바이트 길이 */
+  lastInputLen: number;
+  /** 마지막 입력에 Enter(\r 또는 \n) 포함 여부 */
+  lastInputHasEnter: boolean;
+}
+
+/** idle 감지 모드 */
+type DetectionMode = 'heuristic' | 'osc133';
 
 interface SessionData {
   session: Session;
@@ -18,6 +31,11 @@ interface SessionData {
   initialCwd: string;   // CWD at session creation
   cwdFilePath?: string;  // Windows CWD tracking temp file path
   lastCwd?: string;      // Last known CWD for change detection
+
+  // === Step 9: Idle Detection ===
+  echoTracker: EchoTracker;
+  detectionMode: DetectionMode;
+  oscDetector: OscDetector;
 }
 
 export class SessionManager {
@@ -39,12 +57,16 @@ export class SessionManager {
 
     const { shell: shellCmd, args: shellArgs, shellType } = this.resolveShell(shell);
     const initialCwd = cwd || process.env.HOME || process.env.USERPROFILE || '/';
+
+    // Step 9: OSC 133 셸 통합 환경변수 구성
+    const env = this.buildShellEnv(shellType);
+
     const ptyProcess = pty.spawn(shellCmd, shellArgs, {
       name: this.runtimePtyConfig.termName,
       cols: this.runtimePtyConfig.defaultCols,
       rows: this.runtimePtyConfig.defaultRows,
       cwd: initialCwd,
-      env: process.env as { [key: string]: string },
+      env,  // Step 9: 확장된 env (OSC 133 주입 포함)
       // Windows PTY backend (ConPTY vs winpty)
       useConpty: this.runtimePtyConfig.useConpty,
     });
@@ -58,34 +80,104 @@ export class SessionManager {
       sortOrder: this.sessions.size,
     };
 
+    // Step 9: OscDetector 생성
+    const oscDetector = new OscDetector();
+
     const sessionData: SessionData = {
       session,
       pty: ptyProcess,
       idleTimer: null,
       outputBuffer: '',
       initialCwd,
+      // Step 9: Idle Detection
+      echoTracker: {
+        lastInputAt: 0,
+        lastInputLen: 0,
+        lastInputHasEnter: false,
+      },
+      detectionMode: 'heuristic',
+      oscDetector,
     };
 
     this.sessions.set(id, sessionData);
 
+    // Step 9: OSC 133 콜백 등록
+    oscDetector.setCallback((status, event) => {
+      const sd = this.sessions.get(id);
+      if (!sd || sd.detectionMode !== 'osc133') return;
+
+      switch (event.type) {
+        case 'prompt-start':  // A 마커
+        case 'command-end':   // D 마커
+          // idle 전환
+          this.updateStatus(id, 'idle');
+          // osc133 모드에서는 idle 타이머 불필요
+          if (sd.idleTimer) {
+            clearTimeout(sd.idleTimer);
+            sd.idleTimer = null;
+          }
+          break;
+        case 'command-start': // C 마커
+          // running 전환
+          this.updateStatus(id, 'running');
+          break;
+        case 'prompt-end':    // B 마커
+          // 정보용, 상태 변경 없음 (이미 idle)
+          break;
+      }
+    });
+
     // Inject CWD tracking hook based on shell type
     this.injectCwdHook(id, sessionData, ptyProcess, shellType);
 
-    // Handle PTY output
-    ptyProcess.onData((data: string) => {
-      this.updateStatus(id, 'running');
-
+    // Handle PTY output (Step 9: Phase 3 통합 최종 버전)
+    ptyProcess.onData((rawData: string) => {
       const sData = this.sessions.get(id);
-      if (sData) {
-        const hasWsSubscribers = this.wsRouter?.hasSubscribers(id) ?? false;
-        if (!hasWsSubscribers) {
-          this.appendBufferedOutput(sData, data);
-        } else {
-          this.broadcastWs(id, 'output', { data });
+      if (!sData) return;
+
+      // ========================================
+      // Step 9: OSC 133 마커 처리 (항상 수행)
+      // ========================================
+      const { stripped, foundMarker } = sData.oscDetector.process(rawData);
+
+      // 자동 모드 승격: 첫 OSC 133 마커 감지 시 heuristic → osc133
+      if (foundMarker && sData.detectionMode === 'heuristic') {
+        sData.detectionMode = 'osc133';
+        console.log(`[Session ${id}] Idle detection upgraded to osc133 mode`);
+        // idle 타이머 해제 (osc133 모드에서는 불필요)
+        if (sData.idleTimer) {
+          clearTimeout(sData.idleTimer);
+          sData.idleTimer = null;
         }
       }
 
-      this.scheduleIdleTransition(id);
+      // ========================================
+      // Step 9: 모드별 상태 전환
+      // ========================================
+      if (sData.detectionMode === 'heuristic') {
+        // Tier 1: 에코 휴리스틱
+        const isEcho = this.isEchoOutput(sData, stripped);
+        if (!isEcho) {
+          this.updateStatus(id, 'running');
+          this.scheduleIdleTransition(id);
+        }
+      }
+      // osc133 모드: OscDetector 콜백에서 직접 상태 전환
+
+      // ========================================
+      // 출력 브로드캐스트/버퍼링 (stripped 사용)
+      // ========================================
+      // OSC 133 마커가 제거된 출력을 전달
+      const outputData = sData.detectionMode === 'osc133' ? stripped : rawData;
+
+      const hasWsSubscribers = this.wsRouter?.hasSubscribers(id) ?? false;
+      if (!hasWsSubscribers) {
+        this.appendBufferedOutput(sData, outputData);
+      } else {
+        if (outputData.length > 0) {
+          this.broadcastWs(id, 'output', { data: outputData });
+        }
+      }
     });
 
     // Handle PTY exit
@@ -139,6 +231,9 @@ export class SessionManager {
     // Kill PTY process
     data.pty.kill();
 
+    // Step 9: OSC 감지기 정리
+    data.oscDetector.destroy();
+
     // Clean up CWD file watching and temp file
     if (data.cwdFilePath) {
       unwatchFile(data.cwdFilePath);
@@ -153,6 +248,17 @@ export class SessionManager {
   writeInput(id: string, input: string): boolean {
     const data = this.sessions.get(id);
     if (!data) return false;
+
+    // Step 9: 에코 추적 정보 기록 (pty.write 전에 기록)
+    const hasEnter = input.includes('\r') || input.includes('\n');
+    data.echoTracker.lastInputAt = Date.now();
+    data.echoTracker.lastInputLen = input.length;
+    data.echoTracker.lastInputHasEnter = hasEnter;
+
+    // Enter 입력 시 heuristic 모드에서 즉시 running 전환
+    if (hasEnter && data.detectionMode === 'heuristic') {
+      this.updateStatus(id, 'running');
+    }
 
     data.pty.write(input);
     data.session.lastActiveAt = new Date();
@@ -240,6 +346,72 @@ export class SessionManager {
       shells.push({ id: 'bash', label: 'Bash', icon: '>_' });
     }
     return shells;
+  }
+
+  /**
+   * 셸 타입에 따라 OSC 133 주입을 위한 환경변수를 구성한다.
+   *
+   * - bash: BASH_ENV 환경변수로 스크립트 자동 로드
+   * - zsh: ZDOTDIR 교체로 커스텀 .zshrc 로드 (Phase 2에서는 미지원)
+   * - powershell: OSC 133 미지원, 기본 env 반환
+   */
+  private buildShellEnv(shellType: 'powershell' | 'bash'): Record<string, string> {
+    const baseEnv = { ...process.env } as Record<string, string>;
+
+    if (shellType === 'bash') {
+      // bash: BASH_ENV로 스크립트 자동 로드
+      const scriptPath = this.getShellIntegrationPath('bash-osc133.sh');
+      if (scriptPath) {
+        // WSL인 경우 Windows 경로를 WSL 경로로 변환
+        if (process.platform === 'win32') {
+          const wslPath = this.toWslPath(scriptPath);
+          baseEnv['BASH_ENV'] = wslPath;
+        } else {
+          baseEnv['BASH_ENV'] = scriptPath;
+        }
+      }
+    }
+    // zsh: ZDOTDIR 교체 방식은 복잡하므로 Phase 2에서는 bash만 지원
+    // 추후 zsh 지원 시 ZDOTDIR 임시 디렉토리 생성 + 원본 .zshrc source + OSC 스크립트 source
+
+    return baseEnv;
+  }
+
+  /**
+   * shell-integration 스크립트의 절대 경로를 반환한다.
+   *
+   * dev 환경(tsx): src/shell-integration/ 기준
+   * 빌드 환경: dist/shell-integration/ 기준
+   */
+  private getShellIntegrationPath(filename: string): string | null {
+    try {
+      // ESM 환경: import.meta.url 기반
+      // 컴파일 후 dist/services/SessionManager.js → dist/shell-integration/
+      const currentFileUrl = new URL(import.meta.url);
+      let currentDir = path.dirname(currentFileUrl.pathname);
+      // Windows에서 URL pathname이 /C:/... 형태로 오는 경우 앞의 / 제거
+      if (process.platform === 'win32' && currentDir.startsWith('/')) {
+        currentDir = currentDir.slice(1);
+      }
+      const scriptPath = path.resolve(currentDir, '..', 'shell-integration', filename);
+      return scriptPath;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Windows 절대 경로를 WSL 경로로 변환.
+   * C:\Users\foo\bar → /mnt/c/Users/foo/bar
+   * /C:/Users/foo/bar → /mnt/c/Users/foo/bar
+   */
+  private toWslPath(windowsPath: string): string {
+    // URL.pathname 형태 (/C:/Users/...) 처리: 앞의 / 제거
+    const cleaned = windowsPath.replace(/^\//, '');
+    // 드라이브 문자 추출 (C: 또는 C/)
+    const drive = cleaned[0].toLowerCase();
+    const rest = cleaned.slice(2).replace(/\\/g, '/');
+    return `/mnt/${drive}${rest}`;
   }
 
   /**
@@ -384,6 +556,32 @@ export class SessionManager {
       lastActiveAt: session.lastActiveAt.toISOString(),
       sortOrder: session.sortOrder,
     };
+  }
+
+  /**
+   * PTY 출력이 사용자 입력의 에코인지 판정.
+   *
+   * 에코 조건 (모두 충족 시):
+   * 1. 마지막 입력으로부터 50ms 이내
+   * 2. 출력 길이가 입력 길이의 2배 이하 (ANSI 색상 코드 여유)
+   * 3. 마지막 입력에 Enter가 없었음
+   *
+   * Enter 입력 후의 출력은 명령 실행 결과이므로 에코가 아님.
+   */
+  private isEchoOutput(sData: SessionData, output: string): boolean {
+    const tracker = sData.echoTracker;
+    if (tracker.lastInputAt === 0) return false; // 아직 입력 없음
+
+    const elapsed = Date.now() - tracker.lastInputAt;
+    const ECHO_TIME_THRESHOLD_MS = 50;
+
+    // PowerShell(PSReadLine)은 키 입력 1글자마다 전체 라인을 ANSI 시퀀스로
+    // 재렌더링하므로 출력 길이가 입력 길이의 수십 배에 달한다.
+    // 따라서 길이 비교는 제거하고 타이밍 + Enter 여부만으로 판정한다.
+    return (
+      elapsed < ECHO_TIME_THRESHOLD_MS &&
+      !tracker.lastInputHasEnter
+    );
   }
 
   private appendBufferedOutput(sessionData: SessionData, data: string): void {
