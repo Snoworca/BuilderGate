@@ -11,6 +11,7 @@ import { useMosaicLayout } from '../../hooks/useMosaicLayout';
 import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useFocusHistory } from '../../hooks/useFocusHistory';
+import { resolveCwd } from '../../utils/shell';
 import {
   applyEqualMode,
   applyFocusMode,
@@ -22,14 +23,16 @@ import {
 } from '../../utils/mosaic';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import type { MosaicNode } from '../../types/workspace';
+import type { ShellInfo } from '../../types';
 
 interface MosaicContainerProps {
   tabs: WorkspaceTabRuntime[];
   workspaceId: string;
-  onAddTab: (cwd?: string) => void;
+  onAddTab: (cwd?: string, shell?: string) => void;
   onCloseTab: (tabId: string) => void;
   onRestartTab: (tabId: string) => void;
   renderTerminal: (tab: WorkspaceTabRuntime) => React.ReactNode;
+  availableShells?: ShellInfo[];
 }
 
 export function MosaicContainer({
@@ -39,6 +42,7 @@ export function MosaicContainer({
   onCloseTab,
   onRestartTab,
   renderTerminal,
+  availableShells,
 }: MosaicContainerProps) {
   const currentTabIds = tabs.map(t => t.id);
   const { mosaicTree, setMosaicTree, debouncedSave, layoutMode: persistedMode, focusTarget: persistedFocusTarget } =
@@ -205,15 +209,42 @@ export function MosaicContainer({
     (tabId: string) => {
       const tab = tabMap.get(tabId);
       const hasSelection = (window.getSelection()?.toString() ?? '').length > 0;
+
+      const newSessionItem = availableShells && availableShells.length > 1
+        ? {
+            label: '새 세션',
+            icon: '+',
+            disabled: tabs.length >= 8,
+            children: [
+              {
+                label: availableShells.find(s => s.id === tab?.shellType)?.label ?? tab?.shellType ?? '현재 셸',
+                icon: availableShells.find(s => s.id === tab?.shellType)?.icon ?? '🖥',
+                onClick: () => onAddTab(tab?.cwd, tab?.shellType),
+              },
+              { separator: true } as const,
+              ...availableShells
+                .filter(s => s.id !== tab?.shellType)
+                .map(shell => ({
+                  label: shell.label,
+                  icon: shell.icon,
+                  onClick: () => onAddTab(
+                    resolveCwd(shell.id, tab?.shellType, tab?.cwd),
+                    shell.id,
+                  ),
+                })),
+            ],
+          }
+        : {
+            label: '새 세션',
+            icon: '+',
+            disabled: tabs.length >= 8,
+            onClick: () => {
+              onAddTab(tab?.cwd);
+            },
+          };
+
       return [
-        {
-          label: '새 세션',
-          icon: '+',
-          disabled: tabs.length >= 8,
-          onClick: () => {
-            onAddTab(tab?.cwd);
-          },
-        },
+        newSessionItem,
         {
           label: '세션 닫기',
           icon: '✕',
@@ -241,7 +272,7 @@ export function MosaicContainer({
         },
       ];
     },
-    [tabMap, contextMenu, onAddTab, handleCopy, handlePaste],
+    [tabMap, contextMenu, onAddTab, handleCopy, handlePaste, availableShells, tabs.length],
   );
 
   // Context menu items derived from current targetId
@@ -317,9 +348,10 @@ export function MosaicContainer({
             tab={tab}
             onContextMenu={contextMenu.open}
             onRestart={() => onRestartTab(tabId)}
-            onAdd={() => onAddTab(tab?.cwd)}
+            onAdd={(shell?: string) => onAddTab(tab?.cwd, shell)}
             onFocus={() => handleTileFocus(tabId)}
             onRegisterRef={(el) => registerTileRef(tabId, el)}
+            availableShells={availableShells}
           >
             {tab ? renderTerminal(tab) : null}
           </MosaicTile>
@@ -336,6 +368,7 @@ export function MosaicContainer({
       renderTerminal,
       handleTileFocus,
       registerTileRef,
+      availableShells,
     ],
   );
 

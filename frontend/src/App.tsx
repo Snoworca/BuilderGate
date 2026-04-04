@@ -18,8 +18,9 @@ import { WorkspaceSidebar, WorkspaceTabBar, MobileDrawer, EmptyState, Disconnect
 import { MosaicContainer } from './components/Grid';
 import { MetadataRow } from './components/MetadataBar/MetadataRow';
 import { TAB_COLORS } from './types/workspace';
+import { resolveCwd } from './utils/shell';
 import type { WorkspaceTabRuntime } from './types/workspace';
-import type { SessionStatus } from './types';
+import type { SessionStatus, ShellInfo } from './types';
 import { WebSocketProvider } from './contexts/WebSocketContext';
 import './styles/globals.css';
 import './components/Workspace/breathing.css';
@@ -28,6 +29,7 @@ function AppContent() {
   const { logout } = useAuth();
   const [screen, setScreen] = useState<'workspace' | 'settings'>('workspace');
   const { isMobile, sidebarOpen, toggleSidebar, closeSidebar } = useResponsive();
+  const [availableShells, setAvailableShells] = useState<ShellInfo[]>([]);
 
   const wm = useWorkspaceManager();
   // Stable ref to avoid re-creating callbacks on every render
@@ -39,6 +41,11 @@ function AppContent() {
       alert('Session expired. Please login again.');
     }
   });
+
+  // Load available shells once on mount (after auth is already verified by AuthGuard)
+  useEffect(() => {
+    sessionApi.getShells().then(setAvailableShells).catch(() => { /* ignore */ });
+  }, []);
 
   // ============================================================================
   // Confirm modal state
@@ -76,13 +83,25 @@ function AppContent() {
   // ============================================================================
   // Tab actions
   // ============================================================================
-  const handleAddTab = useCallback((cwdOrEvent?: string | React.MouseEvent) => {
+  const handleAddTab = useCallback((cwd?: string, shell?: string) => {
     const wsId = wmRef.current.activeWorkspaceId;
-    // Guard: onClick passes a SyntheticEvent — ignore non-string arguments
-    const cwd = typeof cwdOrEvent === 'string' ? cwdOrEvent : undefined;
     if (wsId) {
-      wmRef.current.addTab(wsId, undefined, undefined, cwd);
+      wmRef.current.addTab(wsId, shell, undefined, cwd);
     }
+  }, []);
+
+  const handleTabBarAddTab = useCallback((shell?: string) => {
+    const wsId = wmRef.current.activeWorkspaceId;
+    if (!wsId) return;
+    const ws = wmRef.current.activeWorkspace;
+    const activeTabObj = wmRef.current.activeWorkspaceTabs.find(
+      t => t.id === ws?.activeTabId
+    );
+    const effectiveShell = shell ?? activeTabObj?.shellType;
+    const cwd = shell
+      ? resolveCwd(shell, activeTabObj?.shellType, activeTabObj?.cwd)
+      : activeTabObj?.cwd;
+    wmRef.current.addTab(wsId, effectiveShell, undefined, cwd);
   }, []);
 
   const handleCloseTab = useCallback((tabId: string) => {
@@ -192,11 +211,12 @@ function AppContent() {
       tabs={wm.tabs}
       activeWorkspaceId={wm.activeWorkspaceId}
       maxWorkspaces={10}
+      availableShells={availableShells}
       onSelect={handleSelectWorkspace}
       onCreate={() => wm.createWorkspace()}
       onRename={handleRenameWorkspace}
       onDelete={handleDeleteWorkspace}
-      onAddTab={(wsId) => wm.addTab(wsId)}
+      onAddTab={(wsId, shell) => wm.addTab(wsId, shell)}
       onReorder={(ids) => wm.reorderWorkspaces(ids)}
     />
   );
@@ -243,8 +263,9 @@ function AppContent() {
                   onSelectTab={handleSelectTab}
                   onCloseTab={handleCloseTab}
                   onRenameTab={handleRenameTab}
-                  onAddTab={handleAddTab}
+                  onAddTab={handleTabBarAddTab}
                   onReorderTabs={handleReorderTabs}
+                  availableShells={availableShells}
                 />}
 
                 <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
@@ -256,6 +277,7 @@ function AppContent() {
                       onCloseTab={handleCloseTab}
                       onRestartTab={handleRestartTab}
                       renderTerminal={renderTerminal}
+                      availableShells={availableShells}
                     />
                   ) : (
                     /* Tab Mode — show only active tab's terminal */
@@ -288,7 +310,7 @@ function AppContent() {
                 </div>
               </>
             ) : (
-              <EmptyState onAddTab={handleAddTab} />
+              <EmptyState onAddTab={(shell) => handleAddTab(undefined, shell)} availableShells={availableShells} />
             )}
           </div>
 

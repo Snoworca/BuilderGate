@@ -5,17 +5,19 @@ import { MetadataRow } from '../MetadataBar/MetadataRow';
 import { useLongPress } from '../../hooks/useLongPress';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
+import type { ShellInfo } from '../../types';
 
 interface MosaicTileProps {
   tabId: string;
   tab: WorkspaceTabRuntime | undefined;
   onContextMenu: (x: number, y: number, tabId: string) => void;
   onRestart: () => void;
-  onAdd: () => void;
+  onAdd: (shell?: string) => void;
   /** Called when the user presses down on this tile (focus tracking) */
   onFocus?: () => void;
   /** Receives the tile root DOM element for external focus management */
   onRegisterRef?: (el: HTMLElement | null) => void;
+  availableShells?: ShellInfo[];
   children: React.ReactNode;
 }
 
@@ -27,6 +29,7 @@ export function MosaicTile({
   onAdd,
   onFocus,
   onRegisterRef,
+  availableShells,
   children,
 }: MosaicTileProps) {
   const tileRef = useRef<HTMLDivElement>(null);
@@ -64,7 +67,7 @@ export function MosaicTile({
   }, [onFocus]);
 
   if (!tab) {
-    return <EmptyCell onAdd={onAdd} />;
+    return <EmptyCell onAdd={onAdd} availableShells={availableShells} />;
   }
 
   const isDisconnected = tab.status === 'disconnected';

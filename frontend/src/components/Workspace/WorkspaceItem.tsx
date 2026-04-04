@@ -12,7 +12,7 @@ interface Props {
   onClick: () => void;
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
-  onAddTab: (id: string) => void;
+  onAddTab: (id: string, anchorPosition?: { x: number; y: number }) => void;
   tabCount: number;
   maxTabs: number;
   dragHandlers?: { onPointerDown: (e: React.PointerEvent) => void };
@@ -45,7 +45,7 @@ export function WorkspaceItem({
     { label: 'Rename', onClick: () => { setEditName(workspace.name); setEditing(true); } },
     ...(!isLast ? [{ label: 'Delete', destructive: true, onClick: () => onDelete(workspace.id) }] : []),
     { separator: true } as ContextMenuItem,
-    { label: 'Add Terminal', onClick: () => onAddTab(workspace.id), disabled: tabCount >= maxTabs },
+    { label: 'Add Terminal', onClick: () => onAddTab(workspace.id, ctx.position), disabled: tabCount >= maxTabs },
   ];
 
   return (

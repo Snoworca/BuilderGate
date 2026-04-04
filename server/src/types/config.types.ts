@@ -80,8 +80,8 @@ export interface PTYConfig {
   defaultRows: number;
   useConpty: boolean;
   maxBufferSize: number;
-  /** Shell type: 'auto' (OS default), 'powershell', 'wsl' (WSL bash), 'bash' */
-  shell: 'auto' | 'powershell' | 'wsl' | 'bash';
+  /** Shell type: 'auto' (OS default), 'powershell', 'wsl' (WSL bash), 'bash', 'zsh', 'sh', 'cmd' */
+  shell: 'auto' | 'powershell' | 'wsl' | 'bash' | 'zsh' | 'sh' | 'cmd';
 }
 
 // ============================================================================

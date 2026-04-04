@@ -19,7 +19,7 @@ export interface UpdateSessionRequest {
 export type SessionStatus = 'running' | 'idle';
 
 // Shell Types
-export type ShellType = 'auto' | 'powershell' | 'wsl' | 'bash';
+export type ShellType = 'auto' | 'powershell' | 'wsl' | 'bash' | 'zsh' | 'sh' | 'cmd';
 
 export interface ShellInfo {
   id: ShellType;

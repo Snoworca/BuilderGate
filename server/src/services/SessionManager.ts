@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import os from 'os';
 import path from 'path';
 import { unlinkSync, watchFile, unwatchFile, readFileSync } from 'fs';
+import { execSync } from 'child_process';
 import { Session, SessionDTO, SessionStatus, UpdateSessionRequest, ShellType, ShellInfo } from '../types/index.js';
 import type { PTYConfig, SessionConfig } from '../types/config.types.js';
 import { config } from '../utils/config.js';
@@ -44,10 +45,13 @@ export class SessionManager {
   private runtimePtyConfig: PTYConfig;
   private runtimeSessionConfig: SessionConfig;
   private wsRouter: WsRouter | null = null;
+  private cachedAvailableShells: ShellInfo[] | null = null;
 
   constructor(initialConfig: { pty: PTYConfig; session: SessionConfig } = { pty: config.pty, session: config.session }) {
     this.runtimePtyConfig = clonePtyConfig(initialConfig.pty);
     this.runtimeSessionConfig = { idleDelayMs: initialConfig.session.idleDelayMs };
+    // 서버 시작 시 한 번만 셸 감지 후 캐싱
+    this.cachedAvailableShells = this.detectAvailableShells();
   }
 
   createSession(name?: string, shell?: ShellType, cwd?: string): SessionDTO {
@@ -56,7 +60,7 @@ export class SessionManager {
     const sessionName = name || `Session-${this.sessionCounter}`;
 
     const { shell: shellCmd, args: shellArgs, shellType } = this.resolveShell(shell);
-    const initialCwd = cwd || process.env.HOME || process.env.USERPROFILE || '/';
+    const initialCwd = this.resolveSpawnCwd(cwd, shellType);
 
     // Step 9: OSC 133 셸 통합 환경변수 구성
     const env = this.buildShellEnv(shellType);
@@ -336,16 +340,59 @@ export class SessionManager {
   }
 
   getAvailableShells(): ShellInfo[] {
+    return this.cachedAvailableShells ?? [];
+  }
+
+  private detectAvailableShells(): ShellInfo[] {
     const shells: ShellInfo[] = [];
     if (process.platform === 'win32') {
-      shells.push(
-        { id: 'powershell', label: 'PowerShell', icon: 'PS' },
-        { id: 'wsl', label: 'WSL (Bash)', icon: '>_' }
-      );
+      // PowerShell: 항상 추가
+      shells.push({ id: 'powershell', label: 'PowerShell', icon: '💙' });
+      // cmd: 항상 추가
+      shells.push({ id: 'cmd', label: 'Command Prompt', icon: '⬛' });
+      // WSL: wsl.exe 존재 시에만 추가
+      if (this.isCommandAvailable('wsl.exe')) {
+        shells.push({ id: 'wsl', label: 'WSL (Bash)', icon: '🐧' });
+        // WSL 내부 zsh 확인
+        if (this.isWslShellAvailable('zsh')) {
+          shells.push({ id: 'zsh', label: 'WSL (Zsh)', icon: '🔮' });
+        }
+      }
     } else {
-      shells.push({ id: 'bash', label: 'Bash', icon: '>_' });
+      // bash: 존재 시에만 추가
+      if (this.isCommandAvailable('bash')) {
+        shells.push({ id: 'bash', label: 'Bash', icon: '🐚' });
+      }
+      // zsh: 존재 시에만 추가
+      if (this.isCommandAvailable('zsh')) {
+        shells.push({ id: 'zsh', label: 'Zsh', icon: '🔮' });
+      }
+      // sh: 항상 추가
+      shells.push({ id: 'sh', label: 'Shell (sh)', icon: '⚡' });
     }
     return shells;
+  }
+
+  private isCommandAvailable(cmd: string): boolean {
+    try {
+      if (process.platform === 'win32') {
+        execSync(`where ${cmd}`, { stdio: 'ignore' });
+      } else {
+        execSync(`which ${cmd}`, { stdio: 'ignore' });
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private isWslShellAvailable(shell: string): boolean {
+    try {
+      execSync(`wsl.exe which ${shell}`, { stdio: 'ignore', timeout: 3000 });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -355,7 +402,7 @@ export class SessionManager {
    * - zsh: ZDOTDIR 교체로 커스텀 .zshrc 로드 (Phase 2에서는 미지원)
    * - powershell: OSC 133 미지원, 기본 env 반환
    */
-  private buildShellEnv(shellType: 'powershell' | 'bash'): Record<string, string> {
+  private buildShellEnv(shellType: 'powershell' | 'bash' | 'zsh' | 'sh' | 'cmd'): Record<string, string> {
     const baseEnv = { ...process.env } as Record<string, string>;
 
     if (shellType === 'bash') {
@@ -371,8 +418,10 @@ export class SessionManager {
         }
       }
     }
-    // zsh: ZDOTDIR 교체 방식은 복잡하므로 Phase 2에서는 bash만 지원
-    // 추후 zsh 지원 시 ZDOTDIR 임시 디렉토리 생성 + 원본 .zshrc source + OSC 스크립트 source
+    // zsh: ZDOTDIR 교체 방식은 미구현, baseEnv만 반환
+    // sh: 기본 env만 반환
+    // cmd: 기본 env만 반환
+    // powershell: OSC 133 미지원, 기본 env 반환
 
     return baseEnv;
   }
@@ -415,9 +464,35 @@ export class SessionManager {
   }
 
   /**
+   * Resolve CWD for pty.spawn.
+   * On Windows, pty.spawn requires a Windows path. If the cwd is a WSL/Linux path
+   * (starts with /), convert /mnt/X/... to X:\... or fall back to the default.
+   */
+  private resolveSpawnCwd(cwd: string | undefined, shellType: string): string {
+    const fallback = process.env.HOME || process.env.USERPROFILE || '/';
+    if (!cwd) return fallback;
+
+    const isWindows = process.platform === 'win32';
+
+    if (isWindows && cwd.startsWith('/')) {
+      // Linux path on Windows — try /mnt/X/... → X:\...
+      const mntMatch = cwd.match(/^\/mnt\/([a-zA-Z])(\/.*)?$/);
+      if (mntMatch) {
+        const drive = mntMatch[1].toUpperCase();
+        const rest = (mntMatch[2] || '').replace(/\//g, '\\');
+        return `${drive}:${rest || '\\'}`;
+      }
+      // Other Linux paths (e.g. /home/...) can't be mapped — use fallback
+      return fallback;
+    }
+
+    return cwd;
+  }
+
+  /**
    * Resolve shell command and arguments based on config and platform.
    */
-  private resolveShell(shellOverride?: ShellType): { shell: string; args: string[]; shellType: 'powershell' | 'bash' } {
+  private resolveShell(shellOverride?: ShellType): { shell: string; args: string[]; shellType: 'powershell' | 'bash' | 'zsh' | 'sh' | 'cmd' } {
     const shellConfig = shellOverride || this.runtimePtyConfig.shell || 'auto';
 
     if (shellConfig === 'powershell') {
@@ -431,10 +506,27 @@ export class SessionManager {
         ? { shell: 'wsl.exe', args: [], shellType: 'bash' }
         : { shell: 'bash', args: [], shellType: 'bash' };
     }
+    if (shellConfig === 'zsh') {
+      return process.platform === 'win32'
+        ? { shell: 'wsl.exe', args: ['-e', 'zsh'], shellType: 'zsh' }
+        : { shell: 'zsh', args: [], shellType: 'zsh' };
+    }
+    if (shellConfig === 'sh') {
+      return process.platform === 'win32'
+        ? { shell: 'wsl.exe', args: ['-e', 'sh'], shellType: 'sh' }
+        : { shell: 'sh', args: [], shellType: 'sh' };
+    }
+    if (shellConfig === 'cmd') {
+      return { shell: 'cmd.exe', args: [], shellType: 'cmd' };
+    }
 
     // auto: OS default
     if (process.platform === 'win32') {
       return { shell: 'powershell.exe', args: [], shellType: 'powershell' };
+    }
+    // macOS default is zsh since Catalina; fallback to bash
+    if (process.platform === 'darwin' && this.isCommandAvailable('zsh')) {
+      return { shell: 'zsh', args: [], shellType: 'zsh' };
     }
     return { shell: 'bash', args: [], shellType: 'bash' };
   }
@@ -471,31 +563,42 @@ export class SessionManager {
 
   /**
    * Inject CWD tracking hook into the shell session.
-   * - PowerShell: override prompt function to write $PWD to temp file
-   * - Bash/WSL: use PROMPT_COMMAND to write $PWD to temp file
+   * - PowerShell / cmd: override prompt function to write $PWD to temp file
+   * - Bash / zsh / sh / WSL: use PROMPT_COMMAND to write $PWD to temp file
    */
   private injectCwdHook(
     id: string,
     sessionData: SessionData,
     ptyProcess: pty.IPty,
-    shellType: 'powershell' | 'bash'
+    shellType: 'powershell' | 'bash' | 'zsh' | 'sh' | 'cmd'
   ): void {
     const cwdFile = path.join(os.tmpdir(), `buildergate-cwd-${id}.txt`);
     sessionData.cwdFilePath = cwdFile;
 
-    if (shellType === 'powershell') {
+    if (shellType === 'powershell' || shellType === 'cmd') {
       const escapedPath = cwdFile.replace(/\\/g, '\\\\');
       const hookScript = `$Global:__OrigPrompt = $function:prompt; function Global:prompt { $pwd.Path | Out-File -FilePath '${escapedPath}' -Encoding utf8 -NoNewline; if ($Global:__OrigPrompt) { & $Global:__OrigPrompt } else { "PS $($pwd.Path)> " } }\r`;
       setTimeout(() => {
         ptyProcess.write(hookScript);
       }, 500);
     } else {
-      // Bash / WSL: use PROMPT_COMMAND
-      // Convert Windows temp path to WSL path if needed (e.g., C:\Users\... → /mnt/c/Users/...)
+      // Bash / zsh / sh / WSL: CWD tracking hook
+      // Convert Windows temp path to WSL path if needed
       const wslPath = process.platform === 'win32'
         ? '/mnt/' + cwdFile[0].toLowerCase() + cwdFile.slice(2).replace(/\\/g, '/')
         : cwdFile;
-      const hookScript = ` PROMPT_COMMAND='printf "%s" "$PWD" > "${wslPath}"'\r`;
+
+      let hookScript: string;
+      if (shellType === 'zsh') {
+        // zsh uses precmd hook (PROMPT_COMMAND is bash-only)
+        hookScript = ` precmd() { printf "%s" "$PWD" > "${wslPath}"; }\r`;
+      } else if (shellType === 'sh') {
+        // POSIX sh: embed in PS1 (no PROMPT_COMMAND or precmd)
+        hookScript = ` PS1='$(printf "%s" "$PWD" > "${wslPath}")$ '\r`;
+      } else {
+        // bash / wsl (bash): use PROMPT_COMMAND
+        hookScript = ` PROMPT_COMMAND='printf "%s" "$PWD" > "${wslPath}"'\r`;
+      }
       setTimeout(() => {
         ptyProcess.write(hookScript);
       }, 500);

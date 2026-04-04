@@ -1,0 +1,27 @@
+{
+  "version": "1.0-tiny",
+  "state_path": "docs/pm/pm-state.2026-04-04.15_00_00.json",
+  "intent": "셸 선택 UI 통일: 워크스페이스=메뉴, 탭바/그리드/빈화면=클릭(같은셸)+롱프레스(셸선택). CWD는 셸 계열이 다르면 홈 디렉토리 사용.",
+  "started_at": "2026-04-04T15:00:00",
+  "updated_at": "2026-04-04T15:00:00",
+  "mode": "auto",
+  "mode_flags": { "auto": true, "qna": false, "feasibility": false },
+  "language": "TypeScript",
+  "framework": "React 18 + Node.js + Express + xterm.js",
+  "start_stage": "PLAN",
+  "current_stage": "COMPLETE",
+  "completed_stages": ["PLAN", "CODE", "REVIEW"],
+  "input_docs": ["대화 컨텍스트 (요구사항 정의 완료)"],
+  "ref_paths": ["docs/plan/step10/"],
+  "dew_files": {
+    "PLAN": "docs/pm/dew/plan.dew.md"
+  },
+  "stages": {
+    "PRD": { "status": "skipped", "reason": "대화에서 요구사항 직접 정의" },
+    "SRS": { "status": "skipped", "reason": "대화에서 기술 스펙 직접 정의" },
+    "FEASIBILITY": { "status": "disabled", "reason": "--feasibility 플래그 없음 (기본 비활성화)" },
+    "PLAN": { "status": "completed", "output": "docs/plan/step10/", "completed_at": "2026-04-04T15:05:00" },
+    "CODE": { "status": "completed", "output": "frontend/src/", "completed_at": "2026-04-04T15:15:00" },
+    "REVIEW": { "status": "completed", "output": "PASS (18/18, 2건 수정)", "completed_at": "2026-04-04T15:25:00" }
+  }
+}

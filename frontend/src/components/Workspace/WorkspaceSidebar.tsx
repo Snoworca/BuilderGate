@@ -1,26 +1,35 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { WorkspaceItem } from './WorkspaceItem';
 import { useDragReorder } from '../../hooks/useDragReorder';
+import { ContextMenu } from '../ContextMenu/ContextMenu';
+import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
 import type { Workspace, WorkspaceTabRuntime } from '../../types/workspace';
+import type { ShellInfo } from '../../types';
 
 interface Props {
   workspaces: Workspace[];
   tabs: WorkspaceTabRuntime[];
   activeWorkspaceId: string | null;
   maxWorkspaces: number;
+  availableShells?: ShellInfo[];
   onSelect: (id: string) => void;
   onCreate: () => void;
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
-  onAddTab: (id: string) => void;
+  onAddTab: (id: string, shell?: string) => void;
   onReorder: (workspaceIds: string[]) => void;
 }
 
 export function WorkspaceSidebar({
   workspaces, tabs, activeWorkspaceId, maxWorkspaces,
+  availableShells,
   onSelect, onCreate, onRename, onDelete, onAddTab, onReorder,
 }: Props) {
   const sorted = [...workspaces].sort((a, b) => a.sortOrder - b.sortOrder);
+
+  const [shellMenuOpen, setShellMenuOpen] = useState(false);
+  const [shellMenuPosition, setShellMenuPosition] = useState({ x: 0, y: 0 });
+  const [pendingAddTabWsId, setPendingAddTabWsId] = useState<string | null>(null);
 
   const handleReorder = useCallback((fromIndex: number, toIndex: number) => {
     const ids = sorted.map(w => w.id);
@@ -39,6 +48,30 @@ export function WorkspaceSidebar({
     tabs.filter(t => t.workspaceId === wsId && t.status === 'running').length;
 
   const isLimitReached = workspaces.length >= maxWorkspaces;
+
+  const handleAddTabWithShell = useCallback((wsId: string, anchorPosition?: { x: number; y: number }) => {
+    if (!availableShells || availableShells.length <= 1) {
+      onAddTab(wsId, availableShells?.[0]?.id);
+      return;
+    }
+    // Show shell selection context menu at anchor position
+    const pos = anchorPosition ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    setShellMenuPosition({ x: pos.x + 16, y: pos.y });
+    setPendingAddTabWsId(wsId);
+    setShellMenuOpen(true);
+  }, [availableShells, onAddTab]);
+
+  const shellMenuItems: ContextMenuItem[] = (availableShells || []).map((shell) => ({
+    label: shell.label,
+    icon: shell.icon,
+    onClick: () => {
+      if (pendingAddTabWsId) {
+        onAddTab(pendingAddTabWsId, shell.id);
+      }
+      setShellMenuOpen(false);
+      setPendingAddTabWsId(null);
+    },
+  }));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#1e1e2e' }}>
@@ -79,7 +112,7 @@ export function WorkspaceSidebar({
               onClick={() => onSelect(ws.id)}
               onRename={onRename}
               onDelete={onDelete}
-              onAddTab={onAddTab}
+              onAddTab={(wsId, anchorPosition) => handleAddTabWithShell(wsId, anchorPosition)}
               tabCount={tabs.filter(t => t.workspaceId === ws.id).length}
               maxTabs={8}
               dragHandlers={drag.getTabHandlers(index)}
@@ -103,6 +136,14 @@ export function WorkspaceSidebar({
         }}>
           {sorted[drag.dragIndex]?.name}
         </div>
+      )}
+
+      {shellMenuOpen && shellMenuItems.length > 0 && (
+        <ContextMenu
+          position={shellMenuPosition}
+          onClose={() => { setShellMenuOpen(false); setPendingAddTabWsId(null); }}
+          items={shellMenuItems}
+        />
       )}
     </div>
   );

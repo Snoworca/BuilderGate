@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useDragReorder } from '../../hooks/useDragReorder';
 import { useContextMenu } from '../../hooks/useContextMenu';
+import { useLongPress } from '../../hooks/useLongPress';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
+import type { ShellInfo } from '../../types';
 import './WorkspaceTabBar.css';
 
 interface Props {
@@ -17,18 +19,21 @@ interface Props {
   onSelectTab: (tabId: string) => void;
   onCloseTab: (tabId: string) => void;
   onRenameTab: (tabId: string, name: string) => void;
-  onAddTab: () => void;
+  onAddTab: (shell?: string) => void;
   onReorderTabs: (tabIds: string[]) => void;
+  availableShells?: ShellInfo[];
 }
 
 export function WorkspaceTabBar({
   tabs, activeTabId, isMobile,
   totalSessionCount, maxTabs, maxSessions,
   onSelectTab, onCloseTab, onRenameTab, onAddTab,
-  onReorderTabs,
+  onReorderTabs, availableShells,
 }: Props) {
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [shellMenuOpen, setShellMenuOpen] = useState(false);
+  const [shellMenuPosition, setShellMenuPosition] = useState({ x: 0, y: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
   const ctx = useContextMenu();
 
@@ -59,6 +64,15 @@ export function WorkspaceTabBar({
 
   const isAddDisabled = tabs.length >= maxTabs || totalSessionCount >= maxSessions;
   const addTooltip = tabs.length >= maxTabs ? `Maximum ${maxTabs} tabs` : totalSessionCount >= maxSessions ? `Maximum ${maxSessions} sessions` : '';
+
+  const longPress = useLongPress(
+    useCallback((e: { clientX: number; clientY: number }) => {
+      if (!availableShells || availableShells.length <= 1) return;
+      setShellMenuPosition({ x: e.clientX, y: e.clientY });
+      setShellMenuOpen(true);
+    }, [availableShells]),
+    500,
+  );
 
   return (
     <div
@@ -149,7 +163,13 @@ export function WorkspaceTabBar({
 
       {/* Add Tab Button */}
       <button
-        onClick={onAddTab}
+        onClick={() => {
+          if (isAddDisabled || longPress.wasLongPress()) return;
+          onAddTab();
+        }}
+        onPointerDown={longPress.onPointerDown}
+        onPointerUp={longPress.onPointerUp}
+        onPointerMove={longPress.onPointerMove}
         disabled={isAddDisabled}
         title={addTooltip || 'Add Terminal'}
         style={{
@@ -197,6 +217,19 @@ export function WorkspaceTabBar({
             }},
             { label: 'Close', destructive: true, onClick: () => { if (ctx.targetId) onCloseTab(ctx.targetId); }},
           ]}
+        />
+      )}
+
+      {/* Shell Selection Menu (long-press on + button) */}
+      {shellMenuOpen && availableShells && (
+        <ContextMenu
+          position={shellMenuPosition}
+          onClose={() => setShellMenuOpen(false)}
+          items={availableShells.map(shell => ({
+            label: shell.label,
+            icon: shell.icon,
+            onClick: () => { onAddTab(shell.id); setShellMenuOpen(false); },
+          }))}
         />
       )}
     </div>

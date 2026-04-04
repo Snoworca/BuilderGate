@@ -59,7 +59,7 @@ export const ptySchema = z.object({
   defaultRows: z.number().min(5).max(200).default(24),
   useConpty: z.boolean().default(false),
   maxBufferSize: z.number().min(1024).max(10485760).default(65536),
-  shell: z.enum(['auto', 'powershell', 'wsl', 'bash']).default('auto'),
+  shell: z.enum(['auto', 'powershell', 'wsl', 'bash', 'zsh', 'sh', 'cmd']).default('auto'),
 });
 
 // ============================================================================
