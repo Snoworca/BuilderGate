@@ -131,25 +131,31 @@ export function applyFocusMode(
   const firstHasFocus = containsLeaf(parent.first, focusTabId);
   const secondHasFocus = containsLeaf(parent.second, focusTabId);
 
-  // Recurse into children first
-  const newFirst = applyFocusMode(parent.first, focusTabId, minPercent);
-  const newSecond = applyFocusMode(parent.second, focusTabId, minPercent);
-
   let splitPercentage = parent.splitPercentage ?? 50;
 
   if (firstHasFocus && !secondHasFocus) {
-    // Focus is in first: give it more space
     const oppositeLeaves = countLeaves(parent.second);
     const opponentSpace = oppositeLeaves * minPercent;
     splitPercentage = Math.min(100 - minPercent, Math.max(minPercent, 100 - opponentSpace));
+    return {
+      ...parent,
+      first: applyFocusMode(parent.first, focusTabId, minPercent),
+      second: applyEqualMode(parent.second),
+      splitPercentage,
+    };
   } else if (secondHasFocus && !firstHasFocus) {
-    // Focus is in second: give it more space
     const oppositeLeaves = countLeaves(parent.first);
     const opponentSpace = oppositeLeaves * minPercent;
     splitPercentage = Math.max(minPercent, Math.min(100 - minPercent, opponentSpace));
+    return {
+      ...parent,
+      first: applyEqualMode(parent.first),
+      second: applyFocusMode(parent.second, focusTabId, minPercent),
+      splitPercentage,
+    };
   }
 
-  return { ...parent, first: newFirst, second: newSecond, splitPercentage };
+  return { ...parent, splitPercentage };
 }
 
 // ============================================================================

@@ -269,11 +269,15 @@ export function MosaicContainer({
   }, [pendingCloseTabId, focusHistory, mosaicTree, setMosaicTree, onCloseTab]);
 
   // Handle tile focus (pointer down on any tile) — record in focus history
+  // In focus mode: dynamically update focusTarget to the clicked tile
   const handleTileFocus = useCallback(
     (tabId: string) => {
       focusHistory.recordFocus(tabId);
+      if (layoutMode === 'focus') {
+        handleLayoutModeChange('focus', tabId);
+      }
     },
-    [focusHistory],
+    [focusHistory, layoutMode, handleLayoutModeChange],
   );
 
   // Register/unregister tile DOM elements for focus targeting

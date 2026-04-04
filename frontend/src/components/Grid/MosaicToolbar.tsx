@@ -20,17 +20,17 @@ function ToolbarButton({ label, title, active, onClick }: ToolbarButtonProps) {
       title={title}
       onClick={onClick}
       style={{
-        width: '24px',
-        height: '24px',
+        width: '28px',
+        height: '28px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: active ? 'rgba(255,255,255,0.25)' : 'transparent',
-        border: 'none',
+        background: active ? 'rgba(80,160,255,0.8)' : 'rgba(60,60,60,0.85)',
+        border: active ? '1px solid rgba(120,180,255,0.6)' : '1px solid transparent',
         borderRadius: '4px',
         cursor: 'pointer',
-        fontSize: '14px',
-        color: active ? '#fff' : 'rgba(255,255,255,0.7)',
+        fontSize: '16px',
+        color: active ? '#fff' : 'rgba(255,255,255,0.5)',
         padding: 0,
         lineHeight: 1,
         flexShrink: 0,
@@ -76,23 +76,34 @@ export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarP
     return () => clearHideTimer();
   }, [clearHideTimer]);
 
-  // Grip icon element — drag handle for tile DnD
+  // Grip icon element — drag handle for tile DnD (hidden by default, visible on hover)
   const gripDiv = (
     <div
       style={{
-        width: '24px',
-        height: '24px',
+        width: '28px',
+        height: '28px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'grab',
-        color: 'rgba(255,255,255,0.4)',
-        fontSize: '14px',
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: '16px',
         flexShrink: 0,
+        backgroundColor: 'rgba(60,60,60,0.85)',
+        borderRadius: '4px',
+        opacity: expanded ? 1 : 0,
+        transition: 'opacity 0.2s ease',
       }}
       title="드래그하여 타일 이동"
     >
-      ⠿
+      <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+        <polygon points="10,2 7,7 13,7" />
+        <polygon points="10,18 7,13 13,13" />
+        <polygon points="2,10 7,7 7,13" />
+        <polygon points="18,10 13,7 13,13" />
+        <rect x="9" y="7" width="2" height="6" />
+        <rect x="7" y="9" width="6" height="2" />
+      </svg>
     </div>
   );
   // connectDragSource may be undefined outside MosaicWindowContext (e.g. unit tests)
@@ -121,11 +132,7 @@ export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarP
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '2px',
-            backgroundColor: 'rgba(128,128,128,0.4)',
-            borderRadius: '6px',
-            padding: '2px',
-            backdropFilter: 'blur(4px)',
+            gap: '4px',
           }}
         >
           <ToolbarButton
