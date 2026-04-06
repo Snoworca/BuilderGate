@@ -49,6 +49,18 @@ export const TerminalContainer = memo(function TerminalContainer({ sessionId, is
     return unsubscribe;
   }, [sessionId, ws]);
 
+  // isVisible이 false→true로 변경될 때 fit을 명시적으로 호출
+  // (display:none → flex 전환 시 ResizeObserver가 0-size 가드로 스킵했으므로)
+  const prevVisibleRef = useRef(isVisible);
+  useEffect(() => {
+    if (isVisible && !prevVisibleRef.current) {
+      requestAnimationFrame(() => {
+        terminalRef.current?.fit();
+      });
+    }
+    prevVisibleRef.current = isVisible;
+  }, [isVisible]);
+
   const handleInput = useCallback((data: string) => {
     ws.send({ type: 'input', sessionId, data });
   }, [sessionId, ws]);

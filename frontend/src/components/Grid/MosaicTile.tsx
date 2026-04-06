@@ -17,6 +17,7 @@ interface MosaicTileProps {
   onFocus?: () => void;
   /** Receives the tile root DOM element for external focus management */
   onRegisterRef?: (el: HTMLElement | null) => void;
+  onRenameTab?: (tabId: string, name: string) => void;
   availableShells?: ShellInfo[];
   children: React.ReactNode;
 }
@@ -29,6 +30,7 @@ export function MosaicTile({
   onAdd,
   onFocus,
   onRegisterRef,
+  onRenameTab,
   availableShells,
   children,
 }: MosaicTileProps) {
@@ -100,7 +102,11 @@ export function MosaicTile({
       </div>
 
       {/* Metadata bar */}
-      <MetadataRow tab={tab} isOdd={false} />
+      <MetadataRow
+        tab={tab}
+        isOdd={false}
+        onRename={onRenameTab ? (name) => onRenameTab(tabId, name) : undefined}
+      />
 
       {/* Disconnected overlay */}
       {isDisconnected && <DisconnectedOverlay onRestart={onRestart} />}

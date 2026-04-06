@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
+import { useInlineRename } from '../../hooks/useInlineRename';
 
 interface Props {
   tab: WorkspaceTabRuntime;
   isOdd: boolean;
+  onRename?: (name: string) => void;
 }
 
 function formatElapsed(createdAt: string): string {
@@ -36,9 +38,11 @@ function truncatePath(cwd: string, maxChars = 30): string {
   return '...' + tail;
 }
 
-export function MetadataRow({ tab, isOdd }: Props) {
+export function MetadataRow({ tab, isOdd, onRename }: Props) {
   const [elapsed, setElapsed] = useState(() => formatElapsed(tab.createdAt));
   const [copied, setCopied] = useState(false);
+
+  const rename = useInlineRename({ onRename: onRename ?? (() => {}) });
 
   useEffect(() => {
     const timer = setInterval(() => setElapsed(formatElapsed(tab.createdAt)), 1000);
@@ -78,18 +82,44 @@ export function MetadataRow({ tab, isOdd }: Props) {
         flexShrink: 0,
       }} />
 
-      {/* Session name */}
-      <span style={{
-        color: '#fff',
-        marginLeft: '8px',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-        maxWidth: '150px',
-        flexShrink: 0,
-      }}>
-        {tab.name}
-      </span>
+      {/* Session name — 더블클릭 시 인라인 편집 */}
+      {rename.isEditing ? (
+        <input
+          ref={rename.inputRef}
+          value={rename.editName}
+          maxLength={32}
+          onChange={rename.handleChange}
+          onKeyDown={rename.handleKeyDown}
+          onBlur={rename.handleBlur}
+          style={{
+            color: '#fff',
+            marginLeft: '8px',
+            background: 'transparent',
+            border: '1px solid #555',
+            borderRadius: '2px',
+            fontSize: '13px',
+            width: '120px',
+            flexShrink: 0,
+            padding: '0 2px',
+          }}
+        />
+      ) : (
+        <span
+          onDoubleClick={onRename ? () => rename.startEdit(tab.name) : undefined}
+          style={{
+            color: '#fff',
+            marginLeft: '8px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: '150px',
+            flexShrink: 0,
+            cursor: onRename ? 'text' : 'default',
+          }}
+        >
+          {tab.name}
+        </span>
+      )}
 
       {/* CWD path — click to copy */}
       {displayPath && (

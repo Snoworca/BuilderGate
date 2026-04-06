@@ -11,7 +11,7 @@ import { useMosaicLayout } from '../../hooks/useMosaicLayout';
 import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useFocusHistory } from '../../hooks/useFocusHistory';
-import { resolveCwd } from '../../utils/shell';
+import { buildTerminalContextMenuItems } from '../../utils/contextMenuBuilder';
 import {
   applyEqualMode,
   applyFocusMode,
@@ -31,6 +31,7 @@ interface MosaicContainerProps {
   onAddTab: (cwd?: string, shell?: string) => void;
   onCloseTab: (tabId: string) => void;
   onRestartTab: (tabId: string) => void;
+  onRenameTab: (tabId: string, name: string) => void;
   renderTerminal: (tab: WorkspaceTabRuntime) => React.ReactNode;
   availableShells?: ShellInfo[];
 }
@@ -41,6 +42,7 @@ export function MosaicContainer({
   onAddTab,
   onCloseTab,
   onRestartTab,
+  onRenameTab,
   renderTerminal,
   availableShells,
 }: MosaicContainerProps) {
@@ -205,81 +207,33 @@ export function MosaicContainer({
   }, []);
 
   // Build context menu items for the target tab
-  const buildTerminalContextMenuItems = useCallback(
+  const buildMenuItems = useCallback(
     (tabId: string) => {
       const tab = tabMap.get(tabId);
       const hasSelection = (window.getSelection()?.toString() ?? '').length > 0;
-
-      const newSessionItem = availableShells && availableShells.length > 1
-        ? {
-            label: '새 세션',
-            icon: '+',
-            disabled: tabs.length >= 8,
-            children: [
-              {
-                label: availableShells.find(s => s.id === tab?.shellType)?.label ?? tab?.shellType ?? '현재 셸',
-                icon: availableShells.find(s => s.id === tab?.shellType)?.icon ?? '🖥',
-                onClick: () => onAddTab(tab?.cwd, tab?.shellType),
-              },
-              { separator: true } as const,
-              ...availableShells
-                .filter(s => s.id !== tab?.shellType)
-                .map(shell => ({
-                  label: shell.label,
-                  icon: shell.icon,
-                  onClick: () => onAddTab(
-                    resolveCwd(shell.id, tab?.shellType, tab?.cwd),
-                    shell.id,
-                  ),
-                })),
-            ],
-          }
-        : {
-            label: '새 세션',
-            icon: '+',
-            disabled: tabs.length >= 8,
-            onClick: () => {
-              onAddTab(tab?.cwd);
-            },
-          };
-
-      return [
-        newSessionItem,
-        {
-          label: '세션 닫기',
-          icon: '✕',
-          destructive: true,
-          onClick: () => {
-            setPendingCloseTabId(tabId);
-            contextMenu.close();
-          },
+      return buildTerminalContextMenuItems({
+        tab,
+        tabs,
+        maxTabs: 8,
+        availableShells,
+        onAddTab,
+        onCloseTab: () => {
+          setPendingCloseTabId(tabId);
+          contextMenu.close();
         },
-        { separator: true } as const,
-        {
-          label: '복사',
-          icon: '⎘',
-          disabled: !hasSelection,
-          onClick: () => {
-            handleCopy();
-          },
-        },
-        {
-          label: '붙여넣기',
-          icon: '⎗',
-          onClick: () => {
-            handlePaste(tabId);
-          },
-        },
-      ];
+        onCopy: handleCopy,
+        onPaste: () => handlePaste(tabId),
+        hasSelection,
+      });
     },
-    [tabMap, contextMenu, onAddTab, handleCopy, handlePaste, availableShells, tabs.length],
+    [tabMap, tabs, availableShells, onAddTab, contextMenu, handleCopy, handlePaste],
   );
 
   // Context menu items derived from current targetId
   const contextMenuItems = useMemo(() => {
     if (!contextMenu.targetId) return [];
-    return buildTerminalContextMenuItems(contextMenu.targetId);
-  }, [contextMenu.targetId, buildTerminalContextMenuItems]);
+    return buildMenuItems(contextMenu.targetId);
+  }, [contextMenu.targetId, buildMenuItems]);
 
   // Close tab: remove from mosaic tree and shift focus to previous tab
   const handleConfirmClose = useCallback(() => {
@@ -351,6 +305,7 @@ export function MosaicContainer({
             onAdd={(shell?: string) => onAddTab(tab?.cwd, shell)}
             onFocus={() => handleTileFocus(tabId)}
             onRegisterRef={(el) => registerTileRef(tabId, el)}
+            onRenameTab={onRenameTab}
             availableShells={availableShells}
           >
             {tab ? renderTerminal(tab) : null}

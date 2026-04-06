@@ -1,12 +1,13 @@
 ---
 stage: CODE
 grade: A+ (tsc --noEmit 통과)
-output: frontend/src/utils/shell.ts, frontend/src/hooks/useLongPress.ts, frontend/src/components/Workspace/WorkspaceTabBar.tsx, frontend/src/components/Workspace/EmptyState.tsx, frontend/src/components/Grid/EmptyCell.tsx, frontend/src/components/Grid/MosaicTile.tsx, frontend/src/components/Grid/MosaicContainer.tsx, frontend/src/App.tsx
+output: frontend/src/ (신규 2 + 수정 6파일)
 decisions:
-  - useLongPress 확장 (touch 유지 + pointer 추가 + wasLongPress)
-  - shell.ts 유틸 (getShellFamily, resolveCwd)
-  - 그리드 컨텍스트 메뉴는 ContextMenu children 서브메뉴
-warnings_for_next: 런타임 테스트 필요 — 롱프레스 타이밍, 셸 메뉴 위치, CWD 전달 확인
-summary: 셸 선택 UI 통일 — 신규 1파일 + 수정 7파일, tsc 통과
-completed_at: 2026-04-04T15:15:00
+  - contextMenuBuilder.ts 공유 유틸 추출 (Phase 1)
+  - useInlineRename.ts 훅으로 이름 편집 코드 공유 (Phase 2)
+  - 전체 탭 렌더링 + display:none 토글 + ResizeObserver 가드 (Phase 3)
+  - LRU 상태 관리 MAX_ALIVE_WORKSPACES (Phase 4)
+warnings_for_next: 런타임 테스트 필요 — 컨텍스트 메뉴 동작, 이름 편집, 워크스페이스 전환 세션 유지
+summary: 4 Phase 전체 구현 완료 — 신규 2파일 + 수정 6파일, tsc 통과
+completed_at: 2026-04-06T16:30:00
 ---

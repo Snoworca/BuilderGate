@@ -35,6 +35,7 @@ export interface TerminalHandle {
   hasSelection: () => boolean;
   getSelection: () => string;
   clearSelection: () => void;
+  fit: () => void;
 }
 
 interface Props {
@@ -101,6 +102,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       hasSelection: () => xtermRef.current?.hasSelection() ?? false,
       getSelection: () => xtermRef.current?.getSelection() ?? '',
       clearSelection: () => xtermRef.current?.clearSelection(),
+      fit: () => {
+        requestAnimationFrame(() => {
+          fitAddonRef.current?.fit();
+        });
+      },
     }));
 
     useEffect(() => {
@@ -231,6 +237,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       let rafId: number | null = null;
       let resizeTimer: ReturnType<typeof setTimeout> | null = null;
       const resizeObserver = new ResizeObserver(() => {
+        // 0-size 가드: display:none 상태(워크스페이스 비활성)에서는 fit 및 PTY resize 스킵
+        const container = containerRef.current;
+        if (!container || container.offsetWidth === 0 || container.offsetHeight === 0) return;
+
         // rAF throttle: visual fit at most once per frame
         if (rafId !== null) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
