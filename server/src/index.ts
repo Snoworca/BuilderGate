@@ -279,8 +279,9 @@ async function startServer(): Promise<void> {
     // ========================================================================
     let viteProxy: ReturnType<typeof httpProxy.createProxyServer> | null = null;
     if (process.env.NODE_ENV !== 'production') {
+      const viteDevPort = process.env.DEV_FRONTEND_PORT || '4545';
       viteProxy = httpProxy.createProxyServer({
-        target: 'http://localhost:4545',
+        target: `http://localhost:${viteDevPort}`,
         ws: true,
       });
       viteProxy.on('error', (err, _req, res) => {
@@ -299,7 +300,7 @@ async function startServer(): Promise<void> {
         viteProxy!.web(req, res);
       });
 
-      console.log('[ViteProxy] Development proxy to http://localhost:4545 enabled');
+      console.log(`[ViteProxy] Development proxy to http://localhost:${viteDevPort} enabled`);
     }
 
     // ========================================================================

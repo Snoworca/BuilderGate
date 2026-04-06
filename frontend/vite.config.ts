@@ -7,6 +7,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
+const serverPort = parseInt(process.env.DEV_SERVER_PORT || '4242', 10);
+const frontendPort = parseInt(process.env.DEV_FRONTEND_PORT || '4545', 10);
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -20,17 +23,17 @@ export default defineConfig({
     },
   },
   server: {
-    port: 4545,
+    port: frontendPort,
     hmr: {
       path: '/__vite_hmr',
-      port: 4545,
-      clientPort: 4242,
+      port: frontendPort,
+      clientPort: serverPort,
       protocol: 'wss',
     },
     proxy: {
-      '/api': { target: 'https://localhost:4242', secure: false, changeOrigin: true },
-      '/health': { target: 'https://localhost:4242', secure: false, changeOrigin: true },
-      '/ws': { target: 'wss://localhost:4242', secure: false, ws: true, changeOrigin: true },
+      '/api': { target: `https://localhost:${serverPort}`, secure: false, changeOrigin: true },
+      '/health': { target: `https://localhost:${serverPort}`, secure: false, changeOrigin: true },
+      '/ws': { target: `wss://localhost:${serverPort}`, secure: false, ws: true, changeOrigin: true },
     },
   },
 });
