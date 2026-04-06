@@ -12,21 +12,9 @@ const FONT_MAX = 32;
 const FONT_DEFAULT = 14;
 const FONT_STORAGE_KEY = 'terminal_font_size';
 
-// Control character sequences for IME bypass
-const KEY_SEQUENCES: Record<string, string> = {
-  Backspace: '\x7f',
-  Escape: '\x1b',
-  ArrowUp: '\x1b[A',
-  ArrowDown: '\x1b[B',
-  ArrowRight: '\x1b[C',
-  ArrowLeft: '\x1b[D',
-  Home: '\x1b[H',
-  End: '\x1b[F',
-  PageUp: '\x1b[5~',
-  PageDown: '\x1b[6~',
-  Delete: '\x1b[3~',
-  Insert: '\x1b[2~',
-};
+// xterm.js v5는 방향키, Backspace 등 모든 제어 키를 네이티브로 처리.
+// 커스텀 KEY_SEQUENCES 핸들러는 xterm 내부 IME/유니코드 파이프라인을 우회하여
+// 한국어 등 CJK 입력 시 커서 위치 불일치 문제를 유발하므로 제거됨.
 
 export interface TerminalHandle {
   write: (data: string) => void;
@@ -160,7 +148,6 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         if (ev.type !== 'keydown') return true;
 
         // Mark user as actively typing — suppresses breathing animation for 3s
-        // Uses direct DOM manipulation to avoid React re-renders on every keystroke
         const el = containerRef.current;
         if (el && !el.classList.contains('user-active')) {
           el.classList.add('user-active');
@@ -170,35 +157,14 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           containerRef.current?.classList.remove('user-active');
         }, 3000);
 
-        const key = ev.key;
-
-        if (key in KEY_SEQUENCES) {
-          onInput(KEY_SEQUENCES[key]);
+        // Ctrl+C: 텍스트 선택 시 클립보드에 복사, 미선택 시 xterm 기본 처리(SIGINT)
+        if (ev.ctrlKey && !ev.altKey && !ev.metaKey && ev.key.toLowerCase() === 'c' && term.hasSelection()) {
+          navigator.clipboard.writeText(term.getSelection());
+          term.clearSelection();
           return false;
         }
 
-        if (ev.ctrlKey && !ev.altKey && !ev.metaKey && key.length === 1) {
-          const char = key.toLowerCase();
-
-          // Ctrl+C: 텍스트 선택 시 클립보드에 복사, 미선택 시 SIGINT(\x03) 전송
-          if (char === 'c' && term.hasSelection()) {
-            navigator.clipboard.writeText(term.getSelection());
-            term.clearSelection();
-            return false;
-          }
-
-          // Ctrl+V: xterm 네이티브 paste에 위임 (수동 처리 시 이중 붙여넣기 발생)
-          if (char === 'v') {
-            return true;
-          }
-
-          if (char >= 'a' && char <= 'z') {
-            const code = char.charCodeAt(0) - 96;
-            onInput(String.fromCharCode(code));
-            return false;
-          }
-        }
-
+        // 그 외 모든 키는 xterm 네이티브 처리에 위임
         return true;
       });
 
