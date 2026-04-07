@@ -2,7 +2,7 @@ import * as pty from 'node-pty';
 import { v4 as uuidv4 } from 'uuid';
 import os from 'os';
 import path from 'path';
-import { unlinkSync, watchFile, unwatchFile, readFileSync } from 'fs';
+import { unlinkSync, watchFile, unwatchFile, readFileSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
 import { Session, SessionDTO, SessionStatus, UpdateSessionRequest, ShellType, ShellInfo } from '../types/index.js';
 import type { PTYConfig, SessionConfig } from '../types/config.types.js';
@@ -39,6 +39,22 @@ interface SessionData {
   oscDetector: OscDetector;
 }
 
+/**
+ * Sanitize a CWD value read from the tracking temp file.
+ * Rejects control characters, null bytes, excessive length; strips BOM.
+ */
+function sanitizeCwd(raw: string): string | null {
+  if (!raw) return null;
+  // Strip PowerShell UTF-8 BOM
+  let cleaned = raw.replace(/^\uFEFF/, '').trim();
+  if (!cleaned) return null;
+  // Reject if > 4096 chars
+  if (cleaned.length > 4096) return null;
+  // Reject control characters (\x00-\x1f) except nothing — all are rejected
+  if (/[\x00-\x1f]/.test(cleaned)) return null;
+  return cleaned;
+}
+
 export class SessionManager {
   private sessions: Map<string, SessionData> = new Map();
   private sessionCounter: number = 0;
@@ -46,6 +62,7 @@ export class SessionManager {
   private runtimeSessionConfig: SessionConfig;
   private wsRouter: WsRouter | null = null;
   private cachedAvailableShells: ShellInfo[] | null = null;
+  private cwdChangeCallback: ((sessionId: string, cwd: string) => void) | null = null;
 
   constructor(initialConfig: { pty: PTYConfig; session: SessionConfig } = { pty: config.pty, session: config.session }) {
     this.runtimePtyConfig = clonePtyConfig(initialConfig.pty);
@@ -339,6 +356,23 @@ export class SessionManager {
     return data?.cwdFilePath ?? null;
   }
 
+  /** Register a callback to be invoked when any session's CWD changes. */
+  onCwdChange(cb: (sessionId: string, cwd: string) => void): void {
+    this.cwdChangeCallback = cb;
+  }
+
+  /** Stop all CWD file watchers. Called during graceful shutdown. */
+  stopAllCwdWatching(): void {
+    for (const [id, data] of this.sessions) {
+      if (data.cwdFilePath) {
+        try {
+          unwatchFile(data.cwdFilePath);
+        } catch { /* already unwatched — ignore */ }
+      }
+    }
+    console.log('[SessionManager] All CWD watchers stopped');
+  }
+
   getAvailableShells(): ShellInfo[] {
     return this.cachedAvailableShells ?? [];
   }
@@ -474,19 +508,27 @@ export class SessionManager {
 
     const isWindows = process.platform === 'win32';
 
+    let resolved = cwd;
     if (isWindows && cwd.startsWith('/')) {
       // Linux path on Windows — try /mnt/X/... → X:\...
       const mntMatch = cwd.match(/^\/mnt\/([a-zA-Z])(\/.*)?$/);
       if (mntMatch) {
         const drive = mntMatch[1].toUpperCase();
         const rest = (mntMatch[2] || '').replace(/\//g, '\\');
-        return `${drive}:${rest || '\\'}`;
+        resolved = `${drive}:${rest || '\\'}`;
+      } else {
+        // Other Linux paths (e.g. /home/...) can't be mapped — use fallback
+        return fallback;
       }
-      // Other Linux paths (e.g. /home/...) can't be mapped — use fallback
+    }
+
+    // Verify directory exists; fall back to home if not
+    if (!existsSync(resolved)) {
+      console.warn(`[SessionManager] CWD does not exist: ${resolved}, falling back to ${fallback}`);
       return fallback;
     }
 
-    return cwd;
+    return resolved;
   }
 
   /**
@@ -605,12 +647,17 @@ export class SessionManager {
     }
 
     // Watch CWD file for changes and push via WS
+    // Note: lstat symlink check omitted — localhost-only tool, LOW risk per security analysis.
+    // The shell hook writes to cwdFile as the same OS user, so symlink attacks require
+    // same-user access to the temp directory which already grants full filesystem access.
     watchFile(cwdFile, { interval: 1000 }, () => {
       try {
-        const cwd = readFileSync(cwdFile, 'utf8').trim();
+        const raw = readFileSync(cwdFile, 'utf8');
+        const cwd = sanitizeCwd(raw);
         if (cwd && cwd !== sessionData.lastCwd) {
           sessionData.lastCwd = cwd;
           this.broadcastWs(id, 'cwd', { cwd });
+          this.cwdChangeCallback?.(id, cwd);
         }
       } catch { /* file may not exist yet — ignore */ }
     });

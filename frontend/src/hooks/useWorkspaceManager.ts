@@ -90,11 +90,11 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
         setWorkspaces(state.workspaces);
         setGridLayouts(state.gridLayouts);
 
-        // Convert tabs to runtime with default status
+        // Convert tabs to runtime with default status, restoring last CWD if available
         const runtimeTabs: WorkspaceTabRuntime[] = state.tabs.map(t => ({
           ...t,
           status: 'idle' as const,
-          cwd: '',
+          cwd: t.lastCwd || '',
         }));
         setTabs(runtimeTabs);
 
@@ -366,7 +366,7 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   const restartTab = useCallback(async (workspaceId: string, tabId: string) => {
     try {
       const tab = await workspaceApi.restartTab(workspaceId, tabId);
-      setTabs(prev => prev.map(t => t.id === tabId ? { ...t, ...tab, status: 'idle', cwd: '' } : t));
+      setTabs(prev => prev.map(t => t.id === tabId ? { ...t, ...tab, status: 'idle', cwd: tab.lastCwd || '' } : t));
     } catch (err: any) {
       setError(err.message);
     }

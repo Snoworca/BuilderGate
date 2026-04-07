@@ -18,6 +18,7 @@ export interface WorkspaceTab {
   sortOrder: number;
   shellType: string;
   createdAt: string;
+  lastCwd?: string;
 }
 
 export interface WorkspaceTabRuntime extends WorkspaceTab {

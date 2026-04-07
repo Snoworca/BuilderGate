@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs/promises';
+import { readFileSync } from 'fs';
 import path from 'path';
 import type { Workspace, WorkspaceTab, GridLayout, WorkspaceState, WorkspaceFile } from '../types/workspace.types.js';
 import type { ShellType } from '../types/index.js';
@@ -32,6 +33,15 @@ export class WorkspaceService {
       flushDebounceMs: wsConfig?.flushDebounceMs ?? 5000,
     };
     this.dataFilePath = path.resolve(this.config.dataPath);
+
+    // Register CWD change callback to persist lastCwd to tab metadata
+    this.sessionManager.onCwdChange((sessionId: string, cwd: string) => {
+      const tab = this.state.tabs.find(t => t.sessionId === sessionId);
+      if (tab) {
+        tab.lastCwd = cwd;
+        this.save();
+      }
+    });
   }
 
   async initialize(): Promise<void> {
@@ -68,6 +78,13 @@ export class WorkspaceService {
           this.state = this.createDefaultState();
           await this.flushToDisk();
         }
+      }
+    }
+
+    // Sanitize lastCwd values loaded from disk (reject control characters)
+    for (const tab of this.state.tabs) {
+      if (tab.lastCwd && /[\x00-\x1f]/.test(tab.lastCwd)) {
+        tab.lastCwd = undefined;
       }
     }
 
@@ -288,8 +305,11 @@ export class WorkspaceService {
       throw new AppError(ErrorCode.TAB_NOT_FOUND);
     }
 
-    // Create new PTY session with same shell type
-    const sessionDTO = this.sessionManager.createSession(tab.name, tab.shellType);
+    // Delete old session first to prevent PTY/watchFile leak
+    this.sessionManager.deleteSession(tab.sessionId);
+
+    // Create new PTY session with same shell type, restoring last CWD
+    const sessionDTO = this.sessionManager.createSession(tab.name, tab.shellType, tab.lastCwd);
     tab.sessionId = sessionDTO.id;
 
     await this.save();
@@ -433,8 +453,46 @@ export class WorkspaceService {
     for (const tab of this.state.tabs) {
       if (!this.sessionManager.hasSession(tab.sessionId)) {
         orphanTabIds.push(tab.id);
+        // Recreate session with saved CWD (or undefined → home directory fallback)
+        try {
+          const sessionDTO = this.sessionManager.createSession(tab.name, tab.shellType, tab.lastCwd);
+          console.log(`[Workspace] Orphan tab "${tab.name}" recovered: ${tab.sessionId} → ${sessionDTO.id} (cwd: ${tab.lastCwd || 'default'})`);
+          tab.sessionId = sessionDTO.id;
+        } catch (err) {
+          console.error(`[Workspace] Failed to recover orphan tab "${tab.name}":`, err);
+        }
       }
     }
+    if (orphanTabIds.length > 0) {
+      await this.save(true); // immediate save with new sessionIds
+    }
     return orphanTabIds;
+  }
+
+  /**
+   * Snapshot all active session CWDs to tab metadata.
+   * Reads CWD temp files directly as a final authoritative source,
+   * falling back to SessionManager in-memory value.
+   */
+  snapshotAllCwds(): void {
+    for (const tab of this.state.tabs) {
+      // Try reading CWD temp file directly (most up-to-date, survives watchFile stop)
+      const cwdFilePath = this.sessionManager.getCwdFilePath(tab.sessionId);
+      if (cwdFilePath) {
+        try {
+          const raw = readFileSync(cwdFilePath, 'utf8');
+          const cleaned = raw.replace(/^\uFEFF/, '').trim();
+          if (cleaned && cleaned.length <= 4096 && !/[\x00-\x1f]/.test(cleaned)) {
+            tab.lastCwd = cleaned;
+            continue;
+          }
+        } catch { /* file may not exist — fall through */ }
+      }
+      // Fallback to SessionManager in-memory value
+      const cwd = this.sessionManager.getLastCwd(tab.sessionId);
+      if (cwd) {
+        tab.lastCwd = cwd;
+      }
+    }
   }
 }

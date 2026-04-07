@@ -24,6 +24,7 @@ export interface WorkspaceTab {
   sortOrder: number;
   shellType: ShellType;
   createdAt: string;
+  lastCwd?: string;
 }
 
 export interface GridLayout {

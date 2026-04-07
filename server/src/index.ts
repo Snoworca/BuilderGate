@@ -50,6 +50,7 @@ let fileService: FileService;
 let runtimeConfigStore: RuntimeConfigStore;
 let settingsService: SettingsService;
 let workspaceService: WorkspaceService;
+let cwdSnapshotTimer: ReturnType<typeof setInterval> | null = null;
 
 // ============================================================================
 // Security Middleware Stack (Phase 1)
@@ -265,9 +266,17 @@ async function startServer(): Promise<void> {
     await workspaceService.initialize();
     const orphanTabs = await workspaceService.checkOrphanTabs();
     if (orphanTabs.length > 0) {
-      console.log(`[Workspace] ${orphanTabs.length} orphan tab(s) detected (server restart recovery)`);
+      console.log(`[Workspace] ${orphanTabs.length} orphan tab(s) recovered with saved CWD`);
     }
     console.log('[Workspace] WorkspaceService initialized');
+
+    // Periodic CWD snapshot every 30s for crash recovery
+    cwdSnapshotTimer = setInterval(() => {
+      workspaceService.snapshotAllCwds();
+      workspaceService.forceFlush().catch(err =>
+        console.warn('[CWD Snapshot] Flush error:', err.message)
+      );
+    }, 30_000);
 
     // ========================================================================
     // Setup Routes (after services are initialized)
@@ -382,13 +391,16 @@ async function startServer(): Promise<void> {
   }
 }
 
-// Graceful shutdown — flush workspace state (Step 7)
+// Graceful shutdown — stop CWD watchers, snapshot CWDs, flush state
 function setupGracefulShutdown(): void {
   const shutdown = async (signal: string) => {
-    console.log(`[Shutdown] ${signal} received, flushing workspace state...`);
+    console.log(`[Shutdown] ${signal} received, saving session CWDs...`);
     try {
-      await workspaceService?.forceFlush();
-      console.log('[Shutdown] Workspace state saved');
+      sessionManager.stopAllCwdWatching();          // (1) Stop watchFile callbacks
+      workspaceService?.snapshotAllCwds();           // (2) Final CWD snapshot
+      await workspaceService?.forceFlush();          // (3) Flush to disk
+      if (cwdSnapshotTimer) clearInterval(cwdSnapshotTimer); // (4) Clear periodic timer
+      console.log('[Shutdown] Workspace state + CWDs saved');
     } catch (err) {
       console.error('[Shutdown] Failed to save workspace state:', err);
     }
