@@ -41,6 +41,7 @@ interface MosaicContainerProps {
   getTerminalSelection?: (tabId: string) => string;
   hasTerminalSelection?: (tabId: string) => boolean;
   sendTerminalInput?: (tabId: string, data: string) => void;
+  onLayoutChange?: () => void;
 }
 
 export function MosaicContainer({
@@ -55,6 +56,7 @@ export function MosaicContainer({
   getTerminalSelection,
   hasTerminalSelection,
   sendTerminalInput,
+  onLayoutChange,
 }: MosaicContainerProps) {
   const currentTabIds = tabs.map(t => t.id);
   const { mosaicTree, setMosaicTree, debouncedSave, layoutMode: persistedMode, focusTarget: persistedFocusTarget } =
@@ -120,6 +122,8 @@ export function MosaicContainer({
   // Auto mode: re-apply tree when tab statuses change (3s delay)
   const tabStatusKey = tabs.map(t => `${t.id}:${t.status}`).join(',');
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onLayoutChangeRef = useRef(onLayoutChange);
+  onLayoutChangeRef.current = onLayoutChange;
   useEffect(() => {
     if (layoutMode !== 'auto') return;
     if (!mosaicTree) return;
@@ -129,6 +133,11 @@ export function MosaicContainer({
       const minPct = getMinPercentage(tabs.length);
       setMosaicTree(prev => prev ? applyMultiFocusApprox(prev, idleIds, minPct, getAutoRatio()) : prev);
       autoTimerRef.current = null;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          onLayoutChangeRef.current?.();
+        });
+      });
     }, 1500);
     return () => {
       if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
@@ -198,8 +207,16 @@ export function MosaicContainer({
         setMosaicTree(newTree);
       }
       debouncedSave();
+      // React 렌더링 후 DOM 레이아웃이 완전히 적용된 뒤 터미널 fit 강제 실행.
+      // 드래그와 달리 모드 변경은 React 상태 갱신 경로를 거치므로
+      // ResizeObserver가 신뢰성 있게 발동하지 않는 경우가 있음.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          onLayoutChange?.();
+        });
+      });
     },
-    [setMode, mosaicTree, tabs, setMosaicTree, debouncedSave],
+    [setMode, mosaicTree, tabs, setMosaicTree, debouncedSave, onLayoutChange],
   );
 
   // Clipboard: copy selected text from terminal (reads from clipboard after xterm writes it)

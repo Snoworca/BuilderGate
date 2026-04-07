@@ -240,6 +240,15 @@ function AppContent() {
     }
   }, []);
 
+  // 그리드 레이아웃 모드 변경 후 모든 터미널 fit 강제 실행
+  // (React 상태 경로의 Mosaic CSS 갱신은 ResizeObserver가 신뢰성 있게 발동하지 않는 경우가 있음)
+  const handleFitAllTerminals = useCallback(() => {
+    wmRef.current.activeWorkspaceTabs?.forEach(tab => {
+      if (tab.status === 'disconnected') return;
+      terminalRefsMap.current.get(tab.id)?.current?.fit();
+    });
+  }, []);
+
   // ============================================================================
   // Terminal status/CWD updates
   // ============================================================================
@@ -400,6 +409,7 @@ function AppContent() {
                       getTerminalSelection={getTerminalSelection}
                       hasTerminalSelection={hasTerminalSelection}
                       sendTerminalInput={sendTerminalInput}
+                      onLayoutChange={handleFitAllTerminals}
                     />
                   ) : null}
 
