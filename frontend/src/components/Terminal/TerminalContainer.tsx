@@ -34,6 +34,7 @@ export const TerminalContainer = memo(
     getSelection:   ()     => terminalRef.current?.getSelection() ?? '',
     clearSelection: ()     => terminalRef.current?.clearSelection(),
     fit:            ()     => terminalRef.current?.fit(),
+    sendInput:      (data) => terminalRef.current?.sendInput(data),
   }), []);
   const ws = useWebSocket();
 

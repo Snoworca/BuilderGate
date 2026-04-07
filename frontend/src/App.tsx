@@ -168,6 +168,10 @@ function AppContent() {
     return terminalRefsMap.current.get(tabId)?.current?.hasSelection() ?? false;
   }, []);
 
+  const sendTerminalInput = useCallback((tabId: string, data: string): void => {
+    terminalRefsMap.current.get(tabId)?.current?.sendInput(data);
+  }, []);
+
   // 그리드 모드: MosaicContainer가 자체 확인 모달을 가지므로 직접 닫기
   const handleCloseTabDirect = useCallback((tabId: string) => {
     if (wmRef.current.activeWorkspaceId) {
@@ -278,19 +282,9 @@ function AppContent() {
         if (text) await navigator.clipboard.writeText(text);
       },
       onPaste: async () => {
-        const xtermInput = document.querySelector<HTMLTextAreaElement>(
-          'textarea.xterm-helper-textarea'
-        );
-        if (xtermInput) xtermInput.focus();
         try {
           const text = await navigator.clipboard.readText();
-          if (!text) return;
-          const target = document.activeElement;
-          if (target) {
-            const dt = new DataTransfer();
-            dt.setData('text/plain', text);
-            target.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }));
-          }
+          if (text) tabRef?.current?.sendInput(text);
         } catch { /* ignore */ }
       },
       hasSelection,
@@ -405,6 +399,7 @@ function AppContent() {
                       availableShells={availableShells}
                       getTerminalSelection={getTerminalSelection}
                       hasTerminalSelection={hasTerminalSelection}
+                      sendTerminalInput={sendTerminalInput}
                     />
                   ) : null}
 

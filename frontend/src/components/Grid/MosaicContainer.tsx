@@ -40,6 +40,7 @@ interface MosaicContainerProps {
   availableShells?: ShellInfo[];
   getTerminalSelection?: (tabId: string) => string;
   hasTerminalSelection?: (tabId: string) => boolean;
+  sendTerminalInput?: (tabId: string, data: string) => void;
 }
 
 export function MosaicContainer({
@@ -53,6 +54,7 @@ export function MosaicContainer({
   availableShells,
   getTerminalSelection,
   hasTerminalSelection,
+  sendTerminalInput,
 }: MosaicContainerProps) {
   const currentTabIds = tabs.map(t => t.id);
   const { mosaicTree, setMosaicTree, debouncedSave, layoutMode: persistedMode, focusTarget: persistedFocusTarget } =
@@ -211,29 +213,13 @@ export function MosaicContainer({
   }, [getTerminalSelection]);
 
   const handlePaste = useCallback(async (tabId: string) => {
-    // Focus the tile's terminal element so the browser fires the paste event into xterm
-    const tileEl = tileFocusRefs.current.get(tabId);
-    if (tileEl) {
-      // Find the xterm textarea (the element that receives keyboard input)
-      const xtermInput = tileEl.querySelector<HTMLTextAreaElement>('textarea.xterm-helper-textarea');
-      if (xtermInput) {
-        xtermInput.focus();
-      }
-    }
     try {
       const text = await navigator.clipboard.readText();
-      if (!text) return;
-      // Dispatch a paste event so xterm's internal handler picks it up
-      const target = document.activeElement;
-      if (target) {
-        const dataTransfer = new DataTransfer();
-        dataTransfer.setData('text/plain', text);
-        target.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dataTransfer, bubbles: true }));
-      }
+      if (text) sendTerminalInput?.(tabId, text);
     } catch {
       console.warn('[MosaicContainer] Clipboard paste failed');
     }
-  }, []);
+  }, [sendTerminalInput]);
 
   // Build context menu items for the target tab
   const buildMenuItems = useCallback(

@@ -24,6 +24,7 @@ export interface TerminalHandle {
   getSelection: () => string;
   clearSelection: () => void;
   fit: () => void;
+  sendInput: (data: string) => void;
 }
 
 interface Props {
@@ -99,6 +100,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         requestAnimationFrame(() => {
           fitAddonRef.current?.fit();
         });
+      },
+      sendInput: (data: string) => {
+        onInput(data);
       },
     }));
 
