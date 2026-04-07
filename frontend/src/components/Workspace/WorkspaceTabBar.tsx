@@ -12,7 +12,6 @@ import './WorkspaceTabBar.css';
 interface Props {
   tabs: WorkspaceTabRuntime[];
   activeTabId: string | null;
-  isMobile: boolean;
   totalSessionCount: number;
   maxTabs: number;
   maxSessions: number;
@@ -25,7 +24,7 @@ interface Props {
 }
 
 export function WorkspaceTabBar({
-  tabs, activeTabId, isMobile,
+  tabs, activeTabId,
   totalSessionCount, maxTabs, maxSessions,
   onSelectTab, onCloseTab, onRenameTab, onAddTab,
   onReorderTabs, availableShells,
@@ -100,14 +99,15 @@ export function WorkspaceTabBar({
               alignItems: 'center',
               gap: '4px',
               padding: '4px 8px',
-              borderTop: `2px solid ${color}`,
-              backgroundColor: isActive ? '#2a2d3e' : '#252535',
+              borderTop: `2px solid ${isActive ? color : color + '55'}`,
+              backgroundColor: isActive ? '#2a2d3e' : '#1a1a2a',
               borderRadius: '4px 4px 0 0',
               cursor: 'pointer',
               minWidth: '60px',
               flexShrink: 0,
               opacity: drag.dragIndex === index ? 0.4 : 1,
               outline: drag.dropTargetIndex === index ? `2px dashed ${color}` : 'none',
+              borderBottom: isActive ? '1px solid #2a2d3e' : '1px solid #333',
             }}
           >
             {isEditing ? (
@@ -136,7 +136,7 @@ export function WorkspaceTabBar({
             ) : (
               <span style={{
                 fontSize: '12px',
-                color: isActive ? '#fff' : '#aaa',
+                color: isActive ? '#fff' : '#666',
                 whiteSpace: 'nowrap',
               }}>
                 {tab.name}

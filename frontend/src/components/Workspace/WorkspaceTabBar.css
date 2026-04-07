@@ -26,3 +26,10 @@
 .workspace-tabbar::-webkit-scrollbar-thumb:hover {
   background: #777;
 }
+
+/* Override globals.css mobile min-height: 44px to prevent
+   buttons from expanding beyond the 36px container height,
+   which causes borderTop color bar to be clipped */
+.workspace-tabbar button {
+  min-height: auto;
+}

@@ -1,4 +1,4 @@
-import { memo, useRef, useCallback, useEffect } from 'react';
+import { memo, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useWebSocket } from '../../contexts/WebSocketContext';
 import { TerminalView } from './TerminalView';
 import type { TerminalHandle } from './TerminalView';
@@ -19,8 +19,22 @@ function propsAreEqual(prev: Props, next: Props): boolean {
   return prev.sessionId === next.sessionId && prev.isVisible === next.isVisible;
 }
 
-export const TerminalContainer = memo(function TerminalContainer({ sessionId, isVisible, onStatusChange, onCwdChange, onAuthError }: Props) {
+export const TerminalContainer = memo(
+  forwardRef<TerminalHandle, Props>(function TerminalContainer(
+    { sessionId, isVisible, onStatusChange, onCwdChange, onAuthError },
+    ref
+  ) {
   const terminalRef = useRef<TerminalHandle>(null);
+
+  useImperativeHandle(ref, () => ({
+    write:          (data) => terminalRef.current?.write(data),
+    clear:          ()     => terminalRef.current?.clear(),
+    focus:          ()     => terminalRef.current?.focus(),
+    hasSelection:   ()     => terminalRef.current?.hasSelection() ?? false,
+    getSelection:   ()     => terminalRef.current?.getSelection() ?? '',
+    clearSelection: ()     => terminalRef.current?.clearSelection(),
+    fit:            ()     => terminalRef.current?.fit(),
+  }), []);
   const ws = useWebSocket();
 
   // Keep latest callbacks in refs to avoid useEffect re-subscription on callback change
@@ -79,4 +93,5 @@ export const TerminalContainer = memo(function TerminalContainer({ sessionId, is
       />
     </div>
   );
-}, propsAreEqual);
+  })
+, propsAreEqual);

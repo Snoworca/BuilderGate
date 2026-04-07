@@ -37,6 +37,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const terminalRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
+    // 우클릭 mousedown 캡처 시점에 저장 — DOM selectionchange가 xterm 선택을 지우기 전에 저장
+    const savedRightClickSelRef = useRef<string>('');
     const fitAddonRef = useRef<FitAddon | null>(null);
     const [toastFontSize, setToastFontSize] = useState<number | null>(null);
     const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -87,9 +89,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       focus: () => {
         xtermRef.current?.focus();
       },
-      hasSelection: () => xtermRef.current?.hasSelection() ?? false,
-      getSelection: () => xtermRef.current?.getSelection() ?? '',
-      clearSelection: () => xtermRef.current?.clearSelection(),
+      hasSelection: () => !!(xtermRef.current?.hasSelection() || savedRightClickSelRef.current),
+      getSelection: () => xtermRef.current?.getSelection() || savedRightClickSelRef.current || '',
+      clearSelection: () => {
+        xtermRef.current?.clearSelection();
+        savedRightClickSelRef.current = '';
+      },
       fit: () => {
         requestAnimationFrame(() => {
           fitAddonRef.current?.fit();
@@ -164,6 +169,14 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           return false;
         }
 
+        // Ctrl+V: 클립보드 내용을 터미널에 붙여넣기 (브라우저 기본 동작 대신 처리)
+        if (ev.ctrlKey && !ev.altKey && !ev.metaKey && ev.key.toLowerCase() === 'v') {
+          navigator.clipboard.readText().then((text) => {
+            if (text) onInput(text);
+          });
+          return false;
+        }
+
         // 그 외 모든 키는 xterm 네이티브 처리에 위임
         return true;
       });
@@ -198,6 +211,18 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       termEl.addEventListener('focusin', onFocusIn);
       termEl.addEventListener('focusout', onFocusOut);
 
+      // 우클릭 캡처: DOM selectionchange가 xterm 선택을 지우기 전에 선택 텍스트 저장
+      // (DOM 렌더러 모드에서 right-click mousedown이 DOM selection을 collapse시켜
+      //  xterm이 자신의 selection을 clearSelection() 하는 타이밍 문제 해결)
+      const onMouseDownCapture = (e: MouseEvent) => {
+        if (e.button === 2) {
+          savedRightClickSelRef.current = term.getSelection();
+        } else if (e.button === 0) {
+          savedRightClickSelRef.current = '';
+        }
+      };
+      containerRef.current!.addEventListener('mousedown', onMouseDownCapture, true);
+
       // window.resize listener removed — ResizeObserver covers all size changes
 
       let rafId: number | null = null;
@@ -225,6 +250,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       resizeObserver.observe(terminalRef.current!);
 
       return () => {
+        containerRef.current?.removeEventListener('mousedown', onMouseDownCapture, true);
         if (rafId !== null) cancelAnimationFrame(rafId);
         if (resizeTimer !== null) clearTimeout(resizeTimer);
         if (userActiveTimerRef.current) clearTimeout(userActiveTimerRef.current);

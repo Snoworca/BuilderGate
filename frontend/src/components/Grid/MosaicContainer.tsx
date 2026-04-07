@@ -38,6 +38,8 @@ interface MosaicContainerProps {
   onRenameTab: (tabId: string, name: string) => void;
   renderTerminal: (tab: WorkspaceTabRuntime) => React.ReactNode;
   availableShells?: ShellInfo[];
+  getTerminalSelection?: (tabId: string) => string;
+  hasTerminalSelection?: (tabId: string) => boolean;
 }
 
 export function MosaicContainer({
@@ -49,6 +51,8 @@ export function MosaicContainer({
   onRenameTab,
   renderTerminal,
   availableShells,
+  getTerminalSelection,
+  hasTerminalSelection,
 }: MosaicContainerProps) {
   const currentTabIds = tabs.map(t => t.id);
   const { mosaicTree, setMosaicTree, debouncedSave, layoutMode: persistedMode, focusTarget: persistedFocusTarget } =
@@ -197,19 +201,14 @@ export function MosaicContainer({
   );
 
   // Clipboard: copy selected text from terminal (reads from clipboard after xterm writes it)
-  const handleCopy = useCallback(async () => {
+  const handleCopy = useCallback(async (tabId: string) => {
     try {
-      // xterm writes selected text to clipboard on Ctrl+C; here we read what's selected
-      // via the Selection API from the active focused element or fallback to execCommand
-      const sel = window.getSelection();
-      const text = sel ? sel.toString() : '';
-      if (text) {
-        await navigator.clipboard.writeText(text);
-      }
+      const text = getTerminalSelection ? getTerminalSelection(tabId) : '';
+      if (text) await navigator.clipboard.writeText(text);
     } catch {
       console.warn('[MosaicContainer] Clipboard copy failed');
     }
-  }, []);
+  }, [getTerminalSelection]);
 
   const handlePaste = useCallback(async (tabId: string) => {
     // Focus the tile's terminal element so the browser fires the paste event into xterm
@@ -240,7 +239,7 @@ export function MosaicContainer({
   const buildMenuItems = useCallback(
     (tabId: string) => {
       const tab = tabMap.get(tabId);
-      const hasSelection = (window.getSelection()?.toString() ?? '').length > 0;
+      const hasSelection = hasTerminalSelection ? hasTerminalSelection(tabId) : false;
       return buildTerminalContextMenuItems({
         tab,
         tabs,
@@ -251,12 +250,12 @@ export function MosaicContainer({
           setPendingCloseTabId(tabId);
           contextMenu.close();
         },
-        onCopy: handleCopy,
+        onCopy: () => handleCopy(tabId),
         onPaste: () => handlePaste(tabId),
         hasSelection,
       });
     },
-    [tabMap, tabs, availableShells, onAddTab, contextMenu, handleCopy, handlePaste],
+    [tabMap, tabs, availableShells, onAddTab, contextMenu, handleCopy, handlePaste, hasTerminalSelection],
   );
 
   // Context menu items derived from current targetId

@@ -13,6 +13,7 @@ import { sessionApi } from './services/api';
 import { AuthGuard } from './components/Auth';
 import { Header } from './components/Header';
 import { TerminalContainer } from './components/Terminal';
+import type { TerminalHandle } from './components/Terminal/TerminalView';
 import { ConfirmModal } from './components/Modal';
 import { SettingsPage } from './components/Settings/SettingsPage';
 import { WorkspaceSidebar, WorkspaceTabBar, MobileDrawer, EmptyState, DisconnectedOverlay } from './components/Workspace';
@@ -51,6 +52,7 @@ function AppContent() {
   const [aliveWorkspaceIds, setAliveWorkspaceIds] = useState<Set<string>>(new Set());
 
   const tabContextMenu = useContextMenu();
+  const terminalRefsMap = useRef<Map<string, { current: TerminalHandle | null }>>(new Map());
 
   useHeartbeat({
     onSessionExpired: () => {
@@ -158,6 +160,14 @@ function AppContent() {
     setPendingCloseTabId(null);
   }, [pendingCloseTabId]);
 
+  const getTerminalSelection = useCallback((tabId: string): string => {
+    return terminalRefsMap.current.get(tabId)?.current?.getSelection() ?? '';
+  }, []);
+
+  const hasTerminalSelection = useCallback((tabId: string): boolean => {
+    return terminalRefsMap.current.get(tabId)?.current?.hasSelection() ?? false;
+  }, []);
+
   // 그리드 모드: MosaicContainer가 자체 확인 모달을 가지므로 직접 닫기
   const handleCloseTabDirect = useCallback((tabId: string) => {
     if (wmRef.current.activeWorkspaceId) {
@@ -251,7 +261,8 @@ function AppContent() {
 
   const tabContextMenuItems = useMemo(() => {
     if (!tabContextMenu.targetId || !activeTab) return [];
-    const hasSelection = (window.getSelection()?.toString() ?? '').length > 0;
+    const tabRef = terminalRefsMap.current.get(tabContextMenu.targetId);
+    const hasSelection = tabRef?.current?.hasSelection() ?? false;
     return buildTerminalContextMenuItems({
       tab: activeTab,
       tabs: wm.activeWorkspaceTabs,
@@ -263,8 +274,7 @@ function AppContent() {
         tabContextMenu.close();
       },
       onCopy: async () => {
-        const sel = window.getSelection();
-        const text = sel ? sel.toString() : '';
+        const text = tabRef?.current?.getSelection() ?? '';
         if (text) await navigator.clipboard.writeText(text);
       },
       onPaste: async () => {
@@ -292,8 +302,12 @@ function AppContent() {
       // GridCell already renders DisconnectedOverlay — return empty container
       return <div style={{ width: '100%', height: '100%' }} />;
     }
+    if (!terminalRefsMap.current.has(tab.id)) {
+      terminalRefsMap.current.set(tab.id, { current: null });
+    }
     return (
       <TerminalContainer
+        ref={terminalRefsMap.current.get(tab.id)!}
         key={`ws-${tab.id}-${tab.sessionId}`}
         sessionId={tab.sessionId}
         isVisible={true}
@@ -367,7 +381,6 @@ function AppContent() {
                 {(viewMode === 'tab' || isMobile) && <WorkspaceTabBar
                   tabs={wm.activeWorkspaceTabs}
                   activeTabId={wm.activeWorkspace.activeTabId}
-                  isMobile={isMobile}
                   totalSessionCount={wm.totalSessionCount}
                   maxTabs={8}
                   maxSessions={32}
@@ -390,6 +403,8 @@ function AppContent() {
                       onRenameTab={handleRenameTab}
                       renderTerminal={renderTerminal}
                       availableShells={availableShells}
+                      getTerminalSelection={getTerminalSelection}
+                      hasTerminalSelection={hasTerminalSelection}
                     />
                   ) : null}
 
@@ -430,6 +445,12 @@ function AppContent() {
                             ) : null
                           ) : (
                             <TerminalContainer
+                              ref={(() => {
+                                if (!terminalRefsMap.current.has(tab.id)) {
+                                  terminalRefsMap.current.set(tab.id, { current: null });
+                                }
+                                return terminalRefsMap.current.get(tab.id)!;
+                              })()}
                               sessionId={tab.sessionId}
                               isVisible={isVisible}
                               onStatusChange={handleTerminalStatusChange}
