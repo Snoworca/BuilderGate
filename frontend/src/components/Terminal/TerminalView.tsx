@@ -173,11 +173,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           return false;
         }
 
-        // Ctrl+V: 클립보드 내용을 터미널에 붙여넣기 (브라우저 기본 동작 대신 처리)
+        // Ctrl+V: xterm 내부 textarea paste 이벤트가 클립보드를 처리하므로
+        // 여기서는 xterm이 \x16(Ctrl+V 문자)을 전송하지 않도록 차단만 한다.
+        // 이 핸들러에서 직접 onInput을 호출하면 paste 이벤트와 이중 붙여넣기 발생.
         if (ev.ctrlKey && !ev.altKey && !ev.metaKey && ev.key.toLowerCase() === 'v') {
-          navigator.clipboard.readText().then((text) => {
-            if (text) onInput(text);
-          });
           return false;
         }
 
