@@ -120,87 +120,95 @@ export function applyEqualMode(tree: MosaicNode<string>): MosaicNode<string> {
 // Focus side = 100 - (opposite leaf count × minPercent)
 // ============================================================================
 
+export const FOCUS_RATIO_KEY = 'grid_focus_ratio';
+export const FOCUS_RATIO_DEFAULT = 0.6;
+
 export function applyFocusMode(
   tree: MosaicNode<string>,
   focusTabId: string,
   minPercent: number,
+  focusRatio: number = FOCUS_RATIO_DEFAULT,
 ): MosaicNode<string> {
   if (typeof tree === 'string') return tree;
 
-  const parent = tree as MosaicParent<string>;
-  const firstHasFocus = containsLeaf(parent.first, focusTabId);
-  const secondHasFocus = containsLeaf(parent.second, focusTabId);
+  // 가중치 기반: 포커스 세션 = focusRatio, 나머지 각각 = (1-focusRatio)/n
+  const allLeaves = extractLeafIds(tree);
+  const otherCount = allLeaves.length - 1;
+  const focusWeight = focusRatio;
+  const otherWeight = otherCount > 0 ? (1 - focusRatio) / otherCount : 0;
 
-  let splitPercentage = parent.splitPercentage ?? 50;
-
-  if (firstHasFocus && !secondHasFocus) {
-    const oppositeLeaves = countLeaves(parent.second);
-    const opponentSpace = oppositeLeaves * minPercent;
-    splitPercentage = Math.min(100 - minPercent, Math.max(minPercent, 100 - opponentSpace));
-    return {
-      ...parent,
-      first: applyFocusMode(parent.first, focusTabId, minPercent),
-      second: applyEqualMode(parent.second),
-      splitPercentage,
-    };
-  } else if (secondHasFocus && !firstHasFocus) {
-    const oppositeLeaves = countLeaves(parent.first);
-    const opponentSpace = oppositeLeaves * minPercent;
-    splitPercentage = Math.max(minPercent, Math.min(100 - minPercent, opponentSpace));
-    return {
-      ...parent,
-      first: applyEqualMode(parent.first),
-      second: applyFocusMode(parent.second, focusTabId, minPercent),
-      splitPercentage,
-    };
+  function subtreeArea(node: MosaicNode<string>): number {
+    if (typeof node === 'string') {
+      return node === focusTabId ? focusWeight : otherWeight;
+    }
+    const p = node as MosaicParent<string>;
+    return subtreeArea(p.first) + subtreeArea(p.second);
   }
 
-  return { ...parent, splitPercentage };
+  function apply(node: MosaicNode<string>): MosaicNode<string> {
+    if (typeof node === 'string') return node;
+
+    const p = node as MosaicParent<string>;
+    const newFirst = apply(p.first);
+    const newSecond = apply(p.second);
+
+    const firstArea = subtreeArea(p.first);
+    const secondArea = subtreeArea(p.second);
+    const total = firstArea + secondArea;
+
+    let split = total > 0 ? (firstArea / total) * 100 : 50;
+    split = Math.max(minPercent, Math.min(100 - minPercent, split));
+
+    return { ...p, first: newFirst, second: newSecond, splitPercentage: split };
+  }
+
+  return apply(tree);
 }
 
 // ============================================================================
-// Apply multi-focus approx: idle sessions get less space, non-idle get more.
-// The side with more idle sessions is shrunk by ~30%.
+// Auto mode: 세션별 가중치 기반 면적 분배
+// idleRatio로 idle 세션이 running 대비 몇 배 큰지 결정 (기본 1.7)
 // ============================================================================
+
+export const AUTO_FOCUS_RATIO_KEY = 'grid_auto_focus_ratio';
+export const AUTO_FOCUS_RATIO_DEFAULT = 1.7;
 
 export function applyMultiFocusApprox(
   tree: MosaicNode<string>,
   idleIds: Set<string>,
   minPercent: number,
+  idleRatio: number = AUTO_FOCUS_RATIO_DEFAULT,
 ): MosaicNode<string> {
   if (typeof tree === 'string') return tree;
 
-  const parent = tree as MosaicParent<string>;
-
-  // Recurse into children
-  const newFirst = applyMultiFocusApprox(parent.first, idleIds, minPercent);
-  const newSecond = applyMultiFocusApprox(parent.second, idleIds, minPercent);
-
-  const firstLeaves = extractLeafIds(parent.first);
-  const secondLeaves = extractLeafIds(parent.second);
-
-  const firstIdleCount = firstLeaves.filter(id => idleIds.has(id)).length;
-  const secondIdleCount = secondLeaves.filter(id => idleIds.has(id)).length;
-
-  const firstActiveCount = firstLeaves.length - firstIdleCount;
-  const secondActiveCount = secondLeaves.length - secondIdleCount;
-
-  let splitPercentage = parent.splitPercentage ?? 50;
-
-  if (firstActiveCount !== secondActiveCount) {
-    // Bias toward whichever side has more active (non-idle) sessions
-    const totalLeaves = firstLeaves.length + secondLeaves.length;
-    const baseSplit = (firstLeaves.length / totalLeaves) * 100;
-
-    // ±30% correction based on active count difference
-    const totalActive = firstActiveCount + secondActiveCount;
-    const activeRatio = totalActive > 0 ? firstActiveCount / totalActive : 0.5;
-    const correction = (activeRatio - 0.5) * 60; // maps [-0.5, 0.5] → [-30, 30]
-
-    splitPercentage = Math.max(minPercent, Math.min(100 - minPercent, baseSplit + correction));
+  // 서브트리의 가중치 합산 (idle = idleRatio, running = 1)
+  function subtreeArea(node: MosaicNode<string>): number {
+    if (typeof node === 'string') {
+      return idleIds.has(node) ? idleRatio : 1;
+    }
+    const p = node as MosaicParent<string>;
+    return subtreeArea(p.first) + subtreeArea(p.second);
   }
 
-  return { ...parent, first: newFirst, second: newSecond, splitPercentage };
+  // 각 내부 노드의 splitPercentage를 목표 면적 비율로 설정
+  function apply(node: MosaicNode<string>): MosaicNode<string> {
+    if (typeof node === 'string') return node;
+
+    const p = node as MosaicParent<string>;
+    const newFirst = apply(p.first);
+    const newSecond = apply(p.second);
+
+    const firstArea = subtreeArea(p.first);
+    const secondArea = subtreeArea(p.second);
+    const total = firstArea + secondArea;
+
+    let split = total > 0 ? (firstArea / total) * 100 : 50;
+    split = Math.max(minPercent, Math.min(100 - minPercent, split));
+
+    return { ...p, first: newFirst, second: newSecond, splitPercentage: split };
+  }
+
+  return apply(tree);
 }
 
 // ============================================================================

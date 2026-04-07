@@ -146,6 +146,7 @@ function AppContent() {
     wmRef.current.addTab(wsId, effectiveShell, undefined, cwd);
   }, []);
 
+  // 탭 모드: 확인 모달을 통해 닫기
   const handleCloseTab = useCallback((tabId: string) => {
     setPendingCloseTabId(tabId);
   }, []);
@@ -156,6 +157,13 @@ function AppContent() {
     }
     setPendingCloseTabId(null);
   }, [pendingCloseTabId]);
+
+  // 그리드 모드: MosaicContainer가 자체 확인 모달을 가지므로 직접 닫기
+  const handleCloseTabDirect = useCallback((tabId: string) => {
+    if (wmRef.current.activeWorkspaceId) {
+      wmRef.current.closeTab(wmRef.current.activeWorkspaceId, tabId);
+    }
+  }, []);
 
   const handleSelectTab = useCallback((tabId: string) => {
     if (wmRef.current.activeWorkspaceId) {
@@ -377,7 +385,7 @@ function AppContent() {
                       tabs={wm.activeWorkspaceTabs}
                       workspaceId={wm.activeWorkspaceId!}
                       onAddTab={handleAddTab}
-                      onCloseTab={handleCloseTab}
+                      onCloseTab={handleCloseTabDirect}
                       onRestartTab={handleRestartTab}
                       onRenameTab={handleRenameTab}
                       renderTerminal={renderTerminal}

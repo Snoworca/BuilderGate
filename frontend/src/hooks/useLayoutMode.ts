@@ -13,7 +13,7 @@ export interface UseLayoutModeReturn {
   mode: LayoutMode;
   focusTarget: string | null;
   setMode: (mode: LayoutMode, focusTabId?: string) => void;
-  applyToTree: (tree: MosaicNode<string>, tabs: WorkspaceTabRuntime[]) => MosaicNode<string>;
+  applyToTree: (tree: MosaicNode<string>, tabs: WorkspaceTabRuntime[], idleRatio?: number, focusRatio?: number) => MosaicNode<string>;
 }
 
 export function useLayoutMode(
@@ -33,7 +33,7 @@ export function useLayoutMode(
   }, []);
 
   const applyToTree = useCallback(
-    (tree: MosaicNode<string>, tabs: WorkspaceTabRuntime[]): MosaicNode<string> => {
+    (tree: MosaicNode<string>, tabs: WorkspaceTabRuntime[], idleRatio?: number, focusRatio?: number): MosaicNode<string> => {
       const minPercent = getMinPercentage(tabs.length);
 
       if (mode === 'equal') {
@@ -42,14 +42,14 @@ export function useLayoutMode(
 
       if (mode === 'focus') {
         if (!focusTarget) return applyEqualMode(tree);
-        return applyFocusMode(tree, focusTarget, minPercent);
+        return applyFocusMode(tree, focusTarget, minPercent, focusRatio);
       }
 
-      // auto mode: expand non-idle sessions, shrink idle ones
+      // auto mode: expand idle sessions, shrink running ones
       const idleIds = new Set(
         tabs.filter(t => t.status === 'idle').map(t => t.id),
       );
-      return applyMultiFocusApprox(tree, idleIds, minPercent);
+      return applyMultiFocusApprox(tree, idleIds, minPercent, idleRatio);
     },
     [mode, focusTarget],
   );

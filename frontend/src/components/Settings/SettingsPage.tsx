@@ -10,6 +10,7 @@ import type {
 } from '../../types';
 import { settingsApi } from '../../services/api';
 import { ConfirmModal } from '../Modal';
+import { AUTO_FOCUS_RATIO_KEY, AUTO_FOCUS_RATIO_DEFAULT, FOCUS_RATIO_KEY, FOCUS_RATIO_DEFAULT } from '../../utils/mosaic';
 import './SettingsPage.css';
 
 interface SecretDraft {
@@ -36,6 +37,36 @@ export function SettingsPage({ visible, onBack }: Props) {
   const [draft, setDraft] = useState<EditableSettingsValues | null>(null);
   const [secrets, setSecrets] = useState<SecretDraft>(EMPTY_SECRETS);
   const [loading, setLoading] = useState(false);
+
+  // Grid Layout 로컬 설정 (localStorage, 서버 무관)
+  const [autoFocusRatio, setAutoFocusRatio] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem(AUTO_FOCUS_RATIO_KEY);
+      if (v) { const n = parseFloat(v); if (n >= 1 && n <= 3) return n; }
+    } catch { /* ignore */ }
+    return AUTO_FOCUS_RATIO_DEFAULT;
+  });
+
+  const handleAutoFocusRatioChange = (value: number) => {
+    const clamped = Math.round(Math.max(1, Math.min(3, value)) * 10) / 10;
+    setAutoFocusRatio(clamped);
+    localStorage.setItem(AUTO_FOCUS_RATIO_KEY, clamped.toString());
+  };
+
+  const [focusRatio, setFocusRatio] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem(FOCUS_RATIO_KEY);
+      if (v) { const n = parseFloat(v); if (n > 0 && n < 1) return n; }
+    } catch { /* ignore */ }
+    return FOCUS_RATIO_DEFAULT;
+  });
+
+  const handleFocusRatioChange = (value: number) => {
+    const clamped = Math.round(Math.max(0.1, Math.min(0.9, value)) * 100) / 100;
+    setFocusRatio(clamped);
+    localStorage.setItem(FOCUS_RATIO_KEY, clamped.toString());
+  };
+
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -253,6 +284,39 @@ export function SettingsPage({ visible, onBack }: Props) {
               <Field label="Blocked extensions" scope={scope(snapshot, 'fileManager.blockedExtensions')}><textarea value={draft.fileManager.blockedExtensions.join('\n')} onChange={(e) => updateDraft((next) => { next.fileManager.blockedExtensions = parseList(e.target.value); })} /></Field>
               <Field label="Blocked paths" scope={scope(snapshot, 'fileManager.blockedPaths')}><textarea value={draft.fileManager.blockedPaths.join('\n')} onChange={(e) => updateDraft((next) => { next.fileManager.blockedPaths = parseList(e.target.value); })} /></Field>
               <Field label="CWD cache TTL (ms)" scope={scope(snapshot, 'fileManager.cwdCacheTtlMs')}><input type="number" value={draft.fileManager.cwdCacheTtlMs} onChange={(e) => updateDraft((next) => { next.fileManager.cwdCacheTtlMs = Number(e.target.value || draft.fileManager.cwdCacheTtlMs); })} /></Field>
+            </Card>
+
+            <Card title="Grid Layout">
+              <label className="settings-field-row">
+                <div className="settings-field-label">
+                  <span>Auto mode idle focus ratio</span>
+                  <span className="settings-local-badge">Local</span>
+                  <span className="settings-field-hint">idle 세션이 running 대비 몇 배 큰지 (1.0 ~ 3.0)</span>
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  max="3"
+                  step="0.1"
+                  value={autoFocusRatio}
+                  onChange={(e) => handleAutoFocusRatioChange(parseFloat(e.target.value) || AUTO_FOCUS_RATIO_DEFAULT)}
+                />
+              </label>
+              <label className="settings-field-row">
+                <div className="settings-field-label">
+                  <span>Focus mode ratio</span>
+                  <span className="settings-local-badge">Local</span>
+                  <span className="settings-field-hint">선택한 세션이 차지하는 비율 (0.1 ~ 0.9)</span>
+                </div>
+                <input
+                  type="number"
+                  min="0.1"
+                  max="0.9"
+                  step="0.05"
+                  value={focusRatio}
+                  onChange={(e) => handleFocusRatioChange(parseFloat(e.target.value) || FOCUS_RATIO_DEFAULT)}
+                />
+              </label>
             </Card>
           </div>
 

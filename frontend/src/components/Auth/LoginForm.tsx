@@ -28,7 +28,7 @@ export function LoginForm() {
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-logo">
-          <span className="auth-logo-icon">&#x1F4BB;</span>
+          <img src="/logo.svg" alt="BuilderGate" className="auth-logo-icon" width="64" height="64" />
           <h1>BuilderGate</h1>
         </div>
 

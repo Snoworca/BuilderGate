@@ -16,6 +16,10 @@ import {
   applyEqualMode,
   applyFocusMode,
   applyMultiFocusApprox,
+  AUTO_FOCUS_RATIO_KEY,
+  AUTO_FOCUS_RATIO_DEFAULT,
+  FOCUS_RATIO_KEY,
+  FOCUS_RATIO_DEFAULT,
   buildEqualMosaicTree,
   clampSplitPercentages,
   getMinPercentage,
@@ -49,6 +53,24 @@ export function MosaicContainer({
   const currentTabIds = tabs.map(t => t.id);
   const { mosaicTree, setMosaicTree, debouncedSave, layoutMode: persistedMode, focusTarget: persistedFocusTarget } =
     useMosaicLayout(workspaceId, currentTabIds);
+
+  // localStorage에서 auto 모드 가중치 비율 읽기
+  const getAutoRatio = useCallback(() => {
+    try {
+      const v = localStorage.getItem(AUTO_FOCUS_RATIO_KEY);
+      if (v) { const n = parseFloat(v); if (n >= 1 && n <= 3) return n; }
+    } catch { /* ignore */ }
+    return AUTO_FOCUS_RATIO_DEFAULT;
+  }, []);
+
+  // localStorage에서 focus 모드 비율 읽기
+  const getFocusRatio = useCallback(() => {
+    try {
+      const v = localStorage.getItem(FOCUS_RATIO_KEY);
+      if (v) { const n = parseFloat(v); if (n > 0 && n < 1) return n; }
+    } catch { /* ignore */ }
+    return FOCUS_RATIO_DEFAULT;
+  }, []);
 
   const { mode: layoutMode, focusTarget, setMode } = useLayoutMode(
     persistedMode,
@@ -89,14 +111,22 @@ export function MosaicContainer({
     }
   }, [tabs.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto mode: re-apply tree when tab statuses change
+  // Auto mode: re-apply tree when tab statuses change (3s delay)
   const tabStatusKey = tabs.map(t => `${t.id}:${t.status}`).join(',');
+  const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (layoutMode !== 'auto') return;
     if (!mosaicTree) return;
-    const idleIds = new Set(tabs.filter(t => t.status === 'idle').map(t => t.id));
-    const minPct = getMinPercentage(tabs.length);
-    setMosaicTree(applyMultiFocusApprox(mosaicTree, idleIds, minPct));
+    if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
+    autoTimerRef.current = setTimeout(() => {
+      const idleIds = new Set(tabs.filter(t => t.status === 'idle').map(t => t.id));
+      const minPct = getMinPercentage(tabs.length);
+      setMosaicTree(prev => prev ? applyMultiFocusApprox(prev, idleIds, minPct, getAutoRatio()) : prev);
+      autoTimerRef.current = null;
+    }, 1500);
+    return () => {
+      if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
+    };
   }, [tabStatusKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Focus mode: if focus target tab is closed, revert to equal mode
@@ -154,10 +184,10 @@ export function MosaicContainer({
           newTree = applyEqualMode(mosaicTree);
         } else if (mode === 'focus') {
           const target = focusTabId ?? null;
-          newTree = target ? applyFocusMode(mosaicTree, target, minPct) : applyEqualMode(mosaicTree);
+          newTree = target ? applyFocusMode(mosaicTree, target, minPct, getFocusRatio()) : applyEqualMode(mosaicTree);
         } else {
           const idleIds = new Set(tabs.filter(t => t.status === 'idle').map(t => t.id));
-          newTree = applyMultiFocusApprox(mosaicTree, idleIds, minPct);
+          newTree = applyMultiFocusApprox(mosaicTree, idleIds, minPct, getAutoRatio());
         }
         setMosaicTree(newTree);
       }

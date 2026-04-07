@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="metalBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6b7280" />
+      <stop offset="50%" stop-color="#1f2937" />
+      <stop offset="100%" stop-color="#111827" />
+    </linearGradient>
+
+    <radialGradient id="auroraBg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#020617" />
+      <stop offset="50%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#000000" />
+    </radialGradient>
+    
+    <radialGradient id="auroraPurple" cx="30%" cy="30%" r="50%">
+      <stop offset="0%" stop-color="#6d28d9" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#6d28d9" stop-opacity="0" />
+    </radialGradient>
+
+    <radialGradient id="auroraCyan" cx="70%" cy="70%" r="50%">
+      <stop offset="0%" stop-color="#0891b2" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#0891b2" stop-opacity="0" />
+    </radialGradient>
+
+    <radialGradient id="auroraGreen" cx="30%" cy="70%" r="40%">
+      <stop offset="0%" stop-color="#059669" stop-opacity="0.4" />
+      <stop offset="100%" stop-color="#059669" stop-opacity="0" />
+    </radialGradient>
+
+    <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur1" />
+      <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur2" />
+      <feGaussianBlur in="SourceGraphic" stdDeviation="20" result="blur3" />
+      <feMerge>
+        <feMergeNode in="blur3" />
+        <feMergeNode in="blur2" />
+        <feMergeNode in="blur1" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <radialGradient id="innerShadow" cx="50%" cy="50%" r="50%">
+      <stop offset="85%" stop-color="transparent" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.8" />
+    </radialGradient>
+  </defs>
+
+  <circle cx="256" cy="256" r="230" fill="url(#auroraBg)" />
+
+  <circle cx="256" cy="256" r="230" fill="url(#auroraPurple)" />
+  <circle cx="256" cy="256" r="230" fill="url(#auroraCyan)" />
+  <circle cx="256" cy="256" r="230" fill="url(#auroraGreen)" />
+
+  <circle cx="256" cy="256" r="230" fill="url(#innerShadow)" />
+
+  <circle cx="256" cy="256" r="230" fill="none" stroke="url(#metalBorder)" stroke-width="12" />
+  
+  <circle cx="256" cy="256" r="236" fill="none" stroke="#000000" stroke-width="2" opacity="0.6"/>
+  <circle cx="256" cy="256" r="224" fill="none" stroke="#000000" stroke-width="4" opacity="0.4"/>
+
+  <g filter="url(#neonGlow)">
+    <polyline points="180,160 270,256 180,352" fill="none" stroke="#67e8f9" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" />
+    <line x1="290" y1="352" x2="380" y2="352" stroke="#67e8f9" stroke-width="32" stroke-linecap="round" />
+  </g>
+</svg>
