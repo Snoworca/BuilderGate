@@ -120,12 +120,17 @@ export interface TOTPConfig {
   accountName?: string;
 }
 
-export interface TwoFactorConfig {
+export interface TwoFactorEmailConfig {
   enabled: boolean;
-  email?: string;
+  address: string;
   otpLength: number;
   otpExpiryMs: number;
   smtp?: SMTPConfig;
+}
+
+export interface TwoFactorConfig {
+  externalOnly: boolean;
+  email?: TwoFactorEmailConfig;
   totp?: TOTPConfig;
 }
 

@@ -34,22 +34,30 @@ const patchSchema: z.ZodType<SettingsPatchRequest> = z.object({
     durationMs: z.number().min(60000).max(86400000).optional(),
   }).strict().optional(),
   twoFactor: z.object({
-    enabled: z.boolean().optional(),
-    email: z.string().email().optional(),
-    otpLength: z.number().int().min(4).max(8).optional(),
-    otpExpiryMs: z.number().int().min(60000).max(600000).optional(),
-    smtp: z.object({
-      host: z.string().min(1).optional(),
-      port: z.number().int().min(1).max(65535).optional(),
-      secure: z.boolean().optional(),
-      auth: z.object({
-        user: z.string().min(1).optional(),
-        password: z.string().min(1).optional(),
+    externalOnly: z.boolean().optional(),
+    email: z.object({
+      enabled: z.boolean().optional(),
+      address: z.string().email().optional(),
+      otpLength: z.number().int().min(4).max(8).optional(),
+      otpExpiryMs: z.number().int().min(60000).max(600000).optional(),
+      smtp: z.object({
+        host: z.string().min(1).optional(),
+        port: z.number().int().min(1).max(65535).optional(),
+        secure: z.boolean().optional(),
+        auth: z.object({
+          user: z.string().min(1).optional(),
+          password: z.string().min(1).optional(),
+        }).strict().optional(),
+        tls: z.object({
+          rejectUnauthorized: z.boolean().optional(),
+          minVersion: z.enum(['TLSv1.2', 'TLSv1.3']).optional(),
+        }).strict().optional(),
       }).strict().optional(),
-      tls: z.object({
-        rejectUnauthorized: z.boolean().optional(),
-        minVersion: z.enum(['TLSv1.2', 'TLSv1.3']).optional(),
-      }).strict().optional(),
+    }).strict().optional(),
+    totp: z.object({
+      enabled: z.boolean().optional(),
+      issuer: z.string().optional(),
+      accountName: z.string().optional(),
     }).strict().optional(),
   }).strict().optional(),
   security: z.object({
@@ -140,13 +148,13 @@ export class SettingsService {
     validatePlatformPatch(mergedValues);
     validateTwoFactorSecretState(
       mergedValues,
-      this.deps.runtimeConfigStore.getSnapshot().secretState.smtpPasswordConfigured || Boolean(patch.twoFactor?.smtp?.auth?.password),
+      this.deps.runtimeConfigStore.getSnapshot().secretState.smtpPasswordConfigured || Boolean(patch.twoFactor?.email?.smtp?.auth?.password),
     );
 
     const secrets = {
       authPassword: patch.auth?.newPassword ? this.deps.cryptoService.encrypt(patch.auth.newPassword) : undefined,
-      smtpPassword: patch.twoFactor?.smtp?.auth?.password
-        ? this.deps.cryptoService.encrypt(patch.twoFactor.smtp.auth.password)
+      smtpPassword: patch.twoFactor?.email?.smtp?.auth?.password
+        ? this.deps.cryptoService.encrypt(patch.twoFactor.email.smtp.auth.password)
         : undefined,
     };
 
@@ -176,7 +184,8 @@ export class SettingsService {
 
     try {
       if (changedKeys.some((key) => key.startsWith('twoFactor.'))) {
-        if (nextConfig.twoFactor?.enabled) {
+        const anyEnabled = nextConfig.twoFactor?.email?.enabled || nextConfig.twoFactor?.totp?.enabled;
+        if (anyEnabled && nextConfig.twoFactor) {
           replacementTwoFactorService = new TwoFactorService(nextConfig.twoFactor, this.deps.cryptoService);
         } else {
           replacementTwoFactorService = undefined;
@@ -259,17 +268,21 @@ function extractChangedKeys(patch: SettingsPatchRequest): EditableSettingsKey[] 
 
   if (patch.auth?.durationMs !== undefined) changed.add('auth.durationMs');
   if (patch.auth?.newPassword) changed.add('auth.password');
-  if (patch.twoFactor?.enabled !== undefined) changed.add('twoFactor.enabled');
-  if (patch.twoFactor?.email !== undefined) changed.add('twoFactor.email');
-  if (patch.twoFactor?.otpLength !== undefined) changed.add('twoFactor.otpLength');
-  if (patch.twoFactor?.otpExpiryMs !== undefined) changed.add('twoFactor.otpExpiryMs');
-  if (patch.twoFactor?.smtp?.host !== undefined) changed.add('twoFactor.smtp.host');
-  if (patch.twoFactor?.smtp?.port !== undefined) changed.add('twoFactor.smtp.port');
-  if (patch.twoFactor?.smtp?.secure !== undefined) changed.add('twoFactor.smtp.secure');
-  if (patch.twoFactor?.smtp?.auth?.user !== undefined) changed.add('twoFactor.smtp.auth.user');
-  if (patch.twoFactor?.smtp?.auth?.password !== undefined) changed.add('twoFactor.smtp.auth.password');
-  if (patch.twoFactor?.smtp?.tls?.rejectUnauthorized !== undefined) changed.add('twoFactor.smtp.tls.rejectUnauthorized');
-  if (patch.twoFactor?.smtp?.tls?.minVersion !== undefined) changed.add('twoFactor.smtp.tls.minVersion');
+  if (patch.twoFactor?.externalOnly !== undefined) changed.add('twoFactor.externalOnly');
+  if (patch.twoFactor?.email?.enabled !== undefined) changed.add('twoFactor.email.enabled');
+  if (patch.twoFactor?.email?.address !== undefined) changed.add('twoFactor.email.address');
+  if (patch.twoFactor?.email?.otpLength !== undefined) changed.add('twoFactor.email.otpLength');
+  if (patch.twoFactor?.email?.otpExpiryMs !== undefined) changed.add('twoFactor.email.otpExpiryMs');
+  if (patch.twoFactor?.email?.smtp?.host !== undefined) changed.add('twoFactor.email.smtp.host');
+  if (patch.twoFactor?.email?.smtp?.port !== undefined) changed.add('twoFactor.email.smtp.port');
+  if (patch.twoFactor?.email?.smtp?.secure !== undefined) changed.add('twoFactor.email.smtp.secure');
+  if (patch.twoFactor?.email?.smtp?.auth?.user !== undefined) changed.add('twoFactor.email.smtp.auth.user');
+  if (patch.twoFactor?.email?.smtp?.auth?.password !== undefined) changed.add('twoFactor.email.smtp.auth.password');
+  if (patch.twoFactor?.email?.smtp?.tls?.rejectUnauthorized !== undefined) changed.add('twoFactor.email.smtp.tls.rejectUnauthorized');
+  if (patch.twoFactor?.email?.smtp?.tls?.minVersion !== undefined) changed.add('twoFactor.email.smtp.tls.minVersion');
+  if (patch.twoFactor?.totp?.enabled !== undefined) changed.add('twoFactor.totp.enabled');
+  if (patch.twoFactor?.totp?.issuer !== undefined) changed.add('twoFactor.totp.issuer');
+  if (patch.twoFactor?.totp?.accountName !== undefined) changed.add('twoFactor.totp.accountName');
   if (patch.security?.cors?.allowedOrigins !== undefined) changed.add('security.cors.allowedOrigins');
   if (patch.security?.cors?.credentials !== undefined) changed.add('security.cors.credentials');
   if (patch.security?.cors?.maxAge !== undefined) changed.add('security.cors.maxAge');
@@ -294,12 +307,15 @@ function normalizeEditableValues(values: EditableSettingsValues): EditableSettin
     ...values,
     twoFactor: {
       ...values.twoFactor,
-      email: values.twoFactor.email.trim(),
-      smtp: {
-        ...values.twoFactor.smtp,
-        host: values.twoFactor.smtp.host.trim(),
-        auth: {
-          user: values.twoFactor.smtp.auth.user.trim(),
+      email: {
+        ...values.twoFactor.email,
+        address: values.twoFactor.email.address.trim(),
+        smtp: {
+          ...values.twoFactor.email.smtp,
+          host: values.twoFactor.email.smtp.host.trim(),
+          auth: {
+            user: values.twoFactor.email.smtp.auth.user.trim(),
+          },
         },
       },
     },
@@ -406,16 +422,16 @@ function validatePlatformPatch(values: EditableSettingsValues): void {
     throw new AppError(ErrorCode.VALIDATION_ERROR, 'Selected shell is not supported on this platform');
   }
 
-  if (values.twoFactor.enabled) {
-    if (!values.twoFactor.email || !values.twoFactor.smtp.host || !values.twoFactor.smtp.auth.user) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, '2FA requires email and SMTP settings');
+  if (values.twoFactor.email.enabled) {
+    if (!values.twoFactor.email.address || !values.twoFactor.email.smtp.host || !values.twoFactor.email.smtp.auth.user) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, '2FA email requires address and SMTP settings');
     }
   }
 }
 
 function validateTwoFactorSecretState(values: EditableSettingsValues, hasSmtpPassword: boolean): void {
-  if (values.twoFactor.enabled && !hasSmtpPassword) {
-    throw new AppError(ErrorCode.VALIDATION_ERROR, '2FA requires an SMTP password');
+  if (values.twoFactor.email.enabled && !hasSmtpPassword) {
+    throw new AppError(ErrorCode.VALIDATION_ERROR, '2FA email requires an SMTP password');
   }
 }
 

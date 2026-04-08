@@ -232,10 +232,16 @@ async function startServer(): Promise<void> {
     // ========================================================================
     // Initialize Two-Factor Service (Phase 3)
     // ========================================================================
-    if (config.twoFactor?.enabled) {
+    const anyTwoFAEnabled = config.twoFactor?.email?.enabled || config.twoFactor?.totp?.enabled;
+    if (anyTwoFAEnabled && config.twoFactor) {
       twoFactorService = new TwoFactorService(config.twoFactor, cryptoService);
       console.log('[2FA] TwoFactorService initialized');
-      console.log(`[2FA] OTP delivery to: ${twoFactorService.maskEmail(config.twoFactor.email || '')}`);
+      if (config.twoFactor.email?.enabled) {
+        console.log(`[2FA] Email OTP delivery to: ${twoFactorService.maskEmail(config.twoFactor.email.address || '')}`);
+      }
+      if (config.twoFactor.externalOnly) {
+        console.log('[2FA] externalOnly: localhost connections bypass 2FA');
+      }
     } else {
       console.log('[2FA] Two-factor authentication is disabled');
     }
@@ -366,12 +372,13 @@ async function startServer(): Promise<void> {
     // Start HTTPS server
     httpsServer.listen(PORT, () => {
       const twoFAStatus = (() => {
-        if (!config.twoFactor?.enabled) return 'Disabled';
-        const emailEnabled = !!(config.twoFactor.email && config.twoFactor.smtp);
-        const totpEnabled = !!(config.twoFactor.totp?.enabled);
-        if (emailEnabled && totpEnabled) return 'Enabled (Email OTP + TOTP)';
-        if (totpEnabled) return 'Enabled (TOTP only)';
-        return 'Enabled (Email OTP)';
+        const emailEnabled = config.twoFactor?.email?.enabled ?? false;
+        const totpEnabled = config.twoFactor?.totp?.enabled ?? false;
+        if (!emailEnabled && !totpEnabled) return 'Disabled';
+        const ext = config.twoFactor?.externalOnly ? ' [externalOnly]' : '';
+        if (emailEnabled && totpEnabled) return `Email OTP + TOTP${ext}`;
+        if (totpEnabled) return `TOTP only${ext}`;
+        return `Email OTP${ext}`;
       })();
       console.log('');
       console.log('╔════════════════════════════════════════════════════════════════╗');

@@ -86,16 +86,20 @@ function applyEditableValues(
   secrets: SecretPatch,
 ): Record<string, unknown> {
   setPath(rawConfig, ['auth', 'durationMs'], values.auth.durationMs);
-  setPath(rawConfig, ['twoFactor', 'enabled'], values.twoFactor.enabled);
-  setPath(rawConfig, ['twoFactor', 'email'], values.twoFactor.email);
-  setPath(rawConfig, ['twoFactor', 'otpLength'], values.twoFactor.otpLength);
-  setPath(rawConfig, ['twoFactor', 'otpExpiryMs'], values.twoFactor.otpExpiryMs);
-  setPath(rawConfig, ['twoFactor', 'smtp', 'host'], values.twoFactor.smtp.host);
-  setPath(rawConfig, ['twoFactor', 'smtp', 'port'], values.twoFactor.smtp.port);
-  setPath(rawConfig, ['twoFactor', 'smtp', 'secure'], values.twoFactor.smtp.secure);
-  setPath(rawConfig, ['twoFactor', 'smtp', 'auth', 'user'], values.twoFactor.smtp.auth.user);
-  setPath(rawConfig, ['twoFactor', 'smtp', 'tls', 'rejectUnauthorized'], values.twoFactor.smtp.tls.rejectUnauthorized);
-  setPath(rawConfig, ['twoFactor', 'smtp', 'tls', 'minVersion'], values.twoFactor.smtp.tls.minVersion);
+  setPath(rawConfig, ['twoFactor', 'externalOnly'], values.twoFactor.externalOnly);
+  setPath(rawConfig, ['twoFactor', 'email', 'enabled'], values.twoFactor.email.enabled);
+  setPath(rawConfig, ['twoFactor', 'email', 'address'], values.twoFactor.email.address);
+  setPath(rawConfig, ['twoFactor', 'email', 'otpLength'], values.twoFactor.email.otpLength);
+  setPath(rawConfig, ['twoFactor', 'email', 'otpExpiryMs'], values.twoFactor.email.otpExpiryMs);
+  setPath(rawConfig, ['twoFactor', 'email', 'smtp', 'host'], values.twoFactor.email.smtp.host);
+  setPath(rawConfig, ['twoFactor', 'email', 'smtp', 'port'], values.twoFactor.email.smtp.port);
+  setPath(rawConfig, ['twoFactor', 'email', 'smtp', 'secure'], values.twoFactor.email.smtp.secure);
+  setPath(rawConfig, ['twoFactor', 'email', 'smtp', 'auth', 'user'], values.twoFactor.email.smtp.auth.user);
+  setPath(rawConfig, ['twoFactor', 'email', 'smtp', 'tls', 'rejectUnauthorized'], values.twoFactor.email.smtp.tls.rejectUnauthorized);
+  setPath(rawConfig, ['twoFactor', 'email', 'smtp', 'tls', 'minVersion'], values.twoFactor.email.smtp.tls.minVersion);
+  setPath(rawConfig, ['twoFactor', 'totp', 'enabled'], values.twoFactor.totp.enabled);
+  setPath(rawConfig, ['twoFactor', 'totp', 'issuer'], values.twoFactor.totp.issuer);
+  setPath(rawConfig, ['twoFactor', 'totp', 'accountName'], values.twoFactor.totp.accountName);
   setPath(rawConfig, ['security', 'cors', 'allowedOrigins'], values.security.cors.allowedOrigins);
   setPath(rawConfig, ['security', 'cors', 'credentials'], values.security.cors.credentials);
   setPath(rawConfig, ['security', 'cors', 'maxAge'], values.security.cors.maxAge);
@@ -116,7 +120,7 @@ function applyEditableValues(
     setPath(rawConfig, ['auth', 'password'], secrets.authPassword);
   }
   if (secrets.smtpPassword !== undefined) {
-    setPath(rawConfig, ['twoFactor', 'smtp', 'auth', 'password'], secrets.smtpPassword);
+    setPath(rawConfig, ['twoFactor', 'email', 'smtp', 'auth', 'password'], secrets.smtpPassword);
   }
 
   return rawConfig;
@@ -137,16 +141,20 @@ function setPath(target: Record<string, unknown>, path: string[], value: unknown
 function renderPatchedConfig(content: string, config: Config, secrets: SecretPatch): string {
   const replacements = new Map<string, string>([
     ['auth.durationMs', renderJson5Value(config.auth?.durationMs ?? 1800000)],
-    ['twoFactor.enabled', renderJson5Value(config.twoFactor?.enabled ?? false)],
-    ['twoFactor.email', renderJson5Value(config.twoFactor?.email ?? '')],
-    ['twoFactor.otpLength', renderJson5Value(config.twoFactor?.otpLength ?? 6)],
-    ['twoFactor.otpExpiryMs', renderJson5Value(config.twoFactor?.otpExpiryMs ?? 300000)],
-    ['twoFactor.smtp.host', renderJson5Value(config.twoFactor?.smtp?.host ?? '')],
-    ['twoFactor.smtp.port', renderJson5Value(config.twoFactor?.smtp?.port ?? 587)],
-    ['twoFactor.smtp.secure', renderJson5Value(config.twoFactor?.smtp?.secure ?? false)],
-    ['twoFactor.smtp.auth.user', renderJson5Value(config.twoFactor?.smtp?.auth.user ?? '')],
-    ['twoFactor.smtp.tls.rejectUnauthorized', renderJson5Value(config.twoFactor?.smtp?.tls?.rejectUnauthorized ?? true)],
-    ['twoFactor.smtp.tls.minVersion', renderJson5Value(config.twoFactor?.smtp?.tls?.minVersion ?? 'TLSv1.2')],
+    ['twoFactor.externalOnly', renderJson5Value(config.twoFactor?.externalOnly ?? false)],
+    ['twoFactor.email.enabled', renderJson5Value(config.twoFactor?.email?.enabled ?? false)],
+    ['twoFactor.email.address', renderJson5Value(config.twoFactor?.email?.address ?? '')],
+    ['twoFactor.email.otpLength', renderJson5Value(config.twoFactor?.email?.otpLength ?? 6)],
+    ['twoFactor.email.otpExpiryMs', renderJson5Value(config.twoFactor?.email?.otpExpiryMs ?? 300000)],
+    ['twoFactor.email.smtp.host', renderJson5Value(config.twoFactor?.email?.smtp?.host ?? '')],
+    ['twoFactor.email.smtp.port', renderJson5Value(config.twoFactor?.email?.smtp?.port ?? 587)],
+    ['twoFactor.email.smtp.secure', renderJson5Value(config.twoFactor?.email?.smtp?.secure ?? false)],
+    ['twoFactor.email.smtp.auth.user', renderJson5Value(config.twoFactor?.email?.smtp?.auth.user ?? '')],
+    ['twoFactor.email.smtp.tls.rejectUnauthorized', renderJson5Value(config.twoFactor?.email?.smtp?.tls?.rejectUnauthorized ?? true)],
+    ['twoFactor.email.smtp.tls.minVersion', renderJson5Value(config.twoFactor?.email?.smtp?.tls?.minVersion ?? 'TLSv1.2')],
+    ['twoFactor.totp.enabled', renderJson5Value(config.twoFactor?.totp?.enabled ?? false)],
+    ['twoFactor.totp.issuer', renderJson5Value(config.twoFactor?.totp?.issuer ?? 'BuilderGate')],
+    ['twoFactor.totp.accountName', renderJson5Value(config.twoFactor?.totp?.accountName ?? 'admin')],
     ['security.cors.allowedOrigins', renderJson5Value(config.security?.cors.allowedOrigins ?? [])],
     ['security.cors.credentials', renderJson5Value(config.security?.cors.credentials ?? true)],
     ['security.cors.maxAge', renderJson5Value(config.security?.cors.maxAge ?? 86400)],
@@ -168,7 +176,7 @@ function renderPatchedConfig(content: string, config: Config, secrets: SecretPat
     replacements.set('auth.password', renderJson5Value(secrets.authPassword));
   }
   if (secrets.smtpPassword !== undefined) {
-    replacements.set('twoFactor.smtp.auth.password', renderJson5Value(secrets.smtpPassword));
+    replacements.set('twoFactor.email.smtp.auth.password', renderJson5Value(secrets.smtpPassword));
   }
 
   const newline = content.includes('\r\n') ? '\r\n' : '\n';

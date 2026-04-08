@@ -97,10 +97,27 @@
 
   // Two-Factor Authentication settings
   twoFactor: {
-    enabled: false,               // true: 2FA 활성화
-    email: "your@email.com",      // OTP 수신 이메일
-    otpLength: 6,
-    otpExpiryMs: 300000,          // 5분
+    externalOnly: false,          // true: localhost 접속 시 2FA 건너뜀 (비밀번호는 여전히 필요)
+
+    email: {
+      enabled: false,             // true: 이메일 OTP 활성화
+      address: "your@email.com",  // OTP 수신 이메일
+      otpLength: 6,
+      otpExpiryMs: 300000,        // 5분
+      smtp: {
+        host: "smtp.gmail.com",
+        port: 587,
+        secure: false,            // STARTTLS (port 465는 secure: true)
+        auth: {
+          user: "your@gmail.com",
+          password: "your_app_password"  // Gmail 앱 비밀번호 (평문 입력 → 자동 암호화)
+        },
+        tls: {
+          rejectUnauthorized: true,
+          minVersion: "TLSv1.2"
+        }
+      }
+    },
 
     totp: {
       // Google Authenticator / TOTP 설정
@@ -109,19 +126,5 @@
       issuer: "BuilderGate",
       accountName: "admin"
     },
-
-    smtp: {
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,              // STARTTLS (port 465는 secure: true)
-      auth: {
-        user: "your@gmail.com",
-        password: "your_app_password"  // Gmail 앱 비밀번호 (평문 입력 → 자동 암호화)
-      },
-      tls: {
-        rejectUnauthorized: true,
-        minVersion: "TLSv1.2"
-      }
-    }
   },
 }

@@ -10,17 +10,21 @@ export type FieldApplyScope = 'immediate' | 'new_logins' | 'new_sessions';
 export type EditableSettingsKey =
   | 'auth.password'
   | 'auth.durationMs'
-  | 'twoFactor.enabled'
-  | 'twoFactor.email'
-  | 'twoFactor.otpLength'
-  | 'twoFactor.otpExpiryMs'
-  | 'twoFactor.smtp.host'
-  | 'twoFactor.smtp.port'
-  | 'twoFactor.smtp.secure'
-  | 'twoFactor.smtp.auth.user'
-  | 'twoFactor.smtp.auth.password'
-  | 'twoFactor.smtp.tls.rejectUnauthorized'
-  | 'twoFactor.smtp.tls.minVersion'
+  | 'twoFactor.externalOnly'
+  | 'twoFactor.email.enabled'
+  | 'twoFactor.email.address'
+  | 'twoFactor.email.otpLength'
+  | 'twoFactor.email.otpExpiryMs'
+  | 'twoFactor.email.smtp.host'
+  | 'twoFactor.email.smtp.port'
+  | 'twoFactor.email.smtp.secure'
+  | 'twoFactor.email.smtp.auth.user'
+  | 'twoFactor.email.smtp.auth.password'
+  | 'twoFactor.email.smtp.tls.rejectUnauthorized'
+  | 'twoFactor.email.smtp.tls.minVersion'
+  | 'twoFactor.totp.enabled'
+  | 'twoFactor.totp.issuer'
+  | 'twoFactor.totp.accountName'
   | 'security.cors.allowedOrigins'
   | 'security.cors.credentials'
   | 'security.cors.maxAge'
@@ -56,21 +60,29 @@ export interface PasswordChangeRequest {
 }
 
 export interface TwoFactorEditableSettings {
-  enabled: boolean;
-  email: string;
-  otpLength: number;
-  otpExpiryMs: number;
-  smtp: {
-    host: string;
-    port: number;
-    secure: boolean;
-    auth: {
-      user: string;
+  externalOnly: boolean;
+  email: {
+    enabled: boolean;
+    address: string;
+    otpLength: number;
+    otpExpiryMs: number;
+    smtp: {
+      host: string;
+      port: number;
+      secure: boolean;
+      auth: {
+        user: string;
+      };
+      tls: {
+        rejectUnauthorized: boolean;
+        minVersion: SMTPTLSConfig['minVersion'];
+      };
     };
-    tls: {
-      rejectUnauthorized: boolean;
-      minVersion: SMTPTLSConfig['minVersion'];
-    };
+  };
+  totp: {
+    enabled: boolean;
+    issuer: string;
+    accountName: string;
   };
 }
 
@@ -104,19 +116,20 @@ export interface EditableSettingsValues {
 
 export interface SettingsPatchRequest {
   auth?: Partial<AuthEditableSettings> & PasswordChangeRequest;
-  twoFactor?: Partial<
-    Omit<TwoFactorEditableSettings, 'smtp'> & {
-      smtp: Partial<
-        Omit<TwoFactorEditableSettings['smtp'], 'auth' | 'tls'> & {
-          auth: {
-            user?: string;
-            password?: string;
-          };
-          tls: Partial<TwoFactorEditableSettings['smtp']['tls']>;
-        }
-      >;
-    }
-  >;
+  twoFactor?: {
+    externalOnly?: boolean;
+    email?: Partial<
+      Omit<TwoFactorEditableSettings['email'], 'smtp'> & {
+        smtp?: Partial<
+          Omit<TwoFactorEditableSettings['email']['smtp'], 'auth' | 'tls'> & {
+            auth?: { user?: string; password?: string };
+            tls?: Partial<TwoFactorEditableSettings['email']['smtp']['tls']>;
+          }
+        >;
+      }
+    >;
+    totp?: Partial<TwoFactorEditableSettings['totp']>;
+  };
   security?: {
     cors?: Partial<SecurityEditableSettings['cors']>;
   };

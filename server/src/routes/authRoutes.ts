@@ -157,6 +157,14 @@ export function createAuthRoutes(accessors: AuthRouteAccessors): Router {
         return;
       }
 
+      // 3-1. externalOnly: localhost 접속 시 2FA 건너뜀
+      if (twoFactorService.isExternalOnly() && isLocalhost) {
+        const { token } = authService.issueToken();
+        console.log(`[Auth] Login successful (externalOnly — localhost bypass) from ${req.ip}`);
+        res.json({ success: true, token, expiresIn: authService.getSessionDuration() } as LoginResponse);
+        return;
+      }
+
       // 4. FR-401: TOTP enabled but not registered → 503
       if (totpService != null && !totpService.isRegistered()) {
         // AC-401: console.warn required

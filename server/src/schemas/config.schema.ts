@@ -98,21 +98,24 @@ export const totpSchema = z.object({
   accountName: z.string().default('admin'),
 });
 
-export const twoFactorSchema = z.object({
+export const twoFactorEmailSchema = z.object({
   enabled: z.boolean().default(false),
-  email: z.string().email().optional(),
+  address: z.string().default(''),
   otpLength: z.number().min(4).max(8).default(6),
   otpExpiryMs: z.number().min(60000).max(600000).default(300000),
   smtp: smtpSchema.optional(),
+});
+
+export const twoFactorSchema = z.object({
+  externalOnly: z.boolean().default(false),
+  email: twoFactorEmailSchema.optional(),
   totp: totpSchema.optional(),
 }).refine(
   (data) => {
-    if (!data.enabled) return true;
-    const hasEmail = !!(data.email && data.smtp);
-    const hasTotp = !!(data.totp?.enabled);
-    return hasEmail || hasTotp;
+    if (!data.email?.enabled) return true;
+    return !!(data.email.address && data.email.smtp);
   },
-  { message: '2FA enabled requires either email+smtp or totp configuration' }
+  { message: 'Email 2FA requires address and smtp configuration' }
 );
 
 // ============================================================================

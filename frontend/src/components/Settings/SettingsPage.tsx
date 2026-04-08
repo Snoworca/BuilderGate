@@ -116,12 +116,12 @@ export function SettingsPage({ visible, onBack }: Props) {
       }
     }
 
-    if (draft.twoFactor.enabled) {
-      if (!draft.twoFactor.email || !draft.twoFactor.smtp.host || !draft.twoFactor.smtp.auth.user) {
-        errors.push('2FA requires email, SMTP host, and SMTP user.');
+    if (draft.twoFactor.email.enabled) {
+      if (!draft.twoFactor.email.address || !draft.twoFactor.email.smtp.host || !draft.twoFactor.email.smtp.auth.user) {
+        errors.push('2FA email requires address, SMTP host, and SMTP user.');
       }
       if (!snapshot.secretState.smtpPasswordConfigured && !secrets.smtpPassword) {
-        errors.push('2FA requires an SMTP password.');
+        errors.push('2FA email requires an SMTP password.');
       }
     }
 
@@ -236,20 +236,21 @@ export function SettingsPage({ visible, onBack }: Props) {
             </Card>
 
             <Card title="Two-Factor Authentication">
-              <Field label="Enabled" scope={scope(snapshot, 'twoFactor.enabled')}><input type="checkbox" checked={draft.twoFactor.enabled} onChange={(e) => updateDraft((next) => { next.twoFactor.enabled = e.target.checked; })} /></Field>
-              <Field label="Email" scope={scope(snapshot, 'twoFactor.email')}><input type="email" value={draft.twoFactor.email} onChange={(e) => updateDraft((next) => { next.twoFactor.email = e.target.value; })} /></Field>
-              <Field label="OTP length" scope={scope(snapshot, 'twoFactor.otpLength')}><input type="number" value={draft.twoFactor.otpLength} onChange={(e) => updateDraft((next) => { next.twoFactor.otpLength = Number(e.target.value || draft.twoFactor.otpLength); })} /></Field>
-              <Field label="OTP expiry (ms)" scope={scope(snapshot, 'twoFactor.otpExpiryMs')}><input type="number" value={draft.twoFactor.otpExpiryMs} onChange={(e) => updateDraft((next) => { next.twoFactor.otpExpiryMs = Number(e.target.value || draft.twoFactor.otpExpiryMs); })} /></Field>
-              <Field label="SMTP host" scope={scope(snapshot, 'twoFactor.smtp.host')}><input type="text" value={draft.twoFactor.smtp.host} onChange={(e) => updateDraft((next) => { next.twoFactor.smtp.host = e.target.value; })} /></Field>
-              <Field label="SMTP port" scope={scope(snapshot, 'twoFactor.smtp.port')}><input type="number" value={draft.twoFactor.smtp.port} onChange={(e) => updateDraft((next) => { next.twoFactor.smtp.port = Number(e.target.value || draft.twoFactor.smtp.port); })} /></Field>
-              <Field label="SMTP secure" scope={scope(snapshot, 'twoFactor.smtp.secure')}><input type="checkbox" checked={draft.twoFactor.smtp.secure} onChange={(e) => updateDraft((next) => { next.twoFactor.smtp.secure = e.target.checked; })} /></Field>
-              <Field label="SMTP user" scope={scope(snapshot, 'twoFactor.smtp.auth.user')}><input type="text" value={draft.twoFactor.smtp.auth.user} onChange={(e) => updateDraft((next) => { next.twoFactor.smtp.auth.user = e.target.value; })} /></Field>
-              <Field label="SMTP password" scope={scope(snapshot, 'twoFactor.smtp.auth.password')} hint={snapshot.secretState.smtpPasswordConfigured ? 'Configured' : 'Not configured'}>
+              <Field label="External only" scope={scope(snapshot, 'twoFactor.externalOnly')} hint="localhost 접속 시 2FA 건너뜀"><input type="checkbox" checked={draft.twoFactor.externalOnly} onChange={(e) => updateDraft((next) => { next.twoFactor.externalOnly = e.target.checked; })} /></Field>
+              <Field label="Email OTP enabled" scope={scope(snapshot, 'twoFactor.email.enabled')}><input type="checkbox" checked={draft.twoFactor.email.enabled} onChange={(e) => updateDraft((next) => { next.twoFactor.email.enabled = e.target.checked; })} /></Field>
+              <Field label="Email address" scope={scope(snapshot, 'twoFactor.email.address')}><input type="email" value={draft.twoFactor.email.address} onChange={(e) => updateDraft((next) => { next.twoFactor.email.address = e.target.value; })} /></Field>
+              <Field label="OTP length" scope={scope(snapshot, 'twoFactor.email.otpLength')}><input type="number" value={draft.twoFactor.email.otpLength} onChange={(e) => updateDraft((next) => { next.twoFactor.email.otpLength = Number(e.target.value || draft.twoFactor.email.otpLength); })} /></Field>
+              <Field label="OTP expiry (ms)" scope={scope(snapshot, 'twoFactor.email.otpExpiryMs')}><input type="number" value={draft.twoFactor.email.otpExpiryMs} onChange={(e) => updateDraft((next) => { next.twoFactor.email.otpExpiryMs = Number(e.target.value || draft.twoFactor.email.otpExpiryMs); })} /></Field>
+              <Field label="SMTP host" scope={scope(snapshot, 'twoFactor.email.smtp.host')}><input type="text" value={draft.twoFactor.email.smtp.host} onChange={(e) => updateDraft((next) => { next.twoFactor.email.smtp.host = e.target.value; })} /></Field>
+              <Field label="SMTP port" scope={scope(snapshot, 'twoFactor.email.smtp.port')}><input type="number" value={draft.twoFactor.email.smtp.port} onChange={(e) => updateDraft((next) => { next.twoFactor.email.smtp.port = Number(e.target.value || draft.twoFactor.email.smtp.port); })} /></Field>
+              <Field label="SMTP secure" scope={scope(snapshot, 'twoFactor.email.smtp.secure')}><input type="checkbox" checked={draft.twoFactor.email.smtp.secure} onChange={(e) => updateDraft((next) => { next.twoFactor.email.smtp.secure = e.target.checked; })} /></Field>
+              <Field label="SMTP user" scope={scope(snapshot, 'twoFactor.email.smtp.auth.user')}><input type="text" value={draft.twoFactor.email.smtp.auth.user} onChange={(e) => updateDraft((next) => { next.twoFactor.email.smtp.auth.user = e.target.value; })} /></Field>
+              <Field label="SMTP password" scope={scope(snapshot, 'twoFactor.email.smtp.auth.password')} hint={snapshot.secretState.smtpPasswordConfigured ? 'Configured' : 'Not configured'}>
                 <input type="password" value={secrets.smtpPassword} onChange={(e) => setSecrets((current) => ({ ...current, smtpPassword: e.target.value }))} />
               </Field>
-              <Field label="Reject unauthorized" scope={scope(snapshot, 'twoFactor.smtp.tls.rejectUnauthorized')}><input type="checkbox" checked={draft.twoFactor.smtp.tls.rejectUnauthorized} onChange={(e) => updateDraft((next) => { next.twoFactor.smtp.tls.rejectUnauthorized = e.target.checked; })} /></Field>
-              <Field label="Minimum TLS version" scope={scope(snapshot, 'twoFactor.smtp.tls.minVersion')}>
-                <select value={draft.twoFactor.smtp.tls.minVersion} onChange={(e) => updateDraft((next) => { next.twoFactor.smtp.tls.minVersion = e.target.value as 'TLSv1.2' | 'TLSv1.3'; })}>
+              <Field label="Reject unauthorized" scope={scope(snapshot, 'twoFactor.email.smtp.tls.rejectUnauthorized')}><input type="checkbox" checked={draft.twoFactor.email.smtp.tls.rejectUnauthorized} onChange={(e) => updateDraft((next) => { next.twoFactor.email.smtp.tls.rejectUnauthorized = e.target.checked; })} /></Field>
+              <Field label="Minimum TLS version" scope={scope(snapshot, 'twoFactor.email.smtp.tls.minVersion')}>
+                <select value={draft.twoFactor.email.smtp.tls.minVersion} onChange={(e) => updateDraft((next) => { next.twoFactor.email.smtp.tls.minVersion = e.target.value as 'TLSv1.2' | 'TLSv1.3'; })}>
                   <option value="TLSv1.2">TLSv1.2</option>
                   <option value="TLSv1.3">TLSv1.3</option>
                 </select>
@@ -413,22 +414,30 @@ function buildPatch(initial: EditableSettingsValues, draft: EditableSettingsValu
 
   if (JSON.stringify(initial.twoFactor) !== JSON.stringify(draft.twoFactor) || secrets.smtpPassword) {
     patch.twoFactor = {
-      enabled: draft.twoFactor.enabled,
-      email: draft.twoFactor.email,
-      otpLength: draft.twoFactor.otpLength,
-      otpExpiryMs: draft.twoFactor.otpExpiryMs,
-      smtp: {
-        host: draft.twoFactor.smtp.host,
-        port: draft.twoFactor.smtp.port,
-        secure: draft.twoFactor.smtp.secure,
-        auth: {
-          user: draft.twoFactor.smtp.auth.user,
-          ...(secrets.smtpPassword ? { password: secrets.smtpPassword } : {}),
+      externalOnly: draft.twoFactor.externalOnly,
+      email: {
+        enabled: draft.twoFactor.email.enabled,
+        address: draft.twoFactor.email.address,
+        otpLength: draft.twoFactor.email.otpLength,
+        otpExpiryMs: draft.twoFactor.email.otpExpiryMs,
+        smtp: {
+          host: draft.twoFactor.email.smtp.host,
+          port: draft.twoFactor.email.smtp.port,
+          secure: draft.twoFactor.email.smtp.secure,
+          auth: {
+            user: draft.twoFactor.email.smtp.auth.user,
+            ...(secrets.smtpPassword ? { password: secrets.smtpPassword } : {}),
+          },
+          tls: {
+            rejectUnauthorized: draft.twoFactor.email.smtp.tls.rejectUnauthorized,
+            minVersion: draft.twoFactor.email.smtp.tls.minVersion,
+          },
         },
-        tls: {
-          rejectUnauthorized: draft.twoFactor.smtp.tls.rejectUnauthorized,
-          minVersion: draft.twoFactor.smtp.tls.minVersion,
-        },
+      },
+      totp: {
+        enabled: draft.twoFactor.totp.enabled,
+        issuer: draft.twoFactor.totp.issuer,
+        accountName: draft.twoFactor.totp.accountName,
       },
     };
   }

@@ -6,7 +6,7 @@ import type {
   FieldCapability,
   SettingsPatchRequest,
 } from '../types/settings.types.js';
-import { authSchema, corsSchema, fileManagerSchema, ptySchema, sessionSchema, smtpTlsSchema, twoFactorSchema } from '../schemas/config.schema.js';
+import { authSchema, corsSchema, fileManagerSchema, ptySchema, sessionSchema, smtpTlsSchema, totpSchema, twoFactorEmailSchema, twoFactorSchema } from '../schemas/config.schema.js';
 import { config as globalConfig } from '../utils/config.js';
 
 const EXCLUDED_SECTIONS = [
@@ -22,17 +22,21 @@ const EXCLUDED_SECTIONS = [
 const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available' | 'reason' | 'options'>> = {
   'auth.password': { applyScope: 'new_logins', writeOnly: true },
   'auth.durationMs': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.enabled': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.email': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.otpLength': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.otpExpiryMs': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.smtp.host': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.smtp.port': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.smtp.secure': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.smtp.auth.user': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.smtp.auth.password': { applyScope: 'new_logins', writeOnly: true },
-  'twoFactor.smtp.tls.rejectUnauthorized': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.smtp.tls.minVersion': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.externalOnly': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.email.enabled': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.email.address': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.email.otpLength': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.email.otpExpiryMs': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.email.smtp.host': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.email.smtp.port': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.email.smtp.secure': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.email.smtp.auth.user': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.email.smtp.auth.password': { applyScope: 'new_logins', writeOnly: true },
+  'twoFactor.email.smtp.tls.rejectUnauthorized': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.email.smtp.tls.minVersion': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.totp.enabled': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.totp.issuer': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.totp.accountName': { applyScope: 'new_logins', writeOnly: false },
   'security.cors.allowedOrigins': { applyScope: 'immediate', writeOnly: false },
   'security.cors.credentials': { applyScope: 'immediate', writeOnly: false },
   'security.cors.maxAge': { applyScope: 'immediate', writeOnly: false },
@@ -61,7 +65,7 @@ export class RuntimeConfigStore {
     this.capabilities = buildFieldCapabilities(platform);
     this.secretState = {
       authPasswordConfigured: Boolean(source.auth?.password),
-      smtpPasswordConfigured: Boolean(source.twoFactor?.smtp?.auth.password),
+      smtpPasswordConfigured: Boolean(source.twoFactor?.email?.smtp?.auth.password),
     };
   }
 
@@ -93,35 +97,47 @@ export class RuntimeConfigStore {
       next.auth.durationMs = patch.auth.durationMs;
     }
 
-    if (patch.twoFactor?.enabled !== undefined) {
-      next.twoFactor.enabled = patch.twoFactor.enabled;
+    if (patch.twoFactor?.externalOnly !== undefined) {
+      next.twoFactor.externalOnly = patch.twoFactor.externalOnly;
     }
-    if (patch.twoFactor?.email !== undefined) {
-      next.twoFactor.email = patch.twoFactor.email;
+    if (patch.twoFactor?.email?.enabled !== undefined) {
+      next.twoFactor.email.enabled = patch.twoFactor.email.enabled;
     }
-    if (patch.twoFactor?.otpLength !== undefined) {
-      next.twoFactor.otpLength = patch.twoFactor.otpLength;
+    if (patch.twoFactor?.email?.address !== undefined) {
+      next.twoFactor.email.address = patch.twoFactor.email.address;
     }
-    if (patch.twoFactor?.otpExpiryMs !== undefined) {
-      next.twoFactor.otpExpiryMs = patch.twoFactor.otpExpiryMs;
+    if (patch.twoFactor?.email?.otpLength !== undefined) {
+      next.twoFactor.email.otpLength = patch.twoFactor.email.otpLength;
     }
-    if (patch.twoFactor?.smtp?.host !== undefined) {
-      next.twoFactor.smtp.host = patch.twoFactor.smtp.host;
+    if (patch.twoFactor?.email?.otpExpiryMs !== undefined) {
+      next.twoFactor.email.otpExpiryMs = patch.twoFactor.email.otpExpiryMs;
     }
-    if (patch.twoFactor?.smtp?.port !== undefined) {
-      next.twoFactor.smtp.port = patch.twoFactor.smtp.port;
+    if (patch.twoFactor?.email?.smtp?.host !== undefined) {
+      next.twoFactor.email.smtp.host = patch.twoFactor.email.smtp.host;
     }
-    if (patch.twoFactor?.smtp?.secure !== undefined) {
-      next.twoFactor.smtp.secure = patch.twoFactor.smtp.secure;
+    if (patch.twoFactor?.email?.smtp?.port !== undefined) {
+      next.twoFactor.email.smtp.port = patch.twoFactor.email.smtp.port;
     }
-    if (patch.twoFactor?.smtp?.auth?.user !== undefined) {
-      next.twoFactor.smtp.auth.user = patch.twoFactor.smtp.auth.user;
+    if (patch.twoFactor?.email?.smtp?.secure !== undefined) {
+      next.twoFactor.email.smtp.secure = patch.twoFactor.email.smtp.secure;
     }
-    if (patch.twoFactor?.smtp?.tls?.rejectUnauthorized !== undefined) {
-      next.twoFactor.smtp.tls.rejectUnauthorized = patch.twoFactor.smtp.tls.rejectUnauthorized;
+    if (patch.twoFactor?.email?.smtp?.auth?.user !== undefined) {
+      next.twoFactor.email.smtp.auth.user = patch.twoFactor.email.smtp.auth.user;
     }
-    if (patch.twoFactor?.smtp?.tls?.minVersion !== undefined) {
-      next.twoFactor.smtp.tls.minVersion = patch.twoFactor.smtp.tls.minVersion;
+    if (patch.twoFactor?.email?.smtp?.tls?.rejectUnauthorized !== undefined) {
+      next.twoFactor.email.smtp.tls.rejectUnauthorized = patch.twoFactor.email.smtp.tls.rejectUnauthorized;
+    }
+    if (patch.twoFactor?.email?.smtp?.tls?.minVersion !== undefined) {
+      next.twoFactor.email.smtp.tls.minVersion = patch.twoFactor.email.smtp.tls.minVersion;
+    }
+    if (patch.twoFactor?.totp?.enabled !== undefined) {
+      next.twoFactor.totp.enabled = patch.twoFactor.totp.enabled;
+    }
+    if (patch.twoFactor?.totp?.issuer !== undefined) {
+      next.twoFactor.totp.issuer = patch.twoFactor.totp.issuer;
+    }
+    if (patch.twoFactor?.totp?.accountName !== undefined) {
+      next.twoFactor.totp.accountName = patch.twoFactor.totp.accountName;
     }
 
     if (patch.security?.cors?.allowedOrigins !== undefined) {
@@ -184,7 +200,7 @@ export class RuntimeConfigStore {
     this.values = buildEditableValues(config);
     this.secretState = {
       authPasswordConfigured: Boolean(config.auth?.password),
-      smtpPasswordConfigured: Boolean(config.twoFactor?.smtp?.auth.password),
+      smtpPasswordConfigured: Boolean(config.twoFactor?.email?.smtp?.auth.password),
     };
   }
 }
@@ -194,6 +210,8 @@ function buildEditableValues(source: Config): EditableSettingsValues {
   const ptyDefaults = ptySchema.parse({});
   const sessionDefaults = sessionSchema.parse({});
   const twoFactorDefaults = twoFactorSchema.parse({});
+  const emailDefaults = twoFactorEmailSchema.parse({});
+  const totpDefaults = totpSchema.parse({});
   const tlsDefaults = smtpTlsSchema.parse({});
   const corsDefaults = corsSchema.parse({});
   const fileManagerDefaults = fileManagerSchema.parse({});
@@ -203,21 +221,29 @@ function buildEditableValues(source: Config): EditableSettingsValues {
       durationMs: source.auth?.durationMs ?? authDefaults.durationMs,
     },
     twoFactor: {
-      enabled: source.twoFactor?.enabled ?? twoFactorDefaults.enabled,
-      email: source.twoFactor?.email ?? '',
-      otpLength: source.twoFactor?.otpLength ?? twoFactorDefaults.otpLength,
-      otpExpiryMs: source.twoFactor?.otpExpiryMs ?? twoFactorDefaults.otpExpiryMs,
-      smtp: {
-        host: source.twoFactor?.smtp?.host ?? '',
-        port: source.twoFactor?.smtp?.port ?? 587,
-        secure: source.twoFactor?.smtp?.secure ?? false,
-        auth: {
-          user: source.twoFactor?.smtp?.auth.user ?? '',
+      externalOnly: source.twoFactor?.externalOnly ?? twoFactorDefaults.externalOnly,
+      email: {
+        enabled: source.twoFactor?.email?.enabled ?? emailDefaults.enabled,
+        address: source.twoFactor?.email?.address ?? '',
+        otpLength: source.twoFactor?.email?.otpLength ?? emailDefaults.otpLength,
+        otpExpiryMs: source.twoFactor?.email?.otpExpiryMs ?? emailDefaults.otpExpiryMs,
+        smtp: {
+          host: source.twoFactor?.email?.smtp?.host ?? '',
+          port: source.twoFactor?.email?.smtp?.port ?? 587,
+          secure: source.twoFactor?.email?.smtp?.secure ?? false,
+          auth: {
+            user: source.twoFactor?.email?.smtp?.auth.user ?? '',
+          },
+          tls: {
+            rejectUnauthorized: source.twoFactor?.email?.smtp?.tls?.rejectUnauthorized ?? tlsDefaults.rejectUnauthorized,
+            minVersion: source.twoFactor?.email?.smtp?.tls?.minVersion ?? tlsDefaults.minVersion,
+          },
         },
-        tls: {
-          rejectUnauthorized: source.twoFactor?.smtp?.tls?.rejectUnauthorized ?? tlsDefaults.rejectUnauthorized,
-          minVersion: source.twoFactor?.smtp?.tls?.minVersion ?? tlsDefaults.minVersion,
-        },
+      },
+      totp: {
+        enabled: source.twoFactor?.totp?.enabled ?? totpDefaults.enabled,
+        issuer: source.twoFactor?.totp?.issuer ?? totpDefaults.issuer,
+        accountName: source.twoFactor?.totp?.accountName ?? totpDefaults.accountName,
       },
     },
     security: {

@@ -3,17 +3,21 @@ export type FieldApplyScope = 'immediate' | 'new_logins' | 'new_sessions';
 export type EditableSettingsKey =
   | 'auth.password'
   | 'auth.durationMs'
-  | 'twoFactor.enabled'
-  | 'twoFactor.email'
-  | 'twoFactor.otpLength'
-  | 'twoFactor.otpExpiryMs'
-  | 'twoFactor.smtp.host'
-  | 'twoFactor.smtp.port'
-  | 'twoFactor.smtp.secure'
-  | 'twoFactor.smtp.auth.user'
-  | 'twoFactor.smtp.auth.password'
-  | 'twoFactor.smtp.tls.rejectUnauthorized'
-  | 'twoFactor.smtp.tls.minVersion'
+  | 'twoFactor.externalOnly'
+  | 'twoFactor.email.enabled'
+  | 'twoFactor.email.address'
+  | 'twoFactor.email.otpLength'
+  | 'twoFactor.email.otpExpiryMs'
+  | 'twoFactor.email.smtp.host'
+  | 'twoFactor.email.smtp.port'
+  | 'twoFactor.email.smtp.secure'
+  | 'twoFactor.email.smtp.auth.user'
+  | 'twoFactor.email.smtp.auth.password'
+  | 'twoFactor.email.smtp.tls.rejectUnauthorized'
+  | 'twoFactor.email.smtp.tls.minVersion'
+  | 'twoFactor.totp.enabled'
+  | 'twoFactor.totp.issuer'
+  | 'twoFactor.totp.accountName'
   | 'security.cors.allowedOrigins'
   | 'security.cors.credentials'
   | 'security.cors.maxAge'
@@ -43,21 +47,29 @@ export interface EditableSettingsValues {
     durationMs: number;
   };
   twoFactor: {
-    enabled: boolean;
-    email: string;
-    otpLength: number;
-    otpExpiryMs: number;
-    smtp: {
-      host: string;
-      port: number;
-      secure: boolean;
-      auth: {
-        user: string;
+    externalOnly: boolean;
+    email: {
+      enabled: boolean;
+      address: string;
+      otpLength: number;
+      otpExpiryMs: number;
+      smtp: {
+        host: string;
+        port: number;
+        secure: boolean;
+        auth: {
+          user: string;
+        };
+        tls: {
+          rejectUnauthorized: boolean;
+          minVersion: 'TLSv1.2' | 'TLSv1.3';
+        };
       };
-      tls: {
-        rejectUnauthorized: boolean;
-        minVersion: 'TLSv1.2' | 'TLSv1.3';
-      };
+    };
+    totp: {
+      enabled: boolean;
+      issuer: string;
+      accountName: string;
     };
   };
   security: {
@@ -105,22 +117,30 @@ export interface SettingsPatchRequest {
     durationMs?: number;
   };
   twoFactor?: {
-    enabled?: boolean;
-    email?: string;
-    otpLength?: number;
-    otpExpiryMs?: number;
-    smtp?: {
-      host?: string;
-      port?: number;
-      secure?: boolean;
-      auth?: {
-        user?: string;
-        password?: string;
+    externalOnly?: boolean;
+    email?: {
+      enabled?: boolean;
+      address?: string;
+      otpLength?: number;
+      otpExpiryMs?: number;
+      smtp?: {
+        host?: string;
+        port?: number;
+        secure?: boolean;
+        auth?: {
+          user?: string;
+          password?: string;
+        };
+        tls?: {
+          rejectUnauthorized?: boolean;
+          minVersion?: 'TLSv1.2' | 'TLSv1.3';
+        };
       };
-      tls?: {
-        rejectUnauthorized?: boolean;
-        minVersion?: 'TLSv1.2' | 'TLSv1.3';
-      };
+    };
+    totp?: {
+      enabled?: boolean;
+      issuer?: string;
+      accountName?: string;
     };
   };
   security?: {

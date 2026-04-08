@@ -36,7 +36,7 @@ export class TwoFactorService {
     this.config = config;
     this.cryptoService = cryptoService;
 
-    if (config.enabled && config.smtp) {
+    if (config.email?.enabled && config.email?.smtp) {
       this.initTransport();
     }
   }
@@ -46,27 +46,28 @@ export class TwoFactorService {
   // ==========================================================================
 
   private initTransport(): void {
-    if (!this.config.smtp) {
-      throw new Error('SMTP configuration is required for 2FA');
+    const smtp = this.config.email?.smtp;
+    if (!smtp) {
+      throw new Error('SMTP configuration is required for email 2FA');
     }
 
     // Decrypt SMTP password if encrypted
-    const smtpPassword = this.config.smtp.auth.password;
+    const smtpPassword = smtp.auth.password;
     this.decryptedSmtpPassword = this.cryptoService.isEncrypted(smtpPassword)
       ? this.cryptoService.decrypt(smtpPassword)
       : smtpPassword;
 
     this.smtpTransport = nodemailer.createTransport({
-      host: this.config.smtp.host,
-      port: this.config.smtp.port,
-      secure: this.config.smtp.secure,
+      host: smtp.host,
+      port: smtp.port,
+      secure: smtp.secure,
       auth: {
-        user: this.config.smtp.auth.user,
+        user: smtp.auth.user,
         pass: this.decryptedSmtpPassword
       },
-      tls: this.config.smtp.tls ? {
-        rejectUnauthorized: this.config.smtp.tls.rejectUnauthorized,
-        minVersion: this.config.smtp.tls.minVersion
+      tls: smtp.tls ? {
+        rejectUnauthorized: smtp.tls.rejectUnauthorized,
+        minVersion: smtp.tls.minVersion
       } : undefined
     });
 
@@ -82,7 +83,7 @@ export class TwoFactorService {
    * @returns OTP string (e.g., "123456")
    */
   generateOTP(): string {
-    const length = this.config.otpLength || 6;
+    const length = this.config.email?.otpLength || 6;
     const min = Math.pow(10, length - 1);
     const max = Math.pow(10, length) - 1;
     const otp = crypto.randomInt(min, max + 1);
@@ -112,8 +113,8 @@ export class TwoFactorService {
 
     const otpData: OTPData = {
       otp,
-      email: this.config.email ?? '',
-      expiresAt: Date.now() + (this.config.otpExpiryMs || 300000),
+      email: this.config.email?.address ?? '',
+      expiresAt: Date.now() + (this.config.email?.otpExpiryMs || 300000),
       attempts: 0,
       stage,
     };
@@ -128,7 +129,7 @@ export class TwoFactorService {
    * @param otp - OTP code to send
    */
   async sendOTP(otp: string): Promise<void> {
-    const email = this.config.email;
+    const email = this.config.email?.address;
     if (!email) throw new Error('[2FA] No email configured');
     const sent = await this.sendOTPEmail(email, otp);
     if (!sent) throw new Error('[2FA] Failed to send OTP email');
@@ -138,7 +139,11 @@ export class TwoFactorService {
    * Check whether email + SMTP is fully configured (for COMBO routing).
    */
   hasEmailConfig(): boolean {
-    return !!(this.config.email && this.config.smtp);
+    return !!(this.config.email?.enabled && this.config.email?.address && this.config.email?.smtp);
+  }
+
+  isExternalOnly(): boolean {
+    return this.config.externalOnly;
   }
 
   /**
@@ -179,9 +184,9 @@ export class TwoFactorService {
       return false;
     }
 
-    const expiryMinutes = Math.floor((this.config.otpExpiryMs || 300000) / 60000);
+    const expiryMinutes = Math.floor((this.config.email?.otpExpiryMs || 300000) / 60000);
     const mailOptions = {
-      from: this.config.smtp?.auth.user,
+      from: this.config.email?.smtp?.auth.user,
       to: email,
       subject: '[BuilderGate] Login Verification Code',
       text: this.getEmailTemplate(otp, expiryMinutes),
@@ -320,14 +325,14 @@ export class TwoFactorService {
    * Check if 2FA is enabled
    */
   isEnabled(): boolean {
-    return this.config.enabled;
+    return (this.config.email?.enabled ?? false) || (this.config.totp?.enabled ?? false);
   }
 
   /**
-   * Get configured email for 2FA
+   * Get configured email address for 2FA
    */
   getEmail(): string | undefined {
-    return this.config.email;
+    return this.config.email?.address;
   }
 
   /**

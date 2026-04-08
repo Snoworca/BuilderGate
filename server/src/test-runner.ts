@@ -95,10 +95,10 @@ function testRuntimeConfigSnapshot(): void {
   assert.equal(store.isEditable('auth.durationMs'), true);
   assert.equal(store.isEditable('server.port'), false);
   assert.equal(snapshot.values.auth.durationMs, 1800000);
-  assert.equal(snapshot.values.twoFactor.smtp.auth.user, 'admin@example.com');
-  assert.equal('password' in snapshot.values.twoFactor.smtp.auth, false);
+  assert.equal(snapshot.values.twoFactor.email.smtp.auth.user, 'admin@example.com');
+  assert.equal('password' in snapshot.values.twoFactor.email.smtp.auth, false);
   assert.equal(snapshot.capabilities['auth.password'].writeOnly, true);
-  assert.equal(snapshot.capabilities['twoFactor.smtp.auth.password'].writeOnly, true);
+  assert.equal(snapshot.capabilities['twoFactor.email.smtp.auth.password'].writeOnly, true);
   assert.equal(snapshot.secretState.authPasswordConfigured, true);
   assert.equal(snapshot.secretState.smtpPasswordConfigured, true);
   assert.ok(snapshot.excludedSections.includes('ssl.*'));
@@ -121,11 +121,13 @@ function testRuntimeConfigCapabilities(): void {
       confirmPassword: 'ignored',
     },
     twoFactor: {
-      email: 'ops@example.com',
-      smtp: {
-        auth: {
-          user: 'ops@example.com',
-          password: 'secret',
+      email: {
+        address: 'ops@example.com',
+        smtp: {
+          auth: {
+            user: 'ops@example.com',
+            password: 'secret',
+          },
         },
       },
     },
@@ -135,8 +137,8 @@ function testRuntimeConfigCapabilities(): void {
   });
 
   assert.equal(merged.auth.durationMs, 3600000);
-  assert.equal(merged.twoFactor.email, 'ops@example.com');
-  assert.equal(merged.twoFactor.smtp.auth.user, 'ops@example.com');
+  assert.equal(merged.twoFactor.email.address, 'ops@example.com');
+  assert.equal(merged.twoFactor.email.smtp.auth.user, 'ops@example.com');
   assert.deepEqual(merged.fileManager.blockedExtensions, ['.ps1']);
 }
 
@@ -253,12 +255,15 @@ function testSettingsRequiresSmtpPassword(): void {
   const fixture = createConfigFixture();
   fixture.twoFactor = {
     ...fixture.twoFactor!,
-    enabled: false,
-    smtp: {
-      ...fixture.twoFactor!.smtp!,
-      auth: {
-        ...fixture.twoFactor!.smtp!.auth,
-        password: '',
+    email: {
+      ...fixture.twoFactor!.email!,
+      enabled: false,
+      smtp: {
+        ...fixture.twoFactor!.email!.smtp!,
+        auth: {
+          ...fixture.twoFactor!.email!.smtp!.auth,
+          password: '',
+        },
       },
     },
   };
@@ -267,10 +272,10 @@ function testSettingsRequiresSmtpPassword(): void {
 
   try {
     assert.throws(
-      () => harness.settingsService.savePatch({ twoFactor: { enabled: true } }),
+      () => harness.settingsService.savePatch({ twoFactor: { email: { enabled: true } } }),
       (error: unknown) => error instanceof AppError
         && error.code === ErrorCode.VALIDATION_ERROR
-        && error.message === '2FA requires an SMTP password',
+        && error.message === '2FA email requires an SMTP password',
     );
     assert.equal(harness.getTwoFactorService(), undefined);
   } finally {
@@ -356,7 +361,7 @@ async function testSettingsTwoFactorHotSwap(): Promise<void> {
   const fixture = createConfigFixture();
   fixture.twoFactor = {
     ...fixture.twoFactor!,
-    enabled: false,
+    email: { ...fixture.twoFactor!.email!, enabled: false },
   };
 
   await fs.writeFile(configPath, createConfigFixtureContent(), 'utf-8');
@@ -366,12 +371,12 @@ async function testSettingsTwoFactorHotSwap(): Promise<void> {
   try {
     assert.equal(harness.getTwoFactorService(), undefined);
 
-    const enableResult = harness.settingsService.savePatch({ twoFactor: { enabled: true } });
-    assert.ok(enableResult.applySummary.new_logins.includes('twoFactor.enabled'));
+    const enableResult = harness.settingsService.savePatch({ twoFactor: { email: { enabled: true } } });
+    assert.ok(enableResult.applySummary.new_logins.includes('twoFactor.email.enabled'));
     assert.equal(harness.getTwoFactorService()?.isEnabled(), true);
 
-    const disableResult = harness.settingsService.savePatch({ twoFactor: { enabled: false } });
-    assert.ok(disableResult.applySummary.new_logins.includes('twoFactor.enabled'));
+    const disableResult = harness.settingsService.savePatch({ twoFactor: { email: { enabled: false } } });
+    assert.ok(disableResult.applySummary.new_logins.includes('twoFactor.email.enabled'));
     assert.equal(harness.getTwoFactorService(), undefined);
   } finally {
     harness.destroy();
@@ -528,7 +533,7 @@ function createConfigFixture(): Config {
       termName: 'xterm-256color',
       defaultCols: 80,
       defaultRows: 24,
-      useConpty: true,
+      useConpty: false,
       maxBufferSize: 65536,
       shell: 'auto',
     },
@@ -557,21 +562,24 @@ function createConfigFixture(): Config {
       cwdCacheTtlMs: 1000,
     },
     twoFactor: {
-      enabled: true,
-      email: 'admin@example.com',
-      otpLength: 6,
-      otpExpiryMs: 300000,
-      smtp: {
-        host: 'smtp.example.com',
-        port: 587,
-        secure: false,
-        auth: {
-          user: 'admin@example.com',
-          password: 'enc(smtp)',
-        },
-        tls: {
-          rejectUnauthorized: true,
-          minVersion: 'TLSv1.2',
+      externalOnly: false,
+      email: {
+        enabled: true,
+        address: 'admin@example.com',
+        otpLength: 6,
+        otpExpiryMs: 300000,
+        smtp: {
+          host: 'smtp.example.com',
+          port: 587,
+          secure: false,
+          auth: {
+            user: 'admin@example.com',
+            password: 'enc(smtp)',
+          },
+          tls: {
+            rejectUnauthorized: true,
+            minVersion: 'TLSv1.2',
+          },
         },
       },
     },
@@ -597,7 +605,8 @@ function createSettingsHarness({
   const authService = new AuthService(fixture.auth!, cryptoService);
   const sessionManager = new SessionManager({ pty: fixture.pty, session: fixture.session });
   const configRepository = new ConfigFileRepository(configPath);
-  let twoFactorService = fixture.twoFactor?.enabled ? new TwoFactorService(fixture.twoFactor, cryptoService) : undefined;
+  const anyTwoFAEnabled = fixture.twoFactor?.email?.enabled || fixture.twoFactor?.totp?.enabled;
+  let twoFactorService = (anyTwoFAEnabled && fixture.twoFactor) ? new TwoFactorService(fixture.twoFactor, cryptoService) : undefined;
   const settingsService = new SettingsService({
     runtimeConfigStore,
     configRepository,
@@ -633,7 +642,7 @@ function createConfigFixtureContent(): string {
     termName: "xterm-256color",
     defaultCols: 80,
     defaultRows: 24,
-    useConpty: true,
+    useConpty: false,
     maxBufferSize: 65536,
     shell: "auto",
   },
@@ -662,22 +671,30 @@ function createConfigFixtureContent(): string {
     cwdCacheTtlMs: 1000,
   },
   twoFactor: {
-    enabled: false,
-    email: "admin@example.com",
-    otpLength: 6,
-    otpExpiryMs: 300000,
-    smtp: {
-      host: "smtp.example.com",
-      port: 587,
-      secure: false,
-      auth: {
-        user: "admin@example.com",
-        password: "smtp-password",
+    externalOnly: false,
+    email: {
+      enabled: false,
+      address: "admin@example.com",
+      otpLength: 6,
+      otpExpiryMs: 300000,
+      smtp: {
+        host: "smtp.example.com",
+        port: 587,
+        secure: false,
+        auth: {
+          user: "admin@example.com",
+          password: "smtp-password",
+        },
+        tls: {
+          rejectUnauthorized: true,
+          minVersion: "TLSv1.2",
+        }
       },
-      tls: {
-        rejectUnauthorized: true,
-        minVersion: "TLSv1.2",
-      }
+    },
+    totp: {
+      enabled: false,
+      issuer: "BuilderGate",
+      accountName: "admin",
     },
   },
 }`;
@@ -688,9 +705,9 @@ function createConfigFixtureContent(): string {
 // ============================================================================
 
 function testTwoFactorSchemaTotp(): void {
-  // 정상: TOTP only (smtp 없음) — 2FA enabled should pass
+  // 정상: TOTP only (smtp 없음) — totp.enabled=true should pass
   const result = twoFactorSchema.safeParse({
-    enabled: true,
+    externalOnly: false,
     totp: { enabled: true },
   });
   assert.ok(result.success, `Expected TOTP-only to pass, got: ${!result.success && result.error?.issues[0]?.message}`);
@@ -698,37 +715,40 @@ function testTwoFactorSchemaTotp(): void {
 }
 
 function testTwoFactorSchemaNoMethodFails(): void {
-  // 예외: 2FA enabled, smtp 없음, totp.enabled=false → 거부
+  // 예외: email.enabled=true, smtp 없음 → 거부
   const result = twoFactorSchema.safeParse({
-    enabled: true,
-    totp: { enabled: false },
+    externalOnly: false,
+    email: { enabled: true, address: 'admin@example.com' },
   });
-  assert.ok(!result.success, 'Expected schema to reject 2FA with no valid method');
+  assert.ok(!result.success, 'Expected schema to reject email 2FA without smtp');
   assert.ok(
-    result.error?.issues.some(i => i.message.includes('email+smtp or totp')),
-    `Expected error message about methods, got: ${result.error?.issues.map(i => i.message).join(', ')}`
+    result.error?.issues.some(i => i.message.includes('smtp')),
+    `Expected error message about smtp, got: ${result.error?.issues.map(i => i.message).join(', ')}`
   );
 }
 
 function testTwoFactorSchemaEmailOnly(): void {
-  // 경계값: email+smtp 방식 (totp 없음) — 하위 호환
+  // 경계값: email+smtp 방식 (totp 없음)
   const result = twoFactorSchema.safeParse({
-    enabled: true,
-    email: 'admin@example.com',
-    smtp: {
-      host: 'smtp.example.com',
-      port: 587,
-      secure: false,
-      auth: { user: 'admin@example.com', password: 'secret' },
+    externalOnly: false,
+    email: {
+      enabled: true,
+      address: 'admin@example.com',
+      smtp: {
+        host: 'smtp.example.com',
+        port: 587,
+        secure: false,
+        auth: { user: 'admin@example.com', password: 'secret' },
+      },
     },
   });
   assert.ok(result.success, `Expected email+smtp to pass, got: ${!result.success && result.error?.issues[0]?.message}`);
 }
 
 function testTwoFactorSchemaDisabled(): void {
-  // 경계값: 2FA disabled, 아무 방식도 없어도 통과
-  const result = twoFactorSchema.safeParse({ enabled: false });
-  assert.ok(result.success, `Expected disabled 2FA to pass, got: ${!result.success && result.error?.issues[0]?.message}`);
+  // 경계값: 아무 방식도 없어도 통과 (externalOnly only)
+  const result = twoFactorSchema.safeParse({ externalOnly: false });
+  assert.ok(result.success, `Expected empty twoFactor to pass, got: ${!result.success && result.error?.issues[0]?.message}`);
 }
 
 function testAuthSchemaLocalhostDefault(): void {
@@ -842,11 +862,14 @@ function testTOTPServiceAttemptsIncrement(): void {
 
 function makeTwoFactorService(): TwoFactorService {
   const config: import('./types/config.types.js').TwoFactorConfig = {
-    enabled: true,
-    email: 'test@example.com',
-    otpLength: 6,
-    otpExpiryMs: 300000,
-    smtp: undefined,
+    externalOnly: false,
+    email: {
+      enabled: true,
+      address: 'test@example.com',
+      otpLength: 6,
+      otpExpiryMs: 300000,
+      smtp: undefined,
+    },
     totp: undefined,
   };
   return new TwoFactorService(config, {} as import('./services/CryptoService.js').CryptoService);
@@ -1074,14 +1097,17 @@ function makeAuthHarness(opts: {
   let totpService: TOTPService | undefined;
 
   const twoFactorConfig: import('./types/config.types.js').TwoFactorConfig = {
-    enabled: true,
-    email: opts.withEmail ? 'admin@example.com' : undefined,
-    otpLength: 6,
-    otpExpiryMs: 300000,
-    smtp: opts.withEmail ? {
-      host: 'smtp.example.com', port: 587, secure: false,
-      auth: { user: 'u', password: 'p' },
-      tls: { rejectUnauthorized: true, minVersion: 'TLSv1.2' },
+    externalOnly: false,
+    email: opts.withEmail ? {
+      enabled: true,
+      address: 'admin@example.com',
+      otpLength: 6,
+      otpExpiryMs: 300000,
+      smtp: {
+        host: 'smtp.example.com', port: 587, secure: false,
+        auth: { user: 'u', password: 'p' },
+        tls: { rejectUnauthorized: true, minVersion: 'TLSv1.2' },
+      },
     } : undefined,
     totp: opts.withTotp ? { enabled: true, issuer: 'Test', accountName: 'test' } : undefined,
   };

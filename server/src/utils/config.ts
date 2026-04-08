@@ -59,11 +59,11 @@ function getPasswordsToEncrypt(rawConfig: Record<string, unknown>, cryptoService
     });
   }
 
-  // Check twoFactor.smtp.auth.password
-  const twoFactor = rawConfig.twoFactor as { smtp?: { auth?: { password?: string } } } | undefined;
-  if (twoFactor?.smtp?.auth?.password && !cryptoService.isEncrypted(twoFactor.smtp.auth.password)) {
+  // Check twoFactor.email.smtp.auth.password
+  const twoFactor = rawConfig.twoFactor as { email?: { smtp?: { auth?: { password?: string } } } } | undefined;
+  if (twoFactor?.email?.smtp?.auth?.password && !cryptoService.isEncrypted(twoFactor.email.smtp.auth.password)) {
     locations.push({
-      path: ['twoFactor', 'smtp', 'auth', 'password'],
+      path: ['twoFactor', 'email', 'smtp', 'auth', 'password'],
       sectionMarker: '^\\s*twoFactor:\\s*\\{',
       depth: 1
     });
@@ -178,12 +178,13 @@ function replacePasswordInSection(content: string, sectionName: string, encrypte
 }
 
 /**
- * Replace password in twoFactor.smtp.auth section
+ * Replace password in twoFactor.email.smtp.auth section
  */
 function replacePasswordInSmtpAuth(content: string, encrypted: string): string {
   const lines = content.split('\n');
   let braceCount = 0;
   let inTwoFactor = false;
+  let inEmail = false;
   let inSmtp = false;
   let inSmtpAuth = false;
   let replaced = false;
@@ -199,8 +200,15 @@ function replacePasswordInSmtpAuth(content: string, encrypted: string): string {
       return line;
     }
 
-    // Track smtp section within twoFactor
-    if (inTwoFactor && !inSmtp && line.match(/^\s*smtp:\s*\{/)) {
+    // Track email section within twoFactor
+    if (inTwoFactor && !inEmail && line.match(/^\s*email:\s*\{/)) {
+      inEmail = true;
+      braceCount += openBraces - closeBraces;
+      return line;
+    }
+
+    // Track smtp section within email
+    if (inEmail && !inSmtp && line.match(/^\s*smtp:\s*\{/)) {
       inSmtp = true;
       braceCount += openBraces - closeBraces;
       return line;
@@ -228,6 +236,7 @@ function replacePasswordInSmtpAuth(content: string, encrypted: string): string {
     // Exit sections
     if (braceCount <= 1) {
       inTwoFactor = false;
+      inEmail = false;
       inSmtp = false;
       inSmtpAuth = false;
     }
