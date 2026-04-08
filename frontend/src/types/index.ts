@@ -37,16 +37,14 @@ export interface LoginResponse {
   expiresIn?: number;
   requires2FA?: boolean;
   tempToken?: string;
-  maskedEmail?: string;
-  nextStage?: 'email' | 'totp';
-  emailFallback?: boolean;
+  nextStage?: 'totp';
   message?: string;
 }
 
 export interface VerifyRequest {
   tempToken: string;
   otpCode: string;
-  stage?: 'email' | 'totp';
+  stage?: 'totp';
 }
 
 export interface VerifyResponse {
@@ -54,7 +52,7 @@ export interface VerifyResponse {
   token?: string;
   expiresIn?: number;
   tempToken?: string;
-  nextStage?: 'email' | 'totp';
+  nextStage?: 'totp';
   message?: string;
 }
 
@@ -110,9 +108,7 @@ export interface AuthState {
   error: string | null;
   requires2FA: boolean;
   tempToken: string | null;
-  maskedEmail: string | null;
-  nextStage: 'email' | 'totp' | null;
-  emailFallback: boolean;
+  nextStage: 'totp' | null;
   expiresAt: number | null;
 }
 

@@ -15,9 +15,6 @@ export { CryptoService } from './CryptoService.js';
 // Auth Service (Phase 2)
 export { AuthService } from './AuthService.js';
 
-// Two-Factor Service (Phase 3)
-export { TwoFactorService } from './TwoFactorService.js';
-
 // TOTP Service (Step 6)
 export { TOTPService } from './TOTPService.js';
 

@@ -96,41 +96,14 @@ export interface SessionConfig {
 // Two-Factor Authentication Configuration
 // ============================================================================
 
-export interface SMTPTLSConfig {
-  rejectUnauthorized: boolean;
-  minVersion: 'TLSv1.2' | 'TLSv1.3';
-}
-
-export interface SMTPAuthConfig {
-  user: string;
-  password: string;
-}
-
-export interface SMTPConfig {
-  host: string;
-  port: number;
-  secure: boolean;
-  auth: SMTPAuthConfig;
-  tls?: SMTPTLSConfig;
-}
-
 export interface TOTPConfig {
   enabled: boolean;
   issuer?: string;
   accountName?: string;
 }
 
-export interface TwoFactorEmailConfig {
-  enabled: boolean;
-  address: string;
-  otpLength: number;
-  otpExpiryMs: number;
-  smtp?: SMTPConfig;
-}
-
 export interface TwoFactorConfig {
   externalOnly: boolean;
-  email?: TwoFactorEmailConfig;
   totp?: TOTPConfig;
 }
 

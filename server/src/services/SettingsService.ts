@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { AuthConfig, Config, FileManagerConfig, TwoFactorConfig } from '../types/config.types.js';
+import type { Config, FileManagerConfig } from '../types/config.types.js';
 import type {
   EditableSettingsKey,
   EditableSettingsSnapshot,
@@ -13,7 +13,6 @@ import { ConfigFileRepository } from './ConfigFileRepository.js';
 import { CryptoService } from './CryptoService.js';
 import { AuthService } from './AuthService.js';
 import { FileService } from './FileService.js';
-import { TwoFactorService } from './TwoFactorService.js';
 import { SessionManager } from './SessionManager.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 
@@ -35,25 +34,6 @@ const patchSchema: z.ZodType<SettingsPatchRequest> = z.object({
   }).strict().optional(),
   twoFactor: z.object({
     externalOnly: z.boolean().optional(),
-    email: z.object({
-      enabled: z.boolean().optional(),
-      address: z.string().email().optional(),
-      otpLength: z.number().int().min(4).max(8).optional(),
-      otpExpiryMs: z.number().int().min(60000).max(600000).optional(),
-      smtp: z.object({
-        host: z.string().min(1).optional(),
-        port: z.number().int().min(1).max(65535).optional(),
-        secure: z.boolean().optional(),
-        auth: z.object({
-          user: z.string().min(1).optional(),
-          password: z.string().min(1).optional(),
-        }).strict().optional(),
-        tls: z.object({
-          rejectUnauthorized: z.boolean().optional(),
-          minVersion: z.enum(['TLSv1.2', 'TLSv1.3']).optional(),
-        }).strict().optional(),
-      }).strict().optional(),
-    }).strict().optional(),
     totp: z.object({
       enabled: z.boolean().optional(),
       issuer: z.string().optional(),
@@ -92,8 +72,6 @@ interface SettingsServiceDeps {
   configRepository: ConfigFileRepository;
   cryptoService: CryptoService;
   authService: AuthService;
-  getTwoFactorService: () => TwoFactorService | undefined;
-  setTwoFactorService: (service: TwoFactorService | undefined) => void;
   getFileService: () => FileService;
   sessionManager: SessionManager;
 }
@@ -146,16 +124,8 @@ export class SettingsService {
     validatePasswordPatch(patch, this.deps.authService);
     validateCorsPatch(mergedValues, actorContext.origin);
     validatePlatformPatch(mergedValues);
-    validateTwoFactorSecretState(
-      mergedValues,
-      this.deps.runtimeConfigStore.getSnapshot().secretState.smtpPasswordConfigured || Boolean(patch.twoFactor?.email?.smtp?.auth?.password),
-    );
-
     const secrets = {
       authPassword: patch.auth?.newPassword ? this.deps.cryptoService.encrypt(patch.auth.newPassword) : undefined,
-      smtpPassword: patch.twoFactor?.email?.smtp?.auth?.password
-        ? this.deps.cryptoService.encrypt(patch.twoFactor.email.smtp.auth.password)
-        : undefined,
     };
 
     const persistResult = this.deps.configRepository.persistEditableValues(mergedValues, secrets, { dryRun: true });
@@ -179,19 +149,8 @@ export class SettingsService {
   private applyRuntimeConfig(previousConfig: Config, nextConfig: Config, changedKeys: EditableSettingsKey[]): void {
     const { authService, sessionManager, runtimeConfigStore } = this.deps;
     const fileService = this.deps.getFileService();
-    const previousTwoFactorService = this.deps.getTwoFactorService();
-    let replacementTwoFactorService = previousTwoFactorService;
 
     try {
-      if (changedKeys.some((key) => key.startsWith('twoFactor.'))) {
-        const anyEnabled = nextConfig.twoFactor?.email?.enabled || nextConfig.twoFactor?.totp?.enabled;
-        if (anyEnabled && nextConfig.twoFactor) {
-          replacementTwoFactorService = new TwoFactorService(nextConfig.twoFactor, this.deps.cryptoService);
-        } else {
-          replacementTwoFactorService = undefined;
-        }
-      }
-
       runtimeConfigStore.replaceFromConfig(nextConfig);
       authService.updateRuntimeConfig({
         password: nextConfig.auth?.password ?? '',
@@ -202,11 +161,6 @@ export class SettingsService {
         pty: nextConfig.pty,
       });
       fileService.updateConfig(getFileManagerConfig(nextConfig));
-
-      if (replacementTwoFactorService !== previousTwoFactorService) {
-        previousTwoFactorService?.destroy();
-        this.deps.setTwoFactorService(replacementTwoFactorService);
-      }
     } catch (error) {
       const rollbackErrors: string[] = [];
 
@@ -240,20 +194,6 @@ export class SettingsService {
         rollbackErrors.push(getErrorMessage(rollbackError));
       }
 
-      if (replacementTwoFactorService && replacementTwoFactorService !== previousTwoFactorService) {
-        try {
-          replacementTwoFactorService.destroy();
-        } catch (rollbackError) {
-          rollbackErrors.push(getErrorMessage(rollbackError));
-        }
-      }
-
-      try {
-        this.deps.setTwoFactorService(previousTwoFactorService);
-      } catch (rollbackError) {
-        rollbackErrors.push(getErrorMessage(rollbackError));
-      }
-
       throw new AppError(
         ErrorCode.CONFIG_APPLY_FAILED,
         error instanceof Error ? error.message : 'Failed to apply runtime settings',
@@ -269,17 +209,6 @@ function extractChangedKeys(patch: SettingsPatchRequest): EditableSettingsKey[] 
   if (patch.auth?.durationMs !== undefined) changed.add('auth.durationMs');
   if (patch.auth?.newPassword) changed.add('auth.password');
   if (patch.twoFactor?.externalOnly !== undefined) changed.add('twoFactor.externalOnly');
-  if (patch.twoFactor?.email?.enabled !== undefined) changed.add('twoFactor.email.enabled');
-  if (patch.twoFactor?.email?.address !== undefined) changed.add('twoFactor.email.address');
-  if (patch.twoFactor?.email?.otpLength !== undefined) changed.add('twoFactor.email.otpLength');
-  if (patch.twoFactor?.email?.otpExpiryMs !== undefined) changed.add('twoFactor.email.otpExpiryMs');
-  if (patch.twoFactor?.email?.smtp?.host !== undefined) changed.add('twoFactor.email.smtp.host');
-  if (patch.twoFactor?.email?.smtp?.port !== undefined) changed.add('twoFactor.email.smtp.port');
-  if (patch.twoFactor?.email?.smtp?.secure !== undefined) changed.add('twoFactor.email.smtp.secure');
-  if (patch.twoFactor?.email?.smtp?.auth?.user !== undefined) changed.add('twoFactor.email.smtp.auth.user');
-  if (patch.twoFactor?.email?.smtp?.auth?.password !== undefined) changed.add('twoFactor.email.smtp.auth.password');
-  if (patch.twoFactor?.email?.smtp?.tls?.rejectUnauthorized !== undefined) changed.add('twoFactor.email.smtp.tls.rejectUnauthorized');
-  if (patch.twoFactor?.email?.smtp?.tls?.minVersion !== undefined) changed.add('twoFactor.email.smtp.tls.minVersion');
   if (patch.twoFactor?.totp?.enabled !== undefined) changed.add('twoFactor.totp.enabled');
   if (patch.twoFactor?.totp?.issuer !== undefined) changed.add('twoFactor.totp.issuer');
   if (patch.twoFactor?.totp?.accountName !== undefined) changed.add('twoFactor.totp.accountName');
@@ -305,20 +234,6 @@ function extractChangedKeys(patch: SettingsPatchRequest): EditableSettingsKey[] 
 function normalizeEditableValues(values: EditableSettingsValues): EditableSettingsValues {
   return {
     ...values,
-    twoFactor: {
-      ...values.twoFactor,
-      email: {
-        ...values.twoFactor.email,
-        address: values.twoFactor.email.address.trim(),
-        smtp: {
-          ...values.twoFactor.email.smtp,
-          host: values.twoFactor.email.smtp.host.trim(),
-          auth: {
-            user: values.twoFactor.email.smtp.auth.user.trim(),
-          },
-        },
-      },
-    },
     security: {
       cors: {
         ...values.security.cors,
@@ -422,17 +337,6 @@ function validatePlatformPatch(values: EditableSettingsValues): void {
     throw new AppError(ErrorCode.VALIDATION_ERROR, 'Selected shell is not supported on this platform');
   }
 
-  if (values.twoFactor.email.enabled) {
-    if (!values.twoFactor.email.address || !values.twoFactor.email.smtp.host || !values.twoFactor.email.smtp.auth.user) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, '2FA email requires address and SMTP settings');
-    }
-  }
-}
-
-function validateTwoFactorSecretState(values: EditableSettingsValues, hasSmtpPassword: boolean): void {
-  if (values.twoFactor.email.enabled && !hasSmtpPassword) {
-    throw new AppError(ErrorCode.VALIDATION_ERROR, '2FA email requires an SMTP password');
-  }
 }
 
 function buildApplySummary(changedKeys: EditableSettingsKey[], runtimeConfigStore: RuntimeConfigStore): SettingsApplySummary {

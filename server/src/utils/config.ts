@@ -59,16 +59,6 @@ function getPasswordsToEncrypt(rawConfig: Record<string, unknown>, cryptoService
     });
   }
 
-  // Check twoFactor.email.smtp.auth.password
-  const twoFactor = rawConfig.twoFactor as { email?: { smtp?: { auth?: { password?: string } } } } | undefined;
-  if (twoFactor?.email?.smtp?.auth?.password && !cryptoService.isEncrypted(twoFactor.email.smtp.auth.password)) {
-    locations.push({
-      path: ['twoFactor', 'email', 'smtp', 'auth', 'password'],
-      sectionMarker: '^\\s*twoFactor:\\s*\\{',
-      depth: 1
-    });
-  }
-
   return locations;
 }
 
@@ -118,10 +108,6 @@ function encryptPasswordsInConfig(configPath: string, rawConfig: Record<string, 
       // auth.password - direct child of root-level auth
       content = replacePasswordInSection(content, 'auth', encrypted, 2);
       console.log('[Config] auth.password encrypted');
-    } else if (loc.path[0] === 'twoFactor' && loc.path.includes('smtp')) {
-      // twoFactor.smtp.auth.password - nested deeper
-      content = replacePasswordInSmtpAuth(content, encrypted);
-      console.log('[Config] twoFactor.smtp.auth.password encrypted');
     }
   }
 
@@ -169,76 +155,6 @@ function replacePasswordInSection(content: string, sectionName: string, encrypte
       if (braceCount <= sectionDepth) {
         inSection = false;
       }
-    }
-
-    return line;
-  });
-
-  return updatedLines.join('\n');
-}
-
-/**
- * Replace password in twoFactor.email.smtp.auth section
- */
-function replacePasswordInSmtpAuth(content: string, encrypted: string): string {
-  const lines = content.split('\n');
-  let braceCount = 0;
-  let inTwoFactor = false;
-  let inEmail = false;
-  let inSmtp = false;
-  let inSmtpAuth = false;
-  let replaced = false;
-
-  const updatedLines = lines.map(line => {
-    const openBraces = (line.match(/\{/g) || []).length;
-    const closeBraces = (line.match(/\}/g) || []).length;
-
-    // Track twoFactor section
-    if (braceCount === 1 && line.match(/^\s*twoFactor:\s*\{/)) {
-      inTwoFactor = true;
-      braceCount += openBraces - closeBraces;
-      return line;
-    }
-
-    // Track email section within twoFactor
-    if (inTwoFactor && !inEmail && line.match(/^\s*email:\s*\{/)) {
-      inEmail = true;
-      braceCount += openBraces - closeBraces;
-      return line;
-    }
-
-    // Track smtp section within email
-    if (inEmail && !inSmtp && line.match(/^\s*smtp:\s*\{/)) {
-      inSmtp = true;
-      braceCount += openBraces - closeBraces;
-      return line;
-    }
-
-    // Track auth section within smtp
-    if (inSmtp && !inSmtpAuth && line.match(/^\s*auth:\s*\{/)) {
-      inSmtpAuth = true;
-      braceCount += openBraces - closeBraces;
-      return line;
-    }
-
-    const prevCount = braceCount;
-    braceCount += openBraces - closeBraces;
-
-    // Replace password within smtp.auth
-    if (inSmtpAuth && !replaced && line.match(/^\s*password:/)) {
-      replaced = true;
-      return line.replace(
-        /(password:\s*)(["'])([^"']*)\2/,
-        `$1$2${encrypted}$2`
-      );
-    }
-
-    // Exit sections
-    if (braceCount <= 1) {
-      inTwoFactor = false;
-      inEmail = false;
-      inSmtp = false;
-      inSmtpAuth = false;
     }
 
     return line;

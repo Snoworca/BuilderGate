@@ -4,17 +4,6 @@ export type EditableSettingsKey =
   | 'auth.password'
   | 'auth.durationMs'
   | 'twoFactor.externalOnly'
-  | 'twoFactor.email.enabled'
-  | 'twoFactor.email.address'
-  | 'twoFactor.email.otpLength'
-  | 'twoFactor.email.otpExpiryMs'
-  | 'twoFactor.email.smtp.host'
-  | 'twoFactor.email.smtp.port'
-  | 'twoFactor.email.smtp.secure'
-  | 'twoFactor.email.smtp.auth.user'
-  | 'twoFactor.email.smtp.auth.password'
-  | 'twoFactor.email.smtp.tls.rejectUnauthorized'
-  | 'twoFactor.email.smtp.tls.minVersion'
   | 'twoFactor.totp.enabled'
   | 'twoFactor.totp.issuer'
   | 'twoFactor.totp.accountName'
@@ -48,24 +37,6 @@ export interface EditableSettingsValues {
   };
   twoFactor: {
     externalOnly: boolean;
-    email: {
-      enabled: boolean;
-      address: string;
-      otpLength: number;
-      otpExpiryMs: number;
-      smtp: {
-        host: string;
-        port: number;
-        secure: boolean;
-        auth: {
-          user: string;
-        };
-        tls: {
-          rejectUnauthorized: boolean;
-          minVersion: 'TLSv1.2' | 'TLSv1.3';
-        };
-      };
-    };
     totp: {
       enabled: boolean;
       issuer: string;
@@ -118,25 +89,6 @@ export interface SettingsPatchRequest {
   };
   twoFactor?: {
     externalOnly?: boolean;
-    email?: {
-      enabled?: boolean;
-      address?: string;
-      otpLength?: number;
-      otpExpiryMs?: number;
-      smtp?: {
-        host?: string;
-        port?: number;
-        secure?: boolean;
-        auth?: {
-          user?: string;
-          password?: string;
-        };
-        tls?: {
-          rejectUnauthorized?: boolean;
-          minVersion?: 'TLSv1.2' | 'TLSv1.3';
-        };
-      };
-    };
     totp?: {
       enabled?: boolean;
       issuer?: string;

@@ -20,6 +20,7 @@ import { generateSecret, generateURI, verifySync } from 'otplib';
 import qrcode from 'qrcode-terminal';
 import * as fs from 'fs';
 import * as path from 'path';
+import { randomUUID } from 'crypto';
 import type { CryptoService } from './CryptoService.js';
 import type { TOTPConfig } from '../types/config.types.js';
 import type { OTPData } from '../types/auth.types.js';
@@ -28,9 +29,13 @@ const DEFAULT_SECRET_FILE_PATH = path.join(process.cwd(), 'data', 'totp.secret')
 const BASE32_REGEX = /^[A-Z2-7]+=*$/;
 const TOTP_WINDOW = 1; // NFR-304: ±1 time step (±30 seconds)
 
+const OTP_EXPIRY_MS = 300000; // 5 minutes
+const MAX_PENDING_AUTH = 100;
+
 export class TOTPService {
   private secret: string | null = null;
   private registered: boolean = false;
+  private readonly otpStore = new Map<string, OTPData>();
   // ⚠️ lastUsedStep은 TOTPService 멤버가 아님 — OTPData.totpLastUsedStep 필드로 관리 (NFR-105)
   // 이유: tempToken마다 별도 추적 필요, TOTPService 멤버로 관리 시 단일 세션만 지원
 
@@ -123,6 +128,52 @@ export class TOTPService {
    */
   isRegistered(): boolean {
     return this.registered;
+  }
+
+  /**
+   * Create a pending auth session for TOTP verification.
+   * Returns a tempToken to be sent to the client.
+   */
+  createPendingAuth(): { tempToken: string } {
+    this.cleanupExpiredOTPs();
+    if (this.otpStore.size >= MAX_PENDING_AUTH) {
+      throw new Error('[TOTP] Too many pending auth sessions');
+    }
+    const tempToken = randomUUID();
+    const otpData: OTPData = {
+      otp: '',
+      expiresAt: Date.now() + OTP_EXPIRY_MS,
+      attempts: 0,
+      stage: 'totp',
+    };
+    this.otpStore.set(tempToken, otpData);
+    return { tempToken };
+  }
+
+  /**
+   * Retrieve OTP data for a given tempToken.
+   */
+  getOTPData(tempToken: string): OTPData | undefined {
+    return this.otpStore.get(tempToken);
+  }
+
+  /**
+   * Remove a pending auth entry (on success or max-attempts exceeded).
+   */
+  invalidatePendingAuth(tempToken: string): void {
+    this.otpStore.delete(tempToken);
+  }
+
+  /**
+   * Clean up expired OTP entries.
+   */
+  private cleanupExpiredOTPs(): void {
+    const now = Date.now();
+    for (const [token, data] of this.otpStore.entries()) {
+      if (now > data.expiresAt) {
+        this.otpStore.delete(token);
+      }
+    }
   }
 
   /**

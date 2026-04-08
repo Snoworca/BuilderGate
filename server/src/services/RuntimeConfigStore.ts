@@ -6,7 +6,7 @@ import type {
   FieldCapability,
   SettingsPatchRequest,
 } from '../types/settings.types.js';
-import { authSchema, corsSchema, fileManagerSchema, ptySchema, sessionSchema, smtpTlsSchema, totpSchema, twoFactorEmailSchema, twoFactorSchema } from '../schemas/config.schema.js';
+import { authSchema, corsSchema, fileManagerSchema, ptySchema, sessionSchema, totpSchema, twoFactorSchema } from '../schemas/config.schema.js';
 import { config as globalConfig } from '../utils/config.js';
 
 const EXCLUDED_SECTIONS = [
@@ -23,17 +23,6 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
   'auth.password': { applyScope: 'new_logins', writeOnly: true },
   'auth.durationMs': { applyScope: 'new_logins', writeOnly: false },
   'twoFactor.externalOnly': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.email.enabled': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.email.address': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.email.otpLength': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.email.otpExpiryMs': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.email.smtp.host': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.email.smtp.port': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.email.smtp.secure': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.email.smtp.auth.user': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.email.smtp.auth.password': { applyScope: 'new_logins', writeOnly: true },
-  'twoFactor.email.smtp.tls.rejectUnauthorized': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.email.smtp.tls.minVersion': { applyScope: 'new_logins', writeOnly: false },
   'twoFactor.totp.enabled': { applyScope: 'new_logins', writeOnly: false },
   'twoFactor.totp.issuer': { applyScope: 'new_logins', writeOnly: false },
   'twoFactor.totp.accountName': { applyScope: 'new_logins', writeOnly: false },
@@ -65,7 +54,7 @@ export class RuntimeConfigStore {
     this.capabilities = buildFieldCapabilities(platform);
     this.secretState = {
       authPasswordConfigured: Boolean(source.auth?.password),
-      smtpPasswordConfigured: Boolean(source.twoFactor?.email?.smtp?.auth.password),
+      smtpPasswordConfigured: false,
     };
   }
 
@@ -99,36 +88,6 @@ export class RuntimeConfigStore {
 
     if (patch.twoFactor?.externalOnly !== undefined) {
       next.twoFactor.externalOnly = patch.twoFactor.externalOnly;
-    }
-    if (patch.twoFactor?.email?.enabled !== undefined) {
-      next.twoFactor.email.enabled = patch.twoFactor.email.enabled;
-    }
-    if (patch.twoFactor?.email?.address !== undefined) {
-      next.twoFactor.email.address = patch.twoFactor.email.address;
-    }
-    if (patch.twoFactor?.email?.otpLength !== undefined) {
-      next.twoFactor.email.otpLength = patch.twoFactor.email.otpLength;
-    }
-    if (patch.twoFactor?.email?.otpExpiryMs !== undefined) {
-      next.twoFactor.email.otpExpiryMs = patch.twoFactor.email.otpExpiryMs;
-    }
-    if (patch.twoFactor?.email?.smtp?.host !== undefined) {
-      next.twoFactor.email.smtp.host = patch.twoFactor.email.smtp.host;
-    }
-    if (patch.twoFactor?.email?.smtp?.port !== undefined) {
-      next.twoFactor.email.smtp.port = patch.twoFactor.email.smtp.port;
-    }
-    if (patch.twoFactor?.email?.smtp?.secure !== undefined) {
-      next.twoFactor.email.smtp.secure = patch.twoFactor.email.smtp.secure;
-    }
-    if (patch.twoFactor?.email?.smtp?.auth?.user !== undefined) {
-      next.twoFactor.email.smtp.auth.user = patch.twoFactor.email.smtp.auth.user;
-    }
-    if (patch.twoFactor?.email?.smtp?.tls?.rejectUnauthorized !== undefined) {
-      next.twoFactor.email.smtp.tls.rejectUnauthorized = patch.twoFactor.email.smtp.tls.rejectUnauthorized;
-    }
-    if (patch.twoFactor?.email?.smtp?.tls?.minVersion !== undefined) {
-      next.twoFactor.email.smtp.tls.minVersion = patch.twoFactor.email.smtp.tls.minVersion;
     }
     if (patch.twoFactor?.totp?.enabled !== undefined) {
       next.twoFactor.totp.enabled = patch.twoFactor.totp.enabled;
@@ -200,7 +159,7 @@ export class RuntimeConfigStore {
     this.values = buildEditableValues(config);
     this.secretState = {
       authPasswordConfigured: Boolean(config.auth?.password),
-      smtpPasswordConfigured: Boolean(config.twoFactor?.email?.smtp?.auth.password),
+      smtpPasswordConfigured: false,
     };
   }
 }
@@ -210,9 +169,7 @@ function buildEditableValues(source: Config): EditableSettingsValues {
   const ptyDefaults = ptySchema.parse({});
   const sessionDefaults = sessionSchema.parse({});
   const twoFactorDefaults = twoFactorSchema.parse({});
-  const emailDefaults = twoFactorEmailSchema.parse({});
   const totpDefaults = totpSchema.parse({});
-  const tlsDefaults = smtpTlsSchema.parse({});
   const corsDefaults = corsSchema.parse({});
   const fileManagerDefaults = fileManagerSchema.parse({});
 
@@ -222,24 +179,6 @@ function buildEditableValues(source: Config): EditableSettingsValues {
     },
     twoFactor: {
       externalOnly: source.twoFactor?.externalOnly ?? twoFactorDefaults.externalOnly,
-      email: {
-        enabled: source.twoFactor?.email?.enabled ?? emailDefaults.enabled,
-        address: source.twoFactor?.email?.address ?? '',
-        otpLength: source.twoFactor?.email?.otpLength ?? emailDefaults.otpLength,
-        otpExpiryMs: source.twoFactor?.email?.otpExpiryMs ?? emailDefaults.otpExpiryMs,
-        smtp: {
-          host: source.twoFactor?.email?.smtp?.host ?? '',
-          port: source.twoFactor?.email?.smtp?.port ?? 587,
-          secure: source.twoFactor?.email?.smtp?.secure ?? false,
-          auth: {
-            user: source.twoFactor?.email?.smtp?.auth.user ?? '',
-          },
-          tls: {
-            rejectUnauthorized: source.twoFactor?.email?.smtp?.tls?.rejectUnauthorized ?? tlsDefaults.rejectUnauthorized,
-            minVersion: source.twoFactor?.email?.smtp?.tls?.minVersion ?? tlsDefaults.minVersion,
-          },
-        },
-      },
       totp: {
         enabled: source.twoFactor?.totp?.enabled ?? totpDefaults.enabled,
         issuer: source.twoFactor?.totp?.issuer ?? totpDefaults.issuer,

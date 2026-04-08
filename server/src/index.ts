@@ -26,7 +26,6 @@ import { SessionManager, sessionManager } from './services/SessionManager.js';
 import { SSLService } from './services/SSLService.js';
 import { CryptoService } from './services/CryptoService.js';
 import { AuthService } from './services/AuthService.js';
-import { TwoFactorService } from './services/TwoFactorService.js';
 import { TOTPService } from './services/TOTPService.js';
 import {
   createSecurityHeadersMiddleware,
@@ -46,7 +45,6 @@ const HTTP_PORT = Number(PORT) - 1; // HTTP redirect port
 
 let cryptoService: CryptoService;
 let authService: AuthService;
-let twoFactorService: TwoFactorService | undefined;
 let totpService: TOTPService | undefined;
 let fileService: FileService;
 let runtimeConfigStore: RuntimeConfigStore;
@@ -154,7 +152,6 @@ function setupRoutes(): void {
   // Auth routes (no auth required for login)
   const authRoutes = createAuthRoutes({
     getAuthService: () => authService,
-    getTwoFactorService: () => twoFactorService,
     getTOTPService: () => totpService,
   });
   app.use('/api/auth', authRoutes);
@@ -176,8 +173,8 @@ function setupRoutes(): void {
   console.log('[Routes] API routes configured');
   console.log('  - GET  /health (public)');
   console.log('  - POST /api/auth/login (public)');
-  if (twoFactorService?.isEnabled()) {
-    console.log('  - POST /api/auth/verify (public, 2FA)');
+  if (totpService?.isRegistered()) {
+    console.log('  - POST /api/auth/verify (public, TOTP)');
   }
   console.log('  - POST /api/auth/logout (protected)');
   console.log('  - POST /api/auth/refresh (protected)');
@@ -230,23 +227,6 @@ async function startServer(): Promise<void> {
     authService = new AuthService(authConfig, cryptoService);
 
     // ========================================================================
-    // Initialize Two-Factor Service (Phase 3)
-    // ========================================================================
-    const anyTwoFAEnabled = config.twoFactor?.email?.enabled || config.twoFactor?.totp?.enabled;
-    if (anyTwoFAEnabled && config.twoFactor) {
-      twoFactorService = new TwoFactorService(config.twoFactor, cryptoService);
-      console.log('[2FA] TwoFactorService initialized');
-      if (config.twoFactor.email?.enabled) {
-        console.log(`[2FA] Email OTP delivery to: ${twoFactorService.maskEmail(config.twoFactor.email.address || '')}`);
-      }
-      if (config.twoFactor.externalOnly) {
-        console.log('[2FA] externalOnly: localhost connections bypass 2FA');
-      }
-    } else {
-      console.log('[2FA] Two-factor authentication is disabled');
-    }
-
-    // ========================================================================
     // Initialize TOTP Service (Step 6 — FR-102)
     // ========================================================================
     if (config.twoFactor?.totp?.enabled) {
@@ -275,10 +255,6 @@ async function startServer(): Promise<void> {
       configRepository,
       cryptoService,
       authService,
-      getTwoFactorService: () => twoFactorService,
-      setTwoFactorService: (service) => {
-        twoFactorService = service;
-      },
       getFileService: () => fileService,
       sessionManager,
     });
@@ -372,13 +348,10 @@ async function startServer(): Promise<void> {
     // Start HTTPS server
     httpsServer.listen(PORT, () => {
       const twoFAStatus = (() => {
-        const emailEnabled = config.twoFactor?.email?.enabled ?? false;
         const totpEnabled = config.twoFactor?.totp?.enabled ?? false;
-        if (!emailEnabled && !totpEnabled) return 'Disabled';
+        if (!totpEnabled) return 'Disabled';
         const ext = config.twoFactor?.externalOnly ? ' [externalOnly]' : '';
-        if (emailEnabled && totpEnabled) return `Email OTP + TOTP${ext}`;
-        if (totpEnabled) return `TOTP only${ext}`;
-        return `Email OTP${ext}`;
+        return `TOTP${ext}`;
       })();
       console.log('');
       console.log('╔════════════════════════════════════════════════════════════════╗');

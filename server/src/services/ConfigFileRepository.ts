@@ -8,7 +8,6 @@ import { AppError, ErrorCode } from '../utils/errors.js';
 
 interface SecretPatch {
   authPassword?: string;
-  smtpPassword?: string;
 }
 
 interface PersistOptions {
@@ -87,16 +86,6 @@ function applyEditableValues(
 ): Record<string, unknown> {
   setPath(rawConfig, ['auth', 'durationMs'], values.auth.durationMs);
   setPath(rawConfig, ['twoFactor', 'externalOnly'], values.twoFactor.externalOnly);
-  setPath(rawConfig, ['twoFactor', 'email', 'enabled'], values.twoFactor.email.enabled);
-  setPath(rawConfig, ['twoFactor', 'email', 'address'], values.twoFactor.email.address);
-  setPath(rawConfig, ['twoFactor', 'email', 'otpLength'], values.twoFactor.email.otpLength);
-  setPath(rawConfig, ['twoFactor', 'email', 'otpExpiryMs'], values.twoFactor.email.otpExpiryMs);
-  setPath(rawConfig, ['twoFactor', 'email', 'smtp', 'host'], values.twoFactor.email.smtp.host);
-  setPath(rawConfig, ['twoFactor', 'email', 'smtp', 'port'], values.twoFactor.email.smtp.port);
-  setPath(rawConfig, ['twoFactor', 'email', 'smtp', 'secure'], values.twoFactor.email.smtp.secure);
-  setPath(rawConfig, ['twoFactor', 'email', 'smtp', 'auth', 'user'], values.twoFactor.email.smtp.auth.user);
-  setPath(rawConfig, ['twoFactor', 'email', 'smtp', 'tls', 'rejectUnauthorized'], values.twoFactor.email.smtp.tls.rejectUnauthorized);
-  setPath(rawConfig, ['twoFactor', 'email', 'smtp', 'tls', 'minVersion'], values.twoFactor.email.smtp.tls.minVersion);
   setPath(rawConfig, ['twoFactor', 'totp', 'enabled'], values.twoFactor.totp.enabled);
   setPath(rawConfig, ['twoFactor', 'totp', 'issuer'], values.twoFactor.totp.issuer);
   setPath(rawConfig, ['twoFactor', 'totp', 'accountName'], values.twoFactor.totp.accountName);
@@ -119,9 +108,6 @@ function applyEditableValues(
   if (secrets.authPassword !== undefined) {
     setPath(rawConfig, ['auth', 'password'], secrets.authPassword);
   }
-  if (secrets.smtpPassword !== undefined) {
-    setPath(rawConfig, ['twoFactor', 'email', 'smtp', 'auth', 'password'], secrets.smtpPassword);
-  }
 
   return rawConfig;
 }
@@ -142,16 +128,6 @@ function renderPatchedConfig(content: string, config: Config, secrets: SecretPat
   const replacements = new Map<string, string>([
     ['auth.durationMs', renderJson5Value(config.auth?.durationMs ?? 1800000)],
     ['twoFactor.externalOnly', renderJson5Value(config.twoFactor?.externalOnly ?? false)],
-    ['twoFactor.email.enabled', renderJson5Value(config.twoFactor?.email?.enabled ?? false)],
-    ['twoFactor.email.address', renderJson5Value(config.twoFactor?.email?.address ?? '')],
-    ['twoFactor.email.otpLength', renderJson5Value(config.twoFactor?.email?.otpLength ?? 6)],
-    ['twoFactor.email.otpExpiryMs', renderJson5Value(config.twoFactor?.email?.otpExpiryMs ?? 300000)],
-    ['twoFactor.email.smtp.host', renderJson5Value(config.twoFactor?.email?.smtp?.host ?? '')],
-    ['twoFactor.email.smtp.port', renderJson5Value(config.twoFactor?.email?.smtp?.port ?? 587)],
-    ['twoFactor.email.smtp.secure', renderJson5Value(config.twoFactor?.email?.smtp?.secure ?? false)],
-    ['twoFactor.email.smtp.auth.user', renderJson5Value(config.twoFactor?.email?.smtp?.auth.user ?? '')],
-    ['twoFactor.email.smtp.tls.rejectUnauthorized', renderJson5Value(config.twoFactor?.email?.smtp?.tls?.rejectUnauthorized ?? true)],
-    ['twoFactor.email.smtp.tls.minVersion', renderJson5Value(config.twoFactor?.email?.smtp?.tls?.minVersion ?? 'TLSv1.2')],
     ['twoFactor.totp.enabled', renderJson5Value(config.twoFactor?.totp?.enabled ?? false)],
     ['twoFactor.totp.issuer', renderJson5Value(config.twoFactor?.totp?.issuer ?? 'BuilderGate')],
     ['twoFactor.totp.accountName', renderJson5Value(config.twoFactor?.totp?.accountName ?? 'admin')],
@@ -174,9 +150,6 @@ function renderPatchedConfig(content: string, config: Config, secrets: SecretPat
 
   if (secrets.authPassword !== undefined) {
     replacements.set('auth.password', renderJson5Value(secrets.authPassword));
-  }
-  if (secrets.smtpPassword !== undefined) {
-    replacements.set('twoFactor.email.smtp.auth.password', renderJson5Value(secrets.smtpPassword));
   }
 
   const newline = content.includes('\r\n') ? '\r\n' : '\n';

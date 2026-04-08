@@ -15,7 +15,6 @@ import { AuthService } from './services/AuthService.js';
 import { CryptoService } from './services/CryptoService.js';
 import { ConfigFileRepository } from './services/ConfigFileRepository.js';
 import { SettingsService } from './services/SettingsService.js';
-import { TwoFactorService } from './services/TwoFactorService.js';
 import { SessionManager } from './services/SessionManager.js';
 import { FileService } from './services/FileService.js';
 import { AppError, ErrorCode } from './utils/errors.js';
@@ -28,17 +27,13 @@ async function main(): Promise<void> {
     { name: 'RuntimeConfigStore marks platform capabilities and merges patches', run: testRuntimeConfigCapabilities },
     { name: 'AuthService.updateRuntimeConfig updates password validation and token duration', run: testAuthRuntimeConfig },
     { name: 'SettingsService rejects unsupported settings keys', run: testSettingsUnsupportedSetting },
-    { name: 'SettingsService requires an SMTP password when enabling 2FA', run: testSettingsRequiresSmtpPassword },
     { name: 'SettingsService persists editable values and applies runtime updates', run: testSettingsServicePersistence },
-    { name: 'SettingsService hot-swaps 2FA state without restart', run: testSettingsTwoFactorHotSwap },
     { name: 'SettingsService blocks password rotation without current password', run: testSettingsPasswordValidation },
     { name: 'SettingsService rotates password for later logins and persists encrypted secret', run: testSettingsPasswordRotation },
     { name: 'SettingsService rolls back runtime state when apply fails', run: testSettingsApplyFailureRollback },
     { name: 'SessionManager.updateRuntimeConfig affects later idle timers and buffer limits', run: testSessionManagerRuntimeConfig },
     { name: 'FileService.updateConfig applies new limits to later operations', run: testFileServiceRuntimeConfig },
-    { name: 'twoFactorSchema accepts TOTP-only config (no smtp)', run: testTwoFactorSchemaTotp },
-    { name: 'twoFactorSchema rejects 2FA enabled with no email+smtp and no totp', run: testTwoFactorSchemaNoMethodFails },
-    { name: 'twoFactorSchema accepts email+smtp without totp (backward compat)', run: testTwoFactorSchemaEmailOnly },
+    { name: 'twoFactorSchema accepts TOTP-only config', run: testTwoFactorSchemaTotp },
     { name: 'twoFactorSchema accepts disabled 2FA with no methods configured', run: testTwoFactorSchemaDisabled },
     { name: 'authSchema applies localhostPasswordOnly default false', run: testAuthSchemaLocalhostDefault },
     { name: 'TOTPService.verifyTOTP rejects unregistered service', run: testTOTPServiceNotRegistered },
@@ -47,11 +42,9 @@ async function main(): Promise<void> {
     { name: 'TOTPService.verifyTOTP rejects replayed code (NFR-105)', run: testTOTPServiceReplay },
     { name: 'TOTPService.isRegistered returns false before initialize', run: testTOTPServiceRegistered },
     { name: 'TOTPService.verifyTOTP increments attempts on invalid code (NFR-104)', run: testTOTPServiceAttemptsIncrement },
-    { name: 'TwoFactorService.createPendingAuth returns tempToken+otp sync (Phase 3)', run: testTwoFactorCreatePendingAuthSync },
-    { name: 'TwoFactorService.getOTPData returns stored data (Phase 3)', run: testTwoFactorGetOTPData },
-    { name: 'TwoFactorService.invalidatePendingAuth removes entry (Phase 3)', run: testTwoFactorInvalidate },
-    { name: 'TwoFactorService.updateStage transitions stage (Phase 3)', run: testTwoFactorUpdateStage },
-    { name: 'TwoFactorService.hasEmailConfig returns true when smtp+email set (Phase 3)', run: testTwoFactorHasEmailConfig },
+    { name: 'TOTPService.createPendingAuth returns tempToken (Phase 3)', run: testTOTPCreatePendingAuth },
+    { name: 'TOTPService.getOTPData returns stored data (Phase 3)', run: testTOTPGetOTPData },
+    { name: 'TOTPService.invalidatePendingAuth removes entry (Phase 3)', run: testTOTPInvalidate },
     { name: 'AuthService.getLocalhostPasswordOnly defaults false (Phase 3)', run: testAuthLocalhostPasswordOnly },
     { name: 'TOTPService.initialize() generates secret on first start (FR-201)', run: testTOTPInitializeGeneratesSecret },
     { name: 'TOTPService.initialize() loads existing secret from file (FR-202)', run: testTOTPInitializeLoadsSecret },
@@ -95,12 +88,8 @@ function testRuntimeConfigSnapshot(): void {
   assert.equal(store.isEditable('auth.durationMs'), true);
   assert.equal(store.isEditable('server.port'), false);
   assert.equal(snapshot.values.auth.durationMs, 1800000);
-  assert.equal(snapshot.values.twoFactor.email.smtp.auth.user, 'admin@example.com');
-  assert.equal('password' in snapshot.values.twoFactor.email.smtp.auth, false);
   assert.equal(snapshot.capabilities['auth.password'].writeOnly, true);
-  assert.equal(snapshot.capabilities['twoFactor.email.smtp.auth.password'].writeOnly, true);
   assert.equal(snapshot.secretState.authPasswordConfigured, true);
-  assert.equal(snapshot.secretState.smtpPasswordConfigured, true);
   assert.ok(snapshot.excludedSections.includes('ssl.*'));
   assert.ok(snapshot.excludedSections.includes('fileManager.maxCodeFileSize'));
 }
@@ -120,25 +109,12 @@ function testRuntimeConfigCapabilities(): void {
       newPassword: 'ignored',
       confirmPassword: 'ignored',
     },
-    twoFactor: {
-      email: {
-        address: 'ops@example.com',
-        smtp: {
-          auth: {
-            user: 'ops@example.com',
-            password: 'secret',
-          },
-        },
-      },
-    },
     fileManager: {
       blockedExtensions: ['.ps1'],
     },
   });
 
   assert.equal(merged.auth.durationMs, 3600000);
-  assert.equal(merged.twoFactor.email.address, 'ops@example.com');
-  assert.equal(merged.twoFactor.email.smtp.auth.user, 'ops@example.com');
   assert.deepEqual(merged.fileManager.blockedExtensions, ['.ps1']);
 }
 
@@ -188,16 +164,11 @@ async function testSettingsServicePersistence(): Promise<void> {
     getCwdFilePath: () => null,
   }, fixture.fileManager!);
   const configRepository = new ConfigFileRepository(configPath);
-  let twoFactorService = fixture.twoFactor ? new TwoFactorService(fixture.twoFactor, cryptoService) : undefined;
   const settingsService = new SettingsService({
     runtimeConfigStore,
     configRepository,
     cryptoService,
     authService,
-    getTwoFactorService: () => twoFactorService,
-    setTwoFactorService: (next) => {
-      twoFactorService = next;
-    },
     getFileService: () => fileService,
     sessionManager,
   });
@@ -226,7 +197,6 @@ async function testSettingsServicePersistence(): Promise<void> {
     assert.ok(backupStat.isFile());
   } finally {
     authService.destroy();
-    twoFactorService?.destroy();
     await fs.rm(tempDir, { recursive: true, force: true });
   }
 }
@@ -251,38 +221,6 @@ function testSettingsUnsupportedSetting(): void {
   }
 }
 
-function testSettingsRequiresSmtpPassword(): void {
-  const fixture = createConfigFixture();
-  fixture.twoFactor = {
-    ...fixture.twoFactor!,
-    email: {
-      ...fixture.twoFactor!.email!,
-      enabled: false,
-      smtp: {
-        ...fixture.twoFactor!.email!.smtp!,
-        auth: {
-          ...fixture.twoFactor!.email!.smtp!.auth,
-          password: '',
-        },
-      },
-    },
-  };
-
-  const harness = createSettingsHarness({ fixture });
-
-  try {
-    assert.throws(
-      () => harness.settingsService.savePatch({ twoFactor: { email: { enabled: true } } }),
-      (error: unknown) => error instanceof AppError
-        && error.code === ErrorCode.VALIDATION_ERROR
-        && error.message === '2FA email requires an SMTP password',
-    );
-    assert.equal(harness.getTwoFactorService(), undefined);
-  } finally {
-    harness.destroy();
-  }
-}
-
 function testSettingsPasswordValidation(): void {
   const fixture = createConfigFixture();
   const cryptoService = new CryptoService('settings-password-validation');
@@ -298,8 +236,6 @@ function testSettingsPasswordValidation(): void {
     configRepository: new ConfigFileRepository(path.join(os.tmpdir(), 'unused-config.json5')),
     cryptoService,
     authService,
-    getTwoFactorService: () => undefined,
-    setTwoFactorService: () => undefined,
     getFileService: () => new FileService({
       getSession: () => ({ id: 'session-1' }),
       getPtyPid: () => null,
@@ -349,35 +285,6 @@ async function testSettingsPasswordRotation(): Promise<void> {
     const savedContent = await fs.readFile(configPath, 'utf-8');
     assert.match(savedContent, /password:\s*"enc\(.+\)"/);
     assert.doesNotMatch(savedContent, /password:\s*"new-password"/);
-  } finally {
-    harness.destroy();
-    await fs.rm(tempDir, { recursive: true, force: true });
-  }
-}
-
-async function testSettingsTwoFactorHotSwap(): Promise<void> {
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-2fa-hot-swap-'));
-  const configPath = path.join(tempDir, 'config.json5');
-  const fixture = createConfigFixture();
-  fixture.twoFactor = {
-    ...fixture.twoFactor!,
-    email: { ...fixture.twoFactor!.email!, enabled: false },
-  };
-
-  await fs.writeFile(configPath, createConfigFixtureContent(), 'utf-8');
-
-  const harness = createSettingsHarness({ fixture, configPath });
-
-  try {
-    assert.equal(harness.getTwoFactorService(), undefined);
-
-    const enableResult = harness.settingsService.savePatch({ twoFactor: { email: { enabled: true } } });
-    assert.ok(enableResult.applySummary.new_logins.includes('twoFactor.email.enabled'));
-    assert.equal(harness.getTwoFactorService()?.isEnabled(), true);
-
-    const disableResult = harness.settingsService.savePatch({ twoFactor: { email: { enabled: false } } });
-    assert.ok(disableResult.applySummary.new_logins.includes('twoFactor.email.enabled'));
-    assert.equal(harness.getTwoFactorService(), undefined);
   } finally {
     harness.destroy();
     await fs.rm(tempDir, { recursive: true, force: true });
@@ -563,25 +470,6 @@ function createConfigFixture(): Config {
     },
     twoFactor: {
       externalOnly: false,
-      email: {
-        enabled: true,
-        address: 'admin@example.com',
-        otpLength: 6,
-        otpExpiryMs: 300000,
-        smtp: {
-          host: 'smtp.example.com',
-          port: 587,
-          secure: false,
-          auth: {
-            user: 'admin@example.com',
-            password: 'enc(smtp)',
-          },
-          tls: {
-            rejectUnauthorized: true,
-            minVersion: 'TLSv1.2',
-          },
-        },
-      },
     },
   };
 }
@@ -605,17 +493,11 @@ function createSettingsHarness({
   const authService = new AuthService(fixture.auth!, cryptoService);
   const sessionManager = new SessionManager({ pty: fixture.pty, session: fixture.session });
   const configRepository = new ConfigFileRepository(configPath);
-  const anyTwoFAEnabled = fixture.twoFactor?.email?.enabled || fixture.twoFactor?.totp?.enabled;
-  let twoFactorService = (anyTwoFAEnabled && fixture.twoFactor) ? new TwoFactorService(fixture.twoFactor, cryptoService) : undefined;
   const settingsService = new SettingsService({
     runtimeConfigStore,
     configRepository,
     cryptoService,
     authService,
-    getTwoFactorService: () => twoFactorService,
-    setTwoFactorService: (next) => {
-      twoFactorService = next;
-    },
     getFileService: () => fileService,
     sessionManager,
   });
@@ -624,10 +506,8 @@ function createSettingsHarness({
     authService,
     runtimeConfigStore,
     settingsService,
-    getTwoFactorService: () => twoFactorService,
     destroy: () => {
       authService.destroy();
-      twoFactorService?.destroy();
     },
   };
 }
@@ -672,25 +552,6 @@ function createConfigFixtureContent(): string {
   },
   twoFactor: {
     externalOnly: false,
-    email: {
-      enabled: false,
-      address: "admin@example.com",
-      otpLength: 6,
-      otpExpiryMs: 300000,
-      smtp: {
-        host: "smtp.example.com",
-        port: 587,
-        secure: false,
-        auth: {
-          user: "admin@example.com",
-          password: "smtp-password",
-        },
-        tls: {
-          rejectUnauthorized: true,
-          minVersion: "TLSv1.2",
-        }
-      },
-    },
     totp: {
       enabled: false,
       issuer: "BuilderGate",
@@ -712,37 +573,6 @@ function testTwoFactorSchemaTotp(): void {
   });
   assert.ok(result.success, `Expected TOTP-only to pass, got: ${!result.success && result.error?.issues[0]?.message}`);
   assert.equal(result.data?.totp?.enabled, true);
-}
-
-function testTwoFactorSchemaNoMethodFails(): void {
-  // 예외: email.enabled=true, smtp 없음 → 거부
-  const result = twoFactorSchema.safeParse({
-    externalOnly: false,
-    email: { enabled: true, address: 'admin@example.com' },
-  });
-  assert.ok(!result.success, 'Expected schema to reject email 2FA without smtp');
-  assert.ok(
-    result.error?.issues.some(i => i.message.includes('smtp')),
-    `Expected error message about smtp, got: ${result.error?.issues.map(i => i.message).join(', ')}`
-  );
-}
-
-function testTwoFactorSchemaEmailOnly(): void {
-  // 경계값: email+smtp 방식 (totp 없음)
-  const result = twoFactorSchema.safeParse({
-    externalOnly: false,
-    email: {
-      enabled: true,
-      address: 'admin@example.com',
-      smtp: {
-        host: 'smtp.example.com',
-        port: 587,
-        secure: false,
-        auth: { user: 'admin@example.com', password: 'secret' },
-      },
-    },
-  });
-  assert.ok(result.success, `Expected email+smtp to pass, got: ${!result.success && result.error?.issues[0]?.message}`);
 }
 
 function testTwoFactorSchemaDisabled(): void {
@@ -781,7 +611,6 @@ function makeTOTPServiceWithSecret(secret: string): TOTPService {
 function makeOTPData(overrides: Partial<import('./types/auth.types.js').OTPData> = {}): import('./types/auth.types.js').OTPData {
   return {
     otp: '',
-    email: 'test@example.com',
     expiresAt: Date.now() + 300000,
     attempts: 0,
     stage: 'totp',
@@ -857,65 +686,35 @@ function testTOTPServiceAttemptsIncrement(): void {
 }
 
 // ============================================================================
-// Phase 3: TwoFactorService refactored methods + AuthService.getLocalhostPasswordOnly
+// Phase 3: TOTPService pending auth methods + AuthService.getLocalhostPasswordOnly
 // ============================================================================
 
-function makeTwoFactorService(): TwoFactorService {
-  const config: import('./types/config.types.js').TwoFactorConfig = {
-    externalOnly: false,
-    email: {
-      enabled: true,
-      address: 'test@example.com',
-      otpLength: 6,
-      otpExpiryMs: 300000,
-      smtp: undefined,
-    },
-    totp: undefined,
-  };
-  return new TwoFactorService(config, {} as import('./services/CryptoService.js').CryptoService);
-}
-
-function testTwoFactorCreatePendingAuthSync(): void {
-  const svc = makeTwoFactorService();
-  const result = svc.createPendingAuth('email');
+function testTOTPCreatePendingAuth(): void {
+  const stubCrypto = {} as import('./services/CryptoService.js').CryptoService;
+  const svc = new TOTPService({ enabled: true }, stubCrypto);
+  const result = svc.createPendingAuth();
   assert.ok(typeof result.tempToken === 'string', 'tempToken should be a string');
   assert.ok(result.tempToken.length > 0, 'tempToken should be non-empty');
-  assert.ok(typeof result.otp === 'string', 'otp should be a string');
-  assert.ok(result.otp.length === 6, 'otp should be 6 digits');
   svc.destroy();
 }
 
-function testTwoFactorGetOTPData(): void {
-  const svc = makeTwoFactorService();
-  const { tempToken } = svc.createPendingAuth('email');
+function testTOTPGetOTPData(): void {
+  const stubCrypto = {} as import('./services/CryptoService.js').CryptoService;
+  const svc = new TOTPService({ enabled: true }, stubCrypto);
+  const { tempToken } = svc.createPendingAuth();
   const data = svc.getOTPData(tempToken);
   assert.ok(data !== undefined, 'getOTPData should return stored data');
-  assert.equal(data!.stage, 'email', 'stage should be email');
+  assert.equal(data!.stage, 'totp', 'stage should be totp');
   assert.equal(data!.attempts, 0, 'attempts should start at 0');
   svc.destroy();
 }
 
-function testTwoFactorInvalidate(): void {
-  const svc = makeTwoFactorService();
-  const { tempToken } = svc.createPendingAuth('email');
+function testTOTPInvalidate(): void {
+  const stubCrypto = {} as import('./services/CryptoService.js').CryptoService;
+  const svc = new TOTPService({ enabled: true }, stubCrypto);
+  const { tempToken } = svc.createPendingAuth();
   svc.invalidatePendingAuth(tempToken);
   assert.equal(svc.getOTPData(tempToken), undefined, 'Data should be removed after invalidation');
-  svc.destroy();
-}
-
-function testTwoFactorUpdateStage(): void {
-  const svc = makeTwoFactorService();
-  const { tempToken } = svc.createPendingAuth('email');
-  svc.updateStage(tempToken, 'totp');
-  const data = svc.getOTPData(tempToken);
-  assert.equal(data!.stage, 'totp', 'Stage should be updated to totp');
-  svc.destroy();
-}
-
-function testTwoFactorHasEmailConfig(): void {
-  const svc = makeTwoFactorService();
-  // config.smtp is undefined → false
-  assert.equal(svc.hasEmailConfig(), false, 'hasEmailConfig should be false without smtp');
   svc.destroy();
 }
 
@@ -1078,7 +877,6 @@ async function invokeVerify(
 function makeAuthHarness(opts: {
   withTotp?: boolean;
   totpRegistered?: boolean;
-  withEmail?: boolean;
   localhostPasswordOnly?: boolean;
 }) {
   const cryptoService = new CryptoService('phase4-test-key-32-bytes-padded!!');
@@ -1093,25 +891,7 @@ function makeAuthHarness(opts: {
     cryptoService,
   );
 
-  let twoFactorService: TwoFactorService | undefined;
   let totpService: TOTPService | undefined;
-
-  const twoFactorConfig: import('./types/config.types.js').TwoFactorConfig = {
-    externalOnly: false,
-    email: opts.withEmail ? {
-      enabled: true,
-      address: 'admin@example.com',
-      otpLength: 6,
-      otpExpiryMs: 300000,
-      smtp: {
-        host: 'smtp.example.com', port: 587, secure: false,
-        auth: { user: 'u', password: 'p' },
-        tls: { rejectUnauthorized: true, minVersion: 'TLSv1.2' },
-      },
-    } : undefined,
-    totp: opts.withTotp ? { enabled: true, issuer: 'Test', accountName: 'test' } : undefined,
-  };
-  twoFactorService = new TwoFactorService(twoFactorConfig, cryptoService);
 
   if (opts.withTotp) {
     totpService = new TOTPService({ enabled: true, issuer: 'Test', accountName: 'test' }, cryptoService);
@@ -1124,16 +904,15 @@ function makeAuthHarness(opts: {
 
   const accessors = {
     getAuthService: () => authService,
-    getTwoFactorService: () => twoFactorService,
     getTOTPService: () => totpService,
   };
 
-  return { authService, twoFactorService, totpService, accessors, cryptoService };
+  return { authService, totpService, accessors, cryptoService };
 }
 
 async function testAuthRoutesCombo3Login(): Promise<void> {
-  // COMBO-3: TOTP only (no email), registered
-  const { accessors, authService } = makeAuthHarness({ withTotp: true, totpRegistered: true, withEmail: false });
+  // TOTP login: registered TOTP returns 202 with nextStage totp
+  const { accessors, authService } = makeAuthHarness({ withTotp: true, totpRegistered: true });
   const result = await invokeLogin(accessors, { password: 'test-password' });
   authService.destroy();
   assert.equal(result.status, 202, `Expected 202, got ${result.status}`);
@@ -1145,7 +924,7 @@ async function testAuthRoutesCombo3Login(): Promise<void> {
 
 async function testAuthRoutesUnregisteredTOTP503(): Promise<void> {
   // FR-401: TOTP enabled but not registered → 503
-  const { accessors, authService } = makeAuthHarness({ withTotp: true, totpRegistered: false, withEmail: false });
+  const { accessors, authService } = makeAuthHarness({ withTotp: true, totpRegistered: false });
   const result = await invokeLogin(accessors, { password: 'test-password' });
   authService.destroy();
   assert.equal(result.status, 503, `Expected 503, got ${result.status}`);
@@ -1153,18 +932,16 @@ async function testAuthRoutesUnregisteredTOTP503(): Promise<void> {
 }
 
 async function testAuthRoutesStageMismatch(): Promise<void> {
-  // FR-802: stage mismatch → 400
-  const { accessors, twoFactorService, authService } = makeAuthHarness({ withTotp: true, totpRegistered: true });
-  // Create a pending auth with 'totp' stage
-  const { tempToken } = twoFactorService!.createPendingAuth('totp');
-  // Try to verify with stage: 'email' (mismatch)
-  const result = await invokeVerify(accessors, { tempToken, otpCode: '123456', stage: 'email' });
+  // stage validation: invalid UUID tempToken → 401
+  const { accessors, authService } = makeAuthHarness({ withTotp: true, totpRegistered: true });
+  // Send a non-existent tempToken → should get 401 INVALID_TEMP_TOKEN
+  const result = await invokeVerify(accessors, { tempToken: '00000000-0000-0000-0000-000000000000', otpCode: '123456' });
   authService.destroy();
-  assert.equal(result.status, 400, `Expected 400, got ${result.status}`);
+  assert.equal(result.status, 401, `Expected 401, got ${result.status}`);
 }
 
 async function testAuthRoutesCombo1(): Promise<void> {
-  // COMBO-1: 2FA disabled → direct JWT
+  // 2FA disabled → direct JWT
   const cryptoService = new CryptoService('phase4-test-key-32-bytes-padded!!');
   const authService = new AuthService(
     { password: 'test-password', durationMs: 1800000, maxDurationMs: 86400000, jwtSecret: 'secret' },
@@ -1172,7 +949,6 @@ async function testAuthRoutesCombo1(): Promise<void> {
   );
   const accessors = {
     getAuthService: () => authService,
-    getTwoFactorService: () => undefined,
     getTOTPService: () => undefined,
   };
   const result = await invokeLogin(accessors, { password: 'test-password' });
@@ -1186,7 +962,7 @@ async function testAuthRoutesLocalhostBypass(): Promise<void> {
   // FR-602: localhostPasswordOnly — but note: req.ip in our test will be ::1 or 127.0.0.1
   // We configure localhostPasswordOnly=true, and the request comes from 127.0.0.1 (loopback)
   const { accessors, authService } = makeAuthHarness({
-    withTotp: true, totpRegistered: true, withEmail: false, localhostPasswordOnly: true
+    withTotp: true, totpRegistered: true, localhostPasswordOnly: true
   });
   // Our HTTP helper connects to 127.0.0.1 which Express sees as ::1 or ::ffff:127.0.0.1
   const result = await invokeLogin(accessors, { password: 'test-password' });
@@ -1197,14 +973,16 @@ async function testAuthRoutesLocalhostBypass(): Promise<void> {
 }
 
 async function testAuthRoutesTOTPVerifySuccess(): Promise<void> {
-  // COMBO-3 verify: valid TOTP code → JWT
-  const { accessors, twoFactorService, totpService, authService } = makeAuthHarness({
-    withTotp: true, totpRegistered: true, withEmail: false
+  // TOTP verify: valid TOTP code → JWT
+  const { accessors, totpService, authService } = makeAuthHarness({
+    withTotp: true, totpRegistered: true
   });
   const secret = (totpService as unknown as { secret: string }).secret;
-  const { tempToken } = twoFactorService!.createPendingAuth('totp');
+  // Get tempToken via login first
+  const loginResult = await invokeLogin(accessors, { password: 'test-password' });
+  const tempToken = loginResult.body.tempToken as string;
   const validCode = generateSync({ secret });
-  const result = await invokeVerify(accessors, { tempToken, otpCode: validCode, stage: 'totp' });
+  const result = await invokeVerify(accessors, { tempToken, otpCode: validCode });
   authService.destroy();
   assert.equal(result.status, 200, `Expected 200, got ${result.status}: ${JSON.stringify(result.body)}`);
   assert.ok(typeof result.body.token === 'string', 'token should be issued after TOTP success');
@@ -1212,14 +990,16 @@ async function testAuthRoutesTOTPVerifySuccess(): Promise<void> {
 
 async function testAuthRoutesTOTPMaxAttempts(): Promise<void> {
   // NFR-104: 3 failed TOTP attempts → 401 with attemptsRemaining 0
-  const { accessors, twoFactorService, authService } = makeAuthHarness({
-    withTotp: true, totpRegistered: true, withEmail: false
+  const { accessors, authService } = makeAuthHarness({
+    withTotp: true, totpRegistered: true
   });
-  const { tempToken } = twoFactorService!.createPendingAuth('totp');
+  // Get tempToken via login first
+  const loginResult = await invokeLogin(accessors, { password: 'test-password' });
+  const tempToken = loginResult.body.tempToken as string;
   // 3 wrong attempts
   let lastResult = { status: 0, body: {} as Record<string, unknown> };
   for (let i = 0; i < 3; i++) {
-    lastResult = await invokeVerify(accessors, { tempToken, otpCode: '000000', stage: 'totp' });
+    lastResult = await invokeVerify(accessors, { tempToken, otpCode: '000000' });
   }
   authService.destroy();
   assert.equal(lastResult.status, 401, `Expected 401 after 3 attempts, got ${lastResult.status}`);

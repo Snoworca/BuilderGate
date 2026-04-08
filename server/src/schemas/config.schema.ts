@@ -74,49 +74,16 @@ export const sessionSchema = z.object({
 // Two-Factor Authentication Schema (Phase 3)
 // ============================================================================
 
-export const smtpTlsSchema = z.object({
-  rejectUnauthorized: z.boolean().default(true),
-  minVersion: z.enum(['TLSv1.2', 'TLSv1.3']).default('TLSv1.2')
-});
-
-export const smtpAuthSchema = z.object({
-  user: z.string(),
-  password: z.string()
-});
-
-export const smtpSchema = z.object({
-  host: z.string(),
-  port: z.number().min(1).max(65535).default(587),
-  secure: z.boolean().default(false),
-  auth: smtpAuthSchema,
-  tls: smtpTlsSchema.optional()
-});
-
 export const totpSchema = z.object({
   enabled: z.boolean().default(false),
   issuer: z.string().default('BuilderGate'),
   accountName: z.string().default('admin'),
 });
 
-export const twoFactorEmailSchema = z.object({
-  enabled: z.boolean().default(false),
-  address: z.string().default(''),
-  otpLength: z.number().min(4).max(8).default(6),
-  otpExpiryMs: z.number().min(60000).max(600000).default(300000),
-  smtp: smtpSchema.optional(),
-});
-
 export const twoFactorSchema = z.object({
   externalOnly: z.boolean().default(false),
-  email: twoFactorEmailSchema.optional(),
   totp: totpSchema.optional(),
-}).refine(
-  (data) => {
-    if (!data.email?.enabled) return true;
-    return !!(data.email.address && data.email.smtp);
-  },
-  { message: 'Email 2FA requires address and smtp configuration' }
-);
+});
 
 // ============================================================================
 // Authentication Schema (Phase 2)
