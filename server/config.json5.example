@@ -1,0 +1,127 @@
+{
+  // BuilderGate Server Configuration - EXAMPLE FILE
+  // 이 파일을 복사하여 config.json5 로 사용하십시오.
+  // cp config.json5.example config.json5
+
+  // Server settings
+  server: {
+    port: 4242,
+  },
+
+  // PTY (Pseudo Terminal) settings
+  pty: {
+    // Terminal type identifier
+    // Options: "xterm-256color", "xterm-color", "xterm"
+    termName: "xterm-256color",
+
+    // Default terminal size
+    defaultCols: 80,
+    defaultRows: 24,
+
+    // Windows-specific PTY backend
+    // - true: Use ConPTY (Windows 10 1809+, newer but may have buffering issues)
+    // - false: Use winpty (legacy, more stable with some applications like Claude)
+    // Recommendation: Use false (winpty) for better Claude compatibility
+    useConpty: true,
+
+    // Maximum output buffer size (bytes) for buffering output before SSE connection
+    maxBufferSize: 65536,  // 64KB
+
+    // Shell type for PTY sessions
+    // - "auto": OS default (Windows → PowerShell, Linux/macOS → bash)
+    // - "powershell": Force PowerShell (Windows only)
+    // - "wsl": Use WSL bash (Windows only, requires WSL installed)
+    // - "bash": Use bash (Linux/macOS native, Windows → WSL)
+    shell: "auto",
+  },
+
+  // Session settings
+  session: {
+    // Delay (ms) before transitioning to idle status after last output
+    idleDelayMs: 200,
+  },
+
+  // SSL/TLS settings
+  // Empty paths trigger auto-generation of self-signed certificate
+  ssl: {
+    certPath: "",      // Path to SSL certificate (empty = auto-generate)
+    keyPath: "",       // Path to SSL private key (empty = auto-generate)
+    caPath: ""         // Path to CA chain (optional)
+  },
+
+  // Security settings
+  security: {
+    cors: {
+      allowedOrigins: [],  // Empty = allow all in dev (strict in prod)
+      credentials: true,
+      maxAge: 86400        // Preflight cache 24 hours
+    }
+  },
+
+  // Logging settings
+  logging: {
+    level: "info",         // error, warn, info, debug
+    audit: true,           // Enable security audit logging
+    directory: "logs",
+    maxSize: "10m",
+    maxFiles: 14
+  },
+
+  // Authentication settings
+  auth: {
+    password: "your_password_here",  // 평문 입력 → 서버 시작 시 자동 암호화
+    durationMs: 1800000,             // 세션 유지 시간: 30분
+    maxDurationMs: 86400000,         // 최대 세션 시간: 24시간
+    jwtSecret: "",                   // 빈 값이면 자동 생성
+    localhostPasswordOnly: false,    // true: localhost 접근 시 2FA 건너뜀
+  },
+
+  // File Manager settings
+  fileManager: {
+    maxFileSize: 1048576,          // 1MB
+    maxCodeFileSize: 524288,       // 500KB
+    maxDirectoryEntries: 10000,
+    blockedExtensions: [".exe", ".dll", ".so", ".bin"],
+    blockedPaths: [".ssh", ".gnupg", ".aws"],
+    cwdCacheTtlMs: 1000,          // 1 second CWD cache
+  },
+
+  // Workspace settings
+  workspace: {
+    dataPath: "./data/workspaces.json",
+    maxWorkspaces: 10,
+    maxTabsPerWorkspace: 8,
+    maxTotalSessions: 32,
+    flushDebounceMs: 5000,
+  },
+
+  // Two-Factor Authentication settings
+  twoFactor: {
+    enabled: false,               // true: 2FA 활성화
+    email: "your@email.com",      // OTP 수신 이메일
+    otpLength: 6,
+    otpExpiryMs: 300000,          // 5분
+
+    totp: {
+      // Google Authenticator / TOTP 설정
+      // enabled: true 로 변경 후 서버 재시작 → QR 코드 출력
+      enabled: false,             // true: TOTP 활성화
+      issuer: "BuilderGate",
+      accountName: "admin"
+    },
+
+    smtp: {
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,              // STARTTLS (port 465는 secure: true)
+      auth: {
+        user: "your@gmail.com",
+        password: "your_app_password"  // Gmail 앱 비밀번호 (평문 입력 → 자동 암호화)
+      },
+      tls: {
+        rejectUnauthorized: true,
+        minVersion: "TLSv1.2"
+      }
+    }
+  },
+}
