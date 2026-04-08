@@ -239,6 +239,22 @@ function replacePasswordInSmtpAuth(content: string, encrypted: string): string {
 }
 
 /**
+ * Ensure config.json5 exists — copy from config.json5.example if missing
+ */
+function ensureConfigExists(configPath: string): void {
+  if (existsSync(configPath)) return;
+
+  const examplePath = `${configPath}.example`;
+  if (existsSync(examplePath)) {
+    copyFileSync(examplePath, configPath);
+    console.log('[Config] config.json5 not found — created from config.json5.example');
+    console.log('[Config] ⚠️  Edit config.json5 to set your password and options before proceeding.');
+  } else {
+    console.warn('[Config] config.json5 and config.json5.example both missing — using built-in defaults');
+  }
+}
+
+/**
  * Load and validate configuration from config.json5
  * Uses Zod schema for validation and default values
  * Automatically encrypts plaintext passwords
@@ -246,6 +262,7 @@ function replacePasswordInSmtpAuth(content: string, encrypted: string): string {
 function loadConfig(): Config {
   try {
     const configPath = getConfigPath();
+    ensureConfigExists(configPath);
     const configContent = readFileSync(configPath, 'utf-8');
     const rawConfig = JSON5.parse(configContent);
 
