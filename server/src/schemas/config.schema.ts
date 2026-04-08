@@ -92,15 +92,27 @@ export const smtpSchema = z.object({
   tls: smtpTlsSchema.optional()
 });
 
+export const totpSchema = z.object({
+  enabled: z.boolean().default(false),
+  issuer: z.string().default('BuilderGate'),
+  accountName: z.string().default('admin'),
+});
+
 export const twoFactorSchema = z.object({
   enabled: z.boolean().default(false),
   email: z.string().email().optional(),
   otpLength: z.number().min(4).max(8).default(6),
   otpExpiryMs: z.number().min(60000).max(600000).default(300000),
-  smtp: smtpSchema.optional()
+  smtp: smtpSchema.optional(),
+  totp: totpSchema.optional(),
 }).refine(
-  (data) => !data.enabled || (data.email && data.smtp),
-  { message: '2FA enabled requires email and smtp configuration' }
+  (data) => {
+    if (!data.enabled) return true;
+    const hasEmail = !!(data.email && data.smtp);
+    const hasTotp = !!(data.totp?.enabled);
+    return hasEmail || hasTotp;
+  },
+  { message: '2FA enabled requires either email+smtp or totp configuration' }
 );
 
 // ============================================================================
@@ -111,7 +123,8 @@ export const authSchema = z.object({
   password: z.string().default(''),
   durationMs: z.number().min(60000).max(86400000).default(1800000),
   maxDurationMs: z.number().min(60000).max(86400000).default(86400000),
-  jwtSecret: z.string().default('')
+  jwtSecret: z.string().default(''),
+  localhostPasswordOnly: z.boolean().default(false),
 });
 
 // ============================================================================

@@ -114,12 +114,19 @@ export interface SMTPConfig {
   tls?: SMTPTLSConfig;
 }
 
+export interface TOTPConfig {
+  enabled: boolean;
+  issuer?: string;
+  accountName?: string;
+}
+
 export interface TwoFactorConfig {
   enabled: boolean;
-  email: string;
+  email?: string;
   otpLength: number;
   otpExpiryMs: number;
-  smtp: SMTPConfig;
+  smtp?: SMTPConfig;
+  totp?: TOTPConfig;
 }
 
 // ============================================================================
@@ -131,6 +138,7 @@ export interface AuthConfig {
   durationMs: number;
   maxDurationMs: number;
   jwtSecret: string;
+  localhostPasswordOnly?: boolean;
 }
 
 // ============================================================================

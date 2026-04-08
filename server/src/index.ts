@@ -27,6 +27,7 @@ import { SSLService } from './services/SSLService.js';
 import { CryptoService } from './services/CryptoService.js';
 import { AuthService } from './services/AuthService.js';
 import { TwoFactorService } from './services/TwoFactorService.js';
+import { TOTPService } from './services/TOTPService.js';
 import {
   createSecurityHeadersMiddleware,
   createNoCacheMiddleware,
@@ -46,6 +47,7 @@ const HTTP_PORT = Number(PORT) - 1; // HTTP redirect port
 let cryptoService: CryptoService;
 let authService: AuthService;
 let twoFactorService: TwoFactorService | undefined;
+let totpService: TOTPService | undefined;
 let fileService: FileService;
 let runtimeConfigStore: RuntimeConfigStore;
 let settingsService: SettingsService;
@@ -153,6 +155,7 @@ function setupRoutes(): void {
   const authRoutes = createAuthRoutes({
     getAuthService: () => authService,
     getTwoFactorService: () => twoFactorService,
+    getTOTPService: () => totpService,
   });
   app.use('/api/auth', authRoutes);
 
@@ -235,6 +238,21 @@ async function startServer(): Promise<void> {
       console.log(`[2FA] OTP delivery to: ${twoFactorService.maskEmail(config.twoFactor.email || '')}`);
     } else {
       console.log('[2FA] Two-factor authentication is disabled');
+    }
+
+    // ========================================================================
+    // Initialize TOTP Service (Step 6 — FR-102)
+    // ========================================================================
+    if (config.twoFactor?.totp?.enabled) {
+      totpService = new TOTPService(config.twoFactor.totp, cryptoService);
+      try {
+        totpService.initialize();
+      } catch (err) {
+        console.error('[TOTP] Failed to initialize TOTPService:', err);
+        // Server continues — TOTP unregistered state handled in auth routes (FR-401)
+      }
+    } else {
+      console.log('[TOTP] TOTP is disabled');
     }
 
     const fileManagerConfig = config.fileManager || {
@@ -347,7 +365,14 @@ async function startServer(): Promise<void> {
 
     // Start HTTPS server
     httpsServer.listen(PORT, () => {
-      const twoFAStatus = twoFactorService?.isEnabled() ? 'Enabled (Email OTP)' : 'Disabled';
+      const twoFAStatus = (() => {
+        if (!config.twoFactor?.enabled) return 'Disabled';
+        const emailEnabled = !!(config.twoFactor.email && config.twoFactor.smtp);
+        const totpEnabled = !!(config.twoFactor.totp?.enabled);
+        if (emailEnabled && totpEnabled) return 'Enabled (Email OTP + TOTP)';
+        if (totpEnabled) return 'Enabled (TOTP only)';
+        return 'Enabled (Email OTP)';
+      })();
       console.log('');
       console.log('╔════════════════════════════════════════════════════════════════╗');
       console.log('║           BuilderGate Server (HTTPS)                             ║');

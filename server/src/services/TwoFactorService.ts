@@ -9,7 +9,7 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import type { TwoFactorConfig } from '../types/config.types.js';
-import type { OTPData, PendingAuth, OTPVerifyResult } from '../types/auth.types.js';
+import type { OTPData, OTPVerifyResult, TwoFAStage } from '../types/auth.types.js';
 import type { CryptoService } from './CryptoService.js';
 import { ErrorCode } from '../utils/errors.js';
 
@@ -94,44 +94,73 @@ export class TwoFactorService {
   // ==========================================================================
 
   /**
-   * Create a pending authentication request and send OTP email
-   * @param email - Email address to send OTP
-   * @returns PendingAuth with tempToken and maskedEmail
+   * Create a pending authentication request (OTP generation only — no email sending).
+   * Caller is responsible for invoking sendOTP() separately.
+   *
+   * @param stage - Authentication stage ('email' | 'totp')
+   * @returns { tempToken, otp } — tempToken stored in session, otp for delivery
    */
-  async createPendingAuth(email: string): Promise<PendingAuth> {
+  createPendingAuth(stage: TwoFAStage = 'email'): { tempToken: string; otp: string } {
     // Clean up old entries if limit reached
     this.cleanupExpiredOTPs();
     if (this.otpStore.size >= MAX_OTP_STORE_SIZE) {
       this.removeOldestOTP();
     }
 
-    // Generate OTP and tempToken
     const otp = this.generateOTP();
     const tempToken = crypto.randomUUID();
-    const expiresAt = Date.now() + (this.config.otpExpiryMs || 300000);
 
-    // Store OTP data
     const otpData: OTPData = {
       otp,
-      email,
-      expiresAt,
-      attempts: 0
+      email: this.config.email ?? '',
+      expiresAt: Date.now() + (this.config.otpExpiryMs || 300000),
+      attempts: 0,
+      stage,
     };
     this.otpStore.set(tempToken, otpData);
 
-    // Send OTP email
-    const emailSent = await this.sendOTPEmail(email, otp);
-    if (!emailSent) {
-      this.otpStore.delete(tempToken);
-      throw new Error('Failed to send OTP email');
-    }
+    console.log(`[2FA] Pending auth created: tempToken=${tempToken.substring(0, 8)}... stage=${stage}`);
+    return { tempToken, otp };
+  }
 
-    console.log(`[2FA] Pending auth created: tempToken=${tempToken.substring(0, 8)}...`);
+  /**
+   * Send OTP email (throws on failure — caller handles error/fallback).
+   * @param otp - OTP code to send
+   */
+  async sendOTP(otp: string): Promise<void> {
+    const email = this.config.email;
+    if (!email) throw new Error('[2FA] No email configured');
+    const sent = await this.sendOTPEmail(email, otp);
+    if (!sent) throw new Error('[2FA] Failed to send OTP email');
+  }
 
-    return {
-      tempToken,
-      maskedEmail: this.maskEmail(email)
-    };
+  /**
+   * Check whether email + SMTP is fully configured (for COMBO routing).
+   */
+  hasEmailConfig(): boolean {
+    return !!(this.config.email && this.config.smtp);
+  }
+
+  /**
+   * Retrieve OTP data for a given tempToken (authRoutes verify handler).
+   */
+  getOTPData(tempToken: string): OTPData | undefined {
+    return this.otpStore.get(tempToken);
+  }
+
+  /**
+   * Remove a pending auth entry (on success or max-attempts exceeded).
+   */
+  invalidatePendingAuth(tempToken: string): void {
+    this.otpStore.delete(tempToken);
+  }
+
+  /**
+   * Update the stage of a pending auth (COMBO-4 email → totp transition).
+   */
+  updateStage(tempToken: string, stage: TwoFAStage): void {
+    const otpData = this.otpStore.get(tempToken);
+    if (otpData) { otpData.stage = stage; }
   }
 
   // ==========================================================================

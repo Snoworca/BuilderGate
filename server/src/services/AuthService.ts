@@ -255,6 +255,13 @@ export class AuthService {
   }
 
   /**
+   * Whether password-only auth is allowed from localhost (skips 2FA).
+   */
+  getLocalhostPasswordOnly(): boolean {
+    return this.config.localhostPasswordOnly ?? false;
+  }
+
+  /**
    * Get the encrypted JWT secret for storage
    * @returns Encrypted JWT secret
    */

@@ -18,6 +18,9 @@ export { AuthService } from './AuthService.js';
 // Two-Factor Service (Phase 3)
 export { TwoFactorService } from './TwoFactorService.js';
 
+// TOTP Service (Step 6)
+export { TOTPService } from './TOTPService.js';
+
 // Step 5 Runtime Settings
 export { RuntimeConfigStore } from './RuntimeConfigStore.js';
 export { ConfigFileRepository } from './ConfigFileRepository.js';

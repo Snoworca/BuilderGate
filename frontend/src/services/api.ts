@@ -86,11 +86,11 @@ export const authApi = {
     return res.json();
   },
 
-  async verify(tempToken: string, otpCode: string): Promise<VerifyResponse> {
+  async verify(tempToken: string, otpCode: string, stage?: 'email' | 'totp'): Promise<VerifyResponse> {
     const res = await fetch(`${API_BASE}/auth/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tempToken, otpCode } as VerifyRequest)
+      body: JSON.stringify({ tempToken, otpCode, ...(stage ? { stage } : {}) } as VerifyRequest)
     });
     if (!res.ok) throw await parseError(res);
     return res.json();

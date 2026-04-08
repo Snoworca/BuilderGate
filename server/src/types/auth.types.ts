@@ -46,6 +46,10 @@ export interface LoginResponse {
   tempToken?: string;
   /** Masked email for 2FA (Phase 3) */
   maskedEmail?: string;
+  /** Next 2FA stage (email or totp) */
+  nextStage?: TwoFAStage;
+  /** Email delivery failed, fallback to TOTP */
+  emailFallback?: boolean;
   /** Error message */
   message?: string;
 }
@@ -84,6 +88,8 @@ export interface HeartbeatResponse {
 // Two-Factor Authentication Types (Phase 3)
 // ============================================================================
 
+export type TwoFAStage = 'email' | 'totp';
+
 export interface OTPData {
   /** 6-digit OTP code */
   otp: string;
@@ -93,6 +99,10 @@ export interface OTPData {
   expiresAt: number;
   /** Number of verification attempts */
   attempts: number;
+  /** Current 2FA stage */
+  stage: TwoFAStage;
+  /** Last used TOTP time step for replay prevention (NFR-105) */
+  totpLastUsedStep?: number;
 }
 
 export interface PendingAuth {
@@ -105,8 +115,10 @@ export interface PendingAuth {
 export interface VerifyRequest {
   /** Temporary token from login response */
   tempToken: string;
-  /** OTP code from email */
+  /** OTP code from email or authenticator */
   otpCode: string;
+  /** Current 2FA stage (optional, defaults to 'email' for backward compat) */
+  stage?: TwoFAStage;
 }
 
 export interface VerifyResponse {
@@ -115,6 +127,10 @@ export interface VerifyResponse {
   token?: string;
   /** Token expiry in milliseconds */
   expiresIn?: number;
+  /** Next 2FA stage (COMBO-4 intermediate) */
+  nextStage?: TwoFAStage;
+  /** New tempToken for next stage (COMBO-4 intermediate) */
+  tempToken?: string;
   /** Error message */
   message?: string;
 }

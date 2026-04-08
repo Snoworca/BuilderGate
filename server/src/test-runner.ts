@@ -2,9 +2,14 @@ import assert from 'node:assert/strict';
 import os from 'os';
 import path from 'path';
 import fs from 'fs/promises';
+import http from 'node:http';
+import type net from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { Config } from './types/config.types.js';
 import type { Session } from './types/index.js';
+import { twoFactorSchema, authSchema } from './schemas/config.schema.js';
+import { TOTPService } from './services/TOTPService.js';
+import { generateSync, generateSecret } from 'otplib';
 import { RuntimeConfigStore } from './services/RuntimeConfigStore.js';
 import { AuthService } from './services/AuthService.js';
 import { CryptoService } from './services/CryptoService.js';
@@ -14,6 +19,8 @@ import { TwoFactorService } from './services/TwoFactorService.js';
 import { SessionManager } from './services/SessionManager.js';
 import { FileService } from './services/FileService.js';
 import { AppError, ErrorCode } from './utils/errors.js';
+import { createAuthRoutes } from './routes/authRoutes.js';
+import express from 'express';
 
 async function main(): Promise<void> {
   const tests: Array<{ name: string; run: () => Promise<void> | void }> = [
@@ -29,6 +36,34 @@ async function main(): Promise<void> {
     { name: 'SettingsService rolls back runtime state when apply fails', run: testSettingsApplyFailureRollback },
     { name: 'SessionManager.updateRuntimeConfig affects later idle timers and buffer limits', run: testSessionManagerRuntimeConfig },
     { name: 'FileService.updateConfig applies new limits to later operations', run: testFileServiceRuntimeConfig },
+    { name: 'twoFactorSchema accepts TOTP-only config (no smtp)', run: testTwoFactorSchemaTotp },
+    { name: 'twoFactorSchema rejects 2FA enabled with no email+smtp and no totp', run: testTwoFactorSchemaNoMethodFails },
+    { name: 'twoFactorSchema accepts email+smtp without totp (backward compat)', run: testTwoFactorSchemaEmailOnly },
+    { name: 'twoFactorSchema accepts disabled 2FA with no methods configured', run: testTwoFactorSchemaDisabled },
+    { name: 'authSchema applies localhostPasswordOnly default false', run: testAuthSchemaLocalhostDefault },
+    { name: 'TOTPService.verifyTOTP rejects unregistered service', run: testTOTPServiceNotRegistered },
+    { name: 'TOTPService.verifyTOTP rejects after 3 attempts', run: testTOTPServiceMaxAttempts },
+    { name: 'TOTPService.verifyTOTP accepts valid code', run: testTOTPServiceValidCode },
+    { name: 'TOTPService.verifyTOTP rejects replayed code (NFR-105)', run: testTOTPServiceReplay },
+    { name: 'TOTPService.isRegistered returns false before initialize', run: testTOTPServiceRegistered },
+    { name: 'TOTPService.verifyTOTP increments attempts on invalid code (NFR-104)', run: testTOTPServiceAttemptsIncrement },
+    { name: 'TwoFactorService.createPendingAuth returns tempToken+otp sync (Phase 3)', run: testTwoFactorCreatePendingAuthSync },
+    { name: 'TwoFactorService.getOTPData returns stored data (Phase 3)', run: testTwoFactorGetOTPData },
+    { name: 'TwoFactorService.invalidatePendingAuth removes entry (Phase 3)', run: testTwoFactorInvalidate },
+    { name: 'TwoFactorService.updateStage transitions stage (Phase 3)', run: testTwoFactorUpdateStage },
+    { name: 'TwoFactorService.hasEmailConfig returns true when smtp+email set (Phase 3)', run: testTwoFactorHasEmailConfig },
+    { name: 'AuthService.getLocalhostPasswordOnly defaults false (Phase 3)', run: testAuthLocalhostPasswordOnly },
+    { name: 'TOTPService.initialize() generates secret on first start (FR-201)', run: testTOTPInitializeGeneratesSecret },
+    { name: 'TOTPService.initialize() loads existing secret from file (FR-202)', run: testTOTPInitializeLoadsSecret },
+    { name: 'TOTPService.initialize() throws on corrupted secret file (FR-204)', run: testTOTPInitializeThrowsOnCorrupted },
+    // Phase 4: authRoutes — 4 COMBO flows
+    { name: 'authRoutes COMBO-3: TOTP-only login returns 202 with nextStage totp (Phase 4)', run: testAuthRoutesCombo3Login },
+    { name: 'authRoutes FR-401: TOTP enabled but unregistered returns 503 (Phase 4)', run: testAuthRoutesUnregisteredTOTP503 },
+    { name: 'authRoutes FR-802: stage mismatch returns 400 (Phase 4)', run: testAuthRoutesStageMismatch },
+    { name: 'authRoutes COMBO-1: 2FA disabled returns JWT directly (Phase 4)', run: testAuthRoutesCombo1 },
+    { name: 'authRoutes localhostPasswordOnly: localhost bypass returns JWT (Phase 4)', run: testAuthRoutesLocalhostBypass },
+    { name: 'authRoutes TOTP verify success issues JWT (Phase 4)', run: testAuthRoutesTOTPVerifySuccess },
+    { name: 'authRoutes TOTP max attempts returns attemptsRemaining 0 (Phase 4)', run: testAuthRoutesTOTPMaxAttempts },
   ];
 
   let failures = 0;
@@ -220,9 +255,9 @@ function testSettingsRequiresSmtpPassword(): void {
     ...fixture.twoFactor!,
     enabled: false,
     smtp: {
-      ...fixture.twoFactor!.smtp,
+      ...fixture.twoFactor!.smtp!,
       auth: {
-        ...fixture.twoFactor!.smtp.auth,
+        ...fixture.twoFactor!.smtp!.auth,
         password: '',
       },
     },
@@ -646,6 +681,523 @@ function createConfigFixtureContent(): string {
     },
   },
 }`;
+}
+
+// ============================================================================
+// Phase 1 (Step 6): TOTP schema validation tests
+// ============================================================================
+
+function testTwoFactorSchemaTotp(): void {
+  // 정상: TOTP only (smtp 없음) — 2FA enabled should pass
+  const result = twoFactorSchema.safeParse({
+    enabled: true,
+    totp: { enabled: true },
+  });
+  assert.ok(result.success, `Expected TOTP-only to pass, got: ${!result.success && result.error?.issues[0]?.message}`);
+  assert.equal(result.data?.totp?.enabled, true);
+}
+
+function testTwoFactorSchemaNoMethodFails(): void {
+  // 예외: 2FA enabled, smtp 없음, totp.enabled=false → 거부
+  const result = twoFactorSchema.safeParse({
+    enabled: true,
+    totp: { enabled: false },
+  });
+  assert.ok(!result.success, 'Expected schema to reject 2FA with no valid method');
+  assert.ok(
+    result.error?.issues.some(i => i.message.includes('email+smtp or totp')),
+    `Expected error message about methods, got: ${result.error?.issues.map(i => i.message).join(', ')}`
+  );
+}
+
+function testTwoFactorSchemaEmailOnly(): void {
+  // 경계값: email+smtp 방식 (totp 없음) — 하위 호환
+  const result = twoFactorSchema.safeParse({
+    enabled: true,
+    email: 'admin@example.com',
+    smtp: {
+      host: 'smtp.example.com',
+      port: 587,
+      secure: false,
+      auth: { user: 'admin@example.com', password: 'secret' },
+    },
+  });
+  assert.ok(result.success, `Expected email+smtp to pass, got: ${!result.success && result.error?.issues[0]?.message}`);
+}
+
+function testTwoFactorSchemaDisabled(): void {
+  // 경계값: 2FA disabled, 아무 방식도 없어도 통과
+  const result = twoFactorSchema.safeParse({ enabled: false });
+  assert.ok(result.success, `Expected disabled 2FA to pass, got: ${!result.success && result.error?.issues[0]?.message}`);
+}
+
+function testAuthSchemaLocalhostDefault(): void {
+  // authSchema: localhostPasswordOnly 미포함 시 default=false
+  const result = authSchema.safeParse({
+    password: 'test',
+    durationMs: 1800000,
+    maxDurationMs: 86400000,
+    jwtSecret: '',
+  });
+  assert.ok(result.success, 'Expected auth schema to pass');
+  assert.equal(result.data?.localhostPasswordOnly, false, 'Expected default to be false');
+}
+
+// ============================================================================
+// Phase 2 (Step 6): TOTPService unit tests
+// initialize() tests use a tmp directory to avoid side effects (FR-201, FR-202, FR-204)
+// ============================================================================
+
+function makeTOTPServiceWithSecret(secret: string): TOTPService {
+  // Stub CryptoService — not needed for verifyTOTP tests
+  const stubCrypto = {} as import('./services/CryptoService.js').CryptoService;
+  const service = new TOTPService({ enabled: true, issuer: 'Test', accountName: 'test' }, stubCrypto);
+  // Directly inject secret via cast to bypass private access for testing
+  (service as unknown as { secret: string; registered: boolean }).secret = secret;
+  (service as unknown as { secret: string; registered: boolean }).registered = true;
+  return service;
+}
+
+function makeOTPData(overrides: Partial<import('./types/auth.types.js').OTPData> = {}): import('./types/auth.types.js').OTPData {
+  return {
+    otp: '',
+    email: 'test@example.com',
+    expiresAt: Date.now() + 300000,
+    attempts: 0,
+    stage: 'totp',
+    ...overrides,
+  };
+}
+
+function testTOTPServiceNotRegistered(): void {
+  const stubCrypto = {} as import('./services/CryptoService.js').CryptoService;
+  const service = new TOTPService({ enabled: true }, stubCrypto);
+  // Not initialized — registered=false, secret=null
+  const result = service.verifyTOTP('123456', makeOTPData());
+  assert.equal(result.valid, false, 'Unregistered service should reject all codes');
+}
+
+function testTOTPServiceMaxAttempts(): void {
+  const secret = generateSecret();
+  const service = makeTOTPServiceWithSecret(secret);
+  const code = generateSync({ secret });
+  // 3 attempts already used
+  const result = service.verifyTOTP(code, makeOTPData({ attempts: 3 }));
+  assert.equal(result.valid, false, 'Should reject after 3 attempts');
+}
+
+function testTOTPServiceValidCode(): void {
+  const secret = generateSecret();
+  const service = makeTOTPServiceWithSecret(secret);
+  const code = generateSync({ secret });
+  const result = service.verifyTOTP(code, makeOTPData({ attempts: 0 }));
+  assert.equal(result.valid, true, `Valid code should be accepted, got: ${result.valid}`);
+}
+
+function testTOTPServiceReplay(): void {
+  const secret = generateSecret();
+  const service = makeTOTPServiceWithSecret(secret);
+  const code = generateSync({ secret });
+
+  // First verification — sets the stage for the replay test
+  const result1 = service.verifyTOTP(code, makeOTPData({ attempts: 0 }));
+  assert.equal(result1.valid, true, 'First use should succeed');
+
+  // Simulate reply: use the same time step as lastUsedStep
+  const currentStep = Math.floor(Date.now() / 30000);
+  const result2 = service.verifyTOTP(code, makeOTPData({ attempts: 0, totpLastUsedStep: currentStep }));
+  assert.equal(result2.valid, false, 'Replay with same timeStep should be rejected (NFR-105)');
+}
+
+function testTOTPServiceRegistered(): void {
+  const stubCrypto = {} as import('./services/CryptoService.js').CryptoService;
+  const service = new TOTPService({ enabled: true }, stubCrypto);
+  assert.equal(service.isRegistered(), false, 'Should be unregistered before initialize()');
+  service.destroy();
+  assert.equal(service.isRegistered(), false, 'Should be unregistered after destroy()');
+}
+
+function testTOTPServiceAttemptsIncrement(): void {
+  const secret = generateSecret();
+  const service = makeTOTPServiceWithSecret(secret);
+  const otpData = makeOTPData({ attempts: 0 });
+  // Submit a wrong code
+  service.verifyTOTP('000000', otpData);
+  assert.equal(otpData.attempts, 1, 'attempts should be incremented after invalid code');
+  service.verifyTOTP('000000', otpData);
+  assert.equal(otpData.attempts, 2, 'attempts should be 2 after second invalid code');
+  // Third wrong attempt
+  service.verifyTOTP('000000', otpData);
+  assert.equal(otpData.attempts, 3, 'attempts should be 3 after third invalid code');
+  // Now should be blocked regardless of code validity
+  const validCode = generateSync({ secret });
+  const result = service.verifyTOTP(validCode, otpData);
+  assert.equal(result.valid, false, 'Should reject at max attempts even with valid code');
+  assert.equal(otpData.attempts, 3, 'attempts should not increment beyond max');
+}
+
+// ============================================================================
+// Phase 3: TwoFactorService refactored methods + AuthService.getLocalhostPasswordOnly
+// ============================================================================
+
+function makeTwoFactorService(): TwoFactorService {
+  const config: import('./types/config.types.js').TwoFactorConfig = {
+    enabled: true,
+    email: 'test@example.com',
+    otpLength: 6,
+    otpExpiryMs: 300000,
+    smtp: undefined,
+    totp: undefined,
+  };
+  return new TwoFactorService(config, {} as import('./services/CryptoService.js').CryptoService);
+}
+
+function testTwoFactorCreatePendingAuthSync(): void {
+  const svc = makeTwoFactorService();
+  const result = svc.createPendingAuth('email');
+  assert.ok(typeof result.tempToken === 'string', 'tempToken should be a string');
+  assert.ok(result.tempToken.length > 0, 'tempToken should be non-empty');
+  assert.ok(typeof result.otp === 'string', 'otp should be a string');
+  assert.ok(result.otp.length === 6, 'otp should be 6 digits');
+  svc.destroy();
+}
+
+function testTwoFactorGetOTPData(): void {
+  const svc = makeTwoFactorService();
+  const { tempToken } = svc.createPendingAuth('email');
+  const data = svc.getOTPData(tempToken);
+  assert.ok(data !== undefined, 'getOTPData should return stored data');
+  assert.equal(data!.stage, 'email', 'stage should be email');
+  assert.equal(data!.attempts, 0, 'attempts should start at 0');
+  svc.destroy();
+}
+
+function testTwoFactorInvalidate(): void {
+  const svc = makeTwoFactorService();
+  const { tempToken } = svc.createPendingAuth('email');
+  svc.invalidatePendingAuth(tempToken);
+  assert.equal(svc.getOTPData(tempToken), undefined, 'Data should be removed after invalidation');
+  svc.destroy();
+}
+
+function testTwoFactorUpdateStage(): void {
+  const svc = makeTwoFactorService();
+  const { tempToken } = svc.createPendingAuth('email');
+  svc.updateStage(tempToken, 'totp');
+  const data = svc.getOTPData(tempToken);
+  assert.equal(data!.stage, 'totp', 'Stage should be updated to totp');
+  svc.destroy();
+}
+
+function testTwoFactorHasEmailConfig(): void {
+  const svc = makeTwoFactorService();
+  // config.smtp is undefined → false
+  assert.equal(svc.hasEmailConfig(), false, 'hasEmailConfig should be false without smtp');
+  svc.destroy();
+}
+
+function testAuthLocalhostPasswordOnly(): void {
+  const crypto = new CryptoService('test-key-32-bytes-padded-here!!');
+  const service = new AuthService(
+    { password: 'test', durationMs: 1800000, maxDurationMs: 86400000, jwtSecret: 'secret' },
+    crypto
+  );
+  assert.equal(service.getLocalhostPasswordOnly(), false, 'Default should be false');
+  service.destroy();
+}
+
+// ---------------------------------------------------------------------------
+// initialize() tests — use a real CryptoService + tmp directory (FR-201~204)
+// We temporarily override process.cwd() via the SECRET_FILE_PATH constant by
+// monkey-patching the module's private constant indirectly through CryptoService.
+// Since SECRET_FILE_PATH = path.join(process.cwd(), 'data', 'totp.secret'),
+// we mock process.cwd() temporarily to redirect to a temp dir.
+// ---------------------------------------------------------------------------
+
+async function testTOTPInitializeGeneratesSecret(): Promise<void> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'totp-test-'));
+  const secretFile = path.join(tmpDir, 'totp.secret');
+  try {
+    const crypto = new CryptoService('test-key-32-bytes-padded-here!!');
+    const service = new TOTPService({ enabled: true, issuer: 'Test', accountName: 'test' }, crypto, secretFile);
+    service.initialize();
+    assert.ok(service.isRegistered(), 'Service should be registered after initialize()');
+    const exists = await fs.access(secretFile).then(() => true).catch(() => false);
+    assert.ok(exists, 'Secret file should be created on first start (FR-201)');
+    service.destroy();
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function testTOTPInitializeLoadsSecret(): Promise<void> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'totp-test-'));
+  const secretFile = path.join(tmpDir, 'totp.secret');
+  try {
+    const crypto = new CryptoService('test-key-32-bytes-padded-here!!');
+    // First init: generates and saves secret
+    const service1 = new TOTPService({ enabled: true }, crypto, secretFile);
+    service1.initialize();
+    service1.destroy();
+    // Second init: loads existing secret from same file (FR-202)
+    const service2 = new TOTPService({ enabled: true }, crypto, secretFile);
+    service2.initialize();
+    assert.ok(service2.isRegistered(), 'Service should load existing secret (FR-202)');
+    service2.destroy();
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function testTOTPInitializeThrowsOnCorrupted(): Promise<void> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'totp-test-'));
+  const secretFile = path.join(tmpDir, 'totp.secret');
+  try {
+    // Write an invalid (non-encrypted, non-BASE32) value directly
+    await fs.writeFile(secretFile, 'CORRUPTED_NOT_VALID_ENCRYPTED_DATA', 'utf-8');
+    const crypto = new CryptoService('test-key-32-bytes-padded-here!!');
+    const service = new TOTPService({ enabled: true }, crypto, secretFile);
+    assert.throws(
+      () => service.initialize(),
+      (err: unknown) => err instanceof Error,
+      'Should throw on corrupted secret file (FR-204)'
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
+// ============================================================================
+// Phase 4: authRoutes — 4 COMBO flows
+// Tests use a lightweight supertest-style helper via Express app
+// ============================================================================
+
+/** Build a minimal harness for authRoutes tests */
+async function invokeLogin(
+  accessors: Parameters<typeof createAuthRoutes>[0],
+  body: Record<string, unknown>,
+  ip = '192.168.1.1',
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const app = express();
+  app.use(express.json());
+  app.use('/api/auth', createAuthRoutes(accessors));
+  return new Promise((resolve, reject) => {
+    const server = http.createServer(app);
+    server.listen(0, () => {
+      const port = (server.address() as net.AddressInfo).port;
+      const postBody = JSON.stringify(body);
+      const options = {
+        hostname: '127.0.0.1', port, method: 'POST',
+        path: '/api/auth/login',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postBody),
+        },
+      };
+      const request = http.request(options, (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => {
+          server.close();
+          try {
+            const json = JSON.parse(Buffer.concat(chunks).toString()) as Record<string, unknown>;
+            resolve({ status: res.statusCode ?? 0, body: json });
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+      request.on('error', (e: Error) => { server.close(); reject(e); });
+      request.write(postBody);
+      request.end();
+    });
+  });
+}
+
+async function invokeVerify(
+  accessors: Parameters<typeof createAuthRoutes>[0],
+  body: Record<string, unknown>,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  return new Promise((resolve, reject) => {
+    const app = express();
+    app.use(express.json());
+    app.use('/api/auth', createAuthRoutes(accessors));
+    const server = http.createServer(app);
+    server.listen(0, () => {
+      const port = (server.address() as net.AddressInfo).port;
+      const postBody = JSON.stringify(body);
+      const options = {
+        hostname: '127.0.0.1', port, method: 'POST',
+        path: '/api/auth/verify',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postBody),
+        },
+      };
+      const request = http.request(options, (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => {
+          server.close();
+          try {
+            const json = JSON.parse(Buffer.concat(chunks).toString()) as Record<string, unknown>;
+            resolve({ status: res.statusCode ?? 0, body: json });
+          } catch (e) { reject(e); }
+        });
+      });
+      request.on('error', (e: Error) => { server.close(); reject(e); });
+      request.write(postBody);
+      request.end();
+    });
+  });
+}
+
+function makeAuthHarness(opts: {
+  withTotp?: boolean;
+  totpRegistered?: boolean;
+  withEmail?: boolean;
+  localhostPasswordOnly?: boolean;
+}) {
+  const cryptoService = new CryptoService('phase4-test-key-32-bytes-padded!!');
+  const authService = new AuthService(
+    {
+      password: 'test-password',
+      durationMs: 1800000,
+      maxDurationMs: 86400000,
+      jwtSecret: 'test-jwt-secret',
+      localhostPasswordOnly: opts.localhostPasswordOnly ?? false,
+    },
+    cryptoService,
+  );
+
+  let twoFactorService: TwoFactorService | undefined;
+  let totpService: TOTPService | undefined;
+
+  const twoFactorConfig: import('./types/config.types.js').TwoFactorConfig = {
+    enabled: true,
+    email: opts.withEmail ? 'admin@example.com' : undefined,
+    otpLength: 6,
+    otpExpiryMs: 300000,
+    smtp: opts.withEmail ? {
+      host: 'smtp.example.com', port: 587, secure: false,
+      auth: { user: 'u', password: 'p' },
+      tls: { rejectUnauthorized: true, minVersion: 'TLSv1.2' },
+    } : undefined,
+    totp: opts.withTotp ? { enabled: true, issuer: 'Test', accountName: 'test' } : undefined,
+  };
+  twoFactorService = new TwoFactorService(twoFactorConfig, cryptoService);
+
+  if (opts.withTotp) {
+    totpService = new TOTPService({ enabled: true, issuer: 'Test', accountName: 'test' }, cryptoService);
+    if (opts.totpRegistered) {
+      const secret = generateSecret();
+      (totpService as unknown as { secret: string; registered: boolean }).secret = secret;
+      (totpService as unknown as { secret: string; registered: boolean }).registered = true;
+    }
+  }
+
+  const accessors = {
+    getAuthService: () => authService,
+    getTwoFactorService: () => twoFactorService,
+    getTOTPService: () => totpService,
+  };
+
+  return { authService, twoFactorService, totpService, accessors, cryptoService };
+}
+
+async function testAuthRoutesCombo3Login(): Promise<void> {
+  // COMBO-3: TOTP only (no email), registered
+  const { accessors, authService } = makeAuthHarness({ withTotp: true, totpRegistered: true, withEmail: false });
+  const result = await invokeLogin(accessors, { password: 'test-password' });
+  authService.destroy();
+  assert.equal(result.status, 202, `Expected 202, got ${result.status}`);
+  assert.equal(result.body.success, true, 'success should be true');
+  assert.equal(result.body.requires2FA, true, 'requires2FA should be true');
+  assert.equal(result.body.nextStage, 'totp', 'nextStage should be totp (COMBO-3)');
+  assert.ok(typeof result.body.tempToken === 'string', 'tempToken should be present');
+}
+
+async function testAuthRoutesUnregisteredTOTP503(): Promise<void> {
+  // FR-401: TOTP enabled but not registered → 503
+  const { accessors, authService } = makeAuthHarness({ withTotp: true, totpRegistered: false, withEmail: false });
+  const result = await invokeLogin(accessors, { password: 'test-password' });
+  authService.destroy();
+  assert.equal(result.status, 503, `Expected 503, got ${result.status}`);
+  assert.equal(result.body.success, false, 'success should be false');
+}
+
+async function testAuthRoutesStageMismatch(): Promise<void> {
+  // FR-802: stage mismatch → 400
+  const { accessors, twoFactorService, authService } = makeAuthHarness({ withTotp: true, totpRegistered: true });
+  // Create a pending auth with 'totp' stage
+  const { tempToken } = twoFactorService!.createPendingAuth('totp');
+  // Try to verify with stage: 'email' (mismatch)
+  const result = await invokeVerify(accessors, { tempToken, otpCode: '123456', stage: 'email' });
+  authService.destroy();
+  assert.equal(result.status, 400, `Expected 400, got ${result.status}`);
+}
+
+async function testAuthRoutesCombo1(): Promise<void> {
+  // COMBO-1: 2FA disabled → direct JWT
+  const cryptoService = new CryptoService('phase4-test-key-32-bytes-padded!!');
+  const authService = new AuthService(
+    { password: 'test-password', durationMs: 1800000, maxDurationMs: 86400000, jwtSecret: 'secret' },
+    cryptoService,
+  );
+  const accessors = {
+    getAuthService: () => authService,
+    getTwoFactorService: () => undefined,
+    getTOTPService: () => undefined,
+  };
+  const result = await invokeLogin(accessors, { password: 'test-password' });
+  authService.destroy();
+  assert.equal(result.status, 200, `Expected 200, got ${result.status}`);
+  assert.equal(result.body.success, true, 'success should be true');
+  assert.ok(typeof result.body.token === 'string', 'token should be present for COMBO-1');
+}
+
+async function testAuthRoutesLocalhostBypass(): Promise<void> {
+  // FR-602: localhostPasswordOnly — but note: req.ip in our test will be ::1 or 127.0.0.1
+  // We configure localhostPasswordOnly=true, and the request comes from 127.0.0.1 (loopback)
+  const { accessors, authService } = makeAuthHarness({
+    withTotp: true, totpRegistered: true, withEmail: false, localhostPasswordOnly: true
+  });
+  // Our HTTP helper connects to 127.0.0.1 which Express sees as ::1 or ::ffff:127.0.0.1
+  const result = await invokeLogin(accessors, { password: 'test-password' });
+  authService.destroy();
+  // Localhost bypass → direct JWT (200), no 2FA challenge
+  assert.equal(result.status, 200, `Expected 200 (localhost bypass), got ${result.status}`);
+  assert.ok(typeof result.body.token === 'string', 'token should be present for localhost bypass');
+}
+
+async function testAuthRoutesTOTPVerifySuccess(): Promise<void> {
+  // COMBO-3 verify: valid TOTP code → JWT
+  const { accessors, twoFactorService, totpService, authService } = makeAuthHarness({
+    withTotp: true, totpRegistered: true, withEmail: false
+  });
+  const secret = (totpService as unknown as { secret: string }).secret;
+  const { tempToken } = twoFactorService!.createPendingAuth('totp');
+  const validCode = generateSync({ secret });
+  const result = await invokeVerify(accessors, { tempToken, otpCode: validCode, stage: 'totp' });
+  authService.destroy();
+  assert.equal(result.status, 200, `Expected 200, got ${result.status}: ${JSON.stringify(result.body)}`);
+  assert.ok(typeof result.body.token === 'string', 'token should be issued after TOTP success');
+}
+
+async function testAuthRoutesTOTPMaxAttempts(): Promise<void> {
+  // NFR-104: 3 failed TOTP attempts → 401 with attemptsRemaining 0
+  const { accessors, twoFactorService, authService } = makeAuthHarness({
+    withTotp: true, totpRegistered: true, withEmail: false
+  });
+  const { tempToken } = twoFactorService!.createPendingAuth('totp');
+  // 3 wrong attempts
+  let lastResult = { status: 0, body: {} as Record<string, unknown> };
+  for (let i = 0; i < 3; i++) {
+    lastResult = await invokeVerify(accessors, { tempToken, otpCode: '000000', stage: 'totp' });
+  }
+  authService.destroy();
+  assert.equal(lastResult.status, 401, `Expected 401 after 3 attempts, got ${lastResult.status}`);
+  assert.equal(lastResult.body.attemptsRemaining, 0, 'attemptsRemaining should be 0');
 }
 
 void main();

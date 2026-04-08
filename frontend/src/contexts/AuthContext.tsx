@@ -36,6 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     requires2FA: false,
     tempToken: null,
     maskedEmail: null,
+    nextStage: null,
+    emailFallback: false,
     expiresAt: null
   });
 
@@ -66,6 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         requires2FA: false,
         tempToken: null,
         maskedEmail: null,
+        nextStage: null,
+        emailFallback: false,
         expiresAt: null
       });
     };
@@ -86,7 +90,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isLoading: false,
           requires2FA: true,
           tempToken: response.tempToken || null,
-          maskedEmail: response.maskedEmail || null
+          maskedEmail: response.maskedEmail || null,
+          nextStage: response.nextStage || null,
+          emailFallback: response.emailFallback ?? false
         }));
         return false;
       }
@@ -120,7 +126,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState(s => ({ ...s, isLoading: true, error: null }));
 
     try {
-      const response = await authApi.verify(state.tempToken, otpCode);
+      const response = await authApi.verify(state.tempToken, otpCode, state.nextStage ?? undefined);
+
+      // FR-803: COMBO-4 intermediate — email OTP passed, TOTP still pending
+      if (response.nextStage && !response.token) {
+        setState(s => ({
+          ...s,
+          isLoading: false,
+          nextStage: response.nextStage!,
+          tempToken: response.tempToken ?? s.tempToken,
+          maskedEmail: null
+        }));
+        return false;
+      }
 
       if (response.token && response.expiresIn) {
         tokenStorage.setToken(response.token, response.expiresIn);
@@ -131,6 +149,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           requires2FA: false,
           tempToken: null,
           maskedEmail: null,
+          nextStage: null,
+          emailFallback: false,
           expiresAt: Date.now() + response.expiresIn!
         }));
         return true;
@@ -142,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState(s => ({ ...s, isLoading: false, error: message }));
       return false;
     }
-  }, [state.tempToken]);
+  }, [state.tempToken, state.nextStage]);
 
   // Logout handler
   const logout = useCallback(async (): Promise<void> => {
@@ -159,6 +179,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       requires2FA: false,
       tempToken: null,
       maskedEmail: null,
+      nextStage: null,
+      emailFallback: false,
       expiresAt: null
     });
   }, []);
