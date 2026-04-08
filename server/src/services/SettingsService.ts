@@ -33,12 +33,10 @@ const patchSchema: z.ZodType<SettingsPatchRequest> = z.object({
     durationMs: z.number().min(60000).max(86400000).optional(),
   }).strict().optional(),
   twoFactor: z.object({
+    enabled: z.boolean().optional(),
     externalOnly: z.boolean().optional(),
-    totp: z.object({
-      enabled: z.boolean().optional(),
-      issuer: z.string().optional(),
-      accountName: z.string().optional(),
-    }).strict().optional(),
+    issuer: z.string().optional(),
+    accountName: z.string().optional(),
   }).strict().optional(),
   security: z.object({
     cors: z.object({
@@ -209,9 +207,9 @@ function extractChangedKeys(patch: SettingsPatchRequest): EditableSettingsKey[] 
   if (patch.auth?.durationMs !== undefined) changed.add('auth.durationMs');
   if (patch.auth?.newPassword) changed.add('auth.password');
   if (patch.twoFactor?.externalOnly !== undefined) changed.add('twoFactor.externalOnly');
-  if (patch.twoFactor?.totp?.enabled !== undefined) changed.add('twoFactor.totp.enabled');
-  if (patch.twoFactor?.totp?.issuer !== undefined) changed.add('twoFactor.totp.issuer');
-  if (patch.twoFactor?.totp?.accountName !== undefined) changed.add('twoFactor.totp.accountName');
+  if (patch.twoFactor?.enabled !== undefined) changed.add('twoFactor.enabled');
+  if (patch.twoFactor?.issuer !== undefined) changed.add('twoFactor.issuer');
+  if (patch.twoFactor?.accountName !== undefined) changed.add('twoFactor.accountName');
   if (patch.security?.cors?.allowedOrigins !== undefined) changed.add('security.cors.allowedOrigins');
   if (patch.security?.cors?.credentials !== undefined) changed.add('security.cors.credentials');
   if (patch.security?.cors?.maxAge !== undefined) changed.add('security.cors.maxAge');

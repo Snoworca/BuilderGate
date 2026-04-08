@@ -6,7 +6,7 @@ import type {
   FieldCapability,
   SettingsPatchRequest,
 } from '../types/settings.types.js';
-import { authSchema, corsSchema, fileManagerSchema, ptySchema, sessionSchema, totpSchema, twoFactorSchema } from '../schemas/config.schema.js';
+import { authSchema, corsSchema, fileManagerSchema, ptySchema, sessionSchema, twoFactorSchema } from '../schemas/config.schema.js';
 import { config as globalConfig } from '../utils/config.js';
 
 const EXCLUDED_SECTIONS = [
@@ -23,9 +23,9 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
   'auth.password': { applyScope: 'new_logins', writeOnly: true },
   'auth.durationMs': { applyScope: 'new_logins', writeOnly: false },
   'twoFactor.externalOnly': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.totp.enabled': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.totp.issuer': { applyScope: 'new_logins', writeOnly: false },
-  'twoFactor.totp.accountName': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.enabled': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.issuer': { applyScope: 'new_logins', writeOnly: false },
+  'twoFactor.accountName': { applyScope: 'new_logins', writeOnly: false },
   'security.cors.allowedOrigins': { applyScope: 'immediate', writeOnly: false },
   'security.cors.credentials': { applyScope: 'immediate', writeOnly: false },
   'security.cors.maxAge': { applyScope: 'immediate', writeOnly: false },
@@ -89,14 +89,14 @@ export class RuntimeConfigStore {
     if (patch.twoFactor?.externalOnly !== undefined) {
       next.twoFactor.externalOnly = patch.twoFactor.externalOnly;
     }
-    if (patch.twoFactor?.totp?.enabled !== undefined) {
-      next.twoFactor.totp.enabled = patch.twoFactor.totp.enabled;
+    if (patch.twoFactor?.enabled !== undefined) {
+      next.twoFactor.enabled = patch.twoFactor.enabled;
     }
-    if (patch.twoFactor?.totp?.issuer !== undefined) {
-      next.twoFactor.totp.issuer = patch.twoFactor.totp.issuer;
+    if (patch.twoFactor?.issuer !== undefined) {
+      next.twoFactor.issuer = patch.twoFactor.issuer;
     }
-    if (patch.twoFactor?.totp?.accountName !== undefined) {
-      next.twoFactor.totp.accountName = patch.twoFactor.totp.accountName;
+    if (patch.twoFactor?.accountName !== undefined) {
+      next.twoFactor.accountName = patch.twoFactor.accountName;
     }
 
     if (patch.security?.cors?.allowedOrigins !== undefined) {
@@ -169,7 +169,6 @@ function buildEditableValues(source: Config): EditableSettingsValues {
   const ptyDefaults = ptySchema.parse({});
   const sessionDefaults = sessionSchema.parse({});
   const twoFactorDefaults = twoFactorSchema.parse({});
-  const totpDefaults = totpSchema.parse({});
   const corsDefaults = corsSchema.parse({});
   const fileManagerDefaults = fileManagerSchema.parse({});
 
@@ -178,12 +177,10 @@ function buildEditableValues(source: Config): EditableSettingsValues {
       durationMs: source.auth?.durationMs ?? authDefaults.durationMs,
     },
     twoFactor: {
+      enabled: source.twoFactor?.enabled ?? twoFactorDefaults.enabled,
       externalOnly: source.twoFactor?.externalOnly ?? twoFactorDefaults.externalOnly,
-      totp: {
-        enabled: source.twoFactor?.totp?.enabled ?? totpDefaults.enabled,
-        issuer: source.twoFactor?.totp?.issuer ?? totpDefaults.issuer,
-        accountName: source.twoFactor?.totp?.accountName ?? totpDefaults.accountName,
-      },
+      issuer: source.twoFactor?.issuer ?? twoFactorDefaults.issuer,
+      accountName: source.twoFactor?.accountName ?? twoFactorDefaults.accountName,
     },
     security: {
       cors: {

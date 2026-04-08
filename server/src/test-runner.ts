@@ -469,7 +469,10 @@ function createConfigFixture(): Config {
       cwdCacheTtlMs: 1000,
     },
     twoFactor: {
+      enabled: false,
       externalOnly: false,
+      issuer: 'BuilderGate',
+      accountName: 'admin',
     },
   };
 }
@@ -551,12 +554,10 @@ function createConfigFixtureContent(): string {
     cwdCacheTtlMs: 1000,
   },
   twoFactor: {
+    enabled: false,
     externalOnly: false,
-    totp: {
-      enabled: false,
-      issuer: "BuilderGate",
-      accountName: "admin",
-    },
+    issuer: "BuilderGate",
+    accountName: "admin",
   },
 }`;
 }
@@ -566,13 +567,13 @@ function createConfigFixtureContent(): string {
 // ============================================================================
 
 function testTwoFactorSchemaTotp(): void {
-  // 정상: TOTP only (smtp 없음) — totp.enabled=true should pass
+  // 정상: TOTP only (smtp 없음) — enabled=true should pass
   const result = twoFactorSchema.safeParse({
     externalOnly: false,
-    totp: { enabled: true },
+    enabled: true,
   });
   assert.ok(result.success, `Expected TOTP-only to pass, got: ${!result.success && result.error?.issues[0]?.message}`);
-  assert.equal(result.data?.totp?.enabled, true);
+  assert.equal(result.data?.enabled, true);
 }
 
 function testTwoFactorSchemaDisabled(): void {

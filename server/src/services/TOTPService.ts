@@ -22,7 +22,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 import type { CryptoService } from './CryptoService.js';
-import type { TOTPConfig } from '../types/config.types.js';
+import type { TwoFactorConfig } from '../types/config.types.js';
 import type { OTPData } from '../types/auth.types.js';
 
 const DEFAULT_SECRET_FILE_PATH = path.join(process.cwd(), 'data', 'totp.secret');
@@ -40,7 +40,7 @@ export class TOTPService {
   // 이유: tempToken마다 별도 추적 필요, TOTPService 멤버로 관리 시 단일 세션만 지원
 
   constructor(
-    private readonly config: TOTPConfig,
+    private readonly config: Pick<TwoFactorConfig, 'enabled' | 'issuer' | 'accountName'>,
     private readonly cryptoService: CryptoService,
     private readonly secretFilePath: string = DEFAULT_SECRET_FILE_PATH
   ) {}

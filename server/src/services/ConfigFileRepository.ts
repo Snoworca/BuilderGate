@@ -85,10 +85,10 @@ function applyEditableValues(
   secrets: SecretPatch,
 ): Record<string, unknown> {
   setPath(rawConfig, ['auth', 'durationMs'], values.auth.durationMs);
+  setPath(rawConfig, ['twoFactor', 'enabled'], values.twoFactor.enabled);
   setPath(rawConfig, ['twoFactor', 'externalOnly'], values.twoFactor.externalOnly);
-  setPath(rawConfig, ['twoFactor', 'totp', 'enabled'], values.twoFactor.totp.enabled);
-  setPath(rawConfig, ['twoFactor', 'totp', 'issuer'], values.twoFactor.totp.issuer);
-  setPath(rawConfig, ['twoFactor', 'totp', 'accountName'], values.twoFactor.totp.accountName);
+  setPath(rawConfig, ['twoFactor', 'issuer'], values.twoFactor.issuer);
+  setPath(rawConfig, ['twoFactor', 'accountName'], values.twoFactor.accountName);
   setPath(rawConfig, ['security', 'cors', 'allowedOrigins'], values.security.cors.allowedOrigins);
   setPath(rawConfig, ['security', 'cors', 'credentials'], values.security.cors.credentials);
   setPath(rawConfig, ['security', 'cors', 'maxAge'], values.security.cors.maxAge);
@@ -127,10 +127,10 @@ function setPath(target: Record<string, unknown>, path: string[], value: unknown
 function renderPatchedConfig(content: string, config: Config, secrets: SecretPatch): string {
   const replacements = new Map<string, string>([
     ['auth.durationMs', renderJson5Value(config.auth?.durationMs ?? 1800000)],
+    ['twoFactor.enabled', renderJson5Value(config.twoFactor?.enabled ?? false)],
     ['twoFactor.externalOnly', renderJson5Value(config.twoFactor?.externalOnly ?? false)],
-    ['twoFactor.totp.enabled', renderJson5Value(config.twoFactor?.totp?.enabled ?? false)],
-    ['twoFactor.totp.issuer', renderJson5Value(config.twoFactor?.totp?.issuer ?? 'BuilderGate')],
-    ['twoFactor.totp.accountName', renderJson5Value(config.twoFactor?.totp?.accountName ?? 'admin')],
+    ['twoFactor.issuer', renderJson5Value(config.twoFactor?.issuer ?? 'BuilderGate')],
+    ['twoFactor.accountName', renderJson5Value(config.twoFactor?.accountName ?? 'admin')],
     ['security.cors.allowedOrigins', renderJson5Value(config.security?.cors.allowedOrigins ?? [])],
     ['security.cors.credentials', renderJson5Value(config.security?.cors.credentials ?? true)],
     ['security.cors.maxAge', renderJson5Value(config.security?.cors.maxAge ?? 86400)],

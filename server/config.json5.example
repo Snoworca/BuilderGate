@@ -97,14 +97,11 @@
 
   // Two-Factor Authentication settings
   twoFactor: {
+    // Google Authenticator / TOTP 설정
+    // enabled: true 로 변경 후 서버 재시작 → QR 코드 출력
+    enabled: false,               // true: TOTP 활성화
     externalOnly: false,          // true: localhost 접속 시 2FA 건너뜀 (비밀번호는 여전히 필요)
-
-    totp: {
-      // Google Authenticator / TOTP 설정
-      // enabled: true 로 변경 후 서버 재시작 → QR 코드 출력
-      enabled: false,             // true: TOTP 활성화
-      issuer: "BuilderGate",
-      accountName: "admin"
-    },
+    issuer: "BuilderGate",
+    accountName: "admin",
   },
 }

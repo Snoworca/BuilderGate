@@ -41,7 +41,10 @@ function createConfigFixture(): Config {
       cwdCacheTtlMs: 1000,
     },
     twoFactor: {
+      enabled: false,
       externalOnly: false,
+      issuer: 'BuilderGate',
+      accountName: 'admin',
     },
   };
 }

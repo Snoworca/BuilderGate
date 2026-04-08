@@ -229,8 +229,8 @@ async function startServer(): Promise<void> {
     // ========================================================================
     // Initialize TOTP Service (Step 6 — FR-102)
     // ========================================================================
-    if (config.twoFactor?.totp?.enabled) {
-      totpService = new TOTPService(config.twoFactor.totp, cryptoService);
+    if (config.twoFactor?.enabled) {
+      totpService = new TOTPService(config.twoFactor, cryptoService);
       try {
         totpService.initialize();
       } catch (err) {
@@ -348,7 +348,7 @@ async function startServer(): Promise<void> {
     // Start HTTPS server
     httpsServer.listen(PORT, () => {
       const twoFAStatus = (() => {
-        const totpEnabled = config.twoFactor?.totp?.enabled ?? false;
+        const totpEnabled = config.twoFactor?.enabled ?? false;
         if (!totpEnabled) return 'Disabled';
         const ext = config.twoFactor?.externalOnly ? ' [externalOnly]' : '';
         return `TOTP${ext}`;

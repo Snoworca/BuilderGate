@@ -74,15 +74,11 @@ export const sessionSchema = z.object({
 // Two-Factor Authentication Schema (Phase 3)
 // ============================================================================
 
-export const totpSchema = z.object({
+export const twoFactorSchema = z.object({
   enabled: z.boolean().default(false),
+  externalOnly: z.boolean().default(false),
   issuer: z.string().default('BuilderGate'),
   accountName: z.string().default('admin'),
-});
-
-export const twoFactorSchema = z.object({
-  externalOnly: z.boolean().default(false),
-  totp: totpSchema.optional(),
 });
 
 // ============================================================================

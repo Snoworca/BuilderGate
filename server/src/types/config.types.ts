@@ -96,15 +96,11 @@ export interface SessionConfig {
 // Two-Factor Authentication Configuration
 // ============================================================================
 
-export interface TOTPConfig {
+export interface TwoFactorConfig {
   enabled: boolean;
+  externalOnly: boolean;
   issuer?: string;
   accountName?: string;
-}
-
-export interface TwoFactorConfig {
-  externalOnly: boolean;
-  totp?: TOTPConfig;
 }
 
 // ============================================================================
