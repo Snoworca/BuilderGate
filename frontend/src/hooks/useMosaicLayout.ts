@@ -117,7 +117,7 @@ export function useMosaicLayout(workspaceId: string, currentTabIds?: string[]): 
     debounceTimerRef.current = setTimeout(() => {
       debounceTimerRef.current = null;
       saveLayout(workspaceId, mosaicTreeRef.current, layoutModeRef.current, focusTargetRef.current);
-    }, 1000);
+    }, 2000);
   }, [workspaceId]);
 
   // beforeunload: cancel debounce + save immediately
@@ -138,9 +138,11 @@ export function useMosaicLayout(workspaceId: string, currentTabIds?: string[]): 
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
       }
+      saveLayout(workspaceId, mosaicTreeRef.current, layoutModeRef.current, focusTargetRef.current);
     };
-  }, []);
+  }, [workspaceId]);
 
   return {
     mosaicTree,

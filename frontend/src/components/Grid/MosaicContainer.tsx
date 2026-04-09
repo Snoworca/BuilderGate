@@ -59,8 +59,15 @@ export function MosaicContainer({
   onLayoutChange,
 }: MosaicContainerProps) {
   const currentTabIds = tabs.map(t => t.id);
-  const { mosaicTree, setMosaicTree, debouncedSave, layoutMode: persistedMode, focusTarget: persistedFocusTarget } =
-    useMosaicLayout(workspaceId, currentTabIds);
+  const {
+    mosaicTree,
+    setMosaicTree,
+    debouncedSave,
+    layoutMode: persistedMode,
+    focusTarget: persistedFocusTarget,
+    setLayoutMode: persistLayoutMode,
+    setFocusTarget: persistFocusTarget,
+  } = useMosaicLayout(workspaceId, currentTabIds);
 
   // localStorage에서 auto 모드 가중치 비율 읽기
   const getAutoRatio = useCallback(() => {
@@ -85,6 +92,11 @@ export function MosaicContainer({
     persistedFocusTarget,
   );
 
+  // 워크스페이스 전환 시 persistedMode가 변경되면 UI mode도 동기화
+  useEffect(() => {
+    setMode(persistedMode, persistedFocusTarget ?? undefined);
+  }, [persistedMode, persistedFocusTarget]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const contextMenu = useContextMenu();
   const focusHistory = useFocusHistory();
 
@@ -102,8 +114,13 @@ export function MosaicContainer({
   const tabMap = useMemo(() => new Map(tabs.map(t => [t.id, t])), [tabs]);
 
   // Rebuild tree when tab list length changes
+  // prevTabCountRef는 workspaceId 기준으로 초기화 — 워크스페이스 전환은 탭 수 변경으로 취급하지 않음
   const prevTabCountRef = useRef(tabs.length);
+  const prevWorkspaceIdRef = useRef(workspaceId);
   useEffect(() => {
+    const isWorkspaceSwitch = prevWorkspaceIdRef.current !== workspaceId;
+    prevWorkspaceIdRef.current = workspaceId;
+
     const prevCount = prevTabCountRef.current;
     prevTabCountRef.current = tabs.length;
 
@@ -112,12 +129,18 @@ export function MosaicContainer({
       return;
     }
 
-    // If count changed, rebuild equal tree with current tab ids
+    // 워크스페이스 전환 시에는 mode 리셋 없이 트리만 복원 (useMosaicLayout이 담당)
+    if (isWorkspaceSwitch) return;
+
+    // 동일 워크스페이스 내 탭 추가/삭제 시에만 equal 모드로 리셋
     if (prevCount !== tabs.length) {
       const ids = tabs.map(t => t.id);
       setMosaicTree(buildEqualMosaicTree(ids));
+      setMode('equal');           // UI 모드도 equal로 동기화
+      persistLayoutMode('equal'); // 저장 state도 동기화
+      persistFocusTarget(null);
     }
-  }, [tabs.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tabs.length, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto mode: re-apply tree when tab statuses change (3s delay)
   const tabStatusKey = tabs.map(t => `${t.id}:${t.status}`).join(',');
@@ -191,6 +214,9 @@ export function MosaicContainer({
   const handleLayoutModeChange = useCallback(
     (mode: typeof layoutMode, focusTabId?: string) => {
       setMode(mode, focusTabId);
+      // useMosaicLayout의 state도 동기화하여 debouncedSave가 올바른 값 저장
+      persistLayoutMode(mode);
+      persistFocusTarget(mode === 'focus' ? (focusTabId ?? null) : null);
       // Apply immediately to tree
       if (mosaicTree) {
         const minPct = getMinPercentage(tabs.length);
@@ -216,7 +242,7 @@ export function MosaicContainer({
         });
       });
     },
-    [setMode, mosaicTree, tabs, setMosaicTree, debouncedSave, onLayoutChange],
+    [setMode, persistLayoutMode, persistFocusTarget, mosaicTree, tabs, setMosaicTree, debouncedSave, onLayoutChange],
   );
 
   // Clipboard: copy selected text from terminal (reads from clipboard after xterm writes it)
