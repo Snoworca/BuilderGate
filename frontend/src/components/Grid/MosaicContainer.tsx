@@ -22,6 +22,7 @@ import {
   FOCUS_RATIO_DEFAULT,
   buildEqualMosaicTree,
   clampSplitPercentages,
+  extractLeafIds,
   getMinPercentage,
   removeFromMosaicTree,
 } from '../../utils/mosaic';
@@ -100,6 +101,18 @@ export function MosaicContainer({
   const contextMenu = useContextMenu();
   const focusHistory = useFocusHistory();
 
+  // 방어 레이어: mosaicTree leaf 중 tabMap에 없는 stale ID가 있으면 즉시 재빌드.
+  // useMosaicLayout의 currentTabIds stale 클로저 버그가 edge case로 발동하더라도
+  // 여기서 EmptyCell 범람(+ 버튼 화면)을 막는 이중 안전망.
+  useEffect(() => {
+    if (!mosaicTree || currentTabIds.length === 0) return;
+    const leafIds = extractLeafIds(mosaicTree);
+    const hasStale = leafIds.some(id => !tabMap.has(id));
+    if (hasStale) {
+      setMosaicTree(buildEqualMosaicTree(currentTabIds));
+    }
+  }, [mosaicTree, tabMap]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Pending close tab confirmation
   const [pendingCloseTabId, setPendingCloseTabId] = useState<string | null>(null);
 
@@ -124,13 +137,15 @@ export function MosaicContainer({
     const prevCount = prevTabCountRef.current;
     prevTabCountRef.current = tabs.length;
 
+    // 워크스페이스 전환 시에는 useMosaicLayout이 트리 복원을 담당
+    // tabs.length === 0 포함 모든 케이스를 skip — 전환 직후 탭 로딩 전 순간에
+    // setMosaicTree(null)이 호출되어 흰 화면(EmptyCell)이 노출되는 버그 방지
+    if (isWorkspaceSwitch) return;
+
     if (tabs.length === 0) {
       setMosaicTree(null);
       return;
     }
-
-    // 워크스페이스 전환 시에는 mode 리셋 없이 트리만 복원 (useMosaicLayout이 담당)
-    if (isWorkspaceSwitch) return;
 
     // 동일 워크스페이스 내 탭 추가/삭제 시에만 equal 모드로 리셋
     if (prevCount !== tabs.length) {

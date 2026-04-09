@@ -34,11 +34,12 @@ export function EmptyCell({ onAdd, availableShells }: Props) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        width: '100%',
+        height: '100%',
         backgroundColor: '#1a1a1a',
         border: '1px dashed #333',
         cursor: 'pointer',
-        minWidth: '120px',
-        minHeight: '80px',
+        boxSizing: 'border-box',
       }}
     >
       <span style={{ fontSize: '24px', color: '#555' }}>+</span>

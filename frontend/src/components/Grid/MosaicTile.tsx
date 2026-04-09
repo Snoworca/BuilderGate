@@ -1,5 +1,4 @@
 import { useCallback, useRef } from 'react';
-import { EmptyCell } from './EmptyCell';
 import { DisconnectedOverlay } from '../Workspace/DisconnectedOverlay';
 import { MetadataRow } from '../MetadataBar/MetadataRow';
 import { useLongPress } from '../../hooks/useLongPress';
@@ -69,7 +68,24 @@ export function MosaicTile({
   }, [onFocus]);
 
   if (!tab) {
-    return <EmptyCell onAdd={onAdd} availableShells={availableShells} />;
+    // mosaicTree의 leaf ID가 tabMap에 아직 없는 과도기 상태.
+    // EmptyCell(onAdd 호출)을 렌더하면 클릭 시 원치 않는 새 탭이 실제로 생성되므로
+    // 클릭 불가능한 중립 placeholder를 렌더한다.
+    // useMosaicLayout 혹은 MosaicContainer의 stale tabId 방어 useEffect가
+    // 다음 틱에 mosaicTree를 올바르게 재빌드한다.
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'var(--terminal-bg, #1e1e1e)',
+          boxSizing: 'border-box',
+        }}
+      />
+    );
   }
 
   const isDisconnected = tab.status === 'disconnected';

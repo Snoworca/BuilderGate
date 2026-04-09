@@ -87,7 +87,12 @@ export function useMosaicLayout(workspaceId: string, currentTabIds?: string[]): 
   layoutModeRef.current = layoutMode;
   focusTargetRef.current = focusTarget;
 
-  // Re-load when workspaceId changes
+  // Re-load when workspaceId changes OR when currentTabIds content changes.
+  // currentTabIds는 매 렌더마다 새 배열 참조이므로 내용 기반 비교를 위해 join 직렬화 사용.
+  // currentTabIds가 stale 클로저로 캡처되면 restoreLayoutWithSessionRecovery에 잘못된
+  // tabId가 전달되어 mosaicTree leaf가 tabMap에 없는 tabId를 갖게 되고,
+  // MosaicTile이 tab=undefined → EmptyCell(+ 버튼 범람)을 렌더하는 버그 방지.
+  const currentTabIdsKey = currentTabIds?.join(',') ?? '';
   useEffect(() => {
     const persisted = loadLayout(workspaceId);
     if (persisted?.tree) {
@@ -95,7 +100,9 @@ export function useMosaicLayout(workspaceId: string, currentTabIds?: string[]): 
         const { tree } = restoreLayoutWithSessionRecovery(persisted.tree, currentTabIds);
         setMosaicTree(tree);
       } else {
-        setMosaicTree(persisted.tree);
+        // currentTabIds가 비어있어도 검증 없이 raw tree를 쓰지 않는다.
+        // 탭이 아직 로딩 중인 과도기이므로 null로 대기.
+        setMosaicTree(null);
       }
       setLayoutMode(persisted.mode ?? 'equal');
       setFocusTarget(persisted.focusTarget ?? null);
@@ -108,7 +115,7 @@ export function useMosaicLayout(workspaceId: string, currentTabIds?: string[]): 
       setLayoutMode('equal');
       setFocusTarget(null);
     }
-  }, [workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [workspaceId, currentTabIdsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const debouncedSave = useCallback(() => {
     if (debounceTimerRef.current) {
