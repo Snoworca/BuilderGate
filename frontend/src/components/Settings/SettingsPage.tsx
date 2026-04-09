@@ -9,6 +9,7 @@ import type {
   SettingsSnapshot,
 } from '../../types';
 import { settingsApi } from '../../services/api';
+import { tokenStorage } from '../../services/tokenStorage';
 import { ConfirmModal } from '../Modal';
 import { AUTO_FOCUS_RATIO_KEY, AUTO_FOCUS_RATIO_DEFAULT, FOCUS_RATIO_KEY, FOCUS_RATIO_DEFAULT } from '../../utils/mosaic';
 import './SettingsPage.css';
@@ -17,6 +18,12 @@ interface SecretDraft {
   currentPassword: string;
   newPassword: string;
   confirmPassword: string;
+}
+
+interface TOTPQRInfo {
+  dataUrl: string;
+  uri: string;
+  registered: boolean;
 }
 
 interface Props {
@@ -35,6 +42,9 @@ export function SettingsPage({ visible, onBack }: Props) {
   const [draft, setDraft] = useState<EditableSettingsValues | null>(null);
   const [secrets, setSecrets] = useState<SecretDraft>(EMPTY_SECRETS);
   const [loading, setLoading] = useState(false);
+  const [totpQR, setTotpQR] = useState<TOTPQRInfo | null>(null);
+  const [totpQRLoading, setTotpQRLoading] = useState(false);
+  const [totpQRError, setTotpQRError] = useState<string | null>(null);
 
   // Grid Layout 로컬 설정 (localStorage, 서버 무관)
   const [autoFocusRatio, setAutoFocusRatio] = useState<number>(() => {
@@ -92,6 +102,37 @@ export function SettingsPage({ visible, onBack }: Props) {
       })
       .finally(() => {
         if (active) setLoading(false);
+      });
+
+    // Load TOTP QR code
+    setTotpQR(null);
+    setTotpQRError(null);
+    setTotpQRLoading(true);
+    fetch('/api/auth/totp-qr', {
+      headers: {
+        Authorization: `Bearer ${tokenStorage.getToken() ?? ''}`,
+      },
+    })
+      .then(async (res) => {
+        if (!active) return;
+        if (!res.ok) {
+          if (res.status === 404) {
+            // TOTP not enabled — no QR to show
+            return;
+          }
+          setTotpQRError('Failed to load QR code');
+          return;
+        }
+        const data = await res.json() as TOTPQRInfo;
+        if (!active) return;
+        setTotpQR(data);
+      })
+      .catch(() => {
+        if (!active) return;
+        setTotpQRError('Failed to load QR code');
+      })
+      .finally(() => {
+        if (active) setTotpQRLoading(false);
       });
 
     return () => {
@@ -225,7 +266,46 @@ export function SettingsPage({ visible, onBack }: Props) {
             </Card>
 
             <Card title="Two-Factor Authentication">
-              <Field label="External only" scope={scope(snapshot, 'twoFactor.externalOnly')} hint="localhost 접속 시 2FA 건너뜀"><input type="checkbox" checked={draft.twoFactor.externalOnly} onChange={(e) => updateDraft((next) => { next.twoFactor.externalOnly = e.target.checked; })} /></Field>
+              <Field label="Enabled" scope={scope(snapshot, 'twoFactor.enabled')} hint="TOTP (Google Authenticator)">
+                <input type="checkbox" checked={draft.twoFactor.enabled} onChange={(e) => updateDraft((next) => { next.twoFactor.enabled = e.target.checked; })} />
+              </Field>
+              <Field label="External only" scope={scope(snapshot, 'twoFactor.externalOnly')} hint="localhost 접속 시 2FA 건너뜀">
+                <input type="checkbox" checked={draft.twoFactor.externalOnly} onChange={(e) => updateDraft((next) => { next.twoFactor.externalOnly = e.target.checked; })} />
+              </Field>
+              <Field label="Issuer" scope={scope(snapshot, 'twoFactor.issuer')} hint="App name shown in authenticator">
+                <input type="text" value={draft.twoFactor.issuer} onChange={(e) => updateDraft((next) => { next.twoFactor.issuer = e.target.value; })} />
+              </Field>
+              <Field label="Account name" scope={scope(snapshot, 'twoFactor.accountName')} hint="Username shown in authenticator">
+                <input type="text" value={draft.twoFactor.accountName} onChange={(e) => updateDraft((next) => { next.twoFactor.accountName = e.target.value; })} />
+              </Field>
+
+              {/* QR Code section */}
+              <div className="settings-field-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                <div className="settings-field-label">
+                  <span>QR Code</span>
+                  <span className="settings-field-hint">Scan with Google Authenticator to register</span>
+                </div>
+                {totpQRLoading && <span className="settings-field-hint">Loading QR code...</span>}
+                {totpQRError && <span className="settings-field-hint" style={{ color: 'var(--error-color, #e57373)' }}>{totpQRError}</span>}
+                {totpQR && totpQR.registered && totpQR.dataUrl && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
+                    <img
+                      src={totpQR.dataUrl}
+                      alt="TOTP QR Code"
+                      style={{ width: 180, height: 180, imageRendering: 'pixelated', border: '2px solid var(--border-color, #444)', borderRadius: 4, background: '#fff' }}
+                    />
+                    <span className="settings-field-hint" style={{ wordBreak: 'break-all', maxWidth: 320, fontSize: 11 }}>
+                      {totpQR.uri}
+                    </span>
+                  </div>
+                )}
+                {totpQR && !totpQR.registered && (
+                  <span className="settings-field-hint">TOTP is enabled but secret is not registered. Restart the server to generate a new secret.</span>
+                )}
+                {!totpQRLoading && !totpQR && !totpQRError && (
+                  <span className="settings-field-hint">TOTP is not enabled on this server.</span>
+                )}
+              </div>
             </Card>
 
             <Card title="CORS">
@@ -385,12 +465,10 @@ function buildPatch(initial: EditableSettingsValues, draft: EditableSettingsValu
 
   if (JSON.stringify(initial.twoFactor) !== JSON.stringify(draft.twoFactor)) {
     patch.twoFactor = {
+      enabled: draft.twoFactor.enabled,
       externalOnly: draft.twoFactor.externalOnly,
-      totp: {
-        enabled: draft.twoFactor.totp.enabled,
-        issuer: draft.twoFactor.totp.issuer,
-        accountName: draft.twoFactor.totp.accountName,
-      },
+      issuer: draft.twoFactor.issuer,
+      accountName: draft.twoFactor.accountName,
     };
   }
 

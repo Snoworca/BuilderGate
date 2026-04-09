@@ -18,6 +18,7 @@
 
 import { generateSecret, generateURI, verifySync } from 'otplib';
 import qrcode from 'qrcode-terminal';
+import QRCode from 'qrcode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
@@ -121,6 +122,22 @@ export class TOTPService {
     qrcode.generate(uri, { small: true });
     console.log(`[TOTP] Manual entry key: ${this.secret}`);
     console.log(`[TOTP] Issuer: ${issuer} | Account: ${accountName}`);
+  }
+
+  /**
+   * Generate a QR code data URL for the TOTP URI.
+   * Used by the /api/auth/totp-qr endpoint to return a scannable QR image.
+   * @returns { dataUrl, uri, registered }
+   */
+  async generateQRDataUrl(): Promise<{ dataUrl: string; uri: string; registered: boolean }> {
+    if (!this.secret || !this.registered) {
+      return { dataUrl: '', uri: '', registered: false };
+    }
+    const issuer = this.config.issuer ?? 'BuilderGate';
+    const accountName = this.config.accountName ?? 'admin';
+    const uri = generateURI({ secret: this.secret, issuer, label: `${issuer}:${accountName}` });
+    const dataUrl = await QRCode.toDataURL(uri, { width: 256, margin: 2 });
+    return { dataUrl, uri, registered: true };
   }
 
   /**

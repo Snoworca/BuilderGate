@@ -245,5 +245,25 @@ export function createAuthRoutes(accessors: AuthRouteAccessors): Router {
     });
   });
 
+  // ========================================================================
+  // GET /api/auth/totp-qr
+  // Returns QR code data URL for TOTP setup in Google Authenticator.
+  // Protected by authMiddleware.
+  // ========================================================================
+  router.get('/totp-qr', authMiddleware, async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const totpService = accessors.getTOTPService();
+      if (!totpService) {
+        res.status(404).json(createErrorResponse(ErrorCode.CONFIG_ERROR, 'TOTP is not enabled'));
+        return;
+      }
+      const result = await totpService.generateQRDataUrl();
+      res.json(result);
+    } catch (error) {
+      console.error('[Auth] totp-qr error:', error);
+      res.status(500).json(createErrorResponse(ErrorCode.INTERNAL_ERROR));
+    }
+  });
+
   return router;
 }

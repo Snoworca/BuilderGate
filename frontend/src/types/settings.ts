@@ -4,9 +4,9 @@ export type EditableSettingsKey =
   | 'auth.password'
   | 'auth.durationMs'
   | 'twoFactor.externalOnly'
-  | 'twoFactor.totp.enabled'
-  | 'twoFactor.totp.issuer'
-  | 'twoFactor.totp.accountName'
+  | 'twoFactor.enabled'
+  | 'twoFactor.issuer'
+  | 'twoFactor.accountName'
   | 'security.cors.allowedOrigins'
   | 'security.cors.credentials'
   | 'security.cors.maxAge'
@@ -36,12 +36,10 @@ export interface EditableSettingsValues {
     durationMs: number;
   };
   twoFactor: {
+    enabled: boolean;
     externalOnly: boolean;
-    totp: {
-      enabled: boolean;
-      issuer: string;
-      accountName: string;
-    };
+    issuer: string;
+    accountName: string;
   };
   security: {
     cors: {
@@ -88,12 +86,10 @@ export interface SettingsPatchRequest {
     durationMs?: number;
   };
   twoFactor?: {
+    enabled?: boolean;
     externalOnly?: boolean;
-    totp?: {
-      enabled?: boolean;
-      issuer?: string;
-      accountName?: string;
-    };
+    issuer?: string;
+    accountName?: string;
   };
   security?: {
     cors?: {
