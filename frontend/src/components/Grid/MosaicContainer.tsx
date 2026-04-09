@@ -101,18 +101,6 @@ export function MosaicContainer({
   const contextMenu = useContextMenu();
   const focusHistory = useFocusHistory();
 
-  // 방어 레이어: mosaicTree leaf 중 tabMap에 없는 stale ID가 있으면 즉시 재빌드.
-  // useMosaicLayout의 currentTabIds stale 클로저 버그가 edge case로 발동하더라도
-  // 여기서 EmptyCell 범람(+ 버튼 화면)을 막는 이중 안전망.
-  useEffect(() => {
-    if (!mosaicTree || currentTabIds.length === 0) return;
-    const leafIds = extractLeafIds(mosaicTree);
-    const hasStale = leafIds.some(id => !tabMap.has(id));
-    if (hasStale) {
-      setMosaicTree(buildEqualMosaicTree(currentTabIds));
-    }
-  }, [mosaicTree, tabMap]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Pending close tab confirmation
   const [pendingCloseTabId, setPendingCloseTabId] = useState<string | null>(null);
 
@@ -125,6 +113,18 @@ export function MosaicContainer({
 
   // tabMap for O(1) lookup
   const tabMap = useMemo(() => new Map(tabs.map(t => [t.id, t])), [tabs]);
+
+  // 방어 레이어: mosaicTree leaf 중 tabMap에 없는 stale ID가 있으면 즉시 재빌드.
+  // useMosaicLayout의 currentTabIds stale 클로저 버그가 edge case로 발동하더라도
+  // 여기서 EmptyCell 범람(+ 버튼 화면)을 막는 이중 안전망.
+  useEffect(() => {
+    if (!mosaicTree || currentTabIds.length === 0) return;
+    const leafIds = extractLeafIds(mosaicTree);
+    const hasStale = leafIds.some(id => !tabMap.has(id));
+    if (hasStale) {
+      setMosaicTree(buildEqualMosaicTree(currentTabIds));
+    }
+  }, [mosaicTree, tabMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Rebuild tree when tab list length changes
   // prevTabCountRef는 workspaceId 기준으로 초기화 — 워크스페이스 전환은 탭 수 변경으로 취급하지 않음
