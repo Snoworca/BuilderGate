@@ -214,6 +214,15 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       termEl.addEventListener('focusin', onFocusIn);
       termEl.addEventListener('focusout', onFocusOut);
 
+      // xterm v6은 paste 이벤트에서 clipboardData를 읽어 처리한 뒤 preventDefault를 호출하지 않아
+      // 브라우저가 textarea에 텍스트를 추가로 삽입하고 input 이벤트를 발생시킨다.
+      // 일부 Chrome/Windows 환경에서 해당 input 이벤트가 insertText 타입으로 올 경우
+      // xterm의 _inputEvent 핸들러가 두 번째 triggerDataEvent를 호출해 이중 붙여넣기가 발생한다.
+      // capture 단계에서 preventDefault를 호출하면 브라우저 삽입 동작만 막고
+      // xterm 내부 paste 핸들러(clipboardData 읽기)는 그대로 실행된다.
+      const onPasteCapture = (e: Event) => { e.preventDefault(); };
+      termEl.addEventListener('paste', onPasteCapture, { capture: true });
+
       // 우클릭 캡처: DOM selectionchange가 xterm 선택을 지우기 전에 선택 텍스트 저장
       // (DOM 렌더러 모드에서 right-click mousedown이 DOM selection을 collapse시켜
       //  xterm이 자신의 selection을 clearSelection() 하는 타이밍 문제 해결)
@@ -254,6 +263,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       return () => {
         containerRef.current?.removeEventListener('mousedown', onMouseDownCapture, true);
+        termEl.removeEventListener('paste', onPasteCapture, { capture: true });
         if (rafId !== null) cancelAnimationFrame(rafId);
         if (resizeTimer !== null) clearTimeout(resizeTimer);
         if (userActiveTimerRef.current) clearTimeout(userActiveTimerRef.current);

@@ -153,6 +153,7 @@ function setupRoutes(): void {
   const authRoutes = createAuthRoutes({
     getAuthService: () => authService,
     getTOTPService: () => totpService,
+    getTwoFactorExternalOnly: () => runtimeConfigStore?.getEditableValues().twoFactor.externalOnly ?? false,
   });
   app.use('/api/auth', authRoutes);
 

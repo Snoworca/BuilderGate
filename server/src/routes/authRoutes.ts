@@ -51,6 +51,7 @@ function handleTOTPLogin(res: Response, _totpService: TOTPService, tempToken: st
 interface AuthRouteAccessors {
   getAuthService: () => AuthService;
   getTOTPService: () => TOTPService | undefined;
+  getTwoFactorExternalOnly: () => boolean;
 }
 
 /**
@@ -93,6 +94,14 @@ export function createAuthRoutes(accessors: AuthRouteAccessors): Router {
       if (authService.getLocalhostPasswordOnly() && isLocalhost) {
         const { token } = authService.issueToken();
         console.log(`[Auth] Login successful (localhostPasswordOnly) from ${req.ip}`);
+        res.json({ success: true, token, expiresIn: authService.getSessionDuration() } as LoginResponse);
+        return;
+      }
+
+      // 2b. twoFactor.externalOnly bypass: localhost 접속 시 2FA 건너뜀
+      if (accessors.getTwoFactorExternalOnly() && isLocalhost) {
+        const { token } = authService.issueToken();
+        console.log(`[Auth] Login successful (twoFactor.externalOnly) from ${req.ip}`);
         res.json({ success: true, token, expiresIn: authService.getSessionDuration() } as LoginResponse);
         return;
       }

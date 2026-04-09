@@ -55,6 +55,8 @@ async function main(): Promise<void> {
     { name: 'authRoutes FR-802: stage mismatch returns 400 (Phase 4)', run: testAuthRoutesStageMismatch },
     { name: 'authRoutes COMBO-1: 2FA disabled returns JWT directly (Phase 4)', run: testAuthRoutesCombo1 },
     { name: 'authRoutes localhostPasswordOnly: localhost bypass returns JWT (Phase 4)', run: testAuthRoutesLocalhostBypass },
+    { name: 'authRoutes twoFactor.externalOnly: localhost bypass skips TOTP (bugfix)', run: testAuthRoutesExternalOnlyBypass },
+    { name: 'authRoutes twoFactor.externalOnly=false: external-only disabled still requires TOTP', run: testAuthRoutesExternalOnlyDisabled },
     { name: 'authRoutes TOTP verify success issues JWT (Phase 4)', run: testAuthRoutesTOTPVerifySuccess },
     { name: 'authRoutes TOTP max attempts returns attemptsRemaining 0 (Phase 4)', run: testAuthRoutesTOTPMaxAttempts },
   ];
@@ -879,6 +881,7 @@ function makeAuthHarness(opts: {
   withTotp?: boolean;
   totpRegistered?: boolean;
   localhostPasswordOnly?: boolean;
+  twoFactorExternalOnly?: boolean;
 }) {
   const cryptoService = new CryptoService('phase4-test-key-32-bytes-padded!!');
   const authService = new AuthService(
@@ -906,6 +909,7 @@ function makeAuthHarness(opts: {
   const accessors = {
     getAuthService: () => authService,
     getTOTPService: () => totpService,
+    getTwoFactorExternalOnly: () => opts.twoFactorExternalOnly ?? false,
   };
 
   return { authService, totpService, accessors, cryptoService };
@@ -951,6 +955,7 @@ async function testAuthRoutesCombo1(): Promise<void> {
   const accessors = {
     getAuthService: () => authService,
     getTOTPService: () => undefined,
+    getTwoFactorExternalOnly: () => false,
   };
   const result = await invokeLogin(accessors, { password: 'test-password' });
   authService.destroy();
@@ -1005,6 +1010,29 @@ async function testAuthRoutesTOTPMaxAttempts(): Promise<void> {
   authService.destroy();
   assert.equal(lastResult.status, 401, `Expected 401 after 3 attempts, got ${lastResult.status}`);
   assert.equal(lastResult.body.attemptsRemaining, 0, 'attemptsRemaining should be 0');
+}
+
+async function testAuthRoutesExternalOnlyBypass(): Promise<void> {
+  // twoFactor.externalOnly=true + localhost → TOTP 건너뛰고 JWT 발급
+  const { accessors, authService } = makeAuthHarness({
+    withTotp: true, totpRegistered: true, twoFactorExternalOnly: true
+  });
+  const result = await invokeLogin(accessors, { password: 'test-password' });
+  authService.destroy();
+  assert.equal(result.status, 200, `Expected 200 (externalOnly bypass), got ${result.status}`);
+  assert.ok(typeof result.body.token === 'string', 'token should be present for externalOnly bypass');
+  assert.equal(result.body.requires2FA, undefined, 'requires2FA should not be set when bypassed');
+}
+
+async function testAuthRoutesExternalOnlyDisabled(): Promise<void> {
+  // twoFactor.externalOnly=false → localhost여도 TOTP 요구
+  const { accessors, authService } = makeAuthHarness({
+    withTotp: true, totpRegistered: true, twoFactorExternalOnly: false
+  });
+  const result = await invokeLogin(accessors, { password: 'test-password' });
+  authService.destroy();
+  assert.equal(result.status, 202, `Expected 202 (TOTP required), got ${result.status}`);
+  assert.equal(result.body.requires2FA, true, 'requires2FA should be true when externalOnly=false');
 }
 
 void main();
