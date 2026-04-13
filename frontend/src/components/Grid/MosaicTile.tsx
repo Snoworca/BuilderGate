@@ -4,20 +4,17 @@ import { MetadataRow } from '../MetadataBar/MetadataRow';
 import { useLongPress } from '../../hooks/useLongPress';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
-import type { ShellInfo } from '../../types';
 
 interface MosaicTileProps {
   tabId: string;
   tab: WorkspaceTabRuntime | undefined;
   onContextMenu: (x: number, y: number, tabId: string) => void;
   onRestart: () => void;
-  onAdd: (shell?: string) => void;
   /** Called when the user presses down on this tile (focus tracking) */
   onFocus?: () => void;
   /** Receives the tile root DOM element for external focus management */
   onRegisterRef?: (el: HTMLElement | null) => void;
   onRenameTab?: (tabId: string, name: string) => void;
-  availableShells?: ShellInfo[];
   children: React.ReactNode;
 }
 
@@ -26,11 +23,9 @@ export function MosaicTile({
   tab,
   onContextMenu,
   onRestart,
-  onAdd,
   onFocus,
   onRegisterRef,
   onRenameTab,
-  availableShells,
   children,
 }: MosaicTileProps) {
   const tileRef = useRef<HTMLDivElement>(null);
@@ -120,7 +115,6 @@ export function MosaicTile({
       {/* Metadata bar */}
       <MetadataRow
         tab={tab}
-        isOdd={false}
         onRename={onRenameTab ? (name) => onRenameTab(tabId, name) : undefined}
       />
 

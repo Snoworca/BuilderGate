@@ -7,7 +7,7 @@
  * and message routing to registered handlers.
  */
 
-import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { tokenStorage } from '../services/tokenStorage';
 import { setWsClientId } from '../services/api';
@@ -36,7 +36,19 @@ export interface WebSocketContextValue {
   setWorkspaceHandlers: (handlers: Record<string, WorkspaceEventHandler>) => void;
 }
 
-const WebSocketContext = createContext<WebSocketContextValue | null>(null);
+export interface WebSocketStateValue {
+  status: WsConnectionStatus;
+  clientId: string | null;
+}
+
+export interface WebSocketActionsValue {
+  send: (msg: ClientWsMessage) => void;
+  subscribeSession: (sessionId: string, handlers: SessionHandlers) => () => void;
+  setWorkspaceHandlers: (handlers: Record<string, WorkspaceEventHandler>) => void;
+}
+
+const WebSocketStateContext = createContext<WebSocketStateValue | null>(null);
+const WebSocketActionsContext = createContext<WebSocketActionsValue | null>(null);
 
 // ============================================================================
 // Constants
@@ -69,6 +81,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const attemptReconnectRef = useRef<() => void>(() => {});
   const sessionHandlersRef = useRef<Map<string, SessionHandlers>>(new Map());
   const workspaceHandlersRef = useRef<Record<string, WorkspaceEventHandler>>({});
   const activeSubscriptionsRef = useRef<Set<string>>(new Set());
@@ -179,7 +192,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       wsRef.current = null;
       setClientId(null);
       setWsClientId(null);
-      attemptReconnect();
+      attemptReconnectRef.current();
     };
 
     ws.onerror = () => {
@@ -206,6 +219,10 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       if (mountedRef.current) connect();
     }, delay);
   }, [connect]);
+
+  useEffect(() => {
+    attemptReconnectRef.current = attemptReconnect;
+  }, [attemptReconnect]);
 
   // ------ Lifecycle ------
   useEffect(() => {
@@ -273,18 +290,23 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     workspaceHandlersRef.current = handlers;
   }, []);
 
-  const value: WebSocketContextValue = {
+  const stateValue = useMemo<WebSocketStateValue>(() => ({
     status,
     clientId,
+  }), [status, clientId]);
+
+  const actionsValue = useMemo<WebSocketActionsValue>(() => ({
     send,
     subscribeSession,
     setWorkspaceHandlers,
-  };
+  }), [send, subscribeSession, setWorkspaceHandlers]);
 
   return (
-    <WebSocketContext.Provider value={value}>
-      {children}
-    </WebSocketContext.Provider>
+    <WebSocketStateContext.Provider value={stateValue}>
+      <WebSocketActionsContext.Provider value={actionsValue}>
+        {children}
+      </WebSocketActionsContext.Provider>
+    </WebSocketStateContext.Provider>
   );
 }
 
@@ -293,7 +315,20 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 // ============================================================================
 
 export function useWebSocket(): WebSocketContextValue {
-  const ctx = useContext(WebSocketContext);
-  if (!ctx) throw new Error('useWebSocket must be used within WebSocketProvider');
+  return {
+    ...useWebSocketState(),
+    ...useWebSocketActions(),
+  };
+}
+
+export function useWebSocketState(): WebSocketStateValue {
+  const ctx = useContext(WebSocketStateContext);
+  if (!ctx) throw new Error('useWebSocketState must be used within WebSocketProvider');
+  return ctx;
+}
+
+export function useWebSocketActions(): WebSocketActionsValue {
+  const ctx = useContext(WebSocketActionsContext);
+  if (!ctx) throw new Error('useWebSocketActions must be used within WebSocketProvider');
   return ctx;
 }

@@ -32,7 +32,7 @@ export function buildTerminalContextMenuItems(
               icon: availableShells.find(s => s.id === tab?.shellType)?.icon ?? '🖥',
               onClick: () => onAddTab(tab?.cwd, tab?.shellType),
             },
-            { separator: true } as const,
+            { separator: true },
             ...availableShells
               .filter(s => s.id !== tab?.shellType)
               .map(shell => ({
@@ -61,7 +61,7 @@ export function buildTerminalContextMenuItems(
       destructive: true,
       onClick: onCloseTab,
     },
-    { separator: true } as const,
+    { separator: true },
     {
       label: '복사',
       icon: '⎘',

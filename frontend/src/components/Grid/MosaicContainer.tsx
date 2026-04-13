@@ -32,10 +32,12 @@ import type { ShellInfo } from '../../types';
 
 interface MosaicContainerProps {
   tabs: WorkspaceTabRuntime[];
+  activeTabId: string | null;
   workspaceId: string;
   onAddTab: (cwd?: string, shell?: string) => void;
   onCloseTab: (tabId: string) => void;
   onRestartTab: (tabId: string) => void;
+  onSelectTab: (tabId: string) => void;
   onRenameTab: (tabId: string, name: string) => void;
   renderTerminal: (tab: WorkspaceTabRuntime) => React.ReactNode;
   availableShells?: ShellInfo[];
@@ -47,10 +49,12 @@ interface MosaicContainerProps {
 
 export function MosaicContainer({
   tabs,
+  activeTabId,
   workspaceId,
   onAddTab,
   onCloseTab,
   onRestartTab,
+  onSelectTab,
   onRenameTab,
   renderTerminal,
   availableShells,
@@ -331,11 +335,14 @@ export function MosaicContainer({
   const handleTileFocus = useCallback(
     (tabId: string) => {
       focusHistory.recordFocus(tabId);
+      if (tabId !== activeTabId) {
+        onSelectTab(tabId);
+      }
       if (layoutMode === 'focus') {
         handleLayoutModeChange('focus', tabId);
       }
     },
-    [focusHistory, layoutMode, handleLayoutModeChange],
+    [focusHistory, activeTabId, onSelectTab, layoutMode, handleLayoutModeChange],
   );
 
   // Register/unregister tile DOM elements for focus targeting
@@ -375,11 +382,9 @@ export function MosaicContainer({
             tab={tab}
             onContextMenu={contextMenu.open}
             onRestart={() => onRestartTab(tabId)}
-            onAdd={(shell?: string) => onAddTab(tab?.cwd, shell)}
             onFocus={() => handleTileFocus(tabId)}
             onRegisterRef={(el) => registerTileRef(tabId, el)}
             onRenameTab={onRenameTab}
-            availableShells={availableShells}
           >
             {tab ? renderTerminal(tab) : null}
           </MosaicTile>

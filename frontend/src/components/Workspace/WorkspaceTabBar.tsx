@@ -5,7 +5,6 @@ import { useLongPress } from '../../hooks/useLongPress';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
-import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
 import type { ShellInfo } from '../../types';
 import './WorkspaceTabBar.css';
 

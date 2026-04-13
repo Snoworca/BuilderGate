@@ -12,7 +12,7 @@ export async function login(page: Page) {
 
 /** Wait for xterm.js terminal to render */
 export async function waitForTerminal(page: Page) {
-  await page.waitForSelector('.xterm-screen', { timeout: 15000 });
+  await page.waitForSelector('.xterm-screen:visible', { timeout: 15000 });
 }
 
 /** Right-click on the nth pane (0-based) */

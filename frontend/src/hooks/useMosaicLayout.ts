@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import type { MosaicNode } from '../types/workspace';
 import { buildEqualMosaicTree, isValidMosaicTree, restoreLayoutWithSessionRecovery } from '../utils/mosaic';
 
@@ -50,7 +50,7 @@ function saveLayout(
 
 export interface UseMosaicLayoutReturn {
   mosaicTree: MosaicNode<string> | null;
-  setMosaicTree: (tree: MosaicNode<string> | null) => void;
+  setMosaicTree: Dispatch<SetStateAction<MosaicNode<string> | null>>;
   debouncedSave: () => void;
   layoutMode: LayoutMode;
   setLayoutMode: (mode: LayoutMode) => void;

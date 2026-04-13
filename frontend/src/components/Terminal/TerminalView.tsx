@@ -1,9 +1,15 @@
 import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { SerializeAddon } from '@xterm/addon-serialize';
 import { usePinchZoom } from '../../hooks/usePinchZoom';
 import { useResponsive } from '../../hooks/useResponsive';
 import { FontSizeToast } from './FontSizeToast';
+import {
+  clearTerminalSnapshotRemovalRequest,
+  getTerminalSnapshotKey,
+  isTerminalSnapshotRemovalRequested,
+} from '../../utils/terminalSnapshot';
 import '@xterm/xterm/css/xterm.css';
 import './TerminalView.css';
 
@@ -11,6 +17,10 @@ const FONT_MIN = 8;
 const FONT_MAX = 32;
 const FONT_DEFAULT = 14;
 const FONT_STORAGE_KEY = 'terminal_font_size';
+const SNAPSHOT_SCHEMA_VERSION = 1;
+const SNAPSHOT_SAVE_DEBOUNCE_MS = 2000;
+const SNAPSHOT_MAX_CONTENT_LENGTH = 1_000_000;
+const LARGE_WRITE_THRESHOLD = 10_000;
 
 // xterm.js v5는 방향키, Backspace 등 모든 제어 키를 네이티브로 처리.
 // 커스텀 KEY_SEQUENCES 핸들러는 xterm 내부 IME/유니코드 파이프라인을 우회하여
@@ -33,6 +43,13 @@ interface Props {
   onResize: (cols: number, rows: number) => void;
 }
 
+interface TerminalSnapshot {
+  schemaVersion: number;
+  sessionId: string;
+  content: string;
+  savedAt: string;
+}
+
 export const TerminalView = forwardRef<TerminalHandle, Props>(
   ({ sessionId, onInput, onResize }, ref) => {
     const terminalRef = useRef<HTMLDivElement>(null);
@@ -41,10 +58,16 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     // 우클릭 mousedown 캡처 시점에 저장 — DOM selectionchange가 xterm 선택을 지우기 전에 저장
     const savedRightClickSelRef = useRef<string>('');
     const fitAddonRef = useRef<FitAddon | null>(null);
+    const serializeAddonRef = useRef<SerializeAddon | null>(null);
     const [toastFontSize, setToastFontSize] = useState<number | null>(null);
     const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const userActiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const outputTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const idleSnapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastSnapshotRef = useRef<string | null>(null);
+    const restorePendingRef = useRef(true);
+    const bufferedOutputRef = useRef<string[]>([]);
+    const inFlightOutputRef = useRef<string[]>([]);
     const { isMobile } = useResponsive();
 
     const handleFontSizeChange = useCallback((size: number) => {
@@ -71,21 +94,201 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       onFontSizeChange: handleFontSizeChange,
     });
 
+    const clearStoredSnapshot = useCallback(() => {
+      try {
+        localStorage.removeItem(getTerminalSnapshotKey(sessionId));
+      } catch {
+        // ignore localStorage failures
+      }
+      lastSnapshotRef.current = null;
+    }, [sessionId]);
+
+    const loadStoredSnapshot = useCallback((): TerminalSnapshot | null => {
+      try {
+        const raw = localStorage.getItem(getTerminalSnapshotKey(sessionId));
+        if (!raw) return null;
+
+        const snapshot = JSON.parse(raw) as Partial<TerminalSnapshot>;
+        if (
+          snapshot.schemaVersion !== SNAPSHOT_SCHEMA_VERSION ||
+          snapshot.sessionId !== sessionId ||
+          typeof snapshot.content !== 'string' ||
+          snapshot.content.length === 0
+        ) {
+          clearStoredSnapshot();
+          return null;
+        }
+
+        if (snapshot.content.length > SNAPSHOT_MAX_CONTENT_LENGTH) {
+          clearStoredSnapshot();
+          return null;
+        }
+
+        return {
+          schemaVersion: SNAPSHOT_SCHEMA_VERSION,
+          sessionId,
+          content: snapshot.content,
+          savedAt: typeof snapshot.savedAt === 'string' ? snapshot.savedAt : new Date().toISOString(),
+        };
+      } catch {
+        clearStoredSnapshot();
+        return null;
+      }
+    }, [sessionId, clearStoredSnapshot]);
+
+    const saveSnapshot = useCallback(() => {
+      const term = xtermRef.current;
+      const serializeAddon = serializeAddonRef.current;
+      if (!term || !serializeAddon) return;
+      if (restorePendingRef.current) return;
+      if (isTerminalSnapshotRemovalRequested(sessionId)) return;
+
+      try {
+        const content = `${serializeAddon.serialize()}${inFlightOutputRef.current.join('')}`;
+        if (!content || content === lastSnapshotRef.current) return;
+        if (content.length > SNAPSHOT_MAX_CONTENT_LENGTH) {
+          clearStoredSnapshot();
+          console.warn('[TerminalView] snapshot too large, skipping');
+          return;
+        }
+
+        const snapshot: TerminalSnapshot = {
+          schemaVersion: SNAPSHOT_SCHEMA_VERSION,
+          sessionId,
+          content,
+          savedAt: new Date().toISOString(),
+        };
+        localStorage.setItem(getTerminalSnapshotKey(sessionId), JSON.stringify(snapshot));
+        lastSnapshotRef.current = content;
+      } catch (error) {
+        console.warn('[TerminalView] snapshot save failed:', error);
+      }
+    }, [sessionId, clearStoredSnapshot]);
+
+    const scheduleSnapshotSave = useCallback(() => {
+      if (idleSnapshotTimerRef.current) clearTimeout(idleSnapshotTimerRef.current);
+      idleSnapshotTimerRef.current = setTimeout(() => {
+        saveSnapshot();
+        idleSnapshotTimerRef.current = null;
+      }, SNAPSHOT_SAVE_DEBOUNCE_MS);
+    }, [saveSnapshot]);
+
+    const writeOutput = useCallback((term: Terminal, data: string, onWritten?: () => void) => {
+      inFlightOutputRef.current.push(data);
+      term.write(data, () => {
+        inFlightOutputRef.current.shift();
+        if (data.length > LARGE_WRITE_THRESHOLD) {
+          term.scrollToBottom();
+        }
+        scheduleSnapshotSave();
+        onWritten?.();
+      });
+
+      const el = containerRef.current;
+      if (el && !el.classList.contains('output-active')) {
+        el.classList.add('output-active');
+      }
+      if (outputTimerRef.current) clearTimeout(outputTimerRef.current);
+      outputTimerRef.current = setTimeout(() => {
+        containerRef.current?.classList.remove('output-active');
+      }, 2000);
+    }, [scheduleSnapshotSave]);
+
+    const flushBufferedOutput = useCallback((onWritten?: () => void) => {
+      const term = xtermRef.current;
+      if (!term || bufferedOutputRef.current.length === 0) {
+        onWritten?.();
+        return;
+      }
+
+      const pending = bufferedOutputRef.current.join('');
+      bufferedOutputRef.current = [];
+      writeOutput(term, pending, () => {
+        onWritten?.();
+      });
+    }, [writeOutput]);
+
+    const releaseRestorePending = useCallback(function releaseRestorePending() {
+      flushBufferedOutput(() => {
+        if (bufferedOutputRef.current.length > 0) {
+          releaseRestorePending();
+          return;
+        }
+        restorePendingRef.current = false;
+        saveSnapshot();
+      });
+    }, [flushBufferedOutput, saveSnapshot]);
+
+    const persistBufferedOutput = useCallback(() => {
+      if (isTerminalSnapshotRemovalRequested(sessionId)) {
+        return;
+      }
+
+      const pending = `${inFlightOutputRef.current.join('')}${bufferedOutputRef.current.join('')}`;
+      if (!pending) return;
+
+      const snapshot = loadStoredSnapshot();
+      const content = `${snapshot?.content ?? ''}${pending}`;
+      inFlightOutputRef.current = [];
+      bufferedOutputRef.current = [];
+
+      if (!content) return;
+      if (content.length > SNAPSHOT_MAX_CONTENT_LENGTH) {
+        clearStoredSnapshot();
+        return;
+      }
+
+      try {
+        const nextSnapshot: TerminalSnapshot = {
+          schemaVersion: SNAPSHOT_SCHEMA_VERSION,
+          sessionId,
+          content,
+          savedAt: new Date().toISOString(),
+        };
+        localStorage.setItem(getTerminalSnapshotKey(sessionId), JSON.stringify(nextSnapshot));
+        lastSnapshotRef.current = content;
+      } catch {
+        // ignore localStorage failures
+      }
+    }, [sessionId, loadStoredSnapshot, clearStoredSnapshot]);
+
+    const restoreSnapshot = useCallback((term: Terminal): boolean => {
+      const snapshot = loadStoredSnapshot();
+      if (!snapshot) {
+        return false;
+      }
+
+      try {
+        term.write(snapshot.content, () => {
+          lastSnapshotRef.current = snapshot.content;
+          term.scrollToBottom();
+          requestAnimationFrame(() => {
+            fitAddonRef.current?.fit();
+          });
+          releaseRestorePending();
+        });
+        return true;
+      } catch (error) {
+        console.warn('[TerminalView] snapshot restore failed:', error);
+        clearStoredSnapshot();
+        return false;
+      }
+    }, [loadStoredSnapshot, releaseRestorePending, clearStoredSnapshot]);
+
     useImperativeHandle(ref, () => ({
       write: (data: string) => {
-        xtermRef.current?.write(data);
-        // Track output activity — fade out indicator after 2s of silence
-        const el = containerRef.current;
-        if (el && !el.classList.contains('output-active')) {
-          el.classList.add('output-active');
+        const term = xtermRef.current;
+        if (!term || restorePendingRef.current) {
+          bufferedOutputRef.current.push(data);
+          return;
         }
-        if (outputTimerRef.current) clearTimeout(outputTimerRef.current);
-        outputTimerRef.current = setTimeout(() => {
-          containerRef.current?.classList.remove('output-active');
-        }, 2000);
+
+        writeOutput(term, data);
       },
       clear: () => {
         xtermRef.current?.clear();
+        lastSnapshotRef.current = null;
+        bufferedOutputRef.current = [];
       },
       focus: () => {
         xtermRef.current?.focus();
@@ -104,7 +307,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       sendInput: (data: string) => {
         onInput(data);
       },
-    }));
+    }), [onInput, writeOutput]);
 
     useEffect(() => {
       if (!terminalRef.current) return;
@@ -150,8 +353,20 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       });
 
       const fitAddon = new FitAddon();
+      const serializeAddon = new SerializeAddon();
       term.loadAddon(fitAddon);
+      term.loadAddon(serializeAddon);
       term.open(terminalRef.current);
+      restorePendingRef.current = true;
+      bufferedOutputRef.current = [];
+      xtermRef.current = term;
+      fitAddonRef.current = fitAddon;
+      serializeAddonRef.current = serializeAddon;
+
+      const restoredSnapshot = restoreSnapshot(term);
+      if (!restoredSnapshot) {
+        releaseRestorePending();
+      }
 
       term.attachCustomKeyEventHandler((ev: KeyboardEvent) => {
         if (ev.type !== 'keydown') return true;
@@ -197,9 +412,6 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           document.documentElement.style.setProperty('--terminal-bg', bg);
         });
       });
-
-      xtermRef.current = term;
-      fitAddonRef.current = fitAddon;
 
       term.onData((data) => {
         if (data.length === 0) return;
@@ -266,15 +478,49 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         termEl.removeEventListener('paste', onPasteCapture, { capture: true });
         if (rafId !== null) cancelAnimationFrame(rafId);
         if (resizeTimer !== null) clearTimeout(resizeTimer);
+        if (idleSnapshotTimerRef.current) {
+          clearTimeout(idleSnapshotTimerRef.current);
+          idleSnapshotTimerRef.current = null;
+        }
         if (userActiveTimerRef.current) clearTimeout(userActiveTimerRef.current);
         if (outputTimerRef.current) clearTimeout(outputTimerRef.current);
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         termEl.removeEventListener('focusin', onFocusIn);
         termEl.removeEventListener('focusout', onFocusOut);
         resizeObserver.disconnect();
+        if (isTerminalSnapshotRemovalRequested(sessionId)) {
+          clearTerminalSnapshotRemovalRequest(sessionId);
+        } else if (restorePendingRef.current) {
+          persistBufferedOutput();
+        } else {
+          saveSnapshot();
+        }
+        serializeAddonRef.current = null;
+        fitAddonRef.current = null;
+        xtermRef.current = null;
+        restorePendingRef.current = false;
+        inFlightOutputRef.current = [];
+        bufferedOutputRef.current = [];
         term.dispose();
       };
-    }, [sessionId, onInput, onResize, getInitialFontSize]);
+    }, [sessionId, onInput, onResize, getInitialFontSize, restoreSnapshot, releaseRestorePending, persistBufferedOutput, saveSnapshot]);
+
+    useEffect(() => {
+      const handleBeforeUnload = () => {
+        if (idleSnapshotTimerRef.current) {
+          clearTimeout(idleSnapshotTimerRef.current);
+          idleSnapshotTimerRef.current = null;
+        }
+        if (restorePendingRef.current) {
+          persistBufferedOutput();
+        } else {
+          saveSnapshot();
+        }
+      };
+
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [persistBufferedOutput, saveSnapshot]);
 
     // Desktop: Ctrl+Wheel font zoom
     useEffect(() => {

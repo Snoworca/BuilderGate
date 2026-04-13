@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { workspaceApi } from '../services/api';
-import { useWebSocket } from '../contexts/WebSocketContext';
+import { useWebSocketActions, useWebSocketState } from '../contexts/WebSocketContext';
 import type { Workspace, WorkspaceTab, WorkspaceTabRuntime, GridLayout, WorkspaceState } from '../types/workspace';
+import { markTerminalSnapshotForRemoval } from '../utils/terminalSnapshot';
 
 // ============================================================================
 // localStorage helpers
@@ -20,6 +21,16 @@ function saveActiveWorkspaceId(id: string | null): void {
     if (id) localStorage.setItem('active_workspace_id', id);
     else localStorage.removeItem('active_workspace_id');
   } catch { /* private browsing */ }
+}
+
+function clearTerminalSnapshot(sessionId?: string | null): void {
+  markTerminalSnapshotForRemoval(sessionId);
+}
+
+function clearWorkspaceSnapshots(runtimeTabs: WorkspaceTabRuntime[], workspaceId: string): void {
+  runtimeTabs
+    .filter(tab => tab.workspaceId === workspaceId)
+    .forEach(tab => clearTerminalSnapshot(tab.sessionId));
 }
 
 // ============================================================================
@@ -59,7 +70,7 @@ export interface UseWorkspaceManagerReturn {
   updateGrid: (workspaceId: string, layout: Omit<GridLayout, 'workspaceId'>) => Promise<void>;
 
   // Session status update
-  updateTabStatus: (sessionId: string, status: 'running' | 'idle') => void;
+  updateTabStatus: (sessionId: string, status: WorkspaceTabRuntime['status']) => void;
   updateTabCwd: (sessionId: string, cwd: string) => void;
 }
 
@@ -120,16 +131,17 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   // WebSocket Event Handlers
   // ============================================================================
 
-  const ws = useWebSocket();
+  const { clientId: wsClientId } = useWebSocketState();
+  const { setWorkspaceHandlers } = useWebSocketActions();
 
   // Use WS clientId
   useEffect(() => {
-    if (ws.clientId) setClientId(ws.clientId);
-  }, [ws.clientId]);
+    setClientId(wsClientId);
+  }, [wsClientId]);
 
   // Register workspace event handlers via WS
   useEffect(() => {
-    ws.setWorkspaceHandlers({
+    setWorkspaceHandlers({
       'workspace:created': (data) => {
         const wsData = data as Workspace;
         setWorkspaces(prev => {
@@ -146,7 +158,10 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
       'workspace:deleted': (data) => {
         const { id } = data as { id: string };
         setWorkspaces(prev => prev.filter(w => w.id !== id));
-        setTabs(prev => prev.filter(t => t.workspaceId !== id));
+        setTabs(prev => {
+          clearWorkspaceSnapshots(prev, id);
+          return prev.filter(t => t.workspaceId !== id);
+        });
         setGridLayouts(prev => prev.filter(g => g.workspaceId !== id));
       },
 
@@ -172,12 +187,22 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
 
       'tab:updated': (data) => {
         const { id, changes } = data as { id: string; changes: Partial<WorkspaceTab> };
-        setTabs(prev => prev.map(t => t.id === id ? { ...t, ...changes } : t));
+        setTabs(prev => {
+          const current = prev.find(t => t.id === id);
+          if (current?.sessionId && changes.sessionId && current.sessionId !== changes.sessionId) {
+            clearTerminalSnapshot(current.sessionId);
+          }
+          return prev.map(t => t.id === id ? { ...t, ...changes } : t);
+        });
       },
 
       'tab:removed': (data) => {
         const { id } = data as { id: string };
-        setTabs(prev => prev.filter(t => t.id !== id));
+        setTabs(prev => {
+          const removed = prev.find(t => t.id === id);
+          clearTerminalSnapshot(removed?.sessionId);
+          return prev.filter(t => t.id !== id);
+        });
       },
 
       'tab:reordered': (data) => {
@@ -207,7 +232,7 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
         });
       },
     });
-  }, [ws]);
+  }, [setWorkspaceHandlers]);
 
   // ============================================================================
   // Derived State
@@ -259,10 +284,12 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
 
   const deleteWorkspace = useCallback(async (id: string) => {
     try {
+      const removedTabs = tabs.filter(t => t.workspaceId === id);
       await workspaceApi.delete(id);
       setWorkspaces(prev => prev.filter(w => w.id !== id));
       setTabs(prev => prev.filter(t => t.workspaceId !== id));
       setGridLayouts(prev => prev.filter(g => g.workspaceId !== id));
+      clearWorkspaceSnapshots(removedTabs, id);
       // Switch to first remaining workspace
       setWorkspaces(prev => {
         if (activeWorkspaceId === id && prev.length > 0) {
@@ -275,7 +302,7 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
     } catch (err: any) {
       setError(err.message);
     }
-  }, [activeWorkspaceId]);
+  }, [activeWorkspaceId, tabs]);
 
   const reorderWorkspaces = useCallback(async (workspaceIds: string[]) => {
     try {
@@ -330,12 +357,14 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
       } else {
         nextActiveTabId = ws?.activeTabId ?? null;
       }
+      const tabToClose = tabs.find(t => t.id === tabId);
 
       await workspaceApi.deleteTab(workspaceId, tabId);
       setTabs(prev => prev.filter(t => t.id !== tabId));
       setWorkspaces(prev => prev.map(w =>
         w.id === workspaceId ? { ...w, activeTabId: nextActiveTabId } : w
       ));
+      clearTerminalSnapshot(tabToClose?.sessionId);
     } catch (err: any) {
       setError(err.message);
     }
@@ -365,12 +394,16 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
 
   const restartTab = useCallback(async (workspaceId: string, tabId: string) => {
     try {
+      const oldTab = tabs.find(t => t.id === tabId);
       const tab = await workspaceApi.restartTab(workspaceId, tabId);
       setTabs(prev => prev.map(t => t.id === tabId ? { ...t, ...tab, status: 'idle', cwd: tab.lastCwd || '' } : t));
+      if (oldTab?.sessionId && oldTab.sessionId !== tab.sessionId) {
+        clearTerminalSnapshot(oldTab.sessionId);
+      }
     } catch (err: any) {
       setError(err.message);
     }
-  }, []);
+  }, [tabs]);
 
   const setActiveTab = useCallback(async (workspaceId: string, tabId: string | null) => {
     try {
@@ -419,7 +452,7 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   // Session Status
   // ============================================================================
 
-  const updateTabStatus = useCallback((sessionId: string, status: 'running' | 'idle') => {
+  const updateTabStatus = useCallback((sessionId: string, status: WorkspaceTabRuntime['status']) => {
     setTabs(prev => {
       const tab = prev.find(t => t.sessionId === sessionId);
       if (!tab || tab.status === status) return prev;

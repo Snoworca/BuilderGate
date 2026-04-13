@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react
 import { createPortal } from 'react-dom';
 import './ContextMenu.css';
 
-export interface ContextMenuItem {
+export interface ContextMenuActionItem {
   label: string;
   icon?: string;
   onClick?: () => void;
@@ -10,8 +10,14 @@ export interface ContextMenuItem {
   destructive?: boolean;
   shortcut?: string;
   children?: ContextMenuItem[];
-  separator?: boolean;
+  separator?: false;
 }
+
+export interface ContextMenuSeparatorItem {
+  separator: true;
+}
+
+export type ContextMenuItem = ContextMenuActionItem | ContextMenuSeparatorItem;
 
 interface Props {
   position: { x: number; y: number };
@@ -71,7 +77,7 @@ function Submenu({ items, parentRect, onClose }: SubmenuProps) {
 // ---------------------------------------------------------------------------
 
 interface MenuItemRowProps {
-  item: ContextMenuItem;
+  item: ContextMenuActionItem;
   onClose: () => void;
 }
 

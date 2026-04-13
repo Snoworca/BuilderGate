@@ -24,7 +24,7 @@ import { buildTerminalContextMenuItems } from './utils/contextMenuBuilder';
 import { TAB_COLORS } from './types/workspace';
 import { resolveCwd } from './utils/shell';
 import type { WorkspaceTabRuntime } from './types/workspace';
-import type { SessionStatus, ShellInfo } from './types';
+import type { ShellInfo } from './types';
 import { WebSocketProvider } from './contexts/WebSocketContext';
 import './styles/globals.css';
 import './components/Workspace/breathing.css';
@@ -252,7 +252,7 @@ function AppContent() {
   // ============================================================================
   // Terminal status/CWD updates
   // ============================================================================
-  const handleTerminalStatusChange = useCallback((sessionId: string, status: SessionStatus) => {
+  const handleTerminalStatusChange = useCallback((sessionId: string, status: WorkspaceTabRuntime['status']) => {
     wmRef.current.updateTabStatus(sessionId, status);
   }, []);
 
@@ -268,7 +268,7 @@ function AppContent() {
   // Render helpers
   // ============================================================================
   const activeTab = useMemo(
-    () => wm.activeWorkspaceTabs.find(t => t.id === wm.activeWorkspace?.activeTabId),
+    () => wm.activeWorkspaceTabs.find(t => t.id === wm.activeWorkspace?.activeTabId) ?? null,
     [wm.activeWorkspaceTabs, wm.activeWorkspace]
   );
 
@@ -399,10 +399,12 @@ function AppContent() {
                   {viewMode === 'grid' && !isMobile ? (
                     <MosaicContainer
                       tabs={wm.activeWorkspaceTabs}
+                      activeTabId={wm.activeWorkspace.activeTabId}
                       workspaceId={wm.activeWorkspaceId!}
                       onAddTab={handleAddTab}
                       onCloseTab={handleCloseTabDirect}
                       onRestartTab={handleRestartTab}
+                      onSelectTab={handleSelectTab}
                       onRenameTab={handleRenameTab}
                       renderTerminal={renderTerminal}
                       availableShells={availableShells}
@@ -466,7 +468,6 @@ function AppContent() {
                           {isVisible && (
                             <MetadataRow
                               tab={tab}
-                              isOdd={false}
                               onRename={(name) => handleRenameTab(tab.id, name)}
                             />
                           )}

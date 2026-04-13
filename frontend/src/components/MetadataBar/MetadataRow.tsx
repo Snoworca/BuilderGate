@@ -5,7 +5,6 @@ import { useInlineRename } from '../../hooks/useInlineRename';
 
 interface Props {
   tab: WorkspaceTabRuntime;
-  isOdd: boolean;
   onRename?: (name: string) => void;
 }
 
@@ -38,7 +37,7 @@ function truncatePath(cwd: string, maxChars = 30): string {
   return '...' + tail;
 }
 
-export function MetadataRow({ tab, isOdd, onRename }: Props) {
+export function MetadataRow({ tab, onRename }: Props) {
   const [elapsed, setElapsed] = useState(() => formatElapsed(tab.createdAt));
   const [copied, setCopied] = useState(false);
 
@@ -124,6 +123,7 @@ export function MetadataRow({ tab, isOdd, onRename }: Props) {
       {/* CWD path — click to copy */}
       {displayPath && (
         <span
+          className="metadata-cwd-path"
           onClick={handleCopy}
           title={copied ? 'Copied!' : (tab.cwd || '')}
           style={{

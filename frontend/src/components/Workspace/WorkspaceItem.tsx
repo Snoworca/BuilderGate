@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import type { Workspace, WorkspaceTabRuntime } from '../../types/workspace';
+import type { Workspace } from '../../types/workspace';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
@@ -44,7 +44,7 @@ export function WorkspaceItem({
   const menuItems: ContextMenuItem[] = [
     { label: 'Rename', onClick: () => { setEditName(workspace.name); setEditing(true); } },
     ...(!isLast ? [{ label: 'Delete', destructive: true, onClick: () => onDelete(workspace.id) }] : []),
-    { separator: true } as ContextMenuItem,
+    { separator: true },
     { label: 'Add Terminal', onClick: () => onAddTab(workspace.id, ctx.position), disabled: tabCount >= maxTabs },
   ];
 

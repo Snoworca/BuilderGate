@@ -1,13 +1,13 @@
-import { memo, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { useWebSocket } from '../../contexts/WebSocketContext';
+import { memo, useRef, useCallback, useEffect, forwardRef, useImperativeHandle, useEffectEvent } from 'react';
+import { useWebSocketActions } from '../../contexts/WebSocketContext';
 import { TerminalView } from './TerminalView';
 import type { TerminalHandle } from './TerminalView';
-import type { SessionStatus } from '../../types';
+import type { WorkspaceTabRuntime } from '../../types/workspace';
 
 interface Props {
   sessionId: string;
   isVisible: boolean;
-  onStatusChange: (sessionId: string, status: SessionStatus) => void;
+  onStatusChange: (sessionId: string, status: WorkspaceTabRuntime['status']) => void;
   onCwdChange?: (sessionId: string, cwd: string) => void;
   onAuthError: () => void;
 }
@@ -21,7 +21,7 @@ function propsAreEqual(prev: Props, next: Props): boolean {
 
 export const TerminalContainer = memo(
   forwardRef<TerminalHandle, Props>(function TerminalContainer(
-    { sessionId, isVisible, onStatusChange, onCwdChange, onAuthError },
+    { sessionId, isVisible, onStatusChange, onCwdChange },
     ref
   ) {
   const terminalRef = useRef<TerminalHandle>(null);
@@ -36,33 +36,33 @@ export const TerminalContainer = memo(
     fit:            ()     => terminalRef.current?.fit(),
     sendInput:      (data) => terminalRef.current?.sendInput(data),
   }), []);
-  const ws = useWebSocket();
+  const { send, subscribeSession } = useWebSocketActions();
 
-  // Keep latest callbacks in refs to avoid useEffect re-subscription on callback change
-  const onStatusChangeRef = useRef(onStatusChange);
-  onStatusChangeRef.current = onStatusChange;
-  const onCwdChangeRef = useRef(onCwdChange);
-  onCwdChangeRef.current = onCwdChange;
+  const handleStatus = useEffectEvent((status: string) => {
+    onStatusChange(sessionId, status as WorkspaceTabRuntime['status']);
+  });
+
+  const handleCwd = useEffectEvent((cwd: string) => {
+    onCwdChange?.(sessionId, cwd);
+  });
+
+  const handleError = useEffectEvent((message: string) => {
+    console.error('Session error:', message);
+    onStatusChange(sessionId, 'disconnected');
+  });
 
   // Subscribe to session via WebSocket — depends only on sessionId and ws
   useEffect(() => {
-    const unsubscribe = ws.subscribeSession(sessionId, {
+    const unsubscribe = subscribeSession(sessionId, {
       onOutput: (data) => {
         terminalRef.current?.write(data);
       },
-      onStatus: (status) => {
-        onStatusChangeRef.current(sessionId, status as SessionStatus);
-      },
-      onError: (message) => {
-        console.error('Session error:', message);
-        onStatusChangeRef.current(sessionId, 'disconnected');
-      },
-      onCwd: (cwd) => {
-        onCwdChangeRef.current?.(sessionId, cwd);
-      },
+      onStatus: handleStatus,
+      onError: handleError,
+      onCwd: handleCwd,
     });
     return unsubscribe;
-  }, [sessionId, ws]);
+  }, [sessionId, subscribeSession]);
 
   // isVisible이 false→true로 변경될 때 fit을 명시적으로 호출
   // (display:none → flex 전환 시 ResizeObserver가 0-size 가드로 스킵했으므로)
@@ -77,12 +77,12 @@ export const TerminalContainer = memo(
   }, [isVisible]);
 
   const handleInput = useCallback((data: string) => {
-    ws.send({ type: 'input', sessionId, data });
-  }, [sessionId, ws]);
+    send({ type: 'input', sessionId, data });
+  }, [sessionId, send]);
 
   const handleResize = useCallback((cols: number, rows: number) => {
-    ws.send({ type: 'resize', sessionId, cols, rows });
-  }, [sessionId, ws]);
+    send({ type: 'resize', sessionId, cols, rows });
+  }, [sessionId, send]);
 
   return (
     <div style={{ display: isVisible ? 'flex' : 'none', flex: 1, minWidth: 0, minHeight: 0 }}>

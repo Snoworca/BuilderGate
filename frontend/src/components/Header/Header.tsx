@@ -50,6 +50,13 @@ export function Header({
         <img src="/logo.svg" alt="BuilderGate" className="header-logo" width="28" height="28" />
         <span className="header-title">BuilderGate</span>
       </div>
+      {displayCwd && (
+        <div className="header-cwd">
+          <span className="header-cwd-path" title={activeCwd ?? undefined}>
+            {displayCwd}
+          </span>
+        </div>
+      )}
       {(onOpenSettings || onLogout) && (
         <div className="header-right">
           {onToggleViewMode && !isMobile && (
