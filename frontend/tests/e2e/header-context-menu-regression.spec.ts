@@ -16,6 +16,19 @@ async function fetchWorkspaceState(page: Page) {
   });
 }
 
+async function getActiveTab(page: Page) {
+  const state = await fetchWorkspaceState(page);
+  const activeWorkspaceId = await page.evaluate(() => localStorage.getItem('active_workspace_id'));
+  const workspace = state.workspaces.find((item: { id: string }) => item.id === activeWorkspaceId) ?? state.workspaces[0] ?? null;
+  if (!workspace?.activeTabId) {
+    return null;
+  }
+
+  return state.tabs.find((item: { id: string; workspaceId: string }) =>
+    item.id === workspace.activeTabId && item.workspaceId === workspace.id,
+  ) ?? null;
+}
+
 async function ensureTabMode(page: Page) {
   const switchToTabs = page.locator('button[title="Switch to Tabs"]');
   if (await switchToTabs.count()) {
@@ -260,5 +273,54 @@ test.describe('Header And Context Menu Regressions', () => {
         removal: localStorage.getItem(`terminal_snapshot_remove_${sessionId}`),
       }), { sessionId: activeTab!.sessionId });
     }, { timeout: 15000 }).toEqual({ snapshot: null, removal: null });
+  });
+
+  test('TC-7004: reload should keep the active session visible and restore its snapshot without xterm runtime errors', async ({ page }) => {
+    await ensureTabMode(page);
+
+    const runtimeErrors: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error' || message.type() === 'warning') {
+        runtimeErrors.push(message.text());
+      }
+    });
+    page.on('pageerror', (error) => {
+      runtimeErrors.push(error.message);
+    });
+
+    const activeTab = await getActiveTab(page);
+    expect(activeTab?.sessionId).toBeTruthy();
+
+    const marker = `refresh-regression-${Date.now()}`;
+    await page.locator('.xterm-screen:visible').first().click();
+    await page.keyboard.type(`echo ${marker}`);
+    await page.keyboard.press('Enter');
+
+    await expect.poll(async () => {
+      return page.evaluate(({ sessionId }) => {
+        return localStorage.getItem(`terminal_snapshot_${sessionId}`) ?? '';
+      }, { sessionId: activeTab!.sessionId });
+    }, { timeout: 15000 }).toContain(marker);
+
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await waitForTerminal(page);
+
+    await expect.poll(async () => {
+      return page.evaluate(({ sessionId }) => {
+        return localStorage.getItem(`terminal_snapshot_${sessionId}`) ?? '';
+      }, { sessionId: activeTab!.sessionId });
+    }, { timeout: 15000 }).toContain(marker);
+
+    const reloadedActiveTab = await getActiveTab(page);
+    expect(reloadedActiveTab?.id).toBe(activeTab!.id);
+
+    expect(
+      runtimeErrors.filter((message) =>
+        message.includes("reading 'dimensions'")
+        || message.includes('[TerminalView] snapshot restore failed')
+        || message.includes('[TerminalView] viewport sync failed'),
+      ),
+    ).toEqual([]);
   });
 });

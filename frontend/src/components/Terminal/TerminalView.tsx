@@ -19,7 +19,7 @@ const FONT_DEFAULT = 14;
 const FONT_STORAGE_KEY = 'terminal_font_size';
 const SNAPSHOT_SCHEMA_VERSION = 1;
 const SNAPSHOT_SAVE_DEBOUNCE_MS = 2000;
-const SNAPSHOT_MAX_CONTENT_LENGTH = 1_000_000;
+const SNAPSHOT_MAX_CONTENT_LENGTH = 2_000_000;
 const LARGE_WRITE_THRESHOLD = 10_000;
 
 // xterm.js v5는 방향키, Backspace 등 모든 제어 키를 네이티브로 처리.
@@ -70,13 +70,36 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const inFlightOutputRef = useRef<string[]>([]);
     const { isMobile } = useResponsive();
 
+    const requestViewportSync = useCallback((term: Terminal, fitFirst = false) => {
+      let attempts = 0;
+
+      const syncViewport = () => {
+        if (xtermRef.current !== term) return;
+
+        try {
+          if (fitFirst) {
+            fitAddonRef.current?.fit();
+          }
+          term.scrollToBottom();
+        } catch (error) {
+          attempts += 1;
+          if (attempts < 2) {
+            requestAnimationFrame(syncViewport);
+            return;
+          }
+          console.warn('[TerminalView] viewport sync failed:', error);
+        }
+      };
+
+      requestAnimationFrame(syncViewport);
+    }, []);
+
     const handleFontSizeChange = useCallback((size: number) => {
       const term = xtermRef.current;
       const fitAddon = fitAddonRef.current;
       if (term && fitAddon) {
         term.options.fontSize = size;
-        fitAddon.fit();
-        term.scrollToBottom();
+        requestViewportSync(term, true);
         // Show toast — always reset timer even for same size value
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         setToastFontSize(size);
@@ -85,7 +108,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           toastTimerRef.current = null;
         }, 1200);
       }
-    }, []);
+    }, [requestViewportSync]);
 
     const { handleTouchStart, handleTouchMove, handleTouchEnd, getInitialFontSize } = usePinchZoom({
       minSize: FONT_MIN,
@@ -147,8 +170,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         const content = `${serializeAddon.serialize()}${inFlightOutputRef.current.join('')}`;
         if (!content || content === lastSnapshotRef.current) return;
         if (content.length > SNAPSHOT_MAX_CONTENT_LENGTH) {
-          clearStoredSnapshot();
-          console.warn('[TerminalView] snapshot too large, skipping');
+          console.warn('[TerminalView] snapshot too large, keeping previous snapshot');
           return;
         }
 
@@ -163,7 +185,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       } catch (error) {
         console.warn('[TerminalView] snapshot save failed:', error);
       }
-    }, [sessionId, clearStoredSnapshot]);
+    }, [sessionId]);
 
     const scheduleSnapshotSave = useCallback(() => {
       if (idleSnapshotTimerRef.current) clearTimeout(idleSnapshotTimerRef.current);
@@ -178,7 +200,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       term.write(data, () => {
         inFlightOutputRef.current.shift();
         if (data.length > LARGE_WRITE_THRESHOLD) {
-          term.scrollToBottom();
+          requestViewportSync(term);
         }
         scheduleSnapshotSave();
         onWritten?.();
@@ -192,7 +214,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       outputTimerRef.current = setTimeout(() => {
         containerRef.current?.classList.remove('output-active');
       }, 2000);
-    }, [scheduleSnapshotSave]);
+    }, [scheduleSnapshotSave, requestViewportSync]);
 
     const flushBufferedOutput = useCallback((onWritten?: () => void) => {
       const term = xtermRef.current;
@@ -234,7 +256,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       if (!content) return;
       if (content.length > SNAPSHOT_MAX_CONTENT_LENGTH) {
-        clearStoredSnapshot();
+        console.warn('[TerminalView] buffered snapshot too large, keeping previous snapshot');
+        lastSnapshotRef.current = snapshot?.content ?? lastSnapshotRef.current;
         return;
       }
 
@@ -250,7 +273,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       } catch {
         // ignore localStorage failures
       }
-    }, [sessionId, loadStoredSnapshot, clearStoredSnapshot]);
+    }, [sessionId, loadStoredSnapshot]);
 
     const restoreSnapshot = useCallback((term: Terminal): boolean => {
       const snapshot = loadStoredSnapshot();
@@ -261,11 +284,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       try {
         term.write(snapshot.content, () => {
           lastSnapshotRef.current = snapshot.content;
-          term.scrollToBottom();
-          requestAnimationFrame(() => {
-            fitAddonRef.current?.fit();
-          });
           releaseRestorePending();
+          requestViewportSync(term, true);
         });
         return true;
       } catch (error) {
@@ -273,7 +293,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         clearStoredSnapshot();
         return false;
       }
-    }, [loadStoredSnapshot, releaseRestorePending, clearStoredSnapshot]);
+    }, [loadStoredSnapshot, releaseRestorePending, clearStoredSnapshot, requestViewportSync]);
 
     useImperativeHandle(ref, () => ({
       write: (data: string) => {
@@ -506,7 +526,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     }, [sessionId, onInput, onResize, getInitialFontSize, restoreSnapshot, releaseRestorePending, persistBufferedOutput, saveSnapshot]);
 
     useEffect(() => {
-      const handleBeforeUnload = () => {
+      const persistSnapshot = () => {
         if (idleSnapshotTimerRef.current) {
           clearTimeout(idleSnapshotTimerRef.current);
           idleSnapshotTimerRef.current = null;
@@ -518,8 +538,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         }
       };
 
-      window.addEventListener('beforeunload', handleBeforeUnload);
-      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.addEventListener('beforeunload', persistSnapshot);
+      window.addEventListener('pagehide', persistSnapshot);
+      return () => {
+        window.removeEventListener('beforeunload', persistSnapshot);
+        window.removeEventListener('pagehide', persistSnapshot);
+      };
     }, [persistBufferedOutput, saveSnapshot]);
 
     // Desktop: Ctrl+Wheel font zoom
