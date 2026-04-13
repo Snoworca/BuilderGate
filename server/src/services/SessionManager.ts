@@ -8,7 +8,6 @@ import { Session, SessionDTO, SessionStatus, UpdateSessionRequest, ShellType, Sh
 import type { PTYConfig, SessionConfig } from '../types/config.types.js';
 import { config } from '../utils/config.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
-import type { WebSocket } from 'ws';
 import type { WsRouter } from '../ws/WsRouter.js';
 import { OscDetector } from './OscDetector.js';
 
@@ -28,7 +27,8 @@ interface SessionData {
   session: Session;
   pty: pty.IPty;
   idleTimer: NodeJS.Timeout | null;
-  outputBuffer: string; // Buffer for initial output
+  replayBuffer: string;
+  replayTruncated: boolean;
   initialCwd: string;   // CWD at session creation
   cwdFilePath?: string;  // Windows CWD tracking temp file path
   lastCwd?: string;      // Last known CWD for change detection
@@ -53,6 +53,37 @@ function sanitizeCwd(raw: string): string | null {
   // Reject control characters (\x00-\x1f) except nothing — all are rejected
   if (/[\x00-\x1f]/.test(cleaned)) return null;
   return cleaned;
+}
+
+function stripReplayControlSequences(data: string): string {
+  return data.replace(/\x1b\[\?(?:47|1047|1049)[hl]/g, '');
+}
+
+function findSafeReplayStart(data: string, start: number): number {
+  if (start <= 0) return 0;
+
+  for (let index = start; index < data.length; index++) {
+    if (index === 0) return 0;
+    const prev = data[index - 1];
+    const current = data[index];
+    if (current === '\x1b' || prev === '\n' || prev === '\r') {
+      return index;
+    }
+  }
+
+  return start;
+}
+
+function truncateReplayTail(data: string, maxLength: number): { content: string; truncated: boolean } {
+  if (data.length <= maxLength) {
+    return { content: data, truncated: false };
+  }
+
+  const safeStart = findSafeReplayStart(data, data.length - maxLength);
+  return {
+    content: data.slice(safeStart),
+    truncated: true,
+  };
 }
 
 export class SessionManager {
@@ -108,7 +139,8 @@ export class SessionManager {
       session,
       pty: ptyProcess,
       idleTimer: null,
-      outputBuffer: '',
+      replayBuffer: '',
+      replayTruncated: false,
       initialCwd,
       // Step 9: Idle Detection
       echoTracker: {
@@ -191,13 +223,9 @@ export class SessionManager {
       // OSC 133 마커가 제거된 출력을 전달
       const outputData = sData.detectionMode === 'osc133' ? stripped : rawData;
 
-      const hasWsSubscribers = this.wsRouter?.hasSubscribers(id) ?? false;
-      if (!hasWsSubscribers) {
-        this.appendBufferedOutput(sData, outputData);
-      } else {
-        if (outputData.length > 0) {
-          this.broadcastWs(id, 'output', { data: outputData });
-        }
+      this.appendReplayOutput(sData, outputData);
+      if (outputData.length > 0) {
+        this.wsRouter?.routeSessionOutput(id, outputData);
       }
     });
 
@@ -260,6 +288,8 @@ export class SessionManager {
       unwatchFile(data.cwdFilePath);
       try { unlinkSync(data.cwdFilePath); } catch { /* ignore */ }
     }
+
+    this.wsRouter?.clearSessionState(id);
 
     // Remove from map
     this.sessions.delete(id);
@@ -597,8 +627,10 @@ export class SessionManager {
     }
 
     for (const data of this.sessions.values()) {
-      if (data.outputBuffer.length > this.runtimePtyConfig.maxBufferSize) {
-        data.outputBuffer = data.outputBuffer.slice(-this.runtimePtyConfig.maxBufferSize);
+      const truncated = truncateReplayTail(data.replayBuffer, this.runtimePtyConfig.maxBufferSize);
+      if (truncated.truncated) {
+        data.replayBuffer = truncated.content;
+        data.replayTruncated = true;
       }
     }
   }
@@ -671,20 +703,17 @@ export class SessionManager {
     this.wsRouter = router;
   }
 
-  /** Flush buffered output to a specific WS client (called on subscribe) */
-  flushBufferToWs(sessionId: string, ws: WebSocket): void {
+  getReplaySnapshot(sessionId: string): { data: string; truncated: boolean } | null {
     const data = this.sessions.get(sessionId);
-    if (!data) return;
+    if (!data) return null;
+    return {
+      data: data.replayBuffer,
+      truncated: data.replayTruncated,
+    };
+  }
 
-    if (data.outputBuffer.length > 0) {
-      const msg = JSON.stringify({ type: 'output', sessionId, data: data.outputBuffer });
-      if (ws.readyState === 1) ws.send(msg);
-      data.outputBuffer = '';
-    }
-
-    // Send current status
-    const statusMsg = JSON.stringify({ type: 'status', sessionId, status: data.session.status });
-    if (ws.readyState === 1) ws.send(statusMsg);
+  getReplayQueueLimit(): number {
+    return Math.min(this.runtimePtyConfig.maxBufferSize, 262_144);
   }
 
   /** Broadcast to all WS subscribers of a session */
@@ -734,11 +763,16 @@ export class SessionManager {
     );
   }
 
-  private appendBufferedOutput(sessionData: SessionData, data: string): void {
-    sessionData.outputBuffer += data;
-    if (sessionData.outputBuffer.length > this.runtimePtyConfig.maxBufferSize) {
-      sessionData.outputBuffer = sessionData.outputBuffer.slice(-this.runtimePtyConfig.maxBufferSize);
+  private appendReplayOutput(sessionData: SessionData, data: string): void {
+    const filtered = stripReplayControlSequences(data);
+    if (filtered.length === 0) {
+      return;
     }
+
+    const nextContent = `${sessionData.replayBuffer}${filtered}`;
+    const truncated = truncateReplayTail(nextContent, this.runtimePtyConfig.maxBufferSize);
+    sessionData.replayBuffer = truncated.content;
+    sessionData.replayTruncated = sessionData.replayTruncated || truncated.truncated;
   }
 }
 

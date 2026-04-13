@@ -1,6 +1,6 @@
 /**
  * WebSocket Router
- * Step 8: SSE+HTTP → WebSocket single channel migration
+ * Step 8: SSE+HTTP -> WebSocket single channel migration
  *
  * Manages WebSocket connections, JWT authentication on upgrade,
  * message routing, ping/pong heartbeat, and session subscriptions.
@@ -12,9 +12,10 @@ import type { IncomingMessage } from 'http';
 import type { Duplex } from 'stream';
 import type { AuthService } from '../services/AuthService.js';
 import type { SessionManager } from '../services/SessionManager.js';
-import type { ClientWsMessage, WsClientMeta } from '../types/ws-protocol.js';
+import type { ClientWsMessage, ReplayPendingState, WsClientMeta } from '../types/ws-protocol.js';
 
-const HEARTBEAT_INTERVAL = 30_000; // 30 seconds
+const HEARTBEAT_INTERVAL = 30_000;
+const REPLAY_ACK_TIMEOUT_MS = 5_000;
 
 export class WsRouter {
   private wss: WebSocketServer;
@@ -35,16 +36,7 @@ export class WsRouter {
     console.log('[WS] WebSocket router initialized');
   }
 
-  // ==========================================================================
-  // Upgrade Handler (JWT Authentication)
-  // ==========================================================================
-
-  /**
-   * Handle WebSocket upgrade requests for /ws path.
-   * Called from index.ts upgrade event dispatcher.
-   */
   public handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
-    // Extract JWT token from query parameter
     const url = new URL(req.url || '/', `https://${req.headers.host || 'localhost'}`);
     const token = url.searchParams.get('token');
     if (!token) {
@@ -53,7 +45,6 @@ export class WsRouter {
       return;
     }
 
-    // Verify JWT
     const result = this.authService.verifyToken(token);
     if (!result.valid) {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
@@ -61,15 +52,10 @@ export class WsRouter {
       return;
     }
 
-    // Complete the upgrade
     this.wss.handleUpgrade(req, socket, head, (ws) => {
       this.wss.emit('connection', ws, req, result.payload);
     });
   }
-
-  // ==========================================================================
-  // Connection Handler
-  // ==========================================================================
 
   private setupConnectionHandler(): void {
     this.wss.on('connection', (ws: WebSocket, _req: IncomingMessage) => {
@@ -78,25 +64,22 @@ export class WsRouter {
         clientId,
         isAlive: true,
         subscribedSessions: new Set(),
+        replayPendingSessions: new Map(),
       };
       this.clients.set(ws, meta);
 
-      // Send connected message with clientId
       ws.send(JSON.stringify({ type: 'connected', clientId }));
       console.log(`[WS] Client connected: ${clientId}`);
 
-      // Handle pong responses
       ws.on('pong', () => {
-        const m = this.clients.get(ws);
-        if (m) m.isAlive = true;
+        const current = this.clients.get(ws);
+        if (current) current.isAlive = true;
       });
 
-      // Handle incoming messages
       ws.on('message', (raw: Buffer | string) => {
         this.handleMessage(ws, raw);
       });
 
-      // Handle disconnect
       ws.on('close', () => {
         this.handleDisconnect(ws);
       });
@@ -106,10 +89,6 @@ export class WsRouter {
       });
     });
   }
-
-  // ==========================================================================
-  // Message Handling
-  // ==========================================================================
 
   private handleMessage(ws: WebSocket, raw: Buffer | string): void {
     let msg: ClientWsMessage;
@@ -127,6 +106,9 @@ export class WsRouter {
       case 'unsubscribe':
         this.handleUnsubscribe(ws, msg.sessionIds);
         break;
+      case 'history:ready':
+        this.handleHistoryReady(ws, msg.sessionId);
+        break;
       case 'input':
         this.handleInput(ws, msg.sessionId, msg.data);
         break;
@@ -141,60 +123,76 @@ export class WsRouter {
     }
   }
 
-  // ==========================================================================
-  // Subscribe / Unsubscribe
-  // ==========================================================================
-
   private handleSubscribe(ws: WebSocket, sessionIds: string[]): void {
     const results: Array<{ sessionId: string; status: string; cwd?: string }> = [];
+    const meta = this.clients.get(ws);
+    if (!meta) return;
 
-    for (const id of sessionIds) {
-      // Register subscription — Set ensures no duplicates
-      if (!this.sessionSubscribers.has(id)) {
-        this.sessionSubscribers.set(id, new Set());
+    for (const sessionId of sessionIds) {
+      const session = this.sessionManager.getSession(sessionId);
+      if (!session) {
+        results.push({ sessionId, status: 'error' });
+        continue;
       }
-      const subs = this.sessionSubscribers.get(id)!;
-      const alreadySubscribed = subs.has(ws);
-      subs.add(ws);
 
-      const meta = this.clients.get(ws);
-      if (meta) meta.subscribedSessions.add(id);
+      if (!this.sessionSubscribers.has(sessionId)) {
+        this.sessionSubscribers.set(sessionId, new Set());
+      }
 
-      // Check session existence and get status
-      const session = this.sessionManager.getSession(id);
-      if (session) {
-        const cwd = this.sessionManager.getLastCwd(id) ?? undefined;
-        results.push({ sessionId: id, status: session.status, cwd });
-        // Only flush buffer on FIRST subscription — prevents double output
-        // when client re-subscribes (e.g., React StrictMode double mount,
-        // WS reconnect + individual TerminalContainer subscribe)
-        if (!alreadySubscribed) {
-          this.sessionManager.flushBufferToWs(id, ws);
-        }
-      } else {
-        results.push({ sessionId: id, status: 'error' });
+      const subscribers = this.sessionSubscribers.get(sessionId)!;
+      const alreadySubscribed = subscribers.has(ws);
+      subscribers.add(ws);
+      meta.subscribedSessions.add(sessionId);
+
+      const cwd = this.sessionManager.getLastCwd(sessionId) ?? undefined;
+      results.push({ sessionId, status: session.status, cwd });
+
+      if (alreadySubscribed) {
+        continue;
+      }
+
+      const replay = this.sessionManager.getReplaySnapshot(sessionId);
+      if (replay && replay.data.length > 0) {
+        this.markReplayPending(ws, sessionId);
+        this.sendTo(ws, {
+          type: 'history',
+          sessionId,
+          data: replay.data,
+          truncated: replay.truncated,
+        });
       }
     }
 
-    ws.send(JSON.stringify({ type: 'subscribed', sessions: results }));
+    this.sendTo(ws, { type: 'subscribed', sessions: results });
   }
 
   private handleUnsubscribe(ws: WebSocket, sessionIds: string[]): void {
-    for (const id of sessionIds) {
-      const subs = this.sessionSubscribers.get(id);
-      if (subs) {
-        subs.delete(ws);
-        if (subs.size === 0) this.sessionSubscribers.delete(id);
+    const meta = this.clients.get(ws);
+    if (!meta) return;
+
+    for (const sessionId of sessionIds) {
+      this.clearReplayPendingForPair(ws, sessionId);
+
+      const subscribers = this.sessionSubscribers.get(sessionId);
+      if (subscribers) {
+        subscribers.delete(ws);
+        if (subscribers.size === 0) {
+          this.sessionSubscribers.delete(sessionId);
+        }
       }
 
-      const meta = this.clients.get(ws);
-      if (meta) meta.subscribedSessions.delete(id);
+      meta.subscribedSessions.delete(sessionId);
     }
   }
 
-  // ==========================================================================
-  // Input / Resize
-  // ==========================================================================
+  private handleHistoryReady(ws: WebSocket, sessionId: string): void {
+    const queuedOutput = this.clearReplayPendingForPair(ws, sessionId);
+    if (!queuedOutput || ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    this.sendTo(ws, { type: 'output', sessionId, data: queuedOutput });
+  }
 
   private handleInput(_ws: WebSocket, sessionId: string, data: string): void {
     this.sessionManager.writeInput(sessionId, data);
@@ -204,29 +202,24 @@ export class WsRouter {
     this.sessionManager.resize(sessionId, cols, rows);
   }
 
-  // ==========================================================================
-  // Disconnect Cleanup
-  // ==========================================================================
-
   private handleDisconnect(ws: WebSocket): void {
     const meta = this.clients.get(ws);
     if (meta) {
       console.log(`[WS] Client disconnected: ${meta.clientId}`);
-      // Remove from all session subscriptions
       for (const sessionId of meta.subscribedSessions) {
-        const subs = this.sessionSubscribers.get(sessionId);
-        if (subs) {
-          subs.delete(ws);
-          if (subs.size === 0) this.sessionSubscribers.delete(sessionId);
+        this.clearReplayPendingForPair(ws, sessionId);
+        const subscribers = this.sessionSubscribers.get(sessionId);
+        if (subscribers) {
+          subscribers.delete(ws);
+          if (subscribers.size === 0) {
+            this.sessionSubscribers.delete(sessionId);
+          }
         }
       }
     }
+
     this.clients.delete(ws);
   }
-
-  // ==========================================================================
-  // Heartbeat (ping/pong)
-  // ==========================================================================
 
   private startHeartbeat(): void {
     this.heartbeatTimer = setInterval(() => {
@@ -244,22 +237,87 @@ export class WsRouter {
     this.heartbeatTimer.unref();
   }
 
-  // ==========================================================================
-  // Public API (used by SessionManager and workspaceRoutes)
-  // ==========================================================================
+  private markReplayPending(ws: WebSocket, sessionId: string): void {
+    const meta = this.clients.get(ws);
+    if (!meta || meta.replayPendingSessions.has(sessionId)) {
+      return;
+    }
 
-  /** Get all WS clients subscribed to a session */
+    const state: ReplayPendingState = {
+      queuedOutput: '',
+      timer: setTimeout(() => {
+        this.clearReplayPendingForPair(ws, sessionId);
+      }, REPLAY_ACK_TIMEOUT_MS),
+    };
+    state.timer.unref();
+    meta.replayPendingSessions.set(sessionId, state);
+  }
+
+  private clearReplayPendingForPair(ws: WebSocket, sessionId: string): string {
+    const meta = this.clients.get(ws);
+    if (!meta) return '';
+
+    const pending = meta.replayPendingSessions.get(sessionId);
+    if (!pending) return '';
+
+    clearTimeout(pending.timer);
+    meta.replayPendingSessions.delete(sessionId);
+    return pending.queuedOutput;
+  }
+
+  private appendQueuedOutput(state: ReplayPendingState, data: string): void {
+    const limit = this.sessionManager.getReplayQueueLimit();
+    const next = `${state.queuedOutput}${data}`;
+    state.queuedOutput = next.length > limit ? next.slice(-limit) : next;
+  }
+
+  routeSessionOutput(sessionId: string, data: string): void {
+    const subscribers = this.sessionSubscribers.get(sessionId);
+    if (!subscribers || data.length === 0) {
+      return;
+    }
+
+    const encoded = JSON.stringify({ type: 'output', sessionId, data });
+    for (const ws of subscribers) {
+      if (ws.readyState !== WebSocket.OPEN) {
+        continue;
+      }
+
+      const meta = this.clients.get(ws);
+      const pending = meta?.replayPendingSessions.get(sessionId);
+      if (pending) {
+        this.appendQueuedOutput(pending, data);
+        continue;
+      }
+
+      ws.send(encoded);
+    }
+  }
+
+  clearSessionState(sessionId: string): void {
+    const subscribers = this.sessionSubscribers.get(sessionId);
+    if (!subscribers) {
+      return;
+    }
+
+    for (const ws of subscribers) {
+      this.clearReplayPendingForPair(ws, sessionId);
+      const meta = this.clients.get(ws);
+      meta?.subscribedSessions.delete(sessionId);
+    }
+
+    this.sessionSubscribers.delete(sessionId);
+  }
+
   getSubscribers(sessionId: string): Set<WebSocket> | undefined {
     return this.sessionSubscribers.get(sessionId);
   }
 
-  /** Check if a session has any WS subscribers */
   hasSubscribers(sessionId: string): boolean {
-    const subs = this.sessionSubscribers.get(sessionId);
-    return subs !== undefined && subs.size > 0;
+    const subscribers = this.sessionSubscribers.get(sessionId);
+    return subscribers !== undefined && subscribers.size > 0;
   }
 
-  /** Broadcast to all connected clients (workspace events) */
   broadcastAll(event: string, data: object, excludeClientId?: string): void {
     const msg = JSON.stringify({ type: event, data });
     for (const [ws, meta] of this.clients) {
@@ -269,19 +327,24 @@ export class WsRouter {
     }
   }
 
-  /** Send a message to a specific WS client */
   sendTo(ws: WebSocket, msg: object): void {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(msg));
     }
   }
 
-  /** Clean up on server shutdown */
   destroy(): void {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
     }
+
+    for (const [, meta] of this.clients) {
+      for (const pending of meta.replayPendingSessions.values()) {
+        clearTimeout(pending.timer);
+      }
+    }
+
     for (const [ws] of this.clients) {
       ws.terminate();
     }

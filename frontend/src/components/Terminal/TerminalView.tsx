@@ -35,6 +35,9 @@ export interface TerminalHandle {
   clearSelection: () => void;
   fit: () => void;
   sendInput: (data: string) => void;
+  restoreSnapshot: () => Promise<boolean>;
+  replaceWithHistory: (data: string) => Promise<void>;
+  releasePending: () => void;
 }
 
 interface Props {
@@ -275,25 +278,53 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       }
     }, [sessionId, loadStoredSnapshot]);
 
-    const restoreSnapshot = useCallback((term: Terminal): boolean => {
+    const restoreStoredSnapshot = useCallback((term: Terminal): Promise<boolean> => {
       const snapshot = loadStoredSnapshot();
       if (!snapshot) {
-        return false;
+        return Promise.resolve(false);
       }
 
-      try {
-        term.write(snapshot.content, () => {
-          lastSnapshotRef.current = snapshot.content;
+      return new Promise((resolve) => {
+        try {
+          term.write(snapshot.content, () => {
+            lastSnapshotRef.current = snapshot.content;
+            releaseRestorePending();
+            requestViewportSync(term, true);
+            resolve(true);
+          });
+        } catch (error) {
+          console.warn('[TerminalView] snapshot restore failed:', error);
+          clearStoredSnapshot();
+          resolve(false);
+        }
+      });
+    }, [loadStoredSnapshot, releaseRestorePending, clearStoredSnapshot, requestViewportSync]);
+
+    const replaceWithHistory = useCallback((data: string): Promise<void> => {
+      const term = xtermRef.current;
+      if (!term) {
+        return Promise.resolve();
+      }
+
+      restorePendingRef.current = true;
+      bufferedOutputRef.current = [];
+      inFlightOutputRef.current = [];
+      term.reset();
+
+      if (!data) {
+        releaseRestorePending();
+        return Promise.resolve();
+      }
+
+      return new Promise((resolve) => {
+        term.write(data, () => {
+          lastSnapshotRef.current = data;
           releaseRestorePending();
           requestViewportSync(term, true);
+          resolve();
         });
-        return true;
-      } catch (error) {
-        console.warn('[TerminalView] snapshot restore failed:', error);
-        clearStoredSnapshot();
-        return false;
-      }
-    }, [loadStoredSnapshot, releaseRestorePending, clearStoredSnapshot, requestViewportSync]);
+      });
+    }, [releaseRestorePending, requestViewportSync]);
 
     useImperativeHandle(ref, () => ({
       write: (data: string) => {
@@ -327,7 +358,21 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       sendInput: (data: string) => {
         onInput(data);
       },
-    }), [onInput, writeOutput]);
+      restoreSnapshot: async () => {
+        const term = xtermRef.current;
+        if (!term) {
+          return false;
+        }
+        restorePendingRef.current = true;
+        return restoreStoredSnapshot(term);
+      },
+      replaceWithHistory: (data: string) => replaceWithHistory(data),
+      releasePending: () => {
+        if (restorePendingRef.current) {
+          releaseRestorePending();
+        }
+      },
+    }), [onInput, writeOutput, restoreStoredSnapshot, replaceWithHistory, releaseRestorePending]);
 
     useEffect(() => {
       if (!terminalRef.current) return;
@@ -382,11 +427,6 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       xtermRef.current = term;
       fitAddonRef.current = fitAddon;
       serializeAddonRef.current = serializeAddon;
-
-      const restoredSnapshot = restoreSnapshot(term);
-      if (!restoredSnapshot) {
-        releaseRestorePending();
-      }
 
       term.attachCustomKeyEventHandler((ev: KeyboardEvent) => {
         if (ev.type !== 'keydown') return true;
@@ -523,7 +563,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         bufferedOutputRef.current = [];
         term.dispose();
       };
-    }, [sessionId, onInput, onResize, getInitialFontSize, restoreSnapshot, releaseRestorePending, persistBufferedOutput, saveSnapshot]);
+    }, [sessionId, onInput, onResize, getInitialFontSize, persistBufferedOutput, saveSnapshot]);
 
     useEffect(() => {
       const persistSnapshot = () => {

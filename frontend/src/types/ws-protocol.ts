@@ -11,6 +11,7 @@
 export type ClientWsMessage =
   | { type: 'subscribe';   sessionIds: string[] }
   | { type: 'unsubscribe'; sessionIds: string[] }
+  | { type: 'history:ready'; sessionId: string }
   | { type: 'input';       sessionId: string; data: string }
   | { type: 'resize';      sessionId: string; cols: number; rows: number }
   | { type: 'ping' };
@@ -21,6 +22,7 @@ export type ClientWsMessage =
 
 export type ServerWsMessage =
   // Session events
+  | { type: 'history';        sessionId: string; data: string; truncated: boolean }
   | { type: 'output';         sessionId: string; data: string }
   | { type: 'status';         sessionId: string; status: 'running' | 'idle' }
   | { type: 'cwd';            sessionId: string; cwd: string }

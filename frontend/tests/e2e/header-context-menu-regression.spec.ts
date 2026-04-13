@@ -323,4 +323,47 @@ test.describe('Header And Context Menu Regressions', () => {
       ),
     ).toEqual([]);
   });
+
+  test('TC-7005: reload should prefer server history over a poisoned local snapshot', async ({ page }) => {
+    await ensureTabMode(page);
+
+    const activeTab = await getActiveTab(page);
+    expect(activeTab?.sessionId).toBeTruthy();
+
+    const marker = `server-history-${Date.now()}`;
+    const poison = `poisoned-snapshot-${Date.now()}`;
+
+    await page.locator('.xterm-screen:visible').first().click();
+    await page.keyboard.type(`echo ${marker}`);
+    await page.keyboard.press('Enter');
+
+    await page.evaluate(({ sessionId, poison }) => {
+      localStorage.setItem(
+        `terminal_snapshot_${sessionId}`,
+        JSON.stringify({
+          schemaVersion: 1,
+          sessionId,
+          content: poison,
+          savedAt: new Date().toISOString(),
+        }),
+      );
+    }, { sessionId: activeTab!.sessionId, poison });
+
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await waitForTerminal(page);
+
+    await expect.poll(async () => {
+      return page.evaluate(({ sessionId }) => {
+        return localStorage.getItem(`terminal_snapshot_${sessionId}`) ?? '';
+      }, { sessionId: activeTab!.sessionId });
+    }, { timeout: 15000 }).toContain(marker);
+
+    await expect.poll(async () => {
+      return page.evaluate(({ sessionId, poison }) => {
+        const raw = localStorage.getItem(`terminal_snapshot_${sessionId}`) ?? '';
+        return raw.includes(poison);
+      }, { sessionId: activeTab!.sessionId, poison });
+    }, { timeout: 15000 }).toBe(false);
+  });
 });

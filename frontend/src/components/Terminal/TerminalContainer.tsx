@@ -12,9 +12,6 @@ interface Props {
   onAuthError: () => void;
 }
 
-// Custom memo: only re-render when sessionId or isVisible changes.
-// Callback prop changes (from parent useCallback recreation) are ignored
-// since we access them via refs inside useEffect.
 function propsAreEqual(prev: Props, next: Props): boolean {
   return prev.sessionId === next.sessionId && prev.isVisible === next.isVisible;
 }
@@ -24,75 +21,112 @@ export const TerminalContainer = memo(
     { sessionId, isVisible, onStatusChange, onCwdChange },
     ref
   ) {
-  const terminalRef = useRef<TerminalHandle>(null);
+    const terminalRef = useRef<TerminalHandle>(null);
+    const initialRestorePendingRef = useRef(true);
+    const historySeenRef = useRef(false);
 
-  useImperativeHandle(ref, () => ({
-    write:          (data) => terminalRef.current?.write(data),
-    clear:          ()     => terminalRef.current?.clear(),
-    focus:          ()     => terminalRef.current?.focus(),
-    hasSelection:   ()     => terminalRef.current?.hasSelection() ?? false,
-    getSelection:   ()     => terminalRef.current?.getSelection() ?? '',
-    clearSelection: ()     => terminalRef.current?.clearSelection(),
-    fit:            ()     => terminalRef.current?.fit(),
-    sendInput:      (data) => terminalRef.current?.sendInput(data),
-  }), []);
-  const { send, subscribeSession } = useWebSocketActions();
+    useImperativeHandle(ref, () => ({
+      write: (data) => terminalRef.current?.write(data),
+      clear: () => terminalRef.current?.clear(),
+      focus: () => terminalRef.current?.focus(),
+      hasSelection: () => terminalRef.current?.hasSelection() ?? false,
+      getSelection: () => terminalRef.current?.getSelection() ?? '',
+      clearSelection: () => terminalRef.current?.clearSelection(),
+      fit: () => terminalRef.current?.fit(),
+      sendInput: (data) => terminalRef.current?.sendInput(data),
+      restoreSnapshot: () => terminalRef.current?.restoreSnapshot() ?? Promise.resolve(false),
+      replaceWithHistory: (data) => terminalRef.current?.replaceWithHistory(data) ?? Promise.resolve(),
+      releasePending: () => terminalRef.current?.releasePending(),
+    }), []);
 
-  const handleStatus = useEffectEvent((status: string) => {
-    onStatusChange(sessionId, status as WorkspaceTabRuntime['status']);
-  });
+    const { send, subscribeSession } = useWebSocketActions();
 
-  const handleCwd = useEffectEvent((cwd: string) => {
-    onCwdChange?.(sessionId, cwd);
-  });
+    useEffect(() => {
+      initialRestorePendingRef.current = true;
+      historySeenRef.current = false;
+    }, [sessionId]);
 
-  const handleError = useEffectEvent((message: string) => {
-    console.error('Session error:', message);
-    onStatusChange(sessionId, 'disconnected');
-  });
-
-  // Subscribe to session via WebSocket — depends only on sessionId and ws
-  useEffect(() => {
-    const unsubscribe = subscribeSession(sessionId, {
-      onOutput: (data) => {
-        terminalRef.current?.write(data);
-      },
-      onStatus: handleStatus,
-      onError: handleError,
-      onCwd: handleCwd,
+    const handleStatus = useEffectEvent((status: string) => {
+      onStatusChange(sessionId, status as WorkspaceTabRuntime['status']);
     });
-    return unsubscribe;
-  }, [sessionId, subscribeSession]);
 
-  // isVisible이 false→true로 변경될 때 fit을 명시적으로 호출
-  // (display:none → flex 전환 시 ResizeObserver가 0-size 가드로 스킵했으므로)
-  const prevVisibleRef = useRef(isVisible);
-  useEffect(() => {
-    if (isVisible && !prevVisibleRef.current) {
-      requestAnimationFrame(() => {
-        terminalRef.current?.fit();
+    const handleCwd = useEffectEvent((cwd: string) => {
+      onCwdChange?.(sessionId, cwd);
+    });
+
+    const handleError = useEffectEvent((message: string) => {
+      console.error('Session error:', message);
+      onStatusChange(sessionId, 'disconnected');
+    });
+
+    const handleHistory = useEffectEvent(async (data: string) => {
+      historySeenRef.current = true;
+      await terminalRef.current?.replaceWithHistory(data);
+      send({ type: 'history:ready', sessionId });
+      initialRestorePendingRef.current = false;
+    });
+
+    const handleSubscribed = useEffectEvent(async () => {
+      if (!initialRestorePendingRef.current) {
+        return;
+      }
+      if (historySeenRef.current) {
+        return;
+      }
+
+      const restored = await terminalRef.current?.restoreSnapshot();
+      if (!restored) {
+        terminalRef.current?.releasePending();
+      }
+      initialRestorePendingRef.current = false;
+    });
+
+    useEffect(() => {
+      const unsubscribe = subscribeSession(sessionId, {
+        onHistory: (data) => {
+          void handleHistory(data);
+        },
+        onSubscribed: () => {
+          void handleSubscribed();
+        },
+        onOutput: (data) => {
+          terminalRef.current?.write(data);
+        },
+        onStatus: handleStatus,
+        onError: handleError,
+        onCwd: handleCwd,
       });
-    }
-    prevVisibleRef.current = isVisible;
-  }, [isVisible]);
+      return unsubscribe;
+    }, [sessionId, subscribeSession]);
 
-  const handleInput = useCallback((data: string) => {
-    send({ type: 'input', sessionId, data });
-  }, [sessionId, send]);
+    const prevVisibleRef = useRef(isVisible);
+    useEffect(() => {
+      if (isVisible && !prevVisibleRef.current) {
+        requestAnimationFrame(() => {
+          terminalRef.current?.fit();
+        });
+      }
+      prevVisibleRef.current = isVisible;
+    }, [isVisible]);
 
-  const handleResize = useCallback((cols: number, rows: number) => {
-    send({ type: 'resize', sessionId, cols, rows });
-  }, [sessionId, send]);
+    const handleInput = useCallback((data: string) => {
+      send({ type: 'input', sessionId, data });
+    }, [sessionId, send]);
 
-  return (
-    <div style={{ display: isVisible ? 'flex' : 'none', flex: 1, minWidth: 0, minHeight: 0 }}>
-      <TerminalView
-        ref={terminalRef}
-        sessionId={sessionId}
-        onInput={handleInput}
-        onResize={handleResize}
-      />
-    </div>
-  );
-  })
-, propsAreEqual);
+    const handleResize = useCallback((cols: number, rows: number) => {
+      send({ type: 'resize', sessionId, cols, rows });
+    }, [sessionId, send]);
+
+    return (
+      <div style={{ display: isVisible ? 'flex' : 'none', flex: 1, minWidth: 0, minHeight: 0 }}>
+        <TerminalView
+          ref={terminalRef}
+          sessionId={sessionId}
+          onInput={handleInput}
+          onResize={handleResize}
+        />
+      </div>
+    );
+  }),
+  propsAreEqual,
+);

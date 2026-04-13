@@ -20,6 +20,8 @@ import type { ClientWsMessage, ServerWsMessage } from '../types/ws-protocol';
 export type WsConnectionStatus = 'connected' | 'reconnecting' | 'disconnected';
 
 export interface SessionHandlers {
+  onHistory?: (data: string, truncated: boolean) => void;
+  onSubscribed?: (info: { status: string; cwd?: string }) => void;
   onOutput?: (data: string) => void;
   onStatus?: (status: string) => void;
   onError?: (message: string) => void;
@@ -112,6 +114,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         if (info.status === 'error') {
           handlers.onError?.('Session not found');
         } else {
+          handlers.onSubscribed?.({ status: info.status, cwd: info.cwd });
           handlers.onStatus?.(info.status);
           if (info.cwd) handlers.onCwd?.(info.cwd);
         }
@@ -126,6 +129,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       if (!handlers) return;
 
       switch (msg.type) {
+        case 'history':
+          handlers.onHistory?.(msg.data, msg.truncated);
+          break;
         case 'output':
           handlers.onOutput?.(msg.data);
           break;

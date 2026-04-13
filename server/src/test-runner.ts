@@ -17,6 +17,7 @@ import { ConfigFileRepository } from './services/ConfigFileRepository.js';
 import { SettingsService } from './services/SettingsService.js';
 import { SessionManager } from './services/SessionManager.js';
 import { FileService } from './services/FileService.js';
+import { WsRouter } from './ws/WsRouter.js';
 import { AppError, ErrorCode } from './utils/errors.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
 import express from 'express';
@@ -32,6 +33,9 @@ async function main(): Promise<void> {
     { name: 'SettingsService rotates password for later logins and persists encrypted secret', run: testSettingsPasswordRotation },
     { name: 'SettingsService rolls back runtime state when apply fails', run: testSettingsApplyFailureRollback },
     { name: 'SessionManager.updateRuntimeConfig affects later idle timers and buffer limits', run: testSessionManagerRuntimeConfig },
+    { name: 'WsRouter replays history before flushing queued live output', run: testWsRouterHistoryReplayOrdering },
+    { name: 'WsRouter duplicate subscribe does not replay history twice', run: testWsRouterDuplicateSubscribeIdempotent },
+    { name: 'WsRouter clears replay state when a session is removed', run: testWsRouterClearSessionState },
     { name: 'FileService.updateConfig applies new limits to later operations', run: testFileServiceRuntimeConfig },
     { name: 'twoFactorSchema accepts TOTP-only config', run: testTwoFactorSchemaTotp },
     { name: 'twoFactorSchema accepts disabled 2FA with no methods configured', run: testTwoFactorSchemaDisabled },
@@ -356,7 +360,8 @@ async function testSessionManagerRuntimeConfig(): Promise<void> {
     pty: {} as never,
 
     idleTimer: null as NodeJS.Timeout | null,
-    outputBuffer: 'abcdefgh',
+    replayBuffer: 'abcdefgh',
+    replayTruncated: false,
     initialCwd: process.cwd(),
   };
 
@@ -375,7 +380,7 @@ async function testSessionManagerRuntimeConfig(): Promise<void> {
     assert.equal((manager as any).runtimePtyConfig.defaultCols, 120);
     assert.equal((manager as any).runtimePtyConfig.shell, 'bash');
     assert.equal((manager as any).runtimeSessionConfig.idleDelayMs, 20);
-    assert.equal(sessionData.outputBuffer, 'efgh');
+    assert.equal(sessionData.replayBuffer, 'efgh');
 
     (manager as any).scheduleIdleTransition(fakeSession.id);
     await delay(40);
@@ -386,6 +391,111 @@ async function testSessionManagerRuntimeConfig(): Promise<void> {
       clearTimeout(sessionData.idleTimer);
     }
   }
+}
+
+function createFakeWs() {
+  const sent: Array<Record<string, unknown>> = [];
+  const listeners = new Map<string, Array<(...args: any[]) => void>>();
+
+  const ws = {
+    readyState: 1,
+    send(payload: string) {
+      sent.push(JSON.parse(payload) as Record<string, unknown>);
+    },
+    ping() {},
+    terminate() {},
+    on(event: string, handler: (...args: any[]) => void) {
+      const current = listeners.get(event) ?? [];
+      current.push(handler);
+      listeners.set(event, current);
+      return this;
+    },
+  } as unknown as import('ws').WebSocket;
+
+  return { ws, sent };
+}
+
+function createWsRouterHarness(options?: { replayData?: string }) {
+  const session = {
+    id: 'session-1',
+    name: 'Session 1',
+    status: 'running',
+    createdAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
+    sortOrder: 0,
+  };
+
+  const sessionManagerStub = {
+    getSession: (id: string) => id === session.id ? session : null,
+    getLastCwd: (id: string) => id === session.id ? 'C:\\repo' : null,
+    getReplaySnapshot: (id: string) => id === session.id ? {
+      data: options?.replayData ?? 'history-seed',
+      truncated: false,
+    } : null,
+    getReplayQueueLimit: () => 64,
+    writeInput: () => true,
+    resize: () => true,
+  } as unknown as SessionManager;
+
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+
+  const router = new WsRouter(authServiceStub, sessionManagerStub);
+  const { ws, sent } = createFakeWs();
+
+  (router as any).clients.set(ws, {
+    clientId: 'client-1',
+    isAlive: true,
+    subscribedSessions: new Set<string>(),
+    replayPendingSessions: new Map<string, { queuedOutput: string; timer: NodeJS.Timeout }>(),
+  });
+
+  return { router, ws, sent };
+}
+
+function testWsRouterHistoryReplayOrdering(): void {
+  const { router, ws, sent } = createWsRouterHarness();
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  assert.equal(sent[0].type, 'history');
+  assert.equal(sent[1].type, 'subscribed');
+
+  router.routeSessionOutput('session-1', 'live-after-history');
+  assert.equal(sent.length, 2);
+
+  (router as any).handleHistoryReady(ws, 'session-1');
+  assert.equal(sent[2].type, 'output');
+  assert.equal(sent[2].data, 'live-after-history');
+
+  router.destroy();
+}
+
+function testWsRouterDuplicateSubscribeIdempotent(): void {
+  const { router, ws, sent } = createWsRouterHarness();
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  (router as any).handleSubscribe(ws, ['session-1']);
+
+  const historyMessages = sent.filter((message) => message.type === 'history');
+  assert.equal(historyMessages.length, 1);
+
+  router.destroy();
+}
+
+function testWsRouterClearSessionState(): void {
+  const { router, ws, sent } = createWsRouterHarness();
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  router.routeSessionOutput('session-1', 'queued-before-clear');
+  router.clearSessionState('session-1');
+  router.routeSessionOutput('session-1', 'output-after-clear');
+
+  const outputMessages = sent.filter((message) => message.type === 'output');
+  assert.equal(outputMessages.length, 0);
+  assert.equal((router as any).sessionSubscribers.has('session-1'), false);
+
+  router.destroy();
 }
 
 async function testFileServiceRuntimeConfig(): Promise<void> {

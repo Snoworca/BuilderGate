@@ -33,7 +33,8 @@ test('SessionManager.updateRuntimeConfig affects later idle timers and buffer li
     pty: {} as never,
 
     idleTimer: null as NodeJS.Timeout | null,
-    outputBuffer: 'abcdefgh',
+    replayBuffer: 'abcdefgh',
+    replayTruncated: false,
     initialCwd: process.cwd(),
   };
 
@@ -56,7 +57,7 @@ test('SessionManager.updateRuntimeConfig affects later idle timers and buffer li
   assert.equal((manager as any).runtimePtyConfig.defaultCols, 120);
   assert.equal((manager as any).runtimePtyConfig.shell, 'bash');
   assert.equal((manager as any).runtimeSessionConfig.idleDelayMs, 20);
-  assert.equal(sessionData.outputBuffer, 'efgh');
+  assert.equal(sessionData.replayBuffer, 'efgh');
 
   (manager as any).scheduleIdleTransition(fakeSession.id);
   await delay(40);
