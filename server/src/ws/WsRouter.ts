@@ -323,6 +323,56 @@ export class WsRouter {
     }
   }
 
+  refreshReplaySnapshots(sessionId: string): void {
+    const subscribers = this.sessionSubscribers.get(sessionId);
+    if (!subscribers || subscribers.size === 0) {
+      return;
+    }
+
+    const snapshot = this.sessionManager.getScreenSnapshot(sessionId);
+    if (!snapshot) {
+      return;
+    }
+
+    const mode = snapshot.health === 'healthy' && !(snapshot.truncated && snapshot.data.length === 0)
+      ? 'authoritative'
+      : 'fallback';
+
+    for (const ws of subscribers) {
+      if (ws.readyState !== WebSocket.OPEN) {
+        continue;
+      }
+
+      const meta = this.clients.get(ws);
+      const pending = meta?.replayPendingSessions.get(sessionId);
+      if (!pending) {
+        continue;
+      }
+
+      clearTimeout(pending.timer);
+      pending.replayToken = uuidv4();
+      pending.snapshotSeq = snapshot.seq;
+      pending.queuedOutput = '';
+      pending.timer = setTimeout(() => {
+        this.clearReplayPendingForPair(ws, sessionId);
+      }, REPLAY_ACK_TIMEOUT_MS);
+      pending.timer.unref();
+
+      this.sendTo(ws, {
+        type: 'screen-snapshot',
+        sessionId,
+        replayToken: pending.replayToken,
+        seq: snapshot.seq,
+        cols: snapshot.cols,
+        rows: snapshot.rows,
+        mode,
+        data: snapshot.data,
+        truncated: snapshot.truncated,
+        source: 'headless',
+      });
+    }
+  }
+
   clearSessionState(sessionId: string): void {
     const subscribers = this.sessionSubscribers.get(sessionId);
     if (!subscribers) {

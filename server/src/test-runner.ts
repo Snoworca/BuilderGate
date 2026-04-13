@@ -18,6 +18,7 @@ import { SettingsService } from './services/SettingsService.js';
 import { SessionManager } from './services/SessionManager.js';
 import { FileService } from './services/FileService.js';
 import { OscDetector } from './services/OscDetector.js';
+import { WorkspaceService } from './services/WorkspaceService.js';
 import {
   createHeadlessTerminalState,
   disposeHeadlessTerminal,
@@ -50,6 +51,7 @@ async function main(): Promise<void> {
     { name: 'SessionManager does not duplicate flushed output when later queued output is still pending at degradation time', run: testSessionManagerMixedFlushDegradedRecovery },
     { name: 'SessionManager does not duplicate queued output on direct write failure', run: testSessionManagerWriteFailureNoDuplicate },
     { name: 'SessionManager rejects oversized authoritative snapshots without unbounded growth', run: testSessionManagerOversizedSnapshot },
+    { name: 'SessionManager authoritative snapshot preserves current alt-screen state', run: testSessionManagerAltScreenSnapshot },
     { name: 'SessionManager preserves degraded output across unsubscribed gaps', run: testSessionManagerDegradedOutputRecovery },
     { name: 'Headless snapshot serialization is deterministic for a normal screen', run: testHeadlessSnapshotSerialization },
     { name: 'Headless snapshot serialization reflects resize geometry', run: testHeadlessSnapshotResize },
@@ -66,8 +68,12 @@ async function main(): Promise<void> {
     { name: 'WsRouter still emits a replay start for oversized snapshots', run: testWsRouterOversizedSnapshotReplayStart },
     { name: 'WsRouter duplicate subscribe does not replay screen snapshot twice', run: testWsRouterDuplicateSubscribeIdempotent },
     { name: 'WsRouter ignores stale replay tokens', run: testWsRouterIgnoresStaleReplayTokens },
+    { name: 'WsRouter refreshes replay snapshots on resize while pending', run: testWsRouterRefreshesReplaySnapshotsOnResize },
     { name: 'WsRouter does not duplicate deferred degraded payload after fallback snapshot ack', run: testWsRouterNoDuplicateDeferredFallbackPayload },
     { name: 'WsRouter clears replay state when a session is removed', run: testWsRouterClearSessionState },
+    { name: 'WorkspaceService restartTab invalidates old session lineage and preserves lastCwd', run: testWorkspaceServiceRestartTab },
+    { name: 'WorkspaceService deleteWorkspace clears workspace sessions in bulk', run: testWorkspaceServiceDeleteWorkspace },
+    { name: 'WorkspaceService orphan recovery recreates fresh session ids with saved cwd', run: testWorkspaceServiceCheckOrphanTabs },
     { name: 'FileService.updateConfig applies new limits to later operations', run: testFileServiceRuntimeConfig },
     { name: 'twoFactorSchema accepts TOTP-only config', run: testTwoFactorSchemaTotp },
     { name: 'twoFactorSchema accepts disabled 2FA with no methods configured', run: testTwoFactorSchemaDisabled },
@@ -738,6 +744,38 @@ async function testSessionManagerOversizedSnapshot(): Promise<void> {
   }
 }
 
+async function testSessionManagerAltScreenSnapshot(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+
+  try {
+    await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, 'shell\r\nprompt> ');
+    await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, '\x1b[?1049h\x1b[HALT');
+
+    const snapshot = manager.getScreenSnapshot(harness.sessionId);
+
+    assert.equal(snapshot?.health, 'healthy');
+    assert.match(snapshot?.data ?? '', /\x1b\[\?1049h/);
+    assert.match(snapshot?.data ?? '', /ALT/);
+  } finally {
+    harness.dispose();
+  }
+}
+
 function testSessionManagerDegradedOutputRecovery(): void {
   const manager = new SessionManager({
     pty: {
@@ -899,6 +937,57 @@ function createDegradedSessionHarness(
   }
   sessionData.headlessHealth = 'degraded';
   return harness;
+}
+
+function createWorkspaceServiceHarness() {
+  const calls = {
+    createSession: [] as Array<{ name?: string; shell?: string; cwd?: string }>,
+    deleteSession: [] as string[],
+    deleteMultipleSessions: [] as string[][],
+    hasSession: new Set<string>(),
+  };
+  let sessionCounter = 0;
+
+  const sessionManagerStub = {
+    onCwdChange() {},
+    createSession(name?: string, shell?: string, cwd?: string) {
+      calls.createSession.push({ name, shell, cwd });
+      const id = `session-${++sessionCounter}`;
+      calls.hasSession.add(id);
+      return {
+        id,
+        name: name ?? `Session-${sessionCounter}`,
+        status: 'idle',
+        createdAt: new Date().toISOString(),
+        lastActiveAt: new Date().toISOString(),
+        sortOrder: 0,
+      };
+    },
+    deleteSession(id: string) {
+      calls.deleteSession.push(id);
+      calls.hasSession.delete(id);
+      return true;
+    },
+    deleteMultipleSessions(ids: string[]) {
+      calls.deleteMultipleSessions.push(ids);
+      for (const id of ids) calls.hasSession.delete(id);
+    },
+    hasSession(id: string) {
+      return calls.hasSession.has(id);
+    },
+    getCwdFilePath() {
+      return null;
+    },
+    getLastCwd() {
+      return null;
+    },
+  } as unknown as SessionManager;
+
+  const workspaceService = new WorkspaceService(sessionManagerStub);
+  (workspaceService as any).save = async () => {};
+  (workspaceService as any).flushToDisk = async () => {};
+
+  return { workspaceService, calls };
 }
 
 function readHeadlessLines(
@@ -1271,6 +1360,77 @@ function testWsRouterIgnoresStaleReplayTokens(): void {
   router.destroy();
 }
 
+function testWsRouterRefreshesReplaySnapshotsOnResize(): void {
+  const snapshotState = {
+    seq: 1,
+    cols: 80,
+    rows: 24,
+    data: 'A',
+    truncated: false,
+    generatedAt: Date.now(),
+    health: 'healthy' as const,
+  };
+  const session = {
+    id: 'session-1',
+    name: 'Session 1',
+    status: 'running',
+    createdAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
+    sortOrder: 0,
+  };
+  const sessionManagerStub = {
+    getSession: (id: string) => id === session.id ? session : null,
+    getLastCwd: () => 'C:\\repo',
+    getScreenSnapshot: () => snapshotState,
+    getReplayQueueLimit: () => 64,
+    writeInput: () => true,
+    resize: () => true,
+  } as unknown as SessionManager;
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, sessionManagerStub);
+  const { ws, sent } = createFakeWs();
+
+  try {
+    (router as any).clients.set(ws, {
+      clientId: 'client-1',
+      isAlive: true,
+      subscribedSessions: new Set<string>(),
+      replayPendingSessions: new Map(),
+    });
+
+    (router as any).handleSubscribe(ws, ['session-1']);
+    const firstToken = String(sent[0].replayToken);
+
+    snapshotState.seq = 2;
+    snapshotState.cols = 120;
+    snapshotState.rows = 40;
+    router.routeSessionOutput('session-1', 'B');
+    snapshotState.data = 'AB';
+    router.refreshReplaySnapshots('session-1');
+
+    const refreshed = sent[2];
+    assert.equal(refreshed.type, 'screen-snapshot');
+    assert.equal(refreshed.cols, 120);
+    assert.equal(refreshed.rows, 40);
+    const secondToken = String(refreshed.replayToken);
+    assert.notEqual(secondToken, firstToken);
+
+    router.routeSessionOutput('session-1', 'C');
+
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', firstToken);
+    assert.equal(sent.filter((message) => message.type === 'output').length, 0);
+
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', secondToken);
+    const outputs = sent.filter((message) => message.type === 'output');
+    assert.equal(outputs.length, 1);
+    assert.equal(outputs[0].data, 'C');
+  } finally {
+    router.destroy();
+  }
+}
+
 async function testWsRouterNoDuplicateDeferredFallbackPayload(): Promise<void> {
   const manager = new SessionManager({
     pty: {
@@ -1348,6 +1508,136 @@ function testWsRouterClearSessionState(): void {
   assert.equal((router as any).sessionSubscribers.has('session-1'), false);
 
   router.destroy();
+}
+
+async function testWorkspaceServiceRestartTab(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = {
+    workspaces: [{
+      id: 'ws-1',
+      name: 'Workspace 1',
+      sortOrder: 0,
+      viewMode: 'tab',
+      activeTabId: 'tab-1',
+      colorCounter: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }],
+    tabs: [{
+      id: 'tab-1',
+      workspaceId: 'ws-1',
+      sessionId: 'old-session',
+      name: 'Terminal 1',
+      colorIndex: 0,
+      sortOrder: 0,
+      shellType: 'bash',
+      lastCwd: '/repo',
+      createdAt: new Date().toISOString(),
+    }],
+    gridLayouts: [],
+  };
+  calls.hasSession.add('old-session');
+
+  const tab = await workspaceService.restartTab('ws-1', 'tab-1');
+
+  assert.deepEqual(calls.deleteSession, ['old-session']);
+  assert.equal(calls.createSession.length, 1);
+  assert.equal(calls.createSession[0].cwd, '/repo');
+  assert.equal(calls.createSession[0].shell, 'bash');
+  assert.notEqual(tab.sessionId, 'old-session');
+}
+
+async function testWorkspaceServiceDeleteWorkspace(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = {
+    workspaces: [
+      {
+        id: 'ws-1',
+        name: 'Workspace 1',
+        sortOrder: 0,
+        viewMode: 'tab',
+        activeTabId: 'tab-1',
+        colorCounter: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: 'ws-2',
+        name: 'Workspace 2',
+        sortOrder: 1,
+        viewMode: 'tab',
+        activeTabId: null,
+        colorCounter: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ],
+    tabs: [
+      {
+        id: 'tab-1',
+        workspaceId: 'ws-1',
+        sessionId: 'session-a',
+        name: 'Terminal A',
+        colorIndex: 0,
+        sortOrder: 0,
+        shellType: 'bash',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'tab-2',
+        workspaceId: 'ws-1',
+        sessionId: 'session-b',
+        name: 'Terminal B',
+        colorIndex: 1,
+        sortOrder: 1,
+        shellType: 'bash',
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    gridLayouts: [{ workspaceId: 'ws-1', mosaicTree: null }],
+  };
+
+  await workspaceService.deleteWorkspace('ws-1');
+
+  assert.deepEqual(calls.deleteMultipleSessions, [['session-a', 'session-b']]);
+  assert.equal((workspaceService as any).state.workspaces.some((ws: any) => ws.id === 'ws-1'), false);
+  assert.equal((workspaceService as any).state.tabs.length, 0);
+  assert.equal((workspaceService as any).state.gridLayouts.length, 0);
+}
+
+async function testWorkspaceServiceCheckOrphanTabs(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = {
+    workspaces: [{
+      id: 'ws-1',
+      name: 'Workspace 1',
+      sortOrder: 0,
+      viewMode: 'tab',
+      activeTabId: 'tab-1',
+      colorCounter: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }],
+    tabs: [{
+      id: 'tab-1',
+      workspaceId: 'ws-1',
+      sessionId: 'orphan-session',
+      name: 'Terminal 1',
+      colorIndex: 0,
+      sortOrder: 0,
+      shellType: 'bash',
+      lastCwd: '/saved-cwd',
+      createdAt: new Date().toISOString(),
+    }],
+    gridLayouts: [],
+  };
+
+  const orphanTabIds = await workspaceService.checkOrphanTabs();
+
+  assert.deepEqual(orphanTabIds, ['tab-1']);
+  assert.equal(calls.createSession.length, 1);
+  assert.equal(calls.createSession[0].cwd, '/saved-cwd');
+  assert.notEqual((workspaceService as any).state.tabs[0].sessionId, 'orphan-session');
 }
 
 async function testFileServiceRuntimeConfig(): Promise<void> {

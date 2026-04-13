@@ -374,6 +374,8 @@ export class SessionManager {
         this.markHeadlessDegraded(id, data, 'resize', error);
       }
     }
+
+    this.wsRouter?.refreshReplaySnapshots(id);
     return true;
   }
 
