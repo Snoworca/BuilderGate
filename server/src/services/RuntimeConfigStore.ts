@@ -33,7 +33,6 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
   'pty.defaultCols': { applyScope: 'new_sessions', writeOnly: false },
   'pty.defaultRows': { applyScope: 'new_sessions', writeOnly: false },
   'pty.useConpty': { applyScope: 'new_sessions', writeOnly: false },
-  'pty.maxBufferSize': { applyScope: 'immediate', writeOnly: false },
   'pty.shell': { applyScope: 'new_sessions', writeOnly: false },
   'session.idleDelayMs': { applyScope: 'immediate', writeOnly: false },
   'fileManager.maxFileSize': { applyScope: 'immediate', writeOnly: false },
@@ -121,9 +120,6 @@ export class RuntimeConfigStore {
     if (patch.pty?.useConpty !== undefined) {
       next.pty.useConpty = patch.pty.useConpty;
     }
-    if (patch.pty?.maxBufferSize !== undefined) {
-      next.pty.maxBufferSize = patch.pty.maxBufferSize;
-    }
     if (patch.pty?.shell !== undefined) {
       next.pty.shell = patch.pty.shell;
     }
@@ -194,7 +190,6 @@ function buildEditableValues(source: Config): EditableSettingsValues {
       defaultCols: source.pty.defaultCols ?? ptyDefaults.defaultCols,
       defaultRows: source.pty.defaultRows ?? ptyDefaults.defaultRows,
       useConpty: source.pty.useConpty ?? ptyDefaults.useConpty,
-      maxBufferSize: source.pty.maxBufferSize ?? ptyDefaults.maxBufferSize,
       shell: source.pty.shell ?? ptyDefaults.shell,
     },
     session: {

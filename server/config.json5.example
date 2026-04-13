@@ -24,8 +24,11 @@
     // Recommendation: Use false (winpty) for better Claude compatibility
     useConpty: true,
 
-    // Maximum output buffer size (bytes) for buffering output before SSE connection
-    maxBufferSize: 65536,  // 64KB
+    // Maximum headless scrollback retention in logical lines
+    scrollbackLines: 1000,
+
+    // Maximum serialized server snapshot size (bytes/characters)
+    maxSnapshotBytes: 2097152,  // 2MB
 
     // Shell type for PTY sessions
     // - "auto": OS default (Windows → PowerShell, Linux/macOS → bash)

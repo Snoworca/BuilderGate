@@ -53,14 +53,21 @@ export const serverSchema = z.object({
 // PTY Schema
 // ============================================================================
 
-export const ptySchema = z.object({
+const ptySchemaInput = z.object({
   termName: z.string().default('xterm-256color'),
   defaultCols: z.number().min(20).max(500).default(80),
   defaultRows: z.number().min(5).max(200).default(24),
   useConpty: z.boolean().default(false),
-  maxBufferSize: z.number().min(1024).max(10485760).default(65536),
+  scrollbackLines: z.number().int().min(0).max(50000).default(1000),
+  maxSnapshotBytes: z.number().int().min(1024).max(268435456).optional(),
+  maxBufferSize: z.number().int().min(1024).max(268435456).optional(),
   shell: z.enum(['auto', 'powershell', 'wsl', 'bash', 'zsh', 'sh', 'cmd']).default('auto'),
 });
+
+export const ptySchema = ptySchemaInput.transform(({ maxBufferSize, maxSnapshotBytes, ...pty }) => ({
+  ...pty,
+  maxSnapshotBytes: maxSnapshotBytes ?? maxBufferSize ?? 2097152,
+}));
 
 // ============================================================================
 // Session Schema

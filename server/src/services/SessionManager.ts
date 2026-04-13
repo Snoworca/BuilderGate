@@ -8,6 +8,15 @@ import { Session, SessionDTO, SessionStatus, UpdateSessionRequest, ShellType, Sh
 import type { PTYConfig, SessionConfig } from '../types/config.types.js';
 import { config } from '../utils/config.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import {
+  createHeadlessTerminalState,
+  disposeHeadlessTerminal,
+  resizeHeadlessTerminal,
+  serializeHeadlessTerminal,
+  type HeadlessTerminalState,
+  writeHeadlessTerminal,
+} from '../utils/headlessTerminal.js';
+import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 import type { WsRouter } from '../ws/WsRouter.js';
 import { OscDetector } from './OscDetector.js';
 
@@ -23,12 +32,54 @@ interface EchoTracker {
 /** idle 감지 모드 */
 type DetectionMode = 'heuristic' | 'osc133';
 
+type HeadlessHealth = 'healthy' | 'degraded';
+
+interface SessionSnapshotCache {
+  seq: number;
+  cols: number;
+  rows: number;
+  data: string;
+  truncated: boolean;
+  generatedAt: number;
+  dirty: boolean;
+}
+
+interface SessionScreenSnapshot {
+  seq: number;
+  cols: number;
+  rows: number;
+  data: string;
+  truncated: boolean;
+  generatedAt: number;
+  health: HeadlessHealth;
+}
+
+interface DeferredSignal<T> {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+}
+
+const LEGACY_TRUNCATED_REPLAY_PLACEHOLDER = '\r\n[BuilderGate] Screen snapshot exceeded maxSnapshotBytes. Waiting for new output...\r\n';
+const LEGACY_DEGRADED_REPLAY_PLACEHOLDER = '\r\n[BuilderGate] Server snapshot is unavailable for this session. Using fallback recovery when possible...\r\n';
+
 interface SessionData {
   session: Session;
   pty: pty.IPty;
   idleTimer: NodeJS.Timeout | null;
-  replayBuffer: string;
-  replayTruncated: boolean;
+  headless: HeadlessTerminalState | null;
+  headlessHealth: HeadlessHealth;
+  headlessWriteChain: Promise<void>;
+  headlessCloseSignal: DeferredSignal<void>;
+  pendingHeadlessWrites: number;
+  cols: number;
+  rows: number;
+  screenSeq: number;
+  snapshotCache: SessionSnapshotCache | null;
+  degradedReplayBuffer: string;
+  degradedReplayTruncated: boolean;
+  pendingOutputChunks: string[];
+  unsnapshottedOutput: string;
+  unsnapshottedOutputTruncated: boolean;
   initialCwd: string;   // CWD at session creation
   cwdFilePath?: string;  // Windows CWD tracking temp file path
   lastCwd?: string;      // Last known CWD for change detection
@@ -53,37 +104,6 @@ function sanitizeCwd(raw: string): string | null {
   // Reject control characters (\x00-\x1f) except nothing — all are rejected
   if (/[\x00-\x1f]/.test(cleaned)) return null;
   return cleaned;
-}
-
-function stripReplayControlSequences(data: string): string {
-  return data.replace(/\x1b\[\?(?:47|1047|1049)[hl]/g, '');
-}
-
-function findSafeReplayStart(data: string, start: number): number {
-  if (start <= 0) return 0;
-
-  for (let index = start; index < data.length; index++) {
-    if (index === 0) return 0;
-    const prev = data[index - 1];
-    const current = data[index];
-    if (current === '\x1b' || prev === '\n' || prev === '\r') {
-      return index;
-    }
-  }
-
-  return start;
-}
-
-function truncateReplayTail(data: string, maxLength: number): { content: string; truncated: boolean } {
-  if (data.length <= maxLength) {
-    return { content: data, truncated: false };
-  }
-
-  const safeStart = findSafeReplayStart(data, data.length - maxLength);
-  return {
-    content: data.slice(safeStart),
-    truncated: true,
-  };
 }
 
 export class SessionManager {
@@ -112,11 +132,13 @@ export class SessionManager {
 
     // Step 9: OSC 133 셸 통합 환경변수 구성
     const env = this.buildShellEnv(shellType);
+    const cols = this.runtimePtyConfig.defaultCols;
+    const rows = this.runtimePtyConfig.defaultRows;
 
     const ptyProcess = pty.spawn(shellCmd, shellArgs, {
       name: this.runtimePtyConfig.termName,
-      cols: this.runtimePtyConfig.defaultCols,
-      rows: this.runtimePtyConfig.defaultRows,
+      cols,
+      rows,
       cwd: initialCwd,
       env,  // Step 9: 확장된 env (OSC 133 주입 포함)
       // Windows PTY backend (ConPTY vs winpty)
@@ -139,8 +161,20 @@ export class SessionManager {
       session,
       pty: ptyProcess,
       idleTimer: null,
-      replayBuffer: '',
-      replayTruncated: false,
+      headless: null,
+      headlessHealth: 'healthy',
+      headlessWriteChain: Promise.resolve(),
+      headlessCloseSignal: createDeferredSignal<void>(),
+      pendingHeadlessWrites: 0,
+      cols,
+      rows,
+      screenSeq: 0,
+      snapshotCache: null,
+      degradedReplayBuffer: '',
+      degradedReplayTruncated: false,
+      pendingOutputChunks: [],
+      unsnapshottedOutput: '',
+      unsnapshottedOutputTruncated: false,
       initialCwd,
       // Step 9: Idle Detection
       echoTracker: {
@@ -153,6 +187,7 @@ export class SessionManager {
     };
 
     this.sessions.set(id, sessionData);
+    this.initializeHeadlessState(id, sessionData);
 
     // Step 9: OSC 133 콜백 등록
     oscDetector.setCallback((status, event) => {
@@ -223,9 +258,8 @@ export class SessionManager {
       // OSC 133 마커가 제거된 출력을 전달
       const outputData = sData.detectionMode === 'osc133' ? stripped : rawData;
 
-      this.appendReplayOutput(sData, outputData);
       if (outputData.length > 0) {
-        this.wsRouter?.routeSessionOutput(id, outputData);
+        this.queueHeadlessOutput(id, sData, outputData);
       }
     });
 
@@ -283,6 +317,13 @@ export class SessionManager {
     // Step 9: OSC 감지기 정리
     data.oscDetector.destroy();
 
+    if (data.headless) {
+      disposeHeadlessTerminal(data.headless);
+      data.headless = null;
+    }
+    data.headlessCloseSignal.resolve();
+    data.snapshotCache = null;
+
     // Clean up CWD file watching and temp file
     if (data.cwdFilePath) {
       unwatchFile(data.cwdFilePath);
@@ -321,6 +362,18 @@ export class SessionManager {
     if (!data) return false;
 
     data.pty.resize(cols, rows);
+    data.cols = cols;
+    data.rows = rows;
+    data.screenSeq += 1;
+    this.markSnapshotDirty(data);
+
+    if (data.headlessHealth === 'healthy' && data.headless) {
+      try {
+        resizeHeadlessTerminal(data.headless, cols, rows);
+      } catch (error) {
+        this.markHeadlessDegraded(id, data, 'resize', error);
+      }
+    }
     return true;
   }
 
@@ -626,11 +679,21 @@ export class SessionManager {
       };
     }
 
+    if (!next.pty) {
+      return;
+    }
+
     for (const data of this.sessions.values()) {
-      const truncated = truncateReplayTail(data.replayBuffer, this.runtimePtyConfig.maxBufferSize);
-      if (truncated.truncated) {
-        data.replayBuffer = truncated.content;
-        data.replayTruncated = true;
+      data.snapshotCache = null;
+      if (data.degradedReplayBuffer.length > 0) {
+        const degraded = truncateTerminalPayloadTail(data.degradedReplayBuffer, this.runtimePtyConfig.maxSnapshotBytes);
+        data.degradedReplayBuffer = degraded.content;
+        data.degradedReplayTruncated = data.degradedReplayTruncated || degraded.truncated;
+      }
+      if (data.unsnapshottedOutput.length > 0) {
+        const pending = truncateTerminalPayloadTail(data.unsnapshottedOutput, this.runtimePtyConfig.maxSnapshotBytes);
+        data.unsnapshottedOutput = pending.content;
+        data.unsnapshottedOutputTruncated = data.unsnapshottedOutputTruncated || pending.truncated;
       }
     }
   }
@@ -704,16 +767,65 @@ export class SessionManager {
   }
 
   getReplaySnapshot(sessionId: string): { data: string; truncated: boolean } | null {
-    const data = this.sessions.get(sessionId);
-    if (!data) return null;
+    const snapshot = this.getScreenSnapshot(sessionId);
+    if (!snapshot) return null;
+    if (snapshot.health === 'degraded') {
+      return {
+        data: `${LEGACY_DEGRADED_REPLAY_PLACEHOLDER}${this.sessions.get(sessionId)?.degradedReplayBuffer ?? ''}`,
+        truncated: this.sessions.get(sessionId)?.degradedReplayTruncated ?? false,
+      };
+    }
+    if (snapshot.truncated && snapshot.data.length === 0) {
+      return {
+        data: LEGACY_TRUNCATED_REPLAY_PLACEHOLDER,
+        truncated: true,
+      };
+    }
     return {
-      data: data.replayBuffer,
-      truncated: data.replayTruncated,
+      data: snapshot.data,
+      truncated: snapshot.truncated,
     };
   }
 
+  getScreenSnapshot(sessionId: string): SessionScreenSnapshot | null {
+    const data = this.sessions.get(sessionId);
+    if (!data) return null;
+
+    if (data.headlessHealth !== 'healthy' || !data.headless) {
+      return this.createDegradedSnapshot(data);
+    }
+
+    const cached = data.snapshotCache;
+    if (cached && !cached.dirty && cached.seq === data.screenSeq && cached.cols === data.cols && cached.rows === data.rows) {
+      return { ...cached, health: 'healthy' };
+    }
+
+    try {
+      const snapshot = serializeHeadlessTerminal(data.headless, this.runtimePtyConfig.maxSnapshotBytes);
+      const generatedAt = Date.now();
+      data.snapshotCache = {
+        seq: data.screenSeq,
+        cols: data.cols,
+        rows: data.rows,
+        data: snapshot.data,
+        truncated: snapshot.truncated,
+        generatedAt,
+        dirty: false,
+      };
+      data.unsnapshottedOutput = '';
+      data.unsnapshottedOutputTruncated = false;
+      return {
+        ...data.snapshotCache,
+        health: 'healthy',
+      };
+    } catch (error) {
+      this.markHeadlessDegraded(sessionId, data, 'serialize', error);
+      return this.createDegradedSnapshot(data);
+    }
+  }
+
   getReplayQueueLimit(): number {
-    return Math.min(this.runtimePtyConfig.maxBufferSize, 262_144);
+    return Math.min(this.runtimePtyConfig.maxSnapshotBytes, 262_144);
   }
 
   /** Broadcast to all WS subscribers of a session */
@@ -763,16 +875,138 @@ export class SessionManager {
     );
   }
 
-  private appendReplayOutput(sessionData: SessionData, data: string): void {
-    const filtered = stripReplayControlSequences(data);
-    if (filtered.length === 0) {
+  private initializeHeadlessState(sessionId: string, sessionData: SessionData): void {
+    try {
+      sessionData.headless = createHeadlessTerminalState({
+        cols: sessionData.cols,
+        rows: sessionData.rows,
+        scrollbackLines: this.runtimePtyConfig.scrollbackLines,
+      });
+      sessionData.headlessHealth = 'healthy';
+    } catch (error) {
+      this.markHeadlessDegraded(sessionId, sessionData, 'create', error);
+    }
+  }
+
+  private queueHeadlessOutput(sessionId: string, sessionData: SessionData, data: string): void {
+    if (sessionData.headlessHealth !== 'healthy' || !sessionData.headless) {
+      this.appendDegradedReplayOutput(sessionData, data);
+      this.wsRouter?.routeSessionOutput(sessionId, data);
       return;
     }
 
-    const nextContent = `${sessionData.replayBuffer}${filtered}`;
-    const truncated = truncateReplayTail(nextContent, this.runtimePtyConfig.maxBufferSize);
-    sessionData.replayBuffer = truncated.content;
-    sessionData.replayTruncated = sessionData.replayTruncated || truncated.truncated;
+    sessionData.pendingHeadlessWrites += 1;
+    sessionData.pendingOutputChunks.push(data);
+    sessionData.headlessWriteChain = sessionData.headlessWriteChain
+      .then(async () => {
+        await this.applyHeadlessOutput(sessionId, sessionData, data);
+      })
+      .catch((error) => {
+        if (!this.isActiveSession(sessionId, sessionData)) {
+          return;
+        }
+
+        this.markHeadlessDegraded(sessionId, sessionData, 'write', error);
+        this.wsRouter?.routeSessionOutput(sessionId, data);
+      })
+      .finally(() => {
+        if (!this.isActiveSession(sessionId, sessionData)) {
+          return;
+        }
+        sessionData.pendingHeadlessWrites = Math.max(0, sessionData.pendingHeadlessWrites - 1);
+      });
+  }
+
+  private async applyHeadlessOutput(sessionId: string, sessionData: SessionData, data: string): Promise<void> {
+    if (!sessionData.headless) {
+      this.wsRouter?.routeSessionOutput(sessionId, data);
+      return;
+    }
+
+    await Promise.race([
+      writeHeadlessTerminal(sessionData.headless, data),
+      sessionData.headlessCloseSignal.promise,
+    ]);
+    if (!this.isActiveSession(sessionId, sessionData)) {
+      return;
+    }
+
+    const flushedOutput = sessionData.pendingOutputChunks.shift() ?? data;
+    sessionData.screenSeq += 1;
+    this.appendUnsnapshottedOutput(sessionData, flushedOutput);
+    this.markSnapshotDirty(sessionData);
+    this.wsRouter?.routeSessionOutput(sessionId, data);
+  }
+
+  private markSnapshotDirty(sessionData: SessionData): void {
+    if (sessionData.snapshotCache) {
+      sessionData.snapshotCache.dirty = true;
+    }
+  }
+
+  private markHeadlessDegraded(
+    sessionId: string,
+    sessionData: SessionData,
+    phase: 'create' | 'write' | 'resize' | 'serialize',
+    error: unknown,
+  ): void {
+    if (!this.isActiveSession(sessionId, sessionData)) {
+      return;
+    }
+
+    if (sessionData.headless) {
+      disposeHeadlessTerminal(sessionData.headless);
+      sessionData.headless = null;
+    }
+    sessionData.headlessCloseSignal.resolve();
+    const pendingOutput = sessionData.pendingOutputChunks.join('');
+    const seed = `${sessionData.snapshotCache?.data ?? ''}${sessionData.unsnapshottedOutput}${pendingOutput}`;
+    if (seed.length > 0) {
+      const degraded = truncateTerminalPayloadTail(seed, this.runtimePtyConfig.maxSnapshotBytes);
+      sessionData.degradedReplayBuffer = degraded.content;
+      sessionData.degradedReplayTruncated =
+        degraded.truncated ||
+        Boolean(sessionData.snapshotCache?.truncated) ||
+        sessionData.unsnapshottedOutputTruncated;
+    }
+    sessionData.pendingOutputChunks = [];
+    sessionData.unsnapshottedOutput = '';
+    sessionData.unsnapshottedOutputTruncated = false;
+    sessionData.headlessHealth = 'degraded';
+    sessionData.snapshotCache = null;
+
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[SessionManager] Headless terminal degraded (${phase}) for session ${sessionId}: ${message}`);
+  }
+
+  private createDegradedSnapshot(sessionData: SessionData): SessionScreenSnapshot {
+    return {
+      seq: sessionData.screenSeq,
+      cols: sessionData.cols,
+      rows: sessionData.rows,
+      data: '',
+      truncated: false,
+      generatedAt: Date.now(),
+      health: 'degraded',
+    };
+  }
+
+  private isActiveSession(sessionId: string, sessionData: SessionData): boolean {
+    return this.sessions.get(sessionId) === sessionData;
+  }
+
+  private appendDegradedReplayOutput(sessionData: SessionData, data: string): void {
+    const nextContent = `${sessionData.degradedReplayBuffer}${data}`;
+    const truncated = truncateTerminalPayloadTail(nextContent, this.runtimePtyConfig.maxSnapshotBytes);
+    sessionData.degradedReplayBuffer = truncated.content;
+    sessionData.degradedReplayTruncated = sessionData.degradedReplayTruncated || truncated.truncated;
+  }
+
+  private appendUnsnapshottedOutput(sessionData: SessionData, data: string): void {
+    const nextContent = `${sessionData.unsnapshottedOutput}${data}`;
+    const truncated = truncateTerminalPayloadTail(nextContent, this.runtimePtyConfig.maxSnapshotBytes);
+    sessionData.unsnapshottedOutput = truncated.content;
+    sessionData.unsnapshottedOutputTruncated = sessionData.unsnapshottedOutputTruncated || truncated.truncated;
   }
 }
 
@@ -784,7 +1018,16 @@ function clonePtyConfig(source: PTYConfig): PTYConfig {
     defaultCols: source.defaultCols,
     defaultRows: source.defaultRows,
     useConpty: source.useConpty,
-    maxBufferSize: source.maxBufferSize,
+    scrollbackLines: source.scrollbackLines,
+    maxSnapshotBytes: source.maxSnapshotBytes,
     shell: source.shell,
   };
+}
+
+function createDeferredSignal<T>(): DeferredSignal<T> {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
 }

@@ -20,6 +20,22 @@ export type ClientWsMessage =
 // Server → Client Messages
 // ============================================================================
 
+export type ScreenSnapshotMode = 'authoritative' | 'fallback';
+export type ScreenSnapshotSource = 'headless';
+
+export interface ScreenSnapshotMessage {
+  type: 'screen-snapshot';
+  sessionId: string;
+  replayToken: string;
+  seq: number;
+  cols: number;
+  rows: number;
+  mode: ScreenSnapshotMode;
+  data: string;
+  truncated: boolean;
+  source: ScreenSnapshotSource;
+}
+
 export type ServerWsMessage =
   // Session events
   | { type: 'history';        sessionId: string; data: string; truncated: boolean }

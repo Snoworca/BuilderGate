@@ -96,7 +96,6 @@ function applyEditableValues(
   setPath(rawConfig, ['pty', 'defaultCols'], values.pty.defaultCols);
   setPath(rawConfig, ['pty', 'defaultRows'], values.pty.defaultRows);
   setPath(rawConfig, ['pty', 'useConpty'], values.pty.useConpty);
-  setPath(rawConfig, ['pty', 'maxBufferSize'], values.pty.maxBufferSize);
   setPath(rawConfig, ['pty', 'shell'], values.pty.shell);
   setPath(rawConfig, ['session', 'idleDelayMs'], values.session.idleDelayMs);
   setPath(rawConfig, ['fileManager', 'maxFileSize'], values.fileManager.maxFileSize);
@@ -138,7 +137,6 @@ function renderPatchedConfig(content: string, config: Config, secrets: SecretPat
     ['pty.defaultCols', renderJson5Value(config.pty.defaultCols)],
     ['pty.defaultRows', renderJson5Value(config.pty.defaultRows)],
     ['pty.useConpty', renderJson5Value(config.pty.useConpty)],
-    ['pty.maxBufferSize', renderJson5Value(config.pty.maxBufferSize)],
     ['pty.shell', renderJson5Value(config.pty.shell)],
     ['session.idleDelayMs', renderJson5Value(config.session.idleDelayMs)],
     ['fileManager.maxFileSize', renderJson5Value(config.fileManager?.maxFileSize ?? 1048576)],

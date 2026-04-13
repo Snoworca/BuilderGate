@@ -20,7 +20,6 @@ export type EditableSettingsKey =
   | 'pty.defaultCols'
   | 'pty.defaultRows'
   | 'pty.useConpty'
-  | 'pty.maxBufferSize'
   | 'pty.shell'
   | 'session.idleDelayMs'
   | 'fileManager.maxFileSize'
@@ -60,7 +59,7 @@ export interface SecurityEditableSettings {
 
 export type EditablePtySettings = Pick<
   PTYConfig,
-  'termName' | 'defaultCols' | 'defaultRows' | 'useConpty' | 'maxBufferSize' | 'shell'
+  'termName' | 'defaultCols' | 'defaultRows' | 'useConpty' | 'shell'
 >;
 
 export type EditableSessionSettings = Pick<SessionConfig, 'idleDelayMs'>;

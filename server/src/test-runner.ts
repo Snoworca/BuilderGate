@@ -17,6 +17,15 @@ import { ConfigFileRepository } from './services/ConfigFileRepository.js';
 import { SettingsService } from './services/SettingsService.js';
 import { SessionManager } from './services/SessionManager.js';
 import { FileService } from './services/FileService.js';
+import { OscDetector } from './services/OscDetector.js';
+import {
+  createHeadlessTerminalState,
+  disposeHeadlessTerminal,
+  resizeHeadlessTerminal,
+  serializeHeadlessTerminal,
+  writeHeadlessTerminal,
+} from './utils/headlessTerminal.js';
+import { truncateTerminalPayloadTail } from './utils/terminalPayload.js';
 import { WsRouter } from './ws/WsRouter.js';
 import { AppError, ErrorCode } from './utils/errors.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
@@ -29,11 +38,32 @@ async function main(): Promise<void> {
     { name: 'AuthService.updateRuntimeConfig updates password validation and token duration', run: testAuthRuntimeConfig },
     { name: 'SettingsService rejects unsupported settings keys', run: testSettingsUnsupportedSetting },
     { name: 'SettingsService persists editable values and applies runtime updates', run: testSettingsServicePersistence },
+    { name: 'SettingsService persists editable values against a legacy pty.maxBufferSize config', run: testSettingsServiceLegacyPtyMigration },
     { name: 'SettingsService blocks password rotation without current password', run: testSettingsPasswordValidation },
     { name: 'SettingsService rotates password for later logins and persists encrypted secret', run: testSettingsPasswordRotation },
     { name: 'SettingsService rolls back runtime state when apply fails', run: testSettingsApplyFailureRollback },
-    { name: 'SessionManager.updateRuntimeConfig affects later idle timers and buffer limits', run: testSessionManagerRuntimeConfig },
+    { name: 'SessionManager.updateRuntimeConfig affects later idle timers and cached snapshots', run: testSessionManagerRuntimeConfig },
+    { name: 'SessionManager returns cached authoritative snapshots', run: testSessionManagerCachedSnapshot },
+    { name: 'SessionManager marks sessions degraded when snapshot serialization fails', run: testSessionManagerDegradedSnapshot },
+    { name: 'SessionManager preserves unsnapshotted healthy output when degrading', run: testSessionManagerDirtyCacheDegradedRecovery },
+    { name: 'SessionManager preserves queued output when degradation happens before headless writes flush', run: testSessionManagerQueuedOutputDegradedRace },
+    { name: 'SessionManager does not duplicate flushed output when later queued output is still pending at degradation time', run: testSessionManagerMixedFlushDegradedRecovery },
+    { name: 'SessionManager does not duplicate queued output on direct write failure', run: testSessionManagerWriteFailureNoDuplicate },
+    { name: 'SessionManager rejects oversized authoritative snapshots without unbounded growth', run: testSessionManagerOversizedSnapshot },
+    { name: 'SessionManager preserves degraded output across unsubscribed gaps', run: testSessionManagerDegradedOutputRecovery },
+    { name: 'Headless snapshot serialization is deterministic for a normal screen', run: testHeadlessSnapshotSerialization },
+    { name: 'Headless snapshot serialization reflects resize geometry', run: testHeadlessSnapshotResize },
+    { name: 'Headless snapshot serialization preserves alternate-screen state and exit restore', run: testHeadlessSnapshotAltScreen },
+    { name: 'Headless snapshot serialization handles an empty screen', run: testHeadlessSnapshotEmptyScreen },
+    { name: 'Headless snapshot serialization refuses truncated authoritative payloads', run: testHeadlessSnapshotTruncation },
+    { name: 'Terminal payload truncation skips partial CSI sequences', run: testTerminalPayloadTruncationCsi },
+    { name: 'Terminal payload truncation skips partial OSC sequences', run: testTerminalPayloadTruncationOsc },
+    { name: 'Terminal payload truncation drops incomplete trailing CSI sequences', run: testTerminalPayloadTruncationIncompleteCsi },
+    { name: 'Terminal payload truncation drops incomplete trailing OSC sequences', run: testTerminalPayloadTruncationIncompleteOsc },
+    { name: 'Terminal payload truncation removes incomplete trailing escape suffixes', run: testTerminalPayloadTruncationTrailingIncompleteSuffix },
     { name: 'WsRouter replays history before flushing queued live output', run: testWsRouterHistoryReplayOrdering },
+    { name: 'WsRouter still emits a replay start for degraded sessions', run: testWsRouterDegradedReplayStart },
+    { name: 'WsRouter still emits a replay start for oversized snapshots', run: testWsRouterOversizedSnapshotReplayStart },
     { name: 'WsRouter duplicate subscribe does not replay history twice', run: testWsRouterDuplicateSubscribeIdempotent },
     { name: 'WsRouter clears replay state when a session is removed', run: testWsRouterClearSessionState },
     { name: 'FileService.updateConfig applies new limits to later operations', run: testFileServiceRuntimeConfig },
@@ -338,7 +368,8 @@ async function testSessionManagerRuntimeConfig(): Promise<void> {
       defaultCols: 80,
       defaultRows: 24,
       useConpty: true,
-      maxBufferSize: 16,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 16,
       shell: 'auto',
     },
     session: {
@@ -355,13 +386,32 @@ async function testSessionManagerRuntimeConfig(): Promise<void> {
     sortOrder: 0,
   };
 
-  const sessionData = {
+  const sessionData: any = {
     session: fakeSession,
     pty: {} as never,
-
     idleTimer: null as NodeJS.Timeout | null,
-    replayBuffer: 'abcdefgh',
-    replayTruncated: false,
+    headless: null,
+    headlessHealth: 'degraded',
+    headlessWriteChain: Promise.resolve(),
+    headlessCloseSignal: createTestDeferredSignal<void>(),
+    pendingHeadlessWrites: 0,
+    cols: 80,
+    rows: 24,
+    screenSeq: 1,
+    snapshotCache: {
+      seq: 1,
+      cols: 80,
+      rows: 24,
+      data: 'cached',
+      truncated: false,
+      generatedAt: Date.now(),
+      dirty: false,
+    },
+    degradedReplayBuffer: '',
+    degradedReplayTruncated: false,
+    pendingOutputChunks: [],
+    unsnapshottedOutput: '',
+    unsnapshottedOutputTruncated: false,
     initialCwd: process.cwd(),
   };
 
@@ -372,7 +422,7 @@ async function testSessionManagerRuntimeConfig(): Promise<void> {
       idleDelayMs: 20,
       pty: {
         defaultCols: 120,
-        maxBufferSize: 4,
+        maxSnapshotBytes: 4,
         shell: 'bash',
       },
     });
@@ -380,7 +430,7 @@ async function testSessionManagerRuntimeConfig(): Promise<void> {
     assert.equal((manager as any).runtimePtyConfig.defaultCols, 120);
     assert.equal((manager as any).runtimePtyConfig.shell, 'bash');
     assert.equal((manager as any).runtimeSessionConfig.idleDelayMs, 20);
-    assert.equal(sessionData.replayBuffer, 'efgh');
+    assert.equal(sessionData.snapshotCache, null);
 
     (manager as any).scheduleIdleTransition(fakeSession.id);
     await delay(40);
@@ -391,6 +441,645 @@ async function testSessionManagerRuntimeConfig(): Promise<void> {
       clearTimeout(sessionData.idleTimer);
     }
   }
+}
+
+async function testSessionManagerCachedSnapshot(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+
+  try {
+    await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, 'hello\r\nworld');
+
+    const serializeAddon = harness.sessionData.headless!.serializeAddon;
+    const originalSerialize = serializeAddon.serialize.bind(serializeAddon);
+    let serializeCalls = 0;
+    serializeAddon.serialize = ((options?: unknown) => {
+      serializeCalls += 1;
+      return originalSerialize(options as never);
+    }) as typeof serializeAddon.serialize;
+
+    const first = manager.getScreenSnapshot(harness.sessionId);
+    const second = manager.getScreenSnapshot(harness.sessionId);
+    const replay = manager.getReplaySnapshot(harness.sessionId);
+
+    assert.equal(first?.health, 'healthy');
+    assert.equal(first?.data, 'hello\r\nworld');
+    assert.equal(second?.generatedAt, first?.generatedAt);
+    assert.equal(serializeCalls, 1);
+    assert.deepEqual(replay, { data: 'hello\r\nworld', truncated: false });
+  } finally {
+    harness.dispose();
+  }
+}
+
+function testSessionManagerDegradedSnapshot(): void {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+
+  try {
+    harness.sessionData.headless!.serializeAddon.serialize = (() => {
+      throw new Error('serialize failed');
+    }) as typeof harness.sessionData.headless.serializeAddon.serialize;
+
+    const snapshot = manager.getScreenSnapshot(harness.sessionId);
+    const replay = manager.getReplaySnapshot(harness.sessionId);
+
+    assert.equal(snapshot?.health, 'degraded');
+    assert.equal(snapshot?.data, '');
+    assert.equal(harness.sessionData.headlessHealth, 'degraded');
+    assert.equal(harness.sessionData.snapshotCache, null);
+    assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerDirtyCacheDegradedRecovery(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+
+  try {
+    await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, 'old');
+    manager.getScreenSnapshot(harness.sessionId);
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'new');
+    await harness.sessionData.headlessWriteChain;
+
+    harness.sessionData.headless!.serializeAddon.serialize = (() => {
+      throw new Error('serialize failed');
+    }) as typeof harness.sessionData.headless.serializeAddon.serialize;
+
+    const replay = manager.getReplaySnapshot(harness.sessionId);
+
+    assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
+    assert.match(replay?.data ?? '', /oldnew/);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerQueuedOutputDegradedRace(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  const pendingCallbacks: Array<() => void> = [];
+
+  try {
+    harness.sessionData.headless!.terminal.write = ((_data: string | Uint8Array, callback?: () => void) => {
+      pendingCallbacks.push(() => callback?.());
+    }) as typeof harness.sessionData.headless.terminal.write;
+    harness.sessionData.headless!.terminal.resize = (() => {
+      throw new Error('resize failed');
+    }) as typeof harness.sessionData.headless.terminal.resize;
+
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'PAYLOAD_A');
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'PAYLOAD_B');
+
+    manager.resize(harness.sessionId, 20, 5);
+
+    while (pendingCallbacks.length > 0) {
+      const callback = pendingCallbacks.shift();
+      callback?.();
+      await Promise.resolve();
+    }
+
+    await harness.sessionData.headlessWriteChain;
+    const replay = manager.getReplaySnapshot(harness.sessionId);
+
+    assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
+    assert.match(replay?.data ?? '', /PAYLOAD_A/);
+    assert.match(replay?.data ?? '', /PAYLOAD_B/);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerMixedFlushDegradedRecovery(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  const pendingCallbacks: Array<() => void> = [];
+  let writeCount = 0;
+
+  try {
+    const originalWrite = harness.sessionData.headless!.terminal.write.bind(harness.sessionData.headless!.terminal);
+    harness.sessionData.headless!.terminal.write = ((data: string | Uint8Array, callback?: () => void) => {
+      writeCount += 1;
+      if (writeCount === 1) {
+        originalWrite(data, callback);
+        return;
+      }
+      pendingCallbacks.push(() => originalWrite(data, callback));
+    }) as typeof harness.sessionData.headless.terminal.write;
+
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'PAYLOAD_A');
+    await harness.sessionData.headlessWriteChain;
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'PAYLOAD_B');
+
+    manager.getScreenSnapshot(harness.sessionId);
+
+    harness.sessionData.headless!.terminal.resize = (() => {
+      throw new Error('resize failed');
+    }) as typeof harness.sessionData.headless.terminal.resize;
+    manager.resize(harness.sessionId, 20, 5);
+
+    while (pendingCallbacks.length > 0) {
+      pendingCallbacks.shift()?.();
+      await Promise.resolve();
+    }
+
+    await harness.sessionData.headlessWriteChain;
+    const replay = manager.getReplaySnapshot(harness.sessionId);
+
+    assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
+    assert.equal((replay?.data ?? '').split('PAYLOAD_A').length - 1, 1);
+    assert.equal((replay?.data ?? '').split('PAYLOAD_B').length - 1, 1);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerWriteFailureNoDuplicate(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+
+  try {
+    harness.sessionData.headless!.terminal.write = (() => {
+      throw new Error('write failed');
+    }) as typeof harness.sessionData.headless.terminal.write;
+
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'PAYLOAD_X');
+    await harness.sessionData.headlessWriteChain;
+
+    const replay = manager.getReplaySnapshot(harness.sessionId);
+
+    assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
+    assert.equal((replay?.data ?? '').split('PAYLOAD_X').length - 1, 1);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerOversizedSnapshot(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 8,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+
+  try {
+    await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, 'shell\r\nprompt> ');
+    await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, '\x1b[?1049h\x1b[HALT');
+
+    const snapshot = manager.getScreenSnapshot(harness.sessionId);
+    const replay = manager.getReplaySnapshot(harness.sessionId);
+
+    assert.equal(snapshot?.health, 'healthy');
+    assert.equal(snapshot?.truncated, true);
+    assert.equal(snapshot?.data, '');
+    assert.equal(replay?.truncated, true);
+    assert.match(replay?.data ?? '', /snapshot exceeded maxSnapshotBytes/i);
+  } finally {
+    harness.dispose();
+  }
+}
+
+function testSessionManagerDegradedOutputRecovery(): void {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  const harness = createDegradedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, manager);
+  manager.setWsRouter(router);
+  const { ws, sent } = createFakeWs();
+
+  try {
+    (router as any).clients.set(ws, {
+      clientId: 'client-1',
+      isAlive: true,
+      subscribedSessions: new Set<string>(),
+      replayPendingSessions: new Map(),
+    });
+
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'lost-while-unsubscribed');
+    (router as any).handleSubscribe(ws, [harness.sessionId]);
+
+    assert.equal(sent[0].type, 'history');
+    assert.match(String(sent[0].data), /server snapshot is unavailable/i);
+    assert.match(String(sent[0].data), /lost-while-unsubscribed/);
+  } finally {
+    router.destroy();
+    harness.dispose();
+  }
+}
+
+async function testSettingsServiceLegacyPtyMigration(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-settings-legacy-pty-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  const fixture = createConfigFixture();
+  await fs.writeFile(configPath, createLegacyConfigFixtureContent(), 'utf-8');
+
+  const harness = createSettingsHarness({ fixture, configPath });
+
+  try {
+    const result = harness.settingsService.savePatch({
+      auth: { durationMs: 900000 },
+    });
+
+    assert.ok(result.changedKeys.includes('auth.durationMs'));
+
+    const savedContent = await fs.readFile(configPath, 'utf-8');
+    assert.match(savedContent, /durationMs:\s*900000/);
+    assert.match(savedContent, /maxBufferSize:\s*65536/);
+  } finally {
+    harness.destroy();
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+function createHeadlessHarness(options: { cols?: number; rows?: number; scrollbackLines?: number } = {}) {
+  const state = createHeadlessTerminalState({
+    cols: options.cols ?? 10,
+    rows: options.rows ?? 4,
+    scrollbackLines: options.scrollbackLines ?? 1000,
+  });
+
+  return {
+    state,
+    dispose: () => disposeHeadlessTerminal(state),
+  };
+}
+
+function createTestDeferredSignal<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
+
+function createManagedSessionHarness(
+  manager: SessionManager,
+  options: { cols?: number; rows?: number; scrollbackLines?: number } = {},
+) {
+  const headless = createHeadlessHarness(options);
+  const session: Session = {
+    id: `session-${Math.random().toString(36).slice(2)}`,
+    name: 'Harness Session',
+    status: 'idle',
+    createdAt: new Date(),
+    lastActiveAt: new Date(),
+    sortOrder: 0,
+  };
+
+  const sessionData = {
+    session,
+    pty: {
+      resize() {},
+      kill() {},
+      write() {},
+      pid: 1,
+    } as never,
+    idleTimer: null as NodeJS.Timeout | null,
+    headless: headless.state,
+    headlessHealth: 'healthy',
+    headlessWriteChain: Promise.resolve(),
+    headlessCloseSignal: createTestDeferredSignal<void>(),
+    pendingHeadlessWrites: 0,
+    cols: options.cols ?? 10,
+    rows: options.rows ?? 4,
+    screenSeq: 0,
+    snapshotCache: null,
+    degradedReplayBuffer: '',
+    degradedReplayTruncated: false,
+    pendingOutputChunks: [],
+    unsnapshottedOutput: '',
+    unsnapshottedOutputTruncated: false,
+    initialCwd: process.cwd(),
+    echoTracker: {
+      lastInputAt: 0,
+      lastInputLen: 0,
+      lastInputHasEnter: false,
+    },
+    detectionMode: 'heuristic',
+    oscDetector: new OscDetector(),
+  };
+
+  (manager as any).sessions.set(session.id, sessionData);
+
+  return {
+    sessionId: session.id,
+    sessionData,
+    dispose: () => {
+      sessionData.oscDetector.destroy();
+      (manager as any).sessions.delete(session.id);
+      headless.dispose();
+    },
+  };
+}
+
+function createDegradedSessionHarness(
+  manager: SessionManager,
+  options: { cols?: number; rows?: number; scrollbackLines?: number } = {},
+) {
+  const harness = createManagedSessionHarness(manager, options);
+  const sessionData = harness.sessionData as any;
+  if (sessionData.headless) {
+    disposeHeadlessTerminal(sessionData.headless);
+    sessionData.headless = null;
+  }
+  sessionData.headlessHealth = 'degraded';
+  return harness;
+}
+
+function readHeadlessLines(
+  harness: ReturnType<typeof createHeadlessHarness>,
+  lineCount: number,
+): string[] {
+  const lines: string[] = [];
+
+  for (let index = 0; index < lineCount; index += 1) {
+    const line = harness.state.terminal.buffer.active.getLine(index);
+    lines.push(line?.translateToString(true) ?? '');
+  }
+
+  return lines;
+}
+
+async function testHeadlessSnapshotSerialization(): Promise<void> {
+  const harness = createHeadlessHarness();
+
+  try {
+    await writeHeadlessTerminal(harness.state, 'hello\r\nworld');
+
+    const firstSnapshot = serializeHeadlessTerminal(harness.state, 1024);
+    const secondSnapshot = serializeHeadlessTerminal(harness.state, 1024);
+    const restored = createHeadlessHarness({ cols: firstSnapshot.cols, rows: firstSnapshot.rows });
+
+    try {
+      await writeHeadlessTerminal(restored.state, firstSnapshot.data);
+
+      assert.equal(firstSnapshot.cols, 10);
+      assert.equal(firstSnapshot.rows, 4);
+      assert.equal(firstSnapshot.truncated, false);
+      assert.equal(firstSnapshot.data, 'hello\r\nworld');
+      assert.deepEqual(secondSnapshot, firstSnapshot);
+      assert.equal(restored.state.terminal.buffer.active.type, 'normal');
+      assert.deepEqual(readHeadlessLines(restored, 4), ['hello', 'world', '', '']);
+    } finally {
+      restored.dispose();
+    }
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testHeadlessSnapshotResize(): Promise<void> {
+  const harness = createHeadlessHarness();
+
+  try {
+    await writeHeadlessTerminal(harness.state, 'abcdefghij12345');
+    const before = serializeHeadlessTerminal(harness.state, 1024);
+    const beforeLines = readHeadlessLines(harness, 3);
+
+    resizeHeadlessTerminal(harness.state, 5, 4);
+    const after = serializeHeadlessTerminal(harness.state, 1024);
+    const afterLines = readHeadlessLines(harness, 4);
+    const restored = createHeadlessHarness({ cols: after.cols, rows: after.rows });
+
+    try {
+      await writeHeadlessTerminal(restored.state, after.data);
+
+      assert.equal(before.cols, 10);
+      assert.equal(after.cols, 5);
+      assert.equal(after.rows, 4);
+      assert.ok(before.data.length > 0);
+      assert.ok(after.data.length > 0);
+      assert.deepEqual(beforeLines, ['abcdefghij', '12345', '']);
+      assert.deepEqual(afterLines, ['abcde', 'fghij', '12345', '']);
+      assert.deepEqual(readHeadlessLines(restored, 4), afterLines);
+    } finally {
+      restored.dispose();
+    }
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testHeadlessSnapshotAltScreen(): Promise<void> {
+  const harness = createHeadlessHarness();
+
+  try {
+    await writeHeadlessTerminal(harness.state, 'shell\r\nprompt> ');
+    const normal = serializeHeadlessTerminal(harness.state, 1024);
+
+    await writeHeadlessTerminal(harness.state, '\x1b[?1049h\x1b[HALT');
+    const alt = serializeHeadlessTerminal(harness.state, 1024);
+
+    await writeHeadlessTerminal(harness.state, '\x1b[?1049l');
+    const restored = serializeHeadlessTerminal(harness.state, 1024);
+    const restoredAlt = createHeadlessHarness({ cols: alt.cols, rows: alt.rows });
+
+    try {
+      await writeHeadlessTerminal(restoredAlt.state, alt.data);
+
+      assert.equal(normal.data, 'shell\r\nprompt> ');
+      assert.match(alt.data, /\x1b\[\?1049h/);
+      assert.match(alt.data, /ALT/);
+      assert.equal(restored.data, normal.data);
+      assert.equal(restoredAlt.state.terminal.buffer.active.type, 'alternate');
+      assert.deepEqual(readHeadlessLines(restoredAlt, 4), ['ALT', '', '', '']);
+    } finally {
+      restoredAlt.dispose();
+    }
+  } finally {
+    harness.dispose();
+  }
+}
+
+function testHeadlessSnapshotEmptyScreen(): void {
+  const harness = createHeadlessHarness();
+
+  try {
+    const snapshot = serializeHeadlessTerminal(harness.state, 1024);
+    assert.equal(snapshot.cols, 10);
+    assert.equal(snapshot.rows, 4);
+    assert.equal(snapshot.truncated, false);
+    assert.equal(snapshot.data, '');
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testHeadlessSnapshotTruncation(): Promise<void> {
+  const harness = createHeadlessHarness();
+
+  try {
+    await writeHeadlessTerminal(harness.state, 'shell\r\nprompt> ');
+    await writeHeadlessTerminal(harness.state, '\x1b[?1049h\x1b[HALT');
+
+    const snapshot = serializeHeadlessTerminal(harness.state, 8);
+
+    assert.equal(snapshot.truncated, true);
+    assert.equal(snapshot.data, '');
+  } finally {
+    harness.dispose();
+  }
+}
+
+function testTerminalPayloadTruncationCsi(): void {
+  const truncated = truncateTerminalPayloadTail('\x1b[31mRED', 4);
+  assert.equal(truncated.truncated, true);
+  assert.equal(truncated.content, 'RED');
+}
+
+function testTerminalPayloadTruncationOsc(): void {
+  const truncated = truncateTerminalPayloadTail('prefix\x1b]0;title\u0007body', 4);
+  assert.equal(truncated.truncated, true);
+  assert.equal(truncated.content, 'body');
+}
+
+function testTerminalPayloadTruncationIncompleteCsi(): void {
+  const first = truncateTerminalPayloadTail('abc\x1b[', 1);
+  const second = truncateTerminalPayloadTail('prefix\x1b[31', 4);
+
+  assert.equal(first.truncated, true);
+  assert.equal(first.content, '');
+  assert.equal(second.truncated, true);
+  assert.equal(second.content, '');
+}
+
+function testTerminalPayloadTruncationIncompleteOsc(): void {
+  const first = truncateTerminalPayloadTail('abc\x1b]0;ti', 2);
+  const second = truncateTerminalPayloadTail('abc\x1b]0;title\x1b', 1);
+
+  assert.equal(first.truncated, true);
+  assert.equal(first.content, '');
+  assert.equal(second.truncated, true);
+  assert.equal(second.content, '');
+}
+
+function testTerminalPayloadTruncationTrailingIncompleteSuffix(): void {
+  const incompleteCsi = truncateTerminalPayloadTail('hello\x1b[', 6);
+  const incompleteCsiWithParams = truncateTerminalPayloadTail('ab\x1b[31', 5);
+  const incompleteOsc = truncateTerminalPayloadTail('hello\x1b]0;ti', 8);
+  const incompleteEsc = truncateTerminalPayloadTail('hello\x1b', 3);
+
+  assert.equal(incompleteCsi.truncated, true);
+  assert.equal(incompleteCsi.content, 'ello');
+  assert.equal(incompleteCsiWithParams.truncated, true);
+  assert.equal(incompleteCsiWithParams.content, 'b');
+  assert.equal(incompleteOsc.truncated, true);
+  assert.equal(incompleteOsc.content, 'lo');
+  assert.equal(incompleteEsc.truncated, true);
+  assert.equal(incompleteEsc.content, 'lo');
 }
 
 function createFakeWs() {
@@ -415,7 +1104,7 @@ function createFakeWs() {
   return { ws, sent };
 }
 
-function createWsRouterHarness(options?: { replayData?: string }) {
+function createWsRouterHarness(options?: { replayData?: string; replayTruncated?: boolean }) {
   const session = {
     id: 'session-1',
     name: 'Session 1',
@@ -430,7 +1119,7 @@ function createWsRouterHarness(options?: { replayData?: string }) {
     getLastCwd: (id: string) => id === session.id ? 'C:\\repo' : null,
     getReplaySnapshot: (id: string) => id === session.id ? {
       data: options?.replayData ?? 'history-seed',
-      truncated: false,
+      truncated: options?.replayTruncated ?? false,
     } : null,
     getReplayQueueLimit: () => 64,
     writeInput: () => true,
@@ -467,6 +1156,35 @@ function testWsRouterHistoryReplayOrdering(): void {
   (router as any).handleHistoryReady(ws, 'session-1');
   assert.equal(sent[2].type, 'output');
   assert.equal(sent[2].data, 'live-after-history');
+
+  router.destroy();
+}
+
+function testWsRouterOversizedSnapshotReplayStart(): void {
+  const { router, ws, sent } = createWsRouterHarness({
+    replayData: '\r\n[BuilderGate] Screen snapshot exceeded maxSnapshotBytes. Waiting for new output...\r\n',
+    replayTruncated: true,
+  });
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+
+  assert.equal(sent[0].type, 'history');
+  assert.equal(sent[0].truncated, true);
+  assert.match(String(sent[0].data), /snapshot exceeded maxSnapshotBytes/i);
+
+  router.destroy();
+}
+
+function testWsRouterDegradedReplayStart(): void {
+  const { router, ws, sent } = createWsRouterHarness({
+    replayData: '\r\n[BuilderGate] Server snapshot is unavailable for this session. Using fallback recovery when possible...\r\n',
+  });
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+
+  assert.equal(sent[0].type, 'history');
+  assert.equal(sent[0].truncated, false);
+  assert.match(String(sent[0].data), /server snapshot is unavailable/i);
 
   router.destroy();
 }
@@ -553,7 +1271,8 @@ function createConfigFixture(): Config {
       defaultCols: 80,
       defaultRows: 24,
       useConpty: false,
-      maxBufferSize: 65536,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 65536,
       shell: 'auto',
     },
     session: {
@@ -628,6 +1347,54 @@ function createSettingsHarness({
 }
 
 function createConfigFixtureContent(): string {
+  return `{
+  // Server settings
+  server: {
+    port: 4242,
+  },
+  pty: {
+    termName: "xterm-256color",
+    defaultCols: 80,
+    defaultRows: 24,
+    useConpty: false,
+    scrollbackLines: 1000,
+    maxSnapshotBytes: 65536,
+    shell: "auto",
+  },
+  session: {
+    idleDelayMs: 200,
+  },
+  security: {
+    cors: {
+      allowedOrigins: ["https://example.com"],
+      credentials: true,
+      maxAge: 86400,
+    }
+  },
+  auth: {
+    password: "old-password",
+    durationMs: 1800000,
+    maxDurationMs: 86400000,
+    jwtSecret: "jwt-secret",
+  },
+  fileManager: {
+    maxFileSize: 1048576,
+    maxCodeFileSize: 524288,
+    maxDirectoryEntries: 10000,
+    blockedExtensions: [".exe", ".dll"],
+    blockedPaths: [".ssh", ".aws"],
+    cwdCacheTtlMs: 1000,
+  },
+  twoFactor: {
+    enabled: false,
+    externalOnly: false,
+    issuer: "BuilderGate",
+    accountName: "admin",
+  },
+}`;
+}
+
+function createLegacyConfigFixtureContent(): string {
   return `{
   // Server settings
   server: {

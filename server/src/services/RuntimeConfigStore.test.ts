@@ -13,7 +13,8 @@ function createConfigFixture(): Config {
       defaultCols: 80,
       defaultRows: 24,
       useConpty: true,
-      maxBufferSize: 65536,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 65536,
       shell: 'auto',
     },
     session: {

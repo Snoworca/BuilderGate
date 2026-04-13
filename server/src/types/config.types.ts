@@ -79,7 +79,8 @@ export interface PTYConfig {
   defaultCols: number;
   defaultRows: number;
   useConpty: boolean;
-  maxBufferSize: number;
+  scrollbackLines: number;
+  maxSnapshotBytes: number;
   /** Shell type: 'auto' (OS default), 'powershell', 'wsl' (WSL bash), 'bash', 'zsh', 'sh', 'cmd' */
   shell: 'auto' | 'powershell' | 'wsl' | 'bash' | 'zsh' | 'sh' | 'cmd';
 }

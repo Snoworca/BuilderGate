@@ -326,7 +326,6 @@ export function SettingsPage({ visible, onBack }: Props) {
               {snapshot.capabilities['pty.useConpty'].available && (
                 <Field label="Use ConPTY" scope={scope(snapshot, 'pty.useConpty')}><input type="checkbox" checked={draft.pty.useConpty} onChange={(e) => updateDraft((next) => { next.pty.useConpty = e.target.checked; })} /></Field>
               )}
-              <Field label="Max buffer size" scope={scope(snapshot, 'pty.maxBufferSize')}><input type="number" value={draft.pty.maxBufferSize} onChange={(e) => updateDraft((next) => { next.pty.maxBufferSize = Number(e.target.value || draft.pty.maxBufferSize); })} /></Field>
             </Card>
 
             <Card title="Session And File Manager">

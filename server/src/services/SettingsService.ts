@@ -50,7 +50,6 @@ const patchSchema: z.ZodType<SettingsPatchRequest> = z.object({
     defaultCols: z.number().int().min(20).max(500).optional(),
     defaultRows: z.number().int().min(5).max(200).optional(),
     useConpty: z.boolean().optional(),
-    maxBufferSize: z.number().int().min(1024).max(10485760).optional(),
     shell: z.enum(['auto', 'powershell', 'wsl', 'bash']).optional(),
   }).strict().optional(),
   session: z.object({
@@ -217,7 +216,6 @@ function extractChangedKeys(patch: SettingsPatchRequest): EditableSettingsKey[] 
   if (patch.pty?.defaultCols !== undefined) changed.add('pty.defaultCols');
   if (patch.pty?.defaultRows !== undefined) changed.add('pty.defaultRows');
   if (patch.pty?.useConpty !== undefined) changed.add('pty.useConpty');
-  if (patch.pty?.maxBufferSize !== undefined) changed.add('pty.maxBufferSize');
   if (patch.pty?.shell !== undefined) changed.add('pty.shell');
   if (patch.session?.idleDelayMs !== undefined) changed.add('session.idleDelayMs');
   if (patch.fileManager?.maxFileSize !== undefined) changed.add('fileManager.maxFileSize');
