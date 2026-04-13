@@ -16,6 +16,8 @@ function propsAreEqual(prev: Props, next: Props): boolean {
   return prev.sessionId === next.sessionId && prev.isVisible === next.isVisible;
 }
 
+const FALLBACK_EMPTY_MESSAGE = '[BuilderGate] Fallback snapshot unavailable. Waiting for new output...\r\n';
+
 export const TerminalContainer = memo(
   forwardRef<TerminalHandle, Props>(function TerminalContainer(
     { sessionId, isVisible, onStatusChange, onCwdChange },
@@ -35,7 +37,7 @@ export const TerminalContainer = memo(
       fit: () => terminalRef.current?.fit(),
       sendInput: (data) => terminalRef.current?.sendInput(data),
       restoreSnapshot: () => terminalRef.current?.restoreSnapshot() ?? Promise.resolve(false),
-      replaceWithHistory: (data) => terminalRef.current?.replaceWithHistory(data) ?? Promise.resolve(),
+      replaceWithSnapshot: (data) => terminalRef.current?.replaceWithSnapshot(data) ?? Promise.resolve(),
       releasePending: () => terminalRef.current?.releasePending(),
     }), []);
 
@@ -59,35 +61,34 @@ export const TerminalContainer = memo(
       onStatusChange(sessionId, 'disconnected');
     });
 
-    const handleHistory = useEffectEvent(async (data: string) => {
+    const handleScreenSnapshot = useEffectEvent(async (snapshot: {
+      data: string;
+      mode: 'authoritative' | 'fallback';
+      replayToken: string;
+    }) => {
       historySeenRef.current = true;
-      await terminalRef.current?.replaceWithHistory(data);
-      send({ type: 'history:ready', sessionId });
-      initialRestorePendingRef.current = false;
-    });
 
-    const handleSubscribed = useEffectEvent(async () => {
-      if (!initialRestorePendingRef.current) {
-        return;
-      }
-      if (historySeenRef.current) {
-        return;
+      if (snapshot.mode === 'fallback') {
+        if (snapshot.data.length > 0) {
+          await terminalRef.current?.replaceWithSnapshot(snapshot.data);
+        } else {
+          const restored = await terminalRef.current?.restoreSnapshot();
+          if (!restored) {
+          await terminalRef.current?.replaceWithSnapshot(FALLBACK_EMPTY_MESSAGE);
+          }
+        }
+      } else {
+        await terminalRef.current?.replaceWithSnapshot(snapshot.data);
       }
 
-      const restored = await terminalRef.current?.restoreSnapshot();
-      if (!restored) {
-        terminalRef.current?.releasePending();
-      }
+      send({ type: 'screen-snapshot:ready', sessionId, replayToken: snapshot.replayToken });
       initialRestorePendingRef.current = false;
     });
 
     useEffect(() => {
       const unsubscribe = subscribeSession(sessionId, {
-        onHistory: (data) => {
-          void handleHistory(data);
-        },
-        onSubscribed: () => {
-          void handleSubscribed();
+        onScreenSnapshot: (snapshot) => {
+          void handleScreenSnapshot(snapshot);
         },
         onOutput: (data) => {
           terminalRef.current?.write(data);

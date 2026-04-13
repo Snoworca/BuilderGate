@@ -36,7 +36,7 @@ export interface TerminalHandle {
   fit: () => void;
   sendInput: (data: string) => void;
   restoreSnapshot: () => Promise<boolean>;
-  replaceWithHistory: (data: string) => Promise<void>;
+  replaceWithSnapshot: (data: string) => Promise<void>;
   releasePending: () => void;
 }
 
@@ -300,7 +300,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       });
     }, [loadStoredSnapshot, releaseRestorePending, clearStoredSnapshot, requestViewportSync]);
 
-    const replaceWithHistory = useCallback((data: string): Promise<void> => {
+    const replaceWithSnapshot = useCallback((data: string): Promise<void> => {
       const term = xtermRef.current;
       if (!term) {
         return Promise.resolve();
@@ -366,13 +366,13 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         restorePendingRef.current = true;
         return restoreStoredSnapshot(term);
       },
-      replaceWithHistory: (data: string) => replaceWithHistory(data),
+      replaceWithSnapshot: (data: string) => replaceWithSnapshot(data),
       releasePending: () => {
         if (restorePendingRef.current) {
           releaseRestorePending();
         }
       },
-    }), [onInput, writeOutput, restoreStoredSnapshot, replaceWithHistory, releaseRestorePending]);
+    }), [onInput, writeOutput, restoreStoredSnapshot, replaceWithSnapshot, releaseRestorePending]);
 
     useEffect(() => {
       if (!terminalRef.current) return;

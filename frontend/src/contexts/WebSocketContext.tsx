@@ -11,7 +11,7 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback, us
 import type { ReactNode } from 'react';
 import { tokenStorage } from '../services/tokenStorage';
 import { setWsClientId } from '../services/api';
-import type { ClientWsMessage, ServerWsMessage } from '../types/ws-protocol';
+import type { ClientWsMessage, ScreenSnapshotMessage, ServerWsMessage } from '../types/ws-protocol';
 
 // ============================================================================
 // Types
@@ -20,7 +20,7 @@ import type { ClientWsMessage, ServerWsMessage } from '../types/ws-protocol';
 export type WsConnectionStatus = 'connected' | 'reconnecting' | 'disconnected';
 
 export interface SessionHandlers {
-  onHistory?: (data: string, truncated: boolean) => void;
+  onScreenSnapshot?: (snapshot: ScreenSnapshotMessage) => void;
   onSubscribed?: (info: { status: string; cwd?: string }) => void;
   onOutput?: (data: string) => void;
   onStatus?: (status: string) => void;
@@ -129,8 +129,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       if (!handlers) return;
 
       switch (msg.type) {
-        case 'history':
-          handlers.onHistory?.(msg.data, msg.truncated);
+        case 'screen-snapshot':
+          handlers.onScreenSnapshot?.(msg);
           break;
         case 'output':
           handlers.onOutput?.(msg.data);

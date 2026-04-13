@@ -11,7 +11,7 @@
 export type ClientWsMessage =
   | { type: 'subscribe';   sessionIds: string[] }
   | { type: 'unsubscribe'; sessionIds: string[] }
-  | { type: 'history:ready'; sessionId: string }
+  | { type: 'screen-snapshot:ready'; sessionId: string; replayToken: string }
   | { type: 'input';       sessionId: string; data: string }
   | { type: 'resize';      sessionId: string; cols: number; rows: number }
   | { type: 'ping' };
@@ -38,7 +38,7 @@ export interface ScreenSnapshotMessage {
 
 export type ServerWsMessage =
   // Session events
-  | { type: 'history';        sessionId: string; data: string; truncated: boolean }
+  | ScreenSnapshotMessage
   | { type: 'output';         sessionId: string; data: string }
   | { type: 'status';         sessionId: string; status: 'running' | 'idle' }
   | { type: 'cwd';            sessionId: string; cwd: string }
@@ -84,6 +84,6 @@ export interface WsClientMeta {
 export interface ReplayPendingState {
   queuedOutput: string;
   timer: NodeJS.Timeout;
-  replayToken?: string;
-  snapshotSeq?: number;
+  replayToken: string;
+  snapshotSeq: number;
 }

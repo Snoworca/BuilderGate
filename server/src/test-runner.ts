@@ -61,10 +61,12 @@ async function main(): Promise<void> {
     { name: 'Terminal payload truncation drops incomplete trailing CSI sequences', run: testTerminalPayloadTruncationIncompleteCsi },
     { name: 'Terminal payload truncation drops incomplete trailing OSC sequences', run: testTerminalPayloadTruncationIncompleteOsc },
     { name: 'Terminal payload truncation removes incomplete trailing escape suffixes', run: testTerminalPayloadTruncationTrailingIncompleteSuffix },
-    { name: 'WsRouter replays history before flushing queued live output', run: testWsRouterHistoryReplayOrdering },
+    { name: 'WsRouter sends screen snapshot before flushing queued live output', run: testWsRouterScreenSnapshotOrdering },
     { name: 'WsRouter still emits a replay start for degraded sessions', run: testWsRouterDegradedReplayStart },
     { name: 'WsRouter still emits a replay start for oversized snapshots', run: testWsRouterOversizedSnapshotReplayStart },
-    { name: 'WsRouter duplicate subscribe does not replay history twice', run: testWsRouterDuplicateSubscribeIdempotent },
+    { name: 'WsRouter duplicate subscribe does not replay screen snapshot twice', run: testWsRouterDuplicateSubscribeIdempotent },
+    { name: 'WsRouter ignores stale replay tokens', run: testWsRouterIgnoresStaleReplayTokens },
+    { name: 'WsRouter does not duplicate deferred degraded payload after fallback snapshot ack', run: testWsRouterNoDuplicateDeferredFallbackPayload },
     { name: 'WsRouter clears replay state when a session is removed', run: testWsRouterClearSessionState },
     { name: 'FileService.updateConfig applies new limits to later operations', run: testFileServiceRuntimeConfig },
     { name: 'twoFactorSchema accepts TOTP-only config', run: testTwoFactorSchemaTotp },
@@ -771,8 +773,8 @@ function testSessionManagerDegradedOutputRecovery(): void {
     (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'lost-while-unsubscribed');
     (router as any).handleSubscribe(ws, [harness.sessionId]);
 
-    assert.equal(sent[0].type, 'history');
-    assert.match(String(sent[0].data), /server snapshot is unavailable/i);
+    assert.equal(sent[0].type, 'screen-snapshot');
+    assert.equal(sent[0].mode, 'fallback');
     assert.match(String(sent[0].data), /lost-while-unsubscribed/);
   } finally {
     router.destroy();
@@ -1104,7 +1106,12 @@ function createFakeWs() {
   return { ws, sent };
 }
 
-function createWsRouterHarness(options?: { replayData?: string; replayTruncated?: boolean }) {
+function createWsRouterHarness(options?: {
+  snapshotData?: string;
+  snapshotTruncated?: boolean;
+  snapshotMode?: 'authoritative' | 'fallback';
+  snapshotSeq?: number;
+}) {
   const session = {
     id: 'session-1',
     name: 'Session 1',
@@ -1117,9 +1124,14 @@ function createWsRouterHarness(options?: { replayData?: string; replayTruncated?
   const sessionManagerStub = {
     getSession: (id: string) => id === session.id ? session : null,
     getLastCwd: (id: string) => id === session.id ? 'C:\\repo' : null,
-    getReplaySnapshot: (id: string) => id === session.id ? {
-      data: options?.replayData ?? 'history-seed',
-      truncated: options?.replayTruncated ?? false,
+    getScreenSnapshot: (id: string) => id === session.id ? {
+      seq: options?.snapshotSeq ?? 1,
+      cols: 80,
+      rows: 24,
+      data: options?.snapshotData ?? 'history-seed',
+      truncated: options?.snapshotTruncated ?? false,
+      generatedAt: Date.now(),
+      health: options?.snapshotMode === 'fallback' ? 'degraded' : 'healthy',
     } : null,
     getReplayQueueLimit: () => 64,
     writeInput: () => true,
@@ -1143,47 +1155,81 @@ function createWsRouterHarness(options?: { replayData?: string; replayTruncated?
   return { router, ws, sent };
 }
 
-function testWsRouterHistoryReplayOrdering(): void {
+function testWsRouterScreenSnapshotOrdering(): void {
   const { router, ws, sent } = createWsRouterHarness();
 
   (router as any).handleSubscribe(ws, ['session-1']);
-  assert.equal(sent[0].type, 'history');
+  assert.equal(sent[0].type, 'screen-snapshot');
   assert.equal(sent[1].type, 'subscribed');
+  const replayToken = String(sent[0].replayToken);
 
-  router.routeSessionOutput('session-1', 'live-after-history');
+  router.routeSessionOutput('session-1', 'live-after-snapshot');
   assert.equal(sent.length, 2);
 
-  (router as any).handleHistoryReady(ws, 'session-1');
+  (router as any).handleScreenSnapshotReady(ws, 'session-1', replayToken);
   assert.equal(sent[2].type, 'output');
-  assert.equal(sent[2].data, 'live-after-history');
+  assert.equal(sent[2].data, 'live-after-snapshot');
 
   router.destroy();
 }
 
-function testWsRouterOversizedSnapshotReplayStart(): void {
-  const { router, ws, sent } = createWsRouterHarness({
-    replayData: '\r\n[BuilderGate] Screen snapshot exceeded maxSnapshotBytes. Waiting for new output...\r\n',
-    replayTruncated: true,
+async function testWsRouterOversizedSnapshotReplayStart(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 8,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
   });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, manager);
+  manager.setWsRouter(router);
+  const { ws, sent } = createFakeWs();
 
-  (router as any).handleSubscribe(ws, ['session-1']);
+  try {
+    (router as any).clients.set(ws, {
+      clientId: 'client-1',
+      isAlive: true,
+      subscribedSessions: new Set<string>(),
+      replayPendingSessions: new Map(),
+    });
 
-  assert.equal(sent[0].type, 'history');
-  assert.equal(sent[0].truncated, true);
-  assert.match(String(sent[0].data), /snapshot exceeded maxSnapshotBytes/i);
+    await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, 'shell\r\nprompt> ');
+    await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, '\x1b[?1049h\x1b[HALT');
+    (router as any).handleSubscribe(ws, [harness.sessionId]);
 
-  router.destroy();
+    const snapshot = sent[0];
+    assert.equal(snapshot.type, 'screen-snapshot');
+    assert.equal(snapshot.mode, 'fallback');
+    assert.equal(snapshot.truncated, true);
+    assert.equal(snapshot.data, '');
+  } finally {
+    router.destroy();
+    harness.dispose();
+  }
 }
 
 function testWsRouterDegradedReplayStart(): void {
   const { router, ws, sent } = createWsRouterHarness({
-    replayData: '\r\n[BuilderGate] Server snapshot is unavailable for this session. Using fallback recovery when possible...\r\n',
+    snapshotData: '\r\n[BuilderGate] Server snapshot is unavailable for this session. Using fallback recovery when possible...\r\n',
+    snapshotMode: 'fallback',
   });
 
   (router as any).handleSubscribe(ws, ['session-1']);
 
-  assert.equal(sent[0].type, 'history');
+  assert.equal(sent[0].type, 'screen-snapshot');
   assert.equal(sent[0].truncated, false);
+  assert.equal(sent[0].mode, 'fallback');
   assert.match(String(sent[0].data), /server snapshot is unavailable/i);
 
   router.destroy();
@@ -1195,10 +1241,98 @@ function testWsRouterDuplicateSubscribeIdempotent(): void {
   (router as any).handleSubscribe(ws, ['session-1']);
   (router as any).handleSubscribe(ws, ['session-1']);
 
-  const historyMessages = sent.filter((message) => message.type === 'history');
-  assert.equal(historyMessages.length, 1);
+  const snapshotMessages = sent.filter((message) => message.type === 'screen-snapshot');
+  assert.equal(snapshotMessages.length, 1);
 
   router.destroy();
+}
+
+function testWsRouterIgnoresStaleReplayTokens(): void {
+  const { router, ws, sent } = createWsRouterHarness();
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  const firstToken = String(sent[0].replayToken);
+  router.routeSessionOutput('session-1', 'first-pending');
+  (router as any).handleUnsubscribe(ws, ['session-1']);
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  const secondToken = String(sent[2].replayToken);
+  router.routeSessionOutput('session-1', 'second-pending');
+
+  (router as any).handleScreenSnapshotReady(ws, 'session-1', firstToken);
+  const outputsAfterStaleAck = sent.filter((message) => message.type === 'output');
+  assert.equal(outputsAfterStaleAck.length, 0);
+
+  (router as any).handleScreenSnapshotReady(ws, 'session-1', secondToken);
+  const finalOutput = sent.filter((message) => message.type === 'output');
+  assert.equal(finalOutput.length, 1);
+  assert.equal(finalOutput[0].data, 'second-pending');
+
+  router.destroy();
+}
+
+async function testWsRouterNoDuplicateDeferredFallbackPayload(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  const pendingCallbacks: Array<() => void> = [];
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, manager);
+  manager.setWsRouter(router);
+  const { ws, sent } = createFakeWs();
+
+  try {
+    (router as any).clients.set(ws, {
+      clientId: 'client-1',
+      isAlive: true,
+      subscribedSessions: new Set<string>(),
+      replayPendingSessions: new Map(),
+    });
+
+    harness.sessionData.headless!.terminal.write = ((_data: string | Uint8Array, callback?: () => void) => {
+      pendingCallbacks.push(() => callback?.());
+    }) as typeof harness.sessionData.headless.terminal.write;
+    harness.sessionData.headless!.terminal.resize = (() => {
+      throw new Error('resize failed');
+    }) as typeof harness.sessionData.headless.terminal.resize;
+
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'PAYLOAD_B');
+    manager.resize(harness.sessionId, 20, 5);
+    (router as any).handleSubscribe(ws, [harness.sessionId]);
+
+    const snapshot = sent[0];
+    assert.equal(snapshot.type, 'screen-snapshot');
+    assert.equal(snapshot.mode, 'fallback');
+    assert.match(String(snapshot.data), /PAYLOAD_B/);
+
+    while (pendingCallbacks.length > 0) {
+      pendingCallbacks.shift()?.();
+      await Promise.resolve();
+    }
+
+    await harness.sessionData.headlessWriteChain;
+    (router as any).handleScreenSnapshotReady(ws, harness.sessionId, String(snapshot.replayToken));
+
+    const outputs = sent.filter((message) => message.type === 'output');
+    assert.equal(outputs.length, 0);
+  } finally {
+    router.destroy();
+    harness.dispose();
+  }
 }
 
 function testWsRouterClearSessionState(): void {

@@ -106,8 +106,8 @@ export class WsRouter {
       case 'unsubscribe':
         this.handleUnsubscribe(ws, msg.sessionIds);
         break;
-      case 'history:ready':
-        this.handleHistoryReady(ws, msg.sessionId);
+      case 'screen-snapshot:ready':
+        this.handleScreenSnapshotReady(ws, msg.sessionId, msg.replayToken);
         break;
       case 'input':
         this.handleInput(ws, msg.sessionId, msg.data);
@@ -151,16 +151,27 @@ export class WsRouter {
         continue;
       }
 
-      const replay = this.sessionManager.getReplaySnapshot(sessionId);
-      if (replay && replay.data.length > 0) {
-        this.markReplayPending(ws, sessionId);
-        this.sendTo(ws, {
-          type: 'history',
-          sessionId,
-          data: replay.data,
-          truncated: replay.truncated,
-        });
+      const snapshot = this.sessionManager.getScreenSnapshot(sessionId);
+      if (!snapshot) {
+        continue;
       }
+
+      const replayState = this.markReplayPending(ws, sessionId, snapshot.seq);
+      const mode = snapshot.health === 'healthy' && !(snapshot.truncated && snapshot.data.length === 0)
+        ? 'authoritative'
+        : 'fallback';
+      this.sendTo(ws, {
+        type: 'screen-snapshot',
+        sessionId,
+        replayToken: replayState.replayToken,
+        seq: snapshot.seq,
+        cols: snapshot.cols,
+        rows: snapshot.rows,
+        mode,
+        data: snapshot.data,
+        truncated: snapshot.truncated,
+        source: 'headless',
+      });
     }
 
     this.sendTo(ws, { type: 'subscribed', sessions: results });
@@ -185,13 +196,15 @@ export class WsRouter {
     }
   }
 
-  private handleHistoryReady(ws: WebSocket, sessionId: string): void {
-    const queuedOutput = this.clearReplayPendingForPair(ws, sessionId);
-    if (!queuedOutput || ws.readyState !== WebSocket.OPEN) {
+  private handleScreenSnapshotReady(ws: WebSocket, sessionId: string, replayToken: string): void {
+    const queuedOutput = this.consumeReplayPendingForPair(ws, sessionId, replayToken);
+    if (queuedOutput === null || ws.readyState !== WebSocket.OPEN) {
       return;
     }
 
-    this.sendTo(ws, { type: 'output', sessionId, data: queuedOutput });
+    if (queuedOutput.length > 0) {
+      this.sendTo(ws, { type: 'output', sessionId, data: queuedOutput });
+    }
   }
 
   private handleInput(_ws: WebSocket, sessionId: string, data: string): void {
@@ -237,32 +250,48 @@ export class WsRouter {
     this.heartbeatTimer.unref();
   }
 
-  private markReplayPending(ws: WebSocket, sessionId: string): void {
+  private markReplayPending(ws: WebSocket, sessionId: string, snapshotSeq: number): ReplayPendingState {
     const meta = this.clients.get(ws);
-    if (!meta || meta.replayPendingSessions.has(sessionId)) {
-      return;
+    if (!meta) {
+      throw new Error('Missing WebSocket client metadata');
     }
+
+    this.clearReplayPendingForPair(ws, sessionId);
 
     const state: ReplayPendingState = {
       queuedOutput: '',
+      replayToken: uuidv4(),
+      snapshotSeq,
       timer: setTimeout(() => {
         this.clearReplayPendingForPair(ws, sessionId);
       }, REPLAY_ACK_TIMEOUT_MS),
     };
     state.timer.unref();
     meta.replayPendingSessions.set(sessionId, state);
+    return state;
   }
 
-  private clearReplayPendingForPair(ws: WebSocket, sessionId: string): string {
+  private consumeReplayPendingForPair(ws: WebSocket, sessionId: string, replayToken: string): string | null {
     const meta = this.clients.get(ws);
-    if (!meta) return '';
+    if (!meta) return null;
 
     const pending = meta.replayPendingSessions.get(sessionId);
-    if (!pending) return '';
+    if (!pending || pending.replayToken !== replayToken) return null;
 
     clearTimeout(pending.timer);
     meta.replayPendingSessions.delete(sessionId);
     return pending.queuedOutput;
+  }
+
+  private clearReplayPendingForPair(ws: WebSocket, sessionId: string): void {
+    const meta = this.clients.get(ws);
+    if (!meta) return;
+
+    const pending = meta.replayPendingSessions.get(sessionId);
+    if (!pending) return;
+
+    clearTimeout(pending.timer);
+    meta.replayPendingSessions.delete(sessionId);
   }
 
   private appendQueuedOutput(state: ReplayPendingState, data: string): void {

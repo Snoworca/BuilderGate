@@ -919,7 +919,6 @@ export class SessionManager {
 
   private async applyHeadlessOutput(sessionId: string, sessionData: SessionData, data: string): Promise<void> {
     if (!sessionData.headless) {
-      this.wsRouter?.routeSessionOutput(sessionId, data);
       return;
     }
 
@@ -927,7 +926,7 @@ export class SessionManager {
       writeHeadlessTerminal(sessionData.headless, data),
       sessionData.headlessCloseSignal.promise,
     ]);
-    if (!this.isActiveSession(sessionId, sessionData)) {
+    if (!this.isActiveSession(sessionId, sessionData) || sessionData.headlessHealth !== 'healthy' || !sessionData.headless) {
       return;
     }
 
@@ -984,8 +983,8 @@ export class SessionManager {
       seq: sessionData.screenSeq,
       cols: sessionData.cols,
       rows: sessionData.rows,
-      data: '',
-      truncated: false,
+      data: sessionData.degradedReplayBuffer,
+      truncated: sessionData.degradedReplayTruncated,
       generatedAt: Date.now(),
       health: 'degraded',
     };
