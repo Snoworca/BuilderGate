@@ -1,3 +1,7 @@
+export function isLikelyBlankTerminalText(raw: string): boolean {
+  return raw.replace(/\u00a0/g, ' ').trim().length === 0;
+}
+
 export function isLikelyCorruptedIdleTerminalText(raw: string): boolean {
   const normalized = raw
     .replace(/\u00a0/g, ' ')
@@ -8,9 +12,7 @@ export function isLikelyCorruptedIdleTerminalText(raw: string): boolean {
     .map((line) => line.trim())
     .filter(Boolean);
 
-  if (nonEmptyLines.length === 0) {
-    return true;
-  }
+  if (nonEmptyLines.length === 0) return false;
 
   const uniqueLines = Array.from(new Set(nonEmptyLines));
   if (uniqueLines.length !== 1) {

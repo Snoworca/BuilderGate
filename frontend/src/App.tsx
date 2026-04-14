@@ -20,7 +20,7 @@ import { MosaicContainer } from './components/Grid';
 import { MetadataRow, METADATA_ROW_HEIGHT_PX } from './components/MetadataBar/MetadataRow';
 import { ContextMenu } from './components/ContextMenu';
 import { buildTerminalContextMenuItems } from './utils/contextMenuBuilder';
-import { isLikelyCorruptedIdleTerminalText } from './utils/terminalRecovery';
+import { isLikelyBlankTerminalText, isLikelyCorruptedIdleTerminalText } from './utils/terminalRecovery';
 import { TAB_COLORS } from './types/workspace';
 import { resolveCwd } from './utils/shell';
 import type { WorkspaceTabRuntime } from './types/workspace';
@@ -35,6 +35,7 @@ import './components/Workspace/breathing.css';
 
 // LRU 설정: 0 = 제한없음 (기본값). TODO: Settings UI 연동 예정
 const MAX_ALIVE_WORKSPACES = 0;
+const TERMINAL_BLANK_RECOVERY_MIN_AGE_MS = 5 * 60 * 1000;
 
 function AppContent() {
   const { logout } = useAuth();
@@ -294,7 +295,13 @@ function AppContent() {
 
     const timer = window.setTimeout(() => {
       const renderedText = getHandleByTabId(tab.id)?.getRenderedText() ?? '';
-      if (!isLikelyCorruptedIdleTerminalText(renderedText)) {
+      const sessionAgeMs = Math.max(0, Date.now() - new Date(tab.createdAt).getTime());
+      const shouldRecoverCorruption = isLikelyCorruptedIdleTerminalText(renderedText);
+      const shouldRecoverBlank =
+        isLikelyBlankTerminalText(renderedText) &&
+        sessionAgeMs >= TERMINAL_BLANK_RECOVERY_MIN_AGE_MS;
+
+      if (!shouldRecoverCorruption && !shouldRecoverBlank) {
         return;
       }
 
@@ -333,6 +340,13 @@ function AppContent() {
       isVisible: true,
     }))
   ), [wm.activeWorkspaceTabs]);
+
+  const runtimeLayerItems = useMemo(() => {
+    if ((wm.activeWorkspace?.viewMode || 'tab') === 'grid' && !isMobile) {
+      return gridModeRuntimeItems;
+    }
+    return tabModeRuntimeItems;
+  }, [gridModeRuntimeItems, isMobile, tabModeRuntimeItems, wm.activeWorkspace?.viewMode]);
 
   const tabContextMenuItems = useMemo(() => {
     if (!tabContextMenu.targetId || !activeTab) return [];
@@ -473,15 +487,6 @@ function AppContent() {
                     />
                   ) : null}
 
-                  {viewMode === 'grid' && !isMobile ? (
-                    <TerminalRuntimeLayer
-                      items={gridModeRuntimeItems}
-                      onStatusChange={handleTerminalStatusChange}
-                      onCwdChange={handleCwdChange}
-                      onAuthError={handleAuthError}
-                    />
-                  ) : null}
-
                   {/* Tab Mode: render ALL tabs across all workspaces as host slots, hide inactive */}
                   {(viewMode === 'tab' || isMobile) && tabModeRuntimeItems
                     .map(({ tab, isVisible }) => {
@@ -537,14 +542,12 @@ function AppContent() {
                     })
                   }
 
-                  {(viewMode === 'tab' || isMobile) && (
-                    <TerminalRuntimeLayer
-                      items={tabModeRuntimeItems}
-                      onStatusChange={handleTerminalStatusChange}
-                      onCwdChange={handleCwdChange}
-                      onAuthError={handleAuthError}
-                    />
-                  )}
+                  <TerminalRuntimeLayer
+                    items={runtimeLayerItems}
+                    onStatusChange={handleTerminalStatusChange}
+                    onCwdChange={handleCwdChange}
+                    onAuthError={handleAuthError}
+                  />
                 </div>
               </>
             ) : (
