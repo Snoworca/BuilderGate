@@ -46,6 +46,11 @@ async function main(): Promise<void> {
     { name: 'SessionManager.updateRuntimeConfig affects later idle timers and cached snapshots', run: testSessionManagerRuntimeConfig },
     { name: 'SessionManager returns cached authoritative snapshots', run: testSessionManagerCachedSnapshot },
     { name: 'SessionManager reports snapshot observability counters', run: testSessionManagerObservabilityCounters },
+    { name: 'SessionManager retains and clears bounded debug capture events', run: testSessionManagerDebugCaptureRetention },
+    { name: 'SessionManager clears debug capture when a session is deleted', run: testSessionManagerDeleteClearsDebugCapture },
+    { name: 'SessionManager enableDebugCapture starts a fresh server capture window', run: testSessionManagerEnableDebugCaptureClearsPreviousEvents },
+    { name: 'SessionManager waits for the headless drain boundary before serializing snapshots', run: testSessionManagerSnapshotFenceAwaitsDrainBoundary },
+    { name: 'SessionManager exposes noisy duplicate resize requests through replay telemetry', run: testSessionManagerResizeTelemetryBaseline },
     { name: 'SessionManager powershell shell bootstrap avoids delayed prompt-hook injection', run: testSessionManagerPowerShellBootstrapArgs },
     { name: 'SessionManager marks sessions degraded when snapshot serialization fails', run: testSessionManagerDegradedSnapshot },
     { name: 'SessionManager preserves unsnapshotted healthy output when degrading', run: testSessionManagerDirtyCacheDegradedRecovery },
@@ -67,6 +72,12 @@ async function main(): Promise<void> {
     { name: 'Terminal payload truncation removes incomplete trailing escape suffixes', run: testTerminalPayloadTruncationTrailingIncompleteSuffix },
     { name: 'WsRouter sends screen snapshot before flushing queued live output', run: testWsRouterScreenSnapshotOrdering },
     { name: 'WsRouter reports replay observability counters', run: testWsRouterObservabilityCounters },
+    { name: 'WsRouter retains bounded recent replay lineage events', run: testWsRouterRecentReplayEventRetention },
+    { name: 'WsRouter clears replay events for one session without affecting others', run: testWsRouterClearReplayEvents },
+    { name: 'WsRouter debug replay capture is opt-in and session-scoped', run: testWsRouterDebugReplayCaptureOptIn },
+    { name: 'WsRouter drops stale concurrent replay refresh completions for the same session', run: testWsRouterSuppressesStaleConcurrentRefreshes },
+    { name: 'WsRouter subscribe does not crash if the client disconnects while snapshot loading is pending', run: testWsRouterSubscribeDisconnectDuringPendingSnapshot },
+    { name: 'WsRouter subscribe picks the latest snapshot if refresh wins while subscribe snapshot is pending', run: testWsRouterSubscribeRefreshRaceUsesLatestSnapshot },
     { name: 'WsRouter still emits a replay start for degraded sessions', run: testWsRouterDegradedReplayStart },
     { name: 'WsRouter still emits a replay start for oversized snapshots', run: testWsRouterOversizedSnapshotReplayStart },
     { name: 'WsRouter duplicate subscribe does not replay screen snapshot twice', run: testWsRouterDuplicateSubscribeIdempotent },
@@ -483,9 +494,9 @@ async function testSessionManagerCachedSnapshot(): Promise<void> {
       return originalSerialize(options as never);
     }) as typeof serializeAddon.serialize;
 
-    const first = manager.getScreenSnapshot(harness.sessionId);
-    const second = manager.getScreenSnapshot(harness.sessionId);
-    const replay = manager.getReplaySnapshot(harness.sessionId);
+    const first = await manager.getScreenSnapshot(harness.sessionId);
+    const second = await manager.getScreenSnapshot(harness.sessionId);
+    const replay = await manager.getReplaySnapshot(harness.sessionId);
 
     assert.equal(first?.health, 'healthy');
     assert.equal(first?.data, 'hello\r\nworld');
@@ -517,8 +528,8 @@ async function testSessionManagerObservabilityCounters(): Promise<void> {
 
   try {
     await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, 'hello');
-    manager.getScreenSnapshot(harness.sessionId);
-    manager.getScreenSnapshot(harness.sessionId);
+    await manager.getScreenSnapshot(harness.sessionId);
+    await manager.getScreenSnapshot(harness.sessionId);
 
     const stats = manager.getObservabilitySnapshot();
 
@@ -529,6 +540,213 @@ async function testSessionManagerObservabilityCounters(): Promise<void> {
     assert.equal(stats.snapshotSerializeFailures, 0);
     assert.equal(stats.totalSnapshotBytes > 0, true);
   } finally {
+    harness.dispose();
+  }
+}
+
+function testSessionManagerDebugCaptureRetention(): void {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  (manager as any).captureDebugEvent('session-1', 'pty', 'raw_output', { index: -1 }, 'disabled\r\n');
+  assert.deepEqual(manager.getDebugCapture('session-1'), []);
+
+  manager.enableDebugCapture('session-1');
+  for (let index = 0; index < 450; index += 1) {
+    (manager as any).captureDebugEvent('session-1', 'pty', 'raw_output', { index }, `line-${index}\r\n`);
+  }
+
+  const events = manager.getDebugCapture('session-1', 500);
+  assert.equal(events.length, 400);
+  assert.equal(events[0].details?.index, 50);
+  assert.equal(events.at(-1)?.details?.index, 449);
+  assert.match(String(events[0].preview), /line-50\\r\\n/);
+
+  manager.clearDebugCapture('session-1');
+  assert.deepEqual(manager.getDebugCapture('session-1'), []);
+}
+
+function testSessionManagerDeleteClearsDebugCapture(): void {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+
+  try {
+    manager.enableDebugCapture(harness.sessionId);
+    (manager as any).captureDebugEvent(harness.sessionId, 'pty', 'raw_output', { index: 1 }, 'line-1\r\n');
+    assert.equal(manager.getDebugCapture(harness.sessionId).length, 1);
+    manager.deleteSession(harness.sessionId);
+    assert.deepEqual(manager.getDebugCapture(harness.sessionId), []);
+  } finally {
+    harness.dispose();
+  }
+}
+
+function testSessionManagerEnableDebugCaptureClearsPreviousEvents(): void {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  manager.enableDebugCapture('session-1');
+  (manager as any).captureDebugEvent('session-1', 'pty', 'raw_output', { index: 1 }, 'line-1\r\n');
+  assert.equal(manager.getDebugCapture('session-1').length, 1);
+
+  manager.enableDebugCapture('session-1');
+  assert.deepEqual(manager.getDebugCapture('session-1'), []);
+}
+
+async function testSessionManagerSnapshotFenceAwaitsDrainBoundary(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  const pendingCallbacks: Array<() => void> = [];
+  let settled = false;
+
+  try {
+    const originalWrite = harness.sessionData.headless!.terminal.write.bind(harness.sessionData.headless!.terminal);
+    harness.sessionData.headless!.terminal.write = ((data: string | Uint8Array, callback?: () => void) => {
+      pendingCallbacks.push(() => originalWrite(data, callback));
+    }) as typeof harness.sessionData.headless.terminal.write;
+
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'FRAME_A');
+    const snapshotPromise = manager.getScreenSnapshot(harness.sessionId).then((snapshot) => {
+      settled = true;
+      return snapshot;
+    });
+
+    await Promise.resolve();
+    assert.equal(settled, false);
+
+    while (pendingCallbacks.length > 0) {
+      pendingCallbacks.shift()?.();
+      await Promise.resolve();
+    }
+
+    const snapshot = await snapshotPromise;
+    const replay = await manager.getReplaySnapshot(harness.sessionId);
+
+    assert.equal(settled, true);
+    assert.equal(snapshot?.health, 'healthy');
+    assert.match(snapshot?.data ?? '', /FRAME_A/);
+    assert.deepEqual(replay, { data: 'FRAME_A', truncated: false });
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerResizeTelemetryBaseline(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, manager);
+  manager.setWsRouter(router);
+  const { ws } = createFakeWs();
+  let ptyResizeCount = 0;
+  const pty = harness.sessionData.pty as any;
+  pty.resize = (() => {
+    ptyResizeCount += 1;
+  }) as () => void;
+
+  try {
+    (router as any).clients.set(ws, {
+      clientId: 'client-1',
+      isAlive: true,
+      subscribedSessions: new Set<string>(),
+      replayPendingSessions: new Map(),
+    });
+
+    await (router as any).handleSubscribe(ws, [harness.sessionId]);
+    manager.resize(harness.sessionId, 10, 4);
+    manager.resize(harness.sessionId, 10, 4);
+
+    const events = router
+      .getObservabilitySnapshot()
+      .recentReplayEvents
+      .filter((event) => event.sessionId === harness.sessionId);
+    const resizeRequested = events.filter((event) => event.kind === 'resize_requested');
+    const resizeSkipped = events.filter((event) => event.kind === 'resize_skipped');
+
+    assert.equal(resizeRequested.length, 2);
+    assert.deepEqual(
+      resizeRequested.map((event) => event.details),
+      [
+        { currentCols: 10, currentRows: 4, requestedCols: 10, requestedRows: 4 },
+        { currentCols: 10, currentRows: 4, requestedCols: 10, requestedRows: 4 },
+      ],
+    );
+    assert.equal(resizeSkipped.length, 2);
+    assert.equal(events.some((event) => event.kind === 'snapshot_refreshed'), false);
+    assert.equal(ptyResizeCount, 0);
+    assert.equal(harness.sessionData.screenSeq, 0);
+    assert.equal(router.getObservabilitySnapshot().replayRefreshCount, 0);
+    assert.deepEqual(
+      events.map((event) => event.kind),
+      ['snapshot_sent', 'snapshot_sent', 'resize_requested', 'resize_skipped', 'resize_requested', 'resize_skipped'],
+    );
+  } finally {
+    router.destroy();
     harness.dispose();
   }
 }
@@ -558,7 +776,7 @@ function testSessionManagerPowerShellBootstrapArgs(): void {
   assert.ok(resolved.args.join(' ').includes('buildergate-cwd.txt'));
 }
 
-function testSessionManagerDegradedSnapshot(): void {
+async function testSessionManagerDegradedSnapshot(): Promise<void> {
   const manager = new SessionManager({
     pty: {
       termName: 'xterm-256color',
@@ -581,8 +799,8 @@ function testSessionManagerDegradedSnapshot(): void {
       throw new Error('serialize failed');
     }) as typeof harness.sessionData.headless.serializeAddon.serialize;
 
-    const snapshot = manager.getScreenSnapshot(harness.sessionId);
-    const replay = manager.getReplaySnapshot(harness.sessionId);
+    const snapshot = await manager.getScreenSnapshot(harness.sessionId);
+    const replay = await manager.getReplaySnapshot(harness.sessionId);
 
     assert.equal(snapshot?.health, 'degraded');
     assert.equal(snapshot?.data, '');
@@ -614,7 +832,7 @@ async function testSessionManagerDirtyCacheDegradedRecovery(): Promise<void> {
 
   try {
     await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, 'old');
-    manager.getScreenSnapshot(harness.sessionId);
+    await manager.getScreenSnapshot(harness.sessionId);
     (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'new');
     await harness.sessionData.headlessWriteChain;
 
@@ -622,7 +840,7 @@ async function testSessionManagerDirtyCacheDegradedRecovery(): Promise<void> {
       throw new Error('serialize failed');
     }) as typeof harness.sessionData.headless.serializeAddon.serialize;
 
-    const replay = manager.getReplaySnapshot(harness.sessionId);
+    const replay = await manager.getReplaySnapshot(harness.sessionId);
 
     assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
     assert.match(replay?.data ?? '', /oldnew/);
@@ -670,7 +888,7 @@ async function testSessionManagerQueuedOutputDegradedRace(): Promise<void> {
     }
 
     await harness.sessionData.headlessWriteChain;
-    const replay = manager.getReplaySnapshot(harness.sessionId);
+    const replay = await manager.getReplaySnapshot(harness.sessionId);
 
     assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
     assert.match(replay?.data ?? '', /PAYLOAD_A/);
@@ -715,7 +933,7 @@ async function testSessionManagerMixedFlushDegradedRecovery(): Promise<void> {
     await harness.sessionData.headlessWriteChain;
     (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'PAYLOAD_B');
 
-    manager.getScreenSnapshot(harness.sessionId);
+    await manager.getScreenSnapshot(harness.sessionId);
 
     harness.sessionData.headless!.terminal.resize = (() => {
       throw new Error('resize failed');
@@ -728,7 +946,7 @@ async function testSessionManagerMixedFlushDegradedRecovery(): Promise<void> {
     }
 
     await harness.sessionData.headlessWriteChain;
-    const replay = manager.getReplaySnapshot(harness.sessionId);
+    const replay = await manager.getReplaySnapshot(harness.sessionId);
 
     assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
     assert.equal((replay?.data ?? '').split('PAYLOAD_A').length - 1, 1);
@@ -764,7 +982,7 @@ async function testSessionManagerWriteFailureNoDuplicate(): Promise<void> {
     (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'PAYLOAD_X');
     await harness.sessionData.headlessWriteChain;
 
-    const replay = manager.getReplaySnapshot(harness.sessionId);
+    const replay = await manager.getReplaySnapshot(harness.sessionId);
 
     assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
     assert.equal((replay?.data ?? '').split('PAYLOAD_X').length - 1, 1);
@@ -795,8 +1013,8 @@ async function testSessionManagerOversizedSnapshot(): Promise<void> {
     await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, 'shell\r\nprompt> ');
     await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, '\x1b[?1049h\x1b[HALT');
 
-    const snapshot = manager.getScreenSnapshot(harness.sessionId);
-    const replay = manager.getReplaySnapshot(harness.sessionId);
+    const snapshot = await manager.getScreenSnapshot(harness.sessionId);
+    const replay = await manager.getReplaySnapshot(harness.sessionId);
 
     assert.equal(snapshot?.health, 'healthy');
     assert.equal(snapshot?.truncated, true);
@@ -830,7 +1048,7 @@ async function testSessionManagerAltScreenSnapshot(): Promise<void> {
     await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, 'shell\r\nprompt> ');
     await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, '\x1b[?1049h\x1b[HALT');
 
-    const snapshot = manager.getScreenSnapshot(harness.sessionId);
+    const snapshot = await manager.getScreenSnapshot(harness.sessionId);
 
     assert.equal(snapshot?.health, 'healthy');
     assert.match(snapshot?.data ?? '', /\x1b\[\?1049h/);
@@ -840,7 +1058,7 @@ async function testSessionManagerAltScreenSnapshot(): Promise<void> {
   }
 }
 
-function testSessionManagerDegradedOutputRecovery(): void {
+async function testSessionManagerDegradedOutputRecovery(): Promise<void> {
   const manager = new SessionManager({
     pty: {
       termName: 'xterm-256color',
@@ -873,7 +1091,7 @@ function testSessionManagerDegradedOutputRecovery(): void {
     });
 
     (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'lost-while-unsubscribed');
-    (router as any).handleSubscribe(ws, [harness.sessionId]);
+    await (router as any).handleSubscribe(ws, [harness.sessionId]);
 
     assert.equal(sent[0].type, 'screen-snapshot');
     assert.equal(sent[0].mode, 'fallback');
@@ -1309,10 +1527,10 @@ function createWsRouterHarness(options?: {
   return { router, ws, sent };
 }
 
-function testWsRouterScreenSnapshotOrdering(): void {
+async function testWsRouterScreenSnapshotOrdering(): Promise<void> {
   const { router, ws, sent } = createWsRouterHarness();
 
-  (router as any).handleSubscribe(ws, ['session-1']);
+  await (router as any).handleSubscribe(ws, ['session-1']);
   assert.equal(sent[0].type, 'screen-snapshot');
   assert.equal((sent[0] as any).windowsPty?.backend, 'conpty');
   assert.equal(sent[1].type, 'subscribed');
@@ -1328,23 +1546,319 @@ function testWsRouterScreenSnapshotOrdering(): void {
   router.destroy();
 }
 
-function testWsRouterObservabilityCounters(): void {
+async function testWsRouterObservabilityCounters(): Promise<void> {
   const { router, ws } = createWsRouterHarness();
 
-  (router as any).handleSubscribe(ws, ['session-1']);
+  await (router as any).handleSubscribe(ws, ['session-1']);
   router.routeSessionOutput('session-1', 'queued');
   const snapshot = (router as any).clients.get(ws).replayPendingSessions.get('session-1');
   const token = snapshot.replayToken;
   (router as any).handleScreenSnapshotReady(ws, 'session-1', token);
+  (router as any).handleScreenSnapshotReady(ws, 'session-1', token);
 
   const stats = router.getObservabilitySnapshot();
+  const eventKinds = stats.recentReplayEvents.map((event) => event.kind);
 
   assert.equal(stats.connectedClients, 1);
   assert.equal(stats.subscribedSessionCount, 1);
   assert.equal(stats.replayPendingCount, 0);
   assert.equal(stats.maxReplayQueueLengthObserved >= 'queued'.length, true);
+  assert.deepEqual(eventKinds, [
+    'snapshot_sent',
+    'output_queued',
+    'ack_ok',
+    'output_flushed',
+    'ack_stale',
+  ]);
+  assert.equal(stats.recentReplayEvents[0].sessionId, 'session-1');
+  assert.equal(stats.recentReplayEvents[0].snapshotSeq, 1);
+  assert.equal(stats.recentReplayEvents[1].replayToken, stats.recentReplayEvents[2].replayToken);
 
   router.destroy();
+}
+
+function testWsRouterRecentReplayEventRetention(): void {
+  const { router } = createWsRouterHarness();
+
+  try {
+    for (let index = 0; index < 300; index += 1) {
+      router.recordReplayEvent({
+        kind: 'resize_requested',
+        sessionId: 'session-1',
+        snapshotSeq: index,
+        details: {
+          requestedCols: index,
+        },
+      });
+    }
+
+    const stats = router.getObservabilitySnapshot();
+    assert.equal(stats.recentReplayEvents.length, 256);
+    assert.equal(stats.recentReplayEvents[0].snapshotSeq, 44);
+    assert.equal(stats.recentReplayEvents.at(-1)?.snapshotSeq, 299);
+    assert.equal(stats.recentReplayEvents[0].eventId, 45);
+    assert.equal(stats.recentReplayEvents.at(-1)?.eventId, 300);
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterClearReplayEvents(): void {
+  const { router } = createWsRouterHarness();
+
+  try {
+    router.recordReplayEvent({ kind: 'snapshot_sent', sessionId: 'session-1', snapshotSeq: 1 });
+    router.recordReplayEvent({ kind: 'snapshot_sent', sessionId: 'session-2', snapshotSeq: 2 });
+    router.clearReplayEvents('session-1');
+
+    const stats = router.getObservabilitySnapshot();
+    assert.equal(stats.recentReplayEvents.length, 1);
+    assert.equal(stats.recentReplayEvents[0].sessionId, 'session-2');
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterDebugReplayCaptureOptIn(): void {
+  const { router } = createWsRouterHarness();
+
+  try {
+    router.recordReplayEvent({ kind: 'snapshot_sent', sessionId: 'session-1', snapshotSeq: 1 });
+    assert.deepEqual(router.getDebugReplayEvents('session-1'), []);
+
+    router.enableDebugReplayCapture('session-1');
+    router.recordReplayEvent({ kind: 'snapshot_refreshed', sessionId: 'session-1', snapshotSeq: 2 });
+    router.recordReplayEvent({ kind: 'snapshot_refreshed', sessionId: 'session-2', snapshotSeq: 3 });
+
+    const sessionOneEvents = router.getDebugReplayEvents('session-1');
+    assert.equal(sessionOneEvents.length, 1);
+    assert.equal(sessionOneEvents[0].sessionId, 'session-1');
+    assert.equal(sessionOneEvents[0].snapshotSeq, 2);
+    assert.deepEqual(router.getDebugReplayEvents('session-2'), []);
+
+    router.disableDebugReplayCapture('session-1');
+    assert.deepEqual(router.getDebugReplayEvents('session-1'), []);
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterSuppressesStaleConcurrentRefreshes(): Promise<void> {
+  const refreshOneSignal = createTestDeferredSignal<any>();
+  const refreshTwoSignal = createTestDeferredSignal<any>();
+  let snapshotCallCount = 0;
+  const session = {
+    id: 'session-1',
+    name: 'Session 1',
+    status: 'running',
+    createdAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
+    sortOrder: 0,
+  };
+  const sessionManagerStub = {
+    getSession: (id: string) => id === session.id ? session : null,
+    getLastCwd: () => 'C:\\repo',
+    getScreenSnapshot: async () => {
+      snapshotCallCount += 1;
+      if (snapshotCallCount === 1) {
+        return {
+          seq: 1,
+          cols: 80,
+          rows: 24,
+          data: 'base',
+          truncated: false,
+          generatedAt: Date.now(),
+          health: 'healthy',
+          windowsPty: { backend: 'conpty', buildNumber: 22631 },
+        };
+      }
+      if (snapshotCallCount === 2) {
+        return refreshOneSignal.promise;
+      }
+      return refreshTwoSignal.promise;
+    },
+    getReplayQueueLimit: () => 64,
+    writeInput: () => true,
+    resize: () => true,
+  } as unknown as SessionManager;
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, sessionManagerStub);
+  const { ws, sent } = createFakeWs();
+
+  try {
+    (router as any).clients.set(ws, {
+      clientId: 'client-1',
+      isAlive: true,
+      subscribedSessions: new Set<string>(),
+      replayPendingSessions: new Map(),
+    });
+
+    await (router as any).handleSubscribe(ws, ['session-1']);
+    const refreshOne = router.refreshReplaySnapshots('session-1');
+    const refreshTwo = router.refreshReplaySnapshots('session-1');
+
+    refreshTwoSignal.resolve({
+      seq: 2,
+      cols: 120,
+      rows: 40,
+      data: 'after-resize',
+      truncated: false,
+      generatedAt: Date.now(),
+      health: 'healthy',
+      windowsPty: { backend: 'conpty', buildNumber: 22631 },
+    });
+    await refreshTwo;
+
+    refreshOneSignal.resolve({
+      seq: 2,
+      cols: 120,
+      rows: 40,
+      data: 'after-resize',
+      truncated: false,
+      generatedAt: Date.now(),
+      health: 'healthy',
+      windowsPty: { backend: 'conpty', buildNumber: 22631 },
+    });
+    await refreshOne;
+
+    const snapshotMessages = sent.filter((message) => message.type === 'screen-snapshot');
+    assert.equal(snapshotMessages.length, 2);
+    assert.equal(snapshotMessages[0].seq, 1);
+    assert.equal(snapshotMessages[1].seq, 2);
+    assert.equal(String(snapshotMessages[1].data), 'after-resize');
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterSubscribeDisconnectDuringPendingSnapshot(): Promise<void> {
+  const snapshotSignal = createTestDeferredSignal<any>();
+  const session = {
+    id: 'session-1',
+    name: 'Session 1',
+    status: 'running',
+    createdAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
+    sortOrder: 0,
+  };
+  const sessionManagerStub = {
+    getSession: (id: string) => id === session.id ? session : null,
+    getLastCwd: () => 'C:\\repo',
+    getScreenSnapshot: async () => snapshotSignal.promise,
+    getReplayQueueLimit: () => 64,
+    writeInput: () => true,
+    resize: () => true,
+  } as unknown as SessionManager;
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, sessionManagerStub);
+  const { ws, sent } = createFakeWs();
+
+  try {
+    (router as any).clients.set(ws, {
+      clientId: 'client-1',
+      isAlive: true,
+      subscribedSessions: new Set<string>(),
+      replayPendingSessions: new Map(),
+    });
+
+    const subscribePromise = (router as any).handleSubscribe(ws, ['session-1']);
+    (ws as any).readyState = 3;
+    (router as any).handleDisconnect(ws);
+
+    snapshotSignal.resolve({
+      seq: 1,
+      cols: 80,
+      rows: 24,
+      data: 'history-seed',
+      truncated: false,
+      generatedAt: Date.now(),
+      health: 'healthy',
+      windowsPty: { backend: 'conpty', buildNumber: 22631 },
+    });
+
+    await subscribePromise;
+    assert.equal(sent.some((message) => message.type === 'screen-snapshot'), false);
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterSubscribeRefreshRaceUsesLatestSnapshot(): Promise<void> {
+  const subscribeSnapshotSignal = createTestDeferredSignal<any>();
+  let snapshotCallCount = 0;
+  const session = {
+    id: 'session-1',
+    name: 'Session 1',
+    status: 'running',
+    createdAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
+    sortOrder: 0,
+  };
+  const sessionManagerStub = {
+    getSession: (id: string) => id === session.id ? session : null,
+    getLastCwd: () => 'C:\\repo',
+    getScreenSnapshot: async () => {
+      snapshotCallCount += 1;
+      if (snapshotCallCount === 1) {
+        return subscribeSnapshotSignal.promise;
+      }
+      return {
+        seq: 2,
+        cols: 120,
+        rows: 40,
+        data: 'after-refresh',
+        truncated: false,
+        generatedAt: Date.now(),
+        health: 'healthy',
+        windowsPty: { backend: 'conpty', buildNumber: 22631 },
+      };
+    },
+    getReplayQueueLimit: () => 64,
+    writeInput: () => true,
+    resize: () => true,
+  } as unknown as SessionManager;
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, sessionManagerStub);
+  const { ws, sent } = createFakeWs();
+
+  try {
+    (router as any).clients.set(ws, {
+      clientId: 'client-1',
+      isAlive: true,
+      subscribedSessions: new Set<string>(),
+      replayPendingSessions: new Map(),
+    });
+
+    const subscribePromise = (router as any).handleSubscribe(ws, ['session-1']);
+    await Promise.resolve();
+    await router.refreshReplaySnapshots('session-1');
+
+    subscribeSnapshotSignal.resolve({
+      seq: 1,
+      cols: 80,
+      rows: 24,
+      data: 'stale-base',
+      truncated: false,
+      generatedAt: Date.now(),
+      health: 'healthy',
+      windowsPty: { backend: 'conpty', buildNumber: 22631 },
+    });
+
+    await subscribePromise;
+
+    const snapshotMessages = sent.filter((message) => message.type === 'screen-snapshot');
+    assert.equal(snapshotMessages.length, 1);
+    assert.equal(snapshotMessages[0].seq, 2);
+    assert.equal(String(snapshotMessages[0].data), 'after-refresh');
+  } finally {
+    router.destroy();
+  }
 }
 
 async function testWsRouterOversizedSnapshotReplayStart(): Promise<void> {
@@ -1380,7 +1894,7 @@ async function testWsRouterOversizedSnapshotReplayStart(): Promise<void> {
 
     await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, 'shell\r\nprompt> ');
     await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, '\x1b[?1049h\x1b[HALT');
-    (router as any).handleSubscribe(ws, [harness.sessionId]);
+    await (router as any).handleSubscribe(ws, [harness.sessionId]);
 
     const snapshot = sent[0];
     assert.equal(snapshot.type, 'screen-snapshot');
@@ -1393,13 +1907,13 @@ async function testWsRouterOversizedSnapshotReplayStart(): Promise<void> {
   }
 }
 
-function testWsRouterDegradedReplayStart(): void {
+async function testWsRouterDegradedReplayStart(): Promise<void> {
   const { router, ws, sent } = createWsRouterHarness({
     snapshotData: '\r\n[BuilderGate] Server snapshot is unavailable for this session. Using fallback recovery when possible...\r\n',
     snapshotMode: 'fallback',
   });
 
-  (router as any).handleSubscribe(ws, ['session-1']);
+  await (router as any).handleSubscribe(ws, ['session-1']);
 
   assert.equal(sent[0].type, 'screen-snapshot');
   assert.equal(sent[0].truncated, false);
@@ -1409,11 +1923,11 @@ function testWsRouterDegradedReplayStart(): void {
   router.destroy();
 }
 
-function testWsRouterDuplicateSubscribeIdempotent(): void {
+async function testWsRouterDuplicateSubscribeIdempotent(): Promise<void> {
   const { router, ws, sent } = createWsRouterHarness();
 
-  (router as any).handleSubscribe(ws, ['session-1']);
-  (router as any).handleSubscribe(ws, ['session-1']);
+  await (router as any).handleSubscribe(ws, ['session-1']);
+  await (router as any).handleSubscribe(ws, ['session-1']);
 
   const snapshotMessages = sent.filter((message) => message.type === 'screen-snapshot');
   assert.equal(snapshotMessages.length, 1);
@@ -1421,15 +1935,15 @@ function testWsRouterDuplicateSubscribeIdempotent(): void {
   router.destroy();
 }
 
-function testWsRouterIgnoresStaleReplayTokens(): void {
+async function testWsRouterIgnoresStaleReplayTokens(): Promise<void> {
   const { router, ws, sent } = createWsRouterHarness();
 
-  (router as any).handleSubscribe(ws, ['session-1']);
+  await (router as any).handleSubscribe(ws, ['session-1']);
   const firstToken = String(sent[0].replayToken);
   router.routeSessionOutput('session-1', 'first-pending');
   (router as any).handleUnsubscribe(ws, ['session-1']);
 
-  (router as any).handleSubscribe(ws, ['session-1']);
+  await (router as any).handleSubscribe(ws, ['session-1']);
   const secondToken = String(sent[2].replayToken);
   router.routeSessionOutput('session-1', 'second-pending');
 
@@ -1445,7 +1959,7 @@ function testWsRouterIgnoresStaleReplayTokens(): void {
   router.destroy();
 }
 
-function testWsRouterRefreshesReplaySnapshotsOnResize(): void {
+async function testWsRouterRefreshesReplaySnapshotsOnResize(): Promise<void> {
   const snapshotState = {
     seq: 1,
     cols: 80,
@@ -1485,7 +1999,7 @@ function testWsRouterRefreshesReplaySnapshotsOnResize(): void {
       replayPendingSessions: new Map(),
     });
 
-    (router as any).handleSubscribe(ws, ['session-1']);
+    await (router as any).handleSubscribe(ws, ['session-1']);
     const firstToken = String(sent[0].replayToken);
 
     snapshotState.seq = 2;
@@ -1493,7 +2007,7 @@ function testWsRouterRefreshesReplaySnapshotsOnResize(): void {
     snapshotState.rows = 40;
     router.routeSessionOutput('session-1', 'B');
     snapshotState.data = 'AB';
-    router.refreshReplaySnapshots('session-1');
+    await router.refreshReplaySnapshots('session-1');
 
     const refreshed = sent[2];
     assert.equal(refreshed.type, 'screen-snapshot');
@@ -1557,7 +2071,7 @@ async function testWsRouterNoDuplicateDeferredFallbackPayload(): Promise<void> {
 
     (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'PAYLOAD_B');
     manager.resize(harness.sessionId, 20, 5);
-    (router as any).handleSubscribe(ws, [harness.sessionId]);
+    await (router as any).handleSubscribe(ws, [harness.sessionId]);
 
     const snapshot = sent[0];
     assert.equal(snapshot.type, 'screen-snapshot');
@@ -1580,10 +2094,10 @@ async function testWsRouterNoDuplicateDeferredFallbackPayload(): Promise<void> {
   }
 }
 
-function testWsRouterClearSessionState(): void {
+async function testWsRouterClearSessionState(): Promise<void> {
   const { router, ws, sent } = createWsRouterHarness();
 
-  (router as any).handleSubscribe(ws, ['session-1']);
+  await (router as any).handleSubscribe(ws, ['session-1']);
   router.routeSessionOutput('session-1', 'queued-before-clear');
   router.clearSessionState('session-1');
   router.routeSessionOutput('session-1', 'output-after-clear');

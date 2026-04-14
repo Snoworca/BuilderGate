@@ -97,6 +97,19 @@ export function replaceLeafId(
   };
 }
 
+export function appendLeafToMosaicTree(
+  tree: MosaicNode<string>,
+  newId: string,
+): MosaicNode<string> {
+  const leafCount = extractLeafIds(tree).length;
+  return {
+    direction: leafCount % 2 === 0 ? 'row' : 'column',
+    first: tree,
+    second: newId,
+    splitPercentage: Math.max(20, Math.min(80, (leafCount / (leafCount + 1)) * 100)),
+  };
+}
+
 export function isValidMosaicTree(tree: unknown): tree is MosaicNode<string> {
   if (typeof tree === 'string') return tree.length > 0;
   if (tree === null || tree === undefined) return false;
@@ -223,10 +236,20 @@ export function restoreLayoutWithSessionRecovery(
   const currentSet = new Set(currentTabIds);
   const validIds = persistedIds.filter(id => currentSet.has(id));
   const missingIds = persistedIds.filter(id => !currentSet.has(id));
+  const persistedSet = new Set(persistedIds);
+  const unassigned = currentTabIds.filter(id => !persistedSet.has(id));
 
   if (validIds.length === 0) {
     // 전부 소멸 → 균등 폴백
     return { tree: buildEqualMosaicTree(currentTabIds), missingIds };
+  }
+
+  if (unassigned.length > 0) {
+    let tree: MosaicNode<string> = persistedTree;
+    for (const tabId of unassigned) {
+      tree = appendLeafToMosaicTree(tree, tabId);
+    }
+    return { tree, missingIds };
   }
 
   if (missingIds.length === 0) {
@@ -236,8 +259,6 @@ export function restoreLayoutWithSessionRecovery(
 
   // 부분 소멸: 소멸된 leaf를 currentTabIds에서 아직 미배치된 ID로 교체
   // 미배치 ID = currentTabIds 중 persistedIds에 없는 것
-  const persistedSet = new Set(persistedIds);
-  const unassigned = currentTabIds.filter(id => !persistedSet.has(id));
   let tree: MosaicNode<string> = persistedTree;
 
   for (let i = 0; i < missingIds.length; i++) {

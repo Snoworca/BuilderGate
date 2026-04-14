@@ -10,6 +10,7 @@ import {
   getTerminalSnapshotKey,
   isTerminalSnapshotRemovalRequested,
 } from '../../utils/terminalSnapshot';
+import { recordTerminalDebugEvent } from '../../utils/terminalDebugCapture';
 import type { WindowsPtyInfo } from '../../types/ws-protocol';
 import '@xterm/xterm/css/xterm.css';
 import './TerminalView.css';
@@ -44,6 +45,7 @@ export interface TerminalHandle {
 
 interface Props {
   sessionId: string;
+  isVisible: boolean;
   onInput: (data: string) => void;
   onResize: (cols: number, rows: number) => void;
 }
@@ -56,7 +58,7 @@ interface TerminalSnapshot {
 }
 
 export const TerminalView = forwardRef<TerminalHandle, Props>(
-  ({ sessionId, onInput, onResize }, ref) => {
+  ({ sessionId, isVisible, onInput, onResize }, ref) => {
     const terminalRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
@@ -70,17 +72,113 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const outputTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const idleSnapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastSnapshotRef = useRef<string | null>(null);
+    const lastSentGeometryRef = useRef<string | null>(null);
     const restorePendingRef = useRef(true);
     const inputReadyRef = useRef(false);
     const bufferedOutputRef = useRef<string[]>([]);
     const inFlightOutputRef = useRef<string[]>([]);
+    const isVisibleRef = useRef(isVisible);
     const { isMobile } = useResponsive();
 
+    useEffect(() => {
+      isVisibleRef.current = isVisible;
+    }, [isVisible]);
+
+    const hasRenderableViewport = useCallback(() => {
+      const container = containerRef.current;
+      return Boolean(container && container.offsetWidth > 0 && container.offsetHeight > 0);
+    }, []);
+
+    const enableInputIfReady = useCallback((term: Terminal) => {
+      if (!isVisibleRef.current) return;
+      if (restorePendingRef.current) return;
+      if (inputReadyRef.current) return;
+      inputReadyRef.current = true;
+      term.options.disableStdin = false;
+    }, []);
+
+    const disableInputForRestore = useCallback((term: Terminal) => {
+      inputReadyRef.current = false;
+      term.options.disableStdin = true;
+    }, []);
+
+    const emitResizeIfChanged = useCallback((term: Terminal) => {
+      if (!isVisibleRef.current) {
+        recordTerminalDebugEvent(sessionId, 'resize_skipped_hidden', {
+          cols: term.cols,
+          rows: term.rows,
+        });
+        return false;
+      }
+      if (term.cols <= 0 || term.rows <= 0) {
+        recordTerminalDebugEvent(sessionId, 'resize_skipped_invalid_geometry', {
+          cols: term.cols,
+          rows: term.rows,
+        });
+        return false;
+      }
+
+      const nextGeometry = `${term.cols}x${term.rows}`;
+      if (lastSentGeometryRef.current === nextGeometry) {
+        recordTerminalDebugEvent(sessionId, 'resize_skipped_unchanged', {
+          cols: term.cols,
+          rows: term.rows,
+        });
+        return false;
+      }
+
+      lastSentGeometryRef.current = nextGeometry;
+      recordTerminalDebugEvent(sessionId, 'resize_emitted', {
+        cols: term.cols,
+        rows: term.rows,
+      });
+      onResize(term.cols, term.rows);
+      return true;
+    }, [onResize, sessionId]);
+
+    const fitTerminal = useCallback((term: Terminal) => {
+      if (!isVisibleRef.current) {
+        recordTerminalDebugEvent(sessionId, 'fit_skipped_hidden');
+        return false;
+      }
+      const container = containerRef.current;
+      if (!hasRenderableViewport()) {
+        recordTerminalDebugEvent(sessionId, 'fit_skipped_non_renderable', {
+          offsetWidth: container?.offsetWidth ?? null,
+          offsetHeight: container?.offsetHeight ?? null,
+        });
+        return false;
+      }
+
+      fitAddonRef.current?.fit();
+      recordTerminalDebugEvent(sessionId, 'fit_completed', {
+        cols: term.cols,
+        rows: term.rows,
+        offsetWidth: container?.offsetWidth ?? null,
+        offsetHeight: container?.offsetHeight ?? null,
+      });
+      enableInputIfReady(term);
+      return true;
+    }, [enableInputIfReady, hasRenderableViewport, sessionId]);
+
     const requestViewportSync = useCallback((term: Terminal, fitFirst = false) => {
+      recordTerminalDebugEvent(sessionId, 'viewport_sync_requested', {
+        fitFirst,
+        cols: term.cols,
+        rows: term.rows,
+      });
       let attempts = 0;
 
       const syncViewport = () => {
         if (xtermRef.current !== term) return;
+        if (!isVisibleRef.current) {
+          recordTerminalDebugEvent(sessionId, 'viewport_sync_skipped_hidden', {
+            fitFirst,
+            cols: term.cols,
+            rows: term.rows,
+          });
+          return;
+        }
 
         try {
           if (fitFirst) {
@@ -243,9 +341,13 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           return;
         }
         restorePendingRef.current = false;
+        const term = xtermRef.current;
+        if (term) {
+          enableInputIfReady(term);
+        }
         saveSnapshot();
       });
-    }, [flushBufferedOutput, saveSnapshot]);
+    }, [enableInputIfReady, flushBufferedOutput, saveSnapshot]);
 
     const persistBufferedOutput = useCallback(() => {
       if (isTerminalSnapshotRemovalRequested(sessionId)) {
@@ -289,10 +391,16 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       return new Promise((resolve) => {
         try {
+          recordTerminalDebugEvent(sessionId, 'local_snapshot_restore_started', {
+            byteLength: snapshot.content.length,
+          }, snapshot.content);
           term.write(snapshot.content, () => {
             lastSnapshotRef.current = snapshot.content;
             releaseRestorePending();
             requestViewportSync(term, true);
+            recordTerminalDebugEvent(sessionId, 'local_snapshot_restore_completed', {
+              byteLength: snapshot.content.length,
+            }, snapshot.content);
             resolve(true);
           });
         } catch (error) {
@@ -310,8 +418,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       }
 
       restorePendingRef.current = true;
+      disableInputForRestore(term);
       bufferedOutputRef.current = [];
       inFlightOutputRef.current = [];
+      recordTerminalDebugEvent(sessionId, 'replace_snapshot_started', {
+        byteLength: data.length,
+      }, data);
       term.reset();
 
       if (!data) {
@@ -324,10 +436,13 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           lastSnapshotRef.current = data;
           releaseRestorePending();
           requestViewportSync(term, true);
+          recordTerminalDebugEvent(sessionId, 'replace_snapshot_completed', {
+            byteLength: data.length,
+          }, data);
           resolve();
         });
       });
-    }, [releaseRestorePending, requestViewportSync]);
+    }, [disableInputForRestore, releaseRestorePending, requestViewportSync, sessionId]);
 
     useImperativeHandle(ref, () => ({
       write: (data: string) => {
@@ -355,7 +470,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       },
       fit: () => {
         requestAnimationFrame(() => {
-          fitAddonRef.current?.fit();
+          const term = xtermRef.current;
+          if (!term) return;
+          if (!fitTerminal(term)) return;
+          emitResizeIfChanged(term);
         });
       },
       sendInput: (data: string) => {
@@ -367,6 +485,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           return false;
         }
         restorePendingRef.current = true;
+        disableInputForRestore(term);
         return restoreStoredSnapshot(term);
       },
       replaceWithSnapshot: (data: string) => replaceWithSnapshot(data),
@@ -380,7 +499,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         if (!term) return;
         term.options.windowsPty = info;
       },
-    }), [onInput, writeOutput, restoreStoredSnapshot, replaceWithSnapshot, releaseRestorePending]);
+    }), [disableInputForRestore, emitResizeIfChanged, fitTerminal, onInput, writeOutput, restoreStoredSnapshot, replaceWithSnapshot, releaseRestorePending]);
 
     useEffect(() => {
       if (!terminalRef.current) return;
@@ -471,10 +590,6 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       // Double rAF ensures layout is fully settled before measuring
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          fitAddon.fit();
-          onResize(term.cols, term.rows);
-          inputReadyRef.current = true;
-          term.options.disableStdin = false;
           // term.focus() removed — focus only on user click (handleClick) to prevent
           // focus stealing when multiple terminals are mounted in grid mode (R7)
 
@@ -493,7 +608,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       // Track terminal focus via DOM events (xterm v5 has no onFocus/onBlur API)
       const termEl = terminalRef.current!;
-      const onFocusIn = () => containerRef.current?.classList.add('terminal-focused');
+      const onFocusIn = () => {
+        containerRef.current?.classList.add('terminal-focused');
+        enableInputIfReady(term);
+      };
       const onFocusOut = () => containerRef.current?.classList.remove('terminal-focused');
       termEl.addEventListener('focusin', onFocusIn);
       termEl.addEventListener('focusout', onFocusOut);
@@ -525,18 +643,20 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       let resizeTimer: ReturnType<typeof setTimeout> | null = null;
       const resizeObserver = new ResizeObserver(() => {
         // 0-size 가드: display:none 상태(워크스페이스 비활성)에서는 fit 및 PTY resize 스킵
-        const container = containerRef.current;
-        if (!container || container.offsetWidth === 0 || container.offsetHeight === 0) return;
+        if (!hasRenderableViewport()) return;
 
         // rAF throttle: visual fit at most once per frame
         if (rafId !== null) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
-          fitAddon.fit();
+          if (!fitTerminal(term)) {
+            rafId = null;
+            return;
+          }
           rafId = null;
           // Debounce server PTY resize to avoid flooding during drag
           if (resizeTimer !== null) clearTimeout(resizeTimer);
           resizeTimer = setTimeout(() => {
-            onResize(term.cols, term.rows);
+            emitResizeIfChanged(term);
             resizeTimer = null;
           }, 100);
         });
@@ -570,13 +690,33 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         serializeAddonRef.current = null;
         fitAddonRef.current = null;
         xtermRef.current = null;
+        lastSentGeometryRef.current = null;
         restorePendingRef.current = false;
         inputReadyRef.current = false;
         inFlightOutputRef.current = [];
         bufferedOutputRef.current = [];
         term.dispose();
       };
-    }, [sessionId, onInput, onResize, getInitialFontSize, persistBufferedOutput, saveSnapshot]);
+    }, [sessionId, emitResizeIfChanged, enableInputIfReady, fitTerminal, getInitialFontSize, hasRenderableViewport, onInput, persistBufferedOutput, saveSnapshot]);
+
+    useEffect(() => {
+      const term = xtermRef.current;
+      if (!term) return;
+
+      if (!isVisible) {
+        disableInputForRestore(term);
+        recordTerminalDebugEvent(sessionId, 'visibility_hidden_input_disabled');
+        return;
+      }
+
+      requestAnimationFrame(() => {
+        const activeTerm = xtermRef.current;
+        if (!activeTerm) return;
+        if (fitTerminal(activeTerm)) {
+          emitResizeIfChanged(activeTerm);
+        }
+      });
+    }, [disableInputForRestore, emitResizeIfChanged, fitTerminal, isVisible, sessionId]);
 
     useEffect(() => {
       const persistSnapshot = () => {
@@ -641,8 +781,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
 
     const handleClick = useCallback(() => {
-      xtermRef.current?.focus();
-    }, []);
+      const term = xtermRef.current;
+      if (!term) return;
+      enableInputIfReady(term);
+      term.focus();
+    }, [enableInputIfReady]);
 
     return (
       <div className="terminal-view" ref={containerRef} onClick={handleClick}>

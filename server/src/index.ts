@@ -162,7 +162,6 @@ function setupRoutes(): void {
   const authMiddleware = createAuthMiddleware(() => authService);
   const settingsRoutes = createSettingsRoutes(settingsService);
   app.use('/api/settings', authMiddleware, settingsRoutes);
-  app.use('/api/sessions', authMiddleware, sessionRoutes);
   app.get('/api/sessions/telemetry', authMiddleware, (_req, res) => {
     const wsRouter = app.get('wsRouter') as WsRouter | undefined;
     res.json({
@@ -170,6 +169,34 @@ function setupRoutes(): void {
       ws: wsRouter?.getObservabilitySnapshot() ?? null,
     });
   });
+  app.get('/api/sessions/debug-capture/:id', authMiddleware, (req, res) => {
+    const wsRouter = app.get('wsRouter') as WsRouter | undefined;
+    const limit = Math.max(1, Math.min(500, Number.parseInt(String(req.query.limit ?? '200'), 10) || 200));
+    const sessionId = req.params.id;
+    res.json({
+      sessionId,
+      enabled: sessionManager.isDebugCaptureEnabled(sessionId),
+      server: sessionManager.getDebugCapture(sessionId, limit),
+      replay: sessionManager.isDebugCaptureEnabled(sessionId)
+        ? wsRouter?.getDebugReplayEvents(sessionId, limit) ?? []
+        : [],
+    });
+  });
+  app.post('/api/sessions/debug-capture/:id/enable', authMiddleware, (req, res) => {
+    const wsRouter = app.get('wsRouter') as WsRouter | undefined;
+    wsRouter?.enableDebugReplayCapture(req.params.id);
+    sessionManager.enableDebugCapture(req.params.id);
+    res.status(204).send();
+  });
+  app.delete('/api/sessions/debug-capture/:id', authMiddleware, (req, res) => {
+    const wsRouter = app.get('wsRouter') as WsRouter | undefined;
+    sessionManager.disableDebugCapture(req.params.id);
+    wsRouter?.disableDebugReplayCapture(req.params.id);
+    sessionManager.clearDebugCapture(req.params.id);
+    wsRouter?.clearReplayEvents(req.params.id);
+    res.status(204).send();
+  });
+  app.use('/api/sessions', authMiddleware, sessionRoutes);
 
   // Workspace routes (auth required, Step 7)
   const workspaceRoutes = createWorkspaceRoutes(workspaceService);

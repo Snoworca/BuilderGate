@@ -18,7 +18,7 @@ import { ConfirmModal } from './components/Modal';
 import { SettingsPage } from './components/Settings/SettingsPage';
 import { WorkspaceSidebar, WorkspaceTabBar, MobileDrawer, EmptyState, DisconnectedOverlay } from './components/Workspace';
 import { MosaicContainer } from './components/Grid';
-import { MetadataRow } from './components/MetadataBar/MetadataRow';
+import { MetadataRow, METADATA_ROW_HEIGHT_PX } from './components/MetadataBar/MetadataRow';
 import { ContextMenu } from './components/ContextMenu';
 import { buildTerminalContextMenuItems } from './utils/contextMenuBuilder';
 import { TAB_COLORS } from './types/workspace';
@@ -433,7 +433,12 @@ function AppContent() {
                           key={`ws-${tab.id}-${tab.sessionId}`}
                           className={isVisible && tab.status === 'running' ? 'terminal-running' : ''}
                           style={{
-                            display: isVisible ? 'flex' : 'none',
+                            display: 'flex',
+                            position: 'absolute',
+                            inset: 0,
+                            visibility: isVisible ? 'visible' : 'hidden',
+                            pointerEvents: isVisible ? 'auto' : 'none',
+                            zIndex: isVisible ? 1 : 0,
                             flexDirection: 'column',
                             width: '100%',
                             height: '100%',
@@ -465,12 +470,14 @@ function AppContent() {
                               onAuthError={handleAuthError}
                             />
                           )}
-                          {isVisible && (
-                            <MetadataRow
-                              tab={tab}
-                              onRename={(name) => handleRenameTab(tab.id, name)}
-                            />
-                          )}
+                          <div style={{ height: `${METADATA_ROW_HEIGHT_PX}px`, flexShrink: 0, minHeight: `${METADATA_ROW_HEIGHT_PX}px` }}>
+                            {isVisible ? (
+                              <MetadataRow
+                                tab={tab}
+                                onRename={(name) => handleRenameTab(tab.id, name)}
+                              />
+                            ) : null}
+                          </div>
                         </div>
                       );
                     })

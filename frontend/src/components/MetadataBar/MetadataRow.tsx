@@ -8,6 +8,8 @@ interface Props {
   onRename?: (name: string) => void;
 }
 
+export const METADATA_ROW_HEIGHT_PX = 28;
+
 function formatElapsed(createdAt: string): string {
   const elapsed = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000);
   if (elapsed < 0) return '00:00';
@@ -68,7 +70,7 @@ export function MetadataRow({ tab, onRename }: Props) {
     <div style={{
       display: 'flex',
       alignItems: 'center',
-      height: '28px',
+      height: `${METADATA_ROW_HEIGHT_PX}px`,
       backgroundColor: '#2a2a2a',
       fontSize: '13px',
       padding: '0 8px 0 0',

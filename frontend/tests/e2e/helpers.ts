@@ -2,7 +2,7 @@ import { Page, expect } from '@playwright/test';
 
 /** Login with password from env or default */
 export async function login(page: Page) {
-  const password = process.env.BUILDERGATE_PASSWORD || 'admin';
+  const password = process.env.BUILDERGATE_PASSWORD || '1234';
   await page.goto('/');
   await page.waitForSelector('input[type="password"]', { timeout: 10000 });
   await page.fill('input[type="password"]', password);
