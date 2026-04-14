@@ -34,6 +34,7 @@ export interface TerminalHandle {
   focus: () => void;
   hasSelection: () => boolean;
   getSelection: () => string;
+  getRenderedText: () => string;
   clearSelection: () => void;
   fit: () => void;
   sendInput: (data: string) => void;
@@ -464,6 +465,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       },
       hasSelection: () => !!(xtermRef.current?.hasSelection() || savedRightClickSelRef.current),
       getSelection: () => xtermRef.current?.getSelection() || savedRightClickSelRef.current || '',
+      getRenderedText: () => {
+        return containerRef.current?.querySelector('.xterm-rows')?.textContent ?? '';
+      },
       clearSelection: () => {
         xtermRef.current?.clearSelection();
         savedRightClickSelRef.current = '';

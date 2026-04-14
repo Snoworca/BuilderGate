@@ -39,7 +39,7 @@ interface MosaicContainerProps {
   onRestartTab: (tabId: string) => void;
   onSelectTab: (tabId: string) => void;
   onRenameTab: (tabId: string, name: string) => void;
-  renderTerminal: (tab: WorkspaceTabRuntime) => React.ReactNode;
+  renderTerminalHost: (tab: WorkspaceTabRuntime) => React.ReactNode;
   availableShells?: ShellInfo[];
   getTerminalSelection?: (tabId: string) => string;
   hasTerminalSelection?: (tabId: string) => boolean;
@@ -56,7 +56,7 @@ export function MosaicContainer({
   onRestartTab,
   onSelectTab,
   onRenameTab,
-  renderTerminal,
+  renderTerminalHost,
   availableShells,
   getTerminalSelection,
   hasTerminalSelection,
@@ -386,7 +386,7 @@ export function MosaicContainer({
             onRegisterRef={(el) => registerTileRef(tabId, el)}
             onRenameTab={onRenameTab}
           >
-            {tab ? renderTerminal(tab) : null}
+            {tab ? renderTerminalHost(tab) : null}
           </MosaicTile>
         </MosaicWindow>
       );
@@ -398,7 +398,7 @@ export function MosaicContainer({
       handleLayoutModeChange,
       onRestartTab,
       onAddTab,
-      renderTerminal,
+      renderTerminalHost,
       handleTileFocus,
       registerTileRef,
       availableShells,

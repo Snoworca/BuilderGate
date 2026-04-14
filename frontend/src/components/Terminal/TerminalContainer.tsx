@@ -1,5 +1,6 @@
 import { memo, useRef, useCallback, useEffect, forwardRef, useImperativeHandle, useEffectEvent } from 'react';
 import { useWebSocketActions } from '../../contexts/WebSocketContext';
+import { useTerminalRuntimeRegistryActions } from '../../contexts/TerminalRuntimeRegistryContext';
 import { TerminalView } from './TerminalView';
 import type { TerminalHandle } from './TerminalView';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
@@ -44,6 +45,7 @@ export const TerminalContainer = memo(
       focus: () => terminalRef.current?.focus(),
       hasSelection: () => terminalRef.current?.hasSelection() ?? false,
       getSelection: () => terminalRef.current?.getSelection() ?? '',
+      getRenderedText: () => terminalRef.current?.getRenderedText() ?? '',
       clearSelection: () => terminalRef.current?.clearSelection(),
       fit: () => terminalRef.current?.fit(),
       sendInput: (data) => terminalRef.current?.sendInput(data),
@@ -54,6 +56,7 @@ export const TerminalContainer = memo(
     }), []);
 
     const { send, subscribeSession } = useWebSocketActions();
+    const { attachRuntimeHandleRef, registerRuntimeConsumer } = useTerminalRuntimeRegistryActions();
 
     useEffect(() => {
       initialRestorePendingRef.current = true;
@@ -66,6 +69,14 @@ export const TerminalContainer = memo(
         clearTerminalDebugEvents(sessionId);
       };
     }, [sessionId]);
+
+    useEffect(() => {
+      return registerRuntimeConsumer(sessionId);
+    }, [registerRuntimeConsumer, sessionId]);
+
+    useEffect(() => {
+      return attachRuntimeHandleRef(sessionId, terminalRef);
+    }, [attachRuntimeHandleRef, sessionId]);
 
     useEffect(() => {
       recordTerminalDebugEvent(sessionId, 'visibility_changed', {

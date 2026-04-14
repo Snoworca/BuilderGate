@@ -12,8 +12,7 @@ import { useContextMenu } from './hooks/useContextMenu';
 import { sessionApi } from './services/api';
 import { AuthGuard } from './components/Auth';
 import { Header } from './components/Header';
-import { TerminalContainer } from './components/Terminal';
-import type { TerminalHandle } from './components/Terminal/TerminalView';
+import { TerminalHostSlot, TerminalRuntimeLayer } from './components/Terminal';
 import { ConfirmModal } from './components/Modal';
 import { SettingsPage } from './components/Settings/SettingsPage';
 import { WorkspaceSidebar, WorkspaceTabBar, MobileDrawer, EmptyState, DisconnectedOverlay } from './components/Workspace';
@@ -21,11 +20,16 @@ import { MosaicContainer } from './components/Grid';
 import { MetadataRow, METADATA_ROW_HEIGHT_PX } from './components/MetadataBar/MetadataRow';
 import { ContextMenu } from './components/ContextMenu';
 import { buildTerminalContextMenuItems } from './utils/contextMenuBuilder';
+import { isLikelyCorruptedIdleTerminalText } from './utils/terminalRecovery';
 import { TAB_COLORS } from './types/workspace';
 import { resolveCwd } from './utils/shell';
 import type { WorkspaceTabRuntime } from './types/workspace';
 import type { ShellInfo } from './types';
 import { WebSocketProvider } from './contexts/WebSocketContext';
+import {
+  TerminalRuntimeRegistryProvider,
+  useTerminalRuntimeRegistryActions,
+} from './contexts/TerminalRuntimeRegistryContext';
 import './styles/globals.css';
 import './components/Workspace/breathing.css';
 
@@ -42,6 +46,7 @@ function AppContent() {
   // Stable ref to avoid re-creating callbacks on every render
   const wmRef = useRef(wm);
   wmRef.current = wm;
+  const attemptedSessionRecoveryRef = useRef<Set<string>>(new Set());
 
   // ============================================================================
   // LRU: 워크스페이스 세션 유지 상한 (FR-005)
@@ -52,7 +57,7 @@ function AppContent() {
   const [aliveWorkspaceIds, setAliveWorkspaceIds] = useState<Set<string>>(new Set());
 
   const tabContextMenu = useContextMenu();
-  const terminalRefsMap = useRef<Map<string, { current: TerminalHandle | null }>>(new Map());
+  const { getHandleByTabId, syncTabBindings } = useTerminalRuntimeRegistryActions();
 
   useHeartbeat({
     onSessionExpired: () => {
@@ -77,6 +82,15 @@ function AppContent() {
   useEffect(() => {
     sessionApi.getShells().then(setAvailableShells).catch(() => { /* ignore */ });
   }, []);
+
+  const tabBindingsKey = useMemo(
+    () => wm.tabs.map(tab => `${tab.id}:${tab.sessionId}`).join(','),
+    [wm.tabs],
+  );
+
+  useEffect(() => {
+    syncTabBindings(wm.tabs.map(tab => ({ tabId: tab.id, sessionId: tab.sessionId })));
+  }, [syncTabBindings, tabBindingsKey, wm.tabs]);
 
   // ============================================================================
   // Confirm modal state
@@ -161,16 +175,16 @@ function AppContent() {
   }, [pendingCloseTabId]);
 
   const getTerminalSelection = useCallback((tabId: string): string => {
-    return terminalRefsMap.current.get(tabId)?.current?.getSelection() ?? '';
-  }, []);
+    return getHandleByTabId(tabId)?.getSelection() ?? '';
+  }, [getHandleByTabId]);
 
   const hasTerminalSelection = useCallback((tabId: string): boolean => {
-    return terminalRefsMap.current.get(tabId)?.current?.hasSelection() ?? false;
-  }, []);
+    return getHandleByTabId(tabId)?.hasSelection() ?? false;
+  }, [getHandleByTabId]);
 
   const sendTerminalInput = useCallback((tabId: string, data: string): void => {
-    terminalRefsMap.current.get(tabId)?.current?.sendInput(data);
-  }, []);
+    getHandleByTabId(tabId)?.sendInput(data);
+  }, [getHandleByTabId]);
 
   // 그리드 모드: MosaicContainer가 자체 확인 모달을 가지므로 직접 닫기
   const handleCloseTabDirect = useCallback((tabId: string) => {
@@ -245,9 +259,9 @@ function AppContent() {
   const handleFitAllTerminals = useCallback(() => {
     wmRef.current.activeWorkspaceTabs?.forEach(tab => {
       if (tab.status === 'disconnected') return;
-      terminalRefsMap.current.get(tab.id)?.current?.fit();
+      getHandleByTabId(tab.id)?.fit();
     });
-  }, []);
+  }, [getHandleByTabId]);
 
   // ============================================================================
   // Terminal status/CWD updates
@@ -272,10 +286,58 @@ function AppContent() {
     [wm.activeWorkspaceTabs, wm.activeWorkspace]
   );
 
+  useEffect(() => {
+    const tab = activeTab;
+    if (!tab) return;
+    if (tab.status !== 'idle') return;
+    if (attemptedSessionRecoveryRef.current.has(tab.sessionId)) return;
+
+    const timer = window.setTimeout(() => {
+      const renderedText = getHandleByTabId(tab.id)?.getRenderedText() ?? '';
+      if (!isLikelyCorruptedIdleTerminalText(renderedText)) {
+        return;
+      }
+
+      attemptedSessionRecoveryRef.current.add(tab.sessionId);
+      console.warn('[TerminalRecovery] Restarting suspicious idle session', {
+        tabId: tab.id,
+        sessionId: tab.sessionId,
+      });
+      handleRestartTab(tab.id);
+    }, 2500);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [activeTab, getHandleByTabId, handleRestartTab]);
+
+  const tabModeRuntimeItems = useMemo(() => (
+    wm.tabs
+      .filter((tab) => MAX_ALIVE_WORKSPACES <= 0 || aliveWorkspaceIds.has(tab.workspaceId))
+      .map((tab) => {
+        const ws = wm.workspaces.find((workspace) => workspace.id === tab.workspaceId);
+        const isActiveWs = tab.workspaceId === wm.activeWorkspaceId;
+        const isActiveTab = ws?.activeTabId === tab.id;
+        return {
+          tab,
+          slotId: `tab-slot-${tab.id}`,
+          isVisible: isActiveWs && isActiveTab,
+        };
+      })
+  ), [wm.tabs, wm.workspaces, wm.activeWorkspaceId, aliveWorkspaceIds]);
+
+  const gridModeRuntimeItems = useMemo(() => (
+    wm.activeWorkspaceTabs.map((tab) => ({
+      tab,
+      slotId: `grid-slot-${tab.id}`,
+      isVisible: true,
+    }))
+  ), [wm.activeWorkspaceTabs]);
+
   const tabContextMenuItems = useMemo(() => {
     if (!tabContextMenu.targetId || !activeTab) return [];
-    const tabRef = terminalRefsMap.current.get(tabContextMenu.targetId);
-    const hasSelection = tabRef?.current?.hasSelection() ?? false;
+    const tabHandle = getHandleByTabId(tabContextMenu.targetId);
+    const hasSelection = tabHandle?.hasSelection() ?? false;
     return buildTerminalContextMenuItems({
       tab: activeTab,
       tabs: wm.activeWorkspaceTabs,
@@ -287,36 +349,32 @@ function AppContent() {
         tabContextMenu.close();
       },
       onCopy: async () => {
-        const text = tabRef?.current?.getSelection() ?? '';
+        const text = tabHandle?.getSelection() ?? '';
         if (text) await navigator.clipboard.writeText(text);
       },
       onPaste: async () => {
         try {
           const text = await navigator.clipboard.readText();
-          if (text) tabRef?.current?.sendInput(text);
+          if (text) tabHandle?.sendInput(text);
         } catch { /* ignore */ }
       },
       hasSelection,
     });
-  }, [tabContextMenu.targetId, activeTab, wm.activeWorkspaceTabs, availableShells, handleAddTab, handleCloseTab, tabContextMenu]);
+  }, [tabContextMenu.targetId, activeTab, wm.activeWorkspaceTabs, availableShells, handleAddTab, handleCloseTab, tabContextMenu, getHandleByTabId]);
 
-  const renderTerminal = useCallback((tab: WorkspaceTabRuntime) => {
+  const renderTerminalHost = useCallback((tab: WorkspaceTabRuntime) => {
     if (tab.status === 'disconnected') {
       // GridCell already renders DisconnectedOverlay — return empty container
       return <div style={{ width: '100%', height: '100%' }} />;
     }
-    if (!terminalRefsMap.current.has(tab.id)) {
-      terminalRefsMap.current.set(tab.id, { current: null });
-    }
     return (
-      <TerminalContainer
-        ref={terminalRefsMap.current.get(tab.id)!}
-        key={`ws-${tab.id}-${tab.sessionId}`}
+      <TerminalHostSlot
+        slotId={`grid-slot-${tab.id}`}
+        tabId={tab.id}
         sessionId={tab.sessionId}
-        isVisible={true}
-        onStatusChange={handleTerminalStatusChange}
-        onCwdChange={handleCwdChange}
-        onAuthError={handleAuthError}
+        slotKind="grid-pane"
+        visible={true}
+        style={{ display: 'flex', flex: 1, minWidth: 0, minHeight: 0 }}
       />
     );
   }, []);
@@ -406,7 +464,7 @@ function AppContent() {
                       onRestartTab={handleRestartTab}
                       onSelectTab={handleSelectTab}
                       onRenameTab={handleRenameTab}
-                      renderTerminal={renderTerminal}
+                      renderTerminalHost={renderTerminalHost}
                       availableShells={availableShells}
                       getTerminalSelection={getTerminalSelection}
                       hasTerminalSelection={hasTerminalSelection}
@@ -415,18 +473,19 @@ function AppContent() {
                     />
                   ) : null}
 
-                  {/* Tab Mode: render ALL tabs across all workspaces, hide inactive */}
-                  {/* This keeps xterm instances alive across workspace switches (FR-004) */}
-                  {(viewMode === 'tab' || isMobile) && wm.tabs
-                    .filter(tab => {
-                      // LRU alive check (FR-005): MAX_ALIVE_WORKSPACES=0 means unlimited
-                      return MAX_ALIVE_WORKSPACES <= 0 || aliveWorkspaceIds.has(tab.workspaceId);
-                    })
-                    .map(tab => {
-                      const ws = wm.workspaces.find(w => w.id === tab.workspaceId);
-                      const isActiveWs = tab.workspaceId === wm.activeWorkspaceId;
-                      const isActiveTab = ws?.activeTabId === tab.id;
-                      const isVisible = isActiveWs && isActiveTab;
+                  {viewMode === 'grid' && !isMobile ? (
+                    <TerminalRuntimeLayer
+                      items={gridModeRuntimeItems}
+                      onStatusChange={handleTerminalStatusChange}
+                      onCwdChange={handleCwdChange}
+                      onAuthError={handleAuthError}
+                    />
+                  ) : null}
+
+                  {/* Tab Mode: render ALL tabs across all workspaces as host slots, hide inactive */}
+                  {(viewMode === 'tab' || isMobile) && tabModeRuntimeItems
+                    .map(({ tab, isVisible }) => {
+                      const isDisconnectedVisible = isVisible && tab.status === 'disconnected';
 
                       return (
                         <div
@@ -450,24 +509,19 @@ function AppContent() {
                           } : undefined}
                         >
                           {tab.status === 'disconnected' ? (
-                            isVisible ? (
+                            isDisconnectedVisible ? (
                               <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                                 <DisconnectedOverlay onRestart={() => handleRestartTab(tab.id)} />
                               </div>
                             ) : null
                           ) : (
-                            <TerminalContainer
-                              ref={(() => {
-                                if (!terminalRefsMap.current.has(tab.id)) {
-                                  terminalRefsMap.current.set(tab.id, { current: null });
-                                }
-                                return terminalRefsMap.current.get(tab.id)!;
-                              })()}
+                            <TerminalHostSlot
+                              slotId={`tab-slot-${tab.id}`}
+                              tabId={tab.id}
                               sessionId={tab.sessionId}
-                              isVisible={isVisible}
-                              onStatusChange={handleTerminalStatusChange}
-                              onCwdChange={handleCwdChange}
-                              onAuthError={handleAuthError}
+                              slotKind={isVisible ? 'tab-active' : 'tab-hidden'}
+                              visible={isVisible}
+                              style={{ display: 'flex', flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden' }}
                             />
                           )}
                           <div style={{ height: `${METADATA_ROW_HEIGHT_PX}px`, flexShrink: 0, minHeight: `${METADATA_ROW_HEIGHT_PX}px` }}>
@@ -482,6 +536,15 @@ function AppContent() {
                       );
                     })
                   }
+
+                  {(viewMode === 'tab' || isMobile) && (
+                    <TerminalRuntimeLayer
+                      items={tabModeRuntimeItems}
+                      onStatusChange={handleTerminalStatusChange}
+                      onCwdChange={handleCwdChange}
+                      onAuthError={handleAuthError}
+                    />
+                  )}
                 </div>
               </>
             ) : (
@@ -537,7 +600,9 @@ function App() {
   return (
     <AuthGuard>
       <WebSocketProvider>
-        <AppContent />
+        <TerminalRuntimeRegistryProvider>
+          <AppContent />
+        </TerminalRuntimeRegistryProvider>
       </WebSocketProvider>
     </AuthGuard>
   );

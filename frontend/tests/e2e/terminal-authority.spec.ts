@@ -23,6 +23,12 @@ async function fetchSessionTelemetry(page: Page) {
   });
 }
 
+async function getRuntimeRegistrySnapshot(page: Page) {
+  return page.evaluate(() => {
+    return (window as any).__buildergateTerminalRuntimeRegistry?.getSnapshot() ?? null;
+  });
+}
+
 function countResizeRequestedEvents(telemetry: any, sessionId: string) {
   const events = Array.isArray(telemetry?.ws?.recentReplayEvents) ? telemetry.ws.recentReplayEvents : [];
   return events.filter((event: { kind?: string; sessionId?: string }) =>
@@ -60,6 +66,18 @@ async function updateWorkspace(page: Page, workspaceId: string, updates: Record<
     if (!res.ok) throw new Error(`workspace update failed: ${res.status}`);
     return res.json();
   }, { workspaceId, updates });
+}
+
+async function deleteWorkspaceViaApi(page: Page, workspaceId: string) {
+  return page.evaluate(async ({ workspaceId }) => {
+    const token = localStorage.getItem('cws_auth_token');
+    const res = await fetch(`/api/workspaces/${workspaceId}`, {
+      method: 'DELETE',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`workspace delete failed: ${res.status}`);
+    return res.json();
+  }, { workspaceId });
 }
 
 async function getOrCreateHiddenWorkspace(page: Page, name: string) {
@@ -162,12 +180,14 @@ async function readVisibleTerminalText(page: Page) {
 
 async function sendVisibleTerminalCommand(page: Page, command: string) {
   const terminal = page.locator('.terminal-view:visible').first();
-  await terminal.click();
-  await expect(terminal).toHaveClass(/terminal-focused/, { timeout: 10000 });
+  await terminal.evaluate((node) => {
+    (node as HTMLElement).click();
+  });
   const input = page.locator('.terminal-view:visible .xterm-helper-textarea').first();
   await input.evaluate((node) => {
     (node as HTMLTextAreaElement).focus();
   });
+  await expect(input).toBeFocused({ timeout: 10000 });
   await page.keyboard.type(command);
   await page.keyboard.press('Enter');
 }
@@ -393,5 +413,295 @@ test.describe('Terminal Authority Regressions', () => {
     await expect.poll(async () => {
       return page.locator('.terminal-view').count();
     }, { timeout: 15000 }).toBe(3);
+  });
+
+  test('TC-7106: terminal runtime registry should keep one live consumer per session in tab mode', async ({ page }) => {
+    const workspace = await getOrCreateWorkspaceWithCleanup(
+      page,
+      `TR-${Math.random().toString(36).slice(2, 8)}`,
+      /^TR-/,
+    );
+    const originalActiveTab = await createTab(page, workspace.id, 'auto');
+    const extraTab = await createTab(page, workspace.id, 'auto');
+
+    await updateWorkspace(page, workspace.id, { viewMode: 'tab', activeTabId: originalActiveTab.id });
+    await page.evaluate((workspaceId) => {
+      localStorage.setItem('active_workspace_id', workspaceId);
+    }, workspace.id);
+
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await waitForTerminal(page);
+
+    const baselineSnapshot = await getRuntimeRegistrySnapshot(page);
+    expect(baselineSnapshot).not.toBeNull();
+    expect(baselineSnapshot.runtimes.every((runtime: { activeConsumerCount: number }) => runtime.activeConsumerCount <= 1)).toBe(true);
+    expect(
+      baselineSnapshot.tabBindings.some((binding: { tabId: string; sessionId: string }) =>
+        binding.tabId === extraTab.id && binding.sessionId === extraTab.sessionId,
+      ),
+    ).toBe(true);
+
+    await page.getByRole('tab', { name: originalActiveTab.name }).first().click();
+
+    await expect.poll(async () => {
+      const snapshot = await getRuntimeRegistrySnapshot(page);
+      const runtime = snapshot?.runtimes.find((item: { sessionId: string }) => item.sessionId === originalActiveTab.sessionId);
+      return runtime?.hostSlots.some((slot: { slotKind: string; visible: boolean }) =>
+        slot.slotKind === 'tab-active' && slot.visible,
+      ) ?? false;
+    }, { timeout: 10000 }).toBe(true);
+
+    await page.getByRole('tab', { name: extraTab.name }).first().click();
+
+    await expect.poll(async () => {
+      const snapshot = await getRuntimeRegistrySnapshot(page);
+      const runtime = snapshot?.runtimes.find((item: { sessionId: string }) => item.sessionId === extraTab.sessionId);
+      return runtime?.hostSlots.some((slot: { slotKind: string; visible: boolean }) =>
+        slot.slotKind === 'tab-active' && slot.visible,
+      ) ?? false;
+    }, { timeout: 10000 }).toBe(true);
+
+    const finalSnapshot = await getRuntimeRegistrySnapshot(page);
+    expect(finalSnapshot.runtimes.every((runtime: { activeConsumerCount: number }) => runtime.activeConsumerCount <= 1)).toBe(true);
+    const previousRuntime = finalSnapshot.runtimes.find((item: { sessionId: string }) => item.sessionId === originalActiveTab.sessionId);
+    expect(previousRuntime?.hostSlots.some((slot: { slotKind: string; visible: boolean }) =>
+      slot.slotKind === 'tab-hidden' && !slot.visible,
+    ) ?? false).toBe(true);
+  });
+
+  test('TC-7107: grid mode should attach active workspace runtimes through grid host slots', async ({ page }) => {
+    const workspace = await getOrCreateWorkspaceWithCleanup(
+      page,
+      `TG-${Math.random().toString(36).slice(2, 8)}`,
+      /^TG-/,
+    );
+    const firstTab = await createTab(page, workspace.id, 'auto');
+    const secondTab = await createTab(page, workspace.id, 'auto');
+    const thirdTab = await createTab(page, workspace.id, 'auto');
+
+    await updateWorkspace(page, workspace.id, {
+      viewMode: 'grid',
+      activeTabId: firstTab.id,
+    });
+    await page.evaluate((workspaceId) => {
+      localStorage.setItem('active_workspace_id', workspaceId);
+    }, workspace.id);
+
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await waitForTerminal(page);
+
+    await expect.poll(async () => {
+      return page.locator('.grid-cell').count();
+    }, { timeout: 15000 }).toBe(3);
+
+    const runtimeSnapshot = await getRuntimeRegistrySnapshot(page);
+    expect(runtimeSnapshot).not.toBeNull();
+    expect(runtimeSnapshot.runtimes.every((runtime: { activeConsumerCount: number }) => runtime.activeConsumerCount <= 1)).toBe(true);
+
+    for (const sessionId of [firstTab.sessionId, secondTab.sessionId, thirdTab.sessionId]) {
+      const runtime = runtimeSnapshot.runtimes.find((item: { sessionId: string }) => item.sessionId === sessionId);
+      expect(runtime).toBeTruthy();
+      expect(runtime.hostSlots.some((slot: { slotKind: string; visible: boolean }) =>
+        slot.slotKind === 'grid-pane' && slot.visible,
+      )).toBe(true);
+    }
+  });
+
+  test('TC-7108: restart should replace runtime generation and remove the old session runtime entry', async ({ page }) => {
+    const workspace = await getOrCreateWorkspaceWithCleanup(
+      page,
+      `RG-${Math.random().toString(36).slice(2, 8)}`,
+      /^RG-/,
+    );
+    const tab = await createTab(page, workspace.id, 'auto');
+
+    await updateWorkspace(page, workspace.id, {
+      viewMode: 'tab',
+      activeTabId: tab.id,
+    });
+    await page.evaluate((workspaceId) => {
+      localStorage.setItem('active_workspace_id', workspaceId);
+    }, workspace.id);
+
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await waitForTerminal(page);
+
+    const beforeSnapshot = await getRuntimeRegistrySnapshot(page);
+    const previousRuntime = beforeSnapshot.runtimes.find((item: { sessionId: string }) => item.sessionId === tab.sessionId);
+    expect(previousRuntime).toBeTruthy();
+
+    const restarted = await restartActiveTab(page, workspace.id, tab.id);
+    expect(restarted.sessionId).not.toBe(tab.sessionId);
+
+    await expect.poll(async () => {
+      const stateAfterRestart = await fetchWorkspaceState(page);
+      const updatedTab = stateAfterRestart.tabs.find((item: { id: string }) => item.id === tab.id);
+      return updatedTab?.sessionId ?? null;
+    }, { timeout: 10000 }).toBe(restarted.sessionId);
+
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await waitForTerminal(page);
+
+    const snapshotAfterRestart = await getRuntimeRegistrySnapshot(page);
+    const oldRuntime = snapshotAfterRestart.runtimes.find((item: { sessionId: string }) => item.sessionId === tab.sessionId);
+    const newRuntime = snapshotAfterRestart.runtimes.find((item: { sessionId: string }) => item.sessionId === restarted.sessionId);
+    expect(oldRuntime).toBeFalsy();
+    expect(newRuntime).toBeTruthy();
+    expect(typeof newRuntime.runtimeGeneration).toBe('number');
+    expect(newRuntime.runtimeGeneration).toBeGreaterThan(0);
+  });
+
+  test('TC-7109: deleting a workspace should clear runtime registry entries for removed sessions', async ({ page }) => {
+    const workspace = await getOrCreateWorkspaceWithCleanup(
+      page,
+      `DW-${Math.random().toString(36).slice(2, 8)}`,
+      /^DW-/,
+    );
+    const firstTab = await createTab(page, workspace.id, 'auto');
+    const secondTab = await createTab(page, workspace.id, 'auto');
+
+    await updateWorkspace(page, workspace.id, {
+      viewMode: 'tab',
+      activeTabId: firstTab.id,
+    });
+    await page.evaluate((workspaceId) => {
+      localStorage.setItem('active_workspace_id', workspaceId);
+    }, workspace.id);
+
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await waitForTerminal(page);
+
+    const beforeSnapshot = await getRuntimeRegistrySnapshot(page);
+    expect(beforeSnapshot.runtimes.some((item: { sessionId: string }) => item.sessionId === firstTab.sessionId)).toBe(true);
+    expect(beforeSnapshot.runtimes.some((item: { sessionId: string }) => item.sessionId === secondTab.sessionId)).toBe(true);
+
+    await deleteWorkspaceViaApi(page, workspace.id);
+
+    await expect.poll(async () => {
+      const stateAfterDelete = await fetchWorkspaceState(page);
+      return stateAfterDelete.tabs.some((item: { workspaceId: string }) => item.workspaceId === workspace.id);
+    }, { timeout: 10000 }).toBe(false);
+
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await waitForTerminal(page);
+
+    const snapshotAfterDelete = await getRuntimeRegistrySnapshot(page);
+    expect(snapshotAfterDelete.runtimes.some((item: { sessionId: string }) =>
+      item.sessionId === firstTab.sessionId || item.sessionId === secondTab.sessionId,
+    )).toBe(false);
+  });
+
+  test('TC-7110: terminal focus should survive tab-grid-tab host reassignment', async ({ page }) => {
+    const workspace = await getOrCreateWorkspaceWithCleanup(
+      page,
+      `FG-${Math.random().toString(36).slice(2, 8)}`,
+      /^FG-/,
+    );
+    const firstTab = await createTab(page, workspace.id, 'auto');
+    await createTab(page, workspace.id, 'auto');
+
+    await updateWorkspace(page, workspace.id, {
+      viewMode: 'tab',
+      activeTabId: firstTab.id,
+    });
+    await page.evaluate((workspaceId) => {
+      localStorage.setItem('active_workspace_id', workspaceId);
+    }, workspace.id);
+
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await waitForTerminal(page);
+
+    const focusVisibleTerminal = async () => {
+      const terminal = page.locator('.terminal-view:visible').first();
+      await terminal.evaluate((node) => {
+        (node as HTMLElement).click();
+      });
+      await expect(terminal).toHaveClass(/terminal-focused/, { timeout: 10000 });
+    };
+
+    await focusVisibleTerminal();
+    const initialTabSnapshot = await getRuntimeRegistrySnapshot(page);
+    const initialRuntime = initialTabSnapshot.runtimes.find((item: { sessionId: string }) => item.sessionId === firstTab.sessionId);
+    expect(initialRuntime?.hostSlots.some((slot: { slotKind: string; visible: boolean }) =>
+      slot.slotKind === 'tab-active' && slot.visible,
+    ) ?? false).toBe(true);
+
+    await updateWorkspace(page, workspace.id, { viewMode: 'grid' });
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await expect.poll(async () => page.locator('.grid-cell').count(), { timeout: 15000 }).toBe(2);
+    await waitForTerminal(page);
+
+    await focusVisibleTerminal();
+    const gridSnapshot = await getRuntimeRegistrySnapshot(page);
+    const gridRuntime = gridSnapshot.runtimes.find((item: { sessionId: string }) => item.sessionId === firstTab.sessionId);
+    expect(gridRuntime?.hostSlots.some((slot: { slotKind: string; visible: boolean }) =>
+      slot.slotKind === 'grid-pane' && slot.visible,
+    ) ?? false).toBe(true);
+
+    await updateWorkspace(page, workspace.id, { viewMode: 'tab', activeTabId: firstTab.id });
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await waitForTerminal(page);
+
+    await focusVisibleTerminal();
+    const finalTabSnapshot = await getRuntimeRegistrySnapshot(page);
+    const finalRuntime = finalTabSnapshot.runtimes.find((item: { sessionId: string }) => item.sessionId === firstTab.sessionId);
+    expect(finalRuntime?.hostSlots.some((slot: { slotKind: string; visible: boolean }) =>
+      slot.slotKind === 'tab-active' && slot.visible,
+    ) ?? false).toBe(true);
+  });
+
+  test('TC-7111: runtime registry snapshot should expose observability counters without mode-toggle recreation', async ({ page }) => {
+    const workspace = await getOrCreateWorkspaceWithCleanup(
+      page,
+      `OB-${Math.random().toString(36).slice(2, 8)}`,
+      /^OB-/,
+    );
+    const firstTab = await createTab(page, workspace.id, 'auto');
+    await createTab(page, workspace.id, 'auto');
+
+    await updateWorkspace(page, workspace.id, {
+      viewMode: 'tab',
+      activeTabId: firstTab.id,
+    });
+    await page.evaluate((workspaceId) => {
+      localStorage.setItem('active_workspace_id', workspaceId);
+    }, workspace.id);
+
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await waitForTerminal(page);
+
+    const beforeSnapshot = await getRuntimeRegistrySnapshot(page);
+    expect(beforeSnapshot.stats.runtimeCreateCount).toBeGreaterThan(0);
+    expect(beforeSnapshot.stats.hostAttachCount).toBeGreaterThan(0);
+    expect(beforeSnapshot.stats.maxActiveConsumerCountObserved).toBeLessThanOrEqual(1);
+    expect(beforeSnapshot.stats.orphanRuntimeCount).toBe(0);
+    expect(beforeSnapshot.stats.unattachedRuntimeCount).toBe(0);
+
+    await updateWorkspace(page, workspace.id, { viewMode: 'grid' });
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await expect.poll(async () => page.locator('.grid-cell').count(), { timeout: 15000 }).toBe(2);
+
+    await updateWorkspace(page, workspace.id, { viewMode: 'tab', activeTabId: firstTab.id });
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await waitForTerminal(page);
+
+    const afterSnapshot = await getRuntimeRegistrySnapshot(page);
+    expect(afterSnapshot.stats.runtimeCreateCount).toBe(beforeSnapshot.stats.runtimeCreateCount);
+    expect(afterSnapshot.stats.hostAttachCount).toBeGreaterThanOrEqual(beforeSnapshot.stats.hostAttachCount);
+    expect(afterSnapshot.stats.maxActiveConsumerCountObserved).toBeLessThanOrEqual(1);
+    expect(afterSnapshot.stats.orphanRuntimeCount).toBe(0);
+    expect(afterSnapshot.stats.unattachedRuntimeCount).toBe(0);
   });
 });
