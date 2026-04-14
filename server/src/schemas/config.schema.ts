@@ -46,7 +46,7 @@ export const loggingSchema = z.object({
 // ============================================================================
 
 export const serverSchema = z.object({
-  port: z.number().min(1).max(65535).default(4242)
+  port: z.number().min(1).max(65535).default(2002)
 });
 
 // ============================================================================

@@ -5,7 +5,7 @@
 
   // Server settings
   server: {
-    port: 4242,
+    port: 2002,
   },
 
   // PTY (Pseudo Terminal) settings

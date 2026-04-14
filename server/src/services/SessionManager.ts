@@ -59,6 +59,21 @@ interface DeferredSignal<T> {
   resolve: (value: T) => void;
 }
 
+interface SessionManagerObservability {
+  totalSessions: number;
+  healthySessions: number;
+  degradedSessions: number;
+  snapshotRequests: number;
+  snapshotCacheHits: number;
+  snapshotSerializeFailures: number;
+  snapshotFallbacks: number;
+  oversizedSnapshots: number;
+  totalSnapshotBytes: number;
+  maxSnapshotBytesObserved: number;
+  totalSnapshotSerializeMs: number;
+  maxSnapshotSerializeMs: number;
+}
+
 const LEGACY_TRUNCATED_REPLAY_PLACEHOLDER = '\r\n[BuilderGate] Screen snapshot exceeded maxSnapshotBytes. Waiting for new output...\r\n';
 const LEGACY_DEGRADED_REPLAY_PLACEHOLDER = '\r\n[BuilderGate] Server snapshot is unavailable for this session. Using fallback recovery when possible...\r\n';
 
@@ -114,6 +129,17 @@ export class SessionManager {
   private wsRouter: WsRouter | null = null;
   private cachedAvailableShells: ShellInfo[] | null = null;
   private cwdChangeCallback: ((sessionId: string, cwd: string) => void) | null = null;
+  private observability: Omit<SessionManagerObservability, 'totalSessions' | 'healthySessions' | 'degradedSessions'> = {
+    snapshotRequests: 0,
+    snapshotCacheHits: 0,
+    snapshotSerializeFailures: 0,
+    snapshotFallbacks: 0,
+    oversizedSnapshots: 0,
+    totalSnapshotBytes: 0,
+    maxSnapshotBytesObserved: 0,
+    totalSnapshotSerializeMs: 0,
+    maxSnapshotSerializeMs: 0,
+  };
 
   constructor(initialConfig: { pty: PTYConfig; session: SessionConfig } = { pty: config.pty, session: config.session }) {
     this.runtimePtyConfig = clonePtyConfig(initialConfig.pty);
@@ -792,18 +818,23 @@ export class SessionManager {
   getScreenSnapshot(sessionId: string): SessionScreenSnapshot | null {
     const data = this.sessions.get(sessionId);
     if (!data) return null;
+    this.observability.snapshotRequests += 1;
 
     if (data.headlessHealth !== 'healthy' || !data.headless) {
+      this.observability.snapshotFallbacks += 1;
       return this.createDegradedSnapshot(data);
     }
 
     const cached = data.snapshotCache;
     if (cached && !cached.dirty && cached.seq === data.screenSeq && cached.cols === data.cols && cached.rows === data.rows) {
+      this.observability.snapshotCacheHits += 1;
       return { ...cached, health: 'healthy' };
     }
 
     try {
+      const startedAt = Date.now();
       const snapshot = serializeHeadlessTerminal(data.headless, this.runtimePtyConfig.maxSnapshotBytes);
+      const durationMs = Date.now() - startedAt;
       const generatedAt = Date.now();
       data.snapshotCache = {
         seq: data.screenSeq,
@@ -814,6 +845,13 @@ export class SessionManager {
         generatedAt,
         dirty: false,
       };
+      this.observability.totalSnapshotSerializeMs += durationMs;
+      this.observability.maxSnapshotSerializeMs = Math.max(this.observability.maxSnapshotSerializeMs, durationMs);
+      this.observability.totalSnapshotBytes += snapshot.data.length;
+      this.observability.maxSnapshotBytesObserved = Math.max(this.observability.maxSnapshotBytesObserved, snapshot.data.length);
+      if (snapshot.truncated) {
+        this.observability.oversizedSnapshots += 1;
+      }
       data.unsnapshottedOutput = '';
       data.unsnapshottedOutputTruncated = false;
       return {
@@ -821,13 +859,35 @@ export class SessionManager {
         health: 'healthy',
       };
     } catch (error) {
+      this.observability.snapshotSerializeFailures += 1;
       this.markHeadlessDegraded(sessionId, data, 'serialize', error);
+      this.observability.snapshotFallbacks += 1;
       return this.createDegradedSnapshot(data);
     }
   }
 
   getReplayQueueLimit(): number {
     return Math.min(this.runtimePtyConfig.maxSnapshotBytes, 262_144);
+  }
+
+  getObservabilitySnapshot(): SessionManagerObservability {
+    let healthySessions = 0;
+    let degradedSessions = 0;
+
+    for (const data of this.sessions.values()) {
+      if (data.headlessHealth === 'healthy') {
+        healthySessions += 1;
+      } else {
+        degradedSessions += 1;
+      }
+    }
+
+    return {
+      totalSessions: this.sessions.size,
+      healthySessions,
+      degradedSessions,
+      ...this.observability,
+    };
   }
 
   /** Broadcast to all WS subscribers of a session */

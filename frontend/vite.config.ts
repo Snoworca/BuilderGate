@@ -7,8 +7,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-const serverPort = parseInt(process.env.DEV_SERVER_PORT || '4242', 10);
-const frontendPort = parseInt(process.env.DEV_FRONTEND_PORT || '4545', 10);
+const serverPort = parseInt(process.env.DEV_SERVER_PORT || '2002', 10);
+const frontendPort = parseInt(process.env.DEV_FRONTEND_PORT || '2003', 10);
 
 // https://vite.dev/config/
 export default defineConfig({

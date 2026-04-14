@@ -51,6 +51,7 @@ let runtimeConfigStore: RuntimeConfigStore;
 let settingsService: SettingsService;
 let workspaceService: WorkspaceService;
 let cwdSnapshotTimer: ReturnType<typeof setInterval> | null = null;
+let terminalObservabilityTimer: ReturnType<typeof setInterval> | null = null;
 
 // ============================================================================
 // Security Middleware Stack (Phase 1)
@@ -162,6 +163,13 @@ function setupRoutes(): void {
   const settingsRoutes = createSettingsRoutes(settingsService);
   app.use('/api/settings', authMiddleware, settingsRoutes);
   app.use('/api/sessions', authMiddleware, sessionRoutes);
+  app.get('/api/sessions/telemetry', authMiddleware, (_req, res) => {
+    const wsRouter = app.get('wsRouter') as WsRouter | undefined;
+    res.json({
+      sessions: sessionManager.getObservabilitySnapshot(),
+      ws: wsRouter?.getObservabilitySnapshot() ?? null,
+    });
+  });
 
   // Workspace routes (auth required, Step 7)
   const workspaceRoutes = createWorkspaceRoutes(workspaceService);
@@ -382,6 +390,16 @@ async function startServer(): Promise<void> {
       console.log(`[HTTP] All requests redirected to HTTPS`);
     });
 
+    terminalObservabilityTimer = setInterval(() => {
+      const sessionStats = sessionManager.getObservabilitySnapshot();
+      const wsStats = wsRouter.getObservabilitySnapshot();
+      console.log('[TerminalObs]', JSON.stringify({
+        sessions: sessionStats,
+        ws: wsStats,
+      }));
+    }, 60_000);
+    terminalObservabilityTimer.unref();
+
     // Check certificate expiry
     const expiryInfo = sslService.checkCertExpiry();
     if (expiryInfo.isExpiringSoon) {
@@ -406,6 +424,7 @@ function setupGracefulShutdown(): void {
       workspaceService?.snapshotAllCwds();           // (2) Final CWD snapshot
       await workspaceService?.forceFlush();          // (3) Flush to disk
       if (cwdSnapshotTimer) clearInterval(cwdSnapshotTimer); // (4) Clear periodic timer
+      if (terminalObservabilityTimer) clearInterval(terminalObservabilityTimer);
       console.log('[Shutdown] Workspace state + CWDs saved');
     } catch (err) {
       console.error('[Shutdown] Failed to save workspace state:', err);

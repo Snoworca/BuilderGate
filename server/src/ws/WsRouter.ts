@@ -24,6 +24,9 @@ export class WsRouter {
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private sessionManager: SessionManager;
   private authService: AuthService;
+  private replayAckTimeoutCount = 0;
+  private replayRefreshCount = 0;
+  private maxReplayQueueLengthObserved = 0;
 
   constructor(authService: AuthService, sessionManager: SessionManager) {
     this.authService = authService;
@@ -263,6 +266,7 @@ export class WsRouter {
       replayToken: uuidv4(),
       snapshotSeq,
       timer: setTimeout(() => {
+        this.replayAckTimeoutCount += 1;
         this.clearReplayPendingForPair(ws, sessionId);
       }, REPLAY_ACK_TIMEOUT_MS),
     };
@@ -298,6 +302,7 @@ export class WsRouter {
     const limit = this.sessionManager.getReplayQueueLimit();
     const next = `${state.queuedOutput}${data}`;
     state.queuedOutput = next.length > limit ? next.slice(-limit) : next;
+    this.maxReplayQueueLengthObserved = Math.max(this.maxReplayQueueLengthObserved, state.queuedOutput.length);
   }
 
   routeSessionOutput(sessionId: string, data: string): void {
@@ -348,6 +353,7 @@ export class WsRouter {
       if (!pending) {
         continue;
       }
+      this.replayRefreshCount += 1;
 
       clearTimeout(pending.timer);
       pending.replayToken = uuidv4();
@@ -395,6 +401,29 @@ export class WsRouter {
   hasSubscribers(sessionId: string): boolean {
     const subscribers = this.sessionSubscribers.get(sessionId);
     return subscribers !== undefined && subscribers.size > 0;
+  }
+
+  getObservabilitySnapshot(): {
+    connectedClients: number;
+    subscribedSessionCount: number;
+    replayPendingCount: number;
+    replayAckTimeoutCount: number;
+    replayRefreshCount: number;
+    maxReplayQueueLengthObserved: number;
+  } {
+    let replayPendingCount = 0;
+    for (const meta of this.clients.values()) {
+      replayPendingCount += meta.replayPendingSessions.size;
+    }
+
+    return {
+      connectedClients: this.clients.size,
+      subscribedSessionCount: this.sessionSubscribers.size,
+      replayPendingCount,
+      replayAckTimeoutCount: this.replayAckTimeoutCount,
+      replayRefreshCount: this.replayRefreshCount,
+      maxReplayQueueLengthObserved: this.maxReplayQueueLengthObserved,
+    };
   }
 
   broadcastAll(event: string, data: object, excludeClientId?: string): void {

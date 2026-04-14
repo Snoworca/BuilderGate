@@ -7,7 +7,7 @@ const children = [];
 // --- Port configuration ---
 function parseArgs() {
   const args = process.argv.slice(2);
-  let serverPort = 4242;
+  let serverPort = 2002;
   let frontendPort = null;
 
   for (let i = 0; i < args.length; i++) {
@@ -19,7 +19,7 @@ function parseArgs() {
   }
 
   if (frontendPort === null) {
-    frontendPort = serverPort + 303;
+    frontendPort = serverPort + 1;
   }
 
   for (const [name, port] of [['--port', serverPort], ['--fport', frontendPort]]) {

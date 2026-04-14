@@ -6,7 +6,7 @@ export default defineConfig({
   retries: 1,
   fullyParallel: false,
   use: {
-    baseURL: 'http://localhost:4545',
+    baseURL: 'https://localhost:2002',
     headless: true,
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',
@@ -29,7 +29,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'cd .. && node dev.js',
-    port: 4545,
+    port: 2002,
     reuseExistingServer: true,
     timeout: 30000,
   },

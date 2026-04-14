@@ -45,6 +45,7 @@ async function main(): Promise<void> {
     { name: 'SettingsService rolls back runtime state when apply fails', run: testSettingsApplyFailureRollback },
     { name: 'SessionManager.updateRuntimeConfig affects later idle timers and cached snapshots', run: testSessionManagerRuntimeConfig },
     { name: 'SessionManager returns cached authoritative snapshots', run: testSessionManagerCachedSnapshot },
+    { name: 'SessionManager reports snapshot observability counters', run: testSessionManagerObservabilityCounters },
     { name: 'SessionManager marks sessions degraded when snapshot serialization fails', run: testSessionManagerDegradedSnapshot },
     { name: 'SessionManager preserves unsnapshotted healthy output when degrading', run: testSessionManagerDirtyCacheDegradedRecovery },
     { name: 'SessionManager preserves queued output when degradation happens before headless writes flush', run: testSessionManagerQueuedOutputDegradedRace },
@@ -64,6 +65,7 @@ async function main(): Promise<void> {
     { name: 'Terminal payload truncation drops incomplete trailing OSC sequences', run: testTerminalPayloadTruncationIncompleteOsc },
     { name: 'Terminal payload truncation removes incomplete trailing escape suffixes', run: testTerminalPayloadTruncationTrailingIncompleteSuffix },
     { name: 'WsRouter sends screen snapshot before flushing queued live output', run: testWsRouterScreenSnapshotOrdering },
+    { name: 'WsRouter reports replay observability counters', run: testWsRouterObservabilityCounters },
     { name: 'WsRouter still emits a replay start for degraded sessions', run: testWsRouterDegradedReplayStart },
     { name: 'WsRouter still emits a replay start for oversized snapshots', run: testWsRouterOversizedSnapshotReplayStart },
     { name: 'WsRouter duplicate subscribe does not replay screen snapshot twice', run: testWsRouterDuplicateSubscribeIdempotent },
@@ -489,6 +491,42 @@ async function testSessionManagerCachedSnapshot(): Promise<void> {
     assert.equal(second?.generatedAt, first?.generatedAt);
     assert.equal(serializeCalls, 1);
     assert.deepEqual(replay, { data: 'hello\r\nworld', truncated: false });
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerObservabilityCounters(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+
+  try {
+    await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, 'hello');
+    manager.getScreenSnapshot(harness.sessionId);
+    manager.getScreenSnapshot(harness.sessionId);
+
+    const stats = manager.getObservabilitySnapshot();
+
+    assert.equal(stats.totalSessions, 1);
+    assert.equal(stats.healthySessions, 1);
+    assert.equal(stats.snapshotRequests, 2);
+    assert.equal(stats.snapshotCacheHits, 1);
+    assert.equal(stats.snapshotSerializeFailures, 0);
+    assert.equal(stats.totalSnapshotBytes > 0, true);
   } finally {
     harness.dispose();
   }
@@ -1258,6 +1296,25 @@ function testWsRouterScreenSnapshotOrdering(): void {
   (router as any).handleScreenSnapshotReady(ws, 'session-1', replayToken);
   assert.equal(sent[2].type, 'output');
   assert.equal(sent[2].data, 'live-after-snapshot');
+
+  router.destroy();
+}
+
+function testWsRouterObservabilityCounters(): void {
+  const { router, ws } = createWsRouterHarness();
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  router.routeSessionOutput('session-1', 'queued');
+  const snapshot = (router as any).clients.get(ws).replayPendingSessions.get('session-1');
+  const token = snapshot.replayToken;
+  (router as any).handleScreenSnapshotReady(ws, 'session-1', token);
+
+  const stats = router.getObservabilitySnapshot();
+
+  assert.equal(stats.connectedClients, 1);
+  assert.equal(stats.subscribedSessionCount, 1);
+  assert.equal(stats.replayPendingCount, 0);
+  assert.equal(stats.maxReplayQueueLengthObserved >= 'queued'.length, true);
 
   router.destroy();
 }
