@@ -2,6 +2,7 @@ import type { ISerializeOptions, SerializeAddon as SerializeAddonType } from '@x
 import serializeModule from '@xterm/addon-serialize';
 import type { ITerminalOptions, Terminal as HeadlessTerminalType } from '@xterm/headless';
 import headlessModule from '@xterm/headless';
+import type { WindowsPtyInfo } from '../types/ws-protocol.js';
 
 const { SerializeAddon } = serializeModule;
 const { Terminal } = headlessModule;
@@ -27,12 +28,14 @@ export function createHeadlessTerminalState(options: {
   cols: number;
   rows: number;
   scrollbackLines: number;
+  windowsPty?: WindowsPtyInfo;
 }): HeadlessTerminalState {
   const terminal = new Terminal({
     ...DEFAULT_TERMINAL_OPTIONS,
     cols: options.cols,
     rows: options.rows,
     scrollback: options.scrollbackLines,
+    windowsPty: options.windowsPty,
   });
   const serializeAddon = new SerializeAddon();
   terminal.loadAddon(serializeAddon);

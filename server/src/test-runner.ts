@@ -46,6 +46,7 @@ async function main(): Promise<void> {
     { name: 'SessionManager.updateRuntimeConfig affects later idle timers and cached snapshots', run: testSessionManagerRuntimeConfig },
     { name: 'SessionManager returns cached authoritative snapshots', run: testSessionManagerCachedSnapshot },
     { name: 'SessionManager reports snapshot observability counters', run: testSessionManagerObservabilityCounters },
+    { name: 'SessionManager powershell shell bootstrap avoids delayed prompt-hook injection', run: testSessionManagerPowerShellBootstrapArgs },
     { name: 'SessionManager marks sessions degraded when snapshot serialization fails', run: testSessionManagerDegradedSnapshot },
     { name: 'SessionManager preserves unsnapshotted healthy output when degrading', run: testSessionManagerDirtyCacheDegradedRecovery },
     { name: 'SessionManager preserves queued output when degradation happens before headless writes flush', run: testSessionManagerQueuedOutputDegradedRace },
@@ -530,6 +531,31 @@ async function testSessionManagerObservabilityCounters(): Promise<void> {
   } finally {
     harness.dispose();
   }
+}
+
+function testSessionManagerPowerShellBootstrapArgs(): void {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: true,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'powershell',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  const resolved = (manager as any).resolveShell('powershell', 'C:\\temp\\buildergate-cwd.txt');
+
+  assert.equal(resolved.shell, 'powershell.exe');
+  assert.equal(resolved.shellType, 'powershell');
+  assert.ok(resolved.args.includes('-NoExit'));
+  assert.ok(resolved.args.includes('-Command'));
+  assert.ok(resolved.args.join(' ').includes('buildergate-cwd.txt'));
 }
 
 function testSessionManagerDegradedSnapshot(): void {
@@ -1259,6 +1285,7 @@ function createWsRouterHarness(options?: {
       truncated: options?.snapshotTruncated ?? false,
       generatedAt: Date.now(),
       health: options?.snapshotMode === 'fallback' ? 'degraded' : 'healthy',
+      windowsPty: { backend: 'conpty', buildNumber: 22631 },
     } : null,
     getReplayQueueLimit: () => 64,
     writeInput: () => true,
@@ -1287,6 +1314,7 @@ function testWsRouterScreenSnapshotOrdering(): void {
 
   (router as any).handleSubscribe(ws, ['session-1']);
   assert.equal(sent[0].type, 'screen-snapshot');
+  assert.equal((sent[0] as any).windowsPty?.backend, 'conpty');
   assert.equal(sent[1].type, 'subscribed');
   const replayToken = String(sent[0].replayToken);
 

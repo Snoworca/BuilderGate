@@ -22,6 +22,12 @@ export type ClientWsMessage =
 
 export type ScreenSnapshotMode = 'authoritative' | 'fallback';
 export type ScreenSnapshotSource = 'headless';
+export type WindowsPtyBackend = 'conpty' | 'winpty';
+
+export interface WindowsPtyInfo {
+  backend: WindowsPtyBackend;
+  buildNumber?: number;
+}
 
 export interface ScreenSnapshotMessage {
   type: 'screen-snapshot';
@@ -34,6 +40,7 @@ export interface ScreenSnapshotMessage {
   data: string;
   truncated: boolean;
   source: ScreenSnapshotSource;
+  windowsPty?: WindowsPtyInfo;
 }
 
 export type ServerWsMessage =

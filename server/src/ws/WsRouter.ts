@@ -174,6 +174,7 @@ export class WsRouter {
         data: snapshot.data,
         truncated: snapshot.truncated,
         source: 'headless',
+        windowsPty: snapshot.windowsPty,
       });
     }
 
@@ -375,6 +376,7 @@ export class WsRouter {
         data: snapshot.data,
         truncated: snapshot.truncated,
         source: 'headless',
+        windowsPty: snapshot.windowsPty,
       });
     }
   }

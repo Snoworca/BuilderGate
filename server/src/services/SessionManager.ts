@@ -19,6 +19,7 @@ import {
 import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 import type { WsRouter } from '../ws/WsRouter.js';
 import { OscDetector } from './OscDetector.js';
+import type { WindowsPtyBackend, WindowsPtyInfo } from '../types/ws-protocol.js';
 
 interface EchoTracker {
   /** writeInput이 호출된 시각 (ms, Date.now) */
@@ -52,6 +53,7 @@ interface SessionScreenSnapshot {
   truncated: boolean;
   generatedAt: number;
   health: HeadlessHealth;
+  windowsPty?: WindowsPtyInfo;
 }
 
 interface DeferredSignal<T> {
@@ -90,6 +92,7 @@ interface SessionData {
   rows: number;
   screenSeq: number;
   snapshotCache: SessionSnapshotCache | null;
+  windowsPty?: WindowsPtyInfo;
   degradedReplayBuffer: string;
   degradedReplayTruncated: boolean;
   pendingOutputChunks: string[];
@@ -153,7 +156,8 @@ export class SessionManager {
     this.sessionCounter++;
     const sessionName = name || `Session-${this.sessionCounter}`;
 
-    const { shell: shellCmd, args: shellArgs, shellType } = this.resolveShell(shell);
+    const cwdFilePath = this.getCwdTrackingFilePath(id);
+    const { shell: shellCmd, args: shellArgs, shellType } = this.resolveShell(shell, cwdFilePath);
     const initialCwd = this.resolveSpawnCwd(cwd, shellType);
 
     // Step 9: OSC 133 셸 통합 환경변수 구성
@@ -196,12 +200,14 @@ export class SessionManager {
       rows,
       screenSeq: 0,
       snapshotCache: null,
+      windowsPty: this.getWindowsPtyInfo(),
       degradedReplayBuffer: '',
       degradedReplayTruncated: false,
       pendingOutputChunks: [],
       unsnapshottedOutput: '',
       unsnapshottedOutputTruncated: false,
       initialCwd,
+      cwdFilePath,
       // Step 9: Idle Detection
       echoTracker: {
         lastInputAt: 0,
@@ -571,6 +577,19 @@ export class SessionManager {
     return baseEnv;
   }
 
+  private getWindowsPtyInfo(): WindowsPtyInfo | undefined {
+    if (process.platform !== 'win32') {
+      return undefined;
+    }
+
+    const backend: WindowsPtyBackend = this.runtimePtyConfig.useConpty ? 'conpty' : 'winpty';
+    const buildNumber = parseInt(os.release().split('.').pop() ?? '', 10);
+    return {
+      backend,
+      buildNumber: Number.isFinite(buildNumber) ? buildNumber : undefined,
+    };
+  }
+
   /**
    * shell-integration 스크립트의 절대 경로를 반환한다.
    *
@@ -645,11 +664,14 @@ export class SessionManager {
   /**
    * Resolve shell command and arguments based on config and platform.
    */
-  private resolveShell(shellOverride?: ShellType): { shell: string; args: string[]; shellType: 'powershell' | 'bash' | 'zsh' | 'sh' | 'cmd' } {
+  private resolveShell(
+    shellOverride?: ShellType,
+    cwdFilePath?: string,
+  ): { shell: string; args: string[]; shellType: 'powershell' | 'bash' | 'zsh' | 'sh' | 'cmd' } {
     const shellConfig = shellOverride || this.runtimePtyConfig.shell || 'auto';
 
     if (shellConfig === 'powershell') {
-      return { shell: 'powershell.exe', args: [], shellType: 'powershell' };
+      return { shell: 'powershell.exe', args: this.buildPowerShellArgs(cwdFilePath), shellType: 'powershell' };
     }
     if (shellConfig === 'wsl') {
       return { shell: 'wsl.exe', args: [], shellType: 'bash' };
@@ -675,7 +697,7 @@ export class SessionManager {
 
     // auto: OS default
     if (process.platform === 'win32') {
-      return { shell: 'powershell.exe', args: [], shellType: 'powershell' };
+      return { shell: 'powershell.exe', args: this.buildPowerShellArgs(cwdFilePath), shellType: 'powershell' };
     }
     // macOS default is zsh since Catalina; fallback to bash
     if (process.platform === 'darwin' && this.isCommandAvailable('zsh')) {
@@ -737,10 +759,12 @@ export class SessionManager {
     ptyProcess: pty.IPty,
     shellType: 'powershell' | 'bash' | 'zsh' | 'sh' | 'cmd'
   ): void {
-    const cwdFile = path.join(os.tmpdir(), `buildergate-cwd-${id}.txt`);
+    const cwdFile = sessionData.cwdFilePath ?? this.getCwdTrackingFilePath(id);
     sessionData.cwdFilePath = cwdFile;
 
-    if (shellType === 'powershell' || shellType === 'cmd') {
+    if (shellType === 'powershell') {
+      // PowerShell prompt hook is installed at startup args to avoid racing user input.
+    } else if (shellType === 'cmd') {
       const escapedPath = cwdFile.replace(/\\/g, '\\\\');
       const hookScript = `$Global:__OrigPrompt = $function:prompt; function Global:prompt { $pwd.Path | Out-File -FilePath '${escapedPath}' -Encoding utf8 -NoNewline; if ($Global:__OrigPrompt) { & $Global:__OrigPrompt } else { "PS $($pwd.Path)> " } }\r`;
       setTimeout(() => {
@@ -786,6 +810,25 @@ export class SessionManager {
     });
   }
 
+  private buildPowerShellArgs(cwdFilePath?: string): string[] {
+    if (!cwdFilePath) {
+      return [];
+    }
+
+    const escapedPath = cwdFilePath.replace(/'/g, "''");
+    const hookScript = [
+      '$Global:__BuilderGateOrigPrompt = $function:prompt',
+      `$pwd.Path | Out-File -FilePath '${escapedPath}' -Encoding utf8 -NoNewline`,
+      "function Global:prompt { $pwd.Path | Out-File -FilePath '" + escapedPath + "' -Encoding utf8 -NoNewline; if ($Global:__BuilderGateOrigPrompt) { & $Global:__BuilderGateOrigPrompt } else { \"PS $($pwd.Path)> \" } }",
+    ].join('; ');
+
+    return ['-NoLogo', '-NoExit', '-Command', hookScript];
+  }
+
+  private getCwdTrackingFilePath(sessionId: string): string {
+    return path.join(os.tmpdir(), `buildergate-cwd-${sessionId}.txt`);
+  }
+
   // ==========================================================================
   // WebSocket Integration (Step 8)
   // ==========================================================================
@@ -828,7 +871,7 @@ export class SessionManager {
     const cached = data.snapshotCache;
     if (cached && !cached.dirty && cached.seq === data.screenSeq && cached.cols === data.cols && cached.rows === data.rows) {
       this.observability.snapshotCacheHits += 1;
-      return { ...cached, health: 'healthy' };
+      return { ...cached, health: 'healthy', windowsPty: data.windowsPty };
     }
 
     try {
@@ -857,6 +900,7 @@ export class SessionManager {
       return {
         ...data.snapshotCache,
         health: 'healthy',
+        windowsPty: data.windowsPty,
       };
     } catch (error) {
       this.observability.snapshotSerializeFailures += 1;
@@ -943,6 +987,7 @@ export class SessionManager {
         cols: sessionData.cols,
         rows: sessionData.rows,
         scrollbackLines: this.runtimePtyConfig.scrollbackLines,
+        windowsPty: sessionData.windowsPty,
       });
       sessionData.headlessHealth = 'healthy';
     } catch (error) {
@@ -1049,6 +1094,7 @@ export class SessionManager {
       truncated: sessionData.degradedReplayTruncated,
       generatedAt: Date.now(),
       health: 'degraded',
+      windowsPty: sessionData.windowsPty,
     };
   }
 

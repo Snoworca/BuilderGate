@@ -28,6 +28,36 @@ async function createWorkspace(page: Page, name: string) {
   }, { name });
 }
 
+async function getOrCreateHiddenWorkspace(page: Page, name: string) {
+  try {
+    return await createWorkspace(page, name);
+  } catch {
+    await page.evaluate(async () => {
+      const token = localStorage.getItem('cws_auth_token');
+      const activeWorkspaceId = localStorage.getItem('active_workspace_id');
+      const res = await fetch('/api/workspaces', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`workspace fetch failed: ${res.status}`);
+      const state = await res.json();
+      const staleWorkspace = state.workspaces.find((item) =>
+        item.id !== activeWorkspaceId && /^Hidden-|^SwitchTarget-/.test(item.name),
+      ) ?? null;
+      if (!staleWorkspace) {
+        throw new Error('no stale workspace available for cleanup');
+      }
+
+      const deleteRes = await fetch(`/api/workspaces/${staleWorkspace.id}`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!deleteRes.ok) throw new Error(`workspace delete failed: ${deleteRes.status}`);
+    });
+
+    return createWorkspace(page, name);
+  }
+}
+
 async function createTab(page: Page, workspaceId: string, shell?: string, cwd?: string) {
   return page.evaluate(async ({ workspaceId, shell, cwd }) => {
     const token = localStorage.getItem('cws_auth_token');
@@ -80,7 +110,8 @@ test.describe('Terminal Authority Regressions', () => {
 
   test('TC-7101: hidden workspace should recover through server snapshots after refresh', async ({ page }) => {
     const hiddenWorkspaceName = `Hidden-${Date.now()}`;
-    const hiddenWorkspace = await createWorkspace(page, hiddenWorkspaceName);
+    const hiddenWorkspace = await getOrCreateHiddenWorkspace(page, hiddenWorkspaceName);
+    const effectiveWorkspaceName = hiddenWorkspace.name;
     const hiddenTab = await createTab(page, hiddenWorkspace.id, 'auto');
     const marker = `hidden-authority-${Date.now()}`;
     const poison = `poison-hidden-${Date.now()}`;
@@ -126,7 +157,7 @@ test.describe('Terminal Authority Regressions', () => {
     await page.waitForSelector('.workspace-screen', { timeout: 15000 });
     await waitForTerminal(page);
 
-    const hiddenWorkspaceOption = await findWorkspaceOption(page, hiddenWorkspaceName);
+    const hiddenWorkspaceOption = await findWorkspaceOption(page, effectiveWorkspaceName);
     await hiddenWorkspaceOption.click();
     await expect(hiddenWorkspaceOption).toHaveAttribute('aria-selected', 'true');
 

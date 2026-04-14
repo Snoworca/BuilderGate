@@ -10,6 +10,7 @@ import {
   getTerminalSnapshotKey,
   isTerminalSnapshotRemovalRequested,
 } from '../../utils/terminalSnapshot';
+import type { WindowsPtyInfo } from '../../types/ws-protocol';
 import '@xterm/xterm/css/xterm.css';
 import './TerminalView.css';
 
@@ -38,6 +39,7 @@ export interface TerminalHandle {
   restoreSnapshot: () => Promise<boolean>;
   replaceWithSnapshot: (data: string) => Promise<void>;
   releasePending: () => void;
+  setWindowsPty: (info?: WindowsPtyInfo) => void;
 }
 
 interface Props {
@@ -69,6 +71,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const idleSnapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastSnapshotRef = useRef<string | null>(null);
     const restorePendingRef = useRef(true);
+    const inputReadyRef = useRef(false);
     const bufferedOutputRef = useRef<string[]>([]);
     const inFlightOutputRef = useRef<string[]>([]);
     const { isMobile } = useResponsive();
@@ -372,6 +375,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           releaseRestorePending();
         }
       },
+      setWindowsPty: (info?: WindowsPtyInfo) => {
+        const term = xtermRef.current;
+        if (!term) return;
+        term.options.windowsPty = info;
+      },
     }), [onInput, writeOutput, restoreStoredSnapshot, replaceWithSnapshot, releaseRestorePending]);
 
     useEffect(() => {
@@ -414,7 +422,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           brightWhite: '#ffffff',
         },
         scrollback: 10000,
-        convertEol: true,
+        convertEol: false,
+        disableStdin: true,
       });
 
       const fitAddon = new FitAddon();
@@ -464,6 +473,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         requestAnimationFrame(() => {
           fitAddon.fit();
           onResize(term.cols, term.rows);
+          inputReadyRef.current = true;
+          term.options.disableStdin = false;
           // term.focus() removed — focus only on user click (handleClick) to prevent
           // focus stealing when multiple terminals are mounted in grid mode (R7)
 
@@ -476,6 +487,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       term.onData((data) => {
         if (data.length === 0) return;
         if (data === '\x1b[I' || data === '\x1b[O') return;
+        if (!inputReadyRef.current) return;
         onInput(data);
       });
 
@@ -559,6 +571,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         fitAddonRef.current = null;
         xtermRef.current = null;
         restorePendingRef.current = false;
+        inputReadyRef.current = false;
         inFlightOutputRef.current = [];
         bufferedOutputRef.current = [];
         term.dispose();

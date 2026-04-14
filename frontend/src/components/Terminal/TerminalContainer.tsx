@@ -39,6 +39,7 @@ export const TerminalContainer = memo(
       restoreSnapshot: () => terminalRef.current?.restoreSnapshot() ?? Promise.resolve(false),
       replaceWithSnapshot: (data) => terminalRef.current?.replaceWithSnapshot(data) ?? Promise.resolve(),
       releasePending: () => terminalRef.current?.releasePending(),
+      setWindowsPty: (info) => terminalRef.current?.setWindowsPty(info),
     }), []);
 
     const { send, subscribeSession } = useWebSocketActions();
@@ -65,8 +66,10 @@ export const TerminalContainer = memo(
       data: string;
       mode: 'authoritative' | 'fallback';
       replayToken: string;
+      windowsPty?: { backend: 'conpty' | 'winpty'; buildNumber?: number };
     }) => {
       historySeenRef.current = true;
+      terminalRef.current?.setWindowsPty(snapshot.windowsPty);
 
       if (snapshot.mode === 'fallback') {
         if (snapshot.data.length > 0) {
