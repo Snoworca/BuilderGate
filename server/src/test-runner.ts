@@ -45,6 +45,11 @@ async function main(): Promise<void> {
     { name: 'SettingsService rolls back runtime state when apply fails', run: testSettingsApplyFailureRollback },
     { name: 'SessionManager.updateRuntimeConfig affects later idle timers and cached snapshots', run: testSessionManagerRuntimeConfig },
     { name: 'SessionManager no-op resize skips PTY resize and replay refresh', run: testSessionManagerNoopResizeSkipsRefresh },
+    { name: 'SessionManager resize replay refresh fires after sustained pending output settles', run: testSessionManagerResizeReplayRefreshDeadline },
+    { name: 'SessionManager resize replay refresh waits for quiet window before settling headless writes', run: testSessionManagerResizeReplayRefreshQuietWindow },
+    { name: 'SessionManager resize replay refresh waits for headless drain after noisy redraw deadline', run: testSessionManagerResizeReplayRefreshAfterNoisyDeadline },
+    { name: 'SessionManager resize replay refresh clamps near-deadline rearm to the remaining deadline window', run: testSessionManagerResizeReplayRefreshNearDeadlineRearm },
+    { name: 'SessionManager resize replay refresh shortens post-deadline rearm to drain cadence', run: testSessionManagerResizeReplayRefreshAfterDeadlineRearm },
     { name: 'SessionManager returns cached authoritative snapshots', run: testSessionManagerCachedSnapshot },
     { name: 'SessionManager reports snapshot observability counters', run: testSessionManagerObservabilityCounters },
     { name: 'SessionManager powershell shell bootstrap avoids delayed prompt-hook injection', run: testSessionManagerPowerShellBootstrapArgs },
@@ -535,6 +540,213 @@ function testSessionManagerNoopResizeSkipsRefresh(): void {
   assert.equal(sessionData.screenSeq, 7);
   assert.equal(sessionData.snapshotCache.dirty, false);
   assert.deepEqual(replayEvents.map((event) => event.kind), ['resize_requested', 'resize_skipped']);
+}
+
+async function testSessionManagerResizeReplayRefreshDeadline(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: true,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  let refreshReplaySnapshotsCount = 0;
+  const harness = createManagedSessionHarness(manager, { cols: 80, rows: 24, scrollbackLines: 1000 });
+  harness.sessionData.pendingHeadlessWrites = 1;
+  (manager as any).wsRouter = {
+    recordReplayEvent: () => undefined,
+    refreshReplaySnapshots: () => {
+      refreshReplaySnapshotsCount += 1;
+    },
+  };
+
+  try {
+    manager.resize(harness.sessionId, 120, 40);
+
+    await delay(200);
+    assert.equal(refreshReplaySnapshotsCount, 0);
+
+    harness.sessionData.pendingHeadlessWrites = 0;
+    await delay(300);
+    assert.equal(refreshReplaySnapshotsCount, 1);
+    assert.equal((manager as any).pendingResizeReplaySessions.has(harness.sessionId), false);
+    assert.equal((manager as any).pendingResizeReplayStartedAt.has(harness.sessionId), false);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerResizeReplayRefreshQuietWindow(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: true,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  let refreshReplaySnapshotsCount = 0;
+  const harness = createManagedSessionHarness(manager, { cols: 80, rows: 24, scrollbackLines: 1000 });
+  harness.sessionData.pendingHeadlessWrites = 1;
+  (manager as any).wsRouter = {
+    recordReplayEvent: () => undefined,
+    refreshReplaySnapshots: () => {
+      refreshReplaySnapshotsCount += 1;
+    },
+  };
+
+  try {
+    manager.resize(harness.sessionId, 120, 40);
+    (manager as any).pendingResizeReplayLastOutputAt.set(harness.sessionId, Date.now());
+
+    await delay(200);
+    assert.equal(refreshReplaySnapshotsCount, 0);
+
+    harness.sessionData.pendingHeadlessWrites = 0;
+    await delay(300);
+    assert.equal(refreshReplaySnapshotsCount, 1);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerResizeReplayRefreshAfterNoisyDeadline(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: true,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  let refreshReplaySnapshotsCount = 0;
+  const harness = createManagedSessionHarness(manager, { cols: 80, rows: 24, scrollbackLines: 1000 });
+  harness.sessionData.pendingHeadlessWrites = 1;
+  (manager as any).wsRouter = {
+    recordReplayEvent: () => undefined,
+    refreshReplaySnapshots: () => {
+      refreshReplaySnapshotsCount += 1;
+    },
+  };
+
+  try {
+    manager.resize(harness.sessionId, 120, 40);
+    (manager as any).pendingResizeReplayStartedAt.set(harness.sessionId, Date.now() - 450);
+    (manager as any).pendingResizeReplayLastOutputAt.set(harness.sessionId, Date.now());
+
+    await delay(150);
+    assert.equal(refreshReplaySnapshotsCount, 0);
+
+    harness.sessionData.pendingHeadlessWrites = 0;
+    await delay(120);
+    assert.equal(refreshReplaySnapshotsCount, 1);
+    assert.equal((manager as any).pendingResizeReplaySessions.has(harness.sessionId), false);
+    assert.equal((manager as any).pendingResizeReplayStartedAt.has(harness.sessionId), false);
+    assert.equal((manager as any).pendingResizeReplayLastOutputAt.has(harness.sessionId), false);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerResizeReplayRefreshNearDeadlineRearm(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: true,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  let refreshReplaySnapshotsCount = 0;
+  const harness = createManagedSessionHarness(manager, { cols: 80, rows: 24, scrollbackLines: 1000 });
+  (manager as any).wsRouter = {
+    recordReplayEvent: () => undefined,
+    routeSessionOutput: () => undefined,
+    refreshReplaySnapshots: () => {
+      refreshReplaySnapshotsCount += 1;
+    },
+  };
+
+  try {
+    manager.resize(harness.sessionId, 120, 40);
+    (manager as any).pendingResizeReplayStartedAt.set(harness.sessionId, Date.now() - 390);
+    (manager as any).scheduleResizeReplayRefresh(harness.sessionId, 120);
+    await delay(80);
+
+    assert.equal(refreshReplaySnapshotsCount, 1);
+    assert.equal((manager as any).pendingResizeReplaySessions.has(harness.sessionId), false);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerResizeReplayRefreshAfterDeadlineRearm(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: true,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  let refreshReplaySnapshotsCount = 0;
+  const harness = createManagedSessionHarness(manager, { cols: 80, rows: 24, scrollbackLines: 1000 });
+  (manager as any).wsRouter = {
+    recordReplayEvent: () => undefined,
+    refreshReplaySnapshots: () => {
+      refreshReplaySnapshotsCount += 1;
+    },
+  };
+
+  try {
+    manager.resize(harness.sessionId, 120, 40);
+    (manager as any).pendingResizeReplayStartedAt.set(harness.sessionId, Date.now() - 450);
+    (manager as any).pendingResizeReplayLastOutputAt.set(harness.sessionId, Date.now());
+    (manager as any).scheduleResizeReplayRefresh(harness.sessionId, 120);
+
+    await delay(80);
+
+    assert.equal(refreshReplaySnapshotsCount, 1);
+    assert.equal((manager as any).pendingResizeReplaySessions.has(harness.sessionId), false);
+  } finally {
+    harness.dispose();
+  }
 }
 
 async function testSessionManagerCachedSnapshot(): Promise<void> {

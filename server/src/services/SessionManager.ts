@@ -92,6 +92,8 @@ const LEGACY_TRUNCATED_REPLAY_PLACEHOLDER = '\r\n[BuilderGate] Screen snapshot e
 const LEGACY_DEGRADED_REPLAY_PLACEHOLDER = '\r\n[BuilderGate] Server snapshot is unavailable for this session. Using fallback recovery when possible...\r\n';
 const MAX_DEBUG_CAPTURE_EVENTS = 400;
 const DEBUG_CAPTURE_PREVIEW_CHARS = 320;
+const MAX_RESIZE_REPLAY_DELAY_MS = 400;
+const RESIZE_REPLAY_QUIET_WINDOW_MS = 120;
 
 interface SessionData {
   session: Session;
@@ -144,6 +146,10 @@ export class SessionManager {
   private debugCaptureCounter = 0;
   private debugCaptureBySession: Map<string, SessionDebugCaptureEvent[]> = new Map();
   private debugCaptureEnabledSessions: Set<string> = new Set();
+  private pendingResizeRefreshTimers: Map<string, NodeJS.Timeout> = new Map();
+  private pendingResizeReplaySessions: Set<string> = new Set();
+  private pendingResizeReplayStartedAt: Map<string, number> = new Map();
+  private pendingResizeReplayLastOutputAt: Map<string, number> = new Map();
   private runtimePtyConfig: PTYConfig;
   private runtimeSessionConfig: SessionConfig;
   private wsRouter: WsRouter | null = null;
@@ -308,6 +314,10 @@ export class SessionManager {
       const outputData = sData.detectionMode === 'osc133' ? stripped : rawData;
 
       if (outputData.length > 0) {
+        if (this.pendingResizeReplaySessions.has(id)) {
+          this.pendingResizeReplayLastOutputAt.set(id, Date.now());
+          this.scheduleResizeReplayRefresh(id, RESIZE_REPLAY_QUIET_WINDOW_MS);
+        }
         this.captureDebugEvent(id, 'pty', 'raw_output', {
           byteLength: Buffer.byteLength(rawData, 'utf8'),
           strippedByteLength: Buffer.byteLength(outputData, 'utf8'),
@@ -390,6 +400,14 @@ export class SessionManager {
     this.wsRouter?.clearReplayEvents(id);
     this.disableDebugCapture(id);
     this.clearDebugCapture(id);
+    this.pendingResizeReplaySessions.delete(id);
+    this.pendingResizeReplayStartedAt.delete(id);
+    this.pendingResizeReplayLastOutputAt.delete(id);
+    const pendingResizeRefresh = this.pendingResizeRefreshTimers.get(id);
+    if (pendingResizeRefresh) {
+      clearTimeout(pendingResizeRefresh);
+      this.pendingResizeRefreshTimers.delete(id);
+    }
 
     // Remove from map
     this.sessions.delete(id);
@@ -483,7 +501,10 @@ export class SessionManager {
       }
     }
 
-    this.wsRouter?.refreshReplaySnapshots(id);
+    this.pendingResizeReplaySessions.add(id);
+    this.pendingResizeReplayStartedAt.set(id, Date.now());
+    this.pendingResizeReplayLastOutputAt.delete(id);
+    this.scheduleResizeReplayRefresh(id, 150);
     return true;
   }
 
@@ -1102,6 +1123,9 @@ export class SessionManager {
     if (sessionData.headlessHealth !== 'healthy' || !sessionData.headless) {
       this.appendDegradedReplayOutput(sessionData, data);
       this.wsRouter?.routeSessionOutput(sessionId, data);
+      if (this.pendingResizeReplaySessions.has(sessionId)) {
+        this.scheduleResizeReplayRefresh(sessionId, 120);
+      }
       return;
     }
 
@@ -1145,6 +1169,9 @@ export class SessionManager {
     this.appendUnsnapshottedOutput(sessionData, flushedOutput);
     this.markSnapshotDirty(sessionData);
     this.wsRouter?.routeSessionOutput(sessionId, data);
+    if (this.pendingResizeReplaySessions.has(sessionId)) {
+      this.scheduleResizeReplayRefresh(sessionId, 120);
+    }
   }
 
   private markSnapshotDirty(sessionData: SessionData): void {
@@ -1222,6 +1249,79 @@ export class SessionManager {
     const truncated = truncateTerminalPayloadTail(nextContent, this.runtimePtyConfig.maxSnapshotBytes);
     sessionData.unsnapshottedOutput = truncated.content;
     sessionData.unsnapshottedOutputTruncated = sessionData.unsnapshottedOutputTruncated || truncated.truncated;
+  }
+
+  private scheduleResizeReplayRefresh(sessionId: string, delayMs = 75): void {
+    const existing = this.pendingResizeRefreshTimers.get(sessionId);
+    if (existing) {
+      clearTimeout(existing);
+    }
+
+    if (!this.pendingResizeReplayStartedAt.has(sessionId)) {
+      this.pendingResizeReplayStartedAt.set(sessionId, Date.now());
+    }
+
+    const startedAt = this.pendingResizeReplayStartedAt.get(sessionId) ?? Date.now();
+    const elapsedMs = Date.now() - startedAt;
+    const remainingDeadlineMs = MAX_RESIZE_REPLAY_DELAY_MS - elapsedMs;
+    const effectiveDelayMs =
+      remainingDeadlineMs <= 0
+        ? Math.min(delayMs, 30)
+        : remainingDeadlineMs > 0
+        ? Math.min(delayMs, Math.max(1, remainingDeadlineMs))
+        : delayMs;
+
+    const timer = setTimeout(() => {
+      const session = this.sessions.get(sessionId);
+      if (!session) {
+        this.pendingResizeReplaySessions.delete(sessionId);
+        this.pendingResizeReplayStartedAt.delete(sessionId);
+        this.pendingResizeReplayLastOutputAt.delete(sessionId);
+        this.pendingResizeRefreshTimers.delete(sessionId);
+        return;
+      }
+
+      const startedAt = this.pendingResizeReplayStartedAt.get(sessionId) ?? Date.now();
+      const elapsedMs = Date.now() - startedAt;
+      const afterDeadline = elapsedMs >= MAX_RESIZE_REPLAY_DELAY_MS;
+      const lastOutputAt = this.pendingResizeReplayLastOutputAt.get(sessionId);
+      const clearResizeReplayState = (): void => {
+        this.pendingResizeRefreshTimers.delete(sessionId);
+        this.pendingResizeReplaySessions.delete(sessionId);
+        this.pendingResizeReplayStartedAt.delete(sessionId);
+        this.pendingResizeReplayLastOutputAt.delete(sessionId);
+      };
+
+      if (lastOutputAt !== undefined) {
+        const quietForMs = Date.now() - lastOutputAt;
+        if (!afterDeadline && quietForMs < RESIZE_REPLAY_QUIET_WINDOW_MS) {
+
+          this.scheduleResizeReplayRefresh(
+            sessionId,
+            Math.max(10, RESIZE_REPLAY_QUIET_WINDOW_MS - quietForMs),
+          );
+          return;
+        }
+
+        if (session.pendingHeadlessWrites > 0) {
+          this.scheduleResizeReplayRefresh(sessionId, 30);
+          return;
+        }
+      } else if (session.pendingHeadlessWrites > 0) {
+        this.scheduleResizeReplayRefresh(sessionId, 30);
+        return;
+      }
+
+      if (session.pendingHeadlessWrites > 0) {
+        this.scheduleResizeReplayRefresh(sessionId, 30);
+        return;
+      }
+
+      clearResizeReplayState();
+      this.wsRouter?.refreshReplaySnapshots(sessionId);
+    }, effectiveDelayMs);
+    timer.unref();
+    this.pendingResizeRefreshTimers.set(sessionId, timer);
   }
 
   private captureDebugEvent(
