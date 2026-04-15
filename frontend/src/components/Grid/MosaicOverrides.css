@@ -6,11 +6,17 @@
 .mosaic-split.-row {
   margin-left: -1px;
   width: 2px;
+  cursor: col-resize;
 }
 
 .mosaic-split.-column {
   margin-top: -1px;
   height: 2px;
+  cursor: row-resize;
+}
+
+.mosaic-split {
+  z-index: 12;
 }
 
 .mosaic-split.-row .mosaic-split-line {
