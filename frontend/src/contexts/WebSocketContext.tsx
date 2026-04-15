@@ -28,6 +28,15 @@ export interface SessionHandlers {
   onCwd?: (cwd: string) => void;
 }
 
+interface GraceBufferedSessionState {
+  snapshot?: ScreenSnapshotMessage;
+  output: string;
+  subscribedInfo?: { status: string; cwd?: string };
+  status?: string;
+  cwd?: string;
+  error?: string;
+}
+
 export type WorkspaceEventHandler = (data: unknown) => void;
 
 export interface WebSocketContextValue {
@@ -59,6 +68,7 @@ const WebSocketActionsContext = createContext<WebSocketActionsValue | null>(null
 const RECONNECT_MAX_ATTEMPTS = 10;
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
+const SUBSCRIPTION_GRACE_MS = 300;
 
 function getReconnectDelay(attempt: number): number {
   return Math.min(RECONNECT_BASE_MS * Math.pow(2, attempt), RECONNECT_MAX_MS);
@@ -87,7 +97,64 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const sessionHandlersRef = useRef<Map<string, SessionHandlers>>(new Map());
   const workspaceHandlersRef = useRef<Record<string, WorkspaceEventHandler>>({});
   const activeSubscriptionsRef = useRef<Set<string>>(new Set());
+  const pendingUnsubscribeTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const graceBufferedSessionsRef = useRef<Map<string, GraceBufferedSessionState>>(new Map());
   const mountedRef = useRef(true);
+
+  const bufferGraceMessage = useCallback((sessionId: string, msg: ServerWsMessage) => {
+    const current = graceBufferedSessionsRef.current.get(sessionId) ?? { output: '' };
+
+    switch (msg.type) {
+      case 'screen-snapshot':
+        current.snapshot = msg;
+        current.output = '';
+        break;
+      case 'output':
+        current.output += msg.data;
+        break;
+      case 'status':
+        current.status = msg.status;
+        break;
+      case 'cwd':
+        current.cwd = msg.cwd;
+        break;
+      case 'session:error':
+        current.error = msg.message;
+        break;
+      case 'session:exited':
+        current.error = `Shell exited with code ${msg.exitCode}`;
+        break;
+    }
+
+    graceBufferedSessionsRef.current.set(sessionId, current);
+  }, []);
+
+  const flushGraceBuffer = useCallback((sessionId: string, handlers: SessionHandlers) => {
+    const buffered = graceBufferedSessionsRef.current.get(sessionId);
+    if (!buffered) {
+      return;
+    }
+
+    graceBufferedSessionsRef.current.delete(sessionId);
+    if (buffered.subscribedInfo) {
+      handlers.onSubscribed?.(buffered.subscribedInfo);
+    }
+    if (buffered.snapshot) {
+      handlers.onScreenSnapshot?.(buffered.snapshot);
+    }
+    if (buffered.status) {
+      handlers.onStatus?.(buffered.status);
+    }
+    if (buffered.cwd) {
+      handlers.onCwd?.(buffered.cwd);
+    }
+    if (buffered.output.length > 0) {
+      handlers.onOutput?.(buffered.output);
+    }
+    if (buffered.error) {
+      handlers.onError?.(buffered.error);
+    }
+  }, []);
 
   // ------ Message handler ------
   const handleMessage = useCallback((event: MessageEvent) => {
@@ -110,7 +177,25 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     if (msg.type === 'subscribed') {
       for (const info of msg.sessions) {
         const handlers = sessionHandlersRef.current.get(info.sessionId);
-        if (!handlers) continue;
+        if (!handlers) {
+          if (
+            activeSubscriptionsRef.current.has(info.sessionId) &&
+            pendingUnsubscribeTimersRef.current.has(info.sessionId)
+          ) {
+            const current = graceBufferedSessionsRef.current.get(info.sessionId) ?? { output: '' };
+            current.subscribedInfo = { status: info.status, cwd: info.cwd };
+            if (info.cwd) {
+              current.cwd = info.cwd;
+            }
+            if (info.status === 'error') {
+              current.error = 'Session not found';
+            } else {
+              current.status = info.status;
+            }
+            graceBufferedSessionsRef.current.set(info.sessionId, current);
+          }
+          continue;
+        }
         if (info.status === 'error') {
           handlers.onError?.('Session not found');
         } else {
@@ -126,7 +211,15 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     if ('sessionId' in msg) {
       const sessionId = (msg as { sessionId: string }).sessionId;
       const handlers = sessionHandlersRef.current.get(sessionId);
-      if (!handlers) return;
+      if (!handlers) {
+        if (
+          activeSubscriptionsRef.current.has(sessionId) &&
+          pendingUnsubscribeTimersRef.current.has(sessionId)
+        ) {
+          bufferGraceMessage(sessionId, msg);
+        }
+        return;
+      }
 
       switch (msg.type) {
         case 'screen-snapshot':
@@ -156,7 +249,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     if (wsHandler && 'data' in msg) {
       wsHandler((msg as { data: unknown }).data);
     }
-  }, []);
+  }, [bufferGraceMessage]);
 
   // ------ Connect ------
   const connect = useCallback(() => {
@@ -240,6 +333,11 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
       }
+      for (const timer of pendingUnsubscribeTimersRef.current.values()) {
+        clearTimeout(timer);
+      }
+      pendingUnsubscribeTimersRef.current.clear();
+      graceBufferedSessionsRef.current.clear();
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
@@ -256,8 +354,15 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const subscribeSession = useCallback((sessionId: string, handlers: SessionHandlers): (() => void) => {
+    const pendingTimer = pendingUnsubscribeTimersRef.current.get(sessionId);
+    if (pendingTimer) {
+      clearTimeout(pendingTimer);
+      pendingUnsubscribeTimersRef.current.delete(sessionId);
+    }
+
     // Always update handlers (re-render may provide new callbacks)
     sessionHandlersRef.current.set(sessionId, handlers);
+    flushGraceBuffer(sessionId, handlers);
 
     // Only send WS subscribe if not already subscribed (prevents duplicate on re-mount)
     const alreadySubscribed = activeSubscriptionsRef.current.has(sessionId);
@@ -281,16 +386,24 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       const currentHandlers = sessionHandlersRef.current.get(sessionId);
       if (currentHandlers === myHandlers) {
         sessionHandlersRef.current.delete(sessionId);
-        activeSubscriptionsRef.current.delete(sessionId);
+        const timer = setTimeout(() => {
+          pendingUnsubscribeTimersRef.current.delete(sessionId);
+          if (sessionHandlersRef.current.has(sessionId)) {
+            return;
+          }
 
-        const currentWs = wsRef.current;
-        if (currentWs && currentWs.readyState === WebSocket.OPEN) {
-          currentWs.send(JSON.stringify({ type: 'unsubscribe', sessionIds: [sessionId] }));
-        }
+          graceBufferedSessionsRef.current.delete(sessionId);
+          activeSubscriptionsRef.current.delete(sessionId);
+          const currentWs = wsRef.current;
+          if (currentWs && currentWs.readyState === WebSocket.OPEN) {
+            currentWs.send(JSON.stringify({ type: 'unsubscribe', sessionIds: [sessionId] }));
+          }
+        }, SUBSCRIPTION_GRACE_MS);
+        pendingUnsubscribeTimersRef.current.set(sessionId, timer);
       }
       // If currentHandlers !== myHandlers, a newer instance already took over — skip cleanup
     };
-  }, []);
+  }, [flushGraceBuffer]);
 
   const setWorkspaceHandlers = useCallback((handlers: Record<string, WorkspaceEventHandler>) => {
     workspaceHandlersRef.current = handlers;

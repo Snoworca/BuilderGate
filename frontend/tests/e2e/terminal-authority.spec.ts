@@ -202,4 +202,43 @@ test.describe('Terminal Authority Regressions', () => {
       return readVisibleTerminalText(page);
     }, { timeout: 15000 }).not.toContain(poison);
   });
+
+  test('TC-7103: rapid workspace bounce should preserve output generated during handoff', async ({ page }) => {
+    const state = await fetchWorkspaceState(page);
+    const activeWorkspaceId = await page.evaluate(() => localStorage.getItem('active_workspace_id'));
+    const sourceWorkspace = state.workspaces.find((item: { id: string }) => item.id === activeWorkspaceId) ?? state.workspaces[0];
+
+    test.skip(!sourceWorkspace, 'Need an active workspace');
+
+    const switchTargetName = `SwitchTarget-${Date.now()}`;
+    const switchTarget = await getOrCreateHiddenWorkspace(page, switchTargetName);
+    const marker = `BG-${Date.now()}`;
+
+    const sourceWorkspaceOption = await findWorkspaceOption(page, sourceWorkspace.name);
+    await sourceWorkspaceOption.click();
+    await expect(sourceWorkspaceOption).toHaveAttribute('aria-selected', 'true');
+
+    await sendVisibleTerminalCommand(
+      page,
+      `1..8 | ForEach-Object { Write-Output "${marker}-$_"; Start-Sleep -Milliseconds 120 }`,
+    );
+
+    await expect.poll(async () => {
+      return readVisibleTerminalText(page);
+    }, { timeout: 15000 }).toContain(`${marker}-2`);
+
+    const switchTargetOption = await findWorkspaceOption(page, switchTarget.name);
+    await switchTargetOption.click();
+    await expect(switchTargetOption).toHaveAttribute('aria-selected', 'true');
+
+    await page.waitForTimeout(180);
+
+    await sourceWorkspaceOption.click();
+    await expect(sourceWorkspaceOption).toHaveAttribute('aria-selected', 'true');
+
+    await expect.poll(async () => {
+      const text = await readVisibleTerminalText(page);
+      return Array.from({ length: 8 }, (_, index) => `${marker}-${index + 1}`).every((line) => text.includes(line));
+    }, { timeout: 15000 }).toBe(true);
+  });
 });

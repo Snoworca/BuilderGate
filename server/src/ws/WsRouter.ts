@@ -12,10 +12,18 @@ import type { IncomingMessage } from 'http';
 import type { Duplex } from 'stream';
 import type { AuthService } from '../services/AuthService.js';
 import type { SessionManager } from '../services/SessionManager.js';
-import type { ClientWsMessage, ReplayPendingState, WsClientMeta } from '../types/ws-protocol.js';
+import type {
+  ClientWsMessage,
+  ReplayPendingState,
+  ReplayTelemetryEvent,
+  ReplayTelemetryEventInput,
+  WsClientMeta,
+  WsRouterObservabilitySnapshot,
+} from '../types/ws-protocol.js';
 
 const HEARTBEAT_INTERVAL = 30_000;
 const REPLAY_ACK_TIMEOUT_MS = 5_000;
+const MAX_RECENT_REPLAY_EVENTS = 256;
 
 export class WsRouter {
   private wss: WebSocketServer;
@@ -27,6 +35,10 @@ export class WsRouter {
   private replayAckTimeoutCount = 0;
   private replayRefreshCount = 0;
   private maxReplayQueueLengthObserved = 0;
+  private replayEventCounter = 0;
+  private recentReplayEvents: ReplayTelemetryEvent[] = [];
+  private debugReplayEventsBySession: Map<string, ReplayTelemetryEvent[]> = new Map();
+  private debugReplayEnabledSessions: Set<string> = new Set();
 
   constructor(authService: AuthService, sessionManager: SessionManager) {
     this.authService = authService;
@@ -149,6 +161,15 @@ export class WsRouter {
 
       const cwd = this.sessionManager.getLastCwd(sessionId) ?? undefined;
       results.push({ sessionId, status: session.status, cwd });
+      this.recordReplayEvent({
+        kind: 'snapshot_sent',
+        sessionId,
+        details: {
+          phase: 'subscribe-begin',
+          clientId: meta.clientId,
+          alreadySubscribed,
+        },
+      });
 
       if (alreadySubscribed) {
         continue;
@@ -176,6 +197,20 @@ export class WsRouter {
         source: 'headless',
         windowsPty: snapshot.windowsPty,
       });
+      this.recordReplayEvent({
+        kind: 'snapshot_sent',
+        sessionId,
+        replayToken: replayState.replayToken,
+        snapshotSeq: snapshot.seq,
+        details: {
+          origin: 'subscribe',
+          clientId: meta.clientId,
+          cols: snapshot.cols,
+          rows: snapshot.rows,
+          truncated: snapshot.truncated,
+          mode,
+        },
+      });
     }
 
     this.sendTo(ws, { type: 'subscribed', sessions: results });
@@ -201,13 +236,46 @@ export class WsRouter {
   }
 
   private handleScreenSnapshotReady(ws: WebSocket, sessionId: string, replayToken: string): void {
-    const queuedOutput = this.consumeReplayPendingForPair(ws, sessionId, replayToken);
-    if (queuedOutput === null || ws.readyState !== WebSocket.OPEN) {
+    const replayResult = this.consumeReplayPendingForPair(ws, sessionId, replayToken);
+    if (replayResult.status !== 'ok') {
+      this.recordReplayEvent({
+        kind: 'ack_stale',
+        sessionId,
+        replayToken,
+        snapshotSeq: replayResult.snapshotSeq,
+        details: {
+          reason: replayResult.reason,
+          activeReplayToken: replayResult.activeReplayToken ?? null,
+        },
+      });
       return;
     }
 
-    if (queuedOutput.length > 0) {
-      this.sendTo(ws, { type: 'output', sessionId, data: queuedOutput });
+    if (ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    this.recordReplayEvent({
+      kind: 'ack_ok',
+      sessionId,
+      replayToken,
+      snapshotSeq: replayResult.snapshotSeq,
+      details: {
+        queuedBytes: replayResult.queuedOutput.length,
+      },
+    });
+
+    if (replayResult.queuedOutput.length > 0) {
+      this.sendTo(ws, { type: 'output', sessionId, data: replayResult.queuedOutput });
+      this.recordReplayEvent({
+        kind: 'output_flushed',
+        sessionId,
+        replayToken,
+        snapshotSeq: replayResult.snapshotSeq,
+        details: {
+          outputBytes: replayResult.queuedOutput.length,
+        },
+      });
     }
   }
 
@@ -276,16 +344,38 @@ export class WsRouter {
     return state;
   }
 
-  private consumeReplayPendingForPair(ws: WebSocket, sessionId: string, replayToken: string): string | null {
+  private consumeReplayPendingForPair(
+    ws: WebSocket,
+    sessionId: string,
+    replayToken: string,
+  ):
+    | { status: 'ok'; queuedOutput: string; snapshotSeq: number }
+    | { status: 'stale'; reason: 'missing' | 'token-mismatch'; snapshotSeq?: number; activeReplayToken?: string } {
     const meta = this.clients.get(ws);
-    if (!meta) return null;
+    if (!meta) {
+      return { status: 'stale', reason: 'missing' };
+    }
 
     const pending = meta.replayPendingSessions.get(sessionId);
-    if (!pending || pending.replayToken !== replayToken) return null;
+    if (!pending) {
+      return { status: 'stale', reason: 'missing' };
+    }
+    if (pending.replayToken !== replayToken) {
+      return {
+        status: 'stale',
+        reason: 'token-mismatch',
+        snapshotSeq: pending.snapshotSeq,
+        activeReplayToken: pending.replayToken,
+      };
+    }
 
     clearTimeout(pending.timer);
     meta.replayPendingSessions.delete(sessionId);
-    return pending.queuedOutput;
+    return {
+      status: 'ok',
+      queuedOutput: pending.queuedOutput,
+      snapshotSeq: pending.snapshotSeq,
+    };
   }
 
   private clearReplayPendingForPair(ws: WebSocket, sessionId: string): void {
@@ -322,6 +412,16 @@ export class WsRouter {
       const pending = meta?.replayPendingSessions.get(sessionId);
       if (pending) {
         this.appendQueuedOutput(pending, data);
+        this.recordReplayEvent({
+          kind: 'output_queued',
+          sessionId,
+          replayToken: pending.replayToken,
+          snapshotSeq: pending.snapshotSeq,
+          details: {
+            outputBytes: data.length,
+            queuedBytes: pending.queuedOutput.length,
+          },
+        });
         continue;
       }
 
@@ -378,6 +478,20 @@ export class WsRouter {
         source: 'headless',
         windowsPty: snapshot.windowsPty,
       });
+      this.recordReplayEvent({
+        kind: 'snapshot_refreshed',
+        sessionId,
+        replayToken: pending.replayToken,
+        snapshotSeq: snapshot.seq,
+        details: {
+          origin: 'refresh',
+          clientId: meta?.clientId ?? null,
+          cols: snapshot.cols,
+          rows: snapshot.rows,
+          truncated: snapshot.truncated,
+          mode,
+        },
+      });
     }
   }
 
@@ -396,6 +510,31 @@ export class WsRouter {
     this.sessionSubscribers.delete(sessionId);
   }
 
+  clearReplayEvents(sessionId?: string): void {
+    if (!sessionId) {
+      this.recentReplayEvents = [];
+      this.debugReplayEventsBySession.clear();
+      return;
+    }
+    this.recentReplayEvents = this.recentReplayEvents.filter((event) => event.sessionId !== sessionId);
+    this.debugReplayEventsBySession.delete(sessionId);
+  }
+
+  enableDebugReplayCapture(sessionId: string): void {
+    this.debugReplayEnabledSessions.add(sessionId);
+    this.debugReplayEventsBySession.delete(sessionId);
+  }
+
+  disableDebugReplayCapture(sessionId: string): void {
+    this.debugReplayEnabledSessions.delete(sessionId);
+    this.debugReplayEventsBySession.delete(sessionId);
+  }
+
+  getDebugReplayEvents(sessionId: string, limit = 200): ReplayTelemetryEvent[] {
+    const events = this.debugReplayEventsBySession.get(sessionId) ?? [];
+    return events.slice(-Math.max(1, limit));
+  }
+
   getSubscribers(sessionId: string): Set<WebSocket> | undefined {
     return this.sessionSubscribers.get(sessionId);
   }
@@ -405,14 +544,7 @@ export class WsRouter {
     return subscribers !== undefined && subscribers.size > 0;
   }
 
-  getObservabilitySnapshot(): {
-    connectedClients: number;
-    subscribedSessionCount: number;
-    replayPendingCount: number;
-    replayAckTimeoutCount: number;
-    replayRefreshCount: number;
-    maxReplayQueueLengthObserved: number;
-  } {
+  getObservabilitySnapshot(): WsRouterObservabilitySnapshot {
     let replayPendingCount = 0;
     for (const meta of this.clients.values()) {
       replayPendingCount += meta.replayPendingSessions.size;
@@ -425,7 +557,32 @@ export class WsRouter {
       replayAckTimeoutCount: this.replayAckTimeoutCount,
       replayRefreshCount: this.replayRefreshCount,
       maxReplayQueueLengthObserved: this.maxReplayQueueLengthObserved,
+      recentReplayEvents: [...this.recentReplayEvents],
     };
+  }
+
+  recordReplayEvent(event: ReplayTelemetryEventInput): void {
+    const nextEvent: ReplayTelemetryEvent = {
+      eventId: ++this.replayEventCounter,
+      recordedAt: new Date().toISOString(),
+      ...event,
+    };
+
+    this.recentReplayEvents.push(nextEvent);
+    if (this.recentReplayEvents.length > MAX_RECENT_REPLAY_EVENTS) {
+      this.recentReplayEvents.splice(0, this.recentReplayEvents.length - MAX_RECENT_REPLAY_EVENTS);
+    }
+
+    if (!this.debugReplayEnabledSessions.has(event.sessionId)) {
+      return;
+    }
+
+    const sessionEvents = this.debugReplayEventsBySession.get(event.sessionId) ?? [];
+    sessionEvents.push(nextEvent);
+    if (sessionEvents.length > MAX_RECENT_REPLAY_EVENTS) {
+      sessionEvents.splice(0, sessionEvents.length - MAX_RECENT_REPLAY_EVENTS);
+    }
+    this.debugReplayEventsBySession.set(event.sessionId, sessionEvents);
   }
 
   broadcastAll(event: string, data: object, excludeClientId?: string): void {

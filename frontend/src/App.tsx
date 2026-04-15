@@ -12,7 +12,8 @@ import { useContextMenu } from './hooks/useContextMenu';
 import { sessionApi } from './services/api';
 import { AuthGuard } from './components/Auth';
 import { Header } from './components/Header';
-import { TerminalContainer } from './components/Terminal';
+import { TerminalHostSlot, TerminalRuntimeLayer, TerminalRuntimeProvider } from './components/Terminal';
+import { useTerminalRuntimeContext } from './components/Terminal/TerminalRuntimeContext';
 import type { TerminalHandle } from './components/Terminal/TerminalView';
 import { ConfirmModal } from './components/Modal';
 import { SettingsPage } from './components/Settings/SettingsPage';
@@ -31,6 +32,48 @@ import './components/Workspace/breathing.css';
 
 // LRU 설정: 0 = 제한없음 (기본값). TODO: Settings UI 연동 예정
 const MAX_ALIVE_WORKSPACES = 0;
+
+function TerminalWorkspaceStage({
+  children,
+  tabs,
+  terminalRefsMap,
+  onStatusChange,
+  onCwdChange,
+  onAuthError,
+  onFitAll,
+}: {
+  children: (onLayoutChange: () => void) => React.ReactNode;
+  tabs: WorkspaceTabRuntime[];
+  terminalRefsMap: React.MutableRefObject<Map<string, { current: TerminalHandle | null }>>;
+  onStatusChange: (sessionId: string, status: WorkspaceTabRuntime['status']) => void;
+  onCwdChange: (sessionId: string, cwd: string) => void;
+  onAuthError: () => void;
+  onFitAll: () => void;
+}) {
+  const { invalidateHostLayouts } = useTerminalRuntimeContext();
+
+  const handleLayoutChange = useCallback(() => {
+    invalidateHostLayouts();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        onFitAll();
+      });
+    });
+  }, [invalidateHostLayouts, onFitAll]);
+
+  return (
+    <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+      {children(handleLayoutChange as never)}
+      <TerminalRuntimeLayer
+        tabs={tabs}
+        terminalRefsMap={terminalRefsMap}
+        onStatusChange={onStatusChange}
+        onCwdChange={onCwdChange}
+        onAuthError={onAuthError}
+      />
+    </div>
+  );
+}
 
 function AppContent() {
   const { logout } = useAuth();
@@ -172,6 +215,10 @@ function AppContent() {
     terminalRefsMap.current.get(tabId)?.current?.sendInput(data);
   }, []);
 
+  const focusTerminal = useCallback((tabId: string): void => {
+    terminalRefsMap.current.get(tabId)?.current?.focus();
+  }, []);
+
   // 그리드 모드: MosaicContainer가 자체 확인 모달을 가지므로 직접 닫기
   const handleCloseTabDirect = useCallback((tabId: string) => {
     if (wmRef.current.activeWorkspaceId) {
@@ -300,23 +347,27 @@ function AppContent() {
     });
   }, [tabContextMenu.targetId, activeTab, wm.activeWorkspaceTabs, availableShells, handleAddTab, handleCloseTab, tabContextMenu]);
 
-  const renderTerminal = useCallback((tab: WorkspaceTabRuntime) => {
+  const renderTerminal = useCallback((
+    tab: WorkspaceTabRuntime,
+    surface?: {
+      className?: string;
+      style?: React.CSSProperties;
+      onContextMenu?: (x: number, y: number) => void;
+      onPointerDown?: () => void;
+    },
+  ) => {
     if (tab.status === 'disconnected') {
       // GridCell already renders DisconnectedOverlay — return empty container
       return <div style={{ width: '100%', height: '100%' }} />;
     }
-    if (!terminalRefsMap.current.has(tab.id)) {
-      terminalRefsMap.current.set(tab.id, { current: null });
-    }
     return (
-      <TerminalContainer
-        ref={terminalRefsMap.current.get(tab.id)!}
-        key={`ws-${tab.id}-${tab.sessionId}`}
-        sessionId={tab.sessionId}
+      <TerminalHostSlot
+        tabId={tab.id}
         isVisible={true}
-        onStatusChange={handleTerminalStatusChange}
-        onCwdChange={handleCwdChange}
-        onAuthError={handleAuthError}
+        className={surface?.className}
+        style={surface?.style}
+        onContextMenu={surface?.onContextMenu}
+        onPointerDown={surface?.onPointerDown}
       />
     );
   }, []);
@@ -395,11 +446,21 @@ function AppContent() {
                   availableShells={availableShells}
                 />}
 
-                <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                <TerminalRuntimeProvider>
+                  <TerminalWorkspaceStage
+                    tabs={wm.tabs.filter((tab) => MAX_ALIVE_WORKSPACES <= 0 || aliveWorkspaceIds.has(tab.workspaceId))}
+                    terminalRefsMap={terminalRefsMap}
+                    onStatusChange={handleTerminalStatusChange}
+                    onCwdChange={handleCwdChange}
+                    onAuthError={handleAuthError}
+                    onFitAll={handleFitAllTerminals}
+                  >
+                    {(handleLayoutChange: () => void) => (
+                      <>
                   {viewMode === 'grid' && !isMobile ? (
                     <MosaicContainer
                       tabs={wm.activeWorkspaceTabs}
-                      activeTabId={wm.activeWorkspace.activeTabId}
+                      activeTabId={wm.activeWorkspace?.activeTabId ?? null}
                       workspaceId={wm.activeWorkspaceId!}
                       onAddTab={handleAddTab}
                       onCloseTab={handleCloseTabDirect}
@@ -411,7 +472,8 @@ function AppContent() {
                       getTerminalSelection={getTerminalSelection}
                       hasTerminalSelection={hasTerminalSelection}
                       sendTerminalInput={sendTerminalInput}
-                      onLayoutChange={handleFitAllTerminals}
+                      focusTerminal={focusTerminal}
+                      onLayoutChange={handleLayoutChange}
                     />
                   ) : null}
 
@@ -451,18 +513,13 @@ function AppContent() {
                               </div>
                             ) : null
                           ) : (
-                            <TerminalContainer
-                              ref={(() => {
-                                if (!terminalRefsMap.current.has(tab.id)) {
-                                  terminalRefsMap.current.set(tab.id, { current: null });
-                                }
-                                return terminalRefsMap.current.get(tab.id)!;
-                              })()}
-                              sessionId={tab.sessionId}
+                            <TerminalHostSlot
+                              tabId={tab.id}
                               isVisible={isVisible}
-                              onStatusChange={handleTerminalStatusChange}
-                              onCwdChange={handleCwdChange}
-                              onAuthError={handleAuthError}
+                              className={isVisible && tab.status === 'running' ? 'terminal-running' : ''}
+                              style={{ '--tab-color': TAB_COLORS[tab.colorIndex] || TAB_COLORS[0] } as React.CSSProperties}
+                              onContextMenu={(x, y) => tabContextMenu.open(x, y, tab.id)}
+                              onPointerDown={() => focusTerminal(tab.id)}
                             />
                           )}
                           {isVisible && (
@@ -475,7 +532,11 @@ function AppContent() {
                       );
                     })
                   }
-                </div>
+
+                      </>
+                    )}
+                  </TerminalWorkspaceStage>
+                </TerminalRuntimeProvider>
               </>
             ) : (
               <EmptyState onAddTab={(shell) => handleAddTab(undefined, shell)} availableShells={availableShells} />

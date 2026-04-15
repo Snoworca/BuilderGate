@@ -76,8 +76,22 @@ interface SessionManagerObservability {
   maxSnapshotSerializeMs: number;
 }
 
+type SessionDebugCaptureValue = string | number | boolean | null;
+
+interface SessionDebugCaptureEvent {
+  eventId: number;
+  recordedAt: string;
+  sessionId: string;
+  source: 'pty' | 'snapshot' | 'headless';
+  kind: string;
+  details?: Record<string, SessionDebugCaptureValue>;
+  preview?: string;
+}
+
 const LEGACY_TRUNCATED_REPLAY_PLACEHOLDER = '\r\n[BuilderGate] Screen snapshot exceeded maxSnapshotBytes. Waiting for new output...\r\n';
 const LEGACY_DEGRADED_REPLAY_PLACEHOLDER = '\r\n[BuilderGate] Server snapshot is unavailable for this session. Using fallback recovery when possible...\r\n';
+const MAX_DEBUG_CAPTURE_EVENTS = 400;
+const DEBUG_CAPTURE_PREVIEW_CHARS = 320;
 
 interface SessionData {
   session: Session;
@@ -127,6 +141,9 @@ function sanitizeCwd(raw: string): string | null {
 export class SessionManager {
   private sessions: Map<string, SessionData> = new Map();
   private sessionCounter: number = 0;
+  private debugCaptureCounter = 0;
+  private debugCaptureBySession: Map<string, SessionDebugCaptureEvent[]> = new Map();
+  private debugCaptureEnabledSessions: Set<string> = new Set();
   private runtimePtyConfig: PTYConfig;
   private runtimeSessionConfig: SessionConfig;
   private wsRouter: WsRouter | null = null;
@@ -291,6 +308,12 @@ export class SessionManager {
       const outputData = sData.detectionMode === 'osc133' ? stripped : rawData;
 
       if (outputData.length > 0) {
+        this.captureDebugEvent(id, 'pty', 'raw_output', {
+          byteLength: Buffer.byteLength(rawData, 'utf8'),
+          strippedByteLength: Buffer.byteLength(outputData, 'utf8'),
+          detectionMode: sData.detectionMode,
+          foundOsc133Marker: foundMarker,
+        }, rawData);
         this.queueHeadlessOutput(id, sData, outputData);
       }
     });
@@ -363,10 +386,36 @@ export class SessionManager {
     }
 
     this.wsRouter?.clearSessionState(id);
+    this.wsRouter?.disableDebugReplayCapture(id);
+    this.wsRouter?.clearReplayEvents(id);
+    this.disableDebugCapture(id);
+    this.clearDebugCapture(id);
 
     // Remove from map
     this.sessions.delete(id);
     return true;
+  }
+
+  getDebugCapture(sessionId: string, limit = 200): SessionDebugCaptureEvent[] {
+    const events = this.debugCaptureBySession.get(sessionId) ?? [];
+    return events.slice(-Math.max(1, limit));
+  }
+
+  enableDebugCapture(sessionId: string): void {
+    this.clearDebugCapture(sessionId);
+    this.debugCaptureEnabledSessions.add(sessionId);
+  }
+
+  disableDebugCapture(sessionId: string): void {
+    this.debugCaptureEnabledSessions.delete(sessionId);
+  }
+
+  isDebugCaptureEnabled(sessionId: string): boolean {
+    return this.debugCaptureEnabledSessions.has(sessionId);
+  }
+
+  clearDebugCapture(sessionId: string): void {
+    this.debugCaptureBySession.delete(sessionId);
   }
 
   writeInput(id: string, input: string): boolean {
@@ -392,6 +441,33 @@ export class SessionManager {
   resize(id: string, cols: number, rows: number): boolean {
     const data = this.sessions.get(id);
     if (!data) return false;
+
+    this.wsRouter?.recordReplayEvent({
+      kind: 'resize_requested',
+      sessionId: id,
+      snapshotSeq: data.screenSeq,
+      details: {
+        currentCols: data.cols,
+        currentRows: data.rows,
+        requestedCols: cols,
+        requestedRows: rows,
+      },
+    });
+
+    if (data.cols === cols && data.rows === rows) {
+      this.wsRouter?.recordReplayEvent({
+        kind: 'resize_skipped',
+        sessionId: id,
+        snapshotSeq: data.screenSeq,
+        details: {
+          currentCols: data.cols,
+          currentRows: data.rows,
+          requestedCols: cols,
+          requestedRows: rows,
+        },
+      });
+      return true;
+    }
 
     data.pty.resize(cols, rows);
     data.cols = cols;
@@ -862,15 +938,30 @@ export class SessionManager {
     const data = this.sessions.get(sessionId);
     if (!data) return null;
     this.observability.snapshotRequests += 1;
+    this.captureDebugEvent(sessionId, 'snapshot', 'snapshot_requested', {
+      screenSeq: data.screenSeq,
+      cacheDirty: data.snapshotCache?.dirty ?? null,
+      headlessHealth: data.headlessHealth,
+      pendingHeadlessWrites: data.pendingHeadlessWrites,
+    });
 
     if (data.headlessHealth !== 'healthy' || !data.headless) {
       this.observability.snapshotFallbacks += 1;
+      this.captureDebugEvent(sessionId, 'snapshot', 'snapshot_fallback_degraded', {
+        screenSeq: data.screenSeq,
+      });
       return this.createDegradedSnapshot(data);
     }
 
     const cached = data.snapshotCache;
     if (cached && !cached.dirty && cached.seq === data.screenSeq && cached.cols === data.cols && cached.rows === data.rows) {
       this.observability.snapshotCacheHits += 1;
+      this.captureDebugEvent(sessionId, 'snapshot', 'snapshot_cache_hit', {
+        seq: cached.seq,
+        cols: cached.cols,
+        rows: cached.rows,
+        truncated: cached.truncated,
+      }, cached.data);
       return { ...cached, health: 'healthy', windowsPty: data.windowsPty };
     }
 
@@ -897,6 +988,14 @@ export class SessionManager {
       }
       data.unsnapshottedOutput = '';
       data.unsnapshottedOutputTruncated = false;
+      this.captureDebugEvent(sessionId, 'snapshot', 'snapshot_serialized', {
+        seq: data.snapshotCache.seq,
+        cols: data.snapshotCache.cols,
+        rows: data.snapshotCache.rows,
+        truncated: data.snapshotCache.truncated,
+        byteLength: data.snapshotCache.data.length,
+        durationMs,
+      }, data.snapshotCache.data);
       return {
         ...data.snapshotCache,
         health: 'healthy',
@@ -906,6 +1005,10 @@ export class SessionManager {
       this.observability.snapshotSerializeFailures += 1;
       this.markHeadlessDegraded(sessionId, data, 'serialize', error);
       this.observability.snapshotFallbacks += 1;
+      this.captureDebugEvent(sessionId, 'snapshot', 'snapshot_serialize_failed', {
+        screenSeq: data.screenSeq,
+        message: error instanceof Error ? error.message : String(error),
+      });
       return this.createDegradedSnapshot(data);
     }
   }
@@ -1082,6 +1185,11 @@ export class SessionManager {
     sessionData.snapshotCache = null;
 
     const message = error instanceof Error ? error.message : String(error);
+    this.captureDebugEvent(sessionId, 'headless', 'headless_degraded', {
+      phase,
+      message,
+      screenSeq: sessionData.screenSeq,
+    });
     console.warn(`[SessionManager] Headless terminal degraded (${phase}) for session ${sessionId}: ${message}`);
   }
 
@@ -1115,6 +1223,35 @@ export class SessionManager {
     sessionData.unsnapshottedOutput = truncated.content;
     sessionData.unsnapshottedOutputTruncated = sessionData.unsnapshottedOutputTruncated || truncated.truncated;
   }
+
+  private captureDebugEvent(
+    sessionId: string,
+    source: SessionDebugCaptureEvent['source'],
+    kind: string,
+    details?: Record<string, SessionDebugCaptureValue>,
+    rawPreview?: string,
+  ): void {
+    if (!this.isDebugCaptureEnabled(sessionId)) {
+      return;
+    }
+
+    const event: SessionDebugCaptureEvent = {
+      eventId: ++this.debugCaptureCounter,
+      recordedAt: new Date().toISOString(),
+      sessionId,
+      source,
+      kind,
+      details,
+      preview: rawPreview ? formatDebugPreview(rawPreview) : undefined,
+    };
+
+    const events = this.debugCaptureBySession.get(sessionId) ?? [];
+    events.push(event);
+    if (events.length > MAX_DEBUG_CAPTURE_EVENTS) {
+      events.splice(0, events.length - MAX_DEBUG_CAPTURE_EVENTS);
+    }
+    this.debugCaptureBySession.set(sessionId, events);
+  }
 }
 
 export const sessionManager = new SessionManager();
@@ -1137,4 +1274,13 @@ function createDeferredSignal<T>(): DeferredSignal<T> {
     resolve = settle;
   });
   return { promise, resolve };
+}
+
+function formatDebugPreview(raw: string): string {
+  return raw
+    .slice(0, DEBUG_CAPTURE_PREVIEW_CHARS)
+    .replace(/\x1b/g, '\\x1b')
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t');
 }

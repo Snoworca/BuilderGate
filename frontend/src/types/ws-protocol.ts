@@ -76,3 +76,38 @@ export interface SubscribedSessionInfo {
   status: string;
   cwd?: string;
 }
+
+export type ReplayTelemetryValue = string | number | boolean | null;
+
+export type ReplayEventKind =
+  | 'resize_requested'
+  | 'resize_skipped'
+  | 'snapshot_sent'
+  | 'snapshot_refreshed'
+  | 'ack_ok'
+  | 'ack_stale'
+  | 'output_queued'
+  | 'output_flushed';
+
+export interface ReplayTelemetryEventInput {
+  kind: ReplayEventKind;
+  sessionId: string;
+  replayToken?: string;
+  snapshotSeq?: number;
+  details?: Record<string, ReplayTelemetryValue>;
+}
+
+export interface ReplayTelemetryEvent extends ReplayTelemetryEventInput {
+  eventId: number;
+  recordedAt: string;
+}
+
+export interface WsRouterObservabilitySnapshot {
+  connectedClients: number;
+  subscribedSessionCount: number;
+  replayPendingCount: number;
+  replayAckTimeoutCount: number;
+  replayRefreshCount: number;
+  maxReplayQueueLengthObserved: number;
+  recentReplayEvents: ReplayTelemetryEvent[];
+}

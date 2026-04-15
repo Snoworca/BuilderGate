@@ -26,6 +26,7 @@ import {
   getMinPercentage,
   removeFromMosaicTree,
 } from '../../utils/mosaic';
+import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import type { MosaicNode } from '../../types/workspace';
 import type { ShellInfo } from '../../types';
@@ -39,11 +40,20 @@ interface MosaicContainerProps {
   onRestartTab: (tabId: string) => void;
   onSelectTab: (tabId: string) => void;
   onRenameTab: (tabId: string, name: string) => void;
-  renderTerminal: (tab: WorkspaceTabRuntime) => React.ReactNode;
+  renderTerminal: (
+    tab: WorkspaceTabRuntime,
+    surface?: {
+      className?: string;
+      style?: React.CSSProperties;
+      onContextMenu?: (x: number, y: number) => void;
+      onPointerDown?: () => void;
+    },
+  ) => React.ReactNode;
   availableShells?: ShellInfo[];
   getTerminalSelection?: (tabId: string) => string;
   hasTerminalSelection?: (tabId: string) => boolean;
   sendTerminalInput?: (tabId: string, data: string) => void;
+  focusTerminal?: (tabId: string) => void;
   onLayoutChange?: () => void;
 }
 
@@ -61,9 +71,17 @@ export function MosaicContainer({
   getTerminalSelection,
   hasTerminalSelection,
   sendTerminalInput,
+  focusTerminal,
   onLayoutChange,
 }: MosaicContainerProps) {
   const currentTabIds = tabs.map(t => t.id);
+  const scheduleLayoutRefresh = useCallback(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        onLayoutChange?.();
+      });
+    });
+  }, [onLayoutChange]);
   const {
     mosaicTree,
     setMosaicTree,
@@ -127,8 +145,9 @@ export function MosaicContainer({
     const hasStale = leafIds.some(id => !tabMap.has(id));
     if (hasStale) {
       setMosaicTree(buildEqualMosaicTree(currentTabIds));
+      scheduleLayoutRefresh();
     }
-  }, [mosaicTree, tabMap]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentTabIds, mosaicTree, scheduleLayoutRefresh, setMosaicTree, tabMap]);
 
   // Rebuild tree when tab list length changes
   // prevTabCountRef는 workspaceId 기준으로 초기화 — 워크스페이스 전환은 탭 수 변경으로 취급하지 않음
@@ -151,6 +170,12 @@ export function MosaicContainer({
       return;
     }
 
+    if (mosaicTree === null) {
+      setMosaicTree(buildEqualMosaicTree(currentTabIds));
+      scheduleLayoutRefresh();
+      return;
+    }
+
     // 동일 워크스페이스 내 탭 추가/삭제 시에만 equal 모드로 리셋
     if (prevCount !== tabs.length) {
       const ids = tabs.map(t => t.id);
@@ -158,8 +183,9 @@ export function MosaicContainer({
       setMode('equal');           // UI 모드도 equal로 동기화
       persistLayoutMode('equal'); // 저장 state도 동기화
       persistFocusTarget(null);
+      scheduleLayoutRefresh();
     }
-  }, [tabs.length, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentTabIds, mosaicTree, persistFocusTarget, persistLayoutMode, scheduleLayoutRefresh, setMode, setMosaicTree, tabs.length, workspaceId]);
 
   // Auto mode: re-apply tree when tab statuses change (3s delay)
   const tabStatusKey = tabs.map(t => `${t.id}:${t.status}`).join(',');
@@ -226,8 +252,13 @@ export function MosaicContainer({
       const clamped = newTree ? clampSplitPercentages(newTree, minPct) : null;
       setMosaicTree(clamped);
       debouncedSave();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          onLayoutChange?.();
+        });
+      });
     },
-    [tabs.length, setMosaicTree, debouncedSave],
+    [tabs.length, setMosaicTree, debouncedSave, onLayoutChange],
   );
 
   const handleLayoutModeChange = useCallback(
@@ -320,15 +351,11 @@ export function MosaicContainer({
     setMosaicTree(newTree);
     onCloseTab(pendingCloseTabId);
     setPendingCloseTabId(null);
-    // Focus the previous tab's xterm textarea if available
-    if (prevTabId) {
-      const tileEl = tileFocusRefs.current.get(prevTabId);
-      if (tileEl) {
-        const xtermInput = tileEl.querySelector<HTMLTextAreaElement>('textarea.xterm-helper-textarea');
-        xtermInput?.focus();
-      }
+    if (prevTabId && tabs.some((tab) => tab.id === prevTabId && tab.status !== 'disconnected')) {
+      onSelectTab(prevTabId);
+      focusTerminal?.(prevTabId);
     }
-  }, [pendingCloseTabId, focusHistory, mosaicTree, setMosaicTree, onCloseTab]);
+  }, [pendingCloseTabId, focusHistory, mosaicTree, setMosaicTree, onCloseTab, focusTerminal, onSelectTab, tabs]);
 
   // Handle tile focus (pointer down on any tile) — record in focus history
   // In focus mode: dynamically update focusTarget to the clicked tile
@@ -386,7 +413,15 @@ export function MosaicContainer({
             onRegisterRef={(el) => registerTileRef(tabId, el)}
             onRenameTab={onRenameTab}
           >
-            {tab ? renderTerminal(tab) : null}
+            {tab ? renderTerminal(tab, {
+              className: `grid-cell${tab.status === 'running' ? ' terminal-running' : ''}`,
+              style: { '--tab-color': TAB_COLORS[tab.colorIndex] || TAB_COLORS[0] } as React.CSSProperties,
+              onContextMenu: (x, y) => contextMenu.open(x, y, tabId),
+              onPointerDown: () => {
+                handleTileFocus(tabId);
+                focusTerminal?.(tabId);
+              },
+            }) : null}
           </MosaicTile>
         </MosaicWindow>
       );
@@ -406,10 +441,21 @@ export function MosaicContainer({
   );
 
   const minPaneSizePercentage = getMinPercentage(tabs.length);
+  const effectiveTree = (() => {
+    if (currentTabIds.length === 0) return null;
+    if (!mosaicTree) return buildEqualMosaicTree(currentTabIds);
+
+    const leafIds = extractLeafIds(mosaicTree);
+    const hasStaleLeaf = leafIds.some((id) => !tabMap.has(id));
+    const hasMissingCurrentTab = currentTabIds.some((id) => !leafIds.includes(id));
+    return hasStaleLeaf || hasMissingCurrentTab
+      ? buildEqualMosaicTree(currentTabIds)
+      : mosaicTree;
+  })();
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
-      {mosaicTree === null ? (
+      {effectiveTree === null ? (
         // Empty state — no sessions
         <div
           style={{
@@ -426,7 +472,7 @@ export function MosaicContainer({
         </div>
       ) : (
         <Mosaic<string>
-          value={mosaicTree}
+          value={effectiveTree}
           onChange={handleMosaicChange}
           renderTile={renderTile}
           className="mosaic-blueprint-theme"

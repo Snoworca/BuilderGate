@@ -44,6 +44,7 @@ async function main(): Promise<void> {
     { name: 'SettingsService rotates password for later logins and persists encrypted secret', run: testSettingsPasswordRotation },
     { name: 'SettingsService rolls back runtime state when apply fails', run: testSettingsApplyFailureRollback },
     { name: 'SessionManager.updateRuntimeConfig affects later idle timers and cached snapshots', run: testSessionManagerRuntimeConfig },
+    { name: 'SessionManager no-op resize skips PTY resize and replay refresh', run: testSessionManagerNoopResizeSkipsRefresh },
     { name: 'SessionManager returns cached authoritative snapshots', run: testSessionManagerCachedSnapshot },
     { name: 'SessionManager reports snapshot observability counters', run: testSessionManagerObservabilityCounters },
     { name: 'SessionManager powershell shell bootstrap avoids delayed prompt-hook injection', run: testSessionManagerPowerShellBootstrapArgs },
@@ -452,6 +453,88 @@ async function testSessionManagerRuntimeConfig(): Promise<void> {
       clearTimeout(sessionData.idleTimer);
     }
   }
+}
+
+function testSessionManagerNoopResizeSkipsRefresh(): void {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: true,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  const fakeSession: Session = {
+    id: 'session-noop-resize',
+    name: 'Session noop resize',
+    status: 'running',
+    createdAt: new Date(),
+    lastActiveAt: new Date(),
+    sortOrder: 0,
+  };
+
+  let ptyResizeCount = 0;
+  let refreshReplaySnapshotsCount = 0;
+  const replayEvents: Array<{ kind: string }> = [];
+
+  const sessionData: any = {
+    session: fakeSession,
+    pty: {
+      resize: () => {
+        ptyResizeCount += 1;
+      },
+    },
+    idleTimer: null as NodeJS.Timeout | null,
+    headless: null,
+    headlessHealth: 'degraded',
+    headlessWriteChain: Promise.resolve(),
+    headlessCloseSignal: createTestDeferredSignal<void>(),
+    pendingHeadlessWrites: 0,
+    cols: 80,
+    rows: 24,
+    screenSeq: 7,
+    snapshotCache: {
+      seq: 7,
+      cols: 80,
+      rows: 24,
+      data: 'cached',
+      truncated: false,
+      generatedAt: Date.now(),
+      dirty: false,
+    },
+    degradedReplayBuffer: '',
+    degradedReplayTruncated: false,
+    pendingOutputChunks: [],
+    unsnapshottedOutput: '',
+    unsnapshottedOutputTruncated: false,
+    initialCwd: process.cwd(),
+  };
+
+  (manager as any).sessions.set(fakeSession.id, sessionData);
+  (manager as any).wsRouter = {
+    recordReplayEvent: (event: { kind: string }) => {
+      replayEvents.push(event);
+    },
+    refreshReplaySnapshots: () => {
+      refreshReplaySnapshotsCount += 1;
+    },
+  };
+
+  const result = manager.resize(fakeSession.id, 80, 24);
+
+  assert.equal(result, true);
+  assert.equal(ptyResizeCount, 0);
+  assert.equal(refreshReplaySnapshotsCount, 0);
+  assert.equal(sessionData.screenSeq, 7);
+  assert.equal(sessionData.snapshotCache.dirty, false);
+  assert.deepEqual(replayEvents.map((event) => event.kind), ['resize_requested', 'resize_skipped']);
 }
 
 async function testSessionManagerCachedSnapshot(): Promise<void> {
