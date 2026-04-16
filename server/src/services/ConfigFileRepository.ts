@@ -96,6 +96,7 @@ function applyEditableValues(
   setPath(rawConfig, ['pty', 'defaultCols'], values.pty.defaultCols);
   setPath(rawConfig, ['pty', 'defaultRows'], values.pty.defaultRows);
   setPath(rawConfig, ['pty', 'useConpty'], values.pty.useConpty);
+  setPath(rawConfig, ['pty', 'windowsPowerShellBackend'], values.pty.windowsPowerShellBackend);
   setPath(rawConfig, ['pty', 'shell'], values.pty.shell);
   setPath(rawConfig, ['session', 'idleDelayMs'], values.session.idleDelayMs);
   setPath(rawConfig, ['fileManager', 'maxFileSize'], values.fileManager.maxFileSize);
@@ -137,6 +138,7 @@ function renderPatchedConfig(content: string, config: Config, secrets: SecretPat
     ['pty.defaultCols', renderJson5Value(config.pty.defaultCols)],
     ['pty.defaultRows', renderJson5Value(config.pty.defaultRows)],
     ['pty.useConpty', renderJson5Value(config.pty.useConpty)],
+    ['pty.windowsPowerShellBackend', renderJson5Value(config.pty.windowsPowerShellBackend ?? 'inherit')],
     ['pty.shell', renderJson5Value(config.pty.shell)],
     ['session.idleDelayMs', renderJson5Value(config.session.idleDelayMs)],
     ['fileManager.maxFileSize', renderJson5Value(config.fileManager?.maxFileSize ?? 1048576)],
@@ -154,40 +156,61 @@ function renderPatchedConfig(content: string, config: Config, secrets: SecretPat
   const lines = content.split(/\r?\n/);
   const stack: string[] = [];
   const replaced = new Set<string>();
+  const insertions = new Map<string, { parentPath: string; key: string; value: string }>([
+    ['pty.windowsPowerShellBackend', {
+      parentPath: 'pty',
+      key: 'windowsPowerShellBackend',
+      value: renderJson5Value(config.pty.windowsPowerShellBackend ?? 'inherit'),
+    }],
+  ]);
+  const renderedLines: string[] = [];
 
-  const renderedLines = lines.map((line) => {
+  for (const line of lines) {
     const trimmed = line.trim();
 
     if (trimmed.startsWith('}')) {
+      const currentPath = stack.join('.');
+      for (const [path, insertion] of insertions.entries()) {
+        if (replaced.has(path) || currentPath !== insertion.parentPath) {
+          continue;
+        }
+        const parentIndent = line.match(/^(\s*)}/)?.[1] ?? '';
+        renderedLines.push(`${parentIndent}  ${insertion.key}: ${insertion.value},`);
+        replaced.add(path);
+      }
       const closingCount = (trimmed.match(/}/g) || []).length;
       for (let index = 0; index < closingCount; index += 1) {
         stack.pop();
       }
-      return line;
+      renderedLines.push(line);
+      continue;
     }
 
     const objectMatch = line.match(/^(\s*)([A-Za-z0-9_]+):\s*\{\s*(,?\s*(?:\/\/.*)?)?$/);
     if (objectMatch) {
       stack.push(objectMatch[2]);
-      return line;
+      renderedLines.push(line);
+      continue;
     }
 
     const valueMatch = line.match(/^(\s*)([A-Za-z0-9_]+):\s*(.+)$/);
     if (!valueMatch) {
-      return line;
+      renderedLines.push(line);
+      continue;
     }
 
     const key = valueMatch[2];
     const path = [...stack, key].join('.');
     const replacement = replacements.get(path);
     if (!replacement) {
-      return line;
+      renderedLines.push(line);
+      continue;
     }
 
     replaced.add(path);
     const suffix = parseValueSuffix(valueMatch[3]);
-    return `${valueMatch[1]}${key}: ${replacement}${suffix.hasTrailingComma ? ',' : ''}${suffix.comment}`;
-  });
+    renderedLines.push(`${valueMatch[1]}${key}: ${replacement}${suffix.hasTrailingComma ? ',' : ''}${suffix.comment}`);
+  }
 
   const missingReplacements = [...replacements.keys()].filter((path) => !replaced.has(path));
   if (missingReplacements.length > 0) {

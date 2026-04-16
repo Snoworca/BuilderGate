@@ -42,6 +42,7 @@ export const TerminalContainer = memo(
     const historySeenRef = useRef(false);
     const pendingSnapshotRef = useRef<SnapshotPayload | null>(null);
     const snapshotApplyInProgressRef = useRef(false);
+    const sessionReadyRef = useRef(false);
     const lastAppliedSnapshotRef = useRef<{
       seq: number;
       mode: 'authoritative' | 'fallback';
@@ -61,6 +62,7 @@ export const TerminalContainer = memo(
       restoreSnapshot: () => terminalRef.current?.restoreSnapshot() ?? Promise.resolve(false),
       replaceWithSnapshot: (data) => terminalRef.current?.replaceWithSnapshot(data) ?? Promise.resolve(),
       releasePending: () => terminalRef.current?.releasePending(),
+      setServerReady: (ready) => terminalRef.current?.setServerReady(ready),
       setWindowsPty: (info) => terminalRef.current?.setWindowsPty(info),
     }), []);
 
@@ -71,7 +73,9 @@ export const TerminalContainer = memo(
       historySeenRef.current = false;
       pendingSnapshotRef.current = null;
       snapshotApplyInProgressRef.current = false;
+      sessionReadyRef.current = false;
       lastAppliedSnapshotRef.current = null;
+      terminalRef.current?.setServerReady(false);
       recordTerminalDebugEvent(sessionId, 'session_attached');
       return () => {
         recordTerminalDebugEvent(sessionId, 'session_detached');
@@ -94,7 +98,25 @@ export const TerminalContainer = memo(
 
     const handleError = useEffectEvent((message: string) => {
       console.error('Session error:', message);
+      sessionReadyRef.current = false;
+      terminalRef.current?.setServerReady(false);
       onStatusChange(sessionId, 'disconnected');
+    });
+
+    const handleSubscribed = useEffectEvent((info: { status: string; cwd?: string; ready: boolean }) => {
+      sessionReadyRef.current = info.ready;
+      terminalRef.current?.setServerReady(info.ready);
+      recordTerminalDebugEvent(sessionId, 'session_subscribed', {
+        status: info.status,
+        ready: info.ready,
+        cwdPresent: Boolean(info.cwd),
+      });
+    });
+
+    const handleSessionReady = useEffectEvent(() => {
+      sessionReadyRef.current = true;
+      terminalRef.current?.setServerReady(true);
+      recordTerminalDebugEvent(sessionId, 'session_ready_received');
     });
 
     const handleScreenSnapshot = useEffectEvent(async (snapshot: SnapshotPayload) => {
@@ -213,7 +235,13 @@ export const TerminalContainer = memo(
     });
 
     useEffect(() => {
+      terminalRef.current?.setServerReady(sessionReadyRef.current);
+    });
+
+    useEffect(() => {
       const unsubscribe = subscribeSession(sessionId, {
+        onSubscribed: handleSubscribed,
+        onSessionReady: handleSessionReady,
         onScreenSnapshot: (snapshot) => {
           void handleScreenSnapshot(snapshot);
         },
@@ -232,6 +260,10 @@ export const TerminalContainer = memo(
 
     const handleInput = useCallback((data: string) => {
       const debugInput = buildTerminalInputDebugPayload(data);
+      if (!sessionReadyRef.current) {
+        recordTerminalDebugEvent(sessionId, 'ws_input_dropped_not_ready', debugInput.details, debugInput.preview);
+        return;
+      }
       if (shouldRecordTerminalInputDebug(debugInput)) {
         recordTerminalDebugEvent(sessionId, 'ws_input_sent', debugInput.details, debugInput.preview);
       }

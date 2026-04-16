@@ -252,6 +252,8 @@ async function startServer(): Promise<void> {
     // ========================================================================
     runtimeConfigStore = new RuntimeConfigStore(config);
     const configRepository = new ConfigFileRepository();
+    sessionManager.assertRuntimePtyCapabilities();
+    await sessionManager.warmPowerShellWinptyCapability();
 
     // ========================================================================
     // Initialize Auth Service (Phase 2)
@@ -385,6 +387,12 @@ async function startServer(): Promise<void> {
 
     // Start HTTPS server
     httpsServer.listen(PORT, () => {
+      const powerShellBackend = config.pty.windowsPowerShellBackend ?? 'inherit';
+      const effectivePowerShellBackend = powerShellBackend === 'inherit'
+        ? (config.pty.useConpty ? 'conpty' : 'winpty')
+        : powerShellBackend;
+      console.log(`[PTY] Global Windows backend default: ${config.pty.useConpty ? 'conpty' : 'winpty'}`);
+      console.log(`[PTY] Effective PowerShell backend default: ${effectivePowerShellBackend} (policy: ${powerShellBackend})`);
       const twoFAStatus = (() => {
         const totpEnabled = config.twoFactor?.enabled ?? false;
         if (!totpEnabled) return 'Disabled';
@@ -398,7 +406,7 @@ async function startServer(): Promise<void> {
       console.log(`║  HTTPS Server: https://localhost:${PORT}                        ║`);
       console.log(`║  Health Check: https://localhost:${PORT}/health                 ║`);
       console.log(`║  Login:        POST https://localhost:${PORT}/api/auth/login    ║`);
-      console.log(`║  PTY Backend:  ${config.pty.useConpty ? 'ConPTY' : 'winpty'}                                       ║`);
+      console.log(`║  Global PTY:   ${config.pty.useConpty ? 'ConPTY' : 'winpty'}                                       ║`);
       console.log('║  TLS Version:  1.2 - 1.3                                       ║');
       console.log('║  Auth:         JWT (HS256)                                     ║');
       console.log(`║  2FA:          ${twoFAStatus.padEnd(30)}     ║`);

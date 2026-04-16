@@ -145,6 +145,10 @@ export function SettingsPage({ visible, onBack }: Props) {
 
     const errors: string[] = [];
     const passwordRequested = Boolean(secrets.currentPassword || secrets.newPassword || secrets.confirmPassword);
+    const allowedPowerShellBackends = new Set(
+      snapshot.capabilities['pty.windowsPowerShellBackend']?.options ?? ['inherit', 'conpty', 'winpty'],
+    );
+    const winptyUnavailable = !allowedPowerShellBackends.has('winpty');
 
     if (passwordRequested) {
       if (!secrets.currentPassword || !secrets.newPassword || !secrets.confirmPassword) {
@@ -169,6 +173,10 @@ export function SettingsPage({ visible, onBack }: Props) {
       if (/\s/.test(item)) errors.push(`Blocked path cannot contain whitespace: ${item}`);
     }
 
+    if (winptyUnavailable && !draft.pty.useConpty) {
+      errors.push('winpty is unavailable on this host. Enable "Use ConPTY" before saving terminal settings.');
+    }
+
     return errors;
   }, [draft, secrets, snapshot]);
 
@@ -176,6 +184,20 @@ export function SettingsPage({ visible, onBack }: Props) {
     if (!snapshot || !draft) return false;
     return JSON.stringify(snapshot.values) !== JSON.stringify(draft) || JSON.stringify(secrets) !== JSON.stringify(EMPTY_SECRETS);
   }, [draft, secrets, snapshot]);
+
+  const powerShellBackendHint = useMemo(() => {
+    if (!draft || !snapshot) return '';
+    const capabilityReason = snapshot.capabilities['pty.windowsPowerShellBackend']?.reason;
+    const allowsWinpty = (snapshot.capabilities['pty.windowsPowerShellBackend']?.options ?? ['inherit', 'conpty', 'winpty']).includes('winpty');
+    const baseHint = draft.pty.windowsPowerShellBackend === 'inherit'
+      ? (!draft.pty.useConpty && !allowsWinpty
+          ? 'winpty is unavailable on this host. Enable "Use ConPTY" before saving terminal settings.'
+          : `PowerShell inherits ${draft.pty.useConpty ? 'ConPTY' : 'winpty'} from "Use ConPTY".`)
+      : (!draft.pty.useConpty && !allowsWinpty
+          ? 'winpty is unavailable on this host. Enable "Use ConPTY" before saving terminal settings.'
+          : `New PowerShell sessions will force ${draft.pty.windowsPowerShellBackend}.`);
+    return capabilityReason ? `${baseHint} ${capabilityReason}` : baseHint;
+  }, [draft, snapshot]);
 
   if (!visible) return null;
 
@@ -212,6 +234,29 @@ export function SettingsPage({ visible, onBack }: Props) {
       setSummary(response.applySummary);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to save settings');
+      try {
+        const nextSnapshot = await settingsApi.getSettings();
+        setSnapshot(nextSnapshot);
+        setDraft((current) => {
+          if (!current) {
+            return structuredClone(nextSnapshot.values);
+          }
+          const nextDraft = structuredClone(current);
+          const allowedPowerShellBackends = new Set(
+            nextSnapshot.capabilities['pty.windowsPowerShellBackend']?.options ?? ['inherit', 'conpty', 'winpty'],
+          );
+          if (!allowedPowerShellBackends.has(nextDraft.pty.windowsPowerShellBackend)) {
+            nextDraft.pty.windowsPowerShellBackend = nextSnapshot.values.pty.windowsPowerShellBackend;
+          }
+          if (!allowedPowerShellBackends.has('winpty') && !nextDraft.pty.useConpty) {
+            nextDraft.pty.windowsPowerShellBackend = nextSnapshot.values.pty.windowsPowerShellBackend;
+            nextDraft.pty.useConpty = nextSnapshot.values.pty.useConpty;
+          }
+          return nextDraft;
+        });
+      } catch {
+        // Keep the existing draft if capability refresh fails.
+      }
     } finally {
       setSaving(false);
     }
@@ -325,6 +370,13 @@ export function SettingsPage({ visible, onBack }: Props) {
               </Field>
               {snapshot.capabilities['pty.useConpty'].available && (
                 <Field label="Use ConPTY" scope={scope(snapshot, 'pty.useConpty')}><input type="checkbox" checked={draft.pty.useConpty} onChange={(e) => updateDraft((next) => { next.pty.useConpty = e.target.checked; })} /></Field>
+              )}
+              {snapshot.capabilities['pty.windowsPowerShellBackend']?.available && (
+                <Field label="PowerShell backend" scope={scope(snapshot, 'pty.windowsPowerShellBackend')} hint={powerShellBackendHint}>
+                  <select value={draft.pty.windowsPowerShellBackend} onChange={(e) => updateDraft((next) => { next.pty.windowsPowerShellBackend = e.target.value as EditableSettingsValues['pty']['windowsPowerShellBackend']; })}>
+                    {(snapshot.capabilities['pty.windowsPowerShellBackend'].options ?? ['inherit']).map((item) => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                </Field>
               )}
             </Card>
 

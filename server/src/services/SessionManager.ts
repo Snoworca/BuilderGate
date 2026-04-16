@@ -3,9 +3,9 @@ import { v4 as uuidv4 } from 'uuid';
 import os from 'os';
 import path from 'path';
 import { unlinkSync, watchFile, unwatchFile, readFileSync, existsSync } from 'fs';
-import { execSync } from 'child_process';
+import { execFile, execFileSync, execSync } from 'child_process';
 import { Session, SessionDTO, SessionStatus, UpdateSessionRequest, ShellType, ShellInfo } from '../types/index.js';
-import type { PTYConfig, SessionConfig } from '../types/config.types.js';
+import type { PTYConfig, SessionConfig, WindowsPowerShellBackend as PowerShellBackendPolicy } from '../types/config.types.js';
 import { config } from '../utils/config.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import {
@@ -101,6 +101,13 @@ const DEBUG_INPUT_SAMPLE_LIMIT = 8;
 const MAX_RESIZE_REPLAY_DELAY_MS = 400;
 const RESIZE_REPLAY_QUIET_WINDOW_MS = 120;
 
+interface SessionManagerDeps {
+  execFileFn?: typeof execFile;
+  execFileSyncFn?: typeof execFileSync;
+  platform?: NodeJS.Platform;
+  spawnPty?: typeof pty.spawn;
+}
+
 interface SessionData {
   session: Session;
   pty: pty.IPty;
@@ -158,6 +165,14 @@ export class SessionManager {
   private pendingResizeReplayLastOutputAt: Map<string, number> = new Map();
   private runtimePtyConfig: PTYConfig;
   private runtimeSessionConfig: SessionConfig;
+  private readonly execFileFn: typeof execFile;
+  private readonly execFileSyncFn: typeof execFileSync;
+  private readonly platform: NodeJS.Platform;
+  private readonly spawnPty: typeof pty.spawn;
+  private powerShellWinptyProbe: { checked: boolean; available: boolean; reason?: string } = {
+    checked: false,
+    available: false,
+  };
   private wsRouter: WsRouter | null = null;
   private cachedAvailableShells: ShellInfo[] | null = null;
   private cwdChangeCallback: ((sessionId: string, cwd: string) => void) | null = null;
@@ -173,9 +188,16 @@ export class SessionManager {
     maxSnapshotSerializeMs: 0,
   };
 
-  constructor(initialConfig: { pty: PTYConfig; session: SessionConfig } = { pty: config.pty, session: config.session }) {
+  constructor(
+    initialConfig: { pty: PTYConfig; session: SessionConfig } = { pty: config.pty, session: config.session },
+    deps: SessionManagerDeps = {},
+  ) {
     this.runtimePtyConfig = clonePtyConfig(initialConfig.pty);
     this.runtimeSessionConfig = { idleDelayMs: initialConfig.session.idleDelayMs };
+    this.execFileFn = deps.execFileFn ?? execFile;
+    this.execFileSyncFn = deps.execFileSyncFn ?? execFileSync;
+    this.platform = deps.platform ?? process.platform;
+    this.spawnPty = deps.spawnPty ?? pty.spawn;
     // 서버 시작 시 한 번만 셸 감지 후 캐싱
     this.cachedAvailableShells = this.detectAvailableShells();
   }
@@ -187,6 +209,7 @@ export class SessionManager {
 
     const cwdFilePath = this.getCwdTrackingFilePath(id);
     const { shell: shellCmd, args: shellArgs, shellType } = this.resolveShell(shell, cwdFilePath);
+    const backendResolution = this.resolveWindowsPtyBackend(shellType);
     const initialCwd = this.resolveSpawnCwd(cwd, shellType);
 
     // Step 9: OSC 133 셸 통합 환경변수 구성
@@ -194,14 +217,14 @@ export class SessionManager {
     const cols = this.runtimePtyConfig.defaultCols;
     const rows = this.runtimePtyConfig.defaultRows;
 
-    const ptyProcess = pty.spawn(shellCmd, shellArgs, {
+    const ptyProcess = this.spawnPty(shellCmd, shellArgs, {
       name: this.runtimePtyConfig.termName,
       cols,
       rows,
       cwd: initialCwd,
       env,  // Step 9: 확장된 env (OSC 133 주입 포함)
       // Windows PTY backend (ConPTY vs winpty)
-      useConpty: this.runtimePtyConfig.useConpty,
+      useConpty: backendResolution.useConpty,
     });
 
     const session: Session = {
@@ -229,7 +252,7 @@ export class SessionManager {
       rows,
       screenSeq: 0,
       snapshotCache: null,
-      windowsPty: this.getWindowsPtyInfo(),
+      windowsPty: this.getWindowsPtyInfo(backendResolution.backend),
       degradedReplayBuffer: '',
       degradedReplayTruncated: false,
       pendingOutputChunks: [],
@@ -249,6 +272,12 @@ export class SessionManager {
 
     this.sessions.set(id, sessionData);
     this.initializeHeadlessState(id, sessionData);
+    this.captureDebugEvent(id, 'pty', 'backend_resolved', {
+      shellType,
+      requestedPowerShellBackend: backendResolution.requestedPowerShellBackend,
+      effectiveBackend: backendResolution.backend,
+      useConpty: backendResolution.useConpty,
+    });
 
     // Step 9: OSC 133 콜백 등록
     oscDetector.setCallback((status, event) => {
@@ -694,16 +723,63 @@ export class SessionManager {
     return baseEnv;
   }
 
-  private getWindowsPtyInfo(): WindowsPtyInfo | undefined {
-    if (process.platform !== 'win32') {
+  private getWindowsPtyInfo(backendOverride?: WindowsPtyBackend): WindowsPtyInfo | undefined {
+    if (this.platform !== 'win32') {
       return undefined;
     }
 
-    const backend: WindowsPtyBackend = this.runtimePtyConfig.useConpty ? 'conpty' : 'winpty';
+    const backend: WindowsPtyBackend = backendOverride ?? (this.runtimePtyConfig.useConpty ? 'conpty' : 'winpty');
     const buildNumber = parseInt(os.release().split('.').pop() ?? '', 10);
     return {
       backend,
       buildNumber: Number.isFinite(buildNumber) ? buildNumber : undefined,
+    };
+  }
+
+  private resolveWindowsPtyBackend(shellType: 'powershell' | 'bash' | 'zsh' | 'sh' | 'cmd'): {
+    backend: WindowsPtyBackend;
+    useConpty: boolean;
+    requestedPowerShellBackend: PowerShellBackendPolicy;
+  } {
+    const inheritedBackend: WindowsPtyBackend = this.runtimePtyConfig.useConpty ? 'conpty' : 'winpty';
+    const requestedPowerShellBackend = this.runtimePtyConfig.windowsPowerShellBackend ?? 'inherit';
+
+    if (this.platform !== 'win32') {
+      return {
+        backend: inheritedBackend,
+        useConpty: inheritedBackend === 'conpty',
+        requestedPowerShellBackend,
+      };
+    }
+
+    if (shellType !== 'powershell') {
+      if (inheritedBackend === 'winpty') {
+        this.assertPowerShellWinptyAvailable();
+      }
+      return {
+        backend: inheritedBackend,
+        useConpty: inheritedBackend === 'conpty',
+        requestedPowerShellBackend,
+      };
+    }
+
+    const effectiveBackend: WindowsPtyBackend = requestedPowerShellBackend === 'inherit'
+      ? inheritedBackend
+      : requestedPowerShellBackend;
+
+    if (effectiveBackend === 'winpty') {
+      this.assertPowerShellWinptyAvailable();
+      return {
+        backend: 'winpty',
+        useConpty: false,
+        requestedPowerShellBackend,
+      };
+    }
+
+    return {
+      backend: effectiveBackend,
+      useConpty: effectiveBackend === 'conpty',
+      requestedPowerShellBackend,
     };
   }
 
@@ -835,6 +911,22 @@ export class SessionManager {
   }
 
   updateRuntimeConfig(next: { idleDelayMs?: number; pty?: Partial<PTYConfig> }): void {
+    const nextPowerShellBackend = next.pty?.windowsPowerShellBackend ?? this.runtimePtyConfig.windowsPowerShellBackend ?? 'inherit';
+    const nextUseConpty = next.pty?.useConpty ?? this.runtimePtyConfig.useConpty;
+    const effectivePowerShellBackend = nextPowerShellBackend === 'inherit'
+      ? (nextUseConpty ? 'conpty' : 'winpty')
+      : nextPowerShellBackend;
+    if (this.platform !== 'win32' && nextUseConpty) {
+      throw new AppError(ErrorCode.CONFIG_ERROR, 'ConPTY is only available on Windows');
+    }
+    if (this.platform !== 'win32' && nextPowerShellBackend !== 'inherit') {
+      throw new AppError(ErrorCode.CONFIG_ERROR, 'PowerShell backend override is only available on Windows');
+    }
+
+    if (this.platform === 'win32' && (nextUseConpty === false || effectivePowerShellBackend === 'winpty')) {
+      this.assertPowerShellWinptyAvailable();
+    }
+
     if (next.idleDelayMs !== undefined) {
       this.runtimeSessionConfig.idleDelayMs = next.idleDelayMs;
     }
@@ -863,6 +955,107 @@ export class SessionManager {
         data.unsnapshottedOutputTruncated = data.unsnapshottedOutputTruncated || pending.truncated;
       }
     }
+  }
+
+  assertRuntimePtyCapabilities(): void {
+    const configuredPowerShellBackend = this.runtimePtyConfig.windowsPowerShellBackend ?? 'inherit';
+    if (this.platform !== 'win32' && this.runtimePtyConfig.useConpty) {
+      throw new AppError(ErrorCode.CONFIG_ERROR, 'ConPTY is only available on Windows');
+    }
+    const effectivePowerShellBackend = configuredPowerShellBackend === 'inherit'
+      ? (this.runtimePtyConfig.useConpty ? 'conpty' : 'winpty')
+      : configuredPowerShellBackend;
+    if (this.platform !== 'win32' && configuredPowerShellBackend !== 'inherit') {
+      throw new AppError(ErrorCode.CONFIG_ERROR, 'PowerShell backend override is only available on Windows');
+    }
+    if (this.platform === 'win32' && (this.runtimePtyConfig.useConpty === false || effectivePowerShellBackend === 'winpty')) {
+      this.assertPowerShellWinptyAvailable();
+    }
+  }
+
+  primePowerShellWinptyCapability(): void {
+    if (this.platform !== 'win32' || this.powerShellWinptyProbe.checked) {
+      return;
+    }
+
+    try {
+      this.assertPowerShellWinptyAvailable();
+    } catch {
+      // The cached failure state is used by SettingsService to truthfully limit options.
+    }
+  }
+
+  warmPowerShellWinptyCapability(): Promise<void> {
+    if (this.platform !== 'win32' || this.powerShellWinptyProbe.checked) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+      this.execFileFn(process.execPath, ['-e', this.buildWinptyProbeScript()], {
+        timeout: 3000,
+        windowsHide: true,
+      }, (error, _stdout, stderr) => {
+        if (!error) {
+          this.powerShellWinptyProbe = { checked: true, available: true };
+          resolve();
+          return;
+        }
+
+        const reason = stderr?.trim() || formatWinptyProbeFailure(error);
+        this.powerShellWinptyProbe = { checked: true, available: false, reason };
+        resolve();
+      });
+    });
+  }
+
+  getPowerShellWinptyCapability(): { checked: boolean; available: boolean; reason?: string } {
+    if (this.platform !== 'win32') {
+      return {
+        checked: true,
+        available: false,
+        reason: 'PowerShell backend override is only available on Windows',
+      };
+    }
+
+    return { ...this.powerShellWinptyProbe };
+  }
+
+  private assertPowerShellWinptyAvailable(): void {
+    if (this.platform !== 'win32') {
+      throw new AppError(ErrorCode.CONFIG_ERROR, 'PowerShell winpty backend is only available on Windows');
+    }
+
+    if (this.powerShellWinptyProbe.checked && this.powerShellWinptyProbe.available) {
+      return;
+    }
+
+    try {
+      this.execFileSyncFn(process.execPath, ['-e', this.buildWinptyProbeScript()], {
+        stdio: 'pipe',
+        timeout: 3000,
+        windowsHide: true,
+      });
+      this.powerShellWinptyProbe = { checked: true, available: true };
+    } catch (error) {
+      const reason = formatWinptyProbeFailure(error);
+      this.powerShellWinptyProbe = { checked: true, available: false, reason };
+      throw new AppError(
+        ErrorCode.CONFIG_ERROR,
+        `PowerShell winpty backend is unavailable: ${reason}`,
+        { requestedBackend: 'winpty', reason },
+      );
+    }
+  }
+
+  private buildWinptyProbeScript(): string {
+    return [
+      "const pty = require('node-pty');",
+      'let exited = false;',
+      `const child = pty.spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', 'exit'], { name: ${JSON.stringify(this.runtimePtyConfig.termName)}, cols: 80, rows: 24, cwd: process.cwd(), env: process.env, useConpty: false });`,
+      'child.onData(() => {});',
+      'child.onExit(() => { exited = true; process.exit(0); });',
+      "setTimeout(() => { if (!exited) { process.exit(124); } }, 1500);",
+    ].join('');
   }
 
   /**
@@ -976,6 +1169,10 @@ export class SessionManager {
       data: snapshot.data,
       truncated: snapshot.truncated,
     };
+  }
+
+  isSessionReady(sessionId: string): boolean {
+    return this.sessions.has(sessionId);
   }
 
   getScreenSnapshot(sessionId: string): SessionScreenSnapshot | null {
@@ -1385,6 +1582,7 @@ function clonePtyConfig(source: PTYConfig): PTYConfig {
     defaultCols: source.defaultCols,
     defaultRows: source.defaultRows,
     useConpty: source.useConpty,
+    windowsPowerShellBackend: source.windowsPowerShellBackend ?? 'inherit',
     scrollbackLines: source.scrollbackLines,
     maxSnapshotBytes: source.maxSnapshotBytes,
     shell: source.shell,
@@ -1422,6 +1620,32 @@ function formatSafeInputPreview(raw: string): string | null {
     .replace(/\t/g, '\\t')
     .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, (match) => `\\x${match.charCodeAt(0).toString(16).padStart(2, '0')}`)
     .replace(/\x1b/g, '\\x1b');
+}
+
+function formatWinptyProbeFailure(error: unknown): string {
+  if (error && typeof error === 'object') {
+    const childProcessError = error as {
+      message?: string;
+      stderr?: Buffer | string;
+      status?: number | null;
+      signal?: string | null;
+      code?: string;
+    };
+    const stderr = childProcessError.stderr ? String(childProcessError.stderr).trim() : '';
+    if (stderr) {
+      return stderr;
+    }
+    if (childProcessError.status === 124 || childProcessError.signal === 'SIGTERM') {
+      return 'winpty probe timed out while starting PowerShell';
+    }
+    if (childProcessError.code) {
+      return `${childProcessError.code}${childProcessError.message ? `: ${childProcessError.message}` : ''}`;
+    }
+    if (childProcessError.message) {
+      return childProcessError.message;
+    }
+  }
+  return String(error);
 }
 
 function buildInputDebugDetails(raw: string): Record<string, SessionDebugCaptureValue> {

@@ -305,11 +305,9 @@ export class WorkspaceService {
       throw new AppError(ErrorCode.TAB_NOT_FOUND);
     }
 
-    // Delete old session first to prevent PTY/watchFile leak
-    this.sessionManager.deleteSession(tab.sessionId);
-
     // Create new PTY session with same shell type, restoring last CWD
     const sessionDTO = this.sessionManager.createSession(tab.name, tab.shellType, tab.lastCwd);
+    this.sessionManager.deleteSession(tab.sessionId);
     tab.sessionId = sessionDTO.id;
 
     await this.save();

@@ -37,6 +37,13 @@ async function main(): Promise<void> {
   const tests: Array<{ name: string; run: () => Promise<void> | void }> = [
     { name: 'RuntimeConfigStore builds a redacted editable snapshot', run: testRuntimeConfigSnapshot },
     { name: 'RuntimeConfigStore marks platform capabilities and merges patches', run: testRuntimeConfigCapabilities },
+    { name: 'SessionManager resolves PowerShell backend override without changing non-PowerShell behavior', run: testSessionManagerPowerShellBackendResolution },
+    { name: 'SessionManager rejects explicit winpty runtime config when probe fails', run: testSessionManagerWinptyProbeFailure },
+    { name: 'SessionManager retries winpty probe after a previous failure', run: testSessionManagerWinptyProbeRetry },
+    { name: 'SessionManager.createSession uses resolved backend for PowerShell sessions', run: testSessionManagerCreateSessionUsesResolvedBackend },
+    { name: 'SessionManager snapshot metadata stays truthful across backend combinations', run: testSessionManagerSnapshotMetadataTruthfulness },
+    { name: 'SessionManager non-Windows runtime validation matches the settings contract', run: testSessionManagerNonWindowsRuntimeValidation },
+    { name: 'SettingsService hides winpty option after capability probe failure', run: testSettingsServiceWinptyCapabilitySurface },
     { name: 'AuthService.updateRuntimeConfig updates password validation and token duration', run: testAuthRuntimeConfig },
     { name: 'SettingsService rejects unsupported settings keys', run: testSettingsUnsupportedSetting },
     { name: 'SettingsService persists editable values and applies runtime updates', run: testSettingsServicePersistence },
@@ -76,6 +83,7 @@ async function main(): Promise<void> {
     { name: 'Terminal payload truncation drops incomplete trailing OSC sequences', run: testTerminalPayloadTruncationIncompleteOsc },
     { name: 'Terminal payload truncation removes incomplete trailing escape suffixes', run: testTerminalPayloadTruncationTrailingIncompleteSuffix },
     { name: 'WsRouter sends screen snapshot before flushing queued live output', run: testWsRouterScreenSnapshotOrdering },
+    { name: 'WsRouter blocks input while replay is pending and releases on ACK', run: testWsRouterBlocksInputWhileReplayPending },
     { name: 'WsRouter reports replay observability counters', run: testWsRouterObservabilityCounters },
     { name: 'WsRouter still emits a replay start for degraded sessions', run: testWsRouterDegradedReplayStart },
     { name: 'WsRouter still emits a replay start for oversized snapshots', run: testWsRouterOversizedSnapshotReplayStart },
@@ -85,6 +93,7 @@ async function main(): Promise<void> {
     { name: 'WsRouter does not duplicate deferred degraded payload after fallback snapshot ack', run: testWsRouterNoDuplicateDeferredFallbackPayload },
     { name: 'WsRouter clears replay state when a session is removed', run: testWsRouterClearSessionState },
     { name: 'WorkspaceService restartTab invalidates old session lineage and preserves lastCwd', run: testWorkspaceServiceRestartTab },
+    { name: 'WorkspaceService restartTab preserves the old session when replacement creation fails', run: testWorkspaceServiceRestartTabCreateFailure },
     { name: 'WorkspaceService deleteWorkspace clears workspace sessions in bulk', run: testWorkspaceServiceDeleteWorkspace },
     { name: 'WorkspaceService orphan recovery recreates fresh session ids with saved cwd', run: testWorkspaceServiceCheckOrphanTabs },
     { name: 'FileService.updateConfig applies new limits to later operations', run: testFileServiceRuntimeConfig },
@@ -157,6 +166,8 @@ function testRuntimeConfigCapabilities(): void {
 
   assert.equal(capabilities['pty.useConpty'].available, false);
   assert.equal(capabilities['pty.useConpty'].reason, 'Windows-only PTY backend');
+  assert.equal(capabilities['pty.windowsPowerShellBackend'].available, false);
+  assert.equal(capabilities['pty.windowsPowerShellBackend'].reason, 'Windows-only PowerShell backend override');
   assert.deepEqual(capabilities['pty.shell'].options, ['auto', 'bash']);
 
   const merged = store.mergeEditablePatch({
@@ -462,6 +473,369 @@ async function testSessionManagerRuntimeConfig(): Promise<void> {
       clearTimeout(sessionData.idleTimer);
     }
   }
+}
+
+function testSessionManagerPowerShellBackendResolution(): void {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: true,
+      windowsPowerShellBackend: 'inherit',
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 16,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  }, {
+    execFileSyncFn: (() => Buffer.from('')) as any,
+    platform: 'win32',
+  });
+
+  const inheritPowerShell = (manager as any).resolveWindowsPtyBackend('powershell');
+  assert.equal(inheritPowerShell.backend, 'conpty');
+  assert.equal(inheritPowerShell.useConpty, true);
+  assert.equal(inheritPowerShell.requestedPowerShellBackend, 'inherit');
+
+  manager.updateRuntimeConfig({
+    pty: {
+      windowsPowerShellBackend: 'conpty',
+    },
+  });
+
+  const forcedConpty = (manager as any).resolveWindowsPtyBackend('powershell');
+  assert.equal(forcedConpty.backend, 'conpty');
+  assert.equal(forcedConpty.useConpty, true);
+  assert.equal(forcedConpty.requestedPowerShellBackend, 'conpty');
+
+  manager.updateRuntimeConfig({
+    pty: {
+      useConpty: false,
+      windowsPowerShellBackend: 'inherit',
+    },
+  });
+
+  const inheritWinpty = (manager as any).resolveWindowsPtyBackend('powershell');
+  assert.equal(inheritWinpty.backend, 'winpty');
+  assert.equal(inheritWinpty.useConpty, false);
+  assert.equal(inheritWinpty.requestedPowerShellBackend, 'inherit');
+
+  const nonPowerShell = (manager as any).resolveWindowsPtyBackend('cmd');
+  assert.equal(nonPowerShell.backend, 'winpty');
+  assert.equal(nonPowerShell.useConpty, false);
+}
+
+function testSessionManagerWinptyProbeFailure(): void {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: true,
+      windowsPowerShellBackend: 'inherit',
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 16,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  }, {
+    execFileSyncFn: (() => {
+      throw new Error('simulated winpty probe failure');
+    }) as any,
+    platform: 'win32',
+  });
+
+  assert.throws(
+    () => manager.updateRuntimeConfig({ pty: { windowsPowerShellBackend: 'winpty' } }),
+    (error: unknown) => error instanceof AppError && error.code === ErrorCode.CONFIG_ERROR,
+  );
+
+  assert.throws(
+    () => manager.updateRuntimeConfig({ pty: { useConpty: false, windowsPowerShellBackend: 'inherit' } }),
+    (error: unknown) => error instanceof AppError && error.code === ErrorCode.CONFIG_ERROR,
+  );
+
+  assert.throws(
+    () => manager.updateRuntimeConfig({ pty: { useConpty: false, windowsPowerShellBackend: 'conpty' } }),
+    (error: unknown) => error instanceof AppError && error.code === ErrorCode.CONFIG_ERROR,
+  );
+}
+
+function testSessionManagerWinptyProbeRetry(): void {
+  let attempts = 0;
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: true,
+      windowsPowerShellBackend: 'inherit',
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 16,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  }, {
+    execFileSyncFn: (() => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new Error('transient winpty probe failure');
+      }
+      return Buffer.from('');
+    }) as any,
+    platform: 'win32',
+  });
+
+  assert.throws(
+    () => manager.updateRuntimeConfig({ pty: { windowsPowerShellBackend: 'winpty' } }),
+    (error: unknown) => error instanceof AppError && error.code === ErrorCode.CONFIG_ERROR,
+  );
+
+  manager.updateRuntimeConfig({ pty: { windowsPowerShellBackend: 'winpty' } });
+  assert.equal(attempts, 2);
+}
+
+function testSessionManagerCreateSessionUsesResolvedBackend(): void {
+  let observedUseConpty: boolean | undefined;
+  let killCalled = false;
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: true,
+      windowsPowerShellBackend: 'winpty',
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'powershell',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  }, {
+    execFileSyncFn: (() => Buffer.from('')) as any,
+    platform: 'win32',
+    spawnPty: ((_: string, __: string[], options: { useConpty?: boolean; cols?: number; rows?: number }) => {
+      observedUseConpty = options.useConpty;
+      return {
+        pid: 1,
+        cols: options.cols ?? 80,
+        rows: options.rows ?? 24,
+        process: 'powershell.exe',
+        handleFlowControl: false,
+        onData() { return { dispose() {} }; },
+        onExit() { return { dispose() {} }; },
+        write() {},
+        resize() {},
+        kill() { killCalled = true; },
+      } as any;
+    }) as any,
+  });
+
+  const session = manager.createSession('PowerShell Test', 'powershell', os.tmpdir());
+  assert.equal(typeof session.id, 'string');
+  assert.equal(observedUseConpty, false);
+  assert.equal(manager.getScreenSnapshot(session.id)?.windowsPty?.backend, 'winpty');
+  assert.equal(manager.deleteSession(session.id), true);
+  assert.equal(killCalled, true);
+}
+
+async function testSettingsServiceWinptyCapabilitySurface(): Promise<void> {
+  const fixture = createConfigFixture();
+  const cryptoService = new CryptoService('settings-winpty-capability');
+  const authService = new AuthService(fixture.auth!, cryptoService);
+  const sessionManager = new SessionManager({ pty: fixture.pty, session: fixture.session }, {
+    execFileFn: ((_file: string, _args: readonly string[] | undefined, _options: any, callback: any) => {
+      callback(new Error('simulated winpty probe failure'), '', '');
+      return {} as any;
+    }) as any,
+    execFileSyncFn: (() => {
+      throw new Error('simulated winpty probe failure');
+    }) as any,
+    platform: 'win32',
+  });
+  const settingsService = new SettingsService({
+    runtimeConfigStore: new RuntimeConfigStore(fixture, 'win32'),
+    configRepository: new ConfigFileRepository(path.join(os.tmpdir(), 'unused-config.json5')),
+    cryptoService,
+    authService,
+    getFileService: () => new FileService({
+      getSession: () => ({ id: 'session-1' }),
+      getPtyPid: () => null,
+      getInitialCwd: () => os.tmpdir(),
+      getCwdFilePath: () => null,
+    }, fixture.fileManager!),
+    sessionManager,
+  }, 'win32');
+
+  try {
+    await sessionManager.warmPowerShellWinptyCapability();
+    const snapshot = settingsService.getSettingsSnapshot();
+    assert.equal(snapshot.capabilities['pty.useConpty'].available, false);
+    assert.deepEqual(snapshot.capabilities['pty.windowsPowerShellBackend'].options, ['inherit', 'conpty']);
+    assert.match(snapshot.capabilities['pty.windowsPowerShellBackend'].reason ?? '', /winpty/i);
+  } finally {
+    authService.destroy();
+  }
+}
+
+function testSessionManagerSnapshotMetadataTruthfulness(): void {
+  const observedBackends: string[] = [];
+  const createManager = (ptyConfig: Config['pty']) => new SessionManager({
+    pty: ptyConfig,
+    session: {
+      idleDelayMs: 200,
+    },
+  }, {
+    execFileSyncFn: (() => Buffer.from('')) as any,
+    platform: 'win32',
+    spawnPty: ((_: string, __: string[], options: { useConpty?: boolean; cols?: number; rows?: number }) => {
+      observedBackends.push(options.useConpty ? 'conpty' : 'winpty');
+      return {
+        pid: 1,
+        cols: options.cols ?? 80,
+        rows: options.rows ?? 24,
+        process: 'powershell.exe',
+        handleFlowControl: false,
+        onData() { return { dispose() {} }; },
+        onExit() { return { dispose() {} }; },
+        write() {},
+        resize() {},
+        kill() {},
+      } as any;
+    }) as any,
+  });
+
+  const cases: Array<{
+    name: string;
+    manager: SessionManager;
+    shell: 'powershell' | 'cmd';
+    expectedBackend: 'conpty' | 'winpty';
+  }> = [
+    {
+      name: 'powershell-winpty',
+      manager: createManager({
+        termName: 'xterm-256color',
+        defaultCols: 80,
+        defaultRows: 24,
+        useConpty: true,
+        windowsPowerShellBackend: 'winpty',
+        scrollbackLines: 1000,
+        maxSnapshotBytes: 1024,
+        shell: 'auto',
+      }),
+      shell: 'powershell',
+      expectedBackend: 'winpty',
+    },
+    {
+      name: 'powershell-conpty',
+      manager: createManager({
+        termName: 'xterm-256color',
+        defaultCols: 80,
+        defaultRows: 24,
+        useConpty: false,
+        windowsPowerShellBackend: 'conpty',
+        scrollbackLines: 1000,
+        maxSnapshotBytes: 1024,
+        shell: 'auto',
+      }),
+      shell: 'powershell',
+      expectedBackend: 'conpty',
+    },
+    {
+      name: 'powershell-inherit-conpty',
+      manager: createManager({
+        termName: 'xterm-256color',
+        defaultCols: 80,
+        defaultRows: 24,
+        useConpty: true,
+        windowsPowerShellBackend: 'inherit',
+        scrollbackLines: 1000,
+        maxSnapshotBytes: 1024,
+        shell: 'auto',
+      }),
+      shell: 'powershell',
+      expectedBackend: 'conpty',
+    },
+    {
+      name: 'powershell-inherit-winpty',
+      manager: createManager({
+        termName: 'xterm-256color',
+        defaultCols: 80,
+        defaultRows: 24,
+        useConpty: false,
+        windowsPowerShellBackend: 'inherit',
+        scrollbackLines: 1000,
+        maxSnapshotBytes: 1024,
+        shell: 'auto',
+      }),
+      shell: 'powershell',
+      expectedBackend: 'winpty',
+    },
+    {
+      name: 'cmd-conpty',
+      manager: createManager({
+        termName: 'xterm-256color',
+        defaultCols: 80,
+        defaultRows: 24,
+        useConpty: true,
+        windowsPowerShellBackend: 'winpty',
+        scrollbackLines: 1000,
+        maxSnapshotBytes: 1024,
+        shell: 'auto',
+      }),
+      shell: 'cmd',
+      expectedBackend: 'conpty',
+    },
+  ];
+
+  for (const testCase of cases) {
+    const session = testCase.manager.createSession(testCase.name, testCase.shell, os.tmpdir());
+    assert.equal(testCase.manager.getScreenSnapshot(session.id)?.windowsPty?.backend, testCase.expectedBackend);
+    testCase.manager.deleteSession(session.id);
+  }
+
+  assert.deepEqual(observedBackends, ['winpty', 'conpty', 'conpty', 'winpty', 'conpty']);
+}
+
+function testSessionManagerNonWindowsRuntimeValidation(): void {
+  const linuxManager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: false,
+      windowsPowerShellBackend: 'inherit',
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  }, {
+    platform: 'linux',
+    execFileSyncFn: (() => Buffer.from('')) as any,
+  });
+
+  linuxManager.assertRuntimePtyCapabilities();
+
+  assert.throws(
+    () => linuxManager.updateRuntimeConfig({ pty: { useConpty: true } }),
+    (error: unknown) => error instanceof AppError && error.code === ErrorCode.CONFIG_ERROR,
+  );
+
+  assert.throws(
+    () => linuxManager.updateRuntimeConfig({ pty: { windowsPowerShellBackend: 'conpty' } }),
+    (error: unknown) => error instanceof AppError && error.code === ErrorCode.CONFIG_ERROR,
+  );
 }
 
 function testSessionManagerNoopResizeSkipsRefresh(): void {
@@ -1417,6 +1791,7 @@ function createWorkspaceServiceHarness() {
     deleteSession: [] as string[],
     deleteMultipleSessions: [] as string[][],
     hasSession: new Set<string>(),
+    createSessionError: null as Error | null,
   };
   let sessionCounter = 0;
 
@@ -1424,6 +1799,9 @@ function createWorkspaceServiceHarness() {
     onCwdChange() {},
     createSession(name?: string, shell?: string, cwd?: string) {
       calls.createSession.push({ name, shell, cwd });
+      if (calls.createSessionError) {
+        throw calls.createSessionError;
+      }
       const id = `session-${++sessionCounter}`;
       calls.hasSession.add(id);
       return {
@@ -1673,6 +2051,9 @@ function createWsRouterHarness(options?: {
   snapshotMode?: 'authoritative' | 'fallback';
   snapshotSeq?: number;
 }) {
+  const calls = {
+    writeInput: [] as Array<{ sessionId: string; data: string }>,
+  };
   const session = {
     id: 'session-1',
     name: 'Session 1',
@@ -1685,6 +2066,7 @@ function createWsRouterHarness(options?: {
   const sessionManagerStub = {
     getSession: (id: string) => id === session.id ? session : null,
     getLastCwd: (id: string) => id === session.id ? 'C:\\repo' : null,
+    isSessionReady: (id: string) => id === session.id,
     getScreenSnapshot: (id: string) => id === session.id ? {
       seq: options?.snapshotSeq ?? 1,
       cols: 80,
@@ -1696,7 +2078,10 @@ function createWsRouterHarness(options?: {
       windowsPty: { backend: 'conpty', buildNumber: 22631 },
     } : null,
     getReplayQueueLimit: () => 64,
-    writeInput: () => true,
+    writeInput: (sessionId: string, data: string) => {
+      calls.writeInput.push({ sessionId, data });
+      return true;
+    },
     resize: () => true,
   } as unknown as SessionManager;
 
@@ -1714,7 +2099,7 @@ function createWsRouterHarness(options?: {
     replayPendingSessions: new Map<string, { queuedOutput: string; timer: NodeJS.Timeout }>(),
   });
 
-  return { router, ws, sent };
+  return { router, ws, sent, calls };
 }
 
 function testWsRouterScreenSnapshotOrdering(): void {
@@ -1724,6 +2109,7 @@ function testWsRouterScreenSnapshotOrdering(): void {
   assert.equal(sent[0].type, 'screen-snapshot');
   assert.equal((sent[0] as any).windowsPty?.backend, 'conpty');
   assert.equal(sent[1].type, 'subscribed');
+  assert.equal(((sent[1] as any).sessions?.[0] as any)?.ready, false);
   const replayToken = String(sent[0].replayToken);
 
   router.routeSessionOutput('session-1', 'live-after-snapshot');
@@ -1732,6 +2118,25 @@ function testWsRouterScreenSnapshotOrdering(): void {
   (router as any).handleScreenSnapshotReady(ws, 'session-1', replayToken);
   assert.equal(sent[2].type, 'output');
   assert.equal(sent[2].data, 'live-after-snapshot');
+  assert.equal(sent[3].type, 'session:ready');
+
+  router.destroy();
+}
+
+function testWsRouterBlocksInputWhileReplayPending(): void {
+  const { router, ws, sent, calls } = createWsRouterHarness();
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  const replayToken = String(sent[0].replayToken);
+
+  (router as any).handleInput(ws, 'session-1', 'blocked');
+  assert.deepEqual(calls.writeInput, []);
+
+  (router as any).handleScreenSnapshotReady(ws, 'session-1', replayToken);
+  (router as any).handleInput(ws, 'session-1', 'allowed');
+
+  assert.deepEqual(calls.writeInput, [{ sessionId: 'session-1', data: 'allowed' }]);
+  assert.equal(sent[sent.length - 1].type, 'session:ready');
 
   router.destroy();
 }
@@ -1874,6 +2279,7 @@ function testWsRouterRefreshesReplaySnapshotsOnResize(): void {
   const sessionManagerStub = {
     getSession: (id: string) => id === session.id ? session : null,
     getLastCwd: () => 'C:\\repo',
+    isSessionReady: (id: string) => id === session.id,
     getScreenSnapshot: () => snapshotState,
     getReplayQueueLimit: () => 64,
     writeInput: () => true,
@@ -2033,11 +2439,49 @@ async function testWorkspaceServiceRestartTab(): Promise<void> {
 
   const tab = await workspaceService.restartTab('ws-1', 'tab-1');
 
-  assert.deepEqual(calls.deleteSession, ['old-session']);
   assert.equal(calls.createSession.length, 1);
   assert.equal(calls.createSession[0].cwd, '/repo');
   assert.equal(calls.createSession[0].shell, 'bash');
+  assert.deepEqual(calls.deleteSession, ['old-session']);
   assert.notEqual(tab.sessionId, 'old-session');
+}
+
+async function testWorkspaceServiceRestartTabCreateFailure(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = {
+    workspaces: [{
+      id: 'ws-1',
+      name: 'Workspace 1',
+      sortOrder: 0,
+      viewMode: 'tab',
+      activeTabId: 'tab-1',
+      colorCounter: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }],
+    tabs: [{
+      id: 'tab-1',
+      workspaceId: 'ws-1',
+      sessionId: 'old-session',
+      name: 'Terminal 1',
+      colorIndex: 0,
+      sortOrder: 0,
+      shellType: 'bash',
+      lastCwd: '/repo',
+      createdAt: new Date().toISOString(),
+    }],
+    gridLayouts: [],
+  };
+  calls.hasSession.add('old-session');
+  calls.createSessionError = new AppError(ErrorCode.CONFIG_ERROR, 'probe failed');
+
+  await assert.rejects(
+    () => workspaceService.restartTab('ws-1', 'tab-1'),
+    (error: unknown) => error instanceof AppError && error.code === ErrorCode.CONFIG_ERROR,
+  );
+
+  assert.equal((workspaceService as any).state.tabs[0].sessionId, 'old-session');
+  assert.deepEqual(calls.deleteSession, []);
 }
 
 async function testWorkspaceServiceDeleteWorkspace(): Promise<void> {
@@ -2187,7 +2631,7 @@ function createConfigFixture(): Config {
       termName: 'xterm-256color',
       defaultCols: 80,
       defaultRows: 24,
-      useConpty: false,
+      useConpty: true,
       scrollbackLines: 1000,
       maxSnapshotBytes: 65536,
       shell: 'auto',
@@ -2273,7 +2717,7 @@ function createConfigFixtureContent(): string {
     termName: "xterm-256color",
     defaultCols: 80,
     defaultRows: 24,
-    useConpty: false,
+    useConpty: true,
     scrollbackLines: 1000,
     maxSnapshotBytes: 65536,
     shell: "auto",
@@ -2321,7 +2765,7 @@ function createLegacyConfigFixtureContent(): string {
     termName: "xterm-256color",
     defaultCols: 80,
     defaultRows: 24,
-    useConpty: false,
+    useConpty: true,
     maxBufferSize: 65536,
     shell: "auto",
   },

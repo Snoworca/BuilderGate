@@ -20,6 +20,7 @@ export type EditableSettingsKey =
   | 'pty.defaultCols'
   | 'pty.defaultRows'
   | 'pty.useConpty'
+  | 'pty.windowsPowerShellBackend'
   | 'pty.shell'
   | 'session.idleDelayMs'
   | 'fileManager.maxFileSize'
@@ -59,7 +60,7 @@ export interface SecurityEditableSettings {
 
 export type EditablePtySettings = Pick<
   PTYConfig,
-  'termName' | 'defaultCols' | 'defaultRows' | 'useConpty' | 'shell'
+  'termName' | 'defaultCols' | 'defaultRows' | 'useConpty' | 'windowsPowerShellBackend' | 'shell'
 >;
 
 export type EditableSessionSettings = Pick<SessionConfig, 'idleDelayMs'>;

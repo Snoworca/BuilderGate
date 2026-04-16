@@ -21,7 +21,8 @@ export type WsConnectionStatus = 'connected' | 'reconnecting' | 'disconnected';
 
 export interface SessionHandlers {
   onScreenSnapshot?: (snapshot: ScreenSnapshotMessage) => void;
-  onSubscribed?: (info: { status: string; cwd?: string }) => void;
+  onSubscribed?: (info: { status: string; cwd?: string; ready: boolean }) => void;
+  onSessionReady?: () => void;
   onOutput?: (data: string) => void;
   onStatus?: (status: string) => void;
   onError?: (message: string) => void;
@@ -31,7 +32,8 @@ export interface SessionHandlers {
 interface GraceBufferedSessionState {
   snapshot?: ScreenSnapshotMessage;
   output: string;
-  subscribedInfo?: { status: string; cwd?: string };
+  subscribedInfo?: { status: string; cwd?: string; ready: boolean };
+  ready?: boolean;
   status?: string;
   cwd?: string;
   error?: string;
@@ -115,6 +117,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       case 'status':
         current.status = msg.status;
         break;
+      case 'session:ready':
+        current.ready = true;
+        break;
       case 'cwd':
         current.cwd = msg.cwd;
         break;
@@ -138,6 +143,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     graceBufferedSessionsRef.current.delete(sessionId);
     if (buffered.subscribedInfo) {
       handlers.onSubscribed?.(buffered.subscribedInfo);
+    }
+    if (buffered.ready) {
+      handlers.onSessionReady?.();
     }
     if (buffered.snapshot) {
       handlers.onScreenSnapshot?.(buffered.snapshot);
@@ -183,7 +191,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             pendingUnsubscribeTimersRef.current.has(info.sessionId)
           ) {
             const current = graceBufferedSessionsRef.current.get(info.sessionId) ?? { output: '' };
-            current.subscribedInfo = { status: info.status, cwd: info.cwd };
+            current.subscribedInfo = { status: info.status, cwd: info.cwd, ready: info.ready };
             if (info.cwd) {
               current.cwd = info.cwd;
             }
@@ -199,7 +207,10 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         if (info.status === 'error') {
           handlers.onError?.('Session not found');
         } else {
-          handlers.onSubscribed?.({ status: info.status, cwd: info.cwd });
+          handlers.onSubscribed?.({ status: info.status, cwd: info.cwd, ready: info.ready });
+          if (info.ready) {
+            handlers.onSessionReady?.();
+          }
           handlers.onStatus?.(info.status);
           if (info.cwd) handlers.onCwd?.(info.cwd);
         }
@@ -230,6 +241,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           break;
         case 'status':
           handlers.onStatus?.(msg.status);
+          break;
+        case 'session:ready':
+          handlers.onSessionReady?.();
           break;
         case 'cwd':
           handlers.onCwd?.(msg.cwd);

@@ -200,6 +200,13 @@ async function readVisibleTerminalText(page: Page) {
   });
 }
 
+async function dispatchRapidInvalidCommands(page: Page, count: number) {
+  for (let index = 0; index < count; index += 1) {
+    await page.keyboard.type('A', { delay: 0 });
+    await page.keyboard.press('Enter');
+  }
+}
+
 test.describe('Terminal Keyboard Regressions', () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop-only regression coverage');
@@ -333,5 +340,29 @@ test.describe('Terminal Keyboard Regressions', () => {
     expect(inputEvent?.details?.hasEnter).toBe(true);
     expect(rawOutputEvent?.details?.recentInputSampleCount).toBeGreaterThanOrEqual(1);
     expect(rawOutputEvent?.details?.msSinceNewestInputSample).not.toBeNull();
+  });
+
+  test('TC-7205: rapid PowerShell A+Enter repeats should render sequential command-not-found output', async ({ page }) => {
+    const sessionId = await getActiveSessionId(page);
+    test.skip(!sessionId, 'Need an active session');
+
+    await startTerminalDebug(page, sessionId);
+    await focusTerminalInput(page);
+    await dispatchRapidInvalidCommands(page, 5);
+
+    await expect.poll(async () => {
+      const text = await readVisibleTerminalText(page);
+      const matches = text.match(/CommandNotFoundException/g) ?? [];
+      return matches.length;
+    }, { timeout: 15000 }).toBeGreaterThanOrEqual(3);
+
+    await expect.poll(async () => {
+      return await readVisibleTerminalText(page);
+    }, { timeout: 15000 }).toContain('PS ');
+
+    const serverPayload = await getServerDebugEvents(page, sessionId);
+    const serverEvents = serverPayload.server ?? [];
+    const blockedInputs = serverEvents.filter((event: { kind: string }) => event.kind === 'input_blocked');
+    expect(blockedInputs.length).toBe(0);
   });
 });

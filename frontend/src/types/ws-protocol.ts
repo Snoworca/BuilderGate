@@ -48,6 +48,7 @@ export type ServerWsMessage =
   | ScreenSnapshotMessage
   | { type: 'output';         sessionId: string; data: string }
   | { type: 'status';         sessionId: string; status: 'running' | 'idle' }
+  | { type: 'session:ready';  sessionId: string }
   | { type: 'cwd';            sessionId: string; cwd: string }
   | { type: 'session:error';  sessionId: string; message: string }
   | { type: 'session:exited'; sessionId: string; exitCode: number }
@@ -75,6 +76,7 @@ export interface SubscribedSessionInfo {
   sessionId: string;
   status: string;
   cwd?: string;
+  ready: boolean;
 }
 
 export type ReplayTelemetryValue = string | number | boolean | null;
@@ -86,8 +88,10 @@ export type ReplayEventKind =
   | 'snapshot_refreshed'
   | 'ack_ok'
   | 'ack_stale'
+  | 'input_blocked'
   | 'output_queued'
-  | 'output_flushed';
+  | 'output_flushed'
+  | 'ready_sent';
 
 export interface ReplayTelemetryEventInput {
   kind: ReplayEventKind;

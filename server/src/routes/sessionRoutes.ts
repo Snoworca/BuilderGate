@@ -29,8 +29,15 @@ router.post('/', (req: Request<{}, {}, CreateSessionRequest>, res: Response) => 
     }
   }
 
-  const session = sessionManager.createSession(name, shell, cwd);
-  res.status(201).json(session);
+  try {
+    const session = sessionManager.createSession(name, shell, cwd);
+    res.status(201).json(session);
+  } catch (error) {
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json(error.toJSON());
+    }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // GET /api/sessions/:id - Get single session

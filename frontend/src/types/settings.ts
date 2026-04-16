@@ -14,6 +14,7 @@ export type EditableSettingsKey =
   | 'pty.defaultCols'
   | 'pty.defaultRows'
   | 'pty.useConpty'
+  | 'pty.windowsPowerShellBackend'
   | 'pty.shell'
   | 'session.idleDelayMs'
   | 'fileManager.maxFileSize'
@@ -52,6 +53,7 @@ export interface EditableSettingsValues {
     defaultCols: number;
     defaultRows: number;
     useConpty: boolean;
+    windowsPowerShellBackend: 'inherit' | 'conpty' | 'winpty';
     shell: 'auto' | 'powershell' | 'wsl' | 'bash';
   };
   session: {
@@ -101,6 +103,7 @@ export interface SettingsPatchRequest {
     defaultCols?: number;
     defaultRows?: number;
     useConpty?: boolean;
+    windowsPowerShellBackend?: 'inherit' | 'conpty' | 'winpty';
     shell?: 'auto' | 'powershell' | 'wsl' | 'bash';
   };
   session?: {

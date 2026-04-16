@@ -139,14 +139,14 @@ export class WsRouter {
   }
 
   private handleSubscribe(ws: WebSocket, sessionIds: string[]): void {
-    const results: Array<{ sessionId: string; status: string; cwd?: string }> = [];
+    const results: Array<{ sessionId: string; status: string; cwd?: string; ready: boolean }> = [];
     const meta = this.clients.get(ws);
     if (!meta) return;
 
     for (const sessionId of sessionIds) {
       const session = this.sessionManager.getSession(sessionId);
       if (!session) {
-        results.push({ sessionId, status: 'error' });
+        results.push({ sessionId, status: 'error', ready: false });
         continue;
       }
 
@@ -160,7 +160,6 @@ export class WsRouter {
       meta.subscribedSessions.add(sessionId);
 
       const cwd = this.sessionManager.getLastCwd(sessionId) ?? undefined;
-      results.push({ sessionId, status: session.status, cwd });
       this.recordReplayEvent({
         kind: 'snapshot_sent',
         sessionId,
@@ -172,15 +171,33 @@ export class WsRouter {
       });
 
       if (alreadySubscribed) {
+        results.push({
+          sessionId,
+          status: session.status,
+          cwd,
+          ready: !meta.replayPendingSessions.has(sessionId) && this.sessionManager.isSessionReady(sessionId),
+        });
         continue;
       }
 
       const snapshot = this.sessionManager.getScreenSnapshot(sessionId);
       if (!snapshot) {
+        results.push({
+          sessionId,
+          status: session.status,
+          cwd,
+          ready: this.sessionManager.isSessionReady(sessionId),
+        });
         continue;
       }
 
       const replayState = this.markReplayPending(ws, sessionId, snapshot.seq);
+      results.push({
+        sessionId,
+        status: session.status,
+        cwd,
+        ready: false,
+      });
       const mode = snapshot.health === 'healthy' && !(snapshot.truncated && snapshot.data.length === 0)
         ? 'authoritative'
         : 'fallback';
@@ -277,9 +294,34 @@ export class WsRouter {
         },
       });
     }
+
+    this.sendTo(ws, { type: 'session:ready', sessionId });
+    this.recordReplayEvent({
+      kind: 'ready_sent',
+      sessionId,
+      replayToken,
+      snapshotSeq: replayResult.snapshotSeq,
+      details: {
+        reason: 'ack',
+      },
+    });
   }
 
-  private handleInput(_ws: WebSocket, sessionId: string, data: string): void {
+  private handleInput(ws: WebSocket, sessionId: string, data: string): void {
+    const meta = this.clients.get(ws);
+    const pending = meta?.replayPendingSessions.get(sessionId);
+    if (pending) {
+      this.recordReplayEvent({
+        kind: 'input_blocked',
+        sessionId,
+        replayToken: pending.replayToken,
+        snapshotSeq: pending.snapshotSeq,
+        details: {
+          inputBytes: data.length,
+        },
+      });
+      return;
+    }
     this.sessionManager.writeInput(sessionId, data);
   }
 
@@ -337,6 +379,17 @@ export class WsRouter {
       timer: setTimeout(() => {
         this.replayAckTimeoutCount += 1;
         this.clearReplayPendingForPair(ws, sessionId);
+        if (ws.readyState === WebSocket.OPEN) {
+          this.sendTo(ws, { type: 'session:ready', sessionId });
+          this.recordReplayEvent({
+            kind: 'ready_sent',
+            sessionId,
+            snapshotSeq,
+            details: {
+              reason: 'timeout',
+            },
+          });
+        }
       }, REPLAY_ACK_TIMEOUT_MS),
     };
     state.timer.unref();
@@ -462,6 +515,17 @@ export class WsRouter {
       pending.queuedOutput = '';
       pending.timer = setTimeout(() => {
         this.clearReplayPendingForPair(ws, sessionId);
+        if (ws.readyState === WebSocket.OPEN) {
+          this.sendTo(ws, { type: 'session:ready', sessionId });
+          this.recordReplayEvent({
+            kind: 'ready_sent',
+            sessionId,
+            snapshotSeq: snapshot.seq,
+            details: {
+              reason: 'refresh-timeout',
+            },
+          });
+        }
       }, REPLAY_ACK_TIMEOUT_MS);
       pending.timer.unref();
 

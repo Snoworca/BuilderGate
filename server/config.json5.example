@@ -24,6 +24,12 @@
     // Recommendation: Use false (winpty) for better Claude compatibility
     useConpty: true,
 
+    // PowerShell-only backend override on Windows
+    // - "inherit": Follow useConpty
+    // - "conpty": Force ConPTY for new PowerShell sessions
+    // - "winpty": Force winpty for new PowerShell sessions
+    windowsPowerShellBackend: "inherit",
+
     // Maximum headless scrollback retention in logical lines
     scrollbackLines: 1000,
 

@@ -214,6 +214,10 @@ test.describe('Terminal Authority Regressions', () => {
     const switchTarget = await getOrCreateHiddenWorkspace(page, switchTargetName);
     const marker = `BG-${Date.now()}`;
 
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await waitForTerminal(page);
+
     const sourceWorkspaceOption = await findWorkspaceOption(page, sourceWorkspace.name);
     await sourceWorkspaceOption.click();
     await expect(sourceWorkspaceOption).toHaveAttribute('aria-selected', 'true');

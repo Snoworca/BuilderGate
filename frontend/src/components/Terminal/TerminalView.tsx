@@ -44,6 +44,7 @@ export interface TerminalHandle {
   restoreSnapshot: () => Promise<boolean>;
   replaceWithSnapshot: (data: string) => Promise<void>;
   releasePending: () => void;
+  setServerReady: (ready: boolean) => void;
   setWindowsPty: (info?: WindowsPtyInfo) => void;
 }
 
@@ -78,6 +79,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const lastSnapshotRef = useRef<string | null>(null);
     const restorePendingRef = useRef(true);
     const inputReadyRef = useRef(false);
+    const geometryReadyRef = useRef(false);
+    const serverReadyRef = useRef(false);
     const isVisibleRef = useRef(isVisible);
     const previousVisibilityRef = useRef(isVisible);
     const bufferedOutputRef = useRef<string[]>([]);
@@ -103,6 +106,35 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         helperPresent: helperTextarea !== null,
         inputReady: inputReadyRef.current,
         restorePending: restorePendingRef.current,
+      });
+    }, [getHelperTextarea, sessionId]);
+
+    const syncInputReadiness = useCallback((reason: string) => {
+      const term = xtermRef.current;
+      const helperTextarea = getHelperTextarea();
+      const nextReady = Boolean(
+        term
+        && serverReadyRef.current
+        && geometryReadyRef.current
+        && !restorePendingRef.current
+        && isVisibleRef.current
+      );
+
+      inputReadyRef.current = nextReady;
+      if (term) {
+        term.options.disableStdin = !nextReady;
+      }
+      if (helperTextarea) {
+        helperTextarea.disabled = !nextReady;
+      }
+
+      recordTerminalDebugEvent(sessionId, 'input_gate_synced', {
+        reason,
+        inputReady: nextReady,
+        serverReady: serverReadyRef.current,
+        geometryReady: geometryReadyRef.current,
+        restorePending: restorePendingRef.current,
+        visible: isVisibleRef.current,
       });
     }, [getHelperTextarea, sessionId]);
 
@@ -280,20 +312,20 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       });
     }, [writeOutput]);
 
-    const releaseRestorePending = useCallback(function releaseRestorePending() {
-      flushBufferedOutput(() => {
+    const releaseRestorePending = useCallback(() => new Promise<void>((resolve) => {
+      const settle = () => {
         if (bufferedOutputRef.current.length > 0) {
-          releaseRestorePending();
+          flushBufferedOutput(settle);
           return;
         }
         restorePendingRef.current = false;
-        if (isVisibleRef.current && xtermRef.current) {
-          inputReadyRef.current = true;
-          xtermRef.current.options.disableStdin = false;
-        }
+        syncInputReadiness('restore-complete');
         saveSnapshot();
-      });
-    }, [flushBufferedOutput, saveSnapshot]);
+        resolve();
+      };
+
+      flushBufferedOutput(settle);
+    }), [flushBufferedOutput, saveSnapshot, syncInputReadiness]);
 
     const persistBufferedOutput = useCallback(() => {
       if (isTerminalSnapshotRemovalRequested(sessionId)) {
@@ -339,9 +371,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         try {
           term.write(snapshot.content, () => {
             lastSnapshotRef.current = snapshot.content;
-            releaseRestorePending();
-            requestViewportSync(term, true);
-            resolve(true);
+            void releaseRestorePending().then(() => {
+              requestViewportSync(term, true);
+              resolve(true);
+            });
           });
         } catch (error) {
           console.warn('[TerminalView] snapshot restore failed:', error);
@@ -358,24 +391,25 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       }
 
       restorePendingRef.current = true;
+      syncInputReadiness('replace-start');
       bufferedOutputRef.current = [];
       inFlightOutputRef.current = [];
       term.reset();
 
       if (!data) {
-        releaseRestorePending();
-        return Promise.resolve();
+        return releaseRestorePending();
       }
 
       return new Promise((resolve) => {
         term.write(data, () => {
           lastSnapshotRef.current = data;
-          releaseRestorePending();
-          requestViewportSync(term, true);
-          resolve();
+          void releaseRestorePending().then(() => {
+            requestViewportSync(term, true);
+            resolve();
+          });
         });
       });
-    }, [releaseRestorePending, requestViewportSync]);
+    }, [releaseRestorePending, requestViewportSync, syncInputReadiness]);
 
     useImperativeHandle(ref, () => ({
       write: (data: string) => {
@@ -408,6 +442,14 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         });
       },
       sendInput: (data: string) => {
+        if (!inputReadyRef.current) {
+          const debugInput = buildTerminalInputDebugPayload(data);
+          recordTerminalDebugEvent(sessionId, 'imperative_input_dropped_not_ready', {
+            ...debugInput.details,
+            restorePending: restorePendingRef.current,
+          }, debugInput.preview);
+          return;
+        }
         onInput(data);
       },
       restoreSnapshot: async () => {
@@ -416,20 +458,25 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           return false;
         }
         restorePendingRef.current = true;
+        syncInputReadiness('restore-start');
         return restoreStoredSnapshot(term);
       },
       replaceWithSnapshot: (data: string) => replaceWithSnapshot(data),
       releasePending: () => {
         if (restorePendingRef.current) {
-          releaseRestorePending();
+          void releaseRestorePending();
         }
+      },
+      setServerReady: (ready: boolean) => {
+        serverReadyRef.current = ready;
+        syncInputReadiness('server-ready');
       },
       setWindowsPty: (info?: WindowsPtyInfo) => {
         const term = xtermRef.current;
         if (!term) return;
         term.options.windowsPty = info;
       },
-    }), [onInput, writeOutput, restoreStoredSnapshot, replaceWithSnapshot, releaseRestorePending, focusTerminalInput]);
+    }), [onInput, writeOutput, restoreStoredSnapshot, replaceWithSnapshot, releaseRestorePending, focusTerminalInput, syncInputReadiness]);
 
     useEffect(() => {
       if (!terminalRef.current) return;
@@ -483,9 +530,13 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const helperTextarea = getHelperTextarea();
       if (helperTextarea) {
         helperTextarea.setAttribute('aria-label', 'Terminal input');
+        helperTextarea.disabled = true;
       }
       recordTerminalDebugEvent(sessionId, 'terminal_mounted');
       restorePendingRef.current = true;
+      geometryReadyRef.current = false;
+      serverReadyRef.current = false;
+      inputReadyRef.current = false;
       bufferedOutputRef.current = [];
       xtermRef.current = term;
       fitAddonRef.current = fitAddon;
@@ -573,11 +624,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             rows: term.rows,
             reason: 'initial',
           });
+          geometryReadyRef.current = true;
           emitResize(term.cols, term.rows, 'initial');
-          if (!restorePendingRef.current) {
-            inputReadyRef.current = true;
-            term.options.disableStdin = false;
-          }
+          syncInputReadiness('initial-fit');
           // term.focus() removed — focus only on user click (handleClick) to prevent
           // focus stealing when multiple terminals are mounted in grid mode (R7)
 
@@ -661,10 +710,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             rows: term.rows,
             reason: 'resize-observer',
           });
-          if (!restorePendingRef.current) {
-            inputReadyRef.current = true;
-            term.options.disableStdin = false;
-          }
+          geometryReadyRef.current = true;
+          syncInputReadiness('resize-observer');
           rafId = null;
           // Debounce server PTY resize to avoid flooding during drag
           if (resizeTimer !== null) clearTimeout(resizeTimer);
@@ -703,6 +750,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         serializeAddonRef.current = null;
         fitAddonRef.current = null;
         xtermRef.current = null;
+        geometryReadyRef.current = false;
+        serverReadyRef.current = false;
         restorePendingRef.current = false;
         inputReadyRef.current = false;
         inFlightOutputRef.current = [];
@@ -710,7 +759,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         recordTerminalDebugEvent(sessionId, 'terminal_disposed');
         term.dispose();
       };
-    }, [sessionId, onInput, emitResize, getInitialFontSize, persistBufferedOutput, saveSnapshot, getHelperTextarea]);
+    }, [sessionId, onInput, emitResize, getInitialFontSize, persistBufferedOutput, saveSnapshot, getHelperTextarea, syncInputReadiness]);
 
     useEffect(() => {
       const wasVisible = previousVisibilityRef.current;
@@ -727,8 +776,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       }
 
       if (!isVisible) {
-        inputReadyRef.current = false;
-        term.options.disableStdin = true;
+        syncInputReadiness('hidden');
         return;
       }
 
@@ -749,13 +797,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           rows: term.rows,
           reason: 'visible',
         });
+        geometryReadyRef.current = true;
         emitResize(term.cols, term.rows, 'visible');
-        if (!restorePendingRef.current) {
-          inputReadyRef.current = true;
-          term.options.disableStdin = false;
-        }
+        syncInputReadiness('visible-fit');
       });
-    }, [emitResize, isVisible, sessionId]);
+    }, [emitResize, isVisible, sessionId, syncInputReadiness]);
 
     useEffect(() => {
       const persistSnapshot = () => {

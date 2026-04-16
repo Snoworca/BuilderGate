@@ -50,6 +50,7 @@ const patchSchema: z.ZodType<SettingsPatchRequest> = z.object({
     defaultCols: z.number().int().min(20).max(500).optional(),
     defaultRows: z.number().int().min(5).max(200).optional(),
     useConpty: z.boolean().optional(),
+    windowsPowerShellBackend: z.enum(['inherit', 'conpty', 'winpty']).optional(),
     shell: z.enum(['auto', 'powershell', 'wsl', 'bash']).optional(),
   }).strict().optional(),
   session: z.object({
@@ -78,10 +79,34 @@ export interface SaveActorContext {
 }
 
 export class SettingsService {
-  constructor(private readonly deps: SettingsServiceDeps) {}
+  constructor(
+    private readonly deps: SettingsServiceDeps,
+    private readonly platform: NodeJS.Platform = process.platform,
+  ) {}
 
   getSettingsSnapshot(): EditableSettingsSnapshot {
-    return this.deps.runtimeConfigStore.getSnapshot();
+    const snapshot = this.deps.runtimeConfigStore.getSnapshot();
+    if (this.platform !== 'win32') {
+      return snapshot;
+    }
+
+    const winptyCapability = this.deps.sessionManager.getPowerShellWinptyCapability();
+    const powerShellBackendField = snapshot.capabilities['pty.windowsPowerShellBackend'];
+    const useConptyField = snapshot.capabilities['pty.useConpty'];
+    if (powerShellBackendField) {
+      if (winptyCapability.checked && !winptyCapability.available) {
+        powerShellBackendField.options = ['inherit', 'conpty'];
+        powerShellBackendField.reason = winptyCapability.reason ?? 'winpty is unavailable on this host';
+        if (useConptyField) {
+          useConptyField.available = false;
+          useConptyField.reason = winptyCapability.reason ?? 'winpty is unavailable on this host';
+        }
+      } else if (!winptyCapability.checked) {
+        powerShellBackendField.reason = 'winpty availability is verified when selected';
+      }
+    }
+
+    return snapshot;
   }
 
   validatePatch(input: unknown): SettingsPatchRequest {
@@ -120,7 +145,7 @@ export class SettingsService {
     const mergedValues = normalizeEditableValues(this.deps.runtimeConfigStore.mergeEditablePatch(patch));
     validatePasswordPatch(patch, this.deps.authService);
     validateCorsPatch(mergedValues, actorContext.origin);
-    validatePlatformPatch(mergedValues);
+    validatePlatformPatch(mergedValues, this.platform);
     const secrets = {
       authPassword: patch.auth?.newPassword ? this.deps.cryptoService.encrypt(patch.auth.newPassword) : undefined,
     };
@@ -216,6 +241,7 @@ function extractChangedKeys(patch: SettingsPatchRequest): EditableSettingsKey[] 
   if (patch.pty?.defaultCols !== undefined) changed.add('pty.defaultCols');
   if (patch.pty?.defaultRows !== undefined) changed.add('pty.defaultRows');
   if (patch.pty?.useConpty !== undefined) changed.add('pty.useConpty');
+  if (patch.pty?.windowsPowerShellBackend !== undefined) changed.add('pty.windowsPowerShellBackend');
   if (patch.pty?.shell !== undefined) changed.add('pty.shell');
   if (patch.session?.idleDelayMs !== undefined) changed.add('session.idleDelayMs');
   if (patch.fileManager?.maxFileSize !== undefined) changed.add('fileManager.maxFileSize');
@@ -324,12 +350,16 @@ function validateCorsPatch(values: EditableSettingsValues, origin?: string): voi
   }
 }
 
-function validatePlatformPatch(values: EditableSettingsValues): void {
-  if (process.platform !== 'win32' && values.pty.useConpty) {
+function validatePlatformPatch(values: EditableSettingsValues, platform: NodeJS.Platform = process.platform): void {
+  if (platform !== 'win32' && values.pty.useConpty) {
     throw new AppError(ErrorCode.VALIDATION_ERROR, 'ConPTY is only available on Windows');
   }
 
-  if (process.platform !== 'win32' && (values.pty.shell === 'powershell' || values.pty.shell === 'wsl')) {
+  if (platform !== 'win32' && values.pty.windowsPowerShellBackend !== 'inherit') {
+    throw new AppError(ErrorCode.VALIDATION_ERROR, 'PowerShell backend override is only available on Windows');
+  }
+
+  if (platform !== 'win32' && (values.pty.shell === 'powershell' || values.pty.shell === 'wsl')) {
     throw new AppError(ErrorCode.VALIDATION_ERROR, 'Selected shell is not supported on this platform');
   }
 

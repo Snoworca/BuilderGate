@@ -74,11 +74,14 @@ export interface ServerConfig {
 // PTY Configuration
 // ============================================================================
 
+export type WindowsPowerShellBackend = 'inherit' | 'conpty' | 'winpty';
+
 export interface PTYConfig {
   termName: string;
   defaultCols: number;
   defaultRows: number;
   useConpty: boolean;
+  windowsPowerShellBackend?: WindowsPowerShellBackend;
   scrollbackLines: number;
   maxSnapshotBytes: number;
   /** Shell type: 'auto' (OS default), 'powershell', 'wsl' (WSL bash), 'bash', 'zsh', 'sh', 'cmd' */
