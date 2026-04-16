@@ -1,0 +1,38 @@
+[
+  {
+    "step": "spec-analysis",
+    "status": "completed",
+    "completed_at": "2026-04-17",
+    "sources": 3
+  },
+  {
+    "step": "architecture",
+    "status": "completed",
+    "completed_at": "2026-04-17"
+  },
+  {
+    "step": "phase-generation",
+    "status": "completed",
+    "completed_at": "2026-04-17",
+    "phases_count": 4
+  },
+  {
+    "step": "zero-tolerance-gate",
+    "status": "completed",
+    "completed_at": "2026-04-17",
+    "result": "PASS"
+  },
+  {
+    "step": "evaluation",
+    "status": "completed",
+    "completed_at": "2026-04-17",
+    "rounds": 1,
+    "exit_reason": "CRITICAL_HIGH_ZERO"
+  },
+  {
+    "step": "plan-generation-complete",
+    "status": "completed",
+    "completed_at": "2026-04-17",
+    "medium_issues_count": 2
+  }
+]

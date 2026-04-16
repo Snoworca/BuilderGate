@@ -28,6 +28,8 @@ export default defineConfig({
     },
   ],
   webServer: {
+    // Keep the default E2E loop on dev.js.
+    // Production smoke for shell/batch launchers uses: ./start.sh -p 2002 or start.bat -p 2002
     command: 'cd .. && node dev.js',
     port: 2002,
     reuseExistingServer: true,

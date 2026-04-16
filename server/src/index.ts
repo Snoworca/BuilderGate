@@ -9,15 +9,17 @@ import express from 'express';
 import cors from 'cors';
 import https from 'https';
 import http, { type ServerResponse } from 'http';
+import { existsSync } from 'fs';
 import os from 'os';
 import httpProxy from 'http-proxy';
+import path from 'path';
 import sessionRoutes from './routes/sessionRoutes.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
 import { createFileRoutes } from './routes/fileRoutes.js';
 import { createSettingsRoutes } from './routes/settingsRoutes.js';
 import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
-import { config } from './utils/config.js';
+import { config, getServerRoot } from './utils/config.js';
 import { FileService } from './services/FileService.js';
 import { RuntimeConfigStore } from './services/RuntimeConfigStore.js';
 import { ConfigFileRepository } from './services/ConfigFileRepository.js';
@@ -53,6 +55,26 @@ let settingsService: SettingsService;
 let workspaceService: WorkspaceService;
 let cwdSnapshotTimer: ReturnType<typeof setInterval> | null = null;
 let terminalObservabilityTimer: ReturnType<typeof setInterval> | null = null;
+
+const PRODUCTION_PUBLIC_DIR = path.join(getServerRoot(), 'dist', 'public');
+const PRODUCTION_INDEX_HTML = path.join(PRODUCTION_PUBLIC_DIR, 'index.html');
+
+function isReservedRuntimePath(pathname: string): boolean {
+  return pathname === '/health' || pathname === '/ws' || pathname === '/api' || pathname.startsWith('/api/');
+}
+
+function isStaticAssetRequest(pathname: string): boolean {
+  return pathname === '/assets' || pathname.startsWith('/assets/') || path.posix.extname(pathname) !== '';
+}
+
+function isHtmlNavigationRequest(req: express.Request): boolean {
+  if (req.method !== 'GET') {
+    return false;
+  }
+
+  const pathname = req.path;
+  return !isReservedRuntimePath(pathname) && !isStaticAssetRequest(pathname);
+}
 
 // ============================================================================
 // Security Middleware Stack (Phase 1)
@@ -350,6 +372,29 @@ async function startServer(): Promise<void> {
       });
 
       console.log(`[ViteProxy] Development proxy to http://localhost:${viteDevPort} enabled`);
+    } else {
+      if (!existsSync(PRODUCTION_INDEX_HTML)) {
+        console.warn(`[Static] Production index not found at ${PRODUCTION_INDEX_HTML}`);
+      }
+
+      app.use(express.static(PRODUCTION_PUBLIC_DIR, {
+        index: false,
+        fallthrough: true,
+      }));
+
+      app.get('*', (req, res, next) => {
+        if (!isHtmlNavigationRequest(req)) {
+          return next();
+        }
+
+        res.sendFile(PRODUCTION_INDEX_HTML, (error) => {
+          if (error) {
+            next(error);
+          }
+        });
+      });
+
+      console.log(`[Static] Production assets served from ${PRODUCTION_PUBLIC_DIR}`);
     }
 
     // ========================================================================
