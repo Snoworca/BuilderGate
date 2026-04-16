@@ -30,6 +30,7 @@ import { truncateTerminalPayloadTail } from './utils/terminalPayload.js';
 import { WsRouter } from './ws/WsRouter.js';
 import { AppError, ErrorCode } from './utils/errors.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
+import { ensureDebugCaptureSessionExists, requireLocalDebugCapture } from './middleware/debugCaptureGuards.js';
 import express from 'express';
 
 async function main(): Promise<void> {
@@ -53,6 +54,9 @@ async function main(): Promise<void> {
     { name: 'SessionManager returns cached authoritative snapshots', run: testSessionManagerCachedSnapshot },
     { name: 'SessionManager reports snapshot observability counters', run: testSessionManagerObservabilityCounters },
     { name: 'SessionManager powershell shell bootstrap avoids delayed prompt-hook injection', run: testSessionManagerPowerShellBootstrapArgs },
+    { name: 'SessionManager input debug capture records safe metadata without leaking printable input', run: testSessionManagerInputDebugCaptureMetadata },
+    { name: 'debug capture localhost guard rejects non-loopback requests', run: testDebugCaptureLocalhostGuard },
+    { name: 'debug capture missing-session guard returns 404', run: testDebugCaptureSessionExistsGuard },
     { name: 'SessionManager marks sessions degraded when snapshot serialization fails', run: testSessionManagerDegradedSnapshot },
     { name: 'SessionManager preserves unsnapshotted healthy output when degrading', run: testSessionManagerDirtyCacheDegradedRecovery },
     { name: 'SessionManager preserves queued output when degradation happens before headless writes flush', run: testSessionManagerQueuedOutputDegradedRace },
@@ -849,8 +853,117 @@ function testSessionManagerPowerShellBootstrapArgs(): void {
   assert.equal(resolved.shell, 'powershell.exe');
   assert.equal(resolved.shellType, 'powershell');
   assert.ok(resolved.args.includes('-NoExit'));
-  assert.ok(resolved.args.includes('-Command'));
-  assert.ok(resolved.args.join(' ').includes('buildergate-cwd.txt'));
+  assert.ok(resolved.args.includes('-NoProfile'));
+  assert.ok(resolved.args.includes('-EncodedCommand'));
+
+  const encodedCommandIndex = resolved.args.indexOf('-EncodedCommand');
+  assert.ok(encodedCommandIndex >= 0);
+  const encodedCommand = resolved.args[encodedCommandIndex + 1];
+  const decodedCommand = Buffer.from(encodedCommand, 'base64').toString('utf16le');
+
+  assert.match(decodedCommand, /buildergate-cwd\.txt/i);
+  assert.match(decodedCommand, /WriteAllText/);
+  assert.match(decodedCommand, /try\s*\{/);
+  assert.doesNotMatch(decodedCommand, /Out-File/);
+}
+
+function testSessionManagerInputDebugCaptureMetadata(): void {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+
+  const harness = createManagedSessionHarness(manager, { cols: 80, rows: 24, scrollbackLines: 1000 });
+
+  try {
+    manager.enableDebugCapture(harness.sessionId);
+    manager.writeInput(harness.sessionId, ' \r\x7f');
+    manager.writeInput(harness.sessionId, 'abc');
+
+    const inputEvents = manager.getDebugCapture(harness.sessionId).filter((event) => event.kind === 'input');
+    assert.equal(inputEvents.length, 1);
+
+    assert.deepEqual(inputEvents[0]?.details, {
+      byteLength: 3,
+      hasEnter: true,
+      spaceCount: 1,
+      backspaceCount: 1,
+      enterCount: 1,
+      escapeCount: 0,
+      controlCount: 2,
+      printableCount: 1,
+      inputClass: 'safe-control',
+      safePreview: true,
+    });
+    assert.equal(inputEvents[0]?.preview, '␠\\r\\x7f');
+
+    assert.equal(inputEvents[1], undefined);
+  } finally {
+    harness.dispose();
+  }
+}
+
+function testDebugCaptureLocalhostGuard(): void {
+  const req = { ip: '192.168.0.10' } as express.Request;
+  let statusCode = 200;
+  let payload: unknown = null;
+  const res = {
+    status(code: number) {
+      statusCode = code;
+      return this;
+    },
+    json(body: unknown) {
+      payload = body;
+      return this;
+    },
+  } as unknown as express.Response;
+  let nextCalled = false;
+
+  requireLocalDebugCapture(req, res, () => {
+    nextCalled = true;
+  });
+
+  assert.equal(nextCalled, false);
+  assert.equal(statusCode, 403);
+  assert.equal((payload as { error?: { code?: string } }).error?.code, 'LOCALHOST_ONLY');
+}
+
+function testDebugCaptureSessionExistsGuard(): void {
+  const middleware = ensureDebugCaptureSessionExists({
+    hasSession: () => false,
+  });
+  const req = { params: { id: 'missing-session' } } as unknown as express.Request;
+  let statusCode = 200;
+  let payload: unknown = null;
+  const res = {
+    status(code: number) {
+      statusCode = code;
+      return this;
+    },
+    json(body: unknown) {
+      payload = body;
+      return this;
+    },
+  } as unknown as express.Response;
+  let nextCalled = false;
+
+  middleware(req, res, () => {
+    nextCalled = true;
+  });
+
+  assert.equal(nextCalled, false);
+  assert.equal(statusCode, 404);
+  assert.equal((payload as { error?: { code?: string } }).error?.code, 'SESSION_NOT_FOUND');
 }
 
 function testSessionManagerDegradedSnapshot(): void {
@@ -1264,8 +1377,8 @@ function createManagedSessionHarness(
     initialCwd: process.cwd(),
     echoTracker: {
       lastInputAt: 0,
-      lastInputLen: 0,
       lastInputHasEnter: false,
+      recentInputs: [],
     },
     detectionMode: 'heuristic',
     oscDetector: new OscDetector(),

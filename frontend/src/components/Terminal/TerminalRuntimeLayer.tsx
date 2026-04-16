@@ -67,30 +67,34 @@ function TerminalRuntimeEntry({
     500,
   );
 
+  const focusTerminal = (fallbackRoot?: EventTarget | null) => {
+    const handle = terminalRefsMap.current.get(tab.id)?.current;
+    if (handle) {
+      handle.focus('runtime-layer');
+      return;
+    }
+
+    const fallbackTextarea =
+      fallbackRoot instanceof Element
+        ? fallbackRoot.querySelector('textarea.xterm-helper-textarea')
+        : null;
+    if (fallbackTextarea instanceof HTMLTextAreaElement) {
+      fallbackTextarea.focus();
+    }
+  };
+
   return (
     <div
       className={host?.className}
+      data-terminal-runtime-entry="true"
       style={style}
-      onMouseDownCapture={(event) => {
-        getHostInteractions(tab.id)?.onPointerDown?.();
-        const textarea = event.currentTarget.querySelector('textarea.xterm-helper-textarea');
-        if (textarea instanceof HTMLTextAreaElement) {
-          textarea.focus();
-        }
-      }}
       onPointerDownCapture={(event) => {
         getHostInteractions(tab.id)?.onPointerDown?.();
-        const textarea = event.currentTarget.querySelector('textarea.xterm-helper-textarea');
-        if (textarea instanceof HTMLTextAreaElement) {
-          textarea.focus();
-        }
+        focusTerminal(event.currentTarget);
       }}
       onClickCapture={(event) => {
         getHostInteractions(tab.id)?.onPointerDown?.();
-        const textarea = event.currentTarget.querySelector('textarea.xterm-helper-textarea');
-        if (textarea instanceof HTMLTextAreaElement) {
-          textarea.focus();
-        }
+        focusTerminal(event.currentTarget);
       }}
       onContextMenu={(event) => {
         event.preventDefault();

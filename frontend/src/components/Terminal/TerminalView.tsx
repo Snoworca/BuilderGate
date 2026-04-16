@@ -10,7 +10,11 @@ import {
   getTerminalSnapshotKey,
   isTerminalSnapshotRemovalRequested,
 } from '../../utils/terminalSnapshot';
-import { recordTerminalDebugEvent } from '../../utils/terminalDebugCapture';
+import {
+  buildTerminalInputDebugPayload,
+  recordTerminalDebugEvent,
+  shouldRecordTerminalInputDebug,
+} from '../../utils/terminalDebugCapture';
 import type { WindowsPtyInfo } from '../../types/ws-protocol';
 import '@xterm/xterm/css/xterm.css';
 import './TerminalView.css';
@@ -31,7 +35,7 @@ const LARGE_WRITE_THRESHOLD = 10_000;
 export interface TerminalHandle {
   write: (data: string) => void;
   clear: () => void;
-  focus: () => void;
+  focus: (reason?: string) => void;
   hasSelection: () => boolean;
   getSelection: () => string;
   clearSelection: () => void;
@@ -79,6 +83,28 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const bufferedOutputRef = useRef<string[]>([]);
     const inFlightOutputRef = useRef<string[]>([]);
     const { isMobile } = useResponsive();
+
+    const getHelperTextarea = useCallback((): HTMLTextAreaElement | null => {
+      const element = terminalRef.current?.querySelector('textarea.xterm-helper-textarea');
+      return element instanceof HTMLTextAreaElement ? element : null;
+    }, []);
+
+    const focusTerminalInput = useCallback((reason: string) => {
+      const term = xtermRef.current;
+      const helperTextarea = getHelperTextarea();
+
+      term?.focus();
+      helperTextarea?.focus({ preventScroll: true });
+
+      const activeElement = document.activeElement;
+      const focusApplied = activeElement === helperTextarea && helperTextarea !== null;
+      recordTerminalDebugEvent(sessionId, focusApplied ? 'focus_applied' : 'focus_fallback_applied', {
+        reason,
+        helperPresent: helperTextarea !== null,
+        inputReady: inputReadyRef.current,
+        restorePending: restorePendingRef.current,
+      });
+    }, [getHelperTextarea, sessionId]);
 
     const emitResize = useCallback((cols: number, rows: number, reason: string) => {
       recordTerminalDebugEvent(sessionId, 'resize_emitted', { cols, rows, reason });
@@ -366,8 +392,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         lastSnapshotRef.current = null;
         bufferedOutputRef.current = [];
       },
-      focus: () => {
-        xtermRef.current?.focus();
+      focus: (reason = 'handle') => {
+        focusTerminalInput(reason);
       },
       hasSelection: () => !!(xtermRef.current?.hasSelection() || savedRightClickSelRef.current),
       getSelection: () => xtermRef.current?.getSelection() || savedRightClickSelRef.current || '',
@@ -403,7 +429,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         if (!term) return;
         term.options.windowsPty = info;
       },
-    }), [onInput, writeOutput, restoreStoredSnapshot, replaceWithSnapshot, releaseRestorePending]);
+    }), [onInput, writeOutput, restoreStoredSnapshot, replaceWithSnapshot, releaseRestorePending, focusTerminalInput]);
 
     useEffect(() => {
       if (!terminalRef.current) return;
@@ -454,6 +480,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       term.loadAddon(fitAddon);
       term.loadAddon(serializeAddon);
       term.open(terminalRef.current);
+      const helperTextarea = getHelperTextarea();
+      if (helperTextarea) {
+        helperTextarea.setAttribute('aria-label', 'Terminal input');
+      }
       recordTerminalDebugEvent(sessionId, 'terminal_mounted');
       restorePendingRef.current = true;
       bufferedOutputRef.current = [];
@@ -485,6 +515,39 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         // 여기서는 xterm이 \x16(Ctrl+V 문자)을 전송하지 않도록 차단만 한다.
         // 이 핸들러에서 직접 onInput을 호출하면 paste 이벤트와 이중 붙여넣기 발생.
         if (ev.ctrlKey && !ev.altKey && !ev.metaKey && ev.key.toLowerCase() === 'v') {
+          return false;
+        }
+
+        const isPlainKey = !ev.ctrlKey && !ev.altKey && !ev.metaKey && !ev.isComposing;
+        const isSpaceKey = ev.code === 'Space' || ev.key === ' ' || ev.key === 'Spacebar';
+        const isEnterKey = ev.key === 'Enter';
+        if (isPlainKey && (isSpaceKey || ev.key === 'Backspace' || isEnterKey)) {
+          recordTerminalDebugEvent(sessionId, 'key_event_observed', {
+            key: isSpaceKey ? 'Space' : ev.key,
+            repeat: ev.repeat,
+            inputReady: inputReadyRef.current,
+            restorePending: restorePendingRef.current,
+          });
+        }
+        if (isPlainKey && inputReadyRef.current && isSpaceKey) {
+          const debugInput = buildTerminalInputDebugPayload(' ');
+          onInput(' ');
+          recordTerminalDebugEvent(sessionId, 'manual_input_forwarded', {
+            key: 'Space',
+            repeat: ev.repeat,
+            ...debugInput.details,
+          }, debugInput.preview);
+          return false;
+        }
+
+        if (isPlainKey && inputReadyRef.current && ev.key === 'Backspace') {
+          const debugInput = buildTerminalInputDebugPayload('\x7f');
+          onInput('\x7f');
+          recordTerminalDebugEvent(sessionId, 'manual_input_forwarded', {
+            key: 'Backspace',
+            repeat: ev.repeat,
+            ...debugInput.details,
+          }, debugInput.preview);
           return false;
         }
 
@@ -527,7 +590,22 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       term.onData((data) => {
         if (data.length === 0) return;
         if (data === '\x1b[I' || data === '\x1b[O') return;
-        if (!inputReadyRef.current) return;
+        const debugInput = buildTerminalInputDebugPayload(data);
+        if (!shouldRecordTerminalInputDebug(debugInput)) {
+          if (!inputReadyRef.current) {
+            return;
+          }
+          onInput(data);
+          return;
+        }
+        if (!inputReadyRef.current) {
+          recordTerminalDebugEvent(sessionId, 'xterm_data_dropped_not_ready', {
+            ...debugInput.details,
+            restorePending: restorePendingRef.current,
+          }, debugInput.preview);
+          return;
+        }
+        recordTerminalDebugEvent(sessionId, 'xterm_data_emitted', debugInput.details, debugInput.preview);
         onInput(data);
       });
 
@@ -632,7 +710,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         recordTerminalDebugEvent(sessionId, 'terminal_disposed');
         term.dispose();
       };
-    }, [sessionId, onInput, emitResize, getInitialFontSize, persistBufferedOutput, saveSnapshot]);
+    }, [sessionId, onInput, emitResize, getInitialFontSize, persistBufferedOutput, saveSnapshot, getHelperTextarea]);
 
     useEffect(() => {
       const wasVisible = previousVisibilityRef.current;
@@ -742,12 +820,17 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
 
     const handleClick = useCallback(() => {
-      xtermRef.current?.focus();
-    }, []);
+      focusTerminalInput('terminal-view-click');
+    }, [focusTerminalInput]);
 
     return (
-      <div className="terminal-view" ref={containerRef} onClick={handleClick}>
-        <div ref={terminalRef} className="terminal-container" />
+      <div
+        className="terminal-view"
+        ref={containerRef}
+        data-terminal-view="true"
+        onClick={handleClick}
+      >
+        <div ref={terminalRef} className="terminal-container" data-terminal-container="true" />
         <FontSizeToast fontSize={toastFontSize} />
       </div>
     );

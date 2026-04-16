@@ -33,6 +33,7 @@ import {
   createPermissionsPolicyMiddleware,
   createAuthMiddleware
 } from './middleware/index.js';
+import { ensureDebugCaptureSessionExists, requireLocalDebugCapture } from './middleware/debugCaptureGuards.js';
 import { WsRouter } from './ws/WsRouter.js';
 
 const app = express();
@@ -169,7 +170,8 @@ function setupRoutes(): void {
       ws: wsRouter?.getObservabilitySnapshot() ?? null,
     });
   });
-  app.get('/api/sessions/debug-capture/:id', authMiddleware, (req, res) => {
+  const requireExistingDebugSession = ensureDebugCaptureSessionExists(sessionManager);
+  app.get('/api/sessions/debug-capture/:id', authMiddleware, requireLocalDebugCapture, requireExistingDebugSession, (req, res) => {
     const wsRouter = app.get('wsRouter') as WsRouter | undefined;
     const sessionId = req.params.id;
     const limit = Math.max(1, Math.min(500, Number.parseInt(String(req.query.limit ?? '200'), 10) || 200));
@@ -182,13 +184,13 @@ function setupRoutes(): void {
         : [],
     });
   });
-  app.post('/api/sessions/debug-capture/:id/enable', authMiddleware, (req, res) => {
+  app.post('/api/sessions/debug-capture/:id/enable', authMiddleware, requireLocalDebugCapture, requireExistingDebugSession, (req, res) => {
     const wsRouter = app.get('wsRouter') as WsRouter | undefined;
     sessionManager.enableDebugCapture(req.params.id);
     wsRouter?.enableDebugReplayCapture(req.params.id);
     res.status(204).send();
   });
-  app.delete('/api/sessions/debug-capture/:id', authMiddleware, (req, res) => {
+  app.delete('/api/sessions/debug-capture/:id', authMiddleware, requireLocalDebugCapture, requireExistingDebugSession, (req, res) => {
     const wsRouter = app.get('wsRouter') as WsRouter | undefined;
     sessionManager.disableDebugCapture(req.params.id);
     sessionManager.clearDebugCapture(req.params.id);

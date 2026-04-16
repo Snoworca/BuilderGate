@@ -25,7 +25,11 @@ interface EchoTracker {
   /** writeInput이 호출된 시각 (ms, Date.now) */
   lastInputAt: number;
   /** 마지막 입력 데이터의 바이트 길이 */
-  lastInputLen: number;
+  recentInputs: Array<{
+    at: number;
+    hasEnter: boolean;
+    inputClass: string;
+  }>;
   /** 마지막 입력에 Enter(\r 또는 \n) 포함 여부 */
   lastInputHasEnter: boolean;
 }
@@ -92,6 +96,8 @@ const LEGACY_TRUNCATED_REPLAY_PLACEHOLDER = '\r\n[BuilderGate] Screen snapshot e
 const LEGACY_DEGRADED_REPLAY_PLACEHOLDER = '\r\n[BuilderGate] Server snapshot is unavailable for this session. Using fallback recovery when possible...\r\n';
 const MAX_DEBUG_CAPTURE_EVENTS = 400;
 const DEBUG_CAPTURE_PREVIEW_CHARS = 320;
+const DEBUG_INPUT_CORRELATION_WINDOW_MS = 500;
+const DEBUG_INPUT_SAMPLE_LIMIT = 8;
 const MAX_RESIZE_REPLAY_DELAY_MS = 400;
 const RESIZE_REPLAY_QUIET_WINDOW_MS = 120;
 
@@ -234,8 +240,8 @@ export class SessionManager {
       // Step 9: Idle Detection
       echoTracker: {
         lastInputAt: 0,
-        lastInputLen: 0,
         lastInputHasEnter: false,
+        recentInputs: [],
       },
       detectionMode: 'heuristic',
       oscDetector,
@@ -314,16 +320,12 @@ export class SessionManager {
       const outputData = sData.detectionMode === 'osc133' ? stripped : rawData;
 
       if (outputData.length > 0) {
+        const outputDebugDetails = buildRawOutputDebugDetails(sData, rawData, outputData, foundMarker);
         if (this.pendingResizeReplaySessions.has(id)) {
           this.pendingResizeReplayLastOutputAt.set(id, Date.now());
           this.scheduleResizeReplayRefresh(id, RESIZE_REPLAY_QUIET_WINDOW_MS);
         }
-        this.captureDebugEvent(id, 'pty', 'raw_output', {
-          byteLength: Buffer.byteLength(rawData, 'utf8'),
-          strippedByteLength: Buffer.byteLength(outputData, 'utf8'),
-          detectionMode: sData.detectionMode,
-          foundOsc133Marker: foundMarker,
-        }, rawData);
+        this.captureDebugEvent(id, 'pty', 'raw_output', outputDebugDetails, rawData);
         this.queueHeadlessOutput(id, sData, outputData);
       }
     });
@@ -421,6 +423,10 @@ export class SessionManager {
 
   enableDebugCapture(sessionId: string): void {
     this.clearDebugCapture(sessionId);
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.echoTracker.recentInputs = [];
+    }
     this.debugCaptureEnabledSessions.add(sessionId);
   }
 
@@ -439,12 +445,26 @@ export class SessionManager {
   writeInput(id: string, input: string): boolean {
     const data = this.sessions.get(id);
     if (!data) return false;
+    const inputDebugDetails = buildInputDebugDetails(input);
+    const shouldCaptureInputDebug = inputDebugDetails.safePreview === true || inputDebugDetails.hasEnter === true;
+    if (shouldCaptureInputDebug) {
+      this.captureDebugEvent(id, 'pty', 'input', inputDebugDetails, formatSafeInputPreview(input) ?? undefined);
+    }
 
     // Step 9: 에코 추적 정보 기록 (pty.write 전에 기록)
     const hasEnter = input.includes('\r') || input.includes('\n');
     data.echoTracker.lastInputAt = Date.now();
-    data.echoTracker.lastInputLen = input.length;
     data.echoTracker.lastInputHasEnter = hasEnter;
+    if (shouldCaptureInputDebug) {
+      data.echoTracker.recentInputs.push({
+        at: data.echoTracker.lastInputAt,
+        hasEnter,
+        inputClass: String(inputDebugDetails.inputClass ?? 'safe-control'),
+      });
+      if (data.echoTracker.recentInputs.length > DEBUG_INPUT_SAMPLE_LIMIT) {
+        data.echoTracker.recentInputs.splice(0, data.echoTracker.recentInputs.length - DEBUG_INPUT_SAMPLE_LIMIT);
+      }
+    }
 
     // Enter 입력 시 heuristic 모드에서 즉시 running 전환
     if (hasEnter && data.detectionMode === 'heuristic') {
@@ -914,12 +934,15 @@ export class SessionManager {
 
     const escapedPath = cwdFilePath.replace(/'/g, "''");
     const hookScript = [
+      "$Global:__BuilderGateUtf8NoBom = [System.Text.UTF8Encoding]::new($false)",
+      "$Global:__BuilderGateWritePwd = { param([string]$PathValue) try { [System.IO.File]::WriteAllText('" + escapedPath + "', $PathValue, $Global:__BuilderGateUtf8NoBom) } catch {} }",
       '$Global:__BuilderGateOrigPrompt = $function:prompt',
-      `$pwd.Path | Out-File -FilePath '${escapedPath}' -Encoding utf8 -NoNewline`,
-      "function Global:prompt { $pwd.Path | Out-File -FilePath '" + escapedPath + "' -Encoding utf8 -NoNewline; if ($Global:__BuilderGateOrigPrompt) { & $Global:__BuilderGateOrigPrompt } else { \"PS $($pwd.Path)> \" } }",
+      '& $Global:__BuilderGateWritePwd $pwd.Path',
+      "function Global:prompt { & $Global:__BuilderGateWritePwd $pwd.Path; if ($Global:__BuilderGateOrigPrompt) { & $Global:__BuilderGateOrigPrompt } else { \"PS $($pwd.Path)> \" } }",
     ].join('; ');
+    const encodedScript = Buffer.from(hookScript, 'utf16le').toString('base64');
 
-    return ['-NoLogo', '-NoExit', '-Command', hookScript];
+    return ['-NoLogo', '-NoExit', '-NoProfile', '-EncodedCommand', encodedScript];
   }
 
   private getCwdTrackingFilePath(sessionId: string): string {
@@ -1383,4 +1406,83 @@ function formatDebugPreview(raw: string): string {
     .replace(/\r/g, '\\r')
     .replace(/\n/g, '\\n')
     .replace(/\t/g, '\\t');
+}
+
+function formatSafeInputPreview(raw: string): string | null {
+  if (!/^[\x00-\x20\x7f]+$/.test(raw)) {
+    return null;
+  }
+
+  return raw
+    .slice(0, DEBUG_CAPTURE_PREVIEW_CHARS)
+    .replace(/ /g, '␠')
+    .replace(/\x7f/g, '\\x7f')
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t')
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, (match) => `\\x${match.charCodeAt(0).toString(16).padStart(2, '0')}`)
+    .replace(/\x1b/g, '\\x1b');
+}
+
+function buildInputDebugDetails(raw: string): Record<string, SessionDebugCaptureValue> {
+  const safePreview = formatSafeInputPreview(raw);
+  const spaceCount = (raw.match(/ /g) ?? []).length;
+  const backspaceCount = (raw.match(/\x7f/g) ?? []).length;
+  const enterCount = (raw.match(/[\r\n]/g) ?? []).length;
+  const escapeCount = (raw.match(/\x1b/g) ?? []).length;
+  const controlCount = (raw.match(/[\x00-\x1f\x7f]/g) ?? []).length;
+  const printableCount = Math.max(0, raw.length - controlCount);
+
+  if (safePreview === null) {
+    return {
+      hasEnter: enterCount > 0,
+      inputClass: controlCount > 0 ? 'mixed-printable-control' : 'printable',
+      containsPrintable: printableCount > 0,
+      safePreview: false,
+    };
+  }
+
+  return {
+    byteLength: Buffer.byteLength(raw, 'utf8'),
+    hasEnter: enterCount > 0,
+    spaceCount,
+    backspaceCount,
+    enterCount,
+    escapeCount,
+    controlCount,
+    printableCount,
+    inputClass: 'safe-control',
+    safePreview: true,
+  };
+}
+
+function buildRawOutputDebugDetails(
+  sessionData: SessionData,
+  rawData: string,
+  outputData: string,
+  foundMarker: boolean,
+): Record<string, SessionDebugCaptureValue> {
+  const now = Date.now();
+  const recentInputs = sessionData.echoTracker.recentInputs.filter((entry) => (now - entry.at) <= DEBUG_INPUT_CORRELATION_WINDOW_MS);
+  sessionData.echoTracker.recentInputs = recentInputs;
+  const newestInput = recentInputs.at(-1);
+  const oldestInput = recentInputs[0];
+
+  return {
+    byteLength: Buffer.byteLength(rawData, 'utf8'),
+    strippedByteLength: Buffer.byteLength(outputData, 'utf8'),
+    detectionMode: sessionData.detectionMode,
+    foundOsc133Marker: foundMarker,
+    msSinceNewestInputSample: newestInput
+      ? now - newestInput.at
+      : null,
+    msSinceOldestInputSample: oldestInput
+      ? now - oldestInput.at
+      : null,
+    recentInputSampleCount: recentInputs.length,
+    recentEnterSampleCount: recentInputs.filter((entry) => entry.hasEnter).length,
+    recentInputSampleClasses: recentInputs.length > 0
+      ? recentInputs.slice(-3).map((entry) => entry.inputClass).join(',')
+      : null,
+  };
 }

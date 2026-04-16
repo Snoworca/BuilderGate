@@ -3,7 +3,11 @@ import { useWebSocketActions } from '../../contexts/WebSocketContext';
 import { TerminalView } from './TerminalView';
 import type { TerminalHandle } from './TerminalView';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
-import { recordTerminalDebugEvent } from '../../utils/terminalDebugCapture';
+import {
+  buildTerminalInputDebugPayload,
+  recordTerminalDebugEvent,
+  shouldRecordTerminalInputDebug,
+} from '../../utils/terminalDebugCapture';
 
 interface Props {
   sessionId: string;
@@ -48,7 +52,7 @@ export const TerminalContainer = memo(
     useImperativeHandle(ref, () => ({
       write: (data) => terminalRef.current?.write(data),
       clear: () => terminalRef.current?.clear(),
-      focus: () => terminalRef.current?.focus(),
+      focus: (reason) => terminalRef.current?.focus(reason),
       hasSelection: () => terminalRef.current?.hasSelection() ?? false,
       getSelection: () => terminalRef.current?.getSelection() ?? '',
       clearSelection: () => terminalRef.current?.clearSelection(),
@@ -227,6 +231,10 @@ export const TerminalContainer = memo(
     }, [sessionId, subscribeSession]);
 
     const handleInput = useCallback((data: string) => {
+      const debugInput = buildTerminalInputDebugPayload(data);
+      if (shouldRecordTerminalInputDebug(debugInput)) {
+        recordTerminalDebugEvent(sessionId, 'ws_input_sent', debugInput.details, debugInput.preview);
+      }
       send({ type: 'input', sessionId, data });
     }, [sessionId, send]);
 
