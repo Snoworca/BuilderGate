@@ -47,8 +47,15 @@ nul
 server/config.json5
 server/config.json5.bak
 
-# TOTP secret (서버 재시작 후에도 유지)
-data/totp.secret
+# Server runtime state
+server/data/workspaces.json
+server/data/workspaces.json.bak
+server/data/snapshots/
+server/data/buffer-dump/
+server/data/*.log
+
+# TOTP secret
+server/data/totp.secret
 
 # SSL certificates (auto-generated)
 server/certs/
