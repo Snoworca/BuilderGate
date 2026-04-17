@@ -29,6 +29,9 @@ import { SSLService } from './services/SSLService.js';
 import { CryptoService } from './services/CryptoService.js';
 import { AuthService } from './services/AuthService.js';
 import { TOTPService } from './services/TOTPService.js';
+import { reconcileTotpRuntime } from './services/twoFactorRuntime.js';
+import type { Config } from './types/config.types.js';
+import type { EditableSettingsKey } from './types/settings.types.js';
 import {
   createSecurityHeadersMiddleware,
   createNoCacheMiddleware,
@@ -74,6 +77,17 @@ function isHtmlNavigationRequest(req: express.Request): boolean {
 
   const pathname = req.path;
   return !isReservedRuntimePath(pathname) && !isStaticAssetRequest(pathname);
+}
+
+function applyTwoFactorRuntime(nextConfig: Config, changedKeys: EditableSettingsKey[] = []): string[] {
+  const result = reconcileTotpRuntime({
+    currentService: totpService,
+    nextConfig,
+    cryptoService,
+    changedKeys,
+  });
+  totpService = result.service;
+  return result.warnings;
 }
 
 // ============================================================================
@@ -292,9 +306,9 @@ async function startServer(): Promise<void> {
     // Initialize TOTP Service (Step 6 — FR-102)
     // ========================================================================
     if (config.twoFactor?.enabled) {
-      totpService = new TOTPService(config.twoFactor, cryptoService);
+      applyTwoFactorRuntime(config);
       try {
-        totpService.initialize();
+        void totpService;
       } catch (err) {
         console.error('[TOTP] Failed to initialize TOTPService:', err);
         // Server continues — TOTP unregistered state handled in auth routes (FR-401)
@@ -319,6 +333,7 @@ async function startServer(): Promise<void> {
       authService,
       getFileService: () => fileService,
       sessionManager,
+      updateTwoFactorRuntime: (nextConfig, changedKeys) => applyTwoFactorRuntime(nextConfig, changedKeys),
     });
 
     // ========================================================================

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type {
   EditableSettingsKey,
@@ -7,9 +7,9 @@ import type {
   SettingsApplySummary,
   SettingsPatchRequest,
   SettingsSnapshot,
+  TOTPQRInfo,
 } from '../../types';
-import { settingsApi } from '../../services/api';
-import { tokenStorage } from '../../services/tokenStorage';
+import { authApi, settingsApi } from '../../services/api';
 import { ConfirmModal } from '../Modal';
 import { AUTO_FOCUS_RATIO_KEY, AUTO_FOCUS_RATIO_DEFAULT, FOCUS_RATIO_KEY, FOCUS_RATIO_DEFAULT } from '../../utils/mosaic';
 import './SettingsPage.css';
@@ -18,12 +18,6 @@ interface SecretDraft {
   currentPassword: string;
   newPassword: string;
   confirmPassword: string;
-}
-
-interface TOTPQRInfo {
-  dataUrl: string;
-  uri: string;
-  registered: boolean;
 }
 
 interface Props {
@@ -38,6 +32,7 @@ const EMPTY_SECRETS: SecretDraft = {
 };
 
 export function SettingsPage({ visible, onBack }: Props) {
+  const isInteractiveRef = useRef(false);
   const [snapshot, setSnapshot] = useState<SettingsSnapshot | null>(null);
   const [draft, setDraft] = useState<EditableSettingsValues | null>(null);
   const [secrets, setSecrets] = useState<SecretDraft>(EMPTY_SECRETS);
@@ -81,6 +76,30 @@ export function SettingsPage({ visible, onBack }: Props) {
   const [summary, setSummary] = useState<SettingsApplySummary | null>(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
+  const loadTotpQr = useCallback(async (isActive: () => boolean = () => true): Promise<void> => {
+    setTotpQRLoading(true);
+    setTotpQRError(null);
+
+    try {
+      const nextQr = await authApi.getTotpQr();
+      if (!isActive()) return;
+      setTotpQR(nextQr);
+    } catch (error) {
+      if (!isActive()) return;
+      setTotpQR(null);
+      setTotpQRError(error instanceof Error ? error.message : 'Failed to load QR code');
+    } finally {
+      if (isActive()) setTotpQRLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    isInteractiveRef.current = visible;
+    return () => {
+      isInteractiveRef.current = false;
+    };
+  }, [visible]);
+
   useEffect(() => {
     if (!visible) return;
 
@@ -108,28 +127,16 @@ export function SettingsPage({ visible, onBack }: Props) {
     setTotpQR(null);
     setTotpQRError(null);
     setTotpQRLoading(true);
-    fetch('/api/auth/totp-qr', {
-      headers: {
-        Authorization: `Bearer ${tokenStorage.getToken() ?? ''}`,
-      },
-    })
-      .then(async (res) => {
+    authApi.getTotpQr()
+      .then((data) => {
         if (!active) return;
-        if (!res.ok) {
-          if (res.status === 404) {
             // TOTP not enabled — no QR to show
-            return;
-          }
-          setTotpQRError('Failed to load QR code');
-          return;
-        }
-        const data = await res.json() as TOTPQRInfo;
         if (!active) return;
         setTotpQR(data);
       })
-      .catch(() => {
+      .catch((error) => {
         if (!active) return;
-        setTotpQRError('Failed to load QR code');
+        setTotpQRError(error instanceof Error ? error.message : 'Failed to load QR code');
       })
       .finally(() => {
         if (active) setTotpQRLoading(false);
@@ -232,6 +239,19 @@ export function SettingsPage({ visible, onBack }: Props) {
       setDraft(structuredClone(response.values));
       setSecrets(EMPTY_SECRETS);
       setSummary(response.applySummary);
+
+      const shouldRefreshQr = response.changedKeys.some((key) =>
+        key === 'twoFactor.enabled' || key === 'twoFactor.issuer' || key === 'twoFactor.accountName',
+      );
+      if (shouldRefreshQr) {
+        if (!response.values.twoFactor.enabled) {
+          setTotpQR(null);
+          setTotpQRError(null);
+          setTotpQRLoading(false);
+        } else {
+          await loadTotpQr(() => isInteractiveRef.current);
+        }
+      }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to save settings');
       try {
@@ -271,7 +291,7 @@ export function SettingsPage({ visible, onBack }: Props) {
         </div>
         <div className="settings-toolbar-actions">
           <button className="settings-secondary-button" onClick={requestBack}>Back</button>
-          <button className="settings-primary-button" onClick={save} disabled={!isDirty || saving || loading || validationErrors.length > 0}>
+          <button className="settings-primary-button" data-testid="settings-save-button" onClick={save} disabled={!isDirty || saving || loading || validationErrors.length > 0}>
             {saving ? 'Saving...' : 'Save Settings'}
           </button>
         </div>
@@ -293,6 +313,11 @@ export function SettingsPage({ visible, onBack }: Props) {
               Immediate {summary.immediate.length}, next login {summary.new_logins.length}, new terminal sessions {summary.new_sessions.length}
             </div>
           )}
+          {summary?.warnings.length ? (
+            <div className="settings-banner settings-banner-warning">
+              {summary.warnings.map((warning) => <div key={warning}>{warning}</div>)}
+            </div>
+          ) : null}
 
           <div className="settings-grid">
             <Card title="Authentication">
@@ -312,16 +337,16 @@ export function SettingsPage({ visible, onBack }: Props) {
 
             <Card title="Two-Factor Authentication">
               <Field label="Enabled" scope={scope(snapshot, 'twoFactor.enabled')} hint="TOTP (Google Authenticator)">
-                <input type="checkbox" checked={draft.twoFactor.enabled} onChange={(e) => updateDraft((next) => { next.twoFactor.enabled = e.target.checked; })} />
+                <input data-testid="twofactor-enabled" type="checkbox" checked={draft.twoFactor.enabled} onChange={(e) => updateDraft((next) => { next.twoFactor.enabled = e.target.checked; })} />
               </Field>
               <Field label="External only" scope={scope(snapshot, 'twoFactor.externalOnly')} hint="localhost 접속 시 2FA 건너뜀">
                 <input type="checkbox" checked={draft.twoFactor.externalOnly} onChange={(e) => updateDraft((next) => { next.twoFactor.externalOnly = e.target.checked; })} />
               </Field>
               <Field label="Issuer" scope={scope(snapshot, 'twoFactor.issuer')} hint="App name shown in authenticator">
-                <input type="text" value={draft.twoFactor.issuer} onChange={(e) => updateDraft((next) => { next.twoFactor.issuer = e.target.value; })} />
+                <input data-testid="twofactor-issuer" type="text" value={draft.twoFactor.issuer} onChange={(e) => updateDraft((next) => { next.twoFactor.issuer = e.target.value; })} />
               </Field>
               <Field label="Account name" scope={scope(snapshot, 'twoFactor.accountName')} hint="Username shown in authenticator">
-                <input type="text" value={draft.twoFactor.accountName} onChange={(e) => updateDraft((next) => { next.twoFactor.accountName = e.target.value; })} />
+                <input data-testid="twofactor-account-name" type="text" value={draft.twoFactor.accountName} onChange={(e) => updateDraft((next) => { next.twoFactor.accountName = e.target.value; })} />
               </Field>
 
               {/* QR Code section */}
@@ -333,22 +358,23 @@ export function SettingsPage({ visible, onBack }: Props) {
                 {totpQRLoading && <span className="settings-field-hint">Loading QR code...</span>}
                 {totpQRError && <span className="settings-field-hint" style={{ color: 'var(--error-color, #e57373)' }}>{totpQRError}</span>}
                 {totpQR && totpQR.registered && totpQR.dataUrl && (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
+                  <div data-testid="totp-qr-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
                     <img
+                      data-testid="totp-qr-image"
                       src={totpQR.dataUrl}
                       alt="TOTP QR Code"
                       style={{ width: 180, height: 180, imageRendering: 'pixelated', border: '2px solid var(--border-color, #444)', borderRadius: 4, background: '#fff' }}
                     />
-                    <span className="settings-field-hint" style={{ wordBreak: 'break-all', maxWidth: 320, fontSize: 11 }}>
+                    <span data-testid="totp-qr-uri" className="settings-field-hint" style={{ wordBreak: 'break-all', maxWidth: 320, fontSize: 11 }}>
                       {totpQR.uri}
                     </span>
                   </div>
                 )}
                 {totpQR && !totpQR.registered && (
-                  <span className="settings-field-hint">TOTP is enabled but secret is not registered. Restart the server to generate a new secret.</span>
+                  <span data-testid="totp-qr-unregistered" className="settings-field-hint">TOTP is enabled but secret is not registered. Restart the server to generate a new secret.</span>
                 )}
                 {!totpQRLoading && !totpQR && !totpQRError && (
-                  <span className="settings-field-hint">TOTP is not enabled on this server.</span>
+                  <span data-testid="totp-qr-disabled" className="settings-field-hint">TOTP is not enabled on this server.</span>
                 )}
               </div>
             </Card>

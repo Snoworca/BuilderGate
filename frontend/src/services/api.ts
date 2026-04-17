@@ -11,6 +11,7 @@ import type {
   VerifyRequest,
   VerifyResponse,
   RefreshResponse,
+  TOTPQRInfo,
   ErrorResponse,
   DirectoryListing,
   FileContent,
@@ -120,6 +121,15 @@ export const authApi = {
       headers: getAuthHeaders()
     });
     if (!res.ok) return { authenticated: false };
+    return res.json();
+  },
+
+  async getTotpQr(): Promise<TOTPQRInfo | null> {
+    const res = await authFetch(`${API_BASE}/auth/totp-qr`, {
+      headers: getAuthHeaders(),
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw await parseError(res);
     return res.json();
   }
 };

@@ -62,6 +62,12 @@ export interface RefreshResponse {
   expiresIn: number;
 }
 
+export interface TOTPQRInfo {
+  dataUrl: string;
+  uri: string;
+  registered: boolean;
+}
+
 // Note: Backend uses ErrorCode enum, but frontend uses string for flexibility
 export interface ErrorResponse {
   error: {

@@ -86,7 +86,7 @@ export function Header({
               onClick={onToggleViewMode}
               title={viewMode === 'tab' ? 'Switch to Grid' : 'Switch to Tabs'}
             >
-              {viewMode === 'tab' ? 'Grid' : 'Tabs'}
+              {viewMode === 'tab' ? '⊞' : '☰'}
             </button>
           )}
           {onOpenSettings && (

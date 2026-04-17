@@ -184,6 +184,12 @@
   color: #bfe9b9;
 }
 
+.settings-banner-warning {
+  background: rgba(122, 96, 44, 0.22);
+  border: 1px solid rgba(201, 170, 88, 0.35);
+  color: #f2db9a;
+}
+
 .settings-info-card {
   margin-top: 16px;
 }

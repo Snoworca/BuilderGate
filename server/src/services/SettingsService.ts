@@ -72,6 +72,7 @@ interface SettingsServiceDeps {
   authService: AuthService;
   getFileService: () => FileService;
   sessionManager: SessionManager;
+  updateTwoFactorRuntime?: (config: Config, changedKeys: EditableSettingsKey[]) => string[];
 }
 
 export interface SaveActorContext {
@@ -161,14 +162,16 @@ export class SettingsService {
       throw error;
     }
 
+    const runtimeWarnings = this.applyTwoFactorRuntime(persistResult.nextConfig, changedKeys);
+
     return {
       ...this.getSettingsSnapshot(),
       changedKeys,
-      applySummary: buildApplySummary(changedKeys, this.deps.runtimeConfigStore),
+      applySummary: buildApplySummary(changedKeys, this.deps.runtimeConfigStore, runtimeWarnings),
     };
   }
 
-  private applyRuntimeConfig(previousConfig: Config, nextConfig: Config, changedKeys: EditableSettingsKey[]): void {
+  private applyRuntimeConfig(previousConfig: Config, nextConfig: Config, _changedKeys: EditableSettingsKey[]): void {
     const { authService, sessionManager, runtimeConfigStore } = this.deps;
     const fileService = this.deps.getFileService();
 
@@ -221,6 +224,23 @@ export class SettingsService {
         error instanceof Error ? error.message : 'Failed to apply runtime settings',
         rollbackErrors.length > 0 ? { rollbackErrors } : undefined,
       );
+    }
+  }
+
+  private applyTwoFactorRuntime(config: Config, changedKeys: EditableSettingsKey[]): string[] {
+    if (!this.deps.updateTwoFactorRuntime) {
+      return [];
+    }
+
+    if (!changedKeys.some((key) => key === 'twoFactor.enabled' || key === 'twoFactor.issuer' || key === 'twoFactor.accountName')) {
+      return [];
+    }
+
+    try {
+      return this.deps.updateTwoFactorRuntime(config, changedKeys);
+    } catch (error) {
+      console.error('[SettingsService] TOTP runtime refresh failed after save:', error);
+      return ['TOTP runtime refresh failed after saving settings. Restart the server or reapply the 2FA settings.'];
     }
   }
 }
@@ -365,13 +385,17 @@ function validatePlatformPatch(values: EditableSettingsValues, platform: NodeJS.
 
 }
 
-function buildApplySummary(changedKeys: EditableSettingsKey[], runtimeConfigStore: RuntimeConfigStore): SettingsApplySummary {
+function buildApplySummary(
+  changedKeys: EditableSettingsKey[],
+  runtimeConfigStore: RuntimeConfigStore,
+  warnings: string[] = [],
+): SettingsApplySummary {
   const capabilities = runtimeConfigStore.getFieldCapabilities();
   const summary: SettingsApplySummary = {
     immediate: [],
     new_logins: [],
     new_sessions: [],
-    warnings: [],
+    warnings: [...warnings],
   };
 
   for (const key of changedKeys) {

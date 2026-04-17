@@ -15,6 +15,7 @@ import { AuthService } from './services/AuthService.js';
 import { CryptoService } from './services/CryptoService.js';
 import { ConfigFileRepository } from './services/ConfigFileRepository.js';
 import { SettingsService } from './services/SettingsService.js';
+import { reconcileTotpRuntime } from './services/twoFactorRuntime.js';
 import { SessionManager } from './services/SessionManager.js';
 import { FileService } from './services/FileService.js';
 import { OscDetector } from './services/OscDetector.js';
@@ -48,6 +49,9 @@ async function main(): Promise<void> {
     { name: 'SettingsService rejects unsupported settings keys', run: testSettingsUnsupportedSetting },
     { name: 'SettingsService persists editable values and applies runtime updates', run: testSettingsServicePersistence },
     { name: 'SettingsService persists editable values against a legacy pty.maxBufferSize config', run: testSettingsServiceLegacyPtyMigration },
+    { name: 'SettingsService reconfigures TOTP runtime and returns warnings on hot apply', run: testSettingsServiceTwoFactorRuntimeHotApply },
+    { name: 'SettingsService does not reconfigure TOTP runtime when config persistence fails', run: testSettingsServiceTwoFactorRuntimeNotCalledOnPersistFailure },
+    { name: 'SettingsService converts post-save TOTP runtime callback throws into warnings', run: testSettingsServiceTwoFactorRuntimeCallbackFailureWarning },
     { name: 'SettingsService blocks password rotation without current password', run: testSettingsPasswordValidation },
     { name: 'SettingsService rotates password for later logins and persists encrypted secret', run: testSettingsPasswordRotation },
     { name: 'SettingsService rolls back runtime state when apply fails', run: testSettingsApplyFailureRollback },
@@ -114,6 +118,8 @@ async function main(): Promise<void> {
     { name: 'TOTPService.initialize() loads existing secret from file (FR-202)', run: testTOTPInitializeLoadsSecret },
     { name: 'TOTPService.initialize() throws on corrupted secret file (FR-204)', run: testTOTPInitializeThrowsOnCorrupted },
     // Phase 4: authRoutes — 4 COMBO flows
+    { name: 'reconcileTotpRuntime initializes TOTP on startup when 2FA is enabled', run: testReconcileTotpRuntimeStartupInitialization },
+    { name: 'reconcileTotpRuntime keeps the previous registered service on hot-apply failure', run: testReconcileTotpRuntimeKeepsPreviousService },
     { name: 'authRoutes COMBO-3: TOTP-only login returns 202 with nextStage totp (Phase 4)', run: testAuthRoutesCombo3Login },
     { name: 'authRoutes FR-401: TOTP enabled but unregistered returns 503 (Phase 4)', run: testAuthRoutesUnregisteredTOTP503 },
     { name: 'authRoutes FR-802: stage mismatch returns 400 (Phase 4)', run: testAuthRoutesStageMismatch },
@@ -123,6 +129,7 @@ async function main(): Promise<void> {
     { name: 'authRoutes twoFactor.externalOnly=false: external-only disabled still requires TOTP', run: testAuthRoutesExternalOnlyDisabled },
     { name: 'authRoutes TOTP verify success issues JWT (Phase 4)', run: testAuthRoutesTOTPVerifySuccess },
     { name: 'authRoutes TOTP max attempts returns attemptsRemaining 0 (Phase 4)', run: testAuthRoutesTOTPMaxAttempts },
+    { name: 'authRoutes totp-qr reads the latest TOTP runtime instance', run: testAuthRoutesTotpQrLatestRuntime },
   ];
 
   let failures = 0;
@@ -265,6 +272,165 @@ async function testSettingsServicePersistence(): Promise<void> {
     assert.ok(backupStat.isFile());
   } finally {
     authService.destroy();
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testSettingsServiceTwoFactorRuntimeHotApply(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-settings-2fa-hot-apply-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  await fs.writeFile(configPath, createConfigFixtureContent(), 'utf-8');
+
+  const runtimeCalls: Array<{ enabled: boolean; issuer: string; accountName: string; changedKeys: string[] }> = [];
+  const harness = createSettingsHarness({
+    configPath,
+    updateTwoFactorRuntime: (nextConfig, changedKeys) => {
+      runtimeCalls.push({
+        enabled: Boolean(nextConfig.twoFactor?.enabled),
+        issuer: nextConfig.twoFactor?.issuer ?? '',
+        accountName: nextConfig.twoFactor?.accountName ?? '',
+        changedKeys: [...changedKeys],
+      });
+      return ['TOTP secret could not be initialized. QR code is unavailable until the secret is repaired or regenerated.'];
+    },
+  });
+
+  try {
+    const result = harness.settingsService.savePatch({
+      twoFactor: {
+        enabled: true,
+        issuer: 'BuilderGate QA',
+        accountName: 'qa-admin',
+      },
+    });
+
+    assert.equal(runtimeCalls.length, 1, 'TOTP runtime callback should run once');
+    assert.deepEqual(runtimeCalls[0]?.changedKeys.sort(), ['twoFactor.accountName', 'twoFactor.enabled', 'twoFactor.issuer']);
+    assert.equal(runtimeCalls[0]?.enabled, true);
+    assert.equal(runtimeCalls[0]?.issuer, 'BuilderGate QA');
+    assert.equal(runtimeCalls[0]?.accountName, 'qa-admin');
+    assert.deepEqual(result.applySummary.warnings, [
+      'TOTP secret could not be initialized. QR code is unavailable until the secret is repaired or regenerated.',
+    ]);
+    assert.ok(result.applySummary.new_logins.includes('twoFactor.enabled'));
+    assert.ok(result.applySummary.new_logins.includes('twoFactor.issuer'));
+    assert.ok(result.applySummary.new_logins.includes('twoFactor.accountName'));
+  } finally {
+    harness.destroy();
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testSettingsServiceTwoFactorRuntimeNotCalledOnPersistFailure(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-settings-2fa-persist-fail-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  await fs.writeFile(configPath, createConfigFixtureContent(), 'utf-8');
+
+  const fixture = createConfigFixture();
+  const cryptoService = new CryptoService('settings-twofactor-persist-fail');
+  const runtimeConfigStore = new RuntimeConfigStore(fixture);
+  const authService = new AuthService(fixture.auth!, cryptoService);
+  const sessionManager = new SessionManager({ pty: fixture.pty, session: fixture.session });
+  const fileService = new FileService({
+    getSession: () => ({ id: 'session-1' }),
+    getPtyPid: () => null,
+    getInitialCwd: () => os.tmpdir(),
+    getCwdFilePath: () => null,
+  }, fixture.fileManager!);
+  const configRepository = new ConfigFileRepository(configPath);
+  const originalPersist = configRepository.persistEditableValues.bind(configRepository);
+  configRepository.writePreparedResult = () => {
+    throw new Error('simulated persist failure');
+  };
+
+  let runtimeCalls = 0;
+  const settingsService = new SettingsService({
+    runtimeConfigStore,
+    configRepository,
+    cryptoService,
+    authService,
+    getFileService: () => fileService,
+    sessionManager,
+    updateTwoFactorRuntime: () => {
+      runtimeCalls += 1;
+      return [];
+    },
+  });
+
+  try {
+    const originalDuration = authService.getSessionDuration();
+    const originalIdleDelay = runtimeConfigStore.getEditableValues().session.idleDelayMs;
+    assert.throws(
+      () => settingsService.savePatch({
+        twoFactor: {
+          enabled: true,
+          issuer: 'PersistFail',
+        },
+      }),
+      /simulated persist failure/,
+    );
+    assert.equal(runtimeCalls, 0, 'TOTP runtime callback should not run when config persistence fails');
+    assert.equal(authService.getSessionDuration(), originalDuration, 'Auth runtime state should remain unchanged after persist failure');
+    assert.equal(runtimeConfigStore.getEditableValues().session.idleDelayMs, originalIdleDelay, 'Runtime config store should remain unchanged after persist failure');
+
+    const dryRun = originalPersist({
+      twoFactor: {
+        ...fixture.twoFactor!,
+        enabled: true,
+        issuer: 'PersistFail',
+        accountName: 'admin',
+      },
+      auth: { durationMs: fixture.auth!.durationMs },
+      security: { cors: fixture.security!.cors },
+      pty: {
+        termName: fixture.pty.termName,
+        defaultCols: fixture.pty.defaultCols,
+        defaultRows: fixture.pty.defaultRows,
+        useConpty: fixture.pty.useConpty,
+        windowsPowerShellBackend: fixture.pty.windowsPowerShellBackend ?? 'inherit',
+        shell: fixture.pty.shell as 'auto' | 'powershell' | 'wsl' | 'bash',
+      },
+      session: { idleDelayMs: fixture.session.idleDelayMs },
+      fileManager: {
+        maxFileSize: fixture.fileManager!.maxFileSize,
+        maxDirectoryEntries: fixture.fileManager!.maxDirectoryEntries,
+        blockedExtensions: fixture.fileManager!.blockedExtensions,
+        blockedPaths: fixture.fileManager!.blockedPaths,
+        cwdCacheTtlMs: fixture.fileManager!.cwdCacheTtlMs,
+      },
+    }, {}, { dryRun: true });
+    assert.equal(dryRun.nextConfig.twoFactor?.issuer, 'PersistFail');
+  } finally {
+    authService.destroy();
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testSettingsServiceTwoFactorRuntimeCallbackFailureWarning(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-settings-2fa-callback-fail-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  await fs.writeFile(configPath, createConfigFixtureContent(), 'utf-8');
+
+  const harness = createSettingsHarness({
+    configPath,
+    updateTwoFactorRuntime: () => {
+      throw new Error('simulated runtime callback failure');
+    },
+  });
+
+  try {
+    const result = harness.settingsService.savePatch({
+      twoFactor: {
+        enabled: true,
+      },
+    });
+
+    assert.deepEqual(result.applySummary.warnings, [
+      'TOTP runtime refresh failed after saving settings. Restart the server or reapply the 2FA settings.',
+    ]);
+    assert.equal(harness.runtimeConfigStore.getEditableValues().twoFactor.enabled, true);
+  } finally {
+    harness.destroy();
     await fs.rm(tempDir, { recursive: true, force: true });
   }
 }
@@ -2678,10 +2844,12 @@ function createSettingsHarness({
     getInitialCwd: () => os.tmpdir(),
     getCwdFilePath: () => null,
   }, fixture.fileManager!),
+  updateTwoFactorRuntime,
 }: {
   fixture?: Config;
   configPath?: string;
   fileService?: FileService;
+  updateTwoFactorRuntime?: (config: Config, changedKeys: Array<string>) => string[];
 } = {}) {
   const cryptoService = new CryptoService(`settings-harness-${Math.random().toString(36).slice(2)}`);
   const runtimeConfigStore = new RuntimeConfigStore(fixture);
@@ -2695,6 +2863,7 @@ function createSettingsHarness({
     authService,
     getFileService: () => fileService,
     sessionManager,
+    updateTwoFactorRuntime,
   });
 
   return {
@@ -3036,6 +3205,74 @@ async function testTOTPInitializeThrowsOnCorrupted(): Promise<void> {
 // ============================================================================
 
 /** Build a minimal harness for authRoutes tests */
+async function testReconcileTotpRuntimeStartupInitialization(): Promise<void> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'totp-runtime-startup-'));
+  const secretFile = path.join(tmpDir, 'totp.secret');
+  const crypto = new CryptoService('test-key-32-bytes-padded-here!!');
+
+  try {
+    const bootstrapService = new TOTPService({ enabled: true, issuer: 'Boot', accountName: 'admin' }, crypto, secretFile);
+    bootstrapService.initialize();
+    bootstrapService.destroy();
+
+    const result = reconcileTotpRuntime({
+      nextConfig: {
+        ...createConfigFixture(),
+        twoFactor: {
+          enabled: true,
+          externalOnly: false,
+          issuer: 'Boot',
+          accountName: 'admin',
+        },
+      },
+      cryptoService: crypto,
+      secretFilePath: secretFile,
+    });
+
+    assert.equal(result.warnings.length, 0, 'Startup runtime initialization should not warn for a valid secret');
+    assert.ok(result.service?.isRegistered(), 'Startup runtime should be registered after reconcile');
+    result.service?.destroy();
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function testReconcileTotpRuntimeKeepsPreviousService(): Promise<void> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'totp-runtime-retain-'));
+  const secretFile = path.join(tmpDir, 'totp.secret');
+  const crypto = new CryptoService('test-key-32-bytes-padded-here!!');
+  const previousService = new TOTPService({ enabled: true, issuer: 'Stable', accountName: 'admin' }, crypto, secretFile);
+
+  try {
+    (previousService as unknown as { secret: string; registered: boolean }).secret = generateSecret();
+    (previousService as unknown as { secret: string; registered: boolean }).registered = true;
+    await fs.writeFile(secretFile, 'CORRUPTED_NOT_VALID_ENCRYPTED_DATA', 'utf-8');
+
+    const result = reconcileTotpRuntime({
+      currentService: previousService,
+      nextConfig: {
+        ...createConfigFixture(),
+        twoFactor: {
+          enabled: true,
+          externalOnly: false,
+          issuer: 'NewIssuer',
+          accountName: 'new-admin',
+        },
+      },
+      cryptoService: crypto,
+      changedKeys: ['twoFactor.issuer'],
+      secretFilePath: secretFile,
+    });
+
+    assert.equal(result.service, previousService, 'Hot-apply failure should keep the previous registered runtime');
+    assert.equal(result.warnings.length, 1, 'Hot-apply failure should surface a warning');
+    assert.ok(result.service?.isRegistered(), 'Previous runtime should remain registered');
+  } finally {
+    previousService.destroy();
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
 async function invokeLogin(
   accessors: Parameters<typeof createAuthRoutes>[0],
   body: Record<string, unknown>,
@@ -3110,6 +3347,49 @@ async function invokeVerify(
       });
       request.on('error', (e: Error) => { server.close(); reject(e); });
       request.write(postBody);
+      request.end();
+    });
+  });
+}
+
+async function invokeTotpQr(
+  accessors: Parameters<typeof createAuthRoutes>[0],
+  token: string,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  return new Promise((resolve, reject) => {
+    const app = express();
+    app.use(express.json());
+    app.use('/api/auth', createAuthRoutes(accessors));
+    const server = http.createServer(app);
+    server.listen(0, () => {
+      const port = (server.address() as net.AddressInfo).port;
+      const options = {
+        hostname: '127.0.0.1',
+        port,
+        method: 'GET',
+        path: '/api/auth/totp-qr',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      };
+      const request = http.request(options, (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => {
+          server.close();
+          try {
+            const payload = Buffer.concat(chunks).toString();
+            const json = payload ? JSON.parse(payload) as Record<string, unknown> : {};
+            resolve({ status: res.statusCode ?? 0, body: json });
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
+      request.on('error', (error: Error) => {
+        server.close();
+        reject(error);
+      });
       request.end();
     });
   });
@@ -3248,6 +3528,38 @@ async function testAuthRoutesTOTPMaxAttempts(): Promise<void> {
   authService.destroy();
   assert.equal(lastResult.status, 401, `Expected 401 after 3 attempts, got ${lastResult.status}`);
   assert.equal(lastResult.body.attemptsRemaining, 0, 'attemptsRemaining should be 0');
+}
+
+async function testAuthRoutesTotpQrLatestRuntime(): Promise<void> {
+  const { accessors, authService, cryptoService } = makeAuthHarness({ withTotp: true, totpRegistered: true });
+  const accessorsMutable = accessors as Parameters<typeof createAuthRoutes>[0] & { getTOTPService: () => TOTPService | undefined };
+  const serviceA = new TOTPService({ enabled: true, issuer: 'IssuerA', accountName: 'admin-a' }, cryptoService);
+  const serviceB = new TOTPService({ enabled: true, issuer: 'IssuerB', accountName: 'admin-b' }, cryptoService);
+  const secretA = generateSecret();
+  const secretB = generateSecret();
+  (serviceA as unknown as { secret: string; registered: boolean }).secret = secretA;
+  (serviceA as unknown as { secret: string; registered: boolean }).registered = true;
+  (serviceB as unknown as { secret: string; registered: boolean }).secret = secretB;
+  (serviceB as unknown as { secret: string; registered: boolean }).registered = true;
+
+  let activeService: TOTPService | undefined = serviceA;
+  accessorsMutable.getTOTPService = () => activeService;
+  const { token } = authService.issueToken();
+
+  try {
+    const first = await invokeTotpQr(accessorsMutable, token);
+    assert.equal(first.status, 200, `Expected 200, got ${first.status}`);
+    assert.match(String(first.body.uri ?? ''), /IssuerA:admin-a/, 'First URI should use the first runtime instance');
+
+    activeService = serviceB;
+    const second = await invokeTotpQr(accessorsMutable, token);
+    assert.equal(second.status, 200, `Expected 200, got ${second.status}`);
+    assert.match(String(second.body.uri ?? ''), /IssuerB:admin-b/, 'Second URI should use the latest runtime instance');
+  } finally {
+    authService.destroy();
+    serviceA.destroy();
+    serviceB.destroy();
+  }
 }
 
 async function testAuthRoutesExternalOnlyBypass(): Promise<void> {
