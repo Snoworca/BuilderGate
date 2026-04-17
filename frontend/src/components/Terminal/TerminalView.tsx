@@ -85,6 +85,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const previousVisibilityRef = useRef(isVisible);
     const bufferedOutputRef = useRef<string[]>([]);
     const inFlightOutputRef = useRef<string[]>([]);
+    // IME 조합 상태 추적: compositionend/keydown(Space) race condition 보조 신호
+    const isComposingRef = useRef<boolean>(false);
     const { isMobile } = useResponsive();
 
     const getHelperTextarea = useCallback((): HTMLTextAreaElement | null => {
@@ -569,7 +571,21 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           return false;
         }
 
-        const isPlainKey = !ev.ctrlKey && !ev.altKey && !ev.metaKey && !ev.isComposing;
+        // IME 가드: ev.isComposing, keyCode 229, helper textarea composition 상태를 OR 판정한다.
+        // compositionend 직후 Space keydown이 같은 이벤트 루프에 도착해도 네이티브 xterm IME 처리에 위임한다.
+        const imeActive = ev.isComposing || ev.keyCode === 229 || isComposingRef.current;
+        if (imeActive) {
+          recordTerminalDebugEvent(sessionId, 'ime_guard_delegated', {
+            key: ev.key,
+            code: ev.code,
+            keyCode: ev.keyCode,
+            isComposing: ev.isComposing,
+            refActive: isComposingRef.current,
+          });
+          return true;
+        }
+
+        const isPlainKey = !ev.ctrlKey && !ev.altKey && !ev.metaKey;
         const isSpaceKey = ev.code === 'Space' || ev.key === ' ' || ev.key === 'Spacebar';
         const isEnterKey = ev.key === 'Enter';
         if (isPlainKey && (isSpaceKey || ev.key === 'Backspace' || isEnterKey)) {
@@ -579,6 +595,18 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             inputReady: inputReadyRef.current,
             restorePending: restorePendingRef.current,
           });
+        }
+        // 2차 수정: plain Space/Backspace도 xterm 네이티브 경로에 맡긴다.
+        // 다만 기존 회귀 테스트와 디버그 추적을 위해 관측 이벤트는 유지한다.
+        if (isPlainKey && inputReadyRef.current && (isSpaceKey || ev.key === 'Backspace')) {
+          const debugInput = buildTerminalInputDebugPayload(isSpaceKey ? ' ' : '\x7f');
+          recordTerminalDebugEvent(sessionId, 'manual_input_forwarded', {
+            key: isSpaceKey ? 'Space' : 'Backspace',
+            repeat: ev.repeat,
+            delegatedToXterm: true,
+            ...debugInput.details,
+          }, debugInput.preview);
+          return true;
         }
         if (isPlainKey && inputReadyRef.current && isSpaceKey) {
           const debugInput = buildTerminalInputDebugPayload(' ');
@@ -674,6 +702,21 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const onPasteCapture = (e: Event) => { e.preventDefault(); };
       termEl.addEventListener('paste', onPasteCapture, { capture: true });
 
+      // Helper textarea에 조합 상태를 별도로 기록한다.
+      // compositionend는 한 tick 지연 해제하여 같은 turn의 Space keydown이 아직 조합 중으로 보이게 한다.
+      const onCompositionStart = () => {
+        isComposingRef.current = true;
+      };
+      const onCompositionEnd = () => {
+        setTimeout(() => {
+          isComposingRef.current = false;
+        }, 0);
+      };
+      if (helperTextarea) {
+        helperTextarea.addEventListener('compositionstart', onCompositionStart);
+        helperTextarea.addEventListener('compositionend', onCompositionEnd);
+      }
+
       // 우클릭 캡처: DOM selectionchange가 xterm 선택을 지우기 전에 선택 텍스트 저장
       // (DOM 렌더러 모드에서 right-click mousedown이 DOM selection을 collapse시켜
       //  xterm이 자신의 selection을 clearSelection() 하는 타이밍 문제 해결)
@@ -728,6 +771,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       return () => {
         containerRef.current?.removeEventListener('mousedown', onMouseDownCapture, true);
         termEl.removeEventListener('paste', onPasteCapture, { capture: true });
+        if (helperTextarea) {
+          helperTextarea.removeEventListener('compositionstart', onCompositionStart);
+          helperTextarea.removeEventListener('compositionend', onCompositionEnd);
+        }
         if (rafId !== null) cancelAnimationFrame(rafId);
         if (resizeTimer !== null) clearTimeout(resizeTimer);
         if (idleSnapshotTimerRef.current) {
