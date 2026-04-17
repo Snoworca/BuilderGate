@@ -408,6 +408,7 @@ function AppContent() {
         isSettingsActive={screen === 'settings'}
         isMobile={isMobile}
         onMenuClick={toggleSidebar}
+        activeWorkspaceName={wm.activeWorkspace?.name}
         activeCwd={activeTab?.cwd}
         viewMode={viewMode}
         onToggleViewMode={wm.activeWorkspace ? handleToggleViewMode : undefined}

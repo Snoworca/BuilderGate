@@ -16,3 +16,9 @@
 ## Password
 
 - Local test password: `1234`
+
+## Encoding Rule
+
+- All file reads must assume `UTF-8` unless the user explicitly says otherwise.
+- All file writes, rewrites, and generated files must use `UTF-8`.
+- Do not use system-default code pages or locale-dependent encodings for project files.

@@ -1,0 +1,19 @@
+{
+  "version": "1.0-tiny",
+  "started_at": "2026-04-12T15:00:00",
+  "intent": "Grid 모드 터미널 스크롤백 보존 (방안A + idle 스냅샷)",
+  "language": "TypeScript",
+  "framework": "React 18 + xterm.js + react-mosaic-component",
+  "current_stage": "PLAN",
+  "start_stage": "PLAN",
+  "completed_stages": [],
+  "ref_paths": [],
+  "dew_files": {},
+  "stages": {},
+  "mode": "gate",
+  "mode_flags": {
+    "auto": false,
+    "qna": false,
+    "feasibility": false
+  }
+}
