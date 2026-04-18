@@ -69,7 +69,7 @@ test('RuntimeConfigStore marks platform-specific capabilities and merges editabl
 
   assert.equal(capabilities['pty.useConpty'].available, false);
   assert.equal(capabilities['pty.useConpty'].reason, 'Windows-only PTY backend');
-  assert.deepEqual(capabilities['pty.shell'].options, ['auto', 'bash']);
+  assert.deepEqual(capabilities['pty.shell'].options, ['auto', 'bash', 'zsh', 'sh']);
 
   const merged = store.mergeEditablePatch({
     auth: {

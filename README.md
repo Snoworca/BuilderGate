@@ -77,22 +77,31 @@ node dev.js --port 5000 --fport 3000   # 서버 5000, 프론트 3000
 
 ### PTY (터미널) 설정
 
+`server/config.json5`가 없으면 첫 실행 시 현재 OS에 맞는 기본값으로 자동 생성됩니다.
+
+- Windows: `useConpty: true`, `windowsPowerShellBackend: "inherit"`, `shell: "auto"`
+- macOS/Linux: `useConpty: false`, `windowsPowerShellBackend: "inherit"`, `shell: "auto"`
+
 ```json5
 {
   pty: {
     termName: "xterm-256color",  // 터미널 타입
     defaultCols: 80,             // 기본 열 수
     defaultRows: 24,             // 기본 행 수
-    useConpty: true,             // true: ConPTY (최신), false: winpty (호환성 우선)
-    maxBufferSize: 65536,        // 출력 버퍼 크기 (바이트)
+    useConpty: false,            // 저장소 예시는 cross-platform 중립값
+    windowsPowerShellBackend: "inherit", // PowerShell 전용 backend override (Windows only)
+    maxSnapshotBytes: 2097152,   // authoritative snapshot 최대 크기
+    scrollbackLines: 1000,       // headless scrollback logical lines
     shell: "auto",               // 셸 종류: auto, powershell, wsl, bash, cmd
   },
 }
 ```
 
+`maxBufferSize`는 기존 설정 파일 호환용 legacy alias이며, 현재 런타임 기준 필드는 `maxSnapshotBytes`입니다.
+
 | shell 값 | 동작 | 사용 시나리오 |
 |----------|------|--------------|
-| `auto` | OS 기본 셸 (Windows → PowerShell, Linux/macOS → bash) | 대부분의 경우 권장 |
+| `auto` | OS 기본 셸 (Windows → PowerShell, macOS → 가능하면 zsh, 그 외 → bash 또는 sh) | 대부분의 경우 권장 |
 | `powershell` | PowerShell 강제 (Windows 전용) | Windows 스크립트 개발 시 |
 | `wsl` | WSL bash (Windows 전용, WSL 설치 필요) | Windows에서 Linux 환경 필요 시 |
 | `bash` | bash (Linux/macOS 네이티브) | Linux/macOS 셸 스크립트 개발 시 |

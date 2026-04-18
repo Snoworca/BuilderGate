@@ -1,7 +1,7 @@
 import JSON5 from 'json5';
 import { copyFileSync, readFileSync, writeFileSync } from 'fs';
 import type { Config } from '../types/config.types.js';
-import type { EditableSettingsValues } from '../types/settings.types.js';
+import type { EditableSettingsKey, EditableSettingsValues } from '../types/settings.types.js';
 import { configSchema } from '../schemas/config.schema.js';
 import { getConfigPath } from '../utils/config.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
@@ -12,6 +12,7 @@ interface SecretPatch {
 
 interface PersistOptions {
   dryRun?: boolean;
+  changedKeys?: EditableSettingsKey[];
 }
 
 export interface PersistResult {
@@ -34,9 +35,9 @@ export class ConfigFileRepository {
       const rawConfig = JSON5.parse(originalContent) as Record<string, unknown>;
       const previousConfig = configSchema.parse(rawConfig) as Config;
 
-      const mergedRawConfig = applyEditableValues(structuredClone(rawConfig), values, secrets);
+      const mergedRawConfig = applyEditableValues(structuredClone(rawConfig), values, secrets, options.changedKeys);
       const nextConfig = configSchema.parse(mergedRawConfig) as Config;
-      const renderedContent = renderPatchedConfig(originalContent, nextConfig, secrets);
+      const renderedContent = renderPatchedConfig(originalContent, nextConfig, secrets, options.changedKeys);
       const reparsed = JSON5.parse(renderedContent);
       configSchema.parse(reparsed);
 
@@ -83,29 +84,32 @@ function applyEditableValues(
   rawConfig: Record<string, unknown>,
   values: EditableSettingsValues,
   secrets: SecretPatch,
+  changedKeys?: EditableSettingsKey[],
 ): Record<string, unknown> {
-  setPath(rawConfig, ['auth', 'durationMs'], values.auth.durationMs);
-  setPath(rawConfig, ['twoFactor', 'enabled'], values.twoFactor.enabled);
-  setPath(rawConfig, ['twoFactor', 'externalOnly'], values.twoFactor.externalOnly);
-  setPath(rawConfig, ['twoFactor', 'issuer'], values.twoFactor.issuer);
-  setPath(rawConfig, ['twoFactor', 'accountName'], values.twoFactor.accountName);
-  setPath(rawConfig, ['security', 'cors', 'allowedOrigins'], values.security.cors.allowedOrigins);
-  setPath(rawConfig, ['security', 'cors', 'credentials'], values.security.cors.credentials);
-  setPath(rawConfig, ['security', 'cors', 'maxAge'], values.security.cors.maxAge);
-  setPath(rawConfig, ['pty', 'termName'], values.pty.termName);
-  setPath(rawConfig, ['pty', 'defaultCols'], values.pty.defaultCols);
-  setPath(rawConfig, ['pty', 'defaultRows'], values.pty.defaultRows);
-  setPath(rawConfig, ['pty', 'useConpty'], values.pty.useConpty);
-  setPath(rawConfig, ['pty', 'windowsPowerShellBackend'], values.pty.windowsPowerShellBackend);
-  setPath(rawConfig, ['pty', 'shell'], values.pty.shell);
-  setPath(rawConfig, ['session', 'idleDelayMs'], values.session.idleDelayMs);
-  setPath(rawConfig, ['fileManager', 'maxFileSize'], values.fileManager.maxFileSize);
-  setPath(rawConfig, ['fileManager', 'maxDirectoryEntries'], values.fileManager.maxDirectoryEntries);
-  setPath(rawConfig, ['fileManager', 'blockedExtensions'], values.fileManager.blockedExtensions);
-  setPath(rawConfig, ['fileManager', 'blockedPaths'], values.fileManager.blockedPaths);
-  setPath(rawConfig, ['fileManager', 'cwdCacheTtlMs'], values.fileManager.cwdCacheTtlMs);
+  const shouldApply = (key: EditableSettingsKey) => !changedKeys || changedKeys.includes(key);
 
-  if (secrets.authPassword !== undefined) {
+  if (shouldApply('auth.durationMs')) setPath(rawConfig, ['auth', 'durationMs'], values.auth.durationMs);
+  if (shouldApply('twoFactor.enabled')) setPath(rawConfig, ['twoFactor', 'enabled'], values.twoFactor.enabled);
+  if (shouldApply('twoFactor.externalOnly')) setPath(rawConfig, ['twoFactor', 'externalOnly'], values.twoFactor.externalOnly);
+  if (shouldApply('twoFactor.issuer')) setPath(rawConfig, ['twoFactor', 'issuer'], values.twoFactor.issuer);
+  if (shouldApply('twoFactor.accountName')) setPath(rawConfig, ['twoFactor', 'accountName'], values.twoFactor.accountName);
+  if (shouldApply('security.cors.allowedOrigins')) setPath(rawConfig, ['security', 'cors', 'allowedOrigins'], values.security.cors.allowedOrigins);
+  if (shouldApply('security.cors.credentials')) setPath(rawConfig, ['security', 'cors', 'credentials'], values.security.cors.credentials);
+  if (shouldApply('security.cors.maxAge')) setPath(rawConfig, ['security', 'cors', 'maxAge'], values.security.cors.maxAge);
+  if (shouldApply('pty.termName')) setPath(rawConfig, ['pty', 'termName'], values.pty.termName);
+  if (shouldApply('pty.defaultCols')) setPath(rawConfig, ['pty', 'defaultCols'], values.pty.defaultCols);
+  if (shouldApply('pty.defaultRows')) setPath(rawConfig, ['pty', 'defaultRows'], values.pty.defaultRows);
+  if (shouldApply('pty.useConpty')) setPath(rawConfig, ['pty', 'useConpty'], values.pty.useConpty);
+  if (shouldApply('pty.windowsPowerShellBackend')) setPath(rawConfig, ['pty', 'windowsPowerShellBackend'], values.pty.windowsPowerShellBackend);
+  if (shouldApply('pty.shell')) setPath(rawConfig, ['pty', 'shell'], values.pty.shell);
+  if (shouldApply('session.idleDelayMs')) setPath(rawConfig, ['session', 'idleDelayMs'], values.session.idleDelayMs);
+  if (shouldApply('fileManager.maxFileSize')) setPath(rawConfig, ['fileManager', 'maxFileSize'], values.fileManager.maxFileSize);
+  if (shouldApply('fileManager.maxDirectoryEntries')) setPath(rawConfig, ['fileManager', 'maxDirectoryEntries'], values.fileManager.maxDirectoryEntries);
+  if (shouldApply('fileManager.blockedExtensions')) setPath(rawConfig, ['fileManager', 'blockedExtensions'], values.fileManager.blockedExtensions);
+  if (shouldApply('fileManager.blockedPaths')) setPath(rawConfig, ['fileManager', 'blockedPaths'], values.fileManager.blockedPaths);
+  if (shouldApply('fileManager.cwdCacheTtlMs')) setPath(rawConfig, ['fileManager', 'cwdCacheTtlMs'], values.fileManager.cwdCacheTtlMs);
+
+  if (secrets.authPassword !== undefined && shouldApply('auth.password')) {
     setPath(rawConfig, ['auth', 'password'], secrets.authPassword);
   }
 
@@ -124,29 +128,35 @@ function setPath(target: Record<string, unknown>, path: string[], value: unknown
   cursor[path[path.length - 1]] = value;
 }
 
-function renderPatchedConfig(content: string, config: Config, secrets: SecretPatch): string {
-  const replacements = new Map<string, string>([
-    ['auth.durationMs', renderJson5Value(config.auth?.durationMs ?? 1800000)],
-    ['twoFactor.enabled', renderJson5Value(config.twoFactor?.enabled ?? false)],
-    ['twoFactor.externalOnly', renderJson5Value(config.twoFactor?.externalOnly ?? false)],
-    ['twoFactor.issuer', renderJson5Value(config.twoFactor?.issuer ?? 'BuilderGate')],
-    ['twoFactor.accountName', renderJson5Value(config.twoFactor?.accountName ?? 'admin')],
-    ['security.cors.allowedOrigins', renderJson5Value(config.security?.cors.allowedOrigins ?? [])],
-    ['security.cors.credentials', renderJson5Value(config.security?.cors.credentials ?? true)],
-    ['security.cors.maxAge', renderJson5Value(config.security?.cors.maxAge ?? 86400)],
-    ['pty.termName', renderJson5Value(config.pty.termName)],
-    ['pty.defaultCols', renderJson5Value(config.pty.defaultCols)],
-    ['pty.defaultRows', renderJson5Value(config.pty.defaultRows)],
-    ['pty.useConpty', renderJson5Value(config.pty.useConpty)],
-    ['pty.windowsPowerShellBackend', renderJson5Value(config.pty.windowsPowerShellBackend ?? 'inherit')],
-    ['pty.shell', renderJson5Value(config.pty.shell)],
-    ['session.idleDelayMs', renderJson5Value(config.session.idleDelayMs)],
-    ['fileManager.maxFileSize', renderJson5Value(config.fileManager?.maxFileSize ?? 1048576)],
-    ['fileManager.maxDirectoryEntries', renderJson5Value(config.fileManager?.maxDirectoryEntries ?? 10000)],
-    ['fileManager.blockedExtensions', renderJson5Value(config.fileManager?.blockedExtensions ?? [])],
-    ['fileManager.blockedPaths', renderJson5Value(config.fileManager?.blockedPaths ?? [])],
-    ['fileManager.cwdCacheTtlMs', renderJson5Value(config.fileManager?.cwdCacheTtlMs ?? 1000)],
-  ]);
+function renderPatchedConfig(
+  content: string,
+  config: Config,
+  secrets: SecretPatch,
+  changedKeys?: EditableSettingsKey[],
+): string {
+  const shouldRender = (key: EditableSettingsKey) => !changedKeys || changedKeys.includes(key);
+  const replacements = new Map<string, string>();
+
+  if (shouldRender('auth.durationMs')) replacements.set('auth.durationMs', renderJson5Value(config.auth?.durationMs ?? 1800000));
+  if (shouldRender('twoFactor.enabled')) replacements.set('twoFactor.enabled', renderJson5Value(config.twoFactor?.enabled ?? false));
+  if (shouldRender('twoFactor.externalOnly')) replacements.set('twoFactor.externalOnly', renderJson5Value(config.twoFactor?.externalOnly ?? false));
+  if (shouldRender('twoFactor.issuer')) replacements.set('twoFactor.issuer', renderJson5Value(config.twoFactor?.issuer ?? 'BuilderGate'));
+  if (shouldRender('twoFactor.accountName')) replacements.set('twoFactor.accountName', renderJson5Value(config.twoFactor?.accountName ?? 'admin'));
+  if (shouldRender('security.cors.allowedOrigins')) replacements.set('security.cors.allowedOrigins', renderJson5Value(config.security?.cors.allowedOrigins ?? []));
+  if (shouldRender('security.cors.credentials')) replacements.set('security.cors.credentials', renderJson5Value(config.security?.cors.credentials ?? true));
+  if (shouldRender('security.cors.maxAge')) replacements.set('security.cors.maxAge', renderJson5Value(config.security?.cors.maxAge ?? 86400));
+  if (shouldRender('pty.termName')) replacements.set('pty.termName', renderJson5Value(config.pty.termName));
+  if (shouldRender('pty.defaultCols')) replacements.set('pty.defaultCols', renderJson5Value(config.pty.defaultCols));
+  if (shouldRender('pty.defaultRows')) replacements.set('pty.defaultRows', renderJson5Value(config.pty.defaultRows));
+  if (shouldRender('pty.useConpty')) replacements.set('pty.useConpty', renderJson5Value(config.pty.useConpty));
+  if (shouldRender('pty.windowsPowerShellBackend')) replacements.set('pty.windowsPowerShellBackend', renderJson5Value(config.pty.windowsPowerShellBackend ?? 'inherit'));
+  if (shouldRender('pty.shell')) replacements.set('pty.shell', renderJson5Value(config.pty.shell));
+  if (shouldRender('session.idleDelayMs')) replacements.set('session.idleDelayMs', renderJson5Value(config.session.idleDelayMs));
+  if (shouldRender('fileManager.maxFileSize')) replacements.set('fileManager.maxFileSize', renderJson5Value(config.fileManager?.maxFileSize ?? 1048576));
+  if (shouldRender('fileManager.maxDirectoryEntries')) replacements.set('fileManager.maxDirectoryEntries', renderJson5Value(config.fileManager?.maxDirectoryEntries ?? 10000));
+  if (shouldRender('fileManager.blockedExtensions')) replacements.set('fileManager.blockedExtensions', renderJson5Value(config.fileManager?.blockedExtensions ?? []));
+  if (shouldRender('fileManager.blockedPaths')) replacements.set('fileManager.blockedPaths', renderJson5Value(config.fileManager?.blockedPaths ?? []));
+  if (shouldRender('fileManager.cwdCacheTtlMs')) replacements.set('fileManager.cwdCacheTtlMs', renderJson5Value(config.fileManager?.cwdCacheTtlMs ?? 1000));
 
   if (secrets.authPassword !== undefined) {
     replacements.set('auth.password', renderJson5Value(secrets.authPassword));
@@ -157,11 +167,13 @@ function renderPatchedConfig(content: string, config: Config, secrets: SecretPat
   const stack: string[] = [];
   const replaced = new Set<string>();
   const insertions = new Map<string, { parentPath: string; key: string; value: string }>([
-    ['pty.windowsPowerShellBackend', {
-      parentPath: 'pty',
-      key: 'windowsPowerShellBackend',
-      value: renderJson5Value(config.pty.windowsPowerShellBackend ?? 'inherit'),
-    }],
+    ...(replacements.has('pty.windowsPowerShellBackend')
+      ? [['pty.windowsPowerShellBackend', {
+          parentPath: 'pty',
+          key: 'windowsPowerShellBackend',
+          value: renderJson5Value(config.pty.windowsPowerShellBackend ?? 'inherit'),
+        }] as const]
+      : []),
   ]);
   const renderedLines: string[] = [];
 

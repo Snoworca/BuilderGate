@@ -19,10 +19,11 @@
     defaultRows: 24,
 
     // Windows-specific PTY backend
-    // - true: Use ConPTY (Windows 10 1809+, newer but may have buffering issues)
-    // - false: Use winpty (legacy, more stable with some applications like Claude)
-    // Recommendation: Use false (winpty) for better Claude compatibility
-    useConpty: true,
+    // Repository example stays cross-platform neutral.
+    // When config.json5 is auto-created on first run:
+    // - Windows defaults to ConPTY
+    // - macOS/Linux stays on neutral non-Windows defaults
+    useConpty: false,
 
     // PowerShell-only backend override on Windows
     // - "inherit": Follow useConpty

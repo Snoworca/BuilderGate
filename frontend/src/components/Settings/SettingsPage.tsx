@@ -554,7 +554,18 @@ function buildPatch(initial: EditableSettingsValues, draft: EditableSettingsValu
   }
 
   if (JSON.stringify(initial.pty) !== JSON.stringify(draft.pty)) {
-    patch.pty = { ...draft.pty };
+    const nextPtyPatch: NonNullable<SettingsPatchRequest['pty']> = {};
+    if (initial.pty.termName !== draft.pty.termName) nextPtyPatch.termName = draft.pty.termName;
+    if (initial.pty.defaultCols !== draft.pty.defaultCols) nextPtyPatch.defaultCols = draft.pty.defaultCols;
+    if (initial.pty.defaultRows !== draft.pty.defaultRows) nextPtyPatch.defaultRows = draft.pty.defaultRows;
+    if (initial.pty.useConpty !== draft.pty.useConpty) nextPtyPatch.useConpty = draft.pty.useConpty;
+    if (initial.pty.windowsPowerShellBackend !== draft.pty.windowsPowerShellBackend) {
+      nextPtyPatch.windowsPowerShellBackend = draft.pty.windowsPowerShellBackend;
+    }
+    if (initial.pty.shell !== draft.pty.shell) nextPtyPatch.shell = draft.pty.shell;
+    if (Object.keys(nextPtyPatch).length > 0) {
+      patch.pty = nextPtyPatch;
+    }
   }
 
   if (initial.session.idleDelayMs !== draft.session.idleDelayMs) {

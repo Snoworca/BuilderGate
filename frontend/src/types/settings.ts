@@ -54,7 +54,7 @@ export interface EditableSettingsValues {
     defaultRows: number;
     useConpty: boolean;
     windowsPowerShellBackend: 'inherit' | 'conpty' | 'winpty';
-    shell: 'auto' | 'powershell' | 'wsl' | 'bash';
+    shell: 'auto' | 'powershell' | 'wsl' | 'bash' | 'zsh' | 'sh' | 'cmd';
   };
   session: {
     idleDelayMs: number;
@@ -104,7 +104,7 @@ export interface SettingsPatchRequest {
     defaultRows?: number;
     useConpty?: boolean;
     windowsPowerShellBackend?: 'inherit' | 'conpty' | 'winpty';
-    shell?: 'auto' | 'powershell' | 'wsl' | 'bash';
+    shell?: 'auto' | 'powershell' | 'wsl' | 'bash' | 'zsh' | 'sh' | 'cmd';
   };
   session?: {
     idleDelayMs?: number;

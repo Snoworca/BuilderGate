@@ -15,6 +15,10 @@ import { AuthService } from './AuthService.js';
 import { FileService } from './FileService.js';
 import { SessionManager } from './SessionManager.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import {
+  isWindowsOnlyShell,
+  normalizePtyConfigForPlatform,
+} from '../utils/ptyPlatformPolicy.js';
 
 const originSchema = z.string().refine((value) => {
   try {
@@ -51,7 +55,7 @@ const patchSchema: z.ZodType<SettingsPatchRequest> = z.object({
     defaultRows: z.number().int().min(5).max(200).optional(),
     useConpty: z.boolean().optional(),
     windowsPowerShellBackend: z.enum(['inherit', 'conpty', 'winpty']).optional(),
-    shell: z.enum(['auto', 'powershell', 'wsl', 'bash']).optional(),
+    shell: z.enum(['auto', 'powershell', 'wsl', 'bash', 'zsh', 'sh', 'cmd']).optional(),
   }).strict().optional(),
   session: z.object({
     idleDelayMs: z.number().int().min(50).max(5000).optional(),
@@ -87,6 +91,15 @@ export class SettingsService {
 
   getSettingsSnapshot(): EditableSettingsSnapshot {
     const snapshot = this.deps.runtimeConfigStore.getSnapshot();
+    const shellField = snapshot.capabilities['pty.shell'];
+    if (shellField) {
+      const detectedShells = this.deps.sessionManager.getAvailableShells().map((shell) => shell.id);
+      shellField.options = dedupe(['auto', ...detectedShells.filter((shell) => shell !== 'auto')]);
+      if (!shellField.options.includes(snapshot.values.pty.shell)) {
+        snapshot.values.pty.shell = 'auto';
+      }
+    }
+
     if (this.platform !== 'win32') {
       return snapshot;
     }
@@ -99,7 +112,6 @@ export class SettingsService {
         powerShellBackendField.options = ['inherit', 'conpty'];
         powerShellBackendField.reason = winptyCapability.reason ?? 'winpty is unavailable on this host';
         if (useConptyField) {
-          useConptyField.available = false;
           useConptyField.reason = winptyCapability.reason ?? 'winpty is unavailable on this host';
         }
       } else if (!winptyCapability.checked) {
@@ -146,12 +158,13 @@ export class SettingsService {
     const mergedValues = normalizeEditableValues(this.deps.runtimeConfigStore.mergeEditablePatch(patch));
     validatePasswordPatch(patch, this.deps.authService);
     validateCorsPatch(mergedValues, actorContext.origin);
-    validatePlatformPatch(mergedValues, this.platform);
+    validatePlatformPatch(mergedValues, changedKeys, this.platform);
+    validateCapabilityPatch(mergedValues, changedKeys, this.getSettingsSnapshot());
     const secrets = {
       authPassword: patch.auth?.newPassword ? this.deps.cryptoService.encrypt(patch.auth.newPassword) : undefined,
     };
 
-    const persistResult = this.deps.configRepository.persistEditableValues(mergedValues, secrets, { dryRun: true });
+    const persistResult = this.deps.configRepository.persistEditableValues(mergedValues, secrets, { dryRun: true, changedKeys });
 
     this.applyRuntimeConfig(persistResult.previousConfig, persistResult.nextConfig, changedKeys);
 
@@ -174,6 +187,14 @@ export class SettingsService {
   private applyRuntimeConfig(previousConfig: Config, nextConfig: Config, _changedKeys: EditableSettingsKey[]): void {
     const { authService, sessionManager, runtimeConfigStore } = this.deps;
     const fileService = this.deps.getFileService();
+    const nextRuntimePty = {
+      ...nextConfig.pty,
+      ...normalizePtyConfigForPlatform(nextConfig.pty, this.platform),
+    };
+    const previousRuntimePty = {
+      ...previousConfig.pty,
+      ...normalizePtyConfigForPlatform(previousConfig.pty, this.platform),
+    };
 
     try {
       runtimeConfigStore.replaceFromConfig(nextConfig);
@@ -183,7 +204,7 @@ export class SettingsService {
       });
       sessionManager.updateRuntimeConfig({
         idleDelayMs: nextConfig.session.idleDelayMs,
-        pty: nextConfig.pty,
+        pty: nextRuntimePty,
       });
       fileService.updateConfig(getFileManagerConfig(nextConfig));
     } catch (error) {
@@ -207,7 +228,7 @@ export class SettingsService {
       try {
         sessionManager.updateRuntimeConfig({
           idleDelayMs: previousConfig.session.idleDelayMs,
-          pty: previousConfig.pty,
+          pty: previousRuntimePty,
         });
       } catch (rollbackError) {
         rollbackErrors.push(getErrorMessage(rollbackError));
@@ -370,19 +391,67 @@ function validateCorsPatch(values: EditableSettingsValues, origin?: string): voi
   }
 }
 
-function validatePlatformPatch(values: EditableSettingsValues, platform: NodeJS.Platform = process.platform): void {
-  if (platform !== 'win32' && values.pty.useConpty) {
+function validatePlatformPatch(
+  values: EditableSettingsValues,
+  changedKeys: EditableSettingsKey[],
+  platform: NodeJS.Platform = process.platform,
+): void {
+  const normalizedPty = normalizePtyConfigForPlatform(values.pty, platform);
+
+  if (platform !== 'win32' && changedKeys.includes('pty.useConpty') && values.pty.useConpty !== normalizedPty.useConpty) {
     throw new AppError(ErrorCode.VALIDATION_ERROR, 'ConPTY is only available on Windows');
   }
 
-  if (platform !== 'win32' && values.pty.windowsPowerShellBackend !== 'inherit') {
+  if (
+    platform !== 'win32'
+    && changedKeys.includes('pty.windowsPowerShellBackend')
+    && values.pty.windowsPowerShellBackend !== normalizedPty.windowsPowerShellBackend
+  ) {
     throw new AppError(ErrorCode.VALIDATION_ERROR, 'PowerShell backend override is only available on Windows');
   }
 
-  if (platform !== 'win32' && (values.pty.shell === 'powershell' || values.pty.shell === 'wsl')) {
+  if (platform !== 'win32' && changedKeys.includes('pty.shell') && isWindowsOnlyShell(values.pty.shell)) {
     throw new AppError(ErrorCode.VALIDATION_ERROR, 'Selected shell is not supported on this platform');
   }
 
+}
+
+function validateCapabilityPatch(
+  values: EditableSettingsValues,
+  changedKeys: EditableSettingsKey[],
+  snapshot: EditableSettingsSnapshot,
+): void {
+  if (changedKeys.includes('pty.useConpty') && !snapshot.capabilities['pty.useConpty']?.available) {
+    throw new AppError(ErrorCode.VALIDATION_ERROR, snapshot.capabilities['pty.useConpty']?.reason ?? 'Selected PTY backend is unavailable on this host');
+  }
+
+  if (changedKeys.includes('pty.useConpty') && values.pty.useConpty === false) {
+    const allowedBackends = snapshot.capabilities['pty.windowsPowerShellBackend']?.options ?? [];
+    if (!allowedBackends.includes('winpty')) {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        snapshot.capabilities['pty.windowsPowerShellBackend']?.reason ?? 'winpty is unavailable on this host',
+      );
+    }
+  }
+
+  if (changedKeys.includes('pty.windowsPowerShellBackend')) {
+    const allowed = snapshot.capabilities['pty.windowsPowerShellBackend']?.options ?? [];
+    const selectedBackend = values.pty.windowsPowerShellBackend ?? 'inherit';
+    if (!allowed.includes(selectedBackend)) {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        snapshot.capabilities['pty.windowsPowerShellBackend']?.reason ?? 'Selected PowerShell backend is unavailable on this host',
+      );
+    }
+  }
+
+  if (changedKeys.includes('pty.shell')) {
+    const allowed = snapshot.capabilities['pty.shell']?.options ?? [];
+    if (!allowed.includes(values.pty.shell)) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Selected shell is not supported on this host');
+    }
+  }
 }
 
 function buildApplySummary(

@@ -20,6 +20,10 @@ import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 import type { WsRouter } from '../ws/WsRouter.js';
 import { OscDetector } from './OscDetector.js';
 import type { WindowsPtyBackend, WindowsPtyInfo } from '../types/ws-protocol.js';
+import {
+  normalizePtyConfigForPlatform,
+  normalizeShellForPlatform,
+} from '../utils/ptyPlatformPolicy.js';
 
 interface EchoTracker {
   /** writeInput이 호출된 시각 (ms, Date.now) */
@@ -192,11 +196,14 @@ export class SessionManager {
     initialConfig: { pty: PTYConfig; session: SessionConfig } = { pty: config.pty, session: config.session },
     deps: SessionManagerDeps = {},
   ) {
-    this.runtimePtyConfig = clonePtyConfig(initialConfig.pty);
+    this.platform = deps.platform ?? process.platform;
+    this.runtimePtyConfig = {
+      ...clonePtyConfig(initialConfig.pty),
+      ...normalizePtyConfigForPlatform(initialConfig.pty, this.platform),
+    };
     this.runtimeSessionConfig = { idleDelayMs: initialConfig.session.idleDelayMs };
     this.execFileFn = deps.execFileFn ?? execFile;
     this.execFileSyncFn = deps.execFileSyncFn ?? execFileSync;
-    this.platform = deps.platform ?? process.platform;
     this.spawnPty = deps.spawnPty ?? pty.spawn;
     // 서버 시작 시 한 번만 셸 감지 후 캐싱
     this.cachedAvailableShells = this.detectAvailableShells();
@@ -642,7 +649,7 @@ export class SessionManager {
 
   private detectAvailableShells(): ShellInfo[] {
     const shells: ShellInfo[] = [];
-    if (process.platform === 'win32') {
+    if (this.platform === 'win32') {
       // PowerShell: 항상 추가
       shells.push({ id: 'powershell', label: 'PowerShell', icon: '💙' });
       // cmd: 항상 추가
@@ -650,6 +657,8 @@ export class SessionManager {
       // WSL: wsl.exe 존재 시에만 추가
       if (this.isCommandAvailable('wsl.exe')) {
         shells.push({ id: 'wsl', label: 'WSL (Bash)', icon: '🐧' });
+        shells.push({ id: 'bash', label: 'Bash (WSL)', icon: '🐚' });
+        shells.push({ id: 'sh', label: 'Shell (WSL sh)', icon: '⚡' });
         // WSL 내부 zsh 확인
         if (this.isWslShellAvailable('zsh')) {
           shells.push({ id: 'zsh', label: 'WSL (Zsh)', icon: '🔮' });
@@ -672,7 +681,7 @@ export class SessionManager {
 
   private isCommandAvailable(cmd: string): boolean {
     try {
-      if (process.platform === 'win32') {
+      if (this.platform === 'win32') {
         execSync(`where ${cmd}`, { stdio: 'ignore' });
       } else {
         execSync(`which ${cmd}`, { stdio: 'ignore' });
@@ -707,7 +716,7 @@ export class SessionManager {
       const scriptPath = this.getShellIntegrationPath('bash-osc133.sh');
       if (scriptPath) {
         // WSL인 경우 Windows 경로를 WSL 경로로 변환
-        if (process.platform === 'win32') {
+        if (this.platform === 'win32') {
           const wslPath = this.toWslPath(scriptPath);
           baseEnv['BASH_ENV'] = wslPath;
         } else {
@@ -741,13 +750,18 @@ export class SessionManager {
     useConpty: boolean;
     requestedPowerShellBackend: PowerShellBackendPolicy;
   } {
-    const inheritedBackend: WindowsPtyBackend = this.runtimePtyConfig.useConpty ? 'conpty' : 'winpty';
-    const requestedPowerShellBackend = this.runtimePtyConfig.windowsPowerShellBackend ?? 'inherit';
+    const normalized = normalizePtyConfigForPlatform({
+      useConpty: this.runtimePtyConfig.useConpty,
+      windowsPowerShellBackend: this.runtimePtyConfig.windowsPowerShellBackend,
+      shell: this.runtimePtyConfig.shell,
+    }, this.platform);
+    const inheritedBackend: WindowsPtyBackend = normalized.useConpty ? 'conpty' : 'winpty';
+    const requestedPowerShellBackend = normalized.windowsPowerShellBackend;
 
     if (this.platform !== 'win32') {
       return {
         backend: inheritedBackend,
-        useConpty: inheritedBackend === 'conpty',
+        useConpty: false,
         requestedPowerShellBackend,
       };
     }
@@ -796,7 +810,7 @@ export class SessionManager {
       const currentFileUrl = new URL(import.meta.url);
       let currentDir = path.dirname(currentFileUrl.pathname);
       // Windows에서 URL pathname이 /C:/... 형태로 오는 경우 앞의 / 제거
-      if (process.platform === 'win32' && currentDir.startsWith('/')) {
+      if (this.platform === 'win32' && currentDir.startsWith('/')) {
         currentDir = currentDir.slice(1);
       }
       const scriptPath = path.resolve(currentDir, '..', 'shell-integration', filename);
@@ -829,7 +843,7 @@ export class SessionManager {
     const fallback = process.env.HOME || process.env.USERPROFILE || '/';
     if (!cwd) return fallback;
 
-    const isWindows = process.platform === 'win32';
+    const isWindows = this.platform === 'win32';
 
     let resolved = cwd;
     if (isWindows && cwd.startsWith('/')) {
@@ -861,42 +875,66 @@ export class SessionManager {
     shellOverride?: ShellType,
     cwdFilePath?: string,
   ): { shell: string; args: string[]; shellType: 'powershell' | 'bash' | 'zsh' | 'sh' | 'cmd' } {
-    const shellConfig = shellOverride || this.runtimePtyConfig.shell || 'auto';
+    const shellConfig = normalizeShellForPlatform(shellOverride || this.runtimePtyConfig.shell || 'auto', this.platform);
 
     if (shellConfig === 'powershell') {
       return { shell: 'powershell.exe', args: this.buildPowerShellArgs(cwdFilePath), shellType: 'powershell' };
     }
     if (shellConfig === 'wsl') {
-      return { shell: 'wsl.exe', args: [], shellType: 'bash' };
+      return this.isCommandAvailable('wsl.exe')
+        ? { shell: 'wsl.exe', args: [], shellType: 'bash' }
+        : this.resolveAutoShell(cwdFilePath);
     }
     if (shellConfig === 'bash') {
-      return process.platform === 'win32'
-        ? { shell: 'wsl.exe', args: [], shellType: 'bash' }
-        : { shell: 'bash', args: [], shellType: 'bash' };
+      if (this.platform === 'win32') {
+        return this.isCommandAvailable('wsl.exe')
+          ? { shell: 'wsl.exe', args: [], shellType: 'bash' }
+          : this.resolveAutoShell(cwdFilePath);
+      }
+      if (this.isCommandAvailable('bash')) {
+        return { shell: 'bash', args: [], shellType: 'bash' };
+      }
+      return { shell: 'sh', args: [], shellType: 'sh' };
     }
     if (shellConfig === 'zsh') {
-      return process.platform === 'win32'
-        ? { shell: 'wsl.exe', args: ['-e', 'zsh'], shellType: 'zsh' }
-        : { shell: 'zsh', args: [], shellType: 'zsh' };
+      if (this.platform === 'win32') {
+        return this.isCommandAvailable('wsl.exe') && this.isWslShellAvailable('zsh')
+          ? { shell: 'wsl.exe', args: ['-e', 'zsh'], shellType: 'zsh' }
+          : this.resolveAutoShell(cwdFilePath);
+      }
+      if (this.isCommandAvailable('zsh')) {
+        return { shell: 'zsh', args: [], shellType: 'zsh' };
+      }
+      return this.resolveAutoShell(cwdFilePath);
     }
     if (shellConfig === 'sh') {
-      return process.platform === 'win32'
-        ? { shell: 'wsl.exe', args: ['-e', 'sh'], shellType: 'sh' }
-        : { shell: 'sh', args: [], shellType: 'sh' };
+      if (this.platform === 'win32') {
+        return this.isCommandAvailable('wsl.exe')
+          ? { shell: 'wsl.exe', args: ['-e', 'sh'], shellType: 'sh' }
+          : this.resolveAutoShell(cwdFilePath);
+      }
+      return { shell: 'sh', args: [], shellType: 'sh' };
     }
     if (shellConfig === 'cmd') {
       return { shell: 'cmd.exe', args: [], shellType: 'cmd' };
     }
 
-    // auto: OS default
-    if (process.platform === 'win32') {
+    return this.resolveAutoShell(cwdFilePath);
+  }
+
+  private resolveAutoShell(
+    cwdFilePath?: string,
+  ): { shell: string; args: string[]; shellType: 'powershell' | 'bash' | 'zsh' | 'sh' | 'cmd' } {
+    if (this.platform === 'win32') {
       return { shell: 'powershell.exe', args: this.buildPowerShellArgs(cwdFilePath), shellType: 'powershell' };
     }
-    // macOS default is zsh since Catalina; fallback to bash
-    if (process.platform === 'darwin' && this.isCommandAvailable('zsh')) {
+    if (this.platform === 'darwin' && this.isCommandAvailable('zsh')) {
       return { shell: 'zsh', args: [], shellType: 'zsh' };
     }
-    return { shell: 'bash', args: [], shellType: 'bash' };
+    if (this.isCommandAvailable('bash')) {
+      return { shell: 'bash', args: [], shellType: 'bash' };
+    }
+    return { shell: 'sh', args: [], shellType: 'sh' };
   }
 
   // Step 7: Workspace support
@@ -911,15 +949,22 @@ export class SessionManager {
   }
 
   updateRuntimeConfig(next: { idleDelayMs?: number; pty?: Partial<PTYConfig> }): void {
-    const nextPowerShellBackend = next.pty?.windowsPowerShellBackend ?? this.runtimePtyConfig.windowsPowerShellBackend ?? 'inherit';
-    const nextUseConpty = next.pty?.useConpty ?? this.runtimePtyConfig.useConpty;
+    const nextPowerShellBackendRaw = next.pty?.windowsPowerShellBackend ?? this.runtimePtyConfig.windowsPowerShellBackend ?? 'inherit';
+    const nextUseConptyRaw = next.pty?.useConpty ?? this.runtimePtyConfig.useConpty;
+    const nextNormalized = normalizePtyConfigForPlatform({
+      useConpty: nextUseConptyRaw,
+      windowsPowerShellBackend: nextPowerShellBackendRaw,
+      shell: next.pty?.shell ?? this.runtimePtyConfig.shell,
+    }, this.platform);
+    const nextPowerShellBackend = nextNormalized.windowsPowerShellBackend;
+    const nextUseConpty = nextNormalized.useConpty;
     const effectivePowerShellBackend = nextPowerShellBackend === 'inherit'
       ? (nextUseConpty ? 'conpty' : 'winpty')
       : nextPowerShellBackend;
-    if (this.platform !== 'win32' && nextUseConpty) {
+    if (this.platform !== 'win32' && nextUseConptyRaw) {
       throw new AppError(ErrorCode.CONFIG_ERROR, 'ConPTY is only available on Windows');
     }
-    if (this.platform !== 'win32' && nextPowerShellBackend !== 'inherit') {
+    if (this.platform !== 'win32' && nextPowerShellBackendRaw !== 'inherit') {
       throw new AppError(ErrorCode.CONFIG_ERROR, 'PowerShell backend override is only available on Windows');
     }
 
@@ -935,6 +980,7 @@ export class SessionManager {
       this.runtimePtyConfig = {
         ...this.runtimePtyConfig,
         ...next.pty,
+        ...nextNormalized,
       };
     }
 
@@ -958,12 +1004,17 @@ export class SessionManager {
   }
 
   assertRuntimePtyCapabilities(): void {
-    const configuredPowerShellBackend = this.runtimePtyConfig.windowsPowerShellBackend ?? 'inherit';
-    if (this.platform !== 'win32' && this.runtimePtyConfig.useConpty) {
+    const normalized = normalizePtyConfigForPlatform({
+      useConpty: this.runtimePtyConfig.useConpty,
+      windowsPowerShellBackend: this.runtimePtyConfig.windowsPowerShellBackend,
+      shell: this.runtimePtyConfig.shell,
+    }, this.platform);
+    const configuredPowerShellBackend = normalized.windowsPowerShellBackend;
+    if (this.platform !== 'win32' && normalized.useConpty) {
       throw new AppError(ErrorCode.CONFIG_ERROR, 'ConPTY is only available on Windows');
     }
     const effectivePowerShellBackend = configuredPowerShellBackend === 'inherit'
-      ? (this.runtimePtyConfig.useConpty ? 'conpty' : 'winpty')
+      ? (normalized.useConpty ? 'conpty' : 'winpty')
       : configuredPowerShellBackend;
     if (this.platform !== 'win32' && configuredPowerShellBackend !== 'inherit') {
       throw new AppError(ErrorCode.CONFIG_ERROR, 'PowerShell backend override is only available on Windows');
@@ -1083,7 +1134,7 @@ export class SessionManager {
     } else {
       // Bash / zsh / sh / WSL: CWD tracking hook
       // Convert Windows temp path to WSL path if needed
-      const wslPath = process.platform === 'win32'
+      const wslPath = this.platform === 'win32'
         ? '/mnt/' + cwdFile[0].toLowerCase() + cwdFile.slice(2).replace(/\\/g, '/')
         : cwdFile;
 

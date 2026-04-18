@@ -17,6 +17,7 @@ import { ConfigFileRepository } from './services/ConfigFileRepository.js';
 import { SettingsService } from './services/SettingsService.js';
 import { reconcileTotpRuntime } from './services/twoFactorRuntime.js';
 import { SessionManager } from './services/SessionManager.js';
+import { sessionManager } from './services/SessionManager.js';
 import { FileService } from './services/FileService.js';
 import { OscDetector } from './services/OscDetector.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
@@ -31,24 +32,42 @@ import { truncateTerminalPayloadTail } from './utils/terminalPayload.js';
 import { WsRouter } from './ws/WsRouter.js';
 import { AppError, ErrorCode } from './utils/errors.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
+import sessionRoutes from './routes/sessionRoutes.js';
 import { ensureDebugCaptureSessionExists, requireLocalDebugCapture } from './middleware/debugCaptureGuards.js';
+import {
+  applyBootstrapPtyDefaultsToConfigText,
+  normalizeRawConfigForPlatform,
+} from './utils/ptyPlatformPolicy.js';
+import { loadConfigFromPath } from './utils/config.js';
 import express from 'express';
 
 async function main(): Promise<void> {
   const tests: Array<{ name: string; run: () => Promise<void> | void }> = [
+    { name: 'Config bootstrap applies OS-aware PTY defaults when creating config text', run: testConfigBootstrapAppliesPlatformPtyDefaults },
+    { name: 'Config normalization neutralizes stale Windows PTY fields on non-Windows', run: testNormalizeRawConfigForPlatformNonWindows },
+    { name: 'Config loader bootstraps missing config files with platform-aware PTY defaults', run: testLoadConfigFromPathBootstrapsMissingConfig },
+    { name: 'Config loader normalizes stale Windows PTY fields on non-Windows hosts', run: testLoadConfigFromPathNormalizesNonWindowsPtyFields },
     { name: 'RuntimeConfigStore builds a redacted editable snapshot', run: testRuntimeConfigSnapshot },
     { name: 'RuntimeConfigStore marks platform capabilities and merges patches', run: testRuntimeConfigCapabilities },
+    { name: 'RuntimeConfigStore normalizes platform-specific PTY values in editable snapshots', run: testRuntimeConfigPlatformNormalization },
     { name: 'SessionManager resolves PowerShell backend override without changing non-PowerShell behavior', run: testSessionManagerPowerShellBackendResolution },
     { name: 'SessionManager rejects explicit winpty runtime config when probe fails', run: testSessionManagerWinptyProbeFailure },
     { name: 'SessionManager retries winpty probe after a previous failure', run: testSessionManagerWinptyProbeRetry },
     { name: 'SessionManager.createSession uses resolved backend for PowerShell sessions', run: testSessionManagerCreateSessionUsesResolvedBackend },
+    { name: 'SessionManager.createSession normalizes Windows-only shells on non-Windows hosts', run: testSessionManagerCreateSessionNormalizesNonWindowsShell },
+    { name: 'SessionManager.createSession falls back when a configured host shell is unavailable', run: testSessionManagerCreateSessionFallsBackWhenConfiguredShellMissing },
     { name: 'SessionManager snapshot metadata stays truthful across backend combinations', run: testSessionManagerSnapshotMetadataTruthfulness },
     { name: 'SessionManager non-Windows runtime validation matches the settings contract', run: testSessionManagerNonWindowsRuntimeValidation },
     { name: 'SettingsService hides winpty option after capability probe failure', run: testSettingsServiceWinptyCapabilitySurface },
+    { name: 'SettingsService rejects winpty saves immediately after capability probe failure', run: testSettingsServiceRejectsUnavailableWinptySave },
+    { name: 'SettingsService rejects useConpty=false saves immediately when winpty is unavailable', run: testSettingsServiceRejectsUnavailableWinptyViaUseConptyFalse },
     { name: 'AuthService.updateRuntimeConfig updates password validation and token duration', run: testAuthRuntimeConfig },
     { name: 'SettingsService rejects unsupported settings keys', run: testSettingsUnsupportedSetting },
+    { name: 'SettingsService shell options follow detected host capabilities', run: testSettingsServiceUsesDetectedShellOptions },
+    { name: 'SettingsService shell options include WSL-backed bash and sh on Windows hosts', run: testSettingsServiceUsesDetectedWindowsShellOptions },
     { name: 'SettingsService persists editable values and applies runtime updates', run: testSettingsServicePersistence },
     { name: 'SettingsService persists editable values against a legacy pty.maxBufferSize config', run: testSettingsServiceLegacyPtyMigration },
+    { name: 'SettingsService preserves hidden Windows PTY values on non-Windows unrelated saves', run: testSettingsServicePreservesHiddenWindowsPtyValuesOnNonWindowsSave },
     { name: 'SettingsService reconfigures TOTP runtime and returns warnings on hot apply', run: testSettingsServiceTwoFactorRuntimeHotApply },
     { name: 'SettingsService does not reconfigure TOTP runtime when config persistence fails', run: testSettingsServiceTwoFactorRuntimeNotCalledOnPersistFailure },
     { name: 'SettingsService converts post-save TOTP runtime callback throws into warnings', run: testSettingsServiceTwoFactorRuntimeCallbackFailureWarning },
@@ -68,6 +87,7 @@ async function main(): Promise<void> {
     { name: 'SessionManager input debug capture records safe metadata without leaking printable input', run: testSessionManagerInputDebugCaptureMetadata },
     { name: 'debug capture localhost guard rejects non-loopback requests', run: testDebugCaptureLocalhostGuard },
     { name: 'debug capture missing-session guard returns 404', run: testDebugCaptureSessionExistsGuard },
+    { name: 'sessionRoutes accepts shells surfaced by GET /api/sessions/shells', run: testSessionRoutesAcceptSurfacedShells },
     { name: 'SessionManager marks sessions degraded when snapshot serialization fails', run: testSessionManagerDegradedSnapshot },
     { name: 'SessionManager preserves unsnapshotted healthy output when degrading', run: testSessionManagerDirtyCacheDegradedRecovery },
     { name: 'SessionManager preserves queued output when degradation happens before headless writes flush', run: testSessionManagerQueuedOutputDegradedRace },
@@ -167,6 +187,88 @@ function testRuntimeConfigSnapshot(): void {
   assert.ok(snapshot.excludedSections.includes('fileManager.maxCodeFileSize'));
 }
 
+function testConfigBootstrapAppliesPlatformPtyDefaults(): void {
+  const example = `{
+  pty: {
+    useConpty: false, // neutral example
+    windowsPowerShellBackend: "inherit",
+    shell: "auto",
+  },
+}`;
+
+  const windows = applyBootstrapPtyDefaultsToConfigText(example, 'win32');
+  assert.match(windows, /useConpty:\s*true,/);
+  assert.match(windows, /windowsPowerShellBackend:\s*"inherit",/);
+  assert.match(windows, /shell:\s*"auto",/);
+
+  const linux = applyBootstrapPtyDefaultsToConfigText(example, 'linux');
+  assert.match(linux, /useConpty:\s*false,/);
+  assert.match(linux, /windowsPowerShellBackend:\s*"inherit",/);
+  assert.match(linux, /shell:\s*"auto",/);
+}
+
+function testNormalizeRawConfigForPlatformNonWindows(): void {
+  const rawConfig = {
+    server: { port: 2002 },
+    pty: {
+      useConpty: true,
+      windowsPowerShellBackend: 'conpty',
+      shell: 'powershell',
+    },
+  } as Record<string, unknown>;
+
+  const normalized = normalizeRawConfigForPlatform(rawConfig, 'linux');
+  const normalizedPty = normalized.pty as Record<string, unknown>;
+  const originalPty = rawConfig.pty as Record<string, unknown>;
+
+  assert.equal(normalizedPty.useConpty, false);
+  assert.equal(normalizedPty.windowsPowerShellBackend, 'inherit');
+  assert.equal(normalizedPty.shell, 'auto');
+  assert.equal(originalPty.useConpty, true);
+  assert.equal(originalPty.windowsPowerShellBackend, 'conpty');
+  assert.equal(originalPty.shell, 'powershell');
+}
+
+async function testLoadConfigFromPathBootstrapsMissingConfig(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-config-bootstrap-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  const examplePath = `${configPath}.example`;
+  await fs.writeFile(
+    examplePath,
+    createConfigFixtureContent().replace(
+      '    useConpty: true,',
+      '    useConpty: false,\n    windowsPowerShellBackend: "inherit",',
+    ),
+    'utf-8',
+  );
+
+  try {
+    const winConfig = loadConfigFromPath(configPath, 'win32');
+    const createdContent = await fs.readFile(configPath, 'utf-8');
+    assert.equal(winConfig.pty.useConpty, true);
+    assert.equal(winConfig.pty.windowsPowerShellBackend, 'inherit');
+    assert.match(createdContent, /useConpty:\s*true,/);
+    assert.match(createdContent, /windowsPowerShellBackend:\s*"inherit",/);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testLoadConfigFromPathNormalizesNonWindowsPtyFields(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-config-normalize-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  await fs.writeFile(configPath, createLegacyWindowsPtyConfigFixtureContent(), 'utf-8');
+
+  try {
+    const config = loadConfigFromPath(configPath, 'linux');
+    assert.equal(config.pty.useConpty, false);
+    assert.equal(config.pty.windowsPowerShellBackend, 'inherit');
+    assert.equal(config.pty.shell, 'auto');
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
 function testRuntimeConfigCapabilities(): void {
   const store = new RuntimeConfigStore(createConfigFixture(), 'linux');
   const capabilities = store.getFieldCapabilities();
@@ -175,7 +277,7 @@ function testRuntimeConfigCapabilities(): void {
   assert.equal(capabilities['pty.useConpty'].reason, 'Windows-only PTY backend');
   assert.equal(capabilities['pty.windowsPowerShellBackend'].available, false);
   assert.equal(capabilities['pty.windowsPowerShellBackend'].reason, 'Windows-only PowerShell backend override');
-  assert.deepEqual(capabilities['pty.shell'].options, ['auto', 'bash']);
+  assert.deepEqual(capabilities['pty.shell'].options, ['auto', 'bash', 'zsh', 'sh']);
 
   const merged = store.mergeEditablePatch({
     auth: {
@@ -191,6 +293,20 @@ function testRuntimeConfigCapabilities(): void {
 
   assert.equal(merged.auth.durationMs, 3600000);
   assert.deepEqual(merged.fileManager.blockedExtensions, ['.ps1']);
+}
+
+function testRuntimeConfigPlatformNormalization(): void {
+  const fixture = createConfigFixture();
+  fixture.pty.useConpty = true;
+  fixture.pty.windowsPowerShellBackend = 'conpty';
+  fixture.pty.shell = 'powershell';
+
+  const store = new RuntimeConfigStore(fixture, 'linux');
+  const snapshot = store.getSnapshot();
+
+  assert.equal(snapshot.values.pty.useConpty, false);
+  assert.equal(snapshot.values.pty.windowsPowerShellBackend, 'inherit');
+  assert.equal(snapshot.values.pty.shell, 'auto');
 }
 
 function testAuthRuntimeConfig(): void {
@@ -813,6 +929,93 @@ function testSessionManagerCreateSessionUsesResolvedBackend(): void {
   assert.equal(killCalled, true);
 }
 
+function testSessionManagerCreateSessionNormalizesNonWindowsShell(): void {
+  let observedShell = '';
+  let killCalled = false;
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: true,
+      windowsPowerShellBackend: 'conpty',
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'powershell',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  }, {
+    execFileSyncFn: (() => Buffer.from('')) as any,
+    platform: 'linux',
+    spawnPty: ((shell: string, _args: string[], options: { cols?: number; rows?: number; useConpty?: boolean }) => {
+      observedShell = shell;
+      assert.equal(options.useConpty, false);
+      return {
+        pid: 1,
+        cols: options.cols ?? 80,
+        rows: options.rows ?? 24,
+        process: shell,
+        handleFlowControl: false,
+        onData() { return { dispose() {} }; },
+        onExit() { return { dispose() {} }; },
+        write() {},
+        resize() {},
+        kill() { killCalled = true; },
+      } as any;
+    }) as any,
+  });
+
+  const session = manager.createSession('Normalized Linux Shell');
+  assert.ok(observedShell === 'bash' || observedShell === 'sh');
+  assert.equal(manager.deleteSession(session.id), true);
+  assert.equal(killCalled, true);
+}
+
+function testSessionManagerCreateSessionFallsBackWhenConfiguredShellMissing(): void {
+  let observedShell = '';
+  let killCalled = false;
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: false,
+      windowsPowerShellBackend: 'inherit',
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'zsh',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  }, {
+    execFileSyncFn: (() => Buffer.from('')) as any,
+    platform: 'linux',
+    spawnPty: ((shell: string, _args: string[], options: { cols?: number; rows?: number; useConpty?: boolean }) => {
+      observedShell = shell;
+      return {
+        pid: 1,
+        cols: options.cols ?? 80,
+        rows: options.rows ?? 24,
+        process: shell,
+        handleFlowControl: false,
+        onData() { return { dispose() {} }; },
+        onExit() { return { dispose() {} }; },
+        write() {},
+        resize() {},
+        kill() { killCalled = true; },
+      } as any;
+    }) as any,
+  });
+
+  const session = manager.createSession('Fallback Linux Shell');
+  assert.ok(observedShell === 'bash' || observedShell === 'sh');
+  assert.equal(manager.deleteSession(session.id), true);
+  assert.equal(killCalled, true);
+}
+
 async function testSettingsServiceWinptyCapabilitySurface(): Promise<void> {
   const fixture = createConfigFixture();
   const cryptoService = new CryptoService('settings-winpty-capability');
@@ -844,11 +1047,134 @@ async function testSettingsServiceWinptyCapabilitySurface(): Promise<void> {
   try {
     await sessionManager.warmPowerShellWinptyCapability();
     const snapshot = settingsService.getSettingsSnapshot();
-    assert.equal(snapshot.capabilities['pty.useConpty'].available, false);
+    assert.equal(snapshot.capabilities['pty.useConpty'].available, true);
+    assert.match(snapshot.capabilities['pty.useConpty'].reason ?? '', /winpty/i);
     assert.deepEqual(snapshot.capabilities['pty.windowsPowerShellBackend'].options, ['inherit', 'conpty']);
     assert.match(snapshot.capabilities['pty.windowsPowerShellBackend'].reason ?? '', /winpty/i);
   } finally {
     authService.destroy();
+  }
+}
+
+async function testSettingsServiceRejectsUnavailableWinptySave(): Promise<void> {
+  const fixture = createConfigFixture();
+  const cryptoService = new CryptoService('settings-winpty-reject');
+  const authService = new AuthService(fixture.auth!, cryptoService);
+  const sessionManager = new SessionManager({ pty: fixture.pty, session: fixture.session }, {
+    execFileFn: ((_file: string, _args: readonly string[] | undefined, _options: any, callback: any) => {
+      callback(new Error('simulated winpty probe failure'), '', '');
+      return {} as any;
+    }) as any,
+    execFileSyncFn: (() => {
+      throw new Error('simulated winpty probe failure');
+    }) as any,
+    platform: 'win32',
+  });
+  const settingsService = new SettingsService({
+    runtimeConfigStore: new RuntimeConfigStore(fixture, 'win32'),
+    configRepository: new ConfigFileRepository(path.join(os.tmpdir(), 'unused-config.json5')),
+    cryptoService,
+    authService,
+    getFileService: () => new FileService({
+      getSession: () => ({ id: 'session-1' }),
+      getPtyPid: () => null,
+      getInitialCwd: () => os.tmpdir(),
+      getCwdFilePath: () => null,
+    }, fixture.fileManager!),
+    sessionManager,
+  }, 'win32');
+
+  try {
+    await sessionManager.warmPowerShellWinptyCapability();
+    assert.throws(
+      () => settingsService.savePatch({
+        pty: { windowsPowerShellBackend: 'winpty' },
+      }),
+      (error: unknown) => error instanceof AppError && error.code === ErrorCode.VALIDATION_ERROR,
+    );
+  } finally {
+    authService.destroy();
+  }
+}
+
+async function testSettingsServiceRejectsUnavailableWinptyViaUseConptyFalse(): Promise<void> {
+  const fixture = createConfigFixture();
+  const cryptoService = new CryptoService('settings-winpty-useconpty-false');
+  const authService = new AuthService(fixture.auth!, cryptoService);
+  const sessionManager = new SessionManager({ pty: fixture.pty, session: fixture.session }, {
+    execFileFn: ((_file: string, _args: readonly string[] | undefined, _options: any, callback: any) => {
+      callback(new Error('simulated winpty probe failure'), '', '');
+      return {} as any;
+    }) as any,
+    execFileSyncFn: (() => {
+      throw new Error('simulated winpty probe failure');
+    }) as any,
+    platform: 'win32',
+  });
+  const settingsService = new SettingsService({
+    runtimeConfigStore: new RuntimeConfigStore(fixture, 'win32'),
+    configRepository: new ConfigFileRepository(path.join(os.tmpdir(), 'unused-config.json5')),
+    cryptoService,
+    authService,
+    getFileService: () => new FileService({
+      getSession: () => ({ id: 'session-1' }),
+      getPtyPid: () => null,
+      getInitialCwd: () => os.tmpdir(),
+      getCwdFilePath: () => null,
+    }, fixture.fileManager!),
+    sessionManager,
+  }, 'win32');
+
+  try {
+    await sessionManager.warmPowerShellWinptyCapability();
+    assert.throws(
+      () => settingsService.savePatch({
+        pty: { useConpty: false },
+      }),
+      (error: unknown) => error instanceof AppError && error.code === ErrorCode.VALIDATION_ERROR,
+    );
+  } finally {
+    authService.destroy();
+  }
+}
+
+function testSettingsServiceUsesDetectedShellOptions(): void {
+  const fixture = createConfigFixture();
+  fixture.pty.shell = 'zsh';
+  const harness = createSettingsHarness({ fixture, platform: 'linux' });
+
+  try {
+    (harness.sessionManager as any).cachedAvailableShells = [
+      { id: 'bash', label: 'Bash', icon: '🐚' },
+      { id: 'sh', label: 'Shell (sh)', icon: '⚡' },
+    ];
+
+    const snapshot = harness.settingsService.getSettingsSnapshot();
+    assert.deepEqual(snapshot.capabilities['pty.shell'].options, ['auto', 'bash', 'sh']);
+    assert.equal(snapshot.values.pty.shell, 'auto');
+  } finally {
+    harness.destroy();
+  }
+}
+
+function testSettingsServiceUsesDetectedWindowsShellOptions(): void {
+  const fixture = createConfigFixture();
+  const harness = createSettingsHarness({ fixture, platform: 'win32' });
+
+  try {
+    (harness.sessionManager as any).cachedAvailableShells = [
+      { id: 'powershell', label: 'PowerShell', icon: '💙' },
+      { id: 'cmd', label: 'Command Prompt', icon: '⬛' },
+      { id: 'wsl', label: 'WSL (Bash)', icon: '🐧' },
+      { id: 'bash', label: 'Bash (WSL)', icon: '🐚' },
+      { id: 'sh', label: 'Shell (WSL sh)', icon: '⚡' },
+      { id: 'zsh', label: 'WSL (Zsh)', icon: '🔮' },
+    ];
+
+    const snapshot = harness.settingsService.getSettingsSnapshot();
+    assert.deepEqual(snapshot.capabilities['pty.shell'].options, ['auto', 'powershell', 'cmd', 'wsl', 'bash', 'sh', 'zsh']);
+  } finally {
+    harness.destroy();
   }
 }
 
@@ -1506,6 +1832,79 @@ function testDebugCaptureSessionExistsGuard(): void {
   assert.equal((payload as { error?: { code?: string } }).error?.code, 'SESSION_NOT_FOUND');
 }
 
+async function testSessionRoutesAcceptSurfacedShells(): Promise<void> {
+  const originalCreateSession = sessionManager.createSession.bind(sessionManager);
+  const originalCachedShells = (sessionManager as any).cachedAvailableShells;
+
+  (sessionManager as any).cachedAvailableShells = [
+    { id: 'powershell', label: 'PowerShell', icon: '💙' },
+    { id: 'cmd', label: 'Command Prompt', icon: '⬛' },
+    { id: 'bash', label: 'Bash (WSL)', icon: '🐚' },
+    { id: 'sh', label: 'Shell (WSL sh)', icon: '⚡' },
+    { id: 'zsh', label: 'WSL (Zsh)', icon: '🔮' },
+  ];
+  (sessionManager as any).createSession = (name?: string, shell?: string, cwd?: string) => ({
+    id: 'session-route-test',
+    name: name || 'Session',
+    status: 'idle',
+    createdAt: new Date(),
+    lastActiveAt: new Date(),
+    sortOrder: 0,
+    shellType: shell,
+    cwd,
+  });
+
+  try {
+    const app = express();
+    app.use(express.json());
+    app.use('/api/sessions', sessionRoutes);
+
+    const response = await new Promise<{ status: number; body: Record<string, unknown> }>((resolve, reject) => {
+      const server = http.createServer(app);
+      server.listen(0, () => {
+        const port = (server.address() as net.AddressInfo).port;
+        const postBody = JSON.stringify({ shell: 'sh' });
+        const options = {
+          hostname: '127.0.0.1',
+          port,
+          method: 'POST',
+          path: '/api/sessions',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(postBody),
+          },
+        };
+        const request = http.request(options, (res) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('end', () => {
+            server.close();
+            try {
+              const payload = Buffer.concat(chunks).toString();
+              const json = payload ? JSON.parse(payload) as Record<string, unknown> : {};
+              resolve({ status: res.statusCode ?? 0, body: json });
+            } catch (error) {
+              reject(error);
+            }
+          });
+        });
+        request.on('error', (error: Error) => {
+          server.close();
+          reject(error);
+        });
+        request.write(postBody);
+        request.end();
+      });
+    });
+
+    assert.equal(response.status, 201);
+    assert.equal(response.body.id, 'session-route-test');
+  } finally {
+    (sessionManager as any).createSession = originalCreateSession;
+    (sessionManager as any).cachedAvailableShells = originalCachedShells;
+  }
+}
+
 function testSessionManagerDegradedSnapshot(): void {
   const manager = new SessionManager({
     pty: {
@@ -1849,6 +2248,33 @@ async function testSettingsServiceLegacyPtyMigration(): Promise<void> {
 
     const savedContent = await fs.readFile(configPath, 'utf-8');
     assert.match(savedContent, /durationMs:\s*900000/);
+    assert.match(savedContent, /maxBufferSize:\s*65536/);
+  } finally {
+    harness.destroy();
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testSettingsServicePreservesHiddenWindowsPtyValuesOnNonWindowsSave(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-settings-hidden-pty-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  const fixture = createConfigFixture();
+  await fs.writeFile(configPath, createLegacyWindowsPtyConfigFixtureContent(), 'utf-8');
+
+  const harness = createSettingsHarness({ fixture, configPath, platform: 'linux' });
+
+  try {
+    const result = harness.settingsService.savePatch({
+      auth: { durationMs: 900000 },
+    });
+
+    assert.ok(result.changedKeys.includes('auth.durationMs'));
+
+    const savedContent = await fs.readFile(configPath, 'utf-8');
+    assert.match(savedContent, /durationMs:\s*900000/);
+    assert.match(savedContent, /useConpty:\s*true/);
+    assert.match(savedContent, /windowsPowerShellBackend:\s*"conpty"/);
+    assert.match(savedContent, /shell:\s*"powershell"/);
     assert.match(savedContent, /maxBufferSize:\s*65536/);
   } finally {
     harness.destroy();
@@ -2845,16 +3271,21 @@ function createSettingsHarness({
     getCwdFilePath: () => null,
   }, fixture.fileManager!),
   updateTwoFactorRuntime,
+  platform = process.platform,
 }: {
   fixture?: Config;
   configPath?: string;
   fileService?: FileService;
   updateTwoFactorRuntime?: (config: Config, changedKeys: Array<string>) => string[];
+  platform?: NodeJS.Platform;
 } = {}) {
   const cryptoService = new CryptoService(`settings-harness-${Math.random().toString(36).slice(2)}`);
-  const runtimeConfigStore = new RuntimeConfigStore(fixture);
+  const runtimeConfigStore = new RuntimeConfigStore(fixture, platform);
   const authService = new AuthService(fixture.auth!, cryptoService);
-  const sessionManager = new SessionManager({ pty: fixture.pty, session: fixture.session });
+  const sessionManager = new SessionManager({ pty: fixture.pty, session: fixture.session }, {
+    platform,
+    execFileSyncFn: (() => Buffer.from('')) as any,
+  });
   const configRepository = new ConfigFileRepository(configPath);
   const settingsService = new SettingsService({
     runtimeConfigStore,
@@ -2864,11 +3295,12 @@ function createSettingsHarness({
     getFileService: () => fileService,
     sessionManager,
     updateTwoFactorRuntime,
-  });
+  }, platform);
 
   return {
     authService,
     runtimeConfigStore,
+    sessionManager,
     settingsService,
     destroy: () => {
       authService.destroy();
@@ -2937,6 +3369,54 @@ function createLegacyConfigFixtureContent(): string {
     useConpty: true,
     maxBufferSize: 65536,
     shell: "auto",
+  },
+  session: {
+    idleDelayMs: 200,
+  },
+  security: {
+    cors: {
+      allowedOrigins: ["https://example.com"],
+      credentials: true,
+      maxAge: 86400,
+    }
+  },
+  auth: {
+    password: "old-password",
+    durationMs: 1800000,
+    maxDurationMs: 86400000,
+    jwtSecret: "jwt-secret",
+  },
+  fileManager: {
+    maxFileSize: 1048576,
+    maxCodeFileSize: 524288,
+    maxDirectoryEntries: 10000,
+    blockedExtensions: [".exe", ".dll"],
+    blockedPaths: [".ssh", ".aws"],
+    cwdCacheTtlMs: 1000,
+  },
+  twoFactor: {
+    enabled: false,
+    externalOnly: false,
+    issuer: "BuilderGate",
+    accountName: "admin",
+  },
+}`;
+}
+
+function createLegacyWindowsPtyConfigFixtureContent(): string {
+  return `{
+  // Server settings
+  server: {
+    port: 4242,
+  },
+  pty: {
+    termName: "xterm-256color",
+    defaultCols: 80,
+    defaultRows: 24,
+    useConpty: true,
+    windowsPowerShellBackend: "conpty",
+    maxBufferSize: 65536,
+    shell: "powershell",
   },
   session: {
     idleDelayMs: 200,

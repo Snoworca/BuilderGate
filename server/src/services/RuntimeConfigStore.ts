@@ -8,6 +8,10 @@ import type {
 } from '../types/settings.types.js';
 import { authSchema, corsSchema, fileManagerSchema, ptySchema, sessionSchema, twoFactorSchema } from '../schemas/config.schema.js';
 import { config as globalConfig } from '../utils/config.js';
+import {
+  getSettingsShellOptions,
+  normalizePtyConfigForPlatform,
+} from '../utils/ptyPlatformPolicy.js';
 
 const EXCLUDED_SECTIONS = [
   'server.port',
@@ -50,7 +54,7 @@ export class RuntimeConfigStore {
   private secretState: EditableSettingsSnapshot['secretState'];
 
   constructor(source: Config = globalConfig, private readonly platform: NodeJS.Platform = process.platform) {
-    this.values = buildEditableValues(source);
+    this.values = buildEditableValues(source, platform);
     this.capabilities = buildFieldCapabilities(platform);
     this.secretState = {
       authPasswordConfigured: Boolean(source.auth?.password),
@@ -156,7 +160,7 @@ export class RuntimeConfigStore {
   }
 
   replaceFromConfig(config: Config): void {
-    this.values = buildEditableValues(config);
+    this.values = buildEditableValues(config, this.platform);
     this.secretState = {
       authPasswordConfigured: Boolean(config.auth?.password),
       smtpPasswordConfigured: false,
@@ -164,13 +168,19 @@ export class RuntimeConfigStore {
   }
 }
 
-function buildEditableValues(source: Config): EditableSettingsValues {
+function buildEditableValues(source: Config, platform: NodeJS.Platform): EditableSettingsValues {
   const authDefaults = authSchema.parse({});
   const ptyDefaults = ptySchema.parse({});
   const sessionDefaults = sessionSchema.parse({});
   const twoFactorDefaults = twoFactorSchema.parse({});
   const corsDefaults = corsSchema.parse({});
   const fileManagerDefaults = fileManagerSchema.parse({});
+
+  const normalizedPty = normalizePtyConfigForPlatform({
+    useConpty: source.pty.useConpty ?? ptyDefaults.useConpty,
+    windowsPowerShellBackend: source.pty.windowsPowerShellBackend ?? ptyDefaults.windowsPowerShellBackend,
+    shell: source.pty.shell ?? ptyDefaults.shell,
+  }, platform);
 
   return {
     auth: {
@@ -193,9 +203,9 @@ function buildEditableValues(source: Config): EditableSettingsValues {
       termName: source.pty.termName ?? ptyDefaults.termName,
       defaultCols: source.pty.defaultCols ?? ptyDefaults.defaultCols,
       defaultRows: source.pty.defaultRows ?? ptyDefaults.defaultRows,
-      useConpty: source.pty.useConpty ?? ptyDefaults.useConpty,
-      windowsPowerShellBackend: source.pty.windowsPowerShellBackend ?? ptyDefaults.windowsPowerShellBackend,
-      shell: source.pty.shell ?? ptyDefaults.shell,
+      useConpty: normalizedPty.useConpty,
+      windowsPowerShellBackend: normalizedPty.windowsPowerShellBackend,
+      shell: normalizedPty.shell,
     },
     session: {
       idleDelayMs: source.session.idleDelayMs ?? sessionDefaults.idleDelayMs,
@@ -235,9 +245,7 @@ function buildFieldCapabilities(platform: NodeJS.Platform): Record<EditableSetti
 
   capabilities['pty.shell'] = {
     ...capabilities['pty.shell'],
-    options: platform === 'win32'
-      ? ['auto', 'powershell', 'wsl', 'bash']
-      : ['auto', 'bash'],
+    options: getSettingsShellOptions(platform),
   };
 
   return capabilities;

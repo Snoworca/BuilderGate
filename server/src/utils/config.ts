@@ -15,6 +15,10 @@ import os from 'os';
 import { configSchema, type ConfigSchema } from '../schemas/config.schema.js';
 import type { Config } from '../types/config.types.js';
 import { CryptoService } from '../services/CryptoService.js';
+import {
+  applyBootstrapPtyDefaultsToConfigText,
+  normalizeRawConfigForPlatform,
+} from './ptyPlatformPolicy.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -166,12 +170,14 @@ function replacePasswordInSection(content: string, sectionName: string, encrypte
 /**
  * Ensure config.json5 exists — copy from config.json5.example if missing
  */
-function ensureConfigExists(configPath: string): void {
+function ensureConfigExists(configPath: string, platform: NodeJS.Platform = process.platform): void {
   if (existsSync(configPath)) return;
 
   const examplePath = `${configPath}.example`;
   if (existsSync(examplePath)) {
-    copyFileSync(examplePath, configPath);
+    const exampleContent = readFileSync(examplePath, 'utf-8');
+    const bootstrapContent = applyBootstrapPtyDefaultsToConfigText(exampleContent, platform);
+    writeFileSync(configPath, bootstrapContent, 'utf-8');
     console.log('[Config] config.json5 not found — created from config.json5.example');
     console.log('[Config] ⚠️  Edit config.json5 to set your password and options before proceeding.');
   } else {
@@ -184,10 +190,9 @@ function ensureConfigExists(configPath: string): void {
  * Uses Zod schema for validation and default values
  * Automatically encrypts plaintext passwords
  */
-function loadConfig(): Config {
+export function loadConfigFromPath(configPath: string, platform: NodeJS.Platform = process.platform): Config {
   try {
-    const configPath = getConfigPath();
-    ensureConfigExists(configPath);
+    ensureConfigExists(configPath, platform);
     const configContent = readFileSync(configPath, 'utf-8');
     const rawConfig = JSON5.parse(configContent);
 
@@ -197,7 +202,7 @@ function loadConfig(): Config {
 
       // Reload config after encryption
       const updatedContent = readFileSync(configPath, 'utf-8');
-      const updatedRawConfig = JSON5.parse(updatedContent);
+      const updatedRawConfig = normalizeRawConfigForPlatform(JSON5.parse(updatedContent), platform);
 
       // Validate and apply defaults using Zod schema
       const validatedConfig = configSchema.parse(updatedRawConfig);
@@ -208,7 +213,7 @@ function loadConfig(): Config {
     }
 
     // Validate and apply defaults using Zod schema
-    const validatedConfig = configSchema.parse(rawConfig);
+    const validatedConfig = configSchema.parse(normalizeRawConfigForPlatform(rawConfig, platform));
 
     console.log('[Config] Configuration loaded successfully');
 
@@ -230,6 +235,10 @@ function loadConfig(): Config {
     // Return validated defaults
     return configSchema.parse({}) as Config;
   }
+}
+
+function loadConfig(): Config {
+  return loadConfigFromPath(getConfigPath(), process.platform);
 }
 
 /**

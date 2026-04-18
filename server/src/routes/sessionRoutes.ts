@@ -23,8 +23,8 @@ router.post('/', (req: Request<{}, {}, CreateSessionRequest>, res: Response) => 
 
   // Validate shell parameter if provided
   if (shell !== undefined) {
-    const validShells: ShellType[] = ['auto', 'powershell', 'wsl', 'bash'];
-    if (!validShells.includes(shell)) {
+    const validShells = new Set<ShellType>(['auto', ...sessionManager.getAvailableShells().map((entry) => entry.id)]);
+    if (!validShells.has(shell)) {
       return res.status(400).json({ error: `Invalid shell type: ${shell}` });
     }
   }
