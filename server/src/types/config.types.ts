@@ -107,6 +107,10 @@ export interface TwoFactorConfig {
   accountName?: string;
 }
 
+export interface BootstrapConfig {
+  allowedIps: string[];
+}
+
 // ============================================================================
 // Authentication Configuration (Phase 2)
 // ============================================================================
@@ -164,6 +168,7 @@ export interface Config {
   security?: SecurityConfig;
   logging?: LoggingConfig;
   twoFactor?: TwoFactorConfig;
+  bootstrap?: BootstrapConfig;
   auth?: AuthConfig;
   bruteForce?: BruteForceConfig;
   fileManager?: FileManagerConfig;

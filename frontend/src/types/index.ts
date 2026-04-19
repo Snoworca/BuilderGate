@@ -62,6 +62,20 @@ export interface RefreshResponse {
   expiresIn: number;
 }
 
+export type BootstrapAllowPolicy = 'localhost' | 'allowlist' | 'denied' | 'configured';
+
+export interface BootstrapStatusResponse {
+  setupRequired: boolean;
+  requesterAllowed: boolean;
+  allowPolicy: BootstrapAllowPolicy;
+}
+
+export interface BootstrapPasswordResponse {
+  success: boolean;
+  token: string;
+  expiresIn: number;
+}
+
 export interface TOTPQRInfo {
   dataUrl: string;
   uri: string;
@@ -116,6 +130,8 @@ export interface AuthState {
   tempToken: string | null;
   nextStage: 'totp' | null;
   expiresAt: number | null;
+  bootstrapStatus: BootstrapStatusResponse | null;
+  bootstrapError: string | null;
 }
 
 export type {

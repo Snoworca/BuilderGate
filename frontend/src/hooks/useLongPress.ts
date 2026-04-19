@@ -38,6 +38,10 @@ export function useLongPress(
 
   const onTouchStart = useCallback(
     (e: React.TouchEvent) => {
+      if (e.touches.length !== 1) {
+        clearTouch();
+        return;
+      }
       const touch = e.touches[0];
       if (!touch) return;
       startPosRef.current = { x: touch.clientX, y: touch.clientY };
@@ -57,6 +61,10 @@ export function useLongPress(
 
   const onTouchMove = useCallback(
     (e: React.TouchEvent) => {
+      if (e.touches.length !== 1) {
+        clearTouch();
+        return;
+      }
       if (!startPosRef.current || timerRef.current === null) return;
       const touch = e.touches[0];
       if (!touch) return;

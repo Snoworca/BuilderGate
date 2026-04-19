@@ -25,6 +25,47 @@ export interface PersistResult {
 export class ConfigFileRepository {
   constructor(private readonly configPath: string = getConfigPath()) {}
 
+  persistAuthPassword(authPassword: string, options: Pick<PersistOptions, 'dryRun'> = {}): PersistResult {
+    try {
+      const originalContent = readFileSync(this.configPath, 'utf-8');
+      const rawConfig = JSON5.parse(originalContent) as Record<string, unknown>;
+      const previousConfig = configSchema.parse(rawConfig) as Config;
+      const mergedRawConfig = structuredClone(rawConfig);
+
+      setPath(mergedRawConfig, ['auth', 'password'], authPassword);
+
+      const nextConfig = configSchema.parse(mergedRawConfig) as Config;
+      const renderedContent = renderPatchedConfig(originalContent, nextConfig, { authPassword }, ['auth.password']);
+      const reparsed = JSON5.parse(renderedContent);
+      configSchema.parse(reparsed);
+
+      if (!options.dryRun) {
+        this.writePreparedResult({
+          previousConfig,
+          nextConfig,
+          renderedContent,
+          backupPath: `${this.configPath}.bak`,
+        });
+      }
+
+      return {
+        previousConfig,
+        nextConfig,
+        renderedContent,
+        backupPath: `${this.configPath}.bak`,
+      };
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+
+      throw new AppError(
+        ErrorCode.CONFIG_PERSIST_FAILED,
+        error instanceof Error ? error.message : 'Unknown configuration persistence error',
+      );
+    }
+  }
+
   persistEditableValues(
     values: EditableSettingsValues,
     secrets: SecretPatch = {},
@@ -174,6 +215,13 @@ function renderPatchedConfig(
           value: renderJson5Value(config.pty.windowsPowerShellBackend ?? 'inherit'),
         }] as const]
       : []),
+    ...(replacements.has('auth.password')
+      ? [['auth.password', {
+          parentPath: 'auth',
+          key: 'password',
+          value: renderJson5Value(secrets.authPassword ?? config.auth?.password ?? ''),
+        }] as const]
+      : []),
   ]);
   const renderedLines: string[] = [];
 
@@ -225,10 +273,19 @@ function renderPatchedConfig(
   }
 
   const missingReplacements = [...replacements.keys()].filter((path) => !replaced.has(path));
-  if (missingReplacements.length > 0) {
+  if (missingReplacements.includes('auth.password')) {
+    if (insertRootSection(renderedLines, 'auth', [
+      `password: ${renderJson5Value(secrets.authPassword ?? config.auth?.password ?? '')},`,
+    ])) {
+      replaced.add('auth.password');
+    }
+  }
+
+  const stillMissingReplacements = [...replacements.keys()].filter((path) => !replaced.has(path));
+  if (stillMissingReplacements.length > 0) {
     throw new AppError(
       ErrorCode.CONFIG_PERSIST_FAILED,
-      `Could not patch config paths: ${missingReplacements.join(', ')}`,
+      `Could not patch config paths: ${stillMissingReplacements.join(', ')}`,
     );
   }
 
@@ -291,4 +348,26 @@ function findCommentStart(rawValue: string): number {
   }
 
   return -1;
+}
+
+function insertRootSection(renderedLines: string[], sectionName: string, bodyLines: string[]): boolean {
+  let rootClosingIndex = -1;
+  for (let index = renderedLines.length - 1; index >= 0; index -= 1) {
+    if (/^\s*}\s*$/.test(renderedLines[index])) {
+      rootClosingIndex = index;
+      break;
+    }
+  }
+  if (rootClosingIndex < 0) {
+    return false;
+  }
+
+  renderedLines.splice(
+    rootClosingIndex,
+    0,
+    `  ${sectionName}: {`,
+    ...bodyLines.map((line) => `    ${line}`),
+    '  },',
+  );
+  return true;
 }

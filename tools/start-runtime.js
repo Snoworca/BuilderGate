@@ -24,20 +24,49 @@ function getPm2Command() {
   return process.platform === 'win32' ? 'pm2.cmd' : 'pm2';
 }
 
+function parseBootstrapAllowIps(value) {
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 function parseArgs(argv) {
   let cliPort = null;
+  let resetPassword = false;
+  const bootstrapAllowedIps = [];
 
   for (let index = 0; index < argv.length; index += 1) {
     const current = argv[index];
 
     if ((current === '--help') || (current === '-h')) {
-      console.log('Usage: start.sh [-p <port>]');
-      console.log('   or: start.bat -p <port>');
+      console.log('Usage: start.sh [-p <port>] [--reset-password] [--bootstrap-allow-ip <ip[,ip]>]');
+      console.log('   or: start.bat -p <port> [--reset-password] [--bootstrap-allow-ip <ip[,ip]>]');
+      console.log('');
+      console.log('Options:');
+      console.log('  -p, --port                Override HTTPS port');
+      console.log('  --reset-password          Clear auth.password in server/config.json5 before launch');
+      console.log('  --bootstrap-allow-ip      Temporarily allow specific IP(s) for initial password bootstrap');
       process.exit(0);
     }
 
     if ((current === '-p' || current === '--port') && argv[index + 1]) {
       cliPort = Number.parseInt(argv[index + 1], 10);
+      index += 1;
+      continue;
+    }
+
+    if (current === '--reset-password') {
+      resetPassword = true;
+      continue;
+    }
+
+    if (current === '--bootstrap-allow-ip') {
+      const next = argv[index + 1];
+      if (!next) {
+        throw new Error('--bootstrap-allow-ip requires an IP value');
+      }
+      bootstrapAllowedIps.push(...parseBootstrapAllowIps(next));
       index += 1;
     }
   }
@@ -46,7 +75,11 @@ function parseArgs(argv) {
     throw new Error(`-p/--port must be between 1024 and 65535 (got: ${cliPort})`);
   }
 
-  return { cliPort };
+  return {
+    cliPort,
+    resetPassword,
+    bootstrapAllowedIps: [...new Set(bootstrapAllowedIps)],
+  };
 }
 
 function loadConfigPort() {
@@ -78,6 +111,169 @@ function resolvePort(cliPort, configPort = loadConfigPort()) {
   }
 
   return { port: DEFAULT_PORT, source: 'default' };
+}
+
+function parseValueSuffix(rawValue) {
+  const commentIndex = findCommentStart(rawValue);
+  const valueWithoutComment = commentIndex >= 0 ? rawValue.slice(0, commentIndex) : rawValue;
+  const hasTrailingComma = valueWithoutComment.trimEnd().endsWith(',');
+  const comment = commentIndex >= 0 ? ` ${rawValue.slice(commentIndex).trimStart()}` : '';
+  return { hasTrailingComma, comment };
+}
+
+function findCommentStart(rawValue) {
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let escaped = false;
+
+  for (let index = 0; index < rawValue.length - 1; index += 1) {
+    const current = rawValue[index];
+    const next = rawValue[index + 1];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (current === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (!inDoubleQuote && current === '\'') {
+      inSingleQuote = !inSingleQuote;
+      continue;
+    }
+
+    if (!inSingleQuote && current === '"') {
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+
+    if (!inSingleQuote && !inDoubleQuote && current === '/' && next === '/') {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+function insertRootAuthSection(renderedLines) {
+  let rootClosingIndex = -1;
+  for (let index = renderedLines.length - 1; index >= 0; index -= 1) {
+    if (/^\s*}\s*$/.test(renderedLines[index])) {
+      rootClosingIndex = index;
+      break;
+    }
+  }
+
+  if (rootClosingIndex < 0) {
+    throw new Error('Could not locate the root config closing brace');
+  }
+
+  renderedLines.splice(rootClosingIndex, 0, '  auth: {', '    password: "",', '  },');
+}
+
+function insertPasswordIntoExistingAuthSection(renderedLines) {
+  let authStartIndex = -1;
+  for (let index = 0; index < renderedLines.length; index += 1) {
+    if (/^\s*auth:\s*\{\s*(?:\/\/.*)?$/.test(renderedLines[index].trim())) {
+      authStartIndex = index;
+      break;
+    }
+  }
+
+  if (authStartIndex < 0) {
+    return false;
+  }
+
+  let depth = 0;
+  for (let index = authStartIndex; index < renderedLines.length; index += 1) {
+    const line = renderedLines[index];
+    depth += (line.match(/\{/g) || []).length;
+    depth -= (line.match(/\}/g) || []).length;
+
+    if (depth === 0) {
+      const indent = line.match(/^(\s*)}/)?.[1] ?? '  ';
+      renderedLines.splice(index, 0, `${indent}  password: "",`);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function resetPasswordInConfigContent(content) {
+  const newline = content.includes('\r\n') ? '\r\n' : '\n';
+  const lines = content.split(/\r?\n/);
+  const stack = [];
+  const renderedLines = [];
+  let replaced = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('}')) {
+      const currentPath = stack.join('.');
+      if (currentPath === 'auth' && !replaced) {
+        const parentIndent = line.match(/^(\s*)}/)?.[1] ?? '';
+        renderedLines.push(`${parentIndent}  password: "",`);
+        replaced = true;
+      }
+
+      const closingCount = (trimmed.match(/}/g) || []).length;
+      for (let index = 0; index < closingCount; index += 1) {
+        stack.pop();
+      }
+      renderedLines.push(line);
+      continue;
+    }
+
+    const objectMatch = line.match(/^(\s*)([A-Za-z0-9_]+):\s*\{\s*(,?\s*(?:\/\/.*)?)?$/);
+    if (objectMatch) {
+      stack.push(objectMatch[2]);
+      renderedLines.push(line);
+      continue;
+    }
+
+    const valueMatch = line.match(/^(\s*)([A-Za-z0-9_]+):\s*(.+)$/);
+    if (!valueMatch) {
+      renderedLines.push(line);
+      continue;
+    }
+
+    const key = valueMatch[2];
+    const path = [...stack, key].join('.');
+    if (path !== 'auth.password') {
+      renderedLines.push(line);
+      continue;
+    }
+
+    const suffix = parseValueSuffix(valueMatch[3]);
+    renderedLines.push(`${valueMatch[1]}${key}: ""${suffix.hasTrailingComma ? ',' : ''}${suffix.comment}`);
+    replaced = true;
+  }
+
+  if (!replaced) {
+    if (!insertPasswordIntoExistingAuthSection(renderedLines)) {
+      insertRootAuthSection(renderedLines);
+    }
+  }
+
+  return renderedLines.join(newline);
+}
+
+function resetPasswordInConfigFile(configPath = SERVER_CONFIG_PATH) {
+  if (!fs.existsSync(configPath)) {
+    console.log('[start] config.json5 not found. Bootstrap password is already unset; the server will create a fresh config on start.');
+    return false;
+  }
+
+  const originalContent = fs.readFileSync(configPath, 'utf8');
+  const nextContent = resetPasswordInConfigContent(originalContent);
+  fs.writeFileSync(configPath, nextContent, 'utf8');
+  console.log('[start] auth.password cleared in server/config.json5');
+  return true;
 }
 
 function hasDeploymentArtifacts() {
@@ -197,12 +393,15 @@ function hasPm2App(appName) {
   return getPm2ProcessList().some((app) => app.name === appName);
 }
 
-function startWithPm2(port, source) {
+function startWithPm2(port, source, bootstrapAllowedIps = []) {
   const env = {
     ...process.env,
     NODE_ENV: 'production',
     PORT: String(port),
   };
+  if (bootstrapAllowedIps.length > 0) {
+    env.BUILDERGATE_BOOTSTRAP_ALLOWED_IPS = bootstrapAllowedIps.join(',');
+  }
 
   if (hasPm2App(APP_NAME)) {
     console.log(`[start] Removing existing pm2 app "${APP_NAME}" before redeploy.`);
@@ -225,17 +424,24 @@ function startWithPm2(port, source) {
 }
 
 function main() {
-  const { cliPort } = parseArgs(process.argv.slice(2));
+  const { cliPort, resetPassword, bootstrapAllowedIps } = parseArgs(process.argv.slice(2));
   const { port, source } = resolvePort(cliPort);
+
+  if (resetPassword) {
+    resetPasswordInConfigFile();
+  }
 
   ensureDependenciesAndBuild();
   ensurePm2Installed();
-  startWithPm2(port, source);
+  startWithPm2(port, source, bootstrapAllowedIps);
 
   console.log('[start] Deployed in background with pm2.');
   console.log(`[start] App name: ${APP_NAME}`);
   console.log(`[start] HTTPS: https://localhost:${port}`);
   console.log(`[start] HTTP redirect: http://localhost:${port - 1}`);
+  if (bootstrapAllowedIps.length > 0) {
+    console.log(`[start] Temporary bootstrap allowlist: ${bootstrapAllowedIps.join(', ')}`);
+  }
 }
 
 if (require.main === module) {
@@ -250,9 +456,12 @@ if (require.main === module) {
 module.exports = {
   APP_NAME,
   DEFAULT_PORT,
+  parseBootstrapAllowIps,
   parseArgs,
   loadConfigPort,
   resolvePort,
   hasDeploymentArtifacts,
+  resetPasswordInConfigContent,
+  resetPasswordInConfigFile,
   main,
 };

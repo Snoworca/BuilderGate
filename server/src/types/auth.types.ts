@@ -50,6 +50,25 @@ export interface LoginResponse {
   message?: string;
 }
 
+export type BootstrapAllowPolicy = 'localhost' | 'allowlist' | 'denied' | 'configured';
+
+export interface BootstrapStatusResponse {
+  setupRequired: boolean;
+  requesterAllowed: boolean;
+  allowPolicy: BootstrapAllowPolicy;
+}
+
+export interface BootstrapPasswordRequest {
+  password: string;
+  confirmPassword: string;
+}
+
+export interface BootstrapPasswordResponse {
+  success: boolean;
+  token: string;
+  expiresIn: number;
+}
+
 export interface LogoutResponse {
   success: boolean;
   message: string;

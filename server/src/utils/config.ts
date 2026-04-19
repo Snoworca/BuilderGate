@@ -16,9 +16,9 @@ import { configSchema, type ConfigSchema } from '../schemas/config.schema.js';
 import type { Config } from '../types/config.types.js';
 import { CryptoService } from '../services/CryptoService.js';
 import {
-  applyBootstrapPtyDefaultsToConfigText,
   normalizeRawConfigForPlatform,
 } from './ptyPlatformPolicy.js';
+import { renderBootstrapConfigTemplate } from './configTemplate.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -167,22 +167,31 @@ function replacePasswordInSection(content: string, sectionName: string, encrypte
   return updatedLines.join('\n');
 }
 
+function normalizeAuthPasswordState(rawConfig: Record<string, unknown>): Record<string, unknown> {
+  const normalized = structuredClone(rawConfig);
+
+  if (typeof normalized.auth !== 'object' || normalized.auth === null || Array.isArray(normalized.auth)) {
+    normalized.auth = {};
+  }
+
+  const authSection = normalized.auth as Record<string, unknown>;
+  if (authSection.password == null) {
+    authSection.password = '';
+  }
+
+  return normalized;
+}
+
 /**
- * Ensure config.json5 exists — copy from config.json5.example if missing
+ * Ensure config.json5 exists — render a built-in bootstrap template if missing
  */
 function ensureConfigExists(configPath: string, platform: NodeJS.Platform = process.platform): void {
   if (existsSync(configPath)) return;
 
-  const examplePath = `${configPath}.example`;
-  if (existsSync(examplePath)) {
-    const exampleContent = readFileSync(examplePath, 'utf-8');
-    const bootstrapContent = applyBootstrapPtyDefaultsToConfigText(exampleContent, platform);
-    writeFileSync(configPath, bootstrapContent, 'utf-8');
-    console.log('[Config] config.json5 not found — created from config.json5.example');
-    console.log('[Config] ⚠️  Edit config.json5 to set your password and options before proceeding.');
-  } else {
-    console.warn('[Config] config.json5 and config.json5.example both missing — using built-in defaults');
-  }
+  const bootstrapContent = renderBootstrapConfigTemplate(platform);
+  writeFileSync(configPath, bootstrapContent, 'utf-8');
+  console.log('[Config] config.json5 not found — created from built-in bootstrap template');
+  console.log('[Config] Initial administrator password must be configured in the browser bootstrap flow.');
 }
 
 /**
@@ -194,7 +203,7 @@ export function loadConfigFromPath(configPath: string, platform: NodeJS.Platform
   try {
     ensureConfigExists(configPath, platform);
     const configContent = readFileSync(configPath, 'utf-8');
-    const rawConfig = JSON5.parse(configContent);
+    const rawConfig = normalizeAuthPasswordState(JSON5.parse(configContent));
 
     // Encrypt passwords if they're plaintext
     try {
@@ -202,7 +211,10 @@ export function loadConfigFromPath(configPath: string, platform: NodeJS.Platform
 
       // Reload config after encryption
       const updatedContent = readFileSync(configPath, 'utf-8');
-      const updatedRawConfig = normalizeRawConfigForPlatform(JSON5.parse(updatedContent), platform);
+      const updatedRawConfig = normalizeRawConfigForPlatform(
+        normalizeAuthPasswordState(JSON5.parse(updatedContent)),
+        platform,
+      );
 
       // Validate and apply defaults using Zod schema
       const validatedConfig = configSchema.parse(updatedRawConfig);

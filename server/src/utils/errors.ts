@@ -15,6 +15,8 @@ export enum ErrorCode {
   TOKEN_EXPIRED = 'TOKEN_EXPIRED',
   TOKEN_REVOKED = 'TOKEN_REVOKED',
   INVALID_PASSWORD = 'INVALID_PASSWORD',
+  BOOTSTRAP_NOT_ALLOWED = 'BOOTSTRAP_NOT_ALLOWED',
+  BOOTSTRAP_NOT_REQUIRED = 'BOOTSTRAP_NOT_REQUIRED',
 
   // 2FA Errors (Phase 3)
   TWO_FA_REQUIRED = 'TWO_FA_REQUIRED',
@@ -83,6 +85,8 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.TOKEN_EXPIRED]: 'Authentication token has expired',
   [ErrorCode.TOKEN_REVOKED]: 'Authentication token has been revoked',
   [ErrorCode.INVALID_PASSWORD]: 'Invalid password',
+  [ErrorCode.BOOTSTRAP_NOT_ALLOWED]: 'Initial password bootstrap is not allowed from this address',
+  [ErrorCode.BOOTSTRAP_NOT_REQUIRED]: 'Initial password bootstrap is no longer required',
 
   [ErrorCode.TWO_FA_REQUIRED]: 'Two-factor authentication is required',
   [ErrorCode.INVALID_TEMP_TOKEN]: 'Invalid or expired temporary token',
@@ -144,6 +148,8 @@ export const ErrorStatusCodes: Record<ErrorCode, number> = {
   [ErrorCode.TOKEN_EXPIRED]: 401,
   [ErrorCode.TOKEN_REVOKED]: 401,
   [ErrorCode.INVALID_PASSWORD]: 401,
+  [ErrorCode.BOOTSTRAP_NOT_ALLOWED]: 403,
+  [ErrorCode.BOOTSTRAP_NOT_REQUIRED]: 409,
 
   [ErrorCode.TWO_FA_REQUIRED]: 202,
   [ErrorCode.INVALID_TEMP_TOKEN]: 401,

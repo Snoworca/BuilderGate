@@ -15,6 +15,7 @@ import { AuthService } from './services/AuthService.js';
 import { CryptoService } from './services/CryptoService.js';
 import { ConfigFileRepository } from './services/ConfigFileRepository.js';
 import { SettingsService } from './services/SettingsService.js';
+import { BootstrapSetupService } from './services/BootstrapSetupService.js';
 import { reconcileTotpRuntime } from './services/twoFactorRuntime.js';
 import { SessionManager } from './services/SessionManager.js';
 import { sessionManager } from './services/SessionManager.js';
@@ -40,13 +41,17 @@ import {
 } from './utils/ptyPlatformPolicy.js';
 import { loadConfigFromPath } from './utils/config.js';
 import express from 'express';
+import type { Request } from 'express';
 
 async function main(): Promise<void> {
   const tests: Array<{ name: string; run: () => Promise<void> | void }> = [
     { name: 'Config bootstrap applies OS-aware PTY defaults when creating config text', run: testConfigBootstrapAppliesPlatformPtyDefaults },
     { name: 'Config normalization neutralizes stale Windows PTY fields on non-Windows', run: testNormalizeRawConfigForPlatformNonWindows },
     { name: 'Config loader bootstraps missing config files with platform-aware PTY defaults', run: testLoadConfigFromPathBootstrapsMissingConfig },
+    { name: 'Config loader bootstraps missing config files without copying config.json5.example', run: testLoadConfigFromPathDoesNotRequireExampleFile },
     { name: 'Config loader normalizes stale Windows PTY fields on non-Windows hosts', run: testLoadConfigFromPathNormalizesNonWindowsPtyFields },
+    { name: 'Config loader canonicalizes empty-password bootstrap state from null or missing input', run: testLoadConfigFromPathCanonicalizesEmptyPasswordState },
+    { name: 'Config loader still encrypts non-empty plaintext passwords on load', run: testLoadConfigFromPathEncryptsPlaintextPasswordOnLoad },
     { name: 'RuntimeConfigStore builds a redacted editable snapshot', run: testRuntimeConfigSnapshot },
     { name: 'RuntimeConfigStore marks platform capabilities and merges patches', run: testRuntimeConfigCapabilities },
     { name: 'RuntimeConfigStore normalizes platform-specific PTY values in editable snapshots', run: testRuntimeConfigPlatformNormalization },
@@ -140,6 +145,13 @@ async function main(): Promise<void> {
     // Phase 4: authRoutes — 4 COMBO flows
     { name: 'reconcileTotpRuntime initializes TOTP on startup when 2FA is enabled', run: testReconcileTotpRuntimeStartupInitialization },
     { name: 'reconcileTotpRuntime keeps the previous registered service on hot-apply failure', run: testReconcileTotpRuntimeKeepsPreviousService },
+    { name: 'authRoutes bootstrap-status returns setup-required for localhost when password is missing', run: testAuthRoutesBootstrapStatusLocalhost },
+    { name: 'authRoutes bootstrap-status denies remote IPs by default', run: testAuthRoutesBootstrapStatusDeniedRemote },
+    { name: 'authRoutes bootstrap-status allows remote IPs from env allowlist', run: testAuthRoutesBootstrapStatusAllowlistEnv },
+    { name: 'authRoutes bootstrap-status normalizes IPv4-mapped IPv6 request addresses against allowlists', run: testAuthRoutesBootstrapStatusNormalizesMappedIpv4 },
+    { name: 'authRoutes bootstrap-password persists encrypted password and issues JWT', run: testAuthRoutesBootstrapPasswordSuccess },
+    { name: 'authRoutes bootstrap-password inserts an auth section when legacy config omits it', run: testAuthRoutesBootstrapPasswordLegacyMissingAuthSection },
+    { name: 'authRoutes bootstrap-password closes once a password is configured', run: testAuthRoutesBootstrapPasswordClosedAfterSetup },
     { name: 'authRoutes COMBO-3: TOTP-only login returns 202 with nextStage totp (Phase 4)', run: testAuthRoutesCombo3Login },
     { name: 'authRoutes FR-401: TOTP enabled but unregistered returns 503 (Phase 4)', run: testAuthRoutesUnregisteredTOTP503 },
     { name: 'authRoutes FR-802: stage mismatch returns 400 (Phase 4)', run: testAuthRoutesStageMismatch },
@@ -232,23 +244,35 @@ function testNormalizeRawConfigForPlatformNonWindows(): void {
 async function testLoadConfigFromPathBootstrapsMissingConfig(): Promise<void> {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-config-bootstrap-'));
   const configPath = path.join(tempDir, 'config.json5');
-  const examplePath = `${configPath}.example`;
-  await fs.writeFile(
-    examplePath,
-    createConfigFixtureContent().replace(
-      '    useConpty: true,',
-      '    useConpty: false,\n    windowsPowerShellBackend: "inherit",',
-    ),
-    'utf-8',
-  );
 
   try {
     const winConfig = loadConfigFromPath(configPath, 'win32');
     const createdContent = await fs.readFile(configPath, 'utf-8');
     assert.equal(winConfig.pty.useConpty, true);
     assert.equal(winConfig.pty.windowsPowerShellBackend, 'inherit');
+    assert.equal(winConfig.auth?.password, '');
+    assert.deepEqual(winConfig.bootstrap?.allowedIps ?? [], []);
     assert.match(createdContent, /useConpty:\s*true,/);
     assert.match(createdContent, /windowsPowerShellBackend:\s*"inherit",/);
+    assert.match(createdContent, /password:\s*""/);
+    assert.match(createdContent, /allowedIps:\s*\[\]/);
+    assert.doesNotMatch(createdContent, /your_password_here/);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testLoadConfigFromPathDoesNotRequireExampleFile(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-config-built-in-'));
+  const configPath = path.join(tempDir, 'config.json5');
+
+  try {
+    const loaded = loadConfigFromPath(configPath, 'linux');
+    const createdContent = await fs.readFile(configPath, 'utf-8');
+    assert.equal(loaded.pty.useConpty, false);
+    assert.equal(loaded.auth?.password, '');
+    assert.ok(createdContent.length > 0);
+    assert.doesNotMatch(createdContent, /config\.json5\.example/);
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
@@ -264,6 +288,49 @@ async function testLoadConfigFromPathNormalizesNonWindowsPtyFields(): Promise<vo
     assert.equal(config.pty.useConpty, false);
     assert.equal(config.pty.windowsPowerShellBackend, 'inherit');
     assert.equal(config.pty.shell, 'auto');
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testLoadConfigFromPathCanonicalizesEmptyPasswordState(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-config-password-empty-'));
+  const nullPasswordPath = path.join(tempDir, 'config-null.json5');
+  const missingPasswordPath = path.join(tempDir, 'config-missing.json5');
+
+  await fs.writeFile(
+    nullPasswordPath,
+    createConfigFixtureContent().replace('    password: "old-password",', '    password: null,'),
+    'utf-8',
+  );
+  await fs.writeFile(
+    missingPasswordPath,
+    createConfigFixtureContent().replace('    password: "old-password",\n', ''),
+    'utf-8',
+  );
+
+  try {
+    const nullPasswordConfig = loadConfigFromPath(nullPasswordPath, 'linux');
+    const missingPasswordConfig = loadConfigFromPath(missingPasswordPath, 'linux');
+
+    assert.equal(nullPasswordConfig.auth?.password, '');
+    assert.equal(missingPasswordConfig.auth?.password, '');
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testLoadConfigFromPathEncryptsPlaintextPasswordOnLoad(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-config-password-encrypt-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  await fs.writeFile(configPath, createConfigFixtureContent(), 'utf-8');
+
+  try {
+    const loadedConfig = loadConfigFromPath(configPath, 'linux');
+    const savedContent = await fs.readFile(configPath, 'utf-8');
+
+    assert.notEqual(loadedConfig.auth?.password, 'old-password');
+    assert.match(savedContent, /password:\s*"enc\(/);
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
@@ -3244,6 +3311,9 @@ function createConfigFixture(): Config {
       maxDurationMs: 86400000,
       jwtSecret: 'enc(jwt)',
     },
+    bootstrap: {
+      allowedIps: [],
+    },
     fileManager: {
       maxFileSize: 1048576,
       maxCodeFileSize: 524288,
@@ -3339,6 +3409,9 @@ function createConfigFixtureContent(): string {
     maxDurationMs: 86400000,
     jwtSecret: "jwt-secret",
   },
+  bootstrap: {
+    allowedIps: [],
+  },
   fileManager: {
     maxFileSize: 1048576,
     maxCodeFileSize: 524288,
@@ -3385,6 +3458,9 @@ function createLegacyConfigFixtureContent(): string {
     durationMs: 1800000,
     maxDurationMs: 86400000,
     jwtSecret: "jwt-secret",
+  },
+  bootstrap: {
+    allowedIps: [],
   },
   fileManager: {
     maxFileSize: 1048576,
@@ -3433,6 +3509,9 @@ function createLegacyWindowsPtyConfigFixtureContent(): string {
     durationMs: 1800000,
     maxDurationMs: 86400000,
     jwtSecret: "jwt-secret",
+  },
+  bootstrap: {
+    allowedIps: [],
   },
   fileManager: {
     maxFileSize: 1048576,
@@ -3772,6 +3851,7 @@ async function invokeLogin(
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postBody),
+          'x-test-remote-addr': ip,
         },
       };
       const request = http.request(options, (res) => {
@@ -3826,6 +3906,99 @@ async function invokeVerify(
         });
       });
       request.on('error', (e: Error) => { server.close(); reject(e); });
+      request.write(postBody);
+      request.end();
+    });
+  });
+}
+
+async function invokeBootstrapStatus(
+  accessors: Parameters<typeof createAuthRoutes>[0],
+  ip = '::ffff:127.0.0.1',
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  return new Promise((resolve, reject) => {
+    const app = express();
+    app.use(express.json());
+    app.use('/api/auth', createAuthRoutes(accessors));
+    const server = http.createServer(app);
+    server.listen(0, () => {
+      const port = (server.address() as net.AddressInfo).port;
+      const request = http.request({
+        hostname: '127.0.0.1',
+        port,
+        method: 'GET',
+        path: '/api/auth/bootstrap-status',
+        headers: {
+          'x-test-remote-addr': ip,
+        },
+      }, (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => {
+          server.close();
+          try {
+            const payload = Buffer.concat(chunks).toString();
+            resolve({
+              status: res.statusCode ?? 0,
+              body: payload ? JSON.parse(payload) as Record<string, unknown> : {},
+            });
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
+      request.on('error', (error: Error) => {
+        server.close();
+        reject(error);
+      });
+      request.end();
+    });
+  });
+}
+
+async function invokeBootstrapPassword(
+  accessors: Parameters<typeof createAuthRoutes>[0],
+  body: Record<string, unknown>,
+  ip = '::ffff:127.0.0.1',
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  return new Promise((resolve, reject) => {
+    const app = express();
+    app.use(express.json());
+    app.use('/api/auth', createAuthRoutes(accessors));
+    const server = http.createServer(app);
+    server.listen(0, () => {
+      const port = (server.address() as net.AddressInfo).port;
+      const postBody = JSON.stringify(body);
+      const request = http.request({
+        hostname: '127.0.0.1',
+        port,
+        method: 'POST',
+        path: '/api/auth/bootstrap-password',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postBody),
+          'x-test-remote-addr': ip,
+        },
+      }, (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => {
+          server.close();
+          try {
+            const payload = Buffer.concat(chunks).toString();
+            resolve({
+              status: res.statusCode ?? 0,
+              body: payload ? JSON.parse(payload) as Record<string, unknown> : {},
+            });
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
+      request.on('error', (error: Error) => {
+        server.close();
+        reject(error);
+      });
       request.write(postBody);
       request.end();
     });
@@ -3908,9 +4081,193 @@ function makeAuthHarness(opts: {
     getAuthService: () => authService,
     getTOTPService: () => totpService,
     getTwoFactorExternalOnly: () => opts.twoFactorExternalOnly ?? false,
+    getBootstrapSetupService: () => ({
+      getStatus: () => ({ setupRequired: false, requesterAllowed: false, allowPolicy: 'configured' as const }),
+      bootstrapPassword: () => {
+        throw new AppError(ErrorCode.BOOTSTRAP_NOT_REQUIRED);
+      },
+    }),
+    getRequestIp: (req: Request) => String(req.headers['x-test-remote-addr'] ?? '::ffff:127.0.0.1'),
   };
 
   return { authService, totpService, accessors, cryptoService };
+}
+
+async function makeBootstrapHarness(options: {
+  initialPassword?: string;
+  configuredAllowedIps?: string[];
+  omitAuthSection?: boolean;
+} = {}) {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-bootstrap-auth-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  const initialPassword = options.initialPassword ?? '';
+  const configuredAllowedIps = options.configuredAllowedIps ?? [];
+  let configContent = createConfigFixtureContent()
+    .replace('    password: "old-password",', `    password: ${JSON.stringify(initialPassword)},`)
+    .replace('    allowedIps: [],', `    allowedIps: [${configuredAllowedIps.map((ip) => JSON.stringify(ip)).join(', ')}],`);
+  if (options.omitAuthSection) {
+    configContent = configContent.replace(
+      `  auth: {\n    password: ${JSON.stringify(initialPassword)},\n    durationMs: 1800000,\n    maxDurationMs: 86400000,\n    jwtSecret: "jwt-secret",\n  },\n`,
+      '',
+    );
+  }
+
+  await fs.writeFile(configPath, configContent, 'utf-8');
+
+  const cryptoService = new CryptoService(`bootstrap-auth-${Math.random().toString(36).slice(2)}`);
+  const authService = new AuthService(
+    {
+      password: initialPassword,
+      durationMs: 1800000,
+      maxDurationMs: 86400000,
+      jwtSecret: 'bootstrap-jwt-secret',
+    },
+    cryptoService,
+  );
+  const configRepository = new ConfigFileRepository(configPath);
+  const bootstrapSetupService = new BootstrapSetupService({
+    authService,
+    cryptoService,
+    configRepository,
+    getConfiguredAllowedIps: () => configuredAllowedIps,
+  });
+
+  const accessors = {
+    getAuthService: () => authService,
+    getTOTPService: () => undefined,
+    getTwoFactorExternalOnly: () => false,
+    getBootstrapSetupService: () => bootstrapSetupService,
+    getRequestIp: (req: Request) => String(req.headers['x-test-remote-addr'] ?? '::ffff:127.0.0.1'),
+  };
+
+  return {
+    configPath,
+    authService,
+    accessors,
+    destroy: async () => {
+      authService.destroy();
+      await fs.rm(tempDir, { recursive: true, force: true });
+    },
+  };
+}
+
+async function testAuthRoutesBootstrapStatusLocalhost(): Promise<void> {
+  const harness = await makeBootstrapHarness({ initialPassword: '' });
+  try {
+    const result = await invokeBootstrapStatus(harness.accessors);
+    assert.equal(result.status, 200);
+    assert.equal(result.body.setupRequired, true);
+    assert.equal(result.body.requesterAllowed, true);
+    assert.equal(result.body.allowPolicy, 'localhost');
+  } finally {
+    await harness.destroy();
+  }
+}
+
+async function testAuthRoutesBootstrapStatusDeniedRemote(): Promise<void> {
+  const harness = await makeBootstrapHarness({ initialPassword: '' });
+  try {
+    const result = await invokeBootstrapStatus(harness.accessors, '192.168.0.50');
+    assert.equal(result.status, 200);
+    assert.equal(result.body.setupRequired, true);
+    assert.equal(result.body.requesterAllowed, false);
+    assert.equal(result.body.allowPolicy, 'denied');
+  } finally {
+    await harness.destroy();
+  }
+}
+
+async function testAuthRoutesBootstrapStatusAllowlistEnv(): Promise<void> {
+  const previous = process.env.BUILDERGATE_BOOTSTRAP_ALLOWED_IPS;
+  process.env.BUILDERGATE_BOOTSTRAP_ALLOWED_IPS = '192.168.0.50';
+  const harness = await makeBootstrapHarness({ initialPassword: '' });
+  try {
+    const result = await invokeBootstrapStatus(harness.accessors, '192.168.0.50');
+    assert.equal(result.status, 200);
+    assert.equal(result.body.setupRequired, true);
+    assert.equal(result.body.requesterAllowed, true);
+    assert.equal(result.body.allowPolicy, 'allowlist');
+  } finally {
+    if (previous === undefined) {
+      delete process.env.BUILDERGATE_BOOTSTRAP_ALLOWED_IPS;
+    } else {
+      process.env.BUILDERGATE_BOOTSTRAP_ALLOWED_IPS = previous;
+    }
+    await harness.destroy();
+  }
+}
+
+async function testAuthRoutesBootstrapStatusNormalizesMappedIpv4(): Promise<void> {
+  const harness = await makeBootstrapHarness({ initialPassword: '', configuredAllowedIps: ['192.168.0.50'] });
+  try {
+    const result = await invokeBootstrapStatus(harness.accessors, '::ffff:192.168.0.50');
+    assert.equal(result.status, 200);
+    assert.equal(result.body.requesterAllowed, true);
+    assert.equal(result.body.allowPolicy, 'allowlist');
+  } finally {
+    await harness.destroy();
+  }
+}
+
+async function testAuthRoutesBootstrapPasswordSuccess(): Promise<void> {
+  const harness = await makeBootstrapHarness({ initialPassword: '' });
+  try {
+    const result = await invokeBootstrapPassword(harness.accessors, {
+      password: 'bootstrap-pass',
+      confirmPassword: 'bootstrap-pass',
+    });
+    const savedContent = await fs.readFile(harness.configPath, 'utf-8');
+
+    assert.equal(result.status, 201);
+    assert.equal(result.body.success, true);
+    assert.ok(typeof result.body.token === 'string');
+    assert.equal(result.body.expiresIn, 1800000);
+    assert.equal(harness.authService.validatePassword('bootstrap-pass'), true);
+    assert.match(savedContent, /password:\s*"enc\(/);
+  } finally {
+    await harness.destroy();
+  }
+}
+
+async function testAuthRoutesBootstrapPasswordLegacyMissingAuthSection(): Promise<void> {
+  const harness = await makeBootstrapHarness({ initialPassword: '', omitAuthSection: true });
+  try {
+    const result = await invokeBootstrapPassword(harness.accessors, {
+      password: 'bootstrap-pass',
+      confirmPassword: 'bootstrap-pass',
+    });
+    const savedContent = await fs.readFile(harness.configPath, 'utf-8');
+
+    assert.equal(result.status, 201);
+    assert.match(savedContent, /auth:\s*\{/);
+    assert.match(savedContent, /password:\s*"enc\(/);
+  } finally {
+    await harness.destroy();
+  }
+}
+
+async function testAuthRoutesBootstrapPasswordClosedAfterSetup(): Promise<void> {
+  const harness = await makeBootstrapHarness({ initialPassword: '' });
+  try {
+    const first = await invokeBootstrapPassword(harness.accessors, {
+      password: 'bootstrap-pass',
+      confirmPassword: 'bootstrap-pass',
+    });
+    assert.equal(first.status, 201);
+
+    const statusAfter = await invokeBootstrapStatus(harness.accessors);
+    assert.equal(statusAfter.body.setupRequired, false);
+    assert.equal(statusAfter.body.allowPolicy, 'configured');
+
+    const second = await invokeBootstrapPassword(harness.accessors, {
+      password: 'another-pass',
+      confirmPassword: 'another-pass',
+    });
+    assert.equal(second.status, 409);
+    assert.equal((second.body.error as Record<string, unknown>).code, ErrorCode.BOOTSTRAP_NOT_REQUIRED);
+  } finally {
+    await harness.destroy();
+  }
 }
 
 async function testAuthRoutesCombo3Login(): Promise<void> {
@@ -3954,6 +4311,13 @@ async function testAuthRoutesCombo1(): Promise<void> {
     getAuthService: () => authService,
     getTOTPService: () => undefined,
     getTwoFactorExternalOnly: () => false,
+    getBootstrapSetupService: () => ({
+      getStatus: () => ({ setupRequired: false, requesterAllowed: false, allowPolicy: 'configured' as const }),
+      bootstrapPassword: () => {
+        throw new AppError(ErrorCode.BOOTSTRAP_NOT_REQUIRED);
+      },
+    }),
+    getRequestIp: (req: Request) => String(req.headers['x-test-remote-addr'] ?? '::ffff:127.0.0.1'),
   };
   const result = await invokeLogin(accessors, { password: 'test-password' });
   authService.destroy();

@@ -10,7 +10,7 @@ import './Auth.css';
 
 export function LoginForm() {
   const [password, setPassword] = useState('');
-  const { login, isLoading, error } = useAuth();
+  const { login, isLoading, error, bootstrapError } = useAuth();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -63,9 +63,9 @@ export function LoginForm() {
             )}
           </button>
 
-          {error && (
+          {(error || bootstrapError) && (
             <div className="auth-error" role="alert">
-              {error}
+              {error || bootstrapError}
             </div>
           )}
         </form>

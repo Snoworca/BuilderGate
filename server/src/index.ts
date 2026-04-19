@@ -28,6 +28,7 @@ import { SessionManager, sessionManager } from './services/SessionManager.js';
 import { SSLService } from './services/SSLService.js';
 import { CryptoService } from './services/CryptoService.js';
 import { AuthService } from './services/AuthService.js';
+import { BootstrapSetupService } from './services/BootstrapSetupService.js';
 import { TOTPService } from './services/TOTPService.js';
 import { reconcileTotpRuntime } from './services/twoFactorRuntime.js';
 import type { Config } from './types/config.types.js';
@@ -51,6 +52,7 @@ const HTTP_PORT = Number(PORT) - 1; // HTTP redirect port
 
 let cryptoService: CryptoService;
 let authService: AuthService;
+let bootstrapSetupService: BootstrapSetupService;
 let totpService: TOTPService | undefined;
 let fileService: FileService;
 let runtimeConfigStore: RuntimeConfigStore;
@@ -192,6 +194,8 @@ function setupRoutes(): void {
     getAuthService: () => authService,
     getTOTPService: () => totpService,
     getTwoFactorExternalOnly: () => runtimeConfigStore?.getEditableValues().twoFactor.externalOnly ?? false,
+    getBootstrapSetupService: () => bootstrapSetupService,
+    getRequestIp: (req) => req.socket.remoteAddress ?? req.ip ?? '',
   });
   app.use('/api/auth', authRoutes);
 
@@ -301,6 +305,12 @@ async function startServer(): Promise<void> {
       jwtSecret: ''
     };
     authService = new AuthService(authConfig, cryptoService);
+    bootstrapSetupService = new BootstrapSetupService({
+      authService,
+      cryptoService,
+      configRepository,
+      getConfiguredAllowedIps: () => config.bootstrap?.allowedIps ?? [],
+    });
 
     // ========================================================================
     // Initialize TOTP Service (Step 6 — FR-102)

@@ -1,7 +1,7 @@
 {
   // BuilderGate Server Configuration - EXAMPLE FILE
-  // 이 파일을 복사하여 config.json5 로 사용하십시오.
-  // cp config.json5.example config.json5
+  // 실행 시 이 파일을 자동 복제하지 않습니다.
+  // 실제 config.json5 는 서버가 첫 실행 시 직접 생성합니다.
 
   // Server settings
   server: {
@@ -77,9 +77,15 @@
     maxFiles: 14
   },
 
+  bootstrap: {
+    // 기본값은 localhost-only bootstrap 입니다.
+    // 초기 비밀번호 설정을 원격 장치에서 허용해야 할 때만 IP를 명시하십시오.
+    allowedIps: [],
+  },
+
   // Authentication settings
   auth: {
-    password: "your_password_here",  // 평문 입력 → 서버 시작 시 자동 암호화
+    password: "",                    // 빈 값: 브라우저에서 초기 관리자 비밀번호 설정
     durationMs: 1800000,             // 세션 유지 시간: 30분
     maxDurationMs: 86400000,         // 최대 세션 시간: 24시간
     jwtSecret: "",                   // 빈 값이면 자동 생성

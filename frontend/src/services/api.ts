@@ -8,6 +8,8 @@ import type {
   Session,
   UpdateSessionRequest,
   LoginResponse,
+  BootstrapPasswordResponse,
+  BootstrapStatusResponse,
   VerifyRequest,
   VerifyResponse,
   RefreshResponse,
@@ -77,6 +79,22 @@ async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
 // ============================================================================
 
 export const authApi = {
+  async getBootstrapStatus(): Promise<BootstrapStatusResponse> {
+    const res = await fetch(`${API_BASE}/auth/bootstrap-status`);
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  async bootstrapPassword(password: string, confirmPassword: string): Promise<BootstrapPasswordResponse> {
+    const res = await fetch(`${API_BASE}/auth/bootstrap-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password, confirmPassword }),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
   async login(password: string): Promise<LoginResponse> {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',

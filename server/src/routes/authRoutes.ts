@@ -11,9 +11,15 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import type { AuthService } from '../services/AuthService.js';
 import type { TOTPService } from '../services/TOTPService.js';
-import type { LoginResponse, LogoutResponse, VerifyResponse } from '../types/auth.types.js';
+import type {
+  BootstrapPasswordResponse,
+  BootstrapStatusResponse,
+  LoginResponse,
+  LogoutResponse,
+  VerifyResponse,
+} from '../types/auth.types.js';
 import { createAuthMiddleware } from '../middleware/authMiddleware.js';
-import { ErrorCode, createErrorResponse } from '../utils/errors.js';
+import { AppError, ErrorCode, createErrorResponse } from '../utils/errors.js';
 
 // ============================================================================
 // Request Validation Schemas
@@ -27,6 +33,11 @@ const verifySchema = z.object({
   tempToken: z.string().uuid('Invalid temporary token format'),
   otpCode: z.string().min(4, 'OTP code is required').max(8, 'OTP code too long'),
   stage: z.enum(['totp']).optional(),
+});
+
+const bootstrapPasswordSchema = z.object({
+  password: z.string().min(4, 'Password must be at least 4 characters long'),
+  confirmPassword: z.string().min(4, 'Confirm password must be at least 4 characters long'),
 });
 
 // ============================================================================
@@ -48,10 +59,17 @@ function handleTOTPLogin(res: Response, _totpService: TOTPService, tempToken: st
 // Route Factory
 // ============================================================================
 
+interface BootstrapSetupAccessor {
+  getStatus: (requestIp: string) => BootstrapStatusResponse;
+  bootstrapPassword: (requestIp: string, password: string, confirmPassword: string) => BootstrapPasswordResponse;
+}
+
 interface AuthRouteAccessors {
   getAuthService: () => AuthService;
   getTOTPService: () => TOTPService | undefined;
   getTwoFactorExternalOnly: () => boolean;
+  getBootstrapSetupService: () => BootstrapSetupAccessor;
+  getRequestIp: (req: Request) => string;
 }
 
 /**
@@ -62,6 +80,51 @@ interface AuthRouteAccessors {
 export function createAuthRoutes(accessors: AuthRouteAccessors): Router {
   const router = Router();
   const authMiddleware = createAuthMiddleware(() => accessors.getAuthService());
+
+  router.get('/bootstrap-status', (req: Request, res: Response): void => {
+    try {
+      const bootstrapSetupService = accessors.getBootstrapSetupService();
+      const requestIp = accessors.getRequestIp(req);
+      const response: BootstrapStatusResponse = bootstrapSetupService.getStatus(requestIp);
+      res.json(response);
+    } catch (error) {
+      console.error('[Auth] Bootstrap status error:', error);
+      res.status(500).json(createErrorResponse(ErrorCode.INTERNAL_ERROR));
+    }
+  });
+
+  router.post('/bootstrap-password', (req: Request, res: Response): void => {
+    try {
+      const parseResult = bootstrapPasswordSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        res.status(400).json(createErrorResponse(
+          ErrorCode.VALIDATION_ERROR,
+          'Invalid request body',
+          { issues: parseResult.error.issues },
+        ));
+        return;
+      }
+
+      const bootstrapSetupService = accessors.getBootstrapSetupService();
+      const requestIp = accessors.getRequestIp(req);
+      const response: BootstrapPasswordResponse = bootstrapSetupService.bootstrapPassword(
+        requestIp,
+        parseResult.data.password,
+        parseResult.data.confirmPassword,
+      );
+      res.status(201).json(response);
+    } catch (error) {
+      if (error instanceof AppError) {
+        const appError = error;
+        console.warn(`[Auth] Bootstrap password rejected from ${accessors.getRequestIp(req)}: ${appError.code}`);
+        res.status(appError.statusCode).json(createErrorResponse(appError.code, appError.message, appError.details));
+        return;
+      }
+
+      console.error('[Auth] Bootstrap password error:', error);
+      res.status(500).json(createErrorResponse(ErrorCode.INTERNAL_ERROR));
+    }
+  });
 
   // ========================================================================
   // POST /api/auth/login

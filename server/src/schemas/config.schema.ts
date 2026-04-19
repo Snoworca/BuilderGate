@@ -89,12 +89,21 @@ export const twoFactorSchema = z.object({
   accountName: z.string().default('admin'),
 });
 
+export const bootstrapSchema = z.object({
+  allowedIps: z.array(z.string()).default([]),
+});
+
 // ============================================================================
 // Authentication Schema (Phase 2)
 // ============================================================================
 
 export const authSchema = z.object({
-  password: z.string().default(''),
+  password: z.preprocess((value) => {
+    if (value == null) {
+      return '';
+    }
+    return value;
+  }, z.string()).default(''),
   durationMs: z.number().min(60000).max(86400000).default(1800000),
   maxDurationMs: z.number().min(60000).max(86400000).default(86400000),
   jwtSecret: z.string().default(''),
@@ -158,6 +167,7 @@ export const configSchema = z.object({
   security: securitySchema.optional(),
   logging: loggingSchema.optional(),
   twoFactor: twoFactorSchema.optional(),
+  bootstrap: bootstrapSchema.optional(),
   auth: authSchema.optional(),
   bruteForce: bruteForceSchema.optional(),
   fileManager: fileManagerSchema.optional(),

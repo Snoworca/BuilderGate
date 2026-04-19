@@ -27,6 +27,7 @@ const SNAPSHOT_SCHEMA_VERSION = 1;
 const SNAPSHOT_SAVE_DEBOUNCE_MS = 2000;
 const SNAPSHOT_MAX_CONTENT_LENGTH = 2_000_000;
 const LARGE_WRITE_THRESHOLD = 10_000;
+const MOBILE_TOUCH_PAN_THRESHOLD_PX = 12;
 
 // xterm.js v5는 방향키, Backspace 등 모든 제어 키를 네이티브로 처리.
 // 커스텀 KEY_SEQUENCES 핸들러는 xterm 내부 IME/유니코드 파이프라인을 우회하여
@@ -85,6 +86,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const previousVisibilityRef = useRef(isVisible);
     const bufferedOutputRef = useRef<string[]>([]);
     const inFlightOutputRef = useRef<string[]>([]);
+    const mobilePanStartRef = useRef<{ x: number; y: number } | null>(null);
+    const mobilePanLastYRef = useRef<number | null>(null);
+    const mobilePanResidualYRef = useRef(0);
+    const mobilePanActiveRef = useRef(false);
+    const mobilePinchActiveRef = useRef(false);
+    const suppressNextClickRef = useRef(false);
     // IME 조합 상태 추적: compositionend/keydown(Space) race condition 보조 신호
     const isComposingRef = useRef<boolean>(false);
     const { isMobile } = useResponsive();
@@ -200,6 +207,160 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       defaultSize: FONT_DEFAULT,
       onFontSizeChange: handleFontSizeChange,
     });
+
+    const resetMobileTouchGesture = useCallback(() => {
+      mobilePanStartRef.current = null;
+      mobilePanLastYRef.current = null;
+      mobilePanResidualYRef.current = 0;
+      mobilePanActiveRef.current = false;
+      mobilePinchActiveRef.current = false;
+    }, []);
+
+    const getTerminalCellHeight = useCallback((): number => {
+      const row = terminalRef.current?.querySelector('.xterm-rows > div');
+      if (row instanceof HTMLElement) {
+        const height = row.getBoundingClientRect().height;
+        if (height > 0) {
+          return height;
+        }
+      }
+
+      const term = xtermRef.current;
+      const host = terminalRef.current;
+      if (!term || !host || term.rows <= 0) {
+        return 0;
+      }
+
+      const hostHeight = host.getBoundingClientRect().height;
+      return hostHeight > 0 ? hostHeight / term.rows : 0;
+    }, []);
+
+    const handleMobileTouchStart = useCallback((event: TouchEvent) => {
+      handleTouchStart(event);
+
+      if (event.touches.length === 2) {
+        mobilePinchActiveRef.current = true;
+        suppressNextClickRef.current = true;
+        mobilePanStartRef.current = null;
+        mobilePanLastYRef.current = null;
+        mobilePanResidualYRef.current = 0;
+        mobilePanActiveRef.current = false;
+        return;
+      }
+
+      if (event.touches.length !== 1) {
+        resetMobileTouchGesture();
+        return;
+      }
+
+      const touch = event.touches[0];
+      mobilePinchActiveRef.current = false;
+      mobilePanActiveRef.current = false;
+      mobilePanResidualYRef.current = 0;
+      mobilePanStartRef.current = { x: touch.clientX, y: touch.clientY };
+      mobilePanLastYRef.current = touch.clientY;
+    }, [handleTouchStart, resetMobileTouchGesture]);
+
+    const handleMobileTouchMove = useCallback((event: TouchEvent) => {
+      handleTouchMove(event);
+
+      const term = xtermRef.current;
+      if (!term) {
+        return;
+      }
+
+      if (event.touches.length === 2) {
+        mobilePinchActiveRef.current = true;
+        suppressNextClickRef.current = true;
+        mobilePanStartRef.current = null;
+        mobilePanLastYRef.current = null;
+        mobilePanResidualYRef.current = 0;
+        mobilePanActiveRef.current = false;
+        return;
+      }
+
+      if (event.touches.length !== 1 || mobilePinchActiveRef.current) {
+        return;
+      }
+
+      const touch = event.touches[0];
+      const panStart = mobilePanStartRef.current;
+      if (!panStart) {
+        return;
+      }
+
+      const totalDeltaX = touch.clientX - panStart.x;
+      const totalDeltaY = touch.clientY - panStart.y;
+
+      if (!mobilePanActiveRef.current) {
+        if (Math.abs(totalDeltaY) < MOBILE_TOUCH_PAN_THRESHOLD_PX) {
+          return;
+        }
+
+        if (Math.abs(totalDeltaY) <= Math.abs(totalDeltaX)) {
+          return;
+        }
+
+        mobilePanActiveRef.current = true;
+        suppressNextClickRef.current = true;
+        recordTerminalDebugEvent(sessionId, 'mobile_touch_pan_started', {
+          startX: Math.round(panStart.x),
+          startY: Math.round(panStart.y),
+          deltaY: Math.round(totalDeltaY),
+          viewportY: term.buffer.active.viewportY,
+          baseY: term.buffer.active.baseY,
+        });
+      }
+
+      event.preventDefault();
+
+      const previousY = mobilePanLastYRef.current ?? touch.clientY;
+      const deltaY = touch.clientY - previousY;
+      mobilePanLastYRef.current = touch.clientY;
+      mobilePanResidualYRef.current += deltaY;
+
+      const cellHeight = getTerminalCellHeight();
+      if (cellHeight <= 0) {
+        return;
+      }
+
+      const rowDelta = Math.trunc(mobilePanResidualYRef.current / cellHeight);
+      if (rowDelta === 0) {
+        return;
+      }
+
+      mobilePanResidualYRef.current -= rowDelta * cellHeight;
+
+      const viewportBefore = term.buffer.active.viewportY;
+      const baseY = term.buffer.active.baseY;
+      term.scrollLines(-rowDelta);
+      const viewportAfter = term.buffer.active.viewportY;
+
+      if (viewportAfter !== viewportBefore) {
+        recordTerminalDebugEvent(sessionId, 'mobile_touch_scroll_applied', {
+          gestureRows: rowDelta,
+          scrollLines: -rowDelta,
+          viewportBefore,
+          viewportAfter,
+          baseY,
+          cellHeight: Math.round(cellHeight),
+        });
+      }
+    }, [getTerminalCellHeight, handleTouchMove, sessionId]);
+
+    const finishMobileTouchGesture = useCallback((reason: string) => {
+      const term = xtermRef.current;
+      if (mobilePanActiveRef.current && term) {
+        recordTerminalDebugEvent(sessionId, 'mobile_touch_pan_ended', {
+          reason,
+          viewportY: term.buffer.active.viewportY,
+          baseY: term.buffer.active.baseY,
+        });
+      }
+
+      handleTouchEnd();
+      resetMobileTouchGesture();
+    }, [handleTouchEnd, resetMobileTouchGesture, sessionId]);
 
     const clearStoredSnapshot = useCallback(() => {
       try {
@@ -893,28 +1054,37 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       return () => container.removeEventListener('wheel', handleWheel, { capture: true });
     }, [isMobile, handleFontSizeChange]);
 
-    // Mobile: Pinch-to-zoom touch events
+    // Mobile: single-touch pan scroll + two-touch pinch zoom
     useEffect(() => {
       if (!isMobile) return;
       const container = containerRef.current;
       if (!container) return;
+      const onTouchEnd = () => finishMobileTouchGesture('touchend');
+      const onTouchCancel = () => finishMobileTouchGesture('touchcancel');
 
-      container.addEventListener('touchstart', handleTouchStart, { passive: false });
-      container.addEventListener('touchmove', handleTouchMove, { passive: false });
-      container.addEventListener('touchend', handleTouchEnd);
+      container.addEventListener('touchstart', handleMobileTouchStart, { passive: false });
+      container.addEventListener('touchmove', handleMobileTouchMove, { passive: false });
+      container.addEventListener('touchend', onTouchEnd);
+      container.addEventListener('touchcancel', onTouchCancel);
 
       return () => {
-        container.removeEventListener('touchstart', handleTouchStart);
-        container.removeEventListener('touchmove', handleTouchMove);
-        container.removeEventListener('touchend', handleTouchEnd);
+        container.removeEventListener('touchstart', handleMobileTouchStart);
+        container.removeEventListener('touchmove', handleMobileTouchMove);
+        container.removeEventListener('touchend', onTouchEnd);
+        container.removeEventListener('touchcancel', onTouchCancel);
       };
-    }, [isMobile, handleTouchStart, handleTouchMove, handleTouchEnd]);
+    }, [isMobile, handleMobileTouchStart, handleMobileTouchMove, finishMobileTouchGesture]);
 
 
 
     const handleClick = useCallback(() => {
+      if (suppressNextClickRef.current) {
+        suppressNextClickRef.current = false;
+        recordTerminalDebugEvent(sessionId, 'mobile_touch_click_suppressed');
+        return;
+      }
       focusTerminalInput('terminal-view-click');
-    }, [focusTerminalInput]);
+    }, [focusTerminalInput, sessionId]);
 
     return (
       <div

@@ -97,6 +97,10 @@ export class AuthService {
     return isValid;
   }
 
+  hasConfiguredPassword(): boolean {
+    return Boolean(this.decryptedPassword);
+  }
+
   /**
    * Issue a new JWT token
    * @returns JWT token string and payload
@@ -234,7 +238,7 @@ export class AuthService {
   /**
    * Update the runtime-editable auth settings without rotating immutable secrets.
    */
-  updateRuntimeConfig(next: Pick<AuthConfig, 'password' | 'durationMs'>): void {
+  updateRuntimeConfig(next: Partial<Pick<AuthConfig, 'password' | 'durationMs'>>): void {
     if (next.durationMs !== undefined) {
       this.config.durationMs = next.durationMs;
     }
