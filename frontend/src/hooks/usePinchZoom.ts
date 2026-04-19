@@ -31,7 +31,9 @@ export function usePinchZoom({
   const handleTouchStart = useCallback(
     (e: TouchEvent) => {
       if (e.touches.length === 2) {
-        e.preventDefault();
+        if (e.cancelable) {
+          e.preventDefault();
+        }
         startDistanceRef.current = getDistance(e.touches[0], e.touches[1]);
         const saved = localStorage.getItem(STORAGE_KEY);
         startFontSizeRef.current = saved ? parseInt(saved, 10) || defaultSize : defaultSize;
@@ -43,7 +45,9 @@ export function usePinchZoom({
   const handleTouchMove = useCallback(
     (e: TouchEvent) => {
       if (e.touches.length === 2) {
-        e.preventDefault();
+        if (e.cancelable) {
+          e.preventDefault();
+        }
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
 
         rafRef.current = requestAnimationFrame(() => {

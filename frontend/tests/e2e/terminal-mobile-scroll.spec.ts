@@ -315,6 +315,12 @@ test.describe('Terminal Mobile Scroll', () => {
     test.skip(!shell, 'Need an available interactive shell');
 
     await activateFreshWorkspace(page, shell);
+    await expect.poll(async () => {
+      return page.locator('.terminal-view[data-terminal-view="true"]').first().evaluate((element) => {
+        return getComputedStyle(element as HTMLElement).touchAction;
+      });
+    }, { timeout: 5000 }).toBe('none');
+
     const sessionId = await getActiveSessionId(page);
     test.skip(!sessionId, 'Need an active session');
 

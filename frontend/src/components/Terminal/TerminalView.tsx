@@ -312,7 +312,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         });
       }
 
-      event.preventDefault();
+      if (event.cancelable) {
+        event.preventDefault();
+      }
 
       const previousY = mobilePanLastYRef.current ?? touch.clientY;
       const deltaY = touch.clientY - previousY;
@@ -1091,6 +1093,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         className="terminal-view"
         ref={containerRef}
         data-terminal-view="true"
+        style={isMobile ? { touchAction: 'none' } : undefined}
         onClick={handleClick}
       >
         <div ref={terminalRef} className="terminal-container" data-terminal-container="true" />
