@@ -80,6 +80,19 @@ async function main(): Promise<void> {
     { name: 'SettingsService rotates password for later logins and persists encrypted secret', run: testSettingsPasswordRotation },
     { name: 'SettingsService rolls back runtime state when apply fails', run: testSettingsApplyFailureRollback },
     { name: 'SessionManager.updateRuntimeConfig affects later idle timers and cached snapshots', run: testSessionManagerRuntimeConfig },
+    { name: 'SessionManager WSL shell preserves default bootstrap args', run: testSessionManagerWslBootstrapArgs },
+    { name: 'SessionManager bash shell env keeps BASH_ENV bootstrap on Windows hosts', run: testSessionManagerWindowsBashEnvBootstrap },
+    { name: 'bash OSC133 hook stays BASH_ENV based and avoids rcfile bootstrap', run: testBashOsc133HookAvoidsRcfileBootstrap },
+    { name: 'SessionManager keeps Hermes submit idle in bash heuristic mode', run: testSessionManagerHermesBashSubmitStaysIdle },
+    { name: 'SessionManager keeps echoed Hermes command idle while bootstrapping in bash heuristic mode', run: testSessionManagerHermesBashCommandEchoStaysIdle },
+    { name: 'SessionManager keeps Hermes bootstrap output idle in bash heuristic mode', run: testSessionManagerHermesBashBootstrapStaysIdle },
+    { name: 'SessionManager promotes Hermes semantic output to running in bash heuristic mode', run: testSessionManagerHermesBashSemanticOutputPromotesRunning },
+    { name: 'SessionManager falls back to generic running when Hermes launch fails in bash heuristic mode', run: testSessionManagerHermesBashLaunchFailureFallsBackToRunning },
+    { name: 'SessionManager keeps ordinary bash commands on the existing running to idle path', run: testSessionManagerOrdinaryBashCommandKeepsLegacyFlow },
+    { name: 'SessionManager keeps Hermes submit idle in zsh heuristic mode', run: testSessionManagerHermesZshSubmitStaysIdle },
+    { name: 'SessionManager ignores stale cwd prompt refresh while Hermes foreground launch is active', run: testSessionManagerIgnoresStaleCwdPromptRefreshDuringHermesLaunch },
+    { name: 'SessionManager returns to shell prompt idle after Hermes zsh session completes', run: testSessionManagerHermesZshPromptReturnRestoresShellPrompt },
+    { name: 'SessionManager keeps PowerShell prompt redraw idle in heuristic mode', run: testSessionManagerPowerShellPromptRedrawStaysIdle },
     { name: 'SessionManager no-op resize skips PTY resize and replay refresh', run: testSessionManagerNoopResizeSkipsRefresh },
     { name: 'SessionManager resize replay refresh fires after sustained pending output settles', run: testSessionManagerResizeReplayRefreshDeadline },
     { name: 'SessionManager resize replay refresh waits for quiet window before settling headless writes', run: testSessionManagerResizeReplayRefreshQuietWindow },
@@ -821,6 +834,354 @@ async function testSessionManagerRuntimeConfig(): Promise<void> {
     if (sessionData.idleTimer) {
       clearTimeout(sessionData.idleTimer);
     }
+  }
+}
+
+function testSessionManagerWslBootstrapArgs(): void {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: true,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'wsl',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  }, {
+    platform: 'win32',
+  });
+
+  (manager as any).isCommandAvailable = (cmd: string) => cmd === 'wsl.exe';
+
+  const resolved = (manager as any).resolveShell('wsl');
+  assert.equal(resolved.shell, 'wsl.exe');
+  assert.equal(resolved.shellType, 'bash');
+  assert.deepEqual(resolved.args, []);
+}
+
+function testSessionManagerWindowsBashEnvBootstrap(): void {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: true,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'bash',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  }, {
+    platform: 'win32',
+  });
+
+  const env = (manager as any).buildShellEnv('bash');
+  assert.ok(typeof env.BASH_ENV === 'string' && env.BASH_ENV.startsWith('/mnt/'));
+  assert.equal(env.BUILDERGATE_BASH_RCFILE_MODE, undefined);
+  assert.equal(env.BUILDERGATE_BASH_HOOK, undefined);
+}
+
+async function testBashOsc133HookAvoidsRcfileBootstrap(): Promise<void> {
+  const script = await fs.readFile(path.join(process.cwd(), 'src', 'shell-integration', 'bash-osc133.sh'), 'utf8');
+  assert.match(script, /BASH_ENV/u);
+  assert.doesNotMatch(script, /BUILDERGATE_BASH_RCFILE_MODE/u);
+  assert.doesNotMatch(script, /source \/etc\/profile/u);
+  assert.doesNotMatch(script, /source ~\/\.bashrc/u);
+}
+
+function createForegroundSessionHarness(shell: 'bash' | 'zsh' = 'bash') {
+  let onDataHandler: ((data: string) => void) | null = null;
+  let killCalled = false;
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: true,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 16,
+      shell,
+    },
+    session: {
+      idleDelayMs: 40,
+    },
+  }, {
+    platform: 'linux',
+    spawnPty: ((spawnShell: string, _args: string[], options: { cols?: number; rows?: number; useConpty?: boolean }) => {
+      return {
+        pid: 1,
+        cols: options.cols ?? 80,
+        rows: options.rows ?? 24,
+        process: spawnShell,
+        handleFlowControl: false,
+        onData(callback: (data: string) => void) {
+          onDataHandler = callback;
+          return { dispose() {} };
+        },
+        onExit() { return { dispose() {} }; },
+        write() {},
+        resize() {},
+        kill() { killCalled = true; },
+      } as any;
+    }) as any,
+  });
+
+  (manager as any).isCommandAvailable = (cmd: string) => {
+    if (shell === 'zsh') {
+      return cmd === 'zsh' || cmd === 'bash' || cmd === 'sh';
+    }
+    return cmd === 'bash' || cmd === 'sh';
+  };
+
+  const session = manager.createSession('Foreground Session', shell, process.cwd());
+
+  return {
+    manager,
+    session,
+    sessionData: (manager as any).sessions.get(session.id),
+    getHandler() {
+      if (!onDataHandler) {
+        throw new Error('Expected PTY onData handler to be registered');
+      }
+      return onDataHandler;
+    },
+    cleanup() {
+      assert.equal(manager.deleteSession(session.id), true);
+      assert.equal(killCalled, true);
+    },
+  };
+}
+
+async function testSessionManagerHermesBashSubmitStaysIdle(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash');
+
+  try {
+    harness.manager.writeInput(harness.session.id, '/home/beom/.local/bin/hermes\r');
+    await delay(20);
+
+    const status = harness.manager.getSession(harness.session.id)?.status;
+    const derivedState = harness.sessionData?.derivedState;
+    assert.equal(status, 'idle');
+    assert.equal(derivedState?.foregroundAppId, 'hermes');
+    assert.equal(derivedState?.activity, 'waiting_input');
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerHermesBashCommandEchoStaysIdle(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash');
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, '/home/beom/.local/bin/hermes\r');
+    handler('beom@host:/tmp$ /home/beom/.local/bin/hermes\r\n');
+    await delay(80);
+
+    const status = harness.manager.getSession(harness.session.id)?.status;
+    const derivedState = harness.sessionData?.derivedState;
+    assert.equal(status, 'idle');
+    assert.equal(derivedState?.foregroundAppId, 'hermes');
+    assert.equal(derivedState?.activity, 'waiting_input');
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerHermesBashBootstrapStaysIdle(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash');
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, '/home/beom/.local/bin/hermes\r');
+    handler('\x1b[38;5;230mWelcome to Hermes Agent! Type your message or /help for commands.\r\n\x1b[38;5;136m✦ Tip: use /help for commands.\r');
+    await delay(80);
+
+    const status = harness.manager.getSession(harness.session.id)?.status;
+    const derivedState = harness.sessionData?.derivedState;
+    assert.equal(status, 'idle');
+    assert.equal(derivedState?.foregroundAppId, 'hermes');
+    assert.equal(derivedState?.activity, 'waiting_input');
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerHermesBashSemanticOutputPromotesRunning(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash');
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, '/home/beom/.local/bin/hermes\r');
+    handler('tool: web_search\r\nresult: fetched 3 documents\r\n');
+    await delay(80);
+
+    const status = harness.manager.getSession(harness.session.id)?.status;
+    const derivedState = harness.sessionData?.derivedState;
+    assert.equal(status, 'running');
+    assert.equal(derivedState?.activity, 'busy');
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerHermesBashLaunchFailureFallsBackToRunning(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash');
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, 'hermes\r');
+    handler('/bin/bash: hermes: command not found\r\n');
+    await delay(80);
+
+    const status = harness.manager.getSession(harness.session.id)?.status;
+    const derivedState = harness.sessionData?.derivedState;
+    assert.equal(status, 'running');
+    assert.equal(derivedState?.foregroundAppId, undefined);
+    assert.equal(derivedState?.detectorId, undefined);
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerOrdinaryBashCommandKeepsLegacyFlow(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash');
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, 'ls\r');
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'running');
+
+    handler('file-a\r\nfile-b\r\n');
+    await delay(80);
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerHermesZshSubmitStaysIdle(): Promise<void> {
+  const harness = createForegroundSessionHarness('zsh');
+
+  try {
+    harness.manager.writeInput(harness.session.id, 'hermes\r');
+    await delay(20);
+
+    const status = harness.manager.getSession(harness.session.id)?.status;
+    const derivedState = harness.sessionData?.derivedState;
+    assert.equal(status, 'idle');
+    assert.equal(derivedState?.foregroundAppId, 'hermes');
+    assert.equal(derivedState?.activity, 'waiting_input');
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerIgnoresStaleCwdPromptRefreshDuringHermesLaunch(): Promise<void> {
+  const harness = createForegroundSessionHarness('zsh');
+
+  try {
+    const cwdFilePath = harness.sessionData?.cwdFilePath;
+    if (!cwdFilePath) {
+      throw new Error('Expected cwdFilePath to be registered');
+    }
+    await fs.writeFile(cwdFilePath, process.cwd(), 'utf8');
+
+    harness.manager.writeInput(harness.session.id, 'hermes\r');
+    await delay(1200);
+
+    const status = harness.manager.getSession(harness.session.id)?.status;
+    const derivedState = harness.sessionData?.derivedState;
+    assert.equal(status, 'idle');
+    assert.equal(derivedState?.foregroundAppId, 'hermes');
+    assert.equal(derivedState?.activity, 'waiting_input');
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerHermesZshPromptReturnRestoresShellPrompt(): Promise<void> {
+  const harness = createForegroundSessionHarness('zsh');
+
+  try {
+    harness.manager.writeInput(harness.session.id, 'hermes\r');
+    await delay(20);
+    const cwdFilePath = harness.sessionData?.cwdFilePath;
+    if (!cwdFilePath) {
+      throw new Error('Expected cwdFilePath to be registered');
+    }
+    await fs.writeFile(cwdFilePath, process.cwd(), 'utf8');
+    await delay(1200);
+
+    const status = harness.manager.getSession(harness.session.id)?.status;
+    const derivedState = harness.sessionData?.derivedState;
+    assert.equal(status, 'idle');
+    assert.equal(derivedState?.ownership, 'shell_prompt');
+    assert.equal(derivedState?.foregroundAppId, undefined);
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerPowerShellPromptRedrawStaysIdle(): Promise<void> {
+  let onDataHandler: ((data: string) => void) | null = null;
+  let killCalled = false;
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: true,
+      windowsPowerShellBackend: 'conpty',
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 16,
+      shell: 'powershell',
+    },
+    session: {
+      idleDelayMs: 40,
+    },
+  }, {
+    execFileSyncFn: (() => Buffer.from('')) as any,
+    platform: 'win32',
+    spawnPty: ((_: string, __: string[], options: { cols?: number; rows?: number; useConpty?: boolean }) => {
+      return {
+        pid: 1,
+        cols: options.cols ?? 80,
+        rows: options.rows ?? 24,
+        process: 'powershell.exe',
+        handleFlowControl: false,
+        onData(callback: (data: string) => void) {
+          onDataHandler = callback;
+          return { dispose() {} };
+        },
+        onExit() { return { dispose() {} }; },
+        write() {},
+        resize() {},
+        kill() { killCalled = true; },
+      } as any;
+    }) as any,
+  });
+
+  const session = manager.createSession('Prompt Redraw', 'powershell', 'C:\\Users\\beom');
+
+  try {
+    const handler = onDataHandler as ((data: string) => void) | null;
+    if (!handler) {
+      throw new Error('Expected PTY onData handler to be registered');
+    }
+    handler('\x1b[?25l\x1b[8;70;225t\x1b[HPS C:\\Users\\beom>\x1b[K\r\n\x1b[K\r\n\x1b[K');
+    await delay(20);
+
+    assert.equal(manager.getSession(session.id)?.status, 'idle');
+  } finally {
+    assert.equal(manager.deleteSession(session.id), true);
+    assert.equal(killCalled, true);
   }
 }
 

@@ -2,7 +2,7 @@ import * as pty from 'node-pty';
 import { v4 as uuidv4 } from 'uuid';
 import os from 'os';
 import path from 'path';
-import { unlinkSync, watchFile, unwatchFile, readFileSync, existsSync } from 'fs';
+import { unlinkSync, watchFile, unwatchFile, readFileSync, existsSync, statSync } from 'fs';
 import { execFile, execFileSync, execSync } from 'child_process';
 import { Session, SessionDTO, SessionStatus, UpdateSessionRequest, ShellType, ShellInfo } from '../types/index.js';
 import type { PTYConfig, SessionConfig, WindowsPowerShellBackend as PowerShellBackendPolicy } from '../types/config.types.js';
@@ -24,6 +24,16 @@ import {
   normalizePtyConfigForPlatform,
   normalizeShellForPlatform,
 } from '../utils/ptyPlatformPolicy.js';
+import {
+  ForegroundAppDetectorRegistry,
+  createInitialDerivedState,
+  deriveDisplayStatus,
+  type DetectionMode,
+  type ForegroundAppObservation,
+  type SessionDerivedState,
+  type SessionShellType,
+} from './ForegroundAppDetector.js';
+import { HermesForegroundDetector } from './HermesForegroundDetector.js';
 
 interface EchoTracker {
   /** writeInput이 호출된 시각 (ms, Date.now) */
@@ -37,9 +47,6 @@ interface EchoTracker {
   /** 마지막 입력에 Enter(\r 또는 \n) 포함 여부 */
   lastInputHasEnter: boolean;
 }
-
-/** idle 감지 모드 */
-type DetectionMode = 'heuristic' | 'osc133';
 
 type HeadlessHealth = 'healthy' | 'degraded';
 
@@ -90,7 +97,7 @@ interface SessionDebugCaptureEvent {
   eventId: number;
   recordedAt: string;
   sessionId: string;
-  source: 'pty' | 'snapshot' | 'headless';
+  source: 'pty' | 'snapshot' | 'headless' | 'detector';
   kind: string;
   details?: Record<string, SessionDebugCaptureValue>;
   preview?: string;
@@ -116,6 +123,7 @@ interface SessionData {
   session: Session;
   pty: pty.IPty;
   idleTimer: NodeJS.Timeout | null;
+  shellType?: SessionShellType;
   headless: HeadlessTerminalState | null;
   headlessHealth: HeadlessHealth;
   headlessWriteChain: Promise<void>;
@@ -139,6 +147,12 @@ interface SessionData {
   echoTracker: EchoTracker;
   detectionMode: DetectionMode;
   oscDetector: OscDetector;
+  derivedState?: SessionDerivedState;
+  foregroundDetectorRegistry?: ForegroundAppDetectorRegistry;
+  inputBuffer: string;
+  pendingForegroundAppHint?: 'hermes';
+  lastSubmittedCommand?: string;
+  foregroundStartedAt?: number;
 }
 
 /**
@@ -250,6 +264,7 @@ export class SessionManager {
       session,
       pty: ptyProcess,
       idleTimer: null,
+      shellType,
       headless: null,
       headlessHealth: 'healthy',
       headlessWriteChain: Promise.resolve(),
@@ -275,6 +290,10 @@ export class SessionManager {
       },
       detectionMode: 'heuristic',
       oscDetector,
+      derivedState: createInitialDerivedState(),
+      foregroundDetectorRegistry: this.createForegroundDetectorRegistry(),
+      inputBuffer: '',
+      foregroundStartedAt: undefined,
     };
 
     this.sessions.set(id, sessionData);
@@ -287,24 +306,21 @@ export class SessionManager {
     });
 
     // Step 9: OSC 133 콜백 등록
-    oscDetector.setCallback((status, event) => {
+    oscDetector.setCallback((_status, event) => {
       const sd = this.sessions.get(id);
       if (!sd || sd.detectionMode !== 'osc133') return;
 
       switch (event.type) {
         case 'prompt-start':  // A 마커
         case 'command-end':   // D 마커
-          // idle 전환
-          this.updateStatus(id, 'idle');
-          // osc133 모드에서는 idle 타이머 불필요
-          if (sd.idleTimer) {
-            clearTimeout(sd.idleTimer);
-            sd.idleTimer = null;
-          }
+          this.transitionToShellPrompt(id, event.type);
           break;
         case 'command-start': // C 마커
-          // running 전환
-          this.updateStatus(id, 'running');
+          if (sd.pendingForegroundAppHint === 'hermes' || this.ensureDerivedState(sd).foregroundAppId === 'hermes') {
+            this.beginForegroundProcess(id, 'osc133_command_start');
+          } else {
+            this.updateStatus(id, 'running');
+          }
           break;
         case 'prompt-end':    // B 마커
           // 정보용, 상태 변경 없음 (이미 idle)
@@ -336,26 +352,47 @@ export class SessionManager {
         }
       }
 
-      // ========================================
-      // Step 9: 모드별 상태 전환
-      // ========================================
-      if (sData.detectionMode === 'heuristic') {
-        // Tier 1: 에코 휴리스틱
-        const isEcho = this.isEchoOutput(sData, stripped);
-        if (!isEcho) {
-          this.updateStatus(id, 'running');
-          this.scheduleIdleTransition(id);
-        }
-      }
-      // osc133 모드: OscDetector 콜백에서 직접 상태 전환
-
-      // ========================================
-      // 출력 브로드캐스트/버퍼링 (stripped 사용)
-      // ========================================
-      // OSC 133 마커가 제거된 출력을 전달
       const outputData = sData.detectionMode === 'osc133' ? stripped : rawData;
 
       if (outputData.length > 0) {
+        const observation = this.inspectForegroundAppOutput(id, sData, outputData);
+        if (observation) {
+          this.applyForegroundObservation(id, observation);
+        }
+
+        // ========================================
+        // Step 9: 모드별 상태 전환
+        // ========================================
+        if (sData.detectionMode === 'heuristic') {
+          const isEcho = this.isEchoOutput(sData, stripped);
+          if (!isEcho) {
+            if (this.isPowerShellPromptRedrawOutput(sData, stripped)) {
+              this.transitionToShellPrompt(id, 'heuristic_powershell_prompt_redraw');
+            } else {
+            const derivedState = this.ensureDerivedState(sData);
+            const isHermesForeground = derivedState.ownership === 'foreground_app'
+              && derivedState.foregroundAppId === 'hermes';
+            if (isHermesForeground || sData.pendingForegroundAppHint === 'hermes') {
+              if (!observation) {
+                if (isLikelyCommandEchoOutput(outputData, sData.lastSubmittedCommand)) {
+                  // Keep waiting_input/idle on plain command echo while Hermes is still bootstrapping.
+                } else {
+                  this.updateDerivedState(id, 'heuristic_foreground_unclassified_output', (state) => {
+                    state.ownership = 'foreground_app';
+                    state.activity = 'busy';
+                    delete state.foregroundAppId;
+                    delete state.detectorId;
+                  });
+                }
+              }
+            } else {
+              this.updateStatus(id, 'running');
+              this.scheduleIdleTransition(id);
+            }
+            }
+          }
+        }
+
         const outputDebugDetails = buildRawOutputDebugDetails(sData, rawData, outputData, foundMarker);
         if (this.pendingResizeReplaySessions.has(id)) {
           this.pendingResizeReplayLastOutputAt.set(id, Date.now());
@@ -396,6 +433,178 @@ export class SessionManager {
     this.broadcastWs(id, 'status', { status });
   }
 
+  private createForegroundDetectorRegistry(): ForegroundAppDetectorRegistry {
+    return new ForegroundAppDetectorRegistry([
+      new HermesForegroundDetector(),
+    ]);
+  }
+
+  private ensureDerivedState(data: SessionData): SessionDerivedState {
+    if (!data.derivedState) {
+      data.derivedState = createInitialDerivedState();
+    }
+    return data.derivedState;
+  }
+
+  private ensureForegroundDetectorRegistry(data: SessionData): ForegroundAppDetectorRegistry {
+    if (!data.foregroundDetectorRegistry) {
+      data.foregroundDetectorRegistry = this.createForegroundDetectorRegistry();
+    }
+    return data.foregroundDetectorRegistry;
+  }
+
+  private beginForegroundProcess(id: string, reason: string): void {
+    const data = this.sessions.get(id);
+    if (!data) return;
+
+    const hintedAppId = data.pendingForegroundAppHint;
+    delete data.pendingForegroundAppHint;
+    this.ensureForegroundDetectorRegistry(data).reset();
+    this.updateDerivedState(id, reason, (state) => {
+      state.ownership = 'foreground_app';
+      state.activity = hintedAppId === 'hermes' ? 'waiting_input' : 'unknown';
+      if (hintedAppId) {
+        state.foregroundAppId = hintedAppId;
+      } else {
+        delete state.foregroundAppId;
+      }
+      delete state.detectorId;
+    });
+    data.foregroundStartedAt = Date.now();
+  }
+
+  private beginForegroundActivity(
+    id: string,
+    activity: 'busy' | 'unknown' | 'waiting_input' | 'repaint_only',
+    reason: string,
+  ): void {
+    const data = this.sessions.get(id);
+    if (!data) return;
+
+    const current = this.ensureDerivedState(data);
+    if (current.ownership !== 'foreground_app') {
+      this.ensureForegroundDetectorRegistry(data).reset();
+    }
+
+    this.updateDerivedState(id, reason, (state) => {
+      state.ownership = 'foreground_app';
+      state.activity = activity;
+      if (data.pendingForegroundAppHint) {
+        state.foregroundAppId = data.pendingForegroundAppHint;
+      }
+    });
+    data.foregroundStartedAt = Date.now();
+  }
+
+  private transitionToShellPrompt(id: string, reason: string): void {
+    const data = this.sessions.get(id);
+    if (!data) return;
+
+    data.inputBuffer = '';
+    delete data.pendingForegroundAppHint;
+    delete data.lastSubmittedCommand;
+    data.foregroundStartedAt = undefined;
+    this.ensureForegroundDetectorRegistry(data).reset();
+    this.updateDerivedState(id, reason, (state) => {
+      state.ownership = 'shell_prompt';
+      state.activity = 'waiting_input';
+      delete state.foregroundAppId;
+      delete state.detectorId;
+    });
+  }
+
+  private inspectForegroundAppOutput(
+    id: string,
+    data: SessionData,
+    chunk: string,
+  ): ForegroundAppObservation | null {
+    const derivedState = this.ensureDerivedState(data);
+    const msSinceLastInput = data.echoTracker.lastInputAt > 0
+      ? Date.now() - data.echoTracker.lastInputAt
+      : null;
+    return this.ensureForegroundDetectorRegistry(data).inspect({
+      chunk,
+      now: Date.now(),
+      sessionId: id,
+      shellType: data.shellType,
+      detectionMode: data.detectionMode,
+      appHint: data.pendingForegroundAppHint ?? derivedState.foregroundAppId,
+      lastSubmittedCommand: data.lastSubmittedCommand,
+      lastInputHasEnter: data.echoTracker.lastInputHasEnter,
+      msSinceLastInput,
+    });
+  }
+
+  private applyForegroundObservation(id: string, observation: ForegroundAppObservation): void {
+    const now = Date.now();
+    this.captureDebugEvent(id, 'detector', 'detector_observation', {
+      appId: observation.appId,
+      detectorId: observation.detectorId,
+      activity: observation.activity,
+      reason: observation.reason,
+      confidence: observation.confidence,
+      ...sanitizeDebugValues(observation.details),
+    });
+
+    this.updateDerivedState(id, `detector_${observation.reason}`, (state) => {
+      state.ownership = 'foreground_app';
+      state.activity = observation.activity;
+      state.foregroundAppId = observation.appId;
+      state.detectorId = observation.detectorId;
+      state.lastObservationAt = now;
+      if (observation.activity === 'busy') {
+        state.lastSemanticOutputAt = now;
+      }
+      if (observation.activity === 'repaint_only') {
+        state.lastRepaintOnlyAt = now;
+      }
+    });
+  }
+
+  private updateDerivedState(
+    id: string,
+    reason: string,
+    mutate: (state: SessionDerivedState) => void,
+  ): void {
+    const data = this.sessions.get(id);
+    if (!data) return;
+
+    const state = this.ensureDerivedState(data);
+    const previous = { ...state };
+    mutate(state);
+
+    if (hasCoreDerivedStateChange(previous, state)) {
+      this.captureDebugEvent(id, 'detector', 'derived_status_transition', {
+        reason,
+        previousOwnership: previous.ownership,
+        previousActivity: previous.activity,
+        previousForegroundAppId: previous.foregroundAppId ?? null,
+        previousDetectorId: previous.detectorId ?? null,
+        nextOwnership: state.ownership,
+        nextActivity: state.activity,
+        nextForegroundAppId: state.foregroundAppId ?? null,
+        nextDetectorId: state.detectorId ?? null,
+        previousStatus: deriveDisplayStatus(previous),
+        nextStatus: deriveDisplayStatus(state),
+      });
+    }
+
+    this.syncStatusFromDerivedState(id);
+  }
+
+  private syncStatusFromDerivedState(id: string): void {
+    const data = this.sessions.get(id);
+    if (!data) return;
+
+    if (data.idleTimer) {
+      clearTimeout(data.idleTimer);
+      data.idleTimer = null;
+    }
+
+    const derivedStatus = deriveDisplayStatus(this.ensureDerivedState(data));
+    this.updateStatus(id, derivedStatus);
+  }
+
   getSession(id: string): SessionDTO | null {
     const data = this.sessions.get(id);
     return data ? this.toDTO(data.session) : null;
@@ -419,6 +628,7 @@ export class SessionManager {
 
     // Step 9: OSC 감지기 정리
     data.oscDetector.destroy();
+    data.foregroundDetectorRegistry?.reset();
 
     if (data.headless) {
       disposeHeadlessTerminal(data.headless);
@@ -489,6 +699,16 @@ export class SessionManager {
 
     // Step 9: 에코 추적 정보 기록 (pty.write 전에 기록)
     const hasEnter = input.includes('\r') || input.includes('\n');
+    const submittedCommand = this.updateCommandInputBuffer(data, input);
+    const hintedAppId = submittedCommand ? detectForegroundAppHint(submittedCommand) : null;
+    if (submittedCommand) {
+      data.lastSubmittedCommand = submittedCommand;
+      if (hintedAppId) {
+        data.pendingForegroundAppHint = hintedAppId;
+      } else {
+        delete data.pendingForegroundAppHint;
+      }
+    }
     data.echoTracker.lastInputAt = Date.now();
     data.echoTracker.lastInputHasEnter = hasEnter;
     if (shouldCaptureInputDebug) {
@@ -504,12 +724,54 @@ export class SessionManager {
 
     // Enter 입력 시 heuristic 모드에서 즉시 running 전환
     if (hasEnter && data.detectionMode === 'heuristic') {
-      this.updateStatus(id, 'running');
+      if (hintedAppId === 'hermes') {
+        this.beginForegroundActivity(id, 'waiting_input', 'heuristic_hermes_submit');
+      } else {
+        this.updateStatus(id, 'running');
+      }
     }
 
     data.pty.write(input);
     data.session.lastActiveAt = new Date();
     return true;
+  }
+
+  private updateCommandInputBuffer(data: SessionData, input: string): string | null {
+    if (typeof data.inputBuffer !== 'string') {
+      data.inputBuffer = '';
+    }
+
+    let submittedCommand: string | null = null;
+
+    if (containsHistoryRecallControlSequence(input)) {
+      data.inputBuffer = '';
+    }
+
+    const cleanedInput = stripInputTrackingControlSequences(input);
+
+    for (const char of cleanedInput) {
+      if (char === '\r' || char === '\n') {
+        submittedCommand = data.inputBuffer.trim();
+        data.inputBuffer = '';
+        continue;
+      }
+
+      if (char === '\x7f' || char === '\b') {
+        data.inputBuffer = data.inputBuffer.slice(0, -1);
+        continue;
+      }
+
+      if (char === '\u0015') {
+        data.inputBuffer = '';
+        continue;
+      }
+
+      if (char >= ' ' && char !== '\x7f') {
+        data.inputBuffer = `${data.inputBuffer}${char}`.slice(-512);
+      }
+    }
+
+    return submittedCommand;
   }
 
   resize(id: string, cols: number, rows: number): boolean {
@@ -1162,6 +1424,18 @@ export class SessionManager {
       try {
         const raw = readFileSync(cwdFile, 'utf8');
         const cwd = sanitizeCwd(raw);
+        const currentData = this.sessions.get(id);
+        const derivedState = currentData ? this.ensureDerivedState(currentData) : null;
+        const fileMtime = statSync(cwdFile).mtimeMs;
+        const ignoreStaleForegroundPrompt = Boolean(
+          currentData &&
+          derivedState?.ownership === 'foreground_app' &&
+          currentData.foregroundStartedAt !== undefined &&
+          fileMtime <= (currentData.foregroundStartedAt + 5),
+        );
+        if (!ignoreStaleForegroundPrompt) {
+          this.transitionToShellPrompt(id, 'cwd_prompt_refresh');
+        }
         if (cwd && cwd !== sessionData.lastCwd) {
           sessionData.lastCwd = cwd;
           this.broadcastWs(id, 'cwd', { cwd });
@@ -1374,6 +1648,26 @@ export class SessionManager {
       elapsed < ECHO_TIME_THRESHOLD_MS &&
       !tracker.lastInputHasEnter
     );
+  }
+
+  private isPowerShellPromptRedrawOutput(sData: SessionData, output: string): boolean {
+    if (sData.shellType !== 'powershell') {
+      return false;
+    }
+
+    const cwd = sData.lastCwd ?? sData.initialCwd;
+    if (!cwd) {
+      return false;
+    }
+
+    const prompt = `PS ${cwd}>`;
+    const printableLines = stripTerminalControlSequences(output)
+      .replace(/\r\n?/g, '\n')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    return printableLines.length > 0 && printableLines.every((line) => line === prompt);
   }
 
   private initializeHeadlessState(sessionId: string, sessionData: SessionData): void {
@@ -1742,11 +2036,16 @@ function buildRawOutputDebugDetails(
   sessionData.echoTracker.recentInputs = recentInputs;
   const newestInput = recentInputs.at(-1);
   const oldestInput = recentInputs[0];
+  const derivedState = sessionData.derivedState ?? createInitialDerivedState();
 
   return {
     byteLength: Buffer.byteLength(rawData, 'utf8'),
     strippedByteLength: Buffer.byteLength(outputData, 'utf8'),
     detectionMode: sessionData.detectionMode,
+    derivedOwnership: derivedState.ownership,
+    derivedActivity: derivedState.activity,
+    foregroundAppId: derivedState.foregroundAppId ?? null,
+    detectorId: derivedState.detectorId ?? null,
     foundOsc133Marker: foundMarker,
     msSinceNewestInputSample: newestInput
       ? now - newestInput.at
@@ -1760,4 +2059,97 @@ function buildRawOutputDebugDetails(
       ? recentInputs.slice(-3).map((entry) => entry.inputClass).join(',')
       : null,
   };
+}
+
+function hasCoreDerivedStateChange(previous: SessionDerivedState, next: SessionDerivedState): boolean {
+  return (
+    previous.ownership !== next.ownership ||
+    previous.activity !== next.activity ||
+    previous.foregroundAppId !== next.foregroundAppId ||
+    previous.detectorId !== next.detectorId
+  );
+}
+
+function sanitizeDebugValues(
+  details?: Record<string, string | number | boolean | null>,
+): Record<string, SessionDebugCaptureValue> {
+  return details ? { ...details } : {};
+}
+
+function detectForegroundAppHint(command: string): 'hermes' | null {
+  const tokens = command.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) {
+    return null;
+  }
+
+  let index = 0;
+  while (index < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=.*/.test(tokens[index])) {
+    index += 1;
+  }
+  while (index < tokens.length && (tokens[index] === 'env' || tokens[index] === 'command')) {
+    index += 1;
+    while (index < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=.*/.test(tokens[index])) {
+      index += 1;
+    }
+  }
+
+  const firstToken = tokens[index]?.toLowerCase() ?? '';
+  if (firstToken === 'hermes' || firstToken.endsWith('/hermes') || firstToken.endsWith('\\hermes')) {
+    return 'hermes';
+  }
+
+  return null;
+}
+
+function stripInputTrackingControlSequences(raw: string): string {
+  return raw
+    .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, '')
+    .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '')
+    .replace(/\x1b[@-_]/g, '');
+}
+
+function containsHistoryRecallControlSequence(raw: string): boolean {
+  return /\x1b\[(?:A|B)/.test(raw);
+}
+
+function isLikelyCommandEchoOutput(raw: string, lastSubmittedCommand?: string): boolean {
+  const normalized = stripTerminalControlSequences(raw)
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (normalized.length === 0) {
+    return false;
+  }
+
+  for (const line of normalized) {
+    const directHint = detectForegroundAppHint(line);
+    if (directHint === 'hermes') {
+      return true;
+    }
+
+    const promptSplit = line.split(/[>$#]\s+/);
+    const promptCandidate = promptSplit.length > 1 ? promptSplit.at(-1)?.trim() : null;
+    if (promptCandidate && detectForegroundAppHint(promptCandidate) === 'hermes') {
+      return true;
+    }
+
+    if (lastSubmittedCommand) {
+      const normalizedCommand = lastSubmittedCommand.replace(/\s+/g, ' ').trim();
+      if (line === normalizedCommand || line.endsWith(normalizedCommand)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function stripTerminalControlSequences(raw: string): string {
+  return raw
+    .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, '')
+    .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '')
+    .replace(/\x1b[@-_]/g, '')
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
 }
