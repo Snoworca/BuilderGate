@@ -43,6 +43,7 @@ function TerminalRuntimeEntry({
 }: TerminalRuntimeEntryProps) {
   const { getHostInteractions } = useTerminalRuntimeContext();
   const isVisible = Boolean(host?.isVisible && host.rect.width > 0 && host.rect.height > 0);
+  const isGridSurface = Boolean(host?.className?.includes('grid-cell'));
   const style: React.CSSProperties = isVisible && host
     ? {
         position: 'absolute',
@@ -112,6 +113,7 @@ function TerminalRuntimeEntry({
         ref={terminalRefsMap.current.get(tab.id)!}
         sessionId={tab.sessionId}
         isVisible={isVisible}
+        isGridSurface={isGridSurface}
         onStatusChange={onStatusChange}
         onCwdChange={onCwdChange}
         onAuthError={onAuthError}

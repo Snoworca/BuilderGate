@@ -127,6 +127,9 @@ export class WsRouter {
       case 'input':
         this.handleInput(ws, msg.sessionId, msg.data);
         break;
+      case 'repair-replay':
+        this.handleRepairReplay(ws, msg.sessionId);
+        break;
       case 'resize':
         this.handleResize(ws, msg.sessionId, msg.cols, msg.rows);
         break;
@@ -191,43 +194,14 @@ export class WsRouter {
         continue;
       }
 
-      const replayState = this.markReplayPending(ws, sessionId, snapshot.seq);
+      const replayState = this.sendSnapshotReplay(ws, sessionId, snapshot, 'subscribe');
       results.push({
         sessionId,
         status: session.status,
         cwd,
         ready: false,
       });
-      const mode = snapshot.health === 'healthy' && !(snapshot.truncated && snapshot.data.length === 0)
-        ? 'authoritative'
-        : 'fallback';
-      this.sendTo(ws, {
-        type: 'screen-snapshot',
-        sessionId,
-        replayToken: replayState.replayToken,
-        seq: snapshot.seq,
-        cols: snapshot.cols,
-        rows: snapshot.rows,
-        mode,
-        data: snapshot.data,
-        truncated: snapshot.truncated,
-        source: 'headless',
-        windowsPty: snapshot.windowsPty,
-      });
-      this.recordReplayEvent({
-        kind: 'snapshot_sent',
-        sessionId,
-        replayToken: replayState.replayToken,
-        snapshotSeq: snapshot.seq,
-        details: {
-          origin: 'subscribe',
-          clientId: meta.clientId,
-          cols: snapshot.cols,
-          rows: snapshot.rows,
-          truncated: snapshot.truncated,
-          mode,
-        },
-      });
+      void replayState;
     }
 
     this.sendTo(ws, { type: 'subscribed', sessions: results });
@@ -327,6 +301,24 @@ export class WsRouter {
 
   private handleResize(_ws: WebSocket, sessionId: string, cols: number, rows: number): void {
     this.sessionManager.resize(sessionId, cols, rows);
+  }
+
+  private handleRepairReplay(ws: WebSocket, sessionId: string): void {
+    const meta = this.clients.get(ws);
+    if (!meta || !meta.subscribedSessions.has(sessionId)) {
+      return;
+    }
+
+    if (meta.replayPendingSessions.has(sessionId)) {
+      return;
+    }
+
+    const snapshot = this.sessionManager.getScreenSnapshot(sessionId);
+    if (!snapshot) {
+      return;
+    }
+
+    this.sendSnapshotReplay(ws, sessionId, snapshot, 'repair');
   }
 
   private handleDisconnect(ws: WebSocket): void {
@@ -447,6 +439,53 @@ export class WsRouter {
     const next = `${state.queuedOutput}${data}`;
     state.queuedOutput = next.length > limit ? next.slice(-limit) : next;
     this.maxReplayQueueLengthObserved = Math.max(this.maxReplayQueueLengthObserved, state.queuedOutput.length);
+  }
+
+  private sendSnapshotReplay(
+    ws: WebSocket,
+    sessionId: string,
+    snapshot: ReturnType<SessionManager['getScreenSnapshot']> extends infer T ? NonNullable<T> : never,
+    origin: 'subscribe' | 'repair',
+  ): ReplayPendingState {
+    const meta = this.clients.get(ws);
+    if (!meta) {
+      throw new Error('Missing WebSocket client metadata');
+    }
+
+    const replayState = this.markReplayPending(ws, sessionId, snapshot.seq);
+    const mode = snapshot.health === 'healthy' && !(snapshot.truncated && snapshot.data.length === 0)
+      ? 'authoritative'
+      : 'fallback';
+
+    this.sendTo(ws, {
+      type: 'screen-snapshot',
+      sessionId,
+      replayToken: replayState.replayToken,
+      seq: snapshot.seq,
+      cols: snapshot.cols,
+      rows: snapshot.rows,
+      mode,
+      data: snapshot.data,
+      truncated: snapshot.truncated,
+      source: 'headless',
+      windowsPty: snapshot.windowsPty,
+    });
+    this.recordReplayEvent({
+      kind: 'snapshot_sent',
+      sessionId,
+      replayToken: replayState.replayToken,
+      snapshotSeq: snapshot.seq,
+      details: {
+        origin,
+        clientId: meta.clientId,
+        cols: snapshot.cols,
+        rows: snapshot.rows,
+        truncated: snapshot.truncated,
+        mode,
+      },
+    });
+
+    return replayState;
   }
 
   routeSessionOutput(sessionId: string, data: string): void {

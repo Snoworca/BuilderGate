@@ -132,6 +132,8 @@ async function main(): Promise<void> {
     { name: 'WsRouter duplicate subscribe does not replay screen snapshot twice', run: testWsRouterDuplicateSubscribeIdempotent },
     { name: 'WsRouter ignores stale replay tokens', run: testWsRouterIgnoresStaleReplayTokens },
     { name: 'WsRouter refreshes replay snapshots on resize while pending', run: testWsRouterRefreshesReplaySnapshotsOnResize },
+    { name: 'WsRouter starts repair replay without geometry change', run: testWsRouterStartsRepairReplayWithoutResize },
+    { name: 'WsRouter queues output during repair replay until ACK', run: testWsRouterQueuesOutputDuringRepairReplayUntilAck },
     { name: 'WsRouter does not duplicate deferred degraded payload after fallback snapshot ack', run: testWsRouterNoDuplicateDeferredFallbackPayload },
     { name: 'WsRouter clears replay state when a session is removed', run: testWsRouterClearSessionState },
     { name: 'WorkspaceService restartTab invalidates old session lineage and preserves lastCwd', run: testWorkspaceServiceRestartTab },
@@ -3348,6 +3350,52 @@ function testWsRouterRefreshesReplaySnapshotsOnResize(): void {
   } finally {
     router.destroy();
   }
+}
+
+function testWsRouterStartsRepairReplayWithoutResize(): void {
+  const { router, ws, sent } = createWsRouterHarness();
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  const subscribeToken = String(sent[0].replayToken);
+  (router as any).handleScreenSnapshotReady(ws, 'session-1', subscribeToken);
+
+  const beforeCount = sent.length;
+  (router as any).handleRepairReplay(ws, 'session-1');
+
+  assert.equal(sent[beforeCount].type, 'screen-snapshot');
+  const repairToken = String(sent[beforeCount].replayToken);
+  assert.notEqual(repairToken, subscribeToken);
+
+  const replayEvents = router.getObservabilitySnapshot().recentReplayEvents;
+  const repairEvent = replayEvents.find((event) => event.kind === 'snapshot_sent' && event.details?.origin === 'repair');
+  assert.ok(repairEvent);
+
+  router.destroy();
+}
+
+function testWsRouterQueuesOutputDuringRepairReplayUntilAck(): void {
+  const { router, ws, sent } = createWsRouterHarness();
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  const subscribeToken = String(sent[0].replayToken);
+  (router as any).handleScreenSnapshotReady(ws, 'session-1', subscribeToken);
+
+  (router as any).handleRepairReplay(ws, 'session-1');
+  const repairSnapshotIndex = sent.findIndex((message, index) => index > 0 && message.type === 'screen-snapshot');
+  const repairToken = String(sent[repairSnapshotIndex].replayToken);
+
+  router.routeSessionOutput('session-1', 'repair-pending-output');
+  const outputsBeforeAck = sent.filter((message) => message.type === 'output');
+  assert.equal(outputsBeforeAck.length, 0);
+
+  (router as any).handleScreenSnapshotReady(ws, 'session-1', repairToken);
+
+  const outputsAfterAck = sent.filter((message) => message.type === 'output');
+  assert.equal(outputsAfterAck.length, 1);
+  assert.equal(outputsAfterAck[0].data, 'repair-pending-output');
+  assert.equal(sent[sent.length - 1].type, 'session:ready');
+
+  router.destroy();
 }
 
 async function testWsRouterNoDuplicateDeferredFallbackPayload(): Promise<void> {

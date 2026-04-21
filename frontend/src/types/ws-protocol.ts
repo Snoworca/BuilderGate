@@ -13,6 +13,7 @@ export type ClientWsMessage =
   | { type: 'unsubscribe'; sessionIds: string[] }
   | { type: 'screen-snapshot:ready'; sessionId: string; replayToken: string }
   | { type: 'input';       sessionId: string; data: string }
+  | { type: 'repair-replay'; sessionId: string }
   | { type: 'resize';      sessionId: string; cols: number; rows: number }
   | { type: 'ping' };
 
