@@ -25,6 +25,11 @@ type ReorderDragResult = {
   guideRect: RectSnapshot;
 };
 
+type DragStartOffset = {
+  x: number;
+  y: number;
+};
+
 function extractLeafIds(node: unknown): string[] {
   if (typeof node === 'string') {
     return [node];
@@ -238,7 +243,7 @@ async function prepareGridForNativeDrag(page: Page): Promise<void> {
       (element as HTMLElement).style.pointerEvents = 'none';
     });
 
-    document.querySelectorAll('[data-grid-drag-handle="true"]').forEach((element) => {
+    document.querySelectorAll('[data-grid-move-button="true"]').forEach((element) => {
       const handle = element as HTMLElement;
       handle.style.opacity = '1';
       handle.style.pointerEvents = 'auto';
@@ -250,10 +255,11 @@ async function nativeReorderDrag(
   page: Page,
   sourceIndex: number,
   targetWindowIndex: number,
+  sourceOffset: DragStartOffset = { x: 14, y: 14 },
 ): Promise<ReorderDragResult> {
   return page.evaluate(
-    async ({ nextSourceIndex, nextTargetWindowIndex }) => {
-      const source = document.querySelectorAll('[data-grid-drag-handle="true"]')[nextSourceIndex] as HTMLElement | undefined;
+    async ({ nextSourceIndex, nextTargetWindowIndex, nextSourceOffset }) => {
+      const source = document.querySelectorAll('[data-grid-move-button="true"]')[nextSourceIndex] as HTMLElement | undefined;
       const targetWindow = document.querySelectorAll('.mosaic-window')[nextTargetWindowIndex] as HTMLElement | undefined;
       const target = targetWindow?.querySelector('.drop-target.reorder-target') as HTMLElement | null;
 
@@ -263,6 +269,8 @@ async function nativeReorderDrag(
 
       const dataTransfer = new DataTransfer();
       const sourceRect = source.getBoundingClientRect();
+      const clientX = sourceRect.x + nextSourceOffset.x;
+      const clientY = sourceRect.y + nextSourceOffset.y;
 
       const firePointer = (element: HTMLElement, type: string, button: number) =>
         element.dispatchEvent(new PointerEvent(type, {
@@ -273,8 +281,8 @@ async function nativeReorderDrag(
           isPrimary: true,
           button,
           buttons: button === 0 ? 1 : 0,
-          clientX: sourceRect.x + sourceRect.width / 2,
-          clientY: sourceRect.y + sourceRect.height / 2,
+          clientX,
+          clientY,
         }));
 
       const fireMouse = (element: HTMLElement, type: string, button: number) =>
@@ -283,8 +291,8 @@ async function nativeReorderDrag(
           cancelable: true,
           button,
           buttons: button === 0 ? 1 : 0,
-          clientX: sourceRect.x + sourceRect.width / 2,
-          clientY: sourceRect.y + sourceRect.height / 2,
+          clientX,
+          clientY,
         }));
 
       const fireDrag = (element: HTMLElement, type: string) =>
@@ -327,13 +335,13 @@ async function nativeReorderDrag(
         },
       };
     },
-    { nextSourceIndex: sourceIndex, nextTargetWindowIndex: targetWindowIndex },
+    { nextSourceIndex: sourceIndex, nextTargetWindowIndex: targetWindowIndex, nextSourceOffset: sourceOffset },
   );
 }
 
 async function nativeInvalidDrag(page: Page, sourceIndex: number): Promise<void> {
   await page.evaluate(async (nextSourceIndex: number) => {
-    const source = document.querySelectorAll('[data-grid-drag-handle="true"]')[nextSourceIndex] as HTMLElement | undefined;
+    const source = document.querySelectorAll('[data-grid-move-button="true"]')[nextSourceIndex] as HTMLElement | undefined;
     if (!source) {
       throw new Error('Drag source not found');
     }
@@ -377,10 +385,94 @@ async function nativeInvalidDrag(page: Page, sourceIndex: number): Promise<void>
   }, sourceIndex);
 }
 
+async function measureSourceRectDuringInvalidDrag(
+  page: Page,
+  sourceIndex: number,
+): Promise<{
+  before: RectSnapshot;
+  during: RectSnapshot;
+  after: RectSnapshot;
+  previewCount: number;
+  draggingContainerCount: number;
+  splitTargetCount: number;
+  reorderTargetCount: number;
+}> {
+  return page.evaluate(async (nextSourceIndex: number) => {
+    const source = document.querySelectorAll('[data-grid-move-button="true"]')[nextSourceIndex] as HTMLElement | undefined;
+    const sourceWindow = source?.closest('.mosaic-window') as HTMLElement | null;
+    if (!source || !sourceWindow) {
+      throw new Error('Drag source window not found');
+    }
+
+    const sourceRect = source.getBoundingClientRect();
+    const dataTransfer = new DataTransfer();
+    const readRect = () => {
+      const rect = sourceWindow.getBoundingClientRect();
+      return {
+        x: Math.round(rect.x),
+        y: Math.round(rect.y),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      };
+    };
+    const firePointer = (element: HTMLElement, type: string) =>
+      element.dispatchEvent(new PointerEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        pointerId: 1,
+        pointerType: 'mouse',
+        isPrimary: true,
+        button: 0,
+        buttons: 1,
+        clientX: sourceRect.x + sourceRect.width / 2,
+        clientY: sourceRect.y + sourceRect.height / 2,
+      }));
+    const fireMouse = (element: HTMLElement, type: string) =>
+      element.dispatchEvent(new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        buttons: 1,
+        clientX: sourceRect.x + sourceRect.width / 2,
+        clientY: sourceRect.y + sourceRect.height / 2,
+      }));
+    const fireDrag = (element: HTMLElement, type: string) =>
+      element.dispatchEvent(new DragEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer,
+      }));
+
+    const before = readRect();
+    firePointer(source, 'pointerdown');
+    fireMouse(source, 'mousedown');
+    fireDrag(source, 'dragstart');
+    await new Promise(resolve => setTimeout(resolve, 150));
+    const during = readRect();
+    const previewCount = document.querySelectorAll('.mosaic-preview').length;
+    const draggingContainerCount = document.querySelectorAll('.drop-target-container.-dragging').length;
+    const splitTargetCount = document.querySelectorAll('.drop-target:not(.reorder-target)').length;
+    const reorderTargetCount = document.querySelectorAll('.drop-target.reorder-target').length;
+    fireDrag(source, 'dragend');
+    await new Promise(resolve => setTimeout(resolve, 150));
+    const after = readRect();
+
+    return {
+      before,
+      during,
+      after,
+      previewCount,
+      draggingContainerCount,
+      splitTargetCount,
+      reorderTargetCount,
+    };
+  }, sourceIndex);
+}
+
 async function nativeNonPrimaryDrag(page: Page, sourceIndex: number, targetWindowIndex: number): Promise<void> {
   await page.evaluate(
     async ({ nextSourceIndex, nextTargetWindowIndex }) => {
-      const source = document.querySelectorAll('[data-grid-drag-handle="true"]')[nextSourceIndex] as HTMLElement | undefined;
+      const source = document.querySelectorAll('[data-grid-move-button="true"]')[nextSourceIndex] as HTMLElement | undefined;
       const targetWindow = document.querySelectorAll('.mosaic-window')[nextTargetWindowIndex] as HTMLElement | undefined;
       const target = targetWindow?.querySelector('.drop-target.reorder-target') as HTMLElement | null;
 
@@ -435,14 +527,24 @@ async function nativeNonPrimaryDrag(page: Page, sourceIndex: number, targetWindo
   );
 }
 
-async function nativeToolbarSurfaceDrag(
+async function expandToolbar(page: Page, tileIndex: number): Promise<void> {
+  const toolbar = page.locator('[data-grid-toolbar="true"]').nth(tileIndex);
+  await toolbar.evaluate((element) => {
+    element.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true }));
+    element.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }));
+  });
+  await expect(page.locator('[data-grid-mode-controls="true"]').nth(tileIndex)).toBeVisible();
+}
+
+async function nativeModeButtonDrag(
   page: Page,
   sourceIndex: number,
+  mode: 'equal' | 'focus' | 'auto',
   targetWindowIndex: number,
 ): Promise<void> {
   await page.evaluate(
-    async ({ nextSourceIndex, nextTargetWindowIndex }) => {
-      const source = document.querySelectorAll('[data-grid-toolbar="true"]')[nextSourceIndex] as HTMLElement | undefined;
+    async ({ nextSourceIndex, nextMode, nextTargetWindowIndex }) => {
+      const source = document.querySelectorAll(`[data-layout-mode-button="${nextMode}"]`)[nextSourceIndex] as HTMLElement | undefined;
       const targetWindow = document.querySelectorAll('.mosaic-window')[nextTargetWindowIndex] as HTMLElement | undefined;
       const target = targetWindow?.querySelector('.drop-target.reorder-target') as HTMLElement | null;
 
@@ -490,7 +592,7 @@ async function nativeToolbarSurfaceDrag(
 
       await new Promise(resolve => setTimeout(resolve, 1200));
     },
-    { nextSourceIndex: sourceIndex, nextTargetWindowIndex: targetWindowIndex },
+    { nextSourceIndex: sourceIndex, nextMode: mode, nextTargetWindowIndex: targetWindowIndex },
   );
 }
 
@@ -612,6 +714,37 @@ async function setLayoutMode(page: Page, tileIndex: number, mode: 'equal' | 'foc
 }
 
 test.describe('Grid Equal Mode Reorder', () => {
+  test('TC-6599: equal drag start keeps source geometry stable before drop', async ({ page }) => {
+    await login(page);
+    const { workspaceId } = await setupEqualGridWorkspace(page, 4);
+    await openGridWorkspace(page, workspaceId, 4);
+    await prepareGridForNativeDrag(page);
+
+    const rects = await measureSourceRectDuringInvalidDrag(page, 0);
+    expectRectsToMatch(rects.during, rects.before);
+    expectRectsToMatch(rects.after, rects.before);
+    expect(rects.previewCount).toBeGreaterThan(0);
+    expect(rects.reorderTargetCount).toBeGreaterThan(0);
+  });
+
+  test('TC-6600: none-mode drag start keeps source geometry stable before drop', async ({ page }) => {
+    await login(page);
+    const { workspaceId } = await setupEqualGridWorkspace(page, 4);
+    await openGridWorkspace(page, workspaceId, 4);
+    await prepareGridForNativeDrag(page);
+
+    await setLayoutMode(page, 0, 'equal');
+    await waitForLayoutPersist(page);
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('none');
+
+    const rects = await measureSourceRectDuringInvalidDrag(page, 0);
+    expectRectsToMatch(rects.during, rects.before);
+    expectRectsToMatch(rects.after, rects.before);
+    expect(rects.previewCount).toBeGreaterThan(0);
+    expect(rects.draggingContainerCount).toBeGreaterThan(0);
+    expect(rects.splitTargetCount).toBeGreaterThan(0);
+  });
+
   test('TC-6601: equal mode uses move semantics and full-cell guide', async ({ page }) => {
     await login(page);
     const { workspaceId, tabIds } = await setupEqualGridWorkspace(page, 4);
@@ -691,19 +824,37 @@ test.describe('Grid Equal Mode Reorder', () => {
     expect(await readPersistedLeafOrder(page, workspaceId)).toEqual(tabIds);
   });
 
-  test('TC-6605: toolbar surface outside the grip does not start reorder', async ({ page }) => {
+  test('TC-6605: move button shell padding and edge remain draggable', async ({ page }) => {
     await login(page);
     const { workspaceId, tabIds } = await setupEqualGridWorkspace(page, 4);
     await openGridWorkspace(page, workspaceId, 4);
     await prepareGridForNativeDrag(page);
 
-    await nativeToolbarSurfaceDrag(page, 0, 3);
+    await nativeReorderDrag(page, 0, 3, { x: 2, y: 2 });
+    await waitForLayoutPersist(page);
+
+    expect(await readPersistedLeafOrder(page, workspaceId)).toEqual([
+      ...tabIds.slice(1),
+      tabIds[0],
+    ]);
+    expectUniformGrid(await readGridCells(page));
+  });
+
+  test('TC-6606: mode buttons stay click-only and do not start reorder', async ({ page }) => {
+    await login(page);
+    const { workspaceId, tabIds } = await setupEqualGridWorkspace(page, 4);
+    await openGridWorkspace(page, workspaceId, 4);
+    await prepareGridForNativeDrag(page);
+    await expandToolbar(page, 0);
+
+    await nativeModeButtonDrag(page, 0, 'equal', 3);
     await waitForLayoutPersist(page);
 
     expect(await readPersistedLeafOrder(page, workspaceId)).toEqual(tabIds);
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
   });
 
-  test('TC-6606: non-equal modes do not enter reorder', async ({ page }) => {
+  test('TC-6607: non-equal modes do not enter reorder', async ({ page }) => {
     await login(page);
     const { workspaceId, tabIds } = await setupEqualGridWorkspace(page, 4);
     await openGridWorkspace(page, workspaceId, 4);
@@ -735,7 +886,7 @@ test.describe('Grid Equal Mode Reorder', () => {
     expect(await readPersistedLeafOrder(page, workspaceId)).toEqual(tabIds);
   });
 
-  test('TC-6607: equal reorder order persists across reload/add/remove', async ({ page }) => {
+  test('TC-6608: equal reorder order persists across reload/add/remove', async ({ page }) => {
     await login(page);
     const { workspaceId, tabIds } = await setupEqualGridWorkspace(page, 4);
     await openGridWorkspace(page, workspaceId, 4);

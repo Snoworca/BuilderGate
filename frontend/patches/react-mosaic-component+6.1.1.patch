@@ -106,10 +106,19 @@ index cbc100d..03472cd 100644
          }) }));
  }
 diff --git a/node_modules/react-mosaic-component/lib/MosaicWindow.js b/node_modules/react-mosaic-component/lib/MosaicWindow.js
-index 133d354..06da94c 100644
+index 133d354..4f66af3 100644
 --- a/node_modules/react-mosaic-component/lib/MosaicWindow.js
 +++ b/node_modules/react-mosaic-component/lib/MosaicWindow.js
-@@ -70,6 +70,26 @@ var types_1 = require("./types");
+@@ -54,8 +54,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.MosaicWindow = exports.InternalMosaicWindow = void 0;
+ var classnames_1 = __importDefault(require("classnames"));
+-var defer_1 = __importDefault(require("lodash/defer"));
+-var dropRight_1 = __importDefault(require("lodash/dropRight"));
+ var isEmpty_1 = __importDefault(require("lodash/isEmpty"));
+ var isEqual_1 = __importDefault(require("lodash/isEqual"));
+ var values_1 = __importDefault(require("lodash/values"));
+@@ -70,6 +68,26 @@ var types_1 = require("./types");
  var mosaicUpdates_1 = require("./util/mosaicUpdates");
  var mosaicUtilities_1 = require("./util/mosaicUtilities");
  var OptionalBlueprint_1 = require("./util/OptionalBlueprint");
@@ -136,7 +145,7 @@ index 133d354..06da94c 100644
  var InternalMosaicWindow = /** @class */ (function (_super) {
      __extends(InternalMosaicWindow, _super);
      function InternalMosaicWindow() {
-@@ -80,7 +100,8 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
+@@ -80,7 +98,8 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
          _this.rootElement = null;
          _this.renderDropTarget = function (position) {
              var path = _this.props.path;
@@ -146,7 +155,7 @@ index 133d354..06da94c 100644
          };
          _this.split = function () {
              var args = [];
-@@ -119,7 +140,7 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
+@@ -119,7 +138,7 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
          _this.getPath = function () { return _this.props.path; };
          _this.connectDragSource = function (connectedElements) {
              var connectDragSource = _this.props.connectDragSource;
@@ -155,7 +164,7 @@ index 133d354..06da94c 100644
          };
          _this.childContext = {
              blueprintNamespace: _this.context.blueprintNamespace,
-@@ -136,9 +157,11 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
+@@ -136,9 +155,11 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
      InternalMosaicWindow.prototype.render = function () {
          var _this = this;
          var _a = this.props, className = _a.className, isOver = _a.isOver, renderPreview = _a.renderPreview, additionalControls = _a.additionalControls, connectDropTarget = _a.connectDropTarget, connectDragPreview = _a.connectDragPreview, draggedMosaicId = _a.draggedMosaicId, disableAdditionalControlsOverlay = _a.disableAdditionalControlsOverlay;
@@ -167,7 +176,7 @@ index 133d354..06da94c 100644
              }), ref: function (element) { return (_this.rootElement = element); } },
              this.renderToolbar(),
              react_1.default.createElement("div", { className: "mosaic-window-body" }, this.props.children),
-@@ -147,7 +170,9 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
+@@ -147,7 +168,9 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
                  } })),
              react_1.default.createElement("div", { className: "mosaic-window-additional-actions-bar" }, additionalControls),
              connectDragPreview(renderPreview(this.props)),
@@ -178,7 +187,7 @@ index 133d354..06da94c 100644
      };
      InternalMosaicWindow.prototype.getToolbarControls = function () {
          var _a = this.props, toolbarControls = _a.toolbarControls, createNode = _a.createNode;
-@@ -166,8 +191,9 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
+@@ -166,8 +189,9 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
          var _this = this;
          var _b = this.props, title = _b.title, draggable = _b.draggable, additionalControls = _b.additionalControls, additionalControlButtonText = _b.additionalControlButtonText, path = _b.path, renderToolbar = _b.renderToolbar;
          var additionalControlsOpen = this.state.additionalControlsOpen;
@@ -189,7 +198,7 @@ index 133d354..06da94c 100644
          var connectIfDraggable = draggableAndNotRoot ? this.props.connectDragSource : function (el) { return el; };
          if (renderToolbar) {
              var connectedToolbar = connectIfDraggable(renderToolbar(this.props, draggable));
-@@ -208,28 +234,103 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
+@@ -208,47 +232,116 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
      return InternalMosaicWindow;
  }(react_1.default.Component));
  exports.InternalMosaicWindow = InternalMosaicWindow;
@@ -232,30 +241,31 @@ index 133d354..06da94c 100644
              if (props.onDragStart) {
                  props.onDragStart();
              }
-             // TODO: Actually just delete instead of hiding
-             // The defer is necessary as the element must be present on start for HTML DnD to not cry
+-            // TODO: Actually just delete instead of hiding
+-            // The defer is necessary as the element must be present on start for HTML DnD to not cry
+-            var hideTimer = (0, defer_1.default)(function () { return mosaicActions.hide(props.path); });
 +            var rootSnapshot = mosaicActions.getRoot();
-             var hideTimer = (0, defer_1.default)(function () { return mosaicActions.hide(props.path); });
              return {
                  mosaicId: mosaicId,
-                 hideTimer: hideTimer,
+-                hideTimer: hideTimer,
 +                sourcePath: props.path,
 +                rootSnapshot: rootSnapshot,
              };
          },
          end: function (item, monitor) {
 -            var hideTimer = item.hideTimer;
+-            // If the hide call hasn't happened yet, cancel it
+-            window.clearTimeout(hideTimer);
 +            if (item == null) {
 +                if (props.onDragEnd) {
 +                    props.onDragEnd('reset');
 +                }
 +                return;
 +            }
-+            var hideTimer = item.hideTimer, rootSnapshot = item.rootSnapshot;
-             // If the hide call hasn't happened yet, cancel it
-             window.clearTimeout(hideTimer);
++            var rootSnapshot = item.rootSnapshot;
              var ownPath = props.path;
              var dropResult = (monitor.getDropResult() || {});
++            var dragRoot = rootSnapshot != null ? rootSnapshot : mosaicActions.getRoot();
 +            if (reorderEnabled) {
 +                var slotIndex = dropResult.slotIndex;
 +                if (dropResult.kind === 'reorder' && rootSnapshot != null && typeof slotIndex === 'number') {
@@ -294,7 +304,35 @@ index 133d354..06da94c 100644
 +            }
              var position = dropResult.position, destinationPath = dropResult.path;
              if (position != null && destinationPath != null && !(0, isEqual_1.default)(destinationPath, ownPath)) {
-                 mosaicActions.updateTree((0, mosaicUpdates_1.createDragToUpdates)(mosaicActions.getRoot(), ownPath, destinationPath, position));
+-                mosaicActions.updateTree((0, mosaicUpdates_1.createDragToUpdates)(mosaicActions.getRoot(), ownPath, destinationPath, position));
++                mosaicActions.updateTree((0, mosaicUpdates_1.createDragToUpdates)(dragRoot, ownPath, destinationPath, position));
+                 if (props.onDragEnd) {
+                     props.onDragEnd('drop');
+                 }
+             }
+             else {
+-                // TODO: restore node from captured state
+-                mosaicActions.updateTree([
+-                    {
+-                        path: (0, dropRight_1.default)(ownPath),
+-                        spec: {
+-                            splitPercentage: {
+-                                $set: undefined,
++                if (rootSnapshot != null) {
++                    mosaicActions.updateTree([
++                        {
++                            path: [],
++                            spec: {
++                                $set: rootSnapshot,
+                             },
+                         },
+-                    },
+-                ]);
++                    ]);
++                }
+                 if (props.onDragEnd) {
+                     props.onDragEnd('reset');
+                 }
 diff --git a/node_modules/react-mosaic-component/lib/RootDropTargets.js b/node_modules/react-mosaic-component/lib/RootDropTargets.js
 index 2c74825..717c9b6 100644
 --- a/node_modules/react-mosaic-component/lib/RootDropTargets.js
@@ -338,7 +376,7 @@ index d414e78..e0f6b73 100644
  /**
   * Context provided to everything within a Mosaic Window
 diff --git a/node_modules/react-mosaic-component/lib/internalTypes.d.ts b/node_modules/react-mosaic-component/lib/internalTypes.d.ts
-index 1fe89f0..af39fc9 100644
+index 1fe89f0..6476a8a 100644
 --- a/node_modules/react-mosaic-component/lib/internalTypes.d.ts
 +++ b/node_modules/react-mosaic-component/lib/internalTypes.d.ts
 @@ -1,4 +1,4 @@
@@ -347,7 +385,7 @@ index 1fe89f0..af39fc9 100644
  export type MosaicDropTargetPosition = 'top' | 'bottom' | 'left' | 'right';
  export declare const MosaicDropTargetPosition: {
      TOP: "top";
-@@ -7,10 +7,14 @@ export declare const MosaicDropTargetPosition: {
+@@ -7,10 +7,13 @@ export declare const MosaicDropTargetPosition: {
      RIGHT: "right";
  };
  export interface MosaicDropData {
@@ -358,7 +396,7 @@ index 1fe89f0..af39fc9 100644
  }
  export interface MosaicDragItem {
      mosaicId: string;
-     hideTimer: number;
+-    hideTimer: number;
 +    sourcePath: MosaicPath;
 +    rootSnapshot: MosaicNode<MosaicKey> | null;
  }

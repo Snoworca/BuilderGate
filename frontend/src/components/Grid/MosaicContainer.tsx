@@ -575,7 +575,7 @@ export function MosaicContainer({
           }}
           onDragEnd={handleTileDragEnd}
           renderToolbar={() => (
-            <div style={{ position: 'relative', width: '100%', height: 0 }}>
+            <div style={{ position: 'relative', width: '100%', height: 0, overflow: 'visible' }}>
               <MosaicToolbar
                 layoutMode={layoutMode}
                 onLayoutModeChange={(mode) => {

@@ -1,4 +1,4 @@
-/* Minimal mosaic tile gaps — nearly invisible */
+/* Minimal mosaic tile gaps */
 .mosaic-tile {
   margin: 0 !important;
 }
@@ -29,7 +29,7 @@
   bottom: 0;
 }
 
-/* 히트 영역 확장 — 시각적 2px 유지, 클릭 영역 16px */
+/* Keep the visible split narrow while expanding the hit area. */
 .mosaic-split::before {
   content: '';
   position: absolute;
@@ -57,12 +57,11 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
-/* Override blueprint theme background (visible as border around the grid) */
+/* Override blueprint theme background visible around the grid. */
 .mosaic.mosaic-blueprint-theme {
   background: rgba(255, 255, 255, 0.03);
 }
 
-/* MosaicWindow 기본 레이아웃 초기화 (FR-1.1) */
 .mosaic-window {
   display: flex;
   flex-direction: column;
@@ -70,28 +69,25 @@
   inset: 0;
 }
 
-/* mosaic-window-body: MosaicWindow가 children을 감싸는 div */
 .mosaic-window .mosaic-window-body {
   flex: 1;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  /* react-mosaic-component 기본 background:white 제거 — 워크스페이스 전환 시
-     탭 로딩 전 순간 EmptyCell 뒤로 흰 배경이 노출되는 버그 방지 */
   background: transparent;
 }
 
-/* MosaicWindow 기본 툴바 영역 — renderToolbar로 교체하므로 높이 제거 */
+/* Replace the built-in toolbar with a zero-height host and let our custom toolbar overflow. */
 .mosaic-window-toolbar {
   height: 0 !important;
   min-height: 0 !important;
   padding: 0 !important;
   border: none !important;
-  /* overflow: visible 유지하여 absolute 자식(그립 아이콘)이 보이도록 */
+  overflow: visible !important;
+  position: relative;
 }
 
-/* 드롭 프리뷰 — 기본 제목 표시 방지, 드래그 중에만 시각 피드백 */
 .mosaic-preview .mosaic-window-toolbar {
   display: none !important;
 }
@@ -100,7 +96,6 @@
   display: none !important;
 }
 
-/* 드롭 오버레이 — 타일 이동 중 드롭 가능 영역 하이라이트 */
 .drop-target-hover .mosaic-preview {
   background: rgba(100, 149, 237, 0.15) !important;
   border: 2px solid rgba(100, 149, 237, 0.5) !important;
