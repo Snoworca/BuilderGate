@@ -7,7 +7,7 @@ import {
   getMinPercentage,
 } from '../utils/mosaic';
 
-export type LayoutMode = 'equal' | 'focus' | 'auto';
+export type LayoutMode = 'equal' | 'focus' | 'auto' | 'none';
 
 export interface UseLayoutModeReturn {
   mode: LayoutMode;
@@ -35,6 +35,10 @@ export function useLayoutMode(
   const applyToTree = useCallback(
     (tree: MosaicNode<string>, tabs: WorkspaceTabRuntime[], idleRatio?: number, focusRatio?: number): MosaicNode<string> => {
       const minPercent = getMinPercentage(tabs.length);
+
+      if (mode === 'none') {
+        return tree;
+      }
 
       if (mode === 'equal') {
         return applyEqualMode(tree);

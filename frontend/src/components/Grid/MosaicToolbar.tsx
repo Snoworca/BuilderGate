@@ -8,15 +8,17 @@ interface MosaicToolbarProps {
 }
 
 interface ToolbarButtonProps {
+  mode: Exclude<LayoutMode, 'none'>;
   label: string;
   title: string;
   active: boolean;
   onClick: () => void;
 }
 
-function ToolbarButton({ label, title, active, onClick }: ToolbarButtonProps) {
+function ToolbarButton({ mode, label, title, active, onClick }: ToolbarButtonProps) {
   return (
     <button
+      data-layout-mode-button={mode}
       title={title}
       onClick={onClick}
       style={{
@@ -44,8 +46,6 @@ function ToolbarButton({ label, title, active, onClick }: ToolbarButtonProps) {
 export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarProps) {
   const [expanded, setExpanded] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // FR-1.2: connectDragSource from MosaicWindowContext for grip icon
   const mosaicWindowContext = useContext(MosaicWindowContext);
   const connectDragSource = mosaicWindowContext?.mosaicWindowActions?.connectDragSource;
 
@@ -76,9 +76,9 @@ export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarP
     return () => clearHideTimer();
   }, [clearHideTimer]);
 
-  // Grip icon element — drag handle for tile DnD (hidden by default, visible on hover)
   const gripDiv = (
     <div
+      data-grid-drag-handle="true"
       style={{
         width: '28px',
         height: '28px',
@@ -94,7 +94,7 @@ export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarP
         opacity: expanded ? 1 : 0,
         transition: 'opacity 0.2s ease',
       }}
-      title="드래그하여 타일 이동"
+      title="Drag to move"
     >
       <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
         <polygon points="10,2 7,7 13,7" />
@@ -106,11 +106,12 @@ export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarP
       </svg>
     </div>
   );
-  // connectDragSource may be undefined outside MosaicWindowContext (e.g. unit tests)
+
   const gripIcon = connectDragSource ? connectDragSource(gripDiv) : gripDiv;
 
   return (
     <div
+      data-grid-toolbar="true"
       style={{
         position: 'absolute',
         top: 4,
@@ -122,10 +123,8 @@ export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarP
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* Grip icon — always visible, serves as drag handle */}
       {gripIcon}
 
-      {/* Toolbar panel — visible on hover */}
       {expanded && (
         <div
           draggable={false}
@@ -136,18 +135,21 @@ export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarP
           }}
         >
           <ToolbarButton
+            mode="equal"
             label="⊞"
             title="균등 분할 (Equal)"
             active={layoutMode === 'equal'}
             onClick={() => onLayoutModeChange('equal')}
           />
           <ToolbarButton
+            mode="focus"
             label="⊡"
             title="포커스 모드 (Focus)"
             active={layoutMode === 'focus'}
             onClick={() => onLayoutModeChange('focus')}
           />
           <ToolbarButton
+            mode="auto"
             label="⟳"
             title="자동 모드 (Auto)"
             active={layoutMode === 'auto'}

@@ -1,8 +1,15 @@
 import { useState, useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import type { MosaicNode } from '../types/workspace';
-import { buildEqualMosaicTree, isValidMosaicTree, restoreLayoutWithSessionRecovery } from '../utils/mosaic';
+import {
+  buildRecoveredEqualMosaicTree,
+  buildEqualMosaicTree,
+  extractLeafIds,
+  inferEqualLayoutArrangement,
+  isValidMosaicTree,
+  restoreLayoutWithSessionRecovery,
+} from '../utils/mosaic';
 
-export type LayoutMode = 'equal' | 'focus' | 'auto';
+export type LayoutMode = 'equal' | 'focus' | 'auto' | 'none';
 
 interface PersistedMosaicLayout {
   schemaVersion: 1;
@@ -13,6 +20,12 @@ interface PersistedMosaicLayout {
 }
 
 const STORAGE_KEY_PREFIX = 'mosaic_layout_';
+
+interface ResolvedMosaicLayout {
+  tree: MosaicNode<string> | null;
+  mode: LayoutMode;
+  focusTarget: string | null;
+}
 
 function loadLayout(workspaceId: string): PersistedMosaicLayout | null {
   try {
@@ -25,6 +38,73 @@ function loadLayout(workspaceId: string): PersistedMosaicLayout | null {
   } catch {
     return null;
   }
+}
+
+function sanitizeModeState(
+  tree: MosaicNode<string> | null,
+  mode: LayoutMode,
+  focusTarget: string | null,
+): Pick<ResolvedMosaicLayout, 'mode' | 'focusTarget'> {
+  if (!tree) {
+    return {
+      mode: mode === 'focus' ? 'equal' : mode,
+      focusTarget: null,
+    };
+  }
+
+  if (mode !== 'focus') {
+    return { mode, focusTarget: null };
+  }
+
+  const leafIds = new Set(extractLeafIds(tree));
+  if (!focusTarget || !leafIds.has(focusTarget)) {
+    return { mode: 'equal', focusTarget: null };
+  }
+
+  return { mode, focusTarget };
+}
+
+function resolveLayoutState(
+  workspaceId: string,
+  currentTabIds?: string[],
+): ResolvedMosaicLayout {
+  const persisted = loadLayout(workspaceId);
+  if (!persisted?.tree) {
+    if (currentTabIds && currentTabIds.length > 0) {
+      return {
+        tree: buildEqualMosaicTree(currentTabIds),
+        mode: 'equal',
+        focusTarget: null,
+      };
+    }
+
+    return {
+      tree: null,
+      mode: 'equal',
+      focusTarget: null,
+    };
+  }
+
+  const restored =
+    currentTabIds && currentTabIds.length > 0
+      ? restoreLayoutWithSessionRecovery(persisted.tree, currentTabIds)
+      : null;
+  const tree = restored?.tree ?? null;
+  const recoveredFocusTarget =
+    persisted.focusTarget && restored?.replacements[persisted.focusTarget]
+      ? restored.replacements[persisted.focusTarget]
+      : persisted.focusTarget;
+  const { mode, focusTarget } = sanitizeModeState(
+    tree,
+    persisted.mode ?? 'equal',
+    recoveredFocusTarget ?? null,
+  );
+  const resolvedTree =
+    tree && mode === 'equal'
+      ? buildRecoveredEqualMosaicTree(tree, extractLeafIds(tree), inferEqualLayoutArrangement(tree))
+      : tree;
+
+  return { tree: resolvedTree, mode, focusTarget };
 }
 
 function saveLayout(
@@ -59,23 +139,14 @@ export interface UseMosaicLayoutReturn {
 }
 
 export function useMosaicLayout(workspaceId: string, currentTabIds?: string[]): UseMosaicLayoutReturn {
-  const [mosaicTree, setMosaicTree] = useState<MosaicNode<string> | null>(() => {
-    const persisted = loadLayout(workspaceId);
-    if (!persisted?.tree) return null;
-    if (currentTabIds && currentTabIds.length > 0) {
-      const { tree } = restoreLayoutWithSessionRecovery(persisted.tree, currentTabIds);
-      return tree;
-    }
-    return persisted.tree;
-  });
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>(() => {
-    const persisted = loadLayout(workspaceId);
-    return persisted?.mode ?? 'equal';
-  });
-  const [focusTarget, setFocusTarget] = useState<string | null>(() => {
-    const persisted = loadLayout(workspaceId);
-    return persisted?.focusTarget ?? null;
-  });
+  const initialLayoutRef = useRef<ResolvedMosaicLayout | null>(null);
+  if (initialLayoutRef.current === null) {
+    initialLayoutRef.current = resolveLayoutState(workspaceId, currentTabIds);
+  }
+
+  const [mosaicTree, setMosaicTreeState] = useState<MosaicNode<string> | null>(initialLayoutRef.current.tree);
+  const [layoutMode, setLayoutModeState] = useState<LayoutMode>(initialLayoutRef.current.mode);
+  const [focusTarget, setFocusTargetState] = useState<string | null>(initialLayoutRef.current.focusTarget);
 
   // Keep refs for debounce and beforeunload access
   const mosaicTreeRef = useRef(mosaicTree);
@@ -87,6 +158,24 @@ export function useMosaicLayout(workspaceId: string, currentTabIds?: string[]): 
   layoutModeRef.current = layoutMode;
   focusTargetRef.current = focusTarget;
 
+  const setMosaicTree = useCallback((next: SetStateAction<MosaicNode<string> | null>) => {
+    setMosaicTreeState((prev) => {
+      const value = typeof next === 'function' ? next(prev) : next;
+      mosaicTreeRef.current = value;
+      return value;
+    });
+  }, []);
+
+  const setLayoutMode = useCallback((mode: LayoutMode) => {
+    layoutModeRef.current = mode;
+    setLayoutModeState(mode);
+  }, []);
+
+  const setFocusTarget = useCallback((target: string | null) => {
+    focusTargetRef.current = target;
+    setFocusTargetState(target);
+  }, []);
+
   // Re-load when workspaceId changes OR when currentTabIds content changes.
   // currentTabIds는 매 렌더마다 새 배열 참조이므로 내용 기반 비교를 위해 join 직렬화 사용.
   // currentTabIds가 stale 클로저로 캡처되면 restoreLayoutWithSessionRecovery에 잘못된
@@ -95,25 +184,20 @@ export function useMosaicLayout(workspaceId: string, currentTabIds?: string[]): 
   const currentTabIdsKey = currentTabIds?.join(',') ?? '';
   useEffect(() => {
     const persisted = loadLayout(workspaceId);
-    if (persisted?.tree) {
-      if (currentTabIds && currentTabIds.length > 0) {
-        const { tree } = restoreLayoutWithSessionRecovery(persisted.tree, currentTabIds);
-        setMosaicTree(tree);
-      } else {
-        // currentTabIds가 비어있어도 검증 없이 raw tree를 쓰지 않는다.
-        // 탭이 아직 로딩 중인 과도기이므로 null로 대기.
-        setMosaicTree(null);
+    const resolved = resolveLayoutState(workspaceId, currentTabIds);
+    setMosaicTree(resolved.tree);
+    setLayoutMode(resolved.mode);
+    setFocusTarget(resolved.focusTarget);
+
+    if (resolved.tree) {
+      const treeChanged = persisted?.tree
+        ? JSON.stringify(persisted.tree) !== JSON.stringify(resolved.tree)
+        : true;
+      const modeChanged = (persisted?.mode ?? null) !== resolved.mode;
+      const focusChanged = (persisted?.focusTarget ?? null) !== resolved.focusTarget;
+      if (treeChanged || modeChanged || focusChanged) {
+        saveLayout(workspaceId, resolved.tree, resolved.mode, resolved.focusTarget);
       }
-      setLayoutMode(persisted.mode ?? 'equal');
-      setFocusTarget(persisted.focusTarget ?? null);
-    } else if (currentTabIds && currentTabIds.length > 0) {
-      setMosaicTree(buildEqualMosaicTree(currentTabIds));
-      setLayoutMode('equal');
-      setFocusTarget(null);
-    } else {
-      setMosaicTree(null);
-      setLayoutMode('equal');
-      setFocusTarget(null);
     }
   }, [workspaceId, currentTabIdsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 

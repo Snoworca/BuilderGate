@@ -1,5 +1,7 @@
 import type { MosaicNode, MosaicParent } from '../types/workspace';
 
+export type EqualLayoutArrangement = 'rows' | 'cols';
+
 // ============================================================================
 // Minimum size percentage by session count
 // ============================================================================
@@ -13,23 +15,128 @@ export function getMinPercentage(sessionCount: number): number {
 }
 
 // ============================================================================
-// Build equal binary split tree from tab IDs
+// Build linear tree from tab IDs for a single row/column band
 // ============================================================================
 
-export function buildEqualMosaicTree(ids: string[]): MosaicNode<string> {
+function buildLinearMosaicTree(
+  ids: string[],
+  direction: 'row' | 'column',
+): MosaicNode<string> {
   if (ids.length === 0) throw new Error('Cannot build tree from empty ids');
   if (ids.length === 1) return ids[0];
   if (ids.length === 2) {
-    return { direction: 'row', first: ids[0], second: ids[1], splitPercentage: 50 };
+    return { direction, first: ids[0], second: ids[1], splitPercentage: 50 };
   }
   const mid = Math.ceil(ids.length / 2);
-  const depth = Math.ceil(Math.log2(Math.max(ids.length, 1)));
   return {
-    direction: depth % 2 === 0 ? 'row' : 'column',
-    first: buildEqualMosaicTree(ids.slice(0, mid)),
-    second: buildEqualMosaicTree(ids.slice(mid)),
+    direction,
+    first: buildLinearMosaicTree(ids.slice(0, mid), direction),
+    second: buildLinearMosaicTree(ids.slice(mid), direction),
     splitPercentage: (mid / ids.length) * 100,
   };
+}
+
+function isLinearMosaicTree(
+  node: MosaicNode<string>,
+  direction: 'row' | 'column',
+): boolean {
+  if (typeof node === 'string') return true;
+  return (
+    node.direction === direction &&
+    isLinearMosaicTree(node.first, direction) &&
+    isLinearMosaicTree(node.second, direction)
+  );
+}
+
+// ============================================================================
+// Build fixed two-band equal layout from tab IDs
+// rows: top/bottom fixed
+// cols: left/right fixed
+// ============================================================================
+
+export function buildEqualMosaicTree(
+  ids: string[],
+  arrangement: EqualLayoutArrangement = 'rows',
+): MosaicNode<string> {
+  if (ids.length === 0) throw new Error('Cannot build tree from empty ids');
+  if (ids.length === 1) return ids[0];
+
+  const firstBandCount = Math.ceil(ids.length / 2);
+  const firstBandIds = ids.slice(0, firstBandCount);
+  const secondBandIds = ids.slice(firstBandCount);
+
+  if (secondBandIds.length === 0) {
+    return arrangement === 'rows'
+      ? buildLinearMosaicTree(firstBandIds, 'row')
+      : buildLinearMosaicTree(firstBandIds, 'column');
+  }
+
+  if (arrangement === 'rows') {
+    return {
+      direction: 'column',
+      first: buildLinearMosaicTree(firstBandIds, 'row'),
+      second: buildLinearMosaicTree(secondBandIds, 'row'),
+      splitPercentage: 50,
+    };
+  }
+
+  return {
+    direction: 'row',
+    first: buildLinearMosaicTree(firstBandIds, 'column'),
+    second: buildLinearMosaicTree(secondBandIds, 'column'),
+    splitPercentage: 50,
+  };
+}
+
+export function buildRecoveredEqualMosaicTree(
+  sourceTree: MosaicNode<string> | null,
+  currentTabIds: string[],
+  arrangement: EqualLayoutArrangement = 'rows',
+): MosaicNode<string> {
+  if (currentTabIds.length === 0) {
+    throw new Error('Cannot build tree from empty ids');
+  }
+
+  if (!sourceTree) {
+    return buildEqualMosaicTree(currentTabIds, arrangement);
+  }
+
+  const recoveredTree = restoreLayoutWithSessionRecovery(sourceTree, currentTabIds).tree;
+  return buildEqualMosaicTree(extractLeafIds(recoveredTree), arrangement);
+}
+
+export function inferEqualLayoutArrangement(tree: MosaicNode<string> | null): EqualLayoutArrangement {
+  if (!tree || typeof tree === 'string') {
+    return 'rows';
+  }
+  return tree.direction === 'column' ? 'rows' : 'cols';
+}
+
+export function isFixedEqualMosaicTree(
+  tree: MosaicNode<string> | null,
+  arrangement: EqualLayoutArrangement,
+): boolean {
+  if (!tree || typeof tree === 'string') {
+    return true;
+  }
+
+  const outerDirection = arrangement === 'rows' ? 'column' : 'row';
+  const innerDirection = arrangement === 'rows' ? 'row' : 'column';
+
+  if (tree.direction !== outerDirection) {
+    return false;
+  }
+
+  const firstLeaves = countLeaves(tree.first);
+  const secondLeaves = countLeaves(tree.second);
+  if (Math.abs(firstLeaves - secondLeaves) > 1) {
+    return false;
+  }
+
+  return (
+    isLinearMosaicTree(tree.first, innerDirection) &&
+    isLinearMosaicTree(tree.second, innerDirection)
+  );
 }
 
 // ============================================================================
@@ -97,6 +204,35 @@ export function replaceLeafId(
   };
 }
 
+export function appendLeafToMosaicTree(
+  tree: MosaicNode<string>,
+  newId: string,
+  directionHint: 'row' | 'column' = 'row',
+): MosaicNode<string> {
+  if (typeof tree === 'string') {
+    return {
+      direction: directionHint,
+      first: tree,
+      second: newId,
+      splitPercentage: 50,
+    };
+  }
+
+  const firstLeaves = countLeaves(tree.first);
+  const secondLeaves = countLeaves(tree.second);
+  if (firstLeaves <= secondLeaves) {
+    return {
+      ...tree,
+      first: appendLeafToMosaicTree(tree.first, newId, tree.direction),
+    };
+  }
+
+  return {
+    ...tree,
+    second: appendLeafToMosaicTree(tree.second, newId, tree.direction),
+  };
+}
+
 export function isValidMosaicTree(tree: unknown): tree is MosaicNode<string> {
   if (typeof tree === 'string') return tree.length > 0;
   if (tree === null || tree === undefined) return false;
@@ -112,6 +248,36 @@ export function isValidMosaicTree(tree: unknown): tree is MosaicNode<string> {
 
 export function applyEqualMode(tree: MosaicNode<string>): MosaicNode<string> {
   return buildEqualMosaicTree(extractLeafIds(tree));
+}
+
+export function applyEqualModePreservingTopology(
+  tree: MosaicNode<string>,
+  minPercent: number,
+): MosaicNode<string> {
+  if (typeof tree === 'string') return tree;
+
+  function apply(node: MosaicNode<string>): MosaicNode<string> {
+    if (typeof node === 'string') return node;
+
+    const parent = node as MosaicParent<string>;
+    const first = apply(parent.first);
+    const second = apply(parent.second);
+    const firstLeaves = countLeaves(first);
+    const secondLeaves = countLeaves(second);
+    const totalLeaves = firstLeaves + secondLeaves;
+
+    let split = totalLeaves > 0 ? (firstLeaves / totalLeaves) * 100 : 50;
+    split = Math.max(minPercent, Math.min(100 - minPercent, split));
+
+    return {
+      ...parent,
+      first,
+      second,
+      splitPercentage: split,
+    };
+  }
+
+  return apply(tree);
 }
 
 // ============================================================================
@@ -218,30 +384,40 @@ export function applyMultiFocusApprox(
 export function restoreLayoutWithSessionRecovery(
   persistedTree: MosaicNode<string>,
   currentTabIds: string[],
-): { tree: MosaicNode<string>; missingIds: string[] } {
+): { tree: MosaicNode<string>; missingIds: string[]; replacements: Record<string, string> } {
   const persistedIds = extractLeafIds(persistedTree);
   const currentSet = new Set(currentTabIds);
+  const persistedSet = new Set(persistedIds);
   const validIds = persistedIds.filter(id => currentSet.has(id));
   const missingIds = persistedIds.filter(id => !currentSet.has(id));
+  const unassigned = currentTabIds.filter(id => !persistedSet.has(id));
+  const replacements: Record<string, string> = {};
 
   if (validIds.length === 0) {
     // 전부 소멸 → 균등 폴백
-    return { tree: buildEqualMosaicTree(currentTabIds), missingIds };
+    return { tree: buildEqualMosaicTree(currentTabIds), missingIds, replacements };
+  }
+
+  if (missingIds.length === 0 && unassigned.length === 0) {
+    // 모든 세션 존재 → 그대로 복원
+    return { tree: persistedTree, missingIds: [], replacements };
   }
 
   if (missingIds.length === 0) {
-    // 모든 세션 존재 → 그대로 복원
-    return { tree: persistedTree, missingIds: [] };
+    let tree: MosaicNode<string> = persistedTree;
+    for (const newId of unassigned) {
+      tree = appendLeafToMosaicTree(tree, newId);
+    }
+    return { tree, missingIds: [], replacements };
   }
 
   // 부분 소멸: 소멸된 leaf를 currentTabIds에서 아직 미배치된 ID로 교체
   // 미배치 ID = currentTabIds 중 persistedIds에 없는 것
-  const persistedSet = new Set(persistedIds);
-  const unassigned = currentTabIds.filter(id => !persistedSet.has(id));
   let tree: MosaicNode<string> = persistedTree;
 
   for (let i = 0; i < missingIds.length; i++) {
     if (i < unassigned.length) {
+      replacements[missingIds[i]] = unassigned[i];
       tree = replaceLeafId(tree, missingIds[i], unassigned[i]);
     } else {
       // 교체할 ID가 없으면 leaf 제거
@@ -249,7 +425,11 @@ export function restoreLayoutWithSessionRecovery(
     }
   }
 
-  return { tree, missingIds };
+  for (let i = missingIds.length; i < unassigned.length; i++) {
+    tree = appendLeafToMosaicTree(tree, unassigned[i]);
+  }
+
+  return { tree, missingIds, replacements };
 }
 
 // ============================================================================

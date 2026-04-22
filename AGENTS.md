@@ -17,6 +17,13 @@
 
 - Local test password: `1234`
 
+## Phase Completion Review Rule
+
+- 모든 구현 Phase가 끝나면 반드시 까칠하고 예민한 코드 리뷰어 서브에이전트가 계획 문서를 참고하여 코드 리뷰를 수행해야 한다.
+- 코드 리뷰어가 개선사항을 찾으면 반드시 수정하고, 같은 리뷰어 또는 동등한 역할의 리뷰어에게 재평가를 받아야 한다.
+- 코드 리뷰어가 `No findings` 또는 동등한 무결점 판정을 내릴 때까지 `구현 -> 테스트 -> 리뷰 -> 수정 -> 재리뷰` 루프를 반복해야 한다.
+- 이 규칙은 선택 사항이 아니라 강제 사항이며, 어떤 Phase도 이 절차 없이 완료 처리할 수 없다.
+
 ## Encoding Rule
 
 - All file reads must assume `UTF-8` unless the user explicitly says otherwise.
@@ -29,9 +36,11 @@
 - Avoid copy-paste implementations. If duplication is truly unavoidable, document the reason in the task explanation or plan.
 - Keep adapters thin. Routes, controllers, contexts, bridge layers, and compatibility layers should delegate to service or domain logic instead of owning complex business rules.
 - Preserve existing contracts deliberately. Prefer additive changes over breaking changes for API shapes, session status flows, WebSocket/SSE payloads, and UI-facing behavior unless the change is explicitly intended and documented.
+- Do not change existing UI visuals, iconography, labels, layout, or interaction style based only on personal judgment.
+- If a UI change seems necessary to implement or test a feature, report the reason to the user first and ask before changing the existing UI.
 - Do not silently coerce invalid or unsupported behavior into a different path. If fallback behavior is necessary, make it explicit and observable.
 - Do not hide meaningful errors. Protocol, state, validation, or lifecycle errors that matter to callers or operators must remain traceable through code paths, logs, debug capture, or tests.
 - Prefer safe defaults. Compatibility or legacy exceptions may exist, but insecure or weaker behavior must not become the default path without explicit approval.
-- Every bug fix must add regression coverage. Include a reproduction case, a success case after the fix, and an edge or boundary case when relevant.
-- Relevant tests must be executed again at task completion, not only during intermediate development.
+- 모든 버그 수정은 반드시 회귀 테스트를 추가해야 한다. 재현 케이스, 수정 후 성공 케이스, 그리고 경계/엣지 케이스를 포함해야 한다.
+- 관련 테스트는 개발 중간에만이 아니라 작업 완료 시점에도 반드시 다시 실행해야 한다.
 - For substantial or multi-phase work, consult an existing plan first or create a minimal plan before implementation so the work can be resumed safely.

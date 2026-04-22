@@ -1,0 +1,454 @@
+diff --git a/node_modules/react-mosaic-component/lib/Mosaic.d.ts b/node_modules/react-mosaic-component/lib/Mosaic.d.ts
+index 2505fd3..a2050d4 100644
+--- a/node_modules/react-mosaic-component/lib/Mosaic.d.ts
++++ b/node_modules/react-mosaic-component/lib/Mosaic.d.ts
+@@ -45,6 +45,11 @@ export interface MosaicBaseProps<T extends MosaicKey> {
+      * Override the react-dnd provider to allow applications to inject an existing drag and drop context
+      */
+     dragAndDropManager?: DragDropManager | undefined;
++    /**
++     * Enables full-cell reorder semantics instead of split insertion semantics.
++     * Default: false
++     */
++    reorderEnabled?: boolean;
+ }
+ export interface MosaicControlledProps<T extends MosaicKey> extends MosaicBaseProps<T> {
+     /**
+diff --git a/node_modules/react-mosaic-component/lib/Mosaic.js b/node_modules/react-mosaic-component/lib/Mosaic.js
+index 6f00345..c3d3659 100644
+--- a/node_modules/react-mosaic-component/lib/Mosaic.js
++++ b/node_modules/react-mosaic-component/lib/Mosaic.js
+@@ -102,11 +102,6 @@ var MosaicWithoutDragDropContext = /** @class */ (function (_super) {
+                 ]);
+             },
+         };
+-        _this.childContext = {
+-            mosaicActions: _this.actions,
+-            mosaicId: _this.state.mosaicId,
+-            blueprintNamespace: _this.props.blueprintNamespace,
+-        };
+         return _this;
+     }
+     MosaicWithoutDragDropContext.getDerivedStateFromProps = function (nextProps, prevState) {
+@@ -123,7 +118,13 @@ var MosaicWithoutDragDropContext = /** @class */ (function (_super) {
+     };
+     MosaicWithoutDragDropContext.prototype.render = function () {
+         var className = this.props.className;
+-        return (react_1.default.createElement(contextTypes_1.MosaicContext.Provider, { value: this.childContext },
++        var contextValue = {
++            mosaicActions: this.actions,
++            mosaicId: this.state.mosaicId,
++            blueprintNamespace: this.props.blueprintNamespace,
++            reorderEnabled: !!this.props.reorderEnabled,
++        };
++        return (react_1.default.createElement(contextTypes_1.MosaicContext.Provider, { value: contextValue },
+             react_1.default.createElement("div", { className: (0, classnames_1.default)(className, 'mosaic mosaic-drop-target') },
+                 this.renderTree(),
+                 react_1.default.createElement(RootDropTargets_1.RootDropTargets, null))));
+diff --git a/node_modules/react-mosaic-component/lib/MosaicDropTarget.d.ts b/node_modules/react-mosaic-component/lib/MosaicDropTarget.d.ts
+index 4bfad4c..47612eb 100644
+--- a/node_modules/react-mosaic-component/lib/MosaicDropTarget.d.ts
++++ b/node_modules/react-mosaic-component/lib/MosaicDropTarget.d.ts
+@@ -2,7 +2,7 @@
+ import { MosaicDropTargetPosition } from './internalTypes';
+ import { MosaicPath } from './types';
+ export interface MosaicDropTargetProps {
+-    position: MosaicDropTargetPosition;
++    position?: MosaicDropTargetPosition;
+     path: MosaicPath;
+ }
+ export declare function MosaicDropTarget({ path, position }: MosaicDropTargetProps): JSX.Element;
+diff --git a/node_modules/react-mosaic-component/lib/MosaicDropTarget.js b/node_modules/react-mosaic-component/lib/MosaicDropTarget.js
+index cbc100d..03472cd 100644
+--- a/node_modules/react-mosaic-component/lib/MosaicDropTarget.js
++++ b/node_modules/react-mosaic-component/lib/MosaicDropTarget.js
+@@ -31,15 +31,28 @@ var classnames_1 = __importDefault(require("classnames"));
+ var react_1 = __importStar(require("react"));
+ var react_dnd_1 = require("react-dnd");
+ var contextTypes_1 = require("./contextTypes");
++var mosaicUtilities_1 = require("./util/mosaicUtilities");
+ var types_1 = require("./types");
+ function MosaicDropTarget(_a) {
+     var path = _a.path, position = _a.position;
+-    var mosaicId = (0, react_1.useContext)(contextTypes_1.MosaicContext).mosaicId;
+-    var _b = (0, react_dnd_1.useDrop)({
++    var _b = (0, react_1.useContext)(contextTypes_1.MosaicContext), mosaicActions = _b.mosaicActions, mosaicId = _b.mosaicId, reorderEnabled = _b.reorderEnabled;
++    var _c = (0, react_dnd_1.useDrop)({
+         accept: types_1.MosaicDragType.WINDOW,
+         drop: function (item, _monitor) {
+             if (mosaicId === (item === null || item === void 0 ? void 0 : item.mosaicId)) {
+-                return { path: path, position: position };
++                if (reorderEnabled) {
++                    var root = mosaicActions.getRoot();
++                    if (root == null) {
++                        return {};
++                    }
++                    var targetNode = (0, mosaicUtilities_1.getAndAssertNodeAtPathExists)(root, path);
++                    var slotIndex = (0, mosaicUtilities_1.getLeaves)(root).indexOf(targetNode);
++                    if (slotIndex === -1) {
++                        return {};
++                    }
++                    return { kind: 'reorder', path: path, slotIndex: slotIndex };
++                }
++                return { kind: 'split', path: path, position: position };
+             }
+             else {
+                 return {};
+@@ -49,8 +62,9 @@ function MosaicDropTarget(_a) {
+             isOver: monitor.isOver(),
+             draggedMosaicId: (monitor.getItem() || {}).mosaicId,
+         }); },
+-    }), _c = _b[0], isOver = _c.isOver, draggedMosaicId = _c.draggedMosaicId, connectDropTarget = _b[1];
++    }), _d = _c[0], isOver = _d.isOver, draggedMosaicId = _d.draggedMosaicId, connectDropTarget = _c[1];
+     return (react_1.default.createElement("div", { ref: connectDropTarget, className: (0, classnames_1.default)('drop-target', position, {
++            'reorder-target': reorderEnabled,
+             'drop-target-hover': isOver && draggedMosaicId === mosaicId,
+         }) }));
+ }
+diff --git a/node_modules/react-mosaic-component/lib/MosaicWindow.js b/node_modules/react-mosaic-component/lib/MosaicWindow.js
+index 133d354..06da94c 100644
+--- a/node_modules/react-mosaic-component/lib/MosaicWindow.js
++++ b/node_modules/react-mosaic-component/lib/MosaicWindow.js
+@@ -70,6 +70,26 @@ var types_1 = require("./types");
+ var mosaicUpdates_1 = require("./util/mosaicUpdates");
+ var mosaicUtilities_1 = require("./util/mosaicUtilities");
+ var OptionalBlueprint_1 = require("./util/OptionalBlueprint");
++var lastDragSourceEvent = null;
++function chainReactEventHandlers(first, second) {
++    if (first == null) {
++        return second;
++    }
++    return function (event) {
++        first(event);
++        second(event);
++    };
++}
++function withRecordedDragSourceEvent(element) {
++    var recordEvent = function (event) {
++        lastDragSourceEvent = event.nativeEvent || event;
++    };
++    return react_1.default.cloneElement(element, {
++        onPointerDown: chainReactEventHandlers(element.props.onPointerDown, recordEvent),
++        onMouseDown: chainReactEventHandlers(element.props.onMouseDown, recordEvent),
++        onTouchStart: chainReactEventHandlers(element.props.onTouchStart, recordEvent),
++    });
++}
+ var InternalMosaicWindow = /** @class */ (function (_super) {
+     __extends(InternalMosaicWindow, _super);
+     function InternalMosaicWindow() {
+@@ -80,7 +100,8 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
+         _this.rootElement = null;
+         _this.renderDropTarget = function (position) {
+             var path = _this.props.path;
+-            return react_1.default.createElement(MosaicDropTarget_1.MosaicDropTarget, { position: position, path: path, key: position });
++            var reorderEnabled = _this.context.reorderEnabled;
++            return react_1.default.createElement(MosaicDropTarget_1.MosaicDropTarget, { position: reorderEnabled ? undefined : position, path: path, key: reorderEnabled ? 'reorder' : position });
+         };
+         _this.split = function () {
+             var args = [];
+@@ -119,7 +140,7 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
+         _this.getPath = function () { return _this.props.path; };
+         _this.connectDragSource = function (connectedElements) {
+             var connectDragSource = _this.props.connectDragSource;
+-            return connectDragSource(connectedElements);
++            return connectDragSource(withRecordedDragSourceEvent(connectedElements));
+         };
+         _this.childContext = {
+             blueprintNamespace: _this.context.blueprintNamespace,
+@@ -136,9 +157,11 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
+     InternalMosaicWindow.prototype.render = function () {
+         var _this = this;
+         var _a = this.props, className = _a.className, isOver = _a.isOver, renderPreview = _a.renderPreview, additionalControls = _a.additionalControls, connectDropTarget = _a.connectDropTarget, connectDragPreview = _a.connectDragPreview, draggedMosaicId = _a.draggedMosaicId, disableAdditionalControlsOverlay = _a.disableAdditionalControlsOverlay;
++        var reorderEnabled = this.context.reorderEnabled;
+         return (react_1.default.createElement(contextTypes_1.MosaicWindowContext.Provider, { value: this.childContext }, connectDropTarget(react_1.default.createElement("div", { className: (0, classnames_1.default)('mosaic-window mosaic-drop-target', className, {
+                 'drop-target-hover': isOver && draggedMosaicId === this.context.mosaicId,
+                 'additional-controls-open': this.state.additionalControlsOpen,
++                'reorder-enabled': reorderEnabled,
+             }), ref: function (element) { return (_this.rootElement = element); } },
+             this.renderToolbar(),
+             react_1.default.createElement("div", { className: "mosaic-window-body" }, this.props.children),
+@@ -147,7 +170,9 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
+                 } })),
+             react_1.default.createElement("div", { className: "mosaic-window-additional-actions-bar" }, additionalControls),
+             connectDragPreview(renderPreview(this.props)),
+-            react_1.default.createElement("div", { className: "drop-target-container" }, (0, values_1.default)(internalTypes_1.MosaicDropTargetPosition).map(this.renderDropTarget))))));
++            react_1.default.createElement("div", { className: (0, classnames_1.default)('drop-target-container', {
++                    '-reorder-mode': reorderEnabled,
++                }) }, reorderEnabled ? this.renderDropTarget(undefined) : (0, values_1.default)(internalTypes_1.MosaicDropTargetPosition).map(this.renderDropTarget))))));
+     };
+     InternalMosaicWindow.prototype.getToolbarControls = function () {
+         var _a = this.props, toolbarControls = _a.toolbarControls, createNode = _a.createNode;
+@@ -166,8 +191,9 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
+         var _this = this;
+         var _b = this.props, title = _b.title, draggable = _b.draggable, additionalControls = _b.additionalControls, additionalControlButtonText = _b.additionalControlButtonText, path = _b.path, renderToolbar = _b.renderToolbar;
+         var additionalControlsOpen = this.state.additionalControlsOpen;
++        var reorderEnabled = this.context.reorderEnabled;
+         var toolbarControls = this.getToolbarControls();
+-        var draggableAndNotRoot = draggable && path.length > 0;
++        var draggableAndNotRoot = draggable && path.length > 0 && !reorderEnabled;
+         var connectIfDraggable = draggableAndNotRoot ? this.props.connectDragSource : function (el) { return el; };
+         if (renderToolbar) {
+             var connectedToolbar = connectIfDraggable(renderToolbar(this.props, draggable));
+@@ -208,28 +234,103 @@ var InternalMosaicWindow = /** @class */ (function (_super) {
+     return InternalMosaicWindow;
+ }(react_1.default.Component));
+ exports.InternalMosaicWindow = InternalMosaicWindow;
++function canStartReorderDrag(globalEvent) {
++    if (globalEvent == null) {
++        return false;
++    }
++    var eventType = typeof globalEvent.type === 'string' ? globalEvent.type : '';
++    if (eventType.indexOf('touch') === 0) {
++        return false;
++    }
++    if (typeof TouchEvent !== 'undefined' && globalEvent instanceof TouchEvent) {
++        return false;
++    }
++    if (typeof PointerEvent !== 'undefined' && globalEvent instanceof PointerEvent) {
++        return globalEvent.pointerType === 'mouse' && globalEvent.isPrimary && globalEvent.button === 0;
++    }
++    if (typeof MouseEvent !== 'undefined' && globalEvent instanceof MouseEvent) {
++        return globalEvent.button === 0;
++    }
++    if (typeof globalEvent.button === 'number' && globalEvent.button !== 0) {
++        return false;
++    }
++    if (typeof globalEvent.which === 'number' && globalEvent.which !== 1) {
++        return false;
++    }
++    return true;
++}
+ function ConnectedInternalMosaicWindow(props) {
+-    var _a = (0, react_1.useContext)(contextTypes_1.MosaicContext), mosaicActions = _a.mosaicActions, mosaicId = _a.mosaicId;
++    var _a = (0, react_1.useContext)(contextTypes_1.MosaicContext), mosaicActions = _a.mosaicActions, mosaicId = _a.mosaicId, reorderEnabled = _a.reorderEnabled;
+     var _b = (0, react_dnd_1.useDrag)({
+         type: types_1.MosaicDragType.WINDOW,
+         item: function (_monitor) {
++            if (reorderEnabled && !canStartReorderDrag(lastDragSourceEvent)) {
++                lastDragSourceEvent = null;
++                return null;
++            }
++            lastDragSourceEvent = null;
+             if (props.onDragStart) {
+                 props.onDragStart();
+             }
+             // TODO: Actually just delete instead of hiding
+             // The defer is necessary as the element must be present on start for HTML DnD to not cry
++            var rootSnapshot = mosaicActions.getRoot();
+             var hideTimer = (0, defer_1.default)(function () { return mosaicActions.hide(props.path); });
+             return {
+                 mosaicId: mosaicId,
+                 hideTimer: hideTimer,
++                sourcePath: props.path,
++                rootSnapshot: rootSnapshot,
+             };
+         },
+         end: function (item, monitor) {
+-            var hideTimer = item.hideTimer;
++            if (item == null) {
++                if (props.onDragEnd) {
++                    props.onDragEnd('reset');
++                }
++                return;
++            }
++            var hideTimer = item.hideTimer, rootSnapshot = item.rootSnapshot;
+             // If the hide call hasn't happened yet, cancel it
+             window.clearTimeout(hideTimer);
+             var ownPath = props.path;
+             var dropResult = (monitor.getDropResult() || {});
++            if (reorderEnabled) {
++                var slotIndex = dropResult.slotIndex;
++                if (dropResult.kind === 'reorder' && rootSnapshot != null && typeof slotIndex === 'number') {
++                    var sourceNode = (0, mosaicUtilities_1.getAndAssertNodeAtPathExists)(rootSnapshot, ownPath);
++                    var sourceIndex = (0, mosaicUtilities_1.getLeaves)(rootSnapshot).indexOf(sourceNode);
++                    if (sourceIndex !== -1 && sourceIndex !== slotIndex) {
++                        var reorderedTree = (0, mosaicUpdates_1.createReorderedTreePreservingShape)(rootSnapshot, ownPath, slotIndex);
++                        mosaicActions.updateTree([
++                            {
++                                path: [],
++                                spec: {
++                                    $set: reorderedTree,
++                                },
++                            },
++                        ]);
++                        if (props.onDragEnd) {
++                            props.onDragEnd('drop');
++                        }
++                        return;
++                    }
++                }
++                if (rootSnapshot != null) {
++                    mosaicActions.updateTree([
++                        {
++                            path: [],
++                            spec: {
++                                $set: rootSnapshot,
++                            },
++                        },
++                    ]);
++                }
++                if (props.onDragEnd) {
++                    props.onDragEnd('reset');
++                }
++                return;
++            }
+             var position = dropResult.position, destinationPath = dropResult.path;
+             if (position != null && destinationPath != null && !(0, isEqual_1.default)(destinationPath, ownPath)) {
+                 mosaicActions.updateTree((0, mosaicUpdates_1.createDragToUpdates)(mosaicActions.getRoot(), ownPath, destinationPath, position));
+diff --git a/node_modules/react-mosaic-component/lib/RootDropTargets.js b/node_modules/react-mosaic-component/lib/RootDropTargets.js
+index 2c74825..717c9b6 100644
+--- a/node_modules/react-mosaic-component/lib/RootDropTargets.js
++++ b/node_modules/react-mosaic-component/lib/RootDropTargets.js
+@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.RootDropTargets = void 0;
+ var classnames_1 = __importDefault(require("classnames"));
++var contextTypes_1 = require("./contextTypes");
+ var values_1 = __importDefault(require("lodash/values"));
+ var react_1 = __importDefault(require("react"));
+ var react_dnd_1 = require("react-dnd");
+@@ -12,6 +13,7 @@ var internalTypes_1 = require("./internalTypes");
+ var MosaicDropTarget_1 = require("./MosaicDropTarget");
+ var types_1 = require("./types");
+ exports.RootDropTargets = react_1.default.memo(function () {
++    var reorderEnabled = react_1.default.useContext(contextTypes_1.MosaicContext).reorderEnabled;
+     var isDragging = (0, react_dnd_1.useDrop)({
+         accept: types_1.MosaicDragType.WINDOW,
+         collect: function (monitor) { return ({
+@@ -19,6 +21,9 @@ exports.RootDropTargets = react_1.default.memo(function () {
+         }); },
+     })[0].isDragging;
+     var delayedIsDragging = useDelayedTrue(isDragging, 0);
++    if (reorderEnabled) {
++        return null;
++    }
+     return (react_1.default.createElement("div", { className: (0, classnames_1.default)('drop-target-container', {
+             '-dragging': delayedIsDragging,
+         }) }, (0, values_1.default)(internalTypes_1.MosaicDropTargetPosition).map(function (position) { return (react_1.default.createElement(MosaicDropTarget_1.MosaicDropTarget, { position: position, path: [], key: position })); })));
+diff --git a/node_modules/react-mosaic-component/lib/contextTypes.d.ts b/node_modules/react-mosaic-component/lib/contextTypes.d.ts
+index d414e78..e0f6b73 100644
+--- a/node_modules/react-mosaic-component/lib/contextTypes.d.ts
++++ b/node_modules/react-mosaic-component/lib/contextTypes.d.ts
+@@ -11,6 +11,7 @@ export interface MosaicContext<T extends MosaicKey> {
+     mosaicActions: MosaicRootActions<T>;
+     mosaicId: string;
+     blueprintNamespace: string;
++    reorderEnabled: boolean;
+ }
+ /**
+  * Context provided to everything within a Mosaic Window
+diff --git a/node_modules/react-mosaic-component/lib/internalTypes.d.ts b/node_modules/react-mosaic-component/lib/internalTypes.d.ts
+index 1fe89f0..af39fc9 100644
+--- a/node_modules/react-mosaic-component/lib/internalTypes.d.ts
++++ b/node_modules/react-mosaic-component/lib/internalTypes.d.ts
+@@ -1,4 +1,4 @@
+-import { MosaicPath } from './types';
++import { MosaicKey, MosaicNode, MosaicPath } from './types';
+ export type MosaicDropTargetPosition = 'top' | 'bottom' | 'left' | 'right';
+ export declare const MosaicDropTargetPosition: {
+     TOP: "top";
+@@ -7,10 +7,14 @@ export declare const MosaicDropTargetPosition: {
+     RIGHT: "right";
+ };
+ export interface MosaicDropData {
++    kind?: 'split' | 'reorder';
+     path?: MosaicPath;
+     position?: MosaicDropTargetPosition;
++    slotIndex?: number;
+ }
+ export interface MosaicDragItem {
+     mosaicId: string;
+     hideTimer: number;
++    sourcePath: MosaicPath;
++    rootSnapshot: MosaicNode<MosaicKey> | null;
+ }
+diff --git a/node_modules/react-mosaic-component/lib/util/mosaicUpdates.d.ts b/node_modules/react-mosaic-component/lib/util/mosaicUpdates.d.ts
+index 066eec9..a727b1b 100644
+--- a/node_modules/react-mosaic-component/lib/util/mosaicUpdates.d.ts
++++ b/node_modules/react-mosaic-component/lib/util/mosaicUpdates.d.ts
+@@ -31,6 +31,11 @@ export declare function createRemoveUpdate<T extends MosaicKey>(root: MosaicNode
+  * @returns {(MosaicUpdate<T>|{path: MosaicPath, spec: {$set: {first: MosaicNode<T>, second: MosaicNode<T>, direction: MosaicDirection}}})[]}
+  */
+ export declare function createDragToUpdates<T extends MosaicKey>(root: MosaicNode<T>, sourcePath: MosaicPath, destinationPath: MosaicPath, position: MosaicDropTargetPosition): MosaicUpdate<T>[];
++/**
++ * Creates a reordered tree while preserving the existing split topology.
++ * The target slot index is computed from the pre-removal visible leaf order.
++ */
++export declare function createReorderedTreePreservingShape<T extends MosaicKey>(root: MosaicNode<T>, sourcePath: MosaicPath, targetSlotIndex: number): MosaicNode<T>;
+ /**
+  * Sets the splitPercentage to hide the node at `path`
+  * @param path
+diff --git a/node_modules/react-mosaic-component/lib/util/mosaicUpdates.js b/node_modules/react-mosaic-component/lib/util/mosaicUpdates.js
+index 261ec1d..a693ecb 100644
+--- a/node_modules/react-mosaic-component/lib/util/mosaicUpdates.js
++++ b/node_modules/react-mosaic-component/lib/util/mosaicUpdates.js
+@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
+     return (mod && mod.__esModule) ? mod : { "default": mod };
+ };
+ Object.defineProperty(exports, "__esModule", { value: true });
+-exports.createExpandUpdate = exports.createHideUpdate = exports.createDragToUpdates = exports.createRemoveUpdate = exports.updateTree = exports.buildSpecFromUpdate = void 0;
++exports.createExpandUpdate = exports.createHideUpdate = exports.createReorderedTreePreservingShape = exports.createDragToUpdates = exports.createRemoveUpdate = exports.updateTree = exports.buildSpecFromUpdate = void 0;
+ var immutability_helper_1 = __importDefault(require("immutability-helper"));
+ var drop_1 = __importDefault(require("lodash/drop"));
+ var dropRight_1 = __importDefault(require("lodash/dropRight"));
+@@ -115,6 +115,33 @@ function createDragToUpdates(root, sourcePath, destinationPath, position) {
+     return updates;
+ }
+ exports.createDragToUpdates = createDragToUpdates;
++function createReorderedTreePreservingShape(root, sourcePath, targetSlotIndex) {
++    var leaves = (0, mosaicUtilities_1.getLeaves)(root);
++    var sourceNode = (0, mosaicUtilities_1.getAndAssertNodeAtPathExists)(root, sourcePath);
++    var sourceIndex = leaves.indexOf(sourceNode);
++    if (sourceIndex === -1 || targetSlotIndex < 0 || targetSlotIndex >= leaves.length || sourceIndex === targetSlotIndex) {
++        return root;
++    }
++    var reorderedLeaves = leaves.slice();
++    var removed = reorderedLeaves.splice(sourceIndex, 1);
++    reorderedLeaves.splice(targetSlotIndex, 0, removed[0]);
++    var nextLeafIndex = { value: 0 };
++    return rebuildTreeWithLeaves(root, reorderedLeaves, nextLeafIndex);
++}
++exports.createReorderedTreePreservingShape = createReorderedTreePreservingShape;
++function rebuildTreeWithLeaves(node, leaves, nextLeafIndex) {
++    if (!(0, mosaicUtilities_1.isParent)(node)) {
++        var nextLeaf = leaves[nextLeafIndex.value];
++        nextLeafIndex.value += 1;
++        return nextLeaf;
++    }
++    return {
++        direction: node.direction,
++        first: rebuildTreeWithLeaves(node.first, leaves, nextLeafIndex),
++        second: rebuildTreeWithLeaves(node.second, leaves, nextLeafIndex),
++        splitPercentage: node.splitPercentage,
++    };
++}
+ /**
+  * Sets the splitPercentage to hide the node at `path`
+  * @param path
+diff --git a/node_modules/react-mosaic-component/react-mosaic-component.css b/node_modules/react-mosaic-component/react-mosaic-component.css
+index 2694259..ba38474 100644
+--- a/node_modules/react-mosaic-component/react-mosaic-component.css
++++ b/node_modules/react-mosaic-component/react-mosaic-component.css
+@@ -147,6 +147,22 @@
+ .mosaic-drop-target .drop-target-container .drop-target.drop-target-hover.top {
+   bottom: calc(100% -  50% );
+ }
++.mosaic-drop-target .drop-target-container.-reorder-mode .drop-target.reorder-target {
++  top: 0;
++  right: 0;
++  bottom: 0;
++  left: 0;
++}
++.mosaic.mosaic-blueprint-theme .mosaic-drop-target .drop-target-container.-reorder-mode .drop-target.reorder-target {
++  background: rgba(138, 187, 255, 0.2);
++  border: 2px solid #4c90f0;
++  border-radius: 2px;
++  transition: opacity 100ms;
++}
++.mosaic.mosaic-blueprint-theme.bp4-dark .mosaic-drop-target .drop-target-container.-reorder-mode .drop-target.reorder-target {
++  background: rgba(33, 93, 176, 0.2);
++  border-color: #2d72d2;
++}
+ .mosaic-window,
+ .mosaic-preview {
+   position: relative;

@@ -8,23 +8,25 @@ import { MosaicToolbar } from './MosaicToolbar';
 import { ContextMenu } from '../ContextMenu';
 import { ConfirmModal } from '../Modal';
 import { useMosaicLayout } from '../../hooks/useMosaicLayout';
-import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useFocusHistory } from '../../hooks/useFocusHistory';
 import { buildTerminalContextMenuItems } from '../../utils/contextMenuBuilder';
 import {
-  applyEqualMode,
   applyFocusMode,
   applyMultiFocusApprox,
   AUTO_FOCUS_RATIO_KEY,
   AUTO_FOCUS_RATIO_DEFAULT,
+  buildRecoveredEqualMosaicTree,
   FOCUS_RATIO_KEY,
   FOCUS_RATIO_DEFAULT,
   buildEqualMosaicTree,
   clampSplitPercentages,
   extractLeafIds,
   getMinPercentage,
+  isFixedEqualMosaicTree,
   removeFromMosaicTree,
+  restoreLayoutWithSessionRecovery,
+  type EqualLayoutArrangement,
 } from '../../utils/mosaic';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
@@ -75,6 +77,7 @@ export function MosaicContainer({
   onLayoutChange,
 }: MosaicContainerProps) {
   const currentTabIds = tabs.map(t => t.id);
+  const currentTabIdsKey = currentTabIds.join(',');
   const scheduleLayoutRefresh = useCallback(() => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -110,18 +113,15 @@ export function MosaicContainer({
     return FOCUS_RATIO_DEFAULT;
   }, []);
 
-  const { mode: layoutMode, focusTarget, setMode } = useLayoutMode(
-    persistedMode,
-    persistedFocusTarget,
-  );
-
-  // 워크스페이스 전환 시 persistedMode가 변경되면 UI mode도 동기화
-  useEffect(() => {
-    setMode(persistedMode, persistedFocusTarget ?? undefined);
-  }, [persistedMode, persistedFocusTarget]); // eslint-disable-line react-hooks/exhaustive-deps
+  const layoutMode = persistedMode;
+  const focusTarget = persistedMode === 'focus' ? persistedFocusTarget : null;
 
   const contextMenu = useContextMenu();
   const focusHistory = useFocusHistory();
+  const mosaicTreeRef = useRef(mosaicTree);
+  mosaicTreeRef.current = mosaicTree;
+  const lastMosaicChangeRef = useRef<MosaicNode<string> | null>(mosaicTree);
+  const equalArrangementRef = useRef<EqualLayoutArrangement>('rows');
 
   // Pending close tab confirmation
   const [pendingCloseTabId, setPendingCloseTabId] = useState<string | null>(null);
@@ -129,9 +129,90 @@ export function MosaicContainer({
   // Focus refs per tile (DOM element) — used to programmatically focus a tile
   const tileFocusRefs = useRef<Map<string, HTMLElement>>(new Map());
 
-  // User drag detection via pointerdown/pointerup on .mosaic-split
-  const isUserDragRef = useRef(false);
+  // User interaction detection
+  const isSplitResizeInteractionRef = useRef(false);
+  const isTileDragInteractionRef = useRef(false);
+  const splitInteractionStartKeyRef = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const getEqualArrangementForButtonPress = useCallback((): EqualLayoutArrangement => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect && rect.height > rect.width) {
+      return 'cols';
+    }
+    return 'rows';
+  }, []);
+
+  const getCurrentEqualArrangement = useCallback((): EqualLayoutArrangement => {
+    if (isFixedEqualMosaicTree(mosaicTreeRef.current, 'rows')) {
+      return 'rows';
+    }
+    if (isFixedEqualMosaicTree(mosaicTreeRef.current, 'cols')) {
+      return 'cols';
+    }
+    return equalArrangementRef.current;
+  }, []);
+
+  const getValidFocusTarget = useCallback(
+    (candidate?: string | null, ids: string[] = currentTabIds): string | null => {
+      return candidate && ids.includes(candidate) ? candidate : null;
+    },
+    [currentTabIds],
+  );
+
+  const buildTreeForMode = useCallback(
+    (
+      ids: string[],
+      mode: typeof layoutMode,
+      focusCandidate?: string | null,
+      sourceTree: MosaicNode<string> | null = mosaicTreeRef.current,
+    ): MosaicNode<string> => {
+      const arrangement = getCurrentEqualArrangement();
+      const recoveredTree = sourceTree
+        ? restoreLayoutWithSessionRecovery(sourceTree, ids).tree
+        : buildEqualMosaicTree(ids, arrangement);
+      const equalTree = buildRecoveredEqualMosaicTree(recoveredTree, ids, arrangement);
+
+      if (mode === 'none') {
+        return recoveredTree;
+      }
+
+      if (mode === 'equal') {
+        return equalTree;
+      }
+
+      const minPct = getMinPercentage(ids.length);
+      if (mode === 'focus') {
+        const validFocusTarget = getValidFocusTarget(focusCandidate, ids);
+        return validFocusTarget
+          ? applyFocusMode(recoveredTree, validFocusTarget, minPct, getFocusRatio())
+          : equalTree;
+      }
+
+      const idleIds = new Set(
+        tabs
+          .filter(tab => ids.includes(tab.id) && tab.status === 'idle')
+          .map(tab => tab.id),
+      );
+      return applyMultiFocusApprox(recoveredTree, idleIds, minPct, getAutoRatio());
+    },
+    [getAutoRatio, getCurrentEqualArrangement, getFocusRatio, getValidFocusTarget, tabs],
+  );
+
+  useEffect(() => {
+    if (layoutMode !== 'equal' || !mosaicTree) {
+      return;
+    }
+
+    if (isFixedEqualMosaicTree(mosaicTree, 'rows')) {
+      equalArrangementRef.current = 'rows';
+      return;
+    }
+
+    if (isFixedEqualMosaicTree(mosaicTree, 'cols')) {
+      equalArrangementRef.current = 'cols';
+    }
+  }, [layoutMode, mosaicTree]);
 
   // tabMap for O(1) lookup
   const tabMap = useMemo(() => new Map(tabs.map(t => [t.id, t])), [tabs]);
@@ -142,12 +223,29 @@ export function MosaicContainer({
   useEffect(() => {
     if (!mosaicTree || currentTabIds.length === 0) return;
     const leafIds = extractLeafIds(mosaicTree);
-    const hasStale = leafIds.some(id => !tabMap.has(id));
-    if (hasStale) {
-      setMosaicTree(buildEqualMosaicTree(currentTabIds));
+      const hasStale = leafIds.some(id => !tabMap.has(id));
+      if (hasStale) {
+        const validFocusTarget = getValidFocusTarget(focusTarget);
+        if (layoutMode === 'focus' && !validFocusTarget) {
+          persistLayoutMode('equal');
+          persistFocusTarget(null);
+        }
+      setMosaicTree(buildTreeForMode(currentTabIds, layoutMode === 'focus' && !validFocusTarget ? 'equal' : layoutMode, validFocusTarget));
       scheduleLayoutRefresh();
     }
-  }, [currentTabIds, mosaicTree, scheduleLayoutRefresh, setMosaicTree, tabMap]);
+  }, [
+    buildTreeForMode,
+    currentTabIds,
+    focusTarget,
+    getValidFocusTarget,
+    layoutMode,
+    mosaicTree,
+    persistFocusTarget,
+    persistLayoutMode,
+    scheduleLayoutRefresh,
+    setMosaicTree,
+    tabMap,
+  ]);
 
   // Rebuild tree when tab list length changes
   // prevTabCountRef는 workspaceId 기준으로 초기화 — 워크스페이스 전환은 탭 수 변경으로 취급하지 않음
@@ -170,22 +268,39 @@ export function MosaicContainer({
       return;
     }
 
-    if (mosaicTree === null) {
-      setMosaicTree(buildEqualMosaicTree(currentTabIds));
-      scheduleLayoutRefresh();
-      return;
-    }
+    if (mosaicTree === null) return;
 
-    // 동일 워크스페이스 내 탭 추가/삭제 시에만 equal 모드로 리셋
+    // 동일 워크스페이스 내 탭 추가/삭제 시에도 현재 mode 계약을 보존한다.
     if (prevCount !== tabs.length) {
       const ids = tabs.map(t => t.id);
-      setMosaicTree(buildEqualMosaicTree(ids));
-      setMode('equal');           // UI 모드도 equal로 동기화
-      persistLayoutMode('equal'); // 저장 state도 동기화
-      persistFocusTarget(null);
+      const validFocusTarget = getValidFocusTarget(focusTarget, ids);
+      const nextMode = layoutMode === 'focus' && !validFocusTarget ? 'equal' : layoutMode;
+
+      if (nextMode !== layoutMode) {
+        persistLayoutMode('equal');
+        persistFocusTarget(null);
+      } else if (layoutMode !== 'focus') {
+        persistFocusTarget(null);
+      }
+
+      setMosaicTree(buildTreeForMode(ids, nextMode, validFocusTarget));
       scheduleLayoutRefresh();
     }
-  }, [currentTabIds, mosaicTree, persistFocusTarget, persistLayoutMode, scheduleLayoutRefresh, setMode, setMosaicTree, tabs.length, workspaceId]);
+  }, [
+    buildTreeForMode,
+    currentTabIds,
+    focusTarget,
+    getValidFocusTarget,
+    layoutMode,
+    mosaicTree,
+    persistFocusTarget,
+    persistLayoutMode,
+    scheduleLayoutRefresh,
+    setMosaicTree,
+    tabs,
+    tabs.length,
+    workspaceId,
+  ]);
 
   // Auto mode: re-apply tree when tab statuses change (3s delay)
   const tabStatusKey = tabs.map(t => `${t.id}:${t.status}`).join(',');
@@ -212,15 +327,6 @@ export function MosaicContainer({
     };
   }, [tabStatusKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Focus mode: if focus target tab is closed, revert to equal mode
-  useEffect(() => {
-    if (layoutMode !== 'focus' || !focusTarget) return;
-    const targetStillExists = tabs.some(t => t.id === focusTarget);
-    if (!targetStillExists) {
-      handleLayoutModeChange('equal');
-    }
-  }, [tabs.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Attach pointer listeners to mosaic-split elements for user drag detection
   useEffect(() => {
     const container = containerRef.current;
@@ -229,19 +335,14 @@ export function MosaicContainer({
     const handlePointerDown = (e: PointerEvent) => {
       const target = e.target as HTMLElement;
       if (target.closest('.mosaic-split')) {
-        isUserDragRef.current = true;
+        isSplitResizeInteractionRef.current = true;
+        splitInteractionStartKeyRef.current = mosaicTreeRef.current ? JSON.stringify(mosaicTreeRef.current) : 'null';
       }
     };
 
-    const handlePointerUp = () => {
-      isUserDragRef.current = false;
-    };
-
     container.addEventListener('pointerdown', handlePointerDown);
-    container.addEventListener('pointerup', handlePointerUp);
     return () => {
       container.removeEventListener('pointerdown', handlePointerDown);
-      container.removeEventListener('pointerup', handlePointerUp);
     };
   }, []);
 
@@ -250,36 +351,56 @@ export function MosaicContainer({
     (newTree: MosaicNode<string> | null) => {
       const minPct = getMinPercentage(tabs.length);
       const clamped = newTree ? clampSplitPercentages(newTree, minPct) : null;
+      lastMosaicChangeRef.current = clamped;
       setMosaicTree(clamped);
-      debouncedSave();
+      const deferSaveUntilDropCommit = isTileDragInteractionRef.current && layoutMode === 'equal';
+      if (!deferSaveUntilDropCommit) {
+        debouncedSave();
+      }
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           onLayoutChange?.();
         });
       });
     },
-    [tabs.length, setMosaicTree, debouncedSave, onLayoutChange],
+    [layoutMode, tabs.length, setMosaicTree, debouncedSave, onLayoutChange],
   );
 
+  const applyModeToTree = useCallback((
+    mode: typeof layoutMode,
+    tree: MosaicNode<string>,
+    focusTabId?: string | null,
+  ): MosaicNode<string> => {
+    const minPct = getMinPercentage(tabs.length);
+    if (mode === 'none') return tree;
+    if (mode === 'equal') return buildEqualMosaicTree(extractLeafIds(tree), equalArrangementRef.current);
+    if (mode === 'focus') {
+      const target = focusTabId ?? null;
+      return target ? applyFocusMode(tree, target, minPct, getFocusRatio()) : buildEqualMosaicTree(extractLeafIds(tree), equalArrangementRef.current);
+    }
+    const idleIds = new Set(tabs.filter(t => t.status === 'idle').map(t => t.id));
+    return applyMultiFocusApprox(tree, idleIds, minPct, getAutoRatio());
+  }, [tabs, getFocusRatio, getAutoRatio, layoutMode]);
+
   const handleLayoutModeChange = useCallback(
-    (mode: typeof layoutMode, focusTabId?: string) => {
-      setMode(mode, focusTabId);
+    (mode: typeof layoutMode, focusTabId?: string, source: 'toolbar' | 'focus-sync' = 'toolbar') => {
+      const nextMode =
+        source === 'toolbar' && mode === 'focus'
+          ? (layoutMode === 'focus' && focusTarget === (focusTabId ?? null) ? 'none' : 'focus')
+          : source === 'toolbar' && layoutMode === mode
+          ? 'none'
+          : mode;
+      if (source === 'toolbar' && nextMode === 'equal') {
+        equalArrangementRef.current = getEqualArrangementForButtonPress();
+      }
+
       // useMosaicLayout의 state도 동기화하여 debouncedSave가 올바른 값 저장
-      persistLayoutMode(mode);
-      persistFocusTarget(mode === 'focus' ? (focusTabId ?? null) : null);
+      persistLayoutMode(nextMode);
+      persistFocusTarget(nextMode === 'focus' ? (focusTabId ?? null) : null);
+
       // Apply immediately to tree
       if (mosaicTree) {
-        const minPct = getMinPercentage(tabs.length);
-        let newTree: MosaicNode<string>;
-        if (mode === 'equal') {
-          newTree = applyEqualMode(mosaicTree);
-        } else if (mode === 'focus') {
-          const target = focusTabId ?? null;
-          newTree = target ? applyFocusMode(mosaicTree, target, minPct, getFocusRatio()) : applyEqualMode(mosaicTree);
-        } else {
-          const idleIds = new Set(tabs.filter(t => t.status === 'idle').map(t => t.id));
-          newTree = applyMultiFocusApprox(mosaicTree, idleIds, minPct, getAutoRatio());
-        }
+        const newTree = applyModeToTree(nextMode, mosaicTree, focusTabId ?? null);
         setMosaicTree(newTree);
       }
       debouncedSave();
@@ -292,8 +413,67 @@ export function MosaicContainer({
         });
       });
     },
-    [setMode, persistLayoutMode, persistFocusTarget, mosaicTree, tabs, setMosaicTree, debouncedSave, onLayoutChange],
+    [layoutMode, focusTarget, persistLayoutMode, persistFocusTarget, mosaicTree, setMosaicTree, debouncedSave, onLayoutChange, applyModeToTree, getEqualArrangementForButtonPress],
   );
+
+  // Focus mode: if focus target tab is closed or replaced, revert to equal mode
+  useEffect(() => {
+    if (layoutMode !== 'focus' || !focusTarget) return;
+    const targetStillExists = currentTabIds.includes(focusTarget);
+    if (!targetStillExists) {
+      handleLayoutModeChange('equal', undefined, 'focus-sync');
+    }
+  }, [currentTabIdsKey, focusTarget, handleLayoutModeChange, layoutMode]);
+
+  const handleMosaicRelease = useCallback((releasedTree: MosaicNode<string> | null) => {
+    if (!isSplitResizeInteractionRef.current) {
+      return;
+    }
+
+    if (!releasedTree) {
+      isSplitResizeInteractionRef.current = false;
+      splitInteractionStartKeyRef.current = null;
+      return;
+    }
+
+    const minPct = getMinPercentage(tabs.length);
+    const clamped = clampSplitPercentages(releasedTree, minPct);
+    if (!clamped) {
+      isSplitResizeInteractionRef.current = false;
+      splitInteractionStartKeyRef.current = null;
+      return;
+    }
+
+    const releasedKey = JSON.stringify(clamped);
+    const hasRealResize = splitInteractionStartKeyRef.current !== null && splitInteractionStartKeyRef.current !== releasedKey;
+    if (layoutMode === 'equal' && hasRealResize) {
+      persistLayoutMode('none');
+      persistFocusTarget(null);
+    }
+    setMosaicTree(clamped);
+    debouncedSave();
+    scheduleLayoutRefresh();
+
+    isSplitResizeInteractionRef.current = false;
+    splitInteractionStartKeyRef.current = null;
+  }, [layoutMode, persistLayoutMode, persistFocusTarget, setMosaicTree, debouncedSave, scheduleLayoutRefresh, tabs.length]);
+
+  const handleTileDragEnd = useCallback((type: 'drop' | 'reset') => {
+    if (type === 'drop' && layoutMode === 'equal' && lastMosaicChangeRef.current) {
+      const equalized = buildEqualMosaicTree(
+        extractLeafIds(lastMosaicChangeRef.current),
+        equalArrangementRef.current,
+      );
+      lastMosaicChangeRef.current = equalized;
+      setMosaicTree(equalized);
+      persistLayoutMode('equal');
+      persistFocusTarget(null);
+      debouncedSave();
+      scheduleLayoutRefresh();
+    }
+
+    isTileDragInteractionRef.current = false;
+  }, [layoutMode, setMosaicTree, persistLayoutMode, persistFocusTarget, debouncedSave, scheduleLayoutRefresh]);
 
   // Clipboard: copy selected text from terminal (reads from clipboard after xterm writes it)
   const handleCopy = useCallback(async (tabId: string) => {
@@ -366,7 +546,7 @@ export function MosaicContainer({
         onSelectTab(tabId);
       }
       if (layoutMode === 'focus') {
-        handleLayoutModeChange('focus', tabId);
+        handleLayoutModeChange('focus', tabId, 'focus-sync');
       }
     },
     [focusHistory, activeTabId, onSelectTab, layoutMode, handleLayoutModeChange],
@@ -389,15 +569,20 @@ export function MosaicContainer({
         <MosaicWindow<string>
           path={path}
           title={tabId}
+          draggable={layoutMode !== 'equal'}
+          onDragStart={() => {
+            isTileDragInteractionRef.current = true;
+          }}
+          onDragEnd={handleTileDragEnd}
           renderToolbar={() => (
             <div style={{ position: 'relative', width: '100%', height: 0 }}>
               <MosaicToolbar
                 layoutMode={layoutMode}
                 onLayoutModeChange={(mode) => {
                   if (mode === 'focus') {
-                    handleLayoutModeChange('focus', tabId);
+                    handleLayoutModeChange('focus', tabId, 'toolbar');
                   } else {
-                    handleLayoutModeChange(mode);
+                    handleLayoutModeChange(mode, undefined, 'toolbar');
                   }
                 }}
               />
@@ -431,6 +616,7 @@ export function MosaicContainer({
       layoutMode,
       contextMenu.open,
       handleLayoutModeChange,
+      handleTileDragEnd,
       onRestartTab,
       onAddTab,
       renderTerminal,
@@ -443,13 +629,13 @@ export function MosaicContainer({
   const minPaneSizePercentage = getMinPercentage(tabs.length);
   const effectiveTree = (() => {
     if (currentTabIds.length === 0) return null;
-    if (!mosaicTree) return buildEqualMosaicTree(currentTabIds);
+    if (!mosaicTree) return null;
 
     const leafIds = extractLeafIds(mosaicTree);
     const hasStaleLeaf = leafIds.some((id) => !tabMap.has(id));
     const hasMissingCurrentTab = currentTabIds.some((id) => !leafIds.includes(id));
     return hasStaleLeaf || hasMissingCurrentTab
-      ? buildEqualMosaicTree(currentTabIds)
+      ? buildTreeForMode(currentTabIds, layoutMode, focusTarget)
       : mosaicTree;
   })();
 
@@ -474,8 +660,10 @@ export function MosaicContainer({
         <Mosaic<string>
           value={effectiveTree}
           onChange={handleMosaicChange}
+          onRelease={handleMosaicRelease}
           renderTile={renderTile}
           className="mosaic-blueprint-theme"
+          reorderEnabled={layoutMode === 'equal'}
           resize={{ minimumPaneSizePercentage: minPaneSizePercentage }}
         />
       )}
