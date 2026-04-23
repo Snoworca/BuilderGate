@@ -4,6 +4,7 @@ import { MosaicWindowContext } from 'react-mosaic-component';
 import type { LayoutMode } from '../../hooks/useMosaicLayout';
 
 interface MosaicToolbarProps {
+  tabId: string;
   layoutMode: LayoutMode;
   onLayoutModeChange: (mode: LayoutMode) => void;
 }
@@ -56,7 +57,7 @@ function ToolbarButton({ mode, label, title, active, onClick }: ToolbarButtonPro
   );
 }
 
-export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarProps) {
+export function MosaicToolbar({ tabId, layoutMode, onLayoutModeChange }: MosaicToolbarProps) {
   const [expanded, setExpanded] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mosaicWindowContext = useContext(MosaicWindowContext);
@@ -118,6 +119,7 @@ export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarP
   return (
     <div
       data-grid-toolbar="true"
+      data-grid-toolbar-tab-id={tabId}
       style={{
         position: 'absolute',
         top: 4,

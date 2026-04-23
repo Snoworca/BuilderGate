@@ -33,6 +33,34 @@ import type { WorkspaceTabRuntime } from '../../types/workspace';
 import type { MosaicNode } from '../../types/workspace';
 import type { ShellInfo } from '../../types';
 
+type PredictiveSplitEdge = 'left' | 'right' | 'top' | 'bottom';
+type PredictiveSplitKind = 'cell' | 'root-edge';
+
+interface PredictiveSplitHoverInfo {
+  kind: PredictiveSplitKind;
+  edge: PredictiveSplitEdge;
+  rect: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  };
+  targetId: string | null;
+}
+
+interface PredictiveSplitOverlayState extends PredictiveSplitHoverInfo {
+  overlayRect: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  };
+}
+
+type AutoStatusOverridePayload = {
+  statusByTabId: Record<string, WorkspaceTabRuntime['status']>;
+};
+
 interface MosaicContainerProps {
   tabs: WorkspaceTabRuntime[];
   activeTabId: string | null;
@@ -132,8 +160,24 @@ export function MosaicContainer({
   // User interaction detection
   const isSplitResizeInteractionRef = useRef(false);
   const isTileDragInteractionRef = useRef(false);
+  const isAutoDragPauseActiveRef = useRef(false);
+  const pendingAutoReapplyRef = useRef(false);
   const splitInteractionStartKeyRef = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [predictiveSplitHover, setPredictiveSplitHover] = useState<PredictiveSplitOverlayState | null>(null);
+  const [testStatusOverrides, setTestStatusOverrides] = useState<Record<string, WorkspaceTabRuntime['status']>>({});
+  const injectAutoStatusChangeRef = useRef<(payload: AutoStatusOverridePayload) => void>(() => undefined);
+  const clearAutoStatusChangeRef = useRef<() => void>(() => undefined);
+  const setTestLayoutModeRef = useRef<(payload: { mode: typeof layoutMode; focusTarget?: string | null }) => void>(() => undefined);
+
+  const clearPredictiveSplitHover = useCallback(() => {
+    setPredictiveSplitHover(null);
+  }, []);
+
+  const layoutTabs = useMemo(
+    () => tabs.map((tab) => ({ ...tab, status: testStatusOverrides[tab.id] ?? tab.status })),
+    [tabs, testStatusOverrides],
+  );
 
   const getEqualArrangementForButtonPress = useCallback((): EqualLayoutArrangement => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -190,13 +234,13 @@ export function MosaicContainer({
       }
 
       const idleIds = new Set(
-        tabs
+        layoutTabs
           .filter(tab => ids.includes(tab.id) && tab.status === 'idle')
           .map(tab => tab.id),
       );
       return applyMultiFocusApprox(recoveredTree, idleIds, minPct, getAutoRatio());
     },
-    [getAutoRatio, getCurrentEqualArrangement, getFocusRatio, getValidFocusTarget, tabs],
+    [getAutoRatio, getCurrentEqualArrangement, getFocusRatio, getValidFocusTarget, layoutTabs],
   );
 
   useEffect(() => {
@@ -303,18 +347,20 @@ export function MosaicContainer({
   ]);
 
   // Auto mode: re-apply tree when tab statuses change (3s delay)
-  const tabStatusKey = tabs.map(t => `${t.id}:${t.status}`).join(',');
+  const tabStatusKey = layoutTabs.map(t => `${t.id}:${t.status}`).join(',');
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onLayoutChangeRef = useRef(onLayoutChange);
   onLayoutChangeRef.current = onLayoutChange;
-  useEffect(() => {
-    if (layoutMode !== 'auto') return;
-    if (!mosaicTree) return;
+  const scheduleAutoRebalance = useCallback((sourceTree?: MosaicNode<string> | null) => {
     if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
     autoTimerRef.current = setTimeout(() => {
-      const idleIds = new Set(tabs.filter(t => t.status === 'idle').map(t => t.id));
-      const minPct = getMinPercentage(tabs.length);
-      setMosaicTree(prev => prev ? applyMultiFocusApprox(prev, idleIds, minPct, getAutoRatio()) : prev);
+      const idleIds = new Set(layoutTabs.filter(t => t.status === 'idle').map(t => t.id));
+      const minPct = getMinPercentage(layoutTabs.length);
+      setMosaicTree(prev => {
+        const baseTree = sourceTree ?? prev;
+        return baseTree ? applyMultiFocusApprox(baseTree, idleIds, minPct, getAutoRatio()) : prev;
+      });
+      debouncedSave();
       autoTimerRef.current = null;
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -322,10 +368,100 @@ export function MosaicContainer({
         });
       });
     }, 1500);
+  }, [debouncedSave, getAutoRatio, layoutTabs, setMosaicTree]);
+  useEffect(() => {
+    if (layoutMode !== 'auto') return;
+    if (!mosaicTree) return;
+    if (isAutoDragPauseActiveRef.current) {
+      pendingAutoReapplyRef.current = true;
+      return;
+    }
+    scheduleAutoRebalance();
     return () => {
       if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
     };
-  }, [tabStatusKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [layoutMode, mosaicTree, scheduleAutoRebalance, tabStatusKey]);
+
+  const handleDropTargetHoverReport = useCallback((info: PredictiveSplitHoverInfo | null) => {
+    if (!info || layoutMode === 'equal') {
+      setPredictiveSplitHover(null);
+      return;
+    }
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (!containerRect) {
+      setPredictiveSplitHover(null);
+      return;
+    }
+    setPredictiveSplitHover({
+      ...info,
+      overlayRect: {
+        left: info.rect.left - containerRect.left,
+        top: info.rect.top - containerRect.top,
+        width: info.rect.width,
+        height: info.rect.height,
+      },
+    });
+  }, [layoutMode]);
+
+  useEffect(() => {
+    if (layoutMode === 'equal') {
+      setPredictiveSplitHover(null);
+    }
+  }, [layoutMode]);
+
+  const injectAutoStatusChange = useCallback((payload: AutoStatusOverridePayload) => {
+    setTestStatusOverrides(payload.statusByTabId ?? {});
+  }, []);
+
+  const clearAutoStatusChange = useCallback(() => {
+    setTestStatusOverrides({});
+  }, []);
+
+  injectAutoStatusChangeRef.current = injectAutoStatusChange;
+  clearAutoStatusChangeRef.current = clearAutoStatusChange;
+
+  useEffect(() => {
+    const canExposeTestApi = import.meta.env.DEV || navigator.webdriver;
+    if (!canExposeTestApi) {
+      return;
+    }
+    const win = window as Window & {
+      __PM_TEST_API__?: {
+        grid?: {
+          injectAutoStatusChange?: (payload: AutoStatusOverridePayload) => void;
+          clearAutoStatusChange?: () => void;
+          setLayoutMode?: (payload: { mode: typeof layoutMode; focusTarget?: string | null }) => void;
+        };
+      };
+    };
+    win.__PM_TEST_API__ ??= {};
+    win.__PM_TEST_API__.grid ??= {};
+    const inject = (payload: AutoStatusOverridePayload) => injectAutoStatusChangeRef.current(payload);
+    const clear = () => clearAutoStatusChangeRef.current();
+    const setMode = (payload: { mode: typeof layoutMode; focusTarget?: string | null }) => setTestLayoutModeRef.current(payload);
+    win.__PM_TEST_API__.grid.injectAutoStatusChange = inject;
+    win.__PM_TEST_API__.grid.clearAutoStatusChange = clear;
+    win.__PM_TEST_API__.grid.setLayoutMode = setMode;
+
+    return () => {
+      const currentApi = win.__PM_TEST_API__?.grid;
+      if (currentApi?.injectAutoStatusChange === inject) {
+        delete currentApi.injectAutoStatusChange;
+      }
+      if (currentApi?.clearAutoStatusChange === clear) {
+        delete currentApi.clearAutoStatusChange;
+      }
+      if (currentApi?.setLayoutMode === setMode) {
+        delete currentApi.setLayoutMode;
+      }
+      if (currentApi && Object.keys(currentApi).length === 0 && win.__PM_TEST_API__) {
+        delete win.__PM_TEST_API__.grid;
+      }
+      if (win.__PM_TEST_API__ && Object.keys(win.__PM_TEST_API__).length === 0) {
+        delete win.__PM_TEST_API__;
+      }
+    };
+  }, [workspaceId]);
 
   // Attach pointer listeners to mosaic-split elements for user drag detection
   useEffect(() => {
@@ -378,9 +514,53 @@ export function MosaicContainer({
       const target = focusTabId ?? null;
       return target ? applyFocusMode(tree, target, minPct, getFocusRatio()) : buildEqualMosaicTree(extractLeafIds(tree), equalArrangementRef.current);
     }
-    const idleIds = new Set(tabs.filter(t => t.status === 'idle').map(t => t.id));
+    const idleIds = new Set(layoutTabs.filter(t => t.status === 'idle').map(t => t.id));
     return applyMultiFocusApprox(tree, idleIds, minPct, getAutoRatio());
-  }, [tabs, getFocusRatio, getAutoRatio, layoutMode]);
+  }, [layoutTabs, getFocusRatio, getAutoRatio, layoutMode]);
+
+  const setTestLayoutMode = useCallback((payload: { mode: typeof layoutMode; focusTarget?: string | null }) => {
+    const nextMode = payload.mode;
+    const nextFocusTarget =
+      nextMode === 'focus'
+        ? getValidFocusTarget(payload.focusTarget ?? focusTarget, currentTabIds) ?? currentTabIds[0] ?? null
+        : null;
+    const nextTree = mosaicTreeRef.current
+      ? applyModeToTree(nextMode, mosaicTreeRef.current, nextFocusTarget)
+      : null;
+
+    persistLayoutMode(nextMode);
+    persistFocusTarget(nextFocusTarget);
+    if (nextTree) {
+      setMosaicTree(nextTree);
+      lastMosaicChangeRef.current = nextTree;
+      try {
+        localStorage.setItem(`mosaic_layout_${workspaceId}`, JSON.stringify({
+          schemaVersion: 1,
+          tree: nextTree,
+          mode: nextMode,
+          focusTarget: nextFocusTarget,
+          savedAt: new Date().toISOString(),
+        }));
+      } catch {
+        // ignore test-only persistence failures
+      }
+    }
+    debouncedSave();
+    scheduleLayoutRefresh();
+  }, [
+    applyModeToTree,
+    currentTabIds,
+    debouncedSave,
+    focusTarget,
+    getValidFocusTarget,
+    persistFocusTarget,
+    persistLayoutMode,
+    scheduleLayoutRefresh,
+    setMosaicTree,
+    workspaceId,
+  ]);
+
+  setTestLayoutModeRef.current = setTestLayoutMode;
 
   const handleLayoutModeChange = useCallback(
     (mode: typeof layoutMode, focusTabId?: string, source: 'toolbar' | 'focus-sync' = 'toolbar') => {
@@ -470,10 +650,32 @@ export function MosaicContainer({
       persistFocusTarget(null);
       debouncedSave();
       scheduleLayoutRefresh();
+    } else if (type === 'drop' && layoutMode === 'focus' && lastMosaicChangeRef.current && focusTarget) {
+      const focusedTree = applyFocusMode(
+        lastMosaicChangeRef.current,
+        focusTarget,
+        getMinPercentage(tabs.length),
+        getFocusRatio(),
+      );
+      lastMosaicChangeRef.current = focusedTree;
+      setMosaicTree(focusedTree);
+      persistLayoutMode('focus');
+      persistFocusTarget(focusTarget);
+      debouncedSave();
+      scheduleLayoutRefresh();
     }
 
+    if (layoutMode === 'auto') {
+      isAutoDragPauseActiveRef.current = false;
+      if (pendingAutoReapplyRef.current) {
+        pendingAutoReapplyRef.current = false;
+        scheduleAutoRebalance(type === 'drop' ? lastMosaicChangeRef.current : mosaicTreeRef.current);
+      }
+    }
+
+    clearPredictiveSplitHover();
     isTileDragInteractionRef.current = false;
-  }, [layoutMode, setMosaicTree, persistLayoutMode, persistFocusTarget, debouncedSave, scheduleLayoutRefresh]);
+  }, [clearPredictiveSplitHover, debouncedSave, focusTarget, getFocusRatio, layoutMode, mosaicTreeRef, persistFocusTarget, persistLayoutMode, scheduleAutoRebalance, scheduleLayoutRefresh, setMosaicTree, tabs.length]);
 
   // Clipboard: copy selected text from terminal (reads from clipboard after xterm writes it)
   const handleCopy = useCallback(async (tabId: string) => {
@@ -572,11 +774,21 @@ export function MosaicContainer({
           draggable={layoutMode !== 'equal'}
           onDragStart={() => {
             isTileDragInteractionRef.current = true;
+            clearPredictiveSplitHover();
+            if (layoutMode === 'auto') {
+              isAutoDragPauseActiveRef.current = true;
+              if (autoTimerRef.current) {
+                clearTimeout(autoTimerRef.current);
+                autoTimerRef.current = null;
+                pendingAutoReapplyRef.current = true;
+              }
+            }
           }}
           onDragEnd={handleTileDragEnd}
           renderToolbar={() => (
             <div style={{ position: 'relative', width: '100%', height: 0, overflow: 'visible' }}>
               <MosaicToolbar
+                tabId={tabId}
                 layoutMode={layoutMode}
                 onLayoutModeChange={(mode) => {
                   if (mode === 'focus') {
@@ -662,10 +874,35 @@ export function MosaicContainer({
           onChange={handleMosaicChange}
           onRelease={handleMosaicRelease}
           renderTile={renderTile}
-          className="mosaic-blueprint-theme"
+          className={`mosaic-blueprint-theme ${layoutMode === 'equal' ? 'grid-guide-equal' : 'grid-guide-predictive-split'}`}
           reorderEnabled={layoutMode === 'equal'}
+          reportDropTargetHover={layoutMode === 'equal' ? undefined : handleDropTargetHoverReport}
           resize={{ minimumPaneSizePercentage: minPaneSizePercentage }}
         />
+      )}
+
+      {layoutMode !== 'equal' && predictiveSplitHover && (
+        <div
+          data-grid-predictive-overlay="true"
+          data-grid-predictive-kind={predictiveSplitHover.kind}
+          data-grid-predictive-edge={predictiveSplitHover.edge}
+          data-grid-predictive-target-id={predictiveSplitHover.targetId ?? ''}
+          style={{
+            position: 'absolute',
+            left: `${predictiveSplitHover.overlayRect.left}px`,
+            top: `${predictiveSplitHover.overlayRect.top}px`,
+            width: `${predictiveSplitHover.overlayRect.width}px`,
+            height: `${predictiveSplitHover.overlayRect.height}px`,
+            pointerEvents: 'none',
+            zIndex: 24,
+          }}
+        >
+          <div className="grid-predictive-overlay">
+            <span className="grid-predictive-overlay-label">
+              {predictiveSplitHover.kind === 'root-edge' ? `루트 ${predictiveSplitHover.edge}` : `분할 ${predictiveSplitHover.edge}`}
+            </span>
+          </div>
+        </div>
       )}
 
       {/* Context menu */}

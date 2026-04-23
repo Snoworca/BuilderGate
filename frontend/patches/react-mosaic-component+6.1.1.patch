@@ -1,8 +1,15 @@
 diff --git a/node_modules/react-mosaic-component/lib/Mosaic.d.ts b/node_modules/react-mosaic-component/lib/Mosaic.d.ts
-index 2505fd3..a2050d4 100644
+index 2505fd3..7c82cfa 100644
 --- a/node_modules/react-mosaic-component/lib/Mosaic.d.ts
 +++ b/node_modules/react-mosaic-component/lib/Mosaic.d.ts
-@@ -45,6 +45,11 @@ export interface MosaicBaseProps<T extends MosaicKey> {
+@@ -1,5 +1,6 @@
+ import { DragDropManager } from 'dnd-core';
+ import React from 'react';
++import { MosaicDropTargetHoverInfo } from './contextTypes';
+ import { MosaicKey, MosaicNode, ResizeOptions, TileRenderer } from './types';
+ export interface MosaicBaseProps<T extends MosaicKey> {
+     /**
+@@ -45,6 +46,16 @@ export interface MosaicBaseProps<T extends MosaicKey> {
       * Override the react-dnd provider to allow applications to inject an existing drag and drop context
       */
      dragAndDropManager?: DragDropManager | undefined;
@@ -11,11 +18,16 @@ index 2505fd3..a2050d4 100644
 +     * Default: false
 +     */
 +    reorderEnabled?: boolean;
++    /**
++     * Reports hovered drop-target metadata to the application layer.
++     * Used for app-owned predictive overlays.
++     */
++    reportDropTargetHover?: ((info: MosaicDropTargetHoverInfo | null) => void) | undefined;
  }
  export interface MosaicControlledProps<T extends MosaicKey> extends MosaicBaseProps<T> {
      /**
 diff --git a/node_modules/react-mosaic-component/lib/Mosaic.js b/node_modules/react-mosaic-component/lib/Mosaic.js
-index 6f00345..c3d3659 100644
+index 6f00345..fd7d796 100644
 --- a/node_modules/react-mosaic-component/lib/Mosaic.js
 +++ b/node_modules/react-mosaic-component/lib/Mosaic.js
 @@ -102,11 +102,6 @@ var MosaicWithoutDragDropContext = /** @class */ (function (_super) {
@@ -30,7 +42,7 @@ index 6f00345..c3d3659 100644
          return _this;
      }
      MosaicWithoutDragDropContext.getDerivedStateFromProps = function (nextProps, prevState) {
-@@ -123,7 +118,13 @@ var MosaicWithoutDragDropContext = /** @class */ (function (_super) {
+@@ -123,7 +118,14 @@ var MosaicWithoutDragDropContext = /** @class */ (function (_super) {
      };
      MosaicWithoutDragDropContext.prototype.render = function () {
          var className = this.props.className;
@@ -40,6 +52,7 @@ index 6f00345..c3d3659 100644
 +            mosaicId: this.state.mosaicId,
 +            blueprintNamespace: this.props.blueprintNamespace,
 +            reorderEnabled: !!this.props.reorderEnabled,
++            reportDropTargetHover: this.props.reportDropTargetHover,
 +        };
 +        return (react_1.default.createElement(contextTypes_1.MosaicContext.Provider, { value: contextValue },
              react_1.default.createElement("div", { className: (0, classnames_1.default)(className, 'mosaic mosaic-drop-target') },
@@ -59,10 +72,10 @@ index 4bfad4c..47612eb 100644
  }
  export declare function MosaicDropTarget({ path, position }: MosaicDropTargetProps): JSX.Element;
 diff --git a/node_modules/react-mosaic-component/lib/MosaicDropTarget.js b/node_modules/react-mosaic-component/lib/MosaicDropTarget.js
-index cbc100d..03472cd 100644
+index cbc100d..4cc95be 100644
 --- a/node_modules/react-mosaic-component/lib/MosaicDropTarget.js
 +++ b/node_modules/react-mosaic-component/lib/MosaicDropTarget.js
-@@ -31,15 +31,28 @@ var classnames_1 = __importDefault(require("classnames"));
+@@ -31,15 +31,30 @@ var classnames_1 = __importDefault(require("classnames"));
  var react_1 = __importStar(require("react"));
  var react_dnd_1 = require("react-dnd");
  var contextTypes_1 = require("./contextTypes");
@@ -72,7 +85,9 @@ index cbc100d..03472cd 100644
      var path = _a.path, position = _a.position;
 -    var mosaicId = (0, react_1.useContext)(contextTypes_1.MosaicContext).mosaicId;
 -    var _b = (0, react_dnd_1.useDrop)({
-+    var _b = (0, react_1.useContext)(contextTypes_1.MosaicContext), mosaicActions = _b.mosaicActions, mosaicId = _b.mosaicId, reorderEnabled = _b.reorderEnabled;
++    var _b = (0, react_1.useContext)(contextTypes_1.MosaicContext), mosaicActions = _b.mosaicActions, mosaicId = _b.mosaicId, reorderEnabled = _b.reorderEnabled, reportDropTargetHover = _b.reportDropTargetHover;
++    var elementRef = (0, react_1.useRef)(null);
++    var hoverKey = (0, react_1.useMemo)(function () { return "".concat(path.join('.'), ":").concat(position !== null && position !== void 0 ? position : 'center'); }, [path, position]);
 +    var _c = (0, react_dnd_1.useDrop)({
          accept: types_1.MosaicDragType.WINDOW,
          drop: function (item, _monitor) {
@@ -94,19 +109,50 @@ index cbc100d..03472cd 100644
              }
              else {
                  return {};
-@@ -49,8 +62,9 @@ function MosaicDropTarget(_a) {
+@@ -49,8 +64,39 @@ function MosaicDropTarget(_a) {
              isOver: monitor.isOver(),
              draggedMosaicId: (monitor.getItem() || {}).mosaicId,
          }); },
 -    }), _c = _b[0], isOver = _c.isOver, draggedMosaicId = _c.draggedMosaicId, connectDropTarget = _b[1];
+-    return (react_1.default.createElement("div", { ref: connectDropTarget, className: (0, classnames_1.default)('drop-target', position, {
 +    }), _d = _c[0], isOver = _d.isOver, draggedMosaicId = _d.draggedMosaicId, connectDropTarget = _c[1];
-     return (react_1.default.createElement("div", { ref: connectDropTarget, className: (0, classnames_1.default)('drop-target', position, {
++    var setDropTargetRef = (0, react_1.useCallback)(function (node) {
++        elementRef.current = node;
++        connectDropTarget(node);
++    }, [connectDropTarget]);
++    (0, react_1.useEffect)(function () {
++        if (!reportDropTargetHover) {
++            return;
++        }
++        var isActive = isOver && draggedMosaicId === mosaicId;
++        if (!isActive || !elementRef.current || !position) {
++            return;
++        }
++        var rect = elementRef.current.getBoundingClientRect();
++        var root = mosaicActions.getRoot();
++        var targetNode = path.length > 0 && root ? (0, mosaicUtilities_1.getAndAssertNodeAtPathExists)(root, path) : null;
++        reportDropTargetHover({
++            kind: path.length === 0 ? 'root-edge' : 'cell',
++            edge: position,
++            rect: {
++                left: rect.left,
++                top: rect.top,
++                width: rect.width,
++                height: rect.height,
++            },
++            targetId: typeof targetNode === 'string' ? targetNode : null,
++        });
++        return function () {
++            reportDropTargetHover(null);
++        };
++    }, [reportDropTargetHover, isOver, draggedMosaicId, mosaicId, position, path, mosaicActions, hoverKey]);
++    return (react_1.default.createElement("div", { ref: setDropTargetRef, className: (0, classnames_1.default)('drop-target', position, {
 +            'reorder-target': reorderEnabled,
              'drop-target-hover': isOver && draggedMosaicId === mosaicId,
          }) }));
  }
 diff --git a/node_modules/react-mosaic-component/lib/MosaicWindow.js b/node_modules/react-mosaic-component/lib/MosaicWindow.js
-index 133d354..4f66af3 100644
+index 133d354..4a4dd20 100644
 --- a/node_modules/react-mosaic-component/lib/MosaicWindow.js
 +++ b/node_modules/react-mosaic-component/lib/MosaicWindow.js
 @@ -54,8 +54,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
@@ -233,7 +279,7 @@ index 133d354..4f66af3 100644
      var _b = (0, react_dnd_1.useDrag)({
          type: types_1.MosaicDragType.WINDOW,
          item: function (_monitor) {
-+            if (reorderEnabled && !canStartReorderDrag(lastDragSourceEvent)) {
++            if (!canStartReorderDrag(lastDragSourceEvent)) {
 +                lastDragSourceEvent = null;
 +                return null;
 +            }
@@ -364,14 +410,26 @@ index 2c74825..717c9b6 100644
              '-dragging': delayedIsDragging,
          }) }, (0, values_1.default)(internalTypes_1.MosaicDropTargetPosition).map(function (position) { return (react_1.default.createElement(MosaicDropTarget_1.MosaicDropTarget, { position: position, path: [], key: position })); })));
 diff --git a/node_modules/react-mosaic-component/lib/contextTypes.d.ts b/node_modules/react-mosaic-component/lib/contextTypes.d.ts
-index d414e78..e0f6b73 100644
+index d414e78..88b0db7 100644
 --- a/node_modules/react-mosaic-component/lib/contextTypes.d.ts
 +++ b/node_modules/react-mosaic-component/lib/contextTypes.d.ts
-@@ -11,6 +11,7 @@ export interface MosaicContext<T extends MosaicKey> {
+@@ -11,6 +11,19 @@ export interface MosaicContext<T extends MosaicKey> {
      mosaicActions: MosaicRootActions<T>;
      mosaicId: string;
      blueprintNamespace: string;
 +    reorderEnabled: boolean;
++    reportDropTargetHover?: ((info: MosaicDropTargetHoverInfo | null) => void) | undefined;
++}
++export interface MosaicDropTargetHoverInfo {
++    kind: 'cell' | 'root-edge';
++    edge: 'top' | 'bottom' | 'left' | 'right';
++    rect: {
++        left: number;
++        top: number;
++        width: number;
++        height: number;
++    };
++    targetId: string | null;
  }
  /**
   * Context provided to everything within a Mosaic Window

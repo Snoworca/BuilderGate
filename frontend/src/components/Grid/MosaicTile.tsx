@@ -90,6 +90,7 @@ export function MosaicTile({
   return (
     <div
       ref={setTileRef}
+      data-grid-tab-id={tabId}
       className={`grid-cell${isRunning ? ' terminal-running' : ''}`}
       onContextMenu={handleContextMenu}
       onPointerDown={handlePointerDown}

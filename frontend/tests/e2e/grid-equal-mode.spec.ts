@@ -30,6 +30,21 @@ type DragStartOffset = {
   y: number;
 };
 
+type SplitEdge = 'left' | 'right' | 'top' | 'bottom';
+
+type NonEqualDropTarget =
+  | { kind: 'cell'; targetWindowIndex: number; edge: SplitEdge }
+  | { kind: 'root-edge'; edge: SplitEdge };
+
+type NonEqualSplitDragResult = {
+  hovered: boolean;
+  targetRect: RectSnapshot;
+  overlayRect: RectSnapshot | null;
+  movedRectAfterDrop: RectSnapshot | null;
+  sourceTabId: string | null;
+  sourceRectBeforeDrag: RectSnapshot;
+};
+
 function extractLeafIds(node: unknown): string[] {
   if (typeof node === 'string') {
     return [node];
@@ -474,7 +489,9 @@ async function nativeNonPrimaryDrag(page: Page, sourceIndex: number, targetWindo
     async ({ nextSourceIndex, nextTargetWindowIndex }) => {
       const source = document.querySelectorAll('[data-grid-move-button="true"]')[nextSourceIndex] as HTMLElement | undefined;
       const targetWindow = document.querySelectorAll('.mosaic-window')[nextTargetWindowIndex] as HTMLElement | undefined;
-      const target = targetWindow?.querySelector('.drop-target.reorder-target') as HTMLElement | null;
+      const target =
+        targetWindow?.querySelector('.drop-target.reorder-target') as HTMLElement | null
+        || targetWindow?.querySelector('.drop-target.left:not(.reorder-target)') as HTMLElement | null;
 
       if (!source || !target) {
         throw new Error('Non-primary drag source or target not found');
@@ -596,6 +613,152 @@ async function nativeModeButtonDrag(
   );
 }
 
+async function runNonEqualSplitDragCase(
+  page: Page,
+  sourceIndex: number,
+  target: NonEqualDropTarget,
+  options?: {
+    commit?: boolean;
+    preArmStatusByTabId?: Record<string, 'running' | 'idle' | 'disconnected'>;
+    statusByTabId?: Record<string, 'running' | 'idle' | 'disconnected'>;
+  },
+): Promise<NonEqualSplitDragResult> {
+  const commit = options?.commit ?? true;
+  return page.evaluate(
+    async ({ nextSourceIndex, nextTarget, nextCommit, nextPreArmStatusByTabId, nextStatusByTabId }) => {
+      const readRect = (element: Element | null): RectSnapshot | null => {
+        if (!(element instanceof HTMLElement)) {
+          return null;
+        }
+        const rect = element.getBoundingClientRect();
+        return {
+          x: Math.round(rect.x),
+          y: Math.round(rect.y),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+        };
+      };
+      const findTarget = (): HTMLElement | null => {
+        if (nextTarget.kind === 'cell') {
+          const targetWindow = document.querySelectorAll('.mosaic-window')[nextTarget.targetWindowIndex] as HTMLElement | undefined;
+          return targetWindow?.querySelector(`.drop-target.${nextTarget.edge}:not(.reorder-target)`) as HTMLElement | null;
+        }
+        return document.querySelector(`.mosaic.mosaic-drop-target > .drop-target-container .drop-target.${nextTarget.edge}:not(.reorder-target)`) as HTMLElement | null;
+      };
+      const findTileByTabId = (tabId: string | null): HTMLElement | null => {
+        if (!tabId) {
+          return null;
+        }
+        return document.querySelector(`.grid-cell[data-grid-tab-id="${tabId}"]`) as HTMLElement | null;
+      };
+
+      const source = document.querySelectorAll('[data-grid-move-button="true"]')[nextSourceIndex] as HTMLElement | undefined;
+      const sourceWindow = source?.closest('.mosaic-window');
+      const sourceToolbar = source?.closest('[data-grid-toolbar-tab-id]') as HTMLElement | null;
+      const targetElement = findTarget();
+      if (!source || !sourceWindow || !sourceToolbar || !targetElement) {
+        throw new Error('Non-equal source or target not found');
+      }
+
+      const testApiWindow = window as Window & {
+        __PM_TEST_API__?: {
+          grid?: {
+            injectAutoStatusChange?: (payload: {
+              statusByTabId: Record<string, 'running' | 'idle' | 'disconnected'>;
+            }) => void;
+          };
+        };
+      };
+      const injectStatus = (statusByTabId: Record<string, 'running' | 'idle' | 'disconnected'> | null) => {
+        if (statusByTabId && Object.keys(statusByTabId).length > 0) {
+          testApiWindow.__PM_TEST_API__?.grid?.injectAutoStatusChange?.({ statusByTabId });
+        }
+      };
+
+      injectStatus(nextPreArmStatusByTabId);
+      if (nextPreArmStatusByTabId && Object.keys(nextPreArmStatusByTabId).length > 0) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
+      const sourceRect = source.getBoundingClientRect();
+      const sourceRectBeforeDrag = readRect(sourceWindow);
+      const sourceTabId = sourceToolbar.dataset.gridToolbarTabId ?? null;
+      const dataTransfer = new DataTransfer();
+      const firePointer = (element: HTMLElement, type: string, button = 0) =>
+        element.dispatchEvent(new PointerEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          pointerId: 1,
+          pointerType: 'mouse',
+          isPrimary: true,
+          button,
+          buttons: button === 0 ? 1 : 0,
+          clientX: sourceRect.x + sourceRect.width / 2,
+          clientY: sourceRect.y + sourceRect.height / 2,
+        }));
+      const fireMouse = (element: HTMLElement, type: string, button = 0) =>
+        element.dispatchEvent(new MouseEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          button,
+          buttons: button === 0 ? 1 : 0,
+          clientX: sourceRect.x + sourceRect.width / 2,
+          clientY: sourceRect.y + sourceRect.height / 2,
+        }));
+      const fireDrag = (element: HTMLElement, type: string) =>
+        element.dispatchEvent(new DragEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          dataTransfer,
+        }));
+
+      firePointer(source, 'pointerdown');
+      fireMouse(source, 'mousedown');
+      fireDrag(source, 'dragstart');
+      fireDrag(targetElement, 'dragenter');
+      fireDrag(targetElement, 'dragover');
+
+      injectStatus(nextStatusByTabId);
+
+      await new Promise(resolve => setTimeout(resolve, 200));
+      if (!document.querySelector('[data-grid-predictive-overlay="true"]')) {
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      }
+
+      const hovered = targetElement.classList.contains('drop-target-hover');
+      const targetRect = readRect(targetElement);
+      const overlayRect = readRect(document.querySelector('[data-grid-predictive-overlay="true"]'));
+
+      if (!targetRect) {
+        throw new Error('Target rect missing');
+      }
+
+      if (nextCommit) {
+        fireDrag(targetElement, 'drop');
+      }
+      fireDrag(source, 'dragend');
+
+      await new Promise(resolve => setTimeout(resolve, 1200));
+
+      return {
+        hovered,
+        targetRect,
+        overlayRect,
+        movedRectAfterDrop: nextCommit ? readRect(findTileByTabId(sourceTabId)) : null,
+        sourceTabId,
+        sourceRectBeforeDrag: sourceRectBeforeDrag ?? targetRect,
+      };
+    },
+    {
+      nextSourceIndex: sourceIndex,
+      nextTarget: target,
+      nextCommit: commit,
+      nextPreArmStatusByTabId: options?.preArmStatusByTabId ?? null,
+      nextStatusByTabId: options?.statusByTabId ?? null,
+    },
+  );
+}
+
 async function waitForLayoutPersist(page: Page): Promise<void> {
   await page.waitForTimeout(2500);
 }
@@ -618,6 +781,37 @@ async function readGridCells(page: Page): Promise<GridCellSnapshot[]> {
   });
 }
 
+async function readGridCellGeometry(page: Page): Promise<Array<{ width: number; height: number }>> {
+  return page.evaluate(() => {
+    return Array.from(document.querySelectorAll('.mosaic-tile')).map((tile) => {
+      const rect = tile.getBoundingClientRect();
+      return {
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      };
+    });
+  });
+}
+
+async function readTileRectByTabId(page: Page, tabId: string | null): Promise<RectSnapshot | null> {
+  return page.evaluate((targetTabId: string | null) => {
+    if (!targetTabId) {
+      return null;
+    }
+    const tile = document.querySelector(`.grid-cell[data-grid-tab-id="${targetTabId}"]`);
+    if (!(tile instanceof HTMLElement)) {
+      return null;
+    }
+    const rect = tile.getBoundingClientRect();
+    return {
+      x: Math.round(rect.x),
+      y: Math.round(rect.y),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+    };
+  }, tabId);
+}
+
 async function readPersistedLayout(
   page: Page,
   workspaceId: string,
@@ -631,6 +825,58 @@ async function readPersistedLayout(
 async function readPersistedLeafOrder(page: Page, workspaceId: string): Promise<string[]> {
   const persisted = await readPersistedLayout(page, workspaceId);
   return persisted?.tree ? extractLeafIds(persisted.tree) : [];
+}
+
+async function forcePersistedLayoutMode(
+  page: Page,
+  workspaceId: string,
+  mode: 'equal' | 'focus' | 'auto' | 'none',
+  focusTarget: string | null = null,
+): Promise<void> {
+  await page.evaluate(({ nextWorkspaceId, nextMode, nextFocusTarget }) => {
+    const raw = localStorage.getItem(`mosaic_layout_${nextWorkspaceId}`);
+    if (!raw) {
+      throw new Error('Persisted layout not found');
+    }
+    const parsed = JSON.parse(raw) as {
+      schemaVersion: number;
+      tree: unknown;
+      mode: string;
+      focusTarget: string | null;
+      savedAt: string;
+    };
+    parsed.mode = nextMode;
+    parsed.focusTarget = nextMode === 'focus' ? nextFocusTarget : null;
+    parsed.savedAt = new Date().toISOString();
+    localStorage.setItem(`mosaic_layout_${nextWorkspaceId}`, JSON.stringify(parsed));
+  }, { nextWorkspaceId: workspaceId, nextMode: mode, nextFocusTarget: focusTarget });
+}
+
+async function setLayoutModeViaTestApi(
+  page: Page,
+  mode: 'equal' | 'focus' | 'auto' | 'none',
+  focusTarget: string | null = null,
+): Promise<void> {
+  await page.evaluate(({ nextMode, nextFocusTarget }) => {
+    const testApiWindow = window as Window & {
+      __PM_TEST_API__?: {
+        grid?: {
+          setLayoutMode?: (payload: {
+            mode: 'equal' | 'focus' | 'auto' | 'none';
+            focusTarget?: string | null;
+          }) => void;
+        };
+      };
+    };
+    const setLayoutMode = testApiWindow.__PM_TEST_API__?.grid?.setLayoutMode;
+    if (!setLayoutMode) {
+      throw new Error('setLayoutMode test API is not available');
+    }
+    setLayoutMode({
+      mode: nextMode,
+      focusTarget: nextFocusTarget,
+    });
+  }, { nextMode: mode, nextFocusTarget: focusTarget });
 }
 
 async function addWorkspaceTab(page: Page, workspaceId: string, name: string): Promise<string> {
@@ -709,8 +955,9 @@ async function setLayoutMode(page: Page, tileIndex: number, mode: 'equal' | 'foc
     element.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true }));
     element.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }));
   });
-  await expect(page.locator(`[data-layout-mode-button="${mode}"]`).nth(tileIndex)).toBeVisible();
-  await page.locator(`[data-layout-mode-button="${mode}"]`).nth(tileIndex).click();
+  const button = toolbar.locator(`[data-layout-mode-button="${mode}"]`);
+  await expect(button).toBeVisible();
+  await button.click();
 }
 
 test.describe('Grid Equal Mode Reorder', () => {
@@ -860,28 +1107,25 @@ test.describe('Grid Equal Mode Reorder', () => {
     await openGridWorkspace(page, workspaceId, 4);
     await prepareGridForNativeDrag(page);
 
-    await setLayoutMode(page, 0, 'equal');
-    await page.waitForTimeout(200);
-    await expect(page.locator('.drop-target.reorder-target')).toHaveCount(0);
+    await setLayoutModeViaTestApi(page, 'none');
     await waitForLayoutPersist(page);
+    await expect(page.locator('.drop-target.reorder-target')).toHaveCount(0);
     expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('none');
     await nativeInvalidDrag(page, 0);
     await waitForLayoutPersist(page);
     expect(await readPersistedLeafOrder(page, workspaceId)).toEqual(tabIds);
 
-    await setLayoutMode(page, 0, 'focus');
-    await page.waitForTimeout(200);
-    await expect(page.locator('.drop-target.reorder-target')).toHaveCount(0);
+    await setLayoutModeViaTestApi(page, 'focus', tabIds[0]);
     await waitForLayoutPersist(page);
+    await expect(page.locator('.drop-target.reorder-target')).toHaveCount(0);
     expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('focus');
     await nativeInvalidDrag(page, 0);
     await waitForLayoutPersist(page);
     expect(await readPersistedLeafOrder(page, workspaceId)).toEqual(tabIds);
 
-    await setLayoutMode(page, 0, 'auto');
-    await page.waitForTimeout(200);
-    await expect(page.locator('.drop-target.reorder-target')).toHaveCount(0);
+    await setLayoutModeViaTestApi(page, 'auto');
     await waitForLayoutPersist(page);
+    await expect(page.locator('.drop-target.reorder-target')).toHaveCount(0);
     expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('auto');
     expect(await readPersistedLeafOrder(page, workspaceId)).toEqual(tabIds);
   });
@@ -917,5 +1161,132 @@ test.describe('Grid Equal Mode Reorder', () => {
       tabIds[0],
       newTabId,
     ]);
+  });
+
+  test('TC-6609: none mode predictive overlay matches cell split target and completes drop', async ({ page }) => {
+    await login(page);
+    const { workspaceId } = await setupEqualGridWorkspace(page, 4);
+    await openGridWorkspace(page, workspaceId, 4);
+    await prepareGridForNativeDrag(page);
+
+    await setLayoutModeViaTestApi(page, 'none');
+    await waitForLayoutPersist(page);
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('none');
+
+    const result = await runNonEqualSplitDragCase(page, 3, { kind: 'cell', targetWindowIndex: 0, edge: 'left' });
+    expect(result.hovered).toBeTruthy();
+    expect(result.overlayRect).not.toBeNull();
+    expectRectsToMatch(result.overlayRect!, result.targetRect);
+    expect(result.movedRectAfterDrop).not.toBeNull();
+  });
+
+  test('TC-6610: none mode predictive overlay matches root edge target and completes drop', async ({ page }) => {
+    await login(page);
+    const { workspaceId } = await setupEqualGridWorkspace(page, 4);
+    await openGridWorkspace(page, workspaceId, 4);
+    await prepareGridForNativeDrag(page);
+
+    await setLayoutModeViaTestApi(page, 'none');
+    await waitForLayoutPersist(page);
+
+    const result = await runNonEqualSplitDragCase(page, 3, { kind: 'root-edge', edge: 'left' });
+    expect(result.hovered).toBeTruthy();
+    expect(result.overlayRect).not.toBeNull();
+    expectRectsToMatch(result.overlayRect!, result.targetRect);
+    expect(result.movedRectAfterDrop).not.toBeNull();
+  });
+
+  test('TC-6611: focus mode keeps predictive overlay immediate and preserves focus mode after drop', async ({ page }) => {
+    await login(page);
+    const { workspaceId, tabIds } = await setupEqualGridWorkspace(page, 4);
+    await openGridWorkspace(page, workspaceId, 4);
+    await prepareGridForNativeDrag(page);
+
+    await setLayoutModeViaTestApi(page, 'focus', tabIds[0]);
+    await waitForLayoutPersist(page);
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('focus');
+
+    const result = await runNonEqualSplitDragCase(page, 3, { kind: 'cell', targetWindowIndex: 1, edge: 'top' });
+    expect(result.hovered).toBeTruthy();
+    expect(result.overlayRect).not.toBeNull();
+    expectRectsToMatch(result.overlayRect!, result.targetRect);
+    expect(result.movedRectAfterDrop).not.toBeNull();
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('focus');
+  });
+
+  test('TC-6612: auto mode pauses status-driven rebalance during drag and resumes after drop', async ({ page }) => {
+    await login(page);
+    const { workspaceId, tabIds } = await setupEqualGridWorkspace(page, 4);
+    await openGridWorkspace(page, workspaceId, 4);
+    await prepareGridForNativeDrag(page);
+
+    await setLayoutModeViaTestApi(page, 'auto');
+    await waitForLayoutPersist(page);
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('auto');
+
+    const result = await runNonEqualSplitDragCase(
+      page,
+      0,
+      { kind: 'cell', targetWindowIndex: 1, edge: 'right' },
+      {
+        preArmStatusByTabId: {
+          [tabIds[0]]: 'running',
+          [tabIds[1]]: 'idle',
+          [tabIds[2]]: 'idle',
+          [tabIds[3]]: 'idle',
+        },
+        statusByTabId: {
+          [tabIds[0]]: 'running',
+          [tabIds[1]]: 'idle',
+          [tabIds[2]]: 'idle',
+          [tabIds[3]]: 'idle',
+        },
+      },
+    );
+
+    expect(result.hovered).toBeTruthy();
+    expect(result.overlayRect).not.toBeNull();
+    expectRectsToMatch(result.overlayRect!, result.targetRect);
+    expect(result.movedRectAfterDrop).not.toBeNull();
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('auto');
+
+    const immediateCells = await readGridCells(page);
+    await page.waitForTimeout(1800);
+    const stabilizedRect = await readTileRectByTabId(page, result.sourceTabId);
+    const stabilizedCells = await readGridCells(page);
+    expect(stabilizedRect).not.toBeNull();
+    expect(
+      stabilizedCells.some((cell, index) =>
+        Math.abs(cell.width - immediateCells[index].width) > 2
+        || Math.abs(cell.height - immediateCells[index].height) > 2,
+      ),
+    ).toBeTruthy();
+  });
+
+  test('TC-6613: non-equal invalid and non-primary drags remain no-op', async ({ page }) => {
+    await login(page);
+    const { workspaceId, tabIds } = await setupEqualGridWorkspace(page, 4);
+    await openGridWorkspace(page, workspaceId, 4);
+    await prepareGridForNativeDrag(page);
+
+    await setLayoutModeViaTestApi(page, 'none');
+    await waitForLayoutPersist(page);
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('none');
+    const beforeInvalidLayout = await readPersistedLayout(page, workspaceId);
+    const beforeInvalidCells = await readGridCellGeometry(page);
+
+    await nativeInvalidDrag(page, 0);
+    await waitForLayoutPersist(page);
+    expect(await readPersistedLeafOrder(page, workspaceId)).toEqual(tabIds);
+    expect((await readPersistedLayout(page, workspaceId))?.tree).toEqual(beforeInvalidLayout?.tree);
+    expect(await readGridCellGeometry(page)).toEqual(beforeInvalidCells);
+
+    const beforeNonPrimaryLayout = await readPersistedLayout(page, workspaceId);
+    const beforeNonPrimaryCells = await readGridCellGeometry(page);
+    await nativeNonPrimaryDrag(page, 0, 1);
+    await waitForLayoutPersist(page);
+    expect(await readPersistedLeafOrder(page, workspaceId)).toEqual(tabIds);
+    expect((await readPersistedLayout(page, workspaceId))?.tree).toEqual(beforeNonPrimaryLayout?.tree);
+    expect(await readGridCellGeometry(page)).toEqual(beforeNonPrimaryCells);
   });
 });
