@@ -713,6 +713,14 @@ async function setLayoutMode(page: Page, tileIndex: number, mode: 'equal' | 'foc
   await page.locator(`[data-layout-mode-button="${mode}"]`).nth(tileIndex).click();
 }
 
+async function collapseToolbar(page: Page, tileIndex: number): Promise<void> {
+  const toolbar = page.locator('[data-grid-toolbar="true"]').nth(tileIndex);
+  await toolbar.evaluate((element) => {
+    element.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true, cancelable: true }));
+    element.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, cancelable: true }));
+  });
+}
+
 test.describe('Grid Equal Mode Reorder', () => {
   test('TC-6599: equal drag start keeps source geometry stable before drop', async ({ page }) => {
     await login(page);
@@ -854,6 +862,29 @@ test.describe('Grid Equal Mode Reorder', () => {
     expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
   });
 
+  test('TC-6609: move button follows toolbar hover visibility', async ({ page }) => {
+    await login(page);
+    const { workspaceId } = await setupEqualGridWorkspace(page, 4);
+    await openGridWorkspace(page, workspaceId, 4);
+
+    const moveButton = page.locator('[data-grid-move-button="true"]').first();
+
+    await expect.poll(async () => moveButton.evaluate((element) => getComputedStyle(element).opacity)).toBe('0');
+    await expect.poll(async () => moveButton.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
+
+    await expandToolbar(page, 0);
+
+    await expect.poll(async () => moveButton.evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
+    await expect.poll(async () => moveButton.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('auto');
+
+    await collapseToolbar(page, 0);
+    await page.waitForTimeout(350);
+
+    await expect.poll(async () => moveButton.evaluate((element) => getComputedStyle(element).opacity)).toBe('0');
+    await expect.poll(async () => moveButton.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
+  });
+
   test('TC-6607: non-equal modes do not enter reorder', async ({ page }) => {
     await login(page);
     const { workspaceId, tabIds } = await setupEqualGridWorkspace(page, 4);
@@ -884,6 +915,50 @@ test.describe('Grid Equal Mode Reorder', () => {
     await waitForLayoutPersist(page);
     expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('auto');
     expect(await readPersistedLeafOrder(page, workspaceId)).toEqual(tabIds);
+  });
+
+  test('TC-6610: mode transitions keep the move handle drag-active across equal focus and auto', async ({ page }) => {
+    await login(page);
+    const { workspaceId, tabIds } = await setupEqualGridWorkspace(page, 4);
+    await openGridWorkspace(page, workspaceId, 4);
+    await prepareGridForNativeDrag(page);
+
+    await setLayoutMode(page, 0, 'focus');
+    await waitForLayoutPersist(page);
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('focus');
+
+    const focusDrag = await measureSourceRectDuringInvalidDrag(page, 0);
+    expectRectsToMatch(focusDrag.during, focusDrag.before);
+    expectRectsToMatch(focusDrag.after, focusDrag.before);
+    expect(focusDrag.previewCount).toBeGreaterThan(0);
+    expect(focusDrag.splitTargetCount).toBeGreaterThan(0);
+    expect(focusDrag.reorderTargetCount).toBe(0);
+    expect(await readPersistedLeafOrder(page, workspaceId)).toEqual(tabIds);
+
+    await setLayoutMode(page, 0, 'auto');
+    await waitForLayoutPersist(page);
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('auto');
+
+    const autoDrag = await measureSourceRectDuringInvalidDrag(page, 0);
+    expectRectsToMatch(autoDrag.during, autoDrag.before);
+    expectRectsToMatch(autoDrag.after, autoDrag.before);
+    expect(autoDrag.previewCount).toBeGreaterThan(0);
+    expect(autoDrag.splitTargetCount).toBeGreaterThan(0);
+    expect(autoDrag.reorderTargetCount).toBe(0);
+    expect(await readPersistedLeafOrder(page, workspaceId)).toEqual(tabIds);
+
+    await setLayoutMode(page, 0, 'equal');
+    await waitForLayoutPersist(page);
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
+
+    await nativeReorderDrag(page, 0, 3);
+    await waitForLayoutPersist(page);
+
+    expect(await readPersistedLeafOrder(page, workspaceId)).toEqual([
+      ...tabIds.slice(1),
+      tabIds[0],
+    ]);
+    expectUniformGrid(await readGridCells(page));
   });
 
   test('TC-6608: equal reorder order persists across reload/add/remove', async ({ page }) => {

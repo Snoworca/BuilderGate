@@ -561,7 +561,8 @@ export function MosaicContainer({
     }
   }, []);
 
-  // Render each tile — wrapped in MosaicWindow for DnD support (FR-1.1)
+  // Render each tile — the custom move handle remains the only drag source
+  // so mode transitions do not depend on MosaicWindow's toolbar-wide wrapper.
   const renderTile = useCallback(
     (tabId: string, path: MosaicBranch[]) => {
       const tab = tabMap.get(tabId);
@@ -569,7 +570,7 @@ export function MosaicContainer({
         <MosaicWindow<string>
           path={path}
           title={tabId}
-          draggable={layoutMode !== 'equal'}
+          draggable={false}
           onDragStart={() => {
             isTileDragInteractionRef.current = true;
           }}

@@ -61,6 +61,7 @@ export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarP
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mosaicWindowContext = useContext(MosaicWindowContext);
   const connectDragSource = mosaicWindowContext?.mosaicWindowActions?.connectDragSource;
+  const controlsVisible = expanded;
 
   const clearHideTimer = useCallback(() => {
     if (hideTimerRef.current) {
@@ -97,9 +98,9 @@ export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarP
       style={{
         ...controlStyle,
         cursor: 'grab',
-        opacity: 1,
-        transition: 'background-color 0.2s ease, border-color 0.2s ease',
-        pointerEvents: 'auto',
+        opacity: controlsVisible ? 1 : 0,
+        transition: 'opacity 0.15s ease, background-color 0.2s ease, border-color 0.2s ease',
+        pointerEvents: controlsVisible ? 'auto' : 'none',
       }}
     >
       <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" aria-hidden="true">
