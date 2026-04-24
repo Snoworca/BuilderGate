@@ -1,0 +1,3851 @@
+{
+  "schema_version": "1.0",
+  "skill": "snoworca-srs-from-code v1.1",
+  "run_id": "2026-04-24.buildergate",
+  "project": "BuilderGate",
+  "project_path": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+  "generated_at": "2026-04-24",
+  "profile": "full",
+  "standard": "ISO/IEC/IEEE 29148:2018",
+  "srs_path": "srs-fromCode-2026-04-24.buildergate.md",
+  "total_requirements": 377,
+  "by_type_counts": {
+    "api_contract": 40,
+    "assumption": 6,
+    "business_rule": 17,
+    "constraint": 23,
+    "data_model": 24,
+    "functional_req": 160,
+    "glossary": 15,
+    "interface": 17,
+    "nonfunctional_req": 45,
+    "out_of_scope": 9,
+    "system_mode": 7,
+    "use_case": 3,
+    "verification": 11
+  },
+  "by_type": {
+    "functional_req": [
+      "FR-BOOT-001",
+      "FR-BOOT-002",
+      "FR-BOOT-003",
+      "FR-BOOT-004",
+      "FR-BOOT-005",
+      "FR-BOOT-006",
+      "FR-WSP-SUB-001",
+      "FR-WSP-ACK-001",
+      "FR-WSP-INPUT-001",
+      "FR-WSP-RESIZE-001",
+      "FR-WSP-REPAIR-001",
+      "FR-WSP-OUT-001",
+      "FR-WSP-REFRESH-001",
+      "FR-WSP-BCAST-001",
+      "FR-PTY-001",
+      "FR-PTY-002",
+      "FR-PTY-INPUT-001",
+      "FR-PTY-RESIZE-001",
+      "FR-PTY-EXIT-001",
+      "FR-PTY-ENV-001",
+      "FR-PTY-BKND-001",
+      "FR-PTY-SHELL-001",
+      "FR-PTY-CWD-SPAWN-001",
+      "FR-IDLE-001",
+      "FR-IDLE-002",
+      "FR-OSC133-001",
+      "FR-STATE-DERIVED-001",
+      "FR-FG-DETECT-001",
+      "FR-FG-HERMES-001",
+      "FR-SNAP-001",
+      "FR-SNAP-002",
+      "FR-SNAP-003",
+      "FR-CWD-001",
+      "FR-CWD-002",
+      "FR-CWD-003",
+      "FR-CWD-REC-001",
+      "FR-AUTH-001",
+      "FR-AUTH-002",
+      "FR-AUTH-MW-001",
+      "FR-AUTH-BOOT-001",
+      "FR-AUTH-BOOT-002",
+      "FR-AUTH-LPO-001",
+      "FR-TOTP-001",
+      "FR-TOTP-002",
+      "FR-TOTP-PEND-001",
+      "FR-TOTP-RUNTIME-001",
+      "FR-CRYPTO-001",
+      "FR-CRYPTO-002",
+      "FR-FILE-001",
+      "FR-FILE-002",
+      "FR-FILE-DISK-001",
+      "FR-WORK-001",
+      "FR-WORK-002",
+      "FR-WORK-003",
+      "FR-CFG-001",
+      "FR-CFG-002",
+      "FR-CFG-003",
+      "FR-CFG-004",
+      "FR-CFG-005",
+      "FR-CFG-006",
+      "FR-SSL-001",
+      "FR-SSL-002",
+      "FR-PATH-001",
+      "FR-DEBUG-001",
+      "FR-DEBUG-002",
+      "FR-UI-001",
+      "FR-UI-002",
+      "FR-UI-003",
+      "FR-UI-004",
+      "FR-UI-005",
+      "FR-UI-006",
+      "FR-UI-007",
+      "FR-UI-008",
+      "FR-UI-009",
+      "FR-WS-001",
+      "FR-WS-002",
+      "FR-WS-003",
+      "FR-WS-004",
+      "FR-WS-005",
+      "FR-WS-006",
+      "FR-WS-007",
+      "FR-WS-008",
+      "FR-TERM-001",
+      "FR-TERM-002",
+      "FR-TERM-003",
+      "FR-TERM-004",
+      "FR-TERM-005",
+      "FR-TERM-006",
+      "FR-TERM-007",
+      "FR-TERM-008",
+      "FR-TERM-009",
+      "FR-TERM-010",
+      "FR-TERM-011",
+      "FR-TERM-012",
+      "FR-TERM-013",
+      "FR-TERM-014",
+      "FR-TERM-015",
+      "FR-TERM-016",
+      "FR-TERM-017",
+      "FR-TERM-018",
+      "FR-TERM-019",
+      "FR-WS-7000",
+      "FR-WS-7100",
+      "FR-WS-7200",
+      "FR-WS-7300",
+      "FR-WS-7400",
+      "FR-GRID-001",
+      "FR-GRID-002",
+      "FR-GRID-003",
+      "FR-GRID-004",
+      "FR-GRID-005",
+      "FR-GRID-006",
+      "FR-GRID-007",
+      "FR-GRID-008",
+      "FR-GRID-009",
+      "FR-FE-FILE-001",
+      "FR-FE-FILE-002",
+      "FR-FILE-003",
+      "FR-FILE-004",
+      "FR-FILE-005",
+      "FR-FILE-006",
+      "FR-FILE-007",
+      "FR-FILE-008",
+      "FR-FILE-009",
+      "FR-HEADER-001",
+      "FR-SETTINGS-001",
+      "FR-SETTINGS-002",
+      "FR-SETTINGS-003",
+      "FR-SETTINGS-004",
+      "FR-SETTINGS-005",
+      "FR-SETTINGS-006",
+      "FR-UI-010",
+      "FR-UI-011",
+      "FR-UI-012",
+      "FR-UI-013",
+      "FR-UI-014",
+      "FR-UI-015",
+      "FR-UI-016",
+      "FR-UI-017",
+      "FR-SIDEBAR-001",
+      "FR-INF-001",
+      "FR-INF-002",
+      "FR-INF-003",
+      "FR-INF-004",
+      "FR-INF-005",
+      "FR-INF-006",
+      "FR-INF-007",
+      "FR-INF-008",
+      "FR-INF-009",
+      "FR-MISSING-001",
+      "FR-MISSING-002",
+      "FR-MISSING-003",
+      "FR-MISSING-004",
+      "FR-MISSING-005",
+      "FR-MISSING-006",
+      "FR-MISSING-007",
+      "FR-MISSING-008",
+      "FR-MISSING-010",
+      "FR-IDLE-PS-PROMPT-001",
+      "FR-FG-HINT-001"
+    ],
+    "api_contract": [
+      "API-HEALTH-001",
+      "API-AUTH-001",
+      "API-AUTH-002",
+      "API-AUTH-003",
+      "API-AUTH-004",
+      "API-AUTH-005",
+      "API-AUTH-006",
+      "API-AUTH-007",
+      "API-AUTH-008",
+      "API-SES-001",
+      "API-SES-002",
+      "API-SES-003",
+      "API-SES-004",
+      "API-SES-005",
+      "API-SES-006",
+      "API-SES-007",
+      "API-SES-008",
+      "API-SES-009",
+      "API-SES-010",
+      "API-SES-011",
+      "API-FILE-001",
+      "API-FILE-002",
+      "API-FILE-003",
+      "API-FILE-004",
+      "API-FILE-005",
+      "API-FILE-006",
+      "API-FILE-007",
+      "API-SET-001",
+      "API-SET-002",
+      "API-WS-001",
+      "API-WS-002",
+      "API-WS-003",
+      "API-WS-004",
+      "API-WS-005",
+      "API-WS-006",
+      "API-WS-007",
+      "API-WS-008",
+      "API-WS-009",
+      "API-WS-010",
+      "API-WS-011"
+    ],
+    "interface": [
+      "IF-WS-UPGRADE-001",
+      "IF-WS-HEARTBEAT-001",
+      "IF-SHELL-OSC-001",
+      "IF-CERT-001",
+      "IF-LIB-001",
+      "IFC-WS-001",
+      "IFC-WS-002",
+      "IFC-API-001",
+      "IFC-API-002",
+      "IFC-API-003",
+      "IFC-API-004",
+      "IF-INF-001",
+      "IF-INF-002",
+      "IF-INF-003",
+      "IF-INF-004",
+      "IF-INF-005",
+      "IFC-API-MISSING-001"
+    ],
+    "data_model": [
+      "DM-SESS-001",
+      "DM-WORK-001",
+      "DM-FILE-001",
+      "DM-AUTH-001",
+      "DM-CFG-001",
+      "DM-DERIV-001",
+      "DM-WSP-001",
+      "DM-ERR-001",
+      "DM-001",
+      "DM-002",
+      "DM-003",
+      "DM-004",
+      "DM-005",
+      "DM-006",
+      "DM-007",
+      "DM-INF-001",
+      "DM-INF-002",
+      "DM-INF-003",
+      "DM-MISSING-001",
+      "DM-MISSING-002",
+      "DM-MISSING-003",
+      "DM-MISSING-004",
+      "DM-MISSING-005",
+      "DM-MISSING-006"
+    ],
+    "system_mode": [
+      "SM-IDLE-001",
+      "SM-IDLE-002",
+      "SM-HEADLESS-001",
+      "SM-REPLAY-001",
+      "SM-002",
+      "SM-003",
+      "SM-004"
+    ],
+    "nonfunctional_req": [
+      "NFR-TLS-001",
+      "NFR-AUTH-001",
+      "NFR-AUTH-TIMING-001",
+      "NFR-TOTP-001",
+      "NFR-TOTP-REPLAY-001",
+      "NFR-TOTP-SECRET-001",
+      "NFR-SEC-HDR-001",
+      "NFR-SEC-HDR-002",
+      "NFR-SEC-HDR-003",
+      "NFR-CORS-001",
+      "NFR-SEC-FILE-001",
+      "NFR-RATE-001",
+      "NFR-CFG-001",
+      "NFR-DEBUG-001",
+      "NFR-LIMITS-001",
+      "NFR-PERF-SNAP-001",
+      "NFR-OBS-WS-001",
+      "NFR-UX-001",
+      "NFR-UX-002",
+      "NFR-UX-003",
+      "NFR-UX-004",
+      "NFR-UX-005",
+      "NFR-UX-006",
+      "NFR-UX-007",
+      "NFR-PERF-001",
+      "NFR-PERF-002",
+      "NFR-PERF-003",
+      "NFR-PERF-004",
+      "NFR-FE-SEC-001",
+      "NFR-INF-001",
+      "NFR-INF-002",
+      "NFR-INF-003",
+      "NFR-INF-004",
+      "NFR-INF-005",
+      "NFR-INF-006",
+      "NFR-SEC-001",
+      "NFR-SEC-002",
+      "NFR-SEC-003",
+      "NFR-SEC-004",
+      "NFR-SEC-005",
+      "NFR-SEC-006",
+      "NFR-SEC-007",
+      "NFR-MISSING-001",
+      "NFR-MISSING-002",
+      "NFR-MISSING-003"
+    ],
+    "constraint": [
+      "CON-PLATFORM-001",
+      "CON-WINPTY-001",
+      "CON-CONFIG-EXCL-001",
+      "CON-CFG-VAL-001",
+      "CON-ENV-001",
+      "CON-FE-001",
+      "CON-FE-002",
+      "CON-FE-003",
+      "CON-FE-004",
+      "CON-INF-001",
+      "CON-INF-002",
+      "CON-INF-003",
+      "CON-INF-004",
+      "CON-INF-005",
+      "CON-INF-006",
+      "CON-INF-007",
+      "CON-INF-008",
+      "CON-OPS-001",
+      "CON-OPS-002",
+      "CON-OPS-003",
+      "CON-OPS-004",
+      "CON-OPS-005",
+      "CON-OPS-006"
+    ],
+    "business_rule": [
+      "BR-SESSION-DUP-001",
+      "BR-WORK-LIMITS-001",
+      "BR-DELWS-CASCADE-001",
+      "BR-INPUT-BLOCK-001",
+      "BR-CWD-SANITIZE-001",
+      "BR-ERR-JSON-001",
+      "BR-WS-7205",
+      "BR-WS-7210",
+      "BR-FE-001",
+      "BR-FE-002",
+      "BR-FE-003",
+      "BR-FE-004",
+      "BR-FE-005",
+      "BR-MISSING-001",
+      "BR-MISSING-002",
+      "BR-MISSING-003",
+      "BR-MISSING-004"
+    ],
+    "assumption": [
+      "ASM-001",
+      "ASM-002",
+      "ASM-FE-001",
+      "ASM-FE-002",
+      "ASSUMPTION-INF-001",
+      "ASSUMPTION-INF-002"
+    ],
+    "out_of_scope": [
+      "OOS-001",
+      "OOS-002",
+      "OOS-FE-001",
+      "OOS-INF-001",
+      "OOS-INF-002",
+      "OOS-INF-003",
+      "OOS-INF-004",
+      "CON-MISSING-001",
+      "IFC-WS-MISSING-001"
+    ],
+    "verification": [
+      "VER-UNIT-001",
+      "VER-BUILD-001",
+      "VER-FE-001",
+      "VER-FE-002",
+      "VER-FE-003",
+      "VER-INF-001",
+      "VER-INF-002",
+      "VER-INF-003",
+      "VER-INF-004",
+      "VER-INF-005",
+      "VER-INF-006"
+    ],
+    "use_case": [
+      "UC-INF-001",
+      "UC-INF-002",
+      "UC-INF-003"
+    ],
+    "glossary": [
+      "GL-INF-001",
+      "GL-INF-002",
+      "GL-INF-003",
+      "GL-INF-004",
+      "GL-INF-005",
+      "GL-INF-006",
+      "GL-INF-007",
+      "GL-INF-008",
+      "GL-INF-009",
+      "GL-INF-010",
+      "GL-INF-011",
+      "GL-INF-012",
+      "GL-INF-013",
+      "GL-INF-014",
+      "GL-INF-015"
+    ]
+  },
+  "index": {
+    "FR-BOOT-001": {
+      "type": "functional_req",
+      "title": "HTTPS 서버 기동 및 HTTP→HTTPS 리다이렉트",
+      "md_anchor": "#FR-BOOT-001",
+      "source_primary": "server/src/index.ts:280-498",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-BOOT-002": {
+      "type": "functional_req",
+      "title": "서비스 초기화 순서",
+      "md_anchor": "#FR-BOOT-002",
+      "source_primary": "server/src/index.ts:280-456",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-BOOT-003": {
+      "type": "functional_req",
+      "title": "Graceful Shutdown",
+      "md_anchor": "#FR-BOOT-003",
+      "source_primary": "server/src/index.ts:526-546",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-BOOT-004": {
+      "type": "functional_req",
+      "title": "개발 모드 Vite 리버스 프록시",
+      "md_anchor": "#FR-BOOT-004",
+      "source_primary": "server/src/index.ts:376-456",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-BOOT-005": {
+      "type": "functional_req",
+      "title": "프로덕션 정적 자산 서빙 및 SPA 폴백",
+      "md_anchor": "#FR-BOOT-005",
+      "source_primary": "server/src/index.ts:64-82",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-BOOT-006": {
+      "type": "functional_req",
+      "title": "Observability 스냅샷 주기 로깅",
+      "md_anchor": "#FR-BOOT-006",
+      "source_primary": "server/src/index.ts:360-367",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-HEALTH-001": {
+      "type": "api_contract",
+      "title": "GET /health",
+      "md_anchor": "#API-HEALTH-001",
+      "source_primary": "server/src/index.ts:182-190",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-AUTH-001": {
+      "type": "api_contract",
+      "title": "GET /api/auth/bootstrap-status",
+      "md_anchor": "#API-AUTH-001",
+      "source_primary": "server/src/routes/authRoutes.ts:84-94",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-AUTH-002": {
+      "type": "api_contract",
+      "title": "POST /api/auth/bootstrap-password",
+      "md_anchor": "#API-AUTH-002",
+      "source_primary": "server/src/routes/authRoutes.ts:96-127",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-AUTH-003": {
+      "type": "api_contract",
+      "title": "POST /api/auth/login",
+      "md_anchor": "#API-AUTH-003",
+      "source_primary": "server/src/routes/authRoutes.ts:132-197",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-AUTH-004": {
+      "type": "api_contract",
+      "title": "POST /api/auth/logout",
+      "md_anchor": "#API-AUTH-004",
+      "source_primary": "server/src/routes/authRoutes.ts:202-215",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-AUTH-005": {
+      "type": "api_contract",
+      "title": "POST /api/auth/verify",
+      "md_anchor": "#API-AUTH-005",
+      "source_primary": "server/src/routes/authRoutes.ts:220-274",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-AUTH-006": {
+      "type": "api_contract",
+      "title": "POST /api/auth/refresh",
+      "md_anchor": "#API-AUTH-006",
+      "source_primary": "server/src/routes/authRoutes.ts:279-298",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-AUTH-007": {
+      "type": "api_contract",
+      "title": "GET /api/auth/status",
+      "md_anchor": "#API-AUTH-007",
+      "source_primary": "server/src/routes/authRoutes.ts:303-309",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-AUTH-008": {
+      "type": "api_contract",
+      "title": "GET /api/auth/totp-qr",
+      "md_anchor": "#API-AUTH-008",
+      "source_primary": "server/src/routes/authRoutes.ts:316-329",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-SES-001": {
+      "type": "api_contract",
+      "title": "GET /api/sessions",
+      "md_anchor": "#API-SES-001",
+      "source_primary": "server/src/routes/sessionRoutes.ts:9-12",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-SES-002": {
+      "type": "api_contract",
+      "title": "GET /api/sessions/shells",
+      "md_anchor": "#API-SES-002",
+      "source_primary": "server/src/routes/sessionRoutes.ts:15-18",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-SES-003": {
+      "type": "api_contract",
+      "title": "POST /api/sessions",
+      "md_anchor": "#API-SES-003",
+      "source_primary": "server/src/routes/sessionRoutes.ts:21-41",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-SES-004": {
+      "type": "api_contract",
+      "title": "GET /api/sessions/:id",
+      "md_anchor": "#API-SES-004",
+      "source_primary": "server/src/routes/sessionRoutes.ts:44-51",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-SES-005": {
+      "type": "api_contract",
+      "title": "DELETE /api/sessions/:id",
+      "md_anchor": "#API-SES-005",
+      "source_primary": "server/src/routes/sessionRoutes.ts:54-61",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-SES-006": {
+      "type": "api_contract",
+      "title": "PATCH /api/sessions/:id",
+      "md_anchor": "#API-SES-006",
+      "source_primary": "server/src/routes/sessionRoutes.ts:64-98",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-SES-007": {
+      "type": "api_contract",
+      "title": "POST /api/sessions/:id/reorder",
+      "md_anchor": "#API-SES-007",
+      "source_primary": "server/src/routes/sessionRoutes.ts:101-113",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-SES-008": {
+      "type": "api_contract",
+      "title": "GET /api/sessions/telemetry",
+      "md_anchor": "#API-SES-008",
+      "source_primary": "server/src/index.ts:206-212",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-SES-009": {
+      "type": "api_contract",
+      "title": "GET /api/sessions/debug-capture/:id",
+      "md_anchor": "#API-SES-009",
+      "source_primary": "server/src/index.ts:213-226",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-SES-010": {
+      "type": "api_contract",
+      "title": "POST /api/sessions/debug-capture/:id/enable",
+      "md_anchor": "#API-SES-010",
+      "source_primary": "server/src/index.ts:227-232",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-SES-011": {
+      "type": "api_contract",
+      "title": "DELETE /api/sessions/debug-capture/:id",
+      "md_anchor": "#API-SES-011",
+      "source_primary": "server/src/index.ts:233-240",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-FILE-001": {
+      "type": "api_contract",
+      "title": "GET /api/sessions/:id/cwd",
+      "md_anchor": "#API-FILE-001",
+      "source_primary": "server/src/routes/fileRoutes.ts:17-25",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-FILE-002": {
+      "type": "api_contract",
+      "title": "GET /api/sessions/:id/files",
+      "md_anchor": "#API-FILE-002",
+      "source_primary": "server/src/routes/fileRoutes.ts:28-36",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-FILE-003": {
+      "type": "api_contract",
+      "title": "GET /api/sessions/:id/files/read",
+      "md_anchor": "#API-FILE-003",
+      "source_primary": "server/src/routes/fileRoutes.ts:39-50",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-FILE-004": {
+      "type": "api_contract",
+      "title": "POST /api/sessions/:id/files/copy",
+      "md_anchor": "#API-FILE-004",
+      "source_primary": "server/src/routes/fileRoutes.ts:53-64",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-FILE-005": {
+      "type": "api_contract",
+      "title": "POST /api/sessions/:id/files/move",
+      "md_anchor": "#API-FILE-005",
+      "source_primary": "server/src/routes/fileRoutes.ts:67-78",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-FILE-006": {
+      "type": "api_contract",
+      "title": "DELETE /api/sessions/:id/files",
+      "md_anchor": "#API-FILE-006",
+      "source_primary": "server/src/routes/fileRoutes.ts:81-92",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-FILE-007": {
+      "type": "api_contract",
+      "title": "POST /api/sessions/:id/files/mkdir",
+      "md_anchor": "#API-FILE-007",
+      "source_primary": "server/src/routes/fileRoutes.ts:95-106",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-SET-001": {
+      "type": "api_contract",
+      "title": "GET /api/settings",
+      "md_anchor": "#API-SET-001",
+      "source_primary": "server/src/routes/settingsRoutes.ts:8-10",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-SET-002": {
+      "type": "api_contract",
+      "title": "PATCH /api/settings",
+      "md_anchor": "#API-SET-002",
+      "source_primary": "server/src/routes/settingsRoutes.ts:12-21",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-WS-001": {
+      "type": "api_contract",
+      "title": "GET /api/workspaces",
+      "md_anchor": "#API-WS-001",
+      "source_primary": "server/src/routes/workspaceRoutes.ts:33-40",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-WS-002": {
+      "type": "api_contract",
+      "title": "PUT /api/workspaces/order",
+      "md_anchor": "#API-WS-002",
+      "source_primary": "server/src/routes/workspaceRoutes.ts:43-53",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-WS-003": {
+      "type": "api_contract",
+      "title": "POST /api/workspaces",
+      "md_anchor": "#API-WS-003",
+      "source_primary": "server/src/routes/workspaceRoutes.ts:56-66",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-WS-004": {
+      "type": "api_contract",
+      "title": "PATCH /api/workspaces/:id",
+      "md_anchor": "#API-WS-004",
+      "source_primary": "server/src/routes/workspaceRoutes.ts:69-78",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-WS-005": {
+      "type": "api_contract",
+      "title": "DELETE /api/workspaces/:id",
+      "md_anchor": "#API-WS-005",
+      "source_primary": "server/src/routes/workspaceRoutes.ts:81-91",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-WS-006": {
+      "type": "api_contract",
+      "title": "POST /api/workspaces/:id/tabs",
+      "md_anchor": "#API-WS-006",
+      "source_primary": "server/src/routes/workspaceRoutes.ts:97-108",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-WS-007": {
+      "type": "api_contract",
+      "title": "PUT /api/workspaces/:id/tab-order",
+      "md_anchor": "#API-WS-007",
+      "source_primary": "server/src/routes/workspaceRoutes.ts:111-121",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-WS-008": {
+      "type": "api_contract",
+      "title": "PATCH /api/workspaces/:wid/tabs/:tid",
+      "md_anchor": "#API-WS-008",
+      "source_primary": "server/src/routes/workspaceRoutes.ts:124-133",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-WS-009": {
+      "type": "api_contract",
+      "title": "DELETE /api/workspaces/:wid/tabs/:tid",
+      "md_anchor": "#API-WS-009",
+      "source_primary": "server/src/routes/workspaceRoutes.ts:136-145",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-WS-010": {
+      "type": "api_contract",
+      "title": "POST /api/workspaces/:wid/tabs/:tid/restart",
+      "md_anchor": "#API-WS-010",
+      "source_primary": "server/src/routes/workspaceRoutes.ts:148-157",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "API-WS-011": {
+      "type": "api_contract",
+      "title": "PUT /api/workspaces/:id/grid",
+      "md_anchor": "#API-WS-011",
+      "source_primary": "server/src/routes/workspaceRoutes.ts:164-174",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "IF-WS-UPGRADE-001": {
+      "type": "interface",
+      "title": "WebSocket 업그레이드 /ws + JWT 인증",
+      "md_anchor": "#IF-WS-UPGRADE-001",
+      "source_primary": "server/src/ws/WsRouter.ts:54-87",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "IF-WS-HEARTBEAT-001": {
+      "type": "interface",
+      "title": "WebSocket Heartbeat (ping/pong)",
+      "md_anchor": "#IF-WS-HEARTBEAT-001",
+      "source_primary": "server/src/ws/WsRouter.ts:343-357",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WSP-SUB-001": {
+      "type": "functional_req",
+      "title": "세션 구독 시 screen snapshot 전송",
+      "md_anchor": "#FR-WSP-SUB-001",
+      "source_primary": "server/src/ws/WsRouter.ts:144-208",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WSP-ACK-001": {
+      "type": "functional_req",
+      "title": "Replay ACK 흐름 (screen-snapshot:ready)",
+      "md_anchor": "#FR-WSP-ACK-001",
+      "source_primary": "server/src/ws/WsRouter.ts:229-282",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WSP-INPUT-001": {
+      "type": "functional_req",
+      "title": "WS input 메시지 라우팅",
+      "md_anchor": "#FR-WSP-INPUT-001",
+      "source_primary": "server/src/ws/WsRouter.ts:284-300",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WSP-RESIZE-001": {
+      "type": "functional_req",
+      "title": "WS resize 메시지 라우팅",
+      "md_anchor": "#FR-WSP-RESIZE-001",
+      "source_primary": "server/src/ws/WsRouter.ts:302-304",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WSP-REPAIR-001": {
+      "type": "functional_req",
+      "title": "WS repair-replay 처리",
+      "md_anchor": "#FR-WSP-REPAIR-001",
+      "source_primary": "server/src/ws/WsRouter.ts:306-322",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WSP-OUT-001": {
+      "type": "functional_req",
+      "title": "세션 출력 라우팅 및 큐잉",
+      "md_anchor": "#FR-WSP-OUT-001",
+      "source_primary": "server/src/ws/WsRouter.ts:491-522",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WSP-REFRESH-001": {
+      "type": "functional_req",
+      "title": "리사이즈 후 replay 스냅샷 자동 리프레시",
+      "md_anchor": "#FR-WSP-REFRESH-001",
+      "source_primary": "server/src/services/SessionManager.ts:112-114",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WSP-BCAST-001": {
+      "type": "functional_req",
+      "title": "전역 브로드캐스트 API",
+      "md_anchor": "#FR-WSP-BCAST-001",
+      "source_primary": "server/src/ws/WsRouter.ts:691-698",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-PTY-001": {
+      "type": "functional_req",
+      "title": "PTY 세션 생성",
+      "md_anchor": "#FR-PTY-001",
+      "source_primary": "server/src/services/SessionManager.ts:226-412",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-PTY-002": {
+      "type": "functional_req",
+      "title": "PTY 세션 종료 리소스 해제",
+      "md_anchor": "#FR-PTY-002",
+      "source_primary": "server/src/services/SessionManager.ts:617-663",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-PTY-INPUT-001": {
+      "type": "functional_req",
+      "title": "PTY 입력 처리 및 커맨드 버퍼",
+      "md_anchor": "#FR-PTY-INPUT-001",
+      "source_primary": "server/src/services/SessionManager.ts:691-737",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-PTY-RESIZE-001": {
+      "type": "functional_req",
+      "title": "PTY resize",
+      "md_anchor": "#FR-PTY-RESIZE-001",
+      "source_primary": "server/src/services/SessionManager.ts:777-827",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-PTY-EXIT-001": {
+      "type": "functional_req",
+      "title": "PTY 종료 이벤트 브로드캐스트",
+      "md_anchor": "#FR-PTY-EXIT-001",
+      "source_primary": "server/src/services/SessionManager.ts:406-409",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-PTY-ENV-001": {
+      "type": "functional_req",
+      "title": "셸 통합 환경변수 구성",
+      "md_anchor": "#FR-PTY-ENV-001",
+      "source_primary": "server/src/services/SessionManager.ts:973-995",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-PTY-BKND-001": {
+      "type": "functional_req",
+      "title": "Windows PTY 백엔드 해석",
+      "md_anchor": "#FR-PTY-BKND-001",
+      "source_primary": "server/src/services/SessionManager.ts:1010-1060",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-PTY-SHELL-001": {
+      "type": "functional_req",
+      "title": "사용 가능한 셸 감지 및 캐시",
+      "md_anchor": "#FR-PTY-SHELL-001",
+      "source_primary": "server/src/services/SessionManager.ts:908-964",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-PTY-CWD-SPAWN-001": {
+      "type": "functional_req",
+      "title": "Spawn CWD 해석",
+      "md_anchor": "#FR-PTY-CWD-SPAWN-001",
+      "source_primary": "server/src/services/SessionManager.ts:1103-1131",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-IDLE-001": {
+      "type": "functional_req",
+      "title": "Idle 상태 휴리스틱 감지",
+      "md_anchor": "#FR-IDLE-001",
+      "source_primary": "server/src/services/SessionManager.ts:335-404",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-IDLE-002": {
+      "type": "functional_req",
+      "title": "OSC 133 자동 모드 승격",
+      "md_anchor": "#FR-IDLE-002",
+      "source_primary": "server/src/services/SessionManager.ts:309-353",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-OSC133-001": {
+      "type": "functional_req",
+      "title": "OSC 133 마커 파서 (OscDetector)",
+      "md_anchor": "#FR-OSC133-001",
+      "source_primary": "server/src/services/OscDetector.ts:1-146",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-STATE-DERIVED-001": {
+      "type": "functional_req",
+      "title": "파생 상태(ownership/activity) 모델",
+      "md_anchor": "#FR-STATE-DERIVED-001",
+      "source_primary": "server/src/services/ForegroundAppDetector.ts:1-88",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-FG-DETECT-001": {
+      "type": "functional_req",
+      "title": "Foreground App Detector Registry",
+      "md_anchor": "#FR-FG-DETECT-001",
+      "source_primary": "server/src/services/ForegroundAppDetector.ts:50-68",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-FG-HERMES-001": {
+      "type": "functional_req",
+      "title": "Hermes Foreground Detector",
+      "md_anchor": "#FR-FG-HERMES-001",
+      "source_primary": "server/src/services/HermesForegroundDetector.ts:1-286",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-SNAP-001": {
+      "type": "functional_req",
+      "title": "Headless 터미널 스크린 스냅샷",
+      "md_anchor": "#FR-SNAP-001",
+      "source_primary": "server/src/services/SessionManager.ts:1503-1580",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-SNAP-002": {
+      "type": "functional_req",
+      "title": "Degraded replay 폴백 버퍼",
+      "md_anchor": "#FR-SNAP-002",
+      "source_primary": "server/src/services/SessionManager.ts:1748-1799",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-SNAP-003": {
+      "type": "functional_req",
+      "title": "Headless 출력 적용 비동기 체인",
+      "md_anchor": "#FR-SNAP-003",
+      "source_primary": "server/src/services/SessionManager.ts:1687-1740",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-CWD-001": {
+      "type": "functional_req",
+      "title": "세션별 CWD 추적 훅 주입",
+      "md_anchor": "#FR-CWD-001",
+      "source_primary": "server/src/services/SessionManager.ts:1374-1468",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-CWD-002": {
+      "type": "functional_req",
+      "title": "CWD 파일 변경 감시 및 브로드캐스트",
+      "md_anchor": "#FR-CWD-002",
+      "source_primary": "server/src/services/SessionManager.ts:162-172",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-CWD-003": {
+      "type": "functional_req",
+      "title": "FileService.getCwd 해석 우선순위",
+      "md_anchor": "#FR-CWD-003",
+      "source_primary": "server/src/services/FileService.ts:79-123",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-CWD-REC-001": {
+      "type": "functional_req",
+      "title": "CWD 스냅샷 및 복구",
+      "md_anchor": "#FR-CWD-REC-001",
+      "source_primary": "server/src/services/WorkspaceService.ts:449-495",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-AUTH-001": {
+      "type": "functional_req",
+      "title": "비밀번호 검증 (timing-safe)",
+      "md_anchor": "#FR-AUTH-001",
+      "source_primary": "server/src/services/AuthService.ts:66-98",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-AUTH-002": {
+      "type": "functional_req",
+      "title": "JWT 발급/검증/Revoke",
+      "md_anchor": "#FR-AUTH-002",
+      "source_primary": "server/src/services/AuthService.ts:107-228",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-AUTH-MW-001": {
+      "type": "functional_req",
+      "title": "authMiddleware",
+      "md_anchor": "#FR-AUTH-MW-001",
+      "source_primary": "server/src/middleware/authMiddleware.ts:44-107",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-AUTH-BOOT-001": {
+      "type": "functional_req",
+      "title": "Bootstrap 상태 판정",
+      "md_anchor": "#FR-AUTH-BOOT-001",
+      "source_primary": "server/src/services/BootstrapSetupService.ts:34-54",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-AUTH-BOOT-002": {
+      "type": "functional_req",
+      "title": "Bootstrap 비밀번호 등록",
+      "md_anchor": "#FR-AUTH-BOOT-002",
+      "source_primary": "server/src/services/BootstrapSetupService.ts:56-112",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-AUTH-LPO-001": {
+      "type": "functional_req",
+      "title": "Localhost 전용 패스워드 바이패스",
+      "md_anchor": "#FR-AUTH-LPO-001",
+      "source_primary": "server/src/routes/authRoutes.ts:155-171",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TOTP-001": {
+      "type": "functional_req",
+      "title": "TOTP 초기화 및 QR 출력",
+      "md_anchor": "#FR-TOTP-001",
+      "source_primary": "server/src/services/TOTPService.ts:54-125",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TOTP-002": {
+      "type": "functional_req",
+      "title": "TOTP 검증 (replay 방지, 시도 제한)",
+      "md_anchor": "#FR-TOTP-002",
+      "source_primary": "server/src/services/TOTPService.ts:197-234",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TOTP-PEND-001": {
+      "type": "functional_req",
+      "title": "TOTP pending auth 관리",
+      "md_anchor": "#FR-TOTP-PEND-001",
+      "source_primary": "server/src/services/TOTPService.ts:144-194",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TOTP-RUNTIME-001": {
+      "type": "functional_req",
+      "title": "TOTP 런타임 재구성",
+      "md_anchor": "#FR-TOTP-RUNTIME-001",
+      "source_primary": "server/src/services/twoFactorRuntime.ts:19-55",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-CRYPTO-001": {
+      "type": "functional_req",
+      "title": "AES-256-GCM 암복호화",
+      "md_anchor": "#FR-CRYPTO-001",
+      "source_primary": "server/src/services/CryptoService.ts:1-187",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-CRYPTO-002": {
+      "type": "functional_req",
+      "title": "안전한 난수 유틸",
+      "md_anchor": "#FR-CRYPTO-002",
+      "source_primary": "server/src/services/CryptoService.ts:219-247",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-FILE-001": {
+      "type": "functional_req",
+      "title": "디렉토리 나열 정렬 규칙",
+      "md_anchor": "#FR-FILE-001",
+      "source_primary": "server/src/services/FileService.ts:128-207",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-FILE-002": {
+      "type": "functional_req",
+      "title": "바이너리 판정 및 MIME 매핑",
+      "md_anchor": "#FR-FILE-002",
+      "source_primary": "server/src/services/FileService.ts:17-50",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-FILE-DISK-001": {
+      "type": "functional_req",
+      "title": "디스크 여유 공간 조회",
+      "md_anchor": "#FR-FILE-DISK-001",
+      "source_primary": "server/src/services/FileService.ts:398-420",
+      "confidence": "med",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WORK-001": {
+      "type": "functional_req",
+      "title": "워크스페이스 상태 영속화",
+      "md_anchor": "#FR-WORK-001",
+      "source_primary": "server/src/services/WorkspaceService.ts:47-99",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WORK-002": {
+      "type": "functional_req",
+      "title": "레거시 GridLayout 마이그레이션",
+      "md_anchor": "#FR-WORK-002",
+      "source_primary": "server/src/services/WorkspaceService.ts:341-355",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WORK-003": {
+      "type": "functional_req",
+      "title": "Orphan tab 복구",
+      "md_anchor": "#FR-WORK-003",
+      "source_primary": "server/src/services/WorkspaceService.ts:449-468",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-CFG-001": {
+      "type": "functional_req",
+      "title": "런타임 설정 PATCH 적용 및 롤백",
+      "md_anchor": "#FR-CFG-001",
+      "source_primary": "server/src/services/SettingsService.ts:147-249",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-CFG-002": {
+      "type": "functional_req",
+      "title": "편집 가능 키/적용 범위",
+      "md_anchor": "#FR-CFG-002",
+      "source_primary": "server/src/types/settings.types.ts:7-48",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-CFG-003": {
+      "type": "functional_req",
+      "title": "config.json5 주석 보존 패치 렌더러",
+      "md_anchor": "#FR-CFG-003",
+      "source_primary": "server/src/services/ConfigFileRepository.ts:172-373",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-CFG-004": {
+      "type": "functional_req",
+      "title": "플랫폼별 PTY 설정 정규화",
+      "md_anchor": "#FR-CFG-004",
+      "source_primary": "server/src/utils/ptyPlatformPolicy.ts:31-98",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-CFG-005": {
+      "type": "functional_req",
+      "title": "CORS origin 변경 가드",
+      "md_anchor": "#FR-CFG-005",
+      "source_primary": "server/src/services/SettingsService.ts:371-392",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-CFG-006": {
+      "type": "functional_req",
+      "title": "비밀번호 변경 정책",
+      "md_anchor": "#FR-CFG-006",
+      "source_primary": "server/src/services/SettingsService.ts:343-369",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-SSL-001": {
+      "type": "functional_req",
+      "title": "self-signed 인증서 생성",
+      "md_anchor": "#FR-SSL-001",
+      "source_primary": "server/src/services/SSLService.ts:85-170",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-SSL-002": {
+      "type": "functional_req",
+      "title": "인증서 만료 경고",
+      "md_anchor": "#FR-SSL-002",
+      "source_primary": "server/src/services/SSLService.ts:34-80",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-PATH-001": {
+      "type": "functional_req",
+      "title": "Path traversal 차단 및 realpath 검증",
+      "md_anchor": "#FR-PATH-001",
+      "source_primary": "server/src/utils/pathValidator.ts:17-76",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-DEBUG-001": {
+      "type": "functional_req",
+      "title": "세션 디버그 캡처",
+      "md_anchor": "#FR-DEBUG-001",
+      "source_primary": "server/src/services/SessionManager.ts:665-689",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-DEBUG-002": {
+      "type": "functional_req",
+      "title": "WS replay 디버그 이벤트",
+      "md_anchor": "#FR-DEBUG-002",
+      "source_primary": "server/src/ws/WsRouter.ts:667-689",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-SESS-001": {
+      "type": "data_model",
+      "title": "Session / SessionDTO",
+      "md_anchor": "#DM-SESS-001",
+      "source_primary": "server/src/types/index.ts:11-18",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-WORK-001": {
+      "type": "data_model",
+      "title": "Workspace/WorkspaceTab/GridLayout",
+      "md_anchor": "#DM-WORK-001",
+      "source_primary": "server/src/types/workspace.types.ts:1-46",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-FILE-001": {
+      "type": "data_model",
+      "title": "DirectoryEntry/DirectoryListing/FileContent",
+      "md_anchor": "#DM-FILE-001",
+      "source_primary": "server/src/types/file.types.ts:23-45",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-AUTH-001": {
+      "type": "data_model",
+      "title": "JWTPayload / OTPData",
+      "md_anchor": "#DM-AUTH-001",
+      "source_primary": "server/src/types/auth.types.ts:1-155",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-CFG-001": {
+      "type": "data_model",
+      "title": "Config (Zod configSchema)",
+      "md_anchor": "#DM-CFG-001",
+      "source_primary": "server/src/schemas/config.schema.ts:1-177",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-DERIV-001": {
+      "type": "data_model",
+      "title": "SessionDerivedState / DetectionMode",
+      "md_anchor": "#DM-DERIV-001",
+      "source_primary": "server/src/services/ForegroundAppDetector.ts:1-48",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-WSP-001": {
+      "type": "data_model",
+      "title": "WS Protocol Types",
+      "md_anchor": "#DM-WSP-001",
+      "source_primary": "server/src/types/ws-protocol.ts:1-136",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-ERR-001": {
+      "type": "data_model",
+      "title": "AppError/ErrorCode 체계",
+      "md_anchor": "#DM-ERR-001",
+      "source_primary": "server/src/utils/errors.ts:10-201",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "SM-IDLE-001": {
+      "type": "system_mode",
+      "title": "세션 상태 머신 (heuristic)",
+      "md_anchor": "#SM-IDLE-001",
+      "source_primary": "server/src/services/SessionManager.ts:335-434",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "SM-IDLE-002": {
+      "type": "system_mode",
+      "title": "세션 상태 머신 (osc133)",
+      "md_anchor": "#SM-IDLE-002",
+      "source_primary": "server/src/services/SessionManager.ts:309-329",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "SM-HEADLESS-001": {
+      "type": "system_mode",
+      "title": "Headless 터미널 건강성",
+      "md_anchor": "#SM-HEADLESS-001",
+      "source_primary": "server/src/services/SessionManager.ts:1748-1799",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "SM-REPLAY-001": {
+      "type": "system_mode",
+      "title": "구독 Replay 상태",
+      "md_anchor": "#SM-REPLAY-001",
+      "source_primary": "server/src/ws/WsRouter.ts:359-489",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "IF-SHELL-OSC-001": {
+      "type": "interface",
+      "title": "Shell Integration 스크립트 경로",
+      "md_anchor": "#IF-SHELL-OSC-001",
+      "source_primary": "server/src/services/SessionManager.ts:1062-1097",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-TLS-001": {
+      "type": "nonfunctional_req",
+      "title": "TLS 1.2~1.3 + 강화 cipher",
+      "md_anchor": "#NFR-TLS-001",
+      "source_primary": "server/src/utils/constants.ts:25-53",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-AUTH-001": {
+      "type": "nonfunctional_req",
+      "title": "JWT HS256 + jti 블랙리스트",
+      "md_anchor": "#NFR-AUTH-001",
+      "source_primary": "server/src/services/AuthService.ts:49-228",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-AUTH-TIMING-001": {
+      "type": "nonfunctional_req",
+      "title": "타이밍 안전 비교",
+      "md_anchor": "#NFR-AUTH-TIMING-001",
+      "source_primary": "server/src/services/CryptoService.ts:194-217",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-TOTP-001": {
+      "type": "nonfunctional_req",
+      "title": "TOTP 최대 3회 시도",
+      "md_anchor": "#NFR-TOTP-001",
+      "source_primary": "server/src/services/TOTPService.ts:207-234",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-TOTP-REPLAY-001": {
+      "type": "nonfunctional_req",
+      "title": "TOTP replay 방지",
+      "md_anchor": "#NFR-TOTP-REPLAY-001",
+      "source_primary": "server/src/services/TOTPService.ts:207-234",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-TOTP-SECRET-001": {
+      "type": "nonfunctional_req",
+      "title": "TOTP secret 파일 보호",
+      "md_anchor": "#NFR-TOTP-SECRET-001",
+      "source_primary": "server/src/services/TOTPService.ts:74-109",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-SEC-HDR-001": {
+      "type": "nonfunctional_req",
+      "title": "보안 헤더 (Helmet)",
+      "md_anchor": "#NFR-SEC-HDR-001",
+      "source_primary": "server/src/middleware/securityHeaders.ts:31-109",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-SEC-HDR-002": {
+      "type": "nonfunctional_req",
+      "title": "Permissions-Policy 제한",
+      "md_anchor": "#NFR-SEC-HDR-002",
+      "source_primary": "server/src/middleware/securityHeaders.ts:126-164",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-SEC-HDR-003": {
+      "type": "nonfunctional_req",
+      "title": "민감 엔드포인트 no-cache",
+      "md_anchor": "#NFR-SEC-HDR-003",
+      "source_primary": "server/src/middleware/securityHeaders.ts:115-123",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-CORS-001": {
+      "type": "nonfunctional_req",
+      "title": "동적 CORS 정책",
+      "md_anchor": "#NFR-CORS-001",
+      "source_primary": "server/src/index.ts:133-162",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-SEC-FILE-001": {
+      "type": "nonfunctional_req",
+      "title": "파일 경로 보안",
+      "md_anchor": "#NFR-SEC-FILE-001",
+      "source_primary": "server/src/utils/pathValidator.ts:1-76",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-RATE-001": {
+      "type": "nonfunctional_req",
+      "title": "Bootstrap rate-limit",
+      "md_anchor": "#NFR-RATE-001",
+      "source_primary": "server/src/services/BootstrapSetupService.ts:26-108",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-CFG-001": {
+      "type": "nonfunctional_req",
+      "title": "설정 파일 원자적 쓰기 및 백업",
+      "md_anchor": "#NFR-CFG-001",
+      "source_primary": "server/src/services/ConfigFileRepository.ts:111-121",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-DEBUG-001": {
+      "type": "nonfunctional_req",
+      "title": "디버그 API localhost 제한",
+      "md_anchor": "#NFR-DEBUG-001",
+      "source_primary": "server/src/middleware/debugCaptureGuards.ts:7-28",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-LIMITS-001": {
+      "type": "nonfunctional_req",
+      "title": "리소스 상한",
+      "md_anchor": "#NFR-LIMITS-001",
+      "source_primary": "server/src/schemas/config.schema.ts:137-156",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-PERF-SNAP-001": {
+      "type": "nonfunctional_req",
+      "title": "스냅샷 캐시 및 관찰성",
+      "md_anchor": "#NFR-PERF-SNAP-001",
+      "source_primary": "server/src/services/SessionManager.ts:79-92",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-OBS-WS-001": {
+      "type": "nonfunctional_req",
+      "title": "WS 관찰성 메트릭",
+      "md_anchor": "#NFR-OBS-WS-001",
+      "source_primary": "server/src/ws/WsRouter.ts:650-665",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-PLATFORM-001": {
+      "type": "constraint",
+      "title": "플랫폼 제약 (Windows 전용 옵션)",
+      "md_anchor": "#CON-PLATFORM-001",
+      "source_primary": "server/src/utils/ptyPlatformPolicy.ts:31-98",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-WINPTY-001": {
+      "type": "constraint",
+      "title": "winpty 가용성 probe",
+      "md_anchor": "#CON-WINPTY-001",
+      "source_primary": "server/src/services/SessionManager.ts:1289-1372",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-CONFIG-EXCL-001": {
+      "type": "constraint",
+      "title": "설정 API에서 편집 불가 섹션",
+      "md_anchor": "#CON-CONFIG-EXCL-001",
+      "source_primary": "server/src/services/RuntimeConfigStore.ts:16-24",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-CFG-VAL-001": {
+      "type": "constraint",
+      "title": "config 값 범위(Zod)",
+      "md_anchor": "#CON-CFG-VAL-001",
+      "source_primary": "server/src/schemas/config.schema.ts:48-156",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-ENV-001": {
+      "type": "constraint",
+      "title": "환경변수",
+      "md_anchor": "#CON-ENV-001",
+      "source_primary": "server/src/index.ts:46-48",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "IF-CERT-001": {
+      "type": "interface",
+      "title": "외부 통합: selfsigned 라이브러리",
+      "md_anchor": "#IF-CERT-001",
+      "source_primary": "server/src/services/SSLService.ts:85-169",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "IF-LIB-001": {
+      "type": "interface",
+      "title": "외부 라이브러리 의존성",
+      "md_anchor": "#IF-LIB-001",
+      "source_primary": "server/package.json:11-30",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "BR-SESSION-DUP-001": {
+      "type": "business_rule",
+      "title": "세션 이름 중복 금지",
+      "md_anchor": "#BR-SESSION-DUP-001",
+      "source_primary": "server/src/services/SessionManager.ts:829-848",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "BR-WORK-LIMITS-001": {
+      "type": "business_rule",
+      "title": "워크스페이스/탭/세션 한도",
+      "md_anchor": "#BR-WORK-LIMITS-001",
+      "source_primary": "server/src/services/WorkspaceService.ts:133-196",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "BR-DELWS-CASCADE-001": {
+      "type": "business_rule",
+      "title": "워크스페이스 삭제는 포함된 탭/PTY를 모두 종료",
+      "md_anchor": "#BR-DELWS-CASCADE-001",
+      "source_primary": "server/src/services/WorkspaceService.ts:178-196",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "BR-INPUT-BLOCK-001": {
+      "type": "business_rule",
+      "title": "replay 중 입력 차단",
+      "md_anchor": "#BR-INPUT-BLOCK-001",
+      "source_primary": "server/src/ws/WsRouter.ts:284-300",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "BR-CWD-SANITIZE-001": {
+      "type": "business_rule",
+      "title": "CWD 파일 값 검증",
+      "md_anchor": "#BR-CWD-SANITIZE-001",
+      "source_primary": "server/src/services/SessionManager.ts:162-172",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "BR-ERR-JSON-001": {
+      "type": "business_rule",
+      "title": "에러 응답 포맷 통일",
+      "md_anchor": "#BR-ERR-JSON-001",
+      "source_primary": "server/src/utils/errors.ts:207-267",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "ASM-001": {
+      "type": "assumption",
+      "title": "단일 관리자 계정",
+      "md_anchor": "#ASM-001",
+      "source_primary": "server/src/services/AuthService.ts:107-127",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "ASM-002": {
+      "type": "assumption",
+      "title": "로컬호스트 중심 사용",
+      "md_anchor": "#ASM-002",
+      "source_primary": "CLAUDE.md:1-200",
+      "confidence": "med",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "OOS-001": {
+      "type": "out_of_scope",
+      "title": "Brute-force lockout (미구현)",
+      "md_anchor": "#OOS-001",
+      "source_primary": "server/src/types/config.types.ts:130-144",
+      "confidence": "med",
+      "inferred": true,
+      "phase_added": 2
+    },
+    "OOS-002": {
+      "type": "out_of_scope",
+      "title": "이메일 2FA / SMTP",
+      "md_anchor": "#OOS-002",
+      "source_primary": "server/src/utils/constants.ts:95-104",
+      "confidence": "med",
+      "inferred": true,
+      "phase_added": 2
+    },
+    "VER-UNIT-001": {
+      "type": "verification",
+      "title": "서버 단위 테스트 러너",
+      "md_anchor": "#VER-UNIT-001",
+      "source_primary": "server/package.json:5-10",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "VER-BUILD-001": {
+      "type": "verification",
+      "title": "빌드 스크립트",
+      "md_anchor": "#VER-BUILD-001",
+      "source_primary": "server/package.json:7-7",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-FE-001": {
+      "type": "constraint",
+      "title": "React 19 + Vite + TypeScript 프런트엔드 스택",
+      "md_anchor": "#CON-FE-001",
+      "source_primary": "frontend/package.json:1-44",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-FE-002": {
+      "type": "constraint",
+      "title": "react-mosaic-component의 React 18 의존성 충돌을 단일 사본 별칭으로 해결",
+      "md_anchor": "#CON-FE-002",
+      "source_primary": "frontend/vite.config.ts:16-24",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-FE-003": {
+      "type": "constraint",
+      "title": "개발 서버는 HTTPS 백엔드로 프록시한다",
+      "md_anchor": "#CON-FE-003",
+      "source_primary": "frontend/vite.config.ts:25-38",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-FE-004": {
+      "type": "constraint",
+      "title": "Dev 서버 포트는 환경변수로 주입된다",
+      "md_anchor": "#CON-FE-004",
+      "source_primary": "frontend/vite.config.ts:10-11",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-UI-001": {
+      "type": "functional_req",
+      "title": "애플리케이션 부트스트랩은 StrictMode+AuthProvider로 감싼 App을 렌더한다",
+      "md_anchor": "#FR-UI-001",
+      "source_primary": "frontend/src/main.tsx:1-13",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-UI-002": {
+      "type": "functional_req",
+      "title": "AuthGuard가 인증 상태에 따라 로그인 화면을 분기한다",
+      "md_anchor": "#FR-UI-002",
+      "source_primary": "frontend/src/components/Auth/AuthGuard.tsx:19-67",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-UI-003": {
+      "type": "functional_req",
+      "title": "로그인 폼은 비밀번호를 받고 Enter 키로 제출한다",
+      "md_anchor": "#FR-UI-003",
+      "source_primary": "frontend/src/components/Auth/LoginForm.tsx:11-75",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-UI-004": {
+      "type": "functional_req",
+      "title": "2FA 폼은 6자리 OTP를 숫자만 허용하고 입력 완료 시 자동 제출한다",
+      "md_anchor": "#FR-UI-004",
+      "source_primary": "frontend/src/components/Auth/TwoFactorForm.tsx:11-94",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-UI-005": {
+      "type": "functional_req",
+      "title": "Bootstrap 비밀번호 폼은 4자 이상 및 확인 일치 검증을 수행한다",
+      "md_anchor": "#FR-UI-005",
+      "source_primary": "frontend/src/components/Auth/BootstrapPasswordForm.tsx:6-114",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-UI-006": {
+      "type": "functional_req",
+      "title": "AuthContext가 로그인/2FA/Bootstrap/로그아웃/refresh를 일원화한다",
+      "md_anchor": "#FR-UI-006",
+      "source_primary": "frontend/src/contexts/AuthContext.tsx:38-308",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-UI-007": {
+      "type": "functional_req",
+      "title": "401 응답 시 자동 재인증 유도",
+      "md_anchor": "#FR-UI-007",
+      "source_primary": "frontend/src/services/api.ts:68-75",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-UI-008": {
+      "type": "functional_req",
+      "title": "JWT 토큰은 localStorage의 `cws_auth_token` 키에 저장한다",
+      "md_anchor": "#FR-UI-008",
+      "source_primary": "frontend/src/services/tokenStorage.ts:1-43",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-UI-009": {
+      "type": "functional_req",
+      "title": "Heartbeat 훅이 15분마다 토큰을 갱신하고 2회 실패 시 강제 로그아웃",
+      "md_anchor": "#FR-UI-009",
+      "source_primary": "frontend/src/hooks/useHeartbeat.ts:1-73",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WS-001": {
+      "type": "functional_req",
+      "title": "단일 WebSocket 채널로 모든 실시간 통신을 수행한다",
+      "md_anchor": "#FR-WS-001",
+      "source_primary": "frontend/src/contexts/WebSocketContext.tsx:79-85",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WS-002": {
+      "type": "functional_req",
+      "title": "연결 상태 머신: disconnected → reconnecting → connected",
+      "md_anchor": "#FR-WS-002",
+      "source_primary": "frontend/src/contexts/WebSocketContext.tsx:20-20",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WS-003": {
+      "type": "functional_req",
+      "title": "지수 백오프 재연결 (base=1000ms, max=30000ms, 10회 한계)",
+      "md_anchor": "#FR-WS-003",
+      "source_primary": "frontend/src/contexts/WebSocketContext.tsx:70-77",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WS-004": {
+      "type": "functional_req",
+      "title": "재연결 시 활성 세션 구독을 자동 복원한다",
+      "md_anchor": "#FR-WS-004",
+      "source_primary": "frontend/src/contexts/WebSocketContext.tsx:286-292",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WS-005": {
+      "type": "functional_req",
+      "title": "StrictMode 이중 마운트 방어 — stale WebSocket 메시지 무시",
+      "md_anchor": "#FR-WS-005",
+      "source_primary": "frontend/src/contexts/WebSocketContext.tsx:294-301",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WS-006": {
+      "type": "functional_req",
+      "title": "세션 구독/해지는 핸들러 기반 계약으로 관리되며 300ms grace 버퍼를 가진다",
+      "md_anchor": "#FR-WS-006",
+      "source_primary": "frontend/src/contexts/WebSocketContext.tsx:22-30",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WS-007": {
+      "type": "functional_req",
+      "title": "워크스페이스/탭/그리드 이벤트는 setWorkspaceHandlers로 라우팅된다",
+      "md_anchor": "#FR-WS-007",
+      "source_primary": "frontend/src/contexts/WebSocketContext.tsx:261-265",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WS-008": {
+      "type": "functional_req",
+      "title": "WS clientId 수신 시 REST 요청에 x-client-id 헤더를 부착한다",
+      "md_anchor": "#FR-WS-008",
+      "source_primary": "frontend/src/contexts/WebSocketContext.tsx:177-180",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "IFC-WS-001": {
+      "type": "interface",
+      "title": "클라이언트→서버 WS 메시지 프로토콜",
+      "md_anchor": "#IFC-WS-001",
+      "source_primary": "frontend/src/types/ws-protocol.ts:11-18",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "IFC-WS-002": {
+      "type": "interface",
+      "title": "서버→클라이언트 WS 메시지 프로토콜",
+      "md_anchor": "#IFC-WS-002",
+      "source_primary": "frontend/src/types/ws-protocol.ts:24-81",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-001": {
+      "type": "functional_req",
+      "title": "xterm.js 기반 터미널 뷰 렌더링",
+      "md_anchor": "#FR-TERM-001",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:658-694",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-002": {
+      "type": "functional_req",
+      "title": "TerminalHandle 명령형 API",
+      "md_anchor": "#FR-TERM-002",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:36-50",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-003": {
+      "type": "functional_req",
+      "title": "키 입력은 xterm.onData로 WS input 메시지로 전달된다",
+      "md_anchor": "#FR-TERM-003",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:830-850",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-004": {
+      "type": "functional_req",
+      "title": "터미널 크기 변화는 ResizeObserver + rAF + 100ms 디바운스로 PTY resize를 전송",
+      "md_anchor": "#FR-TERM-004",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:897-932",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-005": {
+      "type": "functional_req",
+      "title": "입력 준비 게이트 (serverReady × geometryReady × !restorePending × visible)",
+      "md_anchor": "#FR-TERM-005",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:121-148",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-006": {
+      "type": "functional_req",
+      "title": "screen-snapshot(authoritative/fallback) 적용 및 ACK",
+      "md_anchor": "#FR-TERM-006",
+      "source_primary": "frontend/src/components/Terminal/TerminalContainer.tsx:190-297",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-007": {
+      "type": "functional_req",
+      "title": "터미널 스냅샷을 localStorage에 2초 디바운스로 저장하고 복원",
+      "md_anchor": "#FR-TERM-007",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:26-29",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-008": {
+      "type": "functional_req",
+      "title": "Grid 셀에서 idle 전환 후 600ms 조용하면 자동 repair-replay 요청",
+      "md_anchor": "#FR-TERM-008",
+      "source_primary": "frontend/src/components/Terminal/TerminalContainer.tsx:59-59",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-009": {
+      "type": "functional_req",
+      "title": "Windows PTY 백엔드 정보(conpty/winpty)를 xterm에 주입한다",
+      "md_anchor": "#FR-TERM-009",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:639-643",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-010": {
+      "type": "functional_req",
+      "title": "TerminalRuntime 계층은 탭 이동/그리드 재배치와 xterm 인스턴스 생존을 분리한다",
+      "md_anchor": "#FR-TERM-010",
+      "source_primary": "frontend/src/components/Terminal/TerminalRuntimeContext.tsx:51-134",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-011": {
+      "type": "functional_req",
+      "title": "FitAddon/ResizeObserver 기반 레이아웃 invalidation",
+      "md_anchor": "#FR-TERM-011",
+      "source_primary": "frontend/src/components/Terminal/TerminalRuntimeContext.tsx:115-117",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-012": {
+      "type": "functional_req",
+      "title": "Ctrl+C는 선택 텍스트가 있을 때 복사, 없으면 SIGINT",
+      "md_anchor": "#FR-TERM-012",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:723-728",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-013": {
+      "type": "functional_req",
+      "title": "Ctrl+V는 xterm 내부 paste 이벤트에 위임하고 이중 붙여넣기를 방지",
+      "md_anchor": "#FR-TERM-013",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:730-735",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-014": {
+      "type": "functional_req",
+      "title": "CJK IME 가드 — 조합 중 Space/Enter/Backspace를 네이티브 xterm 경로로 위임",
+      "md_anchor": "#FR-TERM-014",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:737-749",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-015": {
+      "type": "functional_req",
+      "title": "우클릭 mousedown 시점에 선택 텍스트를 보존한다",
+      "md_anchor": "#FR-TERM-015",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:70-72",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-016": {
+      "type": "functional_req",
+      "title": "Ctrl+Wheel 폰트 줌 (8~32px, localStorage 영속)",
+      "md_anchor": "#FR-TERM-016",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:22-25",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-017": {
+      "type": "functional_req",
+      "title": "모바일 핀치 줌 + 한 손가락 팬 스크롤",
+      "md_anchor": "#FR-TERM-017",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:30-30",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-018": {
+      "type": "functional_req",
+      "title": "터미널 호버/출력/유저 타이핑 시각 클래스(터미널 브리딩)",
+      "md_anchor": "#FR-TERM-018",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:710-721",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-TERM-019": {
+      "type": "functional_req",
+      "title": "클라이언트 터미널 디버그 캡처 API (window.__buildergateTerminalDebug)",
+      "md_anchor": "#FR-TERM-019",
+      "source_primary": "frontend/src/utils/terminalDebugCapture.ts:1-222",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "SM-002": {
+      "type": "system_mode",
+      "title": "세션별 runtime 상태: running | idle | disconnected",
+      "md_anchor": "#SM-002",
+      "source_primary": "frontend/src/types/workspace.ts:24-27",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "SM-003": {
+      "type": "system_mode",
+      "title": "워크스페이스 뷰 모드: tab | grid",
+      "md_anchor": "#SM-003",
+      "source_primary": "frontend/src/types/workspace.ts:1-10",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "SM-004": {
+      "type": "system_mode",
+      "title": "Mosaic Layout Mode: equal | focus | auto | none",
+      "md_anchor": "#SM-004",
+      "source_primary": "frontend/src/hooks/useMosaicLayout.ts:12-12",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WS-7000": {
+      "type": "functional_req",
+      "title": "WorkspaceManager는 워크스페이스·탭·그리드의 CRUD와 실시간 동기화를 담당",
+      "md_anchor": "#FR-WS-7000",
+      "source_primary": "frontend/src/hooks/useWorkspaceManager.ts:81-501",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WS-7100": {
+      "type": "functional_req",
+      "title": "워크스페이스 사이드바: 생성/이름변경/삭제/재정렬/탭추가",
+      "md_anchor": "#FR-WS-7100",
+      "source_primary": "frontend/src/components/Workspace/WorkspaceSidebar.tsx:23-150",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WS-7200": {
+      "type": "functional_req",
+      "title": "워크스페이스 탭바: 세션 탭 렌더/선택/닫기/이름변경/재정렬",
+      "md_anchor": "#FR-WS-7200",
+      "source_primary": "frontend/src/components/Workspace/WorkspaceTabBar.tsx:25-236",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "BR-WS-7205": {
+      "type": "business_rule",
+      "title": "탭 닫기 시 다음 활성 탭 선정 정책 (오른쪽 우선 → 왼쪽)",
+      "md_anchor": "#BR-WS-7205",
+      "source_primary": "frontend/src/hooks/useWorkspaceManager.ts:340-371",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "BR-WS-7210": {
+      "type": "business_rule",
+      "title": "세션 탭 색상은 8색 팔레트에서 colorIndex로 지정",
+      "md_anchor": "#BR-WS-7210",
+      "source_primary": "frontend/src/types/workspace.ts:50-59",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WS-7300": {
+      "type": "functional_req",
+      "title": "모바일 드로어 사이드바 (ESC/오버레이 클릭/좌 스와이프 닫힘)",
+      "md_anchor": "#FR-WS-7300",
+      "source_primary": "frontend/src/components/Workspace/MobileDrawer.tsx:9-83",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-WS-7400": {
+      "type": "functional_req",
+      "title": "LRU 기반 워크스페이스 alive 상한 (MAX_ALIVE_WORKSPACES)",
+      "md_anchor": "#FR-WS-7400",
+      "source_primary": "frontend/src/App.tsx:33-34",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-GRID-001": {
+      "type": "functional_req",
+      "title": "Mosaic 기반 그리드 레이아웃 (react-mosaic-component + react-dnd)",
+      "md_anchor": "#FR-GRID-001",
+      "source_primary": "frontend/src/components/Grid/MosaicContainer.tsx:1-695",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-GRID-002": {
+      "type": "functional_req",
+      "title": "Grid 툴바에서 equal/focus/auto 모드를 토글한다",
+      "md_anchor": "#FR-GRID-002",
+      "source_primary": "frontend/src/components/Grid/MosaicToolbar.tsx:59-172",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-GRID-003": {
+      "type": "functional_req",
+      "title": "Mosaic 레이아웃은 localStorage에 per-workspace로 2초 디바운스 저장",
+      "md_anchor": "#FR-GRID-003",
+      "source_primary": "frontend/src/hooks/useMosaicLayout.ts:14-247",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-GRID-004": {
+      "type": "functional_req",
+      "title": "세션 수 기반 최소 페인 크기 제한",
+      "md_anchor": "#FR-GRID-004",
+      "source_primary": "frontend/src/utils/mosaic.ts:9-15",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-GRID-005": {
+      "type": "functional_req",
+      "title": "auto 모드는 idle 세션을 1.5초 지연으로 확대한다",
+      "md_anchor": "#FR-GRID-005",
+      "source_primary": "frontend/src/components/Grid/MosaicContainer.tsx:99-105",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-GRID-006": {
+      "type": "functional_req",
+      "title": "focus 모드 비율은 localStorage FOCUS_RATIO_KEY (0.1~0.9)",
+      "md_anchor": "#FR-GRID-006",
+      "source_primary": "frontend/src/components/Grid/MosaicContainer.tsx:107-114",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-GRID-007": {
+      "type": "functional_req",
+      "title": "MosaicTile 포커스 이력과 이전 탭 복귀",
+      "md_anchor": "#FR-GRID-007",
+      "source_primary": "frontend/src/hooks/useFocusHistory.ts:1-28",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-GRID-008": {
+      "type": "functional_req",
+      "title": "EmptyCell과 stale tabId 방어 렌더",
+      "md_anchor": "#FR-GRID-008",
+      "source_primary": "frontend/src/components/Grid/MosaicTile.tsx:65-84",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-GRID-009": {
+      "type": "functional_req",
+      "title": "Equal 모드에서 드래그 리사이즈 시 none으로 승격",
+      "md_anchor": "#FR-GRID-009",
+      "source_primary": "frontend/src/components/Grid/MosaicContainer.tsx:428-459",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-FE-FILE-001": {
+      "type": "functional_req",
+      "title": "Mdir 스타일 파일 매니저 (단일/듀얼 패널)",
+      "md_anchor": "#FR-FE-FILE-001",
+      "source_primary": "frontend/src/components/FileManager/MdirPanel.tsx:26-450",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-FE-FILE-002": {
+      "type": "functional_req",
+      "title": "파일 브라우저 Hook은 세션별 CWD 기반으로 디렉터리를 로드",
+      "md_anchor": "#FR-FE-FILE-002",
+      "source_primary": "frontend/src/hooks/useFileBrowser.ts:21-149",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-FILE-003": {
+      "type": "functional_req",
+      "title": "파일 리스트는 Mdir 규칙으로 렌더(대문자 이름, <DIR>, MM-DD-YY, HH:MM)",
+      "md_anchor": "#FR-FILE-003",
+      "source_primary": "frontend/src/components/FileManager/MdirFileList.tsx:19-120",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-FILE-004": {
+      "type": "functional_req",
+      "title": "F-key 및 단축키 기반 파일 조작 (F2 경로복사 ~ F8 삭제)",
+      "md_anchor": "#FR-FILE-004",
+      "source_primary": "frontend/src/components/FileManager/MdirPanel.tsx:220-281",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-FILE-005": {
+      "type": "functional_req",
+      "title": "Copy/Move 펜딩 연산은 양 패널 공유 상태로 관리된다",
+      "md_anchor": "#FR-FILE-005",
+      "source_primary": "frontend/src/components/FileManager/MdirPanel.tsx:12-13",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-FILE-006": {
+      "type": "functional_req",
+      "title": "FileOperationDialog는 copy/move/delete/mkdir 4모드를 제공",
+      "md_anchor": "#FR-FILE-006",
+      "source_primary": "frontend/src/components/FileManager/FileOperationDialog.tsx:6-162",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-FILE-007": {
+      "type": "functional_req",
+      "title": "뷰어 가능 확장자 화이트리스트",
+      "md_anchor": "#FR-FILE-007",
+      "source_primary": "frontend/src/utils/viewableExtensions.ts:1-16",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-FILE-008": {
+      "type": "functional_req",
+      "title": "경로 구분자 자동 판별 (Windows/Unix)",
+      "md_anchor": "#FR-FILE-008",
+      "source_primary": "frontend/src/utils/pathUtils.ts:10-49",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-FILE-009": {
+      "type": "functional_req",
+      "title": "useFileContent: 파일 내용 조회 훅",
+      "md_anchor": "#FR-FILE-009",
+      "source_primary": "frontend/src/hooks/useFileContent.ts:19-65",
+      "confidence": "med",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "OOS-FE-001": {
+      "type": "out_of_scope",
+      "title": "코드/마크다운 뷰어 컴포넌트는 현재 프런트엔드 구현에 없음",
+      "md_anchor": "#OOS-FE-001",
+      "source_primary": "frontend/package.json:13-27",
+      "confidence": "high",
+      "inferred": true,
+      "phase_added": 2
+    },
+    "FR-HEADER-001": {
+      "type": "functional_req",
+      "title": "상단 Header: 로고/활성 워크스페이스·CWD/설정·로그아웃·뷰모드 토글",
+      "md_anchor": "#FR-HEADER-001",
+      "source_primary": "frontend/src/components/Header/Header.tsx:28-122",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-SETTINGS-001": {
+      "type": "functional_req",
+      "title": "Settings 페이지는 Runtime-safe 설정만 노출한다",
+      "md_anchor": "#FR-SETTINGS-001",
+      "source_primary": "frontend/src/components/Settings/SettingsPage.tsx:34-476",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-SETTINGS-002": {
+      "type": "functional_req",
+      "title": "Settings 검증: 비밀번호/CORS origin/blocked ext/blocked path/winpty",
+      "md_anchor": "#FR-SETTINGS-002",
+      "source_primary": "frontend/src/components/Settings/SettingsPage.tsx:150-207",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-SETTINGS-003": {
+      "type": "functional_req",
+      "title": "Settings 저장은 diff 기반 patch를 서버에 PATCH",
+      "md_anchor": "#FR-SETTINGS-003",
+      "source_primary": "frontend/src/components/Settings/SettingsPage.tsx:228-283",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-SETTINGS-004": {
+      "type": "functional_req",
+      "title": "TOTP QR 코드 표시/재로딩",
+      "md_anchor": "#FR-SETTINGS-004",
+      "source_primary": "frontend/src/components/Settings/SettingsPage.tsx:39-94",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-SETTINGS-005": {
+      "type": "functional_req",
+      "title": "Grid Layout 로컬 설정 (autoFocusRatio, focusRatio)",
+      "md_anchor": "#FR-SETTINGS-005",
+      "source_primary": "frontend/src/components/Settings/SettingsPage.tsx:44-71",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-SETTINGS-006": {
+      "type": "functional_req",
+      "title": "Dirty 상태에서 Back 시 Discard 확인 모달",
+      "md_anchor": "#FR-SETTINGS-006",
+      "source_primary": "frontend/src/components/Settings/SettingsPage.tsx:190-193",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-UI-010": {
+      "type": "functional_req",
+      "title": "EmptyState: 활성 워크스페이스가 비어 있을 때 터미널 추가 CTA",
+      "md_anchor": "#FR-UI-010",
+      "source_primary": "frontend/src/components/Workspace/EmptyState.tsx:11-70",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-UI-011": {
+      "type": "functional_req",
+      "title": "ConfirmModal/RenameModal/ShellSelectModal 3종 공용 모달",
+      "md_anchor": "#FR-UI-011",
+      "source_primary": "frontend/src/components/Modal/ConfirmModal.tsx:14-50",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-UI-012": {
+      "type": "functional_req",
+      "title": "ContextMenu는 portal + 하위 메뉴 + 뷰포트 경계 보정",
+      "md_anchor": "#FR-UI-012",
+      "source_primary": "frontend/src/components/ContextMenu/ContextMenu.tsx:5-259",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-UI-013": {
+      "type": "functional_req",
+      "title": "탭 컨텍스트 메뉴 항목 빌더 (새 세션 서브메뉴, 복사/붙여넣기)",
+      "md_anchor": "#FR-UI-013",
+      "source_primary": "frontend/src/utils/contextMenuBuilder.ts:18-81",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "BR-FE-001": {
+      "type": "business_rule",
+      "title": "CWD 호환성: 다른 셸 계열로 전환 시 CWD 미전달",
+      "md_anchor": "#BR-FE-001",
+      "source_primary": "frontend/src/utils/shell.ts:1-18",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "BR-FE-002": {
+      "type": "business_rule",
+      "title": "터미널 스냅샷 제거 마커 2중화 (in-memory + localStorage)",
+      "md_anchor": "#BR-FE-002",
+      "source_primary": "frontend/src/utils/terminalSnapshot.ts:3-51",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "BR-FE-003": {
+      "type": "business_rule",
+      "title": "탭 생성 색상 인덱스는 workspace.colorCounter에서 증가",
+      "md_anchor": "#BR-FE-003",
+      "source_primary": "frontend/src/types/workspace.ts:1-10",
+      "confidence": "med",
+      "inferred": true,
+      "phase_added": 2
+    },
+    "BR-FE-004": {
+      "type": "business_rule",
+      "title": "구독 해지 grace 중 도착한 메시지는 재구독 시 재생",
+      "md_anchor": "#BR-FE-004",
+      "source_primary": "frontend/src/contexts/WebSocketContext.tsx:32-165",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "BR-FE-005": {
+      "type": "business_rule",
+      "title": "activeWorkspaceId와 tab_state는 localStorage에 영속",
+      "md_anchor": "#BR-FE-005",
+      "source_primary": "frontend/src/hooks/useWorkspaceManager.ts:11-24",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-001": {
+      "type": "data_model",
+      "title": "Workspace / WorkspaceTab / WorkspaceTabRuntime / GridLayout",
+      "md_anchor": "#DM-001",
+      "source_primary": "frontend/src/types/workspace.ts:1-49",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-002": {
+      "type": "data_model",
+      "title": "Session / ShellInfo / ShellType",
+      "md_anchor": "#DM-002",
+      "source_primary": "frontend/src/types/index.ts:5-28",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-003": {
+      "type": "data_model",
+      "title": "AuthState / Bootstrap / LoginResponse",
+      "md_anchor": "#DM-003",
+      "source_primary": "frontend/src/types/index.ts:34-83",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-004": {
+      "type": "data_model",
+      "title": "DirectoryEntry / DirectoryListing / FileContent",
+      "md_anchor": "#DM-004",
+      "source_primary": "frontend/src/types/index.ts:101-123",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-005": {
+      "type": "data_model",
+      "title": "SettingsSnapshot / EditableSettingsValues / capabilities",
+      "md_anchor": "#DM-005",
+      "source_primary": "frontend/src/types/settings.ts:1-132",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-006": {
+      "type": "data_model",
+      "title": "MosaicNode 재귀 구조 및 persisted layout schema",
+      "md_anchor": "#DM-006",
+      "source_primary": "frontend/src/types/workspace.ts:34-42",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-007": {
+      "type": "data_model",
+      "title": "TerminalSnapshot 영속 스키마",
+      "md_anchor": "#DM-007",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:27-28",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "IFC-API-001": {
+      "type": "interface",
+      "title": "Auth REST: /api/auth/{bootstrap-status,bootstrap-password,login,verify,refresh,logout,status,totp-qr}",
+      "md_anchor": "#IFC-API-001",
+      "source_primary": "frontend/src/services/api.ts:81-153",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "IFC-API-002": {
+      "type": "interface",
+      "title": "Session/File REST: /api/sessions, /api/sessions/:id/{files,files/read,files/copy,files/move,files/mkdir,cwd,reorder}",
+      "md_anchor": "#IFC-API-002",
+      "source_primary": "frontend/src/services/api.ts:159-303",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "IFC-API-003": {
+      "type": "interface",
+      "title": "Workspace/Settings REST: /api/workspaces/*, /api/settings",
+      "md_anchor": "#IFC-API-003",
+      "source_primary": "frontend/src/services/api.ts:309-432",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "IFC-API-004": {
+      "type": "interface",
+      "title": "Debug capture toggle: /api/sessions/debug-capture/:id[/enable]",
+      "md_anchor": "#IFC-API-004",
+      "source_primary": "frontend/src/utils/terminalDebugCapture.ts:131-146",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-UX-001": {
+      "type": "nonfunctional_req",
+      "title": "반응형 레이아웃: 모바일 브레이크포인트 768px",
+      "md_anchor": "#NFR-UX-001",
+      "source_primary": "frontend/src/hooks/useResponsive.ts:3-41",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-UX-002": {
+      "type": "nonfunctional_req",
+      "title": "롱프레스 500ms + 10px 이동 취소 + 진동 피드백",
+      "md_anchor": "#NFR-UX-002",
+      "source_primary": "frontend/src/hooks/useLongPress.ts:1-162",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-UX-003": {
+      "type": "nonfunctional_req",
+      "title": "드래그 재정렬: 300ms 장기 누름 + 5px 이동 시 취소 + 고스트 미리보기",
+      "md_anchor": "#NFR-UX-003",
+      "source_primary": "frontend/src/hooks/useDragReorder.ts:19-186",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-UX-004": {
+      "type": "nonfunctional_req",
+      "title": "키보드 접근성: F-key/Arrow/Home/End/PageUp-Down/Enter/Backspace/Esc",
+      "md_anchor": "#NFR-UX-004",
+      "source_primary": "frontend/src/hooks/useKeyboardNav.ts:17-138",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-UX-005": {
+      "type": "nonfunctional_req",
+      "title": "세션 연결 끊김 시 DisconnectedOverlay + 재시작 CTA",
+      "md_anchor": "#NFR-UX-005",
+      "source_primary": "frontend/src/components/Workspace/DisconnectedOverlay.tsx:1-36",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-UX-006": {
+      "type": "nonfunctional_req",
+      "title": "Auth textarea aria-label 및 role=alert, autocomplete",
+      "md_anchor": "#NFR-UX-006",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:695-699",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-UX-007": {
+      "type": "nonfunctional_req",
+      "title": "탭/워크스페이스 role=tab/tablist/option/listbox 접근성 태깅",
+      "md_anchor": "#NFR-UX-007",
+      "source_primary": "frontend/src/components/Workspace/WorkspaceTabBar.tsx:77-93",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-PERF-001": {
+      "type": "nonfunctional_req",
+      "title": "Large write(>10000B) 시 viewport 동기화 요청",
+      "md_anchor": "#NFR-PERF-001",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:29-29",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-PERF-002": {
+      "type": "nonfunctional_req",
+      "title": "Snapshot 저장 2초 디바운스 + beforeunload/pagehide 즉시 저장",
+      "md_anchor": "#NFR-PERF-002",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:27-27",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-PERF-003": {
+      "type": "nonfunctional_req",
+      "title": "5초 주기 active session CWD 폴링",
+      "md_anchor": "#NFR-PERF-003",
+      "source_primary": "frontend/src/hooks/useCwd.ts:18-84",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-PERF-004": {
+      "type": "nonfunctional_req",
+      "title": "TerminalContainer는 memo+propsAreEqual로 재렌더 억제",
+      "md_anchor": "#NFR-PERF-004",
+      "source_primary": "frontend/src/components/Terminal/TerminalContainer.tsx:1-25",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-FE-SEC-001": {
+      "type": "nonfunctional_req",
+      "title": "localStorage 기반 토큰은 XSS에 취약할 수 있음",
+      "md_anchor": "#NFR-FE-SEC-001",
+      "source_primary": "frontend/src/services/tokenStorage.ts:1-43",
+      "confidence": "med",
+      "inferred": true,
+      "phase_added": 2
+    },
+    "ASM-FE-001": {
+      "type": "assumption",
+      "title": "전체 통신은 동일 Origin이고 백엔드가 프런트엔드 자산을 서빙한다",
+      "md_anchor": "#ASM-FE-001",
+      "source_primary": "frontend/src/contexts/WebSocketContext.tsx:79-85",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "ASM-FE-002": {
+      "type": "assumption",
+      "title": "서버는 WS `{type:'connected', clientId}`를 최초 메시지로 보낸다",
+      "md_anchor": "#ASM-FE-002",
+      "source_primary": "frontend/src/contexts/WebSocketContext.tsx:177-181",
+      "confidence": "med",
+      "inferred": true,
+      "phase_added": 2
+    },
+    "FR-UI-014": {
+      "type": "functional_req",
+      "title": "useSession / useTabManager는 현 App.tsx에서 미사용인 레거시 훅",
+      "md_anchor": "#FR-UI-014",
+      "source_primary": "frontend/src/hooks/useSession.ts:1-105",
+      "confidence": "med",
+      "inferred": true,
+      "phase_added": 2
+    },
+    "FR-UI-015": {
+      "type": "functional_req",
+      "title": "StatusBar / useLayoutMode는 현재 렌더 트리에서 미사용",
+      "md_anchor": "#FR-UI-015",
+      "source_primary": "frontend/src/components/StatusBar/StatusBar.tsx:1-36",
+      "confidence": "med",
+      "inferred": true,
+      "phase_added": 2
+    },
+    "FR-UI-016": {
+      "type": "functional_req",
+      "title": "MetadataRow: 세션명(인라인 편집) + CWD(클릭 복사) + 경과시간",
+      "md_anchor": "#FR-UI-016",
+      "source_primary": "frontend/src/components/MetadataBar/MetadataRow.tsx:11-176",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-UI-017": {
+      "type": "functional_req",
+      "title": "useInlineRename 공용 훅: Enter confirm / Esc cancel / Blur confirm",
+      "md_anchor": "#FR-UI-017",
+      "source_primary": "frontend/src/hooks/useInlineRename.ts:17-59",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-SIDEBAR-001": {
+      "type": "functional_req",
+      "title": "레거시 Sidebar/SessionList/SessionItem 컴포넌트 (현재 WorkspaceSidebar로 대체)",
+      "md_anchor": "#FR-SIDEBAR-001",
+      "source_primary": "frontend/src/components/Sidebar/Sidebar.tsx:25-132",
+      "confidence": "high",
+      "inferred": true,
+      "phase_added": 2
+    },
+    "VER-FE-001": {
+      "type": "verification",
+      "title": "검증 — 터미널 입력 게이트",
+      "md_anchor": "#VER-FE-001",
+      "source_primary": "frontend/src/components/Terminal/TerminalView.tsx:830-850",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "VER-FE-002": {
+      "type": "verification",
+      "title": "검증 — grace buffer 재생",
+      "md_anchor": "#VER-FE-002",
+      "source_primary": "frontend/src/contexts/WebSocketContext.tsx:73-74",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "VER-FE-003": {
+      "type": "verification",
+      "title": "검증 — Mosaic 레이아웃 영속 스키마",
+      "md_anchor": "#VER-FE-003",
+      "source_primary": "frontend/src/hooks/useMosaicLayout.ts:30-108",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-INF-001": {
+      "type": "constraint",
+      "title": "Node.js 18 이상 런타임 필수",
+      "md_anchor": "#CON-INF-001",
+      "source_primary": "README.md:30-34",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-INF-002": {
+      "type": "constraint",
+      "title": "루트 package-lock.json은 빈 워크스페이스 루트",
+      "md_anchor": "#CON-INF-002",
+      "source_primary": "package-lock.json:1-7",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-INF-003": {
+      "type": "constraint",
+      "title": "서버 런타임 의존성 스택",
+      "md_anchor": "#CON-INF-003",
+      "source_primary": "server/package.json:11-44",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-INF-004": {
+      "type": "constraint",
+      "title": "프론트엔드 런타임 의존성 스택",
+      "md_anchor": "#CON-INF-004",
+      "source_primary": "frontend/package.json:13-43",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-INF-005": {
+      "type": "constraint",
+      "title": "기본 HTTPS 포트 2002 / Vite 2003 / HTTP 리다이렉트 2001",
+      "md_anchor": "#CON-INF-005",
+      "source_primary": "AGENTS.md:3-7",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-INF-006": {
+      "type": "constraint",
+      "title": "포트 범위 및 동일 포트 금지",
+      "md_anchor": "#CON-INF-006",
+      "source_primary": "dev.js:25-34",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-INF-007": {
+      "type": "constraint",
+      "title": "tools/start-runtime.js 포트 해석 우선순위",
+      "md_anchor": "#CON-INF-007",
+      "source_primary": "tools/start-runtime.js:86-114",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-INF-008": {
+      "type": "constraint",
+      "title": "Windows 전용 자식 프로세스 종료 경로",
+      "md_anchor": "#CON-INF-008",
+      "source_primary": "dev.js:54-70",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-INF-001": {
+      "type": "functional_req",
+      "title": "dev.js는 서버와 Vite dev 서버를 순차적으로 기동한다",
+      "md_anchor": "#FR-INF-001",
+      "source_primary": "dev.js:72-107",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-INF-002": {
+      "type": "functional_req",
+      "title": "개발 서버 hot reload 규약",
+      "md_anchor": "#FR-INF-002",
+      "source_primary": "server/package.json:6-10",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-INF-003": {
+      "type": "functional_req",
+      "title": "start.sh/start.bat 프로덕션 부트스트랩",
+      "md_anchor": "#FR-INF-003",
+      "source_primary": "start.sh:1-6",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-INF-004": {
+      "type": "functional_req",
+      "title": "pm2 앱 이름은 projectmaster 로 고정",
+      "md_anchor": "#FR-INF-004",
+      "source_primary": "tools/start-runtime.js:16-17",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-INF-005": {
+      "type": "functional_req",
+      "title": "stop.sh/stop.bat/stop.js 중지 절차",
+      "md_anchor": "#FR-INF-005",
+      "source_primary": "stop.sh:1-6",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-INF-006": {
+      "type": "functional_req",
+      "title": "--reset-password 옵션은 config.json5의 auth.password 만 비운다",
+      "md_anchor": "#FR-INF-006",
+      "source_primary": "tools/start-runtime.js:206-277",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-INF-007": {
+      "type": "functional_req",
+      "title": "--bootstrap-allow-ip 는 환경변수로 일회성 허용 IP를 전달한다",
+      "md_anchor": "#FR-INF-007",
+      "source_primary": "tools/start-runtime.js:396-404",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-INF-008": {
+      "type": "functional_req",
+      "title": "자체 서명 HTTPS 인증서 자동 생성",
+      "md_anchor": "#FR-INF-008",
+      "source_primary": "README.md:141-152",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "FR-INF-009": {
+      "type": "functional_req",
+      "title": "frontend build → server/dist/public 스테이징",
+      "md_anchor": "#FR-INF-009",
+      "source_primary": "tools/start-runtime.js:283-351",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-INF-001": {
+      "type": "nonfunctional_req",
+      "title": "로깅 레벨 및 파일 로테이션",
+      "md_anchor": "#NFR-INF-001",
+      "source_primary": "server/config.json5:71-77",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-INF-002": {
+      "type": "nonfunctional_req",
+      "title": "CORS 정책 설정",
+      "md_anchor": "#NFR-INF-002",
+      "source_primary": "server/config.json5:62-68",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-INF-003": {
+      "type": "nonfunctional_req",
+      "title": "PTY 기본 크기 및 스크롤백 상한",
+      "md_anchor": "#NFR-INF-003",
+      "source_primary": "server/config.json5:10-45",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-INF-004": {
+      "type": "nonfunctional_req",
+      "title": "세션 idle 판정 지연",
+      "md_anchor": "#NFR-INF-004",
+      "source_primary": "server/config.json5:48-51",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-INF-005": {
+      "type": "nonfunctional_req",
+      "title": "파일 매니저 크기 및 차단 정책",
+      "md_anchor": "#NFR-INF-005",
+      "source_primary": "server/config.json5:89-96",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-INF-006": {
+      "type": "nonfunctional_req",
+      "title": "워크스페이스 상한 및 플러시 디바운스",
+      "md_anchor": "#NFR-INF-006",
+      "source_primary": "server/config.json5:98-105",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-SEC-001": {
+      "type": "nonfunctional_req",
+      "title": "Transport Security: HTTPS + TLS 1.2/1.3",
+      "md_anchor": "#NFR-SEC-001",
+      "source_primary": "PRD.md:37-42",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-SEC-002": {
+      "type": "nonfunctional_req",
+      "title": "JWT 세션 수명 정책",
+      "md_anchor": "#NFR-SEC-002",
+      "source_primary": "server/config.json5:80-86",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-SEC-003": {
+      "type": "nonfunctional_req",
+      "title": "민감 파일/경로 접근 차단",
+      "md_anchor": "#NFR-SEC-003",
+      "source_primary": "server/config.json5:89-96",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-SEC-004": {
+      "type": "nonfunctional_req",
+      "title": "비밀번호 자동 암호화 및 머신 기반 마스터 키",
+      "md_anchor": "#NFR-SEC-004",
+      "source_primary": "README.md:62-67",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-SEC-005": {
+      "type": "nonfunctional_req",
+      "title": "2FA 정책: TOTP 기본 발급자 및 외부 전용 모드",
+      "md_anchor": "#NFR-SEC-005",
+      "source_primary": "server/config.json5:107-113",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-SEC-006": {
+      "type": "nonfunctional_req",
+      "title": "Bootstrap IP 화이트리스트",
+      "md_anchor": "#NFR-SEC-006",
+      "source_primary": "README.md:116-138",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "NFR-SEC-007": {
+      "type": "nonfunctional_req",
+      "title": "localhost 전용 운영 가정",
+      "md_anchor": "#NFR-SEC-007",
+      "source_primary": "CLAUDE.md:54-54",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-INF-001": {
+      "type": "data_model",
+      "title": "server/config.json5 스키마 (JSON5 + Zod)",
+      "md_anchor": "#DM-INF-001",
+      "source_primary": "server/config.json5:1-114",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-INF-002": {
+      "type": "data_model",
+      "title": "워크스페이스 퍼시스턴스 위치",
+      "md_anchor": "#DM-INF-002",
+      "source_primary": "server/config.json5:100-100",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "DM-INF-003": {
+      "type": "data_model",
+      "title": "worklog JSONL 엔트리 스키마",
+      "md_anchor": "#DM-INF-003",
+      "source_primary": "tools/worklog.mjs:43-71",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "IF-INF-001": {
+      "type": "interface",
+      "title": "worklog CLI 인터페이스",
+      "md_anchor": "#IF-INF-001",
+      "source_primary": "tools/worklog.mjs:5-118",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "IF-INF-002": {
+      "type": "interface",
+      "title": "dev.js CLI 인자",
+      "md_anchor": "#IF-INF-002",
+      "source_primary": "dev.js:8-37",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "IF-INF-003": {
+      "type": "interface",
+      "title": "start.sh/start.bat CLI 인자",
+      "md_anchor": "#IF-INF-003",
+      "source_primary": "tools/start-runtime.js:34-83",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "IF-INF-004": {
+      "type": "interface",
+      "title": "배포 진입점 및 정적 자산 경로",
+      "md_anchor": "#IF-INF-004",
+      "source_primary": "tools/start-runtime.js:6-17",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "IF-INF-005": {
+      "type": "interface",
+      "title": "환경변수 계약: PORT, DEV_FRONTEND_PORT, DEV_SERVER_PORT, BUILDERGATE_BOOTSTRAP_ALLOWED_IPS",
+      "md_anchor": "#IF-INF-005",
+      "source_primary": "dev.js:74-98",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "UC-INF-001": {
+      "type": "use_case",
+      "title": "초기 관리자 비밀번호 bootstrap 유스케이스",
+      "md_anchor": "#UC-INF-001",
+      "source_primary": "README.md:114-138",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "UC-INF-002": {
+      "type": "use_case",
+      "title": "2FA(TOTP) 활성화 절차",
+      "md_anchor": "#UC-INF-002",
+      "source_primary": "README.md:195-238",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "UC-INF-003": {
+      "type": "use_case",
+      "title": "런타임 설정 변경 (Settings 페이지)",
+      "md_anchor": "#UC-INF-003",
+      "source_primary": "README.md:236-238",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "VER-INF-001": {
+      "type": "verification",
+      "title": "작업 완료 시 JSONL 로그 + 수정 완료 보고서 필수",
+      "md_anchor": "#VER-INF-001",
+      "source_primary": "CLAUDE.md:71-110",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "VER-INF-002": {
+      "type": "verification",
+      "title": "수동 검증 및 Playwright E2E 대상 URL",
+      "md_anchor": "#VER-INF-002",
+      "source_primary": "AGENTS.md:9-14",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "VER-INF-003": {
+      "type": "verification",
+      "title": "버그 픽스는 테스트 동반 필수",
+      "md_anchor": "#VER-INF-003",
+      "source_primary": "CLAUDE.md:54-70",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "VER-INF-004": {
+      "type": "verification",
+      "title": "백엔드 테스트 실행 방식",
+      "md_anchor": "#VER-INF-004",
+      "source_primary": "CLAUDE.md:58-65",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "VER-INF-005": {
+      "type": "verification",
+      "title": "프론트엔드 E2E 는 Playwright",
+      "md_anchor": "#VER-INF-005",
+      "source_primary": "CLAUDE.md:66-70",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "VER-INF-006": {
+      "type": "verification",
+      "title": "Phase 완료 시 까칠 리뷰어 필수 루프",
+      "md_anchor": "#VER-INF-006",
+      "source_primary": "AGENTS.md:21-25",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-OPS-001": {
+      "type": "constraint",
+      "title": "node 프로세스 강제 종료 금지",
+      "md_anchor": "#CON-OPS-001",
+      "source_primary": "CLAUDE.md:50-53",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-OPS-002": {
+      "type": "constraint",
+      "title": "스크린샷 저장 위치 고정",
+      "md_anchor": "#CON-OPS-002",
+      "source_primary": "CLAUDE.md:52-53",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-OPS-003": {
+      "type": "constraint",
+      "title": "UTF-8 전용 파일 I/O",
+      "md_anchor": "#CON-OPS-003",
+      "source_primary": "AGENTS.md:27-31",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-OPS-004": {
+      "type": "constraint",
+      "title": "기존 계약 보존 및 UI 무단 변경 금지",
+      "md_anchor": "#CON-OPS-004",
+      "source_primary": "AGENTS.md:33-41",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-OPS-005": {
+      "type": "constraint",
+      "title": "재사용 우선 + 얇은 어댑터",
+      "md_anchor": "#CON-OPS-005",
+      "source_primary": "AGENTS.md:35-37",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-OPS-006": {
+      "type": "constraint",
+      "title": "민감 파일 VCS 배제 목록",
+      "md_anchor": "#CON-OPS-006",
+      "source_primary": ".gitignore:29-48",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "ASSUMPTION-INF-001": {
+      "type": "assumption",
+      "title": "개발자 본인(ACT-001)이 단일 관리자 계정을 사용한다",
+      "md_anchor": "#ASSUMPTION-INF-001",
+      "source_primary": "server/config.json5:80-113",
+      "confidence": "med",
+      "inferred": true,
+      "phase_added": 2
+    },
+    "ASSUMPTION-INF-002": {
+      "type": "assumption",
+      "title": "로컬호스트 또는 신뢰 네트워크 배포를 가정한다",
+      "md_anchor": "#ASSUMPTION-INF-002",
+      "source_primary": "CLAUDE.md:54-54",
+      "confidence": "high",
+      "inferred": true,
+      "phase_added": 2
+    },
+    "OOS-INF-001": {
+      "type": "out_of_scope",
+      "title": "Task Manager (Phase A, 미구현)",
+      "md_anchor": "#OOS-INF-001",
+      "source_primary": "PRD.md:56-61",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "OOS-INF-002": {
+      "type": "out_of_scope",
+      "title": "MCP (Model Context Protocol) 통합 (Phase B, 미구현)",
+      "md_anchor": "#OOS-INF-002",
+      "source_primary": "PRD.md:63-68",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "OOS-INF-003": {
+      "type": "out_of_scope",
+      "title": "Agent Orchestration / 세션 간 메시지 버스 (Phase C, 미구현)",
+      "md_anchor": "#OOS-INF-003",
+      "source_primary": "PRD.md:70-92",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "OOS-INF-004": {
+      "type": "out_of_scope",
+      "title": "이메일 OTP 기반 2FA (PRD 기재, 코드는 TOTP 대체)",
+      "md_anchor": "#OOS-INF-004",
+      "source_primary": "PRD.md:40-40",
+      "confidence": "med",
+      "inferred": true,
+      "phase_added": 2
+    },
+    "GL-INF-001": {
+      "type": "glossary",
+      "title": "PTY (Pseudo Terminal)",
+      "md_anchor": "#GL-INF-001",
+      "source_primary": "PRD.md:13-17",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "GL-INF-002": {
+      "type": "glossary",
+      "title": "ConPTY",
+      "md_anchor": "#GL-INF-002",
+      "source_primary": "server/config.json5:19-24",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "GL-INF-003": {
+      "type": "glossary",
+      "title": "winpty",
+      "md_anchor": "#GL-INF-003",
+      "source_primary": "server/config.json5:19-24",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "GL-INF-004": {
+      "type": "glossary",
+      "title": "SSE (Server-Sent Events)",
+      "md_anchor": "#GL-INF-004",
+      "source_primary": "PRD.md:15-15",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "GL-INF-005": {
+      "type": "glossary",
+      "title": "WS (WebSocket)",
+      "md_anchor": "#GL-INF-005",
+      "source_primary": "docs/struct/2026-04-02/00.index.md:12-13",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "GL-INF-006": {
+      "type": "glossary",
+      "title": "2FA (Two-Factor Authentication)",
+      "md_anchor": "#GL-INF-006",
+      "source_primary": "README.md:195-199",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "GL-INF-007": {
+      "type": "glossary",
+      "title": "TOTP (Time-based One-Time Password, RFC 6238)",
+      "md_anchor": "#GL-INF-007",
+      "source_primary": "README.md:197-199",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "GL-INF-008": {
+      "type": "glossary",
+      "title": "JWT (JSON Web Token, HS256)",
+      "md_anchor": "#GL-INF-008",
+      "source_primary": "server/config.json5:80-86",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "GL-INF-009": {
+      "type": "glossary",
+      "title": "AES-256-GCM + PBKDF2",
+      "md_anchor": "#GL-INF-009",
+      "source_primary": "README.md:62-67",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "GL-INF-010": {
+      "type": "glossary",
+      "title": "Mdir",
+      "md_anchor": "#GL-INF-010",
+      "source_primary": "PRD.md:21-28",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "GL-INF-011": {
+      "type": "glossary",
+      "title": "CWD (Current Working Directory)",
+      "md_anchor": "#GL-INF-011",
+      "source_primary": "PRD.md:49-49",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "GL-INF-012": {
+      "type": "glossary",
+      "title": "HMR (Hot Module Replacement)",
+      "md_anchor": "#GL-INF-012",
+      "source_primary": "dev.js:89-107",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "GL-INF-013": {
+      "type": "glossary",
+      "title": "pm2",
+      "md_anchor": "#GL-INF-013",
+      "source_primary": "tools/start-runtime.js:353-424",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "GL-INF-014": {
+      "type": "glossary",
+      "title": "JSON5",
+      "md_anchor": "#GL-INF-014",
+      "source_primary": "server/config.json5:1-5",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "GL-INF-015": {
+      "type": "glossary",
+      "title": "Zod",
+      "md_anchor": "#GL-INF-015",
+      "source_primary": "server/package.json:29-29",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 2
+    },
+    "CON-MISSING-001": {
+      "type": "out_of_scope",
+      "title": "PTY bufferFilter 옵션 (placeholder, 미구현)",
+      "md_anchor": "#CON-MISSING-001",
+      "source_primary": "server/config.json5:38-43",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "NFR-MISSING-001": {
+      "type": "nonfunctional_req",
+      "title": "HTTP 연결 Keep-Alive 헤더 전역 부착",
+      "md_anchor": "#NFR-MISSING-001",
+      "source_primary": "server/src/index.ts:170-175",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "NFR-MISSING-002": {
+      "type": "nonfunctional_req",
+      "title": "개발 모드 CSP 완화 정책",
+      "md_anchor": "#NFR-MISSING-002",
+      "source_primary": "server/src/index.ts:101-121",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "IFC-WS-MISSING-001": {
+      "type": "out_of_scope",
+      "title": "WS tab:disconnected 타입 선언 (미구현)",
+      "md_anchor": "#IFC-WS-MISSING-001",
+      "source_primary": "server/src/types/ws-protocol.ts:64-69",
+      "confidence": "high",
+      "inferred": true,
+      "phase_added": 3
+    },
+    "DM-MISSING-001": {
+      "type": "data_model",
+      "title": "ShellInfo",
+      "md_anchor": "#DM-MISSING-001",
+      "source_primary": "server/src/types/index.ts:1-8",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "DM-MISSING-002": {
+      "type": "data_model",
+      "title": "EditableSettingsSnapshot",
+      "md_anchor": "#DM-MISSING-002",
+      "source_primary": "server/src/types/settings.types.ts:76-123",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "DM-MISSING-003": {
+      "type": "data_model",
+      "title": "HeartbeatRequest/HeartbeatResponse",
+      "md_anchor": "#DM-MISSING-003",
+      "source_primary": "server/src/types/auth.types.ts:88-100",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "DM-MISSING-004": {
+      "type": "data_model",
+      "title": "WindowsPtyInfo",
+      "md_anchor": "#DM-MISSING-004",
+      "source_primary": "server/src/types/ws-protocol.ts:26-31",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "DM-MISSING-005": {
+      "type": "data_model",
+      "title": "BootstrapAllowPolicy",
+      "md_anchor": "#DM-MISSING-005",
+      "source_primary": "server/src/types/auth.types.ts:53-59",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "DM-MISSING-006": {
+      "type": "data_model",
+      "title": "File 요청 DTO (CopyRequest/MoveRequest/MkdirRequest)",
+      "md_anchor": "#DM-MISSING-006",
+      "source_primary": "server/src/types/file.types.ts:47-69",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "FR-MISSING-001": {
+      "type": "functional_req",
+      "title": "useContextMenu 훅으로 전역 컨텍스트 메뉴 상태 관리",
+      "md_anchor": "#FR-MISSING-001",
+      "source_primary": "frontend/src/hooks/useContextMenu.ts:1-26",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "FR-MISSING-002": {
+      "type": "functional_req",
+      "title": "MdirHeader 경로 표시 컴포넌트",
+      "md_anchor": "#FR-MISSING-002",
+      "source_primary": "frontend/src/components/FileManager/MdirHeader.tsx:1-17",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "FR-MISSING-003": {
+      "type": "functional_req",
+      "title": "MdirFooter 상태바 및 기능키 바",
+      "md_anchor": "#FR-MISSING-003",
+      "source_primary": "frontend/src/components/FileManager/MdirFooter.tsx:1-40",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "BR-MISSING-001": {
+      "type": "business_rule",
+      "title": "세션 이름 유효성 규칙",
+      "md_anchor": "#BR-MISSING-001",
+      "source_primary": "server/src/routes/sessionRoutes.ts:64-98",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "BR-MISSING-002": {
+      "type": "business_rule",
+      "title": "Bootstrap 비밀번호 정책",
+      "md_anchor": "#BR-MISSING-002",
+      "source_primary": "server/src/services/BootstrapSetupService.ts:55-110",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "BR-MISSING-003": {
+      "type": "business_rule",
+      "title": "플랫폼 특정 PTY 설정 검증",
+      "md_anchor": "#BR-MISSING-003",
+      "source_primary": "server/src/services/SessionManager.ts:1225-1285",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "BR-MISSING-004": {
+      "type": "business_rule",
+      "title": "CryptoService 암호문 포맷 검증",
+      "md_anchor": "#BR-MISSING-004",
+      "source_primary": "server/src/services/CryptoService.ts:19-21",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "FR-MISSING-004": {
+      "type": "functional_req",
+      "title": "OSC 133 마커 기반 상태 전환 단축",
+      "md_anchor": "#FR-MISSING-004",
+      "source_primary": "server/src/services/SessionManager.ts:343-355",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "FR-MISSING-005": {
+      "type": "functional_req",
+      "title": "HermesForegroundDetector 부착/해제 정책",
+      "md_anchor": "#FR-MISSING-005",
+      "source_primary": "server/src/services/HermesForegroundDetector.ts:20-260",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "FR-MISSING-006": {
+      "type": "functional_req",
+      "title": "커맨드 입력 버퍼 추적",
+      "md_anchor": "#FR-MISSING-006",
+      "source_primary": "server/src/services/SessionManager.ts:739-775",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "FR-MISSING-007": {
+      "type": "functional_req",
+      "title": "CWD 변경 옵저버 API",
+      "md_anchor": "#FR-MISSING-007",
+      "source_primary": "server/src/services/SessionManager.ts:892-906",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "FR-MISSING-008": {
+      "type": "functional_req",
+      "title": "WSL 셸 가용성 감지",
+      "md_anchor": "#FR-MISSING-008",
+      "source_primary": "server/src/services/SessionManager.ts:957-970",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "IFC-API-MISSING-001": {
+      "type": "interface",
+      "title": "debug-capture 엔드포인트 미들웨어 체인",
+      "md_anchor": "#IFC-API-MISSING-001",
+      "source_primary": "server/src/index.ts:214-237",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "FR-MISSING-010": {
+      "type": "functional_req",
+      "title": "terminalPayload 유틸 - 안전 경계 절단 및 미완결 ESC 시퀀스 트리밍",
+      "md_anchor": "#FR-MISSING-010",
+      "source_primary": "server/src/utils/terminalPayload.ts:1-114",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "NFR-MISSING-003": {
+      "type": "nonfunctional_req",
+      "title": "SPA 폴백 예약 경로 제외",
+      "md_anchor": "#NFR-MISSING-003",
+      "source_primary": "server/src/index.ts:64-82",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 3
+    },
+    "FR-IDLE-PS-PROMPT-001": {
+      "type": "functional_req",
+      "title": "PowerShell 프롬프트 재도색 출력 idle 유지 휴리스틱",
+      "md_anchor": "#FR-IDLE-PS-PROMPT-001",
+      "source_primary": "server/src/services/SessionManager.ts:1653-1671",
+      "confidence": "high",
+      "inferred": false,
+      "phase_added": 4
+    },
+    "FR-FG-HINT-001": {
+      "type": "functional_req",
+      "title": "Foreground app pendingForegroundAppHint 라이프사이클",
+      "md_anchor": "#FR-FG-HINT-001",
+      "source_primary": "server/src/services/SessionManager.ts:739-775",
+      "confidence": "med",
+      "inferred": true,
+      "phase_added": 4
+    }
+  },
+  "artifacts": {
+    "items_jsonl": "srs-fromCode-2026-04-24.buildergate/srs_items.jsonl",
+    "intent_context": "srs-fromCode-2026-04-24.buildergate/intent_context.json",
+    "rtm_md": "srs-fromCode-2026-04-24.buildergate/rtm.md",
+    "rtm_forward_csv": "srs-fromCode-2026-04-24.buildergate/rtm_forward_full.csv",
+    "rtm_backward_csv": "srs-fromCode-2026-04-24.buildergate/rtm_backward_full.csv",
+    "eval_logs": [
+      "srs-fromCode-2026-04-24.buildergate/eval_iter1_opus.json",
+      "srs-fromCode-2026-04-24.buildergate/eval_iter1_sonnet.json",
+      "srs-fromCode-2026-04-24.buildergate/eval_iter2_opus.json",
+      "srs-fromCode-2026-04-24.buildergate/eval_iter2_sonnet.json",
+      "srs-fromCode-2026-04-24.buildergate/eval_iter3.json",
+      "srs-fromCode-2026-04-24.buildergate/eval_md_iter1.json",
+      "srs-fromCode-2026-04-24.buildergate/eval_md_iter2.json"
+    ],
+    "assemble_script": "srs-fromCode-2026-04-24.buildergate/assemble.mjs"
+  },
+  "quality": {
+    "phase4_converged_iter": 3,
+    "phase6_converged_iter": 2,
+    "rtm_forward_coverage": 0.995,
+    "rtm_backward_file_coverage": 1.0,
+    "rtm_grade": "Excellent"
+  }
+}

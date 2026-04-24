@@ -80,3 +80,6 @@ temp/
 # Claude Code temporary files
 tmpclaude-*
 .screenshot/
+
+# SRS 빌드 중간 산출물 (최종 .md / .md.json 만 커밋)
+docs/srs/*/
