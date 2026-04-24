@@ -94,6 +94,7 @@ export interface PTYConfig {
 
 export interface SessionConfig {
   idleDelayMs: number;
+  runningDelayMs?: number;
 }
 
 // ============================================================================

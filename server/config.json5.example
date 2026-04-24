@@ -49,6 +49,8 @@
   session: {
     // Delay (ms) before transitioning to idle status after last output
     idleDelayMs: 200,
+    // Delay (ms) before ambiguous AI TUI activity transitions to running
+    runningDelayMs: 250,
   },
 
   // SSL/TLS settings

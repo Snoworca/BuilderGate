@@ -35,6 +35,7 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
 
   session: {
     idleDelayMs: 200,
+    runningDelayMs: 250,
   },
 
   ssl: {

@@ -5,6 +5,7 @@ import type { EditableSettingsKey, EditableSettingsValues } from '../types/setti
 import { configSchema } from '../schemas/config.schema.js';
 import { getConfigPath } from '../utils/config.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import { normalizeRawConfigForPlatform } from '../utils/ptyPlatformPolicy.js';
 
 interface SecretPatch {
   authPassword?: string;
@@ -23,21 +24,24 @@ export interface PersistResult {
 }
 
 export class ConfigFileRepository {
-  constructor(private readonly configPath: string = getConfigPath()) {}
+  constructor(
+    private readonly configPath: string = getConfigPath(),
+    private readonly platform: NodeJS.Platform = process.platform,
+  ) {}
 
   persistAuthPassword(authPassword: string, options: Pick<PersistOptions, 'dryRun'> = {}): PersistResult {
     try {
       const originalContent = readFileSync(this.configPath, 'utf-8');
       const rawConfig = JSON5.parse(originalContent) as Record<string, unknown>;
-      const previousConfig = configSchema.parse(rawConfig) as Config;
+      const previousConfig = parseConfigForPlatform(rawConfig, this.platform);
       const mergedRawConfig = structuredClone(rawConfig);
 
       setPath(mergedRawConfig, ['auth', 'password'], authPassword);
 
-      const nextConfig = configSchema.parse(mergedRawConfig) as Config;
+      const nextConfig = parseConfigForPlatform(mergedRawConfig, this.platform);
       const renderedContent = renderPatchedConfig(originalContent, nextConfig, { authPassword }, ['auth.password']);
       const reparsed = JSON5.parse(renderedContent);
-      configSchema.parse(reparsed);
+      parseConfigForPlatform(reparsed, this.platform);
 
       if (!options.dryRun) {
         this.writePreparedResult({
@@ -74,13 +78,13 @@ export class ConfigFileRepository {
     try {
       const originalContent = readFileSync(this.configPath, 'utf-8');
       const rawConfig = JSON5.parse(originalContent) as Record<string, unknown>;
-      const previousConfig = configSchema.parse(rawConfig) as Config;
+      const previousConfig = parseConfigForPlatform(rawConfig, this.platform);
 
       const mergedRawConfig = applyEditableValues(structuredClone(rawConfig), values, secrets, options.changedKeys);
-      const nextConfig = configSchema.parse(mergedRawConfig) as Config;
+      const nextConfig = parseConfigForPlatform(mergedRawConfig, this.platform);
       const renderedContent = renderPatchedConfig(originalContent, nextConfig, secrets, options.changedKeys);
       const reparsed = JSON5.parse(renderedContent);
-      configSchema.parse(reparsed);
+      parseConfigForPlatform(reparsed, this.platform);
 
       if (!options.dryRun) {
         this.writePreparedResult({
@@ -208,6 +212,13 @@ function renderPatchedConfig(
   const stack: string[] = [];
   const replaced = new Set<string>();
   const insertions = new Map<string, { parentPath: string; key: string; value: string }>([
+    ...(replacements.has('pty.useConpty')
+      ? [['pty.useConpty', {
+          parentPath: 'pty',
+          key: 'useConpty',
+          value: renderJson5Value(config.pty.useConpty),
+        }] as const]
+      : []),
     ...(replacements.has('pty.windowsPowerShellBackend')
       ? [['pty.windowsPowerShellBackend', {
           parentPath: 'pty',
@@ -273,6 +284,19 @@ function renderPatchedConfig(
   }
 
   const missingReplacements = [...replacements.keys()].filter((path) => !replaced.has(path));
+  const missingPtyReplacements = missingReplacements.filter((path) => path.startsWith('pty.'));
+  if (missingPtyReplacements.length > 0) {
+    const bodyLines = missingPtyReplacements.map((path) => {
+      const value = replacements.get(path);
+      return `${path.slice('pty.'.length)}: ${value},`;
+    });
+    if (insertRootSection(renderedLines, 'pty', bodyLines)) {
+      for (const path of missingPtyReplacements) {
+        replaced.add(path);
+      }
+    }
+  }
+
   if (missingReplacements.includes('auth.password')) {
     if (insertRootSection(renderedLines, 'auth', [
       `password: ${renderJson5Value(secrets.authPassword ?? config.auth?.password ?? '')},`,
@@ -348,6 +372,10 @@ function findCommentStart(rawValue: string): number {
   }
 
   return -1;
+}
+
+function parseConfigForPlatform(rawConfig: Record<string, unknown>, platform: NodeJS.Platform): Config {
+  return configSchema.parse(normalizeRawConfigForPlatform(rawConfig, platform)) as Config;
 }
 
 function insertRootSection(renderedLines: string[], sectionName: string, bodyLines: string[]): boolean {

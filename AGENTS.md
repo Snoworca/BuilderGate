@@ -36,6 +36,7 @@
 - Avoid copy-paste implementations. If duplication is truly unavoidable, document the reason in the task explanation or plan.
 - Keep adapters thin. Routes, controllers, contexts, bridge layers, and compatibility layers should delegate to service or domain logic instead of owning complex business rules.
 - Preserve existing contracts deliberately. Prefer additive changes over breaking changes for API shapes, session status flows, WebSocket/SSE payloads, and UI-facing behavior unless the change is explicitly intended and documented.
+- Session status invariant: when a user types in an interactive AI TUI such as Codex, Claude, or Hermes, that session must remain `idle`. User keyboard input, local echo, prompt redraw, cursor movement, ticker output, and waiting-for-input repaint must not transition the session to `running`. Only semantic command execution or substantive agent output may mark it `running`.
 - Do not change existing UI visuals, iconography, labels, layout, or interaction style based only on personal judgment.
 - If a UI change seems necessary to implement or test a feature, report the reason to the user first and ask before changing the existing UI.
 - Do not silently coerce invalid or unsupported behavior into a different path. If fallback behavior is necessary, make it explicit and observable.

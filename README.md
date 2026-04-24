@@ -157,6 +157,7 @@ node dev.js --port 5000 --fport 3000   # 서버 5000, 프론트 3000
 {
   session: {
     idleDelayMs: 200,   // 마지막 출력 후 idle 상태 전환까지 대기 시간 (ms)
+    runningDelayMs: 250, // AI TUI의 애매한 출력이 running으로 승격되기 전 대기 시간 (ms)
   },
 }
 ```

@@ -2,7 +2,7 @@
 
 > **ISO/IEC/IEEE 29148:2018 Full Profile**
 > 생성일: 2026-04-24 · 프로젝트: BuilderGate · 프로파일: full (점수 10/10)
-> 총 요구사항 항목: **377개** (functional 160 · nonfunctional 45 · api 40 · interface 17 · data_model 24 · constraint 23 · business_rule 17 · 기타 51)
+> 총 요구사항 항목: **378개** (functional 161 · nonfunctional 45 · api 40 · interface 17 · data_model 24 · constraint 23 · business_rule 17 · 기타 51)
 
 ## 1. Introduction
 
@@ -63,7 +63,7 @@ BuilderGate는 브라우저 하나로 다수 PTY 셸 세션을 관리하고, Mdi
 - [AGENTS.md](../../../../AGENTS.md) — 에이전트 가이드
 - [docs/struct/2026-04-02/](../../../struct/2026-04-02/) — 프로젝트 구조 문서
 - ISO/IEC/IEEE 29148:2018 — Systems and software engineering — Life cycle processes — Requirements engineering
-- [srs_items.jsonl](./srs_items.jsonl) — 원본 요구사항 항목 데이터 (377건)
+- [srs_items.jsonl](./srs_items.jsonl) — 원본 요구사항 항목 데이터 (377건, 본 개정의 수동 보강 항목 1건 제외)
 - [intent_context.json](./intent_context.json) — SRS 생성 의도/프로파일 설정
 
 ### 1.6 Document Conventions
@@ -133,6 +133,7 @@ flowchart LR
 
 - **웹 터미널**: 다중 PTY 세션(PowerShell/bash/zsh) 생성·리사이즈·입출력 중계, 세션별 리플레이 버퍼 유지
 - **OSC / shell integration detector**: shell integration 프롬프트 감지로 idle/running 상태를 정밀 판정
+- **AI TUI idle invariant**: Codex/Claude/Hermes 등 상호 입력형 AI TUI에서 사용자 키보드 입력과 echo는 idle 상태로 유지
 - **Hermes foreground detector**: 포그라운드 앱 추적으로 detector 미부착 시에도 idle 유지
 - **파일 매니저**: Mdir 스타일 디렉토리 탐색, CRUD, 업/다운로드, 권한 체크
 - **뷰어**: 마크다운 렌더링(mermaid 포함), 코드 하이라이팅, 그리드 뷰
@@ -188,7 +189,7 @@ flowchart LR
   출처: [`server/src/utils/ptyPlatformPolicy.ts:31-98`](../../../../server/src/utils/ptyPlatformPolicy.ts#L31-L98), [`server/src/services/SettingsService.ts:394-416`](../../../../server/src/services/SettingsService.ts#L394-L416), [`server/src/services/RuntimeConfigStore.ts:223-252`](../../../../server/src/services/RuntimeConfigStore.ts#L223-L252)
 - <a id="CON-WINPTY-001"></a>**CON-WINPTY-001** — winpty 가용성 probe
   PowerShell winpty 선택 시 실제 node-pty로 powershell.exe를 winpty 모드로 짧게 기동해 성공 여부를 확인. 실패 시 capability.available=false+reason 기록, PATCH 시 거부.
-  출처: [`server/src/services/SessionManager.ts:1289-1372`](../../../../server/src/services/SessionManager.ts#L1289-L1372)
+  출처: [`server/src/services/SessionManager.ts:1514-1555`](../../../../server/src/services/SessionManager.ts#L1514-L1555)
 
 ### 3.5 Assumptions
 
@@ -345,7 +346,7 @@ flowchart LR
   SettingsService.savePatch: Zod strict 검증 → password/CORS/platform/capability 검증 → ConfigFileRepository.persistEditableValues(dryRun) → applyRuntimeConfig(runtimeConfigStore, authService.updateRuntimeConfig, sessionManager.updateRuntimeConfig, fileService.updateConfig) → writePreparedResult(config.json5 + .bak). 런타임 실패 시 이전 값으로 롤백, 디스크 쓰기 실패 시 런타임도 역롤백 후 CONFIG_APPLY_FAILED(422).
   출처: [`server/src/services/SettingsService.ts:147-249`](../../../../server/src/services/SettingsService.ts#L147-L249), [`server/src/services/ConfigFileRepository.ts:69-121`](../../../../server/src/services/ConfigFileRepository.ts#L69-L121)
 - <a id="FR-CFG-002"></a>**FR-CFG-002** — 편집 가능 키/적용 범위
-  EditableSettingsKey 집합: auth.password|durationMs, twoFactor.enabled|externalOnly|issuer|accountName, security.cors.allowedOrigins|credentials|maxAge, pty.termName|defaultCols|defaultRows|useConpty|windowsPowerShellBackend|shell, session.idleDelayMs, fileManager.maxFileSize|maxDirectoryEntries|blockedExtensions|blockedPaths|cwdCacheTtlMs. applyScope: immediate|new_logins|new_sessions. 제외 섹션: server.port, ssl.*, logging.*, auth.maxDurationMs, auth.jwtSecret, fileManager.maxCodeFileSize, bruteForce.*
+  EditableSettingsKey 집합: auth.password|durationMs, twoFactor.enabled|externalOnly|issuer|accountName, security.cors.allowedOrigins|credentials|maxAge, pty.termName|defaultCols|defaultRows|useConpty|windowsPowerShellBackend|shell, session.idleDelayMs, fileManager.maxFileSize|maxDirectoryEntries|blockedExtensions|blockedPaths|cwdCacheTtlMs. applyScope: immediate|new_logins|new_sessions. 제외 섹션: server.port, ssl.*, logging.*, auth.maxDurationMs, auth.jwtSecret, fileManager.maxCodeFileSize, bruteForce.*. session.runningDelayMs는 config 파일/Zod 스키마 값이며 현재 /api/settings PATCH 편집 대상이 아니다.
   출처: [`server/src/types/settings.types.ts:7-48`](../../../../server/src/types/settings.types.ts#L7-L48), [`server/src/services/RuntimeConfigStore.ts:16-48`](../../../../server/src/services/RuntimeConfigStore.ts#L16-L48)
 - <a id="FR-CFG-003"></a>**FR-CFG-003** — config.json5 주석 보존 패치 렌더러
   renderPatchedConfig: 원본 JSON5 줄 단위 파싱(stack 기반 경로 추적). 변경 키에 해당하는 라인만 값 치환(trailing comma/주석 보존). auth.password/pty.windowsPowerShellBackend 등은 없으면 parent에 insert. 누락 경로 있으면 CONFIG_PERSIST_FAILED.
@@ -391,43 +392,43 @@ flowchart LR
 
 - <a id="FR-PTY-001"></a>**FR-PTY-001** — PTY 세션 생성
   uuid 발급 → 셸 해석(resolveShell, 플랫폼별 정규화) → PowerShell/bash/zsh/sh/cmd별 env 구성(BASH_ENV로 OSC 133 주입 등) → CWD 트래킹 파일 경로 할당 → Windows PTY 백엔드 해석(conpty/winpty, PowerShell override) → node-pty spawn(defaultCols/Rows) → SessionData/OscDetector/HeadlessTerminal 초기화 → PTY onData/onExit 핸들러 등록 → CWD 훅 주입 → SessionDTO 반환.
-  출처: [`server/src/services/SessionManager.ts:226-412`](../../../../server/src/services/SessionManager.ts#L226-L412)
+  출처: [`server/src/services/SessionManager.ts:246-467`](../../../../server/src/services/SessionManager.ts#L246-L467)
   related: [FR-PTY-ENV-001](#FR-PTY-ENV-001), [FR-PTY-BKND-001](#FR-PTY-BKND-001), [FR-CWD-001](#FR-CWD-001), [FR-OSC133-001](#FR-OSC133-001)
 - <a id="FR-PTY-002"></a>**FR-PTY-002** — PTY 세션 종료 리소스 해제
   deleteSession: idleTimer clear → pty.kill → OscDetector.destroy → foreground detector reset → headless dispose + headlessCloseSignal 해소 → snapshotCache null → CWD watch 해제 및 temp 파일 unlink → wsRouter.clearSessionState/clearReplayEvents/disableDebugReplayCapture → pending resize/refresh 상태 제거 → sessions Map 제거.
-  출처: [`server/src/services/SessionManager.ts:617-663`](../../../../server/src/services/SessionManager.ts#L617-L663)
+  출처: [`server/src/services/SessionManager.ts:772-816`](../../../../server/src/services/SessionManager.ts#L772-L816)
 - <a id="FR-PTY-BKND-001"></a>**FR-PTY-BKND-001** — Windows PTY 백엔드 해석
   resolveWindowsPtyBackend: 플랫폼이 win32 아니면 conpty/winpty 무시. shell이 powershell이면 windowsPowerShellBackend(inherit|conpty|winpty)를 우선 적용하고 inherit이면 useConpty에 따름. winpty 선택 시 assertPowerShellWinptyAvailable(동기 node-pty probe 실행) 통과해야 함. 비PowerShell에서 winpty 상속 시에도 동일 검증.
-  출처: [`server/src/services/SessionManager.ts:1010-1060`](../../../../server/src/services/SessionManager.ts#L1010-L1060), [`server/src/services/SessionManager.ts:1289-1371`](../../../../server/src/services/SessionManager.ts#L1289-L1371)
+  출처: [`server/src/services/SessionManager.ts:1185-1233`](../../../../server/src/services/SessionManager.ts#L1185-L1233), [`server/src/services/SessionManager.ts:1514-1555`](../../../../server/src/services/SessionManager.ts#L1514-L1555)
 - <a id="FR-PTY-CWD-SPAWN-001"></a>**FR-PTY-CWD-SPAWN-001** — Spawn CWD 해석
   resolveSpawnCwd(cwd,shellType): 없으면 HOME/USERPROFILE/'/'. Windows에서 '/mnt/<drive>/...' 입력이면 Windows 드라이브 경로로 변환. 그 외 Linux 경로는 fallback. 경로 존재 검증 실패 시 fallback.
-  출처: [`server/src/services/SessionManager.ts:1103-1131`](../../../../server/src/services/SessionManager.ts#L1103-L1131)
+  출처: [`server/src/services/SessionManager.ts:1279-1309`](../../../../server/src/services/SessionManager.ts#L1279-L1309)
 - <a id="FR-PTY-ENV-001"></a>**FR-PTY-ENV-001** — 셸 통합 환경변수 구성
   buildShellEnv(shellType): bash의 경우 BASH_ENV에 `shell-integration/bash-osc133.sh` 경로 설정(WSL은 /mnt/c/... 변환). zsh(ZDOTDIR 교체 미구현), sh/cmd/powershell은 기본 env 반환.
-  출처: [`server/src/services/SessionManager.ts:973-995`](../../../../server/src/services/SessionManager.ts#L973-L995)
+  출처: [`server/src/services/SessionManager.ts:1148-1174`](../../../../server/src/services/SessionManager.ts#L1148-L1174)
   related: [FR-OSC133-001](#FR-OSC133-001)
 - <a id="FR-PTY-EXIT-001"></a>**FR-PTY-EXIT-001** — PTY 종료 이벤트 브로드캐스트
   pty.onExit({exitCode}) 시 session:exited 이벤트를 해당 세션 구독자에게 WS로 전파.
-  출처: [`server/src/services/SessionManager.ts:406-409`](../../../../server/src/services/SessionManager.ts#L406-L409)
+  출처: [`server/src/services/SessionManager.ts:462-465`](../../../../server/src/services/SessionManager.ts#L462-L465)
 - <a id="FR-PTY-INPUT-001"></a>**FR-PTY-INPUT-001** — PTY 입력 처리 및 커맨드 버퍼
-  writeInput: 입력 특성(byteLength/hasEnter/class) 분석 → inputBuffer 갱신(Backspace/Ctrl-U/제어문자 처리, 최대 512자 tail) → Enter 감지 시 submittedCommand 확정 → hermes 힌트 감지 시 pendingForegroundAppHint 설정 → echoTracker.lastInputAt/Hasenter 기록 → heuristic 모드에서 Enter면 즉시 running 혹은 hermes waiting_input 전이 → pty.write 후 lastActiveAt 갱신.
-  출처: [`server/src/services/SessionManager.ts:691-737`](../../../../server/src/services/SessionManager.ts#L691-L737), [`server/src/services/SessionManager.ts:739-775`](../../../../server/src/services/SessionManager.ts#L739-L775), [`server/src/services/SessionManager.ts:2079-2102`](../../../../server/src/services/SessionManager.ts#L2079-L2102)
-  related: [FR-IDLE-001](#FR-IDLE-001)
+  writeInput: 입력 특성(byteLength/hasEnter/class) 분석 → inputBuffer 갱신(Backspace/Ctrl-U/제어문자 처리, 최대 512자 tail) → Enter 감지 시 submittedCommand 확정 → shell prompt 상태에서 Codex/Claude/Hermes 실행 명령이면 pendingForegroundAppHint와 aiTuiLaunchAttempt 설정 → AI TUI foreground 상태에서는 같은 문자열도 내부 입력으로 간주해 launch hint 생성을 건너뜀 → echoTracker.lastInputAt/HasEnter 기록 → heuristic 모드에서 일반 명령 Enter는 running, AI TUI 실행/내부 입력은 waiting_input(idle) 전이 → pty.write 후 lastActiveAt 갱신.
+  출처: [`server/src/services/SessionManager.ts:847-948`](../../../../server/src/services/SessionManager.ts#L847-L948), [`server/src/services/SessionManager.ts:914-948`](../../../../server/src/services/SessionManager.ts#L914-L948), [`server/src/services/SessionManager.ts:2456-2498`](../../../../server/src/services/SessionManager.ts#L2456-L2498)
+  related: [FR-IDLE-001](#FR-IDLE-001), [FR-IDLE-AI-INPUT-001](#FR-IDLE-AI-INPUT-001)
 - <a id="FR-PTY-RESIZE-001"></a>**FR-PTY-RESIZE-001** — PTY resize
   resize(id,cols,rows): replay 이벤트(resize_requested) 기록 → 동일 크기는 resize_skipped로 no-op → pty.resize + screenSeq 증가 + snapshot dirty 마킹 + headless resize(실패 시 markHeadlessDegraded) + pendingResizeReplay 상태 등록 및 150ms 후 refresh 예약.
-  출처: [`server/src/services/SessionManager.ts:777-827`](../../../../server/src/services/SessionManager.ts#L777-L827)
+  출처: [`server/src/services/SessionManager.ts:952-1057`](../../../../server/src/services/SessionManager.ts#L952-L1057)
 - <a id="FR-PTY-SHELL-001"></a>**FR-PTY-SHELL-001** — 사용 가능한 셸 감지 및 캐시
   서버 시작 시 detectAvailableShells(): win32면 PowerShell/Cmd 필수 추가, wsl.exe 존재 시 wsl/bash/sh 및 WSL 내부 zsh 조건부 추가. 비win32면 bash/zsh(각 which 확인)와 sh 추가. 결과는 cachedAvailableShells에 보관.
-  출처: [`server/src/services/SessionManager.ts:908-964`](../../../../server/src/services/SessionManager.ts#L908-L964)
+  출처: [`server/src/services/SessionManager.ts:1083-1144`](../../../../server/src/services/SessionManager.ts#L1083-L1144)
 
 #### 4.1.9 CWD — CWD 스냅샷/감시 (4건)
 
 - <a id="FR-CWD-001"></a>**FR-CWD-001** — 세션별 CWD 추적 훅 주입
   injectCwdHook: PowerShell은 spawn args로 -EncodedCommand 프롬프트 훅 주입(Out-File UTF-8 no-BOM으로 $pwd.Path 기록), cmd는 prompt 함수 오버라이드, bash/zsh/sh/wsl은 PROMPT_COMMAND/precmd/PS1로 임시 파일에 $PWD 기록. 경로는 os.tmpdir()/buildergate-cwd-<id>.txt. WSL은 /mnt/ 변환.
-  출처: [`server/src/services/SessionManager.ts:1374-1468`](../../../../server/src/services/SessionManager.ts#L1374-L1468)
+  출처: [`server/src/services/SessionManager.ts:1557-1644`](../../../../server/src/services/SessionManager.ts#L1557-L1644)
 - <a id="FR-CWD-002"></a>**FR-CWD-002** — CWD 파일 변경 감시 및 브로드캐스트
   watchFile(interval=1000ms)로 CWD 파일 변화를 감시. 읽은 값을 sanitizeCwd(길이≤4096, 제어문자 금지, BOM strip, trim)로 검증. foreground_app 상태에서 오래된 파일 갱신은 무시. 변경 시 cwd 이벤트를 WS로 브로드캐스트 + cwdChangeCallback 호출(WorkspaceService가 lastCwd 저장).
-  출처: [`server/src/services/SessionManager.ts:162-172`](../../../../server/src/services/SessionManager.ts#L162-L172), [`server/src/services/SessionManager.ts:1423-1445`](../../../../server/src/services/SessionManager.ts#L1423-L1445)
+  출처: [`server/src/services/SessionManager.ts:179-185`](../../../../server/src/services/SessionManager.ts#L179-L185), [`server/src/services/SessionManager.ts:1601-1624`](../../../../server/src/services/SessionManager.ts#L1601-L1624)
 - <a id="FR-CWD-003"></a>**FR-CWD-003** — FileService.getCwd 해석 우선순위
   훅 파일 → 프로세스 CWD(리눅스 /proc/<pid>/cwd, macOS lsof, Windows는 초기 CWD 폴백) → SessionManager.getInitialCwd → process.cwd(). WSL 경로는 drive letter로 변환(wsl.exe wslpath -w 사용 시도). cwdCacheTtlMs 캐시.
   출처: [`server/src/services/FileService.ts:79-123`](../../../../server/src/services/FileService.ts#L79-L123), [`server/src/services/FileService.ts:435-493`](../../../../server/src/services/FileService.ts#L435-L493)
@@ -755,7 +756,7 @@ flowchart LR
 
 - <a id="FR-DEBUG-001"></a>**FR-DEBUG-001** — 세션 디버그 캡처
   enableDebugCapture로 세션별 recentInputs/snapshot/headless/detector 이벤트(최대 400건)를 수집. 각 이벤트는 eventId/recordedAt/sessionId/source/kind/details/preview(최대 320자, 제어 이스케이프). localhost 전용 GET으로 조회.
-  출처: [`server/src/services/SessionManager.ts:665-689`](../../../../server/src/services/SessionManager.ts#L665-L689), [`server/src/services/SessionManager.ts:1892-1919`](../../../../server/src/services/SessionManager.ts#L1892-L1919)
+  출처: [`server/src/services/SessionManager.ts:821-927`](../../../../server/src/services/SessionManager.ts#L821-L927), [`server/src/services/SessionManager.ts:2369-2399`](../../../../server/src/services/SessionManager.ts#L2369-L2399)
   related: [API-SES-009](#API-SES-009)
 - <a id="FR-DEBUG-002"></a>**FR-DEBUG-002** — WS replay 디버그 이벤트
   WsRouter.recordReplayEvent: kind(resize_requested|resize_skipped|snapshot_sent|snapshot_refreshed|ack_ok|ack_stale|input_blocked|output_queued|output_flushed|ready_sent)별로 최대 256 최근 이벤트 유지, 디버그 활성 세션은 별도 저장. /api/sessions/debug-capture/:id에서 함께 반환.
@@ -765,14 +766,14 @@ flowchart LR
 
 - <a id="FR-FG-DETECT-001"></a>**FR-FG-DETECT-001** — Foreground App Detector Registry
   ForegroundAppDetectorRegistry가 등록된 detector들(현재 HermesForegroundDetector)을 순차 검사. observation이 있으면 applyForegroundObservation으로 derived state 갱신(ownership=foreground_app, activity, appId, detectorId, 시간 마킹). detectors reset은 shell_prompt 복귀 시 수행.
-  출처: [`server/src/services/ForegroundAppDetector.ts:50-68`](../../../../server/src/services/ForegroundAppDetector.ts#L50-L68), [`server/src/services/SessionManager.ts:436-562`](../../../../server/src/services/SessionManager.ts#L436-L562)
+  출처: [`server/src/services/ForegroundAppDetector.ts:50-68`](../../../../server/src/services/ForegroundAppDetector.ts#L50-L68), [`server/src/services/SessionManager.ts:473-714`](../../../../server/src/services/SessionManager.ts#L473-L714)
 - <a id="FR-FG-HERMES-001"></a>**FR-FG-HERMES-001** — Hermes Foreground Detector
   Hermes Agent 출력 특징(배너, Welcome, ✦/? Tip, claude-* 모델 언급, 장식 프레임, CPR 경고, 커서 요청/모션)을 인식하여 attach 여부를 결정. attach 후 semantic output은 busy, repaint-only(ticker/커서 요청)는 repaint_only, 부트스트랩/상호 입력 에코는 waiting_input으로 분류. appHint='hermes'가 있으면 적극 attach.
   출처: [`server/src/services/HermesForegroundDetector.ts:1-286`](../../../../server/src/services/HermesForegroundDetector.ts#L1-L286)
 - <a id="FR-FG-HINT-001"></a>**FR-FG-HINT-001** — Foreground app pendingForegroundAppHint 라이프사이클 `[INFERRED]` `(confidence: med)`
-  updateCommandInputBuffer에서 submittedCommand가 hermes 등 등록 커맨드 시그니처와 매칭되면 sData.pendingForegroundAppHint를 해당 앱 식별자로 설정한다. 이 힌트는 (1) Hermes detector attach 성공 시 소비되어 clear되거나, (2) 일정 시간 내 detector 부착 없이 idle 전이 발생 시 clear된다. FR-IDLE-001 및 FR-MISSING-005의 shouldAttach 판정은 힌트 존재 여부를 고려한다.
-  출처: [`server/src/services/SessionManager.ts:739-775`](../../../../server/src/services/SessionManager.ts#L739-L775), [`server/src/services/SessionManager.ts:703-710`](../../../../server/src/services/SessionManager.ts#L703-L710)
-  related: [FR-MISSING-005](#FR-MISSING-005), [FR-MISSING-006](#FR-MISSING-006), [FR-IDLE-001](#FR-IDLE-001)
+  shell prompt 상태에서 submittedCommand가 Codex/Claude/Hermes 실행 시그니처와 매칭되면 pendingForegroundAppHint와 aiTuiLaunchAttempt를 설정한다. AI TUI foreground 상태에서는 동일 문자열도 내부 사용자 입력으로 간주해 새 launch hint를 만들지 않는다. 힌트/attempt는 foreground process 시작, 정상 bootstrap/semantic output 관찰, launch failure, shell prompt 복귀 시 명시적으로 정리된다. FR-IDLE-001 및 FR-IDLE-AI-INPUT-001의 상태 판정은 힌트와 foregroundAppId를 함께 고려한다.
+  출처: [`server/src/services/SessionManager.ts:560-643`](../../../../server/src/services/SessionManager.ts#L560-L643), [`server/src/services/SessionManager.ts:847-878`](../../../../server/src/services/SessionManager.ts#L847-L878), [`server/src/services/SessionManager.ts:2456-2498`](../../../../server/src/services/SessionManager.ts#L2456-L2498)
+  related: [FR-MISSING-005](#FR-MISSING-005), [FR-MISSING-006](#FR-MISSING-006), [FR-IDLE-001](#FR-IDLE-001), [FR-IDLE-AI-INPUT-001](#FR-IDLE-AI-INPUT-001)
 
 #### 4.1.19 HEADER — HEADER (1건)
 
@@ -781,19 +782,23 @@ flowchart LR
   출처: [`frontend/src/components/Header/Header.tsx:28-122`](../../../../frontend/src/components/Header/Header.tsx#L28-L122)
   related: [FR-WS-7300](#FR-WS-7300)
 
-#### 4.1.20 IDLE — IDLE (3건)
+#### 4.1.20 IDLE — IDLE (4건)
 
 - <a id="FR-IDLE-001"></a>**FR-IDLE-001** — Idle 상태 휴리스틱 감지
-  detectionMode='heuristic'에서 PTY 출력이 에코가 아니며 PowerShell 프롬프트 재도색이 아닌 경우, foreground app 관찰이 없으면 running 전이 후 idleDelayMs(3000ms 기본) 후 idle로 전이. Enter 입력 시 즉시 running. echoTracker로 50ms 내 입력+Enter 아닌 출력을 에코로 간주.
-  출처: [`server/src/services/SessionManager.ts:335-404`](../../../../server/src/services/SessionManager.ts#L335-L404), [`server/src/services/SessionManager.ts:414-434`](../../../../server/src/services/SessionManager.ts#L414-L434), [`server/src/services/SessionManager.ts:1636-1671`](../../../../server/src/services/SessionManager.ts#L1636-L1671)
+  detectionMode='heuristic'에서 PTY 출력이 에코가 아니며 PowerShell 프롬프트 재도색이 아닌 경우, foreground app 관찰이 없으면 running 전이 후 idleDelayMs(3000ms 기본) 후 idle로 전이. 일반 셸 명령 실행은 running 전이를 유발할 수 있으나, Codex/Claude/Hermes 등 상호 입력형 AI TUI의 사용자 입력은 FR-IDLE-AI-INPUT-001을 우선 적용한다. AI TUI의 애매한 출력은 runningDelayMs(250ms 기본) 동안 waiting_input/repaint/shell prompt 복귀 신호가 없을 때만 running 으로 승격한다. echoTracker로 50ms 내 입력+Enter 아닌 출력을 에코로 간주.
+  출처: [`server/src/services/SessionManager.ts:398-462`](../../../../server/src/services/SessionManager.ts#L398-L462), [`server/src/services/SessionManager.ts:490-528`](../../../../server/src/services/SessionManager.ts#L490-L528), [`server/src/services/SessionManager.ts:1851-2033`](../../../../server/src/services/SessionManager.ts#L1851-L2033)
   related: [FR-STATE-DERIVED-001](#FR-STATE-DERIVED-001)
+- <a id="FR-IDLE-AI-INPUT-001"></a>**FR-IDLE-AI-INPUT-001** — Codex/Claude/Hermes 사용자 입력은 idle 유지
+  Codex, Claude, Hermes 같은 상호 입력형 AI TUI가 포그라운드에 있거나 해당 앱 부트스트랩/입력 대기 상태로 추정되는 세션에서는 사용자의 키보드 입력, 로컬 echo, 프롬프트 재도색, 커서 이동, ticker 출력, waiting-for-input repaint가 세션을 running으로 전환하면 안 된다. running 전이는 명령 실행이 실제로 시작되었거나 에이전트가 의미 있는 작업 출력(semantic output)을 생성할 때만 허용한다. 이 요구사항은 그리드 auto/focus 확대, 상태 배지, repair-replay 트리거의 기준이므로 세션 상태 플로우 변경 시 회귀 테스트 대상이다.
+  출처: [`server/src/test-runner.ts:87-105`](../../../../server/src/test-runner.ts#L87-L105), [`server/src/services/SessionManager.ts:398-462`](../../../../server/src/services/SessionManager.ts#L398-L462), [`server/src/services/SessionManager.ts:847-895`](../../../../server/src/services/SessionManager.ts#L847-L895), [`server/src/services/HermesForegroundDetector.ts:1-286`](../../../../server/src/services/HermesForegroundDetector.ts#L1-L286)
+  related: [FR-IDLE-001](#FR-IDLE-001), [FR-FG-HERMES-001](#FR-FG-HERMES-001), [SM-IDLE-001](#SM-IDLE-001)
 - <a id="FR-IDLE-002"></a>**FR-IDLE-002** — OSC 133 자동 모드 승격
   PTY 출력에서 OSC 133 마커가 처음 감지되면 detectionMode를 heuristic→osc133으로 승격하고 idleTimer를 해제한다. 승격 이후 상태 전이 세부 규칙은 SM-IDLE-002 참조. 승격은 단방향(일회성)이며 이후 세션 생애 동안 heuristic으로 되돌아가지 않는다.
-  출처: [`server/src/services/SessionManager.ts:309-353`](../../../../server/src/services/SessionManager.ts#L309-L353)
+  출처: [`server/src/services/SessionManager.ts:320-397`](../../../../server/src/services/SessionManager.ts#L320-L397)
   related: [FR-OSC133-001](#FR-OSC133-001), [SM-IDLE-002](#SM-IDLE-002)
 - <a id="FR-IDLE-PS-PROMPT-001"></a>**FR-IDLE-PS-PROMPT-001** — PowerShell 프롬프트 재도색 출력 idle 유지 휴리스틱
   isPowerShellPromptRedrawOutput: PowerShell 세션(shellType='powershell')에서 출력이 stripTerminalControlSequences 후 모든 non-empty 라인이 `PS <lastCwd>>` 프롬프트 리렌더만으로 구성된 경우 true를 반환한다. FR-IDLE-001에서 이 조건이 true이면 running 전이를 억제하여 foreground_app detector 미부착 상태에서의 재도색 깜빡임을 방지하고 shell_prompt(idle) 상태를 유지한다. 관련 커밋: 760be3a.
-  출처: [`server/src/services/SessionManager.ts:1653-1671`](../../../../server/src/services/SessionManager.ts#L1653-L1671)
+  출처: [`server/src/services/SessionManager.ts:1831-1849`](../../../../server/src/services/SessionManager.ts#L1831-L1849)
   related: [FR-IDLE-001](#FR-IDLE-001)
 
 #### 4.1.21 MISSING — MISSING (9건)
@@ -809,21 +814,21 @@ flowchart LR
   출처: [`frontend/src/components/FileManager/MdirFooter.tsx:1-40`](../../../../frontend/src/components/FileManager/MdirFooter.tsx#L1-L40)
 - <a id="FR-MISSING-004"></a>**FR-MISSING-004** — OSC 133 마커 기반 상태 전환 단축
   OscDetector가 OSC 133 마커(prompt/command/end)를 감지하면 SessionManager는 detectionMode가 'heuristic'이더라도 휴리스틱을 우회하고 즉시 대응 상태 전이를 수행한다(프롬프트 준비 시 idle 타이머 취소/단축). 첫 마커 탐지 시 detectionMode를 'osc133'로 승격한다.
-  출처: [`server/src/services/SessionManager.ts:343-355`](../../../../server/src/services/SessionManager.ts#L343-L355), [`server/src/services/OscDetector.ts:65-145`](../../../../server/src/services/OscDetector.ts#L65-L145)
+  출처: [`server/src/services/SessionManager.ts:320-397`](../../../../server/src/services/SessionManager.ts#L320-L397), [`server/src/services/OscDetector.ts:65-145`](../../../../server/src/services/OscDetector.ts#L65-L145)
   related: [FR-OSC133-001](#FR-OSC133-001), [FR-IDLE-001](#FR-IDLE-001)
 - <a id="FR-MISSING-005"></a>**FR-MISSING-005** — HermesForegroundDetector 부착/해제 정책
   HermesForegroundDetector는 누적 텍스트에서 Hermes 시그니처(버전 배너, welcome, CPR 경고, 장식 프레임, 티커 등)를 관찰하여 shouldAttach 판정 후에만 inspect를 수행(미부착 시 null 반환). 부착 후 semantic busy/repaint-only/typing-echo를 분류해 ForegroundAppObservation을 발행하며, reset()으로 detector 상태 초기화를 지원한다.
   출처: [`server/src/services/HermesForegroundDetector.ts:20-260`](../../../../server/src/services/HermesForegroundDetector.ts#L20-L260)
 - <a id="FR-MISSING-006"></a>**FR-MISSING-006** — 커맨드 입력 버퍼 추적
   updateCommandInputBuffer: writeInput 데이터를 단일 논리 라인 버퍼에 누적하여 Enter(\r/\n) 수신 시 submittedCommand로 커밋한다. BS(\x7f,\b)는 1자 삭제, NAK(\u0015)는 버퍼 비움, 히스토리 제어 시퀀스는 무시, 인쇄 가능 문자만 추가. 추적된 커맨드는 foreground app 힌트(hermes 등) 결정에 사용.
-  출처: [`server/src/services/SessionManager.ts:739-775`](../../../../server/src/services/SessionManager.ts#L739-L775)
+  출처: [`server/src/services/SessionManager.ts:914-948`](../../../../server/src/services/SessionManager.ts#L914-L948)
 - <a id="FR-MISSING-007"></a>**FR-MISSING-007** — CWD 변경 옵저버 API
   SessionManager.onCwdChange(cb)로 (sessionId, cwd) 콜백을 등록하여 CWD 변경 이벤트 스트림을 수신한다. WorkspaceService가 이를 통해 탭별 lastCwd를 debounce 플러시하고 WS cwd 이벤트를 방송한다. stopAllCwdWatching은 모든 파일 와처를 해제하여 종료 시 누수 방지.
-  출처: [`server/src/services/SessionManager.ts:892-906`](../../../../server/src/services/SessionManager.ts#L892-L906)
+  출처: [`server/src/services/SessionManager.ts:1061-1080`](../../../../server/src/services/SessionManager.ts#L1061-L1080)
   related: [FR-CWD-001](#FR-CWD-001)
 - <a id="FR-MISSING-008"></a>**FR-MISSING-008** — WSL 셸 가용성 감지
   Windows 환경에서 isWslShellAvailable(shell): `wsl.exe which <shell>`을 3초 타임아웃으로 실행, 종료코드 0이면 가용으로 간주. GET /api/sessions/shells 응답 구성 시 WSL bash/zsh 노출 여부 판정에 사용한다.
-  출처: [`server/src/services/SessionManager.ts:957-970`](../../../../server/src/services/SessionManager.ts#L957-L970)
+  출처: [`server/src/services/SessionManager.ts:1087-1144`](../../../../server/src/services/SessionManager.ts#L1087-L1144)
   related: [API-SES-002](#API-SES-002), [CON-PLATFORM-001](#CON-PLATFORM-001)
 - <a id="FR-MISSING-010"></a>**FR-MISSING-010** — terminalPayload 유틸 - 안전 경계 절단 및 미완결 ESC 시퀀스 트리밍
   server/src/utils/terminalPayload.ts는 PTY 스냅샷/리플레이 페이로드의 tail 절단을 수행한다. findSafeTerminalPayloadStart는 ESC 시퀀스(CSI/OSC/DCS/SOS/PM/APC) 경계를 인식하여 start 이전에 걸친 불완전 시퀀스를 건너뛴다. truncateTerminalPayloadTail(data, maxLength)는 data.length > maxLength일 때 안전 경계부터 slice하고 trimTrailingIncompleteEscapeSequence로 말단의 미완결 ESC 시퀀스를 제거한 뒤 { content, truncated:true }를 반환한다. bufferFilter 레벨(none/minimal/standard/aggressive)은 이 파일에 구현되어 있지 않으며, CON-MISSING-001 placeholder 참조(미구현).
@@ -854,14 +859,14 @@ flowchart LR
 
 - <a id="FR-SNAP-001"></a>**FR-SNAP-001** — Headless 터미널 스크린 스냅샷
   getScreenSnapshot: healthy이면 @xterm/headless + SerializeAddon으로 직렬화. 캐시 유효(seq/cols/rows 일치, !dirty)면 캐시 반환. 크기 > maxSnapshotBytes 시 truncated=true, data=''. 실패 시 markHeadlessDegraded + degraded snapshot. 관찰성 카운터(snapshotRequests/CacheHits/Fallbacks/SerializeFailures/oversized/bytes/ms) 갱신.
-  출처: [`server/src/services/SessionManager.ts:1503-1580`](../../../../server/src/services/SessionManager.ts#L1503-L1580), [`server/src/utils/headlessTerminal.ts:55-76`](../../../../server/src/utils/headlessTerminal.ts#L55-L76)
+  출처: [`server/src/services/SessionManager.ts:1681-1759`](../../../../server/src/services/SessionManager.ts#L1681-L1759), [`server/src/utils/headlessTerminal.ts:55-76`](../../../../server/src/utils/headlessTerminal.ts#L55-L76)
   related: [NFR-PERF-SNAP-001](#NFR-PERF-SNAP-001)
 - <a id="FR-SNAP-002"></a>**FR-SNAP-002** — Degraded replay 폴백 버퍼
   headless write/resize/serialize 실패 시 healthy→degraded 전이. 이후 출력은 degradedReplayBuffer에 누적(maxSnapshotBytes tail). getReplaySnapshot은 degraded 플레이스홀더 + buffer 반환. truncated 플래그 보존.
-  출처: [`server/src/services/SessionManager.ts:1748-1799`](../../../../server/src/services/SessionManager.ts#L1748-L1799), [`server/src/services/SessionManager.ts:1478-1497`](../../../../server/src/services/SessionManager.ts#L1478-L1497)
+  출처: [`server/src/services/SessionManager.ts:2046-2193`](../../../../server/src/services/SessionManager.ts#L2046-L2193), [`server/src/services/SessionManager.ts:1656-1679`](../../../../server/src/services/SessionManager.ts#L1656-L1679)
 - <a id="FR-SNAP-003"></a>**FR-SNAP-003** — Headless 출력 적용 비동기 체인
   queueHeadlessOutput: pendingHeadlessWrites 카운팅 + pendingOutputChunks push → headlessWriteChain에 applyHeadlessOutput(writeHeadlessTerminal) 이어 실행. resolve 시 screenSeq++, unsnapshottedOutput 추가 + markSnapshotDirty, wsRouter.routeSessionOutput 호출. 실패 시 degraded 전환.
-  출처: [`server/src/services/SessionManager.ts:1687-1740`](../../../../server/src/services/SessionManager.ts#L1687-L1740)
+  출처: [`server/src/services/SessionManager.ts:2060-2112`](../../../../server/src/services/SessionManager.ts#L2060-L2112)
 
 #### 4.1.26 STATE — STATE (1건)
 
@@ -898,13 +903,13 @@ flowchart LR
   출처: [`server/src/ws/WsRouter.ts:491-522`](../../../../server/src/ws/WsRouter.ts#L491-L522), [`server/src/ws/WsRouter.ts:437-442`](../../../../server/src/ws/WsRouter.ts#L437-L442)
 - <a id="FR-WSP-REFRESH-001"></a>**FR-WSP-REFRESH-001** — 리사이즈 후 replay 스냅샷 자동 리프레시
   resize 및 출력 정지 시점 기준으로 MAX_RESIZE_REPLAY_DELAY_MS=400ms 한도/QUIET_WINDOW=120ms 감시 후 refreshReplaySnapshots를 호출하여 구독 중 replayPending에 새 snapshot + 새 replayToken + 5초 타임아웃으로 갱신.
-  출처: [`server/src/services/SessionManager.ts:112-114`](../../../../server/src/services/SessionManager.ts#L112-L114), [`server/src/services/SessionManager.ts:1819-1890`](../../../../server/src/services/SessionManager.ts#L1819-L1890), [`server/src/ws/WsRouter.ts:524-599`](../../../../server/src/ws/WsRouter.ts#L524-L599)
+  출처: [`server/src/services/SessionManager.ts:112-114`](../../../../server/src/services/SessionManager.ts#L112-L114), [`server/src/services/SessionManager.ts:2192-2259`](../../../../server/src/services/SessionManager.ts#L2192-L2259), [`server/src/ws/WsRouter.ts:524-599`](../../../../server/src/ws/WsRouter.ts#L524-L599)
 - <a id="FR-WSP-REPAIR-001"></a>**FR-WSP-REPAIR-001** — WS repair-replay 처리
   repair-replay{sessionId} 수신 시 구독 중이고 replayPending이 아닐 때 현재 snapshot을 다시 전송하여 클라이언트 복구(터미널 재부착 등).
   출처: [`server/src/ws/WsRouter.ts:306-322`](../../../../server/src/ws/WsRouter.ts#L306-L322)
 - <a id="FR-WSP-RESIZE-001"></a>**FR-WSP-RESIZE-001** — WS resize 메시지 라우팅
   resize{sessionId,cols,rows} 수신 시 SessionManager.resize(cols,rows) 호출. 동일 크기면 no-op. 변경 시 screenSeq 증가 + headless resize + pending replay refresh 예약.
-  출처: [`server/src/ws/WsRouter.ts:302-304`](../../../../server/src/ws/WsRouter.ts#L302-L304), [`server/src/services/SessionManager.ts:777-827`](../../../../server/src/services/SessionManager.ts#L777-L827)
+  출처: [`server/src/ws/WsRouter.ts:302-304`](../../../../server/src/ws/WsRouter.ts#L302-L304), [`server/src/services/SessionManager.ts:952-1057`](../../../../server/src/services/SessionManager.ts#L952-L1057)
 - <a id="FR-WSP-SUB-001"></a>**FR-WSP-SUB-001** — 세션 구독 시 screen snapshot 전송
   subscribe 메시지 수신 시 각 sessionId에 대해 기존 미구독이면 SessionManager.getScreenSnapshot(headless xterm 직렬화) → 'screen-snapshot' 메시지(replayToken, seq, cols, rows, mode=authoritative|fallback, data, truncated, source='headless', windowsPty?)로 전송 후 replayPending 등록. subscribed 응답에 { sessionId, status, cwd?, ready } 포함.
   출처: [`server/src/ws/WsRouter.ts:144-208`](../../../../server/src/ws/WsRouter.ts#L144-L208), [`server/src/ws/WsRouter.ts:444-489`](../../../../server/src/ws/WsRouter.ts#L444-L489)
@@ -950,8 +955,8 @@ flowchart LR
 ### 4.3 Performance Requirements
 
 - <a id="NFR-INF-004"></a>**NFR-INF-004** — 세션 idle 판정 지연
-  session.idleDelayMs 는 마지막 PTY 출력 이후 세션 상태를 idle 로 전환하기까지의 대기 시간(ms). 리포지토리 config.json5 기본값은 3000ms, README/예시는 200ms 로 기재되어 있어 환경마다 상이하다.
-  출처: [`server/config.json5:48-51`](../../../../server/config.json5#L48-L51), [`server/config.json5.example:49-52`](../../../../server/config.json5.example#L49-L52), [`README.md:156-162`](../../../../README.md#L156-L162)
+  session.idleDelayMs 는 마지막 PTY 출력 이후 세션 상태를 idle 로 전환하기까지의 대기 시간(ms). session.runningDelayMs 는 Codex/Claude/Hermes 등 AI TUI의 애매한 semantic output 후보가 running 으로 승격되기 전 대기 시간(ms)이며, 기본값은 250ms 이다. 리포지토리 config.json5 기본값은 3000ms, README/예시는 200ms 로 기재되어 있어 idleDelayMs는 환경마다 상이하다.
+  출처: [`server/config.json5:48-50`](../../../../server/config.json5#L48-L50), [`server/src/schemas/config.schema.ts:77-80`](../../../../server/src/schemas/config.schema.ts#L77-L80), [`server/config.json5.example:49-53`](../../../../server/config.json5.example#L49-L53), [`README.md:156-162`](../../../../README.md#L156-L162)
 - <a id="NFR-MISSING-001"></a>**NFR-MISSING-001** — HTTP 연결 Keep-Alive 헤더 전역 부착
   모든 응답에 Connection: keep-alive, Keep-Alive: timeout=120, max=1000 헤더를 전역 미들웨어로 부착한다. 또한 HTTPS 서버 인스턴스의 keepAliveTimeout=120s/headersTimeout=125s를 설정하여 느슨한 클라이언트 대응 및 PTY 스트리밍/SSE 장기 연결 안정성을 확보한다.
   출처: [`server/src/index.ts:170-175`](../../../../server/src/index.ts#L170-L175), [`server/src/index.ts:437-438`](../../../../server/src/index.ts#L437-L438)
@@ -972,7 +977,7 @@ flowchart LR
   출처: [`frontend/src/components/Terminal/TerminalContainer.tsx:1-25`](../../../../frontend/src/components/Terminal/TerminalContainer.tsx#L1-L25), [`frontend/src/components/Terminal/TerminalContainer.tsx:38-42`](../../../../frontend/src/components/Terminal/TerminalContainer.tsx#L38-L42), [`frontend/src/components/Terminal/TerminalContainer.tsx:385-389`](../../../../frontend/src/components/Terminal/TerminalContainer.tsx#L385-L389)
 - <a id="NFR-PERF-SNAP-001"></a>**NFR-PERF-SNAP-001** — 스냅샷 캐시 및 관찰성
   getScreenSnapshot 호출 시 (seq,cols,rows) 키로 캐시 재사용. SessionManagerObservability{totalSessions, healthy/degraded, snapshotRequests, cacheHits, serializeFailures, fallbacks, oversizedSnapshots, totalBytes, maxBytesObserved, totalSerializeMs, maxSerializeMs}.
-  출처: [`server/src/services/SessionManager.ts:79-92`](../../../../server/src/services/SessionManager.ts#L79-L92), [`server/src/services/SessionManager.ts:1503-1604`](../../../../server/src/services/SessionManager.ts#L1503-L1604)
+  출처: [`server/src/services/SessionManager.ts:79-92`](../../../../server/src/services/SessionManager.ts#L79-L92), [`server/src/services/SessionManager.ts:1681-1762`](../../../../server/src/services/SessionManager.ts#L1681-L1762)
 - <a id="NFR-SEC-001"></a>**NFR-SEC-001** — Transport Security: HTTPS + TLS 1.2/1.3
   전 트래픽이 HTTPS 위에서 동작하며 기본적으로 자체 서명 인증서로 부트스트랩된다. 사용자 정의 인증서는 ssl.certPath/keyPath/caPath 에 PEM 경로로 지정한다.
   출처: [`PRD.md:37-42`](../../../../PRD.md#L37-L42), [`README.md:141-152`](../../../../README.md#L141-L152), [`server/config.json5:55-59`](../../../../server/config.json5#L55-L59)
@@ -989,7 +994,7 @@ flowchart LR
 
 | API-ID | Method | Path | 설명 | 출처 |
 |---|---|---|---|---|
-| <a id="API-SES-005"></a>**API-SES-005** | `DELETE` | `/api/sessions/:id` | 세션 삭제(PTY kill + OSC/detector 정리 + headless 해제 + CWD watch 해제 + WS state clear). 성공 시 204, 없으면 404. | [`server/src/routes/sessionRoutes.ts:54-61`](../../../../server/src/routes/sessionRoutes.ts#L54-L61), [`server/src/services/SessionManager.ts:617-663`](../../../../server/src/services/SessionManager.ts#L617-L663) |
+| <a id="API-SES-005"></a>**API-SES-005** | `DELETE` | `/api/sessions/:id` | 세션 삭제(PTY kill + OSC/detector 정리 + headless 해제 + CWD watch 해제 + WS state clear). 성공 시 204, 없으면 404. | [`server/src/routes/sessionRoutes.ts:54-61`](../../../../server/src/routes/sessionRoutes.ts#L54-L61), [`server/src/services/SessionManager.ts:772-816`](../../../../server/src/services/SessionManager.ts#L772-L816) |
 | <a id="API-FILE-006"></a>**API-FILE-006** | `DELETE` | `/api/sessions/:id/files` | 파일/디렉토리 삭제(재귀). path 쿼리 필수. EACCES 시 PERMISSION_DENIED(403). | [`server/src/routes/fileRoutes.ts:81-92`](../../../../server/src/routes/fileRoutes.ts#L81-L92), [`server/src/services/FileService.ts:339-363`](../../../../server/src/services/FileService.ts#L339-L363) |
 | <a id="API-SES-011"></a>**API-SES-011** | `DELETE` | `/api/sessions/debug-capture/:id` | 디버그 캡처 비활성화 및 캡처 이벤트 삭제. 204. localhost 전용. | [`server/src/index.ts:233-240`](../../../../server/src/index.ts#L233-L240) |
 | <a id="API-WS-005"></a>**API-WS-005** | `DELETE` | `/api/workspaces/:id` | 워크스페이스 삭제. 마지막 1개는 LAST_WORKSPACE(409). 내부 모든 탭의 PTY 세션도 종료. workspace:deleting → workspace:deleted 브로드캐스트. | [`server/src/routes/workspaceRoutes.ts:81-91`](../../../../server/src/routes/workspaceRoutes.ts#L81-L91), [`server/src/services/WorkspaceService.ts:178-196`](../../../../server/src/services/WorkspaceService.ts#L178-L196) |
@@ -1003,7 +1008,7 @@ flowchart LR
 | <a id="API-FILE-002"></a>**API-FILE-002** | `GET` | `/api/sessions/:id/files` | 디렉토리 목록. 쿼리 path(상대/선택). 경로 검증(traversal 차단)+blockedPaths 차단. 결과: cwd, path, entries(이름/type/size/ext/modified), totalEntries, '..' 포함(루트 아닐 때). | [`server/src/routes/fileRoutes.ts:28-36`](../../../../server/src/routes/fileRoutes.ts#L28-L36), [`server/src/services/FileService.ts:128-207`](../../../../server/src/services/FileService.ts#L128-L207) |
 | <a id="API-FILE-003"></a>**API-FILE-003** | `GET` | `/api/sessions/:id/files/read` | 파일 내용 반환. path 쿼리 필수. 확장자 blockedExtensions 검사, size > maxFileSize(1MB) 시 FILE_TOO_LARGE(413), 바이너리(>10% NUL) 시 BINARY_FILE(415). MIME 매핑 포함 FileContent 반환. | [`server/src/routes/fileRoutes.ts:39-50`](../../../../server/src/routes/fileRoutes.ts#L39-L50), [`server/src/services/FileService.ts:211-251`](../../../../server/src/services/FileService.ts#L211-L251) |
 | <a id="API-SES-009"></a>**API-SES-009** | `GET` | `/api/sessions/debug-capture/:id` | 세션의 디버그 캡처 이벤트(서버+replay)를 limit(1~500, 기본 200)만큼 반환. authMiddleware + localhost 전용 + 세션 존재 확인. | [`server/src/index.ts:213-226`](../../../../server/src/index.ts#L213-L226) |
-| <a id="API-SES-002"></a>**API-SES-002** | `GET` | `/api/sessions/shells` | 해당 호스트에서 사용 가능한 셸 목록(ShellInfo[])을 반환(시작 시 캐싱). | [`server/src/routes/sessionRoutes.ts:15-18`](../../../../server/src/routes/sessionRoutes.ts#L15-L18), [`server/src/services/SessionManager.ts:908-942`](../../../../server/src/services/SessionManager.ts#L908-L942) |
+| <a id="API-SES-002"></a>**API-SES-002** | `GET` | `/api/sessions/shells` | 해당 호스트에서 사용 가능한 셸 목록(ShellInfo[])을 반환(시작 시 캐싱). | [`server/src/routes/sessionRoutes.ts:15-18`](../../../../server/src/routes/sessionRoutes.ts#L15-L18), [`server/src/services/SessionManager.ts:1083-1144`](../../../../server/src/services/SessionManager.ts#L1083-L1144) |
 | <a id="API-SES-008"></a>**API-SES-008** | `GET` | `/api/sessions/telemetry` | SessionManager + WsRouter 관찰성 스냅샷을 반환. authMiddleware 필요. | [`server/src/index.ts:206-212`](../../../../server/src/index.ts#L206-L212) |
 | <a id="API-SET-001"></a>**API-SET-001** | `GET` | `/api/settings` | 현재 편집 가능한 설정 스냅샷(values+capabilities+secretState+excludedSections) 반환. 셸 목록과 winpty 가용성이 capability에 반영. | [`server/src/routes/settingsRoutes.ts:8-10`](../../../../server/src/routes/settingsRoutes.ts#L8-L10), [`server/src/services/SettingsService.ts:92-123`](../../../../server/src/services/SettingsService.ts#L92-L123) |
 | <a id="API-WS-001"></a>**API-WS-001** | `GET` | `/api/workspaces` | 전체 워크스페이스 상태(workspaces+tabs+gridLayouts) 반환. | [`server/src/routes/workspaceRoutes.ts:33-40`](../../../../server/src/routes/workspaceRoutes.ts#L33-L40) |
@@ -1082,7 +1087,7 @@ sequenceDiagram
 
 - <a id="IF-SHELL-OSC-001"></a>**IF-SHELL-OSC-001** — Shell Integration 스크립트 경로
   SessionManager.getShellIntegrationPath('bash-osc133.sh'): dev(tsx)는 src/shell-integration, 빌드는 dist/shell-integration에서 해석. WSL은 /mnt/<drive>/... 형태로 변환. bash의 BASH_ENV에 자동 주입.
-  출처: [`server/src/services/SessionManager.ts:1062-1097`](../../../../server/src/services/SessionManager.ts#L1062-L1097)
+  출처: [`server/src/services/SessionManager.ts:1243-1274`](../../../../server/src/services/SessionManager.ts#L1243-L1274)
   related: [FR-PTY-ENV-001](#FR-PTY-ENV-001)
 
 #### 4.4.4 Other Interfaces (SMTP, HTTPS cert, FS 등)
@@ -1163,14 +1168,14 @@ sequenceDiagram
   related: [FR-GRID-002](#FR-GRID-002), [FR-GRID-003](#FR-GRID-003)
 - <a id="SM-HEADLESS-001"></a>**SM-HEADLESS-001** — Headless 터미널 건강성
   SessionData.headlessHealth∈{healthy,degraded}. create/write/resize/serialize 실패 시 degraded 전이(리소스 정리 + degradedReplayBuffer 기동). degraded에서는 snapshot이 fallback으로 구독자에게 전달되고 replay 모드도 'fallback'.
-  출처: [`server/src/services/SessionManager.ts:1748-1799`](../../../../server/src/services/SessionManager.ts#L1748-L1799), [`server/src/ws/WsRouter.ts:455-472`](../../../../server/src/ws/WsRouter.ts#L455-L472)
+  출처: [`server/src/services/SessionManager.ts:2046-2193`](../../../../server/src/services/SessionManager.ts#L2046-L2193), [`server/src/ws/WsRouter.ts:455-472`](../../../../server/src/ws/WsRouter.ts#L455-L472)
 - <a id="SM-IDLE-001"></a>**SM-IDLE-001** — 세션 상태 머신 (heuristic)
-  기본 상태는 idle(shell_prompt/waiting_input). Enter 입력→running 즉시 전이(hermes 힌트 시 foreground_app/waiting_input). 비에코 출력→running + idleDelayMs 타이머 예약. PowerShell prompt 재도색 출력→shell_prompt. CWD 파일 갱신→shell_prompt(이 때 foreground_app의 오래된 프롬프트는 무시).
-  출처: [`server/src/services/SessionManager.ts:335-434`](../../../../server/src/services/SessionManager.ts#L335-L434), [`server/src/services/SessionManager.ts:1423-1445`](../../../../server/src/services/SessionManager.ts#L1423-L1445)
-  related: [FR-IDLE-001](#FR-IDLE-001)
+  기본 상태는 idle(shell_prompt/waiting_input). 일반 셸 명령 실행 또는 의미 있는 비에코 출력은 running + idleDelayMs 타이머 예약으로 전이할 수 있다. 단, Codex/Claude/Hermes 같은 상호 입력형 AI TUI에서는 사용자 키보드 입력·echo·프롬프트 재도색·커서/ticker 출력·입력 대기 repaint가 idle을 유지해야 하며, 애매한 semantic output 후보는 runningDelayMs 이후에만 running 전이를 유발한다. PowerShell prompt 재도색 출력→shell_prompt. CWD 파일 갱신→shell_prompt(이 때 foreground_app의 오래된 프롬프트는 무시).
+  출처: [`server/src/services/SessionManager.ts:398-462`](../../../../server/src/services/SessionManager.ts#L398-L462), [`server/src/services/SessionManager.ts:490-528`](../../../../server/src/services/SessionManager.ts#L490-L528), [`server/src/services/SessionManager.ts:847-895`](../../../../server/src/services/SessionManager.ts#L847-L895), [`server/src/services/SessionManager.ts:1601-1624`](../../../../server/src/services/SessionManager.ts#L1601-L1624)
+  related: [FR-IDLE-001](#FR-IDLE-001), [FR-IDLE-AI-INPUT-001](#FR-IDLE-AI-INPUT-001)
 - <a id="SM-IDLE-002"></a>**SM-IDLE-002** — 세션 상태 머신 (osc133)
   OSC 133 감지 후 승격: A(prompt-start)/D(command-end)→shell_prompt/waiting_input(idle). C(command-start)→foreground_app 활동 시작 또는 shell_prompt/running. B(prompt-end)→정보성. idleTimer 비활성.
-  출처: [`server/src/services/SessionManager.ts:309-329`](../../../../server/src/services/SessionManager.ts#L309-L329)
+  출처: [`server/src/services/SessionManager.ts:320-397`](../../../../server/src/services/SessionManager.ts#L320-L397)
   related: [FR-OSC133-001](#FR-OSC133-001), [FR-IDLE-002](#FR-IDLE-002)
 - <a id="SM-REPLAY-001"></a>**SM-REPLAY-001** — 구독 Replay 상태
   클라이언트 구독 → replayPending(queuedOutput, replayToken, snapshotSeq, timer 5s). ACK(ok) → flush + session:ready. timeout/stale → session:ready(reason). resize 후 refreshReplaySnapshots → 새 토큰+타이머로 갱신.
@@ -1184,7 +1189,8 @@ stateDiagram-v2
   [*] --> Spawning: POST /api/sessions
   Spawning --> Idle: prompt detected (OSC or Hermes)
   Spawning --> Running: immediate output
-  Idle --> Running: user input / PTY activity
+  Idle --> Idle: Codex/Claude/Hermes user typing/echo/repaint
+  Idle --> Running: semantic command output / substantive PTY activity
   Running --> Idle: prompt reappears
   Idle --> Disconnected: WS drop
   Running --> Disconnected: WS drop
@@ -1229,8 +1235,8 @@ stateDiagram-v2
 기술 스택·라이브러리·빌드·규격·스타일 관련 제약. (§3.4 Operating Environment에 포함된 환경 제약은 본 섹션에서 제외됨)
 
 - <a id="CON-CFG-VAL-001"></a>**CON-CFG-VAL-001** — config 값 범위(Zod)
-  server.port 1~65535(2002). auth.durationMs/maxDurationMs 60000~86400000ms. session.idleDelayMs 50~5000ms. pty.defaultCols 20~500, defaultRows 5~200. fileManager.maxFileSize 1024~104857600(1MB 기본). maxDirectoryEntries 100~100000. cwdCacheTtlMs 100~60000. settings 패치 스키마도 동일 범위.
-  출처: [`server/src/schemas/config.schema.ts:48-156`](../../../../server/src/schemas/config.schema.ts#L48-L156), [`server/src/services/SettingsService.ts:32-70`](../../../../server/src/services/SettingsService.ts#L32-L70)
+  server.port 1~65535(2002). auth.durationMs/maxDurationMs 60000~86400000ms. session.idleDelayMs 50~5000ms, session.runningDelayMs 0~2000ms(250 기본). pty.defaultCols 20~500, defaultRows 5~200. fileManager.maxFileSize 1024~104857600(1MB 기본). maxDirectoryEntries 100~100000. cwdCacheTtlMs 100~60000. pty 섹션 누락은 legacy config로 보아 OS별 기본값을 보강하지만, pty=null/array/non-object는 Zod validation error로 남긴다. settings 패치 스키마는 session.idleDelayMs를 동일 범위로 편집할 수 있으나 session.runningDelayMs는 현재 config 파일/Zod 스키마 값으로만 관리된다.
+  출처: [`server/src/schemas/config.schema.ts:48-156`](../../../../server/src/schemas/config.schema.ts#L48-L156), [`server/src/utils/ptyPlatformPolicy.ts:73-104`](../../../../server/src/utils/ptyPlatformPolicy.ts#L73-L104), [`server/src/services/SettingsService.ts:32-70`](../../../../server/src/services/SettingsService.ts#L32-L70)
 - <a id="CON-CONFIG-EXCL-001"></a>**CON-CONFIG-EXCL-001** — 설정 API에서 편집 불가 섹션
   server.port, ssl.*, logging.*, auth.maxDurationMs, auth.jwtSecret, fileManager.maxCodeFileSize, bruteForce.* 은 /api/settings로 변경 불가. 스냅샷의 excludedSections로 표시.
   출처: [`server/src/services/RuntimeConfigStore.ts:16-24`](../../../../server/src/services/RuntimeConfigStore.ts#L16-L24)
@@ -1291,7 +1297,7 @@ stateDiagram-v2
   출처: [`server/config.json5:62-68`](../../../../server/config.json5#L62-L68), [`README.md:246-256`](../../../../README.md#L246-L256)
 - <a id="NFR-LIMITS-001"></a>**NFR-LIMITS-001** — 리소스 상한
   maxWorkspaces=10(최대50), maxTabsPerWorkspace=8(최대16), maxTotalSessions=32(최대128). 세션 이름 50자, 워크스페이스/탭 이름 32자. PTY defaultCols 20~500, defaultRows 5~200. pendingAuth 최대 100. CWD 훅 경로 4096자, inputBuffer tail 512자.
-  출처: [`server/src/schemas/config.schema.ts:137-156`](../../../../server/src/schemas/config.schema.ts#L137-L156), [`server/src/routes/sessionRoutes.ts:64-98`](../../../../server/src/routes/sessionRoutes.ts#L64-L98), [`server/src/services/SessionManager.ts:769-771`](../../../../server/src/services/SessionManager.ts#L769-L771), [`server/src/services/TOTPService.ts:34`](../../../../server/src/services/TOTPService.ts#L34)
+  출처: [`server/src/schemas/config.schema.ts:137-156`](../../../../server/src/schemas/config.schema.ts#L137-L156), [`server/src/routes/sessionRoutes.ts:64-98`](../../../../server/src/routes/sessionRoutes.ts#L64-L98), [`server/src/services/SessionManager.ts:1061-1064`](../../../../server/src/services/SessionManager.ts#L1061-L1064), [`server/src/services/TOTPService.ts:34`](../../../../server/src/services/TOTPService.ts#L34)
 - <a id="NFR-SEC-002"></a>**NFR-SEC-002** — JWT 세션 수명 정책
   auth.durationMs 기본 30분(1,800,000ms), maxDurationMs 기본 24시간(86,400,000ms). auth.jwtSecret 이 빈 값이면 서버 시작 시마다 새로 생성되어 재시작마다 기존 세션이 무효화된다.
   출처: [`server/config.json5:80-86`](../../../../server/config.json5#L80-L86), [`README.md:113-131`](../../../../README.md#L113-L131)
@@ -1385,7 +1391,7 @@ stateDiagram-v2
 
 - <a id="BR-CWD-SANITIZE-001"></a>**BR-CWD-SANITIZE-001** — CWD 파일 값 검증
   훅이 기록한 CWD 문자열은 BOM 제거 + trim + 제어문자(0x00~0x1f) 포함 거부 + 4096자 이하만 수용. 실패 시 null 반환.
-  출처: [`server/src/services/SessionManager.ts:162-172`](../../../../server/src/services/SessionManager.ts#L162-L172), [`server/src/services/WorkspaceService.ts:84-89`](../../../../server/src/services/WorkspaceService.ts#L84-L89)
+  출처: [`server/src/services/SessionManager.ts:179-188`](../../../../server/src/services/SessionManager.ts#L179-L188), [`server/src/services/WorkspaceService.ts:84-89`](../../../../server/src/services/WorkspaceService.ts#L84-L89)
 - <a id="BR-DELWS-CASCADE-001"></a>**BR-DELWS-CASCADE-001** — 워크스페이스 삭제는 포함된 탭/PTY를 모두 종료
   deleteWorkspace는 내부 탭들의 sessionIds 배열을 SessionManager.deleteMultipleSessions로 일괄 종료 후 탭/그리드/워크스페이스 레코드 제거 + immediate flush.
   출처: [`server/src/services/WorkspaceService.ts:178-196`](../../../../server/src/services/WorkspaceService.ts#L178-L196)
@@ -1424,7 +1430,7 @@ stateDiagram-v2
   related: [API-AUTH-002](#API-AUTH-002)
 - <a id="BR-MISSING-003"></a>**BR-MISSING-003** — 플랫폼 특정 PTY 설정 검증
   SessionManager는 non-Windows 플랫폼에서 useConpty=true 혹은 windowsPowerShellBackend 지정 시 CONFIG_ERROR('ConPTY is only available on Windows' / 'PowerShell backend override is only available on Windows') throw. 설정 저장 시점에 검증하여 부트 실패를 방지한다.
-  출처: [`server/src/services/SessionManager.ts:1225-1285`](../../../../server/src/services/SessionManager.ts#L1225-L1285)
+  출처: [`server/src/services/SessionManager.ts:1388-1475`](../../../../server/src/services/SessionManager.ts#L1388-L1475)
   related: [CON-PLATFORM-001](#CON-PLATFORM-001), [CON-WINPTY-001](#CON-WINPTY-001)
 - <a id="BR-MISSING-004"></a>**BR-MISSING-004** — CryptoService 암호문 포맷 검증
   CryptoService.decrypt는 입력이 enc(...) 형식이 아니거나 base64 디코드 길이가 최소 salt(32)+IV(12)+tag(16)+cipher(≥1) = 61 바이트 조건을 충족하지 않으면 'Invalid encrypted format' / 'Invalid encrypted data length'를 throw한다. 저장 포맷 레이아웃은 enc(base64(salt||iv||tag||cipher))이며 salt는 ciphertext마다 독립 랜덤 32바이트로 생성되어 PBKDF2 키 유도에 사용된다. 잘못된 키/태그로 복호화 실패 시 AppError로 래핑하여 상위에 전달.
@@ -1432,7 +1438,7 @@ stateDiagram-v2
   related: [FR-CRYPTO-001](#FR-CRYPTO-001)
 - <a id="BR-SESSION-DUP-001"></a>**BR-SESSION-DUP-001** — 세션 이름 중복 금지
   updateSession에서 동일 이름을 가진 다른 세션이 존재하면 DUPLICATE_SESSION_NAME(409) 에러. createSession은 서버가 기본 이름(Session-N)을 자동 부여하여 중복 회피.
-  출처: [`server/src/services/SessionManager.ts:829-848`](../../../../server/src/services/SessionManager.ts#L829-L848)
+  출처: [`server/src/services/SessionManager.ts:1008-1016`](../../../../server/src/services/SessionManager.ts#L1008-L1016)
 - <a id="BR-WORK-LIMITS-001"></a>**BR-WORK-LIMITS-001** — 워크스페이스/탭/세션 한도
   maxWorkspaces(10) / maxTabsPerWorkspace(8) / maxTotalSessions(32) 초과 시 각각 WORKSPACE_LIMIT_EXCEEDED, TAB_LIMIT_EXCEEDED, SESSION_LIMIT_EXCEEDED(409). 마지막 워크스페이스는 삭제 불가(LAST_WORKSPACE).
   출처: [`server/src/services/WorkspaceService.ts:133-196`](../../../../server/src/services/WorkspaceService.ts#L133-L196), [`server/src/services/WorkspaceService.ts:210-219`](../../../../server/src/services/WorkspaceService.ts#L210-L219)
@@ -1539,7 +1545,7 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
   DirectoryEntry{name,type:'file'|'directory',size,extension?,modified}. DirectoryListing{cwd,path,entries[],totalEntries}. FileContent{path,content,size,encoding,extension,mimeType}.
   출처: [`frontend/src/types/index.ts:101-123`](../../../../frontend/src/types/index.ts#L101-L123)
 - <a id="DM-005"></a>**DM-005** — SettingsSnapshot / EditableSettingsValues / capabilities
-  SettingsSnapshot{values,capabilities:Record<EditableSettingsKey,FieldCapability>,secretState,excludedSections}. capability는 applyScope(immediate|new_logins|new_sessions)와 available/writeOnly/options/reason. EditableSettingsValues는 auth, twoFactor, security.cors, pty(termName/defaultCols/defaultRows/useConpty/windowsPowerShellBackend/shell), session.idleDelayMs, fileManager(maxFileSize/maxDirectoryEntries/blockedExtensions/blockedPaths/cwdCacheTtlMs) 트리.
+  SettingsSnapshot{values,capabilities:Record<EditableSettingsKey,FieldCapability>,secretState,excludedSections}. capability는 applyScope(immediate|new_logins|new_sessions)와 available/writeOnly/options/reason. EditableSettingsValues는 auth, twoFactor, security.cors, pty(termName/defaultCols/defaultRows/useConpty/windowsPowerShellBackend/shell), session.idleDelayMs, fileManager(maxFileSize/maxDirectoryEntries/blockedExtensions/blockedPaths/cwdCacheTtlMs) 트리. session.runningDelayMs는 Config 스키마 값이지만 현재 EditableSettingsValues에는 포함되지 않는다.
   출처: [`frontend/src/types/settings.ts:1-132`](../../../../frontend/src/types/settings.ts#L1-L132)
   related: [FR-SETTINGS-001](#FR-SETTINGS-001)
 - <a id="DM-006"></a>**DM-006** — MosaicNode 재귀 구조 및 persisted layout schema
@@ -1554,7 +1560,7 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
   JWTPayload{sub,iat,exp,jti}. OTPData{otp(internal),expiresAt(ms),attempts(≤3),stage:'totp',totpLastUsedStep?}. TokenBlacklistEntry{jti,expiresAt(sec)}. BootstrapStatusResponse{setupRequired,requesterAllowed,allowPolicy:localhost|allowlist|denied|configured}.
   출처: [`server/src/types/auth.types.ts:1-155`](../../../../server/src/types/auth.types.ts#L1-L155)
 - <a id="DM-CFG-001"></a>**DM-CFG-001** — Config (Zod configSchema)
-  server{port:1~65535, def 2002}; pty{termName,defaultCols(20~500,80),defaultRows(5~200,24),useConpty(false),windowsPowerShellBackend(inherit|conpty|winpty),scrollbackLines(0~50000,1000),maxSnapshotBytes(1024~268435456,2097152) w/ legacy maxBufferSize 수용,shell(auto|powershell|wsl|bash|zsh|sh|cmd)}; session{idleDelayMs(50~5000,200)}; ssl,security.cors,logging,twoFactor,bootstrap,auth{password,durationMs(60000~86400000,1800000),maxDurationMs,jwtSecret,localhostPasswordOnly},bruteForce,fileManager,workspace(dataPath,maxWorkspaces,maxTabsPerWorkspace,maxTotalSessions,flushDebounceMs).
+  server{port:1~65535, def 2002}; pty{termName,defaultCols(20~500,80),defaultRows(5~200,24),useConpty(false),windowsPowerShellBackend(inherit|conpty|winpty),scrollbackLines(0~50000,1000),maxSnapshotBytes(1024~268435456,2097152) w/ legacy maxBufferSize 수용,shell(auto|powershell|wsl|bash|zsh|sh|cmd)}; session{idleDelayMs(50~5000,200),runningDelayMs(0~2000,250)}; ssl,security.cors,logging,twoFactor,bootstrap,auth{password,durationMs(60000~86400000,1800000),maxDurationMs,jwtSecret,localhostPasswordOnly},bruteForce,fileManager,workspace(dataPath,maxWorkspaces,maxTabsPerWorkspace,maxTotalSessions,flushDebounceMs).
   출처: [`server/src/schemas/config.schema.ts:1-177`](../../../../server/src/schemas/config.schema.ts#L1-L177)
 - <a id="DM-DERIV-001"></a>**DM-DERIV-001** — SessionDerivedState / DetectionMode
   ownership∈{shell_prompt,foreground_app}, activity∈{busy,waiting_input,repaint_only,unknown}, foregroundAppId?/detectorId?, lastObservationAt/lastSemanticOutputAt/lastRepaintOnlyAt. DetectionMode∈{heuristic,osc133}. SessionShellType∈{powershell,bash,zsh,sh,cmd}.
@@ -1637,7 +1643,7 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 | DEBUG — DEBUG | 2 | - | 0 | - |
 | FG — FG | 3 | - | 0 | - |
 | HEADER — HEADER | 1 | - | 0 | - |
-| IDLE — IDLE | 3 | - | 0 | - |
+| IDLE — IDLE | 4 | - | 0 | - |
 | MISSING — MISSING | 9 | - | 0 | - |
 | OSC133 — OSC133 | 1 | - | 0 | - |
 | PATH — PATH | 1 | - | 0 | - |
@@ -1649,7 +1655,7 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 
 **전체 요구사항 RTM**
 
-총 377건. 타입→ID 정렬.
+총 378건. 타입→ID 정렬.
 
 | REQ-ID | Title | Type | Source | Confidence |
 |---|---|---|---|---|
@@ -1699,7 +1705,7 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 | [ASM-FE-002](#ASM-FE-002) | 서버는 WS `{type:'connected', clientId}`를 최초 메시지로 보낸다 | assumption | `frontend/src/contexts/WebSocketContext.tsx:177-181` | med |
 | [ASSUMPTION-INF-001](#ASSUMPTION-INF-001) | 개발자 본인(ACT-001)이 단일 관리자 계정을 사용한다 | assumption | `server/config.json5:80-113` | med |
 | [ASSUMPTION-INF-002](#ASSUMPTION-INF-002) | 로컬호스트 또는 신뢰 네트워크 배포를 가정한다 | assumption | `CLAUDE.md:54` | high |
-| [BR-CWD-SANITIZE-001](#BR-CWD-SANITIZE-001) | CWD 파일 값 검증 | business_rule | `server/src/services/SessionManager.ts:162-172` | high |
+| [BR-CWD-SANITIZE-001](#BR-CWD-SANITIZE-001) | CWD 파일 값 검증 | business_rule | `server/src/services/SessionManager.ts:179-185` | high |
 | [BR-DELWS-CASCADE-001](#BR-DELWS-CASCADE-001) | 워크스페이스 삭제는 포함된 탭/PTY를 모두 종료 | business_rule | `server/src/services/WorkspaceService.ts:178-196` | high |
 | [BR-ERR-JSON-001](#BR-ERR-JSON-001) | 에러 응답 포맷 통일 | business_rule | `server/src/utils/errors.ts:207-267` | high |
 | [BR-FE-001](#BR-FE-001) | CWD 호환성: 다른 셸 계열로 전환 시 CWD 미전달 | business_rule | `frontend/src/utils/shell.ts:1-18` | high |
@@ -1710,9 +1716,9 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 | [BR-INPUT-BLOCK-001](#BR-INPUT-BLOCK-001) | replay 중 입력 차단 | business_rule | `server/src/ws/WsRouter.ts:284-300` | high |
 | [BR-MISSING-001](#BR-MISSING-001) | 세션 이름 유효성 규칙 | business_rule | `server/src/routes/sessionRoutes.ts:64-98` | high |
 | [BR-MISSING-002](#BR-MISSING-002) | Bootstrap 비밀번호 정책 | business_rule | `server/src/services/BootstrapSetupService.ts:55-110` | high |
-| [BR-MISSING-003](#BR-MISSING-003) | 플랫폼 특정 PTY 설정 검증 | business_rule | `server/src/services/SessionManager.ts:1225-1285` | high |
+| [BR-MISSING-003](#BR-MISSING-003) | 플랫폼 특정 PTY 설정 검증 | business_rule | `server/src/services/SessionManager.ts:1388-1475` | high |
 | [BR-MISSING-004](#BR-MISSING-004) | CryptoService 암호문 포맷 검증 | business_rule | `server/src/services/CryptoService.ts:19-21` | high |
-| [BR-SESSION-DUP-001](#BR-SESSION-DUP-001) | 세션 이름 중복 금지 | business_rule | `server/src/services/SessionManager.ts:829-848` | high |
+| [BR-SESSION-DUP-001](#BR-SESSION-DUP-001) | 세션 이름 중복 금지 | business_rule | `server/src/services/SessionManager.ts:1008-1016` | high |
 | [BR-WORK-LIMITS-001](#BR-WORK-LIMITS-001) | 워크스페이스/탭/세션 한도 | business_rule | `server/src/services/WorkspaceService.ts:133-196` | high |
 | [BR-WS-7205](#BR-WS-7205) | 탭 닫기 시 다음 활성 탭 선정 정책 (오른쪽 우선 → 왼쪽) | business_rule | `frontend/src/hooks/useWorkspaceManager.ts:340-371` | high |
 | [BR-WS-7210](#BR-WS-7210) | 세션 탭 색상은 8색 팔레트에서 colorIndex로 지정 | business_rule | `frontend/src/types/workspace.ts:50-59` | high |
@@ -1738,7 +1744,7 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 | [CON-OPS-005](#CON-OPS-005) | 재사용 우선 + 얇은 어댑터 | constraint | `AGENTS.md:35-37` | high |
 | [CON-OPS-006](#CON-OPS-006) | 민감 파일 VCS 배제 목록 | constraint | `.gitignore:29-48` | high |
 | [CON-PLATFORM-001](#CON-PLATFORM-001) | 플랫폼 제약 (Windows 전용 옵션) | constraint | `server/src/utils/ptyPlatformPolicy.ts:31-98` | high |
-| [CON-WINPTY-001](#CON-WINPTY-001) | winpty 가용성 probe | constraint | `server/src/services/SessionManager.ts:1289-1372` | high |
+| [CON-WINPTY-001](#CON-WINPTY-001) | winpty 가용성 probe | constraint | `server/src/services/SessionManager.ts:1514-1555` | high |
 | [DM-001](#DM-001) | Workspace / WorkspaceTab / WorkspaceTabRuntime / GridLayout | data_model | `frontend/src/types/workspace.ts:1-49` | high |
 | [DM-002](#DM-002) | Session / ShellInfo / ShellType | data_model | `frontend/src/types/index.ts:5-28` | high |
 | [DM-003](#DM-003) | AuthState / Bootstrap / LoginResponse | data_model | `frontend/src/types/index.ts:34-83` | high |
@@ -1783,17 +1789,17 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 | [FR-CFG-006](#FR-CFG-006) | 비밀번호 변경 정책 | functional_req | `server/src/services/SettingsService.ts:343-369` | high |
 | [FR-CRYPTO-001](#FR-CRYPTO-001) | AES-256-GCM 암복호화 | functional_req | `server/src/services/CryptoService.ts:1-187` | high |
 | [FR-CRYPTO-002](#FR-CRYPTO-002) | 안전한 난수 유틸 | functional_req | `server/src/services/CryptoService.ts:219-247` | high |
-| [FR-CWD-001](#FR-CWD-001) | 세션별 CWD 추적 훅 주입 | functional_req | `server/src/services/SessionManager.ts:1374-1468` | high |
-| [FR-CWD-002](#FR-CWD-002) | CWD 파일 변경 감시 및 브로드캐스트 | functional_req | `server/src/services/SessionManager.ts:162-172` | high |
+| [FR-CWD-001](#FR-CWD-001) | 세션별 CWD 추적 훅 주입 | functional_req | `server/src/services/SessionManager.ts:1557-1644` | high |
+| [FR-CWD-002](#FR-CWD-002) | CWD 파일 변경 감시 및 브로드캐스트 | functional_req | `server/src/services/SessionManager.ts:1601-1624` | high |
 | [FR-CWD-003](#FR-CWD-003) | FileService.getCwd 해석 우선순위 | functional_req | `server/src/services/FileService.ts:79-123` | high |
 | [FR-CWD-REC-001](#FR-CWD-REC-001) | CWD 스냅샷 및 복구 | functional_req | `server/src/services/WorkspaceService.ts:449-495` | high |
-| [FR-DEBUG-001](#FR-DEBUG-001) | 세션 디버그 캡처 | functional_req | `server/src/services/SessionManager.ts:665-689` | high |
+| [FR-DEBUG-001](#FR-DEBUG-001) | 세션 디버그 캡처 | functional_req | `server/src/services/SessionManager.ts:821-927` | high |
 | [FR-DEBUG-002](#FR-DEBUG-002) | WS replay 디버그 이벤트 | functional_req | `server/src/ws/WsRouter.ts:667-689` | high |
 | [FR-FE-FILE-001](#FR-FE-FILE-001) | Mdir 스타일 파일 매니저 (단일/듀얼 패널) | functional_req | `frontend/src/components/FileManager/MdirPanel.tsx:26-450` | high |
 | [FR-FE-FILE-002](#FR-FE-FILE-002) | 파일 브라우저 Hook은 세션별 CWD 기반으로 디렉터리를 로드 | functional_req | `frontend/src/hooks/useFileBrowser.ts:21-149` | high |
 | [FR-FG-DETECT-001](#FR-FG-DETECT-001) | Foreground App Detector Registry | functional_req | `server/src/services/ForegroundAppDetector.ts:50-68` | high |
 | [FR-FG-HERMES-001](#FR-FG-HERMES-001) | Hermes Foreground Detector | functional_req | `server/src/services/HermesForegroundDetector.ts:1-286` | high |
-| [FR-FG-HINT-001](#FR-FG-HINT-001) | Foreground app pendingForegroundAppHint 라이프사이클 | functional_req | `server/src/services/SessionManager.ts:739-775` | med |
+| [FR-FG-HINT-001](#FR-FG-HINT-001) | Foreground app pendingForegroundAppHint 라이프사이클 | functional_req | `server/src/services/SessionManager.ts:847-878` | med |
 | [FR-FILE-001](#FR-FILE-001) | 디렉토리 나열 정렬 규칙 | functional_req | `server/src/services/FileService.ts:128-207` | high |
 | [FR-FILE-002](#FR-FILE-002) | 바이너리 판정 및 MIME 매핑 | functional_req | `server/src/services/FileService.ts:17-50` | high |
 | [FR-FILE-003](#FR-FILE-003) | 파일 리스트는 Mdir 규칙으로 렌더(대문자 이름, <DIR>, MM-DD-YY, HH:MM) | functional_req | `frontend/src/components/FileManager/MdirFileList.tsx:19-120` | high |
@@ -1814,9 +1820,10 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 | [FR-GRID-008](#FR-GRID-008) | EmptyCell과 stale tabId 방어 렌더 | functional_req | `frontend/src/components/Grid/MosaicTile.tsx:65-84` | high |
 | [FR-GRID-009](#FR-GRID-009) | Equal 모드에서 드래그 리사이즈 시 none으로 승격 | functional_req | `frontend/src/components/Grid/MosaicContainer.tsx:428-459` | high |
 | [FR-HEADER-001](#FR-HEADER-001) | 상단 Header: 로고/활성 워크스페이스·CWD/설정·로그아웃·뷰모드 토글 | functional_req | `frontend/src/components/Header/Header.tsx:28-122` | high |
-| [FR-IDLE-001](#FR-IDLE-001) | Idle 상태 휴리스틱 감지 | functional_req | `server/src/services/SessionManager.ts:335-404` | high |
-| [FR-IDLE-002](#FR-IDLE-002) | OSC 133 자동 모드 승격 | functional_req | `server/src/services/SessionManager.ts:309-353` | high |
-| [FR-IDLE-PS-PROMPT-001](#FR-IDLE-PS-PROMPT-001) | PowerShell 프롬프트 재도색 출력 idle 유지 휴리스틱 | functional_req | `server/src/services/SessionManager.ts:1653-1671` | high |
+| [FR-IDLE-001](#FR-IDLE-001) | Idle 상태 휴리스틱 감지 | functional_req | `server/src/services/SessionManager.ts:398-462` | high |
+| [FR-IDLE-AI-INPUT-001](#FR-IDLE-AI-INPUT-001) | Codex/Claude/Hermes 사용자 입력은 idle 유지 | functional_req | `server/src/test-runner.ts:87-99` | high |
+| [FR-IDLE-002](#FR-IDLE-002) | OSC 133 자동 모드 승격 | functional_req | `server/src/services/SessionManager.ts:320-397` | high |
+| [FR-IDLE-PS-PROMPT-001](#FR-IDLE-PS-PROMPT-001) | PowerShell 프롬프트 재도색 출력 idle 유지 휴리스틱 | functional_req | `server/src/services/SessionManager.ts:1831-1849` | high |
 | [FR-INF-001](#FR-INF-001) | dev.js는 서버와 Vite dev 서버를 순차적으로 기동한다 | functional_req | `dev.js:72-107` | high |
 | [FR-INF-002](#FR-INF-002) | 개발 서버 hot reload 규약 | functional_req | `server/package.json:6-10` | high |
 | [FR-INF-003](#FR-INF-003) | start.sh/start.bat 프로덕션 부트스트랩 | functional_req | `start.sh:1-6` | high |
@@ -1829,23 +1836,23 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 | [FR-MISSING-001](#FR-MISSING-001) | useContextMenu 훅으로 전역 컨텍스트 메뉴 상태 관리 | functional_req | `frontend/src/hooks/useContextMenu.ts:1-26` | high |
 | [FR-MISSING-002](#FR-MISSING-002) | MdirHeader 경로 표시 컴포넌트 | functional_req | `frontend/src/components/FileManager/MdirHeader.tsx:1-17` | high |
 | [FR-MISSING-003](#FR-MISSING-003) | MdirFooter 상태바 및 기능키 바 | functional_req | `frontend/src/components/FileManager/MdirFooter.tsx:1-40` | high |
-| [FR-MISSING-004](#FR-MISSING-004) | OSC 133 마커 기반 상태 전환 단축 | functional_req | `server/src/services/SessionManager.ts:343-355` | high |
+| [FR-MISSING-004](#FR-MISSING-004) | OSC 133 마커 기반 상태 전환 단축 | functional_req | `server/src/services/SessionManager.ts:320-397` | high |
 | [FR-MISSING-005](#FR-MISSING-005) | HermesForegroundDetector 부착/해제 정책 | functional_req | `server/src/services/HermesForegroundDetector.ts:20-260` | high |
-| [FR-MISSING-006](#FR-MISSING-006) | 커맨드 입력 버퍼 추적 | functional_req | `server/src/services/SessionManager.ts:739-775` | high |
-| [FR-MISSING-007](#FR-MISSING-007) | CWD 변경 옵저버 API | functional_req | `server/src/services/SessionManager.ts:892-906` | high |
-| [FR-MISSING-008](#FR-MISSING-008) | WSL 셸 가용성 감지 | functional_req | `server/src/services/SessionManager.ts:957-970` | high |
+| [FR-MISSING-006](#FR-MISSING-006) | 커맨드 입력 버퍼 추적 | functional_req | `server/src/services/SessionManager.ts:914-948` | high |
+| [FR-MISSING-007](#FR-MISSING-007) | CWD 변경 옵저버 API | functional_req | `server/src/services/SessionManager.ts:1061-1080` | high |
+| [FR-MISSING-008](#FR-MISSING-008) | WSL 셸 가용성 감지 | functional_req | `server/src/services/SessionManager.ts:1087-1144` | high |
 | [FR-MISSING-010](#FR-MISSING-010) | terminalPayload 유틸 - 안전 경계 절단 및 미완결 ESC 시퀀스 트리밍 | functional_req | `server/src/utils/terminalPayload.ts:1-114` | high |
 | [FR-OSC133-001](#FR-OSC133-001) | OSC 133 마커 파서 (OscDetector) | functional_req | `server/src/services/OscDetector.ts:1-146` | high |
 | [FR-PATH-001](#FR-PATH-001) | Path traversal 차단 및 realpath 검증 | functional_req | `server/src/utils/pathValidator.ts:17-76` | high |
-| [FR-PTY-001](#FR-PTY-001) | PTY 세션 생성 | functional_req | `server/src/services/SessionManager.ts:226-412` | high |
-| [FR-PTY-002](#FR-PTY-002) | PTY 세션 종료 리소스 해제 | functional_req | `server/src/services/SessionManager.ts:617-663` | high |
-| [FR-PTY-BKND-001](#FR-PTY-BKND-001) | Windows PTY 백엔드 해석 | functional_req | `server/src/services/SessionManager.ts:1010-1060` | high |
-| [FR-PTY-CWD-SPAWN-001](#FR-PTY-CWD-SPAWN-001) | Spawn CWD 해석 | functional_req | `server/src/services/SessionManager.ts:1103-1131` | high |
-| [FR-PTY-ENV-001](#FR-PTY-ENV-001) | 셸 통합 환경변수 구성 | functional_req | `server/src/services/SessionManager.ts:973-995` | high |
-| [FR-PTY-EXIT-001](#FR-PTY-EXIT-001) | PTY 종료 이벤트 브로드캐스트 | functional_req | `server/src/services/SessionManager.ts:406-409` | high |
-| [FR-PTY-INPUT-001](#FR-PTY-INPUT-001) | PTY 입력 처리 및 커맨드 버퍼 | functional_req | `server/src/services/SessionManager.ts:691-737` | high |
-| [FR-PTY-RESIZE-001](#FR-PTY-RESIZE-001) | PTY resize | functional_req | `server/src/services/SessionManager.ts:777-827` | high |
-| [FR-PTY-SHELL-001](#FR-PTY-SHELL-001) | 사용 가능한 셸 감지 및 캐시 | functional_req | `server/src/services/SessionManager.ts:908-964` | high |
+| [FR-PTY-001](#FR-PTY-001) | PTY 세션 생성 | functional_req | `server/src/services/SessionManager.ts:246-467` | high |
+| [FR-PTY-002](#FR-PTY-002) | PTY 세션 종료 리소스 해제 | functional_req | `server/src/services/SessionManager.ts:772-816` | high |
+| [FR-PTY-BKND-001](#FR-PTY-BKND-001) | Windows PTY 백엔드 해석 | functional_req | `server/src/services/SessionManager.ts:1185-1233` | high |
+| [FR-PTY-CWD-SPAWN-001](#FR-PTY-CWD-SPAWN-001) | Spawn CWD 해석 | functional_req | `server/src/services/SessionManager.ts:1279-1309` | high |
+| [FR-PTY-ENV-001](#FR-PTY-ENV-001) | 셸 통합 환경변수 구성 | functional_req | `server/src/services/SessionManager.ts:1148-1174` | high |
+| [FR-PTY-EXIT-001](#FR-PTY-EXIT-001) | PTY 종료 이벤트 브로드캐스트 | functional_req | `server/src/services/SessionManager.ts:462-465` | high |
+| [FR-PTY-INPUT-001](#FR-PTY-INPUT-001) | PTY 입력 처리 및 커맨드 버퍼 | functional_req | `server/src/services/SessionManager.ts:847-948` | high |
+| [FR-PTY-RESIZE-001](#FR-PTY-RESIZE-001) | PTY resize | functional_req | `server/src/services/SessionManager.ts:952-1057` | high |
+| [FR-PTY-SHELL-001](#FR-PTY-SHELL-001) | 사용 가능한 셸 감지 및 캐시 | functional_req | `server/src/services/SessionManager.ts:1083-1144` | high |
 | [FR-SETTINGS-001](#FR-SETTINGS-001) | Settings 페이지는 Runtime-safe 설정만 노출한다 | functional_req | `frontend/src/components/Settings/SettingsPage.tsx:34-476` | high |
 | [FR-SETTINGS-002](#FR-SETTINGS-002) | Settings 검증: 비밀번호/CORS origin/blocked ext/blocked path/winpty | functional_req | `frontend/src/components/Settings/SettingsPage.tsx:150-207` | high |
 | [FR-SETTINGS-003](#FR-SETTINGS-003) | Settings 저장은 diff 기반 patch를 서버에 PATCH | functional_req | `frontend/src/components/Settings/SettingsPage.tsx:228-283` | high |
@@ -1853,9 +1860,9 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 | [FR-SETTINGS-005](#FR-SETTINGS-005) | Grid Layout 로컬 설정 (autoFocusRatio, focusRatio) | functional_req | `frontend/src/components/Settings/SettingsPage.tsx:44-71` | high |
 | [FR-SETTINGS-006](#FR-SETTINGS-006) | Dirty 상태에서 Back 시 Discard 확인 모달 | functional_req | `frontend/src/components/Settings/SettingsPage.tsx:190-193` | high |
 | [FR-SIDEBAR-001](#FR-SIDEBAR-001) | 레거시 Sidebar/SessionList/SessionItem 컴포넌트 (현재 WorkspaceSidebar로 대체) | functional_req | `frontend/src/components/Sidebar/Sidebar.tsx:25-132` | high |
-| [FR-SNAP-001](#FR-SNAP-001) | Headless 터미널 스크린 스냅샷 | functional_req | `server/src/services/SessionManager.ts:1503-1580` | high |
-| [FR-SNAP-002](#FR-SNAP-002) | Degraded replay 폴백 버퍼 | functional_req | `server/src/services/SessionManager.ts:1748-1799` | high |
-| [FR-SNAP-003](#FR-SNAP-003) | Headless 출력 적용 비동기 체인 | functional_req | `server/src/services/SessionManager.ts:1687-1740` | high |
+| [FR-SNAP-001](#FR-SNAP-001) | Headless 터미널 스크린 스냅샷 | functional_req | `server/src/services/SessionManager.ts:1681-1759` | high |
+| [FR-SNAP-002](#FR-SNAP-002) | Degraded replay 폴백 버퍼 | functional_req | `server/src/services/SessionManager.ts:2046-2193` | high |
+| [FR-SNAP-003](#FR-SNAP-003) | Headless 출력 적용 비동기 체인 | functional_req | `server/src/services/SessionManager.ts:2060-2112` | high |
 | [FR-SSL-001](#FR-SSL-001) | self-signed 인증서 생성 | functional_req | `server/src/services/SSLService.ts:85-170` | high |
 | [FR-SSL-002](#FR-SSL-002) | 인증서 만료 경고 | functional_req | `server/src/services/SSLService.ts:34-80` | high |
 | [FR-STATE-DERIVED-001](#FR-STATE-DERIVED-001) | 파생 상태(ownership/activity) 모델 | functional_req | `server/src/services/ForegroundAppDetector.ts:1-88` | high |
@@ -1945,7 +1952,7 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 | [IF-INF-004](#IF-INF-004) | 배포 진입점 및 정적 자산 경로 | interface | `tools/start-runtime.js:6-17` | high |
 | [IF-INF-005](#IF-INF-005) | 환경변수 계약: PORT, DEV_FRONTEND_PORT, DEV_SERVER_PORT, BUILDERGATE_BOOTSTRAP_ALLOWED_IPS | interface | `dev.js:74-98` | high |
 | [IF-LIB-001](#IF-LIB-001) | 외부 라이브러리 의존성 | interface | `server/package.json:11-30` | high |
-| [IF-SHELL-OSC-001](#IF-SHELL-OSC-001) | Shell Integration 스크립트 경로 | interface | `server/src/services/SessionManager.ts:1062-1097` | high |
+| [IF-SHELL-OSC-001](#IF-SHELL-OSC-001) | Shell Integration 스크립트 경로 | interface | `server/src/services/SessionManager.ts:1243-1274` | high |
 | [IF-WS-HEARTBEAT-001](#IF-WS-HEARTBEAT-001) | WebSocket Heartbeat (ping/pong) | interface | `server/src/ws/WsRouter.ts:343-357` | high |
 | [IF-WS-UPGRADE-001](#IF-WS-UPGRADE-001) | WebSocket 업그레이드 /ws + JWT 인증 | interface | `server/src/ws/WsRouter.ts:54-87` | high |
 | [IFC-API-001](#IFC-API-001) | Auth REST: /api/auth/{bootstrap-status,bootstrap-password,login,verify,refresh,logout,status,totp-qr} | interface | `frontend/src/services/api.ts:81-153` | high |
@@ -1964,7 +1971,7 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 | [NFR-INF-001](#NFR-INF-001) | 로깅 레벨 및 파일 로테이션 | nonfunctional_req | `server/config.json5:71-77` | high |
 | [NFR-INF-002](#NFR-INF-002) | CORS 정책 설정 | nonfunctional_req | `server/config.json5:62-68` | high |
 | [NFR-INF-003](#NFR-INF-003) | PTY 기본 크기 및 스크롤백 상한 | nonfunctional_req | `server/config.json5:10-45` | high |
-| [NFR-INF-004](#NFR-INF-004) | 세션 idle 판정 지연 | nonfunctional_req | `server/config.json5:48-51` | high |
+| [NFR-INF-004](#NFR-INF-004) | 세션 idle 판정 지연 | nonfunctional_req | `server/src/schemas/config.schema.ts:77-80` | high |
 | [NFR-INF-005](#NFR-INF-005) | 파일 매니저 크기 및 차단 정책 | nonfunctional_req | `server/config.json5:89-96` | high |
 | [NFR-INF-006](#NFR-INF-006) | 워크스페이스 상한 및 플러시 디바운스 | nonfunctional_req | `server/config.json5:98-105` | high |
 | [NFR-LIMITS-001](#NFR-LIMITS-001) | 리소스 상한 | nonfunctional_req | `server/src/schemas/config.schema.ts:137-156` | high |
@@ -1976,7 +1983,7 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 | [NFR-PERF-002](#NFR-PERF-002) | Snapshot 저장 2초 디바운스 + beforeunload/pagehide 즉시 저장 | nonfunctional_req | `frontend/src/components/Terminal/TerminalView.tsx:27` | high |
 | [NFR-PERF-003](#NFR-PERF-003) | 5초 주기 active session CWD 폴링 | nonfunctional_req | `frontend/src/hooks/useCwd.ts:18-84` | high |
 | [NFR-PERF-004](#NFR-PERF-004) | TerminalContainer는 memo+propsAreEqual로 재렌더 억제 | nonfunctional_req | `frontend/src/components/Terminal/TerminalContainer.tsx:1-25` | high |
-| [NFR-PERF-SNAP-001](#NFR-PERF-SNAP-001) | 스냅샷 캐시 및 관찰성 | nonfunctional_req | `server/src/services/SessionManager.ts:79-92` | high |
+| [NFR-PERF-SNAP-001](#NFR-PERF-SNAP-001) | 스냅샷 캐시 및 관찰성 | nonfunctional_req | `server/src/services/SessionManager.ts:86-99` | high |
 | [NFR-RATE-001](#NFR-RATE-001) | Bootstrap rate-limit | nonfunctional_req | `server/src/services/BootstrapSetupService.ts:26-108` | high |
 | [NFR-SEC-001](#NFR-SEC-001) | Transport Security: HTTPS + TLS 1.2/1.3 | nonfunctional_req | `PRD.md:37-42` | high |
 | [NFR-SEC-002](#NFR-SEC-002) | JWT 세션 수명 정책 | nonfunctional_req | `server/config.json5:80-86` | high |
@@ -2012,9 +2019,9 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 | [SM-002](#SM-002) | 세션별 runtime 상태: running \| idle \| disconnected | system_mode | `frontend/src/types/workspace.ts:24-27` | high |
 | [SM-003](#SM-003) | 워크스페이스 뷰 모드: tab \| grid | system_mode | `frontend/src/types/workspace.ts:1-10` | high |
 | [SM-004](#SM-004) | Mosaic Layout Mode: equal \| focus \| auto \| none | system_mode | `frontend/src/hooks/useMosaicLayout.ts:12` | high |
-| [SM-HEADLESS-001](#SM-HEADLESS-001) | Headless 터미널 건강성 | system_mode | `server/src/services/SessionManager.ts:1748-1799` | high |
-| [SM-IDLE-001](#SM-IDLE-001) | 세션 상태 머신 (heuristic) | system_mode | `server/src/services/SessionManager.ts:335-434` | high |
-| [SM-IDLE-002](#SM-IDLE-002) | 세션 상태 머신 (osc133) | system_mode | `server/src/services/SessionManager.ts:309-329` | high |
+| [SM-HEADLESS-001](#SM-HEADLESS-001) | Headless 터미널 건강성 | system_mode | `server/src/services/SessionManager.ts:2046-2193` | high |
+| [SM-IDLE-001](#SM-IDLE-001) | 세션 상태 머신 (heuristic) | system_mode | `server/src/services/SessionManager.ts:398-462` | high |
+| [SM-IDLE-002](#SM-IDLE-002) | 세션 상태 머신 (osc133) | system_mode | `server/src/services/SessionManager.ts:320-397` | high |
 | [SM-REPLAY-001](#SM-REPLAY-001) | 구독 Replay 상태 | system_mode | `server/src/ws/WsRouter.ts:359-489` | high |
 | [UC-INF-001](#UC-INF-001) | 초기 관리자 비밀번호 bootstrap 유스케이스 | use_case | `README.md:114-138` | high |
 | [UC-INF-002](#UC-INF-002) | 2FA(TOTP) 활성화 절차 | use_case | `README.md:195-238` | high |
@@ -2046,11 +2053,11 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 | Phase 2 | 3개 서브에이전트 병렬 전수 조사 → 초기 jsonl 누적 | +~330 (초기 기준) |
 | Phase 3 | 누락 감지 루프, 도메인 보강(SESSION/PTY/WS 집중) | 증가 |
 | Phase 4 | 평가 루프(opus/sonnet 이중 평가) 3회 반복, 중복·저가치 항목 제거 및 REQ-ID 정규화 | 일부 감소, 최종 수렴 |
-| Phase 5 | **본 문서 조립** (377건) — MD 평가 iter1 피드백 반영(앵커, 인라인 RTM, Physical Req 매핑, Business Rules 재배치) | — |
+| Phase 5 | **본 문서 조립** (원본 377건 + 수동 보강 1건) — MD 평가 iter1 피드백 반영(앵커, 인라인 RTM, Physical Req 매핑, Business Rules 재배치) | — |
 | Phase 6~7 | 사용자 검수 및 확장 RTM(rtm.md) 생성 예정 | - |
 
 **제거 항목**: [phase4_removed.jsonl](./phase4_removed.jsonl) 참조.
 
 ---
 
-> 본 SRS는 역공학(reverse engineering) 기반으로 **현재 코드에 실제 존재하는 동작**을 기술한다. 향후 기능 추가·제거 시 본 문서는 해당 커밋과 함께 갱신되어야 한다. 본 문서는 377개의 원자 요구사항 항목(`srs_items.jsonl`)을 기반으로 자동 조립되었다.
+> 본 SRS는 역공학(reverse engineering) 기반으로 **현재 코드에 실제 존재하는 동작**을 기술한다. 향후 기능 추가·제거 시 본 문서는 해당 커밋과 함께 갱신되어야 한다. 본 문서는 377개의 원자 요구사항 항목(`srs_items.jsonl`)을 기반으로 자동 조립되었고, 본 개정에서 AI TUI idle invariant 1건을 수동 보강했다.

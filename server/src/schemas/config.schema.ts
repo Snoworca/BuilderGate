@@ -75,7 +75,8 @@ export const ptySchema = ptySchemaInput.transform(({ maxBufferSize, maxSnapshotB
 // ============================================================================
 
 export const sessionSchema = z.object({
-  idleDelayMs: z.number().min(50).max(5000).default(200)
+  idleDelayMs: z.number().min(50).max(5000).default(200),
+  runningDelayMs: z.number().min(0).max(2000).default(250)
 });
 
 // ============================================================================

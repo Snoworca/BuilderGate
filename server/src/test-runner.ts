@@ -47,8 +47,11 @@ async function main(): Promise<void> {
   const tests: Array<{ name: string; run: () => Promise<void> | void }> = [
     { name: 'Config bootstrap applies OS-aware PTY defaults when creating config text', run: testConfigBootstrapAppliesPlatformPtyDefaults },
     { name: 'Config normalization neutralizes stale Windows PTY fields on non-Windows', run: testNormalizeRawConfigForPlatformNonWindows },
+    { name: 'Config normalization preserves invalid PTY shapes for schema validation', run: testNormalizeRawConfigForPlatformPreservesInvalidPtyShapes },
     { name: 'Config loader bootstraps missing config files with platform-aware PTY defaults', run: testLoadConfigFromPathBootstrapsMissingConfig },
     { name: 'Config loader bootstraps missing config files without copying config.json5.example', run: testLoadConfigFromPathDoesNotRequireExampleFile },
+    { name: 'Config loader defaults legacy Windows configs without useConpty to ConPTY', run: testLoadConfigFromPathDefaultsLegacyMissingUseConpty },
+    { name: 'Config loader rejects invalid PTY section shapes', run: testLoadConfigFromPathRejectsInvalidPtyShape },
     { name: 'Config loader normalizes stale Windows PTY fields on non-Windows hosts', run: testLoadConfigFromPathNormalizesNonWindowsPtyFields },
     { name: 'Config loader canonicalizes empty-password bootstrap state from null or missing input', run: testLoadConfigFromPathCanonicalizesEmptyPasswordState },
     { name: 'Config loader still encrypts non-empty plaintext passwords on load', run: testLoadConfigFromPathEncryptsPlaintextPasswordOnLoad },
@@ -73,6 +76,8 @@ async function main(): Promise<void> {
     { name: 'SettingsService shell options include WSL-backed bash and sh on Windows hosts', run: testSettingsServiceUsesDetectedWindowsShellOptions },
     { name: 'SettingsService persists editable values and applies runtime updates', run: testSettingsServicePersistence },
     { name: 'SettingsService persists editable values against a legacy pty.maxBufferSize config', run: testSettingsServiceLegacyPtyMigration },
+    { name: 'ConfigFileRepository can insert useConpty into legacy config text', run: testConfigFileRepositoryInsertsMissingUseConpty },
+    { name: 'ConfigFileRepository can insert missing PTY section for legacy config text', run: testConfigFileRepositoryInsertsMissingPtySection },
     { name: 'SettingsService preserves hidden Windows PTY values on non-Windows unrelated saves', run: testSettingsServicePreservesHiddenWindowsPtyValuesOnNonWindowsSave },
     { name: 'SettingsService reconfigures TOTP runtime and returns warnings on hot apply', run: testSettingsServiceTwoFactorRuntimeHotApply },
     { name: 'SettingsService does not reconfigure TOTP runtime when config persistence fails', run: testSettingsServiceTwoFactorRuntimeNotCalledOnPersistFailure },
@@ -85,10 +90,20 @@ async function main(): Promise<void> {
     { name: 'SessionManager bash shell env keeps BASH_ENV bootstrap on Windows hosts', run: testSessionManagerWindowsBashEnvBootstrap },
     { name: 'bash OSC133 hook stays BASH_ENV based and avoids rcfile bootstrap', run: testBashOsc133HookAvoidsRcfileBootstrap },
     { name: 'SessionManager keeps Hermes submit idle in bash heuristic mode', run: testSessionManagerHermesBashSubmitStaysIdle },
+    { name: 'SessionManager keeps Codex submit idle in bash heuristic mode', run: testSessionManagerCodexBashSubmitStaysIdle },
+    { name: 'SessionManager keeps Claude submit idle in bash heuristic mode', run: testSessionManagerClaudeBashSubmitStaysIdle },
+    { name: 'SessionManager keeps Codex typing idle after a prior running misclassification', run: testSessionManagerCodexTypingRestoresIdleAfterRunning },
+    { name: 'SessionManager keeps Codex foreground when internal submit resembles AI command', run: testSessionManagerCodexInternalAiCommandSubmitDoesNotStartLaunchAttempt },
+    { name: 'SessionManager delays Codex semantic output before promoting to running', run: testSessionManagerCodexSemanticOutputUsesRunningDelay },
+    { name: 'SessionManager treats prompt-prefixed Codex semantic output as running candidate', run: testSessionManagerCodexPromptPrefixedSemanticOutputUsesRunningDelay },
+    { name: 'SessionManager returns idle and clears hints after Codex launch failure', run: testSessionManagerCodexLaunchFailureReturnsIdleAndClearsHints },
+    { name: 'SessionManager does not treat later Codex file-not-found output as launch failure', run: testSessionManagerCodexFileNotFoundAfterLaunchIsNotLaunchFailure },
+    { name: 'SessionManager keeps idle when split shell prompt follows Codex launch failure', run: testSessionManagerCodexLaunchFailureSplitPromptStaysIdle },
+    { name: 'SessionManager returns to shell prompt after Codex exits before ordinary command', run: testSessionManagerCodexPromptReturnAllowsOrdinaryCommand },
     { name: 'SessionManager keeps echoed Hermes command idle while bootstrapping in bash heuristic mode', run: testSessionManagerHermesBashCommandEchoStaysIdle },
     { name: 'SessionManager keeps Hermes bootstrap output idle in bash heuristic mode', run: testSessionManagerHermesBashBootstrapStaysIdle },
-    { name: 'SessionManager promotes Hermes semantic output to running in bash heuristic mode', run: testSessionManagerHermesBashSemanticOutputPromotesRunning },
-    { name: 'SessionManager falls back to generic running when Hermes launch fails in bash heuristic mode', run: testSessionManagerHermesBashLaunchFailureFallsBackToRunning },
+    { name: 'SessionManager delays Hermes detector semantic output before promoting to running', run: testSessionManagerHermesBashSemanticOutputUsesRunningDelay },
+    { name: 'SessionManager returns idle and clears hints when Hermes launch fails in bash heuristic mode', run: testSessionManagerHermesBashLaunchFailureReturnsIdle },
     { name: 'SessionManager keeps ordinary bash commands on the existing running to idle path', run: testSessionManagerOrdinaryBashCommandKeepsLegacyFlow },
     { name: 'SessionManager keeps Hermes submit idle in zsh heuristic mode', run: testSessionManagerHermesZshSubmitStaysIdle },
     { name: 'SessionManager ignores stale cwd prompt refresh while Hermes foreground launch is active', run: testSessionManagerIgnoresStaleCwdPromptRefreshDuringHermesLaunch },
@@ -257,6 +272,20 @@ function testNormalizeRawConfigForPlatformNonWindows(): void {
   assert.equal(originalPty.shell, 'powershell');
 }
 
+function testNormalizeRawConfigForPlatformPreservesInvalidPtyShapes(): void {
+  const missingPtyConfig = normalizeRawConfigForPlatform({ server: { port: 2002 } }, 'linux');
+  assert.deepEqual(missingPtyConfig.pty, {
+    useConpty: false,
+    windowsPowerShellBackend: 'inherit',
+    shell: 'auto',
+  });
+
+  for (const invalidPty of [null, [], 'bad']) {
+    const normalized = normalizeRawConfigForPlatform({ server: { port: 2002 }, pty: invalidPty }, 'linux');
+    assert.deepEqual(normalized.pty, invalidPty);
+  }
+}
+
 async function testLoadConfigFromPathBootstrapsMissingConfig(): Promise<void> {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-config-bootstrap-'));
   const configPath = path.join(tempDir, 'config.json5');
@@ -294,6 +323,27 @@ async function testLoadConfigFromPathDoesNotRequireExampleFile(): Promise<void> 
   }
 }
 
+async function testLoadConfigFromPathDefaultsLegacyMissingUseConpty(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-config-legacy-conpty-'));
+  const windowsConfigPath = path.join(tempDir, 'config-win.json5');
+  const linuxConfigPath = path.join(tempDir, 'config-linux.json5');
+  const legacyContent = createMissingUseConptyConfigFixtureContent();
+  await fs.writeFile(windowsConfigPath, legacyContent, 'utf-8');
+  await fs.writeFile(linuxConfigPath, legacyContent, 'utf-8');
+
+  try {
+    const windowsConfig = loadConfigFromPath(windowsConfigPath, 'win32');
+    const linuxConfig = loadConfigFromPath(linuxConfigPath, 'linux');
+
+    assert.equal(windowsConfig.pty.useConpty, true);
+    assert.equal(windowsConfig.pty.windowsPowerShellBackend, 'inherit');
+    assert.equal(linuxConfig.pty.useConpty, false);
+    assert.equal(linuxConfig.pty.windowsPowerShellBackend, 'inherit');
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
 async function testLoadConfigFromPathNormalizesNonWindowsPtyFields(): Promise<void> {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-config-normalize-'));
   const configPath = path.join(tempDir, 'config.json5');
@@ -304,6 +354,25 @@ async function testLoadConfigFromPathNormalizesNonWindowsPtyFields(): Promise<vo
     assert.equal(config.pty.useConpty, false);
     assert.equal(config.pty.windowsPowerShellBackend, 'inherit');
     assert.equal(config.pty.shell, 'auto');
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testLoadConfigFromPathRejectsInvalidPtyShape(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-config-invalid-pty-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  await fs.writeFile(configPath, `{
+  server: { port: 2002 },
+  pty: [],
+  session: { idleDelayMs: 200 },
+}`, 'utf-8');
+
+  try {
+    assert.throws(
+      () => loadConfigFromPath(configPath, 'linux'),
+      /Configuration validation failed/,
+    );
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
@@ -916,7 +985,10 @@ async function testBashOsc133HookAvoidsRcfileBootstrap(): Promise<void> {
   assert.doesNotMatch(script, /source ~\/\.bashrc/u);
 }
 
-function createForegroundSessionHarness(shell: 'bash' | 'zsh' = 'bash') {
+function createForegroundSessionHarness(
+  shell: 'bash' | 'zsh' = 'bash',
+  sessionOverrides: { idleDelayMs?: number; runningDelayMs?: number } = {},
+) {
   let onDataHandler: ((data: string) => void) | null = null;
   let killCalled = false;
   const manager = new SessionManager({
@@ -931,6 +1003,8 @@ function createForegroundSessionHarness(shell: 'bash' | 'zsh' = 'bash') {
     },
     session: {
       idleDelayMs: 40,
+      runningDelayMs: 40,
+      ...sessionOverrides,
     },
   }, {
     platform: 'linux',
@@ -996,6 +1070,221 @@ async function testSessionManagerHermesBashSubmitStaysIdle(): Promise<void> {
   }
 }
 
+async function testSessionManagerCodexBashSubmitStaysIdle(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash');
+
+  try {
+    harness.manager.writeInput(harness.session.id, 'codex\r');
+    await delay(20);
+
+    const status = harness.manager.getSession(harness.session.id)?.status;
+    const derivedState = harness.sessionData?.derivedState;
+    assert.equal(status, 'idle');
+    assert.equal(derivedState?.foregroundAppId, 'codex');
+    assert.equal(derivedState?.activity, 'waiting_input');
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerClaudeBashSubmitStaysIdle(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash');
+
+  try {
+    harness.manager.writeInput(harness.session.id, '/usr/local/bin/claude\r');
+    await delay(20);
+
+    const status = harness.manager.getSession(harness.session.id)?.status;
+    const derivedState = harness.sessionData?.derivedState;
+    assert.equal(status, 'idle');
+    assert.equal(derivedState?.foregroundAppId, 'claude');
+    assert.equal(derivedState?.activity, 'waiting_input');
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerCodexTypingRestoresIdleAfterRunning(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, 'codex\r');
+    handler('semantic agent output\r\n');
+    await delay(60);
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'running');
+
+    harness.manager.writeInput(harness.session.id, 'h');
+    await delay(10);
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+
+    handler('\x1b[24;1Hh');
+    await delay(60);
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+    assert.equal(harness.sessionData?.derivedState?.foregroundAppId, 'codex');
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerCodexInternalAiCommandSubmitDoesNotStartLaunchAttempt(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, 'codex\r');
+    handler('OpenAI Codex\r\n');
+    await delay(10);
+    assert.equal(harness.sessionData?.derivedState?.foregroundAppId, 'codex');
+    assert.equal(harness.sessionData?.aiTuiLaunchAttempt, undefined);
+
+    harness.manager.writeInput(harness.session.id, 'claude\r');
+    await delay(10);
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+    assert.equal(harness.sessionData?.derivedState?.foregroundAppId, 'codex');
+    assert.equal(harness.sessionData?.pendingForegroundAppHint, undefined);
+    assert.equal(harness.sessionData?.aiTuiLaunchAttempt, undefined);
+
+    handler('/bin/bash: claude: command not found\r\n');
+    await delay(60);
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'running');
+    assert.equal(harness.sessionData?.derivedState?.foregroundAppId, 'codex');
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerCodexSemanticOutputUsesRunningDelay(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 40 });
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, 'codex\r');
+    handler('Running shell command npm test\r\nCollecting results\r\n');
+    await delay(20);
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+
+    await delay(50);
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'running');
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerCodexPromptPrefixedSemanticOutputUsesRunningDelay(): Promise<void> {
+  for (const output of [
+    '│ Running shell command npm test\r\n',
+    '> Running shell command npm test\r\n',
+    '│ > Running shell command npm test\r\n',
+  ]) {
+    const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 40 });
+
+    try {
+      const handler = harness.getHandler();
+      harness.manager.writeInput(harness.session.id, 'codex\r');
+      handler(output);
+      await delay(20);
+      assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+
+      await delay(50);
+      assert.equal(harness.manager.getSession(harness.session.id)?.status, 'running');
+    } finally {
+      harness.cleanup();
+    }
+  }
+}
+
+async function testSessionManagerCodexLaunchFailureReturnsIdleAndClearsHints(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 40, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, 'codex\r');
+    handler('beom@host:/tmp$ codex\r\n');
+    await delay(10);
+    handler('/bin/bash: codex: command not found\r\n');
+    await delay(80);
+
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+    assert.equal(harness.sessionData?.pendingForegroundAppHint, undefined);
+    assert.equal(harness.sessionData?.aiTuiLaunchAttempt, undefined);
+    assert.equal(harness.sessionData?.lastSubmittedCommand, undefined);
+    assert.equal(harness.sessionData?.derivedState?.foregroundAppId, undefined);
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerCodexFileNotFoundAfterLaunchIsNotLaunchFailure(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, 'codex\r');
+    handler('OpenAI Codex\r\n');
+    await delay(10);
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+    assert.equal(harness.sessionData?.aiTuiLaunchAttempt, undefined);
+
+    handler('codex: file not found while reading docs/missing.md\r\n');
+    await delay(60);
+
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'running');
+    assert.equal(harness.sessionData?.derivedState?.foregroundAppId, 'codex');
+    assert.equal(harness.sessionData?.aiTuiLaunchAttempt, undefined);
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerCodexLaunchFailureSplitPromptStaysIdle(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 40, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, 'codex\r');
+    handler('/bin/bash: codex: command not found\r\n');
+    await delay(20);
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+    assert.equal(harness.sessionData?.derivedState?.ownership, 'shell_prompt');
+    assert.equal(harness.sessionData?.expectShellPromptAfterAiTuiFailure, true);
+
+    handler('beom@host:/tmp$ ');
+    await delay(60);
+
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+    assert.equal(harness.sessionData?.derivedState?.ownership, 'shell_prompt');
+    assert.equal(harness.sessionData?.derivedState?.foregroundAppId, undefined);
+    assert.equal(harness.sessionData?.expectShellPromptAfterAiTuiFailure, undefined);
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerCodexPromptReturnAllowsOrdinaryCommand(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 80, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, 'codex\r');
+    handler('OpenAI Codex\r\n');
+    await delay(10);
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+    assert.equal(harness.sessionData?.derivedState?.foregroundAppId, 'codex');
+
+    handler('beom@host:/tmp$ ');
+    await delay(10);
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+    assert.equal(harness.sessionData?.derivedState?.ownership, 'shell_prompt');
+    assert.equal(harness.sessionData?.derivedState?.foregroundAppId, undefined);
+
+    harness.manager.writeInput(harness.session.id, 'ls\r');
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'running');
+  } finally {
+    harness.cleanup();
+  }
+}
+
 async function testSessionManagerHermesBashCommandEchoStaysIdle(): Promise<void> {
   const harness = createForegroundSessionHarness('bash');
 
@@ -1034,14 +1323,22 @@ async function testSessionManagerHermesBashBootstrapStaysIdle(): Promise<void> {
   }
 }
 
-async function testSessionManagerHermesBashSemanticOutputPromotesRunning(): Promise<void> {
-  const harness = createForegroundSessionHarness('bash');
+async function testSessionManagerHermesBashSemanticOutputUsesRunningDelay(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 60 });
 
   try {
     const handler = harness.getHandler();
     harness.manager.writeInput(harness.session.id, '/home/beom/.local/bin/hermes\r');
-    handler('tool: web_search\r\nresult: fetched 3 documents\r\n');
-    await delay(80);
+    handler('Welcome to Hermes Agent! Type your message or /help for commands.\r\n');
+    await delay(10);
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+
+    handler('tool: web_search\r\n');
+    await delay(50);
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+
+    handler('result: fetched 3 documents\r\n');
+    await delay(40);
 
     const status = harness.manager.getSession(harness.session.id)?.status;
     const derivedState = harness.sessionData?.derivedState;
@@ -1052,7 +1349,7 @@ async function testSessionManagerHermesBashSemanticOutputPromotesRunning(): Prom
   }
 }
 
-async function testSessionManagerHermesBashLaunchFailureFallsBackToRunning(): Promise<void> {
+async function testSessionManagerHermesBashLaunchFailureReturnsIdle(): Promise<void> {
   const harness = createForegroundSessionHarness('bash');
 
   try {
@@ -1063,9 +1360,12 @@ async function testSessionManagerHermesBashLaunchFailureFallsBackToRunning(): Pr
 
     const status = harness.manager.getSession(harness.session.id)?.status;
     const derivedState = harness.sessionData?.derivedState;
-    assert.equal(status, 'running');
+    assert.equal(status, 'idle');
     assert.equal(derivedState?.foregroundAppId, undefined);
     assert.equal(derivedState?.detectorId, undefined);
+    assert.equal(harness.sessionData?.pendingForegroundAppHint, undefined);
+    assert.equal(harness.sessionData?.aiTuiLaunchAttempt, undefined);
+    assert.equal(harness.sessionData?.lastSubmittedCommand, undefined);
   } finally {
     harness.cleanup();
   }
@@ -2704,6 +3004,92 @@ async function testSettingsServiceLegacyPtyMigration(): Promise<void> {
   }
 }
 
+async function testConfigFileRepositoryInsertsMissingUseConpty(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-settings-missing-conpty-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  const fixture = createConfigFixture();
+  await fs.writeFile(configPath, createMissingUseConptyConfigFixtureContent(), 'utf-8');
+  const repository = new ConfigFileRepository(configPath, 'win32');
+
+  try {
+    const result = repository.persistEditableValues({
+      auth: { durationMs: fixture.auth!.durationMs },
+      twoFactor: {
+        enabled: fixture.twoFactor?.enabled ?? false,
+        externalOnly: fixture.twoFactor?.externalOnly ?? false,
+        issuer: fixture.twoFactor?.issuer ?? 'BuilderGate',
+        accountName: fixture.twoFactor?.accountName ?? 'admin',
+      },
+      security: { cors: fixture.security!.cors },
+      pty: {
+        termName: fixture.pty.termName,
+        defaultCols: fixture.pty.defaultCols,
+        defaultRows: fixture.pty.defaultRows,
+        useConpty: false,
+        windowsPowerShellBackend: fixture.pty.windowsPowerShellBackend ?? 'inherit',
+        shell: fixture.pty.shell,
+      },
+      session: { idleDelayMs: fixture.session.idleDelayMs },
+      fileManager: {
+        maxFileSize: fixture.fileManager!.maxFileSize,
+        maxDirectoryEntries: fixture.fileManager!.maxDirectoryEntries,
+        blockedExtensions: fixture.fileManager!.blockedExtensions,
+        blockedPaths: fixture.fileManager!.blockedPaths,
+        cwdCacheTtlMs: fixture.fileManager!.cwdCacheTtlMs,
+      },
+    }, {}, { dryRun: true, changedKeys: ['pty.useConpty'] });
+
+    assert.equal(result.previousConfig.pty.useConpty, true);
+    assert.equal(result.nextConfig.pty.useConpty, false);
+    assert.match(result.renderedContent, /useConpty:\s*false,/);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testConfigFileRepositoryInsertsMissingPtySection(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-settings-missing-pty-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  const fixture = createConfigFixture();
+  await fs.writeFile(configPath, createMissingPtyConfigFixtureContent(), 'utf-8');
+  const repository = new ConfigFileRepository(configPath, 'linux');
+
+  try {
+    const result = repository.persistEditableValues({
+      auth: { durationMs: fixture.auth!.durationMs },
+      twoFactor: {
+        enabled: fixture.twoFactor?.enabled ?? false,
+        externalOnly: fixture.twoFactor?.externalOnly ?? false,
+        issuer: fixture.twoFactor?.issuer ?? 'BuilderGate',
+        accountName: fixture.twoFactor?.accountName ?? 'admin',
+      },
+      security: { cors: fixture.security!.cors },
+      pty: {
+        termName: fixture.pty.termName,
+        defaultCols: fixture.pty.defaultCols,
+        defaultRows: fixture.pty.defaultRows,
+        useConpty: false,
+        windowsPowerShellBackend: 'inherit',
+        shell: 'bash',
+      },
+      session: { idleDelayMs: fixture.session.idleDelayMs },
+      fileManager: {
+        maxFileSize: fixture.fileManager!.maxFileSize,
+        maxDirectoryEntries: fixture.fileManager!.maxDirectoryEntries,
+        blockedExtensions: fixture.fileManager!.blockedExtensions,
+        blockedPaths: fixture.fileManager!.blockedPaths,
+        cwdCacheTtlMs: fixture.fileManager!.cwdCacheTtlMs,
+      },
+    }, {}, { dryRun: true, changedKeys: ['pty.shell'] });
+
+    assert.equal(result.previousConfig.pty.shell, 'auto');
+    assert.equal(result.nextConfig.pty.shell, 'bash');
+    assert.match(result.renderedContent, /pty:\s*\{[\s\S]*shell:\s*"bash",[\s\S]*\},/);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
 async function testSettingsServicePreservesHiddenWindowsPtyValuesOnNonWindowsSave(): Promise<void> {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-settings-hidden-pty-'));
   const configPath = path.join(tempDir, 'config.json5');
@@ -3784,7 +4170,7 @@ function createSettingsHarness({
     platform,
     execFileSyncFn: (() => Buffer.from('')) as any,
   });
-  const configRepository = new ConfigFileRepository(configPath);
+  const configRepository = new ConfigFileRepository(configPath, platform);
   const settingsService = new SettingsService({
     runtimeConfigStore,
     configRepository,
@@ -3855,6 +4241,14 @@ function createConfigFixtureContent(): string {
     accountName: "admin",
   },
 }`;
+}
+
+function createMissingUseConptyConfigFixtureContent(): string {
+  return createConfigFixtureContent().replace('    useConpty: true,\n', '');
+}
+
+function createMissingPtyConfigFixtureContent(): string {
+  return createConfigFixtureContent().replace(/  pty: \{\n(?:    .+\n)*?  \},\n/, '');
 }
 
 function createLegacyConfigFixtureContent(): string {

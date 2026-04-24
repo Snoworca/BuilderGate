@@ -53,6 +53,8 @@ export function normalizePtyConfigForPlatform(
   pty: Partial<Pick<PTYConfig, 'useConpty' | 'windowsPowerShellBackend' | 'shell'>>,
   platform: NodeJS.Platform,
 ): PlatformNormalizedPtyConfig {
+  const defaults = getBootstrapPtyDefaults(platform);
+
   if (platform !== 'win32') {
     return {
       useConpty: false,
@@ -62,8 +64,8 @@ export function normalizePtyConfigForPlatform(
   }
 
   return {
-    useConpty: pty.useConpty ?? false,
-    windowsPowerShellBackend: pty.windowsPowerShellBackend ?? 'inherit',
+    useConpty: pty.useConpty ?? defaults.useConpty,
+    windowsPowerShellBackend: pty.windowsPowerShellBackend ?? defaults.windowsPowerShellBackend ?? 'inherit',
     shell: normalizeShellForPlatform(pty.shell, platform),
   };
 }
@@ -73,11 +75,26 @@ export function normalizeRawConfigForPlatform(
   platform: NodeJS.Platform,
 ): Record<string, unknown> {
   const normalized = structuredClone(rawConfig);
+  if (normalized.pty === undefined) {
+    normalized.pty = {};
+  }
+
   if (typeof normalized.pty !== 'object' || normalized.pty === null || Array.isArray(normalized.pty)) {
     return normalized;
   }
 
   const ptySection = normalized.pty as Record<string, unknown>;
+  const defaults = getBootstrapPtyDefaults(platform);
+  if (ptySection.useConpty === undefined) {
+    ptySection.useConpty = defaults.useConpty;
+  }
+  if (ptySection.windowsPowerShellBackend === undefined) {
+    ptySection.windowsPowerShellBackend = defaults.windowsPowerShellBackend;
+  }
+  if (ptySection.shell === undefined) {
+    ptySection.shell = defaults.shell;
+  }
+
   if (platform !== 'win32' && ptySection.useConpty === true) {
     ptySection.useConpty = false;
   }

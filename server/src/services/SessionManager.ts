@@ -111,6 +111,24 @@ const DEBUG_INPUT_CORRELATION_WINDOW_MS = 500;
 const DEBUG_INPUT_SAMPLE_LIMIT = 8;
 const MAX_RESIZE_REPLAY_DELAY_MS = 400;
 const RESIZE_REPLAY_QUIET_WINDOW_MS = 120;
+const DEFAULT_RUNNING_DELAY_MS = 250;
+const AI_TUI_TYPING_FEEDBACK_THRESHOLD_MS = 1000;
+const AI_TUI_SUBMITTED_ECHO_THRESHOLD_MS = 1000;
+const AI_TUI_DECORATIVE_FRAME_RE = /^[\s─╰╯│┃┆┄┈┊·•]+$/;
+const AI_TUI_CURSOR_MOTION_RE = /\x1b\[[0-9;?]*[ABCDHJKfhlmnpsu]/;
+
+type ForegroundAppId = 'hermes' | 'codex' | 'claude';
+
+interface AiTuiLaunchAttempt {
+  appId: ForegroundAppId;
+  command: string;
+  executable: string;
+  startedAt: number;
+}
+
+interface DerivedStateSyncOptions {
+  preservePendingRunningTransition?: boolean;
+}
 
 interface SessionManagerDeps {
   execFileFn?: typeof execFile;
@@ -123,6 +141,7 @@ interface SessionData {
   session: Session;
   pty: pty.IPty;
   idleTimer: NodeJS.Timeout | null;
+  runningTimer: NodeJS.Timeout | null;
   shellType?: SessionShellType;
   headless: HeadlessTerminalState | null;
   headlessHealth: HeadlessHealth;
@@ -150,7 +169,9 @@ interface SessionData {
   derivedState?: SessionDerivedState;
   foregroundDetectorRegistry?: ForegroundAppDetectorRegistry;
   inputBuffer: string;
-  pendingForegroundAppHint?: 'hermes';
+  pendingForegroundAppHint?: ForegroundAppId;
+  aiTuiLaunchAttempt?: AiTuiLaunchAttempt;
+  expectShellPromptAfterAiTuiFailure?: boolean;
   lastSubmittedCommand?: string;
   foregroundStartedAt?: number;
 }
@@ -182,7 +203,7 @@ export class SessionManager {
   private pendingResizeReplayStartedAt: Map<string, number> = new Map();
   private pendingResizeReplayLastOutputAt: Map<string, number> = new Map();
   private runtimePtyConfig: PTYConfig;
-  private runtimeSessionConfig: SessionConfig;
+  private runtimeSessionConfig: { idleDelayMs: number; runningDelayMs: number };
   private readonly execFileFn: typeof execFile;
   private readonly execFileSyncFn: typeof execFileSync;
   private readonly platform: NodeJS.Platform;
@@ -215,7 +236,10 @@ export class SessionManager {
       ...clonePtyConfig(initialConfig.pty),
       ...normalizePtyConfigForPlatform(initialConfig.pty, this.platform),
     };
-    this.runtimeSessionConfig = { idleDelayMs: initialConfig.session.idleDelayMs };
+    this.runtimeSessionConfig = {
+      idleDelayMs: initialConfig.session.idleDelayMs,
+      runningDelayMs: initialConfig.session.runningDelayMs ?? DEFAULT_RUNNING_DELAY_MS,
+    };
     this.execFileFn = deps.execFileFn ?? execFile;
     this.execFileSyncFn = deps.execFileSyncFn ?? execFileSync;
     this.spawnPty = deps.spawnPty ?? pty.spawn;
@@ -264,6 +288,7 @@ export class SessionManager {
       session,
       pty: ptyProcess,
       idleTimer: null,
+      runningTimer: null,
       shellType,
       headless: null,
       headlessHealth: 'healthy',
@@ -316,7 +341,7 @@ export class SessionManager {
           this.transitionToShellPrompt(id, event.type);
           break;
         case 'command-start': // C 마커
-          if (sd.pendingForegroundAppHint === 'hermes' || this.ensureDerivedState(sd).foregroundAppId === 'hermes') {
+          if (isInteractiveAiAppId(sd.pendingForegroundAppHint) || isInteractiveAiAppId(this.ensureDerivedState(sd).foregroundAppId)) {
             this.beginForegroundProcess(id, 'osc133_command_start');
           } else {
             this.updateStatus(id, 'running');
@@ -350,6 +375,7 @@ export class SessionManager {
           clearTimeout(sData.idleTimer);
           sData.idleTimer = null;
         }
+        this.cancelPendingRunningTransition(sData);
       }
 
       const outputData = sData.detectionMode === 'osc133' ? stripped : rawData;
@@ -360,35 +386,68 @@ export class SessionManager {
           this.applyForegroundObservation(id, observation);
         }
 
+        if (!observation && sData.detectionMode === 'osc133') {
+          const derivedState = this.ensureDerivedState(sData);
+          const isAiForeground = derivedState.ownership === 'foreground_app'
+            && isInteractiveAiAppId(derivedState.foregroundAppId);
+          if (isAiForeground || isInteractiveAiAppId(sData.pendingForegroundAppHint)) {
+            if (isLikelyAiTuiLaunchFailureOutput(sData, outputData)) {
+              this.markAiTuiLaunchFailure(id, 'osc133_ai_tui_launch_failure');
+            } else {
+              const isLaunchEcho = this.isEchoOutput(sData, outputData)
+                || isLikelyCommandEchoOutput(outputData, sData.lastSubmittedCommand);
+              const signal = this.classifyAiTuiOutputSignal(sData, outputData);
+              if (signal === 'waiting_input' || signal === 'repaint_only') {
+                this.beginForegroundActivity(id, signal, `osc133_ai_tui_${signal}`);
+              } else {
+                this.scheduleRunningTransition(id, 'osc133_ai_tui_unclassified_output');
+              }
+              if (!isLaunchEcho) {
+                this.markAiTuiLaunchSucceeded(sData);
+              }
+            }
+          }
+        }
+
         // ========================================
         // Step 9: 모드별 상태 전환
         // ========================================
         if (sData.detectionMode === 'heuristic') {
           const isEcho = this.isEchoOutput(sData, stripped);
           if (!isEcho) {
-            if (this.isPowerShellPromptRedrawOutput(sData, stripped)) {
-              this.transitionToShellPrompt(id, 'heuristic_powershell_prompt_redraw');
-            } else {
             const derivedState = this.ensureDerivedState(sData);
-            const isHermesForeground = derivedState.ownership === 'foreground_app'
-              && derivedState.foregroundAppId === 'hermes';
-            if (isHermesForeground || sData.pendingForegroundAppHint === 'hermes') {
-              if (!observation) {
-                if (isLikelyCommandEchoOutput(outputData, sData.lastSubmittedCommand)) {
-                  // Keep waiting_input/idle on plain command echo while Hermes is still bootstrapping.
-                } else {
-                  this.updateDerivedState(id, 'heuristic_foreground_unclassified_output', (state) => {
-                    state.ownership = 'foreground_app';
-                    state.activity = 'busy';
-                    delete state.foregroundAppId;
-                    delete state.detectorId;
-                  });
-                }
-              }
+            const isAiForeground = derivedState.ownership === 'foreground_app'
+              && isInteractiveAiAppId(derivedState.foregroundAppId);
+            const isAiShellPromptReturn = (isAiForeground || sData.expectShellPromptAfterAiTuiFailure === true)
+              && this.isShellPromptReturnOutput(sData, stripped);
+            if (this.isPowerShellPromptRedrawOutput(sData, stripped) || isAiShellPromptReturn) {
+              this.transitionToShellPrompt(
+                id,
+                isAiShellPromptReturn ? 'heuristic_ai_tui_shell_prompt_return' : 'heuristic_powershell_prompt_redraw',
+              );
             } else {
-              this.updateStatus(id, 'running');
-              this.scheduleIdleTransition(id);
-            }
+              if (isAiForeground || isInteractiveAiAppId(sData.pendingForegroundAppHint)) {
+                if (!observation) {
+                  if (isLikelyAiTuiLaunchFailureOutput(sData, outputData)) {
+                    this.markAiTuiLaunchFailure(id, 'heuristic_ai_tui_launch_failure');
+                  } else {
+                    const isLaunchEcho = this.isEchoOutput(sData, outputData)
+                      || isLikelyCommandEchoOutput(outputData, sData.lastSubmittedCommand);
+                    const signal = this.classifyAiTuiOutputSignal(sData, outputData);
+                    if (signal === 'waiting_input' || signal === 'repaint_only') {
+                      this.beginForegroundActivity(id, signal, `heuristic_ai_tui_${signal}`);
+                    } else {
+                      this.scheduleRunningTransition(id, 'heuristic_ai_tui_unclassified_output');
+                    }
+                    if (!isLaunchEcho) {
+                      this.markAiTuiLaunchSucceeded(sData);
+                    }
+                  }
+                }
+              } else {
+                this.updateStatus(id, 'running');
+                this.scheduleIdleTransition(id);
+              }
             }
           }
         }
@@ -418,10 +477,59 @@ export class SessionManager {
     if (data.idleTimer) {
       clearTimeout(data.idleTimer);
     }
+    this.cancelPendingRunningTransition(data);
 
     data.idleTimer = setTimeout(() => {
       this.updateStatus(id, 'idle');
     }, this.runtimeSessionConfig.idleDelayMs);
+  }
+
+  private cancelPendingRunningTransition(data: SessionData): void {
+    if (data.runningTimer) {
+      clearTimeout(data.runningTimer);
+      data.runningTimer = null;
+    }
+  }
+
+  private scheduleRunningTransition(id: string, reason: string): void {
+    const data = this.sessions.get(id);
+    if (!data) return;
+
+    if (data.session.status === 'running') {
+      this.scheduleIdleTransition(id);
+      return;
+    }
+
+    if (data.runningTimer) {
+      return;
+    }
+
+    const appHint = data.pendingForegroundAppHint ?? data.aiTuiLaunchAttempt?.appId;
+    data.runningTimer = setTimeout(() => {
+      const current = this.sessions.get(id);
+      if (!current) return;
+
+      current.runningTimer = null;
+      this.captureDebugEvent(id, 'detector', 'running_delay_elapsed', {
+        reason,
+        runningDelayMs: this.runtimeSessionConfig.runningDelayMs,
+      });
+      this.updateDerivedState(id, reason, (state) => {
+        state.ownership = 'foreground_app';
+        state.activity = 'busy';
+        if (!isInteractiveAiAppId(state.foregroundAppId) && isInteractiveAiAppId(appHint)) {
+          state.foregroundAppId = appHint;
+        }
+        delete state.detectorId;
+      });
+      this.scheduleIdleTransition(id);
+    }, this.runtimeSessionConfig.runningDelayMs);
+    data.runningTimer.unref();
+
+    this.captureDebugEvent(id, 'detector', 'running_delay_scheduled', {
+      reason,
+      runningDelayMs: this.runtimeSessionConfig.runningDelayMs,
+    });
   }
 
   private updateStatus(id: string, status: SessionStatus): void {
@@ -462,7 +570,7 @@ export class SessionManager {
     this.ensureForegroundDetectorRegistry(data).reset();
     this.updateDerivedState(id, reason, (state) => {
       state.ownership = 'foreground_app';
-      state.activity = hintedAppId === 'hermes' ? 'waiting_input' : 'unknown';
+      state.activity = isInteractiveAiAppId(hintedAppId) ? 'waiting_input' : 'unknown';
       if (hintedAppId) {
         state.foregroundAppId = hintedAppId;
       } else {
@@ -485,6 +593,9 @@ export class SessionManager {
     if (current.ownership !== 'foreground_app') {
       this.ensureForegroundDetectorRegistry(data).reset();
     }
+    if (activity === 'waiting_input' || activity === 'repaint_only') {
+      this.cancelPendingRunningTransition(data);
+    }
 
     this.updateDerivedState(id, reason, (state) => {
       state.ownership = 'foreground_app';
@@ -496,14 +607,41 @@ export class SessionManager {
     data.foregroundStartedAt = Date.now();
   }
 
+  private markAiTuiLaunchFailure(id: string, reason: string): void {
+    const data = this.sessions.get(id);
+    if (!data) return;
+
+    this.cancelPendingRunningTransition(data);
+    delete data.pendingForegroundAppHint;
+    delete data.aiTuiLaunchAttempt;
+    delete data.lastSubmittedCommand;
+    data.foregroundStartedAt = undefined;
+    data.expectShellPromptAfterAiTuiFailure = true;
+    this.updateDerivedState(id, reason, (state) => {
+      state.ownership = 'shell_prompt';
+      state.activity = 'waiting_input';
+      delete state.foregroundAppId;
+      delete state.detectorId;
+    });
+    this.scheduleIdleTransition(id);
+  }
+
+  private markAiTuiLaunchSucceeded(data: SessionData): void {
+    delete data.aiTuiLaunchAttempt;
+    delete data.pendingForegroundAppHint;
+  }
+
   private transitionToShellPrompt(id: string, reason: string): void {
     const data = this.sessions.get(id);
     if (!data) return;
 
     data.inputBuffer = '';
     delete data.pendingForegroundAppHint;
+    delete data.aiTuiLaunchAttempt;
+    delete data.expectShellPromptAfterAiTuiFailure;
     delete data.lastSubmittedCommand;
     data.foregroundStartedAt = undefined;
+    this.cancelPendingRunningTransition(data);
     this.ensureForegroundDetectorRegistry(data).reset();
     this.updateDerivedState(id, reason, (state) => {
       state.ownership = 'shell_prompt';
@@ -537,6 +675,7 @@ export class SessionManager {
 
   private applyForegroundObservation(id: string, observation: ForegroundAppObservation): void {
     const now = Date.now();
+    const data = this.sessions.get(id);
     this.captureDebugEvent(id, 'detector', 'detector_observation', {
       appId: observation.appId,
       detectorId: observation.detectorId,
@@ -545,6 +684,28 @@ export class SessionManager {
       confidence: observation.confidence,
       ...sanitizeDebugValues(observation.details),
     });
+
+    if (data && isInteractiveAiAppId(observation.appId) && observation.activity === 'busy') {
+      const currentState = this.ensureDerivedState(data);
+      const alreadyRunning = data.session.status === 'running' || currentState.activity === 'busy';
+      this.updateDerivedState(id, alreadyRunning ? `detector_${observation.reason}` : `detector_${observation.reason}_pending_running`, (state) => {
+        state.ownership = 'foreground_app';
+        state.activity = alreadyRunning ? 'busy' : 'waiting_input';
+        state.foregroundAppId = observation.appId;
+        state.detectorId = observation.detectorId;
+        state.lastObservationAt = now;
+        state.lastSemanticOutputAt = now;
+      }, {
+        preservePendingRunningTransition: !alreadyRunning,
+      });
+      this.markAiTuiLaunchSucceeded(data);
+      if (alreadyRunning) {
+        this.scheduleIdleTransition(id);
+      } else {
+        this.scheduleRunningTransition(id, `detector_${observation.reason}`);
+      }
+      return;
+    }
 
     this.updateDerivedState(id, `detector_${observation.reason}`, (state) => {
       state.ownership = 'foreground_app';
@@ -559,12 +720,16 @@ export class SessionManager {
         state.lastRepaintOnlyAt = now;
       }
     });
+    if (data && isInteractiveAiAppId(observation.appId)) {
+      this.markAiTuiLaunchSucceeded(data);
+    }
   }
 
   private updateDerivedState(
     id: string,
     reason: string,
     mutate: (state: SessionDerivedState) => void,
+    options: DerivedStateSyncOptions = {},
   ): void {
     const data = this.sessions.get(id);
     if (!data) return;
@@ -589,10 +754,10 @@ export class SessionManager {
       });
     }
 
-    this.syncStatusFromDerivedState(id);
+    this.syncStatusFromDerivedState(id, options);
   }
 
-  private syncStatusFromDerivedState(id: string): void {
+  private syncStatusFromDerivedState(id: string, options: DerivedStateSyncOptions = {}): void {
     const data = this.sessions.get(id);
     if (!data) return;
 
@@ -602,6 +767,9 @@ export class SessionManager {
     }
 
     const derivedStatus = deriveDisplayStatus(this.ensureDerivedState(data));
+    if (derivedStatus === 'idle' && !options.preservePendingRunningTransition) {
+      this.cancelPendingRunningTransition(data);
+    }
     this.updateStatus(id, derivedStatus);
   }
 
@@ -622,6 +790,7 @@ export class SessionManager {
     if (data.idleTimer) {
       clearTimeout(data.idleTimer);
     }
+    this.cancelPendingRunningTransition(data);
 
     // Kill PTY process
     data.pty.kill();
@@ -700,13 +869,25 @@ export class SessionManager {
     // Step 9: 에코 추적 정보 기록 (pty.write 전에 기록)
     const hasEnter = input.includes('\r') || input.includes('\n');
     const submittedCommand = this.updateCommandInputBuffer(data, input);
-    const hintedAppId = submittedCommand ? detectForegroundAppHint(submittedCommand) : null;
+    const derivedState = this.ensureDerivedState(data);
+    const isAiForeground = derivedState.ownership === 'foreground_app'
+      && isInteractiveAiAppId(derivedState.foregroundAppId);
+    const hintedAppId = submittedCommand && !isAiForeground ? detectForegroundAppHint(submittedCommand) : null;
     if (submittedCommand) {
       data.lastSubmittedCommand = submittedCommand;
-      if (hintedAppId) {
-        data.pendingForegroundAppHint = hintedAppId;
-      } else {
-        delete data.pendingForegroundAppHint;
+      if (!isAiForeground) {
+        if (hintedAppId) {
+          data.pendingForegroundAppHint = hintedAppId;
+          data.aiTuiLaunchAttempt = {
+            appId: hintedAppId,
+            command: submittedCommand,
+            executable: getCommandExecutableToken(submittedCommand) ?? hintedAppId,
+            startedAt: Date.now(),
+          };
+        } else {
+          delete data.pendingForegroundAppHint;
+          delete data.aiTuiLaunchAttempt;
+        }
       }
     }
     data.echoTracker.lastInputAt = Date.now();
@@ -722,10 +903,17 @@ export class SessionManager {
       }
     }
 
-    // Enter 입력 시 heuristic 모드에서 즉시 running 전환
+    if (isAiForeground) {
+      this.beginForegroundActivity(id, 'waiting_input', 'ai_tui_user_input');
+    }
+
+    // Enter 입력 시 heuristic 모드에서 즉시 running 전환.
+    // AI TUI는 실행 명령과 내부 사용자 입력 모두 idle 상태로 유지한다.
     if (hasEnter && data.detectionMode === 'heuristic') {
-      if (hintedAppId === 'hermes') {
-        this.beginForegroundActivity(id, 'waiting_input', 'heuristic_hermes_submit');
+      if (isInteractiveAiAppId(hintedAppId)) {
+        this.beginForegroundActivity(id, 'waiting_input', `heuristic_${hintedAppId}_submit`);
+      } else if (isAiForeground) {
+        this.beginForegroundActivity(id, 'waiting_input', 'heuristic_ai_tui_submit');
       } else {
         this.updateStatus(id, 'running');
       }
@@ -1210,7 +1398,7 @@ export class SessionManager {
     }
   }
 
-  updateRuntimeConfig(next: { idleDelayMs?: number; pty?: Partial<PTYConfig> }): void {
+  updateRuntimeConfig(next: { idleDelayMs?: number; runningDelayMs?: number; pty?: Partial<PTYConfig> }): void {
     const nextPowerShellBackendRaw = next.pty?.windowsPowerShellBackend ?? this.runtimePtyConfig.windowsPowerShellBackend ?? 'inherit';
     const nextUseConptyRaw = next.pty?.useConpty ?? this.runtimePtyConfig.useConpty;
     const nextNormalized = normalizePtyConfigForPlatform({
@@ -1236,6 +1424,9 @@ export class SessionManager {
 
     if (next.idleDelayMs !== undefined) {
       this.runtimeSessionConfig.idleDelayMs = next.idleDelayMs;
+    }
+    if (next.runningDelayMs !== undefined) {
+      this.runtimeSessionConfig.runningDelayMs = next.runningDelayMs;
     }
 
     if (next.pty) {
@@ -1670,6 +1861,201 @@ export class SessionManager {
     return printableLines.length > 0 && printableLines.every((line) => line === prompt);
   }
 
+  private isShellPromptReturnOutput(sData: SessionData, output: string): boolean {
+    const printableLines = stripTerminalControlSequences(output)
+      .replace(/\r\n?/g, '\n')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const prompt = printableLines.at(-1);
+    if (!prompt || prompt.length > 160 || this.isAiTuiPromptLikeShellOutput(prompt)) {
+      return false;
+    }
+
+    if (sData.shellType === 'cmd') {
+      return /^[A-Za-z]:[\\/][^<>|]*>$/.test(prompt);
+    }
+
+    if (sData.shellType === 'bash' || sData.shellType === 'zsh' || sData.shellType === 'sh') {
+      if (/^[#$%]$/.test(prompt)) {
+        return true;
+      }
+
+      if (/^[A-Za-z0-9_.-]+-\d+(?:\.\d+)*[$#%]$/.test(prompt)) {
+        return true;
+      }
+
+      return /^[^\s].*[$#%]$/.test(prompt)
+        && (prompt.includes('@') || prompt.includes(':') || prompt.includes('/') || prompt.includes('~'));
+    }
+
+    return false;
+  }
+
+  private isAiTuiPromptLikeShellOutput(prompt: string): boolean {
+    const compact = prompt.replace(/\s+/g, ' ').trim();
+    return compact === '>'
+      || compact === '›'
+      || compact.startsWith('>_')
+      || compact.startsWith('│ >_')
+      || compact.startsWith('╭')
+      || compact.startsWith('╰')
+      || compact.toLowerCase().includes('openai codex')
+      || compact.toLowerCase().includes('claude code');
+  }
+
+  private classifyAiTuiOutputSignal(
+    sData: SessionData,
+    output: string,
+  ): 'waiting_input' | 'repaint_only' | 'busy' {
+    const normalized = stripTerminalControlSequences(output).replace(/\r\n?/g, '\n');
+    const trimmed = normalized.trim();
+
+    if (this.isEchoOutput(sData, output) || isLikelyCommandEchoOutput(output, sData.lastSubmittedCommand)) {
+      return 'waiting_input';
+    }
+
+    if (this.isLikelyAiTuiTypingFeedback(sData, output, normalized, trimmed)) {
+      return 'waiting_input';
+    }
+
+    if (this.isLikelyAiTuiSubmittedEcho(sData, trimmed)) {
+      return 'waiting_input';
+    }
+
+    if (this.isAiTuiRepaintOnlyOutput(output, normalized, trimmed)) {
+      return 'repaint_only';
+    }
+
+    return 'busy';
+  }
+
+  private isLikelyAiTuiTypingFeedback(
+    sData: SessionData,
+    raw: string,
+    normalized: string,
+    trimmed: string,
+  ): boolean {
+    if (sData.echoTracker.lastInputHasEnter || sData.echoTracker.lastInputAt === 0) {
+      return false;
+    }
+
+    const elapsed = Date.now() - sData.echoTracker.lastInputAt;
+    if (elapsed >= AI_TUI_TYPING_FEEDBACK_THRESHOLD_MS) {
+      return false;
+    }
+
+    if (sData.inputBuffer.trim().length > 0 && (hasAiTuiRepaintHint(raw) || countNonEmptyLines(normalized) <= 4)) {
+      return trimmed.length <= 640;
+    }
+
+    return countNonEmptyLines(normalized) <= 1 && trimmed.length <= 128;
+  }
+
+  private isLikelyAiTuiSubmittedEcho(sData: SessionData, trimmed: string): boolean {
+    if (!sData.echoTracker.lastInputHasEnter || sData.echoTracker.lastInputAt === 0 || !sData.lastSubmittedCommand) {
+      return false;
+    }
+
+    const elapsed = Date.now() - sData.echoTracker.lastInputAt;
+    if (elapsed >= AI_TUI_SUBMITTED_ECHO_THRESHOLD_MS) {
+      return false;
+    }
+
+    const normalizedChunk = trimmed.replace(/\s+/g, ' ').trim();
+    const normalizedCommand = sData.lastSubmittedCommand.replace(/\s+/g, ' ').trim();
+    return normalizedChunk === normalizedCommand || normalizedChunk.endsWith(normalizedCommand);
+  }
+
+  private isAiTuiRepaintOnlyOutput(raw: string, normalized: string, trimmed: string): boolean {
+    const compact = trimmed.replace(/\s+/g, ' ').toLowerCase();
+
+    if (!trimmed) {
+      return containsAiTuiTerminalMotion(raw);
+    }
+
+    if (AI_TUI_DECORATIVE_FRAME_RE.test(trimmed)) {
+      return true;
+    }
+
+    if (this.isAiTuiPromptChromeOutput(normalized, trimmed)) {
+      return true;
+    }
+
+    if (this.isAiTuiStatusTelemetryOutput(raw, normalized, compact)) {
+      return true;
+    }
+
+    if (!containsAiTuiTerminalMotion(raw)) {
+      return false;
+    }
+
+    return (
+      /^\d+$/.test(trimmed) ||
+      /^\d+[smhd]$/i.test(trimmed) ||
+      /^\d{1,2}:\d{2}$/.test(trimmed) ||
+      (trimmed.length <= 8 && /^[0-9:]+$/.test(trimmed))
+    );
+  }
+
+  private isAiTuiPromptChromeOutput(normalized: string, trimmed: string): boolean {
+    const compact = trimmed.replace(/\s+/g, ' ').toLowerCase();
+    const nonEmptyLines = countNonEmptyLines(normalized);
+    if (nonEmptyLines === 0 || nonEmptyLines > 4 || compact.length > 320) {
+      return false;
+    }
+
+    return compact === '›'
+      || compact === '>'
+      || compact === '>_'
+      || compact === '│ >'
+      || compact === '│ >_'
+      || compact.startsWith('tip:')
+      || compact.includes('openai codex')
+      || compact.includes('claude code')
+      || compact.includes('write tests for @filename');
+  }
+
+  private isAiTuiStatusTelemetryOutput(raw: string, normalized: string, compact: string): boolean {
+    const nonEmptyLines = countNonEmptyLines(normalized);
+    if (nonEmptyLines === 0 || nonEmptyLines > 4 || compact.length === 0 || compact.length > 640) {
+      return false;
+    }
+
+    if (!hasAiTuiRepaintHint(raw)) {
+      return false;
+    }
+
+    const hasModelHint = [
+      'codex',
+      'claude',
+      'gpt-',
+      'sonnet',
+      'opus',
+      'haiku',
+      'model:',
+    ].some((fragment) => compact.includes(fragment));
+
+    const hasTelemetryHint = [
+      'context [',
+      'window',
+      ' used',
+      'weekly ',
+      'daily ',
+      'monthly ',
+      'remaining',
+      'fast off',
+      'fast on',
+      'esc to interrupt',
+      ' token',
+      ' tokens',
+      ' in ',
+      ' out ',
+    ].some((fragment) => compact.includes(fragment));
+
+    return hasModelHint && hasTelemetryHint;
+  }
+
   private initializeHeadlessState(sessionId: string, sessionData: SessionData): void {
     try {
       sessionData.headless = createHeadlessTerminalState({
@@ -2076,7 +2462,26 @@ function sanitizeDebugValues(
   return details ? { ...details } : {};
 }
 
-function detectForegroundAppHint(command: string): 'hermes' | null {
+function isInteractiveAiAppId(value: string | undefined | null): value is ForegroundAppId {
+  return value === 'hermes' || value === 'codex' || value === 'claude';
+}
+
+function detectForegroundAppHint(command: string): ForegroundAppId | null {
+  const executable = getCommandExecutableToken(command);
+  if (executable === 'hermes') {
+    return 'hermes';
+  }
+  if (executable === 'codex') {
+    return 'codex';
+  }
+  if (executable === 'claude' || executable === 'claude-code') {
+    return 'claude';
+  }
+
+  return null;
+}
+
+function getCommandExecutableToken(command: string): string | null {
   const tokens = command.trim().split(/\s+/).filter(Boolean);
   if (tokens.length === 0) {
     return null;
@@ -2093,12 +2498,13 @@ function detectForegroundAppHint(command: string): 'hermes' | null {
     }
   }
 
-  const firstToken = tokens[index]?.toLowerCase() ?? '';
-  if (firstToken === 'hermes' || firstToken.endsWith('/hermes') || firstToken.endsWith('\\hermes')) {
-    return 'hermes';
-  }
+  return normalizeExecutableToken(tokens[index] ?? '');
+}
 
-  return null;
+function normalizeExecutableToken(token: string): string {
+  const cleaned = token.trim().replace(/^["']|["']$/g, '');
+  const basename = cleaned.split(/[\\/]/).at(-1) ?? cleaned;
+  return basename.toLowerCase().replace(/\.(?:exe|cmd|bat|ps1)$/i, '');
 }
 
 function stripInputTrackingControlSequences(raw: string): string {
@@ -2125,13 +2531,13 @@ function isLikelyCommandEchoOutput(raw: string, lastSubmittedCommand?: string): 
 
   for (const line of normalized) {
     const directHint = detectForegroundAppHint(line);
-    if (directHint === 'hermes') {
+    if (directHint) {
       return true;
     }
 
     const promptSplit = line.split(/[>$#]\s+/);
     const promptCandidate = promptSplit.length > 1 ? promptSplit.at(-1)?.trim() : null;
-    if (promptCandidate && detectForegroundAppHint(promptCandidate) === 'hermes') {
+    if (promptCandidate && detectForegroundAppHint(promptCandidate)) {
       return true;
     }
 
@@ -2146,10 +2552,83 @@ function isLikelyCommandEchoOutput(raw: string, lastSubmittedCommand?: string): 
   return false;
 }
 
+function isLikelyAiTuiLaunchFailureOutput(sessionData: SessionData, raw: string): boolean {
+  const attempt = sessionData.aiTuiLaunchAttempt;
+  if (!attempt) {
+    return false;
+  }
+
+  if (Date.now() - attempt.startedAt > 2000) {
+    return false;
+  }
+
+  const cleanedLines = stripTerminalControlSequences(raw)
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (cleanedLines.length === 0) {
+    return false;
+  }
+
+  const candidates = getLaunchFailureExecutableCandidates(attempt);
+  return cleanedLines.some((line) => candidates.some((candidate) => isAnchoredLaunchFailureLine(line, candidate)));
+}
+
+function getLaunchFailureExecutableCandidates(attempt: AiTuiLaunchAttempt): string[] {
+  const candidates = new Set([attempt.executable, attempt.appId]);
+  if (attempt.appId === 'claude') {
+    candidates.add('claude-code');
+  }
+  return Array.from(candidates).filter(Boolean);
+}
+
+function isAnchoredLaunchFailureLine(line: string, executable: string): boolean {
+  const escapedExecutable = escapeRegExp(executable);
+  const executableWithPath = `(?:[^\\s:'"]*[\\\\/])?${escapedExecutable}(?:\\.(?:exe|cmd|bat|ps1))?`;
+  const quotedExecutable = `['"\`]?${executableWithPath}['"\`]?`;
+
+  const patterns = [
+    new RegExp(`^(?:[^:]+:\\s*)?(?:line\\s+\\d+:\\s*)?${quotedExecutable}\\s*:\\s*command not found$`, 'i'),
+    new RegExp(`^(?:[^:]+:\\s*)?(?:\\d+:\\s*)?${quotedExecutable}\\s*:\\s*not found$`, 'i'),
+    new RegExp(`^(?:[^:]+:\\s*)?command not found:\\s*${quotedExecutable}$`, 'i'),
+    new RegExp(`^${quotedExecutable}\\s*:\\s*no such file or directory$`, 'i'),
+    new RegExp(`^${quotedExecutable}\\s*:\\s*the term\\s+['"\`]?${escapedExecutable}['"\`]?\\s+is not recognized`, 'i'),
+    new RegExp(`^the term\\s+['"\`]?${escapedExecutable}['"\`]?\\s+is not recognized`, 'i'),
+    new RegExp(`^${quotedExecutable}\\s+is not recognized as`, 'i'),
+    new RegExp(`^cannot find\\s+${quotedExecutable}`, 'i'),
+  ];
+
+  return patterns.some((pattern) => pattern.test(line));
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function stripTerminalControlSequences(raw: string): string {
   return raw
     .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, '')
     .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '')
     .replace(/\x1b[@-_]/g, '')
     .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
+}
+
+function countNonEmptyLines(value: string): number {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .length;
+}
+
+function containsAiTuiTerminalMotion(raw: string): boolean {
+  return AI_TUI_CURSOR_MOTION_RE.test(raw) || /\x1b\[[0-9;]*m/.test(raw);
+}
+
+function hasAiTuiRepaintHint(raw: string): boolean {
+  return raw.includes('\r')
+    || raw.includes('\x1b[K')
+    || raw.includes('\x1b[J')
+    || containsAiTuiTerminalMotion(raw);
 }
