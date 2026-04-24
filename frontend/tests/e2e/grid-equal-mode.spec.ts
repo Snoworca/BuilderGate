@@ -3,6 +3,7 @@ import { login } from './helpers';
 
 type WorkspaceSetup = {
   workspaceId: string;
+  workspaceName: string;
   tabIds: string[];
 };
 
@@ -29,6 +30,26 @@ type DragStartOffset = {
   x: number;
   y: number;
 };
+
+type CapturedWsMessage = {
+  type?: string;
+  sessionId?: string;
+  cols?: number;
+  rows?: number;
+};
+
+declare global {
+  interface Window {
+    __buildergateCapturedWsMessages?: CapturedWsMessage[];
+    __buildergateWsCaptureInstalled?: boolean;
+    __buildergateOriginalWsSend?: WebSocket['send'];
+    __buildergateTerminalDebug?: {
+      enable: () => void;
+      clear: () => void;
+      getEvents: () => Array<{ kind: string }>;
+    };
+  }
+}
 
 function extractLeafIds(node: unknown): string[] {
   if (typeof node === 'string') {
@@ -120,6 +141,7 @@ async function setupEqualGridWorkspace(page: Page, tabCount: number): Promise<Wo
     for (const workspace of initialState.workspaces) {
       if (
         !workspace.name?.startsWith('E2E Equal Reorder ')
+        && !workspace.name?.startsWith('E2E Away ')
         && !workspace.name?.startsWith('DBG Equal ')
       ) {
         continue;
@@ -133,9 +155,10 @@ async function setupEqualGridWorkspace(page: Page, tabCount: number): Promise<Wo
       }
     }
 
+    const workspaceName = `E2E Equal Reorder ${Date.now()}`;
     const createWorkspaceRes = await request('/api/workspaces', {
       method: 'POST',
-      body: JSON.stringify({ name: `E2E Equal Reorder ${Date.now()}` }),
+      body: JSON.stringify({ name: workspaceName }),
     });
     if (!createWorkspaceRes.ok) {
       throw new Error(`Failed to create workspace: ${createWorkspaceRes.status}`);
@@ -180,8 +203,31 @@ async function setupEqualGridWorkspace(page: Page, tabCount: number): Promise<Wo
       throw new Error(`Failed to switch workspace to grid: ${updateWorkspaceRes.status}`);
     }
 
-    return { workspaceId: workspace.id, tabIds };
+    return { workspaceId: workspace.id, workspaceName: workspace.name ?? workspaceName, tabIds };
   }, tabCount);
+}
+
+async function createAuxWorkspace(page: Page): Promise<{ id: string; name: string }> {
+  return page.evaluate(async () => {
+    const token = localStorage.getItem('cws_auth_token');
+    if (!token) {
+      throw new Error('Missing auth token');
+    }
+
+    const res = await fetch('/api/workspaces', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: `E2E Away ${Date.now().toString().slice(-8)}` }),
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to create auxiliary workspace: ${res.status}`);
+    }
+
+    return res.json() as Promise<{ id: string; name: string }>;
+  });
 }
 
 async function waitForWorkspaceScreen(page: Page): Promise<void> {
@@ -218,6 +264,30 @@ async function forceGridMode(page: Page, workspaceId: string): Promise<void> {
   }, workspaceId);
 }
 
+async function forceTabMode(page: Page, workspaceId: string): Promise<void> {
+  await page.evaluate(async (nextWorkspaceId: string) => {
+    const token = localStorage.getItem('cws_auth_token');
+    if (!token) {
+      throw new Error('Missing auth token');
+    }
+
+    localStorage.setItem('active_workspace_id', nextWorkspaceId);
+
+    const res = await fetch(`/api/workspaces/${nextWorkspaceId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ viewMode: 'tab' }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to force tab mode: ${res.status}`);
+    }
+  }, workspaceId);
+}
+
 async function openGridWorkspace(page: Page, workspaceId: string, expectedTileCount: number): Promise<void> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     await page.reload();
@@ -249,6 +319,138 @@ async function prepareGridForNativeDrag(page: Page): Promise<void> {
       handle.style.pointerEvents = 'auto';
     });
   });
+}
+
+async function installWsMessageCapture(page: Page): Promise<void> {
+  const install = () => {
+    window.__buildergateCapturedWsMessages = [];
+    if (window.__buildergateWsCaptureInstalled) {
+      return;
+    }
+    window.__buildergateWsCaptureInstalled = true;
+
+    window.__buildergateOriginalWsSend = WebSocket.prototype.send;
+    WebSocket.prototype.send = function patchedSend(this: WebSocket, data: string | ArrayBufferLike | Blob | ArrayBufferView) {
+      if (typeof data === 'string') {
+        try {
+          window.__buildergateCapturedWsMessages?.push(JSON.parse(data) as CapturedWsMessage);
+        } catch {
+          // Ignore non-JSON frames.
+        }
+      }
+
+      return window.__buildergateOriginalWsSend!.call(this, data);
+    };
+  };
+
+  await page.addInitScript(install);
+  await page.evaluate(install).catch(() => undefined);
+}
+
+async function clearWsMessageCapture(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    window.__buildergateCapturedWsMessages = [];
+  });
+}
+
+async function readCapturedWsMessages(page: Page): Promise<CapturedWsMessage[]> {
+  return page.evaluate(() => window.__buildergateCapturedWsMessages ?? []);
+}
+
+async function enableTerminalDebugCapture(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    window.__buildergateTerminalDebug?.enable();
+    window.__buildergateTerminalDebug?.clear();
+  });
+}
+
+async function hasTerminalDebugEvent(
+  page: Page,
+  kind: string,
+  details?: Record<string, string | number | boolean | null>,
+): Promise<boolean> {
+  return page.evaluate(({ nextKind, expectedDetails }) => {
+    return window.__buildergateTerminalDebug?.getEvents().some((event) => {
+      if (event.kind !== nextKind) {
+        return false;
+      }
+      if (!expectedDetails) {
+        return true;
+      }
+      return Object.entries(expectedDetails).every(([key, value]) => event.details?.[key] === value);
+    }) ?? false;
+  }, { nextKind: kind, expectedDetails: details });
+}
+
+async function clearTerminalDebugCapture(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    window.__buildergateTerminalDebug?.clear();
+  });
+}
+
+async function expectVisibleGridTerminal(page: Page): Promise<void> {
+  await expect.poll(async () => page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>('[data-terminal-view="true"]'))
+    .filter((element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.bottom > 0 && rect.left < window.innerWidth && rect.top < window.innerHeight;
+    }).length), { timeout: 30000 }).toBeGreaterThan(0);
+}
+
+async function expectCapturedResizeBeforeRepairReplay(page: Page): Promise<void> {
+  await expect.poll(async () => {
+    const messages = await readCapturedWsMessages(page);
+    return messages.some(message => message.type === 'repair-replay');
+  }, { timeout: 10000 }).toBe(true);
+
+  const messages = await readCapturedWsMessages(page);
+  const repairIndex = messages.findIndex(message => message.type === 'repair-replay');
+  const resizeIndex = messages.findIndex((message, index) => index < repairIndex && message.type === 'resize');
+
+  expect(resizeIndex).toBeGreaterThanOrEqual(0);
+  expect(repairIndex).toBeGreaterThan(resizeIndex);
+}
+
+async function selectWorkspaceByName(page: Page, workspaceName: string): Promise<void> {
+  const option = page.getByRole('option', { name: workspaceName }).first();
+  await option.click();
+  await expect(option).toHaveAttribute('aria-selected', 'true');
+}
+
+async function sendVisibleTerminalCommand(page: Page, command: string): Promise<void> {
+  const input = page.locator('.terminal-view:visible .xterm-helper-textarea').first();
+  await input.click();
+  await page.keyboard.type(command, { delay: 0 });
+  await page.keyboard.press('Enter');
+}
+
+async function middleMouseDownFirstVisibleTerminal(page: Page): Promise<void> {
+  const point = await page.evaluate(() => {
+    const targets = Array.from(document.querySelectorAll<HTMLElement>('[data-terminal-view="true"]'))
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.bottom > 0 && rect.left < window.innerWidth && rect.top < window.innerHeight;
+      });
+
+    const target = targets.find((element) => {
+      const rect = element.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      const topElement = document.elementFromPoint(x, y);
+      return topElement !== null && element.contains(topElement);
+    }) ?? targets[0];
+
+    if (!target) {
+      throw new Error('Visible terminal view not found');
+    }
+
+    const rect = target.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    };
+  });
+
+  await page.mouse.click(point.x, point.y, { button: 'middle' });
 }
 
 async function nativeReorderDrag(
@@ -883,6 +1085,88 @@ test.describe('Grid Equal Mode Reorder', () => {
     await expect.poll(async () => moveButton.evaluate((element) => getComputedStyle(element).opacity)).toBe('0');
     await expect.poll(async () => moveButton.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
     expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
+  });
+
+  test('TC-6611: middle mouse repair performs resize before repair replay', async ({ page }) => {
+    await installWsMessageCapture(page);
+    await login(page);
+    const { workspaceId } = await setupEqualGridWorkspace(page, 4);
+    await openGridWorkspace(page, workspaceId, 4);
+    await expectVisibleGridTerminal(page);
+    await enableTerminalDebugCapture(page);
+    await page.waitForTimeout(500);
+    await clearWsMessageCapture(page);
+
+    await middleMouseDownFirstVisibleTerminal(page);
+    await expect.poll(async () => hasTerminalDebugEvent(page, 'grid_layout_repair_started', { reason: 'manual' }), { timeout: 5000 }).toBe(true);
+    await expectCapturedResizeBeforeRepairReplay(page);
+    await expect.poll(async () => hasTerminalDebugEvent(page, 'screen_snapshot_duplicate_reapplied_for_repair'), { timeout: 10000 }).toBe(true);
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
+  });
+
+  test('TC-6612: workspace switch repair performs resize before repair replay', async ({ page }) => {
+    await installWsMessageCapture(page);
+    await login(page);
+    const { workspaceId, workspaceName } = await setupEqualGridWorkspace(page, 4);
+    const awayWorkspace = await createAuxWorkspace(page);
+
+    await openGridWorkspace(page, workspaceId, 4);
+    await expectVisibleGridTerminal(page);
+    await enableTerminalDebugCapture(page);
+
+    await selectWorkspaceByName(page, awayWorkspace.name);
+    await page.waitForTimeout(500);
+    await clearWsMessageCapture(page);
+    await clearTerminalDebugCapture(page);
+
+    await selectWorkspaceByName(page, workspaceName);
+    await expectVisibleGridTerminal(page);
+
+    await expect.poll(async () => hasTerminalDebugEvent(page, 'grid_layout_repair_started', { reason: 'workspace' }), { timeout: 10000 }).toBe(true);
+    await expectCapturedResizeBeforeRepairReplay(page);
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
+  });
+
+  test('TC-6613: running to idle repair performs resize before repair replay', async ({ page }) => {
+    await installWsMessageCapture(page);
+    await login(page);
+    const { workspaceId } = await setupEqualGridWorkspace(page, 4);
+    await openGridWorkspace(page, workspaceId, 4);
+    await expectVisibleGridTerminal(page);
+    await enableTerminalDebugCapture(page);
+    await expect.poll(async () => hasTerminalDebugEvent(page, 'input_gate_synced', { inputReady: true }), { timeout: 30000 }).toBe(true);
+
+    await page.waitForTimeout(500);
+    await clearWsMessageCapture(page);
+    await clearTerminalDebugCapture(page);
+    await sendVisibleTerminalCommand(
+      page,
+      `Write-Host "$([char]27)]133;C$([char]7)"; Start-Sleep -Milliseconds 1000; Write-Host "$([char]27)]133;D;0$([char]7)"; echo TC6613-${Date.now()}`,
+    );
+
+    await expect.poll(async () => hasTerminalDebugEvent(page, 'grid_layout_repair_started', { reason: 'idle' }), { timeout: 30000 }).toBe(true);
+    await expectCapturedResizeBeforeRepairReplay(page);
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
+  });
+
+  test('TC-6614: tab mode middle mouse does not request grid repair', async ({ page }) => {
+    await installWsMessageCapture(page);
+    await login(page);
+    const { workspaceId } = await setupEqualGridWorkspace(page, 1);
+    await forceTabMode(page, workspaceId);
+    await page.reload();
+    await waitForWorkspaceScreen(page);
+    await expectVisibleGridTerminal(page);
+    await enableTerminalDebugCapture(page);
+    await page.waitForTimeout(500);
+    await clearWsMessageCapture(page);
+    await clearTerminalDebugCapture(page);
+
+    await middleMouseDownFirstVisibleTerminal(page);
+    await page.waitForTimeout(500);
+
+    expect(await hasTerminalDebugEvent(page, 'grid_layout_repair_started', { reason: 'manual' })).toBe(false);
+    expect((await readCapturedWsMessages(page)).some(message => message.type === 'repair-replay')).toBe(false);
   });
 
   test('TC-6607: non-equal modes do not enter reorder', async ({ page }) => {

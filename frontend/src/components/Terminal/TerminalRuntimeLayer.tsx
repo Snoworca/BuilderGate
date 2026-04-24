@@ -90,6 +90,13 @@ function TerminalRuntimeEntry({
       data-terminal-runtime-entry="true"
       style={style}
       onPointerDownCapture={(event) => {
+        if (event.button === 1 && isGridSurface) {
+          event.preventDefault();
+          event.stopPropagation();
+          terminalRefsMap.current.get(tab.id)?.current?.requestGridRepair?.('manual');
+          return;
+        }
+
         getHostInteractions(tab.id)?.onPointerDown?.();
         focusTerminal(event.currentTarget);
       }}

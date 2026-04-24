@@ -41,6 +41,8 @@ export interface TerminalHandle {
   getSelection: () => string;
   clearSelection: () => void;
   fit: () => void;
+  repairLayout: (reason?: string) => Promise<void>;
+  requestGridRepair?: (reason?: GridRepairReason) => void;
   sendInput: (data: string) => void;
   restoreSnapshot: () => Promise<boolean>;
   replaceWithSnapshot: (data: string) => Promise<void>;
@@ -49,11 +51,14 @@ export interface TerminalHandle {
   setWindowsPty: (info?: WindowsPtyInfo) => void;
 }
 
+export type GridRepairReason = 'idle' | 'manual' | 'workspace';
+
 interface Props {
   sessionId: string;
   isVisible: boolean;
   onInput: (data: string) => void;
   onResize: (cols: number, rows: number) => void;
+  onManualRepair?: () => void;
 }
 
 interface TerminalSnapshot {
@@ -64,7 +69,7 @@ interface TerminalSnapshot {
 }
 
 export const TerminalView = forwardRef<TerminalHandle, Props>(
-  ({ sessionId, isVisible, onInput, onResize }, ref) => {
+  ({ sessionId, isVisible, onInput, onResize, onManualRepair }, ref) => {
     const terminalRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
@@ -606,6 +611,35 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           fitAddonRef.current?.fit();
         });
       },
+      repairLayout: (reason = 'repair-layout') => new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const term = xtermRef.current;
+            const container = containerRef.current;
+            const fitAddon = fitAddonRef.current;
+            if (!term || !fitAddon || !isVisibleRef.current || !container || container.offsetWidth === 0 || container.offsetHeight === 0) {
+              recordTerminalDebugEvent(sessionId, 'fit_skipped_non_renderable', {
+                width: container?.offsetWidth ?? 0,
+                height: container?.offsetHeight ?? 0,
+                reason,
+              });
+              resolve();
+              return;
+            }
+
+            fitAddon.fit();
+            recordTerminalDebugEvent(sessionId, 'fit_completed', {
+              cols: term.cols,
+              rows: term.rows,
+              reason,
+            });
+            geometryReadyRef.current = true;
+            syncInputReadiness(reason);
+            emitResize(term.cols, term.rows, reason);
+            resolve();
+          });
+        });
+      }),
       sendInput: (data: string) => {
         if (!inputReadyRef.current) {
           const debugInput = buildTerminalInputDebugPayload(data);
@@ -641,7 +675,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         if (!term) return;
         term.options.windowsPty = info;
       },
-    }), [onInput, writeOutput, restoreStoredSnapshot, replaceWithSnapshot, releaseRestorePending, focusTerminalInput, syncInputReadiness]);
+    }), [onInput, writeOutput, restoreStoredSnapshot, replaceWithSnapshot, releaseRestorePending, focusTerminalInput, syncInputReadiness, emitResize, sessionId]);
 
     useEffect(() => {
       if (!terminalRef.current) return;
@@ -1088,6 +1122,26 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       focusTerminalInput('terminal-view-click');
     }, [focusTerminalInput, sessionId]);
 
+    const handleManualRepairMouseEvent = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+      if (event.button !== 1 || !onManualRepair) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      onManualRepair?.();
+    }, [onManualRepair]);
+
+    const handleManualRepairPointerEvent = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.button !== 1 || !onManualRepair) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      onManualRepair?.();
+    }, [onManualRepair]);
+
     return (
       <div
         className="terminal-view"
@@ -1095,6 +1149,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         data-terminal-view="true"
         style={isMobile ? { touchAction: 'none' } : undefined}
         onClick={handleClick}
+        onPointerDownCapture={handleManualRepairPointerEvent}
+        onMouseDownCapture={handleManualRepairMouseEvent}
+        onAuxClickCapture={handleManualRepairMouseEvent}
       >
         <div ref={terminalRef} className="terminal-container" data-terminal-container="true" />
         <FontSizeToast fontSize={toastFontSize} />

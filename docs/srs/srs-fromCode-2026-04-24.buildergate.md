@@ -2,7 +2,7 @@
 
 > **ISO/IEC/IEEE 29148:2018 Full Profile**
 > 생성일: 2026-04-24 · 프로젝트: BuilderGate · 프로파일: full (점수 10/10)
-> 총 요구사항 항목: **378개** (functional 161 · nonfunctional 45 · api 40 · interface 17 · data_model 24 · constraint 23 · business_rule 17 · 기타 51)
+> 총 요구사항 항목: **379개** (functional 162 · nonfunctional 45 · api 40 · interface 17 · data_model 24 · constraint 23 · business_rule 17 · 기타 51)
 
 ## 1. Introduction
 
@@ -63,7 +63,7 @@ BuilderGate는 브라우저 하나로 다수 PTY 셸 세션을 관리하고, Mdi
 - [AGENTS.md](../../../../AGENTS.md) — 에이전트 가이드
 - [docs/struct/2026-04-02/](../../../struct/2026-04-02/) — 프로젝트 구조 문서
 - ISO/IEC/IEEE 29148:2018 — Systems and software engineering — Life cycle processes — Requirements engineering
-- [srs_items.jsonl](./srs_items.jsonl) — 원본 요구사항 항목 데이터 (377건, 본 개정의 수동 보강 항목 1건 제외)
+- [srs_items.jsonl](./srs_items.jsonl) — 원본 요구사항 항목 데이터 (377건, 본 개정의 수동 보강 항목 2건 제외)
 - [intent_context.json](./intent_context.json) — SRS 생성 의도/프로파일 설정
 
 ### 1.6 Document Conventions
@@ -594,7 +594,7 @@ flowchart LR
   출처: [`frontend/src/hooks/useInlineRename.ts:17-59`](../../../../frontend/src/hooks/useInlineRename.ts#L17-L59)
   related: [FR-UI-016](#FR-UI-016), [FR-WS-7100](#FR-WS-7100), [FR-WS-7200](#FR-WS-7200)
 
-#### 4.1.13 TERM — 터미널 프론트엔드 (19건)
+#### 4.1.13 TERM — 터미널 프론트엔드 (20건)
 
 - <a id="FR-TERM-001"></a>**FR-TERM-001** — xterm.js 기반 터미널 뷰 렌더링
   TerminalView는 @xterm/xterm v6 + FitAddon + SerializeAddon을 사용해 PTY 세션을 렌더한다. 테마는 VS Code Dark 고정, fontFamily는 Cascadia Code/Fira Code/Consolas 순 폴백, scrollback=10000, cursorBlink=true, convertEol=false로 설정된다.
@@ -623,9 +623,9 @@ flowchart LR
   출처: [`frontend/src/components/Terminal/TerminalView.tsx:26-29`](../../../../frontend/src/components/Terminal/TerminalView.tsx#L26-L29), [`frontend/src/components/Terminal/TerminalView.tsx:367-550`](../../../../frontend/src/components/Terminal/TerminalView.tsx#L367-L550), [`frontend/src/components/Terminal/TerminalView.tsx:1016-1035`](../../../../frontend/src/components/Terminal/TerminalView.tsx#L1016-L1035), [`frontend/src/utils/terminalSnapshot.ts:1-51`](../../../../frontend/src/utils/terminalSnapshot.ts#L1-L51)
   related: [FR-TERM-006](#FR-TERM-006)
 - <a id="FR-TERM-008"></a>**FR-TERM-008** — Grid 셀에서 idle 전환 후 600ms 조용하면 자동 repair-replay 요청
-  isGridSurface 상태이고 running→idle 전환이 관찰되면 IDLE_REPAIR_QUIET_WINDOW_MS(600) 지연 후 `{type:'repair-replay'}`를 전송해 서버에 스냅샷 재전송을 요청한다. 수동 요청은 마우스 중간버튼 클릭으로 트리거된다.
+  isGridSurface 상태이고 running→idle 전환이 관찰되면 IDLE_REPAIR_QUIET_WINDOW_MS(600) 지연 후 `{type:'repair-replay'}`를 전송해 서버에 스냅샷 재전송을 요청한다. 수동 요청은 마우스 중간버튼 클릭으로 트리거된다. 단, 그리드 렌더링 깨짐 복구 요구의 의도는 단순 snapshot replay가 아니라 [FR-TERM-020](#FR-TERM-020)의 수동 리사이즈 완료와 동등한 복구 시퀀스를 재현하는 것이다.
   출처: [`frontend/src/components/Terminal/TerminalContainer.tsx:59`](../../../../frontend/src/components/Terminal/TerminalContainer.tsx#L59), [`frontend/src/components/Terminal/TerminalContainer.tsx:105-161`](../../../../frontend/src/components/Terminal/TerminalContainer.tsx#L105-L161), [`frontend/src/components/Terminal/TerminalContainer.tsx:364-371`](../../../../frontend/src/components/Terminal/TerminalContainer.tsx#L364-L371)
-  related: [FR-TERM-006](#FR-TERM-006)
+  related: [FR-TERM-006](#FR-TERM-006), [FR-TERM-020](#FR-TERM-020)
 - <a id="FR-TERM-009"></a>**FR-TERM-009** — Windows PTY 백엔드 정보(conpty/winpty)를 xterm에 주입한다
   screen-snapshot의 `windowsPty.{backend,buildNumber}`를 TerminalView.setWindowsPty를 통해 `term.options.windowsPty`로 전달한다.
   출처: [`frontend/src/components/Terminal/TerminalView.tsx:639-643`](../../../../frontend/src/components/Terminal/TerminalView.tsx#L639-L643), [`frontend/src/components/Terminal/TerminalContainer.tsx:248`](../../../../frontend/src/components/Terminal/TerminalContainer.tsx#L248)
@@ -663,6 +663,16 @@ flowchart LR
 - <a id="FR-TERM-019"></a>**FR-TERM-019** — 클라이언트 터미널 디버그 캡처 API (window.__buildergateTerminalDebug)
   전역 store를 통해 세션별 key event·snapshot 수신·입력 드롭·fit 등 최대 400개 이벤트를 버퍼링한다. start/stop 호출 시 `POST/DELETE /api/sessions/debug-capture/:id`로 서버 캡처 토글을 동기화한다.
   출처: [`frontend/src/utils/terminalDebugCapture.ts:1-222`](../../../../frontend/src/utils/terminalDebugCapture.ts#L1-L222)
+- <a id="FR-TERM-020"></a>**FR-TERM-020** — 그리드 렌더링 깨짐 복구는 수동 리사이즈 완료와 동등해야 한다
+  그리드 모드에서는 Codex/Claude/Hermes 같은 TUI 또는 xterm 화면이 종종 줄바꿈·라인 배치·텍스트 정렬이 깨진 상태로 보일 수 있다. 사용자가 그리드 split을 조금 움직인 뒤 놓으면 복구되는 이유는 최종 DOM geometry 확정, HostSlot 재측정, xterm FitAddon.fit(), PTY/headless resize, authoritative snapshot 재생성/재적용이 연쇄적으로 수행되기 때문이다. 따라서 복구 기능은 단순히 현재 snapshot을 다시 보내는 것에 그치면 안 되며, 사용자가 수동으로 그리드 창 크기 조절을 완료했을 때와 동등한 복구 효과를 재현해야 한다.
+
+  복구 트리거는 다음 세 가지다. (1) 그리드 모드에서 세션 터미널 영역을 마우스 휠 버튼(중간 버튼)으로 눌렀을 때 즉시 수동 복구를 수행한다. (2) 그리드 모드 세션이 running 상태에서 idle 상태로 전환되어 quiet window가 지난 때 자동 복구를 수행한다. (3) 사용자가 워크스페이스를 이동하여 그리드 터미널이 다시 보이는 상태가 될 때 해당 워크스페이스의 보이는 그리드 세션에 대해 복구를 수행한다. 세 트리거 모두 tab mode에는 영향을 주지 않아야 하며, hidden/0-size 터미널에는 실행하지 않아야 한다.
+
+  필수 복구 순서는 다음을 만족해야 한다. 첫째, TerminalHostSlot은 현재 DOM rect를 다시 측정하고 runtime layer geometry를 갱신해야 한다. 둘째, TerminalView는 레이아웃이 안정된 프레임에서 FitAddon.fit()으로 cols/rows를 다시 계산해야 한다. 셋째, cols/rows가 변경되었거나 재동기화가 필요한 경우 서버에 resize/repair 요청을 보내 PTY와 headless terminal 상태가 새 geometry를 반영하게 해야 한다. 넷째, 클라이언트는 stale/duplicate snapshot으로 복구를 생략하지 않도록 복구 의도에 맞는 authoritative snapshot 재적용 또는 동등한 화면 재구성을 수행해야 한다.
+
+  인수 조건: 중간 버튼, running→idle 전환, 워크스페이스 전환 각각에서 깨진 그리드 TUI 텍스트가 수동 split resize 완료 후와 같은 방식으로 정렬되어야 한다. 동일 크기 no-op resize, 중복 snapshot, replay pending 상태는 복구 실패로 조용히 끝나면 안 되며 debug capture 또는 replay telemetry로 관측 가능해야 한다. 출력이 진행 중이면 queued output/ACK 경계를 깨지 않아야 하고, 사용자의 키보드 입력은 복구 중 input gate로 보호되어야 한다.
+  출처: [`docs/report/2026-04-21.grid-mode-tui-repair-on-idle-research.md:246-297`](../../../../docs/report/2026-04-21.grid-mode-tui-repair-on-idle-research.md#L246-L297), [`frontend/src/components/Grid/MosaicContainer.tsx:81-87`](../../../../frontend/src/components/Grid/MosaicContainer.tsx#L81-L87), [`frontend/src/components/Grid/MosaicContainer.tsx:428-459`](../../../../frontend/src/components/Grid/MosaicContainer.tsx#L428-L459), [`frontend/src/components/Terminal/TerminalHostSlot.tsx:30-76`](../../../../frontend/src/components/Terminal/TerminalHostSlot.tsx#L30-L76), [`frontend/src/components/Terminal/TerminalContainer.tsx:105-205`](../../../../frontend/src/components/Terminal/TerminalContainer.tsx#L105-L205), [`frontend/src/components/Terminal/TerminalContainer.tsx:334-354`](../../../../frontend/src/components/Terminal/TerminalContainer.tsx#L334-L354), [`frontend/src/components/Terminal/TerminalRuntimeLayer.tsx:92-99`](../../../../frontend/src/components/Terminal/TerminalRuntimeLayer.tsx#L92-L99), [`frontend/src/components/Terminal/TerminalView.tsx:614-636`](../../../../frontend/src/components/Terminal/TerminalView.tsx#L614-L636), [`server/src/services/SessionManager.ts:965-1013`](../../../../server/src/services/SessionManager.ts#L965-L1013), [`server/src/services/SessionManager.ts:1694-1739`](../../../../server/src/services/SessionManager.ts#L1694-L1739)
+  related: [FR-TERM-004](#FR-TERM-004), [FR-TERM-006](#FR-TERM-006), [FR-TERM-008](#FR-TERM-008), [FR-TERM-010](#FR-TERM-010), [FR-TERM-011](#FR-TERM-011), [FR-WSP-REFRESH-001](#FR-WSP-REFRESH-001), [FR-WSP-REPAIR-001](#FR-WSP-REPAIR-001)
 
 #### 4.1.14 GRID — 그리드 뷰 (9건)
 
@@ -1636,7 +1646,7 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 | WS — WebSocket 게이트웨이 | 13 | - | 0 | - |
 | FILE — 파일 서비스 (CRUD/탐색) | 10 | - | 0 | `server/src/services/FileService.ts`, `routes/fileRoutes.ts` |
 | UI — 프론트엔드 UI | 17 | - | 0 | - |
-| TERM — 터미널 프론트엔드 | 19 | - | 0 | - |
+| TERM — 터미널 프론트엔드 | 20 | - | 0 | - |
 | GRID — 그리드 뷰 | 9 | - | 0 | - |
 | FE — Frontend Generic (공용 훅/유틸) | 2 | - | 0 | - |
 | INF — 인프라/런타임 | 9 | - | 0 | - |
@@ -1885,6 +1895,7 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 | [FR-TERM-017](#FR-TERM-017) | 모바일 핀치 줌 + 한 손가락 팬 스크롤 | functional_req | `frontend/src/components/Terminal/TerminalView.tsx:30` | high |
 | [FR-TERM-018](#FR-TERM-018) | 터미널 호버/출력/유저 타이핑 시각 클래스(터미널 브리딩) | functional_req | `frontend/src/components/Terminal/TerminalView.tsx:710-721` | high |
 | [FR-TERM-019](#FR-TERM-019) | 클라이언트 터미널 디버그 캡처 API (window.__buildergateTerminalDebug) | functional_req | `frontend/src/utils/terminalDebugCapture.ts:1-222` | high |
+| [FR-TERM-020](#FR-TERM-020) | 그리드 렌더링 깨짐 복구는 수동 리사이즈 완료와 동등해야 한다 | functional_req | `frontend/src/components/Terminal/TerminalContainer.tsx:105-205` | high |
 | [FR-TOTP-001](#FR-TOTP-001) | TOTP 초기화 및 QR 출력 | functional_req | `server/src/services/TOTPService.ts:54-125` | high |
 | [FR-TOTP-002](#FR-TOTP-002) | TOTP 검증 (replay 방지, 시도 제한) | functional_req | `server/src/services/TOTPService.ts:197-234` | high |
 | [FR-TOTP-PEND-001](#FR-TOTP-PEND-001) | TOTP pending auth 관리 | functional_req | `server/src/services/TOTPService.ts:144-194` | high |
@@ -2053,11 +2064,11 @@ CLAUDE.md의 테스트 규칙을 본 SRS의 검증 기준으로 채택한다.
 | Phase 2 | 3개 서브에이전트 병렬 전수 조사 → 초기 jsonl 누적 | +~330 (초기 기준) |
 | Phase 3 | 누락 감지 루프, 도메인 보강(SESSION/PTY/WS 집중) | 증가 |
 | Phase 4 | 평가 루프(opus/sonnet 이중 평가) 3회 반복, 중복·저가치 항목 제거 및 REQ-ID 정규화 | 일부 감소, 최종 수렴 |
-| Phase 5 | **본 문서 조립** (원본 377건 + 수동 보강 1건) — MD 평가 iter1 피드백 반영(앵커, 인라인 RTM, Physical Req 매핑, Business Rules 재배치) | — |
+| Phase 5 | **본 문서 조립** (원본 377건 + 수동 보강 2건) — MD 평가 iter1 피드백 반영(앵커, 인라인 RTM, Physical Req 매핑, Business Rules 재배치) | — |
 | Phase 6~7 | 사용자 검수 및 확장 RTM(rtm.md) 생성 예정 | - |
 
 **제거 항목**: [phase4_removed.jsonl](./phase4_removed.jsonl) 참조.
 
 ---
 
-> 본 SRS는 역공학(reverse engineering) 기반으로 **현재 코드에 실제 존재하는 동작**을 기술한다. 향후 기능 추가·제거 시 본 문서는 해당 커밋과 함께 갱신되어야 한다. 본 문서는 377개의 원자 요구사항 항목(`srs_items.jsonl`)을 기반으로 자동 조립되었고, 본 개정에서 AI TUI idle invariant 1건을 수동 보강했다.
+> 본 SRS는 역공학(reverse engineering) 기반으로 **현재 코드에 실제 존재하는 동작**을 기술한다. 향후 기능 추가·제거 시 본 문서는 해당 커밋과 함께 갱신되어야 한다. 본 문서는 377개의 원자 요구사항 항목(`srs_items.jsonl`)을 기반으로 자동 조립되었고, 본 개정에서 AI TUI idle invariant와 그리드 렌더링 깨짐 복구 의도 2건을 수동 보강했다.
