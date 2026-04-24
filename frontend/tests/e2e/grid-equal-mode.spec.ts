@@ -396,6 +396,19 @@ async function expectVisibleGridTerminal(page: Page): Promise<void> {
     }).length), { timeout: 30000 }).toBeGreaterThan(0);
 }
 
+async function expectFocusedGridTerminal(page: Page): Promise<void> {
+  await expect.poll(async () => page.evaluate(() => {
+    const focusedTerminal = document.querySelector<HTMLElement>('.grid-cell .terminal-view.terminal-focused');
+    const activeElement = document.activeElement;
+    return Boolean(
+      focusedTerminal
+      && activeElement instanceof HTMLTextAreaElement
+      && focusedTerminal.contains(activeElement)
+      && !activeElement.disabled,
+    );
+  }), { timeout: 10000 }).toBe(true);
+}
+
 async function expectCapturedResizeBeforeRepairReplay(page: Page): Promise<void> {
   await expect.poll(async () => {
     const messages = await readCapturedWsMessages(page);
@@ -1104,6 +1117,27 @@ test.describe('Grid Equal Mode Reorder', () => {
     expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
   });
 
+  test('TC-6616: middle mouse repair preserves focused grid terminal', async ({ page }) => {
+    await installWsMessageCapture(page);
+    await login(page);
+    const { workspaceId } = await setupEqualGridWorkspace(page, 4);
+    await openGridWorkspace(page, workspaceId, 4);
+    await expectVisibleGridTerminal(page);
+    await enableTerminalDebugCapture(page);
+    await expect.poll(async () => hasTerminalDebugEvent(page, 'input_gate_synced', { inputReady: true }), { timeout: 30000 }).toBe(true);
+
+    await sendVisibleTerminalCommand(page, `echo TC6616-${Date.now()}`);
+    await expectFocusedGridTerminal(page);
+    await clearWsMessageCapture(page);
+    await clearTerminalDebugCapture(page);
+
+    await middleMouseDownFirstVisibleTerminal(page);
+    await expect.poll(async () => hasTerminalDebugEvent(page, 'grid_layout_repair_started', { reason: 'manual' }), { timeout: 5000 }).toBe(true);
+    await expectCapturedResizeBeforeRepairReplay(page);
+    await expectFocusedGridTerminal(page);
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
+  });
+
   test('TC-6612: workspace switch repair performs resize before repair replay', async ({ page }) => {
     await installWsMessageCapture(page);
     await login(page);
@@ -1146,6 +1180,29 @@ test.describe('Grid Equal Mode Reorder', () => {
 
     await expect.poll(async () => hasTerminalDebugEvent(page, 'grid_layout_repair_started', { reason: 'idle' }), { timeout: 30000 }).toBe(true);
     await expectCapturedResizeBeforeRepairReplay(page);
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
+  });
+
+  test('TC-6615: idle repair preserves focused grid terminal', async ({ page }) => {
+    await installWsMessageCapture(page);
+    await login(page);
+    const { workspaceId } = await setupEqualGridWorkspace(page, 4);
+    await openGridWorkspace(page, workspaceId, 4);
+    await expectVisibleGridTerminal(page);
+    await enableTerminalDebugCapture(page);
+    await expect.poll(async () => hasTerminalDebugEvent(page, 'input_gate_synced', { inputReady: true }), { timeout: 30000 }).toBe(true);
+
+    await clearWsMessageCapture(page);
+    await clearTerminalDebugCapture(page);
+    await sendVisibleTerminalCommand(
+      page,
+      `Write-Host "$([char]27)]133;C$([char]7)"; Start-Sleep -Milliseconds 1000; Write-Host "$([char]27)]133;D;0$([char]7)"; echo TC6615-${Date.now()}`,
+    );
+    await expectFocusedGridTerminal(page);
+
+    await expect.poll(async () => hasTerminalDebugEvent(page, 'grid_layout_repair_started', { reason: 'idle' }), { timeout: 30000 }).toBe(true);
+    await expectCapturedResizeBeforeRepairReplay(page);
+    await expectFocusedGridTerminal(page);
     expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
   });
 

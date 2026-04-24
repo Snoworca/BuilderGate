@@ -87,6 +87,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const inputReadyRef = useRef(false);
     const geometryReadyRef = useRef(false);
     const serverReadyRef = useRef(false);
+    const pendingFocusRestoreRef = useRef(false);
     const isVisibleRef = useRef(isVisible);
     const previousVisibilityRef = useRef(isVisible);
     const bufferedOutputRef = useRef<string[]>([]);
@@ -123,6 +124,62 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       });
     }, [getHelperTextarea, sessionId]);
 
+    const hasTerminalFocus = useCallback(() => {
+      const terminalElement = terminalRef.current;
+      const helperTextarea = getHelperTextarea();
+      const activeElement = document.activeElement;
+      return Boolean(
+        (helperTextarea && activeElement === helperTextarea)
+        || (terminalElement && activeElement instanceof Node && terminalElement.contains(activeElement))
+        || containerRef.current?.classList.contains('terminal-focused')
+      );
+    }, [getHelperTextarea]);
+
+    const queueFocusRestoreIfFocused = useCallback((reason: string) => {
+      if (!isVisibleRef.current || !hasTerminalFocus()) {
+        return;
+      }
+
+      pendingFocusRestoreRef.current = true;
+      containerRef.current?.classList.add('terminal-focused');
+      recordTerminalDebugEvent(sessionId, 'focus_restore_queued', { reason });
+    }, [hasTerminalFocus, sessionId]);
+
+    const restoreQueuedFocus = useCallback((reason: string) => {
+      if (!pendingFocusRestoreRef.current || !inputReadyRef.current || !isVisibleRef.current) {
+        return;
+      }
+
+      const helperTextarea = getHelperTextarea();
+      if (!helperTextarea || helperTextarea.disabled) {
+        return;
+      }
+
+      const activeElement = document.activeElement;
+      const terminalElement = terminalRef.current;
+      const activeIsThisTerminal = Boolean(
+        activeElement
+        && terminalElement
+        && activeElement instanceof Node
+        && terminalElement.contains(activeElement)
+      );
+      const activeIsNeutral = !activeElement
+        || activeElement === document.body
+        || activeElement === document.documentElement;
+
+      if (!activeIsThisTerminal && !activeIsNeutral) {
+        pendingFocusRestoreRef.current = false;
+        containerRef.current?.classList.remove('terminal-focused');
+        recordTerminalDebugEvent(sessionId, 'focus_restore_cancelled', { reason, activeTag: activeElement?.tagName ?? null });
+        return;
+      }
+
+      pendingFocusRestoreRef.current = false;
+      focusTerminalInput(`restore-${reason}`);
+      containerRef.current?.classList.add('terminal-focused');
+      recordTerminalDebugEvent(sessionId, 'focus_restored_after_gate', { reason });
+    }, [focusTerminalInput, getHelperTextarea, sessionId]);
+
     const syncInputReadiness = useCallback((reason: string) => {
       const term = xtermRef.current;
       const helperTextarea = getHelperTextarea();
@@ -150,7 +207,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         restorePending: restorePendingRef.current,
         visible: isVisibleRef.current,
       });
-    }, [getHelperTextarea, sessionId]);
+      if (nextReady) {
+        restoreQueuedFocus(reason);
+      }
+    }, [getHelperTextarea, restoreQueuedFocus, sessionId]);
 
     const emitResize = useCallback((cols: number, rows: number, reason: string) => {
       recordTerminalDebugEvent(sessionId, 'resize_emitted', { cols, rows, reason });
@@ -560,6 +620,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         return Promise.resolve();
       }
 
+      queueFocusRestoreIfFocused('replace-start');
       restorePendingRef.current = true;
       syncInputReadiness('replace-start');
       bufferedOutputRef.current = [];
@@ -579,7 +640,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           });
         });
       });
-    }, [releaseRestorePending, requestViewportSync, syncInputReadiness]);
+    }, [queueFocusRestoreIfFocused, releaseRestorePending, requestViewportSync, syncInputReadiness]);
 
     useImperativeHandle(ref, () => ({
       write: (data: string) => {
@@ -656,6 +717,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         if (!term) {
           return false;
         }
+        queueFocusRestoreIfFocused('restore-start');
         restorePendingRef.current = true;
         syncInputReadiness('restore-start');
         return restoreStoredSnapshot(term);
@@ -667,6 +729,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         }
       },
       setServerReady: (ready: boolean) => {
+        if (!ready) {
+          queueFocusRestoreIfFocused('server-not-ready');
+        }
         serverReadyRef.current = ready;
         syncInputReadiness('server-ready');
       },
@@ -675,7 +740,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         if (!term) return;
         term.options.windowsPty = info;
       },
-    }), [onInput, writeOutput, restoreStoredSnapshot, replaceWithSnapshot, releaseRestorePending, focusTerminalInput, syncInputReadiness, emitResize, sessionId]);
+    }), [onInput, writeOutput, restoreStoredSnapshot, replaceWithSnapshot, releaseRestorePending, focusTerminalInput, queueFocusRestoreIfFocused, syncInputReadiness, emitResize, sessionId]);
 
     useEffect(() => {
       if (!terminalRef.current) return;
@@ -885,10 +950,44 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       // Track terminal focus via DOM events (xterm v5 has no onFocus/onBlur API)
       const termEl = terminalRef.current!;
-      const onFocusIn = () => containerRef.current?.classList.add('terminal-focused');
-      const onFocusOut = () => containerRef.current?.classList.remove('terminal-focused');
+      const onFocusIn = () => {
+        pendingFocusRestoreRef.current = false;
+        containerRef.current?.classList.add('terminal-focused');
+      };
+      const onFocusOut = (event: FocusEvent) => {
+        const nextTarget = event.relatedTarget;
+        if (nextTarget instanceof Node && termEl.contains(nextTarget)) {
+          return;
+        }
+
+        if (
+          pendingFocusRestoreRef.current
+          && (!nextTarget || nextTarget === document.body || nextTarget === document.documentElement)
+        ) {
+          containerRef.current?.classList.add('terminal-focused');
+          return;
+        }
+
+        pendingFocusRestoreRef.current = false;
+        containerRef.current?.classList.remove('terminal-focused');
+      };
+      const onDocumentPointerDownCapture = (event: PointerEvent) => {
+        if (!pendingFocusRestoreRef.current) {
+          return;
+        }
+
+        const target = event.target;
+        if (target instanceof Node && termEl.contains(target)) {
+          return;
+        }
+
+        pendingFocusRestoreRef.current = false;
+        containerRef.current?.classList.remove('terminal-focused');
+        recordTerminalDebugEvent(sessionId, 'focus_restore_cancelled', { reason: 'external-pointer' });
+      };
       termEl.addEventListener('focusin', onFocusIn);
       termEl.addEventListener('focusout', onFocusOut);
+      document.addEventListener('pointerdown', onDocumentPointerDownCapture, true);
 
       // xterm v6은 paste 이벤트에서 clipboardData를 읽어 처리한 뒤 preventDefault를 호출하지 않아
       // 브라우저가 textarea에 텍스트를 추가로 삽입하고 input 이벤트를 발생시킨다.
@@ -983,6 +1082,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         termEl.removeEventListener('focusin', onFocusIn);
         termEl.removeEventListener('focusout', onFocusOut);
+        document.removeEventListener('pointerdown', onDocumentPointerDownCapture, true);
         resizeObserver.disconnect();
         if (isTerminalSnapshotRemovalRequested(sessionId)) {
           clearTerminalSnapshotRemovalRequest(sessionId);

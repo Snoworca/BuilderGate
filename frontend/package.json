@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node tools/ensure-react-mosaic-patch.cjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "postinstall": "patch-package",
