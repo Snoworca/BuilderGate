@@ -39,7 +39,7 @@ import {
   applyBootstrapPtyDefaultsToConfigText,
   normalizeRawConfigForPlatform,
 } from './utils/ptyPlatformPolicy.js';
-import { loadConfigFromPath } from './utils/config.js';
+import { getConfigPath, loadConfigFromPath } from './utils/config.js';
 import express from 'express';
 import type { Request } from 'express';
 
@@ -52,6 +52,7 @@ async function main(): Promise<void> {
     { name: 'Config loader normalizes stale Windows PTY fields on non-Windows hosts', run: testLoadConfigFromPathNormalizesNonWindowsPtyFields },
     { name: 'Config loader canonicalizes empty-password bootstrap state from null or missing input', run: testLoadConfigFromPathCanonicalizesEmptyPasswordState },
     { name: 'Config loader still encrypts non-empty plaintext passwords on load', run: testLoadConfigFromPathEncryptsPlaintextPasswordOnLoad },
+    { name: 'Config path honors BUILDERGATE_CONFIG_PATH for packaged launchers', run: testGetConfigPathHonorsBuilderGateEnv },
     { name: 'RuntimeConfigStore builds a redacted editable snapshot', run: testRuntimeConfigSnapshot },
     { name: 'RuntimeConfigStore marks platform capabilities and merges patches', run: testRuntimeConfigCapabilities },
     { name: 'RuntimeConfigStore normalizes platform-specific PTY values in editable snapshots', run: testRuntimeConfigPlatformNormalization },
@@ -347,6 +348,24 @@ async function testLoadConfigFromPathEncryptsPlaintextPasswordOnLoad(): Promise<
     assert.notEqual(loadedConfig.auth?.password, 'old-password');
     assert.match(savedContent, /password:\s*"enc\(/);
   } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testGetConfigPathHonorsBuilderGateEnv(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-config-path-env-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  const previousConfigPath = process.env.BUILDERGATE_CONFIG_PATH;
+
+  try {
+    process.env.BUILDERGATE_CONFIG_PATH = configPath;
+    assert.equal(getConfigPath(), path.resolve(configPath));
+  } finally {
+    if (previousConfigPath === undefined) {
+      delete process.env.BUILDERGATE_CONFIG_PATH;
+    } else {
+      process.env.BUILDERGATE_CONFIG_PATH = previousConfigPath;
+    }
     await fs.rm(tempDir, { recursive: true, force: true });
   }
 }

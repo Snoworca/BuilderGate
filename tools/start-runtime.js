@@ -2,7 +2,19 @@ const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.resolve(__dirname, '..');
+function resolveRuntimeRoot() {
+  if (process.env.BUILDERGATE_ROOT) {
+    return path.resolve(process.env.BUILDERGATE_ROOT);
+  }
+
+  if (process.pkg) {
+    return path.dirname(process.execPath);
+  }
+
+  return path.resolve(__dirname, '..');
+}
+
+const ROOT = resolveRuntimeRoot();
 const FRONTEND_DIR = path.join(ROOT, 'frontend');
 const SERVER_DIR = path.join(ROOT, 'server');
 const FRONTEND_DIST_DIR = path.join(FRONTEND_DIR, 'dist');
@@ -11,17 +23,74 @@ const SERVER_DIST_DIR = path.join(SERVER_DIR, 'dist');
 const SERVER_ENTRY = path.join(SERVER_DIST_DIR, 'index.js');
 const SERVER_PUBLIC_DIR = path.join(SERVER_DIST_DIR, 'public');
 const SERVER_PUBLIC_INDEX = path.join(SERVER_PUBLIC_DIR, 'index.html');
-const SERVER_CONFIG_PATH = path.join(SERVER_DIR, 'config.json5');
+const CONFIG_ENV_KEY = 'BUILDERGATE_CONFIG_PATH';
+const RUNTIME_CONFIG_PATH = resolveRuntimeConfigPath();
+const LOCAL_BIN_DIRS = [
+  path.join(ROOT, 'node_modules', '.bin'),
+  path.join(SERVER_DIR, 'node_modules', '.bin'),
+];
 
-const APP_NAME = 'projectmaster';
+const APP_NAME = 'buildergate';
+const LEGACY_APP_NAMES = ['projectmaster'];
 const DEFAULT_PORT = 2222;
+
+function resolveRuntimeConfigPath() {
+  if (process.env[CONFIG_ENV_KEY]) {
+    return path.resolve(process.env[CONFIG_ENV_KEY]);
+  }
+
+  if (process.pkg) {
+    return path.join(ROOT, 'config.json5');
+  }
+
+  return path.join(SERVER_DIR, 'config.json5');
+}
 
 function getNpmCommand() {
   return process.platform === 'win32' ? 'npm.cmd' : 'npm';
 }
 
 function getPm2Command() {
-  return process.platform === 'win32' ? 'pm2.cmd' : 'pm2';
+  const commandName = process.platform === 'win32' ? 'pm2.cmd' : 'pm2';
+  const localCandidates = LOCAL_BIN_DIRS.map((binDir) => path.join(binDir, commandName));
+
+  for (const candidate of localCandidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return commandName;
+}
+
+function getPathKey(env) {
+  return Object.keys(env).find((key) => key.toLowerCase() === 'path') ?? 'PATH';
+}
+
+function withLocalBinPath(env) {
+  const pathKey = getPathKey(env);
+  const existingPath = env[pathKey] ?? '';
+  const localPath = LOCAL_BIN_DIRS.filter((binDir) => fs.existsSync(binDir)).join(path.delimiter);
+  if (!localPath) {
+    return env;
+  }
+
+  return {
+    ...env,
+    [pathKey]: existingPath ? `${localPath}${path.delimiter}${existingPath}` : localPath,
+  };
+}
+
+function getLocalNodeInterpreter() {
+  const commandName = process.platform === 'win32' ? 'node.exe' : 'node';
+  for (const binDir of LOCAL_BIN_DIRS) {
+    const candidate = path.join(binDir, commandName);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
 }
 
 function parseBootstrapAllowIps(value) {
@@ -40,12 +109,16 @@ function parseArgs(argv) {
     const current = argv[index];
 
     if ((current === '--help') || (current === '-h')) {
-      console.log('Usage: start.sh [-p <port>] [--reset-password] [--bootstrap-allow-ip <ip[,ip]>]');
-      console.log('   or: start.bat -p <port> [--reset-password] [--bootstrap-allow-ip <ip[,ip]>]');
+      if (process.pkg) {
+        console.log(`Usage: ${path.basename(process.execPath)} [-p <port>] [--reset-password] [--bootstrap-allow-ip <ip[,ip]>]`);
+      } else {
+        console.log('Usage: start.sh [-p <port>] [--reset-password] [--bootstrap-allow-ip <ip[,ip]>]');
+        console.log('   or: start.bat -p <port> [--reset-password] [--bootstrap-allow-ip <ip[,ip]>]');
+      }
       console.log('');
       console.log('Options:');
       console.log('  -p, --port                Override HTTPS port');
-      console.log('  --reset-password          Clear auth.password in server/config.json5 before launch');
+      console.log('  --reset-password          Clear auth.password in config.json5 before launch');
       console.log('  --bootstrap-allow-ip      Temporarily allow specific IP(s) for initial password bootstrap');
       process.exit(0);
     }
@@ -83,11 +156,11 @@ function parseArgs(argv) {
 }
 
 function loadConfigPort() {
-  if (!fs.existsSync(SERVER_CONFIG_PATH)) {
+  if (!fs.existsSync(RUNTIME_CONFIG_PATH)) {
     return null;
   }
 
-  const content = fs.readFileSync(SERVER_CONFIG_PATH, 'utf8');
+  const content = fs.readFileSync(RUNTIME_CONFIG_PATH, 'utf8');
   const match = content.match(/server\s*:\s*\{[\s\S]*?\bport\s*:\s*(\d+)/);
   if (!match) {
     return null;
@@ -263,7 +336,7 @@ function resetPasswordInConfigContent(content) {
   return renderedLines.join(newline);
 }
 
-function resetPasswordInConfigFile(configPath = SERVER_CONFIG_PATH) {
+function resetPasswordInConfigFile(configPath = RUNTIME_CONFIG_PATH) {
   if (!fs.existsSync(configPath)) {
     console.log('[start] config.json5 not found. Bootstrap password is already unset; the server will create a fresh config on start.');
     return false;
@@ -272,7 +345,7 @@ function resetPasswordInConfigFile(configPath = SERVER_CONFIG_PATH) {
   const originalContent = fs.readFileSync(configPath, 'utf8');
   const nextContent = resetPasswordInConfigContent(originalContent);
   fs.writeFileSync(configPath, nextContent, 'utf8');
-  console.log('[start] auth.password cleared in server/config.json5');
+  console.log(`[start] auth.password cleared in ${configPath}`);
   return true;
 }
 
@@ -297,7 +370,7 @@ function ensureSafePublicTarget(targetPath) {
 function runCommand(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: options.cwd ?? ROOT,
-    env: options.env ?? process.env,
+    env: withLocalBinPath(options.env ?? process.env),
     stdio: options.stdio ?? 'inherit',
     shell: process.platform === 'win32',
     encoding: options.captureOutput ? 'utf8' : undefined,
@@ -393,26 +466,44 @@ function hasPm2App(appName) {
   return getPm2ProcessList().some((app) => app.name === appName);
 }
 
+function deletePm2App(appName, env) {
+  runCommand(getPm2Command(), ['delete', appName], {
+    env,
+    label: `pm2 delete ${appName}`,
+  });
+}
+
 function startWithPm2(port, source, bootstrapAllowedIps = []) {
-  const env = {
+  const env = withLocalBinPath({
     ...process.env,
     NODE_ENV: 'production',
     PORT: String(port),
-  };
+    [CONFIG_ENV_KEY]: RUNTIME_CONFIG_PATH,
+  });
   if (bootstrapAllowedIps.length > 0) {
     env.BUILDERGATE_BOOTSTRAP_ALLOWED_IPS = bootstrapAllowedIps.join(',');
   }
 
   if (hasPm2App(APP_NAME)) {
     console.log(`[start] Removing existing pm2 app "${APP_NAME}" before redeploy.`);
-    runCommand(getPm2Command(), ['delete', APP_NAME], {
-      env,
-      label: `pm2 delete ${APP_NAME}`,
-    });
+    deletePm2App(APP_NAME, env);
+  }
+
+  for (const legacyAppName of LEGACY_APP_NAMES) {
+    if (hasPm2App(legacyAppName)) {
+      console.log(`[start] Removing legacy pm2 app "${legacyAppName}" before starting "${APP_NAME}".`);
+      deletePm2App(legacyAppName, env);
+    }
   }
 
   console.log(`[start] Starting pm2 app "${APP_NAME}" on port ${port} (${source})...`);
-  runCommand(getPm2Command(), ['start', 'dist/index.js', '--name', APP_NAME, '--cwd', SERVER_DIR, '--time'], {
+  const startArgs = ['start', 'dist/index.js', '--name', APP_NAME, '--cwd', SERVER_DIR, '--time'];
+  const localNodeInterpreter = getLocalNodeInterpreter();
+  if (localNodeInterpreter) {
+    startArgs.push('--interpreter', localNodeInterpreter);
+  }
+
+  runCommand(getPm2Command(), startArgs, {
     env,
     label: `pm2 start ${APP_NAME}`,
   });
@@ -437,6 +528,7 @@ function main() {
 
   console.log('[start] Deployed in background with pm2.');
   console.log(`[start] App name: ${APP_NAME}`);
+  console.log(`[start] Config: ${RUNTIME_CONFIG_PATH}`);
   console.log(`[start] HTTPS: https://localhost:${port}`);
   console.log(`[start] HTTP redirect: http://localhost:${port - 1}`);
   if (bootstrapAllowedIps.length > 0) {
@@ -455,6 +547,7 @@ if (require.main === module) {
 
 module.exports = {
   APP_NAME,
+  CONFIG_ENV_KEY,
   DEFAULT_PORT,
   parseBootstrapAllowIps,
   parseArgs,

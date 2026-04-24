@@ -1,0 +1,8 @@
+{
+  "name": "buildergate",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build:daemon-exe": "node tools/build-daemon-exe.js"
+  }
+}

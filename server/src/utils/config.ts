@@ -9,7 +9,7 @@
 
 import JSON5 from 'json5';
 import { readFileSync, writeFileSync, copyFileSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import os from 'os';
 import { configSchema, type ConfigSchema } from '../schemas/config.schema.js';
@@ -22,11 +22,17 @@ import { renderBootstrapConfigTemplate } from './configTemplate.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const CONFIG_PATH_ENV_KEY = 'BUILDERGATE_CONFIG_PATH';
 
 /**
  * Get config file path
  */
 export function getConfigPath(): string {
+  const configuredPath = process.env[CONFIG_PATH_ENV_KEY]?.trim();
+  if (configuredPath) {
+    return resolve(configuredPath);
+  }
+
   return join(__dirname, '../../config.json5');
 }
 
