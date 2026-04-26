@@ -1,0 +1,31 @@
+# Phase 3 검증: Native Daemon Launcher와 Readiness
+
+## 검증 대상
+
+- `FR-8-001`, `FR-8-006`, `FR-8-012`, `FR-8-015`
+- `AC-8-001`, `AC-8-002`, `AC-8-016`, `AC-8-017`, `AC-8-018`
+- `TEST-8-005`, `TEST-8-007`, `TEST-8-019`, `TEST-8-020`
+
+## 필수 검증
+
+- [ ] 무인자 source production start가 daemon mode로 실행
+- [ ] 최소 sentinel child가 internal marker와 state PID를 남기고 `status=stopping`에서 종료 가능
+- [ ] parent가 readiness identity 확인 후 종료하고 app child는 유지
+- [ ] PM2 명령 호출 없음
+- [ ] 같은 실행 계약 재시작은 idempotent success
+- [ ] idempotent success에서 기존 appPid/sentinelPid가 유지됨
+- [ ] 다른 port/config/argv 재시작은 자동 교체 없이 실패
+- [ ] 무관 `/health` 200은 readiness success로 인정하지 않음
+
+## 수동 검증 후보
+
+```powershell
+node tools/start-runtime.js -p 2002
+curl -k https://localhost:2002/health
+node tools/start-runtime.js -p 2002
+node stop.js
+```
+
+## 완료 판정
+
+PM2 없이 daemon start/readiness/idempotency/conflict 정책이 닫히고 orphan process가 없어야 한다.
