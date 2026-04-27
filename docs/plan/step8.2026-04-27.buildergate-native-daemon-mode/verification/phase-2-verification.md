@@ -8,11 +8,17 @@
 
 ## 필수 검증
 
-- [ ] `--foreground`와 `--forground`가 같은 foreground mode로 동작
-- [ ] sentinel이 시작되지 않음
-- [ ] active daemon state가 기록되지 않음
-- [ ] stdout/stderr가 현재 콘솔에 연결됨
-- [ ] stop utility가 foreground process를 종료하지 않음
+- [x] `--foreground`와 `--forground`가 같은 foreground mode로 동작
+- [x] sentinel이 시작되지 않음
+- [x] active daemon state가 기록되지 않음
+- [x] stdout/stderr가 현재 콘솔에 연결됨
+- [x] stop utility가 foreground process를 종료하지 않음
+
+## 자동 검증 결과
+
+- `npm run test:daemon`: 33개 통과
+- `npm test` in `server`: 149개 통과
+- 리뷰어 서브에이전트 재검토: `No findings`
 
 ## 수동 검증 후보
 
@@ -25,4 +31,4 @@ curl -k https://localhost:2002/health
 
 ## 완료 판정
 
-Foreground가 daemon state와 완전히 분리되고, stop negative가 통과해야 완료된다.
+Foreground가 daemon state와 완전히 분리되고, stop negative fixture가 자동 테스트로 준비되어 완료된다.

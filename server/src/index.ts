@@ -18,6 +18,7 @@ import { createAuthRoutes } from './routes/authRoutes.js';
 import { createFileRoutes } from './routes/fileRoutes.js';
 import { createSettingsRoutes } from './routes/settingsRoutes.js';
 import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
+import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
 import { config, getServerRoot } from './utils/config.js';
 import { FileService } from './services/FileService.js';
@@ -31,6 +32,7 @@ import { AuthService } from './services/AuthService.js';
 import { BootstrapSetupService } from './services/BootstrapSetupService.js';
 import { TOTPService } from './services/TOTPService.js';
 import { reconcileTotpRuntime } from './services/twoFactorRuntime.js';
+import { performGracefulShutdown } from './services/gracefulShutdown.js';
 import type { Config } from './types/config.types.js';
 import type { EditableSettingsKey } from './types/settings.types.js';
 import {
@@ -45,6 +47,11 @@ import { WsRouter } from './ws/WsRouter.js';
 const app = express();
 const PORT = process.env.PORT || config.server.port;
 const HTTP_PORT = Number(PORT) - 1; // HTTP redirect port
+const DAEMON_START_ATTEMPT_ID = process.env.BUILDERGATE_DAEMON_START_ID ?? null;
+const DAEMON_STATE_GENERATION = Number.parseInt(process.env.BUILDERGATE_DAEMON_STATE_GENERATION ?? '', 10);
+const TOTP_SECRET_FILE_PATH = process.env.BUILDERGATE_TOTP_SECRET_PATH;
+const SUPPRESS_TOTP_QR = process.env.BUILDERGATE_SUPPRESS_TOTP_QR === '1';
+const SHUTDOWN_TOKEN = process.env.BUILDERGATE_SHUTDOWN_TOKEN;
 
 // ============================================================================
 // Service Instances (initialized in startServer)
@@ -81,15 +88,36 @@ function isHtmlNavigationRequest(req: express.Request): boolean {
   return !isReservedRuntimePath(pathname) && !isStaticAssetRequest(pathname);
 }
 
-function applyTwoFactorRuntime(nextConfig: Config, changedKeys: EditableSettingsKey[] = []): string[] {
+function applyTwoFactorRuntime(
+  nextConfig: Config,
+  changedKeys: EditableSettingsKey[] = [],
+  options: { initialStartup?: boolean } = {},
+): string[] {
   const result = reconcileTotpRuntime({
     currentService: totpService,
     nextConfig,
     cryptoService,
     changedKeys,
+    secretFilePath: TOTP_SECRET_FILE_PATH,
+    suppressConsoleQr: SUPPRESS_TOTP_QR,
+    initialStartup: options.initialStartup ?? false,
   });
   totpService = result.service;
   return result.warnings;
+}
+
+async function performServerGracefulShutdown(reason: string) {
+  const result = await performGracefulShutdown(reason, {
+    sessionManager,
+    workspaceService,
+    timers: [
+      { timer: cwdSnapshotTimer },
+      { timer: terminalObservabilityTimer },
+    ],
+  });
+  cwdSnapshotTimer = null;
+  terminalObservabilityTimer = null;
+  return result;
 }
 
 // ============================================================================
@@ -181,13 +209,29 @@ app.use((_req, res, next) => {
 function setupRoutes(): void {
   // Health check (no cache, no auth required)
   app.get('/health', noCacheMiddleware, (_req, res) => {
+    res.setHeader('X-BuilderGate-Pid', String(process.pid));
+    if (DAEMON_START_ATTEMPT_ID) {
+      res.setHeader('X-BuilderGate-Start-Attempt-Id', DAEMON_START_ATTEMPT_ID);
+    }
+    if (Number.isInteger(DAEMON_STATE_GENERATION)) {
+      res.setHeader('X-BuilderGate-State-Generation', String(DAEMON_STATE_GENERATION));
+    }
+
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
       https: true,
-      authenticated: false
+      authenticated: false,
+      pid: process.pid,
+      startAttemptId: DAEMON_START_ATTEMPT_ID,
+      stateGeneration: Number.isInteger(DAEMON_STATE_GENERATION) ? DAEMON_STATE_GENERATION : null
     });
   });
+
+  app.use('/api/internal', createInternalShutdownRoutes({
+    token: SHUTDOWN_TOKEN,
+    performShutdown: performServerGracefulShutdown,
+  }));
 
   // Auth routes (no auth required for login)
   const authRoutes = createAuthRoutes({
@@ -316,13 +360,7 @@ async function startServer(): Promise<void> {
     // Initialize TOTP Service (Step 6 — FR-102)
     // ========================================================================
     if (config.twoFactor?.enabled) {
-      applyTwoFactorRuntime(config);
-      try {
-        void totpService;
-      } catch (err) {
-        console.error('[TOTP] Failed to initialize TOTPService:', err);
-        // Server continues — TOTP unregistered state handled in auth routes (FR-401)
-      }
+      applyTwoFactorRuntime(config, [], { initialStartup: true });
     } else {
       console.log('[TOTP] TOTP is disabled');
     }
@@ -524,17 +562,20 @@ async function startServer(): Promise<void> {
 
 // Graceful shutdown — stop CWD watchers, snapshot CWDs, flush state
 function setupGracefulShutdown(): void {
+  let shutdownInProgress = false;
   const shutdown = async (signal: string) => {
+    if (shutdownInProgress) {
+      return;
+    }
+    shutdownInProgress = true;
     console.log(`[Shutdown] ${signal} received, saving session CWDs...`);
     try {
-      sessionManager.stopAllCwdWatching();          // (1) Stop watchFile callbacks
-      workspaceService?.snapshotAllCwds();           // (2) Final CWD snapshot
-      await workspaceService?.forceFlush();          // (3) Flush to disk
-      if (cwdSnapshotTimer) clearInterval(cwdSnapshotTimer); // (4) Clear periodic timer
-      if (terminalObservabilityTimer) clearInterval(terminalObservabilityTimer);
+      await performServerGracefulShutdown(signal);
       console.log('[Shutdown] Workspace state + CWDs saved');
     } catch (err) {
       console.error('[Shutdown] Failed to save workspace state:', err);
+      process.exit(1);
+      return;
     }
     process.exit(0);
   };

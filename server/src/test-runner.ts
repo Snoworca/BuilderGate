@@ -17,6 +17,7 @@ import { ConfigFileRepository } from './services/ConfigFileRepository.js';
 import { SettingsService } from './services/SettingsService.js';
 import { BootstrapSetupService } from './services/BootstrapSetupService.js';
 import { reconcileTotpRuntime } from './services/twoFactorRuntime.js';
+import { runDaemonTotpPreflightForConfig } from './services/daemonTotpPreflight.js';
 import { SessionManager } from './services/SessionManager.js';
 import { sessionManager } from './services/SessionManager.js';
 import { FileService } from './services/FileService.js';
@@ -33,13 +34,16 @@ import { truncateTerminalPayloadTail } from './utils/terminalPayload.js';
 import { WsRouter } from './ws/WsRouter.js';
 import { AppError, ErrorCode } from './utils/errors.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
+import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js';
 import sessionRoutes from './routes/sessionRoutes.js';
 import { ensureDebugCaptureSessionExists, requireLocalDebugCapture } from './middleware/debugCaptureGuards.js';
+import { performGracefulShutdown } from './services/gracefulShutdown.js';
 import {
   applyBootstrapPtyDefaultsToConfigText,
   normalizeRawConfigForPlatform,
 } from './utils/ptyPlatformPolicy.js';
 import { getConfigPath, loadConfigFromPath } from './utils/config.js';
+import { loadConfigFromPathStrict } from './utils/configStrictLoader.js';
 import express from 'express';
 import type { Request } from 'express';
 
@@ -56,6 +60,8 @@ async function main(): Promise<void> {
     { name: 'Config loader canonicalizes empty-password bootstrap state from null or missing input', run: testLoadConfigFromPathCanonicalizesEmptyPasswordState },
     { name: 'Config loader still encrypts non-empty plaintext passwords on load', run: testLoadConfigFromPathEncryptsPlaintextPasswordOnLoad },
     { name: 'Config path honors BUILDERGATE_CONFIG_PATH for packaged launchers', run: testGetConfigPathHonorsBuilderGateEnv },
+    { name: 'Strict config loader rejects invalid existing config without defaults', run: testLoadConfigFromPathStrictRejectsInvalidExistingConfig },
+    { name: 'Strict config loader bootstraps missing config without fallback defaults', run: testLoadConfigFromPathStrictBootstrapsMissingConfig },
     { name: 'RuntimeConfigStore builds a redacted editable snapshot', run: testRuntimeConfigSnapshot },
     { name: 'RuntimeConfigStore marks platform capabilities and merges patches', run: testRuntimeConfigCapabilities },
     { name: 'RuntimeConfigStore normalizes platform-specific PTY values in editable snapshots', run: testRuntimeConfigPlatformNormalization },
@@ -121,6 +127,11 @@ async function main(): Promise<void> {
     { name: 'SessionManager input debug capture records safe metadata without leaking printable input', run: testSessionManagerInputDebugCaptureMetadata },
     { name: 'debug capture localhost guard rejects non-loopback requests', run: testDebugCaptureLocalhostGuard },
     { name: 'debug capture missing-session guard returns 404', run: testDebugCaptureSessionExistsGuard },
+    { name: 'internal shutdown route is disabled outside production daemon app child', run: testInternalShutdownRouteDisabledOutsideDaemonApp },
+    { name: 'internal shutdown route rejects missing token and forwarded-loopback spoofing', run: testInternalShutdownRouteAuthAndLoopbackGuard },
+    { name: 'internal shutdown route flushes and returns structured shutdown result', run: testInternalShutdownRouteSuccess },
+    { name: 'internal shutdown route returns 500 when graceful shutdown fails', run: testInternalShutdownRouteFailure },
+    { name: 'performGracefulShutdown flushes workspace JSON lastUpdated and tab lastCwd', run: testPerformGracefulShutdownFlushesWorkspaceCwds },
     { name: 'sessionRoutes accepts shells surfaced by GET /api/sessions/shells', run: testSessionRoutesAcceptSurfacedShells },
     { name: 'SessionManager marks sessions degraded when snapshot serialization fails', run: testSessionManagerDegradedSnapshot },
     { name: 'SessionManager preserves unsnapshotted healthy output when degrading', run: testSessionManagerDirtyCacheDegradedRecovery },
@@ -171,11 +182,19 @@ async function main(): Promise<void> {
     { name: 'TOTPService.invalidatePendingAuth removes entry (Phase 3)', run: testTOTPInvalidate },
     { name: 'AuthService.getLocalhostPasswordOnly defaults false (Phase 3)', run: testAuthLocalhostPasswordOnly },
     { name: 'TOTPService.initialize() generates secret on first start (FR-201)', run: testTOTPInitializeGeneratesSecret },
+    { name: 'TOTPService.initialize() generates secret when Web Crypto global is absent', run: testTOTPInitializeGeneratesSecretWithoutGlobalWebCrypto },
     { name: 'TOTPService.initialize() loads existing secret from file (FR-202)', run: testTOTPInitializeLoadsSecret },
     { name: 'TOTPService.initialize() throws on corrupted secret file (FR-204)', run: testTOTPInitializeThrowsOnCorrupted },
+    { name: 'TOTPService.initialize() suppresses console QR while preserving secret and QR API', run: testTOTPInitializeSuppressesConsoleQr },
+    { name: 'TOTPService.initialize() surfaces QR rendering failures as startup failures', run: testTOTPInitializeQrRenderingFailureThrows },
     // Phase 4: authRoutes — 4 COMBO flows
     { name: 'reconcileTotpRuntime initializes TOTP on startup when 2FA is enabled', run: testReconcileTotpRuntimeStartupInitialization },
     { name: 'reconcileTotpRuntime keeps the previous registered service on hot-apply failure', run: testReconcileTotpRuntimeKeepsPreviousService },
+    { name: 'reconcileTotpRuntime uses daemon env secret path and suppresses app child QR output', run: testReconcileTotpRuntimeUsesDaemonEnvSecretPathAndSuppressesQr },
+    { name: 'reconcileTotpRuntime throws on initial startup TOTP failure', run: testReconcileTotpRuntimeInitialStartupFailureThrows },
+    { name: 'daemon TOTP preflight prints QR and manual key before detach', run: testDaemonTotpPreflightPrintsQrAndManualKey },
+    { name: 'daemon TOTP preflight can suppress QR output for sentinel restarts', run: testDaemonTotpPreflightSuppressesQrForSentinelRestart },
+    { name: 'daemon TOTP preflight fails on corrupted and invalid BASE32 secrets', run: testDaemonTotpPreflightRejectsInvalidSecrets },
     { name: 'authRoutes bootstrap-status returns setup-required for localhost when password is missing', run: testAuthRoutesBootstrapStatusLocalhost },
     { name: 'authRoutes bootstrap-status denies remote IPs by default', run: testAuthRoutesBootstrapStatusDeniedRemote },
     { name: 'authRoutes bootstrap-status allows remote IPs from env allowlist', run: testAuthRoutesBootstrapStatusAllowlistEnv },
@@ -435,6 +454,36 @@ async function testGetConfigPathHonorsBuilderGateEnv(): Promise<void> {
     } else {
       process.env.BUILDERGATE_CONFIG_PATH = previousConfigPath;
     }
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testLoadConfigFromPathStrictRejectsInvalidExistingConfig(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-config-strict-invalid-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  await fs.writeFile(configPath, '{ server: ', 'utf-8');
+
+  try {
+    assert.throws(
+      () => loadConfigFromPathStrict(configPath, 'linux'),
+      /JSON5|invalid|end of input/i,
+    );
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testLoadConfigFromPathStrictBootstrapsMissingConfig(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-config-strict-missing-'));
+  const configPath = path.join(tempDir, 'config.json5');
+
+  try {
+    const config = loadConfigFromPathStrict(configPath, 'linux');
+    const savedContent = await fs.readFile(configPath, 'utf-8');
+
+    assert.equal(config.server.port, 2002);
+    assert.match(savedContent, /Initial administrator password/);
+  } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
 }
@@ -2581,6 +2630,239 @@ function testDebugCaptureSessionExistsGuard(): void {
   assert.equal((payload as { error?: { code?: string } }).error?.code, 'SESSION_NOT_FOUND');
 }
 
+async function invokeInternalShutdownRoute(options: {
+  env?: NodeJS.ProcessEnv;
+  token?: string;
+  headerToken?: string;
+  forwardedFor?: string;
+  remoteAddress?: string;
+  performShutdown?: () => Promise<Record<string, unknown>>;
+  scheduleExitDelayMs?: number;
+  onExit?: (code: number) => void;
+}): Promise<{ status: number; body: Record<string, unknown> }> {
+  const app = express();
+  app.use(express.json());
+  app.use('/api/internal', createInternalShutdownRoutes({
+    env: options.env ?? {
+      NODE_ENV: 'production',
+      BUILDERGATE_INTERNAL_MODE: 'app',
+      BUILDERGATE_SHUTDOWN_TOKEN: options.token ?? 'shutdown-token',
+    },
+    token: options.token ?? 'shutdown-token',
+    performShutdown: options.performShutdown ?? (async () => ({ ok: true, reason: 'test' })),
+    getRemoteAddress: () => options.remoteAddress ?? '127.0.0.1',
+    scheduleExitDelayMs: options.scheduleExitDelayMs ?? 1,
+    exit: options.onExit ?? (() => {}),
+  }));
+
+  return new Promise((resolve, reject) => {
+    const server = http.createServer(app);
+    server.listen(0, () => {
+      const port = (server.address() as net.AddressInfo).port;
+      const postBody = JSON.stringify({});
+      const headers: Record<string, string | number> = {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postBody),
+      };
+      if (options.headerToken !== undefined) {
+        headers['X-BuilderGate-Shutdown-Token'] = options.headerToken;
+      }
+      if (options.forwardedFor !== undefined) {
+        headers['X-Forwarded-For'] = options.forwardedFor;
+      }
+
+      const request = http.request({
+        hostname: '127.0.0.1',
+        port,
+        method: 'POST',
+        path: '/api/internal/shutdown',
+        headers,
+      }, (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => {
+          server.close();
+          try {
+            const payload = Buffer.concat(chunks).toString();
+            let body: Record<string, unknown> = {};
+            if (payload) {
+              try {
+                body = JSON.parse(payload) as Record<string, unknown>;
+              } catch {
+                body = { raw: payload };
+              }
+            }
+            resolve({
+              status: res.statusCode ?? 0,
+              body,
+            });
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
+      request.on('error', (error: Error) => {
+        server.close();
+        reject(error);
+      });
+      request.write(postBody);
+      request.end();
+    });
+  });
+}
+
+async function testInternalShutdownRouteDisabledOutsideDaemonApp(): Promise<void> {
+  const result = await invokeInternalShutdownRoute({
+    token: 'secret',
+    headerToken: 'secret',
+    env: {
+      NODE_ENV: 'development',
+      BUILDERGATE_INTERNAL_MODE: 'app',
+      BUILDERGATE_SHUTDOWN_TOKEN: 'secret',
+    },
+  });
+
+  assert.equal(result.status, 404);
+}
+
+async function testInternalShutdownRouteAuthAndLoopbackGuard(): Promise<void> {
+  const missingToken = await invokeInternalShutdownRoute({
+    token: 'secret',
+    remoteAddress: '127.0.0.1',
+  });
+  const forwardedSpoof = await invokeInternalShutdownRoute({
+    token: 'secret',
+    headerToken: 'secret',
+    remoteAddress: '192.168.0.10',
+    forwardedFor: '127.0.0.1',
+  });
+
+  assert.equal(missingToken.status, 401);
+  assert.equal((missingToken.body.error as { code?: string })?.code, 'INVALID_SHUTDOWN_TOKEN');
+  assert.equal(forwardedSpoof.status, 403);
+  assert.equal((forwardedSpoof.body.error as { code?: string })?.code, 'LOCALHOST_ONLY');
+}
+
+async function testInternalShutdownRouteSuccess(): Promise<void> {
+  const exits: number[] = [];
+  let flushed = false;
+  const result = await invokeInternalShutdownRoute({
+    token: 'secret',
+    headerToken: 'secret',
+    scheduleExitDelayMs: 0,
+    onExit: (code) => exits.push(code),
+    performShutdown: async () => {
+      flushed = true;
+      return {
+        ok: true,
+        reason: 'internal-shutdown',
+        workspaceFlushed: true,
+        workspaceDataPath: 'C:/runtime/workspaces.json',
+        workspaceLastUpdated: '2026-04-27T00:00:12.000Z',
+        workspaceLastCwdCount: 1,
+        workspaceTabCount: 1,
+        workspaceFlushMarker: '[Shutdown] Workspace state + CWDs saved',
+      };
+    },
+  });
+  await delay(5);
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.ok, true);
+  assert.equal(result.body.reason, 'internal-shutdown');
+  assert.equal(result.body.workspaceFlushed, true);
+  assert.equal(result.body.workspaceFlushMarker, '[Shutdown] Workspace state + CWDs saved');
+  assert.equal(flushed, true);
+  assert.deepEqual(exits, [0]);
+}
+
+async function testInternalShutdownRouteFailure(): Promise<void> {
+  const result = await invokeInternalShutdownRoute({
+    token: 'secret',
+    headerToken: 'secret',
+    performShutdown: async () => {
+      throw new Error('flush failed');
+    },
+  });
+
+  assert.equal(result.status, 500);
+  assert.equal(result.body.ok, false);
+  assert.equal((result.body.error as { code?: string })?.code, 'SHUTDOWN_FAILED');
+  assert.match(String((result.body.error as { message?: string })?.message ?? ''), /flush failed/);
+}
+
+async function testPerformGracefulShutdownFlushesWorkspaceCwds(): Promise<void> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-graceful-shutdown-'));
+  const cwdFilePath = path.join(tmpDir, 'cwd.txt');
+  const workspaceFilePath = path.join(tmpDir, 'workspaces.json');
+  const cwd = path.join(tmpDir, 'project');
+  const events: string[] = [];
+  await fs.writeFile(cwdFilePath, cwd, 'utf-8');
+
+  const sessionManagerStub = {
+    onCwdChange() {},
+    stopAllCwdWatching() {
+      events.push('stop-watchers');
+    },
+    getCwdFilePath(sessionId: string) {
+      assert.equal(sessionId, 'session-1');
+      return cwdFilePath;
+    },
+    getLastCwd() {
+      return null;
+    },
+  } as unknown as SessionManager;
+  const workspaceService = new WorkspaceService(sessionManagerStub);
+  (workspaceService as any).dataFilePath = workspaceFilePath;
+  (workspaceService as any).state = {
+    workspaces: [{
+      id: 'workspace-1',
+      name: 'Workspace',
+      sortOrder: 0,
+      viewMode: 'tab',
+      activeTabId: 'tab-1',
+      colorCounter: 0,
+      createdAt: '2026-04-27T00:00:00.000Z',
+      updatedAt: '2026-04-27T00:00:00.000Z',
+    }],
+    tabs: [{
+      id: 'tab-1',
+      workspaceId: 'workspace-1',
+      sessionId: 'session-1',
+      name: 'Terminal',
+      colorIndex: 0,
+      sortOrder: 0,
+      shellType: 'auto',
+      createdAt: '2026-04-27T00:00:00.000Z',
+    }],
+    gridLayouts: [],
+  };
+
+  try {
+    const result = await performGracefulShutdown('test', {
+      sessionManager: sessionManagerStub,
+      workspaceService,
+    });
+    const file = JSON.parse(await fs.readFile(workspaceFilePath, 'utf-8')) as {
+      lastUpdated?: string;
+      state?: { tabs?: Array<{ lastCwd?: string }> };
+    };
+
+    assert.equal(result.ok, true);
+    assert.equal(result.workspaceFlushed, true);
+    assert.equal(result.workspaceDataPath, workspaceFilePath);
+    assert.equal(result.workspaceLastUpdated, file.lastUpdated);
+    assert.equal(result.workspaceLastCwdCount, 1);
+    assert.equal(result.workspaceTabCount, 1);
+    assert.equal(result.workspaceFlushMarker, '[Shutdown] Workspace state + CWDs saved');
+    assert.deepEqual(events, ['stop-watchers']);
+    assert.equal(typeof file.lastUpdated, 'string');
+    assert.equal(file.state?.tabs?.[0]?.lastCwd, cwd);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
 async function testSessionRoutesAcceptSurfacedShells(): Promise<void> {
   const originalCreateSession = sessionManager.createSession.bind(sessionManager);
   const originalCachedShells = (sessionManager as any).cachedAvailableShells;
@@ -4543,6 +4825,41 @@ async function testTOTPInitializeGeneratesSecret(): Promise<void> {
   }
 }
 
+async function testTOTPInitializeGeneratesSecretWithoutGlobalWebCrypto(): Promise<void> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'totp-no-webcrypto-test-'));
+  const secretFile = path.join(tmpDir, 'totp.secret');
+  const cryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+  let service: TOTPService | undefined;
+
+  try {
+    Object.defineProperty(globalThis, 'crypto', {
+      configurable: true,
+      enumerable: true,
+      value: undefined,
+    });
+
+    const crypto = new CryptoService('test-key-32-bytes-padded-here!!');
+    service = new TOTPService(
+      { enabled: true, issuer: 'PkgRuntime', accountName: 'admin' },
+      crypto,
+      secretFile,
+      { suppressConsoleQr: true },
+    );
+
+    service.initialize();
+    assert.equal(service.isRegistered(), true, 'TOTP should initialize without a preexisting Web Crypto global');
+    await fs.access(secretFile);
+  } finally {
+    service?.destroy();
+    if (cryptoDescriptor) {
+      Object.defineProperty(globalThis, 'crypto', cryptoDescriptor);
+    } else {
+      delete (globalThis as { crypto?: Crypto }).crypto;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
 async function testTOTPInitializeLoadsSecret(): Promise<void> {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'totp-test-'));
   const secretFile = path.join(tmpDir, 'totp.secret');
@@ -4575,6 +4892,96 @@ async function testTOTPInitializeThrowsOnCorrupted(): Promise<void> {
       (err: unknown) => err instanceof Error,
       'Should throw on corrupted secret file (FR-204)'
     );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function captureConsoleLog<T>(run: () => T | Promise<T>): Promise<{ logs: string[]; result: T }> {
+  const logs: string[] = [];
+  const originalLog = console.log;
+  console.log = (...args: unknown[]) => {
+    logs.push(args.map((value) => String(value)).join(' '));
+  };
+
+  try {
+    const result = await run();
+    return { logs, result };
+  } finally {
+    console.log = originalLog;
+  }
+}
+
+async function testTOTPInitializeSuppressesConsoleQr(): Promise<void> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'totp-suppress-test-'));
+  const secretFile = path.join(tmpDir, 'totp.secret');
+  const crypto = new CryptoService('test-key-32-bytes-padded-here!!');
+  let service: TOTPService | undefined;
+
+  try {
+    const captured = await captureConsoleLog(async () => {
+      service = new TOTPService(
+        { enabled: true, issuer: 'Suppressed', accountName: 'admin' },
+        crypto,
+        secretFile,
+        { suppressConsoleQr: true },
+      );
+      service.initialize();
+      return service.generateQRDataUrl();
+    });
+
+    const qr = await captured.result;
+    assert.ok(service?.isRegistered(), 'Suppress mode must still register a generated secret');
+    await fs.access(secretFile);
+    assert.equal(qr.registered, true, 'Suppress mode must not disable the QR data URL API');
+    assert.match(qr.dataUrl, /^data:image\/png;base64,/, 'QR API should still generate an image data URL');
+    assert.equal(captured.logs.some((line) => /Google Authenticator QR Code|Manual entry key|Issuer:/u.test(line)), false);
+  } finally {
+    service?.destroy();
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function testTOTPInitializeQrRenderingFailureThrows(): Promise<void> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'totp-qr-failure-test-'));
+  const secretFile = path.join(tmpDir, 'totp.secret');
+  const crypto = new CryptoService('test-key-32-bytes-padded-here!!');
+
+  try {
+    const service = new TOTPService(
+      { enabled: true, issuer: 'BrokenQR', accountName: 'admin' },
+      crypto,
+      secretFile,
+      {
+        qrCodeWriter: () => {
+          throw new Error('QR renderer unavailable');
+        },
+      },
+    );
+
+    assert.throws(
+      () => service.initialize(),
+      /QR renderer unavailable/u,
+      'QR rendering failures must fail initial TOTP startup',
+    );
+    service.destroy();
+
+    const existingSecretService = new TOTPService(
+      { enabled: true, issuer: 'BrokenQR', accountName: 'admin' },
+      crypto,
+      secretFile,
+      {
+        qrCodeWriter: () => {
+          throw new Error('QR renderer unavailable on existing secret');
+        },
+      },
+    );
+    assert.throws(
+      () => existingSecretService.initialize(),
+      /QR renderer unavailable on existing secret/u,
+      'QR rendering failures must also fail when an existing secret loads successfully',
+    );
+    existingSecretService.destroy();
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -4650,6 +5057,193 @@ async function testReconcileTotpRuntimeKeepsPreviousService(): Promise<void> {
     assert.ok(result.service?.isRegistered(), 'Previous runtime should remain registered');
   } finally {
     previousService.destroy();
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function testReconcileTotpRuntimeUsesDaemonEnvSecretPathAndSuppressesQr(): Promise<void> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'totp-runtime-env-'));
+  const secretFile = path.join(tmpDir, 'nested', '..', 'daemon-totp.secret');
+  const crypto = new CryptoService('test-key-32-bytes-padded-here!!');
+  const previousSecretPath = process.env.BUILDERGATE_TOTP_SECRET_PATH;
+  const previousSuppress = process.env.BUILDERGATE_SUPPRESS_TOTP_QR;
+
+  try {
+    process.env.BUILDERGATE_TOTP_SECRET_PATH = secretFile;
+    process.env.BUILDERGATE_SUPPRESS_TOTP_QR = '1';
+
+    const captured = await captureConsoleLog(() => reconcileTotpRuntime({
+      nextConfig: {
+        ...createConfigFixture(),
+        twoFactor: {
+          enabled: true,
+          externalOnly: false,
+          issuer: 'DaemonChild',
+          accountName: 'admin',
+        },
+      },
+      cryptoService: crypto,
+    }));
+
+    assert.ok(captured.result.service?.isRegistered(), 'Daemon app child should load or create the env secret path');
+    await fs.access(path.normalize(secretFile));
+    assert.equal(captured.logs.some((line) => /Google Authenticator QR Code|Manual entry key|Issuer:/u.test(line)), false);
+    captured.result.service?.destroy();
+  } finally {
+    if (previousSecretPath === undefined) {
+      delete process.env.BUILDERGATE_TOTP_SECRET_PATH;
+    } else {
+      process.env.BUILDERGATE_TOTP_SECRET_PATH = previousSecretPath;
+    }
+    if (previousSuppress === undefined) {
+      delete process.env.BUILDERGATE_SUPPRESS_TOTP_QR;
+    } else {
+      process.env.BUILDERGATE_SUPPRESS_TOTP_QR = previousSuppress;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function testReconcileTotpRuntimeInitialStartupFailureThrows(): Promise<void> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'totp-runtime-fatal-'));
+  const secretFile = path.join(tmpDir, 'totp.secret');
+  const crypto = new CryptoService('test-key-32-bytes-padded-here!!');
+
+  try {
+    await fs.writeFile(secretFile, 'CORRUPTED_NOT_VALID_ENCRYPTED_DATA', 'utf-8');
+
+    assert.throws(
+      () => reconcileTotpRuntime({
+        nextConfig: {
+          ...createConfigFixture(),
+          twoFactor: {
+            enabled: true,
+            externalOnly: false,
+            issuer: 'Fatal',
+            accountName: 'admin',
+          },
+        },
+        cryptoService: crypto,
+        secretFilePath: secretFile,
+        initialStartup: true,
+      }),
+      /TOTP|Decrypt|decryption|corrupted/u,
+      'Initial startup must fail fast when TOTP cannot initialize',
+    );
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function testDaemonTotpPreflightPrintsQrAndManualKey(): Promise<void> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'totp-daemon-preflight-'));
+  const secretFile = path.join(tmpDir, 'existing.secret');
+  const crypto = new CryptoService('test-key-32-bytes-padded-here!!');
+
+  try {
+    const seedService = new TOTPService(
+      { enabled: true, issuer: 'PreflightIssuer', accountName: 'preflight-admin' },
+      crypto,
+      secretFile,
+      { suppressConsoleQr: true },
+    );
+    seedService.initialize();
+    seedService.destroy();
+
+    const captured = await captureConsoleLog(() => runDaemonTotpPreflightForConfig(
+      {
+        ...createConfigFixture(),
+        twoFactor: {
+          enabled: true,
+          externalOnly: false,
+          issuer: 'PreflightIssuer',
+          accountName: 'preflight-admin',
+        },
+      },
+      {
+        cryptoService: crypto,
+        secretFilePath: secretFile,
+      },
+    ));
+
+    assert.equal(captured.result.enabled, true);
+    assert.equal(captured.result.secretFilePath, path.resolve(secretFile));
+    assert.ok(captured.logs.some((line) => /Google Authenticator QR Code/u.test(line)));
+    assert.ok(captured.logs.some((line) => /Manual entry key: [A-Z2-7=]+/u.test(line)));
+    assert.ok(captured.logs.some((line) => /Issuer: PreflightIssuer \| Account: preflight-admin/u.test(line)));
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function testDaemonTotpPreflightSuppressesQrForSentinelRestart(): Promise<void> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'totp-daemon-preflight-suppress-'));
+  const secretFile = path.join(tmpDir, 'existing.secret');
+  const crypto = new CryptoService('test-key-32-bytes-padded-here!!');
+
+  try {
+    const seedService = new TOTPService(
+      { enabled: true, issuer: 'SentinelIssuer', accountName: 'sentinel-admin' },
+      crypto,
+      secretFile,
+      { suppressConsoleQr: true },
+    );
+    seedService.initialize();
+    seedService.destroy();
+
+    const captured = await captureConsoleLog(() => runDaemonTotpPreflightForConfig(
+      {
+        ...createConfigFixture(),
+        twoFactor: {
+          enabled: true,
+          externalOnly: false,
+          issuer: 'SentinelIssuer',
+          accountName: 'sentinel-admin',
+        },
+      },
+      {
+        cryptoService: crypto,
+        secretFilePath: secretFile,
+        suppressConsoleQr: true,
+      },
+    ));
+
+    assert.equal(captured.result.enabled, true);
+    assert.equal(captured.result.secretFilePath, path.resolve(secretFile));
+    assert.equal(captured.logs.some((line) => /Google Authenticator QR Code/u.test(line)), false);
+    assert.equal(captured.logs.some((line) => /Manual entry key/u.test(line)), false);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function testDaemonTotpPreflightRejectsInvalidSecrets(): Promise<void> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'totp-daemon-preflight-invalid-'));
+  const secretFile = path.join(tmpDir, 'totp.secret');
+  const crypto = new CryptoService('test-key-32-bytes-padded-here!!');
+  const config: Config = {
+    ...createConfigFixture(),
+    twoFactor: {
+      enabled: true,
+      externalOnly: false,
+      issuer: 'InvalidPreflight',
+      accountName: 'admin',
+    },
+  };
+
+  try {
+    await fs.writeFile(secretFile, 'CORRUPTED_NOT_VALID_ENCRYPTED_DATA', 'utf-8');
+    await assert.rejects(
+      () => runDaemonTotpPreflightForConfig(config, { cryptoService: crypto, secretFilePath: secretFile }),
+      /TOTP|Decrypt|decryption|corrupted/u,
+    );
+
+    await fs.writeFile(secretFile, crypto.encrypt('not-base32!'), 'utf-8');
+    await assert.rejects(
+      () => runDaemonTotpPreflightForConfig(config, { cryptoService: crypto, secretFilePath: secretFile }),
+      /BASE32/u,
+    );
+  } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 }

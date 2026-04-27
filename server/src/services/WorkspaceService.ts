@@ -106,6 +106,10 @@ export class WorkspaceService {
     return this.state;
   }
 
+  getDataFilePath(): string {
+    return this.dataFilePath;
+  }
+
   getWorkspace(id: string): Workspace {
     const ws = this.state.workspaces.find(w => w.id === id);
     if (!ws) throw new AppError(ErrorCode.WORKSPACE_NOT_FOUND);

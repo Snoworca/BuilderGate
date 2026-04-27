@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "build:daemon-exe": "node tools/build-daemon-exe.js"
+    "build:daemon-exe": "node tools/build-daemon-exe.js",
+    "test:daemon": "npm --prefix server run build && node --test tools/daemon/*.test.js",
+    "test:docs": "node --test tools/daemon/docs.test.js",
+    "test:integration:native-daemon": "node --test tools/daemon/native-daemon.integration.test.js"
   }
 }

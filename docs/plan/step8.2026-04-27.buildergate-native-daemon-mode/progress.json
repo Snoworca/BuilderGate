@@ -36,5 +36,115 @@
     "status": "completed",
     "completed_at": "2026-04-27",
     "medium_issues_count": 0
+  },
+  {
+    "step": "phase-1-implementation",
+    "status": "completed",
+    "completed_at": "2026-04-27",
+    "tests": [
+      "npm run test:daemon",
+      "npm test (server)"
+    ],
+    "review": "No findings",
+    "review_agent": "019dcbeb-a2c6-7971-ab04-bf743f9ae1bf"
+  },
+  {
+    "step": "phase-2-implementation",
+    "status": "completed",
+    "completed_at": "2026-04-27",
+    "tests": [
+      "npm run test:daemon",
+      "npm test (server)"
+    ],
+    "review": "No findings",
+    "review_agent": "019dcc46-8163-7e02-a645-01909901260c"
+  },
+  {
+    "step": "phase-3-implementation",
+    "status": "completed",
+    "completed_at": "2026-04-27",
+    "tests": [
+      "npm run test:daemon (55 tests)",
+      "npm test (server, 149 tests)"
+    ],
+    "review": "No findings",
+    "review_agent": "019dcc90-9316-7e40-bae4-3e80c7aae45f"
+  },
+  {
+    "step": "phase-4-implementation",
+    "status": "completed",
+    "completed_at": "2026-04-27",
+    "tests": [
+      "npm run test:daemon (60 tests)",
+      "npm test (server, 155 tests)"
+    ],
+    "review": "No findings",
+    "review_agent": "019dccc6-9248-7652-96e3-4fafec5daae9"
+  },
+  {
+    "step": "phase-5-implementation",
+    "status": "completed",
+    "completed_at": "2026-04-27",
+    "revalidated_at": "2026-04-27",
+    "tests": [
+      "node --test tools/daemon/process-info.test.js tools/daemon/stop-client.test.js (23 tests)",
+      "npm run test:daemon (95 tests)",
+      "npm test (server, 161 tests)"
+    ],
+    "review": "No findings",
+    "review_agent": "019dcd26-605f-77c2-98b6-6c0918596008",
+    "revalidation_review_agent": "019dcd57-5b53-7772-931e-db68aae22185",
+    "notes": "10초 단일 stop budget과 workspace flush evidence 검증을 보강했다."
+  },
+  {
+    "step": "phase-6-implementation",
+    "status": "completed",
+    "completed_at": "2026-04-27",
+    "tests": [
+      "node --check tools/daemon/sentinel.js; node --test tools/daemon/sentinel.test.js tools/daemon/stop-client.test.js (28 tests)",
+      "npm run test:daemon (93 tests)",
+      "npm test (server, 161 tests)"
+    ],
+    "review": "No findings",
+    "review_agent": "019dcd40-f570-7d61-ae35-44b5458d817a"
+  },
+  {
+    "step": "phase-7-implementation",
+    "status": "completed",
+    "completed_at": "2026-04-27",
+    "tests": [
+      "node --test tools/daemon/build-daemon-exe.test.js (10 tests)",
+      "npm run test:daemon (105 tests)",
+      "npm run build:daemon-exe",
+      "dist/bin artifact + PM2 absence + no dist/daemon check",
+      "README.md and dist/bin/README.md PM2-free grep",
+      "validateSourceDaemonInputs(), validateBuildOutput(dist/bin), packaged config path smoke",
+      "loadBootstrapConfigTemplate() Windows/Linux bootstrap defaults smoke",
+      "npm --prefix server test (161 tests)"
+    ],
+    "review": "No findings",
+    "review_agent": "019dcd6b-ed59-7692-b50c-4fbb20d9c009",
+    "notes": "PM2 runtime install 제거, dist/bin output validation, OS-aware packaged config generation, bundled Node 유지, PM2-free packaged README 검증을 추가했다."
+  },
+  {
+    "step": "phase-8-implementation",
+    "status": "completed",
+    "completed_at": "2026-04-27",
+    "tests": [
+      "npm run test:docs (3 tests)",
+      "npm run test:integration:native-daemon (4 tests)",
+      "npm run test:daemon (116 tests)",
+      "npm --prefix server test (162 tests)",
+      "npm run build:daemon-exe",
+      "validateBuildOutput(dist/bin)",
+      "source daemon smoke on 24565: start/health/stop PASS",
+      "packaged daemon smoke on 24566: start/health/BuilderGateStop PASS",
+      "curl -k https://localhost:2002/health (existing tsx dev server) PASS",
+      "orphan ProjectMaster native daemon process check PASS",
+      "git diff --check PASS (line-ending warnings only)"
+    ],
+    "review": "No findings",
+    "review_agent": "019dcd6b-ed59-7692-b50c-4fbb20d9c009",
+    "notes": "README/docs policy, docs tests, native-daemon integration harness, PTY foreground Ctrl+C flush integration, packaged sentinel entry, TOTP Web Crypto fallback, packaged runtime validation, cross-OS/cross-arch build target guard."
   }
 ]

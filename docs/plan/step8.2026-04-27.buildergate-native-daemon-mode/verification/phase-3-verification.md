@@ -8,14 +8,20 @@
 
 ## 필수 검증
 
-- [ ] 무인자 source production start가 daemon mode로 실행
-- [ ] 최소 sentinel child가 internal marker와 state PID를 남기고 `status=stopping`에서 종료 가능
-- [ ] parent가 readiness identity 확인 후 종료하고 app child는 유지
-- [ ] PM2 명령 호출 없음
-- [ ] 같은 실행 계약 재시작은 idempotent success
-- [ ] idempotent success에서 기존 appPid/sentinelPid가 유지됨
-- [ ] 다른 port/config/argv 재시작은 자동 교체 없이 실패
-- [ ] 무관 `/health` 200은 readiness success로 인정하지 않음
+- [x] 무인자 source production start가 daemon mode로 실행
+- [x] 최소 sentinel child가 internal marker와 state PID를 남기고 `status=stopping`에서 종료 가능
+- [x] parent가 readiness identity 확인 후 종료하고 app child는 유지
+- [x] PM2 명령 호출 없음
+- [x] 같은 실행 계약 재시작은 idempotent success
+- [x] idempotent success에서 기존 appPid/sentinelPid가 유지됨
+- [x] 다른 port/config/argv 재시작은 자동 교체 없이 실패
+- [x] 무관 `/health` 200은 readiness success로 인정하지 않음
+
+## 자동 검증 결과
+
+- 2026-04-27: `npm run test:daemon` 통과, 55개 테스트.
+- 2026-04-27: `Push-Location server; npm test; Pop-Location` 통과, 149개 테스트.
+- 2026-04-27: 코드 리뷰 서브에이전트 최종 판정 `No findings`.
 
 ## 수동 검증 후보
 

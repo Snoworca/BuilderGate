@@ -2,157 +2,44 @@ const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-function resolveRuntimeRoot() {
-  if (process.env.BUILDERGATE_ROOT) {
-    return path.resolve(process.env.BUILDERGATE_ROOT);
-  }
+const daemonCli = require('./daemon/cli');
+const { preflightConfig, resolveConfigModulePath } = require('./daemon/config-preflight');
+const daemonLauncher = require('./daemon/launcher');
+const { CONFIG_ENV_KEY, resolveRuntimePaths } = require('./daemon/runtime-paths');
+const { createFatalState, writeStateAtomic } = require('./daemon/state-store');
+const { runDaemonTotpPreflight } = require('./daemon/totp-preflight');
 
-  if (process.pkg) {
-    return path.dirname(process.execPath);
-  }
-
-  return path.resolve(__dirname, '..');
-}
-
-const ROOT = resolveRuntimeRoot();
+const RUNTIME_PATHS = resolveRuntimePaths();
+const ROOT = RUNTIME_PATHS.root;
 const FRONTEND_DIR = path.join(ROOT, 'frontend');
 const SERVER_DIR = path.join(ROOT, 'server');
 const FRONTEND_DIST_DIR = path.join(FRONTEND_DIR, 'dist');
 const FRONTEND_INDEX_HTML = path.join(FRONTEND_DIST_DIR, 'index.html');
 const SERVER_DIST_DIR = path.join(SERVER_DIR, 'dist');
 const SERVER_ENTRY = path.join(SERVER_DIST_DIR, 'index.js');
+const SERVER_STRICT_CONFIG_LOADER = resolveConfigModulePath(SERVER_DIR);
+const SERVER_DAEMON_TOTP_PREFLIGHT = path.join(SERVER_DIST_DIR, 'services', 'daemonTotpPreflight.js');
 const SERVER_PUBLIC_DIR = path.join(SERVER_DIST_DIR, 'public');
 const SERVER_PUBLIC_INDEX = path.join(SERVER_PUBLIC_DIR, 'index.html');
-const CONFIG_ENV_KEY = 'BUILDERGATE_CONFIG_PATH';
-const RUNTIME_CONFIG_PATH = resolveRuntimeConfigPath();
+const RUNTIME_CONFIG_PATH = RUNTIME_PATHS.configPath;
 const LOCAL_BIN_DIRS = [
   path.join(ROOT, 'node_modules', '.bin'),
   path.join(SERVER_DIR, 'node_modules', '.bin'),
 ];
 
 const APP_NAME = 'buildergate';
-const LEGACY_APP_NAMES = ['projectmaster'];
 const DEFAULT_PORT = 2222;
-
-function resolveRuntimeConfigPath() {
-  if (process.env[CONFIG_ENV_KEY]) {
-    return path.resolve(process.env[CONFIG_ENV_KEY]);
-  }
-
-  if (process.pkg) {
-    return path.join(ROOT, 'config.json5');
-  }
-
-  return path.join(SERVER_DIR, 'config.json5');
-}
 
 function getNpmCommand() {
   return process.platform === 'win32' ? 'npm.cmd' : 'npm';
 }
 
-function getPm2Command() {
-  const commandName = process.platform === 'win32' ? 'pm2.cmd' : 'pm2';
-  const localCandidates = LOCAL_BIN_DIRS.map((binDir) => path.join(binDir, commandName));
-
-  for (const candidate of localCandidates) {
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  return commandName;
-}
-
-function getPathKey(env) {
-  return Object.keys(env).find((key) => key.toLowerCase() === 'path') ?? 'PATH';
-}
-
 function withLocalBinPath(env) {
-  const pathKey = getPathKey(env);
-  const existingPath = env[pathKey] ?? '';
-  const localPath = LOCAL_BIN_DIRS.filter((binDir) => fs.existsSync(binDir)).join(path.delimiter);
-  if (!localPath) {
-    return env;
-  }
-
-  return {
-    ...env,
-    [pathKey]: existingPath ? `${localPath}${path.delimiter}${existingPath}` : localPath,
-  };
-}
-
-function getLocalNodeInterpreter() {
-  const commandName = process.platform === 'win32' ? 'node.exe' : 'node';
-  for (const binDir of LOCAL_BIN_DIRS) {
-    const candidate = path.join(binDir, commandName);
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  return null;
-}
-
-function parseBootstrapAllowIps(value) {
-  return value
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+  return daemonLauncher.withLocalBinPath(env, LOCAL_BIN_DIRS);
 }
 
 function parseArgs(argv) {
-  let cliPort = null;
-  let resetPassword = false;
-  const bootstrapAllowedIps = [];
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const current = argv[index];
-
-    if ((current === '--help') || (current === '-h')) {
-      if (process.pkg) {
-        console.log(`Usage: ${path.basename(process.execPath)} [-p <port>] [--reset-password] [--bootstrap-allow-ip <ip[,ip]>]`);
-      } else {
-        console.log('Usage: start.sh [-p <port>] [--reset-password] [--bootstrap-allow-ip <ip[,ip]>]');
-        console.log('   or: start.bat -p <port> [--reset-password] [--bootstrap-allow-ip <ip[,ip]>]');
-      }
-      console.log('');
-      console.log('Options:');
-      console.log('  -p, --port                Override HTTPS port');
-      console.log('  --reset-password          Clear auth.password in config.json5 before launch');
-      console.log('  --bootstrap-allow-ip      Temporarily allow specific IP(s) for initial password bootstrap');
-      process.exit(0);
-    }
-
-    if ((current === '-p' || current === '--port') && argv[index + 1]) {
-      cliPort = Number.parseInt(argv[index + 1], 10);
-      index += 1;
-      continue;
-    }
-
-    if (current === '--reset-password') {
-      resetPassword = true;
-      continue;
-    }
-
-    if (current === '--bootstrap-allow-ip') {
-      const next = argv[index + 1];
-      if (!next) {
-        throw new Error('--bootstrap-allow-ip requires an IP value');
-      }
-      bootstrapAllowedIps.push(...parseBootstrapAllowIps(next));
-      index += 1;
-    }
-  }
-
-  if (cliPort !== null && (!Number.isInteger(cliPort) || cliPort < 1024 || cliPort > 65535)) {
-    throw new Error(`-p/--port must be between 1024 and 65535 (got: ${cliPort})`);
-  }
-
-  return {
-    cliPort,
-    resetPassword,
-    bootstrapAllowedIps: [...new Set(bootstrapAllowedIps)],
-  };
+  return daemonCli.parseArgs(argv);
 }
 
 function loadConfigPort() {
@@ -350,7 +237,12 @@ function resetPasswordInConfigFile(configPath = RUNTIME_CONFIG_PATH) {
 }
 
 function hasDeploymentArtifacts() {
-  return fs.existsSync(SERVER_ENTRY) && fs.existsSync(SERVER_PUBLIC_INDEX);
+  return (
+    fs.existsSync(SERVER_ENTRY)
+    && fs.existsSync(SERVER_STRICT_CONFIG_LOADER)
+    && fs.existsSync(SERVER_DAEMON_TOTP_PREFLIGHT)
+    && fs.existsSync(SERVER_PUBLIC_INDEX)
+  );
 }
 
 function ensureSafePublicTarget(targetPath) {
@@ -423,110 +315,102 @@ function ensureDependenciesAndBuild() {
   console.log(`[start] Frontend assets staged into ${SERVER_PUBLIC_DIR}`);
 }
 
-function isPm2Installed() {
+function createRuntimeEnv(port, bootstrapAllowedIps = [], baseEnv = process.env, paths = RUNTIME_PATHS) {
+  return daemonLauncher.createRuntimeEnv(port, bootstrapAllowedIps, baseEnv, paths, LOCAL_BIN_DIRS);
+}
+
+function createForegroundLaunchOptions(port, bootstrapAllowedIps = [], paths = RUNTIME_PATHS) {
+  return daemonLauncher.createForegroundLaunchOptions(port, bootstrapAllowedIps, paths, {
+    localBinDirs: LOCAL_BIN_DIRS,
+  });
+}
+
+function startForeground(port, source, bootstrapAllowedIps = [], paths = RUNTIME_PATHS, options = {}) {
+  return daemonLauncher.startForeground(port, source, bootstrapAllowedIps, paths, {
+    localBinDirs: LOCAL_BIN_DIRS,
+    ...options,
+  });
+}
+
+async function startDaemon(port, source, bootstrapAllowedIps = [], paths = RUNTIME_PATHS, options = {}) {
+  return daemonLauncher.startDaemon(port, source, bootstrapAllowedIps, paths, {
+    localBinDirs: LOCAL_BIN_DIRS,
+    ...options,
+  });
+}
+
+async function runStrictConfigPreflight(options = {}) {
+  const paths = options.paths ?? RUNTIME_PATHS;
   try {
-    runCommand(getPm2Command(), ['-v'], {
-      stdio: 'ignore',
-      label: 'pm2 version check',
+    return await preflightConfig({
+      paths,
+      platform: options.platform ?? process.platform,
     });
-    return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if ((options.mode ?? 'daemon') === 'daemon') {
+      const existing = options.inspectExistingDaemon
+        ? await options.inspectExistingDaemon(paths)
+        : await daemonLauncher.inspectExistingDaemon(paths);
+      const active = options.isExistingDaemonActive
+        ? await options.isExistingDaemonActive(existing.state)
+        : existing.active || existing.status === 'unknown';
+      if (active) {
+        throw error;
+      }
+
+      const fatalState = createFatalState({
+        stage: 'preflight',
+        message: error instanceof Error ? error.message : String(error),
+        paths,
+        port: null,
+      });
+      writeStateAtomic(paths.statePath, fatalState);
+    }
+    throw error;
   }
 }
 
-function ensurePm2Installed() {
-  if (isPm2Installed()) {
-    console.log('[start] pm2 already installed.');
+async function main() {
+  const parsedArgs = parseArgs(process.argv.slice(2));
+  if (process.env.BUILDERGATE_INTERNAL_MODE === 'sentinel' || parsedArgs.internalSentinel) {
+    daemonLauncher.runSentinelLoop();
     return;
   }
 
-  console.log('[start] pm2 not found. Installing globally...');
-  runCommand(getNpmCommand(), ['install', '-g', 'pm2'], {
-    label: 'npm install -g pm2',
-  });
-}
-
-function getPm2ProcessList() {
-  const result = runCommand(getPm2Command(), ['jlist'], {
-    captureOutput: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    label: 'pm2 jlist',
-  });
-
-  const stdout = (result.stdout || '').trim();
-  if (!stdout) {
-    return [];
+  if (parsedArgs.help) {
+    console.log(daemonCli.formatHelp({
+      executableName: process.pkg ? path.basename(process.execPath) : 'start.sh',
+      packaged: Boolean(process.pkg),
+    }));
+    return;
   }
 
-  return JSON.parse(stdout);
-}
-
-function hasPm2App(appName) {
-  return getPm2ProcessList().some((app) => app.name === appName);
-}
-
-function deletePm2App(appName, env) {
-  runCommand(getPm2Command(), ['delete', appName], {
-    env,
-    label: `pm2 delete ${appName}`,
-  });
-}
-
-function startWithPm2(port, source, bootstrapAllowedIps = []) {
-  const env = withLocalBinPath({
-    ...process.env,
-    NODE_ENV: 'production',
-    PORT: String(port),
-    [CONFIG_ENV_KEY]: RUNTIME_CONFIG_PATH,
-  });
-  if (bootstrapAllowedIps.length > 0) {
-    env.BUILDERGATE_BOOTSTRAP_ALLOWED_IPS = bootstrapAllowedIps.join(',');
-  }
-
-  if (hasPm2App(APP_NAME)) {
-    console.log(`[start] Removing existing pm2 app "${APP_NAME}" before redeploy.`);
-    deletePm2App(APP_NAME, env);
-  }
-
-  for (const legacyAppName of LEGACY_APP_NAMES) {
-    if (hasPm2App(legacyAppName)) {
-      console.log(`[start] Removing legacy pm2 app "${legacyAppName}" before starting "${APP_NAME}".`);
-      deletePm2App(legacyAppName, env);
-    }
-  }
-
-  console.log(`[start] Starting pm2 app "${APP_NAME}" on port ${port} (${source})...`);
-  const startArgs = ['start', 'dist/index.js', '--name', APP_NAME, '--cwd', SERVER_DIR, '--time'];
-  const localNodeInterpreter = getLocalNodeInterpreter();
-  if (localNodeInterpreter) {
-    startArgs.push('--interpreter', localNodeInterpreter);
-  }
-
-  runCommand(getPm2Command(), startArgs, {
-    env,
-    label: `pm2 start ${APP_NAME}`,
-  });
-
-  runCommand(getPm2Command(), ['status', APP_NAME], {
-    env,
-    label: `pm2 status ${APP_NAME}`,
-  });
-}
-
-function main() {
-  const { cliPort, resetPassword, bootstrapAllowedIps } = parseArgs(process.argv.slice(2));
-  const { port, source } = resolvePort(cliPort);
-
-  if (resetPassword) {
-    resetPasswordInConfigFile();
-  }
+  const { cliPort, resetPassword, bootstrapAllowedIps } = parsedArgs;
 
   ensureDependenciesAndBuild();
-  ensurePm2Installed();
-  startWithPm2(port, source, bootstrapAllowedIps);
+  const preflight = await runStrictConfigPreflight({ mode: parsedArgs.mode });
+  const { port, source } = resolvePort(cliPort, preflight.config.server.port);
 
-  console.log('[start] Deployed in background with pm2.');
+  if (parsedArgs.mode === 'foreground') {
+    process.exitCode = await startForeground(port, source, bootstrapAllowedIps);
+    return;
+  }
+
+  const exitCode = await startDaemon(port, source, bootstrapAllowedIps, RUNTIME_PATHS, {
+    beforeSpawn: resetPassword ? () => resetPasswordInConfigFile() : undefined,
+    requiresFreshStart: resetPassword,
+    freshStartReason: '--reset-password requires a new daemon process so the cleared password can take effect.',
+    daemonPreflight: ({ paths }) => runDaemonTotpPreflight({
+      paths,
+      config: preflight.config,
+    }),
+  });
+  process.exitCode = exitCode;
+  if (exitCode !== 0) {
+    return;
+  }
+
+  console.log('[start] Deployed in background with native daemon.');
   console.log(`[start] App name: ${APP_NAME}`);
   console.log(`[start] Config: ${RUNTIME_CONFIG_PATH}`);
   console.log(`[start] HTTPS: https://localhost:${port}`);
@@ -537,24 +421,27 @@ function main() {
 }
 
 if (require.main === module) {
-  try {
-    main();
-  } catch (error) {
+  main().catch((error) => {
     console.error('[start] Failed:', error instanceof Error ? error.message : error);
     process.exit(1);
-  }
+  });
 }
 
 module.exports = {
   APP_NAME,
   CONFIG_ENV_KEY,
   DEFAULT_PORT,
-  parseBootstrapAllowIps,
+  parseBootstrapAllowIps: daemonCli.parseBootstrapAllowIps,
   parseArgs,
   loadConfigPort,
   resolvePort,
   hasDeploymentArtifacts,
   resetPasswordInConfigContent,
   resetPasswordInConfigFile,
+  createRuntimeEnv,
+  createForegroundLaunchOptions,
+  runStrictConfigPreflight,
+  startDaemon,
+  startForeground,
   main,
 };

@@ -2,6 +2,10 @@ import type { Config } from '../types/config.types.js';
 import type { EditableSettingsKey } from '../types/settings.types.js';
 import type { CryptoService } from './CryptoService.js';
 import { TOTPService } from './TOTPService.js';
+import path from 'path';
+
+const TOTP_SECRET_PATH_ENV_KEY = 'BUILDERGATE_TOTP_SECRET_PATH';
+const SUPPRESS_TOTP_QR_ENV_KEY = 'BUILDERGATE_SUPPRESS_TOTP_QR';
 
 interface ReconcileTotpRuntimeArgs {
   currentService?: TOTPService;
@@ -9,6 +13,8 @@ interface ReconcileTotpRuntimeArgs {
   cryptoService: CryptoService;
   changedKeys?: EditableSettingsKey[];
   secretFilePath?: string;
+  suppressConsoleQr?: boolean;
+  initialStartup?: boolean;
 }
 
 interface ReconcileTotpRuntimeResult {
@@ -22,13 +28,23 @@ export function reconcileTotpRuntime({
   cryptoService,
   changedKeys = [],
   secretFilePath,
+  suppressConsoleQr,
+  initialStartup = false,
 }: ReconcileTotpRuntimeArgs): ReconcileTotpRuntimeResult {
   if (!nextConfig.twoFactor?.enabled) {
     currentService?.destroy();
     return { service: undefined, warnings: [] };
   }
 
-  const nextService = new TOTPService(nextConfig.twoFactor, cryptoService, secretFilePath);
+  const resolvedSecretFilePath = resolveTotpSecretFilePath(secretFilePath);
+  const nextService = new TOTPService(
+    nextConfig.twoFactor,
+    cryptoService,
+    resolvedSecretFilePath,
+    {
+      suppressConsoleQr: suppressConsoleQr ?? process.env[SUPPRESS_TOTP_QR_ENV_KEY] === '1',
+    },
+  );
   const warnings: string[] = [];
 
   try {
@@ -37,6 +53,11 @@ export function reconcileTotpRuntime({
     return { service: nextService, warnings };
   } catch (error) {
     console.error('[TOTP] Failed to initialize TOTPService:', error);
+
+    if (initialStartup) {
+      nextService.destroy();
+      throw error;
+    }
 
     if (changedKeys.length > 0 && currentService?.isRegistered()) {
       nextService.destroy();
@@ -52,4 +73,13 @@ export function reconcileTotpRuntime({
     );
     return { service: nextService, warnings };
   }
+}
+
+export function resolveTotpSecretFilePath(secretFilePath?: string): string | undefined {
+  const configuredPath = secretFilePath ?? process.env[TOTP_SECRET_PATH_ENV_KEY]?.trim();
+  if (!configuredPath) {
+    return undefined;
+  }
+
+  return path.resolve(path.normalize(configuredPath));
 }

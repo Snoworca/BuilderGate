@@ -19,6 +19,9 @@ import {
   normalizeRawConfigForPlatform,
 } from './ptyPlatformPolicy.js';
 import { renderBootstrapConfigTemplate } from './configTemplate.js';
+import { loadConfigFromPathStrict } from './configStrictLoader.js';
+
+export { loadConfigFromPathStrict };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -200,6 +203,11 @@ function ensureConfigExists(configPath: string, platform: NodeJS.Platform = proc
   console.log('[Config] Initial administrator password must be configured in the browser bootstrap flow.');
 }
 
+function readNormalizedRawConfig(configPath: string): Record<string, unknown> {
+  const configContent = readFileSync(configPath, 'utf-8');
+  return normalizeAuthPasswordState(JSON5.parse(configContent));
+}
+
 /**
  * Load and validate configuration from config.json5
  * Uses Zod schema for validation and default values
@@ -208,17 +216,15 @@ function ensureConfigExists(configPath: string, platform: NodeJS.Platform = proc
 export function loadConfigFromPath(configPath: string, platform: NodeJS.Platform = process.platform): Config {
   try {
     ensureConfigExists(configPath, platform);
-    const configContent = readFileSync(configPath, 'utf-8');
-    const rawConfig = normalizeAuthPasswordState(JSON5.parse(configContent));
+    const rawConfig = readNormalizedRawConfig(configPath);
 
     // Encrypt passwords if they're plaintext
     try {
       encryptPasswordsInConfig(configPath, rawConfig);
 
       // Reload config after encryption
-      const updatedContent = readFileSync(configPath, 'utf-8');
       const updatedRawConfig = normalizeRawConfigForPlatform(
-        normalizeAuthPasswordState(JSON5.parse(updatedContent)),
+        readNormalizedRawConfig(configPath),
         platform,
       );
 

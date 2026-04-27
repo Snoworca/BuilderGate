@@ -21,7 +21,7 @@ import qrcode from 'qrcode-terminal';
 import QRCode from 'qrcode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { randomUUID } from 'crypto';
+import { randomUUID, webcrypto } from 'crypto';
 import type { CryptoService } from './CryptoService.js';
 import type { TwoFactorConfig } from '../types/config.types.js';
 import type { OTPData } from '../types/auth.types.js';
@@ -33,9 +33,34 @@ const TOTP_WINDOW = 1; // NFR-304: ±1 time step (±30 seconds)
 const OTP_EXPIRY_MS = 300000; // 5 minutes
 const MAX_PENDING_AUTH = 100;
 
+export type ConsoleQrWriter = (uri: string, options: { small: boolean }) => void;
+
+export interface TOTPServiceOptions {
+  suppressConsoleQr?: boolean;
+  qrCodeWriter?: ConsoleQrWriter;
+}
+
+const DEFAULT_CONSOLE_QR_WRITER: ConsoleQrWriter = (uri, options) => {
+  qrcode.generate(uri, options);
+};
+
+function ensureWebCryptoGetRandomValues(): void {
+  if (typeof globalThis.crypto?.getRandomValues === 'function') {
+    return;
+  }
+
+  Object.defineProperty(globalThis, 'crypto', {
+    configurable: true,
+    enumerable: true,
+    value: webcrypto,
+  });
+}
+
 export class TOTPService {
   private secret: string | null = null;
   private registered: boolean = false;
+  private readonly suppressConsoleQr: boolean;
+  private readonly qrCodeWriter: ConsoleQrWriter;
   private readonly otpStore = new Map<string, OTPData>();
   // ⚠️ lastUsedStep은 TOTPService 멤버가 아님 — OTPData.totpLastUsedStep 필드로 관리 (NFR-105)
   // 이유: tempToken마다 별도 추적 필요, TOTPService 멤버로 관리 시 단일 세션만 지원
@@ -43,8 +68,12 @@ export class TOTPService {
   constructor(
     private readonly config: Pick<TwoFactorConfig, 'enabled' | 'issuer' | 'accountName'>,
     private readonly cryptoService: CryptoService,
-    private readonly secretFilePath: string = DEFAULT_SECRET_FILE_PATH
-  ) {}
+    private readonly secretFilePath: string = DEFAULT_SECRET_FILE_PATH,
+    options: TOTPServiceOptions = {},
+  ) {
+    this.suppressConsoleQr = options.suppressConsoleQr ?? false;
+    this.qrCodeWriter = options.qrCodeWriter ?? DEFAULT_CONSOLE_QR_WRITER;
+  }
 
   /**
    * Initialize TOTP service: load existing secret or generate new one.
@@ -59,12 +88,12 @@ export class TOTPService {
     } else {
       try {
         this.loadSecret();
-        this.printQRCode();
       } catch (err) {
         console.error('[TOTP] TOTP secret file is corrupted or cannot be decrypted.');
         console.error('[TOTP] Delete data/totp.secret and restart to re-register.');
         throw err;
       }
+      this.printQRCode();
     }
   }
 
@@ -72,6 +101,7 @@ export class TOTPService {
    * FR-201: Generate a new TOTP secret, encrypt and save to file.
    */
   private createAndSaveSecret(): void {
+    ensureWebCryptoGetRandomValues();
     const newSecret = generateSecret(); // BASE32, 20 bytes
 
     const dir = path.dirname(this.secretFilePath);
@@ -113,13 +143,15 @@ export class TOTPService {
    */
   printQRCode(): void {
     if (!this.secret) return;
+    if (this.suppressConsoleQr) return;
+
     const issuer = this.config.issuer ?? 'BuilderGate';
     const accountName = this.config.accountName ?? 'admin';
     // otplib v12: generateURI uses 'label' not 'accountName', format is "issuer:label"
     const uri = generateURI({ secret: this.secret, issuer, label: `${issuer}:${accountName}` });
 
     console.log('[TOTP] Google Authenticator QR Code:');
-    qrcode.generate(uri, { small: true });
+    this.qrCodeWriter(uri, { small: true });
     console.log(`[TOTP] Manual entry key: ${this.secret}`);
     console.log(`[TOTP] Issuer: ${issuer} | Account: ${accountName}`);
   }
