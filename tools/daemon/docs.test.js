@@ -12,10 +12,17 @@ test('root README documents native daemon build/run/foreground/stop/config/QR po
 });
 
 test('packaged README mirrors native daemon documentation policy', () => {
-  const packagedReadme = path.join(ROOT, 'dist', 'bin', 'README.md');
+  const packagedReadmes = [
+    path.join(ROOT, 'dist', 'bin', 'README.md'),
+    path.join(ROOT, 'dist', 'bin', 'win-arm64', 'README.md'),
+    path.join(ROOT, 'dist', 'bin', 'linux-arm64', 'README.md'),
+    path.join(ROOT, 'dist', 'bin', 'macos-arm64', 'README.md'),
+  ].filter((filePath) => fs.existsSync(filePath));
 
-  assert.equal(fs.existsSync(packagedReadme), true, 'dist/bin/README.md must exist after daemon exe build');
-  validateReadmeFile(packagedReadme, 'dist/bin/README.md');
+  assert.notEqual(packagedReadmes.length, 0, 'at least one packaged README.md must exist after daemon exe build');
+  for (const packagedReadme of packagedReadmes) {
+    validateReadmeFile(packagedReadme, path.relative(ROOT, packagedReadme));
+  }
 });
 
 test('README policy rejects production PM2 guidance', () => {

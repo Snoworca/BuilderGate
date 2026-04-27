@@ -3,7 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "build": "npm run build:daemon-all",
+    "build:daemon-all": "node tools/build-daemon-exe.js --all-arm64",
     "build:daemon-exe": "node tools/build-daemon-exe.js",
+    "build:daemon-win-arm64": "node tools/build-daemon-exe.js --profile win-arm64",
+    "build:daemon-linux-arm64": "node tools/build-daemon-exe.js --profile linux-arm64",
+    "build:daemon-mac-arm64": "node tools/build-daemon-exe.js --profile macos-arm64",
+    "build:daemon-macos-arm64": "node tools/build-daemon-exe.js --profile macos-arm64",
     "test:daemon": "npm --prefix server run build && node --test tools/daemon/*.test.js",
     "test:docs": "node --test tools/daemon/docs.test.js",
     "test:integration:native-daemon": "node --test tools/daemon/native-daemon.integration.test.js"
