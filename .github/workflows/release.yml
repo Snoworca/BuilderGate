@@ -1,0 +1,291 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - '*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      skip_release: ${{ steps.release.outputs.skip_release }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Resolve release tag
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="$(node -p "require('./package.json').version")"
+          if [[ -z "$version" ]]; then
+            echo "::error::package.json version is required"
+            exit 1
+          fi
+
+          marker="Created-by: BuilderGate release workflow"
+          skip_release="false"
+
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            tag="${GITHUB_REF_NAME}"
+            if [[ "$tag" != "$version" && "$tag" != "v$version" ]]; then
+              echo "::error::Tag '$tag' must match package.json version '$version' or 'v$version'"
+              exit 1
+            fi
+            tag_type="$(git cat-file -t "$tag" 2>/dev/null || true)"
+            if [[ "$tag_type" == "tag" ]] && git for-each-ref "refs/tags/$tag" --format='%(contents)' | grep -Fxq "$marker"; then
+              echo "Tag '$tag' was created by workflow_dispatch; skipping duplicate tag-push release run."
+              skip_release="true"
+            fi
+          else
+            tag="v$version"
+            git fetch --tags origin
+            if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+              echo "Release tag '$tag' already exists on origin; reusing it."
+              tag_version="$(git show "$tag:package.json" | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")"
+              if [[ "$tag_version" != "$version" ]]; then
+                echo "::error::Existing tag '$tag' points to package.json version '$tag_version', expected '$version'"
+                exit 1
+              fi
+            else
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git tag -a "$tag" -m "BuilderGate $tag" -m "$marker"
+              git push origin "refs/tags/$tag"
+            fi
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "skip_release=$skip_release" >> "$GITHUB_OUTPUT"
+          echo "Release tag: $tag"
+          echo "Package version: $version"
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: prepare
+    if: needs.prepare.outputs.skip_release != 'true'
+    runs-on: ${{ matrix.runner }}
+    concurrency:
+      group: release-${{ needs.prepare.outputs.tag }}-${{ matrix.target }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: win-amd64
+            profile: win-amd64
+            runner: windows-latest
+            npm_script: build:windows-amd64
+            archive: zip
+          - target: linux-amd64
+            profile: linux-amd64
+            runner: ubuntu-latest
+            npm_script: build:linux-amd64
+            archive: tar.gz
+          - target: win-arm64
+            profile: win-arm64
+            runner: windows-11-arm
+            npm_script: build:windows-arm64
+            archive: zip
+          - target: linux-arm64
+            profile: linux-arm64
+            runner: ubuntu-24.04-arm
+            npm_script: build:linux-arm64
+            archive: tar.gz
+          - target: macos-arm64
+            profile: macos-arm64
+            runner: macos-15
+            npm_script: build:macos-arm64
+            archive: zip
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+            server/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Install server dependencies
+        run: npm --prefix server ci
+
+      - name: Build ${{ matrix.target }}
+        run: npm run ${{ matrix.npm_script }}
+
+      - name: Create zip archive
+        if: matrix.archive == 'zip' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $version = '${{ needs.prepare.outputs.version }}'
+          $target = '${{ matrix.target }}'
+          $profile = '${{ matrix.profile }}'
+          $packageDirName = "BuilderGate-$target-$version"
+          $sourceDir = Join-Path 'dist/bin' "$profile-$version"
+          $releaseDir = 'release'
+          $packageDir = Join-Path $releaseDir $packageDirName
+          $archivePath = Join-Path $releaseDir "$packageDirName.zip"
+
+          if (-not (Test-Path -LiteralPath $sourceDir -PathType Container)) {
+            throw "Build output directory missing: $sourceDir"
+          }
+
+          Remove-Item -LiteralPath $releaseDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
+          Get-ChildItem -LiteralPath $sourceDir -Force | Copy-Item -Destination $packageDir -Recurse -Force
+          Compress-Archive -LiteralPath $packageDir -DestinationPath $archivePath -Force
+
+      - name: Create tar archive
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="${{ needs.prepare.outputs.version }}"
+          target="${{ matrix.target }}"
+          profile="${{ matrix.profile }}"
+          package_dir_name="BuilderGate-${target}-${version}"
+          source_dir="dist/bin/${profile}-${version}"
+          release_dir="release"
+          package_dir="${release_dir}/${package_dir_name}"
+          archive_path="${release_dir}/${package_dir_name}.tar.gz"
+
+          if [[ ! -d "$source_dir" ]]; then
+            echo "::error::Build output directory missing: $source_dir"
+            exit 1
+          fi
+
+          rm -rf "$release_dir"
+          mkdir -p "$package_dir"
+          cp -a "$source_dir"/. "$package_dir"/
+          tar -czf "$archive_path" -C "$release_dir" "$package_dir_name"
+
+      - name: Create macOS zip archive
+        if: matrix.archive == 'zip' && runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="${{ needs.prepare.outputs.version }}"
+          target="${{ matrix.target }}"
+          profile="${{ matrix.profile }}"
+          package_dir_name="BuilderGate-${target}-${version}"
+          source_dir="dist/bin/${profile}-${version}"
+          release_dir="release"
+          package_dir="${release_dir}/${package_dir_name}"
+          archive_path="${release_dir}/${package_dir_name}.zip"
+
+          if [[ ! -d "$source_dir" ]]; then
+            echo "::error::Build output directory missing: $source_dir"
+            exit 1
+          fi
+
+          rm -rf "$release_dir"
+          mkdir -p "$package_dir"
+          cp -a "$source_dir"/. "$package_dir"/
+          ditto -c -k --keepParent "$package_dir" "$archive_path"
+
+      - name: Upload release asset artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BuilderGate-${{ matrix.target }}-${{ needs.prepare.outputs.version }}
+          path: |
+            release/*.zip
+            release/*.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish GitHub Release
+    needs:
+      - prepare
+      - build
+    if: needs.prepare.outputs.skip_release != 'true'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-${{ needs.prepare.outputs.tag }}-publish
+      cancel-in-progress: false
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Resolve release notes
+        id: release_notes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          note_path="docs/release-note/${{ needs.prepare.outputs.tag }}.md"
+          if [[ -f "$note_path" ]]; then
+            echo "has_release_notes=true" >> "$GITHUB_OUTPUT"
+            echo "body_path=$note_path" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_release_notes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish release with repository notes
+        if: steps.release_notes.outputs.has_release_notes == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: BuilderGate ${{ needs.prepare.outputs.tag }}
+          body_path: ${{ steps.release_notes.outputs.body_path }}
+          files: |
+            release-assets/*.zip
+            release-assets/*.tar.gz
+          fail_on_unmatched_files: true
+          overwrite_files: true
+
+      - name: Publish release with generated notes
+        if: steps.release_notes.outputs.has_release_notes != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: BuilderGate ${{ needs.prepare.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            release-assets/*.zip
+            release-assets/*.tar.gz
+          fail_on_unmatched_files: true
+          overwrite_files: true
