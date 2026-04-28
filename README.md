@@ -356,20 +356,25 @@ node stop.js
 npm run build
 ```
 
-`npm run build`는 ARM64 배포본 3개를 모두 생성합니다.
+`npm run build`는 전체 지원 대상 배포본 5개를 모두 생성합니다. 대상별 산출물 디렉토리 이름은 `package.json`의 `version`을 붙인 `{target}-{version}` 형식입니다. Windows/Linux amd64는 필수 지원 대상이고, Windows/Linux/macOS ARM64는 추가 지원 대상입니다. macOS는 ARM64만 지원합니다.
 
-- `dist/bin/win-arm64/`: Windows ARM64 배포본입니다.
-- `dist/bin/linux-arm64/`: Linux ARM64 배포본입니다.
-- `dist/bin/macos-arm64/`: macOS ARM64 배포본입니다. 터미널용 raw 실행파일과 `BuilderGate.app` 앱 번들을 함께 포함합니다.
+- `dist/bin/win-amd64-0.1.0/`: Windows amd64 배포본입니다.
+- `dist/bin/linux-amd64-0.1.0/`: Linux amd64 배포본입니다.
+- `dist/bin/win-arm64-0.1.0/`: Windows ARM64 배포본입니다.
+- `dist/bin/linux-arm64-0.1.0/`: Linux ARM64 배포본입니다.
+- `dist/bin/macos-arm64-0.1.0/`: macOS ARM64 배포본입니다. 터미널용 raw 실행파일과 `BuilderGate.app` 앱 번들을 함께 포함합니다.
 
 대상별로 하나만 빌드할 수도 있습니다.
 
 ```bash
-npm run build:daemon-win-arm64
-npm run build:daemon-linux-arm64
-npm run build:daemon-mac-arm64
-npm run build:daemon-macos-arm64
+npm run build:windows-amd64
+npm run build:linux-amd64
+npm run build:windows-arm64
+npm run build:linux-arm64
+npm run build:macos-arm64
 ```
+
+기존 `build:daemon-win-arm64`, `build:daemon-linux-arm64`, `build:daemon-mac-arm64`, `build:daemon-macos-arm64` 스크립트는 호환 alias로 유지됩니다.
 
 현재 빌드 머신과 같은 단일 기본 타깃을 기존 위치에 빌드하려면 다음 명령을 사용합니다.
 
@@ -377,7 +382,7 @@ npm run build:daemon-macos-arm64
 npm run build:daemon-exe
 ```
 
-단일 기본 빌드 결과는 `dist/bin/`에 생성되고, ARM64 대상별 빌드 결과는 `dist/bin/<target>/`에 생성됩니다.
+단일 기본 빌드 결과는 `dist/bin/`에 생성되고, 대상별 빌드 결과는 `dist/bin/<target>-<package-version>/`에 생성됩니다.
 
 - `BuilderGate.exe`: 기본적으로 BuilderGate를 네이티브 데몬/백그라운드 모드로 시작합니다.
 - `BuilderGateStop.exe`: 실행 중인 BuilderGate 네이티브 데몬을 내부 shutdown 프로토콜로 중지합니다.
@@ -392,7 +397,8 @@ EXE 실행:
 
 ```bat
 dist\bin\BuilderGate.exe
-dist\bin\win-arm64\BuilderGate.exe
+dist\bin\win-amd64-0.1.0\BuilderGate.exe
+dist\bin\win-arm64-0.1.0\BuilderGate.exe
 dist\bin\BuilderGate.exe -p 2002
 dist\bin\BuilderGate.exe --foreground -p 2002
 dist\bin\BuilderGate.exe --forground -p 2002
@@ -405,15 +411,17 @@ EXE 중지:
 
 ```bat
 dist\bin\BuilderGateStop.exe
-dist\bin\win-arm64\BuilderGateStop.exe
+dist\bin\win-amd64-0.1.0\BuilderGateStop.exe
+dist\bin\win-arm64-0.1.0\BuilderGateStop.exe
 ```
 
 non-Windows target으로 빌드한 경우 실행 파일 이름은 `buildergate`, stop utility는 `buildergate-stop`입니다.
 
 ```bash
 ./dist/bin/buildergate -p 2002
-./dist/bin/linux-arm64/buildergate -p 2002
-./dist/bin/macos-arm64/buildergate -p 2002
+./dist/bin/linux-amd64-0.1.0/buildergate -p 2002
+./dist/bin/linux-arm64-0.1.0/buildergate -p 2002
+./dist/bin/macos-arm64-0.1.0/buildergate -p 2002
 ./dist/bin/buildergate --foreground -p 2002
 ./dist/bin/buildergate-stop
 ```
@@ -421,16 +429,16 @@ non-Windows target으로 빌드한 경우 실행 파일 이름은 `buildergate`,
 macOS ARM64 배포본은 `BuilderGate.app`도 함께 제공합니다. Finder에서 앱을 실행하면 QR 출력이 보이도록 Terminal을 열어 내부 런타임을 실행합니다. 터미널에서 직접 실행할 때는 raw 실행파일 또는 app launcher를 사용할 수 있습니다.
 
 ```bash
-open ./dist/bin/macos-arm64/BuilderGate.app
-./dist/bin/macos-arm64/BuilderGate.app/Contents/MacOS/BuilderGate
+open ./dist/bin/macos-arm64-0.1.0/BuilderGate.app
+./dist/bin/macos-arm64-0.1.0/BuilderGate.app/Contents/MacOS/BuilderGate
 ```
 
 macOS ARM64 실행파일과 app bundle을 Windows/Linux에서 cross-build하면 서명되지 않을 수 있습니다. macOS에서 배포 또는 실행하기 전에는 macOS 머신에서 다음처럼 ad-hoc 서명을 적용하거나 macOS에서 직접 빌드해야 합니다.
 
 ```bash
-codesign --force --deep --sign - ./dist/bin/macos-arm64/BuilderGate.app
-codesign --sign - ./dist/bin/macos-arm64/buildergate
-codesign --sign - ./dist/bin/macos-arm64/buildergate-stop
+codesign --force --deep --sign - ./dist/bin/macos-arm64-0.1.0/BuilderGate.app
+codesign --sign - ./dist/bin/macos-arm64-0.1.0/buildergate
+codesign --sign - ./dist/bin/macos-arm64-0.1.0/buildergate-stop
 ```
 
 EXE 상태 확인:
@@ -443,6 +451,9 @@ curl -k https://localhost:2002/health
 
 ```bash
 node tools/build-daemon-exe.js --target node18-win-x64
+node tools/build-daemon-exe.js --profile win-amd64
 node tools/build-daemon-exe.js --profile win-arm64
+node tools/build-daemon-exe.js --required-amd64
+node tools/build-daemon-exe.js --all-supported
 node tools/build-daemon-exe.js --all-arm64
 ```

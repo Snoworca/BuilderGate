@@ -13,6 +13,7 @@ const {
 } = require('./daemon/icon-assets');
 
 const ROOT = path.resolve(__dirname, '..');
+const ROOT_PACKAGE = require(path.join(ROOT, 'package.json'));
 const FRONTEND_DIR = path.join(ROOT, 'frontend');
 const SERVER_DIR = path.join(ROOT, 'server');
 const FRONTEND_DIST_DIR = path.join(FRONTEND_DIR, 'dist');
@@ -27,7 +28,20 @@ const MAC_APP_EXECUTABLE_NAME = 'BuilderGate';
 const DEFAULT_EXECUTABLE_NAMES = getExecutableNames(process.platform);
 const APP_EXE_NAME = DEFAULT_EXECUTABLE_NAMES.appExeName;
 const STOP_EXE_NAME = DEFAULT_EXECUTABLE_NAMES.stopExeName;
-const ARM64_TARGET_PROFILES = Object.freeze({
+const PACKAGE_VERSION = String(ROOT_PACKAGE.version ?? '').trim();
+const TARGET_PROFILES = Object.freeze({
+  'win-amd64': {
+    profileName: 'win-amd64',
+    pkgTarget: 'node18-win-x64',
+    platform: 'win32',
+    arch: 'x64',
+  },
+  'linux-amd64': {
+    profileName: 'linux-amd64',
+    pkgTarget: 'node18-linux-x64',
+    platform: 'linux',
+    arch: 'x64',
+  },
   'win-arm64': {
     profileName: 'win-arm64',
     pkgTarget: 'node18-win-arm64',
@@ -48,11 +62,20 @@ const ARM64_TARGET_PROFILES = Object.freeze({
   },
 });
 const TARGET_PROFILE_ALIASES = Object.freeze({
+  'windows-amd64': 'win-amd64',
   'mac-arm64': 'macos-arm64',
   'darwin-arm64': 'macos-arm64',
   'windows-arm64': 'win-arm64',
 });
+const REQUIRED_AMD64_TARGETS = Object.freeze(['win-amd64', 'linux-amd64']);
 const ALL_ARM64_TARGETS = Object.freeze(['win-arm64', 'linux-arm64', 'macos-arm64']);
+const ALL_SUPPORTED_TARGETS = Object.freeze([
+  ...REQUIRED_AMD64_TARGETS,
+  ...ALL_ARM64_TARGETS,
+]);
+const ARM64_TARGET_PROFILES = Object.freeze(Object.fromEntries(
+  ALL_ARM64_TARGETS.map((profileName) => [profileName, TARGET_PROFILES[profileName]]),
+));
 const REQUIRED_SOURCE_FILES = [
   path.join('tools', 'start-runtime.js'),
   path.join('tools', 'daemon', 'sentinel.js'),
@@ -144,9 +167,17 @@ function cloneBuildTarget(target) {
   };
 }
 
+function versionedProfileOutputName(profileName, version = PACKAGE_VERSION) {
+  if (!version) {
+    throw new Error('package.json version is required for target output directory names');
+  }
+
+  return `${profileName}-${version}`;
+}
+
 function resolveTargetSpec(spec) {
   const normalizedProfileName = normalizeTargetProfileName(spec);
-  const profile = ARM64_TARGET_PROFILES[normalizedProfileName];
+  const profile = TARGET_PROFILES[normalizedProfileName];
   if (profile) {
     return cloneBuildTarget(profile);
   }
@@ -169,12 +200,12 @@ function resolveBuildTargets(options) {
   const useProfileSubdirs = targets.length > 1 || options.useProfileOutputDir === true;
 
   return targets.map((target) => {
-    const outputDir = useProfileSubdirs
-      ? path.join(options.outputDir, target.profileName)
+    const profileOutputDir = useProfileSubdirs
+      ? path.join(options.outputDir, versionedProfileOutputName(target.profileName))
       : options.outputDir;
     return {
       ...target,
-      outputDir: outputDirWasExplicit && targets.length === 1 ? options.outputDir : outputDir,
+      outputDir: outputDirWasExplicit && targets.length === 1 ? options.outputDir : profileOutputDir,
     };
   });
 }
@@ -193,12 +224,14 @@ function parseArgs(argv) {
     const current = argv[index];
 
     if (current === '--help' || current === '-h') {
-      console.log('Usage: node tools/build-daemon-exe.js [--target <pkg-target>|--profile <target-profile>|--all-arm64] [--output <dist-dir>] [--skip-runtime-install]');
+      console.log('Usage: node tools/build-daemon-exe.js [--target <pkg-target>|--profile <target-profile>|--all-supported|--required-amd64|--all-arm64] [--output <dist-dir>] [--skip-runtime-install]');
       console.log('');
       console.log('Builds daemon launcher executables plus a server runtime folder.');
       console.log(`Default target: ${options.target}`);
       console.log(`Default output: ${path.relative(ROOT, options.outputDir)}`);
-      console.log(`ARM64 profiles: ${ALL_ARM64_TARGETS.join(', ')}`);
+      console.log(`Required amd64 profiles: ${REQUIRED_AMD64_TARGETS.join(', ')}`);
+      console.log(`Additional ARM64 profiles: ${ALL_ARM64_TARGETS.join(', ')}`);
+      console.log(`All supported profiles: ${ALL_SUPPORTED_TARGETS.join(', ')}`);
       process.exit(0);
     }
 
@@ -231,6 +264,18 @@ function parseArgs(argv) {
 
     if (current === '--all-arm64') {
       options.targetSpecs = [...ALL_ARM64_TARGETS];
+      options.useProfileOutputDir = true;
+      continue;
+    }
+
+    if (current === '--required-amd64') {
+      options.targetSpecs = [...REQUIRED_AMD64_TARGETS];
+      options.useProfileOutputDir = true;
+      continue;
+    }
+
+    if (current === '--all-supported') {
+      options.targetSpecs = [...ALL_SUPPORTED_TARGETS];
       options.useProfileOutputDir = true;
       continue;
     }
@@ -653,13 +698,13 @@ function applyExecutableIcons(outputDir, platform, options = {}) {
   const svgPath = path.join(outputDir, ICON_SVG_NAME);
 
   assertPathExists(svgPath, ICON_SVG_NAME);
-  assertPathExists(icoPath, ICON_ICO_NAME);
 
   if (platform !== 'win32') {
     log(`[exe-build] Icon assets staged: ${svgPath}`);
     return;
   }
 
+  assertPathExists(icoPath, ICON_ICO_NAME);
   const rceditPath = ensureRceditExecutable({
     rceditPath: options.rceditPath,
     cacheDir: options.rceditCacheDir,
@@ -896,6 +941,7 @@ function validateBuildOutput(outputDir, options = {}) {
     [path.join(outputDir, stopExeName), stopExeName],
     [path.join(outputDir, 'server'), 'server runtime directory'],
     [path.join(outputDir, 'server', 'dist', 'index.js'), path.join('server', 'dist', 'index.js')],
+    [path.join(outputDir, 'server', 'dist', 'public', 'index.html'), path.join('server', 'dist', 'public', 'index.html')],
     [path.join(outputDir, 'server', 'node_modules', '.bin', nodeExeName), `bundled ${nodeExeName}`],
     ...DAEMON_RUNTIME_FILES.map(fileName => [
       path.join(outputDir, 'tools', 'daemon', fileName),
@@ -905,12 +951,15 @@ function validateBuildOutput(outputDir, options = {}) {
     [path.join(outputDir, 'config.json5.example'), 'config.json5.example'],
     [path.join(outputDir, 'README.md'), 'README.md'],
     [path.join(outputDir, ICON_SVG_NAME), ICON_SVG_NAME],
-    [path.join(outputDir, ICON_ICO_NAME), ICON_ICO_NAME],
-    [path.join(outputDir, ICON_ICNS_NAME), ICON_ICNS_NAME],
   ];
+
+  if (platform === 'win32') {
+    requiredPaths.push([path.join(outputDir, ICON_ICO_NAME), ICON_ICO_NAME]);
+  }
 
   if (platform === 'darwin') {
     requiredPaths.push(
+      [path.join(outputDir, ICON_ICNS_NAME), ICON_ICNS_NAME],
       [path.join(outputDir, MAC_APP_BUNDLE_NAME), MAC_APP_BUNDLE_NAME],
       [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Info.plist'), 'macOS app Info.plist'],
       [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'MacOS', MAC_APP_EXECUTABLE_NAME), 'macOS app launcher'],
@@ -918,6 +967,7 @@ function validateBuildOutput(outputDir, options = {}) {
       [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', appExeName), 'macOS app bundled daemon executable'],
       [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', stopExeName), 'macOS app bundled stop executable'],
       [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', 'server', 'dist', 'index.js'), 'macOS app server runtime'],
+      [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', 'server', 'dist', 'public', 'index.html'), 'macOS app frontend runtime'],
       [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', 'server', 'node_modules', '.bin', nodeExeName), `macOS app bundled ${nodeExeName}`],
       [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', 'config.json5'), 'macOS app config.json5'],
     );
@@ -930,6 +980,22 @@ function validateBuildOutput(outputDir, options = {}) {
   const pm2RuntimePath = path.join(outputDir, 'server', 'node_modules', 'pm2');
   if (fs.existsSync(pm2RuntimePath)) {
     throw new Error(`PM2 runtime dependency must not exist: ${pm2RuntimePath}`);
+  }
+
+  if (platform === 'darwin') {
+    const macAppPm2RuntimePath = path.join(
+      outputDir,
+      MAC_APP_BUNDLE_NAME,
+      'Contents',
+      'Resources',
+      'runtime',
+      'server',
+      'node_modules',
+      'pm2',
+    );
+    if (fs.existsSync(macAppPm2RuntimePath)) {
+      throw new Error(`PM2 runtime dependency must not exist: ${macAppPm2RuntimePath}`);
+    }
   }
 
   const readmePath = path.join(outputDir, 'README.md');
@@ -1003,6 +1069,7 @@ if (require.main === module) {
 module.exports = {
   APP_EXE_NAME,
   ALL_ARM64_TARGETS,
+  ALL_SUPPORTED_TARGETS,
   ARM64_TARGET_PROFILES,
   BROWSER_ICON_PATH,
   ICON_ICNS_NAME,
@@ -1012,10 +1079,13 @@ module.exports = {
   MAC_APP_EXECUTABLE_NAME,
   NODE_RUNTIME_CACHE_DIR,
   OUTPUT_DEFAULT,
+  PACKAGE_VERSION,
   RCEDIT_CACHE_DIR,
+  REQUIRED_AMD64_TARGETS,
   ROOT,
   STOP_EXE_NAME,
   DAEMON_RUNTIME_FILES,
+  TARGET_PROFILES,
   applyExecutableIcons,
   assertSafeOutputDir,
   assertSafeOutputRoot,
@@ -1044,4 +1114,5 @@ module.exports = {
   resolveTargetSpec,
   validateBuildOutput,
   validateSourceDaemonInputs,
+  versionedProfileOutputName,
 };

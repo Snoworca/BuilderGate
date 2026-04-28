@@ -4,8 +4,16 @@ const path = require('node:path');
 const test = require('node:test');
 
 const { validateReadmeContent, validateReadmeFile } = require('./docs-policy');
+const { PACKAGE_VERSION } = require('../build-daemon-exe');
 
 const ROOT = path.resolve(__dirname, '..', '..');
+const PACKAGED_README_TARGETS = [
+  'win-amd64',
+  'linux-amd64',
+  'win-arm64',
+  'linux-arm64',
+  'macos-arm64',
+];
 
 test('root README documents native daemon build/run/foreground/stop/config/QR policy', () => {
   validateReadmeFile(path.join(ROOT, 'README.md'), 'README.md');
@@ -14,9 +22,7 @@ test('root README documents native daemon build/run/foreground/stop/config/QR po
 test('packaged README mirrors native daemon documentation policy', () => {
   const packagedReadmes = [
     path.join(ROOT, 'dist', 'bin', 'README.md'),
-    path.join(ROOT, 'dist', 'bin', 'win-arm64', 'README.md'),
-    path.join(ROOT, 'dist', 'bin', 'linux-arm64', 'README.md'),
-    path.join(ROOT, 'dist', 'bin', 'macos-arm64', 'README.md'),
+    ...PACKAGED_README_TARGETS.map((target) => path.join(ROOT, 'dist', 'bin', `${target}-${PACKAGE_VERSION}`, 'README.md')),
   ].filter((filePath) => fs.existsSync(filePath));
 
   assert.notEqual(packagedReadmes.length, 0, 'at least one packaged README.md must exist after daemon exe build');
