@@ -1,7 +1,34 @@
 {
   "name": "buildergate",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
+  "bin": {
+    "buildergate": "tools/start-runtime.js"
+  },
+  "pkg": {
+    "scripts": [
+      "tools/start-runtime.js",
+      "tools/daemon/cli.js",
+      "tools/daemon/config-preflight.js",
+      "tools/daemon/launcher.js",
+      "tools/daemon/log.js",
+      "tools/daemon/process-info.js",
+      "tools/daemon/readiness.js",
+      "tools/daemon/runtime-paths.js",
+      "tools/daemon/sentinel-entry.js",
+      "tools/daemon/sentinel.js",
+      "tools/daemon/state-store.js",
+      "tools/daemon/stop-client.js",
+      "tools/daemon/totp-preflight.js",
+      "server/dist-pkg/*.cjs",
+      "server/node_modules/node-pty/lib/**/*.js"
+    ],
+    "assets": [
+      "server/node_modules/node-pty/package.json",
+      "server/node_modules/node-pty/prebuilds/**/*",
+      "server/node_modules/node-pty/build/Release/*.node"
+    ]
+  },
   "scripts": {
     "build": "npm run build:daemon-all",
     "build:daemon-all": "node tools/build-daemon-exe.js --all-supported",

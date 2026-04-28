@@ -52,6 +52,7 @@ const DAEMON_STATE_GENERATION = Number.parseInt(process.env.BUILDERGATE_DAEMON_S
 const TOTP_SECRET_FILE_PATH = process.env.BUILDERGATE_TOTP_SECRET_PATH;
 const SUPPRESS_TOTP_QR = process.env.BUILDERGATE_SUPPRESS_TOTP_QR === '1';
 const SHUTDOWN_TOKEN = process.env.BUILDERGATE_SHUTDOWN_TOKEN;
+const WEB_ROOT_ENV_KEY = 'BUILDERGATE_WEB_ROOT';
 
 // ============================================================================
 // Service Instances (initialized in startServer)
@@ -68,7 +69,9 @@ let workspaceService: WorkspaceService;
 let cwdSnapshotTimer: ReturnType<typeof setInterval> | null = null;
 let terminalObservabilityTimer: ReturnType<typeof setInterval> | null = null;
 
-const PRODUCTION_PUBLIC_DIR = path.join(getServerRoot(), 'dist', 'public');
+const PRODUCTION_PUBLIC_DIR = process.env[WEB_ROOT_ENV_KEY]?.trim()
+  ? path.resolve(process.env[WEB_ROOT_ENV_KEY]!)
+  : path.join(getServerRoot(), 'dist', 'public');
 const PRODUCTION_INDEX_HTML = path.join(PRODUCTION_PUBLIC_DIR, 'index.html');
 
 function isReservedRuntimePath(pathname: string): boolean {

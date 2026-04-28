@@ -83,11 +83,34 @@ function getRestartDecision(state, now, options = {}) {
 
 function pathsFromState(state, statePath, sentinelLogPath, options = {}) {
   const runtimeDir = path.dirname(statePath);
-  const root = path.dirname(state.serverCwd);
+  const launcherDir = path.dirname(state.launcherPath);
+  const root = path.basename(launcherDir) === 'tools'
+    ? path.dirname(launcherDir)
+    : path.basename(state.serverCwd) === 'server'
+      ? path.dirname(state.serverCwd)
+      : state.serverCwd;
+  const serverDir = path.dirname(path.dirname(state.serverEntryPath));
+  const isPackaged = state.nodeBinPath === state.launcherPath || Boolean(process.pkg);
+  const webDir = isPackaged
+    ? path.join(root, 'web')
+    : path.join(serverDir, 'dist', 'public');
+  const shellIntegrationDir = isPackaged
+    ? path.join(root, 'shell-integration')
+    : path.join(serverDir, 'dist', 'shell-integration');
   return {
     root,
-    serverDir: state.serverCwd,
+    serverDir,
+    serverCwd: state.serverCwd,
     serverEntry: state.serverEntryPath,
+    configLoaderEntry: isPackaged
+      ? path.join(serverDir, 'dist-pkg', 'configStrictLoader.cjs')
+      : path.join(serverDir, 'dist', 'utils', 'configStrictLoader.js'),
+    daemonTotpPreflightEntry: isPackaged
+      ? path.join(serverDir, 'dist-pkg', 'daemonTotpPreflight.cjs')
+      : path.join(serverDir, 'dist', 'services', 'daemonTotpPreflight.js'),
+    shellIntegrationDir,
+    serverPublicDir: webDir,
+    webDir,
     nodeBin: state.nodeBinPath,
     configPath: state.configPath,
     statePath,
@@ -95,7 +118,7 @@ function pathsFromState(state, statePath, sentinelLogPath, options = {}) {
     sentinelLogPath: sentinelLogPath ?? path.join(runtimeDir, SENTINEL_LOG_FILE_NAME),
     launcherPath: state.launcherPath,
     totpSecretPath: state.totpSecretPath,
-    isPackaged: state.nodeBinPath !== process.execPath || Boolean(process.pkg),
+    isPackaged,
   };
 }
 

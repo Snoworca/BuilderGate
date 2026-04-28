@@ -60,6 +60,48 @@ test('validateDaemonAppProcess accepts matching process identity with fresh hear
   assert.equal(result.valid, true);
 });
 
+test('validateDaemonAppProcess accepts packaged internal app marker without server entry argument', async () => {
+  const state = createState({
+    nodeBinPath: path.join('C:', 'buildergate', 'BuilderGate.exe'),
+    serverCwd: path.join('C:', 'buildergate'),
+  });
+  const result = await validateDaemonAppProcess(state, {
+    now: new Date('2026-04-27T00:00:15.000Z'),
+    processInfoProvider: async () => ({
+      pid: state.appPid,
+      running: true,
+      executablePath: state.nodeBinPath,
+      commandLine: `"${state.nodeBinPath}" --internal-app`,
+      cwd: path.dirname(state.nodeBinPath),
+      startTime: '2026-04-27T00:00:09.500Z',
+    }),
+  });
+
+  assert.equal(result.valid, true);
+});
+
+test('validateDaemonAppProcess accepts packaged self executable without internal argv marker', async () => {
+  const launcherPath = path.join('C:', 'buildergate', 'BuilderGate.exe');
+  const state = createState({
+    launcherPath,
+    nodeBinPath: launcherPath,
+    serverCwd: path.dirname(launcherPath),
+  });
+  const result = await validateDaemonAppProcess(state, {
+    now: new Date('2026-04-27T00:00:15.000Z'),
+    processInfoProvider: async () => ({
+      pid: state.appPid,
+      running: true,
+      executablePath: state.nodeBinPath,
+      commandLine: `"${state.nodeBinPath}"`,
+      cwd: path.dirname(state.nodeBinPath),
+      startTime: '2026-04-27T00:00:09.500Z',
+    }),
+  });
+
+  assert.equal(result.valid, true);
+});
+
 test('validateDaemonAppProcess rejects stale heartbeat without treating it as killable fallback', async () => {
   const state = createState({ heartbeatAt: '2026-04-27T00:00:00.000Z' });
   const result = await validateDaemonAppProcess(state, {
@@ -155,6 +197,28 @@ test('validateDaemonSentinelProcess accepts packaged sentinel entry marker', asy
       executablePath: state.nodeBinPath,
       commandLine: `"${state.nodeBinPath}" "${sentinelEntryPath}" --internal-sentinel-state "${statePath}" --internal-sentinel-start ${state.startAttemptId}`,
       cwd: path.dirname(state.serverCwd),
+      startTime: '2026-04-27T00:00:09.500Z',
+    }),
+  });
+
+  assert.equal(result.valid, true);
+});
+
+test('validateDaemonSentinelProcess accepts packaged self executable without argv markers', async () => {
+  const launcherPath = path.join('C:', 'buildergate', 'BuilderGate.exe');
+  const state = createState({
+    launcherPath,
+    nodeBinPath: launcherPath,
+    serverCwd: path.dirname(launcherPath),
+  });
+  const result = await validateDaemonSentinelProcess(state, {
+    expectedStatePath: path.join(path.dirname(state.serverCwd), 'runtime', 'buildergate.daemon.json'),
+    processInfoProvider: async () => ({
+      pid: state.sentinelPid,
+      running: true,
+      executablePath: state.launcherPath,
+      commandLine: `"${state.launcherPath}"`,
+      cwd: state.serverCwd,
       startTime: '2026-04-27T00:00:09.500Z',
     }),
   });

@@ -7,16 +7,46 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import * as tls from 'tls';
 import * as crypto from 'crypto';
-import selfsigned from 'selfsigned';
 import type { SSLConfig, SSLCredentials, CertExpiryInfo } from '../types/config.types.js';
 import { SSL_DEFAULTS, TLS_CONFIG, CIPHER_SUITES } from '../utils/constants.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const MODULE_DIR = typeof __dirname === 'string'
+  ? __dirname
+  : dirname(fileURLToPath(import.meta.url));
+const SERVER_ROOT_ENV_KEY = 'BUILDERGATE_SERVER_ROOT';
+type SelfsignedModule = typeof import('selfsigned');
+
+let selfsignedModule: SelfsignedModule | null = null;
+
+async function loadSelfsigned(): Promise<SelfsignedModule> {
+  if (selfsignedModule) {
+    return selfsignedModule;
+  }
+
+  const globalScope = globalThis as Record<string, unknown>;
+  if (!globalScope.crypto && crypto.webcrypto) {
+    Object.defineProperty(globalThis, 'crypto', {
+      configurable: true,
+      enumerable: false,
+      value: crypto.webcrypto,
+      writable: false,
+    });
+  }
+
+  if (typeof require === 'function') {
+    const module = require('selfsigned') as SelfsignedModule & { default?: SelfsignedModule };
+    selfsignedModule = module.default ?? module;
+    return selfsignedModule;
+  }
+
+  const module = await import('selfsigned');
+  selfsignedModule = (module.default ?? module) as SelfsignedModule;
+  return selfsignedModule;
+}
 
 export class SSLService {
   private config: SSLConfig;
@@ -25,7 +55,9 @@ export class SSLService {
   constructor(config: SSLConfig) {
     this.config = config;
     // Server root is two levels up from services directory
-    this.serverRoot = join(__dirname, '../..');
+    this.serverRoot = process.env[SERVER_ROOT_ENV_KEY]?.trim()
+      ? resolve(process.env[SERVER_ROOT_ENV_KEY]!)
+      : join(MODULE_DIR, '../..');
   }
 
   /**
@@ -117,6 +149,7 @@ export class SSLService {
       { shortName: 'O', value: 'BuilderGate' },
       { shortName: 'OU', value: 'Development' }
     ];
+    const selfsigned = await loadSelfsigned();
 
     // Calculate validity dates
     const notBeforeDate = new Date();

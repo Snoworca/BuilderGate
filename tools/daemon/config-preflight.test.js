@@ -6,33 +6,48 @@ const test = require('node:test');
 
 const { preflightConfig } = require('./config-preflight');
 
-test('preflightConfig rejects invalid existing config without default fallback', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'buildergate-config-preflight-invalid-'));
-  const configPath = path.join(dir, 'config.json5');
-  fs.writeFileSync(configPath, '{ server: ', 'utf8');
+function createFixturePaths(prefix = 'buildergate-config-preflight-') {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const serverDir = path.join(root, 'server');
+  fs.mkdirSync(path.join(serverDir, 'dist-pkg'), { recursive: true });
 
-  await assert.rejects(
-    () => preflightConfig({
-      paths: {
-        configPath,
-        serverDir: path.resolve('server'),
-      },
-    }),
-    /invalid|JSON5|Configuration/i,
-  );
+  return {
+    root,
+    serverDir,
+    configPath: path.join(root, 'config.json5'),
+  };
+}
+
+test('preflightConfig requires packaged CJS config loader when packaged path is supplied', async () => {
+  const paths = createFixturePaths('buildergate-config-preflight-packaged-');
+  paths.isPackaged = true;
+  paths.configLoaderEntry = path.join(paths.serverDir, 'dist-pkg', 'configStrictLoader.cjs');
+  fs.writeFileSync(paths.configPath, '{ server: { port: 2456 } }\n', 'utf8');
+  fs.writeFileSync(paths.configLoaderEntry, `
+exports.loadConfigFromPathStrict = function loadConfigFromPathStrict(configPath, platform) {
+  return {
+    server: { port: 2456 },
+    configPath,
+    platform,
+  };
+};
+`, 'utf8');
+
+  const result = await preflightConfig({ paths, platform: 'win32' });
+
+  assert.equal(result.config.server.port, 2456);
+  assert.equal(result.config.configPath, paths.configPath);
+  assert.equal(result.config.platform, 'win32');
+  assert.equal(result.paths, paths);
 });
 
-test('preflightConfig allows missing config bootstrap through the server strict loader', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'buildergate-config-preflight-missing-'));
-  const configPath = path.join(dir, 'config.json5');
+test('preflightConfig fails clearly when packaged CJS config loader is missing', async () => {
+  const paths = createFixturePaths('buildergate-config-preflight-missing-');
+  paths.isPackaged = true;
+  paths.configLoaderEntry = path.join(paths.serverDir, 'dist-pkg', 'configStrictLoader.cjs');
 
-  const result = await preflightConfig({
-    paths: {
-      configPath,
-      serverDir: path.resolve('server'),
-    },
-  });
-
-  assert.equal(result.config.server.port, 2002);
-  assert.equal(fs.existsSync(configPath), true);
+  await assert.rejects(
+    () => preflightConfig({ paths }),
+    /Strict config loader is not built/u,
+  );
 });

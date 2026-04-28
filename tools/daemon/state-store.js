@@ -157,7 +157,7 @@ function makeStateBase({ appName = 'buildergate', mode = 'daemon', paths, port =
     mode,
     launcherPath: paths.launcherPath,
     serverEntryPath: paths.serverEntry ?? paths.serverEntryPath,
-    serverCwd: paths.serverDir ?? paths.serverCwd,
+    serverCwd: paths.serverCwd ?? paths.serverDir,
     nodeBinPath: paths.nodeBin ?? paths.nodeBinPath,
     configPath: paths.configPath,
     totpSecretPath: paths.totpSecretPath,

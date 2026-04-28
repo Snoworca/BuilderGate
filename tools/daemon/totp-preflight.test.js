@@ -57,6 +57,40 @@ export async function runDaemonTotpPreflight(options) {
   assert.equal(result.suppressConsoleQr, true);
 });
 
+test('runDaemonTotpPreflight requires packaged CJS helper when packaged path is supplied', async () => {
+  const paths = createFixturePaths('buildergate-totp-preflight-packaged-');
+  paths.isPackaged = true;
+  paths.daemonTotpPreflightEntry = path.join(paths.serverDir, 'dist-pkg', 'daemonTotpPreflight.cjs');
+  fs.mkdirSync(path.dirname(paths.daemonTotpPreflightEntry), { recursive: true });
+  fs.writeFileSync(paths.daemonTotpPreflightEntry, `
+exports.runDaemonTotpPreflight = async function runDaemonTotpPreflight(options) {
+  return {
+    enabled: true,
+    configPath: options.configPath,
+    secretFilePath: options.secretFilePath,
+    platform: options.platform,
+  };
+};
+`, 'utf8');
+
+  const result = await runDaemonTotpPreflight({
+    paths,
+    platform: 'linux',
+    config: {
+      twoFactor: {
+        enabled: true,
+        issuer: 'PackagedIssuer',
+        accountName: 'admin',
+      },
+    },
+  });
+
+  assert.equal(result.enabled, true);
+  assert.equal(result.configPath, paths.configPath);
+  assert.equal(result.secretFilePath, paths.totpSecretPath);
+  assert.equal(result.platform, 'linux');
+});
+
 test('runDaemonTotpPreflight fails clearly when the built server helper is missing', async () => {
   const paths = createFixturePaths('buildergate-totp-preflight-missing-');
 

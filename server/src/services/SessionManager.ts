@@ -2,6 +2,7 @@ import * as pty from 'node-pty';
 import { v4 as uuidv4 } from 'uuid';
 import os from 'os';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { unlinkSync, watchFile, unwatchFile, readFileSync, existsSync, statSync } from 'fs';
 import { execFile, execFileSync, execSync } from 'child_process';
 import { Session, SessionDTO, SessionStatus, UpdateSessionRequest, ShellType, ShellInfo } from '../types/index.js';
@@ -116,6 +117,7 @@ const AI_TUI_TYPING_FEEDBACK_THRESHOLD_MS = 1000;
 const AI_TUI_SUBMITTED_ECHO_THRESHOLD_MS = 1000;
 const AI_TUI_DECORATIVE_FRAME_RE = /^[\s─╰╯│┃┆┄┈┊·•]+$/;
 const AI_TUI_CURSOR_MOTION_RE = /\x1b\[[0-9;?]*[ABCDHJKfhlmnpsu]/;
+const SHELL_INTEGRATION_ROOT_ENV_KEY = 'BUILDERGATE_SHELL_INTEGRATION_ROOT';
 
 type ForegroundAppId = 'hermes' | 'codex' | 'claude';
 
@@ -1255,14 +1257,14 @@ export class SessionManager {
    */
   private getShellIntegrationPath(filename: string): string | null {
     try {
-      // ESM 환경: import.meta.url 기반
-      // 컴파일 후 dist/services/SessionManager.js → dist/shell-integration/
-      const currentFileUrl = new URL(import.meta.url);
-      let currentDir = path.dirname(currentFileUrl.pathname);
-      // Windows에서 URL pathname이 /C:/... 형태로 오는 경우 앞의 / 제거
-      if (this.platform === 'win32' && currentDir.startsWith('/')) {
-        currentDir = currentDir.slice(1);
+      const configuredRoot = process.env[SHELL_INTEGRATION_ROOT_ENV_KEY]?.trim();
+      if (configuredRoot) {
+        return path.resolve(configuredRoot, filename);
       }
+
+      const currentDir = typeof __dirname === 'string'
+        ? __dirname
+        : path.dirname(fileURLToPath(import.meta.url));
       const scriptPath = path.resolve(currentDir, '..', 'shell-integration', filename);
       return scriptPath;
     } catch {

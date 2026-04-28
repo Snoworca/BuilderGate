@@ -1,31 +1,34 @@
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { pathToFileURL } = require('url');
 
 const daemonCli = require('./daemon/cli');
-const { preflightConfig, resolveConfigModulePath } = require('./daemon/config-preflight');
+const { preflightConfig } = require('./daemon/config-preflight');
 const daemonLauncher = require('./daemon/launcher');
 const { CONFIG_ENV_KEY, resolveRuntimePaths } = require('./daemon/runtime-paths');
 const { createFatalState, writeStateAtomic } = require('./daemon/state-store');
+const { stopDaemon } = require('./daemon/stop-client');
 const { runDaemonTotpPreflight } = require('./daemon/totp-preflight');
 
 const RUNTIME_PATHS = resolveRuntimePaths();
 const ROOT = RUNTIME_PATHS.root;
 const FRONTEND_DIR = path.join(ROOT, 'frontend');
-const SERVER_DIR = path.join(ROOT, 'server');
+const SERVER_DIR = RUNTIME_PATHS.serverDir;
 const FRONTEND_DIST_DIR = path.join(FRONTEND_DIR, 'dist');
 const FRONTEND_INDEX_HTML = path.join(FRONTEND_DIST_DIR, 'index.html');
-const SERVER_DIST_DIR = path.join(SERVER_DIR, 'dist');
-const SERVER_ENTRY = path.join(SERVER_DIST_DIR, 'index.js');
-const SERVER_STRICT_CONFIG_LOADER = resolveConfigModulePath(SERVER_DIR);
-const SERVER_DAEMON_TOTP_PREFLIGHT = path.join(SERVER_DIST_DIR, 'services', 'daemonTotpPreflight.js');
-const SERVER_PUBLIC_DIR = path.join(SERVER_DIST_DIR, 'public');
-const SERVER_PUBLIC_INDEX = path.join(SERVER_PUBLIC_DIR, 'index.html');
+const SERVER_DIST_DIR = RUNTIME_PATHS.serverDistDir;
+const SERVER_ENTRY = RUNTIME_PATHS.serverEntry;
+const SERVER_STRICT_CONFIG_LOADER = RUNTIME_PATHS.configLoaderEntry;
+const SERVER_DAEMON_TOTP_PREFLIGHT = RUNTIME_PATHS.daemonTotpPreflightEntry;
+const SERVER_PUBLIC_DIR = RUNTIME_PATHS.serverPublicDir;
+const SERVER_PUBLIC_INDEX = RUNTIME_PATHS.webIndexPath;
 const RUNTIME_CONFIG_PATH = RUNTIME_PATHS.configPath;
 const LOCAL_BIN_DIRS = [
   path.join(ROOT, 'node_modules', '.bin'),
   path.join(SERVER_DIR, 'node_modules', '.bin'),
 ];
+let daemonLogTeeInstalled = false;
 
 const APP_NAME = 'buildergate';
 const DEFAULT_PORT = 2222;
@@ -242,7 +245,58 @@ function hasDeploymentArtifacts() {
     && fs.existsSync(SERVER_STRICT_CONFIG_LOADER)
     && fs.existsSync(SERVER_DAEMON_TOTP_PREFLIGHT)
     && fs.existsSync(SERVER_PUBLIC_INDEX)
+    && fs.existsSync(path.join(RUNTIME_PATHS.shellIntegrationDir, 'bash-osc133.sh'))
   );
+}
+
+function normalizeLogChunk(chunk, encoding) {
+  if (Buffer.isBuffer(chunk)) {
+    return chunk;
+  }
+
+  return Buffer.from(String(chunk), typeof encoding === 'string' ? encoding : 'utf8');
+}
+
+function installDaemonLogTee(logPath = process.env[daemonLauncher.DAEMON_LOG_PATH_KEY], options = {}) {
+  if (daemonLogTeeInstalled || !logPath) {
+    return false;
+  }
+
+  const echo = options.echo !== false;
+  fs.mkdirSync(path.dirname(logPath), { recursive: true });
+
+  const patchStream = (stream) => {
+    const originalWrite = stream.write.bind(stream);
+    stream.write = (chunk, encoding, callback) => {
+      try {
+        fs.appendFileSync(logPath, normalizeLogChunk(chunk, encoding));
+      } catch {
+        // Runtime logging must not prevent an internal daemon child from starting.
+      }
+
+      if (!echo) {
+        const done = typeof encoding === 'function' ? encoding : callback;
+        if (typeof done === 'function') {
+          process.nextTick(done);
+        }
+        return true;
+      }
+
+      try {
+        return originalWrite(chunk, encoding, callback);
+      } catch (error) {
+        if (typeof callback === 'function') {
+          callback(error);
+        }
+        return true;
+      }
+    };
+  };
+
+  patchStream(process.stdout);
+  patchStream(process.stderr);
+  daemonLogTeeInstalled = true;
+  return true;
 }
 
 function ensureSafePublicTarget(targetPath) {
@@ -284,6 +338,10 @@ function ensureDependenciesAndBuild() {
   if (hasDeploymentArtifacts()) {
     console.log('[start] Deployment dist already exists. Skipping install/build.');
     return;
+  }
+
+  if (RUNTIME_PATHS.isPackaged) {
+    throw new Error(`Packaged runtime is incomplete. Missing embedded server artifacts or web assets for ${ROOT}`);
   }
 
   console.log('[start] Deployment dist missing. Installing dependencies...');
@@ -370,9 +428,34 @@ async function runStrictConfigPreflight(options = {}) {
   }
 }
 
+async function runInternalApp(paths = RUNTIME_PATHS) {
+  if (!fs.existsSync(paths.serverEntry)) {
+    throw new Error(`Packaged server entry is not available: ${paths.serverEntry}`);
+  }
+
+  if (paths.isPackaged || path.extname(paths.serverEntry) === '.cjs') {
+    require(paths.serverEntry);
+    return;
+  }
+
+  await import(pathToFileURL(paths.serverEntry).href);
+}
+
 async function main() {
   const parsedArgs = parseArgs(process.argv.slice(2));
-  if (process.env.BUILDERGATE_INTERNAL_MODE === 'sentinel' || parsedArgs.internalSentinel) {
+  const isInternalApp = parsedArgs.internalApp || (process.pkg && process.env.BUILDERGATE_INTERNAL_MODE === 'app');
+  const isInternalSentinel = process.env.BUILDERGATE_INTERNAL_MODE === 'sentinel' || parsedArgs.internalSentinel;
+
+  if (process.pkg && (isInternalApp || isInternalSentinel)) {
+    installDaemonLogTee(undefined, { echo: false });
+  }
+
+  if (isInternalApp) {
+    await runInternalApp();
+    return;
+  }
+
+  if (isInternalSentinel) {
     daemonLauncher.runSentinelLoop();
     return;
   }
@@ -382,6 +465,16 @@ async function main() {
       executableName: process.pkg ? path.basename(process.execPath) : 'start.sh',
       packaged: Boolean(process.pkg),
     }));
+    return;
+  }
+
+  if (parsedArgs.command === 'stop') {
+    const result = await stopDaemon(RUNTIME_PATHS);
+    if (result.message) {
+      const log = result.exitCode === 0 ? console.log : console.error;
+      log(result.message);
+    }
+    process.exitCode = result.exitCode;
     return;
   }
 
@@ -436,12 +529,15 @@ module.exports = {
   loadConfigPort,
   resolvePort,
   hasDeploymentArtifacts,
+  installDaemonLogTee,
   resetPasswordInConfigContent,
   resetPasswordInConfigFile,
   createRuntimeEnv,
   createForegroundLaunchOptions,
   runStrictConfigPreflight,
+  runInternalApp,
   startDaemon,
   startForeground,
+  stopDaemon,
   main,
 };

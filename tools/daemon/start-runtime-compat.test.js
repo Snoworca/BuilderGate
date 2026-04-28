@@ -51,9 +51,12 @@ function createRuntimeRootFixture(options = {}) {
   const publicDir = path.join(serverDist, 'public');
   const utilsDir = path.join(serverDist, 'utils');
   const servicesDir = path.join(serverDist, 'services');
+  const shellIntegrationDir = path.join(serverDist, 'shell-integration');
   fs.mkdirSync(publicDir, { recursive: true });
+  fs.mkdirSync(shellIntegrationDir, { recursive: true });
   fs.writeFileSync(path.join(serverDist, 'index.js'), options.serverEntry ?? 'process.exit(0);\n', 'utf8');
   fs.writeFileSync(path.join(publicDir, 'index.html'), '<!doctype html>\n', 'utf8');
+  fs.writeFileSync(path.join(shellIntegrationDir, 'bash-osc133.sh'), '# bash integration\n', 'utf8');
 
   if (options.strictLoader !== false) {
     fs.mkdirSync(utilsDir, { recursive: true });
@@ -183,6 +186,30 @@ test('start-runtime default daemon path no longer contains PM2 runtime calls', (
   assert.doesNotMatch(source, /pm2/i);
 });
 
+test('packaged internal daemon log tee records stdout and stderr writes', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'buildergate-log-tee-'));
+  const logPath = path.join(dir, 'buildergate-daemon.log');
+  const script = `
+const startRuntime = require(${JSON.stringify(startRuntimePath)});
+startRuntime.installDaemonLogTee(${JSON.stringify(logPath)}, { echo: false });
+process.stdout.write('stdout from internal app\\n');
+process.stderr.write(Buffer.from('stderr from internal app\\n'));
+`;
+
+  const result = spawnSync(process.execPath, ['-e', script], {
+    cwd: path.resolve(__dirname, '..', '..'),
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, '');
+  assert.equal(result.stderr, '');
+  const log = fs.readFileSync(logPath, 'utf8');
+  assert.match(log, /stdout from internal app/);
+  assert.match(log, /stderr from internal app/);
+});
+
 test('start-runtime CLI routes --foreground through foreground child and propagates exit code', () => {
   const fixture = createRuntimeRootFixture({
     prefix: 'buildergate-foreground-cli-',
@@ -251,12 +278,35 @@ test('start-runtime CLI keeps legacy --forground alias on the same foreground ro
   assert.equal(fs.existsSync(fixture.statePath), false);
 });
 
+test('start-runtime CLI routes stop subcommand without requiring deployment artifacts', () => {
+  const fixture = createRuntimeRootFixture({
+    prefix: 'buildergate-stop-cli-',
+    strictLoader: false,
+    totpPreflight: false,
+  });
+
+  const result = spawnSync(process.execPath, [startRuntimePath, 'stop'], {
+    cwd: path.resolve(__dirname, '..', '..'),
+    env: {
+      ...process.env,
+      BUILDERGATE_ROOT: fixture.root,
+    },
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /daemon is not running/i);
+  assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /Deployment dist missing|Building frontend|pm2/i);
+});
+
 test('createForegroundLaunchOptions connects app process to current console without daemon state', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'buildergate-foreground-options-'));
   const configPath = path.join(dir, 'config.json5');
   const paths = {
     root: dir,
     serverDir: path.join(dir, 'server'),
+    serverCwd: path.join(dir, 'server'),
     serverEntry: path.join(dir, 'server', 'dist', 'index.js'),
     nodeBin: path.join(dir, 'server', 'node_modules', '.bin', process.platform === 'win32' ? 'node.exe' : 'node'),
     configPath,
@@ -264,6 +314,8 @@ test('createForegroundLaunchOptions connects app process to current console with
     logPath: path.join(dir, 'runtime', 'buildergate-daemon.log'),
     launcherPath: path.join(dir, 'BuilderGate.exe'),
     totpSecretPath: path.join(dir, 'server', 'data', 'totp.secret'),
+    webDir: path.join(dir, 'server', 'dist', 'public'),
+    shellIntegrationDir: path.join(dir, 'server', 'dist', 'shell-integration'),
   };
   writeConfig(configPath, 'secret');
 
@@ -279,6 +331,9 @@ test('createForegroundLaunchOptions connects app process to current console with
     assert.equal(launch.options.env.NODE_ENV, 'production');
     assert.equal(launch.options.env.PORT, '2002');
     assert.equal(launch.options.env.BUILDERGATE_CONFIG_PATH, configPath);
+    assert.equal(launch.options.env.BUILDERGATE_SERVER_ROOT, paths.serverCwd);
+    assert.equal(launch.options.env.BUILDERGATE_WEB_ROOT, paths.webDir);
+    assert.equal(launch.options.env.BUILDERGATE_SHELL_INTEGRATION_ROOT, paths.shellIntegrationDir);
     assert.equal(launch.options.env.BUILDERGATE_BOOTSTRAP_ALLOWED_IPS, '127.0.0.1');
     assert.equal(launch.options.env.BUILDERGATE_TOTP_SECRET_PATH, paths.totpSecretPath);
     assert.equal(fs.existsSync(paths.statePath), false);
@@ -287,29 +342,35 @@ test('createForegroundLaunchOptions connects app process to current console with
   }
 });
 
-test('createForegroundLaunchOptions fails clearly when packaged bundled Node is missing', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'buildergate-foreground-packaged-node-'));
+test('createForegroundLaunchOptions uses same executable for packaged clean layout', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'buildergate-foreground-packaged-self-'));
   const configPath = path.join(dir, 'config.json5');
   const paths = {
     root: dir,
-    serverDir: path.join(dir, 'server'),
-    serverEntry: path.join(dir, 'server', 'dist', 'index.js'),
-    nodeBin: path.join(dir, 'server', 'node_modules', '.bin', process.platform === 'win32' ? 'node.exe' : 'node'),
+    serverDir: path.resolve('server'),
+    serverCwd: dir,
+    serverEntry: path.resolve('server', 'dist', 'index.js'),
+    nodeBin: path.join(dir, 'BuilderGate.exe'),
     configPath,
     statePath: path.join(dir, 'runtime', 'buildergate.daemon.json'),
     logPath: path.join(dir, 'runtime', 'buildergate-daemon.log'),
     launcherPath: path.join(dir, 'BuilderGate.exe'),
-    totpSecretPath: path.join(dir, 'server', 'data', 'totp.secret'),
+    totpSecretPath: path.join(dir, 'runtime', 'totp.secret'),
+    webDir: path.join(dir, 'web'),
+    shellIntegrationDir: path.join(dir, 'shell-integration'),
     isPackaged: true,
   };
   writeConfig(configPath, 'secret');
 
   const { startRuntime, restore } = loadStartRuntimeWithConfig(configPath);
   try {
-    assert.throws(
-      () => startRuntime.createForegroundLaunchOptions(2002, [], paths),
-      /Bundled Node runtime missing/,
-    );
+    const launch = startRuntime.createForegroundLaunchOptions(2002, [], paths);
+
+    assert.equal(launch.command, paths.launcherPath);
+    assert.deepEqual(launch.args, ['--internal-app']);
+    assert.equal(launch.options.cwd, dir);
+    assert.equal(launch.options.env.BUILDERGATE_WEB_ROOT, paths.webDir);
+    assert.equal(launch.options.env.BUILDERGATE_SHELL_INTEGRATION_ROOT, paths.shellIntegrationDir);
   } finally {
     restore();
   }

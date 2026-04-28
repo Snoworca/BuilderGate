@@ -7,7 +7,6 @@ const test = require('node:test');
 const {
   ALL_ARM64_TARGETS,
   ALL_SUPPORTED_TARGETS,
-  DAEMON_RUNTIME_FILES,
   ICON_ICNS_NAME,
   ICON_ICO_NAME,
   ICON_SVG_NAME,
@@ -15,19 +14,28 @@ const {
   MAC_APP_EXECUTABLE_NAME,
   OUTPUT_DEFAULT,
   PACKAGE_VERSION,
+  PACKAGED_SERVER_BUNDLES,
   REQUIRED_AMD64_TARGETS,
+  SERVER_PACKAGED_CONFIG_LOADER,
+  SERVER_PACKAGED_ENTRY,
+  SERVER_PACKAGED_TOTP_PREFLIGHT,
   TARGET_PROFILES,
   archFromPkgTarget,
   applyExecutableIcons,
   assertSafeOutputRoot,
   assertSupportedPkgTarget,
+  buildExe,
+  bundlePackagedServer,
   createMacAppBundle,
   copyRuntimeConfigFile,
   getExecutableNames,
   getNodeRuntimeCandidates,
+  getPkgBuiltBasePath,
+  getPkgFetchBasePath,
   installRuntimeDependencies,
   parseArgs,
   platformFromPkgTarget,
+  prepareWindowsPkgBaseIcon,
   resolveBuildTargets,
   validateBuildOutput,
   validateSourceDaemonInputs,
@@ -51,8 +59,8 @@ function createPolicyCompliantReadme() {
     'node tools/start-runtime.js',
     'node tools/start-runtime.js --foreground',
     'node tools/start-runtime.js --forground',
-    'BuilderGateStop.exe',
-    'buildergate-stop',
+    'BuilderGate.exe stop',
+    'buildergate stop',
     'node stop.js',
     'config.json5',
     'dist/bin',
@@ -70,17 +78,10 @@ function createBuildOutputFixture(options = {}) {
   const platform = options.platform ?? 'win32';
   const includeWindowsIcon = options.includeWindowsIcon ?? platform === 'win32';
   const includeMacIcon = options.includeMacIcon ?? platform === 'darwin';
-  const { appExeName, stopExeName, nodeExeName } = getExecutableNames(platform);
+  const { appExeName } = getExecutableNames(platform);
   touch(path.join(outputDir, appExeName));
-  touch(path.join(outputDir, stopExeName));
-  touch(path.join(outputDir, 'server', 'dist', 'index.js'));
-  touch(path.join(outputDir, 'server', 'dist', 'public', 'index.html'), '<!doctype html><html></html>\n');
-  touch(path.join(outputDir, 'server', 'node_modules', '.bin', nodeExeName));
-  touch(path.join(outputDir, 'server', 'node_modules', '.bin', 'node.exe'));
-  touch(path.join(outputDir, 'server', 'node_modules', '.bin', 'node'));
-  for (const fileName of DAEMON_RUNTIME_FILES) {
-    touch(path.join(outputDir, 'tools', 'daemon', fileName));
-  }
+  touch(path.join(outputDir, 'web', 'index.html'), '<!doctype html><html></html>\n');
+  touch(path.join(outputDir, 'shell-integration', 'bash-osc133.sh'), '# bash integration\n');
   touch(path.join(outputDir, 'config.json5'));
   touch(path.join(outputDir, 'config.json5.example'));
   touch(path.join(outputDir, 'README.md'), options.readmeContent ?? createPolicyCompliantReadme());
@@ -210,9 +211,56 @@ test('root npm build scripts expose all supported daemon targets', () => {
   assert.equal(packageJson.scripts['build:daemon-linux-arm64'], 'npm run build:linux-arm64');
   assert.equal(packageJson.scripts['build:daemon-mac-arm64'], 'npm run build:macos-arm64');
   assert.equal(packageJson.scripts['build:daemon-macos-arm64'], 'npm run build:macos-arm64');
+  assert.deepEqual(packageJson.pkg.scripts.filter((entry) => entry.startsWith('server/')), [
+    'server/dist-pkg/*.cjs',
+    'server/node_modules/node-pty/lib/**/*.js',
+  ]);
+  assert.equal(packageJson.pkg.assets.includes('server/node_modules/node-pty/prebuilds/**/*'), true);
 });
 
-test('installRuntimeDependencies installs production dependencies only and keeps bundled Node', () => {
+test('packaged server bundle contract has one CJS runtime and two CJS preflight entries', () => {
+  assert.deepEqual(PACKAGED_SERVER_BUNDLES.map((bundle) => bundle.outfile), [
+    SERVER_PACKAGED_ENTRY,
+    SERVER_PACKAGED_CONFIG_LOADER,
+    SERVER_PACKAGED_TOTP_PREFLIGHT,
+  ]);
+  assert.deepEqual(PACKAGED_SERVER_BUNDLES.map((bundle) => path.extname(bundle.outfile)), [
+    '.cjs',
+    '.cjs',
+    '.cjs',
+  ]);
+});
+
+test('bundlePackagedServer runs esbuild for all packaged CJS entries', async () => {
+  const calls = [];
+  for (const bundle of PACKAGED_SERVER_BUNDLES) {
+    if (!fs.existsSync(bundle.entry)) {
+      touch(bundle.entry, 'export {};\n');
+    }
+  }
+
+  await bundlePackagedServer({
+    log: () => {},
+    logLevel: 'silent',
+    esbuild: {
+      build: async (options) => {
+        calls.push(options);
+        touch(options.outfile, 'module.exports = {};\n');
+      },
+    },
+  });
+
+  assert.equal(calls.length, 3);
+  assert.deepEqual(calls.map((call) => call.format), ['cjs', 'cjs', 'cjs']);
+  assert.deepEqual(calls.map((call) => call.platform), ['node', 'node', 'node']);
+  assert.deepEqual(calls.map((call) => call.external), [
+    ['node-pty', 'selfsigned'],
+    ['node-pty', 'selfsigned'],
+    ['node-pty', 'selfsigned'],
+  ]);
+});
+
+test('installRuntimeDependencies no longer stages production dependencies or bundled Node', () => {
   const outputDir = makeTempDir('buildergate-runtime-install-');
   const sourceNode = path.join(outputDir, 'fake-node.exe');
   touch(path.join(outputDir, 'server', 'package.json'), '{"name":"buildergate-server"}\n');
@@ -230,15 +278,12 @@ test('installRuntimeDependencies installs production dependencies only and keeps
     log: () => {},
   });
 
-  assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0].args, ['install', '--omit=dev', '--os', 'win32', '--cpu', 'arm64']);
-  assert.equal(calls[0].env.npm_config_os, 'win32');
-  assert.equal(calls[0].env.npm_config_cpu, 'arm64');
+  assert.deepEqual(calls, []);
   assert.doesNotMatch(JSON.stringify(calls), /pm2/i);
-  assert.equal(fs.existsSync(path.join(outputDir, 'server', 'node_modules', '.bin', 'node.exe')), true);
+  assert.equal(fs.existsSync(path.join(outputDir, 'server', 'node_modules', '.bin', 'node.exe')), false);
 });
 
-test('installRuntimeDependencies maps amd64 build profiles to npm x64 CPU', () => {
+test('installRuntimeDependencies leaves amd64 clean layout without npm install', () => {
   const outputDir = makeTempDir('buildergate-runtime-amd64-install-');
   const sourceNode = path.join(outputDir, 'fake-node.exe');
   touch(path.join(outputDir, 'server', 'package.json'), '{"name":"buildergate-server"}\n');
@@ -256,13 +301,11 @@ test('installRuntimeDependencies maps amd64 build profiles to npm x64 CPU', () =
     log: () => {},
   });
 
-  assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0].args, ['install', '--omit=dev', '--os', 'win32', '--cpu', 'x64']);
-  assert.equal(calls[0].env.npm_config_os, 'win32');
-  assert.equal(calls[0].env.npm_config_cpu, 'x64');
+  assert.deepEqual(calls, []);
+  assert.equal(fs.existsSync(path.join(outputDir, 'server', 'node_modules')), false);
 });
 
-test('installRuntimeDependencies skip path still keeps bundled Node for packaged validation', () => {
+test('installRuntimeDependencies skip path keeps the clean layout unchanged', () => {
   const outputDir = makeTempDir('buildergate-runtime-skip-install-');
   const sourceNode = path.join(outputDir, 'fake-node.exe');
   touch(path.join(outputDir, 'server', 'package.json'), '{"name":"buildergate-server"}\n');
@@ -280,7 +323,7 @@ test('installRuntimeDependencies skip path still keeps bundled Node for packaged
   });
 
   assert.deepEqual(calls, []);
-  assert.equal(fs.existsSync(path.join(outputDir, 'server', 'node_modules', '.bin', 'node.exe')), true);
+  assert.equal(fs.existsSync(path.join(outputDir, 'server', 'node_modules', '.bin', 'node.exe')), false);
 });
 
 test('target Node runtime candidates use official OS and ARM64 archive names', () => {
@@ -321,14 +364,21 @@ test('copyIconAssets stages browser tab SVG and generated ICO', () => {
   assert.equal(fs.readFileSync(result.icnsPath).subarray(0, 4).toString('ascii'), 'icns');
 });
 
-test('applyExecutableIcons embeds Windows icon into both executables', () => {
+test('prepareWindowsPkgBaseIcon patches a local pkg base instead of the final executable', () => {
+  const root = makeTempDir('buildergate-pkg-base-icon-');
+  const sourceCacheDir = path.join(root, 'source-cache');
+  const pkgCacheDir = path.join(root, 'local-cache');
   const outputDir = createBuildOutputFixture();
-  const rceditPath = path.join(outputDir, 'rcedit-x64.exe');
+  const sourceBase = getPkgFetchBasePath(sourceCacheDir, 'node18-win-x64');
+  const fakeRceditPath = path.join(root, 'fake-rcedit.exe');
+  touch(sourceBase, 'base');
+  touch(fakeRceditPath);
   const calls = [];
-  touch(rceditPath, 'rcedit');
 
-  applyExecutableIcons(outputDir, 'win32', {
-    rceditPath,
+  const result = prepareWindowsPkgBaseIcon('node18-win-x64', path.join(outputDir, ICON_ICO_NAME), {
+    pkgCacheDir,
+    sourcePkgCacheDir: sourceCacheDir,
+    rceditPath: fakeRceditPath,
     runCommand: (command, args, options) => {
       calls.push({ command, args, label: options.label });
       return { status: 0 };
@@ -336,10 +386,64 @@ test('applyExecutableIcons embeds Windows icon into both executables', () => {
     log: () => {},
   });
 
+  const localBase = getPkgBuiltBasePath(pkgCacheDir, 'node18-win-x64');
+  assert.equal(result.basePath, localBase);
+  assert.equal(fs.readFileSync(localBase, 'utf8'), 'base');
+  assert.deepEqual(calls, [{
+    command: fakeRceditPath,
+    args: [
+      localBase,
+      '--set-icon',
+      path.join(outputDir, ICON_ICO_NAME),
+    ],
+    label: 'rcedit pkg base node18-win-x64',
+  }]);
+  assert.equal(fs.existsSync(path.join(outputDir, 'BuilderGate.exe')), true);
+});
+
+test('buildExe uses the icon-patched local pkg cache for Windows executables', () => {
+  const outputDir = createBuildOutputFixture();
+  const sourceCacheDir = makeTempDir('buildergate-pkg-build-source-cache-');
+  const pkgCacheDir = makeTempDir('buildergate-pkg-build-cache-');
+  const sourceBase = getPkgFetchBasePath(sourceCacheDir, 'node18-win-x64');
+  const fakeRceditPath = path.join(outputDir, 'fake-rcedit.exe');
+  touch(sourceBase, 'base');
+  touch(fakeRceditPath);
+  const calls = [];
+
+  buildExe(outputDir, 'node18-win-x64', {
+    platform: 'win32',
+    pkgCacheDir,
+    sourcePkgCacheDir: sourceCacheDir,
+    rceditPath: fakeRceditPath,
+    runCommand: (command, args, options) => {
+      calls.push({ command, args, env: options.env, label: options.label });
+      return { status: 0 };
+    },
+    log: () => {},
+  });
+
   assert.equal(calls.length, 2);
-  assert.equal(calls[0].command, rceditPath);
-  assert.match(calls[0].args.join(' '), /BuilderGate\.exe .*--set-icon/i);
-  assert.match(calls[1].args.join(' '), /BuilderGateStop\.exe .*--set-icon/i);
+  assert.equal(calls[0].command, fakeRceditPath);
+  assert.deepEqual(calls[0].args, [
+    getPkgBuiltBasePath(pkgCacheDir, 'node18-win-x64'),
+    '--set-icon',
+    path.join(outputDir, ICON_ICO_NAME),
+  ]);
+  assert.equal(calls[0].label, 'rcedit pkg base node18-win-x64');
+  assert.match(calls[1].command, /npx(?:\.cmd)?$/);
+  assert.equal(calls[1].label, 'pkg daemon launcher');
+  assert.equal(calls[1].env.PKG_CACHE_PATH, pkgCacheDir);
+});
+
+test('applyExecutableIcons still requires Windows ICO as a staged artifact', () => {
+  const outputDir = createBuildOutputFixture();
+  fs.rmSync(path.join(outputDir, ICON_ICO_NAME), { force: true });
+
+  assert.throws(
+    () => applyExecutableIcons(outputDir, 'win32', { log: () => {} }),
+    /BuilderGate\.ico/,
+  );
 });
 
 test('applyExecutableIcons does not require Windows ICO for non-Windows outputs', () => {
@@ -369,8 +473,8 @@ test('createMacAppBundle builds a macOS .app with ICNS icon and runtime launcher
   assert.equal(fs.existsSync(path.join(appDir, 'Contents', 'MacOS', MAC_APP_EXECUTABLE_NAME)), true);
   assert.equal(fs.existsSync(path.join(appDir, 'Contents', 'Resources', ICON_ICNS_NAME)), true);
   assert.equal(fs.existsSync(path.join(appDir, 'Contents', 'Resources', 'runtime', 'buildergate')), true);
-  assert.equal(fs.existsSync(path.join(appDir, 'Contents', 'Resources', 'runtime', 'buildergate-stop')), true);
-  assert.equal(fs.existsSync(path.join(appDir, 'Contents', 'Resources', 'runtime', 'server', 'dist', 'index.js')), true);
+  assert.equal(fs.existsSync(path.join(appDir, 'Contents', 'Resources', 'runtime', 'web', 'index.html')), true);
+  assert.equal(fs.existsSync(path.join(appDir, 'Contents', 'Resources', 'runtime', 'shell-integration', 'bash-osc133.sh')), true);
   assert.match(
     fs.readFileSync(path.join(appDir, 'Contents', 'Info.plist'), 'utf8'),
     /CFBundleIconFile[\s\S]*BuilderGate\.icns/,
@@ -418,7 +522,7 @@ test('copyRuntimeConfigFile prefers existing user config over generated template
   assert.equal(fs.readFileSync(targetConfigPath, 'utf8'), fs.readFileSync(sourceConfigPath, 'utf8'));
 });
 
-test('validateBuildOutput accepts complete dist/bin runtime without PM2', () => {
+test('validateBuildOutput accepts complete TTTGate-style dist/bin runtime', () => {
   const outputDir = createBuildOutputFixture();
 
   assert.doesNotThrow(() => validateBuildOutput(outputDir, { platform: 'win32' }));
@@ -432,33 +536,33 @@ test('validateBuildOutput accepts Linux runtime without ICO or ICNS artifacts', 
   assert.doesNotThrow(() => validateBuildOutput(outputDir, { platform: 'linux' }));
 });
 
-test('validateBuildOutput fails when server entry is missing', () => {
+test('validateBuildOutput fails when web index is missing', () => {
   const outputDir = createBuildOutputFixture();
-  fs.rmSync(path.join(outputDir, 'server', 'dist', 'index.js'), { force: true });
+  fs.rmSync(path.join(outputDir, 'web', 'index.html'), { force: true });
 
   assert.throws(
     () => validateBuildOutput(outputDir, { platform: 'win32' }),
-    /server[\\/]dist[\\/]index\.js/,
+    /web[\\/]index\.html/,
   );
 });
 
-test('validateBuildOutput fails when frontend public index is missing', () => {
+test('validateBuildOutput rejects exposed server runtime directories', () => {
   const outputDir = createBuildOutputFixture();
-  fs.rmSync(path.join(outputDir, 'server', 'dist', 'public', 'index.html'), { force: true });
+  touch(path.join(outputDir, 'server', 'dist', 'index.js'));
 
   assert.throws(
     () => validateBuildOutput(outputDir, { platform: 'win32' }),
-    /server[\\/]dist[\\/]public[\\/]index\.html/,
+    /server runtime directory must be embedded/i,
   );
 });
 
-test('validateBuildOutput fails when a packaged daemon runtime dependency is missing', () => {
+test('validateBuildOutput rejects exposed daemon tools directories', () => {
   const outputDir = createBuildOutputFixture();
-  fs.rmSync(path.join(outputDir, 'tools', 'daemon', 'process-info.js'), { force: true });
+  touch(path.join(outputDir, 'tools', 'daemon', 'process-info.js'));
 
   assert.throws(
     () => validateBuildOutput(outputDir, { platform: 'win32' }),
-    /tools[\\/]daemon[\\/]process-info\.js/,
+    /daemon tools directory must be embedded/i,
   );
 });
 
@@ -505,25 +609,25 @@ test('validateBuildOutput fails when macOS app bundle is missing', () => {
   );
 });
 
-test('validateBuildOutput fails when macOS app frontend runtime is missing', () => {
+test('validateBuildOutput fails when macOS app web runtime is missing', () => {
   const outputDir = createBuildOutputFixture({ platform: 'darwin' });
   createMacAppBundle(outputDir, {
     platform: 'darwin',
     log: () => {},
   });
   fs.rmSync(
-    path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', 'server', 'dist', 'public', 'index.html'),
+    path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', 'web', 'index.html'),
     { force: true },
   );
 
   assert.throws(
     () => validateBuildOutput(outputDir, { platform: 'darwin' }),
-    /macOS app frontend runtime/,
+    /macOS app web runtime/,
   );
 });
 
 for (const platform of ['win32', 'linux', 'darwin']) {
-  test(`validateBuildOutput rejects PM2 runtime dependency in ${platform} output`, () => {
+  test(`validateBuildOutput rejects bundled Node/runtime directory in ${platform} output`, () => {
     const outputDir = createBuildOutputFixture({ platform });
     if (platform === 'darwin') {
       createMacAppBundle(outputDir, {
@@ -531,16 +635,17 @@ for (const platform of ['win32', 'linux', 'darwin']) {
         log: () => {},
       });
     }
-    touch(path.join(outputDir, 'server', 'node_modules', 'pm2', 'package.json'), '{"name":"pm2"}\n');
+    const { nodeExeName } = getExecutableNames(platform);
+    touch(path.join(outputDir, 'server', 'node_modules', '.bin', nodeExeName), 'node');
 
     assert.throws(
       () => validateBuildOutput(outputDir, { platform }),
-      /PM2 runtime dependency must not exist/i,
+      /server runtime directory must be embedded/i,
     );
   });
 }
 
-test('validateBuildOutput rejects PM2 runtime dependency inside macOS app bundle', () => {
+test('validateBuildOutput rejects exposed runtime inside macOS app bundle', () => {
   const outputDir = createBuildOutputFixture({ platform: 'darwin' });
   createMacAppBundle(outputDir, {
     platform: 'darwin',
@@ -554,16 +659,15 @@ test('validateBuildOutput rejects PM2 runtime dependency inside macOS app bundle
       'Resources',
       'runtime',
       'server',
-      'node_modules',
-      'pm2',
-      'package.json',
+      'dist',
+      'index.js',
     ),
-    '{"name":"pm2"}\n',
+    'console.log("leaked");\n',
   );
 
   assert.throws(
     () => validateBuildOutput(outputDir, { platform: 'darwin' }),
-    /PM2 runtime dependency must not exist/i,
+    /macOS app server runtime directory must be embedded/i,
   );
 });
 
@@ -580,10 +684,10 @@ test('validateBuildOutput rejects PM2 documentation in packaged README', () => {
 
 test('validateSourceDaemonInputs requires source and packaged sentinel entrypoints', () => {
   const root = makeTempDir('buildergate-source-inputs-');
-  touch(path.join(root, 'tools', 'start-runtime.js'), "daemonLauncher.runSentinelLoop(); '--internal-sentinel';\n");
+  touch(path.join(root, 'tools', 'start-runtime.js'), "daemonLauncher.runSentinelLoop(); '--internal-app'; '--internal-sentinel';\n");
   touch(path.join(root, 'tools', 'daemon', 'sentinel.js'), 'function runSentinelLoop() {}\n');
   touch(path.join(root, 'tools', 'daemon', 'sentinel-entry.js'), "require('./sentinel').runSentinelLoop();\n");
-  touch(path.join(root, 'tools', 'daemon', 'launcher.js'), "args: ['--internal-sentinel'];\n");
+  touch(path.join(root, 'tools', 'daemon', 'launcher.js'), "args: ['--internal-app']; args: ['--internal-sentinel'];\n");
 
   assert.doesNotThrow(() => validateSourceDaemonInputs(root));
 

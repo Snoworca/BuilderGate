@@ -384,14 +384,14 @@ npm run build:daemon-exe
 
 단일 기본 빌드 결과는 `dist/bin/`에 생성되고, 대상별 빌드 결과는 `dist/bin/<target>-<package-version>/`에 생성됩니다.
 
-- `BuilderGate.exe`: 기본적으로 BuilderGate를 네이티브 데몬/백그라운드 모드로 시작합니다.
-- `BuilderGateStop.exe`: 실행 중인 BuilderGate 네이티브 데몬을 내부 shutdown 프로토콜로 중지합니다.
+- `BuilderGate.exe`: 기본적으로 BuilderGate를 네이티브 데몬/백그라운드 모드로 시작합니다. `BuilderGate.exe stop`은 실행 중인 BuilderGate 네이티브 데몬을 내부 shutdown 프로토콜로 중지합니다.
 - `config.json5`: EXE와 같은 위치에서 읽는 런타임 설정 파일입니다. 빌드 시 기존 `server/config.json5`가 있으면 복사하고, 없으면 기본 bootstrap 설정 파일을 생성합니다.
 - `config.json5.example`: 설정 예시 파일입니다.
-- `server/`: 실행에 필요한 서버 빌드 산출물, 프로덕션 의존성, 번들 Node 런타임을 포함합니다.
-- `BuilderGate.svg`, `BuilderGate.ico`, `BuilderGate.icns`: 브라우저 탭 아이콘(`frontend/public/logo.svg`)에서 생성한 실행파일 아이콘 자산입니다. Windows 배포본은 `BuilderGate.exe`와 `BuilderGateStop.exe`에 같은 아이콘을 임베딩하고, macOS 배포본은 `BuilderGate.app`에 같은 아이콘을 적용합니다.
+- `web/`: 실행에 필요한 프론트엔드 정적 산출물입니다.
+- `shell-integration/`: 외부 셸에서 참조하는 OSC 133 셸 통합 스크립트입니다.
+- `BuilderGate.svg`, `BuilderGate.ico`, `BuilderGate.icns`: 브라우저 탭 아이콘(`frontend/public/logo.svg`)에서 생성한 아이콘 자산입니다. Windows 배포본은 EXE 옆에 `BuilderGate.ico`를 함께 제공하고, macOS 배포본은 `BuilderGate.app`에 같은 아이콘을 적용합니다.
 
-`BuilderGate.exe`만 단독으로 복사하지 말고 `dist/bin/` 폴더 전체를 함께 배포해야 합니다. EXE는 같은 폴더의 `config.json5`와 `server/` 런타임을 기준으로 동작합니다.
+`BuilderGate.exe`만 단독으로 복사하지 말고 `dist/bin/` 폴더 전체를 함께 배포해야 합니다. 서버 런타임과 native dependency는 EXE에 포함되고, EXE는 같은 폴더의 `config.json5`, `web/`, `shell-integration/`을 기준으로 동작합니다. 배포본은 외부 `node.exe`, `server/`, `node_modules/`를 포함하지 않습니다.
 
 EXE 실행:
 
@@ -410,12 +410,12 @@ dist\bin\BuilderGate.exe --help
 EXE 중지:
 
 ```bat
-dist\bin\BuilderGateStop.exe
-dist\bin\win-amd64-0.1.0\BuilderGateStop.exe
-dist\bin\win-arm64-0.1.0\BuilderGateStop.exe
+dist\bin\BuilderGate.exe stop
+dist\bin\win-amd64-0.1.0\BuilderGate.exe stop
+dist\bin\win-arm64-0.1.0\BuilderGate.exe stop
 ```
 
-non-Windows target으로 빌드한 경우 실행 파일 이름은 `buildergate`, stop utility는 `buildergate-stop`입니다.
+non-Windows target으로 빌드한 경우 실행 파일 이름은 `buildergate`입니다.
 
 ```bash
 ./dist/bin/buildergate -p 2002
@@ -423,7 +423,7 @@ non-Windows target으로 빌드한 경우 실행 파일 이름은 `buildergate`,
 ./dist/bin/linux-arm64-0.1.0/buildergate -p 2002
 ./dist/bin/macos-arm64-0.1.0/buildergate -p 2002
 ./dist/bin/buildergate --foreground -p 2002
-./dist/bin/buildergate-stop
+./dist/bin/buildergate stop
 ```
 
 macOS ARM64 배포본은 `BuilderGate.app`도 함께 제공합니다. Finder에서 앱을 실행하면 QR 출력이 보이도록 Terminal을 열어 내부 런타임을 실행합니다. 터미널에서 직접 실행할 때는 raw 실행파일 또는 app launcher를 사용할 수 있습니다.
@@ -438,7 +438,6 @@ macOS ARM64 실행파일과 app bundle을 Windows/Linux에서 cross-build하면 
 ```bash
 codesign --force --deep --sign - ./dist/bin/macos-arm64-0.1.0/BuilderGate.app
 codesign --sign - ./dist/bin/macos-arm64-0.1.0/buildergate
-codesign --sign - ./dist/bin/macos-arm64-0.1.0/buildergate-stop
 ```
 
 EXE 상태 확인:
@@ -447,7 +446,7 @@ EXE 상태 확인:
 curl -k https://localhost:2002/health
 ```
 
-빌드 대상 플랫폼을 직접 명시하려면 `pkg` target 또는 빌드 프로파일을 전달합니다. 스크립트는 대상 OS/CPU용 bundled Node 런타임을 준비하고, production dependency 설치 시 대상 `os`/`cpu`를 명시합니다.
+빌드 대상 플랫폼을 직접 명시하려면 `pkg` target 또는 빌드 프로파일을 전달합니다. 스크립트는 대상 OS/CPU용 server runtime bundle을 생성한 뒤 `pkg` 실행파일에 포함하며, 외부 Node 런타임 디렉터리는 배포하지 않습니다.
 
 ```bash
 node tools/build-daemon-exe.js --target node18-win-x64

@@ -1,6 +1,7 @@
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const https = require('https');
+const os = require('os');
 const path = require('path');
 const { pathToFileURL } = require('url');
 
@@ -18,16 +19,22 @@ const FRONTEND_DIR = path.join(ROOT, 'frontend');
 const SERVER_DIR = path.join(ROOT, 'server');
 const FRONTEND_DIST_DIR = path.join(FRONTEND_DIR, 'dist');
 const SERVER_DIST_DIR = path.join(SERVER_DIR, 'dist');
+const SERVER_DIST_PKG_DIR = path.join(SERVER_DIR, 'dist-pkg');
+const SERVER_PACKAGED_ENTRY = path.join(SERVER_DIST_PKG_DIR, 'index.cjs');
+const SERVER_PACKAGED_CONFIG_LOADER = path.join(SERVER_DIST_PKG_DIR, 'configStrictLoader.cjs');
+const SERVER_PACKAGED_TOTP_PREFLIGHT = path.join(SERVER_DIST_PKG_DIR, 'daemonTotpPreflight.cjs');
 const SERVER_PUBLIC_DIR = path.join(SERVER_DIST_DIR, 'public');
 const OUTPUT_DEFAULT = path.join(ROOT, 'dist', 'bin');
 const NODE_RUNTIME_CACHE_DIR = path.join(ROOT, 'dist', '.node-runtime');
+const PKG_CACHE_DIR = path.join(ROOT, 'dist', '.pkg-cache');
 const RCEDIT_CACHE_DIR = path.join(ROOT, 'dist', '.rcedit');
+const PKG_FETCH_CACHE_VERSION = 'v3.4';
+const PKG_FETCH_NODE_VERSION = 'v18.5.0';
 const BROWSER_ICON_PATH = path.join(FRONTEND_DIR, 'public', 'logo.svg');
 const MAC_APP_BUNDLE_NAME = 'BuilderGate.app';
 const MAC_APP_EXECUTABLE_NAME = 'BuilderGate';
 const DEFAULT_EXECUTABLE_NAMES = getExecutableNames(process.platform);
 const APP_EXE_NAME = DEFAULT_EXECUTABLE_NAMES.appExeName;
-const STOP_EXE_NAME = DEFAULT_EXECUTABLE_NAMES.stopExeName;
 const PACKAGE_VERSION = String(ROOT_PACKAGE.version ?? '').trim();
 const TARGET_PROFILES = Object.freeze({
   'win-amd64': {
@@ -94,6 +101,23 @@ const DAEMON_RUNTIME_FILES = [
   'state-store.js',
   'totp-preflight.js',
 ];
+const PACKAGED_SERVER_BUNDLES = Object.freeze([
+  {
+    entry: path.join(SERVER_DIST_DIR, 'index.js'),
+    outfile: SERVER_PACKAGED_ENTRY,
+    label: 'server runtime',
+  },
+  {
+    entry: path.join(SERVER_DIST_DIR, 'utils', 'configStrictLoader.js'),
+    outfile: SERVER_PACKAGED_CONFIG_LOADER,
+    label: 'strict config preflight',
+  },
+  {
+    entry: path.join(SERVER_DIST_DIR, 'services', 'daemonTotpPreflight.js'),
+    outfile: SERVER_PACKAGED_TOTP_PREFLIGHT,
+    label: 'TOTP daemon preflight',
+  },
+]);
 
 function getNpmCommand() {
   return process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -101,6 +125,19 @@ function getNpmCommand() {
 
 function getNpxCommand() {
   return process.platform === 'win32' ? 'npx.cmd' : 'npx';
+}
+
+function resolveEsbuildModule() {
+  const searchRoots = [SERVER_DIR, FRONTEND_DIR, ROOT];
+  for (const searchRoot of searchRoots) {
+    try {
+      return require(require.resolve('esbuild', { paths: [searchRoot] }));
+    } catch {
+      // Try the next workspace. esbuild is installed by the local build toolchain.
+    }
+  }
+
+  throw new Error('esbuild is required to create packaged server bundles. Run npm ci in server or frontend first.');
 }
 
 function defaultTarget() {
@@ -480,6 +517,38 @@ function getRceditExecutablePath(cacheDir = RCEDIT_CACHE_DIR) {
   return path.join(cacheDir, 'node_modules', 'rcedit', 'bin', executableName);
 }
 
+function getDefaultPkgCacheDir() {
+  return path.join(os.homedir(), '.pkg-cache');
+}
+
+function getPkgFetchBinaryName(target) {
+  const targetSuffixes = {
+    'node18-win-x64': 'win-x64',
+    'node18-win-arm64': 'win-arm64',
+  };
+  const suffix = targetSuffixes[target];
+  return suffix ? `fetched-${PKG_FETCH_NODE_VERSION}-${suffix}` : null;
+}
+
+function getPkgBuiltBinaryName(target) {
+  const targetSuffixes = {
+    'node18-win-x64': 'win-x64',
+    'node18-win-arm64': 'win-arm64',
+  };
+  const suffix = targetSuffixes[target];
+  return suffix ? `built-${PKG_FETCH_NODE_VERSION}-${suffix}` : null;
+}
+
+function getPkgFetchBasePath(cacheDir, target) {
+  const binaryName = getPkgFetchBinaryName(target);
+  return binaryName ? path.join(cacheDir, PKG_FETCH_CACHE_VERSION, binaryName) : null;
+}
+
+function getPkgBuiltBasePath(cacheDir, target) {
+  const binaryName = getPkgBuiltBinaryName(target);
+  return binaryName ? path.join(cacheDir, PKG_FETCH_CACHE_VERSION, binaryName) : null;
+}
+
 function ensureRceditExecutable(deps = {}) {
   if (deps.rceditPath) {
     assertPathExists(deps.rceditPath, 'rcedit executable');
@@ -498,6 +567,81 @@ function ensureRceditExecutable(deps = {}) {
   });
   assertPathExists(rceditPath, 'rcedit executable');
   return rceditPath;
+}
+
+function downloadPkgBaseToCache(target, pkgCacheDir, runCommand) {
+  const probeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'buildergate-pkg-base-'));
+  const probeEntry = path.join(probeDir, 'index.js');
+  const probeOutput = path.join(probeDir, 'probe.exe');
+  fs.writeFileSync(probeEntry, 'console.log("buildergate pkg base probe");\n', 'utf8');
+
+  try {
+    runCommand(getNpxCommand(), [
+      '--yes',
+      'pkg@5.8.1',
+      probeEntry,
+      '--targets',
+      target,
+      '--output',
+      probeOutput,
+      '--no-bytecode',
+      '--public',
+    ], {
+      label: `pkg base download ${target}`,
+      env: {
+        ...process.env,
+        PKG_CACHE_PATH: pkgCacheDir,
+      },
+    });
+  } finally {
+    fs.rmSync(probeDir, { recursive: true, force: true });
+  }
+}
+
+function prepareWindowsPkgBaseIcon(target, icoPath, options = {}) {
+  if (platformFromPkgTarget(target) !== 'win32') {
+    return null;
+  }
+
+  assertPathExists(icoPath, ICON_ICO_NAME);
+
+  const runCommand = options.runCommand ?? run;
+  const log = options.log ?? console.log;
+  const pkgCacheDir = options.pkgCacheDir ?? PKG_CACHE_DIR;
+  const sourcePkgCacheDir = options.sourcePkgCacheDir ?? getDefaultPkgCacheDir();
+  const basePath = getPkgBuiltBasePath(pkgCacheDir, target);
+  const fetchedBasePath = getPkgFetchBasePath(pkgCacheDir, target);
+  if (!basePath) {
+    throw new Error(`Unsupported Windows pkg target for icon embedding: ${target}`);
+  }
+
+  fs.mkdirSync(path.dirname(basePath), { recursive: true });
+  const sourceBasePath = getPkgFetchBasePath(sourcePkgCacheDir, target);
+  if (sourceBasePath && fs.existsSync(sourceBasePath)) {
+    fs.copyFileSync(sourceBasePath, basePath);
+  } else if (!fs.existsSync(basePath)) {
+    downloadPkgBaseToCache(target, pkgCacheDir, runCommand);
+    if (fetchedBasePath && fs.existsSync(fetchedBasePath)) {
+      fs.copyFileSync(fetchedBasePath, basePath);
+    }
+  }
+
+  assertPathExists(basePath, `pkg base binary for ${target}`);
+  if (fetchedBasePath) {
+    fs.rmSync(fetchedBasePath, { force: true });
+  }
+  const rceditPath = ensureRceditExecutable({
+    rceditPath: options.rceditPath,
+    cacheDir: options.rceditCacheDir,
+    runCommand,
+  });
+  log(`[exe-build] Embedding Windows icon into pkg base: ${path.relative(ROOT, basePath)}`);
+  runCommand(rceditPath, [basePath, '--set-icon', icoPath], {
+    label: `rcedit pkg base ${target}`,
+    shell: false,
+  });
+
+  return { cacheDir: pkgCacheDir, basePath };
 }
 
 function assertSafeOutputDir(outputDir) {
@@ -568,22 +712,14 @@ async function copyRuntimeConfigFile({
 }
 
 async function copyRuntimeFiles(outputDir, options = {}) {
-  const outputServerDir = path.join(outputDir, 'server');
-  const outputDaemonDir = path.join(outputDir, 'tools', 'daemon');
   const platform = options.platform ?? process.platform;
+  const outputWebDir = path.join(outputDir, 'web');
+  const outputShellIntegrationDir = path.join(outputDir, 'shell-integration');
 
-  fs.mkdirSync(outputServerDir, { recursive: true });
-  fs.cpSync(SERVER_DIST_DIR, path.join(outputServerDir, 'dist'), { recursive: true, force: true });
-  fs.mkdirSync(outputDaemonDir, { recursive: true });
-  for (const fileName of DAEMON_RUNTIME_FILES) {
-    copyRequiredFile(
-      path.join(ROOT, 'tools', 'daemon', fileName),
-      path.join(outputDaemonDir, fileName),
-      path.join('tools', 'daemon', fileName),
-    );
-  }
-  copyFileIfExists(path.join(SERVER_DIR, 'package.json'), path.join(outputServerDir, 'package.json'));
-  copyFileIfExists(path.join(SERVER_DIR, 'package-lock.json'), path.join(outputServerDir, 'package-lock.json'));
+  fs.mkdirSync(outputWebDir, { recursive: true });
+  fs.cpSync(FRONTEND_DIST_DIR, outputWebDir, { recursive: true, force: true });
+  fs.rmSync(outputShellIntegrationDir, { recursive: true, force: true });
+  fs.cpSync(path.join(SERVER_DIST_DIR, 'shell-integration'), outputShellIntegrationDir, { recursive: true, force: true });
   copyFileIfExists(path.join(SERVER_DIR, 'config.json5.example'), path.join(outputDir, 'config.json5.example'));
   await copyRuntimeConfigFile({ targetConfigPath: path.join(outputDir, 'config.json5'), platform });
   copyFileIfExists(path.join(ROOT, 'README.md'), path.join(outputDir, 'README.md'));
@@ -622,104 +758,105 @@ function ensureBuildArtifacts() {
   fs.cpSync(FRONTEND_DIST_DIR, SERVER_PUBLIC_DIR, { recursive: true, force: true });
 }
 
+async function bundlePackagedServer(options = {}) {
+  const esbuild = options.esbuild ?? resolveEsbuildModule();
+  const log = options.log ?? console.log;
+  const external = options.external ?? ['node-pty', 'selfsigned'];
+
+  fs.rmSync(SERVER_DIST_PKG_DIR, { recursive: true, force: true });
+  fs.mkdirSync(SERVER_DIST_PKG_DIR, { recursive: true });
+
+  for (const bundle of PACKAGED_SERVER_BUNDLES) {
+    assertPathExists(bundle.entry, bundle.label);
+    log(`[exe-build] Bundling ${bundle.label}: ${path.relative(ROOT, bundle.outfile)}`);
+    await esbuild.build({
+      entryPoints: [bundle.entry],
+      bundle: true,
+      platform: 'node',
+      format: 'cjs',
+      target: 'node18',
+      outfile: bundle.outfile,
+      external,
+      logLevel: options.logLevel ?? 'warning',
+    });
+    assertPathExists(bundle.outfile, `${bundle.label} bundle`);
+  }
+}
+
 function installRuntimeDependencies(outputDir, skipRuntimeInstall, deps = {}) {
   return installRuntimeDependenciesWithDeps(outputDir, skipRuntimeInstall, deps);
 }
 
 function installRuntimeDependenciesWithDeps(outputDir, skipRuntimeInstall, deps = {}) {
-  const runCommand = deps.runCommand ?? run;
-  const nodeRuntimePath = deps.nodeRuntimePath ?? deps.execPath ?? process.execPath;
   const platform = deps.platform ?? process.platform;
   const arch = deps.arch ?? process.arch;
   const log = deps.log ?? console.log;
 
-  const outputServerDir = path.join(outputDir, 'server');
   if (skipRuntimeInstall) {
-    log('[exe-build] Skipping production dependency install; bundled Node will still be copied.');
-  } else {
-    log(`[exe-build] Installing production server dependencies in output for ${platform}/${arch}...`);
-    const installEnv = {
-      ...process.env,
-      npm_config_os: platform,
-      npm_config_cpu: arch,
-    };
-    runCommand(getNpmCommand(), ['install', '--omit=dev', '--os', platform, '--cpu', arch], {
-      cwd: outputServerDir,
-      env: installEnv,
-      label: 'runtime server npm install --omit=dev',
-    });
+    log('[exe-build] Skipping external runtime dependency staging.');
+    return;
   }
 
-  const runtimeBinDir = path.join(outputServerDir, 'node_modules', '.bin');
-  const runtimeNodeName = platform === 'win32' ? 'node.exe' : 'node';
-  const runtimeNodeTarget = path.join(runtimeBinDir, runtimeNodeName);
-  fs.mkdirSync(runtimeBinDir, { recursive: true });
-  fs.copyFileSync(nodeRuntimePath, runtimeNodeTarget);
-  if (platform !== 'win32') {
-    fs.chmodSync(runtimeNodeTarget, 0o755);
-  }
-  log(`[exe-build] Bundled Node runtime: ${runtimeNodeTarget}`);
+  log(`[exe-build] External server dependencies are not staged for ${platform}/${arch}; pkg embeds the server runtime.`);
 }
 
 function buildExe(outputDir, target, options = {}) {
   const platform = options.platform ?? platformFromPkgTarget(target) ?? process.platform;
-  const { appExeName, stopExeName } = getExecutableNames(platform);
+  const { appExeName } = getExecutableNames(platform);
   const npx = getNpxCommand();
   const commonArgs = ['--yes', 'pkg@5.8.1'];
+  const runCommand = options.runCommand ?? run;
+  const pkgBaseIcon = platform === 'win32'
+    ? prepareWindowsPkgBaseIcon(target, path.join(outputDir, ICON_ICO_NAME), {
+      pkgCacheDir: options.pkgCacheDir,
+      rceditCacheDir: options.rceditCacheDir,
+      rceditPath: options.rceditPath,
+      runCommand,
+      sourcePkgCacheDir: options.sourcePkgCacheDir,
+      log: options.log ?? console.log,
+    })
+    : null;
+  const env = pkgBaseIcon
+    ? {
+      ...process.env,
+      PKG_CACHE_PATH: pkgBaseIcon.cacheDir,
+    }
+    : process.env;
 
   console.log(`[exe-build] Building daemon launcher (${target})...`);
-  run(npx, [
+  runCommand(npx, [
     ...commonArgs,
-    path.join(ROOT, 'tools', 'start-runtime.js'),
+    ROOT,
     '--targets', target,
     '--output', path.join(outputDir, appExeName),
     '--no-bytecode',
     '--public-packages', '*',
     '--public',
-  ], { label: 'pkg daemon launcher' });
-
-  console.log(`[exe-build] Building stop utility (${target})...`);
-  run(npx, [
-    ...commonArgs,
-    path.join(ROOT, 'stop.js'),
-    '--targets', target,
-    '--output', path.join(outputDir, stopExeName),
-    '--no-bytecode',
-    '--public-packages', '*',
-    '--public',
-  ], { label: 'pkg stop utility' });
+  ], { label: 'pkg daemon launcher', env });
 }
 
 function applyExecutableIcons(outputDir, platform, options = {}) {
   const log = options.log ?? console.log;
-  const runCommand = options.runCommand ?? run;
-  const { appExeName, stopExeName } = getExecutableNames(platform);
+  const { appExeName } = getExecutableNames(platform);
   const icoPath = path.join(outputDir, ICON_ICO_NAME);
   const svgPath = path.join(outputDir, ICON_SVG_NAME);
 
   assertPathExists(svgPath, ICON_SVG_NAME);
 
-  if (platform !== 'win32') {
+  if (platform === 'win32') {
+    assertPathExists(icoPath, ICON_ICO_NAME);
+    const executablePath = path.join(outputDir, appExeName);
+    assertPathExists(executablePath, appExeName);
+    log(`[exe-build] Windows icon embedded during pkg build; ICO asset staged: ${icoPath}`);
+    return;
+  }
+
+  if (platform !== 'darwin') {
     log(`[exe-build] Icon assets staged: ${svgPath}`);
     return;
   }
 
-  assertPathExists(icoPath, ICON_ICO_NAME);
-  const rceditPath = ensureRceditExecutable({
-    rceditPath: options.rceditPath,
-    cacheDir: options.rceditCacheDir,
-    runCommand,
-  });
-
-  for (const executableName of [appExeName, stopExeName]) {
-    const executablePath = path.join(outputDir, executableName);
-    assertPathExists(executablePath, executableName);
-    log(`[exe-build] Embedding Windows icon: ${executableName}`);
-    runCommand(rceditPath, [executablePath, '--set-icon', icoPath], {
-      label: `rcedit ${executableName}`,
-      shell: false,
-    });
-  }
+  log(`[exe-build] Icon assets staged: ${svgPath}`);
 }
 
 function escapeXml(value) {
@@ -834,7 +971,7 @@ function createMacAppBundle(outputDir, options = {}) {
   }
 
   const log = options.log ?? console.log;
-  const { appExeName, stopExeName } = getExecutableNames('darwin');
+  const { appExeName } = getExecutableNames('darwin');
   const appDir = path.join(outputDir, MAC_APP_BUNDLE_NAME);
   const contentsDir = path.join(appDir, 'Contents');
   const macosDir = path.join(contentsDir, 'MacOS');
@@ -848,9 +985,8 @@ function createMacAppBundle(outputDir, options = {}) {
 
   for (const itemName of [
     appExeName,
-    stopExeName,
-    'server',
-    'tools',
+    'web',
+    'shell-integration',
     'config.json5',
     'config.json5.example',
     'README.md',
@@ -866,12 +1002,8 @@ function createMacAppBundle(outputDir, options = {}) {
   fs.chmodSync(launcherPath, 0o755);
 
   const appBinaryPath = path.join(runtimeDir, appExeName);
-  const stopBinaryPath = path.join(runtimeDir, stopExeName);
-  const bundledNodePath = path.join(runtimeDir, 'server', 'node_modules', '.bin', 'node');
-  for (const executablePath of [appBinaryPath, stopBinaryPath, bundledNodePath]) {
-    if (fs.existsSync(executablePath)) {
-      fs.chmodSync(executablePath, 0o755);
-    }
+  if (fs.existsSync(appBinaryPath)) {
+    fs.chmodSync(appBinaryPath, 0o755);
   }
 
   copyRequiredFile(
@@ -888,7 +1020,6 @@ function createMacAppBundle(outputDir, options = {}) {
 function getExecutableNames(platform = process.platform) {
   return {
     appExeName: platform === 'win32' ? 'BuilderGate.exe' : 'buildergate',
-    stopExeName: platform === 'win32' ? 'BuilderGateStop.exe' : 'buildergate-stop',
     nodeExeName: platform === 'win32' ? 'node.exe' : 'node',
   };
 }
@@ -913,8 +1044,8 @@ function validateSourceDaemonInputs(root = ROOT) {
 
   assertFileContains(
     path.join(root, 'tools', 'start-runtime.js'),
-    /internalSentinel|--internal-sentinel|runSentinelLoop/,
-    'packaged sentinel launcher entrypoint',
+    /internalApp|--internal-app|internalSentinel|--internal-sentinel|runSentinelLoop/,
+    'packaged internal app/sentinel launcher entrypoint',
   );
   assertFileContains(
     path.join(root, 'tools', 'daemon', 'sentinel.js'),
@@ -928,25 +1059,18 @@ function validateSourceDaemonInputs(root = ROOT) {
   );
   assertFileContains(
     path.join(root, 'tools', 'daemon', 'launcher.js'),
-    /--internal-sentinel|sentinelEntry/,
+    /--internal-app|--internal-sentinel/,
     'sentinel launcher marker',
   );
 }
 
 function validateBuildOutput(outputDir, options = {}) {
   const platform = options.platform ?? process.platform;
-  const { appExeName, stopExeName, nodeExeName } = getExecutableNames(platform);
+  const { appExeName, nodeExeName } = getExecutableNames(platform);
   const requiredPaths = [
     [path.join(outputDir, appExeName), appExeName],
-    [path.join(outputDir, stopExeName), stopExeName],
-    [path.join(outputDir, 'server'), 'server runtime directory'],
-    [path.join(outputDir, 'server', 'dist', 'index.js'), path.join('server', 'dist', 'index.js')],
-    [path.join(outputDir, 'server', 'dist', 'public', 'index.html'), path.join('server', 'dist', 'public', 'index.html')],
-    [path.join(outputDir, 'server', 'node_modules', '.bin', nodeExeName), `bundled ${nodeExeName}`],
-    ...DAEMON_RUNTIME_FILES.map(fileName => [
-      path.join(outputDir, 'tools', 'daemon', fileName),
-      path.join('tools', 'daemon', fileName),
-    ]),
+    [path.join(outputDir, 'web', 'index.html'), path.join('web', 'index.html')],
+    [path.join(outputDir, 'shell-integration', 'bash-osc133.sh'), path.join('shell-integration', 'bash-osc133.sh')],
     [path.join(outputDir, 'config.json5'), 'config.json5'],
     [path.join(outputDir, 'config.json5.example'), 'config.json5.example'],
     [path.join(outputDir, 'README.md'), 'README.md'],
@@ -965,10 +1089,8 @@ function validateBuildOutput(outputDir, options = {}) {
       [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'MacOS', MAC_APP_EXECUTABLE_NAME), 'macOS app launcher'],
       [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', ICON_ICNS_NAME), 'macOS app icon'],
       [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', appExeName), 'macOS app bundled daemon executable'],
-      [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', stopExeName), 'macOS app bundled stop executable'],
-      [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', 'server', 'dist', 'index.js'), 'macOS app server runtime'],
-      [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', 'server', 'dist', 'public', 'index.html'), 'macOS app frontend runtime'],
-      [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', 'server', 'node_modules', '.bin', nodeExeName), `macOS app bundled ${nodeExeName}`],
+      [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', 'web', 'index.html'), 'macOS app web runtime'],
+      [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', 'shell-integration', 'bash-osc133.sh'), 'macOS app shell integration runtime'],
       [path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', 'config.json5'), 'macOS app config.json5'],
     );
   }
@@ -977,24 +1099,26 @@ function validateBuildOutput(outputDir, options = {}) {
     assertPathExists(filePath, label);
   }
 
-  const pm2RuntimePath = path.join(outputDir, 'server', 'node_modules', 'pm2');
-  if (fs.existsSync(pm2RuntimePath)) {
-    throw new Error(`PM2 runtime dependency must not exist: ${pm2RuntimePath}`);
-  }
+  const forbiddenPaths = [
+    [path.join(outputDir, 'server'), 'server runtime directory must be embedded in the executable'],
+    [path.join(outputDir, 'tools'), 'daemon tools directory must be embedded in the executable'],
+    [path.join(outputDir, 'node_modules'), 'node_modules must be embedded in the executable'],
+    [path.join(outputDir, nodeExeName), `standalone ${nodeExeName} must not be shipped`],
+    [path.join(outputDir, 'server', 'node_modules', '.bin', nodeExeName), `bundled ${nodeExeName} must not be shipped`],
+  ];
 
   if (platform === 'darwin') {
-    const macAppPm2RuntimePath = path.join(
-      outputDir,
-      MAC_APP_BUNDLE_NAME,
-      'Contents',
-      'Resources',
-      'runtime',
-      'server',
-      'node_modules',
-      'pm2',
+    const macRuntimeDir = path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime');
+    forbiddenPaths.push(
+      [path.join(macRuntimeDir, 'server'), 'macOS app server runtime directory must be embedded in the executable'],
+      [path.join(macRuntimeDir, 'tools'), 'macOS app daemon tools directory must be embedded in the executable'],
+      [path.join(macRuntimeDir, 'server', 'node_modules', '.bin', nodeExeName), `macOS app bundled ${nodeExeName} must not be shipped`],
     );
-    if (fs.existsSync(macAppPm2RuntimePath)) {
-      throw new Error(`PM2 runtime dependency must not exist: ${macAppPm2RuntimePath}`);
+  }
+
+  for (const [filePath, label] of forbiddenPaths) {
+    if (fs.existsSync(filePath)) {
+      throw new Error(`${label}: ${filePath}`);
     }
   }
 
@@ -1034,28 +1158,27 @@ async function main() {
     fs.mkdirSync(multiTargetOutputRoot, { recursive: true });
   }
   ensureBuildArtifacts();
+  await bundlePackagedServer();
 
   for (const target of targets) {
     console.log(`[exe-build] Output (${target.profileName}): ${target.outputDir}`);
     fs.rmSync(target.outputDir, { recursive: true, force: true });
     fs.mkdirSync(target.outputDir, { recursive: true });
 
-    const targetNodeRuntime = await ensureTargetNodeRuntime(target);
     await copyRuntimeFiles(target.outputDir, { platform: target.platform });
     installRuntimeDependencies(target.outputDir, options.skipRuntimeInstall, {
       platform: target.platform,
       arch: target.arch,
-      nodeRuntimePath: targetNodeRuntime,
     });
     buildExe(target.outputDir, target.pkgTarget, { platform: target.platform });
     applyExecutableIcons(target.outputDir, target.platform);
     createMacAppBundle(target.outputDir, { platform: target.platform });
     validateBuildOutput(target.outputDir, { platform: target.platform });
 
-    const { appExeName, stopExeName } = getExecutableNames(target.platform);
+    const { appExeName } = getExecutableNames(target.platform);
     console.log(`[exe-build] Done (${target.profileName}).`);
     console.log(`[exe-build] Start: ${path.join(target.outputDir, appExeName)}`);
-    console.log(`[exe-build] Stop:  ${path.join(target.outputDir, stopExeName)}`);
+    console.log(`[exe-build] Stop:  ${path.join(target.outputDir, appExeName)} stop`);
   }
 }
 
@@ -1080,11 +1203,18 @@ module.exports = {
   NODE_RUNTIME_CACHE_DIR,
   OUTPUT_DEFAULT,
   PACKAGE_VERSION,
+  PACKAGED_SERVER_BUNDLES,
+  PKG_CACHE_DIR,
+  PKG_FETCH_CACHE_VERSION,
+  PKG_FETCH_NODE_VERSION,
   RCEDIT_CACHE_DIR,
   REQUIRED_AMD64_TARGETS,
   ROOT,
-  STOP_EXE_NAME,
   DAEMON_RUNTIME_FILES,
+  SERVER_DIST_PKG_DIR,
+  SERVER_PACKAGED_CONFIG_LOADER,
+  SERVER_PACKAGED_ENTRY,
+  SERVER_PACKAGED_TOTP_PREFLIGHT,
   TARGET_PROFILES,
   applyExecutableIcons,
   assertSafeOutputDir,
@@ -1093,6 +1223,7 @@ module.exports = {
   assertSupportedPkgTarget,
   archFromPkgTarget,
   buildExe,
+  bundlePackagedServer,
   createMacAppBundle,
   createMacAppLauncherScript,
   createMacInfoPlist,
@@ -1104,11 +1235,16 @@ module.exports = {
   ensureRceditExecutable,
   getNodeRuntimeCandidates,
   getExecutableNames,
+  getPkgBuiltBasePath,
+  getPkgBuiltBinaryName,
+  getPkgFetchBasePath,
+  getPkgFetchBinaryName,
   getRceditExecutablePath,
   installRuntimeDependencies,
   loadBootstrapConfigTemplate,
   parseArgs,
   platformFromPkgTarget,
+  prepareWindowsPkgBaseIcon,
   profileNameFor,
   resolveBuildTargets,
   resolveTargetSpec,

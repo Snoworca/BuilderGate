@@ -43,6 +43,7 @@ function writeForegroundCliArtifacts(paths, port) {
   fs.mkdirSync(path.join(serverDistDir, 'utils'), { recursive: true });
   fs.mkdirSync(path.join(serverDistDir, 'services'), { recursive: true });
   fs.mkdirSync(path.join(serverDistDir, 'public'), { recursive: true });
+  fs.mkdirSync(path.join(serverDistDir, 'shell-integration'), { recursive: true });
   fs.writeFileSync(
     path.join(serverDistDir, 'utils', 'configStrictLoader.js'),
     `export function loadConfigFromPathStrict() { return { server: { port: ${port} }, twoFactor: { enabled: false } }; }\n`,
@@ -54,6 +55,7 @@ function writeForegroundCliArtifacts(paths, port) {
     'utf8',
   );
   fs.writeFileSync(path.join(serverDistDir, 'public', 'index.html'), '<html></html>\n', 'utf8');
+  fs.writeFileSync(path.join(serverDistDir, 'shell-integration', 'bash-osc133.sh'), '#!/usr/bin/env bash\n', 'utf8');
 }
 
 function runNodeScript(scriptPath, timeoutMs) {

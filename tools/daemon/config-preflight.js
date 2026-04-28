@@ -9,12 +9,12 @@ function resolveConfigModulePath(serverDir) {
 }
 
 async function loadStrictConfigFromServerDist(paths, platform = process.platform) {
-  const modulePath = resolveConfigModulePath(paths.serverDir);
+  const modulePath = paths.configLoaderEntry ?? resolveConfigModulePath(paths.serverDir);
   if (!fs.existsSync(modulePath)) {
     throw new Error(`Strict config loader is not built: ${modulePath}`);
   }
 
-  const configModule = await import(pathToFileURL(modulePath).href);
+  const configModule = paths.isPackaged ? require(modulePath) : await import(pathToFileURL(modulePath).href);
   if (typeof configModule.loadConfigFromPathStrict !== 'function') {
     throw new Error(`Built config loader does not export loadConfigFromPathStrict: ${modulePath}`);
   }

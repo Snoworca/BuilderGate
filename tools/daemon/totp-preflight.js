@@ -9,12 +9,12 @@ function resolveDaemonTotpPreflightModulePath(serverDir) {
 }
 
 async function loadDaemonTotpPreflightModule(paths) {
-  const modulePath = resolveDaemonTotpPreflightModulePath(paths.serverDir);
+  const modulePath = paths.daemonTotpPreflightEntry ?? resolveDaemonTotpPreflightModulePath(paths.serverDir);
   if (!fs.existsSync(modulePath)) {
     throw new Error(`TOTP daemon preflight helper is not built: ${modulePath}`);
   }
 
-  const module = await import(pathToFileURL(modulePath).href);
+  const module = paths.isPackaged ? require(modulePath) : await import(pathToFileURL(modulePath).href);
   if (typeof module.runDaemonTotpPreflight !== 'function') {
     throw new Error(`Built TOTP daemon preflight helper does not export runDaemonTotpPreflight: ${modulePath}`);
   }

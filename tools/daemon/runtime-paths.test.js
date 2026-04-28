@@ -12,17 +12,26 @@ test('resolveRuntimePaths uses the executable directory as packaged runtime root
     execPath,
     platform: 'win32',
   });
+  const codeRoot = path.resolve(__dirname, '..', '..');
 
   assert.equal(paths.root, path.dirname(execPath));
+  assert.equal(paths.codeRoot, codeRoot);
   assert.equal(paths.configPath, path.join(path.dirname(execPath), 'config.json5'));
-  assert.equal(paths.serverDir, path.join(path.dirname(execPath), 'server'));
-  assert.equal(paths.serverEntry, path.join(path.dirname(execPath), 'server', 'dist', 'index.js'));
+  assert.equal(paths.serverDir, path.join(codeRoot, 'server'));
+  assert.equal(paths.serverCwd, path.dirname(execPath));
+  assert.equal(paths.serverEntry, path.join(codeRoot, 'server', 'dist-pkg', 'index.cjs'));
+  assert.equal(paths.configLoaderEntry, path.join(codeRoot, 'server', 'dist-pkg', 'configStrictLoader.cjs'));
+  assert.equal(paths.daemonTotpPreflightEntry, path.join(codeRoot, 'server', 'dist-pkg', 'daemonTotpPreflight.cjs'));
+  assert.equal(paths.webDir, path.join(path.dirname(execPath), 'web'));
+  assert.equal(paths.shellIntegrationDir, path.join(path.dirname(execPath), 'shell-integration'));
+  assert.equal(paths.webIndexPath, path.join(path.dirname(execPath), 'web', 'index.html'));
   assert.equal(paths.statePath, path.join(path.dirname(execPath), 'runtime', 'buildergate.daemon.json'));
   assert.equal(paths.logDir, path.join(path.dirname(execPath), 'runtime'));
   assert.equal(paths.logPath, path.join(path.dirname(execPath), 'runtime', 'buildergate-daemon.log'));
   assert.equal(paths.sentinelLogPath, path.join(path.dirname(execPath), 'runtime', 'buildergate-sentinel.log'));
   assert.equal(paths.launcherPath, execPath);
-  assert.equal(paths.totpSecretPath, path.join(path.dirname(execPath), 'server', 'data', 'totp.secret'));
+  assert.equal(paths.nodeBin, execPath);
+  assert.equal(paths.totpSecretPath, path.join(path.dirname(execPath), 'runtime', 'totp.secret'));
 });
 
 test('resolveRuntimePaths uses source root and server config by default in source mode', () => {
@@ -37,6 +46,12 @@ test('resolveRuntimePaths uses source root and server config by default in sourc
   assert.equal(paths.root, sourceRoot);
   assert.equal(paths.configPath, path.join(sourceRoot, 'server', 'config.json5'));
   assert.equal(paths.serverDir, path.join(sourceRoot, 'server'));
+  assert.equal(paths.serverCwd, path.join(sourceRoot, 'server'));
+  assert.equal(paths.serverEntry, path.join(sourceRoot, 'server', 'dist', 'index.js'));
+  assert.equal(paths.configLoaderEntry, path.join(sourceRoot, 'server', 'dist', 'utils', 'configStrictLoader.js'));
+  assert.equal(paths.daemonTotpPreflightEntry, path.join(sourceRoot, 'server', 'dist', 'services', 'daemonTotpPreflight.js'));
+  assert.equal(paths.webDir, path.join(sourceRoot, 'server', 'dist', 'public'));
+  assert.equal(paths.shellIntegrationDir, path.join(sourceRoot, 'server', 'dist', 'shell-integration'));
   assert.equal(paths.statePath, path.join(sourceRoot, 'runtime', 'buildergate.daemon.json'));
   assert.equal(paths.logPath, path.join(sourceRoot, 'runtime', 'buildergate-daemon.log'));
   assert.equal(paths.sentinelLogPath, path.join(sourceRoot, 'runtime', 'buildergate-sentinel.log'));

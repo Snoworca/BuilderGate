@@ -37,11 +37,13 @@ function readRequiredValue(argv, index, optionName, description) {
 
 function parseArgs(argv) {
   const parsed = {
+    command: 'start',
     mode: 'daemon',
     cliPort: null,
     port: null,
     resetPassword: false,
     bootstrapAllowedIps: [],
+    internalApp: false,
     internalSentinel: false,
     internalSentinelStatePath: null,
     internalSentinelStartAttemptId: null,
@@ -50,6 +52,15 @@ function parseArgs(argv) {
 
   for (let index = 0; index < argv.length; index += 1) {
     const current = argv[index];
+
+    if (current === 'stop') {
+      if (index !== 0) {
+        throw new Error('stop command must be the first argument');
+      }
+      parsed.command = 'stop';
+      parsed.mode = 'stop';
+      continue;
+    }
 
     if (current === '--help' || current === '-h') {
       parsed.help = true;
@@ -63,6 +74,11 @@ function parseArgs(argv) {
 
     if (current === '--internal-sentinel') {
       parsed.internalSentinel = true;
+      continue;
+    }
+
+    if (current === '--internal-app') {
+      parsed.internalApp = true;
       continue;
     }
 
@@ -120,13 +136,13 @@ function parseArgs(argv) {
 
 function formatHelp(options = {}) {
   const executableName = options.executableName ?? (process.pkg ? path.basename(process.execPath) : 'start.sh');
-  const stopCommand = process.platform === 'win32' ? 'BuilderGateStop.exe' : 'buildergate-stop';
+  const stopCommand = process.platform === 'win32' ? `${executableName} stop` : `${executableName} stop`;
   const configPolicy = options.packaged ?? process.pkg
     ? 'config.json5 next to the executable'
     : 'server/config.json5 unless BUILDERGATE_CONFIG_PATH overrides it';
 
   return [
-    `Usage: ${executableName} [--foreground|--forground] [-p <port>] [--reset-password] [--bootstrap-allow-ip <ip[,ip]>]`,
+    `Usage: ${executableName} [stop] [--foreground|--forground] [-p <port>] [--reset-password] [--bootstrap-allow-ip <ip[,ip]>]`,
     '',
     'BuilderGate default mode is daemon. Use --foreground or legacy --forground to run in the current console.',
     '',

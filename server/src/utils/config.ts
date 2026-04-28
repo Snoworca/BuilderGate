@@ -23,9 +23,11 @@ import { loadConfigFromPathStrict } from './configStrictLoader.js';
 
 export { loadConfigFromPathStrict };
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const MODULE_DIR = typeof __dirname === 'string'
+  ? __dirname
+  : dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH_ENV_KEY = 'BUILDERGATE_CONFIG_PATH';
+const SERVER_ROOT_ENV_KEY = 'BUILDERGATE_SERVER_ROOT';
 
 /**
  * Get config file path
@@ -36,7 +38,7 @@ export function getConfigPath(): string {
     return resolve(configuredPath);
   }
 
-  return join(__dirname, '../../config.json5');
+  return join(MODULE_DIR, '../../config.json5');
 }
 
 /**
@@ -269,7 +271,12 @@ function loadConfig(): Config {
  * Get the server root directory path
  */
 export function getServerRoot(): string {
-  return join(__dirname, '../..');
+  const configuredRoot = process.env[SERVER_ROOT_ENV_KEY]?.trim();
+  if (configuredRoot) {
+    return resolve(configuredRoot);
+  }
+
+  return join(MODULE_DIR, '../..');
 }
 
 /**

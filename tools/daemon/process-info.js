@@ -69,6 +69,10 @@ function commandLineContainsPath(commandLine, expectedPath, platform = process.p
   return haystack.includes(needle);
 }
 
+function isPackagedSelfExecutableState(state, platform = process.platform) {
+  return pathsEqual(state.nodeBinPath, state.launcherPath, platform);
+}
+
 function parseDateMs(value) {
   if (!value) {
     return null;
@@ -276,7 +280,11 @@ async function validateDaemonAppProcess(state, options = {}) {
     return fail(executableError, info);
   }
 
-  if (!commandLineContainsPath(info.commandLine, state.serverEntryPath, platform)) {
+  const commandLine = String(info.commandLine ?? '');
+  const hasInternalAppMarker = /\s--internal-app(?:\s|$)/.test(` ${commandLine} `);
+  const hasPackagedSelfExecutable = isPackagedSelfExecutableState(state, platform)
+    && commandLineContainsPath(commandLine, state.launcherPath, platform);
+  if (!hasInternalAppMarker && !hasPackagedSelfExecutable && !commandLineContainsPath(commandLine, state.serverEntryPath, platform)) {
     return fail(`app command line does not include server entry: ${state.serverEntryPath}`, info);
   }
 
@@ -315,7 +323,9 @@ async function validateDaemonSentinelProcess(state, options = {}) {
   const expectedSentinelEntryPath = sentinelEntryPathFromState(state);
   const hasInternalSentinelMarker = /\s--internal-sentinel(?:\s|$)/.test(` ${commandLine} `);
   const hasPackagedSentinelEntry = commandLineContainsPath(commandLine, expectedSentinelEntryPath, platform);
-  if (!hasInternalSentinelMarker && !hasPackagedSentinelEntry) {
+  const hasPackagedSelfExecutable = isPackagedSelfExecutableState(state, platform)
+    && commandLineContainsPath(commandLine, state.launcherPath, platform);
+  if (!hasInternalSentinelMarker && !hasPackagedSentinelEntry && !hasPackagedSelfExecutable) {
     return fail('sentinel process is missing the internal sentinel marker', info);
   }
 
@@ -335,11 +345,11 @@ async function validateDaemonSentinelProcess(state, options = {}) {
   }
 
   const expectedStatePath = options.expectedStatePath ?? statePathFromState(state);
-  if (expectedStatePath && !commandLineContainsPath(commandLine, expectedStatePath, platform)) {
+  if (!hasPackagedSelfExecutable && expectedStatePath && !commandLineContainsPath(commandLine, expectedStatePath, platform)) {
     return fail('sentinel command line does not include daemon state path marker', info);
   }
 
-  if (!commandLine.includes(state.startAttemptId)) {
+  if (!hasPackagedSelfExecutable && !commandLine.includes(state.startAttemptId)) {
     return fail('sentinel command line does not include start attempt marker', info);
   }
 
@@ -347,7 +357,9 @@ async function validateDaemonSentinelProcess(state, options = {}) {
     return fail('sentinel process start time indicates PID reuse', info);
   }
 
-  const expectedRoot = path.dirname(state.serverCwd);
+  const expectedRoot = isPackagedSelfExecutableState(state, platform)
+    ? state.serverCwd
+    : path.dirname(state.serverCwd);
   const cwdError = validateCwdIfAvailable(info, expectedRoot, platform);
   if (cwdError) {
     return fail(cwdError, info);

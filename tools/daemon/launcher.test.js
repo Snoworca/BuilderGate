@@ -12,8 +12,12 @@ const {
   createForegroundLaunchOptions,
   createRuntimeEnv,
   createSentinelLaunchOptions,
+  createWindowsStartProcessCommand,
+  PKG_EXECPATH_KEY,
+  PKG_EXECPATH_NEUTRAL_VALUE,
   startDaemon,
   startForeground,
+  withPkgExecPathClearedForSpawn,
 } = require('./launcher');
 const { createRandomToken, readState, writeStateAtomic } = require('./state-store');
 
@@ -26,6 +30,7 @@ function createFixturePaths(prefix = 'buildergate-foreground-launcher-') {
   return {
     root,
     serverDir,
+    serverCwd: serverDir,
     serverEntry: path.join(serverDistDir, 'index.js'),
     nodeBin: process.execPath,
     configPath: path.join(root, 'config.json5'),
@@ -35,6 +40,8 @@ function createFixturePaths(prefix = 'buildergate-foreground-launcher-') {
     sentinelLogPath: path.join(root, 'runtime', 'buildergate-sentinel.log'),
     launcherPath: path.join(root, 'BuilderGate.exe'),
     totpSecretPath: path.join(serverDir, 'data', 'totp.secret'),
+    webDir: path.join(serverDistDir, 'public'),
+    shellIntegrationDir: path.join(serverDistDir, 'shell-integration'),
     isPackaged: false,
   };
 }
@@ -48,11 +55,17 @@ test('createRuntimeEnv passes foreground-safe app env without daemon-only identi
     BUILDERGATE_DAEMON_START_ID: 'leaked-start-id',
     BUILDERGATE_DAEMON_STATE_PATH: paths.statePath,
     BUILDERGATE_INTERNAL_MODE: 'app',
+    pkg_execpath: paths.launcherPath,
   }, paths);
 
   assert.equal(env.NODE_ENV, 'production');
   assert.equal(env.PORT, '2002');
   assert.equal(env.BUILDERGATE_CONFIG_PATH, paths.configPath);
+  assert.equal(env.BUILDERGATE_ROOT, paths.root);
+  assert.equal(env.BUILDERGATE_RUNTIME_ROOT, paths.root);
+  assert.equal(env.BUILDERGATE_SERVER_ROOT, paths.serverCwd);
+  assert.equal(env.BUILDERGATE_WEB_ROOT, paths.webDir);
+  assert.equal(env.BUILDERGATE_SHELL_INTEGRATION_ROOT, paths.shellIntegrationDir);
   assert.equal(env.BUILDERGATE_BOOTSTRAP_ALLOWED_IPS, '127.0.0.1');
   assert.equal(env.BUILDERGATE_TOTP_SECRET_PATH, paths.totpSecretPath);
   assert.equal(env.BUILDERGATE_SUPPRESS_TOTP_QR, undefined);
@@ -60,6 +73,8 @@ test('createRuntimeEnv passes foreground-safe app env without daemon-only identi
   assert.equal(env.BUILDERGATE_DAEMON_START_ID, undefined);
   assert.equal(env.BUILDERGATE_DAEMON_STATE_PATH, undefined);
   assert.equal(env.BUILDERGATE_INTERNAL_MODE, undefined);
+  assert.equal(env[PKG_EXECPATH_KEY], PKG_EXECPATH_NEUTRAL_VALUE);
+  assert.equal(env.pkg_execpath, undefined);
 });
 
 test('createForegroundLaunchOptions inherits stdio and never creates active daemon state', () => {
@@ -74,16 +89,43 @@ test('createForegroundLaunchOptions inherits stdio and never creates active daem
   assert.equal(fs.existsSync(paths.statePath), false);
 });
 
-test('createForegroundLaunchOptions uses bundled Node in packaged runtime when present', () => {
-  const paths = createFixturePaths('buildergate-foreground-packaged-node-present-');
+test('withPkgExecPathClearedForSpawn temporarily clears parent pkg bootstrap env', () => {
+  const previousValue = process.env[PKG_EXECPATH_KEY];
+  process.env[PKG_EXECPATH_KEY] = path.join('C:', 'buildergate', 'BuilderGate.exe');
+  try {
+    let observedValue = 'not-called';
+    const result = withPkgExecPathClearedForSpawn({ [PKG_EXECPATH_KEY]: PKG_EXECPATH_NEUTRAL_VALUE }, () => {
+      observedValue = process.env[PKG_EXECPATH_KEY];
+      return 'spawned';
+    });
+
+    assert.equal(result, 'spawned');
+    assert.equal(observedValue, PKG_EXECPATH_NEUTRAL_VALUE);
+    assert.equal(process.env[PKG_EXECPATH_KEY], path.join('C:', 'buildergate', 'BuilderGate.exe'));
+  } finally {
+    if (previousValue === undefined) {
+      delete process.env[PKG_EXECPATH_KEY];
+    } else {
+      process.env[PKG_EXECPATH_KEY] = previousValue;
+    }
+  }
+});
+
+test('createForegroundLaunchOptions uses the same executable in packaged runtime', () => {
+  const paths = createFixturePaths('buildergate-foreground-packaged-self-');
   paths.isPackaged = true;
-  paths.nodeBin = path.join(paths.serverDir, 'node_modules', '.bin', process.platform === 'win32' ? 'node.exe' : 'node');
-  fs.mkdirSync(path.dirname(paths.nodeBin), { recursive: true });
-  fs.copyFileSync(process.execPath, paths.nodeBin);
+  paths.serverCwd = paths.root;
+  paths.nodeBin = paths.launcherPath;
+  paths.webDir = path.join(paths.root, 'web');
+  paths.shellIntegrationDir = path.join(paths.root, 'shell-integration');
 
   const launch = createForegroundLaunchOptions(2002, [], paths);
 
-  assert.equal(launch.command, paths.nodeBin);
+  assert.equal(launch.command, paths.launcherPath);
+  assert.deepEqual(launch.args, ['--internal-app']);
+  assert.equal(launch.options.cwd, paths.root);
+  assert.equal(launch.options.env.BUILDERGATE_WEB_ROOT, paths.webDir);
+  assert.equal(launch.options.env.BUILDERGATE_SHELL_INTEGRATION_ROOT, paths.shellIntegrationDir);
 });
 
 test('startForeground propagates app child exit code and leaves daemon state absent', async () => {
@@ -133,11 +175,19 @@ test('createDaemonRuntimeEnv passes daemon identity and shutdown contract to app
     stateGeneration: 3,
   };
 
-  const env = createDaemonRuntimeEnv(2002, ['127.0.0.1'], state, { PATH: process.env.PATH ?? '' }, paths);
+  const env = createDaemonRuntimeEnv(2002, ['127.0.0.1'], state, {
+    PATH: process.env.PATH ?? '',
+    [PKG_EXECPATH_KEY]: paths.launcherPath,
+  }, paths);
 
   assert.equal(env.NODE_ENV, 'production');
   assert.equal(env.PORT, '2002');
   assert.equal(env.BUILDERGATE_CONFIG_PATH, paths.configPath);
+  assert.equal(env.BUILDERGATE_ROOT, paths.root);
+  assert.equal(env.BUILDERGATE_RUNTIME_ROOT, paths.root);
+  assert.equal(env.BUILDERGATE_SERVER_ROOT, paths.serverCwd);
+  assert.equal(env.BUILDERGATE_WEB_ROOT, paths.webDir);
+  assert.equal(env.BUILDERGATE_SHELL_INTEGRATION_ROOT, paths.shellIntegrationDir);
   assert.equal(env.BUILDERGATE_TOTP_SECRET_PATH, paths.totpSecretPath);
   assert.equal(env.BUILDERGATE_SUPPRESS_TOTP_QR, '1');
   assert.equal(env.BUILDERGATE_BOOTSTRAP_ALLOWED_IPS, '127.0.0.1');
@@ -146,14 +196,16 @@ test('createDaemonRuntimeEnv passes daemon identity and shutdown contract to app
   assert.equal(env.BUILDERGATE_DAEMON_START_ID, state.startAttemptId);
   assert.equal(env.BUILDERGATE_DAEMON_STATE_PATH, paths.statePath);
   assert.equal(env.BUILDERGATE_DAEMON_STATE_GENERATION, '3');
+  assert.equal(env[PKG_EXECPATH_KEY], PKG_EXECPATH_NEUTRAL_VALUE);
 });
 
-test('createDaemonAppLaunchOptions uses bundled Node for packaged daemon app child', () => {
-  const paths = createFixturePaths('buildergate-daemon-packaged-app-node-');
+test('createDaemonAppLaunchOptions uses same executable for packaged daemon app child', () => {
+  const paths = createFixturePaths('buildergate-daemon-packaged-app-self-');
   paths.isPackaged = true;
-  paths.nodeBin = path.join(paths.serverDir, 'node_modules', '.bin', process.platform === 'win32' ? 'node.exe' : 'node');
-  fs.mkdirSync(path.dirname(paths.nodeBin), { recursive: true });
-  fs.copyFileSync(process.execPath, paths.nodeBin);
+  paths.serverCwd = paths.root;
+  paths.nodeBin = paths.launcherPath;
+  paths.webDir = path.join(paths.root, 'web');
+  paths.shellIntegrationDir = path.join(paths.root, 'shell-integration');
   const state = {
     shutdownToken: createRandomToken(),
     startAttemptId: createRandomToken(),
@@ -162,36 +214,66 @@ test('createDaemonAppLaunchOptions uses bundled Node for packaged daemon app chi
 
   const launch = createDaemonAppLaunchOptions(2002, [], state, paths);
 
-  assert.equal(launch.command, paths.nodeBin);
-  assert.deepEqual(launch.args, [paths.serverEntry]);
+  assert.equal(launch.command, paths.launcherPath);
+  assert.deepEqual(launch.args, ['--internal-app']);
   assert.equal(launch.options.detached, true);
-  assert.equal(launch.options.cwd, paths.serverDir);
+  assert.equal(launch.options.cwd, paths.root);
 });
 
-test('createSentinelLaunchOptions uses bundled Node and physical sentinel entry in packaged runtime', () => {
+test('createWindowsStartProcessCommand clears pkg bootstrap env and returns actual child pid', () => {
+  const paths = createFixturePaths('buildergate-windows-start-process-');
+  paths.isPackaged = true;
+  paths.serverCwd = paths.root;
+  paths.nodeBin = paths.launcherPath;
+  paths.webDir = path.join(paths.root, 'web');
+  paths.shellIntegrationDir = path.join(paths.root, 'shell-integration');
+  const state = {
+    shutdownToken: createRandomToken(),
+    startAttemptId: createRandomToken(),
+    stateGeneration: 1,
+  };
+  const launch = createDaemonAppLaunchOptions(2002, [], state, paths);
+  const command = createWindowsStartProcessCommand(launch);
+
+  assert.match(command, /Start-Process/);
+  assert.match(command, /PKG_EXECPATH/);
+  assert.match(command, /-PassThru/);
+  assert.match(command, /--internal-app/);
+  assert.doesNotMatch(command, /RedirectStandard/);
+});
+
+test('createSentinelLaunchOptions uses same executable and internal sentinel markers in packaged runtime', () => {
   const paths = createFixturePaths('buildergate-daemon-packaged-sentinel-');
   paths.isPackaged = true;
-  paths.sentinelEntry = path.join(paths.root, 'tools', 'daemon', 'sentinel-entry.js');
+  paths.nodeBin = paths.launcherPath;
+  paths.serverCwd = paths.root;
+  paths.webDir = path.join(paths.root, 'web');
+  paths.shellIntegrationDir = path.join(paths.root, 'shell-integration');
+  paths.statePath = path.join(paths.root, 'runtime with spaces', 'buildergate.daemon.json');
   const state = {
     startAttemptId: createRandomToken(),
     stateGeneration: 1,
   };
 
-  const launch = createSentinelLaunchOptions(state, paths);
+  const launch = createSentinelLaunchOptions(state, paths, {
+    baseEnv: {
+      PATH: process.env.PATH ?? '',
+      [PKG_EXECPATH_KEY]: paths.launcherPath,
+    },
+  });
 
-  assert.equal(launch.command, paths.nodeBin);
-  assert.deepEqual(launch.args, [
-    paths.sentinelEntry,
-    '--internal-sentinel-state',
-    paths.statePath,
-    '--internal-sentinel-start',
-    state.startAttemptId,
-  ]);
+  assert.equal(launch.command, paths.launcherPath);
+  assert.deepEqual(launch.args, ['--internal-sentinel']);
   assert.equal(launch.options.detached, true);
   assert.equal(launch.logPath, paths.sentinelLogPath);
   assert.equal(launch.options.env.BUILDERGATE_INTERNAL_MODE, 'sentinel');
   assert.equal(launch.options.env.BUILDERGATE_DAEMON_STATE_PATH, paths.statePath);
   assert.equal(launch.options.env.BUILDERGATE_DAEMON_LOG_PATH, paths.sentinelLogPath);
+  assert.equal(launch.options.env[PKG_EXECPATH_KEY], PKG_EXECPATH_NEUTRAL_VALUE);
+
+  const command = createWindowsStartProcessCommand(launch);
+  assert.equal(command.includes(paths.statePath), false);
+  assert.doesNotMatch(command, /--internal-sentinel-state/);
 });
 
 test('startDaemon spawns detached app and sentinel, writes running state, and waits for identity readiness', async () => {

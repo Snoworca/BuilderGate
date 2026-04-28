@@ -1,12 +1,19 @@
 const crypto = require('crypto');
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 const { appendLog } = require('./log');
 const { isActiveDaemonState, isProcessRunning, killProcess } = require('./process-info');
 const { waitForReadiness } = require('./readiness');
-const { CONFIG_ENV_KEY, ROOT_ENV_KEY, resolveRuntimePaths } = require('./runtime-paths');
+const {
+  CONFIG_ENV_KEY,
+  ROOT_ENV_KEY,
+  SERVER_ROOT_ENV_KEY,
+  SHELL_INTEGRATION_ROOT_ENV_KEY,
+  WEB_ROOT_ENV_KEY,
+  resolveRuntimePaths,
+} = require('./runtime-paths');
 const { runSentinelLoop } = require('./sentinel');
 const {
   createFatalStateFromState,
@@ -18,6 +25,8 @@ const {
 
 const APP_NAME = 'buildergate';
 const INTERNAL_MODE_KEY = 'BUILDERGATE_INTERNAL_MODE';
+const INTERNAL_APP_ARG = '--internal-app';
+const INTERNAL_SENTINEL_ARG = '--internal-sentinel';
 const DAEMON_START_ID_KEY = 'BUILDERGATE_DAEMON_START_ID';
 const DAEMON_STATE_PATH_KEY = 'BUILDERGATE_DAEMON_STATE_PATH';
 const DAEMON_STATE_GENERATION_KEY = 'BUILDERGATE_DAEMON_STATE_GENERATION';
@@ -25,6 +34,8 @@ const DAEMON_LOG_PATH_KEY = 'BUILDERGATE_DAEMON_LOG_PATH';
 const SHUTDOWN_TOKEN_KEY = 'BUILDERGATE_SHUTDOWN_TOKEN';
 const TOTP_SECRET_PATH_KEY = 'BUILDERGATE_TOTP_SECRET_PATH';
 const SUPPRESS_TOTP_QR_KEY = 'BUILDERGATE_SUPPRESS_TOTP_QR';
+const PKG_EXECPATH_KEY = 'PKG_EXECPATH';
+const PKG_EXECPATH_NEUTRAL_VALUE = ' ';
 const FOREGROUND_FORWARD_SIGNALS = ['SIGINT', 'SIGTERM'];
 const SIGNAL_EXIT_CODES = {
   SIGHUP: 129,
@@ -70,6 +81,97 @@ function applyBootstrapAllowedIps(env, bootstrapAllowedIps) {
   return env;
 }
 
+function removePkgBootstrapEnv(env) {
+  for (const key of Object.keys(env)) {
+    if (key.toLowerCase() === PKG_EXECPATH_KEY.toLowerCase()) {
+      delete env[key];
+    }
+  }
+  env[PKG_EXECPATH_KEY] = PKG_EXECPATH_NEUTRAL_VALUE;
+  return env;
+}
+
+function withPkgExecPathClearedForSpawn(childEnv, callback) {
+  if (childEnv?.[PKG_EXECPATH_KEY] !== PKG_EXECPATH_NEUTRAL_VALUE) {
+    return callback();
+  }
+
+  const hadValue = Object.prototype.hasOwnProperty.call(process.env, PKG_EXECPATH_KEY);
+  const previousValue = process.env[PKG_EXECPATH_KEY];
+  process.env[PKG_EXECPATH_KEY] = PKG_EXECPATH_NEUTRAL_VALUE;
+  try {
+    return callback();
+  } finally {
+    if (hadValue) {
+      process.env[PKG_EXECPATH_KEY] = previousValue;
+    } else {
+      delete process.env[PKG_EXECPATH_KEY];
+    }
+  }
+}
+
+function quotePowerShellSingle(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+function encodePowerShellCommand(command) {
+  return Buffer.from(command, 'utf16le').toString('base64');
+}
+
+function createWindowsStartProcessCommand(launch) {
+  const args = launch.args.map(quotePowerShellSingle).join(', ');
+  return [
+    '$ErrorActionPreference = "Stop"',
+    `$env:${PKG_EXECPATH_KEY} = ${quotePowerShellSingle(PKG_EXECPATH_NEUTRAL_VALUE)}`,
+    `$p = Start-Process -FilePath ${quotePowerShellSingle(launch.command)} -ArgumentList @(${args}) -WorkingDirectory ${quotePowerShellSingle(launch.options.cwd ?? process.cwd())} -WindowStyle Hidden -PassThru`,
+    '[Console]::Out.WriteLine($p.Id)',
+  ].join('\n');
+}
+
+function shouldUseWindowsStartProcess(launch) {
+  const runtimeRoot = launch.options?.env?.[ROOT_ENV_KEY];
+  return (
+    process.platform === 'win32'
+    && launch.options?.env?.[PKG_EXECPATH_KEY] === PKG_EXECPATH_NEUTRAL_VALUE
+    && path.resolve(launch.command).toLowerCase().endsWith('.exe')
+    && runtimeRoot
+    && path.dirname(path.resolve(launch.command)).toLowerCase() === path.resolve(runtimeRoot).toLowerCase()
+  );
+}
+
+function spawnWindowsPackagedProcess(launch) {
+  const command = createWindowsStartProcessCommand(launch);
+  const result = spawnSync('powershell.exe', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-EncodedCommand',
+    encodePowerShellCommand(command),
+  ], {
+    cwd: launch.options.cwd,
+    env: launch.options.env,
+    encoding: 'utf8',
+    windowsHide: true,
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    const stderr = String(result.stderr ?? '').trim();
+    throw new Error(`Failed to spawn ${launch.role} child with Start-Process: ${stderr || `exit ${result.status}`}`);
+  }
+
+  const pid = Number.parseInt(String(result.stdout ?? '').trim(), 10);
+  if (!Number.isInteger(pid) || pid <= 0) {
+    throw new Error(`Failed to spawn ${launch.role} child: invalid PID from Start-Process`);
+  }
+
+  return { pid, child: null };
+}
+
 function createRuntimeEnv(
   port,
   bootstrapAllowedIps = [],
@@ -82,6 +184,11 @@ function createRuntimeEnv(
     NODE_ENV: 'production',
     PORT: String(port),
     [CONFIG_ENV_KEY]: paths.configPath,
+    [ROOT_ENV_KEY]: paths.root,
+    BUILDERGATE_RUNTIME_ROOT: paths.root,
+    [SERVER_ROOT_ENV_KEY]: paths.serverCwd ?? paths.root,
+    [SHELL_INTEGRATION_ROOT_ENV_KEY]: paths.shellIntegrationDir,
+    [WEB_ROOT_ENV_KEY]: paths.webDir,
     [TOTP_SECRET_PATH_KEY]: paths.totpSecretPath,
   }, localBinDirs);
 
@@ -89,7 +196,7 @@ function createRuntimeEnv(
     delete env[key];
   }
 
-  return applyBootstrapAllowedIps(env, bootstrapAllowedIps);
+  return applyBootstrapAllowedIps(removePkgBootstrapEnv(env), bootstrapAllowedIps);
 }
 
 function createDaemonRuntimeEnv(
@@ -105,6 +212,11 @@ function createDaemonRuntimeEnv(
     NODE_ENV: 'production',
     PORT: String(port),
     [CONFIG_ENV_KEY]: paths.configPath,
+    [ROOT_ENV_KEY]: paths.root,
+    BUILDERGATE_RUNTIME_ROOT: paths.root,
+    [SERVER_ROOT_ENV_KEY]: paths.serverCwd ?? paths.root,
+    [SHELL_INTEGRATION_ROOT_ENV_KEY]: paths.shellIntegrationDir,
+    [WEB_ROOT_ENV_KEY]: paths.webDir,
     [TOTP_SECRET_PATH_KEY]: paths.totpSecretPath,
     [SUPPRESS_TOTP_QR_KEY]: '1',
     [INTERNAL_MODE_KEY]: 'app',
@@ -115,48 +227,65 @@ function createDaemonRuntimeEnv(
     [DAEMON_LOG_PATH_KEY]: paths.logPath,
   }, localBinDirs);
 
-  return applyBootstrapAllowedIps(env, bootstrapAllowedIps);
+  return applyBootstrapAllowedIps(removePkgBootstrapEnv(env), bootstrapAllowedIps);
 }
 
 function createSentinelRuntimeEnv(state, baseEnv = process.env, paths = resolveRuntimePaths(), localBinDirs = []) {
   const sentinelLogPath = paths.sentinelLogPath ?? paths.logPath;
-  return withLocalBinPath({
+  return removePkgBootstrapEnv(withLocalBinPath({
     ...baseEnv,
     NODE_ENV: 'production',
     [CONFIG_ENV_KEY]: paths.configPath,
     [ROOT_ENV_KEY]: paths.root,
     BUILDERGATE_RUNTIME_ROOT: paths.root,
+    [SERVER_ROOT_ENV_KEY]: paths.serverCwd ?? paths.root,
+    [SHELL_INTEGRATION_ROOT_ENV_KEY]: paths.shellIntegrationDir,
+    [WEB_ROOT_ENV_KEY]: paths.webDir,
     [INTERNAL_MODE_KEY]: 'sentinel',
     [DAEMON_START_ID_KEY]: state.startAttemptId,
     [DAEMON_STATE_PATH_KEY]: paths.statePath,
     [DAEMON_STATE_GENERATION_KEY]: String(state.stateGeneration),
     [DAEMON_LOG_PATH_KEY]: sentinelLogPath,
-  }, localBinDirs);
+  }, localBinDirs));
 }
 
 function resolveAppNodeCommand(paths = resolveRuntimePaths()) {
-  if (fs.existsSync(paths.nodeBin)) {
-    return paths.nodeBin;
+  if (paths.isPackaged ?? Boolean(process.pkg)) {
+    return paths.launcherPath;
   }
 
-  if (paths.isPackaged ?? Boolean(process.pkg)) {
-    throw new Error(`Bundled Node runtime missing: ${paths.nodeBin}`);
+  if (fs.existsSync(paths.nodeBin)) {
+    return paths.nodeBin;
   }
 
   return process.execPath;
 }
 
-function resolveSentinelCommand(paths = resolveRuntimePaths()) {
+function resolveAppLaunchCommand(paths = resolveRuntimePaths()) {
   if (paths.isPackaged ?? Boolean(process.pkg)) {
     return {
-      command: resolveAppNodeCommand(paths),
-      args: [paths.sentinelEntry],
+      command: paths.launcherPath,
+      args: [INTERNAL_APP_ARG],
     };
   }
 
   return {
     command: resolveAppNodeCommand(paths),
-    args: [paths.launcherPath, '--internal-sentinel'],
+    args: [paths.serverEntry],
+  };
+}
+
+function resolveSentinelCommand(paths = resolveRuntimePaths()) {
+  if (paths.isPackaged ?? Boolean(process.pkg)) {
+    return {
+      command: paths.launcherPath,
+      args: [INTERNAL_SENTINEL_ARG],
+    };
+  }
+
+  return {
+    command: resolveAppNodeCommand(paths),
+    args: [paths.launcherPath, INTERNAL_SENTINEL_ARG],
   };
 }
 
@@ -166,11 +295,12 @@ function createForegroundLaunchOptions(
   paths = resolveRuntimePaths(),
   options = {},
 ) {
+  const appCommand = resolveAppLaunchCommand(paths);
   return {
-    command: resolveAppNodeCommand(paths),
-    args: [paths.serverEntry],
+    command: appCommand.command,
+    args: appCommand.args,
     options: {
-      cwd: paths.serverDir,
+      cwd: paths.serverCwd ?? paths.serverDir,
       env: createRuntimeEnv(
         port,
         bootstrapAllowedIps,
@@ -220,13 +350,14 @@ function stateMatchesContract(state, contract) {
 }
 
 function createDaemonAppLaunchOptions(port, bootstrapAllowedIps, state, paths, options = {}) {
+  const appCommand = resolveAppLaunchCommand(paths);
   return {
     role: 'app',
-    command: resolveAppNodeCommand(paths),
-    args: [paths.serverEntry],
+    command: appCommand.command,
+    args: appCommand.args,
     logPath: paths.logPath,
     options: {
-      cwd: paths.serverDir,
+      cwd: paths.serverCwd ?? paths.serverDir,
       env: createDaemonRuntimeEnv(
         port,
         bootstrapAllowedIps,
@@ -244,14 +375,17 @@ function createDaemonAppLaunchOptions(port, bootstrapAllowedIps, state, paths, o
 function createSentinelLaunchOptions(state, paths, options = {}) {
   const sentinelCommand = resolveSentinelCommand(paths);
   const sentinelLogPath = paths.sentinelLogPath ?? paths.logPath;
+  const isPackaged = paths.isPackaged ?? Boolean(process.pkg);
   const sentinelArgs = sentinelCommand.args.length > 0
-    ? [
-      ...sentinelCommand.args,
-      '--internal-sentinel-state',
-      paths.statePath,
-      '--internal-sentinel-start',
-      state.startAttemptId,
-    ]
+    ? isPackaged
+      ? sentinelCommand.args
+      : [
+        ...sentinelCommand.args,
+        '--internal-sentinel-state',
+        paths.statePath,
+        '--internal-sentinel-start',
+        state.startAttemptId,
+      ]
     : [];
 
   return {
@@ -275,14 +409,18 @@ function createSentinelLaunchOptions(state, paths, options = {}) {
 
 function spawnDetachedProcess(launch) {
   fs.mkdirSync(path.dirname(launch.logPath), { recursive: true });
+  if (shouldUseWindowsStartProcess(launch)) {
+    return spawnWindowsPackagedProcess(launch);
+  }
+
   const stdoutFd = fs.openSync(launch.logPath, 'a');
   const stderrFd = fs.openSync(launch.logPath, 'a');
 
   try {
-    const child = spawn(launch.command, launch.args, {
+    const child = withPkgExecPathClearedForSpawn(launch.options.env, () => spawn(launch.command, launch.args, {
       ...launch.options,
       stdio: ['ignore', stdoutFd, stderrFd],
-    });
+    }));
 
     if (!child.pid) {
       throw new Error(`Failed to spawn ${launch.role} child: PID was not assigned`);
@@ -540,7 +678,10 @@ function startForeground(port, source, bootstrapAllowedIps = [], paths = resolve
 
     let child;
     try {
-      child = spawnProcess(launch.command, launch.args, launch.options);
+      child = withPkgExecPathClearedForSpawn(
+        launch.options.env,
+        () => spawnProcess(launch.command, launch.args, launch.options),
+      );
     } catch (error) {
       settle(reject, error);
       return;
@@ -612,10 +753,15 @@ module.exports = {
   DAEMON_STATE_PATH_KEY,
   FOREGROUND_DAEMON_ONLY_ENV_KEYS,
   INTERNAL_MODE_KEY,
+  INTERNAL_APP_ARG,
+  INTERNAL_SENTINEL_ARG,
   SHUTDOWN_TOKEN_KEY,
   SUPPRESS_TOTP_QR_KEY,
+  PKG_EXECPATH_KEY,
+  PKG_EXECPATH_NEUTRAL_VALUE,
   TOTP_SECRET_PATH_KEY,
   cleanupAttempt,
+  createWindowsStartProcessCommand,
   createDaemonAppLaunchOptions,
   createDaemonRuntimeEnv,
   createForegroundLaunchOptions,
@@ -629,11 +775,14 @@ module.exports = {
   inspectExistingDaemonState,
   isExistingDaemonActive,
   resolveAppNodeCommand,
+  resolveAppLaunchCommand,
   resolveSentinelCommand,
   runSentinelLoop,
   spawnDetachedProcess,
+  spawnWindowsPackagedProcess,
   startDaemon,
   startForeground,
   stateMatchesContract,
   withLocalBinPath,
+  withPkgExecPathClearedForSpawn,
 };
