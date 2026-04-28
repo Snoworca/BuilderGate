@@ -10,7 +10,7 @@
 
 | 항목 | 값 |
 |------|---|
-| 입력 문서 | `docs/spec/srs.step6.md` (v2.0.0, 만장일치 A+) |
+| 입력 문서 | `docs/archive/spec/srs.step6.md` (v2.0.0, 만장일치 A+) |
 | 참고 문서 | `docs/research/tmux-feature-research.md` |
 | 총 Phase 수 | 6 |
 | 신규 파일 수 | 15개 |

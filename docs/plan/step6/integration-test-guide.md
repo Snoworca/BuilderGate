@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Date**: 2026-03-21
-**SRS Reference**: `docs/spec/srs.step6.md`
+**SRS Reference**: `docs/archive/spec/srs.step6.md`
 **Architecture Reference**: `plan/step6/00-1.architecture.md`
 
 ---

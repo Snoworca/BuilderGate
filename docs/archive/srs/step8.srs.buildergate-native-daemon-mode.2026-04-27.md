@@ -8,9 +8,9 @@
 | 프로젝트 | BuilderGate |
 | 버전 | step8 |
 | 작성일 | 2026-04-27 |
-| 기반 PRD | `docs/srs/step8.prd.buildergate-native-daemon-mode.2026-04-25.md` |
+| 기반 PRD | `docs/archive/srs/step8.prd.buildergate-native-daemon-mode.2026-04-25.md` |
 | 선행 분석 | `docs/analysis/2026-04-25.buildergate-native-daemon-mode-prd-analysis.md` |
-| 이전 SRS | `docs/srs/step7.srs-plan.equal-모드-무브버튼-드래그-영역-복원.2026-04-22.md` |
+| 이전 SRS | `docs/archive/srs/step7.srs-plan.equal-모드-무브버튼-드래그-영역-복원.2026-04-22.md` |
 | 대상 코드 | `tools/start-runtime.js`, `stop.js`, `tools/build-daemon-exe.js`, `server/src/index.ts`, `server/src/services/TOTPService.ts`, `server/src/services/twoFactorRuntime.ts`, `README.md` |
 | 상태 | Final (3인 전문가 평가 No findings, 7개 기준 A+) |
 | 평가 라운드 | 4회 |

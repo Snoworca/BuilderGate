@@ -5,7 +5,7 @@
 **Date**: 2026-03-21
 **Status**: Approved (만장일치 A+, 2 라운드)
 **Evaluation Rounds**: 2
-**Depends On**: `docs/spec/srs.step5.md` (Runtime Settings Page)
+**Depends On**: `docs/archive/spec/srs.step5.md` (Runtime Settings Page)
 **Research Reference**: `docs/research/tmux-feature-research.md`
 
 ---

@@ -5,7 +5,7 @@
 **Date**: 2026-03-25
 **Status**: Approved (3인 전문가 평가 반영, 이중 검증 통과)
 **Evaluation Rounds**: 1 (초안) + 1 (전문가 피드백 반영)
-**Depends On**: `docs/spec/srs.step6.md` (Pane Split System — 대체 대상)
+**Depends On**: `docs/archive/spec/srs.step6.md` (Pane Split System — 대체 대상)
 **Research Reference**: `docs/research/cmux-research.md`
 
 ---

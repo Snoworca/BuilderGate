@@ -11,8 +11,8 @@
   "start_stage": "PLAN",
   "current_stage": "COMPLETE",
   "completed_stages": ["PLAN", "CODE", "REVIEW"],
-  "input_docs": ["docs/srs/step3.srs.탭-그리드-UX-통일-및-세션-유지.2026-04-06.md"],
-  "ref_paths": ["docs/srs/step3.srs.탭-그리드-UX-통일-및-세션-유지.2026-04-06.md"],
+  "input_docs": ["docs/archive/srs/step3.srs.탭-그리드-UX-통일-및-세션-유지.2026-04-06.md"],
+  "ref_paths": ["docs/archive/srs/step3.srs.탭-그리드-UX-통일-및-세션-유지.2026-04-06.md"],
   "dew_files": {},
   "stages": {
     "PRD": { "status": "skipped", "reason": "SRS가 이미 존재" },

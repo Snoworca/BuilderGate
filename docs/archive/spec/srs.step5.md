@@ -4,7 +4,7 @@
 **Version**: 1.0.0  
 **Date**: 2026-03-07  
 **Status**: Draft  
-**Depends On**: `docs/spec/srs.step3.md` (repository latest spec; `srs.step4.md` not present)  
+**Depends On**: `docs/archive/spec/srs.step3.md` (repository latest spec; `srs.step4.md` not present)
 **Config Target**: `server/config.json5`
 
 ---

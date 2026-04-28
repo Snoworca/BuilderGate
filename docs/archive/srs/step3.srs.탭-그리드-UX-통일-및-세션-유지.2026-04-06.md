@@ -6,7 +6,7 @@ type: srs
 version: srs.step3
 tech_stack: React 18, TypeScript, xterm.js, Node.js
 code_path: frontend/src/
-request_doc: docs/srs/request/2026-04-06.request.srs.탭-그리드-모드-UX-통일-및-세션-유지.md
+request_doc: docs/archive/srs/request/2026-04-06.request.srs.탭-그리드-모드-UX-통일-및-세션-유지.md
 ---
 
 # 탭/그리드 모드 UX 통일 및 세션 유지 SRS

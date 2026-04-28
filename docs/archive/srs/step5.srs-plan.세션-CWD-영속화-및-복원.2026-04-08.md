@@ -5,7 +5,7 @@ date: 2026-04-08
 type: feature
 tech_stack: Node.js + Express + TypeScript (server), React 18 + TypeScript (frontend), node-pty, WebSocket
 code_path: server/src, frontend/src
-request_doc: docs/srs/request/2026-04-08.request.srs-plan.세션-CWD-영속화-및-복원.md
+request_doc: docs/archive/srs/request/2026-04-08.request.srs-plan.세션-CWD-영속화-및-복원.md
 ---
 
 # 세션 CWD 영속화 및 복원
@@ -210,7 +210,7 @@ CWD 추적은 이미 구현되어 있다: 셸 프롬프트 훅이 `os.tmpdir()/b
 
 - 다음 단계: `snoworca-plan-driven-coder`
 - 입력 인자:
-  - PLAN_PATH: `docs/srs/step5.srs-plan.세션-CWD-영속화-및-복원.2026-04-08.md`
+  - PLAN_PATH: `docs/archive/srs/step5.srs-plan.세션-CWD-영속화-및-복원.2026-04-08.md`
   - LANGUAGE: TypeScript 5.x
   - FRAMEWORK: Node.js + Express (server), React 18 (frontend)
   - CODE_PATH: `server/src`, `frontend/src`

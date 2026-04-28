@@ -5,7 +5,7 @@ date: 2026-04-22
 type: fix
 tech_stack: React 19 + TypeScript + Vite 7 + react-mosaic-component 6.1.1 + react-dnd 16
 code_path: frontend/src, frontend/patches
-request_doc: docs/srs/request/2026-04-22.request.srs-plan.equal-모드-무브버튼-드래그-영역-복원.md
+request_doc: docs/archive/srs/request/2026-04-22.request.srs-plan.equal-모드-무브버튼-드래그-영역-복원.md
 ---
 
 # equal 모드 무브버튼 드래그 영역 복원
@@ -146,7 +146,7 @@ equal 모드에서 사용자가 보는 무브 버튼 영역 전체가 실제 dra
 
 - 다음 단계: `snoworca-plan-driven-coder`
 - 입력 인자:
-  - PLAN_PATH: `docs/srs/step7.srs-plan.equal-모드-무브버튼-드래그-영역-복원.2026-04-22.md`
+  - PLAN_PATH: `docs/archive/srs/step7.srs-plan.equal-모드-무브버튼-드래그-영역-복원.2026-04-22.md`
   - LANGUAGE: TypeScript 5.x
   - FRAMEWORK: React 19 + Vite 7
   - CODE_PATH: `frontend/src`, `frontend/patches`

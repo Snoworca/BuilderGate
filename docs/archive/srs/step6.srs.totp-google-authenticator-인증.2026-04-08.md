@@ -1272,7 +1272,7 @@ Then: Zod 유효성 검사 실패
 
 - **다음 단계**: `snoworca-implementation-planner`
 - **입력 인자**:
-  - `SPEC_PATH`: `docs/srs/step6.srs.totp-google-authenticator-인증.2026-04-08.md`
+  - `SPEC_PATH`: `docs/archive/srs/step6.srs.totp-google-authenticator-인증.2026-04-08.md`
   - `CODE_PATH`: `/mnt/c/Work/git/_Snoworca/ProjectMaster`
   - `LANGUAGE`: TypeScript
   - `FRAMEWORK`: React + Express + xterm.js

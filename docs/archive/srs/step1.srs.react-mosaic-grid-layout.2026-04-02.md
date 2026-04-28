@@ -1148,7 +1148,7 @@ function migrateGridLayout(legacy: any): GridLayout {
 
 - 다음 단계: `snoworca-implementation-planner`
 - 입력 인자:
-  - SPEC_PATH: `docs/srs/step1.srs.react-mosaic-grid-layout.2026-04-02.md`
+  - SPEC_PATH: `docs/archive/srs/step1.srs.react-mosaic-grid-layout.2026-04-02.md`
   - CODE_PATH: `frontend/src/`
   - LANGUAGE: TypeScript
   - FRAMEWORK: React 18 + Vite
