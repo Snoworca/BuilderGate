@@ -69,7 +69,7 @@ export interface TerminalHandle {
   setWindowsPty: (info?: WindowsPtyInfo) => void;
 }
 
-export type GridRepairReason = 'idle' | 'manual' | 'workspace';
+export type GridRepairReason = 'manual' | 'workspace';
 
 interface Props {
   sessionId: string;

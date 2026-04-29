@@ -38,6 +38,13 @@ type CapturedWsMessage = {
   rows?: number;
 };
 
+type TerminalDebugEvent = {
+  eventId: number;
+  sessionId: string;
+  kind: string;
+  details?: Record<string, string | number | boolean | null>;
+};
+
 declare global {
   interface Window {
     __buildergateCapturedWsMessages?: CapturedWsMessage[];
@@ -46,7 +53,7 @@ declare global {
     __buildergateTerminalDebug?: {
       enable: () => void;
       clear: () => void;
-      getEvents: () => Array<{ kind: string }>;
+      getEvents: () => TerminalDebugEvent[];
     };
   }
 }
@@ -368,10 +375,14 @@ async function hasTerminalDebugEvent(
   page: Page,
   kind: string,
   details?: Record<string, string | number | boolean | null>,
+  sessionId?: string,
 ): Promise<boolean> {
-  return page.evaluate(({ nextKind, expectedDetails }) => {
+  return page.evaluate(({ nextKind, expectedDetails, expectedSessionId }) => {
     return window.__buildergateTerminalDebug?.getEvents().some((event) => {
       if (event.kind !== nextKind) {
+        return false;
+      }
+      if (expectedSessionId && event.sessionId !== expectedSessionId) {
         return false;
       }
       if (!expectedDetails) {
@@ -379,7 +390,7 @@ async function hasTerminalDebugEvent(
       }
       return Object.entries(expectedDetails).every(([key, value]) => event.details?.[key] === value);
     }) ?? false;
-  }, { nextKind: kind, expectedDetails: details });
+  }, { nextKind: kind, expectedDetails: details, expectedSessionId: sessionId });
 }
 
 async function clearTerminalDebugCapture(page: Page): Promise<void> {
@@ -421,6 +432,47 @@ async function expectCapturedResizeBeforeRepairReplay(page: Page): Promise<void>
 
   expect(resizeIndex).toBeGreaterThanOrEqual(0);
   expect(repairIndex).toBeGreaterThan(resizeIndex);
+}
+
+async function findRunningToIdleSessionId(page: Page): Promise<string | null> {
+  return page.evaluate(() => {
+    const events = window.__buildergateTerminalDebug?.getEvents() ?? [];
+    for (let index = 0; index < events.length; index += 1) {
+      const event = events[index];
+      if (event.kind !== 'status_received' || event.details?.status !== 'running') {
+        continue;
+      }
+
+      const laterIdle = events.slice(index + 1).some((laterEvent) => (
+        laterEvent.sessionId === event.sessionId
+        && laterEvent.kind === 'status_received'
+        && laterEvent.details?.status === 'idle'
+      ));
+      if (laterIdle) {
+        return event.sessionId;
+      }
+    }
+
+    return null;
+  });
+}
+
+async function expectRunningToIdleTransition(page: Page): Promise<string> {
+  await expect.poll(async () => findRunningToIdleSessionId(page), { timeout: 30000 }).not.toBeNull();
+  const sessionId = await findRunningToIdleSessionId(page);
+  expect(sessionId).not.toBeNull();
+  return sessionId!;
+}
+
+async function expectNoGridRepair(page: Page, sessionId: string): Promise<void> {
+  expect(await hasTerminalDebugEvent(page, 'grid_layout_repair_started', undefined, sessionId)).toBe(false);
+  expect(await hasTerminalDebugEvent(page, 'grid_repair_replay_deferred', undefined, sessionId)).toBe(false);
+  expect(await hasTerminalDebugEvent(page, 'grid_repair_resize_sent', undefined, sessionId)).toBe(false);
+  expect(await hasTerminalDebugEvent(page, 'idle_repair_scheduled', undefined, sessionId)).toBe(false);
+  expect(await hasTerminalDebugEvent(page, 'idle_repair_requested', undefined, sessionId)).toBe(false);
+  expect(await hasTerminalDebugEvent(page, 'manual_repair_requested', undefined, sessionId)).toBe(false);
+  expect(await hasTerminalDebugEvent(page, 'workspace_repair_requested', undefined, sessionId)).toBe(false);
+  expect((await readCapturedWsMessages(page)).some(message => message.type === 'repair-replay')).toBe(false);
 }
 
 async function selectWorkspaceByName(page: Page, workspaceName: string): Promise<void> {
@@ -1161,7 +1213,7 @@ test.describe('Grid Equal Mode Reorder', () => {
     expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
   });
 
-  test('TC-6613: running to idle repair performs resize before repair replay', async ({ page }) => {
+  test('TC-6613: running to idle does not request grid repair', async ({ page }) => {
     await installWsMessageCapture(page);
     await login(page);
     const { workspaceId } = await setupEqualGridWorkspace(page, 4);
@@ -1178,12 +1230,13 @@ test.describe('Grid Equal Mode Reorder', () => {
       `Write-Host "$([char]27)]133;C$([char]7)"; Start-Sleep -Milliseconds 1000; Write-Host "$([char]27)]133;D;0$([char]7)"; echo TC6613-${Date.now()}`,
     );
 
-    await expect.poll(async () => hasTerminalDebugEvent(page, 'grid_layout_repair_started', { reason: 'idle' }), { timeout: 30000 }).toBe(true);
-    await expectCapturedResizeBeforeRepairReplay(page);
+    const sessionId = await expectRunningToIdleTransition(page);
+    await page.waitForTimeout(1500);
+    await expectNoGridRepair(page, sessionId);
     expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
   });
 
-  test('TC-6615: idle repair preserves focused grid terminal', async ({ page }) => {
+  test('TC-6615: idle transition preserves focused grid terminal without repair', async ({ page }) => {
     await installWsMessageCapture(page);
     await login(page);
     const { workspaceId } = await setupEqualGridWorkspace(page, 4);
@@ -1200,8 +1253,9 @@ test.describe('Grid Equal Mode Reorder', () => {
     );
     await expectFocusedGridTerminal(page);
 
-    await expect.poll(async () => hasTerminalDebugEvent(page, 'grid_layout_repair_started', { reason: 'idle' }), { timeout: 30000 }).toBe(true);
-    await expectCapturedResizeBeforeRepairReplay(page);
+    const sessionId = await expectRunningToIdleTransition(page);
+    await page.waitForTimeout(1500);
+    await expectNoGridRepair(page, sessionId);
     await expectFocusedGridTerminal(page);
     expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
   });

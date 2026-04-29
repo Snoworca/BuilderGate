@@ -57,7 +57,6 @@ export const TerminalContainer = memo(
     const pendingSnapshotRef = useRef<SnapshotPayload | null>(null);
     const snapshotApplyInProgressRef = useRef(false);
     const sessionReadyRef = useRef(false);
-    const idleRepairTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const visibleRepairTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const gridRepairInFlightRef = useRef<Promise<void> | null>(null);
     const gridVisibleRef = useRef(false);
@@ -65,15 +64,12 @@ export const TerminalContainer = memo(
     const repairSnapshotPendingRef = useRef(false);
     const lastResizeRef = useRef<{ cols: number; rows: number } | null>(null);
     const lastStatusRef = useRef<WorkspaceTabRuntime['status'] | null>(null);
-    const idleRepairTriggeredRef = useRef(false);
     const lastAppliedSnapshotRef = useRef<{
       seq: number;
       mode: 'authoritative' | 'fallback';
       truncated: boolean;
       data: string;
     } | null>(null);
-
-    const IDLE_REPAIR_QUIET_WINDOW_MS = 600;
 
     isVisibleRef.current = isVisible;
     isGridSurfaceRef.current = isGridSurface;
@@ -87,10 +83,6 @@ export const TerminalContainer = memo(
       pendingSnapshotRef.current = null;
       snapshotApplyInProgressRef.current = false;
       sessionReadyRef.current = false;
-      if (idleRepairTimerRef.current) {
-        clearTimeout(idleRepairTimerRef.current);
-        idleRepairTimerRef.current = null;
-      }
       if (visibleRepairTimerRef.current) {
         clearTimeout(visibleRepairTimerRef.current);
         visibleRepairTimerRef.current = null;
@@ -101,7 +93,6 @@ export const TerminalContainer = memo(
       repairSnapshotPendingRef.current = false;
       lastResizeRef.current = null;
       lastStatusRef.current = null;
-      idleRepairTriggeredRef.current = false;
       lastAppliedSnapshotRef.current = null;
       terminalRef.current?.setServerReady(false);
       recordTerminalDebugEvent(sessionId, 'session_attached');
@@ -130,10 +121,6 @@ export const TerminalContainer = memo(
         return;
       }
 
-      if (reason === 'idle') {
-        idleRepairTriggeredRef.current = true;
-      }
-
       const lastResize = lastResizeRef.current;
       if (lastResize) {
         recordTerminalDebugEvent(sessionId, 'grid_repair_resize_sent', {
@@ -148,9 +135,7 @@ export const TerminalContainer = memo(
       terminalRef.current?.setServerReady(false);
       recordTerminalDebugEvent(
         sessionId,
-        reason === 'idle'
-          ? 'idle_repair_requested'
-          : reason === 'workspace'
+        reason === 'workspace'
           ? 'workspace_repair_requested'
           : 'manual_repair_requested',
       );
@@ -212,47 +197,14 @@ export const TerminalContainer = memo(
     }), [runGridLayoutRepair]);
 
     const handleStatus = useEffectEvent((status: string) => {
-      onStatusChange(sessionId, status as WorkspaceTabRuntime['status']);
       const nextStatus = status as WorkspaceTabRuntime['status'];
       const previousStatus = lastStatusRef.current;
+      onStatusChange(sessionId, nextStatus);
       lastStatusRef.current = nextStatus;
       recordTerminalDebugEvent(sessionId, 'status_received', {
         status: nextStatus,
         previousStatus,
       });
-
-      if (nextStatus !== 'idle') {
-        if (idleRepairTimerRef.current) {
-          clearTimeout(idleRepairTimerRef.current);
-          idleRepairTimerRef.current = null;
-        }
-        if (nextStatus === 'running' || nextStatus === 'disconnected') {
-          idleRepairTriggeredRef.current = false;
-        }
-        return;
-      }
-
-      if (!isGridSurfaceRef.current || !isVisibleRef.current || previousStatus !== 'running' || idleRepairTriggeredRef.current) {
-        return;
-      }
-
-      if (!historySeenRef.current && !lastAppliedSnapshotRef.current) {
-        return;
-      }
-
-      if (idleRepairTimerRef.current) {
-        clearTimeout(idleRepairTimerRef.current);
-      }
-
-      recordTerminalDebugEvent(sessionId, 'idle_repair_scheduled', {
-        quietWindowMs: IDLE_REPAIR_QUIET_WINDOW_MS,
-      });
-      idleRepairTimerRef.current = setTimeout(() => {
-        if (!isGridSurfaceRef.current || !isVisibleRef.current || lastStatusRef.current !== 'idle' || !sessionReadyRef.current) {
-          return;
-        }
-        runGridLayoutRepair('idle');
-      }, IDLE_REPAIR_QUIET_WINDOW_MS);
     });
 
     const handleCwd = useEffectEvent((cwd: string) => {
@@ -412,10 +364,6 @@ export const TerminalContainer = memo(
 
     useEffect(() => {
       return () => {
-        if (idleRepairTimerRef.current) {
-          clearTimeout(idleRepairTimerRef.current);
-          idleRepairTimerRef.current = null;
-        }
         if (visibleRepairTimerRef.current) {
           clearTimeout(visibleRepairTimerRef.current);
           visibleRepairTimerRef.current = null;
@@ -426,16 +374,6 @@ export const TerminalContainer = memo(
     useEffect(() => {
       terminalRef.current?.setServerReady(sessionReadyRef.current);
     });
-
-    useEffect(() => {
-      if (isVisible) {
-        return;
-      }
-      if (idleRepairTimerRef.current) {
-        clearTimeout(idleRepairTimerRef.current);
-        idleRepairTimerRef.current = null;
-      }
-    }, [isVisible]);
 
     useEffect(() => {
       const unsubscribe = subscribeSession(sessionId, {
