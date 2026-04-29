@@ -72,12 +72,11 @@ export class BootstrapSetupService {
       throw new AppError(ErrorCode.PASSWORD_CONFIRM_MISMATCH);
     }
 
-    const normalizedPassword = password.trim();
-    if (normalizedPassword.length < 4) {
+    if (password.length < 4) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Password must be at least 4 characters long');
     }
 
-    const encryptedPassword = this.deps.cryptoService.encrypt(normalizedPassword);
+    const encryptedPassword = this.deps.cryptoService.encrypt(password);
     this.deps.configRepository.persistAuthPassword(encryptedPassword);
     this.deps.authService.updateRuntimeConfig({ password: encryptedPassword });
     this.clearRateLimit(requestIp);

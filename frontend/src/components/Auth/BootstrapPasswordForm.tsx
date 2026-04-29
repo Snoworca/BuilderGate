@@ -7,14 +7,13 @@ export function BootstrapPasswordForm() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const { bootstrapPassword, isLoading, error } = useAuth();
-  const normalizedPassword = password.trim();
 
   const validationMessage = useMemo(() => {
     if (!password && !confirmPassword) {
       return null;
     }
 
-    if (password.length > 0 && normalizedPassword.length < 4) {
+    if (password.length > 0 && password.length < 4) {
       return 'Password must be at least 4 characters long.';
     }
 
@@ -23,9 +22,9 @@ export function BootstrapPasswordForm() {
     }
 
     return null;
-  }, [confirmPassword, normalizedPassword, password]);
+  }, [confirmPassword, password]);
 
-  const canSubmit = normalizedPassword.length >= 4 && password === confirmPassword;
+  const canSubmit = password.length >= 4 && password === confirmPassword;
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();

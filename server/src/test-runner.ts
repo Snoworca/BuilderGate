@@ -200,6 +200,7 @@ async function main(): Promise<void> {
     { name: 'authRoutes bootstrap-status allows remote IPs from env allowlist', run: testAuthRoutesBootstrapStatusAllowlistEnv },
     { name: 'authRoutes bootstrap-status normalizes IPv4-mapped IPv6 request addresses against allowlists', run: testAuthRoutesBootstrapStatusNormalizesMappedIpv4 },
     { name: 'authRoutes bootstrap-password persists encrypted password and issues JWT', run: testAuthRoutesBootstrapPasswordSuccess },
+    { name: 'authRoutes bootstrap-password preserves exact long password input', run: testAuthRoutesBootstrapPasswordPreservesExactLongInput },
     { name: 'authRoutes bootstrap-password inserts an auth section when legacy config omits it', run: testAuthRoutesBootstrapPasswordLegacyMissingAuthSection },
     { name: 'authRoutes bootstrap-password closes once a password is configured', run: testAuthRoutesBootstrapPasswordClosedAfterSetup },
     { name: 'authRoutes COMBO-3: TOTP-only login returns 202 with nextStage totp (Phase 4)', run: testAuthRoutesCombo3Login },
@@ -5640,6 +5641,23 @@ async function testAuthRoutesBootstrapPasswordSuccess(): Promise<void> {
     assert.equal(result.body.expiresIn, 1800000);
     assert.equal(harness.authService.validatePassword('bootstrap-pass'), true);
     assert.match(savedContent, /password:\s*"enc\(/);
+  } finally {
+    await harness.destroy();
+  }
+}
+
+async function testAuthRoutesBootstrapPasswordPreservesExactLongInput(): Promise<void> {
+  const harness = await makeBootstrapHarness({ initialPassword: '' });
+  const password = ` ${'buildergate-'.repeat(40)}tail `;
+  try {
+    const result = await invokeBootstrapPassword(harness.accessors, {
+      password,
+      confirmPassword: password,
+    });
+
+    assert.equal(result.status, 201);
+    assert.equal(harness.authService.validatePassword(password), true);
+    assert.equal(harness.authService.validatePassword(password.trim()), false);
   } finally {
     await harness.destroy();
   }

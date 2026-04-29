@@ -1,4 +1,27 @@
 import { test, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
+
+async function mockWorkspaceShellResponses(page: Page) {
+  await page.route('**/api/workspaces', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        workspaces: [],
+        tabs: [],
+        gridLayouts: [],
+      }),
+    });
+  });
+
+  await page.route('**/api/sessions/shells', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([]),
+    });
+  });
+}
 
 test.describe('Initial password bootstrap', () => {
   test('TC-2301: allowed bootstrap flow renders setup form, blocks mismatch, and enters the app after success', async ({ page }) => {
@@ -64,6 +87,59 @@ test.describe('Initial password bootstrap', () => {
 
     const storedToken = await page.evaluate(() => localStorage.getItem('cws_auth_token'));
     expect(storedToken).toBe('bootstrap-token');
+  });
+
+  test('TC-2305: password setup rejects fewer than 4 chars and submits long input without trimming or truncation', async ({ page }) => {
+    let submittedBody: { password?: string; confirmPassword?: string } | null = null;
+
+    await page.route('**/api/auth/bootstrap-status', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          setupRequired: true,
+          requesterAllowed: true,
+          allowPolicy: 'localhost',
+        }),
+      });
+    });
+
+    await page.route('**/api/auth/bootstrap-password', async (route) => {
+      submittedBody = route.request().postDataJSON() as { password?: string; confirmPassword?: string };
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          token: 'bootstrap-token',
+          expiresIn: 1800000,
+        }),
+      });
+    });
+
+    await mockWorkspaceShellResponses(page);
+
+    await page.goto('/');
+
+    await page.fill('#bootstrap-password', 'abc');
+    await page.fill('#bootstrap-password-confirm', 'abc');
+    await expect(page.getByRole('button', { name: 'Set Password' })).toBeDisabled();
+    await expect(page.getByRole('alert')).toContainText('Password must be at least 4 characters long.');
+
+    await page.fill('#bootstrap-password', ' abc');
+    await page.fill('#bootstrap-password-confirm', ' abc');
+    await expect(page.getByRole('button', { name: 'Set Password' })).toBeEnabled();
+
+    const longPassword = ` ${'BuilderGate-'.repeat(40)}tail `;
+    await page.fill('#bootstrap-password', longPassword);
+    await page.fill('#bootstrap-password-confirm', longPassword);
+    await expect(page.getByRole('button', { name: 'Set Password' })).toBeEnabled();
+
+    await page.click('button[type="submit"]');
+    await expect(page.locator('.workspace-screen')).toBeVisible({ timeout: 10000 });
+
+    expect(submittedBody?.password).toBe(longPassword);
+    expect(submittedBody?.confirmPassword).toBe(longPassword);
   });
 
   test('TC-2302: denied bootstrap requester sees a restricted setup notice instead of the password form', async ({ page }) => {
