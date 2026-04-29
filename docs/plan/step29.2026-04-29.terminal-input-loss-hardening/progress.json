@@ -116,5 +116,40 @@
       "review_agents": 1,
       "result": "No findings"
     }
+  },
+  {
+    "step": "phase-2-implementation",
+    "status": "completed",
+    "completed_at": "2026-04-30",
+    "scope": "frontend-non-lossy-capture-gate",
+    "tests": [
+      "npm --prefix frontend run build",
+      "npm --prefix server run test",
+      "npm run test:docs",
+      "node --test tools/daemon/build-daemon-exe.test.js",
+      "npx playwright test tests/e2e/terminal-keyboard-regression.spec.ts tests/e2e/terminal-korean-ime.spec.ts tests/e2e/terminal-paste.spec.ts tests/e2e/terminal-mobile-scroll.spec.ts --project=\"Desktop Chrome\" --workers=1",
+      "npx playwright test tests/e2e/terminal-mobile-scroll.spec.ts --project=\"Mobile Safari\" --workers=1",
+      "git diff --check"
+    ],
+    "review": {
+      "review_agents": 1,
+      "result": "No findings"
+    }
+  },
+  {
+    "step": "phase-3-implementation",
+    "status": "completed",
+    "completed_at": "2026-04-30",
+    "scope": "server-replay-input-queue",
+    "tests": [
+      "npm --prefix server run build",
+      "npm --prefix frontend run build",
+      "npm --prefix server run test",
+      "npx playwright test tests/e2e/terminal-keyboard-regression.spec.ts --project=\"Desktop Chrome\" --grep \"TC-7209\" --workers=1"
+    ],
+    "review": {
+      "review_agents": 1,
+      "result": "No findings"
+    }
   }
 ]

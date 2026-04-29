@@ -10,6 +10,37 @@
 
 export type InputReliabilityMode = 'observe' | 'queue' | 'strict';
 
+export type TerminalInputBarrierReason =
+  | 'none'
+  | 'restore-pending'
+  | 'replay-pending'
+  | 'initial-geometry-pending'
+  | 'repair-server-not-ready'
+  | 'ws-reconnecting-short';
+
+export type TerminalInputClosedReason =
+  | 'none'
+  | 'terminal-hidden'
+  | 'terminal-disposed'
+  | 'session-exited'
+  | 'session-missing'
+  | 'server-error'
+  | 'auth-expired'
+  | 'workspace-or-session-changed'
+  | 'ws-closed-without-reconnect';
+
+export type ReconnectState = 'connected' | 'reconnecting' | 'disconnected';
+
+export interface TerminalInputTransportState {
+  serverReady: boolean;
+  barrierReason: TerminalInputBarrierReason;
+  closedReason: TerminalInputClosedReason;
+  reconnectState?: ReconnectState;
+  sessionGeneration: number;
+}
+
+export type TerminalInputTransportOverride = Partial<TerminalInputTransportState>;
+
 export interface InputDebugMetadata {
   captureSeq?: number;
   compositionSeq?: number;
@@ -22,11 +53,32 @@ export interface InputDebugMetadata {
   clientObservedHasEnter?: boolean;
 }
 
+export type InputRejectedReason =
+  | 'timeout'
+  | 'timeout-enter-safety'
+  | 'queue-overflow'
+  | 'context-changed'
+  | 'session-missing'
+  | 'session-closed'
+  | 'server-error'
+  | 'auth-expired'
+  | 'transport-closed'
+  | 'invalid-sequence'
+  | 'invalid-payload'
+  | 'mode-observe-only';
+
 export type ClientWsMessage =
   | { type: 'subscribe';   sessionIds: string[] }
   | { type: 'unsubscribe'; sessionIds: string[] }
   | { type: 'screen-snapshot:ready'; sessionId: string; replayToken: string }
-  | { type: 'input';       sessionId: string; data: string; metadata?: InputDebugMetadata }
+  | {
+      type: 'input';
+      sessionId: string;
+      data: string;
+      inputSeqStart?: number;
+      inputSeqEnd?: number;
+      metadata?: InputDebugMetadata;
+    }
   | { type: 'repair-replay'; sessionId: string }
   | { type: 'resize';      sessionId: string; cols: number; rows: number }
   | { type: 'ping' };
@@ -64,6 +116,13 @@ export type ServerWsMessage =
   | { type: 'output';         sessionId: string; data: string }
   | { type: 'status';         sessionId: string; status: 'running' | 'idle' }
   | { type: 'session:ready';  sessionId: string }
+  | {
+      type: 'input:rejected';
+      sessionId: string;
+      inputSeqStart?: number;
+      inputSeqEnd?: number;
+      reason: InputRejectedReason;
+    }
   | { type: 'cwd';            sessionId: string; cwd: string }
   | { type: 'session:error';  sessionId: string; message: string }
   | { type: 'session:exited'; sessionId: string; exitCode: number }
@@ -107,9 +166,20 @@ export interface WsClientMeta {
 
 export interface ReplayPendingState {
   queuedOutput: string;
+  queuedInputs: QueuedReplayInput[];
+  queuedInputBytes: number;
   timer: NodeJS.Timeout;
   replayToken: string;
   snapshotSeq: number;
+}
+
+export interface QueuedReplayInput {
+  data: string;
+  metadata?: InputDebugMetadata;
+  inputSeqStart?: number;
+  inputSeqEnd?: number;
+  queuedAt: number;
+  byteLength: number;
 }
 
 export type ReplayTelemetryValue = string | number | boolean | null;
@@ -122,6 +192,13 @@ export type ReplayEventKind =
   | 'ack_ok'
   | 'ack_stale'
   | 'input_blocked'
+  | 'replay_input_would_queue'
+  | 'replay_input_would_reject'
+  | 'input_queued'
+  | 'input_queue_overflow'
+  | 'input_rejected'
+  | 'input_flushed'
+  | 'input_flushed_timeout'
   | 'output_queued'
   | 'output_flushed'
   | 'ready_sent';

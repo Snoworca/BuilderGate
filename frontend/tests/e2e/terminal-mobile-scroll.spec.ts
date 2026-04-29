@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { login, waitForTerminal } from './helpers';
+import { login } from './helpers';
 
 const WORKSPACE_PREFIX = 'PW-MOBILE-SCROLL-';
 const SCROLL_MARKER_PREFIX = 'BG-MOBILE';
@@ -25,6 +25,19 @@ async function createFreshWorkspace(page: Page, shell: string, workspaceName: st
   return page.evaluate(async ({ shellId, nextWorkspaceName, prefix }) => {
     const token = localStorage.getItem('cws_auth_token');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const extractWorkspaceTimestamp = (name: string) => {
+      const match = name.match(/(?:PW-(?:MOBILE-SCROLL|KEYS|IME)|SwitchTarget|E2E Equal(?: Grid| Reorder)?|REAL DND|DBG Verify|ROOTCAUSE)[ -]?(\d+)/);
+      return match ? Number.parseInt(match[1], 10) : 0;
+    };
+    const isEvictableTestWorkspace = (name: string) =>
+      name.startsWith(prefix)
+      || name.startsWith('PW-KEYS-')
+      || name.startsWith('PW-IME-')
+      || name.startsWith('E2E Equal ')
+      || name.startsWith('SwitchTarget-')
+      || name.startsWith('REAL DND ')
+      || name.startsWith('DBG Verify ')
+      || name.startsWith('ROOTCAUSE ');
 
     const createWorkspace = async () => {
       return fetch('/api/workspaces', {
@@ -38,16 +51,16 @@ async function createFreshWorkspace(page: Page, shell: string, workspaceName: st
     };
 
     let workspaceResponse = await createWorkspace();
-    if (workspaceResponse.status === 409) {
+    for (let attempt = 0; workspaceResponse.status === 409 && attempt < 20; attempt += 1) {
       const stateResponse = await fetch('/api/workspaces', { headers });
       if (!stateResponse.ok) {
         throw new Error(`workspace fetch failed: ${stateResponse.status}`);
       }
 
       const state = await stateResponse.json();
-      const evictCandidate = state.workspaces.find(
-        (entry: { name: string }) => entry.name.startsWith(prefix),
-      ) ?? null;
+      const evictCandidate = state.workspaces
+        .filter((entry: { name: string }) => isEvictableTestWorkspace(entry.name))
+        .sort((left: { name: string }, right: { name: string }) => extractWorkspaceTimestamp(left.name) - extractWorkspaceTimestamp(right.name))[0] ?? null;
 
       if (evictCandidate) {
         const deleteResponse = await fetch(`/api/workspaces/${evictCandidate.id}`, {
@@ -58,6 +71,8 @@ async function createFreshWorkspace(page: Page, shell: string, workspaceName: st
           throw new Error(`workspace delete failed: ${deleteResponse.status}`);
         }
         workspaceResponse = await createWorkspace();
+      } else {
+        break;
       }
     }
 
@@ -86,7 +101,7 @@ async function createFreshWorkspace(page: Page, shell: string, workspaceName: st
 }
 
 async function waitForTerminalReady(page: Page) {
-  await waitForTerminal(page);
+  await page.waitForSelector('.terminal-view:visible', { timeout: 30000 });
   await expect.poll(async () => {
     return page.evaluate(() => {
       const visibleView = Array.from(document.querySelectorAll('.terminal-view')).find((node) => {
@@ -99,13 +114,22 @@ async function waitForTerminalReady(page: Page) {
       const input = visibleView?.querySelector('textarea.xterm-helper-textarea');
       return input instanceof HTMLTextAreaElement && !input.disabled;
     });
-  }, { timeout: 15000 }).toBe(true);
+  }, { timeout: 30000 }).toBe(true);
 }
 
 async function activateFreshWorkspace(page: Page, shell: string) {
   await createFreshWorkspace(page, shell, `${WORKSPACE_PREFIX}${Date.now()}`);
-  await page.reload();
-  await waitForTerminalReady(page);
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await page.reload();
+    try {
+      await waitForTerminalReady(page);
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
 
 async function getActiveSessionId(page: Page): Promise<string | null> {

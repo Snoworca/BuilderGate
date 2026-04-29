@@ -125,6 +125,14 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       case 'session:ready':
         current.ready = true;
         break;
+      case 'input:rejected':
+        recordTerminalDebugEvent(msg.sessionId, 'server_input_rejected', {
+          reason: msg.reason,
+          inputSeqStart: msg.inputSeqStart ?? null,
+          inputSeqEnd: msg.inputSeqEnd ?? null,
+          buffered: true,
+        });
+        break;
       case 'cwd':
         current.cwd = msg.cwd;
         break;
@@ -226,6 +234,13 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     // Session events (have sessionId field)
     if ('sessionId' in msg) {
       const sessionId = (msg as { sessionId: string }).sessionId;
+      if (msg.type === 'input:rejected') {
+        recordTerminalDebugEvent(sessionId, 'server_input_rejected', {
+          reason: msg.reason,
+          inputSeqStart: msg.inputSeqStart ?? null,
+          inputSeqEnd: msg.inputSeqEnd ?? null,
+        });
+      }
       const handlers = sessionHandlersRef.current.get(sessionId);
       if (!handlers) {
         if (
@@ -249,6 +264,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           break;
         case 'session:ready':
           handlers.onSessionReady?.();
+          break;
+        case 'input:rejected':
           break;
         case 'cwd':
           handlers.onCwd?.(msg.cwd);
@@ -285,6 +302,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
     ws.onopen = () => {
       if (!mountedRef.current) return;
+      if (wsRef.current !== ws) return;
       reconnectAttemptRef.current = 0;
       setStatus('connected');
       console.log('[WS] Connected');
@@ -307,6 +325,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
     ws.onclose = () => {
       if (!mountedRef.current) return;
+      if (wsRef.current !== ws) return;
       wsRef.current = null;
       setClientId(null);
       setWsClientId(null);

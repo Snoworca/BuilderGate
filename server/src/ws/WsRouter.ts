@@ -14,18 +14,48 @@ import type { AuthService } from '../services/AuthService.js';
 import type { SessionManager } from '../services/SessionManager.js';
 import type {
   ClientWsMessage,
+  InputDebugMetadata,
+  InputRejectedReason,
+  InputReliabilityMode,
+  QueuedReplayInput,
   ReplayPendingState,
   ReplayTelemetryEvent,
   ReplayTelemetryEventInput,
   WsClientMeta,
   WsRouterObservabilitySnapshot,
-  InputDebugMetadata,
 } from '../types/ws-protocol.js';
-import { buildInputDebugDetails } from '../utils/inputDebugMetadata.js';
+import { buildInputDebugDetails, sanitizeClientInputDebugMetadata } from '../utils/inputDebugMetadata.js';
+import { inputReliabilityMode as configuredInputReliabilityMode } from '../utils/inputReliabilityMode.js';
 
 const HEARTBEAT_INTERVAL = 30_000;
 const REPLAY_ACK_TIMEOUT_MS = 5_000;
 const MAX_RECENT_REPLAY_EVENTS = 256;
+const MAX_REPLAY_QUEUED_INPUT_BYTES = 64 * 1024;
+const MAX_REPLAY_QUEUED_INPUT_AGE_MS = 3_000;
+const MAX_INPUT_SEQUENCE_SPAN = 1024;
+
+interface WsRouterOptions {
+  inputReliabilityMode?: InputReliabilityMode;
+}
+
+type InputValidationResult =
+  | {
+      ok: true;
+      sessionId: string;
+      data: string;
+      metadata?: InputDebugMetadata;
+      inputSeqStart?: number;
+      inputSeqEnd?: number;
+      byteLength: number;
+    }
+  | {
+      ok: false;
+      reason: 'invalid-payload' | 'invalid-sequence';
+      sessionId?: string;
+      data?: string;
+      inputSeqStart?: number;
+      inputSeqEnd?: number;
+    };
 
 export class WsRouter {
   private wss: WebSocketServer;
@@ -41,10 +71,12 @@ export class WsRouter {
   private recentReplayEvents: ReplayTelemetryEvent[] = [];
   private debugReplayEventsBySession: Map<string, ReplayTelemetryEvent[]> = new Map();
   private debugReplayEnabledSessions: Set<string> = new Set();
+  private readonly inputReliabilityMode: InputReliabilityMode;
 
-  constructor(authService: AuthService, sessionManager: SessionManager) {
+  constructor(authService: AuthService, sessionManager: SessionManager, options: WsRouterOptions = {}) {
     this.authService = authService;
     this.sessionManager = sessionManager;
+    this.inputReliabilityMode = options.inputReliabilityMode ?? configuredInputReliabilityMode;
     this.wss = new WebSocketServer({ noServer: true });
 
     this.setupConnectionHandler();
@@ -108,7 +140,7 @@ export class WsRouter {
   }
 
   private handleMessage(ws: WebSocket, raw: Buffer | string): void {
-    let msg: ClientWsMessage;
+    let msg: unknown;
     try {
       msg = JSON.parse(typeof raw === 'string' ? raw : raw.toString());
     } catch {
@@ -116,24 +148,38 @@ export class WsRouter {
       return;
     }
 
+    if (!isRecord(msg) || typeof msg.type !== 'string') {
+      console.warn('[WS] Invalid message shape received');
+      return;
+    }
+
     switch (msg.type) {
       case 'subscribe':
-        this.handleSubscribe(ws, msg.sessionIds);
+        this.handleSubscribe(ws, (msg as Extract<ClientWsMessage, { type: 'subscribe' }>).sessionIds);
         break;
       case 'unsubscribe':
-        this.handleUnsubscribe(ws, msg.sessionIds);
+        this.handleUnsubscribe(ws, (msg as Extract<ClientWsMessage, { type: 'unsubscribe' }>).sessionIds);
         break;
       case 'screen-snapshot:ready':
-        this.handleScreenSnapshotReady(ws, msg.sessionId, msg.replayToken);
+        this.handleScreenSnapshotReady(
+          ws,
+          (msg as Extract<ClientWsMessage, { type: 'screen-snapshot:ready' }>).sessionId,
+          (msg as Extract<ClientWsMessage, { type: 'screen-snapshot:ready' }>).replayToken,
+        );
         break;
       case 'input':
-        this.handleInput(ws, msg.sessionId, msg.data, msg.metadata);
+        this.handleInput(ws, msg);
         break;
       case 'repair-replay':
-        this.handleRepairReplay(ws, msg.sessionId);
+        this.handleRepairReplay(ws, (msg as Extract<ClientWsMessage, { type: 'repair-replay' }>).sessionId);
         break;
       case 'resize':
-        this.handleResize(ws, msg.sessionId, msg.cols, msg.rows);
+        this.handleResize(
+          ws,
+          (msg as Extract<ClientWsMessage, { type: 'resize' }>).sessionId,
+          (msg as Extract<ClientWsMessage, { type: 'resize' }>).cols,
+          (msg as Extract<ClientWsMessage, { type: 'resize' }>).rows,
+        );
         break;
       case 'ping':
         ws.send(JSON.stringify({ type: 'pong' }));
@@ -214,7 +260,7 @@ export class WsRouter {
     if (!meta) return;
 
     for (const sessionId of sessionIds) {
-      this.clearReplayPendingForPair(ws, sessionId);
+      this.clearReplayPendingForPair(ws, sessionId, 'context-changed');
 
       const subscribers = this.sessionSubscribers.get(sessionId);
       if (subscribers) {
@@ -255,6 +301,8 @@ export class WsRouter {
       snapshotSeq: replayResult.snapshotSeq,
       details: {
         queuedBytes: replayResult.queuedOutput.length,
+        queuedInputBytes: replayResult.queuedInputBytes,
+        queuedInputCount: replayResult.queuedInputs.length,
       },
     });
 
@@ -271,6 +319,8 @@ export class WsRouter {
       });
     }
 
+    this.flushQueuedReplayInputs(ws, sessionId, replayToken, replayResult.snapshotSeq, replayResult.queuedInputs, 'ack');
+
     this.sendTo(ws, { type: 'session:ready', sessionId });
     this.recordReplayEvent({
       kind: 'ready_sent',
@@ -283,22 +333,86 @@ export class WsRouter {
     });
   }
 
-  private handleInput(ws: WebSocket, sessionId: string, data: string, metadata?: InputDebugMetadata): void {
+  private handleInput(ws: WebSocket, rawMessage: unknown): void {
+    const input = this.validateInputMessage(rawMessage);
+    if (!input.ok) {
+      this.rejectInput(ws, {
+        sessionId: input.sessionId,
+        data: input.data,
+        inputSeqStart: input.inputSeqStart,
+        inputSeqEnd: input.inputSeqEnd,
+        reason: input.reason,
+      });
+      return;
+    }
+
     const meta = this.clients.get(ws);
-    const pending = meta?.replayPendingSessions.get(sessionId);
+    const pending = meta?.replayPendingSessions.get(input.sessionId);
+    if (!this.sessionManager.getSession(input.sessionId)) {
+      this.rejectInput(ws, {
+        sessionId: input.sessionId,
+        data: input.data,
+        metadata: input.metadata,
+        inputSeqStart: input.inputSeqStart,
+        inputSeqEnd: input.inputSeqEnd,
+        reason: 'session-missing',
+      });
+      return;
+    }
+
     if (pending) {
+      const queuedInput: QueuedReplayInput = {
+        data: input.data,
+        metadata: input.metadata,
+        inputSeqStart: input.inputSeqStart,
+        inputSeqEnd: input.inputSeqEnd,
+        queuedAt: Date.now(),
+        byteLength: input.byteLength,
+      };
+
+      if (this.inputReliabilityMode === 'observe') {
+        this.recordReplayEvent({
+          kind: 'replay_input_would_queue',
+          sessionId: input.sessionId,
+          replayToken: pending.replayToken,
+          snapshotSeq: pending.snapshotSeq,
+          details: {
+            mode: this.inputReliabilityMode,
+            reason: 'mode-observe-only',
+            ...this.buildQueuedInputReplayDetails(queuedInput),
+          },
+        });
+        return;
+      }
+
+      if (!this.appendQueuedInput(ws, input.sessionId, pending, queuedInput)) {
+        return;
+      }
       this.recordReplayEvent({
-        kind: 'input_blocked',
-        sessionId,
+        kind: 'input_queued',
+        sessionId: input.sessionId,
         replayToken: pending.replayToken,
         snapshotSeq: pending.snapshotSeq,
         details: {
-          ...buildInputDebugDetails(data, metadata),
+          mode: this.inputReliabilityMode,
+          queuedInputBytes: pending.queuedInputBytes,
+          queuedInputCount: pending.queuedInputs.length,
+          ...this.buildQueuedInputReplayDetails(queuedInput),
         },
       });
       return;
     }
-    this.sessionManager.writeInput(sessionId, data, metadata);
+
+    if (!this.sessionManager.writeInput(input.sessionId, input.data, input.metadata)) {
+      this.rejectInput(ws, {
+        sessionId: input.sessionId,
+        data: input.data,
+        metadata: input.metadata,
+        inputSeqStart: input.inputSeqStart,
+        inputSeqEnd: input.inputSeqEnd,
+        reason: 'session-missing',
+      });
+    }
   }
 
   private handleResize(_ws: WebSocket, sessionId: string, cols: number, rows: number): void {
@@ -328,7 +442,7 @@ export class WsRouter {
     if (meta) {
       console.log(`[WS] Client disconnected: ${meta.clientId}`);
       for (const sessionId of meta.subscribedSessions) {
-        this.clearReplayPendingForPair(ws, sessionId);
+        this.clearReplayPendingForPair(ws, sessionId, 'transport-closed');
         const subscribers = this.sessionSubscribers.get(sessionId);
         if (subscribers) {
           subscribers.delete(ws);
@@ -364,26 +478,16 @@ export class WsRouter {
       throw new Error('Missing WebSocket client metadata');
     }
 
-    this.clearReplayPendingForPair(ws, sessionId);
+    this.clearReplayPendingForPair(ws, sessionId, 'context-changed');
 
     const state: ReplayPendingState = {
       queuedOutput: '',
+      queuedInputs: [],
+      queuedInputBytes: 0,
       replayToken: uuidv4(),
       snapshotSeq,
       timer: setTimeout(() => {
-        this.replayAckTimeoutCount += 1;
-        this.clearReplayPendingForPair(ws, sessionId);
-        if (ws.readyState === WebSocket.OPEN) {
-          this.sendTo(ws, { type: 'session:ready', sessionId });
-          this.recordReplayEvent({
-            kind: 'ready_sent',
-            sessionId,
-            snapshotSeq,
-            details: {
-              reason: 'timeout',
-            },
-          });
-        }
+        this.handleReplayAckTimeout(ws, sessionId, state.replayToken, snapshotSeq, 'timeout');
       }, REPLAY_ACK_TIMEOUT_MS),
     };
     state.timer.unref();
@@ -396,7 +500,13 @@ export class WsRouter {
     sessionId: string,
     replayToken: string,
   ):
-    | { status: 'ok'; queuedOutput: string; snapshotSeq: number }
+    | {
+        status: 'ok';
+        queuedOutput: string;
+        queuedInputs: QueuedReplayInput[];
+        queuedInputBytes: number;
+        snapshotSeq: number;
+      }
     | { status: 'stale'; reason: 'missing' | 'token-mismatch'; snapshotSeq?: number; activeReplayToken?: string } {
     const meta = this.clients.get(ws);
     if (!meta) {
@@ -421,11 +531,17 @@ export class WsRouter {
     return {
       status: 'ok',
       queuedOutput: pending.queuedOutput,
+      queuedInputs: pending.queuedInputs,
+      queuedInputBytes: pending.queuedInputBytes,
       snapshotSeq: pending.snapshotSeq,
     };
   }
 
-  private clearReplayPendingForPair(ws: WebSocket, sessionId: string): void {
+  private clearReplayPendingForPair(
+    ws: WebSocket,
+    sessionId: string,
+    reason: InputRejectedReason = 'context-changed',
+  ): void {
     const meta = this.clients.get(ws);
     if (!meta) return;
 
@@ -434,6 +550,7 @@ export class WsRouter {
 
     clearTimeout(pending.timer);
     meta.replayPendingSessions.delete(sessionId);
+    this.rejectQueuedReplayInputs(ws, sessionId, pending, reason);
   }
 
   private appendQueuedOutput(state: ReplayPendingState, data: string): void {
@@ -441,6 +558,318 @@ export class WsRouter {
     const next = `${state.queuedOutput}${data}`;
     state.queuedOutput = next.length > limit ? next.slice(-limit) : next;
     this.maxReplayQueueLengthObserved = Math.max(this.maxReplayQueueLengthObserved, state.queuedOutput.length);
+  }
+
+  private appendQueuedInput(
+    ws: WebSocket,
+    sessionId: string,
+    state: ReplayPendingState,
+    input: QueuedReplayInput,
+  ): boolean {
+    if (state.queuedInputBytes + input.byteLength > MAX_REPLAY_QUEUED_INPUT_BYTES) {
+      this.recordReplayEvent({
+        kind: this.inputReliabilityMode === 'observe' ? 'replay_input_would_reject' : 'input_queue_overflow',
+        sessionId,
+        replayToken: state.replayToken,
+        snapshotSeq: state.snapshotSeq,
+        details: {
+          mode: this.inputReliabilityMode,
+          reason: 'queue-overflow',
+          queuedInputBytes: state.queuedInputBytes,
+          queuedInputCount: state.queuedInputs.length,
+          maxQueuedInputBytes: MAX_REPLAY_QUEUED_INPUT_BYTES,
+          ...this.buildQueuedInputReplayDetails(input),
+        },
+      });
+      this.rejectInput(ws, {
+        sessionId,
+        data: input.data,
+        metadata: input.metadata,
+        inputSeqStart: input.inputSeqStart,
+        inputSeqEnd: input.inputSeqEnd,
+        reason: 'queue-overflow',
+        replayToken: state.replayToken,
+        snapshotSeq: state.snapshotSeq,
+      });
+      return false;
+    }
+
+    state.queuedInputs.push(input);
+    state.queuedInputBytes += input.byteLength;
+    this.maxReplayQueueLengthObserved = Math.max(this.maxReplayQueueLengthObserved, state.queuedInputBytes);
+    return true;
+  }
+
+  private handleReplayAckTimeout(
+    ws: WebSocket,
+    sessionId: string,
+    replayToken: string,
+    snapshotSeq: number,
+    readyReason: 'timeout' | 'refresh-timeout',
+  ): void {
+    const meta = this.clients.get(ws);
+    const pending = meta?.replayPendingSessions.get(sessionId);
+    if (!meta || !pending || pending.replayToken !== replayToken) {
+      return;
+    }
+
+    this.replayAckTimeoutCount += 1;
+    clearTimeout(pending.timer);
+    meta.replayPendingSessions.delete(sessionId);
+
+    this.flushQueuedReplayInputs(ws, sessionId, replayToken, snapshotSeq, pending.queuedInputs, 'timeout');
+
+    if (ws.readyState === WebSocket.OPEN) {
+      this.sendTo(ws, { type: 'session:ready', sessionId });
+      this.recordReplayEvent({
+        kind: 'ready_sent',
+        sessionId,
+        replayToken,
+        snapshotSeq,
+        details: {
+          reason: readyReason,
+        },
+      });
+    }
+  }
+
+  private flushQueuedReplayInputs(
+    ws: WebSocket,
+    sessionId: string,
+    replayToken: string,
+    snapshotSeq: number,
+    inputs: QueuedReplayInput[],
+    phase: 'ack' | 'timeout',
+  ): void {
+    for (const input of inputs) {
+      const ageMs = Date.now() - input.queuedAt;
+      const hasEnter = input.data.includes('\r') || input.data.includes('\n');
+
+      if (phase === 'timeout' && hasEnter) {
+        this.rejectInput(ws, {
+          sessionId,
+          data: input.data,
+          metadata: input.metadata,
+          inputSeqStart: input.inputSeqStart,
+          inputSeqEnd: input.inputSeqEnd,
+          reason: 'timeout-enter-safety',
+          replayToken,
+          snapshotSeq,
+        });
+        continue;
+      }
+
+      if (ageMs > MAX_REPLAY_QUEUED_INPUT_AGE_MS) {
+        this.rejectInput(ws, {
+          sessionId,
+          data: input.data,
+          metadata: input.metadata,
+          inputSeqStart: input.inputSeqStart,
+          inputSeqEnd: input.inputSeqEnd,
+          reason: 'timeout',
+          replayToken,
+          snapshotSeq,
+        });
+        continue;
+      }
+
+      if (!this.sessionManager.writeInput(sessionId, input.data, input.metadata)) {
+        this.rejectInput(ws, {
+          sessionId,
+          data: input.data,
+          metadata: input.metadata,
+          inputSeqStart: input.inputSeqStart,
+          inputSeqEnd: input.inputSeqEnd,
+          reason: 'session-missing',
+          replayToken,
+          snapshotSeq,
+        });
+        continue;
+      }
+
+      this.recordReplayEvent({
+        kind: phase === 'timeout' ? 'input_flushed_timeout' : 'input_flushed',
+        sessionId,
+        replayToken,
+        snapshotSeq,
+        details: {
+          phase,
+          ageMs,
+          ...this.buildQueuedInputReplayDetails(input),
+        },
+      });
+    }
+  }
+
+  private rejectQueuedReplayInputs(
+    ws: WebSocket,
+    sessionId: string,
+    pending: ReplayPendingState,
+    reason: InputRejectedReason,
+  ): void {
+    for (const input of pending.queuedInputs) {
+      this.rejectInput(ws, {
+        sessionId,
+        data: input.data,
+        metadata: input.metadata,
+        inputSeqStart: input.inputSeqStart,
+        inputSeqEnd: input.inputSeqEnd,
+        reason,
+        replayToken: pending.replayToken,
+        snapshotSeq: pending.snapshotSeq,
+      });
+    }
+  }
+
+  private rejectInput(
+    ws: WebSocket,
+    input: {
+      sessionId?: string;
+      data?: string;
+      metadata?: InputDebugMetadata;
+      inputSeqStart?: number;
+      inputSeqEnd?: number;
+      reason: InputRejectedReason;
+      replayToken?: string;
+      snapshotSeq?: number;
+    },
+  ): void {
+    const sessionId = input.sessionId;
+    const canRouteReject = typeof sessionId === 'string' && sessionId.length > 0;
+    const rejectSent = canRouteReject && ws.readyState === WebSocket.OPEN;
+    if (rejectSent) {
+      ws.send(JSON.stringify({
+        type: 'input:rejected',
+        sessionId,
+        inputSeqStart: input.inputSeqStart,
+        inputSeqEnd: input.inputSeqEnd,
+        reason: input.reason,
+      }));
+    }
+
+    this.recordReplayEvent({
+      kind: 'input_rejected',
+      sessionId: canRouteReject ? sessionId : 'unknown',
+      replayToken: input.replayToken,
+      snapshotSeq: input.snapshotSeq,
+      details: {
+        reason: input.reason,
+        rejectSent,
+        ...(typeof input.inputSeqStart === 'number' ? { inputSeqStart: input.inputSeqStart } : {}),
+        ...(typeof input.inputSeqEnd === 'number' ? { inputSeqEnd: input.inputSeqEnd } : {}),
+        ...(typeof input.data === 'string' ? buildInputDebugDetails(input.data, input.metadata) : {}),
+      },
+    });
+  }
+
+  private buildQueuedInputReplayDetails(input: QueuedReplayInput): Record<string, string | number | boolean | null> {
+    return {
+      ...buildInputDebugDetails(input.data, input.metadata),
+      inputSeqStart: input.inputSeqStart ?? null,
+      inputSeqEnd: input.inputSeqEnd ?? null,
+      queuedAt: input.queuedAt,
+      byteLength: input.byteLength,
+    };
+  }
+
+  private validateInputMessage(message: unknown): InputValidationResult {
+    if (!isRecord(message)) {
+      return { ok: false, reason: 'invalid-payload' };
+    }
+
+    const sessionId = typeof message.sessionId === 'string' ? message.sessionId : undefined;
+    const data = typeof message.data === 'string' ? message.data : undefined;
+    const inputSeqStart = typeof message.inputSeqStart === 'number' && Number.isSafeInteger(message.inputSeqStart)
+      ? message.inputSeqStart
+      : undefined;
+    const inputSeqEnd = typeof message.inputSeqEnd === 'number' && Number.isSafeInteger(message.inputSeqEnd)
+      ? message.inputSeqEnd
+      : undefined;
+
+    if (typeof sessionId !== 'string' || sessionId.length === 0 || typeof data !== 'string') {
+      return {
+        ok: false,
+        reason: 'invalid-payload',
+        sessionId,
+        data,
+        inputSeqStart,
+        inputSeqEnd,
+      };
+    }
+
+    const byteLength = Buffer.byteLength(data, 'utf8');
+    if (byteLength > MAX_REPLAY_QUEUED_INPUT_BYTES) {
+      return {
+        ok: false,
+        reason: 'invalid-payload',
+        sessionId,
+        data,
+        inputSeqStart,
+        inputSeqEnd,
+      };
+    }
+
+    const hasSeqStart = Object.prototype.hasOwnProperty.call(message, 'inputSeqStart');
+    const hasSeqEnd = Object.prototype.hasOwnProperty.call(message, 'inputSeqEnd');
+    if (Object.prototype.hasOwnProperty.call(message, 'inputSeq')) {
+      return {
+        ok: false,
+        reason: 'invalid-sequence',
+        sessionId,
+        data,
+        inputSeqStart,
+        inputSeqEnd,
+      };
+    }
+
+    if (hasSeqStart !== hasSeqEnd) {
+      return {
+        ok: false,
+        reason: 'invalid-sequence',
+        sessionId,
+        data,
+        inputSeqStart,
+        inputSeqEnd,
+      };
+    }
+
+    if (hasSeqStart && hasSeqEnd) {
+      if (
+        typeof message.inputSeqStart !== 'number'
+        || typeof message.inputSeqEnd !== 'number'
+        || !Number.isSafeInteger(message.inputSeqStart)
+        || !Number.isSafeInteger(message.inputSeqEnd)
+        || message.inputSeqStart < 1
+        || message.inputSeqEnd < message.inputSeqStart
+        || message.inputSeqEnd - message.inputSeqStart + 1 > MAX_INPUT_SEQUENCE_SPAN
+      ) {
+        return {
+          ok: false,
+          reason: 'invalid-sequence',
+          sessionId,
+          data,
+          inputSeqStart,
+          inputSeqEnd,
+        };
+      }
+    }
+
+    const metadataRecord = sanitizeClientInputDebugMetadata(
+      isRecord(message.metadata) ? message.metadata as InputDebugMetadata : undefined,
+    );
+    const metadata = Object.keys(metadataRecord).length > 0
+      ? metadataRecord as InputDebugMetadata
+      : undefined;
+
+    return {
+      ok: true,
+      sessionId,
+      data,
+      metadata,
+      inputSeqStart,
+      inputSeqEnd,
+      byteLength,
+    };
   }
 
   private sendSnapshotReplay(
@@ -554,19 +983,9 @@ export class WsRouter {
       pending.replayToken = uuidv4();
       pending.snapshotSeq = snapshot.seq;
       pending.queuedOutput = '';
+      const refreshReplayToken = pending.replayToken;
       pending.timer = setTimeout(() => {
-        this.clearReplayPendingForPair(ws, sessionId);
-        if (ws.readyState === WebSocket.OPEN) {
-          this.sendTo(ws, { type: 'session:ready', sessionId });
-          this.recordReplayEvent({
-            kind: 'ready_sent',
-            sessionId,
-            snapshotSeq: snapshot.seq,
-            details: {
-              reason: 'refresh-timeout',
-            },
-          });
-        }
+        this.handleReplayAckTimeout(ws, sessionId, refreshReplayToken, snapshot.seq, 'refresh-timeout');
       }, REPLAY_ACK_TIMEOUT_MS);
       pending.timer.unref();
 
@@ -607,7 +1026,7 @@ export class WsRouter {
     }
 
     for (const ws of subscribers) {
-      this.clearReplayPendingForPair(ws, sessionId);
+      this.clearReplayPendingForPair(ws, sessionId, 'session-missing');
       const meta = this.clients.get(ws);
       meta?.subscribedSessions.delete(sessionId);
     }
@@ -723,4 +1142,8 @@ export class WsRouter {
     this.clients.clear();
     this.sessionSubscribers.clear();
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

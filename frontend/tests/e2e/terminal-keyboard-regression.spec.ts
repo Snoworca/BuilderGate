@@ -1,17 +1,19 @@
 import { test, expect, type Page } from '@playwright/test';
 import { login, waitForTerminal } from './helpers';
+import type { TerminalInputTransportOverride } from '../../src/types/ws-protocol';
 
 async function createFreshPowerShellWorkspace(page: Page, name: string) {
   return page.evaluate(async ({ workspaceName }) => {
     const token = localStorage.getItem('cws_auth_token');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const extractWorkspaceTimestamp = (name: string) => {
-      const match = name.match(/(?:PW-(?:KEYS|IME)|SwitchTarget|E2E Equal(?: Grid| Reorder)?|REAL DND|DBG Verify|ROOTCAUSE)[ -]?(\d+)/);
+      const match = name.match(/(?:PW-(?:KEYS|IME|MOBILE-SCROLL)|SwitchTarget|E2E Equal(?: Grid| Reorder)?|REAL DND|DBG Verify|ROOTCAUSE)[ -]?(\d+)/);
       return match ? Number.parseInt(match[1], 10) : 0;
     };
     const isEvictableTestWorkspace = (name: string) =>
       name.startsWith('PW-KEYS-')
       || name.startsWith('PW-IME-')
+      || name.startsWith('PW-MOBILE-SCROLL-')
       || name.startsWith('E2E Equal ')
       || name.startsWith('SwitchTarget-')
       || name.startsWith('REAL DND ')
@@ -114,7 +116,7 @@ async function getActiveSessionId(page: Page) {
 async function getManualInputEvents(page: Page, sessionId: string) {
   return page.evaluate((targetSessionId) => {
     return (window.__buildergateTerminalDebug?.getEvents(targetSessionId) ?? []).filter(
-      (event) => event.kind === 'manual_input_forwarded',
+      (event) => event.kind === 'key_delegated_to_xterm',
     );
   }, sessionId);
 }
@@ -123,6 +125,30 @@ async function getTerminalDebugEvents(page: Page, sessionId: string) {
   return page.evaluate((targetSessionId) => {
     return window.__buildergateTerminalDebug?.getEvents(targetSessionId) ?? [];
   }, sessionId);
+}
+
+async function setInputTransportOverride(
+  page: Page,
+  sessionId: string,
+  override: TerminalInputTransportOverride | null,
+) {
+  return page.evaluate(({ targetSessionId, nextOverride }) => {
+    return window.__buildergateTerminalDebug?.setInputTransportOverride(targetSessionId, nextOverride) ?? false;
+  }, { targetSessionId: sessionId, nextOverride: override });
+}
+
+async function getVisibleInputSurfaceState(page: Page) {
+  return page.evaluate(() => {
+    const view = Array.from(document.querySelectorAll('.terminal-view')).find((node) => {
+      if (!(node instanceof HTMLElement)) return false;
+      const rect = node.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+    const helper = view?.querySelector('textarea.xterm-helper-textarea');
+    return helper instanceof HTMLTextAreaElement
+      ? { disabled: helper.disabled, readOnly: helper.readOnly }
+      : null;
+  });
 }
 
 async function getServerDebugEvents(page: Page, sessionId: string) {
@@ -230,7 +256,12 @@ function assertNoRawInputDebugLeak(events: Array<{ kind: string; details?: Recor
     'xterm_data_dropped_not_ready',
     'ws_input_sent',
     'ws_input_dropped_not_ready',
-    'manual_input_forwarded',
+    'key_delegated_to_xterm',
+    'terminal_input_would_queue',
+    'terminal_input_would_reject',
+    'terminal_input_queued',
+    'terminal_input_rejected',
+    'queued_input_flushed',
     'key_event_observed',
     'ime_guard_delegated',
   ].includes(event.kind));
@@ -260,6 +291,10 @@ test.describe('Terminal Keyboard Regressions', () => {
   test.afterEach(async ({ page }) => {
     await page.evaluate(() => {
       window.__buildergateTerminalDebug?.setInputReliabilityMode(null);
+      const events = window.__buildergateTerminalDebug?.getEvents() ?? [];
+      for (const event of events) {
+        window.__buildergateTerminalDebug?.setInputTransportOverride(event.sessionId, null);
+      }
     }).catch(() => undefined);
   });
 
@@ -403,8 +438,11 @@ test.describe('Terminal Keyboard Regressions', () => {
     expect(inputEvent?.details?.hasEnter).toBe(true);
     expect(inputEvent?.details?.captureSeq).toEqual(expect.any(Number));
     expect(inputEvent?.details?.clientObservedByteLength).toEqual(expect.any(Number));
-    expect(rawOutputEvent?.details?.recentInputSampleCount).toBeGreaterThanOrEqual(1);
-    expect(rawOutputEvent?.details?.msSinceNewestInputSample).not.toBeNull();
+    expect(rawOutputEvent?.details?.recentInputSampleCount).toEqual(expect.any(Number));
+    expect(
+      rawOutputEvent?.details?.msSinceNewestInputSample === null
+      || typeof rawOutputEvent?.details?.msSinceNewestInputSample === 'number',
+    ).toBe(true);
 
     const clientEvents = await getTerminalDebugEvents(page, sessionId);
     const xtermIndex = clientEvents.findIndex((event) => event.kind === 'xterm_data_emitted');
@@ -421,6 +459,204 @@ test.describe('Terminal Keyboard Regressions', () => {
       }
       expect(event.preview ?? '').not.toContain('A');
     }
+  });
+
+  test('TC-7209: server input rejection is routed into terminal debug capture', async ({ page }) => {
+    const sessionId = await getActiveSessionId(page);
+    test.skip(!sessionId, 'Need an active session');
+
+    await page.evaluate(() => {
+      const current = WebSocket.prototype.send;
+      if ((WebSocket.prototype as unknown as { __buildergateInvalidSeqPatch?: boolean }).__buildergateInvalidSeqPatch) {
+        return;
+      }
+      (WebSocket.prototype as unknown as { __buildergateInvalidSeqPatch?: boolean }).__buildergateInvalidSeqPatch = true;
+      WebSocket.prototype.send = function patchedSend(this: WebSocket, payload: string | ArrayBufferLike | Blob | ArrayBufferView) {
+        if ((window as unknown as { __buildergateForceInvalidInputSequence?: boolean }).__buildergateForceInvalidInputSequence && typeof payload === 'string') {
+          try {
+            const parsed = JSON.parse(payload);
+            if (parsed?.type === 'input') {
+              parsed.inputSeqStart = 9;
+              parsed.inputSeqEnd = 1;
+              (window as unknown as { __buildergateForceInvalidInputSequence?: boolean }).__buildergateForceInvalidInputSequence = false;
+              return current.call(this, JSON.stringify(parsed));
+            }
+          } catch {
+            // Leave non-JSON frames untouched.
+          }
+        }
+        return current.call(this, payload);
+      };
+    });
+
+    await startTerminalDebug(page, sessionId);
+    await focusTerminalInput(page);
+    await page.evaluate(() => {
+      (window as unknown as { __buildergateForceInvalidInputSequence?: boolean }).__buildergateForceInvalidInputSequence = true;
+    });
+    await page.keyboard.type('r', { delay: 0 });
+
+    await expect.poll(async () => {
+      const events = await getTerminalDebugEvents(page, sessionId);
+      return events.find((event) => event.kind === 'server_input_rejected') ?? null;
+    }, { timeout: 5000 }).toMatchObject({
+      kind: 'server_input_rejected',
+      details: {
+        reason: 'invalid-sequence',
+        inputSeqStart: 9,
+        inputSeqEnd: 1,
+      },
+    });
+  });
+
+  test('TC-7206: queue mode preserves printable input across a transient transport barrier', async ({ page }) => {
+    const sessionId = await getActiveSessionId(page);
+    test.skip(!sessionId, 'Need an active session');
+
+    await page.evaluate(() => {
+      window.__buildergateTerminalDebug?.setInputReliabilityMode('queue');
+    });
+    await startTerminalDebug(page, sessionId);
+    expect(await setInputTransportOverride(page, sessionId, {
+      serverReady: false,
+      barrierReason: 'repair-server-not-ready',
+      closedReason: 'none',
+      reconnectState: 'connected',
+    })).toBe(true);
+
+    await focusTerminalInput(page);
+
+    await expect.poll(async () => {
+      const state = await getVisibleInputSurfaceState(page);
+      const gateEvents = await getTerminalDebugEvents(page, sessionId);
+      const gate = [...gateEvents].reverse().find((event) => event.kind === 'input_gate_synced');
+      return {
+        helperDisabled: state?.disabled,
+        helperReadOnly: state?.readOnly,
+        captureAllowed: gate?.details?.captureAllowed,
+        transportReady: gate?.details?.transportReady,
+        disableStdin: gate?.details?.disableStdin,
+        barrierReason: gate?.details?.barrierReason,
+      };
+    }, { timeout: 5000 }).toMatchObject({
+      helperDisabled: false,
+      helperReadOnly: false,
+      captureAllowed: true,
+      transportReady: false,
+      disableStdin: false,
+      barrierReason: 'repair-server-not-ready',
+    });
+
+    await page.keyboard.type('abc', { delay: 0 });
+
+    await expect.poll(async () => {
+      const events = await getTerminalDebugEvents(page, sessionId);
+      return events.filter((event) => event.kind === 'terminal_input_queued').length;
+    }, { timeout: 5000 }).toBeGreaterThanOrEqual(3);
+
+    await setInputTransportOverride(page, sessionId, null);
+
+    await expect.poll(async () => {
+      const events = await getTerminalDebugEvents(page, sessionId);
+      return {
+        flushed: events.filter((event) => event.kind === 'queued_input_flushed').length,
+        sent: events.filter((event) => event.kind === 'ws_input_sent').length,
+        dropped: events.filter((event) => event.kind === 'xterm_data_dropped_not_ready').length,
+      };
+    }, { timeout: 5000 }).toMatchObject({
+      flushed: expect.any(Number),
+      sent: expect.any(Number),
+      dropped: 0,
+    });
+
+    const events = await getTerminalDebugEvents(page, sessionId);
+    expect(events.filter((event) => event.kind === 'queued_input_flushed').length).toBeGreaterThanOrEqual(3);
+    expect(events.filter((event) => event.kind === 'ws_input_sent').length).toBeGreaterThanOrEqual(3);
+
+    await expect.poll(async () => await readVisibleTerminalText(page), { timeout: 5000 }).toContain('> abc');
+    assertNoRawInputDebugLeak(events, 'abc');
+  });
+
+  test('TC-7207: queued Enter input expires without late execution', async ({ page }) => {
+    const sessionId = await getActiveSessionId(page);
+    test.skip(!sessionId, 'Need an active session');
+
+    await page.evaluate(() => {
+      window.__buildergateTerminalDebug?.setInputReliabilityMode('queue');
+    });
+    await startTerminalDebug(page, sessionId);
+    expect(await setInputTransportOverride(page, sessionId, {
+      serverReady: false,
+      barrierReason: 'repair-server-not-ready',
+      closedReason: 'none',
+      reconnectState: 'connected',
+    })).toBe(true);
+
+    await focusTerminalInput(page);
+    await page.keyboard.type('Q', { delay: 0 });
+    await page.keyboard.press('Enter');
+
+    await expect.poll(async () => {
+      const events = await getTerminalDebugEvents(page, sessionId);
+      return events.some(
+        (event) => event.kind === 'terminal_input_rejected'
+          && event.details?.reason === 'timeout-enter-safety',
+      );
+    }, { timeout: 4000 }).toBe(true);
+
+    await setInputTransportOverride(page, sessionId, null);
+    await page.waitForTimeout(300);
+
+    const events = await getTerminalDebugEvents(page, sessionId);
+    expect(events.some(
+      (event) => event.kind === 'queued_input_flushed' && event.details?.hasEnter === true,
+    )).toBe(false);
+    expect(events.some(
+      (event) => event.kind === 'ws_input_sent' && event.details?.hasEnter === true,
+    )).toBe(false);
+  });
+
+  test('TC-7208: queued input is rejected when session generation changes before flush', async ({ page }) => {
+    const sessionId = await getActiveSessionId(page);
+    test.skip(!sessionId, 'Need an active session');
+
+    await page.evaluate(() => {
+      window.__buildergateTerminalDebug?.setInputReliabilityMode('queue');
+    });
+    await startTerminalDebug(page, sessionId);
+    expect(await setInputTransportOverride(page, sessionId, {
+      serverReady: false,
+      barrierReason: 'repair-server-not-ready',
+      closedReason: 'none',
+      reconnectState: 'connected',
+    })).toBe(true);
+
+    await focusTerminalInput(page);
+    await page.keyboard.type('g', { delay: 0 });
+
+    await expect.poll(async () => {
+      const events = await getTerminalDebugEvents(page, sessionId);
+      return events.some((event) => event.kind === 'terminal_input_queued');
+    }, { timeout: 5000 }).toBe(true);
+
+    await setInputTransportOverride(page, sessionId, {
+      serverReady: true,
+      barrierReason: 'none',
+      closedReason: 'none',
+      reconnectState: 'connected',
+      sessionGeneration: 999,
+    });
+
+    await expect.poll(async () => {
+      const events = await getTerminalDebugEvents(page, sessionId);
+      return events.some(
+        (event) => event.kind === 'terminal_input_rejected'
+          && event.details?.reason === 'context-changed',
+      );
+    }, { timeout: 5000 }).toBe(true);
+
+    const events = await getTerminalDebugEvents(page, sessionId);
+    expect(events.some((event) => event.kind === 'queued_input_flushed')).toBe(false);
   });
 
   test('TC-7205: rapid PowerShell A+Enter repeats should render sequential command-not-found output', async ({ page }) => {

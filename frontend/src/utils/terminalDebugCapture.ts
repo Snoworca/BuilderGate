@@ -1,5 +1,9 @@
 import { tokenStorage } from '../services/tokenStorage';
-import type { InputDebugMetadata, InputReliabilityMode } from '../types/ws-protocol';
+import type {
+  InputDebugMetadata,
+  InputReliabilityMode,
+  TerminalInputTransportOverride,
+} from '../types/ws-protocol';
 import {
   getInputReliabilityMode,
   isInputReliabilityModeLoaded,
@@ -15,6 +19,11 @@ export interface TerminalDebugInputPayload {
 
 export interface TerminalInputCaptureState {
   inputReady: boolean;
+  transportReady: boolean;
+  captureAllowed: boolean;
+  captureState: 'open' | 'transient-blocked' | 'closed';
+  barrierReason: string;
+  closedReason: string;
   serverReady: boolean;
   geometryReady: boolean;
   restorePending: boolean;
@@ -47,6 +56,8 @@ interface TerminalDebugStore {
   clear: (sessionId?: string) => void;
   getInputReliabilityMode: () => InputReliabilityMode;
   setInputReliabilityMode: (mode: InputReliabilityMode | null) => InputReliabilityMode;
+  setInputTransportOverride: (sessionId: string, override: TerminalInputTransportOverride | null) => boolean;
+  inputTransportOverrideHandlers: Map<string, (override: TerminalInputTransportOverride | null) => void>;
 }
 
 declare global {
@@ -145,10 +156,40 @@ function getStore(): TerminalDebugStore | null {
       setInputReliabilityMode(mode: InputReliabilityMode | null) {
         return setLocalInputReliabilityModeForTest(mode);
       },
+      setInputTransportOverride(sessionId: string, override: TerminalInputTransportOverride | null) {
+        if (!isLocalTestHost()) {
+          return false;
+        }
+        const handler = this.inputTransportOverrideHandlers.get(sessionId);
+        if (!handler) {
+          return false;
+        }
+        handler(override);
+        return true;
+      },
+      inputTransportOverrideHandlers: new Map<string, (override: TerminalInputTransportOverride | null) => void>(),
     };
   }
 
   return window.__buildergateTerminalDebug;
+}
+
+export function registerInputTransportOverrideHandler(
+  sessionId: string,
+  handler: (override: TerminalInputTransportOverride | null) => void,
+): () => void {
+  const store = getStore();
+  if (!store) {
+    return () => {};
+  }
+
+  store.inputTransportOverrideHandlers.set(sessionId, handler);
+  return () => {
+    const current = store.inputTransportOverrideHandlers.get(sessionId);
+    if (current === handler) {
+      store.inputTransportOverrideHandlers.delete(sessionId);
+    }
+  };
 }
 
 export function isTerminalDebugCaptureEnabled(sessionId: string): boolean {
@@ -275,7 +316,11 @@ export function buildTerminalEventTapeDetails(
     ...buildSequenceDetails(sequence),
     eventType: event.type,
     inputReady: state.inputReady,
-    captureState: state.inputReady,
+    transportReady: state.transportReady,
+    captureAllowed: state.captureAllowed,
+    captureState: state.captureState,
+    barrierReason: state.barrierReason,
+    closedReason: state.closedReason,
     serverReady: state.serverReady,
     geometryReady: state.geometryReady,
     restorePending: state.restorePending,
@@ -414,6 +459,13 @@ function copyBoolean(value: TerminalDebugValue | undefined, assign: (value: bool
   if (typeof value === 'boolean') {
     assign(value);
   }
+}
+
+function isLocalTestHost(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
 }
 
 function pushDebugEvent(store: TerminalDebugStore, event: TerminalClientDebugEvent): void {

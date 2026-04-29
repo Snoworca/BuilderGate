@@ -156,7 +156,18 @@ async function main(): Promise<void> {
     { name: 'Terminal payload truncation drops incomplete trailing OSC sequences', run: testTerminalPayloadTruncationIncompleteOsc },
     { name: 'Terminal payload truncation removes incomplete trailing escape suffixes', run: testTerminalPayloadTruncationTrailingIncompleteSuffix },
     { name: 'WsRouter sends screen snapshot before flushing queued live output', run: testWsRouterScreenSnapshotOrdering },
-    { name: 'WsRouter blocks input while replay is pending and releases on ACK', run: testWsRouterBlocksInputWhileReplayPending },
+    { name: 'WsRouter queues input while replay is pending and flushes after ACK', run: testWsRouterQueuesInputWhileReplayPendingAndFlushesAfterAck },
+    { name: 'WsRouter preserves queued input across replay refresh', run: testWsRouterPreservesInputQueueAcrossReplayRefresh },
+    { name: 'WsRouter does not flush queued input for stale ACK', run: testWsRouterDoesNotFlushInputForStaleAck },
+    { name: 'WsRouter rejects expired replay input on ACK', run: testWsRouterRejectsExpiredReplayInputOnAck },
+    { name: 'WsRouter rejects expired replay input on timeout', run: testWsRouterRejectsExpiredReplayInputOnTimeout },
+    { name: 'WsRouter rejects Enter input on replay timeout', run: testWsRouterRejectsEnterInputOnReplayTimeout },
+    { name: 'WsRouter flushes safe input on replay timeout before ready', run: testWsRouterFlushesSafeInputOnReplayTimeout },
+    { name: 'WsRouter exposes replay input queue overflow', run: testWsRouterQueuedInputOverflowIsObservable },
+    { name: 'WsRouter rejects invalid input payload', run: testWsRouterRejectsInvalidInputPayload },
+    { name: 'WsRouter rejects invalid input sequence range', run: testWsRouterRejectsInvalidInputSequenceRange },
+    { name: 'WsRouter sanitizes client input metadata', run: testWsRouterSanitizesClientInputMetadata },
+    { name: 'WsRouter emits input:rejected for server reject scenarios', run: testWsRouterEmitsInputRejectedForRealServerScenarios },
     { name: 'WsRouter reports replay observability counters', run: testWsRouterObservabilityCounters },
     { name: 'WsRouter still emits a replay start for degraded sessions', run: testWsRouterDegradedReplayStart },
     { name: 'WsRouter still emits a replay start for oversized snapshots', run: testWsRouterOversizedSnapshotReplayStart },
@@ -3903,14 +3914,14 @@ function createWsRouterHarness(options?: {
     verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
   } as unknown as AuthService;
 
-  const router = new WsRouter(authServiceStub, sessionManagerStub);
+  const router = new WsRouter(authServiceStub, sessionManagerStub, { inputReliabilityMode: 'queue' });
   const { ws, sent } = createFakeWs();
 
   (router as any).clients.set(ws, {
     clientId: 'client-1',
     isAlive: true,
     subscribedSessions: new Set<string>(),
-    replayPendingSessions: new Map<string, { queuedOutput: string; timer: NodeJS.Timeout }>(),
+    replayPendingSessions: new Map(),
   });
 
   return { router, ws, sent, calls };
@@ -3937,34 +3948,417 @@ function testWsRouterScreenSnapshotOrdering(): void {
   router.destroy();
 }
 
-function testWsRouterBlocksInputWhileReplayPending(): void {
+function testWsRouterQueuesInputWhileReplayPendingAndFlushesAfterAck(): void {
   const { router, ws, sent, calls } = createWsRouterHarness();
 
   (router as any).handleSubscribe(ws, ['session-1']);
   const replayToken = String(sent[0].replayToken);
 
-  (router as any).handleInput(ws, 'session-1', '가\r', {
+  (router as any).handleInput(ws, {
+    type: 'input',
+    sessionId: 'session-1',
+    data: '가나다ABC\r',
+    inputSeqStart: 5,
+    inputSeqEnd: 5,
+    metadata: {
     captureSeq: 5,
-    clientObservedByteLength: 4,
+      clientObservedByteLength: 13,
     clientObservedHasHangul: true,
     unsafe: 'raw-text',
+    },
   });
-  assert.deepEqual(calls.writeInput, []);
-  const blockedEvent = router.getObservabilitySnapshot().recentReplayEvents.find((event) => event.kind === 'input_blocked');
-  assert.equal(blockedEvent?.details?.captureSeq, 5);
-  assert.equal(blockedEvent?.details?.clientObservedByteLength, 4);
-  assert.equal(blockedEvent?.details?.byteLength, 4);
-  assert.equal(blockedEvent?.details?.hasHangul, true);
-  assert.equal(blockedEvent?.details?.hasEnter, true);
-  assert.equal(blockedEvent?.details?.inputClass, 'mixed-printable-control');
-  assert.equal((blockedEvent?.details as Record<string, unknown>)?.unsafe, undefined);
-  assert.doesNotMatch(JSON.stringify(blockedEvent), /가/);
+  assert.equal(calls.writeInput.length, 0);
+  const queuedEvent = router.getObservabilitySnapshot().recentReplayEvents.find((event) => event.kind === 'input_queued');
+  assert.equal(queuedEvent?.details?.captureSeq, 5);
+  assert.equal(queuedEvent?.details?.clientObservedByteLength, 13);
+  assert.equal(queuedEvent?.details?.byteLength, 13);
+  assert.equal(queuedEvent?.details?.hasHangul, true);
+  assert.equal(queuedEvent?.details?.hasEnter, true);
+  assert.equal(queuedEvent?.details?.inputClass, 'mixed-printable-control');
+  assert.equal(queuedEvent?.details?.inputSeqStart, 5);
+  assert.equal(queuedEvent?.details?.inputSeqEnd, 5);
+  assert.equal((queuedEvent?.details as Record<string, unknown>)?.unsafe, undefined);
+  assert.doesNotMatch(JSON.stringify(queuedEvent), /가나다/);
 
   (router as any).handleScreenSnapshotReady(ws, 'session-1', replayToken);
-  (router as any).handleInput(ws, 'session-1', 'allowed');
 
-  assert.deepEqual(calls.writeInput, [{ sessionId: 'session-1', data: 'allowed', metadata: undefined }]);
+  assert.equal(calls.writeInput.length, 1);
+  assert.equal(calls.writeInput[0].sessionId, 'session-1');
+  assert.equal(calls.writeInput[0].data, '가나다ABC\r');
+  assert.equal((calls.writeInput[0].metadata as Record<string, unknown>).captureSeq, 5);
+  assert.equal((calls.writeInput[0].metadata as Record<string, unknown>).unsafe, undefined);
+  const flushedEvent = router.getObservabilitySnapshot().recentReplayEvents.find((event) => event.kind === 'input_flushed');
+  assert.equal(flushedEvent?.details?.inputSeqStart, 5);
   assert.equal(sent[sent.length - 1].type, 'session:ready');
+
+  router.destroy();
+}
+
+function testWsRouterPreservesInputQueueAcrossReplayRefresh(): void {
+  const snapshotState = {
+    seq: 1,
+    cols: 80,
+    rows: 24,
+    data: 'A',
+    truncated: false,
+    generatedAt: Date.now(),
+    health: 'healthy' as const,
+  };
+  const session = {
+    id: 'session-1',
+    name: 'Session 1',
+    status: 'running',
+    createdAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
+    sortOrder: 0,
+  };
+  const calls = {
+    writeInput: [] as Array<{ sessionId: string; data: string; metadata?: unknown }>,
+  };
+  const sessionManagerStub = {
+    getSession: (id: string) => id === session.id ? session : null,
+    getLastCwd: () => 'C:\\repo',
+    isSessionReady: (id: string) => id === session.id,
+    getScreenSnapshot: () => snapshotState,
+    getReplayQueueLimit: () => 64,
+    writeInput: (sessionId: string, data: string, metadata?: unknown) => {
+      calls.writeInput.push({ sessionId, data, metadata });
+      return true;
+    },
+    resize: () => true,
+  } as unknown as SessionManager;
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, sessionManagerStub, { inputReliabilityMode: 'queue' });
+  const { ws, sent } = createFakeWs();
+
+  try {
+    (router as any).clients.set(ws, {
+      clientId: 'client-1',
+      isAlive: true,
+      subscribedSessions: new Set<string>(),
+      replayPendingSessions: new Map(),
+    });
+
+    (router as any).handleSubscribe(ws, ['session-1']);
+    const firstToken = String(sent[0].replayToken);
+    (router as any).handleInput(ws, {
+      type: 'input',
+      sessionId: 'session-1',
+      data: 'preserved',
+      inputSeqStart: 1,
+      inputSeqEnd: 1,
+    });
+
+    snapshotState.seq = 2;
+    snapshotState.data = 'AB';
+    router.refreshReplaySnapshots('session-1');
+    const refreshed = sent.find((message) => message.type === 'screen-snapshot' && message.replayToken !== firstToken);
+    assert.equal(refreshed?.type, 'screen-snapshot');
+    const secondToken = String(refreshed?.replayToken);
+
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', secondToken);
+
+    assert.deepEqual(calls.writeInput.map((call) => call.data), ['preserved']);
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterDoesNotFlushInputForStaleAck(): void {
+  const { router, ws, sent, calls } = createWsRouterHarness();
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  const firstToken = String(sent[0].replayToken);
+  (router as any).handleInput(ws, {
+    type: 'input',
+    sessionId: 'session-1',
+    data: 'stays-pending',
+    inputSeqStart: 1,
+    inputSeqEnd: 1,
+  });
+  (router as any).handleUnsubscribe(ws, ['session-1']);
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  const secondSnapshot = sent
+    .filter((message) => message.type === 'screen-snapshot')
+    .at(-1);
+  const secondToken = String(secondSnapshot?.replayToken);
+  (router as any).handleInput(ws, {
+    type: 'input',
+    sessionId: 'session-1',
+    data: 'active-input',
+    inputSeqStart: 2,
+    inputSeqEnd: 2,
+  });
+
+  (router as any).handleScreenSnapshotReady(ws, 'session-1', firstToken);
+  assert.equal(calls.writeInput.length, 0);
+
+  (router as any).handleScreenSnapshotReady(ws, 'session-1', secondToken);
+  assert.deepEqual(calls.writeInput.map((call) => call.data), ['active-input']);
+
+  router.destroy();
+}
+
+function testWsRouterRejectsExpiredReplayInputOnAck(): void {
+  const { router, ws, sent, calls } = createWsRouterHarness();
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  const replayToken = String(sent[0].replayToken);
+  (router as any).handleInput(ws, {
+    type: 'input',
+    sessionId: 'session-1',
+    data: 'expired',
+    inputSeqStart: 1,
+    inputSeqEnd: 1,
+  });
+  const pending = (router as any).clients.get(ws).replayPendingSessions.get('session-1');
+  pending.queuedInputs[0].queuedAt = Date.now() - 10_000;
+
+  (router as any).handleScreenSnapshotReady(ws, 'session-1', replayToken);
+
+  assert.equal(calls.writeInput.length, 0);
+  const rejected = sent.find((message) => message.type === 'input:rejected');
+  assert.equal(rejected?.reason, 'timeout');
+
+  router.destroy();
+}
+
+function testWsRouterRejectsExpiredReplayInputOnTimeout(): void {
+  const { router, ws, sent, calls } = createWsRouterHarness();
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  const replayToken = String(sent[0].replayToken);
+  (router as any).handleInput(ws, {
+    type: 'input',
+    sessionId: 'session-1',
+    data: 'expired-timeout',
+    inputSeqStart: 1,
+    inputSeqEnd: 1,
+  });
+  const pending = (router as any).clients.get(ws).replayPendingSessions.get('session-1');
+  pending.queuedInputs[0].queuedAt = Date.now() - 10_000;
+
+  (router as any).handleReplayAckTimeout(ws, 'session-1', replayToken, 1, 'timeout');
+
+  assert.equal(calls.writeInput.length, 0);
+  const rejected = sent.find((message) => message.type === 'input:rejected');
+  assert.equal(rejected?.reason, 'timeout');
+  assert.equal(sent[sent.length - 1].type, 'session:ready');
+
+  router.destroy();
+}
+
+function testWsRouterRejectsEnterInputOnReplayTimeout(): void {
+  const { router, ws, sent, calls } = createWsRouterHarness();
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  const replayToken = String(sent[0].replayToken);
+  (router as any).handleInput(ws, {
+    type: 'input',
+    sessionId: 'session-1',
+    data: 'danger\r',
+    inputSeqStart: 1,
+    inputSeqEnd: 1,
+  });
+
+  (router as any).handleReplayAckTimeout(ws, 'session-1', replayToken, 1, 'timeout');
+
+  assert.equal(calls.writeInput.length, 0);
+  const rejected = sent.find((message) => message.type === 'input:rejected');
+  assert.equal(rejected?.reason, 'timeout-enter-safety');
+  assert.equal(sent[sent.length - 1].type, 'session:ready');
+
+  router.destroy();
+}
+
+function testWsRouterFlushesSafeInputOnReplayTimeout(): void {
+  const { router, ws, sent, calls } = createWsRouterHarness();
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  const replayToken = String(sent[0].replayToken);
+  (router as any).handleInput(ws, {
+    type: 'input',
+    sessionId: 'session-1',
+    data: 'safe',
+    inputSeqStart: 1,
+    inputSeqEnd: 1,
+  });
+
+  (router as any).handleReplayAckTimeout(ws, 'session-1', replayToken, 1, 'timeout');
+
+  assert.deepEqual(calls.writeInput.map((call) => call.data), ['safe']);
+  const flushed = router.getObservabilitySnapshot().recentReplayEvents.find((event) => event.kind === 'input_flushed_timeout');
+  assert.equal(flushed?.details?.phase, 'timeout');
+  assert.equal(sent[sent.length - 1].type, 'session:ready');
+
+  router.destroy();
+}
+
+function testWsRouterQueuedInputOverflowIsObservable(): void {
+  const { router, ws, sent, calls } = createWsRouterHarness();
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  (router as any).handleInput(ws, {
+    type: 'input',
+    sessionId: 'session-1',
+    data: 'x'.repeat(64 * 1024),
+    inputSeqStart: 1,
+    inputSeqEnd: 1,
+  });
+  (router as any).handleInput(ws, {
+    type: 'input',
+    sessionId: 'session-1',
+    data: 'overflow',
+    inputSeqStart: 2,
+    inputSeqEnd: 2,
+  });
+
+  assert.equal(calls.writeInput.length, 0);
+  const overflow = router.getObservabilitySnapshot().recentReplayEvents.find((event) => event.kind === 'input_queue_overflow');
+  assert.equal(overflow?.details?.reason, 'queue-overflow');
+  const rejected = sent.find((message) => message.type === 'input:rejected');
+  assert.equal(rejected?.reason, 'queue-overflow');
+
+  router.destroy();
+}
+
+function testWsRouterRejectsInvalidInputPayload(): void {
+  const { router, ws, sent, calls } = createWsRouterHarness();
+
+  (router as any).handleMessage(ws, JSON.stringify({
+    type: 'input',
+    sessionId: 'session-1',
+    data: 123,
+    inputSeqStart: 1,
+    inputSeqEnd: 1,
+  }));
+  (router as any).handleMessage(ws, JSON.stringify({
+    type: 'input',
+    sessionId: '',
+    data: 'bad',
+  }));
+  (router as any).handleMessage(ws, JSON.stringify({
+    type: 'input',
+    sessionId: 'session-1',
+    data: 'x'.repeat((64 * 1024) + 1),
+  }));
+
+  assert.equal(calls.writeInput.length, 0);
+  const rejected = sent.filter((message) => message.type === 'input:rejected');
+  assert.equal(rejected.length, 2);
+  assert.equal(rejected[0].reason, 'invalid-payload');
+  assert.equal(rejected[1].reason, 'invalid-payload');
+
+  router.destroy();
+}
+
+function testWsRouterRejectsInvalidInputSequenceRange(): void {
+  const { router, ws, sent, calls } = createWsRouterHarness();
+
+  const invalidMessages = [
+    { type: 'input', sessionId: 'session-1', data: 'bad', inputSeq: 1 },
+    { type: 'input', sessionId: 'session-1', data: 'bad', inputSeqStart: 1 },
+    { type: 'input', sessionId: 'session-1', data: 'bad', inputSeqStart: 0, inputSeqEnd: 1 },
+    { type: 'input', sessionId: 'session-1', data: 'bad', inputSeqStart: 5, inputSeqEnd: 4 },
+    { type: 'input', sessionId: 'session-1', data: 'bad', inputSeqStart: 1, inputSeqEnd: 1025 },
+  ];
+
+  for (const message of invalidMessages) {
+    (router as any).handleMessage(ws, JSON.stringify(message));
+  }
+
+  assert.equal(calls.writeInput.length, 0);
+  const rejected = sent.filter((message) => message.type === 'input:rejected');
+  assert.equal(rejected.length, invalidMessages.length);
+  assert.equal(rejected.every((message) => message.reason === 'invalid-sequence'), true);
+
+  router.destroy();
+}
+
+function testWsRouterSanitizesClientInputMetadata(): void {
+  const { router, ws, sent, calls } = createWsRouterHarness();
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  const replayToken = String(sent[0].replayToken);
+  (router as any).handleInput(ws, {
+    type: 'input',
+    sessionId: 'session-1',
+    data: '한글',
+    inputSeqStart: 1,
+    inputSeqEnd: 1,
+    metadata: {
+      captureSeq: 7,
+      clientObservedHasHangul: true,
+      clientObservedHasEnter: false,
+      reason: 'raw-reason',
+      raw: '한글',
+      nested: { unsafe: true },
+    },
+  });
+  (router as any).handleScreenSnapshotReady(ws, 'session-1', replayToken);
+
+  assert.equal(calls.writeInput.length, 1);
+  const metadata = calls.writeInput[0].metadata as Record<string, unknown>;
+  assert.equal(metadata.captureSeq, 7);
+  assert.equal(metadata.clientObservedHasHangul, true);
+  assert.equal(metadata.clientObservedHasEnter, false);
+  assert.equal(metadata.reason, undefined);
+  assert.equal(metadata.raw, undefined);
+  assert.equal(metadata.nested, undefined);
+
+  const serializedEvents = JSON.stringify(router.getObservabilitySnapshot().recentReplayEvents);
+  assert.doesNotMatch(serializedEvents, /raw-reason/);
+  assert.doesNotMatch(serializedEvents, /한글/);
+
+  router.destroy();
+}
+
+function testWsRouterEmitsInputRejectedForRealServerScenarios(): void {
+  const { router, ws, sent } = createWsRouterHarness();
+
+  (router as any).handleMessage(ws, JSON.stringify({
+    type: 'input',
+    sessionId: 'session-1',
+    data: 'invalid-seq',
+    inputSeqStart: 9,
+    inputSeqEnd: 1,
+  }));
+  (router as any).handleMessage(ws, JSON.stringify({
+    type: 'input',
+    sessionId: 'missing-session',
+    data: 'missing',
+    inputSeqStart: 1,
+    inputSeqEnd: 1,
+  }));
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  (router as any).handleInput(ws, {
+    type: 'input',
+    sessionId: 'session-1',
+    data: 'enter\r',
+    inputSeqStart: 2,
+    inputSeqEnd: 2,
+  });
+  (router as any).handleInput(ws, {
+    type: 'input',
+    sessionId: 'session-1',
+    data: 'x'.repeat(64 * 1024),
+    inputSeqStart: 3,
+    inputSeqEnd: 3,
+  });
+  const replayToken = String(sent.find((message) => message.type === 'screen-snapshot')?.replayToken);
+  (router as any).handleReplayAckTimeout(ws, 'session-1', replayToken, 1, 'timeout');
+
+  const reasons = sent
+    .filter((message) => message.type === 'input:rejected')
+    .map((message) => message.reason);
+  assert.ok(reasons.includes('invalid-sequence'));
+  assert.ok(reasons.includes('session-missing'));
+  assert.ok(reasons.includes('queue-overflow'));
+  assert.ok(reasons.includes('timeout-enter-safety'));
 
   router.destroy();
 }

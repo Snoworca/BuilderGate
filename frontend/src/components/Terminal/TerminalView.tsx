@@ -16,9 +16,19 @@ import {
   buildTerminalEventTapeDetails,
   buildTerminalInputDebugPayload,
   isTerminalDebugCaptureEnabled,
+  registerInputTransportOverrideHandler,
   recordTerminalDebugEvent,
 } from '../../utils/terminalDebugCapture';
-import type { InputDebugMetadata, WindowsPtyInfo } from '../../types/ws-protocol';
+import { getInputReliabilityMode } from '../../utils/inputReliabilityMode';
+import type {
+  InputDebugMetadata,
+  ReconnectState,
+  TerminalInputBarrierReason,
+  TerminalInputClosedReason,
+  TerminalInputTransportOverride,
+  TerminalInputTransportState,
+  WindowsPtyInfo,
+} from '../../types/ws-protocol';
 import '@xterm/xterm/css/xterm.css';
 import './TerminalView.css';
 
@@ -31,6 +41,34 @@ const SNAPSHOT_SAVE_DEBOUNCE_MS = 2000;
 const SNAPSHOT_MAX_CONTENT_LENGTH = 2_000_000;
 const LARGE_WRITE_THRESHOLD = 10_000;
 const MOBILE_TOUCH_PAN_THRESHOLD_PX = 12;
+const INPUT_QUEUE_BYTE_BUDGET = 64 * 1024;
+const INPUT_QUEUE_TTL_MS = 1500;
+
+type TerminalCaptureState = 'open' | 'transient-blocked' | 'closed';
+type InputRejectedReason =
+  | 'timeout'
+  | 'timeout-enter-safety'
+  | 'queue-overflow'
+  | 'context-changed'
+  | 'session-missing'
+  | 'session-closed'
+  | 'server-error'
+  | 'auth-expired'
+  | 'transport-closed'
+  | 'mode-observe-only';
+
+interface PendingTerminalInput {
+  data: string;
+  metadata: InputDebugMetadata;
+  queuedAt: number;
+  captureSeq: number;
+  compositionSeq?: number;
+  sessionGeneration: number;
+  containsEnter: boolean;
+  barrierReason: TerminalInputBarrierReason;
+  byteLength: number;
+  source: string;
+}
 
 function warnIfSnapshotStorageRecovered(
   result: ReturnType<typeof setTerminalSnapshotWithQuotaRecovery>,
@@ -67,6 +105,7 @@ export interface TerminalHandle {
   restoreSnapshot: () => Promise<boolean>;
   replaceWithSnapshot: (data: string) => Promise<void>;
   releasePending: () => void;
+  setInputTransportState: (state: TerminalInputTransportState) => void;
   setServerReady: (ready: boolean) => void;
   setWindowsPty: (info?: WindowsPtyInfo) => void;
 }
@@ -107,6 +146,25 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const inputReadyRef = useRef(false);
     const geometryReadyRef = useRef(false);
     const serverReadyRef = useRef(false);
+    const captureStateRef = useRef<TerminalCaptureState>('closed');
+    const captureAllowedRef = useRef(false);
+    const transportReadyRef = useRef(false);
+    const transportBarrierReasonRef = useRef<TerminalInputBarrierReason>('none');
+    const transportClosedReasonRef = useRef<TerminalInputClosedReason>('terminal-disposed');
+    const reconnectStateRef = useRef<ReconnectState>('disconnected');
+    const sessionGenerationRef = useRef(1);
+    const transportStateRef = useRef<TerminalInputTransportState>({
+      serverReady: false,
+      barrierReason: 'repair-server-not-ready',
+      closedReason: 'none',
+      reconnectState: 'disconnected',
+      sessionGeneration: 1,
+    });
+    const inputTransportOverrideRef = useRef<TerminalInputTransportOverride | null>(null);
+    const pendingInputQueueRef = useRef<PendingTerminalInput[]>([]);
+    const pendingInputQueueBytesRef = useRef(0);
+    const inputQueueExpiryTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+    const terminalDisposedRef = useRef(true);
     const pendingFocusRestoreRef = useRef(false);
     const isVisibleRef = useRef(isVisible);
     const previousVisibilityRef = useRef(isVisible);
@@ -130,6 +188,112 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       return element instanceof HTMLTextAreaElement ? element : null;
     }, []);
 
+    const nextCaptureSeq = useCallback(() => {
+      captureSeqRef.current += 1;
+      return captureSeqRef.current;
+    }, []);
+
+    const nextCompositionSeq = useCallback(() => {
+      compositionSeqRef.current += 1;
+      activeCompositionSeqRef.current = compositionSeqRef.current;
+      return compositionSeqRef.current;
+    }, []);
+
+    const getEffectiveTransportState = useCallback((): TerminalInputTransportState => {
+      const base = transportStateRef.current;
+      const override = inputTransportOverrideRef.current;
+      if (!override) {
+        return base;
+      }
+
+      return {
+        ...base,
+        ...override,
+        reconnectState: override.reconnectState ?? base.reconnectState,
+        sessionGeneration: override.sessionGeneration ?? base.sessionGeneration,
+      };
+    }, []);
+
+    const mapClosedReasonToRejectReason = useCallback((
+      closedReason: TerminalInputClosedReason,
+    ): InputRejectedReason => {
+      switch (closedReason) {
+        case 'session-exited':
+          return 'session-closed';
+        case 'session-missing':
+          return 'session-missing';
+        case 'server-error':
+          return 'server-error';
+        case 'auth-expired':
+          return 'auth-expired';
+        case 'ws-closed-without-reconnect':
+          return 'transport-closed';
+        case 'terminal-hidden':
+        case 'terminal-disposed':
+        case 'workspace-or-session-changed':
+        case 'none':
+        default:
+          return 'context-changed';
+      }
+    }, []);
+
+    const getQueueByteLength = useCallback((raw: string): number => {
+      return new TextEncoder().encode(raw).length;
+    }, []);
+
+    const computeInputGateSnapshot = useCallback(() => {
+      const term = xtermRef.current;
+      const transportState = getEffectiveTransportState();
+      const closedReason: TerminalInputClosedReason =
+        !term || terminalDisposedRef.current
+          ? 'terminal-disposed'
+          : !isVisibleRef.current
+            ? 'terminal-hidden'
+            : transportState.closedReason;
+
+      let barrierReason: TerminalInputBarrierReason = 'none';
+      if (closedReason === 'none') {
+        if (restorePendingRef.current) {
+          barrierReason = 'restore-pending';
+        } else if (!geometryReadyRef.current) {
+          barrierReason = 'initial-geometry-pending';
+        } else if (transportState.barrierReason !== 'none') {
+          barrierReason = transportState.barrierReason;
+        } else if (transportState.reconnectState === 'reconnecting') {
+          barrierReason = 'ws-reconnecting-short';
+        } else if (!transportState.serverReady) {
+          barrierReason = 'repair-server-not-ready';
+        }
+      }
+
+      const captureState: TerminalCaptureState =
+        closedReason !== 'none'
+          ? 'closed'
+          : barrierReason !== 'none'
+            ? 'transient-blocked'
+            : 'open';
+      const captureAllowed = captureState !== 'closed';
+      const transportReady = Boolean(
+        term
+        && captureAllowed
+        && barrierReason === 'none'
+        && transportState.serverReady
+        && geometryReadyRef.current
+        && !restorePendingRef.current
+        && isVisibleRef.current
+      );
+
+      return {
+        term,
+        transportState,
+        captureState,
+        captureAllowed,
+        transportReady,
+        barrierReason,
+        closedReason,
+      };
+    }, [getEffectiveTransportState]);
+
     const focusTerminalInput = useCallback((reason: string) => {
       const term = xtermRef.current;
       const helperTextarea = getHelperTextarea();
@@ -143,6 +307,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         reason,
         helperPresent: helperTextarea !== null,
         inputReady: inputReadyRef.current,
+        transportReady: transportReadyRef.current,
+        captureAllowed: captureAllowedRef.current,
         restorePending: restorePendingRef.current,
       });
     }, [getHelperTextarea, sessionId]);
@@ -169,7 +335,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     }, [hasTerminalFocus, sessionId]);
 
     const restoreQueuedFocus = useCallback((reason: string) => {
-      if (!pendingFocusRestoreRef.current || !inputReadyRef.current || !isVisibleRef.current) {
+      if (!pendingFocusRestoreRef.current || !captureAllowedRef.current || !isVisibleRef.current) {
         return;
       }
 
@@ -203,37 +369,273 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       recordTerminalDebugEvent(sessionId, 'focus_restored_after_gate', { reason });
     }, [focusTerminalInput, getHelperTextarea, sessionId]);
 
-    const syncInputReadiness = useCallback((reason: string) => {
-      const term = xtermRef.current;
-      const helperTextarea = getHelperTextarea();
-      const nextReady = Boolean(
-        term
-        && serverReadyRef.current
-        && geometryReadyRef.current
-        && !restorePendingRef.current
-        && isVisibleRef.current
-      );
+    const rejectQueuedInput = useCallback((
+      entry: PendingTerminalInput,
+      reason: InputRejectedReason,
+      detailReason: string = reason,
+    ) => {
+      const debugInput = buildTerminalInputDebugPayload(entry.data, {
+        captureSeq: entry.captureSeq,
+        compositionSeq: entry.compositionSeq,
+      });
+      recordTerminalDebugEvent(sessionId, 'terminal_input_rejected', {
+        ...debugInput.details,
+        reason,
+        detailReason,
+        barrierReason: entry.barrierReason,
+        source: entry.source,
+        queuedMs: Math.max(0, Date.now() - entry.queuedAt),
+        queuedSessionGeneration: entry.sessionGeneration,
+        currentSessionGeneration: sessionGenerationRef.current,
+      }, debugInput.preview);
+    }, [sessionId]);
 
-      inputReadyRef.current = nextReady;
+    const expirePendingInputQueue = useCallback(() => {
+      const now = Date.now();
+      const remaining: PendingTerminalInput[] = [];
+      let remainingBytes = 0;
+
+      for (const entry of pendingInputQueueRef.current) {
+        if (now - entry.queuedAt > INPUT_QUEUE_TTL_MS) {
+          rejectQueuedInput(entry, entry.containsEnter ? 'timeout-enter-safety' : 'timeout');
+          continue;
+        }
+        remaining.push(entry);
+        remainingBytes += entry.byteLength;
+      }
+
+      pendingInputQueueRef.current = remaining;
+      pendingInputQueueBytesRef.current = remainingBytes;
+    }, [rejectQueuedInput]);
+
+    const scheduleInputQueueExpiry = useCallback(() => {
+      const timer = setTimeout(() => {
+        inputQueueExpiryTimersRef.current.delete(timer);
+        expirePendingInputQueue();
+      }, INPUT_QUEUE_TTL_MS + 25);
+      inputQueueExpiryTimersRef.current.add(timer);
+    }, [expirePendingInputQueue]);
+
+    const rejectPendingInputQueue = useCallback((reason: InputRejectedReason, detailReason: string = reason) => {
+      const entries = pendingInputQueueRef.current;
+      if (entries.length === 0) {
+        return;
+      }
+      pendingInputQueueRef.current = [];
+      pendingInputQueueBytesRef.current = 0;
+      for (const entry of entries) {
+        rejectQueuedInput(entry, reason, detailReason);
+      }
+    }, [rejectQueuedInput]);
+
+    const flushPendingInputQueue = useCallback((reason: string) => {
+      if (!transportReadyRef.current || pendingInputQueueRef.current.length === 0) {
+        return;
+      }
+
+      const entries = pendingInputQueueRef.current;
+      pendingInputQueueRef.current = [];
+      pendingInputQueueBytesRef.current = 0;
+      const now = Date.now();
+
+      for (const entry of entries) {
+        const debugInput = buildTerminalInputDebugPayload(entry.data, {
+          captureSeq: entry.captureSeq,
+          compositionSeq: entry.compositionSeq,
+        });
+
+        if (entry.sessionGeneration !== sessionGenerationRef.current) {
+          rejectQueuedInput(entry, 'context-changed', 'context-changed');
+          continue;
+        }
+        if (now - entry.queuedAt > INPUT_QUEUE_TTL_MS) {
+          rejectQueuedInput(entry, entry.containsEnter ? 'timeout-enter-safety' : 'timeout');
+          continue;
+        }
+        if (captureStateRef.current === 'closed') {
+          rejectQueuedInput(entry, mapClosedReasonToRejectReason(transportClosedReasonRef.current));
+          continue;
+        }
+
+        recordTerminalDebugEvent(sessionId, 'queued_input_flushed', {
+          ...debugInput.details,
+          reason,
+          barrierReason: entry.barrierReason,
+          source: entry.source,
+          queuedMs: Math.max(0, now - entry.queuedAt),
+          sessionGeneration: entry.sessionGeneration,
+        }, debugInput.preview);
+        onInput(entry.data, entry.metadata);
+      }
+    }, [mapClosedReasonToRejectReason, onInput, rejectQueuedInput, sessionId]);
+
+    const enqueuePendingInput = useCallback((
+      data: string,
+      debugInput: ReturnType<typeof buildTerminalInputDebugPayload>,
+      source: string,
+    ) => {
+      const metadata = buildClientInputDebugMetadata(debugInput.details);
+      const captureSeq = metadata.captureSeq ?? nextCaptureSeq();
+      metadata.captureSeq = captureSeq;
+      const byteLength =
+        typeof debugInput.details.byteLength === 'number'
+          ? debugInput.details.byteLength
+          : getQueueByteLength(data);
+      const entry: PendingTerminalInput = {
+        data,
+        metadata,
+        queuedAt: Date.now(),
+        captureSeq,
+        compositionSeq: metadata.compositionSeq,
+        sessionGeneration: sessionGenerationRef.current,
+        containsEnter: metadata.clientObservedHasEnter === true || debugInput.details.hasEnter === true,
+        barrierReason: transportBarrierReasonRef.current,
+        byteLength,
+        source,
+      };
+
+      if (entry.byteLength > INPUT_QUEUE_BYTE_BUDGET) {
+        recordTerminalDebugEvent(sessionId, 'terminal_input_queue_overflow', {
+          ...debugInput.details,
+          reason: 'queue-overflow',
+          source,
+          queuedByteBudget: INPUT_QUEUE_BYTE_BUDGET,
+          attemptedByteLength: entry.byteLength,
+          pendingQueueBytes: pendingInputQueueBytesRef.current,
+        }, debugInput.preview);
+        rejectQueuedInput(entry, 'queue-overflow');
+        return;
+      }
+
+      pendingInputQueueRef.current.push(entry);
+      pendingInputQueueBytesRef.current += entry.byteLength;
+      while (pendingInputQueueBytesRef.current > INPUT_QUEUE_BYTE_BUDGET && pendingInputQueueRef.current.length > 0) {
+        const overflowed = pendingInputQueueRef.current.shift();
+        if (!overflowed) {
+          break;
+        }
+        pendingInputQueueBytesRef.current -= overflowed.byteLength;
+        recordTerminalDebugEvent(sessionId, 'terminal_input_queue_overflow', {
+          reason: 'queue-overflow',
+          source: overflowed.source,
+          droppedCaptureSeq: overflowed.captureSeq,
+          pendingQueueBytes: pendingInputQueueBytesRef.current,
+          queuedByteBudget: INPUT_QUEUE_BYTE_BUDGET,
+        });
+        rejectQueuedInput(overflowed, 'queue-overflow');
+      }
+
+      recordTerminalDebugEvent(sessionId, 'terminal_input_queued', {
+        ...debugInput.details,
+        source,
+        barrierReason: entry.barrierReason,
+        sessionGeneration: entry.sessionGeneration,
+        pendingQueueDepth: pendingInputQueueRef.current.length,
+        pendingQueueBytes: pendingInputQueueBytesRef.current,
+      }, debugInput.preview);
+      scheduleInputQueueExpiry();
+    }, [getQueueByteLength, nextCaptureSeq, rejectQueuedInput, scheduleInputQueueExpiry, sessionId]);
+
+    const submitCapturedInput = useCallback((
+      data: string,
+      debugInput: ReturnType<typeof buildTerminalInputDebugPayload>,
+      source: string,
+    ) => {
+      if (transportReadyRef.current) {
+        recordTerminalDebugEvent(sessionId, source === 'imperative' ? 'imperative_input_sent' : 'xterm_data_emitted', debugInput.details, debugInput.preview);
+        onInput(data, buildClientInputDebugMetadata(debugInput.details));
+        return;
+      }
+
+      const mode = getInputReliabilityMode();
+      if (captureAllowedRef.current && captureStateRef.current === 'transient-blocked') {
+        if (mode === 'observe') {
+          recordTerminalDebugEvent(sessionId, 'terminal_input_would_queue', {
+            ...debugInput.details,
+            reason: 'mode-observe-only',
+            source,
+            barrierReason: transportBarrierReasonRef.current,
+            sessionGeneration: sessionGenerationRef.current,
+          }, debugInput.preview);
+          return;
+        }
+
+        enqueuePendingInput(data, debugInput, source);
+        return;
+      }
+
+      const rejectReason = mapClosedReasonToRejectReason(transportClosedReasonRef.current);
+      const eventKind = mode === 'observe' ? 'terminal_input_would_reject' : 'terminal_input_rejected';
+      recordTerminalDebugEvent(sessionId, eventKind, {
+        ...debugInput.details,
+        reason: rejectReason,
+        source,
+        captureState: captureStateRef.current,
+        barrierReason: transportBarrierReasonRef.current,
+        closedReason: transportClosedReasonRef.current,
+        sessionGeneration: sessionGenerationRef.current,
+      }, debugInput.preview);
+    }, [enqueuePendingInput, mapClosedReasonToRejectReason, onInput, sessionId]);
+
+    const syncInputReadiness = useCallback((reason: string) => {
+      const gate = computeInputGateSnapshot();
+      const term = gate.term;
+      const helperTextarea = getHelperTextarea();
+      serverReadyRef.current = gate.transportState.serverReady;
+      reconnectStateRef.current = gate.transportState.reconnectState ?? 'disconnected';
+      sessionGenerationRef.current = gate.transportState.sessionGeneration;
+      captureStateRef.current = gate.captureState;
+      captureAllowedRef.current = gate.captureAllowed;
+      transportReadyRef.current = gate.transportReady;
+      transportBarrierReasonRef.current = gate.barrierReason;
+      transportClosedReasonRef.current = gate.closedReason;
+      inputReadyRef.current = gate.transportReady;
+
       if (term) {
-        term.options.disableStdin = !nextReady;
+        term.options.disableStdin = !gate.captureAllowed;
       }
       if (helperTextarea) {
-        helperTextarea.disabled = !nextReady;
+        helperTextarea.disabled = !gate.captureAllowed;
+        helperTextarea.readOnly = false;
       }
 
       recordTerminalDebugEvent(sessionId, 'input_gate_synced', {
         reason,
-        inputReady: nextReady,
-        serverReady: serverReadyRef.current,
+        inputReady: gate.transportReady,
+        transportReady: gate.transportReady,
+        captureAllowed: gate.captureAllowed,
+        captureState: gate.captureState,
+        barrierReason: gate.barrierReason,
+        closedReason: gate.closedReason,
+        reconnectState: gate.transportState.reconnectState ?? null,
+        sessionGeneration: gate.transportState.sessionGeneration,
+        serverReady: gate.transportState.serverReady,
         geometryReady: geometryReadyRef.current,
         restorePending: restorePendingRef.current,
         visible: isVisibleRef.current,
+        helperDisabled: helperTextarea?.disabled ?? null,
+        helperReadOnly: helperTextarea?.readOnly ?? null,
+        disableStdin: term?.options.disableStdin ?? null,
       });
-      if (nextReady) {
+
+      if (!gate.captureAllowed) {
+        rejectPendingInputQueue(mapClosedReasonToRejectReason(gate.closedReason), gate.closedReason);
+        return;
+      }
+
+      if (gate.transportReady) {
+        flushPendingInputQueue(reason);
         restoreQueuedFocus(reason);
       }
-    }, [getHelperTextarea, restoreQueuedFocus, sessionId]);
+    }, [
+      computeInputGateSnapshot,
+      flushPendingInputQueue,
+      getHelperTextarea,
+      mapClosedReasonToRejectReason,
+      rejectPendingInputQueue,
+      restoreQueuedFocus,
+      sessionId,
+    ]);
 
     const emitResize = useCallback((cols: number, rows: number, reason: string) => {
       recordTerminalDebugEvent(sessionId, 'resize_emitted', { cols, rows, reason });
@@ -735,15 +1137,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         });
       }),
       sendInput: (data: string) => {
-        const debugInput = buildTerminalInputDebugPayload(data);
-        if (!inputReadyRef.current) {
-          recordTerminalDebugEvent(sessionId, 'imperative_input_dropped_not_ready', {
-            ...debugInput.details,
-            restorePending: restorePendingRef.current,
-          }, debugInput.preview);
-          return;
-        }
-        onInput(data, buildClientInputDebugMetadata(debugInput.details));
+        const debugInput = buildTerminalInputDebugPayload(data, { captureSeq: nextCaptureSeq() });
+        submitCapturedInput(data, debugInput, 'imperative');
       },
       restoreSnapshot: async () => {
         const term = xtermRef.current;
@@ -761,19 +1156,43 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           void releaseRestorePending();
         }
       },
+      setInputTransportState: (state: TerminalInputTransportState) => {
+        if (!state.serverReady) {
+          queueFocusRestoreIfFocused('server-not-ready');
+        }
+        transportStateRef.current = state;
+        syncInputReadiness('transport-state');
+      },
       setServerReady: (ready: boolean) => {
         if (!ready) {
           queueFocusRestoreIfFocused('server-not-ready');
         }
-        serverReadyRef.current = ready;
-        syncInputReadiness('server-ready');
+        transportStateRef.current = {
+          ...transportStateRef.current,
+          serverReady: ready,
+          barrierReason: ready ? 'none' : 'repair-server-not-ready',
+          closedReason: 'none',
+          reconnectState: ready ? 'connected' : transportStateRef.current.reconnectState,
+        };
+        syncInputReadiness('server-ready-legacy');
       },
       setWindowsPty: (info?: WindowsPtyInfo) => {
         const term = xtermRef.current;
         if (!term) return;
         term.options.windowsPty = info;
       },
-    }), [onInput, writeOutput, restoreStoredSnapshot, replaceWithSnapshot, releaseRestorePending, focusTerminalInput, queueFocusRestoreIfFocused, syncInputReadiness, emitResize, sessionId]);
+    }), [
+      writeOutput,
+      restoreStoredSnapshot,
+      replaceWithSnapshot,
+      releaseRestorePending,
+      focusTerminalInput,
+      nextCaptureSeq,
+      queueFocusRestoreIfFocused,
+      submitCapturedInput,
+      syncInputReadiness,
+      emitResize,
+    ]);
 
     useEffect(() => {
       if (!terminalRef.current) return;
@@ -828,20 +1247,17 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       if (helperTextarea) {
         helperTextarea.setAttribute('aria-label', 'Terminal input');
         helperTextarea.disabled = true;
+        helperTextarea.readOnly = false;
       }
-      const nextCaptureSeq = () => {
-        captureSeqRef.current += 1;
-        return captureSeqRef.current;
-      };
-      const nextCompositionSeq = () => {
-        compositionSeqRef.current += 1;
-        activeCompositionSeqRef.current = compositionSeqRef.current;
-        return compositionSeqRef.current;
-      };
       const buildInputCaptureState = () => {
         const activeElement = document.activeElement;
         return {
           inputReady: inputReadyRef.current,
+          transportReady: transportReadyRef.current,
+          captureAllowed: captureAllowedRef.current,
+          captureState: captureStateRef.current,
+          barrierReason: transportBarrierReasonRef.current,
+          closedReason: transportClosedReasonRef.current,
           serverReady: serverReadyRef.current,
           geometryReady: geometryReadyRef.current,
           restorePending: restorePendingRef.current,
@@ -867,14 +1283,21 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         );
       };
       recordTerminalDebugEvent(sessionId, 'terminal_mounted');
+      terminalDisposedRef.current = false;
       restorePendingRef.current = true;
       geometryReadyRef.current = false;
       serverReadyRef.current = false;
       inputReadyRef.current = false;
+      captureStateRef.current = 'transient-blocked';
+      captureAllowedRef.current = true;
+      transportReadyRef.current = false;
+      transportBarrierReasonRef.current = 'restore-pending';
+      transportClosedReasonRef.current = 'none';
       bufferedOutputRef.current = [];
       xtermRef.current = term;
       fitAddonRef.current = fitAddon;
       serializeAddonRef.current = serializeAddon;
+      syncInputReadiness('mount');
 
       term.attachCustomKeyEventHandler((ev: KeyboardEvent) => {
         if (ev.type !== 'keydown') return true;
@@ -937,9 +1360,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         }
         // 2차 수정: plain Space/Backspace도 xterm 네이티브 경로에 맡긴다.
         // 다만 기존 회귀 테스트와 디버그 추적을 위해 관측 이벤트는 유지한다.
-        if (isPlainKey && inputReadyRef.current && (isSpaceKey || ev.key === 'Backspace')) {
+        if (isPlainKey && captureAllowedRef.current && (isSpaceKey || ev.key === 'Backspace')) {
           const debugInput = buildTerminalInputDebugPayload(isSpaceKey ? ' ' : '\x7f');
-          recordTerminalDebugEvent(sessionId, 'manual_input_forwarded', {
+          recordTerminalDebugEvent(sessionId, 'key_delegated_to_xterm', {
             safeKeyName: isSpaceKey ? null : 'Backspace',
             keyCategory: isSpaceKey ? 'space' : 'control-navigation',
             repeat: ev.repeat,
@@ -947,28 +1370,6 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             ...debugInput.details,
           }, debugInput.preview);
           return true;
-        }
-        if (isPlainKey && inputReadyRef.current && isSpaceKey) {
-          const debugInput = buildTerminalInputDebugPayload(' ');
-          onInput(' ');
-          recordTerminalDebugEvent(sessionId, 'manual_input_forwarded', {
-            keyCategory: 'space',
-            repeat: ev.repeat,
-            ...debugInput.details,
-          }, debugInput.preview);
-          return false;
-        }
-
-        if (isPlainKey && inputReadyRef.current && ev.key === 'Backspace') {
-          const debugInput = buildTerminalInputDebugPayload('\x7f');
-          onInput('\x7f');
-          recordTerminalDebugEvent(sessionId, 'manual_input_forwarded', {
-            safeKeyName: 'Backspace',
-            keyCategory: 'control-navigation',
-            repeat: ev.repeat,
-            ...debugInput.details,
-          }, debugInput.preview);
-          return false;
         }
 
         // 그 외 모든 키는 xterm 네이티브 처리에 위임
@@ -1009,15 +1410,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         if (data.length === 0) return;
         if (data === '\x1b[I' || data === '\x1b[O') return;
         const debugInput = buildTerminalInputDebugPayload(data, { captureSeq: nextCaptureSeq() });
-        if (!inputReadyRef.current) {
-          recordTerminalDebugEvent(sessionId, 'xterm_data_dropped_not_ready', {
-            ...debugInput.details,
-            restorePending: restorePendingRef.current,
-          }, debugInput.preview);
-          return;
-        }
-        recordTerminalDebugEvent(sessionId, 'xterm_data_emitted', debugInput.details, debugInput.preview);
-        onInput(data, buildClientInputDebugMetadata(debugInput.details));
+        submitCapturedInput(data, debugInput, 'xterm');
       });
 
       // Track terminal focus via DOM events (xterm v5 has no onFocus/onBlur API)
@@ -1097,8 +1490,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         const compositionSeq = activeCompositionSeqRef.current ?? nextCompositionSeq();
         recordHelperTape('helper_compositionend', event, { compositionSeq });
         setTimeout(() => {
-          isComposingRef.current = false;
           if (activeCompositionSeqRef.current === compositionSeq) {
+            isComposingRef.current = false;
             activeCompositionSeqRef.current = null;
           }
         }, 0);
@@ -1111,6 +1504,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         helperTextarea.addEventListener('compositionupdate', onCompositionUpdate);
         helperTextarea.addEventListener('compositionend', onCompositionEnd);
       }
+      const unregisterInputTransportOverride = registerInputTransportOverrideHandler(sessionId, (override) => {
+        inputTransportOverrideRef.current = override;
+        syncInputReadiness(override ? 'debug-transport-override' : 'debug-transport-override-cleared');
+      });
 
       // 우클릭 캡처: DOM selectionchange가 xterm 선택을 지우기 전에 선택 텍스트 저장
       // (DOM 렌더러 모드에서 right-click mousedown이 DOM selection을 collapse시켜
@@ -1166,6 +1563,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       return () => {
         containerRef.current?.removeEventListener('mousedown', onMouseDownCapture, true);
         termEl.removeEventListener('paste', onPasteCapture, { capture: true });
+        unregisterInputTransportOverride();
         if (helperTextarea) {
           helperTextarea.removeEventListener('keydown', onHelperKeyDown);
           helperTextarea.removeEventListener('beforeinput', onHelperBeforeInput);
@@ -1183,6 +1581,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         if (userActiveTimerRef.current) clearTimeout(userActiveTimerRef.current);
         if (outputTimerRef.current) clearTimeout(outputTimerRef.current);
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        for (const timer of inputQueueExpiryTimersRef.current) {
+          clearTimeout(timer);
+        }
+        inputQueueExpiryTimersRef.current.clear();
+        rejectPendingInputQueue('context-changed', 'terminal-disposed');
         termEl.removeEventListener('focusin', onFocusIn);
         termEl.removeEventListener('focusout', onFocusOut);
         document.removeEventListener('pointerdown', onDocumentPointerDownCapture, true);
@@ -1196,17 +1599,34 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         }
         serializeAddonRef.current = null;
         fitAddonRef.current = null;
+        terminalDisposedRef.current = true;
         xtermRef.current = null;
         geometryReadyRef.current = false;
         serverReadyRef.current = false;
         restorePendingRef.current = false;
         inputReadyRef.current = false;
+        captureStateRef.current = 'closed';
+        captureAllowedRef.current = false;
+        transportReadyRef.current = false;
+        transportClosedReasonRef.current = 'terminal-disposed';
         inFlightOutputRef.current = [];
         bufferedOutputRef.current = [];
         recordTerminalDebugEvent(sessionId, 'terminal_disposed');
         term.dispose();
       };
-    }, [sessionId, onInput, emitResize, getInitialFontSize, persistBufferedOutput, saveSnapshot, getHelperTextarea, syncInputReadiness]);
+    }, [
+      sessionId,
+      emitResize,
+      getInitialFontSize,
+      getHelperTextarea,
+      nextCaptureSeq,
+      nextCompositionSeq,
+      persistBufferedOutput,
+      rejectPendingInputQueue,
+      saveSnapshot,
+      submitCapturedInput,
+      syncInputReadiness,
+    ]);
 
     useEffect(() => {
       const wasVisible = previousVisibilityRef.current;

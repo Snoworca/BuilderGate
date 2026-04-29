@@ -17,6 +17,10 @@ import { login, waitForTerminal } from './helpers';
  */
 test.describe('Terminal Paste', () => {
   test('TC-PASTE-01: Ctrl+V로 붙여넣기 시 단 한 번만 전송되어야 한다', async ({ page }) => {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], {
+      origin: 'https://localhost:2002',
+    });
+
     // WebSocket 리스너는 연결 생성 전에 등록해야 함
     const inputMessages: string[] = [];
     page.on('websocket', ws => {
@@ -59,6 +63,10 @@ test.describe('Terminal Paste', () => {
   });
 
   test('TC-PASTE-02: 연속 Ctrl+V 는 각각 한 번씩만 전송되어야 한다', async ({ page }) => {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], {
+      origin: 'https://localhost:2002',
+    });
+
     const inputMessages: string[] = [];
     page.on('websocket', ws => {
       ws.on('framesent', frame => {

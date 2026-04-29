@@ -12,12 +12,13 @@ async function createFreshPowerShellWorkspace(page: Page, name: string) {
     const token = localStorage.getItem('cws_auth_token');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const extractWorkspaceTimestamp = (name: string) => {
-      const match = name.match(/(?:PW-(?:IME|KEYS)|SwitchTarget|E2E Equal(?: Grid| Reorder)?|REAL DND|DBG Verify|ROOTCAUSE)[ -]?(\d+)/);
+      const match = name.match(/(?:PW-(?:IME|KEYS|MOBILE-SCROLL)|SwitchTarget|E2E Equal(?: Grid| Reorder)?|REAL DND|DBG Verify|ROOTCAUSE)[ -]?(\d+)/);
       return match ? Number.parseInt(match[1], 10) : 0;
     };
     const isEvictableTestWorkspace = (name: string) =>
       name.startsWith('PW-IME-')
       || name.startsWith('PW-KEYS-')
+      || name.startsWith('PW-MOBILE-SCROLL-')
       || name.startsWith('E2E Equal ')
       || name.startsWith('SwitchTarget-')
       || name.startsWith('REAL DND ')
@@ -159,7 +160,12 @@ function assertNoRawInputDebugLeak(events: TerminalDebugEvent[], raw: string) {
     'helper_compositionend',
     'xterm_data_emitted',
     'ws_input_sent',
-    'manual_input_forwarded',
+    'key_delegated_to_xterm',
+    'terminal_input_would_queue',
+    'terminal_input_would_reject',
+    'terminal_input_queued',
+    'terminal_input_rejected',
+    'queued_input_flushed',
     'key_event_observed',
     'ime_guard_delegated',
   ].includes(event.kind));
@@ -216,11 +222,11 @@ test.describe('Terminal Korean IME', () => {
     expect(JSON.stringify(compositionEvents)).not.toContain('이곳에서');
     assertNoRawInputDebugLeak(events, '이곳에서');
 
-    const manualSpace = events.filter((e) => e.kind === 'manual_input_forwarded' && e.details?.keyCategory === 'space');
+    const manualSpace = events.filter((e) => e.kind === 'key_delegated_to_xterm' && e.details?.keyCategory === 'space');
     expect(manualSpace.length, `race 중 수동 Space 경로가 호출됨: ${JSON.stringify(manualSpace)}`).toBe(0);
   });
 
-  test('TC-IME-02: IME 비활성 상태의 Space는 기존 수동 경로(manual_input_forwarded)로 그대로 전송된다', async ({ page }) => {
+  test('TC-IME-02: IME 비활성 상태의 Space는 xterm 네이티브 경로로 위임된다', async ({ page }) => {
     const sessionId = await getActiveSessionId(page);
     test.skip(!sessionId, 'Active session required');
     await startTerminalDebug(page, sessionId!);
@@ -234,9 +240,9 @@ test.describe('Terminal Korean IME', () => {
 
     const events = await getDebugEvents(page, sessionId!);
     const spaceForwarded = events.filter(
-      (e) => e.kind === 'manual_input_forwarded' && e.details?.keyCategory === 'space',
+      (e) => e.kind === 'key_delegated_to_xterm' && e.details?.keyCategory === 'space',
     );
-    expect(spaceForwarded.length, `영문 Space 회귀 (manual_input_forwarded 미기록): events=${JSON.stringify(events.map((e) => e.kind))}`).toBe(3);
+    expect(spaceForwarded.length, `영문 Space 위임 회귀 (key_delegated_to_xterm 미기록): events=${JSON.stringify(events.map((e) => e.kind))}`).toBe(3);
     expect(spaceForwarded.every((e) => e.details?.key === undefined && e.details?.safeKeyName == null)).toBe(true);
 
     const guardEvents = events.filter((e) => e.kind === 'ime_guard_delegated');
@@ -263,7 +269,7 @@ test.describe('Terminal Korean IME', () => {
     const guardEvents = events.filter((e) => e.kind === 'ime_guard_delegated' && e.details?.safeKeyName === 'Backspace');
     expect(guardEvents.length, `IME 조합 중 Backspace에 대해 가드 미작동: ${JSON.stringify(events.map((e) => e.kind))}`).toBeGreaterThan(0);
 
-    const manualBackspace = events.filter((e) => e.kind === 'manual_input_forwarded' && e.details?.safeKeyName === 'Backspace');
+    const manualBackspace = events.filter((e) => e.kind === 'key_delegated_to_xterm' && e.details?.safeKeyName === 'Backspace');
     expect(manualBackspace.length, `IME 중 수동 Backspace 경로 호출됨: ${JSON.stringify(manualBackspace)}`).toBe(0);
     assertNoRawInputDebugLeak(events, '안');
   });
