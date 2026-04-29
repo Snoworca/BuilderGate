@@ -1,338 +1,105 @@
 # BuilderGate
 
-> ⚠️ **이 프로젝트는 현재 활발히 개발 중입니다.** API, 설정 구조, UI가 예고 없이 변경될 수 있습니다.
+> 이 프로젝트는 현재 활발히 개발 중입니다. API, 설정 구조, UI가 예고 없이 변경될 수 있습니다.
 
-코딩 에이전트 병렬 운용을 위한 웹 기반 통합 개발 환경.  
-브라우저 하나로 다수의 셸 세션을 관리하고, 파일 탐색/편집하며, 세션 간 에이전트 명령을 중계합니다.
+BuilderGate는 코딩 에이전트 병렬 운용을 위한 웹 기반 통합 개발 환경입니다. 브라우저 하나로 다수의 셸 세션을 관리하고, 파일 탐색/편집, 워크스페이스, 분할 터미널, JWT 인증, TOTP 2FA를 제공합니다.
 
 ## 주요 기능
 
-- **웹 터미널** — 다중 세션/탭, PTY 기반 (xterm.js)
-- **그리드 레이아웃** — 모자익 분할로 여러 터미널 동시 표시, 드래그 크기 조절
-- **워크스페이스** — 세션 그룹 관리, 탭/그리드 모드 전환
-- **파일 매니저** — Mdir 스타일 파일 탐색, 마크다운/코드 뷰어
-- **보안** — HTTPS + JWT 인증 + 2단계 인증(OTP) + 자동 SSL 인증서
+- 웹 터미널: 다중 세션/탭, PTY 기반 xterm.js 터미널
+- 그리드 레이아웃: 여러 터미널 동시 표시와 드래그 크기 조절
+- 워크스페이스: 세션 그룹, 탭, 그리드 상태 관리
+- 파일 매니저: 파일 탐색, 마크다운/코드 뷰어
+- 보안: HTTPS, JWT, 초기 비밀번호 bootstrap, 선택적 TOTP 2FA
+- 배포 실행 파일: Windows EXE, Linux/macOS 실행 파일, macOS app bundle
 
-## 기술 스택
+## 지원 배포 파일
 
-| 영역 | 기술 |
-|------|------|
-| Backend | Node.js, Express, TypeScript, node-pty |
-| Frontend | React 18, TypeScript, Vite, xterm.js |
-| 통신 | WebSocket (양방향) + HTTP REST API |
-| 설정 | JSON5 + Zod validation |
-| 보안 | AES-256-GCM 암호화, JWT (HS256), OTP 2FA |
+GitHub Release asset 또는 `npm run build` 결과물은 단일 top-level 폴더를 포함합니다. 폴더 전체를 같은 위치에 유지해야 하며 실행 파일만 따로 복사하면 안 됩니다.
 
----
+| 대상 | Release asset | 실행 파일 |
+|------|---------------|-----------|
+| Windows amd64 | `BuilderGate-win-amd64-<version>.zip` | `BuilderGate.exe` |
+| Windows ARM64 | `BuilderGate-win-arm64-<version>.zip` | `BuilderGate.exe` |
+| Linux amd64 | `BuilderGate-linux-amd64-<version>.tar.gz` | `buildergate` |
+| Linux ARM64 | `BuilderGate-linux-arm64-<version>.tar.gz` | `buildergate` |
+| macOS ARM64 | `BuilderGate-macos-arm64-<version>.zip` | `buildergate`, `BuilderGate.app` |
 
-## 빠른 시작
+배포 폴더에는 보통 다음 항목이 있습니다.
 
-### 사전 요구사항
+- `BuilderGate.exe` 또는 `buildergate`: BuilderGate 런처입니다.
+- `BuilderGate.app`: macOS ARM64 앱 번들입니다.
+- `config.json5`: 실행 파일 옆의 런타임 설정 파일입니다.
+- `web/`: 프론트엔드 정적 파일입니다.
+- `shell-integration/`: 터미널 셸 통합 스크립트입니다.
+- `runtime/`: 실행 중 생성되는 daemon state, 로그, TOTP secret 저장 위치입니다.
+- `README.md`: 이 문서의 배포본 복사본입니다.
 
-- Node.js 18 이상
-- npm
+## 빌드
 
-### 설치 및 실행
+로컬에서 배포 실행 파일을 만들 때만 Node.js와 npm이 필요합니다. 실행만 하는 사용자는 Release asset을 내려받아 압축을 풀면 됩니다.
 
-```bash
-# 의존성 설치
-cd server && npm install && cd ..
-cd frontend && npm install && cd ..
-
-# 개발 모드 실행
-node dev.js
-```
-
-브라우저에서 `https://localhost:4242` 접속합니다. 자체 서명 인증서를 사용하므로 브라우저 보안 경고가 표시될 수 있습니다.
-
-- **초기 비밀번호**: 첫 접속 시 브라우저에서 관리자 비밀번호를 직접 설정합니다.
-
-### 포트 변경
+전체 지원 대상 빌드:
 
 ```bash
-node dev.js                            # 기본: 서버 4242, 프론트 4545
-node dev.js --port 5000                # 서버 5000, 프론트 5303
-node dev.js --port 5000 --fport 3000   # 서버 5000, 프론트 3000
+npm run build
 ```
 
-`--fport`를 생략하면 서버 포트 + 303으로 자동 계산됩니다.
+대상별 빌드:
 
----
-
-## 설정 파일
-
-소스 실행 시 서버 설정은 `server/config.json5`에서 관리합니다. EXE 배포본은 `BuilderGate.exe`와 같은 위치의 `config.json5`를 사용합니다. JSON5 형식이므로 주석을 지원합니다.
-
-> **비밀번호 자동 암호화**: 설정 파일에 평문으로 입력한 비밀번호는 서버 시작 시 자동으로 `enc(...)` 형식으로 암호화됩니다. 암호화 키는 머신 고유 정보(hostname + platform + arch)에서 유도됩니다.
-
-### 서버 기본 설정
-
-```json5
-{
-  server: {
-    port: 4242,              // 서버 포트 (기본 4242)
-  },
-}
+```bash
+npm run build:windows-amd64
+npm run build:windows-arm64
+npm run build:linux-amd64
+npm run build:linux-arm64
+npm run build:macos-arm64
 ```
 
-### PTY (터미널) 설정
+빌드 결과는 `dist/bin/<target>-<version>/` 아래에 생성됩니다. 예: `dist/bin/win-amd64-0.4.0/BuilderGate.exe`.
 
-설정 파일이 없으면 첫 실행 시 현재 OS에 맞는 기본값으로 자동 생성됩니다. 소스 실행은 `server/config.json5`, EXE 실행은 `dist/bin/config.json5`가 생성됩니다.
+## 빠른 실행
 
-- Windows: `useConpty: true`, `windowsPowerShellBackend: "inherit"`, `shell: "auto"`
-- macOS/Linux: `useConpty: false`, `windowsPowerShellBackend: "inherit"`, `shell: "auto"`
-
-```json5
-{
-  pty: {
-    termName: "xterm-256color",  // 터미널 타입
-    defaultCols: 80,             // 기본 열 수
-    defaultRows: 24,             // 기본 행 수
-    useConpty: false,            // 저장소 예시는 cross-platform 중립값
-    windowsPowerShellBackend: "inherit", // PowerShell 전용 backend override (Windows only)
-    maxSnapshotBytes: 2097152,   // authoritative snapshot 최대 크기
-    scrollbackLines: 1000,       // headless scrollback logical lines
-    shell: "auto",               // 셸 종류: auto, powershell, wsl, bash, cmd
-  },
-}
-```
-
-`maxBufferSize`는 기존 설정 파일 호환용 legacy alias이며, 현재 런타임 기준 필드는 `maxSnapshotBytes`입니다.
-
-| shell 값 | 동작 | 사용 시나리오 |
-|----------|------|--------------|
-| `auto` | OS 기본 셸 (Windows → PowerShell, macOS → 가능하면 zsh, 그 외 → bash 또는 sh) | 대부분의 경우 권장 |
-| `powershell` | PowerShell 강제 (Windows 전용) | Windows 스크립트 개발 시 |
-| `wsl` | WSL bash (Windows 전용, WSL 설치 필요) | Windows에서 Linux 환경 필요 시 |
-| `bash` | bash (Linux/macOS 네이티브) | Linux/macOS 셸 스크립트 개발 시 |
-| `zsh` | zsh (macOS/Linux) | Oh My Zsh 등 zsh 플러그인 사용 시 |
-| `sh` | POSIX sh | 이식성 높은 스크립트 실행 시 |
-| `cmd` | Windows 명령 프롬프트 | 레거시 배치 파일 실행 시 |
-
-### 인증 설정
-
-```json5
-{
-  bootstrap: {
-    allowedIps: [],             // 기본값: localhost 만 초기 비밀번호 설정 허용
-  },
-
-  auth: {
-    password: "",                // 빈 값이면 브라우저에서 초기 관리자 비밀번호 설정
-    durationMs: 1800000,         // 세션 유지 시간 (기본 30분)
-    maxDurationMs: 86400000,     // 최대 세션 시간 (기본 24시간)
-    jwtSecret: "",               // JWT 서명 키 (빈 값이면 자동 생성)
-  },
-}
-```
-
-- `auth.password`가 비어 있으면 로그인 폼 대신 초기 비밀번호 설정 화면이 표시됩니다.
-- 비밀번호를 변경하려면 `password` 필드에 새 평문을 입력하고 서버를 재시작하면 자동 암호화됩니다.
-- `jwtSecret`을 빈 값으로 두면 서버 시작마다 새 키가 생성되어, 재시작 시 기존 세션이 무효화됩니다.
-
-### 초기 비밀번호 bootstrap
-
-- 기본 정책은 `localhost` 전용입니다.
-- 원격 장치에서 최초 설정이 필요하면 `bootstrap.allowedIps` 또는 실행 옵션 `--bootstrap-allow-ip`로 허용 IP를 명시합니다.
-- 비밀번호가 한 번 설정되면 bootstrap API는 더 이상 열리지 않습니다.
-
-### SSL/TLS 설정
-
-```json5
-{
-  ssl: {
-    certPath: "",    // 인증서 경로 (빈 값 = 자체 서명 인증서 자동 생성)
-    keyPath: "",     // 개인 키 경로
-    caPath: "",      // CA 체인 경로 (선택)
-  },
-}
-```
-
-- 경로를 비워두면 `server/certs/` 디렉토리에 자체 서명 인증서가 자동 생성됩니다 (유효기간 365일).
-- 자체 인증서를 사용하려면 `certPath`와 `keyPath`에 PEM 파일 경로를 지정합니다.
-
-### 세션 설정
-
-```json5
-{
-  session: {
-    idleDelayMs: 200,   // 마지막 출력 후 idle 상태 전환까지 대기 시간 (ms)
-    runningDelayMs: 250, // AI TUI의 애매한 출력이 running으로 승격되기 전 대기 시간 (ms)
-  },
-}
-```
-
-### 파일 매니저 설정
-
-```json5
-{
-  fileManager: {
-    maxFileSize: 1048576,          // 파일 읽기 최대 크기 (기본 1MB)
-    maxCodeFileSize: 524288,       // 코드 파일 최대 크기 (기본 500KB)
-    maxDirectoryEntries: 10000,    // 디렉토리 항목 최대 수
-    blockedExtensions: [".exe", ".dll", ".so", ".bin"],
-    blockedPaths: [".ssh", ".gnupg", ".aws"],
-    cwdCacheTtlMs: 1000,           // CWD 캐시 TTL (ms)
-  },
-}
-```
-
-### 워크스페이스 설정
-
-```json5
-{
-  workspace: {
-    dataPath: "./data/workspaces.json",  // 워크스페이스 데이터 저장 경로
-    maxWorkspaces: 10,                   // 최대 워크스페이스 수
-    maxTabsPerWorkspace: 8,              // 워크스페이스당 최대 탭 수
-    maxTotalSessions: 32,                // 전체 세션 최대 수
-    flushDebounceMs: 5000,               // 데이터 저장 디바운싱 (ms)
-  },
-}
-```
-
----
-
-## 2단계 인증 (2FA) 설정
-
-BuilderGate는 TOTP(Time-based One-Time Password) 기반 2단계 인증을 지원합니다. Google Authenticator, 1Password, Authy 같은 표준 인증 앱을 사용할 수 있습니다.
-
-### 설정 방법
-
-`server/config.json5`의 `twoFactor` 섹션을 수정합니다:
-
-```json5
-{
-  twoFactor: {
-    enabled: true,                 // TOTP 2FA 활성화
-    externalOnly: false,           // true: localhost 접속은 2FA 생략
-    issuer: "BuilderGate",         // QR issuer
-    accountName: "admin",          // QR account label
-  },
-}
-```
-
-### 등록 절차
-
-1. `twoFactor.enabled: true`로 저장합니다.
-2. Settings 페이지에서 QR 코드와 `otpauth://` URI를 확인합니다.
-3. 인증 앱으로 QR을 스캔하거나 수동 키를 등록합니다.
-4. 다음 로그인부터 비밀번호 뒤에 TOTP 코드가 추가로 요구됩니다.
-
-### 로그인 흐름 (2FA 활성화 시)
-
-```
-1. 비밀번호 입력 → 서버 검증
-2. 인증 앱의 6자리 TOTP 코드 입력
-3. TOTP 코드 검증
-4. 검증 성공 → JWT 토큰 발급 → 로그인 완료
-```
-
-### 제한 사항
-
-- TOTP 입력 시도는 **최대 3회**입니다. 초과 시 새로 로그인해야 합니다.
-- `externalOnly: true`이면 localhost 접속은 비밀번호만으로 통과하고, 외부 접속만 2FA를 요구합니다.
-- TOTP secret은 서버 데이터 디렉토리에 저장되며, 손상되면 재등록이 필요합니다.
-
-### 런타임 설정 변경
-
-서버 실행 중에도 Settings 페이지(`⚙` 아이콘)에서 2FA 설정을 변경할 수 있습니다. QR 미리보기는 저장 직후 즉시 갱신되고, 변경된 2FA 요구 여부는 **다음 로그인부터** 적용됩니다.
-
----
-
-## CORS 설정
-
-Cross-Origin 요청 정책을 설정합니다. 개발 환경에서는 비워두고, 프로덕션에서는 신뢰된 도메인만 명시합니다.
-
-```json5
-{
-  security: {
-    cors: {
-      allowedOrigins: [],    // 허용할 오리진 (빈 배열 = 모두 허용)
-      credentials: true,     // 인증 정보 포함 허용
-      maxAge: 86400,         // Preflight 캐시 시간 (초, 0~86400)
-    },
-  },
-}
-```
-
----
-
-## 로깅 설정
-
-서버 로깅 및 보안 감사 로깅을 설정합니다. 개발 시 `debug`, 운영 시 `info` 또는 `warn` 권장.
-
-```json5
-{
-  logging: {
-    level: "info",       // error(오류만) < warn(경고) < info(일반) < debug(상세)
-    audit: true,         // 보안 감사 로깅 (인증, 접근 제어 이벤트)
-    directory: "logs",   // 로그 저장 디렉토리
-    maxSize: "10m",      // 파일 로테이션 크기
-    maxFiles: 14,        // 보관할 로그 파일 수 (14개 ≈ 2주)
-  },
-}
-```
-
----
-
-## 라이선스
-
-이 프로젝트는 비공개 프로젝트입니다.
----
-
-## 프로덕션 실행
-
-개발용 `dev.js` 대신 실제 배포와 가까운 방식으로 실행하려면 루트 디렉토리에서 `node tools/start-runtime.js`를 사용합니다. `start.sh`와 `start.bat`은 같은 런처를 호출하는 래퍼입니다. 인자 없이 실행하면 BuilderGate는 **네이티브 데몬(native daemon)** 으로 백그라운드에서 동작하고, app 프로세스와 sentinel watchdog이 함께 시작됩니다.
+배포 파일을 새 폴더에 압축 해제한 뒤 OS에 맞는 실행 파일을 실행합니다. 기본 모드는 네이티브 데몬입니다. 런처가 BuilderGate app process와 sentinel watchdog을 백그라운드로 띄운 뒤 콘솔을 반환합니다.
 
 Windows:
 
 ```bat
-node tools/start-runtime.js
-node tools/start-runtime.js -p 2002
-node tools/start-runtime.js --foreground -p 2002
-node tools/start-runtime.js --forground -p 2002
-node tools/start-runtime.js --reset-password
-node tools/start-runtime.js --reset-password --bootstrap-allow-ip 192.168.0.50
-node tools/start-runtime.js --help
+BuilderGate.exe
+BuilderGate.exe -p 2002
+BuilderGate.exe --port 24443
+BuilderGate.exe --foreground -p 2002
+BuilderGate.exe stop
 ```
 
-Linux/macOS:
+Linux:
 
 ```bash
-node tools/start-runtime.js
-node tools/start-runtime.js -p 2002
-node tools/start-runtime.js --foreground -p 2002
-node tools/start-runtime.js --forground -p 2002
-node tools/start-runtime.js --reset-password
-node tools/start-runtime.js --reset-password --bootstrap-allow-ip 192.168.0.50
-node tools/start-runtime.js --help
+chmod +x ./buildergate
+./buildergate
+./buildergate -p 2002
+./buildergate --port 24443
+./buildergate --foreground -p 2002
+./buildergate stop
 ```
 
-`--foreground`는 현재 콘솔에 서버 프로세스를 붙여 실행합니다. `--forground`는 오타 호환을 위한 legacy alias이며 동일하게 foreground 모드로 동작합니다. Foreground 실행은 daemon state를 만들지 않으므로 `node stop.js`의 대상이 아닙니다. 종료는 현재 콘솔에서 `Ctrl+C`를 사용합니다.
+macOS ARM64:
 
-포트는 다음 순서로 결정됩니다.
+```bash
+chmod +x ./buildergate
+./buildergate
+./buildergate -p 2002
+./buildergate --foreground -p 2002
+./buildergate stop
+open ./BuilderGate.app
+```
 
-1. `-p`
-2. `--port`
-3. `server/config.json5`의 `server.port`
-4. 기본값 `2222`
+브라우저 접속:
 
-실행 스크립트가 수행하는 작업은 다음과 같습니다.
+```text
+https://localhost:2002
+```
 
-1. `frontend`와 `server`의 빌드 산출물이 있는지 확인합니다.
-2. 산출물이 없으면 `frontend`와 `server`에서 `npm install`을 실행합니다.
-3. `frontend`를 빌드하고, `server`를 빌드합니다.
-4. 프론트엔드 산출물을 `server/dist/public`으로 복사합니다.
-5. BuilderGate 앱과 sentinel watchdog을 네이티브 데몬으로 백그라운드 시작합니다.
-
-추가 실행 옵션:
-
-- `--reset-password`: daemon fresh start 옵션입니다. 새 daemon을 띄우기 직전에 `server/config.json5`의 `auth.password`만 비워 브라우저 초기 비밀번호 설정 모드로 되돌립니다. 이미 daemon이 실행 중이면 먼저 `node stop.js`로 중지한 뒤 다시 실행해야 합니다.
-- `--bootstrap-allow-ip <ip[,ip]>`: 지정한 IP에서만 초기 비밀번호 설정을 임시 허용합니다. 설정 파일에 저장하지 않고 현재 실행 프로세스 환경에만 적용됩니다. Daemon과 foreground 모두에서 사용할 수 있습니다.
-- `--help`: 실행하지 않고 기본 daemon 정책, `--foreground`/`--forground`, stop 명령, `dist/bin`, `config.json5` 위치를 출력합니다.
-
-2FA가 활성화된 daemon 실행에서는 parent 런처가 detach 전에 TOTP QR과 manual entry key를 콘솔에 1회 출력합니다. 백그라운드 app child는 같은 secret path를 사용하지만 QR을 중복 출력하지 않습니다. Foreground 모드에서는 현재 콘솔에서 서버가 직접 QR을 출력합니다.
+자체 서명 인증서를 사용하면 브라우저 보안 경고가 표시될 수 있습니다.
 
 상태 확인:
 
@@ -340,119 +107,226 @@ node tools/start-runtime.js --help
 curl -k https://localhost:2002/health
 ```
 
-중지:
+## 실행 모드
 
-```bash
-node stop.js
-```
+| 모드 | 명령 | 동작 |
+|------|------|------|
+| daemon | `BuilderGate.exe`, `./buildergate` | 기본값입니다. 백그라운드 app process와 sentinel watchdog을 시작합니다. |
+| foreground | `BuilderGate.exe --foreground`, `./buildergate --foreground` | 현재 콘솔에 서버를 붙여 실행합니다. 종료는 `Ctrl+C`입니다. |
+| legacy foreground alias | `--forground` | 기존 오타 호환 alias입니다. `--foreground`와 같습니다. |
+| stop | `BuilderGate.exe stop`, `./buildergate stop` | 실행 중인 daemon을 내부 shutdown protocol로 종료합니다. |
+| help | `BuilderGate.exe --help`, `./buildergate --help` | 실행 옵션을 출력합니다. |
 
-`node stop.js`는 daemon state와 PID identity를 검증한 뒤 sentinel을 먼저 멈추고, loopback 내부 shutdown route로 workspace/CWD 저장 완료를 확인합니다.
+`stop`은 daemon state를 기준으로 종료합니다. Foreground로 실행한 프로세스는 `stop` 대상이 아니며 해당 콘솔에서 `Ctrl+C`로 종료해야 합니다.
 
-## 데몬 EXE 빌드와 실행
+## 포트 변경
 
-배포용 실행파일은 루트 디렉토리에서 다음 명령으로 빌드합니다.
+HTTPS 포트는 다음 우선순위로 결정됩니다.
 
-```bash
-npm run build
-```
+1. `-p <port>`
+2. `--port <port>` 또는 `--port=<port>`
+3. `config.json5`의 `server.port`
+4. 새 `config.json5`가 생성될 때의 기본값 `2002`
 
-`npm run build`는 전체 지원 대상 배포본 5개를 모두 생성합니다. 대상별 산출물 디렉토리 이름은 `package.json`의 `version`을 붙인 `{target}-{version}` 형식입니다. Windows/Linux amd64는 필수 지원 대상이고, Windows/Linux/macOS ARM64는 추가 지원 대상입니다. macOS는 ARM64만 지원합니다.
-
-- `dist/bin/win-amd64-0.1.0/`: Windows amd64 배포본입니다.
-- `dist/bin/linux-amd64-0.1.0/`: Linux amd64 배포본입니다.
-- `dist/bin/win-arm64-0.1.0/`: Windows ARM64 배포본입니다.
-- `dist/bin/linux-arm64-0.1.0/`: Linux ARM64 배포본입니다.
-- `dist/bin/macos-arm64-0.1.0/`: macOS ARM64 배포본입니다. 터미널용 raw 실행파일과 `BuilderGate.app` 앱 번들을 함께 포함합니다.
-
-대상별로 하나만 빌드할 수도 있습니다.
-
-```bash
-npm run build:windows-amd64
-npm run build:linux-amd64
-npm run build:windows-arm64
-npm run build:linux-arm64
-npm run build:macos-arm64
-```
-
-기존 `build:daemon-win-arm64`, `build:daemon-linux-arm64`, `build:daemon-mac-arm64`, `build:daemon-macos-arm64` 스크립트는 호환 alias로 유지됩니다.
-
-현재 빌드 머신과 같은 단일 기본 타깃을 기존 위치에 빌드하려면 다음 명령을 사용합니다.
-
-```bash
-npm run build:daemon-exe
-```
-
-단일 기본 빌드 결과는 `dist/bin/`에 생성되고, 대상별 빌드 결과는 `dist/bin/<target>-<package-version>/`에 생성됩니다.
-
-- `BuilderGate.exe`: 기본적으로 BuilderGate를 네이티브 데몬/백그라운드 모드로 시작합니다. `BuilderGate.exe stop`은 실행 중인 BuilderGate 네이티브 데몬을 내부 shutdown 프로토콜로 중지합니다.
-- `config.json5`: EXE와 같은 위치에서 읽는 런타임 설정 파일입니다. 빌드 시 기존 `server/config.json5`가 있으면 복사하고, 없으면 기본 bootstrap 설정 파일을 생성합니다.
-- `config.json5.example`: 설정 예시 파일입니다.
-- `web/`: 실행에 필요한 프론트엔드 정적 산출물입니다.
-- `shell-integration/`: 외부 셸에서 참조하는 OSC 133 셸 통합 스크립트입니다.
-- `BuilderGate.svg`, `BuilderGate.ico`, `BuilderGate.icns`: 브라우저 탭 아이콘(`frontend/public/logo.svg`)에서 생성한 아이콘 자산입니다. Windows 배포본은 EXE 옆에 `BuilderGate.ico`를 함께 제공하고, macOS 배포본은 `BuilderGate.app`에 같은 아이콘을 적용합니다.
-
-`BuilderGate.exe`만 단독으로 복사하지 말고 `dist/bin/` 폴더 전체를 함께 배포해야 합니다. 서버 런타임과 native dependency는 EXE에 포함되고, EXE는 같은 폴더의 `config.json5`, `web/`, `shell-integration/`을 기준으로 동작합니다. 배포본은 외부 `node.exe`, `server/`, `node_modules/`를 포함하지 않습니다.
-
-EXE 실행:
+예시:
 
 ```bat
-dist\bin\BuilderGate.exe
-dist\bin\win-amd64-0.1.0\BuilderGate.exe
-dist\bin\win-arm64-0.1.0\BuilderGate.exe
-dist\bin\BuilderGate.exe -p 2002
-dist\bin\BuilderGate.exe --foreground -p 2002
-dist\bin\BuilderGate.exe --forground -p 2002
-dist\bin\BuilderGate.exe --reset-password
-dist\bin\BuilderGate.exe --reset-password --bootstrap-allow-ip 192.168.0.50
-dist\bin\BuilderGate.exe --help
+BuilderGate.exe -p 2002
+BuilderGate.exe --port 24443
 ```
 
-EXE 중지:
+```bash
+./buildergate -p 2002
+./buildergate --port 24443
+```
+
+HTTP redirect port는 HTTPS 포트보다 1 작은 값입니다. 예를 들어 HTTPS가 `2002`이면 redirect port는 `2001`입니다.
+
+## 최초 실행과 비밀번호
+
+배포본의 `config.json5`는 기본적으로 bootstrap-ready 상태입니다.
+
+```json5
+auth: {
+  password: "",
+  jwtSecret: "",
+}
+```
+
+`auth.password`가 비어 있으면 첫 접속 시 로그인 화면 대신 초기 관리자 비밀번호 설정 화면이 표시됩니다. 최초 password setup은 localhost에서만 허용됩니다. 원격 장치에서 최초 설정해야 할 때는 임시 allowlist를 사용합니다.
 
 ```bat
-dist\bin\BuilderGate.exe stop
-dist\bin\win-amd64-0.1.0\BuilderGate.exe stop
-dist\bin\win-arm64-0.1.0\BuilderGate.exe stop
+BuilderGate.exe --bootstrap-allow-ip 192.168.0.50
 ```
-
-non-Windows target으로 빌드한 경우 실행 파일 이름은 `buildergate`입니다.
 
 ```bash
-./dist/bin/buildergate -p 2002
-./dist/bin/linux-amd64-0.1.0/buildergate -p 2002
-./dist/bin/linux-arm64-0.1.0/buildergate -p 2002
-./dist/bin/macos-arm64-0.1.0/buildergate -p 2002
-./dist/bin/buildergate --foreground -p 2002
-./dist/bin/buildergate stop
+./buildergate --bootstrap-allow-ip 192.168.0.50
 ```
 
-macOS ARM64 배포본은 `BuilderGate.app`도 함께 제공합니다. Finder에서 앱을 실행하면 QR 출력이 보이도록 Terminal을 열어 내부 런타임을 실행합니다. 터미널에서 직접 실행할 때는 raw 실행파일 또는 app launcher를 사용할 수 있습니다.
+여러 IP는 쉼표로 구분합니다.
 
 ```bash
-open ./dist/bin/macos-arm64-0.1.0/BuilderGate.app
-./dist/bin/macos-arm64-0.1.0/BuilderGate.app/Contents/MacOS/BuilderGate
+./buildergate --bootstrap-allow-ip 192.168.0.50,10.0.0.8
 ```
 
-macOS ARM64 실행파일과 app bundle을 Windows/Linux에서 cross-build하면 서명되지 않을 수 있습니다. macOS에서 배포 또는 실행하기 전에는 macOS 머신에서 다음처럼 ad-hoc 서명을 적용하거나 macOS에서 직접 빌드해야 합니다.
+초기 비밀번호 규칙:
+
+- 길이: 4자 이상 128자 이하
+- 허용 문자: `A-Z`, `a-z`, `0-9`, `!@#$%^&*()_+=/-`
+- 금지 문자: 공백, 한글, 이모지, 기타 특수문자
+- 유효한 비밀번호는 trim 또는 truncate하지 않고 그대로 암호화 저장됩니다.
+
+## 비밀번호 리셋
+
+비밀번호를 초기 설정 상태로 되돌리려면 먼저 실행 중인 daemon을 종료한 뒤 `--reset-password`로 다시 시작합니다.
+
+Windows:
+
+```bat
+BuilderGate.exe stop
+BuilderGate.exe --reset-password
+```
+
+Linux/macOS:
 
 ```bash
-codesign --force --deep --sign - ./dist/bin/macos-arm64-0.1.0/BuilderGate.app
-codesign --sign - ./dist/bin/macos-arm64-0.1.0/buildergate
+./buildergate stop
+./buildergate --reset-password
 ```
 
-EXE 상태 확인:
+원격 장치에서 다시 초기 설정을 해야 한다면 allowlist를 함께 지정합니다.
 
 ```bash
-curl -k https://localhost:2002/health
+./buildergate --reset-password --bootstrap-allow-ip 192.168.0.50
 ```
 
-빌드 대상 플랫폼을 직접 명시하려면 `pkg` target 또는 빌드 프로파일을 전달합니다. 스크립트는 대상 OS/CPU용 server runtime bundle을 생성한 뒤 `pkg` 실행파일에 포함하며, 외부 Node 런타임 디렉터리는 배포하지 않습니다.
+`--reset-password`는 실행 파일 옆 `config.json5`의 `auth.password`만 비웁니다. 이미 실행 중인 daemon에는 적용되지 않으므로 먼저 `stop`을 실행해야 합니다.
+
+## 종료
+
+Daemon 종료:
+
+```bat
+BuilderGate.exe stop
+```
 
 ```bash
-node tools/build-daemon-exe.js --target node18-win-x64
-node tools/build-daemon-exe.js --profile win-amd64
-node tools/build-daemon-exe.js --profile win-arm64
-node tools/build-daemon-exe.js --required-amd64
-node tools/build-daemon-exe.js --all-supported
-node tools/build-daemon-exe.js --all-arm64
+./buildergate stop
 ```
+
+`stop`은 daemon state와 PID identity를 검증하고 sentinel을 먼저 멈춘 뒤, loopback 내부 shutdown route로 workspace/CWD 저장 완료를 확인합니다. 종료 실패는 숨기지 않고 non-zero exit로 반환됩니다.
+
+Foreground 종료:
+
+```text
+Ctrl+C
+```
+
+## 설정 파일
+
+실행 파일은 같은 폴더의 `config.json5`를 읽습니다. `BUILDERGATE_CONFIG_PATH` 환경 변수가 있으면 그 경로가 우선합니다. JSON5 형식이므로 주석을 사용할 수 있습니다.
+
+최소 설정 예:
+
+```json5
+{
+  server: {
+    port: 2002,
+  },
+
+  auth: {
+    password: "",
+    durationMs: 1800000,
+    maxDurationMs: 86400000,
+    jwtSecret: "",
+    localhostPasswordOnly: false,
+  },
+
+  bootstrap: {
+    allowedIps: [],
+  },
+
+  twoFactor: {
+    enabled: false,
+    externalOnly: false,
+    issuer: "BuilderGate",
+    accountName: "admin",
+  },
+}
+```
+
+설정 파일에 평문 비밀번호를 직접 넣으면 서버 시작 시 `enc(...)` 형식으로 자동 암호화됩니다. 암호화 키는 실행 머신의 정보에서 유도되므로 다른 머신으로 `config.json5`를 그대로 옮기면 암호화된 secret을 복호화하지 못할 수 있습니다.
+
+주요 경로:
+
+- `config.json5`: 포트, 인증, 2FA, PTY, CORS, 파일 매니저, 워크스페이스 설정
+- `runtime/buildergate-daemon.log`: daemon 로그
+- `runtime/buildergate-sentinel.log`: sentinel 로그
+- `runtime/buildergate.daemon.json`: daemon state
+- `runtime/totp.secret`: packaged runtime의 TOTP secret
+- `data/workspaces.json`: 기본 워크스페이스 데이터 파일
+
+## 2FA
+
+BuilderGate는 TOTP(Time-based One-Time Password) 기반 2FA를 지원합니다. Google Authenticator, 1Password, Authy 같은 표준 인증 앱을 사용할 수 있습니다.
+
+활성화 방법:
+
+1. 로그인 후 Settings 화면에서 Two-Factor Authentication을 켭니다.
+2. QR 코드 또는 `otpauth://` URI를 인증 앱에 등록합니다.
+3. 다음 로그인부터 비밀번호 입력 후 6자리 TOTP 코드를 입력합니다.
+
+설정 파일로 활성화할 수도 있습니다.
+
+```json5
+twoFactor: {
+  enabled: true,
+  externalOnly: false,
+  issuer: "BuilderGate",
+  accountName: "admin",
+}
+```
+
+Daemon 모드에서 2FA가 활성화되어 있고 secret 등록이 필요한 경우, parent launcher가 detach 전 콘솔에 QR과 manual entry key를 1회 출력합니다. 백그라운드 app child는 같은 secret path를 사용하지만 QR을 중복 출력하지 않습니다. Foreground 모드에서는 현재 콘솔에서 서버가 직접 QR을 출력합니다.
+
+2FA 동작:
+
+- TOTP 입력 시도는 최대 3회입니다. 초과하면 다시 로그인해야 합니다.
+- `externalOnly: true`이면 localhost 접속은 비밀번호만 요구하고 외부 접속만 2FA를 요구합니다.
+- QR 미리보기와 issuer/accountName 변경은 Settings 저장 직후 갱신됩니다.
+- 변경된 2FA 요구 여부는 다음 로그인부터 적용됩니다.
+
+TOTP secret을 다시 등록해야 하면 daemon을 종료한 뒤 `runtime/totp.secret`을 삭제하고 다시 시작합니다.
+
+```bash
+./buildergate stop
+rm ./runtime/totp.secret
+./buildergate
+```
+
+Windows:
+
+```bat
+BuilderGate.exe stop
+del runtime\totp.secret
+BuilderGate.exe
+```
+
+## macOS 참고
+
+macOS에서 인터넷에서 받은 ZIP을 풀면 Gatekeeper quarantine이 붙을 수 있습니다. 신뢰한 배포본이라면 압축 해제 폴더에서 다음 명령으로 제거할 수 있습니다.
+
+```bash
+xattr -dr com.apple.quarantine .
+```
+
+서명되지 않은 로컬 빌드 app bundle은 필요 시 ad-hoc 서명합니다.
+
+```bash
+codesign --force --deep --sign - ./BuilderGate.app
+codesign --sign - ./buildergate
+```
+
+## 라이선스
+
+이 프로젝트는 비공개 프로젝트입니다.

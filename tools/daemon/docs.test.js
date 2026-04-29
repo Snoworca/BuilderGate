@@ -15,7 +15,7 @@ const PACKAGED_README_TARGETS = [
   'macos-arm64',
 ];
 
-test('root README documents native daemon build/run/foreground/stop/config/QR policy', () => {
+test('root README documents packaged native daemon build/run/foreground/stop/config/QR policy', () => {
   validateReadmeFile(path.join(ROOT, 'README.md'), 'README.md');
 });
 
@@ -35,5 +35,20 @@ test('README policy rejects production PM2 guidance', () => {
   assert.throws(
     () => validateReadmeContent('BuilderGate native daemon\npm2 start BuilderGate\n'),
     /forbidden pattern found: pm2 token/i,
+  );
+});
+
+test('README policy rejects source execution guidance', () => {
+  assert.throws(
+    () => validateReadmeContent('BuilderGate native daemon\nnode dev.js\n'),
+    /forbidden pattern found: dev\.js execution command/i,
+  );
+  assert.throws(
+    () => validateReadmeContent('BuilderGate native daemon\nnode tools/start-runtime.js\n'),
+    /forbidden pattern found: source runtime launcher command/i,
+  );
+  assert.throws(
+    () => validateReadmeContent('BuilderGate native daemon\nnode stop.js\n'),
+    /forbidden pattern found: source stop command/i,
   );
 });

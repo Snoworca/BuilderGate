@@ -10,6 +10,7 @@ import {
   evaluateBootstrapAccess,
   parseBootstrapAllowedIpsFromEnv,
 } from '../utils/bootstrapAccessPolicy.js';
+import { validatePasswordPolicy } from '../utils/passwordPolicy.js';
 
 interface BootstrapSetupServiceDeps {
   authService: AuthService;
@@ -72,8 +73,9 @@ export class BootstrapSetupService {
       throw new AppError(ErrorCode.PASSWORD_CONFIRM_MISMATCH);
     }
 
-    if (password.length < 4) {
-      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Password must be at least 4 characters long');
+    const passwordPolicy = validatePasswordPolicy(password);
+    if (!passwordPolicy.valid) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, passwordPolicy.message);
     }
 
     const encryptedPassword = this.deps.cryptoService.encrypt(password);

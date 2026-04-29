@@ -19,6 +19,7 @@ import {
   isWindowsOnlyShell,
   normalizePtyConfigForPlatform,
 } from '../utils/ptyPlatformPolicy.js';
+import { validatePasswordPolicy } from '../utils/passwordPolicy.js';
 
 const originSchema = z.string().refine((value) => {
   try {
@@ -146,6 +147,7 @@ export class SettingsService {
 
   savePatch(input: unknown, actorContext: SaveActorContext = {}): SettingsSaveResponse {
     const patch = this.validatePatch(input);
+    validatePasswordPatch(patch, this.deps.authService);
     const changedKeys = extractChangedKeys(patch);
     if (changedKeys.length === 0) {
       return {
@@ -156,7 +158,6 @@ export class SettingsService {
     }
 
     const mergedValues = normalizeEditableValues(this.deps.runtimeConfigStore.mergeEditablePatch(patch));
-    validatePasswordPatch(patch, this.deps.authService);
     validateCorsPatch(mergedValues, actorContext.origin);
     validatePlatformPatch(mergedValues, changedKeys, this.platform);
     validateCapabilityPatch(mergedValues, changedKeys, this.getSettingsSnapshot());
@@ -361,6 +362,11 @@ function validatePasswordPatch(patch: SettingsPatchRequest, authService: AuthSer
 
   if (authPatch.newPassword !== authPatch.confirmPassword) {
     throw new AppError(ErrorCode.PASSWORD_CONFIRM_MISMATCH);
+  }
+
+  const passwordPolicy = validatePasswordPolicy(authPatch.newPassword);
+  if (!passwordPolicy.valid) {
+    throw new AppError(ErrorCode.VALIDATION_ERROR, passwordPolicy.message);
   }
 
   if (!authService.validatePassword(authPatch.currentPassword)) {

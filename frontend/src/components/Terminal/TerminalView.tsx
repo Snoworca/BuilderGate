@@ -9,6 +9,7 @@ import {
   clearTerminalSnapshotRemovalRequest,
   getTerminalSnapshotKey,
   isTerminalSnapshotRemovalRequested,
+  setTerminalSnapshotWithQuotaRecovery,
 } from '../../utils/terminalSnapshot';
 import {
   buildTerminalInputDebugPayload,
@@ -28,6 +29,23 @@ const SNAPSHOT_SAVE_DEBOUNCE_MS = 2000;
 const SNAPSHOT_MAX_CONTENT_LENGTH = 2_000_000;
 const LARGE_WRITE_THRESHOLD = 10_000;
 const MOBILE_TOUCH_PAN_THRESHOLD_PX = 12;
+
+function warnIfSnapshotStorageRecovered(
+  result: ReturnType<typeof setTerminalSnapshotWithQuotaRecovery>,
+  source: string,
+): void {
+  const retryRemovedCount = result.retryEviction?.removedCount ?? 0;
+  if (result.eviction.removedCount === 0 && retryRemovedCount === 0 && !result.retried) {
+    return;
+  }
+
+  console.warn(`[TerminalView] ${source} recovered terminal snapshot storage`, {
+    retried: result.retried,
+    removedCount: result.eviction.removedCount + retryRemovedCount,
+    beforeChars: result.eviction.beforeChars,
+    afterChars: result.retryEviction?.afterChars ?? result.eviction.afterChars,
+  });
+}
 
 // xterm.js v5는 방향키, Backspace 등 모든 제어 키를 네이티브로 처리.
 // 커스텀 KEY_SEQUENCES 핸들러는 xterm 내부 IME/유니코드 파이프라인을 우회하여
@@ -492,7 +510,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           content,
           savedAt: new Date().toISOString(),
         };
-        localStorage.setItem(getTerminalSnapshotKey(sessionId), JSON.stringify(snapshot));
+        const result = setTerminalSnapshotWithQuotaRecovery(sessionId, JSON.stringify(snapshot));
+        if (!result.saved) {
+          console.warn('[TerminalView] snapshot save failed after quota recovery:', result.error);
+          return;
+        }
+        warnIfSnapshotStorageRecovered(result, 'snapshot save');
         lastSnapshotRef.current = content;
       } catch (error) {
         console.warn('[TerminalView] snapshot save failed:', error);
@@ -584,10 +607,15 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           content,
           savedAt: new Date().toISOString(),
         };
-        localStorage.setItem(getTerminalSnapshotKey(sessionId), JSON.stringify(nextSnapshot));
+        const result = setTerminalSnapshotWithQuotaRecovery(sessionId, JSON.stringify(nextSnapshot));
+        if (!result.saved) {
+          console.warn('[TerminalView] buffered snapshot save failed after quota recovery:', result.error);
+          return;
+        }
+        warnIfSnapshotStorageRecovered(result, 'buffered snapshot save');
         lastSnapshotRef.current = content;
-      } catch {
-        // ignore localStorage failures
+      } catch (error) {
+        console.warn('[TerminalView] buffered snapshot save failed:', error);
       }
     }, [sessionId, loadStoredSnapshot]);
 

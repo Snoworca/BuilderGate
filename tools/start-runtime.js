@@ -390,6 +390,28 @@ function startForeground(port, source, bootstrapAllowedIps = [], paths = RUNTIME
   });
 }
 
+async function startPackagedForegroundInCurrentProcess(
+  port,
+  source,
+  bootstrapAllowedIps = [],
+  paths = RUNTIME_PATHS,
+) {
+  const env = createRuntimeEnv(port, bootstrapAllowedIps, process.env, paths);
+  for (const [key, value] of Object.entries(env)) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+
+  console.log(`[start] Starting BuilderGate in foreground on port ${port} (${source})...`);
+  console.log(`[start] Config: ${paths.configPath}`);
+  console.log(`[start] HTTPS: https://localhost:${port}`);
+  await runInternalApp(paths);
+  return 0;
+}
+
 async function startDaemon(port, source, bootstrapAllowedIps = [], paths = RUNTIME_PATHS, options = {}) {
   return daemonLauncher.startDaemon(port, source, bootstrapAllowedIps, paths, {
     localBinDirs: LOCAL_BIN_DIRS,
@@ -485,7 +507,9 @@ async function main() {
   const { port, source } = resolvePort(cliPort, preflight.config.server.port);
 
   if (parsedArgs.mode === 'foreground') {
-    process.exitCode = await startForeground(port, source, bootstrapAllowedIps);
+    process.exitCode = process.pkg
+      ? await startPackagedForegroundInCurrentProcess(port, source, bootstrapAllowedIps)
+      : await startForeground(port, source, bootstrapAllowedIps);
     return;
   }
 
@@ -538,6 +562,7 @@ module.exports = {
   runInternalApp,
   startDaemon,
   startForeground,
+  startPackagedForegroundInCurrentProcess,
   stopDaemon,
   main,
 };

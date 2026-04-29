@@ -367,8 +367,9 @@ test('createForegroundLaunchOptions uses same executable for packaged clean layo
     const launch = startRuntime.createForegroundLaunchOptions(2002, [], paths);
 
     assert.equal(launch.command, paths.launcherPath);
-    assert.deepEqual(launch.args, ['--internal-app']);
+    assert.deepEqual(launch.args, []);
     assert.equal(launch.options.cwd, dir);
+    assert.equal(launch.options.env.BUILDERGATE_INTERNAL_MODE, 'app');
     assert.equal(launch.options.env.BUILDERGATE_WEB_ROOT, paths.webDir);
     assert.equal(launch.options.env.BUILDERGATE_SHELL_INTEGRATION_ROOT, paths.shellIntegrationDir);
   } finally {

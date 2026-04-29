@@ -12,6 +12,7 @@ import type {
 import { authApi, settingsApi } from '../../services/api';
 import { ConfirmModal } from '../Modal';
 import { AUTO_FOCUS_RATIO_KEY, AUTO_FOCUS_RATIO_DEFAULT, FOCUS_RATIO_KEY, FOCUS_RATIO_DEFAULT } from '../../utils/mosaic';
+import { validatePasswordPolicy } from '../../utils/passwordPolicy';
 import './SettingsPage.css';
 
 interface SecretDraft {
@@ -160,6 +161,12 @@ export function SettingsPage({ visible, onBack }: Props) {
     if (passwordRequested) {
       if (!secrets.currentPassword || !secrets.newPassword || !secrets.confirmPassword) {
         errors.push('Password rotation requires current, new, and confirm password.');
+      }
+      if (secrets.newPassword) {
+        const passwordPolicy = validatePasswordPolicy(secrets.newPassword);
+        if (!passwordPolicy.valid && passwordPolicy.message) {
+          errors.push(passwordPolicy.message);
+        }
       }
       if (secrets.newPassword !== secrets.confirmPassword) {
         errors.push('New password confirmation does not match.');

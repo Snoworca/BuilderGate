@@ -2,12 +2,13 @@ const fs = require('fs');
 
 const REQUIRED_README_PATTERNS = [
   ['native daemon policy', /(?:native daemon|네이티브 데몬)/i],
-  ['source launcher', /node\s+tools\/start-runtime\.js/],
+  ['windows packaged launcher', /BuilderGate\.exe(?:\s|$)/],
+  ['non-windows packaged launcher', /\.\s*\/buildergate(?:\s|$)|\.\/buildergate(?:\s|$)/],
+  ['macOS app bundle', /BuilderGate\.app/],
   ['foreground option', /--foreground/],
   ['legacy foreground alias', /--forground/],
   ['windows packaged stop command', /BuilderGate\.exe\s+stop/],
   ['non-windows packaged stop command', /buildergate\s+stop/],
-  ['source stop command', /node\s+stop\.js/],
   ['runtime config file', /config\.json5/],
   ['packaged output path', /dist\/bin/],
   ['TOTP QR guidance', /\bQR\b/],
@@ -24,6 +25,9 @@ const FORBIDDEN_README_PATTERNS = [
   ['pm2 stop command', /pm2\s+stop/i],
   ['pm2 delete command', /pm2\s+delete/i],
   ['global pm2 install command', /npm\s+install\s+-g\s+pm2/i],
+  ['dev.js execution command', /node\s+dev\.js/i],
+  ['source runtime launcher command', /node\s+tools\/start-runtime\.js/i],
+  ['source stop command', /node\s+stop\.js/i],
 ];
 
 function collectReadmePolicyErrors(content) {

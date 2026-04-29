@@ -7,6 +7,8 @@ const test = require('node:test');
 const {
   ALL_ARM64_TARGETS,
   ALL_SUPPORTED_TARGETS,
+  CONFIG_POLICY_BOOTSTRAP_TEMPLATE,
+  CONFIG_POLICY_SOURCE_OR_TEMPLATE,
   ICON_ICNS_NAME,
   ICON_ICO_NAME,
   ICON_SVG_NAME,
@@ -38,6 +40,7 @@ const {
   prepareWindowsPkgBaseIcon,
   resolveBuildTargets,
   validateBuildOutput,
+  validateBootstrapSafeBuildConfig,
   validateSourceDaemonInputs,
   versionedProfileOutputName,
 } = require('../build-daemon-exe');
@@ -56,12 +59,13 @@ function touch(filePath, content = '') {
 function createPolicyCompliantReadme() {
   return [
     'BuilderGate native daemon runtime',
-    'node tools/start-runtime.js',
-    'node tools/start-runtime.js --foreground',
-    'node tools/start-runtime.js --forground',
+    'BuilderGate.exe',
+    './buildergate',
+    'BuilderGate.app',
+    'BuilderGate.exe --foreground',
+    './buildergate --forground',
     'BuilderGate.exe stop',
     'buildergate stop',
-    'node stop.js',
     'config.json5',
     'dist/bin',
     'TOTP QR prints before detach',
@@ -99,9 +103,16 @@ test('build output default is dist/bin, not dist/daemon', () => {
   const options = parseArgs([]);
 
   assert.equal(options.outputDir, OUTPUT_DEFAULT);
+  assert.equal(options.configPolicy, CONFIG_POLICY_BOOTSTRAP_TEMPLATE);
   assert.equal(path.basename(options.outputDir), 'bin');
   assert.equal(path.basename(path.dirname(options.outputDir)), 'dist');
   assert.doesNotMatch(options.outputDir, /dist[\\/]daemon$/);
+});
+
+test('build args allow explicit local user config inclusion only by opt-in', () => {
+  const options = parseArgs(['--include-user-config']);
+
+  assert.equal(options.configPolicy, CONFIG_POLICY_SOURCE_OR_TEMPLATE);
 });
 
 test('multi-target output root cleanup refuses the dist root', () => {
@@ -520,6 +531,44 @@ test('copyRuntimeConfigFile prefers existing user config over generated template
 
   assert.equal(result, 'source');
   assert.equal(fs.readFileSync(targetConfigPath, 'utf8'), fs.readFileSync(sourceConfigPath, 'utf8'));
+});
+
+test('copyRuntimeConfigFile release-safe policy ignores existing user config', async () => {
+  const dir = makeTempDir('buildergate-config-copy-template-policy-');
+  const sourceConfigPath = path.join(dir, 'server', 'config.json5');
+  const targetConfigPath = path.join(dir, 'dist', 'bin', 'config.json5');
+  touch(sourceConfigPath, '{ auth: { password: "encrypted-local", jwtSecret: "local-secret" } }\n');
+
+  const result = await copyRuntimeConfigFile({
+    sourceConfigPath,
+    targetConfigPath,
+    configPolicy: CONFIG_POLICY_BOOTSTRAP_TEMPLATE,
+    renderBootstrapConfigTemplate: () => '{ auth: { password: "", jwtSecret: "" } }\n',
+    log: () => {},
+  });
+
+  assert.equal(result, 'template');
+  assert.equal(fs.readFileSync(targetConfigPath, 'utf8'), '{ auth: { password: "", jwtSecret: "" } }\n');
+});
+
+test('validateBootstrapSafeBuildConfig requires empty auth secrets and no exposed server config', () => {
+  const outputDir = createBuildOutputFixture();
+  touch(path.join(outputDir, 'config.json5'), '{ auth: { password: "", jwtSecret: "" } }\n');
+
+  assert.doesNotThrow(() => validateBootstrapSafeBuildConfig(outputDir, { platform: 'win32' }));
+
+  touch(path.join(outputDir, 'config.json5'), '{ auth: { password: "encrypted", jwtSecret: "" } }\n');
+  assert.throws(
+    () => validateBootstrapSafeBuildConfig(outputDir, { platform: 'win32' }),
+    /empty auth\.password/,
+  );
+
+  touch(path.join(outputDir, 'config.json5'), '{ auth: { password: "", jwtSecret: "" } }\n');
+  touch(path.join(outputDir, 'server', 'config.json5'), '{ auth: { password: "encrypted" } }\n');
+  assert.throws(
+    () => validateBootstrapSafeBuildConfig(outputDir, { platform: 'win32' }),
+    /server\/config\.json5|server\\config\.json5/,
+  );
 });
 
 test('validateBuildOutput accepts complete TTTGate-style dist/bin runtime', () => {

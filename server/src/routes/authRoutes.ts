@@ -36,8 +36,8 @@ const verifySchema = z.object({
 });
 
 const bootstrapPasswordSchema = z.object({
-  password: z.string().min(4, 'Password must be at least 4 characters long'),
-  confirmPassword: z.string().min(4, 'Confirm password must be at least 4 characters long'),
+  password: z.string(),
+  confirmPassword: z.string(),
 });
 
 // ============================================================================

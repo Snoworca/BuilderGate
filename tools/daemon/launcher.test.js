@@ -89,7 +89,7 @@ test('createForegroundLaunchOptions inherits stdio and never creates active daem
   assert.equal(fs.existsSync(paths.statePath), false);
 });
 
-test('withPkgExecPathClearedForSpawn temporarily clears parent pkg bootstrap env', () => {
+test('withPkgExecPathClearedForSpawn leaves parent pkg bootstrap env untouched outside packaged parent', () => {
   const previousValue = process.env[PKG_EXECPATH_KEY];
   process.env[PKG_EXECPATH_KEY] = path.join('C:', 'buildergate', 'BuilderGate.exe');
   try {
@@ -98,6 +98,32 @@ test('withPkgExecPathClearedForSpawn temporarily clears parent pkg bootstrap env
       observedValue = process.env[PKG_EXECPATH_KEY];
       return 'spawned';
     });
+
+    assert.equal(result, 'spawned');
+    assert.equal(observedValue, path.join('C:', 'buildergate', 'BuilderGate.exe'));
+    assert.equal(process.env[PKG_EXECPATH_KEY], path.join('C:', 'buildergate', 'BuilderGate.exe'));
+  } finally {
+    if (previousValue === undefined) {
+      delete process.env[PKG_EXECPATH_KEY];
+    } else {
+      process.env[PKG_EXECPATH_KEY] = previousValue;
+    }
+  }
+});
+
+test('withPkgExecPathClearedForSpawn temporarily neutralizes parent pkg bootstrap env in packaged parent', () => {
+  const previousValue = process.env[PKG_EXECPATH_KEY];
+  process.env[PKG_EXECPATH_KEY] = path.join('C:', 'buildergate', 'BuilderGate.exe');
+  try {
+    let observedValue = 'not-called';
+    const result = withPkgExecPathClearedForSpawn(
+      { [PKG_EXECPATH_KEY]: PKG_EXECPATH_NEUTRAL_VALUE },
+      () => {
+        observedValue = process.env[PKG_EXECPATH_KEY];
+        return 'spawned';
+      },
+      { isPackagedParent: true },
+    );
 
     assert.equal(result, 'spawned');
     assert.equal(observedValue, PKG_EXECPATH_NEUTRAL_VALUE);
@@ -122,8 +148,9 @@ test('createForegroundLaunchOptions uses the same executable in packaged runtime
   const launch = createForegroundLaunchOptions(2002, [], paths);
 
   assert.equal(launch.command, paths.launcherPath);
-  assert.deepEqual(launch.args, ['--internal-app']);
+  assert.deepEqual(launch.args, []);
   assert.equal(launch.options.cwd, paths.root);
+  assert.equal(launch.options.env.BUILDERGATE_INTERNAL_MODE, 'app');
   assert.equal(launch.options.env.BUILDERGATE_WEB_ROOT, paths.webDir);
   assert.equal(launch.options.env.BUILDERGATE_SHELL_INTEGRATION_ROOT, paths.shellIntegrationDir);
 });
@@ -215,9 +242,10 @@ test('createDaemonAppLaunchOptions uses same executable for packaged daemon app 
   const launch = createDaemonAppLaunchOptions(2002, [], state, paths);
 
   assert.equal(launch.command, paths.launcherPath);
-  assert.deepEqual(launch.args, ['--internal-app']);
+  assert.deepEqual(launch.args, []);
   assert.equal(launch.options.detached, true);
   assert.equal(launch.options.cwd, paths.root);
+  assert.equal(launch.options.env.BUILDERGATE_INTERNAL_MODE, 'app');
 });
 
 test('createWindowsStartProcessCommand clears pkg bootstrap env and returns actual child pid', () => {
@@ -238,11 +266,12 @@ test('createWindowsStartProcessCommand clears pkg bootstrap env and returns actu
   assert.match(command, /Start-Process/);
   assert.match(command, /PKG_EXECPATH/);
   assert.match(command, /-PassThru/);
-  assert.match(command, /--internal-app/);
+  assert.doesNotMatch(command, /ArgumentList/);
+  assert.doesNotMatch(command, /--internal-app/);
   assert.doesNotMatch(command, /RedirectStandard/);
 });
 
-test('createSentinelLaunchOptions uses same executable and internal sentinel markers in packaged runtime', () => {
+test('createSentinelLaunchOptions uses same executable and env internal sentinel mode in packaged runtime', () => {
   const paths = createFixturePaths('buildergate-daemon-packaged-sentinel-');
   paths.isPackaged = true;
   paths.nodeBin = paths.launcherPath;
@@ -263,7 +292,7 @@ test('createSentinelLaunchOptions uses same executable and internal sentinel mar
   });
 
   assert.equal(launch.command, paths.launcherPath);
-  assert.deepEqual(launch.args, ['--internal-sentinel']);
+  assert.deepEqual(launch.args, []);
   assert.equal(launch.options.detached, true);
   assert.equal(launch.logPath, paths.sentinelLogPath);
   assert.equal(launch.options.env.BUILDERGATE_INTERNAL_MODE, 'sentinel');
@@ -273,6 +302,8 @@ test('createSentinelLaunchOptions uses same executable and internal sentinel mar
 
   const command = createWindowsStartProcessCommand(launch);
   assert.equal(command.includes(paths.statePath), false);
+  assert.doesNotMatch(command, /ArgumentList/);
+  assert.doesNotMatch(command, /--internal-sentinel/);
   assert.doesNotMatch(command, /--internal-sentinel-state/);
 });
 

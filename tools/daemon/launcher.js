@@ -91,8 +91,9 @@ function removePkgBootstrapEnv(env) {
   return env;
 }
 
-function withPkgExecPathClearedForSpawn(childEnv, callback) {
-  if (childEnv?.[PKG_EXECPATH_KEY] !== PKG_EXECPATH_NEUTRAL_VALUE) {
+function withPkgExecPathClearedForSpawn(childEnv, callback, options = {}) {
+  const isPackagedParent = options.isPackagedParent ?? Boolean(process.pkg);
+  if (!isPackagedParent || childEnv?.[PKG_EXECPATH_KEY] !== PKG_EXECPATH_NEUTRAL_VALUE) {
     return callback();
   }
 
@@ -120,10 +121,11 @@ function encodePowerShellCommand(command) {
 
 function createWindowsStartProcessCommand(launch) {
   const args = launch.args.map(quotePowerShellSingle).join(', ');
+  const argumentList = launch.args.length > 0 ? ` -ArgumentList @(${args})` : '';
   return [
     '$ErrorActionPreference = "Stop"',
     `$env:${PKG_EXECPATH_KEY} = ${quotePowerShellSingle(PKG_EXECPATH_NEUTRAL_VALUE)}`,
-    `$p = Start-Process -FilePath ${quotePowerShellSingle(launch.command)} -ArgumentList @(${args}) -WorkingDirectory ${quotePowerShellSingle(launch.options.cwd ?? process.cwd())} -WindowStyle Hidden -PassThru`,
+    `$p = Start-Process -FilePath ${quotePowerShellSingle(launch.command)}${argumentList} -WorkingDirectory ${quotePowerShellSingle(launch.options.cwd ?? process.cwd())} -WindowStyle Hidden -PassThru`,
     '[Console]::Out.WriteLine($p.Id)',
   ].join('\n');
 }
@@ -265,7 +267,7 @@ function resolveAppLaunchCommand(paths = resolveRuntimePaths()) {
   if (paths.isPackaged ?? Boolean(process.pkg)) {
     return {
       command: paths.launcherPath,
-      args: [INTERNAL_APP_ARG],
+      args: [],
     };
   }
 
@@ -279,7 +281,7 @@ function resolveSentinelCommand(paths = resolveRuntimePaths()) {
   if (paths.isPackaged ?? Boolean(process.pkg)) {
     return {
       command: paths.launcherPath,
-      args: [INTERNAL_SENTINEL_ARG],
+      args: [],
     };
   }
 
@@ -296,18 +298,24 @@ function createForegroundLaunchOptions(
   options = {},
 ) {
   const appCommand = resolveAppLaunchCommand(paths);
+  const isPackaged = paths.isPackaged ?? Boolean(process.pkg);
+  const env = createRuntimeEnv(
+    port,
+    bootstrapAllowedIps,
+    options.baseEnv ?? process.env,
+    paths,
+    options.localBinDirs ?? [],
+  );
+  if (isPackaged) {
+    env[INTERNAL_MODE_KEY] = 'app';
+  }
+
   return {
     command: appCommand.command,
     args: appCommand.args,
     options: {
       cwd: paths.serverCwd ?? paths.serverDir,
-      env: createRuntimeEnv(
-        port,
-        bootstrapAllowedIps,
-        options.baseEnv ?? process.env,
-        paths,
-        options.localBinDirs ?? [],
-      ),
+      env,
       stdio: 'inherit',
       shell: false,
     },

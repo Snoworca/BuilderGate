@@ -44,6 +44,7 @@ import {
 } from './utils/ptyPlatformPolicy.js';
 import { getConfigPath, loadConfigFromPath } from './utils/config.js';
 import { loadConfigFromPathStrict } from './utils/configStrictLoader.js';
+import { validatePasswordPolicy } from './utils/passwordPolicy.js';
 import express from 'express';
 import type { Request } from 'express';
 
@@ -73,6 +74,7 @@ async function main(): Promise<void> {
     { name: 'SessionManager.createSession falls back when a configured host shell is unavailable', run: testSessionManagerCreateSessionFallsBackWhenConfiguredShellMissing },
     { name: 'SessionManager snapshot metadata stays truthful across backend combinations', run: testSessionManagerSnapshotMetadataTruthfulness },
     { name: 'SessionManager non-Windows runtime validation matches the settings contract', run: testSessionManagerNonWindowsRuntimeValidation },
+    { name: 'Password policy enforces FR-AUTH-015 length and character contract', run: testPasswordPolicyContract },
     { name: 'SettingsService hides winpty option after capability probe failure', run: testSettingsServiceWinptyCapabilitySurface },
     { name: 'SettingsService rejects winpty saves immediately after capability probe failure', run: testSettingsServiceRejectsUnavailableWinptySave },
     { name: 'SettingsService rejects useConpty=false saves immediately when winpty is unavailable', run: testSettingsServiceRejectsUnavailableWinptyViaUseConptyFalse },
@@ -200,7 +202,7 @@ async function main(): Promise<void> {
     { name: 'authRoutes bootstrap-status allows remote IPs from env allowlist', run: testAuthRoutesBootstrapStatusAllowlistEnv },
     { name: 'authRoutes bootstrap-status normalizes IPv4-mapped IPv6 request addresses against allowlists', run: testAuthRoutesBootstrapStatusNormalizesMappedIpv4 },
     { name: 'authRoutes bootstrap-password persists encrypted password and issues JWT', run: testAuthRoutesBootstrapPasswordSuccess },
-    { name: 'authRoutes bootstrap-password preserves exact long password input', run: testAuthRoutesBootstrapPasswordPreservesExactLongInput },
+    { name: 'authRoutes bootstrap-password enforces FR-AUTH-015 policy and preserves exact max input', run: testAuthRoutesBootstrapPasswordEnforcesPolicy },
     { name: 'authRoutes bootstrap-password inserts an auth section when legacy config omits it', run: testAuthRoutesBootstrapPasswordLegacyMissingAuthSection },
     { name: 'authRoutes bootstrap-password closes once a password is configured', run: testAuthRoutesBootstrapPasswordClosedAfterSetup },
     { name: 'authRoutes COMBO-3: TOTP-only login returns 202 with nextStage totp (Phase 4)', run: testAuthRoutesCombo3Login },
@@ -529,6 +531,31 @@ function testRuntimeConfigPlatformNormalization(): void {
   assert.equal(snapshot.values.pty.shell, 'auto');
 }
 
+function testPasswordPolicyContract(): void {
+  const validCases = [
+    'Abc1',
+    'Aa1!@#$%^&*()_+=/-',
+    'Aa1!'.repeat(32),
+  ];
+  const invalidCases = [
+    'Ab3',
+    'Abc1 ',
+    'Abc1\t',
+    '한글Pass1',
+    'Password🙂1',
+    'Password?1',
+    'A'.repeat(129),
+  ];
+
+  for (const password of validCases) {
+    assert.equal(validatePasswordPolicy(password).valid, true, `expected valid password: ${password}`);
+  }
+
+  for (const password of invalidCases) {
+    assert.equal(validatePasswordPolicy(password).valid, false, `expected invalid password: ${password}`);
+  }
+}
+
 function testAuthRuntimeConfig(): void {
   const cryptoService = new CryptoService('auth-service-test');
   const service = new AuthService({
@@ -820,6 +847,37 @@ function testSettingsPasswordValidation(): void {
       () => settingsService.savePatch({ auth: { newPassword: 'new-password', confirmPassword: 'new-password' } }),
       (error: unknown) => error instanceof AppError && error.code === ErrorCode.CURRENT_PASSWORD_REQUIRED,
     );
+
+    assert.throws(
+      () => settingsService.savePatch({ auth: { currentPassword: 'old-password' } }),
+      (error: unknown) => error instanceof AppError && error.code === ErrorCode.VALIDATION_ERROR,
+    );
+
+    assert.throws(
+      () => settingsService.savePatch({ auth: { confirmPassword: 'Password?1' } }),
+      (error: unknown) => error instanceof AppError && error.code === ErrorCode.CURRENT_PASSWORD_REQUIRED,
+    );
+
+    assert.throws(
+      () => settingsService.savePatch({ auth: { currentPassword: 'old-password', confirmPassword: 'Password?1' } }),
+      (error: unknown) => error instanceof AppError && error.code === ErrorCode.VALIDATION_ERROR,
+    );
+
+    for (const newPassword of ['abc', 'new password', '새비밀번호1', 'Password🙂1', 'Password?1', 'A'.repeat(129)]) {
+      assert.throws(
+        () => settingsService.savePatch({
+          auth: {
+            currentPassword: 'old-password',
+            newPassword,
+            confirmPassword: newPassword,
+          },
+        }),
+        (error: unknown) => error instanceof AppError && error.code === ErrorCode.VALIDATION_ERROR,
+        `expected settings password policy rejection for ${newPassword}`,
+      );
+    }
+
+    assert.equal(authService.validatePassword('old-password'), true);
   } finally {
     authService.destroy();
   }
@@ -5646,10 +5704,27 @@ async function testAuthRoutesBootstrapPasswordSuccess(): Promise<void> {
   }
 }
 
-async function testAuthRoutesBootstrapPasswordPreservesExactLongInput(): Promise<void> {
+async function testAuthRoutesBootstrapPasswordEnforcesPolicy(): Promise<void> {
   const harness = await makeBootstrapHarness({ initialPassword: '' });
-  const password = ` ${'buildergate-'.repeat(40)}tail `;
+  const invalidPasswords = [
+    'abc',
+    'bootstrap pass',
+    '부트스트랩1',
+    'Password🙂1',
+    'Password?1',
+    'A'.repeat(129),
+  ];
+  const password = 'Aa1!'.repeat(32);
   try {
+    for (const invalidPassword of invalidPasswords) {
+      const invalidResult = await invokeBootstrapPassword(harness.accessors, {
+        password: invalidPassword,
+        confirmPassword: invalidPassword,
+      });
+      assert.equal(invalidResult.status, 400, `expected bootstrap policy rejection for ${invalidPassword}`);
+      assert.equal((invalidResult.body.error as Record<string, unknown>).code, ErrorCode.VALIDATION_ERROR);
+    }
+
     const result = await invokeBootstrapPassword(harness.accessors, {
       password,
       confirmPassword: password,
@@ -5657,7 +5732,7 @@ async function testAuthRoutesBootstrapPasswordPreservesExactLongInput(): Promise
 
     assert.equal(result.status, 201);
     assert.equal(harness.authService.validatePassword(password), true);
-    assert.equal(harness.authService.validatePassword(password.trim()), false);
+    assert.equal(harness.authService.validatePassword(password.slice(0, -1)), false);
   } finally {
     await harness.destroy();
   }

@@ -144,6 +144,43 @@ jobs:
       - name: Build ${{ matrix.target }}
         run: npm run ${{ matrix.npm_script }}
 
+      - name: Verify bootstrap-safe release config
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          const sourceDir = path.join('dist', 'bin', `${process.env.PROFILE}-${process.env.VERSION}`);
+          const configPath = path.join(sourceDir, 'config.json5');
+          const serverConfigPath = path.join(sourceDir, 'server', 'config.json5');
+          const appConfigPath = path.join(sourceDir, 'BuilderGate.app', 'Contents', 'Resources', 'runtime', 'config.json5');
+
+          function fail(message) {
+            console.error(`::error::${message}`);
+            process.exit(1);
+          }
+
+          function verifyConfig(filePath, label) {
+            if (!fs.existsSync(filePath)) fail(`${label} missing: ${filePath}`);
+            const content = fs.readFileSync(filePath, 'utf8');
+            if (!/auth\s*:\s*\{[\s\S]*?password\s*:\s*""/.test(content)) {
+              fail(`${label} must keep auth.password empty for first-run bootstrap`);
+            }
+            if (!/auth\s*:\s*\{[\s\S]*?jwtSecret\s*:\s*""/.test(content)) {
+              fail(`${label} must keep auth.jwtSecret empty for first-run bootstrap`);
+            }
+          }
+
+          verifyConfig(configPath, 'release config.json5');
+          if (fs.existsSync(serverConfigPath)) fail(`server/config.json5 must not be exposed in release artifact: ${serverConfigPath}`);
+          if (process.env.PROFILE === 'macos-arm64') verifyConfig(appConfigPath, 'macOS app config.json5');
+          NODE
+
       - name: Create zip archive
         if: matrix.archive == 'zip' && runner.os == 'Windows'
         shell: pwsh

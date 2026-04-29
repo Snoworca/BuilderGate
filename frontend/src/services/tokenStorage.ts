@@ -5,8 +5,18 @@
  * Manages JWT token storage in localStorage
  */
 
+import {
+  evictTerminalSnapshotsForAuthToken,
+  isQuotaExceededError,
+} from '../utils/terminalSnapshot';
+
 const TOKEN_KEY = 'cws_auth_token';
 const EXPIRES_KEY = 'cws_auth_expires';
+
+function writeTokenValues(token: string, expiresAt: number): void {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(EXPIRES_KEY, String(expiresAt));
+}
 
 export const tokenStorage = {
   getToken(): string | null {
@@ -15,8 +25,28 @@ export const tokenStorage = {
 
   setToken(token: string, expiresIn: number): void {
     const expiresAt = Date.now() + expiresIn;
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(EXPIRES_KEY, String(expiresAt));
+    try {
+      writeTokenValues(token, expiresAt);
+    } catch (error) {
+      this.clearToken();
+      if (!isQuotaExceededError(error)) {
+        throw error;
+      }
+
+      const eviction = evictTerminalSnapshotsForAuthToken();
+      console.warn('[tokenStorage] auth token storage quota reached; evicted terminal snapshot cache before retry', {
+        removedCount: eviction.removedCount,
+        beforeChars: eviction.beforeChars,
+        afterChars: eviction.afterChars,
+      });
+
+      try {
+        writeTokenValues(token, expiresAt);
+      } catch (retryError) {
+        this.clearToken();
+        throw retryError;
+      }
+    }
   },
 
   clearToken(): void {

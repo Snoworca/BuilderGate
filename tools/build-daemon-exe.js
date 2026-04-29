@@ -36,6 +36,8 @@ const MAC_APP_EXECUTABLE_NAME = 'BuilderGate';
 const DEFAULT_EXECUTABLE_NAMES = getExecutableNames(process.platform);
 const APP_EXE_NAME = DEFAULT_EXECUTABLE_NAMES.appExeName;
 const PACKAGE_VERSION = String(ROOT_PACKAGE.version ?? '').trim();
+const CONFIG_POLICY_BOOTSTRAP_TEMPLATE = 'bootstrap-template';
+const CONFIG_POLICY_SOURCE_OR_TEMPLATE = 'source-or-template';
 const TARGET_PROFILES = Object.freeze({
   'win-amd64': {
     profileName: 'win-amd64',
@@ -255,13 +257,14 @@ function parseArgs(argv) {
     useProfileOutputDir: false,
     outputDirWasExplicit: false,
     skipRuntimeInstall: false,
+    configPolicy: CONFIG_POLICY_BOOTSTRAP_TEMPLATE,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const current = argv[index];
 
     if (current === '--help' || current === '-h') {
-      console.log('Usage: node tools/build-daemon-exe.js [--target <pkg-target>|--profile <target-profile>|--all-supported|--required-amd64|--all-arm64] [--output <dist-dir>] [--skip-runtime-install]');
+      console.log('Usage: node tools/build-daemon-exe.js [--target <pkg-target>|--profile <target-profile>|--all-supported|--required-amd64|--all-arm64] [--output <dist-dir>] [--skip-runtime-install] [--include-user-config]');
       console.log('');
       console.log('Builds daemon launcher executables plus a server runtime folder.');
       console.log(`Default target: ${options.target}`);
@@ -328,6 +331,11 @@ function parseArgs(argv) {
 
     if (current === '--skip-runtime-install') {
       options.skipRuntimeInstall = true;
+      continue;
+    }
+
+    if (current === '--include-user-config') {
+      options.configPolicy = CONFIG_POLICY_SOURCE_OR_TEMPLATE;
       continue;
     }
 
@@ -691,6 +699,7 @@ async function copyRuntimeConfigFile({
   serverDistDir = SERVER_DIST_DIR,
   targetConfigPath,
   platform = process.platform,
+  configPolicy = CONFIG_POLICY_SOURCE_OR_TEMPLATE,
   renderBootstrapConfigTemplate,
   log = console.log,
 }) {
@@ -698,7 +707,7 @@ async function copyRuntimeConfigFile({
     throw new Error('targetConfigPath is required');
   }
 
-  if (fs.existsSync(sourceConfigPath)) {
+  if (configPolicy !== CONFIG_POLICY_BOOTSTRAP_TEMPLATE && fs.existsSync(sourceConfigPath)) {
     fs.mkdirSync(path.dirname(targetConfigPath), { recursive: true });
     fs.copyFileSync(sourceConfigPath, targetConfigPath);
     return 'source';
@@ -707,7 +716,10 @@ async function copyRuntimeConfigFile({
   const renderTemplate = renderBootstrapConfigTemplate ?? await loadBootstrapConfigTemplate(serverDistDir);
   fs.mkdirSync(path.dirname(targetConfigPath), { recursive: true });
   fs.writeFileSync(targetConfigPath, renderTemplate(platform), 'utf8');
-  log(`[exe-build] ${path.basename(sourceConfigPath)} not found; generated packaged config with ${platform} bootstrap defaults.`);
+  const reason = configPolicy === CONFIG_POLICY_BOOTSTRAP_TEMPLATE
+    ? 'release-safe config policy'
+    : `${path.basename(sourceConfigPath)} not found`;
+  log(`[exe-build] ${reason}; generated packaged config with ${platform} bootstrap defaults.`);
   return 'template';
 }
 
@@ -721,7 +733,11 @@ async function copyRuntimeFiles(outputDir, options = {}) {
   fs.rmSync(outputShellIntegrationDir, { recursive: true, force: true });
   fs.cpSync(path.join(SERVER_DIST_DIR, 'shell-integration'), outputShellIntegrationDir, { recursive: true, force: true });
   copyFileIfExists(path.join(SERVER_DIR, 'config.json5.example'), path.join(outputDir, 'config.json5.example'));
-  await copyRuntimeConfigFile({ targetConfigPath: path.join(outputDir, 'config.json5'), platform });
+  await copyRuntimeConfigFile({
+    targetConfigPath: path.join(outputDir, 'config.json5'),
+    platform,
+    configPolicy: options.configPolicy ?? CONFIG_POLICY_BOOTSTRAP_TEMPLATE,
+  });
   copyFileIfExists(path.join(ROOT, 'README.md'), path.join(outputDir, 'README.md'));
   copyIconAssets(outputDir, { sourceSvgPath: BROWSER_ICON_PATH });
 }
@@ -1037,6 +1053,29 @@ function assertFileContains(filePath, pattern, label) {
   }
 }
 
+function validateBootstrapSafeConfigFile(filePath, label = 'bootstrap-safe config.json5') {
+  assertPathExists(filePath, label);
+  assertFileContains(filePath, /auth\s*:\s*\{[\s\S]*?password\s*:\s*""/, `${label} empty auth.password`);
+  assertFileContains(filePath, /auth\s*:\s*\{[\s\S]*?jwtSecret\s*:\s*""/, `${label} empty auth.jwtSecret`);
+}
+
+function validateBootstrapSafeBuildConfig(outputDir, options = {}) {
+  const platform = options.platform ?? process.platform;
+  validateBootstrapSafeConfigFile(path.join(outputDir, 'config.json5'), 'packaged root config.json5');
+
+  const exposedServerConfigPath = path.join(outputDir, 'server', 'config.json5');
+  if (fs.existsSync(exposedServerConfigPath)) {
+    throw new Error(`release artifact must not expose server/config.json5: ${exposedServerConfigPath}`);
+  }
+
+  if (platform === 'darwin') {
+    validateBootstrapSafeConfigFile(
+      path.join(outputDir, MAC_APP_BUNDLE_NAME, 'Contents', 'Resources', 'runtime', 'config.json5'),
+      'macOS app runtime config.json5',
+    );
+  }
+}
+
 function validateSourceDaemonInputs(root = ROOT) {
   for (const relativePath of REQUIRED_SOURCE_FILES) {
     assertPathExists(path.join(root, relativePath), relativePath);
@@ -1059,7 +1098,7 @@ function validateSourceDaemonInputs(root = ROOT) {
   );
   assertFileContains(
     path.join(root, 'tools', 'daemon', 'launcher.js'),
-    /--internal-app|--internal-sentinel/,
+    /--internal-app|--internal-sentinel|BUILDERGATE_INTERNAL_MODE/,
     'sentinel launcher marker',
   );
 }
@@ -1165,7 +1204,10 @@ async function main() {
     fs.rmSync(target.outputDir, { recursive: true, force: true });
     fs.mkdirSync(target.outputDir, { recursive: true });
 
-    await copyRuntimeFiles(target.outputDir, { platform: target.platform });
+    await copyRuntimeFiles(target.outputDir, {
+      platform: target.platform,
+      configPolicy: options.configPolicy,
+    });
     installRuntimeDependencies(target.outputDir, options.skipRuntimeInstall, {
       platform: target.platform,
       arch: target.arch,
@@ -1174,6 +1216,9 @@ async function main() {
     applyExecutableIcons(target.outputDir, target.platform);
     createMacAppBundle(target.outputDir, { platform: target.platform });
     validateBuildOutput(target.outputDir, { platform: target.platform });
+    if (options.configPolicy === CONFIG_POLICY_BOOTSTRAP_TEMPLATE) {
+      validateBootstrapSafeBuildConfig(target.outputDir, { platform: target.platform });
+    }
 
     const { appExeName } = getExecutableNames(target.platform);
     console.log(`[exe-build] Done (${target.profileName}).`);
@@ -1195,6 +1240,8 @@ module.exports = {
   ALL_SUPPORTED_TARGETS,
   ARM64_TARGET_PROFILES,
   BROWSER_ICON_PATH,
+  CONFIG_POLICY_BOOTSTRAP_TEMPLATE,
+  CONFIG_POLICY_SOURCE_OR_TEMPLATE,
   ICON_ICNS_NAME,
   ICON_ICO_NAME,
   ICON_SVG_NAME,
@@ -1249,6 +1296,8 @@ module.exports = {
   resolveBuildTargets,
   resolveTargetSpec,
   validateBuildOutput,
+  validateBootstrapSafeBuildConfig,
+  validateBootstrapSafeConfigFile,
   validateSourceDaemonInputs,
   versionedProfileOutputName,
 };

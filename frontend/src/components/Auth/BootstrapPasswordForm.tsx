@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { validatePasswordPolicy } from '../../utils/passwordPolicy';
 import './Auth.css';
 
 export function BootstrapPasswordForm() {
@@ -13,8 +14,11 @@ export function BootstrapPasswordForm() {
       return null;
     }
 
-    if (password.length > 0 && password.length < 4) {
-      return 'Password must be at least 4 characters long.';
+    if (password.length > 0) {
+      const policy = validatePasswordPolicy(password);
+      if (!policy.valid) {
+        return policy.message;
+      }
     }
 
     if (confirmPassword && password !== confirmPassword) {
@@ -24,7 +28,7 @@ export function BootstrapPasswordForm() {
     return null;
   }, [confirmPassword, password]);
 
-  const canSubmit = password.length >= 4 && password === confirmPassword;
+  const canSubmit = validatePasswordPolicy(password).valid && password === confirmPassword;
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
