@@ -44,6 +44,7 @@ import {
 } from './utils/ptyPlatformPolicy.js';
 import { getConfigPath, loadConfigFromPath } from './utils/config.js';
 import { loadConfigFromPathStrict } from './utils/configStrictLoader.js';
+import { resolveInputReliabilityMode } from './utils/inputReliabilityMode.js';
 import { validatePasswordPolicy } from './utils/passwordPolicy.js';
 import express from 'express';
 import type { Request } from 'express';
@@ -61,6 +62,7 @@ async function main(): Promise<void> {
     { name: 'Config loader canonicalizes empty-password bootstrap state from null or missing input', run: testLoadConfigFromPathCanonicalizesEmptyPasswordState },
     { name: 'Config loader still encrypts non-empty plaintext passwords on load', run: testLoadConfigFromPathEncryptsPlaintextPasswordOnLoad },
     { name: 'Config path honors BUILDERGATE_CONFIG_PATH for packaged launchers', run: testGetConfigPathHonorsBuilderGateEnv },
+    { name: 'Input reliability mode defaults to observe and warns on unsupported env values', run: testInputReliabilityModeResolution },
     { name: 'Strict config loader rejects invalid existing config without defaults', run: testLoadConfigFromPathStrictRejectsInvalidExistingConfig },
     { name: 'Strict config loader bootstraps missing config without fallback defaults', run: testLoadConfigFromPathStrictBootstrapsMissingConfig },
     { name: 'RuntimeConfigStore builds a redacted editable snapshot', run: testRuntimeConfigSnapshot },
@@ -459,6 +461,21 @@ async function testGetConfigPathHonorsBuilderGateEnv(): Promise<void> {
     }
     await fs.rm(tempDir, { recursive: true, force: true });
   }
+}
+
+function testInputReliabilityModeResolution(): void {
+  const warnings: string[] = [];
+  const warn = (message: string) => warnings.push(message);
+
+  assert.equal(resolveInputReliabilityMode(undefined, warn), 'observe');
+  assert.equal(resolveInputReliabilityMode('', warn), 'observe');
+  assert.equal(resolveInputReliabilityMode('queue', warn), 'queue');
+  assert.equal(resolveInputReliabilityMode(' STRICT ', warn), 'strict');
+  assert.equal(resolveInputReliabilityMode('unsupported', warn), 'observe');
+
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0] ?? '', /unsupported/);
+  assert.match(warnings[0] ?? '', /observe/);
 }
 
 async function testLoadConfigFromPathStrictRejectsInvalidExistingConfig(): Promise<void> {
@@ -2611,26 +2628,55 @@ function testSessionManagerInputDebugCaptureMetadata(): void {
   try {
     manager.enableDebugCapture(harness.sessionId);
     manager.writeInput(harness.sessionId, ' \r\x7f');
-    manager.writeInput(harness.sessionId, 'abc');
+    manager.writeInput(harness.sessionId, '가나다', {
+      captureSeq: 7,
+      clientObservedByteLength: 9,
+      clientObservedCodePointCount: 3,
+      clientObservedGraphemeCount: 3,
+      clientObservedGraphemeApproximate: false,
+      clientObservedHasHangul: true,
+      clientObservedHasCjk: false,
+      clientObservedHasEnter: false,
+      inputClass: 'leak-attempt',
+      unsafe: 'raw-text',
+    } as any);
+    manager.writeInput(harness.sessionId, '가\r');
 
     const inputEvents = manager.getDebugCapture(harness.sessionId).filter((event) => event.kind === 'input');
-    assert.equal(inputEvents.length, 1);
+    assert.equal(inputEvents.length, 3);
 
-    assert.deepEqual(inputEvents[0]?.details, {
-      byteLength: 3,
-      hasEnter: true,
-      spaceCount: 1,
-      backspaceCount: 1,
-      enterCount: 1,
-      escapeCount: 0,
-      controlCount: 2,
-      printableCount: 1,
-      inputClass: 'safe-control',
-      safePreview: true,
-    });
+    assert.equal(inputEvents[0]?.details?.byteLength, 3);
+    assert.equal(inputEvents[0]?.details?.codePointCount, 3);
+    assert.equal(inputEvents[0]?.details?.hasEnter, true);
+    assert.equal(inputEvents[0]?.details?.spaceCount, 1);
+    assert.equal(inputEvents[0]?.details?.backspaceCount, 1);
+    assert.equal(inputEvents[0]?.details?.enterCount, 1);
+    assert.equal(inputEvents[0]?.details?.escapeCount, 0);
+    assert.equal(inputEvents[0]?.details?.controlCount, 2);
+    assert.equal(inputEvents[0]?.details?.printableCount, 1);
+    assert.equal(inputEvents[0]?.details?.inputClass, 'safe-control');
+    assert.equal(inputEvents[0]?.details?.safePreview, true);
     assert.equal(inputEvents[0]?.preview, '␠\\r\\x7f');
 
-    assert.equal(inputEvents[1], undefined);
+    assert.equal(inputEvents[1]?.details?.captureSeq, 7);
+    assert.equal(inputEvents[1]?.details?.clientObservedByteLength, 9);
+    assert.equal(inputEvents[1]?.details?.clientObservedHasHangul, true);
+    assert.equal(inputEvents[1]?.details?.byteLength, 9);
+    assert.equal(inputEvents[1]?.details?.codePointCount, 3);
+    assert.equal(inputEvents[1]?.details?.graphemeCount, 3);
+    assert.equal(inputEvents[1]?.details?.hasHangul, true);
+    assert.equal(inputEvents[1]?.details?.hasEnter, false);
+    assert.equal(inputEvents[1]?.details?.inputClass, 'printable');
+    assert.equal(inputEvents[1]?.details?.safePreview, false);
+    assert.equal(inputEvents[1]?.preview, undefined);
+    assert.equal((inputEvents[1]?.details as Record<string, unknown>)?.unsafe, undefined);
+
+    assert.equal(inputEvents[2]?.details?.byteLength, 4);
+    assert.equal(inputEvents[2]?.details?.hasHangul, true);
+    assert.equal(inputEvents[2]?.details?.hasEnter, true);
+    assert.equal(inputEvents[2]?.details?.inputClass, 'mixed-printable-control');
+    assert.equal(inputEvents[2]?.details?.safePreview, false);
+    assert.equal(inputEvents[2]?.preview, undefined);
   } finally {
     harness.dispose();
   }
@@ -3820,7 +3866,7 @@ function createWsRouterHarness(options?: {
   snapshotSeq?: number;
 }) {
   const calls = {
-    writeInput: [] as Array<{ sessionId: string; data: string }>,
+    writeInput: [] as Array<{ sessionId: string; data: string; metadata?: unknown }>,
   };
   const session = {
     id: 'session-1',
@@ -3846,8 +3892,8 @@ function createWsRouterHarness(options?: {
       windowsPty: { backend: 'conpty', buildNumber: 22631 },
     } : null,
     getReplayQueueLimit: () => 64,
-    writeInput: (sessionId: string, data: string) => {
-      calls.writeInput.push({ sessionId, data });
+    writeInput: (sessionId: string, data: string, metadata?: unknown) => {
+      calls.writeInput.push({ sessionId, data, metadata });
       return true;
     },
     resize: () => true,
@@ -3897,13 +3943,27 @@ function testWsRouterBlocksInputWhileReplayPending(): void {
   (router as any).handleSubscribe(ws, ['session-1']);
   const replayToken = String(sent[0].replayToken);
 
-  (router as any).handleInput(ws, 'session-1', 'blocked');
+  (router as any).handleInput(ws, 'session-1', '가\r', {
+    captureSeq: 5,
+    clientObservedByteLength: 4,
+    clientObservedHasHangul: true,
+    unsafe: 'raw-text',
+  });
   assert.deepEqual(calls.writeInput, []);
+  const blockedEvent = router.getObservabilitySnapshot().recentReplayEvents.find((event) => event.kind === 'input_blocked');
+  assert.equal(blockedEvent?.details?.captureSeq, 5);
+  assert.equal(blockedEvent?.details?.clientObservedByteLength, 4);
+  assert.equal(blockedEvent?.details?.byteLength, 4);
+  assert.equal(blockedEvent?.details?.hasHangul, true);
+  assert.equal(blockedEvent?.details?.hasEnter, true);
+  assert.equal(blockedEvent?.details?.inputClass, 'mixed-printable-control');
+  assert.equal((blockedEvent?.details as Record<string, unknown>)?.unsafe, undefined);
+  assert.doesNotMatch(JSON.stringify(blockedEvent), /가/);
 
   (router as any).handleScreenSnapshotReady(ws, 'session-1', replayToken);
   (router as any).handleInput(ws, 'session-1', 'allowed');
 
-  assert.deepEqual(calls.writeInput, [{ sessionId: 'session-1', data: 'allowed' }]);
+  assert.deepEqual(calls.writeInput, [{ sessionId: 'session-1', data: 'allowed', metadata: undefined }]);
   assert.equal(sent[sent.length - 1].type, 'session:ready');
 
   router.destroy();

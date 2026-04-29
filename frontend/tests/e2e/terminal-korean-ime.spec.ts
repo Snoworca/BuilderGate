@@ -4,12 +4,25 @@ import { login, waitForTerminal } from './helpers';
 type TerminalDebugEvent = {
   kind: string;
   details?: Record<string, unknown>;
+  preview?: string;
 };
 
 async function createFreshPowerShellWorkspace(page: Page, name: string) {
   return page.evaluate(async ({ workspaceName }) => {
     const token = localStorage.getItem('cws_auth_token');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const extractWorkspaceTimestamp = (name: string) => {
+      const match = name.match(/(?:PW-(?:IME|KEYS)|SwitchTarget|E2E Equal(?: Grid| Reorder)?|REAL DND|DBG Verify|ROOTCAUSE)[ -]?(\d+)/);
+      return match ? Number.parseInt(match[1], 10) : 0;
+    };
+    const isEvictableTestWorkspace = (name: string) =>
+      name.startsWith('PW-IME-')
+      || name.startsWith('PW-KEYS-')
+      || name.startsWith('E2E Equal ')
+      || name.startsWith('SwitchTarget-')
+      || name.startsWith('REAL DND ')
+      || name.startsWith('DBG Verify ')
+      || name.startsWith('ROOTCAUSE ');
 
     const createWorkspace = async () => fetch('/api/workspaces', {
       method: 'POST',
@@ -18,16 +31,18 @@ async function createFreshPowerShellWorkspace(page: Page, name: string) {
     });
 
     let res = await createWorkspace();
-    if (res.status === 409) {
+    for (let attempt = 0; res.status === 409 && attempt < 20; attempt += 1) {
       const stateRes = await fetch('/api/workspaces', { headers });
       if (!stateRes.ok) throw new Error(`workspace fetch failed: ${stateRes.status}`);
       const state = await stateRes.json();
-      const evictList = (state.workspaces as Array<{ id: string; name: string }>).filter(
-        (w) => w.name.startsWith('PW-IME-') || w.name.startsWith('PW-KEYS-'),
-      );
-      for (const workspace of evictList) {
-        await fetch(`/api/workspaces/${workspace.id}`, { method: 'DELETE', headers });
+      const evictCandidate = (state.workspaces as Array<{ id: string; name: string }>).filter(
+        (w) => isEvictableTestWorkspace(w.name),
+      ).sort((left, right) => extractWorkspaceTimestamp(left.name) - extractWorkspaceTimestamp(right.name))[0] ?? null;
+      if (!evictCandidate) {
+        break;
       }
+      const deleteRes = await fetch(`/api/workspaces/${evictCandidate.id}`, { method: 'DELETE', headers });
+      if (!deleteRes.ok && deleteRes.status !== 404) throw new Error(`workspace delete failed: ${deleteRes.status}`);
       res = await createWorkspace();
     }
     if (!res.ok) throw new Error(`workspace create failed: ${res.status}`);
@@ -134,6 +149,35 @@ async function exitKoreanComposition(page: Page, finalText: string) {
   }, finalText);
 }
 
+function assertNoRawInputDebugLeak(events: TerminalDebugEvent[], raw: string) {
+  const inputEvents = events.filter((event) => [
+    'helper_keydown',
+    'helper_beforeinput',
+    'helper_input',
+    'helper_compositionstart',
+    'helper_compositionupdate',
+    'helper_compositionend',
+    'xterm_data_emitted',
+    'ws_input_sent',
+    'manual_input_forwarded',
+    'key_event_observed',
+    'ime_guard_delegated',
+  ].includes(event.kind));
+
+  for (const event of inputEvents) {
+    expect(event.details?.code).toBeUndefined();
+    expect(event.details?.key).toBeUndefined();
+    for (const value of Object.values(event.details ?? {})) {
+      if (typeof value === 'string') {
+        expect(value).not.toContain(raw);
+      }
+    }
+    if (event.preview !== undefined) {
+      expect(event.preview).not.toContain(raw);
+    }
+  }
+}
+
 test.describe('Terminal Korean IME', () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop Chrome 전용 회귀 테스트');
@@ -158,7 +202,21 @@ test.describe('Terminal Korean IME', () => {
     const guardEvents = events.filter((e) => e.kind === 'ime_guard_delegated');
     expect(guardEvents.length, `ime_guard_delegated 이벤트가 기록되지 않음. events=${JSON.stringify(events.map((e) => e.kind))}`).toBeGreaterThan(0);
 
-    const manualSpace = events.filter((e) => e.kind === 'manual_input_forwarded' && e.details?.key === 'Space');
+    const compositionKinds = events
+      .filter((e) => String(e.kind).startsWith('helper_composition'))
+      .map((e) => e.kind);
+    expect(compositionKinds).toEqual(expect.arrayContaining([
+      'helper_compositionstart',
+      'helper_compositionupdate',
+      'helper_compositionend',
+    ]));
+    const compositionEvents = events.filter((e) => String(e.kind).startsWith('helper_composition'));
+    expect(compositionEvents.every((e) => typeof e.details?.compositionSeq === 'number')).toBe(true);
+    expect(compositionEvents.every((e) => e.details?.dataLength !== undefined)).toBe(true);
+    expect(JSON.stringify(compositionEvents)).not.toContain('이곳에서');
+    assertNoRawInputDebugLeak(events, '이곳에서');
+
+    const manualSpace = events.filter((e) => e.kind === 'manual_input_forwarded' && e.details?.keyCategory === 'space');
     expect(manualSpace.length, `race 중 수동 Space 경로가 호출됨: ${JSON.stringify(manualSpace)}`).toBe(0);
   });
 
@@ -176,9 +234,10 @@ test.describe('Terminal Korean IME', () => {
 
     const events = await getDebugEvents(page, sessionId!);
     const spaceForwarded = events.filter(
-      (e) => e.kind === 'manual_input_forwarded' && e.details?.key === 'Space',
+      (e) => e.kind === 'manual_input_forwarded' && e.details?.keyCategory === 'space',
     );
     expect(spaceForwarded.length, `영문 Space 회귀 (manual_input_forwarded 미기록): events=${JSON.stringify(events.map((e) => e.kind))}`).toBe(3);
+    expect(spaceForwarded.every((e) => e.details?.key === undefined && e.details?.safeKeyName == null)).toBe(true);
 
     const guardEvents = events.filter((e) => e.kind === 'ime_guard_delegated');
     expect(guardEvents.length, `IME 비활성인데 가드가 오작동: ${JSON.stringify(guardEvents)}`).toBe(0);
@@ -201,10 +260,11 @@ test.describe('Terminal Korean IME', () => {
     await page.waitForTimeout(300);
 
     const events = await getDebugEvents(page, sessionId!);
-    const guardEvents = events.filter((e) => e.kind === 'ime_guard_delegated' && e.details?.key === 'Backspace');
+    const guardEvents = events.filter((e) => e.kind === 'ime_guard_delegated' && e.details?.safeKeyName === 'Backspace');
     expect(guardEvents.length, `IME 조합 중 Backspace에 대해 가드 미작동: ${JSON.stringify(events.map((e) => e.kind))}`).toBeGreaterThan(0);
 
-    const manualBackspace = events.filter((e) => e.kind === 'manual_input_forwarded' && e.details?.key === 'Backspace');
+    const manualBackspace = events.filter((e) => e.kind === 'manual_input_forwarded' && e.details?.safeKeyName === 'Backspace');
     expect(manualBackspace.length, `IME 중 수동 Backspace 경로 호출됨: ${JSON.stringify(manualBackspace)}`).toBe(0);
+    assertNoRawInputDebugLeak(events, '안');
   });
 });

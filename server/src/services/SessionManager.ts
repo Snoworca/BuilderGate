@@ -20,11 +20,15 @@ import {
 import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 import type { WsRouter } from '../ws/WsRouter.js';
 import { OscDetector } from './OscDetector.js';
-import type { WindowsPtyBackend, WindowsPtyInfo } from '../types/ws-protocol.js';
+import type { InputDebugMetadata, WindowsPtyBackend, WindowsPtyInfo } from '../types/ws-protocol.js';
 import {
   normalizePtyConfigForPlatform,
   normalizeShellForPlatform,
 } from '../utils/ptyPlatformPolicy.js';
+import {
+  buildInputDebugDetails,
+  formatSafeInputPreview,
+} from '../utils/inputDebugMetadata.js';
 import {
   ForegroundAppDetectorRegistry,
   createInitialDerivedState,
@@ -859,11 +863,11 @@ export class SessionManager {
     this.debugCaptureBySession.delete(sessionId);
   }
 
-  writeInput(id: string, input: string): boolean {
+  writeInput(id: string, input: string, clientMetadata?: InputDebugMetadata): boolean {
     const data = this.sessions.get(id);
     if (!data) return false;
-    const inputDebugDetails = buildInputDebugDetails(input);
-    const shouldCaptureInputDebug = inputDebugDetails.safePreview === true || inputDebugDetails.hasEnter === true;
+    const inputDebugDetails = buildInputDebugDetails(input, clientMetadata);
+    const shouldCaptureInputDebug = this.isDebugCaptureEnabled(id);
     if (shouldCaptureInputDebug) {
       this.captureDebugEvent(id, 'pty', 'input', inputDebugDetails, formatSafeInputPreview(input) ?? undefined);
     }
@@ -2339,22 +2343,6 @@ function formatDebugPreview(raw: string): string {
     .replace(/\t/g, '\\t');
 }
 
-function formatSafeInputPreview(raw: string): string | null {
-  if (!/^[\x00-\x20\x7f]+$/.test(raw)) {
-    return null;
-  }
-
-  return raw
-    .slice(0, DEBUG_CAPTURE_PREVIEW_CHARS)
-    .replace(/ /g, '␠')
-    .replace(/\x7f/g, '\\x7f')
-    .replace(/\r/g, '\\r')
-    .replace(/\n/g, '\\n')
-    .replace(/\t/g, '\\t')
-    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, (match) => `\\x${match.charCodeAt(0).toString(16).padStart(2, '0')}`)
-    .replace(/\x1b/g, '\\x1b');
-}
-
 function formatWinptyProbeFailure(error: unknown): string {
   if (error && typeof error === 'object') {
     const childProcessError = error as {
@@ -2379,38 +2367,6 @@ function formatWinptyProbeFailure(error: unknown): string {
     }
   }
   return String(error);
-}
-
-function buildInputDebugDetails(raw: string): Record<string, SessionDebugCaptureValue> {
-  const safePreview = formatSafeInputPreview(raw);
-  const spaceCount = (raw.match(/ /g) ?? []).length;
-  const backspaceCount = (raw.match(/\x7f/g) ?? []).length;
-  const enterCount = (raw.match(/[\r\n]/g) ?? []).length;
-  const escapeCount = (raw.match(/\x1b/g) ?? []).length;
-  const controlCount = (raw.match(/[\x00-\x1f\x7f]/g) ?? []).length;
-  const printableCount = Math.max(0, raw.length - controlCount);
-
-  if (safePreview === null) {
-    return {
-      hasEnter: enterCount > 0,
-      inputClass: controlCount > 0 ? 'mixed-printable-control' : 'printable',
-      containsPrintable: printableCount > 0,
-      safePreview: false,
-    };
-  }
-
-  return {
-    byteLength: Buffer.byteLength(raw, 'utf8'),
-    hasEnter: enterCount > 0,
-    spaceCount,
-    backspaceCount,
-    enterCount,
-    escapeCount,
-    controlCount,
-    printableCount,
-    inputClass: 'safe-control',
-    safePreview: true,
-  };
 }
 
 function buildRawOutputDebugDetails(

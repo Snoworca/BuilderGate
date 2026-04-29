@@ -5,6 +5,18 @@ async function createFreshPowerShellWorkspace(page: Page, name: string) {
   return page.evaluate(async ({ workspaceName }) => {
     const token = localStorage.getItem('cws_auth_token');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const extractWorkspaceTimestamp = (name: string) => {
+      const match = name.match(/(?:PW-(?:KEYS|IME)|SwitchTarget|E2E Equal(?: Grid| Reorder)?|REAL DND|DBG Verify|ROOTCAUSE)[ -]?(\d+)/);
+      return match ? Number.parseInt(match[1], 10) : 0;
+    };
+    const isEvictableTestWorkspace = (name: string) =>
+      name.startsWith('PW-KEYS-')
+      || name.startsWith('PW-IME-')
+      || name.startsWith('E2E Equal ')
+      || name.startsWith('SwitchTarget-')
+      || name.startsWith('REAL DND ')
+      || name.startsWith('DBG Verify ')
+      || name.startsWith('ROOTCAUSE ');
 
     const createWorkspace = async () => {
       const response = await fetch('/api/workspaces', {
@@ -19,26 +31,28 @@ async function createFreshPowerShellWorkspace(page: Page, name: string) {
     };
 
     let createWorkspaceRes = await createWorkspace();
-    if (createWorkspaceRes.status === 409) {
+    for (let attempt = 0; createWorkspaceRes.status === 409 && attempt < 20; attempt += 1) {
       const stateRes = await fetch('/api/workspaces', { headers });
       if (!stateRes.ok) {
         throw new Error(`workspace fetch failed: ${stateRes.status}`);
       }
       const state = await stateRes.json();
-      const evictCandidate = state.workspaces.find(
-        (item: { name: string }) => item.name.startsWith('PW-KEYS-'),
-      ) ?? null;
+      const evictCandidate = state.workspaces
+        .filter((item: { name: string }) => isEvictableTestWorkspace(item.name))
+        .sort((left: { name: string }, right: { name: string }) => extractWorkspaceTimestamp(left.name) - extractWorkspaceTimestamp(right.name))[0] ?? null;
 
-      if (evictCandidate) {
-        const deleteRes = await fetch(`/api/workspaces/${evictCandidate.id}`, {
-          method: 'DELETE',
-          headers,
-        });
-        if (!deleteRes.ok) {
-          throw new Error(`workspace delete failed: ${deleteRes.status}`);
-        }
-        createWorkspaceRes = await createWorkspace();
+      if (!evictCandidate) {
+        break;
       }
+
+      const deleteRes = await fetch(`/api/workspaces/${evictCandidate.id}`, {
+        method: 'DELETE',
+        headers,
+      });
+      if (!deleteRes.ok && deleteRes.status !== 404) {
+        throw new Error(`workspace delete failed: ${deleteRes.status}`);
+      }
+      createWorkspaceRes = await createWorkspace();
     }
 
     if (!createWorkspaceRes.ok) {
@@ -207,12 +221,46 @@ async function dispatchRapidInvalidCommands(page: Page, count: number) {
   }
 }
 
+function assertNoRawInputDebugLeak(events: Array<{ kind: string; details?: Record<string, unknown>; preview?: string }>, raw: string) {
+  const inputEvents = events.filter((event) => [
+    'helper_keydown',
+    'helper_beforeinput',
+    'helper_input',
+    'xterm_data_emitted',
+    'xterm_data_dropped_not_ready',
+    'ws_input_sent',
+    'ws_input_dropped_not_ready',
+    'manual_input_forwarded',
+    'key_event_observed',
+    'ime_guard_delegated',
+  ].includes(event.kind));
+
+  for (const event of inputEvents) {
+    expect(event.details?.code).toBeUndefined();
+    expect(event.details?.key).toBeUndefined();
+    for (const value of Object.values(event.details ?? {})) {
+      if (typeof value === 'string') {
+        expect(value).not.toContain(raw);
+      }
+    }
+    if (event.preview !== undefined) {
+      expect(event.preview).not.toContain(raw);
+    }
+  }
+}
+
 test.describe('Terminal Keyboard Regressions', () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop-only regression coverage');
     await login(page);
     await waitForTerminal(page);
     await activateFreshPowerShellWorkspace(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await page.evaluate(() => {
+      window.__buildergateTerminalDebug?.setInputReliabilityMode(null);
+    }).catch(() => undefined);
   });
 
   test('TC-7201: repeated space auto-repeat events should visibly advance the prompt line', async ({ page }) => {
@@ -294,8 +342,13 @@ test.describe('Terminal Keyboard Regressions', () => {
     const sessionId = await getActiveSessionId(page);
     test.skip(!sessionId, 'Need an active session');
 
+    await page.evaluate(() => {
+      window.__buildergateTerminalDebug?.setInputReliabilityMode('queue');
+    });
     await startTerminalDebug(page, sessionId);
     await focusTerminalInput(page);
+    await page.keyboard.press('A');
+    await page.keyboard.press('Space');
     await page.keyboard.press('Enter');
 
     await expect.poll(async () => {
@@ -304,7 +357,9 @@ test.describe('Terminal Keyboard Regressions', () => {
     }, { timeout: 5000 }).toEqual(
       expect.arrayContaining([
         'capture_started',
-        'key_event_observed',
+        'helper_keydown',
+        'helper_beforeinput',
+        'helper_input',
         'xterm_data_emitted',
         'ws_input_sent',
       ]),
@@ -316,10 +371,16 @@ test.describe('Terminal Keyboard Regressions', () => {
     }, { timeout: 5000 }).not.toBeNull();
 
     const wsInputEvent = (await getTerminalDebugEvents(page, sessionId)).find(
-      (event) => event.kind === 'ws_input_sent',
+      (event) => event.kind === 'ws_input_sent' && event.details?.hasEnter === true,
     );
+    const captureStartedEvent = (await getTerminalDebugEvents(page, sessionId)).find(
+      (event) => event.kind === 'capture_started',
+    );
+    expect(captureStartedEvent?.details?.inputReliabilityMode).toBe('queue');
     expect(wsInputEvent?.details?.hasEnter).toBe(true);
     expect(wsInputEvent?.details?.enterCount).toBeGreaterThan(0);
+    expect(wsInputEvent?.details?.captureSeq).toEqual(expect.any(Number));
+    expect(wsInputEvent?.details?.byteLength).toBeGreaterThan(0);
 
     await expect.poll(async () => {
       const payload = await getServerDebugEvents(page, sessionId);
@@ -330,16 +391,36 @@ test.describe('Terminal Keyboard Regressions', () => {
 
     const serverEvents = (await getServerDebugEvents(page, sessionId)).server ?? [];
 
-    const inputIndex = serverEvents.findIndex((event: { kind: string }) => event.kind === 'input');
-    const rawOutputIndex = serverEvents.findIndex((event: { kind: string }) => event.kind === 'raw_output');
+    const inputIndex = serverEvents.findIndex(
+      (event: { kind: string; details?: Record<string, unknown> }) => event.kind === 'input' && event.details?.hasEnter === true,
+    );
+    const rawOutputIndex = serverEvents.findIndex((event: { kind: string }, index: number) => index > inputIndex && event.kind === 'raw_output');
     expect(inputIndex).toBeGreaterThanOrEqual(0);
     expect(rawOutputIndex).toBeGreaterThan(inputIndex);
 
     const inputEvent = serverEvents[inputIndex];
     const rawOutputEvent = serverEvents[rawOutputIndex];
     expect(inputEvent?.details?.hasEnter).toBe(true);
+    expect(inputEvent?.details?.captureSeq).toEqual(expect.any(Number));
+    expect(inputEvent?.details?.clientObservedByteLength).toEqual(expect.any(Number));
     expect(rawOutputEvent?.details?.recentInputSampleCount).toBeGreaterThanOrEqual(1);
     expect(rawOutputEvent?.details?.msSinceNewestInputSample).not.toBeNull();
+
+    const clientEvents = await getTerminalDebugEvents(page, sessionId);
+    const xtermIndex = clientEvents.findIndex((event) => event.kind === 'xterm_data_emitted');
+    const wsIndex = clientEvents.findIndex((event) => event.kind === 'ws_input_sent');
+    expect(xtermIndex).toBeGreaterThanOrEqual(0);
+    expect(wsIndex).toBeGreaterThan(xtermIndex);
+    assertNoRawInputDebugLeak(clientEvents, 'A');
+    assertNoRawInputDebugLeak(clientEvents, 'Space');
+    for (const event of serverEvents.filter((item: { kind: string }) => item.kind === 'input')) {
+      for (const value of Object.values(event.details ?? {})) {
+        if (typeof value === 'string') {
+          expect(value).not.toContain('A');
+        }
+      }
+      expect(event.preview ?? '').not.toContain('A');
+    }
   });
 
   test('TC-7205: rapid PowerShell A+Enter repeats should render sequential command-not-found output', async ({ page }) => {

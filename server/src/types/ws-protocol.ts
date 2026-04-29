@@ -8,11 +8,25 @@
 // Client → Server Messages
 // ============================================================================
 
+export type InputReliabilityMode = 'observe' | 'queue' | 'strict';
+
+export interface InputDebugMetadata {
+  captureSeq?: number;
+  compositionSeq?: number;
+  clientObservedByteLength?: number;
+  clientObservedCodePointCount?: number;
+  clientObservedGraphemeCount?: number;
+  clientObservedGraphemeApproximate?: boolean;
+  clientObservedHasHangul?: boolean;
+  clientObservedHasCjk?: boolean;
+  clientObservedHasEnter?: boolean;
+}
+
 export type ClientWsMessage =
   | { type: 'subscribe';   sessionIds: string[] }
   | { type: 'unsubscribe'; sessionIds: string[] }
   | { type: 'screen-snapshot:ready'; sessionId: string; replayToken: string }
-  | { type: 'input';       sessionId: string; data: string }
+  | { type: 'input';       sessionId: string; data: string; metadata?: InputDebugMetadata }
   | { type: 'repair-replay'; sessionId: string }
   | { type: 'resize';      sessionId: string; cols: number; rows: number }
   | { type: 'ping' };

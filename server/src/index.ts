@@ -21,6 +21,7 @@ import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
 import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
 import { config, getServerRoot } from './utils/config.js';
+import { inputReliabilityMode } from './utils/inputReliabilityMode.js';
 import { FileService } from './services/FileService.js';
 import { RuntimeConfigStore } from './services/RuntimeConfigStore.js';
 import { ConfigFileRepository } from './services/ConfigFileRepository.js';
@@ -228,6 +229,12 @@ function setupRoutes(): void {
       pid: process.pid,
       startAttemptId: DAEMON_START_ATTEMPT_ID,
       stateGeneration: Number.isInteger(DAEMON_STATE_GENERATION) ? DAEMON_STATE_GENERATION : null
+    });
+  });
+
+  app.get('/api/runtime-config', noCacheMiddleware, (_req, res) => {
+    res.json({
+      inputReliabilityMode,
     });
   });
 

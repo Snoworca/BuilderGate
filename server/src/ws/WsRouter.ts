@@ -19,7 +19,9 @@ import type {
   ReplayTelemetryEventInput,
   WsClientMeta,
   WsRouterObservabilitySnapshot,
+  InputDebugMetadata,
 } from '../types/ws-protocol.js';
+import { buildInputDebugDetails } from '../utils/inputDebugMetadata.js';
 
 const HEARTBEAT_INTERVAL = 30_000;
 const REPLAY_ACK_TIMEOUT_MS = 5_000;
@@ -125,7 +127,7 @@ export class WsRouter {
         this.handleScreenSnapshotReady(ws, msg.sessionId, msg.replayToken);
         break;
       case 'input':
-        this.handleInput(ws, msg.sessionId, msg.data);
+        this.handleInput(ws, msg.sessionId, msg.data, msg.metadata);
         break;
       case 'repair-replay':
         this.handleRepairReplay(ws, msg.sessionId);
@@ -281,7 +283,7 @@ export class WsRouter {
     });
   }
 
-  private handleInput(ws: WebSocket, sessionId: string, data: string): void {
+  private handleInput(ws: WebSocket, sessionId: string, data: string, metadata?: InputDebugMetadata): void {
     const meta = this.clients.get(ws);
     const pending = meta?.replayPendingSessions.get(sessionId);
     if (pending) {
@@ -291,12 +293,12 @@ export class WsRouter {
         replayToken: pending.replayToken,
         snapshotSeq: pending.snapshotSeq,
         details: {
-          inputBytes: data.length,
+          ...buildInputDebugDetails(data, metadata),
         },
       });
       return;
     }
-    this.sessionManager.writeInput(sessionId, data);
+    this.sessionManager.writeInput(sessionId, data, metadata);
   }
 
   private handleResize(_ws: WebSocket, sessionId: string, cols: number, rows: number): void {

@@ -5,10 +5,11 @@ import { TerminalView } from './TerminalView';
 import type { GridRepairReason, TerminalHandle } from './TerminalView';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import {
+  buildClientInputDebugMetadata,
   buildTerminalInputDebugPayload,
   recordTerminalDebugEvent,
-  shouldRecordTerminalInputDebug,
 } from '../../utils/terminalDebugCapture';
+import type { InputDebugMetadata } from '../../types/ws-protocol';
 
 interface Props {
   sessionId: string;
@@ -395,16 +396,17 @@ export const TerminalContainer = memo(
       return unsubscribe;
     }, [sessionId, subscribeSession]);
 
-    const handleInput = useCallback((data: string) => {
-      const debugInput = buildTerminalInputDebugPayload(data);
+    const handleInput = useCallback((data: string, metadata?: InputDebugMetadata) => {
+      const debugInput = buildTerminalInputDebugPayload(data, {
+        captureSeq: metadata?.captureSeq,
+        compositionSeq: metadata?.compositionSeq,
+      });
       if (!sessionReadyRef.current) {
         recordTerminalDebugEvent(sessionId, 'ws_input_dropped_not_ready', debugInput.details, debugInput.preview);
         return;
       }
-      if (shouldRecordTerminalInputDebug(debugInput)) {
-        recordTerminalDebugEvent(sessionId, 'ws_input_sent', debugInput.details, debugInput.preview);
-      }
-      send({ type: 'input', sessionId, data });
+      recordTerminalDebugEvent(sessionId, 'ws_input_sent', debugInput.details, debugInput.preview);
+      send({ type: 'input', sessionId, data, metadata: metadata ?? buildClientInputDebugMetadata(debugInput.details) });
     }, [sessionId, send]);
 
     const handleResize = useCallback((cols: number, rows: number) => {

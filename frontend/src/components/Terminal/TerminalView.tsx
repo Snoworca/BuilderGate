@@ -12,11 +12,13 @@ import {
   setTerminalSnapshotWithQuotaRecovery,
 } from '../../utils/terminalSnapshot';
 import {
+  buildClientInputDebugMetadata,
+  buildTerminalEventTapeDetails,
   buildTerminalInputDebugPayload,
+  isTerminalDebugCaptureEnabled,
   recordTerminalDebugEvent,
-  shouldRecordTerminalInputDebug,
 } from '../../utils/terminalDebugCapture';
-import type { WindowsPtyInfo } from '../../types/ws-protocol';
+import type { InputDebugMetadata, WindowsPtyInfo } from '../../types/ws-protocol';
 import '@xterm/xterm/css/xterm.css';
 import './TerminalView.css';
 
@@ -74,7 +76,7 @@ export type GridRepairReason = 'manual' | 'workspace';
 interface Props {
   sessionId: string;
   isVisible: boolean;
-  onInput: (data: string) => void;
+  onInput: (data: string, metadata?: InputDebugMetadata) => void;
   onResize: (cols: number, rows: number) => void;
   onManualRepair?: () => void;
 }
@@ -118,6 +120,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const suppressNextClickRef = useRef(false);
     // IME 조합 상태 추적: compositionend/keydown(Space) race condition 보조 신호
     const isComposingRef = useRef<boolean>(false);
+    const captureSeqRef = useRef(0);
+    const compositionSeqRef = useRef(0);
+    const activeCompositionSeqRef = useRef<number | null>(null);
     const { isMobile } = useResponsive();
 
     const getHelperTextarea = useCallback((): HTMLTextAreaElement | null => {
@@ -730,15 +735,15 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         });
       }),
       sendInput: (data: string) => {
+        const debugInput = buildTerminalInputDebugPayload(data);
         if (!inputReadyRef.current) {
-          const debugInput = buildTerminalInputDebugPayload(data);
           recordTerminalDebugEvent(sessionId, 'imperative_input_dropped_not_ready', {
             ...debugInput.details,
             restorePending: restorePendingRef.current,
           }, debugInput.preview);
           return;
         }
-        onInput(data);
+        onInput(data, buildClientInputDebugMetadata(debugInput.details));
       },
       restoreSnapshot: async () => {
         const term = xtermRef.current;
@@ -824,6 +829,43 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         helperTextarea.setAttribute('aria-label', 'Terminal input');
         helperTextarea.disabled = true;
       }
+      const nextCaptureSeq = () => {
+        captureSeqRef.current += 1;
+        return captureSeqRef.current;
+      };
+      const nextCompositionSeq = () => {
+        compositionSeqRef.current += 1;
+        activeCompositionSeqRef.current = compositionSeqRef.current;
+        return compositionSeqRef.current;
+      };
+      const buildInputCaptureState = () => {
+        const activeElement = document.activeElement;
+        return {
+          inputReady: inputReadyRef.current,
+          serverReady: serverReadyRef.current,
+          geometryReady: geometryReadyRef.current,
+          restorePending: restorePendingRef.current,
+          visible: isVisibleRef.current,
+          helperDisabled: helperTextarea?.disabled ?? false,
+          helperReadOnly: helperTextarea?.readOnly ?? false,
+          isComposing: isComposingRef.current,
+          activeElementIsHelper: activeElement === helperTextarea,
+        };
+      };
+      const recordHelperTape = (
+        kind: string,
+        event: KeyboardEvent | InputEvent | CompositionEvent,
+        sequence: { captureSeq?: number; compositionSeq?: number },
+      ) => {
+        if (!isTerminalDebugCaptureEnabled(sessionId)) {
+          return;
+        }
+        recordTerminalDebugEvent(
+          sessionId,
+          kind,
+          buildTerminalEventTapeDetails(event, sequence, buildInputCaptureState()),
+        );
+      };
       recordTerminalDebugEvent(sessionId, 'terminal_mounted');
       restorePendingRef.current = true;
       geometryReadyRef.current = false;
@@ -865,10 +907,16 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         // compositionend 직후 Space keydown이 같은 이벤트 루프에 도착해도 네이티브 xterm IME 처리에 위임한다.
         const imeActive = ev.isComposing || ev.keyCode === 229 || isComposingRef.current;
         if (imeActive) {
+          const isSafeSpaceKey = ev.key === ' ' || ev.key === 'Spacebar' || ev.code === 'Space';
+          const safeKeyName = isSafeSpaceKey
+            ? null
+            : ['Enter', 'Backspace', 'Tab', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown', 'Delete', 'Insert'].includes(ev.key)
+              ? ev.key
+              : null;
           recordTerminalDebugEvent(sessionId, 'ime_guard_delegated', {
-            key: ev.key,
-            code: ev.code,
-            keyCode: ev.keyCode,
+            safeKeyName,
+            keyCategory: isSafeSpaceKey ? 'space' : safeKeyName ? 'control-navigation' : 'other',
+            keyCode: ev.keyCode === 229 ? 229 : null,
             isComposing: ev.isComposing,
             refActive: isComposingRef.current,
           });
@@ -880,7 +928,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         const isEnterKey = ev.key === 'Enter';
         if (isPlainKey && (isSpaceKey || ev.key === 'Backspace' || isEnterKey)) {
           recordTerminalDebugEvent(sessionId, 'key_event_observed', {
-            key: isSpaceKey ? 'Space' : ev.key,
+            safeKeyName: isSpaceKey ? null : ev.key,
+            keyCategory: isSpaceKey ? 'space' : 'control-navigation',
             repeat: ev.repeat,
             inputReady: inputReadyRef.current,
             restorePending: restorePendingRef.current,
@@ -891,7 +940,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         if (isPlainKey && inputReadyRef.current && (isSpaceKey || ev.key === 'Backspace')) {
           const debugInput = buildTerminalInputDebugPayload(isSpaceKey ? ' ' : '\x7f');
           recordTerminalDebugEvent(sessionId, 'manual_input_forwarded', {
-            key: isSpaceKey ? 'Space' : 'Backspace',
+            safeKeyName: isSpaceKey ? null : 'Backspace',
+            keyCategory: isSpaceKey ? 'space' : 'control-navigation',
             repeat: ev.repeat,
             delegatedToXterm: true,
             ...debugInput.details,
@@ -902,7 +952,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           const debugInput = buildTerminalInputDebugPayload(' ');
           onInput(' ');
           recordTerminalDebugEvent(sessionId, 'manual_input_forwarded', {
-            key: 'Space',
+            keyCategory: 'space',
             repeat: ev.repeat,
             ...debugInput.details,
           }, debugInput.preview);
@@ -913,7 +963,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           const debugInput = buildTerminalInputDebugPayload('\x7f');
           onInput('\x7f');
           recordTerminalDebugEvent(sessionId, 'manual_input_forwarded', {
-            key: 'Backspace',
+            safeKeyName: 'Backspace',
+            keyCategory: 'control-navigation',
             repeat: ev.repeat,
             ...debugInput.details,
           }, debugInput.preview);
@@ -957,14 +1008,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       term.onData((data) => {
         if (data.length === 0) return;
         if (data === '\x1b[I' || data === '\x1b[O') return;
-        const debugInput = buildTerminalInputDebugPayload(data);
-        if (!shouldRecordTerminalInputDebug(debugInput)) {
-          if (!inputReadyRef.current) {
-            return;
-          }
-          onInput(data);
-          return;
-        }
+        const debugInput = buildTerminalInputDebugPayload(data, { captureSeq: nextCaptureSeq() });
         if (!inputReadyRef.current) {
           recordTerminalDebugEvent(sessionId, 'xterm_data_dropped_not_ready', {
             ...debugInput.details,
@@ -973,7 +1017,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           return;
         }
         recordTerminalDebugEvent(sessionId, 'xterm_data_emitted', debugInput.details, debugInput.preview);
-        onInput(data);
+        onInput(data, buildClientInputDebugMetadata(debugInput.details));
       });
 
       // Track terminal focus via DOM events (xterm v5 has no onFocus/onBlur API)
@@ -1028,16 +1072,43 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       // Helper textarea에 조합 상태를 별도로 기록한다.
       // compositionend는 한 tick 지연 해제하여 같은 turn의 Space keydown이 아직 조합 중으로 보이게 한다.
-      const onCompositionStart = () => {
-        isComposingRef.current = true;
+      const onHelperKeyDown = (event: KeyboardEvent) => {
+        recordHelperTape('helper_keydown', event, { captureSeq: nextCaptureSeq() });
       };
-      const onCompositionEnd = () => {
+      const onHelperBeforeInput = (event: Event) => {
+        if (event instanceof InputEvent) {
+          recordHelperTape('helper_beforeinput', event, { captureSeq: nextCaptureSeq() });
+        }
+      };
+      const onHelperInput = (event: Event) => {
+        if (event instanceof InputEvent) {
+          recordHelperTape('helper_input', event, { captureSeq: nextCaptureSeq() });
+        }
+      };
+      const onCompositionStart = (event: CompositionEvent) => {
+        isComposingRef.current = true;
+        recordHelperTape('helper_compositionstart', event, { compositionSeq: nextCompositionSeq() });
+      };
+      const onCompositionUpdate = (event: CompositionEvent) => {
+        const compositionSeq = activeCompositionSeqRef.current ?? nextCompositionSeq();
+        recordHelperTape('helper_compositionupdate', event, { compositionSeq });
+      };
+      const onCompositionEnd = (event: CompositionEvent) => {
+        const compositionSeq = activeCompositionSeqRef.current ?? nextCompositionSeq();
+        recordHelperTape('helper_compositionend', event, { compositionSeq });
         setTimeout(() => {
           isComposingRef.current = false;
+          if (activeCompositionSeqRef.current === compositionSeq) {
+            activeCompositionSeqRef.current = null;
+          }
         }, 0);
       };
       if (helperTextarea) {
+        helperTextarea.addEventListener('keydown', onHelperKeyDown);
+        helperTextarea.addEventListener('beforeinput', onHelperBeforeInput);
+        helperTextarea.addEventListener('input', onHelperInput);
         helperTextarea.addEventListener('compositionstart', onCompositionStart);
+        helperTextarea.addEventListener('compositionupdate', onCompositionUpdate);
         helperTextarea.addEventListener('compositionend', onCompositionEnd);
       }
 
@@ -1096,7 +1167,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         containerRef.current?.removeEventListener('mousedown', onMouseDownCapture, true);
         termEl.removeEventListener('paste', onPasteCapture, { capture: true });
         if (helperTextarea) {
+          helperTextarea.removeEventListener('keydown', onHelperKeyDown);
+          helperTextarea.removeEventListener('beforeinput', onHelperBeforeInput);
+          helperTextarea.removeEventListener('input', onHelperInput);
           helperTextarea.removeEventListener('compositionstart', onCompositionStart);
+          helperTextarea.removeEventListener('compositionupdate', onCompositionUpdate);
           helperTextarea.removeEventListener('compositionend', onCompositionEnd);
         }
         if (rafId !== null) cancelAnimationFrame(rafId);

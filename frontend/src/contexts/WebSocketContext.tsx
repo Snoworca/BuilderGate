@@ -12,6 +12,11 @@ import type { ReactNode } from 'react';
 import { tokenStorage } from '../services/tokenStorage';
 import { setWsClientId } from '../services/api';
 import type { ClientWsMessage, ScreenSnapshotMessage, ServerWsMessage } from '../types/ws-protocol';
+import { initializeInputReliabilityMode } from '../utils/inputReliabilityMode';
+import {
+  buildTerminalInputDebugPayload,
+  recordTerminalDebugEvent,
+} from '../utils/terminalDebugCapture';
 
 // ============================================================================
 // Types
@@ -340,6 +345,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   // ------ Lifecycle ------
   useEffect(() => {
     mountedRef.current = true;
+    void initializeInputReliabilityMode();
     connect();
 
     return () => {
@@ -364,8 +370,21 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(msg));
+      return;
     }
-  }, []);
+
+    if (msg.type === 'input') {
+      const debugInput = buildTerminalInputDebugPayload(msg.data, {
+        captureSeq: msg.metadata?.captureSeq,
+        compositionSeq: msg.metadata?.compositionSeq,
+      });
+      recordTerminalDebugEvent(msg.sessionId, 'ws_send_rejected_not_open', {
+        ...debugInput.details,
+        wsStatus: status,
+        readyState: ws?.readyState ?? null,
+      }, debugInput.preview);
+    }
+  }, [status]);
 
   const subscribeSession = useCallback((sessionId: string, handlers: SessionHandlers): (() => void) => {
     const pendingTimer = pendingUnsubscribeTimersRef.current.get(sessionId);
