@@ -430,10 +430,10 @@ function AppContent() {
 
         <main className="content">
           <div className="workspace-screen" style={{ display: screen === 'workspace' ? 'flex' : 'none', flexDirection: 'column', flex: 1 }}>
-            {wm.activeWorkspace && wm.activeWorkspaceTabs.length > 0 ? (
+            {wm.activeWorkspace ? (
               <>
                 {/* Tab Mode only — hide TabBar in Grid Mode */}
-                {(viewMode === 'tab' || isMobile) && <WorkspaceTabBar
+                {wm.activeWorkspaceTabs.length > 0 && (viewMode === 'tab' || isMobile) && <WorkspaceTabBar
                   tabs={wm.activeWorkspaceTabs}
                   activeTabId={wm.activeWorkspace.activeTabId}
                   totalSessionCount={wm.totalSessionCount}
@@ -456,7 +456,7 @@ function AppContent() {
                     onAuthError={handleAuthError}
                     onFitAll={handleFitAllTerminals}
                   >
-                    {(handleLayoutChange: () => void) => (
+                    {(handleLayoutChange: () => void) => wm.activeWorkspaceTabs.length > 0 ? (
                       <>
                   {viewMode === 'grid' && !isMobile ? (
                     <MosaicContainer
@@ -535,6 +535,8 @@ function AppContent() {
                   }
 
                       </>
+                    ) : (
+                      <EmptyState onAddTab={(shell) => handleAddTab(undefined, shell)} availableShells={availableShells} />
                     )}
                   </TerminalWorkspaceStage>
                 </TerminalRuntimeProvider>

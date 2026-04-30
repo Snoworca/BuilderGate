@@ -945,7 +945,14 @@ export const TerminalContainer = memo(
         recordTerminalDebugEvent(sessionId, 'grid_layout_repair_started', { reason });
         invalidateHostLayouts();
         await waitForRuntimeLayoutSettle();
-        await (terminalRef.current?.repairLayout(`grid-${reason}-repair`) ?? Promise.resolve());
+        const layoutRepaired = await (terminalRef.current?.repairLayout(`grid-${reason}-repair`) ?? Promise.resolve(false));
+        if (!layoutRepaired) {
+          recordTerminalDebugEvent(sessionId, 'grid_layout_repair_skipped', {
+            reason,
+            skipReason: 'ime-wait-cancelled-or-terminal-missing',
+          });
+          return;
+        }
         requestRepairReplay(reason);
       })();
 
@@ -965,11 +972,11 @@ export const TerminalContainer = memo(
       getSelection: () => terminalRef.current?.getSelection() ?? '',
       clearSelection: () => terminalRef.current?.clearSelection(),
       fit: () => terminalRef.current?.fit(),
-      repairLayout: (reason) => terminalRef.current?.repairLayout(reason) ?? Promise.resolve(),
+      repairLayout: (reason) => terminalRef.current?.repairLayout(reason) ?? Promise.resolve(false),
       requestGridRepair: (reason = 'manual') => runGridLayoutRepair(reason),
       sendInput: (data) => terminalRef.current?.sendInput(data),
       restoreSnapshot: () => terminalRef.current?.restoreSnapshot() ?? Promise.resolve(false),
-      replaceWithSnapshot: (data) => terminalRef.current?.replaceWithSnapshot(data) ?? Promise.resolve(),
+      replaceWithSnapshot: (data) => terminalRef.current?.replaceWithSnapshot(data) ?? Promise.resolve(false),
       releasePending: () => terminalRef.current?.releasePending(),
       setInputTransportState: (state) => terminalRef.current?.setInputTransportState(state),
       setServerReady: (ready) => terminalRef.current?.setServerReady(ready),
@@ -1113,12 +1120,19 @@ export const TerminalContainer = memo(
             });
           }
 
-          historySeenRef.current = true;
           terminalRef.current?.setWindowsPty(nextSnapshot.windowsPty);
 
           if (nextSnapshot.mode === 'fallback') {
             if (nextSnapshot.data.length > 0) {
-              await terminalRef.current?.replaceWithSnapshot(nextSnapshot.data);
+              const applied = await (terminalRef.current?.replaceWithSnapshot(nextSnapshot.data) ?? Promise.resolve(false));
+              if (!applied) {
+                recordTerminalDebugEvent(sessionId, 'screen_snapshot_apply_skipped', {
+                  seq: nextSnapshot.seq,
+                  mode: nextSnapshot.mode,
+                  reason: 'ime-wait-cancelled-or-terminal-missing',
+                });
+                continue;
+              }
               recordTerminalDebugEvent(sessionId, 'screen_snapshot_fallback_applied', {
                 seq: nextSnapshot.seq,
                 byteLength: nextSnapshot.data.length,
@@ -1126,7 +1140,15 @@ export const TerminalContainer = memo(
             } else {
               const restored = await terminalRef.current?.restoreSnapshot();
               if (!restored) {
-                await terminalRef.current?.replaceWithSnapshot(FALLBACK_EMPTY_MESSAGE);
+                const applied = await (terminalRef.current?.replaceWithSnapshot(FALLBACK_EMPTY_MESSAGE) ?? Promise.resolve(false));
+                if (!applied) {
+                  recordTerminalDebugEvent(sessionId, 'screen_snapshot_apply_skipped', {
+                    seq: nextSnapshot.seq,
+                    mode: nextSnapshot.mode,
+                    reason: 'fallback-placeholder-not-applied',
+                  });
+                  continue;
+                }
                 recordTerminalDebugEvent(sessionId, 'screen_snapshot_fallback_placeholder_applied', {
                   seq: nextSnapshot.seq,
                 }, FALLBACK_EMPTY_MESSAGE);
@@ -1137,13 +1159,22 @@ export const TerminalContainer = memo(
               }
             }
           } else {
-            await terminalRef.current?.replaceWithSnapshot(nextSnapshot.data);
+            const applied = await (terminalRef.current?.replaceWithSnapshot(nextSnapshot.data) ?? Promise.resolve(false));
+            if (!applied) {
+              recordTerminalDebugEvent(sessionId, 'screen_snapshot_apply_skipped', {
+                seq: nextSnapshot.seq,
+                mode: nextSnapshot.mode,
+                reason: 'ime-wait-cancelled-or-terminal-missing',
+              });
+              continue;
+            }
             recordTerminalDebugEvent(sessionId, 'screen_snapshot_authoritative_applied', {
               seq: nextSnapshot.seq,
               byteLength: nextSnapshot.data.length,
             }, nextSnapshot.data);
           }
 
+          historySeenRef.current = true;
           lastAppliedSnapshotRef.current = {
             seq: nextSnapshot.seq,
             mode: nextSnapshot.mode,

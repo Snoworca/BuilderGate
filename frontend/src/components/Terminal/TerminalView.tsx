@@ -17,9 +17,14 @@ import {
   buildTerminalInputDebugPayload,
   isTerminalDebugCaptureEnabled,
   registerInputTransportOverrideHandler,
+  registerTerminalRepairLayoutHandler,
   recordTerminalDebugEvent,
 } from '../../utils/terminalDebugCapture';
 import { getInputReliabilityMode } from '../../utils/inputReliabilityMode';
+import {
+  ImeTransaction,
+  type ImeDeferredKind,
+} from '../../utils/imeTransaction';
 import type {
   InputDebugMetadata,
   ReconnectState,
@@ -99,11 +104,11 @@ export interface TerminalHandle {
   getSelection: () => string;
   clearSelection: () => void;
   fit: () => void;
-  repairLayout: (reason?: string) => Promise<void>;
+  repairLayout: (reason?: string) => Promise<boolean>;
   requestGridRepair?: (reason?: GridRepairReason) => void;
   sendInput: (data: string) => void;
   restoreSnapshot: () => Promise<boolean>;
-  replaceWithSnapshot: (data: string) => Promise<void>;
+  replaceWithSnapshot: (data: string) => Promise<boolean>;
   releasePending: () => void;
   setInputTransportState: (state: TerminalInputTransportState) => void;
   setServerReady: (ready: boolean) => void;
@@ -179,9 +184,21 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     // IME 조합 상태 추적: compositionend/keydown(Space) race condition 보조 신호
     const isComposingRef = useRef<boolean>(false);
     const captureSeqRef = useRef(0);
-    const compositionSeqRef = useRef(0);
-    const activeCompositionSeqRef = useRef<number | null>(null);
+    const imeTransactionRef = useRef<ImeTransaction | null>(null);
     const { isMobile } = useResponsive();
+
+    if (!imeTransactionRef.current) {
+      imeTransactionRef.current = new ImeTransaction();
+    }
+    imeTransactionRef.current.configure({
+      getSessionGeneration: () => sessionGenerationRef.current,
+      onEvent: (kind, details) => {
+        recordTerminalDebugEvent(sessionId, kind, details);
+      },
+      onStateChange: (snapshot) => {
+        isComposingRef.current = snapshot.state !== 'idle';
+      },
+    });
 
     const getHelperTextarea = useCallback((): HTMLTextAreaElement | null => {
       const element = terminalRef.current?.querySelector('textarea.xterm-helper-textarea');
@@ -191,12 +208,6 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const nextCaptureSeq = useCallback(() => {
       captureSeqRef.current += 1;
       return captureSeqRef.current;
-    }, []);
-
-    const nextCompositionSeq = useCallback(() => {
-      compositionSeqRef.current += 1;
-      activeCompositionSeqRef.current = compositionSeqRef.current;
-      return compositionSeqRef.current;
     }, []);
 
     const getEffectiveTransportState = useCallback((): TerminalInputTransportState => {
@@ -581,9 +592,25 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const gate = computeInputGateSnapshot();
       const term = gate.term;
       const helperTextarea = getHelperTextarea();
+      const imeSnapshot = imeTransactionRef.current?.getSnapshot() ?? null;
+      const imeActive = imeSnapshot !== null && imeSnapshot.state !== 'idle';
+      const previousSessionGeneration = sessionGenerationRef.current;
+      const deferrableTransientBoundary =
+        imeActive
+        && gate.closedReason === 'none'
+        && gate.captureState === 'transient-blocked';
       serverReadyRef.current = gate.transportState.serverReady;
       reconnectStateRef.current = gate.transportState.reconnectState ?? 'disconnected';
       sessionGenerationRef.current = gate.transportState.sessionGeneration;
+      if (imeActive && previousSessionGeneration !== gate.transportState.sessionGeneration) {
+        imeTransactionRef.current?.dispose();
+        recordTerminalDebugEvent(sessionId, 'ime_transaction_cancelled', {
+          reason,
+          previousSessionGeneration,
+          currentSessionGeneration: gate.transportState.sessionGeneration,
+        });
+      }
+      const effectiveImeSnapshot = imeTransactionRef.current?.getSnapshot() ?? imeSnapshot;
       captureStateRef.current = gate.captureState;
       captureAllowedRef.current = gate.captureAllowed;
       transportReadyRef.current = gate.transportReady;
@@ -597,6 +624,17 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       if (helperTextarea) {
         helperTextarea.disabled = !gate.captureAllowed;
         helperTextarea.readOnly = false;
+      }
+
+      if (deferrableTransientBoundary) {
+        recordTerminalDebugEvent(sessionId, 'ime_capture_close_deferred', {
+          reason,
+          imeState: effectiveImeSnapshot?.state ?? 'idle',
+          compositionSeq: effectiveImeSnapshot?.compositionSeq ?? null,
+          sessionGeneration: effectiveImeSnapshot?.sessionGeneration ?? gate.transportState.sessionGeneration,
+          barrierReason: gate.barrierReason,
+          closedReason: gate.closedReason,
+        });
       }
 
       recordTerminalDebugEvent(sessionId, 'input_gate_synced', {
@@ -616,6 +654,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         helperDisabled: helperTextarea?.disabled ?? null,
         helperReadOnly: helperTextarea?.readOnly ?? null,
         disableStdin: term?.options.disableStdin ?? null,
+        imeState: effectiveImeSnapshot?.state ?? 'idle',
+        compositionSeq: effectiveImeSnapshot?.compositionSeq ?? null,
       });
 
       if (!gate.captureAllowed) {
@@ -641,6 +681,26 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       recordTerminalDebugEvent(sessionId, 'resize_emitted', { cols, rows, reason });
       onResize(cols, rows);
     }, [onResize, sessionId]);
+
+    const waitForImeIdle = useCallback(async (kind: ImeDeferredKind, reason: string): Promise<boolean> => {
+      const ime = imeTransactionRef.current;
+      if (!ime) {
+        return true;
+      }
+
+      const result = await ime.waitForIdle(kind, reason);
+      if (result.status === 'ready') {
+        return true;
+      }
+
+      recordTerminalDebugEvent(sessionId, 'ime_deferred_action_skipped', {
+        reason,
+        deferredKind: kind,
+        status: result.status,
+        sessionGeneration: sessionGenerationRef.current,
+      });
+      return false;
+    }, [sessionId]);
 
     const requestViewportSync = useCallback((term: Terminal, fitFirst = false) => {
       let attempts = 0;
@@ -674,6 +734,45 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       requestAnimationFrame(syncViewport);
     }, []);
+
+    const performRepairLayout = useCallback((reason = 'repair-layout') => new Promise<boolean>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const term = xtermRef.current;
+          const container = containerRef.current;
+          const fitAddon = fitAddonRef.current;
+          if (!term || !fitAddon || !isVisibleRef.current || !container || container.offsetWidth === 0 || container.offsetHeight === 0) {
+            recordTerminalDebugEvent(sessionId, 'fit_skipped_non_renderable', {
+              width: container?.offsetWidth ?? 0,
+                height: container?.offsetHeight ?? 0,
+                reason,
+              });
+            resolve(true);
+            return;
+          }
+
+          fitAddon.fit();
+          recordTerminalDebugEvent(sessionId, 'fit_completed', {
+            cols: term.cols,
+            rows: term.rows,
+            reason,
+          });
+          geometryReadyRef.current = true;
+          syncInputReadiness(reason);
+          emitResize(term.cols, term.rows, reason);
+          resolve(true);
+        });
+      });
+    }), [emitResize, sessionId, syncInputReadiness]);
+
+    const repairLayoutAfterIme = useCallback(async (reason = 'repair-layout') => {
+      const ready = await waitForImeIdle('repair', reason);
+      if (!ready) {
+        return false;
+      }
+
+      return performRepairLayout(reason);
+    }, [performRepairLayout, waitForImeIdle]);
 
     const handleFontSizeChange = useCallback((size: number) => {
       const term = xtermRef.current;
@@ -1049,10 +1148,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       });
     }, [loadStoredSnapshot, releaseRestorePending, clearStoredSnapshot, requestViewportSync]);
 
-    const replaceWithSnapshot = useCallback((data: string): Promise<void> => {
+    const applySnapshotReplacement = useCallback((data: string): Promise<boolean> => {
       const term = xtermRef.current;
       if (!term) {
-        return Promise.resolve();
+        return Promise.resolve(false);
       }
 
       queueFocusRestoreIfFocused('replace-start');
@@ -1063,7 +1162,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       term.reset();
 
       if (!data) {
-        return releaseRestorePending();
+        return releaseRestorePending().then(() => true);
       }
 
       return new Promise((resolve) => {
@@ -1071,11 +1170,36 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           lastSnapshotRef.current = data;
           void releaseRestorePending().then(() => {
             requestViewportSync(term, true);
-            resolve();
+            resolve(true);
           });
         });
       });
     }, [queueFocusRestoreIfFocused, releaseRestorePending, requestViewportSync, syncInputReadiness]);
+
+    const replaceWithSnapshot = useCallback(async (data: string): Promise<boolean> => {
+      const ready = await waitForImeIdle('snapshot', 'replace-with-snapshot');
+      if (!ready) {
+        return false;
+      }
+
+      return applySnapshotReplacement(data);
+    }, [applySnapshotReplacement, waitForImeIdle]);
+
+    const restoreSnapshotAfterIme = useCallback(async (): Promise<boolean> => {
+      const ready = await waitForImeIdle('snapshot', 'restore-snapshot');
+      if (!ready) {
+        return false;
+      }
+
+      const term = xtermRef.current;
+      if (!term) {
+        return false;
+      }
+      queueFocusRestoreIfFocused('restore-start');
+      restorePendingRef.current = true;
+      syncInputReadiness('restore-start');
+      return restoreStoredSnapshot(term);
+    }, [queueFocusRestoreIfFocused, restoreStoredSnapshot, syncInputReadiness, waitForImeIdle]);
 
     useImperativeHandle(ref, () => ({
       write: (data: string) => {
@@ -1107,49 +1231,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           fitAddonRef.current?.fit();
         });
       },
-      repairLayout: (reason = 'repair-layout') => new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            const term = xtermRef.current;
-            const container = containerRef.current;
-            const fitAddon = fitAddonRef.current;
-            if (!term || !fitAddon || !isVisibleRef.current || !container || container.offsetWidth === 0 || container.offsetHeight === 0) {
-              recordTerminalDebugEvent(sessionId, 'fit_skipped_non_renderable', {
-                width: container?.offsetWidth ?? 0,
-                height: container?.offsetHeight ?? 0,
-                reason,
-              });
-              resolve();
-              return;
-            }
-
-            fitAddon.fit();
-            recordTerminalDebugEvent(sessionId, 'fit_completed', {
-              cols: term.cols,
-              rows: term.rows,
-              reason,
-            });
-            geometryReadyRef.current = true;
-            syncInputReadiness(reason);
-            emitResize(term.cols, term.rows, reason);
-            resolve();
-          });
-        });
-      }),
+      repairLayout: (reason = 'repair-layout') => repairLayoutAfterIme(reason),
       sendInput: (data: string) => {
         const debugInput = buildTerminalInputDebugPayload(data, { captureSeq: nextCaptureSeq() });
         submitCapturedInput(data, debugInput, 'imperative');
       },
-      restoreSnapshot: async () => {
-        const term = xtermRef.current;
-        if (!term) {
-          return false;
-        }
-        queueFocusRestoreIfFocused('restore-start');
-        restorePendingRef.current = true;
-        syncInputReadiness('restore-start');
-        return restoreStoredSnapshot(term);
-      },
+      restoreSnapshot: () => restoreSnapshotAfterIme(),
       replaceWithSnapshot: (data: string) => replaceWithSnapshot(data),
       releasePending: () => {
         if (restorePendingRef.current) {
@@ -1183,15 +1270,14 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       },
     }), [
       writeOutput,
-      restoreStoredSnapshot,
+      restoreSnapshotAfterIme,
       replaceWithSnapshot,
       releaseRestorePending,
       focusTerminalInput,
       nextCaptureSeq,
-      queueFocusRestoreIfFocused,
+      repairLayoutAfterIme,
       submitCapturedInput,
       syncInputReadiness,
-      emitResize,
     ]);
 
     useEffect(() => {
@@ -1251,6 +1337,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       }
       const buildInputCaptureState = () => {
         const activeElement = document.activeElement;
+        const imeSnapshot = imeTransactionRef.current?.getSnapshot() ?? null;
         return {
           inputReady: inputReadyRef.current,
           transportReady: transportReadyRef.current,
@@ -1264,7 +1351,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           visible: isVisibleRef.current,
           helperDisabled: helperTextarea?.disabled ?? false,
           helperReadOnly: helperTextarea?.readOnly ?? false,
-          isComposing: isComposingRef.current,
+          isComposing: isComposingRef.current || (imeSnapshot?.state !== 'idle'),
+          imeState: imeSnapshot?.state ?? 'idle',
+          compositionSeq: imeSnapshot?.compositionSeq ?? null,
           activeElementIsHelper: activeElement === helperTextarea,
         };
       };
@@ -1328,7 +1417,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
         // IME 가드: ev.isComposing, keyCode 229, helper textarea composition 상태를 OR 판정한다.
         // compositionend 직후 Space keydown이 같은 이벤트 루프에 도착해도 네이티브 xterm IME 처리에 위임한다.
-        const imeActive = ev.isComposing || ev.keyCode === 229 || isComposingRef.current;
+        const imeSnapshot = imeTransactionRef.current?.getSnapshot() ?? null;
+        const imeActive = ev.isComposing || ev.keyCode === 229 || isComposingRef.current || (imeSnapshot?.state !== 'idle');
         if (imeActive) {
           const isSafeSpaceKey = ev.key === ' ' || ev.key === 'Spacebar' || ev.code === 'Space';
           const safeKeyName = isSafeSpaceKey
@@ -1342,6 +1432,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             keyCode: ev.keyCode === 229 ? 229 : null,
             isComposing: ev.isComposing,
             refActive: isComposingRef.current,
+            imeState: imeSnapshot?.state ?? 'idle',
+            compositionSeq: imeSnapshot?.compositionSeq ?? null,
           });
           return true;
         }
@@ -1409,7 +1501,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       term.onData((data) => {
         if (data.length === 0) return;
         if (data === '\x1b[I' || data === '\x1b[O') return;
-        const debugInput = buildTerminalInputDebugPayload(data, { captureSeq: nextCaptureSeq() });
+        const compositionSeq = imeTransactionRef.current?.observeXtermData();
+        const debugInput = buildTerminalInputDebugPayload(data, {
+          captureSeq: nextCaptureSeq(),
+          compositionSeq,
+        });
         submitCapturedInput(data, debugInput, 'xterm');
       });
 
@@ -1463,38 +1559,48 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const onPasteCapture = (e: Event) => { e.preventDefault(); };
       termEl.addEventListener('paste', onPasteCapture, { capture: true });
 
-      // Helper textarea에 조합 상태를 별도로 기록한다.
-      // compositionend는 한 tick 지연 해제하여 같은 turn의 Space keydown이 아직 조합 중으로 보이게 한다.
+      // Helper textarea IME event tape는 원문 없이 sequence/length metadata만 기록한다.
       const onHelperKeyDown = (event: KeyboardEvent) => {
         recordHelperTape('helper_keydown', event, { captureSeq: nextCaptureSeq() });
       };
       const onHelperBeforeInput = (event: Event) => {
         if (event instanceof InputEvent) {
-          recordHelperTape('helper_beforeinput', event, { captureSeq: nextCaptureSeq() });
+          const compositionSeq = imeTransactionRef.current?.observeBeforeInput(
+            event.inputType,
+            Array.from(event.data ?? '').length,
+          );
+          recordHelperTape('helper_beforeinput', event, {
+            captureSeq: nextCaptureSeq(),
+            compositionSeq,
+          });
         }
       };
       const onHelperInput = (event: Event) => {
         if (event instanceof InputEvent) {
-          recordHelperTape('helper_input', event, { captureSeq: nextCaptureSeq() });
+          const compositionSeq = imeTransactionRef.current?.observeInput(
+            event.inputType,
+            Array.from(event.data ?? '').length,
+          );
+          recordHelperTape('helper_input', event, {
+            captureSeq: nextCaptureSeq(),
+            compositionSeq,
+          });
         }
       };
       const onCompositionStart = (event: CompositionEvent) => {
+        const compositionSeq = imeTransactionRef.current?.beginComposition();
         isComposingRef.current = true;
-        recordHelperTape('helper_compositionstart', event, { compositionSeq: nextCompositionSeq() });
+        recordHelperTape('helper_compositionstart', event, { compositionSeq });
       };
       const onCompositionUpdate = (event: CompositionEvent) => {
-        const compositionSeq = activeCompositionSeqRef.current ?? nextCompositionSeq();
+        const compositionSeq = imeTransactionRef.current?.updateComposition();
         recordHelperTape('helper_compositionupdate', event, { compositionSeq });
       };
       const onCompositionEnd = (event: CompositionEvent) => {
-        const compositionSeq = activeCompositionSeqRef.current ?? nextCompositionSeq();
+        const compositionSeq = imeTransactionRef.current?.endComposition(
+          Array.from(event.data ?? '').length,
+        );
         recordHelperTape('helper_compositionend', event, { compositionSeq });
-        setTimeout(() => {
-          if (activeCompositionSeqRef.current === compositionSeq) {
-            isComposingRef.current = false;
-            activeCompositionSeqRef.current = null;
-          }
-        }, 0);
       };
       if (helperTextarea) {
         helperTextarea.addEventListener('keydown', onHelperKeyDown);
@@ -1507,6 +1613,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const unregisterInputTransportOverride = registerInputTransportOverrideHandler(sessionId, (override) => {
         inputTransportOverrideRef.current = override;
         syncInputReadiness(override ? 'debug-transport-override' : 'debug-transport-override-cleared');
+      });
+      const unregisterRepairLayoutHandler = registerTerminalRepairLayoutHandler(sessionId, (reason) => {
+        return repairLayoutAfterIme(reason);
       });
 
       // 우클릭 캡처: DOM selectionchange가 xterm 선택을 지우기 전에 선택 텍스트 저장
@@ -1564,6 +1673,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         containerRef.current?.removeEventListener('mousedown', onMouseDownCapture, true);
         termEl.removeEventListener('paste', onPasteCapture, { capture: true });
         unregisterInputTransportOverride();
+        unregisterRepairLayoutHandler();
         if (helperTextarea) {
           helperTextarea.removeEventListener('keydown', onHelperKeyDown);
           helperTextarea.removeEventListener('beforeinput', onHelperBeforeInput);
@@ -1585,6 +1695,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           clearTimeout(timer);
         }
         inputQueueExpiryTimersRef.current.clear();
+        imeTransactionRef.current?.dispose();
         rejectPendingInputQueue('context-changed', 'terminal-disposed');
         termEl.removeEventListener('focusin', onFocusIn);
         termEl.removeEventListener('focusout', onFocusOut);
@@ -1620,8 +1731,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       getInitialFontSize,
       getHelperTextarea,
       nextCaptureSeq,
-      nextCompositionSeq,
       persistBufferedOutput,
+      repairLayoutAfterIme,
       rejectPendingInputQueue,
       saveSnapshot,
       submitCapturedInput,

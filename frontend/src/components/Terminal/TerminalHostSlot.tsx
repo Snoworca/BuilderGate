@@ -25,6 +25,7 @@ export function TerminalHostSlot({
 }: TerminalHostSlotProps) {
   const hostId = useId();
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const rafMeasureRef = useRef<number | null>(null);
   const { rootRef, upsertHost, removeHost, layoutVersion } = useTerminalRuntimeContext();
 
   const measure = useCallback(() => {
@@ -55,9 +56,21 @@ export function TerminalHostSlot({
     );
   }, [className, hostId, isVisible, onContextMenu, onPointerDown, rootRef, style, tabId, upsertHost]);
 
+  const scheduleMeasure = useCallback(() => {
+    if (rafMeasureRef.current !== null) {
+      cancelAnimationFrame(rafMeasureRef.current);
+    }
+
+    rafMeasureRef.current = requestAnimationFrame(() => {
+      rafMeasureRef.current = null;
+      measure();
+    });
+  }, [measure]);
+
   useLayoutEffect(() => {
     measure();
-  }, [layoutVersion, measure]);
+    scheduleMeasure();
+  }, [layoutVersion, measure, scheduleMeasure]);
 
   useLayoutEffect(() => {
     const host = hostRef.current;
@@ -68,6 +81,7 @@ export function TerminalHostSlot({
 
     const resizeObserver = new ResizeObserver(() => {
       measure();
+      scheduleMeasure();
     });
 
     resizeObserver.observe(host);
@@ -80,10 +94,14 @@ export function TerminalHostSlot({
       window.removeEventListener('resize', measure);
       window.removeEventListener('scroll', measure, true);
     };
-  }, [measure, rootRef]);
+  }, [measure, rootRef, scheduleMeasure]);
 
   useLayoutEffect(() => {
     return () => {
+      if (rafMeasureRef.current !== null) {
+        cancelAnimationFrame(rafMeasureRef.current);
+        rafMeasureRef.current = null;
+      }
       removeHost(tabId, hostId);
     };
   }, [hostId, removeHost, tabId]);

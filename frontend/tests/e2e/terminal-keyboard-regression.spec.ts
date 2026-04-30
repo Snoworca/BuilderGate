@@ -287,6 +287,16 @@ function assertNoRawInputDebugLeak(events: Array<{ kind: string; details?: Recor
     'queued_input_flushed',
     'key_event_observed',
     'ime_guard_delegated',
+    'ime_state_changed',
+    'ime_capture_close_deferred',
+    'ime_repair_deferred',
+    'ime_commit_without_xterm_data',
+    'ime_fallback_observed',
+    'ime_settled',
+    'ime_deferred_action_cancelled',
+    'ime_deferred_action_retargeted',
+    'ime_deferred_action_skipped',
+    'ime_transaction_cancelled',
   ].includes(event.kind));
 
   for (const event of inputEvents) {

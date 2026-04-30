@@ -31,6 +31,8 @@ export interface TerminalInputCaptureState {
   helperDisabled: boolean;
   helperReadOnly: boolean;
   isComposing: boolean;
+  imeState?: string;
+  compositionSeq?: number | null;
   activeElementIsHelper: boolean;
 }
 
@@ -65,8 +67,10 @@ interface TerminalDebugStore {
   setInputReliabilityMode: (mode: InputReliabilityMode | null) => InputReliabilityMode;
   setInputTransportOverride: (sessionId: string, override: TerminalInputTransportOverride | null) => boolean;
   setNextWebSocketInputSendFailure: (override: DebugWebSocketSendFailureOverride | null) => boolean;
+  requestRepairLayout: (sessionId: string, reason?: string) => Promise<boolean>;
   inputTransportOverrideHandlers: Map<string, (override: TerminalInputTransportOverride | null) => void>;
   webSocketSendFailureHandlers: Set<(override: DebugWebSocketSendFailureOverride | null) => void>;
+  repairLayoutHandlers: Map<string, (reason: string) => Promise<boolean>>;
 }
 
 declare global {
@@ -185,8 +189,19 @@ function getStore(): TerminalDebugStore | null {
         }
         return true;
       },
+      async requestRepairLayout(sessionId: string, reason = 'debug-repair-layout') {
+        if (!isLocalTestHost()) {
+          return false;
+        }
+        const handler = this.repairLayoutHandlers.get(sessionId);
+        if (!handler) {
+          return false;
+        }
+        return await handler(reason);
+      },
       inputTransportOverrideHandlers: new Map<string, (override: TerminalInputTransportOverride | null) => void>(),
       webSocketSendFailureHandlers: new Set<(override: DebugWebSocketSendFailureOverride | null) => void>(),
+      repairLayoutHandlers: new Map<string, (reason: string) => Promise<boolean>>(),
     };
   }
 
@@ -222,6 +237,24 @@ export function registerWebSocketSendFailureHandler(
   store.webSocketSendFailureHandlers.add(handler);
   return () => {
     store.webSocketSendFailureHandlers.delete(handler);
+  };
+}
+
+export function registerTerminalRepairLayoutHandler(
+  sessionId: string,
+  handler: (reason: string) => Promise<boolean>,
+): () => void {
+  const store = getStore();
+  if (!store) {
+    return () => {};
+  }
+
+  store.repairLayoutHandlers.set(sessionId, handler);
+  return () => {
+    const current = store.repairLayoutHandlers.get(sessionId);
+    if (current === handler) {
+      store.repairLayoutHandlers.delete(sessionId);
+    }
   };
 }
 
@@ -361,6 +394,8 @@ export function buildTerminalEventTapeDetails(
     helperDisabled: state.helperDisabled,
     helperReadOnly: state.helperReadOnly,
     isComposingRef: state.isComposing,
+    imeState: state.imeState ?? null,
+    activeCompositionSeq: state.compositionSeq ?? null,
     activeElementIsHelper: state.activeElementIsHelper,
   };
 

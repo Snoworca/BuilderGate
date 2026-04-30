@@ -119,6 +119,26 @@ async function focusHelperTextarea(page: Page) {
   await input.click();
 }
 
+async function getVisibleInputSurfaceState(page: Page) {
+  return page.evaluate(() => {
+    const view = Array.from(document.querySelectorAll('.terminal-view')).find((node) => {
+      if (!(node instanceof HTMLElement)) return false;
+      const rect = node.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+    const helper = view?.querySelector('textarea.xterm-helper-textarea');
+    return helper instanceof HTMLTextAreaElement
+      ? { disabled: helper.disabled, readOnly: helper.readOnly }
+      : null;
+  });
+}
+
+async function setInputTransportOverride(page: Page, sessionId: string, override: Record<string, unknown> | null) {
+  return page.evaluate(({ targetSessionId, nextOverride }) => {
+    return (window as any).__buildergateTerminalDebug?.setInputTransportOverride(targetSessionId, nextOverride) ?? false;
+  }, { targetSessionId: sessionId, nextOverride: override });
+}
+
 function getActiveHelperTextareaSnippet() {
   return `
     (() => {
@@ -168,6 +188,16 @@ function assertNoRawInputDebugLeak(events: TerminalDebugEvent[], raw: string) {
     'queued_input_flushed',
     'key_event_observed',
     'ime_guard_delegated',
+    'ime_state_changed',
+    'ime_capture_close_deferred',
+    'ime_repair_deferred',
+    'ime_commit_without_xterm_data',
+    'ime_fallback_observed',
+    'ime_settled',
+    'ime_deferred_action_cancelled',
+    'ime_deferred_action_retargeted',
+    'ime_deferred_action_skipped',
+    'ime_transaction_cancelled',
   ].includes(event.kind));
 
   for (const event of inputEvents) {
@@ -272,5 +302,183 @@ test.describe('Terminal Korean IME', () => {
     const manualBackspace = events.filter((e) => e.kind === 'key_delegated_to_xterm' && e.details?.safeKeyName === 'Backspace');
     expect(manualBackspace.length, `IME 중 수동 Backspace 경로 호출됨: ${JSON.stringify(manualBackspace)}`).toBe(0);
     assertNoRawInputDebugLeak(events, '안');
+  });
+
+  test('TC-IME-04: IME 조합 중 transient capture close는 지연되고 fallback은 observe-only로만 기록된다', async ({ page }) => {
+    const sessionId = await getActiveSessionId(page);
+    test.skip(!sessionId, 'Active session required');
+    await startTerminalDebug(page, sessionId!);
+    await focusHelperTextarea(page);
+
+    await enterKoreanComposition(page);
+    expect(await setInputTransportOverride(page, sessionId!, {
+      serverReady: false,
+      barrierReason: 'repair-server-not-ready',
+      closedReason: 'none',
+      reconnectState: 'connected',
+    })).toBe(true);
+
+    await expect.poll(async () => {
+      const state = await getVisibleInputSurfaceState(page);
+      const events = await getDebugEvents(page, sessionId!);
+      return {
+        helperDisabled: state?.disabled,
+        helperReadOnly: state?.readOnly,
+        deferred: events.some((event) =>
+          event.kind === 'ime_capture_close_deferred'
+          && event.details?.barrierReason === 'repair-server-not-ready',
+        ),
+      };
+    }, { timeout: 5000 }).toMatchObject({
+      helperDisabled: false,
+      helperReadOnly: false,
+      deferred: true,
+    });
+
+    await page.evaluate((text) => {
+      const active = document.activeElement;
+      if (active instanceof HTMLTextAreaElement && active.classList.contains('xterm-helper-textarea')) {
+        active.dispatchEvent(new InputEvent('beforeinput', {
+          bubbles: true,
+          cancelable: true,
+          inputType: 'insertFromComposition',
+          data: text,
+        }));
+        active.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: text }));
+      }
+    }, '이곳에서');
+
+    await expect.poll(async () => {
+      const events = await getDebugEvents(page, sessionId!);
+      return {
+        committedWithoutXterm: events.some((event) => event.kind === 'ime_commit_without_xterm_data'),
+        fallbackObserved: events.some((event) =>
+          event.kind === 'ime_fallback_observed'
+          && event.details?.fallbackMode === 'observe-only',
+        ),
+        settled: events.some((event) => event.kind === 'ime_settled'),
+        fallbackSent: events.some((event) =>
+          event.kind === 'ws_input_sent'
+          && typeof event.details?.compositionSeq === 'number',
+        ),
+      };
+    }, { timeout: 5000 }).toMatchObject({
+      committedWithoutXterm: true,
+      fallbackObserved: true,
+      settled: true,
+      fallbackSent: false,
+    });
+
+    await setInputTransportOverride(page, sessionId!, null);
+    const events = await getDebugEvents(page, sessionId!);
+    assertNoRawInputDebugLeak(events, '이곳에서');
+  });
+
+  test('TC-IME-05: IME 조합 중 repair layout은 최신 composition settle 이후에만 실행된다', async ({ page }) => {
+    const sessionId = await getActiveSessionId(page);
+    test.skip(!sessionId, 'Active session required');
+    await startTerminalDebug(page, sessionId!);
+    await focusHelperTextarea(page);
+
+    await enterKoreanComposition(page);
+    const repairPromise = page.evaluate(async (id) => {
+      return await (window as any).__buildergateTerminalDebug?.requestRepairLayout(id, 'debug-ime-repair');
+    }, sessionId!);
+
+    await expect.poll(async () => {
+      const events = await getDebugEvents(page, sessionId!);
+      return events.some((event) =>
+        event.kind === 'ime_repair_deferred'
+        && event.details?.reason === 'debug-ime-repair',
+      );
+    }, { timeout: 5000 }).toBe(true);
+
+    await page.waitForTimeout(80);
+    let events = await getDebugEvents(page, sessionId!);
+    expect(events.some((event) =>
+      event.kind === 'fit_completed'
+      && event.details?.reason === 'debug-ime-repair',
+    )).toBe(false);
+
+    await exitKoreanComposition(page, '이곳에서');
+    await enterKoreanComposition(page);
+
+    await page.waitForTimeout(80);
+    events = await getDebugEvents(page, sessionId!);
+    expect(events.some((event) =>
+      event.kind === 'ime_deferred_action_retargeted'
+      && event.details?.deferredKind === 'repair',
+    )).toBe(true);
+    expect(events.some((event) =>
+      event.kind === 'fit_completed'
+      && event.details?.reason === 'debug-ime-repair',
+    )).toBe(false);
+
+    await exitKoreanComposition(page, '이곳에서');
+    await expect(await repairPromise).toBe(true);
+
+    await expect.poll(async () => {
+      events = await getDebugEvents(page, sessionId!);
+      const settledIndex = events.findIndex((event) => event.kind === 'ime_settled');
+      const repairIndex = events.findIndex((event) =>
+        event.kind === 'fit_completed'
+        && event.details?.reason === 'debug-ime-repair',
+      );
+      return {
+        settled: settledIndex >= 0,
+        repairAfterSettle: repairIndex > settledIndex && settledIndex >= 0,
+      };
+    }, { timeout: 5000 }).toMatchObject({
+      settled: true,
+      repairAfterSettle: true,
+    });
+
+    events = await getDebugEvents(page, sessionId!);
+    assertNoRawInputDebugLeak(events, '이곳에서');
+  });
+
+  test('TC-IME-06: compositionend 이후 xterm delayed textarea read는 fallback 없이 native commit으로 처리된다', async ({ page }) => {
+    const sessionId = await getActiveSessionId(page);
+    test.skip(!sessionId, 'Active session required');
+    await startTerminalDebug(page, sessionId!);
+    await focusHelperTextarea(page);
+
+    await page.evaluate(`(() => {
+      const ta = ${getActiveHelperTextareaSnippet()};
+      ta.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true, data: '' }));
+      ta.dispatchEvent(new CompositionEvent('compositionupdate', { bubbles: true, data: '한' }));
+      ta.value = '한';
+      ta.selectionStart = ta.value.length;
+      ta.selectionEnd = ta.value.length;
+      ta.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '한' }));
+    })()`);
+
+    await expect.poll(async () => {
+      const events = await getDebugEvents(page, sessionId!);
+      return {
+        xtermCommit: events.some((event) =>
+          event.kind === 'xterm_data_emitted'
+          && event.details?.hasHangul === true
+          && typeof event.details?.compositionSeq === 'number',
+        ),
+        wsCommit: events.some((event) =>
+          event.kind === 'ws_input_sent'
+          && event.details?.hasHangul === true
+          && typeof event.details?.compositionSeq === 'number',
+        ),
+        settled: events.some((event) => event.kind === 'ime_settled'),
+        committedWithoutXterm: events.some((event) => event.kind === 'ime_commit_without_xterm_data'),
+        fallbackObserved: events.some((event) => event.kind === 'ime_fallback_observed'),
+      };
+    }, { timeout: 5000 }).toMatchObject({
+      xtermCommit: true,
+      wsCommit: true,
+      settled: true,
+      committedWithoutXterm: false,
+      fallbackObserved: false,
+    });
+
+    const events = await getDebugEvents(page, sessionId!);
+    assertNoRawInputDebugLeak(events, '한');
   });
 });

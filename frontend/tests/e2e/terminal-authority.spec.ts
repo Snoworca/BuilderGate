@@ -28,11 +28,14 @@ async function createWorkspace(page: Page, name: string) {
   }, { name });
 }
 
+const EVICTABLE_TEST_WORKSPACE_PATTERN = /^AuthoritySource-|^Hidden-|^SwitchTarget-|^PW-(?:IME|KEYS|MOBILE-SCROLL)-|^E2E Equal |^E2E Away |^REAL DND |^DBG Verify |^DBG Equal |^ROOTCAUSE /;
+const TEST_WORKSPACE_TIMESTAMP_PATTERN = /(?:AuthoritySource-|Hidden-|SwitchTarget-|PW-(?:IME|KEYS|MOBILE-SCROLL)-|E2E Equal(?: Grid| Reorder)? |E2E Away |REAL DND |DBG Verify |DBG Equal |ROOTCAUSE )(\d+)/;
+
 async function getOrCreateHiddenWorkspace(page: Page, name: string) {
   try {
     return await createWorkspace(page, name);
   } catch {
-    await page.evaluate(async () => {
+    await page.evaluate(async ({ evictablePatternSource, timestampPatternSource }) => {
       const token = localStorage.getItem('cws_auth_token');
       const activeWorkspaceId = localStorage.getItem('active_workspace_id');
       const res = await fetch('/api/workspaces', {
@@ -40,9 +43,17 @@ async function getOrCreateHiddenWorkspace(page: Page, name: string) {
       });
       if (!res.ok) throw new Error(`workspace fetch failed: ${res.status}`);
       const state = await res.json();
-      const staleWorkspace = state.workspaces.find((item) =>
-        item.id !== activeWorkspaceId && /^Hidden-|^SwitchTarget-/.test(item.name),
-      ) ?? null;
+      const evictablePattern = new RegExp(evictablePatternSource);
+      const timestampPattern = new RegExp(timestampPatternSource);
+      const getTimestamp = (workspaceName: string) => {
+        const match = workspaceName.match(timestampPattern);
+        return match ? Number.parseInt(match[1], 10) : 0;
+      };
+      const staleWorkspace = state.workspaces
+        .filter((item: { id: string; name: string }) =>
+          item.id !== activeWorkspaceId && evictablePattern.test(item.name),
+        )
+        .sort((left: { name: string }, right: { name: string }) => getTimestamp(left.name) - getTimestamp(right.name))[0] ?? null;
       if (!staleWorkspace) {
         throw new Error('no stale workspace available for cleanup');
       }
@@ -52,6 +63,9 @@ async function getOrCreateHiddenWorkspace(page: Page, name: string) {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!deleteRes.ok) throw new Error(`workspace delete failed: ${deleteRes.status}`);
+    }, {
+      evictablePatternSource: EVICTABLE_TEST_WORKSPACE_PATTERN.source,
+      timestampPatternSource: TEST_WORKSPACE_TIMESTAMP_PATTERN.source,
     });
 
     return createWorkspace(page, name);
@@ -204,14 +218,16 @@ test.describe('Terminal Authority Regressions', () => {
   });
 
   test('TC-7103: rapid workspace bounce should preserve output generated during handoff', async ({ page }) => {
-    const state = await fetchWorkspaceState(page);
-    const activeWorkspaceId = await page.evaluate(() => localStorage.getItem('active_workspace_id'));
-    const sourceWorkspace = state.workspaces.find((item: { id: string }) => item.id === activeWorkspaceId) ?? state.workspaces[0];
+    const sourceWorkspaceName = `AuthoritySource-${Date.now()}`;
+    const sourceWorkspace = await getOrCreateHiddenWorkspace(page, sourceWorkspaceName);
 
-    test.skip(!sourceWorkspace, 'Need an active workspace');
+    await page.evaluate((sourceWorkspaceId) => {
+      localStorage.setItem('active_workspace_id', sourceWorkspaceId);
+    }, sourceWorkspace.id);
 
     const switchTargetName = `SwitchTarget-${Date.now()}`;
     const switchTarget = await getOrCreateHiddenWorkspace(page, switchTargetName);
+    await createTab(page, sourceWorkspace.id, 'auto');
     const marker = `BG-${Date.now()}`;
 
     await page.reload();

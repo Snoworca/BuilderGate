@@ -45,6 +45,9 @@ type TerminalDebugEvent = {
   details?: Record<string, string | number | boolean | null>;
 };
 
+const EVICTABLE_TEST_WORKSPACE_NAME_PATTERN = /^(AuthoritySource-|DiagSource-|DiagTarget-|Hidden-|SwitchTarget-|PW-(?:IME|KEYS|MOBILE-SCROLL)-|E2E Equal |E2E Away |REAL DND |DBG Verify |DBG Equal |ROOTCAUSE )/;
+const TEST_WORKSPACE_TIMESTAMP_PATTERN = /(?:AuthoritySource-|DiagSource-|DiagTarget-|Hidden-|SwitchTarget-|PW-(?:IME|KEYS|MOBILE-SCROLL)-|E2E Equal(?: Grid| Reorder)? |E2E Away |REAL DND |DBG Verify |DBG Equal |ROOTCAUSE )(\d+)/;
+
 declare global {
   interface Window {
     __buildergateCapturedWsMessages?: CapturedWsMessage[];
@@ -72,7 +75,7 @@ function extractLeafIds(node: unknown): string[] {
 }
 
 async function setupEqualGridWorkspace(page: Page, tabCount: number): Promise<WorkspaceSetup> {
-  return page.evaluate(async (count: number) => {
+  return page.evaluate(async ({ count, evictablePatternSource }: { count: number; evictablePatternSource: string }) => {
     type WorkspaceResponse = { id: string; name?: string };
     type TabResponse = { id: string; workspaceId: string };
     type WorkspaceStateResponse = {
@@ -145,11 +148,13 @@ async function setupEqualGridWorkspace(page: Page, tabCount: number): Promise<Wo
     };
 
     const initialState = await loadState();
+    const activeWorkspaceId = localStorage.getItem('active_workspace_id');
+    const evictablePattern = new RegExp(evictablePatternSource);
     for (const workspace of initialState.workspaces) {
       if (
-        !workspace.name?.startsWith('E2E Equal Reorder ')
-        && !workspace.name?.startsWith('E2E Away ')
-        && !workspace.name?.startsWith('DBG Equal ')
+        workspace.id === activeWorkspaceId
+        || !workspace.name
+        || !evictablePattern.test(workspace.name)
       ) {
         continue;
       }
@@ -211,29 +216,72 @@ async function setupEqualGridWorkspace(page: Page, tabCount: number): Promise<Wo
     }
 
     return { workspaceId: workspace.id, workspaceName: workspace.name ?? workspaceName, tabIds };
-  }, tabCount);
+  }, {
+    count: tabCount,
+    evictablePatternSource: EVICTABLE_TEST_WORKSPACE_NAME_PATTERN.source,
+  });
 }
 
 async function createAuxWorkspace(page: Page): Promise<{ id: string; name: string }> {
-  return page.evaluate(async () => {
+  return page.evaluate(async ({
+    evictablePatternSource,
+    timestampPatternSource,
+  }: {
+    evictablePatternSource: string;
+    timestampPatternSource: string;
+  }) => {
     const token = localStorage.getItem('cws_auth_token');
     if (!token) {
       throw new Error('Missing auth token');
     }
 
-    const res = await fetch('/api/workspaces', {
-      method: 'POST',
+    const request = async (input: string, init: RequestInit = {}): Promise<Response> => fetch(input, {
+      ...init,
       headers: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(init.headers ?? {}),
       },
+    });
+    const createWorkspace = () => request('/api/workspaces', {
+      method: 'POST',
       body: JSON.stringify({ name: `E2E Away ${Date.now().toString().slice(-8)}` }),
     });
+
+    let res = await createWorkspace();
+    if (res.status === 409) {
+      const stateRes = await request('/api/workspaces');
+      if (!stateRes.ok) {
+        throw new Error(`Failed to load workspaces for cleanup: ${stateRes.status}`);
+      }
+      const state = await stateRes.json();
+      const activeWorkspaceId = localStorage.getItem('active_workspace_id');
+      const evictablePattern = new RegExp(evictablePatternSource);
+      const timestampPattern = new RegExp(timestampPatternSource);
+      const timestampOf = (name: string) => {
+        const match = name.match(timestampPattern);
+        return match ? Number.parseInt(match[1], 10) : 0;
+      };
+      const staleWorkspace = (state.workspaces as Array<{ id: string; name?: string }>).filter(
+        (workspace) => workspace.id !== activeWorkspaceId && workspace.name && evictablePattern.test(workspace.name),
+      ).sort((left, right) => timestampOf(left.name ?? '') - timestampOf(right.name ?? ''))[0] ?? null;
+      if (staleWorkspace) {
+        const deleteRes = await request(`/api/workspaces/${staleWorkspace.id}`, { method: 'DELETE' });
+        if (!deleteRes.ok && deleteRes.status !== 404) {
+          throw new Error(`Failed to delete stale workspace: ${deleteRes.status}`);
+        }
+        res = await createWorkspace();
+      }
+    }
+
     if (!res.ok) {
       throw new Error(`Failed to create auxiliary workspace: ${res.status}`);
     }
 
     return res.json() as Promise<{ id: string; name: string }>;
+  }, {
+    evictablePatternSource: EVICTABLE_TEST_WORKSPACE_NAME_PATTERN.source,
+    timestampPatternSource: TEST_WORKSPACE_TIMESTAMP_PATTERN.source,
   });
 }
 
@@ -1178,6 +1226,7 @@ test.describe('Grid Equal Mode Reorder', () => {
     await enableTerminalDebugCapture(page);
     await expect.poll(async () => hasTerminalDebugEvent(page, 'input_gate_synced', { inputReady: true }), { timeout: 30000 }).toBe(true);
 
+    await page.waitForTimeout(500);
     await sendVisibleTerminalCommand(page, `echo TC6616-${Date.now()}`);
     await expectFocusedGridTerminal(page);
     await clearWsMessageCapture(page);
@@ -1245,6 +1294,7 @@ test.describe('Grid Equal Mode Reorder', () => {
     await enableTerminalDebugCapture(page);
     await expect.poll(async () => hasTerminalDebugEvent(page, 'input_gate_synced', { inputReady: true }), { timeout: 30000 }).toBe(true);
 
+    await page.waitForTimeout(500);
     await clearWsMessageCapture(page);
     await clearTerminalDebugCapture(page);
     await sendVisibleTerminalCommand(

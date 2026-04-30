@@ -169,5 +169,60 @@
       "review_agents": 1,
       "result": "No findings"
     }
+  },
+  {
+    "step": "phase-5-implementation",
+    "status": "completed",
+    "completed_at": "2026-04-30",
+    "scope": "ime-transaction-and-repair-deferral",
+    "tests": [
+      "npm --prefix frontend run build",
+      "npm --prefix server run build",
+      "npm --prefix server run test",
+      "node --import ./server/node_modules/tsx/dist/loader.mjs --test ./frontend/tests/unit/imeTransaction.test.ts",
+      "node --import ./server/node_modules/tsx/dist/loader.mjs --test ./frontend/tests/unit/terminalInputSequencer.test.ts",
+      "npx playwright test tests/e2e/terminal-korean-ime.spec.ts --project=\"Desktop Chrome\" --workers=1",
+      "npx playwright test tests/e2e/terminal-keyboard-regression.spec.ts --project=\"Desktop Chrome\" --workers=1",
+      "npx playwright test tests/e2e/terminal-paste.spec.ts --project=\"Desktop Chrome\" --workers=1",
+      "npm run test:docs",
+      "git diff --check"
+    ],
+    "manual_validation": {
+      "windows_korean_ime_10x": "pending-phase-6"
+    },
+    "review": {
+      "review_agents": 1,
+      "result": "No findings"
+    }
+  },
+  {
+    "step": "phase-6-automated-regression",
+    "status": "completed",
+    "completed_at": "2026-04-30",
+    "scope": "regression-manual-validation-and-rollout",
+    "tests": [
+      "npm --prefix server run test",
+      "npm --prefix frontend run build",
+      "node --import ./server/node_modules/tsx/dist/loader.mjs --test ./frontend/tests/unit/imeTransaction.test.ts",
+      "node --import ./server/node_modules/tsx/dist/loader.mjs --test ./frontend/tests/unit/terminalInputSequencer.test.ts",
+      "npm run test:docs",
+      "npx playwright test tests/e2e/terminal-korean-ime.spec.ts --project=\"Desktop Chrome\" --workers=1",
+      "npx playwright test tests/e2e/terminal-keyboard-regression.spec.ts --project=\"Desktop Chrome\" --workers=1",
+      "npx playwright test tests/e2e/terminal-paste.spec.ts --project=\"Desktop Chrome\" --workers=1",
+      "npx playwright test tests/e2e/terminal-authority.spec.ts --project=\"Desktop Chrome\" --workers=1",
+      "npx playwright test tests/e2e/grid-equal-mode.spec.ts --project=\"Desktop Chrome\" --workers=1"
+    ],
+    "manual_validation": {
+      "windows_korean_ime_native": "pending-user-manual-release-gate"
+    },
+    "rollout": {
+      "default_mode": "observe",
+      "queue_default_promotion": "blocked-until-manual-ime-pass"
+    },
+    "review": {
+      "review_agents": 1,
+      "first_result": "Medium finding fixed: protect TC-7103 source workspace from test cleanup before switch target creation",
+      "result": "No findings"
+    }
   }
 ]
