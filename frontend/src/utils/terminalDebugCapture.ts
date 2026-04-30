@@ -43,6 +43,13 @@ export interface TerminalClientDebugEvent {
   preview?: string;
 }
 
+export type DebugWebSocketSendFailureReason = 'not-open' | 'missing-token' | 'stale-socket';
+
+export interface DebugWebSocketSendFailureOverride {
+  reason: DebugWebSocketSendFailureReason;
+  count?: number;
+}
+
 interface TerminalDebugStore {
   events: TerminalClientDebugEvent[];
   enabledAll: boolean;
@@ -57,7 +64,9 @@ interface TerminalDebugStore {
   getInputReliabilityMode: () => InputReliabilityMode;
   setInputReliabilityMode: (mode: InputReliabilityMode | null) => InputReliabilityMode;
   setInputTransportOverride: (sessionId: string, override: TerminalInputTransportOverride | null) => boolean;
+  setNextWebSocketInputSendFailure: (override: DebugWebSocketSendFailureOverride | null) => boolean;
   inputTransportOverrideHandlers: Map<string, (override: TerminalInputTransportOverride | null) => void>;
+  webSocketSendFailureHandlers: Set<(override: DebugWebSocketSendFailureOverride | null) => void>;
 }
 
 declare global {
@@ -167,7 +176,17 @@ function getStore(): TerminalDebugStore | null {
         handler(override);
         return true;
       },
+      setNextWebSocketInputSendFailure(override: DebugWebSocketSendFailureOverride | null) {
+        if (!isLocalTestHost()) {
+          return false;
+        }
+        for (const handler of this.webSocketSendFailureHandlers) {
+          handler(override);
+        }
+        return true;
+      },
       inputTransportOverrideHandlers: new Map<string, (override: TerminalInputTransportOverride | null) => void>(),
+      webSocketSendFailureHandlers: new Set<(override: DebugWebSocketSendFailureOverride | null) => void>(),
     };
   }
 
@@ -189,6 +208,20 @@ export function registerInputTransportOverrideHandler(
     if (current === handler) {
       store.inputTransportOverrideHandlers.delete(sessionId);
     }
+  };
+}
+
+export function registerWebSocketSendFailureHandler(
+  handler: (override: DebugWebSocketSendFailureOverride | null) => void,
+): () => void {
+  const store = getStore();
+  if (!store) {
+    return () => {};
+  }
+
+  store.webSocketSendFailureHandlers.add(handler);
+  return () => {
+    store.webSocketSendFailureHandlers.delete(handler);
   };
 }
 

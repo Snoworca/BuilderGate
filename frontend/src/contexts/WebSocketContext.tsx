@@ -15,7 +15,9 @@ import type { ClientWsMessage, ScreenSnapshotMessage, ServerWsMessage } from '..
 import { initializeInputReliabilityMode } from '../utils/inputReliabilityMode';
 import {
   buildTerminalInputDebugPayload,
+  registerWebSocketSendFailureHandler,
   recordTerminalDebugEvent,
+  type DebugWebSocketSendFailureOverride,
 } from '../utils/terminalDebugCapture';
 
 // ============================================================================
@@ -23,6 +25,10 @@ import {
 // ============================================================================
 
 export type WsConnectionStatus = 'connected' | 'reconnecting' | 'disconnected';
+
+export type SendResult =
+  | { ok: true }
+  | { ok: false; reason: 'not-open' | 'missing-token' | 'stale-socket' };
 
 export interface SessionHandlers {
   onScreenSnapshot?: (snapshot: ScreenSnapshotMessage) => void;
@@ -49,7 +55,7 @@ export type WorkspaceEventHandler = (data: unknown) => void;
 export interface WebSocketContextValue {
   status: WsConnectionStatus;
   clientId: string | null;
-  send: (msg: ClientWsMessage) => void;
+  send: (msg: ClientWsMessage) => SendResult;
   subscribeSession: (sessionId: string, handlers: SessionHandlers) => () => void;
   setWorkspaceHandlers: (handlers: Record<string, WorkspaceEventHandler>) => void;
 }
@@ -60,7 +66,7 @@ export interface WebSocketStateValue {
 }
 
 export interface WebSocketActionsValue {
-  send: (msg: ClientWsMessage) => void;
+  send: (msg: ClientWsMessage) => SendResult;
   subscribeSession: (sessionId: string, handlers: SessionHandlers) => () => void;
   setWorkspaceHandlers: (handlers: Record<string, WorkspaceEventHandler>) => void;
 }
@@ -103,6 +109,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const attemptReconnectRef = useRef<() => void>(() => {});
   const sessionHandlersRef = useRef<Map<string, SessionHandlers>>(new Map());
   const workspaceHandlersRef = useRef<Record<string, WorkspaceEventHandler>>({});
+  const debugSendFailureOverrideRef = useRef<Required<DebugWebSocketSendFailureOverride> | null>(null);
   const activeSubscriptionsRef = useRef<Set<string>>(new Set());
   const pendingUnsubscribeTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const graceBufferedSessionsRef = useRef<Map<string, GraceBufferedSessionState>>(new Map());
@@ -361,6 +368,17 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     attemptReconnectRef.current = attemptReconnect;
   }, [attemptReconnect]);
 
+  useEffect(() => {
+    return registerWebSocketSendFailureHandler((override) => {
+      debugSendFailureOverrideRef.current = override
+        ? {
+            reason: override.reason,
+            count: Math.max(1, override.count ?? 1),
+          }
+        : null;
+    });
+  }, []);
+
   // ------ Lifecycle ------
   useEffect(() => {
     mountedRef.current = true;
@@ -385,13 +403,53 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   }, [connect]);
 
   // ------ Public API ------
-  const send = useCallback((msg: ClientWsMessage) => {
+  const send = useCallback((msg: ClientWsMessage): SendResult => {
+    const debugOverride = debugSendFailureOverrideRef.current;
+    if (msg.type === 'input' && debugOverride && debugOverride.count > 0) {
+      debugOverride.count -= 1;
+      if (debugOverride.count <= 0) {
+        debugSendFailureOverrideRef.current = null;
+      }
+      const debugInput = buildTerminalInputDebugPayload(msg.data, {
+        captureSeq: msg.metadata?.captureSeq,
+        compositionSeq: msg.metadata?.compositionSeq,
+      });
+      recordTerminalDebugEvent(msg.sessionId, 'ws_send_debug_failure_forced', {
+        ...debugInput.details,
+        inputSeqStart: msg.inputSeqStart ?? null,
+        inputSeqEnd: msg.inputSeqEnd ?? null,
+        sendResultReason: debugOverride.reason,
+        wsStatus: status,
+      }, debugInput.preview);
+      return { ok: false, reason: debugOverride.reason };
+    }
+
+    const token = tokenStorage.getToken();
+    if (!token) {
+      if (msg.type === 'input') {
+        const debugInput = buildTerminalInputDebugPayload(msg.data, {
+          captureSeq: msg.metadata?.captureSeq,
+          compositionSeq: msg.metadata?.compositionSeq,
+        });
+        recordTerminalDebugEvent(msg.sessionId, 'ws_send_rejected_missing_token', {
+          ...debugInput.details,
+          inputSeqStart: msg.inputSeqStart ?? null,
+          inputSeqEnd: msg.inputSeqEnd ?? null,
+          wsStatus: status,
+        }, debugInput.preview);
+      }
+      return { ok: false, reason: 'missing-token' };
+    }
+
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(msg));
-      return;
+      return { ok: true };
     }
 
+    const reason = ws && (ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED)
+      ? 'stale-socket'
+      : 'not-open';
     if (msg.type === 'input') {
       const debugInput = buildTerminalInputDebugPayload(msg.data, {
         captureSeq: msg.metadata?.captureSeq,
@@ -399,10 +457,14 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       });
       recordTerminalDebugEvent(msg.sessionId, 'ws_send_rejected_not_open', {
         ...debugInput.details,
+        inputSeqStart: msg.inputSeqStart ?? null,
+        inputSeqEnd: msg.inputSeqEnd ?? null,
+        sendResultReason: reason,
         wsStatus: status,
         readyState: ws?.readyState ?? null,
       }, debugInput.preview);
     }
+    return { ok: false, reason };
   }, [status]);
 
   const subscribeSession = useCallback((sessionId: string, handlers: SessionHandlers): (() => void) => {

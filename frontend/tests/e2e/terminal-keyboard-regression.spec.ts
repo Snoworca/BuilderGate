@@ -137,6 +137,19 @@ async function setInputTransportOverride(
   }, { targetSessionId: sessionId, nextOverride: override });
 }
 
+async function setNextWebSocketInputSendFailure(
+  page: Page,
+  reason: 'not-open' | 'missing-token' | 'stale-socket',
+  count = 1,
+) {
+  return page.evaluate(({ failureReason, failureCount }) => {
+    return window.__buildergateTerminalDebug?.setNextWebSocketInputSendFailure({
+      reason: failureReason,
+      count: failureCount,
+    }) ?? false;
+  }, { failureReason: reason, failureCount: count });
+}
+
 async function getVisibleInputSurfaceState(page: Page) {
   return page.evaluate(() => {
     const view = Array.from(document.querySelectorAll('.terminal-view')).find((node) => {
@@ -261,6 +274,16 @@ function assertNoRawInputDebugLeak(events: Array<{ kind: string; details?: Recor
     'terminal_input_would_reject',
     'terminal_input_queued',
     'terminal_input_rejected',
+    'terminal_input_sequencer_received',
+    'ws_send_debug_failure_forced',
+    'ws_send_rejected_not_open',
+    'ws_send_rejected_missing_token',
+    'transport_input_would_queue',
+    'transport_input_would_reject',
+    'transport_input_queued',
+    'transport_input_rejected',
+    'transport_input_queue_overflow',
+    'transport_input_flushed',
     'queued_input_flushed',
     'key_event_observed',
     'ime_guard_delegated',
@@ -295,6 +318,7 @@ test.describe('Terminal Keyboard Regressions', () => {
       for (const event of events) {
         window.__buildergateTerminalDebug?.setInputTransportOverride(event.sessionId, null);
       }
+      window.__buildergateTerminalDebug?.setNextWebSocketInputSendFailure(null);
     }).catch(() => undefined);
   });
 
@@ -509,6 +533,151 @@ test.describe('Terminal Keyboard Regressions', () => {
     });
   });
 
+  test('TC-7210: printable input is coalesced while Enter remains an ordered boundary', async ({ page }) => {
+    const sessionId = await getActiveSessionId(page);
+    test.skip(!sessionId, 'Need an active session');
+
+    await startTerminalDebug(page, sessionId);
+    await focusTerminalInput(page);
+    await page.keyboard.type('abc', { delay: 0 });
+    await page.keyboard.press('Enter');
+
+    await expect.poll(async () => {
+      const events = await getTerminalDebugEvents(page, sessionId);
+      const sent = events.filter((event) => event.kind === 'ws_input_sent');
+      const printable = sent.find((event) =>
+        event.details?.hasEnter === false
+        && typeof event.details?.inputSeqStart === 'number'
+        && typeof event.details?.inputSeqEnd === 'number'
+        && event.details.inputSeqEnd > event.details.inputSeqStart
+        && event.details.logicalChunkCount === 3,
+      );
+      const enter = sent.find((event) =>
+        event.details?.hasEnter === true
+        && typeof event.details?.inputSeqStart === 'number'
+        && printable
+        && event.details.inputSeqStart === Number(printable.details?.inputSeqEnd) + 1,
+      );
+      return {
+        printableRange: printable
+          ? [printable.details?.inputSeqStart, printable.details?.inputSeqEnd]
+          : null,
+        enterSeq: enter?.details?.inputSeqStart ?? null,
+      };
+    }, { timeout: 5000 }).toEqual({
+      printableRange: [expect.any(Number), expect.any(Number)],
+      enterSeq: expect.any(Number),
+    });
+
+    const serverPayload = await getServerDebugEvents(page, sessionId);
+    const serverEvents = serverPayload.server ?? [];
+    expect(serverEvents.some((event: { kind: string; details?: Record<string, unknown> }) =>
+      event.kind === 'input'
+      && typeof event.details?.inputSeqStart === 'number'
+      && typeof event.details?.inputSeqEnd === 'number'
+      && Number(event.details.inputSeqEnd) > Number(event.details.inputSeqStart),
+    )).toBe(true);
+
+    const events = await getTerminalDebugEvents(page, sessionId);
+    assertNoRawInputDebugLeak(events, 'abc');
+  });
+
+  test('TC-7211: queue mode retries a transient WebSocket send failure without losing input', async ({ page }) => {
+    const sessionId = await getActiveSessionId(page);
+    test.skip(!sessionId, 'Need an active session');
+
+    await page.evaluate(() => {
+      window.__buildergateTerminalDebug?.setInputReliabilityMode('queue');
+    });
+    await startTerminalDebug(page, sessionId);
+    await focusTerminalInput(page);
+    expect(await setNextWebSocketInputSendFailure(page, 'not-open', 1)).toBe(true);
+    await page.keyboard.type('z', { delay: 0 });
+
+    await expect.poll(async () => {
+      const events = await getTerminalDebugEvents(page, sessionId);
+      return {
+        forced: events.some((event) => event.kind === 'ws_send_debug_failure_forced'),
+        queued: events.some((event) => event.kind === 'transport_input_queued'),
+        flushed: events.some((event) => event.kind === 'transport_input_flushed'),
+        sent: events.some((event) =>
+          event.kind === 'ws_input_sent'
+          && event.details?.source === 'outbox-send-failure-not-open',
+        ),
+      };
+    }, { timeout: 5000 }).toMatchObject({
+      forced: true,
+      queued: true,
+      flushed: true,
+      sent: true,
+    });
+
+    await expect.poll(async () => await readVisibleTerminalText(page), { timeout: 5000 }).toContain('> z');
+  });
+
+  test('TC-7212: stale WebSocket send failure is rejected instead of queued for late flush', async ({ page }) => {
+    const sessionId = await getActiveSessionId(page);
+    test.skip(!sessionId, 'Need an active session');
+
+    await page.evaluate(() => {
+      window.__buildergateTerminalDebug?.setInputReliabilityMode('queue');
+    });
+    await startTerminalDebug(page, sessionId);
+    await focusTerminalInput(page);
+    expect(await setNextWebSocketInputSendFailure(page, 'stale-socket', 1)).toBe(true);
+    await page.keyboard.type('s', { delay: 0 });
+
+    await expect.poll(async () => {
+      const events = await getTerminalDebugEvents(page, sessionId);
+      return {
+        forced: events.some((event) => event.kind === 'ws_send_debug_failure_forced'),
+        rejected: events.some((event) =>
+          event.kind === 'transport_input_rejected'
+          && event.details?.reason === 'transport-closed'
+          && event.details?.detailReason === 'stale-socket',
+        ),
+        queued: events.some((event) => event.kind === 'transport_input_queued'),
+        flushed: events.some((event) => event.kind === 'transport_input_flushed'),
+      };
+    }, { timeout: 5000 }).toMatchObject({
+      forced: true,
+      rejected: true,
+      queued: false,
+      flushed: false,
+    });
+  });
+
+  test('TC-7213: Hangul insertText followed by Space stays observable without transport rejection', async ({ page }) => {
+    const sessionId = await getActiveSessionId(page);
+    test.skip(!sessionId, 'Need an active session');
+
+    await startTerminalDebug(page, sessionId);
+    await focusTerminalInput(page);
+    await page.keyboard.insertText('한');
+    await page.keyboard.press('Space');
+
+    await expect.poll(async () => {
+      const events = await getTerminalDebugEvents(page, sessionId);
+      const sent = events.filter((event) => event.kind === 'ws_input_sent');
+      return {
+        hangulSeen: sent.some((event) => event.details?.hasHangul === true),
+        spaceSeen: sent.some((event) => Number(event.details?.spaceCount ?? 0) >= 1),
+        rejected: events.some((event) =>
+          event.kind === 'terminal_input_rejected'
+          || event.kind === 'transport_input_rejected'
+          || event.kind === 'server_input_rejected',
+        ),
+      };
+    }, { timeout: 5000 }).toMatchObject({
+      hangulSeen: true,
+      spaceSeen: true,
+      rejected: false,
+    });
+
+    const events = await getTerminalDebugEvents(page, sessionId);
+    assertNoRawInputDebugLeak(events, '한');
+  });
+
   test('TC-7206: queue mode preserves printable input across a transient transport barrier', async ({ page }) => {
     const sessionId = await getActiveSessionId(page);
     test.skip(!sessionId, 'Need an active session');
@@ -558,20 +727,27 @@ test.describe('Terminal Keyboard Regressions', () => {
 
     await expect.poll(async () => {
       const events = await getTerminalDebugEvents(page, sessionId);
+      const sent = events.filter((event) => event.kind === 'ws_input_sent');
       return {
-        flushed: events.filter((event) => event.kind === 'queued_input_flushed').length,
-        sent: events.filter((event) => event.kind === 'ws_input_sent').length,
+        flushedAtLeast3: events.filter((event) => event.kind === 'queued_input_flushed').length >= 3,
+        sentAtLeast1: sent.length >= 1,
+        coalescedSent: sent.some((event) =>
+          typeof event.details?.inputSeqStart === 'number'
+          && typeof event.details?.inputSeqEnd === 'number'
+          && Number(event.details.inputSeqEnd) > Number(event.details.inputSeqStart),
+        ),
         dropped: events.filter((event) => event.kind === 'xterm_data_dropped_not_ready').length,
       };
     }, { timeout: 5000 }).toMatchObject({
-      flushed: expect.any(Number),
-      sent: expect.any(Number),
+      flushedAtLeast3: true,
+      sentAtLeast1: true,
+      coalescedSent: true,
       dropped: 0,
     });
 
     const events = await getTerminalDebugEvents(page, sessionId);
     expect(events.filter((event) => event.kind === 'queued_input_flushed').length).toBeGreaterThanOrEqual(3);
-    expect(events.filter((event) => event.kind === 'ws_input_sent').length).toBeGreaterThanOrEqual(3);
+    expect(events.filter((event) => event.kind === 'ws_input_sent').length).toBeGreaterThanOrEqual(1);
 
     await expect.poll(async () => await readVisibleTerminalText(page), { timeout: 5000 }).toContain('> abc');
     assertNoRawInputDebugLeak(events, 'abc');

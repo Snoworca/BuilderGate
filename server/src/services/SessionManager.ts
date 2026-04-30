@@ -28,6 +28,7 @@ import {
 import {
   buildInputDebugDetails,
   formatSafeInputPreview,
+  type InputDebugValue,
 } from '../utils/inputDebugMetadata.js';
 import {
   ForegroundAppDetectorRegistry,
@@ -863,10 +864,19 @@ export class SessionManager {
     this.debugCaptureBySession.delete(sessionId);
   }
 
-  writeInput(id: string, input: string, clientMetadata?: InputDebugMetadata): boolean {
+  writeInput(
+    id: string,
+    input: string,
+    clientMetadata?: InputDebugMetadata,
+    inputSequence?: { inputSeqStart?: number; inputSeqEnd?: number },
+  ): boolean {
     const data = this.sessions.get(id);
     if (!data) return false;
-    const inputDebugDetails = buildInputDebugDetails(input, clientMetadata);
+    const inputDebugDetails: Record<string, InputDebugValue> = {
+      ...buildInputDebugDetails(input, clientMetadata),
+      ...(typeof inputSequence?.inputSeqStart === 'number' ? { inputSeqStart: inputSequence.inputSeqStart } : {}),
+      ...(typeof inputSequence?.inputSeqEnd === 'number' ? { inputSeqEnd: inputSequence.inputSeqEnd } : {}),
+    };
     const shouldCaptureInputDebug = this.isDebugCaptureEnabled(id);
     if (shouldCaptureInputDebug) {
       this.captureDebugEvent(id, 'pty', 'input', inputDebugDetails, formatSafeInputPreview(input) ?? undefined);

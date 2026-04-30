@@ -403,7 +403,10 @@ export class WsRouter {
       return;
     }
 
-    if (!this.sessionManager.writeInput(input.sessionId, input.data, input.metadata)) {
+    if (!this.sessionManager.writeInput(input.sessionId, input.data, input.metadata, {
+      inputSeqStart: input.inputSeqStart,
+      inputSeqEnd: input.inputSeqEnd,
+    })) {
       this.rejectInput(ws, {
         sessionId: input.sessionId,
         data: input.data,
@@ -673,7 +676,10 @@ export class WsRouter {
         continue;
       }
 
-      if (!this.sessionManager.writeInput(sessionId, input.data, input.metadata)) {
+      if (!this.sessionManager.writeInput(sessionId, input.data, input.metadata, {
+        inputSeqStart: input.inputSeqStart,
+        inputSeqEnd: input.inputSeqEnd,
+      })) {
         this.rejectInput(ws, {
           sessionId,
           data: input.data,
