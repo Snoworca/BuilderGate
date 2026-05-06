@@ -4,6 +4,7 @@ const test = require('node:test');
 
 const {
   parseWindowsCreationDate,
+  queryProcessInfo,
   validateDaemonAppProcess,
   validateDaemonSentinelProcess,
 } = require('./process-info');
@@ -229,6 +230,46 @@ test('validateDaemonSentinelProcess accepts packaged self executable without arg
 test('parseWindowsCreationDate handles JSON date and DMTF timezone formats', () => {
   assert.equal(parseWindowsCreationDate('/Date(1777248009500)/'), '2026-04-27T00:00:09.500Z');
   assert.equal(parseWindowsCreationDate('20260427090009.500000+540'), '2026-04-27T00:00:09.500Z');
+});
+
+test('queryProcessInfo hides the Windows PowerShell process probe', () => {
+  const pid = process.pid;
+  let observedCall = null;
+  const result = queryProcessInfo(pid, {
+    platform: 'win32',
+    spawnSyncFn: (command, args, options) => {
+      observedCall = { command, args, options };
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ProcessId: pid,
+          ExecutablePath: path.join('C:', 'buildergate', 'node.exe'),
+          CommandLine: '"node.exe" "server/dist/index.js"',
+          CreationDate: '20260427090009.500000+540',
+        }),
+      };
+    },
+  });
+
+  assert.equal(observedCall.command, 'powershell.exe');
+  assert.deepEqual(observedCall.args.slice(0, 2), ['-NoProfile', '-Command']);
+  assert.equal(observedCall.options.windowsHide, true);
+  assert.deepEqual(observedCall.options.stdio, ['ignore', 'pipe', 'ignore']);
+  assert.equal(result.running, true);
+  assert.equal(result.startTime, '2026-04-27T00:00:09.500Z');
+});
+
+test('queryProcessInfo treats a missing Windows process probe result as not running', () => {
+  const pid = process.pid;
+  const result = queryProcessInfo(pid, {
+    platform: 'win32',
+    spawnSyncFn: () => ({
+      status: 2,
+      stdout: '',
+    }),
+  });
+
+  assert.deepEqual(result, { pid, running: false });
 });
 
 test('validateDaemonSentinelProcess requires state path and start attempt markers when expected', async () => {

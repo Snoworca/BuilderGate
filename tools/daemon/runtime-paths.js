@@ -26,12 +26,16 @@ function resolvePackagedCodeRoot() {
   return path.resolve(__dirname, '..', '..');
 }
 
-function resolveConfigPath(root, serverDir, env, isPackaged) {
+function isPortableRuntime(env, isPackaged) {
+  return !isPackaged && Boolean(env[ROOT_ENV_KEY]);
+}
+
+function resolveConfigPath(root, serverDir, env, isPackaged, isPortable) {
   if (env[CONFIG_ENV_KEY]) {
     return path.resolve(env[CONFIG_ENV_KEY]);
   }
 
-  if (isPackaged) {
+  if (isPackaged || isPortable) {
     return path.join(root, 'config.json5');
   }
 
@@ -40,7 +44,7 @@ function resolveConfigPath(root, serverDir, env, isPackaged) {
 
 function resolveNodeBinary(serverDir, platform = process.platform, isPackaged = Boolean(process.pkg), execPath = process.execPath) {
   if (!isPackaged) {
-    return process.execPath;
+    return execPath;
   }
 
   return execPath;
@@ -49,6 +53,7 @@ function resolveNodeBinary(serverDir, platform = process.platform, isPackaged = 
 function resolveRuntimePaths(options = {}) {
   const env = options.env ?? process.env;
   const isPackaged = options.isPackaged ?? Boolean(process.pkg);
+  const isPortable = isPortableRuntime(env, isPackaged);
   const root = resolveRoot({ ...options, env, isPackaged });
   const codeRoot = isPackaged ? resolvePackagedCodeRoot() : root;
   const serverDir = path.join(codeRoot, 'server');
@@ -66,15 +71,15 @@ function resolveRuntimePaths(options = {}) {
     : path.join(serverDistDir, 'services', 'daemonTotpPreflight.js');
   const webDir = env[WEB_ROOT_ENV_KEY]
     ? path.resolve(env[WEB_ROOT_ENV_KEY])
-    : isPackaged
+    : isPackaged || isPortable
       ? path.join(root, 'web')
       : path.join(serverDistDir, 'public');
   const shellIntegrationDir = env[SHELL_INTEGRATION_ROOT_ENV_KEY]
     ? path.resolve(env[SHELL_INTEGRATION_ROOT_ENV_KEY])
-    : isPackaged
+    : isPackaged || isPortable
       ? path.join(root, 'shell-integration')
       : path.join(serverDistDir, 'shell-integration');
-  const configPath = resolveConfigPath(root, serverDir, env, isPackaged);
+  const configPath = resolveConfigPath(root, serverDir, env, isPackaged, isPortable);
   const runtimeDir = path.join(root, 'runtime');
   const logDir = runtimeDir;
 
@@ -103,7 +108,7 @@ function resolveRuntimePaths(options = {}) {
     sentinelEntry: path.join(root, 'tools', 'daemon', 'sentinel-entry.js'),
     nodeBin: resolveNodeBinary(serverDir, options.platform, isPackaged, options.execPath ?? process.execPath),
     launcherPath: isPackaged ? (options.execPath ?? process.execPath) : path.join(root, 'tools', 'start-runtime.js'),
-    totpSecretPath: isPackaged
+    totpSecretPath: isPackaged || isPortable
       ? path.join(runtimeDir, 'totp.secret')
       : path.join(serverDir, 'data', 'totp.secret'),
     isPackaged,

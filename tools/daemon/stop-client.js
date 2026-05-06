@@ -301,7 +301,14 @@ async function stopDaemon(paths = resolveRuntimePaths(), options = {}) {
   const totalTimeoutMs = options.timeoutMs ?? GRACEFUL_STOP_TIMEOUT_MS;
   const deadlineMs = options.deadlineMs ?? Date.now() + totalTimeoutMs;
 
-  if (resumingStop && isProcessGone(state.appPid, processExists)) {
+  if (isProcessGone(state.appPid, processExists)) {
+    const stoppingState = resumingStop
+      ? state
+      : markStopping(paths.statePath, state, options.now ?? new Date(), updateStateFn);
+    if (!stoppingState) {
+      return makeResult(3, 'state-changed', '[stop] App process already exited, but stopping marker could not be written.');
+    }
+
     if (processExists(state.sentinelPid)) {
       const budget = getBudgetOrFailure(deadlineMs, totalTimeoutMs, 'sentinel exit');
       if (budget.failure) {
@@ -317,7 +324,7 @@ async function stopDaemon(paths = resolveRuntimePaths(), options = {}) {
       }
     }
 
-    return makeAlreadyExitedStoppedResult(paths, state, updateStateFn, options);
+    return makeAlreadyExitedStoppedResult(paths, stoppingState, updateStateFn, options);
   }
 
   const validationOptions = {
@@ -336,7 +343,7 @@ async function stopDaemon(paths = resolveRuntimePaths(), options = {}) {
     });
   }
 
-  if (!resumingStop) {
+  if (!resumingStop && processExists(state.sentinelPid)) {
     const sentinelValidation = await (options.validateSentinelProcess ?? validateDaemonSentinelProcess)(state, validationOptions);
     if (!sentinelValidation.valid) {
       return makeResult(2, 'validation-failed', `[stop] Refusing to stop daemon: ${sentinelValidation.reason}`, {
@@ -352,7 +359,7 @@ async function stopDaemon(paths = resolveRuntimePaths(), options = {}) {
     return makeResult(3, 'state-changed', '[stop] Daemon state changed while stopping. No process was terminated.');
   }
 
-  if (!resumingStop || processExists(state.sentinelPid)) {
+  if (processExists(state.sentinelPid)) {
     const budget = getBudgetOrFailure(deadlineMs, totalTimeoutMs, 'sentinel exit');
     if (budget.failure) {
       return budget.failure;

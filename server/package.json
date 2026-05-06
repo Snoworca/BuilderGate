@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "predev": "node tools/ensure-node-pty-windows-hide.cjs",
     "dev": "tsx watch src/index.ts",
+    "prebuild": "node tools/ensure-node-pty-windows-hide.cjs",
     "build": "tsc && node -e \"require('fs').cpSync('src/shell-integration', 'dist/shell-integration', {recursive:true})\"",
     "start": "node dist/index.js",
     "test": "npm run build && node dist/test-runner.js"

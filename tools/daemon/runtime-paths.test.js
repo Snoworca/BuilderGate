@@ -76,3 +76,27 @@ test('resolveRuntimePaths honors BUILDERGATE_ROOT and BUILDERGATE_CONFIG_PATH ov
   assert.equal(paths.configPath, configPath);
   assert.equal(paths.serverDir, path.join(root, 'server'));
 });
+
+test('resolveRuntimePaths supports portable runtime web and shell root overrides', () => {
+  const root = path.resolve('C:/portable/BuilderGate');
+  const paths = resolveRuntimePaths({
+    env: {
+      BUILDERGATE_ROOT: root,
+      BUILDERGATE_CONFIG_PATH: path.join(root, 'config.json5'),
+      BUILDERGATE_WEB_ROOT: path.join(root, 'web'),
+      BUILDERGATE_SHELL_INTEGRATION_ROOT: path.join(root, 'shell-integration'),
+    },
+    isPackaged: false,
+    sourceRoot: path.resolve('C:/ignored'),
+    platform: 'win32',
+    execPath: path.join(root, 'node', 'node.exe'),
+  });
+
+  assert.equal(paths.serverEntry, path.join(root, 'server', 'dist', 'index.js'));
+  assert.equal(paths.configPath, path.join(root, 'config.json5'));
+  assert.equal(paths.webDir, path.join(root, 'web'));
+  assert.equal(paths.shellIntegrationDir, path.join(root, 'shell-integration'));
+  assert.equal(paths.nodeBin, path.join(root, 'node', 'node.exe'));
+  assert.equal(paths.launcherPath, path.join(root, 'tools', 'start-runtime.js'));
+  assert.equal(paths.totpSecretPath, path.join(root, 'runtime', 'totp.secret'));
+});

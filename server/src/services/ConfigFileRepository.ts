@@ -9,11 +9,14 @@ import { normalizeRawConfigForPlatform } from '../utils/ptyPlatformPolicy.js';
 
 interface SecretPatch {
   authPassword?: string;
+  authJwtSecret?: string;
 }
+
+type PersistConfigKey = EditableSettingsKey | 'auth.jwtSecret';
 
 interface PersistOptions {
   dryRun?: boolean;
-  changedKeys?: EditableSettingsKey[];
+  changedKeys?: PersistConfigKey[];
 }
 
 export interface PersistResult {
@@ -30,16 +33,31 @@ export class ConfigFileRepository {
   ) {}
 
   persistAuthPassword(authPassword: string, options: Pick<PersistOptions, 'dryRun'> = {}): PersistResult {
+    return this.persistAuthSecrets({ authPassword }, options);
+  }
+
+  persistAuthSecrets(
+    secrets: Pick<SecretPatch, 'authPassword' | 'authJwtSecret'>,
+    options: Pick<PersistOptions, 'dryRun'> = {},
+  ): PersistResult {
     try {
       const originalContent = readFileSync(this.configPath, 'utf-8');
       const rawConfig = JSON5.parse(originalContent) as Record<string, unknown>;
       const previousConfig = parseConfigForPlatform(rawConfig, this.platform);
       const mergedRawConfig = structuredClone(rawConfig);
+      const changedKeys: PersistConfigKey[] = [];
 
-      setPath(mergedRawConfig, ['auth', 'password'], authPassword);
+      if (secrets.authPassword !== undefined) {
+        setPath(mergedRawConfig, ['auth', 'password'], secrets.authPassword);
+        changedKeys.push('auth.password');
+      }
+      if (secrets.authJwtSecret !== undefined) {
+        setPath(mergedRawConfig, ['auth', 'jwtSecret'], secrets.authJwtSecret);
+        changedKeys.push('auth.jwtSecret');
+      }
 
       const nextConfig = parseConfigForPlatform(mergedRawConfig, this.platform);
-      const renderedContent = renderPatchedConfig(originalContent, nextConfig, { authPassword }, ['auth.password']);
+      const renderedContent = renderPatchedConfig(originalContent, nextConfig, secrets, changedKeys);
       const reparsed = JSON5.parse(renderedContent);
       parseConfigForPlatform(reparsed, this.platform);
 
@@ -129,9 +147,9 @@ function applyEditableValues(
   rawConfig: Record<string, unknown>,
   values: EditableSettingsValues,
   secrets: SecretPatch,
-  changedKeys?: EditableSettingsKey[],
+  changedKeys?: PersistConfigKey[],
 ): Record<string, unknown> {
-  const shouldApply = (key: EditableSettingsKey) => !changedKeys || changedKeys.includes(key);
+    const shouldApply = (key: EditableSettingsKey) => !changedKeys || changedKeys.includes(key);
 
   if (shouldApply('auth.durationMs')) setPath(rawConfig, ['auth', 'durationMs'], values.auth.durationMs);
   if (shouldApply('twoFactor.enabled')) setPath(rawConfig, ['twoFactor', 'enabled'], values.twoFactor.enabled);
@@ -177,9 +195,9 @@ function renderPatchedConfig(
   content: string,
   config: Config,
   secrets: SecretPatch,
-  changedKeys?: EditableSettingsKey[],
+  changedKeys?: PersistConfigKey[],
 ): string {
-  const shouldRender = (key: EditableSettingsKey) => !changedKeys || changedKeys.includes(key);
+  const shouldRender = (key: PersistConfigKey) => !changedKeys || changedKeys.includes(key);
   const replacements = new Map<string, string>();
 
   if (shouldRender('auth.durationMs')) replacements.set('auth.durationMs', renderJson5Value(config.auth?.durationMs ?? 1800000));
@@ -206,6 +224,9 @@ function renderPatchedConfig(
   if (secrets.authPassword !== undefined) {
     replacements.set('auth.password', renderJson5Value(secrets.authPassword));
   }
+  if (secrets.authJwtSecret !== undefined) {
+    replacements.set('auth.jwtSecret', renderJson5Value(secrets.authJwtSecret));
+  }
 
   const newline = content.includes('\r\n') ? '\r\n' : '\n';
   const lines = content.split(/\r?\n/);
@@ -231,6 +252,13 @@ function renderPatchedConfig(
           parentPath: 'auth',
           key: 'password',
           value: renderJson5Value(secrets.authPassword ?? config.auth?.password ?? ''),
+        }] as const]
+      : []),
+    ...(replacements.has('auth.jwtSecret')
+      ? [['auth.jwtSecret', {
+          parentPath: 'auth',
+          key: 'jwtSecret',
+          value: renderJson5Value(secrets.authJwtSecret ?? config.auth?.jwtSecret ?? ''),
         }] as const]
       : []),
   ]);
@@ -297,11 +325,21 @@ function renderPatchedConfig(
     }
   }
 
-  if (missingReplacements.includes('auth.password')) {
-    if (insertRootSection(renderedLines, 'auth', [
-      `password: ${renderJson5Value(secrets.authPassword ?? config.auth?.password ?? '')},`,
-    ])) {
-      replaced.add('auth.password');
+  const missingAuthReplacements = missingReplacements.filter((path) => path.startsWith('auth.'));
+  if (missingAuthReplacements.length > 0) {
+    const bodyLines = missingAuthReplacements.map((path) => {
+      if (path === 'auth.password') {
+        return `password: ${renderJson5Value(secrets.authPassword ?? config.auth?.password ?? '')},`;
+      }
+      if (path === 'auth.jwtSecret') {
+        return `jwtSecret: ${renderJson5Value(secrets.authJwtSecret ?? config.auth?.jwtSecret ?? '')},`;
+      }
+      throw new AppError(ErrorCode.CONFIG_PERSIST_FAILED, `Unsupported auth config path: ${path}`);
+    });
+    if (insertRootSection(renderedLines, 'auth', bodyLines)) {
+      for (const path of missingAuthReplacements) {
+        replaced.add(path);
+      }
     }
   }
 

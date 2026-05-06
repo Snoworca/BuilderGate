@@ -79,7 +79,11 @@ export class BootstrapSetupService {
     }
 
     const encryptedPassword = this.deps.cryptoService.encrypt(password);
-    this.deps.configRepository.persistAuthPassword(encryptedPassword);
+    const encryptedJwtSecret = this.deps.authService.getEncryptedJwtSecret();
+    this.deps.configRepository.persistAuthSecrets({
+      authPassword: encryptedPassword,
+      authJwtSecret: encryptedJwtSecret,
+    });
     this.deps.authService.updateRuntimeConfig({ password: encryptedPassword });
     this.clearRateLimit(requestIp);
 

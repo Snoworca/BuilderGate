@@ -935,7 +935,15 @@ export class SessionManager {
       }
     }
 
-    data.pty.write(input);
+    try {
+      data.pty.write(input);
+    } catch (error) {
+      this.captureDebugEvent(id, 'pty', 'input_write_failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      console.error(`[PTY] Failed to write input to session ${id}:`, error);
+      return false;
+    }
     data.session.lastActiveAt = new Date();
     return true;
   }
@@ -1148,7 +1156,7 @@ export class SessionManager {
   private isCommandAvailable(cmd: string): boolean {
     try {
       if (this.platform === 'win32') {
-        execSync(`where ${cmd}`, { stdio: 'ignore' });
+        execSync(`where ${cmd}`, { stdio: 'ignore', windowsHide: true });
       } else {
         execSync(`which ${cmd}`, { stdio: 'ignore' });
       }
@@ -1160,7 +1168,7 @@ export class SessionManager {
 
   private isWslShellAvailable(shell: string): boolean {
     try {
-      execSync(`wsl.exe which ${shell}`, { stdio: 'ignore', timeout: 3000 });
+      execSync(`wsl.exe which ${shell}`, { stdio: 'ignore', timeout: 3000, windowsHide: true });
       return true;
     } catch {
       return false;
@@ -1667,7 +1675,7 @@ export class SessionManager {
     ].join('; ');
     const encodedScript = Buffer.from(hookScript, 'utf16le').toString('base64');
 
-    return ['-NoLogo', '-NoExit', '-NoProfile', '-EncodedCommand', encodedScript];
+    return ['-NoLogo', '-NoExit', '-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand', encodedScript];
   }
 
   private getCwdTrackingFilePath(sessionId: string): string {

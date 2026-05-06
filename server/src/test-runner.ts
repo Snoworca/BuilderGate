@@ -88,6 +88,7 @@ async function main(): Promise<void> {
     { name: 'SettingsService persists editable values against a legacy pty.maxBufferSize config', run: testSettingsServiceLegacyPtyMigration },
     { name: 'ConfigFileRepository can insert useConpty into legacy config text', run: testConfigFileRepositoryInsertsMissingUseConpty },
     { name: 'ConfigFileRepository can insert missing PTY section for legacy config text', run: testConfigFileRepositoryInsertsMissingPtySection },
+    { name: 'ConfigFileRepository persists generated JWT secrets', run: testConfigFileRepositoryPersistsGeneratedJwtSecret },
     { name: 'SettingsService preserves hidden Windows PTY values on non-Windows unrelated saves', run: testSettingsServicePreservesHiddenWindowsPtyValuesOnNonWindowsSave },
     { name: 'SettingsService reconfigures TOTP runtime and returns warnings on hot apply', run: testSettingsServiceTwoFactorRuntimeHotApply },
     { name: 'SettingsService does not reconfigure TOTP runtime when config persistence fails', run: testSettingsServiceTwoFactorRuntimeNotCalledOnPersistFailure },
@@ -168,6 +169,7 @@ async function main(): Promise<void> {
     { name: 'WsRouter rejects invalid input sequence range', run: testWsRouterRejectsInvalidInputSequenceRange },
     { name: 'WsRouter sanitizes client input metadata', run: testWsRouterSanitizesClientInputMetadata },
     { name: 'WsRouter emits input:rejected for server reject scenarios', run: testWsRouterEmitsInputRejectedForRealServerScenarios },
+    { name: 'WsRouter converts PTY input write failures into server-error rejects', run: testWsRouterInputWriteFailureDoesNotThrow },
     { name: 'WsRouter reports replay observability counters', run: testWsRouterObservabilityCounters },
     { name: 'WsRouter still emits a replay start for degraded sessions', run: testWsRouterDegradedReplayStart },
     { name: 'WsRouter still emits a replay start for oversized snapshots', run: testWsRouterOversizedSnapshotReplayStart },
@@ -1771,6 +1773,7 @@ function testSessionManagerWinptyProbeRetry(): void {
 
 function testSessionManagerCreateSessionUsesResolvedBackend(): void {
   let observedUseConpty: boolean | undefined;
+  let observedArgs: string[] = [];
   let killCalled = false;
   const manager = new SessionManager({
     pty: {
@@ -1789,7 +1792,8 @@ function testSessionManagerCreateSessionUsesResolvedBackend(): void {
   }, {
     execFileSyncFn: (() => Buffer.from('')) as any,
     platform: 'win32',
-    spawnPty: ((_: string, __: string[], options: { useConpty?: boolean; cols?: number; rows?: number }) => {
+    spawnPty: ((_: string, args: string[], options: { useConpty?: boolean; cols?: number; rows?: number }) => {
+      observedArgs = args;
       observedUseConpty = options.useConpty;
       return {
         pid: 1,
@@ -1809,6 +1813,11 @@ function testSessionManagerCreateSessionUsesResolvedBackend(): void {
   const session = manager.createSession('PowerShell Test', 'powershell', os.tmpdir());
   assert.equal(typeof session.id, 'string');
   assert.equal(observedUseConpty, false);
+  assert.deepEqual(
+    observedArgs.slice(0, 5),
+    ['-NoLogo', '-NoExit', '-NoProfile', '-WindowStyle', 'Hidden'],
+  );
+  assert.ok(observedArgs.includes('-EncodedCommand'));
   assert.equal(manager.getScreenSnapshot(session.id)?.windowsPty?.backend, 'winpty');
   assert.equal(manager.deleteSession(session.id), true);
   assert.equal(killCalled, true);
@@ -2605,6 +2614,10 @@ function testSessionManagerPowerShellBootstrapArgs(): void {
   assert.equal(resolved.shellType, 'powershell');
   assert.ok(resolved.args.includes('-NoExit'));
   assert.ok(resolved.args.includes('-NoProfile'));
+  assert.deepEqual(
+    resolved.args.slice(0, 5),
+    ['-NoLogo', '-NoExit', '-NoProfile', '-WindowStyle', 'Hidden'],
+  );
   assert.ok(resolved.args.includes('-EncodedCommand'));
 
   const encodedCommandIndex = resolved.args.indexOf('-EncodedCommand');
@@ -3488,6 +3501,25 @@ async function testConfigFileRepositoryInsertsMissingPtySection(): Promise<void>
   }
 }
 
+async function testConfigFileRepositoryPersistsGeneratedJwtSecret(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-settings-jwt-secret-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  await fs.writeFile(configPath, createConfigFixtureContent().replace('jwtSecret: "jwt-secret"', 'jwtSecret: ""'), 'utf-8');
+  const repository = new ConfigFileRepository(configPath, 'linux');
+
+  try {
+    const result = repository.persistAuthSecrets({ authJwtSecret: 'enc(generated-jwt)' });
+    const savedContent = await fs.readFile(configPath, 'utf-8');
+
+    assert.equal(result.previousConfig.auth?.jwtSecret, '');
+    assert.equal(result.nextConfig.auth?.jwtSecret, 'enc(generated-jwt)');
+    assert.match(savedContent, /jwtSecret:\s*"enc\(generated-jwt\)"/);
+    assert.doesNotMatch(savedContent, /password:\s*"enc\(generated-jwt\)"/);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
 async function testSettingsServicePreservesHiddenWindowsPtyValuesOnNonWindowsSave(): Promise<void> {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-settings-hidden-pty-'));
   const configPath = path.join(tempDir, 'config.json5');
@@ -3875,6 +3907,7 @@ function createWsRouterHarness(options?: {
   snapshotTruncated?: boolean;
   snapshotMode?: 'authoritative' | 'fallback';
   snapshotSeq?: number;
+  writeInputThrows?: boolean;
 }) {
   const calls = {
     writeInput: [] as Array<{ sessionId: string; data: string; metadata?: unknown }>,
@@ -3904,6 +3937,9 @@ function createWsRouterHarness(options?: {
     } : null,
     getReplayQueueLimit: () => 64,
     writeInput: (sessionId: string, data: string, metadata?: unknown) => {
+      if (options?.writeInputThrows) {
+        throw new Error('simulated write failure');
+      }
       calls.writeInput.push({ sessionId, data, metadata });
       return true;
     },
@@ -4359,6 +4395,26 @@ function testWsRouterEmitsInputRejectedForRealServerScenarios(): void {
   assert.ok(reasons.includes('session-missing'));
   assert.ok(reasons.includes('queue-overflow'));
   assert.ok(reasons.includes('timeout-enter-safety'));
+
+  router.destroy();
+}
+
+function testWsRouterInputWriteFailureDoesNotThrow(): void {
+  const { router, ws, sent } = createWsRouterHarness({ writeInputThrows: true });
+
+  assert.doesNotThrow(() => {
+    (router as any).handleInput(ws, {
+      type: 'input',
+      sessionId: 'session-1',
+      data: 'safe',
+      inputSeqStart: 1,
+      inputSeqEnd: 1,
+    });
+  });
+
+  const rejected = sent.filter((message) => message.type === 'input:rejected');
+  assert.equal(rejected.length, 1);
+  assert.equal(rejected[0].reason, 'server-error');
 
   router.destroy();
 }
@@ -6153,6 +6209,7 @@ async function testAuthRoutesBootstrapPasswordSuccess(): Promise<void> {
     assert.equal(result.body.expiresIn, 1800000);
     assert.equal(harness.authService.validatePassword('bootstrap-pass'), true);
     assert.match(savedContent, /password:\s*"enc\(/);
+    assert.match(savedContent, /jwtSecret:\s*"enc\(/);
   } finally {
     await harness.destroy();
   }
@@ -6204,6 +6261,7 @@ async function testAuthRoutesBootstrapPasswordLegacyMissingAuthSection(): Promis
     assert.equal(result.status, 201);
     assert.match(savedContent, /auth:\s*\{/);
     assert.match(savedContent, /password:\s*"enc\(/);
+    assert.match(savedContent, /jwtSecret:\s*"enc\(/);
   } finally {
     await harness.destroy();
   }

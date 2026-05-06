@@ -376,6 +376,7 @@ function createDaemonAppLaunchOptions(port, bootstrapAllowedIps, state, paths, o
       ),
       detached: true,
       shell: false,
+      windowsHide: true,
     },
   };
 }
@@ -411,6 +412,7 @@ function createSentinelLaunchOptions(state, paths, options = {}) {
       ),
       detached: true,
       shell: false,
+      windowsHide: true,
     },
   };
 }
@@ -428,6 +430,7 @@ function spawnDetachedProcess(launch) {
     const child = withPkgExecPathClearedForSpawn(launch.options.env, () => spawn(launch.command, launch.args, {
       ...launch.options,
       stdio: ['ignore', stdoutFd, stderrFd],
+      windowsHide: launch.options.windowsHide ?? true,
     }));
 
     if (!child.pid) {
@@ -483,11 +486,45 @@ async function isExistingDaemonActive(state, options = {}) {
 }
 
 async function inspectExistingDaemonState(state, options = {}) {
-  if (!state || state.mode !== 'daemon' || state.status !== 'running') {
+  if (!state || state.mode !== 'daemon' || (state.status !== 'running' && state.status !== 'stopping')) {
     return { status: 'absent', state, reason: 'no running daemon state' };
   }
 
   const processExists = options.processExists ?? isProcessRunning;
+  const appRunning = processExists(state.appPid);
+  const sentinelRunning = processExists(state.sentinelPid);
+  if (state.status === 'stopping') {
+    if (!appRunning && !sentinelRunning) {
+      return { status: 'stale', state, reason: 'recorded stopping daemon pids are not running' };
+    }
+
+    if (!appRunning) {
+      return { status: 'unknown', state, reason: 'daemon stop is still in progress; recorded sentinel PID is still running' };
+    }
+
+    const waitForReadinessFn = options.waitForReadiness ?? waitForReadiness;
+    try {
+      const readiness = await waitForReadinessFn({
+        port: state.port,
+        state,
+        timeoutMs: options.timeoutMs ?? 1000,
+        intervalMs: options.intervalMs ?? 100,
+      });
+      if (readiness.ok === true) {
+        return { status: 'unknown', state, reason: 'daemon stop is still in progress; recorded app PID is still running' };
+      }
+
+      const reason = readiness.reason ?? 'readiness failed';
+      if (/identity/i.test(reason)) {
+        return { status: 'stale', state, reason };
+      }
+
+      return { status: 'unknown', state, reason: `daemon stop is still in progress; ${reason}` };
+    } catch {
+      return { status: 'unknown', state, reason: 'daemon stop is still in progress; readiness probe failed' };
+    }
+  }
+
   if (!isActiveDaemonState(state, processExists)) {
     return { status: 'stale', state, reason: 'recorded daemon pids are not running' };
   }
@@ -566,8 +603,8 @@ async function startDaemon(port, source, bootstrapAllowedIps = [], paths = resol
     return 2;
   }
 
-  if (previousState?.status === 'running') {
-    appendLog(paths.logPath, '[daemon] stale active state detected; starting a new daemon without killing old PIDs');
+  if (previousState?.status === 'running' || previousState?.status === 'stopping') {
+    appendLog(paths.logPath, `[daemon] stale ${previousState.status} state detected; starting a new daemon without killing old PIDs`);
   }
 
   const startingState = createStartingState({

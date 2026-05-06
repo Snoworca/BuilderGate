@@ -244,6 +244,7 @@ test('createDaemonAppLaunchOptions uses same executable for packaged daemon app 
   assert.equal(launch.command, paths.launcherPath);
   assert.deepEqual(launch.args, []);
   assert.equal(launch.options.detached, true);
+  assert.equal(launch.options.windowsHide, true);
   assert.equal(launch.options.cwd, paths.root);
   assert.equal(launch.options.env.BUILDERGATE_INTERNAL_MODE, 'app');
 });
@@ -294,6 +295,7 @@ test('createSentinelLaunchOptions uses same executable and env internal sentinel
   assert.equal(launch.command, paths.launcherPath);
   assert.deepEqual(launch.args, []);
   assert.equal(launch.options.detached, true);
+  assert.equal(launch.options.windowsHide, true);
   assert.equal(launch.logPath, paths.sentinelLogPath);
   assert.equal(launch.options.env.BUILDERGATE_INTERNAL_MODE, 'sentinel');
   assert.equal(launch.options.env.BUILDERGATE_DAEMON_STATE_PATH, paths.statePath);
@@ -325,11 +327,13 @@ test('startDaemon spawns detached app and sentinel, writes running state, and wa
   assert.deepEqual(spawns[0].args, [paths.serverEntry]);
   assert.equal(spawns[0].options.cwd, paths.serverDir);
   assert.equal(spawns[0].options.detached, true);
+  assert.equal(spawns[0].options.windowsHide, true);
   assert.equal(spawns[0].options.env.BUILDERGATE_INTERNAL_MODE, 'app');
   assert.equal(spawns[0].options.env.BUILDERGATE_SUPPRESS_TOTP_QR, '1');
   assert.equal(spawns[0].options.env.BUILDERGATE_BOOTSTRAP_ALLOWED_IPS, '127.0.0.1');
   assert.equal(spawns[1].args.includes('--internal-sentinel'), true);
   assert.equal(spawns[1].options.detached, true);
+  assert.equal(spawns[1].options.windowsHide, true);
   assert.equal(spawns[1].options.env.BUILDERGATE_INTERNAL_MODE, 'sentinel');
 
   const state = readState(paths.statePath);
@@ -593,6 +597,66 @@ test('startDaemon refuses to overwrite unknown running state when identity probe
   assert.equal(exitCode, 3);
   assert.equal(state.appPid, existingState.appPid);
   assert.equal(state.startAttemptId, existingState.startAttemptId);
+});
+
+test('startDaemon refuses to overwrite a stopping daemon while recorded app is still alive', async () => {
+  const paths = createFixturePaths('buildergate-daemon-stopping-app-alive-');
+  const spawnPids = [37301, 37302];
+  await startDaemon(2002, 'cli', [], paths, {
+    spawnDetached: () => ({ pid: spawnPids.shift() }),
+    waitForReadiness: async ({ state }) => ({ ok: true, identity: state }),
+    processExists: () => false,
+  });
+  const stoppingState = {
+    ...readState(paths.statePath),
+    status: 'stopping',
+    updatedAt: new Date().toISOString(),
+  };
+  writeStateAtomic(paths.statePath, stoppingState);
+
+  const exitCode = await startDaemon(2002, 'cli', [], paths, {
+    spawnDetached: () => {
+      throw new Error('stopping daemon with live app must not spawn replacement children');
+    },
+    waitForReadiness: async ({ state }) => ({ ok: state.appPid === stoppingState.appPid, identity: state }),
+    processExists: (pid) => pid === stoppingState.appPid,
+  });
+  const state = readState(paths.statePath);
+
+  assert.equal(exitCode, 3);
+  assert.equal(state.status, 'stopping');
+  assert.equal(state.appPid, stoppingState.appPid);
+  assert.equal(state.sentinelPid, stoppingState.sentinelPid);
+});
+
+test('startDaemon replaces stale stopping state only after recorded app and sentinel have exited', async () => {
+  const paths = createFixturePaths('buildergate-daemon-stopping-stale-');
+  const initialSpawnPids = [37401, 37402];
+  await startDaemon(2002, 'cli', [], paths, {
+    spawnDetached: () => ({ pid: initialSpawnPids.shift() }),
+    waitForReadiness: async ({ state }) => ({ ok: true, identity: state }),
+    processExists: () => false,
+  });
+  const stoppingState = {
+    ...readState(paths.statePath),
+    status: 'stopping',
+    updatedAt: new Date().toISOString(),
+  };
+  writeStateAtomic(paths.statePath, stoppingState);
+
+  const replacementSpawnPids = [37411, 37412];
+  const exitCode = await startDaemon(2002, 'cli', [], paths, {
+    spawnDetached: () => ({ pid: replacementSpawnPids.shift() }),
+    waitForReadiness: async ({ state }) => ({ ok: true, identity: state }),
+    processExists: () => false,
+  });
+  const state = readState(paths.statePath);
+
+  assert.equal(exitCode, 0);
+  assert.equal(state.status, 'running');
+  assert.equal(state.appPid, 37411);
+  assert.equal(state.sentinelPid, 37412);
+  assert.equal(state.stateGeneration, stoppingState.stateGeneration + 1);
 });
 
 test('startDaemon rejects different active daemon contract without auto-replacing it', async () => {

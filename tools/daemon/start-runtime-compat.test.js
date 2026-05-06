@@ -49,14 +49,20 @@ function createRuntimeRootFixture(options = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), options.prefix ?? 'buildergate-runtime-root-'));
   const serverDist = path.join(root, 'server', 'dist');
   const publicDir = path.join(serverDist, 'public');
+  const portableWebDir = path.join(root, 'web');
   const utilsDir = path.join(serverDist, 'utils');
   const servicesDir = path.join(serverDist, 'services');
   const shellIntegrationDir = path.join(serverDist, 'shell-integration');
+  const portableShellIntegrationDir = path.join(root, 'shell-integration');
   fs.mkdirSync(publicDir, { recursive: true });
+  fs.mkdirSync(portableWebDir, { recursive: true });
   fs.mkdirSync(shellIntegrationDir, { recursive: true });
+  fs.mkdirSync(portableShellIntegrationDir, { recursive: true });
   fs.writeFileSync(path.join(serverDist, 'index.js'), options.serverEntry ?? 'process.exit(0);\n', 'utf8');
   fs.writeFileSync(path.join(publicDir, 'index.html'), '<!doctype html>\n', 'utf8');
+  fs.writeFileSync(path.join(portableWebDir, 'index.html'), '<!doctype html>\n', 'utf8');
   fs.writeFileSync(path.join(shellIntegrationDir, 'bash-osc133.sh'), '# bash integration\n', 'utf8');
+  fs.writeFileSync(path.join(portableShellIntegrationDir, 'bash-osc133.sh'), '# bash integration\n', 'utf8');
 
   if (options.strictLoader !== false) {
     fs.mkdirSync(utilsDir, { recursive: true });
@@ -250,8 +256,9 @@ process.exit(7);
   assert.equal(result.status, 7, result.stderr);
   assert.match(result.stdout, /Starting BuilderGate in foreground/);
   assert.match(result.stdout, /foreground child port=2456/);
-  assert.match(result.stdout, /foreground child config=.*server.*config\.json5/);
-  assert.match(result.stdout, /foreground child totp=.*server.*data.*totp\.secret/);
+  assert.match(result.stdout, /foreground child config=.*config\.json5/);
+  assert.doesNotMatch(result.stdout, /foreground child config=.*server.*config\.json5/);
+  assert.match(result.stdout, /foreground child totp=.*runtime.*totp\.secret/);
   assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /pm2/i);
   assert.equal(fs.existsSync(fixture.statePath), false);
 });

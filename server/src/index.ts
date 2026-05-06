@@ -54,6 +54,7 @@ const TOTP_SECRET_FILE_PATH = process.env.BUILDERGATE_TOTP_SECRET_PATH;
 const SUPPRESS_TOTP_QR = process.env.BUILDERGATE_SUPPRESS_TOTP_QR === '1';
 const SHUTDOWN_TOKEN = process.env.BUILDERGATE_SHUTDOWN_TOKEN;
 const WEB_ROOT_ENV_KEY = 'BUILDERGATE_WEB_ROOT';
+let fatalErrorLoggingInstalled = false;
 
 // ============================================================================
 // Service Instances (initialized in startServer)
@@ -74,6 +75,23 @@ const PRODUCTION_PUBLIC_DIR = process.env[WEB_ROOT_ENV_KEY]?.trim()
   ? path.resolve(process.env[WEB_ROOT_ENV_KEY]!)
   : path.join(getServerRoot(), 'dist', 'public');
 const PRODUCTION_INDEX_HTML = path.join(PRODUCTION_PUBLIC_DIR, 'index.html');
+
+function setupFatalErrorLogging(): void {
+  if (fatalErrorLoggingInstalled) {
+    return;
+  }
+
+  process.on('uncaughtException', (error) => {
+    console.error('[Fatal] Uncaught exception:', error);
+    process.exit(1);
+  });
+
+  process.on('unhandledRejection', (reason) => {
+    console.error('[Fatal] Unhandled rejection:', reason);
+  });
+
+  fatalErrorLoggingInstalled = true;
+}
 
 function isReservedRuntimePath(pathname: string): boolean {
   return pathname === '/health' || pathname === '/ws' || pathname === '/api' || pathname.startsWith('/api/');
@@ -359,6 +377,12 @@ async function startServer(): Promise<void> {
       jwtSecret: ''
     };
     authService = new AuthService(authConfig, cryptoService);
+    if (!authConfig.jwtSecret) {
+      const encryptedJwtSecret = authService.getEncryptedJwtSecret();
+      configRepository.persistAuthSecrets({ authJwtSecret: encryptedJwtSecret });
+      authConfig.jwtSecret = encryptedJwtSecret;
+      console.log('[Auth] Persisted generated JWT secret');
+    }
     bootstrapSetupService = new BootstrapSetupService({
       authService,
       cryptoService,
@@ -594,4 +618,5 @@ function setupGracefulShutdown(): void {
 }
 
 // Start the server
+setupFatalErrorLogging();
 startServer().then(() => setupGracefulShutdown());

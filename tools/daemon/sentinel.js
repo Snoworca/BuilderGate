@@ -91,10 +91,11 @@ function pathsFromState(state, statePath, sentinelLogPath, options = {}) {
       : state.serverCwd;
   const serverDir = path.dirname(path.dirname(state.serverEntryPath));
   const isPackaged = state.nodeBinPath === state.launcherPath || Boolean(process.pkg);
-  const webDir = isPackaged
+  const isPortable = !isPackaged && path.resolve(path.dirname(state.configPath)) === path.resolve(root);
+  const webDir = isPackaged || isPortable
     ? path.join(root, 'web')
     : path.join(serverDir, 'dist', 'public');
-  const shellIntegrationDir = isPackaged
+  const shellIntegrationDir = isPackaged || isPortable
     ? path.join(root, 'shell-integration')
     : path.join(serverDir, 'dist', 'shell-integration');
   return {

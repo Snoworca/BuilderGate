@@ -27,7 +27,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22.14.0'
 
       - name: Resolve release tag
         id: release
@@ -125,7 +125,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22.14.0'
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -158,7 +158,6 @@ jobs:
           const sourceDir = path.join('dist', 'bin', `${process.env.PROFILE}-${process.env.VERSION}`);
           const configPath = path.join(sourceDir, 'config.json5');
           const serverConfigPath = path.join(sourceDir, 'server', 'config.json5');
-          const appConfigPath = path.join(sourceDir, 'BuilderGate.app', 'Contents', 'Resources', 'runtime', 'config.json5');
 
           function fail(message) {
             console.error(`::error::${message}`);
@@ -178,7 +177,30 @@ jobs:
 
           verifyConfig(configPath, 'release config.json5');
           if (fs.existsSync(serverConfigPath)) fail(`server/config.json5 must not be exposed in release artifact: ${serverConfigPath}`);
-          if (process.env.PROFILE === 'macos-arm64') verifyConfig(appConfigPath, 'macOS app config.json5');
+          const commonRequired = [
+            ['web/index.html', 'web index'],
+            ['shell-integration/bash-osc133.sh', 'shell integration'],
+            ['server/dist/index.js', 'server runtime'],
+            ['server/dist/utils/configStrictLoader.js', 'strict config preflight'],
+            ['server/dist/services/daemonTotpPreflight.js', 'TOTP daemon preflight'],
+            ['server/node_modules/node-pty/package.json', 'node-pty runtime'],
+            ['server/node_modules/node-pty/lib/conpty_console_list_agent.js', 'node-pty ConPTY helper'],
+          ];
+          const platformRequired = process.env.PROFILE.startsWith('win-')
+            ? [
+                ['BuilderGate.cmd', 'Windows launcher'],
+                ['BuilderGate.ps1', 'PowerShell launcher'],
+                ['node/node.exe', 'portable Node runtime'],
+              ]
+            : [
+                ['buildergate', 'POSIX launcher'],
+                ['node/bin/node', 'portable Node runtime'],
+              ];
+
+          for (const [relativePath, label] of [...commonRequired, ...platformRequired]) {
+            const fullPath = path.join(sourceDir, relativePath);
+            if (!fs.existsSync(fullPath)) fail(`${label} missing: ${fullPath}`);
+          }
           NODE
 
       - name: Create zip archive

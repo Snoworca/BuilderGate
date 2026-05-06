@@ -484,8 +484,9 @@ async function main() {
 
   if (parsedArgs.help) {
     console.log(daemonCli.formatHelp({
-      executableName: process.pkg ? path.basename(process.execPath) : 'start.sh',
-      packaged: Boolean(process.pkg),
+      executableName: process.env.BUILDERGATE_EXECUTABLE_NAME
+        || (process.pkg ? path.basename(process.execPath) : 'start.sh'),
+      packaged: Boolean(process.pkg) || Boolean(process.env.BUILDERGATE_ROOT),
     }));
     return;
   }

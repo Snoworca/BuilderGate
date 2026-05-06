@@ -28,8 +28,9 @@ const OUTPUT_DEFAULT = path.join(ROOT, 'dist', 'bin');
 const NODE_RUNTIME_CACHE_DIR = path.join(ROOT, 'dist', '.node-runtime');
 const PKG_CACHE_DIR = path.join(ROOT, 'dist', '.pkg-cache');
 const RCEDIT_CACHE_DIR = path.join(ROOT, 'dist', '.rcedit');
-const PKG_FETCH_CACHE_VERSION = 'v3.4';
-const PKG_FETCH_NODE_VERSION = 'v18.5.0';
+const PKG_PACKAGE_SPEC = '@yao-pkg/pkg@6.19.0';
+const PKG_FETCH_CACHE_VERSION = 'v3.5';
+const PKG_FETCH_NODE_VERSION = 'v22.22.2';
 const BROWSER_ICON_PATH = path.join(FRONTEND_DIR, 'public', 'logo.svg');
 const MAC_APP_BUNDLE_NAME = 'BuilderGate.app';
 const MAC_APP_EXECUTABLE_NAME = 'BuilderGate';
@@ -41,31 +42,31 @@ const CONFIG_POLICY_SOURCE_OR_TEMPLATE = 'source-or-template';
 const TARGET_PROFILES = Object.freeze({
   'win-amd64': {
     profileName: 'win-amd64',
-    pkgTarget: 'node18-win-x64',
+    pkgTarget: 'node22-win-x64',
     platform: 'win32',
     arch: 'x64',
   },
   'linux-amd64': {
     profileName: 'linux-amd64',
-    pkgTarget: 'node18-linux-x64',
+    pkgTarget: 'node22-linux-x64',
     platform: 'linux',
     arch: 'x64',
   },
   'win-arm64': {
     profileName: 'win-arm64',
-    pkgTarget: 'node18-win-arm64',
+    pkgTarget: 'node22-win-arm64',
     platform: 'win32',
     arch: 'arm64',
   },
   'linux-arm64': {
     profileName: 'linux-arm64',
-    pkgTarget: 'node18-linux-arm64',
+    pkgTarget: 'node22-linux-arm64',
     platform: 'linux',
     arch: 'arm64',
   },
   'macos-arm64': {
     profileName: 'macos-arm64',
-    pkgTarget: 'node18-macos-arm64',
+    pkgTarget: 'node22-macos-arm64',
     platform: 'darwin',
     arch: 'arm64',
   },
@@ -143,9 +144,9 @@ function resolveEsbuildModule() {
 }
 
 function defaultTarget() {
-  if (process.platform === 'win32') return 'node18-win-x64';
-  if (process.platform === 'darwin') return process.arch === 'arm64' ? 'node18-macos-arm64' : 'node18-macos-x64';
-  return process.arch === 'arm64' ? 'node18-linux-arm64' : 'node18-linux-x64';
+  if (process.platform === 'win32') return 'node22-win-x64';
+  if (process.platform === 'darwin') return process.arch === 'arm64' ? 'node22-macos-arm64' : 'node22-macos-x64';
+  return process.arch === 'arm64' ? 'node22-linux-arm64' : 'node22-linux-x64';
 }
 
 function platformFromPkgTarget(target) {
@@ -531,8 +532,8 @@ function getDefaultPkgCacheDir() {
 
 function getPkgFetchBinaryName(target) {
   const targetSuffixes = {
-    'node18-win-x64': 'win-x64',
-    'node18-win-arm64': 'win-arm64',
+    'node22-win-x64': 'win-x64',
+    'node22-win-arm64': 'win-arm64',
   };
   const suffix = targetSuffixes[target];
   return suffix ? `fetched-${PKG_FETCH_NODE_VERSION}-${suffix}` : null;
@@ -540,8 +541,8 @@ function getPkgFetchBinaryName(target) {
 
 function getPkgBuiltBinaryName(target) {
   const targetSuffixes = {
-    'node18-win-x64': 'win-x64',
-    'node18-win-arm64': 'win-arm64',
+    'node22-win-x64': 'win-x64',
+    'node22-win-arm64': 'win-arm64',
   };
   const suffix = targetSuffixes[target];
   return suffix ? `built-${PKG_FETCH_NODE_VERSION}-${suffix}` : null;
@@ -586,7 +587,7 @@ function downloadPkgBaseToCache(target, pkgCacheDir, runCommand) {
   try {
     runCommand(getNpxCommand(), [
       '--yes',
-      'pkg@5.8.1',
+      PKG_PACKAGE_SPEC,
       probeEntry,
       '--targets',
       target,
@@ -790,7 +791,7 @@ async function bundlePackagedServer(options = {}) {
       bundle: true,
       platform: 'node',
       format: 'cjs',
-      target: 'node18',
+      target: 'node22',
       outfile: bundle.outfile,
       external,
       logLevel: options.logLevel ?? 'warning',
@@ -820,7 +821,7 @@ function buildExe(outputDir, target, options = {}) {
   const platform = options.platform ?? platformFromPkgTarget(target) ?? process.platform;
   const { appExeName } = getExecutableNames(platform);
   const npx = getNpxCommand();
-  const commonArgs = ['--yes', 'pkg@5.8.1'];
+  const commonArgs = ['--yes', PKG_PACKAGE_SPEC];
   const runCommand = options.runCommand ?? run;
   const pkgBaseIcon = platform === 'win32'
     ? prepareWindowsPkgBaseIcon(target, path.join(outputDir, ICON_ICO_NAME), {

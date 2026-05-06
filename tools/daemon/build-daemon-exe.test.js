@@ -124,18 +124,18 @@ test('multi-target output root cleanup refuses the dist root', () => {
 });
 
 test('build target parser accepts cross-platform ARM64 pkg targets', () => {
-  assert.equal(platformFromPkgTarget('node18-win-x64'), 'win32');
-  assert.equal(platformFromPkgTarget('node18-linux-x64'), 'linux');
-  assert.equal(platformFromPkgTarget('node18-macos-arm64'), 'darwin');
-  assert.equal(archFromPkgTarget('node18-win-x64'), 'x64');
-  assert.equal(archFromPkgTarget('node18-linux-arm64'), 'arm64');
-  assert.deepEqual(assertSupportedPkgTarget('node18-win-arm64'), {
+  assert.equal(platformFromPkgTarget('node22-win-x64'), 'win32');
+  assert.equal(platformFromPkgTarget('node22-linux-x64'), 'linux');
+  assert.equal(platformFromPkgTarget('node22-macos-arm64'), 'darwin');
+  assert.equal(archFromPkgTarget('node22-win-x64'), 'x64');
+  assert.equal(archFromPkgTarget('node22-linux-arm64'), 'arm64');
+  assert.deepEqual(assertSupportedPkgTarget('node22-win-arm64'), {
     platform: 'win32',
     arch: 'arm64',
   });
 
   assert.throws(
-    () => assertSupportedPkgTarget('node18-plan9-arm64'),
+    () => assertSupportedPkgTarget('node22-plan9-arm64'),
     /Unsupported pkg target platform/i,
   );
 });
@@ -163,11 +163,11 @@ test('supported build profiles resolve to separate dist/bin target directories',
     'macos-arm64',
   ]);
   assert.deepEqual(allTargets.map((target) => target.pkgTarget), [
-    'node18-win-x64',
-    'node18-linux-x64',
-    'node18-win-arm64',
-    'node18-linux-arm64',
-    'node18-macos-arm64',
+    'node22-win-x64',
+    'node22-linux-x64',
+    'node22-win-arm64',
+    'node22-linux-arm64',
+    'node22-macos-arm64',
   ]);
   assert.equal(allTargets[0].outputDir, path.join(OUTPUT_DEFAULT, `win-amd64-${PACKAGE_VERSION}`));
   assert.equal(allTargets[1].outputDir, path.join(OUTPUT_DEFAULT, `linux-amd64-${PACKAGE_VERSION}`));
@@ -178,7 +178,7 @@ test('supported build profiles resolve to separate dist/bin target directories',
   const requiredOptions = parseArgs(['--required-amd64']);
   const requiredTargets = resolveBuildTargets(requiredOptions);
   assert.deepEqual(requiredTargets.map((target) => target.profileName), ['win-amd64', 'linux-amd64']);
-  assert.deepEqual(requiredTargets.map((target) => target.pkgTarget), ['node18-win-x64', 'node18-linux-x64']);
+  assert.deepEqual(requiredTargets.map((target) => target.pkgTarget), ['node22-win-x64', 'node22-linux-x64']);
 
   const arm64Options = parseArgs(['--all-arm64']);
   const arm64Targets = resolveBuildTargets(arm64Options);
@@ -205,19 +205,24 @@ test('default daemon exe target keeps single dist/bin output contract', () => {
 
   assert.equal(target.outputDir, OUTPUT_DEFAULT);
   assert.notEqual(path.basename(target.outputDir), target.profileName);
-  assert.match(target.pkgTarget, /^node18-/);
+  assert.match(target.pkgTarget, /^node22-/);
 });
 
 test('root npm build scripts expose all supported daemon targets', () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8'));
 
   assert.equal(packageJson.scripts.build, 'npm run build:daemon-all');
-  assert.equal(packageJson.scripts['build:daemon-all'], 'node tools/build-daemon-exe.js --all-supported');
-  assert.equal(packageJson.scripts['build:windows-amd64'], 'node tools/build-daemon-exe.js --profile win-amd64');
-  assert.equal(packageJson.scripts['build:linux-amd64'], 'node tools/build-daemon-exe.js --profile linux-amd64');
-  assert.equal(packageJson.scripts['build:windows-arm64'], 'node tools/build-daemon-exe.js --profile win-arm64');
-  assert.equal(packageJson.scripts['build:linux-arm64'], 'node tools/build-daemon-exe.js --profile linux-arm64');
-  assert.equal(packageJson.scripts['build:macos-arm64'], 'node tools/build-daemon-exe.js --profile macos-arm64');
+  assert.equal(packageJson.scripts['build:daemon-all'], 'node tools/build-portable-runtime.js --all-supported');
+  assert.equal(packageJson.scripts['build:windows-amd64'], 'node tools/build-portable-runtime.js --profile win-amd64');
+  assert.equal(packageJson.scripts['build:linux-amd64'], 'node tools/build-portable-runtime.js --profile linux-amd64');
+  assert.equal(packageJson.scripts['build:windows-arm64'], 'node tools/build-portable-runtime.js --profile win-arm64');
+  assert.equal(packageJson.scripts['build:linux-arm64'], 'node tools/build-portable-runtime.js --profile linux-arm64');
+  assert.equal(packageJson.scripts['build:macos-arm64'], 'node tools/build-portable-runtime.js --profile macos-arm64');
+  assert.equal(packageJson.scripts['build:pkg:windows-amd64'], 'node tools/build-daemon-exe.js --profile win-amd64');
+  assert.equal(packageJson.scripts['build:pkg:linux-amd64'], 'node tools/build-daemon-exe.js --profile linux-amd64');
+  assert.equal(packageJson.scripts['build:pkg:windows-arm64'], 'node tools/build-daemon-exe.js --profile win-arm64');
+  assert.equal(packageJson.scripts['build:pkg:linux-arm64'], 'node tools/build-daemon-exe.js --profile linux-arm64');
+  assert.equal(packageJson.scripts['build:pkg:macos-arm64'], 'node tools/build-daemon-exe.js --profile macos-arm64');
   assert.equal(packageJson.scripts['build:daemon-win-arm64'], 'npm run build:windows-arm64');
   assert.equal(packageJson.scripts['build:daemon-linux-arm64'], 'npm run build:linux-arm64');
   assert.equal(packageJson.scripts['build:daemon-mac-arm64'], 'npm run build:macos-arm64');
@@ -380,13 +385,13 @@ test('prepareWindowsPkgBaseIcon patches a local pkg base instead of the final ex
   const sourceCacheDir = path.join(root, 'source-cache');
   const pkgCacheDir = path.join(root, 'local-cache');
   const outputDir = createBuildOutputFixture();
-  const sourceBase = getPkgFetchBasePath(sourceCacheDir, 'node18-win-x64');
+  const sourceBase = getPkgFetchBasePath(sourceCacheDir, 'node22-win-x64');
   const fakeRceditPath = path.join(root, 'fake-rcedit.exe');
   touch(sourceBase, 'base');
   touch(fakeRceditPath);
   const calls = [];
 
-  const result = prepareWindowsPkgBaseIcon('node18-win-x64', path.join(outputDir, ICON_ICO_NAME), {
+  const result = prepareWindowsPkgBaseIcon('node22-win-x64', path.join(outputDir, ICON_ICO_NAME), {
     pkgCacheDir,
     sourcePkgCacheDir: sourceCacheDir,
     rceditPath: fakeRceditPath,
@@ -397,7 +402,7 @@ test('prepareWindowsPkgBaseIcon patches a local pkg base instead of the final ex
     log: () => {},
   });
 
-  const localBase = getPkgBuiltBasePath(pkgCacheDir, 'node18-win-x64');
+  const localBase = getPkgBuiltBasePath(pkgCacheDir, 'node22-win-x64');
   assert.equal(result.basePath, localBase);
   assert.equal(fs.readFileSync(localBase, 'utf8'), 'base');
   assert.deepEqual(calls, [{
@@ -407,7 +412,7 @@ test('prepareWindowsPkgBaseIcon patches a local pkg base instead of the final ex
       '--set-icon',
       path.join(outputDir, ICON_ICO_NAME),
     ],
-    label: 'rcedit pkg base node18-win-x64',
+    label: 'rcedit pkg base node22-win-x64',
   }]);
   assert.equal(fs.existsSync(path.join(outputDir, 'BuilderGate.exe')), true);
 });
@@ -416,13 +421,13 @@ test('buildExe uses the icon-patched local pkg cache for Windows executables', (
   const outputDir = createBuildOutputFixture();
   const sourceCacheDir = makeTempDir('buildergate-pkg-build-source-cache-');
   const pkgCacheDir = makeTempDir('buildergate-pkg-build-cache-');
-  const sourceBase = getPkgFetchBasePath(sourceCacheDir, 'node18-win-x64');
+  const sourceBase = getPkgFetchBasePath(sourceCacheDir, 'node22-win-x64');
   const fakeRceditPath = path.join(outputDir, 'fake-rcedit.exe');
   touch(sourceBase, 'base');
   touch(fakeRceditPath);
   const calls = [];
 
-  buildExe(outputDir, 'node18-win-x64', {
+  buildExe(outputDir, 'node22-win-x64', {
     platform: 'win32',
     pkgCacheDir,
     sourcePkgCacheDir: sourceCacheDir,
@@ -437,11 +442,11 @@ test('buildExe uses the icon-patched local pkg cache for Windows executables', (
   assert.equal(calls.length, 2);
   assert.equal(calls[0].command, fakeRceditPath);
   assert.deepEqual(calls[0].args, [
-    getPkgBuiltBasePath(pkgCacheDir, 'node18-win-x64'),
+    getPkgBuiltBasePath(pkgCacheDir, 'node22-win-x64'),
     '--set-icon',
     path.join(outputDir, ICON_ICO_NAME),
   ]);
-  assert.equal(calls[0].label, 'rcedit pkg base node18-win-x64');
+  assert.equal(calls[0].label, 'rcedit pkg base node22-win-x64');
   assert.match(calls[1].command, /npx(?:\.cmd)?$/);
   assert.equal(calls[1].label, 'pkg daemon launcher');
   assert.equal(calls[1].env.PKG_CACHE_PATH, pkgCacheDir);

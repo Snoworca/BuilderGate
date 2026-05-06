@@ -134,7 +134,7 @@ test('stopDaemon spends one 10 second budget across sentinel, shutdown, and heal
     const result = await stopDaemon(paths, {
       now: new Date('2026-04-27T00:00:15.000Z'),
       processInfoProvider: createProcessInfoProvider(state, paths),
-      processExists: (pid) => pid === state.appPid,
+      processExists: (pid) => pid === state.appPid || pid === state.sentinelPid,
       waitForProcessExit: async (_pid, options) => {
         timeouts.push(options.timeoutMs);
         nowMs += 4_000;
@@ -167,6 +167,7 @@ test('stopDaemon rejects stale heartbeat without killing recorded PIDs', async (
   const result = await stopDaemon(paths, {
     now: new Date('2026-04-27T00:00:20.500Z'),
     processInfoProvider: createProcessInfoProvider(state, paths),
+    processExists: (pid) => pid === state.appPid || pid === state.sentinelPid,
     killProcess: (pid) => killed.push(pid),
   });
   const nextState = readState(paths.statePath);
@@ -187,7 +188,7 @@ test('stopDaemon marks stopping, waits sentinel first, shuts app down internally
   const result = await stopDaemon(paths, {
     now: new Date('2026-04-27T00:00:15.000Z'),
     processInfoProvider: createProcessInfoProvider(state, paths),
-    processExists: (pid) => pid === state.appPid,
+    processExists: (pid) => pid === state.appPid || pid === state.sentinelPid,
     waitForProcessExit: async (pid) => {
       events.push(`wait-exit:${pid}:${readState(paths.statePath).status}`);
       assert.equal(pid, state.sentinelPid);
@@ -230,7 +231,7 @@ test('stopDaemon requires health nonresponse after internal shutdown response', 
   const result = await stopDaemon(paths, {
     now: new Date('2026-04-27T00:00:15.000Z'),
     processInfoProvider: createProcessInfoProvider(state, paths),
-    processExists: (pid) => pid === state.appPid,
+    processExists: (pid) => pid === state.appPid || pid === state.sentinelPid,
     waitForProcessExit: async () => ({ exited: true }),
     sendShutdownRequest: async () => ({ ok: true, statusCode: 200, body: createShutdownSuccessBody() }),
     waitForHealthNonresponse: async () => ({ stopped: false, reason: 'health still responds' }),
@@ -265,6 +266,34 @@ test('stopDaemon marks stopped when app exits before internal shutdown can be re
   assert.equal(nextState.status, 'stopped');
 });
 
+test('stopDaemon marks stopping before waiting sentinel when running state has no app process', async () => {
+  const paths = createFixturePaths('buildergate-stop-running-state-app-gone-');
+  const state = createRunningState(paths);
+  writeStateAtomic(paths.statePath, state);
+  const events = [];
+
+  const result = await stopDaemon(paths, {
+    now: new Date('2026-04-27T00:00:15.000Z'),
+    processExists: (pid) => pid === state.sentinelPid,
+    waitForProcessExit: async (pid) => {
+      events.push(`wait-exit:${pid}:${readState(paths.statePath).status}`);
+      return { exited: true };
+    },
+    validateAppProcess: async () => {
+      throw new Error('app-gone state must be handled before app validation');
+    },
+    sendShutdownRequest: async () => {
+      throw new Error('shutdown route must not be called for an already exited app');
+    },
+  });
+  const nextState = readState(paths.statePath);
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.status, 'stopped');
+  assert.deepEqual(events, [`wait-exit:${state.sentinelPid}:stopping`]);
+  assert.equal(nextState.status, 'stopped');
+});
+
 test('stopDaemon rejects successful HTTP shutdown response without workspace flush evidence', async () => {
   const paths = createFixturePaths('buildergate-stop-missing-flush-evidence-');
   const state = createRunningState(paths);
@@ -273,7 +302,7 @@ test('stopDaemon rejects successful HTTP shutdown response without workspace flu
   const result = await stopDaemon(paths, {
     now: new Date('2026-04-27T00:00:15.000Z'),
     processInfoProvider: createProcessInfoProvider(state, paths),
-    processExists: (pid) => pid === state.appPid,
+    processExists: (pid) => pid === state.appPid || pid === state.sentinelPid,
     waitForProcessExit: async () => ({ exited: true }),
     sendShutdownRequest: async () => ({ ok: true, statusCode: 200, body: { ok: true } }),
     waitForHealthNonresponse: async () => {
@@ -308,7 +337,11 @@ test('stopDaemon resumes a previous stopping state instead of reporting not-runn
   const result = await stopDaemon(paths, {
     now: new Date('2026-04-27T00:00:35.000Z'),
     processInfoProvider: createProcessInfoProvider(state, paths),
-    processExists: (pid) => pid === state.appPid,
+    processExists: (pid) => pid === state.appPid || pid === state.sentinelPid,
+    waitForProcessExit: async (pid) => {
+      assert.equal(pid, state.sentinelPid);
+      return { exited: true };
+    },
     sendShutdownRequest: async () => ({ ok: true, statusCode: 200, body: createShutdownSuccessBody() }),
     waitForHealthNonresponse: async () => ({ stopped: true }),
   });
@@ -317,6 +350,39 @@ test('stopDaemon resumes a previous stopping state instead of reporting not-runn
   assert.equal(result.exitCode, 0);
   assert.equal(result.status, 'stopped');
   assert.equal(nextState.status, 'stopped');
+});
+
+test('stopDaemon resumes a previous stopping state after sentinel already exited while app is still alive', async () => {
+  const paths = createFixturePaths('buildergate-stop-resume-app-only-');
+  const state = createRunningState(paths, { status: 'stopping' });
+  writeStateAtomic(paths.statePath, state);
+  const events = [];
+
+  const result = await stopDaemon(paths, {
+    now: new Date('2026-04-27T00:00:35.000Z'),
+    processInfoProvider: createProcessInfoProvider(state, paths),
+    processExists: (pid) => pid === state.appPid,
+    waitForProcessExit: async () => {
+      throw new Error('sentinel already exited; stop resume must not wait for it');
+    },
+    sendShutdownRequest: async ({ token }) => {
+      events.push(`shutdown:${readState(paths.statePath).status}`);
+      assert.equal(token, state.shutdownToken);
+      return { ok: true, statusCode: 200, body: createShutdownSuccessBody() };
+    },
+    waitForHealthNonresponse: async () => {
+      events.push('health-nonresponse');
+      return { stopped: true };
+    },
+  });
+  const nextState = readState(paths.statePath);
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.status, 'stopped');
+  assert.deepEqual(events, ['shutdown:stopping', 'health-nonresponse']);
+  assert.equal(nextState.status, 'stopped');
+  assert.equal(nextState.appPid, null);
+  assert.equal(nextState.sentinelPid, null);
 });
 
 test('stopDaemon recovers a previous stopping state after app and sentinel already exited', async () => {
@@ -351,7 +417,7 @@ for (const statusCode of [401, 403, 404, 500]) {
     const result = await stopDaemon(paths, {
       now: new Date('2026-04-27T00:00:15.000Z'),
       processInfoProvider: createProcessInfoProvider(state, paths),
-      processExists: (pid) => pid === state.appPid,
+      processExists: (pid) => pid === state.appPid || pid === state.sentinelPid,
       waitForProcessExit: async () => ({ exited: true }),
       sendShutdownRequest: async () => ({
         ok: false,
@@ -377,6 +443,7 @@ test('stopDaemon reports sentinel timeout as graceful failure without kill fallb
   const result = await stopDaemon(paths, {
     now: new Date('2026-04-27T00:00:15.000Z'),
     processInfoProvider: createProcessInfoProvider(state, paths),
+    processExists: (pid) => pid === state.appPid || pid === state.sentinelPid,
     waitForProcessExit: async () => ({ exited: false, reason: 'timeout' }),
     killProcess: (pid) => killed.push(pid),
   });

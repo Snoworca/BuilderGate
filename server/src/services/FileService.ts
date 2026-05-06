@@ -404,7 +404,7 @@ export class FileService {
         const drive = path.parse(targetPath).root || 'C:\\';
         const output = execSync(
           `powershell -Command "(Get-PSDrive ${drive[0]}).Free"`,
-          { encoding: 'utf-8', timeout: 5000 }
+          { encoding: 'utf-8', timeout: 5000, windowsHide: true }
         ).trim();
         return parseInt(output, 10) || 0;
       } else {
@@ -485,6 +485,7 @@ export class FileService {
       const winPath = execSync(`wsl.exe wslpath -w "${p}"`, {
         encoding: 'utf-8',
         timeout: 3000,
+        windowsHide: true,
       }).trim();
       return winPath || p;
     } catch {

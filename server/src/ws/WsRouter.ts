@@ -126,7 +126,11 @@ export class WsRouter {
       });
 
       ws.on('message', (raw: Buffer | string) => {
-        this.handleMessage(ws, raw);
+        try {
+          this.handleMessage(ws, raw);
+        } catch (error) {
+          this.handleMessageError(ws, raw, error);
+        }
       });
 
       ws.on('close', () => {
@@ -186,6 +190,31 @@ export class WsRouter {
         break;
       default:
         console.warn(`[WS] Unknown message type: ${(msg as { type: string }).type}`);
+    }
+  }
+
+  private handleMessageError(ws: WebSocket, raw: Buffer | string, error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[WS] Message handler failed:', message);
+
+    const parsed = this.tryParseRawMessage(raw);
+    const sessionId = isRecord(parsed) && typeof parsed.sessionId === 'string' && parsed.sessionId.length > 0
+      ? parsed.sessionId
+      : null;
+    if (sessionId) {
+      this.sendTo(ws, {
+        type: 'session:error',
+        sessionId,
+        message: 'WebSocket message handling failed',
+      });
+    }
+  }
+
+  private tryParseRawMessage(raw: Buffer | string): unknown {
+    try {
+      return JSON.parse(typeof raw === 'string' ? raw : raw.toString());
+    } catch {
+      return null;
     }
   }
 
@@ -403,17 +432,33 @@ export class WsRouter {
       return;
     }
 
-    if (!this.sessionManager.writeInput(input.sessionId, input.data, input.metadata, {
-      inputSeqStart: input.inputSeqStart,
-      inputSeqEnd: input.inputSeqEnd,
-    })) {
+    let inputAccepted = false;
+    try {
+      inputAccepted = this.sessionManager.writeInput(input.sessionId, input.data, input.metadata, {
+        inputSeqStart: input.inputSeqStart,
+        inputSeqEnd: input.inputSeqEnd,
+      });
+    } catch (error) {
+      console.error('[WS] PTY input write failed:', error);
       this.rejectInput(ws, {
         sessionId: input.sessionId,
         data: input.data,
         metadata: input.metadata,
         inputSeqStart: input.inputSeqStart,
         inputSeqEnd: input.inputSeqEnd,
-        reason: 'session-missing',
+        reason: 'server-error',
+      });
+      return;
+    }
+
+    if (!inputAccepted) {
+      this.rejectInput(ws, {
+        sessionId: input.sessionId,
+        data: input.data,
+        metadata: input.metadata,
+        inputSeqStart: input.inputSeqStart,
+        inputSeqEnd: input.inputSeqEnd,
+        reason: 'server-error',
       });
     }
   }
@@ -676,10 +721,28 @@ export class WsRouter {
         continue;
       }
 
-      if (!this.sessionManager.writeInput(sessionId, input.data, input.metadata, {
-        inputSeqStart: input.inputSeqStart,
-        inputSeqEnd: input.inputSeqEnd,
-      })) {
+      let inputAccepted = false;
+      try {
+        inputAccepted = this.sessionManager.writeInput(sessionId, input.data, input.metadata, {
+          inputSeqStart: input.inputSeqStart,
+          inputSeqEnd: input.inputSeqEnd,
+        });
+      } catch (error) {
+        console.error('[WS] Queued PTY input write failed:', error);
+        this.rejectInput(ws, {
+          sessionId,
+          data: input.data,
+          metadata: input.metadata,
+          inputSeqStart: input.inputSeqStart,
+          inputSeqEnd: input.inputSeqEnd,
+          reason: 'server-error',
+          replayToken,
+          snapshotSeq,
+        });
+        continue;
+      }
+
+      if (!inputAccepted) {
         this.rejectInput(ws, {
           sessionId,
           data: input.data,

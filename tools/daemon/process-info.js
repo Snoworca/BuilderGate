@@ -134,16 +134,18 @@ function parseWindowsCreationDate(value) {
   return parsed === null ? null : new Date(parsed).toISOString();
 }
 
-function queryWindowsProcessInfo(pid) {
+function queryWindowsProcessInfo(pid, options = {}) {
   const script = [
     `$p = Get-CimInstance Win32_Process -Filter "ProcessId = ${pid}"`,
     'if ($null -eq $p) { exit 2 }',
     '$creation = if ($p.CreationDate -is [datetime]) { $p.CreationDate.ToUniversalTime().ToString("o") } else { [string]$p.CreationDate }',
     '[pscustomobject]@{ProcessId=$p.ProcessId;ExecutablePath=$p.ExecutablePath;CommandLine=$p.CommandLine;CreationDate=$creation} | ConvertTo-Json -Compress',
   ].join('; ');
-  const result = spawnSync('powershell.exe', ['-NoProfile', '-Command', script], {
+  const spawnSyncFn = options.spawnSyncFn ?? spawnSync;
+  const result = spawnSyncFn('powershell.exe', ['-NoProfile', '-Command', script], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'ignore'],
+    windowsHide: true,
   });
 
   if (result.status !== 0 || !result.stdout.trim()) {
@@ -206,7 +208,7 @@ function queryProcessInfo(pid, options = {}) {
 
   if ((options.platform ?? process.platform) === 'win32') {
     try {
-      return queryWindowsProcessInfo(pid);
+      return queryWindowsProcessInfo(pid, options);
     } catch {
       return { pid, running: true, executablePath: null, commandLine: null, cwd: null, startTime: null };
     }
