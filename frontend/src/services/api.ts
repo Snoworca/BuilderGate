@@ -21,8 +21,19 @@ import type {
   ShellType,
   SettingsSnapshot,
   SettingsPatchRequest,
-  SettingsSaveResponse
+  SettingsSaveResponse,
+  CommandPreset,
+  CommandPresetListResponse,
+  CreateCommandPresetRequest,
+  UpdateCommandPresetRequest,
+  CommandPresetKind
 } from '../types';
+import type {
+  GridLayout,
+  Workspace,
+  WorkspaceState,
+  WorkspaceTab,
+} from '../types/workspace';
 
 const API_BASE = '/api';
 
@@ -307,13 +318,13 @@ export const fileApi = {
 // ============================================================================
 
 export const workspaceApi = {
-  getAll: async (): Promise<any> => {
+  getAll: async (): Promise<WorkspaceState> => {
     const res = await authFetch(`${API_BASE}/workspaces`, { headers: getAuthHeaders() });
     if (!res.ok) throw await parseError(res);
     return res.json();
   },
 
-  create: async (name?: string): Promise<any> => {
+  create: async (name?: string): Promise<Workspace> => {
     const res = await authFetch(`${API_BASE}/workspaces`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -323,7 +334,10 @@ export const workspaceApi = {
     return res.json();
   },
 
-  update: async (id: string, updates: Record<string, any>): Promise<any> => {
+  update: async (
+    id: string,
+    updates: Partial<Pick<Workspace, 'name' | 'viewMode' | 'activeTabId'>>,
+  ): Promise<Workspace> => {
     const res = await authFetch(`${API_BASE}/workspaces/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -350,7 +364,7 @@ export const workspaceApi = {
     if (!res.ok) throw await parseError(res);
   },
 
-  addTab: async (workspaceId: string, shell?: string, name?: string, cwd?: string): Promise<any> => {
+  addTab: async (workspaceId: string, shell?: string, name?: string, cwd?: string): Promise<WorkspaceTab> => {
     const res = await authFetch(`${API_BASE}/workspaces/${workspaceId}/tabs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -360,7 +374,11 @@ export const workspaceApi = {
     return res.json();
   },
 
-  updateTab: async (workspaceId: string, tabId: string, updates: Record<string, any>): Promise<any> => {
+  updateTab: async (
+    workspaceId: string,
+    tabId: string,
+    updates: Partial<Pick<WorkspaceTab, 'name'>>,
+  ): Promise<WorkspaceTab> => {
     const res = await authFetch(`${API_BASE}/workspaces/${workspaceId}/tabs/${tabId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -387,7 +405,7 @@ export const workspaceApi = {
     if (!res.ok) throw await parseError(res);
   },
 
-  updateGrid: async (workspaceId: string, layout: Record<string, any>): Promise<any> => {
+  updateGrid: async (workspaceId: string, layout: Record<string, unknown>): Promise<GridLayout> => {
     const res = await authFetch(`${API_BASE}/workspaces/${workspaceId}/grid`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -397,7 +415,7 @@ export const workspaceApi = {
     return res.json();
   },
 
-  restartTab: async (workspaceId: string, tabId: string): Promise<any> => {
+  restartTab: async (workspaceId: string, tabId: string): Promise<WorkspaceTab> => {
     const res = await authFetch(`${API_BASE}/workspaces/${workspaceId}/tabs/${tabId}/restart`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -428,5 +446,62 @@ export const settingsApi = {
     });
     if (!res.ok) throw await parseError(res);
     return res.json();
+  },
+};
+
+export const commandPresetApi = {
+  getAll: async (): Promise<CommandPreset[]> => {
+    const res = await authFetch(`${API_BASE}/command-presets`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+    const data = await res.json() as CommandPresetListResponse;
+    return data.presets;
+  },
+
+  create: async (input: CreateCommandPresetRequest): Promise<CommandPreset> => {
+    const res = await authFetch(`${API_BASE}/command-presets`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  update: async (id: string, input: UpdateCommandPresetRequest): Promise<CommandPreset> => {
+    const res = await authFetch(`${API_BASE}/command-presets/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  delete: async (id: string): Promise<void> => {
+    const res = await authFetch(`${API_BASE}/command-presets/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+  },
+
+  reorder: async (kind: CommandPresetKind, presetIds: string[]): Promise<void> => {
+    const res = await authFetch(`${API_BASE}/command-presets/order`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({ kind, presetIds }),
+    });
+    if (!res.ok) throw await parseError(res);
   },
 };

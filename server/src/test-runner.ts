@@ -23,6 +23,7 @@ import { sessionManager } from './services/SessionManager.js';
 import { FileService } from './services/FileService.js';
 import { OscDetector } from './services/OscDetector.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
+import { CommandPresetService } from './services/CommandPresetService.js';
 import {
   createHeadlessTerminalState,
   disposeHeadlessTerminal,
@@ -35,6 +36,7 @@ import { WsRouter } from './ws/WsRouter.js';
 import { AppError, ErrorCode } from './utils/errors.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
 import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js';
+import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
 import sessionRoutes from './routes/sessionRoutes.js';
 import { ensureDebugCaptureSessionExists, requireLocalDebugCapture } from './middleware/debugCaptureGuards.js';
 import { performGracefulShutdown } from './services/gracefulShutdown.js';
@@ -184,6 +186,9 @@ async function main(): Promise<void> {
     { name: 'WorkspaceService restartTab preserves the old session when replacement creation fails', run: testWorkspaceServiceRestartTabCreateFailure },
     { name: 'WorkspaceService deleteWorkspace clears workspace sessions in bulk', run: testWorkspaceServiceDeleteWorkspace },
     { name: 'WorkspaceService orphan recovery recreates fresh session ids with saved cwd', run: testWorkspaceServiceCheckOrphanTabs },
+    { name: 'CommandPresetService persists CRUD operations and per-kind reorder', run: testCommandPresetServiceCrudAndReorder },
+    { name: 'CommandPresetService serializes concurrent mutations', run: testCommandPresetServiceConcurrentCreates },
+    { name: 'command preset routes expose CRUD and reject invalid order payloads', run: testCommandPresetRoutesCrudAndValidation },
     { name: 'FileService.updateConfig applies new limits to later operations', run: testFileServiceRuntimeConfig },
     { name: 'twoFactorSchema accepts TOTP-only config', run: testTwoFactorSchemaTotp },
     { name: 'twoFactorSchema accepts disabled 2FA with no methods configured', run: testTwoFactorSchemaDisabled },
@@ -4899,6 +4904,177 @@ async function testWorkspaceServiceCheckOrphanTabs(): Promise<void> {
   assert.equal(calls.createSession.length, 1);
   assert.equal(calls.createSession[0].cwd, '/saved-cwd');
   assert.notEqual((workspaceService as any).state.tabs[0].sessionId, 'orphan-session');
+}
+
+async function testCommandPresetServiceCrudAndReorder(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-command-presets-'));
+  const dataPath = path.join(tempDir, 'command-presets.json');
+
+  try {
+    const service = new CommandPresetService({ dataPath });
+    await service.initialize();
+
+    const first = await service.createPreset({
+      kind: 'command',
+      label: 'List',
+      value: 'ls',
+    });
+    const second = await service.createPreset({
+      kind: 'command',
+      label: 'Print',
+      value: 'pwd',
+    });
+    const prompt = await service.createPreset({
+      kind: 'prompt',
+      label: 'Prompt',
+      value: 'line 1\nline 2',
+    });
+
+    assert.equal(first.sortOrder, 0);
+    assert.equal(second.sortOrder, 1);
+    assert.equal(prompt.value, 'line 1\nline 2');
+
+    const updated = await service.updatePreset(first.id, { label: 'List files' });
+    assert.equal(updated.label, 'List files');
+
+    await service.reorderPresets('command', [second.id, first.id]);
+    assert.deepEqual(
+      service.getAll().filter(item => item.kind === 'command').map(item => item.id),
+      [second.id, first.id],
+    );
+
+    await service.deletePreset(second.id);
+    assert.deepEqual(
+      service.getAll().filter(item => item.kind === 'command').map(item => item.sortOrder),
+      [0],
+    );
+
+    const reloaded = new CommandPresetService({ dataPath });
+    await reloaded.initialize();
+    assert.deepEqual(reloaded.getAll().map(item => item.label), ['List files', 'Prompt']);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testCommandPresetServiceConcurrentCreates(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-command-presets-concurrent-'));
+  const dataPath = path.join(tempDir, 'command-presets.json');
+
+  try {
+    const service = new CommandPresetService({ dataPath });
+    await service.initialize();
+
+    const created = await Promise.all(Array.from({ length: 20 }, (_unused, index) => {
+      return service.createPreset({
+        kind: 'command',
+        label: `Concurrent ${index}`,
+        value: `echo ${index}`,
+      });
+    }));
+
+    assert.equal(created.length, 20);
+    assert.equal(new Set(created.map(preset => preset.id)).size, 20);
+    assert.deepEqual(
+      service.getAll().map(preset => preset.sortOrder),
+      Array.from({ length: 20 }, (_unused, index) => index),
+    );
+
+    const reloaded = new CommandPresetService({ dataPath });
+    await reloaded.initialize();
+    assert.equal(reloaded.getAll().length, 20);
+    assert.deepEqual(
+      reloaded.getAll().map(preset => preset.sortOrder),
+      Array.from({ length: 20 }, (_unused, index) => index),
+    );
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testCommandPresetRoutesCrudAndValidation(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-command-preset-routes-'));
+  const dataPath = path.join(tempDir, 'command-presets.json');
+
+  try {
+    const service = new CommandPresetService({ dataPath });
+    await service.initialize();
+
+    const app = express();
+    app.use(express.json());
+    app.use('/api/command-presets', createCommandPresetRoutes(service));
+
+    const created = await requestJson(app, 'POST', '/api/command-presets', {
+      kind: 'directory',
+      label: 'Repo',
+      value: 'C:\\Work\\git',
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.label, 'Repo');
+
+    const listed = await requestJson(app, 'GET', '/api/command-presets');
+    assert.equal(listed.status, 200);
+    assert.equal(Array.isArray(listed.body.presets), true);
+    assert.equal((listed.body.presets as unknown[]).length, 1);
+
+    const invalidOrder = await requestJson(app, 'PUT', '/api/command-presets/order', {
+      kind: 'directory',
+      presetIds: [],
+    });
+    assert.equal(invalidOrder.status, 400);
+    assert.equal((invalidOrder.body.error as { code?: string }).code, 'INVALID_INPUT');
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function requestJson(
+  app: ReturnType<typeof express>,
+  method: string,
+  requestPath: string,
+  body?: Record<string, unknown>,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer(app);
+    server.listen(0, () => {
+      const port = (server.address() as net.AddressInfo).port;
+      const postBody = body ? JSON.stringify(body) : '';
+      const headers: Record<string, string | number> = {};
+      if (body) {
+        headers['Content-Type'] = 'application/json';
+        headers['Content-Length'] = Buffer.byteLength(postBody);
+      }
+
+      const request = http.request({
+        hostname: '127.0.0.1',
+        port,
+        method,
+        path: requestPath,
+        headers,
+      }, (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => {
+          server.close();
+          try {
+            const payload = Buffer.concat(chunks).toString();
+            const parsed = payload ? JSON.parse(payload) as Record<string, unknown> : {};
+            resolve({ status: res.statusCode ?? 0, body: parsed });
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
+      request.on('error', (error: Error) => {
+        server.close();
+        reject(error);
+      });
+      if (body) {
+        request.write(postBody);
+      }
+      request.end();
+    });
+  });
 }
 
 async function testFileServiceRuntimeConfig(): Promise<void> {

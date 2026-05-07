@@ -1,0 +1,113 @@
+{
+  "plan_contract": "1.1.0",
+  "plan_id": "plan-20260507-grid-equal-smart-row",
+  "produced_by": "snoworca-micro-plan@1.5",
+  "produced_at": "2026-05-07T00:07:30+09:00",
+  "title": "Grid Equal Smart Row Micro Plan",
+  "spec_path": "docs/srs/buildergate.srs.md",
+  "x-snoworca-code-path": ".",
+  "scope_freeze": true,
+  "previous_hash": null,
+  "change_log": [],
+  "platforms": ["win32", "posix"],
+  "requires_human_approval": false,
+  "pre_commit_gate": [
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "cd frontend; npx eslint src/utils/mosaic.ts tests/unit/mosaicEqualLayout.test.ts tests/e2e/grid-equal-mode.spec.ts", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "$env:NODE_ENV='development'; Remove-Item Env:BUILDERGATE_WEB_ROOT -ErrorAction SilentlyContinue; Remove-Item Env:BUILDERGATE_DAEMON_START_ID -ErrorAction SilentlyContinue; Remove-Item Env:BUILDERGATE_DAEMON_STATE_GENERATION -ErrorAction SilentlyContinue; cd frontend; npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+    {"shell": "bash", "cmd": "cd frontend && npx eslint src/utils/mosaic.ts tests/unit/mosaicEqualLayout.test.ts tests/e2e/grid-equal-mode.spec.ts", "expected_exit": 0},
+    {"shell": "bash", "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts", "expected_exit": 0},
+    {"shell": "bash", "cmd": "unset BUILDERGATE_WEB_ROOT BUILDERGATE_DAEMON_START_ID BUILDERGATE_DAEMON_STATE_GENERATION; export NODE_ENV=development; cd frontend && npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0}
+  ],
+  "forbidden_patterns": [
+    {"pattern": "적절[히]|필요\\s*시|알아[서]|상황에\\s*맞게|기존\\s*방식대로|어떻게[든]", "flags": ""},
+    {"pattern": "rm\\s+-rf|Remove-Item\\s+.*-Recurse|git\\s+reset\\s+--hard|git\\s+checkout\\s+--", "flags": "i"}
+  ],
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "title": "Grid Equal smart row selection",
+      "tasks": [
+        {
+          "id": "TASK-P1-001",
+          "title": "Add wide single-row candidate selection",
+          "related_req_ids": ["FR-GRID-014", "FR-GRID-015", "AC-007"],
+          "owns": ["frontend/src/utils/mosaic.ts"],
+          "reads": ["docs/srs/buildergate.srs.md", "frontend/src/utils/mosaic.ts"],
+          "depends_on": [],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts", "expected_exit": 0}
+          ],
+          "rollback": {
+            "strategy": "manual-reverse-patch",
+            "command": "Apply a reverse patch for the smart row selection block in frontend/src/utils/mosaic.ts.",
+            "verification_command": {"shell": "pwsh", "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts", "expected_exit": 0}
+          },
+          "on_failure": {
+            "on_error": "retry-then-escalate",
+            "on_timeout": "retry-then-escalate",
+            "on_partial": "fail-task",
+            "on_infra_failure": "retry-then-escalate",
+            "on_user_cancel": "halt"
+          }
+        },
+        {
+          "id": "TASK-P1-002",
+          "title": "Update Equal layout unit tests",
+          "related_req_ids": ["FR-GRID-014", "FR-GRID-015"],
+          "owns": ["frontend/tests/unit/mosaicEqualLayout.test.ts"],
+          "reads": ["frontend/src/utils/mosaic.ts", "docs/srs/buildergate.srs.md"],
+          "depends_on": ["TASK-P1-001"],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts", "expected_exit": 0}
+          ],
+          "rollback": {
+            "strategy": "manual-reverse-patch",
+            "command": "Apply a reverse patch for the smart row unit test additions in frontend/tests/unit/mosaicEqualLayout.test.ts.",
+            "verification_command": {"shell": "pwsh", "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts", "expected_exit": 0}
+          },
+          "on_failure": {
+            "on_error": "retry-then-escalate",
+            "on_timeout": "retry-then-escalate",
+            "on_partial": "fail-task",
+            "on_infra_failure": "retry-then-escalate",
+            "on_user_cancel": "halt"
+          }
+        },
+        {
+          "id": "TASK-P1-003",
+          "title": "Update Grid Equal E2E coverage",
+          "related_req_ids": ["FR-GRID-014", "FR-GRID-015", "AC-007"],
+          "owns": ["frontend/tests/e2e/grid-equal-mode.spec.ts"],
+          "reads": ["frontend/tests/e2e/grid-equal-mode.spec.ts", "frontend/playwright.config.ts", "docs/srs/buildergate.srs.md"],
+          "depends_on": ["TASK-P1-001", "TASK-P1-002"],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "$env:NODE_ENV='development'; Remove-Item Env:BUILDERGATE_WEB_ROOT -ErrorAction SilentlyContinue; Remove-Item Env:BUILDERGATE_DAEMON_START_ID -ErrorAction SilentlyContinue; Remove-Item Env:BUILDERGATE_DAEMON_STATE_GENERATION -ErrorAction SilentlyContinue; cd frontend; npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+            {"shell": "bash", "cmd": "unset BUILDERGATE_WEB_ROOT BUILDERGATE_DAEMON_START_ID BUILDERGATE_DAEMON_STATE_GENERATION; export NODE_ENV=development; cd frontend && npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0}
+          ],
+          "rollback": {
+            "strategy": "manual-reverse-patch",
+            "command": "Apply a reverse patch for the smart row E2E additions in frontend/tests/e2e/grid-equal-mode.spec.ts.",
+            "verification_command": {"shell": "pwsh", "cmd": "$env:NODE_ENV='development'; Remove-Item Env:BUILDERGATE_WEB_ROOT -ErrorAction SilentlyContinue; Remove-Item Env:BUILDERGATE_DAEMON_START_ID -ErrorAction SilentlyContinue; Remove-Item Env:BUILDERGATE_DAEMON_STATE_GENERATION -ErrorAction SilentlyContinue; cd frontend; npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0}
+          },
+          "on_failure": {
+            "on_error": "retry-then-escalate",
+            "on_timeout": "retry-then-escalate",
+            "on_partial": "fail-task",
+            "on_infra_failure": "retry-then-escalate",
+            "on_user_cancel": "halt"
+          }
+        }
+      ]
+    }
+  ],
+  "req_mapping": [
+    {"req_id": "FR-GRID-014", "tasks": ["TASK-P1-001", "TASK-P1-002", "TASK-P1-003"]},
+    {"req_id": "FR-GRID-015", "tasks": ["TASK-P1-001", "TASK-P1-002", "TASK-P1-003"]},
+    {"req_id": "AC-007", "tasks": ["TASK-P1-001", "TASK-P1-003"]}
+  ]
+}

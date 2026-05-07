@@ -1,0 +1,92 @@
+.window-dialog-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+}
+
+.window-dialog-layer-modal {
+  pointer-events: auto;
+}
+
+.window-dialog-layer-modeless {
+  pointer-events: none;
+}
+
+.window-dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.window-dialog {
+  z-index: 5001;
+  pointer-events: auto;
+}
+
+.window-dialog-surface {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #252526;
+  border: 1px solid #565656;
+  border-radius: 6px;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.42);
+  color: #d4d4d4;
+}
+
+.window-dialog-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  height: 40px;
+  padding: 0 8px 0 14px;
+  background: #323233;
+  border-bottom: 1px solid #3c3c3c;
+  cursor: move;
+  user-select: none;
+}
+
+.window-dialog-title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.window-dialog-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  margin-left: 12px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #bdbdbd;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.window-dialog-close:hover {
+  background: #4a2f2f;
+  border-color: #744747;
+  color: #ffffff;
+}
+
+.window-dialog-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}

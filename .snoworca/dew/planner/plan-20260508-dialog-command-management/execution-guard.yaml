@@ -1,0 +1,28 @@
+plan_contract: "1.1.0"
+plan_id: "plan-20260508-dialog-command-management"
+scope_freeze: true
+change_log: []
+pre_commit_gate:
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend exec -- tsc -b"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend exec -- eslint src/components/dialog src/components/Header src/components/CommandPresetManager src/services/api.ts src/types tests/unit/dialogGeometry.test.ts tests/unit/commandPresetExecution.test.ts tests/e2e/command-management-dialog.spec.ts"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "node --experimental-strip-types --test frontend/tests/unit/dialogGeometry.test.ts frontend/tests/unit/commandPresetExecution.test.ts"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend run build"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix server run test"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend exec -- playwright test tests/e2e/command-management-dialog.spec.ts --project \"Desktop Chrome\""
+    expected_exit: 0
+forbidden_patterns:
+  - pattern: "적절[히]|필요\\s*시|알아[서]|상황에\\s*맞게|기존\\s*방식대로|어떻게[든]"
+    flags: ""
+  - pattern: "rm\\s+-rf|Remove-Item\\s+.*-Recurse|git\\s+reset\\s+--hard|git\\s+checkout\\s+--"
+    flags: "i"

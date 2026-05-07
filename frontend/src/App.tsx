@@ -21,6 +21,7 @@ import { WorkspaceSidebar, WorkspaceTabBar, MobileDrawer, EmptyState, Disconnect
 import { MosaicContainer } from './components/Grid';
 import { MetadataRow } from './components/MetadataBar/MetadataRow';
 import { ContextMenu } from './components/ContextMenu';
+import { CommandPresetDialog } from './components/CommandPresetManager';
 import { buildTerminalContextMenuItems } from './utils/contextMenuBuilder';
 import { TAB_COLORS } from './types/workspace';
 import { resolveCwd } from './utils/shell';
@@ -80,6 +81,7 @@ function AppContent() {
   const [screen, setScreen] = useState<'workspace' | 'settings'>('workspace');
   const { isMobile, sidebarOpen, toggleSidebar, closeSidebar } = useResponsive();
   const [availableShells, setAvailableShells] = useState<ShellInfo[]>([]);
+  const [showCommandPresetDialog, setShowCommandPresetDialog] = useState(false);
 
   const wm = useWorkspaceManager();
   // Stable ref to avoid re-creating callbacks on every render
@@ -412,6 +414,7 @@ function AppContent() {
         activeCwd={activeTab?.cwd}
         viewMode={viewMode}
         onToggleViewMode={wm.activeWorkspace ? handleToggleViewMode : undefined}
+        onOpenCommandPresetManager={() => setShowCommandPresetDialog(true)}
       />
       <div className="main">
         {/* Desktop sidebar */}
@@ -559,6 +562,16 @@ function AppContent() {
           position={tabContextMenu.position}
           items={tabContextMenuItems}
           onClose={tabContextMenu.close}
+        />
+      )}
+
+      {showCommandPresetDialog && (
+        <CommandPresetDialog
+          open={showCommandPresetDialog}
+          activeTabId={activeTab?.id ?? null}
+          activeShellType={activeTab?.shellType ?? null}
+          onClose={() => setShowCommandPresetDialog(false)}
+          onSendTerminalInput={sendTerminalInput}
         />
       )}
 

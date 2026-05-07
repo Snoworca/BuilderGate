@@ -144,3 +144,11 @@ export type {
   SettingsApplySummary,
   SettingsSaveResponse
 } from './settings';
+
+export type {
+  CommandPreset,
+  CommandPresetKind,
+  CommandPresetListResponse,
+  CreateCommandPresetRequest,
+  UpdateCommandPresetRequest
+} from './commandPreset';

@@ -20,6 +20,8 @@ type GridCellSnapshot = {
   height: number;
 };
 
+type EqualLayoutArrangement = 'rows' | 'cols';
+
 type ReorderDragResult = {
   hovered: boolean;
   targetRect: RectSnapshot;
@@ -74,14 +76,29 @@ function extractLeafIds(node: unknown): string[] {
   return [...extractLeafIds(parent.first), ...extractLeafIds(parent.second)];
 }
 
-async function setupEqualGridWorkspace(page: Page, tabCount: number): Promise<WorkspaceSetup> {
-  return page.evaluate(async ({ count, evictablePatternSource }: { count: number; evictablePatternSource: string }) => {
+async function setupEqualGridWorkspace(
+  page: Page,
+  tabCount: number,
+  arrangement: EqualLayoutArrangement = 'rows',
+): Promise<WorkspaceSetup> {
+  return page.evaluate(async ({
+    count,
+    evictablePatternSource,
+    equalArrangement,
+  }: {
+    count: number;
+    evictablePatternSource: string;
+    equalArrangement: EqualLayoutArrangement;
+  }) => {
     type WorkspaceResponse = { id: string; name?: string };
     type TabResponse = { id: string; workspaceId: string };
     type WorkspaceStateResponse = {
       workspaces: WorkspaceResponse[];
       tabs: TabResponse[];
     };
+    type LocalMosaicNode =
+      | string
+      | { direction: 'row' | 'column'; first: LocalMosaicNode; second: LocalMosaicNode; splitPercentage: number };
 
     const token = localStorage.getItem('cws_auth_token');
     if (!token) {
@@ -100,7 +117,7 @@ async function setupEqualGridWorkspace(page: Page, tabCount: number): Promise<Wo
     const buildLinearTree = (
       ids: string[],
       direction: 'row' | 'column',
-    ): string | { direction: 'row' | 'column'; first: unknown; second: unknown; splitPercentage: number } => {
+    ): LocalMosaicNode => {
       if (ids.length === 1) return ids[0];
       if (ids.length === 2) {
         return { direction, first: ids[0], second: ids[1], splitPercentage: 50 };
@@ -115,7 +132,61 @@ async function setupEqualGridWorkspace(page: Page, tabCount: number): Promise<Wo
       };
     };
 
-    const buildEqualTree = (ids: string[]) => {
+    const buildBalancedTree = (
+      nodes: LocalMosaicNode[],
+      direction: 'row' | 'column',
+    ): LocalMosaicNode => {
+      if (nodes.length === 1) return nodes[0];
+      return {
+        direction,
+        first: nodes[0],
+        second: buildBalancedTree(nodes.slice(1), direction),
+        splitPercentage: 100 / nodes.length,
+      };
+    };
+
+    const getBaselineGrid = (nextCount: number, nextArrangement: EqualLayoutArrangement) => {
+      if (nextCount === 4) return { columns: 2, rows: 2 };
+      if (nextCount <= 6) {
+        return nextArrangement === 'cols'
+          ? { columns: 2, rows: 3 }
+          : { columns: 3, rows: 2 };
+      }
+      return { columns: 3, rows: 3 };
+    };
+
+    const distributeBandCounts = (
+      nextCount: number,
+      bandCount: number,
+      maxPerBand: number,
+    ): number[] => {
+      const counts: number[] = [];
+      let remaining = nextCount;
+      for (let index = 0; index < bandCount; index += 1) {
+        const remainingBands = bandCount - index;
+        const nextBandCount = Math.min(maxPerBand, Math.ceil(remaining / remainingBands));
+        counts.push(nextBandCount);
+        remaining -= nextBandCount;
+      }
+      return counts;
+    };
+
+    const buildBandedTree = (
+      ids: string[],
+      outerDirection: 'row' | 'column',
+      innerDirection: 'row' | 'column',
+      bandCounts: number[],
+    ): LocalMosaicNode => {
+      const bands: LocalMosaicNode[] = [];
+      let offset = 0;
+      for (const bandCount of bandCounts) {
+        bands.push(buildLinearTree(ids.slice(offset, offset + bandCount), innerDirection));
+        offset += bandCount;
+      }
+      return buildBalancedTree(bands, outerDirection);
+    };
+
+    const buildEqualTree = (ids: string[], nextArrangement: EqualLayoutArrangement) => {
       if (ids.length === 0) {
         throw new Error('Cannot build equal tree without tabs');
       }
@@ -123,20 +194,18 @@ async function setupEqualGridWorkspace(page: Page, tabCount: number): Promise<Wo
         return ids[0];
       }
 
-      const topCount = Math.ceil(ids.length / 2);
-      const topIds = ids.slice(0, topCount);
-      const bottomIds = ids.slice(topCount);
-
-      if (bottomIds.length === 0) {
-        return buildLinearTree(topIds, 'row');
+      if (ids.length <= 3) {
+        return buildLinearTree(ids, nextArrangement === 'cols' ? 'column' : 'row');
       }
 
-      return {
-        direction: 'column' as const,
-        first: buildLinearTree(topIds, 'row'),
-        second: buildLinearTree(bottomIds, 'row'),
-        splitPercentage: 50,
-      };
+      const { columns, rows } = getBaselineGrid(ids.length, nextArrangement);
+      const outerDirection = nextArrangement === 'rows' ? 'column' : 'row';
+      const innerDirection = nextArrangement === 'rows' ? 'row' : 'column';
+      const bandCounts = nextArrangement === 'rows'
+        ? distributeBandCounts(ids.length, rows, columns)
+        : distributeBandCounts(ids.length, columns, rows);
+
+      return buildBandedTree(ids, outerDirection, innerDirection, bandCounts);
     };
 
     const loadState = async (): Promise<WorkspaceStateResponse> => {
@@ -198,7 +267,7 @@ async function setupEqualGridWorkspace(page: Page, tabCount: number): Promise<Wo
     localStorage.setItem('active_workspace_id', workspace.id);
     localStorage.setItem(`mosaic_layout_${workspace.id}`, JSON.stringify({
       schemaVersion: 1,
-      tree: buildEqualTree(tabIds),
+      tree: buildEqualTree(tabIds, equalArrangement),
       mode: 'equal',
       focusTarget: null,
       savedAt: new Date().toISOString(),
@@ -219,6 +288,7 @@ async function setupEqualGridWorkspace(page: Page, tabCount: number): Promise<Wo
   }, {
     count: tabCount,
     evictablePatternSource: EVICTABLE_TEST_WORKSPACE_NAME_PATTERN.source,
+    equalArrangement: arrangement,
   });
 }
 
@@ -933,6 +1003,20 @@ async function readGridCells(page: Page): Promise<GridCellSnapshot[]> {
   });
 }
 
+async function readGridTileRects(page: Page): Promise<RectSnapshot[]> {
+  return page.evaluate(() => {
+    return Array.from(document.querySelectorAll('.mosaic-tile')).map((tile) => {
+      const rect = tile.getBoundingClientRect();
+      return {
+        x: Math.round(rect.x),
+        y: Math.round(rect.y),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      };
+    });
+  });
+}
+
 async function readPersistedLayout(
   page: Page,
   workspaceId: string,
@@ -1004,6 +1088,108 @@ function expectUniformGrid(cells: GridCellSnapshot[], tolerance = 2): void {
   }
 }
 
+function groupRectsByAxis(
+  rects: RectSnapshot[],
+  axis: 'x' | 'y',
+  tolerance: number,
+): RectSnapshot[][] {
+  const groups: RectSnapshot[][] = [];
+  const sorted = [...rects].sort((a, b) => a[axis] - b[axis]);
+
+  for (const rect of sorted) {
+    const currentGroup = groups[groups.length - 1];
+    if (currentGroup && Math.abs(currentGroup[0][axis] - rect[axis]) <= tolerance) {
+      currentGroup.push(rect);
+    } else {
+      groups.push([rect]);
+    }
+  }
+
+  return groups;
+}
+
+function hasSingleRow(rects: RectSnapshot[], tolerance = 4): boolean {
+  if (rects.length <= 1) return false;
+  const sorted = [...rects].sort((a, b) => a.x - b.x);
+  const baselineY = sorted[0].y;
+  return (
+    sorted.every(rect => Math.abs(rect.y - baselineY) <= tolerance) &&
+    sorted.slice(1).every((rect, index) => rect.x > sorted[index].x)
+  );
+}
+
+function expectSingleRow(rects: RectSnapshot[], tolerance = 4): void {
+  expect(rects.length).toBeGreaterThan(1);
+  expect(hasSingleRow(rects, tolerance)).toBeTruthy();
+}
+
+function hasSingleColumn(rects: RectSnapshot[], tolerance = 4): boolean {
+  if (rects.length <= 1) return false;
+  const sorted = [...rects].sort((a, b) => a.y - b.y);
+  const baselineX = sorted[0].x;
+  return (
+    sorted.every(rect => Math.abs(rect.x - baselineX) <= tolerance) &&
+    sorted.slice(1).every((rect, index) => rect.y > sorted[index].y)
+  );
+}
+
+function expectSingleColumn(rects: RectSnapshot[], tolerance = 4): void {
+  expect(rects.length).toBeGreaterThan(1);
+  expect(hasSingleColumn(rects, tolerance)).toBeTruthy();
+}
+
+function hasLogicalGridShape(
+  rects: RectSnapshot[],
+  expectedRows: number,
+  expectedColumns: number,
+  tolerance = 4,
+): boolean {
+  const rowGroups = groupRectsByAxis(rects, 'y', tolerance);
+  const columnGroups = groupRectsByAxis(rects, 'x', tolerance);
+  const maxColumnsInRow = Math.max(...rowGroups.map(group => group.length));
+  const maxRowsInColumn = Math.max(...columnGroups.map(group => group.length));
+  const rowMajorMatch = rowGroups.length === expectedRows && maxColumnsInRow === expectedColumns;
+  const columnMajorMatch = columnGroups.length === expectedColumns && maxRowsInColumn === expectedRows;
+  return rowMajorMatch || columnMajorMatch;
+}
+
+function expectLogicalGridShape(
+  rects: RectSnapshot[],
+  expectedRows: number,
+  expectedColumns: number,
+  tolerance = 4,
+): void {
+  expect(hasLogicalGridShape(rects, expectedRows, expectedColumns, tolerance)).toBeTruthy();
+}
+
+function getRowBandCounts(rects: RectSnapshot[], tolerance = 4): number[] {
+  return groupRectsByAxis(rects, 'y', tolerance).map(group => group.length);
+}
+
+function expectRowBandCounts(
+  rects: RectSnapshot[],
+  expectedCounts: number[],
+  tolerance = 4,
+): void {
+  expect(getRowBandCounts(rects, tolerance)).toEqual(expectedCounts);
+}
+
+function getColumnBandCounts(rects: RectSnapshot[], tolerance = 4): number[] {
+  return groupRectsByAxis(rects, 'x', tolerance).map(group => group.length);
+}
+
+function expectColumnBandCounts(
+  rects: RectSnapshot[],
+  expectedCounts: number[],
+  tolerance = 4,
+): void {
+  expect(getColumnBandCounts(rects, tolerance)).toEqual(expectedCounts);
+}
+
+function sameCounts(actual: number[], expected: number[]): boolean {
+  return actual.length === expected.length && actual.every((count, index) => count === expected[index]);
+}
+
 function expectAllCellsVisible(cells: GridCellSnapshot[]): void {
   for (const cell of cells) {
     expect(cell.width).toBeGreaterThan(0);
@@ -1035,6 +1221,141 @@ async function collapseToolbar(page: Page, tileIndex: number): Promise<void> {
     element.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, cancelable: true }));
   });
 }
+
+test.describe('Grid Equal Mode Direction', () => {
+  test('TC-6617 FR-GRID-013: wide Equal insertion keeps up to three tabs in a single row', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await login(page);
+
+    const { workspaceId, tabIds } = await setupEqualGridWorkspace(page, 1, 'rows');
+    await openGridWorkspace(page, workspaceId, 1);
+
+    const secondTabId = await addWorkspaceTab(page, workspaceId, 'E2E-2');
+    await openGridWorkspace(page, workspaceId, 2);
+    const thirdTabId = await addWorkspaceTab(page, workspaceId, 'E2E-3');
+    await openGridWorkspace(page, workspaceId, 3);
+
+    const leafOrder = await readPersistedLeafOrder(page, workspaceId);
+    expect(leafOrder).toHaveLength(3);
+    expect(leafOrder).toEqual(expect.arrayContaining([tabIds[0], secondTabId, thirdTabId]));
+    await expect.poll(async () => hasSingleRow(await readGridTileRects(page))).toBe(true);
+    expectSingleRow(await readGridTileRects(page));
+  });
+
+  test('TC-6618 FR-GRID-013: tall Equal insertion keeps up to three tabs in a single column', async ({ page }) => {
+    await page.setViewportSize({ width: 820, height: 1200 });
+    await login(page);
+
+    const { workspaceId, tabIds } = await setupEqualGridWorkspace(page, 1, 'cols');
+    await openGridWorkspace(page, workspaceId, 1);
+
+    const secondTabId = await addWorkspaceTab(page, workspaceId, 'E2E-2');
+    await openGridWorkspace(page, workspaceId, 2);
+    const thirdTabId = await addWorkspaceTab(page, workspaceId, 'E2E-3');
+    await openGridWorkspace(page, workspaceId, 3);
+
+    const leafOrder = await readPersistedLeafOrder(page, workspaceId);
+    expect(leafOrder).toHaveLength(3);
+    expect(leafOrder).toEqual(expect.arrayContaining([tabIds[0], secondTabId, thirdTabId]));
+    await expect.poll(async () => hasSingleColumn(await readGridTileRects(page))).toBe(true);
+    expectSingleColumn(await readGridTileRects(page));
+  });
+
+  test('TC-6619 FR-GRID-014 FR-GRID-015: wide Equal layouts use 4-8 logical row baselines without empty tiles', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await login(page);
+
+    const cases = new Map([
+      [4, { rows: 2, columns: 2, bandCounts: [2, 2] }],
+      [5, { rows: 2, columns: 3, bandCounts: [3, 2] }],
+      [6, { rows: 2, columns: 3, bandCounts: [3, 3] }],
+      [7, { rows: 3, columns: 3, bandCounts: [3, 2, 2] }],
+      [8, { rows: 3, columns: 3, bandCounts: [3, 3, 2] }],
+    ]);
+
+    const { workspaceId } = await setupEqualGridWorkspace(page, 1, 'rows');
+    await openGridWorkspace(page, workspaceId, 1);
+
+    for (let count = 2; count <= 8; count += 1) {
+      await addWorkspaceTab(page, workspaceId, `E2E-${count}`);
+      await openGridWorkspace(page, workspaceId, count);
+      const item = cases.get(count);
+      if (!item) continue;
+
+      await expect.poll(async () => {
+        const rects = await readGridTileRects(page);
+        return rects.length === count
+          && hasLogicalGridShape(rects, item.rows, item.columns)
+          && sameCounts(getRowBandCounts(rects), item.bandCounts);
+      }).toBe(true);
+      const rects = await readGridTileRects(page);
+
+      expect(rects).toHaveLength(count);
+      expectLogicalGridShape(rects, item.rows, item.columns);
+      expectRowBandCounts(rects, item.bandCounts);
+    }
+  });
+
+  test('TC-6621 FR-GRID-014 FR-GRID-015: ultrawide Equal insertion chooses a single row for four tabs', async ({ page }) => {
+    await page.setViewportSize({ width: 2200, height: 720 });
+    await login(page);
+
+    const { workspaceId, tabIds } = await setupEqualGridWorkspace(page, 1, 'rows');
+    await openGridWorkspace(page, workspaceId, 1);
+
+    const secondTabId = await addWorkspaceTab(page, workspaceId, 'E2E-2');
+    await openGridWorkspace(page, workspaceId, 2);
+    const thirdTabId = await addWorkspaceTab(page, workspaceId, 'E2E-3');
+    await openGridWorkspace(page, workspaceId, 3);
+    const fourthTabId = await addWorkspaceTab(page, workspaceId, 'E2E-4');
+    await openGridWorkspace(page, workspaceId, 4);
+
+    const leafOrder = await readPersistedLeafOrder(page, workspaceId);
+    expect(leafOrder).toHaveLength(4);
+    expect(leafOrder).toEqual(expect.arrayContaining([tabIds[0], secondTabId, thirdTabId, fourthTabId]));
+
+    await expect.poll(async () => {
+      const rects = await readGridTileRects(page);
+      return rects.length === 4 && hasSingleRow(rects);
+    }).toBe(true);
+    expectSingleRow(await readGridTileRects(page));
+  });
+
+  test('TC-6620 FR-GRID-014 FR-GRID-015: tall Equal layouts use 4-8 transposed column baselines without empty tiles', async ({ page }) => {
+    await page.setViewportSize({ width: 820, height: 1200 });
+    await login(page);
+
+    const cases = new Map([
+      [4, { rows: 2, columns: 2, bandCounts: [2, 2] }],
+      [5, { rows: 3, columns: 2, bandCounts: [3, 2] }],
+      [6, { rows: 3, columns: 2, bandCounts: [3, 3] }],
+      [7, { rows: 3, columns: 3, bandCounts: [3, 2, 2] }],
+      [8, { rows: 3, columns: 3, bandCounts: [3, 3, 2] }],
+    ]);
+
+    const { workspaceId } = await setupEqualGridWorkspace(page, 1, 'cols');
+    await openGridWorkspace(page, workspaceId, 1);
+
+    for (let count = 2; count <= 8; count += 1) {
+      await addWorkspaceTab(page, workspaceId, `E2E-${count}`);
+      await openGridWorkspace(page, workspaceId, count);
+      const item = cases.get(count);
+      if (!item) continue;
+
+      await expect.poll(async () => {
+        const rects = await readGridTileRects(page);
+        return rects.length === count
+          && hasLogicalGridShape(rects, item.rows, item.columns)
+          && sameCounts(getColumnBandCounts(rects), item.bandCounts);
+      }).toBe(true);
+      const rects = await readGridTileRects(page);
+
+      expect(rects).toHaveLength(count);
+      expectLogicalGridShape(rects, item.rows, item.columns);
+      expectColumnBandCounts(rects, item.bandCounts);
+    }
+  });
+});
 
 test.describe('Grid Equal Mode Reorder', () => {
   test('TC-6599: equal drag start keeps source geometry stable before drop', async ({ page }) => {

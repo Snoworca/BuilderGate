@@ -8,6 +8,10 @@
     "prebuild": "node tools/ensure-react-mosaic-patch.cjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "typecheck": "tsc -b",
+    "lint:command-management": "eslint src/components/dialog src/components/Header src/components/CommandPresetManager src/services/api.ts src/types tests/unit/dialogGeometry.test.ts tests/unit/commandPresetExecution.test.ts tests/e2e/command-management-dialog.spec.ts",
+    "test:unit:command-management": "node --experimental-strip-types --test tests/unit/dialogGeometry.test.ts tests/unit/commandPresetExecution.test.ts",
+    "test:e2e:command-management": "playwright test tests/e2e/command-management-dialog.spec.ts --project \"Desktop Chrome\"",
     "postinstall": "patch-package",
     "preview": "vite preview"
   },
@@ -23,6 +27,7 @@
     "react-dom": "^19.2.0",
     "react-markdown": "^9.1.0",
     "react-mosaic-component": "^6.1.1",
+    "react-rnd": "^10.5.3",
     "rehype-highlight": "^7.0.2",
     "remark-gfm": "^4.0.1"
   },

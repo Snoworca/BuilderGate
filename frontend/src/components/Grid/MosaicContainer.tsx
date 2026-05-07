@@ -27,6 +27,7 @@ import {
   removeFromMosaicTree,
   restoreLayoutWithSessionRecovery,
   type EqualLayoutArrangement,
+  type EqualLayoutMetrics,
 } from '../../utils/mosaic';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
@@ -135,6 +136,24 @@ export function MosaicContainer({
   const splitInteractionStartKeyRef = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const getEqualLayoutMetrics = useCallback((): EqualLayoutMetrics | undefined => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return undefined;
+
+    const charMeasure = containerRef.current?.querySelector<HTMLElement>('.xterm-char-measure-element');
+    const charRect = charMeasure?.getBoundingClientRect();
+    const hasMeasuredCell = Boolean(charRect && charRect.width > 0 && charRect.height > 0);
+
+    return {
+      containerWidth: rect.width,
+      containerHeight: rect.height,
+      cellWidth: hasMeasuredCell ? charRect?.width : undefined,
+      cellHeight: hasMeasuredCell ? charRect?.height : undefined,
+      targetColumns: 80,
+      targetRows: 24,
+    };
+  }, []);
+
   const getEqualArrangementForButtonPress = useCallback((): EqualLayoutArrangement => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (rect && rect.height > rect.width) {
@@ -168,10 +187,11 @@ export function MosaicContainer({
       sourceTree: MosaicNode<string> | null = mosaicTreeRef.current,
     ): MosaicNode<string> => {
       const arrangement = getCurrentEqualArrangement();
+      const metrics = getEqualLayoutMetrics();
       const recoveredTree = sourceTree
         ? restoreLayoutWithSessionRecovery(sourceTree, ids).tree
-        : buildEqualMosaicTree(ids, arrangement);
-      const equalTree = buildRecoveredEqualMosaicTree(recoveredTree, ids, arrangement);
+        : buildEqualMosaicTree(ids, arrangement, metrics);
+      const equalTree = buildRecoveredEqualMosaicTree(recoveredTree, ids, arrangement, metrics);
 
       if (mode === 'none') {
         return recoveredTree;
@@ -196,8 +216,32 @@ export function MosaicContainer({
       );
       return applyMultiFocusApprox(recoveredTree, idleIds, minPct, getAutoRatio());
     },
-    [getAutoRatio, getCurrentEqualArrangement, getFocusRatio, getValidFocusTarget, tabs],
+    [getAutoRatio, getCurrentEqualArrangement, getEqualLayoutMetrics, getFocusRatio, getValidFocusTarget, tabs],
   );
+
+  useEffect(() => {
+    if (layoutMode !== 'equal' || !mosaicTree || !currentTabIdsKey) {
+      return;
+    }
+
+    const ids = currentTabIdsKey.split(',');
+    const nextTree = buildTreeForMode(ids, 'equal', null, mosaicTree);
+    if (JSON.stringify(nextTree) === JSON.stringify(mosaicTree)) {
+      return;
+    }
+
+    setMosaicTree(nextTree);
+    debouncedSave();
+    scheduleLayoutRefresh();
+  }, [
+    buildTreeForMode,
+    currentTabIdsKey,
+    debouncedSave,
+    layoutMode,
+    mosaicTree,
+    scheduleLayoutRefresh,
+    setMosaicTree,
+  ]);
 
   useEffect(() => {
     if (layoutMode !== 'equal' || !mosaicTree) {
@@ -372,15 +416,18 @@ export function MosaicContainer({
     focusTabId?: string | null,
   ): MosaicNode<string> => {
     const minPct = getMinPercentage(tabs.length);
+    const metrics = getEqualLayoutMetrics();
     if (mode === 'none') return tree;
-    if (mode === 'equal') return buildEqualMosaicTree(extractLeafIds(tree), equalArrangementRef.current);
+    if (mode === 'equal') return buildEqualMosaicTree(extractLeafIds(tree), equalArrangementRef.current, metrics);
     if (mode === 'focus') {
       const target = focusTabId ?? null;
-      return target ? applyFocusMode(tree, target, minPct, getFocusRatio()) : buildEqualMosaicTree(extractLeafIds(tree), equalArrangementRef.current);
+      return target
+        ? applyFocusMode(tree, target, minPct, getFocusRatio())
+        : buildEqualMosaicTree(extractLeafIds(tree), equalArrangementRef.current, metrics);
     }
     const idleIds = new Set(tabs.filter(t => t.status === 'idle').map(t => t.id));
     return applyMultiFocusApprox(tree, idleIds, minPct, getAutoRatio());
-  }, [tabs, getFocusRatio, getAutoRatio, layoutMode]);
+  }, [tabs, getFocusRatio, getAutoRatio, getEqualLayoutMetrics]);
 
   const handleLayoutModeChange = useCallback(
     (mode: typeof layoutMode, focusTabId?: string, source: 'toolbar' | 'focus-sync' = 'toolbar') => {
@@ -463,6 +510,7 @@ export function MosaicContainer({
       const equalized = buildEqualMosaicTree(
         extractLeafIds(lastMosaicChangeRef.current),
         equalArrangementRef.current,
+        getEqualLayoutMetrics(),
       );
       lastMosaicChangeRef.current = equalized;
       setMosaicTree(equalized);
@@ -473,7 +521,7 @@ export function MosaicContainer({
     }
 
     isTileDragInteractionRef.current = false;
-  }, [layoutMode, setMosaicTree, persistLayoutMode, persistFocusTarget, debouncedSave, scheduleLayoutRefresh]);
+  }, [layoutMode, setMosaicTree, persistLayoutMode, persistFocusTarget, debouncedSave, scheduleLayoutRefresh, getEqualLayoutMetrics]);
 
   // Clipboard: copy selected text from terminal (reads from clipboard after xterm writes it)
   const handleCopy = useCallback(async (tabId: string) => {

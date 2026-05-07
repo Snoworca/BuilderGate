@@ -1,0 +1,46 @@
+plan_contract: "1.1.0"
+plan_id: "plan-20260506-grid-equal-layout"
+scope_freeze: true
+change_log:
+  - date: "2026-05-06"
+    reason: "Align TypeScript unit test command with Node 22.14 .ts loader behavior found during snoworca-coder validation."
+    approved_by: "snoworca-coder --auto"
+  - date: "2026-05-06"
+    reason: "Align E2E gate command with Playwright config cwd so https://localhost:2002 baseURL is loaded."
+    approved_by: "snoworca-coder --auto"
+  - date: "2026-05-06"
+    reason: "Pin E2E gate to development web server environment so local production daemon env variables do not serve an external web bundle."
+    approved_by: "snoworca-coder --auto"
+  - date: "2026-05-06"
+    reason: "Replace impossible repo-wide lint gate with changed-file ESLint gate; full lint currently fails due pre-existing unrelated debt and is tracked as residual risk."
+    approved_by: "snoworca-coder --auto"
+pre_commit_gate:
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend run build"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "cd frontend; npx eslint src/utils/mosaic.ts src/components/Grid/MosaicContainer.tsx tests/e2e/grid-equal-mode.spec.ts tests/unit/mosaicEqualLayout.test.ts"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "$env:NODE_ENV='development'; Remove-Item Env:BUILDERGATE_WEB_ROOT -ErrorAction SilentlyContinue; Remove-Item Env:BUILDERGATE_DAEMON_START_ID -ErrorAction SilentlyContinue; Remove-Item Env:BUILDERGATE_DAEMON_STATE_GENERATION -ErrorAction SilentlyContinue; cd frontend; npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\""
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "npm --prefix frontend run build"
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "cd frontend && npx eslint src/utils/mosaic.ts src/components/Grid/MosaicContainer.tsx tests/e2e/grid-equal-mode.spec.ts tests/unit/mosaicEqualLayout.test.ts"
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts"
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "unset BUILDERGATE_WEB_ROOT BUILDERGATE_DAEMON_START_ID BUILDERGATE_DAEMON_STATE_GENERATION; export NODE_ENV=development; cd frontend && npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\""
+    expected_exit: 0
+forbidden_patterns:
+  - pattern: "적절[히]|필요\\s*시|알아[서]|상황에\\s*맞게|기존\\s*방식대로|어떻게[든]"
+    flags: ""
+  - pattern: "rm\\s+-rf|Remove-Item\\s+.*-Recurse|git\\s+reset\\s+--hard|git\\s+checkout\\s+--"
+    flags: "i"

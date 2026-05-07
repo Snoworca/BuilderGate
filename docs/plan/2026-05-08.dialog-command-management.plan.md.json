@@ -1,0 +1,226 @@
+{
+  "plan_contract": "1.1.0",
+  "plan_id": "plan-20260508-dialog-command-management",
+  "title": "Dialog Infrastructure and Command Preset Manager Implementation Plan",
+  "created": "2026-05-08",
+  "spec_path": "docs/srs/buildergate.srs.md",
+  "code_path": ".",
+  "scope_freeze": true,
+  "change_log": [],
+  "pre_commit_gate": [
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run lint:command-management", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:command-management", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run lint:command-management", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run test:e2e:command-management", "expected_exit": 0}
+  ],
+  "forbidden_patterns": [
+    {"pattern": "적절[히]|필요\\s*시|알아[서]|상황에\\s*맞게|기존\\s*방식대로|어떻게[든]", "flags": ""},
+    {"pattern": "rm\\s+-rf|Remove-Item\\s+.*-Recurse|git\\s+reset\\s+--hard|git\\s+checkout\\s+--", "flags": "i"}
+  ],
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "title": "Reusable dialog shell",
+      "tasks": [
+        {
+          "id": "TASK-P1-001",
+          "title": "Add react-rnd dependency for constrained drag and resize",
+          "feasibility": "Low",
+          "owns": ["frontend/package.json", "frontend/package-lock.json"],
+          "reads": ["frontend/package.json", "docs/srs/buildergate.srs.md"],
+          "source_anchors": ["frontend/package.json:1-35"],
+          "depends_on": [],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend ls react-rnd", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend ls react-rnd", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1. Remove react-rnd from frontend/package.json. 2. Regenerate frontend/package-lock.json without react-rnd dependency entries."}
+        },
+        {
+          "id": "TASK-P1-002",
+          "title": "Create dialog type and geometry utility layer",
+          "feasibility": "Medium",
+          "owns": ["frontend/src/components/dialog/types.ts", "frontend/src/components/dialog/dialogGeometry.ts", "frontend/src/components/dialog/index.ts", "frontend/tests/unit/dialogGeometry.test.ts"],
+          "reads": ["docs/srs/buildergate.srs.md", "frontend/src/hooks/useMosaicLayout.ts"],
+          "source_anchors": ["docs/srs/buildergate.srs.md:309-322", "docs/srs/buildergate.srs.md:393-402", "frontend/src/hooks/useMosaicLayout.ts:32-127"],
+          "depends_on": [],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "file-delete", "command": "Delete frontend/src/components/dialog/types.ts, frontend/src/components/dialog/dialogGeometry.ts, frontend/src/components/dialog/index.ts, and frontend/tests/unit/dialogGeometry.test.ts."}
+        },
+        {
+          "id": "TASK-P1-003",
+          "title": "Create WindowDialog modal shell",
+          "feasibility": "Medium",
+          "owns": ["frontend/src/components/dialog/WindowDialog.tsx", "frontend/src/components/dialog/WindowDialog.css", "frontend/src/components/dialog/index.ts"],
+          "reads": ["frontend/src/components/Modal/ConfirmModal.tsx", "frontend/src/components/ContextMenu/ContextMenu.tsx", "docs/srs/buildergate.srs.md"],
+          "source_anchors": ["frontend/src/components/Modal/ConfirmModal.tsx:1-36", "frontend/src/components/ContextMenu/ContextMenu.tsx:210-255", "docs/srs/buildergate.srs.md:313-322"],
+          "depends_on": ["TASK-P1-001", "TASK-P1-002"],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "file-delete", "command": "Delete frontend/src/components/dialog/WindowDialog.tsx and frontend/src/components/dialog/WindowDialog.css, then restore frontend/src/components/dialog/index.ts exports to the previous geometry-only state."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-2",
+      "title": "Server command preset persistence",
+      "tasks": [
+        {
+          "id": "TASK-P2-001",
+          "title": "Define command preset server model and persistence service",
+          "feasibility": "Medium",
+          "owns": ["server/src/types/commandPreset.types.ts", "server/src/services/CommandPresetService.ts", "server/src/test-runner.ts"],
+          "reads": ["server/src/services/WorkspaceService.ts", "server/src/types/workspace.types.ts", "server/src/test-runner.ts"],
+          "source_anchors": ["server/src/services/WorkspaceService.ts:380-443", "server/src/types/workspace.types.ts:35-45", "server/src/test-runner.ts:183-186"],
+          "depends_on": [],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1. Delete server/src/types/commandPreset.types.ts and server/src/services/CommandPresetService.ts. 2. Remove CommandPresetService test registry and functions from server/src/test-runner.ts."}
+        },
+        {
+          "id": "TASK-P2-002",
+          "title": "Expose authenticated command preset REST routes",
+          "feasibility": "Medium",
+          "owns": ["server/src/routes/commandPresetRoutes.ts", "server/src/index.ts", "server/src/test-runner.ts"],
+          "reads": ["server/src/routes/workspaceRoutes.ts", "server/src/routes/settingsRoutes.ts", "server/src/index.ts"],
+          "source_anchors": ["server/src/routes/workspaceRoutes.ts:7-32", "server/src/routes/workspaceRoutes.ts:42-119", "server/src/routes/settingsRoutes.ts:1-31", "server/src/index.ts:275-317"],
+          "depends_on": ["TASK-P2-001"],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1. Remove command preset service initialization and route mount from server/src/index.ts. 2. Delete server/src/routes/commandPresetRoutes.ts. 3. Remove route tests from server/src/test-runner.ts."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-3",
+      "title": "Command preset manager frontend",
+      "tasks": [
+        {
+          "id": "TASK-P3-001",
+          "title": "Add frontend command preset API and types",
+          "feasibility": "Low",
+          "owns": ["frontend/src/types/commandPreset.ts", "frontend/src/types/index.ts", "frontend/src/services/api.ts"],
+          "reads": ["frontend/src/services/api.ts", "frontend/src/types/workspace.ts"],
+          "source_anchors": ["frontend/src/services/api.ts:309-407", "frontend/src/types/workspace.ts:1-45"],
+          "depends_on": ["TASK-P2-002"],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1. Remove commandPresetApi export from frontend/src/services/api.ts. 2. Remove commandPreset export from frontend/src/types/index.ts. 3. Delete frontend/src/types/commandPreset.ts."}
+        },
+        {
+          "id": "TASK-P3-002",
+          "title": "Build command execution formatter and unit tests",
+          "feasibility": "Medium",
+          "owns": ["frontend/src/components/CommandPresetManager/commandPresetExecution.ts", "frontend/tests/unit/commandPresetExecution.test.ts"],
+          "reads": ["frontend/src/utils/shell.ts", "frontend/src/components/Terminal/TerminalView.tsx", "frontend/src/components/Terminal/TerminalContainer.tsx", "frontend/src/App.tsx"],
+          "source_anchors": ["frontend/src/utils/shell.ts:1-12", "frontend/src/components/Terminal/TerminalView.tsx:99-110", "frontend/src/components/Terminal/TerminalView.tsx:1235-1237", "frontend/src/App.tsx:207-219"],
+          "depends_on": ["TASK-P3-001"],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "node --experimental-strip-types --test frontend/tests/unit/commandPresetExecution.test.ts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "node --experimental-strip-types --test frontend/tests/unit/commandPresetExecution.test.ts", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "file-delete", "command": "Delete frontend/src/components/CommandPresetManager/commandPresetExecution.ts and frontend/tests/unit/commandPresetExecution.test.ts."}
+        },
+        {
+          "id": "TASK-P3-003",
+          "title": "Build command preset dialog UI with tabs, CRUD, reorder, copy, execute",
+          "feasibility": "High",
+          "owns": ["frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx", "frontend/src/components/CommandPresetManager/CommandPresetDialog.css", "frontend/src/components/CommandPresetManager/useCommandPresets.ts", "frontend/src/components/CommandPresetManager/index.ts"],
+          "reads": ["frontend/src/components/dialog/WindowDialog.tsx", "frontend/src/components/MetadataBar/MetadataRow.tsx", "frontend/src/services/api.ts"],
+          "source_anchors": ["N/A — 신규", "frontend/src/components/MetadataBar/MetadataRow.tsx:42-58", "frontend/src/components/Terminal/FontSizeToast.tsx:1-11", "frontend/src/services/api.ts:309-407"],
+          "depends_on": ["TASK-P1-003", "TASK-P3-001", "TASK-P3-002"],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "file-delete", "command": "Delete frontend/src/components/CommandPresetManager directory files created by this task."}
+        },
+        {
+          "id": "TASK-P3-004",
+          "title": "Add header tools button and context menu entry",
+          "feasibility": "Medium",
+          "owns": ["frontend/src/components/Header/Header.tsx", "frontend/src/components/Header/Header.css", "frontend/src/App.tsx"],
+          "reads": ["frontend/src/components/Header/Header.tsx", "frontend/src/components/ContextMenu/ContextMenu.tsx", "frontend/src/App.tsx"],
+          "source_anchors": ["frontend/src/components/Header/Header.tsx:10-18", "frontend/src/components/Header/Header.tsx:82-91", "frontend/src/components/Header/Header.css:70-96", "frontend/src/components/ContextMenu/ContextMenu.tsx:1-26", "frontend/src/components/ContextMenu/ContextMenu.tsx:210-255", "frontend/src/App.tsx:98-219", "frontend/src/App.tsx:405-414"],
+          "depends_on": ["TASK-P3-003"],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1. Remove Tools button and menu state from frontend/src/components/Header/Header.tsx and Header.css. 2. Remove CommandPresetDialog import, state, render, and props wiring from frontend/src/App.tsx."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-4",
+      "title": "Integration tests and final validation",
+      "tasks": [
+        {
+          "id": "TASK-P4-001",
+          "title": "Add Playwright coverage for modal behavior and terminal send rules",
+          "feasibility": "High",
+          "owns": ["frontend/tests/e2e/command-management-dialog.spec.ts", "frontend/tests/e2e/helpers.ts"],
+          "reads": ["frontend/playwright.config.ts", "frontend/tests/e2e/helpers.ts", "frontend/tests/e2e/header-context-menu-regression.spec.ts"],
+          "source_anchors": ["frontend/playwright.config.ts:1-31", "frontend/tests/e2e/helpers.ts:1-22", "frontend/tests/e2e/header-context-menu-regression.spec.ts:1-40"],
+          "depends_on": ["TASK-P3-004"],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:command-management", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run test:e2e:command-management", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1. Delete frontend/tests/e2e/command-management-dialog.spec.ts. 2. Remove helpers added by this task from frontend/tests/e2e/helpers.ts."}
+        },
+        {
+          "id": "TASK-P4-002",
+          "title": "Run final gates and update verification notes",
+          "feasibility": "Low",
+          "owns": ["docs/plan/2026-05-08.dialog-command-management.plan.md"],
+          "reads": ["docs/srs/buildergate.srs.md", "frontend/playwright.config.ts", "server/package.json", "frontend/package.json"],
+          "source_anchors": ["docs/plan/2026-05-06.grid-equal-layout-direction.plan.md:1-55", "frontend/playwright.config.ts:1-31", "server/package.json:1-20", "frontend/package.json:1-35"],
+          "depends_on": ["TASK-P4-001"],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:command-management", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "none", "command": "Verification-only task. No source rollback is required."}
+        }
+      ]
+    }
+  ],
+  "spec_mapping": [
+    {"req_id": "CON-007", "tasks": ["TASK-P1-002", "TASK-P1-003", "TASK-P3-003"]},
+    {"req_id": "FR-DLG-001..FR-DLG-010", "tasks": ["TASK-P1-001", "TASK-P1-002", "TASK-P1-003", "TASK-P3-004", "TASK-P4-001"]},
+    {"req_id": "NFR-UX-005", "tasks": ["TASK-P1-003", "TASK-P4-001"]},
+    {"req_id": "NFR-MAINT-005", "tasks": ["TASK-P1-002", "TASK-P1-003", "TASK-P3-003"]},
+    {"req_id": "AC-019", "tasks": ["TASK-P1-002", "TASK-P1-003", "TASK-P4-001"]},
+    {"req_id": "meeting-server-persistence", "tasks": ["TASK-P2-001", "TASK-P2-002", "TASK-P3-001", "TASK-P3-003"]},
+    {"req_id": "meeting-execute-rules", "tasks": ["TASK-P3-002", "TASK-P3-003", "TASK-P4-001"]},
+    {"req_id": "meeting-label-crud-reorder-x-only", "tasks": ["TASK-P2-001", "TASK-P2-002", "TASK-P3-003", "TASK-P4-001"]}
+  ],
+  "risks": [
+    {"severity": "High", "risk": "Dialog closes through overlay or Escape", "mitigation": "WindowDialog has single close path through X button and E2E verifies it."},
+    {"severity": "High", "risk": "Prompt execute sends Enter", "mitigation": "Pure formatter unit test verifies prompt output has no trailing Enter."},
+    {"severity": "Medium", "risk": "auto shell directory command cannot infer resolved shell", "mitigation": "Use generic cd quoted command and track resolved shell exposure as a later SRS item."}
+  ]
+}

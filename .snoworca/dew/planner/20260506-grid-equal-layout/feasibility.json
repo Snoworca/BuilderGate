@@ -1,0 +1,27 @@
+{
+  "plan_id": "plan-20260506-grid-equal-layout",
+  "mode": "normal",
+  "checked_at": "2026-05-06",
+  "overall": "Medium",
+  "items": [
+    {
+      "req_id": "FR-GRID-013",
+      "difficulty": "Medium",
+      "risk": "Visible container metrics must be read after layout mount.",
+      "mitigation": "Use containerRef.getBoundingClientRect and fallback arrangement only when rect is unavailable."
+    },
+    {
+      "req_id": "FR-GRID-014",
+      "difficulty": "Medium",
+      "risk": "React Mosaic tree does not have explicit empty logical slots.",
+      "mitigation": "Represent logical grid with bandCounts and keep visible tile count equal to tab count."
+    },
+    {
+      "req_id": "FR-GRID-015",
+      "difficulty": "Medium",
+      "risk": "Seven and eight tab layouts can regress to four-by-two style compression.",
+      "mitigation": "Lock 3x3 logical baseline with unit tests and E2E visible tile count checks."
+    }
+  ],
+  "infeasible": []
+}

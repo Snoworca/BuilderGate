@@ -104,6 +104,10 @@
   border-color: #5c5c5c;
 }
 
+.header-tools-button {
+  min-width: 58px;
+}
+
 /* Hamburger button (mobile only, controlled by React) */
 .hamburger-button {
   background: none;

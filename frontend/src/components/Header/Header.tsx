@@ -4,6 +4,8 @@
  * Phase 1-Step3: Mobile responsive - Hamburger menu added
  */
 
+import { useMemo, useState } from 'react';
+import { ContextMenu } from '../ContextMenu';
 import { truncatePathLeft } from '../../utils/pathUtils';
 import './Header.css';
 
@@ -17,6 +19,7 @@ interface HeaderProps {
   activeCwd?: string | null;
   viewMode?: 'tab' | 'grid';
   onToggleViewMode?: () => void;
+  onOpenCommandPresetManager?: () => void;
 }
 
 function truncateText(value: string, maxLen: number): string {
@@ -35,13 +38,21 @@ export function Header({
   activeCwd,
   viewMode,
   onToggleViewMode,
+  onOpenCommandPresetManager,
 }: HeaderProps) {
+  const [toolsMenuPosition, setToolsMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const displayWorkspaceName = activeWorkspaceName
     ? truncateText(activeWorkspaceName, isMobile ? 22 : 38)
     : null;
   const displayCwd = activeCwd
     ? truncatePathLeft(activeCwd, isMobile ? 24 : 48)
     : null;
+  const toolsMenuItems = useMemo(() => [
+    {
+      label: '명령줄 관리',
+      onClick: () => onOpenCommandPresetManager?.(),
+    },
+  ], [onOpenCommandPresetManager]);
 
   return (
     <header className="header">
@@ -78,8 +89,22 @@ export function Header({
         </div>
       )}
 
-      {(onOpenSettings || onLogout) && (
+      {(onOpenSettings || onLogout || onOpenCommandPresetManager) && (
         <div className="header-right">
+          {onOpenCommandPresetManager && !isMobile && (
+            <button
+              className="header-action-button header-tools-button"
+              onClick={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect();
+                setToolsMenuPosition({ x: rect.left, y: rect.bottom + 4 });
+              }}
+              aria-haspopup="menu"
+              aria-expanded={toolsMenuPosition !== null}
+              title="Tools"
+            >
+              Tools
+            </button>
+          )}
           {onToggleViewMode && !isMobile && (
             <button
               className="header-action-button"
@@ -115,6 +140,13 @@ export function Header({
           <button className="logout-button" onClick={onLogout}>
             Logout
           </button>
+          {toolsMenuPosition && (
+            <ContextMenu
+              position={toolsMenuPosition}
+              items={toolsMenuItems}
+              onClose={() => setToolsMenuPosition(null)}
+            />
+          )}
         </div>
       )}
     </header>

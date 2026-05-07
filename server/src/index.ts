@@ -17,6 +17,7 @@ import sessionRoutes from './routes/sessionRoutes.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
 import { createFileRoutes } from './routes/fileRoutes.js';
 import { createSettingsRoutes } from './routes/settingsRoutes.js';
+import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
 import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
 import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
@@ -26,6 +27,7 @@ import { FileService } from './services/FileService.js';
 import { RuntimeConfigStore } from './services/RuntimeConfigStore.js';
 import { ConfigFileRepository } from './services/ConfigFileRepository.js';
 import { SettingsService } from './services/SettingsService.js';
+import { CommandPresetService } from './services/CommandPresetService.js';
 import { SessionManager, sessionManager } from './services/SessionManager.js';
 import { SSLService } from './services/SSLService.js';
 import { CryptoService } from './services/CryptoService.js';
@@ -67,6 +69,7 @@ let totpService: TOTPService | undefined;
 let fileService: FileService;
 let runtimeConfigStore: RuntimeConfigStore;
 let settingsService: SettingsService;
+let commandPresetService: CommandPresetService;
 let workspaceService: WorkspaceService;
 let cwdSnapshotTimer: ReturnType<typeof setInterval> | null = null;
 let terminalObservabilityTimer: ReturnType<typeof setInterval> | null = null;
@@ -275,6 +278,8 @@ function setupRoutes(): void {
   const authMiddleware = createAuthMiddleware(() => authService);
   const settingsRoutes = createSettingsRoutes(settingsService);
   app.use('/api/settings', authMiddleware, settingsRoutes);
+  const commandPresetRoutes = createCommandPresetRoutes(commandPresetService);
+  app.use('/api/command-presets', authMiddleware, commandPresetRoutes);
   app.get('/api/sessions/telemetry', authMiddleware, (_req, res) => {
     const wsRouter = app.get('wsRouter') as WsRouter | undefined;
     res.json({
@@ -331,6 +336,7 @@ function setupRoutes(): void {
   console.log('  - GET  /api/auth/status (protected)');
   console.log('  - GET  /api/settings (protected)');
   console.log('  - PATCH /api/settings (protected)');
+  console.log('  - /api/command-presets/* (protected)');
   console.log('  - /api/sessions/* (protected)');
   console.log('  - /api/sessions/:id/cwd (protected, File API)');
   console.log('  - /api/sessions/:id/files (protected, File API)');
@@ -417,6 +423,9 @@ async function startServer(): Promise<void> {
       sessionManager,
       updateTwoFactorRuntime: (nextConfig, changedKeys) => applyTwoFactorRuntime(nextConfig, changedKeys),
     });
+    commandPresetService = new CommandPresetService();
+    await commandPresetService.initialize();
+    console.log('[CommandPreset] CommandPresetService initialized');
 
     // ========================================================================
     // Initialize Workspace Service (Step 7)

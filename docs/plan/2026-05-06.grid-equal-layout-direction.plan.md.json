@@ -1,0 +1,530 @@
+{
+  "plan_contract": "1.1.0",
+  "plan_id": "plan-20260506-grid-equal-layout",
+  "title": "Grid Equal Mode Direction Implementation Plan",
+  "created": "2026-05-06",
+  "spec_path": "docs/srs/buildergate.srs.md",
+  "x-snoworca-code-path": ".",
+  "scope_freeze": true,
+  "change_log": [
+    {
+      "date": "2026-05-06",
+      "reason": "Align TypeScript unit test command with Node 22.14 .ts loader behavior found during snoworca-coder validation.",
+      "approved_by": "snoworca-coder --auto"
+    },
+    {
+      "date": "2026-05-06",
+      "reason": "Align E2E gate command with Playwright config cwd so https://localhost:2002 baseURL is loaded.",
+      "approved_by": "snoworca-coder --auto"
+    },
+    {
+      "date": "2026-05-06",
+      "reason": "Pin E2E gate to development web server environment so local production daemon env variables do not serve an external web bundle.",
+      "approved_by": "snoworca-coder --auto"
+    },
+    {
+      "date": "2026-05-06",
+      "reason": "Replace impossible repo-wide lint gate with changed-file ESLint gate; full lint currently fails due pre-existing unrelated debt and is tracked as residual risk.",
+      "approved_by": "snoworca-coder --auto"
+    }
+  ],
+  "auto_recommend_policy": {
+    "default_confidence_threshold": "medium",
+    "cap": 0,
+    "forbidden_for_business_decision": true
+  },
+  "pre_commit_gate": [
+    {
+      "shell": "pwsh",
+      "cmd": "npm --prefix frontend run build",
+      "expected_exit": 0
+    },
+    {
+      "shell": "pwsh",
+      "cmd": "cd frontend; npx eslint src/utils/mosaic.ts src/components/Grid/MosaicContainer.tsx tests/e2e/grid-equal-mode.spec.ts tests/unit/mosaicEqualLayout.test.ts",
+      "expected_exit": 0
+    },
+    {
+      "shell": "pwsh",
+      "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts",
+      "expected_exit": 0
+    },
+    {
+      "shell": "pwsh",
+      "cmd": "$env:NODE_ENV='development'; Remove-Item Env:BUILDERGATE_WEB_ROOT -ErrorAction SilentlyContinue; Remove-Item Env:BUILDERGATE_DAEMON_START_ID -ErrorAction SilentlyContinue; Remove-Item Env:BUILDERGATE_DAEMON_STATE_GENERATION -ErrorAction SilentlyContinue; cd frontend; npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"",
+      "expected_exit": 0
+    },
+    {
+      "shell": "bash",
+      "cmd": "npm --prefix frontend run build",
+      "expected_exit": 0
+    },
+    {
+      "shell": "bash",
+      "cmd": "cd frontend && npx eslint src/utils/mosaic.ts src/components/Grid/MosaicContainer.tsx tests/e2e/grid-equal-mode.spec.ts tests/unit/mosaicEqualLayout.test.ts",
+      "expected_exit": 0
+    },
+    {
+      "shell": "bash",
+      "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts",
+      "expected_exit": 0
+    },
+    {
+      "shell": "bash",
+      "cmd": "unset BUILDERGATE_WEB_ROOT BUILDERGATE_DAEMON_START_ID BUILDERGATE_DAEMON_STATE_GENERATION; export NODE_ENV=development; cd frontend && npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"",
+      "expected_exit": 0
+    }
+  ],
+  "forbidden_patterns": [
+    {
+      "pattern": "적절[히]|필요\\s*시|알아[서]|상황에\\s*맞게|기존\\s*방식대로|어떻게[든]",
+      "flags": ""
+    },
+    {
+      "pattern": "rm\\s+-rf|Remove-Item\\s+.*-Recurse|git\\s+reset\\s+--hard|git\\s+checkout\\s+--",
+      "flags": "i"
+    }
+  ],
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "title": "Equal layout pure model",
+      "tasks": [
+        {
+          "id": "TASK-P1-000",
+          "title": "Create Equal layout unit test scaffold",
+          "related_req_ids": [
+            "FR-GRID-013",
+            "FR-GRID-014",
+            "FR-GRID-015"
+          ],
+          "feasibility": "Low",
+          "turn_estimate": 5,
+          "owns": [
+            "frontend/tests/unit/mosaicEqualLayout.test.ts"
+          ],
+          "reads": [
+            "frontend/tests/unit/terminalInputSequencer.test.ts",
+            "docs/srs/buildergate.srs.md"
+          ],
+          "depends_on": [],
+          "source_anchors": [
+            "frontend/tests/unit/terminalInputSequencer.test.ts:1-10",
+            "docs/srs/buildergate.srs.md:255-274"
+          ],
+          "acceptance_tests": [
+            {
+              "shell": "pwsh",
+              "cmd": "rg -n --encoding utf-8 FR-GRID-013 frontend/tests/unit/mosaicEqualLayout.test.ts",
+              "expected_exit": 0
+            },
+            {
+              "shell": "pwsh",
+              "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts",
+              "expected_exit": 0
+            },
+            {
+              "shell": "bash",
+              "cmd": "rg -n --encoding utf-8 FR-GRID-013 frontend/tests/unit/mosaicEqualLayout.test.ts",
+              "expected_exit": 0
+            },
+            {
+              "shell": "bash",
+              "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts",
+              "expected_exit": 0
+            }
+          ],
+          "rollback": {
+            "strategy": "manual",
+            "command": "1. git diff -- frontend/tests/unit/mosaicEqualLayout.test.ts 로 파일 내용이 TASK-P1-000에서만 생성됐는지 확인한다. 2. 다른 TASK 변경이 없으면 frontend/tests/unit/mosaicEqualLayout.test.ts 파일을 삭제하는 reverse patch를 적용한다."
+          },
+          "review_strictness": "default",
+          "spawn_isolation_hint": "inplace"
+        },
+        {
+          "id": "TASK-P1-001",
+          "title": "Add Equal grid decision model",
+          "related_req_ids": [
+            "FR-GRID-013",
+            "FR-GRID-014",
+            "FR-GRID-015"
+          ],
+          "feasibility": "Medium",
+          "turn_estimate": 10,
+          "owns": [
+            "frontend/src/utils/mosaic.ts",
+            "frontend/tests/unit/mosaicEqualLayout.test.ts"
+          ],
+          "reads": [
+            "docs/srs/buildergate.srs.md",
+            "frontend/src/utils/mosaic.ts",
+            "frontend/src/components/Terminal/TerminalView.tsx"
+          ],
+          "depends_on": [
+            "TASK-P1-000"
+          ],
+          "source_anchors": [
+            "frontend/src/utils/mosaic.ts:21-37",
+            "frontend/src/utils/mosaic.ts:57-86",
+            "frontend/src/components/Terminal/TerminalView.tsx:808-825",
+            "docs/srs/buildergate.srs.md:255-274"
+          ],
+          "acceptance_tests": [
+            {
+              "shell": "pwsh",
+              "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts",
+              "expected_exit": 0
+            },
+            {
+              "shell": "bash",
+              "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts",
+              "expected_exit": 0
+            }
+          ],
+          "rollback": {
+            "strategy": "manual",
+            "command": "1. git diff -- frontend/src/utils/mosaic.ts 로 TASK-P1-001 변경 범위를 확인한다. 2. selectEqualGridSpec 타입과 함수 추가분만 reverse patch로 제거한다."
+          },
+          "review_strictness": "default",
+          "spawn_isolation_hint": "inplace"
+        },
+        {
+          "id": "TASK-P1-002",
+          "title": "Build banded Mosaic trees from the decision model",
+          "related_req_ids": [
+            "FR-GRID-013",
+            "FR-GRID-014",
+            "FR-GRID-015"
+          ],
+          "feasibility": "Medium",
+          "turn_estimate": 14,
+          "owns": [
+            "frontend/src/utils/mosaic.ts",
+            "frontend/tests/unit/mosaicEqualLayout.test.ts"
+          ],
+          "reads": [
+            "frontend/src/utils/mosaic.ts"
+          ],
+          "depends_on": [
+            "TASK-P1-001"
+          ],
+          "source_anchors": [
+            "frontend/src/utils/mosaic.ts:21-37",
+            "frontend/src/utils/mosaic.ts:57-86",
+            "frontend/src/utils/mosaic.ts:91-105"
+          ],
+          "acceptance_tests": [
+            {
+              "shell": "pwsh",
+              "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts",
+              "expected_exit": 0
+            },
+            {
+              "shell": "bash",
+              "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts",
+              "expected_exit": 0
+            }
+          ],
+          "rollback": {
+            "strategy": "manual",
+            "command": "1. git diff -- frontend/src/utils/mosaic.ts 로 TASK-P1-002 변경 범위를 확인한다. 2. buildBandedMosaicTree와 buildEqualMosaicTree 시그니처 확장분만 reverse patch로 제거한다."
+          },
+          "review_strictness": "default",
+          "spawn_isolation_hint": "inplace"
+        },
+        {
+          "id": "TASK-P1-003",
+          "title": "Update Equal tree inference and validation helpers",
+          "related_req_ids": [
+            "FR-GRID-013",
+            "FR-GRID-014",
+            "FR-GRID-015"
+          ],
+          "feasibility": "Medium",
+          "turn_estimate": 10,
+          "owns": [
+            "frontend/src/utils/mosaic.ts",
+            "frontend/tests/unit/mosaicEqualLayout.test.ts"
+          ],
+          "reads": [
+            "frontend/src/utils/mosaic.ts"
+          ],
+          "depends_on": [
+            "TASK-P1-002"
+          ],
+          "source_anchors": [
+            "frontend/src/utils/mosaic.ts:108-128"
+          ],
+          "acceptance_tests": [
+            {
+              "shell": "pwsh",
+              "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts",
+              "expected_exit": 0
+            },
+            {
+              "shell": "bash",
+              "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts",
+              "expected_exit": 0
+            }
+          ],
+          "rollback": {
+            "strategy": "manual",
+            "command": "1. git diff -- frontend/src/utils/mosaic.ts 로 TASK-P1-003 변경 범위를 확인한다. 2. inferEqualLayoutArrangement와 isFixedEqualMosaicTree 수정분만 reverse patch로 제거한다."
+          },
+          "review_strictness": "default",
+          "spawn_isolation_hint": "inplace"
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-2",
+      "title": "React Mosaic integration",
+      "tasks": [
+        {
+          "id": "TASK-P2-001",
+          "title": "Pass visible container metrics into Equal tree rebuilds",
+          "related_req_ids": [
+            "FR-GRID-013",
+            "FR-GRID-014",
+            "AC-007"
+          ],
+          "feasibility": "Medium",
+          "turn_estimate": 12,
+          "owns": [
+            "frontend/src/components/Grid/MosaicContainer.tsx"
+          ],
+          "reads": [
+            "frontend/src/components/Grid/MosaicContainer.tsx",
+            "frontend/src/utils/mosaic.ts",
+            "frontend/src/components/Terminal/TerminalView.tsx"
+          ],
+          "depends_on": [
+            "TASK-P1-003"
+          ],
+          "source_anchors": [
+            "frontend/src/components/Grid/MosaicContainer.tsx:138-144",
+            "frontend/src/components/Grid/MosaicContainer.tsx:163-181",
+            "frontend/src/components/Grid/MosaicContainer.tsx:250-287",
+            "frontend/src/components/Terminal/TerminalView.tsx:808-825"
+          ],
+          "acceptance_tests": [
+            {
+              "shell": "pwsh",
+              "cmd": "$env:NODE_ENV='development'; Remove-Item Env:BUILDERGATE_WEB_ROOT -ErrorAction SilentlyContinue; Remove-Item Env:BUILDERGATE_DAEMON_START_ID -ErrorAction SilentlyContinue; Remove-Item Env:BUILDERGATE_DAEMON_STATE_GENERATION -ErrorAction SilentlyContinue; cd frontend; npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"",
+              "expected_exit": 0
+            },
+            {
+              "shell": "bash",
+              "cmd": "unset BUILDERGATE_WEB_ROOT BUILDERGATE_DAEMON_START_ID BUILDERGATE_DAEMON_STATE_GENERATION; export NODE_ENV=development; cd frontend && npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"",
+              "expected_exit": 0
+            }
+          ],
+          "rollback": {
+            "strategy": "manual",
+            "command": "1. git diff -- frontend/src/components/Grid/MosaicContainer.tsx 로 TASK-P2-001 변경 범위를 확인한다. 2. getEqualLayoutMetrics 추가와 buildEqualMosaicTree metrics 전달분만 reverse patch로 제거한다."
+          },
+          "review_strictness": "default",
+          "spawn_isolation_hint": "inplace"
+        },
+        {
+          "id": "TASK-P2-002",
+          "title": "Preserve Equal mode behavior for toolbar and drag drop paths",
+          "related_req_ids": [
+            "FR-GRID-006",
+            "FR-GRID-013",
+            "FR-GRID-014",
+            "FR-GRID-015",
+            "AC-007"
+          ],
+          "feasibility": "Medium",
+          "turn_estimate": 10,
+          "owns": [
+            "frontend/src/components/Grid/MosaicContainer.tsx"
+          ],
+          "reads": [
+            "frontend/src/components/Grid/MosaicContainer.tsx",
+            "frontend/src/utils/mosaic.ts"
+          ],
+          "depends_on": [
+            "TASK-P2-001"
+          ],
+          "source_anchors": [
+            "frontend/src/components/Grid/MosaicContainer.tsx:370-381",
+            "frontend/src/components/Grid/MosaicContainer.tsx:462-469",
+            "frontend/src/components/Grid/MosaicContainer.tsx:633-640"
+          ],
+          "acceptance_tests": [
+            {
+              "shell": "pwsh",
+              "cmd": "$env:NODE_ENV='development'; Remove-Item Env:BUILDERGATE_WEB_ROOT -ErrorAction SilentlyContinue; Remove-Item Env:BUILDERGATE_DAEMON_START_ID -ErrorAction SilentlyContinue; Remove-Item Env:BUILDERGATE_DAEMON_STATE_GENERATION -ErrorAction SilentlyContinue; cd frontend; npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"",
+              "expected_exit": 0
+            },
+            {
+              "shell": "bash",
+              "cmd": "unset BUILDERGATE_WEB_ROOT BUILDERGATE_DAEMON_START_ID BUILDERGATE_DAEMON_STATE_GENERATION; export NODE_ENV=development; cd frontend && npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"",
+              "expected_exit": 0
+            }
+          ],
+          "rollback": {
+            "strategy": "manual",
+            "command": "1. git diff -- frontend/src/components/Grid/MosaicContainer.tsx 로 TASK-P2-002 변경 범위를 확인한다. 2. applyModeToTree와 handleTileDragEnd의 metrics 전달분만 reverse patch로 제거한다."
+          },
+          "review_strictness": "default",
+          "spawn_isolation_hint": "inplace"
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-3",
+      "title": "Regression coverage",
+      "tasks": [
+        {
+          "id": "TASK-P3-001",
+          "title": "Complete unit test matrix for Equal layout decisions",
+          "related_req_ids": [
+            "FR-GRID-013",
+            "FR-GRID-014",
+            "FR-GRID-015"
+          ],
+          "feasibility": "Low",
+          "turn_estimate": 8,
+          "owns": [
+            "frontend/tests/unit/mosaicEqualLayout.test.ts"
+          ],
+          "reads": [
+            "frontend/src/utils/mosaic.ts",
+            "frontend/tests/unit/terminalInputSequencer.test.ts"
+          ],
+          "depends_on": [
+            "TASK-P1-003"
+          ],
+          "source_anchors": [
+            "frontend/tests/unit/terminalInputSequencer.test.ts:1-10",
+            "frontend/src/utils/mosaic.ts:57-86"
+          ],
+          "acceptance_tests": [
+            {
+              "shell": "pwsh",
+              "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts",
+              "expected_exit": 0
+            },
+            {
+              "shell": "bash",
+              "cmd": "node --experimental-strip-types --test frontend/tests/unit/mosaicEqualLayout.test.ts",
+              "expected_exit": 0
+            }
+          ],
+          "rollback": {
+            "strategy": "manual",
+            "command": "1. git diff -- frontend/tests/unit/mosaicEqualLayout.test.ts 로 TASK-P3-001이 추가한 test block 범위를 확인한다. 2. 해당 test block만 제거하는 reverse patch를 적용한다."
+          },
+          "review_strictness": "default",
+          "spawn_isolation_hint": "inplace"
+        },
+        {
+          "id": "TASK-P3-002",
+          "title": "Add Playwright coverage for wide and tall Equal mode insertion",
+          "related_req_ids": [
+            "FR-GRID-013",
+            "FR-GRID-014",
+            "FR-GRID-015",
+            "AC-007"
+          ],
+          "feasibility": "Medium",
+          "turn_estimate": 14,
+          "owns": [
+            "frontend/tests/e2e/grid-equal-mode.spec.ts"
+          ],
+          "reads": [
+            "frontend/tests/e2e/grid-equal-mode.spec.ts",
+            "frontend/playwright.config.ts"
+          ],
+          "depends_on": [
+            "TASK-P2-002",
+            "TASK-P3-001"
+          ],
+          "source_anchors": [
+            "frontend/tests/e2e/grid-equal-mode.spec.ts:77-126",
+            "frontend/tests/e2e/grid-equal-mode.spec.ts:918-1003",
+            "frontend/tests/e2e/grid-equal-mode.spec.ts:1409-1438",
+            "frontend/playwright.config.ts:8-15"
+          ],
+          "acceptance_tests": [
+            {
+              "shell": "pwsh",
+              "cmd": "$env:NODE_ENV='development'; Remove-Item Env:BUILDERGATE_WEB_ROOT -ErrorAction SilentlyContinue; Remove-Item Env:BUILDERGATE_DAEMON_START_ID -ErrorAction SilentlyContinue; Remove-Item Env:BUILDERGATE_DAEMON_STATE_GENERATION -ErrorAction SilentlyContinue; cd frontend; npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"",
+              "expected_exit": 0
+            },
+            {
+              "shell": "bash",
+              "cmd": "unset BUILDERGATE_WEB_ROOT BUILDERGATE_DAEMON_START_ID BUILDERGATE_DAEMON_STATE_GENERATION; export NODE_ENV=development; cd frontend && npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"",
+              "expected_exit": 0
+            }
+          ],
+          "rollback": {
+            "strategy": "manual",
+            "command": "1. git diff -- frontend/tests/e2e/grid-equal-mode.spec.ts 로 신규 E2E 블록 범위를 확인한다. 2. 신규 helper와 신규 test 블록만 reverse patch로 제거한다."
+          },
+          "review_strictness": "default",
+          "spawn_isolation_hint": "inplace"
+        }
+      ]
+    }
+  ],
+  "req_mapping": [
+    {
+      "req_id": "FR-GRID-013",
+      "tasks": [
+        "TASK-P1-000",
+        "TASK-P1-001",
+        "TASK-P1-002",
+        "TASK-P1-003",
+        "TASK-P2-001",
+        "TASK-P2-002",
+        "TASK-P3-001",
+        "TASK-P3-002"
+      ]
+    },
+    {
+      "req_id": "FR-GRID-014",
+      "tasks": [
+        "TASK-P1-000",
+        "TASK-P1-001",
+        "TASK-P1-002",
+        "TASK-P1-003",
+        "TASK-P2-001",
+        "TASK-P2-002",
+        "TASK-P3-001",
+        "TASK-P3-002"
+      ]
+    },
+    {
+      "req_id": "FR-GRID-015",
+      "tasks": [
+        "TASK-P1-000",
+        "TASK-P1-001",
+        "TASK-P1-002",
+        "TASK-P1-003",
+        "TASK-P2-002",
+        "TASK-P3-001",
+        "TASK-P3-002"
+      ]
+    },
+    {
+      "req_id": "FR-GRID-006",
+      "tasks": [
+        "TASK-P2-002",
+        "TASK-P3-002"
+      ]
+    },
+    {
+      "req_id": "AC-007",
+      "tasks": [
+        "TASK-P2-001",
+        "TASK-P2-002",
+        "TASK-P3-002"
+      ]
+    }
+  ],
+  "dew_file": ".snoworca/dew/planner/20260506-grid-equal-layout/"
+}

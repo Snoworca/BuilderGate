@@ -2,6 +2,25 @@ import type { MosaicNode, MosaicParent } from '../types/workspace';
 
 export type EqualLayoutArrangement = 'rows' | 'cols';
 
+export interface EqualLayoutMetrics {
+  containerWidth: number;
+  containerHeight: number;
+  cellWidth?: number;
+  cellHeight?: number;
+  targetColumns?: number;
+  targetRows?: number;
+  targetAspectRatio?: number;
+}
+
+export interface EqualGridSpec {
+  arrangement: EqualLayoutArrangement;
+  columns: number;
+  rows: number;
+  bandCounts: number[];
+  outerDirection: 'row' | 'column';
+  innerDirection: 'row' | 'column';
+}
+
 // ============================================================================
 // Minimum size percentage by session count
 // ============================================================================
@@ -36,6 +55,21 @@ function buildLinearMosaicTree(
   };
 }
 
+function buildBalancedMosaicTree(
+  nodes: MosaicNode<string>[],
+  direction: 'row' | 'column',
+): MosaicNode<string> {
+  if (nodes.length === 0) throw new Error('Cannot build tree from empty nodes');
+  if (nodes.length === 1) return nodes[0];
+
+  return {
+    direction,
+    first: nodes[0],
+    second: buildBalancedMosaicTree(nodes.slice(1), direction),
+    splitPercentage: 100 / nodes.length,
+  };
+}
+
 function isLinearMosaicTree(
   node: MosaicNode<string>,
   direction: 'row' | 'column',
@@ -48,68 +82,356 @@ function isLinearMosaicTree(
   );
 }
 
+function resolveEqualScreenArrangement(
+  metrics?: EqualLayoutMetrics,
+  fallbackArrangement: EqualLayoutArrangement = 'rows',
+): EqualLayoutArrangement {
+  const width = metrics?.containerWidth ?? 0;
+  const height = metrics?.containerHeight ?? 0;
+
+  if (width > 0 && height > 0) {
+    if (height > width) return 'cols';
+    if (width > height) return 'rows';
+  }
+
+  return fallbackArrangement;
+}
+
+function resolveEqualDimensions(
+  metrics?: EqualLayoutMetrics,
+  fallbackArrangement: EqualLayoutArrangement = 'rows',
+): { width: number; height: number } {
+  const width = metrics?.containerWidth ?? 0;
+  const height = metrics?.containerHeight ?? 0;
+
+  if (width > 0 && height > 0) {
+    return { width, height };
+  }
+
+  return fallbackArrangement === 'cols'
+    ? { width: 900, height: 1600 }
+    : { width: 1600, height: 900 };
+}
+
+function resolveEqualTargetAspectRatio(metrics?: EqualLayoutMetrics): number {
+  const cellWidth = metrics?.cellWidth ?? 0;
+  const cellHeight = metrics?.cellHeight ?? 0;
+
+  if (cellWidth > 0 && cellHeight > 0) {
+    return ((metrics?.targetColumns ?? 80) * cellWidth)
+      / ((metrics?.targetRows ?? 24) * cellHeight);
+  }
+
+  if (metrics?.targetAspectRatio && metrics.targetAspectRatio > 0) {
+    return metrics.targetAspectRatio;
+  }
+
+  return 1.6;
+}
+
+function getResearchBaselineGrid(
+  tabCount: number,
+  arrangement: EqualLayoutArrangement,
+): { columns: number; rows: number } | null {
+  if (tabCount < 4 || tabCount > 8) {
+    return null;
+  }
+
+  if (tabCount === 4) {
+    return { columns: 2, rows: 2 };
+  }
+
+  if (tabCount <= 6) {
+    return arrangement === 'cols'
+      ? { columns: 2, rows: 3 }
+      : { columns: 3, rows: 2 };
+  }
+
+  return { columns: 3, rows: 3 };
+}
+
+function shouldUseWideSingleRow(
+  tabCount: number,
+  baseline: { columns: number; rows: number } | null,
+  metrics?: EqualLayoutMetrics,
+): boolean {
+  const width = metrics?.containerWidth ?? 0;
+  const height = metrics?.containerHeight ?? 0;
+
+  if (!baseline || width <= 0 || height <= 0 || width <= height) {
+    return false;
+  }
+
+  const singleRowPaneWidth = width / tabCount;
+  const baselineGridPaneHeight = height / baseline.rows;
+  return singleRowPaneWidth > baselineGridPaneHeight;
+}
+
+function resolveArrangementFromGrid(
+  columns: number,
+  rows: number,
+  metrics?: EqualLayoutMetrics,
+  fallbackArrangement: EqualLayoutArrangement = 'rows',
+): EqualLayoutArrangement {
+  if (columns > rows) return 'rows';
+  if (rows > columns) return 'cols';
+  return resolveEqualScreenArrangement(metrics, fallbackArrangement);
+}
+
+function distributeEqualBandCounts(
+  tabCount: number,
+  bandCount: number,
+  maxPerBand: number,
+): number[] {
+  const counts: number[] = [];
+  let remaining = tabCount;
+
+  for (let index = 0; index < bandCount; index += 1) {
+    const remainingBands = bandCount - index;
+    const nextCount = Math.min(maxPerBand, Math.ceil(remaining / remainingBands));
+    if (nextCount <= 0) {
+      throw new Error('Equal grid band count must be positive');
+    }
+    counts.push(nextCount);
+    remaining -= nextCount;
+  }
+
+  if (remaining !== 0) {
+    throw new Error('Equal grid band counts do not match tab count');
+  }
+
+  return counts;
+}
+
+function createEqualGridSpec(
+  tabCount: number,
+  columns: number,
+  rows: number,
+  arrangement: EqualLayoutArrangement,
+): EqualGridSpec {
+  const outerDirection = arrangement === 'rows' ? 'column' : 'row';
+  const innerDirection = arrangement === 'rows' ? 'row' : 'column';
+  const bandCount = arrangement === 'rows' ? rows : columns;
+  const maxPerBand = arrangement === 'rows' ? columns : rows;
+
+  return {
+    arrangement,
+    columns,
+    rows,
+    bandCounts: distributeEqualBandCounts(tabCount, bandCount, maxPerBand),
+    outerDirection,
+    innerDirection,
+  };
+}
+
+function compareEqualCandidateScores(
+  left: [number, number, number],
+  right: [number, number, number],
+): number {
+  for (let index = 0; index < left.length; index += 1) {
+    const delta = left[index] - right[index];
+    if (Math.abs(delta) > Number.EPSILON) {
+      return delta;
+    }
+  }
+  return 0;
+}
+
+export function selectEqualGridSpec(
+  tabCount: number,
+  metrics?: EqualLayoutMetrics,
+  fallbackArrangement: EqualLayoutArrangement = 'rows',
+): EqualGridSpec {
+  if (tabCount <= 0) throw new Error('Cannot build tree from empty ids');
+
+  const screenArrangement = resolveEqualScreenArrangement(metrics, fallbackArrangement);
+
+  if (tabCount <= 3) {
+    const columns = screenArrangement === 'rows' ? tabCount : 1;
+    const rows = screenArrangement === 'cols' ? tabCount : 1;
+    return createEqualGridSpec(tabCount, columns, rows, screenArrangement);
+  }
+
+  const { width, height } = resolveEqualDimensions(metrics, fallbackArrangement);
+  const targetAspectRatio = resolveEqualTargetAspectRatio(metrics);
+  const baseline = getResearchBaselineGrid(tabCount, screenArrangement);
+
+  if (screenArrangement === 'rows' && shouldUseWideSingleRow(tabCount, baseline, metrics)) {
+    return createEqualGridSpec(tabCount, tabCount, 1, 'rows');
+  }
+
+  const candidates: Array<{
+    columns: number;
+    rows: number;
+    score: [number, number, number];
+  }> = [];
+
+  for (let columns = 2; columns <= tabCount; columns += 1) {
+    for (let rows = 2; rows <= tabCount; rows += 1) {
+      if (columns * rows < tabCount) {
+        continue;
+      }
+
+      const tileAspectRatio = (width / columns) / (height / rows);
+      const aspectDistance = Math.abs(Math.log(tileAspectRatio / targetAspectRatio));
+      const emptySlots = columns * rows - tabCount;
+      const longAxisPenalty = width >= height
+        ? (columns >= rows ? 0 : 1)
+        : (rows >= columns ? 0 : 1);
+
+      candidates.push({
+        columns,
+        rows,
+        score: [aspectDistance, emptySlots, longAxisPenalty],
+      });
+    }
+  }
+
+  if (candidates.length === 0) {
+    throw new Error('Cannot select Equal grid candidate');
+  }
+
+  candidates.sort((left, right) => {
+    const scoreComparison = compareEqualCandidateScores(left.score, right.score);
+    if (scoreComparison !== 0) return scoreComparison;
+
+    const leftArrangement = resolveArrangementFromGrid(
+      left.columns,
+      left.rows,
+      metrics,
+      fallbackArrangement,
+    );
+    const rightArrangement = resolveArrangementFromGrid(
+      right.columns,
+      right.rows,
+      metrics,
+      fallbackArrangement,
+    );
+
+    if (leftArrangement === fallbackArrangement && rightArrangement !== fallbackArrangement) {
+      return -1;
+    }
+    if (rightArrangement === fallbackArrangement && leftArrangement !== fallbackArrangement) {
+      return 1;
+    }
+    return 0;
+  });
+
+  const selected = baseline
+    ? candidates.find(candidate => candidate.columns === baseline.columns && candidate.rows === baseline.rows)
+      ?? candidates[0]
+    : candidates[0];
+  const arrangement = resolveArrangementFromGrid(
+    selected.columns,
+    selected.rows,
+    metrics,
+    fallbackArrangement,
+  );
+  return createEqualGridSpec(tabCount, selected.columns, selected.rows, arrangement);
+}
+
+function buildBandedMosaicTree(
+  ids: string[],
+  outerDirection: 'row' | 'column',
+  innerDirection: 'row' | 'column',
+  bandCounts: number[],
+): MosaicNode<string> {
+  if (ids.length === 0) throw new Error('Cannot build tree from empty ids');
+
+  const totalBandLeaves = bandCounts.reduce((sum, count) => sum + count, 0);
+  if (totalBandLeaves !== ids.length) {
+    throw new Error('Equal grid band counts must match ids length');
+  }
+
+  const bands: MosaicNode<string>[] = [];
+  let offset = 0;
+  for (const count of bandCounts) {
+    if (count <= 0) {
+      throw new Error('Equal grid band count must be positive');
+    }
+    bands.push(buildLinearMosaicTree(ids.slice(offset, offset + count), innerDirection));
+    offset += count;
+  }
+
+  if (bands.length === 1) {
+    return bands[0];
+  }
+
+  return buildBalancedMosaicTree(bands, outerDirection);
+}
+
 // ============================================================================
-// Build fixed two-band equal layout from tab IDs
-// rows: top/bottom fixed
-// cols: left/right fixed
+// Build equal layout from tab IDs
+// rows: row-major logical grid
+// cols: column-major logical grid
 // ============================================================================
 
 export function buildEqualMosaicTree(
   ids: string[],
   arrangement: EqualLayoutArrangement = 'rows',
+  metrics?: EqualLayoutMetrics,
 ): MosaicNode<string> {
   if (ids.length === 0) throw new Error('Cannot build tree from empty ids');
-  if (ids.length === 1) return ids[0];
 
-  const firstBandCount = Math.ceil(ids.length / 2);
-  const firstBandIds = ids.slice(0, firstBandCount);
-  const secondBandIds = ids.slice(firstBandCount);
-
-  if (secondBandIds.length === 0) {
-    return arrangement === 'rows'
-      ? buildLinearMosaicTree(firstBandIds, 'row')
-      : buildLinearMosaicTree(firstBandIds, 'column');
+  const spec = selectEqualGridSpec(ids.length, metrics, arrangement);
+  if (ids.length <= 3 || spec.bandCounts.length === 1) {
+    return buildLinearMosaicTree(ids, spec.innerDirection);
   }
 
-  if (arrangement === 'rows') {
-    return {
-      direction: 'column',
-      first: buildLinearMosaicTree(firstBandIds, 'row'),
-      second: buildLinearMosaicTree(secondBandIds, 'row'),
-      splitPercentage: 50,
-    };
-  }
-
-  return {
-    direction: 'row',
-    first: buildLinearMosaicTree(firstBandIds, 'column'),
-    second: buildLinearMosaicTree(secondBandIds, 'column'),
-    splitPercentage: 50,
-  };
+  return buildBandedMosaicTree(
+    ids,
+    spec.outerDirection,
+    spec.innerDirection,
+    spec.bandCounts,
+  );
 }
 
 export function buildRecoveredEqualMosaicTree(
   sourceTree: MosaicNode<string> | null,
   currentTabIds: string[],
   arrangement: EqualLayoutArrangement = 'rows',
+  metrics?: EqualLayoutMetrics,
 ): MosaicNode<string> {
   if (currentTabIds.length === 0) {
     throw new Error('Cannot build tree from empty ids');
   }
 
   if (!sourceTree) {
-    return buildEqualMosaicTree(currentTabIds, arrangement);
+    return buildEqualMosaicTree(currentTabIds, arrangement, metrics);
   }
 
   const recoveredTree = restoreLayoutWithSessionRecovery(sourceTree, currentTabIds).tree;
-  return buildEqualMosaicTree(extractLeafIds(recoveredTree), arrangement);
+  return buildEqualMosaicTree(extractLeafIds(recoveredTree), arrangement, metrics);
 }
 
 export function inferEqualLayoutArrangement(tree: MosaicNode<string> | null): EqualLayoutArrangement {
   if (!tree || typeof tree === 'string') {
     return 'rows';
   }
+
+  const leafCount = countLeaves(tree);
+  if (leafCount <= 3) {
+    if (isLinearMosaicTree(tree, 'row')) return 'rows';
+    if (isLinearMosaicTree(tree, 'column')) return 'cols';
+  }
+
+  if (isLinearMosaicTree(tree, 'row')) {
+    return 'rows';
+  }
+
   return tree.direction === 'column' ? 'rows' : 'cols';
+}
+
+function collectEqualBands(
+  node: MosaicNode<string>,
+  outerDirection: 'row' | 'column',
+): MosaicNode<string>[] {
+  if (typeof node === 'string') return [node];
+  if (node.direction !== outerDirection) return [node];
+  return [
+    ...collectEqualBands(node.first, outerDirection),
+    ...collectEqualBands(node.second, outerDirection),
+  ];
 }
 
 export function isFixedEqualMosaicTree(
@@ -122,20 +444,32 @@ export function isFixedEqualMosaicTree(
 
   const outerDirection = arrangement === 'rows' ? 'column' : 'row';
   const innerDirection = arrangement === 'rows' ? 'row' : 'column';
+  const leafCount = countLeaves(tree);
+
+  if (leafCount <= 3) {
+    return isLinearMosaicTree(tree, innerDirection);
+  }
+
+  if (arrangement === 'rows' && isLinearMosaicTree(tree, 'row')) {
+    return true;
+  }
+
+  if (arrangement === 'cols' && isLinearMosaicTree(tree, 'row')) {
+    return false;
+  }
 
   if (tree.direction !== outerDirection) {
     return false;
   }
 
-  const firstLeaves = countLeaves(tree.first);
-  const secondLeaves = countLeaves(tree.second);
-  if (Math.abs(firstLeaves - secondLeaves) > 1) {
-    return false;
-  }
+  const bands = collectEqualBands(tree, outerDirection);
+  const bandLeafCounts = bands.map(countLeaves);
+  const minBandLeaves = Math.min(...bandLeafCounts);
+  const maxBandLeaves = Math.max(...bandLeafCounts);
 
   return (
-    isLinearMosaicTree(tree.first, innerDirection) &&
-    isLinearMosaicTree(tree.second, innerDirection)
+    maxBandLeaves - minBandLeaves <= 1 &&
+    bands.every(band => isLinearMosaicTree(band, innerDirection))
   );
 }
 

@@ -15,6 +15,60 @@ export async function waitForTerminal(page: Page) {
   await page.waitForSelector('.xterm-screen:visible', { timeout: 15000 });
 }
 
+/** Open the command preset manager through the header tools menu */
+export async function openCommandPresetDialog(page: Page): Promise<void> {
+  await page.locator('button[title="Tools"]').click();
+  await page.locator('.context-menu-item:has-text("명령줄 관리")').click();
+  await expect(page.getByTestId('command-preset-dialog')).toBeVisible({ timeout: 10000 });
+}
+
+/** Remove command preset E2E data from the server and local browser preferences */
+export async function clearCommandPresets(page: Page): Promise<void> {
+  if (!page.url().startsWith('http')) {
+    return;
+  }
+
+  await page.evaluate(async () => {
+    if (!['http:', 'https:'].includes(location.protocol)) {
+      return;
+    }
+    localStorage.removeItem('buildergate.commandPresetManager.activeTab');
+    localStorage.removeItem('buildergate.dialog.command-preset-manager.geometry');
+    const token = localStorage.getItem('cws_auth_token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch('/api/command-presets', { headers });
+    if (!res.ok) return;
+    const data = await res.json();
+    const presets = Array.isArray(data.presets) ? data.presets : [];
+    await Promise.all(presets
+      .filter((preset: { label?: string }) => preset.label?.startsWith('e2e-dialog-'))
+      .map((preset: { id: string }) => fetch(`/api/command-presets/${preset.id}`, {
+        method: 'DELETE',
+        headers,
+      })));
+  });
+}
+
+/** Create a command preset through the dialog UI */
+export async function createCommandPreset(
+  page: Page,
+  kind: 'command' | 'directory' | 'prompt',
+  label: string,
+  value: string,
+): Promise<void> {
+  const tabLabel = kind === 'command' ? '커맨드 라인' : kind === 'directory' ? '디렉토리' : '프롬프트';
+  const dialog = page.getByTestId('command-preset-dialog');
+  await dialog.getByRole('tab', { name: tabLabel }).click();
+  await dialog.locator('.command-preset-form input').first().fill(label);
+  if (kind === 'prompt') {
+    await dialog.locator('.command-preset-form textarea').fill(value);
+  } else {
+    await dialog.locator('.command-preset-form input').nth(1).fill(value);
+  }
+  await dialog.getByRole('button', { name: '등록' }).click();
+  await expect(dialog.getByText(label)).toBeVisible({ timeout: 10000 });
+}
+
 /** Right-click on the nth pane (0-based) */
 export async function rightClickPane(page: Page, index: number) {
   const pane = page.locator('.pane-leaf').nth(index);
