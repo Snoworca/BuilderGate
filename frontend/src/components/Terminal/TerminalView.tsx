@@ -28,6 +28,9 @@ import {
 import type {
   InputDebugMetadata,
   ReconnectState,
+  ScreenRepairBufferType,
+  ScreenRepairFailedReason,
+  ScreenRepairMessage,
   TerminalInputBarrierReason,
   TerminalInputClosedReason,
   TerminalInputTransportOverride,
@@ -106,6 +109,8 @@ export interface TerminalHandle {
   fit: () => void;
   repairLayout: (reason?: string) => Promise<boolean>;
   requestGridRepair?: (reason?: GridRepairReason) => void;
+  getScreenRepairReadiness: () => ScreenRepairReadiness;
+  applyScreenRepair: (repair: ScreenRepairMessage) => Promise<ScreenRepairApplyResult>;
   sendInput: (data: string) => void;
   restoreSnapshot: () => Promise<boolean>;
   replaceWithSnapshot: (data: string) => Promise<boolean>;
@@ -115,7 +120,28 @@ export interface TerminalHandle {
   setWindowsPty: (info?: WindowsPtyInfo) => void;
 }
 
-export type GridRepairReason = 'manual' | 'workspace';
+export type GridRepairReason = 'manual' | 'workspace' | 'resize';
+
+export type ScreenRepairReadiness =
+  | {
+      ok: true;
+      cols: number;
+      rows: number;
+      atBottom: boolean;
+      bufferType: ScreenRepairBufferType;
+    }
+  | {
+      ok: false;
+      reason: ScreenRepairFailedReason;
+      cols?: number;
+      rows?: number;
+      atBottom?: boolean;
+      bufferType?: ScreenRepairBufferType;
+    };
+
+export type ScreenRepairApplyResult =
+  | { ok: true }
+  | { ok: false; reason: ScreenRepairFailedReason };
 
 interface Props {
   sessionId: string;
@@ -1185,6 +1211,156 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       return applySnapshotReplacement(data);
     }, [applySnapshotReplacement, waitForImeIdle]);
 
+    const getScreenRepairReadiness = useCallback((): ScreenRepairReadiness => {
+      const term = xtermRef.current;
+      const imeSnapshot = imeTransactionRef.current?.getSnapshot() ?? null;
+      if (!term || terminalDisposedRef.current || !isVisibleRef.current || restorePendingRef.current || !geometryReadyRef.current) {
+        return { ok: false, reason: 'not-ready' };
+      }
+      if (isComposingRef.current || (imeSnapshot !== null && imeSnapshot.state !== 'idle')) {
+        return {
+          ok: false,
+          reason: 'ime-active',
+          cols: term.cols,
+          rows: term.rows,
+          atBottom: term.buffer.active.viewportY === term.buffer.active.baseY,
+          bufferType: term.buffer.active.type,
+        };
+      }
+      if (captureStateRef.current !== 'open' && transportBarrierReasonRef.current !== 'none') {
+        return {
+          ok: false,
+          reason: 'input-active',
+          cols: term.cols,
+          rows: term.rows,
+          atBottom: term.buffer.active.viewportY === term.buffer.active.baseY,
+          bufferType: term.buffer.active.type,
+        };
+      }
+
+      const atBottom = term.buffer.active.viewportY === term.buffer.active.baseY;
+      if (!atBottom) {
+        return {
+          ok: false,
+          reason: 'user-scrolled',
+          cols: term.cols,
+          rows: term.rows,
+          atBottom,
+          bufferType: term.buffer.active.type,
+        };
+      }
+
+      return {
+        ok: true,
+        cols: term.cols,
+        rows: term.rows,
+        atBottom,
+        bufferType: term.buffer.active.type,
+      };
+    }, []);
+
+    const applyScreenRepair = useCallback(async (repair: ScreenRepairMessage): Promise<ScreenRepairApplyResult> => {
+      const imeReady = await waitForImeIdle('repair', 'apply-screen-repair');
+      if (!imeReady) {
+        return { ok: false, reason: 'ime-active' };
+      }
+
+      const term = xtermRef.current;
+      if (!term) {
+        return { ok: false, reason: 'not-ready' };
+      }
+
+      const readiness = getScreenRepairReadiness();
+      if (!readiness.ok) {
+        recordTerminalDebugEvent(sessionId, 'screen_repair_apply_rejected', {
+          reason: readiness.reason,
+          repairToken: repair.repairToken,
+          seq: repair.seq,
+        });
+        return { ok: false, reason: readiness.reason };
+      }
+      if (readiness.cols !== repair.cols || readiness.rows !== repair.rows) {
+        recordTerminalDebugEvent(sessionId, 'screen_repair_apply_rejected', {
+          reason: 'geometry-mismatch',
+          repairToken: repair.repairToken,
+          seq: repair.seq,
+          clientCols: readiness.cols,
+          clientRows: readiness.rows,
+          repairCols: repair.cols,
+          repairRows: repair.rows,
+        });
+        return { ok: false, reason: 'geometry-mismatch' };
+      }
+      if (readiness.bufferType !== repair.bufferType) {
+        recordTerminalDebugEvent(sessionId, 'screen_repair_apply_rejected', {
+          reason: 'buffer-mismatch',
+          repairToken: repair.repairToken,
+          seq: repair.seq,
+          clientBufferType: readiness.bufferType,
+          repairBufferType: repair.bufferType,
+        });
+        return { ok: false, reason: 'buffer-mismatch' };
+      }
+
+      queueFocusRestoreIfFocused('screen-repair-start');
+      recordTerminalDebugEvent(sessionId, 'screen_repair_apply_started', {
+        repairToken: repair.repairToken,
+        seq: repair.seq,
+        cols: repair.cols,
+        rows: repair.rows,
+        bufferType: repair.bufferType,
+        rowCount: repair.viewportRows.length,
+        byteLength: repair.ansiPatch.length,
+      }, repair.ansiPatch);
+
+      return new Promise((resolve) => {
+        try {
+          term.write(repair.ansiPatch, () => {
+            if (xtermRef.current !== term) {
+              resolve({ ok: false, reason: 'not-ready' });
+              return;
+            }
+
+            const active = term.buffer.active;
+            if (active.type !== repair.bufferType) {
+              resolve({ ok: false, reason: 'buffer-mismatch' });
+              return;
+            }
+            if (active.viewportY !== active.baseY) {
+              resolve({ ok: false, reason: 'user-scrolled' });
+              return;
+            }
+
+            scheduleSnapshotSave();
+            restoreQueuedFocus('screen-repair');
+            recordTerminalDebugEvent(sessionId, 'screen_repair_applied', {
+              repairToken: repair.repairToken,
+              seq: repair.seq,
+              cols: repair.cols,
+              rows: repair.rows,
+              bufferType: repair.bufferType,
+            });
+            resolve({ ok: true });
+          });
+        } catch (error) {
+          console.warn('[TerminalView] screen repair apply failed:', error);
+          recordTerminalDebugEvent(sessionId, 'screen_repair_apply_failed', {
+            repairToken: repair.repairToken,
+            seq: repair.seq,
+            reason: 'write-failed',
+          });
+          resolve({ ok: false, reason: 'write-failed' });
+        }
+      });
+    }, [
+      getScreenRepairReadiness,
+      queueFocusRestoreIfFocused,
+      restoreQueuedFocus,
+      scheduleSnapshotSave,
+      sessionId,
+      waitForImeIdle,
+    ]);
+
     const restoreSnapshotAfterIme = useCallback(async (): Promise<boolean> => {
       const ready = await waitForImeIdle('snapshot', 'restore-snapshot');
       if (!ready) {
@@ -1232,6 +1408,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         });
       },
       repairLayout: (reason = 'repair-layout') => repairLayoutAfterIme(reason),
+      getScreenRepairReadiness: () => getScreenRepairReadiness(),
+      applyScreenRepair: (repair: ScreenRepairMessage) => applyScreenRepair(repair),
       sendInput: (data: string) => {
         const debugInput = buildTerminalInputDebugPayload(data, { captureSeq: nextCaptureSeq() });
         submitCapturedInput(data, debugInput, 'imperative');
@@ -1270,6 +1448,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       },
     }), [
       writeOutput,
+      applyScreenRepair,
+      getScreenRepairReadiness,
       restoreSnapshotAfterIme,
       replaceWithSnapshot,
       releaseRestorePending,

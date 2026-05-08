@@ -28,6 +28,7 @@ import {
   createHeadlessTerminalState,
   disposeHeadlessTerminal,
   resizeHeadlessTerminal,
+  serializeHeadlessScreenRepair,
   serializeHeadlessTerminal,
   writeHeadlessTerminal,
 } from './utils/headlessTerminal.js';
@@ -153,6 +154,11 @@ async function main(): Promise<void> {
     { name: 'Headless snapshot serialization preserves alternate-screen state and exit restore', run: testHeadlessSnapshotAltScreen },
     { name: 'Headless snapshot serialization handles an empty screen', run: testHeadlessSnapshotEmptyScreen },
     { name: 'Headless snapshot serialization refuses truncated authoritative payloads', run: testHeadlessSnapshotTruncation },
+    { name: 'Headless screen repair serializes viewport only', run: testHeadlessScreenRepairViewportOnly },
+    { name: 'Headless screen repair preserves SGR and cursor metadata', run: testHeadlessScreenRepairSgrAndCursor },
+    { name: 'Headless screen repair preserves hidden cursor state', run: testHeadlessScreenRepairHiddenCursor },
+    { name: 'SessionManager screen repair rejects alternate buffer mismatch', run: testSessionManagerScreenRepairBufferMismatch },
+    { name: 'SessionManager screen repair rejects degraded headless', run: testSessionManagerScreenRepairRejectsDegraded },
     { name: 'Terminal payload truncation skips partial CSI sequences', run: testTerminalPayloadTruncationCsi },
     { name: 'Terminal payload truncation skips partial OSC sequences', run: testTerminalPayloadTruncationOsc },
     { name: 'Terminal payload truncation drops incomplete trailing CSI sequences', run: testTerminalPayloadTruncationIncompleteCsi },
@@ -178,6 +184,18 @@ async function main(): Promise<void> {
     { name: 'WsRouter duplicate subscribe does not replay screen snapshot twice', run: testWsRouterDuplicateSubscribeIdempotent },
     { name: 'WsRouter ignores stale replay tokens', run: testWsRouterIgnoresStaleReplayTokens },
     { name: 'WsRouter refreshes replay snapshots on resize while pending', run: testWsRouterRefreshesReplaySnapshotsOnResize },
+    { name: 'WsRouter sends screen repair and queues output until ACK', run: testWsRouterSendsScreenRepairAndQueuesOutputUntilAck },
+    { name: 'WsRouter queues output while screen repair is generating', run: testWsRouterQueuesOutputDuringScreenRepairGeneration },
+    { name: 'WsRouter flushes output newer than screen repair snapshot seq', run: testWsRouterFlushesOutputAfterScreenRepairSnapshotSeq },
+    { name: 'WsRouter flushes output on screen-repair ACK timeout', run: testWsRouterFlushesScreenRepairOutputOnAckTimeout },
+    { name: 'WsRouter flushes covered screen repair output on client failure', run: testWsRouterFlushesCoveredScreenRepairOutputOnFailure },
+    { name: 'WsRouter flushes covered screen repair output on ACK timeout', run: testWsRouterFlushesCoveredScreenRepairOutputOnTimeout },
+    { name: 'WsRouter flushes output on screen-repair:failed', run: testWsRouterFlushesOutputOnScreenRepairFailed },
+    { name: 'WsRouter ignores stale screen repair token', run: testWsRouterIgnoresStaleScreenRepairToken },
+    { name: 'WsRouter rejects screen repair during replay pending', run: testWsRouterRejectsScreenRepairDuringReplayPending },
+    { name: 'WsRouter aborts screen repair queue overflow without tail trimming', run: testWsRouterScreenRepairQueueOverflowFlushesAllOutput },
+    { name: 'WsRouter applies screen repair queue cap using UTF-8 bytes', run: testWsRouterScreenRepairQueueOverflowUsesUtf8Bytes },
+    { name: 'WsRouter allows multibyte screen repair output within byte cap', run: testWsRouterScreenRepairQueueAllowsUtf8WithinCap },
     { name: 'WsRouter starts repair replay without geometry change', run: testWsRouterStartsRepairReplayWithoutResize },
     { name: 'WsRouter queues output during repair replay until ACK', run: testWsRouterQueuesOutputDuringRepairReplayUntilAck },
     { name: 'WsRouter does not duplicate deferred degraded payload after fallback snapshot ack', run: testWsRouterNoDuplicateDeferredFallbackPayload },
@@ -3837,6 +3855,156 @@ async function testHeadlessSnapshotTruncation(): Promise<void> {
   }
 }
 
+async function testHeadlessScreenRepairViewportOnly(): Promise<void> {
+  const harness = createHeadlessHarness({ cols: 16, rows: 4, scrollbackLines: 1000 });
+
+  try {
+    for (let i = 1; i <= 20; i += 1) {
+      await writeHeadlessTerminal(harness.state, `BG-LINE-${String(i).padStart(3, '0')}\r\n`);
+    }
+
+    const repair = serializeHeadlessScreenRepair(harness.state, {
+      cols: 16,
+      rows: 4,
+      bufferType: 'normal',
+      seq: 42,
+    }, 4096);
+
+    assert.equal(repair.ok, true);
+    if (!repair.ok) return;
+    assert.equal(repair.payload.seq, 42);
+    assert.equal(repair.payload.viewportRows.length, 4);
+    assert.equal(repair.payload.bufferType, 'normal');
+    assert.doesNotMatch(JSON.stringify(repair.payload.viewportRows), /BG-LINE-001/);
+    assert.match(JSON.stringify(repair.payload.viewportRows), /BG-LINE-020/);
+    assert.doesNotMatch(repair.payload.ansiPatch, /\r|\n/);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testHeadlessScreenRepairSgrAndCursor(): Promise<void> {
+  const harness = createHeadlessHarness({ cols: 12, rows: 4 });
+
+  try {
+    await writeHeadlessTerminal(harness.state, '\x1b[31;1mRED\x1b[0m\r\nplain');
+
+    const repair = serializeHeadlessScreenRepair(harness.state, {
+      cols: 12,
+      rows: 4,
+      bufferType: 'normal',
+      seq: 7,
+    }, 4096);
+
+    assert.equal(repair.ok, true);
+    if (!repair.ok) return;
+    assert.match(repair.payload.viewportRows[0].ansi, /\x1b\[[0-9;]*31[0-9;]*;1m|\x1b\[[0-9;]*1[0-9;]*;31m/);
+    assert.match(repair.payload.viewportRows[0].text, /RED/);
+    assert.equal(repair.payload.cursor.x >= 0, true);
+    assert.equal(repair.payload.cursor.y >= 0, true);
+    assert.match(repair.payload.ansiPatch, /\x1b\[1;1H\x1b\[2K/);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testHeadlessScreenRepairHiddenCursor(): Promise<void> {
+  const harness = createHeadlessHarness({ cols: 12, rows: 4 });
+
+  try {
+    await writeHeadlessTerminal(harness.state, 'hidden-cursor\x1b[?25l');
+
+    const repair = serializeHeadlessScreenRepair(harness.state, {
+      cols: 12,
+      rows: 4,
+      bufferType: 'normal',
+      seq: 8,
+    }, 4096);
+
+    assert.equal(repair.ok, true);
+    if (!repair.ok) return;
+    assert.equal(repair.payload.cursor.hidden, true);
+    assert.match(repair.payload.ansiPatch, /\x1b\[\?25l$/);
+    assert.doesNotMatch(repair.payload.ansiPatch, /\x1b\[\?25h$/);
+
+    await writeHeadlessTerminal(harness.state, '\x1b[?25h');
+    const visibleRepair = serializeHeadlessScreenRepair(harness.state, {
+      cols: 12,
+      rows: 4,
+      bufferType: 'normal',
+      seq: 9,
+    }, 4096);
+
+    assert.equal(visibleRepair.ok, true);
+    if (!visibleRepair.ok) return;
+    assert.equal(visibleRepair.payload.cursor.hidden, false);
+    assert.match(visibleRepair.payload.ansiPatch, /\x1b\[\?25h$/);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerScreenRepairBufferMismatch(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 4096,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4 });
+
+  try {
+    await writeHeadlessTerminal(harness.sessionData.headless!, '\x1b[?1049hALT');
+    const repair = await manager.getScreenRepair(harness.sessionId, {
+      cols: 10,
+      rows: 4,
+      bufferType: 'normal',
+    });
+
+    assert.deepEqual(repair, { ok: false, reason: 'buffer-mismatch' });
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerScreenRepairRejectsDegraded(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 4096,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+  const harness = createDegradedSessionHarness(manager, { cols: 10, rows: 4 });
+
+  try {
+    const repair = await manager.getScreenRepair(harness.sessionId, {
+      cols: 10,
+      rows: 4,
+      bufferType: 'normal',
+    });
+
+    assert.deepEqual(repair, { ok: false, reason: 'headless-degraded' });
+  } finally {
+    harness.dispose();
+  }
+}
+
 function testTerminalPayloadTruncationCsi(): void {
   const truncated = truncateTerminalPayloadTail('\x1b[31mRED', 4);
   assert.equal(truncated.truncated, true);
@@ -3913,6 +4081,10 @@ function createWsRouterHarness(options?: {
   snapshotMode?: 'authoritative' | 'fallback';
   snapshotSeq?: number;
   writeInputThrows?: boolean;
+  getScreenRepair?: (
+    id: string,
+    expected: { cols: number; rows: number; bufferType: 'normal' | 'alternate' },
+  ) => Promise<unknown> | unknown;
 }) {
   const calls = {
     writeInput: [] as Array<{ sessionId: string; data: string; metadata?: unknown }>,
@@ -3940,6 +4112,18 @@ function createWsRouterHarness(options?: {
       health: options?.snapshotMode === 'fallback' ? 'degraded' : 'healthy',
       windowsPty: { backend: 'conpty', buildNumber: 22631 },
     } : null,
+    getScreenRepair: options?.getScreenRepair ?? (async (id: string, expected: { cols: number; rows: number; bufferType: 'normal' | 'alternate' }) => id === session.id ? {
+      ok: true as const,
+      payload: {
+        seq: options?.snapshotSeq ?? 1,
+        cols: expected.cols,
+        rows: expected.rows,
+        bufferType: expected.bufferType,
+        cursor: { x: 0, y: 0 },
+        viewportRows: [{ y: 0, ansi: 'repair-row', text: 'repair-row', wrapped: false }],
+        ansiPatch: '\x1b[1;1Hrepair-row',
+      },
+    } : { ok: false as const, reason: 'headless-degraded' as const }),
     getReplayQueueLimit: () => 64,
     writeInput: (sessionId: string, data: string, metadata?: unknown) => {
       if (options?.writeInputThrows) {
@@ -3963,6 +4147,7 @@ function createWsRouterHarness(options?: {
     isAlive: true,
     subscribedSessions: new Set<string>(),
     replayPendingSessions: new Map(),
+    screenRepairPendingSessions: new Map(),
   });
 
   return { router, ws, sent, calls };
@@ -4608,6 +4793,485 @@ function testWsRouterRefreshesReplaySnapshotsOnResize(): void {
     const outputs = sent.filter((message) => message.type === 'output');
     assert.equal(outputs.length, 1);
     assert.equal(outputs[0].data, 'C');
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterSendsScreenRepairAndQueuesOutputUntilAck(): Promise<void> {
+  const { router, ws, sent } = createWsRouterHarness();
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(sent[0].replayToken));
+
+    await (router as any).handleScreenRepairRequest(ws, {
+      type: 'screen-repair',
+      sessionId: 'session-1',
+      cols: 80,
+      rows: 24,
+      reason: 'manual',
+      clientAtBottom: true,
+      clientBufferType: 'normal',
+    });
+
+    const repair = sent.find((message) => message.type === 'screen-repair');
+    assert.equal(repair?.type, 'screen-repair');
+    assert.equal(repair?.cols, 80);
+    assert.equal(repair?.rows, 24);
+    assert.equal((repair as any)?.viewportRows.length, 1);
+    assert.equal(sent.filter((message) => message.type === 'screen-snapshot').length, 1);
+
+    router.routeSessionOutput('session-1', 'repair-pending-output');
+    assert.equal(sent.filter((message) => message.type === 'output').length, 0);
+
+    (router as any).handleScreenRepairReady(ws, 'session-1', String(repair?.repairToken));
+
+    const outputs = sent.filter((message) => message.type === 'output');
+    assert.equal(outputs.length, 1);
+    assert.equal(outputs[0].data, 'repair-pending-output');
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterQueuesOutputDuringScreenRepairGeneration(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 4096,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, manager);
+  manager.setWsRouter(router);
+  const { ws, sent } = createFakeWs();
+  const pendingCallbacks: Array<() => void> = [];
+
+  try {
+    (router as any).clients.set(ws, {
+      clientId: 'client-1',
+      isAlive: true,
+      subscribedSessions: new Set<string>(),
+      replayPendingSessions: new Map(),
+      screenRepairPendingSessions: new Map(),
+    });
+
+    (router as any).handleSubscribe(ws, [harness.sessionId]);
+    (router as any).handleScreenSnapshotReady(ws, harness.sessionId, String(sent[0].replayToken));
+
+    const originalWrite = harness.sessionData.headless!.terminal.write.bind(harness.sessionData.headless!.terminal);
+    harness.sessionData.headless!.terminal.write = ((data: string | Uint8Array, callback?: () => void) => {
+      originalWrite(data, () => {
+        pendingCallbacks.push(() => callback?.());
+      });
+    }) as typeof harness.sessionData.headless.terminal.write;
+
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'INCLUDED-IN-REPAIR');
+
+    const requestPromise = (router as any).handleScreenRepairRequest(ws, {
+      type: 'screen-repair',
+      sessionId: harness.sessionId,
+      cols: 10,
+      rows: 4,
+      reason: 'resize',
+      clientAtBottom: true,
+      clientBufferType: 'normal',
+    });
+
+    for (let attempt = 0; pendingCallbacks.length === 0 && attempt < 20; attempt += 1) {
+      await delay(1);
+    }
+    assert.equal(pendingCallbacks.length, 1);
+    pendingCallbacks.shift()?.();
+
+    await requestPromise;
+    const repair = sent.find((message) => message.type === 'screen-repair');
+    assert.equal(repair?.type, 'screen-repair');
+    const repairedText = (((repair as any)?.viewportRows ?? []) as Array<{ text?: string }>)
+      .map((row) => row.text ?? '')
+      .join('');
+    assert.match(repairedText, /INCLUDED-IN-REPAIR/);
+    assert.equal(sent.filter((message) => message.type === 'output').length, 0);
+
+    (router as any).handleScreenRepairReady(ws, harness.sessionId, String(repair?.repairToken));
+    assert.equal(sent.filter((message) => message.type === 'output').length, 0);
+  } finally {
+    router.destroy();
+    harness.dispose();
+  }
+}
+
+async function createCoveredScreenRepairHarness(output: string) {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 4096,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, manager);
+  manager.setWsRouter(router);
+  const { ws, sent } = createFakeWs();
+  const pendingCallbacks: Array<() => void> = [];
+
+  (router as any).clients.set(ws, {
+    clientId: 'client-1',
+    isAlive: true,
+    subscribedSessions: new Set<string>(),
+    replayPendingSessions: new Map(),
+    screenRepairPendingSessions: new Map(),
+  });
+
+  (router as any).handleSubscribe(ws, [harness.sessionId]);
+  (router as any).handleScreenSnapshotReady(ws, harness.sessionId, String(sent[0].replayToken));
+
+  const originalWrite = harness.sessionData.headless!.terminal.write.bind(harness.sessionData.headless!.terminal);
+  harness.sessionData.headless!.terminal.write = ((data: string | Uint8Array, callback?: () => void) => {
+    originalWrite(data, () => {
+      pendingCallbacks.push(() => callback?.());
+    });
+  }) as typeof harness.sessionData.headless.terminal.write;
+
+  (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, output);
+
+  const requestPromise = (router as any).handleScreenRepairRequest(ws, {
+    type: 'screen-repair',
+    sessionId: harness.sessionId,
+    cols: 10,
+    rows: 4,
+    reason: 'resize',
+    clientAtBottom: true,
+    clientBufferType: 'normal',
+  });
+
+  for (let attempt = 0; pendingCallbacks.length === 0 && attempt < 20; attempt += 1) {
+    await delay(1);
+  }
+  assert.equal(pendingCallbacks.length, 1);
+  pendingCallbacks.shift()?.();
+
+  await requestPromise;
+  const repair = sent.find((message) => message.type === 'screen-repair');
+  assert.equal(repair?.type, 'screen-repair');
+  assert.equal(sent.filter((message) => message.type === 'output').length, 0);
+
+  return { router, ws, sent, harness, repair };
+}
+
+async function testWsRouterFlushesOutputAfterScreenRepairSnapshotSeq(): Promise<void> {
+  const repairSignal = createTestDeferredSignal<unknown>();
+  const { router, ws, sent } = createWsRouterHarness({
+    getScreenRepair: (_id, expected) => repairSignal.promise.then(() => ({
+      ok: true as const,
+      payload: {
+        seq: 11,
+        cols: expected.cols,
+        rows: expected.rows,
+        bufferType: expected.bufferType,
+        cursor: { x: 0, y: 0 },
+        viewportRows: [{ y: 0, ansi: 'late-repair-row', text: 'late-repair-row', wrapped: false }],
+        ansiPatch: '\x1b[1;1Hlate-repair-row',
+      },
+    })),
+  });
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(sent[0].replayToken));
+
+    const requestPromise = (router as any).handleScreenRepairRequest(ws, {
+      type: 'screen-repair',
+      sessionId: 'session-1',
+      cols: 80,
+      rows: 24,
+      reason: 'resize',
+      clientAtBottom: true,
+      clientBufferType: 'normal',
+    });
+
+    router.routeSessionOutput('session-1', 'after-repair-seq', 12);
+    assert.equal(sent.filter((message) => message.type === 'output').length, 0);
+    assert.equal(sent.filter((message) => message.type === 'screen-repair').length, 0);
+
+    repairSignal.resolve(undefined);
+    await requestPromise;
+    const repair = sent.find((message) => message.type === 'screen-repair');
+    assert.equal(repair?.type, 'screen-repair');
+    assert.equal(sent.filter((message) => message.type === 'output').length, 0);
+
+    (router as any).handleScreenRepairReady(ws, 'session-1', String(repair?.repairToken));
+    const outputs = sent.filter((message) => message.type === 'output');
+    assert.equal(outputs.length, 1);
+    assert.equal(outputs[0].data, 'after-repair-seq');
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterFlushesScreenRepairOutputOnAckTimeout(): Promise<void> {
+  const { router, ws, sent } = createWsRouterHarness();
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(sent[0].replayToken));
+
+    await (router as any).handleScreenRepairRequest(ws, {
+      type: 'screen-repair',
+      sessionId: 'session-1',
+      cols: 80,
+      rows: 24,
+      reason: 'manual',
+      clientAtBottom: true,
+      clientBufferType: 'normal',
+    });
+
+    const repair = sent.find((message) => message.type === 'screen-repair');
+    assert.equal(repair?.type, 'screen-repair');
+    router.routeSessionOutput('session-1', 'timeout-flushed-output');
+    assert.equal(sent.filter((message) => message.type === 'output').length, 0);
+
+    (router as any).handleScreenRepairAckTimeout(ws, 'session-1', String(repair?.repairToken), Number(repair?.seq));
+
+    const outputs = sent.filter((message) => message.type === 'output');
+    assert.equal(outputs.length, 1);
+    assert.equal(outputs[0].data, 'timeout-flushed-output');
+    assert.equal(sent[sent.length - 1].type, 'session:ready');
+    const timeoutEvent = router.getObservabilitySnapshot().recentReplayEvents.find((event) => event.kind === 'screen_repair_ack_timeout');
+    assert.ok(timeoutEvent);
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterFlushesCoveredScreenRepairOutputOnFailure(): Promise<void> {
+  const { router, ws, sent, harness, repair } = await createCoveredScreenRepairHarness('COVERED-FAILURE');
+
+  try {
+    (router as any).handleScreenRepairFailed(ws, harness.sessionId, String(repair?.repairToken), 'write-failed');
+
+    const outputs = sent.filter((message) => message.type === 'output');
+    assert.equal(outputs.length, 1);
+    assert.equal(outputs[0].data, 'COVERED-FAILURE');
+  } finally {
+    router.destroy();
+    harness.dispose();
+  }
+}
+
+async function testWsRouterFlushesCoveredScreenRepairOutputOnTimeout(): Promise<void> {
+  const { router, ws, sent, harness, repair } = await createCoveredScreenRepairHarness('COVERED-TIMEOUT');
+
+  try {
+    (router as any).handleScreenRepairAckTimeout(ws, harness.sessionId, String(repair?.repairToken), Number(repair?.seq));
+
+    const outputs = sent.filter((message) => message.type === 'output');
+    assert.equal(outputs.length, 1);
+    assert.equal(outputs[0].data, 'COVERED-TIMEOUT');
+    assert.equal(sent[sent.length - 1].type, 'session:ready');
+  } finally {
+    router.destroy();
+    harness.dispose();
+  }
+}
+
+async function testWsRouterFlushesOutputOnScreenRepairFailed(): Promise<void> {
+  const { router, ws, sent } = createWsRouterHarness();
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(sent[0].replayToken));
+
+    await (router as any).handleScreenRepairRequest(ws, {
+      type: 'screen-repair',
+      sessionId: 'session-1',
+      cols: 80,
+      rows: 24,
+      reason: 'workspace',
+      clientAtBottom: true,
+      clientBufferType: 'normal',
+    });
+    const repair = sent.find((message) => message.type === 'screen-repair');
+
+    router.routeSessionOutput('session-1', 'queued-before-failed');
+    (router as any).handleScreenRepairFailed(ws, 'session-1', String(repair?.repairToken), 'write-failed');
+
+    const outputs = sent.filter((message) => message.type === 'output');
+    assert.equal(outputs.length, 1);
+    assert.equal(outputs[0].data, 'queued-before-failed');
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterIgnoresStaleScreenRepairToken(): Promise<void> {
+  const { router, ws, sent } = createWsRouterHarness();
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(sent[0].replayToken));
+
+    await (router as any).handleScreenRepairRequest(ws, {
+      type: 'screen-repair',
+      sessionId: 'session-1',
+      cols: 80,
+      rows: 24,
+      reason: 'manual',
+      clientAtBottom: true,
+      clientBufferType: 'normal',
+    });
+    const repair = sent.find((message) => message.type === 'screen-repair');
+
+    router.routeSessionOutput('session-1', 'wait-for-valid-token');
+    (router as any).handleScreenRepairReady(ws, 'session-1', 'stale-token');
+    assert.equal(sent.filter((message) => message.type === 'output').length, 0);
+
+    (router as any).handleScreenRepairReady(ws, 'session-1', String(repair?.repairToken));
+    const outputs = sent.filter((message) => message.type === 'output');
+    assert.equal(outputs.length, 1);
+    assert.equal(outputs[0].data, 'wait-for-valid-token');
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterRejectsScreenRepairDuringReplayPending(): Promise<void> {
+  const { router, ws, sent } = createWsRouterHarness();
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+
+    await (router as any).handleScreenRepairRequest(ws, {
+      type: 'screen-repair',
+      sessionId: 'session-1',
+      cols: 80,
+      rows: 24,
+      reason: 'workspace',
+      clientAtBottom: true,
+      clientBufferType: 'normal',
+    });
+
+    const rejected = sent.find((message) => message.type === 'screen-repair:rejected');
+    assert.equal(rejected?.reason, 'pending');
+    assert.equal(sent.filter((message) => message.type === 'screen-repair').length, 0);
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterScreenRepairQueueOverflowFlushesAllOutput(): Promise<void> {
+  const { router, ws, sent } = createWsRouterHarness();
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(sent[0].replayToken));
+
+    await (router as any).handleScreenRepairRequest(ws, {
+      type: 'screen-repair',
+      sessionId: 'session-1',
+      cols: 80,
+      rows: 24,
+      reason: 'resize',
+      clientAtBottom: true,
+      clientBufferType: 'normal',
+    });
+
+    router.routeSessionOutput('session-1', 'a'.repeat(60));
+    router.routeSessionOutput('session-1', 'b'.repeat(10));
+
+    const outputs = sent.filter((message) => message.type === 'output');
+    assert.equal(outputs.length, 1);
+    assert.equal(outputs[0].data, `${'a'.repeat(60)}${'b'.repeat(10)}`);
+    const overflow = router.getObservabilitySnapshot().recentReplayEvents.find((event) => event.kind === 'screen_repair_queue_overflow');
+    assert.ok(overflow);
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterScreenRepairQueueOverflowUsesUtf8Bytes(): Promise<void> {
+  const { router, ws, sent } = createWsRouterHarness();
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(sent[0].replayToken));
+
+    await (router as any).handleScreenRepairRequest(ws, {
+      type: 'screen-repair',
+      sessionId: 'session-1',
+      cols: 80,
+      rows: 24,
+      reason: 'resize',
+      clientAtBottom: true,
+      clientBufferType: 'normal',
+    });
+
+    const multibyteOutput = '가'.repeat(22);
+    assert.equal(multibyteOutput.length < 64, true);
+    assert.equal(Buffer.byteLength(multibyteOutput, 'utf8') > 64, true);
+    router.routeSessionOutput('session-1', multibyteOutput);
+
+    const outputs = sent.filter((message) => message.type === 'output');
+    assert.equal(outputs.length, 1);
+    assert.equal(outputs[0].data, multibyteOutput);
+    const overflow = router.getObservabilitySnapshot().recentReplayEvents.find((event) => event.kind === 'screen_repair_queue_overflow');
+    assert.ok(overflow);
+    assert.equal(overflow.details?.outputBytes, Buffer.byteLength(multibyteOutput, 'utf8'));
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterScreenRepairQueueAllowsUtf8WithinCap(): Promise<void> {
+  const { router, ws, sent } = createWsRouterHarness();
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(sent[0].replayToken));
+
+    await (router as any).handleScreenRepairRequest(ws, {
+      type: 'screen-repair',
+      sessionId: 'session-1',
+      cols: 80,
+      rows: 24,
+      reason: 'manual',
+      clientAtBottom: true,
+      clientBufferType: 'normal',
+    });
+    const repair = sent.find((message) => message.type === 'screen-repair');
+
+    const multibyteOutput = '가'.repeat(21);
+    assert.equal(Buffer.byteLength(multibyteOutput, 'utf8'), 63);
+    router.routeSessionOutput('session-1', multibyteOutput);
+    assert.equal(sent.filter((message) => message.type === 'output').length, 0);
+
+    (router as any).handleScreenRepairReady(ws, 'session-1', String(repair?.repairToken));
+
+    const outputs = sent.filter((message) => message.type === 'output');
+    assert.equal(outputs.length, 1);
+    assert.equal(outputs[0].data, multibyteOutput);
   } finally {
     router.destroy();
   }

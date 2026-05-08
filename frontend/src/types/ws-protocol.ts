@@ -71,6 +71,9 @@ export type ClientWsMessage =
   | { type: 'subscribe';   sessionIds: string[] }
   | { type: 'unsubscribe'; sessionIds: string[] }
   | { type: 'screen-snapshot:ready'; sessionId: string; replayToken: string }
+  | ScreenRepairRequestMessage
+  | ScreenRepairReadyMessage
+  | ScreenRepairFailedMessage
   | {
       type: 'input';
       sessionId: string;
@@ -90,6 +93,24 @@ export type ClientWsMessage =
 export type ScreenSnapshotMode = 'authoritative' | 'fallback';
 export type ScreenSnapshotSource = 'headless';
 export type WindowsPtyBackend = 'conpty' | 'winpty';
+export type ScreenRepairReason = 'manual' | 'workspace' | 'resize';
+export type ScreenRepairBufferType = 'normal' | 'alternate';
+export type ScreenRepairFailedReason =
+  | 'not-ready'
+  | 'ime-active'
+  | 'input-active'
+  | 'user-scrolled'
+  | 'geometry-mismatch'
+  | 'buffer-mismatch'
+  | 'write-failed';
+export type ScreenRepairRejectedReason =
+  | 'not-subscribed'
+  | 'pending'
+  | 'geometry-mismatch'
+  | 'buffer-mismatch'
+  | 'headless-degraded'
+  | 'generation-failed'
+  | 'apply-rejected';
 
 export interface WindowsPtyInfo {
   backend: WindowsPtyBackend;
@@ -110,9 +131,64 @@ export interface ScreenSnapshotMessage {
   windowsPty?: WindowsPtyInfo;
 }
 
+export interface ScreenRepairRequestMessage {
+  type: 'screen-repair';
+  sessionId: string;
+  cols: number;
+  rows: number;
+  reason: ScreenRepairReason;
+  clientAtBottom: boolean;
+  clientBufferType: ScreenRepairBufferType;
+}
+
+export interface ScreenRepairReadyMessage {
+  type: 'screen-repair:ready';
+  sessionId: string;
+  repairToken: string;
+}
+
+export interface ScreenRepairFailedMessage {
+  type: 'screen-repair:failed';
+  sessionId: string;
+  repairToken: string;
+  reason: ScreenRepairFailedReason;
+}
+
+export interface ScreenRepairRowPatch {
+  y: number;
+  ansi: string;
+  text: string;
+  wrapped: boolean;
+}
+
+export interface ScreenRepairMessage {
+  type: 'screen-repair';
+  sessionId: string;
+  repairToken: string;
+  seq: number;
+  cols: number;
+  rows: number;
+  bufferType: ScreenRepairBufferType;
+  cursor: { x: number; y: number; hidden?: boolean };
+  viewportRows: ScreenRepairRowPatch[];
+  ansiPatch: string;
+  source: 'headless';
+}
+
+export interface ScreenRepairRejectedMessage {
+  type: 'screen-repair:rejected';
+  sessionId: string;
+  repairToken?: string;
+  reason: ScreenRepairRejectedReason;
+  cols?: number;
+  rows?: number;
+}
+
 export type ServerWsMessage =
   // Session events
   | ScreenSnapshotMessage
+  | ScreenRepairMessage
+  | ScreenRepairRejectedMessage
   | { type: 'output';         sessionId: string; data: string }
   | { type: 'status';         sessionId: string; status: 'running' | 'idle' }
   | { type: 'session:ready';  sessionId: string }
@@ -172,12 +248,23 @@ export type ReplayEventKind =
   | 'input_flushed_timeout'
   | 'output_queued'
   | 'output_flushed'
-  | 'ready_sent';
+  | 'ready_sent'
+  | 'screen_repair_requested'
+  | 'screen_repair_sent'
+  | 'screen_repair_rejected'
+  | 'screen_repair_ack_ok'
+  | 'screen_repair_ack_stale'
+  | 'screen_repair_failed'
+  | 'screen_repair_ack_timeout'
+  | 'screen_repair_output_queued'
+  | 'screen_repair_output_flushed'
+  | 'screen_repair_queue_overflow';
 
 export interface ReplayTelemetryEventInput {
   kind: ReplayEventKind;
   sessionId: string;
   replayToken?: string;
+  repairToken?: string;
   snapshotSeq?: number;
   details?: Record<string, ReplayTelemetryValue>;
 }
@@ -191,7 +278,9 @@ export interface WsRouterObservabilitySnapshot {
   connectedClients: number;
   subscribedSessionCount: number;
   replayPendingCount: number;
+  screenRepairPendingCount: number;
   replayAckTimeoutCount: number;
+  screenRepairAckTimeoutCount: number;
   replayRefreshCount: number;
   maxReplayQueueLengthObserved: number;
   recentReplayEvents: ReplayTelemetryEvent[];

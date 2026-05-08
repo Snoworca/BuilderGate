@@ -21,6 +21,12 @@ import type {
   ReplayPendingState,
   ReplayTelemetryEvent,
   ReplayTelemetryEventInput,
+  ScreenRepairBufferType,
+  ScreenRepairFailedReason,
+  ScreenRepairPendingState,
+  ScreenRepairReason,
+  ScreenRepairRejectedReason,
+  ScreenRepairRequestMessage,
   WsClientMeta,
   WsRouterObservabilitySnapshot,
 } from '../types/ws-protocol.js';
@@ -29,6 +35,7 @@ import { inputReliabilityMode as configuredInputReliabilityMode } from '../utils
 
 const HEARTBEAT_INTERVAL = 30_000;
 const REPLAY_ACK_TIMEOUT_MS = 5_000;
+const SCREEN_REPAIR_ACK_TIMEOUT_MS = 5_000;
 const MAX_RECENT_REPLAY_EVENTS = 256;
 const MAX_REPLAY_QUEUED_INPUT_BYTES = 64 * 1024;
 const MAX_REPLAY_QUEUED_INPUT_AGE_MS = 3_000;
@@ -65,6 +72,7 @@ export class WsRouter {
   private sessionManager: SessionManager;
   private authService: AuthService;
   private replayAckTimeoutCount = 0;
+  private screenRepairAckTimeoutCount = 0;
   private replayRefreshCount = 0;
   private maxReplayQueueLengthObserved = 0;
   private replayEventCounter = 0;
@@ -114,6 +122,7 @@ export class WsRouter {
         isAlive: true,
         subscribedSessions: new Set(),
         replayPendingSessions: new Map(),
+        screenRepairPendingSessions: new Map(),
       };
       this.clients.set(ws, meta);
 
@@ -170,6 +179,32 @@ export class WsRouter {
           (msg as Extract<ClientWsMessage, { type: 'screen-snapshot:ready' }>).sessionId,
           (msg as Extract<ClientWsMessage, { type: 'screen-snapshot:ready' }>).replayToken,
         );
+        break;
+      case 'screen-repair':
+        void this.handleScreenRepairRequest(ws, msg).catch((error) => {
+          console.error('[WS] Screen repair request failed:', error);
+        });
+        break;
+      case 'screen-repair:ready':
+        {
+          const repairReady = msg as unknown as Extract<ClientWsMessage, { type: 'screen-repair:ready' }>;
+        this.handleScreenRepairReady(
+          ws,
+          repairReady.sessionId,
+          repairReady.repairToken,
+        );
+        }
+        break;
+      case 'screen-repair:failed':
+        {
+          const repairFailed = msg as unknown as Extract<ClientWsMessage, { type: 'screen-repair:failed' }>;
+        this.handleScreenRepairFailed(
+          ws,
+          repairFailed.sessionId,
+          repairFailed.repairToken,
+          repairFailed.reason,
+        );
+        }
         break;
       case 'input':
         this.handleInput(ws, msg);
@@ -290,6 +325,7 @@ export class WsRouter {
 
     for (const sessionId of sessionIds) {
       this.clearReplayPendingForPair(ws, sessionId, 'context-changed');
+      this.clearScreenRepairPendingForPair(ws, sessionId, 'context-changed');
 
       const subscribers = this.sessionSubscribers.get(sessionId);
       if (subscribers) {
@@ -485,12 +521,174 @@ export class WsRouter {
     this.sendSnapshotReplay(ws, sessionId, snapshot, 'repair');
   }
 
+  private async handleScreenRepairRequest(ws: WebSocket, message: unknown): Promise<void> {
+    const request = this.validateScreenRepairRequest(message);
+    if (!request.ok) {
+      if (request.sessionId) {
+        this.sendScreenRepairRejected(ws, request.sessionId, request.reason);
+      }
+      return;
+    }
+
+    const { sessionId, cols, rows, reason, clientBufferType } = request.message;
+    const meta = this.clients.get(ws);
+    this.recordReplayEvent({
+      kind: 'screen_repair_requested',
+      sessionId,
+      details: {
+        reason,
+        cols,
+        rows,
+        clientAtBottom: request.message.clientAtBottom,
+        clientBufferType,
+      },
+    });
+
+    if (!meta || !meta.subscribedSessions.has(sessionId)) {
+      this.sendScreenRepairRejected(ws, sessionId, 'not-subscribed', undefined, cols, rows);
+      return;
+    }
+    if (!request.message.clientAtBottom) {
+      this.sendScreenRepairRejected(ws, sessionId, 'apply-rejected', undefined, cols, rows);
+      return;
+    }
+    if (meta.replayPendingSessions.has(sessionId) || this.getScreenRepairPendingSessions(meta).has(sessionId)) {
+      this.sendScreenRepairRejected(ws, sessionId, 'pending', undefined, cols, rows);
+      return;
+    }
+
+    const pending = this.markScreenRepairPending(ws, sessionId, 0);
+    const repair = await this.sessionManager.getScreenRepair(sessionId, {
+      cols,
+      rows,
+      bufferType: clientBufferType,
+    });
+    if (!repair.ok) {
+      this.clearScreenRepairPendingForPair(ws, sessionId, 'generation-failed');
+      this.sendScreenRepairRejected(ws, sessionId, this.mapScreenRepairRejectReason(repair.reason), undefined, cols, rows);
+      return;
+    }
+    const activePending = this.getScreenRepairPendingSessions(meta).get(sessionId);
+    if (
+      ws.readyState !== WebSocket.OPEN
+      || !meta.subscribedSessions.has(sessionId)
+      || meta.replayPendingSessions.has(sessionId)
+      || activePending !== pending
+    ) {
+      if (activePending === pending) {
+        this.clearScreenRepairPendingForPair(ws, sessionId, 'context-changed');
+      }
+      this.sendScreenRepairRejected(ws, sessionId, 'pending', undefined, cols, rows);
+      return;
+    }
+
+    this.armScreenRepairAckTimeout(ws, sessionId, pending, repair.payload.seq);
+    this.sendTo(ws, {
+      type: 'screen-repair',
+      sessionId,
+      repairToken: pending.repairToken,
+      seq: repair.payload.seq,
+      cols: repair.payload.cols,
+      rows: repair.payload.rows,
+      bufferType: repair.payload.bufferType,
+      cursor: repair.payload.cursor,
+      viewportRows: repair.payload.viewportRows,
+      ansiPatch: repair.payload.ansiPatch,
+      source: 'headless',
+    });
+    this.recordReplayEvent({
+      kind: 'screen_repair_sent',
+      sessionId,
+      repairToken: pending.repairToken,
+      snapshotSeq: repair.payload.seq,
+      details: {
+        reason,
+        cols: repair.payload.cols,
+        rows: repair.payload.rows,
+        bufferType: repair.payload.bufferType,
+        rowCount: repair.payload.viewportRows.length,
+        byteLength: repair.payload.ansiPatch.length,
+      },
+    });
+  }
+
+  private handleScreenRepairReady(ws: WebSocket, sessionId: string, repairToken: string): void {
+    const result = this.consumeScreenRepairPendingForPair(ws, sessionId, repairToken);
+    if (result.status !== 'ok') {
+      this.recordReplayEvent({
+        kind: 'screen_repair_ack_stale',
+        sessionId,
+        repairToken,
+        snapshotSeq: result.screenSeq,
+        details: {
+          reason: result.reason,
+          activeRepairToken: result.activeRepairToken ?? null,
+        },
+      });
+      return;
+    }
+
+    this.recordReplayEvent({
+      kind: 'screen_repair_ack_ok',
+      sessionId,
+      repairToken,
+      snapshotSeq: result.screenSeq,
+      details: {
+        queuedBytes: result.ackQueuedOutputBytes,
+        totalQueuedBytes: result.queuedOutputBytes,
+      },
+    });
+    this.flushScreenRepairQueuedOutput(ws, sessionId, repairToken, result.screenSeq, result.ackQueuedOutput, 'ack');
+    if (ws.readyState === WebSocket.OPEN) {
+      this.sendTo(ws, { type: 'session:ready', sessionId });
+    }
+  }
+
+  private handleScreenRepairFailed(
+    ws: WebSocket,
+    sessionId: string,
+    repairToken: string,
+    reason: ScreenRepairFailedReason,
+  ): void {
+    const result = this.consumeScreenRepairPendingForPair(ws, sessionId, repairToken);
+    if (result.status !== 'ok') {
+      this.recordReplayEvent({
+        kind: 'screen_repair_ack_stale',
+        sessionId,
+        repairToken,
+        snapshotSeq: result.screenSeq,
+        details: {
+          reason: result.reason,
+          clientFailureReason: reason,
+          activeRepairToken: result.activeRepairToken ?? null,
+        },
+      });
+      return;
+    }
+
+    this.recordReplayEvent({
+      kind: 'screen_repair_failed',
+      sessionId,
+      repairToken,
+      snapshotSeq: result.screenSeq,
+      details: {
+        reason,
+        queuedBytes: result.queuedOutputBytes,
+      },
+    });
+    this.flushScreenRepairQueuedOutput(ws, sessionId, repairToken, result.screenSeq, result.queuedOutput, 'failed');
+    if (ws.readyState === WebSocket.OPEN) {
+      this.sendTo(ws, { type: 'session:ready', sessionId });
+    }
+  }
+
   private handleDisconnect(ws: WebSocket): void {
     const meta = this.clients.get(ws);
     if (meta) {
       console.log(`[WS] Client disconnected: ${meta.clientId}`);
       for (const sessionId of meta.subscribedSessions) {
         this.clearReplayPendingForPair(ws, sessionId, 'transport-closed');
+        this.clearScreenRepairPendingForPair(ws, sessionId, 'transport-closed');
         const subscribers = this.sessionSubscribers.get(sessionId);
         if (subscribers) {
           subscribers.delete(ws);
@@ -606,6 +804,307 @@ export class WsRouter {
     const next = `${state.queuedOutput}${data}`;
     state.queuedOutput = next.length > limit ? next.slice(-limit) : next;
     this.maxReplayQueueLengthObserved = Math.max(this.maxReplayQueueLengthObserved, state.queuedOutput.length);
+  }
+
+  private getScreenRepairPendingSessions(meta: WsClientMeta): Map<string, ScreenRepairPendingState> {
+    if (!meta.screenRepairPendingSessions) {
+      meta.screenRepairPendingSessions = new Map();
+    }
+    return meta.screenRepairPendingSessions;
+  }
+
+  private markScreenRepairPending(ws: WebSocket, sessionId: string, screenSeq: number): ScreenRepairPendingState {
+    const meta = this.clients.get(ws);
+    if (!meta) {
+      throw new Error('Missing WebSocket client metadata');
+    }
+
+    const repairToken = uuidv4();
+    const state: ScreenRepairPendingState = {
+      queuedOutput: '',
+      queuedOutputBytes: 0,
+      queuedOutputChunks: [],
+      repairToken,
+      screenSeq,
+    };
+    this.getScreenRepairPendingSessions(meta).set(sessionId, state);
+    return state;
+  }
+
+  private armScreenRepairAckTimeout(
+    ws: WebSocket,
+    sessionId: string,
+    state: ScreenRepairPendingState,
+    screenSeq: number,
+  ): void {
+    if (state.timer) {
+      clearTimeout(state.timer);
+    }
+    state.screenSeq = screenSeq;
+    state.timer = setTimeout(() => {
+      this.handleScreenRepairAckTimeout(ws, sessionId, state.repairToken, screenSeq);
+    }, SCREEN_REPAIR_ACK_TIMEOUT_MS);
+    state.timer.unref();
+  }
+
+  private consumeScreenRepairPendingForPair(
+    ws: WebSocket,
+    sessionId: string,
+    repairToken: string,
+  ):
+    | {
+        status: 'ok';
+        queuedOutput: string;
+        queuedOutputBytes: number;
+        ackQueuedOutput: string;
+        ackQueuedOutputBytes: number;
+        screenSeq: number;
+      }
+    | { status: 'stale'; reason: 'missing' | 'token-mismatch'; screenSeq?: number; activeRepairToken?: string } {
+    const meta = this.clients.get(ws);
+    if (!meta) {
+      return { status: 'stale', reason: 'missing' };
+    }
+
+    const pendingSessions = this.getScreenRepairPendingSessions(meta);
+    const pending = pendingSessions.get(sessionId);
+    if (!pending) {
+      return { status: 'stale', reason: 'missing' };
+    }
+    if (pending.repairToken !== repairToken) {
+      return {
+        status: 'stale',
+        reason: 'token-mismatch',
+        screenSeq: pending.screenSeq,
+        activeRepairToken: pending.repairToken,
+      };
+    }
+
+    if (pending.timer) {
+      clearTimeout(pending.timer);
+    }
+    pendingSessions.delete(sessionId);
+    const ackQueued = this.getScreenRepairAckQueuedOutput(pending);
+    return {
+      status: 'ok',
+      queuedOutput: pending.queuedOutput,
+      queuedOutputBytes: pending.queuedOutputBytes,
+      ackQueuedOutput: ackQueued.data,
+      ackQueuedOutputBytes: ackQueued.byteLength,
+      screenSeq: pending.screenSeq,
+    };
+  }
+
+  private getScreenRepairAckQueuedOutput(state: ScreenRepairPendingState): { data: string; byteLength: number } {
+    if (state.queuedOutputChunks.length === 0) {
+      return {
+        data: state.queuedOutput,
+        byteLength: Buffer.byteLength(state.queuedOutput, 'utf8'),
+      };
+    }
+
+    const chunks = state.queuedOutputChunks.filter((chunk) => (
+      typeof chunk.screenSeq !== 'number' || chunk.screenSeq > state.screenSeq
+    ));
+    return {
+      data: chunks.map((chunk) => chunk.data).join(''),
+      byteLength: chunks.reduce((total, chunk) => total + chunk.byteLength, 0),
+    };
+  }
+
+  private clearScreenRepairPendingForPair(ws: WebSocket, sessionId: string, _reason: string): void {
+    const meta = this.clients.get(ws);
+    if (!meta) return;
+
+    const pendingSessions = this.getScreenRepairPendingSessions(meta);
+    const pending = pendingSessions.get(sessionId);
+    if (!pending) return;
+
+    if (pending.timer) {
+      clearTimeout(pending.timer);
+    }
+    pendingSessions.delete(sessionId);
+    this.flushScreenRepairQueuedOutput(ws, sessionId, pending.repairToken, pending.screenSeq, pending.queuedOutput, 'clear');
+  }
+
+  private appendScreenRepairQueuedOutput(
+    ws: WebSocket,
+    sessionId: string,
+    state: ScreenRepairPendingState,
+    data: string,
+    outputScreenSeq?: number,
+  ): boolean {
+    const limit = this.sessionManager.getReplayQueueLimit();
+    const outputByteLength = Buffer.byteLength(data, 'utf8');
+    const nextByteLength = state.queuedOutputBytes + outputByteLength;
+    if (nextByteLength > limit) {
+      const queuedOutput = state.queuedOutput;
+      const meta = this.clients.get(ws);
+      if (meta) {
+        if (state.timer) {
+          clearTimeout(state.timer);
+        }
+        this.getScreenRepairPendingSessions(meta).delete(sessionId);
+      }
+
+      this.recordReplayEvent({
+        kind: 'screen_repair_queue_overflow',
+        sessionId,
+        repairToken: state.repairToken,
+        snapshotSeq: state.screenSeq,
+        details: {
+          queuedBytes: state.queuedOutputBytes,
+          outputBytes: outputByteLength,
+          maxQueuedBytes: limit,
+        },
+      });
+      this.flushScreenRepairQueuedOutput(ws, sessionId, state.repairToken, state.screenSeq, `${queuedOutput}${data}`, 'overflow');
+      return false;
+    }
+
+    state.queuedOutputChunks.push({ data, byteLength: outputByteLength, screenSeq: outputScreenSeq });
+    state.queuedOutput = `${state.queuedOutput}${data}`;
+    state.queuedOutputBytes = nextByteLength;
+    this.maxReplayQueueLengthObserved = Math.max(this.maxReplayQueueLengthObserved, state.queuedOutputBytes);
+    return true;
+  }
+
+  private handleScreenRepairAckTimeout(
+    ws: WebSocket,
+    sessionId: string,
+    repairToken: string,
+    screenSeq: number,
+  ): void {
+    const meta = this.clients.get(ws);
+    const pending = meta ? this.getScreenRepairPendingSessions(meta).get(sessionId) : undefined;
+    if (!meta || !pending || pending.repairToken !== repairToken) {
+      return;
+    }
+
+    this.screenRepairAckTimeoutCount += 1;
+    if (pending.timer) {
+      clearTimeout(pending.timer);
+    }
+    this.getScreenRepairPendingSessions(meta).delete(sessionId);
+    this.recordReplayEvent({
+      kind: 'screen_repair_ack_timeout',
+      sessionId,
+      repairToken,
+      snapshotSeq: screenSeq,
+      details: {
+        queuedBytes: pending.queuedOutputBytes,
+      },
+    });
+    this.flushScreenRepairQueuedOutput(ws, sessionId, repairToken, screenSeq, pending.queuedOutput, 'timeout');
+    if (ws.readyState === WebSocket.OPEN) {
+      this.sendTo(ws, { type: 'session:ready', sessionId });
+    }
+  }
+
+  private flushScreenRepairQueuedOutput(
+    ws: WebSocket,
+    sessionId: string,
+    repairToken: string,
+    screenSeq: number,
+    queuedOutput: string,
+    phase: 'ack' | 'failed' | 'timeout' | 'overflow' | 'clear',
+  ): void {
+    if (queuedOutput.length === 0 || ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    this.sendTo(ws, { type: 'output', sessionId, data: queuedOutput });
+    this.recordReplayEvent({
+      kind: 'screen_repair_output_flushed',
+      sessionId,
+      repairToken,
+      snapshotSeq: screenSeq,
+      details: {
+        phase,
+        outputBytes: Buffer.byteLength(queuedOutput, 'utf8'),
+      },
+    });
+  }
+
+  private sendScreenRepairRejected(
+    ws: WebSocket,
+    sessionId: string,
+    reason: ScreenRepairRejectedReason,
+    repairToken?: string,
+    cols?: number,
+    rows?: number,
+  ): void {
+    this.sendTo(ws, {
+      type: 'screen-repair:rejected',
+      sessionId,
+      repairToken,
+      reason,
+      cols,
+      rows,
+    });
+    this.recordReplayEvent({
+      kind: 'screen_repair_rejected',
+      sessionId,
+      repairToken,
+      details: {
+        reason,
+        cols: cols ?? null,
+        rows: rows ?? null,
+      },
+    });
+  }
+
+  private mapScreenRepairRejectReason(reason: 'geometry-mismatch' | 'buffer-mismatch' | 'headless-degraded' | 'generation-failed'): ScreenRepairRejectedReason {
+    return reason;
+  }
+
+  private validateScreenRepairRequest(message: unknown):
+    | { ok: true; message: ScreenRepairRequestMessage }
+    | { ok: false; sessionId?: string; reason: ScreenRepairRejectedReason } {
+    if (!isRecord(message)) {
+      return { ok: false, reason: 'generation-failed' };
+    }
+
+    const sessionId = typeof message.sessionId === 'string' ? message.sessionId : undefined;
+    const cols = message.cols;
+    const rows = message.rows;
+    const reason = message.reason;
+    const clientAtBottom = message.clientAtBottom;
+    const clientBufferType = message.clientBufferType;
+
+    if (
+      !sessionId
+      || typeof cols !== 'number'
+      || typeof rows !== 'number'
+      || !Number.isSafeInteger(cols)
+      || !Number.isSafeInteger(rows)
+      || cols <= 0
+      || rows <= 0
+    ) {
+      return { ok: false, sessionId, reason: 'geometry-mismatch' };
+    }
+    if (!isScreenRepairReason(reason)) {
+      return { ok: false, sessionId, reason: 'generation-failed' };
+    }
+    if (typeof clientAtBottom !== 'boolean') {
+      return { ok: false, sessionId, reason: 'apply-rejected' };
+    }
+    if (!isScreenRepairBufferType(clientBufferType)) {
+      return { ok: false, sessionId, reason: 'buffer-mismatch' };
+    }
+
+    return {
+      ok: true,
+      message: {
+        type: 'screen-repair',
+        sessionId,
+        cols,
+        rows,
+        reason,
+        clientAtBottom,
+        clientBufferType,
+      },
+    };
   }
 
   private appendQueuedInput(
@@ -988,7 +1487,7 @@ export class WsRouter {
     return replayState;
   }
 
-  routeSessionOutput(sessionId: string, data: string): void {
+  routeSessionOutput(sessionId: string, data: string, outputScreenSeq?: number): void {
     const subscribers = this.sessionSubscribers.get(sessionId);
     if (!subscribers || data.length === 0) {
       return;
@@ -1014,6 +1513,25 @@ export class WsRouter {
             queuedBytes: pending.queuedOutput.length,
           },
         });
+        continue;
+      }
+
+      const repairPending = meta ? this.getScreenRepairPendingSessions(meta).get(sessionId) : undefined;
+      if (repairPending) {
+        const queued = this.appendScreenRepairQueuedOutput(ws, sessionId, repairPending, data, outputScreenSeq);
+        if (queued) {
+          this.recordReplayEvent({
+            kind: 'screen_repair_output_queued',
+            sessionId,
+            repairToken: repairPending.repairToken,
+            snapshotSeq: repairPending.screenSeq,
+            details: {
+              outputBytes: Buffer.byteLength(data, 'utf8'),
+              outputScreenSeq: outputScreenSeq ?? null,
+              queuedBytes: repairPending.queuedOutputBytes,
+            },
+          });
+        }
         continue;
       }
 
@@ -1096,6 +1614,7 @@ export class WsRouter {
 
     for (const ws of subscribers) {
       this.clearReplayPendingForPair(ws, sessionId, 'session-missing');
+      this.clearScreenRepairPendingForPair(ws, sessionId, 'session-missing');
       const meta = this.clients.get(ws);
       meta?.subscribedSessions.delete(sessionId);
     }
@@ -1139,15 +1658,19 @@ export class WsRouter {
 
   getObservabilitySnapshot(): WsRouterObservabilitySnapshot {
     let replayPendingCount = 0;
+    let screenRepairPendingCount = 0;
     for (const meta of this.clients.values()) {
       replayPendingCount += meta.replayPendingSessions.size;
+      screenRepairPendingCount += this.getScreenRepairPendingSessions(meta).size;
     }
 
     return {
       connectedClients: this.clients.size,
       subscribedSessionCount: this.sessionSubscribers.size,
       replayPendingCount,
+      screenRepairPendingCount,
       replayAckTimeoutCount: this.replayAckTimeoutCount,
+      screenRepairAckTimeoutCount: this.screenRepairAckTimeoutCount,
       replayRefreshCount: this.replayRefreshCount,
       maxReplayQueueLengthObserved: this.maxReplayQueueLengthObserved,
       recentReplayEvents: [...this.recentReplayEvents],
@@ -1203,6 +1726,11 @@ export class WsRouter {
       for (const pending of meta.replayPendingSessions.values()) {
         clearTimeout(pending.timer);
       }
+      for (const pending of this.getScreenRepairPendingSessions(meta).values()) {
+        if (pending.timer) {
+          clearTimeout(pending.timer);
+        }
+      }
     }
 
     for (const [ws] of this.clients) {
@@ -1215,4 +1743,12 @@ export class WsRouter {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isScreenRepairReason(value: unknown): value is ScreenRepairReason {
+  return value === 'manual' || value === 'workspace' || value === 'resize';
+}
+
+function isScreenRepairBufferType(value: unknown): value is ScreenRepairBufferType {
+  return value === 'normal' || value === 'alternate';
 }

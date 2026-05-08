@@ -11,7 +11,13 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback, us
 import type { ReactNode } from 'react';
 import { tokenStorage } from '../services/tokenStorage';
 import { setWsClientId } from '../services/api';
-import type { ClientWsMessage, ScreenSnapshotMessage, ServerWsMessage } from '../types/ws-protocol';
+import type {
+  ClientWsMessage,
+  ScreenRepairMessage,
+  ScreenRepairRejectedMessage,
+  ScreenSnapshotMessage,
+  ServerWsMessage,
+} from '../types/ws-protocol';
 import { initializeInputReliabilityMode } from '../utils/inputReliabilityMode';
 import {
   buildTerminalInputDebugPayload,
@@ -32,6 +38,8 @@ export type SendResult =
 
 export interface SessionHandlers {
   onScreenSnapshot?: (snapshot: ScreenSnapshotMessage) => void;
+  onScreenRepair?: (repair: ScreenRepairMessage) => void;
+  onScreenRepairRejected?: (rejected: ScreenRepairRejectedMessage) => void;
   onSubscribed?: (info: { status: string; cwd?: string; ready: boolean }) => void;
   onSessionReady?: () => void;
   onOutput?: (data: string) => void;
@@ -122,6 +130,13 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       case 'screen-snapshot':
         current.snapshot = msg;
         current.output = '';
+        break;
+      case 'screen-repair':
+      case 'screen-repair:rejected':
+        recordTerminalDebugEvent(sessionId, 'screen_repair_grace_buffer_skipped', {
+          type: msg.type,
+          reason: msg.type === 'screen-repair:rejected' ? msg.reason : null,
+        });
         break;
       case 'output':
         current.output += msg.data;
@@ -250,6 +265,13 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       }
       const handlers = sessionHandlersRef.current.get(sessionId);
       if (!handlers) {
+        if (msg.type === 'screen-repair' || msg.type === 'screen-repair:rejected') {
+          recordTerminalDebugEvent(sessionId, 'screen_repair_handler_missing', {
+            type: msg.type,
+            reason: msg.type === 'screen-repair:rejected' ? msg.reason : null,
+          });
+          return;
+        }
         if (
           activeSubscriptionsRef.current.has(sessionId) &&
           pendingUnsubscribeTimersRef.current.has(sessionId)
@@ -262,6 +284,12 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       switch (msg.type) {
         case 'screen-snapshot':
           handlers.onScreenSnapshot?.(msg);
+          break;
+        case 'screen-repair':
+          handlers.onScreenRepair?.(msg);
+          break;
+        case 'screen-repair:rejected':
+          handlers.onScreenRepairRejected?.(msg);
           break;
         case 'output':
           handlers.onOutput?.(msg.data);

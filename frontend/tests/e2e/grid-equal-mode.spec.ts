@@ -34,10 +34,21 @@ type DragStartOffset = {
 };
 
 type CapturedWsMessage = {
+  direction?: 'in' | 'out';
   type?: string;
   sessionId?: string;
+  repairToken?: string;
+  seq?: number;
   cols?: number;
   rows?: number;
+  reason?: string;
+  clientAtBottom?: boolean;
+  clientBufferType?: string;
+  bufferType?: string;
+  source?: string;
+  cursor?: { x?: number; y?: number; hidden?: boolean };
+  viewportRows?: Array<{ y?: number; text?: string; ansi?: string; wrapped?: boolean }>;
+  ansiPatch?: string;
 };
 
 type TerminalDebugEvent = {
@@ -54,6 +65,7 @@ declare global {
   interface Window {
     __buildergateCapturedWsMessages?: CapturedWsMessage[];
     __buildergateWsCaptureInstalled?: boolean;
+    __buildergateOriginalWebSocket?: typeof WebSocket;
     __buildergateOriginalWsSend?: WebSocket['send'];
     __buildergateTerminalDebug?: {
       enable: () => void;
@@ -454,18 +466,42 @@ async function installWsMessageCapture(page: Page): Promise<void> {
     }
     window.__buildergateWsCaptureInstalled = true;
 
-    window.__buildergateOriginalWsSend = WebSocket.prototype.send;
-    WebSocket.prototype.send = function patchedSend(this: WebSocket, data: string | ArrayBufferLike | Blob | ArrayBufferView) {
+    const captureFrame = (direction: 'in' | 'out', data: unknown) => {
       if (typeof data === 'string') {
         try {
-          window.__buildergateCapturedWsMessages?.push(JSON.parse(data) as CapturedWsMessage);
+          const message = JSON.parse(data) as CapturedWsMessage;
+          window.__buildergateCapturedWsMessages?.push({ ...message, direction });
         } catch {
           // Ignore non-JSON frames.
         }
       }
+    };
 
+    const OriginalWebSocket = WebSocket;
+    window.__buildergateOriginalWebSocket = OriginalWebSocket;
+    window.__buildergateOriginalWsSend = OriginalWebSocket.prototype.send;
+
+    OriginalWebSocket.prototype.send = function patchedSend(this: WebSocket, data: string | ArrayBufferLike | Blob | ArrayBufferView) {
+      captureFrame('out', data);
       return window.__buildergateOriginalWsSend!.call(this, data);
     };
+
+    const CapturingWebSocket = function capturingWebSocket(
+      this: WebSocket,
+      url: string | URL,
+      protocols?: string | string[],
+    ) {
+      const socket = protocols === undefined
+        ? new OriginalWebSocket(url)
+        : new OriginalWebSocket(url, protocols);
+      socket.addEventListener('message', (event) => {
+        captureFrame('in', event.data);
+      });
+      return socket;
+    };
+    CapturingWebSocket.prototype = OriginalWebSocket.prototype;
+    Object.setPrototypeOf(CapturingWebSocket, OriginalWebSocket);
+    window.WebSocket = CapturingWebSocket as unknown as typeof WebSocket;
   };
 
   await page.addInitScript(install);
@@ -480,6 +516,10 @@ async function clearWsMessageCapture(page: Page): Promise<void> {
 
 async function readCapturedWsMessages(page: Page): Promise<CapturedWsMessage[]> {
   return page.evaluate(() => window.__buildergateCapturedWsMessages ?? []);
+}
+
+async function readTerminalDebugEvents(page: Page): Promise<TerminalDebugEvent[]> {
+  return page.evaluate(() => window.__buildergateTerminalDebug?.getEvents() ?? []);
 }
 
 async function enableTerminalDebugCapture(page: Page): Promise<void> {
@@ -538,18 +578,94 @@ async function expectFocusedGridTerminal(page: Page): Promise<void> {
   }), { timeout: 10000 }).toBe(true);
 }
 
-async function expectCapturedResizeBeforeRepairReplay(page: Page): Promise<void> {
+async function expectCapturedResizeBeforeScreenRepair(
+  page: Page,
+  expectedReason?: 'manual' | 'workspace' | 'resize',
+): Promise<void> {
   await expect.poll(async () => {
     const messages = await readCapturedWsMessages(page);
-    return messages.some(message => message.type === 'repair-replay');
+    return messages.some(message => (
+      message.type === 'screen-repair'
+      && (message.direction ?? 'out') === 'out'
+      && (!expectedReason || message.reason === expectedReason)
+    ));
   }, { timeout: 10000 }).toBe(true);
 
   const messages = await readCapturedWsMessages(page);
-  const repairIndex = messages.findIndex(message => message.type === 'repair-replay');
-  const resizeIndex = messages.findIndex((message, index) => index < repairIndex && message.type === 'resize');
+  const repairIndex = messages.findIndex(message => (
+    message.type === 'screen-repair'
+    && (message.direction ?? 'out') === 'out'
+    && (!expectedReason || message.reason === expectedReason)
+  ));
+  const repairMessage = messages[repairIndex];
+  expect(repairMessage).toBeDefined();
 
-  expect(resizeIndex).toBeGreaterThanOrEqual(0);
-  expect(repairIndex).toBeGreaterThan(resizeIndex);
+  const resizeIndex = messages.findIndex((message, index) => (
+    index < repairIndex
+    && message.type === 'resize'
+    && message.sessionId === repairMessage.sessionId
+  ));
+
+  if (resizeIndex >= 0) {
+    expect(repairIndex).toBeGreaterThan(resizeIndex);
+  } else {
+    const events = await readTerminalDebugEvents(page);
+    const resizeSuppressed = events.some(event => (
+      event.sessionId === repairMessage.sessionId
+      && event.kind === 'grid_repair_resize_suppressed'
+      && event.details?.cols === repairMessage.cols
+      && event.details?.rows === repairMessage.rows
+      && (!expectedReason || event.details?.reason === expectedReason)
+    ));
+    expect(resizeSuppressed).toBe(true);
+  }
+
+  await expect.poll(async () => {
+    const latestMessages = await readCapturedWsMessages(page);
+    const latestRepairIndex = latestMessages.findIndex(message => (
+      message.type === 'screen-repair'
+      && (message.direction ?? 'out') === 'out'
+      && message.sessionId === repairMessage.sessionId
+      && (!expectedReason || message.reason === expectedReason)
+    ));
+    return latestRepairIndex >= 0 && latestMessages.some((message, index) => (
+      index > latestRepairIndex
+      && message.direction === 'in'
+      && message.type === 'screen-repair'
+      && message.sessionId === repairMessage.sessionId
+    ));
+  }, { timeout: 10000 }).toBe(true);
+
+  const messagesAfterRepair = await readCapturedWsMessages(page);
+  const serverRepair = messagesAfterRepair.find((message, index) => (
+    index > repairIndex
+    && message.direction === 'in'
+    && message.type === 'screen-repair'
+    && message.sessionId === repairMessage.sessionId
+  ));
+  expect(serverRepair?.source).toBe('headless');
+  expect(serverRepair?.bufferType).toBe(repairMessage.clientBufferType);
+  expect(typeof serverRepair?.ansiPatch).toBe('string');
+  expect(typeof serverRepair?.cursor?.x).toBe('number');
+  expect(typeof serverRepair?.cursor?.y).toBe('number');
+  expect(serverRepair?.viewportRows?.length).toBeGreaterThan(0);
+  if (typeof repairMessage.rows === 'number') {
+    expect(serverRepair?.viewportRows?.length ?? 0).toBeLessThanOrEqual(repairMessage.rows);
+  }
+
+  expect(messagesAfterRepair.some(message => message.type === 'repair-replay')).toBe(false);
+  expect(messagesAfterRepair.some((message, index) => (
+    index > repairIndex
+    && message.direction === 'out'
+    && message.type === 'screen-snapshot:ready'
+    && message.sessionId === repairMessage.sessionId
+  ))).toBe(false);
+  expect(messagesAfterRepair.some((message, index) => (
+    index > repairIndex
+    && message.direction === 'in'
+    && message.type === 'screen-snapshot'
+    && message.sessionId === repairMessage.sessionId
+  ))).toBe(false);
 }
 
 async function findRunningToIdleSessionId(page: Page): Promise<string | null> {
@@ -584,13 +700,18 @@ async function expectRunningToIdleTransition(page: Page): Promise<string> {
 
 async function expectNoGridRepair(page: Page, sessionId: string): Promise<void> {
   expect(await hasTerminalDebugEvent(page, 'grid_layout_repair_started', undefined, sessionId)).toBe(false);
-  expect(await hasTerminalDebugEvent(page, 'grid_repair_replay_deferred', undefined, sessionId)).toBe(false);
+  expect(await hasTerminalDebugEvent(page, 'screen_repair_deferred_not_ready', undefined, sessionId)).toBe(false);
   expect(await hasTerminalDebugEvent(page, 'grid_repair_resize_sent', undefined, sessionId)).toBe(false);
   expect(await hasTerminalDebugEvent(page, 'idle_repair_scheduled', undefined, sessionId)).toBe(false);
   expect(await hasTerminalDebugEvent(page, 'idle_repair_requested', undefined, sessionId)).toBe(false);
   expect(await hasTerminalDebugEvent(page, 'manual_repair_requested', undefined, sessionId)).toBe(false);
   expect(await hasTerminalDebugEvent(page, 'workspace_repair_requested', undefined, sessionId)).toBe(false);
+  expect(await hasTerminalDebugEvent(page, 'resize_repair_requested', undefined, sessionId)).toBe(false);
   expect((await readCapturedWsMessages(page)).some(message => message.type === 'repair-replay')).toBe(false);
+  expect((await readCapturedWsMessages(page)).some(message => (
+    message.type === 'screen-repair'
+    && (message.direction ?? 'out') === 'out'
+  ))).toBe(false);
 }
 
 async function selectWorkspaceByName(page: Page, workspaceName: string): Promise<void> {
@@ -1521,7 +1642,7 @@ test.describe('Grid Equal Mode Reorder', () => {
     expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
   });
 
-  test('TC-6611: middle mouse repair performs resize before repair replay', async ({ page }) => {
+  test('TC-6611: middle mouse repair performs resize before screen repair', async ({ page }) => {
     await installWsMessageCapture(page);
     await login(page);
     const { workspaceId } = await setupEqualGridWorkspace(page, 4);
@@ -1533,8 +1654,8 @@ test.describe('Grid Equal Mode Reorder', () => {
 
     await middleMouseDownFirstVisibleTerminal(page);
     await expect.poll(async () => hasTerminalDebugEvent(page, 'grid_layout_repair_started', { reason: 'manual' }), { timeout: 5000 }).toBe(true);
-    await expectCapturedResizeBeforeRepairReplay(page);
-    await expect.poll(async () => hasTerminalDebugEvent(page, 'screen_snapshot_duplicate_reapplied_for_repair'), { timeout: 10000 }).toBe(true);
+    await expectCapturedResizeBeforeScreenRepair(page, 'manual');
+    await expect.poll(async () => hasTerminalDebugEvent(page, 'screen_repair_ack_sent'), { timeout: 10000 }).toBe(true);
     expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
   });
 
@@ -1555,12 +1676,12 @@ test.describe('Grid Equal Mode Reorder', () => {
 
     await middleMouseDownFirstVisibleTerminal(page);
     await expect.poll(async () => hasTerminalDebugEvent(page, 'grid_layout_repair_started', { reason: 'manual' }), { timeout: 5000 }).toBe(true);
-    await expectCapturedResizeBeforeRepairReplay(page);
+    await expectCapturedResizeBeforeScreenRepair(page, 'manual');
     await expectFocusedGridTerminal(page);
     expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
   });
 
-  test('TC-6612: workspace switch repair performs resize before repair replay', async ({ page }) => {
+  test('TC-6612: workspace switch repair performs resize before screen repair', async ({ page }) => {
     await installWsMessageCapture(page);
     await login(page);
     const { workspaceId, workspaceName } = await setupEqualGridWorkspace(page, 4);
@@ -1579,7 +1700,7 @@ test.describe('Grid Equal Mode Reorder', () => {
     await expectVisibleGridTerminal(page);
 
     await expect.poll(async () => hasTerminalDebugEvent(page, 'grid_layout_repair_started', { reason: 'workspace' }), { timeout: 10000 }).toBe(true);
-    await expectCapturedResizeBeforeRepairReplay(page);
+    await expectCapturedResizeBeforeScreenRepair(page);
     expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
   });
 
@@ -1649,6 +1770,57 @@ test.describe('Grid Equal Mode Reorder', () => {
 
     expect(await hasTerminalDebugEvent(page, 'grid_layout_repair_started', { reason: 'manual' })).toBe(false);
     expect((await readCapturedWsMessages(page)).some(message => message.type === 'repair-replay')).toBe(false);
+    expect((await readCapturedWsMessages(page)).some(message => (
+      message.type === 'screen-repair'
+      && (message.direction ?? 'out') === 'out'
+    ))).toBe(false);
+  });
+
+  test('TC-6620: long scrollback grid repair does not full replay', async ({ page }) => {
+    await installWsMessageCapture(page);
+    await login(page);
+    const { workspaceId } = await setupEqualGridWorkspace(page, 4);
+    await openGridWorkspace(page, workspaceId, 4);
+    await expectVisibleGridTerminal(page);
+    await enableTerminalDebugCapture(page);
+    await expect.poll(async () => hasTerminalDebugEvent(page, 'input_gate_synced', { inputReady: true }), { timeout: 30000 }).toBe(true);
+
+    const marker = `TC6620-${Date.now()}`;
+    await sendVisibleTerminalCommand(
+      page,
+      `node -e "for (let i=1;i<=500;i++) console.log('${marker}-'+String(i).padStart(3,'0'))"`,
+    );
+    await expect(page.locator('.xterm-screen:visible').first()).toContainText(`${marker}-500`, { timeout: 30000 });
+
+    await clearWsMessageCapture(page);
+    await clearTerminalDebugCapture(page);
+    await middleMouseDownFirstVisibleTerminal(page);
+
+    await expectCapturedResizeBeforeScreenRepair(page, 'manual');
+    await expect.poll(async () => hasTerminalDebugEvent(page, 'screen_repair_ack_sent'), { timeout: 10000 }).toBe(true);
+    await expect(page.locator('.xterm-screen:visible').first()).toContainText(`${marker}-500`, { timeout: 10000 });
+
+    const messages = await readCapturedWsMessages(page);
+    expect(messages.some(message => message.type === 'repair-replay')).toBe(false);
+    const repairIndex = messages.findIndex(message => (
+      message.type === 'screen-repair'
+      && (message.direction ?? 'out') === 'out'
+      && message.reason === 'manual'
+    ));
+    const repairMessage = messages[repairIndex];
+    expect(messages.some((message, index) => (
+      index > repairIndex
+      && message.direction === 'out'
+      && message.type === 'screen-snapshot:ready'
+      && message.sessionId === repairMessage?.sessionId
+    ))).toBe(false);
+    expect(messages.some((message, index) => (
+      index > repairIndex
+      && message.direction === 'in'
+      && message.type === 'screen-snapshot'
+      && message.sessionId === repairMessage?.sessionId
+    ))).toBe(false);
+    expect((await readPersistedLayout(page, workspaceId))?.mode).toBe('equal');
   });
 
   test('TC-6607: non-equal modes do not enter reorder', async ({ page }) => {

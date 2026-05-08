@@ -18,6 +18,9 @@ import {
 import type {
   InputDebugMetadata,
   InputRejectedReason,
+  ScreenRepairFailedReason,
+  ScreenRepairMessage,
+  ScreenRepairRejectedMessage,
   TerminalInputBarrierReason,
   TerminalInputClosedReason,
 } from '../../types/ws-protocol';
@@ -126,11 +129,25 @@ export const TerminalContainer = memo(
     const snapshotApplyInProgressRef = useRef(false);
     const sessionReadyRef = useRef(false);
     const visibleRepairTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const resizeRepairTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const gridRepairInFlightRef = useRef<Promise<void> | null>(null);
     const gridVisibleRef = useRef(false);
-    const pendingGridRepairReplayRef = useRef<GridRepairReason | null>(null);
-    const repairSnapshotPendingRef = useRef(false);
+    const pendingGridScreenRepairRef = useRef<GridRepairReason | null>(null);
     const lastResizeRef = useRef<{ cols: number; rows: number } | null>(null);
+    const lastSentResizeRef = useRef<{ cols: number; rows: number } | null>(null);
+    const screenRepairInFlightRef = useRef<{
+      sessionId: string;
+      cols: number;
+      rows: number;
+      reason: GridRepairReason;
+    } | null>(null);
+    const lastCompletedScreenRepairRef = useRef<{
+      sessionId: string;
+      cols: number;
+      rows: number;
+      reason: GridRepairReason;
+      completedAt: number;
+    } | null>(null);
     const lastStatusRef = useRef<WorkspaceTabRuntime['status'] | null>(null);
     const sessionGenerationRef = useRef(1);
     const generationSessionIdRef = useRef(sessionId);
@@ -237,10 +254,7 @@ export const TerminalContainer = memo(
       }
 
       if (closedReason === 'none' && barrierReason === 'none') {
-        if (repairSnapshotPendingRef.current) {
-          serverReady = false;
-          barrierReason = 'repair-server-not-ready';
-        } else if (
+        if (
           initialRestorePendingRef.current
           || snapshotApplyInProgressRef.current
           || pendingSnapshotRef.current !== null
@@ -834,8 +848,13 @@ export const TerminalContainer = memo(
       }
       gridRepairInFlightRef.current = null;
       gridVisibleRef.current = false;
-      pendingGridRepairReplayRef.current = null;
-      repairSnapshotPendingRef.current = false;
+      pendingGridScreenRepairRef.current = null;
+      screenRepairInFlightRef.current = null;
+      lastCompletedScreenRepairRef.current = null;
+      if (resizeRepairTimerRef.current) {
+        clearTimeout(resizeRepairTimerRef.current);
+        resizeRepairTimerRef.current = null;
+      }
       transportClosedReasonRef.current = 'none';
       reconnectStartedAtRef.current = null;
       if (reconnectTtlTimerRef.current) {
@@ -843,6 +862,7 @@ export const TerminalContainer = memo(
         reconnectTtlTimerRef.current = null;
       }
       lastResizeRef.current = null;
+      lastSentResizeRef.current = null;
       lastStatusRef.current = null;
       inputSequencerRef.current?.reset(1);
       rejectTransportOutbox('context-changed', 'session-attached-reset');
@@ -871,7 +891,62 @@ export const TerminalContainer = memo(
       });
     }, [isVisible, sessionId]);
 
-    const requestRepairReplay = useCallback((reason: GridRepairReason) => {
+    const sendResizeIfNeeded = useCallback((cols: number, rows: number, reason: string) => {
+      const lastSent = lastSentResizeRef.current;
+      if (lastSent && lastSent.cols === cols && lastSent.rows === rows) {
+        recordTerminalDebugEvent(sessionId, 'grid_repair_resize_suppressed', {
+          reason,
+          cols,
+          rows,
+        });
+        return;
+      }
+
+      recordTerminalDebugEvent(sessionId, 'grid_repair_resize_sent', {
+        reason,
+        cols,
+        rows,
+      });
+      const resizeResult = send({ type: 'resize', sessionId, cols, rows });
+      if (resizeResult.ok) {
+        lastSentResizeRef.current = { cols, rows };
+        return;
+      }
+
+      recordTerminalDebugEvent(sessionId, 'grid_repair_resize_send_failed', {
+        reason,
+        sendResultReason: resizeResult.reason,
+        reconnectState: wsStatusRef.current,
+      });
+    }, [send, sessionId]);
+
+    const shouldSuppressScreenRepairRequest = useCallback((
+      reason: GridRepairReason,
+      cols: number,
+      rows: number,
+    ): boolean => {
+      const inFlight = screenRepairInFlightRef.current;
+      if (inFlight && inFlight.sessionId === sessionId && inFlight.cols === cols && inFlight.rows === rows) {
+        return true;
+      }
+
+      if (reason !== 'manual') {
+        const completed = lastCompletedScreenRepairRef.current;
+        if (
+          completed
+          && completed.sessionId === sessionId
+          && completed.cols === cols
+          && completed.rows === rows
+          && Date.now() - completed.completedAt < 400
+        ) {
+          return true;
+        }
+      }
+
+      return false;
+    }, [sessionId]);
+
+    const requestScreenRepair = useCallback((reason: GridRepairReason) => {
       if (!isVisibleRef.current) {
         return;
       }
@@ -880,57 +955,91 @@ export const TerminalContainer = memo(
       }
 
       if (!sessionReadyRef.current) {
-        pendingGridRepairReplayRef.current = reason;
-        recordTerminalDebugEvent(sessionId, 'grid_repair_replay_deferred', { reason });
+        pendingGridScreenRepairRef.current = reason;
+        recordTerminalDebugEvent(sessionId, 'screen_repair_deferred_not_ready', { reason });
         return;
       }
 
-      const lastResize = lastResizeRef.current;
-      if (lastResize) {
-        recordTerminalDebugEvent(sessionId, 'grid_repair_resize_sent', {
+      const readiness = terminalRef.current?.getScreenRepairReadiness();
+      if (!readiness) {
+        pendingGridScreenRepairRef.current = reason;
+        recordTerminalDebugEvent(sessionId, 'screen_repair_deferred_not_ready', {
           reason,
-          cols: lastResize.cols,
-          rows: lastResize.rows,
+          detailReason: 'terminal-missing',
         });
-        const resizeResult = send({ type: 'resize', sessionId, cols: lastResize.cols, rows: lastResize.rows });
-        if (!resizeResult.ok) {
-          recordTerminalDebugEvent(sessionId, 'grid_repair_resize_send_failed', {
-            reason,
-            sendResultReason: resizeResult.reason,
-            reconnectState: wsStatusRef.current,
-          });
+        return;
+      }
+      if (!readiness.ok) {
+        const eventName = readiness.reason === 'user-scrolled'
+          ? 'screen_repair_deferred_user_scrollback'
+          : `screen_repair_deferred_${readiness.reason.replace(/-/g, '_')}`;
+        recordTerminalDebugEvent(sessionId, eventName, {
+          reason,
+          detailReason: readiness.reason,
+          cols: readiness.cols ?? null,
+          rows: readiness.rows ?? null,
+          atBottom: readiness.atBottom ?? null,
+          bufferType: readiness.bufferType ?? null,
+        });
+        if (readiness.reason === 'not-ready') {
+          pendingGridScreenRepairRef.current = reason;
         }
+        return;
       }
 
-      sessionReadyRef.current = false;
-      syncInputTransportState('repair-replay-requested');
+      const geometry = lastResizeRef.current ?? { cols: readiness.cols, rows: readiness.rows };
+      sendResizeIfNeeded(geometry.cols, geometry.rows, reason);
+      if (shouldSuppressScreenRepairRequest(reason, geometry.cols, geometry.rows)) {
+        recordTerminalDebugEvent(sessionId, 'screen_repair_request_suppressed', {
+          reason,
+          cols: geometry.cols,
+          rows: geometry.rows,
+        });
+        return;
+      }
+
       recordTerminalDebugEvent(
         sessionId,
         reason === 'workspace'
           ? 'workspace_repair_requested'
-          : 'manual_repair_requested',
+          : reason === 'resize'
+            ? 'resize_repair_requested'
+            : 'manual_repair_requested',
       );
-      repairSnapshotPendingRef.current = true;
-      syncInputTransportState('repair-replay-pending');
-      const repairResult = send({ type: 'repair-replay', sessionId });
+      screenRepairInFlightRef.current = {
+        sessionId,
+        cols: geometry.cols,
+        rows: geometry.rows,
+        reason,
+      };
+      const repairResult = send({
+        type: 'screen-repair',
+        sessionId,
+        cols: geometry.cols,
+        rows: geometry.rows,
+        reason,
+        clientAtBottom: readiness.atBottom,
+        clientBufferType: readiness.bufferType,
+      });
       if (!repairResult.ok) {
-        recordTerminalDebugEvent(sessionId, 'repair_replay_send_failed', {
+        screenRepairInFlightRef.current = null;
+        recordTerminalDebugEvent(sessionId, 'screen_repair_send_failed', {
           reason,
           sendResultReason: repairResult.reason,
           reconnectState: wsStatusRef.current,
         });
       }
-    }, [send, sessionId, syncInputTransportState]);
+    }, [send, sendResizeIfNeeded, sessionId, shouldSuppressScreenRepairRequest]);
 
-    const flushPendingGridRepairReplay = useCallback(() => {
-      const pendingReason = pendingGridRepairReplayRef.current;
+    const flushPendingGridScreenRepair = useCallback(() => {
+      const pendingReason = pendingGridScreenRepairRef.current;
       if (!pendingReason || !isVisibleRef.current || !isGridSurfaceRef.current || !sessionReadyRef.current) {
         return;
       }
 
-      pendingGridRepairReplayRef.current = null;
-      requestRepairReplay(pendingReason);
-    }, [requestRepairReplay]);
+      pendingGridScreenRepairRef.current = null;
+      requestScreenRepair(pendingReason);
+    }, [requestScreenRepair]);
 
     const runGridLayoutRepair = useCallback((reason: GridRepairReason) => {
       if (!isVisibleRef.current || !isGridSurfaceRef.current) {
@@ -953,7 +1062,7 @@ export const TerminalContainer = memo(
           });
           return;
         }
-        requestRepairReplay(reason);
+        requestScreenRepair(reason);
       })();
 
       gridRepairInFlightRef.current = repair;
@@ -962,7 +1071,7 @@ export const TerminalContainer = memo(
           gridRepairInFlightRef.current = null;
         }
       });
-    }, [invalidateHostLayouts, requestRepairReplay, sessionId]);
+    }, [invalidateHostLayouts, requestScreenRepair, sessionId]);
 
     useImperativeHandle(ref, () => ({
       write: (data) => terminalRef.current?.write(data),
@@ -977,6 +1086,8 @@ export const TerminalContainer = memo(
       sendInput: (data) => terminalRef.current?.sendInput(data),
       restoreSnapshot: () => terminalRef.current?.restoreSnapshot() ?? Promise.resolve(false),
       replaceWithSnapshot: (data) => terminalRef.current?.replaceWithSnapshot(data) ?? Promise.resolve(false),
+      getScreenRepairReadiness: () => terminalRef.current?.getScreenRepairReadiness() ?? { ok: false, reason: 'not-ready' },
+      applyScreenRepair: (repair) => terminalRef.current?.applyScreenRepair(repair) ?? Promise.resolve({ ok: false, reason: 'not-ready' }),
       releasePending: () => terminalRef.current?.releasePending(),
       setInputTransportState: (state) => terminalRef.current?.setInputTransportState(state),
       setServerReady: (ready) => terminalRef.current?.setServerReady(ready),
@@ -1025,7 +1136,7 @@ export const TerminalContainer = memo(
         cwdPresent: Boolean(info.cwd),
       });
       if (info.ready) {
-        flushPendingGridRepairReplay();
+        flushPendingGridScreenRepair();
         flushTransportPipeline('subscribed-ready');
       }
     });
@@ -1035,7 +1146,7 @@ export const TerminalContainer = memo(
       clearTransportClosedReason('session-ready');
       syncInputTransportState('session-ready');
       recordTerminalDebugEvent(sessionId, 'session_ready_received');
-      flushPendingGridRepairReplay();
+      flushPendingGridScreenRepair();
       flushTransportPipeline('session-ready');
     });
 
@@ -1077,7 +1188,6 @@ export const TerminalContainer = memo(
             && nextSnapshot.truncated === lastApplied.truncated
             && nextSnapshot.data === lastApplied.data;
           const isDuplicate = hasSameSnapshotContent && nextSnapshot.seq === lastApplied.seq;
-          const shouldReapplyDuplicateForRepair = hasSameSnapshotContent && repairSnapshotPendingRef.current;
 
           if (isStale) {
             recordTerminalDebugEvent(sessionId, 'screen_snapshot_stale_ignored', {
@@ -1096,7 +1206,7 @@ export const TerminalContainer = memo(
             continue;
           }
 
-          if (isDuplicate && !shouldReapplyDuplicateForRepair) {
+          if (isDuplicate) {
             recordTerminalDebugEvent(sessionId, 'screen_snapshot_duplicate_ignored', {
               seq: nextSnapshot.seq,
               mode: nextSnapshot.mode,
@@ -1111,13 +1221,6 @@ export const TerminalContainer = memo(
               });
             }
             continue;
-          }
-          if (shouldReapplyDuplicateForRepair) {
-            recordTerminalDebugEvent(sessionId, 'screen_snapshot_duplicate_reapplied_for_repair', {
-              seq: nextSnapshot.seq,
-              previousSeq: lastApplied?.seq ?? null,
-              mode: nextSnapshot.mode,
-            });
           }
 
           terminalRef.current?.setWindowsPty(nextSnapshot.windowsPty);
@@ -1195,7 +1298,6 @@ export const TerminalContainer = memo(
             });
           }
           initialRestorePendingRef.current = false;
-          repairSnapshotPendingRef.current = false;
           syncInputTransportState('screen-snapshot-applied');
         }
       } finally {
@@ -1205,6 +1307,73 @@ export const TerminalContainer = memo(
         } else {
           syncInputTransportState('screen-snapshot-apply-settled');
         }
+      }
+    });
+
+    const handleScreenRepair = useEffectEvent(async (repair: ScreenRepairMessage) => {
+      recordTerminalDebugEvent(sessionId, 'screen_repair_received', {
+        repairToken: repair.repairToken,
+        seq: repair.seq,
+        cols: repair.cols,
+        rows: repair.rows,
+        bufferType: repair.bufferType,
+        rowCount: repair.viewportRows.length,
+        byteLength: repair.ansiPatch.length,
+      }, repair.ansiPatch);
+
+      const result = await (terminalRef.current?.applyScreenRepair(repair) ?? Promise.resolve({ ok: false as const, reason: 'not-ready' as ScreenRepairFailedReason }));
+      const inFlight = screenRepairInFlightRef.current;
+      if (result.ok) {
+        const ackResult = send({ type: 'screen-repair:ready', sessionId, repairToken: repair.repairToken });
+        if (!ackResult.ok) {
+          recordTerminalDebugEvent(sessionId, 'screen_repair_ack_send_failed', {
+            repairToken: repair.repairToken,
+            seq: repair.seq,
+            reason: ackResult.reason,
+          });
+        }
+        lastCompletedScreenRepairRef.current = {
+          sessionId,
+          cols: repair.cols,
+          rows: repair.rows,
+          reason: inFlight?.reason ?? 'manual',
+          completedAt: Date.now(),
+        };
+        recordTerminalDebugEvent(sessionId, 'screen_repair_ack_sent', {
+          repairToken: repair.repairToken,
+          seq: repair.seq,
+        });
+      } else {
+        const failedResult = send({
+          type: 'screen-repair:failed',
+          sessionId,
+          repairToken: repair.repairToken,
+          reason: result.reason,
+        });
+        if (!failedResult.ok) {
+          recordTerminalDebugEvent(sessionId, 'screen_repair_failed_send_failed', {
+            repairToken: repair.repairToken,
+            seq: repair.seq,
+            applyReason: result.reason,
+            sendResultReason: failedResult.reason,
+          });
+        }
+      }
+
+      if (screenRepairInFlightRef.current?.sessionId === sessionId) {
+        screenRepairInFlightRef.current = null;
+      }
+    });
+
+    const handleScreenRepairRejected = useEffectEvent((rejected: ScreenRepairRejectedMessage) => {
+      recordTerminalDebugEvent(sessionId, 'screen_repair_rejected', {
+        repairToken: rejected.repairToken ?? null,
+        reason: rejected.reason,
+        cols: rejected.cols ?? null,
+        rows: rejected.rows ?? null,
+      });
+      if (screenRepairInFlightRef.current?.sessionId === sessionId) {
+        screenRepairInFlightRef.current = null;
       }
     });
 
@@ -1219,6 +1388,10 @@ export const TerminalContainer = memo(
         if (visibleRepairTimerRef.current) {
           clearTimeout(visibleRepairTimerRef.current);
           visibleRepairTimerRef.current = null;
+        }
+        if (resizeRepairTimerRef.current) {
+          clearTimeout(resizeRepairTimerRef.current);
+          resizeRepairTimerRef.current = null;
         }
         if (reconnectTtlTimerRef.current) {
           clearTimeout(reconnectTtlTimerRef.current);
@@ -1281,6 +1454,10 @@ export const TerminalContainer = memo(
         onScreenSnapshot: (snapshot) => {
           void handleScreenSnapshot(snapshot);
         },
+        onScreenRepair: (repair) => {
+          void handleScreenRepair(repair);
+        },
+        onScreenRepairRejected: handleScreenRepairRejected,
         onOutput: (data) => {
           recordTerminalDebugEvent(sessionId, 'live_output_received', {
             byteLength: data.length,
@@ -1310,16 +1487,18 @@ export const TerminalContainer = memo(
 
     const handleResize = useCallback((cols: number, rows: number) => {
       lastResizeRef.current = { cols, rows };
-      const result = send({ type: 'resize', sessionId, cols, rows });
-      if (!result.ok) {
-        recordTerminalDebugEvent(sessionId, 'resize_send_failed', {
-          cols,
-          rows,
-          reason: result.reason,
-          reconnectState: wsStatusRef.current,
-        });
+      sendResizeIfNeeded(cols, rows, 'terminal-resize');
+      if (!isVisibleRef.current || !isGridSurfaceRef.current) {
+        return;
       }
-    }, [sessionId, send]);
+      if (resizeRepairTimerRef.current) {
+        clearTimeout(resizeRepairTimerRef.current);
+      }
+      resizeRepairTimerRef.current = setTimeout(() => {
+        resizeRepairTimerRef.current = null;
+        requestScreenRepair('resize');
+      }, 150);
+    }, [requestScreenRepair, sendResizeIfNeeded]);
 
     useEffect(() => {
       const nextVisible = isVisible && isGridSurface;

@@ -12,15 +12,17 @@ import { AppError, ErrorCode } from '../utils/errors.js';
 import {
   createHeadlessTerminalState,
   disposeHeadlessTerminal,
+  serializeHeadlessScreenRepair,
   resizeHeadlessTerminal,
   serializeHeadlessTerminal,
+  type HeadlessScreenRepairResult,
   type HeadlessTerminalState,
   writeHeadlessTerminal,
 } from '../utils/headlessTerminal.js';
 import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 import type { WsRouter } from '../ws/WsRouter.js';
 import { OscDetector } from './OscDetector.js';
-import type { InputDebugMetadata, WindowsPtyBackend, WindowsPtyInfo } from '../types/ws-protocol.js';
+import type { InputDebugMetadata, ScreenRepairBufferType, WindowsPtyBackend, WindowsPtyInfo } from '../types/ws-protocol.js';
 import {
   normalizePtyConfigForPlatform,
   normalizeShellForPlatform,
@@ -117,6 +119,7 @@ const DEBUG_INPUT_CORRELATION_WINDOW_MS = 500;
 const DEBUG_INPUT_SAMPLE_LIMIT = 8;
 const MAX_RESIZE_REPLAY_DELAY_MS = 400;
 const RESIZE_REPLAY_QUIET_WINDOW_MS = 120;
+const SCREEN_REPAIR_HEADLESS_DRAIN_TIMEOUT_MS = 250;
 const DEFAULT_RUNNING_DELAY_MS = 250;
 const AI_TUI_TYPING_FEEDBACK_THRESHOLD_MS = 1000;
 const AI_TUI_SUBMITTED_ECHO_THRESHOLD_MS = 1000;
@@ -197,6 +200,12 @@ function sanitizeCwd(raw: string): string | null {
   // Reject control characters (\x00-\x1f) except nothing — all are rejected
   if (/[\x00-\x1f]/.test(cleaned)) return null;
   return cleaned;
+}
+
+function delayMs(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 export class SessionManager {
@@ -1794,6 +1803,82 @@ export class SessionManager {
     }
   }
 
+  async getScreenRepair(
+    sessionId: string,
+    expected: { cols: number; rows: number; bufferType: ScreenRepairBufferType },
+  ): Promise<HeadlessScreenRepairResult> {
+    const data = this.sessions.get(sessionId);
+    if (!data) return { ok: false, reason: 'headless-degraded' };
+
+    this.captureDebugEvent(sessionId, 'headless', 'screen_repair_requested', {
+      screenSeq: data.screenSeq,
+      cols: expected.cols,
+      rows: expected.rows,
+      bufferType: expected.bufferType,
+      headlessHealth: data.headlessHealth,
+      pendingHeadlessWrites: data.pendingHeadlessWrites,
+    });
+
+    if (data.headlessHealth !== 'healthy' || !data.headless) {
+      this.captureDebugEvent(sessionId, 'headless', 'screen_repair_rejected', {
+        reason: 'headless-degraded',
+        screenSeq: data.screenSeq,
+      });
+      return { ok: false, reason: 'headless-degraded' };
+    }
+
+    if (data.cols !== expected.cols || data.rows !== expected.rows) {
+      this.captureDebugEvent(sessionId, 'headless', 'screen_repair_rejected', {
+        reason: 'geometry-mismatch',
+        currentCols: data.cols,
+        currentRows: data.rows,
+        expectedCols: expected.cols,
+        expectedRows: expected.rows,
+      });
+      return { ok: false, reason: 'geometry-mismatch' };
+    }
+
+    if (data.pendingHeadlessWrites > 0) {
+      await Promise.race([
+        data.headlessWriteChain,
+        delayMs(SCREEN_REPAIR_HEADLESS_DRAIN_TIMEOUT_MS),
+      ]);
+    }
+
+    if (!this.isActiveSession(sessionId, data) || data.headlessHealth !== 'healthy' || !data.headless) {
+      return { ok: false, reason: 'headless-degraded' };
+    }
+    if (data.pendingHeadlessWrites > 0) {
+      this.captureDebugEvent(sessionId, 'headless', 'screen_repair_rejected', {
+        reason: 'generation-failed',
+        pendingHeadlessWrites: data.pendingHeadlessWrites,
+      });
+      return { ok: false, reason: 'generation-failed' };
+    }
+
+    const result = serializeHeadlessScreenRepair(data.headless, {
+      ...expected,
+      seq: data.screenSeq,
+    }, this.runtimePtyConfig.maxSnapshotBytes);
+    if (!result.ok) {
+      this.captureDebugEvent(sessionId, 'headless', 'screen_repair_rejected', {
+        reason: result.reason,
+        screenSeq: data.screenSeq,
+      });
+      return result;
+    }
+
+    this.captureDebugEvent(sessionId, 'headless', 'screen_repair_serialized', {
+      screenSeq: data.screenSeq,
+      cols: result.payload.cols,
+      rows: result.payload.rows,
+      bufferType: result.payload.bufferType,
+      rowCount: result.payload.viewportRows.length,
+      byteLength: result.payload.ansiPatch.length,
+    }, result.payload.ansiPatch);
+    return result;
+  }
+
   getReplayQueueLimit(): number {
     return Math.min(this.runtimePtyConfig.maxSnapshotBytes, 262_144);
   }
@@ -2143,7 +2228,7 @@ export class SessionManager {
     sessionData.screenSeq += 1;
     this.appendUnsnapshottedOutput(sessionData, flushedOutput);
     this.markSnapshotDirty(sessionData);
-    this.wsRouter?.routeSessionOutput(sessionId, data);
+    this.wsRouter?.routeSessionOutput(sessionId, data, sessionData.screenSeq);
     if (this.pendingResizeReplaySessions.has(sessionId)) {
       this.scheduleResizeReplayRefresh(sessionId, 120);
     }
