@@ -6,6 +6,8 @@ import {
   readDialogGeometry,
   writeDialogGeometry,
 } from './dialogGeometry';
+import { useDialogStack } from './dialogStack';
+import { createWindowDialogBehaviorModel } from './windowDialogModel';
 import type { DialogRect, DialogSize, WindowDialogProps } from './types';
 import './WindowDialog.css';
 
@@ -24,10 +26,24 @@ export function WindowDialog({
   minSize,
   onClose,
   children,
+  role,
+  ariaDescribedBy,
+  showCloseButton,
+  resizable,
+  persistGeometry,
+  surfaceClassName,
 }: WindowDialogProps) {
   const [rect, setRect] = useState<DialogRect>(() =>
     readDialogGeometry(dialogId, defaultRect, getViewportSize(), minSize),
   );
+  const stackState = useDialogStack(dialogId, mode === 'modal');
+  const behavior = createWindowDialogBehaviorModel({
+    role,
+    showCloseButton,
+    resizable,
+    persistGeometry,
+    layerIndex: stackState.layerIndex,
+  });
   const layerRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -64,9 +80,32 @@ export function WindowDialog({
       element.setAttribute('aria-hidden', 'true');
     });
 
+    return () => {
+      siblingState.forEach(({ element, inert, ariaHidden }) => {
+        element.inert = inert;
+        if (ariaHidden === null) {
+          element.removeAttribute('aria-hidden');
+        } else {
+          element.setAttribute('aria-hidden', ariaHidden);
+        }
+      });
+      if (previouslyFocused && document.contains(previouslyFocused)) {
+        previouslyFocused.focus();
+      }
+    };
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode !== 'modal' || !stackState.isTopmost) return;
+
     const focusFirstDialogElement = () => {
-      const firstFocusable = getFocusableElements(surfaceRef.current)[0];
-      (firstFocusable ?? closeButtonRef.current ?? surfaceRef.current)?.focus();
+      const surface = surfaceRef.current;
+      if (!surface || surface.contains(document.activeElement)) {
+        return;
+      }
+
+      const firstFocusable = getFocusableElements(surface)[0];
+      (firstFocusable ?? closeButtonRef.current ?? surface).focus();
     };
 
     const animationFrame = requestAnimationFrame(focusFirstDialogElement);
@@ -112,19 +151,8 @@ export function WindowDialog({
       cancelAnimationFrame(animationFrame);
       document.removeEventListener('keydown', handleKeyDown, true);
       document.removeEventListener('focusin', handleFocusIn, true);
-      siblingState.forEach(({ element, inert, ariaHidden }) => {
-        element.inert = inert;
-        if (ariaHidden === null) {
-          element.removeAttribute('aria-hidden');
-        } else {
-          element.setAttribute('aria-hidden', ariaHidden);
-        }
-      });
-      if (previouslyFocused && document.contains(previouslyFocused)) {
-        previouslyFocused.focus();
-      }
     };
-  }, [mode]);
+  }, [mode, stackState.isTopmost]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -159,59 +187,74 @@ export function WindowDialog({
   }, [commitRect, minSize]);
 
   const handleClose = useCallback(() => {
-    writeDialogGeometry(dialogId, clampDialogRect(rectRef.current, getViewportSize(), minSize));
+    if (behavior.persistGeometry) {
+      writeDialogGeometry(dialogId, clampDialogRect(rectRef.current, getViewportSize(), minSize));
+    }
     onClose();
-  }, [dialogId, minSize, onClose]);
+  }, [behavior.persistGeometry, dialogId, minSize, onClose]);
 
   return createPortal(
     <div
       ref={layerRef}
       className={`window-dialog-layer window-dialog-layer-${mode}`}
       role="presentation"
+      style={{ zIndex: behavior.layerZ }}
     >
-      {mode === 'modal' && <div className="window-dialog-backdrop" aria-hidden="true" />}
+      {mode === 'modal' && (
+        <div
+          className="window-dialog-backdrop"
+          aria-hidden="true"
+          style={{ zIndex: behavior.backdropZ }}
+        />
+      )}
       <Rnd
         className="window-dialog"
+        style={{ zIndex: behavior.dialogZ }}
         bounds="window"
         dragHandleClassName="window-dialog-titlebar"
         size={{ width: rect.width, height: rect.height }}
         position={{ x: rect.x, y: rect.y }}
         minWidth={Math.min(minSize.width, getViewportSize().width)}
         minHeight={Math.min(minSize.height, getViewportSize().height)}
-        enableResizing={{
-          top: true,
-          right: true,
-          bottom: true,
-          left: true,
-          topRight: true,
-          bottomRight: true,
-          bottomLeft: true,
-          topLeft: true,
-        }}
+        enableResizing={behavior.resizable
+          ? {
+            top: true,
+            right: true,
+            bottom: true,
+            left: true,
+            topRight: true,
+            bottomRight: true,
+            bottomLeft: true,
+            topLeft: true,
+          }
+          : false}
         onDragStop={handleDragStop}
         onResizeStop={handleResizeStop}
       >
         <section
           ref={surfaceRef}
-          className="window-dialog-surface"
-          role="dialog"
+          className={['window-dialog-surface', surfaceClassName].filter(Boolean).join(' ')}
+          role={behavior.role}
           aria-modal={mode === 'modal'}
           aria-labelledby={`${dialogId}-title`}
+          aria-describedby={ariaDescribedBy}
           tabIndex={-1}
         >
           <div className="window-dialog-titlebar">
             <h2 id={`${dialogId}-title`} className="window-dialog-title">
               {title}
             </h2>
-            <button
-              ref={closeButtonRef}
-              type="button"
-              className="window-dialog-close"
-              aria-label="Close"
-              onClick={handleClose}
-            >
-              x
-            </button>
+            {behavior.showCloseButton && (
+              <button
+                ref={closeButtonRef}
+                type="button"
+                className="window-dialog-close"
+                aria-label="Close"
+                onClick={handleClose}
+              >
+                x
+              </button>
+            )}
           </div>
           <div className="window-dialog-body">
             {children}

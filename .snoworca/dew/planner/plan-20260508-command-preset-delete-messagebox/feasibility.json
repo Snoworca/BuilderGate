@@ -1,0 +1,33 @@
+{
+  "plan_id": "plan-20260508-command-preset-delete-messagebox",
+  "mode": "NORMAL",
+  "checked_at": "2026-05-08",
+  "summary": "MessageBox 삭제 확인은 기존 dialog 계층과 CommandPreset UI에 국한된다. 핵심 리스크는 중첩 modal focus trap 충돌이며, 별도 dialog stack helper로 완화한다.",
+  "requirements": [
+    {
+      "req_id": "FR-DLG-011",
+      "difficulty": "Medium",
+      "risk_keywords": ["component-api", "reuse"],
+      "mitigation": "WindowDialog wrapper로 MessageBox를 만들고 feature API 호출은 callback으로 분리한다."
+    },
+    {
+      "req_id": "FR-DLG-012",
+      "difficulty": "Low",
+      "risk_keywords": ["aria", "focus"],
+      "mitigation": "Cancel-first DOM order와 alertdialog role을 사용한다."
+    },
+    {
+      "req_id": "FR-DLG-013",
+      "difficulty": "High",
+      "risk_keywords": ["modal-stack", "focus-trap"],
+      "mitigation": "topmost modal만 keydown/focusin handler를 소유하게 한다."
+    },
+    {
+      "req_id": "FR-CMD-009",
+      "difficulty": "Medium",
+      "risk_keywords": ["delete-confirmation", "server-mutation"],
+      "mitigation": "pending delete target과 confirm busy/error state를 명령줄 관리 Dialog에 둔다."
+    }
+  ],
+  "infeasible": []
+}

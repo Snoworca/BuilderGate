@@ -1,0 +1,302 @@
+{
+  "plan_contract": "1.1.0",
+  "plan_id": "plan-20260508-command-preset-delete-messagebox",
+  "title": "Command Preset Delete Confirmation MessageBox Implementation Plan",
+  "created": "2026-05-08",
+  "spec_path": "docs/srs/buildergate.srs.md",
+  "code_path": ".",
+  "execution_source": "markdown_authoritative_json_sidecar_structured_summary",
+  "scope_freeze": true,
+  "change_log": [],
+  "pre_commit_gate": [
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run lint:command-management", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix server test", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:command-management", "expected_exit": 0}
+  ],
+  "forbidden_patterns": [
+    {"pattern": "적절[히]|필요\\s*시|알아[서]|상황에\\s*맞게|기존\\s*방식대로|어떻게[든]", "flags": ""},
+    {"pattern": "rm\\s+-rf|Remove-Item\\s+.*-Recurse|git\\s+reset\\s+--hard|git\\s+checkout\\s+--", "flags": "i"}
+  ],
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "title": "Dialog Stack Foundation",
+      "tasks": [
+        {
+          "id": "TASK-P1-001",
+          "title": "WindowDialog props and modal stack helper",
+          "related_req_ids": ["FR-DLG-011", "FR-DLG-012", "FR-DLG-013", "FR-DLG-014", "AC-019"],
+          "feasibility": "High",
+          "owns": [
+            "frontend/src/components/dialog/types.ts",
+            "frontend/src/components/dialog/WindowDialog.tsx",
+            "frontend/src/components/dialog/WindowDialog.css",
+            "frontend/src/components/dialog/windowDialogModel.ts",
+            "frontend/src/components/dialog/dialogStack.ts",
+            "frontend/tests/unit/dialogStack.test.ts",
+            "frontend/tests/unit/windowDialogContract.test.ts",
+            "frontend/package.json"
+          ],
+          "reads": [
+            "frontend/src/components/dialog/types.ts",
+            "frontend/src/components/dialog/WindowDialog.tsx",
+            "frontend/src/components/dialog/WindowDialog.css",
+            "frontend/package.json"
+          ],
+          "source_anchors": [
+            "frontend/src/components/dialog/types.ts:3-24",
+            "frontend/src/components/dialog/WindowDialog.tsx:48-121",
+            "frontend/src/components/dialog/WindowDialog.tsx:168-216",
+            "frontend/src/components/dialog/WindowDialog.css:1-88",
+            "frontend/package.json:11-14"
+          ],
+          "depends_on": [],
+          "interfaces": [
+            "DialogRole = 'dialog' | 'alertdialog'",
+            "WindowDialogProps optional fields: role, ariaDescribedBy, showCloseButton, resizable, persistGeometry, surfaceClassName",
+            "useDialogStack(dialogId: string, active: boolean): { layerIndex: number; isTopmost: boolean }",
+            "createWindowDialogBehaviorModel(input): WindowDialogBehaviorModel"
+          ],
+          "implementation_steps": [
+            "Add DialogRole and WindowDialogProps optional fields without breaking existing callers.",
+            "Create dialogStack.ts with token-based stack registration and deterministic layerIndex/isTopmost helpers.",
+            "Split WindowDialog modal inert lifecycle from topmost focus-trap lifecycle.",
+            "Keep inert lifecycle mounted for every modal until that modal unmounts; do not clean it up when isTopmost changes.",
+            "Register keydown/focusin handlers only for the topmost modal.",
+            "Use exact z-index rules layerZ=5000+layerIndex*20, backdropZ=layerZ, dialogZ=layerZ+1.",
+            "Implement showCloseButton=false, resizable=false, persistGeometry=false, role, ariaDescribedBy, and surfaceClassName props.",
+            "Create windowDialogModel.ts and windowDialogContract.test.ts for Dialog component contract unit coverage.",
+            "Keep existing dialogGeometry.test.ts as geometry utility unit coverage.",
+            "Add dialogStack.test.ts and windowDialogContract.test.ts to both test:unit:command-management and lint:command-management scripts."
+          ],
+          "pitfalls": [
+            "Do not let lower modal inert cleanup run when MessageBox opens or closes.",
+            "Do not allow Escape to close modal or MessageBox.",
+            "Do not persist MessageBox geometry.",
+            "Topmost backdrop must block clicks to lower Dialog controls."
+          ],
+          "test_guidance": [
+            "dialogStack.test.ts success: second modal is topmost.",
+            "dialogStack.test.ts failure: removing a middle entry preserves topmost calculation.",
+            "dialogStack.test.ts edge: inactive modeless entries do not affect modal stack.",
+            "windowDialogContract.test.ts success: default dialog role and enabled close/resize/persistence.",
+            "windowDialogContract.test.ts failure: disabled close/resize/persistence props are reflected.",
+            "windowDialogContract.test.ts edge: layerIndex=2 produces layerZ=5040, backdropZ=5040, dialogZ=5041."
+          ],
+          "dod": [
+            "Existing WindowDialog callers typecheck without changes.",
+            "Only topmost modal owns focus trap handlers.",
+            "Dialog component unit, geometry utility unit, and dialog stack unit tests run through test:unit:command-management.",
+            "test:unit:command-management and lint:command-management include dialogStack.test.ts and windowDialogContract.test.ts."
+          ],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1. In types.ts remove DialogRole, WindowDialogBehaviorModel, and WindowDialogProps optional fields added by TASK-P1-001. 2. In WindowDialog.tsx remove dialogStack/windowDialogModel usage, topmost gating, and new optional prop handling. 3. In WindowDialog.css remove z-index and pointer-event changes added by TASK-P1-001. 4. Delete dialogStack.ts, windowDialogModel.ts, dialogStack.test.ts, and windowDialogContract.test.ts. 5. Remove dialogStack.test.ts and windowDialogContract.test.ts from frontend/package.json scripts, then run npm --prefix frontend run typecheck."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-2",
+      "title": "Reusable MessageBox",
+      "tasks": [
+        {
+          "id": "TASK-P2-001",
+          "title": "MessageBox component and exports",
+          "related_req_ids": ["FR-DLG-011", "FR-DLG-012", "FR-DLG-014", "AC-019"],
+          "feasibility": "Medium",
+          "owns": [
+            "frontend/src/components/dialog/MessageBox.tsx",
+            "frontend/src/components/dialog/MessageBox.css",
+            "frontend/src/components/dialog/messageBoxModel.ts",
+            "frontend/tests/unit/messageBoxContract.test.ts",
+            "frontend/src/components/dialog/types.ts",
+            "frontend/src/components/dialog/index.ts",
+            "frontend/package.json"
+          ],
+          "reads": [
+            "frontend/src/components/dialog/WindowDialog.tsx",
+            "frontend/src/components/dialog/WindowDialog.css",
+            "frontend/src/components/dialog/index.ts",
+            "docs/srs/buildergate.srs.md"
+          ],
+          "source_anchors": [
+            "frontend/src/components/dialog/WindowDialog.tsx:19-27",
+            "frontend/src/components/dialog/WindowDialog.tsx:198-213",
+            "frontend/src/components/dialog/index.ts:1-13",
+            "frontend/src/components/dialog/WindowDialog.css:26-88",
+            "docs/srs/buildergate.srs.md:333-336"
+          ],
+          "depends_on": ["TASK-P1-001"],
+          "interfaces": [
+            "MessageBoxProps with dialogId, title, message, okLabel, cancelLabel, okVariant, busy, error, onOk, onCancel",
+            "createMessageBoxViewModel(props): MessageBoxViewModel including alertdialog/no-X/non-resizable/no-persistence contract",
+            "MessageBox(props: MessageBoxProps): JSX.Element"
+          ],
+          "implementation_steps": [
+            "Add MessageBox-related types to types.ts.",
+            "Create messageBoxModel.ts with OK/Cancel/primary defaults and busy normalization.",
+            "Create MessageBox.tsx as WindowDialog wrapper using role alertdialog, showCloseButton=false, resizable=false, persistGeometry=false.",
+            "Wire ariaDescribedBy to the message element id.",
+            "Render Cancel before OK and autofocus Cancel.",
+            "Render error with role=alert.",
+            "Export MessageBox, model helper, and related types from index.ts.",
+            "Add messageBoxContract.test.ts to test:unit:command-management and lint:command-management scripts."
+          ],
+          "pitfalls": [
+            "MessageBox must not own feature API calls.",
+            "Do not add title bar X or Escape close behavior.",
+            "Busy state disables both buttons without changing accessible labels."
+          ],
+          "test_guidance": [
+            "messageBoxContract.test.ts success: default labels are OK and Cancel.",
+            "messageBoxContract.test.ts failure: busy true maps to disabled-state model.",
+            "messageBoxContract.test.ts edge: danger variant and custom labels are preserved.",
+            "messageBoxContract.test.ts component contract: role=alertdialog, showCloseButton=false, resizable=false, persistGeometry=false."
+          ],
+          "dod": [
+            "MessageBox is barrel-exported.",
+            "MessageBox uses alertdialog and aria-described message.",
+            "MessageBox component unit test covers alertdialog/no-X/non-resizable/no-persistence contract.",
+            "messageBoxContract.test.ts runs through test:unit:command-management."
+          ],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run lint:command-management", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1. Delete MessageBox.tsx, MessageBox.css, messageBoxModel.ts, and messageBoxContract.test.ts. 2. Remove MessageBox exports, model helper exports, and MessageBox-related types from index.ts and types.ts. 3. Remove messageBoxContract.test.ts from frontend/package.json scripts, then run npm --prefix frontend run typecheck."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-3",
+      "title": "CommandPreset delete confirmation integration",
+      "tasks": [
+        {
+          "id": "TASK-P3-001",
+          "title": "CommandPresetDialog confirmation state",
+          "related_req_ids": ["FR-CMD-009", "AC-021"],
+          "feasibility": "Medium",
+          "owns": [
+            "frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx",
+            "frontend/src/components/CommandPresetManager/CommandPresetDialog.css"
+          ],
+          "reads": [
+            "frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx",
+            "frontend/src/components/CommandPresetManager/CommandPresetDialog.css"
+          ],
+          "source_anchors": [
+            "frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx:117-160",
+            "frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx:221-232",
+            "frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx:274-365",
+            "frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx:415-420",
+            "frontend/src/components/CommandPresetManager/CommandPresetDialog.css:260-275"
+          ],
+          "depends_on": ["TASK-P2-001"],
+          "interfaces": [
+            "deleteTarget state: CommandPreset | null",
+            "deleteBusy state: boolean",
+            "deleteError state: string | null",
+            "handleDeleteRequest(preset: CommandPreset): void",
+            "handleCancelDelete(): void",
+            "handleConfirmDelete(): Promise<void>"
+          ],
+          "implementation_steps": [
+            "Import MessageBox from ../dialog.",
+            "Replace immediate delete handler with deleteTarget assignment.",
+            "Cancel clears deleteTarget/deleteError only when deleteBusy is false.",
+            "OK calls deletePreset(deleteTarget.id), clears editing draft if needed, closes MessageBox, and shows 삭제되었습니다 toast.",
+            "On delete failure keep MessageBox open and show deleteError in MessageBox alert.",
+            "Render MessageBox after WindowDialog with title 삭제 확인, Cancel, OK, and okVariant danger.",
+            "Preserve prompt no-execute behavior."
+          ],
+          "pitfalls": [
+            "Cancel must not call any server mutation.",
+            "Do not move delete error into localError; it belongs inside MessageBox.",
+            "MessageBox overlay must block lower CommandPresetDialog controls."
+          ],
+          "test_guidance": [
+            "E2E command Cancel leaves item visible.",
+            "E2E command OK deletes item and shows toast.",
+            "E2E delete failure keeps MessageBox open and item visible."
+          ],
+          "dod": [
+            "All preset kinds require MessageBox before delete.",
+            "Cancel performs no DELETE request.",
+            "DELETE failure displays MessageBox alert and keeps modal open."
+          ],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:command-management", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run lint:command-management", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1. In CommandPresetDialog.tsx remove deleteTarget/deleteBusy/deleteError state and MessageBox render block. 2. Restore handleDelete to immediate deletePreset call. 3. Remove MessageBox-specific CSS from CommandPresetDialog.css. 4. Run npm --prefix frontend run test:e2e:command-management."}
+        },
+        {
+          "id": "TASK-P3-002",
+          "title": "Command management E2E delete confirmation coverage",
+          "related_req_ids": ["FR-DLG-012", "FR-DLG-013", "FR-CMD-009", "AC-019", "AC-021"],
+          "feasibility": "Medium",
+          "owns": [
+            "frontend/tests/e2e/command-management-dialog.spec.ts",
+            "frontend/tests/e2e/helpers.ts"
+          ],
+          "reads": [
+            "frontend/tests/e2e/command-management-dialog.spec.ts",
+            "frontend/tests/e2e/helpers.ts"
+          ],
+          "source_anchors": [
+            "frontend/tests/e2e/command-management-dialog.spec.ts:23-82",
+            "frontend/tests/e2e/command-management-dialog.spec.ts:98-144",
+            "frontend/tests/e2e/helpers.ts:19-31"
+          ],
+          "depends_on": ["TASK-P3-001"],
+          "interfaces": [
+            "expectDeleteMessageBox(page: Page, label: string): Promise<void>"
+          ],
+          "implementation_steps": [
+            "Use getByRole('alertdialog', { name: '삭제 확인' }) for MessageBox.",
+            "Verify aria-describedby points to a message element containing the target label.",
+            "Test Escape, backdrop click, and lower .window-dialog-close do not close MessageBox.",
+            "Test Cancel branch leaves command item visible.",
+            "Test OK branch deletes command, directory, and prompt items.",
+            "Intercept one DELETE request with 500 to verify error alert and open-state retention, then unroute."
+          ],
+          "pitfalls": [
+            "Unroute the failing DELETE interceptor before cleanup.",
+            "Keep e2e-dialog- label prefix to avoid user preset collisions.",
+            "Do not rely on CSS class for OK button; accessible name must be OK."
+          ],
+          "test_guidance": [
+            "success: OK deletes command/directory/prompt.",
+            "failure: Cancel keeps command and DELETE 500 shows alert.",
+            "edge: Escape/backdrop/lower close do not close topmost MessageBox."
+          ],
+          "dod": [
+            "E2E validates title, message, Cancel, OK.",
+            "E2E validates delete failure alert and open state.",
+            "E2E validates MessageBox blocks lower Dialog controls."
+          ],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:command-management", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1. Remove MessageBox-specific assertions and DELETE failure route interception from command-management-dialog.spec.ts. 2. Restore the previous prompt delete assertion shape. 3. Remove helper changes from helpers.ts, then run npm --prefix frontend run test:e2e:command-management."}
+        }
+      ]
+    }
+  ],
+  "spec_mapping": [
+    {"req_id": "FR-DLG-011", "task_ids": ["TASK-P1-001", "TASK-P2-001"]},
+    {"req_id": "FR-DLG-012", "task_ids": ["TASK-P1-001", "TASK-P2-001", "TASK-P3-002"]},
+    {"req_id": "FR-DLG-013", "task_ids": ["TASK-P1-001", "TASK-P3-002"]},
+    {"req_id": "FR-DLG-014", "task_ids": ["TASK-P1-001", "TASK-P2-001", "TASK-P3-002"]},
+    {"req_id": "FR-CMD-009", "task_ids": ["TASK-P3-001", "TASK-P3-002"]},
+    {"req_id": "AC-019", "task_ids": ["TASK-P1-001", "TASK-P2-001", "TASK-P3-002"]},
+    {"req_id": "AC-021", "task_ids": ["TASK-P3-001", "TASK-P3-002"]}
+  ],
+  "dew_path": ".snoworca/dew/planner/plan-20260508-command-preset-delete-messagebox/"
+}

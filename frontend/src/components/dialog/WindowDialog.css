@@ -15,7 +15,9 @@
 .window-dialog-backdrop {
   position: absolute;
   inset: 0;
+  z-index: 5000;
   background: rgba(0, 0, 0, 0.42);
+  pointer-events: auto;
 }
 
 .window-dialog {

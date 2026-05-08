@@ -46,6 +46,14 @@
   align-items: end;
 }
 
+.command-preset-form-prompt {
+  align-items: start;
+}
+
+.command-preset-form-prompt .command-preset-form-actions {
+  align-self: end;
+}
+
 .command-preset-field {
   display: flex;
   flex-direction: column;
@@ -83,6 +91,21 @@
   resize: vertical;
 }
 
+.command-preset-item-label-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 9px;
+  background: #1e1e1e;
+  border: 1px solid #4c4c4c;
+  border-radius: 4px;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .command-preset-value-field {
   min-width: 0;
 }
@@ -112,6 +135,16 @@
   cursor: pointer;
   font-size: 12px;
   white-space: nowrap;
+}
+
+.command-preset-icon-button {
+  width: 32px;
+  min-width: 32px;
+  padding: 0;
+}
+
+.command-preset-action-icon {
+  flex-shrink: 0;
 }
 
 .command-preset-primary-button {
@@ -181,6 +214,7 @@
 
 .command-preset-item-header h3 {
   min-width: 0;
+  width: 100%;
   margin: 0;
   overflow: hidden;
   color: #ffffff;
@@ -201,6 +235,22 @@
 .command-preset-item-textarea {
   min-height: 112px;
   resize: none;
+}
+
+.command-preset-item-label-input:read-only,
+.command-preset-inline-value input:read-only,
+.command-preset-item-textarea:read-only {
+  cursor: default;
+}
+
+.command-preset-item-error {
+  margin-top: 8px;
+  padding: 7px 9px;
+  background: #3b2525;
+  border: 1px solid #6f3a3a;
+  border-radius: 4px;
+  color: #ffb4b4;
+  font-size: 12px;
 }
 
 .command-preset-prompt-actions {

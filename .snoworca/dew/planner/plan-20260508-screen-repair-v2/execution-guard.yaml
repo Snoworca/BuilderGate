@@ -1,0 +1,28 @@
+plan_contract: "1.1.0"
+plan_id: "plan-20260508-screen-repair-v2"
+scope_freeze: true
+spec_path: "docs/srs/buildergate.srs.md"
+research_path: "docs/research/2026-05-08.terminal-screen-repair-v2-recommended-implementation.md"
+output_path: "docs/plan/2026-05-08.terminal-screen-repair-v2.plan.md"
+sidecar_path: "docs/plan/2026-05-08.terminal-screen-repair-v2.plan.md.json"
+pre_commit_gate:
+  - shell: "pwsh"
+    cmd: "npm --prefix server run test"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend run typecheck"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend run build"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend exec playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\""
+    expected_exit: 0
+forbidden_patterns:
+  - pattern: "Grid/workspace repair must not use full screen-snapshot replay"
+  - pattern: "Grid/workspace repair must not call TerminalView.replaceWithSnapshot or term.reset"
+  - pattern: "Terminal scrollback retention settings must not be reduced"
+  - pattern: "Headless degraded repair must reject instead of automatic full snapshot fallback"
+  - pattern: "Repair payload must include active buffer type and cursor metadata"
+  - pattern: "Repair apply failure or ACK timeout must flush queued output without loss"
+  - pattern: "Repair pending queue must not reuse tail-trimming replay queue helper"

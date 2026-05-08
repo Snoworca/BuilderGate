@@ -105,7 +105,8 @@
 }
 
 .header-tools-button {
-  min-width: 58px;
+  width: 52px;
+  min-width: 52px;
 }
 
 /* Hamburger button (mobile only, controlled by React) */

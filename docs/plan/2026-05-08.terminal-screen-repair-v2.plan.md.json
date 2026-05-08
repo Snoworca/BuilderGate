@@ -1,0 +1,242 @@
+{
+  "plan_contract": "1.1.0",
+  "plan_id": "plan-20260508-screen-repair-v2",
+  "title": "Terminal Screen Repair V2 Implementation Plan",
+  "created": "2026-05-08",
+  "spec_path": "docs/srs/buildergate.srs.md",
+  "x-snoworca-code-path": ".",
+  "x-snoworca-research-path": "docs/research/2026-05-08.terminal-screen-repair-v2-recommended-implementation.md",
+  "scope_freeze": true,
+  "change_log": [],
+  "pre_commit_gate": [
+    { "shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0 },
+    { "shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0 },
+    { "shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0 },
+    { "shell": "pwsh", "cmd": "npm --prefix frontend exec playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0 },
+    { "shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0 },
+    { "shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0 },
+    { "shell": "bash", "cmd": "npm --prefix frontend run build", "expected_exit": 0 },
+    { "shell": "bash", "cmd": "npm --prefix frontend exec playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0 }
+  ],
+  "forbidden_patterns": [
+    { "pattern": "적절[히]|필요\\s*시|알아[서]|상황에\\s*맞게|기존\\s*방식대로|어떻게[든]", "flags": "" },
+    { "pattern": "scrollback\\s*:\\s*[0-9]{1,3}\\b", "flags": "i" },
+    { "pattern": "term\\.reset\\(\\).*screen\\s*repair|screen\\s*repair.*term\\.reset\\(", "flags": "i" },
+    { "pattern": "repair.*screen-snapshot|screen-snapshot.*repair", "flags": "i" },
+    { "pattern": "rm\\s+-rf|Remove-Item\\s+.*-Recurse|git\\s+reset\\s+--hard|git\\s+checkout\\s+--", "flags": "i" }
+  ],
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "title": "Protocol and server repair payload",
+      "tasks": [
+        {
+          "id": "TASK-P1-001",
+          "title": "Add screen-repair WebSocket protocol types",
+          "feasibility": "Low",
+          "turn_estimate": 6,
+          "review_strictness": "strict",
+          "spawn_isolation_hint": "inplace",
+          "owns": ["server/src/types/ws-protocol.ts", "frontend/src/types/ws-protocol.ts"],
+          "reads": ["docs/srs/buildergate.srs.md", "docs/research/2026-05-08.terminal-screen-repair-v2-recommended-implementation.md"],
+          "source_anchors": ["server/src/types/ws-protocol.ts:70-113", "frontend/src/types/ws-protocol.ts:70-113", "docs/srs/buildergate.srs.md:213-232", "docs/research/2026-05-08.terminal-screen-repair-v2-recommended-implementation.md:77-153"],
+          "depends_on": [],
+          "notes": "Protocol must include clientAtBottom, clientBufferType, bufferType in response, screen-repair:ready, and screen-repair:failed. Do not reuse ScreenSnapshotMessage.data for repair payload.",
+          "acceptance_tests": [
+            { "shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0 },
+            { "shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0 },
+            { "shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0 },
+            { "shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0 }
+          ],
+          "rollback": { "strategy": "manual", "command": "1. Remove screen-repair related interfaces from server/src/types/ws-protocol.ts. 2. Remove the matching frontend type additions from frontend/src/types/ws-protocol.ts." }
+        },
+        {
+          "id": "TASK-P1-002",
+          "title": "Create viewport-only headless repair payload generator",
+          "feasibility": "High",
+          "turn_estimate": 14,
+          "review_strictness": "strict",
+          "spawn_isolation_hint": "inplace",
+          "owns": ["server/src/utils/headlessTerminal.ts", "server/src/services/SessionManager.ts", "server/src/test-runner.ts"],
+          "reads": ["server/src/utils/headlessTerminal.ts", "server/src/services/SessionManager.ts", "docs/research/2026-05-08.terminal-screen-repair-v2-recommended-implementation.md"],
+          "source_anchors": ["server/src/utils/headlessTerminal.ts:1-74", "server/src/services/SessionManager.ts:989-1038", "server/src/services/SessionManager.ts:1688-1760", "server/src/services/SessionManager.ts:2098-2155", "server/src/services/SessionManager.ts:2228-2299", "docs/research/2026-05-08.terminal-screen-repair-v2-recommended-implementation.md:153-193"],
+          "depends_on": ["TASK-P1-001"],
+          "notes": "Repair payload generation must use active viewport buffer lines and cell attributes. Do not use SerializeAddon.serialize({ scrollback: 0 }) as the repair patch source. Include SGR color/style, cursor metadata, and active buffer type tests.",
+          "acceptance_tests": [
+            { "shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0, "stdout_regex": "screen repair" },
+            { "shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0, "stdout_regex": "screen repair" }
+          ],
+          "rollback": { "strategy": "manual", "command": "1. Remove serializeHeadlessScreenRepair from server/src/utils/headlessTerminal.ts. 2. Remove getScreenRepair and related tests from server/src/services/SessionManager.ts and server/src/test-runner.ts." }
+        },
+        {
+          "id": "TASK-P1-003",
+          "title": "Add WsRouter screen-repair lifecycle",
+          "feasibility": "High",
+          "turn_estimate": 16,
+          "review_strictness": "strict",
+          "spawn_isolation_hint": "inplace",
+          "owns": ["server/src/ws/WsRouter.ts", "server/src/test-runner.ts"],
+          "reads": ["server/src/ws/WsRouter.ts", "server/src/services/SessionManager.ts", "server/src/types/ws-protocol.ts"],
+          "source_anchors": ["server/src/ws/WsRouter.ts:150-190", "server/src/ws/WsRouter.ts:467-485", "server/src/ws/WsRouter.ts:532-668", "server/src/ws/WsRouter.ts:944-988", "server/src/test-runner.ts:4448-4652"],
+          "depends_on": ["TASK-P1-001", "TASK-P1-002"],
+          "notes": "screen-repair pending must be separate from screen-snapshot replay pending. ACK success, screen-repair:failed, ACK timeout, and repair queue overflow must preserve output order. Do not reuse the current replay appendQueuedOutput tail-trim helper for repair; overflow must abort repair and flush queued plus current output without silent truncation. stale tokens must not flush.",
+          "acceptance_tests": [
+            { "shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0, "stdout_regex": "WsRouter" },
+            { "shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0, "stdout_regex": "WsRouter" }
+          ],
+          "rollback": { "strategy": "manual", "command": "1. Remove screen-repair cases and helper methods from server/src/ws/WsRouter.ts. 2. Remove repair pending state tests from server/src/test-runner.ts while leaving legacy repair-replay tests unchanged." }
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-2",
+      "title": "Frontend non-destructive repair application",
+      "tasks": [
+        {
+          "id": "TASK-P2-001",
+          "title": "Add TerminalView screen repair apply API",
+          "feasibility": "High",
+          "turn_estimate": 12,
+          "review_strictness": "strict",
+          "spawn_isolation_hint": "inplace",
+          "owns": ["frontend/src/components/Terminal/TerminalView.tsx"],
+          "reads": ["frontend/src/components/Terminal/TerminalView.tsx", "frontend/src/types/ws-protocol.ts"],
+          "source_anchors": ["frontend/src/components/Terminal/TerminalView.tsx:99-115", "frontend/src/components/Terminal/TerminalView.tsx:723-723", "frontend/src/components/Terminal/TerminalView.tsx:1151-1186", "frontend/src/components/Terminal/TerminalView.tsx:1240-1274", "frontend/src/components/Terminal/TerminalView.tsx:1318-1335"],
+          "depends_on": ["TASK-P1-001"],
+          "notes": "Add getScreenRepairReadiness and applyScreenRepair. Request and apply must reject/defer IME, input capture, user scrollback, geometry mismatch, and buffer mismatch. applyScreenRepair must not call term.reset, replaceWithSnapshot, scrollToBottom, or snapshot cache update.",
+          "acceptance_tests": [
+            { "shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0 },
+            { "shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0 }
+          ],
+          "rollback": { "strategy": "manual", "command": "1. Remove applyScreenRepair from TerminalHandle and useImperativeHandle in frontend/src/components/Terminal/TerminalView.tsx. 2. Remove related debug event names." }
+        },
+        {
+          "id": "TASK-P2-002",
+          "title": "Switch TerminalContainer grid repair to screen-repair",
+          "feasibility": "High",
+          "turn_estimate": 14,
+          "review_strictness": "strict",
+          "spawn_isolation_hint": "inplace",
+          "owns": ["frontend/src/components/Terminal/TerminalContainer.tsx"],
+          "reads": ["frontend/src/components/Terminal/TerminalContainer.tsx", "frontend/src/contexts/WebSocketContext.tsx", "frontend/src/types/ws-protocol.ts"],
+          "source_anchors": ["frontend/src/components/Terminal/TerminalContainer.tsx:874-970", "frontend/src/components/Terminal/TerminalContainer.tsx:1108-1170", "frontend/src/components/Terminal/TerminalContainer.tsx:1338-1362", "frontend/src/contexts/WebSocketContext.tsx:118-146", "frontend/src/contexts/WebSocketContext.tsx:263-280"],
+          "depends_on": ["TASK-P2-001", "TASK-P1-003"],
+          "notes": "Do not skip repair permanently when lastResizeRef is absent; use TerminalView geometry/readiness or defer until geometry exists. Wire manual, workspace, and resize reasons. Suppress duplicate automatic screen-repair requests for same session/cols/rows/reason while preserving manual repair availability. Send screen-repair:failed on apply failure.",
+          "acceptance_tests": [
+            { "shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0 },
+            { "shell": "pwsh", "cmd": "npm --prefix frontend exec playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0 },
+            { "shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0 },
+            { "shell": "bash", "cmd": "npm --prefix frontend exec playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0 }
+          ],
+          "rollback": { "strategy": "manual", "command": "1. Restore requestRepairReplay naming and repair-replay send path in frontend/src/components/Terminal/TerminalContainer.tsx. 2. Remove screen repair message handlers added by this task." }
+        },
+        {
+          "id": "TASK-P2-003",
+          "title": "Pass screen-repair messages through WebSocket context",
+          "feasibility": "Medium",
+          "turn_estimate": 8,
+          "review_strictness": "default",
+          "spawn_isolation_hint": "inplace",
+          "owns": ["frontend/src/contexts/WebSocketContext.tsx"],
+          "reads": ["frontend/src/contexts/WebSocketContext.tsx", "frontend/src/types/ws-protocol.ts"],
+          "source_anchors": ["frontend/src/contexts/WebSocketContext.tsx:118-146", "frontend/src/contexts/WebSocketContext.tsx:263-280", "frontend/src/types/ws-protocol.ts:70-113"],
+          "depends_on": ["TASK-P1-001"],
+          "acceptance_tests": [
+            { "shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0 },
+            { "shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0 }
+          ],
+          "rollback": { "strategy": "manual", "command": "1. Remove onScreenRepair and onScreenRepairRejected from SessionHandlers. 2. Remove screen repair cases from frontend/src/contexts/WebSocketContext.tsx." }
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-3",
+      "title": "Regression tests and observability",
+      "tasks": [
+        {
+          "id": "TASK-P3-001",
+          "title": "Add server repair protocol regression tests",
+          "feasibility": "Medium",
+          "turn_estimate": 10,
+          "review_strictness": "strict",
+          "spawn_isolation_hint": "inplace",
+          "owns": ["server/src/test-runner.ts"],
+          "reads": ["server/src/test-runner.ts", "server/src/ws/WsRouter.ts", "server/src/utils/headlessTerminal.ts"],
+          "source_anchors": ["server/src/test-runner.ts:143-183", "server/src/test-runner.ts:3555-3650", "server/src/test-runner.ts:4448-4652", "server/src/ws/WsRouter.ts:532-668"],
+          "depends_on": ["TASK-P1-002", "TASK-P1-003"],
+          "notes": "Tests must cover viewport-only bounds, no scrollback marker, SGR color/style, cursor metadata, alternate buffer mismatch, degraded reject, ACK flush, failed flush, timeout flush, repair queue overflow abort without tail trim, stale token, replay-pending reject, and legacy repair-replay isolation.",
+          "acceptance_tests": [
+            { "shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0, "stdout_regex": "screen repair" },
+            { "shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0, "stdout_regex": "screen repair" }
+          ],
+          "rollback": { "strategy": "manual", "command": "1. Remove newly added screen repair tests from server/src/test-runner.ts. 2. Remove test registry entries for those functions." }
+        },
+        {
+          "id": "TASK-P3-002",
+          "title": "Update grid repair Playwright coverage",
+          "feasibility": "Medium",
+          "turn_estimate": 8,
+          "review_strictness": "default",
+          "spawn_isolation_hint": "inplace",
+          "owns": ["frontend/tests/e2e/grid-equal-mode.spec.ts"],
+          "reads": ["frontend/tests/e2e/grid-equal-mode.spec.ts", "frontend/src/components/Terminal/TerminalContainer.tsx"],
+          "source_anchors": ["frontend/tests/e2e/grid-equal-mode.spec.ts:481-548", "frontend/tests/e2e/grid-equal-mode.spec.ts:1524-1592", "frontend/tests/e2e/grid-equal-mode.spec.ts:1630-1655"],
+          "depends_on": ["TASK-P2-002", "TASK-P2-003"],
+          "notes": "E2E must assert resize before screen-repair, no screen-snapshot during Grid/workspace repair, no repair-replay from Grid paths, duplicate automatic resize and screen-repair suppression, and resize reason repair after tile resize.",
+          "acceptance_tests": [
+            { "shell": "pwsh", "cmd": "npm --prefix frontend exec playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0 },
+            { "shell": "bash", "cmd": "npm --prefix frontend exec playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0 }
+          ],
+          "rollback": { "strategy": "manual", "command": "1. Revert only the screen-repair expectation changes in frontend/tests/e2e/grid-equal-mode.spec.ts. 2. Keep unrelated Equal mode tests untouched." }
+        },
+        {
+          "id": "TASK-P3-003",
+          "title": "Add long scrollback repair E2E guard",
+          "feasibility": "High",
+          "turn_estimate": 12,
+          "review_strictness": "strict",
+          "spawn_isolation_hint": "inplace",
+          "owns": ["frontend/tests/e2e/grid-equal-mode.spec.ts"],
+          "reads": ["frontend/tests/e2e/grid-equal-mode.spec.ts", "docs/srs/buildergate.srs.md"],
+          "source_anchors": ["frontend/tests/e2e/grid-equal-mode.spec.ts:481-548", "frontend/tests/e2e/grid-equal-mode.spec.ts:1524-1592", "docs/srs/buildergate.srs.md:584-597"],
+          "depends_on": ["TASK-P3-002"],
+          "notes": "Long scrollback E2E must assert bounded viewportRows, bufferType/cursor metadata, scrollback preservation, visible tail preservation, no screen-snapshot, no repair-replay, and request-side defer while user is scrolled up.",
+          "acceptance_tests": [
+            { "shell": "pwsh", "cmd": "npm --prefix frontend exec playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0 },
+            { "shell": "bash", "cmd": "npm --prefix frontend exec playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0 }
+          ],
+          "rollback": { "strategy": "manual", "command": "1. Remove TC-6620 and helper additions from frontend/tests/e2e/grid-equal-mode.spec.ts. 2. Leave TC-6611 through TC-6616 changes in place unless the protocol rollback is also being performed." }
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-4",
+      "title": "Final verification and docs sync",
+      "tasks": [
+        {
+          "id": "TASK-P4-001",
+          "title": "Run final validation gates and review changed contracts",
+          "feasibility": "Low",
+          "turn_estimate": 6,
+          "review_strictness": "strict",
+          "spawn_isolation_hint": "inplace",
+          "owns": ["docs/plan/2026-05-08.terminal-screen-repair-v2.plan.md", "docs/plan/2026-05-08.terminal-screen-repair-v2.plan.md.json"],
+          "reads": ["docs/srs/buildergate.srs.md", "docs/research/2026-05-08.terminal-screen-repair-v2-recommended-implementation.md"],
+          "source_anchors": ["docs/srs/buildergate.srs.md:213-232", "docs/srs/buildergate.srs.md:265-270", "docs/srs/buildergate.srs.md:584-597", "docs/research/2026-05-08.terminal-screen-repair-v2-recommended-implementation.md:305-327", "docs/research/2026-05-08.terminal-screen-repair-v2-recommended-implementation.md:385-400"],
+          "depends_on": ["TASK-P3-001", "TASK-P3-002", "TASK-P3-003"],
+          "acceptance_tests": [
+            { "shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0 },
+            { "shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0 },
+            { "shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0 },
+            { "shell": "pwsh", "cmd": "npm --prefix frontend exec playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0 },
+            { "shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0 },
+            { "shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0 },
+            { "shell": "bash", "cmd": "npm --prefix frontend run build", "expected_exit": 0 },
+            { "shell": "bash", "cmd": "npm --prefix frontend exec playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0 }
+          ],
+          "rollback": { "strategy": "none", "command": "Plan artifact only. Implementation rollback is handled by the owning task rollback entries." }
+        }
+      ]
+    }
+  ]
+}

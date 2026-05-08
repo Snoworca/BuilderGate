@@ -1,0 +1,84 @@
+.message-box-dialog .window-dialog-body {
+  display: flex;
+  min-height: 0;
+}
+
+.message-box-content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  padding: 18px;
+  gap: 12px;
+}
+
+.message-box-message {
+  margin: 0;
+  color: #e6e6e6;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.message-box-error {
+  padding: 8px 10px;
+  background: #3b2525;
+  border: 1px solid #6f3a3a;
+  border-radius: 4px;
+  color: #ffb4b4;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.message-box-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+  gap: 8px;
+}
+
+.message-box-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 76px;
+  height: 32px;
+  padding: 0 12px;
+  background: transparent;
+  border: 1px solid #4c4c4c;
+  border-radius: 4px;
+  color: #d4d4d4;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.message-box-button:hover:not(:disabled) {
+  background: #3c3c3c;
+  border-color: #5c5c5c;
+  color: #ffffff;
+}
+
+.message-box-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.message-box-ok-button-primary {
+  background: #365f42;
+  border-color: #4b815c;
+  color: #ffffff;
+}
+
+.message-box-ok-button-primary:hover:not(:disabled) {
+  background: #40714e;
+}
+
+.message-box-ok-button-danger {
+  background: #713536;
+  border-color: #9a4a4c;
+  color: #ffffff;
+}
+
+.message-box-ok-button-danger:hover:not(:disabled) {
+  background: #823f40;
+}
