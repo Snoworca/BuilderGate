@@ -25,6 +25,12 @@ import {
   ImeTransaction,
   type ImeDeferredKind,
 } from '../../utils/imeTransaction';
+import {
+  buildTerminalShortcutKeyDescriptor,
+  describeTerminalShortcutKey,
+  resolveTerminalShortcut,
+} from '../../utils/terminalShortcutBindings';
+import type { TerminalShortcutState } from '../../types';
 import type {
   InputDebugMetadata,
   ReconnectState,
@@ -145,6 +151,8 @@ export type ScreenRepairApplyResult =
 
 interface Props {
   sessionId: string;
+  workspaceId: string;
+  terminalShortcutState: TerminalShortcutState | null;
   isVisible: boolean;
   onInput: (data: string, metadata?: InputDebugMetadata) => void;
   onResize: (cols: number, rows: number) => void;
@@ -159,7 +167,7 @@ interface TerminalSnapshot {
 }
 
 export const TerminalView = forwardRef<TerminalHandle, Props>(
-  ({ sessionId, isVisible, onInput, onResize, onManualRepair }, ref) => {
+  ({ sessionId, workspaceId, terminalShortcutState, isVisible, onInput, onResize, onManualRepair }, ref) => {
     const terminalRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
@@ -198,6 +206,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const terminalDisposedRef = useRef(true);
     const pendingFocusRestoreRef = useRef(false);
     const isVisibleRef = useRef(isVisible);
+    const workspaceIdRef = useRef(workspaceId);
+    const terminalShortcutStateRef = useRef<TerminalShortcutState | null>(terminalShortcutState);
     const previousVisibilityRef = useRef(isVisible);
     const bufferedOutputRef = useRef<string[]>([]);
     const inFlightOutputRef = useRef<string[]>([]);
@@ -579,7 +589,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       source: string,
     ) => {
       if (transportReadyRef.current) {
-        recordTerminalDebugEvent(sessionId, source === 'imperative' ? 'imperative_input_sent' : 'xterm_data_emitted', debugInput.details, debugInput.preview);
+        const sentEventKind = source === 'imperative'
+          ? 'imperative_input_sent'
+          : source === 'shortcut-binding'
+            ? 'shortcut_binding_sent'
+            : 'xterm_data_emitted';
+        recordTerminalDebugEvent(sessionId, sentEventKind, debugInput.details, debugInput.preview);
         onInput(data, buildClientInputDebugMetadata(debugInput.details));
         return;
       }
@@ -1592,6 +1607,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         // 여기서는 xterm이 \x16(Ctrl+V 문자)을 전송하지 않도록 차단만 한다.
         // 이 핸들러에서 직접 onInput을 호출하면 paste 이벤트와 이중 붙여넣기 발생.
         if (ev.ctrlKey && !ev.altKey && !ev.metaKey && ev.key.toLowerCase() === 'v') {
+          recordTerminalDebugEvent(sessionId, 'shortcut_binding_skipped', {
+            reason: 'reserved',
+            shortcutLabel: 'Ctrl+V',
+            pasteGuard: true,
+          });
           return false;
         }
 
@@ -1616,6 +1636,65 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             compositionSeq: imeSnapshot?.compositionSeq ?? null,
           });
           return true;
+        }
+
+        const shortcutDescriptor = buildTerminalShortcutKeyDescriptor(ev);
+        const shortcutLabel = describeTerminalShortcutKey(shortcutDescriptor);
+        const shortcutResolution = resolveTerminalShortcut({
+          event: shortcutDescriptor,
+          state: terminalShortcutStateRef.current,
+          workspaceId: workspaceIdRef.current,
+          sessionId,
+          imeActive: false,
+          hasSelection: term.hasSelection(),
+        });
+        const shortcutDetails = {
+          shortcutLabel,
+          shortcutCode: shortcutDescriptor.code,
+          ctrlKey: shortcutDescriptor.ctrlKey,
+          shiftKey: shortcutDescriptor.shiftKey,
+          altKey: shortcutDescriptor.altKey,
+          metaKey: shortcutDescriptor.metaKey,
+          location: shortcutDescriptor.location,
+          repeat: shortcutDescriptor.repeat ?? false,
+        };
+
+        if (shortcutResolution.kind === 'matched') {
+          recordTerminalDebugEvent(sessionId, 'shortcut_binding_matched', {
+            ...shortcutDetails,
+            bindingId: shortcutResolution.bindingId,
+            bindingSource: shortcutResolution.source,
+            actionType: shortcutResolution.action.type,
+          });
+
+          if (shortcutResolution.action.type === 'send') {
+            ev.preventDefault();
+            const debugInput = buildTerminalInputDebugPayload(shortcutResolution.action.data, {
+              captureSeq: nextCaptureSeq(),
+            });
+            submitCapturedInput(shortcutResolution.action.data, debugInput, 'shortcut-binding');
+            return false;
+          }
+
+          recordTerminalDebugEvent(sessionId, 'shortcut_binding_blocked', {
+            ...shortcutDetails,
+            bindingId: shortcutResolution.bindingId,
+            bindingSource: shortcutResolution.source,
+          });
+          ev.preventDefault();
+          return false;
+        }
+
+        if (shortcutResolution.kind === 'skipped') {
+          recordTerminalDebugEvent(sessionId, 'shortcut_binding_skipped', {
+            ...shortcutDetails,
+            reason: shortcutResolution.reason,
+          });
+        } else if (shortcutResolution.reason === 'action-pass-through') {
+          recordTerminalDebugEvent(sessionId, 'shortcut_binding_passed_through', {
+            ...shortcutDetails,
+            reason: shortcutResolution.reason,
+          });
         }
 
         const isPlainKey = !ev.ctrlKey && !ev.altKey && !ev.metaKey;
@@ -1918,6 +1997,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       submitCapturedInput,
       syncInputReadiness,
     ]);
+
+    useEffect(() => {
+      workspaceIdRef.current = workspaceId;
+      terminalShortcutStateRef.current = terminalShortcutState;
+    }, [terminalShortcutState, workspaceId]);
 
     useEffect(() => {
       const wasVisible = previousVisibilityRef.current;

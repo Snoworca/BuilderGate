@@ -26,7 +26,13 @@ import type {
   CommandPresetListResponse,
   CreateCommandPresetRequest,
   UpdateCommandPresetRequest,
-  CommandPresetKind
+  CommandPresetKind,
+  CreateTerminalShortcutBindingRequest,
+  ResetTerminalShortcutScopeRequest,
+  SetTerminalShortcutProfileRequest,
+  TerminalShortcutBinding,
+  TerminalShortcutState,
+  UpdateTerminalShortcutBindingRequest
 } from '../types';
 import type {
   GridLayout,
@@ -503,5 +509,78 @@ export const commandPresetApi = {
       body: JSON.stringify({ kind, presetIds }),
     });
     if (!res.ok) throw await parseError(res);
+  },
+};
+
+export const terminalShortcutApi = {
+  getState: async (): Promise<TerminalShortcutState> => {
+    const res = await authFetch(`${API_BASE}/terminal-shortcuts`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  setProfile: async (input: SetTerminalShortcutProfileRequest): Promise<TerminalShortcutState> => {
+    const res = await authFetch(`${API_BASE}/terminal-shortcuts/profile`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  createBinding: async (input: CreateTerminalShortcutBindingRequest): Promise<TerminalShortcutBinding> => {
+    const res = await authFetch(`${API_BASE}/terminal-shortcuts/bindings`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  updateBinding: async (
+    id: string,
+    input: UpdateTerminalShortcutBindingRequest,
+  ): Promise<TerminalShortcutBinding> => {
+    const res = await authFetch(`${API_BASE}/terminal-shortcuts/bindings/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  deleteBinding: async (id: string): Promise<void> => {
+    const res = await authFetch(`${API_BASE}/terminal-shortcuts/bindings/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+  },
+
+  reset: async (input: ResetTerminalShortcutScopeRequest): Promise<TerminalShortcutState> => {
+    const res = await authFetch(`${API_BASE}/terminal-shortcuts/reset`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
   },
 };

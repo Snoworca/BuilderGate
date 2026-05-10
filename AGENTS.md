@@ -45,3 +45,9 @@
 - 모든 버그 수정은 반드시 회귀 테스트를 추가해야 한다. 재현 케이스, 수정 후 성공 케이스, 그리고 경계/엣지 케이스를 포함해야 한다.
 - 관련 테스트는 개발 중간에만이 아니라 작업 완료 시점에도 반드시 다시 실행해야 한다.
 - For substantial or multi-phase work, consult an existing plan first or create a minimal plan before implementation so the work can be resumed safely.
+
+# SpecKiwi SRS workflow
+
+This repository stores requirements as Markdown SRS documents under `docs/spec/`. For detailed authoring and validation rules, read [the rules document](docs/rule/SRS-MD-Rules-v1.0.0.md).
+
+Prefer SpecKiwi MCP tools when configured. Use the `speckiwi` CLI fallback when MCP is unavailable. Never bypass SRS-MD rules or create an alternate requirements source of truth.

@@ -1,0 +1,52 @@
+plan_contract: "1.1.0"
+plan_id: "plan-20260510-terminal-shortcut-manager"
+scope_freeze: true
+change_log: []
+pre_commit_gate:
+  - shell: "pwsh"
+    cmd: "npm --prefix server run build"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix server run test"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend run typecheck"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend run lint:terminal-shortcuts"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend run test:unit:terminal-shortcuts"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend run build"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend run test:e2e:terminal-shortcuts"
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "npm --prefix server run build"
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "npm --prefix server run test"
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "npm --prefix frontend run typecheck"
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "npm --prefix frontend run lint:terminal-shortcuts"
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "npm --prefix frontend run test:unit:terminal-shortcuts"
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "npm --prefix frontend run build"
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "npm --prefix frontend run test:e2e:terminal-shortcuts"
+    expected_exit: 0
+forbidden_patterns:
+  - pattern: "적절[히]|필요\\s*시|알아[서]|상황에\\s*맞게|기존\\s*방식대로|어떻게[든]"
+    flags: ""
+  - pattern: "rm\\s+-rf|Remove-Item\\s+.*-Recurse|git\\s+reset\\s+--hard|git\\s+checkout\\s+--"
+    flags: "i"

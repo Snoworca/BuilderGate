@@ -53,9 +53,12 @@ server/data/workspaces.json
 server/data/workspaces.json.bak
 server/data/command-presets.json
 server/data/command-presets.json.bak
+server/data/terminal-shortcuts.json
+server/data/terminal-shortcuts.json.bak
 server/data/snapshots/
 server/data/buffer-dump/
 server/data/*.log
+runtime/
 
 # TOTP secret
 server/data/totp.secret

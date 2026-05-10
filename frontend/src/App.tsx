@@ -22,11 +22,16 @@ import { MosaicContainer } from './components/Grid';
 import { MetadataRow } from './components/MetadataBar/MetadataRow';
 import { ContextMenu } from './components/ContextMenu';
 import { CommandPresetDialog } from './components/CommandPresetManager';
+import {
+  TerminalShortcutDialog,
+  TerminalShortcutProvider,
+  useTerminalShortcutContext,
+} from './components/TerminalShortcutManager';
 import { buildTerminalContextMenuItems } from './utils/contextMenuBuilder';
 import { TAB_COLORS } from './types/workspace';
 import { resolveCwd } from './utils/shell';
 import type { WorkspaceTabRuntime } from './types/workspace';
-import type { ShellInfo } from './types';
+import type { ShellInfo, TerminalShortcutState } from './types';
 import { WebSocketProvider } from './contexts/WebSocketContext';
 import './styles/globals.css';
 import './components/Workspace/breathing.css';
@@ -42,6 +47,7 @@ function TerminalWorkspaceStage({
   onCwdChange,
   onAuthError,
   onFitAll,
+  terminalShortcutState,
 }: {
   children: (onLayoutChange: () => void) => React.ReactNode;
   tabs: WorkspaceTabRuntime[];
@@ -50,6 +56,7 @@ function TerminalWorkspaceStage({
   onCwdChange: (sessionId: string, cwd: string) => void;
   onAuthError: () => void;
   onFitAll: () => void;
+  terminalShortcutState: TerminalShortcutState | null;
 }) {
   const { invalidateHostLayouts } = useTerminalRuntimeContext();
 
@@ -71,6 +78,7 @@ function TerminalWorkspaceStage({
         onStatusChange={onStatusChange}
         onCwdChange={onCwdChange}
         onAuthError={onAuthError}
+        terminalShortcutState={terminalShortcutState}
       />
     </div>
   );
@@ -78,10 +86,12 @@ function TerminalWorkspaceStage({
 
 function AppContent() {
   const { logout } = useAuth();
+  const terminalShortcuts = useTerminalShortcutContext();
   const [screen, setScreen] = useState<'workspace' | 'settings'>('workspace');
   const { isMobile, sidebarOpen, toggleSidebar, closeSidebar } = useResponsive();
   const [availableShells, setAvailableShells] = useState<ShellInfo[]>([]);
   const [showCommandPresetDialog, setShowCommandPresetDialog] = useState(false);
+  const [showTerminalShortcutDialog, setShowTerminalShortcutDialog] = useState(false);
 
   const wm = useWorkspaceManager();
   // Stable ref to avoid re-creating callbacks on every render
@@ -166,7 +176,7 @@ function AppContent() {
   }, [pendingDeleteWorkspace]);
 
   const handleRenameWorkspace = useCallback((id: string, name: string) => {
-    wmRef.current.updateWorkspace(id, { name } as any);
+    wmRef.current.updateWorkspace(id, { name });
   }, []);
 
   // ============================================================================
@@ -415,6 +425,7 @@ function AppContent() {
         viewMode={viewMode}
         onToggleViewMode={wm.activeWorkspace ? handleToggleViewMode : undefined}
         onOpenCommandPresetManager={() => setShowCommandPresetDialog(true)}
+        onOpenTerminalShortcutManager={() => setShowTerminalShortcutDialog(true)}
       />
       <div className="main">
         {/* Desktop sidebar */}
@@ -458,6 +469,7 @@ function AppContent() {
                     onCwdChange={handleCwdChange}
                     onAuthError={handleAuthError}
                     onFitAll={handleFitAllTerminals}
+                    terminalShortcutState={terminalShortcuts.state}
                   >
                     {(handleLayoutChange: () => void) => wm.activeWorkspaceTabs.length > 0 ? (
                       <>
@@ -575,6 +587,17 @@ function AppContent() {
         />
       )}
 
+      {showTerminalShortcutDialog && (
+        <TerminalShortcutDialog
+          open={showTerminalShortcutDialog}
+          activeTabId={activeTab?.id ?? null}
+          activeWorkspaceId={wm.activeWorkspaceId}
+          activeSessionId={activeTab?.sessionId ?? null}
+          onClose={() => setShowTerminalShortcutDialog(false)}
+          onSendTerminalInput={sendTerminalInput}
+        />
+      )}
+
       {/* Confirm close tab */}
       {pendingCloseTabId && (
         <ConfirmModal
@@ -607,7 +630,9 @@ function App() {
   return (
     <AuthGuard>
       <WebSocketProvider>
-        <AppContent />
+        <TerminalShortcutProvider>
+          <AppContent />
+        </TerminalShortcutProvider>
       </WebSocketProvider>
     </AuthGuard>
   );

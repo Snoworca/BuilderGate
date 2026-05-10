@@ -12,6 +12,9 @@
     "lint:command-management": "eslint src/components/dialog src/components/Header src/components/CommandPresetManager src/services/api.ts src/types tests/unit/dialogGeometry.test.ts tests/unit/dialogStack.test.ts tests/unit/windowDialogContract.test.ts tests/unit/messageBoxContract.test.ts tests/unit/commandPresetExecution.test.ts tests/e2e/command-management-dialog.spec.ts",
     "test:unit:command-management": "node --experimental-strip-types --test tests/unit/dialogGeometry.test.ts tests/unit/dialogStack.test.ts tests/unit/windowDialogContract.test.ts tests/unit/messageBoxContract.test.ts tests/unit/commandPresetExecution.test.ts",
     "test:e2e:command-management": "playwright test tests/e2e/command-management-dialog.spec.ts --project \"Desktop Chrome\"",
+    "lint:terminal-shortcuts": "eslint src/App.tsx src/components/dialog src/components/Header src/components/Terminal/TerminalContainer.tsx src/components/Terminal/TerminalRuntimeLayer.tsx src/components/TerminalShortcutManager src/services/api.ts src/types src/utils/terminalShortcutBindings.ts tests/unit/windowDialogContract.test.ts tests/unit/terminalShortcutBindings.test.ts tests/e2e/terminal-shortcut-manager.spec.ts",
+    "test:unit:terminal-shortcuts": "node --experimental-strip-types --test tests/unit/windowDialogContract.test.ts tests/unit/terminalShortcutBindings.test.ts",
+    "test:e2e:terminal-shortcuts": "node tools/prepare-terminal-shortcut-e2e.cjs && playwright test tests/e2e/terminal-shortcut-manager.spec.ts --project \"Desktop Chrome\"",
     "postinstall": "patch-package",
     "preview": "vite preview"
   },

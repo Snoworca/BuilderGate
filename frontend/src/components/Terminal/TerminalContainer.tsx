@@ -4,6 +4,7 @@ import type { SendResult } from '../../contexts/WebSocketContext';
 import { useTerminalRuntimeContext } from './TerminalRuntimeContext';
 import { TerminalView } from './TerminalView';
 import type { GridRepairReason, TerminalHandle } from './TerminalView';
+import type { TerminalShortcutState } from '../../types';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import {
   buildClientInputDebugMetadata,
@@ -83,6 +84,8 @@ function inputContainsEnter(raw: string): boolean {
 
 interface Props {
   sessionId: string;
+  workspaceId: string;
+  terminalShortcutState: TerminalShortcutState | null;
   isVisible: boolean;
   isGridSurface: boolean;
   onStatusChange: (sessionId: string, status: WorkspaceTabRuntime['status']) => void;
@@ -92,6 +95,8 @@ interface Props {
 
 function propsAreEqual(prev: Props, next: Props): boolean {
   return prev.sessionId === next.sessionId
+    && prev.workspaceId === next.workspaceId
+    && prev.terminalShortcutState === next.terminalShortcutState
     && prev.isVisible === next.isVisible
     && prev.isGridSurface === next.isGridSurface;
 }
@@ -117,7 +122,7 @@ interface SnapshotPayload {
 
 export const TerminalContainer = memo(
   forwardRef<TerminalHandle, Props>(function TerminalContainer(
-    { sessionId, isVisible, isGridSurface, onStatusChange, onCwdChange },
+    { sessionId, workspaceId, terminalShortcutState, isVisible, isGridSurface, onStatusChange, onCwdChange },
     ref
   ) {
     const terminalRef = useRef<TerminalHandle>(null);
@@ -1550,6 +1555,8 @@ export const TerminalContainer = memo(
         <TerminalView
           ref={terminalRef}
           sessionId={sessionId}
+          workspaceId={workspaceId}
+          terminalShortcutState={terminalShortcutState}
           isVisible={isVisible}
           onInput={handleInput}
           onResize={handleResize}

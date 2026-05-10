@@ -32,6 +32,7 @@ export function WindowDialog({
   resizable,
   persistGeometry,
   surfaceClassName,
+  keyboardCapture,
 }: WindowDialogProps) {
   const [rect, setRect] = useState<DialogRect>(() =>
     readDialogGeometry(dialogId, defaultRect, getViewportSize(), minSize),
@@ -111,6 +112,12 @@ export function WindowDialog({
     const animationFrame = requestAnimationFrame(focusFirstDialogElement);
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (keyboardCapture?.active && keyboardCapture.onKeyDown(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
@@ -152,7 +159,7 @@ export function WindowDialog({
       document.removeEventListener('keydown', handleKeyDown, true);
       document.removeEventListener('focusin', handleFocusIn, true);
     };
-  }, [mode, stackState.isTopmost]);
+  }, [keyboardCapture, mode, stackState.isTopmost]);
 
   useEffect(() => {
     const handleResize = () => {

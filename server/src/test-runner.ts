@@ -24,6 +24,7 @@ import { FileService } from './services/FileService.js';
 import { OscDetector } from './services/OscDetector.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
 import { CommandPresetService } from './services/CommandPresetService.js';
+import { TerminalShortcutService } from './services/TerminalShortcutService.js';
 import {
   createHeadlessTerminalState,
   disposeHeadlessTerminal,
@@ -35,10 +36,13 @@ import {
 import { truncateTerminalPayloadTail } from './utils/terminalPayload.js';
 import { WsRouter } from './ws/WsRouter.js';
 import { AppError, ErrorCode } from './utils/errors.js';
+import type { CreateTerminalShortcutBindingInput } from './types/terminalShortcut.types.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
 import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js';
 import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
+import { createTerminalShortcutRoutes } from './routes/terminalShortcutRoutes.js';
 import sessionRoutes from './routes/sessionRoutes.js';
+import { createAuthMiddleware } from './middleware/authMiddleware.js';
 import { ensureDebugCaptureSessionExists, requireLocalDebugCapture } from './middleware/debugCaptureGuards.js';
 import { performGracefulShutdown } from './services/gracefulShutdown.js';
 import {
@@ -207,6 +211,9 @@ async function main(): Promise<void> {
     { name: 'CommandPresetService persists CRUD operations and per-kind reorder', run: testCommandPresetServiceCrudAndReorder },
     { name: 'CommandPresetService serializes concurrent mutations', run: testCommandPresetServiceConcurrentCreates },
     { name: 'command preset routes expose CRUD and reject invalid order payloads', run: testCommandPresetRoutesCrudAndValidation },
+    { name: 'TerminalShortcutService persists CRUD operations and validates reserved shortcuts', run: testTerminalShortcutServiceCrudValidationAndRecovery },
+    { name: 'TerminalShortcutService serializes concurrent binding creates', run: testTerminalShortcutServiceConcurrentCreates },
+    { name: 'terminal shortcut routes expose authenticated CRUD and reject unauthenticated requests', run: testTerminalShortcutRoutesCrudValidationAndAuth },
     { name: 'FileService.updateConfig applies new limits to later operations', run: testFileServiceRuntimeConfig },
     { name: 'twoFactorSchema accepts TOTP-only config', run: testTwoFactorSchemaTotp },
     { name: 'twoFactorSchema accepts disabled 2FA with no methods configured', run: testTwoFactorSchemaDisabled },
@@ -5692,18 +5699,231 @@ async function testCommandPresetRoutesCrudAndValidation(): Promise<void> {
   }
 }
 
+function createShortcutBindingFixture(
+  overrides: Partial<CreateTerminalShortcutBindingInput> = {},
+): CreateTerminalShortcutBindingInput {
+  return {
+    scope: 'workspace',
+    workspaceId: 'workspace-1',
+    key: 'Enter',
+    code: 'Enter',
+    ctrlKey: false,
+    shiftKey: true,
+    altKey: false,
+    metaKey: false,
+    location: 0,
+    action: { type: 'send', data: '\n', label: 'LF' },
+    description: '줄바꿈',
+    ...overrides,
+  };
+}
+
+async function testTerminalShortcutServiceCrudValidationAndRecovery(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-terminal-shortcuts-'));
+  const dataPath = path.join(tempDir, 'terminal-shortcuts.json');
+
+  try {
+    const service = new TerminalShortcutService({ dataPath });
+    await service.initialize();
+
+    const initialState = service.getState();
+    assert.equal(initialState.profileSelections.some(selection => selection.scope === 'global' && selection.profile === 'xterm-default'), true);
+
+    const stateWithProfile = await service.setProfileSelection({
+      scope: 'workspace',
+      workspaceId: 'workspace-1',
+      profile: 'ai-tui-compat',
+    });
+    assert.equal(
+      stateWithProfile.profileSelections.some(selection => selection.workspaceId === 'workspace-1' && selection.profile === 'ai-tui-compat'),
+      true,
+    );
+
+    const created = await service.createBinding(createShortcutBindingFixture());
+    assert.equal(created.sortOrder, 0);
+    assert.equal(created.description, '줄바꿈');
+
+    const updated = await service.updateBinding(created.id, {
+      enabled: false,
+      description: '줄바꿈 수정',
+    });
+    assert.equal(updated.enabled, false);
+    assert.equal(updated.description, '줄바꿈 수정');
+
+    const ctrlSpace = await service.createBinding(createShortcutBindingFixture({
+      key: ' ',
+      code: 'Space',
+      ctrlKey: true,
+      shiftKey: false,
+      action: { type: 'send', data: '\n', label: 'LF' },
+      description: 'Ctrl+Space 경계값',
+    }));
+    assert.equal(ctrlSpace.key, ' ');
+
+    await assert.rejects(
+      () => service.createBinding(createShortcutBindingFixture({
+        key: 'v',
+        code: 'KeyV',
+        ctrlKey: true,
+        shiftKey: false,
+      })),
+      (error: unknown) => error instanceof AppError && error.code === ErrorCode.INVALID_INPUT,
+    );
+
+    await assert.rejects(
+      () => service.createBinding(createShortcutBindingFixture({
+        action: { type: 'send', data: 'x'.repeat(129) },
+      })),
+      (error: unknown) => error instanceof AppError && error.code === ErrorCode.INVALID_INPUT,
+    );
+
+    const reloaded = new TerminalShortcutService({ dataPath });
+    await reloaded.initialize();
+    assert.equal(reloaded.getState().bindings.length, 2);
+    assert.equal(reloaded.getState().bindings[0].description, '줄바꿈 수정');
+
+    await reloaded.updateBinding(created.id, { enabled: true });
+    await fs.writeFile(dataPath, '{ broken', 'utf-8');
+
+    const recovered = new TerminalShortcutService({ dataPath });
+    await recovered.initialize();
+    assert.equal(recovered.getState().bindings.length, 2);
+
+    const resetState = await recovered.resetScope({ scope: 'workspace', workspaceId: 'workspace-1' });
+    assert.equal(resetState.bindings.some(binding => binding.workspaceId === 'workspace-1'), false);
+    assert.equal(resetState.profileSelections.some(selection => selection.workspaceId === 'workspace-1'), false);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testTerminalShortcutServiceConcurrentCreates(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-terminal-shortcuts-concurrent-'));
+  const dataPath = path.join(tempDir, 'terminal-shortcuts.json');
+
+  try {
+    const service = new TerminalShortcutService({ dataPath });
+    await service.initialize();
+
+    const created = await Promise.all(Array.from({ length: 20 }, (_unused, index) => {
+      return service.createBinding(createShortcutBindingFixture({
+        scope: 'global',
+        workspaceId: undefined,
+        key: `F${index + 1}`,
+        code: `F${index + 1}`,
+        shiftKey: false,
+        action: { type: 'send', data: `\x1b[${index}~`, label: `F${index + 1}` },
+        description: `shortcut ${index}`,
+      }));
+    }));
+
+    assert.equal(created.length, 20);
+    assert.equal(new Set(created.map(binding => binding.id)).size, 20);
+    assert.deepEqual(
+      service.getState().bindings.map(binding => binding.sortOrder),
+      Array.from({ length: 20 }, (_unused, index) => index),
+    );
+
+    const reloaded = new TerminalShortcutService({ dataPath });
+    await reloaded.initialize();
+    assert.equal(reloaded.getState().bindings.length, 20);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testTerminalShortcutRoutesCrudValidationAndAuth(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-terminal-shortcut-routes-'));
+  const dataPath = path.join(tempDir, 'terminal-shortcuts.json');
+  const authService = new AuthService({
+    password: '1234',
+    durationMs: 60_000,
+    maxDurationMs: 60_000,
+    jwtSecret: 'terminal-shortcut-route-test-secret',
+  }, new CryptoService('terminal-shortcut-route-test'));
+
+  try {
+    const service = new TerminalShortcutService({ dataPath });
+    await service.initialize();
+    const token = authService.issueToken().token;
+    const authHeaders = { Authorization: `Bearer ${token}` };
+
+    const app = express();
+    app.use(express.json());
+    app.use('/api/terminal-shortcuts', createAuthMiddleware(authService), createTerminalShortcutRoutes(service));
+
+    for (const request of [
+      { method: 'GET', path: '/api/terminal-shortcuts' },
+      { method: 'PUT', path: '/api/terminal-shortcuts/profile', body: { scope: 'global', profile: 'xterm-default' } },
+      { method: 'POST', path: '/api/terminal-shortcuts/bindings', body: createShortcutBindingFixture() },
+      { method: 'PATCH', path: '/api/terminal-shortcuts/bindings/missing', body: { enabled: false } },
+      { method: 'DELETE', path: '/api/terminal-shortcuts/bindings/missing' },
+      { method: 'POST', path: '/api/terminal-shortcuts/reset', body: { scope: 'global' } },
+    ]) {
+      const unauthenticated = await requestJson(app, request.method, request.path, request.body);
+      assert.equal(unauthenticated.status, 401);
+    }
+
+    const initial = await requestJson(app, 'GET', '/api/terminal-shortcuts', undefined, authHeaders);
+    assert.equal(initial.status, 200);
+    assert.equal(Array.isArray(initial.body.profileSelections), true);
+
+    const profile = await requestJson(app, 'PUT', '/api/terminal-shortcuts/profile', {
+      scope: 'workspace',
+      workspaceId: 'workspace-1',
+      profile: 'ai-tui-compat',
+    }, authHeaders);
+    assert.equal(profile.status, 200);
+
+    const created = await requestJson(app, 'POST', '/api/terminal-shortcuts/bindings', createShortcutBindingFixture(), authHeaders);
+    assert.equal(created.status, 201);
+    assert.equal((created.body.action as { type?: string }).type, 'send');
+    const bindingId = created.body.id as string;
+
+    const patched = await requestJson(app, 'PATCH', `/api/terminal-shortcuts/bindings/${bindingId}`, {
+      enabled: false,
+    }, authHeaders);
+    assert.equal(patched.status, 200);
+    assert.equal(patched.body.enabled, false);
+
+    const invalid = await requestJson(app, 'POST', '/api/terminal-shortcuts/bindings', createShortcutBindingFixture({
+      key: 'c',
+      code: 'KeyC',
+      ctrlKey: true,
+      shiftKey: false,
+    }), authHeaders);
+    assert.equal(invalid.status, 400);
+    assert.equal((invalid.body.error as { code?: string }).code, 'INVALID_INPUT');
+
+    const deleted = await requestJson(app, 'DELETE', `/api/terminal-shortcuts/bindings/${bindingId}`, undefined, authHeaders);
+    assert.equal(deleted.status, 200);
+    assert.equal(deleted.body.success, true);
+
+    const reset = await requestJson(app, 'POST', '/api/terminal-shortcuts/reset', {
+      scope: 'workspace',
+      workspaceId: 'workspace-1',
+    }, authHeaders);
+    assert.equal(reset.status, 200);
+    assert.equal(Array.isArray(reset.body.bindings), true);
+  } finally {
+    authService.destroy();
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
 async function requestJson(
   app: ReturnType<typeof express>,
   method: string,
   requestPath: string,
-  body?: Record<string, unknown>,
+  body?: unknown,
+  extraHeaders: Record<string, string> = {},
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   return new Promise((resolve, reject) => {
     const server = http.createServer(app);
     server.listen(0, () => {
       const port = (server.address() as net.AddressInfo).port;
       const postBody = body ? JSON.stringify(body) : '';
-      const headers: Record<string, string | number> = {};
+      const headers: Record<string, string | number> = { ...extraHeaders };
       if (body) {
         headers['Content-Type'] = 'application/json';
         headers['Content-Length'] = Buffer.byteLength(postBody);

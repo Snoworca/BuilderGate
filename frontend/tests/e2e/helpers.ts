@@ -22,6 +22,40 @@ export async function openCommandPresetDialog(page: Page): Promise<void> {
   await expect(page.getByTestId('command-preset-dialog')).toBeVisible({ timeout: 10000 });
 }
 
+/** Open the terminal shortcut manager through the header tools menu */
+export async function openTerminalShortcutDialog(page: Page): Promise<void> {
+  await page.locator('button[title="Tools"]').click();
+  await page.locator('.context-menu-item:has-text("터미널 키보드")').click();
+  await expect(page.getByTestId('terminal-shortcut-dialog')).toBeVisible({ timeout: 10000 });
+}
+
+/** Remove terminal shortcut E2E data from the server and local browser preferences */
+export async function clearTerminalShortcuts(page: Page): Promise<void> {
+  if (!page.url().startsWith('http')) {
+    return;
+  }
+
+  await page.evaluate(async () => {
+    if (!['http:', 'https:'].includes(location.protocol)) {
+      return;
+    }
+    localStorage.removeItem('buildergate.terminalShortcutManager.activeTab');
+    localStorage.removeItem('buildergate.dialog.terminal-shortcut-manager.geometry');
+    const token = localStorage.getItem('cws_auth_token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch('/api/terminal-shortcuts', { headers });
+    if (!res.ok) return;
+    const data = await res.json();
+    const bindings = Array.isArray(data.bindings) ? data.bindings : [];
+    await Promise.all(bindings
+      .filter((binding: { description?: string }) => binding.description?.startsWith('e2e-terminal-shortcut:') === true)
+      .map((binding: { id: string }) => fetch(`/api/terminal-shortcuts/bindings/${binding.id}`, {
+        method: 'DELETE',
+        headers,
+      })));
+  });
+}
+
 /** Remove command preset E2E data from the server and local browser preferences */
 export async function clearCommandPresets(page: Page): Promise<void> {
   if (!page.url().startsWith('http')) {

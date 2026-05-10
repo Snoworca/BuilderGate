@@ -152,3 +152,17 @@ export type {
   CreateCommandPresetRequest,
   UpdateCommandPresetRequest
 } from './commandPreset';
+
+export type {
+  TerminalShortcutAction,
+  TerminalShortcutBinding,
+  TerminalShortcutKeyDescriptor,
+  TerminalShortcutProfile,
+  TerminalShortcutProfileSelection,
+  TerminalShortcutScope,
+  TerminalShortcutState,
+  CreateTerminalShortcutBindingRequest,
+  ResetTerminalShortcutScopeRequest,
+  SetTerminalShortcutProfileRequest,
+  UpdateTerminalShortcutBindingRequest
+} from './terminalShortcut';

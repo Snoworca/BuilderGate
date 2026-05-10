@@ -1,0 +1,332 @@
+{
+  "plan_contract": "1.1.0",
+  "plan_id": "plan-20260510-terminal-shortcut-manager",
+  "title": "Terminal Shortcut Manager Implementation Plan",
+  "created": "2026-05-10",
+  "spec_path": "docs/research/2026-05-09.buildergate-tui-keyboard-compatibility-research.md",
+  "code_path": ".",
+  "implementation_source": {
+    "authoritative": "markdown",
+    "markdown_path": "docs/plan/2026-05-10.terminal-shortcut-manager.plan.md",
+    "sidecar_purpose": "routing and task graph index; implementers must read Markdown TASK details for signatures, ordered guides, rationale, pitfalls, tests, and DoD"
+  },
+  "scope_freeze": true,
+  "change_log": [],
+  "pre_commit_gate": [
+    {"shell": "pwsh", "cmd": "npm --prefix server run build", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run lint:terminal-shortcuts", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:terminal-shortcuts", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:terminal-shortcuts", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix server run build", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run lint:terminal-shortcuts", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run test:unit:terminal-shortcuts", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run test:e2e:terminal-shortcuts", "expected_exit": 0}
+  ],
+  "forbidden_patterns": [
+    {"pattern": "적절[히]|필요\\s*시|알아[서]|상황에\\s*맞게|기존\\s*방식대로|어떻게[든]", "flags": ""},
+    {"pattern": "rm\\s+-rf|Remove-Item\\s+.*-Recurse|git\\s+reset\\s+--hard|git\\s+checkout\\s+--", "flags": "i"}
+  ],
+  "implementation_constraints": {
+    "resolver_order": [
+      "TerminalView hard guards: Ctrl+C selection copy, Ctrl+V paste-only block, IME delegation",
+      "Reserved shortcut guard",
+      "User bindings by scope order session > workspace > global",
+      "Built-in active profile bindings only when no user binding matches",
+      "xterm native fallback"
+    ],
+    "focused_scripts_defined_in": "TASK-P2-002",
+    "route_auth_tests": "TASK-P1-002 must test unauthenticated GET/PUT profile/POST/PATCH/DELETE/RESET rejection through the auth middleware.",
+    "session_status_invariant_tests": [
+      "plain typing",
+      "mapped LF",
+      "capture waiting keydown",
+      "Escape capture",
+      "Tab capture",
+      "Test send"
+    ],
+    "manual_validation_matrix": [
+      "Chrome actual Ctrl+J",
+      "Edge actual Ctrl+J",
+      "packaged WebView actual Ctrl+J",
+      "Windows IME during Capture tab",
+      "Codex multiline Shift+Enter",
+      "Claude/Hermes user binding",
+      "Fullscreen capture and Keyboard Lock reported as not implemented/out of scope"
+    ]
+  },
+  "requirements": [
+    {"id": "REQ-KBD-001", "statement": "기본 profile은 현재 xterm.js 동작을 유지한다."},
+    {"id": "REQ-KBD-002", "statement": "사용자는 key/code/modifier/location 기반 shortcut binding을 등록, 수정, 삭제, 비활성화할 수 있다."},
+    {"id": "REQ-KBD-003", "statement": "ai-tui-compat profile은 opt-in으로 Shift+Enter LF, Ctrl+J LF if delivered, Enter CR을 제공한다."},
+    {"id": "REQ-KBD-004", "statement": "매핑 적용은 xterm native fallback보다 앞서 실행되고 중복 전송되지 않는다."},
+    {"id": "REQ-KBD-005", "statement": "IME 조합, paste, 선택 영역 Ctrl+C, Ctrl+V 차단 경로는 보존한다."},
+    {"id": "REQ-KBD-006", "statement": "WindowDialog는 capture mode에서 Escape와 1회성 Tab을 dialog 내부 capture flow에 넘길 수 있어야 한다."},
+    {"id": "REQ-KBD-007", "statement": "Shortcut capture UI는 감지된 키 metadata와 감지 실패 timeout을 구분해 표시한다."},
+    {"id": "REQ-KBD-008", "statement": "초기 진입점은 desktop 상단 Tools context menu의 터미널 키보드 항목이다."},
+    {"id": "REQ-KBD-009", "statement": "Binding과 profile 선택은 서버에 저장하고 app reload 뒤 복원한다."},
+    {"id": "REQ-KBD-010", "statement": "Debug capture에 shortcut match/send/block/skip/pass-through 결과를 남긴다."},
+    {"id": "REQ-KBD-011", "statement": "실제 브라우저 reserved shortcut은 수동 검증 matrix로 분리한다."},
+    {"id": "REQ-KBD-012", "statement": "Dialog tablist는 WAI-ARIA tabs keyboard behavior를 구현한다."},
+    {"id": "REQ-KBD-013", "statement": "Keyboard Lock API, fullscreen capture, mobile Tools entry, ContextMenu keyboard navigation은 후속 범위다."},
+    {"id": "REQ-KBD-014", "statement": "사용자 키 입력, mapped LF, capture UI 조작은 interactive AI TUI session 상태를 running으로 전환하지 않는다."}
+  ],
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "title": "Server shortcut persistence and API",
+      "tasks": [
+        {
+          "id": "TASK-P1-001",
+          "title": "Define terminal shortcut server model and persistence service",
+          "related_req_ids": ["REQ-KBD-002", "REQ-KBD-003", "REQ-KBD-009", "REQ-KBD-014"],
+          "owns": ["server/src/types/terminalShortcut.types.ts", "server/src/services/TerminalShortcutService.ts", "server/src/test-runner.ts", ".gitignore"],
+          "reads": ["server/src/types/commandPreset.types.ts", "server/src/services/CommandPresetService.ts", "server/src/test-runner.ts"],
+          "source_anchors": ["server/src/services/CommandPresetService.ts:22-82", "server/src/services/CommandPresetService.ts:214-290", "server/src/types/commandPreset.types.ts:1-28", "server/src/test-runner.ts:207-209", "server/src/test-runner.ts:5573-5693"],
+          "depends_on": [],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) 이 TASK가 추가한 server/src/types/terminalShortcut.types.ts와 server/src/services/TerminalShortcutService.ts를 제거한다. 2) server/src/test-runner.ts와 .gitignore에서 terminal shortcut 관련 diff만 되돌린 뒤 npm --prefix server run test를 실행한다."}
+        },
+        {
+          "id": "TASK-P1-002",
+          "title": "Expose authenticated terminal shortcut REST routes",
+          "related_req_ids": ["REQ-KBD-002", "REQ-KBD-003", "REQ-KBD-009"],
+          "owns": ["server/src/routes/terminalShortcutRoutes.ts", "server/src/index.ts", "server/src/test-runner.ts"],
+          "reads": ["server/src/routes/commandPresetRoutes.ts", "server/src/index.ts", "server/src/test-runner.ts"],
+          "source_anchors": ["server/src/routes/commandPresetRoutes.ts:6-55", "server/src/index.ts:279-282", "server/src/index.ts:417-428", "server/src/test-runner.ts:5659-5693"],
+          "depends_on": ["TASK-P1-001"],
+          "feasibility": "Medium",
+          "test_obligations": ["authenticated CRUD", "invalid payload rejection", "unauthenticated GET/PUT profile/POST/PATCH/DELETE/RESET rejection"],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) server/src/routes/terminalShortcutRoutes.ts를 제거한다. 2) server/src/index.ts와 server/src/test-runner.ts에서 terminal shortcut route 등록 및 테스트 diff만 되돌린다."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-2",
+      "title": "Frontend shortcut domain layer",
+      "tasks": [
+        {
+          "id": "TASK-P2-001",
+          "title": "Add frontend shortcut types, API client, hook, and context",
+          "related_req_ids": ["REQ-KBD-002", "REQ-KBD-003", "REQ-KBD-009"],
+          "owns": ["frontend/src/types/terminalShortcut.ts", "frontend/src/types/index.ts", "frontend/src/services/api.ts", "frontend/src/components/TerminalShortcutManager/useTerminalShortcuts.ts", "frontend/src/components/TerminalShortcutManager/TerminalShortcutContext.tsx"],
+          "reads": ["frontend/src/types/commandPreset.ts", "frontend/src/services/api.ts", "frontend/src/App.tsx"],
+          "source_anchors": ["frontend/src/types/commandPreset.ts:1-26", "frontend/src/types/index.ts:137-154", "frontend/src/services/api.ts:452-507", "frontend/src/components/CommandPresetManager/useCommandPresets.ts:1-90", "frontend/src/contexts/WebSocketContext.tsx:63-80"],
+          "depends_on": ["TASK-P1-002"],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run build", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) frontend/src/types/terminalShortcut.ts와 TerminalShortcutContext/useTerminalShortcuts 신규 파일을 제거한다. 2) frontend/src/types/index.ts와 frontend/src/services/api.ts의 terminalShortcut export와 API diff만 되돌린다."}
+        },
+        {
+          "id": "TASK-P2-002",
+          "title": "Build pure shortcut matcher and resolver",
+          "related_req_ids": ["REQ-KBD-001", "REQ-KBD-003", "REQ-KBD-004", "REQ-KBD-005", "REQ-KBD-014"],
+          "owns": ["frontend/src/utils/terminalShortcutBindings.ts", "frontend/tests/unit/terminalShortcutBindings.test.ts", "frontend/package.json"],
+          "reads": ["frontend/src/components/Terminal/TerminalView.tsx", "frontend/src/utils/terminalDebugCapture.ts", "frontend/tests/unit/commandPresetExecution.test.ts"],
+          "source_anchors": ["frontend/src/components/CommandPresetManager/commandPresetExecution.ts:1-40", "frontend/tests/unit/commandPresetExecution.test.ts:1-80", "frontend/src/components/Terminal/TerminalView.tsx:1571-1649", "frontend/src/utils/terminalDebugCapture.ts:13-46"],
+          "depends_on": ["TASK-P2-001"],
+          "feasibility": "High",
+          "implementation_notes": [
+            "Add lint:terminal-shortcuts, test:unit:terminal-shortcuts, and test:e2e:terminal-shortcuts scripts here before later tasks use them.",
+            "User bindings override built-in ai-tui-compat bindings.",
+            "Unit tests must cover user pass-through/block override of built-in Shift+Enter and Ctrl+J."
+          ],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run test:unit:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) terminalShortcutBindings.ts와 terminalShortcutBindings.test.ts를 제거한다. 2) frontend/package.json에서 terminal shortcut focused test script만 제거한다."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-3",
+      "title": "Terminal input integration",
+      "tasks": [
+        {
+          "id": "TASK-P3-001",
+          "title": "Pass shortcut state to terminal runtime",
+          "related_req_ids": ["REQ-KBD-002", "REQ-KBD-004", "REQ-KBD-009"],
+          "owns": ["frontend/src/App.tsx", "frontend/src/components/Terminal/TerminalContainer.tsx", "frontend/src/components/Terminal/TerminalView.tsx"],
+          "reads": ["frontend/src/App.tsx", "frontend/src/components/Terminal/TerminalContainer.tsx", "frontend/src/components/Terminal/TerminalView.tsx"],
+          "source_anchors": ["frontend/src/App.tsx:319-321", "frontend/src/App.tsx:436-525", "frontend/src/components/Terminal/TerminalContainer.tsx:84-91", "frontend/src/components/Terminal/TerminalContainer.tsx:1543-1557", "frontend/src/components/Terminal/TerminalView.tsx:161-170"],
+          "depends_on": ["TASK-P2-001", "TASK-P2-002"],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run build", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) App, TerminalContainer, TerminalView props에서 shortcut state 전달 diff를 제거한다. 2) typecheck를 실행해 dangling prop이 없는지 확인한다."}
+        },
+        {
+          "id": "TASK-P3-002",
+          "title": "Apply shortcut mapping before xterm native fallback",
+          "related_req_ids": ["REQ-KBD-001", "REQ-KBD-003", "REQ-KBD-004", "REQ-KBD-005", "REQ-KBD-010", "REQ-KBD-014"],
+          "owns": ["frontend/src/components/Terminal/TerminalView.tsx", "frontend/tests/e2e/terminal-shortcut-manager.spec.ts"],
+          "reads": ["frontend/src/components/Terminal/TerminalView.tsx", "frontend/src/utils/terminalShortcutBindings.ts", "frontend/tests/e2e/terminal-keyboard-regression.spec.ts"],
+          "source_anchors": ["frontend/src/components/Terminal/TerminalView.tsx:576-610", "frontend/src/components/Terminal/TerminalView.tsx:1571-1649", "frontend/src/components/Terminal/TerminalView.tsx:1681-1690", "frontend/src/components/Terminal/TerminalContainer.tsx:1474-1486", "frontend/tests/e2e/terminal-keyboard-regression.spec.ts:316-496"],
+          "depends_on": ["TASK-P3-001"],
+          "feasibility": "High",
+          "test_obligations": ["single LF with no native CR duplicate", "plain Enter remains CR", "plain typing does not directly mark idle session running", "mapped LF/block/pass-through do not directly mark idle session running"],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run test:e2e:terminal-shortcuts", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) TerminalView.tsx의 resolver 호출과 shortcut debug event diff만 되돌린다. 2) 신규 E2E에서 shortcut mapping case를 제거하고 기존 terminal keyboard regression을 실행한다."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-4",
+      "title": "WindowDialog capture-mode support",
+      "tasks": [
+        {
+          "id": "TASK-P4-001",
+          "title": "Extend WindowDialog with document key capture callback",
+          "related_req_ids": ["REQ-KBD-006", "REQ-KBD-007", "REQ-KBD-012"],
+          "owns": ["frontend/src/components/dialog/types.ts", "frontend/src/components/dialog/WindowDialog.tsx", "frontend/tests/unit/windowDialogContract.test.ts"],
+          "reads": ["frontend/src/components/dialog/types.ts", "frontend/src/components/dialog/WindowDialog.tsx", "frontend/tests/unit/windowDialogContract.test.ts"],
+          "source_anchors": ["frontend/src/components/dialog/types.ts:18-32", "frontend/src/components/dialog/WindowDialog.tsx:98-155", "frontend/src/components/dialog/MessageBox.tsx:27-71", "frontend/tests/unit/windowDialogContract.test.ts:1-48"],
+          "depends_on": [],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run test:unit:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run test:e2e:terminal-shortcuts", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) WindowDialogProps와 WindowDialog.tsx에서 keyboardCapture prop diff를 제거한다. 2) Shortcut dialog capture flow에서 Escape/Tab 등록 case를 비활성화하고 관련 E2E를 제거한다."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-5",
+      "title": "Terminal Shortcut Manager UI",
+      "tasks": [
+        {
+          "id": "TASK-P5-001",
+          "title": "Build WindowDialog-based shortcut manager shell and tabs",
+          "related_req_ids": ["REQ-KBD-002", "REQ-KBD-006", "REQ-KBD-007", "REQ-KBD-012"],
+          "owns": ["frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx", "frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.css", "frontend/src/components/TerminalShortcutManager/index.ts", "frontend/tests/e2e/terminal-shortcut-manager.spec.ts"],
+          "reads": ["frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx", "frontend/src/components/CommandPresetManager/CommandPresetDialog.css", "frontend/src/components/dialog/WindowDialog.tsx", "frontend/src/components/dialog/MessageBox.tsx"],
+          "source_anchors": ["frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx:297-321", "frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx:420-548", "frontend/src/components/CommandPresetManager/CommandPresetDialog.css:1-205", "frontend/src/components/dialog/MessageBox.tsx:27-71", "frontend/tests/e2e/command-management-dialog.spec.ts:24-195"],
+          "depends_on": ["TASK-P2-001", "TASK-P4-001"],
+          "feasibility": "High",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run lint:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run lint:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run test:e2e:terminal-shortcuts", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) TerminalShortcutManager 신규 컴포넌트와 CSS를 제거한다. 2) terminal-shortcut-manager E2E에서 dialog shell case를 제거한다."}
+        },
+        {
+          "id": "TASK-P5-002",
+          "title": "Implement capture, binding CRUD, profile apply, and test send",
+          "related_req_ids": ["REQ-KBD-002", "REQ-KBD-003", "REQ-KBD-006", "REQ-KBD-007", "REQ-KBD-009", "REQ-KBD-010", "REQ-KBD-011"],
+          "owns": ["frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx", "frontend/src/components/TerminalShortcutManager/ShortcutBindingList.tsx", "frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx", "frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts", "frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx", "frontend/tests/e2e/terminal-shortcut-manager.spec.ts"],
+          "reads": ["frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx", "frontend/src/components/dialog/MessageBox.tsx", "frontend/src/App.tsx"],
+          "source_anchors": ["frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx:95-145", "frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx:165-291", "frontend/src/components/dialog/MessageBox.tsx:27-71", "frontend/src/App.tsx:216-218", "frontend/src/components/dialog/WindowDialog.tsx:113-155"],
+          "depends_on": ["TASK-P5-001", "TASK-P3-002"],
+          "feasibility": "High",
+          "test_obligations": ["capture timeout persists nothing", "Escape and one-shot Tab capture do not close dialog", "grid mode Test send target matches displayed session", "capture waiting keydown and Test send do not directly mark idle session running"],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run test:e2e:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run build", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) ShortcutCapturePanel, ShortcutBindingList, ShortcutActionEditor, shortcutBindingViewModel 신규 파일을 제거한다. 2) TerminalShortcutDialog에서 해당 import와 tab content diff를 제거한다."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-6",
+      "title": "Header wiring, regression, and final review",
+      "tasks": [
+        {
+          "id": "TASK-P6-001",
+          "title": "Add Tools menu entry and App dialog mounting",
+          "related_req_ids": ["REQ-KBD-008", "REQ-KBD-012", "REQ-KBD-013"],
+          "owns": ["frontend/src/components/Header/Header.tsx", "frontend/src/App.tsx", "frontend/tests/e2e/helpers.ts", "frontend/tests/e2e/header-context-menu-regression.spec.ts", "frontend/tests/e2e/terminal-shortcut-manager.spec.ts"],
+          "reads": ["frontend/src/components/Header/Header.tsx", "frontend/src/App.tsx", "frontend/tests/e2e/helpers.ts", "frontend/tests/e2e/command-management-dialog.spec.ts"],
+          "source_anchors": ["frontend/src/components/Header/Header.tsx:12-23", "frontend/src/components/Header/Header.tsx:50-55", "frontend/src/components/Header/Header.tsx:103-161", "frontend/src/App.tsx:407-418", "frontend/src/App.tsx:568-575", "frontend/tests/e2e/helpers.ts:18-23"],
+          "depends_on": ["TASK-P5-002"],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:command-management", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run test:e2e:command-management", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run test:e2e:terminal-shortcuts", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) Header.tsx와 App.tsx에서 terminal shortcut dialog entry와 mount diff를 제거한다. 2) helpers.ts와 E2E에서 terminal shortcut menu helper diff만 제거한다."}
+        },
+        {
+          "id": "TASK-P6-002",
+          "title": "Run focused and final validation with mandatory review",
+          "related_req_ids": ["REQ-KBD-004", "REQ-KBD-005", "REQ-KBD-010", "REQ-KBD-011", "REQ-KBD-014"],
+          "owns": ["docs/plan/2026-05-10.terminal-shortcut-manager.plan.md"],
+          "reads": ["AGENTS.md", "frontend/playwright.config.ts", "frontend/tests/e2e/terminal-keyboard-regression.spec.ts", "frontend/tests/e2e/terminal-paste.spec.ts", "frontend/tests/e2e/terminal-korean-ime.spec.ts"],
+          "source_anchors": ["frontend/package.json:6-17", "frontend/playwright.config.ts:1-31", "frontend/tests/e2e/terminal-keyboard-regression.spec.ts:316-496", "frontend/tests/e2e/terminal-paste.spec.ts:1-120", "frontend/tests/e2e/terminal-korean-ime.spec.ts:1-160", "AGENTS.md:1-30"],
+          "depends_on": ["TASK-P6-001"],
+          "feasibility": "Medium",
+          "implementation_notes": ["Focused scripts are created in TASK-P2-002; this task verifies final gate execution and mandatory review loop."],
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run lint:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run lint:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run test:unit:terminal-shortcuts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run test:e2e:terminal-shortcuts", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) docs/plan 문서의 최종 검증 설명에서 terminal shortcut focused script 참조를 제거한다. 2) TASK-P2-002의 package script 생성 책임과 충돌하는 내용이 남지 않았는지 확인한다."}
+        }
+      ]
+    }
+  ],
+  "out_of_scope": [
+    "Keyboard Lock API",
+    "Fullscreen keyboard capture",
+    "Desktop WebView accelerator 조정",
+    "CSI-u 또는 Kitty keyboard protocol sequence 자동 생성",
+    "ContextMenu keyboard navigation 개편",
+    "Mobile Tools menu 또는 drawer entry",
+    "자동 foreground TUI 감지와 profile switching"
+  ],
+  "evaluation": {
+    "semantic_architecture": "PASS",
+    "junior_ai_parsing": "PASS",
+    "validator_summary": "0 error(s), 0 warning(s)"
+  },
+  "dew_path": ".snoworca/dew/planner/plan-20260510-terminal-shortcut-manager/"
+}

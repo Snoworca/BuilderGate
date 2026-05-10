@@ -4,6 +4,7 @@ import type { TerminalHandle } from './TerminalView';
 import { useTerminalRuntimeContext } from './TerminalRuntimeContext';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import { useLongPress } from '../../hooks/useLongPress';
+import type { TerminalShortcutState } from '../../types';
 
 const PARKED_STYLE: React.CSSProperties = {
   position: 'absolute',
@@ -22,6 +23,7 @@ interface TerminalRuntimeLayerProps {
   onStatusChange: (sessionId: string, status: WorkspaceTabRuntime['status']) => void;
   onCwdChange: (sessionId: string, cwd: string) => void;
   onAuthError: () => void;
+  terminalShortcutState: TerminalShortcutState | null;
 }
 
 interface TerminalRuntimeEntryProps {
@@ -31,6 +33,7 @@ interface TerminalRuntimeEntryProps {
   onStatusChange: (sessionId: string, status: WorkspaceTabRuntime['status']) => void;
   onCwdChange: (sessionId: string, cwd: string) => void;
   onAuthError: () => void;
+  terminalShortcutState: TerminalShortcutState | null;
 }
 
 function TerminalRuntimeEntry({
@@ -40,6 +43,7 @@ function TerminalRuntimeEntry({
   onStatusChange,
   onCwdChange,
   onAuthError,
+  terminalShortcutState,
 }: TerminalRuntimeEntryProps) {
   const { getHostInteractions } = useTerminalRuntimeContext();
   const isVisible = Boolean(host?.isVisible && host.rect.width > 0 && host.rect.height > 0);
@@ -119,6 +123,8 @@ function TerminalRuntimeEntry({
       <TerminalContainer
         ref={terminalRefsMap.current.get(tab.id)!}
         sessionId={tab.sessionId}
+        workspaceId={tab.workspaceId}
+        terminalShortcutState={terminalShortcutState}
         isVisible={isVisible}
         isGridSurface={isGridSurface}
         onStatusChange={onStatusChange}
@@ -135,6 +141,7 @@ export function TerminalRuntimeLayer({
   onStatusChange,
   onCwdChange,
   onAuthError,
+  terminalShortcutState,
 }: TerminalRuntimeLayerProps) {
   const { rootRef, hosts } = useTerminalRuntimeContext();
 
@@ -160,6 +167,7 @@ export function TerminalRuntimeLayer({
             onStatusChange={onStatusChange}
             onCwdChange={onCwdChange}
             onAuthError={onAuthError}
+            terminalShortcutState={terminalShortcutState}
           />
         );
       })}

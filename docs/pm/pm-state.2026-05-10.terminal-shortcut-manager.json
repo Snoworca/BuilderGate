@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "state_path": "docs/pm/pm-state.2026-05-10.terminal-shortcut-manager.json",
+  "started_at": "2026-05-10T12:00:00+09:00",
+  "updated_at": "2026-05-10T12:45:00+09:00",
+  "mode": "auto",
+  "mode_flags": {
+    "auto": true,
+    "qna": false,
+    "skip_feasibility": true,
+    "headless": true,
+    "headless_max_turns": 200
+  },
+  "intent": "터미널 단축키 관리자 구현",
+  "language": "TypeScript",
+  "framework": "React 19, Vite, Express",
+  "start_stage": "CODE",
+  "current_stage": "COMPLETE",
+  "completed_stages": [
+    "PLAN",
+    "CODE",
+    "REVIEW"
+  ],
+  "input_docs": [
+    "docs/research/2026-05-09.buildergate-tui-keyboard-compatibility-research.md",
+    "docs/plan/2026-05-10.terminal-shortcut-manager.plan.md",
+    "docs/plan/2026-05-10.terminal-shortcut-manager.plan.md.json"
+  ],
+  "ref_paths": [
+    "docs/plan/2026-05-10.terminal-shortcut-manager.plan.md"
+  ],
+  "stages": {
+    "PLAN": {
+      "status": "completed",
+      "skill_used": "snoworca-planner",
+      "output": "docs/plan/2026-05-10.terminal-shortcut-manager.plan.md",
+      "completed_at": "2026-05-10T12:00:00+09:00"
+    },
+    "CODE": {
+      "status": "completed",
+      "skill_used": "snoworca-pm",
+      "input": "docs/plan/2026-05-10.terminal-shortcut-manager.plan.md",
+      "completed_at": "2026-05-10T12:42:00+09:00"
+    },
+    "REVIEW": {
+      "status": "completed",
+      "output": "Final code review subagent: No findings",
+      "completed_at": "2026-05-10T12:45:00+09:00"
+    }
+  },
+  "validation": [
+    "npm --prefix server run build",
+    "npm --prefix server run test",
+    "npm --prefix frontend run typecheck",
+    "npm --prefix frontend run lint:terminal-shortcuts",
+    "npm --prefix frontend run test:unit:terminal-shortcuts",
+    "npm --prefix frontend run build",
+    "npm --prefix frontend run test:e2e:terminal-shortcuts"
+  ],
+  "review": {
+    "reviewer_agent": "019e0fec-0699-7f00-9f97-2a5432886c6b",
+    "initial_findings_fixed": 6,
+    "final_result": "No findings"
+  }
+}

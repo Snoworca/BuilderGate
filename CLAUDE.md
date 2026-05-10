@@ -137,3 +137,9 @@ node tools/worklog.mjs list 2026-04-03
 | GET | `/api/sessions/:id/stream` | SSE 스트림 |
 | GET | `/api/sessions/:id/files` | 파일 목록 |
 | GET | `/health` | 상태 확인 |
+
+# SpecKiwi SRS workflow
+
+This repository stores requirements as Markdown SRS documents under `docs/spec/`. For detailed authoring and validation rules, read [the rules document](docs/rule/SRS-MD-Rules-v1.0.0.md).
+
+Prefer SpecKiwi MCP tools when configured. Use the `speckiwi` CLI fallback when MCP is unavailable. Never bypass SRS-MD rules or create an alternate requirements source of truth.

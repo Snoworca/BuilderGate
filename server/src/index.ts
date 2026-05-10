@@ -18,6 +18,7 @@ import { createAuthRoutes } from './routes/authRoutes.js';
 import { createFileRoutes } from './routes/fileRoutes.js';
 import { createSettingsRoutes } from './routes/settingsRoutes.js';
 import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
+import { createTerminalShortcutRoutes } from './routes/terminalShortcutRoutes.js';
 import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
 import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
@@ -28,6 +29,7 @@ import { RuntimeConfigStore } from './services/RuntimeConfigStore.js';
 import { ConfigFileRepository } from './services/ConfigFileRepository.js';
 import { SettingsService } from './services/SettingsService.js';
 import { CommandPresetService } from './services/CommandPresetService.js';
+import { TerminalShortcutService } from './services/TerminalShortcutService.js';
 import { SessionManager, sessionManager } from './services/SessionManager.js';
 import { SSLService } from './services/SSLService.js';
 import { CryptoService } from './services/CryptoService.js';
@@ -70,6 +72,7 @@ let fileService: FileService;
 let runtimeConfigStore: RuntimeConfigStore;
 let settingsService: SettingsService;
 let commandPresetService: CommandPresetService;
+let terminalShortcutService: TerminalShortcutService;
 let workspaceService: WorkspaceService;
 let cwdSnapshotTimer: ReturnType<typeof setInterval> | null = null;
 let terminalObservabilityTimer: ReturnType<typeof setInterval> | null = null;
@@ -280,6 +283,8 @@ function setupRoutes(): void {
   app.use('/api/settings', authMiddleware, settingsRoutes);
   const commandPresetRoutes = createCommandPresetRoutes(commandPresetService);
   app.use('/api/command-presets', authMiddleware, commandPresetRoutes);
+  const terminalShortcutRoutes = createTerminalShortcutRoutes(terminalShortcutService);
+  app.use('/api/terminal-shortcuts', authMiddleware, terminalShortcutRoutes);
   app.get('/api/sessions/telemetry', authMiddleware, (_req, res) => {
     const wsRouter = app.get('wsRouter') as WsRouter | undefined;
     res.json({
@@ -337,6 +342,7 @@ function setupRoutes(): void {
   console.log('  - GET  /api/settings (protected)');
   console.log('  - PATCH /api/settings (protected)');
   console.log('  - /api/command-presets/* (protected)');
+  console.log('  - /api/terminal-shortcuts/* (protected)');
   console.log('  - /api/sessions/* (protected)');
   console.log('  - /api/sessions/:id/cwd (protected, File API)');
   console.log('  - /api/sessions/:id/files (protected, File API)');
@@ -426,6 +432,9 @@ async function startServer(): Promise<void> {
     commandPresetService = new CommandPresetService();
     await commandPresetService.initialize();
     console.log('[CommandPreset] CommandPresetService initialized');
+    terminalShortcutService = new TerminalShortcutService();
+    await terminalShortcutService.initialize();
+    console.log('[TerminalShortcut] TerminalShortcutService initialized');
 
     // ========================================================================
     // Initialize Workspace Service (Step 7)

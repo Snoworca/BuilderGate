@@ -20,6 +20,7 @@ interface HeaderProps {
   viewMode?: 'tab' | 'grid';
   onToggleViewMode?: () => void;
   onOpenCommandPresetManager?: () => void;
+  onOpenTerminalShortcutManager?: () => void;
 }
 
 function truncateText(value: string, maxLen: number): string {
@@ -39,6 +40,7 @@ export function Header({
   viewMode,
   onToggleViewMode,
   onOpenCommandPresetManager,
+  onOpenTerminalShortcutManager,
 }: HeaderProps) {
   const [toolsMenuPosition, setToolsMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const displayWorkspaceName = activeWorkspaceName
@@ -48,11 +50,15 @@ export function Header({
     ? truncatePathLeft(activeCwd, isMobile ? 24 : 48)
     : null;
   const toolsMenuItems = useMemo(() => [
-    {
+    ...(onOpenCommandPresetManager ? [{
       label: '명령줄 관리',
       onClick: () => onOpenCommandPresetManager?.(),
-    },
-  ], [onOpenCommandPresetManager]);
+    }] : []),
+    ...(onOpenTerminalShortcutManager ? [{
+      label: '터미널 키보드',
+      onClick: () => onOpenTerminalShortcutManager?.(),
+    }] : []),
+  ], [onOpenCommandPresetManager, onOpenTerminalShortcutManager]);
 
   return (
     <header className="header">
@@ -89,7 +95,7 @@ export function Header({
         </div>
       )}
 
-      {(onOpenSettings || onLogout || onOpenCommandPresetManager) && (
+      {(onOpenSettings || onLogout || onOpenCommandPresetManager || onOpenTerminalShortcutManager) && (
         <div className="header-right">
           {onToggleViewMode && !isMobile && (
             <button
@@ -100,7 +106,7 @@ export function Header({
               {viewMode === 'tab' ? '⊞' : '☰'}
             </button>
           )}
-          {onOpenCommandPresetManager && !isMobile && (
+          {(onOpenCommandPresetManager || onOpenTerminalShortcutManager) && !isMobile && (
             <button
               className="header-action-button header-tools-button"
               onClick={(event) => {

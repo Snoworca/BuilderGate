@@ -15,6 +15,11 @@ export interface DialogSize {
   height: number;
 }
 
+export interface WindowDialogKeyboardCapture {
+  active: boolean;
+  onKeyDown: (event: KeyboardEvent) => boolean;
+}
+
 export interface WindowDialogProps {
   dialogId: string;
   title: string;
@@ -29,6 +34,7 @@ export interface WindowDialogProps {
   resizable?: boolean;
   persistGeometry?: boolean;
   surfaceClassName?: string;
+  keyboardCapture?: WindowDialogKeyboardCapture;
 }
 
 export type MessageBoxOkVariant = 'primary' | 'danger';
