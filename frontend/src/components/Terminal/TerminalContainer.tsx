@@ -3,7 +3,7 @@ import { useWebSocketActions, useWebSocketState } from '../../contexts/WebSocket
 import type { SendResult } from '../../contexts/WebSocketContext';
 import { useTerminalRuntimeContext } from './TerminalRuntimeContext';
 import { TerminalView } from './TerminalView';
-import type { GridRepairReason, TerminalHandle } from './TerminalView';
+import type { GridRepairReason, TerminalHandle, TerminalPasteInputResult } from './TerminalView';
 import type { TerminalShortcutState } from '../../types';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import {
@@ -109,6 +109,17 @@ function waitForRuntimeLayoutSettle(): Promise<void> {
       requestAnimationFrame(() => resolve());
     });
   });
+}
+
+function buildUnavailableInputResult(source: string): TerminalPasteInputResult {
+  return {
+    ok: false,
+    reason: 'context-changed',
+    source,
+    captureState: 'closed',
+    barrierReason: 'none',
+    closedReason: 'terminal-disposed',
+  };
 }
 
 interface SnapshotPayload {
@@ -1088,7 +1099,8 @@ export const TerminalContainer = memo(
       fit: () => terminalRef.current?.fit(),
       repairLayout: (reason) => terminalRef.current?.repairLayout(reason) ?? Promise.resolve(false),
       requestGridRepair: (reason = 'manual') => runGridLayoutRepair(reason),
-      sendInput: (data) => terminalRef.current?.sendInput(data),
+      sendInput: (data) => terminalRef.current?.sendInput(data) ?? buildUnavailableInputResult('imperative'),
+      pasteInput: (data) => terminalRef.current?.pasteInput(data) ?? buildUnavailableInputResult('command-preset-paste'),
       restoreSnapshot: () => terminalRef.current?.restoreSnapshot() ?? Promise.resolve(false),
       replaceWithSnapshot: (data) => terminalRef.current?.replaceWithSnapshot(data) ?? Promise.resolve(false),
       getScreenRepairReadiness: () => terminalRef.current?.getScreenRepairReadiness() ?? { ok: false, reason: 'not-ready' },

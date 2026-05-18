@@ -9,12 +9,12 @@ import { useHeartbeat } from './hooks/useHeartbeat';
 import { useResponsive } from './hooks/useResponsive';
 import { useWorkspaceManager } from './hooks/useWorkspaceManager';
 import { useContextMenu } from './hooks/useContextMenu';
-import { sessionApi } from './services/api';
+import { commandPresetApi, sessionApi } from './services/api';
 import { AuthGuard } from './components/Auth';
 import { Header } from './components/Header';
 import { TerminalHostSlot, TerminalRuntimeLayer, TerminalRuntimeProvider } from './components/Terminal';
 import { useTerminalRuntimeContext } from './components/Terminal/TerminalRuntimeContext';
-import type { TerminalHandle } from './components/Terminal/TerminalView';
+import type { TerminalHandle, TerminalPasteInputResult } from './components/Terminal/TerminalView';
 import { ConfirmModal } from './components/Modal';
 import { SettingsPage } from './components/Settings/SettingsPage';
 import { WorkspaceSidebar, WorkspaceTabBar, MobileDrawer, EmptyState, DisconnectedOverlay } from './components/Workspace';
@@ -22,6 +22,7 @@ import { MosaicContainer } from './components/Grid';
 import { MetadataRow } from './components/MetadataBar/MetadataRow';
 import { ContextMenu } from './components/ContextMenu';
 import { CommandPresetDialog } from './components/CommandPresetManager';
+import { buildCommandPresetPasteInput } from './components/CommandPresetManager/commandPresetPaste';
 import {
   TerminalShortcutDialog,
   TerminalShortcutProvider,
@@ -31,13 +32,24 @@ import { buildTerminalContextMenuItems } from './utils/contextMenuBuilder';
 import { TAB_COLORS } from './types/workspace';
 import { resolveCwd } from './utils/shell';
 import type { WorkspaceTabRuntime } from './types/workspace';
-import type { ShellInfo, TerminalShortcutState } from './types';
+import type { CommandPreset, ShellInfo, TerminalShortcutState } from './types';
 import { WebSocketProvider } from './contexts/WebSocketContext';
 import './styles/globals.css';
 import './components/Workspace/breathing.css';
 
 // LRU 설정: 0 = 제한없음 (기본값). TODO: Settings UI 연동 예정
 const MAX_ALIVE_WORKSPACES = 0;
+
+function buildMissingTerminalPasteResult(): TerminalPasteInputResult {
+  return {
+    ok: false,
+    reason: 'context-changed',
+    source: 'command-preset-paste',
+    captureState: 'closed',
+    barrierReason: 'none',
+    closedReason: 'terminal-disposed',
+  };
+}
 
 function TerminalWorkspaceStage({
   children,
@@ -108,6 +120,10 @@ function AppContent() {
 
   const tabContextMenu = useContextMenu();
   const terminalRefsMap = useRef<Map<string, { current: TerminalHandle | null }>>(new Map());
+  const [registeredPresetSnapshot, setRegisteredPresetSnapshot] = useState<CommandPreset[]>([]);
+  const tabContextMenuOpenGuardRef = useRef<{ tabId: string; x: number; y: number; at: number } | null>(null);
+  const tabContextMenuOpenSeqRef = useRef(0);
+  const tabContextMenuRestoreFocusElementRef = useRef<Element | null>(null);
 
   useHeartbeat({
     onSessionExpired: () => {
@@ -227,9 +243,83 @@ function AppContent() {
     terminalRefsMap.current.get(tabId)?.current?.sendInput(data);
   }, []);
 
+  const pasteTerminalInput = useCallback((tabId: string, data: string): TerminalPasteInputResult => {
+    return terminalRefsMap.current.get(tabId)?.current?.pasteInput(data) ?? buildMissingTerminalPasteResult();
+  }, []);
+
   const focusTerminal = useCallback((tabId: string): void => {
     terminalRefsMap.current.get(tabId)?.current?.focus();
   }, []);
+
+  const handleRegisteredPresetPaste = useCallback((tabId: string, preset: CommandPreset) => {
+    const validation = buildCommandPresetPasteInput(preset);
+    if (!validation.ok) {
+      console.warn('[CommandPresetContextMenu] Refused command preset paste', {
+        presetId: preset.id,
+        kind: preset.kind,
+        reason: validation.reason,
+      });
+      requestAnimationFrame(() => focusTerminal(tabId));
+      return;
+    }
+
+    const result = pasteTerminalInput(tabId, validation.data);
+    if (!result.ok) {
+      console.warn('[CommandPresetContextMenu] Failed to paste command preset', {
+        presetId: preset.id,
+        kind: preset.kind,
+        result,
+      });
+    }
+    requestAnimationFrame(() => focusTerminal(tabId));
+  }, [focusTerminal, pasteTerminalInput]);
+
+  const openTabContextMenu = useCallback((x: number, y: number, tabId: string) => {
+    const now = performance.now();
+    const previous = tabContextMenuOpenGuardRef.current;
+    if (
+      previous
+      && previous.tabId === tabId
+      && previous.x === x
+      && previous.y === y
+      && now - previous.at < 50
+    ) {
+      return;
+    }
+
+    tabContextMenuOpenGuardRef.current = { tabId, x, y, at: now };
+    tabContextMenuRestoreFocusElementRef.current = document.activeElement instanceof Element
+      ? document.activeElement
+      : null;
+    const seq = tabContextMenuOpenSeqRef.current + 1;
+    tabContextMenuOpenSeqRef.current = seq;
+
+    void (async () => {
+      let presets: CommandPreset[] = [];
+      try {
+        presets = await commandPresetApi.getAll();
+      } catch (error) {
+        console.warn('[CommandPresetContextMenu] Failed to load command presets', error);
+      }
+
+      if (tabContextMenuOpenSeqRef.current !== seq) {
+        return;
+      }
+      setRegisteredPresetSnapshot(presets);
+      requestAnimationFrame(() => {
+        if (tabContextMenuOpenSeqRef.current === seq) {
+          tabContextMenu.open(x, y, tabId);
+        }
+      });
+    })();
+  }, [tabContextMenu]);
+
+  const closeTabContextMenu = useCallback(() => {
+    tabContextMenuOpenSeqRef.current += 1;
+    tabContextMenu.close();
+    tabContextMenuRestoreFocusElementRef.current = null;
+    setRegisteredPresetSnapshot([]);
+  }, [tabContextMenu]);
 
   // 그리드 모드: MosaicContainer가 자체 확인 모달을 가지므로 직접 닫기
   const handleCloseTabDirect = useCallback((tabId: string) => {
@@ -343,7 +433,7 @@ function AppContent() {
       onAddTab: handleAddTab,
       onCloseTab: () => {
         handleCloseTab(activeTab.id);
-        tabContextMenu.close();
+        closeTabContextMenu();
       },
       onCopy: async () => {
         const text = tabRef?.current?.getSelection() ?? '';
@@ -356,8 +446,22 @@ function AppContent() {
         } catch { /* ignore */ }
       },
       hasSelection,
+      registeredPresetMenu: {
+        presets: registeredPresetSnapshot,
+        onSelectPreset: (preset) => handleRegisteredPresetPaste(tabContextMenu.targetId!, preset),
+      },
     });
-  }, [tabContextMenu.targetId, activeTab, wm.activeWorkspaceTabs, availableShells, handleAddTab, handleCloseTab, tabContextMenu]);
+  }, [
+    tabContextMenu.targetId,
+    activeTab,
+    wm.activeWorkspaceTabs,
+    availableShells,
+    handleAddTab,
+    handleCloseTab,
+    closeTabContextMenu,
+    registeredPresetSnapshot,
+    handleRegisteredPresetPaste,
+  ]);
 
   const renderTerminal = useCallback((
     tab: WorkspaceTabRuntime,
@@ -488,6 +592,7 @@ function AppContent() {
                       getTerminalSelection={getTerminalSelection}
                       hasTerminalSelection={hasTerminalSelection}
                       sendTerminalInput={sendTerminalInput}
+                      pasteTerminalInput={pasteTerminalInput}
                       focusTerminal={focusTerminal}
                       onLayoutChange={handleLayoutChange}
                     />
@@ -519,7 +624,7 @@ function AppContent() {
                           } as React.CSSProperties}
                           onContextMenu={isVisible ? (e) => {
                             e.preventDefault();
-                            tabContextMenu.open(e.clientX, e.clientY, tab.id);
+                            openTabContextMenu(e.clientX, e.clientY, tab.id);
                           } : undefined}
                         >
                           {tab.status === 'disconnected' ? (
@@ -534,7 +639,7 @@ function AppContent() {
                               isVisible={isVisible}
                               className={isVisible && tab.status === 'running' ? 'terminal-running' : ''}
                               style={{ '--tab-color': TAB_COLORS[tab.colorIndex] || TAB_COLORS[0] } as React.CSSProperties}
-                              onContextMenu={(x, y) => tabContextMenu.open(x, y, tab.id)}
+                              onContextMenu={(x, y) => openTabContextMenu(x, y, tab.id)}
                               onPointerDown={() => focusTerminal(tab.id)}
                             />
                           )}
@@ -573,7 +678,8 @@ function AppContent() {
         <ContextMenu
           position={tabContextMenu.position}
           items={tabContextMenuItems}
-          onClose={tabContextMenu.close}
+          onClose={closeTabContextMenu}
+          restoreFocusElement={tabContextMenuRestoreFocusElementRef.current}
         />
       )}
 

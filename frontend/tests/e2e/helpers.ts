@@ -103,6 +103,264 @@ export async function createCommandPreset(
   await expect(dialog.getByText(label)).toBeVisible({ timeout: 10000 });
 }
 
+/** Create a command preset directly through the API */
+export async function createCommandPresetViaApi(
+  page: Page,
+  kind: 'command' | 'directory' | 'prompt',
+  label: string,
+  value: string,
+): Promise<void> {
+  await page.evaluate(async (input) => {
+    const token = localStorage.getItem('cws_auth_token');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+    const res = await fetch('/api/command-presets', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to create command preset: ${res.status}`);
+    }
+  }, { kind, label, value });
+}
+
+/** Open the visible terminal context menu on desktop or mobile */
+export async function openTerminalContextMenu(
+  page: Page,
+  options: { mobile?: boolean; xRatio?: number; yRatio?: number; waitForMenu?: boolean; dispatchEvent?: boolean } = {},
+): Promise<void> {
+  const terminal = page.locator('.xterm-screen:visible').first();
+  await expect(terminal).toBeVisible({ timeout: 15000 });
+  const box = await terminal.boundingBox();
+  if (!box) {
+    throw new Error('Visible terminal screen has no bounding box');
+  }
+
+  const clientX = box.x + box.width * (options.xRatio ?? 0.5);
+  const clientY = box.y + box.height * (options.yRatio ?? 0.5);
+  if (options.mobile || options.dispatchEvent) {
+    await terminal.dispatchEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      clientX,
+      clientY,
+      button: 2,
+    });
+  } else {
+    await page.mouse.click(clientX, clientY, { button: 'right' });
+  }
+
+  if (options.waitForMenu !== false) {
+    await page.waitForSelector('.context-menu, .context-menu-dialog', { timeout: 5000 });
+  }
+}
+
+/** Assert terminal debug metadata for the registered-preset paste path */
+export async function expectTerminalInputDebug(
+  page: Page,
+  matcher: {
+    enterCount: number;
+    controlCount?: number;
+    byteLength?: number;
+    codePointCount?: number;
+    source?: string;
+  },
+): Promise<void> {
+  await expect.poll(async () => {
+    return page.evaluate((expected) => {
+      const events = window.__buildergateTerminalDebug?.getEvents() ?? [];
+      return events.some((event) => {
+        if (event.kind !== 'command_preset_paste_input_sent' && event.kind !== 'terminal_input_queued') {
+          return false;
+        }
+        if (
+          expected.source
+          && event.kind !== 'command_preset_paste_input_sent'
+          && event.details?.source !== expected.source
+        ) {
+          return false;
+        }
+        const hasEnter = event.details?.hasEnter === true;
+        const controlCount = typeof event.details?.controlCount === 'number'
+          ? event.details.controlCount
+          : 0;
+        const byteLength = typeof event.details?.byteLength === 'number'
+          ? event.details.byteLength
+          : undefined;
+        const codePointCount = typeof event.details?.codePointCount === 'number'
+          ? event.details.codePointCount
+          : undefined;
+        return hasEnter === (expected.enterCount > 0)
+          && (expected.controlCount === undefined || controlCount === expected.controlCount)
+          && (expected.byteLength === undefined || byteLength === expected.byteLength)
+          && (expected.codePointCount === undefined || codePointCount === expected.codePointCount);
+      });
+    }, matcher);
+  }, { timeout: 10000 }).toBe(true);
+}
+
+/** Assert one new registered-preset paste debug event after a captured count */
+export async function expectTerminalInputDebugAfterCount(
+  page: Page,
+  previousCount: number,
+  matcher: {
+    enterCount: number;
+    controlCount?: number;
+    byteLength?: number;
+    codePointCount?: number;
+    source?: string;
+  },
+): Promise<void> {
+  await expect.poll(async () => {
+    return page.evaluate(({ expected, countBefore }) => {
+      const events = window.__buildergateTerminalDebug?.getEvents() ?? [];
+      const pasteEvents = events.filter((event) => {
+        return event.kind === 'command_preset_paste_input_sent'
+          || (
+            event.kind === 'terminal_input_queued'
+            && event.details?.source === 'command-preset-paste'
+          );
+      });
+      const newEvents = pasteEvents.slice(countBefore);
+      if (newEvents.length !== 1) {
+        return { count: newEvents.length, matches: false };
+      }
+
+      const event = newEvents[0];
+      const hasEnter = event.details?.hasEnter === true;
+      const controlCount = typeof event.details?.controlCount === 'number'
+        ? event.details.controlCount
+        : 0;
+      const byteLength = typeof event.details?.byteLength === 'number'
+        ? event.details.byteLength
+        : undefined;
+      const codePointCount = typeof event.details?.codePointCount === 'number'
+        ? event.details.codePointCount
+        : undefined;
+      const sourceMatches = !expected.source
+        || event.kind === 'command_preset_paste_input_sent'
+        || event.details?.source === expected.source;
+
+      return {
+        count: newEvents.length,
+        matches: sourceMatches
+          && hasEnter === (expected.enterCount > 0)
+          && (expected.controlCount === undefined || controlCount === expected.controlCount)
+          && (expected.byteLength === undefined || byteLength === expected.byteLength)
+          && (expected.codePointCount === undefined || codePointCount === expected.codePointCount),
+      };
+    }, { expected: matcher, countBefore: previousCount });
+  }, { timeout: 10000 }).toEqual({ count: 1, matches: true });
+}
+
+/** Assert the visible terminal surface shows a pasted value */
+export async function expectTerminalScreenContains(page: Page, text: string): Promise<void> {
+  await expect(page.locator('.xterm-screen:visible').first()).toContainText(text, { timeout: 10000 });
+}
+
+/** Assert the visible terminal's current prompt input exactly equals the value */
+export async function expectVisibleTerminalCurrentInputEquals(page: Page, value: string): Promise<void> {
+  await expect.poll(async () => {
+    return page.evaluate((expectedValue) => {
+      const terminalView = Array.from(document.querySelectorAll<HTMLElement>('.terminal-view')).find((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && getComputedStyle(element).visibility !== 'hidden';
+      });
+      const rowElements = terminalView
+        ? Array.from(terminalView.querySelectorAll<HTMLElement>('.xterm-rows > div'))
+        : [];
+      const rows = rowElements.map(row => (row.textContent ?? '').replace(/\u00a0/g, ' '));
+
+      for (let index = rows.length - 1; index >= 0; index -= 1) {
+        const row = rows[index];
+        const matches = Array.from(row.matchAll(/PS\s+[^>]*>\s*/g));
+        const prompt = matches[matches.length - 1];
+        if (!prompt || prompt.index === undefined) {
+          continue;
+        }
+        const promptEnd = prompt.index + prompt[0].length;
+        const head = row.slice(promptEnd).trimEnd();
+        const continuation = rows.slice(index + 1)
+          .map(nextRow => nextRow.trimEnd())
+          .join('')
+          .trimEnd();
+        return `${head}${continuation}`.trim();
+      }
+
+      const lastNonEmptyRow = [...rows].reverse().find(row => row.trim().length > 0)?.trim() ?? '';
+      if (lastNonEmptyRow === expectedValue) {
+        return lastNonEmptyRow;
+      }
+      return `__parse_error__: no PowerShell prompt in visible terminal rows: ${JSON.stringify(rows.slice(-6))}`;
+    }, value);
+  }, { timeout: 10000 }).toBe(value);
+}
+
+/** Count terminal debug events emitted by the registered-preset paste path */
+export async function countCommandPresetPasteDebugEvents(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const events = window.__buildergateTerminalDebug?.getEvents() ?? [];
+    return events.filter((event) => {
+      return event.kind === 'command_preset_paste_input_sent'
+        || (
+          event.kind === 'terminal_input_queued'
+          && event.details?.source === 'command-preset-paste'
+        );
+    }).length;
+  });
+}
+
+/** Resolve the active tab's session id from the persisted workspace state */
+export async function getActiveSessionId(page: Page): Promise<string | null> {
+  return page.evaluate(async () => {
+    const token = localStorage.getItem('cws_auth_token');
+    const activeWorkspaceId = localStorage.getItem('active_workspace_id');
+    const res = await fetch('/api/workspaces', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      throw new Error(`workspace fetch failed: ${res.status}`);
+    }
+    const state = await res.json();
+    const workspace = state.workspaces.find((item: { id: string }) => item.id === activeWorkspaceId)
+      ?? state.workspaces[0];
+    const tab = state.tabs.find((item: { id: string }) => item.id === workspace.activeTabId);
+    return tab?.sessionId ?? null;
+  });
+}
+
+/** Override terminal input readiness through the local debug hook */
+export async function setTerminalInputTransportOverride(
+  page: Page,
+  sessionId: string,
+  override: {
+    serverReady?: boolean;
+    barrierReason?: string;
+    closedReason?: string;
+    reconnectState?: string;
+    sessionGeneration?: number;
+  } | null,
+): Promise<boolean> {
+  return page.evaluate(({ targetSessionId, nextOverride }) => {
+    return window.__buildergateTerminalDebug?.setInputTransportOverride(targetSessionId, nextOverride) ?? false;
+  }, { targetSessionId: sessionId, nextOverride: override });
+}
+
+/** Assert focus has returned to the visible xterm helper textarea */
+export async function expectTerminalFocusRestored(page: Page): Promise<void> {
+  await expect.poll(async () => {
+    return page.evaluate(() => {
+      const active = document.activeElement;
+      return active instanceof HTMLTextAreaElement
+        && active.classList.contains('xterm-helper-textarea')
+        && active.closest('.terminal-view') instanceof HTMLElement;
+    });
+  }, { timeout: 10000 }).toBe(true);
+}
+
 /** Right-click on the nth pane (0-based) */
 export async function rightClickPane(page: Page, index: number) {
   const pane = page.locator('.pane-leaf').nth(index);

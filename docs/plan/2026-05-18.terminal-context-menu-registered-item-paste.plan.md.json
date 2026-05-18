@@ -1,0 +1,338 @@
+{
+  "plan_contract": "1.1.0",
+  "plan_id": "plan-20260518-terminal-menu-presets",
+  "title": "Terminal Context Menu Registered Item Paste Implementation Plan",
+  "created": "2026-05-18",
+  "spec_path": "docs/spec/10.product-architecture.srs.md",
+  "code_path": ".",
+  "target": "0.5.3step1",
+  "implementation_source": {
+    "authoritative": "markdown",
+    "markdown_path": "docs/plan/2026-05-18.terminal-context-menu-registered-item-paste.plan.md",
+    "sidecar_purpose": "routing and task graph index; implementers must read Markdown TASK details for signatures, guides, rationale, pitfalls, tests, and DoD"
+  },
+  "scope_freeze": true,
+  "change_log": [],
+  "pre_commit_gate": [
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run lint:command-management", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "$env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npm --prefix frontend exec playwright test tests/e2e/header-context-menu-regression.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "$env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npm --prefix frontend exec playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "$env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npm --prefix frontend exec playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Mobile Safari\"", "expected_exit": 0}
+  ],
+  "forbidden_patterns": [
+    {"pattern": "적절[히]|필요\\s*시|알아[서]|상황에\\s*맞게|기존\\s*방식대로|어떻게[든]", "flags": ""},
+    {"pattern": "rm\\s+-rf|Remove-Item\\s+.*-Recurse|git\\s+reset\\s+--hard|git\\s+checkout\\s+--", "flags": "i"}
+  ],
+  "requirements": [
+    {"id": "FR-ARCH-001", "statement": "Context menu supports nested child menus through level 5, strips deeper children, and omits empty/actionless items."},
+    {"id": "FR-ARCH-002", "statement": "Root and child context menus stay inside the screen through flip, clamp, and scroll behavior."},
+    {"id": "FR-ARCH-003", "statement": "Mobile context menu always renders as a dialog with path header and back navigation."},
+    {"id": "FR-ARCH-004", "statement": "Terminal registered item context menu pastes command, directory, or prompt values without executing them."},
+    {"id": "FR-ARCH-005", "statement": "Registered item menus hide empty categories and reload a stable fresh snapshot on menu open."},
+    {"id": "FR-ARCH-006", "statement": "Registered item load and paste failures remain observable and never silently execute or coerce unsafe input."}
+  ],
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "title": "Shared context menu model and desktop containment",
+      "tasks": [
+        {
+          "id": "TASK-P1-001",
+          "title": "Normalize nested context menu trees and enforce depth",
+          "related_req_ids": ["FR-ARCH-001", "FR-ARCH-005"],
+          "owns": [
+            "frontend/src/components/ContextMenu/contextMenuModel.ts",
+            "frontend/src/components/ContextMenu/ContextMenu.tsx",
+            "frontend/tests/unit/contextMenuModel.test.ts",
+            "frontend/package.json"
+          ],
+          "reads": [
+            "frontend/src/components/ContextMenu/ContextMenu.tsx",
+            "frontend/tests/e2e/header-context-menu-regression.spec.ts"
+          ],
+          "source_anchors": [
+            "docs/spec/10.product-architecture.srs.md:29-82",
+            "docs/spec/10.product-architecture.srs.md:257-312",
+            "frontend/src/components/ContextMenu/ContextMenu.tsx:5-20",
+            "frontend/src/components/ContextMenu/ContextMenu.tsx:188-203",
+            "frontend/tests/e2e/header-context-menu-regression.spec.ts:360-387"
+          ],
+          "depends_on": [],
+          "feasibility": "Medium",
+          "turn_estimate": 6,
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run lint:command-management", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) contextMenuModel.ts와 contextMenuModel.test.ts 추가분을 제거한다. 2) ContextMenu.tsx와 package.json에서 normalizeContextMenuItems 연결과 test script 확장을 되돌린다."}
+        },
+        {
+          "id": "TASK-P1-002",
+          "title": "Add viewport-safe geometry and scrolling for desktop menus",
+          "related_req_ids": ["FR-ARCH-002"],
+          "owns": [
+            "frontend/src/components/ContextMenu/contextMenuGeometry.ts",
+            "frontend/src/components/ContextMenu/ContextMenu.tsx",
+            "frontend/src/components/ContextMenu/ContextMenu.css",
+            "frontend/tests/unit/contextMenuGeometry.test.ts",
+            "frontend/package.json"
+          ],
+          "reads": [
+            "frontend/src/components/ContextMenu/ContextMenu.tsx",
+            "frontend/src/components/ContextMenu/ContextMenu.css"
+          ],
+          "source_anchors": [
+            "docs/spec/10.product-architecture.srs.md:85-139",
+            "frontend/src/components/ContextMenu/ContextMenu.tsx:32-72",
+            "frontend/src/components/ContextMenu/ContextMenu.tsx:210-227",
+            "frontend/src/components/ContextMenu/ContextMenu.css:1-10",
+            "frontend/src/components/ContextMenu/ContextMenu.css:54-78"
+          ],
+          "depends_on": ["TASK-P1-001"],
+          "feasibility": "Medium",
+          "turn_estimate": 5,
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "$env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npm --prefix frontend exec playwright test tests/e2e/header-context-menu-regression.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) contextMenuGeometry.ts와 contextMenuGeometry.test.ts 추가분을 제거한다. 2) ContextMenu.tsx와 ContextMenu.css의 위치 helper, max-height, ellipsis 연결 diff만 되돌린다."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-2",
+      "title": "Mobile context menu dialog navigation",
+      "tasks": [
+        {
+          "id": "TASK-P2-001",
+          "title": "Render context menus as mobile dialogs with path navigation",
+          "related_req_ids": ["FR-ARCH-001", "FR-ARCH-003"],
+          "owns": [
+            "frontend/src/components/ContextMenu/ContextMenu.tsx",
+            "frontend/src/components/ContextMenu/ContextMenu.css",
+            "frontend/src/App.tsx",
+            "frontend/src/components/Grid/MosaicContainer.tsx",
+            "frontend/tests/unit/contextMenuNavigation.test.ts",
+            "frontend/package.json"
+          ],
+          "reads": [
+            "frontend/src/hooks/useResponsive.ts",
+            "frontend/src/hooks/useContextMenu.ts",
+            "frontend/src/components/ContextMenu/ContextMenu.tsx"
+          ],
+          "source_anchors": [
+            "docs/spec/10.product-architecture.srs.md:141-196",
+            "frontend/src/components/ContextMenu/ContextMenu.tsx:80-181",
+            "frontend/src/components/ContextMenu/ContextMenu.tsx:210-258",
+            "frontend/src/hooks/useResponsive.ts:1-40",
+            "frontend/src/App.tsx:87-92",
+            "frontend/src/App.tsx:571-578",
+            "frontend/src/components/Grid/MosaicContainer.tsx:720-727"
+          ],
+          "depends_on": ["TASK-P1-001", "TASK-P1-002"],
+          "feasibility": "High",
+          "turn_estimate": 8,
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "$env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npm --prefix frontend exec playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Mobile Safari\"", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) ContextMenu.tsx와 ContextMenu.css의 mobile dialog branch를 제거한다. 2) App.tsx, MosaicContainer.tsx, contextMenuNavigation.test.ts, package.json의 mobile mode 연결 diff를 되돌린다."}
+        },
+        {
+          "id": "TASK-P2-002",
+          "title": "Wire mobile dialog back behavior to browser history",
+          "related_req_ids": ["FR-ARCH-003"],
+          "owns": [
+            "frontend/src/components/ContextMenu/useContextMenuHistory.ts",
+            "frontend/src/components/ContextMenu/ContextMenu.tsx",
+            "frontend/tests/unit/contextMenuNavigation.test.ts"
+          ],
+          "reads": [
+            "frontend/src/hooks/useContextMenu.ts",
+            "frontend/src/components/ContextMenu/ContextMenu.tsx"
+          ],
+          "source_anchors": [
+            "docs/spec/10.product-architecture.srs.md:141-196",
+            "frontend/src/hooks/useContextMenu.ts:1-25",
+            "frontend/src/components/ContextMenu/ContextMenu.tsx:228-247"
+          ],
+          "depends_on": ["TASK-P2-001"],
+          "feasibility": "Medium",
+          "turn_estimate": 5,
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "$env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npm --prefix frontend exec playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Mobile Safari\"", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) useContextMenuHistory.ts와 해당 unit test case를 제거한다. 2) ContextMenu.tsx에서 history hook 호출과 header back의 window.history.back 연결을 제거한다."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-3",
+      "title": "Registered item paste integration",
+      "tasks": [
+        {
+          "id": "TASK-P3-001",
+          "title": "Add paste-only preset payload validation and terminal input API",
+          "related_req_ids": ["FR-ARCH-004", "FR-ARCH-006"],
+          "owns": [
+            "frontend/src/components/CommandPresetManager/commandPresetPaste.ts",
+            "frontend/src/components/Terminal/TerminalView.tsx",
+            "frontend/src/components/Terminal/TerminalContainer.tsx",
+            "frontend/src/App.tsx",
+            "frontend/src/components/Grid/MosaicContainer.tsx",
+            "frontend/tests/unit/commandPresetPaste.test.ts",
+            "frontend/package.json"
+          ],
+          "reads": [
+            "frontend/src/components/CommandPresetManager/commandPresetExecution.ts",
+            "frontend/src/types/commandPreset.ts",
+            "frontend/src/components/Terminal/TerminalView.tsx",
+            "frontend/src/utils/terminalDebugCapture.ts"
+          ],
+          "source_anchors": [
+            "docs/spec/10.product-architecture.srs.md:198-254",
+            "docs/spec/10.product-architecture.srs.md:314-368",
+            "frontend/src/components/CommandPresetManager/commandPresetExecution.ts:5-24",
+            "frontend/src/types/commandPreset.ts:1-10",
+            "frontend/src/components/Terminal/TerminalView.tsx:116-128",
+            "frontend/src/components/Terminal/TerminalView.tsx:587-636",
+            "frontend/src/components/Terminal/TerminalView.tsx:1378-1415",
+            "frontend/src/components/Terminal/TerminalView.tsx:1502-1502",
+            "frontend/src/components/Terminal/TerminalContainer.tsx:1081-1092",
+            "frontend/src/utils/terminalDebugCapture.ts:318-352"
+          ],
+          "depends_on": [],
+          "feasibility": "High",
+          "turn_estimate": 8,
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) commandPresetPaste.ts와 commandPresetPaste.test.ts 추가분을 제거한다. 2) TerminalHandle, TerminalView, TerminalContainer, App.tsx, MosaicContainer.tsx의 pasteInput 연결 diff를 되돌린다."}
+        },
+        {
+          "id": "TASK-P3-002",
+          "title": "Build registered item submenus from fresh command preset snapshots",
+          "related_req_ids": ["FR-ARCH-004", "FR-ARCH-005", "FR-ARCH-006"],
+          "owns": [
+            "frontend/src/utils/contextMenuBuilder.ts",
+            "frontend/src/App.tsx",
+            "frontend/src/components/Grid/MosaicContainer.tsx",
+            "frontend/tests/unit/terminalContextMenuRegisteredItems.test.ts",
+            "frontend/package.json"
+          ],
+          "reads": [
+            "frontend/src/components/CommandPresetManager/useCommandPresets.ts",
+            "frontend/src/services/api.ts",
+            "frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx",
+            "frontend/src/utils/contextMenuBuilder.ts"
+          ],
+          "source_anchors": [
+            "docs/spec/10.product-architecture.srs.md:198-312",
+            "frontend/src/utils/contextMenuBuilder.ts:6-80",
+            "frontend/src/components/CommandPresetManager/useCommandPresets.ts:5-13",
+            "frontend/src/components/CommandPresetManager/useCommandPresets.ts:19-36",
+            "frontend/src/services/api.ts:458-466",
+            "frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx:18-21",
+            "frontend/src/App.tsx:334-360",
+            "frontend/src/App.tsx:520-537",
+            "frontend/src/components/Grid/MosaicContainer.tsx:545-572",
+            "frontend/src/components/Grid/MosaicContainer.tsx:644-653"
+          ],
+          "depends_on": ["TASK-P1-001", "TASK-P3-001"],
+          "feasibility": "High",
+          "turn_estimate": 8,
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run lint:command-management", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) contextMenuBuilder.ts의 registered preset builder와 App.tsx, MosaicContainer.tsx의 snapshot open wrapper를 제거한다. 2) terminalContextMenuRegisteredItems.test.ts와 package.json script 확장을 제거한다."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-4",
+      "title": "Regression coverage and final verification",
+      "tasks": [
+        {
+          "id": "TASK-P4-001",
+          "title": "Add desktop and mobile regression coverage for registered item paste",
+          "related_req_ids": ["FR-ARCH-001", "FR-ARCH-002", "FR-ARCH-003", "FR-ARCH-004", "FR-ARCH-005", "FR-ARCH-006"],
+          "owns": [
+            "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts",
+            "frontend/tests/e2e/helpers.ts",
+            "frontend/package.json"
+          ],
+          "reads": [
+            "frontend/tests/e2e/command-management-dialog.spec.ts",
+            "frontend/tests/e2e/header-context-menu-regression.spec.ts",
+            "frontend/tests/e2e/helpers.ts",
+            "frontend/playwright.config.ts"
+          ],
+          "source_anchors": [
+            "docs/spec/10.product-architecture.srs.md:29-368",
+            "frontend/tests/e2e/helpers.ts:59-83",
+            "frontend/tests/e2e/helpers.ts:87-104",
+            "frontend/tests/e2e/helpers.ts:113-117",
+            "frontend/tests/e2e/command-management-dialog.spec.ts:90-135",
+            "frontend/tests/e2e/header-context-menu-regression.spec.ts:360-387",
+            "frontend/playwright.config.ts:1-37"
+          ],
+          "depends_on": ["TASK-P1-001", "TASK-P1-002", "TASK-P2-001", "TASK-P2-002", "TASK-P3-001", "TASK-P3-002"],
+          "feasibility": "Medium",
+          "turn_estimate": 7,
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "$env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npm --prefix frontend exec playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "$env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npm --prefix frontend exec playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Mobile Safari\"", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "$env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npm --prefix frontend exec playwright test tests/e2e/header-context-menu-regression.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) terminal-context-menu-registered-items.spec.ts와 helpers.ts 추가 helper를 제거한다. 2) package.json에서 신규 test/lint script 항목을 되돌리고 기존 E2E가 그대로 실행되는지 확인한다."}
+        },
+        {
+          "id": "TASK-P4-002",
+          "title": "Run final gates and mandatory implementation review loop",
+          "related_req_ids": ["FR-ARCH-001", "FR-ARCH-002", "FR-ARCH-003", "FR-ARCH-004", "FR-ARCH-005", "FR-ARCH-006"],
+          "owns": [
+            "docs/plan/2026-05-18.terminal-context-menu-registered-item-paste.plan.md",
+            "docs/plan/2026-05-18.terminal-context-menu-registered-item-paste.plan.md.json"
+          ],
+          "reads": [
+            "AGENTS.md",
+            "docs/spec/10.product-architecture.srs.md"
+          ],
+          "source_anchors": [
+            "AGENTS.md:1-43",
+            "docs/spec/10.product-architecture.srs.md:29-368",
+            "frontend/package.json:5-14"
+          ],
+          "depends_on": ["TASK-P4-001"],
+          "feasibility": "Low",
+          "turn_estimate": 3,
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run lint:command-management", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "$env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npm --prefix frontend exec playwright test tests/e2e/header-context-menu-regression.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "$env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npm --prefix frontend exec playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "$env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npm --prefix frontend exec playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Mobile Safari\"", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) TASK-P1부터 TASK-P4까지 각 rollback 절차를 역순으로 수행한다. 2) pre_commit_gate 명령 중 header-context-menu-regression과 command-management unit test를 다시 실행해 기존 context menu와 command preset dialog가 유지되는지 확인한다."}
+        }
+      ]
+    }
+  ],
+  "requirement_task_map": [
+    {"requirement_id": "FR-ARCH-001", "task_ids": ["TASK-P1-001", "TASK-P2-001", "TASK-P4-001", "TASK-P4-002"]},
+    {"requirement_id": "FR-ARCH-002", "task_ids": ["TASK-P1-002", "TASK-P4-001", "TASK-P4-002"]},
+    {"requirement_id": "FR-ARCH-003", "task_ids": ["TASK-P2-001", "TASK-P2-002", "TASK-P4-001", "TASK-P4-002"]},
+    {"requirement_id": "FR-ARCH-004", "task_ids": ["TASK-P3-001", "TASK-P3-002", "TASK-P4-001", "TASK-P4-002"]},
+    {"requirement_id": "FR-ARCH-005", "task_ids": ["TASK-P1-001", "TASK-P3-002", "TASK-P4-001", "TASK-P4-002"]},
+    {"requirement_id": "FR-ARCH-006", "task_ids": ["TASK-P3-001", "TASK-P3-002", "TASK-P4-001", "TASK-P4-002"]}
+  ],
+  "dew_path": ".snoworca/dew/planner/plan-20260518-terminal-context-menu-registered-item-paste/"
+}

@@ -1,0 +1,198 @@
+{
+  "plan_contract": "1.1.0",
+  "plan_id": "plan-20260519-terminal-context-menu-hardening",
+  "title": "Terminal Context Menu Registered Paste Hardening Plan",
+  "created": "2026-05-19",
+  "spec_path": "docs/spec/10.product-architecture.srs.md",
+  "code_path": ".",
+  "target": "0.5.3step1",
+  "implementation_source": {
+    "authoritative": "markdown",
+    "markdown_path": "docs/plan/2026-05-19.terminal-context-menu-hardening.plan.md",
+    "sidecar_purpose": "routing and task graph index; implementers must read Markdown TASK details for signatures, guides, rationale, pitfalls, tests, and DoD"
+  },
+  "validation_port_policy": {
+    "user_override_for_this_target": "https://localhost:2222",
+    "must_use_for_this_target": "https://localhost:2222",
+    "forbidden_for_this_target": ["https://localhost:2002"],
+    "notes": "For target 0.5.3step1, the user's explicit instruction requires testing only against 2222. Do not run Playwright or manual validation against 2002 for this target. Ensure a BuilderGate HTTPS server is running on 2222 before executing these gates."
+  },
+  "scope_freeze": true,
+  "change_log": [],
+  "pre_commit_gate": [
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run lint:command-management", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "cd frontend; $env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npx playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "cd frontend; $env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npx playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Mobile Safari\"", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "cd frontend; $env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npx playwright test tests/e2e/header-context-menu-regression.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0}
+  ],
+  "forbidden_patterns": [
+    {"pattern": "적절[히]|필요\\s*시|알아[서]|상황에\\s*맞게|기존\\s*방식대로|어떻게[든]", "flags": ""},
+    {"pattern": "rm\\s+-rf|Remove-Item\\s+.*-Recurse|git\\s+reset\\s+--hard|git\\s+checkout\\s+--", "flags": "i"}
+  ],
+  "requirements": [
+    {"id": "FR-ARCH-001", "statement": "Context menu multi-level navigation must work through actual desktop keyboard focus paths."},
+    {"id": "FR-ARCH-002", "statement": "Root and child context menus must stay inside viewport across all edge positions."},
+    {"id": "FR-ARCH-003", "statement": "Mobile context menu dialog must provide path/back/history and a coherent focus/ARIA contract."},
+    {"id": "FR-ARCH-004", "statement": "Registered command, directory, and prompt values must paste exactly without execution."},
+    {"id": "FR-ARCH-005", "statement": "Registered item menu snapshots must hide empty categories and avoid stale reuse after load failures."},
+    {"id": "FR-ARCH-006", "statement": "Load and paste failures must remain observable and must not create input side effects."}
+  ],
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "title": "Menu lifecycle and focus stability",
+      "tasks": [
+        {
+          "id": "TASK-H1-001",
+          "title": "Invalidate pending context-menu open and preserve registered snapshot correctness during slow preset load",
+          "related_req_ids": ["FR-ARCH-004", "FR-ARCH-005", "FR-ARCH-006"],
+          "owns": [
+            "frontend/src/App.tsx",
+            "frontend/src/components/Grid/MosaicContainer.tsx",
+            "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts"
+          ],
+          "source_anchors": [
+            "frontend/src/App.tsx:276-316",
+            "frontend/src/components/Grid/MosaicContainer.tsx:587-624",
+            "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts:140-181"
+          ],
+          "depends_on": [],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "cd frontend; $env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npx playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "cd frontend; $env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npx playwright test tests/e2e/header-context-menu-regression.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0}
+          ],
+          "rollback": {
+            "strategy": "manual",
+            "command": "1) App.tsx와 MosaicContainer.tsx에서 close 시 sequence 증가와 slow-load branch 변경분을 제거한다. 2) terminal-context-menu-registered-items.spec.ts에서 slow-load 관련 신규 E2E만 제거한 뒤 기존 Desktop Chrome E2E를 다시 실행한다."
+          }
+        },
+        {
+          "id": "TASK-H1-002",
+          "title": "Add desktop initial focus and roving keyboard navigation",
+          "related_req_ids": ["FR-ARCH-001", "FR-ARCH-004"],
+          "owns": [
+            "frontend/src/components/ContextMenu/ContextMenu.tsx",
+            "frontend/src/components/ContextMenu/ContextMenu.css",
+            "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts"
+          ],
+          "source_anchors": [
+            "frontend/src/components/ContextMenu/ContextMenu.tsx:90-196",
+            "frontend/src/components/ContextMenu/ContextMenu.tsx:296-316",
+            "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts:99-114"
+          ],
+          "depends_on": [],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "cd frontend; $env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npx playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0}
+          ],
+          "rollback": {
+            "strategy": "manual",
+            "command": "1) ContextMenu.tsx에서 initial focus와 roving keyboard handler 변경분을 제거한다. 2) keyboard navigation E2E 신규 assertion만 제거하고 기존 click/hover submenu E2E를 실행한다."
+          }
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-2",
+      "title": "Mobile dialog accessibility hardening",
+      "tasks": [
+        {
+          "id": "TASK-H2-001",
+          "title": "Normalize mobile dialog focus, ARIA role, and close restore behavior",
+          "related_req_ids": ["FR-ARCH-003", "FR-ARCH-004"],
+          "owns": [
+            "frontend/src/components/ContextMenu/ContextMenu.tsx",
+            "frontend/src/components/ContextMenu/ContextMenu.css",
+            "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts"
+          ],
+          "source_anchors": [
+            "frontend/src/components/ContextMenu/ContextMenu.tsx:354-437",
+            "frontend/src/components/ContextMenu/useContextMenuHistory.ts:35-95",
+            "frontend/src/components/ContextMenu/ContextMenu.css:128-184",
+            "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts:288-334"
+          ],
+          "depends_on": ["TASK-H1-002"],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "cd frontend; $env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npx playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Mobile Safari\"", "expected_exit": 0}
+          ],
+          "rollback": {
+            "strategy": "manual",
+            "command": "1) ContextMenu.tsx와 CSS에서 mobile focus trap과 ARIA role 변경을 제거한다. 2) mobile split E2E를 기존 단일 mobile flow test로 되돌리고 Mobile Safari E2E를 실행한다."
+          }
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-3",
+      "title": "Validation false-positive reduction",
+      "tasks": [
+        {
+          "id": "TASK-H3-001",
+          "title": "Strengthen paste E2E assertions with current input line equality",
+          "related_req_ids": ["FR-ARCH-004", "FR-ARCH-006"],
+          "owns": [
+            "frontend/tests/e2e/helpers.ts",
+            "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts"
+          ],
+          "source_anchors": [
+            "frontend/tests/e2e/helpers.ts:160-207",
+            "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts:40-98",
+            "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts:342-351"
+          ],
+          "depends_on": [],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "cd frontend; $env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npx playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "cd frontend; $env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npx playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Mobile Safari\"", "expected_exit": 0}
+          ],
+          "rollback": {
+            "strategy": "manual",
+            "command": "1) helpers.ts에서 expectVisibleTerminalCurrentInputEquals helper를 제거한다. 2) terminal-context-menu-registered-items.spec.ts의 exact input assertion을 기존 contains+debug metadata 조합으로 되돌린다."
+          }
+        },
+        {
+          "id": "TASK-H3-002",
+          "title": "Expand category, control-character, viewport, and mobile split coverage",
+          "related_req_ids": ["FR-ARCH-002", "FR-ARCH-004", "FR-ARCH-005"],
+          "owns": [
+            "frontend/tests/unit/terminalContextMenuRegisteredItems.test.ts",
+            "frontend/tests/unit/commandPresetPaste.test.ts",
+            "frontend/tests/unit/contextMenuGeometry.test.ts",
+            "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts"
+          ],
+          "source_anchors": [
+            "frontend/tests/unit/terminalContextMenuRegisteredItems.test.ts:21-45",
+            "frontend/tests/unit/commandPresetPaste.test.ts:37-46",
+            "frontend/tests/unit/contextMenuGeometry.test.ts:9-40",
+            "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts:260-286"
+          ],
+          "depends_on": ["TASK-H3-001"],
+          "feasibility": "Low",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:unit:command-management", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "cd frontend; $env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npx playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "cd frontend; $env:PLAYWRIGHT_BASE_URL='https://localhost:2222'; npx playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Mobile Safari\"", "expected_exit": 0}
+          ],
+          "rollback": {
+            "strategy": "manual",
+            "command": "1) 세 unit test 파일에서 matrix case 추가분만 제거한다. 2) E2E viewport/mobile split 신규 case를 제거하고 기존 terminal-context-menu-registered-items.spec.ts 전체를 다시 실행한다."
+          }
+        }
+      ]
+    }
+  ],
+  "requirement_task_map": [
+    {"requirement_id": "FR-ARCH-001", "task_ids": ["TASK-H1-002"]},
+    {"requirement_id": "FR-ARCH-002", "task_ids": ["TASK-H3-002"]},
+    {"requirement_id": "FR-ARCH-003", "task_ids": ["TASK-H2-001"]},
+    {"requirement_id": "FR-ARCH-004", "task_ids": ["TASK-H1-001", "TASK-H1-002", "TASK-H2-001", "TASK-H3-001", "TASK-H3-002"]},
+    {"requirement_id": "FR-ARCH-005", "task_ids": ["TASK-H1-001", "TASK-H3-002"]},
+    {"requirement_id": "FR-ARCH-006", "task_ids": ["TASK-H1-001", "TASK-H3-001"]}
+  ]
+}
+

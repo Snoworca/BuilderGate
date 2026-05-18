@@ -1,4 +1,4 @@
-import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useMemo, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SerializeAddon } from '@xterm/addon-serialize';
@@ -75,6 +75,19 @@ type InputRejectedReason =
   | 'transport-closed'
   | 'mode-observe-only';
 
+export type TerminalInputSubmitResult =
+  | { ok: true; status: 'sent' | 'queued'; source: string }
+  | {
+      ok: false;
+      reason: InputRejectedReason;
+      source: string;
+      captureState: TerminalCaptureState;
+      barrierReason: TerminalInputBarrierReason;
+      closedReason: TerminalInputClosedReason;
+    };
+
+export type TerminalPasteInputResult = TerminalInputSubmitResult;
+
 interface PendingTerminalInput {
   data: string;
   metadata: InputDebugMetadata;
@@ -125,7 +138,8 @@ export interface TerminalHandle {
   requestGridRepair?: (reason?: GridRepairReason) => void;
   getScreenRepairReadiness: () => ScreenRepairReadiness;
   applyScreenRepair: (repair: ScreenRepairMessage) => Promise<ScreenRepairApplyResult>;
-  sendInput: (data: string) => void;
+  sendInput: (data: string) => TerminalInputSubmitResult;
+  pasteInput: (data: string) => TerminalPasteInputResult;
   restoreSnapshot: () => Promise<boolean>;
   replaceWithSnapshot: (data: string) => Promise<boolean>;
   releasePending: () => void;
@@ -221,21 +235,21 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     // IME 조합 상태 추적: compositionend/keydown(Space) race condition 보조 신호
     const isComposingRef = useRef<boolean>(false);
     const captureSeqRef = useRef(0);
-    const imeTransactionRef = useRef<ImeTransaction | null>(null);
+    const imeTransaction = useMemo(() => new ImeTransaction(), []);
+    const imeTransactionRef = useRef<ImeTransaction | null>(imeTransaction);
     const { isMobile } = useResponsive();
 
-    if (!imeTransactionRef.current) {
-      imeTransactionRef.current = new ImeTransaction();
-    }
-    imeTransactionRef.current.configure({
-      getSessionGeneration: () => sessionGenerationRef.current,
-      onEvent: (kind, details) => {
-        recordTerminalDebugEvent(sessionId, kind, details);
-      },
-      onStateChange: (snapshot) => {
-        isComposingRef.current = snapshot.state !== 'idle';
-      },
-    });
+    useEffect(() => {
+      imeTransaction.configure({
+        getSessionGeneration: () => sessionGenerationRef.current,
+        onEvent: (kind, details) => {
+          recordTerminalDebugEvent(sessionId, kind, details);
+        },
+        onStateChange: (snapshot) => {
+          isComposingRef.current = snapshot.state !== 'idle';
+        },
+      });
+    }, [imeTransaction, sessionId]);
 
     const getHelperTextarea = useCallback((): HTMLTextAreaElement | null => {
       const element = terminalRef.current?.querySelector('textarea.xterm-helper-textarea');
@@ -521,7 +535,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       data: string,
       debugInput: ReturnType<typeof buildTerminalInputDebugPayload>,
       source: string,
-    ) => {
+    ): TerminalInputSubmitResult => {
       const metadata = buildClientInputDebugMetadata(debugInput.details);
       const captureSeq = metadata.captureSeq ?? nextCaptureSeq();
       metadata.captureSeq = captureSeq;
@@ -552,7 +566,14 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           pendingQueueBytes: pendingInputQueueBytesRef.current,
         }, debugInput.preview);
         rejectQueuedInput(entry, 'queue-overflow');
-        return;
+        return {
+          ok: false,
+          reason: 'queue-overflow',
+          source,
+          captureState: captureStateRef.current,
+          barrierReason: transportBarrierReasonRef.current,
+          closedReason: transportClosedReasonRef.current,
+        };
       }
 
       pendingInputQueueRef.current.push(entry);
@@ -582,22 +603,25 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         pendingQueueBytes: pendingInputQueueBytesRef.current,
       }, debugInput.preview);
       scheduleInputQueueExpiry();
+      return { ok: true, status: 'queued', source };
     }, [getQueueByteLength, nextCaptureSeq, rejectQueuedInput, scheduleInputQueueExpiry, sessionId]);
 
     const submitCapturedInput = useCallback((
       data: string,
       debugInput: ReturnType<typeof buildTerminalInputDebugPayload>,
       source: string,
-    ) => {
+    ): TerminalInputSubmitResult => {
       if (transportReadyRef.current) {
         const sentEventKind = source === 'imperative'
           ? 'imperative_input_sent'
           : source === 'shortcut-binding'
             ? 'shortcut_binding_sent'
-            : 'xterm_data_emitted';
+            : source === 'command-preset-paste'
+              ? 'command_preset_paste_input_sent'
+              : 'xterm_data_emitted';
         recordTerminalDebugEvent(sessionId, sentEventKind, debugInput.details, debugInput.preview);
         onInput(data, buildClientInputDebugMetadata(debugInput.details));
-        return;
+        return { ok: true, status: 'sent', source };
       }
 
       const mode = getInputReliabilityMode();
@@ -610,11 +634,17 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             barrierReason: transportBarrierReasonRef.current,
             sessionGeneration: sessionGenerationRef.current,
           }, debugInput.preview);
-          return;
+          return {
+            ok: false,
+            reason: 'mode-observe-only',
+            source,
+            captureState: captureStateRef.current,
+            barrierReason: transportBarrierReasonRef.current,
+            closedReason: transportClosedReasonRef.current,
+          };
         }
 
-        enqueuePendingInput(data, debugInput, source);
-        return;
+        return enqueuePendingInput(data, debugInput, source);
       }
 
       const rejectReason = mapClosedReasonToRejectReason(transportClosedReasonRef.current);
@@ -628,6 +658,14 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         closedReason: transportClosedReasonRef.current,
         sessionGeneration: sessionGenerationRef.current,
       }, debugInput.preview);
+      return {
+        ok: false,
+        reason: rejectReason,
+        source,
+        captureState: captureStateRef.current,
+        barrierReason: transportBarrierReasonRef.current,
+        closedReason: transportClosedReasonRef.current,
+      };
     }, [enqueuePendingInput, mapClosedReasonToRejectReason, onInput, sessionId]);
 
     const syncInputReadiness = useCallback((reason: string) => {
@@ -1410,7 +1448,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       applyScreenRepair: (repair: ScreenRepairMessage) => applyScreenRepair(repair),
       sendInput: (data: string) => {
         const debugInput = buildTerminalInputDebugPayload(data, { captureSeq: nextCaptureSeq() });
-        submitCapturedInput(data, debugInput, 'imperative');
+        return submitCapturedInput(data, debugInput, 'imperative');
+      },
+      pasteInput: (data: string) => {
+        const debugInput = buildTerminalInputDebugPayload(data, { captureSeq: nextCaptureSeq() });
+        return submitCapturedInput(data, debugInput, 'command-preset-paste');
       },
       restoreSnapshot: () => restoreSnapshotAfterIme(),
       replaceWithSnapshot: (data: string) => replaceWithSnapshot(data),

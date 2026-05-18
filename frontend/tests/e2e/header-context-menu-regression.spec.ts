@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import { login, waitForTerminal } from './helpers';
 
 async function fetchWorkspaceState(page: Page) {
@@ -219,6 +219,14 @@ async function collectDistinctVisibleTabCwds(page: Page) {
   return distinct;
 }
 
+async function clickGridCellSurface(page: Page, cell: Locator) {
+  const box = await cell.boundingBox();
+  if (!box) {
+    throw new Error('Grid cell has no bounding box');
+  }
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+}
+
 async function createDistinctCwdTab(page: Page, baseCwd: string) {
   const state = await fetchWorkspaceState(page);
   const activeWorkspaceId = await page.evaluate(() => localStorage.getItem('active_workspace_id'));
@@ -291,7 +299,7 @@ async function ensureDistinctVisibleTabCwds(page: Page) {
 
   const tabs = page.locator('[role="tab"]:visible');
   const beforeCount = await tabs.count();
-  const baseCwd = distinct[0]?.cwd ?? await page.locator('.header-cwd-path').getAttribute('title');
+  const baseCwd = distinct[0]?.cwd ?? await page.locator('.header-center-subtitle').getAttribute('title');
   if (!baseCwd) {
     return distinct;
   }
@@ -322,7 +330,7 @@ test.describe('Header And Context Menu Regressions', () => {
     await ensureTabMode(page);
 
     const tabs = page.locator('[role="tab"]:visible');
-    const headerCwd = page.locator('.header-cwd-path');
+    const headerCwd = page.locator('.header-center-subtitle');
     const distinctTabs = await ensureDistinctVisibleTabCwds(page);
     test.skip(distinctTabs.length < 2, 'Need two tabs with distinct cwd values');
 
@@ -336,6 +344,7 @@ test.describe('Header And Context Menu Regressions', () => {
 
     const switchToGrid = page.locator('button[title="Switch to Grid"]');
     await switchToGrid.click();
+    await expect(page.locator('button[title="Switch to Tabs"]')).toBeVisible({ timeout: 15000 });
 
     const gridCells = page.locator('.grid-cell');
     await expect.poll(async () => gridCells.count()).toBeGreaterThanOrEqual(2);
@@ -350,10 +359,10 @@ test.describe('Header And Context Menu Regressions', () => {
     await expect(firstCell).toBeVisible();
     await expect(secondCell).toBeVisible();
 
-    await firstCell.locator('.xterm-screen').click();
+    await clickGridCellSurface(page, firstCell);
     await expect(headerCwd).toHaveAttribute('title', firstTab.cwd, { timeout: 15000 });
 
-    await secondCell.locator('.xterm-screen').click();
+    await clickGridCellSurface(page, secondCell);
     await expect(headerCwd).toHaveAttribute('title', secondTab.cwd, { timeout: 15000 });
   });
 

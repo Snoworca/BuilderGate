@@ -1,0 +1,31 @@
+plan_contract: "1.1.0"
+plan_id: "plan-20260518-terminal-menu-presets"
+scope_freeze: true
+change_log: []
+pre_commit_gate:
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend run typecheck"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend run lint:command-management"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend run test:unit:command-management"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend run build"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend exec playwright test tests/e2e/header-context-menu-regression.spec.ts --project \"Desktop Chrome\""
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend exec playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Desktop Chrome\""
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend exec playwright test tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Mobile Safari\""
+    expected_exit: 0
+forbidden_patterns:
+  - pattern: "적절[히]|필요\\s*시|알아[서]|상황에\\s*맞게|기존\\s*방식대로|어떻게[든]"
+    flags: ""
+  - pattern: "rm\\s+-rf|Remove-Item\\s+.*-Recurse|git\\s+reset\\s+--hard|git\\s+checkout\\s+--"
+    flags: "i"

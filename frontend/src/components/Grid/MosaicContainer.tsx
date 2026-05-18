@@ -7,6 +7,8 @@ import { MosaicTile } from './MosaicTile';
 import { MosaicToolbar } from './MosaicToolbar';
 import { ContextMenu } from '../ContextMenu';
 import { ConfirmModal } from '../Modal';
+import { commandPresetApi } from '../../services/api';
+import { buildCommandPresetPasteInput } from '../CommandPresetManager/commandPresetPaste';
 import { useMosaicLayout } from '../../hooks/useMosaicLayout';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useFocusHistory } from '../../hooks/useFocusHistory';
@@ -32,7 +34,8 @@ import {
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import type { MosaicNode } from '../../types/workspace';
-import type { ShellInfo } from '../../types';
+import type { CommandPreset, ShellInfo } from '../../types';
+import type { TerminalPasteInputResult } from '../Terminal/TerminalView';
 
 interface MosaicContainerProps {
   tabs: WorkspaceTabRuntime[];
@@ -56,8 +59,20 @@ interface MosaicContainerProps {
   getTerminalSelection?: (tabId: string) => string;
   hasTerminalSelection?: (tabId: string) => boolean;
   sendTerminalInput?: (tabId: string, data: string) => void;
+  pasteTerminalInput?: (tabId: string, data: string) => TerminalPasteInputResult;
   focusTerminal?: (tabId: string) => void;
   onLayoutChange?: () => void;
+}
+
+function buildMissingTerminalPasteResult(): TerminalPasteInputResult {
+  return {
+    ok: false,
+    reason: 'context-changed',
+    source: 'command-preset-paste',
+    captureState: 'closed',
+    barrierReason: 'none',
+    closedReason: 'terminal-disposed',
+  };
 }
 
 export function MosaicContainer({
@@ -74,6 +89,7 @@ export function MosaicContainer({
   getTerminalSelection,
   hasTerminalSelection,
   sendTerminalInput,
+  pasteTerminalInput,
   focusTerminal,
   onLayoutChange,
 }: MosaicContainerProps) {
@@ -119,6 +135,10 @@ export function MosaicContainer({
 
   const contextMenu = useContextMenu();
   const focusHistory = useFocusHistory();
+  const [registeredPresetSnapshot, setRegisteredPresetSnapshot] = useState<CommandPreset[]>([]);
+  const contextMenuOpenGuardRef = useRef<{ tabId: string; x: number; y: number; at: number } | null>(null);
+  const contextMenuOpenSeqRef = useRef(0);
+  const contextMenuRestoreFocusElementRef = useRef<Element | null>(null);
   const mosaicTreeRef = useRef(mosaicTree);
   mosaicTreeRef.current = mosaicTree;
   const lastMosaicChangeRef = useRef<MosaicNode<string> | null>(mosaicTree);
@@ -542,6 +562,76 @@ export function MosaicContainer({
     }
   }, [sendTerminalInput]);
 
+  const handleRegisteredPresetPaste = useCallback((tabId: string, preset: CommandPreset) => {
+    const validation = buildCommandPresetPasteInput(preset);
+    if (!validation.ok) {
+      console.warn('[CommandPresetContextMenu] Refused command preset paste', {
+        presetId: preset.id,
+        kind: preset.kind,
+        reason: validation.reason,
+      });
+      requestAnimationFrame(() => focusTerminal?.(tabId));
+      return;
+    }
+
+    const result = pasteTerminalInput?.(tabId, validation.data) ?? buildMissingTerminalPasteResult();
+    if (!result.ok) {
+      console.warn('[CommandPresetContextMenu] Failed to paste command preset', {
+        presetId: preset.id,
+        kind: preset.kind,
+        result,
+      });
+    }
+    requestAnimationFrame(() => focusTerminal?.(tabId));
+  }, [focusTerminal, pasteTerminalInput]);
+
+  const openContextMenu = useCallback((x: number, y: number, tabId: string) => {
+    const now = performance.now();
+    const previous = contextMenuOpenGuardRef.current;
+    if (
+      previous
+      && previous.tabId === tabId
+      && previous.x === x
+      && previous.y === y
+      && now - previous.at < 50
+    ) {
+      return;
+    }
+
+    contextMenuOpenGuardRef.current = { tabId, x, y, at: now };
+    contextMenuRestoreFocusElementRef.current = document.activeElement instanceof Element
+      ? document.activeElement
+      : null;
+    const seq = contextMenuOpenSeqRef.current + 1;
+    contextMenuOpenSeqRef.current = seq;
+
+    void (async () => {
+      let presets: CommandPreset[] = [];
+      try {
+        presets = await commandPresetApi.getAll();
+      } catch (error) {
+        console.warn('[CommandPresetContextMenu] Failed to load command presets', error);
+      }
+
+      if (contextMenuOpenSeqRef.current !== seq) {
+        return;
+      }
+      setRegisteredPresetSnapshot(presets);
+      requestAnimationFrame(() => {
+        if (contextMenuOpenSeqRef.current === seq) {
+          contextMenu.open(x, y, tabId);
+        }
+      });
+    })();
+  }, [contextMenu]);
+
+  const closeContextMenu = useCallback(() => {
+    contextMenuOpenSeqRef.current += 1;
+    contextMenu.close();
+    contextMenuRestoreFocusElementRef.current = null;
+    setRegisteredPresetSnapshot([]);
+  }, [contextMenu]);
+
   // Build context menu items for the target tab
   const buildMenuItems = useCallback(
     (tabId: string) => {
@@ -555,14 +645,29 @@ export function MosaicContainer({
         onAddTab,
         onCloseTab: () => {
           setPendingCloseTabId(tabId);
-          contextMenu.close();
+          closeContextMenu();
         },
         onCopy: () => handleCopy(tabId),
         onPaste: () => handlePaste(tabId),
         hasSelection,
+        registeredPresetMenu: {
+          presets: registeredPresetSnapshot,
+          onSelectPreset: (preset) => handleRegisteredPresetPaste(tabId, preset),
+        },
       });
     },
-    [tabMap, tabs, availableShells, onAddTab, contextMenu, handleCopy, handlePaste, hasTerminalSelection],
+    [
+      tabMap,
+      tabs,
+      availableShells,
+      onAddTab,
+      closeContextMenu,
+      handleCopy,
+      handlePaste,
+      hasTerminalSelection,
+      registeredPresetSnapshot,
+      handleRegisteredPresetPaste,
+    ],
   );
 
   // Context menu items derived from current targetId
@@ -641,7 +746,7 @@ export function MosaicContainer({
           <MosaicTile
             tabId={tabId}
             tab={tab}
-            onContextMenu={contextMenu.open}
+            onContextMenu={openContextMenu}
             onRestart={() => onRestartTab(tabId)}
             onFocus={() => handleTileFocus(tabId)}
             onRegisterRef={(el) => registerTileRef(tabId, el)}
@@ -650,7 +755,7 @@ export function MosaicContainer({
             {tab ? renderTerminal(tab, {
               className: `grid-cell${tab.status === 'running' ? ' terminal-running' : ''}`,
               style: { '--tab-color': TAB_COLORS[tab.colorIndex] || TAB_COLORS[0] } as React.CSSProperties,
-              onContextMenu: (x, y) => contextMenu.open(x, y, tabId),
+              onContextMenu: (x, y) => openContextMenu(x, y, tabId),
               onPointerDown: () => {
                 handleTileFocus(tabId);
                 focusTerminal?.(tabId);
@@ -663,7 +768,7 @@ export function MosaicContainer({
     [
       tabMap,
       layoutMode,
-      contextMenu.open,
+      openContextMenu,
       handleLayoutModeChange,
       handleTileDragEnd,
       onRestartTab,
@@ -722,7 +827,8 @@ export function MosaicContainer({
         <ContextMenu
           position={contextMenu.position}
           items={contextMenuItems}
-          onClose={contextMenu.close}
+          onClose={closeContextMenu}
+          restoreFocusElement={contextMenuRestoreFocusElementRef.current}
         />
       )}
 

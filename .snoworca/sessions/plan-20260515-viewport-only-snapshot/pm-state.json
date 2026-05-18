@@ -1,0 +1,101 @@
+{
+  "plan_id": "plan-20260515-viewport-only-snapshot",
+  "plan_path": "docs\\plan\\2026-05-15.viewport-only-terminal-snapshot.plan.md",
+  "plan_exec_path": "docs\\plan\\2026-05-15.viewport-only-terminal-snapshot.plan.md.json",
+  "plan_sha256": "7aa4942c914026ca8830bc8ae6a6b67996deca12da885a28dd0745b8dc8fb9fd",
+  "code_path": ".",
+  "mode": "headless",
+  "started_at": "2026-05-15T09:43:09.582680+00:00",
+  "last_updated_at": "2026-05-15T10:16:45.072013+00:00",
+  "pm_version": "3.1",
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "title": "Server viewport-only snapshot contract",
+      "status": "failed",
+      "unit_type": "TASK",
+      "headless": true,
+      "headless_pid": null,
+      "plan_sha256": null,
+      "started_at": "2026-05-15T09:43:12.423332+00:00",
+      "ended_at": "2026-05-15T10:16:45.071236+00:00",
+      "coder_session_id": null,
+      "result_summary": null,
+      "task_statuses": {
+        "TASK-P1-001": "done",
+        "TASK-P1-002": "failed",
+        "TASK-P1-003": "pending"
+      },
+      "current_task_id": "TASK-P1-002"
+    },
+    {
+      "phase_id": "phase-2",
+      "title": "Browser viewport-only fallback snapshot",
+      "status": "pending",
+      "unit_type": "PHASE",
+      "headless": false,
+      "headless_pid": null,
+      "plan_sha256": null,
+      "started_at": null,
+      "ended_at": null,
+      "coder_session_id": null,
+      "result_summary": null
+    },
+    {
+      "phase_id": "phase-3",
+      "title": "End-to-end regression coverage",
+      "status": "pending",
+      "unit_type": "PHASE",
+      "headless": false,
+      "headless_pid": null,
+      "plan_sha256": null,
+      "started_at": null,
+      "ended_at": null,
+      "coder_session_id": null,
+      "result_summary": null
+    },
+    {
+      "phase_id": "phase-4",
+      "title": "Final gates and mandatory review",
+      "status": "pending",
+      "unit_type": "PHASE",
+      "headless": false,
+      "headless_pid": null,
+      "plan_sha256": null,
+      "started_at": null,
+      "ended_at": null,
+      "coder_session_id": null,
+      "result_summary": null
+    }
+  ],
+  "last_question": null,
+  "last_error": {
+    "code": "NO_MARKER",
+    "message": "te accounting, degraded payload absence, and fallback snapshot behavior. Sub-agent validation completed with No findings.\\\",\\n  \\\"completed_task_ids\\\": [\\n    \\\"TASK-P1-002\\\"\\n  ],\\n  \\\"skipped_task_ids\\\": []\\n}\\n<<<END>>>\"}},\"status\":\"completed\"}}\n{\"type\":\"item.completed\",\"item\":{\"id\":\"item_32\",\"type\":\"agent_message\",\"text\":\"Ran `snoworca-coder` as a PM child for `TASK-P1-002`.\\n\\nResult: `PHASE_DONE`, tests passed, sub-agent reviewer returned `PASS / No findings`. I recorded the child sentinel at [.snoworca/sessions/plan-20260515-viewport-only-snapshot/phase-TASK-P1-002.last.md](C:/Work/git/_Snoworca/ProjectMaster/.snoworca/sessions/plan-20260515-viewport-only-snapshot/phase-TASK-P1-002.last.md) and updated [pm-state.json](C:/Work/git/_Snoworca/ProjectMaster/.snoworca/sessions/plan-20260515-viewport-only-snapshot/pm-state.json) so `TASK-P1-002` is `done` and `TASK-P1-003` is now the next current unit.\\n\\nVerification reported by child: `npm --prefix server run build` passed, `npm --p"
+  },
+  "severity_counters": {
+    "low": 0,
+    "med": 0,
+    "high": 0,
+    "critical": 0
+  },
+  "stats": {
+    "total_phases": 4,
+    "done": 0,
+    "running": 0,
+    "pending": 4,
+    "failed": 0,
+    "skipped": 0,
+    "total_cost_usd": 0.0,
+    "total_tokens_in": 5852103,
+    "total_tokens_out": 20187,
+    "cost_by_phase": {
+      "TASK-P1-001": {
+        "cost_usd": 0.0,
+        "tokens_in": 5852103,
+        "tokens_out": 20187,
+        "session_id": null
+      }
+    }
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "plan_id": "plan-20260515-viewport-only-snapshot",
+  "plan_path": "docs\\plan\\2026-05-15.viewport-only-terminal-snapshot.plan.md",
+  "plan_exec_path": "docs\\plan\\2026-05-15.viewport-only-terminal-snapshot.plan.md.json",
+  "plan_sha256": "7aa4942c914026ca8830bc8ae6a6b67996deca12da885a28dd0745b8dc8fb9fd",
+  "code_path": ".",
+  "mode": "headless",
+  "started_at": "2026-05-15T09:43:09.582680+00:00",
+  "last_updated_at": "2026-05-15T10:16:45.068697+00:00",
+  "pm_version": "3.1",
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "title": "Server viewport-only snapshot contract",
+      "status": "running",
+      "unit_type": "TASK",
+      "headless": true,
+      "headless_pid": null,
+      "plan_sha256": null,
+      "started_at": "2026-05-15T09:43:12.423332+00:00",
+      "ended_at": null,
+      "coder_session_id": null,
+      "result_summary": null,
+      "task_statuses": {
+        "TASK-P1-001": "done",
+        "TASK-P1-002": "failed",
+        "TASK-P1-003": "pending"
+      },
+      "current_task_id": "TASK-P1-002"
+    },
+    {
+      "phase_id": "phase-2",
+      "title": "Browser viewport-only fallback snapshot",
+      "status": "pending",
+      "unit_type": "PHASE",
+      "headless": false,
+      "headless_pid": null,
+      "plan_sha256": null,
+      "started_at": null,
+      "ended_at": null,
+      "coder_session_id": null,
+      "result_summary": null
+    },
+    {
+      "phase_id": "phase-3",
+      "title": "End-to-end regression coverage",
+      "status": "pending",
+      "unit_type": "PHASE",
+      "headless": false,
+      "headless_pid": null,
+      "plan_sha256": null,
+      "started_at": null,
+      "ended_at": null,
+      "coder_session_id": null,
+      "result_summary": null
+    },
+    {
+      "phase_id": "phase-4",
+      "title": "Final gates and mandatory review",
+      "status": "pending",
+      "unit_type": "PHASE",
+      "headless": false,
+      "headless_pid": null,
+      "plan_sha256": null,
+      "started_at": null,
+      "ended_at": null,
+      "coder_session_id": null,
+      "result_summary": null
+    }
+  ],
+  "last_question": null,
+  "last_error": null,
+  "severity_counters": {
+    "low": 0,
+    "med": 0,
+    "high": 0,
+    "critical": 0
+  },
+  "stats": {
+    "total_phases": 4,
+    "done": 0,
+    "running": 0,
+    "pending": 4,
+    "failed": 0,
+    "skipped": 0,
+    "total_cost_usd": 0.0,
+    "total_tokens_in": 5852103,
+    "total_tokens_out": 20187,
+    "cost_by_phase": {
+      "TASK-P1-001": {
+        "cost_usd": 0.0,
+        "tokens_in": 5852103,
+        "tokens_out": 20187,
+        "session_id": null
+      }
+    }
+  }
+}

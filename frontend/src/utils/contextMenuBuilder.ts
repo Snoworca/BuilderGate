@@ -1,7 +1,18 @@
-import { resolveCwd } from './shell';
+import { resolveCwd } from './shell.ts';
 import type { WorkspaceTabRuntime } from '../types/workspace';
 import type { ContextMenuItem } from '../components/ContextMenu/ContextMenu';
-import type { ShellInfo } from '../types';
+import type { CommandPreset, CommandPresetKind, ShellInfo } from '../types';
+
+const REGISTERED_PRESET_CATEGORY_LABELS: Array<{ kind: CommandPresetKind; label: string }> = [
+  { kind: 'command', label: '커맨드 라인' },
+  { kind: 'directory', label: '디렉토리' },
+  { kind: 'prompt', label: '프롬프트' },
+];
+
+export interface RegisteredPresetMenuOptions {
+  presets: CommandPreset[];
+  onSelectPreset: (preset: CommandPreset) => void;
+}
 
 export interface BuildTerminalMenuOptions {
   tab: WorkspaceTabRuntime | undefined;
@@ -13,12 +24,24 @@ export interface BuildTerminalMenuOptions {
   onCopy: () => Promise<void>;
   onPaste: () => Promise<void>;
   hasSelection: boolean;
+  registeredPresetMenu?: RegisteredPresetMenuOptions;
 }
 
 export function buildTerminalContextMenuItems(
   options: BuildTerminalMenuOptions
 ): ContextMenuItem[] {
-  const { tab, tabs, maxTabs, availableShells, onAddTab, onCloseTab, onCopy, onPaste, hasSelection } = options;
+  const {
+    tab,
+    tabs,
+    maxTabs,
+    availableShells,
+    onAddTab,
+    onCloseTab,
+    onCopy,
+    onPaste,
+    hasSelection,
+    registeredPresetMenu,
+  } = options;
 
   const newSessionItem: ContextMenuItem =
     availableShells && availableShells.length > 1
@@ -53,7 +76,7 @@ export function buildTerminalContextMenuItems(
           onClick: () => onAddTab(tab?.cwd),
         };
 
-  return [
+  const items: ContextMenuItem[] = [
     newSessionItem,
     {
       label: '세션 닫기',
@@ -78,4 +101,53 @@ export function buildTerminalContextMenuItems(
       },
     },
   ];
+
+  const registeredPresetItem = registeredPresetMenu
+    ? buildRegisteredPresetContextMenuItem(registeredPresetMenu)
+    : null;
+  if (registeredPresetItem) {
+    items.push({ separator: true }, registeredPresetItem);
+  }
+
+  return items;
+}
+
+export function buildRegisteredPresetContextMenuItem(
+  options: RegisteredPresetMenuOptions,
+): ContextMenuItem | null {
+  const categoryItems: ContextMenuItem[] = [];
+
+  for (const category of REGISTERED_PRESET_CATEGORY_LABELS) {
+    const presets = options.presets
+      .filter(preset => preset.kind === category.kind)
+      .sort(compareCommandPresetMenuItems);
+
+    if (presets.length === 0) {
+      continue;
+    }
+
+    categoryItems.push({
+      label: category.label,
+      children: presets.map(preset => ({
+        label: preset.label,
+        onClick: () => options.onSelectPreset(preset),
+      })),
+    });
+  }
+
+  if (categoryItems.length === 0) {
+    return null;
+  }
+
+  return {
+    label: '등록 항목 붙여넣기',
+    children: categoryItems,
+  };
+}
+
+function compareCommandPresetMenuItems(a: CommandPreset, b: CommandPreset): number {
+  if (a.sortOrder !== b.sortOrder) {
+    return a.sortOrder - b.sortOrder;
+  }
+  return a.label.localeCompare(b.label, 'ko');
 }
