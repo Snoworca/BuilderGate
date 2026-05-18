@@ -9,7 +9,13 @@ import {
   clearTerminalSnapshotRemovalRequest,
   getTerminalSnapshotKey,
   isTerminalSnapshotRemovalRequested,
+  parseTerminalViewportSnapshot,
   setTerminalSnapshotWithQuotaRecovery,
+  TERMINAL_SNAPSHOT_MAX_CONTENT_LENGTH,
+  TERMINAL_SNAPSHOT_PAYLOAD_KIND,
+  TERMINAL_SNAPSHOT_SCHEMA_VERSION,
+  type TerminalViewportSnapshotBufferType,
+  type TerminalViewportSnapshotPayload,
 } from '../../utils/terminalSnapshot';
 import {
   buildClientInputDebugMetadata,
@@ -50,9 +56,7 @@ const FONT_MIN = 8;
 const FONT_MAX = 32;
 const FONT_DEFAULT = 14;
 const FONT_STORAGE_KEY = 'terminal_font_size';
-const SNAPSHOT_SCHEMA_VERSION = 1;
 const SNAPSHOT_SAVE_DEBOUNCE_MS = 2000;
-const SNAPSHOT_MAX_CONTENT_LENGTH = 2_000_000;
 const LARGE_WRITE_THRESHOLD = 10_000;
 const MOBILE_TOUCH_PAN_THRESHOLD_PX = 12;
 const INPUT_QUEUE_BYTE_BUDGET = 64 * 1024;
@@ -99,6 +103,10 @@ function warnIfSnapshotStorageRecovered(
     beforeChars: result.eviction.beforeChars,
     afterChars: result.retryEviction?.afterChars ?? result.eviction.afterChars,
   });
+}
+
+function getTerminalBufferType(term: Terminal): TerminalViewportSnapshotBufferType {
+  return term.buffer.active.type === 'alternate' ? 'alternate' : 'normal';
 }
 
 // xterm.js v5는 방향키, Backspace 등 모든 제어 키를 네이티브로 처리.
@@ -157,13 +165,6 @@ interface Props {
   onInput: (data: string, metadata?: InputDebugMetadata) => void;
   onResize: (cols: number, rows: number) => void;
   onManualRepair?: () => void;
-}
-
-interface TerminalSnapshot {
-  schemaVersion: number;
-  sessionId: string;
-  content: string;
-  savedAt: string;
 }
 
 export const TerminalView = forwardRef<TerminalHandle, Props>(
@@ -1003,33 +1004,18 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       lastSnapshotRef.current = null;
     }, [sessionId]);
 
-    const loadStoredSnapshot = useCallback((): TerminalSnapshot | null => {
+    const loadStoredSnapshot = useCallback((): TerminalViewportSnapshotPayload | null => {
       try {
         const raw = localStorage.getItem(getTerminalSnapshotKey(sessionId));
-        if (!raw) return null;
-
-        const snapshot = JSON.parse(raw) as Partial<TerminalSnapshot>;
-        if (
-          snapshot.schemaVersion !== SNAPSHOT_SCHEMA_VERSION ||
-          snapshot.sessionId !== sessionId ||
-          typeof snapshot.content !== 'string' ||
-          snapshot.content.length === 0
-        ) {
+        const snapshot = parseTerminalViewportSnapshot(raw, sessionId, {
+          maxContentLength: TERMINAL_SNAPSHOT_MAX_CONTENT_LENGTH,
+        });
+        if (!snapshot) {
           clearStoredSnapshot();
           return null;
         }
 
-        if (snapshot.content.length > SNAPSHOT_MAX_CONTENT_LENGTH) {
-          clearStoredSnapshot();
-          return null;
-        }
-
-        return {
-          schemaVersion: SNAPSHOT_SCHEMA_VERSION,
-          sessionId,
-          content: snapshot.content,
-          savedAt: typeof snapshot.savedAt === 'string' ? snapshot.savedAt : new Date().toISOString(),
-        };
+        return snapshot;
       } catch {
         clearStoredSnapshot();
         return null;
@@ -1044,17 +1030,36 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       if (isTerminalSnapshotRemovalRequested(sessionId)) return;
 
       try {
-        const content = `${serializeAddon.serialize()}${inFlightOutputRef.current.join('')}`;
-        if (!content || content === lastSnapshotRef.current) return;
-        if (content.length > SNAPSHOT_MAX_CONTENT_LENGTH) {
+        const content = serializeAddon.serialize({ scrollback: 0 });
+        if (!content) return;
+        if (content.length > TERMINAL_SNAPSHOT_MAX_CONTENT_LENGTH) {
           console.warn('[TerminalView] snapshot too large, keeping previous snapshot');
           return;
         }
+        const storedSnapshot = parseTerminalViewportSnapshot(
+          localStorage.getItem(getTerminalSnapshotKey(sessionId)),
+          sessionId,
+          { maxContentLength: TERMINAL_SNAPSHOT_MAX_CONTENT_LENGTH },
+        );
+        const bufferType = getTerminalBufferType(term);
+        if (
+          content === lastSnapshotRef.current
+          && storedSnapshot?.content === content
+          && storedSnapshot.cols === term.cols
+          && storedSnapshot.rows === term.rows
+          && storedSnapshot.bufferType === bufferType
+        ) {
+          return;
+        }
 
-        const snapshot: TerminalSnapshot = {
-          schemaVersion: SNAPSHOT_SCHEMA_VERSION,
+        const snapshot: TerminalViewportSnapshotPayload = {
+          schemaVersion: TERMINAL_SNAPSHOT_SCHEMA_VERSION,
+          payloadKind: TERMINAL_SNAPSHOT_PAYLOAD_KIND,
           sessionId,
           content,
+          cols: term.cols,
+          rows: term.rows,
+          bufferType,
           savedAt: new Date().toISOString(),
         };
         const result = setTerminalSnapshotWithQuotaRecovery(sessionId, JSON.stringify(snapshot));
@@ -1132,43 +1137,21 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         return;
       }
 
-      const pending = `${inFlightOutputRef.current.join('')}${bufferedOutputRef.current.join('')}`;
-      if (!pending) return;
-
-      const snapshot = loadStoredSnapshot();
-      const content = `${snapshot?.content ?? ''}${pending}`;
       inFlightOutputRef.current = [];
       bufferedOutputRef.current = [];
 
-      if (!content) return;
-      if (content.length > SNAPSHOT_MAX_CONTENT_LENGTH) {
-        console.warn('[TerminalView] buffered snapshot too large, keeping previous snapshot');
-        lastSnapshotRef.current = snapshot?.content ?? lastSnapshotRef.current;
-        return;
+      if (!restorePendingRef.current) {
+        saveSnapshot();
       }
-
-      try {
-        const nextSnapshot: TerminalSnapshot = {
-          schemaVersion: SNAPSHOT_SCHEMA_VERSION,
-          sessionId,
-          content,
-          savedAt: new Date().toISOString(),
-        };
-        const result = setTerminalSnapshotWithQuotaRecovery(sessionId, JSON.stringify(nextSnapshot));
-        if (!result.saved) {
-          console.warn('[TerminalView] buffered snapshot save failed after quota recovery:', result.error);
-          return;
-        }
-        warnIfSnapshotStorageRecovered(result, 'buffered snapshot save');
-        lastSnapshotRef.current = content;
-      } catch (error) {
-        console.warn('[TerminalView] buffered snapshot save failed:', error);
-      }
-    }, [sessionId, loadStoredSnapshot]);
+    }, [sessionId, saveSnapshot]);
 
     const restoreStoredSnapshot = useCallback((term: Terminal): Promise<boolean> => {
       const snapshot = loadStoredSnapshot();
       if (!snapshot) {
+        return Promise.resolve(false);
+      }
+      if (snapshot.cols !== term.cols || snapshot.rows !== term.rows) {
+        clearStoredSnapshot();
         return Promise.resolve(false);
       }
 

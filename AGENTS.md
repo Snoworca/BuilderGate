@@ -1,5 +1,12 @@
 # Agent Notes
 
+## Work Memory
+
+- Long-lived 작업 기록과 이전 구현/검증 메모는 `docs/memory/*.md`에 남긴다.
+- 새 작업을 시작할 때 `docs/memory` 전체를 기본 컨텍스트로 읽지 않는다.
+- 현재 요청과 직접 관련된 과거 결정, 구현 세부, 검증 이력, known caveat가 필요할 때만 해당 memory 문서를 골라서 참고한다.
+- 새로 남길 작업 기록은 `docs/memory/YYYY-MM-DD-topic.md` 형식의 Markdown 파일을 우선 사용한다.
+
 ## Dev/Test Ports
 
 - HTTP redirect server: `http://localhost:2001`

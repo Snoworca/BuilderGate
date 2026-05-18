@@ -6,6 +6,7 @@ import type { Workspace, WorkspaceTab, GridLayout, WorkspaceState, WorkspaceFile
 import type { ShellType } from '../types/index.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import { config } from '../utils/config.js';
+import { isDefaultTerminalTabName, isSystemAbsolutePathTerminalTitle, sanitizeTerminalTitle } from '../utils/terminalTitle.js';
 import type { SessionManager } from './SessionManager.js';
 
 interface WorkspaceConfig {
@@ -14,6 +15,16 @@ interface WorkspaceConfig {
   maxTabsPerWorkspace: number;
   maxTotalSessions: number;
   flushDebounceMs: number;
+  terminalTitleDebounceMs: number;
+}
+
+interface WorkspaceServiceOptions {
+  terminalTitleDebounceMs?: number;
+}
+
+interface TabUpdatedEvent {
+  tab: WorkspaceTab;
+  changes: Partial<Pick<WorkspaceTab, 'name' | 'nameSource' | 'terminalTitle' | 'sessionId'>>;
 }
 
 export class WorkspaceService {
@@ -21,8 +32,10 @@ export class WorkspaceService {
   private config: WorkspaceConfig;
   private dataFilePath: string;
   private sessionManager: SessionManager;
+  private pendingTerminalTitles = new Map<string, { title: string; timer: NodeJS.Timeout }>();
+  private tabUpdatedCallback: ((event: TabUpdatedEvent) => void) | null = null;
 
-  constructor(sessionManager: SessionManager) {
+  constructor(sessionManager: SessionManager, options: WorkspaceServiceOptions = {}) {
     this.sessionManager = sessionManager;
     const wsConfig = (config as any).workspace;
     this.config = {
@@ -31,6 +44,7 @@ export class WorkspaceService {
       maxTabsPerWorkspace: wsConfig?.maxTabsPerWorkspace ?? 8,
       maxTotalSessions: wsConfig?.maxTotalSessions ?? 32,
       flushDebounceMs: wsConfig?.flushDebounceMs ?? 5000,
+      terminalTitleDebounceMs: options.terminalTitleDebounceMs ?? wsConfig?.terminalTitleDebounceMs ?? 250,
     };
     this.dataFilePath = path.resolve(this.config.dataPath);
 
@@ -41,6 +55,12 @@ export class WorkspaceService {
         tab.lastCwd = cwd;
         this.save();
       }
+    });
+
+    this.sessionManager.onTerminalTitleChange((sessionId: string, title: string) => {
+      this.applyTerminalTitle(sessionId, title).catch((error) => {
+        console.warn('[WorkspaceService] Failed to apply terminal title:', error);
+      });
     });
   }
 
@@ -86,6 +106,7 @@ export class WorkspaceService {
       if (tab.lastCwd && /[\x00-\x1f]/.test(tab.lastCwd)) {
         tab.lastCwd = undefined;
       }
+      this.normalizeTabNameMetadata(tab);
     }
 
     // Migrate legacy GridLayout (columns/rows/cellSizes → mosaicTree)
@@ -189,6 +210,9 @@ export class WorkspaceService {
     // Terminate all PTY sessions in this workspace
     const tabs = this.getWorkspaceTabs(id);
     const sessionIds = tabs.map(t => t.sessionId);
+    for (const sessionId of sessionIds) {
+      this.cancelPendingTerminalTitle(sessionId);
+    }
     this.sessionManager.deleteMultipleSessions(sessionIds);
 
     // Remove tabs, grid layouts, and workspace
@@ -239,6 +263,7 @@ export class WorkspaceService {
       workspaceId,
       sessionId: sessionDTO.id,
       name: name || `Terminal-${wsTabs.length + 1}`,
+      nameSource: name ? 'user' : 'default',
       colorIndex,
       sortOrder: wsTabs.length,
       shellType,
@@ -265,7 +290,10 @@ export class WorkspaceService {
       if (!trimmedName || trimmedName.length > 32) {
         throw new AppError(ErrorCode.INVALID_NAME);
       }
+      this.cancelPendingTerminalTitle(tab.sessionId);
       tab.name = trimmedName;
+      tab.nameSource = 'user';
+      delete tab.terminalTitle;
     }
 
     await this.save();
@@ -277,6 +305,8 @@ export class WorkspaceService {
     if (tab.workspaceId !== workspaceId) {
       throw new AppError(ErrorCode.TAB_NOT_FOUND);
     }
+
+    this.cancelPendingTerminalTitle(tab.sessionId);
 
     // Terminate PTY session
     this.sessionManager.deleteSession(tab.sessionId);
@@ -309,13 +339,56 @@ export class WorkspaceService {
       throw new AppError(ErrorCode.TAB_NOT_FOUND);
     }
 
+    const oldSessionId = tab.sessionId;
+    this.cancelPendingTerminalTitle(oldSessionId);
+
     // Create new PTY session with same shell type, restoring last CWD
     const sessionDTO = this.sessionManager.createSession(tab.name, tab.shellType, tab.lastCwd);
-    this.sessionManager.deleteSession(tab.sessionId);
+    this.sessionManager.deleteSession(oldSessionId);
     tab.sessionId = sessionDTO.id;
 
     await this.save();
     return tab;
+  }
+
+  onTabUpdated(cb: (event: TabUpdatedEvent) => void): void {
+    this.tabUpdatedCallback = cb;
+  }
+
+  async applyTerminalTitle(sessionId: string, rawTitle: string): Promise<void> {
+    const title = sanitizeTerminalTitle(rawTitle);
+    if (!title) {
+      return;
+    }
+
+    this.cancelPendingTerminalTitle(sessionId);
+
+    if (isSystemAbsolutePathTerminalTitle(title)) {
+      return;
+    }
+
+    if (!this.isTerminalTitleEligible(sessionId)) {
+      return;
+    }
+
+    if (this.config.terminalTitleDebounceMs <= 0) {
+      await this.commitTerminalTitle(sessionId, title);
+      return;
+    }
+
+    const pending = {
+      title,
+      timer: setTimeout(() => {
+        if (this.pendingTerminalTitles.get(sessionId) !== pending) {
+          return;
+        }
+        this.pendingTerminalTitles.delete(sessionId);
+        this.commitTerminalTitle(sessionId, title).catch((error) => {
+          console.warn('[WorkspaceService] Failed to commit terminal title:', error);
+        });
+      }, this.config.terminalTitleDebounceMs),
+    };
+    this.pendingTerminalTitles.set(sessionId, pending);
   }
 
   // ============================================================================
@@ -341,6 +414,75 @@ export class WorkspaceService {
   // ============================================================================
   // Internal
   // ============================================================================
+
+  private async commitTerminalTitle(sessionId: string, title: string): Promise<void> {
+    const tab = this.state.tabs.find(t => t.sessionId === sessionId);
+    if (!tab || !this.isTabAutoNameEligible(tab)) {
+      return;
+    }
+
+    if (tab.name === title && tab.nameSource === 'terminal-title' && tab.terminalTitle === title) {
+      return;
+    }
+
+    tab.name = title;
+    tab.terminalTitle = title;
+    tab.nameSource = 'terminal-title';
+    await this.save();
+    this.emitTabUpdated({
+      tab,
+      changes: {
+        name: tab.name,
+        terminalTitle: tab.terminalTitle,
+        nameSource: tab.nameSource,
+      },
+    });
+  }
+
+  private isTerminalTitleEligible(sessionId: string): boolean {
+    const tab = this.state.tabs.find(t => t.sessionId === sessionId);
+    return Boolean(tab && this.isTabAutoNameEligible(tab));
+  }
+
+  private isTabAutoNameEligible(tab: WorkspaceTab): boolean {
+    const source = tab.nameSource ?? (isDefaultTerminalTabName(tab.name) ? 'default' : 'user');
+    return source === 'default' || source === 'terminal-title';
+  }
+
+  private cancelPendingTerminalTitle(sessionId: string): void {
+    const pending = this.pendingTerminalTitles.get(sessionId);
+    if (!pending) {
+      return;
+    }
+    clearTimeout(pending.timer);
+    this.pendingTerminalTitles.delete(sessionId);
+  }
+
+  private normalizeTabNameMetadata(tab: WorkspaceTab): void {
+    if (tab.nameSource !== 'default' && tab.nameSource !== 'terminal-title' && tab.nameSource !== 'user') {
+      tab.nameSource = isDefaultTerminalTabName(tab.name) ? 'default' : 'user';
+    }
+
+    if (tab.terminalTitle !== undefined) {
+      const sanitizedTitle = sanitizeTerminalTitle(tab.terminalTitle);
+      if (sanitizedTitle) {
+        tab.terminalTitle = sanitizedTitle;
+      } else {
+        delete tab.terminalTitle;
+      }
+    }
+  }
+
+  private emitTabUpdated(event: TabUpdatedEvent): void {
+    if (!this.tabUpdatedCallback) {
+      return;
+    }
+    try {
+      this.tabUpdatedCallback(event);
+    } catch (error) {
+      console.warn('[WorkspaceService] tab update callback failed:', error);
+    }
+  }
 
   private migrateGridLayouts(): void {
     let migrated = false;
@@ -457,6 +599,7 @@ export class WorkspaceService {
         orphanTabIds.push(tab.id);
         // Recreate session with saved CWD (or undefined → home directory fallback)
         try {
+          this.cancelPendingTerminalTitle(tab.sessionId);
           const sessionDTO = this.sessionManager.createSession(tab.name, tab.shellType, tab.lastCwd);
           console.log(`[Workspace] Orphan tab "${tab.name}" recovered: ${tab.sessionId} → ${sessionDTO.id} (cwd: ${tab.lastCwd || 'default'})`);
           tab.sessionId = sessionDTO.id;

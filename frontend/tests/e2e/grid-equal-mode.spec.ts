@@ -1786,11 +1786,13 @@ test.describe('Grid Equal Mode Reorder', () => {
     await expect.poll(async () => hasTerminalDebugEvent(page, 'input_gate_synced', { inputReady: true }), { timeout: 30000 }).toBe(true);
 
     const marker = `TC6620-${Date.now()}`;
+    const oldMarker = `${marker}-OLD`;
+    const latestMarker = `${marker}-LATEST`;
     await sendVisibleTerminalCommand(
       page,
-      `node -e "for (let i=1;i<=500;i++) console.log('${marker}-'+String(i).padStart(3,'0'))"`,
+      `node -e "for (let i=1;i<=500;i++) console.log(i===1?'${oldMarker}':i===500?'${latestMarker}':'${marker}-'+String(i).padStart(3,'0'))"`,
     );
-    await expect(page.locator('.xterm-screen:visible').first()).toContainText(`${marker}-500`, { timeout: 30000 });
+    await expect(page.locator('.xterm-screen:visible').first()).toContainText(latestMarker, { timeout: 30000 });
 
     await clearWsMessageCapture(page);
     await clearTerminalDebugCapture(page);
@@ -1798,7 +1800,7 @@ test.describe('Grid Equal Mode Reorder', () => {
 
     await expectCapturedResizeBeforeScreenRepair(page, 'manual');
     await expect.poll(async () => hasTerminalDebugEvent(page, 'screen_repair_ack_sent'), { timeout: 10000 }).toBe(true);
-    await expect(page.locator('.xterm-screen:visible').first()).toContainText(`${marker}-500`, { timeout: 10000 });
+    await expect(page.locator('.xterm-screen:visible').first()).toContainText(latestMarker, { timeout: 10000 });
 
     const messages = await readCapturedWsMessages(page);
     expect(messages.some(message => message.type === 'repair-replay')).toBe(false);
@@ -1808,6 +1810,15 @@ test.describe('Grid Equal Mode Reorder', () => {
       && message.reason === 'manual'
     ));
     const repairMessage = messages[repairIndex];
+    const serverRepair = messages.find((message, index) => (
+      index > repairIndex
+      && message.direction === 'in'
+      && message.type === 'screen-repair'
+      && message.sessionId === repairMessage?.sessionId
+    ));
+    const repairPayload = `${serverRepair?.ansiPatch ?? ''}\n${serverRepair?.viewportRows?.map(row => `${row.text ?? ''}\n${row.ansi ?? ''}`).join('\n') ?? ''}`;
+    expect(repairPayload).toContain(latestMarker);
+    expect(repairPayload).not.toContain(oldMarker);
     expect(messages.some((message, index) => (
       index > repairIndex
       && message.direction === 'out'

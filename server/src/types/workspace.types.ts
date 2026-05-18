@@ -20,12 +20,16 @@ export interface WorkspaceTab {
   workspaceId: string;
   sessionId: string;
   name: string;
+  nameSource?: WorkspaceTabNameSource;
+  terminalTitle?: string;
   colorIndex: number;
   sortOrder: number;
   shellType: ShellType;
   createdAt: string;
   lastCwd?: string;
 }
+
+export type WorkspaceTabNameSource = 'default' | 'terminal-title' | 'user';
 
 export interface GridLayout {
   workspaceId: string;

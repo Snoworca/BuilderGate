@@ -4,6 +4,10 @@ import { useWebSocketActions, useWebSocketState } from '../contexts/WebSocketCon
 import type { Workspace, WorkspaceTab, WorkspaceTabRuntime, GridLayout, WorkspaceState } from '../types/workspace';
 import { markTerminalSnapshotForRemoval } from '../utils/terminalSnapshot';
 
+type WorkspaceTabChanges = Partial<Omit<WorkspaceTab, 'terminalTitle'>> & {
+  terminalTitle?: string | null;
+};
+
 // ============================================================================
 // localStorage helpers
 // ============================================================================
@@ -31,6 +35,31 @@ function clearWorkspaceSnapshots(runtimeTabs: WorkspaceTabRuntime[], workspaceId
   runtimeTabs
     .filter(tab => tab.workspaceId === workspaceId)
     .forEach(tab => clearTerminalSnapshot(tab.sessionId));
+}
+
+function applyWorkspaceTabChanges(tab: WorkspaceTabRuntime, changes: WorkspaceTabChanges): WorkspaceTabRuntime {
+  const { terminalTitle, ...rest } = changes;
+  const next: WorkspaceTabRuntime = { ...tab, ...rest };
+  if ('terminalTitle' in changes) {
+    if (typeof terminalTitle === 'string') {
+      next.terminalTitle = terminalTitle;
+    } else {
+      delete next.terminalTitle;
+    }
+  }
+  return next;
+}
+
+function replaceWorkspaceTab(tab: WorkspaceTabRuntime, replacement: WorkspaceTab): WorkspaceTabRuntime {
+  return {
+    ...replacement,
+    status: tab.status,
+    cwd: tab.cwd,
+  };
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 // ============================================================================
@@ -118,8 +147,8 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
           setActiveWorkspaceIdState(firstId);
           saveActiveWorkspaceId(firstId);
         }
-      } catch (err: any) {
-        if (mounted) setError(err.message);
+      } catch (err: unknown) {
+        if (mounted) setError(getErrorMessage(err));
       } finally {
         if (mounted) setLoading(false);
       }
@@ -186,13 +215,13 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
       },
 
       'tab:updated': (data) => {
-        const { id, changes } = data as { id: string; changes: Partial<WorkspaceTab> };
+        const { id, changes } = data as { id: string; changes: WorkspaceTabChanges };
         setTabs(prev => {
           const current = prev.find(t => t.id === id);
           if (current?.sessionId && changes.sessionId && current.sessionId !== changes.sessionId) {
             clearTerminalSnapshot(current.sessionId);
           }
-          return prev.map(t => t.id === id ? { ...t, ...changes } : t);
+          return prev.map(t => t.id === id ? applyWorkspaceTabChanges(t, changes) : t);
         });
       },
 
@@ -268,8 +297,8 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
       setWorkspaces(prev => prev.some(w => w.id === ws.id) ? prev : [...prev, ws]);
       setActiveWorkspaceIdState(ws.id);
       saveActiveWorkspaceId(ws.id);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     }
   }, []);
 
@@ -277,8 +306,8 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
     try {
       const ws = await workspaceApi.update(id, updates);
       setWorkspaces(prev => prev.map(w => w.id === id ? ws : w));
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     }
   }, []);
 
@@ -299,8 +328,8 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
         }
         return prev;
       });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     }
   }, [activeWorkspaceId, tabs]);
 
@@ -314,8 +343,8 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
           return ws ? { ...ws, sortOrder: i } : ws!;
         }).filter(Boolean);
       });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     }
   }, []);
 
@@ -332,8 +361,8 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
       setWorkspaces(prev => prev.map(w =>
         w.id === workspaceId ? { ...w, activeTabId: tab.id } : w
       ));
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     }
   }, []);
 
@@ -365,17 +394,17 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
         w.id === workspaceId ? { ...w, activeTabId: nextActiveTabId } : w
       ));
       clearTerminalSnapshot(tabToClose?.sessionId);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     }
   }, [tabs, workspaces]);
 
   const updateTab = useCallback(async (workspaceId: string, tabId: string, updates: { name?: string }) => {
     try {
       const tab = await workspaceApi.updateTab(workspaceId, tabId, updates);
-      setTabs(prev => prev.map(t => t.id === tabId ? { ...t, ...tab } : t));
-    } catch (err: any) {
-      setError(err.message);
+      setTabs(prev => prev.map(t => t.id === tabId ? replaceWorkspaceTab(t, tab) : t));
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     }
   }, []);
 
@@ -387,8 +416,8 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
         const idx = tabIds.indexOf(t.id);
         return idx >= 0 ? { ...t, sortOrder: idx } : t;
       }));
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     }
   }, []);
 
@@ -400,30 +429,30 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
       if (oldTab?.sessionId && oldTab.sessionId !== tab.sessionId) {
         clearTerminalSnapshot(oldTab.sessionId);
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     }
   }, [tabs]);
 
   const setActiveTab = useCallback(async (workspaceId: string, tabId: string | null) => {
     try {
-      await workspaceApi.update(workspaceId, { activeTabId: tabId } as any);
+      await workspaceApi.update(workspaceId, { activeTabId: tabId });
       setWorkspaces(prev => prev.map(w =>
         w.id === workspaceId ? { ...w, activeTabId: tabId } : w
       ));
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     }
   }, []);
 
   const setViewMode = useCallback(async (workspaceId: string, mode: 'tab' | 'grid') => {
     try {
-      await workspaceApi.update(workspaceId, { viewMode: mode } as any);
+      await workspaceApi.update(workspaceId, { viewMode: mode });
       setWorkspaces(prev => prev.map(w =>
         w.id === workspaceId ? { ...w, viewMode: mode } : w
       ));
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     }
   }, []);
 
@@ -443,8 +472,8 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
         }
         return [...prev, result];
       });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     }
   }, []);
 

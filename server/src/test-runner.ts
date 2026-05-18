@@ -23,6 +23,13 @@ import { sessionManager } from './services/SessionManager.js';
 import { FileService } from './services/FileService.js';
 import { OscDetector } from './services/OscDetector.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
+import {
+  TerminalTitleDetector,
+  isDefaultTerminalTabName,
+  isSystemAbsolutePathTerminalTitle,
+  sanitizeTerminalTitle,
+  type TerminalTitleEvent,
+} from './utils/terminalTitle.js';
 import { CommandPresetService } from './services/CommandPresetService.js';
 import { TerminalShortcutService } from './services/TerminalShortcutService.js';
 import {
@@ -41,6 +48,7 @@ import { createAuthRoutes } from './routes/authRoutes.js';
 import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js';
 import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
 import { createTerminalShortcutRoutes } from './routes/terminalShortcutRoutes.js';
+import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
 import sessionRoutes from './routes/sessionRoutes.js';
 import { createAuthMiddleware } from './middleware/authMiddleware.js';
 import { ensureDebugCaptureSessionExists, requireLocalDebugCapture } from './middleware/debugCaptureGuards.js';
@@ -152,12 +160,13 @@ async function main(): Promise<void> {
     { name: 'SessionManager does not duplicate queued output on direct write failure', run: testSessionManagerWriteFailureNoDuplicate },
     { name: 'SessionManager rejects oversized authoritative snapshots without unbounded growth', run: testSessionManagerOversizedSnapshot },
     { name: 'SessionManager authoritative snapshot preserves current alt-screen state', run: testSessionManagerAltScreenSnapshot },
-    { name: 'SessionManager preserves degraded output across unsubscribed gaps', run: testSessionManagerDegradedOutputRecovery },
+    { name: 'SessionManager keeps degraded fallback snapshots placeholder-only', run: testSessionManagerDegradedOutputRecovery },
     { name: 'Headless snapshot serialization is deterministic for a normal screen', run: testHeadlessSnapshotSerialization },
     { name: 'Headless snapshot serialization reflects resize geometry', run: testHeadlessSnapshotResize },
     { name: 'Headless snapshot serialization preserves alternate-screen state and exit restore', run: testHeadlessSnapshotAltScreen },
     { name: 'Headless snapshot serialization handles an empty screen', run: testHeadlessSnapshotEmptyScreen },
     { name: 'Headless snapshot serialization refuses truncated authoritative payloads', run: testHeadlessSnapshotTruncation },
+    { name: 'Headless snapshot serialization is viewport-only and byte-bounded', run: testHeadlessSnapshotViewportOnlyLongScrollback },
     { name: 'Headless screen repair serializes viewport only', run: testHeadlessScreenRepairViewportOnly },
     { name: 'Headless screen repair preserves SGR and cursor metadata', run: testHeadlessScreenRepairSgrAndCursor },
     { name: 'Headless screen repair preserves hidden cursor state', run: testHeadlessScreenRepairHiddenCursor },
@@ -168,6 +177,15 @@ async function main(): Promise<void> {
     { name: 'Terminal payload truncation drops incomplete trailing CSI sequences', run: testTerminalPayloadTruncationIncompleteCsi },
     { name: 'Terminal payload truncation drops incomplete trailing OSC sequences', run: testTerminalPayloadTruncationIncompleteOsc },
     { name: 'Terminal payload truncation removes incomplete trailing escape suffixes', run: testTerminalPayloadTruncationTrailingIncompleteSuffix },
+    { name: 'TerminalTitleDetector emits OSC 0 and OSC 2 titles', run: testTerminalTitleDetectorEmitsOsc0AndOsc2 },
+    { name: 'TerminalTitleDetector ignores unsupported and empty titles', run: testTerminalTitleDetectorIgnoresUnsupportedAndEmpty },
+    { name: 'TerminalTitleDetector handles chunk-split title sequences', run: testTerminalTitleDetectorHandlesChunkSplit },
+    { name: 'TerminalTitleDetector sanitizes and bounds titles', run: testTerminalTitleSanitizer },
+    { name: 'TerminalTitleDetector identifies absolute path titles', run: testTerminalTitleAbsolutePathPolicy },
+    { name: 'TerminalTitleDetector caps unterminated payloads and recovers', run: testTerminalTitleDetectorCapsAndRecovers },
+    { name: 'TerminalTitleDetector releases normal output after an over-cap sequence terminates', run: testTerminalTitleDetectorOverCapTerminatorReleasesSignal },
+    { name: 'SessionManager emits terminal title events without changing status', run: testSessionManagerTerminalTitleSignalStaysIdle },
+    { name: 'SessionManager detects terminal titles from raw OSC133-mode output', run: testSessionManagerTerminalTitleRawOsc133Mode },
     { name: 'WsRouter sends screen snapshot before flushing queued live output', run: testWsRouterScreenSnapshotOrdering },
     { name: 'WsRouter queues input while replay is pending and flushes after ACK', run: testWsRouterQueuesInputWhileReplayPendingAndFlushesAfterAck },
     { name: 'WsRouter preserves queued input across replay refresh', run: testWsRouterPreservesInputQueueAcrossReplayRefresh },
@@ -185,9 +203,11 @@ async function main(): Promise<void> {
     { name: 'WsRouter reports replay observability counters', run: testWsRouterObservabilityCounters },
     { name: 'WsRouter still emits a replay start for degraded sessions', run: testWsRouterDegradedReplayStart },
     { name: 'WsRouter still emits a replay start for oversized snapshots', run: testWsRouterOversizedSnapshotReplayStart },
+    { name: 'WsRouter sends viewport-only snapshots on subscribe and resubscribe', run: testWsRouterViewportOnlySnapshotReplayStart },
     { name: 'WsRouter duplicate subscribe does not replay screen snapshot twice', run: testWsRouterDuplicateSubscribeIdempotent },
     { name: 'WsRouter ignores stale replay tokens', run: testWsRouterIgnoresStaleReplayTokens },
     { name: 'WsRouter refreshes replay snapshots on resize while pending', run: testWsRouterRefreshesReplaySnapshotsOnResize },
+    { name: 'WsRouter preserves queued output across fallback replay refresh', run: testWsRouterPreservesQueuedOutputAcrossFallbackReplayRefresh },
     { name: 'WsRouter sends screen repair and queues output until ACK', run: testWsRouterSendsScreenRepairAndQueuesOutputUntilAck },
     { name: 'WsRouter queues output while screen repair is generating', run: testWsRouterQueuesOutputDuringScreenRepairGeneration },
     { name: 'WsRouter flushes output newer than screen repair snapshot seq', run: testWsRouterFlushesOutputAfterScreenRepairSnapshotSeq },
@@ -208,6 +228,15 @@ async function main(): Promise<void> {
     { name: 'WorkspaceService restartTab preserves the old session when replacement creation fails', run: testWorkspaceServiceRestartTabCreateFailure },
     { name: 'WorkspaceService deleteWorkspace clears workspace sessions in bulk', run: testWorkspaceServiceDeleteWorkspace },
     { name: 'WorkspaceService orphan recovery recreates fresh session ids with saved cwd', run: testWorkspaceServiceCheckOrphanTabs },
+    { name: 'WorkspaceService infers tab name source for default and legacy names', run: testWorkspaceServiceTabNameSourceDefaults },
+    { name: 'WorkspaceService applies terminal titles and broadcasts tab metadata changes', run: testWorkspaceServiceApplyTerminalTitle },
+    { name: 'WorkspaceService ignores absolute path terminal titles', run: testWorkspaceServiceIgnoresAbsolutePathTerminalTitle },
+    { name: 'WorkspaceService preserves user tab names from terminal titles', run: testWorkspaceServiceTerminalTitleRespectsUserName },
+    { name: 'WorkspaceService debounces rapid terminal titles to the final value', run: testWorkspaceServiceTerminalTitleDebounce },
+    { name: 'WorkspaceService absolute path terminal title cancels pending debounce', run: testWorkspaceServiceAbsolutePathTitleCancelsPendingDebounce },
+    { name: 'WorkspaceService manual rename cancels pending terminal title updates', run: testWorkspaceServiceManualRenameCancelsPendingTitle },
+    { name: 'WorkspaceService restart cancels pending old-session terminal titles', run: testWorkspaceServiceRestartCancelsPendingTitle },
+    { name: 'workspace tab rename route broadcasts normalized tab metadata', run: testWorkspaceTabRenameRouteBroadcastsNormalizedMetadata },
     { name: 'CommandPresetService persists CRUD operations and per-kind reorder', run: testCommandPresetServiceCrudAndReorder },
     { name: 'CommandPresetService serializes concurrent mutations', run: testCommandPresetServiceConcurrentCreates },
     { name: 'command preset routes expose CRUD and reject invalid order payloads', run: testCommandPresetRoutesCrudAndValidation },
@@ -2578,9 +2607,18 @@ async function testSessionManagerCachedSnapshot(): Promise<void> {
 
     assert.equal(first?.health, 'healthy');
     assert.equal(first?.data, 'hello\r\nworld');
+    assert.equal((first as any)?.scope, 'viewport-only');
+    assert.equal((harness.sessionData.snapshotCache as any)?.scope, 'viewport-only');
     assert.equal(second?.generatedAt, first?.generatedAt);
     assert.equal(serializeCalls, 1);
     assert.deepEqual(replay, { data: 'hello\r\nworld', truncated: false });
+
+    (harness.sessionData.snapshotCache as any).scope = undefined;
+    const third = manager.getScreenSnapshot(harness.sessionId);
+
+    assert.equal(serializeCalls, 2);
+    assert.equal((third as any)?.scope, 'viewport-only');
+    assert.equal((harness.sessionData.snapshotCache as any)?.scope, 'viewport-only');
   } finally {
     harness.dispose();
   }
@@ -2605,18 +2643,30 @@ async function testSessionManagerObservabilityCounters(): Promise<void> {
   const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
 
   try {
-    await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, 'hello');
-    manager.getScreenSnapshot(harness.sessionId);
+    await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, '한글');
+    manager.enableDebugCapture(harness.sessionId);
+    const snapshot = manager.getScreenSnapshot(harness.sessionId);
     manager.getScreenSnapshot(harness.sessionId);
 
     const stats = manager.getObservabilitySnapshot();
+    const snapshotData = snapshot?.data ?? '';
+    const snapshotByteLength = Buffer.byteLength(snapshotData, 'utf8');
+    const debugEvents = manager.getDebugCapture(harness.sessionId);
+    const serializedEvent = debugEvents.find((event) => event.kind === 'snapshot_serialized');
+    const cacheHitEvent = debugEvents.find((event) => event.kind === 'snapshot_cache_hit');
 
     assert.equal(stats.totalSessions, 1);
     assert.equal(stats.healthySessions, 1);
     assert.equal(stats.snapshotRequests, 2);
     assert.equal(stats.snapshotCacheHits, 1);
     assert.equal(stats.snapshotSerializeFailures, 0);
-    assert.equal(stats.totalSnapshotBytes > 0, true);
+    assert.equal(snapshotByteLength > snapshotData.length, true);
+    assert.equal(stats.totalSnapshotBytes, snapshotByteLength);
+    assert.equal(stats.maxSnapshotBytesObserved, snapshotByteLength);
+    assert.equal(serializedEvent?.details?.byteLength, snapshotByteLength);
+    assert.equal(serializedEvent?.details?.snapshotScope, 'viewport-only');
+    assert.equal(cacheHitEvent?.details?.byteLength, snapshotByteLength);
+    assert.equal(cacheHitEvent?.details?.snapshotScope, 'viewport-only');
   } finally {
     harness.dispose();
   }
@@ -2960,6 +3010,7 @@ async function testPerformGracefulShutdownFlushesWorkspaceCwds(): Promise<void> 
 
   const sessionManagerStub = {
     onCwdChange() {},
+    onTerminalTitleChange() {},
     stopAllCwdWatching() {
       events.push('stop-watchers');
     },
@@ -3162,7 +3213,8 @@ async function testSessionManagerDirtyCacheDegradedRecovery(): Promise<void> {
     const replay = manager.getReplaySnapshot(harness.sessionId);
 
     assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
-    assert.match(replay?.data ?? '', /oldnew/);
+    assert.doesNotMatch(replay?.data ?? '', /oldnew/);
+    assert.match(harness.sessionData.degradedReplayBuffer, /oldnew/);
   } finally {
     harness.dispose();
   }
@@ -3210,8 +3262,10 @@ async function testSessionManagerQueuedOutputDegradedRace(): Promise<void> {
     const replay = manager.getReplaySnapshot(harness.sessionId);
 
     assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
-    assert.match(replay?.data ?? '', /PAYLOAD_A/);
-    assert.match(replay?.data ?? '', /PAYLOAD_B/);
+    assert.doesNotMatch(replay?.data ?? '', /PAYLOAD_A/);
+    assert.doesNotMatch(replay?.data ?? '', /PAYLOAD_B/);
+    assert.match(harness.sessionData.degradedReplayBuffer, /PAYLOAD_A/);
+    assert.match(harness.sessionData.degradedReplayBuffer, /PAYLOAD_B/);
   } finally {
     harness.dispose();
   }
@@ -3268,8 +3322,10 @@ async function testSessionManagerMixedFlushDegradedRecovery(): Promise<void> {
     const replay = manager.getReplaySnapshot(harness.sessionId);
 
     assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
-    assert.equal((replay?.data ?? '').split('PAYLOAD_A').length - 1, 1);
-    assert.equal((replay?.data ?? '').split('PAYLOAD_B').length - 1, 1);
+    assert.doesNotMatch(replay?.data ?? '', /PAYLOAD_A/);
+    assert.doesNotMatch(replay?.data ?? '', /PAYLOAD_B/);
+    assert.equal(harness.sessionData.degradedReplayBuffer.split('PAYLOAD_A').length - 1, 1);
+    assert.equal(harness.sessionData.degradedReplayBuffer.split('PAYLOAD_B').length - 1, 1);
   } finally {
     harness.dispose();
   }
@@ -3304,7 +3360,8 @@ async function testSessionManagerWriteFailureNoDuplicate(): Promise<void> {
     const replay = manager.getReplaySnapshot(harness.sessionId);
 
     assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
-    assert.equal((replay?.data ?? '').split('PAYLOAD_X').length - 1, 1);
+    assert.doesNotMatch(replay?.data ?? '', /PAYLOAD_X/);
+    assert.equal(harness.sessionData.degradedReplayBuffer.split('PAYLOAD_X').length - 1, 1);
   } finally {
     harness.dispose();
   }
@@ -3414,7 +3471,8 @@ function testSessionManagerDegradedOutputRecovery(): void {
 
     assert.equal(sent[0].type, 'screen-snapshot');
     assert.equal(sent[0].mode, 'fallback');
-    assert.match(String(sent[0].data), /lost-while-unsubscribed/);
+    assert.equal(sent[0].data, '');
+    assert.match(harness.sessionData.degradedReplayBuffer, /lost-while-unsubscribed/);
   } finally {
     router.destroy();
     harness.dispose();
@@ -3643,6 +3701,8 @@ function createManagedSessionHarness(
     },
     detectionMode: 'heuristic',
     oscDetector: new OscDetector(),
+    terminalTitleDetector: new TerminalTitleDetector(),
+    terminalTitleSignalDetector: new TerminalTitleDetector(),
   };
 
   (manager as any).sessions.set(session.id, sessionData);
@@ -3652,6 +3712,8 @@ function createManagedSessionHarness(
     sessionData,
     dispose: () => {
       sessionData.oscDetector.destroy();
+      sessionData.terminalTitleDetector.destroy();
+      sessionData.terminalTitleSignalDetector.destroy();
       (manager as any).sessions.delete(session.id);
       headless.dispose();
     },
@@ -3672,7 +3734,7 @@ function createDegradedSessionHarness(
   return harness;
 }
 
-function createWorkspaceServiceHarness() {
+function createWorkspaceServiceHarness(options: { terminalTitleDebounceMs?: number } = {}) {
   const calls = {
     createSession: [] as Array<{ name?: string; shell?: string; cwd?: string }>,
     deleteSession: [] as string[],
@@ -3684,6 +3746,7 @@ function createWorkspaceServiceHarness() {
 
   const sessionManagerStub = {
     onCwdChange() {},
+    onTerminalTitleChange() {},
     createSession(name?: string, shell?: string, cwd?: string) {
       calls.createSession.push({ name, shell, cwd });
       if (calls.createSessionError) {
@@ -3720,7 +3783,7 @@ function createWorkspaceServiceHarness() {
     },
   } as unknown as SessionManager;
 
-  const workspaceService = new WorkspaceService(sessionManagerStub);
+  const workspaceService = new WorkspaceService(sessionManagerStub, options);
   (workspaceService as any).save = async () => {};
   (workspaceService as any).flushToDisk = async () => {};
 
@@ -3859,6 +3922,37 @@ async function testHeadlessSnapshotTruncation(): Promise<void> {
     assert.equal(snapshot.data, '');
   } finally {
     harness.dispose();
+  }
+}
+
+async function testHeadlessSnapshotViewportOnlyLongScrollback(): Promise<void> {
+  const harness = createHeadlessHarness({ cols: 32, rows: 4, scrollbackLines: 1000 });
+  const byteHarness = createHeadlessHarness({ cols: 16, rows: 4, scrollbackLines: 1000 });
+
+  try {
+    await writeHeadlessTerminal(harness.state, 'BG-OLD-MARKER-001\r\n');
+    for (let i = 2; i < 80; i += 1) {
+      await writeHeadlessTerminal(harness.state, `BG-FILLER-${String(i).padStart(3, '0')}\r\n`);
+    }
+    await writeHeadlessTerminal(harness.state, 'BG-LATEST-MARKER-080\r\n');
+
+    const fullScrollback = harness.state.serializeAddon.serialize({ scrollback: 1000 });
+    const snapshot = serializeHeadlessTerminal(harness.state, 4096);
+
+    assert.match(fullScrollback, /BG-OLD-MARKER-001/);
+    assert.equal(snapshot.truncated, false);
+    assert.doesNotMatch(snapshot.data, /BG-OLD-MARKER-001/);
+    assert.match(snapshot.data, /BG-LATEST-MARKER-080/);
+
+    await writeHeadlessTerminal(byteHarness.state, '한글🙂');
+    const byteBoundedSnapshot = serializeHeadlessTerminal(byteHarness.state, '한글🙂'.length);
+
+    assert.equal(Buffer.byteLength('한글🙂', 'utf8') > '한글🙂'.length, true);
+    assert.equal(byteBoundedSnapshot.truncated, true);
+    assert.equal(byteBoundedSnapshot.data, '');
+  } finally {
+    harness.dispose();
+    byteHarness.dispose();
   }
 }
 
@@ -4058,6 +4152,165 @@ function testTerminalPayloadTruncationTrailingIncompleteSuffix(): void {
   assert.equal(incompleteOsc.content, 'lo');
   assert.equal(incompleteEsc.truncated, true);
   assert.equal(incompleteEsc.content, 'lo');
+}
+
+function testTerminalTitleDetectorEmitsOsc0AndOsc2(): void {
+  const detector = new TerminalTitleDetector();
+  const events: TerminalTitleEvent[] = [];
+  detector.setCallback(event => events.push(event));
+
+  detector.process('\x1b]0;Hello Title\x07');
+  detector.process('\x1b]2;Window Title\x1b\\');
+
+  assert.deepEqual(events.map(event => ({ source: event.source, title: event.title })), [
+    { source: 'osc0', title: 'Hello Title' },
+    { source: 'osc2', title: 'Window Title' },
+  ]);
+  assert.equal(detector.getSignalData(), '');
+  detector.destroy();
+}
+
+function testTerminalTitleDetectorIgnoresUnsupportedAndEmpty(): void {
+  const detector = new TerminalTitleDetector();
+  const events: TerminalTitleEvent[] = [];
+  detector.setCallback(event => events.push(event));
+
+  detector.process('\x1b]1;Icon Title\x07');
+  assert.equal(detector.getSignalData(), '\x1b]1;Icon Title\x07');
+  detector.process('\x1b]133;A\x07');
+  assert.equal(detector.getSignalData(), '\x1b]133;A\x07');
+  detector.process('\x1b]0;\t\r\n\x07');
+
+  assert.equal(events.length, 0);
+  assert.equal(detector.getSignalData(), '');
+  detector.destroy();
+}
+
+function testTerminalTitleDetectorHandlesChunkSplit(): void {
+  const detector = new TerminalTitleDetector();
+  const events: TerminalTitleEvent[] = [];
+  detector.setCallback(event => events.push(event));
+
+  detector.process('before\x1b]0;Hel');
+  assert.equal(detector.getSignalData(), 'before');
+  detector.process('lo\x07after');
+
+  assert.deepEqual(events.map(event => event.title), ['Hello']);
+  assert.equal(detector.getSignalData(), 'after');
+  detector.destroy();
+}
+
+function testTerminalTitleSanitizer(): void {
+  const rawTitle = ` Alpha\tBeta\r\nGamma\x1bHidden\u202e${'Z'.repeat(40)}`;
+  const sanitized = sanitizeTerminalTitle(rawTitle);
+
+  assert.equal(sanitized, 'Alpha Beta Gamma HiddenZZZZZZZZZ');
+  assert.equal(Array.from(sanitized ?? '').length, 32);
+  assert.equal(isDefaultTerminalTabName('Terminal-1'), true);
+  assert.equal(isDefaultTerminalTabName('Terminal-01'), false);
+  assert.equal(isDefaultTerminalTabName('Terminal-1 memo'), false);
+}
+
+function testTerminalTitleAbsolutePathPolicy(): void {
+  const blockedTitles = [
+    'C:\\Work\\repo',
+    'C:/Work/repo',
+    'c:\\Users\\beom',
+    'C:\\',
+    '/mnt/c/Work/repo',
+    '/home/beom/project',
+    '/',
+    '\\\\server\\share',
+    '//server/share',
+    '\\\\?\\C:\\Work',
+    '\\Users\\beom',
+  ];
+  for (const title of blockedTitles) {
+    assert.equal(isSystemAbsolutePathTerminalTitle(title), true, title);
+  }
+
+  const allowedTitles = [
+    'Project C:\\Work',
+    'Codex /mnt/c/Work',
+    'C:relative',
+    'Workspace',
+    'https://example.test/repo',
+    '~/project',
+  ];
+  for (const title of allowedTitles) {
+    assert.equal(isSystemAbsolutePathTerminalTitle(title), false, title);
+  }
+
+  const sanitizedTitle = sanitizeTerminalTitle('\tC:\\Work\\repo');
+  assert.equal(isSystemAbsolutePathTerminalTitle(sanitizedTitle ?? ''), true);
+}
+
+function testTerminalTitleDetectorCapsAndRecovers(): void {
+  const detector = new TerminalTitleDetector();
+  const events: TerminalTitleEvent[] = [];
+  detector.setCallback(event => events.push(event));
+
+  detector.process(`\x1b]0;${'A'.repeat(4097)}`);
+  assert.equal(events.length, 0);
+  assert.equal(detector.getSignalData(), '');
+  detector.process('\x1b]2;Recovered\x07');
+
+  assert.deepEqual(events.map(event => event.title), ['Recovered']);
+  assert.equal(detector.getSignalData(), '');
+  detector.destroy();
+}
+
+function testTerminalTitleDetectorOverCapTerminatorReleasesSignal(): void {
+  const detector = new TerminalTitleDetector();
+  const events: TerminalTitleEvent[] = [];
+  detector.setCallback(event => events.push(event));
+
+  detector.process(`\x1b]0;${'A'.repeat(4097)}`);
+  assert.equal(detector.getSignalData(), '');
+  detector.process('\x07normal output');
+
+  assert.equal(events.length, 0);
+  assert.equal(detector.getSignalData(), 'normal output');
+
+  detector.process(`\x1b]2;${'B'.repeat(4097)}\x07after`);
+  assert.equal(events.length, 0);
+  assert.equal(detector.getSignalData(), 'after');
+  detector.destroy();
+}
+
+function testSessionManagerTerminalTitleSignalStaysIdle(): void {
+  const harness = createForegroundSessionHarness('bash');
+  const titles: Array<{ sessionId: string; title: string }> = [];
+  harness.manager.onTerminalTitleChange((sessionId, title) => {
+    titles.push({ sessionId, title });
+  });
+
+  try {
+    harness.getHandler()('\x1b]0;Idle Title\x07');
+
+    assert.deepEqual(titles, [{ sessionId: harness.session.id, title: 'Idle Title' }]);
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+  } finally {
+    harness.cleanup();
+  }
+}
+
+function testSessionManagerTerminalTitleRawOsc133Mode(): void {
+  const harness = createForegroundSessionHarness('bash');
+  const titles: Array<{ sessionId: string; title: string }> = [];
+  harness.manager.onTerminalTitleChange((sessionId, title) => {
+    titles.push({ sessionId, title });
+  });
+
+  try {
+    harness.sessionData.detectionMode = 'osc133';
+    harness.getHandler()('\x1b]0;A\x07');
+
+    assert.deepEqual(titles, [{ sessionId: harness.session.id, title: 'A' }]);
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+  } finally {
+    harness.cleanup();
+  }
 }
 
 function createFakeWs() {
@@ -4697,6 +4950,70 @@ function testWsRouterDegradedReplayStart(): void {
   router.destroy();
 }
 
+function assertViewportOnlySnapshotPayload(payload: string, oldMarker: string, latestMarker: string): void {
+  assert.doesNotMatch(payload, new RegExp(oldMarker));
+  assert.match(payload, new RegExp(latestMarker));
+}
+
+async function testWsRouterViewportOnlySnapshotReplayStart(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 32,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 4096,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 32, rows: 4, scrollbackLines: 1000 });
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, manager);
+  manager.setWsRouter(router);
+  const { ws, sent } = createFakeWs();
+  const oldMarker = 'WS-OLD-MARKER-001';
+  const latestMarker = 'WS-LATEST-MARKER-080';
+
+  try {
+    (router as any).clients.set(ws, {
+      clientId: 'client-1',
+      isAlive: true,
+      subscribedSessions: new Set<string>(),
+      replayPendingSessions: new Map(),
+    });
+
+    await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, `${oldMarker}\r\n`);
+    for (let i = 2; i < 80; i += 1) {
+      await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, `WS-FILLER-${String(i).padStart(3, '0')}\r\n`);
+    }
+    await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, `${latestMarker}\r\n`);
+
+    (router as any).handleSubscribe(ws, [harness.sessionId]);
+    const firstSnapshot = sent.find((message) => message.type === 'screen-snapshot');
+    assert.equal(firstSnapshot?.type, 'screen-snapshot');
+    assert.equal(firstSnapshot?.mode, 'authoritative');
+    assertViewportOnlySnapshotPayload(String(firstSnapshot?.data), oldMarker, latestMarker);
+
+    (router as any).handleUnsubscribe(ws, [harness.sessionId]);
+    (router as any).handleSubscribe(ws, [harness.sessionId]);
+    const secondSnapshot = sent
+      .filter((message) => message.type === 'screen-snapshot')
+      .at(-1);
+    assert.equal(secondSnapshot?.type, 'screen-snapshot');
+    assert.equal(secondSnapshot?.mode, 'authoritative');
+    assertViewportOnlySnapshotPayload(String(secondSnapshot?.data), oldMarker, latestMarker);
+  } finally {
+    router.destroy();
+    harness.dispose();
+  }
+}
+
 function testWsRouterDuplicateSubscribeIdempotent(): void {
   const { router, ws, sent } = createWsRouterHarness();
 
@@ -4800,6 +5117,72 @@ function testWsRouterRefreshesReplaySnapshotsOnResize(): void {
     const outputs = sent.filter((message) => message.type === 'output');
     assert.equal(outputs.length, 1);
     assert.equal(outputs[0].data, 'C');
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterPreservesQueuedOutputAcrossFallbackReplayRefresh(): void {
+  const snapshotState = {
+    seq: 1,
+    cols: 80,
+    rows: 24,
+    data: 'A',
+    truncated: false,
+    generatedAt: Date.now(),
+    health: 'healthy' as 'healthy' | 'degraded',
+  };
+  const session = {
+    id: 'session-1',
+    name: 'Session 1',
+    status: 'running',
+    createdAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
+    sortOrder: 0,
+  };
+  const sessionManagerStub = {
+    getSession: (id: string) => id === session.id ? session : null,
+    getLastCwd: () => 'C:\\repo',
+    isSessionReady: (id: string) => id === session.id,
+    getScreenSnapshot: () => snapshotState,
+    getReplayQueueLimit: () => 64,
+    writeInput: () => true,
+    resize: () => true,
+  } as unknown as SessionManager;
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, sessionManagerStub);
+  const { ws, sent } = createFakeWs();
+
+  try {
+    (router as any).clients.set(ws, {
+      clientId: 'client-1',
+      isAlive: true,
+      subscribedSessions: new Set<string>(),
+      replayPendingSessions: new Map(),
+    });
+
+    (router as any).handleSubscribe(ws, ['session-1']);
+    const firstToken = String(sent[0].replayToken);
+
+    router.routeSessionOutput('session-1', 'queued-before-empty-refresh');
+    snapshotState.seq = 2;
+    snapshotState.data = '';
+    snapshotState.truncated = true;
+    router.refreshReplaySnapshots('session-1');
+
+    const refreshed = sent.find((message) => message.type === 'screen-snapshot' && message.replayToken !== firstToken);
+    assert.equal(refreshed?.type, 'screen-snapshot');
+    assert.equal(refreshed?.mode, 'fallback');
+    assert.equal(refreshed?.data, '');
+    const secondToken = String(refreshed?.replayToken);
+
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', secondToken);
+
+    const outputs = sent.filter((message) => message.type === 'output');
+    assert.equal(outputs.length, 1);
+    assert.equal(outputs[0].data, 'queued-before-empty-refresh');
   } finally {
     router.destroy();
   }
@@ -5376,7 +5759,8 @@ async function testWsRouterNoDuplicateDeferredFallbackPayload(): Promise<void> {
     const snapshot = sent[0];
     assert.equal(snapshot.type, 'screen-snapshot');
     assert.equal(snapshot.mode, 'fallback');
-    assert.match(String(snapshot.data), /PAYLOAD_B/);
+    assert.equal(snapshot.data, '');
+    assert.match(harness.sessionData.degradedReplayBuffer, /PAYLOAD_B/);
 
     while (pendingCallbacks.length > 0) {
       pendingCallbacks.shift()?.();
@@ -5575,6 +5959,324 @@ async function testWorkspaceServiceCheckOrphanTabs(): Promise<void> {
   assert.equal(calls.createSession.length, 1);
   assert.equal(calls.createSession[0].cwd, '/saved-cwd');
   assert.notEqual((workspaceService as any).state.tabs[0].sessionId, 'orphan-session');
+}
+
+async function testWorkspaceServiceTabNameSourceDefaults(): Promise<void> {
+  const { workspaceService } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = {
+    workspaces: [{
+      id: 'ws-1',
+      name: 'Workspace 1',
+      sortOrder: 0,
+      viewMode: 'tab',
+      activeTabId: null,
+      colorCounter: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }],
+    tabs: [
+      {
+        id: 'tab-1',
+        workspaceId: 'ws-1',
+        sessionId: 'session-1',
+        name: 'Terminal-1',
+        colorIndex: 0,
+        sortOrder: 0,
+        shellType: 'bash',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'tab-2',
+        workspaceId: 'ws-1',
+        sessionId: 'session-2',
+        name: 'Terminal-1 notes',
+        colorIndex: 1,
+        sortOrder: 1,
+        shellType: 'bash',
+        terminalTitle: '\x1b',
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    gridLayouts: [],
+  };
+
+  for (const tab of (workspaceService as any).state.tabs) {
+    (workspaceService as any).normalizeTabNameMetadata(tab);
+  }
+
+  const tabs = (workspaceService as any).state.tabs;
+  assert.equal(tabs[0].nameSource, 'default');
+  assert.equal(tabs[1].nameSource, 'user');
+  assert.equal(tabs[1].terminalTitle, undefined);
+}
+
+async function testWorkspaceServiceApplyTerminalTitle(): Promise<void> {
+  const { workspaceService } = createWorkspaceServiceHarness({ terminalTitleDebounceMs: 0 });
+  const events: any[] = [];
+  (workspaceService as any).state = createWorkspaceStateWithTab({
+    sessionId: 'session-1',
+    name: 'Terminal-1',
+    nameSource: 'default',
+  });
+  workspaceService.onTabUpdated(event => events.push(event));
+
+  await workspaceService.applyTerminalTitle('session-1', 'Auto Title');
+  await workspaceService.applyTerminalTitle('session-1', 'Auto Title');
+
+  const tab = (workspaceService as any).state.tabs[0];
+  assert.equal(tab.name, 'Auto Title');
+  assert.equal(tab.nameSource, 'terminal-title');
+  assert.equal(tab.terminalTitle, 'Auto Title');
+  assert.equal(events.length, 1);
+  assert.deepEqual(events[0].changes, {
+    name: 'Auto Title',
+    terminalTitle: 'Auto Title',
+    nameSource: 'terminal-title',
+  });
+}
+
+async function testWorkspaceServiceIgnoresAbsolutePathTerminalTitle(): Promise<void> {
+  const { workspaceService } = createWorkspaceServiceHarness({ terminalTitleDebounceMs: 0 });
+  const events: any[] = [];
+  (workspaceService as any).state = createWorkspaceStateWithTab({
+    sessionId: 'session-1',
+    name: 'Terminal-1',
+    nameSource: 'default',
+  });
+  workspaceService.onTabUpdated(event => events.push(event));
+
+  await workspaceService.applyTerminalTitle('session-1', 'C:\\Work\\git\\_Snoworca\\ProjectMaster');
+  await workspaceService.applyTerminalTitle('session-1', '/mnt/c/Work/git/_Snoworca/ProjectMaster');
+
+  const tab = (workspaceService as any).state.tabs[0];
+  assert.equal(tab.name, 'Terminal-1');
+  assert.equal(tab.nameSource, 'default');
+  assert.equal(tab.terminalTitle, undefined);
+  assert.equal(events.length, 0);
+}
+
+async function testWorkspaceServiceTerminalTitleRespectsUserName(): Promise<void> {
+  const { workspaceService } = createWorkspaceServiceHarness({ terminalTitleDebounceMs: 0 });
+  const events: any[] = [];
+  (workspaceService as any).state = createWorkspaceStateWithTab({
+    sessionId: 'session-1',
+    name: 'Manual Name',
+    nameSource: 'user',
+  });
+  workspaceService.onTabUpdated(event => events.push(event));
+
+  await workspaceService.applyTerminalTitle('session-1', 'Ignored Title');
+
+  const tab = (workspaceService as any).state.tabs[0];
+  assert.equal(tab.name, 'Manual Name');
+  assert.equal(tab.nameSource, 'user');
+  assert.equal(events.length, 0);
+}
+
+async function testWorkspaceServiceTerminalTitleDebounce(): Promise<void> {
+  const { workspaceService } = createWorkspaceServiceHarness({ terminalTitleDebounceMs: 10 });
+  const events: any[] = [];
+  (workspaceService as any).state = createWorkspaceStateWithTab({
+    sessionId: 'session-1',
+    name: 'Terminal-1',
+    nameSource: 'default',
+  });
+  workspaceService.onTabUpdated(event => events.push(event));
+
+  await workspaceService.applyTerminalTitle('session-1', 'Burst 1');
+  await workspaceService.applyTerminalTitle('session-1', 'Burst 2');
+  await workspaceService.applyTerminalTitle('session-1', 'Burst Final');
+  await delay(30);
+
+  const tab = (workspaceService as any).state.tabs[0];
+  assert.equal(tab.name, 'Burst Final');
+  assert.equal(events.length, 1);
+  assert.equal(events[0].changes.name, 'Burst Final');
+}
+
+async function testWorkspaceServiceAbsolutePathTitleCancelsPendingDebounce(): Promise<void> {
+  const { workspaceService } = createWorkspaceServiceHarness({ terminalTitleDebounceMs: 30 });
+  const events: any[] = [];
+  (workspaceService as any).state = createWorkspaceStateWithTab({
+    sessionId: 'session-1',
+    name: 'Terminal-1',
+    nameSource: 'default',
+  });
+  workspaceService.onTabUpdated(event => events.push(event));
+
+  await workspaceService.applyTerminalTitle('session-1', 'Pending Title');
+  await workspaceService.applyTerminalTitle('session-1', 'C:\\Work\\git\\_Snoworca\\ProjectMaster');
+  await delay(60);
+
+  const tab = (workspaceService as any).state.tabs[0];
+  assert.equal(tab.name, 'Terminal-1');
+  assert.equal(tab.nameSource, 'default');
+  assert.equal(tab.terminalTitle, undefined);
+  assert.equal(events.length, 0);
+}
+
+async function testWorkspaceServiceManualRenameCancelsPendingTitle(): Promise<void> {
+  const { workspaceService } = createWorkspaceServiceHarness({ terminalTitleDebounceMs: 30 });
+  (workspaceService as any).state = createWorkspaceStateWithTab({
+    sessionId: 'session-1',
+    name: 'Existing Auto Title',
+    nameSource: 'terminal-title',
+    terminalTitle: 'Existing Auto Title',
+  });
+
+  await workspaceService.applyTerminalTitle('session-1', 'Pending Title');
+  await workspaceService.updateTab('tab-1', { name: 'Manual Lock' });
+  await delay(60);
+
+  const tab = (workspaceService as any).state.tabs[0];
+  assert.equal(tab.name, 'Manual Lock');
+  assert.equal(tab.nameSource, 'user');
+  assert.equal(tab.terminalTitle, undefined);
+}
+
+async function testWorkspaceServiceRestartCancelsPendingTitle(): Promise<void> {
+  const { workspaceService } = createWorkspaceServiceHarness({ terminalTitleDebounceMs: 30 });
+  (workspaceService as any).state = createWorkspaceStateWithTab({
+    sessionId: 'old-session',
+    name: 'Terminal-1',
+    nameSource: 'default',
+  });
+
+  await workspaceService.applyTerminalTitle('old-session', 'Old Pending');
+  const tab = await workspaceService.restartTab('ws-1', 'tab-1');
+  await delay(60);
+
+  assert.notEqual(tab.sessionId, 'old-session');
+  assert.equal(tab.name, 'Terminal-1');
+  assert.equal(tab.nameSource, 'default');
+}
+
+async function testWorkspaceTabRenameRouteBroadcastsNormalizedMetadata(): Promise<void> {
+  const { workspaceService } = createWorkspaceServiceHarness({ terminalTitleDebounceMs: 0 });
+  const broadcasts: Array<{ event: string; data: any; excludeClientId?: string }> = [];
+  (workspaceService as any).state = createWorkspaceStateWithTab({
+    sessionId: 'session-1',
+    name: 'Auto Title',
+    nameSource: 'terminal-title',
+    terminalTitle: 'Auto Title',
+  });
+
+  const app = express();
+  app.use(express.json());
+  app.set('wsRouter', {
+    broadcastAll(event: string, data: object, excludeClientId?: string) {
+      broadcasts.push({ event, data, excludeClientId });
+    },
+  });
+  app.use('/api/workspaces', createWorkspaceRoutes(workspaceService));
+
+  const response = await invokeJsonRoute(app, {
+    method: 'PATCH',
+    path: '/api/workspaces/ws-1/tabs/tab-1',
+    headers: { 'x-client-id': 'client-1' },
+    body: {
+      name: 'Manual Lock',
+      nameSource: 'terminal-title',
+      terminalTitle: 'Client Supplied Title',
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.name, 'Manual Lock');
+  assert.equal(response.body.nameSource, 'user');
+  assert.equal('terminalTitle' in response.body, false);
+  assert.equal(broadcasts.length, 1);
+  assert.equal(broadcasts[0].event, 'tab:updated');
+  assert.equal(broadcasts[0].excludeClientId, 'client-1');
+  assert.deepEqual(broadcasts[0].data, {
+    id: 'tab-1',
+    workspaceId: 'ws-1',
+    changes: {
+      name: 'Manual Lock',
+      nameSource: 'user',
+      terminalTitle: null,
+    },
+  });
+}
+
+function createWorkspaceStateWithTab(tab: Partial<any>) {
+  const now = new Date().toISOString();
+  return {
+    workspaces: [{
+      id: 'ws-1',
+      name: 'Workspace 1',
+      sortOrder: 0,
+      viewMode: 'tab',
+      activeTabId: 'tab-1',
+      colorCounter: 0,
+      createdAt: now,
+      updatedAt: now,
+    }],
+    tabs: [{
+      id: 'tab-1',
+      workspaceId: 'ws-1',
+      sessionId: 'session-1',
+      name: 'Terminal-1',
+      colorIndex: 0,
+      sortOrder: 0,
+      shellType: 'bash',
+      createdAt: now,
+      ...tab,
+    }],
+    gridLayouts: [],
+  };
+}
+
+async function invokeJsonRoute(
+  app: express.Express,
+  options: {
+    method: string;
+    path: string;
+    body?: Record<string, unknown>;
+    headers?: Record<string, string>;
+  },
+): Promise<{ status: number; body: any }> {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer(app);
+    server.listen(0, () => {
+      const port = (server.address() as net.AddressInfo).port;
+      const requestBody = JSON.stringify(options.body ?? {});
+      const headers: Record<string, string | number> = {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(requestBody),
+        ...(options.headers ?? {}),
+      };
+      const request = http.request({
+        hostname: '127.0.0.1',
+        port,
+        method: options.method,
+        path: options.path,
+        headers,
+      }, (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => {
+          server.close();
+          try {
+            const payload = Buffer.concat(chunks).toString();
+            resolve({
+              status: res.statusCode ?? 0,
+              body: payload ? JSON.parse(payload) : {},
+            });
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
+      request.on('error', (error: Error) => {
+        server.close();
+        reject(error);
+      });
+      request.write(requestBody);
+      request.end();
+    });
+    server.on('error', reject);
+  });
 }
 
 async function testCommandPresetServiceCrudAndReorder(): Promise<void> {

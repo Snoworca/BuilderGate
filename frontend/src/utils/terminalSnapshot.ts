@@ -1,9 +1,25 @@
 const SNAPSHOT_KEY_PREFIX = 'terminal_snapshot_';
 const SNAPSHOT_REMOVAL_KEY_PREFIX = 'terminal_snapshot_remove_';
 export const TERMINAL_SNAPSHOT_STORAGE_BUDGET_CHARS = 3_000_000;
+export const TERMINAL_SNAPSHOT_SCHEMA_VERSION = 2;
+export const TERMINAL_SNAPSHOT_PAYLOAD_KIND = 'viewport-only';
+export const TERMINAL_SNAPSHOT_MAX_CONTENT_LENGTH = 2_000_000;
+const DEFAULT_MAX_ROWS_MULTIPLIER = 4;
 const pendingSnapshotRemovals = new Set<string>();
 
 type TerminalSnapshotEntryKind = 'snapshot' | 'removal';
+export type TerminalViewportSnapshotBufferType = 'normal' | 'alternate';
+
+export interface TerminalViewportSnapshotPayload {
+  schemaVersion: typeof TERMINAL_SNAPSHOT_SCHEMA_VERSION;
+  payloadKind: typeof TERMINAL_SNAPSHOT_PAYLOAD_KIND;
+  sessionId: string;
+  content: string;
+  cols: number;
+  rows: number;
+  bufferType: TerminalViewportSnapshotBufferType;
+  savedAt: string;
+}
 
 export interface TerminalSnapshotStorageEntry {
   key: string;
@@ -74,6 +90,74 @@ function parseSavedAtMs(value: string | null): { savedAtMs: number; corrupt: boo
 
 function estimateEntryChars(key: string, value: string | null): number {
   return key.length + (value?.length ?? 0);
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+function isTerminalBufferType(value: unknown): value is TerminalViewportSnapshotBufferType {
+  return value === 'normal' || value === 'alternate';
+}
+
+function hasValidSavedAt(value: unknown): value is string {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value));
+}
+
+export function parseTerminalViewportSnapshot(
+  raw: string | null,
+  sessionId: string,
+  options: { maxContentLength?: number; maxRowsMultiplier?: number } = {},
+): TerminalViewportSnapshotPayload | null {
+  if (!raw) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    return null;
+  }
+
+  const candidate = parsed as Record<string, unknown>;
+  if (
+    candidate.schemaVersion !== TERMINAL_SNAPSHOT_SCHEMA_VERSION ||
+    candidate.payloadKind !== TERMINAL_SNAPSHOT_PAYLOAD_KIND ||
+    candidate.sessionId !== sessionId ||
+    typeof candidate.content !== 'string' ||
+    candidate.content.length === 0 ||
+    !isPositiveInteger(candidate.cols) ||
+    !isPositiveInteger(candidate.rows) ||
+    !isTerminalBufferType(candidate.bufferType) ||
+    !hasValidSavedAt(candidate.savedAt)
+  ) {
+    return null;
+  }
+
+  const maxContentLength = options.maxContentLength ?? TERMINAL_SNAPSHOT_MAX_CONTENT_LENGTH;
+  if (candidate.content.length > maxContentLength) {
+    return null;
+  }
+
+  const maxRowsMultiplier = options.maxRowsMultiplier ?? DEFAULT_MAX_ROWS_MULTIPLIER;
+  const lineBreakCount = candidate.content.match(/\n/g)?.length ?? 0;
+  if (maxRowsMultiplier > 0 && lineBreakCount > candidate.rows * maxRowsMultiplier) {
+    return null;
+  }
+
+  return {
+    schemaVersion: TERMINAL_SNAPSHOT_SCHEMA_VERSION,
+    payloadKind: TERMINAL_SNAPSHOT_PAYLOAD_KIND,
+    sessionId,
+    content: candidate.content,
+    cols: candidate.cols,
+    rows: candidate.rows,
+    bufferType: candidate.bufferType,
+    savedAt: candidate.savedAt,
+  };
 }
 
 function sortEvictionCandidates(entries: TerminalSnapshotStorageEntry[]): TerminalSnapshotStorageEntry[] {

@@ -530,6 +530,13 @@ async function startServer(): Promise<void> {
     // Initialize WebSocket Router (Step 8)
     const wsRouter = new WsRouter(authService, sessionManager);
     sessionManager.setWsRouter(wsRouter);
+    workspaceService.onTabUpdated((event) => {
+      wsRouter.broadcastAll('tab:updated', {
+        id: event.tab.id,
+        workspaceId: event.tab.workspaceId,
+        changes: event.changes,
+      });
+    });
     // Make wsRouter accessible to workspace routes via Express app
     app.set('wsRouter', wsRouter);
 

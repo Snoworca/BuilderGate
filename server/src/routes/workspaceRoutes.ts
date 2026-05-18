@@ -125,7 +125,15 @@ export function createWorkspaceRoutes(workspaceService: WorkspaceService): Route
     try {
       const tab = await workspaceService.updateTab(req.params.tid, req.body);
       const clientId = req.headers['x-client-id'] as string | undefined;
-      broadcast('tab:updated', { id: tab.id, workspaceId: tab.workspaceId, changes: req.body }, clientId, req);
+      broadcast('tab:updated', {
+        id: tab.id,
+        workspaceId: tab.workspaceId,
+        changes: {
+          name: tab.name,
+          nameSource: tab.nameSource,
+          terminalTitle: tab.terminalTitle ?? null,
+        },
+      }, clientId, req);
       res.json(tab);
     } catch (error) {
       handleError(res, error);

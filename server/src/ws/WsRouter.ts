@@ -1566,10 +1566,14 @@ export class WsRouter {
       }
       this.replayRefreshCount += 1;
 
+      const refreshedSnapshotCoversQueuedOutput = mode === 'authoritative' && snapshot.data.length > 0;
+
       clearTimeout(pending.timer);
       pending.replayToken = uuidv4();
       pending.snapshotSeq = snapshot.seq;
-      pending.queuedOutput = '';
+      if (refreshedSnapshotCoversQueuedOutput) {
+        pending.queuedOutput = '';
+      }
       const refreshReplayToken = pending.replayToken;
       pending.timer = setTimeout(() => {
         this.handleReplayAckTimeout(ws, sessionId, refreshReplayToken, snapshot.seq, 'refresh-timeout');

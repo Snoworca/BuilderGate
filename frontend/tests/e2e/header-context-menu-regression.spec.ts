@@ -29,6 +29,158 @@ async function getActiveTab(page: Page) {
   ) ?? null;
 }
 
+async function readVisibleTerminalText(page: Page) {
+  const text = await page.locator('.terminal-view:visible .xterm-rows').first().textContent();
+  return text ?? '';
+}
+
+async function sendVisibleTerminalCommand(page: Page, command: string) {
+  const input = page.locator('.terminal-view:visible .xterm-helper-textarea').first();
+  await input.fill(command);
+  await input.press('Enter');
+}
+
+async function readTerminalSnapshotPayload(page: Page, sessionId: string): Promise<{
+  schemaVersion?: number;
+  payloadKind?: string;
+  content?: string;
+  cols?: number;
+  rows?: number;
+  bufferType?: string;
+  byteLength: number;
+  raw: string | null;
+}> {
+  return page.evaluate(({ sessionId }) => {
+    const raw = localStorage.getItem(`terminal_snapshot_${sessionId}`);
+    if (!raw) {
+      return { byteLength: 0, raw };
+    }
+    try {
+      const parsed = JSON.parse(raw) as {
+        schemaVersion?: number;
+        payloadKind?: string;
+        content?: string;
+        cols?: number;
+        rows?: number;
+        bufferType?: string;
+      };
+      const content = typeof parsed.content === 'string' ? parsed.content : '';
+      return {
+        schemaVersion: parsed.schemaVersion,
+        payloadKind: parsed.payloadKind,
+        content,
+        cols: parsed.cols,
+        rows: parsed.rows,
+        bufferType: parsed.bufferType,
+        byteLength: new TextEncoder().encode(content).length,
+        raw,
+      };
+    } catch {
+      return { byteLength: 0, raw };
+    }
+  }, { sessionId });
+}
+
+async function waitForTerminalSnapshotPayload(page: Page, sessionId: string, marker: string) {
+  await expect.poll(async () => {
+    const payload = await readTerminalSnapshotPayload(page, sessionId);
+    return payload.content ?? '';
+  }, { timeout: 15000 }).toContain(marker);
+
+  return readTerminalSnapshotPayload(page, sessionId);
+}
+
+async function installEmptyFallbackSnapshotShim(page: Page) {
+  const install = () => {
+    const win = window as typeof window & {
+      __bgTestFallbackShimInstalled?: boolean;
+      __bgTestOriginalWebSocket?: typeof WebSocket;
+      __bgTestSockets?: WebSocket[];
+    };
+    if (win.__bgTestFallbackShimInstalled) {
+      return;
+    }
+    win.__bgTestFallbackShimInstalled = true;
+    win.__bgTestSockets = [];
+    const OriginalWebSocket = WebSocket;
+    win.__bgTestOriginalWebSocket = OriginalWebSocket;
+
+    const PatchedWebSocket = function patchedWebSocket(
+      this: WebSocket,
+      url: string | URL,
+      protocols?: string | string[],
+    ) {
+      const socket = protocols === undefined
+        ? new OriginalWebSocket(url)
+        : new OriginalWebSocket(url, protocols);
+      win.__bgTestSockets?.push(socket);
+      socket.addEventListener('message', (event) => {
+        const targetSessionId = localStorage.getItem('__bg_test_force_empty_fallback_session');
+        if (!targetSessionId || typeof event.data !== 'string') {
+          return;
+        }
+        try {
+          const message = JSON.parse(event.data) as { type?: string; sessionId?: string };
+          if (message.type !== 'screen-snapshot' || message.sessionId !== targetSessionId) {
+            return;
+          }
+          localStorage.removeItem('__bg_test_force_empty_fallback_session');
+          event.stopImmediatePropagation();
+          const rewritten = {
+            ...message,
+            mode: 'fallback',
+            data: '',
+            truncated: false,
+          };
+          setTimeout(() => {
+            socket.dispatchEvent(new MessageEvent('message', { data: JSON.stringify(rewritten) }));
+          }, 0);
+        } catch {
+          // Ignore non-JSON frames.
+        }
+      }, true);
+      return socket;
+    };
+
+    PatchedWebSocket.prototype = OriginalWebSocket.prototype;
+    Object.setPrototypeOf(PatchedWebSocket, OriginalWebSocket);
+    window.WebSocket = PatchedWebSocket as unknown as typeof WebSocket;
+  };
+
+  await page.addInitScript(install);
+  await page.evaluate(install).catch(() => undefined);
+}
+
+async function forceNextSnapshotToEmptyFallback(page: Page, sessionId: string) {
+  await page.evaluate(({ sessionId }) => {
+    localStorage.setItem('__bg_test_force_empty_fallback_session', sessionId);
+  }, { sessionId });
+}
+
+async function dispatchEmptyFallbackSnapshot(page: Page, sessionId: string, cols: number, rows: number) {
+  await page.evaluate(({ sessionId, cols, rows }) => {
+    const win = window as typeof window & { __bgTestSockets?: WebSocket[] };
+    const socket = [...(win.__bgTestSockets ?? [])].reverse().find((candidate) => candidate.readyState === WebSocket.OPEN);
+    if (!socket) {
+      throw new Error('No open WebSocket available for fallback dispatch');
+    }
+    socket.dispatchEvent(new MessageEvent('message', {
+      data: JSON.stringify({
+        type: 'screen-snapshot',
+        sessionId,
+        replayToken: `test-fallback-${Date.now()}`,
+        seq: Date.now(),
+        cols,
+        rows,
+        mode: 'fallback',
+        data: '',
+        truncated: false,
+        source: 'headless',
+      }),
+    }));
+  }, { sessionId, cols, rows });
+}
+
 async function ensureTabMode(page: Page) {
   const switchToTabs = page.locator('button[title="Switch to Tabs"]');
   if (await switchToTabs.count()) {
@@ -291,26 +443,33 @@ test.describe('Header And Context Menu Regressions', () => {
     const activeTab = await getActiveTab(page);
     expect(activeTab?.sessionId).toBeTruthy();
 
-    const marker = `refresh-regression-${Date.now()}`;
-    await page.locator('.xterm-screen:visible').first().click();
-    await page.keyboard.type(`echo ${marker}`);
-    await page.keyboard.press('Enter');
+    const stamp = Date.now();
+    const oldMarker = `refresh-old-${stamp}`;
+    const latestMarker = `refresh-latest-${stamp}`;
+    await sendVisibleTerminalCommand(
+      page,
+      `node -e "for (let i=1;i<=700;i++) console.log(i===1?'${oldMarker}':i===700?'${latestMarker}':'refresh-fill-'+String(i).padStart(3,'0'))"`,
+    );
+    await expect(page.locator('.xterm-screen:visible').first()).toContainText(latestMarker, { timeout: 30000 });
 
-    await expect.poll(async () => {
-      return page.evaluate(({ sessionId }) => {
-        return localStorage.getItem(`terminal_snapshot_${sessionId}`) ?? '';
-      }, { sessionId: activeTab!.sessionId });
-    }, { timeout: 15000 }).toContain(marker);
+    const beforeReloadPayload = await waitForTerminalSnapshotPayload(page, activeTab!.sessionId, latestMarker);
+    expect(beforeReloadPayload.schemaVersion).toBe(2);
+    expect(beforeReloadPayload.payloadKind).toBe('viewport-only');
+    expect(beforeReloadPayload.content ?? '').not.toContain(oldMarker);
+    expect(beforeReloadPayload.byteLength).toBeLessThan(12000);
 
     await page.reload();
     await page.waitForSelector('.workspace-screen', { timeout: 15000 });
     await waitForTerminal(page);
 
-    await expect.poll(async () => {
-      return page.evaluate(({ sessionId }) => {
-        return localStorage.getItem(`terminal_snapshot_${sessionId}`) ?? '';
-      }, { sessionId: activeTab!.sessionId });
-    }, { timeout: 15000 }).toContain(marker);
+    await expect.poll(async () => readVisibleTerminalText(page), { timeout: 15000 }).toContain(latestMarker);
+    await expect.poll(async () => readVisibleTerminalText(page), { timeout: 15000 }).not.toContain(oldMarker);
+
+    const afterReloadPayload = await waitForTerminalSnapshotPayload(page, activeTab!.sessionId, latestMarker);
+    expect(afterReloadPayload.schemaVersion).toBe(2);
+    expect(afterReloadPayload.payloadKind).toBe('viewport-only');
+    expect(afterReloadPayload.content ?? '').not.toContain(oldMarker);
+    expect(afterReloadPayload.byteLength).toBeLessThan(12000);
 
     const reloadedActiveTab = await getActiveTab(page);
     expect(reloadedActiveTab?.id).toBe(activeTab!.id);
@@ -333,9 +492,8 @@ test.describe('Header And Context Menu Regressions', () => {
     const marker = `server-history-${Date.now()}`;
     const poison = `poisoned-snapshot-${Date.now()}`;
 
-    await page.locator('.xterm-screen:visible').first().click();
-    await page.keyboard.type(`echo ${marker}`);
-    await page.keyboard.press('Enter');
+    await sendVisibleTerminalCommand(page, `echo ${marker}`);
+    await expect(page.locator('.xterm-screen:visible').first()).toContainText(marker, { timeout: 15000 });
 
     await page.evaluate(({ sessionId, poison }) => {
       localStorage.setItem(
@@ -365,5 +523,89 @@ test.describe('Header And Context Menu Regressions', () => {
         return raw.includes(poison);
       }, { sessionId: activeTab!.sessionId, poison });
     }, { timeout: 15000 }).toBe(false);
+  });
+
+  test('TC-7006: empty fallback should restore only validated local viewport snapshots', async ({ page }) => {
+    await ensureTabMode(page);
+    await installEmptyFallbackSnapshotShim(page);
+
+    const activeTab = await getActiveTab(page);
+    expect(activeTab?.sessionId).toBeTruthy();
+
+    const seedMarker = `fallback-seed-${Date.now()}`;
+    await sendVisibleTerminalCommand(page, `echo ${seedMarker}`);
+    await expect(page.locator('.xterm-screen:visible').first()).toContainText(seedMarker, { timeout: 15000 });
+    const baseline = await waitForTerminalSnapshotPayload(page, activeTab!.sessionId, seedMarker);
+    expect(baseline.cols).toBeGreaterThan(0);
+    expect(baseline.rows).toBeGreaterThan(0);
+
+    const geometryPoison = `geometry-poison-${Date.now()}`;
+    await page.evaluate(({ sessionId, poison }) => {
+      localStorage.setItem(
+        `terminal_snapshot_${sessionId}`,
+        JSON.stringify({
+          schemaVersion: 2,
+          payloadKind: 'viewport-only',
+          sessionId,
+          content: poison,
+          cols: 1,
+          rows: 1,
+          bufferType: 'normal',
+          savedAt: new Date().toISOString(),
+        }),
+      );
+    }, { sessionId: activeTab!.sessionId, poison: geometryPoison });
+
+    await forceNextSnapshotToEmptyFallback(page, activeTab!.sessionId);
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await waitForTerminal(page);
+    await expect.poll(async () => readVisibleTerminalText(page), { timeout: 15000 }).not.toContain(geometryPoison);
+
+    const fallbackTab = await getActiveTab(page);
+    expect(fallbackTab?.sessionId).toBeTruthy();
+    await expect.poll(async () => {
+      const payload = await readTerminalSnapshotPayload(page, fallbackTab!.sessionId);
+      return (
+        payload.schemaVersion === 2
+        && !payload.raw?.includes(geometryPoison)
+        && (payload.cols ?? 0) > 1
+        && (payload.rows ?? 0) > 1
+      );
+    }, { timeout: 15000 }).toBe(true);
+    const currentGeometry = await readTerminalSnapshotPayload(page, fallbackTab!.sessionId);
+    expect(currentGeometry.cols).toBeGreaterThan(0);
+    expect(currentGeometry.rows).toBeGreaterThan(0);
+
+    const altMarker = `alternate-fallback-${Date.now()}`;
+    await page.evaluate(({ sessionId, marker, cols, rows }) => {
+      localStorage.setItem(
+        `terminal_snapshot_${sessionId}`,
+        JSON.stringify({
+          schemaVersion: 2,
+          payloadKind: 'viewport-only',
+          sessionId,
+          content: `\x1b[?1049h${marker}`,
+          cols,
+          rows,
+          bufferType: 'alternate',
+          savedAt: new Date().toISOString(),
+        }),
+      );
+    }, {
+      sessionId: fallbackTab!.sessionId,
+      marker: altMarker,
+      cols: currentGeometry.cols,
+      rows: currentGeometry.rows,
+    });
+
+    await dispatchEmptyFallbackSnapshot(
+      page,
+      fallbackTab!.sessionId,
+      currentGeometry.cols!,
+      currentGeometry.rows!,
+    );
+
+    await expect.poll(async () => readVisibleTerminalText(page), { timeout: 15000 }).toContain(altMarker);
   });
 });

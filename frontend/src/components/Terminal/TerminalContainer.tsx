@@ -1160,7 +1160,7 @@ export const TerminalContainer = memo(
         seq: snapshot.seq,
         mode: snapshot.mode,
         truncated: snapshot.truncated,
-        byteLength: snapshot.data.length,
+        byteLength: getUtf8ByteLength(snapshot.data),
       }, snapshot.data);
       pendingSnapshotRef.current = snapshot;
       if (!terminalRef.current) {
@@ -1243,7 +1243,7 @@ export const TerminalContainer = memo(
               }
               recordTerminalDebugEvent(sessionId, 'screen_snapshot_fallback_applied', {
                 seq: nextSnapshot.seq,
-                byteLength: nextSnapshot.data.length,
+                byteLength: getUtf8ByteLength(nextSnapshot.data),
               }, nextSnapshot.data);
             } else {
               const restored = await terminalRef.current?.restoreSnapshot();
@@ -1263,6 +1263,7 @@ export const TerminalContainer = memo(
               } else {
                 recordTerminalDebugEvent(sessionId, 'screen_snapshot_fallback_local_restore', {
                   seq: nextSnapshot.seq,
+                  snapshotScope: 'viewport-only',
                 });
               }
             }
@@ -1278,7 +1279,7 @@ export const TerminalContainer = memo(
             }
             recordTerminalDebugEvent(sessionId, 'screen_snapshot_authoritative_applied', {
               seq: nextSnapshot.seq,
-              byteLength: nextSnapshot.data.length,
+              byteLength: getUtf8ByteLength(nextSnapshot.data),
             }, nextSnapshot.data);
           }
 
@@ -1323,7 +1324,7 @@ export const TerminalContainer = memo(
         rows: repair.rows,
         bufferType: repair.bufferType,
         rowCount: repair.viewportRows.length,
-        byteLength: repair.ansiPatch.length,
+        byteLength: getUtf8ByteLength(repair.ansiPatch),
       }, repair.ansiPatch);
 
       const result = await (terminalRef.current?.applyScreenRepair(repair) ?? Promise.resolve({ ok: false as const, reason: 'not-ready' as ScreenRepairFailedReason }));
@@ -1465,7 +1466,7 @@ export const TerminalContainer = memo(
         onScreenRepairRejected: handleScreenRepairRejected,
         onOutput: (data) => {
           recordTerminalDebugEvent(sessionId, 'live_output_received', {
-            byteLength: data.length,
+            byteLength: getUtf8ByteLength(data),
           }, data);
           terminalRef.current?.write(data);
         },

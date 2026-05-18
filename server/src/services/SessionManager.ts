@@ -20,6 +20,7 @@ import {
   writeHeadlessTerminal,
 } from '../utils/headlessTerminal.js';
 import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
+import { TerminalTitleDetector } from '../utils/terminalTitle.js';
 import type { WsRouter } from '../ws/WsRouter.js';
 import { OscDetector } from './OscDetector.js';
 import type { InputDebugMetadata, ScreenRepairBufferType, WindowsPtyBackend, WindowsPtyInfo } from '../types/ws-protocol.js';
@@ -57,6 +58,9 @@ interface EchoTracker {
 }
 
 type HeadlessHealth = 'healthy' | 'degraded';
+type SnapshotPayloadScope = 'viewport-only';
+
+const SNAPSHOT_PAYLOAD_SCOPE: SnapshotPayloadScope = 'viewport-only';
 
 interface SessionSnapshotCache {
   seq: number;
@@ -66,6 +70,7 @@ interface SessionSnapshotCache {
   truncated: boolean;
   generatedAt: number;
   dirty: boolean;
+  scope: SnapshotPayloadScope;
 }
 
 interface SessionScreenSnapshot {
@@ -176,6 +181,8 @@ interface SessionData {
   echoTracker: EchoTracker;
   detectionMode: DetectionMode;
   oscDetector: OscDetector;
+  terminalTitleDetector: TerminalTitleDetector;
+  terminalTitleSignalDetector: TerminalTitleDetector;
   derivedState?: SessionDerivedState;
   foregroundDetectorRegistry?: ForegroundAppDetectorRegistry;
   inputBuffer: string;
@@ -231,6 +238,7 @@ export class SessionManager {
   private wsRouter: WsRouter | null = null;
   private cachedAvailableShells: ShellInfo[] | null = null;
   private cwdChangeCallback: ((sessionId: string, cwd: string) => void) | null = null;
+  private terminalTitleChangeCallback: ((sessionId: string, title: string) => void) | null = null;
   private observability: Omit<SessionManagerObservability, 'totalSessions' | 'healthySessions' | 'degradedSessions'> = {
     snapshotRequests: 0,
     snapshotCacheHits: 0,
@@ -299,6 +307,8 @@ export class SessionManager {
 
     // Step 9: OscDetector 생성
     const oscDetector = new OscDetector();
+    const terminalTitleDetector = new TerminalTitleDetector();
+    const terminalTitleSignalDetector = new TerminalTitleDetector();
 
     const sessionData: SessionData = {
       session,
@@ -331,6 +341,8 @@ export class SessionManager {
       },
       detectionMode: 'heuristic',
       oscDetector,
+      terminalTitleDetector,
+      terminalTitleSignalDetector,
       derivedState: createInitialDerivedState(),
       foregroundDetectorRegistry: this.createForegroundDetectorRegistry(),
       inputBuffer: '',
@@ -369,6 +381,10 @@ export class SessionManager {
       }
     });
 
+    terminalTitleDetector.setCallback((event) => {
+      this.terminalTitleChangeCallback?.(id, event.title);
+    });
+
     // Inject CWD tracking hook based on shell type
     this.injectCwdHook(id, sessionData, ptyProcess, shellType);
 
@@ -394,10 +410,13 @@ export class SessionManager {
         this.cancelPendingRunningTransition(sData);
       }
 
+      sData.terminalTitleDetector.process(rawData);
       const outputData = sData.detectionMode === 'osc133' ? stripped : rawData;
+      sData.terminalTitleSignalDetector.process(outputData);
+      const statusData = sData.terminalTitleSignalDetector.getSignalData();
 
-      if (outputData.length > 0) {
-        const observation = this.inspectForegroundAppOutput(id, sData, outputData);
+      if (statusData.length > 0) {
+        const observation = this.inspectForegroundAppOutput(id, sData, statusData);
         if (observation) {
           this.applyForegroundObservation(id, observation);
         }
@@ -407,12 +426,12 @@ export class SessionManager {
           const isAiForeground = derivedState.ownership === 'foreground_app'
             && isInteractiveAiAppId(derivedState.foregroundAppId);
           if (isAiForeground || isInteractiveAiAppId(sData.pendingForegroundAppHint)) {
-            if (isLikelyAiTuiLaunchFailureOutput(sData, outputData)) {
+            if (isLikelyAiTuiLaunchFailureOutput(sData, statusData)) {
               this.markAiTuiLaunchFailure(id, 'osc133_ai_tui_launch_failure');
             } else {
-              const isLaunchEcho = this.isEchoOutput(sData, outputData)
-                || isLikelyCommandEchoOutput(outputData, sData.lastSubmittedCommand);
-              const signal = this.classifyAiTuiOutputSignal(sData, outputData);
+              const isLaunchEcho = this.isEchoOutput(sData, statusData)
+                || isLikelyCommandEchoOutput(statusData, sData.lastSubmittedCommand);
+              const signal = this.classifyAiTuiOutputSignal(sData, statusData);
               if (signal === 'waiting_input' || signal === 'repaint_only') {
                 this.beginForegroundActivity(id, signal, `osc133_ai_tui_${signal}`);
               } else {
@@ -429,14 +448,14 @@ export class SessionManager {
         // Step 9: 모드별 상태 전환
         // ========================================
         if (sData.detectionMode === 'heuristic') {
-          const isEcho = this.isEchoOutput(sData, stripped);
+          const isEcho = this.isEchoOutput(sData, statusData);
           if (!isEcho) {
             const derivedState = this.ensureDerivedState(sData);
             const isAiForeground = derivedState.ownership === 'foreground_app'
               && isInteractiveAiAppId(derivedState.foregroundAppId);
             const isAiShellPromptReturn = (isAiForeground || sData.expectShellPromptAfterAiTuiFailure === true)
-              && this.isShellPromptReturnOutput(sData, stripped);
-            if (this.isPowerShellPromptRedrawOutput(sData, stripped) || isAiShellPromptReturn) {
+              && this.isShellPromptReturnOutput(sData, statusData);
+            if (this.isPowerShellPromptRedrawOutput(sData, statusData) || isAiShellPromptReturn) {
               this.transitionToShellPrompt(
                 id,
                 isAiShellPromptReturn ? 'heuristic_ai_tui_shell_prompt_return' : 'heuristic_powershell_prompt_redraw',
@@ -444,12 +463,12 @@ export class SessionManager {
             } else {
               if (isAiForeground || isInteractiveAiAppId(sData.pendingForegroundAppHint)) {
                 if (!observation) {
-                  if (isLikelyAiTuiLaunchFailureOutput(sData, outputData)) {
+                  if (isLikelyAiTuiLaunchFailureOutput(sData, statusData)) {
                     this.markAiTuiLaunchFailure(id, 'heuristic_ai_tui_launch_failure');
                   } else {
-                    const isLaunchEcho = this.isEchoOutput(sData, outputData)
-                      || isLikelyCommandEchoOutput(outputData, sData.lastSubmittedCommand);
-                    const signal = this.classifyAiTuiOutputSignal(sData, outputData);
+                    const isLaunchEcho = this.isEchoOutput(sData, statusData)
+                      || isLikelyCommandEchoOutput(statusData, sData.lastSubmittedCommand);
+                    const signal = this.classifyAiTuiOutputSignal(sData, statusData);
                     if (signal === 'waiting_input' || signal === 'repaint_only') {
                       this.beginForegroundActivity(id, signal, `heuristic_ai_tui_${signal}`);
                     } else {
@@ -467,7 +486,9 @@ export class SessionManager {
             }
           }
         }
+      }
 
+      if (outputData.length > 0) {
         const outputDebugDetails = buildRawOutputDebugDetails(sData, rawData, outputData, foundMarker);
         if (this.pendingResizeReplaySessions.has(id)) {
           this.pendingResizeReplayLastOutputAt.set(id, Date.now());
@@ -736,6 +757,7 @@ export class SessionManager {
         state.lastRepaintOnlyAt = now;
       }
     });
+
     if (data && isInteractiveAiAppId(observation.appId)) {
       this.markAiTuiLaunchSucceeded(data);
     }
@@ -813,6 +835,8 @@ export class SessionManager {
 
     // Step 9: OSC 감지기 정리
     data.oscDetector.destroy();
+    data.terminalTitleDetector.destroy();
+    data.terminalTitleSignalDetector.destroy();
     data.foregroundDetectorRegistry?.reset();
 
     if (data.headless) {
@@ -1112,6 +1136,11 @@ export class SessionManager {
   /** Register a callback to be invoked when any session's CWD changes. */
   onCwdChange(cb: (sessionId: string, cwd: string) => void): void {
     this.cwdChangeCallback = cb;
+  }
+
+  /** Register a callback to be invoked when a terminal title changes. */
+  onTerminalTitleChange(cb: (sessionId: string, title: string) => void): void {
+    this.terminalTitleChangeCallback = cb;
   }
 
   /** Stop all CWD file watchers. Called during graceful shutdown. */
@@ -1704,8 +1733,8 @@ export class SessionManager {
     if (!snapshot) return null;
     if (snapshot.health === 'degraded') {
       return {
-        data: `${LEGACY_DEGRADED_REPLAY_PLACEHOLDER}${this.sessions.get(sessionId)?.degradedReplayBuffer ?? ''}`,
-        truncated: this.sessions.get(sessionId)?.degradedReplayTruncated ?? false,
+        data: LEGACY_DEGRADED_REPLAY_PLACEHOLDER,
+        truncated: snapshot.truncated,
       };
     }
     if (snapshot.truncated && snapshot.data.length === 0) {
@@ -1744,13 +1773,23 @@ export class SessionManager {
     }
 
     const cached = data.snapshotCache;
-    if (cached && !cached.dirty && cached.seq === data.screenSeq && cached.cols === data.cols && cached.rows === data.rows) {
+    if (
+      cached
+      && cached.scope === SNAPSHOT_PAYLOAD_SCOPE
+      && !cached.dirty
+      && cached.seq === data.screenSeq
+      && cached.cols === data.cols
+      && cached.rows === data.rows
+    ) {
       this.observability.snapshotCacheHits += 1;
+      const cachedByteLength = Buffer.byteLength(cached.data, 'utf8');
       this.captureDebugEvent(sessionId, 'snapshot', 'snapshot_cache_hit', {
         seq: cached.seq,
         cols: cached.cols,
         rows: cached.rows,
         truncated: cached.truncated,
+        byteLength: cachedByteLength,
+        snapshotScope: cached.scope,
       }, cached.data);
       return { ...cached, health: 'healthy', windowsPty: data.windowsPty };
     }
@@ -1768,11 +1807,13 @@ export class SessionManager {
         truncated: snapshot.truncated,
         generatedAt,
         dirty: false,
+        scope: SNAPSHOT_PAYLOAD_SCOPE,
       };
+      const snapshotByteLength = Buffer.byteLength(snapshot.data, 'utf8');
       this.observability.totalSnapshotSerializeMs += durationMs;
       this.observability.maxSnapshotSerializeMs = Math.max(this.observability.maxSnapshotSerializeMs, durationMs);
-      this.observability.totalSnapshotBytes += snapshot.data.length;
-      this.observability.maxSnapshotBytesObserved = Math.max(this.observability.maxSnapshotBytesObserved, snapshot.data.length);
+      this.observability.totalSnapshotBytes += snapshotByteLength;
+      this.observability.maxSnapshotBytesObserved = Math.max(this.observability.maxSnapshotBytesObserved, snapshotByteLength);
       if (snapshot.truncated) {
         this.observability.oversizedSnapshots += 1;
       }
@@ -1783,7 +1824,8 @@ export class SessionManager {
         cols: data.snapshotCache.cols,
         rows: data.snapshotCache.rows,
         truncated: data.snapshotCache.truncated,
-        byteLength: data.snapshotCache.data.length,
+        byteLength: snapshotByteLength,
+        snapshotScope: data.snapshotCache.scope,
         durationMs,
       }, data.snapshotCache.data);
       return {
@@ -2285,7 +2327,7 @@ export class SessionManager {
       seq: sessionData.screenSeq,
       cols: sessionData.cols,
       rows: sessionData.rows,
-      data: sessionData.degradedReplayBuffer,
+      data: '',
       truncated: sessionData.degradedReplayTruncated,
       generatedAt: Date.now(),
       health: 'degraded',

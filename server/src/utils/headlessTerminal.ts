@@ -92,6 +92,8 @@ const DEFAULT_TERMINAL_OPTIONS: Pick<ITerminalOptions, 'allowProposedApi' | 'ref
   reflowCursorLine: true,
 };
 
+export const VIEWPORT_ONLY_SERIALIZE_OPTIONS: ISerializeOptions = { scrollback: 0 };
+
 export function createHeadlessTerminalState(options: {
   cols: number;
   rows: number;
@@ -133,8 +135,8 @@ export function serializeHeadlessTerminal(
   maxSnapshotBytes: number,
   options?: ISerializeOptions,
 ): SerializedHeadlessSnapshot {
-  const serialized = state.serializeAddon.serialize(options);
-  if (serialized.length > maxSnapshotBytes) {
+  const serialized = state.serializeAddon.serialize(options ?? VIEWPORT_ONLY_SERIALIZE_OPTIONS);
+  if (Buffer.byteLength(serialized, 'utf8') > maxSnapshotBytes) {
     return {
       cols: state.terminal.cols,
       rows: state.terminal.rows,

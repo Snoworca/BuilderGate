@@ -1,6 +1,26 @@
 import { test, expect, type Page } from '@playwright/test';
 import { login, waitForTerminal } from './helpers';
 
+type CapturedWsMessage = {
+  direction?: 'in' | 'out';
+  type?: string;
+  sessionId?: string;
+  mode?: string;
+  data?: string;
+  replayToken?: string;
+  seq?: number;
+};
+
+declare global {
+  interface Window {
+    __buildergateCapturedWsMessages?: CapturedWsMessage[];
+    __buildergateCapturedWsSockets?: WebSocket[];
+    __buildergateWsCaptureInstalled?: boolean;
+    __buildergateOriginalWebSocket?: typeof WebSocket;
+    __buildergateOriginalWsSend?: WebSocket['send'];
+  }
+}
+
 async function fetchWorkspaceState(page: Page) {
   return page.evaluate(async () => {
     const token = localStorage.getItem('cws_auth_token');
@@ -115,6 +135,132 @@ async function sendVisibleTerminalCommand(page: Page, command: string) {
   await input.press('Enter');
 }
 
+async function installWsMessageCapture(page: Page): Promise<void> {
+  const install = () => {
+    window.__buildergateCapturedWsMessages = [];
+    window.__buildergateCapturedWsSockets = [];
+    if (window.__buildergateWsCaptureInstalled) {
+      return;
+    }
+    window.__buildergateWsCaptureInstalled = true;
+
+    const captureFrame = (direction: 'in' | 'out', data: unknown) => {
+      if (typeof data !== 'string') {
+        return;
+      }
+      try {
+        const message = JSON.parse(data) as CapturedWsMessage;
+        window.__buildergateCapturedWsMessages?.push({ ...message, direction });
+      } catch {
+        // Ignore non-JSON frames.
+      }
+    };
+
+    const OriginalWebSocket = WebSocket;
+    window.__buildergateOriginalWebSocket = OriginalWebSocket;
+    window.__buildergateOriginalWsSend = OriginalWebSocket.prototype.send;
+
+    OriginalWebSocket.prototype.send = function patchedSend(this: WebSocket, data: string | ArrayBufferLike | Blob | ArrayBufferView) {
+      captureFrame('out', data);
+      return window.__buildergateOriginalWsSend!.call(this, data);
+    };
+
+    const CapturingWebSocket = function capturingWebSocket(
+      this: WebSocket,
+      url: string | URL,
+      protocols?: string | string[],
+    ) {
+      const socket = protocols === undefined
+        ? new OriginalWebSocket(url)
+        : new OriginalWebSocket(url, protocols);
+      window.__buildergateCapturedWsSockets?.push(socket);
+      socket.addEventListener('message', (event) => {
+        captureFrame('in', event.data);
+      });
+      return socket;
+    };
+    CapturingWebSocket.prototype = OriginalWebSocket.prototype;
+    Object.setPrototypeOf(CapturingWebSocket, OriginalWebSocket);
+    window.WebSocket = CapturingWebSocket as unknown as typeof WebSocket;
+  };
+
+  await page.addInitScript(install);
+  await page.evaluate(install).catch(() => undefined);
+}
+
+async function clearWsMessageCapture(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    window.__buildergateCapturedWsMessages = [];
+  });
+}
+
+async function readCapturedWsMessages(page: Page): Promise<CapturedWsMessage[]> {
+  return page.evaluate(() => window.__buildergateCapturedWsMessages ?? []);
+}
+
+function findViewportSnapshot(
+  messages: CapturedWsMessage[],
+  sessionId: string,
+): CapturedWsMessage | undefined {
+  return messages.find((message) => (
+    message.direction === 'in'
+    && message.type === 'screen-snapshot'
+    && message.sessionId === sessionId
+    && typeof message.data === 'string'
+  ));
+}
+
+function expectViewportOnlySnapshot(
+  snapshot: CapturedWsMessage | undefined,
+  sessionId: string,
+  oldMarker: string,
+  latestMarker: string,
+) {
+  expect(snapshot, `screen-snapshot for ${sessionId}`).toBeDefined();
+  expect(snapshot?.data ?? '').toContain(latestMarker);
+  expect(snapshot?.data ?? '').not.toContain(oldMarker);
+}
+
+async function closeCapturedWebSockets(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    for (const socket of window.__buildergateCapturedWsSockets ?? []) {
+      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+        socket.close();
+      }
+    }
+  });
+}
+
+async function sendCapturedWsMessage(page: Page, message: Record<string, unknown>): Promise<void> {
+  await page.evaluate(({ message }) => {
+    const socket = [...(window.__buildergateCapturedWsSockets ?? [])].reverse()
+      .find((candidate) => candidate.readyState === WebSocket.OPEN);
+    if (!socket) {
+      throw new Error('No open captured WebSocket');
+    }
+    socket.send(JSON.stringify(message));
+  }, { message });
+}
+
+async function waitForViewportOnlySnapshot(
+  page: Page,
+  sessionId: string,
+  oldMarker: string,
+  latestMarker: string,
+): Promise<void> {
+  await expect.poll(async () => {
+    const snapshot = findViewportSnapshot(await readCapturedWsMessages(page), sessionId);
+    return snapshot?.data ?? '';
+  }, { timeout: 15000 }).toContain(latestMarker);
+
+  expectViewportOnlySnapshot(
+    findViewportSnapshot(await readCapturedWsMessages(page), sessionId),
+    sessionId,
+    oldMarker,
+    latestMarker,
+  );
+}
+
 test.describe('Terminal Authority Regressions', () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop-only regression coverage');
@@ -123,11 +269,14 @@ test.describe('Terminal Authority Regressions', () => {
   });
 
   test('TC-7101: hidden workspace should recover through server snapshots after refresh', async ({ page }) => {
+    await installWsMessageCapture(page);
     const hiddenWorkspaceName = `Hidden-${Date.now()}`;
     const hiddenWorkspace = await getOrCreateHiddenWorkspace(page, hiddenWorkspaceName);
     const effectiveWorkspaceName = hiddenWorkspace.name;
     const hiddenTab = await createTab(page, hiddenWorkspace.id, 'auto');
-    const marker = `hidden-authority-${Date.now()}`;
+    const stamp = Date.now();
+    const oldMarker = `hidden-old-${stamp}`;
+    const latestMarker = `hidden-latest-${stamp}`;
     const poison = `poison-hidden-${Date.now()}`;
 
     await page.reload();
@@ -154,7 +303,11 @@ test.describe('Terminal Authority Regressions', () => {
     await page.reload();
     await page.waitForSelector('.workspace-screen', { timeout: 15000 });
     await waitForTerminal(page);
-    await sendVisibleTerminalCommand(page, `echo ${marker}`);
+    await sendVisibleTerminalCommand(
+      page,
+      `node -e "for (let i=1;i<=700;i++) console.log(i===1?'${oldMarker}':i===700?'${latestMarker}':'hidden-fill-'+String(i).padStart(3,'0'))"`,
+    );
+    await expect.poll(async () => readVisibleTerminalText(page), { timeout: 30000 }).toContain(latestMarker);
 
     const stateAfterMarker = await fetchWorkspaceState(page);
     const activeWorkspace = stateAfterMarker.workspaces.find((item: { id: string }) => item.id === hiddenWorkspace.id);
@@ -170,6 +323,7 @@ test.describe('Terminal Authority Regressions', () => {
     await page.reload();
     await page.waitForSelector('.workspace-screen', { timeout: 15000 });
     await waitForTerminal(page);
+    await clearWsMessageCapture(page);
 
     const hiddenWorkspaceOption = await findWorkspaceOption(page, effectiveWorkspaceName);
     await hiddenWorkspaceOption.click();
@@ -177,7 +331,27 @@ test.describe('Terminal Authority Regressions', () => {
 
     await expect.poll(async () => {
       return readVisibleTerminalText(page);
-    }, { timeout: 15000 }).toContain(marker);
+    }, { timeout: 15000 }).toContain(latestMarker);
+
+    await clearWsMessageCapture(page);
+    await sendCapturedWsMessage(page, { type: 'unsubscribe', sessionIds: [hiddenTab.sessionId] });
+    await page.waitForTimeout(200);
+    await sendCapturedWsMessage(page, { type: 'subscribe', sessionIds: [hiddenTab.sessionId] });
+    await waitForViewportOnlySnapshot(page, hiddenTab.sessionId, oldMarker, latestMarker);
+
+    await clearWsMessageCapture(page);
+    await closeCapturedWebSockets(page);
+    await waitForViewportOnlySnapshot(page, hiddenTab.sessionId, oldMarker, latestMarker);
+
+    await clearWsMessageCapture(page);
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await waitForTerminal(page);
+
+    await expect.poll(async () => {
+      return readVisibleTerminalText(page);
+    }, { timeout: 15000 }).toContain(latestMarker);
+    await waitForViewportOnlySnapshot(page, hiddenTab.sessionId, oldMarker, latestMarker);
 
     await expect.poll(async () => {
       return readVisibleTerminalText(page);
