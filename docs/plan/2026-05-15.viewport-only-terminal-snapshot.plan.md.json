@@ -1,0 +1,279 @@
+{
+  "plan_contract": "1.1.0",
+  "plan_id": "plan-20260515-viewport-only-snapshot",
+  "title": "Viewport-Only Terminal Snapshot Implementation Plan",
+  "created": "2026-05-15",
+  "spec_path": "docs/srs/buildergate.srs.md",
+  "code_path": ".",
+  "implementation_source": {
+    "authoritative": "markdown",
+    "markdown_path": "docs/plan/2026-05-15.viewport-only-terminal-snapshot.plan.md",
+    "sidecar_purpose": "routing and task graph index; implementers must read Markdown TASK details for signatures, source anchors, implementation guide, tests, DoD, and rollback"
+  },
+  "scope_freeze": true,
+  "change_log": [],
+  "pre_commit_gate": [
+    {"shell": "pwsh", "cmd": "npm --prefix server run build", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run lint", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "node --experimental-strip-types --test frontend/tests/unit/terminalSnapshot.test.ts", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/header-context-menu-regression.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/terminal-authority.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix server run build", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run lint", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+    {"shell": "bash", "cmd": "node --experimental-strip-types --test frontend/tests/unit/terminalSnapshot.test.ts", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/header-context-menu-regression.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/terminal-authority.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0}
+  ],
+  "forbidden_patterns": [
+    {"pattern": "적절[히]|필요\\s*시|알아[서]|상황에\\s*맞게|기존\\s*방식대로|어떻게[든]", "flags": ""},
+    {"pattern": "rm\\s+-rf|Remove-Item\\s+.*-Recurse|git\\s+reset\\s+--hard|git\\s+checkout\\s+--", "flags": "i"},
+    {"pattern": "del\\s+/[sq]|rmdir\\s+/[sq]|git\\s+clean\\s+-fd", "flags": "i"},
+    {"pattern": "kill\\s+-9|taskkill\\s+/F|Stop-Process\\s+.*-Force|pkill\\s+", "flags": "i"},
+    {"pattern": "chmod\\s+-R\\s+777|chown\\s+-R|icacls\\s+.*\\/grant", "flags": "i"},
+    {"pattern": "curl\\s+.*\\|\\s*(sh|bash)|wget\\s+.*\\|\\s*(sh|bash)|I[n]voke-WebRequest\\s+.*\\|\\s*I[n]voke-Expression|iwr\\s+.*\\|\\s*i[e]x|I[n]voke-Expression|\\bi[e]x\\b|eval\\s*\\(", "flags": "i"},
+    {"pattern": "while\\s*\\(\\s*\\$?true\\s*\\)|while\\s+true|for\\s*\\(\\s*;\\s*;\\s*\\)", "flags": "i"}
+  ],
+  "requirements": [
+    {"id": "FR-SESS-007", "statement": "Server creates viewport-only screen snapshots and uses replay handshake on subscribe, resubscribe, and reconnect."},
+    {"id": "FR-SESS-008", "statement": "Snapshot payloads must not exceed configured max bytes."},
+    {"id": "FR-SESS-015", "statement": "Browser terminal_snapshot_* fallback storage is viewport-only and cannot revive full scrollback."},
+    {"id": "FR-SESS-016", "statement": "Snapshot restore and screen repair are distinct and cannot replay full normal buffer scrollback."},
+    {"id": "FR-SESS-017", "statement": "Screen repair only includes viewport row patch, geometry, buffer type, cursor metadata, and repair token."},
+    {"id": "FR-SESS-018", "statement": "Long scrollback AI TUI sessions must not re-inject full past scrollback during refresh, reconnect, or resubscribe."},
+    {"id": "FR-WS-005", "statement": "Server queues output until screen-snapshot ACK."},
+    {"id": "FR-WS-006", "statement": "Stale ACK does not break a newer replay flow."},
+    {"id": "FR-WS-007", "statement": "Client reconnect restores subscriptions."},
+    {"id": "AC-009", "statement": "Reconnect recovery uses viewport-only screen snapshot."},
+    {"id": "AC-017", "statement": "Terminal snapshot storage budget and quota behavior remain valid."},
+    {"id": "AC-020", "statement": "Grid repair and movement do not full replay scrollback."},
+    {"id": "AC-023", "statement": "Refresh, reconnect, and resubscribe do not replay full scrollback and do not guarantee old scrollback lookup without lazy loading."}
+  ],
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "title": "Server viewport-only snapshot contract",
+      "tasks": [
+        {
+          "id": "TASK-P1-001",
+          "title": "Make headless serialization viewport-only and byte-bounded",
+          "related_req_ids": ["FR-SESS-007", "FR-SESS-008", "FR-SESS-016", "FR-SESS-018", "AC-009", "AC-023"],
+          "owns": ["server/src/utils/headlessTerminal.ts", "server/src/test-runner.ts"],
+          "reads": ["server/src/services/SessionManager.ts", "server/src/types/ws-protocol.ts"],
+          "source_anchors": ["docs/srs/buildergate.srs.md:211-222", "docs/srs/buildergate.srs.md:653-667", "server/src/utils/headlessTerminal.ts:131-152", "server/src/utils/headlessTerminal.ts:154-205", "server/src/test-runner.ts:164-168", "server/src/test-runner.ts:3867-3895"],
+          "depends_on": [],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) Revert only the serializer option and byte-length changes in server/src/utils/headlessTerminal.ts. 2) Remove the new headless viewport-only tests from server/src/test-runner.ts and rerun npm --prefix server run test."}
+        },
+        {
+          "id": "TASK-P1-002",
+          "title": "Align SessionManager cache, degraded fallback, and observability",
+          "related_req_ids": ["FR-SESS-007", "FR-SESS-008", "FR-SESS-016", "FR-SESS-018", "FR-WS-005", "AC-009", "AC-023"],
+          "owns": ["server/src/services/SessionManager.ts", "server/src/test-runner.ts"],
+          "reads": ["server/src/utils/headlessTerminal.ts", "server/src/ws/WsRouter.ts"],
+          "source_anchors": ["server/src/services/SessionManager.ts:62-81", "server/src/services/SessionManager.ts:151-171", "server/src/services/SessionManager.ts:1727-1828", "server/src/services/SessionManager.ts:2278-2318", "server/src/services/SessionManager.ts:2325-2336", "server/src/test-runner.ts:2588-2610", "server/src/test-runner.ts:3138-3248", "server/src/test-runner.ts:3247-3338", "server/src/test-runner.ts:3340-3402"],
+          "depends_on": ["TASK-P1-001"],
+          "feasibility": "High",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) Revert SessionManager cache scope and degraded fallback edits. 2) Restore only the affected degraded test expectations in server/src/test-runner.ts and rerun npm --prefix server run test."}
+        },
+        {
+          "id": "TASK-P1-003",
+          "title": "Cover WebSocket subscribe, resubscribe, and refresh replay",
+          "related_req_ids": ["FR-SESS-007", "FR-SESS-016", "FR-SESS-018", "FR-WS-005", "FR-WS-006", "FR-WS-007", "AC-009", "AC-023"],
+          "owns": ["server/src/test-runner.ts"],
+          "reads": ["server/src/ws/WsRouter.ts", "server/src/types/ws-protocol.ts"],
+          "source_anchors": ["server/src/ws/WsRouter.ts:292-320", "server/src/ws/WsRouter.ts:506-522", "server/src/ws/WsRouter.ts:1443-1480", "server/src/ws/WsRouter.ts:1542-1588", "server/src/types/ws-protocol.ts:120-132", "server/src/test-runner.ts:188-205", "server/src/test-runner.ts:4354-4370", "server/src/test-runner.ts:4850-4895"],
+          "depends_on": ["TASK-P1-002"],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) Remove only the new WsRouter viewport-only tests and helper from server/src/test-runner.ts. 2) Keep unrelated replay tests untouched and rerun npm --prefix server run test."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-2",
+      "title": "Browser viewport-only fallback snapshot",
+      "tasks": [
+        {
+          "id": "TASK-P2-001",
+          "title": "Add terminal snapshot schema v2 parser and storage unit tests",
+          "related_req_ids": ["FR-SESS-015", "FR-SESS-016", "FR-SESS-018", "AC-017", "AC-023"],
+          "owns": ["frontend/src/utils/terminalSnapshot.ts", "frontend/tests/unit/terminalSnapshot.test.ts"],
+          "reads": ["frontend/src/components/Terminal/TerminalView.tsx", "frontend/tests/unit/terminalShortcutBindings.test.ts"],
+          "source_anchors": ["frontend/src/utils/terminalSnapshot.ts:1-3", "frontend/src/utils/terminalSnapshot.ts:108-140", "frontend/src/utils/terminalSnapshot.ts:164-267", "frontend/src/components/Terminal/TerminalView.tsx:53-56", "frontend/src/components/Terminal/TerminalView.tsx:162-167", "frontend/tests/unit/terminalShortcutBindings.test.ts:1-30"],
+          "depends_on": [],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "node --experimental-strip-types --test frontend/tests/unit/terminalSnapshot.test.ts", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "bash", "cmd": "node --experimental-strip-types --test frontend/tests/unit/terminalSnapshot.test.ts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) Remove schema v2 parser exports and the new terminalSnapshot unit test. 2) Restore TerminalView-local schema constants only if TASK-P2-002 has also been reverted."}
+        },
+        {
+          "id": "TASK-P2-002",
+          "title": "Save and restore only validated viewport snapshots in TerminalView",
+          "related_req_ids": ["FR-SESS-015", "FR-SESS-016", "FR-SESS-018", "AC-017", "AC-023"],
+          "owns": ["frontend/src/components/Terminal/TerminalView.tsx", "frontend/tests/unit/terminalSnapshot.test.ts", "frontend/tests/e2e/header-context-menu-regression.spec.ts"],
+          "reads": ["frontend/src/utils/terminalSnapshot.ts", "frontend/src/components/Terminal/TerminalContainer.tsx"],
+          "source_anchors": ["frontend/src/components/Terminal/TerminalView.tsx:53-56", "frontend/src/components/Terminal/TerminalView.tsx:1006-1070", "frontend/src/components/Terminal/TerminalView.tsx:1130-1190", "frontend/src/components/Terminal/TerminalView.tsx:1192-1225", "frontend/src/components/Terminal/TerminalView.tsx:1936-1969", "frontend/src/components/Terminal/TerminalContainer.tsx:1233-1268", "frontend/tests/e2e/header-context-menu-regression.spec.ts:278-368"],
+          "depends_on": ["TASK-P2-001"],
+          "feasibility": "High",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "node --experimental-strip-types --test frontend/tests/unit/terminalSnapshot.test.ts", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/header-context-menu-regression.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+            {"shell": "bash", "cmd": "node --experimental-strip-types --test frontend/tests/unit/terminalSnapshot.test.ts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/header-context-menu-regression.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) Revert only TerminalView snapshot save, load, restore, and buffered persistence edits. 2) Restore imports to their prior state and rerun npm --prefix frontend run typecheck."}
+        },
+        {
+          "id": "TASK-P2-003",
+          "title": "Keep fallback application bounded and observable",
+          "related_req_ids": ["FR-SESS-015", "FR-SESS-016", "FR-SESS-018", "AC-009", "AC-023"],
+          "owns": ["frontend/src/components/Terminal/TerminalContainer.tsx", "frontend/tests/e2e/header-context-menu-regression.spec.ts"],
+          "reads": ["frontend/src/components/Terminal/TerminalView.tsx", "frontend/src/types/ws-protocol.ts"],
+          "source_anchors": ["frontend/src/components/Terminal/TerminalContainer.tsx:1158-1295", "frontend/src/components/Terminal/TerminalContainer.tsx:1233-1268", "frontend/src/components/Terminal/TerminalView.tsx:1169-1190", "frontend/src/types/ws-protocol.ts:120-132", "frontend/tests/e2e/header-context-menu-regression.spec.ts:278-368"],
+          "depends_on": ["TASK-P2-002"],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run build", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) Remove only new debug-detail fields from TerminalContainer. 2) Keep parser validation from TASK-P2-001 and rerun npm --prefix frontend run typecheck."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-3",
+      "title": "End-to-end regression coverage",
+      "tasks": [
+        {
+          "id": "TASK-P3-001",
+          "title": "Extend reload and poisoned snapshot E2E coverage",
+          "related_req_ids": ["FR-SESS-015", "FR-SESS-018", "FR-WS-007", "AC-009", "AC-023"],
+          "owns": ["frontend/tests/e2e/header-context-menu-regression.spec.ts"],
+          "reads": ["frontend/tests/e2e/helpers.ts", "frontend/playwright.config.ts"],
+          "source_anchors": ["frontend/tests/e2e/header-context-menu-regression.spec.ts:278-325", "frontend/tests/e2e/header-context-menu-regression.spec.ts:327-368", "frontend/tests/e2e/helpers.ts:3-16", "frontend/playwright.config.ts:8-15", "frontend/playwright.config.ts:30-37"],
+          "depends_on": ["TASK-P1-003", "TASK-P2-003"],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/header-context-menu-regression.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/header-context-menu-regression.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) Revert only TC-7004 and TC-7005 edits in header-context-menu-regression.spec.ts. 2) Rerun the same Playwright file to confirm pre-existing tests remain runnable."}
+        },
+        {
+          "id": "TASK-P3-002",
+          "title": "Add resubscribe and reconnect payload assertions",
+          "related_req_ids": ["FR-SESS-007", "FR-SESS-016", "FR-SESS-018", "FR-WS-005", "FR-WS-006", "FR-WS-007", "AC-009", "AC-023"],
+          "owns": ["frontend/tests/e2e/terminal-authority.spec.ts"],
+          "reads": ["frontend/tests/e2e/grid-equal-mode.spec.ts", "frontend/tests/e2e/helpers.ts"],
+          "source_anchors": ["frontend/tests/e2e/terminal-authority.spec.ts:1-31", "frontend/tests/e2e/terminal-authority.spec.ts:125-185", "frontend/tests/e2e/terminal-authority.spec.ts:220-235", "frontend/tests/e2e/grid-equal-mode.spec.ts:461-519", "frontend/tests/e2e/grid-equal-mode.spec.ts:660-668", "frontend/tests/e2e/helpers.ts:3-16"],
+          "depends_on": ["TASK-P1-003", "TASK-P2-003"],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/terminal-authority.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/terminal-authority.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) Remove the new WebSocket capture helper and new assertions from terminal-authority.spec.ts. 2) Leave unrelated authority tests intact and rerun the file."}
+        },
+        {
+          "id": "TASK-P3-003",
+          "title": "Strengthen screen-repair non-replay assertions",
+          "related_req_ids": ["FR-SESS-016", "FR-SESS-017", "FR-SESS-018", "AC-020", "AC-023"],
+          "owns": ["frontend/tests/e2e/grid-equal-mode.spec.ts"],
+          "reads": ["server/src/utils/headlessTerminal.ts", "frontend/tests/e2e/grid-equal-mode.spec.ts"],
+          "source_anchors": ["server/src/utils/headlessTerminal.ts:154-205", "server/src/utils/headlessTerminal.ts:212-224", "frontend/tests/e2e/grid-equal-mode.spec.ts:581-669", "frontend/tests/e2e/grid-equal-mode.spec.ts:1779-1824"],
+          "depends_on": ["TASK-P1-003"],
+          "feasibility": "Low",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) Remove only the new marker assertions from TC-6620. 2) Keep existing no screen-snapshot and no repair-replay assertions and rerun grid-equal-mode.spec.ts."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-4",
+      "title": "Final gates and mandatory review",
+      "tasks": [
+        {
+          "id": "TASK-P4-001",
+          "title": "Run validation gates and review loop",
+          "related_req_ids": ["AC-009", "AC-017", "AC-020", "AC-023"],
+          "owns": ["docs/plan/2026-05-15.viewport-only-terminal-snapshot.plan.md", "docs/plan/2026-05-15.viewport-only-terminal-snapshot.plan.md.json"],
+          "reads": ["AGENTS.md", "docs/srs/buildergate.srs.md"],
+          "source_anchors": ["docs/srs/buildergate.srs.md:211-222", "docs/srs/buildergate.srs.md:653-667", "docs/srs/buildergate.srs.md:669-686", "AGENTS.md:20-25", "frontend/playwright.config.ts:8-15", "frontend/playwright.config.ts:30-37"],
+          "depends_on": ["TASK-P1-001", "TASK-P1-002", "TASK-P1-003", "TASK-P2-001", "TASK-P2-002", "TASK-P2-003", "TASK-P3-001", "TASK-P3-002", "TASK-P3-003"],
+          "feasibility": "Low",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run lint", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "node --experimental-strip-types --test frontend/tests/unit/terminalSnapshot.test.ts", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/header-context-menu-regression.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/terminal-authority.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run lint", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "node --experimental-strip-types --test frontend/tests/unit/terminalSnapshot.test.ts", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/header-context-menu-regression.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/terminal-authority.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend exec -- playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) Revert implementation tasks in reverse order from Phase 3 to Phase 1. 2) Rerun server and frontend gates listed in this task to confirm the pre-change snapshot behavior is restored."}
+        }
+      ]
+    }
+  ],
+  "requirement_task_map": [
+    {"requirement_id": "FR-SESS-007", "task_ids": ["TASK-P1-001", "TASK-P1-002", "TASK-P1-003", "TASK-P3-002"]},
+    {"requirement_id": "FR-SESS-008", "task_ids": ["TASK-P1-001", "TASK-P1-002"]},
+    {"requirement_id": "FR-SESS-015", "task_ids": ["TASK-P2-001", "TASK-P2-002", "TASK-P2-003", "TASK-P3-001"]},
+    {"requirement_id": "FR-SESS-016", "task_ids": ["TASK-P1-001", "TASK-P1-002", "TASK-P1-003", "TASK-P2-001", "TASK-P2-002", "TASK-P2-003", "TASK-P3-002", "TASK-P3-003"]},
+    {"requirement_id": "FR-SESS-017", "task_ids": ["TASK-P3-003"]},
+    {"requirement_id": "FR-SESS-018", "task_ids": ["TASK-P1-001", "TASK-P1-002", "TASK-P1-003", "TASK-P2-001", "TASK-P2-002", "TASK-P2-003", "TASK-P3-001", "TASK-P3-002", "TASK-P3-003"]},
+    {"requirement_id": "FR-WS-005", "task_ids": ["TASK-P1-002", "TASK-P1-003", "TASK-P3-002"]},
+    {"requirement_id": "FR-WS-006", "task_ids": ["TASK-P1-003", "TASK-P3-002"]},
+    {"requirement_id": "FR-WS-007", "task_ids": ["TASK-P1-003", "TASK-P3-001", "TASK-P3-002"]},
+    {"requirement_id": "AC-009", "task_ids": ["TASK-P1-001", "TASK-P1-002", "TASK-P1-003", "TASK-P2-003", "TASK-P3-001", "TASK-P3-002", "TASK-P4-001"]},
+    {"requirement_id": "AC-017", "task_ids": ["TASK-P2-001", "TASK-P2-002", "TASK-P4-001"]},
+    {"requirement_id": "AC-020", "task_ids": ["TASK-P3-003", "TASK-P4-001"]},
+    {"requirement_id": "AC-023", "task_ids": ["TASK-P1-001", "TASK-P1-002", "TASK-P1-003", "TASK-P2-001", "TASK-P2-002", "TASK-P2-003", "TASK-P3-001", "TASK-P3-002", "TASK-P3-003", "TASK-P4-001"]}
+  ],
+  "dew_path": ".snoworca/dew/planner/plan-20260515-viewport-only-snapshot/"
+}

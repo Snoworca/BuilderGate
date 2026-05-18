@@ -1,0 +1,201 @@
+{
+  "plan_contract": "1.1.0",
+  "plan_id": "plan-20260511-terminal-title-auto-tab-name",
+  "title": "Terminal Title Auto Tab Name Implementation Plan",
+  "created": "2026-05-11",
+  "spec_path": "docs/srs/buildergate.srs.md",
+  "code_path": ".",
+  "implementation_source": {
+    "authoritative": "markdown",
+    "markdown_path": "docs/plan/2026-05-11.terminal-title-auto-tab-name.plan.md",
+    "sidecar_purpose": "routing and task graph index; implementers must read Markdown TASK details for signatures, guides, rationale, pitfalls, tests, and DoD"
+  },
+  "scope_freeze": true,
+  "change_log": [],
+  "pre_commit_gate": [
+    {"shell": "pwsh", "cmd": "npm --prefix server run build", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run lint", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+    {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:terminal-title-auto-tab-name", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix server run build", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run lint", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+    {"shell": "bash", "cmd": "npm --prefix frontend run test:e2e:terminal-title-auto-tab-name", "expected_exit": 0}
+  ],
+  "forbidden_patterns": [
+    {"pattern": "적절[히]|필요\\s*시|알아[서]|상황에\\s*맞게|기존\\s*방식대로|어떻게[든]", "flags": ""},
+    {"pattern": "rm\\s+-rf|Remove-Item\\s+.*-Recurse|git\\s+reset\\s+--hard|git\\s+checkout\\s+--", "flags": "i"}
+  ],
+  "requirements": [
+    {"id": "FR-WSP-012", "statement": "Default Terminal-N tabs can enter Terminal Title Auto Mode and adopt sanitized OSC 0/2 titles."},
+    {"id": "FR-WSP-013", "statement": "Manual tab rename locks the tab name against later Terminal Title updates."},
+    {"id": "FR-WSP-014", "statement": "Automatic title updates use an internal path and broadcast existing tab:updated changes."},
+    {"id": "FR-WSP-015", "statement": "Terminal Title values are sanitized, length-bounded, and debounced."},
+    {"id": "AC-022", "statement": "Automatic title rename and manual lock are verified through server tests and Playwright E2E."}
+  ],
+  "phases": [
+    {
+      "phase_id": "phase-1",
+      "title": "Server title signal detection",
+      "tasks": [
+        {
+          "id": "TASK-P1-001",
+          "title": "Add OSC terminal title detector and sanitizer",
+          "related_req_ids": ["FR-WSP-012", "FR-WSP-015", "AC-022"],
+          "owns": ["server/src/utils/terminalTitle.ts", "server/src/test-runner.ts"],
+          "reads": ["server/src/services/OscDetector.ts", "server/src/utils/terminalPayload.ts", "server/src/test-runner.ts"],
+          "source_anchors": ["server/src/services/OscDetector.ts:34-105", "server/src/utils/terminalPayload.ts:42-85", "server/src/test-runner.ts:166-170", "server/src/test-runner.ts:4016-4051"],
+          "depends_on": [],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) server/src/utils/terminalTitle.ts 신규 파일을 제거한다. 2) server/src/test-runner.ts에서 TerminalTitleDetector 관련 import, 테스트 등록, 테스트 함수만 되돌린다."}
+        },
+        {
+          "id": "TASK-P1-002",
+          "title": "Emit terminal title events from SessionManager",
+          "related_req_ids": ["FR-WSP-012", "FR-WSP-014", "FR-WSP-015", "AC-022"],
+          "owns": ["server/src/services/SessionManager.ts", "server/src/test-runner.ts"],
+          "reads": ["server/src/services/SessionManager.ts", "server/src/utils/terminalTitle.ts"],
+          "source_anchors": ["server/src/services/SessionManager.ts:150-187", "server/src/services/SessionManager.ts:300-338", "server/src/services/SessionManager.ts:375-382", "server/src/services/SessionManager.ts:801-815", "server/src/services/WorkspaceService.ts:37-44"],
+          "depends_on": ["TASK-P1-001"],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) SessionManager.ts에서 terminalTitleDetector 필드, 생성, process 호출, destroy 호출, onTerminalTitleChange method를 되돌린다. 2) test-runner.ts의 SessionManager title callback 테스트를 제거한다."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-2",
+      "title": "Workspace name source and broadcast",
+      "tasks": [
+        {
+          "id": "TASK-P2-001",
+          "title": "Persist tab name source metadata and manual lock",
+          "related_req_ids": ["FR-WSP-012", "FR-WSP-013", "FR-WSP-015", "AC-022"],
+          "owns": ["server/src/types/workspace.types.ts", "frontend/src/types/workspace.ts", "server/src/services/WorkspaceService.ts", "server/src/test-runner.ts"],
+          "reads": ["server/src/services/WorkspaceService.ts", "frontend/src/hooks/useWorkspaceManager.ts"],
+          "source_anchors": ["server/src/types/workspace.types.ts:18-28", "frontend/src/types/workspace.ts:12-22", "server/src/services/WorkspaceService.ts:47-89", "server/src/services/WorkspaceService.ts:214-272", "server/src/test-runner.ts:3675-3728"],
+          "depends_on": ["TASK-P1-001"],
+          "feasibility": "High",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) WorkspaceTab 타입에서 nameSource와 terminalTitle 필드를 제거한다. 2) WorkspaceService의 normalization, addTab, updateTab metadata 변경만 되돌리고 관련 테스트를 제거한다."}
+        },
+        {
+          "id": "TASK-P2-002",
+          "title": "Apply automatic title updates and broadcast tab changes",
+          "related_req_ids": ["FR-WSP-012", "FR-WSP-013", "FR-WSP-014", "FR-WSP-015", "AC-022"],
+          "owns": ["server/src/services/WorkspaceService.ts", "server/src/index.ts", "server/src/test-runner.ts"],
+          "reads": ["server/src/routes/workspaceRoutes.ts", "server/src/ws/WsRouter.ts", "server/src/services/SessionManager.ts"],
+          "source_anchors": ["server/src/services/WorkspaceService.ts:37-44", "server/src/services/WorkspaceService.ts:260-272", "server/src/routes/workspaceRoutes.ts:123-129", "server/src/ws/WsRouter.ts:1704-1711", "server/src/index.ts:530-534"],
+          "depends_on": ["TASK-P1-002", "TASK-P2-001"],
+          "feasibility": "High",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) WorkspaceService의 applyTerminalTitle, onTabUpdated, debounce state를 되돌린다. 2) index.ts의 onTabUpdated broadcast 연결과 관련 테스트만 제거한다."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-3",
+      "title": "Frontend contract and end-to-end coverage",
+      "tasks": [
+        {
+          "id": "TASK-P3-001",
+          "title": "Keep frontend workspace state compatible with title metadata",
+          "related_req_ids": ["FR-WSP-012", "FR-WSP-013", "FR-WSP-014", "AC-022"],
+          "owns": ["frontend/src/types/workspace.ts", "frontend/src/hooks/useWorkspaceManager.ts", "frontend/src/services/api.ts"],
+          "reads": ["frontend/src/App.tsx", "frontend/src/components/MetadataBar/MetadataRow.tsx", "frontend/src/components/Workspace/WorkspaceTabBar.tsx"],
+          "source_anchors": ["frontend/src/types/workspace.ts:12-27", "frontend/src/hooks/useWorkspaceManager.ts:188-197", "frontend/src/hooks/useWorkspaceManager.ts:373-380", "frontend/src/services/api.ts:383-394", "frontend/src/components/MetadataBar/MetadataRow.tsx:84-120", "frontend/src/components/Workspace/WorkspaceTabBar.tsx:57-94"],
+          "depends_on": ["TASK-P2-001", "TASK-P2-002"],
+          "feasibility": "Low",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run build", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) frontend/src/types/workspace.ts의 nameSource와 terminalTitle 필드만 제거한다. 2) 타입 오류 정리 diff가 있으면 해당 diff만 되돌린다."}
+        },
+        {
+          "id": "TASK-P3-002",
+          "title": "Add Playwright regression for automatic and manual tab names",
+          "related_req_ids": ["FR-WSP-012", "FR-WSP-013", "FR-WSP-014", "FR-WSP-015", "AC-022"],
+          "owns": ["frontend/package.json", "frontend/tests/e2e/terminal-title-auto-tab-name.spec.ts"],
+          "reads": ["frontend/package.json", "frontend/tests/e2e/helpers.ts", "frontend/tests/e2e/terminal-authority.spec.ts", "frontend/tests/e2e/terminal-keyboard-regression.spec.ts"],
+          "source_anchors": ["frontend/tests/e2e/helpers.ts:3-16", "frontend/tests/e2e/terminal-authority.spec.ts:4-31", "frontend/tests/e2e/terminal-authority.spec.ts:75-89", "frontend/tests/e2e/terminal-keyboard-regression.spec.ts:5-91", "frontend/src/components/MetadataBar/MetadataRow.tsx:106-120"],
+          "depends_on": ["TASK-P3-001"],
+          "feasibility": "Medium",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:terminal-title-auto-tab-name", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run test:e2e:terminal-title-auto-tab-name", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "file-delete", "command": "Delete frontend/tests/e2e/terminal-title-auto-tab-name.spec.ts and rerun npm --prefix frontend run typecheck."}
+        }
+      ]
+    },
+    {
+      "phase_id": "phase-4",
+      "title": "Final validation and review loop",
+      "tasks": [
+        {
+          "id": "TASK-P4-001",
+          "title": "Run final gates and mandatory review",
+          "related_req_ids": ["FR-WSP-012", "FR-WSP-013", "FR-WSP-014", "FR-WSP-015", "AC-022"],
+          "owns": ["docs/plan/2026-05-11.terminal-title-auto-tab-name.plan.md", "docs/plan/2026-05-11.terminal-title-auto-tab-name.plan.md.json"],
+          "reads": ["AGENTS.md", "docs/srs/buildergate.srs.md"],
+          "source_anchors": ["docs/srs/buildergate.srs.md:255-258", "docs/srs/buildergate.srs.md:661-671"],
+          "depends_on": ["TASK-P1-001", "TASK-P1-002", "TASK-P2-001", "TASK-P2-002", "TASK-P3-001", "TASK-P3-002"],
+          "feasibility": "Low",
+          "acceptance_tests": [
+            {"shell": "pwsh", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run lint", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+            {"shell": "pwsh", "cmd": "npm --prefix frontend run test:e2e:terminal-title-auto-tab-name", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix server run test", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run typecheck", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run lint", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run build", "expected_exit": 0},
+            {"shell": "bash", "cmd": "npm --prefix frontend run test:e2e:terminal-title-auto-tab-name", "expected_exit": 0}
+          ],
+          "rollback": {"strategy": "manual", "command": "1) 이번 계획의 TASK별 rollback 절차를 역순으로 수행한다. 2) server와 frontend 검증 명령을 다시 실행해 title 자동 이름 기능 제거 뒤 기존 workspace rename 흐름이 유지되는지 확인한다."}
+        }
+      ]
+    }
+  ],
+  "requirement_task_map": [
+    {"requirement_id": "FR-WSP-012", "task_ids": ["TASK-P1-001", "TASK-P1-002", "TASK-P2-001", "TASK-P2-002", "TASK-P3-001", "TASK-P3-002", "TASK-P4-001"]},
+    {"requirement_id": "FR-WSP-013", "task_ids": ["TASK-P2-001", "TASK-P2-002", "TASK-P3-001", "TASK-P3-002", "TASK-P4-001"]},
+    {"requirement_id": "FR-WSP-014", "task_ids": ["TASK-P1-002", "TASK-P2-002", "TASK-P3-001", "TASK-P3-002", "TASK-P4-001"]},
+    {"requirement_id": "FR-WSP-015", "task_ids": ["TASK-P1-001", "TASK-P1-002", "TASK-P2-001", "TASK-P2-002", "TASK-P3-002", "TASK-P4-001"]},
+    {"requirement_id": "AC-022", "task_ids": ["TASK-P1-001", "TASK-P1-002", "TASK-P2-001", "TASK-P2-002", "TASK-P3-001", "TASK-P3-002", "TASK-P4-001"]}
+  ],
+  "dew_path": ".snoworca/dew/planner/plan-20260511-terminal-title-auto-tab-name/"
+}

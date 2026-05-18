@@ -1,0 +1,74 @@
+plan_contract: "1.1.0"
+plan_id: "plan-20260515-viewport-only-snapshot"
+scope_freeze: true
+change_log: []
+pre_commit_gate:
+  - shell: "pwsh"
+    cmd: "npm --prefix server run build"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix server run test"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend run typecheck"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend run lint"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "npm --prefix frontend run build"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: "node --experimental-strip-types --test frontend/tests/unit/terminalSnapshot.test.ts"
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: 'npm --prefix frontend exec -- playwright test tests/e2e/header-context-menu-regression.spec.ts --project "Desktop Chrome"'
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: 'npm --prefix frontend exec -- playwright test tests/e2e/terminal-authority.spec.ts --project "Desktop Chrome"'
+    expected_exit: 0
+  - shell: "pwsh"
+    cmd: 'npm --prefix frontend exec -- playwright test tests/e2e/grid-equal-mode.spec.ts --project "Desktop Chrome"'
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "npm --prefix server run build"
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "npm --prefix server run test"
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "npm --prefix frontend run typecheck"
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "npm --prefix frontend run lint"
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "npm --prefix frontend run build"
+    expected_exit: 0
+  - shell: "bash"
+    cmd: "node --experimental-strip-types --test frontend/tests/unit/terminalSnapshot.test.ts"
+    expected_exit: 0
+  - shell: "bash"
+    cmd: 'npm --prefix frontend exec -- playwright test tests/e2e/header-context-menu-regression.spec.ts --project "Desktop Chrome"'
+    expected_exit: 0
+  - shell: "bash"
+    cmd: 'npm --prefix frontend exec -- playwright test tests/e2e/terminal-authority.spec.ts --project "Desktop Chrome"'
+    expected_exit: 0
+  - shell: "bash"
+    cmd: 'npm --prefix frontend exec -- playwright test tests/e2e/grid-equal-mode.spec.ts --project "Desktop Chrome"'
+    expected_exit: 0
+forbidden_patterns:
+  - pattern: "적절[히]|필요\\s*시|알아[서]|상황에\\s*맞게|기존\\s*방식대로|어떻게[든]"
+    flags: ""
+  - pattern: "rm\\s+-rf|Remove-Item\\s+.*-Recurse|git\\s+reset\\s+--hard|git\\s+checkout\\s+--"
+    flags: "i"
+  - pattern: "del\\s+/[sq]|rmdir\\s+/[sq]|git\\s+clean\\s+-fd"
+    flags: "i"
+  - pattern: "kill\\s+-9|taskkill\\s+/F|Stop-Process\\s+.*-Force|pkill\\s+"
+    flags: "i"
+  - pattern: "chmod\\s+-R\\s+777|chown\\s+-R|icacls\\s+.*\\/grant"
+    flags: "i"
+  - pattern: "curl\\s+.*\\|\\s*(sh|bash)|wget\\s+.*\\|\\s*(sh|bash)|I[n]voke-WebRequest\\s+.*\\|\\s*I[n]voke-Expression|iwr\\s+.*\\|\\s*i[e]x|I[n]voke-Expression|\\bi[e]x\\b|eval\\s*\\("
+    flags: "i"
+  - pattern: "while\\s*\\(\\s*\\$?true\\s*\\)|while\\s+true|for\\s*\\(\\s*;\\s*;\\s*\\)"
+    flags: "i"
