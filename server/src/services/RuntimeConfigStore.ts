@@ -1,12 +1,28 @@
-import type { Config } from '../types/config.types.js';
+import type {
+  Config,
+  ResourceLimitsConfig,
+  StabilityModesConfig,
+  WsTransportMode,
+} from '../types/config.types.js';
+import type { InputReliabilityMode } from '../types/ws-protocol.js';
 import type {
   EditableSettingsKey,
   EditableSettingsSnapshot,
   EditableSettingsValues,
   FieldCapability,
+  ResourceLimitsPatch,
   SettingsPatchRequest,
 } from '../types/settings.types.js';
-import { authSchema, corsSchema, fileManagerSchema, ptySchema, sessionSchema, twoFactorSchema } from '../schemas/config.schema.js';
+import {
+  authSchema,
+  corsSchema,
+  fileManagerSchema,
+  ptySchema,
+  resourceLimitsSchema,
+  sessionSchema,
+  stabilityModesSchema,
+  twoFactorSchema,
+} from '../schemas/config.schema.js';
 import { config as globalConfig } from '../utils/config.js';
 import {
   getSettingsShellOptions,
@@ -22,6 +38,11 @@ const EXCLUDED_SECTIONS = [
   'fileManager.maxCodeFileSize',
   'bruteForce.*',
 ] as const;
+
+const bytes = (min: number, max: number): FieldCapability['constraints'] => ({ min, max, step: 1, unit: 'bytes' });
+const count = (min: number, max: number): FieldCapability['constraints'] => ({ min, max, step: 1, unit: 'count' });
+const chars = (min: number, max: number): FieldCapability['constraints'] => ({ min, max, step: 1, unit: 'chars' });
+const ms = (min: number, max: number): FieldCapability['constraints'] => ({ min, max, step: 1, unit: 'ms' });
 
 const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available' | 'reason' | 'options'>> = {
   'auth.password': { applyScope: 'new_logins', writeOnly: true },
@@ -45,7 +66,60 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
   'fileManager.blockedExtensions': { applyScope: 'immediate', writeOnly: false },
   'fileManager.blockedPaths': { applyScope: 'immediate', writeOnly: false },
   'fileManager.cwdCacheTtlMs': { applyScope: 'immediate', writeOnly: false },
+  'resourceLimits.headless.pendingOutputMaxBytes': { applyScope: 'new_sessions', writeOnly: false, constraints: bytes(1024, 268435456) },
+  'resourceLimits.headless.pendingOutputMaxChunks': { applyScope: 'new_sessions', writeOnly: false, constraints: count(1, 65536) },
+  'resourceLimits.headless.writeLagWarnMs': { applyScope: 'new_sessions', writeOnly: false, constraints: ms(1, 60000) },
+  'resourceLimits.headless.writeBatchMaxBytes': { applyScope: 'new_sessions', writeOnly: false, constraints: bytes(1024, 1048576) },
+  'resourceLimits.headless.overflowPolicy': { applyScope: 'new_sessions', writeOnly: false },
+  'resourceLimits.ws.serverBufferedHighWaterBytes': { applyScope: 'new_sessions', writeOnly: false, constraints: bytes(1024, 268435456) },
+  'resourceLimits.ws.serverBufferedHardLimitBytes': { applyScope: 'new_sessions', writeOnly: false, constraints: bytes(1024, 536870912) },
+  'resourceLimits.ws.perClientOutputQueueMaxBytes': { applyScope: 'new_sessions', writeOnly: false, constraints: bytes(1024, 268435456) },
+  'resourceLimits.ws.perClientControlQueueMaxBytes': { applyScope: 'new_sessions', writeOnly: false, constraints: bytes(1024, 16777216) },
+  'resourceLimits.ws.outputCoalesceWindowMs': { applyScope: 'new_sessions', writeOnly: false, constraints: ms(0, 1000) },
+  'resourceLimits.clientWs.inputBackpressureBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 268435456) },
+  'resourceLimits.clientWs.hardReconnectBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 536870912) },
+  'resourceLimits.terminal.visibleOutputQueueMaxBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 268435456) },
+  'resourceLimits.terminal.visibleOutputMaxChunks': { applyScope: 'immediate', writeOnly: false, constraints: count(1, 65536) },
+  'resourceLimits.terminal.visibleFlushBudgetBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 16777216) },
+  'resourceLimits.terminal.hiddenOutputPolicy': { applyScope: 'immediate', writeOnly: false },
+  'resourceLimits.terminal.hiddenOutputTailBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(0, 16777216) },
+  'resourceLimits.terminal.inputQueueMaxBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 16777216) },
+  'resourceLimits.terminal.inputQueueTtlMs': { applyScope: 'immediate', writeOnly: false, constraints: ms(1, 60000) },
+  'resourceLimits.terminal.transportOutboxMaxBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 16777216) },
+  'resourceLimits.terminal.transportOutboxTtlMs': { applyScope: 'immediate', writeOnly: false, constraints: ms(1, 60000) },
+  'resourceLimits.terminal.scrollbackLines': { applyScope: 'immediate', writeOnly: false, constraints: count(0, 50000) },
+  'resourceLimits.snapshots.perSnapshotMaxChars': { applyScope: 'immediate', writeOnly: false, constraints: chars(1024, 50000000) },
+  'resourceLimits.snapshots.totalStorageBudgetChars': { applyScope: 'immediate', writeOnly: false, constraints: chars(1024, 200000000) },
+  'resourceLimits.snapshots.maxEntries': { applyScope: 'immediate', writeOnly: false, constraints: count(1, 1024) },
+  'resourceLimits.snapshots.tombstoneTtlMs': { applyScope: 'immediate', writeOnly: false, constraints: ms(1000, 604800000) },
+  'resourceLimits.workspaceRuntime.maxLiveWorkspaces': { applyScope: 'immediate', writeOnly: false, constraints: count(1, 10) },
+  'resourceLimits.workspaceRuntime.maxLiveTerminals': { applyScope: 'immediate', writeOnly: false, constraints: count(1, 128) },
+  'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs': { applyScope: 'immediate', writeOnly: false, constraints: ms(1000, 3600000) },
+  'resourceLimits.telemetry.sampleIntervalMs': { applyScope: 'new_sessions', writeOnly: false, constraints: ms(1000, 3600000) },
+  'resourceLimits.telemetry.recentEventLimit': { applyScope: 'new_sessions', writeOnly: false, constraints: count(1, 10000) },
+  'stabilityModes.headlessQueueMode': { applyScope: 'new_sessions', writeOnly: false },
+  'stabilityModes.wsSendMode': { applyScope: 'new_sessions', writeOnly: false },
+  'stabilityModes.frontendRuntimeResidency': { applyScope: 'immediate', writeOnly: false },
 };
+
+const WAVE0_UNAPPLIED_SETTING_PREFIXES = [
+  'resourceLimits.headless.',
+  'resourceLimits.ws.',
+  'resourceLimits.telemetry.',
+] as const;
+const WAVE0_UNAPPLIED_SETTING_KEYS = new Set<EditableSettingsKey>([
+  'stabilityModes.headlessQueueMode',
+  'stabilityModes.wsSendMode',
+]);
+const WAVE0_UNAPPLIED_REASON = 'Reserved for a later stability wave; not applied by the current runtime';
+const EFFECTIVE_WS_TRANSPORT_MODE: WsTransportMode = 'unified';
+
+export interface PublicRuntimeConfig {
+  inputReliabilityMode: InputReliabilityMode;
+  wsTransportMode: WsTransportMode;
+  stabilityModes: Pick<StabilityModesConfig, 'frontendRuntimeResidency'>;
+  resourceLimits: Pick<ResourceLimitsConfig, 'clientWs' | 'terminal' | 'snapshots' | 'workspaceRuntime'>;
+}
 
 export class RuntimeConfigStore {
   private values: EditableSettingsValues;
@@ -77,6 +151,22 @@ export class RuntimeConfigStore {
 
   getFieldCapabilities(): Record<EditableSettingsKey, FieldCapability> {
     return structuredClone(this.capabilities);
+  }
+
+  getPublicRuntimeConfig(inputReliabilityMode: InputReliabilityMode): PublicRuntimeConfig {
+    return {
+      inputReliabilityMode,
+      wsTransportMode: EFFECTIVE_WS_TRANSPORT_MODE,
+      stabilityModes: {
+        frontendRuntimeResidency: this.values.stabilityModes.frontendRuntimeResidency,
+      },
+      resourceLimits: {
+        clientWs: structuredClone(this.values.resourceLimits.clientWs),
+        terminal: structuredClone(this.values.resourceLimits.terminal),
+        snapshots: structuredClone(this.values.resourceLimits.snapshots),
+        workspaceRuntime: structuredClone(this.values.resourceLimits.workspaceRuntime),
+      },
+    };
   }
 
   isEditable(path: string): path is EditableSettingsKey {
@@ -152,6 +242,17 @@ export class RuntimeConfigStore {
       next.fileManager.cwdCacheTtlMs = patch.fileManager.cwdCacheTtlMs;
     }
 
+    if (patch.resourceLimits !== undefined) {
+      next.resourceLimits = mergeResourceLimits(next.resourceLimits, patch.resourceLimits);
+    }
+
+    if (patch.stabilityModes !== undefined) {
+      next.stabilityModes = stabilityModesSchema.parse({
+        ...next.stabilityModes,
+        ...patch.stabilityModes,
+      });
+    }
+
     return next;
   }
 
@@ -175,6 +276,8 @@ function buildEditableValues(source: Config, platform: NodeJS.Platform): Editabl
   const twoFactorDefaults = twoFactorSchema.parse({});
   const corsDefaults = corsSchema.parse({});
   const fileManagerDefaults = fileManagerSchema.parse({});
+  const resourceLimits = resourceLimitsSchema.parse(source.resourceLimits);
+  const stabilityModes = stabilityModesSchema.parse(source.stabilityModes);
 
   const normalizedPty = normalizePtyConfigForPlatform({
     useConpty: source.pty.useConpty ?? ptyDefaults.useConpty,
@@ -217,7 +320,21 @@ function buildEditableValues(source: Config, platform: NodeJS.Platform): Editabl
       blockedPaths: source.fileManager?.blockedPaths ?? fileManagerDefaults.blockedPaths,
       cwdCacheTtlMs: source.fileManager?.cwdCacheTtlMs ?? fileManagerDefaults.cwdCacheTtlMs,
     },
+    resourceLimits,
+    stabilityModes,
   };
+}
+
+function mergeResourceLimits(current: ResourceLimitsConfig, patch: ResourceLimitsPatch): ResourceLimitsConfig {
+  return resourceLimitsSchema.parse({
+    headless: patch.headless === undefined ? current.headless : { ...current.headless, ...patch.headless },
+    ws: patch.ws === undefined ? current.ws : { ...current.ws, ...patch.ws },
+    clientWs: patch.clientWs === undefined ? current.clientWs : { ...current.clientWs, ...patch.clientWs },
+    terminal: patch.terminal === undefined ? current.terminal : { ...current.terminal, ...patch.terminal },
+    snapshots: patch.snapshots === undefined ? current.snapshots : { ...current.snapshots, ...patch.snapshots },
+    workspaceRuntime: patch.workspaceRuntime === undefined ? current.workspaceRuntime : { ...current.workspaceRuntime, ...patch.workspaceRuntime },
+    telemetry: patch.telemetry === undefined ? current.telemetry : { ...current.telemetry, ...patch.telemetry },
+  });
 }
 
 function buildFieldCapabilities(platform: NodeJS.Platform): Record<EditableSettingsKey, FieldCapability> {
@@ -243,10 +360,50 @@ function buildFieldCapabilities(platform: NodeJS.Platform): Record<EditableSetti
     options: ['inherit', 'conpty', 'winpty'],
   };
 
+  capabilities['resourceLimits.headless.overflowPolicy'] = {
+    ...capabilities['resourceLimits.headless.overflowPolicy'],
+    options: ['degrade-headless'],
+  };
+
+  capabilities['resourceLimits.terminal.hiddenOutputPolicy'] = {
+    ...capabilities['resourceLimits.terminal.hiddenOutputPolicy'],
+    options: ['snapshot-restore', 'debug-tail'],
+  };
+
+  capabilities['stabilityModes.headlessQueueMode'] = {
+    ...capabilities['stabilityModes.headlessQueueMode'],
+    options: ['observe', 'bounded'],
+  };
+
+  capabilities['stabilityModes.wsSendMode'] = {
+    ...capabilities['stabilityModes.wsSendMode'],
+    options: ['direct', 'safe-send-observe', 'safe-send-enforce'],
+  };
+
+  capabilities['stabilityModes.frontendRuntimeResidency'] = {
+    ...capabilities['stabilityModes.frontendRuntimeResidency'],
+    options: ['legacy', 'bounded', 'off'],
+  };
+
+  for (const [key, capability] of Object.entries(capabilities) as Array<[EditableSettingsKey, FieldCapability]>) {
+    if (isWave0UnappliedSetting(key)) {
+      capabilities[key] = {
+        ...capability,
+        available: false,
+        reason: WAVE0_UNAPPLIED_REASON,
+      };
+    }
+  }
+
   capabilities['pty.shell'] = {
     ...capabilities['pty.shell'],
     options: getSettingsShellOptions(platform),
   };
 
   return capabilities;
+}
+
+function isWave0UnappliedSetting(key: EditableSettingsKey): boolean {
+  return WAVE0_UNAPPLIED_SETTING_KEYS.has(key)
+    || WAVE0_UNAPPLIED_SETTING_PREFIXES.some((prefix) => key.startsWith(prefix));
 }

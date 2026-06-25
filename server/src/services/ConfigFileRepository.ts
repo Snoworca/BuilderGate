@@ -1,8 +1,16 @@
 import JSON5 from 'json5';
 import { copyFileSync, readFileSync, writeFileSync } from 'fs';
-import type { Config } from '../types/config.types.js';
+import type {
+  Config,
+  ResourceLimitsConfig,
+  StabilityModesConfig,
+} from '../types/config.types.js';
 import type { EditableSettingsKey, EditableSettingsValues } from '../types/settings.types.js';
-import { configSchema } from '../schemas/config.schema.js';
+import {
+  configSchema,
+  resourceLimitsSchema,
+  stabilityModesSchema,
+} from '../schemas/config.schema.js';
 import { getConfigPath } from '../utils/config.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import { normalizeRawConfigForPlatform } from '../utils/ptyPlatformPolicy.js';
@@ -13,6 +21,18 @@ interface SecretPatch {
 }
 
 type PersistConfigKey = EditableSettingsKey | 'auth.jwtSecret';
+
+const RESOURCE_LIMIT_SECTION_NAMES = [
+  'headless',
+  'ws',
+  'clientWs',
+  'terminal',
+  'snapshots',
+  'workspaceRuntime',
+  'telemetry',
+] as const;
+
+type ResourceLimitSectionName = typeof RESOURCE_LIMIT_SECTION_NAMES[number];
 
 interface PersistOptions {
   dryRun?: boolean;
@@ -149,7 +169,9 @@ function applyEditableValues(
   secrets: SecretPatch,
   changedKeys?: PersistConfigKey[],
 ): Record<string, unknown> {
-    const shouldApply = (key: EditableSettingsKey) => !changedKeys || changedKeys.includes(key);
+  const shouldApply = (key: EditableSettingsKey) => !changedKeys || changedKeys.includes(key);
+  const resourceLimits = values.resourceLimits ?? resourceLimitsSchema.parse({});
+  const stabilityModes = values.stabilityModes ?? stabilityModesSchema.parse({});
 
   if (shouldApply('auth.durationMs')) setPath(rawConfig, ['auth', 'durationMs'], values.auth.durationMs);
   if (shouldApply('twoFactor.enabled')) setPath(rawConfig, ['twoFactor', 'enabled'], values.twoFactor.enabled);
@@ -171,6 +193,40 @@ function applyEditableValues(
   if (shouldApply('fileManager.blockedExtensions')) setPath(rawConfig, ['fileManager', 'blockedExtensions'], values.fileManager.blockedExtensions);
   if (shouldApply('fileManager.blockedPaths')) setPath(rawConfig, ['fileManager', 'blockedPaths'], values.fileManager.blockedPaths);
   if (shouldApply('fileManager.cwdCacheTtlMs')) setPath(rawConfig, ['fileManager', 'cwdCacheTtlMs'], values.fileManager.cwdCacheTtlMs);
+  if (shouldApply('resourceLimits.headless.pendingOutputMaxBytes')) setPath(rawConfig, ['resourceLimits', 'headless', 'pendingOutputMaxBytes'], resourceLimits.headless.pendingOutputMaxBytes);
+  if (shouldApply('resourceLimits.headless.pendingOutputMaxChunks')) setPath(rawConfig, ['resourceLimits', 'headless', 'pendingOutputMaxChunks'], resourceLimits.headless.pendingOutputMaxChunks);
+  if (shouldApply('resourceLimits.headless.writeLagWarnMs')) setPath(rawConfig, ['resourceLimits', 'headless', 'writeLagWarnMs'], resourceLimits.headless.writeLagWarnMs);
+  if (shouldApply('resourceLimits.headless.writeBatchMaxBytes')) setPath(rawConfig, ['resourceLimits', 'headless', 'writeBatchMaxBytes'], resourceLimits.headless.writeBatchMaxBytes);
+  if (shouldApply('resourceLimits.headless.overflowPolicy')) setPath(rawConfig, ['resourceLimits', 'headless', 'overflowPolicy'], resourceLimits.headless.overflowPolicy);
+  if (shouldApply('resourceLimits.ws.serverBufferedHighWaterBytes')) setPath(rawConfig, ['resourceLimits', 'ws', 'serverBufferedHighWaterBytes'], resourceLimits.ws.serverBufferedHighWaterBytes);
+  if (shouldApply('resourceLimits.ws.serverBufferedHardLimitBytes')) setPath(rawConfig, ['resourceLimits', 'ws', 'serverBufferedHardLimitBytes'], resourceLimits.ws.serverBufferedHardLimitBytes);
+  if (shouldApply('resourceLimits.ws.perClientOutputQueueMaxBytes')) setPath(rawConfig, ['resourceLimits', 'ws', 'perClientOutputQueueMaxBytes'], resourceLimits.ws.perClientOutputQueueMaxBytes);
+  if (shouldApply('resourceLimits.ws.perClientControlQueueMaxBytes')) setPath(rawConfig, ['resourceLimits', 'ws', 'perClientControlQueueMaxBytes'], resourceLimits.ws.perClientControlQueueMaxBytes);
+  if (shouldApply('resourceLimits.ws.outputCoalesceWindowMs')) setPath(rawConfig, ['resourceLimits', 'ws', 'outputCoalesceWindowMs'], resourceLimits.ws.outputCoalesceWindowMs);
+  if (shouldApply('resourceLimits.clientWs.inputBackpressureBytes')) setPath(rawConfig, ['resourceLimits', 'clientWs', 'inputBackpressureBytes'], resourceLimits.clientWs.inputBackpressureBytes);
+  if (shouldApply('resourceLimits.clientWs.hardReconnectBytes')) setPath(rawConfig, ['resourceLimits', 'clientWs', 'hardReconnectBytes'], resourceLimits.clientWs.hardReconnectBytes);
+  if (shouldApply('resourceLimits.terminal.visibleOutputQueueMaxBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'visibleOutputQueueMaxBytes'], resourceLimits.terminal.visibleOutputQueueMaxBytes);
+  if (shouldApply('resourceLimits.terminal.visibleOutputMaxChunks')) setPath(rawConfig, ['resourceLimits', 'terminal', 'visibleOutputMaxChunks'], resourceLimits.terminal.visibleOutputMaxChunks);
+  if (shouldApply('resourceLimits.terminal.visibleFlushBudgetBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'visibleFlushBudgetBytes'], resourceLimits.terminal.visibleFlushBudgetBytes);
+  if (shouldApply('resourceLimits.terminal.hiddenOutputPolicy')) setPath(rawConfig, ['resourceLimits', 'terminal', 'hiddenOutputPolicy'], resourceLimits.terminal.hiddenOutputPolicy);
+  if (shouldApply('resourceLimits.terminal.hiddenOutputTailBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'hiddenOutputTailBytes'], resourceLimits.terminal.hiddenOutputTailBytes);
+  if (shouldApply('resourceLimits.terminal.inputQueueMaxBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'inputQueueMaxBytes'], resourceLimits.terminal.inputQueueMaxBytes);
+  if (shouldApply('resourceLimits.terminal.inputQueueTtlMs')) setPath(rawConfig, ['resourceLimits', 'terminal', 'inputQueueTtlMs'], resourceLimits.terminal.inputQueueTtlMs);
+  if (shouldApply('resourceLimits.terminal.transportOutboxMaxBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'transportOutboxMaxBytes'], resourceLimits.terminal.transportOutboxMaxBytes);
+  if (shouldApply('resourceLimits.terminal.transportOutboxTtlMs')) setPath(rawConfig, ['resourceLimits', 'terminal', 'transportOutboxTtlMs'], resourceLimits.terminal.transportOutboxTtlMs);
+  if (shouldApply('resourceLimits.terminal.scrollbackLines')) setPath(rawConfig, ['resourceLimits', 'terminal', 'scrollbackLines'], resourceLimits.terminal.scrollbackLines);
+  if (shouldApply('resourceLimits.snapshots.perSnapshotMaxChars')) setPath(rawConfig, ['resourceLimits', 'snapshots', 'perSnapshotMaxChars'], resourceLimits.snapshots.perSnapshotMaxChars);
+  if (shouldApply('resourceLimits.snapshots.totalStorageBudgetChars')) setPath(rawConfig, ['resourceLimits', 'snapshots', 'totalStorageBudgetChars'], resourceLimits.snapshots.totalStorageBudgetChars);
+  if (shouldApply('resourceLimits.snapshots.maxEntries')) setPath(rawConfig, ['resourceLimits', 'snapshots', 'maxEntries'], resourceLimits.snapshots.maxEntries);
+  if (shouldApply('resourceLimits.snapshots.tombstoneTtlMs')) setPath(rawConfig, ['resourceLimits', 'snapshots', 'tombstoneTtlMs'], resourceLimits.snapshots.tombstoneTtlMs);
+  if (shouldApply('resourceLimits.workspaceRuntime.maxLiveWorkspaces')) setPath(rawConfig, ['resourceLimits', 'workspaceRuntime', 'maxLiveWorkspaces'], resourceLimits.workspaceRuntime.maxLiveWorkspaces);
+  if (shouldApply('resourceLimits.workspaceRuntime.maxLiveTerminals')) setPath(rawConfig, ['resourceLimits', 'workspaceRuntime', 'maxLiveTerminals'], resourceLimits.workspaceRuntime.maxLiveTerminals);
+  if (shouldApply('resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs')) setPath(rawConfig, ['resourceLimits', 'workspaceRuntime', 'hiddenRuntimeTtlMs'], resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs);
+  if (shouldApply('resourceLimits.telemetry.sampleIntervalMs')) setPath(rawConfig, ['resourceLimits', 'telemetry', 'sampleIntervalMs'], resourceLimits.telemetry.sampleIntervalMs);
+  if (shouldApply('resourceLimits.telemetry.recentEventLimit')) setPath(rawConfig, ['resourceLimits', 'telemetry', 'recentEventLimit'], resourceLimits.telemetry.recentEventLimit);
+  if (shouldApply('stabilityModes.headlessQueueMode')) setPath(rawConfig, ['stabilityModes', 'headlessQueueMode'], stabilityModes.headlessQueueMode);
+  if (shouldApply('stabilityModes.wsSendMode')) setPath(rawConfig, ['stabilityModes', 'wsSendMode'], stabilityModes.wsSendMode);
+  if (shouldApply('stabilityModes.frontendRuntimeResidency')) setPath(rawConfig, ['stabilityModes', 'frontendRuntimeResidency'], stabilityModes.frontendRuntimeResidency);
 
   if (secrets.authPassword !== undefined && shouldApply('auth.password')) {
     setPath(rawConfig, ['auth', 'password'], secrets.authPassword);
@@ -199,6 +255,8 @@ function renderPatchedConfig(
 ): string {
   const shouldRender = (key: PersistConfigKey) => !changedKeys || changedKeys.includes(key);
   const replacements = new Map<string, string>();
+  const resourceLimits = resourceLimitsSchema.parse(config.resourceLimits);
+  const stabilityModes = stabilityModesSchema.parse(config.stabilityModes);
 
   if (shouldRender('auth.durationMs')) replacements.set('auth.durationMs', renderJson5Value(config.auth?.durationMs ?? 1800000));
   if (shouldRender('twoFactor.enabled')) replacements.set('twoFactor.enabled', renderJson5Value(config.twoFactor?.enabled ?? false));
@@ -220,6 +278,40 @@ function renderPatchedConfig(
   if (shouldRender('fileManager.blockedExtensions')) replacements.set('fileManager.blockedExtensions', renderJson5Value(config.fileManager?.blockedExtensions ?? []));
   if (shouldRender('fileManager.blockedPaths')) replacements.set('fileManager.blockedPaths', renderJson5Value(config.fileManager?.blockedPaths ?? []));
   if (shouldRender('fileManager.cwdCacheTtlMs')) replacements.set('fileManager.cwdCacheTtlMs', renderJson5Value(config.fileManager?.cwdCacheTtlMs ?? 1000));
+  if (shouldRender('resourceLimits.headless.pendingOutputMaxBytes')) replacements.set('resourceLimits.headless.pendingOutputMaxBytes', renderJson5Value(resourceLimits.headless.pendingOutputMaxBytes));
+  if (shouldRender('resourceLimits.headless.pendingOutputMaxChunks')) replacements.set('resourceLimits.headless.pendingOutputMaxChunks', renderJson5Value(resourceLimits.headless.pendingOutputMaxChunks));
+  if (shouldRender('resourceLimits.headless.writeLagWarnMs')) replacements.set('resourceLimits.headless.writeLagWarnMs', renderJson5Value(resourceLimits.headless.writeLagWarnMs));
+  if (shouldRender('resourceLimits.headless.writeBatchMaxBytes')) replacements.set('resourceLimits.headless.writeBatchMaxBytes', renderJson5Value(resourceLimits.headless.writeBatchMaxBytes));
+  if (shouldRender('resourceLimits.headless.overflowPolicy')) replacements.set('resourceLimits.headless.overflowPolicy', renderJson5Value(resourceLimits.headless.overflowPolicy));
+  if (shouldRender('resourceLimits.ws.serverBufferedHighWaterBytes')) replacements.set('resourceLimits.ws.serverBufferedHighWaterBytes', renderJson5Value(resourceLimits.ws.serverBufferedHighWaterBytes));
+  if (shouldRender('resourceLimits.ws.serverBufferedHardLimitBytes')) replacements.set('resourceLimits.ws.serverBufferedHardLimitBytes', renderJson5Value(resourceLimits.ws.serverBufferedHardLimitBytes));
+  if (shouldRender('resourceLimits.ws.perClientOutputQueueMaxBytes')) replacements.set('resourceLimits.ws.perClientOutputQueueMaxBytes', renderJson5Value(resourceLimits.ws.perClientOutputQueueMaxBytes));
+  if (shouldRender('resourceLimits.ws.perClientControlQueueMaxBytes')) replacements.set('resourceLimits.ws.perClientControlQueueMaxBytes', renderJson5Value(resourceLimits.ws.perClientControlQueueMaxBytes));
+  if (shouldRender('resourceLimits.ws.outputCoalesceWindowMs')) replacements.set('resourceLimits.ws.outputCoalesceWindowMs', renderJson5Value(resourceLimits.ws.outputCoalesceWindowMs));
+  if (shouldRender('resourceLimits.clientWs.inputBackpressureBytes')) replacements.set('resourceLimits.clientWs.inputBackpressureBytes', renderJson5Value(resourceLimits.clientWs.inputBackpressureBytes));
+  if (shouldRender('resourceLimits.clientWs.hardReconnectBytes')) replacements.set('resourceLimits.clientWs.hardReconnectBytes', renderJson5Value(resourceLimits.clientWs.hardReconnectBytes));
+  if (shouldRender('resourceLimits.terminal.visibleOutputQueueMaxBytes')) replacements.set('resourceLimits.terminal.visibleOutputQueueMaxBytes', renderJson5Value(resourceLimits.terminal.visibleOutputQueueMaxBytes));
+  if (shouldRender('resourceLimits.terminal.visibleOutputMaxChunks')) replacements.set('resourceLimits.terminal.visibleOutputMaxChunks', renderJson5Value(resourceLimits.terminal.visibleOutputMaxChunks));
+  if (shouldRender('resourceLimits.terminal.visibleFlushBudgetBytes')) replacements.set('resourceLimits.terminal.visibleFlushBudgetBytes', renderJson5Value(resourceLimits.terminal.visibleFlushBudgetBytes));
+  if (shouldRender('resourceLimits.terminal.hiddenOutputPolicy')) replacements.set('resourceLimits.terminal.hiddenOutputPolicy', renderJson5Value(resourceLimits.terminal.hiddenOutputPolicy));
+  if (shouldRender('resourceLimits.terminal.hiddenOutputTailBytes')) replacements.set('resourceLimits.terminal.hiddenOutputTailBytes', renderJson5Value(resourceLimits.terminal.hiddenOutputTailBytes));
+  if (shouldRender('resourceLimits.terminal.inputQueueMaxBytes')) replacements.set('resourceLimits.terminal.inputQueueMaxBytes', renderJson5Value(resourceLimits.terminal.inputQueueMaxBytes));
+  if (shouldRender('resourceLimits.terminal.inputQueueTtlMs')) replacements.set('resourceLimits.terminal.inputQueueTtlMs', renderJson5Value(resourceLimits.terminal.inputQueueTtlMs));
+  if (shouldRender('resourceLimits.terminal.transportOutboxMaxBytes')) replacements.set('resourceLimits.terminal.transportOutboxMaxBytes', renderJson5Value(resourceLimits.terminal.transportOutboxMaxBytes));
+  if (shouldRender('resourceLimits.terminal.transportOutboxTtlMs')) replacements.set('resourceLimits.terminal.transportOutboxTtlMs', renderJson5Value(resourceLimits.terminal.transportOutboxTtlMs));
+  if (shouldRender('resourceLimits.terminal.scrollbackLines')) replacements.set('resourceLimits.terminal.scrollbackLines', renderJson5Value(resourceLimits.terminal.scrollbackLines));
+  if (shouldRender('resourceLimits.snapshots.perSnapshotMaxChars')) replacements.set('resourceLimits.snapshots.perSnapshotMaxChars', renderJson5Value(resourceLimits.snapshots.perSnapshotMaxChars));
+  if (shouldRender('resourceLimits.snapshots.totalStorageBudgetChars')) replacements.set('resourceLimits.snapshots.totalStorageBudgetChars', renderJson5Value(resourceLimits.snapshots.totalStorageBudgetChars));
+  if (shouldRender('resourceLimits.snapshots.maxEntries')) replacements.set('resourceLimits.snapshots.maxEntries', renderJson5Value(resourceLimits.snapshots.maxEntries));
+  if (shouldRender('resourceLimits.snapshots.tombstoneTtlMs')) replacements.set('resourceLimits.snapshots.tombstoneTtlMs', renderJson5Value(resourceLimits.snapshots.tombstoneTtlMs));
+  if (shouldRender('resourceLimits.workspaceRuntime.maxLiveWorkspaces')) replacements.set('resourceLimits.workspaceRuntime.maxLiveWorkspaces', renderJson5Value(resourceLimits.workspaceRuntime.maxLiveWorkspaces));
+  if (shouldRender('resourceLimits.workspaceRuntime.maxLiveTerminals')) replacements.set('resourceLimits.workspaceRuntime.maxLiveTerminals', renderJson5Value(resourceLimits.workspaceRuntime.maxLiveTerminals));
+  if (shouldRender('resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs')) replacements.set('resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs', renderJson5Value(resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs));
+  if (shouldRender('resourceLimits.telemetry.sampleIntervalMs')) replacements.set('resourceLimits.telemetry.sampleIntervalMs', renderJson5Value(resourceLimits.telemetry.sampleIntervalMs));
+  if (shouldRender('resourceLimits.telemetry.recentEventLimit')) replacements.set('resourceLimits.telemetry.recentEventLimit', renderJson5Value(resourceLimits.telemetry.recentEventLimit));
+  if (shouldRender('stabilityModes.headlessQueueMode')) replacements.set('stabilityModes.headlessQueueMode', renderJson5Value(stabilityModes.headlessQueueMode));
+  if (shouldRender('stabilityModes.wsSendMode')) replacements.set('stabilityModes.wsSendMode', renderJson5Value(stabilityModes.wsSendMode));
+  if (shouldRender('stabilityModes.frontendRuntimeResidency')) replacements.set('stabilityModes.frontendRuntimeResidency', renderJson5Value(stabilityModes.frontendRuntimeResidency));
 
   if (secrets.authPassword !== undefined) {
     replacements.set('auth.password', renderJson5Value(secrets.authPassword));
@@ -262,6 +354,18 @@ function renderPatchedConfig(
         }] as const]
       : []),
   ]);
+  for (const [path, value] of replacements.entries()) {
+    if (!path.startsWith('resourceLimits.') && !path.startsWith('stabilityModes.')) {
+      continue;
+    }
+
+    const segments = path.split('.');
+    insertions.set(path, {
+      parentPath: segments.slice(0, -1).join('.'),
+      key: segments[segments.length - 1],
+      value,
+    });
+  }
   const renderedLines: string[] = [];
 
   for (const line of lines) {
@@ -343,6 +447,40 @@ function renderPatchedConfig(
     }
   }
 
+  for (const sectionName of RESOURCE_LIMIT_SECTION_NAMES) {
+    const sectionPrefix = `resourceLimits.${sectionName}.`;
+    const missingSectionReplacements = missingReplacements.filter(
+      (path) => path.startsWith(sectionPrefix) && !replaced.has(path),
+    );
+    if (missingSectionReplacements.length === 0) {
+      continue;
+    }
+
+    if (insertNestedSection(renderedLines, 'resourceLimits', sectionName, renderResourceLimitSectionBody(sectionName, resourceLimits[sectionName]))) {
+      for (const path of missingSectionReplacements) {
+        replaced.add(path);
+      }
+    }
+  }
+
+  const missingResourceLimitReplacements = missingReplacements.filter(
+    (path) => path.startsWith('resourceLimits.') && !replaced.has(path),
+  );
+  if (missingResourceLimitReplacements.length > 0 && insertRootSection(renderedLines, 'resourceLimits', renderResourceLimitsRootBody(resourceLimits))) {
+    for (const path of missingResourceLimitReplacements) {
+      replaced.add(path);
+    }
+  }
+
+  const missingStabilityModeReplacements = missingReplacements.filter(
+    (path) => path.startsWith('stabilityModes.') && !replaced.has(path),
+  );
+  if (missingStabilityModeReplacements.length > 0 && insertRootSection(renderedLines, 'stabilityModes', renderStabilityModesBody(stabilityModes))) {
+    for (const path of missingStabilityModeReplacements) {
+      replaced.add(path);
+    }
+  }
+
   const stillMissingReplacements = [...replacements.keys()].filter((path) => !replaced.has(path));
   if (stillMissingReplacements.length > 0) {
     throw new AppError(
@@ -364,6 +502,25 @@ function renderJson5Value(value: unknown): string {
   }
 
   return String(value);
+}
+
+function renderResourceLimitsRootBody(resourceLimits: ResourceLimitsConfig): string[] {
+  return RESOURCE_LIMIT_SECTION_NAMES.flatMap((sectionName) => [
+    `${sectionName}: {`,
+    ...renderResourceLimitSectionBody(sectionName, resourceLimits[sectionName]).map((line) => `  ${line}`),
+    '},',
+  ]);
+}
+
+function renderResourceLimitSectionBody(
+  sectionName: ResourceLimitSectionName,
+  section: ResourceLimitsConfig[ResourceLimitSectionName],
+): string[] {
+  return Object.entries(section).map(([key, value]) => `${key}: ${renderJson5Value(value)},`);
+}
+
+function renderStabilityModesBody(stabilityModes: StabilityModesConfig): string[] {
+  return Object.entries(stabilityModes).map(([key, value]) => `${key}: ${renderJson5Value(value)},`);
 }
 
 function parseValueSuffix(rawValue: string): { hasTrailingComma: boolean; comment: string } {
@@ -414,6 +571,42 @@ function findCommentStart(rawValue: string): number {
 
 function parseConfigForPlatform(rawConfig: Record<string, unknown>, platform: NodeJS.Platform): Config {
   return configSchema.parse(normalizeRawConfigForPlatform(rawConfig, platform)) as Config;
+}
+
+function insertNestedSection(renderedLines: string[], parentPath: string, sectionName: string, bodyLines: string[]): boolean {
+  const stack: string[] = [];
+
+  for (let index = 0; index < renderedLines.length; index += 1) {
+    const line = renderedLines[index];
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('}')) {
+      if (stack.join('.') === parentPath) {
+        const parentIndent = line.match(/^(\s*)}/)?.[1] ?? '';
+        renderedLines.splice(
+          index,
+          0,
+          `${parentIndent}  ${sectionName}: {`,
+          ...bodyLines.map((bodyLine) => `${parentIndent}    ${bodyLine}`),
+          `${parentIndent}  },`,
+        );
+        return true;
+      }
+
+      const closingCount = (trimmed.match(/}/g) || []).length;
+      for (let closeIndex = 0; closeIndex < closingCount; closeIndex += 1) {
+        stack.pop();
+      }
+      continue;
+    }
+
+    const objectMatch = line.match(/^(\s*)([A-Za-z0-9_]+):\s*\{\s*(,?\s*(?:\/\/.*)?)?$/);
+    if (objectMatch) {
+      stack.push(objectMatch[2]);
+    }
+  }
+
+  return false;
 }
 
 function insertRootSection(renderedLines: string[], sectionName: string, bodyLines: string[]): boolean {

@@ -70,6 +70,12 @@ export interface ServerConfig {
   port: number;
 }
 
+export type WsTransportMode = 'unified' | 'split-shadow' | 'split';
+
+export interface RealtimeConfig {
+  wsTransportMode: WsTransportMode;
+}
+
 // ============================================================================
 // PTY Configuration
 // ============================================================================
@@ -95,6 +101,78 @@ export interface PTYConfig {
 export interface SessionConfig {
   idleDelayMs: number;
   runningDelayMs?: number;
+}
+
+// ============================================================================
+// Runtime Resource Limits
+// ============================================================================
+
+export interface HeadlessResourceLimitsConfig {
+  pendingOutputMaxBytes: number;
+  pendingOutputMaxChunks: number;
+  writeLagWarnMs: number;
+  writeBatchMaxBytes: number;
+  overflowPolicy: 'degrade-headless';
+}
+
+export interface ServerWsResourceLimitsConfig {
+  serverBufferedHighWaterBytes: number;
+  serverBufferedHardLimitBytes: number;
+  perClientOutputQueueMaxBytes: number;
+  perClientControlQueueMaxBytes: number;
+  outputCoalesceWindowMs: number;
+}
+
+export interface ClientWsResourceLimitsConfig {
+  inputBackpressureBytes: number;
+  hardReconnectBytes: number;
+}
+
+export interface TerminalResourceLimitsConfig {
+  visibleOutputQueueMaxBytes: number;
+  visibleOutputMaxChunks: number;
+  visibleFlushBudgetBytes: number;
+  hiddenOutputPolicy: 'snapshot-restore' | 'debug-tail';
+  hiddenOutputTailBytes: number;
+  inputQueueMaxBytes: number;
+  inputQueueTtlMs: number;
+  transportOutboxMaxBytes: number;
+  transportOutboxTtlMs: number;
+  scrollbackLines: number;
+}
+
+export interface SnapshotResourceLimitsConfig {
+  perSnapshotMaxChars: number;
+  totalStorageBudgetChars: number;
+  maxEntries: number;
+  tombstoneTtlMs: number;
+}
+
+export interface WorkspaceRuntimeResourceLimitsConfig {
+  maxLiveWorkspaces: number;
+  maxLiveTerminals: number;
+  hiddenRuntimeTtlMs: number;
+}
+
+export interface TelemetryResourceLimitsConfig {
+  sampleIntervalMs: number;
+  recentEventLimit: number;
+}
+
+export interface ResourceLimitsConfig {
+  headless: HeadlessResourceLimitsConfig;
+  ws: ServerWsResourceLimitsConfig;
+  clientWs: ClientWsResourceLimitsConfig;
+  terminal: TerminalResourceLimitsConfig;
+  snapshots: SnapshotResourceLimitsConfig;
+  workspaceRuntime: WorkspaceRuntimeResourceLimitsConfig;
+  telemetry: TelemetryResourceLimitsConfig;
+}
+
+export interface StabilityModesConfig {
+  headlessQueueMode: 'observe' | 'bounded';
+  wsSendMode: 'direct' | 'safe-send-observe' | 'safe-send-enforce';
+  frontendRuntimeResidency: 'legacy' | 'bounded' | 'off';
 }
 
 // ============================================================================
@@ -165,6 +243,9 @@ export interface Config {
   server: ServerConfig;
   pty: PTYConfig;
   session: SessionConfig;
+  realtime?: RealtimeConfig;
+  resourceLimits?: ResourceLimitsConfig;
+  stabilityModes?: StabilityModesConfig;
   ssl?: SSLConfig;
   security?: SecurityConfig;
   logging?: LoggingConfig;

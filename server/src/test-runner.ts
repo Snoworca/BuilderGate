@@ -8,6 +8,10 @@ import { setTimeout as delay } from 'node:timers/promises';
 import type { Config } from './types/config.types.js';
 import type { Session } from './types/index.js';
 import { twoFactorSchema, authSchema } from './schemas/config.schema.js';
+import {
+  resourceLimitsSchema,
+  stabilityModesSchema,
+} from './schemas/config.schema.js';
 import { TOTPService } from './services/TOTPService.js';
 import { generateSync, generateSecret } from 'otplib';
 import { RuntimeConfigStore } from './services/RuntimeConfigStore.js';
@@ -850,6 +854,8 @@ async function testSettingsServiceTwoFactorRuntimeNotCalledOnPersistFailure(): P
         blockedPaths: fixture.fileManager!.blockedPaths,
         cwdCacheTtlMs: fixture.fileManager!.cwdCacheTtlMs,
       },
+      resourceLimits: resourceLimitsSchema.parse(fixture.resourceLimits),
+      stabilityModes: stabilityModesSchema.parse(fixture.stabilityModes),
     }, {}, { dryRun: true });
     assert.equal(dryRun.nextConfig.twoFactor?.issuer, 'PersistFail');
   } finally {
@@ -3536,6 +3542,8 @@ async function testConfigFileRepositoryInsertsMissingUseConpty(): Promise<void> 
         blockedPaths: fixture.fileManager!.blockedPaths,
         cwdCacheTtlMs: fixture.fileManager!.cwdCacheTtlMs,
       },
+      resourceLimits: resourceLimitsSchema.parse(fixture.resourceLimits),
+      stabilityModes: stabilityModesSchema.parse(fixture.stabilityModes),
     }, {}, { dryRun: true, changedKeys: ['pty.useConpty'] });
 
     assert.equal(result.previousConfig.pty.useConpty, true);
@@ -3579,6 +3587,8 @@ async function testConfigFileRepositoryInsertsMissingPtySection(): Promise<void>
         blockedPaths: fixture.fileManager!.blockedPaths,
         cwdCacheTtlMs: fixture.fileManager!.cwdCacheTtlMs,
       },
+      resourceLimits: resourceLimitsSchema.parse(fixture.resourceLimits),
+      stabilityModes: stabilityModesSchema.parse(fixture.stabilityModes),
     }, {}, { dryRun: true, changedKeys: ['pty.shell'] });
 
     assert.equal(result.previousConfig.pty.shell, 'auto');

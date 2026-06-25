@@ -21,7 +21,48 @@ export type EditableSettingsKey =
   | 'fileManager.maxDirectoryEntries'
   | 'fileManager.blockedExtensions'
   | 'fileManager.blockedPaths'
-  | 'fileManager.cwdCacheTtlMs';
+  | 'fileManager.cwdCacheTtlMs'
+  | 'resourceLimits.headless.pendingOutputMaxBytes'
+  | 'resourceLimits.headless.pendingOutputMaxChunks'
+  | 'resourceLimits.headless.writeLagWarnMs'
+  | 'resourceLimits.headless.writeBatchMaxBytes'
+  | 'resourceLimits.headless.overflowPolicy'
+  | 'resourceLimits.ws.serverBufferedHighWaterBytes'
+  | 'resourceLimits.ws.serverBufferedHardLimitBytes'
+  | 'resourceLimits.ws.perClientOutputQueueMaxBytes'
+  | 'resourceLimits.ws.perClientControlQueueMaxBytes'
+  | 'resourceLimits.ws.outputCoalesceWindowMs'
+  | 'resourceLimits.clientWs.inputBackpressureBytes'
+  | 'resourceLimits.clientWs.hardReconnectBytes'
+  | 'resourceLimits.terminal.visibleOutputQueueMaxBytes'
+  | 'resourceLimits.terminal.visibleOutputMaxChunks'
+  | 'resourceLimits.terminal.visibleFlushBudgetBytes'
+  | 'resourceLimits.terminal.hiddenOutputPolicy'
+  | 'resourceLimits.terminal.hiddenOutputTailBytes'
+  | 'resourceLimits.terminal.inputQueueMaxBytes'
+  | 'resourceLimits.terminal.inputQueueTtlMs'
+  | 'resourceLimits.terminal.transportOutboxMaxBytes'
+  | 'resourceLimits.terminal.transportOutboxTtlMs'
+  | 'resourceLimits.terminal.scrollbackLines'
+  | 'resourceLimits.snapshots.perSnapshotMaxChars'
+  | 'resourceLimits.snapshots.totalStorageBudgetChars'
+  | 'resourceLimits.snapshots.maxEntries'
+  | 'resourceLimits.snapshots.tombstoneTtlMs'
+  | 'resourceLimits.workspaceRuntime.maxLiveWorkspaces'
+  | 'resourceLimits.workspaceRuntime.maxLiveTerminals'
+  | 'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs'
+  | 'resourceLimits.telemetry.sampleIntervalMs'
+  | 'resourceLimits.telemetry.recentEventLimit'
+  | 'stabilityModes.headlessQueueMode'
+  | 'stabilityModes.wsSendMode'
+  | 'stabilityModes.frontendRuntimeResidency';
+
+export interface FieldCapabilityConstraints {
+  min?: number;
+  max?: number;
+  step?: number;
+  unit?: 'bytes' | 'ms' | 'count' | 'chars';
+}
 
 export interface FieldCapability {
   applyScope: FieldApplyScope;
@@ -29,6 +70,61 @@ export interface FieldCapability {
   writeOnly: boolean;
   options?: string[];
   reason?: string;
+  constraints?: FieldCapabilityConstraints;
+}
+
+export interface ResourceLimitsSettings {
+  headless: {
+    pendingOutputMaxBytes: number;
+    pendingOutputMaxChunks: number;
+    writeLagWarnMs: number;
+    writeBatchMaxBytes: number;
+    overflowPolicy: 'degrade-headless';
+  };
+  ws: {
+    serverBufferedHighWaterBytes: number;
+    serverBufferedHardLimitBytes: number;
+    perClientOutputQueueMaxBytes: number;
+    perClientControlQueueMaxBytes: number;
+    outputCoalesceWindowMs: number;
+  };
+  clientWs: {
+    inputBackpressureBytes: number;
+    hardReconnectBytes: number;
+  };
+  terminal: {
+    visibleOutputQueueMaxBytes: number;
+    visibleOutputMaxChunks: number;
+    visibleFlushBudgetBytes: number;
+    hiddenOutputPolicy: 'snapshot-restore' | 'debug-tail';
+    hiddenOutputTailBytes: number;
+    inputQueueMaxBytes: number;
+    inputQueueTtlMs: number;
+    transportOutboxMaxBytes: number;
+    transportOutboxTtlMs: number;
+    scrollbackLines: number;
+  };
+  snapshots: {
+    perSnapshotMaxChars: number;
+    totalStorageBudgetChars: number;
+    maxEntries: number;
+    tombstoneTtlMs: number;
+  };
+  workspaceRuntime: {
+    maxLiveWorkspaces: number;
+    maxLiveTerminals: number;
+    hiddenRuntimeTtlMs: number;
+  };
+  telemetry: {
+    sampleIntervalMs: number;
+    recentEventLimit: number;
+  };
+}
+
+export interface StabilityModesSettings {
+  headlessQueueMode: 'observe' | 'bounded';
+  wsSendMode: 'direct' | 'safe-send-observe' | 'safe-send-enforce';
+  frontendRuntimeResidency: 'legacy' | 'bounded' | 'off';
 }
 
 export interface EditableSettingsValues {
@@ -66,7 +162,13 @@ export interface EditableSettingsValues {
     blockedPaths: string[];
     cwdCacheTtlMs: number;
   };
+  resourceLimits: ResourceLimitsSettings;
+  stabilityModes: StabilityModesSettings;
 }
+
+export type ResourceLimitsPatch = {
+  [Section in keyof ResourceLimitsSettings]?: Partial<ResourceLimitsSettings[Section]>;
+};
 
 export interface SettingsSnapshot {
   values: EditableSettingsValues;
@@ -116,6 +218,8 @@ export interface SettingsPatchRequest {
     blockedPaths?: string[];
     cwdCacheTtlMs?: number;
   };
+  resourceLimits?: ResourceLimitsPatch;
+  stabilityModes?: Partial<StabilityModesSettings>;
 }
 
 export interface SettingsApplySummary {

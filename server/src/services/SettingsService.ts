@@ -30,6 +30,64 @@ const originSchema = z.string().refine((value) => {
   }
 }, 'Invalid origin');
 
+const bytesPatch = (min: number, max: number) => z.number().int().min(min).max(max).optional();
+const countPatch = (min: number, max: number) => z.number().int().min(min).max(max).optional();
+const durationPatch = (min: number, max: number) => z.number().int().min(min).max(max).optional();
+
+const resourceLimitsPatchSchema = z.object({
+  headless: z.object({
+    pendingOutputMaxBytes: bytesPatch(1024, 268435456),
+    pendingOutputMaxChunks: countPatch(1, 65536),
+    writeLagWarnMs: durationPatch(1, 60000),
+    writeBatchMaxBytes: bytesPatch(1024, 1048576),
+    overflowPolicy: z.literal('degrade-headless').optional(),
+  }).strict().optional(),
+  ws: z.object({
+    serverBufferedHighWaterBytes: bytesPatch(1024, 268435456),
+    serverBufferedHardLimitBytes: bytesPatch(1024, 536870912),
+    perClientOutputQueueMaxBytes: bytesPatch(1024, 268435456),
+    perClientControlQueueMaxBytes: bytesPatch(1024, 16777216),
+    outputCoalesceWindowMs: durationPatch(0, 1000),
+  }).strict().optional(),
+  clientWs: z.object({
+    inputBackpressureBytes: bytesPatch(1024, 268435456),
+    hardReconnectBytes: bytesPatch(1024, 536870912),
+  }).strict().optional(),
+  terminal: z.object({
+    visibleOutputQueueMaxBytes: bytesPatch(1024, 268435456),
+    visibleOutputMaxChunks: countPatch(1, 65536),
+    visibleFlushBudgetBytes: bytesPatch(1024, 16777216),
+    hiddenOutputPolicy: z.enum(['snapshot-restore', 'debug-tail']).optional(),
+    hiddenOutputTailBytes: bytesPatch(0, 16777216),
+    inputQueueMaxBytes: bytesPatch(1024, 16777216),
+    inputQueueTtlMs: durationPatch(1, 60000),
+    transportOutboxMaxBytes: bytesPatch(1024, 16777216),
+    transportOutboxTtlMs: durationPatch(1, 60000),
+    scrollbackLines: countPatch(0, 50000),
+  }).strict().optional(),
+  snapshots: z.object({
+    perSnapshotMaxChars: countPatch(1024, 50000000),
+    totalStorageBudgetChars: countPatch(1024, 200000000),
+    maxEntries: countPatch(1, 1024),
+    tombstoneTtlMs: durationPatch(1000, 604800000),
+  }).strict().optional(),
+  workspaceRuntime: z.object({
+    maxLiveWorkspaces: countPatch(1, 10),
+    maxLiveTerminals: countPatch(1, 128),
+    hiddenRuntimeTtlMs: durationPatch(1000, 3600000),
+  }).strict().optional(),
+  telemetry: z.object({
+    sampleIntervalMs: durationPatch(1000, 3600000),
+    recentEventLimit: countPatch(1, 10000),
+  }).strict().optional(),
+}).strict();
+
+const stabilityModesPatchSchema = z.object({
+  headlessQueueMode: z.enum(['observe', 'bounded']).optional(),
+  wsSendMode: z.enum(['direct', 'safe-send-observe', 'safe-send-enforce']).optional(),
+  frontendRuntimeResidency: z.enum(['legacy', 'bounded', 'off']).optional(),
+}).strict();
+
 const patchSchema: z.ZodType<SettingsPatchRequest> = z.object({
   auth: z.object({
     currentPassword: z.string().min(1).optional(),
@@ -68,6 +126,8 @@ const patchSchema: z.ZodType<SettingsPatchRequest> = z.object({
     blockedPaths: z.array(z.string().min(1)).optional(),
     cwdCacheTtlMs: z.number().int().min(100).max(60000).optional(),
   }).strict().optional(),
+  resourceLimits: resourceLimitsPatchSchema.optional(),
+  stabilityModes: stabilityModesPatchSchema.optional(),
 }).strict();
 
 interface SettingsServiceDeps {
@@ -157,7 +217,7 @@ export class SettingsService {
       };
     }
 
-    const mergedValues = normalizeEditableValues(this.deps.runtimeConfigStore.mergeEditablePatch(patch));
+    const mergedValues = normalizeEditableValues(mergeEditablePatchOrThrow(this.deps.runtimeConfigStore, patch));
     validateCorsPatch(mergedValues, actorContext.origin);
     validatePlatformPatch(mergedValues, changedKeys, this.platform);
     validateCapabilityPatch(mergedValues, changedKeys, this.getSettingsSnapshot());
@@ -291,8 +351,50 @@ function extractChangedKeys(patch: SettingsPatchRequest): EditableSettingsKey[] 
   if (patch.fileManager?.blockedExtensions !== undefined) changed.add('fileManager.blockedExtensions');
   if (patch.fileManager?.blockedPaths !== undefined) changed.add('fileManager.blockedPaths');
   if (patch.fileManager?.cwdCacheTtlMs !== undefined) changed.add('fileManager.cwdCacheTtlMs');
+  addChangedNestedKeys(changed, 'resourceLimits.headless', patch.resourceLimits?.headless);
+  addChangedNestedKeys(changed, 'resourceLimits.ws', patch.resourceLimits?.ws);
+  addChangedNestedKeys(changed, 'resourceLimits.clientWs', patch.resourceLimits?.clientWs);
+  addChangedNestedKeys(changed, 'resourceLimits.terminal', patch.resourceLimits?.terminal);
+  addChangedNestedKeys(changed, 'resourceLimits.snapshots', patch.resourceLimits?.snapshots);
+  addChangedNestedKeys(changed, 'resourceLimits.workspaceRuntime', patch.resourceLimits?.workspaceRuntime);
+  addChangedNestedKeys(changed, 'resourceLimits.telemetry', patch.resourceLimits?.telemetry);
+  addChangedNestedKeys(changed, 'stabilityModes', patch.stabilityModes);
 
   return [...changed];
+}
+
+function addChangedNestedKeys(
+  changed: Set<EditableSettingsKey>,
+  prefix: string,
+  patch: Record<string, unknown> | undefined,
+): void {
+  if (!patch) {
+    return;
+  }
+
+  for (const [key, value] of Object.entries(patch)) {
+    if (value !== undefined) {
+      changed.add(`${prefix}.${key}` as EditableSettingsKey);
+    }
+  }
+}
+
+function mergeEditablePatchOrThrow(
+  runtimeConfigStore: RuntimeConfigStore,
+  patch: SettingsPatchRequest,
+): EditableSettingsValues {
+  try {
+    return runtimeConfigStore.mergeEditablePatch(patch);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        'Invalid settings patch',
+        { issues: error.issues },
+      );
+    }
+    throw error;
+  }
 }
 
 function normalizeEditableValues(values: EditableSettingsValues): EditableSettingsValues {
@@ -427,6 +529,16 @@ function validateCapabilityPatch(
   changedKeys: EditableSettingsKey[],
   snapshot: EditableSettingsSnapshot,
 ): void {
+  for (const key of changedKeys) {
+    const capability = snapshot.capabilities[key];
+    if (capability && !capability.available) {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        capability.reason ?? `Setting is not available: ${key}`,
+      );
+    }
+  }
+
   if (changedKeys.includes('pty.useConpty') && !snapshot.capabilities['pty.useConpty']?.available) {
     throw new AppError(ErrorCode.VALIDATION_ERROR, snapshot.capabilities['pty.useConpty']?.reason ?? 'Selected PTY backend is unavailable on this host');
   }

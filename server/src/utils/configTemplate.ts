@@ -38,6 +38,64 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
     runningDelayMs: 250,
   },
 
+  realtime: {
+    wsTransportMode: "unified",
+  },
+
+  resourceLimits: {
+    headless: {
+      pendingOutputMaxBytes: 8388608,
+      pendingOutputMaxChunks: 1024,
+      writeLagWarnMs: 500,
+      writeBatchMaxBytes: 65536,
+      overflowPolicy: "degrade-headless",
+    },
+    ws: {
+      serverBufferedHighWaterBytes: 8388608,
+      serverBufferedHardLimitBytes: 33554432,
+      perClientOutputQueueMaxBytes: 2097152,
+      perClientControlQueueMaxBytes: 262144,
+      outputCoalesceWindowMs: 16,
+    },
+    clientWs: {
+      inputBackpressureBytes: 1048576,
+      hardReconnectBytes: 4194304,
+    },
+    terminal: {
+      visibleOutputQueueMaxBytes: 4194304,
+      visibleOutputMaxChunks: 512,
+      visibleFlushBudgetBytes: 262144,
+      hiddenOutputPolicy: "snapshot-restore",
+      hiddenOutputTailBytes: 0,
+      inputQueueMaxBytes: 65536,
+      inputQueueTtlMs: 1500,
+      transportOutboxMaxBytes: 65536,
+      transportOutboxTtlMs: 1500,
+      scrollbackLines: 10000,
+    },
+    snapshots: {
+      perSnapshotMaxChars: 2000000,
+      totalStorageBudgetChars: 3000000,
+      maxEntries: 16,
+      tombstoneTtlMs: 86400000,
+    },
+    workspaceRuntime: {
+      maxLiveWorkspaces: 3,
+      maxLiveTerminals: 12,
+      hiddenRuntimeTtlMs: 60000,
+    },
+    telemetry: {
+      sampleIntervalMs: 60000,
+      recentEventLimit: 256,
+    },
+  },
+
+  stabilityModes: {
+    headlessQueueMode: "observe",
+    wsSendMode: "direct",
+    frontendRuntimeResidency: "legacy",
+  },
+
   ssl: {
     certPath: "",
     keyPath: "",

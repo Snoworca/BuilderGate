@@ -12,6 +12,7 @@ import type { IncomingMessage } from 'http';
 import type { Duplex } from 'stream';
 import type { AuthService } from '../services/AuthService.js';
 import type { SessionManager } from '../services/SessionManager.js';
+import type { RealtimeConfig, ResourceLimitsConfig } from '../types/config.types.js';
 import type {
   ClientWsMessage,
   InputDebugMetadata,
@@ -41,8 +42,14 @@ const MAX_REPLAY_QUEUED_INPUT_BYTES = 64 * 1024;
 const MAX_REPLAY_QUEUED_INPUT_AGE_MS = 3_000;
 const MAX_INPUT_SEQUENCE_SPAN = 1024;
 
+type PartialResourceLimits = {
+  [K in keyof ResourceLimitsConfig]?: Partial<ResourceLimitsConfig[K]>;
+};
+
 interface WsRouterOptions {
   inputReliabilityMode?: InputReliabilityMode;
+  realtime?: Partial<RealtimeConfig>;
+  resourceLimits?: PartialResourceLimits;
 }
 
 type InputValidationResult =

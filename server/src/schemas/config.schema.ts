@@ -49,6 +49,13 @@ export const serverSchema = z.object({
   port: z.number().min(1).max(65535).default(2002)
 });
 
+const defaultObject = <T extends z.ZodType>(schema: T) =>
+  z.preprocess((value) => value === undefined ? {} : value, schema);
+
+export const realtimeSchema = defaultObject(z.object({
+  wsTransportMode: z.enum(['unified', 'split-shadow', 'split']).default('unified'),
+}).strict());
+
 // ============================================================================
 // PTY Schema
 // ============================================================================
@@ -78,6 +85,111 @@ export const sessionSchema = z.object({
   idleDelayMs: z.number().min(50).max(5000).default(200),
   runningDelayMs: z.number().min(0).max(2000).default(250)
 });
+
+// ============================================================================
+// Runtime Resource Limit Schemas
+// ============================================================================
+
+const bytesLimit = (min: number, max: number, defaultValue: number) =>
+  z.number().int().min(min).max(max).default(defaultValue);
+
+const countLimit = (min: number, max: number, defaultValue: number) =>
+  z.number().int().min(min).max(max).default(defaultValue);
+
+const durationLimit = (min: number, max: number, defaultValue: number) =>
+  z.number().int().min(min).max(max).default(defaultValue);
+
+export const headlessResourceLimitsSchema = defaultObject(z.object({
+  pendingOutputMaxBytes: bytesLimit(1024, 268435456, 8388608),
+  pendingOutputMaxChunks: countLimit(1, 65536, 1024),
+  writeLagWarnMs: durationLimit(1, 60000, 500),
+  writeBatchMaxBytes: bytesLimit(1024, 1048576, 65536),
+  overflowPolicy: z.literal('degrade-headless').default('degrade-headless'),
+}).strict());
+
+export const wsResourceLimitsSchema = defaultObject(z.object({
+  serverBufferedHighWaterBytes: bytesLimit(1024, 268435456, 8388608),
+  serverBufferedHardLimitBytes: bytesLimit(1024, 536870912, 33554432),
+  perClientOutputQueueMaxBytes: bytesLimit(1024, 268435456, 2097152),
+  perClientControlQueueMaxBytes: bytesLimit(1024, 16777216, 262144),
+  outputCoalesceWindowMs: durationLimit(0, 1000, 16),
+}).strict()).superRefine((value, ctx) => {
+  if (value.serverBufferedHardLimitBytes <= value.serverBufferedHighWaterBytes) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['serverBufferedHardLimitBytes'],
+      message: 'serverBufferedHardLimitBytes must be greater than serverBufferedHighWaterBytes',
+    });
+  }
+});
+
+export const clientWsResourceLimitsSchema = defaultObject(z.object({
+  inputBackpressureBytes: bytesLimit(1024, 268435456, 1048576),
+  hardReconnectBytes: bytesLimit(1024, 536870912, 4194304),
+}).strict()).superRefine((value, ctx) => {
+  if (value.hardReconnectBytes <= value.inputBackpressureBytes) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['hardReconnectBytes'],
+      message: 'hardReconnectBytes must be greater than inputBackpressureBytes',
+    });
+  }
+});
+
+export const terminalResourceLimitsSchema = defaultObject(z.object({
+  visibleOutputQueueMaxBytes: bytesLimit(1024, 268435456, 4194304),
+  visibleOutputMaxChunks: countLimit(1, 65536, 512),
+  visibleFlushBudgetBytes: bytesLimit(1024, 16777216, 262144),
+  hiddenOutputPolicy: z.enum(['snapshot-restore', 'debug-tail']).default('snapshot-restore'),
+  hiddenOutputTailBytes: bytesLimit(0, 16777216, 0),
+  inputQueueMaxBytes: bytesLimit(1024, 16777216, 65536),
+  inputQueueTtlMs: durationLimit(1, 60000, 1500),
+  transportOutboxMaxBytes: bytesLimit(1024, 16777216, 65536),
+  transportOutboxTtlMs: durationLimit(1, 60000, 1500),
+  scrollbackLines: countLimit(0, 50000, 10000),
+}).strict());
+
+export const snapshotResourceLimitsSchema = defaultObject(z.object({
+  perSnapshotMaxChars: countLimit(1024, 50000000, 2000000),
+  totalStorageBudgetChars: countLimit(1024, 200000000, 3000000),
+  maxEntries: countLimit(1, 1024, 16),
+  tombstoneTtlMs: durationLimit(1000, 604800000, 86400000),
+}).strict()).superRefine((value, ctx) => {
+  if (value.totalStorageBudgetChars < value.perSnapshotMaxChars) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['totalStorageBudgetChars'],
+      message: 'totalStorageBudgetChars must be greater than or equal to perSnapshotMaxChars',
+    });
+  }
+});
+
+export const workspaceRuntimeResourceLimitsSchema = defaultObject(z.object({
+  maxLiveWorkspaces: countLimit(1, 10, 3),
+  maxLiveTerminals: countLimit(1, 128, 12),
+  hiddenRuntimeTtlMs: durationLimit(1000, 3600000, 60000),
+}).strict());
+
+export const telemetryResourceLimitsSchema = defaultObject(z.object({
+  sampleIntervalMs: durationLimit(1000, 3600000, 60000),
+  recentEventLimit: countLimit(1, 10000, 256),
+}).strict());
+
+export const resourceLimitsSchema = defaultObject(z.object({
+  headless: headlessResourceLimitsSchema,
+  ws: wsResourceLimitsSchema,
+  clientWs: clientWsResourceLimitsSchema,
+  terminal: terminalResourceLimitsSchema,
+  snapshots: snapshotResourceLimitsSchema,
+  workspaceRuntime: workspaceRuntimeResourceLimitsSchema,
+  telemetry: telemetryResourceLimitsSchema,
+}).strict());
+
+export const stabilityModesSchema = defaultObject(z.object({
+  headlessQueueMode: z.enum(['observe', 'bounded']).default('observe'),
+  wsSendMode: z.enum(['direct', 'safe-send-observe', 'safe-send-enforce']).default('direct'),
+  frontendRuntimeResidency: z.enum(['legacy', 'bounded', 'off']).default('legacy'),
+}).strict());
 
 // ============================================================================
 // Two-Factor Authentication Schema (Phase 3)
@@ -164,6 +276,9 @@ export const configSchema = z.object({
   server: serverSchema,
   pty: ptySchema,
   session: sessionSchema,
+  realtime: realtimeSchema,
+  resourceLimits: resourceLimitsSchema,
+  stabilityModes: stabilityModesSchema,
   ssl: sslSchema.optional(),
   security: securitySchema.optional(),
   logging: loggingSchema.optional(),

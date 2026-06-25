@@ -86,3 +86,105 @@ test('RuntimeConfigStore marks platform-specific capabilities and merges editabl
   assert.equal(merged.auth.durationMs, 3600000);
   assert.deepEqual(merged.fileManager.blockedExtensions, ['.ps1']);
 });
+
+test('RuntimeConfigStore exposes Wave 0 resource limits in snapshots and public runtime config', () => {
+  const store = new RuntimeConfigStore({
+    ...createConfigFixture(),
+    realtime: {
+      wsTransportMode: 'split-shadow',
+    },
+    stabilityModes: {
+      headlessQueueMode: 'observe',
+      wsSendMode: 'direct',
+      frontendRuntimeResidency: 'bounded',
+    },
+  }, 'linux');
+  const snapshot = store.getSnapshot();
+  const publicConfig = store.getPublicRuntimeConfig('queue');
+
+  assert.equal(snapshot.values.resourceLimits.clientWs.inputBackpressureBytes, 1048576);
+  assert.equal(snapshot.values.resourceLimits.terminal.hiddenOutputPolicy, 'snapshot-restore');
+  assert.equal(snapshot.values.stabilityModes.frontendRuntimeResidency, 'bounded');
+  assert.equal(snapshot.capabilities['resourceLimits.clientWs.inputBackpressureBytes'].applyScope, 'immediate');
+  assert.equal(snapshot.capabilities['resourceLimits.ws.serverBufferedHighWaterBytes'].available, false);
+  assert.match(snapshot.capabilities['resourceLimits.ws.serverBufferedHighWaterBytes'].reason ?? '', /later stability wave/);
+  assert.equal(snapshot.capabilities['stabilityModes.wsSendMode'].available, false);
+  assert.equal(snapshot.capabilities['stabilityModes.frontendRuntimeResidency'].available, true);
+  assert.deepEqual(snapshot.capabilities['resourceLimits.clientWs.inputBackpressureBytes'].constraints, {
+    min: 1024,
+    max: 268435456,
+    step: 1,
+    unit: 'bytes',
+  });
+  assert.deepEqual(publicConfig, {
+    inputReliabilityMode: 'queue',
+    wsTransportMode: 'unified',
+    stabilityModes: {
+      frontendRuntimeResidency: 'bounded',
+    },
+    resourceLimits: {
+      clientWs: {
+        inputBackpressureBytes: 1048576,
+        hardReconnectBytes: 4194304,
+      },
+      terminal: {
+        visibleOutputQueueMaxBytes: 4194304,
+        visibleOutputMaxChunks: 512,
+        visibleFlushBudgetBytes: 262144,
+        hiddenOutputPolicy: 'snapshot-restore',
+        hiddenOutputTailBytes: 0,
+        inputQueueMaxBytes: 65536,
+        inputQueueTtlMs: 1500,
+        transportOutboxMaxBytes: 65536,
+        transportOutboxTtlMs: 1500,
+        scrollbackLines: 10000,
+      },
+      snapshots: {
+        perSnapshotMaxChars: 2000000,
+        totalStorageBudgetChars: 3000000,
+        maxEntries: 16,
+        tombstoneTtlMs: 86400000,
+      },
+      workspaceRuntime: {
+        maxLiveWorkspaces: 3,
+        maxLiveTerminals: 12,
+        hiddenRuntimeTtlMs: 60000,
+      },
+    },
+  });
+});
+
+test('RuntimeConfigStore validates Wave 0 resource limit patches after merging', () => {
+  const store = new RuntimeConfigStore(createConfigFixture(), 'linux');
+  const merged = store.mergeEditablePatch({
+    resourceLimits: {
+      clientWs: {
+        inputBackpressureBytes: 2000000,
+        hardReconnectBytes: 8000000,
+      },
+      terminal: {
+        hiddenOutputPolicy: 'debug-tail',
+        hiddenOutputTailBytes: 4096,
+      },
+    },
+    stabilityModes: {
+      frontendRuntimeResidency: 'bounded',
+    },
+  });
+
+  assert.equal(merged.resourceLimits.clientWs.inputBackpressureBytes, 2000000);
+  assert.equal(merged.resourceLimits.terminal.hiddenOutputPolicy, 'debug-tail');
+  assert.equal(merged.resourceLimits.terminal.hiddenOutputTailBytes, 4096);
+  assert.equal(merged.stabilityModes.frontendRuntimeResidency, 'bounded');
+  assert.throws(
+    () => store.mergeEditablePatch({
+      resourceLimits: {
+        clientWs: {
+          inputBackpressureBytes: 8000000,
+          hardReconnectBytes: 2000000,
+        },
+      },
+    }),
+    /hardReconnectBytes/i,
+  );
+});

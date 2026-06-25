@@ -1,0 +1,166 @@
+{
+  "schema_version": "1.1.0",
+  "plan_contract": "1.2.0",
+  "run_id": "2026-06-25.projectmaster.buildergate-wave0",
+  "target": "0.5.5-buildergate-stability",
+  "plan_version": "0.1.0",
+  "generated_at": "2026-06-25T00:00:00Z",
+  "tool_versions": {
+    "speckiwi": "mcp",
+    "kiwi_planner": "0.6.0",
+    "validator": "manual"
+  },
+  "tdd_policy": "relaxed",
+  "md_path": "docs/plans/2026-06-25.projectmaster.buildergate-wave0.plan.md",
+  "md_sha256": "",
+  "phases": [
+    { "id": "PH-001", "title": "Server Config Contract", "goal": "Add typed defaults and strict validation", "depends_on": [], "task_ids": ["T-PH001-01"] },
+    { "id": "PH-002", "title": "Settings And Persistence", "goal": "Expose and persist editable limits/modes", "depends_on": ["PH-001"], "task_ids": ["T-PH002-01"] },
+    { "id": "PH-003", "title": "Runtime Projection And Frontend Loader", "goal": "Publish and consume public runtime config", "depends_on": ["PH-001", "PH-002"], "task_ids": ["T-PH003-01"] },
+    { "id": "PH-004", "title": "Verification And SRS Evidence", "goal": "Run focused checks and record evidence", "depends_on": ["PH-001", "PH-002", "PH-003"], "task_ids": ["T-PH004-01"] }
+  ],
+  "tasks": [
+    {
+      "id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "title": "Server config schema/types/defaults",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-008"],
+      "files": [
+        { "path": "server/src/types/config.types.ts" },
+        { "path": "server/src/schemas/config.schema.ts" },
+        { "path": "server/src/utils/configTemplate.ts" },
+        { "path": "server/config.json5.example" },
+        { "path": "server/src/ws/WsRouter.ts" }
+      ],
+      "action": "Add ResourceLimitsConfig, StabilityModesConfig, RealtimeConfig, schema defaults, strict validation, config template/example sections, and non-behavioral WsRouter option typing.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "npm --prefix server run build && node --test server/dist/schemas/config.schema.test.js server/dist/utils/configTemplate.test.js", "expected_exit": 0 }],
+      "verification_cmd": { "posix": "npm --prefix server run build && node --test server/dist/schemas/config.schema.test.js server/dist/utils/configTemplate.test.js", "windows": "npm --prefix server run build; node --test server/dist/schemas/config.schema.test.js server/dist/utils/configTemplate.test.js" },
+      "dod": ["resourceLimits defaults parse", "invalid nested sections reject", "template/example include defaults", "WsRouter option typing compiles"],
+      "rollback": "Remove additive config fields and schema/template/example sections.",
+      "trace_links": [],
+      "estimated_effort": "M",
+      "depends_on_task": [],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-6"],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          { "id": "TC-REQ-FR-BGSTAB-008-AC1-01", "req_id": "FR-BGSTAB-008", "ac_refs": ["AC-1", "AC-2"], "test_file": "server/src/schemas/config.schema.test.ts", "kind": "unit" },
+          { "id": "TC-REQ-FR-BGSTAB-008-AC3-01", "req_id": "FR-BGSTAB-008", "ac_refs": ["AC-3"], "test_file": "server/src/utils/configTemplate.test.ts", "kind": "unit" }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "title": "Settings snapshot and config persistence",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-008"],
+      "files": [
+        { "path": "server/src/types/settings.types.ts" },
+        { "path": "frontend/src/types/settings.ts" },
+        { "path": "server/src/services/RuntimeConfigStore.ts" },
+        { "path": "server/src/services/SettingsService.ts" },
+        { "path": "server/src/services/ConfigFileRepository.ts" },
+        { "path": "server/src/services/RuntimeConfigStore.test.ts" },
+        { "path": "server/src/test-runner.ts" }
+      ],
+      "action": "Add editable values, capabilities with constraints, patch validation, dry-run persistence, rollback-safe apply summaries, and focused tests.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "npm --prefix server test", "expected_exit": 0 }],
+      "verification_cmd": { "posix": "npm --prefix server test", "windows": "npm --prefix server test" },
+      "dod": ["Settings snapshot includes selected limits/modes", "invalid patches reject", "config persistence can insert missing sections", "apply summary scopes are truthful"],
+      "rollback": "Remove settings keys and persistence replacements.",
+      "trace_links": [],
+      "estimated_effort": "L",
+      "depends_on_task": ["T-PH001-01"],
+      "covers_ac": ["AC-4", "AC-6"],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          { "id": "TC-REQ-FR-BGSTAB-008-AC4-01", "req_id": "FR-BGSTAB-008", "ac_refs": ["AC-4"], "test_file": "server/src/services/RuntimeConfigStore.test.ts", "kind": "unit" }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "title": "Runtime config projection and frontend parser",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-008"],
+      "files": [
+        { "path": "server/src/index.ts" },
+        { "path": "frontend/src/utils/inputReliabilityMode.ts" }
+      ],
+      "action": "Extend /api/runtime-config to expose browser-safe values and update frontend runtime config getters/version/subscription with safe fallback validation.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "node --experimental-strip-types --test frontend/tests/unit/runtimeConfig.test.ts && npm --prefix frontend run typecheck", "expected_exit": 0 }],
+      "verification_cmd": { "posix": "node --experimental-strip-types --test frontend/tests/unit/runtimeConfig.test.ts && npm --prefix frontend run typecheck", "windows": "node --experimental-strip-types --test frontend/tests/unit/runtimeConfig.test.ts; npm --prefix frontend run typecheck" },
+      "dod": ["public projection excludes server-only internals", "frontend getters expose defaults and parsed values", "unsupported wsTransportMode falls back to unified", "config version subscribers fire"],
+      "rollback": "Return route and frontend loader to inputReliabilityMode-only behavior.",
+      "trace_links": [],
+      "estimated_effort": "M",
+      "depends_on_task": ["T-PH002-01"],
+      "covers_ac": ["AC-5", "AC-6"],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          { "id": "TC-REQ-FR-BGSTAB-008-AC5-01", "req_id": "FR-BGSTAB-008", "ac_refs": ["AC-5"], "test_file": "frontend/tests/unit/runtimeConfig.test.ts", "kind": "unit" }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH004-01",
+      "phase_id": "PH-004",
+      "title": "Verification and evidence registration",
+      "type": "review",
+      "req_ids": ["FR-BGSTAB-008"],
+      "files": [
+        { "path": "docs/spec/30.buildergate-stability.srs.md" },
+        { "path": "docs/analysis/kiwi-review-fix-loop-2026-06-25.projectmaster.buildergate-wave0/report.md" }
+      ],
+      "action": "Run focused checks, independent review, and register verification evidence for FR-BGSTAB-008 if checks pass.",
+      "acceptance_tests": [{ "kind": "checklist", "items": ["focused checks recorded", "review clean", "evidence registered"] }],
+      "verification_cmd": null,
+      "dod": ["focused server/frontend commands recorded", "independent review has no CRITICAL/HIGH findings", "SpecKiwi evidence references concrete tests/reports"],
+      "rollback": "Do not register evidence until checks pass.",
+      "trace_links": [],
+      "estimated_effort": "S",
+      "depends_on_task": ["T-PH003-01"],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6"],
+      "tdd": {
+        "applicable": false,
+        "phase": "n/a",
+        "exempt_reason": "Review and evidence registration task does not modify runtime code.",
+        "test_cases": []
+      }
+    }
+  ],
+  "coverage": [
+    { "req_id": "FR-BGSTAB-008", "stability": "evolving", "ac_total": 6, "ac_covered": 6, "missing_ac_ids": [], "covered_tasks": ["T-PH001-01", "T-PH002-01", "T-PH003-01", "T-PH004-01"] }
+  ],
+  "orphans": [],
+  "unreferenced_reqs": [],
+  "excluded_reqs": [],
+  "deferred_ac": [],
+  "risks": [
+    { "id": "R-001", "severity": "high", "description": "Behavior switches could accidentally enable later-wave behavior.", "mitigation": "Keep defaults at legacy/observe/direct and add tests for defaults.", "affected_task_ids": ["T-PH001-01", "T-PH003-01"] }
+  ],
+  "open_questions": [],
+  "external_module_impact": [],
+  "tdd_decisions": [],
+  "coder_handoff_readiness": [
+    { "phase_id": "PH-001", "ready": true, "blockers": [] },
+    { "phase_id": "PH-002", "ready": true, "blockers": [] },
+    { "phase_id": "PH-003", "ready": true, "blockers": [] },
+    { "phase_id": "PH-004", "ready": true, "blockers": [] }
+  ],
+  "mcp_call_log": []
+}

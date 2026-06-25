@@ -9,6 +9,8 @@
 // ============================================================================
 
 export type InputReliabilityMode = 'observe' | 'queue' | 'strict';
+export type WsTransportMode = 'unified' | 'split-shadow' | 'split';
+export type WsChannelRole = 'single' | 'control' | 'output';
 
 export type TerminalInputBarrierReason =
   | 'none'

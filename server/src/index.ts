@@ -257,9 +257,7 @@ function setupRoutes(): void {
   });
 
   app.get('/api/runtime-config', noCacheMiddleware, (_req, res) => {
-    res.json({
-      inputReliabilityMode,
-    });
+    res.json(runtimeConfigStore.getPublicRuntimeConfig(inputReliabilityMode));
   });
 
   app.use('/api/internal', createInternalShutdownRoutes({
