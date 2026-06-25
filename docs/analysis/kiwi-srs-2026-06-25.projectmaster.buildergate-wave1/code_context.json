@@ -1,0 +1,58 @@
+{
+  "relevant_files": [
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "155-194, 274-330, 502-505, 823-871, 1457-1460, 1928-1956",
+      "signature": "SessionData, SessionManager.createSession, ptyProcess.onExit, deleteSession, deleteMultipleSessions, getObservabilitySnapshot",
+      "relevance": "Primary lifecycle anchor for PTY creation, delete, process-exit broadcast, multi-delete, and session observability."
+    },
+    {
+      "path": "server/src/types/config.types.ts",
+      "line_range": "101-104, 242-248",
+      "signature": "SessionConfig, Config",
+      "relevance": "Typed session config currently lacks processCleanup."
+    },
+    {
+      "path": "server/src/schemas/config.schema.ts",
+      "line_range": "84-87, 275-281",
+      "signature": "sessionSchema, configSchema",
+      "relevance": "Strict defaults and validation site for session.processCleanup."
+    },
+    {
+      "path": "server/src/utils/configTemplate.ts",
+      "line_range": "36-39",
+      "signature": "renderBootstrapConfigTemplate",
+      "relevance": "Bootstrap template currently emits session idle/running defaults only."
+    },
+    {
+      "path": "server/config.json5.example",
+      "line_range": "57-116",
+      "signature": "example config sections",
+      "relevance": "Human-facing config example needs processCleanup defaults."
+    },
+    {
+      "path": "server/src/index.ts",
+      "line_range": "286-292",
+      "signature": "GET /api/sessions/telemetry",
+      "relevance": "Existing telemetry route can expose cleanup telemetry additively."
+    },
+    {
+      "path": "server/src/test-runner.ts",
+      "line_range": "1225-1253, 1870-1974",
+      "signature": "SessionManager tests with fake PTY",
+      "relevance": "Regression tests can extend existing SessionManager fake PTY coverage."
+    }
+  ],
+  "related_modules": [
+    "server/src/services/WorkspaceService.ts routes tab/workspace delete and restart to SessionManager.deleteSession/deleteMultipleSessions.",
+    "server/src/routes/sessionRoutes.ts exposes direct session delete.",
+    "tools/daemon/process-info.js contains an existing PID identity pattern for reference only."
+  ],
+  "missing_evidence": [
+    "No current cleanup telemetry for session-owned process metadata.",
+    "No process-exit cleanup observation is recorded on PTY onExit.",
+    "No session.processCleanup config contract exists.",
+    "No bounded recent cleanup result snapshot exists in /api/sessions/telemetry."
+  ],
+  "external_paths_detected": []
+}

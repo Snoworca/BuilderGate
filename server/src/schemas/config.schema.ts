@@ -81,9 +81,17 @@ export const ptySchema = ptySchemaInput.transform(({ maxBufferSize, maxSnapshotB
 // Session Schema
 // ============================================================================
 
+export const sessionProcessCleanupSchema = defaultObject(z.object({
+  mode: z.enum(['legacy', 'observe', 'enforce']).default('observe'),
+  gracefulWaitMs: z.number().int().min(0).max(60000).default(750),
+  forceWaitMs: z.number().int().min(0).max(60000).default(1500),
+  descendantSampleLimit: z.number().int().min(1).max(4096).default(64),
+}).strict());
+
 export const sessionSchema = z.object({
   idleDelayMs: z.number().min(50).max(5000).default(200),
-  runningDelayMs: z.number().min(0).max(2000).default(250)
+  runningDelayMs: z.number().min(0).max(2000).default(250),
+  processCleanup: sessionProcessCleanupSchema,
 });
 
 // ============================================================================

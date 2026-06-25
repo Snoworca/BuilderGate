@@ -119,6 +119,12 @@ async function main(): Promise<void> {
     { name: 'SessionManager WSL shell preserves default bootstrap args', run: testSessionManagerWslBootstrapArgs },
     { name: 'SessionManager bash shell env keeps BASH_ENV bootstrap on Windows hosts', run: testSessionManagerWindowsBashEnvBootstrap },
     { name: 'bash OSC133 hook stays BASH_ENV based and avoids rcfile bootstrap', run: testBashOsc133HookAvoidsRcfileBootstrap },
+    { name: 'SessionManager records observe-mode cleanup telemetry on delete', run: testSessionManagerRecordsObserveCleanupTelemetryOnDelete },
+    { name: 'SessionManager records natural process exits once', run: testSessionManagerRecordsNaturalProcessExitOnce },
+    { name: 'SessionManager does not double-count delete followed by process exit', run: testSessionManagerDoesNotDoubleCountDeleteThenProcessExit },
+    { name: 'SessionManager default cleanup inspector skips unverified observations', run: testSessionManagerDefaultCleanupInspectorSkipsUnverified },
+    { name: 'SessionManager records unverified cleanup skips without extra kills', run: testSessionManagerCleanupTelemetryRecordsUnverifiedSkip },
+    { name: 'SessionManager bounds recent cleanup telemetry results', run: testSessionManagerCleanupTelemetryBoundsRecentResults },
     { name: 'SessionManager keeps Hermes submit idle in bash heuristic mode', run: testSessionManagerHermesBashSubmitStaysIdle },
     { name: 'SessionManager keeps Codex submit idle in bash heuristic mode', run: testSessionManagerCodexBashSubmitStaysIdle },
     { name: 'SessionManager keeps Claude submit idle in bash heuristic mode', run: testSessionManagerClaudeBashSubmitStaysIdle },
@@ -231,6 +237,7 @@ async function main(): Promise<void> {
     { name: 'WorkspaceService restartTab invalidates old session lineage and preserves lastCwd', run: testWorkspaceServiceRestartTab },
     { name: 'WorkspaceService restartTab preserves the old session when replacement creation fails', run: testWorkspaceServiceRestartTabCreateFailure },
     { name: 'WorkspaceService deleteWorkspace clears workspace sessions in bulk', run: testWorkspaceServiceDeleteWorkspace },
+    { name: 'WorkspaceService passes session cleanup reasons', run: testWorkspaceServicePassesSessionCleanupReasons },
     { name: 'WorkspaceService orphan recovery recreates fresh session ids with saved cwd', run: testWorkspaceServiceCheckOrphanTabs },
     { name: 'WorkspaceService infers tab name source for default and legacy names', run: testWorkspaceServiceTabNameSourceDefaults },
     { name: 'WorkspaceService applies terminal titles and broadcasts tab metadata changes', run: testWorkspaceServiceApplyTerminalTitle },
@@ -1254,6 +1261,253 @@ function createForegroundSessionHarness(
       assert.equal(killCalled, true);
     },
   };
+}
+
+function readCleanupTelemetry(manager: SessionManager): any {
+  return (manager.getObservabilitySnapshot() as any).cleanup;
+}
+
+function createProcessCleanupSessionHarness(options: {
+  pid?: number | null;
+  processCleanup?: Partial<{
+    mode: 'legacy' | 'observe' | 'enforce';
+    gracefulWaitMs: number;
+    forceWaitMs: number;
+    descendantSampleLimit: number;
+  }>;
+  processInspector?: (...args: any[]) => any;
+} = {}) {
+  let exitHandler: ((event: { exitCode: number; signal?: number }) => void) | null = null;
+  let killCalls = 0;
+  const ptyPid = options.pid === null ? undefined : options.pid ?? 4321;
+  const deps: any = {
+    platform: 'linux',
+    spawnPty: ((spawnShell: string, spawnArgs: string[], spawnOptions: { cols?: number; rows?: number }) => {
+      return {
+        pid: ptyPid,
+        cols: spawnOptions.cols ?? 80,
+        rows: spawnOptions.rows ?? 24,
+        process: spawnShell,
+        handleFlowControl: false,
+        onData() { return { dispose() {} }; },
+        onExit(callback: (event: { exitCode: number; signal?: number }) => void) {
+          exitHandler = callback;
+          return { dispose() {} };
+        },
+        write() {},
+        resize() {},
+        kill() { killCalls += 1; },
+        __spawnArgs: spawnArgs,
+      } as any;
+    }) as any,
+  };
+  if (options.processInspector) {
+    deps.processInspector = options.processInspector;
+  }
+
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'bash',
+    },
+    session: {
+      idleDelayMs: 40,
+      runningDelayMs: 40,
+      processCleanup: {
+        mode: 'observe',
+        gracefulWaitMs: 750,
+        forceWaitMs: 1500,
+        descendantSampleLimit: 64,
+        ...options.processCleanup,
+      },
+    },
+  } as any, deps);
+
+  (manager as any).isCommandAvailable = (cmd: string) => cmd === 'bash' || cmd === 'sh';
+  const session = manager.createSession('Cleanup Session', 'bash', process.cwd());
+
+  return {
+    manager,
+    session,
+    get sessionData() {
+      return (manager as any).sessions.get(session.id);
+    },
+    getKillCalls() {
+      return killCalls;
+    },
+    exit(exitCode = 0) {
+      if (!exitHandler) {
+        throw new Error('Expected PTY onExit handler to be registered');
+      }
+      exitHandler({ exitCode });
+    },
+    cleanupIfActive() {
+      if ((manager as any).sessions.has(session.id)) {
+        manager.deleteSession(session.id);
+      }
+    },
+  };
+}
+
+function testSessionManagerRecordsObserveCleanupTelemetryOnDelete(): void {
+  const inspectorCalls: any[] = [];
+  const harness = createProcessCleanupSessionHarness({
+    processInspector: (metadata: any, limit: number) => {
+      inspectorCalls.push({ metadata, limit });
+      return { status: 'observed', remainingDescendants: 2 };
+    },
+  });
+
+  try {
+    const processMetadata = harness.sessionData.processMetadata;
+    assert.equal(processMetadata.rootPid, 4321);
+    assert.equal(processMetadata.shellCommand, 'bash');
+    assert.deepEqual(processMetadata.shellArgs, []);
+    assert.equal(processMetadata.cwd, process.cwd());
+    assert.equal(processMetadata.platform, 'linux');
+    assert.equal(processMetadata.backend, 'unix');
+    assert.equal(typeof processMetadata.launchedAt, 'string');
+    assert.equal(processMetadata.osStartIdentity, null);
+
+    assert.equal(harness.manager.deleteSession(harness.session.id), true);
+    assert.equal(harness.getKillCalls(), 1);
+    assert.equal(inspectorCalls.length, 1);
+    assert.equal(inspectorCalls[0].limit, 64);
+
+    const cleanup = readCleanupTelemetry(harness.manager);
+    assert.equal(cleanup.mode, 'observe');
+    assert.equal(cleanup.attempted, 1);
+    assert.equal(cleanup.completed, 1);
+    assert.equal(cleanup.degraded, 0);
+    assert.equal(cleanup.unverifiedSkipped, 0);
+    assert.equal(cleanup.recentResults.length, 1);
+    assert.equal(cleanup.recentResults[0].sessionId, harness.session.id);
+    assert.equal(cleanup.recentResults[0].reason, 'direct-session-delete');
+    assert.equal(cleanup.recentResults[0].rootPid, 4321);
+    assert.equal(cleanup.recentResults[0].remainingDescendants, 2);
+    assert.equal(cleanup.recentResults[0].cleanupStatus, 'observed');
+    assert.equal(typeof cleanup.recentResults[0].recordedAt, 'string');
+  } finally {
+    harness.cleanupIfActive();
+  }
+}
+
+function testSessionManagerRecordsNaturalProcessExitOnce(): void {
+  const harness = createProcessCleanupSessionHarness({
+    processInspector: () => ({ status: 'observed', remainingDescendants: 0 }),
+  });
+
+  try {
+    harness.exit(0);
+    assert.equal(harness.manager.deleteSession(harness.session.id), true);
+
+    const cleanup = readCleanupTelemetry(harness.manager);
+    assert.equal(cleanup.attempted, 1);
+    assert.equal(cleanup.completed, 1);
+    assert.equal(cleanup.recentResults.length, 1);
+    assert.equal(cleanup.recentResults[0].reason, 'process-exit');
+    assert.equal(harness.getKillCalls(), 1);
+  } finally {
+    harness.cleanupIfActive();
+  }
+}
+
+function testSessionManagerDoesNotDoubleCountDeleteThenProcessExit(): void {
+  const harness = createProcessCleanupSessionHarness({
+    processInspector: () => ({ status: 'observed', remainingDescendants: 0 }),
+  });
+
+  try {
+    assert.equal(harness.manager.deleteSession(harness.session.id), true);
+    const afterDelete = readCleanupTelemetry(harness.manager);
+    assert.equal(afterDelete.attempted, 1);
+    assert.equal(afterDelete.recentResults[0].reason, 'direct-session-delete');
+
+    (harness.manager as any).cleanupRecordedSessionIds.clear();
+    harness.exit(0);
+
+    const afterLateExit = readCleanupTelemetry(harness.manager);
+    assert.equal(afterLateExit.attempted, 1);
+    assert.equal(afterLateExit.completed, 1);
+    assert.equal(afterLateExit.recentResults.length, 1);
+    assert.equal(afterLateExit.recentResults[0].reason, 'direct-session-delete');
+    assert.equal(harness.getKillCalls(), 1);
+  } finally {
+    harness.cleanupIfActive();
+  }
+}
+
+function testSessionManagerDefaultCleanupInspectorSkipsUnverified(): void {
+  const harness = createProcessCleanupSessionHarness();
+
+  try {
+    assert.equal(harness.sessionData.processMetadata.rootPid, 4321);
+    assert.equal(harness.sessionData.processMetadata.osStartIdentity, null);
+    assert.equal(harness.manager.deleteSession(harness.session.id), true);
+
+    const cleanup = readCleanupTelemetry(harness.manager);
+    assert.equal(cleanup.attempted, 1);
+    assert.equal(cleanup.completed, 0);
+    assert.equal(cleanup.degraded, 0);
+    assert.equal(cleanup.unverifiedSkipped, 1);
+    assert.equal(cleanup.recentResults[0].cleanupStatus, 'skipped-unverified');
+  } finally {
+    harness.cleanupIfActive();
+  }
+}
+
+function testSessionManagerCleanupTelemetryRecordsUnverifiedSkip(): void {
+  let inspectorCalled = false;
+  const harness = createProcessCleanupSessionHarness({
+    pid: null,
+    processInspector: () => {
+      inspectorCalled = true;
+      return { status: 'skipped-unverified', remainingDescendants: 0 };
+    },
+  });
+
+  try {
+    assert.equal(harness.sessionData.processMetadata.rootPid, null);
+    assert.equal(harness.manager.deleteSession(harness.session.id), true);
+    assert.equal(harness.getKillCalls(), 1);
+    assert.equal(inspectorCalled, true);
+
+    const cleanup = readCleanupTelemetry(harness.manager);
+    assert.equal(cleanup.attempted, 1);
+    assert.equal(cleanup.completed, 0);
+    assert.equal(cleanup.degraded, 0);
+    assert.equal(cleanup.unverifiedSkipped, 1);
+    assert.equal(cleanup.recentResults[0].cleanupStatus, 'skipped-unverified');
+    assert.equal(cleanup.recentResults[0].rootPid, null);
+  } finally {
+    harness.cleanupIfActive();
+  }
+}
+
+function testSessionManagerCleanupTelemetryBoundsRecentResults(): void {
+  const harness = createProcessCleanupSessionHarness({
+    processInspector: () => ({ status: 'observed', remainingDescendants: 0 }),
+  });
+
+  try {
+    assert.equal(harness.manager.deleteSession(harness.session.id), true);
+    for (let index = 1; index < 70; index += 1) {
+      const session = harness.manager.createSession(`Cleanup ${index}`, 'bash', process.cwd());
+      assert.equal(harness.manager.deleteSession(session.id), true);
+    }
+
+    const cleanup = readCleanupTelemetry(harness.manager);
+    assert.equal(cleanup.attempted, 70);
+    assert.equal(cleanup.completed, 70);
+    assert.equal(cleanup.recentResults.length, 64);
+  } finally {
+    harness.cleanupIfActive();
+  }
 }
 
 async function testSessionManagerHermesBashSubmitStaysIdle(): Promise<void> {
@@ -3749,6 +4003,8 @@ function createWorkspaceServiceHarness(options: { terminalTitleDebounceMs?: numb
     createSession: [] as Array<{ name?: string; shell?: string; cwd?: string }>,
     deleteSession: [] as string[],
     deleteMultipleSessions: [] as string[][],
+    deleteSessionReasons: [] as Array<{ id: string; reason?: string }>,
+    deleteMultipleSessionReasons: [] as Array<{ ids: string[]; reason?: string }>,
     hasSession: new Set<string>(),
     createSessionError: null as Error | null,
   };
@@ -3773,13 +4029,15 @@ function createWorkspaceServiceHarness(options: { terminalTitleDebounceMs?: numb
         sortOrder: 0,
       };
     },
-    deleteSession(id: string) {
+    deleteSession(id: string, reason?: string) {
       calls.deleteSession.push(id);
+      calls.deleteSessionReasons.push({ id, reason });
       calls.hasSession.delete(id);
       return true;
     },
-    deleteMultipleSessions(ids: string[]) {
+    deleteMultipleSessions(ids: string[], reason?: string) {
       calls.deleteMultipleSessions.push(ids);
+      calls.deleteMultipleSessionReasons.push({ ids, reason });
       for (const id of ids) calls.hasSession.delete(id);
     },
     hasSession(id: string) {
@@ -5934,6 +6192,87 @@ async function testWorkspaceServiceDeleteWorkspace(): Promise<void> {
   assert.equal((workspaceService as any).state.workspaces.some((ws: any) => ws.id === 'ws-1'), false);
   assert.equal((workspaceService as any).state.tabs.length, 0);
   assert.equal((workspaceService as any).state.gridLayouts.length, 0);
+}
+
+async function testWorkspaceServicePassesSessionCleanupReasons(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = {
+    workspaces: [
+      {
+        id: 'ws-1',
+        name: 'Workspace 1',
+        sortOrder: 0,
+        viewMode: 'tab',
+        activeTabId: 'tab-1',
+        colorCounter: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: 'ws-2',
+        name: 'Workspace 2',
+        sortOrder: 1,
+        viewMode: 'tab',
+        activeTabId: null,
+        colorCounter: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ],
+    tabs: [
+      {
+        id: 'tab-1',
+        workspaceId: 'ws-1',
+        sessionId: 'session-tab-delete',
+        name: 'Terminal A',
+        colorIndex: 0,
+        sortOrder: 0,
+        shellType: 'bash',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'tab-2',
+        workspaceId: 'ws-1',
+        sessionId: 'session-restart',
+        name: 'Terminal B',
+        colorIndex: 1,
+        sortOrder: 1,
+        shellType: 'bash',
+        lastCwd: '/repo',
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    gridLayouts: [],
+  };
+
+  await workspaceService.deleteTab('ws-1', 'tab-1');
+  assert.deepEqual(calls.deleteSessionReasons[calls.deleteSessionReasons.length - 1], {
+    id: 'session-tab-delete',
+    reason: 'tab-delete',
+  });
+
+  await workspaceService.restartTab('ws-1', 'tab-2');
+  assert.deepEqual(calls.deleteSessionReasons[calls.deleteSessionReasons.length - 1], {
+    id: 'session-restart',
+    reason: 'tab-restart',
+  });
+
+  (workspaceService as any).state.tabs.push({
+    id: 'tab-3',
+    workspaceId: 'ws-1',
+    sessionId: 'session-workspace-delete',
+    name: 'Terminal C',
+    colorIndex: 2,
+    sortOrder: 2,
+    shellType: 'bash',
+    createdAt: new Date().toISOString(),
+  });
+
+  await workspaceService.deleteWorkspace('ws-1');
+  assert.deepEqual(calls.deleteMultipleSessionReasons[calls.deleteMultipleSessionReasons.length - 1], {
+    ids: ['session-1', 'session-workspace-delete'],
+    reason: 'workspace-delete',
+  });
 }
 
 async function testWorkspaceServiceCheckOrphanTabs(): Promise<void> {

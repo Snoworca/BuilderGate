@@ -1,0 +1,29 @@
+{
+  "candidate_matches": [
+    {
+      "id": "FR-BGSTAB-008",
+      "scope": "BGSTAB",
+      "title": "Wave 0 baseline config contract recovery",
+      "relation_hint": "depends_on",
+      "similarity_score": 0.82
+    },
+    {
+      "id": "REL-BGSTAB-001",
+      "scope": "BGSTAB",
+      "title": "Stability validation and non-2002 operational verification",
+      "relation_hint": "extends",
+      "similarity_score": 0.73
+    },
+    {
+      "id": "FR-BGSTAB-001",
+      "scope": "BGSTAB",
+      "title": "Runtime resource limits for terminal stability",
+      "relation_hint": "depends_on",
+      "similarity_score": 0.42
+    }
+  ],
+  "relevant_scopes": [
+    "BGSTAB"
+  ],
+  "no_match_reason": null
+}

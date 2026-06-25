@@ -17,6 +17,11 @@ test('renderBootstrapConfigTemplate includes resourceLimits defaults', () => {
   assert.match(rendered, /headlessQueueMode:\s*"observe"/);
   assert.match(rendered, /wsSendMode:\s*"direct"/);
   assert.match(rendered, /frontendRuntimeResidency:\s*"legacy"/);
+  assert.match(rendered, /processCleanup:\s*\{/);
+  assert.match(rendered, /mode:\s*"observe"/);
+  assert.match(rendered, /gracefulWaitMs:\s*750/);
+  assert.match(rendered, /forceWaitMs:\s*1500/);
+  assert.match(rendered, /descendantSampleLimit:\s*64/);
 });
 
 test('config.json5.example documents resourceLimits defaults', async () => {
@@ -38,4 +43,9 @@ test('config.json5.example documents resourceLimits defaults', async () => {
   assert.match(example, /headlessQueueMode:\s*"observe"/);
   assert.match(example, /wsSendMode:\s*"direct"/);
   assert.match(example, /frontendRuntimeResidency:\s*"legacy"/);
+  assert.match(example, /processCleanup:\s*\{/);
+  assert.match(example, /mode:\s*"observe"/);
+  assert.match(example, /gracefulWaitMs:\s*750/);
+  assert.match(example, /forceWaitMs:\s*1500/);
+  assert.match(example, /descendantSampleLimit:\s*64/);
 });

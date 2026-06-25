@@ -1,0 +1,30 @@
+{
+  "classification": "new-feature",
+  "mode": "live",
+  "mcp_calls": [
+    {
+      "tool": "add_requirement",
+      "result_id": "FR-BGSTAB-009",
+      "ok": true
+    },
+    {
+      "tool": "update_status",
+      "args": {
+        "id": "FR-BGSTAB-009",
+        "status": "planned"
+      },
+      "ok": true,
+      "reason": "SpecKiwi validation rejected proposed status for this target."
+    }
+  ],
+  "scope_doc_edits": [],
+  "validate_spec_result": {
+    "ok": true,
+    "diagnostics": []
+  },
+  "added_ids": [
+    "FR-BGSTAB-009"
+  ],
+  "demoted_ids": [],
+  "discarded_ids": []
+}

@@ -51,6 +51,17 @@
     idleDelayMs: 200,
     // Delay (ms) before ambiguous AI TUI activity transitions to running
     runningDelayMs: 250,
+    // Session process cleanup observation settings
+    processCleanup: {
+      // Wave1 default observes cleanup health only and does not force-kill descendants
+      mode: "observe",
+      // Reserved for later enforce-mode grace window
+      gracefulWaitMs: 750,
+      // Reserved for later enforce-mode force window
+      forceWaitMs: 1500,
+      // Maximum descendant sample size for cleanup inspection
+      descendantSampleLimit: 64,
+    },
   },
 
   // Realtime transport rollout settings

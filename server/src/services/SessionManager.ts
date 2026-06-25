@@ -6,7 +6,12 @@ import { fileURLToPath } from 'url';
 import { unlinkSync, watchFile, unwatchFile, readFileSync, existsSync, statSync } from 'fs';
 import { execFile, execFileSync, execSync } from 'child_process';
 import { Session, SessionDTO, SessionStatus, UpdateSessionRequest, ShellType, ShellInfo } from '../types/index.js';
-import type { PTYConfig, SessionConfig, WindowsPowerShellBackend as PowerShellBackendPolicy } from '../types/config.types.js';
+import type {
+  PTYConfig,
+  SessionConfig,
+  SessionProcessCleanupConfig,
+  WindowsPowerShellBackend as PowerShellBackendPolicy,
+} from '../types/config.types.js';
 import { config } from '../utils/config.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import {
@@ -23,7 +28,18 @@ import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 import { TerminalTitleDetector } from '../utils/terminalTitle.js';
 import type { WsRouter } from '../ws/WsRouter.js';
 import { OscDetector } from './OscDetector.js';
-import type { InputDebugMetadata, ScreenRepairBufferType, WindowsPtyBackend, WindowsPtyInfo } from '../types/ws-protocol.js';
+import type {
+  InputDebugMetadata,
+  ScreenRepairBufferType,
+  SessionCleanupReason,
+  SessionCleanupStatus,
+  SessionCleanupTelemetry,
+  SessionCleanupTelemetryResult,
+  SessionProcessBackend,
+  SessionProcessMetadata,
+  WindowsPtyBackend,
+  WindowsPtyInfo,
+} from '../types/ws-protocol.js';
 import {
   normalizePtyConfigForPlatform,
   normalizeShellForPlatform,
@@ -93,6 +109,7 @@ interface SessionManagerObservability {
   totalSessions: number;
   healthySessions: number;
   degradedSessions: number;
+  cleanup: SessionCleanupTelemetry;
   snapshotRequests: number;
   snapshotCacheHits: number;
   snapshotSerializeFailures: number;
@@ -126,6 +143,14 @@ const MAX_RESIZE_REPLAY_DELAY_MS = 400;
 const RESIZE_REPLAY_QUIET_WINDOW_MS = 120;
 const SCREEN_REPAIR_HEADLESS_DRAIN_TIMEOUT_MS = 250;
 const DEFAULT_RUNNING_DELAY_MS = 250;
+const CLEANUP_RECENT_RESULTS_LIMIT = 64;
+const CLEANUP_DEDUP_SESSION_LIMIT = 4096;
+const DEFAULT_SESSION_PROCESS_CLEANUP: SessionProcessCleanupConfig = {
+  mode: 'observe',
+  gracefulWaitMs: 750,
+  forceWaitMs: 1500,
+  descendantSampleLimit: 64,
+};
 const AI_TUI_TYPING_FEEDBACK_THRESHOLD_MS = 1000;
 const AI_TUI_SUBMITTED_ECHO_THRESHOLD_MS = 1000;
 const AI_TUI_DECORATIVE_FRAME_RE = /^[\s─╰╯│┃┆┄┈┊·•]+$/;
@@ -145,16 +170,29 @@ interface DerivedStateSyncOptions {
   preservePendingRunningTransition?: boolean;
 }
 
+interface SessionProcessInspection {
+  status: SessionCleanupStatus;
+  remainingDescendants?: number;
+}
+
+type SessionProcessInspector = (
+  metadata: SessionProcessMetadata,
+  descendantSampleLimit: number,
+) => SessionProcessInspection;
+
 interface SessionManagerDeps {
   execFileFn?: typeof execFile;
   execFileSyncFn?: typeof execFileSync;
   platform?: NodeJS.Platform;
   spawnPty?: typeof pty.spawn;
+  processInspector?: SessionProcessInspector;
 }
 
 interface SessionData {
   session: Session;
   pty: pty.IPty;
+  processMetadata: SessionProcessMetadata;
+  cleanupRecorded: boolean;
   idleTimer: NodeJS.Timeout | null;
   runningTimer: NodeJS.Timeout | null;
   shellType?: SessionShellType;
@@ -215,6 +253,55 @@ function delayMs(ms: number): Promise<void> {
   });
 }
 
+function normalizeSessionProcessCleanupConfig(
+  next?: Partial<SessionProcessCleanupConfig>,
+): SessionProcessCleanupConfig {
+  return {
+    mode: next?.mode ?? DEFAULT_SESSION_PROCESS_CLEANUP.mode,
+    gracefulWaitMs: next?.gracefulWaitMs ?? DEFAULT_SESSION_PROCESS_CLEANUP.gracefulWaitMs,
+    forceWaitMs: next?.forceWaitMs ?? DEFAULT_SESSION_PROCESS_CLEANUP.forceWaitMs,
+    descendantSampleLimit: next?.descendantSampleLimit ?? DEFAULT_SESSION_PROCESS_CLEANUP.descendantSampleLimit,
+  };
+}
+
+function createInitialCleanupTelemetry(mode: SessionProcessCleanupConfig['mode']): SessionCleanupTelemetry {
+  return {
+    mode,
+    attempted: 0,
+    completed: 0,
+    degraded: 0,
+    unverifiedSkipped: 0,
+    recentResults: [],
+  };
+}
+
+function normalizeRootPid(pid: unknown): number | null {
+  return typeof pid === 'number' && Number.isFinite(pid) && pid > 0 ? Math.trunc(pid) : null;
+}
+
+function inspectSessionProcessBestEffort(metadata: SessionProcessMetadata): SessionProcessInspection {
+  void metadata;
+  return { status: 'skipped-unverified', remainingDescendants: 0 };
+}
+
+function normalizeCleanupStatus(status: SessionCleanupStatus | undefined): SessionCleanupStatus {
+  switch (status) {
+    case 'observed':
+    case 'completed':
+    case 'degraded':
+    case 'failed':
+    case 'skipped-unverified':
+    case 'not-started':
+      return status;
+    default:
+      return 'degraded';
+  }
+}
+
+function normalizeRemainingDescendants(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.trunc(value) : 0;
+}
+
 export class SessionManager {
   private sessions: Map<string, SessionData> = new Map();
   private sessionCounter: number = 0;
@@ -226,11 +313,18 @@ export class SessionManager {
   private pendingResizeReplayStartedAt: Map<string, number> = new Map();
   private pendingResizeReplayLastOutputAt: Map<string, number> = new Map();
   private runtimePtyConfig: PTYConfig;
-  private runtimeSessionConfig: { idleDelayMs: number; runningDelayMs: number };
+  private runtimeSessionConfig: {
+    idleDelayMs: number;
+    runningDelayMs: number;
+    processCleanup: SessionProcessCleanupConfig;
+  };
   private readonly execFileFn: typeof execFile;
   private readonly execFileSyncFn: typeof execFileSync;
   private readonly platform: NodeJS.Platform;
   private readonly spawnPty: typeof pty.spawn;
+  private readonly processInspector: SessionProcessInspector;
+  private cleanupTelemetry: SessionCleanupTelemetry = createInitialCleanupTelemetry(DEFAULT_SESSION_PROCESS_CLEANUP.mode);
+  private cleanupRecordedSessionIds: Set<string> = new Set();
   private powerShellWinptyProbe: { checked: boolean; available: boolean; reason?: string } = {
     checked: false,
     available: false,
@@ -239,7 +333,7 @@ export class SessionManager {
   private cachedAvailableShells: ShellInfo[] | null = null;
   private cwdChangeCallback: ((sessionId: string, cwd: string) => void) | null = null;
   private terminalTitleChangeCallback: ((sessionId: string, title: string) => void) | null = null;
-  private observability: Omit<SessionManagerObservability, 'totalSessions' | 'healthySessions' | 'degradedSessions'> = {
+  private observability: Omit<SessionManagerObservability, 'totalSessions' | 'healthySessions' | 'degradedSessions' | 'cleanup'> = {
     snapshotRequests: 0,
     snapshotCacheHits: 0,
     snapshotSerializeFailures: 0,
@@ -263,10 +357,13 @@ export class SessionManager {
     this.runtimeSessionConfig = {
       idleDelayMs: initialConfig.session.idleDelayMs,
       runningDelayMs: initialConfig.session.runningDelayMs ?? DEFAULT_RUNNING_DELAY_MS,
+      processCleanup: normalizeSessionProcessCleanupConfig(initialConfig.session.processCleanup),
     };
+    this.cleanupTelemetry = createInitialCleanupTelemetry(this.runtimeSessionConfig.processCleanup.mode);
     this.execFileFn = deps.execFileFn ?? execFile;
     this.execFileSyncFn = deps.execFileSyncFn ?? execFileSync;
     this.spawnPty = deps.spawnPty ?? pty.spawn;
+    this.processInspector = deps.processInspector ?? inspectSessionProcessBestEffort;
     // 서버 시작 시 한 번만 셸 감지 후 캐싱
     this.cachedAvailableShells = this.detectAvailableShells();
   }
@@ -295,6 +392,14 @@ export class SessionManager {
       // Windows PTY backend (ConPTY vs winpty)
       useConpty: backendResolution.useConpty,
     });
+    const processMetadata = this.createSessionProcessMetadata(
+      ptyProcess,
+      shellCmd,
+      shellArgs,
+      shellType,
+      initialCwd,
+      backendResolution.backend,
+    );
 
     const session: Session = {
       id,
@@ -313,6 +418,8 @@ export class SessionManager {
     const sessionData: SessionData = {
       session,
       pty: ptyProcess,
+      processMetadata,
+      cleanupRecorded: false,
       idleTimer: null,
       runningTimer: null,
       shellType,
@@ -501,6 +608,7 @@ export class SessionManager {
 
     // Handle PTY exit
     ptyProcess.onExit(({ exitCode }) => {
+      this.recordCleanupObservation(id, sessionData, 'process-exit');
       this.broadcastWs(id, 'session:exited', { exitCode });
     });
 
@@ -820,7 +928,7 @@ export class SessionManager {
     return Array.from(this.sessions.values()).map(data => this.toDTO(data.session));
   }
 
-  deleteSession(id: string): boolean {
+  deleteSession(id: string, reason: SessionCleanupReason = 'direct-session-delete'): boolean {
     const data = this.sessions.get(id);
     if (!data) return false;
 
@@ -829,6 +937,8 @@ export class SessionManager {
       clearTimeout(data.idleTimer);
     }
     this.cancelPendingRunningTransition(data);
+
+    this.recordCleanupObservation(id, data, reason);
 
     // Kill PTY process
     data.pty.kill();
@@ -1454,13 +1564,18 @@ export class SessionManager {
     return this.sessions.has(id);
   }
 
-  deleteMultipleSessions(ids: string[]): void {
+  deleteMultipleSessions(ids: string[], reason: SessionCleanupReason = 'direct-session-delete'): void {
     for (const id of ids) {
-      this.deleteSession(id);
+      this.deleteSession(id, reason);
     }
   }
 
-  updateRuntimeConfig(next: { idleDelayMs?: number; runningDelayMs?: number; pty?: Partial<PTYConfig> }): void {
+  updateRuntimeConfig(next: {
+    idleDelayMs?: number;
+    runningDelayMs?: number;
+    processCleanup?: Partial<SessionProcessCleanupConfig>;
+    pty?: Partial<PTYConfig>;
+  }): void {
     const nextPowerShellBackendRaw = next.pty?.windowsPowerShellBackend ?? this.runtimePtyConfig.windowsPowerShellBackend ?? 'inherit';
     const nextUseConptyRaw = next.pty?.useConpty ?? this.runtimePtyConfig.useConpty;
     const nextNormalized = normalizePtyConfigForPlatform({
@@ -1489,6 +1604,13 @@ export class SessionManager {
     }
     if (next.runningDelayMs !== undefined) {
       this.runtimeSessionConfig.runningDelayMs = next.runningDelayMs;
+    }
+    if (next.processCleanup) {
+      this.runtimeSessionConfig.processCleanup = normalizeSessionProcessCleanupConfig({
+        ...this.runtimeSessionConfig.processCleanup,
+        ...next.processCleanup,
+      });
+      this.cleanupTelemetry.mode = this.runtimeSessionConfig.processCleanup.mode;
     }
 
     if (next.pty) {
@@ -1921,6 +2043,128 @@ export class SessionManager {
     return result;
   }
 
+  private createSessionProcessMetadata(
+    ptyProcess: pty.IPty,
+    shellCommand: string,
+    shellArgs: string[],
+    shellType: string,
+    cwd: string,
+    windowsBackend: WindowsPtyBackend,
+  ): SessionProcessMetadata {
+    const rootPid = normalizeRootPid(ptyProcess.pid);
+    const launchedAt = new Date().toISOString();
+    return {
+      rootPid,
+      shellCommand,
+      shellArgs: [...shellArgs],
+      shellType,
+      cwd,
+      platform: this.platform,
+      backend: this.resolveSessionProcessBackend(shellCommand, shellType, windowsBackend),
+      launchedAt,
+      osStartIdentity: null,
+    };
+  }
+
+  private resolveSessionProcessBackend(
+    shellCommand: string,
+    shellType: string,
+    windowsBackend: WindowsPtyBackend,
+  ): SessionProcessBackend {
+    const normalizedShellCommand = shellCommand.toLowerCase().replace(/\\/g, '/');
+    if (
+      shellType === 'wsl'
+      || normalizedShellCommand === 'wsl'
+      || normalizedShellCommand === 'wsl.exe'
+      || normalizedShellCommand.endsWith('/wsl')
+      || normalizedShellCommand.endsWith('/wsl.exe')
+    ) {
+      return 'wsl';
+    }
+    if (this.platform === 'win32') {
+      return windowsBackend;
+    }
+    return 'unix';
+  }
+
+  private recordCleanupObservation(sessionId: string, data: SessionData, reason: SessionCleanupReason): void {
+    if (data.cleanupRecorded || this.cleanupRecordedSessionIds.has(sessionId)) {
+      return;
+    }
+    data.cleanupRecorded = true;
+    this.rememberCleanupRecordedSession(sessionId);
+
+    const cleanupConfig = this.runtimeSessionConfig.processCleanup;
+    this.cleanupTelemetry.mode = cleanupConfig.mode;
+
+    if (cleanupConfig.mode === 'legacy') {
+      this.pushCleanupResult({
+        sessionId,
+        reason,
+        rootPid: data.processMetadata.rootPid,
+        remainingDescendants: 0,
+        cleanupStatus: 'not-started',
+        recordedAt: new Date().toISOString(),
+      });
+      return;
+    }
+
+    this.cleanupTelemetry.attempted += 1;
+
+    let status: SessionCleanupStatus = 'degraded';
+    let remainingDescendants = 0;
+    try {
+      const inspection = this.processInspector(data.processMetadata, cleanupConfig.descendantSampleLimit);
+      status = normalizeCleanupStatus(inspection.status);
+      remainingDescendants = normalizeRemainingDescendants(inspection.remainingDescendants);
+    } catch {
+      status = 'degraded';
+      remainingDescendants = 0;
+    }
+
+    if (status === 'observed' || status === 'completed') {
+      this.cleanupTelemetry.completed += 1;
+    } else if (status === 'skipped-unverified') {
+      this.cleanupTelemetry.unverifiedSkipped += 1;
+    } else {
+      this.cleanupTelemetry.degraded += 1;
+    }
+
+    this.pushCleanupResult({
+      sessionId,
+      reason,
+      rootPid: data.processMetadata.rootPid,
+      remainingDescendants,
+      cleanupStatus: status,
+      recordedAt: new Date().toISOString(),
+    });
+  }
+
+  private rememberCleanupRecordedSession(sessionId: string): void {
+    this.cleanupRecordedSessionIds.add(sessionId);
+    while (this.cleanupRecordedSessionIds.size > CLEANUP_DEDUP_SESSION_LIMIT) {
+      const oldestSessionId = this.cleanupRecordedSessionIds.values().next().value;
+      if (typeof oldestSessionId !== 'string') {
+        return;
+      }
+      this.cleanupRecordedSessionIds.delete(oldestSessionId);
+    }
+  }
+
+  private pushCleanupResult(result: SessionCleanupTelemetryResult): void {
+    this.cleanupTelemetry.recentResults.push(result);
+    while (this.cleanupTelemetry.recentResults.length > CLEANUP_RECENT_RESULTS_LIMIT) {
+      this.cleanupTelemetry.recentResults.shift();
+    }
+  }
+
+  private getCleanupTelemetrySnapshot(): SessionCleanupTelemetry {
+    return {
+      ...this.cleanupTelemetry,
+      recentResults: this.cleanupTelemetry.recentResults.map(result => ({ ...result })),
+    };
+  }
+
   getReplayQueueLimit(): number {
     return Math.min(this.runtimePtyConfig.maxSnapshotBytes, 262_144);
   }
@@ -1942,6 +2186,7 @@ export class SessionManager {
       healthySessions,
       degradedSessions,
       ...this.observability,
+      cleanup: this.getCleanupTelemetrySnapshot(),
     };
   }
 

@@ -213,7 +213,7 @@ export class WorkspaceService {
     for (const sessionId of sessionIds) {
       this.cancelPendingTerminalTitle(sessionId);
     }
-    this.sessionManager.deleteMultipleSessions(sessionIds);
+    this.sessionManager.deleteMultipleSessions(sessionIds, 'workspace-delete');
 
     // Remove tabs, grid layouts, and workspace
     this.state.tabs = this.state.tabs.filter(t => t.workspaceId !== id);
@@ -309,7 +309,7 @@ export class WorkspaceService {
     this.cancelPendingTerminalTitle(tab.sessionId);
 
     // Terminate PTY session
-    this.sessionManager.deleteSession(tab.sessionId);
+    this.sessionManager.deleteSession(tab.sessionId, 'tab-delete');
 
     // Remove tab
     this.state.tabs = this.state.tabs.filter(t => t.id !== tabId);
@@ -344,7 +344,7 @@ export class WorkspaceService {
 
     // Create new PTY session with same shell type, restoring last CWD
     const sessionDTO = this.sessionManager.createSession(tab.name, tab.shellType, tab.lastCwd);
-    this.sessionManager.deleteSession(oldSessionId);
+    this.sessionManager.deleteSession(oldSessionId, 'tab-restart');
     tab.sessionId = sessionDTO.id;
 
     await this.save();

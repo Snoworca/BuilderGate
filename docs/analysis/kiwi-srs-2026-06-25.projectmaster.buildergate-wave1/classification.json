@@ -1,0 +1,29 @@
+{
+  "target": "0.5.5-buildergate-stability",
+  "classification": "new-feature",
+  "rationale": "Wave 1 is additive process observation inside the existing BGSTAB stability scope. It does not conflict with Wave 0 because it preserves current PTY kill behavior and adds no enforcement.",
+  "evidence_paths": [
+    "docs/research/plug-leak/wave1.md",
+    "server/src/services/SessionManager.ts:502-505",
+    "server/src/services/SessionManager.ts:823-871",
+    "server/src/index.ts:286-292"
+  ],
+  "affected_existing_reqs": [
+    {
+      "id": "FR-BGSTAB-008",
+      "relation": "depends_on",
+      "diff_summary": "Uses the Wave 0 baseline config contract before adding session process observation settings."
+    },
+    {
+      "id": "REL-BGSTAB-001",
+      "relation": "extends",
+      "diff_summary": "Adds cleanup evidence to operational stability validation."
+    }
+  ],
+  "proposed_scope": "BGSTAB",
+  "proposed_prefix": "BGSTAB",
+  "proposed_type": "functional",
+  "confidence": "high",
+  "scope_boundary_impact": null,
+  "external_module_impact": null
+}

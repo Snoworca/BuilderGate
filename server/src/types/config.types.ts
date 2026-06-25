@@ -101,6 +101,16 @@ export interface PTYConfig {
 export interface SessionConfig {
   idleDelayMs: number;
   runningDelayMs?: number;
+  processCleanup?: SessionProcessCleanupConfig;
+}
+
+export type SessionProcessCleanupMode = 'legacy' | 'observe' | 'enforce';
+
+export interface SessionProcessCleanupConfig {
+  mode: SessionProcessCleanupMode;
+  gracefulWaitMs: number;
+  forceWaitMs: number;
+  descendantSampleLimit: number;
 }
 
 // ============================================================================

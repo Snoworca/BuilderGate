@@ -40,6 +40,71 @@ test('configSchema applies resourceLimits defaults to legacy config files', () =
   assert.equal(parsed.stabilityModes.frontendRuntimeResidency, 'legacy');
 });
 
+test('configSchema applies session processCleanup observe-mode defaults', () => {
+  const parsed = configSchema.parse(minimalConfig());
+
+  assert.equal(parsed.session.processCleanup.mode, 'observe');
+  assert.equal(parsed.session.processCleanup.gracefulWaitMs, 750);
+  assert.equal(parsed.session.processCleanup.forceWaitMs, 1500);
+  assert.equal(parsed.session.processCleanup.descendantSampleLimit, 64);
+});
+
+test('configSchema validates session processCleanup strictly', () => {
+  assert.throws(
+    () => configSchema.parse({
+      ...minimalConfig(),
+      session: {
+        idleDelayMs: 200,
+        runningDelayMs: 250,
+        processCleanup: null,
+      },
+    }),
+    /processCleanup|object|null/i,
+  );
+
+  assert.throws(
+    () => configSchema.parse({
+      ...minimalConfig(),
+      session: {
+        idleDelayMs: 200,
+        runningDelayMs: 250,
+        processCleanup: {
+          mode: 'force',
+        },
+      },
+    }),
+    /mode|observe|enforce|legacy/i,
+  );
+
+  assert.throws(
+    () => configSchema.parse({
+      ...minimalConfig(),
+      session: {
+        idleDelayMs: 200,
+        runningDelayMs: 250,
+        processCleanup: {
+          descendantSampleLimit: 0,
+        },
+      },
+    }),
+    /descendantSampleLimit/i,
+  );
+
+  assert.throws(
+    () => configSchema.parse({
+      ...minimalConfig(),
+      session: {
+        idleDelayMs: 200,
+        runningDelayMs: 250,
+        processCleanup: {
+          unknownCleanupSwitch: true,
+        },
+      },
+    }),
+    /unknownCleanupSwitch|unrecognized/i,
+  );
+});
+
 test('configSchema validates unsafe resourceLimits values instead of silently stripping them', () => {
   assert.throws(
     () => configSchema.parse({

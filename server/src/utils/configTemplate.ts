@@ -36,6 +36,12 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
   session: {
     idleDelayMs: 200,
     runningDelayMs: 250,
+    processCleanup: {
+      mode: "observe",
+      gracefulWaitMs: 750,
+      forceWaitMs: 1500,
+      descendantSampleLimit: 64,
+    },
   },
 
   realtime: {

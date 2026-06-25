@@ -10,6 +10,53 @@
 
 export type InputReliabilityMode = 'observe' | 'queue' | 'strict';
 
+export type SessionCleanupReason =
+  | 'direct-session-delete'
+  | 'tab-delete'
+  | 'workspace-delete'
+  | 'tab-restart'
+  | 'process-exit';
+
+export type SessionCleanupStatus =
+  | 'observed'
+  | 'completed'
+  | 'degraded'
+  | 'failed'
+  | 'skipped-unverified'
+  | 'not-started';
+
+export type SessionProcessBackend = 'conpty' | 'winpty' | 'wsl' | 'unix' | 'unknown';
+
+export interface SessionProcessMetadata {
+  rootPid: number | null;
+  shellCommand: string;
+  shellArgs: string[];
+  shellType: string;
+  cwd: string;
+  platform: NodeJS.Platform;
+  backend: SessionProcessBackend;
+  launchedAt: string;
+  osStartIdentity: string | null;
+}
+
+export interface SessionCleanupTelemetryResult {
+  sessionId: string;
+  reason: SessionCleanupReason;
+  rootPid: number | null;
+  remainingDescendants: number;
+  cleanupStatus: SessionCleanupStatus;
+  recordedAt: string;
+}
+
+export interface SessionCleanupTelemetry {
+  mode: 'legacy' | 'observe' | 'enforce';
+  attempted: number;
+  completed: number;
+  degraded: number;
+  unverifiedSkipped: number;
+  recentResults: SessionCleanupTelemetryResult[];
+}
+
 export type TerminalInputBarrierReason =
   | 'none'
   | 'restore-pending'

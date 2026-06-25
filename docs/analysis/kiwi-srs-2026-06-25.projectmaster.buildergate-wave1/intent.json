@@ -1,0 +1,32 @@
+{
+  "summary": "Wave 1 adds observe-only server session process cleanup telemetry before enforced process-tree termination.",
+  "intent_type_hint": "new-feature",
+  "key_entities": [
+    "SessionManager.deleteSession",
+    "SessionManager PTY onExit",
+    "WorkspaceService delete/restart paths",
+    "session.processCleanup",
+    "SessionProcessMetadata",
+    "SessionCleanupTelemetry",
+    "/api/sessions/telemetry"
+  ],
+  "ambiguities": [
+    "Exact per-platform OS start identity collection is best-effort in Wave 1.",
+    "WSL Linux PID/PGID detection may remain unavailable and must be reported as degraded or skipped.",
+    "Telemetry retention is bounded by recent cleanup results and must not include raw terminal data."
+  ],
+  "implied_requirements": [
+    "Default cleanup mode is observe.",
+    "Existing pty.kill behavior remains unchanged.",
+    "No process-name-based or broad kill behavior is introduced.",
+    "Unverified cleanup cases are observable and not force-killed.",
+    "Regression tests cover metadata capture, dry-run telemetry, mismatch/degraded status, double delete, and redaction."
+  ],
+  "semantic_equivalences": [
+    {
+      "prompt_term": "observe-only telemetry",
+      "index_term": "cleanup dry-run evidence",
+      "confidence": "high"
+    }
+  ]
+}

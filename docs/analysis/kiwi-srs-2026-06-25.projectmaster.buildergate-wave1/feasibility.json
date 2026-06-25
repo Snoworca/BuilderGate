@@ -1,0 +1,20 @@
+{
+  "implementability": "high",
+  "product_fit": "core",
+  "rationale": "The required changes are localized to server session lifecycle, config schema/template/example, telemetry shape, and tests. The implementation is observe-only and explicitly avoids process-tree enforcement.",
+  "code_evidence": [
+    "server/src/services/SessionManager.ts:155-194",
+    "server/src/services/SessionManager.ts:274-330",
+    "server/src/services/SessionManager.ts:502-505",
+    "server/src/services/SessionManager.ts:823-871",
+    "server/src/types/config.types.ts:101-104",
+    "server/src/schemas/config.schema.ts:84-87",
+    "server/src/index.ts:286-292"
+  ],
+  "blockers": [],
+  "conditions": [
+    "Process identity and descendant sampling must be best-effort and report degraded/skipped when unavailable.",
+    "Wave 1 must not introduce broad or process-name kill behavior."
+  ],
+  "external_module_required": false
+}
