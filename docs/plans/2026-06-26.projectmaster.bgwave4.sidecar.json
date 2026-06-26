@@ -1,0 +1,333 @@
+{
+  "schema_version": "1.1.0",
+  "plan_contract": "1.2.0",
+  "run_id": "2026-06-26.projectmaster.bgwave4",
+  "target": "0.5.5-buildergate-stability",
+  "plan_version": "0.1.0",
+  "generated_at": "2026-06-26T15:00:00Z",
+  "tool_versions": {
+    "speckiwi": "cli-fallback",
+    "kiwi_planner": "manual",
+    "validator": "manual"
+  },
+  "tdd_policy": "strict",
+  "md_path": "docs/plans/2026-06-26.projectmaster.bgwave4.plan.md",
+  "md_sha256": "",
+  "phases": [
+    {
+      "id": "PH-001",
+      "title": "Config And Queue Primitives",
+      "goal": "Add config plumbing and bounded queue utilities",
+      "depends_on": [],
+      "task_ids": ["T-PH001-01", "T-PH001-02"]
+    },
+    {
+      "id": "PH-002",
+      "title": "Headless Output Integration",
+      "goal": "Replace SessionManager pending output hot paths",
+      "depends_on": ["PH-001"],
+      "task_ids": ["T-PH002-01", "T-PH002-02"]
+    },
+    {
+      "id": "PH-003",
+      "title": "WebSocket Safe Send",
+      "goal": "Add per-client safe-send transport policy",
+      "depends_on": ["PH-001"],
+      "task_ids": ["T-PH003-01", "T-PH003-02"]
+    },
+    {
+      "id": "PH-004",
+      "title": "Verification And Evidence",
+      "goal": "Prove ordering, rollback, telemetry, and docs alignment",
+      "depends_on": ["PH-002", "PH-003"],
+      "task_ids": ["T-PH004-01"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "title": "Bounded queue and config tests",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-012"],
+      "files": [{ "path": "server/src/test-runner.ts" }],
+      "action": "Add RED tests for UTF-8 byte accounting, chunk caps, O(1) dequeue behavior, overflow decisions, and SessionManager/WsRouter consumption of Wave0 headless/ws limits without flipping default modes.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "npm --prefix server test", "expected_exit": 0 }],
+      "verification_cmd": { "posix": "npm --prefix server test", "windows": "npm --prefix server test" },
+      "dod": [
+        "limits are read from config",
+        "default modes remain observe and direct",
+        "queue caps are deterministic"
+      ],
+      "rollback": "Remove the new tests.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-01-FR-BGSTAB-012",
+          "source": { "type": "Task", "id": "T-PH001-01" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-012" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [{ "path": "server/src/test-runner.ts" }],
+      "depends_on_task": [],
+      "covers_ac": ["AC-1", "AC-2"],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          { "id": "TC-FR-BGSTAB-012-AC1-01", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-1"], "test_file": "server/src/test-runner.ts", "test_symbol": "SessionManager consumes Wave4 headless limits without flipping default mode" },
+          { "id": "TC-FR-BGSTAB-012-AC1-02", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-1"], "test_file": "server/src/test-runner.ts", "test_symbol": "WsRouter consumes Wave4 ws limits without flipping default mode" },
+          { "id": "TC-FR-BGSTAB-012-AC2-01", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-2"], "test_file": "server/src/test-runner.ts", "test_symbol": "BoundedByteDeque enforces UTF-8 byte caps" },
+          { "id": "TC-FR-BGSTAB-012-AC2-02", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-2"], "test_file": "server/src/test-runner.ts", "test_symbol": "BoundedByteDeque enforces chunk caps" },
+          { "id": "TC-FR-BGSTAB-012-AC2-03", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-2"], "test_file": "server/src/test-runner.ts", "test_symbol": "BoundedByteDeque dequeues in FIFO order without Array.shift hot path" },
+          { "id": "TC-FR-BGSTAB-012-AC2-04", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-2"], "test_file": "server/src/test-runner.ts", "test_symbol": "HeadlessOutputQueue records pending telemetry and overflow decisions" }
+        ]
+      }
+    },
+    {
+      "id": "T-PH001-02",
+      "phase_id": "PH-001",
+      "title": "Bounded queue and config implementation",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-012"],
+      "files": [
+        { "path": "server/src/utils/boundedByteDeque.ts" },
+        { "path": "server/src/utils/headlessOutputQueue.ts" },
+        { "path": "server/src/services/SessionManager.ts" },
+        { "path": "server/src/ws/WsRouter.ts" },
+        { "path": "server/src/index.ts" }
+      ],
+      "action": "Implement queue primitives, headless queue state, and runtime option plumbing for headless/ws resource limits and stability modes.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "npm --prefix server test", "expected_exit": 0 }],
+      "verification_cmd": { "posix": "npm --prefix server test", "windows": "npm --prefix server test" },
+      "dod": [
+        "queue operations are bounded by byte and chunk limits",
+        "runtime defaults remain behavior-compatible"
+      ],
+      "rollback": "Keep headlessQueueMode=observe and stop using the new queue utilities from runtime paths.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-02-FR-BGSTAB-012",
+          "source": { "type": "Task", "id": "T-PH001-02" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-012" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [{ "path": "server/src/test-runner.ts" }],
+      "depends_on_task": ["T-PH001-01"],
+      "covers_ac": ["AC-1", "AC-2"],
+      "tdd": { "applicable": true, "phase": "green", "test_cases": [] }
+    },
+    {
+      "id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "title": "Headless output regression tests",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-012"],
+      "files": [{ "path": "server/src/test-runner.ts" }],
+      "action": "Add RED tests for delayed headless writes, byte and chunk cap enforcement, multibyte output, overflow degrade-headless, ordered live output after headless commit, and absence of unbounded pending output join behavior.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "npm --prefix server test", "expected_exit": 0 }],
+      "verification_cmd": { "posix": "npm --prefix server test", "windows": "npm --prefix server test" },
+      "dod": [
+        "headless overflow degrades observably",
+        "healthy output preserves screenSeq ordering"
+      ],
+      "rollback": "Remove the new headless integration tests.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-01-FR-BGSTAB-012",
+          "source": { "type": "Task", "id": "T-PH002-01" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-012" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [{ "path": "server/src/test-runner.ts" }],
+      "depends_on_task": ["T-PH001-02"],
+      "covers_ac": ["AC-2", "AC-3", "AC-4", "AC-5"],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          { "id": "TC-FR-BGSTAB-012-AC2-05", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-2"], "test_file": "server/src/test-runner.ts", "test_symbol": "SessionManager delayed headless writes cannot exceed byte cap" },
+          { "id": "TC-FR-BGSTAB-012-AC2-06", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-2"], "test_file": "server/src/test-runner.ts", "test_symbol": "SessionManager delayed headless writes cannot exceed chunk cap" },
+          { "id": "TC-FR-BGSTAB-012-AC2-07", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-2"], "test_file": "server/src/test-runner.ts", "test_symbol": "SessionManager headless queue counts multibyte output as UTF-8 bytes" },
+          { "id": "TC-FR-BGSTAB-012-AC3-01", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-3"], "test_file": "server/src/test-runner.ts", "test_symbol": "SessionManager degrades headless on bounded queue overflow" },
+          { "id": "TC-FR-BGSTAB-012-AC4-01", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-4"], "test_file": "server/src/test-runner.ts", "test_symbol": "SessionManager routes output after headless commit" },
+          { "id": "TC-FR-BGSTAB-012-AC5-01", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-5"], "test_file": "server/src/test-runner.ts", "test_symbol": "SessionManager no longer uses pendingOutputChunks shift or unbounded join paths" }
+        ]
+      }
+    },
+    {
+      "id": "T-PH002-02",
+      "phase_id": "PH-002",
+      "title": "Headless output implementation",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-012"],
+      "files": [
+        { "path": "server/src/services/SessionManager.ts" },
+        { "path": "server/src/utils/headlessOutputQueue.ts" }
+      ],
+      "action": "Replace pendingOutputChunks with bounded headless output pump state, route output after successful headless commit, clear bounded queue on degradation, and remove unbounded shift/join paths.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "npm --prefix server test", "expected_exit": 0 }],
+      "verification_cmd": { "posix": "npm --prefix server test", "windows": "npm --prefix server test" },
+      "dod": [
+        "pendingOutputChunks is gone from SessionManager hot paths",
+        "degradation cannot concatenate an unbounded pending array"
+      ],
+      "rollback": "Set stabilityModes.headlessQueueMode=observe and temporarily bypass bounded enforcement while keeping telemetry.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-02-FR-BGSTAB-012",
+          "source": { "type": "Task", "id": "T-PH002-02" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-012" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [{ "path": "server/src/test-runner.ts" }],
+      "depends_on_task": ["T-PH002-01"],
+      "covers_ac": ["AC-2", "AC-3", "AC-4", "AC-5"],
+      "tdd": { "applicable": true, "phase": "green", "test_cases": [] }
+    },
+    {
+      "id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "title": "Safe-send and replay regression tests",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-012"],
+      "files": [{ "path": "server/src/test-runner.ts" }],
+      "action": "Add RED tests proving high-water output queueing, hard-limit slow-client close, send callback error telemetry, output coalescing, control lossless-or-close behavior, and replay/screen-repair queues still flush in order under transport queue pressure.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "npm --prefix server test", "expected_exit": 0 }],
+      "verification_cmd": { "posix": "npm --prefix server test", "windows": "npm --prefix server test" },
+      "dod": [
+        "tests isolate slow clients without killing sessions",
+        "protocol queues remain distinct from transport queues"
+      ],
+      "rollback": "Remove the safe-send regression tests.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-01-FR-BGSTAB-012",
+          "source": { "type": "Task", "id": "T-PH003-01" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-012" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [{ "path": "server/src/test-runner.ts" }],
+      "depends_on_task": ["T-PH001-02"],
+      "covers_ac": ["AC-6", "AC-7", "AC-8"],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          { "id": "TC-FR-BGSTAB-012-AC6-01", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-6"], "test_file": "server/src/test-runner.ts", "test_symbol": "WsRouter queues output above high water" },
+          { "id": "TC-FR-BGSTAB-012-AC6-02", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-6"], "test_file": "server/src/test-runner.ts", "test_symbol": "WsRouter closes slow client at hard limit" },
+          { "id": "TC-FR-BGSTAB-012-AC6-03", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-6"], "test_file": "server/src/test-runner.ts", "test_symbol": "WsRouter records send callback errors and closes only the failing client" },
+          { "id": "TC-FR-BGSTAB-012-AC6-04", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-6"], "test_file": "server/src/test-runner.ts", "test_symbol": "WsRouter transport telemetry records buffered queued coalesced and slow-client counters" },
+          { "id": "TC-FR-BGSTAB-012-AC7-01", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-7"], "test_file": "server/src/test-runner.ts", "test_symbol": "WsRouter bounds control and output queues separately" },
+          { "id": "TC-FR-BGSTAB-012-AC7-02", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-7"], "test_file": "server/src/test-runner.ts", "test_symbol": "WsRouter coalesces adjacent output messages by session within configured limits" },
+          { "id": "TC-FR-BGSTAB-012-AC8-01", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-8"], "test_file": "server/src/test-runner.ts", "test_symbol": "WsRouter preserves replay queues under safeSend pressure" },
+          { "id": "TC-FR-BGSTAB-012-AC8-02", "req_id": "FR-BGSTAB-012", "ac_refs": ["AC-8"], "test_file": "server/src/test-runner.ts", "test_symbol": "WsRouter preserves screen repair queues under safeSend pressure" }
+        ]
+      }
+    },
+    {
+      "id": "T-PH003-02",
+      "phase_id": "PH-003",
+      "title": "Safe-send implementation",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-012"],
+      "files": [
+        { "path": "server/src/ws/wsSendPolicy.ts" },
+        { "path": "server/src/ws/WsRouter.ts" },
+        { "path": "server/src/types/ws-protocol.ts" },
+        { "path": "server/src/index.ts" }
+      ],
+      "action": "Implement safeSend, per-client output/control transport queues, output coalescing, bufferedAmount checks, send callback error handling, slow-client close policy, and transport telemetry. Make existing sendTo, sendAll, session output, pong, connected, and rejection sends delegate through the policy.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "npm --prefix server test", "expected_exit": 0 }],
+      "verification_cmd": { "posix": "npm --prefix server test", "windows": "npm --prefix server test" },
+      "dod": [
+        "direct server ws.send paths are removed or covered by the policy",
+        "replay and screen-repair semantics remain stable"
+      ],
+      "rollback": "Set stabilityModes.wsSendMode=direct for full legacy fallback or safe-send-observe for telemetry-only behavior.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-02-FR-BGSTAB-012",
+          "source": { "type": "Task", "id": "T-PH003-02" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-012" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [{ "path": "server/src/test-runner.ts" }],
+      "depends_on_task": ["T-PH003-01"],
+      "covers_ac": ["AC-6", "AC-7", "AC-8"],
+      "tdd": { "applicable": true, "phase": "green", "test_cases": [] }
+    },
+    {
+      "id": "T-PH004-01",
+      "phase_id": "PH-004",
+      "title": "Final verification and review gate",
+      "type": "review",
+      "req_ids": ["FR-BGSTAB-012"],
+      "files": [
+        { "path": "docs/spec/30.buildergate-stability.srs.md" },
+        { "path": "docs/research/plug-leak/wave4.md" },
+        { "path": "docs/plans/2026-06-26.projectmaster.bgwave4.validator.json" }
+      ],
+      "action": "Run full server tests, focused server Wave4 tests, frontend typecheck, SpecKiwi strict validation, git diff --check, and independent sub-agent review. Update SRS evidence from pending to passed only after implementation verification.",
+      "acceptance_tests": [{ "kind": "checklist", "items": ["server tests pass", "frontend typecheck passes", "SpecKiwi validates", "sub-agent review returns No findings"] }],
+      "verification_cmd": null,
+      "dod": [
+        "commands pass",
+        "independent reviewer returns No findings",
+        "default rollback modes remain documented",
+        "no Wave5 or Wave7 behavior is introduced"
+      ],
+      "rollback": "Keep FR-BGSTAB-012 planned and leave enforcement modes disabled.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-01-FR-BGSTAB-012",
+          "source": { "type": "Task", "id": "T-PH004-01" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-012" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "S",
+      "test_files": [],
+      "depends_on_task": ["T-PH002-02", "T-PH003-02"],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8"],
+      "tdd": { "applicable": false, "phase": "n/a", "exempt_reason": "Evidence registration and review do not introduce runtime code." }
+    }
+  ],
+  "coverage": [
+    {
+      "req_id": "FR-BGSTAB-012",
+      "stability": "evolving",
+      "task_ids": ["T-PH001-01", "T-PH001-02", "T-PH002-01", "T-PH002-02", "T-PH003-01", "T-PH003-02", "T-PH004-01"],
+      "ac_covered": 8,
+      "ac_total": 8
+    }
+  ],
+  "risks": [
+    { "risk_id": "R-001", "severity": "high", "mitigation": "Keep default modes observe/direct until tests prove bounded/safe-send behavior.", "affected_task_ids": ["T-PH001-02", "T-PH004-01"] },
+    { "risk_id": "R-002", "severity": "high", "mitigation": "Separate protocol replay/repair queues from transport queues and test ACK/timeout behavior.", "affected_task_ids": ["T-PH003-01", "T-PH003-02"] },
+    { "risk_id": "R-003", "severity": "high", "mitigation": "Treat slow clients as client failures only; never terminate sessions because of transport pressure.", "affected_task_ids": ["T-PH003-02"] },
+    { "risk_id": "R-004", "severity": "medium", "mitigation": "Use UTF-8 byte accounting for all queue limits and multibyte tests.", "affected_task_ids": ["T-PH001-01", "T-PH002-01"] },
+    { "risk_id": "R-005", "severity": "medium", "mitigation": "Keep Wave5 shutdown and Wave7 frontend residency out of this plan.", "affected_task_ids": ["T-PH004-01"] }
+  ],
+  "inventory": {
+    "requirements": [
+      {
+        "id": "FR-BGSTAB-012",
+        "status": "planned",
+        "stability": "evolving",
+        "acceptance_criteria_count": 8
+      }
+    ]
+  }
+}
