@@ -1,0 +1,13 @@
+[
+  { "id": "FR-BGSTAB-001", "stability": "evolving", "status": "implemented", "ac_total": 3, "ac_ids": ["AC-1", "AC-2", "AC-3"] },
+  { "id": "FR-BGSTAB-002", "stability": "evolving", "status": "implemented", "ac_total": 6, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6"] },
+  { "id": "FR-BGSTAB-003", "stability": "evolving", "status": "implemented", "ac_total": 5, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"] },
+  { "id": "FR-BGSTAB-004", "stability": "evolving", "status": "implemented", "ac_total": 5, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"] },
+  { "id": "FR-BGSTAB-005", "stability": "evolving", "status": "implemented", "ac_total": 5, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"] },
+  { "id": "FR-BGSTAB-006", "stability": "evolving", "status": "implemented", "ac_total": 5, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"] },
+  { "id": "FR-BGSTAB-007", "stability": "evolving", "status": "implemented", "ac_total": 7, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"] },
+  { "id": "REL-BGSTAB-001", "stability": "evolving", "status": "implemented", "ac_total": 5, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"] },
+  { "id": "FR-BGSTAB-008", "stability": "evolving", "status": "implemented", "ac_total": 6, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6"] },
+  { "id": "FR-BGSTAB-009", "stability": "evolving", "status": "implemented", "ac_total": 6, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6"] },
+  { "id": "FR-BGSTAB-010", "stability": "evolving", "status": "planned", "ac_total": 7, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"] }
+]

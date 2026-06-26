@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import os from 'os';
 import path from 'path';
 import fs from 'fs/promises';
+import { existsSync, writeFileSync as fsSyncWriteFile } from 'fs';
 import http from 'node:http';
 import type net from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -22,7 +23,7 @@ import { SettingsService } from './services/SettingsService.js';
 import { BootstrapSetupService } from './services/BootstrapSetupService.js';
 import { reconcileTotpRuntime } from './services/twoFactorRuntime.js';
 import { runDaemonTotpPreflightForConfig } from './services/daemonTotpPreflight.js';
-import { SessionManager } from './services/SessionManager.js';
+import { SessionManager, type SessionFinalizedEvent } from './services/SessionManager.js';
 import { sessionManager } from './services/SessionManager.js';
 import { FileService } from './services/FileService.js';
 import { OscDetector } from './services/OscDetector.js';
@@ -53,7 +54,7 @@ import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js
 import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
 import { createTerminalShortcutRoutes } from './routes/terminalShortcutRoutes.js';
 import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
-import sessionRoutes from './routes/sessionRoutes.js';
+import sessionRoutes, { createSessionRoutes } from './routes/sessionRoutes.js';
 import { createAuthMiddleware } from './middleware/authMiddleware.js';
 import { ensureDebugCaptureSessionExists, requireLocalDebugCapture } from './middleware/debugCaptureGuards.js';
 import { performGracefulShutdown } from './services/gracefulShutdown.js';
@@ -120,8 +121,8 @@ async function main(): Promise<void> {
     { name: 'SessionManager bash shell env keeps BASH_ENV bootstrap on Windows hosts', run: testSessionManagerWindowsBashEnvBootstrap },
     { name: 'bash OSC133 hook stays BASH_ENV based and avoids rcfile bootstrap', run: testBashOsc133HookAvoidsRcfileBootstrap },
     { name: 'SessionManager records observe-mode cleanup telemetry on delete', run: testSessionManagerRecordsObserveCleanupTelemetryOnDelete },
-    { name: 'SessionManager records natural process exits once', run: testSessionManagerRecordsNaturalProcessExitOnce },
-    { name: 'SessionManager does not double-count delete followed by process exit', run: testSessionManagerDoesNotDoubleCountDeleteThenProcessExit },
+    { name: 'SessionManager finalizes natural process exit once', run: testSessionManagerFinalizesNaturalProcessExitOnce },
+    { name: 'SessionManager finalizer is idempotent across delete and late process-exit', run: testSessionManagerDoesNotDoubleCountDeleteThenProcessExit },
     { name: 'SessionManager default cleanup inspector skips unverified observations', run: testSessionManagerDefaultCleanupInspectorSkipsUnverified },
     { name: 'SessionManager records unverified cleanup skips without extra kills', run: testSessionManagerCleanupTelemetryRecordsUnverifiedSkip },
     { name: 'SessionManager bounds recent cleanup telemetry results', run: testSessionManagerCleanupTelemetryBoundsRecentResults },
@@ -235,10 +236,15 @@ async function main(): Promise<void> {
     { name: 'WsRouter does not duplicate deferred degraded payload after fallback snapshot ack', run: testWsRouterNoDuplicateDeferredFallbackPayload },
     { name: 'WsRouter clears replay state when a session is removed', run: testWsRouterClearSessionState },
     { name: 'WorkspaceService restartTab invalidates old session lineage and preserves lastCwd', run: testWorkspaceServiceRestartTab },
+    { name: 'WorkspaceService restartTab persists replacement lifecycle before deleting old session', run: testWorkspaceServiceRestartTabPersistsReplacementBeforeDelete },
     { name: 'WorkspaceService restartTab preserves the old session when replacement creation fails', run: testWorkspaceServiceRestartTabCreateFailure },
     { name: 'WorkspaceService deleteWorkspace clears workspace sessions in bulk', run: testWorkspaceServiceDeleteWorkspace },
+    { name: 'WorkspaceService deleteWorkspace pre-marks tabs non-recoverable before session cleanup', run: testWorkspaceServiceDeleteWorkspacePreMarksNonRecoverable },
+    { name: 'WorkspaceService deleteTab ignores tab-delete finalizer callback after pre-marking', run: testWorkspaceServiceDeleteTabIgnoresDeleteFinalizerCallback },
     { name: 'WorkspaceService passes session cleanup reasons', run: testWorkspaceServicePassesSessionCleanupReasons },
     { name: 'WorkspaceService orphan recovery recreates fresh session ids with saved cwd', run: testWorkspaceServiceCheckOrphanTabs },
+    { name: 'WorkspaceService orphan recovery skips stopped or non-recoverable tabs', run: testWorkspaceServiceSkipsStoppedOrphanTabs },
+    { name: 'sessionRoutes direct delete marks workspace-owned tab stopped non-recoverable', run: testSessionRoutesDirectDeleteMarksWorkspaceTabStopped },
     { name: 'WorkspaceService infers tab name source for default and legacy names', run: testWorkspaceServiceTabNameSourceDefaults },
     { name: 'WorkspaceService applies terminal titles and broadcasts tab metadata changes', run: testWorkspaceServiceApplyTerminalTitle },
     { name: 'WorkspaceService ignores absolute path terminal titles', run: testWorkspaceServiceIgnoresAbsolutePathTerminalTitle },
@@ -1397,21 +1403,66 @@ function testSessionManagerRecordsObserveCleanupTelemetryOnDelete(): void {
   }
 }
 
-function testSessionManagerRecordsNaturalProcessExitOnce(): void {
+function testSessionManagerFinalizesNaturalProcessExitOnce(): void {
   const harness = createProcessCleanupSessionHarness({
     processInspector: () => ({ status: 'observed', remainingDescendants: 0 }),
   });
+  const sentMessages: any[] = [];
+  const wsRouter = {
+    getSubscribers(sessionId: string) {
+      assert.equal(sessionId, harness.session.id);
+      return new Set([{
+        readyState: 1,
+        send(message: string) {
+          sentMessages.push(JSON.parse(message));
+        },
+      }]);
+    },
+    clearSessionState(sessionId: string) {
+      assert.equal(sessionId, harness.session.id);
+    },
+    disableDebugReplayCapture(sessionId: string) {
+      assert.equal(sessionId, harness.session.id);
+    },
+    clearReplayEvents(sessionId: string) {
+      assert.equal(sessionId, harness.session.id);
+    },
+  };
+  harness.manager.setWsRouter(wsRouter as any);
+  (harness.manager as any).pendingResizeReplaySessions.add(harness.session.id);
+  (harness.manager as any).pendingResizeReplayStartedAt.set(harness.session.id, Date.now());
+  (harness.manager as any).pendingResizeReplayLastOutputAt.set(harness.session.id, Date.now());
 
   try {
+    const sessionData = harness.sessionData;
+    assert.ok(sessionData);
+    if (sessionData.cwdFilePath) {
+      fsSyncWriteFile(sessionData.cwdFilePath, process.cwd());
+    }
+
     harness.exit(0);
-    assert.equal(harness.manager.deleteSession(harness.session.id), true);
 
     const cleanup = readCleanupTelemetry(harness.manager);
     assert.equal(cleanup.attempted, 1);
     assert.equal(cleanup.completed, 1);
     assert.equal(cleanup.recentResults.length, 1);
     assert.equal(cleanup.recentResults[0].reason, 'process-exit');
-    assert.equal(harness.getKillCalls(), 1);
+    assert.equal(harness.getKillCalls(), 0);
+    assert.equal(harness.manager.getSession(harness.session.id), null);
+    assert.equal((harness.manager as any).sessions.has(harness.session.id), false);
+    assert.equal(harness.manager.deleteSession(harness.session.id), false);
+    assert.equal(sentMessages.length, 1);
+    assert.equal(sentMessages[0].type, 'session:exited');
+    assert.equal(sentMessages[0].sessionId, harness.session.id);
+    assert.equal(sentMessages[0].exitCode, 0);
+    assert.equal(sessionData.finalized, true);
+    assert.equal(sessionData.headless, null);
+    assert.equal((harness.manager as any).pendingResizeReplaySessions.has(harness.session.id), false);
+    assert.equal((harness.manager as any).pendingResizeReplayStartedAt.has(harness.session.id), false);
+    assert.equal((harness.manager as any).pendingResizeReplayLastOutputAt.has(harness.session.id), false);
+    if (sessionData.cwdFilePath) {
+      assert.equal(existsSync(sessionData.cwdFilePath), false);
+    }
   } finally {
     harness.cleanupIfActive();
   }
@@ -1428,7 +1479,6 @@ function testSessionManagerDoesNotDoubleCountDeleteThenProcessExit(): void {
     assert.equal(afterDelete.attempted, 1);
     assert.equal(afterDelete.recentResults[0].reason, 'direct-session-delete');
 
-    (harness.manager as any).cleanupRecordedSessionIds.clear();
     harness.exit(0);
 
     const afterLateExit = readCleanupTelemetry(harness.manager);
@@ -1437,6 +1487,7 @@ function testSessionManagerDoesNotDoubleCountDeleteThenProcessExit(): void {
     assert.equal(afterLateExit.recentResults.length, 1);
     assert.equal(afterLateExit.recentResults[0].reason, 'direct-session-delete');
     assert.equal(harness.getKillCalls(), 1);
+    assert.equal(harness.manager.deleteSession(harness.session.id), false);
   } finally {
     harness.cleanupIfActive();
   }
@@ -3271,6 +3322,7 @@ async function testPerformGracefulShutdownFlushesWorkspaceCwds(): Promise<void> 
   const sessionManagerStub = {
     onCwdChange() {},
     onTerminalTitleChange() {},
+    onSessionFinalized() {},
     stopAllCwdWatching() {
       events.push('stop-watchers');
     },
@@ -4007,13 +4059,30 @@ function createWorkspaceServiceHarness(options: { terminalTitleDebounceMs?: numb
     deleteMultipleSessionReasons: [] as Array<{ ids: string[]; reason?: string }>,
     hasSession: new Set<string>(),
     createSessionError: null as Error | null,
+    order: [] as string[],
+    save: [] as Array<{ immediate: boolean; tabs: any[]; workspaces: any[] }>,
   };
   let sessionCounter = 0;
+  let sessionFinalizedCallback: ((event: SessionFinalizedEvent) => void) | null = null;
+
+  const emitSessionFinalized = (id: string, reason?: string) => {
+    sessionFinalizedCallback?.({
+      sessionId: id,
+      reason: (reason ?? 'process-exit') as SessionFinalizedEvent['reason'],
+      exitCode: null,
+      cleanupStatus: 'completed',
+      recordedAt: new Date().toISOString(),
+    });
+  };
 
   const sessionManagerStub = {
     onCwdChange() {},
     onTerminalTitleChange() {},
+    onSessionFinalized(cb: (event: SessionFinalizedEvent) => void) {
+      sessionFinalizedCallback = cb;
+    },
     createSession(name?: string, shell?: string, cwd?: string) {
+      calls.order.push('createSession');
       calls.createSession.push({ name, shell, cwd });
       if (calls.createSessionError) {
         throw calls.createSessionError;
@@ -4030,15 +4099,19 @@ function createWorkspaceServiceHarness(options: { terminalTitleDebounceMs?: numb
       };
     },
     deleteSession(id: string, reason?: string) {
+      calls.order.push(`deleteSession:${id}:${reason ?? ''}`);
       calls.deleteSession.push(id);
       calls.deleteSessionReasons.push({ id, reason });
       calls.hasSession.delete(id);
+      emitSessionFinalized(id, reason);
       return true;
     },
     deleteMultipleSessions(ids: string[], reason?: string) {
+      calls.order.push(`deleteMultipleSessions:${reason ?? ''}`);
       calls.deleteMultipleSessions.push(ids);
       calls.deleteMultipleSessionReasons.push({ ids, reason });
       for (const id of ids) calls.hasSession.delete(id);
+      for (const id of ids) emitSessionFinalized(id, reason);
     },
     hasSession(id: string) {
       return calls.hasSession.has(id);
@@ -4052,7 +4125,14 @@ function createWorkspaceServiceHarness(options: { terminalTitleDebounceMs?: numb
   } as unknown as SessionManager;
 
   const workspaceService = new WorkspaceService(sessionManagerStub, options);
-  (workspaceService as any).save = async () => {};
+  (workspaceService as any).save = async (immediate = false) => {
+    calls.order.push(`save:${immediate}`);
+    calls.save.push({
+      immediate,
+      tabs: JSON.parse(JSON.stringify((workspaceService as any).state.tabs)),
+      workspaces: JSON.parse(JSON.stringify((workspaceService as any).state.workspaces)),
+    });
+  };
   (workspaceService as any).flushToDisk = async () => {};
 
   return { workspaceService, calls };
@@ -6096,6 +6176,35 @@ async function testWorkspaceServiceRestartTab(): Promise<void> {
   assert.equal(calls.createSession[0].shell, 'bash');
   assert.deepEqual(calls.deleteSession, ['old-session']);
   assert.notEqual(tab.sessionId, 'old-session');
+  assert.equal(tab.lifecycleState, 'active');
+  assert.equal(tab.recoverable, true);
+  assert.equal(tab.lifecycleReason, 'tab-restart');
+  assert.equal(tab.generation, 1);
+}
+
+async function testWorkspaceServiceRestartTabPersistsReplacementBeforeDelete(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = createWorkspaceStateWithTab({
+    sessionId: 'old-session',
+    shellType: 'bash',
+    lastCwd: '/repo',
+    generation: 2,
+  });
+  calls.hasSession.add('old-session');
+
+  const tab = await workspaceService.restartTab('ws-1', 'tab-1');
+
+  assert.notEqual(tab.sessionId, 'old-session');
+  assert.equal(tab.generation, 3);
+  assert.equal(tab.lifecycleState, 'active');
+  assert.equal(tab.recoverable, true);
+  assert.equal(tab.lifecycleReason, 'tab-restart');
+  assert.equal(calls.order[0], 'createSession');
+  assert.equal(calls.order[1], 'save:true');
+  assert.equal(calls.order[2], 'deleteSession:old-session:tab-restart');
+  assert.equal(calls.save[0].tabs[0].sessionId, tab.sessionId);
+  assert.equal(calls.save[0].tabs[0].generation, 3);
+  assert.equal(calls.save[0].tabs[0].lifecycleState, 'active');
 }
 
 async function testWorkspaceServiceRestartTabCreateFailure(): Promise<void> {
@@ -6133,6 +6242,7 @@ async function testWorkspaceServiceRestartTabCreateFailure(): Promise<void> {
   );
 
   assert.equal((workspaceService as any).state.tabs[0].sessionId, 'old-session');
+  assert.equal((workspaceService as any).state.tabs[0].lifecycleState, undefined);
   assert.deepEqual(calls.deleteSession, []);
 }
 
@@ -6192,6 +6302,84 @@ async function testWorkspaceServiceDeleteWorkspace(): Promise<void> {
   assert.equal((workspaceService as any).state.workspaces.some((ws: any) => ws.id === 'ws-1'), false);
   assert.equal((workspaceService as any).state.tabs.length, 0);
   assert.equal((workspaceService as any).state.gridLayouts.length, 0);
+}
+
+async function testWorkspaceServiceDeleteWorkspacePreMarksNonRecoverable(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = {
+    workspaces: [
+      {
+        id: 'ws-1',
+        name: 'Workspace 1',
+        sortOrder: 0,
+        viewMode: 'tab',
+        activeTabId: 'tab-1',
+        colorCounter: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: 'ws-2',
+        name: 'Workspace 2',
+        sortOrder: 1,
+        viewMode: 'tab',
+        activeTabId: null,
+        colorCounter: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ],
+    tabs: [
+      {
+        id: 'tab-1',
+        workspaceId: 'ws-1',
+        sessionId: 'session-a',
+        name: 'Terminal A',
+        colorIndex: 0,
+        sortOrder: 0,
+        shellType: 'bash',
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    gridLayouts: [],
+  };
+
+  await workspaceService.deleteWorkspace('ws-1');
+
+  assert.equal(calls.order[0], 'save:true');
+  assert.equal(calls.order[1], 'deleteMultipleSessions:workspace-delete');
+  assert.equal(calls.save[0].tabs[0].lifecycleState, 'stopped');
+  assert.equal(calls.save[0].tabs[0].recoverable, false);
+  assert.equal(calls.save[0].tabs[0].lifecycleReason, 'workspace-delete');
+  assert.equal(calls.save[0].tabs[0].cleanupStatus, 'not-started');
+  assert.deepEqual(calls.order, [
+    'save:true',
+    'deleteMultipleSessions:workspace-delete',
+    'save:true',
+  ]);
+  assert.equal(calls.save.length, 2);
+  assert.equal(calls.save[1].tabs.some((tab: any) => tab.workspaceId === 'ws-1'), false);
+  assert.equal(calls.save[1].workspaces.some((workspace: any) => workspace.id === 'ws-1'), false);
+}
+
+async function testWorkspaceServiceDeleteTabIgnoresDeleteFinalizerCallback(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = createWorkspaceStateWithTab({
+    sessionId: 'session-tab-delete',
+  });
+
+  await workspaceService.deleteTab('ws-1', 'tab-1');
+
+  assert.deepEqual(calls.order, [
+    'save:true',
+    'deleteSession:session-tab-delete:tab-delete',
+    'save:true',
+  ]);
+  assert.equal(calls.save.length, 2);
+  assert.equal(calls.save[0].tabs[0].lifecycleState, 'stopped');
+  assert.equal(calls.save[0].tabs[0].recoverable, false);
+  assert.equal(calls.save[0].tabs[0].lifecycleReason, 'tab-delete');
+  assert.equal(calls.save[1].tabs.length, 0);
 }
 
 async function testWorkspaceServicePassesSessionCleanupReasons(): Promise<void> {
@@ -6308,6 +6496,82 @@ async function testWorkspaceServiceCheckOrphanTabs(): Promise<void> {
   assert.equal(calls.createSession.length, 1);
   assert.equal(calls.createSession[0].cwd, '/saved-cwd');
   assert.notEqual((workspaceService as any).state.tabs[0].sessionId, 'orphan-session');
+  assert.equal((workspaceService as any).state.tabs[0].lifecycleState, 'active');
+  assert.equal((workspaceService as any).state.tabs[0].recoverable, true);
+  assert.equal((workspaceService as any).state.tabs[0].lifecycleReason, 'orphan-recovery');
+  assert.equal((workspaceService as any).state.tabs[0].generation, 1);
+}
+
+async function testWorkspaceServiceSkipsStoppedOrphanTabs(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  const state = createWorkspaceStateWithTab({
+    sessionId: 'stopped-session',
+    lifecycleState: 'stopped',
+    recoverable: true,
+    lifecycleReason: 'direct-session-delete',
+    cleanupStatus: 'completed',
+    generation: 4,
+  });
+  (state.tabs as any[]).push({
+    id: 'tab-2',
+    workspaceId: 'ws-1',
+    sessionId: 'non-recoverable-session',
+    name: 'Terminal-2',
+    colorIndex: 1,
+    sortOrder: 1,
+    shellType: 'bash',
+    createdAt: new Date().toISOString(),
+    lifecycleState: 'active',
+    recoverable: false,
+    lifecycleReason: 'process-exit',
+    cleanupStatus: 'completed',
+    generation: 5,
+  });
+  (workspaceService as any).state = state;
+
+  const orphanTabIds = await workspaceService.checkOrphanTabs();
+
+  assert.deepEqual(orphanTabIds, []);
+  assert.equal(calls.createSession.length, 0);
+  assert.equal((workspaceService as any).state.tabs[0].sessionId, 'stopped-session');
+  assert.equal((workspaceService as any).state.tabs[0].generation, 4);
+  assert.equal((workspaceService as any).state.tabs[1].sessionId, 'non-recoverable-session');
+  assert.equal((workspaceService as any).state.tabs[1].generation, 5);
+}
+
+async function testSessionRoutesDirectDeleteMarksWorkspaceTabStopped(): Promise<void> {
+  const { workspaceService } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = createWorkspaceStateWithTab({
+    sessionId: 'session-direct-delete',
+  });
+
+  const originalDeleteSession = sessionManager.deleteSession.bind(sessionManager);
+  (sessionManager as any).deleteSession = (id: string, reason?: string) => {
+    assert.equal(id, 'session-direct-delete');
+    assert.equal(reason, 'direct-session-delete');
+    return true;
+  };
+
+  try {
+    const app = express();
+    app.use('/api/sessions', createSessionRoutes({
+      onSessionDeleted: (sessionId) => workspaceService.markSessionStoppedByDirectDelete(sessionId),
+    }));
+
+    const response = await invokeJsonRoute(app, {
+      method: 'DELETE',
+      path: '/api/sessions/session-direct-delete',
+    });
+
+    assert.equal(response.status, 204);
+    const tab = (workspaceService as any).state.tabs[0];
+    assert.equal(tab.lifecycleState, 'stopped');
+    assert.equal(tab.recoverable, false);
+    assert.equal(tab.lifecycleReason, 'direct-session-delete');
+    assert.equal(tab.cleanupStatus, 'not-started');
+  } finally {
+    (sessionManager as any).deleteSession = originalDeleteSession;
+  }
 }
 
 async function testWorkspaceServiceTabNameSourceDefaults(): Promise<void> {

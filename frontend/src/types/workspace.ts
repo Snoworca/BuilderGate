@@ -21,9 +21,34 @@ export interface WorkspaceTab {
   shellType: string;
   createdAt: string;
   lastCwd?: string;
+  lifecycleState?: WorkspaceTabLifecycleState;
+  recoverable?: boolean;
+  lifecycleReason?: WorkspaceTabLifecycleReason;
+  cleanupStatus?: WorkspaceTabCleanupStatus;
+  lastExitCode?: number | null;
+  lifecycleUpdatedAt?: string;
+  generation?: number;
 }
 
 export type WorkspaceTabNameSource = 'default' | 'terminal-title' | 'user';
+
+export type WorkspaceTabLifecycleState = 'active' | 'stopped';
+
+export type WorkspaceTabLifecycleReason =
+  | 'tab-delete'
+  | 'workspace-delete'
+  | 'tab-restart'
+  | 'direct-session-delete'
+  | 'process-exit'
+  | 'shutdown'
+  | 'orphan-recovery';
+
+export type WorkspaceTabCleanupStatus =
+  | 'not-started'
+  | 'observed'
+  | 'completed'
+  | 'degraded'
+  | 'failed';
 
 export interface WorkspaceTabRuntime extends WorkspaceTab {
   status: 'running' | 'idle' | 'disconnected';

@@ -13,7 +13,7 @@ import { existsSync } from 'fs';
 import os from 'os';
 import httpProxy from 'http-proxy';
 import path from 'path';
-import sessionRoutes from './routes/sessionRoutes.js';
+import { createSessionRoutes } from './routes/sessionRoutes.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
 import { createFileRoutes } from './routes/fileRoutes.js';
 import { createSettingsRoutes } from './routes/settingsRoutes.js';
@@ -317,6 +317,9 @@ function setupRoutes(): void {
     wsRouter?.disableDebugReplayCapture(req.params.id);
     wsRouter?.clearReplayEvents(req.params.id);
     res.status(204).send();
+  });
+  const sessionRoutes = createSessionRoutes({
+    onSessionDeleted: (sessionId) => workspaceService.markSessionStoppedByDirectDelete(sessionId),
   });
   app.use('/api/sessions', authMiddleware, sessionRoutes);
 

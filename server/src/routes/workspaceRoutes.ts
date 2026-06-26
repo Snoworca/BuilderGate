@@ -157,7 +157,20 @@ export function createWorkspaceRoutes(workspaceService: WorkspaceService): Route
     try {
       const tab = await workspaceService.restartTab(req.params.wid, req.params.tid);
       const clientId = req.headers['x-client-id'] as string | undefined;
-      broadcast('tab:updated', { id: tab.id, workspaceId: tab.workspaceId, changes: { sessionId: tab.sessionId } }, clientId, req);
+      broadcast('tab:updated', {
+        id: tab.id,
+        workspaceId: tab.workspaceId,
+        changes: {
+          sessionId: tab.sessionId,
+          lifecycleState: tab.lifecycleState,
+          recoverable: tab.recoverable,
+          lifecycleReason: tab.lifecycleReason,
+          cleanupStatus: tab.cleanupStatus,
+          lastExitCode: tab.lastExitCode,
+          lifecycleUpdatedAt: tab.lifecycleUpdatedAt,
+          generation: tab.generation,
+        },
+      }, clientId, req);
       res.json(tab);
     } catch (error) {
       handleError(res, error);

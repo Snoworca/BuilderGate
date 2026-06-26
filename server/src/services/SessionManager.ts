@@ -193,6 +193,7 @@ interface SessionData {
   pty: pty.IPty;
   processMetadata: SessionProcessMetadata;
   cleanupRecorded: boolean;
+  finalized: boolean;
   idleTimer: NodeJS.Timeout | null;
   runningTimer: NodeJS.Timeout | null;
   shellType?: SessionShellType;
@@ -229,6 +230,21 @@ interface SessionData {
   expectShellPromptAfterAiTuiFailure?: boolean;
   lastSubmittedCommand?: string;
   foregroundStartedAt?: number;
+}
+
+export interface SessionFinalizedEvent {
+  sessionId: string;
+  reason: SessionCleanupReason;
+  exitCode: number | null;
+  cleanupStatus: SessionCleanupStatus;
+  recordedAt: string;
+}
+
+interface SessionFinalizerOptions {
+  reason: SessionCleanupReason;
+  exitCode?: number | null;
+  killPty: boolean;
+  emitExited: boolean;
 }
 
 /**
@@ -333,6 +349,7 @@ export class SessionManager {
   private cachedAvailableShells: ShellInfo[] | null = null;
   private cwdChangeCallback: ((sessionId: string, cwd: string) => void) | null = null;
   private terminalTitleChangeCallback: ((sessionId: string, title: string) => void) | null = null;
+  private sessionFinalizedCallback: ((event: SessionFinalizedEvent) => void) | null = null;
   private observability: Omit<SessionManagerObservability, 'totalSessions' | 'healthySessions' | 'degradedSessions' | 'cleanup'> = {
     snapshotRequests: 0,
     snapshotCacheHits: 0,
@@ -420,6 +437,7 @@ export class SessionManager {
       pty: ptyProcess,
       processMetadata,
       cleanupRecorded: false,
+      finalized: false,
       idleTimer: null,
       runningTimer: null,
       shellType,
@@ -608,8 +626,12 @@ export class SessionManager {
 
     // Handle PTY exit
     ptyProcess.onExit(({ exitCode }) => {
-      this.recordCleanupObservation(id, sessionData, 'process-exit');
-      this.broadcastWs(id, 'session:exited', { exitCode });
+      this.finalizeSession(id, sessionData, {
+        reason: 'process-exit',
+        exitCode,
+        killPty: false,
+        emitExited: true,
+      });
     });
 
     return this.toDTO(session);
@@ -932,53 +954,12 @@ export class SessionManager {
     const data = this.sessions.get(id);
     if (!data) return false;
 
-    // Clear idle timer
-    if (data.idleTimer) {
-      clearTimeout(data.idleTimer);
-    }
-    this.cancelPendingRunningTransition(data);
-
-    this.recordCleanupObservation(id, data, reason);
-
-    // Kill PTY process
-    data.pty.kill();
-
-    // Step 9: OSC 감지기 정리
-    data.oscDetector.destroy();
-    data.terminalTitleDetector.destroy();
-    data.terminalTitleSignalDetector.destroy();
-    data.foregroundDetectorRegistry?.reset();
-
-    if (data.headless) {
-      disposeHeadlessTerminal(data.headless);
-      data.headless = null;
-    }
-    data.headlessCloseSignal.resolve();
-    data.snapshotCache = null;
-
-    // Clean up CWD file watching and temp file
-    if (data.cwdFilePath) {
-      unwatchFile(data.cwdFilePath);
-      try { unlinkSync(data.cwdFilePath); } catch { /* ignore */ }
-    }
-
-    this.wsRouter?.clearSessionState(id);
-    this.wsRouter?.disableDebugReplayCapture(id);
-    this.wsRouter?.clearReplayEvents(id);
-    this.disableDebugCapture(id);
-    this.clearDebugCapture(id);
-    this.pendingResizeReplaySessions.delete(id);
-    this.pendingResizeReplayStartedAt.delete(id);
-    this.pendingResizeReplayLastOutputAt.delete(id);
-    const pendingResizeRefresh = this.pendingResizeRefreshTimers.get(id);
-    if (pendingResizeRefresh) {
-      clearTimeout(pendingResizeRefresh);
-      this.pendingResizeRefreshTimers.delete(id);
-    }
-
-    // Remove from map
-    this.sessions.delete(id);
-    return true;
+    return this.finalizeSession(id, data, {
+      reason,
+      exitCode: null,
+      killPty: true,
+      emitExited: false,
+    });
   }
 
   getDebugCapture(sessionId: string, limit = 200): SessionDebugCaptureEvent[] {
@@ -1251,6 +1232,11 @@ export class SessionManager {
   /** Register a callback to be invoked when a terminal title changes. */
   onTerminalTitleChange(cb: (sessionId: string, title: string) => void): void {
     this.terminalTitleChangeCallback = cb;
+  }
+
+  /** Register a callback to be invoked after any session finalizer completes. */
+  onSessionFinalized(cb: (event: SessionFinalizedEvent) => void): void {
+    this.sessionFinalizedCallback = cb;
   }
 
   /** Stop all CWD file watchers. Called during graceful shutdown. */
@@ -2087,9 +2073,93 @@ export class SessionManager {
     return 'unix';
   }
 
-  private recordCleanupObservation(sessionId: string, data: SessionData, reason: SessionCleanupReason): void {
-    if (data.cleanupRecorded || this.cleanupRecordedSessionIds.has(sessionId)) {
+  private finalizeSession(sessionId: string, data: SessionData, options: SessionFinalizerOptions): boolean {
+    if (data.finalized || this.sessions.get(sessionId) !== data) {
+      return false;
+    }
+    data.finalized = true;
+
+    if (data.idleTimer) {
+      clearTimeout(data.idleTimer);
+      data.idleTimer = null;
+    }
+    this.cancelPendingRunningTransition(data);
+
+    const cleanupResult = this.recordCleanupObservation(sessionId, data, options.reason);
+
+    if (options.emitExited) {
+      this.broadcastWs(sessionId, 'session:exited', { exitCode: options.exitCode ?? null });
+    }
+
+    if (options.killPty) {
+      data.pty.kill();
+    }
+
+    data.oscDetector.destroy();
+    data.terminalTitleDetector.destroy();
+    data.terminalTitleSignalDetector.destroy();
+    data.foregroundDetectorRegistry?.reset();
+
+    if (data.headless) {
+      disposeHeadlessTerminal(data.headless);
+      data.headless = null;
+    }
+    data.headlessCloseSignal.resolve();
+    data.snapshotCache = null;
+    data.pendingOutputChunks = [];
+    data.unsnapshottedOutput = '';
+    data.unsnapshottedOutputTruncated = false;
+
+    if (data.cwdFilePath) {
+      unwatchFile(data.cwdFilePath);
+      try { unlinkSync(data.cwdFilePath); } catch { /* ignore */ }
+    }
+
+    this.wsRouter?.clearSessionState(sessionId);
+    this.wsRouter?.disableDebugReplayCapture(sessionId);
+    this.wsRouter?.clearReplayEvents(sessionId);
+    this.disableDebugCapture(sessionId);
+    this.clearDebugCapture(sessionId);
+    this.pendingResizeReplaySessions.delete(sessionId);
+    this.pendingResizeReplayStartedAt.delete(sessionId);
+    this.pendingResizeReplayLastOutputAt.delete(sessionId);
+    const pendingResizeRefresh = this.pendingResizeRefreshTimers.get(sessionId);
+    if (pendingResizeRefresh) {
+      clearTimeout(pendingResizeRefresh);
+      this.pendingResizeRefreshTimers.delete(sessionId);
+    }
+
+    this.sessions.delete(sessionId);
+
+    const finalizedAt = cleanupResult?.recordedAt ?? new Date().toISOString();
+    this.notifySessionFinalized({
+      sessionId,
+      reason: options.reason,
+      exitCode: options.exitCode ?? null,
+      cleanupStatus: cleanupResult?.cleanupStatus ?? 'not-started',
+      recordedAt: finalizedAt,
+    });
+    return true;
+  }
+
+  private notifySessionFinalized(event: SessionFinalizedEvent): void {
+    if (!this.sessionFinalizedCallback) {
       return;
+    }
+    try {
+      this.sessionFinalizedCallback(event);
+    } catch (error) {
+      console.warn('[SessionManager] session finalized callback failed:', error);
+    }
+  }
+
+  private recordCleanupObservation(
+    sessionId: string,
+    data: SessionData,
+    reason: SessionCleanupReason,
+  ): SessionCleanupTelemetryResult | null {
+    if (data.cleanupRecorded || this.cleanupRecordedSessionIds.has(sessionId)) {
+      return null;
     }
     data.cleanupRecorded = true;
     this.rememberCleanupRecordedSession(sessionId);
@@ -2098,15 +2168,16 @@ export class SessionManager {
     this.cleanupTelemetry.mode = cleanupConfig.mode;
 
     if (cleanupConfig.mode === 'legacy') {
-      this.pushCleanupResult({
+      const result: SessionCleanupTelemetryResult = {
         sessionId,
         reason,
         rootPid: data.processMetadata.rootPid,
         remainingDescendants: 0,
         cleanupStatus: 'not-started',
         recordedAt: new Date().toISOString(),
-      });
-      return;
+      };
+      this.pushCleanupResult(result);
+      return result;
     }
 
     this.cleanupTelemetry.attempted += 1;
@@ -2130,14 +2201,16 @@ export class SessionManager {
       this.cleanupTelemetry.degraded += 1;
     }
 
-    this.pushCleanupResult({
+    const result: SessionCleanupTelemetryResult = {
       sessionId,
       reason,
       rootPid: data.processMetadata.rootPid,
       remainingDescendants,
       cleanupStatus: status,
       recordedAt: new Date().toISOString(),
-    });
+    };
+    this.pushCleanupResult(result);
+    return result;
   }
 
   private rememberCleanupRecordedSession(sessionId: string): void {

@@ -2,12 +2,21 @@ import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs/promises';
 import { readFileSync } from 'fs';
 import path from 'path';
-import type { Workspace, WorkspaceTab, GridLayout, WorkspaceState, WorkspaceFile } from '../types/workspace.types.js';
+import type {
+  Workspace,
+  WorkspaceTab,
+  GridLayout,
+  WorkspaceState,
+  WorkspaceFile,
+  WorkspaceTabCleanupStatus,
+  WorkspaceTabLifecycleReason,
+  WorkspaceTabLifecycleState,
+} from '../types/workspace.types.js';
 import type { ShellType } from '../types/index.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import { config } from '../utils/config.js';
 import { isDefaultTerminalTabName, isSystemAbsolutePathTerminalTitle, sanitizeTerminalTitle } from '../utils/terminalTitle.js';
-import type { SessionManager } from './SessionManager.js';
+import type { SessionFinalizedEvent, SessionManager } from './SessionManager.js';
 
 interface WorkspaceConfig {
   dataPath: string;
@@ -24,7 +33,15 @@ interface WorkspaceServiceOptions {
 
 interface TabUpdatedEvent {
   tab: WorkspaceTab;
-  changes: Partial<Pick<WorkspaceTab, 'name' | 'nameSource' | 'terminalTitle' | 'sessionId'>>;
+  changes: Partial<WorkspaceTab>;
+}
+
+interface WorkspaceSessionStoppedEvent {
+  sessionId: string;
+  reason: WorkspaceTabLifecycleReason;
+  cleanupStatus: WorkspaceTabCleanupStatus;
+  exitCode: number | null;
+  recordedAt: string;
 }
 
 export class WorkspaceService {
@@ -60,6 +77,15 @@ export class WorkspaceService {
     this.sessionManager.onTerminalTitleChange((sessionId: string, title: string) => {
       this.applyTerminalTitle(sessionId, title).catch((error) => {
         console.warn('[WorkspaceService] Failed to apply terminal title:', error);
+      });
+    });
+
+    this.sessionManager.onSessionFinalized((event: SessionFinalizedEvent) => {
+      if (!this.shouldPersistSessionFinalization(event.reason)) {
+        return;
+      }
+      this.markSessionFinalized(event).catch((error) => {
+        console.warn('[WorkspaceService] Failed to apply session lifecycle finalization:', error);
       });
     });
   }
@@ -107,6 +133,7 @@ export class WorkspaceService {
         tab.lastCwd = undefined;
       }
       this.normalizeTabNameMetadata(tab);
+      this.normalizeTabLifecycleMetadata(tab);
     }
 
     // Migrate legacy GridLayout (columns/rows/cellSizes → mosaicTree)
@@ -213,6 +240,13 @@ export class WorkspaceService {
     for (const sessionId of sessionIds) {
       this.cancelPendingTerminalTitle(sessionId);
     }
+    for (const tab of tabs) {
+      this.markTabStopped(tab, 'workspace-delete', {
+        cleanupStatus: 'not-started',
+        exitCode: null,
+      });
+    }
+    await this.save(true);
     this.sessionManager.deleteMultipleSessions(sessionIds, 'workspace-delete');
 
     // Remove tabs, grid layouts, and workspace
@@ -268,6 +302,12 @@ export class WorkspaceService {
       sortOrder: wsTabs.length,
       shellType,
       createdAt: new Date().toISOString(),
+      lifecycleState: 'active',
+      recoverable: true,
+      cleanupStatus: 'not-started',
+      lastExitCode: null,
+      lifecycleUpdatedAt: new Date().toISOString(),
+      generation: 1,
     };
 
     this.state.tabs.push(tab);
@@ -308,7 +348,13 @@ export class WorkspaceService {
 
     this.cancelPendingTerminalTitle(tab.sessionId);
 
-    // Terminate PTY session
+    this.markTabStopped(tab, 'tab-delete', {
+      cleanupStatus: 'not-started',
+      exitCode: null,
+    });
+    await this.save(true);
+
+    // Terminate PTY session after the non-recoverable marker is durable.
     this.sessionManager.deleteSession(tab.sessionId, 'tab-delete');
 
     // Remove tab
@@ -344,11 +390,42 @@ export class WorkspaceService {
 
     // Create new PTY session with same shell type, restoring last CWD
     const sessionDTO = this.sessionManager.createSession(tab.name, tab.shellType, tab.lastCwd);
-    this.sessionManager.deleteSession(oldSessionId, 'tab-restart');
     tab.sessionId = sessionDTO.id;
+    this.markTabActive(tab, 'tab-restart');
 
-    await this.save();
+    await this.save(true);
+    this.sessionManager.deleteSession(oldSessionId, 'tab-restart');
     return tab;
+  }
+
+  async markSessionStoppedByDirectDelete(sessionId: string): Promise<boolean> {
+    const existing = this.state.tabs.find(t => t.sessionId === sessionId);
+    if (
+      existing?.lifecycleState === 'stopped'
+      && existing.recoverable === false
+      && existing.lifecycleReason === 'direct-session-delete'
+    ) {
+      await this.save(true);
+      return true;
+    }
+
+    return this.markSessionLifecycleStopped({
+      sessionId,
+      reason: 'direct-session-delete',
+      cleanupStatus: 'not-started',
+      exitCode: null,
+      recordedAt: new Date().toISOString(),
+    });
+  }
+
+  async markSessionFinalized(event: SessionFinalizedEvent): Promise<boolean> {
+    return this.markSessionLifecycleStopped({
+      sessionId: event.sessionId,
+      reason: this.toWorkspaceLifecycleReason(event.reason),
+      cleanupStatus: this.toWorkspaceCleanupStatus(event.cleanupStatus),
+      exitCode: event.exitCode,
+      recordedAt: event.recordedAt,
+    });
   }
 
   onTabUpdated(cb: (event: TabUpdatedEvent) => void): void {
@@ -414,6 +491,160 @@ export class WorkspaceService {
   // ============================================================================
   // Internal
   // ============================================================================
+
+  private async markSessionLifecycleStopped(event: WorkspaceSessionStoppedEvent): Promise<boolean> {
+    const tab = this.state.tabs.find(t => t.sessionId === event.sessionId);
+    if (!tab) {
+      return false;
+    }
+
+    this.cancelPendingTerminalTitle(event.sessionId);
+    this.markTabStopped(tab, event.reason, {
+      cleanupStatus: event.cleanupStatus,
+      exitCode: event.exitCode,
+      updatedAt: event.recordedAt,
+    });
+    await this.save(true);
+    this.emitTabUpdated({
+      tab,
+      changes: this.lifecycleChanges(tab),
+    });
+    return true;
+  }
+
+  private markTabActive(tab: WorkspaceTab, reason?: WorkspaceTabLifecycleReason): void {
+    const updatedAt = new Date().toISOString();
+    tab.lifecycleState = 'active';
+    tab.recoverable = true;
+    if (reason) {
+      tab.lifecycleReason = reason;
+    } else {
+      delete tab.lifecycleReason;
+    }
+    tab.cleanupStatus = 'not-started';
+    tab.lastExitCode = null;
+    tab.lifecycleUpdatedAt = updatedAt;
+    tab.generation = this.nextTabGeneration(tab);
+  }
+
+  private markTabStopped(
+    tab: WorkspaceTab,
+    reason: WorkspaceTabLifecycleReason,
+    options: {
+      cleanupStatus: WorkspaceTabCleanupStatus;
+      exitCode: number | null;
+      updatedAt?: string;
+    },
+  ): void {
+    tab.lifecycleState = 'stopped';
+    tab.recoverable = false;
+    tab.lifecycleReason = reason;
+    tab.cleanupStatus = options.cleanupStatus;
+    tab.lastExitCode = options.exitCode;
+    tab.lifecycleUpdatedAt = options.updatedAt ?? new Date().toISOString();
+  }
+
+  private nextTabGeneration(tab: WorkspaceTab): number {
+    return Number.isInteger(tab.generation) && (tab.generation ?? 0) > 0
+      ? (tab.generation as number) + 1
+      : 1;
+  }
+
+  private isRecoverableOrphanTab(tab: WorkspaceTab): boolean {
+    if (tab.lifecycleState === 'stopped') {
+      return false;
+    }
+    if (tab.recoverable === false) {
+      return false;
+    }
+    return true;
+  }
+
+  private lifecycleChanges(tab: WorkspaceTab): Partial<WorkspaceTab> {
+    return {
+      sessionId: tab.sessionId,
+      lifecycleState: tab.lifecycleState,
+      recoverable: tab.recoverable,
+      lifecycleReason: tab.lifecycleReason,
+      cleanupStatus: tab.cleanupStatus,
+      lastExitCode: tab.lastExitCode,
+      lifecycleUpdatedAt: tab.lifecycleUpdatedAt,
+      generation: tab.generation,
+    };
+  }
+
+  private toWorkspaceLifecycleReason(reason: SessionFinalizedEvent['reason']): WorkspaceTabLifecycleReason {
+    switch (reason) {
+      case 'tab-delete':
+      case 'workspace-delete':
+      case 'tab-restart':
+      case 'direct-session-delete':
+      case 'process-exit':
+        return reason;
+      default:
+        return 'process-exit';
+    }
+  }
+
+  private toWorkspaceCleanupStatus(status: SessionFinalizedEvent['cleanupStatus']): WorkspaceTabCleanupStatus {
+    switch (status) {
+      case 'observed':
+      case 'completed':
+      case 'degraded':
+      case 'failed':
+      case 'not-started':
+        return status;
+      case 'skipped-unverified':
+      default:
+        return 'degraded';
+    }
+  }
+
+  private shouldPersistSessionFinalization(reason: SessionFinalizedEvent['reason']): boolean {
+    return reason === 'process-exit' || reason === 'direct-session-delete';
+  }
+
+  private normalizeTabLifecycleMetadata(tab: WorkspaceTab): void {
+    if (tab.lifecycleState !== undefined && tab.lifecycleState !== 'active' && tab.lifecycleState !== 'stopped') {
+      delete tab.lifecycleState;
+    }
+    if (tab.recoverable !== undefined && typeof tab.recoverable !== 'boolean') {
+      delete tab.recoverable;
+    }
+    if (tab.lifecycleReason !== undefined && !this.isWorkspaceLifecycleReason(tab.lifecycleReason)) {
+      delete tab.lifecycleReason;
+    }
+    if (tab.cleanupStatus !== undefined && !this.isWorkspaceCleanupStatus(tab.cleanupStatus)) {
+      delete tab.cleanupStatus;
+    }
+    if (tab.lastExitCode !== undefined && tab.lastExitCode !== null && !Number.isFinite(tab.lastExitCode)) {
+      delete tab.lastExitCode;
+    }
+    if (tab.lifecycleUpdatedAt !== undefined && typeof tab.lifecycleUpdatedAt !== 'string') {
+      delete tab.lifecycleUpdatedAt;
+    }
+    if (tab.generation !== undefined && (!Number.isInteger(tab.generation) || tab.generation < 1)) {
+      delete tab.generation;
+    }
+  }
+
+  private isWorkspaceLifecycleReason(value: unknown): value is WorkspaceTabLifecycleReason {
+    return value === 'tab-delete'
+      || value === 'workspace-delete'
+      || value === 'tab-restart'
+      || value === 'direct-session-delete'
+      || value === 'process-exit'
+      || value === 'shutdown'
+      || value === 'orphan-recovery';
+  }
+
+  private isWorkspaceCleanupStatus(value: unknown): value is WorkspaceTabCleanupStatus {
+    return value === 'not-started'
+      || value === 'observed'
+      || value === 'completed'
+      || value === 'degraded'
+      || value === 'failed';
+  }
 
   private async commitTerminalTitle(sessionId: string, title: string): Promise<void> {
     const tab = this.state.tabs.find(t => t.sessionId === sessionId);
@@ -596,13 +827,19 @@ export class WorkspaceService {
     const orphanTabIds: string[] = [];
     for (const tab of this.state.tabs) {
       if (!this.sessionManager.hasSession(tab.sessionId)) {
-        orphanTabIds.push(tab.id);
+        if (!this.isRecoverableOrphanTab(tab)) {
+          continue;
+        }
+
         // Recreate session with saved CWD (or undefined → home directory fallback)
         try {
-          this.cancelPendingTerminalTitle(tab.sessionId);
+          const previousSessionId = tab.sessionId;
+          this.cancelPendingTerminalTitle(previousSessionId);
           const sessionDTO = this.sessionManager.createSession(tab.name, tab.shellType, tab.lastCwd);
-          console.log(`[Workspace] Orphan tab "${tab.name}" recovered: ${tab.sessionId} → ${sessionDTO.id} (cwd: ${tab.lastCwd || 'default'})`);
           tab.sessionId = sessionDTO.id;
+          this.markTabActive(tab, 'orphan-recovery');
+          orphanTabIds.push(tab.id);
+          console.log(`[Workspace] Orphan tab "${tab.name}" recovered: ${previousSessionId} → ${sessionDTO.id} (cwd: ${tab.lastCwd || 'default'})`);
         } catch (err) {
           console.error(`[Workspace] Failed to recover orphan tab "${tab.name}":`, err);
         }
