@@ -7,18 +7,21 @@
 - 현재 요청과 직접 관련된 과거 결정, 구현 세부, 검증 이력, known caveat가 필요할 때만 해당 memory 문서를 골라서 참고한다.
 - 새로 남길 작업 기록은 `docs/memory/YYYY-MM-DD-topic.md` 형식의 Markdown 파일을 우선 사용한다.
 
-## Dev/Test Ports
-
-- HTTP redirect server: `http://localhost:2001`
-- BuilderGate HTTPS server: `https://localhost:2002`
-- Vite dev server: `http://localhost:2003`
 
 ## Validation Rule
 
-- Manual validation and Playwright E2E must target `https://localhost:2002`.
-- `http://localhost:2001` is the HTTP redirect port, not the frontend app port.
-- `http://localhost:2003` is the Vite dev server port behind the HTTPS reverse proxy.
-- Health check example: `curl -k https://localhost:2002/health`
+- Manual validation and Playwright E2E must target `https://localhost:2222`.
+- `http://localhost:2221` is the HTTP redirect port, not the frontend app port.
+- `https://localhost:2222` is the Vite dev server port behind the HTTPS reverse proxy.
+- Health check example: `curl -k http://localhost:2221/health`
+
+start.bat --port 2222 를 이용하여 실행하시오. 
+종료는 stop.bat 를 사용하시오. 
+절대 node.exe 를 모두 종료하지 마시오. 
+
+
+https://localhost:2222  를 통하여 플레이라이트로 테스트 가능합니다. 
+서버는 항상 기동중이며 백엔드/프론트엔드 코드 관계없이 수정하면 리프래시 됩니다.
 
 ## Password
 
