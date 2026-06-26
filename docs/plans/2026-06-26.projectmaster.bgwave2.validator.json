@@ -1,0 +1,141 @@
+{
+  "validator_version": "0.6.0",
+  "run_id": "2026-06-26.projectmaster.bgwave2",
+  "target": "0.5.5-buildergate-stability",
+  "plan_path": "C:\\Work\\git\\_Snoworca\\ProjectMaster\\docs\\plans\\2026-06-26.projectmaster.bgwave2.plan.md",
+  "sidecar_path": "C:\\Work\\git\\_Snoworca\\ProjectMaster\\docs\\plans\\2026-06-26.projectmaster.bgwave2.sidecar.json",
+  "mode": "manual-contract-check",
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "checks_total": 18
+  },
+  "results": [
+    {
+      "id": "C01",
+      "title": "sidecar JSON parse",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C02",
+      "title": "plan.md frontmatter required fields",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C03",
+      "title": "plan_contract equals 1.2.0",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C04",
+      "title": "run_id consistency",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C05",
+      "title": "phase ids unique",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C06",
+      "title": "task ids unique",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C07",
+      "title": "task.phase_id references an existing phase",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C08",
+      "title": "phase.task_ids reference existing tasks",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C09",
+      "title": "task.req_ids reference FR-BGSTAB-011",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C10",
+      "title": "trace_links include link_id",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C11",
+      "title": "acceptance_tests kind compatible with task type",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C12",
+      "title": "verification_cmd has both posix and windows or null",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C13",
+      "title": "coverage arithmetic",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C14",
+      "title": "all FR-BGSTAB-011 acceptance criteria covered",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C15",
+      "title": "rollback specified for every task",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C16",
+      "title": "risk table references existing tasks",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C17",
+      "title": "TDD metadata present for code tasks",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C18",
+      "title": "manual validator mode is explicitly disclosed",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    }
+  ]
+}

@@ -36,10 +36,10 @@ git diff --check
 
 Results:
 
-- Server build plus tests passed: 234 tests.
+- Server build plus tests passed: 255 tests in the 2026-06-26 follow-up verification.
 - Targeted Wave3 frontend workspace type check passed.
 - Diff check passed with line-ending warnings only.
-- Full frontend typecheck is still blocked by unrelated untracked `RecoveryOptionManager` export/API files.
+- Full frontend typecheck passes in the 2026-06-26 follow-up verification.
 - SpecKiwi strict validation passed with 0 errors and 0 warnings.
 
 ## Code Touchpoints

@@ -11,7 +11,8 @@ test('renderBootstrapConfigTemplate includes resourceLimits defaults', () => {
   assert.match(rendered, /pendingOutputMaxBytes:\s*8388608/);
   assert.match(rendered, /serverBufferedHardLimitBytes:\s*33554432/);
   assert.match(rendered, /inputBackpressureBytes:\s*1048576/);
-  assert.match(rendered, /hiddenOutputPolicy:\s*"snapshot-restore"/);
+  assert.match(rendered, /hiddenOutputPolicy:\s*"write-hidden"/);
+  assert.match(rendered, /hiddenOutputTailBytes:\s*262144/);
   assert.match(rendered, /maxLiveWorkspaces:\s*3/);
   assert.match(rendered, /stabilityModes:\s*\{/);
   assert.match(rendered, /headlessQueueMode:\s*"observe"/);

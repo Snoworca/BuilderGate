@@ -19,13 +19,13 @@ One implementation choice differs from the research document: `server/src/servic
 
 | Wave3 requirement | Code alignment | Test alignment |
 | --- | --- | --- |
-| PTY natural `onExit` uses the shared cleanup path and still emits `session:exited`. | `server/src/services/SessionManager.ts:629`, `server/src/services/SessionManager.ts:957`, `server/src/services/SessionManager.ts:2076`, `server/src/services/SessionManager.ts:2091` | `server/src/test-runner.ts:124`, `server/src/test-runner.ts:1406` |
-| Finalization is idempotent across natural exit/delete races. | `server/src/services/SessionManager.ts:2076`, `server/src/services/SessionManager.ts:2088`, `server/src/services/SessionManager.ts:2156` | `server/src/test-runner.ts:125`, `server/src/test-runner.ts:1471` |
-| Direct `DELETE /api/sessions/:id` marks workspace-owned tabs stopped/non-recoverable. | `server/src/routes/sessionRoutes.ts:61`, `server/src/routes/sessionRoutes.ts:65`, `server/src/index.ts:321`, `server/src/index.ts:322`, `server/src/services/WorkspaceService.ts:401` | `server/src/test-runner.ts:247`, `server/src/test-runner.ts:6542` |
-| `checkOrphanTabs()` recovers only active/recoverable tabs. | `server/src/services/WorkspaceService.ts:553`, `server/src/services/WorkspaceService.ts:826`, `server/src/services/WorkspaceService.ts:830` | `server/src/test-runner.ts:246`, `server/src/test-runner.ts:6505` |
-| Restart ordering creates replacement, persists new session id/generation, then deletes old session. | `server/src/services/WorkspaceService.ts:382` | `server/src/test-runner.ts:239`, `server/src/test-runner.ts:6185` |
-| Workspace delete treats owned tabs as non-recoverable before session cleanup and final removal. | `server/src/services/WorkspaceService.ts:230` | `server/src/test-runner.ts:242`, `server/src/test-runner.ts:6351` |
-| Tab delete does not race with asynchronous finalizer callback after pre-marking. | `server/src/services/WorkspaceService.ts:84`, `server/src/services/WorkspaceService.ts:603` | `server/src/test-runner.ts:243`, `server/src/test-runner.ts:6365` |
+| PTY natural `onExit` uses the shared cleanup path and still emits `session:exited`. | `server/src/services/SessionManager.ts:649`, `server/src/services/SessionManager.ts:655`, `server/src/services/SessionManager.ts:2187`, `server/src/services/SessionManager.ts:2207` | `server/src/test-runner.ts:128`, `server/src/test-runner.ts:1435` |
+| Finalization is idempotent across natural exit/delete races. | `server/src/services/SessionManager.ts:2187`, `server/src/services/SessionManager.ts:2188`, `server/src/services/SessionManager.ts:2248`, `server/src/services/SessionManager.ts:2251` | `server/src/test-runner.ts:129`, `server/src/test-runner.ts:1500` |
+| Direct `DELETE /api/sessions/:id` marks workspace-owned tabs stopped/non-recoverable. | `server/src/routes/sessionRoutes.ts:69`, `server/src/routes/sessionRoutes.ts:70`, `server/src/index.ts:321`, `server/src/index.ts:322`, `server/src/services/WorkspaceService.ts:449` | `server/src/test-runner.ts:271`, `server/src/test-runner.ts:7484` |
+| `checkOrphanTabs()` recovers only active/recoverable tabs. | `server/src/services/WorkspaceService.ts:930` | `server/src/test-runner.ts:270`, `server/src/test-runner.ts:7447` |
+| Restart ordering creates replacement, persists new session id/generation, then deletes old session. | `server/src/services/WorkspaceService.ts:410` | `server/src/test-runner.ts:260`, `server/src/test-runner.ts:6998` |
+| Workspace delete treats owned tabs as non-recoverable before session cleanup and final removal. | `server/src/services/WorkspaceService.ts:240`, `server/src/services/WorkspaceService.ts:256`, `server/src/services/WorkspaceService.ts:272` | `server/src/test-runner.ts:264`, `server/src/test-runner.ts:7156` |
+| Tab delete does not race with asynchronous finalizer callback after pre-marking. | `server/src/services/WorkspaceService.ts:93`, `server/src/services/WorkspaceService.ts:365`, `server/src/services/WorkspaceService.ts:375`, `server/src/services/WorkspaceService.ts:386` | `server/src/test-runner.ts:266`, `server/src/test-runner.ts:7278` |
 | Frontend receives optional lifecycle metadata without UI redesign. | `frontend/src/types/workspace.ts:24`, `frontend/src/types/workspace.ts:35` | Targeted TypeScript check passed for `frontend/src/types/workspace.ts` |
 
 ## Race Review Result
@@ -36,9 +36,9 @@ The test harness now emits `SessionFinalizedEvent` from `deleteSession()` and `d
 
 ## Verification
 
-- `npm --prefix server test`: passed, 234 tests.
-- `npm --prefix frontend exec tsc -- --noEmit --skipLibCheck --lib ES2020,DOM --module ESNext --moduleResolution Bundler --target ES2020 frontend/src/types/workspace.ts`: passed.
-- `npm --prefix frontend run typecheck`: attempted, blocked by unrelated untracked `RecoveryOptionManager` export/API work.
+- `npm --prefix server test`: passed, 255 tests in the 2026-06-26 follow-up verification.
+- `npm --prefix frontend exec tsc -- --noEmit --skipLibCheck --lib ES2020,DOM --module ESNext --moduleResolution Bundler --target ES2020 frontend/src/types/workspace.ts`: passed in the original Wave3 verification.
+- `npm --prefix frontend run typecheck`: passed in the 2026-06-26 follow-up verification.
 - `git diff --check`: passed, line-ending warnings only.
 - SpecKiwi strict validation: passed with 0 errors and 0 warnings.
 - Independent re-review: `No findings`.

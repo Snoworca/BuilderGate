@@ -5,6 +5,7 @@ import type { SessionCleanupReason } from '../types/ws-protocol.js';
 import { AppError } from '../utils/errors.js';
 
 interface SessionRoutesOptions {
+  onSessionDeleting?: (sessionId: string, reason: SessionCleanupReason) => unknown | Promise<unknown>;
   onSessionDeleted?: (sessionId: string, reason: SessionCleanupReason) => unknown | Promise<unknown>;
 }
 
@@ -59,20 +60,26 @@ export function createSessionRoutes(options: SessionRoutesOptions = {}): Router 
   // DELETE /api/sessions/:id - Delete session
   router.delete('/:id', async (req: Request, res: Response) => {
     const reason: SessionCleanupReason = 'direct-session-delete';
-    const success = sessionManager.deleteSession(req.params.id, reason);
-    if (success) {
-      try {
-        await options.onSessionDeleted?.(req.params.id, reason);
-      } catch (error) {
-        if (error instanceof AppError) {
-          return res.status(error.statusCode).json(error.toJSON());
-        }
-        console.warn('[SessionRoutes] Failed to mark direct session deletion:', error);
-        return res.status(500).json({ error: 'Internal server error' });
-      }
-      res.status(204).send();
-    } else {
+    if (!sessionManager.hasSession(req.params.id)) {
       res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    try {
+      await options.onSessionDeleting?.(req.params.id, reason);
+      const success = await sessionManager.terminateSession(req.params.id, { reason });
+      if (success) {
+        await options.onSessionDeleted?.(req.params.id, reason);
+        res.status(204).send();
+      } else {
+        res.status(404).json({ error: 'Session not found' });
+      }
+    } catch (error) {
+      if (error instanceof AppError) {
+        return res.status(error.statusCode).json(error.toJSON());
+      }
+      console.warn('[SessionRoutes] Failed to delete session:', error);
+      return res.status(500).json({ error: 'Internal server error' });
     }
   });
 

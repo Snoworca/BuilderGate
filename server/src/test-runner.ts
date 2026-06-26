@@ -62,6 +62,10 @@ import {
   applyBootstrapPtyDefaultsToConfigText,
   normalizeRawConfigForPlatform,
 } from './utils/ptyPlatformPolicy.js';
+import {
+  DefaultProcessTreeTerminator,
+  type ProcessTreeTerminator,
+} from './utils/processTreeTerminator.js';
 import { getConfigPath, loadConfigFromPath } from './utils/config.js';
 import { loadConfigFromPathStrict } from './utils/configStrictLoader.js';
 import { resolveInputReliabilityMode } from './utils/inputReliabilityMode.js';
@@ -126,6 +130,23 @@ async function main(): Promise<void> {
     { name: 'SessionManager default cleanup inspector skips unverified observations', run: testSessionManagerDefaultCleanupInspectorSkipsUnverified },
     { name: 'SessionManager records unverified cleanup skips without extra kills', run: testSessionManagerCleanupTelemetryRecordsUnverifiedSkip },
     { name: 'SessionManager bounds recent cleanup telemetry results', run: testSessionManagerCleanupTelemetryBoundsRecentResults },
+    { name: 'ProcessTreeTerminator skips termination without root identity', run: testProcessTreeTerminatorSkipsWithoutIdentity },
+    { name: 'ProcessTreeTerminator rejects PID start identity mismatch', run: testProcessTreeTerminatorRejectsIdentityMismatch },
+    { name: 'ProcessTreeTerminator skips POSIX termination when cwd is unavailable', run: testProcessTreeTerminatorSkipsPosixMissingCwd },
+    { name: 'ProcessTreeTerminator skips POSIX termination when cwd mismatches', run: testProcessTreeTerminatorSkipsCwdMismatch },
+    { name: 'ProcessTreeTerminator uses Windows taskkill by PID without shell', run: testProcessTreeTerminatorWindowsTaskkillByPid },
+    { name: 'ProcessTreeTerminator reports failed Windows taskkill without throwing', run: testProcessTreeTerminatorWindowsTaskkillFailureReportsFailed },
+    { name: 'ProcessTreeTerminator skips WSL backend without Linux process identity', run: testProcessTreeTerminatorSkipsWslWithoutLinuxIdentity },
+    { name: 'ProcessTreeTerminator avoids POSIX process-group kill when PGID is unverified', run: testProcessTreeTerminatorPosixLeafFirstWhenPgidUnverified },
+    { name: 'ProcessTreeTerminator does not use POSIX process-group kill with root PGID alone', run: testProcessTreeTerminatorDoesNotUsePgidFromRootAlone },
+    { name: 'ProcessTreeTerminator force-kills only verified remaining POSIX root', run: testProcessTreeTerminatorForceKillsVerifiedRemainingRoot },
+    { name: 'ProcessTreeTerminator reports sampled child that survives root exit', run: testProcessTreeTerminatorReportsSurvivingSampledChildAfterRootExit },
+    { name: 'SessionManager terminateSession awaits enforce process-tree termination', run: testSessionManagerTerminateSessionAwaitsEnforceTerminator },
+    { name: 'SessionManager terminateSession merges process exit race into explicit cleanup', run: testSessionManagerTerminateSessionMergesProcessExitRace },
+    { name: 'SessionManager updates process metadata cwd from verified cwd hook', run: testSessionManagerUpdatesProcessMetadataCwdFromHook },
+    { name: 'SessionManager terminateSession finalizes when enforce terminator throws', run: testSessionManagerTerminateSessionFinalizesWhenTerminatorThrows },
+    { name: 'SessionManager terminateMultipleSessions reports mixed missing sessions', run: testSessionManagerTerminateMultipleSessionsReportsMissing },
+    { name: 'SessionManager terminateAllSessions reports deterministic batch result', run: testSessionManagerTerminateAllSessionsBatchResult },
     { name: 'SessionManager keeps Hermes submit idle in bash heuristic mode', run: testSessionManagerHermesBashSubmitStaysIdle },
     { name: 'SessionManager keeps Codex submit idle in bash heuristic mode', run: testSessionManagerCodexBashSubmitStaysIdle },
     { name: 'SessionManager keeps Claude submit idle in bash heuristic mode', run: testSessionManagerClaudeBashSubmitStaysIdle },
@@ -237,14 +258,18 @@ async function main(): Promise<void> {
     { name: 'WsRouter clears replay state when a session is removed', run: testWsRouterClearSessionState },
     { name: 'WorkspaceService restartTab invalidates old session lineage and preserves lastCwd', run: testWorkspaceServiceRestartTab },
     { name: 'WorkspaceService restartTab persists replacement lifecycle before deleting old session', run: testWorkspaceServiceRestartTabPersistsReplacementBeforeDelete },
+    { name: 'WorkspaceService restartTab preserves old session when replacement save fails', run: testWorkspaceServiceRestartTabSaveFailurePreservesOldSession },
     { name: 'WorkspaceService restartTab preserves the old session when replacement creation fails', run: testWorkspaceServiceRestartTabCreateFailure },
     { name: 'WorkspaceService deleteWorkspace clears workspace sessions in bulk', run: testWorkspaceServiceDeleteWorkspace },
     { name: 'WorkspaceService deleteWorkspace pre-marks tabs non-recoverable before session cleanup', run: testWorkspaceServiceDeleteWorkspacePreMarksNonRecoverable },
+    { name: 'WorkspaceService deleteWorkspace does not terminate sessions when pre-delete save fails', run: testWorkspaceServiceDeleteWorkspaceSaveFailureDoesNotTerminate },
     { name: 'WorkspaceService deleteTab ignores tab-delete finalizer callback after pre-marking', run: testWorkspaceServiceDeleteTabIgnoresDeleteFinalizerCallback },
+    { name: 'WorkspaceService deleteTab does not terminate session when pre-delete save fails', run: testWorkspaceServiceDeleteTabSaveFailureDoesNotTerminate },
     { name: 'WorkspaceService passes session cleanup reasons', run: testWorkspaceServicePassesSessionCleanupReasons },
     { name: 'WorkspaceService orphan recovery recreates fresh session ids with saved cwd', run: testWorkspaceServiceCheckOrphanTabs },
     { name: 'WorkspaceService orphan recovery skips stopped or non-recoverable tabs', run: testWorkspaceServiceSkipsStoppedOrphanTabs },
     { name: 'sessionRoutes direct delete marks workspace-owned tab stopped non-recoverable', run: testSessionRoutesDirectDeleteMarksWorkspaceTabStopped },
+    { name: 'sessionRoutes direct delete does not terminate session when pre-delete workspace save fails', run: testSessionRoutesDirectDeleteSaveFailureDoesNotTerminate },
     { name: 'WorkspaceService infers tab name source for default and legacy names', run: testWorkspaceServiceTabNameSourceDefaults },
     { name: 'WorkspaceService applies terminal titles and broadcasts tab metadata changes', run: testWorkspaceServiceApplyTerminalTitle },
     { name: 'WorkspaceService ignores absolute path terminal titles', run: testWorkspaceServiceIgnoresAbsolutePathTerminalTitle },
@@ -1282,6 +1307,7 @@ function createProcessCleanupSessionHarness(options: {
     descendantSampleLimit: number;
   }>;
   processInspector?: (...args: any[]) => any;
+  processTreeTerminator?: ProcessTreeTerminator;
 } = {}) {
   let exitHandler: ((event: { exitCode: number; signal?: number }) => void) | null = null;
   let killCalls = 0;
@@ -1309,6 +1335,9 @@ function createProcessCleanupSessionHarness(options: {
   };
   if (options.processInspector) {
     deps.processInspector = options.processInspector;
+  }
+  if (options.processTreeTerminator) {
+    deps.processTreeTerminator = options.processTreeTerminator;
   }
 
   const manager = new SessionManager({
@@ -1556,6 +1585,768 @@ function testSessionManagerCleanupTelemetryBoundsRecentResults(): void {
     assert.equal(cleanup.attempted, 70);
     assert.equal(cleanup.completed, 70);
     assert.equal(cleanup.recentResults.length, 64);
+  } finally {
+    harness.cleanupIfActive();
+  }
+}
+
+async function testProcessTreeTerminatorSkipsWithoutIdentity(): Promise<void> {
+  const killCalls: number[] = [];
+  const terminator = new DefaultProcessTreeTerminator({
+    platform: 'linux',
+    killFn: (pid: number) => {
+      killCalls.push(pid);
+    },
+    processInfoProvider: async (pid: number) => ({
+      pid,
+      running: true,
+      startIdentity: 'procfs:123:live',
+      childPids: [456],
+    }),
+  });
+
+  const result = await terminator.terminate({
+    rootPid: 123,
+    shellCommand: 'bash',
+    shellArgs: [],
+    shellType: 'bash',
+    cwd: process.cwd(),
+    platform: 'linux',
+    backend: 'unix',
+    launchedAt: new Date().toISOString(),
+    osStartIdentity: null,
+  }, {
+    gracefulWaitMs: 0,
+    forceWaitMs: 0,
+    descendantSampleLimit: 16,
+  });
+
+  assert.equal(result.status, 'skipped-unverified');
+  assert.deepEqual(result.terminatedPids, []);
+  assert.deepEqual(result.unverifiedPids, [123]);
+  assert.deepEqual(killCalls, []);
+}
+
+async function testProcessTreeTerminatorRejectsIdentityMismatch(): Promise<void> {
+  const killCalls: number[] = [];
+  const terminator = new DefaultProcessTreeTerminator({
+    platform: 'linux',
+    killFn: (pid: number) => {
+      killCalls.push(pid);
+    },
+    processInfoProvider: async (pid: number) => ({
+      pid,
+      running: true,
+      startIdentity: 'procfs:123:new-start',
+      cwd: process.cwd(),
+      childPids: [456],
+    }),
+  });
+
+  const result = await terminator.terminate({
+    rootPid: 123,
+    shellCommand: 'bash',
+    shellArgs: [],
+    shellType: 'bash',
+    cwd: process.cwd(),
+    platform: 'linux',
+    backend: 'unix',
+    launchedAt: new Date().toISOString(),
+    osStartIdentity: 'procfs:123:old-start',
+  }, {
+    gracefulWaitMs: 0,
+    forceWaitMs: 0,
+    descendantSampleLimit: 16,
+  });
+
+  assert.equal(result.status, 'skipped-unverified');
+  assert.match(result.message ?? '', /identity/);
+  assert.deepEqual(result.terminatedPids, []);
+  assert.deepEqual(killCalls, []);
+}
+
+async function testProcessTreeTerminatorSkipsPosixMissingCwd(): Promise<void> {
+  const killCalls: number[] = [];
+  const terminator = new DefaultProcessTreeTerminator({
+    platform: 'linux',
+    killFn: (pid: number) => {
+      killCalls.push(pid);
+    },
+    processInfoProvider: async (pid: number) => ({
+      pid,
+      running: true,
+      startIdentity: 'procfs:123:started',
+      cwd: null,
+      childPids: [456],
+    }),
+  });
+
+  const result = await terminator.terminate({
+    rootPid: 123,
+    shellCommand: 'bash',
+    shellArgs: [],
+    shellType: 'bash',
+    cwd: process.cwd(),
+    platform: 'linux',
+    backend: 'unix',
+    launchedAt: new Date().toISOString(),
+    osStartIdentity: 'procfs:123:started',
+  }, {
+    gracefulWaitMs: 0,
+    forceWaitMs: 0,
+    descendantSampleLimit: 16,
+  });
+
+  assert.equal(result.status, 'skipped-unverified');
+  assert.match(result.message ?? '', /cwd is unavailable/);
+  assert.deepEqual(result.terminatedPids, []);
+  assert.deepEqual(result.unverifiedPids, [123]);
+  assert.deepEqual(killCalls, []);
+}
+
+async function testProcessTreeTerminatorSkipsCwdMismatch(): Promise<void> {
+  const killCalls: number[] = [];
+  const terminator = new DefaultProcessTreeTerminator({
+    platform: 'linux',
+    killFn: (pid: number) => {
+      killCalls.push(pid);
+    },
+    processInfoProvider: async (pid: number) => ({
+      pid,
+      running: true,
+      startIdentity: 'procfs:123:started',
+      cwd: '/different/cwd',
+      childPids: [456],
+    }),
+  });
+
+  const result = await terminator.terminate({
+    rootPid: 123,
+    shellCommand: 'bash',
+    shellArgs: [],
+    shellType: 'bash',
+    cwd: process.cwd(),
+    platform: 'linux',
+    backend: 'unix',
+    launchedAt: new Date().toISOString(),
+    osStartIdentity: 'procfs:123:started',
+  }, {
+    gracefulWaitMs: 0,
+    forceWaitMs: 0,
+    descendantSampleLimit: 16,
+  });
+
+  assert.equal(result.status, 'skipped-unverified');
+  assert.match(result.message ?? '', /cwd does not match/);
+  assert.deepEqual(result.terminatedPids, []);
+  assert.deepEqual(result.unverifiedPids, [123]);
+  assert.deepEqual(killCalls, []);
+}
+
+async function testProcessTreeTerminatorWindowsTaskkillByPid(): Promise<void> {
+  let providerCalls = 0;
+  const execCalls: Array<{ file: string; args: string[]; options: any }> = [];
+  const terminator = new DefaultProcessTreeTerminator({
+    platform: 'win32',
+    processInfoProvider: async (pid: number) => {
+      providerCalls += 1;
+      if (providerCalls === 1) {
+        return {
+          pid,
+          running: true,
+          startIdentity: 'win32:123:started',
+          childPids: [456],
+        };
+      }
+      return {
+        pid,
+        running: false,
+        startIdentity: 'win32:123:started',
+        childPids: [],
+      };
+    },
+    execFileFn: ((file: string, args: string[], options: any, callback: (error: Error | null, stdout?: string, stderr?: string) => void) => {
+      execCalls.push({ file, args, options });
+      callback(null, '', '');
+      return {} as any;
+    }) as any,
+  });
+
+  const result = await terminator.terminate({
+    rootPid: 123,
+    shellCommand: 'powershell.exe',
+    shellArgs: [],
+    shellType: 'powershell',
+    cwd: 'C:/repo',
+    platform: 'win32',
+    backend: 'conpty',
+    launchedAt: new Date().toISOString(),
+    osStartIdentity: 'win32:123:started',
+  }, {
+    gracefulWaitMs: 0,
+    forceWaitMs: 0,
+    descendantSampleLimit: 16,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.method, 'windows-taskkill-tree');
+  assert.equal(execCalls.length, 1);
+  assert.equal(execCalls[0].file, 'taskkill.exe');
+  assert.deepEqual(execCalls[0].args, ['/PID', '123', '/T', '/F']);
+  assert.equal(execCalls[0].options.shell, false);
+  assert.equal(execCalls[0].options.windowsHide, true);
+}
+
+async function testProcessTreeTerminatorWindowsTaskkillFailureReportsFailed(): Promise<void> {
+  const terminator = new DefaultProcessTreeTerminator({
+    platform: 'win32',
+    processInfoProvider: async (pid: number) => ({
+      pid,
+      running: true,
+      startIdentity: 'win32:123:started',
+      childPids: [456],
+    }),
+    execFileFn: ((_file: string, _args: string[], _options: any, callback: (error: Error | null, stdout?: string, stderr?: string) => void) => {
+      callback(new Error('taskkill failed'), '', '');
+      return {} as any;
+    }) as any,
+  });
+
+  const result = await terminator.terminate({
+    rootPid: 123,
+    shellCommand: 'powershell.exe',
+    shellArgs: [],
+    shellType: 'powershell',
+    cwd: 'C:/repo',
+    platform: 'win32',
+    backend: 'conpty',
+    launchedAt: new Date().toISOString(),
+    osStartIdentity: 'win32:123:started',
+  }, {
+    gracefulWaitMs: 0,
+    forceWaitMs: 0,
+    descendantSampleLimit: 16,
+  });
+
+  assert.equal(result.status, 'failed');
+  assert.equal(result.method, 'windows-taskkill-tree');
+  assert.deepEqual(result.terminatedPids, []);
+  assert.deepEqual(result.remainingPids, [123, 456]);
+  assert.match(result.message ?? '', /taskkill failed/);
+}
+
+async function testProcessTreeTerminatorSkipsWslWithoutLinuxIdentity(): Promise<void> {
+  const execCalls: Array<{ file: string; args: string[] }> = [];
+  const terminator = new DefaultProcessTreeTerminator({
+    platform: 'win32',
+    processInfoProvider: async (pid: number) => ({
+      pid,
+      running: true,
+      startIdentity: 'win32:123:started',
+      childPids: [456],
+    }),
+    execFileFn: ((file: string, args: string[], _options: any, callback: (error: Error | null, stdout?: string, stderr?: string) => void) => {
+      execCalls.push({ file, args });
+      callback(null, '', '');
+      return {} as any;
+    }) as any,
+  });
+
+  const result = await terminator.terminate({
+    rootPid: 123,
+    shellCommand: 'wsl.exe',
+    shellArgs: [],
+    shellType: 'wsl',
+    cwd: 'C:/repo',
+    platform: 'win32',
+    backend: 'wsl',
+    launchedAt: new Date().toISOString(),
+    osStartIdentity: 'win32:123:started',
+  }, {
+    gracefulWaitMs: 0,
+    forceWaitMs: 0,
+    descendantSampleLimit: 16,
+  });
+
+  assert.equal(result.status, 'skipped-unverified');
+  assert.match(result.message ?? '', /WSL/);
+  assert.deepEqual(result.terminatedPids, []);
+  assert.deepEqual(result.unverifiedPids, [123]);
+  assert.deepEqual(execCalls, []);
+}
+
+async function testProcessTreeTerminatorPosixLeafFirstWhenPgidUnverified(): Promise<void> {
+  let providerCalls = 0;
+  const killCalls: Array<{ pid: number; signal?: NodeJS.Signals | number }> = [];
+  const terminator = new DefaultProcessTreeTerminator({
+    platform: 'linux',
+    killFn: (pid: number, signal?: NodeJS.Signals | number) => {
+      killCalls.push({ pid, signal });
+    },
+    processInfoProvider: async (pid: number) => {
+      providerCalls += 1;
+      if (providerCalls === 1) {
+        return {
+          pid,
+          running: true,
+          startIdentity: 'procfs:123:started',
+          cwd: process.cwd(),
+          processGroupId: 999,
+          childPids: [200, 300],
+        };
+      }
+      return {
+        pid,
+        running: false,
+        startIdentity: 'procfs:123:started',
+        cwd: process.cwd(),
+        processGroupId: 999,
+        childPids: [],
+      };
+    },
+  });
+
+  const result = await terminator.terminate({
+    rootPid: 123,
+    shellCommand: 'bash',
+    shellArgs: [],
+    shellType: 'bash',
+    cwd: process.cwd(),
+    platform: 'linux',
+    backend: 'unix',
+    launchedAt: new Date().toISOString(),
+    osStartIdentity: 'procfs:123:started',
+  }, {
+    gracefulWaitMs: 0,
+    forceWaitMs: 0,
+    descendantSampleLimit: 16,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.method, 'posix-leaf-first');
+  assert.deepEqual(killCalls, [
+    { pid: 300, signal: 'SIGTERM' },
+    { pid: 200, signal: 'SIGTERM' },
+    { pid: 123, signal: 'SIGTERM' },
+  ]);
+  assert.equal(killCalls.some(call => call.pid === -123), false);
+}
+
+async function testProcessTreeTerminatorDoesNotUsePgidFromRootAlone(): Promise<void> {
+  let providerCalls = 0;
+  const killCalls: Array<{ pid: number; signal?: NodeJS.Signals | number }> = [];
+  const terminator = new DefaultProcessTreeTerminator({
+    platform: 'linux',
+    killFn: (pid: number, signal?: NodeJS.Signals | number) => {
+      killCalls.push({ pid, signal });
+    },
+    processInfoProvider: async (pid: number) => {
+      providerCalls += 1;
+      if (providerCalls === 1) {
+        return {
+          pid,
+          running: true,
+          startIdentity: 'procfs:123:started',
+          cwd: process.cwd(),
+          processGroupId: 123,
+          childPids: [200],
+        };
+      }
+      return {
+        pid,
+        running: false,
+        startIdentity: 'procfs:123:started',
+        cwd: process.cwd(),
+        processGroupId: 123,
+        childPids: [],
+      };
+    },
+  });
+
+  const result = await terminator.terminate({
+    rootPid: 123,
+    shellCommand: 'bash',
+    shellArgs: [],
+    shellType: 'bash',
+    cwd: process.cwd(),
+    platform: 'linux',
+    backend: 'unix',
+    launchedAt: new Date().toISOString(),
+    osStartIdentity: 'procfs:123:started',
+  }, {
+    gracefulWaitMs: 0,
+    forceWaitMs: 0,
+    descendantSampleLimit: 16,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.method, 'posix-leaf-first');
+  assert.equal(killCalls.some(call => call.pid < 0), false);
+  assert.deepEqual(killCalls, [
+    { pid: 200, signal: 'SIGTERM' },
+    { pid: 123, signal: 'SIGTERM' },
+  ]);
+}
+
+async function testProcessTreeTerminatorForceKillsVerifiedRemainingRoot(): Promise<void> {
+  let providerCalls = 0;
+  const killCalls: Array<{ pid: number; signal?: NodeJS.Signals | number }> = [];
+  const terminator = new DefaultProcessTreeTerminator({
+    platform: 'linux',
+    killFn: (pid: number, signal?: NodeJS.Signals | number) => {
+      killCalls.push({ pid, signal });
+    },
+    processInfoProvider: async (pid: number) => {
+      providerCalls += 1;
+      if (providerCalls === 1) {
+        return {
+          pid,
+          running: true,
+          startIdentity: 'procfs:123:started',
+          cwd: process.cwd(),
+          processGroupId: 999,
+          childPids: [200],
+        };
+      }
+      if (providerCalls === 2) {
+        return {
+          pid,
+          running: true,
+          startIdentity: 'procfs:123:started',
+          cwd: process.cwd(),
+          processGroupId: 999,
+          childPids: [],
+        };
+      }
+      return {
+        pid,
+        running: false,
+        startIdentity: 'procfs:123:started',
+        cwd: process.cwd(),
+        processGroupId: 999,
+        childPids: [],
+      };
+    },
+  });
+
+  const result = await terminator.terminate({
+    rootPid: 123,
+    shellCommand: 'bash',
+    shellArgs: [],
+    shellType: 'bash',
+    cwd: process.cwd(),
+    platform: 'linux',
+    backend: 'unix',
+    launchedAt: new Date().toISOString(),
+    osStartIdentity: 'procfs:123:started',
+  }, {
+    gracefulWaitMs: 0,
+    forceWaitMs: 0,
+    descendantSampleLimit: 16,
+  });
+
+  assert.equal(result.status, 'completed');
+  assert.equal(result.method, 'posix-leaf-first');
+  assert.deepEqual(killCalls, [
+    { pid: 200, signal: 'SIGTERM' },
+    { pid: 123, signal: 'SIGTERM' },
+    { pid: 123, signal: 'SIGKILL' },
+  ]);
+}
+
+async function testProcessTreeTerminatorReportsSurvivingSampledChildAfterRootExit(): Promise<void> {
+  const rootCwd = process.cwd();
+  let rootCalls = 0;
+  const killCalls: Array<{ pid: number; signal?: NodeJS.Signals | number }> = [];
+  const terminator = new DefaultProcessTreeTerminator({
+    platform: 'linux',
+    killFn: (pid: number, signal?: NodeJS.Signals | number) => {
+      killCalls.push({ pid, signal });
+    },
+    processInfoProvider: async (pid: number) => {
+      if (pid === 123) {
+        rootCalls += 1;
+        if (rootCalls === 1) {
+          return {
+            pid,
+            running: true,
+            startIdentity: 'procfs:123:started',
+            cwd: rootCwd,
+            processGroupId: 999,
+            childPids: [200],
+          };
+        }
+        return {
+          pid,
+          running: false,
+          startIdentity: 'procfs:123:started',
+          cwd: rootCwd,
+          processGroupId: 999,
+          childPids: [],
+        };
+      }
+      if (pid === 200) {
+        return {
+          pid,
+          running: true,
+          startIdentity: 'procfs:200:started',
+          cwd: rootCwd,
+          processGroupId: 999,
+          childPids: [],
+        };
+      }
+      return {
+        pid,
+        running: false,
+        startIdentity: null,
+        cwd: null,
+        childPids: [],
+      };
+    },
+  });
+
+  const result = await terminator.terminate({
+    rootPid: 123,
+    shellCommand: 'bash',
+    shellArgs: [],
+    shellType: 'bash',
+    cwd: rootCwd,
+    platform: 'linux',
+    backend: 'unix',
+    launchedAt: new Date().toISOString(),
+    osStartIdentity: 'procfs:123:started',
+  }, {
+    gracefulWaitMs: 0,
+    forceWaitMs: 0,
+    descendantSampleLimit: 16,
+  });
+
+  assert.equal(result.status, 'degraded');
+  assert.equal(result.method, 'posix-leaf-first');
+  assert.deepEqual(result.remainingPids, []);
+  assert.deepEqual(result.unverifiedPids, [200]);
+  assert.deepEqual(killCalls, [
+    { pid: 200, signal: 'SIGTERM' },
+    { pid: 123, signal: 'SIGTERM' },
+  ]);
+}
+
+async function testSessionManagerTerminateSessionAwaitsEnforceTerminator(): Promise<void> {
+  let terminateStarted = false;
+  let terminateFinished = false;
+  const fakeTerminator: ProcessTreeTerminator = {
+    async inspect() {
+      throw new Error('inspect should not be called directly');
+    },
+    async terminate(metadata, options) {
+      terminateStarted = true;
+      assert.equal(metadata.rootPid, 4321);
+      assert.equal(options.gracefulWaitMs, 5);
+      assert.equal(options.forceWaitMs, 6);
+      assert.equal(options.descendantSampleLimit, 7);
+      await delay(10);
+      terminateFinished = true;
+      return {
+        status: 'completed',
+        rootPid: metadata.rootPid,
+        terminatedPids: [metadata.rootPid as number],
+        remainingPids: [],
+        unverifiedPids: [],
+        method: 'posix-leaf-first',
+      };
+    },
+  };
+  const harness = createProcessCleanupSessionHarness({
+    processCleanup: {
+      mode: 'enforce',
+      gracefulWaitMs: 5,
+      forceWaitMs: 6,
+      descendantSampleLimit: 7,
+    },
+    processTreeTerminator: fakeTerminator,
+  });
+
+  try {
+    const terminatePromise = harness.manager.terminateSession(harness.session.id, {
+      reason: 'direct-session-delete',
+    });
+    await delay(0);
+
+    assert.equal(terminateStarted, true);
+    assert.equal(terminateFinished, false);
+    assert.ok(harness.manager.getSession(harness.session.id));
+
+    assert.equal(await terminatePromise, true);
+    assert.equal(terminateFinished, true);
+    assert.equal(harness.getKillCalls(), 1);
+    assert.equal(harness.manager.getSession(harness.session.id), null);
+
+    const cleanup = readCleanupTelemetry(harness.manager);
+    assert.equal(cleanup.mode, 'enforce');
+    assert.equal(cleanup.attempted, 1);
+    assert.equal(cleanup.completed, 1);
+    assert.equal(cleanup.recentResults[0].cleanupStatus, 'completed');
+    assert.equal(cleanup.recentResults[0].remainingDescendants, 0);
+  } finally {
+    harness.cleanupIfActive();
+  }
+}
+
+async function testSessionManagerTerminateSessionMergesProcessExitRace(): Promise<void> {
+  const finalizedEvents: SessionFinalizedEvent[] = [];
+  let terminateStarted = false;
+  const fakeTerminator: ProcessTreeTerminator = {
+    async inspect() {
+      throw new Error('inspect should not be called directly');
+    },
+    async terminate(metadata) {
+      terminateStarted = true;
+      assert.equal(metadata.rootPid, 4321);
+      harness.exit(23);
+      await delay(0);
+      return {
+        status: 'completed',
+        rootPid: metadata.rootPid,
+        terminatedPids: [metadata.rootPid as number],
+        remainingPids: [],
+        unverifiedPids: [],
+        method: 'posix-leaf-first',
+      };
+    },
+  };
+  const harness = createProcessCleanupSessionHarness({
+    processCleanup: {
+      mode: 'enforce',
+    },
+    processTreeTerminator: fakeTerminator,
+  });
+  harness.manager.onSessionFinalized((event) => finalizedEvents.push(event));
+
+  try {
+    const result = await harness.manager.terminateSession(harness.session.id, {
+      reason: 'direct-session-delete',
+    });
+
+    assert.equal(terminateStarted, true);
+    assert.equal(result, true);
+    assert.equal(harness.manager.getSession(harness.session.id), null);
+    assert.deepEqual(finalizedEvents.map(event => event.reason), ['direct-session-delete']);
+    assert.equal(finalizedEvents[0].exitCode, 23);
+
+    const cleanup = readCleanupTelemetry(harness.manager);
+    assert.equal(cleanup.attempted, 1);
+    assert.equal(cleanup.completed, 1);
+    assert.equal(cleanup.recentResults[0].reason, 'direct-session-delete');
+    assert.equal(cleanup.recentResults[0].cleanupStatus, 'completed');
+  } finally {
+    harness.cleanupIfActive();
+  }
+}
+
+async function testSessionManagerUpdatesProcessMetadataCwdFromHook(): Promise<void> {
+  const harness = createProcessCleanupSessionHarness();
+  const nextCwd = path.join(process.cwd(), 'nested-cwd');
+
+  try {
+    const cwdFilePath = harness.sessionData?.cwdFilePath;
+    if (!cwdFilePath) {
+      throw new Error('Expected cwdFilePath to be registered');
+    }
+
+    await fs.writeFile(cwdFilePath, nextCwd, 'utf8');
+    await delay(1200);
+
+    assert.equal(harness.sessionData?.lastCwd, nextCwd);
+    assert.equal(harness.sessionData?.processMetadata.cwd, nextCwd);
+  } finally {
+    harness.cleanupIfActive();
+  }
+}
+
+async function testSessionManagerTerminateSessionFinalizesWhenTerminatorThrows(): Promise<void> {
+  const fakeTerminator: ProcessTreeTerminator = {
+    async inspect() {
+      throw new Error('inspect should not be called directly');
+    },
+    async terminate() {
+      throw new Error('terminator failed');
+    },
+  };
+  const harness = createProcessCleanupSessionHarness({
+    processCleanup: {
+      mode: 'enforce',
+    },
+    processTreeTerminator: fakeTerminator,
+  });
+
+  try {
+    assert.equal(await harness.manager.terminateSession(harness.session.id, {
+      reason: 'direct-session-delete',
+    }), true);
+    assert.equal(harness.getKillCalls(), 1);
+    assert.equal(harness.manager.getSession(harness.session.id), null);
+
+    const cleanup = readCleanupTelemetry(harness.manager);
+    assert.equal(cleanup.mode, 'enforce');
+    assert.equal(cleanup.attempted, 1);
+    assert.equal(cleanup.degraded, 1);
+    assert.equal(cleanup.completed, 0);
+    assert.equal(cleanup.recentResults[0].cleanupStatus, 'failed');
+    assert.equal(cleanup.recentResults[0].remainingDescendants, 1);
+  } finally {
+    harness.cleanupIfActive();
+  }
+}
+
+async function testSessionManagerTerminateMultipleSessionsReportsMissing(): Promise<void> {
+  const harness = createProcessCleanupSessionHarness({
+    processInspector: () => ({ status: 'observed', remainingDescendants: 0 }),
+  });
+
+  try {
+    const second = harness.manager.createSession('Cleanup 2', 'bash', process.cwd());
+    const result = await harness.manager.terminateMultipleSessions([
+      harness.session.id,
+      'missing-session',
+      second.id,
+    ], {
+      reason: 'workspace-delete',
+    });
+
+    assert.deepEqual(result, {
+      attempted: 3,
+      terminated: 2,
+      missing: ['missing-session'],
+    });
+    assert.equal(harness.manager.getSession(harness.session.id), null);
+    assert.equal(harness.manager.getSession(second.id), null);
+
+    const cleanup = readCleanupTelemetry(harness.manager);
+    assert.equal(cleanup.attempted, 2);
+    assert.equal(cleanup.completed, 2);
+  } finally {
+    harness.cleanupIfActive();
+  }
+}
+
+async function testSessionManagerTerminateAllSessionsBatchResult(): Promise<void> {
+  const harness = createProcessCleanupSessionHarness({
+    processInspector: () => ({ status: 'observed', remainingDescendants: 0 }),
+  });
+
+  try {
+    const second = harness.manager.createSession('Cleanup 2', 'bash', process.cwd());
+    const result = await harness.manager.terminateAllSessions({
+      reason: 'shutdown',
+    });
+
+    assert.deepEqual(result, {
+      attempted: 2,
+      terminated: 2,
+      missing: [],
+    });
+    assert.equal(harness.manager.getSession(harness.session.id), null);
+    assert.equal(harness.manager.getSession(second.id), null);
   } finally {
     harness.cleanupIfActive();
   }
@@ -4057,6 +4848,8 @@ function createWorkspaceServiceHarness(options: { terminalTitleDebounceMs?: numb
     deleteMultipleSessions: [] as string[][],
     deleteSessionReasons: [] as Array<{ id: string; reason?: string }>,
     deleteMultipleSessionReasons: [] as Array<{ ids: string[]; reason?: string }>,
+    terminateSession: [] as string[],
+    terminateMultipleSessions: [] as string[][],
     hasSession: new Set<string>(),
     createSessionError: null as Error | null,
     order: [] as string[],
@@ -4112,6 +4905,26 @@ function createWorkspaceServiceHarness(options: { terminalTitleDebounceMs?: numb
       calls.deleteMultipleSessionReasons.push({ ids, reason });
       for (const id of ids) calls.hasSession.delete(id);
       for (const id of ids) emitSessionFinalized(id, reason);
+    },
+    async terminateSession(id: string, options: { reason?: string }) {
+      const reason = options.reason;
+      calls.order.push(`terminateSession:${id}:${reason ?? ''}`);
+      calls.terminateSession.push(id);
+      calls.deleteSession.push(id);
+      calls.deleteSessionReasons.push({ id, reason });
+      calls.hasSession.delete(id);
+      emitSessionFinalized(id, reason);
+      return true;
+    },
+    async terminateMultipleSessions(ids: string[], options: { reason?: string }) {
+      const reason = options.reason;
+      calls.order.push(`terminateMultipleSessions:${reason ?? ''}`);
+      calls.terminateMultipleSessions.push(ids);
+      calls.deleteMultipleSessions.push(ids);
+      calls.deleteMultipleSessionReasons.push({ ids, reason });
+      for (const id of ids) calls.hasSession.delete(id);
+      for (const id of ids) emitSessionFinalized(id, reason);
+      return { attempted: ids.length, terminated: ids.length, missing: [] };
     },
     hasSession(id: string) {
       return calls.hasSession.has(id);
@@ -6201,10 +7014,46 @@ async function testWorkspaceServiceRestartTabPersistsReplacementBeforeDelete(): 
   assert.equal(tab.lifecycleReason, 'tab-restart');
   assert.equal(calls.order[0], 'createSession');
   assert.equal(calls.order[1], 'save:true');
-  assert.equal(calls.order[2], 'deleteSession:old-session:tab-restart');
+  assert.equal(calls.order[2], 'terminateSession:old-session:tab-restart');
   assert.equal(calls.save[0].tabs[0].sessionId, tab.sessionId);
   assert.equal(calls.save[0].tabs[0].generation, 3);
   assert.equal(calls.save[0].tabs[0].lifecycleState, 'active');
+}
+
+async function testWorkspaceServiceRestartTabSaveFailurePreservesOldSession(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = createWorkspaceStateWithTab({
+    sessionId: 'old-session',
+    shellType: 'bash',
+    lastCwd: '/repo',
+    lifecycleState: 'active',
+    recoverable: true,
+    cleanupStatus: 'not-started',
+    generation: 2,
+  });
+  calls.hasSession.add('old-session');
+  const originalSave = (workspaceService as any).save;
+  (workspaceService as any).save = async (immediate = false) => {
+    calls.order.push(`save:${immediate}:failed`);
+    throw new Error('persist failed');
+  };
+
+  await assert.rejects(
+    () => workspaceService.restartTab('ws-1', 'tab-1'),
+    /persist failed/,
+  );
+
+  const tab = (workspaceService as any).state.tabs[0];
+  assert.equal(tab.sessionId, 'old-session');
+  assert.equal(tab.generation, 2);
+  assert.equal(tab.lifecycleState, 'active');
+  assert.equal(tab.recoverable, true);
+  assert.equal(calls.order[0], 'createSession');
+  assert.equal(calls.order[1], 'save:true:failed');
+  assert.equal(calls.order[2], 'terminateSession:session-1:tab-restart');
+  assert.deepEqual(calls.deleteSession, ['session-1']);
+  assert.equal(calls.deleteSession.includes('old-session'), false);
+  (workspaceService as any).save = originalSave;
 }
 
 async function testWorkspaceServiceRestartTabCreateFailure(): Promise<void> {
@@ -6347,19 +7196,83 @@ async function testWorkspaceServiceDeleteWorkspacePreMarksNonRecoverable(): Prom
   await workspaceService.deleteWorkspace('ws-1');
 
   assert.equal(calls.order[0], 'save:true');
-  assert.equal(calls.order[1], 'deleteMultipleSessions:workspace-delete');
+  assert.equal(calls.order[1], 'terminateMultipleSessions:workspace-delete');
   assert.equal(calls.save[0].tabs[0].lifecycleState, 'stopped');
   assert.equal(calls.save[0].tabs[0].recoverable, false);
   assert.equal(calls.save[0].tabs[0].lifecycleReason, 'workspace-delete');
   assert.equal(calls.save[0].tabs[0].cleanupStatus, 'not-started');
   assert.deepEqual(calls.order, [
     'save:true',
-    'deleteMultipleSessions:workspace-delete',
+    'terminateMultipleSessions:workspace-delete',
     'save:true',
   ]);
   assert.equal(calls.save.length, 2);
   assert.equal(calls.save[1].tabs.some((tab: any) => tab.workspaceId === 'ws-1'), false);
   assert.equal(calls.save[1].workspaces.some((workspace: any) => workspace.id === 'ws-1'), false);
+}
+
+async function testWorkspaceServiceDeleteWorkspaceSaveFailureDoesNotTerminate(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = {
+    workspaces: [
+      {
+        id: 'ws-1',
+        name: 'Workspace 1',
+        sortOrder: 0,
+        viewMode: 'tab',
+        activeTabId: 'tab-1',
+        colorCounter: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: 'ws-2',
+        name: 'Workspace 2',
+        sortOrder: 1,
+        viewMode: 'tab',
+        activeTabId: null,
+        colorCounter: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ],
+    tabs: [
+      {
+        id: 'tab-1',
+        workspaceId: 'ws-1',
+        sessionId: 'session-a',
+        name: 'Terminal A',
+        colorIndex: 0,
+        sortOrder: 0,
+        shellType: 'bash',
+        createdAt: new Date().toISOString(),
+        lifecycleState: 'active',
+        recoverable: true,
+        lifecycleReason: 'orphan-recovery',
+        cleanupStatus: 'observed',
+        lastExitCode: 7,
+        lifecycleUpdatedAt: 'before-workspace-delete',
+        generation: 3,
+      },
+    ],
+    gridLayouts: [],
+  };
+  const expectedLifecycle = pickWorkspaceTabLifecycle((workspaceService as any).state.tabs[0]);
+  (workspaceService as any).save = async (immediate = false) => {
+    calls.order.push(`save:${immediate}:failed`);
+    throw new Error('persist failed');
+  };
+
+  await assert.rejects(
+    () => workspaceService.deleteWorkspace('ws-1'),
+    /persist failed/,
+  );
+
+  assert.deepEqual(calls.terminateMultipleSessions, []);
+  assert.equal((workspaceService as any).state.workspaces.some((workspace: any) => workspace.id === 'ws-1'), true);
+  assert.equal((workspaceService as any).state.tabs.some((tab: any) => tab.sessionId === 'session-a'), true);
+  assert.deepEqual(pickWorkspaceTabLifecycle((workspaceService as any).state.tabs[0]), expectedLifecycle);
+  assert.deepEqual(calls.order, ['save:true:failed']);
 }
 
 async function testWorkspaceServiceDeleteTabIgnoresDeleteFinalizerCallback(): Promise<void> {
@@ -6372,7 +7285,7 @@ async function testWorkspaceServiceDeleteTabIgnoresDeleteFinalizerCallback(): Pr
 
   assert.deepEqual(calls.order, [
     'save:true',
-    'deleteSession:session-tab-delete:tab-delete',
+    'terminateSession:session-tab-delete:tab-delete',
     'save:true',
   ]);
   assert.equal(calls.save.length, 2);
@@ -6380,6 +7293,35 @@ async function testWorkspaceServiceDeleteTabIgnoresDeleteFinalizerCallback(): Pr
   assert.equal(calls.save[0].tabs[0].recoverable, false);
   assert.equal(calls.save[0].tabs[0].lifecycleReason, 'tab-delete');
   assert.equal(calls.save[1].tabs.length, 0);
+}
+
+async function testWorkspaceServiceDeleteTabSaveFailureDoesNotTerminate(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = createWorkspaceStateWithTab({
+    sessionId: 'session-tab-delete',
+    lifecycleState: 'active',
+    recoverable: true,
+    lifecycleReason: 'orphan-recovery',
+    cleanupStatus: 'observed',
+    lastExitCode: 7,
+    lifecycleUpdatedAt: 'before-tab-delete',
+    generation: 3,
+  });
+  const expectedLifecycle = pickWorkspaceTabLifecycle((workspaceService as any).state.tabs[0]);
+  (workspaceService as any).save = async (immediate = false) => {
+    calls.order.push(`save:${immediate}:failed`);
+    throw new Error('persist failed');
+  };
+
+  await assert.rejects(
+    () => workspaceService.deleteTab('ws-1', 'tab-1'),
+    /persist failed/,
+  );
+
+  assert.deepEqual(calls.terminateSession, []);
+  assert.equal((workspaceService as any).state.tabs.some((tab: any) => tab.sessionId === 'session-tab-delete'), true);
+  assert.deepEqual(pickWorkspaceTabLifecycle((workspaceService as any).state.tabs[0]), expectedLifecycle);
+  assert.deepEqual(calls.order, ['save:true:failed']);
 }
 
 async function testWorkspaceServicePassesSessionCleanupReasons(): Promise<void> {
@@ -6545,17 +7487,31 @@ async function testSessionRoutesDirectDeleteMarksWorkspaceTabStopped(): Promise<
     sessionId: 'session-direct-delete',
   });
 
-  const originalDeleteSession = sessionManager.deleteSession.bind(sessionManager);
-  (sessionManager as any).deleteSession = (id: string, reason?: string) => {
+  const order: string[] = [];
+  const originalHasSession = sessionManager.hasSession.bind(sessionManager);
+  const originalTerminateSession = sessionManager.terminateSession.bind(sessionManager);
+  (sessionManager as any).hasSession = (id: string) => {
     assert.equal(id, 'session-direct-delete');
-    assert.equal(reason, 'direct-session-delete');
+    return true;
+  };
+  (sessionManager as any).terminateSession = async (id: string, options?: { reason?: string }) => {
+    assert.equal(id, 'session-direct-delete');
+    assert.equal(options?.reason, 'direct-session-delete');
+    const tab = (workspaceService as any).state.tabs[0];
+    assert.equal(tab.lifecycleState, 'stopped');
+    assert.equal(tab.recoverable, false);
+    assert.equal(tab.lifecycleReason, 'direct-session-delete');
+    order.push('terminateSession');
     return true;
   };
 
   try {
     const app = express();
     app.use('/api/sessions', createSessionRoutes({
-      onSessionDeleted: (sessionId) => workspaceService.markSessionStoppedByDirectDelete(sessionId),
+      onSessionDeleting: async (sessionId) => {
+        order.push('onSessionDeleting');
+        await workspaceService.markSessionStoppedByDirectDelete(sessionId);
+      },
     }));
 
     const response = await invokeJsonRoute(app, {
@@ -6569,8 +7525,60 @@ async function testSessionRoutesDirectDeleteMarksWorkspaceTabStopped(): Promise<
     assert.equal(tab.recoverable, false);
     assert.equal(tab.lifecycleReason, 'direct-session-delete');
     assert.equal(tab.cleanupStatus, 'not-started');
+    assert.deepEqual(order, ['onSessionDeleting', 'terminateSession']);
   } finally {
-    (sessionManager as any).deleteSession = originalDeleteSession;
+    (sessionManager as any).hasSession = originalHasSession;
+    (sessionManager as any).terminateSession = originalTerminateSession;
+  }
+}
+
+async function testSessionRoutesDirectDeleteSaveFailureDoesNotTerminate(): Promise<void> {
+  const { workspaceService } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = createWorkspaceStateWithTab({
+    sessionId: 'session-direct-delete',
+    lifecycleState: 'active',
+    recoverable: true,
+    lifecycleReason: 'orphan-recovery',
+    cleanupStatus: 'observed',
+    lastExitCode: 7,
+    lifecycleUpdatedAt: 'before-direct-delete',
+    generation: 3,
+  });
+  const expectedLifecycle = pickWorkspaceTabLifecycle((workspaceService as any).state.tabs[0]);
+  (workspaceService as any).save = async () => {
+    throw new Error('persist failed');
+  };
+
+  const originalHasSession = sessionManager.hasSession.bind(sessionManager);
+  const originalTerminateSession = sessionManager.terminateSession.bind(sessionManager);
+  let terminateCount = 0;
+  (sessionManager as any).hasSession = (id: string) => {
+    assert.equal(id, 'session-direct-delete');
+    return true;
+  };
+  (sessionManager as any).terminateSession = async () => {
+    terminateCount += 1;
+    return true;
+  };
+
+  try {
+    const app = express();
+    app.use('/api/sessions', createSessionRoutes({
+      onSessionDeleting: (sessionId) => workspaceService.markSessionStoppedByDirectDelete(sessionId),
+    }));
+
+    const response = await invokeJsonRoute(app, {
+      method: 'DELETE',
+      path: '/api/sessions/session-direct-delete',
+    });
+
+    assert.equal(response.status, 500);
+    assert.equal(terminateCount, 0);
+    assert.equal((workspaceService as any).state.tabs[0].sessionId, 'session-direct-delete');
+    assert.deepEqual(pickWorkspaceTabLifecycle((workspaceService as any).state.tabs[0]), expectedLifecycle);
+  } finally {
+    (sessionManager as any).hasSession = originalHasSession;
+    (sessionManager as any).terminateSession = originalTerminateSession;
   }
 }
 
@@ -6837,6 +7845,18 @@ function createWorkspaceStateWithTab(tab: Partial<any>) {
       ...tab,
     }],
     gridLayouts: [],
+  };
+}
+
+function pickWorkspaceTabLifecycle(tab: any) {
+  return {
+    lifecycleState: tab.lifecycleState,
+    recoverable: tab.recoverable,
+    lifecycleReason: tab.lifecycleReason,
+    cleanupStatus: tab.cleanupStatus,
+    lastExitCode: tab.lastExitCode,
+    lifecycleUpdatedAt: tab.lifecycleUpdatedAt,
+    generation: tab.generation,
   };
 }
 

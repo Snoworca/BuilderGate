@@ -142,7 +142,7 @@ export interface TerminalResourceLimitsConfig {
   visibleOutputQueueMaxBytes: number;
   visibleOutputMaxChunks: number;
   visibleFlushBudgetBytes: number;
-  hiddenOutputPolicy: 'snapshot-restore' | 'debug-tail';
+  hiddenOutputPolicy: 'write-hidden' | 'snapshot-restore' | 'debug-tail';
   hiddenOutputTailBytes: number;
   inputQueueMaxBytes: number;
   inputQueueTtlMs: number;

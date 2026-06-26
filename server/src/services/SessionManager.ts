@@ -45,6 +45,12 @@ import {
   normalizeShellForPlatform,
 } from '../utils/ptyPlatformPolicy.js';
 import {
+  DefaultProcessTreeTerminator,
+  readProcessStartIdentitySync,
+  type ProcessTreeTerminationResult,
+  type ProcessTreeTerminator,
+} from '../utils/processTreeTerminator.js';
+import {
   buildInputDebugDetails,
   formatSafeInputPreview,
   type InputDebugValue,
@@ -186,6 +192,7 @@ interface SessionManagerDeps {
   platform?: NodeJS.Platform;
   spawnPty?: typeof pty.spawn;
   processInspector?: SessionProcessInspector;
+  processTreeTerminator?: ProcessTreeTerminator;
 }
 
 interface SessionData {
@@ -194,6 +201,7 @@ interface SessionData {
   processMetadata: SessionProcessMetadata;
   cleanupRecorded: boolean;
   finalized: boolean;
+  pendingTermination: PendingSessionTermination | null;
   idleTimer: NodeJS.Timeout | null;
   runningTimer: NodeJS.Timeout | null;
   shellType?: SessionShellType;
@@ -232,6 +240,12 @@ interface SessionData {
   foregroundStartedAt?: number;
 }
 
+interface PendingSessionTermination {
+  reason: SessionCleanupReason;
+  exitCode: number | null;
+  exitObserved: boolean;
+}
+
 export interface SessionFinalizedEvent {
   sessionId: string;
   reason: SessionCleanupReason;
@@ -245,6 +259,10 @@ interface SessionFinalizerOptions {
   exitCode?: number | null;
   killPty: boolean;
   emitExited: boolean;
+  cleanupOverride?: {
+    status: SessionCleanupStatus;
+    remainingDescendants: number;
+  };
 }
 
 /**
@@ -339,6 +357,7 @@ export class SessionManager {
   private readonly platform: NodeJS.Platform;
   private readonly spawnPty: typeof pty.spawn;
   private readonly processInspector: SessionProcessInspector;
+  private readonly processTreeTerminator: ProcessTreeTerminator;
   private cleanupTelemetry: SessionCleanupTelemetry = createInitialCleanupTelemetry(DEFAULT_SESSION_PROCESS_CLEANUP.mode);
   private cleanupRecordedSessionIds: Set<string> = new Set();
   private powerShellWinptyProbe: { checked: boolean; available: boolean; reason?: string } = {
@@ -381,6 +400,7 @@ export class SessionManager {
     this.execFileSyncFn = deps.execFileSyncFn ?? execFileSync;
     this.spawnPty = deps.spawnPty ?? pty.spawn;
     this.processInspector = deps.processInspector ?? inspectSessionProcessBestEffort;
+    this.processTreeTerminator = deps.processTreeTerminator ?? new DefaultProcessTreeTerminator({ platform: this.platform });
     // 서버 시작 시 한 번만 셸 감지 후 캐싱
     this.cachedAvailableShells = this.detectAvailableShells();
   }
@@ -438,6 +458,7 @@ export class SessionManager {
       processMetadata,
       cleanupRecorded: false,
       finalized: false,
+      pendingTermination: null,
       idleTimer: null,
       runningTimer: null,
       shellType,
@@ -626,6 +647,11 @@ export class SessionManager {
 
     // Handle PTY exit
     ptyProcess.onExit(({ exitCode }) => {
+      if (sessionData.pendingTermination) {
+        sessionData.pendingTermination.exitCode = exitCode;
+        sessionData.pendingTermination.exitObserved = true;
+        return;
+      }
       this.finalizeSession(id, sessionData, {
         reason: 'process-exit',
         exitCode,
@@ -960,6 +986,59 @@ export class SessionManager {
       killPty: true,
       emitExited: false,
     });
+  }
+
+  async terminateSession(
+    id: string,
+    options: {
+      reason: SessionCleanupReason;
+      mode?: SessionProcessCleanupConfig['mode'];
+      waitMs?: number;
+      killPty?: boolean;
+      emitExited?: boolean;
+    },
+  ): Promise<boolean> {
+    const data = this.sessions.get(id);
+    if (!data) return false;
+
+    const cleanupConfig = this.runtimeSessionConfig.processCleanup;
+    const mode = options.mode ?? cleanupConfig.mode;
+    let cleanupOverride: SessionFinalizerOptions['cleanupOverride'];
+
+    if (mode === 'enforce') {
+      data.pendingTermination = {
+        reason: options.reason,
+        exitCode: null,
+        exitObserved: false,
+      };
+      try {
+        const result = await this.processTreeTerminator.terminate(data.processMetadata, {
+          gracefulWaitMs: options.waitMs ?? cleanupConfig.gracefulWaitMs,
+          forceWaitMs: cleanupConfig.forceWaitMs,
+          descendantSampleLimit: cleanupConfig.descendantSampleLimit,
+        });
+        cleanupOverride = this.toCleanupOverride(result);
+      } catch (error) {
+        console.warn('[SessionManager] Process-tree termination failed:', error);
+        cleanupOverride = {
+          status: 'failed',
+          remainingDescendants: data.processMetadata.rootPid === null ? 0 : 1,
+        };
+      }
+    }
+
+    const pendingTermination = data.pendingTermination;
+    try {
+      return this.finalizeSession(id, data, {
+        reason: options.reason,
+        exitCode: pendingTermination?.exitCode ?? null,
+        killPty: options.killPty ?? !pendingTermination?.exitObserved,
+        emitExited: options.emitExited ?? false,
+        cleanupOverride,
+      });
+    } finally {
+      data.pendingTermination = null;
+    }
   }
 
   getDebugCapture(sessionId: string, limit = 200): SessionDebugCaptureEvent[] {
@@ -1556,6 +1635,37 @@ export class SessionManager {
     }
   }
 
+  async terminateMultipleSessions(
+    ids: string[],
+    options: {
+      reason: SessionCleanupReason;
+      mode?: SessionProcessCleanupConfig['mode'];
+      waitMs?: number;
+    },
+  ): Promise<{ attempted: number; terminated: number; missing: string[] }> {
+    let terminated = 0;
+    const missing: string[] = [];
+    for (const id of ids) {
+      const ok = await this.terminateSession(id, options);
+      if (ok) {
+        terminated += 1;
+      } else {
+        missing.push(id);
+      }
+    }
+    return { attempted: ids.length, terminated, missing };
+  }
+
+  async terminateAllSessions(
+    options: {
+      reason: SessionCleanupReason;
+      mode?: SessionProcessCleanupConfig['mode'];
+      waitMs?: number;
+    },
+  ): Promise<{ attempted: number; terminated: number; missing: string[] }> {
+    return this.terminateMultipleSessions(Array.from(this.sessions.keys()), options);
+  }
+
   updateRuntimeConfig(next: {
     idleDelayMs?: number;
     runningDelayMs?: number;
@@ -1799,6 +1909,7 @@ export class SessionManager {
         }
         if (cwd && cwd !== sessionData.lastCwd) {
           sessionData.lastCwd = cwd;
+          sessionData.processMetadata.cwd = cwd;
           this.broadcastWs(id, 'cwd', { cwd });
           this.cwdChangeCallback?.(id, cwd);
         }
@@ -2048,7 +2159,7 @@ export class SessionManager {
       platform: this.platform,
       backend: this.resolveSessionProcessBackend(shellCommand, shellType, windowsBackend),
       launchedAt,
-      osStartIdentity: null,
+      osStartIdentity: readProcessStartIdentitySync(rootPid, this.platform, this.execFileSyncFn),
     };
   }
 
@@ -2085,7 +2196,12 @@ export class SessionManager {
     }
     this.cancelPendingRunningTransition(data);
 
-    const cleanupResult = this.recordCleanupObservation(sessionId, data, options.reason);
+    const cleanupResult = this.recordCleanupObservation(
+      sessionId,
+      data,
+      options.reason,
+      options.cleanupOverride,
+    );
 
     if (options.emitExited) {
       this.broadcastWs(sessionId, 'session:exited', { exitCode: options.exitCode ?? null });
@@ -2157,6 +2273,10 @@ export class SessionManager {
     sessionId: string,
     data: SessionData,
     reason: SessionCleanupReason,
+    override?: {
+      status: SessionCleanupStatus;
+      remainingDescendants: number;
+    },
   ): SessionCleanupTelemetryResult | null {
     if (data.cleanupRecorded || this.cleanupRecordedSessionIds.has(sessionId)) {
       return null;
@@ -2185,7 +2305,7 @@ export class SessionManager {
     let status: SessionCleanupStatus = 'degraded';
     let remainingDescendants = 0;
     try {
-      const inspection = this.processInspector(data.processMetadata, cleanupConfig.descendantSampleLimit);
+      const inspection = override ?? this.processInspector(data.processMetadata, cleanupConfig.descendantSampleLimit);
       status = normalizeCleanupStatus(inspection.status);
       remainingDescendants = normalizeRemainingDescendants(inspection.remainingDescendants);
     } catch {
@@ -2211,6 +2331,16 @@ export class SessionManager {
     };
     this.pushCleanupResult(result);
     return result;
+  }
+
+  private toCleanupOverride(result: ProcessTreeTerminationResult): {
+    status: SessionCleanupStatus;
+    remainingDescendants: number;
+  } {
+    return {
+      status: result.status,
+      remainingDescendants: result.remainingPids.length + result.unverifiedPids.length,
+    };
   }
 
   private rememberCleanupRecordedSession(sessionId: string): void {

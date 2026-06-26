@@ -44,6 +44,16 @@ interface WorkspaceSessionStoppedEvent {
   recordedAt: string;
 }
 
+type WorkspaceTabLifecycleSnapshot = Pick<
+  WorkspaceTab,
+  'lifecycleState'
+  | 'recoverable'
+  | 'lifecycleReason'
+  | 'cleanupStatus'
+  | 'lastExitCode'
+  | 'lifecycleUpdatedAt'
+>;
+
 export class WorkspaceService {
   private state: WorkspaceState = { workspaces: [], tabs: [], gridLayouts: [] };
   private config: WorkspaceConfig;
@@ -240,14 +250,26 @@ export class WorkspaceService {
     for (const sessionId of sessionIds) {
       this.cancelPendingTerminalTitle(sessionId);
     }
+    const lifecycleSnapshots = new Map<string, WorkspaceTabLifecycleSnapshot>();
     for (const tab of tabs) {
+      lifecycleSnapshots.set(tab.id, this.snapshotTabLifecycle(tab));
       this.markTabStopped(tab, 'workspace-delete', {
         cleanupStatus: 'not-started',
         exitCode: null,
       });
     }
-    await this.save(true);
-    this.sessionManager.deleteMultipleSessions(sessionIds, 'workspace-delete');
+    try {
+      await this.save(true);
+    } catch (error) {
+      for (const tab of tabs) {
+        const snapshot = lifecycleSnapshots.get(tab.id);
+        if (snapshot) {
+          this.restoreTabLifecycle(tab, snapshot);
+        }
+      }
+      throw error;
+    }
+    await this.sessionManager.terminateMultipleSessions(sessionIds, { reason: 'workspace-delete' });
 
     // Remove tabs, grid layouts, and workspace
     this.state.tabs = this.state.tabs.filter(t => t.workspaceId !== id);
@@ -348,14 +370,20 @@ export class WorkspaceService {
 
     this.cancelPendingTerminalTitle(tab.sessionId);
 
-    this.markTabStopped(tab, 'tab-delete', {
-      cleanupStatus: 'not-started',
-      exitCode: null,
-    });
-    await this.save(true);
+    const lifecycleSnapshot = this.snapshotTabLifecycle(tab);
+    try {
+      this.markTabStopped(tab, 'tab-delete', {
+        cleanupStatus: 'not-started',
+        exitCode: null,
+      });
+      await this.save(true);
+    } catch (error) {
+      this.restoreTabLifecycle(tab, lifecycleSnapshot);
+      throw error;
+    }
 
     // Terminate PTY session after the non-recoverable marker is durable.
-    this.sessionManager.deleteSession(tab.sessionId, 'tab-delete');
+    await this.sessionManager.terminateSession(tab.sessionId, { reason: 'tab-delete' });
 
     // Remove tab
     this.state.tabs = this.state.tabs.filter(t => t.id !== tabId);
@@ -387,14 +415,34 @@ export class WorkspaceService {
 
     const oldSessionId = tab.sessionId;
     this.cancelPendingTerminalTitle(oldSessionId);
+    const previousTabState: Partial<WorkspaceTab> = {
+      sessionId: tab.sessionId,
+      lifecycleState: tab.lifecycleState,
+      recoverable: tab.recoverable,
+      lifecycleReason: tab.lifecycleReason,
+      cleanupStatus: tab.cleanupStatus,
+      lastExitCode: tab.lastExitCode,
+      lifecycleUpdatedAt: tab.lifecycleUpdatedAt,
+      generation: tab.generation,
+    };
 
     // Create new PTY session with same shell type, restoring last CWD
     const sessionDTO = this.sessionManager.createSession(tab.name, tab.shellType, tab.lastCwd);
     tab.sessionId = sessionDTO.id;
     this.markTabActive(tab, 'tab-restart');
 
-    await this.save(true);
-    this.sessionManager.deleteSession(oldSessionId, 'tab-restart');
+    try {
+      await this.save(true);
+    } catch (error) {
+      Object.assign(tab, previousTabState);
+      try {
+        await this.sessionManager.terminateSession(sessionDTO.id, { reason: 'tab-restart' });
+      } catch (cleanupError) {
+        console.warn('[WorkspaceService] Failed to terminate replacement session after restart save failure:', cleanupError);
+      }
+      throw error;
+    }
+    await this.sessionManager.terminateSession(oldSessionId, { reason: 'tab-restart' });
     return tab;
   }
 
@@ -499,12 +547,18 @@ export class WorkspaceService {
     }
 
     this.cancelPendingTerminalTitle(event.sessionId);
-    this.markTabStopped(tab, event.reason, {
-      cleanupStatus: event.cleanupStatus,
-      exitCode: event.exitCode,
-      updatedAt: event.recordedAt,
-    });
-    await this.save(true);
+    const lifecycleSnapshot = this.snapshotTabLifecycle(tab);
+    try {
+      this.markTabStopped(tab, event.reason, {
+        cleanupStatus: event.cleanupStatus,
+        exitCode: event.exitCode,
+        updatedAt: event.recordedAt,
+      });
+      await this.save(true);
+    } catch (error) {
+      this.restoreTabLifecycle(tab, lifecycleSnapshot);
+      throw error;
+    }
     this.emitTabUpdated({
       tab,
       changes: this.lifecycleChanges(tab),
@@ -544,6 +598,50 @@ export class WorkspaceService {
     tab.lifecycleUpdatedAt = options.updatedAt ?? new Date().toISOString();
   }
 
+  private snapshotTabLifecycle(tab: WorkspaceTab): WorkspaceTabLifecycleSnapshot {
+    return {
+      lifecycleState: tab.lifecycleState,
+      recoverable: tab.recoverable,
+      lifecycleReason: tab.lifecycleReason,
+      cleanupStatus: tab.cleanupStatus,
+      lastExitCode: tab.lastExitCode,
+      lifecycleUpdatedAt: tab.lifecycleUpdatedAt,
+    };
+  }
+
+  private restoreTabLifecycle(tab: WorkspaceTab, snapshot: WorkspaceTabLifecycleSnapshot): void {
+    if (snapshot.lifecycleState === undefined) {
+      delete tab.lifecycleState;
+    } else {
+      tab.lifecycleState = snapshot.lifecycleState;
+    }
+    if (snapshot.recoverable === undefined) {
+      delete tab.recoverable;
+    } else {
+      tab.recoverable = snapshot.recoverable;
+    }
+    if (snapshot.lifecycleReason === undefined) {
+      delete tab.lifecycleReason;
+    } else {
+      tab.lifecycleReason = snapshot.lifecycleReason;
+    }
+    if (snapshot.cleanupStatus === undefined) {
+      delete tab.cleanupStatus;
+    } else {
+      tab.cleanupStatus = snapshot.cleanupStatus;
+    }
+    if (snapshot.lastExitCode === undefined) {
+      delete tab.lastExitCode;
+    } else {
+      tab.lastExitCode = snapshot.lastExitCode;
+    }
+    if (snapshot.lifecycleUpdatedAt === undefined) {
+      delete tab.lifecycleUpdatedAt;
+    } else {
+      tab.lifecycleUpdatedAt = snapshot.lifecycleUpdatedAt;
+    }
+  }
+
   private nextTabGeneration(tab: WorkspaceTab): number {
     return Number.isInteger(tab.generation) && (tab.generation ?? 0) > 0
       ? (tab.generation as number) + 1
@@ -580,6 +678,7 @@ export class WorkspaceService {
       case 'tab-restart':
       case 'direct-session-delete':
       case 'process-exit':
+      case 'shutdown':
         return reason;
       default:
         return 'process-exit';
@@ -771,7 +870,11 @@ export class WorkspaceService {
     if (this.flushTimer) clearTimeout(this.flushTimer);
     this.flushTimer = setTimeout(async () => {
       this.flushTimer = null;
-      await this.flushToDisk();
+      try {
+        await this.flushToDisk();
+      } catch (error) {
+        console.error('[WorkspaceService] Deferred flush failed:', error);
+      }
     }, this.config.flushDebounceMs);
   }
 
@@ -816,6 +919,7 @@ export class WorkspaceService {
       console.error('[WorkspaceService] Flush failed:', err.message);
       // Clean up tmp file if it exists
       try { await fs.unlink(tmpPath); } catch { /* ignore */ }
+      throw err;
     }
   }
 

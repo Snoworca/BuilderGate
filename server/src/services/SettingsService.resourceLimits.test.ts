@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import type { Config } from '../types/config.types.js';
@@ -23,8 +24,8 @@ test('SettingsService rejects Wave 0 server-side resource settings that are not 
     getFileService: () => {
       throw new Error('FileService should not be used for rejected Wave 0 resource settings');
     },
-    sessionManager: new SessionManager({ pty: fixture.pty, session: fixture.session }),
-  });
+    sessionManager: new SessionManager({ pty: fixture.pty, session: fixture.session }, { platform: 'linux' }),
+  }, 'linux');
 
   try {
     assert.throws(
@@ -41,6 +42,53 @@ test('SettingsService rejects Wave 0 server-side resource settings that are not 
     );
   } finally {
     authService.destroy();
+  }
+});
+
+test('SettingsService validates Wave 0 editable resource settings through savePatch', async () => {
+  const fixture = createConfigFixture();
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-wave0-settings-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  await fs.writeFile(configPath, createLegacyConfigContent(), 'utf-8');
+  const cryptoService = new CryptoService('wave0-editable-resource-settings');
+  const authService = new AuthService(fixture.auth!, cryptoService);
+  const settingsService = new SettingsService({
+    runtimeConfigStore: new RuntimeConfigStore(fixture, 'linux'),
+    configRepository: new ConfigFileRepository(configPath, 'linux'),
+    cryptoService,
+    authService,
+    getFileService: () => ({ updateConfig: () => undefined } as any),
+    sessionManager: new SessionManager({ pty: fixture.pty, session: fixture.session }, { platform: 'linux' }),
+  }, 'linux');
+
+  try {
+    const response = settingsService.savePatch({
+      resourceLimits: {
+        clientWs: {
+          inputBackpressureBytes: 2_000_000,
+          hardReconnectBytes: 8_000_000,
+        },
+        terminal: {
+          hiddenOutputPolicy: 'debug-tail',
+          hiddenOutputTailBytes: 4096,
+        },
+      },
+      stabilityModes: {
+        frontendRuntimeResidency: 'bounded',
+      },
+    });
+
+    assert.equal(response.values.resourceLimits.clientWs.inputBackpressureBytes, 2_000_000);
+    assert.equal(response.values.resourceLimits.terminal.hiddenOutputPolicy, 'debug-tail');
+    assert.equal(response.values.stabilityModes.frontendRuntimeResidency, 'bounded');
+    assert.ok(response.changedKeys.includes('resourceLimits.clientWs.inputBackpressureBytes'));
+    assert.ok(response.changedKeys.includes('resourceLimits.terminal.hiddenOutputPolicy'));
+    assert.ok(response.changedKeys.includes('stabilityModes.frontendRuntimeResidency'));
+    assert.ok(response.applySummary.immediate.includes('resourceLimits.clientWs.inputBackpressureBytes'));
+    assert.ok(response.applySummary.immediate.includes('stabilityModes.frontendRuntimeResidency'));
+  } finally {
+    authService.destroy();
+    await fs.rm(tempDir, { recursive: true, force: true });
   }
 });
 
@@ -90,4 +138,46 @@ function createConfigFixture(): Config {
       accountName: 'admin',
     },
   };
+}
+
+function createLegacyConfigContent(): string {
+  return `{
+  server: {
+    port: 4242,
+  },
+  pty: {
+    termName: "xterm-256color",
+    defaultCols: 80,
+    defaultRows: 24,
+    useConpty: false,
+    windowsPowerShellBackend: "inherit",
+    scrollbackLines: 1000,
+    maxSnapshotBytes: 2097152,
+    shell: "auto",
+  },
+  session: {
+    idleDelayMs: 200,
+  },
+  security: {
+    cors: {
+      allowedOrigins: [],
+      credentials: true,
+      maxAge: 86400,
+    },
+  },
+  auth: {
+    password: "",
+    durationMs: 1800000,
+    maxDurationMs: 86400000,
+    jwtSecret: "jwt-secret",
+  },
+  fileManager: {
+    maxFileSize: 1048576,
+    maxCodeFileSize: 524288,
+    maxDirectoryEntries: 10000,
+    blockedExtensions: [".exe", ".dll"],
+    blockedPaths: [".ssh", ".aws"],
+    cwdCacheTtlMs: 1000,
+  },
+}`;
 }

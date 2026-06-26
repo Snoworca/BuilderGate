@@ -319,7 +319,7 @@ function setupRoutes(): void {
     res.status(204).send();
   });
   const sessionRoutes = createSessionRoutes({
-    onSessionDeleted: (sessionId) => workspaceService.markSessionStoppedByDirectDelete(sessionId),
+    onSessionDeleting: (sessionId) => workspaceService.markSessionStoppedByDirectDelete(sessionId),
   });
   app.use('/api/sessions', authMiddleware, sessionRoutes);
 

@@ -25,23 +25,23 @@ The implementation is intentionally additive. Later-wave behavior changes remain
 - Extended `/api/runtime-config` to return only browser-safe public values.
 - Extended frontend runtime config parsing with getters, section-level safe fallback, config versioning, and change subscriptions.
 - Added focused regression tests for schema, template, settings snapshot, public runtime config, JSON5 insertion, and frontend runtime consumers.
-- Code review fixes keep future-wave server-side switches unavailable in Settings until runtime consumers exist, expose the effective public `wsTransportMode` as `unified`, and make frontend runtime residency limits apply only in `bounded` mode.
+- Code review fixes keep future-wave server-side switches unavailable in Settings until runtime consumers exist, preserve the validated public `realtime.wsTransportMode`, and make frontend runtime residency limits apply only in `bounded` mode.
 
 ## Verification
 
 Passed:
 
 - `npm --prefix server test`
-- `node --test server/dist/schemas/config.schema.test.js server/dist/utils/configTemplate.test.js server/dist/services/RuntimeConfigStore.test.js server/dist/services/ConfigFileRepository.resourceLimits.test.js server/dist/services/SettingsService.resourceLimits.test.js` (15 tests)
-- `node --experimental-strip-types --test frontend/tests/unit/runtimeConfig.test.ts frontend/tests/unit/webSocketBackpressure.test.ts frontend/tests/unit/useTerminalRuntimeResidency.test.ts` (24 tests)
+- `node --test server/dist/schemas/config.schema.test.js server/dist/utils/configTemplate.test.js server/dist/services/RuntimeConfigStore.test.js server/dist/services/ConfigFileRepository.resourceLimits.test.js server/dist/services/SettingsService.resourceLimits.test.js` (19 tests)
+- `node --experimental-strip-types --test frontend/tests/unit/runtimeConfig.test.ts frontend/tests/unit/webSocketBackpressure.test.ts frontend/tests/unit/useTerminalRuntimeResidency.test.ts frontend/tests/unit/terminalHiddenOutput.test.ts frontend/tests/unit/terminalOutputScheduler.test.ts` (43 tests)
+- `npm --prefix frontend run typecheck`
 - `mcp__speckiwi.validate_spec(strict=true)`
 - Sub-agent code review loop: first pass findings were fixed; final re-review returned `No findings`.
 
-Known unrelated verification gap:
+Follow-up correction:
 
-- `npm --prefix frontend run typecheck` still fails on pre-existing/untracked RecoveryOption export gaps:
-  `RecoveryOption`, `RecoveryOptionIcon`, `CreateRecoveryOptionRequest`, `UpdateRecoveryOptionRequest`, and `recoveryOptionApi`.
-  Wave 0 `inputReliabilityMode` and WebSocket protocol type errors were fixed before focused tests passed.
+- A later review found that `/api/runtime-config` always projected `wsTransportMode` as `unified`. `RuntimeConfigStore` now preserves `config.realtime.wsTransportMode` and the regression test expects `split-shadow` to survive projection.
+- The earlier frontend typecheck gap from unrelated `RecoveryOptionManager` files is no longer current in this working tree; `npm --prefix frontend run typecheck` passes in the 2026-06-26 follow-up verification.
 
 ## Main Files
 

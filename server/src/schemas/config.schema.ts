@@ -120,7 +120,7 @@ export const wsResourceLimitsSchema = defaultObject(z.object({
   serverBufferedHardLimitBytes: bytesLimit(1024, 536870912, 33554432),
   perClientOutputQueueMaxBytes: bytesLimit(1024, 268435456, 2097152),
   perClientControlQueueMaxBytes: bytesLimit(1024, 16777216, 262144),
-  outputCoalesceWindowMs: durationLimit(0, 1000, 16),
+  outputCoalesceWindowMs: durationLimit(1, 1000, 16),
 }).strict()).superRefine((value, ctx) => {
   if (value.serverBufferedHardLimitBytes <= value.serverBufferedHighWaterBytes) {
     ctx.addIssue({
@@ -148,8 +148,8 @@ export const terminalResourceLimitsSchema = defaultObject(z.object({
   visibleOutputQueueMaxBytes: bytesLimit(1024, 268435456, 4194304),
   visibleOutputMaxChunks: countLimit(1, 65536, 512),
   visibleFlushBudgetBytes: bytesLimit(1024, 16777216, 262144),
-  hiddenOutputPolicy: z.enum(['snapshot-restore', 'debug-tail']).default('snapshot-restore'),
-  hiddenOutputTailBytes: bytesLimit(0, 16777216, 0),
+  hiddenOutputPolicy: z.enum(['write-hidden', 'snapshot-restore', 'debug-tail']).default('write-hidden'),
+  hiddenOutputTailBytes: bytesLimit(0, 16777216, 262144),
   inputQueueMaxBytes: bytesLimit(1024, 16777216, 65536),
   inputQueueTtlMs: durationLimit(1, 60000, 1500),
   transportOutboxMaxBytes: bytesLimit(1024, 16777216, 65536),

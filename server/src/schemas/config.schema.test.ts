@@ -31,7 +31,8 @@ test('configSchema applies resourceLimits defaults to legacy config files', () =
   assert.equal(parsed.resourceLimits.ws.serverBufferedHighWaterBytes, 8388608);
   assert.equal(parsed.resourceLimits.ws.serverBufferedHardLimitBytes, 33554432);
   assert.equal(parsed.resourceLimits.clientWs.inputBackpressureBytes, 1048576);
-  assert.equal(parsed.resourceLimits.terminal.hiddenOutputPolicy, 'snapshot-restore');
+  assert.equal(parsed.resourceLimits.terminal.hiddenOutputPolicy, 'write-hidden');
+  assert.equal(parsed.resourceLimits.terminal.hiddenOutputTailBytes, 262144);
   assert.equal(parsed.resourceLimits.snapshots.maxEntries, 16);
   assert.equal(parsed.resourceLimits.workspaceRuntime.maxLiveTerminals, 12);
   assert.equal(parsed.resourceLimits.telemetry.recentEventLimit, 256);
@@ -88,6 +89,20 @@ test('configSchema validates session processCleanup strictly', () => {
       },
     }),
     /descendantSampleLimit/i,
+  );
+
+  assert.throws(
+    () => configSchema.parse({
+      ...minimalConfig(),
+      session: {
+        idleDelayMs: 200,
+        runningDelayMs: 250,
+        processCleanup: {
+          gracefulWaitMs: 750.5,
+        },
+      },
+    }),
+    /gracefulWaitMs/i,
   );
 
   assert.throws(
@@ -191,6 +206,20 @@ test('configSchema rejects inconsistent resourceLimits relationships', () => {
       },
     }),
     /totalStorageBudgetChars/i,
+  );
+});
+
+test('configSchema rejects zero output coalesce window', () => {
+  assert.throws(
+    () => configSchema.parse({
+      ...minimalConfig(),
+      resourceLimits: {
+        ws: {
+          outputCoalesceWindowMs: 0,
+        },
+      },
+    }),
+    /outputCoalesceWindowMs|greater than or equal to 1|too small/i,
   );
 });
 

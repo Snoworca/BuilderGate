@@ -1,0 +1,257 @@
+{
+  "schema_version": "1.1.0",
+  "plan_contract": "1.2.0",
+  "run_id": "2026-06-26.projectmaster.bgwave2",
+  "target": "0.5.5-buildergate-stability",
+  "plan_version": "0.1.0",
+  "generated_at": "2026-06-26T09:20:00Z",
+  "tool_versions": {
+    "speckiwi": "mcp",
+    "kiwi_planner": "0.6.0",
+    "validator": "0.6.0"
+  },
+  "tdd_policy": "relaxed",
+  "md_path": "docs/plans/2026-06-26.projectmaster.bgwave2.plan.md",
+  "md_sha256": "",
+  "phases": [
+    {
+      "id": "PH-001",
+      "title": "Terminator Safety",
+      "goal": "Build verified process inspection and termination utility",
+      "depends_on": [],
+      "task_ids": ["T-PH001-01", "T-PH001-02"]
+    },
+    {
+      "id": "PH-002",
+      "title": "Session API Integration",
+      "goal": "Add async termination APIs and route callers through them",
+      "depends_on": ["PH-001"],
+      "task_ids": ["T-PH002-01", "T-PH002-02"]
+    },
+    {
+      "id": "PH-003",
+      "title": "Verification And Evidence",
+      "goal": "Run checks and register evidence",
+      "depends_on": ["PH-001", "PH-002"],
+      "task_ids": ["T-PH003-01"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "title": "Process-tree terminator tests",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-011"],
+      "files": [{ "path": "server/src/test-runner.ts" }],
+      "action": "Add tests for missing identity skip, PID start identity mismatch, POSIX missing/mismatched cwd skip, Windows taskkill.exe /PID without shell, Windows taskkill failure reporting, POSIX leaf-first fallback when PGID ownership is not verified, no process-group kill from root PGID alone, verified POSIX force termination after the graceful wait, and surviving sampled child reporting after root exit.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "npm --prefix server test", "expected_exit": 0 }],
+      "verification_cmd": { "posix": "npm --prefix server test", "windows": "npm --prefix server test" },
+      "dod": [
+        "unverified metadata does not kill",
+        "PID reuse is rejected",
+        "POSIX missing or mismatched cwd skips termination",
+        "Windows taskkill failures report failed instead of throwing",
+        "POSIX never process-group kills without stronger ownership proof",
+        "sampled children that survive root exit are reported as degraded or unverified"
+      ],
+      "rollback": "Remove the process-tree tests.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-01-FR-BGSTAB-011",
+          "source": { "type": "Task", "id": "T-PH001-01" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-011" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [{ "path": "server/src/test-runner.ts" }],
+      "depends_on_task": [],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-4"],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          { "id": "TC-FR-BGSTAB-011-AC1-01", "req_id": "FR-BGSTAB-011", "ac_refs": ["AC-1"], "test_file": "server/src/test-runner.ts", "test_symbol": "ProcessTreeTerminator skips termination without root identity" },
+          { "id": "TC-FR-BGSTAB-011-AC2-01", "req_id": "FR-BGSTAB-011", "ac_refs": ["AC-2"], "test_file": "server/src/test-runner.ts", "test_symbol": "ProcessTreeTerminator rejects PID start identity mismatch" },
+          { "id": "TC-FR-BGSTAB-011-AC2-02", "req_id": "FR-BGSTAB-011", "ac_refs": ["AC-2"], "test_file": "server/src/test-runner.ts", "test_symbol": "ProcessTreeTerminator skips POSIX termination when cwd is unavailable" },
+          { "id": "TC-FR-BGSTAB-011-AC2-03", "req_id": "FR-BGSTAB-011", "ac_refs": ["AC-2"], "test_file": "server/src/test-runner.ts", "test_symbol": "ProcessTreeTerminator skips POSIX termination when cwd mismatches" },
+          { "id": "TC-FR-BGSTAB-011-AC3-01", "req_id": "FR-BGSTAB-011", "ac_refs": ["AC-3"], "test_file": "server/src/test-runner.ts", "test_symbol": "ProcessTreeTerminator uses Windows taskkill by PID without shell" },
+          { "id": "TC-FR-BGSTAB-011-AC3-02", "req_id": "FR-BGSTAB-011", "ac_refs": ["AC-3"], "test_file": "server/src/test-runner.ts", "test_symbol": "ProcessTreeTerminator reports failed Windows taskkill without throwing" },
+          { "id": "TC-FR-BGSTAB-011-AC4-01", "req_id": "FR-BGSTAB-011", "ac_refs": ["AC-4"], "test_file": "server/src/test-runner.ts", "test_symbol": "ProcessTreeTerminator avoids POSIX process-group kill when PGID is unverified" },
+          { "id": "TC-FR-BGSTAB-011-AC4-02", "req_id": "FR-BGSTAB-011", "ac_refs": ["AC-4"], "test_file": "server/src/test-runner.ts", "test_symbol": "ProcessTreeTerminator does not use POSIX process-group kill with root PGID alone" },
+          { "id": "TC-FR-BGSTAB-011-AC4-03", "req_id": "FR-BGSTAB-011", "ac_refs": ["AC-4"], "test_file": "server/src/test-runner.ts", "test_symbol": "ProcessTreeTerminator force-kills only verified remaining POSIX root" },
+          { "id": "TC-FR-BGSTAB-011-AC4-04", "req_id": "FR-BGSTAB-011", "ac_refs": ["AC-4"], "test_file": "server/src/test-runner.ts", "test_symbol": "ProcessTreeTerminator reports sampled child that survives root exit" }
+        ]
+      }
+    },
+    {
+      "id": "T-PH001-02",
+      "phase_id": "PH-001",
+      "title": "Process-tree terminator implementation",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-011"],
+      "files": [
+        { "path": "server/src/utils/processTreeTerminator.ts" },
+        { "path": "server/src/services/SessionManager.ts" }
+      ],
+      "action": "Implement DefaultProcessTreeTerminator, default process info providers, start identity capture, safe Windows/POSIX termination decisions, non-throwing termination failure results, and POSIX leaf-first enforcement until stronger process-group ownership verification exists.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "npm --prefix server test", "expected_exit": 0 }],
+      "verification_cmd": { "posix": "npm --prefix server test", "windows": "npm --prefix server test" },
+      "dod": [
+        "enforce mode validates OS identity before termination",
+        "unverified cases report skipped-unverified",
+        "ordinary termination failures return failed telemetry",
+        "broad process-name and unverified process-group kills are absent"
+      ],
+      "rollback": "Keep processCleanup.mode = observe and stop calling the terminator from enforce mode.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-02-FR-BGSTAB-011",
+          "source": { "type": "Task", "id": "T-PH001-02" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-011" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [{ "path": "server/src/test-runner.ts" }],
+      "depends_on_task": ["T-PH001-01"],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-7"],
+      "tdd": { "applicable": true, "phase": "green", "test_cases": [] }
+    },
+    {
+      "id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "title": "Async session termination tests",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-011"],
+      "files": [{ "path": "server/src/test-runner.ts" }],
+      "action": "Add tests proving terminateSession awaits enforce cleanup, terminator failures still finalize with failed telemetry, direct delete pre-delete persistence is awaited, tab/workspace/restart paths await async termination after durable lifecycle saves, and batch APIs report missing/all-session results deterministically.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "npm --prefix server test", "expected_exit": 0 }],
+      "verification_cmd": { "posix": "npm --prefix server test", "windows": "npm --prefix server test" },
+      "dod": [
+        "route and WorkspaceService cleanup paths do not finalize sessions before durable lifecycle markers are persisted",
+        "ordinary terminator failures do not break delete compatibility",
+        "batch APIs report attempted, terminated, and missing ids"
+      ],
+      "rollback": "Remove the async termination tests.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-01-FR-BGSTAB-011",
+          "source": { "type": "Task", "id": "T-PH002-01" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-011" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [{ "path": "server/src/test-runner.ts" }],
+      "depends_on_task": ["T-PH001-02"],
+      "covers_ac": ["AC-5", "AC-6"],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          { "id": "TC-FR-BGSTAB-011-AC5-01", "req_id": "FR-BGSTAB-011", "ac_refs": ["AC-5"], "test_file": "server/src/test-runner.ts", "test_symbol": "SessionManager terminateSession awaits enforce process-tree termination" },
+          { "id": "TC-FR-BGSTAB-011-AC5-02", "req_id": "FR-BGSTAB-011", "ac_refs": ["AC-5"], "test_file": "server/src/test-runner.ts", "test_symbol": "SessionManager terminateSession finalizes when enforce terminator throws" },
+          { "id": "TC-FR-BGSTAB-011-AC5-03", "req_id": "FR-BGSTAB-011", "ac_refs": ["AC-5"], "test_file": "server/src/test-runner.ts", "test_symbol": "sessionRoutes direct delete does not terminate session when pre-delete workspace save fails" },
+          { "id": "TC-FR-BGSTAB-011-AC6-01", "req_id": "FR-BGSTAB-011", "ac_refs": ["AC-6"], "test_file": "server/src/test-runner.ts", "test_symbol": "SessionManager terminateMultipleSessions reports mixed missing sessions" },
+          { "id": "TC-FR-BGSTAB-011-AC6-02", "req_id": "FR-BGSTAB-011", "ac_refs": ["AC-6"], "test_file": "server/src/test-runner.ts", "test_symbol": "SessionManager terminateAllSessions reports deterministic batch result" }
+        ]
+      }
+    },
+    {
+      "id": "T-PH002-02",
+      "phase_id": "PH-002",
+      "title": "Async API implementation",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-011"],
+      "files": [
+        { "path": "server/src/services/SessionManager.ts" },
+        { "path": "server/src/routes/sessionRoutes.ts" },
+        { "path": "server/src/services/WorkspaceService.ts" },
+        { "path": "server/src/index.ts" }
+      ],
+      "action": "Add async termination APIs, preserve deleteSession compatibility, and route direct session/tab/workspace/restart cleanup through awaited termination calls.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "npm --prefix server test", "expected_exit": 0 }],
+      "verification_cmd": { "posix": "npm --prefix server test", "windows": "npm --prefix server test" },
+      "dod": [
+        "HTTP semantics remain compatible",
+        "batch termination reports attempted, terminated, and missing ids",
+        "shutdown policy is unchanged"
+      ],
+      "rollback": "Call legacy deleteSession/deleteMultipleSessions from compatibility paths and keep enforce mode disabled.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-02-FR-BGSTAB-011",
+          "source": { "type": "Task", "id": "T-PH002-02" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-011" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [{ "path": "server/src/test-runner.ts" }],
+      "depends_on_task": ["T-PH002-01"],
+      "covers_ac": ["AC-5", "AC-6", "AC-7"],
+      "tdd": { "applicable": true, "phase": "green", "test_cases": [] }
+    },
+    {
+      "id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "title": "Final verification and SRS evidence",
+      "type": "review",
+      "req_ids": ["FR-BGSTAB-011"],
+      "files": [
+        { "path": "docs/spec/30.buildergate-stability.srs.md" },
+        { "path": "docs/research/plug-leak/wave2.md" },
+        { "path": "docs/research/2026-06-26.buildergate-wave0-2-evaluation-handoff.md" }
+      ],
+      "action": "Run full server tests, focused Wave0 tests, daemon process-info tests, frontend typecheck, SpecKiwi validation, and independent sub-agent review.",
+      "acceptance_tests": [{ "kind": "checklist", "items": ["server tests pass", "frontend typecheck passes", "SpecKiwi validates"] }],
+      "verification_cmd": null,
+      "dod": [
+        "commands pass",
+        "SRS evidence is registered",
+        "handoff no longer reports Wave2 as absent"
+      ],
+      "rollback": "Mark FR-BGSTAB-011 back to planned if verification fails.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-01-FR-BGSTAB-011",
+          "source": { "type": "Task", "id": "T-PH003-01" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-011" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "S",
+      "test_files": [],
+      "depends_on_task": ["T-PH001-02", "T-PH002-02"],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"],
+      "tdd": { "applicable": false, "phase": "n/a", "exempt_reason": "Evidence registration and review do not introduce runtime code." }
+    }
+  ],
+  "coverage": [
+    {
+      "req_id": "FR-BGSTAB-011",
+      "stability": "evolving",
+      "task_ids": ["T-PH001-01", "T-PH001-02", "T-PH002-01", "T-PH002-02", "T-PH003-01"],
+      "ac_covered": 7,
+      "ac_total": 7
+    }
+  ],
+  "risks": [
+    { "risk_id": "R-001", "severity": "high", "mitigation": "Never kill by process name or shell-built command; use verified PID identity only.", "affected_task_ids": ["T-PH001-02"] },
+    { "risk_id": "R-002", "severity": "high", "mitigation": "Treat missing or mismatched identity as skipped-unverified.", "affected_task_ids": ["T-PH001-02"] },
+    { "risk_id": "R-003", "severity": "medium", "mitigation": "Preserve deleteSession wrapper and HTTP status behavior for compatibility.", "affected_task_ids": ["T-PH002-02"] },
+    { "risk_id": "R-004", "severity": "medium", "mitigation": "Keep shutdown recoverability and policy out of Wave2.", "affected_task_ids": ["T-PH003-01"] }
+  ],
+  "inventory": {
+    "requirements": [
+      {
+        "id": "FR-BGSTAB-011",
+        "status": "implemented",
+        "stability": "evolving",
+        "acceptance_criteria_count": 7
+      }
+    ]
+  }
+}

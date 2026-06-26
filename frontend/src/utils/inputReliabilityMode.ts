@@ -6,7 +6,7 @@ const VALID_WS_TRANSPORT_MODES = new Set<WsTransportMode>(['unified', 'split-sha
 
 export type WsTransportMode = 'unified' | 'split-shadow' | 'split';
 export type FrontendRuntimeResidencyMode = 'legacy' | 'bounded' | 'off';
-export type HiddenOutputPolicy = 'snapshot-restore' | 'debug-tail';
+export type HiddenOutputPolicy = 'write-hidden' | 'snapshot-restore' | 'debug-tail';
 
 export interface ClientWsResourceLimitsRuntimeConfig {
   inputBackpressureBytes: number;
@@ -69,8 +69,8 @@ const DEFAULT_TERMINAL_LIMITS: TerminalResourceLimitsRuntimeConfig = {
   visibleOutputQueueMaxBytes: 4_194_304,
   visibleOutputMaxChunks: 512,
   visibleFlushBudgetBytes: 262_144,
-  hiddenOutputPolicy: 'snapshot-restore',
-  hiddenOutputTailBytes: 0,
+  hiddenOutputPolicy: 'write-hidden',
+  hiddenOutputTailBytes: 262_144,
   inputQueueMaxBytes: 65_536,
   inputQueueTtlMs: 1500,
   transportOutboxMaxBytes: 65_536,
@@ -355,7 +355,7 @@ function parseWsTransportMode(value: unknown): WsTransportMode {
 }
 
 function parseHiddenOutputPolicy(value: unknown): HiddenOutputPolicy | null {
-  return value === 'snapshot-restore' || value === 'debug-tail' ? value : null;
+  return value === 'write-hidden' || value === 'snapshot-restore' || value === 'debug-tail' ? value : null;
 }
 
 function parseFrontendRuntimeResidency(value: unknown): FrontendRuntimeResidencyMode {

@@ -103,7 +103,7 @@ test('RuntimeConfigStore exposes Wave 0 resource limits in snapshots and public 
   const publicConfig = store.getPublicRuntimeConfig('queue');
 
   assert.equal(snapshot.values.resourceLimits.clientWs.inputBackpressureBytes, 1048576);
-  assert.equal(snapshot.values.resourceLimits.terminal.hiddenOutputPolicy, 'snapshot-restore');
+  assert.equal(snapshot.values.resourceLimits.terminal.hiddenOutputPolicy, 'write-hidden');
   assert.equal(snapshot.values.stabilityModes.frontendRuntimeResidency, 'bounded');
   assert.equal(snapshot.capabilities['resourceLimits.clientWs.inputBackpressureBytes'].applyScope, 'immediate');
   assert.equal(snapshot.capabilities['resourceLimits.ws.serverBufferedHighWaterBytes'].available, false);
@@ -118,7 +118,7 @@ test('RuntimeConfigStore exposes Wave 0 resource limits in snapshots and public 
   });
   assert.deepEqual(publicConfig, {
     inputReliabilityMode: 'queue',
-    wsTransportMode: 'unified',
+    wsTransportMode: 'split-shadow',
     stabilityModes: {
       frontendRuntimeResidency: 'bounded',
     },
@@ -131,8 +131,8 @@ test('RuntimeConfigStore exposes Wave 0 resource limits in snapshots and public 
         visibleOutputQueueMaxBytes: 4194304,
         visibleOutputMaxChunks: 512,
         visibleFlushBudgetBytes: 262144,
-        hiddenOutputPolicy: 'snapshot-restore',
-        hiddenOutputTailBytes: 0,
+        hiddenOutputPolicy: 'write-hidden',
+        hiddenOutputTailBytes: 262144,
         inputQueueMaxBytes: 65536,
         inputQueueTtlMs: 1500,
         transportOutboxMaxBytes: 65536,

@@ -15,7 +15,8 @@ export type SessionCleanupReason =
   | 'tab-delete'
   | 'workspace-delete'
   | 'tab-restart'
-  | 'process-exit';
+  | 'process-exit'
+  | 'shutdown';
 
 export type SessionCleanupStatus =
   | 'observed'
@@ -63,7 +64,8 @@ export type TerminalInputBarrierReason =
   | 'replay-pending'
   | 'initial-geometry-pending'
   | 'repair-server-not-ready'
-  | 'ws-reconnecting-short';
+  | 'ws-reconnecting-short'
+  | 'client-backpressure';
 
 export type TerminalInputClosedReason =
   | 'none'

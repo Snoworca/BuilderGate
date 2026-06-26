@@ -47,7 +47,7 @@ const resourceLimitsPatchSchema = z.object({
     serverBufferedHardLimitBytes: bytesPatch(1024, 536870912),
     perClientOutputQueueMaxBytes: bytesPatch(1024, 268435456),
     perClientControlQueueMaxBytes: bytesPatch(1024, 16777216),
-    outputCoalesceWindowMs: durationPatch(0, 1000),
+    outputCoalesceWindowMs: durationPatch(1, 1000),
   }).strict().optional(),
   clientWs: z.object({
     inputBackpressureBytes: bytesPatch(1024, 268435456),
@@ -57,7 +57,7 @@ const resourceLimitsPatchSchema = z.object({
     visibleOutputQueueMaxBytes: bytesPatch(1024, 268435456),
     visibleOutputMaxChunks: countPatch(1, 65536),
     visibleFlushBudgetBytes: bytesPatch(1024, 16777216),
-    hiddenOutputPolicy: z.enum(['snapshot-restore', 'debug-tail']).optional(),
+    hiddenOutputPolicy: z.enum(['write-hidden', 'snapshot-restore', 'debug-tail']).optional(),
     hiddenOutputTailBytes: bytesPatch(0, 16777216),
     inputQueueMaxBytes: bytesPatch(1024, 16777216),
     inputQueueTtlMs: durationPatch(1, 60000),

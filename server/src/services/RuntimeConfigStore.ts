@@ -75,7 +75,7 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
   'resourceLimits.ws.serverBufferedHardLimitBytes': { applyScope: 'new_sessions', writeOnly: false, constraints: bytes(1024, 536870912) },
   'resourceLimits.ws.perClientOutputQueueMaxBytes': { applyScope: 'new_sessions', writeOnly: false, constraints: bytes(1024, 268435456) },
   'resourceLimits.ws.perClientControlQueueMaxBytes': { applyScope: 'new_sessions', writeOnly: false, constraints: bytes(1024, 16777216) },
-  'resourceLimits.ws.outputCoalesceWindowMs': { applyScope: 'new_sessions', writeOnly: false, constraints: ms(0, 1000) },
+  'resourceLimits.ws.outputCoalesceWindowMs': { applyScope: 'new_sessions', writeOnly: false, constraints: ms(1, 1000) },
   'resourceLimits.clientWs.inputBackpressureBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 268435456) },
   'resourceLimits.clientWs.hardReconnectBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 536870912) },
   'resourceLimits.terminal.visibleOutputQueueMaxBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 268435456) },
@@ -112,7 +112,7 @@ const WAVE0_UNAPPLIED_SETTING_KEYS = new Set<EditableSettingsKey>([
   'stabilityModes.wsSendMode',
 ]);
 const WAVE0_UNAPPLIED_REASON = 'Reserved for a later stability wave; not applied by the current runtime';
-const EFFECTIVE_WS_TRANSPORT_MODE: WsTransportMode = 'unified';
+const DEFAULT_WS_TRANSPORT_MODE: WsTransportMode = 'unified';
 
 export interface PublicRuntimeConfig {
   inputReliabilityMode: InputReliabilityMode;
@@ -126,9 +126,11 @@ export class RuntimeConfigStore {
   private readonly capabilities: Record<EditableSettingsKey, FieldCapability>;
   private readonly excludedSections = [...EXCLUDED_SECTIONS];
   private secretState: EditableSettingsSnapshot['secretState'];
+  private wsTransportMode: WsTransportMode;
 
   constructor(source: Config = globalConfig, private readonly platform: NodeJS.Platform = process.platform) {
     this.values = buildEditableValues(source, platform);
+    this.wsTransportMode = source.realtime?.wsTransportMode ?? DEFAULT_WS_TRANSPORT_MODE;
     this.capabilities = buildFieldCapabilities(platform);
     this.secretState = {
       authPasswordConfigured: Boolean(source.auth?.password),
@@ -156,7 +158,7 @@ export class RuntimeConfigStore {
   getPublicRuntimeConfig(inputReliabilityMode: InputReliabilityMode): PublicRuntimeConfig {
     return {
       inputReliabilityMode,
-      wsTransportMode: EFFECTIVE_WS_TRANSPORT_MODE,
+      wsTransportMode: this.wsTransportMode,
       stabilityModes: {
         frontendRuntimeResidency: this.values.stabilityModes.frontendRuntimeResidency,
       },
@@ -262,6 +264,7 @@ export class RuntimeConfigStore {
 
   replaceFromConfig(config: Config): void {
     this.values = buildEditableValues(config, this.platform);
+    this.wsTransportMode = config.realtime?.wsTransportMode ?? DEFAULT_WS_TRANSPORT_MODE;
     this.secretState = {
       authPasswordConfigured: Boolean(config.auth?.password),
       smtpPasswordConfigured: false,
@@ -367,7 +370,7 @@ function buildFieldCapabilities(platform: NodeJS.Platform): Record<EditableSetti
 
   capabilities['resourceLimits.terminal.hiddenOutputPolicy'] = {
     ...capabilities['resourceLimits.terminal.hiddenOutputPolicy'],
-    options: ['snapshot-restore', 'debug-tail'],
+    options: ['write-hidden', 'snapshot-restore', 'debug-tail'],
   };
 
   capabilities['stabilityModes.headlessQueueMode'] = {
