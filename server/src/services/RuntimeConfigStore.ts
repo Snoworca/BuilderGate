@@ -71,11 +71,11 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
   'resourceLimits.headless.writeLagWarnMs': { applyScope: 'new_sessions', writeOnly: false, constraints: ms(1, 60000) },
   'resourceLimits.headless.writeBatchMaxBytes': { applyScope: 'new_sessions', writeOnly: false, constraints: bytes(1024, 1048576) },
   'resourceLimits.headless.overflowPolicy': { applyScope: 'new_sessions', writeOnly: false },
-  'resourceLimits.ws.serverBufferedHighWaterBytes': { applyScope: 'new_sessions', writeOnly: false, constraints: bytes(1024, 268435456) },
-  'resourceLimits.ws.serverBufferedHardLimitBytes': { applyScope: 'new_sessions', writeOnly: false, constraints: bytes(1024, 536870912) },
-  'resourceLimits.ws.perClientOutputQueueMaxBytes': { applyScope: 'new_sessions', writeOnly: false, constraints: bytes(1024, 268435456) },
-  'resourceLimits.ws.perClientControlQueueMaxBytes': { applyScope: 'new_sessions', writeOnly: false, constraints: bytes(1024, 16777216) },
-  'resourceLimits.ws.outputCoalesceWindowMs': { applyScope: 'new_sessions', writeOnly: false, constraints: ms(1, 1000) },
+  'resourceLimits.ws.serverBufferedHighWaterBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 268435456) },
+  'resourceLimits.ws.serverBufferedHardLimitBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 536870912) },
+  'resourceLimits.ws.perClientOutputQueueMaxBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 268435456) },
+  'resourceLimits.ws.perClientControlQueueMaxBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 16777216) },
+  'resourceLimits.ws.outputCoalesceWindowMs': { applyScope: 'immediate', writeOnly: false, constraints: ms(1, 1000) },
   'resourceLimits.clientWs.inputBackpressureBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 268435456) },
   'resourceLimits.clientWs.hardReconnectBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 536870912) },
   'resourceLimits.terminal.visibleOutputQueueMaxBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 268435456) },
@@ -98,19 +98,14 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
   'resourceLimits.telemetry.sampleIntervalMs': { applyScope: 'new_sessions', writeOnly: false, constraints: ms(1000, 3600000) },
   'resourceLimits.telemetry.recentEventLimit': { applyScope: 'new_sessions', writeOnly: false, constraints: count(1, 10000) },
   'stabilityModes.headlessQueueMode': { applyScope: 'new_sessions', writeOnly: false },
-  'stabilityModes.wsSendMode': { applyScope: 'new_sessions', writeOnly: false },
+  'stabilityModes.wsSendMode': { applyScope: 'immediate', writeOnly: false },
   'stabilityModes.frontendRuntimeResidency': { applyScope: 'immediate', writeOnly: false },
 };
 
 const WAVE0_UNAPPLIED_SETTING_PREFIXES = [
-  'resourceLimits.headless.',
-  'resourceLimits.ws.',
   'resourceLimits.telemetry.',
 ] as const;
-const WAVE0_UNAPPLIED_SETTING_KEYS = new Set<EditableSettingsKey>([
-  'stabilityModes.headlessQueueMode',
-  'stabilityModes.wsSendMode',
-]);
+const WAVE0_UNAPPLIED_SETTING_KEYS = new Set<EditableSettingsKey>();
 const WAVE0_UNAPPLIED_REASON = 'Reserved for a later stability wave; not applied by the current runtime';
 const DEFAULT_WS_TRANSPORT_MODE: WsTransportMode = 'unified';
 

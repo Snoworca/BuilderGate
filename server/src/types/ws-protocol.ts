@@ -377,5 +377,15 @@ export interface WsRouterObservabilitySnapshot {
   screenRepairAckTimeoutCount: number;
   replayRefreshCount: number;
   maxReplayQueueLengthObserved: number;
+  transportQueuedClientCount: number;
+  transportOutputQueuedBytes: number;
+  transportControlQueuedBytes: number;
+  maxTransportQueuedBytesObserved: number;
+  maxServerBufferedAmountObserved: number;
+  transportBackpressureObserveCount: number;
+  transportSlowClientCloseCount: number;
+  transportQueueOverflowCount: number;
+  transportSendErrorCount: number;
+  transportOutputCoalesceCount: number;
   recentReplayEvents: ReplayTelemetryEvent[];
 }

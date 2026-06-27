@@ -45,6 +45,7 @@ import {
   serializeHeadlessTerminal,
   writeHeadlessTerminal,
 } from './utils/headlessTerminal.js';
+import { createHeadlessOutputQueue as createHeadlessOutputQueueForHarness } from './utils/headlessOutputQueue.js';
 import { truncateTerminalPayloadTail } from './utils/terminalPayload.js';
 import { WsRouter } from './ws/WsRouter.js';
 import { AppError, ErrorCode } from './utils/errors.js';
@@ -92,6 +93,14 @@ async function main(): Promise<void> {
     { name: 'RuntimeConfigStore builds a redacted editable snapshot', run: testRuntimeConfigSnapshot },
     { name: 'RuntimeConfigStore marks platform capabilities and merges patches', run: testRuntimeConfigCapabilities },
     { name: 'RuntimeConfigStore normalizes platform-specific PTY values in editable snapshots', run: testRuntimeConfigPlatformNormalization },
+    { name: 'RuntimeConfigStore marks Wave4 server limits as runtime-applied settings', run: testRuntimeConfigWave4ServerLimitCapabilities },
+    { name: 'server startup wires Wave4 limits into WsRouter construction', run: testServerStartupWiresWave4LimitsIntoWsRouter },
+    { name: 'BoundedByteDeque enforces UTF-8 byte caps', run: testBoundedByteDequeUtf8ByteCap },
+    { name: 'BoundedByteDeque enforces chunk caps', run: testBoundedByteDequeChunkCap },
+    { name: 'BoundedByteDeque preserves FIFO dequeue without hot-path array copying', run: testBoundedByteDequeFifoWithoutShiftHotPath },
+    { name: 'HeadlessOutputQueue reports overflow telemetry and degrade decisions', run: testHeadlessOutputQueueOverflowTelemetry },
+    { name: 'SessionManager consumes headless queue limits without flipping defaults', run: testSessionManagerHeadlessQueueRuntimeConfig },
+    { name: 'WsRouter consumes send limits without flipping defaults', run: testWsRouterSendRuntimeConfig },
     { name: 'SessionManager resolves PowerShell backend override without changing non-PowerShell behavior', run: testSessionManagerPowerShellBackendResolution },
     { name: 'SessionManager rejects explicit winpty runtime config when probe fails', run: testSessionManagerWinptyProbeFailure },
     { name: 'SessionManager retries winpty probe after a previous failure', run: testSessionManagerWinptyProbeRetry },
@@ -109,6 +118,8 @@ async function main(): Promise<void> {
     { name: 'SettingsService shell options follow detected host capabilities', run: testSettingsServiceUsesDetectedShellOptions },
     { name: 'SettingsService shell options include WSL-backed bash and sh on Windows hosts', run: testSettingsServiceUsesDetectedWindowsShellOptions },
     { name: 'SettingsService persists editable values and applies runtime updates', run: testSettingsServicePersistence },
+    { name: 'SettingsService applies Wave4 headless runtime settings for later sessions', run: testSettingsServiceAppliesWave4HeadlessRuntimeSettings },
+    { name: 'SettingsService applies Wave4 WebSocket runtime settings to the live router', run: testSettingsServiceAppliesWave4WsRuntimeSettings },
     { name: 'SettingsService persists editable values against a legacy pty.maxBufferSize config', run: testSettingsServiceLegacyPtyMigration },
     { name: 'ConfigFileRepository can insert useConpty into legacy config text', run: testConfigFileRepositoryInsertsMissingUseConpty },
     { name: 'ConfigFileRepository can insert missing PTY section for legacy config text', run: testConfigFileRepositoryInsertsMissingPtySection },
@@ -190,6 +201,14 @@ async function main(): Promise<void> {
     { name: 'SessionManager preserves queued output when degradation happens before headless writes flush', run: testSessionManagerQueuedOutputDegradedRace },
     { name: 'SessionManager does not duplicate flushed output when later queued output is still pending at degradation time', run: testSessionManagerMixedFlushDegradedRecovery },
     { name: 'SessionManager does not duplicate queued output on direct write failure', run: testSessionManagerWriteFailureNoDuplicate },
+    { name: 'SessionManager bounded headless queue degrades on delayed chunk cap overflow', run: testSessionManagerBoundedHeadlessChunkOverflow },
+    { name: 'SessionManager bounded headless queue degrades on delayed byte cap overflow', run: testSessionManagerBoundedHeadlessByteOverflow },
+    { name: 'SessionManager bounded headless queue counts multibyte output as UTF-8 bytes', run: testSessionManagerBoundedHeadlessMultibyteOverflow },
+    { name: 'SessionManager bounded headless overflow clears queue telemetry', run: testSessionManagerBoundedHeadlessOverflowTelemetry },
+    { name: 'SessionManager observe headless queue overflow degrades without unbounded pending output', run: testSessionManagerObserveHeadlessOverflowKeepsOutputOrder },
+    { name: 'SessionManager observe headless queue preserves bounded pending output on degradation', run: testSessionManagerObserveHeadlessOverflowPreservedOnDegradation },
+    { name: 'SessionManager routes bounded output only after headless write commit', run: testSessionManagerBoundedHeadlessOutputRoutesAfterCommit },
+    { name: 'SessionManager bounded headless implementation removes pendingOutputChunks hot paths', run: testSessionManagerBoundedHeadlessSourceRemovesLegacyPendingArray },
     { name: 'SessionManager rejects oversized authoritative snapshots without unbounded growth', run: testSessionManagerOversizedSnapshot },
     { name: 'SessionManager authoritative snapshot preserves current alt-screen state', run: testSessionManagerAltScreenSnapshot },
     { name: 'SessionManager keeps degraded fallback snapshots placeholder-only', run: testSessionManagerDegradedOutputRecovery },
@@ -240,6 +259,20 @@ async function main(): Promise<void> {
     { name: 'WsRouter ignores stale replay tokens', run: testWsRouterIgnoresStaleReplayTokens },
     { name: 'WsRouter refreshes replay snapshots on resize while pending', run: testWsRouterRefreshesReplaySnapshotsOnResize },
     { name: 'WsRouter preserves queued output across fallback replay refresh', run: testWsRouterPreservesQueuedOutputAcrossFallbackReplayRefresh },
+    { name: 'WsRouter safe-send enforce queues output over high-water', run: testWsRouterSafeSendQueuesOutputOverHighWater },
+    { name: 'WsRouter safe-send retry timer drains queued output', run: testWsRouterSafeSendRetryTimerDrainsQueuedOutput },
+    { name: 'WsRouter safe-send enforce closes hard-limit slow clients', run: testWsRouterSafeSendClosesHardLimitSlowClient },
+    { name: 'WsRouter safe-send closes on send callback errors', run: testWsRouterSafeSendClosesOnSendCallbackErrors },
+    { name: 'WsRouter direct send callback errors do not enforce close', run: testWsRouterDirectSendCallbackErrorDoesNotClose },
+    { name: 'WsRouter observe send callback errors do not enforce close', run: testWsRouterObserveSendCallbackErrorDoesNotClose },
+    { name: 'WsRouter safe-send rollback flushes queued output without enforce close', run: testWsRouterSafeSendRollbackFlushesQueuedOutputWithoutClose },
+    { name: 'WsRouter safe-send coalesces queued output', run: testWsRouterSafeSendCoalescesQueuedOutput },
+    { name: 'WsRouter safe-send respects output coalesce window', run: testWsRouterSafeSendRespectsOutputCoalesceWindow },
+    { name: 'WsRouter safe-send closes instead of dropping control messages', run: testWsRouterSafeSendClosesOnControlQueueOverflow },
+    { name: 'WsRouter safe-send observe records pressure without queueing', run: testWsRouterSafeSendObserveDoesNotQueue },
+    { name: 'WsRouter safe-send preserves replay flush ordering under pressure', run: testWsRouterSafeSendPreservesReplayFlushOrdering },
+    { name: 'WsRouter safe-send preserves screen repair flush ordering under pressure', run: testWsRouterSafeSendPreservesScreenRepairFlushOrdering },
+    { name: 'SessionManager broadcasts through WsRouter send policy', run: testSessionManagerBroadcastUsesWsRouterPolicy },
     { name: 'WsRouter sends screen repair and queues output until ACK', run: testWsRouterSendsScreenRepairAndQueuesOutputUntilAck },
     { name: 'WsRouter queues output while screen repair is generating', run: testWsRouterQueuesOutputDuringScreenRepairGeneration },
     { name: 'WsRouter flushes output newer than screen repair snapshot seq', run: testWsRouterFlushesOutputAfterScreenRepairSnapshotSeq },
@@ -353,6 +386,326 @@ async function main(): Promise<void> {
   }
 
   console.log(`\n${tests.length} test(s) passed`);
+}
+
+interface BoundedByteDequeResult {
+  ok: boolean;
+  reason?: 'byte-limit' | 'chunk-limit';
+  pendingBytes: number;
+  pendingChunks: number;
+  itemBytes?: number;
+}
+
+interface BoundedByteDequeSnapshot {
+  pendingBytes: number;
+  pendingChunks: number;
+  rejectedBytes: number;
+  rejectedChunks: number;
+  maxPendingBytes: number;
+  maxPendingChunks: number;
+}
+
+interface BoundedByteDequeForTest<T> {
+  enqueue(item: T): BoundedByteDequeResult;
+  dequeue(): T | undefined;
+  clear(): void;
+  snapshot(): BoundedByteDequeSnapshot;
+}
+
+interface BoundedByteDequeModuleForTest {
+  createBoundedByteDeque<T>(options: {
+    maxBytes: number;
+    maxChunks: number;
+    getByteLength: (item: T) => number;
+  }): BoundedByteDequeForTest<T>;
+}
+
+interface HeadlessOutputQueueSnapshotForTest {
+  pendingBytes: number;
+  pendingChunks: number;
+  overflowCount: number;
+  maxPendingBytes: number;
+  maxPendingChunks: number;
+  oldestPendingAgeMs: number;
+  degradedCount: number;
+  lastOverflow?: {
+    reason: 'byte-limit' | 'chunk-limit';
+    policy: 'degrade-headless';
+    itemBytes: number;
+  };
+}
+
+interface HeadlessOutputQueueForTest {
+  enqueue(data: string): BoundedByteDequeResult & {
+    policy?: 'degrade-headless';
+    shouldDegradeHeadless?: boolean;
+  };
+  dequeue(): { data: string; byteLength: number; queuedAt: number } | undefined;
+  clear(): void;
+  snapshot(): HeadlessOutputQueueSnapshotForTest;
+}
+
+interface HeadlessOutputQueueModuleForTest {
+  createHeadlessOutputQueue(options: {
+    maxBytes: number;
+    maxChunks: number;
+    overflowPolicy: 'degrade-headless';
+    now?: () => number;
+  }): HeadlessOutputQueueForTest;
+}
+
+async function importBoundedByteDequeForTest(): Promise<BoundedByteDequeModuleForTest> {
+  const modulePath = './utils/boundedByteDeque.js';
+  return import(modulePath) as Promise<BoundedByteDequeModuleForTest>;
+}
+
+async function importHeadlessOutputQueueForTest(): Promise<HeadlessOutputQueueModuleForTest> {
+  const modulePath = './utils/headlessOutputQueue.js';
+  return import(modulePath) as Promise<HeadlessOutputQueueModuleForTest>;
+}
+
+async function testBoundedByteDequeUtf8ByteCap(): Promise<void> {
+  const { createBoundedByteDeque } = await importBoundedByteDequeForTest();
+  const queue = createBoundedByteDeque<string>({
+    maxBytes: 6,
+    maxChunks: 4,
+    getByteLength: (item) => Buffer.byteLength(item, 'utf8'),
+  });
+
+  assert.equal(Buffer.byteLength('한', 'utf8'), 3);
+  assert.equal(Buffer.byteLength('🙂', 'utf8'), 4);
+  assert.deepEqual(queue.enqueue('한'), {
+    ok: true,
+    pendingBytes: 3,
+    pendingChunks: 1,
+    itemBytes: 3,
+  });
+  assert.deepEqual(queue.enqueue('글'), {
+    ok: true,
+    pendingBytes: 6,
+    pendingChunks: 2,
+    itemBytes: 3,
+  });
+
+  const rejected = queue.enqueue('🙂');
+  assert.equal(rejected.ok, false);
+  assert.equal(rejected.reason, 'byte-limit');
+  assert.equal(rejected.pendingBytes, 6);
+  assert.equal(rejected.pendingChunks, 2);
+  assert.equal(rejected.itemBytes, 4);
+  assert.equal(queue.dequeue(), '한');
+  assert.equal(queue.dequeue(), '글');
+  assert.equal(queue.dequeue(), undefined);
+}
+
+async function testBoundedByteDequeChunkCap(): Promise<void> {
+  const { createBoundedByteDeque } = await importBoundedByteDequeForTest();
+  const queue = createBoundedByteDeque<string>({
+    maxBytes: 1024,
+    maxChunks: 2,
+    getByteLength: (item) => Buffer.byteLength(item, 'utf8'),
+  });
+
+  assert.equal(queue.enqueue('a').ok, true);
+  assert.equal(queue.enqueue('b').ok, true);
+  const rejected = queue.enqueue('c');
+  assert.equal(rejected.ok, false);
+  assert.equal(rejected.reason, 'chunk-limit');
+  assert.deepEqual(queue.snapshot(), {
+    pendingBytes: 2,
+    pendingChunks: 2,
+    rejectedBytes: 0,
+    rejectedChunks: 1,
+    maxPendingBytes: 2,
+    maxPendingChunks: 2,
+  });
+}
+
+async function testBoundedByteDequeFifoWithoutShiftHotPath(): Promise<void> {
+  const { createBoundedByteDeque } = await importBoundedByteDequeForTest();
+  const queue = createBoundedByteDeque<number>({
+    maxBytes: 4096,
+    maxChunks: 4096,
+    getByteLength: () => 1,
+  });
+
+  for (let i = 0; i < 2048; i += 1) {
+    assert.equal(queue.enqueue(i).ok, true);
+  }
+
+  const originalSlice = Array.prototype.slice;
+  let sliceCalls = 0;
+  try {
+    (Array.prototype as any).slice = function patchedSlice(this: unknown[], ...args: unknown[]) {
+      sliceCalls += 1;
+      return originalSlice.apply(this, args as [start?: number, end?: number]);
+    };
+    for (let i = 0; i < 2048; i += 1) {
+      assert.equal(queue.dequeue(), i);
+    }
+  } finally {
+    Array.prototype.slice = originalSlice;
+  }
+
+  assert.equal(sliceCalls, 0, 'dequeue must not compact by copying arrays on the hot path');
+  assert.equal(queue.dequeue(), undefined);
+  assert.deepEqual(queue.snapshot(), {
+    pendingBytes: 0,
+    pendingChunks: 0,
+    rejectedBytes: 0,
+    rejectedChunks: 0,
+    maxPendingBytes: 2048,
+    maxPendingChunks: 2048,
+  });
+}
+
+async function testHeadlessOutputQueueOverflowTelemetry(): Promise<void> {
+  const { createHeadlessOutputQueue } = await importHeadlessOutputQueueForTest();
+  const queue = createHeadlessOutputQueue({
+    maxBytes: 6,
+    maxChunks: 2,
+    overflowPolicy: 'degrade-headless',
+    now: () => 1000,
+  });
+
+  assert.equal(queue.enqueue('abc').ok, true);
+  const rejected = queue.enqueue('한글');
+  assert.equal(rejected.ok, false);
+  assert.equal(rejected.reason, 'byte-limit');
+  assert.equal(rejected.policy, 'degrade-headless');
+  assert.equal(rejected.shouldDegradeHeadless, true);
+  assert.deepEqual(queue.snapshot(), {
+    pendingBytes: 3,
+    pendingChunks: 1,
+    overflowCount: 1,
+    maxPendingBytes: 3,
+    maxPendingChunks: 1,
+    oldestPendingAgeMs: 0,
+    degradedCount: 0,
+    lastOverflow: {
+      reason: 'byte-limit',
+      policy: 'degrade-headless',
+      itemBytes: 6,
+    },
+  });
+
+  assert.deepEqual(queue.dequeue(), { data: 'abc', byteLength: 3, queuedAt: 1000 });
+  assert.equal(queue.dequeue(), undefined);
+}
+
+function testSessionManagerHeadlessQueueRuntimeConfig(): void {
+  const fixture = createConfigFixture();
+  const resourceLimits = resourceLimitsSchema.parse({
+    headless: {
+      pendingOutputMaxBytes: 4096,
+      pendingOutputMaxChunks: 7,
+      writeLagWarnMs: 25,
+      writeBatchMaxBytes: 2048,
+      overflowPolicy: 'degrade-headless',
+    },
+  });
+  const stabilityModes = stabilityModesSchema.parse({
+    headlessQueueMode: 'bounded',
+  });
+  const manager = new SessionManager({
+    pty: fixture.pty,
+    session: fixture.session,
+    resourceLimits,
+    stabilityModes,
+  } as any, {
+    platform: 'linux',
+    execFileSyncFn: (() => Buffer.from('')) as any,
+  });
+
+  const runtime = (manager as any).runtimeHeadlessQueueConfig;
+  assert.equal(runtime.mode, 'bounded');
+  assert.equal(runtime.limits.pendingOutputMaxBytes, 4096);
+  assert.equal(runtime.limits.pendingOutputMaxChunks, 7);
+  assert.equal(runtime.limits.writeLagWarnMs, 25);
+  assert.equal(runtime.limits.writeBatchMaxBytes, 2048);
+  assert.equal(runtime.limits.overflowPolicy, 'degrade-headless');
+
+  const defaultManager = new SessionManager({
+    pty: fixture.pty,
+    session: fixture.session,
+  }, {
+    platform: 'linux',
+    execFileSyncFn: (() => Buffer.from('')) as any,
+  });
+  const defaultRuntime = (defaultManager as any).runtimeHeadlessQueueConfig;
+  assert.equal(defaultRuntime.mode, 'observe');
+  assert.equal(defaultRuntime.limits.pendingOutputMaxBytes, 8388608);
+  assert.equal(defaultRuntime.limits.pendingOutputMaxChunks, 1024);
+
+  const existingHarness = createManagedSessionHarness(defaultManager);
+  try {
+    assert.equal(existingHarness.sessionData.headlessQueueMode, 'observe');
+    defaultManager.updateRuntimeConfig({
+      resourceLimits: {
+        headless: {
+          pendingOutputMaxBytes: 2048,
+          pendingOutputMaxChunks: 3,
+          writeLagWarnMs: 10,
+          writeBatchMaxBytes: 2048,
+          overflowPolicy: 'degrade-headless',
+        },
+      },
+      stabilityModes: {
+        headlessQueueMode: 'bounded',
+      },
+    });
+    assert.equal((defaultManager as any).runtimeHeadlessQueueConfig.mode, 'bounded');
+    assert.equal(existingHarness.sessionData.headlessQueueMode, 'observe');
+
+    const futureHarness = createManagedSessionHarness(defaultManager);
+    try {
+      assert.equal(futureHarness.sessionData.headlessQueueMode, 'bounded');
+    } finally {
+      futureHarness.dispose();
+    }
+  } finally {
+    existingHarness.dispose();
+  }
+}
+
+function testWsRouterSendRuntimeConfig(): void {
+  const resourceLimits = resourceLimitsSchema.parse({
+    ws: {
+      serverBufferedHighWaterBytes: 4096,
+      serverBufferedHardLimitBytes: 8192,
+      perClientOutputQueueMaxBytes: 2048,
+      perClientControlQueueMaxBytes: 1024,
+      outputCoalesceWindowMs: 7,
+    },
+  });
+  const stabilityModes = stabilityModesSchema.parse({
+    wsSendMode: 'safe-send-observe',
+  });
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const sessionManagerStub = {
+    getSession: () => null,
+  } as unknown as SessionManager;
+  const router = new WsRouter(authServiceStub, sessionManagerStub, {
+    resourceLimits,
+    stabilityModes,
+  } as any);
+  const runtime = (router as any).runtimeSendPolicyConfig;
+  assert.equal(runtime.mode, 'safe-send-observe');
+  assert.equal(runtime.limits.serverBufferedHighWaterBytes, 4096);
+  assert.equal(runtime.limits.serverBufferedHardLimitBytes, 8192);
+  assert.equal(runtime.limits.perClientOutputQueueMaxBytes, 2048);
+  assert.equal(runtime.limits.perClientControlQueueMaxBytes, 1024);
+  assert.equal(runtime.limits.outputCoalesceWindowMs, 7);
+  router.destroy();
+
+  const defaultRouter = new WsRouter(authServiceStub, sessionManagerStub);
+  const defaultRuntime = (defaultRouter as any).runtimeSendPolicyConfig;
+  assert.equal(defaultRuntime.mode, 'direct');
+  assert.equal(defaultRuntime.limits.serverBufferedHighWaterBytes, 8388608);
+  assert.equal(defaultRuntime.limits.serverBufferedHardLimitBytes, 33554432);
+  defaultRouter.destroy();
 }
 
 function testRuntimeConfigSnapshot(): void {
@@ -648,6 +1001,36 @@ function testRuntimeConfigCapabilities(): void {
   assert.deepEqual(merged.fileManager.blockedExtensions, ['.ps1']);
 }
 
+function testRuntimeConfigWave4ServerLimitCapabilities(): void {
+  const store = new RuntimeConfigStore(createConfigFixture(), 'linux');
+  const capabilities = store.getFieldCapabilities();
+
+  assert.equal(capabilities['resourceLimits.headless.pendingOutputMaxBytes'].available, true);
+  assert.equal(capabilities['resourceLimits.headless.pendingOutputMaxChunks'].available, true);
+  assert.equal(capabilities['resourceLimits.headless.writeLagWarnMs'].available, true);
+  assert.equal(capabilities['resourceLimits.headless.writeBatchMaxBytes'].available, true);
+  assert.equal(capabilities['resourceLimits.headless.overflowPolicy'].available, true);
+  assert.equal(capabilities['resourceLimits.ws.serverBufferedHighWaterBytes'].available, true);
+  assert.equal(capabilities['resourceLimits.ws.serverBufferedHardLimitBytes'].available, true);
+  assert.equal(capabilities['resourceLimits.ws.perClientOutputQueueMaxBytes'].available, true);
+  assert.equal(capabilities['resourceLimits.ws.perClientControlQueueMaxBytes'].available, true);
+  assert.equal(capabilities['resourceLimits.ws.outputCoalesceWindowMs'].available, true);
+  assert.equal(capabilities['stabilityModes.headlessQueueMode'].available, true);
+  assert.equal(capabilities['stabilityModes.wsSendMode'].available, true);
+  assert.equal(capabilities['resourceLimits.telemetry.sampleIntervalMs'].available, false);
+  assert.equal(capabilities['resourceLimits.telemetry.recentEventLimit'].available, false);
+}
+
+async function testServerStartupWiresWave4LimitsIntoWsRouter(): Promise<void> {
+  const sourcePath = path.join(process.cwd(), 'src', 'index.ts');
+  const source = await fs.readFile(sourcePath, 'utf-8');
+
+  assert.match(source, /const\s+runtimeValues\s*=\s*runtimeConfigStore\.getEditableValues\(\);/);
+  assert.match(source, /new\s+WsRouter\(authService,\s*sessionManager,\s*\{/);
+  assert.match(source, /resourceLimits:\s*runtimeValues\.resourceLimits/);
+  assert.match(source, /stabilityModes:\s*runtimeValues\.stabilityModes/);
+}
+
 function testRuntimeConfigPlatformNormalization(): void {
   const fixture = createConfigFixture();
   fixture.pty.useConpty = true;
@@ -765,6 +1148,144 @@ async function testSettingsServicePersistence(): Promise<void> {
     const backupStat = await fs.stat(backupPath);
     assert.ok(backupStat.isFile());
   } finally {
+    authService.destroy();
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testSettingsServiceAppliesWave4HeadlessRuntimeSettings(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-settings-wave4-headless-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  await fs.writeFile(configPath, createConfigFixtureContent(), 'utf-8');
+
+  const fixture = createConfigFixture();
+  const cryptoService = new CryptoService('settings-wave4-headless-runtime');
+  const runtimeConfigStore = new RuntimeConfigStore(fixture, 'linux');
+  const authService = new AuthService(fixture.auth!, cryptoService);
+  const sessionManager = new SessionManager({
+    pty: fixture.pty,
+    session: fixture.session,
+    resourceLimits: resourceLimitsSchema.parse(fixture.resourceLimits),
+    stabilityModes: stabilityModesSchema.parse(fixture.stabilityModes),
+  }, {
+    platform: 'linux',
+    execFileSyncFn: (() => Buffer.from('')) as any,
+  });
+  const fileService = new FileService({
+    getSession: () => ({ id: 'session-1' }),
+    getPtyPid: () => null,
+    getInitialCwd: () => tempDir,
+    getCwdFilePath: () => null,
+  }, fixture.fileManager!);
+  const configRepository = new ConfigFileRepository(configPath, 'linux');
+  const settingsService = new SettingsService({
+    runtimeConfigStore,
+    configRepository,
+    cryptoService,
+    authService,
+    getFileService: () => fileService,
+    sessionManager,
+  }, 'linux');
+
+  try {
+    const result = settingsService.savePatch({
+      resourceLimits: {
+        headless: {
+          pendingOutputMaxBytes: 4096,
+          pendingOutputMaxChunks: 5,
+          writeLagWarnMs: 30,
+          writeBatchMaxBytes: 2048,
+        },
+      },
+      stabilityModes: {
+        headlessQueueMode: 'bounded',
+      },
+    });
+
+    assert.ok(result.changedKeys.includes('resourceLimits.headless.pendingOutputMaxBytes'));
+    assert.ok(result.changedKeys.includes('stabilityModes.headlessQueueMode'));
+    const runtime = (sessionManager as any).runtimeHeadlessQueueConfig;
+    assert.equal(runtime.mode, 'bounded');
+    assert.equal(runtime.limits.pendingOutputMaxBytes, 4096);
+    assert.equal(runtime.limits.pendingOutputMaxChunks, 5);
+    assert.equal(runtime.limits.writeLagWarnMs, 30);
+    assert.equal(runtime.limits.writeBatchMaxBytes, 2048);
+  } finally {
+    authService.destroy();
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testSettingsServiceAppliesWave4WsRuntimeSettings(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-settings-wave4-ws-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  await fs.writeFile(configPath, createConfigFixtureContent(), 'utf-8');
+
+  const fixture = createConfigFixture();
+  const cryptoService = new CryptoService('settings-wave4-ws-runtime');
+  const runtimeConfigStore = new RuntimeConfigStore(fixture, 'linux');
+  const authService = new AuthService(fixture.auth!, cryptoService);
+  const sessionManager = new SessionManager({
+    pty: fixture.pty,
+    session: fixture.session,
+    resourceLimits: resourceLimitsSchema.parse(fixture.resourceLimits),
+    stabilityModes: stabilityModesSchema.parse(fixture.stabilityModes),
+  }, {
+    platform: 'linux',
+    execFileSyncFn: (() => Buffer.from('')) as any,
+  });
+  const routerAuthService = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(routerAuthService, sessionManager);
+  const fileService = new FileService({
+    getSession: () => ({ id: 'session-1' }),
+    getPtyPid: () => null,
+    getInitialCwd: () => tempDir,
+    getCwdFilePath: () => null,
+  }, fixture.fileManager!);
+  const configRepository = new ConfigFileRepository(configPath, 'linux');
+  const settingsService = new SettingsService({
+    runtimeConfigStore,
+    configRepository,
+    cryptoService,
+    authService,
+    getFileService: () => fileService,
+    sessionManager,
+    getWsRouter: () => router,
+  } as any, 'linux');
+
+  try {
+    const result = settingsService.savePatch({
+      resourceLimits: {
+        ws: {
+          serverBufferedHighWaterBytes: 4096,
+          serverBufferedHardLimitBytes: 8192,
+          perClientOutputQueueMaxBytes: 2048,
+          perClientControlQueueMaxBytes: 1024,
+          outputCoalesceWindowMs: 9,
+        },
+      },
+      stabilityModes: {
+        wsSendMode: 'safe-send-observe',
+      },
+    });
+
+    assert.ok(result.changedKeys.includes('resourceLimits.ws.serverBufferedHighWaterBytes'));
+    assert.ok(result.changedKeys.includes('stabilityModes.wsSendMode'));
+    assert.ok(result.applySummary.immediate.includes('resourceLimits.ws.serverBufferedHighWaterBytes'));
+    assert.ok(result.applySummary.immediate.includes('stabilityModes.wsSendMode'));
+    assert.equal(result.applySummary.new_sessions.includes('resourceLimits.ws.serverBufferedHighWaterBytes'), false);
+    assert.equal(result.applySummary.new_sessions.includes('stabilityModes.wsSendMode'), false);
+    const runtime = (router as any).runtimeSendPolicyConfig;
+    assert.equal(runtime.mode, 'safe-send-observe');
+    assert.equal(runtime.limits.serverBufferedHighWaterBytes, 4096);
+    assert.equal(runtime.limits.serverBufferedHardLimitBytes, 8192);
+    assert.equal(runtime.limits.perClientOutputQueueMaxBytes, 2048);
+    assert.equal(runtime.limits.perClientControlQueueMaxBytes, 1024);
+    assert.equal(runtime.limits.outputCoalesceWindowMs, 9);
+  } finally {
+    router.destroy();
     authService.destroy();
     await fs.rm(tempDir, { recursive: true, force: true });
   }
@@ -1134,7 +1655,17 @@ async function testSessionManagerRuntimeConfig(): Promise<void> {
     },
     degradedReplayBuffer: '',
     degradedReplayTruncated: false,
-    pendingOutputChunks: [],
+    headlessOutputQueue: createHeadlessOutputQueueForHarness({
+      maxBytes: 1024 * 1024,
+      maxChunks: 1024,
+      overflowPolicy: 'degrade-headless',
+    }),
+    headlessQueueMode: 'observe',
+    pendingHeadlessOutputs: new Map(),
+    pendingHeadlessOutputBytes: 0,
+    maxPendingHeadlessOutputBytes: 0,
+    maxPendingHeadlessOutputChunks: 0,
+    nextHeadlessOutputId: 0,
     unsnapshottedOutput: '',
     unsnapshottedOutputTruncated: false,
     initialCwd: process.cwd(),
@@ -1438,14 +1969,9 @@ function testSessionManagerFinalizesNaturalProcessExitOnce(): void {
   });
   const sentMessages: any[] = [];
   const wsRouter = {
-    getSubscribers(sessionId: string) {
+    sendSessionEvent(sessionId: string, event: string, payload: object) {
       assert.equal(sessionId, harness.session.id);
-      return new Set([{
-        readyState: 1,
-        send(message: string) {
-          sentMessages.push(JSON.parse(message));
-        },
-      }]);
+      sentMessages.push({ type: event, sessionId, ...payload });
     },
     clearSessionState(sessionId: string) {
       assert.equal(sessionId, harness.session.id);
@@ -3441,7 +3967,17 @@ function testSessionManagerNoopResizeSkipsRefresh(): void {
     },
     degradedReplayBuffer: '',
     degradedReplayTruncated: false,
-    pendingOutputChunks: [],
+    headlessOutputQueue: createHeadlessOutputQueueForHarness({
+      maxBytes: 1024 * 1024,
+      maxChunks: 1024,
+      overflowPolicy: 'degrade-headless',
+    }),
+    headlessQueueMode: 'observe',
+    pendingHeadlessOutputs: new Map(),
+    pendingHeadlessOutputBytes: 0,
+    maxPendingHeadlessOutputBytes: 0,
+    maxPendingHeadlessOutputChunks: 0,
+    nextHeadlessOutputId: 0,
     unsnapshottedOutput: '',
     unsnapshottedOutputTruncated: false,
     initialCwd: process.cwd(),
@@ -4470,6 +5006,299 @@ async function testSessionManagerWriteFailureNoDuplicate(): Promise<void> {
   }
 }
 
+function createBoundedHeadlessManager(options: {
+  pendingOutputMaxBytes?: number;
+  pendingOutputMaxChunks?: number;
+  maxSnapshotBytes?: number;
+} = {}): SessionManager {
+  return new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: options.maxSnapshotBytes ?? 4096,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+    resourceLimits: resourceLimitsSchema.parse({
+      headless: {
+        pendingOutputMaxBytes: options.pendingOutputMaxBytes ?? 1024,
+        pendingOutputMaxChunks: options.pendingOutputMaxChunks ?? 8,
+        writeLagWarnMs: 1,
+        writeBatchMaxBytes: 1024,
+        overflowPolicy: 'degrade-headless',
+      },
+    }),
+    stabilityModes: stabilityModesSchema.parse({
+      headlessQueueMode: 'bounded',
+    }),
+  });
+}
+
+function installDelayedHeadlessWrite(harness: ReturnType<typeof createManagedSessionHarness>) {
+  const writes: Array<{ data: string | Uint8Array; callback?: () => void }> = [];
+  harness.sessionData.headless!.terminal.write = ((data: string | Uint8Array, callback?: () => void) => {
+    writes.push({ data, callback });
+  }) as typeof harness.sessionData.headless.terminal.write;
+  return writes;
+}
+
+async function testSessionManagerBoundedHeadlessChunkOverflow(): Promise<void> {
+  const manager = createBoundedHeadlessManager({ pendingOutputMaxChunks: 1 });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  installDelayedHeadlessWrite(harness);
+
+  try {
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'A');
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'B');
+
+    assert.equal(harness.sessionData.headlessHealth, 'degraded');
+    const output = (manager.getObservabilitySnapshot() as any).headlessOutput;
+    assert.equal(output.overflowCount, 1);
+    assert.equal(output.degradedCount, 1);
+    assert.equal(output.pendingChunks, 0);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerBoundedHeadlessByteOverflow(): Promise<void> {
+  const manager = createBoundedHeadlessManager({ pendingOutputMaxBytes: 1024, pendingOutputMaxChunks: 8 });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  installDelayedHeadlessWrite(harness);
+
+  try {
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'a'.repeat(800));
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'b'.repeat(300));
+
+    assert.equal(harness.sessionData.headlessHealth, 'degraded');
+    const output = (manager.getObservabilitySnapshot() as any).headlessOutput;
+    assert.equal(output.overflowCount, 1);
+    assert.equal(output.pendingBytes, 0);
+    assert.equal(output.maxPendingBytes, 800);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerBoundedHeadlessMultibyteOverflow(): Promise<void> {
+  const manager = createBoundedHeadlessManager({ pendingOutputMaxBytes: 1024, pendingOutputMaxChunks: 8 });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  installDelayedHeadlessWrite(harness);
+  const first = '가'.repeat(300);
+  const second = '🙂'.repeat(40);
+
+  try {
+    assert.equal(Buffer.byteLength(first, 'utf8'), 900);
+    assert.equal(Buffer.byteLength(second, 'utf8'), 160);
+    assert.equal(first.length + second.length < 1024, true);
+
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, first);
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, second);
+
+    assert.equal(harness.sessionData.headlessHealth, 'degraded');
+    const output = (manager.getObservabilitySnapshot() as any).headlessOutput;
+    assert.equal(output.overflowCount, 1);
+    assert.equal(output.maxPendingBytes, 900);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerBoundedHeadlessOverflowTelemetry(): Promise<void> {
+  const manager = createBoundedHeadlessManager({ pendingOutputMaxBytes: 1024, pendingOutputMaxChunks: 8 });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  installDelayedHeadlessWrite(harness);
+
+  try {
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'x'.repeat(900));
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'y'.repeat(200));
+
+    const output = (manager.getObservabilitySnapshot() as any).headlessOutput;
+    assert.equal(harness.sessionData.headlessHealth, 'degraded');
+    assert.equal(output.pendingBytes, 0);
+    assert.equal(output.pendingChunks, 0);
+    assert.equal(output.maxPendingBytes, 900);
+    assert.equal(output.maxPendingChunks, 1);
+    assert.equal(output.oldestPendingAgeMs, 0);
+    assert.equal(output.overflowCount, 1);
+    assert.equal(output.degradedCount, 1);
+    assert.match(harness.sessionData.degradedReplayBuffer, /x+/);
+    assert.match(harness.sessionData.degradedReplayBuffer, /y+/);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerObserveHeadlessOverflowKeepsOutputOrder(): Promise<void> {
+  const first = 'a'.repeat(900);
+  const second = 'b'.repeat(200);
+  const third = 'c'.repeat(124);
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 4096,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+    resourceLimits: resourceLimitsSchema.parse({
+      headless: {
+        pendingOutputMaxBytes: 1024,
+        pendingOutputMaxChunks: 4,
+        writeLagWarnMs: 1,
+        writeBatchMaxBytes: 1024,
+        overflowPolicy: 'degrade-headless',
+      },
+    }),
+    stabilityModes: stabilityModesSchema.parse({
+      headlessQueueMode: 'observe',
+    }),
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  const writes = installDelayedHeadlessWrite(harness);
+  const routed: Array<{ data: string; screenSeq?: number }> = [];
+  (manager as any).wsRouter = {
+    routeSessionOutput: (_sessionId: string, data: string, screenSeq?: number) => {
+      routed.push({ data, screenSeq });
+    },
+  };
+
+  try {
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, first);
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, second);
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, third);
+
+    await delay(0);
+    assert.equal(harness.sessionData.headlessHealth, 'degraded');
+    assert.deepEqual(routed, [
+      { data: second, screenSeq: undefined },
+      { data: third, screenSeq: undefined },
+    ]);
+    assert.equal(writes.length, 0);
+    const pendingStats = (manager.getObservabilitySnapshot() as any).headlessOutput;
+    assert.equal(pendingStats.pendingBytes, 0);
+    assert.equal(pendingStats.pendingChunks, 0);
+    assert.equal(pendingStats.maxPendingBytes, Buffer.byteLength(first, 'utf8'));
+    assert.equal(pendingStats.maxPendingChunks, 1);
+    assert.equal(pendingStats.overflowCount, 1);
+    assert.equal(pendingStats.degradedCount, 1);
+    assert.match(harness.sessionData.degradedReplayBuffer, new RegExp(first));
+    assert.match(harness.sessionData.degradedReplayBuffer, new RegExp(second));
+    assert.match(harness.sessionData.degradedReplayBuffer, new RegExp(third));
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerObserveHeadlessOverflowPreservedOnDegradation(): Promise<void> {
+  const first = 'a'.repeat(900);
+  const second = 'b'.repeat(200);
+  const third = 'c'.repeat(124);
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 4096,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+    resourceLimits: resourceLimitsSchema.parse({
+      headless: {
+        pendingOutputMaxBytes: 1024,
+        pendingOutputMaxChunks: 4,
+        writeLagWarnMs: 1,
+        writeBatchMaxBytes: 1024,
+        overflowPolicy: 'degrade-headless',
+      },
+    }),
+    stabilityModes: stabilityModesSchema.parse({
+      headlessQueueMode: 'observe',
+    }),
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  installDelayedHeadlessWrite(harness);
+
+  try {
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, first);
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, second);
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, third);
+
+    await delay(0);
+    assert.equal(harness.sessionData.headlessHealth, 'degraded');
+    await harness.sessionData.headlessWriteChain;
+
+    assert.equal(harness.sessionData.headlessHealth, 'degraded');
+    assert.match(harness.sessionData.degradedReplayBuffer, new RegExp(first));
+    assert.match(harness.sessionData.degradedReplayBuffer, new RegExp(second));
+    assert.match(harness.sessionData.degradedReplayBuffer, new RegExp(third));
+    const output = (manager.getObservabilitySnapshot() as any).headlessOutput;
+    assert.equal(output.overflowCount, 1);
+    assert.equal(output.degradedCount, 1);
+    assert.equal(output.pendingBytes, 0);
+    assert.equal(output.pendingChunks, 0);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerBoundedHeadlessOutputRoutesAfterCommit(): Promise<void> {
+  const manager = createBoundedHeadlessManager({ pendingOutputMaxBytes: 4096, pendingOutputMaxChunks: 8 });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  const writes = installDelayedHeadlessWrite(harness);
+  const routed: Array<{ data: string; screenSeq?: number }> = [];
+  (manager as any).wsRouter = {
+    routeSessionOutput: (_sessionId: string, data: string, screenSeq?: number) => {
+      routed.push({ data, screenSeq });
+    },
+  };
+
+  try {
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'first');
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, 'second');
+
+    await delay(0);
+    assert.deepEqual(routed, []);
+    assert.equal(writes.length, 1);
+    writes[0]?.callback?.();
+    await delay(0);
+    assert.deepEqual(routed, [{ data: 'first', screenSeq: 1 }]);
+    assert.equal(writes.length, 2);
+    writes[1]?.callback?.();
+    await harness.sessionData.headlessWriteChain;
+    assert.deepEqual(routed, [
+      { data: 'first', screenSeq: 1 },
+      { data: 'second', screenSeq: 2 },
+    ]);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerBoundedHeadlessSourceRemovesLegacyPendingArray(): Promise<void> {
+  const sourcePath = path.join(process.cwd(), 'src', 'services', 'SessionManager.ts');
+  const source = await fs.readFile(sourcePath, 'utf-8');
+
+  assert.equal(source.includes('pendingOutputChunks'), false);
+  assert.equal(source.includes('sessionData.headlessOutputQueue.enqueue(data)'), true);
+  assert.equal(source.includes('sessionData.headlessOutputQueue.dequeue()?.data'), true);
+  assert.equal(source.includes('sessionData.headlessOutputQueue.drain()'), true);
+}
+
 async function testSessionManagerOversizedSnapshot(): Promise<void> {
   const manager = new SessionManager({
     pty: {
@@ -4768,6 +5597,13 @@ function createManagedSessionHarness(
   options: { cols?: number; rows?: number; scrollbackLines?: number } = {},
 ) {
   const headless = createHeadlessHarness(options);
+  const headlessOutputQueue = typeof (manager as any).createHeadlessOutputQueue === 'function'
+    ? (manager as any).createHeadlessOutputQueue()
+    : createHeadlessOutputQueueForHarness({
+      maxBytes: 1024 * 1024,
+      maxChunks: 1024,
+      overflowPolicy: 'degrade-headless',
+    });
   const session: Session = {
     id: `session-${Math.random().toString(36).slice(2)}`,
     name: 'Harness Session',
@@ -4797,7 +5633,13 @@ function createManagedSessionHarness(
     snapshotCache: null,
     degradedReplayBuffer: '',
     degradedReplayTruncated: false,
-    pendingOutputChunks: [],
+    headlessOutputQueue,
+    headlessQueueMode: ((manager as any).runtimeHeadlessQueueConfig?.mode ?? 'observe'),
+    pendingHeadlessOutputs: new Map(),
+    pendingHeadlessOutputBytes: 0,
+    maxPendingHeadlessOutputBytes: 0,
+    maxPendingHeadlessOutputChunks: 0,
+    nextHeadlessOutputId: 0,
     unsnapshottedOutput: '',
     unsnapshottedOutputTruncated: false,
     initialCwd: process.cwd(),
@@ -5474,17 +6316,45 @@ function testSessionManagerTerminalTitleRawOsc133Mode(): void {
   }
 }
 
-function createFakeWs() {
+function createFakeWs(options: { bufferedAmount?: number; nextSendError?: Error } = {}) {
   const sent: Array<Record<string, unknown>> = [];
   const listeners = new Map<string, Array<(...args: any[]) => void>>();
+  let bufferedAmount = options.bufferedAmount ?? 0;
+  let nextSendError = options.nextSendError;
+  let closeCode: number | undefined;
+  let closeReason: string | undefined;
+  let terminateCount = 0;
 
   const ws = {
     readyState: 1,
-    send(payload: string) {
+    get bufferedAmount() {
+      return bufferedAmount;
+    },
+    set bufferedAmount(value: number) {
+      bufferedAmount = value;
+    },
+    send(payload: string, callback?: (error?: Error) => void) {
       sent.push(JSON.parse(payload) as Record<string, unknown>);
+      const error = nextSendError;
+      nextSendError = undefined;
+      callback?.(error);
     },
     ping() {},
-    terminate() {},
+    close(code?: number, reason?: string) {
+      closeCode = code;
+      closeReason = reason;
+      (this as any).readyState = 3;
+      for (const handler of listeners.get('close') ?? []) {
+        handler(code, Buffer.from(reason ?? ''));
+      }
+    },
+    terminate() {
+      terminateCount += 1;
+      (this as any).readyState = 3;
+      for (const handler of listeners.get('close') ?? []) {
+        handler();
+      }
+    },
     on(event: string, handler: (...args: any[]) => void) {
       const current = listeners.get(event) ?? [];
       current.push(handler);
@@ -5493,7 +6363,19 @@ function createFakeWs() {
     },
   } as unknown as import('ws').WebSocket;
 
-  return { ws, sent };
+  return {
+    ws,
+    sent,
+    setBufferedAmount: (value: number) => {
+      bufferedAmount = value;
+    },
+    setNextSendError: (error: Error) => {
+      nextSendError = error;
+    },
+    getCloseCode: () => closeCode,
+    getCloseReason: () => closeReason,
+    getTerminateCount: () => terminateCount,
+  };
 }
 
 function createWsRouterHarness(options?: {
@@ -5502,6 +6384,8 @@ function createWsRouterHarness(options?: {
   snapshotMode?: 'authoritative' | 'fallback';
   snapshotSeq?: number;
   writeInputThrows?: boolean;
+  routerOptions?: ConstructorParameters<typeof WsRouter>[2];
+  fakeWsOptions?: Parameters<typeof createFakeWs>[0];
   getScreenRepair?: (
     id: string,
     expected: { cols: number; rows: number; bufferType: 'normal' | 'alternate' },
@@ -5560,8 +6444,12 @@ function createWsRouterHarness(options?: {
     verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
   } as unknown as AuthService;
 
-  const router = new WsRouter(authServiceStub, sessionManagerStub, { inputReliabilityMode: 'queue' });
-  const { ws, sent } = createFakeWs();
+  const router = new WsRouter(authServiceStub, sessionManagerStub, {
+    inputReliabilityMode: 'queue',
+    ...options?.routerOptions,
+  });
+  const fake = createFakeWs(options?.fakeWsOptions);
+  const { ws, sent } = fake;
 
   (router as any).clients.set(ws, {
     clientId: 'client-1',
@@ -5571,7 +6459,7 @@ function createWsRouterHarness(options?: {
     screenRepairPendingSessions: new Map(),
   });
 
-  return { router, ws, sent, calls };
+  return { router, ws, sent, calls, fake };
 }
 
 function testWsRouterScreenSnapshotOrdering(): void {
@@ -6344,6 +7232,361 @@ function testWsRouterPreservesQueuedOutputAcrossFallbackReplayRefresh(): void {
     const outputs = sent.filter((message) => message.type === 'output');
     assert.equal(outputs.length, 1);
     assert.equal(outputs[0].data, 'queued-before-empty-refresh');
+  } finally {
+    router.destroy();
+  }
+}
+
+function safeSendRouterOptions(
+  mode: 'direct' | 'safe-send-observe' | 'safe-send-enforce' = 'safe-send-enforce',
+): ConstructorParameters<typeof WsRouter>[2] {
+  return {
+    inputReliabilityMode: 'queue',
+    resourceLimits: {
+      ws: resourceLimitsSchema.parse({
+        ws: {
+          serverBufferedHighWaterBytes: 1024,
+          serverBufferedHardLimitBytes: 2048,
+          perClientOutputQueueMaxBytes: 2048,
+          perClientControlQueueMaxBytes: 1024,
+          outputCoalesceWindowMs: 1,
+        },
+      }).ws,
+    },
+    stabilityModes: {
+      wsSendMode: mode,
+    },
+  };
+}
+
+function testWsRouterSafeSendQueuesOutputOverHighWater(): void {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions(),
+    fakeWsOptions: { bufferedAmount: 1500 },
+  });
+
+  try {
+    (router as any).sessionSubscribers.set('session-1', new Set([ws]));
+    router.routeSessionOutput('session-1', 'queued-output');
+    assert.equal(sent.length, 0);
+    const queued = router.getObservabilitySnapshot();
+    assert.equal((queued as any).transportQueuedClientCount, 1);
+    assert.equal((queued as any).transportOutputQueuedBytes > 0, true);
+
+    fake.setBufferedAmount(0);
+    (router as any).flushTransportQueue(ws);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].type, 'output');
+    assert.equal(sent[0].data, 'queued-output');
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterSafeSendRetryTimerDrainsQueuedOutput(): Promise<void> {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions(),
+    fakeWsOptions: { bufferedAmount: 1500 },
+  });
+
+  try {
+    (router as any).sessionSubscribers.set('session-1', new Set([ws]));
+    router.routeSessionOutput('session-1', 'timer-drained-output');
+    assert.equal(sent.length, 0);
+
+    fake.setBufferedAmount(0);
+    await delay(60);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].type, 'output');
+    assert.equal(sent[0].data, 'timer-drained-output');
+    assert.equal((router.getObservabilitySnapshot() as any).transportQueuedClientCount, 0);
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterSafeSendClosesHardLimitSlowClient(): void {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions(),
+    fakeWsOptions: { bufferedAmount: 2500 },
+  });
+
+  try {
+    (router as any).sessionSubscribers.set('session-1', new Set([ws]));
+    router.routeSessionOutput('session-1', 'slow-client-output');
+    assert.equal(sent.length, 0);
+    assert.equal(fake.getCloseCode(), 1013);
+    assert.match(fake.getCloseReason() ?? '', /backpressure/i);
+    const stats = router.getObservabilitySnapshot();
+    assert.equal((stats as any).transportSlowClientCloseCount, 1);
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterSafeSendClosesOnSendCallbackErrors(): void {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions(),
+  });
+
+  try {
+    fake.setNextSendError(new Error('simulated send failure'));
+    router.sendTo(ws, { type: 'session:ready', sessionId: 'session-1' });
+    assert.equal(sent.length, 1);
+    const stats = router.getObservabilitySnapshot();
+    assert.equal((stats as any).transportSendErrorCount, 1);
+    assert.equal((stats as any).transportSlowClientCloseCount, 1);
+    assert.equal(fake.getCloseCode(), 1013);
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterDirectSendCallbackErrorDoesNotClose(): void {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions('direct'),
+  });
+
+  try {
+    fake.setNextSendError(new Error('simulated direct send failure'));
+    router.sendTo(ws, { type: 'session:ready', sessionId: 'session-1' });
+    assert.equal(sent.length, 1);
+    const stats = router.getObservabilitySnapshot();
+    assert.equal((stats as any).transportSendErrorCount, 1);
+    assert.equal((stats as any).transportSlowClientCloseCount, 0);
+    assert.equal(fake.getCloseCode(), undefined);
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterObserveSendCallbackErrorDoesNotClose(): void {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions('safe-send-observe'),
+    fakeWsOptions: { bufferedAmount: 1500 },
+  });
+
+  try {
+    fake.setNextSendError(new Error('simulated observe send failure'));
+    router.sendTo(ws, { type: 'session:ready', sessionId: 'session-1' });
+    assert.equal(sent.length, 1);
+    const stats = router.getObservabilitySnapshot();
+    assert.equal((stats as any).transportBackpressureObserveCount, 1);
+    assert.equal((stats as any).transportSendErrorCount, 1);
+    assert.equal((stats as any).transportSlowClientCloseCount, 0);
+    assert.equal(fake.getCloseCode(), undefined);
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterSafeSendRollbackFlushesQueuedOutputWithoutClose(): Promise<void> {
+  for (const mode of ['direct', 'safe-send-observe'] as const) {
+    const { router, ws, sent, fake } = createWsRouterHarness({
+      routerOptions: safeSendRouterOptions(),
+      fakeWsOptions: { bufferedAmount: 1500 },
+    });
+
+    try {
+      (router as any).sessionSubscribers.set('session-1', new Set([ws]));
+      router.routeSessionOutput('session-1', `rollback-${mode}`);
+      assert.equal(sent.length, 0);
+      assert.equal((router.getObservabilitySnapshot() as any).transportQueuedClientCount, 1);
+
+      router.updateRuntimeConfig({
+        stabilityModes: {
+          wsSendMode: mode,
+        },
+      });
+
+      assert.equal(sent.length, 1);
+      assert.equal(sent[0].type, 'output');
+      assert.equal(sent[0].data, `rollback-${mode}`);
+      assert.equal((router.getObservabilitySnapshot() as any).transportQueuedClientCount, 0);
+      assert.equal((router.getObservabilitySnapshot() as any).transportSlowClientCloseCount, 0);
+      assert.equal(fake.getCloseCode(), undefined);
+
+      await delay(60);
+      assert.equal(sent.length, 1);
+    } finally {
+      router.destroy();
+    }
+  }
+}
+
+function testWsRouterSafeSendCoalescesQueuedOutput(): void {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions(),
+    fakeWsOptions: { bufferedAmount: 1500 },
+  });
+
+  try {
+    (router as any).sessionSubscribers.set('session-1', new Set([ws]));
+    router.routeSessionOutput('session-1', 'A');
+    router.routeSessionOutput('session-1', 'B');
+    assert.equal(sent.length, 0);
+
+    fake.setBufferedAmount(0);
+    (router as any).flushTransportQueue(ws);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].type, 'output');
+    assert.equal(sent[0].data, 'AB');
+    const stats = router.getObservabilitySnapshot();
+    assert.equal((stats as any).transportOutputCoalesceCount, 1);
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterSafeSendRespectsOutputCoalesceWindow(): Promise<void> {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions(),
+    fakeWsOptions: { bufferedAmount: 1500 },
+  });
+
+  try {
+    (router as any).sessionSubscribers.set('session-1', new Set([ws]));
+    router.routeSessionOutput('session-1', 'A');
+    await delay(5);
+    router.routeSessionOutput('session-1', 'B');
+    assert.equal((router.getObservabilitySnapshot() as any).transportOutputCoalesceCount, 0);
+
+    fake.setBufferedAmount(0);
+    (router as any).flushTransportQueue(ws);
+    assert.equal(sent[0].data, 'A');
+    assert.equal(sent[1].data, 'B');
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterSafeSendClosesOnControlQueueOverflow(): void {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions(),
+    fakeWsOptions: { bufferedAmount: 1500 },
+  });
+
+  try {
+    router.sendTo(ws, { type: 'session:ready', sessionId: 'session-1', data: 'x'.repeat(1500) });
+    assert.equal(sent.length, 0);
+    assert.equal(fake.getCloseCode(), 1013);
+    const stats = router.getObservabilitySnapshot();
+    assert.equal((stats as any).transportQueueOverflowCount, 1);
+  } finally {
+    router.destroy();
+  }
+}
+
+function testSessionManagerBroadcastUsesWsRouterPolicy(): void {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 80,
+      defaultRows: 24,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 4096,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+  const sent: Array<{ sessionId: string; event: string; payload: object }> = [];
+  (manager as any).wsRouter = {
+    sendSessionEvent: (sessionId: string, event: string, payload: object) => {
+      sent.push({ sessionId, event, payload });
+    },
+  };
+
+  manager.broadcastWs('session-1', 'session:exited', { exitCode: 0 });
+  assert.deepEqual(sent, [
+    {
+      sessionId: 'session-1',
+      event: 'session:exited',
+      payload: { exitCode: 0 },
+    },
+  ]);
+}
+
+function testWsRouterSafeSendObserveDoesNotQueue(): void {
+  const { router, ws, sent } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions('safe-send-observe'),
+    fakeWsOptions: { bufferedAmount: 1500 },
+  });
+
+  try {
+    router.sendTo(ws, { type: 'session:ready', sessionId: 'session-1' });
+    assert.equal(sent.length, 1);
+    const stats = router.getObservabilitySnapshot();
+    assert.equal((stats as any).transportBackpressureObserveCount, 1);
+    assert.equal((stats as any).transportQueuedClientCount, 0);
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterSafeSendPreservesReplayFlushOrdering(): void {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions(),
+    fakeWsOptions: { bufferedAmount: 1500 },
+  });
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    assert.equal(sent.length, 0);
+    fake.setBufferedAmount(0);
+    (router as any).flushTransportQueue(ws);
+    const replayToken = String(sent[0].replayToken);
+    const baselineCount = sent.length;
+
+    fake.setBufferedAmount(1500);
+    router.routeSessionOutput('session-1', 'live-after-snapshot');
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', replayToken);
+    assert.equal(sent.length, baselineCount);
+
+    fake.setBufferedAmount(0);
+    (router as any).flushTransportQueue(ws);
+    (router as any).flushTransportQueue(ws);
+    assert.equal(sent[baselineCount].type, 'output');
+    assert.equal(sent[baselineCount].data, 'live-after-snapshot');
+    assert.equal(sent[baselineCount + 1].type, 'session:ready');
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterSafeSendPreservesScreenRepairFlushOrdering(): Promise<void> {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions(),
+  });
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    const replayToken = String(sent[0].replayToken);
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', replayToken);
+    await (router as any).handleScreenRepairRequest(ws, {
+      type: 'screen-repair',
+      sessionId: 'session-1',
+      cols: 80,
+      rows: 24,
+      reason: 'manual',
+      clientAtBottom: true,
+      clientBufferType: 'normal',
+    });
+    const repair = sent.find((message) => message.type === 'screen-repair');
+    const repairToken = String(repair?.repairToken);
+
+    fake.setBufferedAmount(1500);
+    router.routeSessionOutput('session-1', 'repair-queued-output', 2);
+    (router as any).handleScreenRepairReady(ws, 'session-1', repairToken);
+    const beforeFlushCount = sent.length;
+
+    fake.setBufferedAmount(0);
+    (router as any).flushTransportQueue(ws);
+    const flushed = sent.slice(beforeFlushCount);
+    assert.equal(flushed[0].type, 'output');
+    assert.equal(flushed[0].data, 'repair-queued-output');
   } finally {
     router.destroy();
   }

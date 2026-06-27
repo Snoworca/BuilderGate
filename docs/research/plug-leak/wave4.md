@@ -77,12 +77,14 @@ Telemetry:
 
 - headless pending bytes/chunks/current/max.
 - oldest pending age.
-- active pump count.
 - overflow/degrade count.
-- WS current/max `bufferedAmount`.
-- queued/coalesced bytes/messages.
+- WS max observed `bufferedAmount`.
+- transport queued client count and output/control queued bytes.
+- max transport queued bytes.
+- backpressure observe count.
 - slow-client close count.
 - send callback error count.
+- output coalesce count.
 
 ## 테스트 계획
 
@@ -92,11 +94,13 @@ Server tests:
 - chunk cap is enforced.
 - multibyte output uses UTF-8 byte length.
 - overflow degrades headless, clears queue, records telemetry.
+- observe mode also degrades on bounded queue overflow instead of retaining unbounded pending output.
 - healthy output remains ordered after headless commit.
 - direct `ws.send()` paths are removed or covered by `safeSend`.
 - high-water queues output.
 - hard-limit closes slow client.
-- send callback error records telemetry and closes client.
+- send callback error records telemetry; enforce mode closes only that client, while direct/observe do not enforce close.
+- rollback from `safe-send-enforce` to `direct` or `safe-send-observe` flushes existing transport queues and clears retry timers.
 - replay/screen-repair pending queues still work with transport queue.
 
 ## 검증 명령
@@ -108,6 +112,7 @@ npm --prefix server test
 ## 롤백
 
 - Set `stabilityModes.headlessQueueMode = 'observe'`.
+- `observe` preserves the default rollout mode but does not permit unbounded pending output; overflow still follows the configured `degrade-headless` policy.
 - Set `stabilityModes.wsSendMode = 'direct'` for full legacy fallback, or `safe-send-observe` when only telemetry should remain.
 - Keep unified `/ws` transport.
 
@@ -117,3 +122,23 @@ npm --prefix server test
 - Degrade path does not `join()` an unbounded pending array.
 - All server WS sends pass through one send policy.
 - Slow clients cannot grow unbounded server memory.
+
+## 구현 결과
+
+- `server/src/utils/boundedByteDeque.ts`와 `server/src/utils/headlessOutputQueue.ts`를 추가했다.
+- `SessionManager`의 headless pending output은 bounded queue와 pending map/counter 기반으로 전환했다.
+- bounded 모드 overflow는 headless를 degrade하고 bounded state를 비운다.
+- observe 모드도 overflow telemetry를 기록한 뒤 headless를 degrade해 pending output이 unbounded로 커지지 않게 한다.
+- healthy path에서는 headless write commit 이후 `routeSessionOutput()`을 호출해 `screenSeq` 의미를 유지한다.
+- `WsRouter`의 server-side send는 `sendTo()` -> transport policy -> raw sink 한 곳으로 통합했다.
+- high-water에서는 per-client transport queue에 적재하고 retry timer로 drain한다.
+- hard limit이나 enforce-mode send error는 session이 아니라 해당 WebSocket client만 1013 close한다.
+- direct/observe 모드 send callback error는 telemetry와 warning만 남기고 강제 close하지 않는다.
+- enforce 모드에서 direct/observe로 rollback할 때 기존 transport queue를 flush하고 retry timer를 제거한다.
+
+## 검증 결과
+
+- `npm --prefix server test`: 287 tests passed.
+- `git diff --check`: target Wave4 files passed.
+- 직접 송신 검색: server WebSocket raw `ws.send()`는 `WsRouter` transport raw sink 한 곳만 남음.
+- 서브에이전트 PH-003 최종 리뷰: `No findings`.

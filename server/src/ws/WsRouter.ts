@@ -12,7 +12,16 @@ import type { IncomingMessage } from 'http';
 import type { Duplex } from 'stream';
 import type { AuthService } from '../services/AuthService.js';
 import type { SessionManager } from '../services/SessionManager.js';
-import type { RealtimeConfig, ResourceLimitsConfig } from '../types/config.types.js';
+import type {
+  RealtimeConfig,
+  ResourceLimitsConfig,
+  ServerWsResourceLimitsConfig,
+  StabilityModesConfig,
+} from '../types/config.types.js';
+import {
+  stabilityModesSchema,
+  wsResourceLimitsSchema,
+} from '../schemas/config.schema.js';
 import type {
   ClientWsMessage,
   InputDebugMetadata,
@@ -33,6 +42,13 @@ import type {
 } from '../types/ws-protocol.js';
 import { buildInputDebugDetails, sanitizeClientInputDebugMetadata } from '../utils/inputDebugMetadata.js';
 import { inputReliabilityMode as configuredInputReliabilityMode } from '../utils/inputReliabilityMode.js';
+import {
+  createWsTransportMessage,
+  createWsTransportQueueState,
+  tryCoalesceOutputMessage,
+  type WsTransportMessage,
+  type WsTransportQueueState,
+} from './wsSendPolicy.js';
 
 const HEARTBEAT_INTERVAL = 30_000;
 const REPLAY_ACK_TIMEOUT_MS = 5_000;
@@ -41,6 +57,7 @@ const MAX_RECENT_REPLAY_EVENTS = 256;
 const MAX_REPLAY_QUEUED_INPUT_BYTES = 64 * 1024;
 const MAX_REPLAY_QUEUED_INPUT_AGE_MS = 3_000;
 const MAX_INPUT_SEQUENCE_SPAN = 1024;
+const TRANSPORT_FLUSH_RETRY_MS = 25;
 
 type PartialResourceLimits = {
   [K in keyof ResourceLimitsConfig]?: Partial<ResourceLimitsConfig[K]>;
@@ -50,6 +67,12 @@ interface WsRouterOptions {
   inputReliabilityMode?: InputReliabilityMode;
   realtime?: Partial<RealtimeConfig>;
   resourceLimits?: PartialResourceLimits;
+  stabilityModes?: Partial<StabilityModesConfig>;
+}
+
+interface RuntimeSendPolicyConfig {
+  mode: StabilityModesConfig['wsSendMode'];
+  limits: ServerWsResourceLimitsConfig;
 }
 
 type InputValidationResult =
@@ -87,17 +110,51 @@ export class WsRouter {
   private debugReplayEventsBySession: Map<string, ReplayTelemetryEvent[]> = new Map();
   private debugReplayEnabledSessions: Set<string> = new Set();
   private readonly inputReliabilityMode: InputReliabilityMode;
+  private readonly runtimeSendPolicyConfig: RuntimeSendPolicyConfig;
+  private transportQueues: Map<WebSocket, WsTransportQueueState> = new Map();
+  private maxTransportQueuedBytesObserved = 0;
+  private maxServerBufferedAmountObserved = 0;
+  private transportBackpressureObserveCount = 0;
+  private transportSlowClientCloseCount = 0;
+  private transportQueueOverflowCount = 0;
+  private transportSendErrorCount = 0;
+  private transportOutputCoalesceCount = 0;
 
   constructor(authService: AuthService, sessionManager: SessionManager, options: WsRouterOptions = {}) {
     this.authService = authService;
     this.sessionManager = sessionManager;
     this.inputReliabilityMode = options.inputReliabilityMode ?? configuredInputReliabilityMode;
+    this.runtimeSendPolicyConfig = {
+      mode: stabilityModesSchema.parse(options.stabilityModes).wsSendMode,
+      limits: cloneServerWsResourceLimits(wsResourceLimitsSchema.parse(options.resourceLimits?.ws)),
+    };
     this.wss = new WebSocketServer({ noServer: true });
 
     this.setupConnectionHandler();
     this.startHeartbeat();
 
     console.log('[WS] WebSocket router initialized');
+  }
+
+  updateRuntimeConfig(next: {
+    resourceLimits?: PartialResourceLimits;
+    stabilityModes?: Partial<StabilityModesConfig>;
+  }): void {
+    const previousMode = this.runtimeSendPolicyConfig.mode;
+    if (next.resourceLimits?.ws) {
+      this.runtimeSendPolicyConfig.limits = cloneServerWsResourceLimits(wsResourceLimitsSchema.parse({
+        ...this.runtimeSendPolicyConfig.limits,
+        ...next.resourceLimits.ws,
+      }));
+    }
+    if (next.stabilityModes?.wsSendMode) {
+      this.runtimeSendPolicyConfig.mode = stabilityModesSchema.parse({
+        wsSendMode: next.stabilityModes.wsSendMode,
+      }).wsSendMode;
+    }
+    if (previousMode === 'safe-send-enforce' && this.runtimeSendPolicyConfig.mode !== 'safe-send-enforce') {
+      this.flushAndClearTransportQueuesForPolicyRollback();
+    }
   }
 
   public handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
@@ -133,7 +190,7 @@ export class WsRouter {
       };
       this.clients.set(ws, meta);
 
-      ws.send(JSON.stringify({ type: 'connected', clientId }));
+      this.sendTo(ws, { type: 'connected', clientId });
       console.log(`[WS] Client connected: ${clientId}`);
 
       ws.on('pong', () => {
@@ -228,7 +285,7 @@ export class WsRouter {
         );
         break;
       case 'ping':
-        ws.send(JSON.stringify({ type: 'pong' }));
+        this.sendTo(ws, { type: 'pong' });
         break;
       default:
         console.warn(`[WS] Unknown message type: ${(msg as { type: string }).type}`);
@@ -706,6 +763,7 @@ export class WsRouter {
       }
     }
 
+    this.clearTransportQueueState(ws);
     this.clients.delete(ws);
   }
 
@@ -1313,13 +1371,13 @@ export class WsRouter {
     const canRouteReject = typeof sessionId === 'string' && sessionId.length > 0;
     const rejectSent = canRouteReject && ws.readyState === WebSocket.OPEN;
     if (rejectSent) {
-      ws.send(JSON.stringify({
+      this.sendTo(ws, {
         type: 'input:rejected',
         sessionId,
         inputSeqStart: input.inputSeqStart,
         inputSeqEnd: input.inputSeqEnd,
         reason: input.reason,
-      }));
+      });
     }
 
     this.recordReplayEvent({
@@ -1500,7 +1558,6 @@ export class WsRouter {
       return;
     }
 
-    const encoded = JSON.stringify({ type: 'output', sessionId, data });
     for (const ws of subscribers) {
       if (ws.readyState !== WebSocket.OPEN) {
         continue;
@@ -1542,7 +1599,7 @@ export class WsRouter {
         continue;
       }
 
-      ws.send(encoded);
+      this.sendTo(ws, { type: 'output', sessionId, data });
     }
   }
 
@@ -1662,6 +1719,16 @@ export class WsRouter {
     return this.sessionSubscribers.get(sessionId);
   }
 
+  sendSessionEvent(sessionId: string, event: string, payload: object): void {
+    const subscribers = this.getSubscribers(sessionId);
+    if (!subscribers) {
+      return;
+    }
+    for (const ws of subscribers) {
+      this.sendTo(ws, { type: event, sessionId, ...payload });
+    }
+  }
+
   hasSubscribers(sessionId: string): boolean {
     const subscribers = this.sessionSubscribers.get(sessionId);
     return subscribers !== undefined && subscribers.size > 0;
@@ -1670,9 +1737,23 @@ export class WsRouter {
   getObservabilitySnapshot(): WsRouterObservabilitySnapshot {
     let replayPendingCount = 0;
     let screenRepairPendingCount = 0;
+    let transportQueuedClientCount = 0;
+    let transportOutputQueuedBytes = 0;
+    let transportControlQueuedBytes = 0;
     for (const meta of this.clients.values()) {
       replayPendingCount += meta.replayPendingSessions.size;
       screenRepairPendingCount += this.getScreenRepairPendingSessions(meta).size;
+    }
+    for (const ws of this.clients.keys()) {
+      const transport = this.transportQueues.get(ws);
+      if (!transport) {
+        continue;
+      }
+      if (transport.items.length > 0) {
+        transportQueuedClientCount += 1;
+      }
+      transportOutputQueuedBytes += transport.outputBytes;
+      transportControlQueuedBytes += transport.controlBytes;
     }
 
     return {
@@ -1684,6 +1765,16 @@ export class WsRouter {
       screenRepairAckTimeoutCount: this.screenRepairAckTimeoutCount,
       replayRefreshCount: this.replayRefreshCount,
       maxReplayQueueLengthObserved: this.maxReplayQueueLengthObserved,
+      transportQueuedClientCount,
+      transportOutputQueuedBytes,
+      transportControlQueuedBytes,
+      maxTransportQueuedBytesObserved: this.maxTransportQueuedBytesObserved,
+      maxServerBufferedAmountObserved: this.maxServerBufferedAmountObserved,
+      transportBackpressureObserveCount: this.transportBackpressureObserveCount,
+      transportSlowClientCloseCount: this.transportSlowClientCloseCount,
+      transportQueueOverflowCount: this.transportQueueOverflowCount,
+      transportSendErrorCount: this.transportSendErrorCount,
+      transportOutputCoalesceCount: this.transportOutputCoalesceCount,
       recentReplayEvents: [...this.recentReplayEvents],
     };
   }
@@ -1712,18 +1803,257 @@ export class WsRouter {
     this.debugReplayEventsBySession.set(event.sessionId, sessionEvents);
   }
 
+  private getTransportQueueState(ws: WebSocket): WsTransportQueueState {
+    const existing = this.transportQueues.get(ws);
+    if (existing) {
+      return existing;
+    }
+    const next = createWsTransportQueueState();
+    this.transportQueues.set(ws, next);
+    return next;
+  }
+
+  private sendTransportMessage(ws: WebSocket, message: WsTransportMessage): void {
+    if (ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const mode = this.runtimeSendPolicyConfig.mode;
+    const bufferedAmount = this.getServerBufferedAmount(ws);
+    this.maxServerBufferedAmountObserved = Math.max(this.maxServerBufferedAmountObserved, bufferedAmount);
+
+    if (mode === 'direct') {
+      this.sendRawTransportMessage(ws, message);
+      return;
+    }
+
+    const limits = this.runtimeSendPolicyConfig.limits;
+    if (bufferedAmount >= limits.serverBufferedHardLimitBytes) {
+      if (mode === 'safe-send-observe') {
+        this.transportBackpressureObserveCount += 1;
+        this.sendRawTransportMessage(ws, message);
+        return;
+      }
+      this.closeBackpressuredClient(ws, 'server-buffered-hard-limit');
+      return;
+    }
+
+    const state = this.getTransportQueueState(ws);
+    if (mode === 'safe-send-observe') {
+      if (bufferedAmount >= limits.serverBufferedHighWaterBytes || state.items.length > 0) {
+        this.transportBackpressureObserveCount += 1;
+      }
+      this.sendRawTransportMessage(ws, message);
+      return;
+    }
+
+    if (bufferedAmount >= limits.serverBufferedHighWaterBytes || state.sending || state.items.length > 0) {
+      this.enqueueTransportMessage(ws, state, message);
+      return;
+    }
+
+    this.sendRawTransportMessage(ws, message, state);
+  }
+
+  private enqueueTransportMessage(
+    ws: WebSocket,
+    state: WsTransportQueueState,
+    message: WsTransportMessage,
+  ): void {
+    const limits = this.runtimeSendPolicyConfig.limits;
+    if (message.kind === 'output') {
+      const last = state.items[state.items.length - 1];
+      const coalesced = last
+        ? tryCoalesceOutputMessage(last, message, limits.outputCoalesceWindowMs)
+        : null;
+      if (coalesced) {
+        const nextOutputBytes = state.outputBytes - last.byteLength + coalesced.byteLength;
+        if (nextOutputBytes > limits.perClientOutputQueueMaxBytes) {
+          this.transportQueueOverflowCount += 1;
+          this.closeBackpressuredClient(ws, 'output-queue-overflow');
+          return;
+        }
+        state.items[state.items.length - 1] = coalesced;
+        state.outputBytes = nextOutputBytes;
+        this.transportOutputCoalesceCount += 1;
+        this.updateTransportQueueHighWater(state);
+        this.scheduleTransportFlush(ws, state);
+        return;
+      }
+
+      if (state.outputBytes + message.byteLength > limits.perClientOutputQueueMaxBytes) {
+        this.transportQueueOverflowCount += 1;
+        this.closeBackpressuredClient(ws, 'output-queue-overflow');
+        return;
+      }
+      state.outputBytes += message.byteLength;
+      state.items.push(message);
+      this.updateTransportQueueHighWater(state);
+      this.scheduleTransportFlush(ws, state);
+      return;
+    }
+
+    if (state.controlBytes + message.byteLength > limits.perClientControlQueueMaxBytes) {
+      this.transportQueueOverflowCount += 1;
+      this.closeBackpressuredClient(ws, 'control-queue-overflow');
+      return;
+    }
+    state.controlBytes += message.byteLength;
+    state.items.push(message);
+    this.updateTransportQueueHighWater(state);
+    this.scheduleTransportFlush(ws, state);
+  }
+
+  private flushTransportQueue(ws: WebSocket): void {
+    const state = this.transportQueues.get(ws);
+    if (!state || state.sending || state.items.length === 0 || ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const limits = this.runtimeSendPolicyConfig.limits;
+    const bufferedAmount = this.getServerBufferedAmount(ws);
+    this.maxServerBufferedAmountObserved = Math.max(this.maxServerBufferedAmountObserved, bufferedAmount);
+    if (bufferedAmount >= limits.serverBufferedHardLimitBytes) {
+      this.closeBackpressuredClient(ws, 'server-buffered-hard-limit');
+      return;
+    }
+    if (bufferedAmount >= limits.serverBufferedHighWaterBytes) {
+      this.scheduleTransportFlush(ws, state);
+      return;
+    }
+
+    const next = state.items.shift();
+    if (!next) {
+      return;
+    }
+    if (next.kind === 'output') {
+      state.outputBytes = Math.max(0, state.outputBytes - next.byteLength);
+    } else {
+      state.controlBytes = Math.max(0, state.controlBytes - next.byteLength);
+    }
+    this.sendRawTransportMessage(ws, next, state);
+  }
+
+  private sendRawTransportMessage(
+    ws: WebSocket,
+    message: WsTransportMessage,
+    state = this.transportQueues.get(ws),
+  ): void {
+    if (ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    if (state && this.runtimeSendPolicyConfig.mode !== 'direct') {
+      state.sending = true;
+    }
+
+    try {
+      ws.send(message.payload, (error?: Error) => {
+        if (state) {
+          state.sending = false;
+        }
+        if (error) {
+          this.transportSendErrorCount += 1;
+          if (this.runtimeSendPolicyConfig.mode === 'safe-send-enforce') {
+            this.closeBackpressuredClient(ws, 'send-callback-error');
+          } else {
+            console.warn('[WS] WebSocket send callback failed:', error);
+          }
+          return;
+        }
+        this.flushTransportQueue(ws);
+      });
+    } catch (error) {
+      if (state) {
+        state.sending = false;
+      }
+      this.transportSendErrorCount += 1;
+      console.warn('[WS] WebSocket send failed:', error);
+      if (this.runtimeSendPolicyConfig.mode === 'safe-send-enforce') {
+        this.closeBackpressuredClient(ws, 'send-failed');
+      }
+    }
+  }
+
+  private closeBackpressuredClient(ws: WebSocket, reason: string): void {
+    if (ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    this.transportSlowClientCloseCount += 1;
+    this.clearTransportQueueState(ws);
+    try {
+      ws.close(1013, `WebSocket backpressure: ${reason}`);
+    } catch {
+      ws.terminate();
+    }
+  }
+
+  private clearTransportQueueState(ws: WebSocket): void {
+    const state = this.transportQueues.get(ws);
+    if (!state) {
+      return;
+    }
+    if (state.flushTimer) {
+      clearTimeout(state.flushTimer);
+    }
+    state.items = [];
+    state.outputBytes = 0;
+    state.controlBytes = 0;
+    state.sending = false;
+    state.flushTimer = null;
+    this.transportQueues.delete(ws);
+  }
+
+  private flushAndClearTransportQueuesForPolicyRollback(): void {
+    for (const [ws, state] of this.transportQueues) {
+      const queued = [...state.items];
+      this.clearTransportQueueState(ws);
+      for (const message of queued) {
+        this.sendRawTransportMessage(ws, message, undefined);
+      }
+    }
+  }
+
+  private updateTransportQueueHighWater(state: WsTransportQueueState): void {
+    this.maxTransportQueuedBytesObserved = Math.max(
+      this.maxTransportQueuedBytesObserved,
+      state.outputBytes + state.controlBytes,
+    );
+  }
+
+  private getServerBufferedAmount(ws: WebSocket): number {
+    return typeof ws.bufferedAmount === 'number' && Number.isFinite(ws.bufferedAmount)
+      ? Math.max(0, ws.bufferedAmount)
+      : 0;
+  }
+
+  private scheduleTransportFlush(ws: WebSocket, state = this.transportQueues.get(ws)): void {
+    if (!state || state.flushTimer || state.items.length === 0 || this.runtimeSendPolicyConfig.mode !== 'safe-send-enforce') {
+      return;
+    }
+
+    state.flushTimer = setTimeout(() => {
+      state.flushTimer = null;
+      this.flushTransportQueue(ws);
+      const next = this.transportQueues.get(ws);
+      if (next && next.items.length > 0 && !next.sending) {
+        this.scheduleTransportFlush(ws, next);
+      }
+    }, TRANSPORT_FLUSH_RETRY_MS);
+    state.flushTimer.unref();
+  }
+
   broadcastAll(event: string, data: object, excludeClientId?: string): void {
-    const msg = JSON.stringify({ type: event, data });
     for (const [ws, meta] of this.clients) {
       if (meta.clientId !== excludeClientId && ws.readyState === WebSocket.OPEN) {
-        ws.send(msg);
+        this.sendTo(ws, { type: event, data });
       }
     }
   }
 
   sendTo(ws: WebSocket, msg: object): void {
     if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(msg));
+      this.sendTransportMessage(ws, createWsTransportMessage(msg));
     }
   }
 
@@ -1745,9 +2075,11 @@ export class WsRouter {
     }
 
     for (const [ws] of this.clients) {
+      this.clearTransportQueueState(ws);
       ws.terminate();
     }
     this.clients.clear();
+    this.transportQueues.clear();
     this.sessionSubscribers.clear();
   }
 }
@@ -1758,6 +2090,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isScreenRepairReason(value: unknown): value is ScreenRepairReason {
   return value === 'manual' || value === 'workspace' || value === 'resize';
+}
+
+function cloneServerWsResourceLimits(source: ServerWsResourceLimitsConfig): ServerWsResourceLimitsConfig {
+  return {
+    serverBufferedHighWaterBytes: source.serverBufferedHighWaterBytes,
+    serverBufferedHardLimitBytes: source.serverBufferedHardLimitBytes,
+    perClientOutputQueueMaxBytes: source.perClientOutputQueueMaxBytes,
+    perClientControlQueueMaxBytes: source.perClientControlQueueMaxBytes,
+    outputCoalesceWindowMs: source.outputCoalesceWindowMs,
+  };
 }
 
 function isScreenRepairBufferType(value: unknown): value is ScreenRepairBufferType {

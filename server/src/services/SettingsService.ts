@@ -20,6 +20,7 @@ import {
   normalizePtyConfigForPlatform,
 } from '../utils/ptyPlatformPolicy.js';
 import { validatePasswordPolicy } from '../utils/passwordPolicy.js';
+import type { WsRouter } from '../ws/WsRouter.js';
 
 const originSchema = z.string().refine((value) => {
   try {
@@ -137,6 +138,7 @@ interface SettingsServiceDeps {
   authService: AuthService;
   getFileService: () => FileService;
   sessionManager: SessionManager;
+  getWsRouter?: () => WsRouter | undefined;
   updateTwoFactorRuntime?: (config: Config, changedKeys: EditableSettingsKey[]) => string[];
 }
 
@@ -266,6 +268,12 @@ export class SettingsService {
       sessionManager.updateRuntimeConfig({
         idleDelayMs: nextConfig.session.idleDelayMs,
         pty: nextRuntimePty,
+        resourceLimits: nextConfig.resourceLimits,
+        stabilityModes: nextConfig.stabilityModes,
+      });
+      this.deps.getWsRouter?.()?.updateRuntimeConfig({
+        resourceLimits: nextConfig.resourceLimits,
+        stabilityModes: nextConfig.stabilityModes,
       });
       fileService.updateConfig(getFileManagerConfig(nextConfig));
     } catch (error) {
@@ -290,6 +298,12 @@ export class SettingsService {
         sessionManager.updateRuntimeConfig({
           idleDelayMs: previousConfig.session.idleDelayMs,
           pty: previousRuntimePty,
+          resourceLimits: previousConfig.resourceLimits,
+          stabilityModes: previousConfig.stabilityModes,
+        });
+        this.deps.getWsRouter?.()?.updateRuntimeConfig({
+          resourceLimits: previousConfig.resourceLimits,
+          stabilityModes: previousConfig.stabilityModes,
         });
       } catch (rollbackError) {
         rollbackErrors.push(getErrorMessage(rollbackError));

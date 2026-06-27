@@ -7,11 +7,18 @@ import { unlinkSync, watchFile, unwatchFile, readFileSync, existsSync, statSync 
 import { execFile, execFileSync, execSync } from 'child_process';
 import { Session, SessionDTO, SessionStatus, UpdateSessionRequest, ShellType, ShellInfo } from '../types/index.js';
 import type {
+  HeadlessResourceLimitsConfig,
   PTYConfig,
+  ResourceLimitsConfig,
   SessionConfig,
   SessionProcessCleanupConfig,
+  StabilityModesConfig,
   WindowsPowerShellBackend as PowerShellBackendPolicy,
 } from '../types/config.types.js';
+import {
+  headlessResourceLimitsSchema,
+  stabilityModesSchema,
+} from '../schemas/config.schema.js';
 import { config } from '../utils/config.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import {
@@ -24,6 +31,11 @@ import {
   type HeadlessTerminalState,
   writeHeadlessTerminal,
 } from '../utils/headlessTerminal.js';
+import {
+  createHeadlessOutputQueue,
+  type HeadlessOutputQueue,
+  type HeadlessOutputQueueSnapshot,
+} from '../utils/headlessOutputQueue.js';
 import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 import { TerminalTitleDetector } from '../utils/terminalTitle.js';
 import type { WsRouter } from '../ws/WsRouter.js';
@@ -115,6 +127,7 @@ interface SessionManagerObservability {
   totalSessions: number;
   healthySessions: number;
   degradedSessions: number;
+  headlessOutput: HeadlessOutputObservability;
   cleanup: SessionCleanupTelemetry;
   snapshotRequests: number;
   snapshotCacheHits: number;
@@ -176,6 +189,16 @@ interface DerivedStateSyncOptions {
   preservePendingRunningTransition?: boolean;
 }
 
+interface HeadlessOutputObservability {
+  pendingBytes: number;
+  pendingChunks: number;
+  maxPendingBytes: number;
+  maxPendingChunks: number;
+  oldestPendingAgeMs: number;
+  overflowCount: number;
+  degradedCount: number;
+}
+
 interface SessionProcessInspection {
   status: SessionCleanupStatus;
   remainingDescendants?: number;
@@ -193,6 +216,26 @@ interface SessionManagerDeps {
   spawnPty?: typeof pty.spawn;
   processInspector?: SessionProcessInspector;
   processTreeTerminator?: ProcessTreeTerminator;
+}
+
+interface SessionManagerInitialConfig {
+  pty: PTYConfig;
+  session: SessionConfig;
+  resourceLimits?: ResourceLimitsConfig;
+  stabilityModes?: StabilityModesConfig;
+}
+
+interface RuntimeHeadlessQueueConfig {
+  mode: StabilityModesConfig['headlessQueueMode'];
+  limits: HeadlessResourceLimitsConfig;
+}
+
+interface PendingHeadlessOutput {
+  id: number;
+  data: string;
+  byteLength: number;
+  queuedAt: number;
+  queued: boolean;
 }
 
 interface SessionData {
@@ -217,7 +260,13 @@ interface SessionData {
   windowsPty?: WindowsPtyInfo;
   degradedReplayBuffer: string;
   degradedReplayTruncated: boolean;
-  pendingOutputChunks: string[];
+  headlessOutputQueue: HeadlessOutputQueue;
+  headlessQueueMode: StabilityModesConfig['headlessQueueMode'];
+  pendingHeadlessOutputs: Map<number, PendingHeadlessOutput>;
+  pendingHeadlessOutputBytes: number;
+  maxPendingHeadlessOutputBytes: number;
+  maxPendingHeadlessOutputChunks: number;
+  nextHeadlessOutputId: number;
   unsnapshottedOutput: string;
   unsnapshottedOutputTruncated: boolean;
   initialCwd: string;   // CWD at session creation
@@ -352,6 +401,7 @@ export class SessionManager {
     runningDelayMs: number;
     processCleanup: SessionProcessCleanupConfig;
   };
+  private runtimeHeadlessQueueConfig: RuntimeHeadlessQueueConfig;
   private readonly execFileFn: typeof execFile;
   private readonly execFileSyncFn: typeof execFileSync;
   private readonly platform: NodeJS.Platform;
@@ -369,7 +419,7 @@ export class SessionManager {
   private cwdChangeCallback: ((sessionId: string, cwd: string) => void) | null = null;
   private terminalTitleChangeCallback: ((sessionId: string, title: string) => void) | null = null;
   private sessionFinalizedCallback: ((event: SessionFinalizedEvent) => void) | null = null;
-  private observability: Omit<SessionManagerObservability, 'totalSessions' | 'healthySessions' | 'degradedSessions' | 'cleanup'> = {
+  private observability: Omit<SessionManagerObservability, 'totalSessions' | 'healthySessions' | 'degradedSessions' | 'headlessOutput' | 'cleanup'> = {
     snapshotRequests: 0,
     snapshotCacheHits: 0,
     snapshotSerializeFailures: 0,
@@ -382,10 +432,17 @@ export class SessionManager {
   };
 
   constructor(
-    initialConfig: { pty: PTYConfig; session: SessionConfig } = { pty: config.pty, session: config.session },
+    initialConfig: SessionManagerInitialConfig = {
+      pty: config.pty,
+      session: config.session,
+      resourceLimits: config.resourceLimits,
+      stabilityModes: config.stabilityModes,
+    },
     deps: SessionManagerDeps = {},
   ) {
     this.platform = deps.platform ?? process.platform;
+    const initialHeadlessLimits = headlessResourceLimitsSchema.parse(initialConfig.resourceLimits?.headless);
+    const initialStabilityModes = stabilityModesSchema.parse(initialConfig.stabilityModes);
     this.runtimePtyConfig = {
       ...clonePtyConfig(initialConfig.pty),
       ...normalizePtyConfigForPlatform(initialConfig.pty, this.platform),
@@ -394,6 +451,10 @@ export class SessionManager {
       idleDelayMs: initialConfig.session.idleDelayMs,
       runningDelayMs: initialConfig.session.runningDelayMs ?? DEFAULT_RUNNING_DELAY_MS,
       processCleanup: normalizeSessionProcessCleanupConfig(initialConfig.session.processCleanup),
+    };
+    this.runtimeHeadlessQueueConfig = {
+      mode: initialStabilityModes.headlessQueueMode,
+      limits: cloneHeadlessResourceLimits(initialHeadlessLimits),
     };
     this.cleanupTelemetry = createInitialCleanupTelemetry(this.runtimeSessionConfig.processCleanup.mode);
     this.execFileFn = deps.execFileFn ?? execFile;
@@ -474,7 +535,13 @@ export class SessionManager {
       windowsPty: this.getWindowsPtyInfo(backendResolution.backend),
       degradedReplayBuffer: '',
       degradedReplayTruncated: false,
-      pendingOutputChunks: [],
+      headlessOutputQueue: this.createHeadlessOutputQueue(),
+      headlessQueueMode: this.runtimeHeadlessQueueConfig.mode,
+      pendingHeadlessOutputs: new Map(),
+      pendingHeadlessOutputBytes: 0,
+      maxPendingHeadlessOutputBytes: 0,
+      maxPendingHeadlessOutputChunks: 0,
+      nextHeadlessOutputId: 0,
       unsnapshottedOutput: '',
       unsnapshottedOutputTruncated: false,
       initialCwd,
@@ -1671,6 +1738,8 @@ export class SessionManager {
     runningDelayMs?: number;
     processCleanup?: Partial<SessionProcessCleanupConfig>;
     pty?: Partial<PTYConfig>;
+    resourceLimits?: Partial<ResourceLimitsConfig>;
+    stabilityModes?: Partial<StabilityModesConfig>;
   }): void {
     const nextPowerShellBackendRaw = next.pty?.windowsPowerShellBackend ?? this.runtimePtyConfig.windowsPowerShellBackend ?? 'inherit';
     const nextUseConptyRaw = next.pty?.useConpty ?? this.runtimePtyConfig.useConpty;
@@ -1707,6 +1776,17 @@ export class SessionManager {
         ...next.processCleanup,
       });
       this.cleanupTelemetry.mode = this.runtimeSessionConfig.processCleanup.mode;
+    }
+    if (next.resourceLimits?.headless) {
+      this.runtimeHeadlessQueueConfig.limits = cloneHeadlessResourceLimits(headlessResourceLimitsSchema.parse({
+        ...this.runtimeHeadlessQueueConfig.limits,
+        ...next.resourceLimits.headless,
+      }));
+    }
+    if (next.stabilityModes?.headlessQueueMode) {
+      this.runtimeHeadlessQueueConfig.mode = stabilityModesSchema.parse({
+        headlessQueueMode: next.stabilityModes.headlessQueueMode,
+      }).headlessQueueMode;
     }
 
     if (next.pty) {
@@ -2222,7 +2302,9 @@ export class SessionManager {
     }
     data.headlessCloseSignal.resolve();
     data.snapshotCache = null;
-    data.pendingOutputChunks = [];
+    data.headlessOutputQueue.clear();
+    data.pendingHeadlessOutputs.clear();
+    data.pendingHeadlessOutputBytes = 0;
     data.unsnapshottedOutput = '';
     data.unsnapshottedOutputTruncated = false;
 
@@ -2388,6 +2470,7 @@ export class SessionManager {
       totalSessions: this.sessions.size,
       healthySessions,
       degradedSessions,
+      headlessOutput: this.getHeadlessOutputObservability(),
       ...this.observability,
       cleanup: this.getCleanupTelemetrySnapshot(),
     };
@@ -2395,12 +2478,7 @@ export class SessionManager {
 
   /** Broadcast to all WS subscribers of a session */
   broadcastWs(sessionId: string, event: string, payload: object): void {
-    const subscribers = this.wsRouter?.getSubscribers(sessionId);
-    if (!subscribers) return;
-    const msg = JSON.stringify({ type: event, sessionId, ...payload });
-    for (const ws of subscribers) {
-      if (ws.readyState === 1) ws.send(msg);
-    }
+    this.wsRouter?.sendSessionEvent(sessionId, event, payload);
   }
 
   private toDTO(session: Session): SessionDTO {
@@ -2669,6 +2747,50 @@ export class SessionManager {
     }
   }
 
+  private createHeadlessOutputQueue(): HeadlessOutputQueue {
+    const limits = this.runtimeHeadlessQueueConfig.limits;
+    return createHeadlessOutputQueue({
+      maxBytes: limits.pendingOutputMaxBytes,
+      maxChunks: limits.pendingOutputMaxChunks,
+      overflowPolicy: limits.overflowPolicy,
+    });
+  }
+
+  private getHeadlessOutputObservability(): HeadlessOutputObservability {
+    const total: HeadlessOutputObservability = {
+      pendingBytes: 0,
+      pendingChunks: 0,
+      maxPendingBytes: 0,
+      maxPendingChunks: 0,
+      oldestPendingAgeMs: 0,
+      overflowCount: 0,
+      degradedCount: 0,
+    };
+
+    for (const sessionData of this.sessions.values()) {
+      const snapshot: HeadlessOutputQueueSnapshot = sessionData.headlessOutputQueue.snapshot();
+      const oldestPendingOutput = sessionData.pendingHeadlessOutputs.values().next().value as PendingHeadlessOutput | undefined;
+      const oldestPendingAgeMs = oldestPendingOutput ? Math.max(0, Date.now() - oldestPendingOutput.queuedAt) : 0;
+      total.pendingBytes += sessionData.pendingHeadlessOutputBytes;
+      total.pendingChunks += sessionData.pendingHeadlessOutputs.size;
+      total.maxPendingBytes = Math.max(
+        total.maxPendingBytes,
+        snapshot.maxPendingBytes,
+        sessionData.maxPendingHeadlessOutputBytes,
+      );
+      total.maxPendingChunks = Math.max(
+        total.maxPendingChunks,
+        snapshot.maxPendingChunks,
+        sessionData.maxPendingHeadlessOutputChunks,
+      );
+      total.oldestPendingAgeMs = Math.max(total.oldestPendingAgeMs, snapshot.oldestPendingAgeMs, oldestPendingAgeMs);
+      total.overflowCount += snapshot.overflowCount;
+      total.degradedCount += snapshot.degradedCount;
+    }
+
+    return total;
+  }
+
   private queueHeadlessOutput(sessionId: string, sessionData: SessionData, data: string): void {
     if (sessionData.headlessHealth !== 'healthy' || !sessionData.headless) {
       this.appendDegradedReplayOutput(sessionData, data);
@@ -2679,11 +2801,45 @@ export class SessionManager {
       return;
     }
 
+    const enqueueResult = sessionData.headlessOutputQueue.enqueue(data);
+    if (!enqueueResult.ok && enqueueResult.shouldDegradeHeadless) {
+      this.markHeadlessDegraded(
+        sessionId,
+        sessionData,
+        'write',
+        new Error(`Headless output queue overflow (${sessionData.headlessQueueMode}): ${enqueueResult.reason ?? 'unknown'}`),
+      );
+      this.appendDegradedReplayOutput(sessionData, data);
+      this.wsRouter?.routeSessionOutput(sessionId, data);
+      if (this.pendingResizeReplaySessions.has(sessionId)) {
+        this.scheduleResizeReplayRefresh(sessionId, 120);
+      }
+      return;
+    }
+
+    const pendingOutput: PendingHeadlessOutput = {
+      id: sessionData.nextHeadlessOutputId,
+      data,
+      byteLength: Buffer.byteLength(data, 'utf8'),
+      queuedAt: Date.now(),
+      queued: enqueueResult.ok,
+    };
+    sessionData.nextHeadlessOutputId += 1;
+    sessionData.pendingHeadlessOutputs.set(pendingOutput.id, pendingOutput);
+    sessionData.pendingHeadlessOutputBytes += pendingOutput.byteLength;
+    sessionData.maxPendingHeadlessOutputBytes = Math.max(
+      sessionData.maxPendingHeadlessOutputBytes,
+      sessionData.pendingHeadlessOutputBytes,
+    );
+    sessionData.maxPendingHeadlessOutputChunks = Math.max(
+      sessionData.maxPendingHeadlessOutputChunks,
+      sessionData.pendingHeadlessOutputs.size,
+    );
+
     sessionData.pendingHeadlessWrites += 1;
-    sessionData.pendingOutputChunks.push(data);
     sessionData.headlessWriteChain = sessionData.headlessWriteChain
       .then(async () => {
-        await this.applyHeadlessOutput(sessionId, sessionData, data);
+        await this.applyHeadlessOutput(sessionId, sessionData, pendingOutput);
       })
       .catch((error) => {
         if (!this.isActiveSession(sessionId, sessionData)) {
@@ -2701,24 +2857,36 @@ export class SessionManager {
       });
   }
 
-  private async applyHeadlessOutput(sessionId: string, sessionData: SessionData, data: string): Promise<void> {
+  private async applyHeadlessOutput(
+    sessionId: string,
+    sessionData: SessionData,
+    pendingOutput: PendingHeadlessOutput | string,
+  ): Promise<void> {
+    const output: PendingHeadlessOutput = typeof pendingOutput === 'string'
+      ? { id: -1, data: pendingOutput, byteLength: Buffer.byteLength(pendingOutput, 'utf8'), queuedAt: Date.now(), queued: false }
+      : pendingOutput;
     if (!sessionData.headless) {
       return;
     }
 
     await Promise.race([
-      writeHeadlessTerminal(sessionData.headless, data),
+      writeHeadlessTerminal(sessionData.headless, output.data),
       sessionData.headlessCloseSignal.promise,
     ]);
     if (!this.isActiveSession(sessionId, sessionData) || sessionData.headlessHealth !== 'healthy' || !sessionData.headless) {
       return;
     }
 
-    const flushedOutput = sessionData.pendingOutputChunks.shift() ?? data;
+    const flushedOutput = output.queued
+      ? sessionData.headlessOutputQueue.dequeue()?.data ?? output.data
+      : output.data;
+    if (output.id >= 0) {
+      this.deletePendingHeadlessOutput(sessionData, output.id);
+    }
     sessionData.screenSeq += 1;
     this.appendUnsnapshottedOutput(sessionData, flushedOutput);
     this.markSnapshotDirty(sessionData);
-    this.wsRouter?.routeSessionOutput(sessionId, data, sessionData.screenSeq);
+    this.wsRouter?.routeSessionOutput(sessionId, flushedOutput, sessionData.screenSeq);
     if (this.pendingResizeReplaySessions.has(sessionId)) {
       this.scheduleResizeReplayRefresh(sessionId, 120);
     }
@@ -2728,6 +2896,18 @@ export class SessionManager {
     if (sessionData.snapshotCache) {
       sessionData.snapshotCache.dirty = true;
     }
+  }
+
+  private deletePendingHeadlessOutput(sessionData: SessionData, outputId: number): void {
+    const pendingOutput = sessionData.pendingHeadlessOutputs.get(outputId);
+    if (!pendingOutput) {
+      return;
+    }
+    sessionData.pendingHeadlessOutputs.delete(outputId);
+    sessionData.pendingHeadlessOutputBytes = Math.max(
+      0,
+      sessionData.pendingHeadlessOutputBytes - pendingOutput.byteLength,
+    );
   }
 
   private markHeadlessDegraded(
@@ -2745,7 +2925,8 @@ export class SessionManager {
       sessionData.headless = null;
     }
     sessionData.headlessCloseSignal.resolve();
-    const pendingOutput = sessionData.pendingOutputChunks.join('');
+    sessionData.headlessOutputQueue.recordDegraded();
+    const pendingOutput = this.drainHeadlessPendingOutput(sessionData);
     const seed = `${sessionData.snapshotCache?.data ?? ''}${sessionData.unsnapshottedOutput}${pendingOutput}`;
     if (seed.length > 0) {
       const degraded = truncateTerminalPayloadTail(seed, this.runtimePtyConfig.maxSnapshotBytes);
@@ -2755,7 +2936,6 @@ export class SessionManager {
         Boolean(sessionData.snapshotCache?.truncated) ||
         sessionData.unsnapshottedOutputTruncated;
     }
-    sessionData.pendingOutputChunks = [];
     sessionData.unsnapshottedOutput = '';
     sessionData.unsnapshottedOutputTruncated = false;
     sessionData.headlessHealth = 'degraded';
@@ -2768,6 +2948,17 @@ export class SessionManager {
       screenSeq: sessionData.screenSeq,
     });
     console.warn(`[SessionManager] Headless terminal degraded (${phase}) for session ${sessionId}: ${message}`);
+  }
+
+  private drainHeadlessPendingOutput(sessionData: SessionData): string {
+    let pendingOutput = '';
+    for (const output of sessionData.pendingHeadlessOutputs.values()) {
+      pendingOutput += output.data;
+    }
+    sessionData.pendingHeadlessOutputs.clear();
+    sessionData.pendingHeadlessOutputBytes = 0;
+    sessionData.headlessOutputQueue.drain();
+    return pendingOutput;
   }
 
   private createDegradedSnapshot(sessionData: SessionData): SessionScreenSnapshot {
@@ -2916,6 +3107,16 @@ function clonePtyConfig(source: PTYConfig): PTYConfig {
     scrollbackLines: source.scrollbackLines,
     maxSnapshotBytes: source.maxSnapshotBytes,
     shell: source.shell,
+  };
+}
+
+function cloneHeadlessResourceLimits(source: HeadlessResourceLimitsConfig): HeadlessResourceLimitsConfig {
+  return {
+    pendingOutputMaxBytes: source.pendingOutputMaxBytes,
+    pendingOutputMaxChunks: source.pendingOutputMaxChunks,
+    writeLagWarnMs: source.writeLagWarnMs,
+    writeBatchMaxBytes: source.writeBatchMaxBytes,
+    overflowPolicy: source.overflowPolicy,
   };
 }
 

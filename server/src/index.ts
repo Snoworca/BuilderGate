@@ -428,6 +428,7 @@ async function startServer(): Promise<void> {
       authService,
       getFileService: () => fileService,
       sessionManager,
+      getWsRouter: () => app.get('wsRouter') as WsRouter | undefined,
       updateTwoFactorRuntime: (nextConfig, changedKeys) => applyTwoFactorRuntime(nextConfig, changedKeys),
     });
     commandPresetService = new CommandPresetService();
@@ -529,7 +530,11 @@ async function startServer(): Promise<void> {
     httpsServer.headersTimeout = 125000;
 
     // Initialize WebSocket Router (Step 8)
-    const wsRouter = new WsRouter(authService, sessionManager);
+    const runtimeValues = runtimeConfigStore.getEditableValues();
+    const wsRouter = new WsRouter(authService, sessionManager, {
+      resourceLimits: runtimeValues.resourceLimits,
+      stabilityModes: runtimeValues.stabilityModes,
+    });
     sessionManager.setWsRouter(wsRouter);
     workspaceService.onTabUpdated((event) => {
       wsRouter.broadcastAll('tab:updated', {
