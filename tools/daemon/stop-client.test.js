@@ -100,6 +100,11 @@ function createShutdownSuccessBody(overrides = {}) {
     workspaceLastCwdCount: 1,
     workspaceTabCount: 1,
     workspaceFlushMarker: '[Shutdown] Workspace state + CWDs saved',
+    sessionCleanupAttempted: 1,
+    sessionCleanupCompleted: 1,
+    sessionCleanupDegraded: 0,
+    sessionCleanupSkippedUnverified: 0,
+    remainingVerifiedDescendants: 0,
     ...overrides,
   };
 }
@@ -221,6 +226,14 @@ test('stopDaemon marks stopping, waits sentinel first, shuts app down internally
   assert.equal(nextState.sentinelPid, null);
   assert.equal(nextState.lastExitCode, 0);
   assert.match(result.message, /Workspace state \+ CWDs saved/);
+  assert.match(result.message, /Session cleanup attempted=1 completed=1 degraded=0 skippedUnverified=0 remainingVerifiedDescendants=0/);
+  assert.deepEqual(result.sessionCleanupEvidence, {
+    sessionCleanupAttempted: 1,
+    sessionCleanupCompleted: 1,
+    sessionCleanupDegraded: 0,
+    sessionCleanupSkippedUnverified: 0,
+    remainingVerifiedDescendants: 0,
+  });
 });
 
 test('stopDaemon requires health nonresponse after internal shutdown response', async () => {
@@ -314,6 +327,180 @@ test('stopDaemon rejects successful HTTP shutdown response without workspace flu
   assert.equal(result.exitCode, 1);
   assert.equal(result.status, 'graceful-failure');
   assert.match(result.message, /flush evidence/i);
+  assert.equal(nextState.status, 'stopping');
+});
+
+test('stopDaemon rejects successful HTTP shutdown response without session cleanup evidence', async () => {
+  const paths = createFixturePaths('buildergate-stop-missing-session-evidence-');
+  const state = createRunningState(paths);
+  writeStateAtomic(paths.statePath, state);
+  const body = createShutdownSuccessBody();
+  delete body.sessionCleanupAttempted;
+  let healthChecked = false;
+
+  const result = await stopDaemon(paths, {
+    now: new Date('2026-04-27T00:00:15.000Z'),
+    processInfoProvider: createProcessInfoProvider(state, paths),
+    processExists: (pid) => pid === state.appPid || pid === state.sentinelPid,
+    waitForProcessExit: async () => ({ exited: true }),
+    sendShutdownRequest: async () => ({ ok: true, statusCode: 200, body }),
+    waitForHealthNonresponse: async () => {
+      healthChecked = true;
+      throw new Error('health check must not run without session cleanup evidence');
+    },
+  });
+  const nextState = readState(paths.statePath);
+
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.status, 'graceful-failure');
+  assert.match(result.message, /session cleanup evidence/i);
+  assert.equal(healthChecked, false);
+  assert.equal(nextState.status, 'stopping');
+});
+
+test('stopDaemon rejects malformed shutdown session cleanup evidence before health check', async () => {
+  const cases = [
+    {
+      name: 'negative-attempted',
+      body: createShutdownSuccessBody({ sessionCleanupAttempted: -1 }),
+      expected: /sessionCleanupAttempted is missing or invalid/,
+    },
+    {
+      name: 'fractional-completed',
+      body: createShutdownSuccessBody({ sessionCleanupCompleted: 0.5 }),
+      expected: /sessionCleanupCompleted is missing or invalid/,
+    },
+    {
+      name: 'over-accounted',
+      body: createShutdownSuccessBody({
+        sessionCleanupAttempted: 1,
+        sessionCleanupCompleted: 1,
+        sessionCleanupDegraded: 1,
+      }),
+      expected: /exceeds attempted/,
+    },
+  ];
+
+  for (const testCase of cases) {
+    const paths = createFixturePaths(`buildergate-stop-malformed-session-${testCase.name}-`);
+    const state = createRunningState(paths);
+    writeStateAtomic(paths.statePath, state);
+    let healthChecked = false;
+
+    const result = await stopDaemon(paths, {
+      now: new Date('2026-04-27T00:00:15.000Z'),
+      processInfoProvider: createProcessInfoProvider(state, paths),
+      processExists: (pid) => pid === state.appPid || pid === state.sentinelPid,
+      waitForProcessExit: async () => ({ exited: true }),
+      sendShutdownRequest: async () => ({ ok: true, statusCode: 200, body: testCase.body }),
+      waitForHealthNonresponse: async () => {
+        healthChecked = true;
+        throw new Error('health check must not run with malformed session cleanup evidence');
+      },
+    });
+    const nextState = readState(paths.statePath);
+
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.status, 'graceful-failure');
+    assert.match(result.message, testCase.expected);
+    assert.equal(healthChecked, false);
+    assert.equal(nextState.status, 'stopping');
+  }
+});
+
+test('stopDaemon fails graceful stop when verified descendants remain', async () => {
+  const paths = createFixturePaths('buildergate-stop-remaining-verified-');
+  const state = createRunningState(paths);
+  writeStateAtomic(paths.statePath, state);
+  const killed = [];
+
+  const result = await stopDaemon(paths, {
+    now: new Date('2026-04-27T00:00:15.000Z'),
+    processInfoProvider: createProcessInfoProvider(state, paths),
+    processExists: (pid) => pid === state.appPid || pid === state.sentinelPid,
+    waitForProcessExit: async () => ({ exited: true }),
+    sendShutdownRequest: async () => ({
+      ok: true,
+      statusCode: 200,
+      body: createShutdownSuccessBody({ remainingVerifiedDescendants: 2 }),
+    }),
+    waitForHealthNonresponse: async () => {
+      throw new Error('health check must not run after verified descendant failure');
+    },
+    killProcess: (pid) => killed.push(pid),
+  });
+  const nextState = readState(paths.statePath);
+
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.status, 'graceful-failure');
+  assert.match(result.message, /remaining verified descendants/i);
+  assert.deepEqual(killed, []);
+  assert.equal(nextState.status, 'stopping');
+});
+
+test('stopDaemon warns by default when cleanup is degraded or skipped unverified', async () => {
+  const paths = createFixturePaths('buildergate-stop-session-warning-');
+  const state = createRunningState(paths);
+  writeStateAtomic(paths.statePath, state);
+
+  const result = await stopDaemon(paths, {
+    now: new Date('2026-04-27T00:00:15.000Z'),
+    processInfoProvider: createProcessInfoProvider(state, paths),
+    processExists: (pid) => pid === state.appPid || pid === state.sentinelPid,
+    waitForProcessExit: async () => ({ exited: true }),
+    sendShutdownRequest: async () => ({
+      ok: true,
+      statusCode: 200,
+      body: createShutdownSuccessBody({
+        sessionCleanupAttempted: 3,
+        sessionCleanupCompleted: 1,
+        sessionCleanupDegraded: 1,
+        sessionCleanupSkippedUnverified: 1,
+      }),
+    }),
+    waitForHealthNonresponse: async () => ({ stopped: true }),
+  });
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.status, 'stopped');
+  assert.deepEqual(result.sessionCleanupWarnings, [
+    'session cleanup degraded=1',
+    'session cleanup skipped-unverified=1',
+  ]);
+  assert.match(result.message, /WARNING: session cleanup degraded=1/);
+  assert.match(result.message, /WARNING: session cleanup skipped-unverified=1/);
+});
+
+test('stopDaemon fails strict session cleanup validation on degraded or skipped cleanup', async () => {
+  const paths = createFixturePaths('buildergate-stop-session-strict-');
+  const state = createRunningState(paths);
+  writeStateAtomic(paths.statePath, state);
+
+  const result = await stopDaemon(paths, {
+    now: new Date('2026-04-27T00:00:15.000Z'),
+    strictSessionCleanupEvidence: true,
+    processInfoProvider: createProcessInfoProvider(state, paths),
+    processExists: (pid) => pid === state.appPid || pid === state.sentinelPid,
+    waitForProcessExit: async () => ({ exited: true }),
+    sendShutdownRequest: async () => ({
+      ok: true,
+      statusCode: 200,
+      body: createShutdownSuccessBody({
+        sessionCleanupAttempted: 2,
+        sessionCleanupCompleted: 0,
+        sessionCleanupDegraded: 1,
+        sessionCleanupSkippedUnverified: 1,
+      }),
+    }),
+    waitForHealthNonresponse: async () => {
+      throw new Error('health check must not run after strict session cleanup failure');
+    },
+  });
+  const nextState = readState(paths.statePath);
+
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.status, 'graceful-failure');
+  assert.match(result.message, /strict session cleanup evidence failed/i);
   assert.equal(nextState.status, 'stopping');
 });
 

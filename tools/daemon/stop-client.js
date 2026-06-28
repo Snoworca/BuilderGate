@@ -15,6 +15,13 @@ const GRACEFUL_STOP_TIMEOUT_MS = 10_000;
 const STOP_POLL_INTERVAL_MS = 100;
 const SHUTDOWN_TOKEN_HEADER = 'X-BuilderGate-Shutdown-Token';
 const WORKSPACE_FLUSH_MARKER = '[Shutdown] Workspace state + CWDs saved';
+const SESSION_CLEANUP_EVIDENCE_FIELDS = [
+  'sessionCleanupAttempted',
+  'sessionCleanupCompleted',
+  'sessionCleanupDegraded',
+  'sessionCleanupSkippedUnverified',
+  'remainingVerifiedDescendants',
+];
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -94,13 +101,87 @@ function getShutdownFlushEvidence(body) {
   };
 }
 
-function formatStopSuccessMessage(state, evidence) {
+function getShutdownSessionCleanupEvidence(body) {
+  if (!body || typeof body !== 'object') {
+    return { valid: false, reason: 'response body is missing' };
+  }
+
+  for (const field of SESSION_CLEANUP_EVIDENCE_FIELDS) {
+    if (!Number.isInteger(body[field]) || body[field] < 0) {
+      return { valid: false, reason: `${field} is missing or invalid` };
+    }
+  }
+
+  const evidence = {
+    sessionCleanupAttempted: body.sessionCleanupAttempted,
+    sessionCleanupCompleted: body.sessionCleanupCompleted,
+    sessionCleanupDegraded: body.sessionCleanupDegraded,
+    sessionCleanupSkippedUnverified: body.sessionCleanupSkippedUnverified,
+    remainingVerifiedDescendants: body.remainingVerifiedDescendants,
+  };
+  const accounted = evidence.sessionCleanupCompleted
+    + evidence.sessionCleanupDegraded
+    + evidence.sessionCleanupSkippedUnverified;
+  if (accounted > evidence.sessionCleanupAttempted) {
+    return {
+      valid: false,
+      reason: 'session cleanup completed + degraded + skipped-unverified exceeds attempted',
+    };
+  }
+
+  return { valid: true, evidence };
+}
+
+function getSessionCleanupStopPolicy(evidence, options = {}) {
+  if (evidence.remainingVerifiedDescendants > 0) {
+    return {
+      ok: false,
+      warnings: [],
+      reason: `remaining verified descendants=${evidence.remainingVerifiedDescendants}`,
+    };
+  }
+
+  const warnings = [];
+  if (evidence.sessionCleanupDegraded > 0) {
+    warnings.push(`session cleanup degraded=${evidence.sessionCleanupDegraded}`);
+  }
+  if (evidence.sessionCleanupSkippedUnverified > 0) {
+    warnings.push(`session cleanup skipped-unverified=${evidence.sessionCleanupSkippedUnverified}`);
+  }
+
+  if (options.strictSessionCleanupEvidence && warnings.length > 0) {
+    return {
+      ok: false,
+      warnings,
+      reason: `strict session cleanup evidence failed: ${warnings.join('; ')}`,
+    };
+  }
+
+  return { ok: true, warnings, reason: null };
+}
+
+function formatShutdownSessionCleanupEvidence(evidence) {
   return [
+    `attempted=${evidence.sessionCleanupAttempted}`,
+    `completed=${evidence.sessionCleanupCompleted}`,
+    `degraded=${evidence.sessionCleanupDegraded}`,
+    `skippedUnverified=${evidence.sessionCleanupSkippedUnverified}`,
+    `remainingVerifiedDescendants=${evidence.remainingVerifiedDescendants}`,
+  ].join(' ');
+}
+
+function formatStopSuccessMessage(state, evidence, sessionCleanupEvidence, warnings = []) {
+  const lines = [
     '[stop] BuilderGate daemon stopped gracefully.',
     `[stop] App PID ${state.appPid}; Sentinel PID ${state.sentinelPid}; /health nonresponse confirmed.`,
     `[stop] Workspace data: ${evidence.workspaceDataPath}`,
     `[stop] ${evidence.workspaceFlushMarker} lastUpdated=${evidence.workspaceLastUpdated} lastCwdCount=${evidence.workspaceLastCwdCount}/${evidence.workspaceTabCount}`,
-  ].join('\n');
+    `[stop] Session cleanup ${formatShutdownSessionCleanupEvidence(sessionCleanupEvidence)}`,
+  ];
+  for (const warning of warnings) {
+    lines.push(`[stop] WARNING: ${warning}`);
+  }
+  return lines.join('\n');
 }
 
 function isSameDaemonState(left, right) {
@@ -410,6 +491,33 @@ async function stopDaemon(paths = resolveRuntimePaths(), options = {}) {
     );
   }
 
+  const sessionCleanupEvidence = getShutdownSessionCleanupEvidence(shutdown.body);
+  if (!sessionCleanupEvidence.valid) {
+    return makeResult(
+      1,
+      'graceful-failure',
+      `[stop] Internal shutdown response lacked session cleanup evidence: ${sessionCleanupEvidence.reason}`,
+      { shutdown, flushEvidence: flushEvidence.evidence },
+    );
+  }
+
+  const sessionCleanupPolicy = getSessionCleanupStopPolicy(sessionCleanupEvidence.evidence, {
+    strictSessionCleanupEvidence: options.strictSessionCleanupEvidence === true,
+  });
+  if (!sessionCleanupPolicy.ok) {
+    return makeResult(
+      1,
+      'graceful-failure',
+      `[stop] Internal shutdown session cleanup evidence failed: ${sessionCleanupPolicy.reason}`,
+      {
+        shutdown,
+        flushEvidence: flushEvidence.evidence,
+        sessionCleanupEvidence: sessionCleanupEvidence.evidence,
+        sessionCleanupWarnings: sessionCleanupPolicy.warnings,
+      },
+    );
+  }
+
   const waitForHealthNonresponseFn = options.waitForHealthNonresponse ?? waitForHealthNonresponse;
   const healthBudget = getBudgetOrFailure(deadlineMs, totalTimeoutMs, 'health nonresponse verification');
   if (healthBudget.failure) {
@@ -432,8 +540,15 @@ async function stopDaemon(paths = resolveRuntimePaths(), options = {}) {
     });
   }
 
-  return makeResult(0, 'stopped', formatStopSuccessMessage(state, flushEvidence.evidence), {
+  return makeResult(0, 'stopped', formatStopSuccessMessage(
+    state,
+    flushEvidence.evidence,
+    sessionCleanupEvidence.evidence,
+    sessionCleanupPolicy.warnings,
+  ), {
     flushEvidence: flushEvidence.evidence,
+    sessionCleanupEvidence: sessionCleanupEvidence.evidence,
+    sessionCleanupWarnings: sessionCleanupPolicy.warnings,
     shutdown,
     health,
     state: stoppedState,
@@ -444,6 +559,8 @@ module.exports = {
   GRACEFUL_STOP_TIMEOUT_MS,
   SHUTDOWN_TOKEN_HEADER,
   WORKSPACE_FLUSH_MARKER,
+  getShutdownSessionCleanupEvidence,
+  getSessionCleanupStopPolicy,
   markStopped,
   markStopping,
   sendShutdownRequest,

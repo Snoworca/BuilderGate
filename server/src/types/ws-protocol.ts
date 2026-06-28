@@ -45,6 +45,8 @@ export interface SessionCleanupTelemetryResult {
   reason: SessionCleanupReason;
   rootPid: number | null;
   remainingDescendants: number;
+  verifiedRemainingDescendants?: number;
+  unverifiedRemainingDescendants?: number;
   cleanupStatus: SessionCleanupStatus;
   recordedAt: string;
 }

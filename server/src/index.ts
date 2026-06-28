@@ -635,8 +635,16 @@ function setupGracefulShutdown(): void {
     shutdownInProgress = true;
     console.log(`[Shutdown] ${signal} received, saving session CWDs...`);
     try {
-      await performServerGracefulShutdown(signal);
+      const result = await performServerGracefulShutdown(signal);
       console.log('[Shutdown] Workspace state + CWDs saved');
+      console.log(
+        '[Shutdown] Session cleanup '
+        + `attempted=${result.sessionCleanupAttempted} `
+        + `completed=${result.sessionCleanupCompleted} `
+        + `degraded=${result.sessionCleanupDegraded} `
+        + `skippedUnverified=${result.sessionCleanupSkippedUnverified} `
+        + `remainingVerifiedDescendants=${result.remainingVerifiedDescendants}`,
+      );
     } catch (err) {
       console.error('[Shutdown] Failed to save workspace state:', err);
       process.exit(1);

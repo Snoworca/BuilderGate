@@ -1,0 +1,483 @@
+{
+  "schema_version": "1.1.0",
+  "plan_contract": "1.2.0",
+  "run_id": "2026-06-28.projectmaster.bgwave5",
+  "target": "0.5.5-buildergate-stability",
+  "plan_version": "0.1.0",
+  "generated_at": "2026-06-28T00:00:00Z",
+  "tool_versions": {
+    "speckiwi": "mcp-limited",
+    "kiwi_planner": "manual",
+    "validator": "0.6.0"
+  },
+  "tdd_policy": "strict",
+  "md_path": "docs/plans/2026-06-28.projectmaster.bgwave5.plan.md",
+  "md_sha256": "",
+  "phases": [
+    {
+      "id": "PH-001",
+      "title": "Server Shutdown Evidence",
+      "goal": "Prove and implement graceful shutdown session cleanup evidence",
+      "depends_on": [],
+      "task_ids": ["T-PH001-01", "T-PH001-02"]
+    },
+    {
+      "id": "PH-002",
+      "title": "Daemon Stop Evidence Policy",
+      "goal": "Prove and implement stop-client evidence validation",
+      "depends_on": ["PH-001"],
+      "task_ids": ["T-PH002-01", "T-PH002-02"]
+    },
+    {
+      "id": "PH-003",
+      "title": "Verification And Reporting",
+      "goal": "Verify tests, broad-kill absence, SRS status, and review findings",
+      "depends_on": ["PH-001", "PH-002"],
+      "task_ids": ["T-PH003-01"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "title": "Server shutdown evidence RED tests",
+      "type": "code",
+      "req_ids": ["REL-BGSTAB-002"],
+      "files": [{ "path": "server/src/test-runner.ts" }],
+      "action": "Add tests that prove shutdown order, first and final workspace flushes, bounded terminateAllSessions invocation, timeout degradation, reason normalization, and internal shutdown response evidence fields.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "npm --prefix server test", "expected_exit": 0 }],
+      "verification_cmd": { "posix": "npm --prefix server test", "windows": "npm --prefix server test" },
+      "dod": [
+        "RED tests fail against current flush-only graceful shutdown",
+        "tests cover AC-1, AC-2, AC-5, and AC-6"
+      ],
+      "rollback": "Remove the new shutdown evidence tests.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-01-REL-BGSTAB-002",
+          "source": { "type": "Task", "id": "T-PH001-01" },
+          "target": { "type": "Requirement", "reference": "REL-BGSTAB-002" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [{ "path": "server/src/test-runner.ts" }],
+      "depends_on_task": [],
+      "covers_ac": ["AC-1", "AC-2", "AC-5", "AC-6"],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-002-AC1-01",
+            "req_id": "REL-BGSTAB-002",
+            "ac_refs": ["AC-1"],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "testPerformGracefulShutdownTerminatesSessionsAfterWorkspaceFlush",
+            "kind": "unit",
+            "expected_failure_signature": "terminateAllSessions"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-002-AC2-01",
+            "req_id": "REL-BGSTAB-002",
+            "ac_refs": ["AC-2"],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "testPerformGracefulShutdownReturnsSessionCleanupEvidence",
+            "kind": "unit",
+            "expected_failure_signature": "sessionCleanupAttempted"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-002-AC5-01",
+            "req_id": "REL-BGSTAB-002",
+            "ac_refs": ["AC-5"],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "testPerformGracefulShutdownDoesNotInferVerifiedRemainingFromAggregateTelemetry",
+            "kind": "unit",
+            "expected_failure_signature": "remainingVerifiedDescendants"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-002-AC6-01",
+            "req_id": "REL-BGSTAB-002",
+            "ac_refs": ["AC-6"],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "testInternalShutdownRouteReturnsSessionCleanupEvidence",
+            "kind": "integration",
+            "expected_failure_signature": "sessionCleanupCompleted"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH001-02",
+      "phase_id": "PH-001",
+      "title": "Server shutdown evidence implementation",
+      "type": "code",
+      "req_ids": ["REL-BGSTAB-002"],
+      "files": [
+        { "path": "server/src/services/gracefulShutdown.ts" },
+        { "path": "server/src/routes/internalShutdownRoutes.ts" },
+        { "path": "server/src/index.ts" }
+      ],
+      "action": "Add the shutdown evidence contract, bounded session cleanup sequence, timeout degradation handling, final workspace flush, internal response fields, and logging without forcing enforce mode by default.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "npm --prefix server test", "expected_exit": 0 }],
+      "verification_cmd": { "posix": "npm --prefix server test", "windows": "npm --prefix server test" },
+      "dod": [
+        "graceful shutdown returns the five cleanup evidence fields",
+        "workspace flush evidence remains intact"
+      ],
+      "rollback": "Disable shutdown session termination and return to flush-only shutdown while keeping additive evidence fields at zero.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-02-REL-BGSTAB-002",
+          "source": { "type": "Task", "id": "T-PH001-02" },
+          "target": { "type": "Requirement", "reference": "REL-BGSTAB-002" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [{ "path": "server/src/test-runner.ts" }],
+      "depends_on_task": ["T-PH001-01"],
+      "covers_ac": ["AC-1", "AC-2", "AC-5", "AC-6"],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-002-AC1-02",
+            "req_id": "REL-BGSTAB-002",
+            "ac_refs": ["AC-1", "AC-2", "AC-5", "AC-6"],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "npm --prefix server test",
+            "kind": "integration"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "title": "Daemon stop evidence RED tests",
+      "type": "code",
+      "req_ids": ["REL-BGSTAB-002"],
+      "files": [
+        { "path": "tools/daemon/stop-client.test.js" },
+        { "path": "tools/daemon/sentinel.test.js" }
+      ],
+      "action": "Add daemon tests for missing or malformed session cleanup evidence, remaining verified descendants failure, degraded/skipped default warnings, strict mode failure, success formatting, and sentinel no-kill/no-restart behavior during stopping.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "node --test tools/daemon/process-info.test.js tools/daemon/stop-client.test.js tools/daemon/sentinel.test.js", "expected_exit": 0 }],
+      "verification_cmd": {
+        "posix": "node --test tools/daemon/process-info.test.js tools/daemon/stop-client.test.js tools/daemon/sentinel.test.js",
+        "windows": "node --test tools/daemon/process-info.test.js tools/daemon/stop-client.test.js tools/daemon/sentinel.test.js"
+      },
+      "dod": [
+        "RED tests fail against current workspace-only evidence validation",
+        "tests cover AC-3 and AC-4"
+      ],
+      "rollback": "Remove the new daemon evidence tests.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-01-REL-BGSTAB-002",
+          "source": { "type": "Task", "id": "T-PH002-01" },
+          "target": { "type": "Requirement", "reference": "REL-BGSTAB-002" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        { "path": "tools/daemon/stop-client.test.js" },
+        { "path": "tools/daemon/sentinel.test.js" }
+      ],
+      "depends_on_task": ["T-PH001-02"],
+      "covers_ac": ["AC-3", "AC-4"],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-002-AC3-01",
+            "req_id": "REL-BGSTAB-002",
+            "ac_refs": ["AC-3"],
+            "test_file": "tools/daemon/stop-client.test.js",
+            "test_symbol": "stopDaemon rejects missing shutdown session cleanup evidence",
+            "kind": "unit",
+            "expected_failure_signature": "session cleanup evidence"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-002-AC3-02",
+            "req_id": "REL-BGSTAB-002",
+            "ac_refs": ["AC-3"],
+            "test_file": "tools/daemon/stop-client.test.js",
+            "test_symbol": "stopDaemon fails when remaining verified descendants are reported",
+            "kind": "unit",
+            "expected_failure_signature": "remaining verified"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-002-AC4-01",
+            "req_id": "REL-BGSTAB-002",
+            "ac_refs": ["AC-4"],
+            "test_file": "tools/daemon/stop-client.test.js",
+            "test_symbol": "stopDaemon warns by default for degraded and skipped cleanup",
+            "kind": "unit",
+            "expected_failure_signature": "sessionCleanupWarnings"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-002-AC4-02",
+            "req_id": "REL-BGSTAB-002",
+            "ac_refs": ["AC-4"],
+            "test_file": "tools/daemon/stop-client.test.js",
+            "test_symbol": "stopDaemon fails strict cleanup validation on degraded or skipped cleanup",
+            "kind": "unit",
+            "expected_failure_signature": "strict"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH002-02",
+      "phase_id": "PH-002",
+      "title": "Daemon stop evidence implementation",
+      "type": "code",
+      "req_ids": ["REL-BGSTAB-002"],
+      "files": [{ "path": "tools/daemon/stop-client.js" }],
+      "action": "Add session cleanup evidence parser, formatter, default and strict policy, result fields, warning output, and graceful failure paths before health nonresponse verification, with no broad kill fallback.",
+      "acceptance_tests": [{ "kind": "shell", "cmd": "node --test tools/daemon/process-info.test.js tools/daemon/stop-client.test.js tools/daemon/sentinel.test.js", "expected_exit": 0 }],
+      "verification_cmd": {
+        "posix": "node --test tools/daemon/process-info.test.js tools/daemon/stop-client.test.js tools/daemon/sentinel.test.js",
+        "windows": "node --test tools/daemon/process-info.test.js tools/daemon/stop-client.test.js tools/daemon/sentinel.test.js"
+      },
+      "dod": [
+        "stop-client validates cleanup evidence",
+        "warnings and failures follow default and strict policy"
+      ],
+      "rollback": "Keep workspace flush validation and downgrade session cleanup evidence to warning-only if operational stop becomes too brittle.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-02-REL-BGSTAB-002",
+          "source": { "type": "Task", "id": "T-PH002-02" },
+          "target": { "type": "Requirement", "reference": "REL-BGSTAB-002" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [{ "path": "tools/daemon/stop-client.test.js" }],
+      "depends_on_task": ["T-PH002-01"],
+      "covers_ac": ["AC-3", "AC-4"],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-002-AC3-03",
+            "req_id": "REL-BGSTAB-002",
+            "ac_refs": ["AC-3", "AC-4"],
+            "test_file": "tools/daemon/stop-client.test.js",
+            "test_symbol": "node --test tools/daemon/process-info.test.js tools/daemon/stop-client.test.js tools/daemon/sentinel.test.js",
+            "kind": "integration"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "title": "Final verification, SRS status, and review",
+      "type": "review",
+      "req_ids": ["REL-BGSTAB-002"],
+      "files": [
+        { "path": "docs/spec/30.buildergate-stability.srs.md" },
+        { "path": "docs/research/plug-leak/wave5.md" },
+        { "path": "docs/research/2026-06-27.buildergate-wave5-shutdown-evidence-soak-plan.md" }
+      ],
+      "action": "Run full server tests, daemon targeted tests, SpecKiwi validation, broad-kill static checks, git diff check, and independent sub-agent review. Record any unrun live soak or WSL/bash scenario as remaining validation.",
+      "acceptance_tests": [{ "kind": "checklist", "items": ["server tests pass", "daemon tests pass", "SpecKiwi validates", "broad kill patterns are not introduced", "sub-agent review returns No findings"] }],
+      "verification_cmd": null,
+      "dod": [
+        "automated checks pass",
+        "broad kill patterns are not introduced",
+        "independent reviewer returns No findings",
+        "SRS status is updated only after evidence exists"
+      ],
+      "rollback": "Keep REL-BGSTAB-002 planned and leave completion evidence empty.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-01-REL-BGSTAB-002",
+          "source": { "type": "Task", "id": "T-PH003-01" },
+          "target": { "type": "Requirement", "reference": "REL-BGSTAB-002" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "S",
+      "test_files": [],
+      "depends_on_task": ["T-PH001-02", "T-PH002-02"],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"],
+      "tdd": {
+        "applicable": false,
+        "phase": "n/a",
+        "exempt_reason": "Review and reporting verify completed code but do not introduce runtime behavior.",
+        "test_cases": []
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "req_id": "REL-BGSTAB-002",
+      "stability": "evolving",
+      "ac_total": 7,
+      "ac_covered": 7,
+      "missing_ac_ids": [],
+      "covered_tasks": ["T-PH001-01", "T-PH001-02", "T-PH002-01", "T-PH002-02", "T-PH003-01"],
+      "ac_test_map": [
+        { "ac_id": "AC-1", "test_case_ids": ["TC-REQ-REL-BGSTAB-002-AC1-01", "TC-REQ-REL-BGSTAB-002-AC1-02"] },
+        { "ac_id": "AC-2", "test_case_ids": ["TC-REQ-REL-BGSTAB-002-AC2-01", "TC-REQ-REL-BGSTAB-002-AC1-02"] },
+        { "ac_id": "AC-3", "test_case_ids": ["TC-REQ-REL-BGSTAB-002-AC3-01", "TC-REQ-REL-BGSTAB-002-AC3-02", "TC-REQ-REL-BGSTAB-002-AC3-03"] },
+        { "ac_id": "AC-4", "test_case_ids": ["TC-REQ-REL-BGSTAB-002-AC4-01", "TC-REQ-REL-BGSTAB-002-AC4-02", "TC-REQ-REL-BGSTAB-002-AC3-03"] },
+        { "ac_id": "AC-5", "test_case_ids": ["TC-REQ-REL-BGSTAB-002-AC5-01", "TC-REQ-REL-BGSTAB-002-AC1-02"] },
+        { "ac_id": "AC-6", "test_case_ids": ["TC-REQ-REL-BGSTAB-002-AC6-01", "TC-REQ-REL-BGSTAB-002-AC1-02"] },
+        { "ac_id": "AC-7", "test_case_ids": ["TC-REQ-REL-BGSTAB-002-AC3-03"] }
+      ]
+    }
+  ],
+  "orphans": [],
+  "unreferenced_reqs": [],
+  "excluded_reqs": [],
+  "deferred_ac": [],
+  "risks": [
+    {
+      "id": "R-001",
+      "severity": "high",
+      "description": "Default cleanup mode could become too aggressive if Wave5 forces enforce mode.",
+      "mitigation": "Keep cleanup mode default unchanged and allow strict policy only through daemon option/tests.",
+      "affected_task_ids": ["T-PH001-02", "T-PH002-02"]
+    },
+    {
+      "id": "R-002",
+      "severity": "high",
+      "description": "Session finalization can delete CWD temp files before workspace state captures last CWD.",
+      "mitigation": "Snapshot and flush workspace before terminating sessions; do not re-snapshot after finalization.",
+      "affected_task_ids": ["T-PH001-01", "T-PH001-02"]
+    },
+    {
+      "id": "R-003",
+      "severity": "high",
+      "description": "Evidence failure could accidentally reintroduce broad process kill fallback.",
+      "mitigation": "Static check for broad kill patterns and preserve sentinel no-kill behavior.",
+      "affected_task_ids": ["T-PH002-01", "T-PH003-01"]
+    },
+    {
+      "id": "R-004",
+      "severity": "med",
+      "description": "Degraded or skipped cleanup may make default stop too brittle.",
+      "mitigation": "Treat degraded/skipped as warning by default but failure in strict validation.",
+      "affected_task_ids": ["T-PH002-02"]
+    },
+    {
+      "id": "R-005",
+      "severity": "med",
+      "description": "Completion reporting can overclaim unrun live soak or WSL/bash coverage.",
+      "mitigation": "Report unrun live soak and WSL/bash coverage as remaining validation.",
+      "affected_task_ids": ["T-PH003-01"]
+    }
+  ],
+  "open_questions": [],
+  "external_module_impact": [],
+  "tdd_decisions": [],
+  "coder_handoff_readiness": [
+    { "phase_id": "PH-001", "ready": true, "blockers": [] },
+    { "phase_id": "PH-002", "ready": true, "blockers": [] },
+    { "phase_id": "PH-003", "ready": true, "blockers": [] }
+  ],
+  "mcp_call_log": [
+    {
+      "seq": 1,
+      "call": "add_trace_link",
+      "args": {
+        "source": { "type": "Task", "id": "T-PH001-01" },
+        "target": { "type": "Requirement", "reference": "REL-BGSTAB-002" },
+        "relation": "depends_on"
+      },
+      "args_hash": "wave5-trace-001",
+      "response_hash": null,
+      "timestamp": "2026-06-28T00:00:00Z",
+      "ok": null,
+      "dry_run": true
+    },
+    {
+      "seq": 2,
+      "call": "add_trace_link",
+      "args": {
+        "source": { "type": "Task", "id": "T-PH001-02" },
+        "target": { "type": "Requirement", "reference": "REL-BGSTAB-002" },
+        "relation": "depends_on"
+      },
+      "args_hash": "wave5-trace-002",
+      "response_hash": null,
+      "timestamp": "2026-06-28T00:00:00Z",
+      "ok": null,
+      "dry_run": true
+    },
+    {
+      "seq": 3,
+      "call": "add_trace_link",
+      "args": {
+        "source": { "type": "Task", "id": "T-PH002-01" },
+        "target": { "type": "Requirement", "reference": "REL-BGSTAB-002" },
+        "relation": "depends_on"
+      },
+      "args_hash": "wave5-trace-003",
+      "response_hash": null,
+      "timestamp": "2026-06-28T00:00:00Z",
+      "ok": null,
+      "dry_run": true
+    },
+    {
+      "seq": 4,
+      "call": "add_trace_link",
+      "args": {
+        "source": { "type": "Task", "id": "T-PH002-02" },
+        "target": { "type": "Requirement", "reference": "REL-BGSTAB-002" },
+        "relation": "depends_on"
+      },
+      "args_hash": "wave5-trace-004",
+      "response_hash": null,
+      "timestamp": "2026-06-28T00:00:00Z",
+      "ok": null,
+      "dry_run": true
+    },
+    {
+      "seq": 5,
+      "call": "add_trace_link",
+      "args": {
+        "source": { "type": "Task", "id": "T-PH003-01" },
+        "target": { "type": "Requirement", "reference": "REL-BGSTAB-002" },
+        "relation": "depends_on"
+      },
+      "args_hash": "wave5-trace-005",
+      "response_hash": null,
+      "timestamp": "2026-06-28T00:00:00Z",
+      "ok": null,
+      "dry_run": true
+    },
+    {
+      "seq": 6,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "REL-BGSTAB-002",
+        "type": "plan",
+        "reference": "docs/plans/2026-06-28.projectmaster.bgwave5.plan.md"
+      },
+      "args_hash": "wave5-evidence-001",
+      "response_hash": null,
+      "timestamp": "2026-06-28T00:00:00Z",
+      "ok": null,
+      "dry_run": true
+    }
+  ]
+}

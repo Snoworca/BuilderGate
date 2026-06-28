@@ -202,6 +202,8 @@ interface HeadlessOutputObservability {
 interface SessionProcessInspection {
   status: SessionCleanupStatus;
   remainingDescendants?: number;
+  verifiedRemainingDescendants?: number;
+  unverifiedRemainingDescendants?: number;
 }
 
 type SessionProcessInspector = (
@@ -303,14 +305,25 @@ export interface SessionFinalizedEvent {
   recordedAt: string;
 }
 
+interface SessionBatchTerminationResult {
+  attempted: number;
+  terminated: number;
+  missing: string[];
+  remainingVerifiedDescendants: number;
+  remainingUnverifiedDescendants: number;
+}
+
 interface SessionFinalizerOptions {
   reason: SessionCleanupReason;
   exitCode?: number | null;
   killPty: boolean;
   emitExited: boolean;
+  cleanupMode?: SessionProcessCleanupConfig['mode'];
   cleanupOverride?: {
     status: SessionCleanupStatus;
     remainingDescendants: number;
+    verifiedRemainingDescendants?: number;
+    unverifiedRemainingDescendants?: number;
   };
 }
 
@@ -383,6 +396,55 @@ function normalizeCleanupStatus(status: SessionCleanupStatus | undefined): Sessi
 
 function normalizeRemainingDescendants(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.trunc(value) : 0;
+}
+
+function resolveRemainingDescendantBreakdown(
+  status: SessionCleanupStatus,
+  inspection: {
+    remainingDescendants?: number;
+    verifiedRemainingDescendants?: number;
+    unverifiedRemainingDescendants?: number;
+  },
+): {
+  remainingDescendants: number;
+  verifiedRemainingDescendants: number;
+  unverifiedRemainingDescendants: number;
+} {
+  const remainingDescendants = normalizeRemainingDescendants(inspection.remainingDescendants);
+  if (
+    Number.isFinite(inspection.verifiedRemainingDescendants)
+    || Number.isFinite(inspection.unverifiedRemainingDescendants)
+  ) {
+    const verifiedRemainingDescendants = normalizeRemainingDescendants(inspection.verifiedRemainingDescendants);
+    const unverifiedRemainingDescendants = normalizeRemainingDescendants(inspection.unverifiedRemainingDescendants);
+    return {
+      remainingDescendants: Math.max(remainingDescendants, verifiedRemainingDescendants + unverifiedRemainingDescendants),
+      verifiedRemainingDescendants,
+      unverifiedRemainingDescendants,
+    };
+  }
+
+  if (status === 'skipped-unverified') {
+    return {
+      remainingDescendants,
+      verifiedRemainingDescendants: 0,
+      unverifiedRemainingDescendants: remainingDescendants,
+    };
+  }
+
+  if (status === 'observed' || status === 'completed') {
+    return {
+      remainingDescendants,
+      verifiedRemainingDescendants: 0,
+      unverifiedRemainingDescendants: 0,
+    };
+  }
+
+  return {
+    remainingDescendants,
+    verifiedRemainingDescendants: 0,
+    unverifiedRemainingDescendants: remainingDescendants,
+  };
 }
 
 export class SessionManager {
@@ -1090,6 +1152,8 @@ export class SessionManager {
         cleanupOverride = {
           status: 'failed',
           remainingDescendants: data.processMetadata.rootPid === null ? 0 : 1,
+          verifiedRemainingDescendants: data.processMetadata.rootPid === null ? 0 : 1,
+          unverifiedRemainingDescendants: 0,
         };
       }
     }
@@ -1101,6 +1165,7 @@ export class SessionManager {
         exitCode: pendingTermination?.exitCode ?? null,
         killPty: options.killPty ?? !pendingTermination?.exitObserved,
         emitExited: options.emitExited ?? false,
+        cleanupMode: mode,
         cleanupOverride,
       });
     } finally {
@@ -1709,18 +1774,34 @@ export class SessionManager {
       mode?: SessionProcessCleanupConfig['mode'];
       waitMs?: number;
     },
-  ): Promise<{ attempted: number; terminated: number; missing: string[] }> {
+  ): Promise<SessionBatchTerminationResult> {
     let terminated = 0;
+    let remainingVerifiedDescendants = 0;
+    let remainingUnverifiedDescendants = 0;
     const missing: string[] = [];
     for (const id of ids) {
       const ok = await this.terminateSession(id, options);
       if (ok) {
         terminated += 1;
+        for (let index = this.cleanupTelemetry.recentResults.length - 1; index >= 0; index -= 1) {
+          const result = this.cleanupTelemetry.recentResults[index];
+          if (result.sessionId === id) {
+            remainingVerifiedDescendants += normalizeRemainingDescendants(result.verifiedRemainingDescendants);
+            remainingUnverifiedDescendants += normalizeRemainingDescendants(result.unverifiedRemainingDescendants);
+            break;
+          }
+        }
       } else {
         missing.push(id);
       }
     }
-    return { attempted: ids.length, terminated, missing };
+    return {
+      attempted: ids.length,
+      terminated,
+      missing,
+      remainingVerifiedDescendants,
+      remainingUnverifiedDescendants,
+    };
   }
 
   async terminateAllSessions(
@@ -1729,7 +1810,7 @@ export class SessionManager {
       mode?: SessionProcessCleanupConfig['mode'];
       waitMs?: number;
     },
-  ): Promise<{ attempted: number; terminated: number; missing: string[] }> {
+  ): Promise<SessionBatchTerminationResult> {
     return this.terminateMultipleSessions(Array.from(this.sessions.keys()), options);
   }
 
@@ -2280,6 +2361,7 @@ export class SessionManager {
       sessionId,
       data,
       options.reason,
+      options.cleanupMode,
       options.cleanupOverride,
     );
 
@@ -2355,9 +2437,12 @@ export class SessionManager {
     sessionId: string,
     data: SessionData,
     reason: SessionCleanupReason,
+    cleanupMode?: SessionProcessCleanupConfig['mode'],
     override?: {
       status: SessionCleanupStatus;
       remainingDescendants: number;
+      verifiedRemainingDescendants?: number;
+      unverifiedRemainingDescendants?: number;
     },
   ): SessionCleanupTelemetryResult | null {
     if (data.cleanupRecorded || this.cleanupRecordedSessionIds.has(sessionId)) {
@@ -2367,14 +2452,17 @@ export class SessionManager {
     this.rememberCleanupRecordedSession(sessionId);
 
     const cleanupConfig = this.runtimeSessionConfig.processCleanup;
-    this.cleanupTelemetry.mode = cleanupConfig.mode;
+    const effectiveMode = cleanupMode ?? cleanupConfig.mode;
+    this.cleanupTelemetry.mode = effectiveMode;
 
-    if (cleanupConfig.mode === 'legacy') {
+    if (effectiveMode === 'legacy') {
       const result: SessionCleanupTelemetryResult = {
         sessionId,
         reason,
         rootPid: data.processMetadata.rootPid,
         remainingDescendants: 0,
+        verifiedRemainingDescendants: 0,
+        unverifiedRemainingDescendants: 0,
         cleanupStatus: 'not-started',
         recordedAt: new Date().toISOString(),
       };
@@ -2386,13 +2474,20 @@ export class SessionManager {
 
     let status: SessionCleanupStatus = 'degraded';
     let remainingDescendants = 0;
+    let verifiedRemainingDescendants = 0;
+    let unverifiedRemainingDescendants = 0;
     try {
       const inspection = override ?? this.processInspector(data.processMetadata, cleanupConfig.descendantSampleLimit);
       status = normalizeCleanupStatus(inspection.status);
-      remainingDescendants = normalizeRemainingDescendants(inspection.remainingDescendants);
+      const breakdown = resolveRemainingDescendantBreakdown(status, inspection);
+      remainingDescendants = breakdown.remainingDescendants;
+      verifiedRemainingDescendants = breakdown.verifiedRemainingDescendants;
+      unverifiedRemainingDescendants = breakdown.unverifiedRemainingDescendants;
     } catch {
       status = 'degraded';
       remainingDescendants = 0;
+      verifiedRemainingDescendants = 0;
+      unverifiedRemainingDescendants = 0;
     }
 
     if (status === 'observed' || status === 'completed') {
@@ -2408,6 +2503,8 @@ export class SessionManager {
       reason,
       rootPid: data.processMetadata.rootPid,
       remainingDescendants,
+      verifiedRemainingDescendants,
+      unverifiedRemainingDescendants,
       cleanupStatus: status,
       recordedAt: new Date().toISOString(),
     };
@@ -2418,10 +2515,14 @@ export class SessionManager {
   private toCleanupOverride(result: ProcessTreeTerminationResult): {
     status: SessionCleanupStatus;
     remainingDescendants: number;
+    verifiedRemainingDescendants: number;
+    unverifiedRemainingDescendants: number;
   } {
     return {
       status: result.status,
       remainingDescendants: result.remainingPids.length + result.unverifiedPids.length,
+      verifiedRemainingDescendants: result.remainingPids.length,
+      unverifiedRemainingDescendants: result.unverifiedPids.length,
     };
   }
 

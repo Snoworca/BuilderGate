@@ -1,0 +1,9 @@
+[
+  {
+    "id": "REL-BGSTAB-002",
+    "stability": "evolving",
+    "status": "planned",
+    "ac_total": 7,
+    "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"]
+  }
+]

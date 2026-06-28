@@ -158,6 +158,7 @@ async function main(): Promise<void> {
     { name: 'SessionManager terminateSession finalizes when enforce terminator throws', run: testSessionManagerTerminateSessionFinalizesWhenTerminatorThrows },
     { name: 'SessionManager terminateMultipleSessions reports mixed missing sessions', run: testSessionManagerTerminateMultipleSessionsReportsMissing },
     { name: 'SessionManager terminateAllSessions reports deterministic batch result', run: testSessionManagerTerminateAllSessionsBatchResult },
+    { name: 'SessionManager terminateAllSessions records enforce override when runtime cleanup is legacy', run: testSessionManagerTerminateAllSessionsEnforceOverrideRecordsTelemetry },
     { name: 'SessionManager keeps Hermes submit idle in bash heuristic mode', run: testSessionManagerHermesBashSubmitStaysIdle },
     { name: 'SessionManager keeps Codex submit idle in bash heuristic mode', run: testSessionManagerCodexBashSubmitStaysIdle },
     { name: 'SessionManager keeps Claude submit idle in bash heuristic mode', run: testSessionManagerClaudeBashSubmitStaysIdle },
@@ -195,6 +196,8 @@ async function main(): Promise<void> {
     { name: 'internal shutdown route flushes and returns structured shutdown result', run: testInternalShutdownRouteSuccess },
     { name: 'internal shutdown route returns 500 when graceful shutdown fails', run: testInternalShutdownRouteFailure },
     { name: 'performGracefulShutdown flushes workspace JSON lastUpdated and tab lastCwd', run: testPerformGracefulShutdownFlushesWorkspaceCwds },
+    { name: 'performGracefulShutdown terminates sessions after first workspace flush and final flushes', run: testPerformGracefulShutdownTerminatesSessionsAfterWorkspaceFlush },
+    { name: 'performGracefulShutdown degrades timed out session cleanup and still final flushes', run: testPerformGracefulShutdownSessionCleanupTimeoutDegradesAndFinalFlushes },
     { name: 'sessionRoutes accepts shells surfaced by GET /api/sessions/shells', run: testSessionRoutesAcceptSurfacedShells },
     { name: 'SessionManager marks sessions degraded when snapshot serialization fails', run: testSessionManagerDegradedSnapshot },
     { name: 'SessionManager preserves unsnapshotted healthy output when degrading', run: testSessionManagerDirtyCacheDegradedRecovery },
@@ -2843,6 +2846,8 @@ async function testSessionManagerTerminateMultipleSessionsReportsMissing(): Prom
       attempted: 3,
       terminated: 2,
       missing: ['missing-session'],
+      remainingVerifiedDescendants: 0,
+      remainingUnverifiedDescendants: 0,
     });
     assert.equal(harness.manager.getSession(harness.session.id), null);
     assert.equal(harness.manager.getSession(second.id), null);
@@ -2856,8 +2861,26 @@ async function testSessionManagerTerminateMultipleSessionsReportsMissing(): Prom
 }
 
 async function testSessionManagerTerminateAllSessionsBatchResult(): Promise<void> {
+  const fakeTerminator: ProcessTreeTerminator = {
+    async inspect() {
+      throw new Error('inspect should not be called directly');
+    },
+    async terminate(metadata) {
+      return {
+        status: 'degraded',
+        rootPid: metadata.rootPid,
+        terminatedPids: metadata.rootPid === null ? [] : [metadata.rootPid],
+        remainingPids: metadata.rootPid === null ? [] : [metadata.rootPid],
+        unverifiedPids: [9000],
+        method: 'posix-leaf-first',
+      };
+    },
+  };
   const harness = createProcessCleanupSessionHarness({
-    processInspector: () => ({ status: 'observed', remainingDescendants: 0 }),
+    processCleanup: {
+      mode: 'enforce',
+    },
+    processTreeTerminator: fakeTerminator,
   });
 
   try {
@@ -2870,9 +2893,62 @@ async function testSessionManagerTerminateAllSessionsBatchResult(): Promise<void
       attempted: 2,
       terminated: 2,
       missing: [],
+      remainingVerifiedDescendants: 2,
+      remainingUnverifiedDescendants: 2,
     });
     assert.equal(harness.manager.getSession(harness.session.id), null);
     assert.equal(harness.manager.getSession(second.id), null);
+  } finally {
+    harness.cleanupIfActive();
+  }
+}
+
+async function testSessionManagerTerminateAllSessionsEnforceOverrideRecordsTelemetry(): Promise<void> {
+  let terminateCalls = 0;
+  const fakeTerminator: ProcessTreeTerminator = {
+    async inspect() {
+      throw new Error('inspect should not be called directly');
+    },
+    async terminate(metadata) {
+      terminateCalls += 1;
+      return {
+        status: 'degraded',
+        rootPid: metadata.rootPid,
+        terminatedPids: metadata.rootPid === null ? [] : [metadata.rootPid],
+        remainingPids: metadata.rootPid === null ? [] : [metadata.rootPid],
+        unverifiedPids: [],
+        method: 'posix-leaf-first',
+      };
+    },
+  };
+  const harness = createProcessCleanupSessionHarness({
+    processCleanup: {
+      mode: 'legacy',
+    },
+    processTreeTerminator: fakeTerminator,
+  });
+
+  try {
+    const result = await harness.manager.terminateAllSessions({
+      reason: 'shutdown',
+      mode: 'enforce',
+    });
+
+    assert.equal(terminateCalls, 1);
+    assert.deepEqual(result, {
+      attempted: 1,
+      terminated: 1,
+      missing: [],
+      remainingVerifiedDescendants: 1,
+      remainingUnverifiedDescendants: 0,
+    });
+
+    const cleanup = readCleanupTelemetry(harness.manager);
+    assert.equal(cleanup.mode, 'enforce');
+    assert.equal(cleanup.attempted, 1);
+    assert.equal(cleanup.degraded, 1);
+    assert.equal(cleanup.recentResults[0].cleanupStatus, 'degraded');
+    assert.equal(cleanup.recentResults[0].verifiedRemainingDescendants, 1);
   } finally {
     harness.cleanupIfActive();
   }
@@ -4609,6 +4685,11 @@ async function testInternalShutdownRouteSuccess(): Promise<void> {
         workspaceLastCwdCount: 1,
         workspaceTabCount: 1,
         workspaceFlushMarker: '[Shutdown] Workspace state + CWDs saved',
+        sessionCleanupAttempted: 1,
+        sessionCleanupCompleted: 1,
+        sessionCleanupDegraded: 0,
+        sessionCleanupSkippedUnverified: 0,
+        remainingVerifiedDescendants: 0,
       };
     },
   });
@@ -4619,6 +4700,11 @@ async function testInternalShutdownRouteSuccess(): Promise<void> {
   assert.equal(result.body.reason, 'internal-shutdown');
   assert.equal(result.body.workspaceFlushed, true);
   assert.equal(result.body.workspaceFlushMarker, '[Shutdown] Workspace state + CWDs saved');
+  assert.equal(result.body.sessionCleanupAttempted, 1);
+  assert.equal(result.body.sessionCleanupCompleted, 1);
+  assert.equal(result.body.sessionCleanupDegraded, 0);
+  assert.equal(result.body.sessionCleanupSkippedUnverified, 0);
+  assert.equal(result.body.remainingVerifiedDescendants, 0);
   assert.equal(flushed, true);
   assert.deepEqual(exits, [0]);
 }
@@ -4704,9 +4790,243 @@ async function testPerformGracefulShutdownFlushesWorkspaceCwds(): Promise<void> 
     assert.equal(result.workspaceLastCwdCount, 1);
     assert.equal(result.workspaceTabCount, 1);
     assert.equal(result.workspaceFlushMarker, '[Shutdown] Workspace state + CWDs saved');
+    assert.equal(result.sessionCleanupAttempted, 0);
+    assert.equal(result.sessionCleanupCompleted, 0);
+    assert.equal(result.sessionCleanupDegraded, 0);
+    assert.equal(result.sessionCleanupSkippedUnverified, 0);
+    assert.equal(result.remainingVerifiedDescendants, 0);
     assert.deepEqual(events, ['stop-watchers']);
     assert.equal(typeof file.lastUpdated, 'string');
     assert.equal(file.state?.tabs?.[0]?.lastCwd, cwd);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function testPerformGracefulShutdownTerminatesSessionsAfterWorkspaceFlush(): Promise<void> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-graceful-shutdown-cleanup-'));
+  const cwdFilePath = path.join(tmpDir, 'cwd.txt');
+  const workspaceFilePath = path.join(tmpDir, 'workspaces.json');
+  const cwd = path.join(tmpDir, 'project');
+  const events: string[] = [];
+  let cleanupSnapshot = {
+    attempted: 0,
+    completed: 0,
+    degraded: 0,
+    unverifiedSkipped: 0,
+    recentResults: [] as Array<{
+      sessionId: string;
+      reason: string;
+      cleanupStatus: string;
+      remainingDescendants: number;
+      verifiedRemainingDescendants?: number;
+      unverifiedRemainingDescendants?: number;
+    }>,
+  };
+  await fs.writeFile(cwdFilePath, cwd, 'utf-8');
+
+  const sessionManagerStub = {
+    onCwdChange() {},
+    onTerminalTitleChange() {},
+    onSessionFinalized() {},
+    stopAllCwdWatching() {
+      events.push('stop-watchers');
+    },
+    getCwdFilePath(sessionId: string) {
+      assert.equal(sessionId, 'session-1');
+      return cwdFilePath;
+    },
+    getLastCwd() {
+      return null;
+    },
+    async terminateAllSessions(options: { reason: string }) {
+      events.push(`terminate:${options.reason}`);
+      const flushed = JSON.parse(await fs.readFile(workspaceFilePath, 'utf-8')) as {
+        state?: { tabs?: Array<{ lastCwd?: string }> };
+      };
+      assert.equal(flushed.state?.tabs?.[0]?.lastCwd, cwd);
+      await fs.rm(cwdFilePath, { force: true });
+      cleanupSnapshot = {
+        attempted: 2,
+        completed: 1,
+        degraded: 1,
+        unverifiedSkipped: 0,
+        recentResults: [
+          {
+            sessionId: 'session-1',
+            reason: 'shutdown',
+            cleanupStatus: 'completed',
+            remainingDescendants: 0,
+            verifiedRemainingDescendants: 0,
+            unverifiedRemainingDescendants: 0,
+          },
+          {
+            sessionId: 'session-2',
+            reason: 'shutdown',
+            cleanupStatus: 'degraded',
+            remainingDescendants: 3,
+            verifiedRemainingDescendants: 1,
+            unverifiedRemainingDescendants: 2,
+          },
+        ],
+      };
+      return {
+        attempted: 2,
+        terminated: 2,
+        missing: [],
+        remainingVerifiedDescendants: 1,
+        remainingUnverifiedDescendants: 2,
+      };
+    },
+    getObservabilitySnapshot() {
+      return {
+        totalSessions: cleanupSnapshot.attempted === 0 ? 2 : 0,
+        cleanup: cleanupSnapshot,
+      };
+    },
+  } as unknown as SessionManager;
+  const workspaceService = new WorkspaceService(sessionManagerStub);
+  (workspaceService as any).dataFilePath = workspaceFilePath;
+  (workspaceService as any).state = {
+    workspaces: [{
+      id: 'workspace-1',
+      name: 'Workspace',
+      sortOrder: 0,
+      viewMode: 'tab',
+      activeTabId: 'tab-1',
+      colorCounter: 0,
+      createdAt: '2026-04-27T00:00:00.000Z',
+      updatedAt: '2026-04-27T00:00:00.000Z',
+    }],
+    tabs: [{
+      id: 'tab-1',
+      workspaceId: 'workspace-1',
+      sessionId: 'session-1',
+      name: 'Terminal',
+      colorIndex: 0,
+      sortOrder: 0,
+      shellType: 'auto',
+      createdAt: '2026-04-27T00:00:00.000Z',
+    }],
+    gridLayouts: [],
+  };
+  const originalSnapshotAllCwds = workspaceService.snapshotAllCwds.bind(workspaceService);
+  const originalForceFlush = workspaceService.forceFlush.bind(workspaceService);
+  let flushCount = 0;
+  (workspaceService as any).snapshotAllCwds = () => {
+    events.push('snapshot');
+    originalSnapshotAllCwds();
+  };
+  (workspaceService as any).forceFlush = async () => {
+    flushCount += 1;
+    events.push(`flush-${flushCount}`);
+    await originalForceFlush();
+  };
+
+  try {
+    const result = await performGracefulShutdown('internal-shutdown', {
+      sessionManager: sessionManagerStub,
+      workspaceService,
+    });
+    const finalWorkspace = JSON.parse(await fs.readFile(workspaceFilePath, 'utf-8')) as {
+      state?: { tabs?: Array<{ lastCwd?: string }> };
+    };
+
+    assert.deepEqual(events, ['stop-watchers', 'snapshot', 'flush-1', 'terminate:shutdown', 'flush-2']);
+    assert.equal(flushCount, 2);
+    assert.equal(finalWorkspace.state?.tabs?.[0]?.lastCwd, cwd);
+    assert.equal(result.sessionCleanupAttempted, 2);
+    assert.equal(result.sessionCleanupCompleted, 1);
+    assert.equal(result.sessionCleanupDegraded, 1);
+    assert.equal(result.sessionCleanupSkippedUnverified, 0);
+    assert.equal(result.remainingVerifiedDescendants, 1);
+    assert.equal(result.workspaceFlushed, true);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function testPerformGracefulShutdownSessionCleanupTimeoutDegradesAndFinalFlushes(): Promise<void> {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-graceful-shutdown-timeout-'));
+  const workspaceFilePath = path.join(tmpDir, 'workspaces.json');
+  const events: string[] = [];
+  let flushCount = 0;
+  let cleanupSnapshot = {
+    attempted: 0,
+    completed: 0,
+    degraded: 0,
+    unverifiedSkipped: 0,
+    recentResults: [] as Array<{
+      sessionId: string;
+      reason: string;
+      cleanupStatus: string;
+      remainingDescendants: number;
+      verifiedRemainingDescendants?: number;
+      unverifiedRemainingDescendants?: number;
+      recordedAt: string;
+    }>,
+  };
+  const sessionManagerStub = {
+    stopAllCwdWatching() {
+      events.push('stop-watchers');
+    },
+    async terminateAllSessions() {
+      events.push('terminate');
+      cleanupSnapshot = {
+        attempted: 1,
+        completed: 0,
+        degraded: 1,
+        unverifiedSkipped: 0,
+        recentResults: [{
+          sessionId: 'session-timeout-1',
+          reason: 'shutdown',
+          cleanupStatus: 'degraded',
+          remainingDescendants: 2,
+          verifiedRemainingDescendants: 1,
+          unverifiedRemainingDescendants: 1,
+          recordedAt: new Date().toISOString(),
+        }],
+      };
+      await new Promise(() => undefined);
+      return { attempted: 2, terminated: 0, missing: [] };
+    },
+    getObservabilitySnapshot() {
+      return {
+        totalSessions: cleanupSnapshot.attempted === 0 ? 2 : 1,
+        cleanup: cleanupSnapshot,
+      };
+    },
+  } as unknown as SessionManager;
+  const workspaceService = {
+    snapshotAllCwds() {
+      events.push('snapshot');
+    },
+    async forceFlush() {
+      flushCount += 1;
+      events.push(`flush-${flushCount}`);
+      await fs.writeFile(workspaceFilePath, JSON.stringify({
+        lastUpdated: new Date().toISOString(),
+        state: { tabs: [] },
+      }), 'utf-8');
+    },
+    getDataFilePath() {
+      return workspaceFilePath;
+    },
+  };
+
+  try {
+    const result = await performGracefulShutdown('SIGTERM', {
+      sessionManager: sessionManagerStub,
+      workspaceService,
+      sessionCleanupTimeoutMs: 1,
+    });
+
+    assert.deepEqual(events, ['stop-watchers', 'snapshot', 'flush-1', 'terminate', 'flush-2']);
+    assert.equal(result.sessionCleanupAttempted, 2);
+    assert.equal(result.sessionCleanupCompleted, 0);
+    assert.equal(result.sessionCleanupDegraded, 2);
+    assert.equal(result.sessionCleanupSkippedUnverified, 0);
+    assert.equal(result.remainingVerifiedDescendants, 1);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
