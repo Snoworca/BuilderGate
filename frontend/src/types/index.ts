@@ -139,6 +139,8 @@ export type {
   FieldApplyScope,
   FieldCapability,
   EditableSettingsValues,
+  ResourceLimitsPatch,
+  ResourceLimitsSettings,
   SettingsSnapshot,
   SettingsPatchRequest,
   SettingsApplySummary,

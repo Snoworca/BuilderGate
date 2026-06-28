@@ -210,8 +210,8 @@ export class SettingsService {
   savePatch(input: unknown, actorContext: SaveActorContext = {}): SettingsSaveResponse {
     const patch = this.validatePatch(input);
     validatePasswordPatch(patch, this.deps.authService);
-    const changedKeys = extractChangedKeys(patch);
-    if (changedKeys.length === 0) {
+    const patchKeys = extractPatchKeys(patch);
+    if (patchKeys.length === 0) {
       return {
         ...this.getSettingsSnapshot(),
         changedKeys: [],
@@ -219,10 +219,19 @@ export class SettingsService {
       };
     }
 
+    const previousValues = normalizeEditableValues(this.deps.runtimeConfigStore.getEditableValues());
     const mergedValues = normalizeEditableValues(mergeEditablePatchOrThrow(this.deps.runtimeConfigStore, patch));
     validateCorsPatch(mergedValues, actorContext.origin);
-    validatePlatformPatch(mergedValues, changedKeys, this.platform);
-    validateCapabilityPatch(mergedValues, changedKeys, this.getSettingsSnapshot());
+    validatePlatformPatch(mergedValues, patchKeys, this.platform);
+    validateCapabilityPatch(mergedValues, patchKeys, this.getSettingsSnapshot());
+    const changedKeys = filterActuallyChangedKeys(patchKeys, previousValues, mergedValues, patch);
+    if (changedKeys.length === 0) {
+      return {
+        ...this.getSettingsSnapshot(),
+        changedKeys: [],
+        applySummary: { immediate: [], new_logins: [], new_sessions: [], warnings: [] },
+      };
+    }
     const secrets = {
       authPassword: patch.auth?.newPassword ? this.deps.cryptoService.encrypt(patch.auth.newPassword) : undefined,
     };
@@ -341,7 +350,7 @@ export class SettingsService {
   }
 }
 
-function extractChangedKeys(patch: SettingsPatchRequest): EditableSettingsKey[] {
+function extractPatchKeys(patch: SettingsPatchRequest): EditableSettingsKey[] {
   const changed = new Set<EditableSettingsKey>();
 
   if (patch.auth?.durationMs !== undefined) changed.add('auth.durationMs');
@@ -375,6 +384,47 @@ function extractChangedKeys(patch: SettingsPatchRequest): EditableSettingsKey[] 
   addChangedNestedKeys(changed, 'stabilityModes', patch.stabilityModes);
 
   return [...changed];
+}
+
+function filterActuallyChangedKeys(
+  patchKeys: EditableSettingsKey[],
+  previousValues: EditableSettingsValues,
+  nextValues: EditableSettingsValues,
+  patch: SettingsPatchRequest,
+): EditableSettingsKey[] {
+  return patchKeys.filter((key) => {
+    if (key === 'auth.password') {
+      return Boolean(patch.auth?.newPassword);
+    }
+
+    return !settingsValuesEqual(
+      getEditableSettingValue(previousValues, key),
+      getEditableSettingValue(nextValues, key),
+    );
+  });
+}
+
+function getEditableSettingValue(values: EditableSettingsValues, key: EditableSettingsKey): unknown {
+  let cursor: unknown = values;
+  for (const segment of key.split('.')) {
+    if (typeof cursor !== 'object' || cursor === null) {
+      return undefined;
+    }
+    cursor = (cursor as Record<string, unknown>)[segment];
+  }
+  return cursor;
+}
+
+function settingsValuesEqual(previous: unknown, next: unknown): boolean {
+  if (Object.is(previous, next)) {
+    return true;
+  }
+
+  if (typeof previous === 'object' && previous !== null && typeof next === 'object' && next !== null) {
+    return JSON.stringify(previous) === JSON.stringify(next);
+  }
+
+  return false;
 }
 
 function addChangedNestedKeys(

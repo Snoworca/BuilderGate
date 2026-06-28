@@ -1,0 +1,348 @@
+{
+  "schema_version": "1.1.0",
+  "plan_contract": "1.2.0",
+  "run_id": "2026-06-29.projectmaster.bgwave6",
+  "target": "0.5.5-buildergate-stability",
+  "plan_version": "0.1.0",
+  "generated_at": "2026-06-29T00:00:00+09:00",
+  "tool_versions": {
+    "speckiwi": "mcp",
+    "kiwi_planner": "0.6.0",
+    "validator": "0.6.0"
+  },
+  "tdd_policy": "relaxed",
+  "md_path": "docs/plans/2026-06-29.projectmaster.bgwave6.plan.md",
+  "md_sha256": "pending",
+  "phases": [
+    {
+      "id": "PH-001",
+      "title": "Frontend Patch Helpers",
+      "goal": "Add testable Wave6 field allowlist, minimal patch generation, and local validation",
+      "depends_on": [],
+      "task_ids": ["T-PH001-01"]
+    },
+    {
+      "id": "PH-002",
+      "title": "Settings UI",
+      "goal": "Render Wave6 Settings resource cards and route-mock UI behavior",
+      "depends_on": ["PH-001"],
+      "task_ids": ["T-PH002-01"]
+    },
+    {
+      "id": "PH-003",
+      "title": "Server Contract Sync",
+      "goal": "Align focused server tests with Wave6 selected resource settings",
+      "depends_on": ["PH-001"],
+      "task_ids": ["T-PH003-01"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "title": "Frontend helper patch and validation",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-013"],
+      "files": [
+        { "path": "frontend/src/components/Settings/settingsDraftHelpers.ts" },
+        { "path": "frontend/tests/unit/settingsDraftHelpers.test.ts" }
+      ],
+      "action": "Add a Settings helper module that defines the Wave6 resource field allowlist, builds minimal nested resourceLimits patches, excludes reserved/unavailable fields, and validates numeric constraints without clamping.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "node --experimental-strip-types --test frontend/tests/unit/settingsDraftHelpers.test.ts", "expected_exit": 0 }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test frontend/tests/unit/settingsDraftHelpers.test.ts",
+        "windows": "node --experimental-strip-types --test frontend/tests/unit/settingsDraftHelpers.test.ts"
+      },
+      "dod": [
+        "Helper exports are typed",
+        "Unchanged values produce no resourceLimits patch",
+        "One changed nested leaf produces only that leaf",
+        "Telemetry, stabilityModes, and reserved fields are not emitted",
+        "Invalid numeric values return validation errors"
+      ],
+      "rollback": "Remove the helper and unit test; restore SettingsPage local buildPatch if it was already wired.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-01-REQ",
+          "source": { "type": "Task", "id": "T-PH001-01" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-013" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "M",
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-BGSTAB-013-AC2-01",
+            "req_id": "FR-BGSTAB-013",
+            "ac_refs": ["AC-2"],
+            "test_file": "frontend/tests/unit/settingsDraftHelpers.test.ts",
+            "test_symbol": "builds minimal nested resourceLimits patch",
+            "kind": "unit",
+            "expected_failure_signature": "Cannot find module"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-013-AC3-01",
+            "req_id": "FR-BGSTAB-013",
+            "ac_refs": ["AC-3"],
+            "test_file": "frontend/tests/unit/settingsDraftHelpers.test.ts",
+            "test_symbol": "validates numeric capability constraints",
+            "kind": "unit",
+            "expected_failure_signature": "Cannot find module"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        { "path": "frontend/tests/unit/settingsDraftHelpers.test.ts" }
+      ],
+      "depends_on_task": [],
+      "covers_ac": ["AC-2", "AC-3"]
+    },
+    {
+      "id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "title": "Settings resource cards and route mock",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-013"],
+      "files": [
+        { "path": "frontend/src/components/Settings/SettingsPage.tsx" },
+        { "path": "frontend/tests/e2e/settings-resource-limits.spec.ts" }
+      ],
+      "action": "Render metadata-driven Wave6 resource cards using existing Card, Field, ScopeBadge, save, error, warning, and success flows; wire helper-built PATCH body into save.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "npm --prefix frontend exec playwright test tests/e2e/settings-resource-limits.spec.ts --project \"Desktop Chrome\"", "expected_exit": 0 }
+      ],
+      "verification_cmd": {
+        "posix": "npm --prefix frontend exec playwright test tests/e2e/settings-resource-limits.spec.ts --project \"Desktop Chrome\"",
+        "windows": "npm --prefix frontend exec playwright test tests/e2e/settings-resource-limits.spec.ts --project \"Desktop Chrome\""
+      },
+      "dod": [
+        "Representative exposed fields render",
+        "Unavailable and reserved fields stay hidden",
+        "Saving sends exact nested resourceLimits PATCH",
+        "Server validation error is visible",
+        "Apply summary is visible"
+      ],
+      "rollback": "Remove Wave6 cards and E2E spec, leaving Settings helper tests available for a later UI retry.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-01-REQ",
+          "source": { "type": "Task", "id": "T-PH002-01" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-013" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "M",
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-BGSTAB-013-AC1-01",
+            "req_id": "FR-BGSTAB-013",
+            "ac_refs": ["AC-1"],
+            "test_file": "frontend/tests/e2e/settings-resource-limits.spec.ts",
+            "test_symbol": "renders selected Wave6 resource fields",
+            "kind": "e2e",
+            "expected_failure_signature": "Resource Limits"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-013-AC4-01",
+            "req_id": "FR-BGSTAB-013",
+            "ac_refs": ["AC-4"],
+            "test_file": "frontend/tests/e2e/settings-resource-limits.spec.ts",
+            "test_symbol": "renders server validation error",
+            "kind": "e2e",
+            "expected_failure_signature": "settings-banner-error"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        { "path": "frontend/tests/e2e/settings-resource-limits.spec.ts" }
+      ],
+      "depends_on_task": ["T-PH001-01"],
+      "covers_ac": ["AC-1", "AC-2", "AC-4"]
+    },
+    {
+      "id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "title": "Server Settings contract tests",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-013"],
+      "files": [
+        { "path": "server/src/services/RuntimeConfigStore.test.ts" },
+        { "path": "server/src/services/SettingsService.resourceLimits.test.ts" },
+        { "path": "server/src/services/ConfigFileRepository.resourceLimits.test.ts" }
+      ],
+      "action": "Update focused server tests so selected Wave6 resource fields are accepted, persisted, summarized, rolled back on apply failure, and excluded from browser-public runtime config where server-only.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "npm --prefix server test", "expected_exit": 0 }
+      ],
+      "verification_cmd": {
+        "posix": "npm --prefix server test",
+        "windows": "npm --prefix server test"
+      },
+      "dod": [
+        "Server-only headless/ws fields remain absent from public runtime config",
+        "Valid selected resource patches persist and report scopes",
+        "Invalid relationships fail",
+        "Apply failure rolls runtime state back"
+      ],
+      "rollback": "Revert only focused test changes and any minimal server contract changes introduced for Wave6.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-01-REQ",
+          "source": { "type": "Task", "id": "T-PH003-01" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-013" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "M",
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-BGSTAB-013-AC5-01",
+            "req_id": "FR-BGSTAB-013",
+            "ac_refs": ["AC-5"],
+            "test_file": "server/src/services/SettingsService.resourceLimits.test.ts",
+            "test_symbol": "saves selected server and public resource fields",
+            "kind": "unit",
+            "expected_failure_signature": "later stability wave"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-013-AC6-01",
+            "req_id": "FR-BGSTAB-013",
+            "ac_refs": ["AC-6"],
+            "test_file": "server/src/services/RuntimeConfigStore.test.ts",
+            "test_symbol": "keeps server-only fields out of public runtime config",
+            "kind": "unit",
+            "expected_failure_signature": "available"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        { "path": "server/src/services/RuntimeConfigStore.test.ts" },
+        { "path": "server/src/services/SettingsService.resourceLimits.test.ts" },
+        { "path": "server/src/services/ConfigFileRepository.resourceLimits.test.ts" }
+      ],
+      "depends_on_task": ["T-PH001-01"],
+      "covers_ac": ["AC-4", "AC-5", "AC-6"]
+    }
+  ],
+  "coverage": [
+    {
+      "req_id": "FR-BGSTAB-013",
+      "stability": "evolving",
+      "ac_total": 6,
+      "ac_covered": 6,
+      "missing_ac_ids": [],
+      "covered_tasks": ["T-PH001-01", "T-PH002-01", "T-PH003-01"],
+      "ac_test_map": [
+        { "ac_id": "AC-1", "test_case_ids": ["TC-REQ-FR-BGSTAB-013-AC1-01"] },
+        { "ac_id": "AC-2", "test_case_ids": ["TC-REQ-FR-BGSTAB-013-AC2-01"] },
+        { "ac_id": "AC-3", "test_case_ids": ["TC-REQ-FR-BGSTAB-013-AC3-01"] },
+        { "ac_id": "AC-4", "test_case_ids": ["TC-REQ-FR-BGSTAB-013-AC4-01"] },
+        { "ac_id": "AC-5", "test_case_ids": ["TC-REQ-FR-BGSTAB-013-AC5-01"] },
+        { "ac_id": "AC-6", "test_case_ids": ["TC-REQ-FR-BGSTAB-013-AC6-01"] }
+      ]
+    }
+  ],
+  "orphans": [],
+  "unreferenced_reqs": [],
+  "excluded_reqs": [],
+  "deferred_ac": [],
+  "risks": [
+    {
+      "id": "R1",
+      "severity": "high",
+      "description": "Wave6 UI changes could accidentally alter Wave7 runtime behavior.",
+      "mitigation": "Keep Wave6 changes to Settings UI/helper/tests and server Settings contract tests.",
+      "affected_task_ids": ["T-PH001-01", "T-PH002-01"]
+    },
+    {
+      "id": "R2",
+      "severity": "med",
+      "description": "Server-only resource fields could leak through public runtime config.",
+      "mitigation": "Keep public projection focused on browser-needed sections and add focused assertions.",
+      "affected_task_ids": ["T-PH003-01"]
+    }
+  ],
+  "open_questions": [],
+  "external_module_impact": [],
+  "tdd_decisions": [],
+  "coder_handoff_readiness": [
+    { "phase_id": "PH-001", "ready": true, "blockers": [] },
+    { "phase_id": "PH-002", "ready": true, "blockers": [] },
+    { "phase_id": "PH-003", "ready": true, "blockers": [] }
+  ],
+  "mcp_call_log": [
+    {
+      "seq": 1,
+      "call": "add_trace_link",
+      "args": {
+        "source": { "type": "Task", "id": "T-PH001-01" },
+        "target": { "type": "Requirement", "reference": "FR-BGSTAB-013" },
+        "relation": "depends_on"
+      },
+      "args_hash": "0000000000000000000000000000000000000001",
+      "response_hash": null,
+      "timestamp": "2026-06-29T00:00:00+09:00",
+      "ok": null,
+      "dry_run": true
+    },
+    {
+      "seq": 2,
+      "call": "add_trace_link",
+      "args": {
+        "source": { "type": "Task", "id": "T-PH002-01" },
+        "target": { "type": "Requirement", "reference": "FR-BGSTAB-013" },
+        "relation": "depends_on"
+      },
+      "args_hash": "0000000000000000000000000000000000000002",
+      "response_hash": null,
+      "timestamp": "2026-06-29T00:00:00+09:00",
+      "ok": null,
+      "dry_run": true
+    },
+    {
+      "seq": 3,
+      "call": "add_trace_link",
+      "args": {
+        "source": { "type": "Task", "id": "T-PH003-01" },
+        "target": { "type": "Requirement", "reference": "FR-BGSTAB-013" },
+        "relation": "depends_on"
+      },
+      "args_hash": "0000000000000000000000000000000000000003",
+      "response_hash": null,
+      "timestamp": "2026-06-29T00:00:00+09:00",
+      "ok": null,
+      "dry_run": true
+    },
+    {
+      "seq": 4,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "FR-BGSTAB-013",
+        "type": "plan",
+        "reference": "docs/plans/2026-06-29.projectmaster.bgwave6.plan.md"
+      },
+      "args_hash": "0000000000000000000000000000000000000004",
+      "response_hash": null,
+      "timestamp": "2026-06-29T00:00:00+09:00",
+      "ok": null,
+      "dry_run": true
+    }
+  ]
+}

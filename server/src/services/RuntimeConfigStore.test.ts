@@ -87,7 +87,7 @@ test('RuntimeConfigStore marks platform-specific capabilities and merges editabl
   assert.deepEqual(merged.fileManager.blockedExtensions, ['.ps1']);
 });
 
-test('RuntimeConfigStore exposes Wave 0 resource limits in snapshots and public runtime config', () => {
+test('RuntimeConfigStore exposes Wave6 resource capabilities without leaking server-only runtime config', () => {
   const store = new RuntimeConfigStore({
     ...createConfigFixture(),
     realtime: {
@@ -104,12 +104,22 @@ test('RuntimeConfigStore exposes Wave 0 resource limits in snapshots and public 
 
   assert.equal(snapshot.values.resourceLimits.clientWs.inputBackpressureBytes, 1048576);
   assert.equal(snapshot.values.resourceLimits.terminal.hiddenOutputPolicy, 'write-hidden');
+  assert.equal(snapshot.values.resourceLimits.ws.serverBufferedHighWaterBytes, 8388608);
   assert.equal(snapshot.values.stabilityModes.frontendRuntimeResidency, 'bounded');
   assert.equal(snapshot.capabilities['resourceLimits.clientWs.inputBackpressureBytes'].applyScope, 'immediate');
-  assert.equal(snapshot.capabilities['resourceLimits.ws.serverBufferedHighWaterBytes'].available, false);
-  assert.match(snapshot.capabilities['resourceLimits.ws.serverBufferedHighWaterBytes'].reason ?? '', /later stability wave/);
+  assert.equal(snapshot.capabilities['resourceLimits.ws.serverBufferedHighWaterBytes'].available, true);
+  assert.equal(snapshot.capabilities['resourceLimits.ws.serverBufferedHighWaterBytes'].applyScope, 'immediate');
+  assert.equal(snapshot.capabilities['resourceLimits.headless.pendingOutputMaxBytes'].available, true);
+  assert.equal(snapshot.capabilities['resourceLimits.headless.pendingOutputMaxBytes'].applyScope, 'new_sessions');
+  assert.equal(snapshot.capabilities['resourceLimits.headless.writeLagWarnMs'].available, false);
+  assert.equal(snapshot.capabilities['resourceLimits.ws.perClientControlQueueMaxBytes'].available, false);
+  assert.match(snapshot.capabilities['resourceLimits.ws.perClientControlQueueMaxBytes'].reason ?? '', /selected Wave6 Settings field set/);
+  assert.equal(snapshot.capabilities['resourceLimits.terminal.visibleOutputQueueMaxBytes'].available, false);
+  assert.equal(snapshot.capabilities['resourceLimits.telemetry.sampleIntervalMs'].available, false);
+  assert.match(snapshot.capabilities['resourceLimits.telemetry.sampleIntervalMs'].reason ?? '', /later stability wave/);
   assert.equal(snapshot.capabilities['stabilityModes.wsSendMode'].available, false);
-  assert.equal(snapshot.capabilities['stabilityModes.frontendRuntimeResidency'].available, true);
+  assert.equal(snapshot.capabilities['stabilityModes.frontendRuntimeResidency'].available, false);
+  assert.match(snapshot.capabilities['stabilityModes.wsSendMode'].reason ?? '', /selected Wave6 Settings field set/);
   assert.deepEqual(snapshot.capabilities['resourceLimits.clientWs.inputBackpressureBytes'].constraints, {
     min: 1024,
     max: 268435456,
@@ -152,6 +162,9 @@ test('RuntimeConfigStore exposes Wave 0 resource limits in snapshots and public 
       },
     },
   });
+  assert.equal('headless' in publicConfig.resourceLimits, false);
+  assert.equal('ws' in publicConfig.resourceLimits, false);
+  assert.equal('telemetry' in publicConfig.resourceLimits, false);
 });
 
 test('RuntimeConfigStore validates Wave 0 resource limit patches after merging', () => {

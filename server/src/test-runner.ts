@@ -93,7 +93,7 @@ async function main(): Promise<void> {
     { name: 'RuntimeConfigStore builds a redacted editable snapshot', run: testRuntimeConfigSnapshot },
     { name: 'RuntimeConfigStore marks platform capabilities and merges patches', run: testRuntimeConfigCapabilities },
     { name: 'RuntimeConfigStore normalizes platform-specific PTY values in editable snapshots', run: testRuntimeConfigPlatformNormalization },
-    { name: 'RuntimeConfigStore marks Wave4 server limits as runtime-applied settings', run: testRuntimeConfigWave4ServerLimitCapabilities },
+    { name: 'RuntimeConfigStore marks selected Wave6 resource limits as settings-applied', run: testRuntimeConfigWave6SelectedResourceCapabilities },
     { name: 'server startup wires Wave4 limits into WsRouter construction', run: testServerStartupWiresWave4LimitsIntoWsRouter },
     { name: 'BoundedByteDeque enforces UTF-8 byte caps', run: testBoundedByteDequeUtf8ByteCap },
     { name: 'BoundedByteDeque enforces chunk caps', run: testBoundedByteDequeChunkCap },
@@ -1004,22 +1004,26 @@ function testRuntimeConfigCapabilities(): void {
   assert.deepEqual(merged.fileManager.blockedExtensions, ['.ps1']);
 }
 
-function testRuntimeConfigWave4ServerLimitCapabilities(): void {
+function testRuntimeConfigWave6SelectedResourceCapabilities(): void {
   const store = new RuntimeConfigStore(createConfigFixture(), 'linux');
   const capabilities = store.getFieldCapabilities();
 
   assert.equal(capabilities['resourceLimits.headless.pendingOutputMaxBytes'].available, true);
   assert.equal(capabilities['resourceLimits.headless.pendingOutputMaxChunks'].available, true);
-  assert.equal(capabilities['resourceLimits.headless.writeLagWarnMs'].available, true);
-  assert.equal(capabilities['resourceLimits.headless.writeBatchMaxBytes'].available, true);
-  assert.equal(capabilities['resourceLimits.headless.overflowPolicy'].available, true);
+  assert.equal(capabilities['resourceLimits.headless.writeLagWarnMs'].available, false);
+  assert.equal(capabilities['resourceLimits.headless.writeBatchMaxBytes'].available, false);
+  assert.equal(capabilities['resourceLimits.headless.overflowPolicy'].available, false);
   assert.equal(capabilities['resourceLimits.ws.serverBufferedHighWaterBytes'].available, true);
   assert.equal(capabilities['resourceLimits.ws.serverBufferedHardLimitBytes'].available, true);
   assert.equal(capabilities['resourceLimits.ws.perClientOutputQueueMaxBytes'].available, true);
-  assert.equal(capabilities['resourceLimits.ws.perClientControlQueueMaxBytes'].available, true);
-  assert.equal(capabilities['resourceLimits.ws.outputCoalesceWindowMs'].available, true);
-  assert.equal(capabilities['stabilityModes.headlessQueueMode'].available, true);
-  assert.equal(capabilities['stabilityModes.wsSendMode'].available, true);
+  assert.equal(capabilities['resourceLimits.ws.perClientControlQueueMaxBytes'].available, false);
+  assert.equal(capabilities['resourceLimits.ws.outputCoalesceWindowMs'].available, false);
+  assert.equal(capabilities['resourceLimits.terminal.visibleOutputQueueMaxBytes'].available, false);
+  assert.equal(capabilities['resourceLimits.terminal.scrollbackLines'].available, false);
+  assert.equal(capabilities['stabilityModes.headlessQueueMode'].available, false);
+  assert.equal(capabilities['stabilityModes.wsSendMode'].available, false);
+  assert.equal(capabilities['stabilityModes.frontendRuntimeResidency'].available, false);
+  assert.match(capabilities['stabilityModes.wsSendMode'].reason ?? '', /selected Wave6 Settings field set/);
   assert.equal(capabilities['resourceLimits.telemetry.sampleIntervalMs'].available, false);
   assert.equal(capabilities['resourceLimits.telemetry.recentEventLimit'].available, false);
 }
@@ -1196,23 +1200,17 @@ async function testSettingsServiceAppliesWave4HeadlessRuntimeSettings(): Promise
         headless: {
           pendingOutputMaxBytes: 4096,
           pendingOutputMaxChunks: 5,
-          writeLagWarnMs: 30,
-          writeBatchMaxBytes: 2048,
         },
-      },
-      stabilityModes: {
-        headlessQueueMode: 'bounded',
       },
     });
 
     assert.ok(result.changedKeys.includes('resourceLimits.headless.pendingOutputMaxBytes'));
-    assert.ok(result.changedKeys.includes('stabilityModes.headlessQueueMode'));
     const runtime = (sessionManager as any).runtimeHeadlessQueueConfig;
-    assert.equal(runtime.mode, 'bounded');
+    assert.equal(runtime.mode, 'observe');
     assert.equal(runtime.limits.pendingOutputMaxBytes, 4096);
     assert.equal(runtime.limits.pendingOutputMaxChunks, 5);
-    assert.equal(runtime.limits.writeLagWarnMs, 30);
-    assert.equal(runtime.limits.writeBatchMaxBytes, 2048);
+    assert.equal(runtime.limits.writeLagWarnMs, 500);
+    assert.equal(runtime.limits.writeBatchMaxBytes, 65536);
   } finally {
     authService.destroy();
     await fs.rm(tempDir, { recursive: true, force: true });
@@ -1265,28 +1263,20 @@ async function testSettingsServiceAppliesWave4WsRuntimeSettings(): Promise<void>
           serverBufferedHighWaterBytes: 4096,
           serverBufferedHardLimitBytes: 8192,
           perClientOutputQueueMaxBytes: 2048,
-          perClientControlQueueMaxBytes: 1024,
-          outputCoalesceWindowMs: 9,
         },
-      },
-      stabilityModes: {
-        wsSendMode: 'safe-send-observe',
       },
     });
 
     assert.ok(result.changedKeys.includes('resourceLimits.ws.serverBufferedHighWaterBytes'));
-    assert.ok(result.changedKeys.includes('stabilityModes.wsSendMode'));
     assert.ok(result.applySummary.immediate.includes('resourceLimits.ws.serverBufferedHighWaterBytes'));
-    assert.ok(result.applySummary.immediate.includes('stabilityModes.wsSendMode'));
     assert.equal(result.applySummary.new_sessions.includes('resourceLimits.ws.serverBufferedHighWaterBytes'), false);
-    assert.equal(result.applySummary.new_sessions.includes('stabilityModes.wsSendMode'), false);
     const runtime = (router as any).runtimeSendPolicyConfig;
-    assert.equal(runtime.mode, 'safe-send-observe');
+    assert.equal(runtime.mode, 'direct');
     assert.equal(runtime.limits.serverBufferedHighWaterBytes, 4096);
     assert.equal(runtime.limits.serverBufferedHardLimitBytes, 8192);
     assert.equal(runtime.limits.perClientOutputQueueMaxBytes, 2048);
-    assert.equal(runtime.limits.perClientControlQueueMaxBytes, 1024);
-    assert.equal(runtime.limits.outputCoalesceWindowMs, 9);
+    assert.equal(runtime.limits.perClientControlQueueMaxBytes, 262144);
+    assert.equal(runtime.limits.outputCoalesceWindowMs, 16);
   } finally {
     router.destroy();
     authService.destroy();

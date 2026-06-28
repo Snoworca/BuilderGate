@@ -5,7 +5,6 @@ import type {
   EditableSettingsValues,
   FieldApplyScope,
   SettingsApplySummary,
-  SettingsPatchRequest,
   SettingsSnapshot,
   TOTPQRInfo,
 } from '../../types';
@@ -13,6 +12,16 @@ import { authApi, settingsApi } from '../../services/api';
 import { ConfirmModal } from '../Modal';
 import { AUTO_FOCUS_RATIO_KEY, AUTO_FOCUS_RATIO_DEFAULT, FOCUS_RATIO_KEY, FOCUS_RATIO_DEFAULT } from '../../utils/mosaic';
 import { validatePasswordPolicy } from '../../utils/passwordPolicy';
+import {
+  WAVE6_RESOURCE_LIMIT_GROUPS,
+  buildSettingsPatch,
+  formatResourceLimitInput,
+  getResourceLimitValue,
+  parseResourceLimitInput,
+  resourceLimitTestId,
+  setResourceLimitValue,
+  validateWave6ResourceLimitDraft,
+} from './settingsDraftHelpers';
 import './SettingsPage.css';
 
 interface SecretDraft {
@@ -191,6 +200,8 @@ export function SettingsPage({ visible, onBack }: Props) {
       errors.push('winpty is unavailable on this host. Enable "Use ConPTY" before saving terminal settings.');
     }
 
+    errors.push(...validateWave6ResourceLimitDraft(draft, snapshot.capabilities));
+
     return errors;
   }, [draft, secrets, snapshot]);
 
@@ -235,11 +246,12 @@ export function SettingsPage({ visible, onBack }: Props) {
   const save = async () => {
     if (!snapshot || !draft || validationErrors.length > 0) return;
 
-    const patch = buildPatch(snapshot.values, draft, secrets);
+    const patch = buildSettingsPatch(snapshot.values, draft, secrets, snapshot.capabilities);
     if (Object.keys(patch).length === 0) return;
 
     setSaving(true);
     setSaveError(null);
+    setSummary(null);
     try {
       const response = await settingsApi.patchSettings(patch);
       setSnapshot(response);
@@ -422,6 +434,49 @@ export function SettingsPage({ visible, onBack }: Props) {
               <Field label="CWD cache TTL (ms)" scope={scope(snapshot, 'fileManager.cwdCacheTtlMs')}><input type="number" value={draft.fileManager.cwdCacheTtlMs} onChange={(e) => updateDraft((next) => { next.fileManager.cwdCacheTtlMs = Number(e.target.value || draft.fileManager.cwdCacheTtlMs); })} /></Field>
             </Card>
 
+            {WAVE6_RESOURCE_LIMIT_GROUPS.map((group) => {
+              const visibleFields = group.fields.filter((field) => snapshot.capabilities[field.key]?.available);
+              if (visibleFields.length === 0) return null;
+
+              return (
+                <Card key={group.title} title={group.title}>
+                  {visibleFields.map((field) => {
+                    const capability = snapshot.capabilities[field.key];
+                    const value = getResourceLimitValue(draft, field.key);
+                    const constraints = capability.constraints;
+
+                    return (
+                      <Field key={field.key} label={field.label} scope={scope(snapshot, field.key)} hint={formatConstraintHint(capability.reason, constraints?.unit)}>
+                        {field.control === 'select' ? (
+                          <select
+                            data-testid={resourceLimitTestId(field.key)}
+                            value={String(value)}
+                            onChange={(e) => updateDraft((next) => {
+                              setResourceLimitValue(next, field.key, e.target.value);
+                            })}
+                          >
+                            {(capability.options ?? []).map((item) => <option key={item} value={item}>{item}</option>)}
+                          </select>
+                        ) : (
+                          <input
+                            data-testid={resourceLimitTestId(field.key)}
+                            type="number"
+                            min={constraints?.min}
+                            max={constraints?.max}
+                            step={constraints?.step ?? 1}
+                            value={formatResourceLimitInput(value)}
+                            onChange={(e) => updateDraft((next) => {
+                              setResourceLimitValue(next, field.key, parseResourceLimitInput(e.target.value));
+                            })}
+                          />
+                        )}
+                      </Field>
+                    );
+                  })}
+                </Card>
+              );
+            })}
+
             <Card title="Grid Layout">
               <label className="settings-field-row">
                 <div className="settings-field-label">
@@ -523,6 +578,13 @@ function scope(snapshot: SettingsSnapshot, key: EditableSettingsKey): FieldApply
   return snapshot.capabilities[key]?.applyScope ?? 'immediate';
 }
 
+function formatConstraintHint(reason: string | undefined, unit: string | undefined): string | undefined {
+  if (reason && unit) return `${reason} Unit: ${unit}`;
+  if (reason) return reason;
+  if (unit) return `Unit: ${unit}`;
+  return undefined;
+}
+
 function parseList(value: string): string[] {
   return value.split(/\r?\n|,/).map((entry) => entry.trim()).filter(Boolean);
 }
@@ -534,54 +596,4 @@ function isValidOrigin(value: string): boolean {
   } catch {
     return false;
   }
-}
-
-function buildPatch(initial: EditableSettingsValues, draft: EditableSettingsValues, secrets: SecretDraft): SettingsPatchRequest {
-  const patch: SettingsPatchRequest = {};
-
-  if (initial.auth.durationMs !== draft.auth.durationMs || secrets.currentPassword || secrets.newPassword || secrets.confirmPassword) {
-    patch.auth = {};
-    if (initial.auth.durationMs !== draft.auth.durationMs) patch.auth.durationMs = draft.auth.durationMs;
-    if (secrets.currentPassword) patch.auth.currentPassword = secrets.currentPassword;
-    if (secrets.newPassword) patch.auth.newPassword = secrets.newPassword;
-    if (secrets.confirmPassword) patch.auth.confirmPassword = secrets.confirmPassword;
-  }
-
-  if (JSON.stringify(initial.twoFactor) !== JSON.stringify(draft.twoFactor)) {
-    patch.twoFactor = {
-      enabled: draft.twoFactor.enabled,
-      externalOnly: draft.twoFactor.externalOnly,
-      issuer: draft.twoFactor.issuer,
-      accountName: draft.twoFactor.accountName,
-    };
-  }
-
-  if (JSON.stringify(initial.security.cors) !== JSON.stringify(draft.security.cors)) {
-    patch.security = { cors: { ...draft.security.cors } };
-  }
-
-  if (JSON.stringify(initial.pty) !== JSON.stringify(draft.pty)) {
-    const nextPtyPatch: NonNullable<SettingsPatchRequest['pty']> = {};
-    if (initial.pty.termName !== draft.pty.termName) nextPtyPatch.termName = draft.pty.termName;
-    if (initial.pty.defaultCols !== draft.pty.defaultCols) nextPtyPatch.defaultCols = draft.pty.defaultCols;
-    if (initial.pty.defaultRows !== draft.pty.defaultRows) nextPtyPatch.defaultRows = draft.pty.defaultRows;
-    if (initial.pty.useConpty !== draft.pty.useConpty) nextPtyPatch.useConpty = draft.pty.useConpty;
-    if (initial.pty.windowsPowerShellBackend !== draft.pty.windowsPowerShellBackend) {
-      nextPtyPatch.windowsPowerShellBackend = draft.pty.windowsPowerShellBackend;
-    }
-    if (initial.pty.shell !== draft.pty.shell) nextPtyPatch.shell = draft.pty.shell;
-    if (Object.keys(nextPtyPatch).length > 0) {
-      patch.pty = nextPtyPatch;
-    }
-  }
-
-  if (initial.session.idleDelayMs !== draft.session.idleDelayMs) {
-    patch.session = { idleDelayMs: draft.session.idleDelayMs };
-  }
-
-  if (JSON.stringify(initial.fileManager) !== JSON.stringify(draft.fileManager)) {
-    patch.fileManager = { ...draft.fileManager };
-  }
-
-  return Object.fromEntries(Object.entries(patch).filter(([, value]) => value && Object.keys(value).length > 0)) as SettingsPatchRequest;
 }

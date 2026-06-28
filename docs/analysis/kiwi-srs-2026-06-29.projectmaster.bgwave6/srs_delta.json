@@ -1,0 +1,50 @@
+{
+  "classification": "new-feature",
+  "mode": "live",
+  "target": "0.5.5-buildergate-stability",
+  "scope": "BGSTAB",
+  "req_ids": ["FR-BGSTAB-013"],
+  "mcp_calls": [
+    {
+      "tool": "add_requirement",
+      "result_id": "FR-BGSTAB-013",
+      "ok": true
+    },
+    {
+      "tool": "add_trace_link",
+      "args": {
+        "id": "FR-BGSTAB-013",
+        "type": "Requirement",
+        "reference": "FR-BGSTAB-008",
+        "relation": "depends_on"
+      },
+      "ok": true
+    },
+    {
+      "tool": "add_trace_link",
+      "args": {
+        "id": "FR-BGSTAB-013",
+        "type": "Requirement",
+        "reference": "FR-BGSTAB-012",
+        "relation": "depends_on"
+      },
+      "ok": true
+    },
+    {
+      "tool": "update_status",
+      "args": {
+        "id": "FR-BGSTAB-013",
+        "status": "planned"
+      },
+      "ok": true,
+      "reason": "Project SRS validator rejects proposed status; planned is accepted and matches implementation entry."
+    }
+  ],
+  "validate_spec_result": {
+    "ok": true,
+    "errors": 0,
+    "warnings": 0
+  },
+  "added_ids": ["FR-BGSTAB-013"],
+  "related_requirements": ["FR-BGSTAB-008", "FR-BGSTAB-012"]
+}

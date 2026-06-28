@@ -102,11 +102,30 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
   'stabilityModes.frontendRuntimeResidency': { applyScope: 'immediate', writeOnly: false },
 };
 
-const WAVE0_UNAPPLIED_SETTING_PREFIXES = [
-  'resourceLimits.telemetry.',
+const UNAVAILABLE_SETTING_PREFIX_REASONS = [
+  {
+    prefix: 'resourceLimits.telemetry.',
+    reason: 'Reserved for a later stability wave; not applied by the current runtime',
+  },
 ] as const;
-const WAVE0_UNAPPLIED_SETTING_KEYS = new Set<EditableSettingsKey>();
-const WAVE0_UNAPPLIED_REASON = 'Reserved for a later stability wave; not applied by the current runtime';
+const RESERVED_WAVE6_SETTING_REASON = 'Reserved outside the selected Wave6 Settings field set';
+const RESERVED_WAVE6_SETTING_KEYS = new Set<EditableSettingsKey>([
+  'stabilityModes.headlessQueueMode',
+  'stabilityModes.wsSendMode',
+  'stabilityModes.frontendRuntimeResidency',
+  'resourceLimits.headless.writeLagWarnMs',
+  'resourceLimits.headless.writeBatchMaxBytes',
+  'resourceLimits.headless.overflowPolicy',
+  'resourceLimits.ws.perClientControlQueueMaxBytes',
+  'resourceLimits.ws.outputCoalesceWindowMs',
+  'resourceLimits.terminal.visibleOutputQueueMaxBytes',
+  'resourceLimits.terminal.visibleOutputMaxChunks',
+  'resourceLimits.terminal.visibleFlushBudgetBytes',
+  'resourceLimits.terminal.scrollbackLines',
+]);
+const RESERVED_WAVE6_SETTING_REASONS = new Map<EditableSettingsKey, string>(
+  [...RESERVED_WAVE6_SETTING_KEYS].map((key) => [key, RESERVED_WAVE6_SETTING_REASON]),
+);
 const DEFAULT_WS_TRANSPORT_MODE: WsTransportMode = 'unified';
 
 export interface PublicRuntimeConfig {
@@ -384,11 +403,12 @@ function buildFieldCapabilities(platform: NodeJS.Platform): Record<EditableSetti
   };
 
   for (const [key, capability] of Object.entries(capabilities) as Array<[EditableSettingsKey, FieldCapability]>) {
-    if (isWave0UnappliedSetting(key)) {
+    const unavailableReason = getUnavailableSettingReason(key);
+    if (unavailableReason !== undefined) {
       capabilities[key] = {
         ...capability,
         available: false,
-        reason: WAVE0_UNAPPLIED_REASON,
+        reason: unavailableReason,
       };
     }
   }
@@ -401,7 +421,11 @@ function buildFieldCapabilities(platform: NodeJS.Platform): Record<EditableSetti
   return capabilities;
 }
 
-function isWave0UnappliedSetting(key: EditableSettingsKey): boolean {
-  return WAVE0_UNAPPLIED_SETTING_KEYS.has(key)
-    || WAVE0_UNAPPLIED_SETTING_PREFIXES.some((prefix) => key.startsWith(prefix));
+function getUnavailableSettingReason(key: EditableSettingsKey): string | undefined {
+  const reservedReason = RESERVED_WAVE6_SETTING_REASONS.get(key);
+  if (reservedReason !== undefined) {
+    return reservedReason;
+  }
+
+  return UNAVAILABLE_SETTING_PREFIX_REASONS.find(({ prefix }) => key.startsWith(prefix))?.reason;
 }

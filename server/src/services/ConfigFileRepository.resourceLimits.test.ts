@@ -9,7 +9,7 @@ import { configSchema } from '../schemas/config.schema.js';
 import { ConfigFileRepository } from './ConfigFileRepository.js';
 import { RuntimeConfigStore } from './RuntimeConfigStore.js';
 
-test('ConfigFileRepository inserts Wave 0 resource and stability sections into legacy config text', async () => {
+test('ConfigFileRepository inserts Wave6 resource sections into legacy config text', async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-resource-limits-config-'));
   const configPath = path.join(tempDir, 'config.json5');
   await fs.writeFile(configPath, createLegacyConfigContent(), 'utf-8');
@@ -17,13 +17,22 @@ test('ConfigFileRepository inserts Wave 0 resource and stability sections into l
   const parsedConfig = configSchema.parse(JSON5.parse(createLegacyConfigContent())) as Config;
   const values = new RuntimeConfigStore(parsedConfig, 'linux').mergeEditablePatch({
     resourceLimits: {
+      headless: {
+        pendingOutputMaxBytes: 2097152,
+      },
+      ws: {
+        serverBufferedHighWaterBytes: 2000000,
+        serverBufferedHardLimitBytes: 8000000,
+      },
       clientWs: {
         inputBackpressureBytes: 2000000,
         hardReconnectBytes: 8000000,
       },
-    },
-    stabilityModes: {
-      frontendRuntimeResidency: 'bounded',
+      snapshots: {
+        perSnapshotMaxChars: 1000000,
+        totalStorageBudgetChars: 10000000,
+        maxEntries: 32,
+      },
     },
   });
   const repository = new ConfigFileRepository(configPath, 'linux');
@@ -32,18 +41,31 @@ test('ConfigFileRepository inserts Wave 0 resource and stability sections into l
     const result = repository.persistEditableValues(values, {}, {
       dryRun: true,
       changedKeys: [
+        'resourceLimits.headless.pendingOutputMaxBytes',
+        'resourceLimits.ws.serverBufferedHighWaterBytes',
+        'resourceLimits.ws.serverBufferedHardLimitBytes',
         'resourceLimits.clientWs.inputBackpressureBytes',
         'resourceLimits.clientWs.hardReconnectBytes',
-        'stabilityModes.frontendRuntimeResidency',
+        'resourceLimits.snapshots.perSnapshotMaxChars',
+        'resourceLimits.snapshots.totalStorageBudgetChars',
+        'resourceLimits.snapshots.maxEntries',
       ],
     });
+    const reparsed = configSchema.parse(JSON5.parse(result.renderedContent)) as Config;
 
+    assert.equal(result.nextConfig.resourceLimits?.headless.pendingOutputMaxBytes, 2097152);
+    assert.equal(result.nextConfig.resourceLimits?.ws.serverBufferedHighWaterBytes, 2000000);
+    assert.equal(result.nextConfig.resourceLimits?.ws.serverBufferedHardLimitBytes, 8000000);
     assert.equal(result.nextConfig.resourceLimits?.clientWs.inputBackpressureBytes, 2000000);
     assert.equal(result.nextConfig.resourceLimits?.clientWs.hardReconnectBytes, 8000000);
-    assert.equal(result.nextConfig.stabilityModes?.frontendRuntimeResidency, 'bounded');
+    assert.equal(result.nextConfig.resourceLimits?.snapshots.maxEntries, 32);
+    assert.equal(reparsed.resourceLimits?.headless.pendingOutputMaxBytes, 2097152);
+    assert.equal(reparsed.resourceLimits?.ws.serverBufferedHighWaterBytes, 2000000);
     assert.match(result.renderedContent, /resourceLimits:\s*\{[\s\S]*clientWs:\s*\{[\s\S]*inputBackpressureBytes:\s*2000000/);
+    assert.match(result.renderedContent, /headless:\s*\{[\s\S]*pendingOutputMaxBytes:\s*2097152/);
+    assert.match(result.renderedContent, /ws:\s*\{[\s\S]*serverBufferedHardLimitBytes:\s*8000000/);
     assert.match(result.renderedContent, /hardReconnectBytes:\s*8000000/);
-    assert.match(result.renderedContent, /stabilityModes:\s*\{[\s\S]*frontendRuntimeResidency:\s*"bounded"/);
+    assert.match(result.renderedContent, /snapshots:\s*\{[\s\S]*maxEntries:\s*32/);
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
