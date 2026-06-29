@@ -122,6 +122,38 @@ test.describe('Settings resource limits', () => {
     await expect(page.locator('.settings-banner-error')).toContainText('hardReconnectBytes must be greater than inputBackpressureBytes');
     await expect(page.locator('.settings-banner-success')).toHaveCount(0);
   });
+
+  test('clears a previous success summary when a later resource edit is locally invalid', async ({ page }) => {
+    await mockAuthenticatedSettingsApp(page, {
+      onSettingsPatch: () => ({
+        status: 200,
+        body: {
+          ...createSettingsSnapshot({
+            headlessPendingOutputMaxBytes: 2_000_000,
+          }),
+          changedKeys: ['resourceLimits.headless.pendingOutputMaxBytes'],
+          applySummary: {
+            immediate: [],
+            new_logins: [],
+            new_sessions: ['resourceLimits.headless.pendingOutputMaxBytes'],
+            warnings: [],
+          },
+        },
+      }),
+    });
+
+    await loginAndOpenSettings(page);
+
+    await page.getByTestId('settings-resourceLimits-headless-pendingOutputMaxBytes').fill('2000000');
+    await page.getByTestId('settings-save-button').click();
+    await expect(page.locator('.settings-banner-success')).toContainText('new terminal sessions 1');
+
+    await page.getByTestId('settings-resourceLimits-headless-pendingOutputMaxBytes').fill('1');
+
+    await expect(page.locator('.settings-banner-error')).toContainText('Headless pending output bytes must be at least 1024.');
+    await expect(page.getByTestId('settings-save-button')).toBeDisabled();
+    await expect(page.locator('.settings-banner-success')).toHaveCount(0);
+  });
 });
 
 async function loginAndOpenSettings(page: Page): Promise<void> {

@@ -233,6 +233,12 @@ export function SettingsPage({ visible, onBack }: Props) {
       mutator(next);
       return next;
     });
+    setSummary(null);
+  };
+
+  const updateSecrets = (mutator: (current: SecretDraft) => SecretDraft) => {
+    setSecrets(mutator);
+    setSummary(null);
   };
 
   const requestBack = () => {
@@ -344,13 +350,13 @@ export function SettingsPage({ visible, onBack }: Props) {
                 <input type="number" value={draft.auth.durationMs} onChange={(e) => updateDraft((next) => { next.auth.durationMs = Number(e.target.value || draft.auth.durationMs); })} />
               </Field>
               <Field label="Current password" scope={scope(snapshot, 'auth.password')} hint={snapshot.secretState.authPasswordConfigured ? 'Configured' : 'Not configured'}>
-                <input type="password" value={secrets.currentPassword} onChange={(e) => setSecrets((current) => ({ ...current, currentPassword: e.target.value }))} />
+                <input type="password" value={secrets.currentPassword} onChange={(e) => updateSecrets((current) => ({ ...current, currentPassword: e.target.value }))} />
               </Field>
               <Field label="New password" scope={scope(snapshot, 'auth.password')}>
-                <input type="password" value={secrets.newPassword} onChange={(e) => setSecrets((current) => ({ ...current, newPassword: e.target.value }))} />
+                <input type="password" value={secrets.newPassword} onChange={(e) => updateSecrets((current) => ({ ...current, newPassword: e.target.value }))} />
               </Field>
               <Field label="Confirm password" scope={scope(snapshot, 'auth.password')}>
-                <input type="password" value={secrets.confirmPassword} onChange={(e) => setSecrets((current) => ({ ...current, confirmPassword: e.target.value }))} />
+                <input type="password" value={secrets.confirmPassword} onChange={(e) => updateSecrets((current) => ({ ...current, confirmPassword: e.target.value }))} />
               </Field>
             </Card>
 
