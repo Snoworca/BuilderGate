@@ -45,7 +45,7 @@ export interface TerminalClientDebugEvent {
   preview?: string;
 }
 
-export type DebugWebSocketSendFailureReason = 'not-open' | 'missing-token' | 'stale-socket';
+export type DebugWebSocketSendFailureReason = 'not-open' | 'missing-token' | 'stale-socket' | 'send-failed';
 
 export interface DebugWebSocketSendFailureOverride {
   reason: DebugWebSocketSendFailureReason;

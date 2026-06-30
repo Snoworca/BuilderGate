@@ -46,7 +46,7 @@ export function resolveHiddenOutput(
     hiddenOutputTailBytes?: number;
   },
 ): HiddenOutputDecision {
-  const hiddenOutputPolicy = input.hiddenOutputPolicy ?? 'write-hidden';
+  const hiddenOutputPolicy = input.hiddenOutputPolicy ?? 'snapshot-restore';
 
   if (hiddenOutputPolicy === 'write-hidden') {
     return {
@@ -104,6 +104,20 @@ export function finishHiddenOutputReplay(
     replayState: createHiddenOutputReplayState(),
     initialRestorePending: state.restoreBarrierOwned ? false : initialRestorePending,
   };
+}
+
+export function shouldClearHiddenOutputAfterSnapshotRecovery(input: {
+  snapshotMode: 'authoritative' | 'fallback';
+  fallbackDataLength: number;
+  localRestoreSucceeded: boolean;
+}): boolean {
+  if (input.snapshotMode === 'authoritative') {
+    return true;
+  }
+  if (input.fallbackDataLength > 0) {
+    return true;
+  }
+  return input.localRestoreSucceeded;
 }
 
 export function clearHiddenOutputState(state: HiddenOutputState): HiddenOutputState {

@@ -18,7 +18,11 @@ import type {
   ScreenSnapshotMessage,
   ServerWsMessage,
 } from '../types/ws-protocol';
-import { initializeInputReliabilityMode } from '../utils/inputReliabilityMode';
+import {
+  getClientWsResourceLimits,
+  initializeInputReliabilityMode,
+} from '../utils/inputReliabilityMode';
+import { sendOpenBrowserWebSocketMessage } from '../utils/webSocketBackpressure';
 import {
   buildTerminalInputDebugPayload,
   registerWebSocketSendFailureHandler,
@@ -34,7 +38,18 @@ export type WsConnectionStatus = 'connected' | 'reconnecting' | 'disconnected';
 
 export type SendResult =
   | { ok: true }
-  | { ok: false; reason: 'not-open' | 'missing-token' | 'stale-socket' };
+  | {
+      ok: false;
+      reason:
+        | 'not-open'
+        | 'missing-token'
+        | 'stale-socket'
+        | 'client-backpressure'
+        | 'client-hard-backpressure'
+        | 'send-failed';
+      bufferedAmount?: number;
+      payloadBytes?: number;
+    };
 
 export interface SessionHandlers {
   onScreenSnapshot?: (snapshot: ScreenSnapshotMessage) => void;
@@ -442,7 +457,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         captureSeq: msg.metadata?.captureSeq,
         compositionSeq: msg.metadata?.compositionSeq,
       });
-      recordTerminalDebugEvent(msg.sessionId, 'ws_send_debug_failure_forced', {
+      recordTerminalDebugEvent(msg.sessionId, debugOverride.reason === 'send-failed'
+        ? 'ws_send_failed_exception'
+        : 'ws_send_debug_failure_forced', {
         ...debugInput.details,
         inputSeqStart: msg.inputSeqStart ?? null,
         inputSeqEnd: msg.inputSeqEnd ?? null,
@@ -471,8 +488,38 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(msg));
-      return { ok: true };
+      const result = sendOpenBrowserWebSocketMessage({
+        message: msg,
+        socket: ws,
+        limits: getClientWsResourceLimits(),
+        openReadyState: WebSocket.OPEN,
+        onHardBackpressure: () => {
+          ws.close();
+        },
+      });
+      if (result.ok) {
+        return result;
+      }
+
+      if (msg.type === 'input') {
+        const debugInput = buildTerminalInputDebugPayload(msg.data, {
+          captureSeq: msg.metadata?.captureSeq,
+          compositionSeq: msg.metadata?.compositionSeq,
+        });
+        recordTerminalDebugEvent(msg.sessionId, result.reason === 'send-failed'
+          ? 'ws_send_failed_exception'
+          : 'ws_send_rejected_client_backpressure', {
+          ...debugInput.details,
+          inputSeqStart: msg.inputSeqStart ?? null,
+          inputSeqEnd: msg.inputSeqEnd ?? null,
+          sendResultReason: result.reason,
+          wsStatus: status,
+          bufferedAmount: result.bufferedAmount ?? null,
+          payloadBytes: result.payloadBytes ?? null,
+        }, debugInput.preview);
+      }
+
+      return result;
     }
 
     const reason = ws && (ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED)

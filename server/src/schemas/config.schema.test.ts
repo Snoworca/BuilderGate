@@ -31,14 +31,14 @@ test('configSchema applies resourceLimits defaults to legacy config files', () =
   assert.equal(parsed.resourceLimits.ws.serverBufferedHighWaterBytes, 8388608);
   assert.equal(parsed.resourceLimits.ws.serverBufferedHardLimitBytes, 33554432);
   assert.equal(parsed.resourceLimits.clientWs.inputBackpressureBytes, 1048576);
-  assert.equal(parsed.resourceLimits.terminal.hiddenOutputPolicy, 'write-hidden');
+  assert.equal(parsed.resourceLimits.terminal.hiddenOutputPolicy, 'snapshot-restore');
   assert.equal(parsed.resourceLimits.terminal.hiddenOutputTailBytes, 262144);
   assert.equal(parsed.resourceLimits.snapshots.maxEntries, 16);
   assert.equal(parsed.resourceLimits.workspaceRuntime.maxLiveTerminals, 12);
   assert.equal(parsed.resourceLimits.telemetry.recentEventLimit, 256);
   assert.equal(parsed.stabilityModes.headlessQueueMode, 'observe');
   assert.equal(parsed.stabilityModes.wsSendMode, 'direct');
-  assert.equal(parsed.stabilityModes.frontendRuntimeResidency, 'legacy');
+  assert.equal(parsed.stabilityModes.frontendRuntimeResidency, 'bounded');
 });
 
 test('configSchema applies session processCleanup observe-mode defaults', () => {

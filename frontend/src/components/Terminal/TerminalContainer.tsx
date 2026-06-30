@@ -11,11 +11,32 @@ import {
   buildTerminalInputDebugPayload,
   recordTerminalDebugEvent,
 } from '../../utils/terminalDebugCapture';
-import { getInputReliabilityMode } from '../../utils/inputReliabilityMode';
+import {
+  getInputReliabilityMode,
+  getTerminalResourceLimits,
+} from '../../utils/inputReliabilityMode';
+import {
+  beginHiddenOutputReplay,
+  clearHiddenOutputState,
+  createHiddenOutputReplayState,
+  createHiddenOutputState,
+  finishHiddenOutputReplay,
+  resolveHiddenOutput,
+  shouldClearHiddenOutputAfterSnapshotRecovery,
+} from '../../utils/terminalHiddenOutput';
+import {
+  beginVisibleOutputRecovery,
+  createVisibleOutputRecoveryState,
+  finishVisibleOutputRecovery,
+  recordVisibleOutputRecoverySendFailure,
+  recordVisibleOutputRecoverySendSuccess,
+  resolveVisibleOutputRecoveryBarrierReason,
+} from '../../utils/visibleOutputRecovery';
 import {
   TerminalInputSequencer,
   type SequencedTerminalInput,
 } from '../../utils/terminalInputSequencer';
+import { resolveStaleSocketReconnectDecision } from '../../utils/terminalTransportQueueDecision';
 import type {
   InputDebugMetadata,
   InputRejectedReason,
@@ -27,8 +48,6 @@ import type {
 } from '../../types/ws-protocol';
 
 const RECONNECT_INPUT_QUEUE_TTL_MS = 3000;
-const TRANSPORT_INPUT_QUEUE_TTL_MS = 1500;
-const TRANSPORT_INPUT_QUEUE_BYTE_BUDGET = 64 * 1024;
 
 interface TransportOutboxEntry extends SequencedTerminalInput {
   queuedAt: number;
@@ -82,6 +101,14 @@ function inputContainsEnter(raw: string): boolean {
   return raw.includes('\r') || raw.includes('\n');
 }
 
+function getTransportOutboxLimits(): { transportOutboxMaxBytes: number; transportOutboxTtlMs: number } {
+  const limits = getTerminalResourceLimits();
+  return {
+    transportOutboxMaxBytes: limits.transportOutboxMaxBytes,
+    transportOutboxTtlMs: limits.transportOutboxTtlMs,
+  };
+}
+
 interface Props {
   sessionId: string;
   workspaceId: string;
@@ -102,6 +129,7 @@ function propsAreEqual(prev: Props, next: Props): boolean {
 }
 
 const FALLBACK_EMPTY_MESSAGE = '[BuilderGate] Fallback snapshot unavailable. Waiting for new output...\r\n';
+const VISIBLE_OUTPUT_RECOVERY_MAX_SEND_RETRIES = 2;
 
 function waitForRuntimeLayoutSettle(): Promise<void> {
   return new Promise(resolve => {
@@ -185,6 +213,9 @@ export const TerminalContainer = memo(
       truncated: boolean;
       data: string;
     } | null>(null);
+    const hiddenOutputStateRef = useRef(createHiddenOutputState());
+    const hiddenOutputReplayStateRef = useRef(createHiddenOutputReplayState());
+    const visibleOutputRecoveryStateRef = useRef(createVisibleOutputRecoveryState());
 
     if (!inputSequencerRef.current) {
       inputSequencerRef.current = new TerminalInputSequencer((input, reason) => {
@@ -277,8 +308,14 @@ export const TerminalContainer = memo(
         ) {
           serverReady = false;
           barrierReason = 'replay-pending';
-        } else if (!serverReady && barrierReason === 'none') {
-          barrierReason = 'repair-server-not-ready';
+        } else {
+          const visibleRecoveryBarrier = resolveVisibleOutputRecoveryBarrierReason(visibleOutputRecoveryStateRef.current);
+          if (visibleRecoveryBarrier !== 'none') {
+            serverReady = false;
+            barrierReason = visibleRecoveryBarrier;
+          } else if (!serverReady) {
+            barrierReason = 'repair-server-not-ready';
+          }
         }
       }
 
@@ -384,13 +421,15 @@ export const TerminalContainer = memo(
     const classifyTransportQueueDecision = useCallback((
       sendFailure?: Exclude<SendResult, { ok: true }>,
     ): TransportQueueDecision => {
+      const { transportOutboxTtlMs } = getTransportOutboxLimits();
+
       if (!isVisibleRef.current) {
         return {
           action: 'reject',
           rejectReason: 'context-changed',
           barrierReason: 'none',
           detailReason: 'terminal-hidden',
-          ttlMs: TRANSPORT_INPUT_QUEUE_TTL_MS,
+          ttlMs: transportOutboxTtlMs,
         };
       }
 
@@ -401,7 +440,7 @@ export const TerminalContainer = memo(
           rejectReason: mapClosedReasonToRejectReason(closedReason),
           barrierReason: 'none',
           detailReason: closedReason,
-          ttlMs: TRANSPORT_INPUT_QUEUE_TTL_MS,
+          ttlMs: transportOutboxTtlMs,
         };
       }
 
@@ -411,17 +450,57 @@ export const TerminalContainer = memo(
           rejectReason: 'auth-expired',
           barrierReason: 'none',
           detailReason: 'missing-token',
-          ttlMs: TRANSPORT_INPUT_QUEUE_TTL_MS,
+          ttlMs: transportOutboxTtlMs,
         };
       }
 
       if (sendFailure?.reason === 'stale-socket') {
+        const staleSocketDecision = resolveStaleSocketReconnectDecision({
+          reconnectStartedAt: reconnectStartedAtRef.current,
+          now: Date.now(),
+          reconnectTtlMs: RECONNECT_INPUT_QUEUE_TTL_MS,
+        });
+        reconnectStartedAtRef.current = staleSocketDecision.reconnectStartedAt;
+        if (staleSocketDecision.action === 'queue') {
+          return {
+            action: 'queue',
+            rejectReason: 'transport-closed',
+            barrierReason: 'ws-reconnecting-short',
+            detailReason: 'stale-socket',
+            ttlMs: RECONNECT_INPUT_QUEUE_TTL_MS,
+          };
+        }
+
         return {
           action: 'reject',
           rejectReason: 'transport-closed',
           barrierReason: 'none',
           detailReason: 'stale-socket',
-          ttlMs: TRANSPORT_INPUT_QUEUE_TTL_MS,
+          ttlMs: transportOutboxTtlMs,
+        };
+      }
+
+      if (
+        sendFailure?.reason === 'client-backpressure'
+        || sendFailure?.reason === 'client-hard-backpressure'
+      ) {
+        return {
+          action: 'queue',
+          rejectReason: 'transport-closed',
+          barrierReason: 'client-backpressure',
+          detailReason: sendFailure.reason,
+          ttlMs: transportOutboxTtlMs,
+        };
+      }
+
+      const visibleRecoveryBarrier = resolveVisibleOutputRecoveryBarrierReason(visibleOutputRecoveryStateRef.current);
+      if (visibleRecoveryBarrier !== 'none') {
+        return {
+          action: 'queue',
+          rejectReason: 'timeout',
+          barrierReason: visibleRecoveryBarrier,
+          detailReason: visibleRecoveryBarrier,
+          ttlMs: transportOutboxTtlMs,
         };
       }
 
@@ -444,7 +523,7 @@ export const TerminalContainer = memo(
           rejectReason: 'transport-closed',
           barrierReason: 'none',
           detailReason: 'ws-closed-without-reconnect',
-          ttlMs: TRANSPORT_INPUT_QUEUE_TTL_MS,
+          ttlMs: transportOutboxTtlMs,
         };
       }
 
@@ -454,7 +533,7 @@ export const TerminalContainer = memo(
           rejectReason: 'transport-closed',
           barrierReason: 'none',
           detailReason: 'ws-disconnected',
-          ttlMs: TRANSPORT_INPUT_QUEUE_TTL_MS,
+          ttlMs: transportOutboxTtlMs,
         };
       }
 
@@ -464,7 +543,7 @@ export const TerminalContainer = memo(
           rejectReason: mapSendFailureToRejectReason(sendFailure.reason),
           barrierReason: 'repair-server-not-ready',
           detailReason: `send-${sendFailure.reason}`,
-          ttlMs: TRANSPORT_INPUT_QUEUE_TTL_MS,
+          ttlMs: transportOutboxTtlMs,
         };
       }
 
@@ -474,7 +553,7 @@ export const TerminalContainer = memo(
           rejectReason: 'timeout',
           barrierReason: 'repair-server-not-ready',
           detailReason: 'session-not-ready',
-          ttlMs: TRANSPORT_INPUT_QUEUE_TTL_MS,
+          ttlMs: transportOutboxTtlMs,
         };
       }
 
@@ -483,7 +562,7 @@ export const TerminalContainer = memo(
         rejectReason: 'transport-closed',
         barrierReason: 'none',
         detailReason: 'send-unavailable',
-        ttlMs: TRANSPORT_INPUT_QUEUE_TTL_MS,
+        ttlMs: transportOutboxTtlMs,
       };
     }, []);
 
@@ -543,6 +622,7 @@ export const TerminalContainer = memo(
         typeof debugInput.details.byteLength === 'number'
           ? debugInput.details.byteLength
           : getUtf8ByteLength(input.data);
+      const { transportOutboxMaxBytes } = getTransportOutboxLimits();
       const now = Date.now();
       const entry: TransportOutboxEntry = {
         ...input,
@@ -557,13 +637,13 @@ export const TerminalContainer = memo(
         detailReason: decision.detailReason,
       };
 
-      if (entry.byteLength > TRANSPORT_INPUT_QUEUE_BYTE_BUDGET) {
+      if (entry.byteLength > transportOutboxMaxBytes) {
         recordTransportInputQueueEvent('transport_input_queue_overflow', entry, {
           reason: 'queue-overflow',
           source,
           attemptedByteLength: entry.byteLength,
           pendingQueueBytes: transportOutboxBytesRef.current,
-          queuedByteBudget: TRANSPORT_INPUT_QUEUE_BYTE_BUDGET,
+          queuedByteBudget: transportOutboxMaxBytes,
         });
         recordTransportInputRejected(
           'transport_input_rejected',
@@ -580,7 +660,7 @@ export const TerminalContainer = memo(
       transportOutboxRef.current.push(entry);
       transportOutboxBytesRef.current += entry.byteLength;
       while (
-        transportOutboxBytesRef.current > TRANSPORT_INPUT_QUEUE_BYTE_BUDGET
+        transportOutboxBytesRef.current > transportOutboxMaxBytes
         && transportOutboxRef.current.length > 0
       ) {
         const overflowed = transportOutboxRef.current.shift();
@@ -592,7 +672,7 @@ export const TerminalContainer = memo(
           reason: 'queue-overflow',
           source: overflowed.source,
           pendingQueueBytes: transportOutboxBytesRef.current,
-          queuedByteBudget: TRANSPORT_INPUT_QUEUE_BYTE_BUDGET,
+          queuedByteBudget: transportOutboxMaxBytes,
         });
         recordTransportInputRejected(
           'transport_input_rejected',
@@ -674,11 +754,13 @@ export const TerminalContainer = memo(
         return;
       }
 
+      const visibleRecoveryBarrier = resolveVisibleOutputRecoveryBarrierReason(visibleOutputRecoveryStateRef.current);
       const readyForFlush = Boolean(
         isVisibleRef.current
         && transportClosedReasonRef.current === 'none'
         && sessionReadyRef.current
-        && wsStatusRef.current === 'connected',
+        && wsStatusRef.current === 'connected'
+        && visibleRecoveryBarrier === 'none',
       );
       if (!readyForFlush) {
         const blockedDecision = classifyTransportQueueDecision();
@@ -784,11 +866,13 @@ export const TerminalContainer = memo(
       input: SequencedTerminalInput,
       reason: string,
     ) => {
+      const visibleRecoveryBarrier = resolveVisibleOutputRecoveryBarrierReason(visibleOutputRecoveryStateRef.current);
       if (
         sessionReadyRef.current
         && transportClosedReasonRef.current === 'none'
         && wsStatusRef.current === 'connected'
         && isVisibleRef.current
+        && visibleRecoveryBarrier === 'none'
       ) {
         const result = transmitSequencedInput(input, `sequencer-${reason}`);
         if (result.ok) {
@@ -947,6 +1031,11 @@ export const TerminalContainer = memo(
       }
 
       if (reason !== 'manual') {
+        const visibleRecoveryBarrier = resolveVisibleOutputRecoveryBarrierReason(visibleOutputRecoveryStateRef.current);
+        if (visibleRecoveryBarrier !== 'none') {
+          return false;
+        }
+
         const completed = lastCompletedScreenRepairRef.current;
         if (
           completed
@@ -962,11 +1051,50 @@ export const TerminalContainer = memo(
       return false;
     }, [sessionId]);
 
-    const requestScreenRepair = useCallback((reason: GridRepairReason) => {
-      if (!isVisibleRef.current) {
+    const finishHiddenOutputRecovery = useCallback((source: string, restored: boolean) => {
+      if (!hiddenOutputStateRef.current.skipped && !hiddenOutputReplayStateRef.current.pending) {
         return;
       }
-      if (!isGridSurfaceRef.current) {
+
+      hiddenOutputStateRef.current = clearHiddenOutputState(hiddenOutputStateRef.current);
+      const transition = finishHiddenOutputReplay(
+        hiddenOutputReplayStateRef.current,
+        initialRestorePendingRef.current,
+      );
+      hiddenOutputReplayStateRef.current = transition.replayState;
+      initialRestorePendingRef.current = transition.initialRestorePending;
+      recordTerminalDebugEvent(sessionId, 'hidden_output_recovery_finished', {
+        source,
+        restored,
+      });
+    }, [sessionId]);
+
+    const finishVisibleOutputRecoveryIfPending = useCallback((
+      source: string,
+      options: { keepTerminalStale?: boolean } = {},
+    ) => {
+      if (!visibleOutputRecoveryStateRef.current.pending && !visibleOutputRecoveryStateRef.current.staleTerminal) {
+        return;
+      }
+
+      visibleOutputRecoveryStateRef.current = finishVisibleOutputRecovery(
+        visibleOutputRecoveryStateRef.current,
+        options,
+      );
+      if (!visibleOutputRecoveryStateRef.current.staleTerminal) {
+        terminalRef.current?.clearVisibleOutputRecovery();
+      }
+      recordTerminalDebugEvent(sessionId, 'visible_output_recovery_finished', {
+        source,
+        keepTerminalStale: Boolean(options.keepTerminalStale),
+      });
+      const finishReason = `visible-output-recovery-finished-${source}`;
+      syncInputTransportState(finishReason);
+      flushTransportOutbox(finishReason);
+    }, [flushTransportOutbox, sessionId, syncInputTransportState]);
+
+    const requestScreenRepair = useCallback((reason: GridRepairReason) => {
+      if (!isVisibleRef.current) {
         return;
       }
 
@@ -1039,17 +1167,40 @@ export const TerminalContainer = memo(
       });
       if (!repairResult.ok) {
         screenRepairInFlightRef.current = null;
+        const recoveryDecision = recordVisibleOutputRecoverySendFailure(
+          visibleOutputRecoveryStateRef.current,
+          VISIBLE_OUTPUT_RECOVERY_MAX_SEND_RETRIES,
+        );
+        visibleOutputRecoveryStateRef.current = recoveryDecision.state;
+        syncInputTransportState(`visible-output-recovery-send-${recoveryDecision.action}`);
         recordTerminalDebugEvent(sessionId, 'screen_repair_send_failed', {
           reason,
           sendResultReason: repairResult.reason,
           reconnectState: wsStatusRef.current,
+          visibleOutputRecoveryAction: recoveryDecision.action,
+        });
+        if (recoveryDecision.action === 'retry') {
+          window.setTimeout(() => requestScreenRepair(reason), 100);
+        }
+        return;
+      }
+
+      if (visibleOutputRecoveryStateRef.current.pending) {
+        visibleOutputRecoveryStateRef.current = recordVisibleOutputRecoverySendSuccess(
+          visibleOutputRecoveryStateRef.current,
+        );
+        syncInputTransportState('visible-output-recovery-repair-sent');
+        recordTerminalDebugEvent(sessionId, 'visible_output_recovery_repair_sent', {
+          reason,
+          cols: geometry.cols,
+          rows: geometry.rows,
         });
       }
-    }, [send, sendResizeIfNeeded, sessionId, shouldSuppressScreenRepairRequest]);
+    }, [send, sendResizeIfNeeded, sessionId, shouldSuppressScreenRepairRequest, syncInputTransportState]);
 
     const flushPendingGridScreenRepair = useCallback(() => {
       const pendingReason = pendingGridScreenRepairRef.current;
-      if (!pendingReason || !isVisibleRef.current || !isGridSurfaceRef.current || !sessionReadyRef.current) {
+      if (!pendingReason || !isVisibleRef.current || !sessionReadyRef.current) {
         return;
       }
 
@@ -1105,6 +1256,7 @@ export const TerminalContainer = memo(
       replaceWithSnapshot: (data) => terminalRef.current?.replaceWithSnapshot(data) ?? Promise.resolve(false),
       getScreenRepairReadiness: () => terminalRef.current?.getScreenRepairReadiness() ?? { ok: false, reason: 'not-ready' },
       applyScreenRepair: (repair) => terminalRef.current?.applyScreenRepair(repair) ?? Promise.resolve({ ok: false, reason: 'not-ready' }),
+      clearVisibleOutputRecovery: () => terminalRef.current?.clearVisibleOutputRecovery(),
       releasePending: () => terminalRef.current?.releasePending(),
       setInputTransportState: (state) => terminalRef.current?.setInputTransportState(state),
       setServerReady: (ready) => terminalRef.current?.setServerReady(ready),
@@ -1241,6 +1393,8 @@ export const TerminalContainer = memo(
           }
 
           terminalRef.current?.setWindowsPty(nextSnapshot.windowsPty);
+          let hiddenOutputRecoverySucceeded = false;
+          let visibleOutputRecoverySnapshotSucceeded = false;
 
           if (nextSnapshot.mode === 'fallback') {
             if (nextSnapshot.data.length > 0) {
@@ -1257,6 +1411,11 @@ export const TerminalContainer = memo(
                 seq: nextSnapshot.seq,
                 byteLength: getUtf8ByteLength(nextSnapshot.data),
               }, nextSnapshot.data);
+              hiddenOutputRecoverySucceeded = shouldClearHiddenOutputAfterSnapshotRecovery({
+                snapshotMode: 'fallback',
+                fallbackDataLength: nextSnapshot.data.length,
+                localRestoreSucceeded: false,
+              });
             } else {
               const restored = await terminalRef.current?.restoreSnapshot();
               if (!restored) {
@@ -1277,6 +1436,12 @@ export const TerminalContainer = memo(
                   seq: nextSnapshot.seq,
                   snapshotScope: 'viewport-only',
                 });
+                hiddenOutputRecoverySucceeded = shouldClearHiddenOutputAfterSnapshotRecovery({
+                  snapshotMode: 'fallback',
+                  fallbackDataLength: 0,
+                  localRestoreSucceeded: true,
+                });
+                visibleOutputRecoverySnapshotSucceeded = true;
               }
             }
           } else {
@@ -1293,6 +1458,12 @@ export const TerminalContainer = memo(
               seq: nextSnapshot.seq,
               byteLength: getUtf8ByteLength(nextSnapshot.data),
             }, nextSnapshot.data);
+            hiddenOutputRecoverySucceeded = shouldClearHiddenOutputAfterSnapshotRecovery({
+              snapshotMode: 'authoritative',
+              fallbackDataLength: nextSnapshot.data.length,
+              localRestoreSucceeded: false,
+            });
+            visibleOutputRecoverySnapshotSucceeded = true;
           }
 
           historySeenRef.current = true;
@@ -1316,6 +1487,12 @@ export const TerminalContainer = memo(
             });
           }
           initialRestorePendingRef.current = false;
+          if (hiddenOutputRecoverySucceeded) {
+            finishHiddenOutputRecovery('screen-snapshot', true);
+          }
+          if (visibleOutputRecoverySnapshotSucceeded) {
+            finishVisibleOutputRecoveryIfPending('screen-snapshot');
+          }
           syncInputTransportState('screen-snapshot-applied');
         }
       } finally {
@@ -1361,6 +1538,8 @@ export const TerminalContainer = memo(
           repairToken: repair.repairToken,
           seq: repair.seq,
         });
+        finishHiddenOutputRecovery('screen-repair', true);
+        finishVisibleOutputRecoveryIfPending('screen-repair');
       } else {
         const failedResult = send({
           type: 'screen-repair:failed',
@@ -1376,6 +1555,7 @@ export const TerminalContainer = memo(
             sendResultReason: failedResult.reason,
           });
         }
+        finishVisibleOutputRecoveryIfPending('screen-repair-failed', { keepTerminalStale: true });
       }
 
       if (screenRepairInFlightRef.current?.sessionId === sessionId) {
@@ -1393,6 +1573,7 @@ export const TerminalContainer = memo(
       if (screenRepairInFlightRef.current?.sessionId === sessionId) {
         screenRepairInFlightRef.current = null;
       }
+      finishVisibleOutputRecoveryIfPending('screen-repair-rejected', { keepTerminalStale: true });
     });
 
     useEffect(() => {
@@ -1477,9 +1658,32 @@ export const TerminalContainer = memo(
         },
         onScreenRepairRejected: handleScreenRepairRejected,
         onOutput: (data) => {
+          const byteLength = getUtf8ByteLength(data);
+          const terminalLimits = getTerminalResourceLimits();
+          const hiddenDecision = resolveHiddenOutput(hiddenOutputStateRef.current, {
+            isVisible: isVisibleRef.current,
+            byteLength,
+            data,
+            hiddenOutputPolicy: terminalLimits.hiddenOutputPolicy,
+            hiddenOutputTailBytes: terminalLimits.hiddenOutputTailBytes,
+          });
+          hiddenOutputStateRef.current = hiddenDecision.nextState;
+
           recordTerminalDebugEvent(sessionId, 'live_output_received', {
-            byteLength: getUtf8ByteLength(data),
+            byteLength,
+            visible: isVisibleRef.current,
+            hiddenOutputAction: hiddenDecision.action,
           }, data);
+          if (hiddenDecision.action === 'skip') {
+            recordTerminalDebugEvent(sessionId, 'hidden_output_skipped', {
+              byteLength,
+              skippedBytes: hiddenDecision.nextState.skippedBytes,
+              debugTailBytes: getUtf8ByteLength(hiddenDecision.nextState.debugTail),
+              hiddenOutputPolicy: terminalLimits.hiddenOutputPolicy,
+            }, hiddenDecision.nextState.debugTail);
+            return;
+          }
+
           terminalRef.current?.write(data);
         },
         onStatus: handleStatus,
@@ -1558,6 +1762,95 @@ export const TerminalContainer = memo(
       runGridLayoutRepair('manual');
     }, [runGridLayoutRepair]);
 
+    const handleVisibleOutputOverflow = useCallback((info: {
+      reason: string;
+      droppedBytes: number;
+      pendingBytes: number;
+    }) => {
+      const recovery = beginVisibleOutputRecovery(visibleOutputRecoveryStateRef.current);
+      visibleOutputRecoveryStateRef.current = recovery.state;
+      syncInputTransportState('visible-output-recovery-started');
+      if (!recovery.shouldSend) {
+        recordTerminalDebugEvent(sessionId, 'visible_output_recovery_suppressed', {
+          reason: info.reason,
+          droppedBytes: info.droppedBytes,
+          pendingBytes: info.pendingBytes,
+          pending: recovery.state.pending,
+          staleTerminal: recovery.state.staleTerminal,
+        });
+        return;
+      }
+
+      recordTerminalDebugEvent(sessionId, 'visible_output_recovery_started', {
+        reason: info.reason,
+        droppedBytes: info.droppedBytes,
+        pendingBytes: info.pendingBytes,
+      });
+
+      if (!isVisibleRef.current) {
+        finishVisibleOutputRecoveryIfPending('visible-output-overflow-not-visible', { keepTerminalStale: true });
+        return;
+      }
+
+      if (isGridSurfaceRef.current) {
+        runGridLayoutRepair('workspace');
+      } else {
+        requestScreenRepair('workspace');
+      }
+    }, [finishVisibleOutputRecoveryIfPending, requestScreenRepair, runGridLayoutRepair, sessionId, syncInputTransportState]);
+
+    useEffect(() => {
+      if (!isVisible || !hiddenOutputStateRef.current.skipped) {
+        return undefined;
+      }
+      if (hiddenOutputReplayStateRef.current.pending) {
+        return undefined;
+      }
+
+      let cancelled = false;
+      const skippedBeforeRecovery = hiddenOutputStateRef.current;
+      const replayTransition = beginHiddenOutputReplay(
+        hiddenOutputReplayStateRef.current,
+        initialRestorePendingRef.current,
+      );
+      hiddenOutputReplayStateRef.current = replayTransition.replayState;
+      initialRestorePendingRef.current = replayTransition.initialRestorePending;
+      recordTerminalDebugEvent(sessionId, 'hidden_output_recovery_started', {
+        skippedBytes: skippedBeforeRecovery.skippedBytes,
+        debugTailBytes: getUtf8ByteLength(skippedBeforeRecovery.debugTail),
+      }, skippedBeforeRecovery.debugTail);
+
+      void (terminalRef.current?.restoreSnapshot() ?? Promise.resolve(false)).then((restored) => {
+        if (cancelled) {
+          return;
+        }
+        if (restored) {
+          finishHiddenOutputRecovery('local-snapshot', true);
+          if (isGridSurfaceRef.current) {
+            runGridLayoutRepair('workspace');
+          } else {
+            requestScreenRepair('workspace');
+          }
+          return;
+        }
+
+        recordTerminalDebugEvent(sessionId, 'hidden_output_recovery_restore_failed', {
+          skippedBytes: hiddenOutputStateRef.current.skippedBytes,
+          debugTailBytes: getUtf8ByteLength(hiddenOutputStateRef.current.debugTail),
+        }, hiddenOutputStateRef.current.debugTail);
+        terminalRef.current?.releasePending();
+        if (isGridSurfaceRef.current) {
+          runGridLayoutRepair('workspace');
+        } else {
+          requestScreenRepair('workspace');
+        }
+      });
+
+      return () => {
+        cancelled = true;
+      };
+    }, [finishHiddenOutputRecovery, isVisible, requestScreenRepair, runGridLayoutRepair, sessionId]);
+
     return (
       <div
         style={{ display: isVisible ? 'flex' : 'none', flex: 1, minWidth: 0, minHeight: 0 }}
@@ -1574,6 +1867,8 @@ export const TerminalContainer = memo(
           onInput={handleInput}
           onResize={handleResize}
           onManualRepair={isGridSurface ? handleManualRepair : undefined}
+          onRestorePendingSettled={flushPendingGridScreenRepair}
+          onVisibleOutputOverflow={handleVisibleOutputOverflow}
         />
       </div>
     );

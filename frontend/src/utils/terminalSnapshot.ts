@@ -4,6 +4,8 @@ export const TERMINAL_SNAPSHOT_STORAGE_BUDGET_CHARS = 3_000_000;
 export const TERMINAL_SNAPSHOT_SCHEMA_VERSION = 2;
 export const TERMINAL_SNAPSHOT_PAYLOAD_KIND = 'viewport-only';
 export const TERMINAL_SNAPSHOT_MAX_CONTENT_LENGTH = 2_000_000;
+export const TERMINAL_SNAPSHOT_MAX_ENTRIES = 16;
+export const TERMINAL_SNAPSHOT_REMOVAL_TOMBSTONE_TTL_MS = 86_400_000;
 const DEFAULT_MAX_ROWS_MULTIPLIER = 4;
 const pendingSnapshotRemovals = new Set<string>();
 
@@ -50,7 +52,7 @@ export function getTerminalSnapshotKey(sessionId: string): string {
   return `${SNAPSHOT_KEY_PREFIX}${sessionId}`;
 }
 
-function getTerminalSnapshotRemovalKey(sessionId: string): string {
+export function getTerminalSnapshotRemovalKey(sessionId: string): string {
   return `${SNAPSHOT_REMOVAL_KEY_PREFIX}${sessionId}`;
 }
 
@@ -249,12 +251,14 @@ export function evictTerminalSnapshots(options: {
   storage?: Storage;
   preserveSessionId?: string;
   targetMaxChars?: number;
+  maxEntries?: number;
   nextKey?: string;
   nextValue?: string;
   minEntriesToRemove?: number;
 } = {}): TerminalSnapshotEvictionResult {
   const storage = options.storage ?? localStorage;
   const targetMaxChars = options.targetMaxChars ?? TERMINAL_SNAPSHOT_STORAGE_BUDGET_CHARS;
+  const maxEntries = options.maxEntries ?? TERMINAL_SNAPSHOT_MAX_ENTRIES;
   const beforeChars = estimateTerminalSnapshotStorageChars({
     storage,
     nextKey: options.nextKey,
@@ -263,6 +267,14 @@ export function evictTerminalSnapshots(options: {
   let afterChars = beforeChars;
   const removedKeys: string[] = [];
   const entries = listTerminalSnapshotStorageEntries(storage);
+  let snapshotEntryCount = entries.filter((entry) => {
+    if (entry.kind !== 'snapshot') return false;
+    if (options.nextKey && entry.key === options.nextKey) return false;
+    return true;
+  }).length;
+  if (options.nextKey && isTerminalSnapshotDataKey(options.nextKey)) {
+    snapshotEntryCount += 1;
+  }
   const candidates = sortEvictionCandidates(entries.filter((entry) => {
     if (options.nextKey && entry.key === options.nextKey) return false;
     if (options.preserveSessionId && entry.sessionId === options.preserveSessionId) return false;
@@ -271,7 +283,13 @@ export function evictTerminalSnapshots(options: {
   const minEntriesToRemove = options.minEntriesToRemove ?? 0;
 
   for (const entry of candidates) {
-    if (afterChars <= targetMaxChars && removedKeys.length >= minEntriesToRemove) {
+    const mustRemoveForChars = afterChars > targetMaxChars
+      || (entry.kind === 'snapshot' && removedKeys.length < minEntriesToRemove);
+    const mustRemoveForEntries = entry.kind === 'snapshot' && snapshotEntryCount > maxEntries;
+    if (!mustRemoveForChars && !mustRemoveForEntries) {
+      if (snapshotEntryCount > maxEntries) {
+        continue;
+      }
       break;
     }
 
@@ -279,6 +297,9 @@ export function evictTerminalSnapshots(options: {
       storage.removeItem(entry.key);
       removedKeys.push(entry.key);
       afterChars = Math.max(0, afterChars - entry.estimatedChars);
+      if (entry.kind === 'snapshot') {
+        snapshotEntryCount = Math.max(0, snapshotEntryCount - 1);
+      }
     } catch {
       // Ignore cleanup failures and continue with the next recoverable cache entry.
     }
@@ -300,12 +321,27 @@ export function evictTerminalSnapshotsForAuthToken(storage: Storage = localStora
   });
 }
 
+export function evictTerminalSnapshotsForAuthTokenWithLimits(options: {
+  storage?: Storage;
+  maxTotalChars?: number;
+  maxEntries?: number;
+} = {}): TerminalSnapshotEvictionResult {
+  const maxTotalChars = options.maxTotalChars ?? TERMINAL_SNAPSHOT_STORAGE_BUDGET_CHARS;
+  return evictTerminalSnapshots({
+    storage: options.storage,
+    targetMaxChars: Math.floor(maxTotalChars * 0.75),
+    maxEntries: options.maxEntries ?? TERMINAL_SNAPSHOT_MAX_ENTRIES,
+    minEntriesToRemove: 1,
+  });
+}
+
 export function setTerminalSnapshotWithQuotaRecovery(
   sessionId: string,
   value: string,
   options: {
     storage?: Storage;
     maxTotalChars?: number;
+    maxEntries?: number;
   } = {},
 ): TerminalSnapshotSaveResult {
   const storage = options.storage ?? localStorage;
@@ -314,9 +350,19 @@ export function setTerminalSnapshotWithQuotaRecovery(
     storage,
     preserveSessionId: sessionId,
     targetMaxChars: options.maxTotalChars ?? TERMINAL_SNAPSHOT_STORAGE_BUDGET_CHARS,
+    maxEntries: options.maxEntries ?? TERMINAL_SNAPSHOT_MAX_ENTRIES,
     nextKey: key,
     nextValue: value,
   });
+  const maxTotalChars = options.maxTotalChars ?? TERMINAL_SNAPSHOT_STORAGE_BUDGET_CHARS;
+  if (eviction.afterChars > maxTotalChars) {
+    return {
+      saved: false,
+      retried: false,
+      eviction,
+      error: new Error('Terminal snapshot storage budget exceeded'),
+    };
+  }
 
   try {
     storage.setItem(key, value);
@@ -330,10 +376,20 @@ export function setTerminalSnapshotWithQuotaRecovery(
       storage,
       preserveSessionId: sessionId,
       targetMaxChars: Math.floor((options.maxTotalChars ?? TERMINAL_SNAPSHOT_STORAGE_BUDGET_CHARS) * 0.85),
+      maxEntries: options.maxEntries ?? TERMINAL_SNAPSHOT_MAX_ENTRIES,
       nextKey: key,
       nextValue: value,
       minEntriesToRemove: 1,
     });
+    if (retryEviction.afterChars > maxTotalChars) {
+      return {
+        saved: false,
+        retried: true,
+        eviction,
+        retryEviction,
+        error: new Error('Terminal snapshot storage budget exceeded'),
+      };
+    }
 
     try {
       storage.setItem(key, value);
@@ -350,45 +406,99 @@ export function setTerminalSnapshotWithQuotaRecovery(
   }
 }
 
-export function markTerminalSnapshotForRemoval(sessionId?: string | null): void {
+export function markTerminalSnapshotForRemoval(
+  sessionId?: string | null,
+  options: { storage?: Storage; now?: Date } = {},
+): void {
   if (!sessionId) return;
 
   pendingSnapshotRemovals.add(sessionId);
+  const storage = options.storage ?? localStorage;
 
   try {
-    localStorage.removeItem(getTerminalSnapshotKey(sessionId));
+    storage.removeItem(getTerminalSnapshotKey(sessionId));
   } catch {
     // ignore localStorage failures
   }
 
   try {
-    localStorage.setItem(getTerminalSnapshotRemovalKey(sessionId), JSON.stringify({
+    storage.setItem(getTerminalSnapshotRemovalKey(sessionId), JSON.stringify({
       schemaVersion: 1,
       sessionId,
-      savedAt: new Date().toISOString(),
+      savedAt: (options.now ?? new Date()).toISOString(),
     }));
   } catch {
     // same-page callers still see the in-memory marker above
   }
 }
 
-export function isTerminalSnapshotRemovalRequested(sessionId: string): boolean {
+export function cleanupExpiredTerminalSnapshotTombstones(options: {
+  storage?: Storage;
+  tombstoneTtlMs?: number;
+  nowMs?: number;
+} = {}): { removedCount: number; removedKeys: string[] } {
+  const storage = options.storage ?? localStorage;
+  const tombstoneTtlMs = options.tombstoneTtlMs ?? TERMINAL_SNAPSHOT_REMOVAL_TOMBSTONE_TTL_MS;
+  const nowMs = options.nowMs ?? Date.now();
+  const removedKeys: string[] = [];
+
+  for (const entry of listTerminalSnapshotStorageEntries(storage)) {
+    if (entry.kind !== 'removal') {
+      continue;
+    }
+    if (!entry.corrupt && entry.savedAtMs > 0 && nowMs - entry.savedAtMs <= tombstoneTtlMs) {
+      continue;
+    }
+    try {
+      storage.removeItem(entry.key);
+      removedKeys.push(entry.key);
+    } catch {
+      // Ignore cleanup failures and continue.
+    }
+  }
+
+  return {
+    removedCount: removedKeys.length,
+    removedKeys,
+  };
+}
+
+export function isTerminalSnapshotRemovalRequested(
+  sessionId: string,
+  options: { storage?: Storage; tombstoneTtlMs?: number; nowMs?: number } = {},
+): boolean {
   if (pendingSnapshotRemovals.has(sessionId)) {
     return true;
   }
 
+  const storage = options.storage ?? localStorage;
+  const key = getTerminalSnapshotRemovalKey(sessionId);
+  const tombstoneTtlMs = options.tombstoneTtlMs ?? TERMINAL_SNAPSHOT_REMOVAL_TOMBSTONE_TTL_MS;
+  const nowMs = options.nowMs ?? Date.now();
+
   try {
-    return localStorage.getItem(getTerminalSnapshotRemovalKey(sessionId)) !== null;
+    const raw = storage.getItem(key);
+    if (raw === null) {
+      return false;
+    }
+
+    const parsed = parseSavedAtMs(raw);
+    if (parsed.corrupt || parsed.savedAtMs <= 0 || nowMs - parsed.savedAtMs > tombstoneTtlMs) {
+      storage.removeItem(key);
+      return false;
+    }
+
+    return true;
   } catch {
     return false;
   }
 }
 
-export function clearTerminalSnapshotRemovalRequest(sessionId: string): void {
+export function clearTerminalSnapshotRemovalRequest(sessionId: string, storage: Storage = localStorage): void {
   pendingSnapshotRemovals.delete(sessionId);
 
   try {
-    localStorage.removeItem(getTerminalSnapshotRemovalKey(sessionId));
+    storage.removeItem(getTerminalSnapshotRemovalKey(sessionId));
   } catch {
     // ignore localStorage failures
   }

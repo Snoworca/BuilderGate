@@ -11,7 +11,6 @@ import {
   isTerminalSnapshotRemovalRequested,
   parseTerminalViewportSnapshot,
   setTerminalSnapshotWithQuotaRecovery,
-  TERMINAL_SNAPSHOT_MAX_CONTENT_LENGTH,
   TERMINAL_SNAPSHOT_PAYLOAD_KIND,
   TERMINAL_SNAPSHOT_SCHEMA_VERSION,
   type TerminalViewportSnapshotBufferType,
@@ -26,7 +25,15 @@ import {
   registerTerminalRepairLayoutHandler,
   recordTerminalDebugEvent,
 } from '../../utils/terminalDebugCapture';
-import { getInputReliabilityMode } from '../../utils/inputReliabilityMode';
+import {
+  getInputReliabilityMode,
+  getSnapshotResourceLimits,
+  getTerminalResourceLimits,
+} from '../../utils/inputReliabilityMode';
+import {
+  createTerminalOutputScheduler,
+  type TerminalOutputScheduler,
+} from '../../utils/terminalOutputScheduler';
 import {
   ImeTransaction,
   type ImeDeferredKind,
@@ -59,8 +66,6 @@ const FONT_STORAGE_KEY = 'terminal_font_size';
 const SNAPSHOT_SAVE_DEBOUNCE_MS = 2000;
 const LARGE_WRITE_THRESHOLD = 10_000;
 const MOBILE_TOUCH_PAN_THRESHOLD_PX = 12;
-const INPUT_QUEUE_BYTE_BUDGET = 64 * 1024;
-const INPUT_QUEUE_TTL_MS = 1500;
 
 type TerminalCaptureState = 'open' | 'transient-blocked' | 'closed';
 type InputRejectedReason =
@@ -122,6 +127,14 @@ function getTerminalBufferType(term: Terminal): TerminalViewportSnapshotBufferTy
   return term.buffer.active.type === 'alternate' ? 'alternate' : 'normal';
 }
 
+function getInputQueueLimits(): { inputQueueMaxBytes: number; inputQueueTtlMs: number } {
+  const limits = getTerminalResourceLimits();
+  return {
+    inputQueueMaxBytes: limits.inputQueueMaxBytes,
+    inputQueueTtlMs: limits.inputQueueTtlMs,
+  };
+}
+
 // xterm.js v5는 방향키, Backspace 등 모든 제어 키를 네이티브로 처리.
 // 커스텀 KEY_SEQUENCES 핸들러는 xterm 내부 IME/유니코드 파이프라인을 우회하여
 // 한국어 등 CJK 입력 시 커서 위치 불일치 문제를 유발하므로 제거됨.
@@ -138,6 +151,7 @@ export interface TerminalHandle {
   requestGridRepair?: (reason?: GridRepairReason) => void;
   getScreenRepairReadiness: () => ScreenRepairReadiness;
   applyScreenRepair: (repair: ScreenRepairMessage) => Promise<ScreenRepairApplyResult>;
+  clearVisibleOutputRecovery: () => void;
   sendInput: (data: string) => TerminalInputSubmitResult;
   pasteInput: (data: string) => TerminalPasteInputResult;
   restoreSnapshot: () => Promise<boolean>;
@@ -179,10 +193,16 @@ interface Props {
   onInput: (data: string, metadata?: InputDebugMetadata) => void;
   onResize: (cols: number, rows: number) => void;
   onManualRepair?: () => void;
+  onRestorePendingSettled?: () => void;
+  onVisibleOutputOverflow?: (info: {
+    reason: string;
+    droppedBytes: number;
+    pendingBytes: number;
+  }) => void;
 }
 
 export const TerminalView = forwardRef<TerminalHandle, Props>(
-  ({ sessionId, workspaceId, terminalShortcutState, isVisible, onInput, onResize, onManualRepair }, ref) => {
+  ({ sessionId, workspaceId, terminalShortcutState, isVisible, onInput, onResize, onManualRepair, onRestorePendingSettled, onVisibleOutputOverflow }, ref) => {
     const terminalRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
@@ -226,6 +246,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const previousVisibilityRef = useRef(isVisible);
     const bufferedOutputRef = useRef<string[]>([]);
     const inFlightOutputRef = useRef<string[]>([]);
+    const outputSchedulerRef = useRef<TerminalOutputScheduler | null>(null);
+    const outputSchedulerTermRef = useRef<Terminal | null>(null);
     const mobilePanStartRef = useRef<{ x: number; y: number } | null>(null);
     const mobilePanLastYRef = useRef<number | null>(null);
     const mobilePanResidualYRef = useRef(0);
@@ -454,11 +476,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
     const expirePendingInputQueue = useCallback(() => {
       const now = Date.now();
+      const { inputQueueTtlMs } = getInputQueueLimits();
       const remaining: PendingTerminalInput[] = [];
       let remainingBytes = 0;
 
       for (const entry of pendingInputQueueRef.current) {
-        if (now - entry.queuedAt > INPUT_QUEUE_TTL_MS) {
+        if (now - entry.queuedAt > inputQueueTtlMs) {
           rejectQueuedInput(entry, entry.containsEnter ? 'timeout-enter-safety' : 'timeout');
           continue;
         }
@@ -471,10 +494,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     }, [rejectQueuedInput]);
 
     const scheduleInputQueueExpiry = useCallback(() => {
+      const { inputQueueTtlMs } = getInputQueueLimits();
       const timer = setTimeout(() => {
         inputQueueExpiryTimersRef.current.delete(timer);
         expirePendingInputQueue();
-      }, INPUT_QUEUE_TTL_MS + 25);
+      }, inputQueueTtlMs + 25);
       inputQueueExpiryTimersRef.current.add(timer);
     }, [expirePendingInputQueue]);
 
@@ -499,6 +523,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       pendingInputQueueRef.current = [];
       pendingInputQueueBytesRef.current = 0;
       const now = Date.now();
+      const { inputQueueTtlMs } = getInputQueueLimits();
 
       for (const entry of entries) {
         const debugInput = buildTerminalInputDebugPayload(entry.data, {
@@ -510,7 +535,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           rejectQueuedInput(entry, 'context-changed', 'context-changed');
           continue;
         }
-        if (now - entry.queuedAt > INPUT_QUEUE_TTL_MS) {
+        if (now - entry.queuedAt > inputQueueTtlMs) {
           rejectQueuedInput(entry, entry.containsEnter ? 'timeout-enter-safety' : 'timeout');
           continue;
         }
@@ -543,6 +568,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         typeof debugInput.details.byteLength === 'number'
           ? debugInput.details.byteLength
           : getQueueByteLength(data);
+      const { inputQueueMaxBytes } = getInputQueueLimits();
       const entry: PendingTerminalInput = {
         data,
         metadata,
@@ -556,12 +582,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         source,
       };
 
-      if (entry.byteLength > INPUT_QUEUE_BYTE_BUDGET) {
+      if (entry.byteLength > inputQueueMaxBytes) {
         recordTerminalDebugEvent(sessionId, 'terminal_input_queue_overflow', {
           ...debugInput.details,
           reason: 'queue-overflow',
           source,
-          queuedByteBudget: INPUT_QUEUE_BYTE_BUDGET,
+          queuedByteBudget: inputQueueMaxBytes,
           attemptedByteLength: entry.byteLength,
           pendingQueueBytes: pendingInputQueueBytesRef.current,
         }, debugInput.preview);
@@ -578,7 +604,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       pendingInputQueueRef.current.push(entry);
       pendingInputQueueBytesRef.current += entry.byteLength;
-      while (pendingInputQueueBytesRef.current > INPUT_QUEUE_BYTE_BUDGET && pendingInputQueueRef.current.length > 0) {
+      while (pendingInputQueueBytesRef.current > inputQueueMaxBytes && pendingInputQueueRef.current.length > 0) {
         const overflowed = pendingInputQueueRef.current.shift();
         if (!overflowed) {
           break;
@@ -589,7 +615,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           source: overflowed.source,
           droppedCaptureSeq: overflowed.captureSeq,
           pendingQueueBytes: pendingInputQueueBytesRef.current,
-          queuedByteBudget: INPUT_QUEUE_BYTE_BUDGET,
+          queuedByteBudget: inputQueueMaxBytes,
         });
         rejectQueuedInput(overflowed, 'queue-overflow');
       }
@@ -1043,10 +1069,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     }, [sessionId]);
 
     const loadStoredSnapshot = useCallback((): TerminalViewportSnapshotPayload | null => {
+      const snapshotLimits = getSnapshotResourceLimits();
       try {
         const raw = localStorage.getItem(getTerminalSnapshotKey(sessionId));
         const snapshot = parseTerminalViewportSnapshot(raw, sessionId, {
-          maxContentLength: TERMINAL_SNAPSHOT_MAX_CONTENT_LENGTH,
+          maxContentLength: snapshotLimits.perSnapshotMaxChars,
         });
         if (!snapshot) {
           clearStoredSnapshot();
@@ -1065,19 +1092,20 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const serializeAddon = serializeAddonRef.current;
       if (!term || !serializeAddon) return;
       if (restorePendingRef.current) return;
-      if (isTerminalSnapshotRemovalRequested(sessionId)) return;
+      const snapshotLimits = getSnapshotResourceLimits();
+      if (isTerminalSnapshotRemovalRequested(sessionId, { tombstoneTtlMs: snapshotLimits.tombstoneTtlMs })) return;
 
       try {
         const content = serializeAddon.serialize({ scrollback: 0 });
         if (!content) return;
-        if (content.length > TERMINAL_SNAPSHOT_MAX_CONTENT_LENGTH) {
+        if (content.length > snapshotLimits.perSnapshotMaxChars) {
           console.warn('[TerminalView] snapshot too large, keeping previous snapshot');
           return;
         }
         const storedSnapshot = parseTerminalViewportSnapshot(
           localStorage.getItem(getTerminalSnapshotKey(sessionId)),
           sessionId,
-          { maxContentLength: TERMINAL_SNAPSHOT_MAX_CONTENT_LENGTH },
+          { maxContentLength: snapshotLimits.perSnapshotMaxChars },
         );
         const bufferType = getTerminalBufferType(term);
         if (
@@ -1100,7 +1128,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           bufferType,
           savedAt: new Date().toISOString(),
         };
-        const result = setTerminalSnapshotWithQuotaRecovery(sessionId, JSON.stringify(snapshot));
+        const result = setTerminalSnapshotWithQuotaRecovery(sessionId, JSON.stringify(snapshot), {
+          maxTotalChars: snapshotLimits.totalStorageBudgetChars,
+          maxEntries: snapshotLimits.maxEntries,
+        });
         if (!result.saved) {
           console.warn('[TerminalView] snapshot save failed after quota recovery:', result.error);
           return;
@@ -1120,7 +1151,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       }, SNAPSHOT_SAVE_DEBOUNCE_MS);
     }, [saveSnapshot]);
 
-    const writeOutput = useCallback((term: Terminal, data: string, onWritten?: () => void) => {
+    const writeOutputDirect = useCallback((term: Terminal, data: string, onWritten?: () => void) => {
       inFlightOutputRef.current.push(data);
       term.write(data, () => {
         inFlightOutputRef.current.shift();
@@ -1140,6 +1171,47 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         containerRef.current?.classList.remove('output-active');
       }, 2000);
     }, [scheduleSnapshotSave, requestViewportSync]);
+
+    const getOutputScheduler = useCallback((term: Terminal): TerminalOutputScheduler => {
+      const limits = getTerminalResourceLimits();
+      if (!outputSchedulerRef.current || outputSchedulerTermRef.current !== term) {
+        outputSchedulerTermRef.current = term;
+        outputSchedulerRef.current = createTerminalOutputScheduler({
+          visibleOutputQueueMaxBytes: limits.visibleOutputQueueMaxBytes,
+          visibleOutputMaxChunks: limits.visibleOutputMaxChunks,
+          visibleFlushBudgetBytes: limits.visibleFlushBudgetBytes,
+          write: (chunk, onWritten) => writeOutputDirect(term, chunk, onWritten),
+        });
+        return outputSchedulerRef.current;
+      }
+
+      outputSchedulerRef.current.configure({
+        visibleOutputQueueMaxBytes: limits.visibleOutputQueueMaxBytes,
+        visibleOutputMaxChunks: limits.visibleOutputMaxChunks,
+        visibleFlushBudgetBytes: limits.visibleFlushBudgetBytes,
+      });
+      return outputSchedulerRef.current;
+    }, [writeOutputDirect]);
+
+    const writeOutput = useCallback((term: Terminal, data: string, onWritten?: () => void) => {
+      const scheduler = getOutputScheduler(term);
+      const decision = scheduler.enqueue(data, onWritten);
+      if (decision.ok) {
+        return;
+      }
+
+      recordTerminalDebugEvent(sessionId, 'visible_output_overflow', {
+        reason: decision.reason,
+        droppedBytes: decision.droppedBytes,
+        pendingBytes: scheduler.pendingBytes(),
+      });
+      onVisibleOutputOverflow?.({
+        reason: decision.reason,
+        droppedBytes: decision.droppedBytes,
+        pendingBytes: scheduler.pendingBytes(),
+      });
+      onWritten?.();
+    }, [getOutputScheduler, onVisibleOutputOverflow, sessionId]);
 
     const flushBufferedOutput = useCallback((onWritten?: () => void) => {
       const term = xtermRef.current;
@@ -1164,14 +1236,16 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         restorePendingRef.current = false;
         syncInputReadiness('restore-complete');
         saveSnapshot();
+        onRestorePendingSettled?.();
         resolve();
       };
 
       flushBufferedOutput(settle);
-    }), [flushBufferedOutput, saveSnapshot, syncInputReadiness]);
+    }), [flushBufferedOutput, onRestorePendingSettled, saveSnapshot, syncInputReadiness]);
 
     const persistBufferedOutput = useCallback(() => {
-      if (isTerminalSnapshotRemovalRequested(sessionId)) {
+      const snapshotLimits = getSnapshotResourceLimits();
+      if (isTerminalSnapshotRemovalRequested(sessionId, { tombstoneTtlMs: snapshotLimits.tombstoneTtlMs })) {
         return;
       }
 
@@ -1263,7 +1337,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           bufferType: term.buffer.active.type,
         };
       }
-      if (captureStateRef.current !== 'open' && transportBarrierReasonRef.current !== 'none') {
+      if (
+        captureStateRef.current !== 'open'
+        && transportBarrierReasonRef.current !== 'none'
+        && transportBarrierReasonRef.current !== 'visible-output-recovery'
+      ) {
         return {
           ok: false,
           reason: 'input-active',
@@ -1427,6 +1505,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         xtermRef.current?.clear();
         lastSnapshotRef.current = null;
         bufferedOutputRef.current = [];
+        outputSchedulerRef.current?.reset();
       },
       focus: (reason = 'handle') => {
         focusTerminalInput(reason);
@@ -1446,6 +1525,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       repairLayout: (reason = 'repair-layout') => repairLayoutAfterIme(reason),
       getScreenRepairReadiness: () => getScreenRepairReadiness(),
       applyScreenRepair: (repair: ScreenRepairMessage) => applyScreenRepair(repair),
+      clearVisibleOutputRecovery: () => {
+        outputSchedulerRef.current?.reset();
+      },
       sendInput: (data: string) => {
         const debugInput = buildTerminalInputDebugPayload(data, { captureSeq: nextCaptureSeq() });
         return submitCapturedInput(data, debugInput, 'imperative');
@@ -1985,7 +2067,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         termEl.removeEventListener('focusout', onFocusOut);
         document.removeEventListener('pointerdown', onDocumentPointerDownCapture, true);
         resizeObserver.disconnect();
-        if (isTerminalSnapshotRemovalRequested(sessionId)) {
+        const snapshotLimits = getSnapshotResourceLimits();
+        if (isTerminalSnapshotRemovalRequested(sessionId, { tombstoneTtlMs: snapshotLimits.tombstoneTtlMs })) {
           clearTerminalSnapshotRemovalRequest(sessionId);
         } else if (restorePendingRef.current) {
           persistBufferedOutput();

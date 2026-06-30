@@ -94,7 +94,7 @@
       visibleOutputQueueMaxBytes: 4194304,
       visibleOutputMaxChunks: 512,
       visibleFlushBudgetBytes: 262144,
-      hiddenOutputPolicy: "write-hidden",
+      hiddenOutputPolicy: "snapshot-restore",
       hiddenOutputTailBytes: 262144,
       inputQueueMaxBytes: 65536,
       inputQueueTtlMs: 1500,
@@ -123,7 +123,7 @@
   stabilityModes: {
     headlessQueueMode: "observe",
     wsSendMode: "direct",
-    frontendRuntimeResidency: "legacy",
+    frontendRuntimeResidency: "bounded",
   },
 
   // SSL/TLS settings

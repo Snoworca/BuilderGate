@@ -71,7 +71,7 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
       visibleOutputQueueMaxBytes: 4194304,
       visibleOutputMaxChunks: 512,
       visibleFlushBudgetBytes: 262144,
-      hiddenOutputPolicy: "write-hidden",
+      hiddenOutputPolicy: "snapshot-restore",
       hiddenOutputTailBytes: 262144,
       inputQueueMaxBytes: 65536,
       inputQueueTtlMs: 1500,
@@ -99,7 +99,7 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
   stabilityModes: {
     headlessQueueMode: "observe",
     wsSendMode: "direct",
-    frontendRuntimeResidency: "legacy",
+    frontendRuntimeResidency: "bounded",
   },
 
   ssl: {

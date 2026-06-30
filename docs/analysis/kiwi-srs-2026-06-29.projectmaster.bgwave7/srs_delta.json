@@ -1,0 +1,20 @@
+{
+  "classification": "new-feature",
+  "mode": "live",
+  "target": "0.5.5-buildergate-stability",
+  "scope": "BGSTAB",
+  "req_ids": ["FR-BGSTAB-014"],
+  "mcp_calls": [
+    { "tool": "add_requirement", "result_id": "FR-BGSTAB-014", "ok": true },
+    { "tool": "add_trace_link", "args": { "id": "FR-BGSTAB-014", "type": "Requirement", "reference": "FR-BGSTAB-001", "relation": "depends_on" }, "ok": true },
+    { "tool": "add_trace_link", "args": { "id": "FR-BGSTAB-014", "type": "Requirement", "reference": "FR-BGSTAB-002", "relation": "depends_on" }, "ok": true },
+    { "tool": "add_trace_link", "args": { "id": "FR-BGSTAB-014", "type": "Requirement", "reference": "FR-BGSTAB-003", "relation": "depends_on" }, "ok": true },
+    { "tool": "add_trace_link", "args": { "id": "FR-BGSTAB-014", "type": "Requirement", "reference": "FR-BGSTAB-004", "relation": "depends_on" }, "ok": true },
+    { "tool": "add_trace_link", "args": { "id": "FR-BGSTAB-014", "type": "Requirement", "reference": "FR-BGSTAB-005", "relation": "depends_on" }, "ok": true },
+    { "tool": "add_trace_link", "args": { "id": "FR-BGSTAB-014", "type": "Requirement", "reference": "FR-BGSTAB-013", "relation": "depends_on" }, "ok": true },
+    { "tool": "validate_spec", "ok": true, "errors": 0, "warnings": 0 }
+  ],
+  "validate_spec_result": { "ok": true, "errors": 0, "warnings": 0 },
+  "added_ids": ["FR-BGSTAB-014"],
+  "related_requirements": ["FR-BGSTAB-001", "FR-BGSTAB-002", "FR-BGSTAB-003", "FR-BGSTAB-004", "FR-BGSTAB-005", "FR-BGSTAB-013"]
+}

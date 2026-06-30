@@ -94,8 +94,11 @@ export function resolveVisibleTerminalTabIds(input: {
   const layout = input.gridLayouts.find(candidate => candidate.workspaceId === activeWorkspace.id);
   const visibleIds = collectMosaicLeafIds(layout?.mosaicTree ?? null)
     .filter(tabId => activeWorkspaceTabIds.has(tabId));
-  if (visibleIds.length > 0) {
+  if (visibleIds.length > 0 && visibleIds.length === activeWorkspaceTabIds.size) {
     return new Set(visibleIds);
+  }
+  if (activeWorkspaceTabIds.size > 0) {
+    return activeWorkspaceTabIds;
   }
   return activeWorkspace.activeTabId ? new Set([activeWorkspace.activeTabId]) : new Set();
 }

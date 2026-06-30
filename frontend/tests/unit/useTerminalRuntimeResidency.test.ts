@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   getNextTerminalRuntimeResidencyRefreshDelay,
+  resolveVisibleTerminalTabIds,
   resolveTerminalRuntimeResidency,
   type TerminalRuntimeResidencyMetadata,
 } from '../../src/hooks/useTerminalRuntimeResidency.ts';
-import type { WorkspaceTabRuntime } from '../../src/types/workspace.ts';
+import type { Workspace, WorkspaceTabRuntime } from '../../src/types/workspace.ts';
 
 function tab(id: string, workspaceId: string, status: WorkspaceTabRuntime['status'] = 'idle'): WorkspaceTabRuntime {
   return {
@@ -33,6 +34,32 @@ function metadata(entries: Array<[string, Partial<TerminalRuntimeResidencyMetada
     ...overrides,
   }]));
 }
+
+function workspace(overrides: Partial<Workspace> = {}): Workspace {
+  return {
+    id: 'w1',
+    name: 'Workspace 1',
+    sortOrder: 0,
+    viewMode: 'grid',
+    activeTabId: 't1',
+    colorCounter: 0,
+    createdAt: '2026-06-17T00:00:00.000Z',
+    updatedAt: '2026-06-17T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+test('grid visible tab resolution pins all active workspace tabs when persisted grid layout is absent', () => {
+  const visible = resolveVisibleTerminalTabIds({
+    tabs: [tab('t1', 'w1'), tab('t2', 'w1'), tab('t3', 'w1'), tab('hidden', 'w2')],
+    workspaces: [workspace()],
+    gridLayouts: [],
+    activeWorkspaceId: 'w1',
+    isMobile: false,
+  });
+
+  assert.deepEqual([...visible].sort(), ['t1', 't2', 't3']);
+});
 
 test('runtime residency always pins visible terminals even when terminal cap is lower', () => {
   const result = resolveTerminalRuntimeResidency({

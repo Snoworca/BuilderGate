@@ -1,8 +1,13 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { workspaceApi } from '../services/api';
 import { useWebSocketActions, useWebSocketState } from '../contexts/WebSocketContext';
 import type { Workspace, WorkspaceTab, WorkspaceTabRuntime, GridLayout, WorkspaceState } from '../types/workspace';
 import { markTerminalSnapshotForRemoval } from '../utils/terminalSnapshot';
+import {
+  clearMosaicLayoutForWorkspace,
+  pruneMosaicLayoutForDeletedTab,
+} from './mosaicLayoutStorage';
+import { resolveActiveWorkspaceAfterRemoval } from './workspaceActiveSelection';
 
 type WorkspaceTabChanges = Partial<Omit<WorkspaceTab, 'terminalTitle'>> & {
   terminalTitle?: string | null;
@@ -115,6 +120,17 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
+  const activeWorkspaceIdRef = useRef(activeWorkspaceId);
+
+  const setActiveWorkspaceIdAndPersist = useCallback((id: string | null) => {
+    activeWorkspaceIdRef.current = id;
+    setActiveWorkspaceIdState(id);
+    saveActiveWorkspaceId(id);
+  }, []);
+
+  useEffect(() => {
+    activeWorkspaceIdRef.current = activeWorkspaceId;
+  }, [activeWorkspaceId]);
 
   // ============================================================================
   // Initial Load
@@ -141,11 +157,12 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
         // Restore active workspace
         const savedId = loadActiveWorkspaceId();
         if (savedId && state.workspaces.some(w => w.id === savedId)) {
-          setActiveWorkspaceIdState(savedId);
+          setActiveWorkspaceIdAndPersist(savedId);
         } else if (state.workspaces.length > 0) {
           const firstId = state.workspaces[0].id;
-          setActiveWorkspaceIdState(firstId);
-          saveActiveWorkspaceId(firstId);
+          setActiveWorkspaceIdAndPersist(firstId);
+        } else {
+          setActiveWorkspaceIdAndPersist(null);
         }
       } catch (err: unknown) {
         if (mounted) setError(getErrorMessage(err));
@@ -154,7 +171,7 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
       }
     })();
     return () => { mounted = false; };
-  }, []);
+  }, [setActiveWorkspaceIdAndPersist]);
 
   // ============================================================================
   // WebSocket Event Handlers
@@ -186,7 +203,19 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
 
       'workspace:deleted': (data) => {
         const { id } = data as { id: string };
-        setWorkspaces(prev => prev.filter(w => w.id !== id));
+        clearMosaicLayoutForWorkspace(id);
+        setWorkspaces(prev => {
+          const next = prev.filter(w => w.id !== id);
+          const nextActiveWorkspaceId = resolveActiveWorkspaceAfterRemoval(
+            activeWorkspaceIdRef.current,
+            id,
+            next,
+          );
+          if (nextActiveWorkspaceId !== undefined) {
+            setActiveWorkspaceIdAndPersist(nextActiveWorkspaceId);
+          }
+          return next;
+        });
         setTabs(prev => {
           clearWorkspaceSnapshots(prev, id);
           return prev.filter(t => t.workspaceId !== id);
@@ -230,6 +259,9 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
         setTabs(prev => {
           const removed = prev.find(t => t.id === id);
           clearTerminalSnapshot(removed?.sessionId);
+          if (removed) {
+            pruneMosaicLayoutForDeletedTab(removed.workspaceId, id);
+          }
           return prev.filter(t => t.id !== id);
         });
       },
@@ -261,7 +293,7 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
         });
       },
     });
-  }, [setWorkspaceHandlers]);
+  }, [setActiveWorkspaceIdAndPersist, setWorkspaceHandlers]);
 
   // ============================================================================
   // Derived State
@@ -286,21 +318,19 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   // ============================================================================
 
   const setActiveWorkspaceId = useCallback((id: string) => {
-    setActiveWorkspaceIdState(id);
-    saveActiveWorkspaceId(id);
-  }, []);
+    setActiveWorkspaceIdAndPersist(id);
+  }, [setActiveWorkspaceIdAndPersist]);
 
   const createWorkspace = useCallback(async (name?: string) => {
     try {
       const ws = await workspaceApi.create(name);
       // Add locally — WS workspace:created is excluded for the originating client (x-client-id).
       setWorkspaces(prev => prev.some(w => w.id === ws.id) ? prev : [...prev, ws]);
-      setActiveWorkspaceIdState(ws.id);
-      saveActiveWorkspaceId(ws.id);
+      setActiveWorkspaceIdAndPersist(ws.id);
     } catch (err: unknown) {
       setError(getErrorMessage(err));
     }
-  }, []);
+  }, [setActiveWorkspaceIdAndPersist]);
 
   const updateWorkspace = useCallback(async (id: string, updates: Partial<Workspace>) => {
     try {
@@ -315,23 +345,26 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
     try {
       const removedTabs = tabs.filter(t => t.workspaceId === id);
       await workspaceApi.delete(id);
-      setWorkspaces(prev => prev.filter(w => w.id !== id));
+      clearMosaicLayoutForWorkspace(id);
+      setWorkspaces(prev => {
+        const next = prev.filter(w => w.id !== id);
+        const nextActiveWorkspaceId = resolveActiveWorkspaceAfterRemoval(
+          activeWorkspaceIdRef.current,
+          id,
+          next,
+        );
+        if (nextActiveWorkspaceId !== undefined) {
+          setActiveWorkspaceIdAndPersist(nextActiveWorkspaceId);
+        }
+        return next;
+      });
       setTabs(prev => prev.filter(t => t.workspaceId !== id));
       setGridLayouts(prev => prev.filter(g => g.workspaceId !== id));
       clearWorkspaceSnapshots(removedTabs, id);
-      // Switch to first remaining workspace
-      setWorkspaces(prev => {
-        if (activeWorkspaceId === id && prev.length > 0) {
-          const nextId = prev[0].id;
-          setActiveWorkspaceIdState(nextId);
-          saveActiveWorkspaceId(nextId);
-        }
-        return prev;
-      });
     } catch (err: unknown) {
       setError(getErrorMessage(err));
     }
-  }, [activeWorkspaceId, tabs]);
+  }, [setActiveWorkspaceIdAndPersist, tabs]);
 
   const reorderWorkspaces = useCallback(async (workspaceIds: string[]) => {
     try {
@@ -393,6 +426,7 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
       setWorkspaces(prev => prev.map(w =>
         w.id === workspaceId ? { ...w, activeTabId: nextActiveTabId } : w
       ));
+      pruneMosaicLayoutForDeletedTab(workspaceId, tabId);
       clearTerminalSnapshot(tabToClose?.sessionId);
     } catch (err: unknown) {
       setError(getErrorMessage(err));

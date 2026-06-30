@@ -1,0 +1,637 @@
+{
+  "schema_version": "1.1.0",
+  "plan_contract": "1.2.0",
+  "run_id": "2026-06-29.projectmaster.bgwave7",
+  "target": "0.5.5-buildergate-stability",
+  "plan_version": "0.1.0",
+  "generated_at": "2026-06-29T00:00:00+09:00",
+  "tool_versions": {
+    "speckiwi": "mcp",
+    "kiwi_planner": "0.6.0",
+    "validator": "0.6.0"
+  },
+  "tdd_policy": "relaxed",
+  "md_path": "docs/plans/2026-06-29.projectmaster.bgwave7.plan.md",
+  "md_sha256": "35fcd83430ce29521eddb97594495bee81d7021e8501a89dd4e8d085e3406b21",
+  "phases": [
+    {
+      "id": "PH-001",
+      "title": "Runtime Config And Snapshot Limits",
+      "goal": "Reload public runtime config after Settings save and use snapshot runtime budgets",
+      "depends_on": [],
+      "task_ids": ["T-PH001-01"]
+    },
+    {
+      "id": "PH-002",
+      "title": "Runtime Residency Ref Cleanup",
+      "goal": "Prune stale terminal runtime refs outside resident tabs",
+      "depends_on": ["PH-001"],
+      "task_ids": ["T-PH002-01"]
+    },
+    {
+      "id": "PH-003",
+      "title": "Workspace Storage Cleanup",
+      "goal": "Remove expired snapshot tombstones and deleted workspace mosaic layouts",
+      "depends_on": ["PH-001"],
+      "task_ids": ["T-PH003-01"]
+    },
+    {
+      "id": "PH-004",
+      "title": "Hidden Output Recovery",
+      "goal": "Keep dirty hidden output state until restore or authoritative repair succeeds",
+      "depends_on": ["PH-001"],
+      "task_ids": ["T-PH004-01"]
+    },
+    {
+      "id": "PH-005",
+      "title": "Visible Output Recovery",
+      "goal": "Request authoritative repair on visible output scheduler overflow",
+      "depends_on": ["PH-004"],
+      "task_ids": ["T-PH005-01"]
+    },
+    {
+      "id": "PH-006",
+      "title": "Browser WebSocket Send Failures",
+      "goal": "Convert socket.send exceptions into explicit SendResult failures",
+      "depends_on": ["PH-001"],
+      "task_ids": ["T-PH006-01"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "title": "Runtime config reload and snapshot budget plumbing",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-014"],
+      "files": [
+        { "path": "frontend/src/utils/inputReliabilityMode.ts" },
+        { "path": "frontend/src/components/Settings/SettingsPage.tsx" },
+        { "path": "frontend/src/utils/terminalSnapshot.ts" },
+        { "path": "frontend/src/components/Terminal/TerminalView.tsx" },
+        { "path": "server/config.json5.example" },
+        { "path": "server/src/schemas/config.schema.ts" },
+        { "path": "server/src/schemas/config.schema.test.ts" },
+        { "path": "server/src/utils/configTemplate.ts" },
+        { "path": "server/src/utils/configTemplate.test.ts" },
+        { "path": "server/src/services/RuntimeConfigStore.test.ts" },
+        { "path": "frontend/tests/unit/runtimeConfig.test.ts" },
+        { "path": "frontend/tests/unit/terminalSnapshot.test.ts" }
+      ],
+      "action": "Expose a clear runtime config reload API, call it after successful Settings save, change Wave7 defaults to bounded/snapshot-restore, and make terminal snapshot parse/save/eviction use runtime snapshot limits.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "node --experimental-strip-types --test frontend/tests/unit/runtimeConfig.test.ts frontend/tests/unit/terminalSnapshot.test.ts", "expected_exit": 0 },
+        { "kind": "shell", "cmd": "npm --prefix server test", "expected_exit": 0 }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test frontend/tests/unit/runtimeConfig.test.ts frontend/tests/unit/terminalSnapshot.test.ts && npm --prefix server test",
+        "windows": "node --experimental-strip-types --test frontend/tests/unit/runtimeConfig.test.ts frontend/tests/unit/terminalSnapshot.test.ts; npm --prefix server test"
+      },
+      "dod": [
+        "Settings save reloads runtime config",
+        "Default frontend residency is bounded",
+        "Default hidden output policy is snapshot-restore",
+        "Snapshot per-entry size, total budget, maxEntries, and tombstone TTL are runtime-configurable"
+      ],
+      "rollback": "Restore defaults and snapshot constants as fallbacks; remove Settings reload call.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-01-REQ",
+          "source": { "type": "Task", "id": "T-PH001-01" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-014" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": [],
+      "covers_ac": ["AC-1", "AC-3", "AC-8"],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-BGSTAB-014-AC1-01",
+            "req_id": "FR-BGSTAB-014",
+            "ac_refs": ["AC-1"],
+            "test_file": "frontend/tests/unit/runtimeConfig.test.ts",
+            "test_symbol": "reloadRuntimeConfig publishes a new runtime config version",
+            "kind": "unit",
+            "expected_failure_signature": "reloadRuntimeConfig is not a function"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-014-AC3-01",
+            "req_id": "FR-BGSTAB-014",
+            "ac_refs": ["AC-3"],
+            "test_file": "frontend/tests/unit/terminalSnapshot.test.ts",
+            "test_symbol": "eviction enforces max snapshot entries",
+            "kind": "unit",
+            "expected_failure_signature": "maxEntries ignored"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-014-AC8-01",
+            "req_id": "FR-BGSTAB-014",
+            "ac_refs": ["AC-8"],
+            "test_file": "server/src/schemas/config.schema.test.ts",
+            "test_symbol": "configSchema applies resourceLimits defaults to legacy config files",
+            "kind": "unit",
+            "expected_failure_signature": "frontendRuntimeResidency or hiddenOutputPolicy default mismatch"
+          }
+        ],
+        "red_evidence": "Initial implementation lacked full runtime-config reload E2E and snapshot budget/tombstone edge coverage; fixed during review loop.",
+        "green_evidence": "Passed: runtimeConfig.test.ts, terminalSnapshot.test.ts, settings-resource-limits.spec.ts; see docs/analysis/kiwi-review-fix-loop-2026-06-29.projectmaster.bgwave7/report.md"
+      },
+      "test_files": [
+        { "path": "frontend/tests/unit/runtimeConfig.test.ts" },
+        { "path": "frontend/tests/unit/terminalSnapshot.test.ts" },
+        { "path": "server/src/schemas/config.schema.test.ts" },
+        { "path": "server/src/utils/configTemplate.test.ts" },
+        { "path": "server/src/services/RuntimeConfigStore.test.ts" }
+      ]
+    },
+    {
+      "id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "title": "Terminal runtime ref pruning",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-014"],
+      "files": [
+        { "path": "frontend/src/components/Terminal/TerminalRuntimeLayer.tsx" },
+        { "path": "frontend/src/components/Terminal/terminalRuntimeRefs.ts" },
+        { "path": "frontend/tests/unit/terminalRuntimeRefs.test.ts" },
+        { "path": "frontend/tests/unit/useTerminalRuntimeResidency.test.ts" }
+      ],
+      "action": "Add pure ref-map helpers and prune terminalRefsMap after runtime layer commits so evicted or deleted tab ids do not retain mounted handles.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "node --experimental-strip-types --test frontend/tests/unit/terminalRuntimeRefs.test.ts frontend/tests/unit/useTerminalRuntimeResidency.test.ts", "expected_exit": 0 }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test frontend/tests/unit/terminalRuntimeRefs.test.ts frontend/tests/unit/useTerminalRuntimeResidency.test.ts",
+        "windows": "node --experimental-strip-types --test frontend/tests/unit/terminalRuntimeRefs.test.ts frontend/tests/unit/useTerminalRuntimeResidency.test.ts"
+      },
+      "dod": [
+        "Active resident refs are created",
+        "Refs for non-resident tab ids are removed after commit",
+        "Visible tab residency tests still pass"
+      ],
+      "rollback": "Remove helper and effect; return to existing set-only map behavior.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-01-REQ",
+          "source": { "type": "Task", "id": "T-PH002-01" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-014" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "S",
+      "depends_on_task": ["T-PH001-01"],
+      "covers_ac": ["AC-2"],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-BGSTAB-014-AC2-01",
+            "req_id": "FR-BGSTAB-014",
+            "ac_refs": ["AC-2"],
+            "test_file": "frontend/tests/unit/terminalRuntimeRefs.test.ts",
+            "test_symbol": "prunes refs outside resident tab ids",
+            "kind": "unit",
+            "expected_failure_signature": "Cannot find module"
+          }
+        ],
+        "red_evidence": "Review found grid-visible tabs could be under-pinned when server gridLayouts were stale or empty.",
+        "green_evidence": "Passed: useTerminalRuntimeResidency.test.ts, terminalRuntimeRefs.test.ts; grid fallback regression added."
+      },
+      "test_files": [
+        { "path": "frontend/tests/unit/terminalRuntimeRefs.test.ts" },
+        { "path": "frontend/tests/unit/useTerminalRuntimeResidency.test.ts" }
+      ]
+    },
+    {
+      "id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "title": "Snapshot tombstone and mosaic layout cleanup",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-014"],
+      "files": [
+        { "path": "frontend/src/utils/terminalSnapshot.ts" },
+        { "path": "frontend/src/hooks/useMosaicLayout.ts" },
+        { "path": "frontend/src/hooks/useWorkspaceManager.ts" },
+        { "path": "frontend/src/hooks/workspaceActiveSelection.ts" },
+        { "path": "frontend/tests/unit/terminalSnapshot.test.ts" },
+        { "path": "frontend/tests/unit/mosaicLayoutStorage.test.ts" },
+        { "path": "frontend/tests/unit/useWorkspaceManager.test.ts" }
+      ],
+      "action": "Add tombstone TTL cleanup and central mosaic layout storage helpers so workspace delete removes stale layout state and unmount/debounce saves cannot recreate it.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "node --experimental-strip-types --test frontend/tests/unit/terminalSnapshot.test.ts frontend/tests/unit/mosaicLayoutStorage.test.ts", "expected_exit": 0 }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test frontend/tests/unit/terminalSnapshot.test.ts frontend/tests/unit/mosaicLayoutStorage.test.ts",
+        "windows": "node --experimental-strip-types --test frontend/tests/unit/terminalSnapshot.test.ts frontend/tests/unit/mosaicLayoutStorage.test.ts"
+      },
+      "dod": [
+        "Fresh in-memory tombstones block saves",
+        "Expired persisted tombstones are cleaned",
+        "Workspace delete clears mosaic layout",
+        "Suppressed unmount save does not recreate deleted layout"
+      ],
+      "rollback": "Remove storage helper calls and tests; restore previous localStorage key handling.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-01-REQ",
+          "source": { "type": "Task", "id": "T-PH003-01" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-014" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": ["T-PH001-01"],
+      "covers_ac": ["AC-3", "AC-4"],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-BGSTAB-014-AC4-01",
+            "req_id": "FR-BGSTAB-014",
+            "ac_refs": ["AC-4"],
+            "test_file": "frontend/tests/unit/mosaicLayoutStorage.test.ts",
+            "test_symbol": "suppressed save does not recreate deleted layout",
+            "kind": "unit",
+            "expected_failure_signature": "Cannot find module"
+          }
+        ],
+        "red_evidence": "Review found inactive workspace tab deletion could leave stale mosaic_layout entries, and second-pass review found workspace deletion could leave active_workspace_id pointing at a deleted workspace.",
+        "green_evidence": "Passed: mosaicLayoutStorage.test.ts, terminalSnapshot.test.ts, and useWorkspaceManager.test.ts; pruneMosaicLayoutForDeletedTab and active workspace removal regressions added."
+      },
+      "test_files": [
+        { "path": "frontend/tests/unit/terminalSnapshot.test.ts" },
+        { "path": "frontend/tests/unit/mosaicLayoutStorage.test.ts" },
+        { "path": "frontend/tests/unit/useWorkspaceManager.test.ts" }
+      ]
+    },
+    {
+      "id": "T-PH004-01",
+      "phase_id": "PH-004",
+      "title": "Hidden output recovery contract",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-014"],
+      "files": [
+        { "path": "frontend/src/utils/terminalHiddenOutput.ts" },
+        { "path": "frontend/src/components/Terminal/TerminalContainer.tsx" },
+        { "path": "frontend/tests/unit/terminalHiddenOutput.test.ts" },
+        { "path": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts" }
+      ],
+      "action": "Wire begin/finish replay helpers through TerminalContainer and clear hidden dirty output only after local restore or authoritative repair success.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "node --experimental-strip-types --test frontend/tests/unit/terminalHiddenOutput.test.ts", "expected_exit": 0 }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test frontend/tests/unit/terminalHiddenOutput.test.ts",
+        "windows": "node --experimental-strip-types --test frontend/tests/unit/terminalHiddenOutput.test.ts"
+      },
+      "dod": [
+        "Hidden output skip avoids xterm writes",
+        "Restore failure keeps dirty state and requests repair",
+        "Repair or snapshot success clears dirty state"
+      ],
+      "rollback": "Return hidden recovery effect to one-shot restore attempt.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-01-REQ",
+          "source": { "type": "Task", "id": "T-PH004-01" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-014" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": ["T-PH001-01"],
+      "covers_ac": ["AC-5", "AC-8"],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-BGSTAB-014-AC5-01",
+            "req_id": "FR-BGSTAB-014",
+            "ac_refs": ["AC-5"],
+            "test_file": "frontend/tests/unit/terminalHiddenOutput.test.ts",
+            "test_symbol": "omitted policy defaults to snapshot restore skip",
+            "kind": "unit",
+            "expected_failure_signature": "write"
+          }
+        ],
+        "red_evidence": "Review requested component-boundary coverage for fallback placeholder hidden-output recovery.",
+        "green_evidence": "Passed: terminalHiddenOutput.test.ts and terminalContainerRecoveryContract.test.ts."
+      },
+      "test_files": [
+        { "path": "frontend/tests/unit/terminalHiddenOutput.test.ts" },
+        { "path": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts" }
+      ]
+    },
+    {
+      "id": "T-PH005-01",
+      "phase_id": "PH-005",
+      "title": "Visible overflow authoritative repair",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-014"],
+      "files": [
+        { "path": "frontend/src/utils/terminalOutputScheduler.ts" },
+        { "path": "frontend/src/utils/visibleOutputRecovery.ts" },
+        { "path": "frontend/src/components/Terminal/TerminalView.tsx" },
+        { "path": "frontend/src/components/Terminal/TerminalContainer.tsx" },
+        { "path": "frontend/tests/unit/terminalOutputScheduler.test.ts" },
+        { "path": "frontend/tests/unit/visibleOutputRecovery.test.ts" },
+        { "path": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts" },
+        { "path": "frontend/tests/unit/terminalViewRecoveryContract.test.ts" }
+      ],
+      "action": "Add a visible overflow callback from TerminalView to TerminalContainer and use visibleOutputRecovery state to suppress duplicate repair requests until authoritative recovery settles.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "node --experimental-strip-types --test frontend/tests/unit/terminalOutputScheduler.test.ts frontend/tests/unit/visibleOutputRecovery.test.ts", "expected_exit": 0 }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test frontend/tests/unit/terminalOutputScheduler.test.ts frontend/tests/unit/visibleOutputRecovery.test.ts",
+        "windows": "node --experimental-strip-types --test frontend/tests/unit/terminalOutputScheduler.test.ts frontend/tests/unit/visibleOutputRecovery.test.ts"
+      },
+      "dod": [
+        "Overflow emits observable recovery state",
+        "A screen repair request is sent once",
+        "Successful repair clears stale scheduler state",
+        "Send failure remains observable"
+      ],
+      "rollback": "Remove overflow callback and keep scheduler reset-only behavior.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH005-01-REQ",
+          "source": { "type": "Task", "id": "T-PH005-01" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-014" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": ["T-PH004-01"],
+      "covers_ac": ["AC-6"],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-BGSTAB-014-AC6-01",
+            "req_id": "FR-BGSTAB-014",
+            "ac_refs": ["AC-6"],
+            "test_file": "frontend/tests/unit/visibleOutputRecovery.test.ts",
+            "test_symbol": "suppresses duplicate visible overflow recovery while pending",
+            "kind": "unit",
+            "expected_failure_signature": "pending"
+          }
+        ],
+        "red_evidence": "Review found visible overflow recovery did not block input, cleared scheduler stale state too early, then second-pass review found the barrier could block repair and outbox flush could bypass recovery.",
+        "green_evidence": "Passed: visibleOutputRecovery.test.ts, terminalOutputScheduler.test.ts, terminalContainerRecoveryContract.test.ts, and terminalViewRecoveryContract.test.ts."
+      },
+      "test_files": [
+        { "path": "frontend/tests/unit/terminalOutputScheduler.test.ts" },
+        { "path": "frontend/tests/unit/visibleOutputRecovery.test.ts" },
+        { "path": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts" },
+        { "path": "frontend/tests/unit/terminalViewRecoveryContract.test.ts" }
+      ]
+    },
+    {
+      "id": "T-PH006-01",
+      "phase_id": "PH-006",
+      "title": "WebSocket send exception result",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-014"],
+      "files": [
+        { "path": "frontend/src/utils/webSocketBackpressure.ts" },
+        { "path": "frontend/src/utils/terminalDebugCapture.ts" },
+        { "path": "frontend/src/contexts/WebSocketContext.tsx" },
+        { "path": "frontend/src/components/Terminal/TerminalContainer.tsx" },
+        { "path": "frontend/src/types/ws-protocol.ts" },
+        { "path": "server/src/types/ws-protocol.ts" },
+        { "path": "frontend/tests/unit/webSocketBackpressure.test.ts" },
+        { "path": "frontend/tests/e2e/terminal-keyboard-regression.spec.ts" }
+      ],
+      "action": "Catch socket.send exceptions, return send-failed from WebSocketContext, emit debug telemetry without raw input, and route input failures through the existing bounded transport outbox/reject path.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "node --experimental-strip-types --test frontend/tests/unit/webSocketBackpressure.test.ts", "expected_exit": 0 }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test frontend/tests/unit/webSocketBackpressure.test.ts",
+        "windows": "node --experimental-strip-types --test frontend/tests/unit/webSocketBackpressure.test.ts"
+      },
+      "dod": [
+        "Backpressure fails before send",
+        "socket.send throw does not break React call stack",
+        "ws_input_sent is emitted only for successful sends"
+      ],
+      "rollback": "Remove send-failed reason and catch path.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH006-01-REQ",
+          "source": { "type": "Task", "id": "T-PH006-01" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-014" },
+          "relation": "depends_on"
+        }
+      ],
+      "estimated_effort": "S",
+      "depends_on_task": ["T-PH001-01"],
+      "covers_ac": ["AC-7"],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-BGSTAB-014-AC7-01",
+            "req_id": "FR-BGSTAB-014",
+            "ac_refs": ["AC-7"],
+            "test_file": "frontend/tests/unit/webSocketBackpressure.test.ts",
+            "test_symbol": "browser websocket send gate reports send-failed when socket.send throws",
+            "kind": "unit",
+            "expected_failure_signature": "uncaught Error"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-014-AC7-02",
+            "req_id": "FR-BGSTAB-014",
+            "ac_refs": ["AC-7"],
+            "test_file": "frontend/tests/e2e/terminal-keyboard-regression.spec.ts",
+            "test_symbol": "TC-7213: socket.send exception queues, retries, and redacts input debug payloads",
+            "kind": "e2e",
+            "expected_failure_signature": "ws_send_failed_exception missing or outbox retry missing"
+          }
+        ],
+        "red_evidence": "Review found stale-socket reconnect grace conflicted with checked-in TC-7212 expectation.",
+        "green_evidence": "Passed: webSocketBackpressure.test.ts, terminalTransportQueueDecision.test.ts, and terminal-keyboard-regression.spec.ts --grep \"TC-7212|TC-7213\"."
+      },
+      "test_files": [
+        { "path": "frontend/tests/unit/webSocketBackpressure.test.ts" },
+        { "path": "frontend/tests/e2e/terminal-keyboard-regression.spec.ts" }
+      ]
+    }
+  ],
+  "coverage": [
+    {
+      "req_id": "FR-BGSTAB-014",
+      "stability": "evolving",
+      "ac_total": 8,
+      "ac_covered": 8,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH001-01",
+        "T-PH002-01",
+        "T-PH003-01",
+        "T-PH004-01",
+        "T-PH005-01",
+        "T-PH006-01"
+      ],
+      "ac_test_map": [
+        { "ac_id": "AC-1", "test_case_ids": ["TC-REQ-FR-BGSTAB-014-AC1-01"] },
+        { "ac_id": "AC-2", "test_case_ids": ["TC-REQ-FR-BGSTAB-014-AC2-01"] },
+        { "ac_id": "AC-3", "test_case_ids": ["TC-REQ-FR-BGSTAB-014-AC3-01"] },
+        { "ac_id": "AC-4", "test_case_ids": ["TC-REQ-FR-BGSTAB-014-AC4-01"] },
+        { "ac_id": "AC-5", "test_case_ids": ["TC-REQ-FR-BGSTAB-014-AC5-01"] },
+        { "ac_id": "AC-6", "test_case_ids": ["TC-REQ-FR-BGSTAB-014-AC6-01"] },
+        { "ac_id": "AC-7", "test_case_ids": ["TC-REQ-FR-BGSTAB-014-AC7-01", "TC-REQ-FR-BGSTAB-014-AC7-02"] },
+        { "ac_id": "AC-8", "test_case_ids": ["TC-REQ-FR-BGSTAB-014-AC1-01", "TC-REQ-FR-BGSTAB-014-AC5-01", "TC-REQ-FR-BGSTAB-014-AC8-01"] }
+      ]
+    }
+  ],
+  "orphans": [],
+  "unreferenced_reqs": [],
+  "excluded_reqs": [],
+  "deferred_ac": [],
+  "risks": [
+    {
+      "id": "R1",
+      "severity": "high",
+      "description": "Existing dirty worktree may contain user or prior-wave changes.",
+      "mitigation": "Patch only Wave7 files and inspect diffs before final verification.",
+      "affected_task_ids": ["T-PH001-01", "T-PH004-01", "T-PH005-01"]
+    },
+    {
+      "id": "R2",
+      "severity": "medium",
+      "description": "Settings save reload could be mistaken for a visual UI change.",
+      "mitigation": "Reload runtime config silently after successful save without changing Settings UI layout or labels.",
+      "affected_task_ids": ["T-PH001-01"]
+    },
+    {
+      "id": "R3",
+      "severity": "high",
+      "description": "Hidden or visible recovery could clear dirty state before authoritative state is restored.",
+      "mitigation": "Clear hidden/visible recovery only on restore, snapshot, or screen repair success and record failures.",
+      "affected_task_ids": ["T-PH004-01", "T-PH005-01"]
+    }
+  ],
+  "open_questions": [],
+  "external_module_impact": [],
+  "tdd_decisions": [],
+  "coder_handoff_readiness": [
+    { "phase_id": "PH-001", "ready": true, "blockers": [] },
+    { "phase_id": "PH-002", "ready": true, "blockers": [] },
+    { "phase_id": "PH-003", "ready": true, "blockers": [] },
+    { "phase_id": "PH-004", "ready": true, "blockers": [] },
+    { "phase_id": "PH-005", "ready": true, "blockers": [] },
+    { "phase_id": "PH-006", "ready": true, "blockers": [] }
+  ],
+  "mcp_call_log": [
+    {
+      "seq": 1,
+      "call": "add_trace_link",
+      "args": {
+        "source": { "type": "Task", "id": "T-PH001-01" },
+        "target": { "type": "Requirement", "reference": "FR-BGSTAB-014" },
+        "relation": "depends_on"
+      },
+      "args_hash": "0000000000000000000000000000000000000011",
+      "response_hash": null,
+      "timestamp": "2026-06-29T00:00:00+09:00",
+      "ok": null,
+      "dry_run": true
+    },
+    {
+      "seq": 2,
+      "call": "add_trace_link",
+      "args": {
+        "source": { "type": "Task", "id": "T-PH002-01" },
+        "target": { "type": "Requirement", "reference": "FR-BGSTAB-014" },
+        "relation": "depends_on"
+      },
+      "args_hash": "0000000000000000000000000000000000000012",
+      "response_hash": null,
+      "timestamp": "2026-06-29T00:00:00+09:00",
+      "ok": null,
+      "dry_run": true
+    },
+    {
+      "seq": 3,
+      "call": "add_trace_link",
+      "args": {
+        "source": { "type": "Task", "id": "T-PH003-01" },
+        "target": { "type": "Requirement", "reference": "FR-BGSTAB-014" },
+        "relation": "depends_on"
+      },
+      "args_hash": "0000000000000000000000000000000000000013",
+      "response_hash": null,
+      "timestamp": "2026-06-29T00:00:00+09:00",
+      "ok": null,
+      "dry_run": true
+    },
+    {
+      "seq": 4,
+      "call": "add_trace_link",
+      "args": {
+        "source": { "type": "Task", "id": "T-PH004-01" },
+        "target": { "type": "Requirement", "reference": "FR-BGSTAB-014" },
+        "relation": "depends_on"
+      },
+      "args_hash": "0000000000000000000000000000000000000014",
+      "response_hash": null,
+      "timestamp": "2026-06-29T00:00:00+09:00",
+      "ok": null,
+      "dry_run": true
+    },
+    {
+      "seq": 5,
+      "call": "add_trace_link",
+      "args": {
+        "source": { "type": "Task", "id": "T-PH005-01" },
+        "target": { "type": "Requirement", "reference": "FR-BGSTAB-014" },
+        "relation": "depends_on"
+      },
+      "args_hash": "0000000000000000000000000000000000000015",
+      "response_hash": null,
+      "timestamp": "2026-06-29T00:00:00+09:00",
+      "ok": null,
+      "dry_run": true
+    },
+    {
+      "seq": 6,
+      "call": "add_trace_link",
+      "args": {
+        "source": { "type": "Task", "id": "T-PH006-01" },
+        "target": { "type": "Requirement", "reference": "FR-BGSTAB-014" },
+        "relation": "depends_on"
+      },
+      "args_hash": "0000000000000000000000000000000000000016",
+      "response_hash": null,
+      "timestamp": "2026-06-29T00:00:00+09:00",
+      "ok": null,
+      "dry_run": true
+    },
+    {
+      "seq": 7,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "FR-BGSTAB-014",
+        "type": "plan",
+        "reference": "docs/plans/2026-06-29.projectmaster.bgwave7.plan.md"
+      },
+      "args_hash": "0000000000000000000000000000000000000017",
+      "response_hash": null,
+      "timestamp": "2026-06-29T00:00:00+09:00",
+      "ok": null,
+      "dry_run": true
+    }
+  ]
+}

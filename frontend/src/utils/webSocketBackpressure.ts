@@ -36,7 +36,7 @@ export type OpenBrowserWebSocketSendResult =
   | { ok: true }
   | {
       ok: false;
-      reason: 'not-open' | 'client-backpressure' | 'client-hard-backpressure';
+      reason: 'not-open' | 'client-backpressure' | 'client-hard-backpressure' | 'send-failed';
       bufferedAmount?: number;
       payloadBytes?: number;
     };
@@ -145,7 +145,11 @@ export function sendOpenBrowserWebSocketMessage(input: OpenBrowserWebSocketSendI
     };
   }
 
-  input.socket.send(serializedPayload);
+  try {
+    input.socket.send(serializedPayload);
+  } catch {
+    return { ok: false, reason: 'send-failed', bufferedAmount, payloadBytes: getUtf8ByteLength(serializedPayload) };
+  }
   return { ok: true };
 }
 

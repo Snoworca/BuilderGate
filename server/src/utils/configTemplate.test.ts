@@ -11,13 +11,13 @@ test('renderBootstrapConfigTemplate includes resourceLimits defaults', () => {
   assert.match(rendered, /pendingOutputMaxBytes:\s*8388608/);
   assert.match(rendered, /serverBufferedHardLimitBytes:\s*33554432/);
   assert.match(rendered, /inputBackpressureBytes:\s*1048576/);
-  assert.match(rendered, /hiddenOutputPolicy:\s*"write-hidden"/);
+  assert.match(rendered, /hiddenOutputPolicy:\s*"snapshot-restore"/);
   assert.match(rendered, /hiddenOutputTailBytes:\s*262144/);
   assert.match(rendered, /maxLiveWorkspaces:\s*3/);
   assert.match(rendered, /stabilityModes:\s*\{/);
   assert.match(rendered, /headlessQueueMode:\s*"observe"/);
   assert.match(rendered, /wsSendMode:\s*"direct"/);
-  assert.match(rendered, /frontendRuntimeResidency:\s*"legacy"/);
+  assert.match(rendered, /frontendRuntimeResidency:\s*"bounded"/);
   assert.match(rendered, /processCleanup:\s*\{/);
   assert.match(rendered, /mode:\s*"observe"/);
   assert.match(rendered, /gracefulWaitMs:\s*750/);
@@ -43,7 +43,7 @@ test('config.json5.example documents resourceLimits defaults', async () => {
   assert.match(example, /stabilityModes:\s*\{/);
   assert.match(example, /headlessQueueMode:\s*"observe"/);
   assert.match(example, /wsSendMode:\s*"direct"/);
-  assert.match(example, /frontendRuntimeResidency:\s*"legacy"/);
+  assert.match(example, /frontendRuntimeResidency:\s*"bounded"/);
   assert.match(example, /processCleanup:\s*\{/);
   assert.match(example, /mode:\s*"observe"/);
   assert.match(example, /gracefulWaitMs:\s*750/);

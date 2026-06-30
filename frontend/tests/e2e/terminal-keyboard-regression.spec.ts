@@ -139,7 +139,7 @@ async function setInputTransportOverride(
 
 async function setNextWebSocketInputSendFailure(
   page: Page,
-  reason: 'not-open' | 'missing-token' | 'stale-socket',
+  reason: 'not-open' | 'missing-token' | 'stale-socket' | 'send-failed',
   count = 1,
 ) {
   return page.evaluate(({ failureReason, failureCount }) => {
@@ -276,6 +276,7 @@ function assertNoRawInputDebugLeak(events: Array<{ kind: string; details?: Recor
     'terminal_input_rejected',
     'terminal_input_sequencer_received',
     'ws_send_debug_failure_forced',
+    'ws_send_failed_exception',
     'ws_send_rejected_not_open',
     'ws_send_rejected_missing_token',
     'transport_input_would_queue',
@@ -625,7 +626,7 @@ test.describe('Terminal Keyboard Regressions', () => {
     await expect.poll(async () => await readVisibleTerminalText(page), { timeout: 5000 }).toContain('> z');
   });
 
-  test('TC-7212: stale WebSocket send failure is rejected instead of queued for late flush', async ({ page }) => {
+  test('TC-7212: stale WebSocket send failure queues during reconnect grace and flushes', async ({ page }) => {
     const sessionId = await getActiveSessionId(page);
     test.skip(!sessionId, 'Need an active session');
 
@@ -651,13 +652,54 @@ test.describe('Terminal Keyboard Regressions', () => {
       };
     }, { timeout: 5000 }).toMatchObject({
       forced: true,
-      rejected: true,
-      queued: false,
-      flushed: false,
+      rejected: false,
+      queued: true,
+      flushed: true,
     });
+
+    await expect.poll(async () => await readVisibleTerminalText(page), { timeout: 5000 }).toContain('> s');
   });
 
-  test('TC-7213: Hangul insertText followed by Space stays observable without transport rejection', async ({ page }) => {
+  test('TC-7213: socket.send exception queues, retries, and redacts input debug payloads', async ({ page }) => {
+    const sessionId = await getActiveSessionId(page);
+    test.skip(!sessionId, 'Need an active session');
+
+    await page.evaluate(() => {
+      window.__buildergateTerminalDebug?.setInputReliabilityMode('queue');
+    });
+    await startTerminalDebug(page, sessionId);
+    await focusTerminalInput(page);
+    expect(await setNextWebSocketInputSendFailure(page, 'send-failed', 1)).toBe(true);
+    await page.keyboard.insertText('한');
+
+    await expect.poll(async () => {
+      const events = await getTerminalDebugEvents(page, sessionId);
+      const exceptionIndex = events.findIndex((event) =>
+        event.kind === 'ws_send_failed_exception'
+        && event.details?.sendResultReason === 'send-failed',
+      );
+      const sentIndex = events.findIndex((event) =>
+        event.kind === 'ws_input_sent'
+        && event.details?.source === 'outbox-send-failure-send-failed',
+      );
+      return {
+        exception: exceptionIndex >= 0,
+        queued: events.some((event) => event.kind === 'transport_input_queued'),
+        flushed: events.some((event) => event.kind === 'transport_input_flushed'),
+        sentAfterException: exceptionIndex >= 0 && sentIndex > exceptionIndex,
+      };
+    }, { timeout: 5000 }).toMatchObject({
+      exception: true,
+      queued: true,
+      flushed: true,
+      sentAfterException: true,
+    });
+
+    const events = await getTerminalDebugEvents(page, sessionId);
+    assertNoRawInputDebugLeak(events, '한');
+  });
+
+  test('TC-7214: Hangul insertText followed by Space stays observable without transport rejection', async ({ page }) => {
     const sessionId = await getActiveSessionId(page);
     test.skip(!sessionId, 'Need an active session');
 

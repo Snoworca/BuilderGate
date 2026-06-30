@@ -103,7 +103,7 @@ test('RuntimeConfigStore exposes Wave6 resource capabilities without leaking ser
   const publicConfig = store.getPublicRuntimeConfig('queue');
 
   assert.equal(snapshot.values.resourceLimits.clientWs.inputBackpressureBytes, 1048576);
-  assert.equal(snapshot.values.resourceLimits.terminal.hiddenOutputPolicy, 'write-hidden');
+  assert.equal(snapshot.values.resourceLimits.terminal.hiddenOutputPolicy, 'snapshot-restore');
   assert.equal(snapshot.values.resourceLimits.ws.serverBufferedHighWaterBytes, 8388608);
   assert.equal(snapshot.values.stabilityModes.frontendRuntimeResidency, 'bounded');
   assert.equal(snapshot.capabilities['resourceLimits.clientWs.inputBackpressureBytes'].applyScope, 'immediate');
@@ -141,7 +141,7 @@ test('RuntimeConfigStore exposes Wave6 resource capabilities without leaking ser
         visibleOutputQueueMaxBytes: 4194304,
         visibleOutputMaxChunks: 512,
         visibleFlushBudgetBytes: 262144,
-        hiddenOutputPolicy: 'write-hidden',
+        hiddenOutputPolicy: 'snapshot-restore',
         hiddenOutputTailBytes: 262144,
         inputQueueMaxBytes: 65536,
         inputQueueTtlMs: 1500,

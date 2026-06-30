@@ -67,7 +67,8 @@ export type TerminalInputBarrierReason =
   | 'initial-geometry-pending'
   | 'repair-server-not-ready'
   | 'ws-reconnecting-short'
-  | 'client-backpressure';
+  | 'client-backpressure'
+  | 'visible-output-recovery';
 
 export type TerminalInputClosedReason =
   | 'none'

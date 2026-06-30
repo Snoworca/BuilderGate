@@ -1,6 +1,7 @@
 import type { InputReliabilityMode } from '../types/ws-protocol';
 
 const STORAGE_KEY = 'buildergate.inputReliabilityMode';
+const SNAPSHOT_REMOVAL_KEY_PREFIX = 'terminal_snapshot_remove_';
 const VALID_MODES = new Set<InputReliabilityMode>(['observe', 'queue', 'strict']);
 const VALID_WS_TRANSPORT_MODES = new Set<WsTransportMode>(['unified', 'split-shadow', 'split']);
 
@@ -69,7 +70,7 @@ const DEFAULT_TERMINAL_LIMITS: TerminalResourceLimitsRuntimeConfig = {
   visibleOutputQueueMaxBytes: 4_194_304,
   visibleOutputMaxChunks: 512,
   visibleFlushBudgetBytes: 262_144,
-  hiddenOutputPolicy: 'write-hidden',
+  hiddenOutputPolicy: 'snapshot-restore',
   hiddenOutputTailBytes: 262_144,
   inputQueueMaxBytes: 65_536,
   inputQueueTtlMs: 1500,
@@ -95,7 +96,7 @@ let runtimeMode: InputReliabilityMode = 'observe';
 let runtimeModeLoaded = false;
 let runtimeConfigVersion = 0;
 let wsTransportMode: WsTransportMode = 'unified';
-let frontendRuntimeResidency: FrontendRuntimeResidencyMode = 'legacy';
+let frontendRuntimeResidency: FrontendRuntimeResidencyMode = 'bounded';
 let resourceLimits: BrowserResourceLimitsRuntimeConfig = createDefaultResourceLimits();
 const runtimeConfigSubscribers = new Set<() => void>();
 
@@ -123,6 +124,7 @@ export async function initializeInputReliabilityMode(): Promise<InputReliability
     wsTransportMode = parseWsTransportMode(payload.wsTransportMode);
     frontendRuntimeResidency = parseFrontendRuntimeResidency(payload.stabilityModes?.frontendRuntimeResidency);
     resourceLimits = parseResourceLimits(payload.resourceLimits);
+    cleanupTerminalSnapshotTombstonesFromRuntimeConfig();
     runtimeModeLoaded = true;
     publishRuntimeConfigChange();
   } catch (error) {
@@ -130,6 +132,10 @@ export async function initializeInputReliabilityMode(): Promise<InputReliability
   }
 
   return getInputReliabilityMode();
+}
+
+export async function reloadRuntimeConfig(): Promise<InputReliabilityMode> {
+  return initializeInputReliabilityMode();
 }
 
 export function setLocalInputReliabilityModeForTest(mode: InputReliabilityMode | null): InputReliabilityMode {
@@ -190,6 +196,37 @@ function publishRuntimeConfigChange(): void {
   runtimeConfigVersion += 1;
   for (const callback of runtimeConfigSubscribers) {
     callback();
+  }
+}
+
+function cleanupTerminalSnapshotTombstonesFromRuntimeConfig(): void {
+  if (typeof localStorage === 'undefined') {
+    return;
+  }
+
+  try {
+    const nowMs = Date.now();
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index);
+      if (!key?.startsWith(SNAPSHOT_REMOVAL_KEY_PREFIX)) {
+        continue;
+      }
+
+      const raw = localStorage.getItem(key);
+      let savedAtMs = 0;
+      try {
+        const parsed = JSON.parse(raw ?? '') as { savedAt?: unknown };
+        savedAtMs = typeof parsed.savedAt === 'string' ? Date.parse(parsed.savedAt) : 0;
+      } catch {
+        savedAtMs = 0;
+      }
+
+      if (!Number.isFinite(savedAtMs) || savedAtMs <= 0 || nowMs - savedAtMs > resourceLimits.snapshots.tombstoneTtlMs) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch {
+    // Runtime config reload should not fail because best-effort local cache cleanup failed.
   }
 }
 
@@ -359,7 +396,10 @@ function parseHiddenOutputPolicy(value: unknown): HiddenOutputPolicy | null {
 }
 
 function parseFrontendRuntimeResidency(value: unknown): FrontendRuntimeResidencyMode {
-  return value === 'bounded' || value === 'off' ? value : 'legacy';
+  if (value === 'legacy' || value === 'off') {
+    return value;
+  }
+  return 'bounded';
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

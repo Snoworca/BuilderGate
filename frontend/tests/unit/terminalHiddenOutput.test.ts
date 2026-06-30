@@ -7,6 +7,7 @@ import {
   createHiddenOutputState,
   finishHiddenOutputReplay,
   resolveHiddenOutput,
+  shouldClearHiddenOutputAfterSnapshotRecovery,
 } from '../../src/utils/terminalHiddenOutput.ts';
 
 test('visible terminal output is written without marking replay recovery', () => {
@@ -34,7 +35,7 @@ test('hidden terminal output is skipped and counted instead of being buffered', 
   assert.deepEqual(second.nextState, { skipped: true, skippedBytes: 12, debugTail: '' });
 });
 
-test('omitted hidden output policy keeps legacy hidden writes enabled', () => {
+test('omitted hidden output policy uses snapshot restore skip by default', () => {
   const state = createHiddenOutputState();
   const decision = resolveHiddenOutput(state, {
     isVisible: false,
@@ -42,8 +43,8 @@ test('omitted hidden output policy keeps legacy hidden writes enabled', () => {
     data: 'hidden',
   });
 
-  assert.equal(decision.action, 'write');
-  assert.equal(decision.nextState, state);
+  assert.equal(decision.action, 'skip');
+  assert.deepEqual(decision.nextState, { skipped: true, skippedBytes: 7, debugTail: '' });
 });
 
 test('write-hidden policy keeps legacy hidden output writes enabled', () => {
@@ -125,4 +126,27 @@ test('hidden output replay does not release a restore barrier owned by another r
   const finished = finishHiddenOutputReplay(started.replayState, started.initialRestorePending);
   assert.deepEqual(finished.replayState, { pending: false, restoreBarrierOwned: false });
   assert.equal(finished.initialRestorePending, true);
+});
+
+test('hidden output snapshot recovery clear criteria rejects fallback placeholders', () => {
+  assert.equal(shouldClearHiddenOutputAfterSnapshotRecovery({
+    snapshotMode: 'fallback',
+    fallbackDataLength: 0,
+    localRestoreSucceeded: false,
+  }), false);
+  assert.equal(shouldClearHiddenOutputAfterSnapshotRecovery({
+    snapshotMode: 'fallback',
+    fallbackDataLength: 0,
+    localRestoreSucceeded: true,
+  }), true);
+  assert.equal(shouldClearHiddenOutputAfterSnapshotRecovery({
+    snapshotMode: 'fallback',
+    fallbackDataLength: 10,
+    localRestoreSucceeded: false,
+  }), true);
+  assert.equal(shouldClearHiddenOutputAfterSnapshotRecovery({
+    snapshotMode: 'authoritative',
+    fallbackDataLength: 0,
+    localRestoreSucceeded: false,
+  }), true);
 });

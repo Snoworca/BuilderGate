@@ -12,6 +12,7 @@ import { authApi, settingsApi } from '../../services/api';
 import { ConfirmModal } from '../Modal';
 import { AUTO_FOCUS_RATIO_KEY, AUTO_FOCUS_RATIO_DEFAULT, FOCUS_RATIO_KEY, FOCUS_RATIO_DEFAULT } from '../../utils/mosaic';
 import { validatePasswordPolicy } from '../../utils/passwordPolicy';
+import { reloadRuntimeConfig } from '../../utils/inputReliabilityMode';
 import {
   WAVE6_RESOURCE_LIMIT_GROUPS,
   buildSettingsPatch,
@@ -264,6 +265,7 @@ export function SettingsPage({ visible, onBack }: Props) {
       setDraft(structuredClone(response.values));
       setSecrets(EMPTY_SECRETS);
       setSummary(response.applySummary);
+      await reloadRuntimeConfig();
 
       const shouldRefreshQr = response.changedKeys.some((key) =>
         key === 'twoFactor.enabled' || key === 'twoFactor.issuer' || key === 'twoFactor.accountName',

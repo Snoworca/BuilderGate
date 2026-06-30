@@ -3,8 +3,33 @@ import { expect, test, type Page } from '@playwright/test';
 test.describe('Settings resource limits', () => {
   test('renders selected Wave6 fields and saves minimal nested resourceLimits patch', async ({ page }) => {
     let submittedPatch: unknown = null;
+    let runtimeConfigRequestCount = 0;
+
+    await page.addInitScript(() => {
+      const originalFetch = window.fetch.bind(window);
+      (window as unknown as { __runtimeConfigFetchCount: number }).__runtimeConfigFetchCount = 0;
+      window.fetch = async (...args) => {
+        const [input] = args;
+        const rawUrl =
+          typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input instanceof Request
+                ? input.url
+                : '';
+        const url = new URL(rawUrl, window.location.href);
+        if (url.pathname === '/api/runtime-config') {
+          (window as unknown as { __runtimeConfigFetchCount: number }).__runtimeConfigFetchCount += 1;
+        }
+        return originalFetch(...args);
+      };
+    });
 
     await mockAuthenticatedSettingsApp(page, {
+      onRuntimeConfigRequest: () => {
+        runtimeConfigRequestCount += 1;
+      },
       onSettingsPatch: (body) => {
         submittedPatch = body;
         return {
@@ -30,6 +55,10 @@ test.describe('Settings resource limits', () => {
     });
 
     await loginAndOpenSettings(page);
+    const requestsBeforeSave = runtimeConfigRequestCount;
+    const fetchesBeforeSave = await page.evaluate(
+      () => (window as unknown as { __runtimeConfigFetchCount: number }).__runtimeConfigFetchCount,
+    );
 
     await expect(page.getByRole('heading', { name: 'Server Backpressure' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Browser Queues' })).toBeVisible();
@@ -53,6 +82,10 @@ test.describe('Settings resource limits', () => {
       },
     });
     await expect(page.locator('.settings-banner-success')).toContainText('Immediate 1, next login 0, new terminal sessions 1');
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { __runtimeConfigFetchCount: number }).__runtimeConfigFetchCount))
+      .toBeGreaterThan(fetchesBeforeSave);
+    await expect.poll(() => runtimeConfigRequestCount).toBeGreaterThan(requestsBeforeSave);
   });
 
   test('renders server validation errors through the existing error banner', async ({ page }) => {
@@ -169,6 +202,7 @@ async function mockAuthenticatedSettingsApp(
   page: Page,
   options: {
     onSettingsPatch: (body: unknown) => { status: number; body: unknown };
+    onRuntimeConfigRequest?: () => void;
   },
 ): Promise<void> {
   let currentSnapshot = createSettingsSnapshot();
@@ -231,6 +265,7 @@ async function mockAuthenticatedSettingsApp(
     }
 
     if (url.pathname === '/api/runtime-config') {
+      options.onRuntimeConfigRequest?.();
       await fulfillJson(200, {
         inputReliabilityMode: 'queue',
         wsTransportMode: 'unified',

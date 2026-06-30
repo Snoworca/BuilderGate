@@ -10,18 +10,48 @@ import {
   getWsTransportMode,
   getWorkspaceRuntimeResourceLimits,
   initializeInputReliabilityMode,
+  reloadRuntimeConfig,
   subscribeRuntimeConfigChanges,
 } from '../../src/utils/inputReliabilityMode.ts';
 import {
   createHiddenOutputState,
   resolveHiddenOutput,
 } from '../../src/utils/terminalHiddenOutput.ts';
+import { getTerminalSnapshotRemovalKey } from '../../src/utils/terminalSnapshot.ts';
 
 const defaultCapability = {
   applyScope: 'immediate',
   available: true,
   writeOnly: false,
 } satisfies FieldCapability;
+
+class MemoryStorage implements Storage {
+  private readonly values = new Map<string, string>();
+
+  get length(): number {
+    return this.values.size;
+  }
+
+  clear(): void {
+    this.values.clear();
+  }
+
+  getItem(key: string): string | null {
+    return this.values.get(key) ?? null;
+  }
+
+  key(index: number): string | null {
+    return Array.from(this.values.keys())[index] ?? null;
+  }
+
+  removeItem(key: string): void {
+    this.values.delete(key);
+  }
+
+  setItem(key: string, value: string): void {
+    this.values.set(key, value);
+  }
+}
 
 const settingsSnapshotCapabilities = {
   'auth.password': defaultCapability,
@@ -324,7 +354,65 @@ test('runtime config publishes a version change after successful initialization'
   }
 });
 
-test('runtime config falls back to legacy write-hidden for invalid terminal hidden output limits', async () => {
+test('reloadRuntimeConfig publishes a version change after successful reload', async () => {
+  const originalFetch = globalThis.fetch;
+  const beforeVersion = getRuntimeConfigVersion();
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    inputReliabilityMode: 'strict',
+    stabilityModes: {
+      frontendRuntimeResidency: 'bounded',
+    },
+  }), { status: 200 });
+
+  try {
+    const mode = await reloadRuntimeConfig();
+
+    assert.equal(mode, 'strict');
+    assert.equal(getRuntimeConfigVersion(), beforeVersion + 1);
+    assert.equal(getFrontendRuntimeResidencyMode(), 'bounded');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('reloadRuntimeConfig cleans expired snapshot tombstones using runtime limits', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalLocalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const storage = new MemoryStorage();
+  const sessionId = 'session-expired-tombstone';
+  storage.setItem(getTerminalSnapshotRemovalKey(sessionId), JSON.stringify({
+    schemaVersion: 1,
+    sessionId,
+    savedAt: '2026-05-01T00:00:00.000Z',
+  }));
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: storage,
+  });
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    inputReliabilityMode: 'strict',
+    resourceLimits: {
+      snapshots: {
+        tombstoneTtlMs: 1000,
+      },
+    },
+  }), { status: 200 });
+
+  try {
+    await reloadRuntimeConfig();
+
+    assert.equal(storage.getItem(getTerminalSnapshotRemovalKey(sessionId)), null);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalLocalStorage) {
+      Object.defineProperty(globalThis, 'localStorage', originalLocalStorage);
+    } else {
+      delete (globalThis as { localStorage?: Storage }).localStorage;
+    }
+  }
+});
+
+test('runtime config falls back to Wave7 hidden output defaults for invalid terminal hidden output limits', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => new Response(JSON.stringify({
     inputReliabilityMode: 'strict',
@@ -344,7 +432,7 @@ test('runtime config falls back to legacy write-hidden for invalid terminal hidd
       visibleOutputQueueMaxBytes: 4_194_304,
       visibleOutputMaxChunks: 512,
       visibleFlushBudgetBytes: 262_144,
-      hiddenOutputPolicy: 'write-hidden',
+      hiddenOutputPolicy: 'snapshot-restore',
       hiddenOutputTailBytes: 262_144,
       inputQueueMaxBytes: 65_536,
       inputQueueTtlMs: 1500,
@@ -404,7 +492,7 @@ test('runtime config falls back to defaults for invalid resource limit sections'
       visibleOutputQueueMaxBytes: 4_194_304,
       visibleOutputMaxChunks: 512,
       visibleFlushBudgetBytes: 262_144,
-      hiddenOutputPolicy: 'write-hidden',
+      hiddenOutputPolicy: 'snapshot-restore',
       hiddenOutputTailBytes: 262_144,
       inputQueueMaxBytes: 65_536,
       inputQueueTtlMs: 1500,

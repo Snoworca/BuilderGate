@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { TerminalContainer } from './TerminalContainer';
 import type { TerminalHandle } from './TerminalView';
 import { useTerminalRuntimeContext } from './TerminalRuntimeContext';
+import { ensureTerminalRef, pruneTerminalRefsMap } from './terminalRuntimeRefs';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import { useLongPress } from '../../hooks/useLongPress';
 import type { TerminalShortcutState } from '../../types';
@@ -121,7 +122,7 @@ function TerminalRuntimeEntry({
       onTouchEnd={longPress.onTouchEnd}
     >
       <TerminalContainer
-        ref={terminalRefsMap.current.get(tab.id)!}
+        ref={ensureTerminalRef(terminalRefsMap.current, tab.id)}
         sessionId={tab.sessionId}
         workspaceId={tab.workspaceId}
         terminalShortcutState={terminalShortcutState}
@@ -149,15 +150,19 @@ export function TerminalRuntimeLayer({
     () => tabs.filter((tab) => tab.status !== 'disconnected'),
     [tabs],
   );
+  const activeRuntimeIds = useMemo(
+    () => new Set(activeRuntimes.map((tab) => tab.id)),
+    [activeRuntimes],
+  );
+
+  useEffect(() => {
+    pruneTerminalRefsMap(terminalRefsMap.current, activeRuntimeIds);
+  }, [activeRuntimeIds, terminalRefsMap]);
 
   return (
     <>
       <div ref={rootRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
       {activeRuntimes.map((tab) => {
-        if (!terminalRefsMap.current.has(tab.id)) {
-          terminalRefsMap.current.set(tab.id, { current: null });
-        }
-
         return (
           <TerminalRuntimeEntry
             key={`runtime-${tab.id}-${tab.sessionId}`}

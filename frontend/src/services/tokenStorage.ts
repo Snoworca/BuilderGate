@@ -6,9 +6,10 @@
  */
 
 import {
-  evictTerminalSnapshotsForAuthToken,
+  evictTerminalSnapshotsForAuthTokenWithLimits,
   isQuotaExceededError,
 } from '../utils/terminalSnapshot';
+import { getSnapshotResourceLimits } from '../utils/inputReliabilityMode';
 
 const TOKEN_KEY = 'cws_auth_token';
 const EXPIRES_KEY = 'cws_auth_expires';
@@ -33,7 +34,11 @@ export const tokenStorage = {
         throw error;
       }
 
-      const eviction = evictTerminalSnapshotsForAuthToken();
+      const snapshotLimits = getSnapshotResourceLimits();
+      const eviction = evictTerminalSnapshotsForAuthTokenWithLimits({
+        maxTotalChars: snapshotLimits.totalStorageBudgetChars,
+        maxEntries: snapshotLimits.maxEntries,
+      });
       console.warn('[tokenStorage] auth token storage quota reached; evicted terminal snapshot cache before retry', {
         removedCount: eviction.removedCount,
         beforeChars: eviction.beforeChars,

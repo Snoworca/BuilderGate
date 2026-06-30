@@ -9,6 +9,7 @@ import { useHeartbeat } from './hooks/useHeartbeat';
 import { useResponsive } from './hooks/useResponsive';
 import { useWorkspaceManager } from './hooks/useWorkspaceManager';
 import { useContextMenu } from './hooks/useContextMenu';
+import { useTerminalRuntimeResidency } from './hooks/useTerminalRuntimeResidency';
 import { commandPresetApi, sessionApi } from './services/api';
 import { AuthGuard } from './components/Auth';
 import { Header } from './components/Header';
@@ -36,9 +37,6 @@ import type { CommandPreset, ShellInfo, TerminalShortcutState } from './types';
 import { WebSocketProvider } from './contexts/WebSocketContext';
 import './styles/globals.css';
 import './components/Workspace/breathing.css';
-
-// LRU 설정: 0 = 제한없음 (기본값). TODO: Settings UI 연동 예정
-const MAX_ALIVE_WORKSPACES = 0;
 
 function buildMissingTerminalPasteResult(): TerminalPasteInputResult {
   return {
@@ -110,14 +108,6 @@ function AppContent() {
   const wmRef = useRef(wm);
   wmRef.current = wm;
 
-  // ============================================================================
-  // LRU: 워크스페이스 세션 유지 상한 (FR-005)
-  // workspaceVisitOrder: 앞이 가장 오래된, 뒤가 가장 최근 방문
-  // aliveWorkspaceIds: 현재 DOM에 유지 중인 워크스페이스 ID 집합
-  // ============================================================================
-  const [workspaceVisitOrder, setWorkspaceVisitOrder] = useState<string[]>([]);
-  const [aliveWorkspaceIds, setAliveWorkspaceIds] = useState<Set<string>>(new Set());
-
   const tabContextMenu = useContextMenu();
   const terminalRefsMap = useRef<Map<string, { current: TerminalHandle | null }>>(new Map());
   const [registeredPresetSnapshot, setRegisteredPresetSnapshot] = useState<CommandPreset[]>([]);
@@ -130,19 +120,6 @@ function AppContent() {
       alert('Session expired. Please login again.');
     }
   });
-
-  // Initialize LRU with current active workspace on mount
-  useEffect(() => {
-    if (wm.activeWorkspaceId) {
-      setAliveWorkspaceIds(prev => {
-        if (prev.has(wm.activeWorkspaceId!)) return prev;
-        return new Set([...prev, wm.activeWorkspaceId!]);
-      });
-      setWorkspaceVisitOrder(prev =>
-        prev.includes(wm.activeWorkspaceId!) ? prev : [...prev, wm.activeWorkspaceId!]
-      );
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load available shells once on mount (after auth is already verified by AuthGuard)
   useEffect(() => {
@@ -161,18 +138,6 @@ function AppContent() {
   const handleSelectWorkspace = useCallback((id: string) => {
     wmRef.current.setActiveWorkspaceId(id);
     if (isMobile) closeSidebar();
-
-    // LRU 업데이트: 방문 순서 갱신 + alive set 추가
-    setWorkspaceVisitOrder(prev => {
-      const next = prev.filter(wid => wid !== id);
-      next.push(id); // 가장 최근으로 이동
-      return next;
-    });
-    setAliveWorkspaceIds(prev => {
-      const next = new Set(prev);
-      next.add(id);
-      return next;
-    });
   }, [isMobile, closeSidebar]);
 
   const handleDeleteWorkspace = useCallback((id: string) => {
@@ -365,24 +330,6 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, wm.activeWorkspace?.viewMode, wm.activeWorkspaceId]);
 
-  // FR-005: LRU 초과 감지 — MAX_ALIVE_WORKSPACES > 0일 때 가장 오래된 워크스페이스 해제
-  useEffect(() => {
-    if (MAX_ALIVE_WORKSPACES <= 0) return; // 0 = 제한없음
-    if (aliveWorkspaceIds.size <= MAX_ALIVE_WORKSPACES) return;
-
-    // 현재 활성 워크스페이스를 제외한 가장 오래된 것 해제
-    const evictCandidate = workspaceVisitOrder.find(
-      wid => wid !== wm.activeWorkspaceId && aliveWorkspaceIds.has(wid)
-    );
-    if (!evictCandidate) return;
-
-    setAliveWorkspaceIds(prev => {
-      const next = new Set(prev);
-      next.delete(evictCandidate);
-      return next;
-    });
-  }, [workspaceVisitOrder, aliveWorkspaceIds, wm.activeWorkspaceId]);
-
   const handleRestartTab = useCallback((tabId: string) => {
     if (wmRef.current.activeWorkspaceId) {
       wmRef.current.restartTab(wmRef.current.activeWorkspaceId, tabId);
@@ -419,6 +366,21 @@ function AppContent() {
   const activeTab = useMemo(
     () => wm.activeWorkspaceTabs.find(t => t.id === wm.activeWorkspace?.activeTabId) ?? null,
     [wm.activeWorkspaceTabs, wm.activeWorkspace]
+  );
+  const runtimeResidency = useTerminalRuntimeResidency({
+    tabs: wm.tabs,
+    workspaces: wm.workspaces,
+    gridLayouts: wm.gridLayouts,
+    activeWorkspaceId: wm.activeWorkspaceId,
+    isMobile,
+  });
+  const residentTabIds = useMemo(
+    () => new Set(runtimeResidency.residentTabs.map(tab => tab.id)),
+    [runtimeResidency.residentTabs],
+  );
+  const tabModeHostTabs = useMemo(
+    () => wm.tabs.filter(tab => residentTabIds.has(tab.id) || tab.status === 'disconnected'),
+    [residentTabIds, wm.tabs],
   );
 
   const tabContextMenuItems = useMemo(() => {
@@ -567,7 +529,7 @@ function AppContent() {
 
                 <TerminalRuntimeProvider>
                   <TerminalWorkspaceStage
-                    tabs={wm.tabs.filter((tab) => MAX_ALIVE_WORKSPACES <= 0 || aliveWorkspaceIds.has(tab.workspaceId))}
+                    tabs={runtimeResidency.residentTabs}
                     terminalRefsMap={terminalRefsMap}
                     onStatusChange={handleTerminalStatusChange}
                     onCwdChange={handleCwdChange}
@@ -600,11 +562,7 @@ function AppContent() {
 
                   {/* Tab Mode: render ALL tabs across all workspaces, hide inactive */}
                   {/* This keeps xterm instances alive across workspace switches (FR-004) */}
-                  {(viewMode === 'tab' || isMobile) && wm.tabs
-                    .filter(tab => {
-                      // LRU alive check (FR-005): MAX_ALIVE_WORKSPACES=0 means unlimited
-                      return MAX_ALIVE_WORKSPACES <= 0 || aliveWorkspaceIds.has(tab.workspaceId);
-                    })
+                  {(viewMode === 'tab' || isMobile) && tabModeHostTabs
                     .map(tab => {
                       const ws = wm.workspaces.find(w => w.id === tab.workspaceId);
                       const isActiveWs = tab.workspaceId === wm.activeWorkspaceId;

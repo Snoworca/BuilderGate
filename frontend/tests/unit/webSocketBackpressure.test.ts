@@ -173,3 +173,29 @@ test('browser websocket send gate lets control messages bypass input backpressur
   assert.equal(sent.length, 1);
   assert.match(sent[0], /screen-snapshot:ready/);
 });
+
+test('browser websocket send gate reports send-failed when socket.send throws', () => {
+  const sendOpenBrowserWebSocketMessage = (webSocketBackpressure as any).sendOpenBrowserWebSocketMessage;
+  assert.equal(typeof sendOpenBrowserWebSocketMessage, 'function');
+
+  const result = sendOpenBrowserWebSocketMessage({
+    message: { type: 'input', sessionId: 'session-1', data: 'abc' },
+    socket: {
+      readyState: 1,
+      bufferedAmount: 0,
+      send: () => {
+        throw new Error('socket send failed');
+      },
+    },
+    limits: {
+      inputBackpressureBytes: 10_000,
+      hardReconnectBytes: 20_000,
+    },
+    openReadyState: 1,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'send-failed');
+  assert.equal(result.bufferedAmount, 0);
+  assert.equal(typeof result.payloadBytes, 'number');
+});

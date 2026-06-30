@@ -4,8 +4,12 @@ import {
   TERMINAL_SNAPSHOT_MAX_CONTENT_LENGTH,
   TERMINAL_SNAPSHOT_PAYLOAD_KIND,
   TERMINAL_SNAPSHOT_SCHEMA_VERSION,
+  cleanupExpiredTerminalSnapshotTombstones,
   evictTerminalSnapshots,
+  evictTerminalSnapshotsForAuthTokenWithLimits,
   getTerminalSnapshotKey,
+  getTerminalSnapshotRemovalKey,
+  isTerminalSnapshotRemovalRequested,
   parseTerminalViewportSnapshot,
   setTerminalSnapshotWithQuotaRecovery,
   type TerminalViewportSnapshotPayload,
@@ -125,6 +129,36 @@ test('terminal snapshot storage eviction removes corrupt older entries first and
   assert.equal(storage.getItem(getTerminalSnapshotKey('session-corrupt')), null);
 });
 
+test('terminal snapshot eviction enforces max snapshot entries', () => {
+  const storage = new MemoryStorage();
+  storage.setItem(getTerminalSnapshotKey('session-new'), JSON.stringify(snapshot({
+    sessionId: 'session-new',
+    savedAt: '2026-05-03T00:00:00.000Z',
+    content: 'new',
+  })));
+  storage.setItem(getTerminalSnapshotKey('session-old'), JSON.stringify(snapshot({
+    sessionId: 'session-old',
+    savedAt: '2026-05-01T00:00:00.000Z',
+    content: 'old',
+  })));
+  storage.setItem(getTerminalSnapshotKey('session-current'), JSON.stringify(snapshot({
+    sessionId: 'session-current',
+    savedAt: '2026-05-04T00:00:00.000Z',
+    content: 'current',
+  })));
+
+  const result = evictTerminalSnapshots({
+    storage,
+    preserveSessionId: 'session-current',
+    maxEntries: 2,
+    targetMaxChars: 100_000,
+  });
+
+  assert.equal(result.removedCount, 1);
+  assert.equal(result.removedKeys[0], getTerminalSnapshotKey('session-old'));
+  assert.equal(storage.getItem(getTerminalSnapshotKey('session-current')) !== null, true);
+});
+
 test('setTerminalSnapshotWithQuotaRecovery stores v2 payloads without changing current-session data', () => {
   const storage = new MemoryStorage();
   const value = JSON.stringify(snapshot({
@@ -141,4 +175,100 @@ test('setTerminalSnapshotWithQuotaRecovery stores v2 payloads without changing c
     ...snapshot(),
     content: 'latest-marker',
   });
+});
+
+test('setTerminalSnapshotWithQuotaRecovery rejects snapshots that exceed total projected storage budget', () => {
+  const storage = new MemoryStorage();
+  const value = JSON.stringify(snapshot({
+    content: 'x'.repeat(900),
+  }));
+
+  const result = setTerminalSnapshotWithQuotaRecovery('session-1', value, {
+    storage,
+    maxTotalChars: 1024,
+    maxEntries: 16,
+  });
+
+  assert.equal(result.saved, false);
+  assert.equal(storage.getItem(getTerminalSnapshotKey('session-1')), null);
+});
+
+test('evictTerminalSnapshotsForAuthTokenWithLimits applies runtime total budget and entry limits', () => {
+  const storage = new MemoryStorage();
+  storage.setItem(getTerminalSnapshotKey('session-new'), JSON.stringify(snapshot({
+    sessionId: 'session-new',
+    savedAt: '2026-05-04T00:00:00.000Z',
+    content: 'new',
+  })));
+  storage.setItem(getTerminalSnapshotKey('session-old'), JSON.stringify(snapshot({
+    sessionId: 'session-old',
+    savedAt: '2026-05-01T00:00:00.000Z',
+    content: 'old',
+  })));
+  storage.setItem(getTerminalSnapshotKey('session-middle'), JSON.stringify(snapshot({
+    sessionId: 'session-middle',
+    savedAt: '2026-05-02T00:00:00.000Z',
+    content: 'middle',
+  })));
+
+  const result = evictTerminalSnapshotsForAuthTokenWithLimits({
+    storage,
+    maxTotalChars: 100_000,
+    maxEntries: 2,
+  });
+
+  assert.equal(result.removedCount, 1);
+  assert.deepEqual(result.removedKeys, [getTerminalSnapshotKey('session-old')]);
+  assert.equal(storage.getItem(getTerminalSnapshotKey('session-old')), null);
+});
+
+test('auth-token snapshot eviction preserves fresh removal tombstones when under budget', () => {
+  const storage = new MemoryStorage();
+  const sessionId = 'session-remove-fresh';
+  storage.setItem(getTerminalSnapshotRemovalKey(sessionId), JSON.stringify({
+    schemaVersion: 1,
+    sessionId,
+    savedAt: '2026-05-04T00:00:00.000Z',
+  }));
+
+  const result = evictTerminalSnapshotsForAuthTokenWithLimits({
+    storage,
+    maxTotalChars: 100_000,
+    maxEntries: 16,
+  });
+
+  assert.equal(result.removedCount, 0);
+  assert.equal(storage.getItem(getTerminalSnapshotRemovalKey(sessionId)) !== null, true);
+});
+
+test('snapshot removal tombstones expire and are cleaned from storage', () => {
+  const storage = new MemoryStorage();
+  const sessionId = 'session-expired-remove';
+  storage.setItem(getTerminalSnapshotRemovalKey(sessionId), JSON.stringify({
+    schemaVersion: 1,
+    sessionId,
+    savedAt: '2026-05-01T00:00:00.000Z',
+  }));
+
+  assert.equal(isTerminalSnapshotRemovalRequested(sessionId, {
+    storage,
+    tombstoneTtlMs: 1000,
+    nowMs: Date.parse('2026-05-01T00:00:00.500Z'),
+  }), true);
+  assert.equal(isTerminalSnapshotRemovalRequested(sessionId, {
+    storage,
+    tombstoneTtlMs: 1000,
+    nowMs: Date.parse('2026-05-01T00:00:02.000Z'),
+  }), false);
+  assert.equal(storage.getItem(getTerminalSnapshotRemovalKey(sessionId)), null);
+});
+
+test('cleanupExpiredTerminalSnapshotTombstones removes malformed tombstones', () => {
+  const storage = new MemoryStorage();
+  storage.setItem(getTerminalSnapshotRemovalKey('session-bad'), '{bad json');
+
+  const result = cleanupExpiredTerminalSnapshotTombstones({ storage, nowMs: Date.parse(now) });
+
+  assert.deepEqual(result.removedKeys, [getTerminalSnapshotRemovalKey('session-bad')]);
+  assert.equal(storage.getItem(getTerminalSnapshotRemovalKey('session-bad')), null);
 });

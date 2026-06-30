@@ -8,18 +8,23 @@ import {
   isValidMosaicTree,
   restoreLayoutWithSessionRecovery,
 } from '../utils/mosaic';
+import {
+  getMosaicLayoutStorageKey,
+  releaseMosaicLayoutSaveSuppression,
+  saveMosaicLayoutForWorkspace,
+  type PersistedMosaicLayout,
+} from './mosaicLayoutStorage';
+
+export {
+  clearMosaicLayoutForWorkspace,
+  getMosaicLayoutStorageKey,
+  isMosaicLayoutSaveSuppressed,
+  releaseMosaicLayoutSaveSuppression,
+  saveMosaicLayoutForWorkspace,
+  suppressMosaicLayoutSaveForWorkspace,
+} from './mosaicLayoutStorage';
 
 export type LayoutMode = 'equal' | 'focus' | 'auto' | 'none';
-
-interface PersistedMosaicLayout {
-  schemaVersion: 1;
-  tree: MosaicNode<string>;
-  mode: LayoutMode;
-  focusTarget: string | null;
-  savedAt: string;
-}
-
-const STORAGE_KEY_PREFIX = 'mosaic_layout_';
 
 interface ResolvedMosaicLayout {
   tree: MosaicNode<string> | null;
@@ -29,7 +34,7 @@ interface ResolvedMosaicLayout {
 
 function loadLayout(workspaceId: string): PersistedMosaicLayout | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_PREFIX + workspaceId);
+    const raw = localStorage.getItem(getMosaicLayoutStorageKey(workspaceId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PersistedMosaicLayout;
     if (parsed.schemaVersion !== 1) return null;
@@ -107,27 +112,6 @@ function resolveLayoutState(
   return { tree: resolvedTree, mode, focusTarget };
 }
 
-function saveLayout(
-  workspaceId: string,
-  tree: MosaicNode<string> | null,
-  mode: LayoutMode,
-  focusTarget: string | null,
-): void {
-  if (!tree) return;
-  try {
-    const data: PersistedMosaicLayout = {
-      schemaVersion: 1,
-      tree,
-      mode,
-      focusTarget,
-      savedAt: new Date().toISOString(),
-    };
-    localStorage.setItem(STORAGE_KEY_PREFIX + workspaceId, JSON.stringify(data));
-  } catch (e) {
-    console.warn('[useMosaicLayout] localStorage quota exceeded, skipping save:', e);
-  }
-}
-
 export interface UseMosaicLayoutReturn {
   mosaicTree: MosaicNode<string> | null;
   setMosaicTree: Dispatch<SetStateAction<MosaicNode<string> | null>>;
@@ -141,7 +125,13 @@ export interface UseMosaicLayoutReturn {
 export function useMosaicLayout(workspaceId: string, currentTabIds?: string[]): UseMosaicLayoutReturn {
   const initialLayoutRef = useRef<ResolvedMosaicLayout | null>(null);
   if (initialLayoutRef.current === null) {
+    releaseMosaicLayoutSaveSuppression(workspaceId);
     initialLayoutRef.current = resolveLayoutState(workspaceId, currentTabIds);
+  }
+  const previousWorkspaceIdRef = useRef(workspaceId);
+  if (previousWorkspaceIdRef.current !== workspaceId) {
+    releaseMosaicLayoutSaveSuppression(workspaceId);
+    previousWorkspaceIdRef.current = workspaceId;
   }
 
   const [mosaicTree, setMosaicTreeState] = useState<MosaicNode<string> | null>(initialLayoutRef.current.tree);
@@ -196,7 +186,7 @@ export function useMosaicLayout(workspaceId: string, currentTabIds?: string[]): 
       const modeChanged = (persisted?.mode ?? null) !== resolved.mode;
       const focusChanged = (persisted?.focusTarget ?? null) !== resolved.focusTarget;
       if (treeChanged || modeChanged || focusChanged) {
-        saveLayout(workspaceId, resolved.tree, resolved.mode, resolved.focusTarget);
+        saveMosaicLayoutForWorkspace(workspaceId, resolved.tree, resolved.mode, resolved.focusTarget);
       }
     }
   }, [workspaceId, currentTabIdsKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -207,7 +197,7 @@ export function useMosaicLayout(workspaceId: string, currentTabIds?: string[]): 
     }
     debounceTimerRef.current = setTimeout(() => {
       debounceTimerRef.current = null;
-      saveLayout(workspaceId, mosaicTreeRef.current, layoutModeRef.current, focusTargetRef.current);
+      saveMosaicLayoutForWorkspace(workspaceId, mosaicTreeRef.current, layoutModeRef.current, focusTargetRef.current);
     }, 2000);
   }, [workspaceId]);
 
@@ -218,7 +208,7 @@ export function useMosaicLayout(workspaceId: string, currentTabIds?: string[]): 
         clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = null;
       }
-      saveLayout(workspaceId, mosaicTreeRef.current, layoutModeRef.current, focusTargetRef.current);
+      saveMosaicLayoutForWorkspace(workspaceId, mosaicTreeRef.current, layoutModeRef.current, focusTargetRef.current);
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -231,7 +221,7 @@ export function useMosaicLayout(workspaceId: string, currentTabIds?: string[]): 
         clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = null;
       }
-      saveLayout(workspaceId, mosaicTreeRef.current, layoutModeRef.current, focusTargetRef.current);
+      saveMosaicLayoutForWorkspace(workspaceId, mosaicTreeRef.current, layoutModeRef.current, focusTargetRef.current);
     };
   }, [workspaceId]);
 

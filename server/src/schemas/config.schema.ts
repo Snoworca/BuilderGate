@@ -148,7 +148,7 @@ export const terminalResourceLimitsSchema = defaultObject(z.object({
   visibleOutputQueueMaxBytes: bytesLimit(1024, 268435456, 4194304),
   visibleOutputMaxChunks: countLimit(1, 65536, 512),
   visibleFlushBudgetBytes: bytesLimit(1024, 16777216, 262144),
-  hiddenOutputPolicy: z.enum(['write-hidden', 'snapshot-restore', 'debug-tail']).default('write-hidden'),
+  hiddenOutputPolicy: z.enum(['write-hidden', 'snapshot-restore', 'debug-tail']).default('snapshot-restore'),
   hiddenOutputTailBytes: bytesLimit(0, 16777216, 262144),
   inputQueueMaxBytes: bytesLimit(1024, 16777216, 65536),
   inputQueueTtlMs: durationLimit(1, 60000, 1500),
@@ -196,7 +196,7 @@ export const resourceLimitsSchema = defaultObject(z.object({
 export const stabilityModesSchema = defaultObject(z.object({
   headlessQueueMode: z.enum(['observe', 'bounded']).default('observe'),
   wsSendMode: z.enum(['direct', 'safe-send-observe', 'safe-send-enforce']).default('direct'),
-  frontendRuntimeResidency: z.enum(['legacy', 'bounded', 'off']).default('legacy'),
+  frontendRuntimeResidency: z.enum(['legacy', 'bounded', 'off']).default('bounded'),
 }).strict());
 
 // ============================================================================
