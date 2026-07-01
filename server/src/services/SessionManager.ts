@@ -41,6 +41,7 @@ import { TerminalTitleDetector } from '../utils/terminalTitle.js';
 import type { WsRouter } from '../ws/WsRouter.js';
 import { OscDetector } from './OscDetector.js';
 import type {
+  FallbackDataState,
   InputDebugMetadata,
   ScreenRepairBufferType,
   SessionCleanupReason,
@@ -92,6 +93,7 @@ interface EchoTracker {
 }
 
 type HeadlessHealth = 'healthy' | 'degraded';
+type HeadlessDegradedPhase = 'create' | 'write' | 'resize' | 'serialize' | 'queue-overflow';
 type SnapshotPayloadScope = 'viewport-only';
 
 const SNAPSHOT_PAYLOAD_SCOPE: SnapshotPayloadScope = 'viewport-only';
@@ -115,6 +117,8 @@ interface SessionScreenSnapshot {
   truncated: boolean;
   generatedAt: number;
   health: HeadlessHealth;
+  fallbackDataState?: FallbackDataState;
+  fallbackDataBytes?: number;
   windowsPty?: WindowsPtyInfo;
 }
 
@@ -197,6 +201,12 @@ interface HeadlessOutputObservability {
   oldestPendingAgeMs: number;
   overflowCount: number;
   degradedCount: number;
+  degradedReplayBufferBytes: number;
+  degradedReplayTruncatedSessions: number;
+  recoverableFallbackSessions: number;
+  emptyFallbackSessions: number;
+  queueOverflowDegradedCount: number;
+  lastDegradedPhase: HeadlessDegradedPhase | null;
 }
 
 interface SessionProcessInspection {
@@ -262,6 +272,7 @@ interface SessionData {
   windowsPty?: WindowsPtyInfo;
   degradedReplayBuffer: string;
   degradedReplayTruncated: boolean;
+  headlessDegradedPhase: HeadlessDegradedPhase | null;
   headlessOutputQueue: HeadlessOutputQueue;
   headlessQueueMode: StabilityModesConfig['headlessQueueMode'];
   pendingHeadlessOutputs: Map<number, PendingHeadlessOutput>;
@@ -597,6 +608,7 @@ export class SessionManager {
       windowsPty: this.getWindowsPtyInfo(backendResolution.backend),
       degradedReplayBuffer: '',
       degradedReplayTruncated: false,
+      headlessDegradedPhase: null,
       headlessOutputQueue: this.createHeadlessOutputQueue(),
       headlessQueueMode: this.runtimeHeadlessQueueConfig.mode,
       pendingHeadlessOutputs: new Map(),
@@ -1363,6 +1375,7 @@ export class SessionManager {
         resizeHeadlessTerminal(data.headless, cols, rows);
       } catch (error) {
         this.markHeadlessDegraded(id, data, 'resize', error);
+        this.startDegradedReplayRecovery(id, data, 'resize');
       }
     }
 
@@ -2112,6 +2125,12 @@ export class SessionManager {
     const snapshot = this.getScreenSnapshot(sessionId);
     if (!snapshot) return null;
     if (snapshot.health === 'degraded') {
+      if (snapshot.data.length > 0) {
+        return {
+          data: snapshot.data,
+          truncated: snapshot.truncated,
+        };
+      }
       return {
         data: LEGACY_DEGRADED_REPLAY_PLACEHOLDER,
         truncated: snapshot.truncated,
@@ -2148,6 +2167,9 @@ export class SessionManager {
       this.observability.snapshotFallbacks += 1;
       this.captureDebugEvent(sessionId, 'snapshot', 'snapshot_fallback_degraded', {
         screenSeq: data.screenSeq,
+        degradedReplayBufferBytes: Buffer.byteLength(data.degradedReplayBuffer, 'utf8'),
+        degradedReplayTruncated: data.degradedReplayTruncated,
+        fallbackDataState: this.getFallbackDataState(data),
       });
       return this.createDegradedSnapshot(data);
     }
@@ -2296,7 +2318,7 @@ export class SessionManager {
       rows: result.payload.rows,
       bufferType: result.payload.bufferType,
       rowCount: result.payload.viewportRows.length,
-      byteLength: result.payload.ansiPatch.length,
+      byteLength: Buffer.byteLength(result.payload.ansiPatch, 'utf8'),
     }, result.payload.ansiPatch);
     return result;
   }
@@ -2845,6 +2867,7 @@ export class SessionManager {
       sessionData.headlessHealth = 'healthy';
     } catch (error) {
       this.markHeadlessDegraded(sessionId, sessionData, 'create', error);
+      this.startDegradedReplayRecovery(sessionId, sessionData, 'create');
     }
   }
 
@@ -2866,6 +2889,12 @@ export class SessionManager {
       oldestPendingAgeMs: 0,
       overflowCount: 0,
       degradedCount: 0,
+      degradedReplayBufferBytes: 0,
+      degradedReplayTruncatedSessions: 0,
+      recoverableFallbackSessions: 0,
+      emptyFallbackSessions: 0,
+      queueOverflowDegradedCount: 0,
+      lastDegradedPhase: null,
     };
 
     for (const sessionData of this.sessions.values()) {
@@ -2887,6 +2916,22 @@ export class SessionManager {
       total.oldestPendingAgeMs = Math.max(total.oldestPendingAgeMs, snapshot.oldestPendingAgeMs, oldestPendingAgeMs);
       total.overflowCount += snapshot.overflowCount;
       total.degradedCount += snapshot.degradedCount;
+      if (sessionData.headlessHealth === 'degraded') {
+        const degradedReplayBufferBytes = Buffer.byteLength(sessionData.degradedReplayBuffer, 'utf8');
+        total.degradedReplayBufferBytes += degradedReplayBufferBytes;
+        if (sessionData.degradedReplayTruncated) {
+          total.degradedReplayTruncatedSessions += 1;
+        }
+        if (degradedReplayBufferBytes > 0) {
+          total.recoverableFallbackSessions += 1;
+        } else {
+          total.emptyFallbackSessions += 1;
+        }
+        if (sessionData.headlessDegradedPhase === 'queue-overflow') {
+          total.queueOverflowDegradedCount += 1;
+        }
+        total.lastDegradedPhase = sessionData.headlessDegradedPhase ?? total.lastDegradedPhase;
+      }
     }
 
     return total;
@@ -2895,7 +2940,7 @@ export class SessionManager {
   private queueHeadlessOutput(sessionId: string, sessionData: SessionData, data: string): void {
     if (sessionData.headlessHealth !== 'healthy' || !sessionData.headless) {
       this.appendDegradedReplayOutput(sessionData, data);
-      this.wsRouter?.routeSessionOutput(sessionId, data);
+      this.wsRouter?.routeSessionOutput(sessionId, data, sessionData.screenSeq);
       if (this.pendingResizeReplaySessions.has(sessionId)) {
         this.scheduleResizeReplayRefresh(sessionId, 120);
       }
@@ -2904,14 +2949,16 @@ export class SessionManager {
 
     const enqueueResult = sessionData.headlessOutputQueue.enqueue(data);
     if (!enqueueResult.ok && enqueueResult.shouldDegradeHeadless) {
+      const overflowReason = enqueueResult.reason ?? 'unknown';
       this.markHeadlessDegraded(
         sessionId,
         sessionData,
-        'write',
-        new Error(`Headless output queue overflow (${sessionData.headlessQueueMode}): ${enqueueResult.reason ?? 'unknown'}`),
+        'queue-overflow',
+        new Error(`Headless output queue overflow (${sessionData.headlessQueueMode}): ${overflowReason}`),
       );
       this.appendDegradedReplayOutput(sessionData, data);
-      this.wsRouter?.routeSessionOutput(sessionId, data);
+      this.wsRouter?.routeSessionOutput(sessionId, data, sessionData.screenSeq);
+      this.startDegradedReplayRecovery(sessionId, sessionData, 'queue-overflow');
       if (this.pendingResizeReplaySessions.has(sessionId)) {
         this.scheduleResizeReplayRefresh(sessionId, 120);
       }
@@ -2948,7 +2995,8 @@ export class SessionManager {
         }
 
         this.markHeadlessDegraded(sessionId, sessionData, 'write', error);
-        this.wsRouter?.routeSessionOutput(sessionId, data);
+        this.wsRouter?.routeSessionOutput(sessionId, data, sessionData.screenSeq);
+        this.startDegradedReplayRecovery(sessionId, sessionData, 'write');
       })
       .finally(() => {
         if (!this.isActiveSession(sessionId, sessionData)) {
@@ -3014,7 +3062,7 @@ export class SessionManager {
   private markHeadlessDegraded(
     sessionId: string,
     sessionData: SessionData,
-    phase: 'create' | 'write' | 'resize' | 'serialize',
+    phase: HeadlessDegradedPhase,
     error: unknown,
   ): void {
     if (!this.isActiveSession(sessionId, sessionData)) {
@@ -3036,10 +3084,12 @@ export class SessionManager {
         degraded.truncated ||
         Boolean(sessionData.snapshotCache?.truncated) ||
         sessionData.unsnapshottedOutputTruncated;
+      sessionData.screenSeq += 1;
     }
     sessionData.unsnapshottedOutput = '';
     sessionData.unsnapshottedOutputTruncated = false;
     sessionData.headlessHealth = 'degraded';
+    sessionData.headlessDegradedPhase = phase;
     sessionData.snapshotCache = null;
 
     const message = error instanceof Error ? error.message : String(error);
@@ -3047,6 +3097,9 @@ export class SessionManager {
       phase,
       message,
       screenSeq: sessionData.screenSeq,
+      degradedReplayBufferBytes: Buffer.byteLength(sessionData.degradedReplayBuffer, 'utf8'),
+      degradedReplayTruncated: sessionData.degradedReplayTruncated,
+      fallbackDataState: this.getFallbackDataState(sessionData),
     });
     console.warn(`[SessionManager] Headless terminal degraded (${phase}) for session ${sessionId}: ${message}`);
   }
@@ -3063,16 +3116,43 @@ export class SessionManager {
   }
 
   private createDegradedSnapshot(sessionData: SessionData): SessionScreenSnapshot {
+    const fallbackDataBytes = Buffer.byteLength(sessionData.degradedReplayBuffer, 'utf8');
     return {
       seq: sessionData.screenSeq,
       cols: sessionData.cols,
       rows: sessionData.rows,
-      data: '',
+      data: sessionData.degradedReplayBuffer,
       truncated: sessionData.degradedReplayTruncated,
       generatedAt: Date.now(),
       health: 'degraded',
+      fallbackDataState: this.getFallbackDataState(sessionData),
+      fallbackDataBytes,
       windowsPty: sessionData.windowsPty,
     };
+  }
+
+  private getFallbackDataState(sessionData: SessionData): FallbackDataState {
+    return sessionData.degradedReplayBuffer.length > 0
+      ? 'recoverable-buffer'
+      : 'empty-no-recoverable-data';
+  }
+
+  private startDegradedReplayRecovery(
+    sessionId: string,
+    sessionData: SessionData,
+    reason: HeadlessDegradedPhase,
+  ): void {
+    if (sessionData.degradedReplayBuffer.length === 0) {
+      return;
+    }
+    if (typeof this.wsRouter?.refreshReplaySnapshots !== 'function') {
+      return;
+    }
+    this.wsRouter.refreshReplaySnapshots(sessionId, {
+      startWhenReady: true,
+      origin: 'degraded',
+      reason,
+    });
   }
 
   private isActiveSession(sessionId: string, sessionData: SessionData): boolean {
@@ -3080,6 +3160,7 @@ export class SessionManager {
   }
 
   private appendDegradedReplayOutput(sessionData: SessionData, data: string): void {
+    sessionData.screenSeq += 1;
     const nextContent = `${sessionData.degradedReplayBuffer}${data}`;
     const truncated = truncateTerminalPayloadTail(nextContent, this.runtimePtyConfig.maxSnapshotBytes);
     sessionData.degradedReplayBuffer = truncated.content;

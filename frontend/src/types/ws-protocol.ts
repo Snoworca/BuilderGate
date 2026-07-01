@@ -121,6 +121,11 @@ export interface WindowsPtyInfo {
   buildNumber?: number;
 }
 
+export type FallbackDataState =
+  | 'recoverable-buffer'
+  | 'empty-no-recoverable-data'
+  | 'withheld';
+
 export interface ScreenSnapshotMessage {
   type: 'screen-snapshot';
   sessionId: string;
@@ -132,6 +137,8 @@ export interface ScreenSnapshotMessage {
   data: string;
   truncated: boolean;
   source: ScreenSnapshotSource;
+  fallbackDataState?: FallbackDataState;
+  fallbackDataBytes?: number;
   windowsPty?: WindowsPtyInfo;
 }
 

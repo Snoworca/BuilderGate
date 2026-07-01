@@ -26,17 +26,66 @@ export function findSafeTerminalPayloadStart(data: string, start: number): numbe
 
 export function truncateTerminalPayloadTail(
   data: string,
-  maxLength: number,
+  maxBytes: number,
 ): { content: string; truncated: boolean } {
-  if (data.length <= maxLength) {
+  if (maxBytes <= 0) {
+    return { content: '', truncated: data.length > 0 };
+  }
+
+  if (Buffer.byteLength(data, 'utf8') <= maxBytes) {
     return { content: data, truncated: false };
   }
 
-  const safeStart = findSafeTerminalPayloadStart(data, data.length - maxLength);
+  const byteBoundedStart = findByteBoundedStart(data, maxBytes);
+  const safeStart = findSafeTerminalPayloadStart(data, byteBoundedStart);
+  let content = trimTrailingIncompleteEscapeSequence(data.slice(safeStart));
+  let nextStart = safeStart;
+  while (Buffer.byteLength(content, 'utf8') > maxBytes && nextStart < data.length) {
+    nextStart = findSafeTerminalPayloadStart(data, nextStart + 1);
+    content = trimTrailingIncompleteEscapeSequence(data.slice(nextStart));
+  }
+
   return {
-    content: trimTrailingIncompleteEscapeSequence(data.slice(safeStart)),
+    content,
     truncated: true,
   };
+}
+
+function findByteBoundedStart(data: string, maxBytes: number): number {
+  let low = 0;
+  let high = data.length;
+
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (Buffer.byteLength(data.slice(mid), 'utf8') > maxBytes) {
+      low = mid + 1;
+    } else {
+      high = mid;
+    }
+  }
+
+  return moveToCodePointBoundary(data, low);
+}
+
+function moveToCodePointBoundary(data: string, index: number): number {
+  if (
+    index > 0
+    && index < data.length
+    && isLowSurrogate(data.charCodeAt(index))
+    && isHighSurrogate(data.charCodeAt(index - 1))
+  ) {
+    return index + 1;
+  }
+
+  return index;
+}
+
+function isHighSurrogate(charCode: number): boolean {
+  return charCode >= 0xD800 && charCode <= 0xDBFF;
+}
+
+function isLowSurrogate(charCode: number): boolean {
+  return charCode >= 0xDC00 && charCode <= 0xDFFF;
 }
 
 function consumeEscapeSequence(data: string, start: number): { nextIndex: number; complete: boolean } {

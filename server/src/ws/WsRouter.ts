@@ -49,6 +49,7 @@ import {
   type WsTransportMessage,
   type WsTransportQueueState,
 } from './wsSendPolicy.js';
+import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 
 const HEARTBEAT_INTERVAL = 30_000;
 const REPLAY_ACK_TIMEOUT_MS = 5_000;
@@ -93,6 +94,28 @@ type InputValidationResult =
       inputSeqStart?: number;
       inputSeqEnd?: number;
     };
+
+type ReplaySnapshotMode = 'authoritative' | 'fallback';
+type SnapshotReplayOrigin = 'subscribe' | 'repair' | 'degraded';
+
+interface ReplaySnapshotMetadata {
+  snapshotSeq: number;
+  snapshotMode: ReplaySnapshotMode;
+  snapshotDataLength: number;
+  snapshotTruncated: boolean;
+  snapshotCols: number;
+  snapshotRows: number;
+}
+
+interface RefreshReplaySnapshotsOptions {
+  startWhenReady?: boolean;
+  origin?: 'refresh' | 'degraded';
+  reason?: string;
+}
+
+function utf8ByteLength(data: string): number {
+  return Buffer.byteLength(data, 'utf8');
+}
 
 export class WsRouter {
   private wss: WebSocketServer;
@@ -423,17 +446,35 @@ export class WsRouter {
       return;
     }
 
+    const queuedOutputBytes = utf8ByteLength(replayResult.queuedOutput);
+    const coveredQueuedOutputBytes = utf8ByteLength(replayResult.coveredQueuedOutput);
+
     this.recordReplayEvent({
       kind: 'ack_ok',
       sessionId,
       replayToken,
       snapshotSeq: replayResult.snapshotSeq,
       details: {
-        queuedBytes: replayResult.queuedOutput.length,
+        queuedBytes: queuedOutputBytes,
+        coveredQueuedBytes: coveredQueuedOutputBytes,
+        queuedOutputTruncated: replayResult.queuedOutputTruncated,
         queuedInputBytes: replayResult.queuedInputBytes,
         queuedInputCount: replayResult.queuedInputs.length,
       },
     });
+
+    if (replayResult.coveredQueuedOutput.length > 0) {
+      this.recordReplayEvent({
+        kind: 'output_covered_by_snapshot',
+        sessionId,
+        replayToken,
+        snapshotSeq: replayResult.snapshotSeq,
+        details: {
+          coveredQueuedBytes: coveredQueuedOutputBytes,
+          queuedOutputTruncated: replayResult.queuedOutputTruncated,
+        },
+      });
+    }
 
     if (replayResult.queuedOutput.length > 0) {
       this.sendTo(ws, { type: 'output', sessionId, data: replayResult.queuedOutput });
@@ -443,7 +484,7 @@ export class WsRouter {
         replayToken,
         snapshotSeq: replayResult.snapshotSeq,
         details: {
-          outputBytes: replayResult.queuedOutput.length,
+          outputBytes: queuedOutputBytes,
         },
       });
     }
@@ -671,7 +712,7 @@ export class WsRouter {
         rows: repair.payload.rows,
         bufferType: repair.payload.bufferType,
         rowCount: repair.payload.viewportRows.length,
-        byteLength: repair.payload.ansiPatch.length,
+        byteLength: Buffer.byteLength(repair.payload.ansiPatch, 'utf8'),
       },
     });
   }
@@ -783,7 +824,11 @@ export class WsRouter {
     this.heartbeatTimer.unref();
   }
 
-  private markReplayPending(ws: WebSocket, sessionId: string, snapshotSeq: number): ReplayPendingState {
+  private markReplayPending(
+    ws: WebSocket,
+    sessionId: string,
+    snapshotMetadata: ReplaySnapshotMetadata,
+  ): ReplayPendingState {
     const meta = this.clients.get(ws);
     if (!meta) {
       throw new Error('Missing WebSocket client metadata');
@@ -793,12 +838,21 @@ export class WsRouter {
 
     const state: ReplayPendingState = {
       queuedOutput: '',
+      coveredQueuedOutput: '',
+      queuedOutputTruncated: false,
+      queuedOutputMaxScreenSeq: null,
+      coveredQueuedOutputMaxScreenSeq: null,
       queuedInputs: [],
       queuedInputBytes: 0,
       replayToken: uuidv4(),
-      snapshotSeq,
+      snapshotSeq: snapshotMetadata.snapshotSeq,
+      snapshotMode: snapshotMetadata.snapshotMode,
+      snapshotDataLength: snapshotMetadata.snapshotDataLength,
+      snapshotTruncated: snapshotMetadata.snapshotTruncated,
+      snapshotCols: snapshotMetadata.snapshotCols,
+      snapshotRows: snapshotMetadata.snapshotRows,
       timer: setTimeout(() => {
-        this.handleReplayAckTimeout(ws, sessionId, state.replayToken, snapshotSeq, 'timeout');
+        this.handleReplayAckTimeout(ws, sessionId, state.replayToken, snapshotMetadata.snapshotSeq, 'timeout');
       }, REPLAY_ACK_TIMEOUT_MS),
     };
     state.timer.unref();
@@ -814,6 +868,8 @@ export class WsRouter {
     | {
         status: 'ok';
         queuedOutput: string;
+        coveredQueuedOutput: string;
+        queuedOutputTruncated: boolean;
         queuedInputs: QueuedReplayInput[];
         queuedInputBytes: number;
         snapshotSeq: number;
@@ -842,6 +898,8 @@ export class WsRouter {
     return {
       status: 'ok',
       queuedOutput: pending.queuedOutput,
+      coveredQueuedOutput: pending.coveredQueuedOutput,
+      queuedOutputTruncated: pending.queuedOutputTruncated,
       queuedInputs: pending.queuedInputs,
       queuedInputBytes: pending.queuedInputBytes,
       snapshotSeq: pending.snapshotSeq,
@@ -864,11 +922,74 @@ export class WsRouter {
     this.rejectQueuedReplayInputs(ws, sessionId, pending, reason);
   }
 
-  private appendQueuedOutput(state: ReplayPendingState, data: string): void {
-    const limit = this.sessionManager.getReplayQueueLimit();
+  private trimReplayOutputTail(data: string): { content: string; truncated: boolean } {
+    return truncateTerminalPayloadTail(data, this.sessionManager.getReplayQueueLimit());
+  }
+
+  private mergeScreenSeq(
+    current: number | null,
+    next: number | undefined | null,
+  ): number | null {
+    if (typeof next !== 'number' || !Number.isFinite(next)) {
+      return current;
+    }
+    return current === null ? next : Math.max(current, next);
+  }
+
+  private appendQueuedOutput(state: ReplayPendingState, data: string, outputScreenSeq?: number): void {
     const next = `${state.queuedOutput}${data}`;
-    state.queuedOutput = next.length > limit ? next.slice(-limit) : next;
-    this.maxReplayQueueLengthObserved = Math.max(this.maxReplayQueueLengthObserved, state.queuedOutput.length);
+    const trimmed = this.trimReplayOutputTail(next);
+    state.queuedOutput = trimmed.content;
+    state.queuedOutputTruncated = state.queuedOutputTruncated || trimmed.truncated;
+    state.queuedOutputMaxScreenSeq = this.mergeScreenSeq(state.queuedOutputMaxScreenSeq, outputScreenSeq);
+    this.maxReplayQueueLengthObserved = Math.max(this.maxReplayQueueLengthObserved, utf8ByteLength(state.queuedOutput));
+  }
+
+  private markQueuedOutputCoveredBySnapshot(state: ReplayPendingState): void {
+    if (state.queuedOutput.length === 0) {
+      return;
+    }
+
+    const trimmed = this.trimReplayOutputTail(`${state.coveredQueuedOutput}${state.queuedOutput}`);
+    state.coveredQueuedOutput = trimmed.content;
+    state.queuedOutput = '';
+    state.queuedOutputTruncated = state.queuedOutputTruncated || trimmed.truncated;
+    state.coveredQueuedOutputMaxScreenSeq = this.mergeScreenSeq(
+      state.coveredQueuedOutputMaxScreenSeq,
+      state.queuedOutputMaxScreenSeq,
+    );
+    state.queuedOutputMaxScreenSeq = null;
+    this.maxReplayQueueLengthObserved = Math.max(
+      this.maxReplayQueueLengthObserved,
+      utf8ByteLength(state.coveredQueuedOutput),
+    );
+  }
+
+  private uncoverQueuedOutput(state: ReplayPendingState): void {
+    if (state.coveredQueuedOutput.length === 0) {
+      return;
+    }
+
+    const trimmed = this.trimReplayOutputTail(`${state.coveredQueuedOutput}${state.queuedOutput}`);
+    state.queuedOutput = trimmed.content;
+    state.coveredQueuedOutput = '';
+    state.queuedOutputTruncated = state.queuedOutputTruncated || trimmed.truncated;
+    state.queuedOutputMaxScreenSeq = this.mergeScreenSeq(
+      state.queuedOutputMaxScreenSeq,
+      state.coveredQueuedOutputMaxScreenSeq,
+    );
+    state.coveredQueuedOutputMaxScreenSeq = null;
+    this.maxReplayQueueLengthObserved = Math.max(this.maxReplayQueueLengthObserved, utf8ByteLength(state.queuedOutput));
+  }
+
+  private getReplayTimeoutOutput(state: ReplayPendingState): string {
+    if (state.coveredQueuedOutput.length === 0) {
+      return state.queuedOutput;
+    }
+
+    const trimmed = this.trimReplayOutputTail(`${state.coveredQueuedOutput}${state.queuedOutput}`);
+    state.queuedOutputTruncated = state.queuedOutputTruncated || trimmed.truncated;
+    return trimmed.content;
   }
 
   private getScreenRepairPendingSessions(meta: WsClientMeta): Map<string, ScreenRepairPendingState> {
@@ -1229,6 +1350,25 @@ export class WsRouter {
     clearTimeout(pending.timer);
     meta.replayPendingSessions.delete(sessionId);
 
+    const timeoutOutput = this.getReplayTimeoutOutput(pending);
+    if (timeoutOutput.length > 0 && ws.readyState === WebSocket.OPEN) {
+      const timeoutOutputBytes = utf8ByteLength(timeoutOutput);
+      this.sendTo(ws, { type: 'output', sessionId, data: timeoutOutput });
+      this.recordReplayEvent({
+        kind: 'output_flushed',
+        sessionId,
+        replayToken,
+        snapshotSeq,
+        details: {
+          phase: readyReason,
+          outputBytes: timeoutOutputBytes,
+          coveredQueuedBytes: utf8ByteLength(pending.coveredQueuedOutput),
+          queuedBytes: utf8ByteLength(pending.queuedOutput),
+          queuedOutputTruncated: pending.queuedOutputTruncated,
+        },
+      });
+    }
+
     this.flushQueuedReplayInputs(ws, sessionId, replayToken, snapshotSeq, pending.queuedInputs, 'timeout');
 
     if (ws.readyState === WebSocket.OPEN) {
@@ -1505,21 +1645,100 @@ export class WsRouter {
     };
   }
 
+  private buildReplaySnapshotMetadata(
+    snapshot: ReturnType<SessionManager['getScreenSnapshot']> extends infer T ? NonNullable<T> : never,
+    mode: ReplaySnapshotMode,
+  ): ReplaySnapshotMetadata {
+    return {
+      snapshotSeq: snapshot.seq,
+      snapshotMode: mode,
+      snapshotDataLength: snapshot.data.length,
+      snapshotTruncated: snapshot.truncated,
+      snapshotCols: snapshot.cols,
+      snapshotRows: snapshot.rows,
+    };
+  }
+
+  private applyReplaySnapshotMetadata(state: ReplayPendingState, metadata: ReplaySnapshotMetadata): void {
+    state.snapshotSeq = metadata.snapshotSeq;
+    state.snapshotMode = metadata.snapshotMode;
+    state.snapshotDataLength = metadata.snapshotDataLength;
+    state.snapshotTruncated = metadata.snapshotTruncated;
+    state.snapshotCols = metadata.snapshotCols;
+    state.snapshotRows = metadata.snapshotRows;
+  }
+
+  private snapshotCoversQueuedOutput(
+    snapshot: ReturnType<SessionManager['getScreenSnapshot']> extends infer T ? NonNullable<T> : never,
+    mode: ReplaySnapshotMode,
+    state: ReplayPendingState,
+  ): boolean {
+    if (snapshot.data.length === 0) {
+      return false;
+    }
+
+    if (mode === 'authoritative') {
+      return true;
+    }
+
+    return (
+      state.queuedOutput.length > 0
+      && state.queuedOutputMaxScreenSeq !== null
+      && snapshot.seq >= state.queuedOutputMaxScreenSeq
+    );
+  }
+
+  private snapshotStillCoversCoveredOutput(
+    snapshot: ReturnType<SessionManager['getScreenSnapshot']> extends infer T ? NonNullable<T> : never,
+    mode: ReplaySnapshotMode,
+    state: ReplayPendingState,
+  ): boolean {
+    if (state.coveredQueuedOutput.length === 0) {
+      return false;
+    }
+
+    if (mode === 'authoritative') {
+      return snapshot.data.length > 0;
+    }
+
+    return (
+      snapshot.data.length > 0
+      && state.coveredQueuedOutputMaxScreenSeq !== null
+      && snapshot.seq >= state.coveredQueuedOutputMaxScreenSeq
+    );
+  }
+
+  private isUnchangedEmptyFallbackReplaySnapshot(
+    state: ReplayPendingState,
+    metadata: ReplaySnapshotMetadata,
+  ): boolean {
+    return (
+      state.snapshotMode === 'fallback'
+      && state.snapshotDataLength === 0
+      && metadata.snapshotMode === 'fallback'
+      && metadata.snapshotDataLength === 0
+      && state.snapshotSeq === metadata.snapshotSeq
+      && state.snapshotTruncated === metadata.snapshotTruncated
+      && state.snapshotCols === metadata.snapshotCols
+      && state.snapshotRows === metadata.snapshotRows
+    );
+  }
+
   private sendSnapshotReplay(
     ws: WebSocket,
     sessionId: string,
     snapshot: ReturnType<SessionManager['getScreenSnapshot']> extends infer T ? NonNullable<T> : never,
-    origin: 'subscribe' | 'repair',
+    origin: SnapshotReplayOrigin,
   ): ReplayPendingState {
     const meta = this.clients.get(ws);
     if (!meta) {
       throw new Error('Missing WebSocket client metadata');
     }
 
-    const replayState = this.markReplayPending(ws, sessionId, snapshot.seq);
     const mode = snapshot.health === 'healthy' && !(snapshot.truncated && snapshot.data.length === 0)
       ? 'authoritative'
       : 'fallback';
+    const replayState = this.markReplayPending(ws, sessionId, this.buildReplaySnapshotMetadata(snapshot, mode));
 
     this.sendTo(ws, {
       type: 'screen-snapshot',
@@ -1532,6 +1751,8 @@ export class WsRouter {
       data: snapshot.data,
       truncated: snapshot.truncated,
       source: 'headless',
+      fallbackDataState: snapshot.fallbackDataState,
+      fallbackDataBytes: snapshot.fallbackDataBytes,
       windowsPty: snapshot.windowsPty,
     });
     this.recordReplayEvent({
@@ -1546,6 +1767,8 @@ export class WsRouter {
         rows: snapshot.rows,
         truncated: snapshot.truncated,
         mode,
+        fallbackDataState: snapshot.fallbackDataState ?? null,
+        fallbackDataBytes: snapshot.fallbackDataBytes ?? null,
       },
     });
 
@@ -1566,15 +1789,19 @@ export class WsRouter {
       const meta = this.clients.get(ws);
       const pending = meta?.replayPendingSessions.get(sessionId);
       if (pending) {
-        this.appendQueuedOutput(pending, data);
+        this.appendQueuedOutput(pending, data, outputScreenSeq);
+        const outputBytes = utf8ByteLength(data);
+        const queuedBytes = utf8ByteLength(pending.queuedOutput);
         this.recordReplayEvent({
           kind: 'output_queued',
           sessionId,
           replayToken: pending.replayToken,
           snapshotSeq: pending.snapshotSeq,
           details: {
-            outputBytes: data.length,
-            queuedBytes: pending.queuedOutput.length,
+            outputBytes,
+            queuedBytes,
+            outputScreenSeq: outputScreenSeq ?? null,
+            queuedOutputMaxScreenSeq: pending.queuedOutputMaxScreenSeq,
           },
         });
         continue;
@@ -1603,7 +1830,7 @@ export class WsRouter {
     }
   }
 
-  refreshReplaySnapshots(sessionId: string): void {
+  refreshReplaySnapshots(sessionId: string, options: RefreshReplaySnapshotsOptions = {}): void {
     const subscribers = this.sessionSubscribers.get(sessionId);
     if (!subscribers || subscribers.size === 0) {
       return;
@@ -1617,6 +1844,7 @@ export class WsRouter {
     const mode = snapshot.health === 'healthy' && !(snapshot.truncated && snapshot.data.length === 0)
       ? 'authoritative'
       : 'fallback';
+    const snapshotMetadata = this.buildReplaySnapshotMetadata(snapshot, mode);
 
     for (const ws of subscribers) {
       if (ws.readyState !== WebSocket.OPEN) {
@@ -1626,18 +1854,59 @@ export class WsRouter {
       const meta = this.clients.get(ws);
       const pending = meta?.replayPendingSessions.get(sessionId);
       if (!pending) {
+        if (!options.startWhenReady || !meta?.subscribedSessions.has(sessionId)) {
+          continue;
+        }
+        const repairPending = this.getScreenRepairPendingSessions(meta).get(sessionId);
+        if (repairPending) {
+          this.recordReplayEvent({
+            kind: 'snapshot_refresh_skipped',
+            sessionId,
+            repairToken: repairPending.repairToken,
+            snapshotSeq: repairPending.screenSeq,
+            details: {
+              reason: 'screen-repair-pending',
+              clientId: meta.clientId,
+              origin: options.origin ?? 'refresh',
+            },
+          });
+          continue;
+        }
+
+        this.replayRefreshCount += 1;
+        this.sendSnapshotReplay(ws, sessionId, snapshot, options.origin === 'degraded' ? 'degraded' : 'repair');
         continue;
       }
+
+      if (this.isUnchangedEmptyFallbackReplaySnapshot(pending, snapshotMetadata)) {
+        this.recordReplayEvent({
+          kind: 'snapshot_refresh_skipped',
+          sessionId,
+          replayToken: pending.replayToken,
+          snapshotSeq: pending.snapshotSeq,
+          details: {
+            reason: 'unchanged-empty-fallback',
+            clientId: meta?.clientId ?? null,
+            queuedBytes: utf8ByteLength(pending.queuedOutput),
+            coveredQueuedBytes: utf8ByteLength(pending.coveredQueuedOutput),
+          },
+        });
+        continue;
+      }
+
       this.replayRefreshCount += 1;
 
-      const refreshedSnapshotCoversQueuedOutput = mode === 'authoritative' && snapshot.data.length > 0;
+      const refreshedSnapshotCoversQueuedOutput = this.snapshotCoversQueuedOutput(snapshot, mode, pending);
+      const refreshedSnapshotStillCoversCoveredOutput = this.snapshotStillCoversCoveredOutput(snapshot, mode, pending);
+      if (refreshedSnapshotCoversQueuedOutput) {
+        this.markQueuedOutputCoveredBySnapshot(pending);
+      } else if (!refreshedSnapshotStillCoversCoveredOutput) {
+        this.uncoverQueuedOutput(pending);
+      }
 
       clearTimeout(pending.timer);
       pending.replayToken = uuidv4();
-      pending.snapshotSeq = snapshot.seq;
-      if (refreshedSnapshotCoversQueuedOutput) {
-        pending.queuedOutput = '';
-      }
+      this.applyReplaySnapshotMetadata(pending, snapshotMetadata);
       const refreshReplayToken = pending.replayToken;
       pending.timer = setTimeout(() => {
         this.handleReplayAckTimeout(ws, sessionId, refreshReplayToken, snapshot.seq, 'refresh-timeout');
@@ -1655,6 +1924,8 @@ export class WsRouter {
         data: snapshot.data,
         truncated: snapshot.truncated,
         source: 'headless',
+        fallbackDataState: snapshot.fallbackDataState,
+        fallbackDataBytes: snapshot.fallbackDataBytes,
         windowsPty: snapshot.windowsPty,
       });
       this.recordReplayEvent({
@@ -1669,6 +1940,14 @@ export class WsRouter {
           rows: snapshot.rows,
           truncated: snapshot.truncated,
           mode,
+          refreshOrigin: options.origin ?? 'refresh',
+          refreshReason: options.reason ?? null,
+          fallbackDataState: snapshot.fallbackDataState ?? null,
+          fallbackDataBytes: snapshot.fallbackDataBytes ?? null,
+          coversQueuedOutput: refreshedSnapshotCoversQueuedOutput,
+          coversPreviouslyCoveredOutput: refreshedSnapshotStillCoversCoveredOutput,
+          queuedBytes: utf8ByteLength(pending.queuedOutput),
+          coveredQueuedBytes: utf8ByteLength(pending.coveredQueuedOutput),
         },
       });
     }

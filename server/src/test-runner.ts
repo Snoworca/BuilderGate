@@ -210,11 +210,12 @@ async function main(): Promise<void> {
     { name: 'SessionManager bounded headless overflow clears queue telemetry', run: testSessionManagerBoundedHeadlessOverflowTelemetry },
     { name: 'SessionManager observe headless queue overflow degrades without unbounded pending output', run: testSessionManagerObserveHeadlessOverflowKeepsOutputOrder },
     { name: 'SessionManager observe headless queue preserves bounded pending output on degradation', run: testSessionManagerObserveHeadlessOverflowPreservedOnDegradation },
+    { name: 'SessionManager degraded overflow starts ready-subscriber fallback recovery', run: testSessionManagerDegradedOverflowStartsReadySubscriberRecovery },
     { name: 'SessionManager routes bounded output only after headless write commit', run: testSessionManagerBoundedHeadlessOutputRoutesAfterCommit },
     { name: 'SessionManager bounded headless implementation removes pendingOutputChunks hot paths', run: testSessionManagerBoundedHeadlessSourceRemovesLegacyPendingArray },
     { name: 'SessionManager rejects oversized authoritative snapshots without unbounded growth', run: testSessionManagerOversizedSnapshot },
     { name: 'SessionManager authoritative snapshot preserves current alt-screen state', run: testSessionManagerAltScreenSnapshot },
-    { name: 'SessionManager keeps degraded fallback snapshots placeholder-only', run: testSessionManagerDegradedOutputRecovery },
+    { name: 'SessionManager sends recoverable degraded fallback output', run: testSessionManagerDegradedOutputRecovery },
     { name: 'Headless snapshot serialization is deterministic for a normal screen', run: testHeadlessSnapshotSerialization },
     { name: 'Headless snapshot serialization reflects resize geometry', run: testHeadlessSnapshotResize },
     { name: 'Headless snapshot serialization preserves alternate-screen state and exit restore', run: testHeadlessSnapshotAltScreen },
@@ -224,6 +225,7 @@ async function main(): Promise<void> {
     { name: 'Headless screen repair serializes viewport only', run: testHeadlessScreenRepairViewportOnly },
     { name: 'Headless screen repair preserves SGR and cursor metadata', run: testHeadlessScreenRepairSgrAndCursor },
     { name: 'Headless screen repair preserves hidden cursor state', run: testHeadlessScreenRepairHiddenCursor },
+    { name: 'SessionManager screen repair debug byteLength uses UTF-8 bytes', run: testSessionManagerScreenRepairDebugByteLengthUsesUtf8Bytes },
     { name: 'SessionManager screen repair rejects alternate buffer mismatch', run: testSessionManagerScreenRepairBufferMismatch },
     { name: 'SessionManager screen repair rejects degraded headless', run: testSessionManagerScreenRepairRejectsDegraded },
     { name: 'Terminal payload truncation skips partial CSI sequences', run: testTerminalPayloadTruncationCsi },
@@ -231,6 +233,7 @@ async function main(): Promise<void> {
     { name: 'Terminal payload truncation drops incomplete trailing CSI sequences', run: testTerminalPayloadTruncationIncompleteCsi },
     { name: 'Terminal payload truncation drops incomplete trailing OSC sequences', run: testTerminalPayloadTruncationIncompleteOsc },
     { name: 'Terminal payload truncation removes incomplete trailing escape suffixes', run: testTerminalPayloadTruncationTrailingIncompleteSuffix },
+    { name: 'Terminal payload truncation enforces UTF-8 byte caps', run: testTerminalPayloadTruncationUtf8ByteCap },
     { name: 'TerminalTitleDetector emits OSC 0 and OSC 2 titles', run: testTerminalTitleDetectorEmitsOsc0AndOsc2 },
     { name: 'TerminalTitleDetector ignores unsupported and empty titles', run: testTerminalTitleDetectorIgnoresUnsupportedAndEmpty },
     { name: 'TerminalTitleDetector handles chunk-split title sequences', run: testTerminalTitleDetectorHandlesChunkSplit },
@@ -262,6 +265,14 @@ async function main(): Promise<void> {
     { name: 'WsRouter ignores stale replay tokens', run: testWsRouterIgnoresStaleReplayTokens },
     { name: 'WsRouter refreshes replay snapshots on resize while pending', run: testWsRouterRefreshesReplaySnapshotsOnResize },
     { name: 'WsRouter preserves queued output across fallback replay refresh', run: testWsRouterPreservesQueuedOutputAcrossFallbackReplayRefresh },
+    { name: 'WsRouter flushes queued output on replay ACK timeout', run: testWsRouterFlushesQueuedOutputOnReplayTimeout },
+    { name: 'WsRouter flushes snapshot-covered output on refresh timeout', run: testWsRouterFlushesSnapshotCoveredOutputOnRefreshTimeout },
+    { name: 'WsRouter does not treat fallback substring matches as covered output', run: testWsRouterDoesNotTreatFallbackSubstringAsCoveredOutput },
+    { name: 'WsRouter does not duplicate fallback-covered output on ACK', run: testWsRouterDoesNotDuplicateFallbackCoveredOutputOnAck },
+    { name: 'WsRouter preserves fallback-covered output across repeated refresh ACK', run: testWsRouterPreservesFallbackCoveredOutputAcrossRepeatedRefreshAck },
+    { name: 'WsRouter flushes fallback-covered output on refresh timeout', run: testWsRouterFlushesFallbackCoveredOutputOnRefreshTimeout },
+    { name: 'WsRouter replay timeout uses UTF-8 byte-bounded tail through router queue', run: testWsRouterReplayTimeoutUsesUtf8ByteBoundedTail },
+    { name: 'WsRouter suppresses unchanged empty fallback replay refresh', run: testWsRouterSuppressesUnchangedEmptyFallbackReplayRefresh },
     { name: 'WsRouter safe-send enforce queues output over high-water', run: testWsRouterSafeSendQueuesOutputOverHighWater },
     { name: 'WsRouter safe-send retry timer drains queued output', run: testWsRouterSafeSendRetryTimerDrainsQueuedOutput },
     { name: 'WsRouter safe-send enforce closes hard-limit slow clients', run: testWsRouterSafeSendClosesHardLimitSlowClient },
@@ -274,9 +285,11 @@ async function main(): Promise<void> {
     { name: 'WsRouter safe-send closes instead of dropping control messages', run: testWsRouterSafeSendClosesOnControlQueueOverflow },
     { name: 'WsRouter safe-send observe records pressure without queueing', run: testWsRouterSafeSendObserveDoesNotQueue },
     { name: 'WsRouter safe-send preserves replay flush ordering under pressure', run: testWsRouterSafeSendPreservesReplayFlushOrdering },
+    { name: 'WsRouter safe-send preserves fallback replay flush ordering under pressure', run: testWsRouterSafeSendPreservesFallbackReplayFlushOrdering },
     { name: 'WsRouter safe-send preserves screen repair flush ordering under pressure', run: testWsRouterSafeSendPreservesScreenRepairFlushOrdering },
     { name: 'SessionManager broadcasts through WsRouter send policy', run: testSessionManagerBroadcastUsesWsRouterPolicy },
     { name: 'WsRouter sends screen repair and queues output until ACK', run: testWsRouterSendsScreenRepairAndQueuesOutputUntilAck },
+    { name: 'WsRouter screen repair sent telemetry byteLength uses UTF-8 bytes', run: testWsRouterScreenRepairSentTelemetryByteLengthUsesUtf8Bytes },
     { name: 'WsRouter queues output while screen repair is generating', run: testWsRouterQueuesOutputDuringScreenRepairGeneration },
     { name: 'WsRouter flushes output newer than screen repair snapshot seq', run: testWsRouterFlushesOutputAfterScreenRepairSnapshotSeq },
     { name: 'WsRouter flushes output on screen-repair ACK timeout', run: testWsRouterFlushesScreenRepairOutputOnAckTimeout },
@@ -5161,8 +5174,8 @@ async function testSessionManagerDirtyCacheDegradedRecovery(): Promise<void> {
 
     const replay = manager.getReplaySnapshot(harness.sessionId);
 
-    assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
-    assert.doesNotMatch(replay?.data ?? '', /oldnew/);
+    assert.match(replay?.data ?? '', /oldnew/);
+    assert.equal((replay?.data ?? '').split('oldnew').length - 1, 1);
     assert.match(harness.sessionData.degradedReplayBuffer, /oldnew/);
   } finally {
     harness.dispose();
@@ -5210,9 +5223,10 @@ async function testSessionManagerQueuedOutputDegradedRace(): Promise<void> {
     await harness.sessionData.headlessWriteChain;
     const replay = manager.getReplaySnapshot(harness.sessionId);
 
-    assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
-    assert.doesNotMatch(replay?.data ?? '', /PAYLOAD_A/);
-    assert.doesNotMatch(replay?.data ?? '', /PAYLOAD_B/);
+    assert.match(replay?.data ?? '', /PAYLOAD_A/);
+    assert.match(replay?.data ?? '', /PAYLOAD_B/);
+    assert.equal((replay?.data ?? '').split('PAYLOAD_A').length - 1, 1);
+    assert.equal((replay?.data ?? '').split('PAYLOAD_B').length - 1, 1);
     assert.match(harness.sessionData.degradedReplayBuffer, /PAYLOAD_A/);
     assert.match(harness.sessionData.degradedReplayBuffer, /PAYLOAD_B/);
   } finally {
@@ -5270,9 +5284,10 @@ async function testSessionManagerMixedFlushDegradedRecovery(): Promise<void> {
     await harness.sessionData.headlessWriteChain;
     const replay = manager.getReplaySnapshot(harness.sessionId);
 
-    assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
-    assert.doesNotMatch(replay?.data ?? '', /PAYLOAD_A/);
-    assert.doesNotMatch(replay?.data ?? '', /PAYLOAD_B/);
+    assert.match(replay?.data ?? '', /PAYLOAD_A/);
+    assert.match(replay?.data ?? '', /PAYLOAD_B/);
+    assert.equal((replay?.data ?? '').split('PAYLOAD_A').length - 1, 1);
+    assert.equal((replay?.data ?? '').split('PAYLOAD_B').length - 1, 1);
     assert.equal(harness.sessionData.degradedReplayBuffer.split('PAYLOAD_A').length - 1, 1);
     assert.equal(harness.sessionData.degradedReplayBuffer.split('PAYLOAD_B').length - 1, 1);
   } finally {
@@ -5308,8 +5323,8 @@ async function testSessionManagerWriteFailureNoDuplicate(): Promise<void> {
 
     const replay = manager.getReplaySnapshot(harness.sessionId);
 
-    assert.match(replay?.data ?? '', /server snapshot is unavailable/i);
-    assert.doesNotMatch(replay?.data ?? '', /PAYLOAD_X/);
+    assert.match(replay?.data ?? '', /PAYLOAD_X/);
+    assert.equal((replay?.data ?? '').split('PAYLOAD_X').length - 1, 1);
     assert.equal(harness.sessionData.degradedReplayBuffer.split('PAYLOAD_X').length - 1, 1);
   } finally {
     harness.dispose();
@@ -5491,8 +5506,8 @@ async function testSessionManagerObserveHeadlessOverflowKeepsOutputOrder(): Prom
     await delay(0);
     assert.equal(harness.sessionData.headlessHealth, 'degraded');
     assert.deepEqual(routed, [
-      { data: second, screenSeq: undefined },
-      { data: third, screenSeq: undefined },
+      { data: second, screenSeq: 2 },
+      { data: third, screenSeq: 3 },
     ]);
     assert.equal(writes.length, 0);
     const pendingStats = (manager.getObservabilitySnapshot() as any).headlessOutput;
@@ -5562,6 +5577,67 @@ async function testSessionManagerObserveHeadlessOverflowPreservedOnDegradation()
     assert.equal(output.pendingBytes, 0);
     assert.equal(output.pendingChunks, 0);
   } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerDegradedOverflowStartsReadySubscriberRecovery(): Promise<void> {
+  const first = 'a'.repeat(900);
+  const second = 'b'.repeat(200);
+  const manager = createBoundedHeadlessManager({ pendingOutputMaxBytes: 1024, pendingOutputMaxChunks: 4 });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+  installDelayedHeadlessWrite(harness);
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, manager);
+  manager.setWsRouter(router);
+  const { ws, sent } = createFakeWs();
+
+  try {
+    (router as any).clients.set(ws, {
+      clientId: 'client-1',
+      isAlive: true,
+      subscribedSessions: new Set<string>(),
+      replayPendingSessions: new Map(),
+      screenRepairPendingSessions: new Map(),
+    });
+
+    (router as any).handleSubscribe(ws, [harness.sessionId]);
+    const initialSnapshot = sent.find((message) => message.type === 'screen-snapshot');
+    assert.equal(initialSnapshot?.type, 'screen-snapshot');
+    (router as any).handleScreenSnapshotReady(ws, harness.sessionId, String(initialSnapshot?.replayToken));
+
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, first);
+    (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, second);
+
+    assert.equal(harness.sessionData.headlessHealth, 'degraded');
+    assert.equal(harness.sessionData.headlessDegradedPhase, 'queue-overflow');
+
+    const outputMessages = sent.filter((message) => message.type === 'output');
+    assert.equal(outputMessages.length, 1);
+    assert.equal(outputMessages[0].data, second);
+
+    const snapshots = sent.filter((message) => message.type === 'screen-snapshot');
+    assert.equal(snapshots.length, 2);
+    const recoverySnapshot = snapshots[1];
+    assert.equal(recoverySnapshot.mode, 'fallback');
+    assert.equal(recoverySnapshot.fallbackDataState, 'recoverable-buffer');
+    assert.equal(recoverySnapshot.fallbackDataBytes, Buffer.byteLength(String(recoverySnapshot.data), 'utf8'));
+    assert.match(String(recoverySnapshot.data), new RegExp(first));
+    assert.match(String(recoverySnapshot.data), new RegExp(second));
+
+    (router as any).handleScreenSnapshotReady(ws, harness.sessionId, String(recoverySnapshot.replayToken));
+    assert.equal(sent.filter((message) => message.type === 'output').length, 1);
+    assert.equal(sent.at(-1)?.type, 'session:ready');
+
+    const output = (manager.getObservabilitySnapshot() as any).headlessOutput;
+    assert.equal(output.recoverableFallbackSessions, 1);
+    assert.equal(output.queueOverflowDegradedCount, 1);
+    assert.equal(output.lastDegradedPhase, 'queue-overflow');
+    assert.equal(output.degradedReplayBufferBytes, Buffer.byteLength(harness.sessionData.degradedReplayBuffer, 'utf8'));
+  } finally {
+    router.destroy();
     harness.dispose();
   }
 }
@@ -5713,7 +5789,7 @@ function testSessionManagerDegradedOutputRecovery(): void {
 
     assert.equal(sent[0].type, 'screen-snapshot');
     assert.equal(sent[0].mode, 'fallback');
-    assert.equal(sent[0].data, '');
+    assert.match(String(sent[0].data), /lost-while-unsubscribed/);
     assert.match(harness.sessionData.degradedReplayBuffer, /lost-while-unsubscribed/);
   } finally {
     router.destroy();
@@ -5943,6 +6019,7 @@ function createManagedSessionHarness(
     snapshotCache: null,
     degradedReplayBuffer: '',
     degradedReplayTruncated: false,
+    headlessDegradedPhase: null as null | string,
     headlessOutputQueue,
     headlessQueueMode: ((manager as any).runtimeHeadlessQueueConfig?.mode ?? 'observe'),
     pendingHeadlessOutputs: new Map(),
@@ -6358,6 +6435,43 @@ async function testHeadlessScreenRepairHiddenCursor(): Promise<void> {
   }
 }
 
+async function testSessionManagerScreenRepairDebugByteLengthUsesUtf8Bytes(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 12,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 4096,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 12, rows: 4, scrollbackLines: 1000 });
+
+  try {
+    await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, '가🙂');
+    manager.enableDebugCapture(harness.sessionId);
+
+    const repair = await manager.getScreenRepair(harness.sessionId, {
+      cols: 12,
+      rows: 4,
+      bufferType: 'normal',
+    });
+
+    assert.equal(repair.ok, true);
+    if (!repair.ok) return;
+    const event = manager.getDebugCapture(harness.sessionId).find((item) => item.kind === 'screen_repair_serialized');
+    assert.equal(event?.details?.byteLength, Buffer.byteLength(repair.payload.ansiPatch, 'utf8'));
+    assert.equal(Number(event?.details?.byteLength) > repair.payload.ansiPatch.length, true);
+  } finally {
+    harness.dispose();
+  }
+}
+
 async function testSessionManagerScreenRepairBufferMismatch(): Promise<void> {
   const manager = new SessionManager({
     pty: {
@@ -6465,6 +6579,18 @@ function testTerminalPayloadTruncationTrailingIncompleteSuffix(): void {
   assert.equal(incompleteOsc.content, 'lo');
   assert.equal(incompleteEsc.truncated, true);
   assert.equal(incompleteEsc.content, 'lo');
+}
+
+function testTerminalPayloadTruncationUtf8ByteCap(): void {
+  const multibyte = truncateTerminalPayloadTail(`prefix${'가'.repeat(64)}`, 64);
+  assert.equal(multibyte.truncated, true);
+  assert.equal(Buffer.byteLength(multibyte.content, 'utf8') <= 64, true);
+  assert.doesNotMatch(multibyte.content, /prefix/);
+
+  const emoji = truncateTerminalPayloadTail(`prefix${'🙂'.repeat(20)}`, 17);
+  assert.equal(emoji.truncated, true);
+  assert.equal(Buffer.byteLength(emoji.content, 'utf8') <= 17, true);
+  assert.equal(emoji.content.includes('\uFFFD'), false);
 }
 
 function testTerminalTitleDetectorEmitsOsc0AndOsc2(): void {
@@ -7547,6 +7673,433 @@ function testWsRouterPreservesQueuedOutputAcrossFallbackReplayRefresh(): void {
   }
 }
 
+function testWsRouterFlushesQueuedOutputOnReplayTimeout(): void {
+  const { router, ws, sent } = createWsRouterHarness({
+    snapshotMode: 'fallback',
+    snapshotData: '',
+  });
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    const replayToken = String(sent[0].replayToken);
+
+    router.routeSessionOutput('session-1', 'timeout-preserved-output');
+    (router as any).handleReplayAckTimeout(ws, 'session-1', replayToken, 1, 'timeout');
+
+    const outputMessages = sent.filter((message) => message.type === 'output');
+    assert.equal(outputMessages.length, 1);
+    assert.equal(outputMessages[0].data, 'timeout-preserved-output');
+    assert.equal(sent.at(-2)?.type, 'output');
+    assert.equal(sent.at(-1)?.type, 'session:ready');
+
+    const flushed = router.getObservabilitySnapshot().recentReplayEvents.find((event) => event.kind === 'output_flushed');
+    assert.equal(flushed?.details?.phase, 'timeout');
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterFlushesSnapshotCoveredOutputOnRefreshTimeout(): void {
+  const snapshotState = {
+    seq: 1,
+    cols: 80,
+    rows: 24,
+    data: 'A',
+    truncated: false,
+    generatedAt: Date.now(),
+    health: 'healthy' as const,
+  };
+  const session = {
+    id: 'session-1',
+    name: 'Session 1',
+    status: 'running',
+    createdAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
+    sortOrder: 0,
+  };
+  const sessionManagerStub = {
+    getSession: (id: string) => id === session.id ? session : null,
+    getLastCwd: () => 'C:\\repo',
+    isSessionReady: (id: string) => id === session.id,
+    getScreenSnapshot: () => snapshotState,
+    getReplayQueueLimit: () => 64,
+    writeInput: () => true,
+    resize: () => true,
+  } as unknown as SessionManager;
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, sessionManagerStub);
+  const { ws, sent } = createFakeWs();
+
+  try {
+    (router as any).clients.set(ws, {
+      clientId: 'client-1',
+      isAlive: true,
+      subscribedSessions: new Set<string>(),
+      replayPendingSessions: new Map(),
+    });
+
+    (router as any).handleSubscribe(ws, ['session-1']);
+    const firstToken = String(sent[0].replayToken);
+
+    router.routeSessionOutput('session-1', 'B');
+    snapshotState.seq = 2;
+    snapshotState.data = 'AB';
+    router.refreshReplaySnapshots('session-1');
+
+    const refreshed = sent.find((message) => message.type === 'screen-snapshot' && message.replayToken !== firstToken);
+    assert.equal(refreshed?.type, 'screen-snapshot');
+    const secondToken = String(refreshed?.replayToken);
+
+    (router as any).handleReplayAckTimeout(ws, 'session-1', secondToken, 2, 'refresh-timeout');
+
+    const outputMessages = sent.filter((message) => message.type === 'output');
+    assert.equal(outputMessages.length, 1);
+    assert.equal(outputMessages[0].data, 'B');
+    assert.equal(sent.at(-2)?.type, 'output');
+    assert.equal(sent.at(-1)?.type, 'session:ready');
+
+    const flushed = router.getObservabilitySnapshot().recentReplayEvents.find((event) => (
+      event.kind === 'output_flushed' && event.details?.phase === 'refresh-timeout'
+    ));
+    assert.equal(flushed?.details?.coveredQueuedBytes, 1);
+  } finally {
+    router.destroy();
+  }
+}
+
+function createMutableSnapshotWsRouterHarness(snapshotState: {
+  seq: number;
+  cols: number;
+  rows: number;
+  data: string;
+  truncated: boolean;
+  generatedAt: number;
+  health: 'healthy' | 'degraded';
+}, options?: {
+  replayQueueLimit?: number;
+  routerOptions?: ConstructorParameters<typeof WsRouter>[2];
+  fakeWsOptions?: Parameters<typeof createFakeWs>[0];
+}) {
+  const session = {
+    id: 'session-1',
+    name: 'Session 1',
+    status: 'running',
+    createdAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
+    sortOrder: 0,
+  };
+  const sessionManagerStub = {
+    getSession: (id: string) => id === session.id ? session : null,
+    getLastCwd: () => 'C:\\repo',
+    isSessionReady: (id: string) => id === session.id,
+    getScreenSnapshot: () => snapshotState,
+    getReplayQueueLimit: () => options?.replayQueueLimit ?? 64,
+    writeInput: () => true,
+    resize: () => true,
+  } as unknown as SessionManager;
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, sessionManagerStub, {
+    inputReliabilityMode: 'queue',
+    ...options?.routerOptions,
+  });
+  const fake = createFakeWs(options?.fakeWsOptions);
+  const { ws, sent } = fake;
+
+  (router as any).clients.set(ws, {
+    clientId: 'client-1',
+    isAlive: true,
+    subscribedSessions: new Set<string>(),
+    replayPendingSessions: new Map(),
+    screenRepairPendingSessions: new Map(),
+  });
+
+  return { router, ws, sent, fake };
+}
+
+function testWsRouterDoesNotTreatFallbackSubstringAsCoveredOutput(): void {
+  const snapshotState = {
+    seq: 1,
+    cols: 80,
+    rows: 24,
+    data: 'old prompt repeated-output',
+    truncated: false,
+    generatedAt: Date.now(),
+    health: 'degraded' as const,
+  };
+  const { router, ws, sent } = createMutableSnapshotWsRouterHarness(snapshotState);
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    const firstToken = String(sent[0].replayToken);
+
+    router.routeSessionOutput('session-1', 'repeated-output', 2);
+    snapshotState.data = 'old prompt repeated-output';
+    router.refreshReplaySnapshots('session-1');
+
+    const refreshed = sent.find((message) => message.type === 'screen-snapshot' && message.replayToken !== firstToken);
+    assert.equal(refreshed?.type, 'screen-snapshot');
+
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(refreshed?.replayToken));
+
+    const outputMessages = sent.filter((message) => message.type === 'output');
+    assert.equal(outputMessages.length, 1);
+    assert.equal(outputMessages[0].data, 'repeated-output');
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterDoesNotDuplicateFallbackCoveredOutputOnAck(): void {
+  const snapshotState = {
+    seq: 1,
+    cols: 80,
+    rows: 24,
+    data: 'A',
+    truncated: false,
+    generatedAt: Date.now(),
+    health: 'degraded' as const,
+  };
+  const { router, ws, sent } = createMutableSnapshotWsRouterHarness(snapshotState);
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    const firstToken = String(sent[0].replayToken);
+
+    router.routeSessionOutput('session-1', 'B', 2);
+    snapshotState.seq = 2;
+    snapshotState.data = 'AB';
+    router.refreshReplaySnapshots('session-1');
+
+    const refreshed = sent.find((message) => message.type === 'screen-snapshot' && message.replayToken !== firstToken);
+    assert.equal(refreshed?.type, 'screen-snapshot');
+
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(refreshed?.replayToken));
+
+    const outputMessages = sent.filter((message) => message.type === 'output');
+    assert.equal(outputMessages.length, 0);
+    const covered = router.getObservabilitySnapshot().recentReplayEvents.find((event) => (
+      event.kind === 'output_covered_by_snapshot'
+    ));
+    assert.equal(covered?.details?.coveredQueuedBytes, 1);
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterPreservesFallbackCoveredOutputAcrossRepeatedRefreshAck(): void {
+  const snapshotState = {
+    seq: 1,
+    cols: 80,
+    rows: 24,
+    data: 'A',
+    truncated: false,
+    generatedAt: Date.now(),
+    health: 'degraded' as const,
+  };
+  const { router, ws, sent } = createMutableSnapshotWsRouterHarness(snapshotState);
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    const firstToken = String(sent[0].replayToken);
+
+    router.routeSessionOutput('session-1', 'B', 2);
+    snapshotState.seq = 2;
+    snapshotState.data = 'AB';
+    router.refreshReplaySnapshots('session-1');
+
+    const firstRefresh = sent.find((message) => message.type === 'screen-snapshot' && message.replayToken !== firstToken);
+    assert.equal(firstRefresh?.type, 'screen-snapshot');
+
+    snapshotState.generatedAt = Date.now();
+    router.refreshReplaySnapshots('session-1');
+
+    const snapshots = sent.filter((message) => message.type === 'screen-snapshot');
+    assert.equal(snapshots.length, 3);
+    const latestToken = String(snapshots.at(-1)?.replayToken);
+
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', latestToken);
+
+    const outputMessages = sent.filter((message) => message.type === 'output');
+    assert.equal(outputMessages.length, 0);
+    const coveredEvents = router.getObservabilitySnapshot().recentReplayEvents.filter((event) => (
+      event.kind === 'output_covered_by_snapshot'
+    ));
+    assert.equal(coveredEvents.length, 1);
+    assert.equal(coveredEvents[0].details?.coveredQueuedBytes, 1);
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterFlushesFallbackCoveredOutputOnRefreshTimeout(): void {
+  const snapshotState = {
+    seq: 1,
+    cols: 80,
+    rows: 24,
+    data: 'A',
+    truncated: false,
+    generatedAt: Date.now(),
+    health: 'degraded' as const,
+  };
+  const { router, ws, sent } = createMutableSnapshotWsRouterHarness(snapshotState);
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    const firstToken = String(sent[0].replayToken);
+
+    router.routeSessionOutput('session-1', 'B', 2);
+    snapshotState.seq = 2;
+    snapshotState.data = 'AB';
+    router.refreshReplaySnapshots('session-1');
+
+    const refreshed = sent.find((message) => message.type === 'screen-snapshot' && message.replayToken !== firstToken);
+    assert.equal(refreshed?.type, 'screen-snapshot');
+
+    (router as any).handleReplayAckTimeout(ws, 'session-1', String(refreshed?.replayToken), 2, 'refresh-timeout');
+
+    const outputMessages = sent.filter((message) => message.type === 'output');
+    assert.equal(outputMessages.length, 1);
+    assert.equal(outputMessages[0].data, 'B');
+    assert.equal(sent.at(-2)?.type, 'output');
+    assert.equal(sent.at(-1)?.type, 'session:ready');
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterReplayTimeoutUsesUtf8ByteBoundedTail(): void {
+  const snapshotState = {
+    seq: 1,
+    cols: 80,
+    rows: 24,
+    data: 'A',
+    truncated: false,
+    generatedAt: Date.now(),
+    health: 'degraded' as const,
+  };
+  const { router, ws, sent } = createMutableSnapshotWsRouterHarness(snapshotState, {
+    replayQueueLimit: 16,
+  });
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    const firstToken = String(sent[0].replayToken);
+
+    const coveredChunk = '가'.repeat(8);
+    router.routeSessionOutput('session-1', coveredChunk, 2);
+    const firstQueued = router.getObservabilitySnapshot().recentReplayEvents.find((event) => (
+      event.kind === 'output_queued' && event.details?.outputScreenSeq === 2
+    ));
+    assert.equal(firstQueued?.details?.outputBytes, Buffer.byteLength(coveredChunk, 'utf8'));
+    assert.equal(Number(firstQueued?.details?.queuedBytes) <= 16, true);
+
+    snapshotState.seq = 2;
+    snapshotState.data = `A${coveredChunk}`;
+    snapshotState.generatedAt = Date.now() + 1;
+    router.refreshReplaySnapshots('session-1');
+
+    const refreshed = sent.find((message) => message.type === 'screen-snapshot' && message.replayToken !== firstToken);
+    assert.equal(refreshed?.type, 'screen-snapshot');
+    const secondToken = String(refreshed?.replayToken);
+
+    const queuedChunk = '🙂'.repeat(5);
+    router.routeSessionOutput('session-1', queuedChunk, 3);
+    const secondQueued = router.getObservabilitySnapshot().recentReplayEvents.find((event) => (
+      event.kind === 'output_queued' && event.details?.outputScreenSeq === 3
+    ));
+    assert.equal(secondQueued?.details?.outputBytes, Buffer.byteLength(queuedChunk, 'utf8'));
+    assert.equal(Number(secondQueued?.details?.queuedBytes) <= 16, true);
+
+    (router as any).handleReplayAckTimeout(ws, 'session-1', secondToken, 2, 'refresh-timeout');
+
+    const outputMessages = sent.filter((message) => message.type === 'output');
+    assert.equal(outputMessages.length, 1);
+    const outputData = String(outputMessages[0].data);
+    assert.equal(Buffer.byteLength(outputData, 'utf8') <= 16, true);
+    assert.equal(outputData.includes('\uFFFD'), false);
+    assert.equal(sent.at(-2)?.type, 'output');
+    assert.equal(sent.at(-1)?.type, 'session:ready');
+
+    const flushed = router.getObservabilitySnapshot().recentReplayEvents.find((event) => (
+      event.kind === 'output_flushed' && event.details?.phase === 'refresh-timeout'
+    ));
+    assert.equal(Number(flushed?.details?.coveredQueuedBytes) > 0, true);
+    assert.equal(Number(flushed?.details?.queuedBytes) > 0, true);
+    assert.equal(flushed?.details?.outputBytes, Buffer.byteLength(outputData, 'utf8'));
+    assert.equal(Number(flushed?.details?.outputBytes) <= 16, true);
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterSuppressesUnchangedEmptyFallbackReplayRefresh(): void {
+  const snapshotState = {
+    seq: 1,
+    cols: 80,
+    rows: 24,
+    data: '',
+    truncated: true,
+    generatedAt: Date.now(),
+    health: 'degraded' as const,
+  };
+  const session = {
+    id: 'session-1',
+    name: 'Session 1',
+    status: 'running',
+    createdAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
+    sortOrder: 0,
+  };
+  const sessionManagerStub = {
+    getSession: (id: string) => id === session.id ? session : null,
+    getLastCwd: () => 'C:\\repo',
+    isSessionReady: (id: string) => id === session.id,
+    getScreenSnapshot: () => snapshotState,
+    getReplayQueueLimit: () => 64,
+    writeInput: () => true,
+    resize: () => true,
+  } as unknown as SessionManager;
+  const authServiceStub = {
+    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
+  } as unknown as AuthService;
+  const router = new WsRouter(authServiceStub, sessionManagerStub);
+  const { ws, sent } = createFakeWs();
+
+  try {
+    (router as any).clients.set(ws, {
+      clientId: 'client-1',
+      isAlive: true,
+      subscribedSessions: new Set<string>(),
+      replayPendingSessions: new Map(),
+    });
+
+    (router as any).handleSubscribe(ws, ['session-1']);
+    const pendingBefore = (router as any).clients.get(ws).replayPendingSessions.get('session-1');
+    const firstToken = String(pendingBefore.replayToken);
+
+    router.refreshReplaySnapshots('session-1');
+    router.refreshReplaySnapshots('session-1');
+
+    const pendingAfter = (router as any).clients.get(ws).replayPendingSessions.get('session-1');
+    const snapshotMessages = sent.filter((message) => message.type === 'screen-snapshot');
+    assert.equal(snapshotMessages.length, 1);
+    assert.equal(String(pendingAfter.replayToken), firstToken);
+    assert.equal(router.getObservabilitySnapshot().replayRefreshCount, 0);
+
+    const skippedEvents = router.getObservabilitySnapshot().recentReplayEvents.filter((event) => (
+      event.kind === 'snapshot_refresh_skipped'
+      && event.details?.reason === 'unchanged-empty-fallback'
+    ));
+    assert.equal(skippedEvents.length, 2);
+  } finally {
+    router.destroy();
+  }
+}
+
 function safeSendRouterOptions(
   mode: 'direct' | 'safe-send-observe' | 'safe-send-enforce' = 'safe-send-enforce',
 ): ConstructorParameters<typeof WsRouter>[2] {
@@ -7866,6 +8419,42 @@ function testWsRouterSafeSendPreservesReplayFlushOrdering(): void {
   }
 }
 
+function testWsRouterSafeSendPreservesFallbackReplayFlushOrdering(): void {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    snapshotMode: 'fallback',
+    snapshotData: '',
+    routerOptions: safeSendRouterOptions(),
+    fakeWsOptions: { bufferedAmount: 1500 },
+  });
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    assert.equal(sent.length, 0);
+
+    fake.setBufferedAmount(0);
+    (router as any).flushTransportQueue(ws);
+    const snapshot = sent.find((message) => message.type === 'screen-snapshot');
+    assert.equal(snapshot?.type, 'screen-snapshot');
+    assert.equal(snapshot?.mode, 'fallback');
+    const replayToken = String(snapshot?.replayToken);
+    const baselineCount = sent.length;
+
+    fake.setBufferedAmount(1500);
+    router.routeSessionOutput('session-1', 'fallback-safe-send-output', 2);
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', replayToken);
+    assert.equal(sent.length, baselineCount);
+
+    fake.setBufferedAmount(0);
+    (router as any).flushTransportQueue(ws);
+    (router as any).flushTransportQueue(ws);
+    assert.equal(sent[baselineCount].type, 'output');
+    assert.equal(sent[baselineCount].data, 'fallback-safe-send-output');
+    assert.equal(sent[baselineCount + 1].type, 'session:ready');
+  } finally {
+    router.destroy();
+  }
+}
+
 async function testWsRouterSafeSendPreservesScreenRepairFlushOrdering(): Promise<void> {
   const { router, ws, sent, fake } = createWsRouterHarness({
     routerOptions: safeSendRouterOptions(),
@@ -7934,6 +8523,46 @@ async function testWsRouterSendsScreenRepairAndQueuesOutputUntilAck(): Promise<v
     const outputs = sent.filter((message) => message.type === 'output');
     assert.equal(outputs.length, 1);
     assert.equal(outputs[0].data, 'repair-pending-output');
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterScreenRepairSentTelemetryByteLengthUsesUtf8Bytes(): Promise<void> {
+  const ansiPatch = '\x1b[1;1H가🙂';
+  const { router, ws, sent } = createWsRouterHarness({
+    getScreenRepair: async () => ({
+      ok: true as const,
+      payload: {
+        seq: 2,
+        cols: 80,
+        rows: 24,
+        bufferType: 'normal' as const,
+        cursor: { x: 0, y: 0 },
+        viewportRows: [{ y: 0, ansi: '가🙂', text: '가🙂', wrapped: false }],
+        ansiPatch,
+      },
+    }),
+  });
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    const replayToken = String(sent.find((message) => message.type === 'screen-snapshot')?.replayToken);
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', replayToken);
+
+    await (router as any).handleScreenRepairRequest(ws, {
+      type: 'screen-repair',
+      sessionId: 'session-1',
+      cols: 80,
+      rows: 24,
+      reason: 'manual',
+      clientAtBottom: true,
+      clientBufferType: 'normal',
+    });
+
+    const event = router.getObservabilitySnapshot().recentReplayEvents.find((item) => item.kind === 'screen_repair_sent');
+    assert.equal(event?.details?.byteLength, Buffer.byteLength(ansiPatch, 'utf8'));
+    assert.equal(Number(event?.details?.byteLength) > ansiPatch.length, true);
   } finally {
     router.destroy();
   }
@@ -8473,7 +9102,7 @@ async function testWsRouterNoDuplicateDeferredFallbackPayload(): Promise<void> {
     const snapshot = sent[0];
     assert.equal(snapshot.type, 'screen-snapshot');
     assert.equal(snapshot.mode, 'fallback');
-    assert.equal(snapshot.data, '');
+    assert.match(String(snapshot.data), /PAYLOAD_B/);
     assert.match(harness.sessionData.degradedReplayBuffer, /PAYLOAD_B/);
 
     while (pendingCallbacks.length > 0) {

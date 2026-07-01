@@ -169,6 +169,11 @@ export interface WindowsPtyInfo {
   buildNumber?: number;
 }
 
+export type FallbackDataState =
+  | 'recoverable-buffer'
+  | 'empty-no-recoverable-data'
+  | 'withheld';
+
 export interface ScreenSnapshotMessage {
   type: 'screen-snapshot';
   sessionId: string;
@@ -180,6 +185,8 @@ export interface ScreenSnapshotMessage {
   data: string;
   truncated: boolean;
   source: ScreenSnapshotSource;
+  fallbackDataState?: FallbackDataState;
+  fallbackDataBytes?: number;
   windowsPty?: WindowsPtyInfo;
 }
 
@@ -295,11 +302,20 @@ export interface WsClientMeta {
 
 export interface ReplayPendingState {
   queuedOutput: string;
+  coveredQueuedOutput: string;
+  queuedOutputTruncated: boolean;
+  queuedOutputMaxScreenSeq: number | null;
+  coveredQueuedOutputMaxScreenSeq: number | null;
   queuedInputs: QueuedReplayInput[];
   queuedInputBytes: number;
   timer: NodeJS.Timeout;
   replayToken: string;
   snapshotSeq: number;
+  snapshotMode: 'authoritative' | 'fallback';
+  snapshotDataLength: number;
+  snapshotTruncated: boolean;
+  snapshotCols: number;
+  snapshotRows: number;
 }
 
 export interface QueuedReplayInput {
@@ -333,6 +349,7 @@ export type ReplayEventKind =
   | 'resize_skipped'
   | 'snapshot_sent'
   | 'snapshot_refreshed'
+  | 'snapshot_refresh_skipped'
   | 'ack_ok'
   | 'ack_stale'
   | 'input_blocked'
@@ -344,6 +361,7 @@ export type ReplayEventKind =
   | 'input_flushed'
   | 'input_flushed_timeout'
   | 'output_queued'
+  | 'output_covered_by_snapshot'
   | 'output_flushed'
   | 'ready_sent'
   | 'screen_repair_requested'
