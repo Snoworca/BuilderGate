@@ -277,6 +277,11 @@ async function main(): Promise<void> {
     { name: 'WsRouter safe-send retry timer drains queued output', run: testWsRouterSafeSendRetryTimerDrainsQueuedOutput },
     { name: 'WsRouter safe-send enforce closes hard-limit slow clients', run: testWsRouterSafeSendClosesHardLimitSlowClient },
     { name: 'WsRouter safe-send closes on send callback errors', run: testWsRouterSafeSendClosesOnSendCallbackErrors },
+    { name: 'WsRouter safe-send prioritizes independent control over output backlog', run: testWsRouterSafeSendPrioritizesIndependentControlOverOutputBacklog },
+    { name: 'WsRouter safe-send queues output on projected high-water pressure', run: testWsRouterSafeSendQueuesProjectedHighWaterOutput },
+    { name: 'WsRouter safe-send closes clients on projected hard-limit pressure', run: testWsRouterSafeSendClosesProjectedHardLimitClient },
+    { name: 'WsRouter safe-send preserves output queued during in-flight send', run: testWsRouterSafeSendPreservesOutputQueuedDuringInflightSend },
+    { name: 'WsRouter safe-send preserves same-session lifecycle ordering', run: testWsRouterSafeSendPreservesSameSessionLifecycleOrdering },
     { name: 'WsRouter direct send callback errors do not enforce close', run: testWsRouterDirectSendCallbackErrorDoesNotClose },
     { name: 'WsRouter observe send callback errors do not enforce close', run: testWsRouterObserveSendCallbackErrorDoesNotClose },
     { name: 'WsRouter safe-send rollback flushes queued output without enforce close', run: testWsRouterSafeSendRollbackFlushesQueuedOutputWithoutClose },
@@ -6752,9 +6757,10 @@ function testSessionManagerTerminalTitleRawOsc133Mode(): void {
   }
 }
 
-function createFakeWs(options: { bufferedAmount?: number; nextSendError?: Error } = {}) {
+function createFakeWs(options: { bufferedAmount?: number; nextSendError?: Error; deferSendCallbacks?: boolean } = {}) {
   const sent: Array<Record<string, unknown>> = [];
   const listeners = new Map<string, Array<(...args: any[]) => void>>();
+  const pendingSendCallbacks: Array<() => void> = [];
   let bufferedAmount = options.bufferedAmount ?? 0;
   let nextSendError = options.nextSendError;
   let closeCode: number | undefined;
@@ -6773,6 +6779,10 @@ function createFakeWs(options: { bufferedAmount?: number; nextSendError?: Error 
       sent.push(JSON.parse(payload) as Record<string, unknown>);
       const error = nextSendError;
       nextSendError = undefined;
+      if (options.deferSendCallbacks && callback) {
+        pendingSendCallbacks.push(() => callback(error));
+        return;
+      }
       callback?.(error);
     },
     ping() {},
@@ -6811,6 +6821,9 @@ function createFakeWs(options: { bufferedAmount?: number; nextSendError?: Error 
     getCloseCode: () => closeCode,
     getCloseReason: () => closeReason,
     getTerminateCount: () => terminateCount,
+    flushNextSendCallback: () => {
+      pendingSendCallbacks.shift()?.();
+    },
   };
 }
 
@@ -8205,6 +8218,122 @@ function testWsRouterSafeSendClosesOnSendCallbackErrors(): void {
   }
 }
 
+function testWsRouterSafeSendPrioritizesIndependentControlOverOutputBacklog(): void {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions(),
+    fakeWsOptions: { bufferedAmount: 1500 },
+  });
+
+  try {
+    (router as any).sessionSubscribers.set('session-1', new Set([ws]));
+    router.routeSessionOutput('session-1', 'queued-output');
+    router.sendTo(ws, { type: 'pong' });
+    assert.equal(sent.length, 0);
+
+    fake.setBufferedAmount(0);
+    (router as any).flushTransportQueue(ws);
+
+    assert.equal(sent[0].type, 'pong');
+    assert.equal(sent[1].type, 'output');
+    assert.equal(sent[1].data, 'queued-output');
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterSafeSendQueuesProjectedHighWaterOutput(): void {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions(),
+    fakeWsOptions: { bufferedAmount: 900 },
+  });
+
+  try {
+    (router as any).sessionSubscribers.set('session-1', new Set([ws]));
+    router.routeSessionOutput('session-1', 'x'.repeat(400));
+    assert.equal(sent.length, 0);
+    assert.equal((router.getObservabilitySnapshot() as any).transportQueuedClientCount, 1);
+
+    fake.setBufferedAmount(0);
+    (router as any).flushTransportQueue(ws);
+    assert.equal(sent[0].type, 'output');
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterSafeSendClosesProjectedHardLimitClient(): void {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions(),
+    fakeWsOptions: { bufferedAmount: 1900 },
+  });
+
+  try {
+    (router as any).sessionSubscribers.set('session-1', new Set([ws]));
+    router.routeSessionOutput('session-1', 'x'.repeat(400));
+    assert.equal(sent.length, 0);
+    assert.equal(fake.getCloseCode(), 1013);
+    assert.match(fake.getCloseReason() ?? '', /hard-limit/i);
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterSafeSendPreservesOutputQueuedDuringInflightSend(): void {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions(),
+    fakeWsOptions: {
+      bufferedAmount: 1500,
+      deferSendCallbacks: true,
+    },
+  });
+
+  try {
+    (router as any).sessionSubscribers.set('session-1', new Set([ws]));
+    router.routeSessionOutput('session-1', 'first-output');
+    assert.equal(sent.length, 0);
+
+    fake.setBufferedAmount(0);
+    (router as any).flushTransportQueue(ws);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].type, 'output');
+    assert.equal(sent[0].data, 'first-output');
+
+    router.routeSessionOutput('session-1', 'second-output');
+    assert.equal(sent.length, 1);
+
+    fake.flushNextSendCallback();
+    assert.equal(sent.length, 2);
+    assert.equal(sent[1].type, 'output');
+    assert.equal(sent[1].data, 'second-output');
+    assert.equal((router.getObservabilitySnapshot() as any).transportOutputQueuedBytes, 0);
+  } finally {
+    router.destroy();
+  }
+}
+
+function testWsRouterSafeSendPreservesSameSessionLifecycleOrdering(): void {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions(),
+    fakeWsOptions: { bufferedAmount: 1500 },
+  });
+
+  try {
+    (router as any).sessionSubscribers.set('session-1', new Set([ws]));
+    router.routeSessionOutput('session-1', 'queued-output');
+    router.sendSessionEvent('session-1', 'session:exited', { exitCode: 0 });
+    assert.equal(sent.length, 0);
+
+    fake.setBufferedAmount(0);
+    (router as any).flushTransportQueue(ws);
+    (router as any).flushTransportQueue(ws);
+    assert.equal(sent[0].type, 'output');
+    assert.equal(sent[0].data, 'queued-output');
+    assert.equal(sent[1].type, 'session:exited');
+  } finally {
+    router.destroy();
+  }
+}
+
 function testWsRouterDirectSendCallbackErrorDoesNotClose(): void {
   const { router, ws, sent, fake } = createWsRouterHarness({
     routerOptions: safeSendRouterOptions('direct'),
@@ -8330,7 +8459,10 @@ function testWsRouterSafeSendClosesOnControlQueueOverflow(): void {
   });
 
   try {
-    router.sendTo(ws, { type: 'session:ready', sessionId: 'session-1', data: 'x'.repeat(1500) });
+    (router as any).sessionSubscribers.set('session-1', new Set([ws]));
+    router.routeSessionOutput('session-1', 'queued-output');
+    fake.setBufferedAmount(0);
+    router.sendTo(ws, { type: 'pong', data: 'x'.repeat(1500) });
     assert.equal(sent.length, 0);
     assert.equal(fake.getCloseCode(), 1013);
     const stats = router.getObservabilitySnapshot();

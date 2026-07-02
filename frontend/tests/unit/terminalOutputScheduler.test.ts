@@ -132,3 +132,66 @@ test('terminal output scheduler can update queue limits without recreating the i
   assert.equal(decision.reason, 'visible-output-overflow');
   assert.equal(decision.droppedBytes, 6);
 });
+
+test('terminal output scheduler yields a flush turn while browser input is pending', async () => {
+  const writes: string[] = [];
+  const scheduled: Array<() => void> = [];
+  let inputPending = true;
+  const scheduler = createTerminalOutputScheduler({
+    visibleOutputQueueMaxBytes: 1024,
+    visibleOutputMaxChunks: 16,
+    visibleFlushBudgetBytes: 4,
+    write: (data, onWritten) => {
+      writes.push(data);
+      onWritten();
+    },
+    schedule: (drain) => {
+      scheduled.push(drain);
+    },
+    shouldYield: () => inputPending,
+  });
+
+  scheduler.enqueue('abcd');
+  scheduled.shift()?.();
+
+  assert.deepEqual(writes, []);
+  assert.equal(scheduler.isIdle(), false);
+
+  inputPending = false;
+  scheduled.shift()?.();
+
+  assert.deepEqual(writes, ['abcd']);
+  assert.equal(scheduler.isIdle(), true);
+});
+
+test('terminal output scheduler still makes progress when browser input stays pending', async () => {
+  const writes: string[] = [];
+  const scheduled: Array<() => void> = [];
+  const scheduler = createTerminalOutputScheduler({
+    visibleOutputQueueMaxBytes: 1024,
+    visibleOutputMaxChunks: 16,
+    visibleFlushBudgetBytes: 4,
+    write: (data, onWritten) => {
+      writes.push(data);
+      onWritten();
+    },
+    schedule: (drain) => {
+      scheduled.push(drain);
+    },
+    shouldYield: () => true,
+  });
+
+  scheduler.enqueue('abcdefgh');
+  scheduled.shift()?.();
+  assert.deepEqual(writes, []);
+
+  scheduled.shift()?.();
+  assert.deepEqual(writes, ['abcd']);
+
+  scheduled.shift()?.();
+  assert.deepEqual(writes, ['abcd']);
+
+  scheduled.shift()?.();
+  assert.deepEqual(writes, ['abcd', 'efgh']);
+  assert.equal(scheduler.isIdle(), true);
+});

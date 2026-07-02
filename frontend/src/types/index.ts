@@ -168,3 +168,11 @@ export type {
   SetTerminalShortcutProfileRequest,
   UpdateTerminalShortcutBindingRequest
 } from './terminalShortcut';
+
+export type {
+  CreateRecoveryOptionRequest,
+  RecoveryOption,
+  RecoveryOptionIcon,
+  RecoveryOptionListResponse,
+  UpdateRecoveryOptionRequest
+} from './recoveryOption';

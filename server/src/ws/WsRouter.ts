@@ -43,8 +43,16 @@ import type {
 import { buildInputDebugDetails, sanitizeClientInputDebugMetadata } from '../utils/inputDebugMetadata.js';
 import { inputReliabilityMode as configuredInputReliabilityMode } from '../utils/inputReliabilityMode.js';
 import {
+  clearTransportMessages,
   createWsTransportMessage,
   createWsTransportQueueState,
+  dequeueNextTransportMessage,
+  getLastTerminalTransportMessage,
+  getTransportMessagesInPriorityOrder,
+  hasTransportQueuedMessages,
+  peekNextTransportMessage,
+  pushTransportMessage,
+  replaceLastTerminalTransportMessage,
   tryCoalesceOutputMessage,
   type WsTransportMessage,
   type WsTransportQueueState,
@@ -2028,7 +2036,7 @@ export class WsRouter {
       if (!transport) {
         continue;
       }
-      if (transport.items.length > 0) {
+      if (hasTransportQueuedMessages(transport)) {
         transportQueuedClientCount += 1;
       }
       transportOutputQueuedBytes += transport.outputBytes;
@@ -2107,7 +2115,8 @@ export class WsRouter {
     }
 
     const limits = this.runtimeSendPolicyConfig.limits;
-    if (bufferedAmount >= limits.serverBufferedHardLimitBytes) {
+    const projectedBufferedAmount = bufferedAmount + message.byteLength;
+    if (projectedBufferedAmount >= limits.serverBufferedHardLimitBytes) {
       if (mode === 'safe-send-observe') {
         this.transportBackpressureObserveCount += 1;
         this.sendRawTransportMessage(ws, message);
@@ -2119,14 +2128,18 @@ export class WsRouter {
 
     const state = this.getTransportQueueState(ws);
     if (mode === 'safe-send-observe') {
-      if (bufferedAmount >= limits.serverBufferedHighWaterBytes || state.items.length > 0) {
+      if (projectedBufferedAmount >= limits.serverBufferedHighWaterBytes || hasTransportQueuedMessages(state)) {
         this.transportBackpressureObserveCount += 1;
       }
       this.sendRawTransportMessage(ws, message);
       return;
     }
 
-    if (bufferedAmount >= limits.serverBufferedHighWaterBytes || state.sending || state.items.length > 0) {
+    if (
+      projectedBufferedAmount >= limits.serverBufferedHighWaterBytes
+      || state.sending
+      || hasTransportQueuedMessages(state)
+    ) {
       this.enqueueTransportMessage(ws, state, message);
       return;
     }
@@ -2141,18 +2154,18 @@ export class WsRouter {
   ): void {
     const limits = this.runtimeSendPolicyConfig.limits;
     if (message.kind === 'output') {
-      const last = state.items[state.items.length - 1];
+      const last = getLastTerminalTransportMessage(state);
       const coalesced = last
         ? tryCoalesceOutputMessage(last, message, limits.outputCoalesceWindowMs)
         : null;
-      if (coalesced) {
+      if (last && coalesced) {
         const nextOutputBytes = state.outputBytes - last.byteLength + coalesced.byteLength;
         if (nextOutputBytes > limits.perClientOutputQueueMaxBytes) {
           this.transportQueueOverflowCount += 1;
           this.closeBackpressuredClient(ws, 'output-queue-overflow');
           return;
         }
-        state.items[state.items.length - 1] = coalesced;
+        replaceLastTerminalTransportMessage(state, coalesced);
         state.outputBytes = nextOutputBytes;
         this.transportOutputCoalesceCount += 1;
         this.updateTransportQueueHighWater(state);
@@ -2166,7 +2179,7 @@ export class WsRouter {
         return;
       }
       state.outputBytes += message.byteLength;
-      state.items.push(message);
+      pushTransportMessage(state, message);
       this.updateTransportQueueHighWater(state);
       this.scheduleTransportFlush(ws, state);
       return;
@@ -2178,21 +2191,25 @@ export class WsRouter {
       return;
     }
     state.controlBytes += message.byteLength;
-    state.items.push(message);
+    pushTransportMessage(state, message);
     this.updateTransportQueueHighWater(state);
     this.scheduleTransportFlush(ws, state);
   }
 
   private flushTransportQueue(ws: WebSocket): void {
     const state = this.transportQueues.get(ws);
-    if (!state || state.sending || state.items.length === 0 || ws.readyState !== WebSocket.OPEN) {
+    if (!state || state.sending || !hasTransportQueuedMessages(state) || ws.readyState !== WebSocket.OPEN) {
       return;
     }
 
     const limits = this.runtimeSendPolicyConfig.limits;
     const bufferedAmount = this.getServerBufferedAmount(ws);
     this.maxServerBufferedAmountObserved = Math.max(this.maxServerBufferedAmountObserved, bufferedAmount);
-    if (bufferedAmount >= limits.serverBufferedHardLimitBytes) {
+    const peeked = peekNextTransportMessage(state);
+    if (!peeked) {
+      return;
+    }
+    if (bufferedAmount + peeked.byteLength >= limits.serverBufferedHardLimitBytes) {
       this.closeBackpressuredClient(ws, 'server-buffered-hard-limit');
       return;
     }
@@ -2201,7 +2218,7 @@ export class WsRouter {
       return;
     }
 
-    const next = state.items.shift();
+    const next = dequeueNextTransportMessage(state);
     if (!next) {
       return;
     }
@@ -2275,7 +2292,7 @@ export class WsRouter {
     if (state.flushTimer) {
       clearTimeout(state.flushTimer);
     }
-    state.items = [];
+    clearTransportMessages(state);
     state.outputBytes = 0;
     state.controlBytes = 0;
     state.sending = false;
@@ -2285,7 +2302,7 @@ export class WsRouter {
 
   private flushAndClearTransportQueuesForPolicyRollback(): void {
     for (const [ws, state] of this.transportQueues) {
-      const queued = [...state.items];
+      const queued = getTransportMessagesInPriorityOrder(state);
       this.clearTransportQueueState(ws);
       for (const message of queued) {
         this.sendRawTransportMessage(ws, message, undefined);
@@ -2307,7 +2324,12 @@ export class WsRouter {
   }
 
   private scheduleTransportFlush(ws: WebSocket, state = this.transportQueues.get(ws)): void {
-    if (!state || state.flushTimer || state.items.length === 0 || this.runtimeSendPolicyConfig.mode !== 'safe-send-enforce') {
+    if (
+      !state
+      || state.flushTimer
+      || !hasTransportQueuedMessages(state)
+      || this.runtimeSendPolicyConfig.mode !== 'safe-send-enforce'
+    ) {
       return;
     }
 
@@ -2315,7 +2337,7 @@ export class WsRouter {
       state.flushTimer = null;
       this.flushTransportQueue(ws);
       const next = this.transportQueues.get(ws);
-      if (next && next.items.length > 0 && !next.sending) {
+      if (next && hasTransportQueuedMessages(next) && !next.sending) {
         this.scheduleTransportFlush(ws, next);
       }
     }, TRANSPORT_FLUSH_RETRY_MS);

@@ -8,6 +8,7 @@ export interface TerminalOutputSchedulerOptions {
   visibleFlushBudgetBytes: number;
   write: (data: string, onWritten: () => void) => void;
   schedule?: (drain: () => void) => void;
+  shouldYield?: () => boolean;
 }
 
 export type TerminalOutputSchedulerConfig = Pick<
@@ -44,6 +45,7 @@ export function createTerminalOutputScheduler(options: TerminalOutputSchedulerOp
   let scheduled = false;
   let stale = false;
   let generation = 0;
+  let consecutiveInputYields = 0;
 
   const schedule = options.schedule ?? defaultSchedule;
 
@@ -62,6 +64,13 @@ export function createTerminalOutputScheduler(options: TerminalOutputSchedulerOp
     if (stale || inFlight || queue.length === 0) {
       return;
     }
+
+    if (consecutiveInputYields === 0 && options.shouldYield?.()) {
+      consecutiveInputYields += 1;
+      requestFlush();
+      return;
+    }
+    consecutiveInputYields = 0;
 
     const currentGeneration = generation;
     const entry = queue[0];
@@ -146,6 +155,7 @@ export function createTerminalOutputScheduler(options: TerminalOutputSchedulerOp
       inFlight = false;
       scheduled = false;
       stale = false;
+      consecutiveInputYields = 0;
     },
     isIdle() {
       return !stale && !inFlight && !scheduled && queue.length === 0;

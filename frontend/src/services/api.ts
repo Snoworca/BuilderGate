@@ -32,7 +32,11 @@ import type {
   SetTerminalShortcutProfileRequest,
   TerminalShortcutBinding,
   TerminalShortcutState,
-  UpdateTerminalShortcutBindingRequest
+  UpdateTerminalShortcutBindingRequest,
+  CreateRecoveryOptionRequest,
+  RecoveryOption,
+  RecoveryOptionListResponse,
+  UpdateRecoveryOptionRequest
 } from '../types';
 import type {
   GridLayout,
@@ -582,5 +586,62 @@ export const terminalShortcutApi = {
     });
     if (!res.ok) throw await parseError(res);
     return res.json();
+  },
+};
+
+export const recoveryOptionApi = {
+  getAll: async (): Promise<RecoveryOption[]> => {
+    const res = await authFetch(`${API_BASE}/recovery-options`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+    const data = await res.json() as RecoveryOptionListResponse;
+    return data.options;
+  },
+
+  create: async (input: CreateRecoveryOptionRequest): Promise<RecoveryOption> => {
+    const res = await authFetch(`${API_BASE}/recovery-options`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  update: async (id: string, input: UpdateRecoveryOptionRequest): Promise<RecoveryOption> => {
+    const res = await authFetch(`${API_BASE}/recovery-options/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  delete: async (id: string): Promise<void> => {
+    const res = await authFetch(`${API_BASE}/recovery-options/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+  },
+
+  reorder: async (optionIds: string[]): Promise<void> => {
+    const res = await authFetch(`${API_BASE}/recovery-options/order`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({ optionIds }),
+    });
+    if (!res.ok) throw await parseError(res);
   },
 };

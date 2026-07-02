@@ -35,6 +35,9 @@ import {
   type TerminalOutputScheduler,
 } from '../../utils/terminalOutputScheduler';
 import {
+  shouldDropStaleRepeatedTerminalKey,
+} from '../../utils/terminalStaleKeyRepeat';
+import {
   ImeTransaction,
   type ImeDeferredKind,
 } from '../../utils/imeTransaction';
@@ -133,6 +136,15 @@ function getInputQueueLimits(): { inputQueueMaxBytes: number; inputQueueTtlMs: n
     inputQueueMaxBytes: limits.inputQueueMaxBytes,
     inputQueueTtlMs: limits.inputQueueTtlMs,
   };
+}
+
+function hasPendingBrowserInput(): boolean {
+  const scheduling = (navigator as unknown as {
+    scheduling?: {
+      isInputPending?: (options?: { includeContinuous?: boolean }) => boolean;
+    };
+  }).scheduling;
+  return scheduling?.isInputPending?.({ includeContinuous: true }) === true;
 }
 
 // xterm.js v5는 방향키, Backspace 등 모든 제어 키를 네이티브로 처리.
@@ -1181,6 +1193,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           visibleOutputMaxChunks: limits.visibleOutputMaxChunks,
           visibleFlushBudgetBytes: limits.visibleFlushBudgetBytes,
           write: (chunk, onWritten) => writeOutputDirect(term, chunk, onWritten),
+          shouldYield: hasPendingBrowserInput,
         });
         return outputSchedulerRef.current;
       }
@@ -1692,6 +1705,16 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       term.attachCustomKeyEventHandler((ev: KeyboardEvent) => {
         if (ev.type !== 'keydown') return true;
+
+        if (shouldDropStaleRepeatedTerminalKey({ event: ev })) {
+          recordTerminalDebugEvent(sessionId, 'stale_key_repeat_dropped', {
+            safeKeyName: ev.key,
+            repeat: ev.repeat,
+            eventAgeMs: Math.max(0, Math.round(performance.now() - ev.timeStamp)),
+          });
+          ev.preventDefault();
+          return false;
+        }
 
         // Mark user as actively typing — suppresses breathing animation for 3s
         const el = containerRef.current;
