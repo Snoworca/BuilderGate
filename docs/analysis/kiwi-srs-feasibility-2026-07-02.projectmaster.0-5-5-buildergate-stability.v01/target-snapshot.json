@@ -1,0 +1,630 @@
+{
+ "run_id": "2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+ "target": "0.5.5-buildergate-stability",
+ "target_total": 30,
+ "filtered_count": 29,
+ "excluded": [
+  {
+   "id": "REL-BGSTAB-002",
+   "status": "discarded",
+   "stability": "evolving",
+   "title": "Wave 5 shutdown cleanup evidence and daemon stop validation",
+   "priority": "high",
+   "type": "reliability",
+   "scope": "BGSTAB",
+   "ac_count": 7,
+   "trace_count": 0,
+   "evidence_count": 8,
+   "tags": [
+    "buildergate",
+    "stability",
+    "wave5",
+    "shutdown",
+    "daemon-stop",
+    "session-cleanup",
+    "soak",
+    "feasibility:high"
+   ],
+   "excl_reason": "status=discarded"
+  }
+ ],
+ "status_dist": {
+  "implemented": 16,
+  "planned": 13
+ },
+ "stability_dist": {
+  "evolving": 23,
+  "draft": 6
+ },
+ "requirements": [
+  {
+   "id": "FR-BGSTAB-001",
+   "status": "implemented",
+   "stability": "evolving",
+   "title": "Runtime resource limits for terminal stability",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 3,
+   "trace_count": 0,
+   "evidence_count": 2,
+   "tags": [
+    "buildergate",
+    "stability",
+    "runtime-config",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-002",
+   "status": "implemented",
+   "stability": "evolving",
+   "title": "Browser WebSocket input backpressure",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 6,
+   "trace_count": 0,
+   "evidence_count": 2,
+   "tags": [
+    "buildergate",
+    "stability",
+    "websocket",
+    "input",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-003",
+   "status": "implemented",
+   "stability": "evolving",
+   "title": "Visible terminal output scheduling and recovery",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 5,
+   "trace_count": 0,
+   "evidence_count": 2,
+   "tags": [
+    "buildergate",
+    "stability",
+    "xterm",
+    "output",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-004",
+   "status": "implemented",
+   "stability": "evolving",
+   "title": "Terminal snapshot storage budgets and tombstone expiry",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 5,
+   "trace_count": 0,
+   "evidence_count": 1,
+   "tags": [
+    "buildergate",
+    "stability",
+    "snapshots",
+    "localstorage",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-005",
+   "status": "implemented",
+   "stability": "evolving",
+   "title": "Terminal runtime residency limits",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 5,
+   "trace_count": 0,
+   "evidence_count": 1,
+   "tags": [
+    "buildergate",
+    "stability",
+    "runtime-residency",
+    "lru",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-006",
+   "status": "implemented",
+   "stability": "evolving",
+   "title": "Split WebSocket handshake and channel isolation",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 5,
+   "trace_count": 0,
+   "evidence_count": 4,
+   "tags": [
+    "buildergate",
+    "stability",
+    "websocket",
+    "split-shadow",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-007",
+   "status": "implemented",
+   "stability": "evolving",
+   "title": "Split WebSocket terminal payload routing and failure recovery",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 7,
+   "trace_count": 0,
+   "evidence_count": 2,
+   "tags": [
+    "buildergate",
+    "stability",
+    "websocket",
+    "output-recovery",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-008",
+   "status": "implemented",
+   "stability": "evolving",
+   "title": "Wave 0 baseline config contract recovery",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 6,
+   "trace_count": 0,
+   "evidence_count": 11,
+   "tags": [
+    "buildergate",
+    "stability",
+    "wave0",
+    "resourceLimits",
+    "settings",
+    "runtime-config",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-009",
+   "status": "implemented",
+   "stability": "evolving",
+   "title": "Wave 1 server session process observation",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 6,
+   "trace_count": 0,
+   "evidence_count": 5,
+   "tags": [
+    "buildergate",
+    "stability",
+    "wave1",
+    "session-cleanup",
+    "process-observation",
+    "telemetry",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-010",
+   "status": "implemented",
+   "stability": "evolving",
+   "title": "Wave 3 session lifecycle semantics and orphan recovery",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 7,
+   "trace_count": 0,
+   "evidence_count": 5,
+   "tags": [
+    "buildergate",
+    "stability",
+    "wave3",
+    "session-lifecycle",
+    "orphan-recovery",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-011",
+   "status": "implemented",
+   "stability": "evolving",
+   "title": "Wave 2 verified process-tree termination",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 7,
+   "trace_count": 0,
+   "evidence_count": 5,
+   "tags": [
+    "buildergate",
+    "stability",
+    "wave2",
+    "session-cleanup",
+    "process-tree",
+    "termination",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-012",
+   "status": "implemented",
+   "stability": "evolving",
+   "title": "Wave 4 bounded output queues and WebSocket backpressure",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 8,
+   "trace_count": 0,
+   "evidence_count": 6,
+   "tags": [
+    "buildergate",
+    "stability",
+    "wave4",
+    "headless-output",
+    "websocket",
+    "backpressure",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-013",
+   "status": "implemented",
+   "stability": "evolving",
+   "title": "Wave 6 browser Settings for resource limits",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 6,
+   "trace_count": 0,
+   "evidence_count": 10,
+   "tags": [
+    "buildergate",
+    "stability",
+    "wave6",
+    "settings",
+    "resource-limits",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-014",
+   "status": "implemented",
+   "stability": "evolving",
+   "title": "Wave 7 frontend runtime resource consumers",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 8,
+   "trace_count": 0,
+   "evidence_count": 8,
+   "tags": [
+    "buildergate",
+    "stability",
+    "wave7",
+    "frontend-runtime",
+    "resource-limits",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-015",
+   "status": "planned",
+   "stability": "evolving",
+   "title": "ConPTY transport and recovery Settings contract",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 6,
+   "trace_count": 0,
+   "evidence_count": 0,
+   "tags": [
+    "buildergate",
+    "stability",
+    "conpty",
+    "settings",
+    "resource-limits",
+    "runtime-config",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-016",
+   "status": "planned",
+   "stability": "evolving",
+   "title": "Priority-aware WebSocket safe-send under output flood",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 5,
+   "trace_count": 0,
+   "evidence_count": 0,
+   "tags": [
+    "buildergate",
+    "stability",
+    "conpty",
+    "websocket",
+    "safe-send",
+    "backpressure",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-017",
+   "status": "planned",
+   "stability": "evolving",
+   "title": "Frontend recovery write gate and queued input release barrier",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 6,
+   "trace_count": 0,
+   "evidence_count": 0,
+   "tags": [
+    "buildergate",
+    "stability",
+    "conpty",
+    "frontend-runtime",
+    "xterm",
+    "recovery",
+    "input",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-018",
+   "status": "planned",
+   "stability": "evolving",
+   "title": "Empty fallback snapshot convergence and placeholder suppression",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 6,
+   "trace_count": 0,
+   "evidence_count": 0,
+   "tags": [
+    "buildergate",
+    "stability",
+    "frontend-runtime",
+    "terminal",
+    "fallback-snapshot",
+    "recovery",
+    "xterm",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "FR-BGSTAB-019",
+   "status": "planned",
+   "stability": "draft",
+   "title": "Process-tree termination enforce-mode operational activation with soak-gated rollback",
+   "priority": "high",
+   "type": "functional",
+   "scope": "BGSTAB",
+   "ac_count": 5,
+   "trace_count": 0,
+   "evidence_count": 0,
+   "tags": [
+    "buildergate",
+    "stability",
+    "session-cleanup",
+    "process-tree",
+    "enforce",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "OBS-BGSTAB-001",
+   "status": "planned",
+   "stability": "evolving",
+   "title": "ConPTY input-lag recovery telemetry and soak evidence",
+   "priority": "high",
+   "type": "observability",
+   "scope": "BGSTAB",
+   "ac_count": 5,
+   "trace_count": 0,
+   "evidence_count": 0,
+   "tags": [
+    "buildergate",
+    "stability",
+    "conpty",
+    "telemetry",
+    "soak",
+    "redraw-flood",
+    "observability",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "OBS-BGSTAB-002",
+   "status": "planned",
+   "stability": "evolving",
+   "title": "Empty fallback snapshot diagnostics and regression evidence",
+   "priority": "high",
+   "type": "observability",
+   "scope": "BGSTAB",
+   "ac_count": 6,
+   "trace_count": 0,
+   "evidence_count": 0,
+   "tags": [
+    "buildergate",
+    "stability",
+    "observability",
+    "fallback-snapshot",
+    "diagnostics",
+    "telemetry",
+    "regression",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "PERF-BGSTAB-001",
+   "status": "planned",
+   "stability": "draft",
+   "title": "Frame time-budgeted visible output flush with input yield",
+   "priority": "high",
+   "type": "performance",
+   "scope": "BGSTAB",
+   "ac_count": 5,
+   "trace_count": 0,
+   "evidence_count": 0,
+   "tags": [
+    "buildergate",
+    "stability",
+    "xterm",
+    "output",
+    "performance",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "PERF-BGSTAB-002",
+   "status": "planned",
+   "stability": "draft",
+   "title": "Non-blocking session process start-identity capture",
+   "priority": "high",
+   "type": "performance",
+   "scope": "BGSTAB",
+   "ac_count": 5,
+   "trace_count": 0,
+   "evidence_count": 0,
+   "tags": [
+    "buildergate",
+    "stability",
+    "session-creation",
+    "process-identity",
+    "performance",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "PERF-BGSTAB-003",
+   "status": "planned",
+   "stability": "draft",
+   "title": "Single-pass keystroke debug payload computation with cached codec instances",
+   "priority": "high",
+   "type": "performance",
+   "scope": "BGSTAB",
+   "ac_count": 5,
+   "trace_count": 0,
+   "evidence_count": 0,
+   "tags": [
+    "buildergate",
+    "stability",
+    "frontend-runtime",
+    "terminal-input",
+    "debug-capture",
+    "performance",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "PERF-BGSTAB-004",
+   "status": "planned",
+   "stability": "draft",
+   "title": "Cached UTF-8 byte-length and resource-limit reuse in terminal output handling",
+   "priority": "high",
+   "type": "performance",
+   "scope": "BGSTAB",
+   "ac_count": 4,
+   "trace_count": 0,
+   "evidence_count": 0,
+   "tags": [
+    "buildergate",
+    "stability",
+    "frontend-runtime",
+    "terminal-output",
+    "performance",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "REL-BGSTAB-001",
+   "status": "implemented",
+   "stability": "evolving",
+   "title": "Stability validation and non-2002 operational verification",
+   "priority": "medium",
+   "type": "reliability",
+   "scope": "BGSTAB",
+   "ac_count": 5,
+   "trace_count": 0,
+   "evidence_count": 4,
+   "tags": [
+    "buildergate",
+    "stability",
+    "validation",
+    "soak",
+    "feasibility:medium"
+   ]
+  },
+  {
+   "id": "REL-BGSTAB-003",
+   "status": "planned",
+   "stability": "evolving",
+   "title": "Byte-aware replay tail and screen repair overflow recovery",
+   "priority": "high",
+   "type": "reliability",
+   "scope": "BGSTAB",
+   "ac_count": 5,
+   "trace_count": 0,
+   "evidence_count": 0,
+   "tags": [
+    "buildergate",
+    "stability",
+    "conpty",
+    "replay",
+    "screen-repair",
+    "reliability",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "REL-BGSTAB-004",
+   "status": "implemented",
+   "stability": "evolving",
+   "title": "Fallback replay output preservation and degraded snapshot convergence",
+   "priority": "high",
+   "type": "reliability",
+   "scope": "BGSTAB",
+   "ac_count": 6,
+   "trace_count": 0,
+   "evidence_count": 1,
+   "tags": [
+    "buildergate",
+    "stability",
+    "websocket",
+    "replay",
+    "fallback-snapshot",
+    "headless",
+    "output-preservation",
+    "feasibility:high"
+   ]
+  },
+  {
+   "id": "REL-BGSTAB-005",
+   "status": "planned",
+   "stability": "draft",
+   "title": "Bounded parallel shutdown termination and timeout scaling for multi-session workloads",
+   "priority": "high",
+   "type": "reliability",
+   "scope": "BGSTAB",
+   "ac_count": 12,
+   "trace_count": 0,
+   "evidence_count": 0,
+   "tags": [
+    "buildergate",
+    "stability",
+    "shutdown",
+    "session-cleanup",
+    "supersedes:REL-BGSTAB-002",
+    "feasibility:high"
+   ]
+  }
+ ]
+}

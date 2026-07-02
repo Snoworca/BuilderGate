@@ -1,0 +1,34 @@
+{
+  "run_id": "2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01",
+  "target": "0.5.4-ai-tui-recovery",
+  "target_total": 8,
+  "filtered_total": 8,
+  "counts": {
+    "by_status": { "planned": 8 },
+    "by_type": { "functional": 5, "security": 2, "reliability": 1 },
+    "by_stability": { "draft": 8 },
+    "by_scope": { "AITUI": 8 }
+  },
+  "filtering": {
+    "excluded_stable_or_frozen": 0,
+    "excluded_discarded_or_draft_status": 0,
+    "scope_filter": null,
+    "priority_filter": null,
+    "empty_reason": null
+  },
+  "requirements": [
+    { "id": "FR-AITUI-001", "title": "Desktop recovery option manager", "type": "functional", "status": "planned", "stability": "draft", "priority": "high", "risk": "medium", "ac_count": 6, "trace_count": 5 },
+    { "id": "FR-AITUI-002", "title": "Recovery option persistence and validation", "type": "functional", "status": "planned", "stability": "draft", "priority": "high", "risk": "medium", "ac_count": 6, "trace_count": 5 },
+    { "id": "FR-AITUI-003", "title": "Submitted AI TUI command matching and recovery icon metadata", "type": "functional", "status": "planned", "stability": "draft", "priority": "high", "risk": "high", "ac_count": 6, "trace_count": 7 },
+    { "id": "FR-AITUI-004", "title": "Restart and orphan-tab recovery command execution", "type": "functional", "status": "planned", "stability": "draft", "priority": "high", "risk": "high", "ac_count": 6, "trace_count": 7 },
+    { "id": "FR-AITUI-005", "title": "Claude Codex and custom command recovery contracts", "type": "functional", "status": "planned", "stability": "draft", "priority": "high", "risk": "high", "ac_count": 6, "trace_count": 5 },
+    { "id": "SEC-AITUI-001", "title": "Recovery auto-execution safety controls", "type": "security", "status": "planned", "stability": "draft", "priority": "high", "risk": "high", "ac_count": 6, "trace_count": 7 },
+    { "id": "SEC-AITUI-002", "title": "Recovery icon validation and rendering safety", "type": "security", "status": "planned", "stability": "draft", "priority": "high", "risk": "high", "ac_count": 5, "trace_count": 6 },
+    { "id": "REL-AITUI-001", "title": "Recovery option store backup recovery", "type": "reliability", "status": "planned", "stability": "draft", "priority": "high", "risk": "medium", "ac_count": 5, "trace_count": 3 }
+  ],
+  "diagnostics_at_snapshot": {
+    "errors": 0,
+    "warnings": 16,
+    "by_code": { "SRS-W023": 8, "SRS-W015": 8 }
+  }
+}

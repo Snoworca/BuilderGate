@@ -1,0 +1,310 @@
+{
+ "run_id": "2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+ "plan": [
+  {
+   "req_id": "FR-BGSTAB-001",
+   "current_stability": "evolving",
+   "proposed_stability": "stable",
+   "matched_rule_index": 0,
+   "requires_user_confirm": true,
+   "reason": "Feasibility=high (score 90), implemented with verification evidence. Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "FR-BGSTAB-002",
+   "current_stability": "evolving",
+   "proposed_stability": "stable",
+   "matched_rule_index": 0,
+   "requires_user_confirm": true,
+   "reason": "Feasibility=high (score 87), implemented with verification evidence. Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "FR-BGSTAB-003",
+   "current_stability": "evolving",
+   "proposed_stability": "stable",
+   "matched_rule_index": 0,
+   "requires_user_confirm": true,
+   "reason": "Feasibility=high (score 84), implemented with verification evidence. Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "FR-BGSTAB-004",
+   "current_stability": "evolving",
+   "proposed_stability": "stable",
+   "matched_rule_index": 0,
+   "requires_user_confirm": true,
+   "reason": "Feasibility=high (score 85), implemented with verification evidence. Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "FR-BGSTAB-005",
+   "current_stability": "evolving",
+   "proposed_stability": "stable",
+   "matched_rule_index": 0,
+   "requires_user_confirm": true,
+   "reason": "Feasibility=high (score 88), implemented with verification evidence. Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "FR-BGSTAB-006",
+   "current_stability": "evolving",
+   "proposed_stability": "stable",
+   "matched_rule_index": 0,
+   "requires_user_confirm": true,
+   "reason": "Feasibility=high (score 81), implemented with verification evidence. Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "FR-BGSTAB-007",
+   "current_stability": "evolving",
+   "proposed_stability": "stable",
+   "matched_rule_index": 0,
+   "requires_user_confirm": true,
+   "reason": "Feasibility=high (score 87), implemented with verification evidence. Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "FR-BGSTAB-008",
+   "current_stability": "evolving",
+   "proposed_stability": "stable",
+   "matched_rule_index": 0,
+   "requires_user_confirm": true,
+   "reason": "Feasibility=high (score 90), implemented with verification evidence. Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "FR-BGSTAB-009",
+   "current_stability": "evolving",
+   "proposed_stability": "stable",
+   "matched_rule_index": 0,
+   "requires_user_confirm": true,
+   "reason": "Feasibility=high (score 92), implemented with verification evidence. Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "FR-BGSTAB-010",
+   "current_stability": "evolving",
+   "proposed_stability": "stable",
+   "matched_rule_index": 0,
+   "requires_user_confirm": true,
+   "reason": "Feasibility=high (score 92), implemented with verification evidence. Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "FR-BGSTAB-011",
+   "current_stability": "evolving",
+   "proposed_stability": "stable",
+   "matched_rule_index": 0,
+   "requires_user_confirm": true,
+   "reason": "Feasibility=high (score 92), implemented with verification evidence. Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "FR-BGSTAB-012",
+   "current_stability": "evolving",
+   "proposed_stability": "stable",
+   "matched_rule_index": 0,
+   "requires_user_confirm": true,
+   "reason": "Feasibility=high (score 90), implemented with verification evidence. Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "FR-BGSTAB-013",
+   "current_stability": "evolving",
+   "proposed_stability": "stable",
+   "matched_rule_index": 0,
+   "requires_user_confirm": true,
+   "reason": "Feasibility=high (score 90), implemented with verification evidence. Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "FR-BGSTAB-014",
+   "current_stability": "evolving",
+   "proposed_stability": "stable",
+   "matched_rule_index": 0,
+   "requires_user_confirm": true,
+   "reason": "Feasibility=high (score 87), implemented with verification evidence. Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "REL-BGSTAB-001",
+   "current_stability": "evolving",
+   "proposed_stability": "stable",
+   "matched_rule_index": 0,
+   "requires_user_confirm": true,
+   "reason": "Feasibility=high (score 85), implemented with verification evidence. Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "REL-BGSTAB-004",
+   "current_stability": "evolving",
+   "proposed_stability": "stable",
+   "matched_rule_index": 0,
+   "requires_user_confirm": true,
+   "reason": "Feasibility=high (score 90), implemented with verification evidence. Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "FR-BGSTAB-019",
+   "current_stability": "draft",
+   "proposed_stability": "evolving",
+   "matched_rule_index": 1,
+   "requires_user_confirm": false,
+   "reason": "Feasibility=high (score 93). Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "PERF-BGSTAB-001",
+   "current_stability": "draft",
+   "proposed_stability": "evolving",
+   "matched_rule_index": 1,
+   "requires_user_confirm": false,
+   "reason": "Feasibility=high (score 89). Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "PERF-BGSTAB-002",
+   "current_stability": "draft",
+   "proposed_stability": "evolving",
+   "matched_rule_index": 1,
+   "requires_user_confirm": false,
+   "reason": "Feasibility=high (score 85). Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "PERF-BGSTAB-003",
+   "current_stability": "draft",
+   "proposed_stability": "evolving",
+   "matched_rule_index": 1,
+   "requires_user_confirm": false,
+   "reason": "Feasibility=high (score 90). Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "PERF-BGSTAB-004",
+   "current_stability": "draft",
+   "proposed_stability": "evolving",
+   "matched_rule_index": 1,
+   "requires_user_confirm": false,
+   "reason": "Feasibility=high (score 90). Run: 2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+   "dryrun_guard_verdict": "ok",
+   "user_decision": null
+  },
+  {
+   "req_id": "FR-BGSTAB-015",
+   "current_stability": "evolving",
+   "proposed_stability": "evolving",
+   "matched_rule_index": 1,
+   "requires_user_confirm": false,
+   "reason": "Feasibility=high (score 78) but no verification evidence yet (status=planned) -> evolving == current. NO-OP.",
+   "dryrun_guard_verdict": "n/a",
+   "user_decision": null,
+   "no_op": true
+  },
+  {
+   "req_id": "FR-BGSTAB-016",
+   "current_stability": "evolving",
+   "proposed_stability": "evolving",
+   "matched_rule_index": 1,
+   "requires_user_confirm": false,
+   "reason": "Feasibility=high (score 78) but no verification evidence yet (status=planned) -> evolving == current. NO-OP.",
+   "dryrun_guard_verdict": "n/a",
+   "user_decision": null,
+   "no_op": true
+  },
+  {
+   "req_id": "FR-BGSTAB-017",
+   "current_stability": "evolving",
+   "proposed_stability": "evolving",
+   "matched_rule_index": 1,
+   "requires_user_confirm": false,
+   "reason": "Feasibility=high (score 77) but no verification evidence yet (status=planned) -> evolving == current. NO-OP.",
+   "dryrun_guard_verdict": "n/a",
+   "user_decision": null,
+   "no_op": true
+  },
+  {
+   "req_id": "FR-BGSTAB-018",
+   "current_stability": "evolving",
+   "proposed_stability": "evolving",
+   "matched_rule_index": 1,
+   "requires_user_confirm": false,
+   "reason": "Feasibility=high (score 78) but no verification evidence yet (status=planned) -> evolving == current. NO-OP.",
+   "dryrun_guard_verdict": "n/a",
+   "user_decision": null,
+   "no_op": true
+  },
+  {
+   "req_id": "OBS-BGSTAB-002",
+   "current_stability": "evolving",
+   "proposed_stability": "evolving",
+   "matched_rule_index": 1,
+   "requires_user_confirm": false,
+   "reason": "Feasibility=high (score 85) but no verification evidence yet (status=planned) -> evolving == current. NO-OP.",
+   "dryrun_guard_verdict": "n/a",
+   "user_decision": null,
+   "no_op": true
+  },
+  {
+   "req_id": "REL-BGSTAB-003",
+   "current_stability": "evolving",
+   "proposed_stability": "evolving",
+   "matched_rule_index": 1,
+   "requires_user_confirm": false,
+   "reason": "Feasibility=high (score 82) but no verification evidence yet (status=planned) -> evolving == current. NO-OP.",
+   "dryrun_guard_verdict": "n/a",
+   "user_decision": null,
+   "no_op": true
+  },
+  {
+   "req_id": "OBS-BGSTAB-001",
+   "current_stability": "evolving",
+   "proposed_stability": "keep",
+   "matched_rule_index": 2,
+   "requires_user_confirm": false,
+   "reason": "Feasibility=medium (score 78) -> keep. Stale extends link to discarded REL-BGSTAB-002 needs re-point.",
+   "dryrun_guard_verdict": "n/a",
+   "user_decision": null,
+   "no_op": true
+  },
+  {
+   "req_id": "REL-BGSTAB-005",
+   "current_stability": "draft",
+   "proposed_stability": "keep",
+   "matched_rule_index": 2,
+   "requires_user_confirm": false,
+   "reason": "Feasibility=medium (score 73) -> keep. Unresolved OQ-1/OQ-2 blocker.",
+   "dryrun_guard_verdict": "n/a",
+   "user_decision": null,
+   "no_op": true
+  }
+ ],
+ "summary": {
+  "total_mutations": 21,
+  "auto_apply": 5,
+  "user_confirm_required": 16,
+  "no_op": 8,
+  "guard_blocked": 0
+ }
+}

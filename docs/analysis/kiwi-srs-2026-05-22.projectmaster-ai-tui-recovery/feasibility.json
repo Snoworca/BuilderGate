@@ -1,0 +1,16 @@
+{
+  "implementability": "high",
+  "product_fit": "core",
+  "code_evidence": [
+    "frontend/src/components/Header/Header.tsx:52-61",
+    "server/src/services/SessionManager.ts:900-940",
+    "server/src/services/WorkspaceService.ts:336-351",
+    "server/src/services/WorkspaceService.ts:595-614"
+  ],
+  "blockers": [],
+  "conditions": [
+    "Use local SpecKiwi supported Status=planned plus Stability=draft until requirements are stabilized.",
+    "Custom claudep support is command plus appended arguments only."
+  ],
+  "external_module_required": false
+}

@@ -1,0 +1,96 @@
+{
+  "relevant_files": [
+    {
+      "path": "frontend/src/utils/inputReliabilityMode.ts",
+      "line_range": "72-184",
+      "signature": "runtime config getters and parser",
+      "relevance": "Exposes typed clientWs, terminal, snapshot, workspaceRuntime, and wsTransportMode runtime limits."
+    },
+    {
+      "path": "frontend/src/utils/webSocketBackpressure.ts",
+      "line_range": "1-99",
+      "signature": "browser websocket backpressure helper",
+      "relevance": "Classifies input sends into ok, client-backpressure, and client-hard-backpressure using bufferedAmount and UTF-8 payload bytes."
+    },
+    {
+      "path": "frontend/src/contexts/WebSocketContext.tsx",
+      "line_range": "600-640",
+      "signature": "send path backpressure and transport metadata",
+      "relevance": "Applies input-only browser bufferedAmount gating and reports low-water recovery metadata."
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalContainer.tsx",
+      "line_range": "470-940",
+      "signature": "bounded transport outbox and input barrier integration",
+      "relevance": "Queues backpressured input, enforces TTL/byte limits, and clears barrier only after low-water recovery."
+    },
+    {
+      "path": "frontend/src/utils/terminalOutputScheduler.ts",
+      "line_range": "1-154",
+      "signature": "createTerminalOutputScheduler",
+      "relevance": "Bounds visible terminal output, preserves callback order, avoids code point splits, and reports overflow."
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalView.tsx",
+      "line_range": "1626-1710",
+      "signature": "terminal output scheduler wiring",
+      "relevance": "Routes visible live output through the scheduler and recovery path instead of direct unbounded term.write."
+    },
+    {
+      "path": "frontend/src/utils/terminalSnapshot.ts",
+      "line_range": "1-560",
+      "signature": "terminal snapshot storage budget and tombstone handling",
+      "relevance": "Applies runtime per-snapshot cap, total budget, max entries, and tombstone TTL."
+    },
+    {
+      "path": "frontend/src/hooks/useTerminalRuntimeResidency.ts",
+      "line_range": "1-286",
+      "signature": "useTerminalRuntimeResidency",
+      "relevance": "Computes resident terminal runtimes using visible pinning, hidden TTL, workspace cap, terminal cap, and disconnected exclusion."
+    },
+    {
+      "path": "server/src/ws/wsTransportMode.ts",
+      "line_range": "1-130",
+      "signature": "parseWsTransportRequest",
+      "relevance": "Parses unified, split-shadow, and split websocket channel requests."
+    },
+    {
+      "path": "server/src/ws/WsRouter.ts",
+      "line_range": "188-389",
+      "signature": "split handshake and client metadata",
+      "relevance": "Creates split control/output connection metadata, pair tokens, and logical client groups."
+    },
+    {
+      "path": "server/src/ws/WsRouter.ts",
+      "line_range": "954-1055",
+      "signature": "split output failure recovery",
+      "relevance": "Reroutes output failure to control, gates recovery to full split mode, and preserves replay/repair pending output for fallback recovery snapshots."
+    },
+    {
+      "path": "server/src/ws/WsRouter.ts",
+      "line_range": "2108-2449",
+      "signature": "terminal payload routing and transport queue",
+      "relevance": "Routes terminal payloads to output socket in split mode and bounds server-side output queues."
+    }
+  ],
+  "related_tests": [
+    "frontend/tests/unit/runtimeConfig.test.ts",
+    "frontend/tests/unit/webSocketBackpressure.test.ts",
+    "frontend/tests/unit/terminalOutputScheduler.test.ts",
+    "frontend/tests/unit/terminalSnapshot.test.ts",
+    "frontend/tests/unit/useTerminalRuntimeResidency.test.ts",
+    "frontend/tests/unit/visibleOutputRecovery.test.ts",
+    "frontend/tests/unit/webSocketUrl.test.ts",
+    "frontend/tests/unit/splitWebSocketLifecycle.test.ts",
+    "server/src/services/RuntimeConfigStore.test.ts",
+    "server/src/ws/wsTransportMode.test.ts",
+    "server/src/ws/WsRouterSplitHandshake.test.ts"
+  ],
+  "external_paths_detected": [],
+  "missing_evidence": [
+    {
+      "item": "Long-running live browser memory/input-lag soak",
+      "reason": "The completion report intentionally leaves non-2002 live validation and long-duration soak as operational validation work."
+    }
+  ]
+}

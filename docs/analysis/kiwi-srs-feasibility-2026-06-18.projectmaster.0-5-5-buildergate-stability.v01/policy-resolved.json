@@ -1,0 +1,27 @@
+{
+  "default_status_for_new_requirements": "proposed",
+  "recommended_stability": {
+    "FR-BGSTAB-001": "evolving",
+    "FR-BGSTAB-002": "evolving",
+    "FR-BGSTAB-003": "evolving",
+    "FR-BGSTAB-004": "evolving",
+    "FR-BGSTAB-005": "evolving",
+    "FR-BGSTAB-006": "evolving",
+    "FR-BGSTAB-007": "evolving",
+    "REL-BGSTAB-001": "draft"
+  },
+  "mutation_policy": {
+    "live_spec_mutation": "blocked_pending_target_scope_confirmation",
+    "allowed_now": [
+      "dry-run analysis",
+      "proposed SRS drafting",
+      "feasibility judgement",
+      "review of generated artifacts"
+    ],
+    "disallowed_now": [
+      "creating docs/spec/30.buildergate-stability.srs.md as source of truth",
+      "adding BGSTAB rows to docs/spec/00.index.md",
+      "marking live SpecKiwi target complete"
+    ]
+  }
+}

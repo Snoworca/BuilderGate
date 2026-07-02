@@ -1,0 +1,25 @@
+{
+  "run_id": "2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01",
+  "target": "0.5.4-ai-tui-recovery",
+  "plan": [
+    { "req_id": "FR-AITUI-001", "current_stability": "draft", "proposed_stability": "evolving", "feasibility": "high", "score": 86, "matched_rule_index": 1, "requires_user_confirm": false, "dryrun_guard_verdict": "ok", "user_decision": null, "proposed_tags": ["feasibility:high", "feasibility-score:86", "feasibility-run:2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01"] },
+    { "req_id": "FR-AITUI-002", "current_stability": "draft", "proposed_stability": "evolving", "feasibility": "high", "score": 84, "matched_rule_index": 1, "requires_user_confirm": false, "dryrun_guard_verdict": "ok", "user_decision": null, "proposed_tags": ["feasibility:high", "feasibility-score:84", "feasibility-run:2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01"] },
+    { "req_id": "FR-AITUI-003", "current_stability": "draft", "proposed_stability": "evolving", "feasibility": "high", "score": 82, "matched_rule_index": 1, "requires_user_confirm": false, "dryrun_guard_verdict": "ok", "user_decision": null, "proposed_tags": ["feasibility:high", "feasibility-score:82", "feasibility-run:2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01"] },
+    { "req_id": "FR-AITUI-004", "current_stability": "draft", "proposed_stability": "evolving", "feasibility": "high", "score": 80, "matched_rule_index": 1, "requires_user_confirm": false, "dryrun_guard_verdict": "ok", "user_decision": null, "proposed_tags": ["feasibility:high", "feasibility-score:80", "feasibility-run:2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01"] },
+    { "req_id": "FR-AITUI-005", "current_stability": "draft", "proposed_stability": "evolving", "feasibility": "high", "score": 87, "matched_rule_index": 1, "requires_user_confirm": false, "dryrun_guard_verdict": "ok", "user_decision": null, "proposed_tags": ["feasibility:high", "feasibility-score:87", "feasibility-run:2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01"] },
+    { "req_id": "SEC-AITUI-001", "current_stability": "draft", "proposed_stability": "evolving", "feasibility": "high", "score": 81, "matched_rule_index": 1, "requires_user_confirm": false, "dryrun_guard_verdict": "ok", "user_decision": null, "proposed_tags": ["feasibility:high", "feasibility-score:81", "feasibility-run:2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01"] },
+    { "req_id": "SEC-AITUI-002", "current_stability": "draft", "proposed_stability": "evolving", "feasibility": "high", "score": 85, "matched_rule_index": 1, "requires_user_confirm": false, "dryrun_guard_verdict": "ok", "user_decision": null, "proposed_tags": ["feasibility:high", "feasibility-score:85", "feasibility-run:2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01"] },
+    { "req_id": "REL-AITUI-001", "current_stability": "draft", "proposed_stability": "evolving", "feasibility": "high", "score": 84, "matched_rule_index": 1, "requires_user_confirm": false, "dryrun_guard_verdict": "ok", "user_decision": null, "proposed_tags": ["feasibility:high", "feasibility-score:84", "feasibility-run:2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01"] }
+  ],
+  "summary": {
+    "total_mutations": 8,
+    "auto_apply": 8,
+    "user_confirm_required": 0,
+    "no_op": 0,
+    "guard_blocked": 0
+  },
+  "tag_mutation": {
+    "available": false,
+    "action": "reported_only"
+  }
+}

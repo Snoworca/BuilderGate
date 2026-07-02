@@ -1,0 +1,34 @@
+{
+  "run_id": "2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01",
+  "req_summaries": [
+    { "id": "FR-AITUI-001", "scope": "AITUI", "status": "planned", "stability": "draft", "ac_count": 6, "trace_count": 5, "dependencies": [] },
+    { "id": "FR-AITUI-002", "scope": "AITUI", "status": "planned", "stability": "draft", "ac_count": 6, "trace_count": 5, "dependencies": [] },
+    { "id": "FR-AITUI-003", "scope": "AITUI", "status": "planned", "stability": "draft", "ac_count": 6, "trace_count": 7, "dependencies": ["FR-AITUI-002"] },
+    { "id": "FR-AITUI-004", "scope": "AITUI", "status": "planned", "stability": "draft", "ac_count": 6, "trace_count": 7, "dependencies": ["FR-AITUI-002", "FR-AITUI-003"] },
+    { "id": "FR-AITUI-005", "scope": "AITUI", "status": "planned", "stability": "draft", "ac_count": 6, "trace_count": 5, "dependencies": ["FR-AITUI-002"] },
+    { "id": "SEC-AITUI-001", "scope": "AITUI", "status": "planned", "stability": "draft", "ac_count": 6, "trace_count": 7, "dependencies": ["FR-AITUI-002", "FR-AITUI-004"] },
+    { "id": "SEC-AITUI-002", "scope": "AITUI", "status": "planned", "stability": "draft", "ac_count": 5, "trace_count": 6, "dependencies": ["FR-AITUI-001", "FR-AITUI-003"] },
+    { "id": "REL-AITUI-001", "scope": "AITUI", "status": "planned", "stability": "draft", "ac_count": 5, "trace_count": 3, "dependencies": ["FR-AITUI-002"] }
+  ],
+  "dependency_graph": {
+    "nodes": ["FR-AITUI-001", "FR-AITUI-002", "FR-AITUI-003", "FR-AITUI-004", "FR-AITUI-005", "SEC-AITUI-001", "SEC-AITUI-002", "REL-AITUI-001"],
+    "edges": [
+      { "from": "FR-AITUI-003", "to": "FR-AITUI-002", "relation": "depends_on" },
+      { "from": "FR-AITUI-004", "to": "FR-AITUI-002", "relation": "depends_on" },
+      { "from": "FR-AITUI-004", "to": "FR-AITUI-003", "relation": "depends_on" },
+      { "from": "FR-AITUI-005", "to": "FR-AITUI-002", "relation": "extends" },
+      { "from": "SEC-AITUI-001", "to": "FR-AITUI-002", "relation": "depends_on" },
+      { "from": "SEC-AITUI-001", "to": "FR-AITUI-004", "relation": "depends_on" },
+      { "from": "SEC-AITUI-002", "to": "FR-AITUI-001", "relation": "depends_on" },
+      { "from": "SEC-AITUI-002", "to": "FR-AITUI-003", "relation": "depends_on" },
+      { "from": "REL-AITUI-001", "to": "FR-AITUI-002", "relation": "depends_on" }
+    ],
+    "cycles_detected": []
+  },
+  "scope_distribution": { "AITUI": { "total": 8, "functional": 5, "security": 2, "reliability": 1 } },
+  "status_stability_conflicts": [],
+  "warnings": [
+    "SRS-W023 appears for all 8 draft requirements before feasibility promotion.",
+    "SRS-W015 appears because the completed-work log records SRS authoring work for requirements that are not implementation-completed."
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "target": "0.5.5-buildergate-stability",
+  "scope": "BGSTAB",
+  "classification": "proposed-new-scope-feasibility",
+  "live_speckiwi_target": "0.5.4-ai-tui-recovery",
+  "requirements": [
+    "FR-BGSTAB-001",
+    "FR-BGSTAB-002",
+    "FR-BGSTAB-003",
+    "FR-BGSTAB-004",
+    "FR-BGSTAB-005",
+    "FR-BGSTAB-006",
+    "FR-BGSTAB-007",
+    "REL-BGSTAB-001"
+  ],
+  "source_artifacts": {
+    "srs_dry_run_dir": "docs/analysis/kiwi-srs-2026-06-18.projectmaster.buildergate-stability/",
+    "proposed_spec": "docs/analysis/kiwi-srs-2026-06-18.projectmaster.buildergate-stability/proposed-spec/30.buildergate-stability.srs.md",
+    "implementation_plan": "docs/research/2026-06-17.buildergate-remaining-stability-work-implementation-plan.md",
+    "implementation_completion_report": "docs/research/2026-06-17.buildergate-remaining-stability-work-implementation-completion-report.md"
+  },
+  "docs_spec_state": {
+    "mutation_allowed": false,
+    "reason": "Target/scope creation is pending user confirmation; active SpecKiwi target is unrelated AI TUI recovery work."
+  }
+}

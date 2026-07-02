@@ -1,0 +1,14 @@
+{
+  "relevant_files": [
+    { "path": "frontend/src/components/Header/Header.tsx", "line_range": "52-61", "signature": "toolsMenuItems", "relevance": "desktop Tools menu entry point" },
+    { "path": "frontend/src/App.tsx", "line_range": "99-106,520-532,686-704", "signature": "dialog state and wiring", "relevance": "manager dialog integration pattern" },
+    { "path": "server/src/services/CommandPresetService.ts", "line_range": "22-52,155-176,216-290", "signature": "persistence service pattern", "relevance": "seed, sanitize, serialized mutation, backup pattern" },
+    { "path": "server/src/services/SessionManager.ts", "line_range": "900-940,2572-2608,1632-1668,1701-1717", "signature": "writeInput and shell startup", "relevance": "command matching and restore injection" },
+    { "path": "server/src/services/WorkspaceService.ts", "line_range": "336-351,595-614", "signature": "restartTab and checkOrphanTabs", "relevance": "restart and orphan recovery hooks" },
+    { "path": "frontend/src/components/MetadataBar/MetadataRow.tsx", "line_range": "67-120", "signature": "terminal name render", "relevance": "recovery icon display" },
+    { "path": "frontend/src/components/Workspace/WorkspaceTabBar.tsx", "line_range": "75-143", "signature": "tab name render", "relevance": "recovery icon display" }
+  ],
+  "external_paths_detected": [
+    "C:/Work/0.관리/work-report/2026-05-22/report/001703_AI TUI 복구 옵션 구현 가능성 보고서.md"
+  ]
+}

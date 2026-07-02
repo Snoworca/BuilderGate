@@ -1,0 +1,37 @@
+{
+  "chunk_id": "chunk3",
+  "senior_targets": [],
+  "quick_pass": [
+    {
+      "req_id": "FR-BGSTAB-011",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [88, 96],
+      "note": "Wave2 검증된 프로세스 트리 종료. status=implemented, stability=evolving. AC 7개 전부 checked, trace_paths 5개 all_paths_exist=true·mismatch 0. 유일 의존 FR-BGSTAB-009(implemented/evolving) healthy. Evidence 5건(전체 서버 테스트 스위트+데몬 process-info 테스트+독립 리뷰)로 AC 전항 커버."
+    },
+    {
+      "req_id": "FR-BGSTAB-012",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [85, 95],
+      "note": "Wave4 bounded output queue/WS backpressure. status=implemented, stability=evolving. AC 8개 전부 checked, trace mismatch 0. 의존 FR-BGSTAB-008(implemented/evolving) healthy. Evidence 6건, 287 테스트 통과 + review-fix loop(No findings 재검증) 기록."
+    },
+    {
+      "req_id": "FR-BGSTAB-013",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [85, 95],
+      "note": "Wave6 Settings 리소스 제한 UI. status=implemented, stability=evolving. AC 6개 전부 checked, trace mismatch 0. 의존 FR-BGSTAB-008/012 모두 implemented/evolving healthy. Evidence 10건(unit+e2e+lint+typecheck+report)로 매우 두터움."
+    },
+    {
+      "req_id": "FR-BGSTAB-014",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [82, 92],
+      "note": "Wave7 frontend 런타임 리소스 소비자. status=implemented, stability=evolving. AC 8개 전부 checked, trace 29건 all_paths_exist=true·mismatch 0. 의존 FR-BGSTAB-001/002/003/004/005/013 전부 implemented/evolving healthy. Evidence 8건(90/90 유닛+typecheck+build+e2e+review-fix-loop)."
+    },
+    {
+      "req_id": "FR-BGSTAB-015",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [72, 85],
+      "note": "ConPTY Settings 계약 확장. status=planned(evidence_count=0은 미구현 단계 정상), stability=evolving. AC 6개는 미체크지만 서술 매우 구체적(25개 필드 기본값/범위/apply-scope 표 포함). trace 8건 all_paths_exist=true·mismatch 0(모두 addition_site, 기존 RuntimeConfigStore/SettingsService/Settings UI 패턴 확장). 의존 FR-BGSTAB-001/008/013 전부 implemented/evolving healthy. 필드 수가 많아 구현 범위는 크지만 기존 Wave6 패턴을 그대로 재사용하는 additive 작업이라 실현 가능성 자체는 high로 판단."
+    }
+  ],
+  "quick_block": []
+}

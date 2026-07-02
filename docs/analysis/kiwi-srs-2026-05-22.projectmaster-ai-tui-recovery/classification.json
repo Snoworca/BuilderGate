@@ -1,0 +1,10 @@
+{
+  "target": "0.5.4-ai-tui-recovery",
+  "classification": "new-scope",
+  "proposed_scope": "AI TUI Recovery",
+  "proposed_prefix": "AITUI",
+  "affected_existing_reqs": [],
+  "scope_boundary_impact": null,
+  "external_module_impact": null,
+  "confidence": "high"
+}

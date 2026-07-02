@@ -1,0 +1,21 @@
+{
+  "target_intent": "Desktop Tools menu based AI TUI recovery options for Claude, Codex, and user-created commands, including persistence, matching, icon metadata, and restart/orphan restore execution.",
+  "user_priorities": [
+    "Desktop Tools menu entry only; mobile entry points are out of scope.",
+    "Dedicated RecoveryOption domain and store; CommandPreset and TerminalShortcut patterns may be reused but not conflated.",
+    "Default contracts are claude --continue and codex resume --last; claudep is only a user-created custom command.",
+    "Restore command execution is automatic only for a previously matched enabled option and must preserve shell type and last CWD.",
+    "Dangerous Claude flags are never seeded by default and execute only when explicitly stored by the user.",
+    "Recovery icons are data, not HTML/SVG/script/URL/style payloads."
+  ],
+  "ambiguities": [
+    "Final icon allowlist enum is not fixed by SRS; plan constrains implementation to built-in keys plus validated plain text/emoji data.",
+    "Readiness coordination may use startup input queue or callback; plan assigns implementation to SessionManager restore injection path.",
+    "Invalid row quarantine can be omitted or diagnostic-only as long as valid rows remain and diagnostics are observable."
+  ],
+  "non_coding_signals": [
+    "Backend unit/route tests, frontend unit tests, and desktop Playwright coverage are required.",
+    "Shell-specific command construction tests must cover PowerShell, cmd, bash, zsh, and sh.",
+    "Final validation must target https://localhost:2002 for Playwright according to AGENTS.md."
+  ]
+}

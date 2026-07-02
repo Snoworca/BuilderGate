@@ -1,0 +1,72 @@
+{
+  "evaluator": "sonnet-B",
+  "iter": 1,
+  "findings": [
+    {
+      "id": "score_label_consistency-1-1",
+      "finding_hash": "d2398ff719dabdfe506acce807c247b64270b7e8",
+      "severity": "HIGH",
+      "axis": "score_label_consistency",
+      "req_id": "FR-BGSTAB-015",
+      "evidence_path": null,
+      "description": "prescreen-chunk4.json predicts feasibility=high with score_range=[72,85]; eval_input_phase5.json stores the midpoint score=78 alongside feasibility=high. Under the same score->label boundary the senior judgements themselves apply elsewhere in this artifact (OBS-BGSTAB-001 axes sum to 78 -> feasibility=medium; REL-BGSTAB-005 sums to 73 -> medium; FR-BGSTAB-019 sums to 93 -> high; PERF-BGSTAB-001 sums to 89 -> high), a score of 78 falls in the medium band (60-79), not high (>=80). FR-BGSTAB-015 is therefore mislabeled high with a sub-80 score.",
+      "suggested_action": "Re-derive feasibility label from the score_range midpoint against the 80/60/40 bands (or re-run prescreen with a score consistent with the qualitative 'high' judgment, i.e. push the range above 80) before this artifact is used as synthesis input. In this cycle the practical stability outcome is unaffected (evolving stays evolving whether routed through the high-only rule or the medium/keep rule), but the feasibility_distribution count (high:27) reported in synthesis is inflated by this mislabeling."
+    },
+    {
+      "id": "score_label_consistency-1-2",
+      "finding_hash": "4d38069c4d073d2943a684c2f94c4bfa5adae414",
+      "severity": "HIGH",
+      "axis": "score_label_consistency",
+      "req_id": "FR-BGSTAB-016",
+      "evidence_path": null,
+      "description": "Same defect pattern as FR-BGSTAB-015: prescreen-chunk4.json score_range=[72,85], stored score=78, feasibility=high, but 78 falls in the medium band (60-79) per the boundary the senior judgements apply elsewhere in the same artifact.",
+      "suggested_action": "Same as FR-BGSTAB-015: re-derive label from score against 80/60/40 bands, or justify in writing why sub-80 scores keep a high label for this requirement specifically."
+    },
+    {
+      "id": "score_label_consistency-1-3",
+      "finding_hash": "9b220026ee137ddca6977ececb85fdb1dba3559b",
+      "severity": "HIGH",
+      "axis": "score_label_consistency",
+      "req_id": "FR-BGSTAB-017",
+      "evidence_path": null,
+      "description": "Same defect pattern: prescreen-chunk4.json score_range=[70,85], stored score=77, feasibility=high, but 77 falls in the medium band (60-79).",
+      "suggested_action": "Same as FR-BGSTAB-015."
+    },
+    {
+      "id": "score_label_consistency-1-4",
+      "finding_hash": "7ca20ecf340cc40ea2416b6e66264bebf6a0c051",
+      "severity": "HIGH",
+      "axis": "score_label_consistency",
+      "req_id": "FR-BGSTAB-018",
+      "evidence_path": null,
+      "description": "Same defect pattern: prescreen-chunk4.json score_range=[72,85], stored score=78, feasibility=high, but 78 falls in the medium band (60-79).",
+      "suggested_action": "Same as FR-BGSTAB-015. Across the 29 evaluated requirements this is a systemic 4-instance pattern (FR-BGSTAB-015/016/017/018 only); all other 25 score/label pairs were checked and are internally consistent with the 80/60/40 bands."
+    },
+    {
+      "id": "evidence_existence-1-5",
+      "finding_hash": "094afc1eb9129a6b43ea54e79d9dafa001269f84",
+      "severity": "HIGH",
+      "axis": "evidence_existence",
+      "req_id": "FR-BGSTAB-019",
+      "evidence_path": "server/config.json5:21-24",
+      "description": "Read-verified: server/config.json5 lines 21-24 are `session: { idleDelayMs: 200, runningDelayMs: 250 }` -- unrelated to FR-BGSTAB-019's claim (process-tree termination enforce-mode operational activation). A repo-wide search for 'processCleanup'/'cleanup'/'enforce'/'observe' in config.json5 finds no processCleanup override section at all (only an unrelated 'wsSendMode: safe-send-enforce' string), confirming config.json5 currently has no enforce/observe override to cite. This is not a line-drift (file-shrinkage) mismatch like the ones code_context.json already flags elsewhere -- it is a wrong-section citation. The other 4 implementability-axis evidence entries for FR-BGSTAB-019 (SessionManager.ts:1149-1171, SessionManager.ts:1145-1146, processTreeTerminator.ts:592-605, config.schema.ts:85) were Read-verified and are all correctly relevant.",
+      "suggested_action": "Drop or correct the config.json5:21-24 citation before this feeds FR-BGSTAB-019's automatic draft->evolving mutation (matched_rule_index=1, requires_user_confirm=false -- no human checkpoint catches this). The other 4 evidence items still support a high implementability score, so this alone likely does not flip the verdict, but a wrong citation on an auto-applied mutation path should not ship uncorrected."
+    },
+    {
+      "id": "evidence_existence-1-6",
+      "finding_hash": "3f73f6939886d84426aac36c68aa9164b5e54497",
+      "severity": "MEDIUM",
+      "axis": "evidence_existence",
+      "req_id": null,
+      "evidence_path": null,
+      "description": "All 4 senior judgements (FR-BGSTAB-019, OBS-BGSTAB-001, PERF-BGSTAB-001, REL-BGSTAB-005) populate axes.evidence only for the 'implementability' sub-axis; the other 5 sub-axes (evidence_strength, dependency_health, ac_verifiability, scope_fit, product_fit) all have empty evidence:[] arrays for all 4 requirements (20 of 24 axis-evidence slots empty). This is systemic, not a one-off gap: roughly 70% of each composite score (evidence_strength+dependency_health+ac_verifiability+scope_fit+product_fit, e.g. 19+15+13+10+10=67 of FR-BGSTAB-019's 93) has no citable evidence trail in this artifact, even though the arithmetic sum of the 6 sub-scores was independently re-verified as correct (78/73/93/89 all check out).",
+      "suggested_action": "Either populate evidence for the non-implementability axes going forward, or document that only the implementability axis is expected to carry file:line evidence by design (in which case this is not a defect, just an undocumented convention worth stating explicitly in policy-resolved.json or the skill spec)."
+    }
+  ],
+  "summary": {
+    "CRITICAL": 0,
+    "HIGH": 5,
+    "MEDIUM": 1,
+    "LOW": 0
+  }
+}

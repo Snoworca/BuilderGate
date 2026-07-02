@@ -1,0 +1,21 @@
+{
+  "active_target": "0.5.4-ai-tui-recovery",
+  "target_summary": {
+    "total": 8,
+    "status": {
+      "implemented": 8
+    },
+    "stability": {
+      "evolving": 8
+    }
+  },
+  "candidate_matches": [],
+  "relevant_scopes": [],
+  "no_match_reason": "Existing SRS scopes are Product Architecture and AI TUI Recovery. Neither scope owns BuilderGate-wide terminal stability, bounded queue/resource limits, browser input backpressure, or split WebSocket transport reliability.",
+  "new_scope_recommendation": {
+    "scope": "BuilderGate Stability",
+    "prefix": "BGSTAB",
+    "target": "0.5.5-buildergate-stability",
+    "document": "30.buildergate-stability.srs.md"
+  }
+}

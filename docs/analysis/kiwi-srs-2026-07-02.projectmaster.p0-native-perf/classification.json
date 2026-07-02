@@ -1,0 +1,254 @@
+{
+  "target": "0.5.5-buildergate-stability",
+  "items": [
+    {
+      "p0_item": "P0-1",
+      "split": false,
+      "classification": "new-feature",
+      "rationale": "FR-BGSTAB-003's Requirement text and AC-1..AC-5 (docs/spec/30.buildergate-stability.srs.md:182-194) require a bounded scheduler that applies chunk and byte limits, preserves callback order, avoids splitting code points, and triggers overflow/recovery -- but they do not pin a one-chunk-per-animation-frame cadence or a specific byte-budget value; that cadence only exists in code (terminalOutputScheduler.ts requestFlush()/flush(), 52-105). P0-1's per-frame time-budget multi-chunk drain plus an input-yield check, and restoring config.json5:79's visibleFlushBudgetBytes override (16384) toward the schema default (262144, config.schema.ts:150), are both consistent with the existing statement and do not require rewriting it -- so per the given criterion (replace statement -> update; add behavior while leaving statement intact -> new-feature+extends) this is new-feature+extends, not update. Discarding FR-BGSTAB-003 to register an 'update' would also be costly: it is status=implemented with 2 verification-evidence entries and 3 other REQs (FR-BGSTAB-014 depends_on, FR-BGSTAB-017 extends, REL-BGSTAB-003 depends_on) trace-linked to it by ID, all of which would need re-pointing. This also matches this SRS's own precedent of adding 'extends'-related new REQs (e.g. FR-BGSTAB-017 extends FR-BGSTAB-003) rather than discarding implemented, heavily-referenced Wave/base requirements. No genuine text conflict exists; the only open item is an implementation-sequencing note, not a requirement clash: FR-BGSTAB-017 (status=planned) already targets generalizing the same file (terminalOutputScheduler.ts:1-158) with a recovery write gate, so whichever of P0-1 or FR-BGSTAB-017 lands first defines the base the other builds on.",
+      "evidence_paths": [
+        "server/config.json5:79",
+        "server/src/schemas/config.schema.ts:150",
+        "frontend/src/utils/terminalOutputScheduler.ts:52-105",
+        "docs/spec/30.buildergate-stability.srs.md:180-194",
+        "docs/spec/30.buildergate-stability.srs.md:1429-1479"
+      ],
+      "affected_existing_reqs": [
+        {
+          "id": "FR-BGSTAB-003",
+          "relation": "extends",
+          "diff_summary": "AC-1..AC-5 require bounded chunk/byte limits, order preservation, no code-point splitting, and overflow/recovery observability without pinning cadence (chunks per frame) or a specific byte value; P0-1 adds a time-budgeted multi-chunk drain + input-yield check and restores the operational byte budget without altering any AC text."
+        },
+        {
+          "id": "FR-BGSTAB-001",
+          "relation": "depends_on",
+          "diff_summary": "P0-1's byte-budget restoration only changes the config.json5 operational value for a field FR-BGSTAB-001 AC-1 already defines as a typed runtime getter with a server-compatible default; the getter contract itself is unchanged."
+        },
+        {
+          "id": "FR-BGSTAB-017",
+          "relation": "depends_on",
+          "diff_summary": "FR-BGSTAB-017 (planned) targets generalizing the same terminalOutputScheduler.ts module with a recovery write gate; no AC text conflict exists, but implementation order/coordination between P0-1 and FR-BGSTAB-017 must be decided since both change the same scheduler internals."
+        }
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_type": "performance",
+      "proposed_title": "Frame time-budgeted visible output flush with input yield",
+      "confidence": "high"
+    },
+    {
+      "p0_item": "P0-2",
+      "split": ["P0-2a", "P0-2b"],
+      "classification": "update",
+      "rationale": "P0-2 bundles two behaviors on different code surfaces governed by two different existing REQs: (a) activating session.processCleanup.mode=enforce as the operational default (SessionManager.ts:1149-1171 / processTreeTerminator.ts:592-605, governed by FR-BGSTAB-011's termination mechanism) and (b) parallelizing/re-timing the multi-session shutdown batch to stay within a workable timeout at 54-session scale (gracefulShutdown.ts DEFAULT_SESSION_CLEANUP_TIMEOUT_MS=3000, SessionManager.ts terminateMultipleSessions, governed by REL-BGSTAB-002's shutdown sequence/evidence). Per SRS-MD §0.11 these are split into P0-2a and P0-2b with a depends_on link, since enforce-mode activation (P0-2a) is what pushes per-session termination past the current 3s budget at scale, making P0-2b's timeout/parallelization fix necessary. Neither sub-item is a genuine conflict once Implementation Notes are excluded from the conflict test (see FR-BGSTAB-011 and REL-BGSTAB-002 Implementation Notes tension recorded on the child items): AC text in both target REQs is silent on the specific config default value and on intra-stage execution strategy. The parent classification is set to 'update' to reflect the dominant/gating sub-item (P0-2b); see child items for the full split rationale.",
+      "evidence_paths": [
+        "server/src/services/SessionManager.ts:1149-1171",
+        "server/src/utils/processTreeTerminator.ts:592-605",
+        "server/src/services/gracefulShutdown.ts:11",
+        "docs/spec/30.buildergate-stability.srs.md:860-928",
+        "docs/spec/30.buildergate-stability.srs.md:929-1008"
+      ],
+      "affected_existing_reqs": [],
+      "proposed_scope": "BGSTAB",
+      "proposed_type": "reliability",
+      "proposed_title": "Process-tree termination enforce-mode activation and shutdown timeout scaling",
+      "confidence": "medium"
+    },
+    {
+      "p0_item": "P0-2a",
+      "split": false,
+      "classification": "new-feature",
+      "rationale": "FR-BGSTAB-011's Requirement text and AC-1..AC-7 (docs/spec/30.buildergate-stability.srs.md:877-891) fully specify the verified enforce-mode termination MECHANISM (identity validation before enforcement, Windows taskkill /PID .../T /F, POSIX verified leaf-first kill, route integration, batch determinism, compatibility wrapper) but never pin what config default value processCleanup.mode carries. Only the Implementation Notes text ('Keep session.processCleanup.mode defaulted to observe', line 921) and REL-BGSTAB-002's Implementation Notes ('do not force enforce mode by default', line 1001) record that default decision -- and per the classification rule, Implementation Notes/rationale are not statement/AC text, so they alone do not create a conflict. FR-BGSTAB-009 AC-1 (line 647) only pins the schema fallback default for a config that OMITS session.processCleanup, not what an explicit config.json5 override may set -- so an operational config.json5 activation of mode=enforce (paralleling how P0-1 treats visibleFlushBudgetBytes as a config override rather than a schema-default change), gated by soak validation and rollback capability, does not contradict any AC text in FR-BGSTAB-009, FR-BGSTAB-011, or REL-BGSTAB-002. This is therefore new-feature+extends rather than update: FR-BGSTAB-011's mechanism-defining statement does not need to be rewritten, and it already has one dependent (REL-BGSTAB-002 depends_on FR-BGSTAB-011) that would need re-pointing if discarded. IMPORTANT CAVEAT recorded per instructions: even though this is not a strict statement/AC conflict, the tension is real at the documentation level -- both FR-BGSTAB-011 and REL-BGSTAB-002 currently carry Implementation Notes text that explicitly says the opposite of what P0-2a does ('keep observe default'/'do not force enforce by default'). If P0-2a's new REQ is authored without also updating those two Implementation Notes (via append_section_note), the SRS will contain contradictory policy statements across three requirements even though no AC text technically conflicts. The roadmap document's own 'roadmap caution' section (soak evidence before default changes, staged like prior waves) also directly bears on this decision and should be reflected in the new REQ's AC (soak gate, rollback path) rather than silently overridden.",
+      "evidence_paths": [
+        "server/src/services/SessionManager.ts:1149-1171",
+        "server/src/utils/processTreeTerminator.ts:592-605",
+        "docs/spec/30.buildergate-stability.srs.md:647",
+        "docs/spec/30.buildergate-stability.srs.md:875-921",
+        "docs/spec/30.buildergate-stability.srs.md:999-1001"
+      ],
+      "affected_existing_reqs": [
+        {
+          "id": "FR-BGSTAB-011",
+          "relation": "extends",
+          "diff_summary": "AC-1..AC-7 define the verified enforce-mode termination mechanism without pinning the processCleanup.mode config default; only this REQ's Implementation Notes ('Keep session.processCleanup.mode defaulted to observe') record the current default -- not statement/AC text, so activating enforce via config.json5 does not contradict any AC, but the stale Implementation Note needs an explicit follow-up edit."
+        },
+        {
+          "id": "REL-BGSTAB-002",
+          "relation": "depends_on",
+          "diff_summary": "Its own Implementation Notes state 'do not force enforce mode by default' -- same Implementation-Notes-only tension as FR-BGSTAB-011, not an AC-text conflict, but needs the same follow-up documentation update."
+        },
+        {
+          "id": "FR-BGSTAB-009",
+          "relation": "depends_on",
+          "diff_summary": "AC-2's unconditional process-metadata/identity capture at session creation is the data enforce-mode termination validates against; activating enforce by default increases how often that captured metadata is exercised in production."
+        }
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_type": "functional",
+      "proposed_title": "Process-tree termination enforce-mode default activation with soak-gated rollback",
+      "confidence": "high"
+    },
+    {
+      "p0_item": "P0-2b",
+      "split": false,
+      "classification": "update",
+      "rationale": "REL-BGSTAB-002 AC-1 (docs/spec/30.buildergate-stability.srs.md:954) fixes the observable shutdown STAGE sequence (CWD watcher stop -> active tab snapshot -> first workspace flush -> bounded owned-session termination -> cleanup evidence collection -> final workspace flush -> process exit scheduling) but does not pin the intra-stage execution strategy (sequential vs parallel) for the 'bounded owned-session termination' stage, nor does it pin the DEFAULT_SESSION_CLEANUP_TIMEOUT_MS=3000 constant (gracefulShutdown.ts:11) as an AC-level value. P0-2b's batch parallelization and timeout recalibration for 54-session scale therefore restates AC-1/AC-2 and adds new AC covering scale-appropriate timeout/parallelization without contradicting the fixed stage order. Unlike FR-BGSTAB-003/FR-BGSTAB-011/FR-BGSTAB-009, REL-BGSTAB-002's own Research/Analysis section (line 996) explicitly states it was created as the ongoing consolidated SRS trace for shutdown evidence specifically 'instead of creating a new functional FR-BGSTAB-013' for later waves -- i.e. this REQ is designed to be extended/superseded as shutdown behavior evolves, and it has no external dependents pointing to it by ID (unlike FR-BGSTAB-003/009/011), so the discard-and-supersede cost of 'update' is low here. This is why P0-2b is classified update while its sibling P0-2a (extending a mechanism-defining, heavily-dependent-upon REQ) is classified new-feature+extends -- same decision criterion (statement replacement vs additive), different answer because REL-BGSTAB-002's own design intent and dependency graph favor consolidation.",
+      "evidence_paths": [
+        "server/src/services/gracefulShutdown.ts:11",
+        "server/src/services/SessionManager.ts:1783-1810",
+        "docs/spec/30.buildergate-stability.srs.md:944-1001"
+      ],
+      "affected_existing_reqs": [
+        {
+          "id": "REL-BGSTAB-002",
+          "relation": "supersedes",
+          "diff_summary": "AC-1 fixes the shutdown stage sequence without pinning intra-stage concurrency or the 3s timeout constant; P0-2b restates AC-1/AC-2 and adds scale-appropriate timeout/parallelization AC, consistent with this REQ's stated role as the ongoing consolidated shutdown-evidence trace point."
+        },
+        {
+          "id": "FR-BGSTAB-010",
+          "relation": "depends_on",
+          "diff_summary": "AC-1/AC-2 idempotent single-finalization guarantees must survive parallelized batch termination; REL-BGSTAB-002 AC-6 already requires shutdown cleanup to preserve FR-BGSTAB-010 lifecycle semantics."
+        }
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_type": "reliability",
+      "proposed_title": "Bounded parallel shutdown termination and timeout scaling for multi-session workloads",
+      "confidence": "medium"
+    },
+    {
+      "p0_item": "P0-3",
+      "split": ["P0-3a", "P0-3b"],
+      "classification": "conflict",
+      "rationale": "P0-3 bundles two textually distinct sub-requirements on readProcessStartIdentitySync (processTreeTerminator.ts:328-363, called from SessionManager.ts createSessionProcessMetadata:2326-2347 / call site 2345, invoked at session creation from line 566): (a) converting the synchronous execFileSync(timeout=1000ms) call to non-blocking/async, and (b) skipping the call entirely when processCleanup.mode is observe (today's default). These are split per SRS-MD §0.11 because they have different compatibility outcomes against the same target REQ's AC text, not because they touch different files. (a) is compatible: FR-BGSTAB-009 AC-2 (docs/spec/30.buildergate-stability.srs.md:648) requires capturing best-effort OS start identity 'when the PTY is spawned' but does not pin synchronous timing, so an async conversion still satisfies it once the lookup resolves. (b) is a genuine conflict: AC-2 is unconditional -- it does not gate identity capture on processCleanup.mode -- so skipping the call entirely whenever mode is observe (the current default for effectively all sessions) would produce zero identity capture for every session created under that mode, directly contradicting AC-2's 'the session stores ... best-effort OS start identity' requirement for 'a new server session'. The parent classification is set to 'conflict' because that is the gating outcome: (b) cannot be implemented as add-only AC text the way (a) can, and requires an explicit SRS decision (relax/condition AC-2 on mode, or drop the observe-mode-skip sub-requirement) before implementation.",
+      "evidence_paths": [
+        "server/src/utils/processTreeTerminator.ts:328-363",
+        "server/src/services/SessionManager.ts:2326-2347",
+        "server/src/services/SessionManager.ts:566",
+        "docs/spec/30.buildergate-stability.srs.md:648",
+        "docs/spec/30.buildergate-stability.srs.md:885-886"
+      ],
+      "affected_existing_reqs": [],
+      "proposed_scope": "BGSTAB",
+      "proposed_type": "performance",
+      "proposed_title": "Session process start-identity capture: non-blocking conversion vs. observe-mode skip",
+      "confidence": "high"
+    },
+    {
+      "p0_item": "P0-3a",
+      "split": false,
+      "classification": "new-feature",
+      "rationale": "FR-BGSTAB-009 AC-2 (docs/spec/30.buildergate-stability.srs.md:648) requires capturing process metadata including best-effort OS start identity when the PTY is spawned, but does not pin execFileSync's synchronous timing as part of the acceptance criterion. Converting readProcessStartIdentitySync's Windows branch (powershell.exe + Get-CimInstance, processTreeTerminator.ts:328-359) to non-blocking/async so it no longer blocks the event loop for up to ~1s per session creation therefore satisfies AC-2 without rewriting it -- new-feature+extends rather than update, especially since FR-BGSTAB-009 is status=implemented with 5 verification-evidence entries and 2 dependent REQs (FR-BGSTAB-010, FR-BGSTAB-011 both depends_on it) that would need re-pointing if it were discarded. FR-BGSTAB-011 AC-2 (docs/spec/30.buildergate-stability.srs.md:886) already treats unverifiable/mismatched identity as an allowed skipped-unverified/degraded outcome rather than a hard failure, so a session terminated before the async identity lookup resolves falls into an already-specified race-handling path -- confirming the async conversion does not create a new conflict with FR-BGSTAB-011 either.",
+      "evidence_paths": [
+        "server/src/utils/processTreeTerminator.ts:328-359",
+        "server/src/services/SessionManager.ts:2345",
+        "server/src/services/SessionManager.ts:566",
+        "docs/spec/30.buildergate-stability.srs.md:648",
+        "docs/spec/30.buildergate-stability.srs.md:886"
+      ],
+      "affected_existing_reqs": [
+        {
+          "id": "FR-BGSTAB-009",
+          "relation": "extends",
+          "diff_summary": "AC-2 requires best-effort OS start identity capture at PTY spawn without pinning synchronous timing; converting the call to async still satisfies the capture requirement once resolved."
+        },
+        {
+          "id": "FR-BGSTAB-011",
+          "relation": "depends_on",
+          "diff_summary": "AC-2 already allows skipped-unverified/degraded outcomes when identity cannot be verified; a session terminated before an async identity lookup resolves lands in this already-specified path, not a new failure mode."
+        }
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_type": "performance",
+      "proposed_title": "Non-blocking session process start-identity capture",
+      "confidence": "high"
+    },
+    {
+      "p0_item": "P0-3b",
+      "split": false,
+      "classification": "conflict",
+      "rationale": "FR-BGSTAB-009 AC-2 (docs/spec/30.buildergate-stability.srs.md:648) states: 'Given a new server session is created, when the PTY is spawned, then the session stores process metadata including rootPid when available, shell command, shell args, shell type, cwd, platform, backend when known, launchedAt, and best-effort OS start identity...' with no processCleanup.mode conditional anywhere in the AC text (contrast with AC-3, which IS explicitly gated 'when processCleanup.mode is observe' but governs deletion/telemetry behavior, not creation-time metadata capture). P0-3's 'skip the call entirely when mode is observe' sub-requirement would produce zero OS-start-identity capture for every session created while mode is observe -- the current default for effectively all sessions server-wide -- which cannot be simultaneously satisfied with AC-2's unconditional capture requirement. This is a genuine statement/AC-level conflict, not merely an Implementation Notes tension, and per SpecKiwi workflow rules cannot be resolved by implementation alone: it requires an explicit SRS decision to either (1) relax/condition AC-2 on processCleanup.mode, or (2) drop the observe-mode-skip sub-requirement and keep only the async conversion (P0-3a). Cross-item interaction to flag for the SRS author: if P0-2a (enforce-mode default activation) also lands, an operator using P0-2's soak/rollback path to fall back to observe would, under P0-3b, create sessions with no identity capture at all during that rollback window -- degrading FR-BGSTAB-011's enforce-mode identity validation coverage precisely when the rollback path is exercised.",
+      "evidence_paths": [
+        "docs/spec/30.buildergate-stability.srs.md:648",
+        "docs/spec/30.buildergate-stability.srs.md:649",
+        "server/src/utils/processTreeTerminator.ts:328-363",
+        "server/src/services/SessionManager.ts:2326-2347"
+      ],
+      "affected_existing_reqs": [
+        {
+          "id": "FR-BGSTAB-009",
+          "relation": "conflicts_with",
+          "diff_summary": "AC-2 unconditionally requires best-effort OS start identity capture for every new session at PTY spawn; skipping the call whenever processCleanup.mode is observe (the current default) would eliminate that capture for effectively all sessions, contradicting the AC's unconditional wording."
+        },
+        {
+          "id": "FR-BGSTAB-011",
+          "relation": "depends_on",
+          "diff_summary": "If sessions created during an observe-mode window (e.g. a P0-2 rollback) have no captured identity at all, later enforce-mode termination attempts against those sessions lose the verification data AC-1/AC-2 rely on, falling back to degraded/skipped-unverified more often than intended."
+        }
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_type": "functional",
+      "proposed_title": "Observe-mode session process start-identity capture skip",
+      "confidence": "high"
+    },
+    {
+      "p0_item": "P0-4",
+      "split": false,
+      "classification": "new-feature",
+      "rationale": "FR-BGSTAB-014's Requirement text and AC-1..AC-8 (docs/spec/30.buildergate-stability.srs.md:1104-1121) govern bounded/observable runtime-resource consumption (residency, snapshot, hidden output, layout cleanup, visible-output overflow recovery, WebSocket send-failure handling); the only AC touching debug capture is AC-7, which requires 'input content remains out of debug logs' for WebSocket send-failure handling -- it says nothing about how many times per keystroke buildTerminalInputDebugPayload is computed or whether Intl.Segmenter/TextEncoder instances are re-created per call. P0-4's reduction from 3 calls to 1 call per keystroke (TerminalView.tsx:1894; TerminalContainer.tsx:708, 1697), singleton-izing the codec instances in terminalDebugCapture.ts (TextEncoder at line 501, Intl.Segmenter-equivalent instantiation at line 516), and skipping computation when debug capture is disabled are pure performance refactors of code FR-BGSTAB-014 already references via its 'implements' trace link (terminalDebugCapture.ts: 'local debug hook for send-failed regression capture without raw input leakage') -- they extend the REQ without touching the no-raw-input-leakage guarantee AC-7 protects, and do not require rewriting FR-BGSTAB-014's statement. Note per intent.json: this call count previously regressed from 1x to 3x across prior research passes (2026-06-17/06-24/06-30), so the eventual AC for this new REQ should include a regression-guard test (assert call count), not just a one-time fix.",
+      "evidence_paths": [
+        "frontend/src/components/Terminal/TerminalView.tsx:1894",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:708",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:1697",
+        "frontend/src/utils/terminalDebugCapture.ts:501",
+        "frontend/src/utils/terminalDebugCapture.ts:516",
+        "frontend/src/utils/terminalInputSequencer.ts:99",
+        "frontend/src/utils/terminalInputSequencer.ts:166-172",
+        "docs/spec/30.buildergate-stability.srs.md:1104-1121"
+      ],
+      "affected_existing_reqs": [
+        {
+          "id": "FR-BGSTAB-014",
+          "relation": "extends",
+          "diff_summary": "AC-7 requires only that input content stay out of debug logs; it does not constrain per-keystroke computation count or codec-instance lifetime. P0-4 reduces redundant computation and adds instance reuse inside code this REQ already covers, without touching the leakage guarantee."
+        }
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_type": "performance",
+      "proposed_title": "Single-pass keystroke debug payload computation with cached codec instances",
+      "confidence": "high"
+    },
+    {
+      "p0_item": "P0-5",
+      "split": false,
+      "classification": "new-feature",
+      "rationale": "No AC in FR-BGSTAB-014 (docs/spec/30.buildergate-stability.srs.md:1104-1121) constrains per-onOutput-message allocation strategy; the REQ's AC-1..AC-8 concern bounded residency/snapshot/hidden-output/recovery/backpressure behavior, not call-site micro-allocation. TerminalContainer.tsx's getUtf8ByteLength (96-98, a module-level function that already creates a new TextEncoder per call) and the resourceLimits object rebuilt at the onOutput call site (1661-1663) are pure call-site efficiency changes inside code FR-BGSTAB-014 already governs via its 'implements' trace link to TerminalContainer.tsx ('visible recovery barrier, screen repair request, and transport outbox gating') -- caching/singleton-izing them is additive and does not require rewriting FR-BGSTAB-014's statement or FR-BGSTAB-001 AC-1's getter contract (FR-BGSTAB-001 defines the getter's validation/default behavior; P0-5 only caches the getter's result at one call site).",
+      "evidence_paths": [
+        "frontend/src/components/Terminal/TerminalContainer.tsx:96-98",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:1661-1663",
+        "docs/spec/30.buildergate-stability.srs.md:68",
+        "docs/spec/30.buildergate-stability.srs.md:1104-1121"
+      ],
+      "affected_existing_reqs": [
+        {
+          "id": "FR-BGSTAB-014",
+          "relation": "extends",
+          "diff_summary": "No AC constrains per-message allocation strategy in TerminalContainer.tsx's onOutput handling; P0-5 caches TextEncoder and resourceLimits results at that call site without changing any observable/bounded behavior AC-1..AC-8 specify."
+        },
+        {
+          "id": "FR-BGSTAB-001",
+          "relation": "depends_on",
+          "diff_summary": "AC-1 defines the typed runtime-limit getter's validation/default contract; P0-5 caches the getter's RESULT at the call site and does not alter the getter itself."
+        }
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_type": "performance",
+      "proposed_title": "Cached UTF-8 byte-length and resource-limit reuse in terminal output handling",
+      "confidence": "high"
+    }
+  ],
+  "scope_boundary_impact": {
+    "type": "pre-existing-gap-not-blocking",
+    "description": "The BGSTAB scope's §1 Scope Overview and §2 In Scope bullet list (docs/spec/30.buildergate-stability.srs.md:9-24) enumerate 'bounded runtime resource limits, browser input backpressure, visible terminal output scheduling, snapshot storage budgets, terminal runtime residency, and split WebSocket transport behavior' but never explicitly mention session/process lifecycle cleanup, process-tree termination, or graceful shutdown -- even though FR-BGSTAB-009, FR-BGSTAB-010, FR-BGSTAB-011, FR-BGSTAB-012, and REL-BGSTAB-002 (Waves 1/2/3/4/5) are already registered under this same scope and target. This is a pre-existing SRS documentation gap, not something P0-2 or P0-3 create; both items extend/depend on those same already-registered Wave requirements, so they inherit rather than cause the gap. Not a blocker for authoring P0-2/P0-3, but worth a follow-up §1/§2 edit to explicitly list session process lifecycle/cleanup as in-scope so future classification passes do not need to re-derive this from Wave REQ precedent alone.",
+    "affected_items": ["P0-2a", "P0-2b", "P0-3a", "P0-3b"]
+  },
+  "external_module_impact": null
+}

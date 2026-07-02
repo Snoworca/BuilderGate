@@ -1,0 +1,3534 @@
+{
+  "schema_version": "1.1.0",
+  "plan_contract": "1.2.0",
+  "run_id": "2026-05-22.projectmaster.aitui-recovery",
+  "target": "0.5.4-ai-tui-recovery",
+  "plan_version": "0.1.0",
+  "generated_at": "2026-05-22T00:00:00+09:00",
+  "tool_versions": {
+    "speckiwi": "2.2.3",
+    "kiwi_planner": "0.6.0",
+    "validator": "0.6.0"
+  },
+  "tdd_policy": "relaxed",
+  "md_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md",
+  "md_sha256": "df62425514562a4e914c13130a5a6a9a2361fc8973ae8315b8939fd1e8960463",
+  "phases": [
+    {
+      "id": "PH-001",
+      "title": "Recovery Option Domain And API",
+      "goal": "전용 recovery option 저장소, 기본 seed, 검증, 인증된 CRUD API를 TDD로 구현한다.",
+      "depends_on": [],
+      "task_ids": [
+        "T-PH001-01",
+        "T-PH001-02"
+      ]
+    },
+    {
+      "id": "PH-002",
+      "title": "Command Matching And Tab Metadata",
+      "goal": "제출 명령을 recovery option과 매칭하고 탭 메타데이터에 명령/아이콘 상태를 저장한다.",
+      "depends_on": [
+        "PH-001"
+      ],
+      "task_ids": [
+        "T-PH002-01",
+        "T-PH002-02"
+      ]
+    },
+    {
+      "id": "PH-003",
+      "title": "Restart And Orphan Restore Execution",
+      "goal": "탭 재시작과 서버 재기동 orphan recovery에서 shell/CWD 복원 이후 안전하게 복구 명령을 주입한다.",
+      "depends_on": [
+        "PH-001",
+        "PH-002"
+      ],
+      "task_ids": [
+        "T-PH003-01",
+        "T-PH003-02"
+      ]
+    },
+    {
+      "id": "PH-004",
+      "title": "Desktop UI And Safe Icon Rendering",
+      "goal": "desktop Tools 메뉴 dialog, API hook, 타입 전파, 안전한 아이콘 렌더링, Playwright 검증을 구현한다.",
+      "depends_on": [
+        "PH-001",
+        "PH-002"
+      ],
+      "task_ids": [
+        "T-PH004-01",
+        "T-PH004-02"
+      ]
+    },
+    {
+      "id": "PH-005",
+      "title": "Phase Completion Review And Handoff",
+      "goal": "구현 후 강제 서브에이전트 코드리뷰와 최종 검증 결과를 확인한다.",
+      "depends_on": [
+        "PH-001",
+        "PH-002",
+        "PH-003",
+        "PH-004"
+      ],
+      "task_ids": [
+        "T-PH005-01"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "title": "Write failing backend tests for recovery option store and protected API",
+      "type": "code",
+      "req_ids": [
+        "FR-AITUI-002",
+        "FR-AITUI-005",
+        "REL-AITUI-001",
+        "SEC-AITUI-001",
+        "SEC-AITUI-002"
+      ],
+      "files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "action": "Add red tests for RecoveryOptionService seed-once defaults, command/icon validation, duplicate normalization, serialized mutations, route auth, dangerous flag defaults, and tmp/bak recovery.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npm --prefix server test",
+          "expected_exit": 0
+        },
+        {
+          "kind": "checklist",
+          "items": [
+            "Red tests fail before RecoveryOptionService/routes exist",
+            "Tests include control-character and icon injection rejection cases",
+            "Tests include corrupted primary with valid backup recovery"
+          ]
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm --prefix server test",
+        "windows": "npm --prefix server test"
+      },
+      "dod": [
+        "Failing tests are registered in server/src/test-runner.ts",
+        "Each covered AC has at least one test case id in sidecar",
+        "No production implementation is added in this task"
+      ],
+      "rollback": "Remove the added recovery option test registrations and helpers from server/src/test-runner.ts.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-01-FR-AITUI-002",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-002"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH001-01-FR-AITUI-005",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-005"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH001-01-REL-AITUI-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-AITUI-001"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH001-01-SEC-AITUI-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "SEC-AITUI-001"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH001-01-SEC-AITUI-002",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "SEC-AITUI-002"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "needs_clarification": [],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-AITUI-002-AC1-01",
+            "req_id": "FR-AITUI-002",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 FR-AITUI-002 AC-1",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-002-AC2-01",
+            "req_id": "FR-AITUI-002",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 FR-AITUI-002 AC-2",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-002-AC3-01",
+            "req_id": "FR-AITUI-002",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 FR-AITUI-002 AC-3",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-002-AC4-01",
+            "req_id": "FR-AITUI-002",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 FR-AITUI-002 AC-4",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-002-AC5-01",
+            "req_id": "FR-AITUI-002",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 FR-AITUI-002 AC-5",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-002-AC6-01",
+            "req_id": "FR-AITUI-002",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 FR-AITUI-002 AC-6",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-005-AC1-01",
+            "req_id": "FR-AITUI-005",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 FR-AITUI-005 AC-1",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-005-AC2-01",
+            "req_id": "FR-AITUI-005",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 FR-AITUI-005 AC-2",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-005-AC3-01",
+            "req_id": "FR-AITUI-005",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 FR-AITUI-005 AC-3",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-005-AC5-01",
+            "req_id": "FR-AITUI-005",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 FR-AITUI-005 AC-5",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-001-AC1-01",
+            "req_id": "SEC-AITUI-001",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 SEC-AITUI-001 AC-1",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-001-AC2-01",
+            "req_id": "SEC-AITUI-001",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 SEC-AITUI-001 AC-2",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-001-AC4-01",
+            "req_id": "SEC-AITUI-001",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 SEC-AITUI-001 AC-4",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC1-01",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 SEC-AITUI-002 AC-1",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC2-01",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 SEC-AITUI-002 AC-2",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC3-01",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 SEC-AITUI-002 AC-3",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC4-01",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 SEC-AITUI-002 AC-4",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-REL-AITUI-001-AC1-01",
+            "req_id": "REL-AITUI-001",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 REL-AITUI-001 AC-1",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-REL-AITUI-001-AC2-01",
+            "req_id": "REL-AITUI-001",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 REL-AITUI-001 AC-2",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-REL-AITUI-001-AC3-01",
+            "req_id": "REL-AITUI-001",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 REL-AITUI-001 AC-3",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-REL-AITUI-001-AC4-01",
+            "req_id": "REL-AITUI-001",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 REL-AITUI-001 AC-4",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-REL-AITUI-001-AC5-01",
+            "req_id": "REL-AITUI-001",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-01 REL-AITUI-001 AC-5",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ]
+    },
+    {
+      "id": "T-PH001-02",
+      "phase_id": "PH-001",
+      "title": "Implement recovery option service validation routes and server registration",
+      "type": "code",
+      "req_ids": [
+        "FR-AITUI-002",
+        "FR-AITUI-005",
+        "REL-AITUI-001",
+        "SEC-AITUI-001",
+        "SEC-AITUI-002"
+      ],
+      "files": [
+        {
+          "path": "server/src/types/recoveryOption.types.ts",
+          "line_range": "[INFERRED:new-file]"
+        },
+        {
+          "path": "server/src/utils/recoveryCommand.ts",
+          "line_range": "[INFERRED:new-file]"
+        },
+        {
+          "path": "server/src/services/RecoveryOptionService.ts",
+          "line_range": "[INFERRED:new-file]"
+        },
+        {
+          "path": "server/src/routes/recoveryOptionRoutes.ts",
+          "line_range": "[INFERRED:new-file]"
+        },
+        {
+          "path": "server/src/index.ts",
+          "line_range": "20-32"
+        },
+        {
+          "path": "server/src/index.ts",
+          "line_range": "280-287"
+        },
+        {
+          "path": "server/src/index.ts",
+          "line_range": "432-437"
+        }
+      ],
+      "action": "Create the dedicated RecoveryOption domain, normalize executable identity, validate commands/arguments/icons, seed defaults only on first store creation, implement authenticated CRUD/reorder routes, and register the service before workspace orphan recovery.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npm --prefix server test",
+          "expected_exit": 0
+        },
+        {
+          "kind": "checklist",
+          "items": [
+            "claudep is absent from built-in defaults",
+            "default claude omits dangerous permission flags",
+            "invalid rows are dropped with observable diagnostics"
+          ]
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm --prefix server test",
+        "windows": "npm --prefix server test"
+      },
+      "dod": [
+        "All T-PH001-01 tests pass",
+        "Store path is separate from command-presets.json",
+        "Default deletion survives service restart",
+        "Duplicate normalized commands are rejected"
+      ],
+      "rollback": "Remove the new recovery option service/routes/types/util files and unregister the route/service from server/src/index.ts.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-02-FR-AITUI-002",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-002"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH001-02-FR-AITUI-005",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-005"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH001-02-REL-AITUI-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-AITUI-001"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH001-02-SEC-AITUI-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "SEC-AITUI-001"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH001-02-SEC-AITUI-002",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "SEC-AITUI-002"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "L",
+      "needs_clarification": [],
+      "depends_on_task": [
+        "T-PH001-01"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-AITUI-002-AC1-02",
+            "req_id": "FR-AITUI-002",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 FR-AITUI-002 AC-1",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-002-AC2-02",
+            "req_id": "FR-AITUI-002",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 FR-AITUI-002 AC-2",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-002-AC3-02",
+            "req_id": "FR-AITUI-002",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 FR-AITUI-002 AC-3",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-002-AC4-02",
+            "req_id": "FR-AITUI-002",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 FR-AITUI-002 AC-4",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-002-AC5-02",
+            "req_id": "FR-AITUI-002",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 FR-AITUI-002 AC-5",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-002-AC6-02",
+            "req_id": "FR-AITUI-002",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 FR-AITUI-002 AC-6",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-005-AC1-02",
+            "req_id": "FR-AITUI-005",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 FR-AITUI-005 AC-1",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-005-AC2-02",
+            "req_id": "FR-AITUI-005",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 FR-AITUI-005 AC-2",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-005-AC3-02",
+            "req_id": "FR-AITUI-005",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 FR-AITUI-005 AC-3",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-005-AC5-02",
+            "req_id": "FR-AITUI-005",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 FR-AITUI-005 AC-5",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-001-AC1-02",
+            "req_id": "SEC-AITUI-001",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 SEC-AITUI-001 AC-1",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-001-AC2-02",
+            "req_id": "SEC-AITUI-001",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 SEC-AITUI-001 AC-2",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-001-AC4-02",
+            "req_id": "SEC-AITUI-001",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 SEC-AITUI-001 AC-4",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC1-02",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 SEC-AITUI-002 AC-1",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC2-02",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 SEC-AITUI-002 AC-2",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC3-02",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 SEC-AITUI-002 AC-3",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC4-02",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 SEC-AITUI-002 AC-4",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-REL-AITUI-001-AC1-02",
+            "req_id": "REL-AITUI-001",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 REL-AITUI-001 AC-1",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-REL-AITUI-001-AC2-02",
+            "req_id": "REL-AITUI-001",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 REL-AITUI-001 AC-2",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-REL-AITUI-001-AC3-02",
+            "req_id": "REL-AITUI-001",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 REL-AITUI-001 AC-3",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-REL-AITUI-001-AC4-02",
+            "req_id": "REL-AITUI-001",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 REL-AITUI-001 AC-4",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-REL-AITUI-001-AC5-02",
+            "req_id": "REL-AITUI-001",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH001-02 REL-AITUI-001 AC-5",
+            "kind": "integration"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ]
+    },
+    {
+      "id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "title": "Write failing backend tests for submitted command matching and metadata",
+      "type": "code",
+      "req_ids": [
+        "FR-AITUI-003",
+        "SEC-AITUI-002"
+      ],
+      "files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "action": "Add red tests proving submitted claude/codex/custom commands match enabled recovery options, unmatched claudep stores no metadata, disabled/deleted option clears metadata, and AI TUI typing remains idle.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npm --prefix server test",
+          "expected_exit": 0
+        },
+        {
+          "kind": "checklist",
+          "items": [
+            "Tests cover claude, codex, claudep unmatched, and claudep custom option",
+            "Tests assert foreground AI TUI keyboard input does not transition to running"
+          ]
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm --prefix server test",
+        "windows": "npm --prefix server test"
+      },
+      "dod": [
+        "Matching tests fail before metadata implementation",
+        "Idle invariant regression is explicit",
+        "Icon metadata null clearing is asserted"
+      ],
+      "rollback": "Remove the added command matching tests from server/src/test-runner.ts.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-01-FR-AITUI-003",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-003"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH002-01-SEC-AITUI-002",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "SEC-AITUI-002"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "needs_clarification": [],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-AITUI-003-AC1-03",
+            "req_id": "FR-AITUI-003",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH002-01 FR-AITUI-003 AC-1",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-003-AC2-03",
+            "req_id": "FR-AITUI-003",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH002-01 FR-AITUI-003 AC-2",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-003-AC3-03",
+            "req_id": "FR-AITUI-003",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH002-01 FR-AITUI-003 AC-3",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-003-AC4-03",
+            "req_id": "FR-AITUI-003",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH002-01 FR-AITUI-003 AC-4",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-003-AC5-03",
+            "req_id": "FR-AITUI-003",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH002-01 FR-AITUI-003 AC-5",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-003-AC6-03",
+            "req_id": "FR-AITUI-003",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH002-01 FR-AITUI-003 AC-6",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC5-03",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH002-01 SEC-AITUI-002 AC-5",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ]
+    },
+    {
+      "id": "T-PH002-02",
+      "phase_id": "PH-002",
+      "title": "Implement command matching and persisted tab recovery metadata",
+      "type": "code",
+      "req_ids": [
+        "FR-AITUI-003",
+        "SEC-AITUI-002"
+      ],
+      "files": [
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "900-940"
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "2572-2608"
+        },
+        {
+          "path": "server/src/services/WorkspaceService.ts",
+          "line_range": "25-58"
+        },
+        {
+          "path": "server/src/types/workspace.types.ts",
+          "line_range": "18-30"
+        }
+      ],
+      "action": "Expose a submitted-command callback from SessionManager, match normalized executable tokens against enabled RecoveryOptionService entries, persist matched command/icon metadata on owning workspace tabs, and preserve the AI TUI idle invariant.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npm --prefix server test",
+          "expected_exit": 0
+        },
+        {
+          "kind": "checklist",
+          "items": [
+            "Existing Codex/Claude/Hermes idle tests remain passing",
+            "Workspace tab metadata stores matched command and safe icon data only"
+          ]
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm --prefix server test",
+        "windows": "npm --prefix server test"
+      },
+      "dod": [
+        "All T-PH002-01 tests pass",
+        "Metadata is cleared when no enabled option matches",
+        "writeInput matching does not mark foreground AI TUI typing as running"
+      ],
+      "rollback": "Remove recovery matching callbacks and workspace metadata fields from SessionManager/WorkspaceService/types.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-02-FR-AITUI-003",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-003"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH002-02-SEC-AITUI-002",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "SEC-AITUI-002"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "L",
+      "needs_clarification": [],
+      "depends_on_task": [
+        "T-PH002-01",
+        "T-PH001-02"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-AITUI-003-AC1-04",
+            "req_id": "FR-AITUI-003",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH002-02 FR-AITUI-003 AC-1",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-003-AC2-04",
+            "req_id": "FR-AITUI-003",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH002-02 FR-AITUI-003 AC-2",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-003-AC3-04",
+            "req_id": "FR-AITUI-003",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH002-02 FR-AITUI-003 AC-3",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-003-AC4-04",
+            "req_id": "FR-AITUI-003",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH002-02 FR-AITUI-003 AC-4",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-003-AC5-04",
+            "req_id": "FR-AITUI-003",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH002-02 FR-AITUI-003 AC-5",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-003-AC6-04",
+            "req_id": "FR-AITUI-003",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH002-02 FR-AITUI-003 AC-6",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC5-04",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH002-02 SEC-AITUI-002 AC-5",
+            "kind": "integration"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ]
+    },
+    {
+      "id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "title": "Write failing backend tests for restart and orphan restore execution",
+      "type": "code",
+      "req_ids": [
+        "FR-AITUI-004",
+        "FR-AITUI-005",
+        "SEC-AITUI-001"
+      ],
+      "files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "action": "Add red tests for restartTab and checkOrphanTabs restore evaluation, shell-specific quoting, shell/CWD readiness delay, deleted/disabled option skip, claudep dangerous-flag opt-in, and observable restore failures.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npm --prefix server test",
+          "expected_exit": 0
+        },
+        {
+          "kind": "checklist",
+          "items": [
+            "Tests cover PowerShell, cmd, bash, zsh, and sh quoting",
+            "Tests prove restore waits for readiness rather than immediate PTY creation write"
+          ]
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm --prefix server test",
+        "windows": "npm --prefix server test"
+      },
+      "dod": [
+        "Restore tests fail before injection path exists",
+        "Failure diagnostics are asserted",
+        "PowerShell NoProfile caveat is covered"
+      ],
+      "rollback": "Remove restore execution tests from server/src/test-runner.ts.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-01-FR-AITUI-004",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-004"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH003-01-FR-AITUI-005",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-005"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH003-01-SEC-AITUI-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "SEC-AITUI-001"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "needs_clarification": [],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-AITUI-004-AC1-05",
+            "req_id": "FR-AITUI-004",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-01 FR-AITUI-004 AC-1",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-004-AC2-05",
+            "req_id": "FR-AITUI-004",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-01 FR-AITUI-004 AC-2",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-004-AC3-05",
+            "req_id": "FR-AITUI-004",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-01 FR-AITUI-004 AC-3",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-004-AC4-05",
+            "req_id": "FR-AITUI-004",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-01 FR-AITUI-004 AC-4",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-004-AC5-05",
+            "req_id": "FR-AITUI-004",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-01 FR-AITUI-004 AC-5",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-004-AC6-05",
+            "req_id": "FR-AITUI-004",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-01 FR-AITUI-004 AC-6",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-005-AC4-05",
+            "req_id": "FR-AITUI-005",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-01 FR-AITUI-005 AC-4",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-005-AC6-05",
+            "req_id": "FR-AITUI-005",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-01 FR-AITUI-005 AC-6",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-001-AC3-05",
+            "req_id": "SEC-AITUI-001",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-01 SEC-AITUI-001 AC-3",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-001-AC5-05",
+            "req_id": "SEC-AITUI-001",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-01 SEC-AITUI-001 AC-5",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-001-AC6-05",
+            "req_id": "SEC-AITUI-001",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-01 SEC-AITUI-001 AC-6",
+            "kind": "integration",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ]
+    },
+    {
+      "id": "T-PH003-02",
+      "phase_id": "PH-003",
+      "title": "Implement readiness-aware restart and orphan restore execution",
+      "type": "code",
+      "req_ids": [
+        "FR-AITUI-004",
+        "FR-AITUI-005",
+        "SEC-AITUI-001"
+      ],
+      "files": [
+        {
+          "path": "server/src/services/WorkspaceService.ts",
+          "line_range": "336-351"
+        },
+        {
+          "path": "server/src/services/WorkspaceService.ts",
+          "line_range": "595-614"
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "1632-1668"
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "1701-1717"
+        },
+        {
+          "path": "server/src/utils/recoveryCommand.ts",
+          "line_range": "[INFERRED:new-file]"
+        }
+      ],
+      "action": "Add a restore input queue/callback that runs after shell startup and CWD initialization, re-checks the current enabled option, quotes command plus ordered args per shell, clears stale metadata for deleted/disabled options, and logs diagnostic failures.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npm --prefix server test",
+          "expected_exit": 0
+        },
+        {
+          "kind": "checklist",
+          "items": [
+            "codex resume --last and claudep dangerous-flag examples are quoted through the shared builder",
+            "Deleted or disabled options skip PTY writes"
+          ]
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm --prefix server test",
+        "windows": "npm --prefix server test"
+      },
+      "dod": [
+        "All T-PH003-01 tests pass",
+        "Restore executes only after shell/CWD readiness",
+        "Command construction uses structured command+arguments instead of raw concatenation"
+      ],
+      "rollback": "Remove restore injection queue/callback and WorkspaceService recovery option lookup changes.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-02-FR-AITUI-004",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-004"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH003-02-FR-AITUI-005",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-005"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH003-02-SEC-AITUI-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "SEC-AITUI-001"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "L",
+      "needs_clarification": [],
+      "depends_on_task": [
+        "T-PH003-01",
+        "T-PH001-02",
+        "T-PH002-02"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-AITUI-004-AC1-06",
+            "req_id": "FR-AITUI-004",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-02 FR-AITUI-004 AC-1",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-004-AC2-06",
+            "req_id": "FR-AITUI-004",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-02 FR-AITUI-004 AC-2",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-004-AC3-06",
+            "req_id": "FR-AITUI-004",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-02 FR-AITUI-004 AC-3",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-004-AC4-06",
+            "req_id": "FR-AITUI-004",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-02 FR-AITUI-004 AC-4",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-004-AC5-06",
+            "req_id": "FR-AITUI-004",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-02 FR-AITUI-004 AC-5",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-004-AC6-06",
+            "req_id": "FR-AITUI-004",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-02 FR-AITUI-004 AC-6",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-005-AC4-06",
+            "req_id": "FR-AITUI-005",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-02 FR-AITUI-005 AC-4",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-005-AC6-06",
+            "req_id": "FR-AITUI-005",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-02 FR-AITUI-005 AC-6",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-001-AC3-06",
+            "req_id": "SEC-AITUI-001",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-02 SEC-AITUI-001 AC-3",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-001-AC5-06",
+            "req_id": "SEC-AITUI-001",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-02 SEC-AITUI-001 AC-5",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-001-AC6-06",
+            "req_id": "SEC-AITUI-001",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "T-PH003-02 SEC-AITUI-001 AC-6",
+            "kind": "integration"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ]
+    },
+    {
+      "id": "T-PH004-01",
+      "phase_id": "PH-004",
+      "title": "Write failing frontend tests for recovery dialog and safe icons",
+      "type": "code",
+      "req_ids": [
+        "FR-AITUI-001",
+        "SEC-AITUI-002"
+      ],
+      "files": [
+        {
+          "path": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+          "line_range": "[INFERRED:new-file]"
+        },
+        {
+          "path": "frontend/tests/unit/recoveryOptionIcon.test.ts",
+          "line_range": "[INFERRED:new-file]"
+        },
+        {
+          "path": "frontend/tests/e2e/recovery-options.spec.ts",
+          "line_range": "[INFERRED:new-file]"
+        },
+        {
+          "path": "frontend/tests/e2e/helpers.ts"
+        }
+      ],
+      "action": "Add red unit and desktop Playwright tests for Tools menu 복구 옵션, blank add form, required command validation, empty arguments save, default deletion, icon rendering as data, and markup/script/URL rejection display paths.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npm --prefix frontend run typecheck",
+          "expected_exit": 0
+        },
+        {
+          "kind": "shell",
+          "cmd": "npm --prefix frontend exec playwright test tests/e2e/recovery-options.spec.ts --project \"Desktop Chrome\"",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm --prefix frontend run typecheck && npm --prefix frontend exec playwright test tests/e2e/recovery-options.spec.ts --project \"Desktop Chrome\"",
+        "windows": "npm --prefix frontend run typecheck && npm --prefix frontend exec playwright test tests/e2e/recovery-options.spec.ts --project \"Desktop Chrome\""
+      },
+      "dod": [
+        "Tests fail before UI/API implementation",
+        "Playwright opens the desktop Tools menu at https://localhost:2002",
+        "Icon injection cases never rely on raw markup rendering"
+      ],
+      "rollback": "Remove the new recovery option unit/e2e tests and helper additions.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-01-FR-AITUI-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH004-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-001"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH004-01-SEC-AITUI-002",
+          "source": {
+            "type": "Task",
+            "id": "T-PH004-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "SEC-AITUI-002"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "needs_clarification": [],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-AITUI-001-AC1-07",
+            "req_id": "FR-AITUI-001",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-01 FR-AITUI-001 AC-1",
+            "kind": "unit",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-001-AC2-07",
+            "req_id": "FR-AITUI-001",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-01 FR-AITUI-001 AC-2",
+            "kind": "unit",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-001-AC3-07",
+            "req_id": "FR-AITUI-001",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-01 FR-AITUI-001 AC-3",
+            "kind": "unit",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-001-AC4-07",
+            "req_id": "FR-AITUI-001",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-01 FR-AITUI-001 AC-4",
+            "kind": "unit",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-001-AC5-07",
+            "req_id": "FR-AITUI-001",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-01 FR-AITUI-001 AC-5",
+            "kind": "unit",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-001-AC6-07",
+            "req_id": "FR-AITUI-001",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-01 FR-AITUI-001 AC-6",
+            "kind": "unit",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC1-07",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-01 SEC-AITUI-002 AC-1",
+            "kind": "unit",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC2-07",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-01 SEC-AITUI-002 AC-2",
+            "kind": "unit",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC3-07",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-01 SEC-AITUI-002 AC-3",
+            "kind": "unit",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC4-07",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-01 SEC-AITUI-002 AC-4",
+            "kind": "unit",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC5-07",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-01 SEC-AITUI-002 AC-5",
+            "kind": "unit",
+            "expected_failure_signature": "not implemented|missing|expected failure|recovery option"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "frontend/tests/unit/recoveryOptionDialog.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "T-PH004-02",
+      "phase_id": "PH-004",
+      "title": "Implement desktop recovery option dialog API hook and icon rendering",
+      "type": "code",
+      "req_ids": [
+        "FR-AITUI-001",
+        "SEC-AITUI-002"
+      ],
+      "files": [
+        {
+          "path": "frontend/src/types/recoveryOption.ts",
+          "line_range": "[INFERRED:new-file]"
+        },
+        {
+          "path": "frontend/src/types/index.ts"
+        },
+        {
+          "path": "frontend/src/types/workspace.ts",
+          "line_range": "12-31"
+        },
+        {
+          "path": "frontend/src/services/api.ts",
+          "line_range": "458-570"
+        },
+        {
+          "path": "frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx",
+          "line_range": "[INFERRED:new-file]"
+        },
+        {
+          "path": "frontend/src/components/RecoveryOptionManager/useRecoveryOptions.ts",
+          "line_range": "[INFERRED:new-file]"
+        },
+        {
+          "path": "frontend/src/components/RecoveryOptionManager/index.ts",
+          "line_range": "[INFERRED:new-file]"
+        },
+        {
+          "path": "frontend/src/components/Header/Header.tsx",
+          "line_range": "22-61"
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "line_range": "99-106"
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "line_range": "520-532"
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "line_range": "686-704"
+        },
+        {
+          "path": "frontend/src/hooks/useWorkspaceManager.ts"
+        },
+        {
+          "path": "frontend/src/components/MetadataBar/MetadataRow.tsx",
+          "line_range": "67-120"
+        },
+        {
+          "path": "frontend/src/components/Workspace/WorkspaceTabBar.tsx",
+          "line_range": "75-143"
+        }
+      ],
+      "action": "Wire the desktop Header Tools menu to RecoveryOptionDialog, implement list/add/edit/delete/reorder UI with required command validation and optional arguments/icon controls, add recoveryOptionApi/useRecoveryOptions, propagate tab metadata null clearing, and render safe built-in/text icons left of terminal/tab names.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npm --prefix frontend run typecheck",
+          "expected_exit": 0
+        },
+        {
+          "kind": "shell",
+          "cmd": "npm --prefix frontend exec playwright test tests/e2e/recovery-options.spec.ts --project \"Desktop Chrome\"",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm --prefix frontend run typecheck && npm --prefix frontend exec playwright test tests/e2e/recovery-options.spec.ts --project \"Desktop Chrome\"",
+        "windows": "npm --prefix frontend run typecheck && npm --prefix frontend exec playwright test tests/e2e/recovery-options.spec.ts --project \"Desktop Chrome\""
+      },
+      "dod": [
+        "All T-PH004-01 tests pass",
+        "복구 옵션 appears only in the desktop Tools menu",
+        "Default Claude/Codex options can be deleted like normal rows",
+        "Persisted icon data is rendered without dangerouslySetInnerHTML"
+      ],
+      "rollback": "Remove RecoveryOptionManager files and undo Header/App/api/type/workspace icon rendering changes.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-02-FR-AITUI-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH004-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-001"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH004-02-SEC-AITUI-002",
+          "source": {
+            "type": "Task",
+            "id": "T-PH004-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "SEC-AITUI-002"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "L",
+      "needs_clarification": [],
+      "depends_on_task": [
+        "T-PH004-01",
+        "T-PH001-02",
+        "T-PH002-02"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-AITUI-001-AC1-08",
+            "req_id": "FR-AITUI-001",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-02 FR-AITUI-001 AC-1",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-001-AC2-08",
+            "req_id": "FR-AITUI-001",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-02 FR-AITUI-001 AC-2",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-001-AC3-08",
+            "req_id": "FR-AITUI-001",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-02 FR-AITUI-001 AC-3",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-001-AC4-08",
+            "req_id": "FR-AITUI-001",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-02 FR-AITUI-001 AC-4",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-001-AC5-08",
+            "req_id": "FR-AITUI-001",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-02 FR-AITUI-001 AC-5",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-FR-AITUI-001-AC6-08",
+            "req_id": "FR-AITUI-001",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-02 FR-AITUI-001 AC-6",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC1-08",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-02 SEC-AITUI-002 AC-1",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC2-08",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-02 SEC-AITUI-002 AC-2",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC3-08",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-02 SEC-AITUI-002 AC-3",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC4-08",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-02 SEC-AITUI-002 AC-4",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-SEC-AITUI-002-AC5-08",
+            "req_id": "SEC-AITUI-002",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/unit/recoveryOptionDialog.test.ts",
+            "test_symbol": "T-PH004-02 SEC-AITUI-002 AC-5",
+            "kind": "unit"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "frontend/tests/unit/recoveryOptionDialog.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "T-PH005-01",
+      "phase_id": "PH-005",
+      "title": "Run phase completion code review and final validation handoff",
+      "type": "review",
+      "req_ids": [
+        "FR-AITUI-001",
+        "FR-AITUI-002",
+        "FR-AITUI-003",
+        "FR-AITUI-004",
+        "FR-AITUI-005",
+        "SEC-AITUI-001",
+        "SEC-AITUI-002",
+        "REL-AITUI-001"
+      ],
+      "files": [
+        {
+          "path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md"
+        },
+        {
+          "path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.sidecar.json"
+        },
+        {
+          "path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.validator.json"
+        }
+      ],
+      "action": "After all green implementation tasks finish, run the repository-mandated critical sub-agent code review against the plan and implementation diff, fix every finding, re-run the same or equivalent reviewer until No findings, and confirm final backend/frontend/Playwright validation status.",
+      "acceptance_tests": [
+        {
+          "kind": "checklist",
+          "items": [
+            "A sub-agent code reviewer reports No findings or equivalent",
+            "Any review findings are fixed and re-reviewed",
+            "Final server, frontend, and desktop Playwright validation results are recorded for handoff"
+          ]
+        }
+      ],
+      "verification_cmd": null,
+      "dod": [
+        "Phase completion review loop is complete",
+        "No CRITICAL/HIGH reviewer findings remain",
+        "Final validation commands and residual warnings are reported to the user"
+      ],
+      "rollback": "Keep implementation changes but reopen the implementation loop at the failing phase if review or validation fails.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH005-01-FR-AITUI-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH005-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-001"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH005-01-FR-AITUI-002",
+          "source": {
+            "type": "Task",
+            "id": "T-PH005-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-002"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH005-01-FR-AITUI-003",
+          "source": {
+            "type": "Task",
+            "id": "T-PH005-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-003"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH005-01-FR-AITUI-004",
+          "source": {
+            "type": "Task",
+            "id": "T-PH005-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-004"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH005-01-FR-AITUI-005",
+          "source": {
+            "type": "Task",
+            "id": "T-PH005-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-AITUI-005"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH005-01-SEC-AITUI-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH005-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "SEC-AITUI-001"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH005-01-SEC-AITUI-002",
+          "source": {
+            "type": "Task",
+            "id": "T-PH005-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "SEC-AITUI-002"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH005-01-REL-AITUI-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH005-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-AITUI-001"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "needs_clarification": [],
+      "depends_on_task": [
+        "T-PH001-02",
+        "T-PH002-02",
+        "T-PH003-02",
+        "T-PH004-02"
+      ],
+      "covers_ac": [],
+      "tdd": {
+        "applicable": false,
+        "phase": "n/a",
+        "test_cases": [],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": []
+    }
+  ],
+  "coverage": [
+    {
+      "req_id": "FR-AITUI-001",
+      "stability": "evolving",
+      "ac_total": 6,
+      "ac_covered": 6,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH004-01",
+        "T-PH004-02",
+        "T-PH005-01"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-001-AC1-07",
+            "TC-REQ-FR-AITUI-001-AC1-08"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-001-AC2-07",
+            "TC-REQ-FR-AITUI-001-AC2-08"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-001-AC3-07",
+            "TC-REQ-FR-AITUI-001-AC3-08"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-001-AC4-07",
+            "TC-REQ-FR-AITUI-001-AC4-08"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-001-AC5-07",
+            "TC-REQ-FR-AITUI-001-AC5-08"
+          ]
+        },
+        {
+          "ac_id": "AC-6",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-001-AC6-07",
+            "TC-REQ-FR-AITUI-001-AC6-08"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "FR-AITUI-002",
+      "stability": "evolving",
+      "ac_total": 6,
+      "ac_covered": 6,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH001-01",
+        "T-PH001-02",
+        "T-PH005-01"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-002-AC1-01",
+            "TC-REQ-FR-AITUI-002-AC1-02"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-002-AC2-01",
+            "TC-REQ-FR-AITUI-002-AC2-02"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-002-AC3-01",
+            "TC-REQ-FR-AITUI-002-AC3-02"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-002-AC4-01",
+            "TC-REQ-FR-AITUI-002-AC4-02"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-002-AC5-01",
+            "TC-REQ-FR-AITUI-002-AC5-02"
+          ]
+        },
+        {
+          "ac_id": "AC-6",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-002-AC6-01",
+            "TC-REQ-FR-AITUI-002-AC6-02"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "FR-AITUI-003",
+      "stability": "evolving",
+      "ac_total": 6,
+      "ac_covered": 6,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH002-01",
+        "T-PH002-02",
+        "T-PH005-01"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-003-AC1-03",
+            "TC-REQ-FR-AITUI-003-AC1-04"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-003-AC2-03",
+            "TC-REQ-FR-AITUI-003-AC2-04"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-003-AC3-03",
+            "TC-REQ-FR-AITUI-003-AC3-04"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-003-AC4-03",
+            "TC-REQ-FR-AITUI-003-AC4-04"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-003-AC5-03",
+            "TC-REQ-FR-AITUI-003-AC5-04"
+          ]
+        },
+        {
+          "ac_id": "AC-6",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-003-AC6-03",
+            "TC-REQ-FR-AITUI-003-AC6-04"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "FR-AITUI-004",
+      "stability": "evolving",
+      "ac_total": 6,
+      "ac_covered": 6,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH003-01",
+        "T-PH003-02",
+        "T-PH005-01"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-004-AC1-05",
+            "TC-REQ-FR-AITUI-004-AC1-06"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-004-AC2-05",
+            "TC-REQ-FR-AITUI-004-AC2-06"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-004-AC3-05",
+            "TC-REQ-FR-AITUI-004-AC3-06"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-004-AC4-05",
+            "TC-REQ-FR-AITUI-004-AC4-06"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-004-AC5-05",
+            "TC-REQ-FR-AITUI-004-AC5-06"
+          ]
+        },
+        {
+          "ac_id": "AC-6",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-004-AC6-05",
+            "TC-REQ-FR-AITUI-004-AC6-06"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "FR-AITUI-005",
+      "stability": "evolving",
+      "ac_total": 6,
+      "ac_covered": 6,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH001-01",
+        "T-PH001-02",
+        "T-PH003-01",
+        "T-PH003-02",
+        "T-PH005-01"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-005-AC1-01",
+            "TC-REQ-FR-AITUI-005-AC1-02"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-005-AC2-01",
+            "TC-REQ-FR-AITUI-005-AC2-02"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-005-AC3-01",
+            "TC-REQ-FR-AITUI-005-AC3-02"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-005-AC4-05",
+            "TC-REQ-FR-AITUI-005-AC4-06"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-005-AC5-01",
+            "TC-REQ-FR-AITUI-005-AC5-02"
+          ]
+        },
+        {
+          "ac_id": "AC-6",
+          "test_case_ids": [
+            "TC-REQ-FR-AITUI-005-AC6-05",
+            "TC-REQ-FR-AITUI-005-AC6-06"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "SEC-AITUI-001",
+      "stability": "evolving",
+      "ac_total": 6,
+      "ac_covered": 6,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH001-01",
+        "T-PH001-02",
+        "T-PH003-01",
+        "T-PH003-02",
+        "T-PH005-01"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-SEC-AITUI-001-AC1-01",
+            "TC-REQ-SEC-AITUI-001-AC1-02"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-SEC-AITUI-001-AC2-01",
+            "TC-REQ-SEC-AITUI-001-AC2-02"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-SEC-AITUI-001-AC3-05",
+            "TC-REQ-SEC-AITUI-001-AC3-06"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-SEC-AITUI-001-AC4-01",
+            "TC-REQ-SEC-AITUI-001-AC4-02"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-SEC-AITUI-001-AC5-05",
+            "TC-REQ-SEC-AITUI-001-AC5-06"
+          ]
+        },
+        {
+          "ac_id": "AC-6",
+          "test_case_ids": [
+            "TC-REQ-SEC-AITUI-001-AC6-05",
+            "TC-REQ-SEC-AITUI-001-AC6-06"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "SEC-AITUI-002",
+      "stability": "evolving",
+      "ac_total": 5,
+      "ac_covered": 5,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH001-01",
+        "T-PH001-02",
+        "T-PH002-01",
+        "T-PH002-02",
+        "T-PH004-01",
+        "T-PH004-02",
+        "T-PH005-01"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-SEC-AITUI-002-AC1-01",
+            "TC-REQ-SEC-AITUI-002-AC1-02",
+            "TC-REQ-SEC-AITUI-002-AC1-07",
+            "TC-REQ-SEC-AITUI-002-AC1-08"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-SEC-AITUI-002-AC2-01",
+            "TC-REQ-SEC-AITUI-002-AC2-02",
+            "TC-REQ-SEC-AITUI-002-AC2-07",
+            "TC-REQ-SEC-AITUI-002-AC2-08"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-SEC-AITUI-002-AC3-01",
+            "TC-REQ-SEC-AITUI-002-AC3-02",
+            "TC-REQ-SEC-AITUI-002-AC3-07",
+            "TC-REQ-SEC-AITUI-002-AC3-08"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-SEC-AITUI-002-AC4-01",
+            "TC-REQ-SEC-AITUI-002-AC4-02",
+            "TC-REQ-SEC-AITUI-002-AC4-07",
+            "TC-REQ-SEC-AITUI-002-AC4-08"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-SEC-AITUI-002-AC5-03",
+            "TC-REQ-SEC-AITUI-002-AC5-04",
+            "TC-REQ-SEC-AITUI-002-AC5-07",
+            "TC-REQ-SEC-AITUI-002-AC5-08"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "REL-AITUI-001",
+      "stability": "evolving",
+      "ac_total": 5,
+      "ac_covered": 5,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH001-01",
+        "T-PH001-02",
+        "T-PH005-01"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-REL-AITUI-001-AC1-01",
+            "TC-REQ-REL-AITUI-001-AC1-02"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-REL-AITUI-001-AC2-01",
+            "TC-REQ-REL-AITUI-001-AC2-02"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-REL-AITUI-001-AC3-01",
+            "TC-REQ-REL-AITUI-001-AC3-02"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-REL-AITUI-001-AC4-01",
+            "TC-REQ-REL-AITUI-001-AC4-02"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-REL-AITUI-001-AC5-01",
+            "TC-REQ-REL-AITUI-001-AC5-02"
+          ]
+        }
+      ]
+    }
+  ],
+  "orphans": [],
+  "unreferenced_reqs": [],
+  "excluded_reqs": [],
+  "deferred_ac": [],
+  "risks": [
+    {
+      "id": "RISK-001",
+      "severity": "high",
+      "description": "Restore command auto-execution can run unsafe arguments if validation or quoting is incomplete.",
+      "mitigation": "Centralize structured command+argument validation and shell-specific quoting in server/src/utils/recoveryCommand.ts, and keep dangerous flags opt-in only.",
+      "affected_task_ids": [
+        "T-PH001-02",
+        "T-PH003-02"
+      ]
+    },
+    {
+      "id": "RISK-002",
+      "severity": "med",
+      "description": "Shell startup readiness differs across PowerShell, cmd, bash, zsh, and sh.",
+      "mitigation": "Use a readiness-aware restore queue/callback and shell-specific regression tests before writing restore input.",
+      "affected_task_ids": [
+        "T-PH003-01",
+        "T-PH003-02"
+      ]
+    },
+    {
+      "id": "RISK-003",
+      "severity": "med",
+      "description": "Icon rendering can regress into unsafe markup if typed icon data is bypassed.",
+      "mitigation": "Validate icons server-side and render via built-in key/text components only, with injection regression tests.",
+      "affected_task_ids": [
+        "T-PH001-01",
+        "T-PH004-02"
+      ]
+    }
+  ],
+  "open_questions": [],
+  "external_module_impact": [],
+  "tdd_decisions": [],
+  "coder_handoff_readiness": [
+    {
+      "phase_id": "PH-001",
+      "ready": true,
+      "blockers": []
+    },
+    {
+      "phase_id": "PH-002",
+      "ready": true,
+      "blockers": []
+    },
+    {
+      "phase_id": "PH-003",
+      "ready": true,
+      "blockers": []
+    },
+    {
+      "phase_id": "PH-004",
+      "ready": true,
+      "blockers": []
+    },
+    {
+      "phase_id": "PH-005",
+      "ready": true,
+      "blockers": []
+    }
+  ],
+  "mcp_call_log": [
+    {
+      "seq": 1,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-002"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "589f1dffbd4774cfa9af3f320ad63ee67510ccc2",
+      "response_hash": "782268e17e4af98c8dbc0e63887922d6a0ac0acb",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 2,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-005"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "605f7f0d51d01cd147eaf527692b3f00de0fedb2",
+      "response_hash": "25a16c3442514cea39c694968e5cd5ff56348c01",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 3,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-AITUI-001"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "b577099cc47c091e6ea164f1eb98150e1465be28",
+      "response_hash": "d28d762052321c08c64dc0f3b00e992b4656bcda",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 4,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "SEC-AITUI-001"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "5ba4d65c98c219a4d030ea969f8057a7c1497786",
+      "response_hash": "40b55dcf766fa2c1ea75523c82089fbcaacee774",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 5,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "SEC-AITUI-002"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "dbb42cd0b1730e4f433f33370cca0ed1460f5a4c",
+      "response_hash": "ac1b1cf9079617bda5573e5de68a530759eb038c",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 6,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-002"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "c239047a244bec8374a4462d6f06397ed740a749",
+      "response_hash": "51f5eef6b07e0138ec0b9d1f31d748bd9c3e5783",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 7,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-005"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "f6232188722cb4e8df5cfd5b8aef90bb533ffa80",
+      "response_hash": "98c7060b0e65e973c0af1cce0c7d0c43cb87b33d",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 8,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-AITUI-001"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "d5d326c620a1f3827e276bfe1496f12e143be309",
+      "response_hash": "c6f35dfda3dc48470a42b4b75faa1ac384c1ac91",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 9,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "SEC-AITUI-001"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "140eb064259f832728a5d66ce7098d6dc7bdb286",
+      "response_hash": "d55e5f4b74927e7bff2c8b2cca11c2b22320bc8d",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 10,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "SEC-AITUI-002"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "38fe0652dd6f9bda1bd6bb61ba05b5830dc88356",
+      "response_hash": "87eeb012d7f64cf91ebf66d261875f91c5b268ff",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 11,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-003"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "6bb297b958c4149d2009375a132fb58808d8f286",
+      "response_hash": "8cf9f6fe56491990411fa15b01f6d60197af038e",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 12,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "SEC-AITUI-002"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "686667814c3dfc4433c8bd74e5d2968cf8c4ecc8",
+      "response_hash": "3b206370e8ded42954eb8380ab01c4bdbfd9483a",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 13,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-003"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "1dda5889e766b253dd407628a8937f93cdc03433",
+      "response_hash": "93baaa94cc618419233be1274435a409fd9762d6",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 14,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "SEC-AITUI-002"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "cee9f7032b1862eadf2185a75d13bd134fcd3d43",
+      "response_hash": "45ed35216b894a5cd9547b43e2c7e6437757ef20",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 15,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-004"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "92b828b7deb0bbaef96a4ff8575df98a228a7d35",
+      "response_hash": "e801774a75bfb0d16ca3746a579b83b31a0971fc",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 16,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-005"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "1161a94f494351c057d064f7978eed56a5874a50",
+      "response_hash": "9d48dd1d3dd0c6eebf35c2efb3e733edcd7a5460",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 17,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "SEC-AITUI-001"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "f012282ce0558886c5d1aaa4fbacf3fd0d5a581e",
+      "response_hash": "c1faba444c86f42bcb25457d2363055b2518395d",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 18,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-004"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "d61713aa11557a5d186bd7e7b74fb3e06793817f",
+      "response_hash": "f61b47ee80ed26bd054eac3f1199ec228308940c",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 19,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-005"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "ae30e7d271b1a5230dbfd2f5ce62f5888135bd46",
+      "response_hash": "7b70fc79e87e2bb1d8c538f1c311b68e98dae5f1",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 20,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "SEC-AITUI-001"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "902bddb09bc156c0fa5d4dcf07769e460844873c",
+      "response_hash": "721b4569a22f595424b1236a9a049417bfcd32df",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 21,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH004-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-001"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "3a0c68e703f4d60be4c1463cd547ce85aa9e49c6",
+      "response_hash": "21a35b7d99ccc66a1a0b3f1835bd276c9a9eb6f0",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 22,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH004-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "SEC-AITUI-002"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "c2844da9c12af0c53d6ab53a0b7d773067d0cab1",
+      "response_hash": "efec14212d6129e929535cb3cff50118dff83a7c",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 23,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH004-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-001"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "99cfd18c50beea4a3ed7149421e71f149e5f9d91",
+      "response_hash": "b175ecdddee24467f0c9ea175a787220b3d6ae8d",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 24,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH004-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "SEC-AITUI-002"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "f040424e54b984cd4772a7d1821fadddc09a639f",
+      "response_hash": "f5b48f260913f159f123428b2a7cc423642d655d",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 25,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH005-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-001"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "7e902d5460969b0dac46903575ccbfe864256d32",
+      "response_hash": "58fa9811fa5c9cdb0281cc5d8e2f07929ee11550",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 26,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH005-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-002"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "e6563d86696e0b8df7b8b556cd106e028d7b6323",
+      "response_hash": "bc7565eca59fc113295cdf205da35c506cba9289",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 27,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH005-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-003"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "d6cd558239e7bec86977d8eaad3f0418d169408d",
+      "response_hash": "25f69178c6e171a96a7f004ae6662e503efff71f",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 28,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH005-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-004"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "08b8973ce7f7855261114fcad4887c4b2ba763b9",
+      "response_hash": "e235110c8da38fb7e75e6e0ed7a6a932f50d8eb3",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 29,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH005-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-AITUI-005"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "e67dbec85fae0ebb3e1fc2873101dd4f7e5ee6d4",
+      "response_hash": "2e3a40cd90c85450ca518d7f01b81cd4712f0b7c",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 30,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH005-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "SEC-AITUI-001"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "cfe089f3c2c774720acf319ead126b7cd3386b6a",
+      "response_hash": "35974c8f0ef4847b4c75d8546e66b91dbca9f018",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 31,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH005-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "SEC-AITUI-002"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "08c83dcfcb5cfc9024ebf264e95de8d39f2c07bf",
+      "response_hash": "5d814d0c379c5aafa0c53a24a3aa8a2e5c074ee0",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 32,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH005-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-AITUI-001"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "cae0ae890c933bb9fc3ffa8c3a9d2140654ccfc8",
+      "response_hash": "048b13910c99dcfc330077962659f0826d2aa678",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 33,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "FR-AITUI-001",
+        "type": "plan",
+        "reference": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md#FR-AITUI-001"
+      },
+      "args_hash": "6b19b596b9871ebfd5bc9142b661613d7e8a2f4c",
+      "response_hash": "b8b9f8af164dda932e812711484c0c7601187d66",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 34,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "FR-AITUI-002",
+        "type": "plan",
+        "reference": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md#FR-AITUI-002"
+      },
+      "args_hash": "f680f484dc01b53b2b3478daab98cb74f7bb0061",
+      "response_hash": "77d9e782713a4ffe26bbf12e052f2a876d59f28e",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 35,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "FR-AITUI-003",
+        "type": "plan",
+        "reference": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md#FR-AITUI-003"
+      },
+      "args_hash": "74e1c91ed94cee696bf26c681d2ca20aea4ed401",
+      "response_hash": "edeada7ee046bf2733d92c09eb9a9263d6627840",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 36,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "FR-AITUI-004",
+        "type": "plan",
+        "reference": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md#FR-AITUI-004"
+      },
+      "args_hash": "f2a596fc6cda9ee8b9a5dc23794cb3baadbeea7b",
+      "response_hash": "184e6d772af061f45824ba6abb7c18b34cb8f98d",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 37,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "FR-AITUI-005",
+        "type": "plan",
+        "reference": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md#FR-AITUI-005"
+      },
+      "args_hash": "bd6f2393bc9de2261ecd8cee0204a5bad19ccd10",
+      "response_hash": "802023b07a566c538b931e82fa946833a5239968",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 38,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "SEC-AITUI-001",
+        "type": "plan",
+        "reference": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md#SEC-AITUI-001"
+      },
+      "args_hash": "f046588d2a9fa87cb74b653786dc38f1222c1a1e",
+      "response_hash": "87c731868454e3b24bea0db0b035559d676cf8ba",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 39,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "SEC-AITUI-002",
+        "type": "plan",
+        "reference": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md#SEC-AITUI-002"
+      },
+      "args_hash": "259243009690f811196311f621979affca59e433",
+      "response_hash": "10b22be816aa01939dd924e89fdbe64c0582ae3c",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    },
+    {
+      "seq": 40,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "REL-AITUI-001",
+        "type": "plan",
+        "reference": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md#REL-AITUI-001"
+      },
+      "args_hash": "036cda5bb6b6deda6dcb9f288aad682f9a1c20d9",
+      "response_hash": "acd40db97e8ba314ec7cb4e8083bdd1093b41716",
+      "timestamp": "2026-05-22T00:00:00+09:00",
+      "ok": true
+    }
+  ]
+}

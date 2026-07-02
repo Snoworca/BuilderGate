@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-05-22.projectmaster.aitui-recovery",
+  "coder_run_id": "2026-05-22.projectmaster.aitui-recovery:T-PH002-01",
+  "task_id": "T-PH002-01",
+  "iteration": 1,
+  "reviewers": [
+    {
+      "reviewer": "S1-intent-alignment",
+      "axis": "intent-alignment",
+      "status": "pass",
+      "blocking_findings": 0,
+      "evidence": "Seven test registrations cover FR-AITUI-003 AC-1..AC-6 and SEC-AITUI-002 AC-5: claude, codex, unmatched claudep, custom claudep, icon broadcast, idle typing invariant, and disabled/deleted null clearing."
+    },
+    {
+      "reviewer": "S2-tech-quality",
+      "axis": "tech-quality",
+      "status": "pass",
+      "blocking_findings": 0,
+      "evidence": "Tests reuse existing in-process SessionManager, WorkspaceService, and RecoveryOptionService harnesses; no mocks or production implementation were added."
+    },
+    {
+      "reviewer": "S3-req-mapping",
+      "axis": "req-mapping",
+      "status": "pass",
+      "blocking_findings": 0,
+      "evidence": "Test names include T-PH002-01 symbols for FR-AITUI-003 AC-1..AC-6 and SEC-AITUI-002 AC-5 matching sidecar test cases."
+    },
+    {
+      "reviewer": "S4-red-verification",
+      "axis": "red-verification",
+      "status": "pass",
+      "blocking_findings": 0,
+      "evidence": "npm --prefix server test exits 1 with exactly 7 T-PH002-01 failures before T-PH002-02 metadata implementation."
+    }
+  ],
+  "red_verification": {
+    "command": "npm --prefix server test",
+    "exit_code": 1,
+    "expected_red": true,
+    "failed_tests": 7,
+    "failure_signature": "recovery option metadata not implemented"
+  },
+  "formal_verification": {
+    "command": "npm --prefix server run build",
+    "exit_code": 0
+  }
+}

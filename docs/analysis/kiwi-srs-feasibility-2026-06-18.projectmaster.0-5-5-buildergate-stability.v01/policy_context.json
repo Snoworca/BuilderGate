@@ -1,0 +1,16 @@
+{
+  "verification_policy_tier": 2,
+  "reason": "This is semantic SRS and feasibility planning for previously implemented stability behavior.",
+  "constraints": [
+    "Do not use https://localhost:2002 for real/manual/Playwright validation.",
+    "Do not terminate all node.exe processes.",
+    "All project file reads and writes use UTF-8.",
+    "New SRS scope/target mutation requires user confirmation.",
+    "Bug fixes require regression tests; current feasibility run does not change production code."
+  ],
+  "tdd_context": {
+    "current_run_changed_production_code": false,
+    "implementation_report_records_red_green_coverage": true,
+    "additional_live_soak_is_operational_validation_not_unit_TDD": true
+  }
+}

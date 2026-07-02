@@ -1,0 +1,34 @@
+{
+  "iter": 1,
+  "purpose": "Initial post-SRS independent evaluation",
+  "evaluators": [
+    {
+      "agent": "019f17bd-9890-7940-8b57-7c0367e623bf",
+      "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 2, "LOW": 0 },
+      "findings": [
+        "FR-BGSTAB-015 AC-1 allowed active runtime Settings variables to be explicitly unavailable.",
+        "OBS-BGSTAB-001 AC-1 used vague relevant transport counters."
+      ]
+    },
+    {
+      "agent": "019f17be-00c0-73b1-a528-bd9bfe726eac",
+      "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 2, "LOW": 2 },
+      "findings": [
+        "FR-BGSTAB-015 AC-1 weakened active runtime Settings availability.",
+        "REL-BGSTAB-003 and OBS-BGSTAB-001 used non-canonical related trace relations.",
+        "OBS-BGSTAB-001 lacked explicit soak pass/fail outcomes."
+      ]
+    },
+    {
+      "agent": "019f17be-5b90-7f40-bd4a-796255e26953",
+      "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 5, "LOW": 0 },
+      "findings": [
+        "FR-BGSTAB-015 AC-1 active-runtime availability issue.",
+        "FR-BGSTAB-016 rationale conflicted with Wave4 wording.",
+        "REL-BGSTAB-003 and OBS-BGSTAB-001 non-canonical related trace relations.",
+        "OBS-BGSTAB-001 relevant transport counters wording was vague."
+      ]
+    }
+  ],
+  "result": "fixes_required"
+}

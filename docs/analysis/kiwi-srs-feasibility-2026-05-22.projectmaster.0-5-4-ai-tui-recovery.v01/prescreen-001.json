@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01",
+  "chunk_id": "001",
+  "quick_pass": [],
+  "quick_block": [],
+  "senior_targets": [
+    { "req_id": "FR-AITUI-001", "reason": "medium risk; multi-surface UI/API/metadata acceptance criteria" },
+    { "req_id": "FR-AITUI-002", "reason": "medium risk; new persistent store, seed-once behavior, duplicate normalization, invalid-row recovery, and concurrent mutation criteria" },
+    { "req_id": "FR-AITUI-003", "reason": "high risk; SessionManager input path, workspace metadata, frontend rendering, and AI TUI idle invariant" },
+    { "req_id": "FR-AITUI-004", "reason": "high risk; restart/orphan recovery, shell readiness, and restore injection" },
+    { "req_id": "FR-AITUI-005", "reason": "high risk; depends on persistence, matching, restore construction, and PowerShell NoProfile caveat" },
+    { "req_id": "SEC-AITUI-001", "reason": "high risk security; auto-execution, auth, shell escaping, dangerous flags, and observability" },
+    { "req_id": "SEC-AITUI-002", "reason": "high risk security; icon allowlist and rendering safety" },
+    { "req_id": "REL-AITUI-001", "reason": "medium risk reliability; backup recovery and seed-once preservation edge cases" }
+  ]
+}

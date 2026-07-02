@@ -1,0 +1,268 @@
+{
+  "req_anchors": [
+    {
+      "req_id": "FR-AITUI-001",
+      "files": [
+        {
+          "path": "frontend/src/components/Header/Header.tsx",
+          "line_range": "52-61",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "line_range": "99-106",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "line_range": "520-532",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "line_range": "686-704",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "frontend/src/services/api.ts",
+          "line_range": "458-570",
+          "signature": "SRS trace anchor"
+        }
+      ]
+    },
+    {
+      "req_id": "FR-AITUI-002",
+      "files": [
+        {
+          "path": "server/src/services/CommandPresetService.ts",
+          "line_range": "22-52",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/services/CommandPresetService.ts",
+          "line_range": "155-176",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/services/CommandPresetService.ts",
+          "line_range": "216-290",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/routes/commandPresetRoutes.ts",
+          "line_range": "6-52",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/index.ts",
+          "line_range": "280-287",
+          "signature": "SRS trace anchor"
+        }
+      ]
+    },
+    {
+      "req_id": "FR-AITUI-003",
+      "files": [
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "900-940",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "2572-2608",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/types/workspace.types.ts",
+          "line_range": "18-30",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "frontend/src/types/workspace.ts",
+          "line_range": "12-31",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "frontend/src/components/MetadataBar/MetadataRow.tsx",
+          "line_range": "67-120",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "frontend/src/components/Workspace/WorkspaceTabBar.tsx",
+          "line_range": "75-143",
+          "signature": "SRS trace anchor"
+        }
+      ]
+    },
+    {
+      "req_id": "FR-AITUI-004",
+      "files": [
+        {
+          "path": "server/src/services/WorkspaceService.ts",
+          "line_range": "336-351",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/services/WorkspaceService.ts",
+          "line_range": "595-614",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/services/WorkspaceService.ts",
+          "line_range": "626-640",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "1632-1668",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "1701-1717",
+          "signature": "SRS trace anchor"
+        }
+      ]
+    },
+    {
+      "req_id": "FR-AITUI-005",
+      "files": [
+        {
+          "path": "server/src/services/CommandPresetService.ts",
+          "line_range": "22-52",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "1701-1717",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx",
+          "line_range": "67-120",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "2572-2608",
+          "signature": "SRS trace anchor"
+        }
+      ]
+    },
+    {
+      "req_id": "SEC-AITUI-001",
+      "files": [
+        {
+          "path": "server/src/index.ts",
+          "line_range": "280-287",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/routes/commandPresetRoutes.ts",
+          "line_range": "6-52",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/services/CommandPresetService.ts",
+          "line_range": "216-290",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "1632-1668",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/services/WorkspaceService.ts",
+          "line_range": "595-614",
+          "signature": "SRS trace anchor"
+        }
+      ]
+    },
+    {
+      "req_id": "SEC-AITUI-002",
+      "files": [
+        {
+          "path": "server/src/services/CommandPresetService.ts",
+          "line_range": "155-176",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/routes/commandPresetRoutes.ts",
+          "line_range": "6-52",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "frontend/src/components/MetadataBar/MetadataRow.tsx",
+          "line_range": "67-120",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "frontend/src/components/Workspace/WorkspaceTabBar.tsx",
+          "line_range": "75-143",
+          "signature": "SRS trace anchor"
+        }
+      ]
+    },
+    {
+      "req_id": "REL-AITUI-001",
+      "files": [
+        {
+          "path": "server/src/services/CommandPresetService.ts",
+          "line_range": "216-290",
+          "signature": "SRS trace anchor"
+        },
+        {
+          "path": "server/src/services/CommandPresetService.ts",
+          "line_range": "22-52",
+          "signature": "SRS trace anchor"
+        }
+      ]
+    }
+  ],
+  "missing_anchors": [],
+  "external_paths_detected": [],
+  "addition_sites": [
+    {
+      "path": "server/src/types/recoveryOption.types.ts",
+      "line_range": "new_file",
+      "signature": "RecoveryOption domain types"
+    },
+    {
+      "path": "server/src/services/RecoveryOptionService.ts",
+      "line_range": "new_file",
+      "signature": "RecoveryOptionService"
+    },
+    {
+      "path": "server/src/routes/recoveryOptionRoutes.ts",
+      "line_range": "new_file",
+      "signature": "createRecoveryOptionRoutes"
+    },
+    {
+      "path": "server/src/utils/recoveryCommand.ts",
+      "line_range": "new_file",
+      "signature": "normalizeRecoveryCommand / quoteRecoveryCommandForShell"
+    },
+    {
+      "path": "frontend/src/types/recoveryOption.ts",
+      "line_range": "new_file",
+      "signature": "frontend API types"
+    },
+    {
+      "path": "frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx",
+      "line_range": "new_file",
+      "signature": "RecoveryOptionDialog"
+    },
+    {
+      "path": "frontend/src/components/RecoveryOptionManager/useRecoveryOptions.ts",
+      "line_range": "new_file",
+      "signature": "useRecoveryOptions"
+    },
+    {
+      "path": "frontend/tests/e2e/recovery-options.spec.ts",
+      "line_range": "new_file",
+      "signature": "desktop recovery options E2E"
+    }
+  ]
+}

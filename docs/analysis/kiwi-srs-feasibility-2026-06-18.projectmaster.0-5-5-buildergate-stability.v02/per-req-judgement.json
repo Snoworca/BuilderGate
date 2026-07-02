@@ -1,0 +1,51 @@
+[
+  {
+    "req_id": "FR-BGSTAB-001",
+    "feasibility": "high",
+    "score": 90,
+    "stability_applied": "evolving"
+  },
+  {
+    "req_id": "FR-BGSTAB-002",
+    "feasibility": "high",
+    "score": 88,
+    "stability_applied": "evolving"
+  },
+  {
+    "req_id": "FR-BGSTAB-003",
+    "feasibility": "high",
+    "score": 87,
+    "stability_applied": "evolving"
+  },
+  {
+    "req_id": "FR-BGSTAB-004",
+    "feasibility": "high",
+    "score": 86,
+    "stability_applied": "evolving"
+  },
+  {
+    "req_id": "FR-BGSTAB-005",
+    "feasibility": "high",
+    "score": 85,
+    "stability_applied": "evolving"
+  },
+  {
+    "req_id": "FR-BGSTAB-006",
+    "feasibility": "high",
+    "score": 84,
+    "stability_applied": "evolving"
+  },
+  {
+    "req_id": "FR-BGSTAB-007",
+    "feasibility": "high",
+    "score": 82,
+    "stability_applied": "evolving"
+  },
+  {
+    "req_id": "REL-BGSTAB-001",
+    "feasibility": "medium",
+    "score": 72,
+    "stability_applied": "evolving",
+    "condition": "Do not promote to stable until non-2002 live split validation and long-running browser memory/input-lag soak evidence exist."
+  }
+]

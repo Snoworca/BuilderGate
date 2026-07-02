@@ -1,0 +1,97 @@
+{
+  "run_id": "2026-06-18.projectmaster.buildergate-stability.live",
+  "classification": "new-scope",
+  "mode": "live",
+  "target": "0.5.5-buildergate-stability",
+  "scope": "BGSTAB",
+  "mcp_calls": [
+    {
+      "tool": "set_target_goal",
+      "ok": true,
+      "written": true
+    },
+    {
+      "tool": "set_active_target",
+      "ok": true,
+      "activeTarget": "0.5.5-buildergate-stability",
+      "previousActiveTarget": "0.5.4-ai-tui-recovery",
+      "written": true
+    },
+    {
+      "tool": "add_requirement",
+      "ok": true,
+      "result_id": "FR-BGSTAB-001"
+    },
+    {
+      "tool": "add_requirement",
+      "ok": true,
+      "result_id": "FR-BGSTAB-002"
+    },
+    {
+      "tool": "add_requirement",
+      "ok": true,
+      "result_id": "FR-BGSTAB-003"
+    },
+    {
+      "tool": "add_requirement",
+      "ok": true,
+      "result_id": "FR-BGSTAB-004"
+    },
+    {
+      "tool": "add_requirement",
+      "ok": true,
+      "result_id": "FR-BGSTAB-005"
+    },
+    {
+      "tool": "add_requirement",
+      "ok": true,
+      "result_id": "FR-BGSTAB-006"
+    },
+    {
+      "tool": "add_requirement",
+      "ok": true,
+      "result_id": "FR-BGSTAB-007"
+    },
+    {
+      "tool": "add_requirement",
+      "ok": true,
+      "result_id": "REL-BGSTAB-001"
+    },
+    {
+      "tool": "add_completed_work",
+      "ok": true,
+      "written": true
+    }
+  ],
+  "bootstrap_edits": [
+    {
+      "file": "docs/spec/00.index.md",
+      "op": "manual pre-MCP bootstrap",
+      "details": "Registered target row, SRS Documents row, and Scope Map row before add_requirement."
+    },
+    {
+      "file": "docs/spec/30.buildergate-stability.srs.md",
+      "op": "manual pre-MCP bootstrap",
+      "details": "Created empty scope_srs shell before add_requirement inserted requirement blocks."
+    }
+  ],
+  "added_ids": [
+    "FR-BGSTAB-001",
+    "FR-BGSTAB-002",
+    "FR-BGSTAB-003",
+    "FR-BGSTAB-004",
+    "FR-BGSTAB-005",
+    "FR-BGSTAB-006",
+    "FR-BGSTAB-007",
+    "REL-BGSTAB-001"
+  ],
+  "spec_files": [
+    "docs/spec/00.index.md",
+    "docs/spec/30.buildergate-stability.srs.md"
+  ],
+  "validate_spec_result": {
+    "ok": true,
+    "errors": 0,
+    "warnings": 0
+  }
+}

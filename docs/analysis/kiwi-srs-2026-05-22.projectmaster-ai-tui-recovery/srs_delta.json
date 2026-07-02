@@ -1,0 +1,36 @@
+{
+  "classification": "new-scope",
+  "mode": "live",
+  "mcp_calls": [
+    { "tool": "set_active_target", "target": "0.5.4-ai-tui-recovery", "ok": true },
+    { "tool": "set_target_goal", "target": "0.5.4-ai-tui-recovery", "ok": true },
+    { "tool": "add_requirement", "result_id": "FR-AITUI-001", "ok": true },
+    { "tool": "add_requirement", "result_id": "FR-AITUI-002", "ok": true },
+    { "tool": "add_requirement", "result_id": "FR-AITUI-003", "ok": true },
+    { "tool": "add_requirement", "result_id": "FR-AITUI-004", "ok": true },
+    { "tool": "add_requirement", "result_id": "FR-AITUI-005", "ok": true },
+    { "tool": "add_requirement", "result_id": "SEC-AITUI-001", "ok": true },
+    { "tool": "add_requirement", "result_id": "SEC-AITUI-002", "ok": true },
+    { "tool": "add_requirement", "result_id": "REL-AITUI-001", "ok": true },
+    { "tool": "add_completed_work", "ok": true, "allowIncomplete": true }
+  ],
+  "scope_doc_edits": [
+    { "file": "docs/spec/00.index.md", "section": "Target Map and Scope Map", "op": "bootstrap new target and scope" },
+    { "file": "docs/spec/20.ai-tui-recovery.srs.md", "section": "new scope document", "op": "create" }
+  ],
+  "added_ids": [
+    "FR-AITUI-001",
+    "FR-AITUI-002",
+    "FR-AITUI-003",
+    "FR-AITUI-004",
+    "FR-AITUI-005",
+    "SEC-AITUI-001",
+    "SEC-AITUI-002",
+    "REL-AITUI-001"
+  ],
+  "validate_spec_result": {
+    "errors": 0,
+    "warnings": 16,
+    "warning_codes": ["SRS-W023", "SRS-W015"]
+  }
+}

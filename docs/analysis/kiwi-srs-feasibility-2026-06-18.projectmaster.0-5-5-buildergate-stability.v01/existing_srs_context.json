@@ -1,0 +1,12 @@
+{
+  "active_target": "0.5.4-ai-tui-recovery",
+  "active_scope": "AITUI",
+  "active_scope_relevance": "low",
+  "existing_buildergate_stability_scope_found": false,
+  "reasoning": [
+    "The active SRS target covers AI TUI recovery options, restart/orphan recovery, metadata, and security concerns.",
+    "The BuilderGate stability work covers terminal resource caps, browser input backpressure, output scheduling, snapshot budgets, runtime residency, and split WebSocket transport.",
+    "Adding BGSTAB requirements to the active AITUI target would mix unrelated product scopes."
+  ],
+  "recommendation": "Create or confirm a dedicated BuilderGate Stability target/scope before live SpecKiwi mutation."
+}

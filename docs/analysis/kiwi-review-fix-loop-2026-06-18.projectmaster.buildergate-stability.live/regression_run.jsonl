@@ -1,0 +1,9 @@
+{"command":"node --experimental-strip-types --test frontend/tests/unit/runtimeConfig.test.ts frontend/tests/unit/webSocketUrl.test.ts frontend/tests/unit/splitWebSocketLifecycle.test.ts frontend/tests/unit/webSocketBackpressure.test.ts frontend/tests/unit/terminalOutputScheduler.test.ts frontend/tests/unit/terminalSnapshot.test.ts frontend/tests/unit/useTerminalRuntimeResidency.test.ts frontend/tests/unit/visibleOutputRecovery.test.ts","result":"pass","summary":"44/44 pass"}
+{"command":"npm --prefix frontend run typecheck","result":"pass"}
+{"command":"npm --prefix server run build","result":"pass"}
+{"command":"node --test server/dist/ws/WsRouterSplitHandshake.test.js server/dist/ws/wsTransportMode.test.js server/dist/services/RuntimeConfigStore.test.js","result":"pass","summary":"25/25 pass"}
+{"command":"SpecKiwi validate_spec(strict=true, failOnWarning=false)","result":"pass","summary":"errors 0, warnings 0"}
+{"command":"git diff --check -- docs/spec docs/analysis/... docs/research/... kiwi/pipeline.jsonl kiwi/.pipeline-path","result":"pass","summary":"No whitespace errors; Git reported existing LF-to-CRLF warning for docs/spec/00.index.md."}
+{"command":"npm --prefix frontend run build","result":"pass","summary":"Production build passed; Vite reported the existing large chunk warning."}
+{"command":"npm --prefix server test","result":"pass","summary":"270/270 pass"}
+{"command":"subagent review recheck","result":"pass","summary":"Aquinas returned No findings after KRF-001..KRF-003 were fixed."}

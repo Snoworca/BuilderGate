@@ -1,0 +1,40 @@
+{
+  "summary": "Capture the implemented BuilderGate terminal stability work as a dedicated SRS scope covering bounded runtime limits, input backpressure, output scheduling, snapshot storage budgets, runtime residency, and split WebSocket routing/fallback.",
+  "intent_type_hint": "new-scope",
+  "key_entities": [
+    "BuilderGate",
+    "terminal stability",
+    "runtime resource limits",
+    "browser WebSocket backpressure",
+    "visible xterm output scheduler",
+    "terminal snapshot storage",
+    "terminal runtime residency",
+    "split WebSocket"
+  ],
+  "ambiguities": [
+    {
+      "id": "AMB-1",
+      "question": "Should BuilderGate stability requirements be registered under a new target/scope or folded into the active AI TUI recovery target?",
+      "recommended_answer": "Use new target 0.5.5-buildergate-stability and new scope BGSTAB."
+    }
+  ],
+  "implied_requirements": [
+    "Default websocket transport mode remains unified.",
+    "Control/recovery WebSocket messages must not be blocked by input backpressure.",
+    "Output overflow must recover through authoritative server snapshot or repair flows instead of unbounded accumulation.",
+    "Hidden terminal runtime eviction must not delete persistent workspace or tab state.",
+    "Split WebSocket output failure must not drop queued terminal output or disturb split-shadow control replay state."
+  ],
+  "semantic_equivalences": [
+    {
+      "prompt_term": "브라우저 키보드 입력 지연",
+      "spec_term": "input backpressure and control lane protection",
+      "confidence": "high"
+    },
+    {
+      "prompt_term": "메모리 누수",
+      "spec_term": "bounded queues, snapshot budgets, and runtime residency",
+      "confidence": "high"
+    }
+  ]
+}

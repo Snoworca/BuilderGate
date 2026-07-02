@@ -1,0 +1,12 @@
+{
+  "candidate_matches": [
+    { "id": "FR-ARCH-004", "scope": "ARCH", "title": "Terminal registered item paste menu", "relation_hint": "potential-conflict", "similarity_score": 0.34 },
+    { "id": "FR-ARCH-006", "scope": "ARCH", "title": "Registered item paste error observability", "relation_hint": "potential-update", "similarity_score": 0.31 }
+  ],
+  "relevant_scopes": ["ARCH"],
+  "no_match_reason": "Existing SRS covers registered item paste safety, not AI TUI recovery option execution. The new feature is separated into AITUI to avoid conflict with paste-only context menu requirements.",
+  "target_fit_notes": [
+    "Initial active target 0.5.3step1 was not a fit.",
+    "User selected 0.5.4-ai-tui-recovery."
+  ]
+}

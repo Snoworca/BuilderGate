@@ -1,0 +1,12 @@
+{
+  "run_id": "2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01",
+  "evaluated_reqs": 8,
+  "phase1_standard_agents": 3,
+  "phase2_prescreen_agents": 1,
+  "phase2_senior_targets": 8,
+  "phase2_5_research_agents": 0,
+  "phase5_evaluator_agents_per_iter": 2,
+  "expected_phase5_iters": 1,
+  "estimated_subagent_total": 14,
+  "cost_cap": null
+}

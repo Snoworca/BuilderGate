@@ -1,0 +1,930 @@
+{
+ "run_id": "2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+ "iter": 2,
+ "judgements": [
+  {
+   "req_id": "FR-BGSTAB-001",
+   "feasibility": "high",
+   "score": 90,
+   "score_range": [
+    85,
+    95
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "Foundation requirement (no depends_on). All 3 trace paths exist with no line-range mismatch. AC-1..3 are given/when/then with concretely observable outcomes (typed getters, fallback-to-default path, wsTransportMode preservation). VE (frontend/tests/unit/runtimeConfig.test.ts, server RuntimeConfigStore.test.ts) exist and cover all ACs. Minor doc hygiene note: AC checkboxes in markdown are rendered as '- [ ]' (checked:false) despite status=implemented and VE coverage — cosmetic only, does not affect feasibility.",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-BGSTAB-002",
+   "feasibility": "high",
+   "score": 87,
+   "score_range": [
+    82,
+    92
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "All 3 trace paths exist, no mismatches. depends_on FR-BGSTAB-001, which is implemented/evolving (healthy). AC-1..6 clear and independently testable (threshold-based send/backpressure/reconnect/bypass/clear/no-raw-log). VE (webSocketBackpressure.test.ts, runtimeConfig.test.ts) cover the ACs. Same checkbox-vs-status cosmetic note as FR-BGSTAB-001.",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-BGSTAB-003",
+   "feasibility": "high",
+   "score": 84,
+   "score_range": [
+    78,
+    90
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "1 trace mismatch: frontend/src/utils/visibleOutputRecovery.ts:1-120 recorded, but file is actually 100 lines (confirmed via wc -l) — a ~20-line drift from file shrinkage since the trace was recorded, not a wrong-file or hallucinated-path issue; file still exists and is the correct target per its role (recovery retry/abandon policy). Treated as minor per file-shortening exception, not escalated to senior_target. AC-1..5 clear (bounded chunking, code-point safety, overflow/recovery observability, reset idempotency). VE (terminalOutputScheduler.test.ts, visibleOutputRecovery.test.ts) cover the ACs. depends_on FR-BGSTAB-001 (healthy).",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-BGSTAB-004",
+   "feasibility": "high",
+   "score": 85,
+   "score_range": [
+    80,
+    90
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "1 trace mismatch: frontend/src/utils/terminalSnapshot.ts:1-560 recorded, but file is actually 505 lines (confirmed via wc -l) — ~55-line drift from file shrinkage, same benign category as FR-BGSTAB-003 (file still exists, correct target). AC-1..5 clear and testable (per-snapshot limit rejection, budget eviction, maxEntries eviction, tombstone fresh-block, tombstone-expired-non-block). VE (terminalSnapshot.test.ts) covers all ACs. depends_on FR-BGSTAB-001 (healthy).",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-BGSTAB-005",
+   "feasibility": "high",
+   "score": 88,
+   "score_range": [
+    83,
+    93
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "Both trace paths exist, no mismatches. AC-1..5 clear (visible-pin, hidden LRU eviction by maxLiveTerminals/maxLiveWorkspaces, TTL retention, disconnected-tab exclusion) with concretely observable residency-set outcomes. VE (useTerminalRuntimeResidency.test.ts) covers all ACs. depends_on FR-BGSTAB-001 and FR-BGSTAB-004, both implemented/evolving (healthy).",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-BGSTAB-006",
+   "feasibility": "high",
+   "score": 81,
+   "score_range": [
+    75,
+    88
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "3 trace mismatches, all confirmed via wc -l as file-shrinkage line-range overshoot (benign category, not wrong-file/hallucination): server/src/ws/wsTransportMode.ts:1-130 vs actual 93 lines (~28% over); frontend/src/utils/splitWebSocketLifecycle.ts:1-64 vs actual 35 lines (~45% over, the largest drift found in this chunk); frontend/src/utils/webSocketUrl.ts:1-74 vs actual 71 lines (negligible ~4% over). All referenced files exist and match their stated roles (transport parser, split lifecycle gating, URL construction). Kept as quick_pass per the file-shortening exception, but the splitWebSocketLifecycle.ts drift is proportionally the largest observed across both chunks and may warrant a light trace refresh even though it does not block feasibility. AC-1..5 are clear and testable (unified compat, split handshake metadata, pair-token/identity rejection, duplicate-output-socket replacement, split-shadow non-interference). VE (WsRouterSplitHandshake.test.ts, wsTransportMode.test.ts, webSocketUrl.test.ts, splitWebSocketLifecycle.test.ts) cover all ACs. depends_on FR-BGSTAB-001, implemented/evolving (healthy).",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-BGSTAB-007",
+   "feasibility": "high",
+   "score": 87,
+   "score_range": [
+    82,
+    92
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "1 trace mismatch: server/src/ws/WsRouter.ts:2108-2449 vs actual file length 2408 (confirmed via wc -l) — negligible ~1.7% overshoot from file shrinkage. AC-1..7 clear and testable (output-socket routing, control-socket-only message types, fallback on absent/closed output, reroute on overflow/hard-limit/error, fresh recovery snapshot + pending-output preservation, repair-pending flush, split-shadow non-forcing). VE (WsRouterSplitHandshake.test.ts covering AC-1..7, splitWebSocketLifecycle.test.ts covering AC-3) exist. depends_on FR-BGSTAB-006, implemented/evolving (healthy).",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-BGSTAB-008",
+   "feasibility": "high",
+   "score": 90,
+   "score_range": [
+    85,
+    95
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "9 trace paths, all exist; only 1 negligible mismatch noted by code_context.json itself (SettingsService.resourceLimits.test.ts:48 lands on a closing brace, but surrounding lines 43-53 are the relevant fixture — contextually valid, not a real drift). All 6 ACs are marked checked:true in the SRS (consistent with status=implemented, unlike chunk1's checkbox-vs-status mismatch). Very strong verification evidence: 11 VE entries spanning full server test suite runs, targeted node --test invocations, frontend typecheck, and an explicit multi-agent reviewer re-review. depends_on FR-BGSTAB-001 and REL-BGSTAB-001, both implemented/evolving (healthy).",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-BGSTAB-009",
+   "feasibility": "high",
+   "score": 92,
+   "score_range": [
+    88,
+    96
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "9 trace paths, all exist, zero mismatches reported or found. All 6 ACs marked checked:true, matching status=implemented. Diverse VE: a plan doc, full server test suite, targeted schema/template tests, an independent review-fix-loop report, and plan-validation JSON. depends_on FR-BGSTAB-008 (implemented/evolving, healthy) and extends REL-BGSTAB-001 (implemented/evolving, healthy). Task-type trace links (T-PH00x-xx) are plan-step references, not REQ dependencies, and do not affect stability health.",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-BGSTAB-010",
+   "feasibility": "high",
+   "score": 92,
+   "score_range": [
+    88,
+    96
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "7 trace paths, all exist, zero mismatches. All 7 ACs marked checked:true, matching status=implemented. VE spans a plan doc, full server test suite (run twice, once pre- and once post-review-fix), a targeted frontend typecheck for workspace.ts, and an independent review-fix-loop report. depends_on FR-BGSTAB-009, implemented/evolving (healthy). Same Task-type trace-link caveat as FR-BGSTAB-009 applies (not REQ dependencies).",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-BGSTAB-011",
+   "feasibility": "high",
+   "score": 92,
+   "score_range": [
+    88,
+    96
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "Wave2 검증된 프로세스 트리 종료. status=implemented, stability=evolving. AC 7개 전부 checked, trace_paths 5개 all_paths_exist=true·mismatch 0. 유일 의존 FR-BGSTAB-009(implemented/evolving) healthy. Evidence 5건(전체 서버 테스트 스위트+데몬 process-info 테스트+독립 리뷰)로 AC 전항 커버.",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-BGSTAB-012",
+   "feasibility": "high",
+   "score": 90,
+   "score_range": [
+    85,
+    95
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "Wave4 bounded output queue/WS backpressure. status=implemented, stability=evolving. AC 8개 전부 checked, trace mismatch 0. 의존 FR-BGSTAB-008(implemented/evolving) healthy. Evidence 6건, 287 테스트 통과 + review-fix loop(No findings 재검증) 기록.",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-BGSTAB-013",
+   "feasibility": "high",
+   "score": 90,
+   "score_range": [
+    85,
+    95
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "Wave6 Settings 리소스 제한 UI. status=implemented, stability=evolving. AC 6개 전부 checked, trace mismatch 0. 의존 FR-BGSTAB-008/012 모두 implemented/evolving healthy. Evidence 10건(unit+e2e+lint+typecheck+report)로 매우 두터움.",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-BGSTAB-014",
+   "feasibility": "high",
+   "score": 87,
+   "score_range": [
+    82,
+    92
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "Wave7 frontend 런타임 리소스 소비자. status=implemented, stability=evolving. AC 8개 전부 checked, trace 29건 all_paths_exist=true·mismatch 0. 의존 FR-BGSTAB-001/002/003/004/005/013 전부 implemented/evolving healthy. Evidence 8건(90/90 유닛+typecheck+build+e2e+review-fix-loop).",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-BGSTAB-015",
+   "feasibility": "high",
+   "score": 87,
+   "axes": {
+    "implementability": {
+     "score": 23,
+     "rationale": "Large-surface but highly additive REQ that extends the already-shipped Wave6 Settings pipeline (RuntimeConfigStore capability map + SettingsService PATCH + config.schema + config.types + ConfigFileRepository + configTemplate + settingsDraftHelpers + SettingsPage UI). The RuntimeConfigStore capability map already contains many of the target fields (resourceLimits.ws.outputCoalesceWindowMs, perClientControlQueueMaxBytes, visibleFlushBudgetBytes confirmed present with applyScope/constraints), so the work is to unreserve/add the remaining ~28 matrix keys (recovery gate budgets, replay/repair limits, telemetry thresholds), add schema validation with cross-field relations (AC-3), and render 5 Settings UI groups. No new mechanism — the proven Wave6/Wave7 pattern applied at scale. The main cost is breadth (per-key schema + type + capability + UI + test) plus cross-field validation and the direct-mode safe-send dependency hint (AC-4).",
+     "evidence": [
+      "server/src/services/RuntimeConfigStore.ts:48-124 (capability map; resourceLimits.ws/terminal entries already present at :74-87)",
+      "server/src/schemas/config.schema.ts:118-199 (resourceLimits schema region; terminalResourceLimitsSchema at :147)",
+      "server/src/services/SettingsService.ts:38-90 (PATCH schema addition_site)",
+      "frontend/src/components/Settings/SettingsPage.tsx:446-481 (Settings UI groups addition_site)"
+     ]
+    },
+    "evidence_strength": {
+     "score": 17,
+     "rationale": "All 8 code trace paths exist (prescreen trace_validation all_paths_exist=true, no mismatches). Directly confirmed: RuntimeConfigStore.ts:48-124 is the capability map with resourceLimits.ws/terminal entries, and config.schema.ts:118-199 is the resourceLimits schema region (terminalResourceLimitsSchema at :147). The SRS body carries an exhaustive per-key matrix (default/range/applyScope) consistent with the addition sites. This REQ also went through 8 sub-agent eval fix cycles (trace path corrections, matrix expansion).",
+     "evidence": [
+      "server/src/services/RuntimeConfigStore.ts:48-124",
+      "server/src/schemas/config.schema.ts:118-199",
+      "server/src/services/SettingsService.ts:38-90",
+      "server/src/types/config.types.ts:128-185",
+      "frontend/src/components/Settings/settingsDraftHelpers.ts:10-190"
+     ]
+    },
+    "dependency_health": {
+     "score": 15,
+     "rationale": "extends FR-BGSTAB-001, FR-BGSTAB-008, FR-BGSTAB-013 — all three implemented/evolving and healthy. No draft dependencies, no cycles. Clean.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1239 (extends FR-BGSTAB-001)",
+      "docs/spec/30.buildergate-stability.srs.md:1240 (extends FR-BGSTAB-008)",
+      "docs/spec/30.buildergate-stability.srs.md:1241 (extends FR-BGSTAB-013)"
+     ]
+    },
+    "ac_verifiability": {
+     "score": 13,
+     "rationale": "No {{OQ}} placeholders. AC-1 (matrix field exposed editable with constraints+applyScope), AC-2 (PATCH persistence + changedKeys/applySummary + immediate apply), AC-3 (validation rejects without silent clamping), AC-4 (safe-send dependency hint in direct mode), AC-5 (no-consumer fields stay read-only), AC-6 (exhaustive matrix coverage) are all testable via Settings capability tests + PATCH validation tests + UI unit/E2E. AC-6 is a long enumerated checklist but each key is individually verifiable. AC-4/AC-5 involve softer UI-conditional presentation. Caps at 13 for the UI-conditional and enumerated breadth.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1215-1220 (AC-1..AC-6)"
+     ]
+    },
+    "scope_fit": {
+     "score": 10,
+     "rationale": "BGSTAB ConPTY Settings / runtime-config — core stability scope.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1190 (heading; Target=0.5.5-buildergate-stability, Scope=BGSTAB, Tags include conpty/settings/runtime-config)"
+     ]
+    },
+    "product_fit": {
+     "score": 9,
+     "rationale": "Foundational config substrate that makes every ConPTY tuning value editable — the ConPTY plan requires this before the transport/recovery/perf REQs (FR-016/017, PERF-001) that consume the Settings-backed limits. Core enabler, scored 9 because it is substrate rather than a direct native-performance gain by itself.",
+     "evidence": [
+      "docs/research/2026-06-30.buildergate-conpty-output-recovery-input-lag-implementation-plan.md (Related Docs; plan requires all tuning values configurable)",
+      "docs/spec/30.buildergate-stability.srs.md:1209 (Rationale: every new queue size/interval/timeout/threshold/mode configurable from Settings)"
+     ]
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "Add cross-field relationship validation (AC-3) consistently across both client and server paths, rejecting without silent clamping.",
+    "Keep stabilityModes.wsSendMode default 'direct' until rollout evidence supports a default change (Implementation Notes).",
+    "Fields without a runtime consumer or with only one literal behavior must stay unavailable/read-only (AC-5) — do not expose literal-only settings as editable.",
+    "Large field count (~28 keys): coordinate with FR-BGSTAB-016 and FR-BGSTAB-017, which depend_on these Settings-backed modes/limits."
+   ],
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": "Broad but additive: touches config.schema.ts, RuntimeConfigStore.ts, SettingsService.ts (moderate complexity) plus SettingsPage.tsx UI; risk is breadth (many keys) rather than deep logic in any single hot module.",
+   "source": "senior"
+  },
+  {
+   "req_id": "FR-BGSTAB-016",
+   "feasibility": "high",
+   "score": 86,
+   "axes": {
+    "implementability": {
+     "score": 22,
+     "rationale": "Core change spans wsSendPolicy.ts (~188 LOC/11 branches, small) and WsRouter.ts:1816-2037 (high-complexity module ~2409 LOC/180 branches). Confirmed by direct read: wsSendPolicy.ts ALREADY has lane-separation groundwork (WsTransportQueueState with separate controlItems/terminalItems + controlHead/terminalHead + controlBytes/outputBytes) and same-session coalescing (tryCoalesceOutputMessage guarded by coalesceWindowMs and equal sessionId, no cross-type coalescing). So AC-1 (priority drain control-before-output) and AC-4 (same-session-only coalescing) build directly on existing structures. Remaining work: projected-buffered-byte enforcement (AC-3), priority drain ordering, recovery-transaction barrier (AC-2, must not reorder active recovery transaction), and slow-client handling without session kill (AC-5). The recovery-ordering correctness inside the high-complexity WsRouter is the real cost.",
+     "evidence": [
+      "server/src/ws/wsSendPolicy.ts:12-21 (WsTransportQueueState: separate control/terminal lanes already present)",
+      "server/src/ws/wsSendPolicy.ts:49-71 (tryCoalesceOutputMessage: same-session-only coalescing with window guard)",
+      "server/src/ws/WsRouter.ts:1816-2037 (priority drain / projected buffer / retry addition_site)",
+      "server/src/ws/WsRouter.ts:406-453 (existing snapshot ACK path defining recovery ordering — verifies)"
+     ]
+    },
+    "evidence_strength": {
+     "score": 18,
+     "rationale": "wsSendPolicy.ts:1-18 (queue state) and 30-71 (classifier + coalescing) confirmed exactly as described in the trace notes. WsRouter.ts:406-453 (verifies, snapshot ACK path) and 1816-2037/1738-1772 (addition_site) exist (prescreen all_paths_exist=true). Statement and ACs match the addition sites.",
+     "evidence": [
+      "server/src/ws/wsSendPolicy.ts:1-18",
+      "server/src/ws/wsSendPolicy.ts:30-71",
+      "server/src/ws/WsRouter.ts:1816-2037",
+      "server/src/ws/WsRouter.ts:1738-1772"
+     ]
+    },
+    "dependency_health": {
+     "score": 12,
+     "rationale": "extends FR-BGSTAB-012 (implemented/evolving, healthy), depends_on FR-BGSTAB-002 (implemented/evolving, healthy), depends_on FR-BGSTAB-015 (planned/evolving — the Settings contract supplying modes/limits). One planned dependency, evolving not draft, no cycle.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1342 (extends FR-BGSTAB-012)",
+      "docs/spec/30.buildergate-stability.srs.md:1343 (depends_on FR-BGSTAB-002)",
+      "docs/spec/30.buildergate-stability.srs.md:1344 (depends_on FR-BGSTAB-015, planned/evolving)"
+     ]
+    },
+    "ac_verifiability": {
+     "score": 14,
+     "rationale": "No {{OQ}} placeholders. AC-1 (control before unrelated output, no recovery reorder), AC-2 (recovery transaction ordering preserved; input release deferred to FR-BGSTAB-017), AC-3 (projected bufferedAmount+payload vs high/hard limit -> observe/queue/close per mode), AC-4 (same-session coalescing rules, no cross-type coalescing), AC-5 (slow client not killed + telemetry) are all testable via safe-send unit tests, synthetic redraw flood queue tests, and recovery-ordering regression. Clean separation of concerns (input release delegated to FR-017).",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1322-1326 (AC-1..AC-5)"
+     ]
+    },
+    "scope_fit": {
+     "score": 10,
+     "rationale": "BGSTAB WebSocket safe-send / backpressure — core stability scope.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1297 (heading; Target=0.5.5-buildergate-stability, Scope=BGSTAB, Tags include websocket/safe-send/backpressure)"
+     ]
+    },
+    "product_fit": {
+     "score": 10,
+     "rationale": "Prevents control-traffic starvation under terminal output flood — directly core to 54-session stability, since high-frequency redraw output (the named ConPTY/AI-TUI failure mode) is what starves control traffic and degrades responsiveness at scale.",
+     "evidence": [
+      "docs/research/2026-06-30.buildergate-conpty-output-recovery-input-lag-implementation-plan.md (Related Docs)",
+      "docs/spec/30.buildergate-stability.srs.md:1316 (Rationale: high-frequency redraw output; priority-aware draining)"
+     ]
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "depends_on FR-BGSTAB-015 (Settings-backed modes/limits) — sequence after it so mode selection and transport limits are configurable.",
+    "Preserve recovery transaction ordering (AC-2) against the existing snapshot ACK path (WsRouter.ts:406-453) — priority drain must not reorder an active recovery transaction.",
+    "Keep wsSendMode default 'direct' until observe/enforce evidence supports a default rollout.",
+    "Do not make split WebSocket a prerequisite for this requirement."
+   ],
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": "Adds priority-drain and projected-byte logic into WsRouter.ts (high complexity ~2409 LOC/180 branches); wsSendPolicy.ts itself is small and already lane-aware, so the concentrated regression risk is in the WsRouter drain path.",
+   "source": "senior"
+  },
+  {
+   "req_id": "FR-BGSTAB-017",
+   "feasibility": "high",
+   "score": 83,
+   "axes": {
+    "implementability": {
+     "score": 21,
+     "rationale": "Adds a second bounded scheduler (the recovery write gate) alongside the existing live-output scheduler. terminalOutputScheduler.ts (confirmed to expose generalizable flush/shouldYield/takeUtf8Prefix primitives) is generalized with a recovery label/drain/overflow, and the recovery lifecycle is wired across TerminalView.tsx (recoverySchedulerRef + routing snapshot/repair through the gate), TerminalContainer.tsx (ACK-tail routing + input release barrier), and WebSocketContext.tsx (recovery message classification). The scheduler generalization is straightforward (reuse existing primitives); the real complexity is the stateful recovery lifecycle across two very large React components: AC-3 input-release barrier with timeout, AC-5 stale-token callback protection, and AC-6 snapshot-apply-before-ACK ordering. Also co-owns terminalOutputScheduler.ts with PERF-BGSTAB-001.",
+     "evidence": [
+      "frontend/src/utils/terminalOutputScheduler.ts:52-105 (existing scheduler primitives to generalize)",
+      "frontend/src/components/Terminal/TerminalView.tsx:1148-1214 (recoverySchedulerRef addition_site)",
+      "frontend/src/components/Terminal/TerminalView.tsx:1260-1465 (route snapshot/repair through gate)",
+      "frontend/src/components/Terminal/TerminalContainer.tsx:1296-1688 (ACK-tail routing + input release barrier)",
+      "frontend/src/contexts/WebSocketContext.tsx:141-322 (recovery message classification)"
+     ]
+    },
+    "evidence_strength": {
+     "score": 17,
+     "rationale": "terminalOutputScheduler.ts confirmed to hold the scheduler primitives the REQ generalizes. TerminalView.tsx:1148-1214/1260-1465, TerminalContainer.tsx:1296-1688, WebSocketContext.tsx:141-322 all exist (prescreen all_paths_exist=true, no mismatches). Statement and ACs match the addition sites.",
+     "evidence": [
+      "frontend/src/utils/terminalOutputScheduler.ts:1-158",
+      "frontend/src/components/Terminal/TerminalView.tsx:1148-1214",
+      "frontend/src/components/Terminal/TerminalContainer.tsx:1296-1688",
+      "frontend/src/contexts/WebSocketContext.tsx:141-322"
+     ]
+    },
+    "dependency_health": {
+     "score": 11,
+     "rationale": "extends FR-BGSTAB-003 (implemented/evolving) and FR-BGSTAB-014 (implemented/evolving); depends_on FR-BGSTAB-002 (implemented/evolving, healthy), REL-BGSTAB-003 (planned/evolving), FR-BGSTAB-015 (planned/evolving). Two planned dependencies, both evolving not draft, no cycle. This is the most-dependency-laden of the four re-judged REQs (5 deps).",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1477-1478 (extends FR-BGSTAB-003, FR-BGSTAB-014)",
+      "docs/spec/30.buildergate-stability.srs.md:1479 (depends_on FR-BGSTAB-002)",
+      "docs/spec/30.buildergate-stability.srs.md:1480-1481 (depends_on REL-BGSTAB-003, FR-BGSTAB-015 — planned/evolving)"
+     ]
+    },
+    "ac_verifiability": {
+     "score": 14,
+     "rationale": "No {{OQ}} placeholders. AC-1 (recovery via bounded scheduler not direct write), AC-2 (ACK-tail routed to recovery gate), AC-3 (input release barrier with timeout + observable event), AC-4 (overflow -> stale/recovery-needed, not success), AC-5 (stale-token callbacks cannot mutate current state), AC-6 (snapshot-apply-before-ACK ordering) are all deterministic and testable via recovery scheduler unit tests + TerminalView/TerminalContainer recovery contract tests + WS classification tests, plus Playwright.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1456-1461 (AC-1..AC-6)"
+     ]
+    },
+    "scope_fit": {
+     "score": 10,
+     "rationale": "BGSTAB frontend-runtime recovery / input barrier — core stability scope.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1431 (heading; Target=0.5.5-buildergate-stability, Scope=BGSTAB, Tags include frontend-runtime/xterm/recovery/input)"
+     ]
+    },
+    "product_fit": {
+     "score": 10,
+     "rationale": "Directly addresses input-appears-unavailable during heavy AI TUI redraws — large direct xterm writes for snapshot/repair block the browser main thread. Core to the native-performance / input-lag goal at scale.",
+     "evidence": [
+      "docs/research/2026-06-30.buildergate-conpty-output-recovery-input-lag-implementation-plan.md (Related Docs)",
+      "docs/spec/30.buildergate-stability.srs.md:1450 (Rationale: large direct writes block main thread, input appears unavailable during heavy AI TUI redraws)"
+     ]
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "Co-owns terminalOutputScheduler.ts with PERF-BGSTAB-001 — coordinate implementation order (whichever lands first defines the base).",
+    "depends_on FR-BGSTAB-015 (Settings-backed recovery budgets/release timeout) and REL-BGSTAB-003 (both planned) — sequence after them.",
+    "Reuse terminalOutputScheduler principles; do not restore the legacy direct-write path as rollback (degraded rollback should lower recovery budgets and force server snapshot refresh on overflow).",
+    "Preserve snapshot-apply-before-ACK ordering (AC-6): send screen-snapshot:ready only after the snapshot recovery write completes for the current token."
+   ],
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": "Recovery lifecycle wiring across two very large React components (TerminalView.tsx ~2293 LOC/164 branches, TerminalContainer.tsx ~1878 LOC/130 branches) plus WebSocketContext; stateful ordering/lifecycle changes there carry non-trivial regression risk.",
+   "source": "senior"
+  },
+  {
+   "req_id": "FR-BGSTAB-018",
+   "feasibility": "high",
+   "score": 85,
+   "axes": {
+    "implementability": {
+     "score": 22,
+     "rationale": "Most localized of the four re-judged REQs and the target is precisely identified. Confirmed by direct read: the placeholder is FALLBACK_EMPTY_MESSAGE at TerminalContainer.tsx:131 ('[BuilderGate] Fallback snapshot unavailable. Waiting for new output...'), written through the empty-fallback path at TerminalContainer.tsx:1399-1494 (the 2026-07-01 5-subagent investigation located the write at 1419-1433). The change is a bounded state-machine modification in TerminalContainer: suppress/bound the placeholder write, restore local snapshot when valid (AC-1), preserve buffer + suppress repeated writes per recovery generation (AC-2), still ACK the replay token (AC-3), avoid falsely marking recovery success (AC-4), and reset suppression state on real output / authoritative snapshot / generation change (AC-5). The subtlety is the recovery-accounting guards (AC-4) integrating with existing recovery-pending state; there is a clear existing contract test file to extend.",
+     "evidence": [
+      "frontend/src/components/Terminal/TerminalContainer.tsx:131 (FALLBACK_EMPTY_MESSAGE placeholder constant — the exact target)",
+      "frontend/src/components/Terminal/TerminalContainer.tsx:1399-1494 (empty-fallback local restore / placeholder / ACK / recovery-success guards addition_site)",
+      "frontend/src/components/Terminal/TerminalView.tsx:1260-1320 (snapshot restore currently writes to xterm — verifies)",
+      "frontend/tests/unit/terminalContainerRecoveryContract.test.ts:37-109 (contract test addition_site)"
+     ]
+    },
+    "evidence_strength": {
+     "score": 18,
+     "rationale": "TerminalContainer.tsx:131 confirmed = the exact FALLBACK_EMPTY_MESSAGE placeholder the REQ targets to suppress/bound. TerminalContainer.tsx:1399-1494 (addition_site), TerminalView.tsx:1260-1320 (verifies), terminalContainerRecoveryContract.test.ts:37-109 (test addition_site) all exist (prescreen all_paths_exist=true). Evidence pedigree strengthened by the documented 5-subagent 2026-07-01 investigation.",
+     "evidence": [
+      "frontend/src/components/Terminal/TerminalContainer.tsx:131",
+      "frontend/src/components/Terminal/TerminalContainer.tsx:1399-1494",
+      "frontend/src/components/Terminal/TerminalView.tsx:1260-1320",
+      "frontend/tests/unit/terminalContainerRecoveryContract.test.ts:37-109"
+     ]
+    },
+    "dependency_health": {
+     "score": 11,
+     "rationale": "extends FR-BGSTAB-014 (implemented/evolving, healthy); depends_on FR-BGSTAB-017 (planned/evolving — the recovery write gate) and REL-BGSTAB-003 (planned/evolving). Two planned deps, both evolving not draft, no cycle. Notably depends on FR-BGSTAB-017 which itself is planned, so sequencing applies.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1615 (extends FR-BGSTAB-014)",
+      "docs/spec/30.buildergate-stability.srs.md:1616 (depends_on FR-BGSTAB-017, planned/evolving)",
+      "docs/spec/30.buildergate-stability.srs.md:1617 (depends_on REL-BGSTAB-003, planned/evolving)"
+     ]
+    },
+    "ac_verifiability": {
+     "score": 14,
+     "rationale": "No {{OQ}} placeholders. AC-1 (local restore + ACK + no placeholder), AC-2 (repeated-empty suppression + buffer preservation), AC-3 (ACK or observable send-failure so replay is not blocked), AC-4 (recovery-pending preservation guards), AC-5 (suppression reset conditions), AC-6 (deterministic unit tests incl. no raw payload persistence) are all concrete and testable via the existing terminalContainerRecoveryContract.test.ts harness. AC-6 explicitly mandates the deterministic tests.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1595-1600 (AC-1..AC-6)"
+     ]
+    },
+    "scope_fit": {
+     "score": 10,
+     "rationale": "BGSTAB frontend-runtime fallback-snapshot / recovery — core stability scope.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1570 (heading; Target=0.5.5-buildergate-stability, Scope=BGSTAB, Tags include fallback-snapshot/recovery/xterm)"
+     ]
+    },
+    "product_fit": {
+     "score": 10,
+     "rationale": "Fixes a concrete user-visible defect: the placeholder pollutes scrollback and can reset terminal content during degraded fallback without recovering authoritative output. Core to terminal stability UX.",
+     "evidence": [
+      "docs/research/2026-07-01.buildergate-empty-fallback-snapshot-placeholder-research.md (Related Docs; investigation of the placeholder loop)",
+      "docs/spec/30.buildergate-stability.srs.md:1589 (Rationale: placeholder pollutes scrollback and resets content without recovery)"
+     ]
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "depends_on FR-BGSTAB-017 (recovery write gate) — sequence after it.",
+    "Prefer not writing the empty fallback placeholder into xterm at all; if compatibility requires it, bound to at most one write per recovery generation and keep it out of successful-recovery accounting (AC-2/AC-4).",
+    "Preserve replay ACK ordering and recovery-pending semantics — do not clear hidden/visible-output recovery, release queued input, or mark recovery successful solely because placeholder/no-op handling ran (AC-4)."
+   ],
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": "Localized change but inside TerminalContainer.tsx (~1878 LOC/130 branches); integrating the empty-fallback suppression with existing recovery-accounting state carries moderate regression risk in a large component.",
+   "source": "senior"
+  },
+  {
+   "req_id": "FR-BGSTAB-019",
+   "feasibility": "high",
+   "score": 93,
+   "axes": {
+    "implementability": {
+     "score": 26,
+     "rationale": "Enforce mechanism is already built and verified; the change is a config activation + TDD test + soak gate, not new mechanism. The enforce branch runs the verified process-tree terminator with root-process metadata, and mode is read from runtimeSessionConfig.processCleanup so a config.json5 override flows straight through. config.json5 currently has no session.processCleanup block (session block holds only idleDelayMs/runningDelayMs), so the addition_site is a small localized insertion. Code difficulty is very low; the only real cost is the operational >=2h multi-session soak (AC-3) that must record zero remaining verified-owned descendants before commit.",
+     "evidence": [
+      "server/src/services/SessionManager.ts:1149-1171 (enforce-mode termination branch)",
+      "server/src/services/SessionManager.ts:1145-1146 (mode read from runtimeSessionConfig.processCleanup)",
+      "server/src/utils/processTreeTerminator.ts:592-605 (Windows PID-only taskkill /PID /T /F)",
+      "server/config.json5:21-24 (addition_site: session block; processCleanup override to be added here — confirmed ABSENT, not current supporting evidence)",
+      "server/src/schemas/config.schema.ts:84-89 (sessionProcessCleanupSchema, mode default 'observe')"
+     ]
+    },
+    "evidence_strength": {
+     "score": 19,
+     "rationale": "All code trace paths exist and match the statement. SessionManager.ts:1149-1171 is the confirmed enforce-mode termination branch; processTreeTerminator.ts:592-605 is the confirmed Windows PID-only taskkill.exe /PID /T /F (tree kill, no broad /IM name kill); config.schema.ts:84-89 confirms the schema default 'observe'; config.json5:21-24 is a valid addition_site (no processCleanup key present yet, confirmed by direct read). trace_validation reports all_paths_exist=true, no mismatches.",
+     "evidence": [
+      "server/src/services/SessionManager.ts:1149-1171",
+      "server/src/utils/processTreeTerminator.ts:592-605",
+      "server/src/schemas/config.schema.ts:84-89",
+      "server/config.json5:21-24"
+     ]
+    },
+    "dependency_health": {
+     "score": 15,
+     "rationale": "extends FR-BGSTAB-011 (implemented/evolving) and depends_on FR-BGSTAB-009 (implemented/evolving) — both healthy, both already implemented. No draft dependencies, no cycles. Dependency graph is clean for this REQ.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1875 (extends FR-BGSTAB-011)",
+      "docs/spec/30.buildergate-stability.srs.md:1876 (depends_on FR-BGSTAB-009)"
+     ]
+    },
+    "ac_verifiability": {
+     "score": 13,
+     "rationale": "No {{OQ}} placeholders. AC-1 (config resolves enforce while schema default stays observe), AC-2 (identity-validated termination, no broad name-kill), AC-5 (TDD red/green regression) are deterministic and unit-testable. AC-4 has a documentation deliverable ('rollback path is documented') alongside a verifiable mechanism. AC-3 is objective but is a >=2h operational soak run rather than an automated test, which caps the axis.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1856-1860 (AC-1..AC-5)",
+      "server/src/test-runner.ts (test addition_site for enforce-activation + soak-gate regression)"
+     ]
+    },
+    "scope_fit": {
+     "score": 10,
+     "rationale": "BGSTAB session-cleanup / process-tree termination — squarely inside buildergate-stability scope.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1831 (heading; Target=0.5.5-buildergate-stability, Scope=BGSTAB, Tags include session-cleanup/process-tree/enforce)"
+     ]
+    },
+    "product_fit": {
+     "score": 10,
+     "rationale": "Core to the 54-concurrent-shell goal: activating enforce cleanup prevents session-owned descendant process leaks at multi-session scale, which is a direct stability requirement for native-scale operation.",
+     "evidence": [
+      "docs/research/2026-07-02.buildergate-native-performance-54-sessions-deep-analysis.md (Related Docs)",
+      "docs/spec/30.buildergate-stability.srs.md:1850 (Rationale: descendant leaks at production scale)"
+     ]
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "AC-3 soak gate: a >=2h multi-session soak recording zero remaining verified-owned descendants must pass before the enforce activation is committed.",
+    "AC-4: an observe rollback path must remain available and be documented (config revert restores prior behavior without code changes).",
+    "AC-5: TDD red-first regression test (operational config resolves mode=enforce while schema default remains observe) authored before the config change.",
+    "Activate enforce via a config.json5 override only; must not change config.schema.ts default (observe) or FR-BGSTAB-009 AC-1 schema-omission fallback."
+   ],
+   "has_verification": false,
+   "current_stability": "draft",
+   "current_status": "planned",
+   "external_module_impact": null,
+   "source": "senior"
+  },
+  {
+   "req_id": "OBS-BGSTAB-001",
+   "feasibility": "medium",
+   "score": 78,
+   "axes": {
+    "implementability": {
+     "score": 19,
+     "rationale": "Substantial cross-cutting observability build across 5 addition sites spanning server and frontend, including two very high-complexity modules (WsRouter.ts ~2409 LOC/180 branches, SessionManager.ts ~3569 LOC/287 branches) and two large React components (TerminalContainer.tsx ~1878 LOC, TerminalView.tsx ~2293 LOC). New telemetry event + protocol fields, transport/replay counters, snapshot/repair timing correlation, and a recovery-write-gate instrument. It also depends on four planned requirements (FR-BGSTAB-015/016/017, REL-BGSTAB-003), so several of the behaviors it must observe do not exist yet, coupling delivery to those. Feasible but broad and sequencing-sensitive.",
+     "evidence": [
+      "server/src/ws/WsRouter.ts:1738-1772",
+      "server/src/types/ws-protocol.ts:331-393",
+      "server/src/services/SessionManager.ts:2111-2298",
+      "frontend/src/components/Terminal/TerminalContainer.tsx:704-933",
+      "frontend/src/components/Terminal/TerminalView.tsx:1260-1465"
+     ]
+    },
+    "evidence_strength": {
+     "score": 17,
+     "rationale": "All 5 code trace paths exist (trace_validation all_paths_exist=true, no mismatches) and land in the correct regions (WsRouter transport/replay observability, ws-protocol telemetry block, SessionManager snapshot/repair, frontend recovery gates). Statement and ACs are consistent with the addition sites.",
+     "evidence": [
+      "server/src/ws/WsRouter.ts:1738-1772",
+      "server/src/types/ws-protocol.ts:331-393",
+      "server/src/services/SessionManager.ts:2111-2298"
+     ]
+    },
+    "dependency_health": {
+     "score": 10,
+     "rationale": "extends REL-BGSTAB-001 (implemented/evolving, healthy) but also carries a STALE extends link to REL-BGSTAB-002 (discarded). Verified against the SRS body: OBS-BGSTAB-001's statement and ACs concern telemetry/redaction/redraw-flood/soak; the only REL-BGSTAB-002-flavored content (AC-5 remainingVerifiedDescendants=0 shutdown-cleanup soak evidence) now lives in the successor chain REL-BGSTAB-004 (implemented) / REL-BGSTAB-005 (supersedes REL-BGSTAB-002), so the scope basis still exists but the link points at a discarded node. Also depends_on four planned/evolving REQs (FR-BGSTAB-015/016/017, REL-BGSTAB-003). No draft deps, no cycles.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1545 (extends REL-BGSTAB-001)",
+      "docs/spec/30.buildergate-stability.srs.md:1550 (extends REL-BGSTAB-002 — STALE, discarded)",
+      "docs/spec/30.buildergate-stability.srs.md:1546-1549 (depends_on FR-BGSTAB-015/016, REL-BGSTAB-003, FR-BGSTAB-017)"
+     ]
+    },
+    "ac_verifiability": {
+     "score": 13,
+     "rationale": "No {{OQ}} placeholders. AC-1 (named counters recorded), AC-2 (raw-payload redaction), AC-3 (deterministic redraw-flood asserts queue limits/starvation/ordering/input release rather than human-perceived slowness) are verifiable via shape/redaction/deterministic tests. AC-4 is a verifiable procedural constraint (localhost:2222, health 2221, start.bat/stop.bat, no broad node kill). AC-5 (final E2E + soak: loss/reorder/dup=0, input_write_failed=0, remainingVerifiedDescendants=0, counters back to baseline) is objective but operationally heavy. ACs were refined through prior sub-agent eval (3 change-note refinements). Caps at 13 due to the E2E/soak operational dependency.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1525-1529 (AC-1..AC-5)"
+     ]
+    },
+    "scope_fit": {
+     "score": 10,
+     "rationale": "BGSTAB ConPTY observability/telemetry — core stability scope.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1500 (heading; Target=0.5.5-buildergate-stability, Scope=BGSTAB, Tags include conpty/telemetry/soak/observability)"
+     ]
+    },
+    "product_fit": {
+     "score": 9,
+     "rationale": "Directly supports the 54-session native-performance goal by making ConPTY input-lag / queue-pressure bottlenecks measurable (measurement precedes optimization). Slightly below perfect because it is a diagnostic enabler rather than the throughput fix itself, though the REQ explicitly frames measurable evidence as the completion criterion since the slowness is hard to reproduce.",
+     "evidence": [
+      "docs/research/2026-06-30.buildergate-conpty-output-recovery-input-lag-implementation-plan.md (Related Docs)",
+      "docs/spec/30.buildergate-stability.srs.md:1519 (Rationale: slowness hard to reproduce, judge via measurable bottlenecks)"
+     ]
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "Re-validate/re-point the stale extends link to the discarded REL-BGSTAB-002; the shutdown-cleanup-soak-evidence basis moved to REL-BGSTAB-004/REL-BGSTAB-005 (supersedes), so the link is traceability hygiene and does not block statement/AC realization but should be corrected.",
+    "Sequence after FR-BGSTAB-015/016/017 and REL-BGSTAB-003 (all planned) — the observed behaviors must exist before their telemetry can be fully asserted.",
+    "AC-5 requires a deterministic ConPTY redraw-flood E2E at localhost:2222 plus a soak run (operational validation).",
+    "AC-2 redaction constraint: no durable storage of raw terminal input/output, snapshot, or ANSI patch content in telemetry/soak artifacts."
+   ],
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": "Adds instrumentation into two very high-complexity in-scope modules (WsRouter.ts ~2409 LOC/180 branches, SessionManager.ts ~3569 LOC/287 branches) and two large React components; additive observability, but regression surface in heavily-branched files is non-trivial.",
+   "source": "senior"
+  },
+  {
+   "req_id": "OBS-BGSTAB-002",
+   "feasibility": "high",
+   "score": 85,
+   "score_range": [
+    80,
+    90
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "All 6 trace paths exist with no mismatches (all addition_site, appropriate for a planned new observability requirement). 6 ACs are well-formed Given/When/Then with concrete bounded-telemetry scope (no raw payload persistence). Dependencies (extends OBS-BGSTAB-001 planned/evolving, depends_on FR-BGSTAB-018 planned/evolving, depends_on REL-BGSTAB-004 implemented/evolving) are all healthy — none draft/deprecated/discarded, and OBS-BGSTAB-002 is not listed in dependency_health_risks or ac_verifiability_risks. Note: OBS-BGSTAB-001 (one hop further) has its own stale extends-link to discarded REL-BGSTAB-002, but that does not propagate to OBS-BGSTAB-002's direct dependency health per the pre-computed risk list.",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "PERF-BGSTAB-001",
+   "feasibility": "high",
+   "score": 89,
+   "axes": {
+    "implementability": {
+     "score": 25,
+     "rationale": "Localized change in a small low-complexity module (terminalOutputScheduler.ts ~209 LOC/15 branches). The current flush() drains a single queue[0] entry per animation frame, already uses takeUtf8Prefix for code-point safety and a shouldYield input-yield hook — so converting to a time-budgeted multi-chunk drain loop (while budget-remaining && queue non-empty && !shouldYield) is a well-scoped internal modification that reuses existing safety primitives. The config.json5:79 override (16384) -> schema default (262144) is a one-line change, both values confirmed. Two design decisions remain: (a) AC-3's 'configurable per-frame time budget' (default 6-8ms) has no config-schema addition_site, so implementer must choose internal constant vs new config key; (b) the module is co-owned with FR-BGSTAB-017 (planned) which also mutates scheduler internals.",
+     "evidence": [
+      "frontend/src/utils/terminalOutputScheduler.ts:52-105 (single-chunk-per-frame flush)",
+      "frontend/src/utils/terminalOutputScheduler.ts:68-73 (shouldYield input-yield hook)",
+      "frontend/src/utils/terminalOutputScheduler.ts:77 (takeUtf8Prefix code-point-safe split)",
+      "server/config.json5:79 (visibleFlushBudgetBytes:16384 override)",
+      "server/src/schemas/config.schema.ts:150 (visibleFlushBudgetBytes default 262144)"
+     ]
+    },
+    "evidence_strength": {
+     "score": 18,
+     "rationale": "terminalOutputScheduler.ts:52-105 confirmed as the single-chunk-per-frame flush region with existing code-point-safe split and input-yield check. config.json5:79 confirmed = visibleFlushBudgetBytes:16384 (matches AC-4 'previously set to 16384'). config.schema.ts:150 confirmed default 262144 (matches AC-4/verifies trace). Minor deduction: the statement's 'configurable per-frame time budget' has no corresponding config trace, a small statement/trace incompleteness.",
+     "evidence": [
+      "frontend/src/utils/terminalOutputScheduler.ts:52-105",
+      "server/config.json5:79",
+      "server/src/schemas/config.schema.ts:150"
+     ]
+    },
+    "dependency_health": {
+     "score": 12,
+     "rationale": "extends FR-BGSTAB-003 (implemented/evolving) and depends_on FR-BGSTAB-001 (implemented/evolving) — both healthy. depends_on FR-BGSTAB-017 (planned/evolving) introduces same-file coordination coupling but no draft dependency and no cycle. Deduction reflects the one planned dependency plus the shared-module ordering constraint.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1813 (extends FR-BGSTAB-003)",
+      "docs/spec/30.buildergate-stability.srs.md:1814 (depends_on FR-BGSTAB-001)",
+      "docs/spec/30.buildergate-stability.srs.md:1815 (depends_on FR-BGSTAB-017, planned/evolving)"
+     ]
+    },
+    "ac_verifiability": {
+     "score": 14,
+     "rationale": "No {{OQ}} placeholders. AC-1 (multi-chunk drain within budget, no code-point split), AC-2 (input-yield stops draining), AC-3 (default budget within 6-8ms), AC-4 (effective budget = 262144, no throttling override), AC-5 (TDD red/green) are all unit-testable in the existing frontend/tests/unit/terminalOutputScheduler.test.ts harness. The 'AC-1: AC-1:' label duplication is cosmetic only and does not affect verifiability.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1794-1798 (AC-1..AC-5)",
+      "frontend/tests/unit/terminalOutputScheduler.test.ts (existing regression harness / test addition_site)"
+     ]
+    },
+    "scope_fit": {
+     "score": 10,
+     "rationale": "BGSTAB xterm visible-output performance — core stability scope.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1769 (heading; Target=0.5.5-buildergate-stability, Scope=BGSTAB, Tags include xterm/output/performance)"
+     ]
+    },
+    "product_fit": {
+     "score": 10,
+     "rationale": "Rationale explicitly names the single-chunk cadence + under-provisioned 16384 override as 'a primary contributor to sluggish native performance at 54-session scale' — directly core to the native-performance goal.",
+     "evidence": [
+      "docs/research/2026-07-02.buildergate-native-performance-54-sessions-deep-analysis.md (Related Docs)",
+      "docs/spec/30.buildergate-stability.srs.md:1788 (Rationale: primary contributor to sluggish native performance at 54-session scale)"
+     ]
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "AC-3 'configurable per-frame time budget' (default 6-8ms) has no config-schema addition_site: implementer must decide internal constant vs new config key. If a config key is chosen, add config.schema.ts + config.types.ts + configTemplate.ts consistently.",
+    "Coordinate implementation order with FR-BGSTAB-017 (planned) — both change terminalOutputScheduler.ts internals; whichever lands first defines the base the other builds on.",
+    "Preserve FR-BGSTAB-003 callback-order and code-point-safety guarantees (do not split multibyte code points).",
+    "If restoring the byte budget by removing the config.json5 override rather than rewriting 262144, keep configTemplate.ts rendering consistent."
+   ],
+   "has_verification": false,
+   "current_stability": "draft",
+   "current_status": "planned",
+   "external_module_impact": null,
+   "source": "senior"
+  },
+  {
+   "req_id": "PERF-BGSTAB-002",
+   "feasibility": "high",
+   "score": 85,
+   "score_range": [
+    80,
+    90
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "New draft REQ (created today); planned-status feasibility judgment, addition_site trace is expected and not a blocked signal. All 4 trace paths exist, no mismatches. 5 ACs are clear and testable, including an explicit TDD terminate-before-capture race regression requirement. Dependencies extends FR-BGSTAB-009 (implemented/evolving) and depends_on FR-BGSTAB-011 (implemented/evolving) are both healthy. Implementation note reasons through FR-BGSTAB-009 AC-2 compatibility explicitly and is marked [INFERRED:advisory], not a contested assumption. Not flagged in dependency_health_risks or ac_verifiability_risks.",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": false,
+   "current_stability": "draft",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "PERF-BGSTAB-003",
+   "feasibility": "high",
+   "score": 90,
+   "score_range": [
+    85,
+    95
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "New draft REQ, risk=low, all 6 trace paths exist with no mismatches. 5 ACs clearly testable (call-count regression guard, codec singleton reuse, skip-when-disabled, no-raw-input-leakage preserving FR-BGSTAB-014 AC-7). Single dependency (extends FR-BGSTAB-014, implemented/evolving) is healthy. Implementation note flags an open verification question (confirm terminalInputSequencer.test.ts coverage before planning) but this is a planning-phase caution for kiwi-planner, not a feasibility blocker — the REQ's own AC and trace are unambiguous.",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": false,
+   "current_stability": "draft",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "PERF-BGSTAB-004",
+   "feasibility": "high",
+   "score": 90,
+   "score_range": [
+    85,
+    95
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "New draft REQ, risk=low, all 3 trace paths exist with no mismatches. 4 ACs are clear and testable including explicit cache-invalidation-on-runtimeConfigVersion-change behavior. Dependencies extends FR-BGSTAB-014 and depends_on FR-BGSTAB-001, both implemented/evolving — healthy. Implementation note explicitly reuses an existing, already-verified invalidation mechanism (FR-BGSTAB-014 AC-1) rather than inventing a new one, reducing implementation risk.",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": false,
+   "current_stability": "draft",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "REL-BGSTAB-001",
+   "feasibility": "high",
+   "score": 85,
+   "score_range": [
+    80,
+    90
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "Status implemented with 4 verification-evidence entries (VE-1..VE-4) citing explicit pass counts (frontend 44/44, server 25/25) covering AC-1..AC-5. All 5 trace paths exist, no mismatches. No outgoing dependency edges (it is a base validation requirement other REQs extend/depend on), so no dependency-health exposure. Stability is evolving (not yet stable) by design, pending live non-2002/soak validation per its own change notes — an intentional, already-documented gate, not an open issue. Minor cosmetic note: AC checkboxes in the markdown body all render unchecked despite implemented status and cited evidence; worth a checkbox-state sync pass, but this does not affect feasibility.",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "REL-BGSTAB-003",
+   "feasibility": "high",
+   "score": 82,
+   "score_range": [
+    75,
+    90
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "Status planned, stability already evolving (promoted with documented rationale: 'ConPTY implementation plan accepted as next implementation input'). All 5 trace paths exist, no mismatches. Dependencies (extends FR-BGSTAB-012, extends FR-BGSTAB-007 implemented/evolving 'ordering only', depends_on FR-BGSTAB-003 implemented/evolving, depends_on FR-BGSTAB-015 planned/evolving) are all healthy. 5 ACs are clear and testable (byte-aware truncation, boundary tests, overflow abort/refresh, telemetry redaction, Settings-backed limits). Change notes show this REQ already went through a sub-agent evaluation fix cycle (trace relation corrected, dependency trace added), indicating prior scrutiny. Risk tag is 'high' (concurrency/byte-boundary correctness) but that reflects implementation risk, not feasibility uncertainty.",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "REL-BGSTAB-004",
+   "feasibility": "high",
+   "score": 90,
+   "score_range": [
+    85,
+    95
+   ],
+   "source": "prescreen-quick-pass",
+   "prescreen_note": "Status implemented with 1 verification-evidence entry citing 303 passing server tests covering AC-1..AC-6; all 6 ACs checked, consistent with implemented status. All 10 trace paths exist; 2 have minor_line_drift mismatches (WsRouter.ts:932, SessionManager.ts:3075) but the pre-computed trace_validation itself assessed both as 'contextually valid' (+/-1 line off, correct surrounding logic) — not a real trace failure. Dependencies (extends REL-BGSTAB-003 evolving/planned — also assessed high in this same chunk; depends_on FR-BGSTAB-016 and FR-BGSTAB-018, both planned/evolving) are healthy.",
+   "blockers": [],
+   "conditions": [],
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "REL-BGSTAB-005",
+   "feasibility": "medium",
+   "score": 73,
+   "axes": {
+    "implementability": {
+     "score": 18,
+     "rationale": "Core code change is well-scoped and addition sites are confirmed: terminateMultipleSessions (SessionManager.ts:1783-1810) is exactly the sequential for-of await loop to convert to a bounded-concurrency pool, and gracefulShutdown.ts:11 DEFAULT_SESSION_CLEANUP_TIMEOUT_MS=3000 is the fixed constant to rescale. The bounded-pool mechanism is standard. However three factors reduce implementability: (1) two design parameters ({{OQ-1}} concurrency limit, {{OQ-2}} timeout scaling formula) are undecided pending user decision; (2) AC-10 requires FR-BGSTAB-010 idempotent single finalization to hold under parallel termination, which is a genuine concurrency-correctness risk (natural PTY exit + shutdown termination racing to finalize the same session) that the current sequential loop sidesteps; (3) 12 ACs including a 54-session soak-completion criterion (AC-11).",
+     "evidence": [
+      "server/src/services/SessionManager.ts:1783-1810 (sequential for-of await loop in terminateMultipleSessions)",
+      "server/src/services/SessionManager.ts:1795-1810 (the exact sequential await + telemetry aggregation to parallelize)",
+      "server/src/services/gracefulShutdown.ts:11 (DEFAULT_SESSION_CLEANUP_TIMEOUT_MS = 3_000)",
+      "server/src/services/SessionManager.ts:1156-1170 (enforce termination + finalize path relevant to idempotency)"
+     ]
+    },
+    "evidence_strength": {
+     "score": 18,
+     "rationale": "gracefulShutdown.ts:11 confirmed (DEFAULT_SESSION_CLEANUP_TIMEOUT_MS = 3_000). SessionManager.ts:1783-1810 confirmed as the strictly sequential 'for (const id of ids) { await terminateSession(...) }' loop — exactly matching the addition_site note 'parallelize the sequential for-of await loop with bounded concurrency'. test-runner.ts:198-200 is a valid verifies anchor for existing shutdown/timeout tests. All paths exist, no mismatches.",
+     "evidence": [
+      "server/src/services/gracefulShutdown.ts:11",
+      "server/src/services/SessionManager.ts:1783-1810",
+      "server/src/test-runner.ts:198-200"
+     ]
+    },
+    "dependency_health": {
+     "score": 8,
+     "rationale": "supersedes REL-BGSTAB-002 (discarded) — this is the expected successor lifecycle pattern (discarded_ref_issues classifies it as 'expected', not stale). depends_on FR-BGSTAB-010 (implemented/evolving, healthy). BUT depends_on FR-BGSTAB-019 which is planned/DRAFT — dependency_health_risks explicitly flags this unhealthy edge, and REL-BGSTAB-005's own stability is also draft. No cycles. The draft dependency plus own-draft state is the main deduction.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1942 (supersedes REL-BGSTAB-002, discarded — expected pattern)",
+      "docs/spec/30.buildergate-stability.srs.md:1943 (depends_on FR-BGSTAB-010, healthy)",
+      "docs/spec/30.buildergate-stability.srs.md:1944 (depends_on FR-BGSTAB-019 — DRAFT, unhealthy edge)"
+     ]
+    },
+    "ac_verifiability": {
+     "score": 9,
+     "rationale": "10 of 12 ACs are objective and testable (AC-1 stage order, AC-2 evidence fields, AC-3 daemon-stop no-broad-kill, AC-4/AC-5 evidence semantics, AC-6 invariant preservation, AC-7 honest reporting, AC-10 idempotency, AC-11 54-session completion, AC-12 TDD). However AC-8 embeds {{OQ-1}} (concurrency limit) and AC-9 embeds {{OQ-2}} (timeout scaling value/formula); ac_verifiability_risks flags that these cannot be objectively verified until the open questions are resolved. The structure is parameterized, so once OQ-1/OQ-2 are decided AC-8/AC-9 become deterministically testable — but they are currently un-verifiable, so 2 of 12 ACs are blocked.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1917-1928 (AC-1..AC-12)",
+      "docs/spec/30.buildergate-stability.srs.md:1924 (AC-8 embeds {{OQ-1}})",
+      "docs/spec/30.buildergate-stability.srs.md:1925 (AC-9 embeds {{OQ-2}})"
+     ]
+    },
+    "scope_fit": {
+     "score": 10,
+     "rationale": "BGSTAB graceful-shutdown / multi-session session-cleanup — core stability scope.",
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1892 (heading; Target=0.5.5-buildergate-stability, Scope=BGSTAB, Tags include shutdown/session-cleanup)"
+     ]
+    },
+    "product_fit": {
+     "score": 10,
+     "rationale": "Directly enables clean shutdown at 54-session scale (stated project goal): sequential termination plus a fixed 3000ms timeout does not complete cleanly at that scale. Core.",
+     "evidence": [
+      "docs/research/2026-07-02.buildergate-native-performance-54-sessions-deep-analysis.md (Related Docs; 54-session scale target)",
+      "docs/spec/30.buildergate-stability.srs.md:1911 (Rationale: fixed 3000ms + sequential does not complete at 54-session scale)"
+     ]
+    }
+   },
+   "blockers": [
+    "{{OQ-1}} (bounded concurrency limit) and {{OQ-2}} (session-count timeout scaling value/formula) are undecided open questions pending user decision. AC-8 and AC-9 cannot be fully specified or given deterministic regression tests until these are resolved; the parallel-batch and scaled-timeout behaviors are blocked on that decision (the requirement's other 10 ACs remain implementable)."
+   ],
+   "conditions": [
+    "Preserve FR-BGSTAB-010 idempotent single finalization under parallel termination (AC-10) — concurrency-correctness constraint: no double finalization/double-count when natural PTY exit and shutdown termination target the same session.",
+    "Preserve the exact observable shutdown stage order (AC-1) and the no-broad-process-name-kill guarantee (AC-3) restated from REL-BGSTAB-002 (AC-6).",
+    "Depends on FR-BGSTAB-019 (currently draft) — its stability should firm up in tandem given both share the enforce/cleanup path.",
+    "AC-11 requires 54-session-scale shutdown-completion evidence (operational validation).",
+    "AC-12: TDD red-first regression tests (bounded-parallel termination, idempotent single finalization under parallelism, scaled-timeout completion) authored before implementation."
+   ],
+   "has_verification": false,
+   "current_stability": "draft",
+   "current_status": "planned",
+   "external_module_impact": "Parallelizes terminateMultipleSessions inside the highest-complexity in-scope module (SessionManager.ts ~3569 LOC/287 branches); introducing concurrency into finalization there carries real regression risk to idempotent single-finalization guarantees.",
+   "source": "senior"
+  }
+ ]
+}

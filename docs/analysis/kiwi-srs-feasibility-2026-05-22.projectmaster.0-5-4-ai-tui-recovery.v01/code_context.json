@@ -1,0 +1,34 @@
+{
+  "run_id": "2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01",
+  "modules": [
+    { "path": "frontend/src/components/Header/Header.tsx", "lines": "52-61", "role": "desktop Tools menu addition site", "complexity_estimate": "medium" },
+    { "path": "frontend/src/App.tsx", "lines": "99-106,520-532,686-704", "role": "dialog state/wiring/render host", "complexity_estimate": "medium" },
+    { "path": "frontend/src/services/api.ts", "lines": "458-570", "role": "frontend protected config API client pattern", "complexity_estimate": "medium" },
+    { "path": "server/src/services/CommandPresetService.ts", "lines": "22-52,155-176,216-290", "role": "persistence validation serialized mutation and backup pattern", "complexity_estimate": "medium" },
+    { "path": "server/src/routes/commandPresetRoutes.ts", "lines": "6-52", "role": "thin protected CRUD/reorder route pattern", "complexity_estimate": "low" },
+    { "path": "server/src/index.ts", "lines": "280-287,432-444", "role": "protected route registration and service bootstrap", "complexity_estimate": "low" },
+    { "path": "server/src/services/SessionManager.ts", "lines": "900-940,1632-1717,2572-2608", "role": "submitted command matching, idle invariant, shell startup and token normalization", "complexity_estimate": "high" },
+    { "path": "server/src/services/WorkspaceService.ts", "lines": "336-351,595-640", "role": "restart/orphan recovery and CWD snapshot coordination", "complexity_estimate": "high" },
+    { "path": "server/src/types/workspace.types.ts", "lines": "18-30", "role": "server persisted tab metadata contract", "complexity_estimate": "low" },
+    { "path": "frontend/src/types/workspace.ts", "lines": "12-31", "role": "client tab metadata contract", "complexity_estimate": "low" },
+    { "path": "frontend/src/components/MetadataBar/MetadataRow.tsx", "lines": "67-120", "role": "terminal metadata icon rendering insertion site", "complexity_estimate": "medium" },
+    { "path": "frontend/src/components/Workspace/WorkspaceTabBar.tsx", "lines": "75-143", "role": "tab icon rendering insertion site", "complexity_estimate": "medium" }
+  ],
+  "trace_validation": [
+    { "req_id": "FR-AITUI-001", "all_paths_exist": true, "external_paths_detected": [] },
+    { "req_id": "FR-AITUI-002", "all_paths_exist": true, "external_paths_detected": [] },
+    { "req_id": "FR-AITUI-003", "all_paths_exist": true, "external_paths_detected": [] },
+    { "req_id": "FR-AITUI-004", "all_paths_exist": true, "external_paths_detected": [] },
+    { "req_id": "FR-AITUI-005", "all_paths_exist": true, "external_paths_detected": [] },
+    { "req_id": "SEC-AITUI-001", "all_paths_exist": true, "external_paths_detected": [] },
+    { "req_id": "SEC-AITUI-002", "all_paths_exist": true, "external_paths_detected": [] },
+    { "req_id": "REL-AITUI-001", "all_paths_exist": true, "external_paths_detected": [] }
+  ],
+  "test_surface_notes": [
+    "Mirror CommandPresetService CRUD, concurrency, and route tests for RecoveryOptionService.",
+    "Extend AI TUI idle invariant regressions around recovery matching.",
+    "Extend restartTab and orphan recovery tests for lookup, injection, and deleted/disabled skip behavior.",
+    "Add protected recovery route authentication tests.",
+    "Add Playwright desktop Tools menu coverage at https://localhost:2002."
+  ]
+}

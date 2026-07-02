@@ -1,0 +1,8 @@
+{
+  "run_id": "2026-05-22.projectmaster.aitui-recovery",
+  "plan_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md",
+  "sidecar_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.sidecar.json",
+  "phases": 5,
+  "tasks": 9,
+  "mcp_planned": 40
+}

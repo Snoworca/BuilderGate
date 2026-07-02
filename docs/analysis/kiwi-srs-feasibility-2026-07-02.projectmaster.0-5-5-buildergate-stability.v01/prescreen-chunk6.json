@@ -1,0 +1,25 @@
+{
+  "chunk_id": "chunk6",
+  "senior_targets": ["REL-BGSTAB-005"],
+  "quick_pass": [
+    {
+      "req_id": "REL-BGSTAB-001",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [80, 90],
+      "note": "Status implemented with 4 verification-evidence entries (VE-1..VE-4) citing explicit pass counts (frontend 44/44, server 25/25) covering AC-1..AC-5. All 5 trace paths exist, no mismatches. No outgoing dependency edges (it is a base validation requirement other REQs extend/depend on), so no dependency-health exposure. Stability is evolving (not yet stable) by design, pending live non-2002/soak validation per its own change notes — an intentional, already-documented gate, not an open issue. Minor cosmetic note: AC checkboxes in the markdown body all render unchecked despite implemented status and cited evidence; worth a checkbox-state sync pass, but this does not affect feasibility."
+    },
+    {
+      "req_id": "REL-BGSTAB-003",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [75, 90],
+      "note": "Status planned, stability already evolving (promoted with documented rationale: 'ConPTY implementation plan accepted as next implementation input'). All 5 trace paths exist, no mismatches. Dependencies (extends FR-BGSTAB-012, extends FR-BGSTAB-007 implemented/evolving 'ordering only', depends_on FR-BGSTAB-003 implemented/evolving, depends_on FR-BGSTAB-015 planned/evolving) are all healthy. 5 ACs are clear and testable (byte-aware truncation, boundary tests, overflow abort/refresh, telemetry redaction, Settings-backed limits). Change notes show this REQ already went through a sub-agent evaluation fix cycle (trace relation corrected, dependency trace added), indicating prior scrutiny. Risk tag is 'high' (concurrency/byte-boundary correctness) but that reflects implementation risk, not feasibility uncertainty."
+    },
+    {
+      "req_id": "REL-BGSTAB-004",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [85, 95],
+      "note": "Status implemented with 1 verification-evidence entry citing 303 passing server tests covering AC-1..AC-6; all 6 ACs checked, consistent with implemented status. All 10 trace paths exist; 2 have minor_line_drift mismatches (WsRouter.ts:932, SessionManager.ts:3075) but the pre-computed trace_validation itself assessed both as 'contextually valid' (+/-1 line off, correct surrounding logic) — not a real trace failure. Dependencies (extends REL-BGSTAB-003 evolving/planned — also assessed high in this same chunk; depends_on FR-BGSTAB-016 and FR-BGSTAB-018, both planned/evolving) are healthy."
+    }
+  ],
+  "quick_block": []
+}

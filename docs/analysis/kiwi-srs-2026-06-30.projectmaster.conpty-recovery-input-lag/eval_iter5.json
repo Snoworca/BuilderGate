@@ -1,0 +1,24 @@
+{
+  "iter": 5,
+  "purpose": "Review after exact per-key matrix and AC-6 explicit key fixes",
+  "evaluators": [
+    {
+      "agent": "019f17dc-6975-7200-8add-cbb01f5033cf",
+      "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0 },
+      "findings": []
+    },
+    {
+      "agent": "019f17dc-8002-7071-8209-7817dfa50856",
+      "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 1 },
+      "findings": [
+        "FR-BGSTAB-015 SettingsPage trace note omitted Visible Output Scheduler and Stability Modes groups."
+      ]
+    },
+    {
+      "agent": "019f17dc-9698-7dd2-bf01-cf8ce39134e2",
+      "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0 },
+      "findings": []
+    }
+  ],
+  "result": "low_fix_applied"
+}

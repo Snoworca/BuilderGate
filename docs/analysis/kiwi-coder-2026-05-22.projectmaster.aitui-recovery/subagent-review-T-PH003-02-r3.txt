@@ -1,0 +1,3 @@
+High - `server/src/services/WorkspaceService.ts:82`: `recoveryOptionService` defaults to `null`, and the restore path treats that as “no enabled option” (`:638-640`). With the current default construction, restart/orphan restore will skip and clear metadata instead of restoring. The recovery option service needs to be required or wired before this path can satisfy T-PH003-02.
+
+Medium - `server/src/utils/recoveryCommand.ts:83`: PowerShell restore commands that require quoting are emitted as a bare string literal, e.g. `'tool&name' '--arg'`, which PowerShell does not execute as a command without `&`. Either reject such command names or emit PowerShell quoted commands with the call operator.

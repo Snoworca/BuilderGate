@@ -1,0 +1,22 @@
+{
+  "summary": "Desktop Tools menu AI TUI recovery options, command matching, restart restore, and icon display.",
+  "intent_type_hint": "new-feature",
+  "key_entities": [
+    "RecoveryOptionService",
+    "RecoveryOptionDialog",
+    "Tools menu",
+    "SessionManager.writeInput",
+    "WorkspaceService.restartTab",
+    "WorkspaceService.checkOrphanTabs",
+    "claude",
+    "codex",
+    "claudep"
+  ],
+  "ambiguities_resolved": {
+    "target": "0.5.4-ai-tui-recovery",
+    "scope": "AI TUI Recovery / AITUI",
+    "ui": "desktop Tools menu only",
+    "custom_command_contract": "command plus arguments; no matchCommand or runCommand split",
+    "defaults": "claude and codex only"
+  }
+}

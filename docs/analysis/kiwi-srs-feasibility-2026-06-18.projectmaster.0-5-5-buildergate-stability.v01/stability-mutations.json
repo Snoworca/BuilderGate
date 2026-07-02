@@ -1,0 +1,39 @@
+{
+  "mode": "dry-run",
+  "applied": [],
+  "would_apply_after_confirmation": [
+    {
+      "req_id": "FR-BGSTAB-001",
+      "stability": "evolving"
+    },
+    {
+      "req_id": "FR-BGSTAB-002",
+      "stability": "evolving"
+    },
+    {
+      "req_id": "FR-BGSTAB-003",
+      "stability": "evolving"
+    },
+    {
+      "req_id": "FR-BGSTAB-004",
+      "stability": "evolving"
+    },
+    {
+      "req_id": "FR-BGSTAB-005",
+      "stability": "evolving"
+    },
+    {
+      "req_id": "FR-BGSTAB-006",
+      "stability": "evolving"
+    },
+    {
+      "req_id": "FR-BGSTAB-007",
+      "stability": "evolving"
+    },
+    {
+      "req_id": "REL-BGSTAB-001",
+      "stability": "draft"
+    }
+  ],
+  "notes": "No live SRS mutation was performed in this run."
+}

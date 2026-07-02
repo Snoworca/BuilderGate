@@ -1,0 +1,67 @@
+{
+  "evaluator": "opus-A",
+  "iter": 1,
+  "findings": [
+    {
+      "id": "conflict-1-1",
+      "finding_hash": "6cdd9692823b488e1f04c8cae639fcf4e11bfefe",
+      "severity": "MEDIUM",
+      "axis": "conflict",
+      "req_id": "PERF-BGSTAB-002",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md",
+      "description": "PERF-BGSTAB-002 async-izes readProcessStartIdentitySync, relaxing FR-BGSTAB-009 AC-2's literal timing ('when the PTY is spawned, then the session stores ... best-effort OS start identity') to 'when the asynchronous capture completes'. After PERF-BGSTAB-002 lands, FR-BGSTAB-009 AC-2 (marked [x] implemented) is temporally no longer exact (identity is stored slightly after spawn). It is reconciled only through the 'best-effort' latitude and PERF-BGSTAB-002 AC-2/Implementation Notes; FR-BGSTAB-009 AC-2 itself is not updated and the relation is labeled 'extends' rather than a timing update. Compatible in practice (best-effort tolerates delayed resolution) but a documented timing shift to a verified AC. Verified code: readProcessStartIdentitySync is synchronous execFileSync/powershell.exe timeout:1000 at processTreeTerminator.ts:328-363 and called on the creation path at SessionManager.ts:2345.",
+      "suggested_action": "escalate",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "delta-1-1",
+      "finding_hash": "4fc6c14a758e61ea56e0934ba25db6f219520778",
+      "severity": "MEDIUM",
+      "axis": "delta",
+      "req_id": "REL-BGSTAB-002",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md",
+      "description": "REL-BGSTAB-002's discard lifecycle transition is not recorded in its Change Notes table. The table's last entry is 2026-06-28 'Status -> implemented'; there is no 2026-07-02 discard row despite update_status(REL-BGSTAB-002 -> discarded) (mcp seq 17). The discard IS documented via Status=discarded, the strikethrough header '~~REL-BGSTAB-002 ...~~ [DISCARDED -> see REL-BGSTAB-005]', and a dated Implementation Notes entry ('[2026-07-02] Discarded and superseded by REL-BGSTAB-005 ... re_stated_from AC-1..AC-7'). Provenance and re-statement are otherwise complete, so the gap is a canonical-changelog omission rather than a traceability break.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "mcp_srsmd-1-1",
+      "finding_hash": "13d2e00b2920b6abbb0dd47c17c6bb3fe5080f1c",
+      "severity": "LOW",
+      "axis": "mcp_srsmd",
+      "req_id": "PERF-BGSTAB-001",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md",
+      "description": "All five acceptance criteria of PERF-BGSTAB-001 carry a duplicated AC label: '- [ ] AC-1: AC-1: Given ...', '- [ ] AC-2: AC-2: ...', through AC-5 (srs lines 1794-1798). The redundant inner 'AC-N: ' prefix is an isolated authoring defect (other 5 new REQs use a single prefix). validate_spec still reports 0 errors (mcp seq 27), so it is cosmetic, but it is systematic within this REQ.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "ac-1-1",
+      "finding_hash": "7a0f0e9070b6fdf23e8930d4453309f75a4327be",
+      "severity": "LOW",
+      "axis": "ac",
+      "req_id": "PERF-BGSTAB-001",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md",
+      "description": "PERF-BGSTAB-001 AC-3 commits the new per-frame time-budget default to a firm testable range ('within the 6-8ms range'), while eval_input.intent_ambiguities records '6~8ms 는 예시 수치이며 확정값 아님' (6-8ms is an example, not confirmed). Unlike visibleFlushBudgetBytes (a named config key backed by config.schema.ts:150 default 262144), this new per-frame time budget has no named config key and no {{OQ}} placeholder, so a value the analysis flagged as tentative is baked into an AC without an open-question flag. It is verifiable as written (default in [6,8]) so severity is low.",
+      "suggested_action": "escalate",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "internal_coherence-1-1",
+      "finding_hash": "68d7e99dcbb3173d104b2b0a8289e19147ba3b71",
+      "severity": "LOW",
+      "axis": "internal_coherence",
+      "req_id": "REL-BGSTAB-005",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md",
+      "description": "Two soft phrasings in REL-BGSTAB-005: AC-9 uses 'a shutdown runs with a large owned-session count' ('large' is unquantified scene-setting) and AC-11 uses the causal qualifier 'without degraded-timeout cleanup evidence attributable solely to sequential termination scaling' ('solely' is hard to isolate deterministically in a test). Both are mitigated: the load-bearing undecided value is captured in {{OQ-2}} (registered in §6, [NEEDS-USER]), and AC-12 adds concrete bounded-parallel / idempotent-finalization / scaled-timeout regression tests, so the testable core is unaffected.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": ["large"],
+      "linked_oq": ["OQ-2"]
+    }
+  ],
+  "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 2, "LOW": 3 }
+}

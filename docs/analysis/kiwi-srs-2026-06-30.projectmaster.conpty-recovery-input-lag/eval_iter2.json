@@ -1,0 +1,30 @@
+{
+  "iter": 2,
+  "purpose": "Review after first SRS refinement",
+  "evaluators": [
+    {
+      "agent": "019f17cb-94a8-7cd1-867c-07b3a027c0a3",
+      "summary": { "CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 0 },
+      "findings": [
+        "FR-BGSTAB-017 did not require screen-snapshot:ready only after snapshot recovery write completion.",
+        "FR-BGSTAB-015 Settings matrix was still too categorical.",
+        "OBS-BGSTAB-001 queued bytes baseline and output loss/reorder/duplication criteria were incomplete."
+      ]
+    },
+    {
+      "agent": "019f17cb-ab46-7ec2-8c87-04cfd10f99bf",
+      "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 1, "LOW": 2 },
+      "findings": [
+        "FR-BGSTAB-015 needed more concrete Settings field/scope coverage.",
+        "FR-BGSTAB-017 snapshot ACK ordering should be explicit.",
+        "OBS-BGSTAB-001 baseline counters should name queue counters."
+      ]
+    },
+    {
+      "agent": "019f17cb-c1df-7042-a961-01354abce091",
+      "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0 },
+      "findings": []
+    }
+  ],
+  "result": "fixes_required"
+}

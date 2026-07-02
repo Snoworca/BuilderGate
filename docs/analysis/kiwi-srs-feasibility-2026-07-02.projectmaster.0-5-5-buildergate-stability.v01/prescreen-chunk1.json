@@ -1,0 +1,37 @@
+{
+  "chunk_id": "chunk1",
+  "senior_targets": [],
+  "quick_pass": [
+    {
+      "req_id": "FR-BGSTAB-001",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [85, 95],
+      "note": "Foundation requirement (no depends_on). All 3 trace paths exist with no line-range mismatch. AC-1..3 are given/when/then with concretely observable outcomes (typed getters, fallback-to-default path, wsTransportMode preservation). VE (frontend/tests/unit/runtimeConfig.test.ts, server RuntimeConfigStore.test.ts) exist and cover all ACs. Minor doc hygiene note: AC checkboxes in markdown are rendered as '- [ ]' (checked:false) despite status=implemented and VE coverage — cosmetic only, does not affect feasibility."
+    },
+    {
+      "req_id": "FR-BGSTAB-002",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [82, 92],
+      "note": "All 3 trace paths exist, no mismatches. depends_on FR-BGSTAB-001, which is implemented/evolving (healthy). AC-1..6 clear and independently testable (threshold-based send/backpressure/reconnect/bypass/clear/no-raw-log). VE (webSocketBackpressure.test.ts, runtimeConfig.test.ts) cover the ACs. Same checkbox-vs-status cosmetic note as FR-BGSTAB-001."
+    },
+    {
+      "req_id": "FR-BGSTAB-003",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [78, 90],
+      "note": "1 trace mismatch: frontend/src/utils/visibleOutputRecovery.ts:1-120 recorded, but file is actually 100 lines (confirmed via wc -l) — a ~20-line drift from file shrinkage since the trace was recorded, not a wrong-file or hallucinated-path issue; file still exists and is the correct target per its role (recovery retry/abandon policy). Treated as minor per file-shortening exception, not escalated to senior_target. AC-1..5 clear (bounded chunking, code-point safety, overflow/recovery observability, reset idempotency). VE (terminalOutputScheduler.test.ts, visibleOutputRecovery.test.ts) cover the ACs. depends_on FR-BGSTAB-001 (healthy)."
+    },
+    {
+      "req_id": "FR-BGSTAB-004",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [80, 90],
+      "note": "1 trace mismatch: frontend/src/utils/terminalSnapshot.ts:1-560 recorded, but file is actually 505 lines (confirmed via wc -l) — ~55-line drift from file shrinkage, same benign category as FR-BGSTAB-003 (file still exists, correct target). AC-1..5 clear and testable (per-snapshot limit rejection, budget eviction, maxEntries eviction, tombstone fresh-block, tombstone-expired-non-block). VE (terminalSnapshot.test.ts) covers all ACs. depends_on FR-BGSTAB-001 (healthy)."
+    },
+    {
+      "req_id": "FR-BGSTAB-005",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [83, 93],
+      "note": "Both trace paths exist, no mismatches. AC-1..5 clear (visible-pin, hidden LRU eviction by maxLiveTerminals/maxLiveWorkspaces, TTL retention, disconnected-tab exclusion) with concretely observable residency-set outcomes. VE (useTerminalRuntimeResidency.test.ts) covers all ACs. depends_on FR-BGSTAB-001 and FR-BGSTAB-004, both implemented/evolving (healthy)."
+    }
+  ],
+  "quick_block": []
+}

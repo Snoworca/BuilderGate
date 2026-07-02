@@ -1,0 +1,61 @@
+{
+  "mode": "live",
+  "applied": [
+    {
+      "req_id": "FR-BGSTAB-001",
+      "from": "draft",
+      "to": "evolving",
+      "ok": true
+    },
+    {
+      "req_id": "FR-BGSTAB-002",
+      "from": "draft",
+      "to": "evolving",
+      "ok": true
+    },
+    {
+      "req_id": "FR-BGSTAB-003",
+      "from": "draft",
+      "to": "evolving",
+      "ok": true
+    },
+    {
+      "req_id": "FR-BGSTAB-004",
+      "from": "draft",
+      "to": "evolving",
+      "ok": true
+    },
+    {
+      "req_id": "FR-BGSTAB-005",
+      "from": "draft",
+      "to": "evolving",
+      "ok": true
+    },
+    {
+      "req_id": "FR-BGSTAB-006",
+      "from": "draft",
+      "to": "evolving",
+      "ok": true
+    },
+    {
+      "req_id": "FR-BGSTAB-007",
+      "from": "draft",
+      "to": "evolving",
+      "ok": true
+    },
+    {
+      "req_id": "REL-BGSTAB-001",
+      "from": "draft",
+      "to": "evolving",
+      "ok": true
+    }
+  ],
+  "skipped": [],
+  "guard_blocked": [],
+  "summary": {
+    "applied_count": 8,
+    "skipped_count": 0,
+    "guard_blocked_count": 0,
+    "system_failed_count": 0
+  }
+}

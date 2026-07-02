@@ -1,0 +1,12 @@
+{
+  "mcp": true,
+  "cli": null,
+  "halted": false,
+  "mode": "mcp",
+  "target": "0.5.5-buildergate-stability",
+  "target_source": "user-specified (matches active target)",
+  "options": { "auto": true, "max": false, "mini": false, "dry_run": false },
+  "run_id": "2026-07-02.projectmaster.p0-native-perf",
+  "existing_req_count": 24,
+  "timestamp": "2026-07-02"
+}

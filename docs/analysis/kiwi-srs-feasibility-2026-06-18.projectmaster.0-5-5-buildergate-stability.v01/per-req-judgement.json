@@ -1,0 +1,66 @@
+[
+  {
+    "req_id": "FR-BGSTAB-001",
+    "title": "Runtime resource limits for terminal stability",
+    "feasibility": "high",
+    "score": 90,
+    "stability_recommendation": "evolving",
+    "rationale": "Typed frontend getters, server runtime config exposure, schema support, and tests already exist."
+  },
+  {
+    "req_id": "FR-BGSTAB-002",
+    "title": "Browser WebSocket input backpressure",
+    "feasibility": "high",
+    "score": 88,
+    "stability_recommendation": "evolving",
+    "rationale": "Input-only backpressure decision logic and bounded retry behavior are implemented and unit tested."
+  },
+  {
+    "req_id": "FR-BGSTAB-003",
+    "title": "Visible terminal output scheduling and recovery",
+    "feasibility": "high",
+    "score": 87,
+    "stability_recommendation": "evolving",
+    "rationale": "Visible output scheduling, overflow detection, and recovery are implemented and covered by focused tests."
+  },
+  {
+    "req_id": "FR-BGSTAB-004",
+    "title": "Terminal snapshot storage budgets and tombstone expiry",
+    "feasibility": "high",
+    "score": 86,
+    "stability_recommendation": "evolving",
+    "rationale": "Snapshot size, total budget, entry count, quota recovery, and tombstone TTL tests exist."
+  },
+  {
+    "req_id": "FR-BGSTAB-005",
+    "title": "Terminal runtime residency limits",
+    "feasibility": "high",
+    "score": 85,
+    "stability_recommendation": "evolving",
+    "rationale": "LRU hidden terminal residency with visible pinning is implemented and unit tested."
+  },
+  {
+    "req_id": "FR-BGSTAB-006",
+    "title": "Split WebSocket handshake and channel isolation",
+    "feasibility": "high",
+    "score": 84,
+    "stability_recommendation": "evolving",
+    "rationale": "Unified, split-shadow, and split handshake logic is feature-flagged and tested."
+  },
+  {
+    "req_id": "FR-BGSTAB-007",
+    "title": "Split WebSocket terminal payload routing and failure recovery",
+    "feasibility": "high",
+    "score": 82,
+    "stability_recommendation": "evolving",
+    "rationale": "Full split routing and fallback/degraded recovery preservation are implemented with regression tests."
+  },
+  {
+    "req_id": "REL-BGSTAB-001",
+    "title": "Stability validation and non-2002 operational verification",
+    "feasibility": "medium",
+    "score": 72,
+    "stability_recommendation": "draft",
+    "rationale": "Automated checks are recorded as passing, but non-2002 live split validation and long-running browser soak remain open."
+  }
+]

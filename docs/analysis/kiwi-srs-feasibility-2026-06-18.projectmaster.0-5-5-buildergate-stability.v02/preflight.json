@@ -1,0 +1,11 @@
+{
+  "run_id": "2026-06-18.projectmaster.0-5-5-buildergate-stability.v02",
+  "skill": "kiwi-srs-feasibility",
+  "mode": "live",
+  "target": "0.5.5-buildergate-stability",
+  "scope": "BGSTAB",
+  "active_target": "0.5.5-buildergate-stability",
+  "docs_spec_mutated": true,
+  "non_2002_validation_required_for_live_checks": true,
+  "node_exe_global_termination_allowed": false
+}

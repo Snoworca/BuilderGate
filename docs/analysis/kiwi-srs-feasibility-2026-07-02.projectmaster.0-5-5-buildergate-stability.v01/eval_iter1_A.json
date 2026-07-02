@@ -1,0 +1,42 @@
+{
+  "evaluator": "opus-A",
+  "iter": 1,
+  "findings": [
+    {
+      "id": "score_label_consistency-1-1",
+      "finding_hash": "f3a541d3ddb79c39ef30d33dbdcdfbbb85f7c575",
+      "severity": "MEDIUM",
+      "axis": "score_label_consistency",
+      "req_id": null,
+      "evidence_path": null,
+      "description": "Band mapping (80+=high / 60-79=medium) is applied inconsistently between evaluation paths. Quick-pass labels FR-BGSTAB-015 (78), FR-BGSTAB-016 (78), FR-BGSTAB-017 (77), FR-BGSTAB-018 (78) as feasibility=high, but the senior path labels the identical score 78 (OBS-BGSTAB-001) and score 73 (REL-BGSTAB-005) as medium. So 77-78 maps to high in one path and to medium in the other. Consequence: the reported feasibility_distribution is high:27/medium:2, whereas strict band application would yield high:23/medium:6 (FR-015/016/017/018 downgraded). I independently verified the underlying high-IMPLEMENTABILITY judgment is defensible for these four: all are planned/evolving additive REQs whose ACs are concrete Given/When/Then and whose addition_site traces point to real, existing extension files (RuntimeConfigStore.ts, SettingsService.ts, config.schema.ts, wsSendPolicy.ts, WsRouter.ts, terminalOutputScheduler.ts, TerminalView.tsx, TerminalContainer.tsx — all exist with sufficient line counts). The issue is purely the point-score-to-label derivation, not the qualitative judgment. Zero mutation impact: all four are currently evolving, so they resolve to no_op under both high->evolving (rule 1) and medium->keep (rule 2); no sub-80 high-labeled REQ is draft, so none is auto-promoted.",
+      "suggested_action": "Reconcile the label-derivation rule across quick-pass and senior paths: either (a) recompute quick-pass point scores >=80 to match the high label for FR-015/016/017/018 (justified by additive-implementability), or (b) relabel them medium to match the band as applied to OBS-BGSTAB-001, and correct the reported feasibility_distribution accordingly. Document that feasibility(implementability) and the numeric score are distinct if divergence near the 80 boundary is intended."
+    },
+    {
+      "id": "dependency_cycle-1-1",
+      "finding_hash": "302bcf6f5d68288f919324975d4f429cb612b4c1",
+      "severity": "LOW",
+      "axis": "dependency_cycle",
+      "req_id": "OBS-BGSTAB-001",
+      "evidence_path": null,
+      "description": "Dependency cycle detection is correct: cycles=[] verified independently (graph is a DAG rooted at FR-BGSTAB-001/REL-BGSTAB-001; no back-edges among depends_on/extends/supersedes). The OBS-BGSTAB-001 -> REL-BGSTAB-002 (discarded) stale extends link and the REL-BGSTAB-005 -> REL-BGSTAB-002 supersedes link are both handled: captured in discarded_ref_issues, correctly assessed (stale hygiene vs expected supersede lifecycle), and OBS-BGSTAB-001's senior condition explicitly requires re-pointing the stale link. Minor gap: the stale extends-to-discarded link is categorized only under discarded_ref_issues and is NOT surfaced in dependency_health_risks (which lists only REL-BGSTAB-005), even though a live/planned REQ extending a discarded REQ is arguably a dependency-health signal. It is reflected in OBS-BGSTAB-001 dependency_health=10/15, so it is not ignored — only categorized separately.",
+      "suggested_action": "Optionally cross-reference discarded_ref_issues entries whose from_status is active/planned into dependency_health_risks so a single health list is complete. No score change required; OBS-BGSTAB-001 already carries the deduction and the corrective condition."
+    },
+    {
+      "id": "golden_rule-1-1",
+      "finding_hash": "0db0ca620302a21ac557abbc877c23a2490f1404",
+      "severity": "LOW",
+      "axis": "golden_rule",
+      "req_id": null,
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md",
+      "description": "Golden rule (no SRS mutation this run — all dryRun) is SATISFIED, but the git-diff heuristic in the check instruction produces a false positive that must not be mistaken for a mutation. `git diff --stat -- docs/spec/` reports 384 insertions / 2 deletions on 30.buildergate-stability.srs.md. Inspection shows this diff is pre-existing new-REQ authoring done BEFORE this feasibility run: all 2026-07-02 dated entries are 'Created | add-requirement' change notes (FR-BGSTAB-019, PERF-BGSTAB-002/003/004, REL-BGSTAB-005) plus the REL-BGSTAB-002 discard note and Related-Docs additions. There are ZERO 'Stability -> stable'/'-> evolving' feasibility change notes and ZERO feasibility-batch markers. The definitive dryRun proof holds: the current SRS contains 0 'stable' Stability values (distribution = 6 draft / 24 evolving), exactly matching target-snapshot/existing_srs_context, so none of the plan's proposed 16 stable / 5 evolving mutations was applied.",
+      "suggested_action": "Do not treat the docs/spec git diff as evidence of a run mutation. Use the stability-value invariant (count of 'stable' == 0 and distribution == snapshot's 6 draft / 24 evolving) as the authoritative golden-rule check, since the working tree carries unrelated pre-run REQ authoring."
+    }
+  ],
+  "summary": {
+    "CRITICAL": 0,
+    "HIGH": 0,
+    "MEDIUM": 1,
+    "LOW": 2
+  }
+}

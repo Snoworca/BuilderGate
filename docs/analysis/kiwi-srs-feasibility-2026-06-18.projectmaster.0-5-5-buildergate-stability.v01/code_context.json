@@ -1,0 +1,34 @@
+{
+  "summary": "The proposed BGSTAB requirements map to implemented frontend and server stability code plus focused regression tests.",
+  "primary_code": [
+    "frontend/src/utils/inputReliabilityMode.ts:72-184",
+    "frontend/src/utils/webSocketBackpressure.ts:1-99",
+    "frontend/src/contexts/WebSocketContext.tsx:600-640",
+    "frontend/src/components/Terminal/TerminalContainer.tsx:470-940",
+    "frontend/src/utils/terminalOutputScheduler.ts:1-154",
+    "frontend/src/components/Terminal/TerminalView.tsx:1626-1710",
+    "frontend/src/utils/terminalSnapshot.ts:1-560",
+    "frontend/src/hooks/useTerminalRuntimeResidency.ts:1-286",
+    "server/src/ws/wsTransportMode.ts:1-130",
+    "server/src/ws/WsRouter.ts:188-389",
+    "server/src/ws/WsRouter.ts:954-1055",
+    "server/src/ws/WsRouter.ts:2108-2449"
+  ],
+  "primary_tests": [
+    "frontend/tests/unit/runtimeConfig.test.ts",
+    "frontend/tests/unit/webSocketBackpressure.test.ts",
+    "frontend/tests/unit/terminalOutputScheduler.test.ts",
+    "frontend/tests/unit/terminalSnapshot.test.ts",
+    "frontend/tests/unit/useTerminalRuntimeResidency.test.ts",
+    "frontend/tests/unit/visibleOutputRecovery.test.ts",
+    "frontend/tests/unit/webSocketUrl.test.ts",
+    "frontend/tests/unit/splitWebSocketLifecycle.test.ts",
+    "server/src/ws/wsTransportMode.test.ts",
+    "server/src/ws/WsRouterSplitHandshake.test.ts",
+    "server/src/services/RuntimeConfigStore.test.ts"
+  ],
+  "known_gaps": [
+    "Long-running browser memory and keyboard input-lag soak validation is not yet complete.",
+    "Live split WebSocket validation on a non-2002 port is not yet complete."
+  ]
+}

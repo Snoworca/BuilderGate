@@ -1,0 +1,74 @@
+{
+  "run_id": "2026-06-30.projectmaster.conpty-recovery-input-lag",
+  "skill": "kiwi-srs",
+  "mode": ["--max", "--auto"],
+  "target": "0.5.5-buildergate-stability",
+  "scope": "BGSTAB",
+  "source_documents": [
+    "docs/research/2026-06-30.buildergate-conpty-output-recovery-input-lag-implementation-plan.md",
+    "docs/research/2026-06-30.buildergate-conpty-output-recovery-input-lag-research.ko.md"
+  ],
+  "spec_files": [
+    "docs/spec/30.buildergate-stability.srs.md"
+  ],
+  "requirements_added": [
+    {
+      "id": "FR-BGSTAB-015",
+      "title": "ConPTY transport and recovery Settings contract",
+      "type": "functional",
+      "status": "planned",
+      "stability": "evolving"
+    },
+    {
+      "id": "FR-BGSTAB-016",
+      "title": "Priority-aware WebSocket safe-send under output flood",
+      "type": "functional",
+      "status": "planned",
+      "stability": "evolving"
+    },
+    {
+      "id": "REL-BGSTAB-003",
+      "title": "Byte-aware replay tail and screen repair overflow recovery",
+      "type": "reliability",
+      "status": "planned",
+      "stability": "evolving"
+    },
+    {
+      "id": "FR-BGSTAB-017",
+      "title": "Frontend recovery write gate and queued input release barrier",
+      "type": "functional",
+      "status": "planned",
+      "stability": "evolving"
+    },
+    {
+      "id": "OBS-BGSTAB-001",
+      "title": "ConPTY input-lag recovery telemetry and soak evidence",
+      "type": "observability",
+      "status": "planned",
+      "stability": "evolving"
+    }
+  ],
+  "notable_requirements_decisions": [
+    "Wave6 Settings exclusion is treated as a prior scoped completion record; FR-BGSTAB-015 is a later ConPTY-specific extension.",
+    "Default wsSendMode remains direct until observe/enforce evidence supports rollout.",
+    "Server safe-send requirements cover server-sent recovery ordering; queued input release is owned by FR-BGSTAB-017.",
+    "ConPTY redraw-flood E2E at https://localhost:2222 is mandatory final validation, while bash, WSL, and long-duration browser memory gaps may remain operational validation.",
+    "No silent fallback from ConPTY/Codex sessions to winpty, pipe, or another PTY backend is allowed as a workaround."
+  ],
+  "final_validation": {
+    "speckiwi_mcp_strict": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "speckiwi_cli_fail_on_warning": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "subagent_iter6": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    }
+  }
+}

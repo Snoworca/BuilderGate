@@ -1,0 +1,37 @@
+{
+  "chunk_id": "chunk2",
+  "senior_targets": [],
+  "quick_pass": [
+    {
+      "req_id": "FR-BGSTAB-006",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [75, 88],
+      "note": "3 trace mismatches, all confirmed via wc -l as file-shrinkage line-range overshoot (benign category, not wrong-file/hallucination): server/src/ws/wsTransportMode.ts:1-130 vs actual 93 lines (~28% over); frontend/src/utils/splitWebSocketLifecycle.ts:1-64 vs actual 35 lines (~45% over, the largest drift found in this chunk); frontend/src/utils/webSocketUrl.ts:1-74 vs actual 71 lines (negligible ~4% over). All referenced files exist and match their stated roles (transport parser, split lifecycle gating, URL construction). Kept as quick_pass per the file-shortening exception, but the splitWebSocketLifecycle.ts drift is proportionally the largest observed across both chunks and may warrant a light trace refresh even though it does not block feasibility. AC-1..5 are clear and testable (unified compat, split handshake metadata, pair-token/identity rejection, duplicate-output-socket replacement, split-shadow non-interference). VE (WsRouterSplitHandshake.test.ts, wsTransportMode.test.ts, webSocketUrl.test.ts, splitWebSocketLifecycle.test.ts) cover all ACs. depends_on FR-BGSTAB-001, implemented/evolving (healthy)."
+    },
+    {
+      "req_id": "FR-BGSTAB-007",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [82, 92],
+      "note": "1 trace mismatch: server/src/ws/WsRouter.ts:2108-2449 vs actual file length 2408 (confirmed via wc -l) — negligible ~1.7% overshoot from file shrinkage. AC-1..7 clear and testable (output-socket routing, control-socket-only message types, fallback on absent/closed output, reroute on overflow/hard-limit/error, fresh recovery snapshot + pending-output preservation, repair-pending flush, split-shadow non-forcing). VE (WsRouterSplitHandshake.test.ts covering AC-1..7, splitWebSocketLifecycle.test.ts covering AC-3) exist. depends_on FR-BGSTAB-006, implemented/evolving (healthy)."
+    },
+    {
+      "req_id": "FR-BGSTAB-008",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [85, 95],
+      "note": "9 trace paths, all exist; only 1 negligible mismatch noted by code_context.json itself (SettingsService.resourceLimits.test.ts:48 lands on a closing brace, but surrounding lines 43-53 are the relevant fixture — contextually valid, not a real drift). All 6 ACs are marked checked:true in the SRS (consistent with status=implemented, unlike chunk1's checkbox-vs-status mismatch). Very strong verification evidence: 11 VE entries spanning full server test suite runs, targeted node --test invocations, frontend typecheck, and an explicit multi-agent reviewer re-review. depends_on FR-BGSTAB-001 and REL-BGSTAB-001, both implemented/evolving (healthy)."
+    },
+    {
+      "req_id": "FR-BGSTAB-009",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [88, 96],
+      "note": "9 trace paths, all exist, zero mismatches reported or found. All 6 ACs marked checked:true, matching status=implemented. Diverse VE: a plan doc, full server test suite, targeted schema/template tests, an independent review-fix-loop report, and plan-validation JSON. depends_on FR-BGSTAB-008 (implemented/evolving, healthy) and extends REL-BGSTAB-001 (implemented/evolving, healthy). Task-type trace links (T-PH00x-xx) are plan-step references, not REQ dependencies, and do not affect stability health."
+    },
+    {
+      "req_id": "FR-BGSTAB-010",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [88, 96],
+      "note": "7 trace paths, all exist, zero mismatches. All 7 ACs marked checked:true, matching status=implemented. VE spans a plan doc, full server test suite (run twice, once pre- and once post-review-fix), a targeted frontend typecheck for workspace.ts, and an independent review-fix-loop report. depends_on FR-BGSTAB-009, implemented/evolving (healthy). Same Task-type trace-link caveat as FR-BGSTAB-009 applies (not REQ dependencies)."
+    }
+  ],
+  "quick_block": []
+}

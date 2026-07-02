@@ -1,0 +1,138 @@
+{
+  "items": [
+    {
+      "p0_item": "P0-1",
+      "implementability": "high",
+      "product_fit": "core",
+      "rationale": "Config revert (server/config.json5:79 → schema default 262144) is a one-line value change. The scheduler's flush() (terminalOutputScheduler.ts:63-105, confirmed by direct read) already runs a single-chunk-per-schedule loop with takeUtf8Prefix/write/callback structure that is well isolated and already has a matching unit test file (frontend/tests/unit/terminalOutputScheduler.test.ts, referenced in code_context.json). Converting the single-chunk drain to a while-loop bounded by a frame time budget (using the existing schedule()/requestFlush() re-entry pattern) is a contained, additive change to code that is not itself under a stability gate: FR-BGSTAB-003 is status=implemented / stability=evolving with 2 recorded verification-evidence entries, so extension is not blocked by SRS lifecycle rules.",
+      "code_evidence": [
+        "server/config.json5:79",
+        "server/src/schemas/config.schema.ts:150",
+        "frontend/src/utils/terminalOutputScheduler.ts:63-105 (confirmed by direct read: single takeUtf8Prefix/write per flush() call)",
+        "frontend/tests/unit/terminalOutputScheduler.test.ts",
+        "docs/spec/30.buildergate-stability.srs.md:165-203 (FR-BGSTAB-003, status=implemented, stability=evolving)"
+      ],
+      "blockers": [],
+      "conditions": [
+        "연구문서 §5 P0-1 텍스트는 프레임 시간예산을 '예: 6~8ms'로만 제시했으므로, AC/회귀 테스트 작성 전 고정값(또는 명시적 적응형 상한/하한)을 확정해야 한다 (intent.json ambiguities 항목).",
+        "config.json5:79 복원 방식(오버라이드 삭제 vs 262144 명시 재기입)을 결정하고, server/src/utils/configTemplate.ts의 기본값/주석 렌더링도 함께 정합시켜야 한다.",
+        "§6 검증계획 항목 1(5MB ANSI 재생, P0-1 전/후 비교, 목표 10배 이상 개선)을 이 REQ의 Verification Evidence로 등록해야 한다.",
+        "FR-BGSTAB-017(status=planned, terminalOutputScheduler.ts:1-158을 동일하게 대상으로 하는 recovery write gate)과 구현 순서를 조율해야 한다 — 둘 다 같은 스케줄러 내부를 변경하므로 어느 쪽이 먼저 착지하든 다른 쪽이 그 base 위에 빌드하도록 순서를 SRS/plan에 명시해야 한다."
+      ],
+      "external_module_required": false
+    },
+    {
+      "p0_item": "P0-2a",
+      "implementability": "high",
+      "product_fit": "core",
+      "rationale": "The enforce-mode termination mechanism this activates is not new code to write — FR-BGSTAB-011 (status=implemented, stability=evolving) already fully specifies and verifies it: identity validation before enforcement, Windows taskkill /PID <pid> /T /F (processTreeTerminator.ts:592-605), POSIX verified leaf-first kill, and 5 verification-evidence entries including a full server test-suite pass. Activating session.processCleanup.mode=enforce (config.schema.ts:84-89 default='observe') is a single config-value change that exercises an already-built, already-tested code path (SessionManager.ts:1149-1171). No new termination mechanism is required.",
+      "code_evidence": [
+        "server/src/services/SessionManager.ts:1149-1171",
+        "server/src/utils/processTreeTerminator.ts:592-605",
+        "server/src/schemas/config.schema.ts:84-89 (mode default='observe')",
+        "docs/spec/30.buildergate-stability.srs.md:860-927 (FR-BGSTAB-011, status=implemented, 7 AC all checked, VE-1..VE-5)"
+      ],
+      "blockers": [],
+      "conditions": [
+        "FR-BGSTAB-011의 Implementation Notes('Keep session.processCleanup.mode defaulted to observe')와 REL-BGSTAB-002의 Implementation Notes('do not force enforce mode by default')가 이 활성화와 정반대 정책을 명시적으로 기록하고 있다 — classification.json은 이를 AC-text 충돌이 아닌 Implementation-Notes-only tension으로 판정했으나(하드 블로커 아님), 신규 REQ 작성과 동시에 append_section_note로 두 기존 REQ의 Implementation Notes/Change Notes를 갱신해 정책 반전을 명시적으로 기록해야 한다 — 그렇지 않으면 3개 REQ에 걸쳐 모순된 정책 서술이 SRS에 남는다.",
+        "연구문서의 '로드맵 주의사항'(soak 증거 확보 후 기본값 변경 원칙)과 §6 검증계획 항목 5(54세션 round-robin ≥2h soak, heap/입력지연 추세 플랫 확인)를 이 항목의 production 기본값 전환 전제 게이트로 명시해야 한다 — 동일 원칙이 F21(wsSendMode 스키마 기본값 승격)에도 'soak 증거 확보 후'로 적용되어 있으므로 일관성이 필요하다.",
+        "observe로의 롤백 경로가 유지·문서화되어야 한다."
+      ],
+      "external_module_required": false
+    },
+    {
+      "p0_item": "P0-2b",
+      "implementability": "high",
+      "product_fit": "core",
+      "rationale": "Direct read of server/src/services/SessionManager.ts:1783-1810 confirms terminateMultipleSessions currently runs a strictly sequential `for (const id of ids) { await this.terminateSession(id, options); }` loop — this is exact code-level confirmation of the code_context.json/intent.json claim that batch termination is not parallelized today. Converting this to a bounded-concurrency pool (e.g. chunked Promise.all) is a contained, well-precedented change. REL-BGSTAB-002 (status=implemented, stability=evolving) AC-1 fixes the observable shutdown stage sequence but does not pin intra-stage concurrency or the DEFAULT_SESSION_CLEANUP_TIMEOUT_MS=3000 constant (gracefulShutdown.ts:11, confirmed by direct read), so this is additive to an already-passing REQ with an existing test harness (server/src/test-runner.ts, graceful shutdown/timeout tests already at lines ~198-200 and 4593-4889 per code_context.json).",
+      "code_evidence": [
+        "server/src/services/SessionManager.ts:1783-1810 (confirmed by direct read: sequential for-of await loop in terminateMultipleSessions)",
+        "server/src/services/gracefulShutdown.ts:11 (confirmed by direct read: DEFAULT_SESSION_CLEANUP_TIMEOUT_MS = 3_000)",
+        "server/src/test-runner.ts (graceful shutdown/timeout regression tests already present per code_context.json test_locations)",
+        "docs/spec/30.buildergate-stability.srs.md:929-1001 (REL-BGSTAB-002 AC-1..AC-7, status=implemented)"
+      ],
+      "blockers": [],
+      "conditions": [
+        "FR-BGSTAB-010(idempotent 단일 종료-완료 보장)을 병렬 배치 실행 하에서도 보존해야 한다 — 동일 세션에 대해 자연 PTY 종료 경로와 shutdown 트리거 종료 경로가 병렬화로 인해 동시에 실행되어 이중 finalize가 발생하지 않도록 하는 회귀 테스트가 AC에 포함되어야 한다 (REL-BGSTAB-002 AC-6이 이미 FR-BGSTAB-010 준수를 요구).",
+        "54세션 규모에 맞는 구체적 bounded-pool 동시 실행 상한값과 새 타임아웃 값/공식을 결정하고 근거를 남겨야 한다 — 연구문서 텍스트는 '배치 병렬화 + 타임아웃 정합'이라고만 하고 수치를 특정하지 않았다."
+      ],
+      "external_module_required": false
+    },
+    {
+      "p0_item": "P0-3a",
+      "implementability": "high",
+      "product_fit": "core",
+      "rationale": "Direct read of server/src/utils/processTreeTerminator.ts:328-363 confirms readProcessStartIdentitySync is a small, already-parameterized pure function (execFileSyncFn injectable, used for tests) whose Windows branch calls execFileSync('powershell.exe', ..., {timeout:1000}). Converting to an async call (execFile/promisified execFile) is a contained, low-risk refactor of an isolated utility with no new external dependency. FR-BGSTAB-009 AC-2 (status=implemented) requires capturing best-effort OS start identity 'when the PTY is spawned' without pinning synchronous timing, so an async conversion still satisfies the AC once the lookup resolves.",
+      "code_evidence": [
+        "server/src/utils/processTreeTerminator.ts:328-363 (confirmed by direct read: readProcessStartIdentitySync, Windows execFileSync branch + POSIX readLinuxProcStat branch)",
+        "server/src/services/SessionManager.ts:566, 2345 (call sites)",
+        "docs/spec/30.buildergate-stability.srs.md:648 (FR-BGSTAB-009 AC-2 text, no synchronous-timing constraint)",
+        "docs/spec/30.buildergate-stability.srs.md:886 (FR-BGSTAB-011 AC-2 already-specified skipped-unverified/degraded outcome)"
+      ],
+      "blockers": [],
+      "conditions": [
+        "종료-생성 레이스 처리: 세션이 비동기 신원 조회가 완료되기 전에 종료될 경우, 이는 FR-BGSTAB-011 AC-2가 이미 명시한 skipped-unverified/degraded 경로로 귀결되어야 하며 새로운 처리되지 않은 실패 모드(미해결 promise, 폐기된 세션에 대한 콜백 접근 등)를 만들지 않아야 한다 — 이 레이스를 검증하는 회귀 테스트가 AC에 필요하다.",
+        "readProcessStartIdentitySync를 격리 검증하는 전용 단위 테스트가 현재 부재하다(code_context.json missing_evidence) — TDD 요구에 따라 동기→비동기 전환과 레이스 처리 모두를 커버하는 실패 테스트를 구현 전에 먼저 작성해야 한다.",
+        "'최대 ~1초 블로킹'이라는 문제 서술을 구체적 허용 임계값(예: 이벤트루프 블로킹 0ms 목표, 또는 특정 상한)으로 AC에 고정해야 한다."
+      ],
+      "external_module_required": false
+    },
+    {
+      "p0_item": "P0-3b",
+      "implementability": "blocked",
+      "product_fit": "nice-to-have",
+      "rationale": "코드 자체는 사소하다 — processCleanup.mode==='observe'일 때 호출을 건너뛰는 조건문 한 줄이면 된다. 그러나 classification.json이 이미 판정했듯, FR-BGSTAB-009 AC-2('the session stores ... best-effort OS start identity ...')는 processCleanup.mode 조건 없이 무조건적이며 status=implemented·5개 Verification Evidence로 검증된 상태다. observe가 사실상 전체 세션의 현재 기본 모드이므로, 이 서브요구사항을 그대로 구현하면 사실상 모든 세션에서 identity capture가 0이 되어 이미 검증된 AC와 정면 충돌한다. 또한 P0-3a(비동기 전환)가 이미 이벤트루프 블로킹이라는 핵심 성능 문제를 해소하므로, P0-3b가 추가로 주는 성능 이득(프로세스 스폰 자체를 생략)은 부가적이며, 검증된 데이터 계약을 깨면서까지 얻을 만한 core 목표 기여는 아니다. product_fit을 nice-to-have로 낮춘 이유이기도 하다.",
+      "code_evidence": [
+        "docs/spec/30.buildergate-stability.srs.md:648 (FR-BGSTAB-009 AC-2, 무조건적 문구, status=implemented)",
+        "server/src/utils/processTreeTerminator.ts:328-363 (confirmed by direct read)",
+        "server/src/services/SessionManager.ts:2326-2347"
+      ],
+      "blockers": [
+        "SRS 결정 선행 필요 — FR-BGSTAB-009 AC-2(무조건적 identity capture)를 processCleanup.mode 조건부로 완화하거나, observe-mode-skip 서브요구사항 자체를 폐기해야 한다. 사용자/SRS 작성자의 명시적 결정 없이는 이 서브요구사항을 신규 REQ의 AC로 등록할 수 없다 — 기존의 검증된(status=implemented, 5 VE) AC와 정면 충돌하기 때문이다."
+      ],
+      "conditions": [
+        "만약 (a) AC-2를 조건부로 완화하는 방향으로 결정되면: FR-BGSTAB-009의 Change Notes 및 기존 Verification Evidence(VE-1..VE-5)가 새 조건부 문구 하에서도 여전히 유효한지 재평가해야 한다.",
+        "만약 (b) observe-skip 서브요구사항을 폐기하는 방향으로 결정되면: P0-3은 P0-3a(비동기화)만으로 축소하고 P0-3b는 SRS에 별도 REQ로 등록하지 않는다.",
+        "(a)를 선택할 경우, P0-2a의 enforce→observe 롤백 시나리오 중 신규 세션에 identity capture가 전혀 없어 FR-BGSTAB-011의 enforce-mode 검증 커버리지가 롤백 구간에서 저하되는 상호작용을 AC에 명시적으로 완화해야 한다."
+      ],
+      "external_module_required": false
+    },
+    {
+      "p0_item": "P0-4",
+      "implementability": "high",
+      "product_fit": "core",
+      "rationale": "세 호출 지점(TerminalView.tsx:1894, TerminalContainer.tsx:708/1697) 모두 동일한 순수 함수 buildTerminalInputDebugPayload를 호출하므로, 상위 한 지점에서 1회 계산 후 결과를 전달하는 방식으로의 통합은 잘 격리된 리팩터다. terminalDebugCapture.ts의 utf8ByteLength(500-502)·countGraphemes(504-517, Intl.Segmenter feature-detect 포함)를 직접 읽어 확인한 결과, 매 호출마다 new TextEncoder()/new segmenterCtor(...)를 생성하는 구조가 정확히 존재하며, 이를 모듈 스코프 싱글턴으로 승격하는 것은 동일 코드베이스 내 이미 검증된 패턴이다 — terminalOutputScheduler.ts:34가 이미 `const textEncoder = new TextEncoder();`를 모듈 스코프에 두고 있다.",
+      "code_evidence": [
+        "frontend/src/components/Terminal/TerminalView.tsx:1894",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:708, 1697",
+        "frontend/src/utils/terminalDebugCapture.ts:500-517 (confirmed by direct read: utf8ByteLength/countGraphemes, per-call TextEncoder/Segmenter instantiation)",
+        "frontend/src/utils/terminalOutputScheduler.ts:34 (기존 모듈-스코프 싱글턴 선례, 동일 코드베이스)",
+        "docs/spec/30.buildergate-stability.srs.md:1089-1121 (FR-BGSTAB-014 AC-7, input-content-out-of-logs 요구만 존재, 호출 횟수/인스턴스 수명 무제약)"
+      ],
+      "blockers": [],
+      "conditions": [
+        "buildTerminalInputDebugPayload/utf8ByteLength/countGraphemes의 호출 횟수나 싱글턴 동작을 검증하는 전용 단위 테스트가 현재 없다(code_context.json missing_evidence) — TDD에 따라 호출 횟수 단언(예: 키 입력 1회당 정확히 1회 호출) 실패 테스트를 구현 전에 먼저 작성해야 한다.",
+        "intent.json이 지적한 대로 이 이슈는 선행 연구(2026-06-17/06-24/06-30) 대비 1회→3회로 악화된 유일한 항목이므로, 단발성 수정이 아니라 재발을 구조적으로 막는 호출-횟수 회귀 가드를 AC에 반드시 포함해야 한다.",
+        "frontend/tests/unit/terminalInputSequencer.test.ts가 clientObserved* 필드를 실제로 단언하는지 여부가 미확인 상태(code_context.json)이므로, 기존 커버리지를 가정하지 말고 파일 내용을 재확인한 뒤 계획을 세워야 한다."
+      ],
+      "external_module_required": false
+    },
+    {
+      "p0_item": "P0-5",
+      "implementability": "high",
+      "product_fit": "core",
+      "rationale": "TerminalContainer.tsx:96-98을 직접 읽어 확인한 결과 getUtf8ByteLength는 호출마다 new TextEncoder()를 생성하는 평범한 모듈-레벨 함수이며, 모듈 스코프 싱글턴으로 승격하는 것은 P0-4/terminalOutputScheduler.ts와 동일한 이미 검증된 패턴이라 기계적이고 저위험이다. onOutput 콜백(1660-1669, 직접 읽어 확인) 내부에서 getTerminalResourceLimits()를 매 출력마다 새로 호출하는 구조도 확인되며, 이 결과를 캐시할 때 무효화할 훅은 이미 FR-BGSTAB-014 AC-1이 구현·검증한 runtimeConfigVersion 변경 구독 메커니즘을 그대로 재사용할 수 있어 새로 설계할 필요가 없다.",
+      "code_evidence": [
+        "frontend/src/components/Terminal/TerminalContainer.tsx:96-98 (confirmed by direct read)",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:1660-1669 (confirmed by direct read: onOutput 콜백 내 getUtf8ByteLength/getTerminalResourceLimits 반복 호출)",
+        "docs/spec/30.buildergate-stability.srs.md:1114 (FR-BGSTAB-014 AC-1, runtimeConfigVersion 구독 메커니즘 기 구현·검증)"
+      ],
+      "blockers": [],
+      "conditions": [
+        "getUtf8ByteLength의 반복적인 new TextEncoder() 인스턴스화로 인한 성능 저하를 정량적으로 검증하는 테스트가 현재 없다(code_context.json missing_evidence) — TDD에 따라 호출 횟수/인스턴스 재사용 여부를 단언하는 실패 테스트를 구현 전에 먼저 작성해야 한다.",
+        "resourceLimits 캐시는 FR-BGSTAB-014 AC-1의 runtimeConfigVersion 변경 시 반드시 무효화되어야 한다 — Settings 저장 후 재로드 시 stale limits를 서빙하지 않는지 확인하는 회귀 테스트가 필요하다."
+      ],
+      "external_module_required": false
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-05-22.projectmaster.aitui-recovery",
+  "task_id": "T-PH004-01",
+  "reviewed_at": "2026-05-22T02:30:40Z",
+  "mode": "red",
+  "reviewers": [
+    {
+      "reviewer": "S1-intent-alignment",
+      "status": "pass",
+      "blocking_findings": 0,
+      "notes": "Tests cover FR-AITUI-001 AC-1..AC-6 and SEC-AITUI-002 AC-1..AC-5 for desktop Tools menu recovery option dialog behavior, command validation, empty argument persistence, default deletion, and safe icon display/rejection paths."
+    },
+    {
+      "reviewer": "S2-tech-quality",
+      "status": "pass",
+      "blocking_findings": 0,
+      "notes": "Unit tests use Node test and source-contract assertions to avoid TypeScript module-resolution failures before production files exist. Playwright tests target the existing desktop header Tools menu and stable API helpers."
+    },
+    {
+      "reviewer": "S3-req-mapping",
+      "status": "pass",
+      "blocking_findings": 0,
+      "notes": "The 11 sidecar acceptance cases are represented by T-PH004-01 test names across recoveryOptionDialog.test.ts and recoveryOptionIcon.test.ts; the Playwright spec covers the desktop https://localhost:2002 path."
+    },
+    {
+      "reviewer": "S4-red-verification",
+      "status": "pass",
+      "blocking_findings": 0,
+      "notes": "Red failures are due to missing frontend recovery option UI/API hook, missing recovery icon frontend types/rendering, and absent 복구 옵션 Tools menu item; typecheck and diff checks pass."
+    }
+  ],
+  "verification": [
+    {
+      "command": "npm --prefix frontend run typecheck",
+      "exit_code": 0,
+      "captured_at": "2026-05-22T02:29:50Z"
+    },
+    {
+      "command": "node --experimental-strip-types --test frontend/tests/unit/recoveryOptionDialog.test.ts frontend/tests/unit/recoveryOptionIcon.test.ts",
+      "exit_code": 1,
+      "expected_red": true,
+      "failed_tests": 11,
+      "failure_signature": "recovery option UI/API hook is not implemented",
+      "captured_at": "2026-05-22T02:25:10Z"
+    },
+    {
+      "command": "npm --prefix frontend exec playwright test tests/e2e/recovery-options.spec.ts --project \"Desktop Chrome\"",
+      "exit_code": 1,
+      "expected_red": true,
+      "failed_tests": 3,
+      "failure_signature": "locator('.context-menu-item:has-text(\"복구 옵션\")') element(s) not found",
+      "target": "https://localhost:2002",
+      "captured_at": "2026-05-22T02:29:30Z"
+    },
+    {
+      "command": "git diff --check -- frontend/tests/unit/recoveryOptionDialog.test.ts frontend/tests/unit/recoveryOptionIcon.test.ts frontend/tests/e2e/recovery-options.spec.ts frontend/tests/e2e/helpers.ts",
+      "exit_code": 0,
+      "captured_at": "2026-05-22T02:25:10Z"
+    }
+  ]
+}

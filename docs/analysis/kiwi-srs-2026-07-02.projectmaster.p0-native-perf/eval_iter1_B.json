@@ -1,0 +1,67 @@
+{
+  "evaluator": "sonnet-B",
+  "iter": 1,
+  "findings": [
+    {
+      "id": "ac_verifiability-1-1",
+      "finding_hash": "ed4a8542eedc31465babc1f5dec751e14e2b8552",
+      "severity": "MEDIUM",
+      "axis": "ac_verifiability",
+      "req_id": "PERF-BGSTAB-001",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:1794-1798",
+      "description": "All five Acceptance Criteria in PERF-BGSTAB-001 have a duplicated label, e.g. '- [ ] AC-1: AC-1: Given more visible output is queued...', '- [ ] AC-2: AC-2: Given pending keyboard input...', through AC-5. This pattern is isolated to PERF-BGSTAB-001 only (FR-BGSTAB-019, REL-BGSTAB-005, PERF-BGSTAB-002/003/004 all use a single clean 'AC-N:' label). Likely an authoring/MCP-call artifact where the AC text field itself already included the 'AC-N:' prefix before the markdown renderer added its own. Content after the duplicate label is otherwise clear and decidable, so this does not block understanding, but it is an objective, mechanically-checkable formatting defect that could confuse strict AC-ID parsers (e.g. check_acceptance_criteria).",
+      "suggested_action": "Strip the redundant leading 'AC-N: ' from the AC body text in PERF-BGSTAB-001 AC-1..AC-5 so each line reads '- [ ] AC-1: Given ...' exactly once.",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "incremental_delta_consistency-1-1",
+      "finding_hash": "0f086408b810bc88f744c046bf62ce45a738cfd7",
+      "severity": "MEDIUM",
+      "axis": "incremental_delta_consistency",
+      "req_id": "REL-BGSTAB-002",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:1005-1010",
+      "description": "REL-BGSTAB-002's Status field was transitioned to 'discarded' on 2026-07-02 (confirmed live: Status=discarded, title carries '[DISCARDED -> see REL-BGSTAB-005]', and Implementation Notes has a 2026-07-02 addendum explaining the supersession), and mcp_call_metadata seq 17 confirms update_status to discarded succeeded. However the Change Notes table for REL-BGSTAB-002 only has two rows ('2026-06-27 | Created', '2026-06-28 | Status -> implemented') with no corresponding '2026-07-02 | Status -> discarded | ...' row. Every other status/stability transition in this document (including the very next row pattern used elsewhere) is logged as a dated Change Notes row; this one is not, even though the information exists elsewhere in the block (Status field, title, Implementation Notes). This breaks the document's own established change-logging convention for a real, live status transition.",
+      "suggested_action": "Add a '2026-07-02 | Status -> discarded | Superseded by REL-BGSTAB-005 ...' row to REL-BGSTAB-002's Change Notes table to match the Status field and Implementation Notes addendum already present.",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "trace_link_validity-1-1",
+      "finding_hash": "b3759e92e9e6c783f8934a20db73a180bc147e7c",
+      "severity": "MEDIUM",
+      "axis": "trace_link_validity",
+      "req_id": "PERF-BGSTAB-001",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:1794-1816",
+      "description": "AC-1 and AC-3 introduce a new 'per-frame time budget' concept distinct from the existing byte-based visibleFlushBudgetBytes, with AC-3 phrased as 'Given no explicit per-frame time budget is configured... the default per-frame flush time budget is within the 6-8ms range,' which implies this value is externally configurable (has a non-default path). Verified directly: frontend/src/utils/terminalOutputScheduler.ts's TerminalOutputSchedulerOptions/TerminalOutputSchedulerConfig interfaces currently expose only byte-based fields (visibleOutputQueueMaxBytes, visibleOutputMaxChunks, visibleFlushBudgetBytes) with no time-budget-in-ms field, and none of PERF-BGSTAB-001's four Trace Links (terminalOutputScheduler.ts:52-105 addition_site, config.json5:79 addition_site, config.schema.ts:150 verifies, test file addition_site) is an addition_site into config.schema.ts/config.types.ts/configTemplate.ts for a new configurable time-budget field. It is therefore unclear from the trace set whether the 6-8ms value is meant to be a hardcoded internal constant (in which case AC-3's 'configured' framing is misleading) or a new Settings/runtime-config-exposed field (in which case a schema/type/template addition_site is missing) -- compare FR-BGSTAB-015's exhaustive Settings matrix, which does not yet list any per-frame time-budget key.",
+      "suggested_action": "Either reword AC-3 to state the time budget is an internal constant with no external configuration path, or add a Trace Link addition_site identifying where the new configurable time-budget field is introduced (config.schema.ts/config.types.ts/configTemplate.ts and, if Settings-exposed, FR-BGSTAB-015's matrix).",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "scope_fit-1-1",
+      "finding_hash": "3858704e9b7e61b435acec1212ff4f96a135fc7a",
+      "severity": "LOW",
+      "axis": "scope_fit",
+      "req_id": null,
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:13-31",
+      "description": "Section 2 'Scope Boundaries' In Scope bullet list does not name session process cleanup / process-tree termination / graceful shutdown as an in-scope area, even though it is a major, multi-wave established theme in this same scope document (FR-BGSTAB-009/010/011, REL-BGSTAB-002/005) and two of the six newly registered requirements (FR-BGSTAB-019, REL-BGSTAB-005) continue that theme. This is a pre-existing document-hygiene gap -- Section 2 was correctly left untouched this session (only Section 6 was edited per scope_doc_edits) -- so it is not introduced by this authoring pass, but it means BGSTAB scope fit for process-cleanup-related requirements cannot be verified from the Section 2 text alone.",
+      "suggested_action": "In a future SRS maintenance pass, add an In Scope bullet for 'server session process lifecycle, verified process-tree termination, and graceful shutdown cleanup' to Section 2 to match the already-implemented Wave 1/2/3/5 scope.",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "requirement_internal_coherence-1-1",
+      "finding_hash": "675c50921e082b6a69110dd0bda9beb1cb631816",
+      "severity": "LOW",
+      "axis": "requirement_internal_coherence",
+      "req_id": "REL-BGSTAB-002",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:1000-1003",
+      "description": "REL-BGSTAB-002's original Implementation Notes bullet still reads 'Keep session.processCleanup.mode default behavior unchanged and do not force enforce mode by default,' which superficially conflicts with the newly-registered FR-BGSTAB-019 that does activate enforce operationally. This is not a live contradiction: REL-BGSTAB-002 is status=discarded (its guidance is inert), and the actually-relevant requirement FR-BGSTAB-011 already carries an explicit 2026-07-02 reconciliation note distinguishing the schema default (observe, unchanged) from operational activation (governed by FR-BGSTAB-019 under a soak gate). Flagging only because a reader who stops at REL-BGSTAB-002 without reaching FR-BGSTAB-011's reconciliation note could be misled.",
+      "suggested_action": "Optional: append a short one-line pointer in REL-BGSTAB-002's Implementation Notes cross-referencing FR-BGSTAB-011's 2026-07-02 reconciliation note, for readers who stop at the discarded block.",
+      "vague_terms": [],
+      "linked_oq": []
+    }
+  ],
+  "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 3, "LOW": 2 }
+}

@@ -1,0 +1,1573 @@
+{
+  "meta": {
+    "source": "docs/analysis/kiwi-srs-feasibility-2026-07-02.projectmaster.0-5-5-buildergate-stability.v01/requirements-full.json",
+    "total_requirements_in_file": 30,
+    "evaluated_count": 29,
+    "discarded_excluded_from_evaluation": [
+      "REL-BGSTAB-002"
+    ],
+    "dependency_relations_used_for_edges_and_cycles": [
+      "depends_on",
+      "extends",
+      "supersedes",
+      "conflicts_with"
+    ],
+    "non_dependency_relation_note": "Requirement-type trace links with relation=related are recorded in dependency_graph.edges but excluded from per-REQ dependencies[] and from cycle detection because they are non-directional references, not hierarchical dependencies."
+  },
+  "req_summaries": [
+    {
+      "id": "FR-BGSTAB-001",
+      "scope": "BGSTAB",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 3,
+      "trace_count": {
+        "total": 3,
+        "code": 3,
+        "requirement": 0,
+        "other": 0
+      },
+      "evidence_count": 2,
+      "dependencies": [],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-002",
+      "scope": "BGSTAB",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 6,
+      "trace_count": {
+        "total": 4,
+        "code": 3,
+        "requirement": 1,
+        "other": 0
+      },
+      "evidence_count": 2,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-001",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-003",
+      "scope": "BGSTAB",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 5,
+      "trace_count": {
+        "total": 4,
+        "code": 3,
+        "requirement": 1,
+        "other": 0
+      },
+      "evidence_count": 2,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-001",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-004",
+      "scope": "BGSTAB",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 5,
+      "trace_count": {
+        "total": 3,
+        "code": 2,
+        "requirement": 1,
+        "other": 0
+      },
+      "evidence_count": 1,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-001",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-005",
+      "scope": "BGSTAB",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 5,
+      "trace_count": {
+        "total": 4,
+        "code": 2,
+        "requirement": 2,
+        "other": 0
+      },
+      "evidence_count": 1,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-001",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-004",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-006",
+      "scope": "BGSTAB",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 5,
+      "trace_count": {
+        "total": 5,
+        "code": 4,
+        "requirement": 1,
+        "other": 0
+      },
+      "evidence_count": 4,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-001",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-007",
+      "scope": "BGSTAB",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 7,
+      "trace_count": {
+        "total": 5,
+        "code": 4,
+        "requirement": 1,
+        "other": 0
+      },
+      "evidence_count": 2,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-006",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-008",
+      "scope": "BGSTAB",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 6,
+      "trace_count": {
+        "total": 11,
+        "code": 7,
+        "requirement": 2,
+        "other": 2
+      },
+      "evidence_count": 11,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-001",
+          "relation": "depends_on"
+        },
+        {
+          "to": "REL-BGSTAB-001",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-009",
+      "scope": "BGSTAB",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 6,
+      "trace_count": {
+        "total": 16,
+        "code": 9,
+        "requirement": 2,
+        "other": 5
+      },
+      "evidence_count": 5,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-008",
+          "relation": "depends_on"
+        },
+        {
+          "to": "REL-BGSTAB-001",
+          "relation": "extends"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-010",
+      "scope": "BGSTAB",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 7,
+      "trace_count": {
+        "total": 14,
+        "code": 6,
+        "requirement": 1,
+        "other": 7
+      },
+      "evidence_count": 5,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-009",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-011",
+      "scope": "BGSTAB",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 7,
+      "trace_count": {
+        "total": 7,
+        "code": 5,
+        "requirement": 2,
+        "other": 0
+      },
+      "evidence_count": 5,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-009",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-012",
+      "scope": "BGSTAB",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 8,
+      "trace_count": {
+        "total": 13,
+        "code": 8,
+        "requirement": 2,
+        "other": 3
+      },
+      "evidence_count": 6,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-008",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-013",
+      "scope": "BGSTAB",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 6,
+      "trace_count": {
+        "total": 9,
+        "code": 5,
+        "requirement": 2,
+        "other": 2
+      },
+      "evidence_count": 10,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-008",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-012",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-014",
+      "scope": "BGSTAB",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 8,
+      "trace_count": {
+        "total": 29,
+        "code": 18,
+        "requirement": 6,
+        "other": 5
+      },
+      "evidence_count": 8,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-001",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-002",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-003",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-004",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-005",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-013",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-015",
+      "scope": "BGSTAB",
+      "status": "planned",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 6,
+      "trace_count": {
+        "total": 11,
+        "code": 8,
+        "requirement": 3,
+        "other": 0
+      },
+      "evidence_count": 0,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-001",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-008",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-013",
+          "relation": "extends"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-016",
+      "scope": "BGSTAB",
+      "status": "planned",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 5,
+      "trace_count": {
+        "total": 8,
+        "code": 5,
+        "requirement": 3,
+        "other": 0
+      },
+      "evidence_count": 0,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-012",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-002",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-015",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-017",
+      "scope": "BGSTAB",
+      "status": "planned",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 6,
+      "trace_count": {
+        "total": 10,
+        "code": 5,
+        "requirement": 5,
+        "other": 0
+      },
+      "evidence_count": 0,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-003",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-014",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-002",
+          "relation": "depends_on"
+        },
+        {
+          "to": "REL-BGSTAB-003",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-015",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-018",
+      "scope": "BGSTAB",
+      "status": "planned",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 6,
+      "trace_count": {
+        "total": 7,
+        "code": 3,
+        "requirement": 3,
+        "other": 1
+      },
+      "evidence_count": 0,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-014",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-017",
+          "relation": "depends_on"
+        },
+        {
+          "to": "REL-BGSTAB-003",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "FR-BGSTAB-019",
+      "scope": "BGSTAB",
+      "status": "planned",
+      "stability": "draft",
+      "priority": "high",
+      "ac_count": 5,
+      "trace_count": {
+        "total": 6,
+        "code": 3,
+        "requirement": 2,
+        "other": 1
+      },
+      "evidence_count": 0,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-011",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-009",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "OBS-BGSTAB-001",
+      "scope": "BGSTAB",
+      "status": "planned",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 5,
+      "trace_count": {
+        "total": 11,
+        "code": 5,
+        "requirement": 6,
+        "other": 0
+      },
+      "evidence_count": 0,
+      "dependencies": [
+        {
+          "to": "REL-BGSTAB-001",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-015",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-016",
+          "relation": "depends_on"
+        },
+        {
+          "to": "REL-BGSTAB-003",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-017",
+          "relation": "depends_on"
+        },
+        {
+          "to": "REL-BGSTAB-002",
+          "relation": "extends"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "OBS-BGSTAB-002",
+      "scope": "BGSTAB",
+      "status": "planned",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 6,
+      "trace_count": {
+        "total": 9,
+        "code": 6,
+        "requirement": 3,
+        "other": 0
+      },
+      "evidence_count": 0,
+      "dependencies": [
+        {
+          "to": "OBS-BGSTAB-001",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-018",
+          "relation": "depends_on"
+        },
+        {
+          "to": "REL-BGSTAB-004",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "PERF-BGSTAB-001",
+      "scope": "BGSTAB",
+      "status": "planned",
+      "stability": "draft",
+      "priority": "high",
+      "ac_count": 5,
+      "trace_count": {
+        "total": 7,
+        "code": 3,
+        "requirement": 3,
+        "other": 1
+      },
+      "evidence_count": 0,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-003",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-001",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-017",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "PERF-BGSTAB-002",
+      "scope": "BGSTAB",
+      "status": "planned",
+      "stability": "draft",
+      "priority": "high",
+      "ac_count": 5,
+      "trace_count": {
+        "total": 6,
+        "code": 3,
+        "requirement": 2,
+        "other": 1
+      },
+      "evidence_count": 0,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-009",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-011",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "PERF-BGSTAB-003",
+      "scope": "BGSTAB",
+      "status": "planned",
+      "stability": "draft",
+      "priority": "high",
+      "ac_count": 5,
+      "trace_count": {
+        "total": 7,
+        "code": 6,
+        "requirement": 1,
+        "other": 0
+      },
+      "evidence_count": 0,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-014",
+          "relation": "extends"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "PERF-BGSTAB-004",
+      "scope": "BGSTAB",
+      "status": "planned",
+      "stability": "draft",
+      "priority": "high",
+      "ac_count": 4,
+      "trace_count": {
+        "total": 5,
+        "code": 2,
+        "requirement": 2,
+        "other": 1
+      },
+      "evidence_count": 0,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-014",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-001",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "REL-BGSTAB-001",
+      "scope": "BGSTAB",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "medium",
+      "ac_count": 5,
+      "trace_count": {
+        "total": 5,
+        "code": 5,
+        "requirement": 0,
+        "other": 0
+      },
+      "evidence_count": 4,
+      "dependencies": [],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "REL-BGSTAB-003",
+      "scope": "BGSTAB",
+      "status": "planned",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 5,
+      "trace_count": {
+        "total": 9,
+        "code": 5,
+        "requirement": 4,
+        "other": 0
+      },
+      "evidence_count": 0,
+      "dependencies": [
+        {
+          "to": "FR-BGSTAB-012",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-007",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-003",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-015",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "REL-BGSTAB-004",
+      "scope": "BGSTAB",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "high",
+      "ac_count": 6,
+      "trace_count": {
+        "total": 13,
+        "code": 5,
+        "requirement": 3,
+        "other": 5
+      },
+      "evidence_count": 1,
+      "dependencies": [
+        {
+          "to": "REL-BGSTAB-003",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-016",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-018",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [],
+      "risk_flags": []
+    },
+    {
+      "id": "REL-BGSTAB-005",
+      "scope": "BGSTAB",
+      "status": "planned",
+      "stability": "draft",
+      "priority": "high",
+      "ac_count": 12,
+      "trace_count": {
+        "total": 6,
+        "code": 2,
+        "requirement": 3,
+        "other": 1
+      },
+      "evidence_count": 0,
+      "dependencies": [
+        {
+          "to": "REL-BGSTAB-002",
+          "relation": "supersedes"
+        },
+        {
+          "to": "FR-BGSTAB-010",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-019",
+          "relation": "depends_on"
+        }
+      ],
+      "oq_placeholders": [
+        "AC-8:{{OQ-1}}",
+        "AC-9:{{OQ-2}}"
+      ],
+      "risk_flags": [
+        "ac_verifiability_open_question",
+        "dependency_health"
+      ]
+    }
+  ],
+  "dependency_graph": {
+    "nodes": [
+      {
+        "id": "FR-BGSTAB-001",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "implemented",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-002",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "implemented",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-003",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "implemented",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-004",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "implemented",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-005",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "implemented",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-006",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "implemented",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-007",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "implemented",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-008",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "implemented",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-009",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "implemented",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-010",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "implemented",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-011",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "implemented",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-012",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "implemented",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-013",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "implemented",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-014",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "implemented",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-015",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "planned",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-016",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "planned",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-017",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "planned",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-018",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "planned",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "FR-BGSTAB-019",
+        "scope": "BGSTAB",
+        "type": "functional",
+        "status": "planned",
+        "stability": "draft",
+        "priority": "high"
+      },
+      {
+        "id": "OBS-BGSTAB-001",
+        "scope": "BGSTAB",
+        "type": "observability",
+        "status": "planned",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "OBS-BGSTAB-002",
+        "scope": "BGSTAB",
+        "type": "observability",
+        "status": "planned",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "PERF-BGSTAB-001",
+        "scope": "BGSTAB",
+        "type": "performance",
+        "status": "planned",
+        "stability": "draft",
+        "priority": "high"
+      },
+      {
+        "id": "PERF-BGSTAB-002",
+        "scope": "BGSTAB",
+        "type": "performance",
+        "status": "planned",
+        "stability": "draft",
+        "priority": "high"
+      },
+      {
+        "id": "PERF-BGSTAB-003",
+        "scope": "BGSTAB",
+        "type": "performance",
+        "status": "planned",
+        "stability": "draft",
+        "priority": "high"
+      },
+      {
+        "id": "PERF-BGSTAB-004",
+        "scope": "BGSTAB",
+        "type": "performance",
+        "status": "planned",
+        "stability": "draft",
+        "priority": "high"
+      },
+      {
+        "id": "REL-BGSTAB-001",
+        "scope": "BGSTAB",
+        "type": "reliability",
+        "status": "implemented",
+        "stability": "evolving",
+        "priority": "medium"
+      },
+      {
+        "id": "REL-BGSTAB-002",
+        "scope": "BGSTAB",
+        "type": "reliability",
+        "status": "discarded",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "REL-BGSTAB-003",
+        "scope": "BGSTAB",
+        "type": "reliability",
+        "status": "planned",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "REL-BGSTAB-004",
+        "scope": "BGSTAB",
+        "type": "reliability",
+        "status": "implemented",
+        "stability": "evolving",
+        "priority": "high"
+      },
+      {
+        "id": "REL-BGSTAB-005",
+        "scope": "BGSTAB",
+        "type": "reliability",
+        "status": "planned",
+        "stability": "draft",
+        "priority": "high"
+      }
+    ],
+    "edges": [
+      {
+        "from": "FR-BGSTAB-002",
+        "to": "FR-BGSTAB-001",
+        "relation": "depends_on",
+        "notes": "runtime limits feed threshold decisions"
+      },
+      {
+        "from": "FR-BGSTAB-003",
+        "to": "FR-BGSTAB-001",
+        "relation": "depends_on",
+        "notes": "runtime terminal limits configure scheduler behavior"
+      },
+      {
+        "from": "FR-BGSTAB-004",
+        "to": "FR-BGSTAB-001",
+        "relation": "depends_on",
+        "notes": "runtime snapshot limits configure budget behavior"
+      },
+      {
+        "from": "FR-BGSTAB-005",
+        "to": "FR-BGSTAB-001",
+        "relation": "depends_on",
+        "notes": "runtime workspace limits configure residency behavior"
+      },
+      {
+        "from": "FR-BGSTAB-005",
+        "to": "FR-BGSTAB-004",
+        "relation": "depends_on",
+        "notes": "snapshot budgets protect increased restore and remount frequency"
+      },
+      {
+        "from": "FR-BGSTAB-006",
+        "to": "FR-BGSTAB-001",
+        "relation": "depends_on",
+        "notes": "runtime wsTransportMode controls rollout"
+      },
+      {
+        "from": "FR-BGSTAB-007",
+        "to": "FR-BGSTAB-006",
+        "relation": "depends_on",
+        "notes": "split routing depends on authenticated paired output socket"
+      },
+      {
+        "from": "FR-BGSTAB-008",
+        "to": "FR-BGSTAB-001",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-008",
+        "to": "REL-BGSTAB-001",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-009",
+        "to": "FR-BGSTAB-008",
+        "relation": "depends_on",
+        "notes": "Wave 0 baseline config/settings contract must exist before Wave 1 adds process cleanup observation settings"
+      },
+      {
+        "from": "FR-BGSTAB-009",
+        "to": "REL-BGSTAB-001",
+        "relation": "extends",
+        "notes": "Wave 1 adds process cleanup evidence to operational stability validation"
+      },
+      {
+        "from": "FR-BGSTAB-010",
+        "to": "FR-BGSTAB-009",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-011",
+        "to": "FR-BGSTAB-009",
+        "relation": "depends_on",
+        "notes": "Wave2 enforces the verified process metadata introduced by Wave1"
+      },
+      {
+        "from": "FR-BGSTAB-011",
+        "to": "FR-BGSTAB-010",
+        "relation": "related",
+        "notes": "Wave3 owns lifecycle recoverability; Wave2 owns OS process-tree termination"
+      },
+      {
+        "from": "FR-BGSTAB-012",
+        "to": "FR-BGSTAB-008",
+        "relation": "depends_on",
+        "notes": "Wave0 supplies resourceLimits and stabilityModes switches"
+      },
+      {
+        "from": "FR-BGSTAB-012",
+        "to": "FR-BGSTAB-011",
+        "relation": "related",
+        "notes": "Wave2 owns process-tree cleanup; Wave4 owns output/backpressure memory bounds"
+      },
+      {
+        "from": "FR-BGSTAB-013",
+        "to": "FR-BGSTAB-008",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-013",
+        "to": "FR-BGSTAB-012",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-014",
+        "to": "FR-BGSTAB-001",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-014",
+        "to": "FR-BGSTAB-002",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-014",
+        "to": "FR-BGSTAB-003",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-014",
+        "to": "FR-BGSTAB-004",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-014",
+        "to": "FR-BGSTAB-005",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-014",
+        "to": "FR-BGSTAB-013",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-015",
+        "to": "FR-BGSTAB-001",
+        "relation": "extends",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-015",
+        "to": "FR-BGSTAB-008",
+        "relation": "extends",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-015",
+        "to": "FR-BGSTAB-013",
+        "relation": "extends",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-016",
+        "to": "FR-BGSTAB-012",
+        "relation": "extends",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-016",
+        "to": "FR-BGSTAB-002",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-016",
+        "to": "FR-BGSTAB-015",
+        "relation": "depends_on",
+        "notes": "Settings-backed modes and transport limits"
+      },
+      {
+        "from": "FR-BGSTAB-017",
+        "to": "FR-BGSTAB-003",
+        "relation": "extends",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-017",
+        "to": "FR-BGSTAB-014",
+        "relation": "extends",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-017",
+        "to": "FR-BGSTAB-002",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-017",
+        "to": "REL-BGSTAB-003",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-017",
+        "to": "FR-BGSTAB-015",
+        "relation": "depends_on",
+        "notes": "Settings-backed recovery gate budgets and release timeout"
+      },
+      {
+        "from": "FR-BGSTAB-018",
+        "to": "FR-BGSTAB-014",
+        "relation": "extends",
+        "notes": "frontend runtime fallback/hidden-output recovery behavior"
+      },
+      {
+        "from": "FR-BGSTAB-018",
+        "to": "FR-BGSTAB-017",
+        "relation": "depends_on",
+        "notes": "recovery write gate and queued input release barrier"
+      },
+      {
+        "from": "FR-BGSTAB-018",
+        "to": "REL-BGSTAB-003",
+        "relation": "depends_on",
+        "notes": "fallback replay/repair recovery pressure handling"
+      },
+      {
+        "from": "FR-BGSTAB-019",
+        "to": "FR-BGSTAB-011",
+        "relation": "extends",
+        "notes": "-"
+      },
+      {
+        "from": "FR-BGSTAB-019",
+        "to": "FR-BGSTAB-009",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "OBS-BGSTAB-001",
+        "to": "REL-BGSTAB-001",
+        "relation": "extends",
+        "notes": "-"
+      },
+      {
+        "from": "OBS-BGSTAB-001",
+        "to": "FR-BGSTAB-015",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "OBS-BGSTAB-001",
+        "to": "FR-BGSTAB-016",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "OBS-BGSTAB-001",
+        "to": "REL-BGSTAB-003",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "OBS-BGSTAB-001",
+        "to": "FR-BGSTAB-017",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "OBS-BGSTAB-001",
+        "to": "REL-BGSTAB-002",
+        "relation": "extends",
+        "notes": "-"
+      },
+      {
+        "from": "OBS-BGSTAB-002",
+        "to": "OBS-BGSTAB-001",
+        "relation": "extends",
+        "notes": "ConPTY telemetry and soak evidence"
+      },
+      {
+        "from": "OBS-BGSTAB-002",
+        "to": "FR-BGSTAB-018",
+        "relation": "depends_on",
+        "notes": "frontend placeholder suppression must be observable"
+      },
+      {
+        "from": "OBS-BGSTAB-002",
+        "to": "REL-BGSTAB-004",
+        "relation": "depends_on",
+        "notes": "server output preservation and degraded convergence must be observable"
+      },
+      {
+        "from": "PERF-BGSTAB-001",
+        "to": "FR-BGSTAB-003",
+        "relation": "extends",
+        "notes": "-"
+      },
+      {
+        "from": "PERF-BGSTAB-001",
+        "to": "FR-BGSTAB-001",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "PERF-BGSTAB-001",
+        "to": "FR-BGSTAB-017",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "PERF-BGSTAB-002",
+        "to": "FR-BGSTAB-009",
+        "relation": "extends",
+        "notes": "-"
+      },
+      {
+        "from": "PERF-BGSTAB-002",
+        "to": "FR-BGSTAB-011",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "PERF-BGSTAB-003",
+        "to": "FR-BGSTAB-014",
+        "relation": "extends",
+        "notes": "-"
+      },
+      {
+        "from": "PERF-BGSTAB-004",
+        "to": "FR-BGSTAB-014",
+        "relation": "extends",
+        "notes": "-"
+      },
+      {
+        "from": "PERF-BGSTAB-004",
+        "to": "FR-BGSTAB-001",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "REL-BGSTAB-002",
+        "to": "REL-BGSTAB-001",
+        "relation": "extends",
+        "notes": "Wave5 makes shutdown/stop evidence and honest soak reporting concrete"
+      },
+      {
+        "from": "REL-BGSTAB-002",
+        "to": "FR-BGSTAB-011",
+        "relation": "depends_on",
+        "notes": "uses verified process-tree cleanup semantics"
+      },
+      {
+        "from": "REL-BGSTAB-002",
+        "to": "FR-BGSTAB-010",
+        "relation": "depends_on",
+        "notes": "preserves stopped/non-recoverable lifecycle semantics"
+      },
+      {
+        "from": "REL-BGSTAB-002",
+        "to": "FR-BGSTAB-012",
+        "relation": "related",
+        "notes": "server output/backpressure queues are supporting soak metrics"
+      },
+      {
+        "from": "REL-BGSTAB-003",
+        "to": "FR-BGSTAB-012",
+        "relation": "extends",
+        "notes": "-"
+      },
+      {
+        "from": "REL-BGSTAB-003",
+        "to": "FR-BGSTAB-007",
+        "relation": "extends",
+        "notes": "ordering only"
+      },
+      {
+        "from": "REL-BGSTAB-003",
+        "to": "FR-BGSTAB-003",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "REL-BGSTAB-003",
+        "to": "FR-BGSTAB-015",
+        "relation": "depends_on",
+        "notes": "Settings-backed replay and repair limits"
+      },
+      {
+        "from": "REL-BGSTAB-004",
+        "to": "REL-BGSTAB-003",
+        "relation": "extends",
+        "notes": "replay tail and screen repair overflow recovery"
+      },
+      {
+        "from": "REL-BGSTAB-004",
+        "to": "FR-BGSTAB-016",
+        "relation": "depends_on",
+        "notes": "safe-send priority and output coalescing must preserve recovery transaction ordering"
+      },
+      {
+        "from": "REL-BGSTAB-004",
+        "to": "FR-BGSTAB-018",
+        "relation": "depends_on",
+        "notes": "frontend empty fallback convergence requires server output preservation"
+      },
+      {
+        "from": "REL-BGSTAB-005",
+        "to": "REL-BGSTAB-002",
+        "relation": "supersedes",
+        "notes": "-"
+      },
+      {
+        "from": "REL-BGSTAB-005",
+        "to": "FR-BGSTAB-010",
+        "relation": "depends_on",
+        "notes": "-"
+      },
+      {
+        "from": "REL-BGSTAB-005",
+        "to": "FR-BGSTAB-019",
+        "relation": "depends_on",
+        "notes": "-"
+      }
+    ],
+    "cycles": []
+  },
+  "discarded_ref_issues": [
+    {
+      "from": "OBS-BGSTAB-001",
+      "from_status": "planned",
+      "relation": "extends",
+      "to": "REL-BGSTAB-002",
+      "to_status": "discarded",
+      "to_stability": "evolving",
+      "assessment": "stale reference risk: active/planned requirement still has an extends link to a discarded requirement; scope basis may no longer exist and needs re-validation"
+    },
+    {
+      "from": "REL-BGSTAB-005",
+      "from_status": "planned",
+      "relation": "supersedes",
+      "to": "REL-BGSTAB-002",
+      "to_status": "discarded",
+      "to_stability": "evolving",
+      "assessment": "expected lifecycle pattern: successor explicitly supersedes the discarded requirement"
+    }
+  ],
+  "dependency_health_risks": [
+    {
+      "id": "REL-BGSTAB-005",
+      "own_stability": "draft",
+      "unhealthy_dependencies": [
+        {
+          "to": "FR-BGSTAB-019",
+          "relation": "depends_on",
+          "to_stability": "draft",
+          "to_status": "planned"
+        }
+      ]
+    }
+  ],
+  "ac_verifiability_risks": [
+    {
+      "id": "REL-BGSTAB-005",
+      "oq_placeholders": [
+        "AC-8:{{OQ-1}}",
+        "AC-9:{{OQ-2}}"
+      ],
+      "note": "Acceptance Criteria contain unresolved {{OQ-N}} placeholders; AC cannot be objectively verified until open questions are resolved."
+    }
+  ],
+  "scope_distribution": {
+    "BGSTAB": 30
+  },
+  "type_distribution": {
+    "functional": 19,
+    "observability": 2,
+    "performance": 4,
+    "reliability": 5
+  },
+  "status_distribution": {
+    "implemented": 16,
+    "planned": 13,
+    "discarded": 1
+  },
+  "stability_distribution": {
+    "evolving": 24,
+    "draft": 6
+  },
+  "priority_distribution": {
+    "high": 29,
+    "medium": 1
+  }
+}

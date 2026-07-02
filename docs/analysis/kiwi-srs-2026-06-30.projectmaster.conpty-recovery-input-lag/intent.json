@@ -1,0 +1,37 @@
+{
+  "summary": "ConPTY AI TUI output recovery and input-lag mitigation must be added to BGSTAB SRS as Settings, server transport, frontend recovery, telemetry, and validation requirements.",
+  "intent_type_hint": "update",
+  "key_entities": [
+    "ConPTY",
+    "Codex-style AI TUI",
+    "wsSendMode",
+    "outputCoalesceWindowMs",
+    "priority-aware WebSocket safe-send",
+    "byte-aware replay tail",
+    "screen repair overflow",
+    "frontend recovery write gate",
+    "Settings page",
+    "redraw flood harness",
+    "https://localhost:2222"
+  ],
+  "ambiguities": [
+    "The implementation plan spans multiple behavior surfaces; kiwi-srs split is required.",
+    "Wave6 excluded telemetry and stabilityModes from its selected Settings v1 contract; this run treats the ConPTY Settings work as a later, narrower extension rather than discarding FR-BGSTAB-013."
+  ],
+  "implied_requirements": [
+    "All new runtime queue, flush, timeout, threshold, and mode values must be Settings-editable when they have a runtime consumer.",
+    "Recovery ordering must preserve snapshot, ACK-pending tail, session:ready, and queued input release ordering.",
+    "Telemetry and soak artifacts must not persist raw terminal input or output."
+  ],
+  "semantic_equivalences": [
+    {
+      "prompt_term": "ConPTY output recovery and input lag",
+      "srs_term": "BuilderGate terminal stability, visible output scheduling, browser input backpressure, and WebSocket backpressure",
+      "confidence": "high"
+    }
+  ],
+  "qna": {
+    "mode": "auto",
+    "skipped": true
+  }
+}

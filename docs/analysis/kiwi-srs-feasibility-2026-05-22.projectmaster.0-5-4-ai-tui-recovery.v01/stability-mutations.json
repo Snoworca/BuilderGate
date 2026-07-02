@@ -1,0 +1,31 @@
+{
+  "run_id": "2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01",
+  "mode": "live",
+  "applied": [
+    { "req_id": "FR-AITUI-001", "from": "draft", "to": "evolving", "reason": "Feasibility=high (score 86). Blockers: none.", "ok": true },
+    { "req_id": "FR-AITUI-002", "from": "draft", "to": "evolving", "reason": "Feasibility=high (score 84). Blockers: none.", "ok": true },
+    { "req_id": "FR-AITUI-003", "from": "draft", "to": "evolving", "reason": "Feasibility=high (score 82). Blockers: none.", "ok": true },
+    { "req_id": "FR-AITUI-004", "from": "draft", "to": "evolving", "reason": "Feasibility=high (score 80). Blockers: none.", "ok": true },
+    { "req_id": "FR-AITUI-005", "from": "draft", "to": "evolving", "reason": "Feasibility=high (score 87). Blockers: none.", "ok": true },
+    { "req_id": "SEC-AITUI-001", "from": "draft", "to": "evolving", "reason": "Feasibility=high (score 81). Blockers: none.", "ok": true },
+    { "req_id": "SEC-AITUI-002", "from": "draft", "to": "evolving", "reason": "Feasibility=high (score 85). Blockers: none.", "ok": true },
+    { "req_id": "REL-AITUI-001", "from": "draft", "to": "evolving", "reason": "Feasibility=high (score 84). Blockers: none.", "ok": true }
+  ],
+  "skipped": [],
+  "guard_blocked": [],
+  "user_rejected": [],
+  "system_failed": [],
+  "summary": {
+    "applied_count": 8,
+    "skipped_count": 0,
+    "guard_blocked_count": 0,
+    "user_rejected_count": 0,
+    "system_failed_count": 0,
+    "draft_to_evolving": 8
+  },
+  "sync_check": {
+    "mcp_markdown_checked_reqs": 8,
+    "persistent_mismatches": 0,
+    "transient_mismatches": 0
+  }
+}

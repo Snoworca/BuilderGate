@@ -1,0 +1,9 @@
+{
+  "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 1, "LOW": 0 },
+  "result": "pass",
+  "accepted_warning": "All eight requirements are Status=planned and Stability=draft. This is valid in the local SpecKiwi enum and implementation-blocking until stabilization.",
+  "fixed_high_findings_confirmed": {
+    "icon_allowlist_markup_safety": true,
+    "tmp_bak_backup_recovery": true
+  }
+}

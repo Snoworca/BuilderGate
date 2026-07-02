@@ -1,0 +1,19 @@
+{
+  "run_id": "2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01",
+  "policy_source": "default",
+  "mappings_count": 6,
+  "predicted_transitions": [
+    { "req_id": "FR-AITUI-001", "current_stability": "draft", "predicted_stability_range": ["draft", "evolving", "deprecated"], "requires_user_confirm_if_stable_or_deprecated": true },
+    { "req_id": "FR-AITUI-002", "current_stability": "draft", "predicted_stability_range": ["draft", "evolving", "deprecated"], "requires_user_confirm_if_stable_or_deprecated": true },
+    { "req_id": "FR-AITUI-003", "current_stability": "draft", "predicted_stability_range": ["draft", "evolving", "deprecated"], "requires_user_confirm_if_stable_or_deprecated": true },
+    { "req_id": "FR-AITUI-004", "current_stability": "draft", "predicted_stability_range": ["draft", "evolving", "deprecated"], "requires_user_confirm_if_stable_or_deprecated": true },
+    { "req_id": "FR-AITUI-005", "current_stability": "draft", "predicted_stability_range": ["draft", "evolving", "deprecated"], "requires_user_confirm_if_stable_or_deprecated": true },
+    { "req_id": "SEC-AITUI-001", "current_stability": "draft", "predicted_stability_range": ["draft", "evolving", "deprecated"], "requires_user_confirm_if_stable_or_deprecated": true },
+    { "req_id": "SEC-AITUI-002", "current_stability": "draft", "predicted_stability_range": ["draft", "evolving", "deprecated"], "requires_user_confirm_if_stable_or_deprecated": true },
+    { "req_id": "REL-AITUI-001", "current_stability": "draft", "predicted_stability_range": ["draft", "evolving", "deprecated"], "requires_user_confirm_if_stable_or_deprecated": true }
+  ],
+  "transition_guard_warnings": [
+    "No stable transition is proposed because no requirement has verification evidence.",
+    "Existing REQ tag mutation is unavailable; feasibility tags are reported as proposed metadata only."
+  ]
+}

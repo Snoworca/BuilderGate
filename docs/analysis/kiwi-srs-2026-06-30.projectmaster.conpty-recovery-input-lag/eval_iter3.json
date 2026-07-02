@@ -1,0 +1,31 @@
+{
+  "iter": 3,
+  "purpose": "Review after snapshot ACK, Settings dependency, and OBS refinements",
+  "evaluators": [
+    {
+      "agent": "019f17d2-b751-7e61-a2a6-6a8dc6e35dd7",
+      "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 2, "LOW": 0 },
+      "findings": [
+        "FR-BGSTAB-015 still needed a per-key Settings matrix.",
+        "FR-BGSTAB-016, REL-BGSTAB-003, and FR-BGSTAB-017 needed explicit depends_on traces to FR-BGSTAB-015."
+      ]
+    },
+    {
+      "agent": "019f17d2-cde6-76f2-b84b-c7d5d14da5ae",
+      "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 1, "LOW": 0 },
+      "findings": [
+        "FR-BGSTAB-015 trace referenced stale server/src/config/configTemplate.ts path."
+      ]
+    },
+    {
+      "agent": "019f17d2-e47a-7890-be64-aae6517e5fcf",
+      "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 2, "LOW": 2 },
+      "findings": [
+        "OBS-BGSTAB-001 treated live ConPTY redraw-flood E2E as optional.",
+        "FR-BGSTAB-016 included queued input release in server safe-send scope.",
+        "FR-BGSTAB-015 needed narrower editability wording and PTY backend fallback guard."
+      ]
+    }
+  ],
+  "result": "fixes_required"
+}

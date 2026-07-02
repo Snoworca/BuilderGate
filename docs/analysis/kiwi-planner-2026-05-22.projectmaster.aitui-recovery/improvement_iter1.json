@@ -1,0 +1,7 @@
+{
+  "iteration": 1,
+  "changes": [
+    "Marked planned new files with line_range [INFERRED:new-file].",
+    "Added PH-005 / T-PH005-01 review task for the repository phase completion review rule."
+  ]
+}

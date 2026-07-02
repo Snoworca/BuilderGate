@@ -1,0 +1,11 @@
+{
+  "mcp": {
+    "ok": true
+  },
+  "cli": {
+    "ok": true,
+    "version": "2.2.3"
+  },
+  "halted": false,
+  "target": "0.5.4-ai-tui-recovery"
+}

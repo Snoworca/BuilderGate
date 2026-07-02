@@ -1,0 +1,25 @@
+{
+  "run_id": "2026-06-18.projectmaster.0-5-5-buildergate-stability.v01",
+  "skill": "kiwi-srs-feasibility",
+  "mode": "dry-run",
+  "target": "0.5.5-buildergate-stability",
+  "scope": "BGSTAB",
+  "source_srs_proposal": "docs/analysis/kiwi-srs-2026-06-18.projectmaster.buildergate-stability/proposed-spec/30.buildergate-stability.srs.md",
+  "speckiwi_mcp": {
+    "available": true,
+    "active_target": "0.5.4-ai-tui-recovery",
+    "validate_spec": {
+      "strict": true,
+      "errors": 0,
+      "warnings": 0
+    },
+    "live_mutation": "paused",
+    "dry_run_mutation_error": "MUTATION_DENIED: Unknown scope: BGSTAB"
+  },
+  "gates": {
+    "target_scope_confirmation": "required",
+    "docs_spec_mutated": false,
+    "non_2002_validation_required_for_live_checks": true,
+    "node_exe_global_termination_allowed": false
+  }
+}

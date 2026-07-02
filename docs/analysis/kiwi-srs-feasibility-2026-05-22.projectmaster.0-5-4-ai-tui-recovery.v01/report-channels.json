@@ -1,0 +1,12 @@
+{
+  "primary_channel_requested": "doculight",
+  "doculight": {
+    "status": "updated",
+    "viewer_id": "2cdabeac-d099-4df2-9296-5d7b04078ec3",
+    "path": "docs/analysis/kiwi-srs-feasibility-2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01/report.md",
+    "note": "open_markdown hit the 20-window limit, so an existing kiwi-srs-feasibility viewer was updated."
+  },
+  "telegram": { "status": "skipped", "char_count": 0 },
+  "google_chat": { "status": "skipped", "char_count": 0 },
+  "chat_message": { "status": "emitted", "char_count": 0 }
+}

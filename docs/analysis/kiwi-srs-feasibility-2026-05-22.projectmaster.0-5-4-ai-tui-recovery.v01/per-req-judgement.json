@@ -1,0 +1,157 @@
+{
+  "run_id": "2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01",
+  "judgements": [
+    {
+      "req_id": "FR-AITUI-001",
+      "feasibility": "high",
+      "score": 86,
+      "axes": {
+        "implementability": { "score": 22, "evidence": ["frontend/src/components/Header/Header.tsx:52", "frontend/src/App.tsx:99", "frontend/src/App.tsx:520", "frontend/src/App.tsx:686"] },
+        "evidence_strength": { "score": 19, "evidence": ["frontend/src/services/api.ts:458", "server/src/routes/commandPresetRoutes.ts:6"] },
+        "dependency_health": { "score": 15, "evidence": [] },
+        "ac_verifiability": { "score": 13, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:67"] },
+        "scope_fit": { "score": 9, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:15"] },
+        "product_fit": { "score": 8, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:61"] }
+      },
+      "blockers": [],
+      "conditions": ["Requires new RecoveryOptionDialog and protected API client tests."],
+      "has_verification": false,
+      "current_stability": "draft",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "FR-AITUI-002",
+      "feasibility": "high",
+      "score": 84,
+      "axes": {
+        "implementability": { "score": 23, "evidence": ["server/src/services/CommandPresetService.ts:22", "server/src/services/CommandPresetService.ts:216"] },
+        "evidence_strength": { "score": 18, "evidence": ["server/src/routes/commandPresetRoutes.ts:6", "server/src/index.ts:280"] },
+        "dependency_health": { "score": 14, "evidence": [] },
+        "ac_verifiability": { "score": 13, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:128"] },
+        "scope_fit": { "score": 8, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:16"] },
+        "product_fit": { "score": 8, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:122"] }
+      },
+      "blockers": [],
+      "conditions": ["Requires explicit seed-once marker semantics and duplicate command normalization tests."],
+      "has_verification": false,
+      "current_stability": "draft",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "FR-AITUI-003",
+      "feasibility": "high",
+      "score": 82,
+      "axes": {
+        "implementability": { "score": 21, "evidence": ["server/src/services/SessionManager.ts:900", "server/src/services/SessionManager.ts:2572"] },
+        "evidence_strength": { "score": 19, "evidence": ["server/src/types/workspace.types.ts:18", "frontend/src/types/workspace.ts:12"] },
+        "dependency_health": { "score": 13, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:211"] },
+        "ac_verifiability": { "score": 13, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:189"] },
+        "scope_fit": { "score": 8, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:17"] },
+        "product_fit": { "score": 8, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:183"] }
+      },
+      "blockers": [],
+      "conditions": ["Implementation must preserve the existing AI TUI idle invariant in SessionManager.writeInput."],
+      "has_verification": false,
+      "current_stability": "draft",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "FR-AITUI-004",
+      "feasibility": "high",
+      "score": 80,
+      "axes": {
+        "implementability": { "score": 20, "evidence": ["server/src/services/WorkspaceService.ts:336", "server/src/services/WorkspaceService.ts:595"] },
+        "evidence_strength": { "score": 18, "evidence": ["server/src/services/WorkspaceService.ts:626", "server/src/services/SessionManager.ts:1632"] },
+        "dependency_health": { "score": 13, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:273", "docs/spec/20.ai-tui-recovery.srs.md:274"] },
+        "ac_verifiability": { "score": 13, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:252"] },
+        "scope_fit": { "score": 8, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:18"] },
+        "product_fit": { "score": 8, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:246"] }
+      },
+      "blockers": [],
+      "conditions": ["Requires a readiness-aware startup input path instead of immediate PTY writes."],
+      "has_verification": false,
+      "current_stability": "draft",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "FR-AITUI-005",
+      "feasibility": "high",
+      "score": 87,
+      "axes": {
+        "implementability": { "score": 24, "evidence": ["server/src/services/CommandPresetService.ts:22", "frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx:67"] },
+        "evidence_strength": { "score": 19, "evidence": ["server/src/services/SessionManager.ts:1701", "server/src/services/SessionManager.ts:2572"] },
+        "dependency_health": { "score": 15, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:335"] },
+        "ac_verifiability": { "score": 14, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:315"] },
+        "scope_fit": { "score": 8, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:24"] },
+        "product_fit": { "score": 7, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:309"] }
+      },
+      "blockers": [],
+      "conditions": ["PowerShell profile-only aliases remain unsupported unless available to the restore shell environment."],
+      "has_verification": false,
+      "current_stability": "draft",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "SEC-AITUI-001",
+      "feasibility": "high",
+      "score": 81,
+      "axes": {
+        "implementability": { "score": 20, "evidence": ["server/src/index.ts:280", "server/src/services/SessionManager.ts:1632"] },
+        "evidence_strength": { "score": 18, "evidence": ["server/src/services/CommandPresetService.ts:216", "server/src/services/WorkspaceService.ts:595"] },
+        "dependency_health": { "score": 13, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:397", "docs/spec/20.ai-tui-recovery.srs.md:398"] },
+        "ac_verifiability": { "score": 13, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:376"] },
+        "scope_fit": { "score": 9, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:28"] },
+        "product_fit": { "score": 8, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:370"] }
+      },
+      "blockers": [],
+      "conditions": ["Shell-specific quoting and dangerous flag absence need dedicated regression tests before stable promotion."],
+      "has_verification": false,
+      "current_stability": "draft",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "SEC-AITUI-002",
+      "feasibility": "high",
+      "score": 85,
+      "axes": {
+        "implementability": { "score": 24, "evidence": ["server/src/services/CommandPresetService.ts:155", "frontend/src/components/MetadataBar/MetadataRow.tsx:67"] },
+        "evidence_strength": { "score": 18, "evidence": ["frontend/src/components/Workspace/WorkspaceTabBar.tsx:75", "server/src/routes/commandPresetRoutes.ts:6"] },
+        "dependency_health": { "score": 14, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:458", "docs/spec/20.ai-tui-recovery.srs.md:459"] },
+        "ac_verifiability": { "score": 13, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:439"] },
+        "scope_fit": { "score": 8, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:17"] },
+        "product_fit": { "score": 8, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:433"] }
+      },
+      "blockers": [],
+      "conditions": ["Implementation must use an icon union/allowlist and avoid raw markup rendering."],
+      "has_verification": false,
+      "current_stability": "draft",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "REL-AITUI-001",
+      "feasibility": "high",
+      "score": 84,
+      "axes": {
+        "implementability": { "score": 24, "evidence": ["server/src/services/CommandPresetService.ts:216", "server/src/services/CommandPresetService.ts:22"] },
+        "evidence_strength": { "score": 18, "evidence": ["server/src/services/CommandPresetService.ts:264"] },
+        "dependency_health": { "score": 14, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:517"] },
+        "ac_verifiability": { "score": 13, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:500"] },
+        "scope_fit": { "score": 8, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:16"] },
+        "product_fit": { "score": 7, "evidence": ["docs/spec/20.ai-tui-recovery.srs.md:494"] }
+      },
+      "blockers": [],
+      "conditions": ["Backup recovery must not reseed deleted defaults as if the store were first-created."],
+      "has_verification": false,
+      "current_stability": "draft",
+      "current_status": "planned",
+      "external_module_impact": null
+    }
+  ]
+}

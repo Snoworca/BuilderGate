@@ -1,0 +1,1 @@
+{"findings":[{"severity":"LOW","axis":"red-verification","command":"npm --prefix server test","exit_code":1,"actual_signature":"Expected red confirmed: 22 test(s) failed with repeated `Recovery option service not implemented or missing: Cannot find module ... server/dist/services/RecoveryOptionService.js` for T-PH001-01 recovery option service/routes tests."}]}

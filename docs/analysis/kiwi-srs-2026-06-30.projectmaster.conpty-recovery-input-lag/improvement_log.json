@@ -1,0 +1,64 @@
+{
+  "run_id": "2026-06-30.projectmaster.conpty-recovery-input-lag",
+  "applied_fixes": [
+    {
+      "source_iter": 1,
+      "area": "FR-BGSTAB-015",
+      "fix": "AC-1 now requires active matrix-listed runtime variables to be editable with constraints and applyScope."
+    },
+    {
+      "source_iter": 1,
+      "area": "FR-BGSTAB-016",
+      "fix": "Rationale now describes Wave4 as bounded transport bytes and this work as priority drain, projected bytes, and recovery barriers."
+    },
+    {
+      "source_iter": 1,
+      "area": "REL-BGSTAB-003 and OBS-BGSTAB-001",
+      "fix": "Non-canonical related requirement relations were converted to extends or depends_on."
+    },
+    {
+      "source_iter": 1,
+      "area": "OBS-BGSTAB-001",
+      "fix": "Telemetry counters and soak pass/fail criteria now name queue counters, input failures, server rejections, and remainingVerifiedDescendants."
+    },
+    {
+      "source_iter": 2,
+      "area": "FR-BGSTAB-017",
+      "fix": "AC-6 now requires screen-snapshot:ready only after current-token snapshot recovery write completion, with observable failure path."
+    },
+    {
+      "source_iter": 3,
+      "area": "FR-BGSTAB-015",
+      "fix": "Settings matrix was expanded to exact per-key rows matching the implementation plan."
+    },
+    {
+      "source_iter": 3,
+      "area": "FR-BGSTAB-016, REL-BGSTAB-003, FR-BGSTAB-017",
+      "fix": "Each Settings-consuming requirement now depends_on FR-BGSTAB-015."
+    },
+    {
+      "source_iter": 3,
+      "area": "FR-BGSTAB-015 trace",
+      "fix": "configTemplate trace path corrected to server/src/utils/configTemplate.ts in SRS and implementation plan."
+    },
+    {
+      "source_iter": 3,
+      "area": "FR-BGSTAB-016",
+      "fix": "Server safe-send scope now excludes frontend queued input release and references FR-BGSTAB-017."
+    },
+    {
+      "source_iter": 3,
+      "area": "OBS-BGSTAB-001",
+      "fix": "Final validation now makes ConPTY redraw-flood E2E at https://localhost:2222 mandatory."
+    },
+    {
+      "source_iter": 5,
+      "area": "FR-BGSTAB-015 trace",
+      "fix": "SettingsPage trace note now lists Server Transport, Visible Output Scheduler, Recovery Write Gate, Diagnostics Thresholds, and Stability Modes groups."
+    }
+  ],
+  "final_result": {
+    "iter5": "CRITICAL/HIGH/MEDIUM zero; one LOW fixed",
+    "iter6": "CRITICAL/HIGH/MEDIUM/LOW zero"
+  }
+}

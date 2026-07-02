@@ -1,0 +1,24 @@
+{
+  "implementability": "high",
+  "product_fit": "core",
+  "rationale": "The plan extends existing Settings, WebSocket backpressure, terminal scheduler, replay/repair, and telemetry surfaces already present in BGSTAB. Work is multi-phase but additive and rollbackable by Settings.",
+  "code_evidence": [
+    "server/src/ws/WsRouter.ts",
+    "server/src/ws/wsSendPolicy.ts",
+    "server/src/types/ws-protocol.ts",
+    "server/src/services/RuntimeConfigStore.ts",
+    "server/src/services/SettingsService.ts",
+    "frontend/src/utils/terminalOutputScheduler.ts",
+    "frontend/src/components/Terminal/TerminalView.tsx",
+    "frontend/src/components/Terminal/TerminalContainer.tsx",
+    "frontend/src/components/Settings/settingsDraftHelpers.ts",
+    "frontend/src/components/Settings/SettingsPage.tsx"
+  ],
+  "blockers": [],
+  "conditions": [
+    "Default wsSendMode must not change before observe/enforce evidence is collected.",
+    "Recovery transaction ordering must not be reordered by control priority.",
+    "Raw terminal input/output must not be persisted in telemetry or soak artifacts."
+  ],
+  "external_module_required": false
+}

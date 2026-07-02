@@ -1,0 +1,105 @@
+{
+  "target": "0.5.5-buildergate-stability",
+  "scope": "BGSTAB",
+  "mode": "live",
+  "generated": "2026-07-02",
+  "source_research": "docs/research/2026-07-02.buildergate-native-performance-54-sessions-deep-analysis.md",
+  "classification_summary": {
+    "P0-1": {"classification": "new-feature", "type": "performance", "relation": "extends FR-BGSTAB-003", "registered_as": "PERF-BGSTAB-001"},
+    "P0-2a": {"classification": "new-feature", "type": "functional", "relation": "extends FR-BGSTAB-011", "registered_as": "FR-BGSTAB-019"},
+    "P0-2b": {"classification": "update", "type": "reliability", "relation": "supersedes REL-BGSTAB-002", "registered_as": "REL-BGSTAB-005"},
+    "P0-3a": {"classification": "new-feature", "type": "performance", "relation": "extends FR-BGSTAB-009", "registered_as": "PERF-BGSTAB-002"},
+    "P0-3b": {"classification": "conflict", "type": "functional", "relation": "conflicts_with FR-BGSTAB-009", "registered_as": null, "deferred": true},
+    "P0-4": {"classification": "new-feature", "type": "performance", "relation": "extends FR-BGSTAB-014", "registered_as": "PERF-BGSTAB-003"},
+    "P0-5": {"classification": "new-feature", "type": "performance", "relation": "extends FR-BGSTAB-014", "registered_as": "PERF-BGSTAB-004"}
+  },
+  "added_ids": [
+    "PERF-BGSTAB-001",
+    "FR-BGSTAB-019",
+    "REL-BGSTAB-005",
+    "PERF-BGSTAB-002",
+    "PERF-BGSTAB-003",
+    "PERF-BGSTAB-004"
+  ],
+  "discarded_ids": ["REL-BGSTAB-002"],
+  "deferred_items": [
+    {
+      "p0_item": "P0-3b",
+      "proposed_title": "Observe-mode session process start-identity capture skip",
+      "reason": "FR-BGSTAB-009 AC-2 conflict — AC-2 unconditionally requires best-effort OS start identity capture for every new session at PTY spawn, but skipping the call whenever processCleanup.mode is observe (the current default) would eliminate that capture for effectively all sessions. Requires an explicit user/SRS decision (relax/condition AC-2, or drop the observe-skip sub-requirement). Not registered per team-lead instruction (user decision pending)."
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "OQ-1",
+      "status": "NEEDS-USER",
+      "placeholder": "{{OQ-1}}",
+      "referenced_by": "REL-BGSTAB-005 AC-8 (and Implementation Notes)",
+      "question": "Bounded-parallel shutdown termination concurrency limit: maximum number of owned-session terminations to run concurrently during the bounded owned-session termination stage of graceful shutdown."
+    },
+    {
+      "id": "OQ-2",
+      "status": "NEEDS-USER",
+      "placeholder": "{{OQ-2}}",
+      "referenced_by": "REL-BGSTAB-005 AC-9 (and Implementation Notes)",
+      "question": "Session-count-scaled shutdown cleanup timeout: value or formula to replace the fixed DEFAULT_SESSION_CLEANUP_TIMEOUT_MS=3000 (server/src/services/gracefulShutdown.ts:11), scaled to owned-session count for 54-session-scale shutdown."
+    }
+  ],
+  "scope_doc_edits": [
+    {
+      "file": "docs/spec/30.buildergate-stability.srs.md",
+      "section": "## 6. Open Questions",
+      "tool": "Edit",
+      "reason": "Section did not exist; created at end of file (after §4 Requirements) to register OQ-1 and OQ-2 as [NEEDS-USER] items referenced by REL-BGSTAB-005 {{OQ-1}}/{{OQ-2}} placeholders. Only §6 prose was added; no §4 requirement blocks, §2 tables, or per-requirement sections were edited by hand.",
+      "post_edit_validate": "PASS (0 errors)"
+    }
+  ],
+  "deviations": [
+    {
+      "instruction": "status=\"proposed\" for all new REQs",
+      "actual": "status=\"planned\"",
+      "reason": "This speckiwi instance rejects \"proposed\" as an invalid status (SRS-E005 raised on first attempt with PERF-BGSTAB-001). The valid earliest lifecycle status for a newly authored, not-yet-implemented requirement in this repo is \"planned\" (matches OBS-BGSTAB-001/002, authored the same way). Factual correction prioritized over the literal instruction; PERF-BGSTAB-001 was corrected via update_status."
+    },
+    {
+      "issue": "PERF-BGSTAB-001 acceptance criteria carry a duplicated \"AC-N:\" prefix",
+      "detail": "For PERF-BGSTAB-001 only, the acceptanceCriteria strings were submitted with a leading \"AC-1: \" prefix; add_requirement auto-prefixes the AC id, so the rendered markdown reads \"- [ ] AC-1: AC-1: Given ...\". validate_spec does NOT flag this (0 errors); the parsed AC id is clean (\"AC-1\") and text is intact. No MCP or speckiwi CLI tool can edit AC text or delete a requirement, and §4 hand-editing is forbidden by G1, so this cosmetic duplication could not be safely remediated. All other five requirements omit the prefix and render correctly. Recommended follow-up: correct PERF-BGSTAB-001 AC text via an authorized SRS maintenance path.",
+      "severity": "cosmetic"
+    }
+  ],
+  "mcp_calls": [
+    {"seq": 1, "tool": "add_requirement", "args": "P0-1 PERF perf visible-output scheduler; status proposed(->corrected)", "result_id": "PERF-BGSTAB-001", "ok": true},
+    {"seq": 2, "tool": "update_status", "args": "PERF-BGSTAB-001 -> planned (correct invalid 'proposed')", "result_id": "PERF-BGSTAB-001", "ok": true},
+    {"seq": 3, "tool": "add_trace_link", "args": "PERF-BGSTAB-001 Requirement extends FR-BGSTAB-003", "result_id": "PERF-BGSTAB-001", "ok": true},
+    {"seq": 4, "tool": "add_trace_link", "args": "PERF-BGSTAB-001 Requirement depends_on FR-BGSTAB-001", "result_id": "PERF-BGSTAB-001", "ok": true},
+    {"seq": 5, "tool": "add_trace_link", "args": "PERF-BGSTAB-001 Requirement depends_on FR-BGSTAB-017", "result_id": "PERF-BGSTAB-001", "ok": true},
+    {"seq": 6, "tool": "add_requirement", "args": "P0-2a FR functional enforce-mode operational activation; status planned", "result_id": "FR-BGSTAB-019", "ok": true},
+    {"seq": 7, "tool": "add_trace_link", "args": "FR-BGSTAB-019 Requirement extends FR-BGSTAB-011", "result_id": "FR-BGSTAB-019", "ok": true},
+    {"seq": 8, "tool": "add_trace_link", "args": "FR-BGSTAB-019 Requirement depends_on FR-BGSTAB-009", "result_id": "FR-BGSTAB-019", "ok": true},
+    {"seq": 9, "tool": "append_section_note", "args": "FR-BGSTAB-011 section='Implementation Notes' (rejected: unknown section)", "result_id": "FR-BGSTAB-011", "ok": false, "note": "corrected to section='implementation_notes' in seq 10"},
+    {"seq": 10, "tool": "append_section_note", "args": "FR-BGSTAB-011 implementation_notes: schema-default-vs-operational-activation clarification referencing FR-BGSTAB-019", "result_id": "FR-BGSTAB-011", "ok": true},
+    {"seq": 11, "tool": "add_requirement", "args": "P0-2b REL reliability bounded-parallel shutdown; 7 restated + 5 new AC; {{OQ-1}}/{{OQ-2}}; dryRun", "result_id": "REL-BGSTAB-005", "ok": true, "note": "dryRun preview only"},
+    {"seq": 12, "tool": "add_requirement", "args": "P0-2b REL reliability bounded-parallel shutdown; 12 AC total; live write", "result_id": "REL-BGSTAB-005", "ok": true},
+    {"seq": 13, "tool": "add_trace_link", "args": "REL-BGSTAB-005 Requirement supersedes REL-BGSTAB-002 (re_stated_from AC-1..AC-7 provenance)", "result_id": "REL-BGSTAB-005", "ok": true},
+    {"seq": 14, "tool": "add_trace_link", "args": "REL-BGSTAB-005 Requirement depends_on FR-BGSTAB-010", "result_id": "REL-BGSTAB-005", "ok": true},
+    {"seq": 15, "tool": "add_trace_link", "args": "REL-BGSTAB-005 Requirement depends_on FR-BGSTAB-019", "result_id": "REL-BGSTAB-005", "ok": true},
+    {"seq": 16, "tool": "append_section_note", "args": "REL-BGSTAB-002 implementation_notes: discarded/superseded-by REL-BGSTAB-005 provenance", "result_id": "REL-BGSTAB-002", "ok": true},
+    {"seq": 17, "tool": "update_status", "args": "REL-BGSTAB-002 -> discarded", "result_id": "REL-BGSTAB-002", "ok": true},
+    {"seq": 18, "tool": "validate_spec", "args": "interim check after discard (dangling-ref check)", "result_id": null, "ok": true, "note": "0 errors; OBS-BGSTAB-001 extends-link to discarded REL-BGSTAB-002 did not error"},
+    {"seq": 19, "tool": "add_requirement", "args": "P0-3a PERF perf non-blocking start-identity capture; status planned", "result_id": "PERF-BGSTAB-002", "ok": true},
+    {"seq": 20, "tool": "add_trace_link", "args": "PERF-BGSTAB-002 Requirement extends FR-BGSTAB-009", "result_id": "PERF-BGSTAB-002", "ok": true},
+    {"seq": 21, "tool": "add_trace_link", "args": "PERF-BGSTAB-002 Requirement depends_on FR-BGSTAB-011", "result_id": "PERF-BGSTAB-002", "ok": true},
+    {"seq": 22, "tool": "add_requirement", "args": "P0-4 PERF perf single-pass keystroke debug payload; status planned", "result_id": "PERF-BGSTAB-003", "ok": true},
+    {"seq": 23, "tool": "add_trace_link", "args": "PERF-BGSTAB-003 Requirement extends FR-BGSTAB-014", "result_id": "PERF-BGSTAB-003", "ok": true},
+    {"seq": 24, "tool": "add_requirement", "args": "P0-5 PERF perf cached utf8 byte-length + resource-limit reuse; status planned", "result_id": "PERF-BGSTAB-004", "ok": true},
+    {"seq": 25, "tool": "add_trace_link", "args": "PERF-BGSTAB-004 Requirement extends FR-BGSTAB-014", "result_id": "PERF-BGSTAB-004", "ok": true},
+    {"seq": 26, "tool": "add_trace_link", "args": "PERF-BGSTAB-004 Requirement depends_on FR-BGSTAB-001", "result_id": "PERF-BGSTAB-004", "ok": true},
+    {"seq": 27, "tool": "validate_spec", "args": "final check after §6 Open Questions edit", "result_id": null, "ok": true}
+  ],
+  "validate_spec_result": {
+    "errors": 0,
+    "warnings": 6,
+    "byCode": {"SRS-W023": 6},
+    "pass": true,
+    "note": "All 6 warnings are SRS-W023 'Draft requirement is not ready as an implementation contract', one per newly added stability=draft requirement (PERF-BGSTAB-001, FR-BGSTAB-019, REL-BGSTAB-005, PERF-BGSTAB-002, PERF-BGSTAB-003, PERF-BGSTAB-004). These are the expected consequence of the team-lead-specified stability=draft and are not defects. Zero errors."
+  }
+}

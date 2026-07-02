@@ -1,0 +1,192 @@
+{
+ "mode": "live",
+ "applied": [
+  {
+   "req_id": "FR-BGSTAB-019",
+   "from": "draft",
+   "to": "evolving",
+   "ok": true,
+   "sync_check": "PASS"
+  },
+  {
+   "req_id": "PERF-BGSTAB-001",
+   "from": "draft",
+   "to": "evolving",
+   "ok": true,
+   "sync_check": "PASS"
+  },
+  {
+   "req_id": "PERF-BGSTAB-002",
+   "from": "draft",
+   "to": "evolving",
+   "ok": true,
+   "sync_check": "PASS"
+  },
+  {
+   "req_id": "PERF-BGSTAB-003",
+   "from": "draft",
+   "to": "evolving",
+   "ok": true,
+   "sync_check": "PASS"
+  },
+  {
+   "req_id": "PERF-BGSTAB-004",
+   "from": "draft",
+   "to": "evolving",
+   "ok": true,
+   "sync_check": "PASS"
+  },
+  {
+   "req_id": "FR-BGSTAB-001",
+   "from": "evolving",
+   "to": "stable",
+   "ok": true,
+   "sync_check": "PASS",
+   "user_decision": "approved 2026-07-02"
+  },
+  {
+   "req_id": "FR-BGSTAB-002",
+   "from": "evolving",
+   "to": "stable",
+   "ok": true,
+   "sync_check": "PASS",
+   "user_decision": "approved 2026-07-02"
+  },
+  {
+   "req_id": "FR-BGSTAB-003",
+   "from": "evolving",
+   "to": "stable",
+   "ok": true,
+   "sync_check": "PASS",
+   "user_decision": "approved 2026-07-02"
+  },
+  {
+   "req_id": "FR-BGSTAB-004",
+   "from": "evolving",
+   "to": "stable",
+   "ok": true,
+   "sync_check": "PASS",
+   "user_decision": "approved 2026-07-02"
+  },
+  {
+   "req_id": "FR-BGSTAB-005",
+   "from": "evolving",
+   "to": "stable",
+   "ok": true,
+   "sync_check": "PASS",
+   "user_decision": "approved 2026-07-02"
+  },
+  {
+   "req_id": "FR-BGSTAB-006",
+   "from": "evolving",
+   "to": "stable",
+   "ok": true,
+   "sync_check": "PASS",
+   "user_decision": "approved 2026-07-02"
+  },
+  {
+   "req_id": "FR-BGSTAB-007",
+   "from": "evolving",
+   "to": "stable",
+   "ok": true,
+   "sync_check": "PASS",
+   "user_decision": "approved 2026-07-02"
+  },
+  {
+   "req_id": "FR-BGSTAB-008",
+   "from": "evolving",
+   "to": "stable",
+   "ok": true,
+   "sync_check": "PASS",
+   "user_decision": "approved 2026-07-02"
+  },
+  {
+   "req_id": "FR-BGSTAB-009",
+   "from": "evolving",
+   "to": "stable",
+   "ok": true,
+   "sync_check": "PASS",
+   "user_decision": "approved 2026-07-02"
+  },
+  {
+   "req_id": "FR-BGSTAB-010",
+   "from": "evolving",
+   "to": "stable",
+   "ok": true,
+   "sync_check": "PASS",
+   "user_decision": "approved 2026-07-02"
+  },
+  {
+   "req_id": "FR-BGSTAB-011",
+   "from": "evolving",
+   "to": "stable",
+   "ok": true,
+   "sync_check": "PASS",
+   "user_decision": "approved 2026-07-02"
+  },
+  {
+   "req_id": "FR-BGSTAB-012",
+   "from": "evolving",
+   "to": "stable",
+   "ok": true,
+   "sync_check": "PASS",
+   "user_decision": "approved 2026-07-02"
+  },
+  {
+   "req_id": "FR-BGSTAB-013",
+   "from": "evolving",
+   "to": "stable",
+   "ok": true,
+   "sync_check": "PASS",
+   "user_decision": "approved 2026-07-02"
+  },
+  {
+   "req_id": "FR-BGSTAB-014",
+   "from": "evolving",
+   "to": "stable",
+   "ok": true,
+   "sync_check": "PASS",
+   "user_decision": "approved 2026-07-02"
+  },
+  {
+   "req_id": "REL-BGSTAB-001",
+   "from": "evolving",
+   "to": "stable",
+   "ok": true,
+   "sync_check": "PASS",
+   "user_decision": "approved 2026-07-02"
+  },
+  {
+   "req_id": "REL-BGSTAB-004",
+   "from": "evolving",
+   "to": "stable",
+   "ok": true,
+   "sync_check": "PASS",
+   "user_decision": "approved 2026-07-02"
+  }
+ ],
+ "skipped": [],
+ "guard_blocked": [],
+ "user_rejected": [],
+ "user_pending": [],
+ "no_op": [
+  "FR-BGSTAB-015",
+  "FR-BGSTAB-016",
+  "FR-BGSTAB-017",
+  "FR-BGSTAB-018",
+  "OBS-BGSTAB-002",
+  "REL-BGSTAB-003",
+  "OBS-BGSTAB-001",
+  "REL-BGSTAB-005"
+ ],
+ "system_failed": [],
+ "summary": {
+  "applied_count": 21,
+  "skipped_count": 0,
+  "guard_blocked_count": 0,
+  "user_rejected_count": 0,
+  "user_pending_count": 0,
+  "no_op_count": 8,
+  "system_failed_count": 0
+ }
+}

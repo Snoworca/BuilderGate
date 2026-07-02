@@ -1,0 +1,23 @@
+{
+  "run_id": "2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01",
+  "mode": "normal",
+  "evaluators": [
+    {
+      "agent_id": "019e4b7e-69d3-73e2-9cfd-0afea4f4acd7",
+      "verdict": "PASS",
+      "findings": []
+    },
+    {
+      "agent_id": "019e4b7e-7c4e-7c53-ac2d-f78c55df5785",
+      "verdict": "PASS",
+      "findings": []
+    }
+  ],
+  "summary": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "gate": "pass"
+  }
+}

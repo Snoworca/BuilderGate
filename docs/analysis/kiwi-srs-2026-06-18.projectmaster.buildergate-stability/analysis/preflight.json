@@ -1,0 +1,26 @@
+{
+  "run_id": "2026-06-18.projectmaster.buildergate-stability",
+  "mode": "dry-run",
+  "mcp": true,
+  "cli": null,
+  "halted": false,
+  "active_target": "0.5.4-ai-tui-recovery",
+  "requested_target": null,
+  "recommended_target": "0.5.5-buildergate-stability",
+  "recommended_scope": "BGSTAB",
+  "validate_spec": {
+    "ok": true,
+    "errors": 0,
+    "warnings": 0
+  },
+  "target_scope_gate": {
+    "status": "pending_user_confirmation",
+    "reason": "The active target is AI TUI recovery and no BuilderGate stability scope exists. SpecKiwi dry-run add_requirement rejected BGSTAB with MUTATION_DENIED/Unknown scope.",
+    "recommended_resolution": "Create target 0.5.5-buildergate-stability and scope BGSTAB before live kiwi-srs mutation."
+  },
+  "constraints_observed": {
+    "no_port_2002_validation": true,
+    "no_global_node_termination": true,
+    "utf8_reads_and_writes": true
+  }
+}

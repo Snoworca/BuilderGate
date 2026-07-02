@@ -1,0 +1,24 @@
+{
+ "mcp": true,
+ "cli": null,
+ "halted": false,
+ "tools_detected": {
+  "update_stability": true,
+  "get_active_target": true,
+  "list_requirements": true,
+  "get_requirement": true,
+  "validate_spec": true,
+  "summarize_target": true,
+  "tag_mutation": false
+ },
+ "run_id": "2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+ "target": "0.5.5-buildergate-stability",
+ "options": {
+  "max": false,
+  "mini": false,
+  "dry_run": false,
+  "include_stable": false,
+  "enable_research": false
+ },
+ "timestamp": "2026-07-02"
+}

@@ -1,0 +1,24 @@
+{
+  "target": "0.5.5-buildergate-stability",
+  "classification": "new-feature",
+  "rationale": "The work belongs to the existing BGSTAB scope and extends implemented Wave4/Wave6/Wave7 stability contracts with a new ConPTY-specific planning and implementation surface. The Wave6 Settings exclusion is scoped to selected Wave6 fields, so this run adds later ConPTY Settings requirements instead of discarding or demoting FR-BGSTAB-013.",
+  "evidence_paths": [
+    "docs/research/2026-06-30.buildergate-conpty-output-recovery-input-lag-implementation-plan.md",
+    "docs/spec/30.buildergate-stability.srs.md"
+  ],
+  "affected_existing_reqs": [
+    { "id": "FR-BGSTAB-001", "relation": "extends", "diff_summary": "adds ConPTY-specific runtime settings and validation contract" },
+    { "id": "FR-BGSTAB-002", "relation": "extends", "diff_summary": "adds recovery input release ordering around existing input backpressure" },
+    { "id": "FR-BGSTAB-003", "relation": "extends", "diff_summary": "applies output scheduler principles to recovery writes" },
+    { "id": "FR-BGSTAB-007", "relation": "extends", "diff_summary": "preserves terminal payload ordering without making split WebSocket a prerequisite" },
+    { "id": "FR-BGSTAB-012", "relation": "extends", "diff_summary": "adds priority-aware safe-send, projected buffers, and byte-aware replay/repair handling" },
+    { "id": "FR-BGSTAB-013", "relation": "extends", "diff_summary": "adds later ConPTY Settings fields beyond Wave6 selected resource fields" },
+    { "id": "FR-BGSTAB-014", "relation": "extends", "diff_summary": "adds recovery write gate and runtime recovery metrics" },
+    { "id": "REL-BGSTAB-001", "relation": "extends", "diff_summary": "adds deterministic redraw flood and ConPTY soak validation" },
+    { "id": "REL-BGSTAB-002", "relation": "extends", "diff_summary": "preserves stop.bat and no broad node.exe termination validation constraints" }
+  ],
+  "proposed_scope": "BGSTAB",
+  "confidence": "high",
+  "scope_boundary_impact": null,
+  "external_module_impact": null
+}

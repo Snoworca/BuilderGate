@@ -1,0 +1,23 @@
+{
+  "summary": { "CRITICAL": 0, "HIGH": 2, "MEDIUM": 1, "LOW": 0 },
+  "findings": [
+    {
+      "severity": "HIGH",
+      "axis": "security",
+      "description": "Icon allowlist and raw markup rejection were missing.",
+      "resolution": "Added SEC-AITUI-002."
+    },
+    {
+      "severity": "HIGH",
+      "axis": "status",
+      "description": "Evaluator requested proposed status, but local SpecKiwi rejects proposed.",
+      "resolution": "Kept Status=planned and Stability=draft, then re-evaluated under local status enum."
+    },
+    {
+      "severity": "MEDIUM",
+      "axis": "ac",
+      "description": ".tmp/.bak backup recovery was not explicit.",
+      "resolution": "Added REL-AITUI-001."
+    }
+  ]
+}

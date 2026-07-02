@@ -1,0 +1,33 @@
+{
+  "run_id": "2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01",
+  "target": "0.5.4-ai-tui-recovery",
+  "project": "ProjectMaster",
+  "started_at": "2026-05-22T00:00:00+09:00",
+  "mcp": {
+    "available": true,
+    "tools_detected": {
+      "get_active_target": true,
+      "list_requirements": true,
+      "get_requirement": true,
+      "update_stability": true,
+      "validate_spec": true,
+      "summarize_target": true,
+      "tag_mutation": false
+    }
+  },
+  "cli": {
+    "available": true,
+    "source": "C:/Users/beom/AppData/Roaming/npm/speckiwi.ps1",
+    "version": "2.2.3"
+  },
+  "halted": false,
+  "mode": "live",
+  "options": {
+    "include_stable": false,
+    "dry_run": false,
+    "max": false,
+    "mini": false,
+    "enable_research": false,
+    "report_channel": "doculight"
+  }
+}

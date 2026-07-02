@@ -1,0 +1,46 @@
+{
+  "evaluator": "opus-A",
+  "iter": 2,
+  "iter1_findings_resolution": [
+    {
+      "finding_hash": "f3a541d3ddb79c39ef30d33dbdcdfbbb85f7c575",
+      "axis": "score_label_consistency",
+      "prior_severity": "MEDIUM",
+      "status": "RESOLVED",
+      "note": "FR-BGSTAB-015/016/017/018 re-judged via senior formal 6-axis scoring to 87/86/83/85 (all >=80), so all 29 judgements are now band-consistent (0 mismatch). The 80-boundary label/score divergence between quick-pass and senior paths is eliminated. feasibility_distribution high:27/medium:2 is now band-derived rather than embedding the inconsistency."
+    },
+    {
+      "finding_hash": "302bcf6f5d68288f919324975d4f429cb612b4c1",
+      "axis": "dependency_cycle",
+      "prior_severity": "LOW",
+      "status": "ADDRESSED",
+      "note": "OBS-BGSTAB-001's stale extends->discarded REL-BGSTAB-002 link is now explicitly surfaced in the judgement's dependency_health evidence (docs/spec/30.buildergate-stability.srs.md:1550 'extends REL-BGSTAB-002 — STALE, discarded') and carries a corrective condition. cycles=[] remains correct."
+    },
+    {
+      "finding_hash": "0db0ca620302a21ac557abbc877c23a2490f1404",
+      "axis": "golden_rule",
+      "prior_severity": "LOW",
+      "status": "CONFIRMED-CLEAN",
+      "note": "Golden rule holds in iter2: SRS still has 0 'stable' Stability values (distribution 6 draft / 24 evolving, matching snapshot); no run mutation applied (all dryRun). The docs/spec git diff (384 insertions / 2 deletions) is unchanged from iter1 and is pre-existing new-REQ authoring, not a feasibility mutation. This was always an informational caveat about the git-diff check heuristic, not an output defect."
+    }
+  ],
+  "findings": [],
+  "axis_recheck_summary": {
+    "score_label_consistency": "PASS — all 29 band-consistent (verified via band(score) recompute); high:27/medium:2 matches synthesis.",
+    "evidence_existence": "PASS — 8 senior REQs now carry full 6-axis evidence; spot-checked ~12 code/SRS locations, all exist and are contextually accurate. FR-BGSTAB-019 config.json5:21-24 'ABSENT' correction verified factually true (lines 21-24 = session{idleDelayMs,runningDelayMs}, no processCleanup override); config.schema.ts:84-89 = sessionProcessCleanupSchema mode default 'observe'; wsSendPolicy.ts:12-21/49-71 lane+coalesce match; SessionManager.ts:1783-1810 sequential for-of await loop matches REL-005; config.json5:79=16384 / config.schema.ts:150 default 262144 match PERF-001; TerminalContainer.tsx:131 FALLBACK_EMPTY_MESSAGE matches FR-018.",
+    "ac_verifiability_ground": "PASS — REL-005 ac_verifiability=9/15 grounded (evidence now cites srs:1924/1925 AC-8/AC-9 {{OQ}} embeds + operational validation); OBS-001=13/15.",
+    "dependency_cycle": "PASS — cycles=[] (unchanged); stale link now explicit in OBS-001 evidence.",
+    "blocker_substantiation": "PASS — REL-005 blocker backed by §6 OQ-1/OQ-2 and AC-8/AC-9 placeholders (unchanged).",
+    "mapping_conformance": "PASS — mutation plan identical to iter1 (labels/has_verification/current_stability unchanged despite score updates); 21 mutations (16 stable-confirm + 5 draft->evolving auto), 8 no_op, guard_blocked 0; matched_rule_index correct per policy order.",
+    "guard_verdict_honored": "PASS — all real mutations 'ok', no_op 'n/a', no ignored rejection.",
+    "status_conflict_honor": "PASS — blocked=0, no conflict; REL-005 medium->keep stays draft (conservative).",
+    "internal_coherence": "PASS — all 8 senior axis sums == score, all axis caps (30/20/15/15/10/10) respected (verified computationally).",
+    "golden_rule": "PASS — 0 'stable' values, distribution matches snapshot, no run mutation (dryRun intact)."
+  },
+  "summary": {
+    "CRITICAL": 0,
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 0
+  }
+}

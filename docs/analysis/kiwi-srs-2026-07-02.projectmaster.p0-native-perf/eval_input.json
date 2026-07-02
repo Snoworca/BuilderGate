@@ -1,0 +1,81 @@
+{
+  "note": "kiwi-srs Phase 5 evaluator input — §0.2 격리 적용: 작성자/분류자/feasibility의 rationale 제거, 사실 필드만 포함",
+  "original_req_text": "docs/research/2026-07-02.buildergate-native-performance-54-sessions-deep-analysis.md 의 P0 로드맵 5건을 SRS 요구사항으로 등록한다. 대상 target: 0.5.5-buildergate-stability (BGSTAB scope 우선 검토). P0-1: visibleFlushBudgetBytes 를 스키마 기본(256KB) 수준으로 복원하고 프론트엔드 terminalOutputScheduler 를 rAF당 1청크에서 프레임당 시간예산(6~8ms) 기반 다중 청크 flush 로 변경(입력 yield 유지) — 근거 F2, config.json5:79, terminalOutputScheduler.ts:52-105. P0-2: session.processCleanup.mode 를 enforce 로 활성화하고 세션 종료 배치 병렬화 + shutdown 타임아웃 정합(54세션 순차 종료 시 3s 타임아웃 초과 문제) — 근거 F3/F19, SessionManager.ts:1149-1171, processTreeTerminator.ts:592-605, gracefulShutdown.ts. P0-3: 세션 생성 경로의 동기 PowerShell 호출(readProcessStartIdentitySync 의 execFileSync, 최대 1s 이벤트루프 블로킹) 제거 또는 비동기화, observe 모드에서는 호출 자체 생략 — 근거 F4, processTreeTerminator.ts:328-359, SessionManager.ts:2345. P0-4: 키 입력당 buildTerminalInputDebugPayload 3회 호출을 1회로 축소, Intl.Segmenter/TextEncoder 모듈 싱글턴화, 디버그 캡처 비활성 시 고비용 계산 skip — 근거 F7, TerminalView.tsx:1894, TerminalContainer.tsx:1697/708, terminalDebugCapture.ts:501/516. P0-5: onOutput 메시지당 반복 할당 제거(TextEncoder 싱글턴, getTerminalResourceLimits 결과 캐시) — 근거 F18, TerminalContainer.tsx:96-98/1661-1663. 모든 요구사항은 TDD(실패 테스트 선행) 및 기존 Wave 방식의 soak/회귀 증거 원칙을 따른다.",
+  "intent_summary": "BuilderGate 성능 심층분석(2026-07-02)의 P0 즉효 개선 5건(가시 출력 스로틀 복원, enforce 프로세스 정리 활성화+shutdown 스케일링, 세션 생성 동기 블로킹 제거, 키 입력 디버그 계산 축소, 출력 경로 할당 제거)을 target 0.5.5-buildergate-stability 의 BGSTAB scope SRS 요구사항으로 등록",
+  "intent_ambiguities": [
+    "P0-2 정책 충돌 처리 방식(운영 오버라이드 vs soak 게이트 선행 vs 기존 REQ 정책 자체 갱신)",
+    "P0-1의 6~8ms는 예시 수치이며 확정값 아님",
+    "P0-1 config 복원을 삭제로 할지 명시적 재기입으로 할지",
+    "P0-2의 새 shutdown 타임아웃/병렬화 상한 수치 미정",
+    "P0-3 '제거 또는 비동기화' 양자택일 미정 + enforce 모드가 의존하는 identity 데이터와의 상호작용"
+  ],
+  "existing_candidate_matches": [
+    {"p0_item": "P0-1", "id": "FR-BGSTAB-003", "relation_hint": "potential-update", "similarity_score": 0.85},
+    {"p0_item": "P0-1", "id": "FR-BGSTAB-001", "relation_hint": "depends-on", "similarity_score": 0.55},
+    {"p0_item": "P0-1", "id": "FR-BGSTAB-017", "relation_hint": "depends-on", "similarity_score": 0.5},
+    {"p0_item": "P0-2", "id": "FR-BGSTAB-011", "relation_hint": "depends-on", "similarity_score": 0.9},
+    {"p0_item": "P0-2", "id": "REL-BGSTAB-002", "relation_hint": "potential-update", "similarity_score": 0.7},
+    {"p0_item": "P0-2", "id": "FR-BGSTAB-009", "relation_hint": "depends-on", "similarity_score": 0.5},
+    {"p0_item": "P0-2", "id": "FR-BGSTAB-010", "relation_hint": "depends-on", "similarity_score": 0.35},
+    {"p0_item": "P0-3", "id": "FR-BGSTAB-009", "relation_hint": "potential-conflict", "similarity_score": 0.8},
+    {"p0_item": "P0-3", "id": "FR-BGSTAB-011", "relation_hint": "depends-on", "similarity_score": 0.55},
+    {"p0_item": "P0-4", "id": "FR-BGSTAB-014", "relation_hint": "potential-update", "similarity_score": 0.6},
+    {"p0_item": "P0-5", "id": "FR-BGSTAB-014", "relation_hint": "potential-update", "similarity_score": 0.6},
+    {"p0_item": "P0-5", "id": "FR-BGSTAB-001", "relation_hint": "depends-on", "similarity_score": 0.4}
+  ],
+  "classification_labels": {
+    "P0-1": {"classification": "new-feature", "affected": [{"id": "FR-BGSTAB-003", "relation": "extends"}, {"id": "FR-BGSTAB-001", "relation": "depends_on"}, {"id": "FR-BGSTAB-017", "relation": "depends_on"}]},
+    "P0-2a": {"classification": "new-feature", "affected": [{"id": "FR-BGSTAB-011", "relation": "extends"}, {"id": "FR-BGSTAB-009", "relation": "depends_on"}]},
+    "P0-2b": {"classification": "update", "affected": [{"id": "REL-BGSTAB-002", "relation": "supersedes"}, {"id": "FR-BGSTAB-010", "relation": "depends_on"}]},
+    "P0-3a": {"classification": "new-feature", "affected": [{"id": "FR-BGSTAB-009", "relation": "extends"}, {"id": "FR-BGSTAB-011", "relation": "depends_on"}]},
+    "P0-3b": {"classification": "conflict", "affected": [{"id": "FR-BGSTAB-009", "relation": "conflicts_with"}], "deferred": true, "not_registered": true},
+    "P0-4": {"classification": "new-feature", "affected": [{"id": "FR-BGSTAB-014", "relation": "extends"}]},
+    "P0-5": {"classification": "new-feature", "affected": [{"id": "FR-BGSTAB-014", "relation": "extends"}, {"id": "FR-BGSTAB-001", "relation": "depends_on"}]}
+  },
+  "feasibility_facts": {
+    "P0-1": {"implementability": "high", "product_fit": "core"},
+    "P0-2a": {"implementability": "high", "product_fit": "core"},
+    "P0-2b": {"implementability": "high", "product_fit": "core"},
+    "P0-3a": {"implementability": "high", "product_fit": "core"},
+    "P0-3b": {"implementability": "blocked", "product_fit": "nice-to-have"},
+    "P0-4": {"implementability": "high", "product_fit": "core"},
+    "P0-5": {"implementability": "high", "product_fit": "core"}
+  },
+  "registered": {
+    "added_ids": ["PERF-BGSTAB-001", "FR-BGSTAB-019", "REL-BGSTAB-005", "PERF-BGSTAB-002", "PERF-BGSTAB-003", "PERF-BGSTAB-004"],
+    "discarded_ids": ["REL-BGSTAB-002"],
+    "deferred": ["P0-3b (미등록, 사용자 결정 보류)"]
+  },
+  "mcp_call_metadata": [
+    {"seq": 1, "tool": "add_requirement", "result_id": "PERF-BGSTAB-001", "ok": true},
+    {"seq": 2, "tool": "update_status", "result_id": "PERF-BGSTAB-001", "ok": true, "objective_note": "최초 status='proposed' 시도가 speckiwi SRS-E005(invalid status)로 거부되어 planned 로 등록/교정됨. 기존 저작-미구현 REQ(OBS-BGSTAB-001/002)도 planned 사용"},
+    {"seq": 3, "tool": "add_trace_link", "result_id": "PERF-BGSTAB-001 extends FR-BGSTAB-003", "ok": true},
+    {"seq": 4, "tool": "add_trace_link", "result_id": "PERF-BGSTAB-001 depends_on FR-BGSTAB-001", "ok": true},
+    {"seq": 5, "tool": "add_trace_link", "result_id": "PERF-BGSTAB-001 depends_on FR-BGSTAB-017", "ok": true},
+    {"seq": 6, "tool": "add_requirement", "result_id": "FR-BGSTAB-019", "ok": true},
+    {"seq": 7, "tool": "add_trace_link", "result_id": "FR-BGSTAB-019 extends FR-BGSTAB-011", "ok": true},
+    {"seq": 8, "tool": "add_trace_link", "result_id": "FR-BGSTAB-019 depends_on FR-BGSTAB-009", "ok": true},
+    {"seq": 9, "tool": "append_section_note", "result_id": "FR-BGSTAB-011", "ok": false, "objective_note": "section 인자 오류로 1회 거부, seq 10에서 교정 성공"},
+    {"seq": 10, "tool": "append_section_note", "result_id": "FR-BGSTAB-011", "ok": true},
+    {"seq": 11, "tool": "add_requirement (dryRun)", "result_id": "REL-BGSTAB-005", "ok": true},
+    {"seq": 12, "tool": "add_requirement", "result_id": "REL-BGSTAB-005", "ok": true},
+    {"seq": 13, "tool": "add_trace_link", "result_id": "REL-BGSTAB-005 supersedes REL-BGSTAB-002", "ok": true},
+    {"seq": 14, "tool": "add_trace_link", "result_id": "REL-BGSTAB-005 depends_on FR-BGSTAB-010", "ok": true},
+    {"seq": 15, "tool": "add_trace_link", "result_id": "REL-BGSTAB-005 depends_on FR-BGSTAB-019", "ok": true},
+    {"seq": 16, "tool": "append_section_note", "result_id": "REL-BGSTAB-002", "ok": true},
+    {"seq": 17, "tool": "update_status", "result_id": "REL-BGSTAB-002 -> discarded", "ok": true},
+    {"seq": 18, "tool": "validate_spec", "result_id": null, "ok": true},
+    {"seq": 19, "tool": "add_requirement", "result_id": "PERF-BGSTAB-002", "ok": true},
+    {"seq": 20, "tool": "add_trace_link", "result_id": "PERF-BGSTAB-002 extends FR-BGSTAB-009", "ok": true},
+    {"seq": 21, "tool": "add_trace_link", "result_id": "PERF-BGSTAB-002 depends_on FR-BGSTAB-011", "ok": true},
+    {"seq": 22, "tool": "add_requirement", "result_id": "PERF-BGSTAB-003", "ok": true},
+    {"seq": 23, "tool": "add_trace_link", "result_id": "PERF-BGSTAB-003 extends FR-BGSTAB-014", "ok": true},
+    {"seq": 24, "tool": "add_requirement", "result_id": "PERF-BGSTAB-004", "ok": true},
+    {"seq": 25, "tool": "add_trace_link", "result_id": "PERF-BGSTAB-004 extends FR-BGSTAB-014", "ok": true},
+    {"seq": 26, "tool": "add_trace_link", "result_id": "PERF-BGSTAB-004 depends_on FR-BGSTAB-001", "ok": true},
+    {"seq": 27, "tool": "validate_spec", "result_id": null, "ok": true, "objective_note": "0 errors, 6 warnings (SRS-W023 draft × 신규 6건)"}
+  ],
+  "scope_doc_edits": [
+    {"file": "docs/spec/30.buildergate-stability.srs.md", "section": "## 6. Open Questions", "tool": "Edit", "objective_note": "§6 신설(OQ-1/OQ-2 [NEEDS-USER] 등재), 직후 validate_spec PASS. §4/§2/§7 은 Edit 미사용(§0.G1 허용 범위)"}
+  ]
+}

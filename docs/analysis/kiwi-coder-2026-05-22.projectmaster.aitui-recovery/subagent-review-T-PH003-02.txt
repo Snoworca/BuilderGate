@@ -1,0 +1,5 @@
+- **High** `server/src/services/WorkspaceService.ts:558` / `server/src/services/WorkspaceService.ts:609` / `server/src/utils/recoveryCommand.ts:90`: restore quoting uses the saved/requested `tab.shellType`, which can be `auto`, but `buildRecoveryRestoreInput()` treats anything other than `cmd`/`powershell` as POSIX. On Windows, `auto` commonly resolves to PowerShell, so arguments containing `'` can be malformed or potentially break out of quoting at restore time.
+
+- **Medium** `server/src/utils/recoveryCommand.ts:91`: the `cmd` quoting branch only wraps arguments in `"` and doubles embedded `"`. It does not protect `%VAR%` or delayed-expansion `!VAR!`, both of which can expand inside quotes in `cmd`, so restore arguments are not reliably passed as literal ordered arguments.
+
+Existing T-PH003-01 tests cover readiness, disabled/deleted clearing, current option recheck, basic shell quoting, and write-failure diagnostics, but they do not cover `auto` shell resolution or `cmd` `%`/`!` expansion cases.

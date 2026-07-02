@@ -1,0 +1,52 @@
+{
+  "implementability": "high",
+  "product_fit": "core",
+  "rationale": "The proposed requirements describe code that is already implemented and covered by focused unit/server tests. Remaining live soak validation is operational evidence, not a blocker for SRS authoring.",
+  "code_evidence": [
+    "frontend/src/utils/inputReliabilityMode.ts:72-184",
+    "frontend/src/utils/webSocketBackpressure.ts:1-99",
+    "frontend/src/components/Terminal/TerminalContainer.tsx:470-940",
+    "frontend/src/utils/terminalOutputScheduler.ts:1-154",
+    "frontend/src/utils/terminalSnapshot.ts:1-560",
+    "frontend/src/hooks/useTerminalRuntimeResidency.ts:1-286",
+    "server/src/ws/wsTransportMode.ts:1-130",
+    "server/src/ws/WsRouter.ts:188-389",
+    "server/src/ws/WsRouter.ts:954-1055",
+    "server/src/ws/WsRouter.ts:2108-2449",
+    "server/src/ws/WsRouterSplitHandshake.test.ts:407-790"
+  ],
+  "verification_evidence": [
+    {
+      "command": "npm --prefix server test",
+      "result": "270 test(s) passed"
+    },
+    {
+      "command": "node --test server/dist/ws/WsRouterSplitHandshake.test.js server/dist/ws/wsTransportMode.test.js server/dist/services/RuntimeConfigStore.test.js",
+      "result": "25/25 pass"
+    },
+    {
+      "command": "node --experimental-strip-types --test frontend/tests/unit/runtimeConfig.test.ts frontend/tests/unit/webSocketUrl.test.ts frontend/tests/unit/splitWebSocketLifecycle.test.ts frontend/tests/unit/webSocketBackpressure.test.ts frontend/tests/unit/terminalOutputScheduler.test.ts frontend/tests/unit/terminalSnapshot.test.ts frontend/tests/unit/useTerminalRuntimeResidency.test.ts frontend/tests/unit/visibleOutputRecovery.test.ts",
+      "result": "44/44 pass"
+    },
+    {
+      "command": "npm --prefix frontend run typecheck",
+      "result": "pass"
+    },
+    {
+      "command": "npm --prefix frontend run build",
+      "result": "pass with existing Vite chunk-size warning"
+    }
+  ],
+  "blockers": [
+    {
+      "id": "BLOCK-1",
+      "kind": "process",
+      "description": "Live SpecKiwi mutation is blocked until target/scope are confirmed or bootstrapped."
+    }
+  ],
+  "conditions": [
+    "Use a non-2002 port for any future live/manual/Playwright BuilderGate validation.",
+    "Do not terminate all node.exe processes; stop only test server process trees that this agent starts."
+  ],
+  "external_module_required": false
+}

@@ -1,0 +1,12 @@
+{
+  "run_id": "2026-06-30.projectmaster.conpty-recovery-input-lag",
+  "skill": "kiwi-srs",
+  "args": ["--max", "--auto"],
+  "mcp": true,
+  "cli": true,
+  "cli_version": "2.2.4",
+  "target": "0.5.5-buildergate-stability",
+  "scope": "BGSTAB",
+  "request_path": "docs/research/2026-06-30.buildergate-conpty-output-recovery-input-lag-implementation-plan.md",
+  "halted": false
+}

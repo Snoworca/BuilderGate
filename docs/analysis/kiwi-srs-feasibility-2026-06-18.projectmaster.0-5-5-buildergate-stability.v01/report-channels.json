@@ -1,0 +1,12 @@
+{
+  "doculight": {
+    "reported": true,
+    "window_id": "f27bfe48-b33c-4122-ad44-6af7c5e955f6",
+    "file": "docs/research/2026-06-18.buildergate-stability-kiwi-srs-feasibility-dry-run-report.md",
+    "reason": "Reviewed dry-run research report opened in DocuLight."
+  },
+  "pipeline": {
+    "reported": true,
+    "reason": "DRY_RUN event appended to kiwi/pipeline.jsonl after JSON validation."
+  }
+}

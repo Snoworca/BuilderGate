@@ -1,0 +1,32 @@
+{
+  "run_id": "2026-05-22.projectmaster.0-5-4-ai-tui-recovery.v01",
+  "source": "default",
+  "project_policy_exists": false,
+  "user_policy_exists": false,
+  "mapping": [
+    {
+      "if": { "feasibility": "high", "has_verification": true },
+      "then": { "stability": "stable", "requires_user_confirm": true }
+    },
+    {
+      "if": { "feasibility": "high" },
+      "then": { "stability": "evolving", "requires_user_confirm": false }
+    },
+    {
+      "if": { "feasibility": "medium" },
+      "then": { "stability": "keep", "requires_user_confirm": false }
+    },
+    {
+      "if": { "feasibility": "low" },
+      "then": { "stability": "draft", "requires_user_confirm": false }
+    },
+    {
+      "if": { "feasibility": "blocked", "status": ["in_progress", "implemented", "verified"] },
+      "then": { "stability": "keep", "requires_user_confirm": false, "status_conflict": true }
+    },
+    {
+      "if": { "feasibility": "blocked" },
+      "then": { "stability": "deprecated", "requires_user_confirm": true }
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "classification": "new-scope",
+  "mode": "dry-run",
+  "mcp_calls": [
+    {
+      "tool": "get_active_target",
+      "ok": true,
+      "result": "0.5.4-ai-tui-recovery"
+    },
+    {
+      "tool": "validate_spec",
+      "ok": true,
+      "result": "0 errors, 0 warnings"
+    },
+    {
+      "tool": "list_requirements",
+      "ok": true,
+      "target": "0.5.4-ai-tui-recovery",
+      "result_count": 8
+    },
+    {
+      "tool": "add_requirement",
+      "ok": false,
+      "dryRun": true,
+      "target": "0.5.5-buildergate-stability",
+      "scope": "BGSTAB",
+      "error": "MUTATION_DENIED: Unknown scope: BGSTAB"
+    }
+  ],
+  "scope_doc_edits": [],
+  "proposed_spec": "proposed-spec/30.buildergate-stability.srs.md",
+  "validate_spec_result": {
+    "ok": true,
+    "diagnostics": []
+  },
+  "added_ids": [],
+  "demoted_ids": [],
+  "discarded_ids": [],
+  "next_required_action": "Confirm or bootstrap target 0.5.5-buildergate-stability and scope BGSTAB, then run live kiwi-srs mutation."
+}

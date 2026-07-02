@@ -1,0 +1,104 @@
+[
+  {
+    "id": "FR-AITUI-001",
+    "stability": "evolving",
+    "ac_total": 6,
+    "ac_ids": [
+      "AC-1",
+      "AC-2",
+      "AC-3",
+      "AC-4",
+      "AC-5",
+      "AC-6"
+    ]
+  },
+  {
+    "id": "FR-AITUI-002",
+    "stability": "evolving",
+    "ac_total": 6,
+    "ac_ids": [
+      "AC-1",
+      "AC-2",
+      "AC-3",
+      "AC-4",
+      "AC-5",
+      "AC-6"
+    ]
+  },
+  {
+    "id": "FR-AITUI-003",
+    "stability": "evolving",
+    "ac_total": 6,
+    "ac_ids": [
+      "AC-1",
+      "AC-2",
+      "AC-3",
+      "AC-4",
+      "AC-5",
+      "AC-6"
+    ]
+  },
+  {
+    "id": "FR-AITUI-004",
+    "stability": "evolving",
+    "ac_total": 6,
+    "ac_ids": [
+      "AC-1",
+      "AC-2",
+      "AC-3",
+      "AC-4",
+      "AC-5",
+      "AC-6"
+    ]
+  },
+  {
+    "id": "FR-AITUI-005",
+    "stability": "evolving",
+    "ac_total": 6,
+    "ac_ids": [
+      "AC-1",
+      "AC-2",
+      "AC-3",
+      "AC-4",
+      "AC-5",
+      "AC-6"
+    ]
+  },
+  {
+    "id": "SEC-AITUI-001",
+    "stability": "evolving",
+    "ac_total": 6,
+    "ac_ids": [
+      "AC-1",
+      "AC-2",
+      "AC-3",
+      "AC-4",
+      "AC-5",
+      "AC-6"
+    ]
+  },
+  {
+    "id": "SEC-AITUI-002",
+    "stability": "evolving",
+    "ac_total": 5,
+    "ac_ids": [
+      "AC-1",
+      "AC-2",
+      "AC-3",
+      "AC-4",
+      "AC-5"
+    ]
+  },
+  {
+    "id": "REL-AITUI-001",
+    "stability": "evolving",
+    "ac_total": 5,
+    "ac_ids": [
+      "AC-1",
+      "AC-2",
+      "AC-3",
+      "AC-4",
+      "AC-5"
+    ]
+  }
+]

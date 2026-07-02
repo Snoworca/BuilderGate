@@ -1,0 +1,27 @@
+{
+  "evaluator": "sonnet-B",
+  "iter": 2,
+  "findings": [
+    {
+      "id": "internal_coherence-2-1",
+      "finding_hash": "8496fddfc70a9705032a04b30975a39ca4cb66ff",
+      "severity": "LOW",
+      "axis": "internal_coherence",
+      "req_id": "FR-BGSTAB-019",
+      "evidence_path": "server/config.json5:21-24",
+      "description": "The evidence_strength axis (score=19, unchanged from iter1) still lists server/config.json5:21-24 as one of its 4 supporting items, but the same item is now explicitly annotated 'confirmed ABSENT, not current supporting evidence' in the implementability axis and correctly labeled addition_site (not verifies) in docs/spec/30.buildergate-stability.srs.md:1873. Counting a confirmed-absent placeholder location as one of 4 evidence_strength items is a minor internal-composition inconsistency -- the other 3 items in that axis (SessionManager.ts:1149-1171, processTreeTerminator.ts:592-605, config.schema.ts:84-89) are legitimately strong and likely justify the score on their own, so this does not change the feasibility label or stability mutation outcome.",
+      "suggested_action": "Optional: drop the addition_site placeholder from the evidence_strength list (keep it only under implementability, where its role as a confirmed insertion point is already correctly framed), or leave as-is with a one-line note that it is included for traceability rather than strength."
+    }
+  ],
+  "summary": {
+    "CRITICAL": 0,
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 1
+  },
+  "iter1_fix_verification": {
+    "score_label_consistency_FR-BGSTAB-015_016_017_018": "RESOLVED - re-scored via full senior 6-axis breakdown (87/86/83/85); axes sums independently recomputed and match reported scores exactly (23+17+15+13+10+9=87; 22+18+12+14+10+10=86; 21+17+11+14+10+10=83; 22+18+11+14+10+10=85); all 4 now sit above the 80 high/medium boundary that OBS-BGSTAB-001 (78->medium) and REL-BGSTAB-005 (73->medium) independently confirm elsewhere in the same artifact. Full 29-item score/label sweep re-run: 0 boundary violations remain.",
+    "evidence_existence_FR-BGSTAB-019_config_json5": "RESOLVED - Read-verified docs/spec/30.buildergate-stability.srs.md:1873 itself carries the trace link 'server/config.json5:21-24 | addition_site | ... add session.processCleanup block activating mode=enforce'; and Read-verified server/src/schemas/config.schema.ts:91-95 confirms sessionSchema nests processCleanup as a sibling key alongside idleDelayMs/runningDelayMs (the same session:{...} object at config.json5:21-24), so citing that block as the addition site is structurally correct, not a wrong-section citation. eval_input's own annotation now says 'confirmed ABSENT, not current supporting evidence', which matches the SRS trace_intent=addition_site framing exactly.",
+    "empty_axis_evidence_8_senior_judgements": "RESOLVED - spot-checked SRS-line evidence for FR-BGSTAB-015 (:1215-1220 AC-1..6, :1239-1241 extends FR-001/008/013), FR-BGSTAB-019 (:1856-1860 AC-1..5, :1875-1876 extends/depends_on), OBS-BGSTAB-001 (:1545-1550 incl. correctly-flagged stale REL-BGSTAB-002 extends), REL-BGSTAB-005 (:1942-1944 incl. correctly-flagged draft/unhealthy FR-BGSTAB-019 dependency) -- all match file content exactly. All 8 senior judgements now populate evidence for all 6 axes (48/48 non-empty), versus 4/24 in iter1."
+  }
+}

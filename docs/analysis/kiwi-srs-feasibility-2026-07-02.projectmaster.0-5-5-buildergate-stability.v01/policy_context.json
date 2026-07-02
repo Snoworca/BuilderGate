@@ -1,0 +1,76 @@
+{
+  "policy_source": "default",
+  "mappings_count": 6,
+  "predicted_transitions": [
+    { "req_id": "FR-BGSTAB-001", "current_stability": "evolving", "predicted_stability_range": ["stable"], "requires_user_confirm": true, "note": "status=implemented, evidence_count=2>0, tag=feasibility:high -> rule1(stable, confirm required). evolving->stable has no in-project mutation precedent yet." },
+    { "req_id": "FR-BGSTAB-002", "current_stability": "evolving", "predicted_stability_range": ["stable"], "requires_user_confirm": true, "note": "status=implemented, evidence_count=2>0, tag=feasibility:high -> rule1(stable, confirm required). evolving->stable has no in-project mutation precedent yet." },
+    { "req_id": "FR-BGSTAB-003", "current_stability": "evolving", "predicted_stability_range": ["stable"], "requires_user_confirm": true, "note": "status=implemented, evidence_count=2>0, tag=feasibility:high -> rule1(stable, confirm required). evolving->stable has no in-project mutation precedent yet." },
+    { "req_id": "FR-BGSTAB-004", "current_stability": "evolving", "predicted_stability_range": ["stable"], "requires_user_confirm": true, "note": "status=implemented, evidence_count=1>0 (minimum observed in this batch), tag=feasibility:high -> rule1(stable, confirm required). Evidence quantity is thin; worth a quality spot-check during Phase 2/3 before batch confirm." },
+    { "req_id": "FR-BGSTAB-005", "current_stability": "evolving", "predicted_stability_range": ["stable"], "requires_user_confirm": true, "note": "status=implemented, evidence_count=1>0 (minimum observed in this batch), tag=feasibility:high -> rule1(stable, confirm required). Evidence quantity is thin; worth a quality spot-check during Phase 2/3 before batch confirm." },
+    { "req_id": "FR-BGSTAB-006", "current_stability": "evolving", "predicted_stability_range": ["stable"], "requires_user_confirm": true, "note": "status=implemented, evidence_count=4>0, tag=feasibility:high -> rule1(stable, confirm required)." },
+    { "req_id": "FR-BGSTAB-007", "current_stability": "evolving", "predicted_stability_range": ["stable"], "requires_user_confirm": true, "note": "status=implemented, evidence_count=2>0, tag=feasibility:high -> rule1(stable, confirm required)." },
+    { "req_id": "FR-BGSTAB-008", "current_stability": "evolving", "predicted_stability_range": ["stable"], "requires_user_confirm": true, "note": "status=implemented, evidence_count=11>0, tag=feasibility:high -> rule1(stable, confirm required)." },
+    { "req_id": "FR-BGSTAB-009", "current_stability": "evolving", "predicted_stability_range": ["stable"], "requires_user_confirm": true, "note": "status=implemented, evidence_count=5>0, tag=feasibility:high -> rule1(stable, confirm required)." },
+    { "req_id": "FR-BGSTAB-010", "current_stability": "evolving", "predicted_stability_range": ["stable"], "requires_user_confirm": true, "note": "status=implemented, evidence_count=5>0, tag=feasibility:high -> rule1(stable, confirm required)." },
+    { "req_id": "FR-BGSTAB-011", "current_stability": "evolving", "predicted_stability_range": ["stable"], "requires_user_confirm": true, "note": "status=implemented, evidence_count=5>0, tag=feasibility:high -> rule1(stable, confirm required)." },
+    { "req_id": "FR-BGSTAB-012", "current_stability": "evolving", "predicted_stability_range": ["stable"], "requires_user_confirm": true, "note": "status=implemented, evidence_count=6>0, tag=feasibility:high -> rule1(stable, confirm required)." },
+    { "req_id": "FR-BGSTAB-013", "current_stability": "evolving", "predicted_stability_range": ["stable"], "requires_user_confirm": true, "note": "status=implemented, evidence_count=10>0, tag=feasibility:high -> rule1(stable, confirm required)." },
+    { "req_id": "FR-BGSTAB-014", "current_stability": "evolving", "predicted_stability_range": ["stable"], "requires_user_confirm": true, "note": "status=implemented, evidence_count=8>0, tag=feasibility:high -> rule1(stable, confirm required)." },
+    { "req_id": "FR-BGSTAB-015", "current_stability": "evolving", "predicted_stability_range": ["evolving"], "requires_user_confirm": false, "note": "status=planned, evidence_count=0, tag=feasibility:high -> rule2(evolving, automatic). Current stability already evolving, so predicted result is a no-op (no live mutation needed)." },
+    { "req_id": "FR-BGSTAB-016", "current_stability": "evolving", "predicted_stability_range": ["evolving"], "requires_user_confirm": false, "note": "status=planned, evidence_count=0, tag=feasibility:high -> rule2(evolving, automatic). Current stability already evolving; no-op predicted." },
+    { "req_id": "FR-BGSTAB-017", "current_stability": "evolving", "predicted_stability_range": ["evolving"], "requires_user_confirm": false, "note": "status=planned, evidence_count=0, tag=feasibility:high -> rule2(evolving, automatic). Current stability already evolving; no-op predicted." },
+    { "req_id": "FR-BGSTAB-018", "current_stability": "evolving", "predicted_stability_range": ["evolving"], "requires_user_confirm": false, "note": "status=planned, evidence_count=0, tag=feasibility:high -> rule2(evolving, automatic). Current stability already evolving; no-op predicted." },
+    { "req_id": "FR-BGSTAB-019", "current_stability": "draft", "predicted_stability_range": ["evolving"], "requires_user_confirm": false, "note": "status=planned, evidence_count=0, tag=feasibility:high -> rule2(evolving, automatic draft->evolving upgrade). Matches the exact pattern applied 8/8 times with 0 guard_blocked in the 2026-06-18 run." },
+    { "req_id": "OBS-BGSTAB-001", "current_stability": "evolving", "predicted_stability_range": ["evolving"], "requires_user_confirm": false, "note": "status=planned, evidence_count=0, tag=feasibility:high -> rule2(evolving, automatic). Current stability already evolving; no-op predicted." },
+    { "req_id": "OBS-BGSTAB-002", "current_stability": "evolving", "predicted_stability_range": ["evolving"], "requires_user_confirm": false, "note": "status=planned, evidence_count=0, tag=feasibility:high -> rule2(evolving, automatic). Current stability already evolving; no-op predicted." },
+    { "req_id": "PERF-BGSTAB-001", "current_stability": "draft", "predicted_stability_range": ["evolving"], "requires_user_confirm": false, "note": "status=planned, evidence_count=0, tag=feasibility:high -> rule2(evolving, automatic draft->evolving upgrade). Matches the exact pattern applied 8/8 times with 0 guard_blocked in the 2026-06-18 run." },
+    { "req_id": "PERF-BGSTAB-002", "current_stability": "draft", "predicted_stability_range": ["evolving"], "requires_user_confirm": false, "note": "status=planned, evidence_count=0, tag=feasibility:high -> rule2(evolving, automatic draft->evolving upgrade). Matches precedent draft->evolving pattern." },
+    { "req_id": "PERF-BGSTAB-003", "current_stability": "draft", "predicted_stability_range": ["evolving"], "requires_user_confirm": false, "note": "status=planned, evidence_count=0, tag=feasibility:high -> rule2(evolving, automatic draft->evolving upgrade). Matches precedent draft->evolving pattern." },
+    { "req_id": "PERF-BGSTAB-004", "current_stability": "draft", "predicted_stability_range": ["evolving"], "requires_user_confirm": false, "note": "status=planned, evidence_count=0, tag=feasibility:high -> rule2(evolving, automatic draft->evolving upgrade). Matches precedent draft->evolving pattern." },
+    { "req_id": "REL-BGSTAB-001", "current_stability": "evolving", "predicted_stability_range": ["evolving"], "requires_user_confirm": false, "note": "status=implemented, evidence_count=4>0, but tag=feasibility:medium (not high) -> rule3(keep=evolving, no confirm). NOT a rule1 'stable' candidate despite implemented+evidence>0, because the mapping gates rule1 on feasibility=high specifically. This REQ was also excluded from the stable-candidate count that the 16-implemented assumption implies (see top-level note)." },
+    { "req_id": "REL-BGSTAB-003", "current_stability": "evolving", "predicted_stability_range": ["evolving"], "requires_user_confirm": false, "note": "status=planned, evidence_count=0, tag=feasibility:high -> rule2(evolving, automatic). Current stability already evolving; no-op predicted." },
+    { "req_id": "REL-BGSTAB-004", "current_stability": "evolving", "predicted_stability_range": ["stable"], "requires_user_confirm": true, "note": "status=implemented, evidence_count=1>0 (minimum observed in this batch), tag=feasibility:high -> rule1(stable, confirm required). Evidence quantity is thin; worth a quality spot-check during Phase 2/3 before batch confirm." },
+    { "req_id": "REL-BGSTAB-005", "current_stability": "draft", "predicted_stability_range": ["evolving"], "requires_user_confirm": false, "note": "status=planned, evidence_count=0, tag=feasibility:high -> rule2(evolving, automatic draft->evolving upgrade). Tagged 'supersedes:REL-BGSTAB-002' (the excluded/discarded REQ) but this does not change the stability mapping. Matches precedent draft->evolving pattern." }
+  ],
+  "transition_guard_warnings": [
+    {
+      "warning": "no draft->stable direct-jump risk in this batch",
+      "detail": "Checked all 16 status=implemented requirements: none currently have stability=draft (all 16 are evolving). No requirement combines implemented+evidence_count>0 with draft stability, so this run will not need to test a draft->stable direct jump. This confirms the premise stated in the task brief."
+    },
+    {
+      "warning": "evolving->stable jump has no in-project mutation precedent",
+      "detail": "15 requirements (FR-BGSTAB-001~014 minus none, i.e. all 14 implemented FRs, plus REL-BGSTAB-004) map to feasibility=high with evidence_count>0 -> rule1 'stable'. All 15 are currently stability=evolving. The only prior mutation history available (2026-06-18 v01/v02 run) exercised exclusively draft->evolving mutations (8/8 applied, 0 guard_blocked, 0 skipped, 0 system_failed) -- it never attempted evolving->stable. General SpecKiwi stability lifecycle (draft -> evolving -> stable -> frozen, deprecate from any state) is expected to permit this forward step, but guard behavior for this specific jump is unverified in this project. Recommend applying one canary REQ first, or confirming the guard config explicitly permits evolving->stable, before batch-applying all 15 under the single §0.G5 confirmation gate."
+    },
+    {
+      "warning": "draft->evolving expected allowed (strong precedent)",
+      "detail": "6 requirements (FR-BGSTAB-019, PERF-BGSTAB-001~004, REL-BGSTAB-005) are stability=draft, status=planned, tag=feasibility:high, evidence_count=0 -> predicted evolving via rule2 (automatic, no confirm). This matches the exact transition type exercised successfully 8/8 times with 0 guard_blocked in the 2026-06-18 run, so no guard risk is expected here."
+    },
+    {
+      "warning": "evolving->draft demotion not currently triggered, but policy-relevant for weak-evidence 'high' tags",
+      "detail": "0 of the 29 requirements are currently tagged feasibility=low, so rule4 (low->draft, confirm required on demotion) is not expected to fire in this run. However 7 requirements (FR-BGSTAB-015~018, OBS-BGSTAB-001~002, REL-BGSTAB-003) are stability=evolving with evidence_count=0, resting solely on a prior 'high' tag. If Phase 2/3 re-evaluation reclassifies any of these as low, an evolving->draft demotion requiring user confirmation would fire and must not be auto-applied."
+    },
+    {
+      "warning": "blocked-status conflict/deprecation rules not currently triggered",
+      "detail": "0 of the 29 requirements are currently tagged feasibility=blocked. If Phase 2/3 assigns blocked to any requirement, rule5 (status in {in_progress, implemented, verified} -> keep + conflict report) would apply to the 16 implemented requirements, while rule6 (blocked -> deprecated, confirm required) would apply to the 13 planned requirements. Neither branch has any live occurrence in this project's mutation history to date, so guard/report behavior for both is unverified."
+    }
+  ],
+  "precedent_observations": [
+    {
+      "source": "docs/analysis/kiwi-srs-feasibility-2026-06-18.projectmaster.0-5-5-buildergate-stability.v02/stability-mutations.json",
+      "observation": "mode=live. 8/8 draft->evolving mutations applied successfully with ok:true for each (FR-BGSTAB-001~007, REL-BGSTAB-001). summary: applied_count=8, skipped_count=0, guard_blocked_count=0, system_failed_count=0. This is the only concrete guard-behavior precedent available in this project, and it only covers the draft->evolving jump."
+    },
+    {
+      "source": "docs/analysis/kiwi-srs-feasibility-2026-06-18.projectmaster.0-5-5-buildergate-stability.v01/stability-mutations.json",
+      "observation": "mode=dry-run. Predicted the same 7 FR-BGSTAB items -> evolving, but predicted REL-BGSTAB-001 -> draft (a demotion), whereas the v02 live-run on the same date actually applied REL-BGSTAB-001 as draft->evolving (an upgrade). This is a discrepancy between the v01 dry-run prediction and the v02 live application for that one requirement -- either a mid-run reclassification between the two sub-runs or a recording inconsistency in the historical dry-run output. Today's snapshot tags REL-BGSTAB-001 as feasibility:medium (rule3 keep=evolving), which is consistent with the v02 outcome (evolving), not the v01 'draft' prediction."
+    },
+    {
+      "source": "docs/analysis/kiwi-srs-feasibility-2026-06-18.projectmaster.0-5-5-buildergate-stability.v01/mutation-plan.json",
+      "observation": "The v01 run was blocked from live mutation for a scope/target-activation reason ('BGSTAB is not a registered SpecKiwi scope and the active target is 0.5.4-ai-tui-recovery'), not by the per-REQ stability transition guard. This is a different blocking mechanism and is not expected to recur now that BGSTAB requirements already exist directly in the current active target-snapshot (target=0.5.5-buildergate-stability)."
+    },
+    {
+      "observation": "No evolving->stable, draft->stable, or any downgrade transition (evolving->draft, evolving->deprecated, any->deprecated) has been observed anywhere in this project's available mutation history. This 2026-07-02 run would be the first attempt at each of those jump types if the tag-implied feasibility outcomes hold."
+    }
+  ],
+  "user_confirm_estimate": 15,
+  "user_confirm_estimate_basis": "The task brief assumed '16 implemented+evidence REQs -> all stable candidates'. Actual count is 15, not 16: of the 16 status=implemented requirements, REL-BGSTAB-001 is tagged feasibility:medium (not high), so it maps to rule3 'keep' rather than rule1 'stable' despite having evidence_count=4>0. The remaining 15 (14 FR-BGSTAB implemented items + REL-BGSTAB-004) are all tagged feasibility:high with evidence_count>0 and are the actual rule1 'stable' candidates requiring a single batch §0.G5 user-confirmation gate. No other predicted transition in this run (rule2/rule3/rule4/rule5/rule6 branches) currently requires confirmation, since none of the 29 requirements carry a feasibility:low or feasibility:blocked tag."
+}

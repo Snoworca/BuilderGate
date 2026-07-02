@@ -1,0 +1,22 @@
+{
+  "pass": true,
+  "findings": [
+    {
+      "axis": "A8.files_grounding",
+      "severity": "MEDIUM",
+      "req_id": null,
+      "task_id": "T-PH001-02",
+      "evidence": "docs/plans/2026-05-22.projectmaster.aitui-recovery.sidecar.json#T-PH001-02.files",
+      "reason": "New implementation files needed an explicit inferred/new-file grounding label."
+    },
+    {
+      "axis": "A9.non_coding_completeness",
+      "severity": "LOW",
+      "req_id": null,
+      "task_id": null,
+      "evidence": "docs/plans/2026-05-22.projectmaster.aitui-recovery.sidecar.json:tasks[].type",
+      "reason": "Initial draft lacked an explicit phase-completion review task."
+    }
+  ],
+  "summary": "No CRITICAL/HIGH findings. Medium/low findings were routed to improvement."
+}

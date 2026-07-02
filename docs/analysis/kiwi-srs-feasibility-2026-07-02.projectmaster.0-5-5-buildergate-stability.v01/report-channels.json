@@ -1,0 +1,10 @@
+{
+ "primary_channel_requested": "doculight",
+ "doculight": {
+  "status": "pending",
+  "path": "C:\\Work\\git\\_Snoworca\\ProjectMaster\\docs\\analysis\\kiwi-srs-feasibility-2026-07-02.projectmaster.0-5-5-buildergate-stability.v01\\report.md"
+ },
+ "chat_message": {
+  "status": "emitted"
+ }
+}

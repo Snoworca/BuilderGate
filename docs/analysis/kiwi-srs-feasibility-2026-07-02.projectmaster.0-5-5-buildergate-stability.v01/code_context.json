@@ -1,0 +1,550 @@
+{
+  "modules": [
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "loc": 3569,
+      "complexity_estimate": "high",
+      "note": "287 branch statements (if/for/while/switch/catch), single large class handling PTY lifecycle, headless snapshots, resize/replay, terminal-status heuristics; largest and most heavily branched module in scope"
+    },
+    {
+      "path": "server/src/ws/WsRouter.ts",
+      "loc": 2409,
+      "complexity_estimate": "high",
+      "note": "180 branch statements, single class handling WS handshake/split-transport routing, replay queueing, ACK/backpressure; second largest module in scope"
+    },
+    {
+      "path": "server/src/ws/wsSendPolicy.ts",
+      "loc": 188,
+      "complexity_estimate": "low",
+      "note": "11 branch statements, no classes, small focused send-policy helper functions"
+    },
+    {
+      "path": "server/src/utils/processTreeTerminator.ts",
+      "loc": 639,
+      "complexity_estimate": "medium",
+      "note": "45 branch statements, one class; POSIX/Windows process-tree kill verification logic with several conditional kill strategies"
+    },
+    {
+      "path": "server/src/services/gracefulShutdown.ts",
+      "loc": 307,
+      "complexity_estimate": "medium",
+      "note": "15 branch statements; sequential async shutdown orchestration (workspace flush, session cleanup, timeouts) with moderate branching for degraded/timeout paths"
+    },
+    {
+      "path": "frontend/src/utils/terminalOutputScheduler.ts",
+      "loc": 209,
+      "complexity_estimate": "low",
+      "note": "15 branch statements, no classes; scheduling/throttling helper with a small function surface"
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalContainer.tsx",
+      "loc": 1878,
+      "complexity_estimate": "high",
+      "note": "130 branch statements; large React component orchestrating terminal lifecycle, recovery, replay, backpressure UI wiring"
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalView.tsx",
+      "loc": 2293,
+      "complexity_estimate": "high",
+      "note": "164 branch statements; large React component rendering xterm.js integration, output scheduling, snapshot/recovery UI"
+    },
+    {
+      "path": "frontend/src/hooks/useTerminalRuntimeResidency.ts",
+      "loc": 352,
+      "complexity_estimate": "medium",
+      "note": "30 branch statements; custom hook managing terminal runtime residency/eviction policy with moderate conditional logic"
+    }
+  ],
+  "trace_validation": [
+    {
+      "req_id": "FR-BGSTAB-001",
+      "trace_paths": [
+        "frontend/src/utils/inputReliabilityMode.ts:72-184",
+        "server/src/services/RuntimeConfigStore.ts:129-161",
+        "server/src/schemas/config.schema.ts:57"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-002",
+      "trace_paths": [
+        "frontend/src/utils/webSocketBackpressure.ts:1-99",
+        "frontend/src/contexts/WebSocketContext.tsx:600-640",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:470-940"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-003",
+      "trace_paths": [
+        "frontend/src/utils/terminalOutputScheduler.ts:1-154",
+        "frontend/src/components/Terminal/TerminalView.tsx:1626-1710",
+        "frontend/src/utils/visibleOutputRecovery.ts:1-120"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [
+        {
+          "path": "frontend/src/utils/visibleOutputRecovery.ts:1-120",
+          "issue": "line_range_exceeds_file_length",
+          "note": "line-range end (120) exceeds current file length (101); file likely shrank since trace was recorded"
+        }
+      ],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-004",
+      "trace_paths": [
+        "frontend/src/utils/terminalSnapshot.ts:1-560",
+        "frontend/src/components/Terminal/TerminalView.tsx:1081-1105"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [
+        {
+          "path": "frontend/src/utils/terminalSnapshot.ts:1-560",
+          "issue": "line_range_exceeds_file_length",
+          "note": "line-range end (560) exceeds current file length (506)"
+        }
+      ],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-005",
+      "trace_paths": [
+        "frontend/src/hooks/useTerminalRuntimeResidency.ts:1-286",
+        "frontend/src/App.tsx:372-388"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-006",
+      "trace_paths": [
+        "server/src/ws/wsTransportMode.ts:1-130",
+        "server/src/ws/WsRouter.ts:188-389",
+        "frontend/src/utils/webSocketUrl.ts:1-74",
+        "frontend/src/utils/splitWebSocketLifecycle.ts:1-64"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [
+        {
+          "path": "server/src/ws/wsTransportMode.ts:1-130",
+          "issue": "line_range_exceeds_file_length",
+          "note": "line-range end (130) exceeds current file length (94)"
+        },
+        {
+          "path": "frontend/src/utils/webSocketUrl.ts:1-74",
+          "issue": "line_range_exceeds_file_length",
+          "note": "line-range end (74) exceeds current file length (72) by 2 lines (negligible)"
+        },
+        {
+          "path": "frontend/src/utils/splitWebSocketLifecycle.ts:1-64",
+          "issue": "line_range_exceeds_file_length",
+          "note": "line-range end (64) exceeds current file length (36)"
+        }
+      ],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-007",
+      "trace_paths": [
+        "server/src/ws/WsRouter.ts:954-1055",
+        "server/src/ws/WsRouter.ts:2108-2449",
+        "server/src/ws/WsRouterSplitHandshake.test.ts:407-790",
+        "frontend/src/contexts/WebSocketContext.tsx:250-340"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [
+        {
+          "path": "server/src/ws/WsRouter.ts:2108-2449",
+          "issue": "line_range_exceeds_file_length",
+          "note": "line-range end (2449) exceeds current file length (2409) by 40 lines"
+        }
+      ],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-008",
+      "trace_paths": [
+        "server/src/types/config.types.ts",
+        "server/src/schemas/config.schema.ts",
+        "server/src/services/RuntimeConfigStore.ts:124-170",
+        "server/src/services/SettingsService.ts:208-245",
+        "server/src/services/ConfigFileRepository.ts",
+        "server/src/index.ts",
+        "frontend/src/utils/inputReliabilityMode.ts",
+        "server/src/services/RuntimeConfigStore.test.ts:90",
+        "server/src/services/SettingsService.resourceLimits.test.ts:48"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [
+        {
+          "path": "server/src/services/SettingsService.resourceLimits.test.ts:48",
+          "issue": "minor_line_drift",
+          "note": "single-line ref lands on a closing brace of a config object literal; surrounding lines (43-53) are the relevant test fixture, content is contextually valid"
+        }
+      ],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-009",
+      "trace_paths": [
+        "server/src/services/SessionManager.ts:201-204",
+        "server/src/services/SessionManager.ts:432-461",
+        "server/src/services/SessionManager.ts:649-655",
+        "server/src/services/SessionManager.ts:983-988",
+        "server/src/services/SessionManager.ts:2288-2367",
+        "server/src/types/config.types.ts:101-104",
+        "server/src/schemas/config.schema.ts:84-87",
+        "server/src/utils/configTemplate.ts:36-39",
+        "server/src/index.ts:286-292"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-010",
+      "trace_paths": [
+        "server/src/services/SessionManager.ts",
+        "server/src/services/WorkspaceService.ts",
+        "server/src/services/WorkspaceService.ts",
+        "server/src/routes/sessionRoutes.ts",
+        "server/src/types/workspace.types.ts",
+        "frontend/src/types/workspace.ts",
+        "server/src/test-runner.ts"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-011",
+      "trace_paths": [
+        "server/src/utils/processTreeTerminator.ts",
+        "server/src/services/SessionManager.ts",
+        "server/src/routes/sessionRoutes.ts",
+        "server/src/services/WorkspaceService.ts",
+        "server/src/test-runner.ts"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-012",
+      "trace_paths": [
+        "server/src/services/SessionManager.ts:241-264",
+        "server/src/services/SessionManager.ts:2748-2958",
+        "server/src/ws/WsRouter.ts:193",
+        "server/src/ws/WsRouter.ts:288",
+        "server/src/ws/WsRouter.ts:1555-1647",
+        "server/src/ws/WsRouter.ts:1816-2012",
+        "server/src/ws/WsRouter.ts:2049-2056",
+        "server/src/types/ws-protocol.ts:371-382",
+        "server/src/test-runner.ts:98-103",
+        "server/src/test-runner.ts:204-211",
+        "server/src/test-runner.ts:262-275"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-013",
+      "trace_paths": [
+        "frontend/src/components/Settings/SettingsPage.tsx",
+        "frontend/src/components/Settings/settingsDraftHelpers.ts",
+        "frontend/tests/unit/settingsDraftHelpers.test.ts",
+        "frontend/tests/e2e/settings-resource-limits.spec.ts",
+        "server/src/services/RuntimeConfigStore.ts",
+        "server/src/services/SettingsService.ts",
+        "server/src/services/ConfigFileRepository.ts"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-014",
+      "trace_paths": [
+        "frontend/src/utils/inputReliabilityMode.ts",
+        "server/src/schemas/config.schema.ts",
+        "server/src/utils/configTemplate.ts",
+        "frontend/src/hooks/useTerminalRuntimeResidency.ts",
+        "frontend/src/components/Terminal/TerminalRuntimeLayer.tsx",
+        "frontend/src/utils/terminalSnapshot.ts",
+        "frontend/src/hooks/mosaicLayoutStorage.ts",
+        "frontend/src/hooks/workspaceActiveSelection.ts",
+        "frontend/src/hooks/useWorkspaceManager.ts",
+        "frontend/src/utils/terminalHiddenOutput.ts",
+        "frontend/src/utils/terminalOutputScheduler.ts",
+        "frontend/src/utils/visibleOutputRecovery.ts",
+        "frontend/src/components/Terminal/TerminalContainer.tsx",
+        "frontend/src/components/Terminal/TerminalView.tsx",
+        "frontend/src/utils/webSocketBackpressure.ts",
+        "frontend/src/utils/terminalDebugCapture.ts",
+        "frontend/src/types/ws-protocol.ts",
+        "server/src/types/ws-protocol.ts",
+        "server/src/schemas/config.schema.test.ts",
+        "server/src/utils/configTemplate.test.ts",
+        "server/src/services/RuntimeConfigStore.test.ts",
+        "frontend/tests/e2e/terminal-keyboard-regression.spec.ts"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-015",
+      "trace_paths": [
+        "server/src/services/RuntimeConfigStore.ts:48-124",
+        "server/src/services/SettingsService.ts:38-90",
+        "server/src/schemas/config.schema.ts:118-199",
+        "server/src/types/config.types.ts:128-185",
+        "server/src/services/ConfigFileRepository.ts",
+        "server/src/utils/configTemplate.ts",
+        "frontend/src/components/Settings/settingsDraftHelpers.ts:10-190",
+        "frontend/src/components/Settings/SettingsPage.tsx:446-481"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-016",
+      "trace_paths": [
+        "server/src/ws/wsSendPolicy.ts:1-18",
+        "server/src/ws/wsSendPolicy.ts:30-71",
+        "server/src/ws/WsRouter.ts:1816-2037",
+        "server/src/ws/WsRouter.ts:406-453",
+        "server/src/ws/WsRouter.ts:1738-1772"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-017",
+      "trace_paths": [
+        "frontend/src/utils/terminalOutputScheduler.ts:1-158",
+        "frontend/src/components/Terminal/TerminalView.tsx:1148-1214",
+        "frontend/src/components/Terminal/TerminalView.tsx:1260-1465",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:1296-1688",
+        "frontend/src/contexts/WebSocketContext.tsx:141-322"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-018",
+      "trace_paths": [
+        "frontend/src/components/Terminal/TerminalContainer.tsx:131",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:1399-1494",
+        "frontend/src/components/Terminal/TerminalView.tsx:1260-1320",
+        "frontend/tests/unit/terminalContainerRecoveryContract.test.ts:37-109"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "FR-BGSTAB-019",
+      "trace_paths": [
+        "server/src/services/SessionManager.ts:1149-1171",
+        "server/src/utils/processTreeTerminator.ts:592-605",
+        "server/config.json5:21-24",
+        "server/src/test-runner.ts"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "OBS-BGSTAB-001",
+      "trace_paths": [
+        "server/src/ws/WsRouter.ts:1738-1772",
+        "server/src/types/ws-protocol.ts:331-393",
+        "server/src/services/SessionManager.ts:2111-2298",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:704-933",
+        "frontend/src/components/Terminal/TerminalView.tsx:1260-1465"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "OBS-BGSTAB-002",
+      "trace_paths": [
+        "frontend/src/components/Terminal/TerminalContainer.tsx:1322-1494",
+        "server/src/services/SessionManager.ts:2136-2224",
+        "server/src/services/SessionManager.ts:2860-3051",
+        "server/src/ws/WsRouter.ts:1519-1668",
+        "server/src/ws/WsRouter.ts:1737-1779",
+        "server/src/types/ws-protocol.ts:331-393"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "PERF-BGSTAB-001",
+      "trace_paths": [
+        "frontend/src/utils/terminalOutputScheduler.ts:52-105",
+        "server/config.json5:79",
+        "server/src/schemas/config.schema.ts:150",
+        "frontend/tests/unit/terminalOutputScheduler.test.ts"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "PERF-BGSTAB-002",
+      "trace_paths": [
+        "server/src/utils/processTreeTerminator.ts:328-363",
+        "server/src/services/SessionManager.ts:2345",
+        "server/src/services/SessionManager.ts:566",
+        "server/src/test-runner.ts"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "PERF-BGSTAB-003",
+      "trace_paths": [
+        "frontend/src/components/Terminal/TerminalView.tsx:1894",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:708",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:1697",
+        "frontend/src/utils/terminalDebugCapture.ts:501",
+        "frontend/src/utils/terminalDebugCapture.ts:516",
+        "frontend/src/utils/terminalInputSequencer.ts:166-172"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "PERF-BGSTAB-004",
+      "trace_paths": [
+        "frontend/src/components/Terminal/TerminalContainer.tsx:96-98",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:1661-1663",
+        "frontend/tests/unit/terminalHiddenOutput.test.ts"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "REL-BGSTAB-001",
+      "trace_paths": [
+        "server/src/ws/WsRouterSplitHandshake.test.ts:1-790",
+        "frontend/tests/unit/webSocketBackpressure.test.ts:1-110",
+        "frontend/tests/unit/terminalOutputScheduler.test.ts:1-135",
+        "frontend/tests/unit/terminalSnapshot.test.ts:1-260",
+        "frontend/tests/unit/useTerminalRuntimeResidency.test.ts:1-130"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "REL-BGSTAB-003",
+      "trace_paths": [
+        "server/src/ws/WsRouter.ts:867-871",
+        "server/src/ws/WsRouter.ts:995-1089",
+        "server/src/ws/WsRouter.ts:1561-1603",
+        "server/src/types/ws-protocol.ts:296-327",
+        "server/src/services/SessionManager.ts:2548-2556"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "REL-BGSTAB-004",
+      "trace_paths": [
+        "server/src/ws/WsRouter.ts:422",
+        "server/src/ws/WsRouter.ts:932",
+        "server/src/ws/WsRouter.ts:1329",
+        "server/src/ws/WsRouter.ts:1822",
+        "server/src/services/SessionManager.ts:3075",
+        "server/src/test-runner.ts:5147",
+        "server/src/test-runner.ts:7676",
+        "server/src/test-runner.ts:8422",
+        "server/src/test-runner.ts:5584",
+        "server/src/test-runner.ts:6438"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [
+        {
+          "path": "server/src/ws/WsRouter.ts:932",
+          "issue": "minor_line_drift",
+          "note": "single-line ref lands on a blank line; adjacent line 933 (trimReplayOutputTail method) is the relevant content, likely +/-1 line drift"
+        },
+        {
+          "path": "server/src/services/SessionManager.ts:3075",
+          "issue": "minor_line_drift",
+          "note": "single-line ref lands on a closing brace; surrounding lines (3070-3080) are the relevant headless-close logic, content is contextually valid"
+        }
+      ],
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "REL-BGSTAB-005",
+      "trace_paths": [
+        "server/src/services/gracefulShutdown.ts:11",
+        "server/src/services/SessionManager.ts:1783-1810",
+        "server/src/test-runner.ts:198-200"
+      ],
+      "all_paths_exist": true,
+      "mismatches": [],
+      "external_paths_detected": []
+    }
+  ],
+  "code_metrics": {
+    "server_test_count_estimate": 308,
+    "server_test_count_method": "count of { name: '...', run: <fn> } test-case table entries in server/src/test-runner.ts (12163 LOC total)",
+    "frontend_test_files": [
+      "commandPresetExecution.test.ts",
+      "commandPresetPaste.test.ts",
+      "contextMenuGeometry.test.ts",
+      "contextMenuModel.test.ts",
+      "contextMenuNavigation.test.ts",
+      "dialogGeometry.test.ts",
+      "dialogStack.test.ts",
+      "imeTransaction.test.ts",
+      "messageBoxContract.test.ts",
+      "mosaicEqualLayout.test.ts",
+      "mosaicLayoutStorage.test.ts",
+      "recoveryOptionDialog.test.ts",
+      "recoveryOptionIcon.test.ts",
+      "runtimeConfig.test.ts",
+      "settingsDraftHelpers.test.ts",
+      "splitWebSocketLifecycle.test.ts",
+      "terminalContainerRecoveryContract.test.ts",
+      "terminalContextMenuRegisteredItems.test.ts",
+      "terminalHiddenOutput.test.ts",
+      "terminalInputSequencer.test.ts",
+      "terminalOutputScheduler.test.ts",
+      "terminalRuntimeRefs.test.ts",
+      "terminalShortcutBindings.test.ts",
+      "terminalSnapshot.test.ts",
+      "terminalStaleKeyRepeat.test.ts",
+      "terminalTransportQueueDecision.test.ts",
+      "terminalViewRecoveryContract.test.ts",
+      "useTerminalRuntimeResidency.test.ts",
+      "useWorkspaceManager.test.ts",
+      "visibleOutputRecovery.test.ts",
+      "webSocketBackpressure.test.ts",
+      "webSocketUrl.test.ts",
+      "windowDialogContract.test.ts"
+    ]
+  }
+}

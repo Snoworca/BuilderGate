@@ -1,0 +1,241 @@
+{
+ "target": "0.5.5-buildergate-stability",
+ "run_id": "2026-07-02.projectmaster.0-5-5-buildergate-stability.v01",
+ "total_reqs_evaluated": 29,
+ "note_on_scope": "30 requirements in target; REL-BGSTAB-002 is discarded and excluded from evaluation. 16 implemented/evolving (all with verification evidence), 13 planned, 1 discarded.",
+ "feasibility_distribution": {
+  "high": 27,
+  "medium": 2,
+  "low": 0,
+  "blocked": 0
+ },
+ "score_summary": {
+  "high_band_reqs": [
+   "FR-BGSTAB-001",
+   "FR-BGSTAB-002",
+   "FR-BGSTAB-003",
+   "FR-BGSTAB-004",
+   "FR-BGSTAB-005",
+   "FR-BGSTAB-006",
+   "FR-BGSTAB-007",
+   "FR-BGSTAB-008",
+   "FR-BGSTAB-009",
+   "FR-BGSTAB-010",
+   "FR-BGSTAB-011",
+   "FR-BGSTAB-012",
+   "FR-BGSTAB-013",
+   "FR-BGSTAB-014",
+   "FR-BGSTAB-015",
+   "FR-BGSTAB-016",
+   "FR-BGSTAB-017",
+   "FR-BGSTAB-018",
+   "FR-BGSTAB-019",
+   "OBS-BGSTAB-002",
+   "PERF-BGSTAB-001",
+   "PERF-BGSTAB-002",
+   "PERF-BGSTAB-003",
+   "PERF-BGSTAB-004",
+   "REL-BGSTAB-001",
+   "REL-BGSTAB-003",
+   "REL-BGSTAB-004"
+  ],
+  "medium_band_reqs": [
+   "OBS-BGSTAB-001",
+   "REL-BGSTAB-005"
+  ],
+  "lowest_scoring_reqs": [
+   {
+    "req_id": "REL-BGSTAB-005",
+    "score": 73,
+    "feasibility": "medium"
+   },
+   {
+    "req_id": "FR-BGSTAB-017",
+    "score": 77,
+    "feasibility": "high"
+   },
+   {
+    "req_id": "OBS-BGSTAB-001",
+    "score": 78,
+    "feasibility": "medium"
+   },
+   {
+    "req_id": "FR-BGSTAB-015",
+    "score": 78,
+    "feasibility": "high"
+   },
+   {
+    "req_id": "FR-BGSTAB-016",
+    "score": 78,
+    "feasibility": "high"
+   },
+   {
+    "req_id": "FR-BGSTAB-018",
+    "score": 78,
+    "feasibility": "high"
+   }
+  ]
+ },
+ "target_verdict": "conditionally-ready",
+ "verdict_rationale": "No requirement is infeasible or feasibility-blocked (0 low, 0 blocked); 27 of 29 score high and the 2 medium REQs are both implementable-in-principle. No dependency cycles. The target is therefore feasible to complete in full. It is not release-ready because 13 REQs remain planned (not yet implemented) and exactly one core reliability REQ (REL-BGSTAB-005) carries a genuine implementation blocker that cannot be resolved by coding alone: the {{OQ-1}} concurrency-limit and {{OQ-2}} timeout-scaling open questions require a user decision before AC-8/AC-9 can be specified or tested. It is not 'not-ready' because that blocker is scoped to 2 of REL-BGSTAB-005's 12 ACs and every other requirement is unblocked. Verdict is conditionally-ready: proceed once the open questions are decided, the draft REQs are stability-promoted where warranted, and the operational soak/E2E gates are run.",
+ "critical_blockers": [
+  {
+   "req_id": "REL-BGSTAB-005",
+   "severity": "critical",
+   "type": "open-question / user-decision-required",
+   "detail": "AC-8 embeds {{OQ-1}} (bounded concurrency limit) and AC-9 embeds {{OQ-2}} (session-count timeout scaling value/formula). Both are undecided and pending user decision, so the parallel-batch termination (AC-8) and scaled-timeout (AC-9) behaviors cannot be given deterministic regression tests until resolved. Blocks 2 of 12 ACs; the other 10 ACs remain implementable. This is the single gating item for the shutdown-reliability portion of the target.",
+   "resolution_owner": "user (design decision), then TDD implementation",
+   "unblocks_on_resolution": true
+  }
+ ],
+ "dependency_chains": [
+  {
+   "name": "enforce/shutdown",
+   "chain": [
+    "FR-BGSTAB-009",
+    "FR-BGSTAB-011",
+    "FR-BGSTAB-019",
+    "REL-BGSTAB-005"
+   ],
+   "chain_scores": {
+    "FR-BGSTAB-009": 92,
+    "FR-BGSTAB-011": 92,
+    "FR-BGSTAB-019": 93,
+    "REL-BGSTAB-005": 73
+   },
+   "weakest_link_score": 73,
+   "weakest_link": "REL-BGSTAB-005",
+   "order": "base-to-dependent (prerequisite first)",
+   "note": "Enforce mechanism (FR-BGSTAB-009/011) is implemented/verified and high. FR-BGSTAB-019 activates it operationally (config + soak gate, 93/high) but is still draft. REL-BGSTAB-005 depends_on the draft FR-BGSTAB-019 and is itself draft with the OQ blocker, making it the weakest link (73). Promoting FR-BGSTAB-019 draft->evolving removes the dependency_health drag on REL-BGSTAB-005; REL-BGSTAB-005 remains gated on OQ-1/OQ-2 regardless. Both FR-019 (AC-3) and REL-005 (AC-11) also require multi-session / 54-session soak evidence, so the enforce/shutdown chain shares one operational soak gate at the end."
+  },
+  {
+   "name": "output-scheduler",
+   "chain": [
+    "FR-BGSTAB-003",
+    "FR-BGSTAB-017",
+    "PERF-BGSTAB-001"
+   ],
+   "chain_scores": {
+    "FR-BGSTAB-003": 84,
+    "FR-BGSTAB-017": 77,
+    "PERF-BGSTAB-001": 89
+   },
+   "weakest_link_score": 77,
+   "weakest_link": "FR-BGSTAB-017",
+   "order": "base-to-dependent (prerequisite first)",
+   "note": "PERF-BGSTAB-001 (89/high) and FR-BGSTAB-017 (77/high) both mutate frontend/src/utils/terminalOutputScheduler.ts internals and PERF-001 depends_on FR-017. FR-017 is the weakest link (planned/evolving, 77). Implementation order must be coordinated: whichever lands first defines the base the other builds on (per PERF-001 Implementation Notes). Both extend the implemented FR-BGSTAB-003 bounded scheduler and must preserve its callback-order and code-point-safety guarantees. PERF-001 also has an unresolved design choice (AC-3 'configurable time budget' has no config-schema addition_site: internal constant vs new config key)."
+  },
+  {
+   "name": "conpty-observability",
+   "chain": [
+    "FR-BGSTAB-015",
+    "FR-BGSTAB-016",
+    "FR-BGSTAB-017",
+    "REL-BGSTAB-003",
+    "OBS-BGSTAB-001"
+   ],
+   "chain_scores": {
+    "FR-BGSTAB-015": 78,
+    "FR-BGSTAB-016": 78,
+    "FR-BGSTAB-017": 77,
+    "REL-BGSTAB-003": 82,
+    "OBS-BGSTAB-001": 78
+   },
+   "weakest_link_score": 77,
+   "weakest_link": "FR-BGSTAB-017",
+   "order": "base-to-dependent (prerequisite first)",
+   "note": "OBS-BGSTAB-001 (medium 78) instruments behaviors that four planned dependencies define (FR-BGSTAB-015/016/017, REL-BGSTAB-003), so it must be sequenced after them; FR-017 is the weakest live link (77). OBS-BGSTAB-001 additionally carries a STALE extends link to the discarded REL-BGSTAB-002 (traceability hygiene, not a realizability blocker; the shutdown-soak-evidence basis moved to REL-BGSTAB-004/005). This is the deepest all-planned prerequisite chain in the target."
+  },
+  {
+   "name": "empty-fallback-observability",
+   "chain": [
+    "OBS-BGSTAB-001",
+    "OBS-BGSTAB-002"
+   ],
+   "chain_scores": {
+    "OBS-BGSTAB-001": 78,
+    "OBS-BGSTAB-002": 85
+   },
+   "weakest_link_score": 78,
+   "weakest_link": "OBS-BGSTAB-001",
+   "order": "base-to-dependent (prerequisite first)",
+   "note": "OBS-BGSTAB-002 scores high (85) but extends OBS-BGSTAB-001 (medium 78), so OBS-001's medium is the effective ceiling and stale-link caveat for the observability sub-tree even though OBS-002's own direct dependency health is clean."
+  }
+ ],
+ "stability_drift_candidates": [
+  {
+   "req_id": "FR-BGSTAB-019",
+   "current_stability": "draft",
+   "feasibility": "high",
+   "score": 93,
+   "recommended_stability": "evolving",
+   "action": "promote",
+   "rationale": "High feasibility (93) with a fully-built/verified underlying mechanism; draft understates readiness. Its draft state is also the primary dependency_health drag on REL-BGSTAB-005 (which depends_on it). Promotion to evolving aligns stability with feasibility and unblocks the enforce/shutdown chain's dependency health. (Operational soak gate remains a completion condition, not a stability blocker.)"
+  },
+  {
+   "req_id": "PERF-BGSTAB-001",
+   "current_stability": "draft",
+   "feasibility": "high",
+   "score": 89,
+   "recommended_stability": "evolving",
+   "action": "promote",
+   "rationale": "High feasibility (89), localized low-complexity change reusing existing scheduler safety primitives. One open design choice (config key vs constant for the time budget) is a planning detail, not a maturity blocker. draft->evolving."
+  },
+  {
+   "req_id": "PERF-BGSTAB-002",
+   "current_stability": "draft",
+   "feasibility": "high",
+   "score": 85,
+   "recommended_stability": "evolving",
+   "action": "promote",
+   "rationale": "High feasibility (85), healthy implemented/evolving dependencies, clear TDD-testable ACs including an explicit terminate-before-capture race regression. draft->evolving."
+  },
+  {
+   "req_id": "PERF-BGSTAB-003",
+   "current_stability": "draft",
+   "feasibility": "high",
+   "score": 90,
+   "recommended_stability": "evolving",
+   "action": "promote",
+   "rationale": "High feasibility (90), risk=low, single healthy dependency, unambiguous ACs and traces. draft->evolving."
+  },
+  {
+   "req_id": "PERF-BGSTAB-004",
+   "current_stability": "draft",
+   "feasibility": "high",
+   "score": 90,
+   "recommended_stability": "evolving",
+   "action": "promote",
+   "rationale": "High feasibility (90), risk=low, reuses an already-verified invalidation mechanism (FR-BGSTAB-014 AC-1). draft->evolving."
+  },
+  {
+   "req_id": "REL-BGSTAB-005",
+   "current_stability": "draft",
+   "feasibility": "medium",
+   "score": 73,
+   "recommended_stability": "draft",
+   "action": "hold",
+   "rationale": "Although medium feasibility would normally map to evolving (see OBS-BGSTAB-001 keep-mapping), REL-BGSTAB-005 must HOLD at draft because of the unresolved {{OQ-1}}/{{OQ-2}} open-question blocker and its dependency on the still-draft FR-BGSTAB-019. Promoting to evolving would signal ready-for-planning while two ACs cannot yet be specified. Re-evaluate for promotion once the open questions are decided (and FR-BGSTAB-019 is promoted)."
+  },
+  {
+   "req_id": "OBS-BGSTAB-001",
+   "current_stability": "evolving",
+   "feasibility": "medium",
+   "score": 78,
+   "recommended_stability": "evolving",
+   "action": "keep",
+   "rationale": "NOT a drift: medium feasibility maps to evolving, which is its current stability. No change. The stale extends->REL-BGSTAB-002 link is a traceability-hygiene fix, not a stability signal."
+  }
+ ],
+ "notes": [
+  "Overall feasibility is strong: 27/29 high, 2 medium, 0 low, 0 blocked, and dependency_graph.cycles is empty. The target is coherent and implementable in full.",
+  "The single true implementation blocker is REL-BGSTAB-005's {{OQ-1}}/{{OQ-2}} open questions — a user design decision, not a coding obstacle. It gates 2 of 12 ACs (parallel batch termination + scaled timeout) and is the one item that keeps the target from a clean 'proceed' on the shutdown-reliability piece. Resolving it converts REL-BGSTAB-005 to fully implementable.",
+  "Five high-scoring draft REQs (FR-BGSTAB-019 93, PERF-BGSTAB-001 89, PERF-BGSTAB-002 85, PERF-BGSTAB-003 90, PERF-BGSTAB-004 90) are stability-promotion candidates (draft->evolving). Promoting FR-BGSTAB-019 in particular removes the dependency_health drag on REL-BGSTAB-005.",
+  "Operational soak / E2E validation is the recurring non-code completion condition across the two senior-reviewed activation REQs and REL-BGSTAB-005: FR-BGSTAB-019 (>=2h multi-session soak, zero remaining verified-owned descendants), OBS-BGSTAB-001 (deterministic ConPTY redraw-flood E2E at localhost:2222 + soak), and REL-BGSTAB-005 (54-session-scale shutdown completion). These are the real gates once code lands; none is a feasibility blocker.",
+  "Two independent-looking senior REQs share load-bearing surfaces and need sequencing: PERF-BGSTAB-001 <-> FR-BGSTAB-017 co-mutate terminalOutputScheduler.ts (coordinate order), and FR-BGSTAB-019 -> REL-BGSTAB-005 share the enforce/cleanup path and a soak gate.",
+  "OBS-BGSTAB-001 carries a stale extends link to the discarded REL-BGSTAB-002; the scope basis moved to the successor chain REL-BGSTAB-004 (implemented) / REL-BGSTAB-005 (supersedes). This is traceability hygiene — re-point or drop the link — and it does not block OBS-001 or propagate as a direct dependency-health failure to OBS-BGSTAB-002.",
+  "All 16 implemented REQs carry verification evidence and their ACs are checked (from FR-BGSTAB-008 onward the checkbox state matches implemented status; FR-BGSTAB-001..007 and REL-BGSTAB-001 have a cosmetic checkbox-vs-status desync noted by prescreen — worth a sync pass, no feasibility impact).",
+  "Several implemented REQs have benign trace line-range drift from file shrinkage (FR-BGSTAB-003/004/006/007, REL-BGSTAB-004) — files exist and are the correct targets; the largest proportional drift (splitWebSocketLifecycle.ts in FR-BGSTAB-006) may warrant a light trace refresh but does not affect feasibility."
+ ],
+ "revision_note": "iter2: FR-BGSTAB-015/016/017/018 정식 시니어 채점(87/86/83/85 high 확정), FR-BGSTAB-019 근거 교정 반영. 분포 불변(high 27/medium 2)이나 근거 강화됨."
+}

@@ -1,0 +1,23 @@
+{
+  "mode": "dry-run",
+  "live_mutations_planned_now": [],
+  "blocked_reason": "BGSTAB is not a registered SpecKiwi scope and the active target is 0.5.4-ai-tui-recovery.",
+  "future_mutations_after_confirmation": [
+    {
+      "step": 1,
+      "action": "Create docs/spec/30.buildergate-stability.srs.md from the proposed SRS after target/scope confirmation."
+    },
+    {
+      "step": 2,
+      "action": "Register the BuilderGate Stability SRS in docs/spec/00.index.md if the project index requires explicit listing."
+    },
+    {
+      "step": 3,
+      "action": "Apply requirements with status proposed; keep stability evolving for implemented functional requirements and draft for REL-BGSTAB-001 until live/soak validation is complete."
+    },
+    {
+      "step": 4,
+      "action": "Run strict SpecKiwi validation and append a TASK_DONE pipeline event for kiwi-srs-feasibility."
+    }
+  ]
+}

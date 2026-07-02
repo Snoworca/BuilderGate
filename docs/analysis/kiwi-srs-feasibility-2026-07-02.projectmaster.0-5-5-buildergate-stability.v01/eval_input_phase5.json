@@ -1,0 +1,1125 @@
+{
+ "note": "Phase 5 iter2 evaluator input (§8.1 격리)",
+ "iter": 2,
+ "judgements": [
+  {
+   "req_id": "FR-BGSTAB-001",
+   "feasibility": "high",
+   "score": 90,
+   "source": "prescreen-quick-pass",
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    85,
+    95
+   ]
+  },
+  {
+   "req_id": "FR-BGSTAB-002",
+   "feasibility": "high",
+   "score": 87,
+   "source": "prescreen-quick-pass",
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    82,
+    92
+   ]
+  },
+  {
+   "req_id": "FR-BGSTAB-003",
+   "feasibility": "high",
+   "score": 84,
+   "source": "prescreen-quick-pass",
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    78,
+    90
+   ]
+  },
+  {
+   "req_id": "FR-BGSTAB-004",
+   "feasibility": "high",
+   "score": 85,
+   "source": "prescreen-quick-pass",
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    80,
+    90
+   ]
+  },
+  {
+   "req_id": "FR-BGSTAB-005",
+   "feasibility": "high",
+   "score": 88,
+   "source": "prescreen-quick-pass",
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    83,
+    93
+   ]
+  },
+  {
+   "req_id": "FR-BGSTAB-006",
+   "feasibility": "high",
+   "score": 81,
+   "source": "prescreen-quick-pass",
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    75,
+    88
+   ]
+  },
+  {
+   "req_id": "FR-BGSTAB-007",
+   "feasibility": "high",
+   "score": 87,
+   "source": "prescreen-quick-pass",
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    82,
+    92
+   ]
+  },
+  {
+   "req_id": "FR-BGSTAB-008",
+   "feasibility": "high",
+   "score": 90,
+   "source": "prescreen-quick-pass",
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    85,
+    95
+   ]
+  },
+  {
+   "req_id": "FR-BGSTAB-009",
+   "feasibility": "high",
+   "score": 92,
+   "source": "prescreen-quick-pass",
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    88,
+    96
+   ]
+  },
+  {
+   "req_id": "FR-BGSTAB-010",
+   "feasibility": "high",
+   "score": 92,
+   "source": "prescreen-quick-pass",
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    88,
+    96
+   ]
+  },
+  {
+   "req_id": "FR-BGSTAB-011",
+   "feasibility": "high",
+   "score": 92,
+   "source": "prescreen-quick-pass",
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    88,
+    96
+   ]
+  },
+  {
+   "req_id": "FR-BGSTAB-012",
+   "feasibility": "high",
+   "score": 90,
+   "source": "prescreen-quick-pass",
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    85,
+    95
+   ]
+  },
+  {
+   "req_id": "FR-BGSTAB-013",
+   "feasibility": "high",
+   "score": 90,
+   "source": "prescreen-quick-pass",
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    85,
+    95
+   ]
+  },
+  {
+   "req_id": "FR-BGSTAB-014",
+   "feasibility": "high",
+   "score": 87,
+   "source": "prescreen-quick-pass",
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    82,
+    92
+   ]
+  },
+  {
+   "req_id": "FR-BGSTAB-015",
+   "feasibility": "high",
+   "score": 87,
+   "source": "senior",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "blockers": [],
+   "conditions": [
+    "Add cross-field relationship validation (AC-3) consistently across both client and server paths, rejecting without silent clamping.",
+    "Keep stabilityModes.wsSendMode default 'direct' until rollout evidence supports a default change (Implementation Notes).",
+    "Fields without a runtime consumer or with only one literal behavior must stay unavailable/read-only (AC-5) — do not expose literal-only settings as editable.",
+    "Large field count (~28 keys): coordinate with FR-BGSTAB-016 and FR-BGSTAB-017, which depend_on these Settings-backed modes/limits."
+   ],
+   "axes": {
+    "implementability": {
+     "score": 23,
+     "evidence": [
+      "server/src/services/RuntimeConfigStore.ts:48-124 (capability map; resourceLimits.ws/terminal entries already present at :74-87)",
+      "server/src/schemas/config.schema.ts:118-199 (resourceLimits schema region; terminalResourceLimitsSchema at :147)",
+      "server/src/services/SettingsService.ts:38-90 (PATCH schema addition_site)",
+      "frontend/src/components/Settings/SettingsPage.tsx:446-481 (Settings UI groups addition_site)"
+     ]
+    },
+    "evidence_strength": {
+     "score": 17,
+     "evidence": [
+      "server/src/services/RuntimeConfigStore.ts:48-124",
+      "server/src/schemas/config.schema.ts:118-199",
+      "server/src/services/SettingsService.ts:38-90",
+      "server/src/types/config.types.ts:128-185",
+      "frontend/src/components/Settings/settingsDraftHelpers.ts:10-190"
+     ]
+    },
+    "dependency_health": {
+     "score": 15,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1239 (extends FR-BGSTAB-001)",
+      "docs/spec/30.buildergate-stability.srs.md:1240 (extends FR-BGSTAB-008)",
+      "docs/spec/30.buildergate-stability.srs.md:1241 (extends FR-BGSTAB-013)"
+     ]
+    },
+    "ac_verifiability": {
+     "score": 13,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1215-1220 (AC-1..AC-6)"
+     ]
+    },
+    "scope_fit": {
+     "score": 10,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1190 (heading; Target=0.5.5-buildergate-stability, Scope=BGSTAB, Tags include conpty/settings/runtime-config)"
+     ]
+    },
+    "product_fit": {
+     "score": 9,
+     "evidence": [
+      "docs/research/2026-06-30.buildergate-conpty-output-recovery-input-lag-implementation-plan.md (Related Docs; plan requires all tuning values configurable)",
+      "docs/spec/30.buildergate-stability.srs.md:1209 (Rationale: every new queue size/interval/timeout/threshold/mode configurable from Settings)"
+     ]
+    }
+   }
+  },
+  {
+   "req_id": "FR-BGSTAB-016",
+   "feasibility": "high",
+   "score": 86,
+   "source": "senior",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "blockers": [],
+   "conditions": [
+    "depends_on FR-BGSTAB-015 (Settings-backed modes/limits) — sequence after it so mode selection and transport limits are configurable.",
+    "Preserve recovery transaction ordering (AC-2) against the existing snapshot ACK path (WsRouter.ts:406-453) — priority drain must not reorder an active recovery transaction.",
+    "Keep wsSendMode default 'direct' until observe/enforce evidence supports a default rollout.",
+    "Do not make split WebSocket a prerequisite for this requirement."
+   ],
+   "axes": {
+    "implementability": {
+     "score": 22,
+     "evidence": [
+      "server/src/ws/wsSendPolicy.ts:12-21 (WsTransportQueueState: separate control/terminal lanes already present)",
+      "server/src/ws/wsSendPolicy.ts:49-71 (tryCoalesceOutputMessage: same-session-only coalescing with window guard)",
+      "server/src/ws/WsRouter.ts:1816-2037 (priority drain / projected buffer / retry addition_site)",
+      "server/src/ws/WsRouter.ts:406-453 (existing snapshot ACK path defining recovery ordering — verifies)"
+     ]
+    },
+    "evidence_strength": {
+     "score": 18,
+     "evidence": [
+      "server/src/ws/wsSendPolicy.ts:1-18",
+      "server/src/ws/wsSendPolicy.ts:30-71",
+      "server/src/ws/WsRouter.ts:1816-2037",
+      "server/src/ws/WsRouter.ts:1738-1772"
+     ]
+    },
+    "dependency_health": {
+     "score": 12,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1342 (extends FR-BGSTAB-012)",
+      "docs/spec/30.buildergate-stability.srs.md:1343 (depends_on FR-BGSTAB-002)",
+      "docs/spec/30.buildergate-stability.srs.md:1344 (depends_on FR-BGSTAB-015, planned/evolving)"
+     ]
+    },
+    "ac_verifiability": {
+     "score": 14,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1322-1326 (AC-1..AC-5)"
+     ]
+    },
+    "scope_fit": {
+     "score": 10,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1297 (heading; Target=0.5.5-buildergate-stability, Scope=BGSTAB, Tags include websocket/safe-send/backpressure)"
+     ]
+    },
+    "product_fit": {
+     "score": 10,
+     "evidence": [
+      "docs/research/2026-06-30.buildergate-conpty-output-recovery-input-lag-implementation-plan.md (Related Docs)",
+      "docs/spec/30.buildergate-stability.srs.md:1316 (Rationale: high-frequency redraw output; priority-aware draining)"
+     ]
+    }
+   }
+  },
+  {
+   "req_id": "FR-BGSTAB-017",
+   "feasibility": "high",
+   "score": 83,
+   "source": "senior",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "blockers": [],
+   "conditions": [
+    "Co-owns terminalOutputScheduler.ts with PERF-BGSTAB-001 — coordinate implementation order (whichever lands first defines the base).",
+    "depends_on FR-BGSTAB-015 (Settings-backed recovery budgets/release timeout) and REL-BGSTAB-003 (both planned) — sequence after them.",
+    "Reuse terminalOutputScheduler principles; do not restore the legacy direct-write path as rollback (degraded rollback should lower recovery budgets and force server snapshot refresh on overflow).",
+    "Preserve snapshot-apply-before-ACK ordering (AC-6): send screen-snapshot:ready only after the snapshot recovery write completes for the current token."
+   ],
+   "axes": {
+    "implementability": {
+     "score": 21,
+     "evidence": [
+      "frontend/src/utils/terminalOutputScheduler.ts:52-105 (existing scheduler primitives to generalize)",
+      "frontend/src/components/Terminal/TerminalView.tsx:1148-1214 (recoverySchedulerRef addition_site)",
+      "frontend/src/components/Terminal/TerminalView.tsx:1260-1465 (route snapshot/repair through gate)",
+      "frontend/src/components/Terminal/TerminalContainer.tsx:1296-1688 (ACK-tail routing + input release barrier)",
+      "frontend/src/contexts/WebSocketContext.tsx:141-322 (recovery message classification)"
+     ]
+    },
+    "evidence_strength": {
+     "score": 17,
+     "evidence": [
+      "frontend/src/utils/terminalOutputScheduler.ts:1-158",
+      "frontend/src/components/Terminal/TerminalView.tsx:1148-1214",
+      "frontend/src/components/Terminal/TerminalContainer.tsx:1296-1688",
+      "frontend/src/contexts/WebSocketContext.tsx:141-322"
+     ]
+    },
+    "dependency_health": {
+     "score": 11,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1477-1478 (extends FR-BGSTAB-003, FR-BGSTAB-014)",
+      "docs/spec/30.buildergate-stability.srs.md:1479 (depends_on FR-BGSTAB-002)",
+      "docs/spec/30.buildergate-stability.srs.md:1480-1481 (depends_on REL-BGSTAB-003, FR-BGSTAB-015 — planned/evolving)"
+     ]
+    },
+    "ac_verifiability": {
+     "score": 14,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1456-1461 (AC-1..AC-6)"
+     ]
+    },
+    "scope_fit": {
+     "score": 10,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1431 (heading; Target=0.5.5-buildergate-stability, Scope=BGSTAB, Tags include frontend-runtime/xterm/recovery/input)"
+     ]
+    },
+    "product_fit": {
+     "score": 10,
+     "evidence": [
+      "docs/research/2026-06-30.buildergate-conpty-output-recovery-input-lag-implementation-plan.md (Related Docs)",
+      "docs/spec/30.buildergate-stability.srs.md:1450 (Rationale: large direct writes block main thread, input appears unavailable during heavy AI TUI redraws)"
+     ]
+    }
+   }
+  },
+  {
+   "req_id": "FR-BGSTAB-018",
+   "feasibility": "high",
+   "score": 85,
+   "source": "senior",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "blockers": [],
+   "conditions": [
+    "depends_on FR-BGSTAB-017 (recovery write gate) — sequence after it.",
+    "Prefer not writing the empty fallback placeholder into xterm at all; if compatibility requires it, bound to at most one write per recovery generation and keep it out of successful-recovery accounting (AC-2/AC-4).",
+    "Preserve replay ACK ordering and recovery-pending semantics — do not clear hidden/visible-output recovery, release queued input, or mark recovery successful solely because placeholder/no-op handling ran (AC-4)."
+   ],
+   "axes": {
+    "implementability": {
+     "score": 22,
+     "evidence": [
+      "frontend/src/components/Terminal/TerminalContainer.tsx:131 (FALLBACK_EMPTY_MESSAGE placeholder constant — the exact target)",
+      "frontend/src/components/Terminal/TerminalContainer.tsx:1399-1494 (empty-fallback local restore / placeholder / ACK / recovery-success guards addition_site)",
+      "frontend/src/components/Terminal/TerminalView.tsx:1260-1320 (snapshot restore currently writes to xterm — verifies)",
+      "frontend/tests/unit/terminalContainerRecoveryContract.test.ts:37-109 (contract test addition_site)"
+     ]
+    },
+    "evidence_strength": {
+     "score": 18,
+     "evidence": [
+      "frontend/src/components/Terminal/TerminalContainer.tsx:131",
+      "frontend/src/components/Terminal/TerminalContainer.tsx:1399-1494",
+      "frontend/src/components/Terminal/TerminalView.tsx:1260-1320",
+      "frontend/tests/unit/terminalContainerRecoveryContract.test.ts:37-109"
+     ]
+    },
+    "dependency_health": {
+     "score": 11,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1615 (extends FR-BGSTAB-014)",
+      "docs/spec/30.buildergate-stability.srs.md:1616 (depends_on FR-BGSTAB-017, planned/evolving)",
+      "docs/spec/30.buildergate-stability.srs.md:1617 (depends_on REL-BGSTAB-003, planned/evolving)"
+     ]
+    },
+    "ac_verifiability": {
+     "score": 14,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1595-1600 (AC-1..AC-6)"
+     ]
+    },
+    "scope_fit": {
+     "score": 10,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1570 (heading; Target=0.5.5-buildergate-stability, Scope=BGSTAB, Tags include fallback-snapshot/recovery/xterm)"
+     ]
+    },
+    "product_fit": {
+     "score": 10,
+     "evidence": [
+      "docs/research/2026-07-01.buildergate-empty-fallback-snapshot-placeholder-research.md (Related Docs; investigation of the placeholder loop)",
+      "docs/spec/30.buildergate-stability.srs.md:1589 (Rationale: placeholder pollutes scrollback and resets content without recovery)"
+     ]
+    }
+   }
+  },
+  {
+   "req_id": "FR-BGSTAB-019",
+   "feasibility": "high",
+   "score": 93,
+   "source": "senior",
+   "has_verification": false,
+   "current_stability": "draft",
+   "current_status": "planned",
+   "blockers": [],
+   "conditions": [
+    "AC-3 soak gate: a >=2h multi-session soak recording zero remaining verified-owned descendants must pass before the enforce activation is committed.",
+    "AC-4: an observe rollback path must remain available and be documented (config revert restores prior behavior without code changes).",
+    "AC-5: TDD red-first regression test (operational config resolves mode=enforce while schema default remains observe) authored before the config change.",
+    "Activate enforce via a config.json5 override only; must not change config.schema.ts default (observe) or FR-BGSTAB-009 AC-1 schema-omission fallback."
+   ],
+   "axes": {
+    "implementability": {
+     "score": 26,
+     "evidence": [
+      "server/src/services/SessionManager.ts:1149-1171 (enforce-mode termination branch)",
+      "server/src/services/SessionManager.ts:1145-1146 (mode read from runtimeSessionConfig.processCleanup)",
+      "server/src/utils/processTreeTerminator.ts:592-605 (Windows PID-only taskkill /PID /T /F)",
+      "server/config.json5:21-24 (addition_site: session block; processCleanup override to be added here — confirmed ABSENT, not current supporting evidence)",
+      "server/src/schemas/config.schema.ts:84-89 (sessionProcessCleanupSchema, mode default 'observe')"
+     ]
+    },
+    "evidence_strength": {
+     "score": 19,
+     "evidence": [
+      "server/src/services/SessionManager.ts:1149-1171",
+      "server/src/utils/processTreeTerminator.ts:592-605",
+      "server/src/schemas/config.schema.ts:84-89",
+      "server/config.json5:21-24"
+     ]
+    },
+    "dependency_health": {
+     "score": 15,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1875 (extends FR-BGSTAB-011)",
+      "docs/spec/30.buildergate-stability.srs.md:1876 (depends_on FR-BGSTAB-009)"
+     ]
+    },
+    "ac_verifiability": {
+     "score": 13,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1856-1860 (AC-1..AC-5)",
+      "server/src/test-runner.ts (test addition_site for enforce-activation + soak-gate regression)"
+     ]
+    },
+    "scope_fit": {
+     "score": 10,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1831 (heading; Target=0.5.5-buildergate-stability, Scope=BGSTAB, Tags include session-cleanup/process-tree/enforce)"
+     ]
+    },
+    "product_fit": {
+     "score": 10,
+     "evidence": [
+      "docs/research/2026-07-02.buildergate-native-performance-54-sessions-deep-analysis.md (Related Docs)",
+      "docs/spec/30.buildergate-stability.srs.md:1850 (Rationale: descendant leaks at production scale)"
+     ]
+    }
+   }
+  },
+  {
+   "req_id": "OBS-BGSTAB-001",
+   "feasibility": "medium",
+   "score": 78,
+   "source": "senior",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "blockers": [],
+   "conditions": [
+    "Re-validate/re-point the stale extends link to the discarded REL-BGSTAB-002; the shutdown-cleanup-soak-evidence basis moved to REL-BGSTAB-004/REL-BGSTAB-005 (supersedes), so the link is traceability hygiene and does not block statement/AC realization but should be corrected.",
+    "Sequence after FR-BGSTAB-015/016/017 and REL-BGSTAB-003 (all planned) — the observed behaviors must exist before their telemetry can be fully asserted.",
+    "AC-5 requires a deterministic ConPTY redraw-flood E2E at localhost:2222 plus a soak run (operational validation).",
+    "AC-2 redaction constraint: no durable storage of raw terminal input/output, snapshot, or ANSI patch content in telemetry/soak artifacts."
+   ],
+   "axes": {
+    "implementability": {
+     "score": 19,
+     "evidence": [
+      "server/src/ws/WsRouter.ts:1738-1772",
+      "server/src/types/ws-protocol.ts:331-393",
+      "server/src/services/SessionManager.ts:2111-2298",
+      "frontend/src/components/Terminal/TerminalContainer.tsx:704-933",
+      "frontend/src/components/Terminal/TerminalView.tsx:1260-1465"
+     ]
+    },
+    "evidence_strength": {
+     "score": 17,
+     "evidence": [
+      "server/src/ws/WsRouter.ts:1738-1772",
+      "server/src/types/ws-protocol.ts:331-393",
+      "server/src/services/SessionManager.ts:2111-2298"
+     ]
+    },
+    "dependency_health": {
+     "score": 10,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1545 (extends REL-BGSTAB-001)",
+      "docs/spec/30.buildergate-stability.srs.md:1550 (extends REL-BGSTAB-002 — STALE, discarded)",
+      "docs/spec/30.buildergate-stability.srs.md:1546-1549 (depends_on FR-BGSTAB-015/016, REL-BGSTAB-003, FR-BGSTAB-017)"
+     ]
+    },
+    "ac_verifiability": {
+     "score": 13,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1525-1529 (AC-1..AC-5)"
+     ]
+    },
+    "scope_fit": {
+     "score": 10,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1500 (heading; Target=0.5.5-buildergate-stability, Scope=BGSTAB, Tags include conpty/telemetry/soak/observability)"
+     ]
+    },
+    "product_fit": {
+     "score": 9,
+     "evidence": [
+      "docs/research/2026-06-30.buildergate-conpty-output-recovery-input-lag-implementation-plan.md (Related Docs)",
+      "docs/spec/30.buildergate-stability.srs.md:1519 (Rationale: slowness hard to reproduce, judge via measurable bottlenecks)"
+     ]
+    }
+   }
+  },
+  {
+   "req_id": "OBS-BGSTAB-002",
+   "feasibility": "high",
+   "score": 85,
+   "source": "prescreen-quick-pass",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    80,
+    90
+   ]
+  },
+  {
+   "req_id": "PERF-BGSTAB-001",
+   "feasibility": "high",
+   "score": 89,
+   "source": "senior",
+   "has_verification": false,
+   "current_stability": "draft",
+   "current_status": "planned",
+   "blockers": [],
+   "conditions": [
+    "AC-3 'configurable per-frame time budget' (default 6-8ms) has no config-schema addition_site: implementer must decide internal constant vs new config key. If a config key is chosen, add config.schema.ts + config.types.ts + configTemplate.ts consistently.",
+    "Coordinate implementation order with FR-BGSTAB-017 (planned) — both change terminalOutputScheduler.ts internals; whichever lands first defines the base the other builds on.",
+    "Preserve FR-BGSTAB-003 callback-order and code-point-safety guarantees (do not split multibyte code points).",
+    "If restoring the byte budget by removing the config.json5 override rather than rewriting 262144, keep configTemplate.ts rendering consistent."
+   ],
+   "axes": {
+    "implementability": {
+     "score": 25,
+     "evidence": [
+      "frontend/src/utils/terminalOutputScheduler.ts:52-105 (single-chunk-per-frame flush)",
+      "frontend/src/utils/terminalOutputScheduler.ts:68-73 (shouldYield input-yield hook)",
+      "frontend/src/utils/terminalOutputScheduler.ts:77 (takeUtf8Prefix code-point-safe split)",
+      "server/config.json5:79 (visibleFlushBudgetBytes:16384 override)",
+      "server/src/schemas/config.schema.ts:150 (visibleFlushBudgetBytes default 262144)"
+     ]
+    },
+    "evidence_strength": {
+     "score": 18,
+     "evidence": [
+      "frontend/src/utils/terminalOutputScheduler.ts:52-105",
+      "server/config.json5:79",
+      "server/src/schemas/config.schema.ts:150"
+     ]
+    },
+    "dependency_health": {
+     "score": 12,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1813 (extends FR-BGSTAB-003)",
+      "docs/spec/30.buildergate-stability.srs.md:1814 (depends_on FR-BGSTAB-001)",
+      "docs/spec/30.buildergate-stability.srs.md:1815 (depends_on FR-BGSTAB-017, planned/evolving)"
+     ]
+    },
+    "ac_verifiability": {
+     "score": 14,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1794-1798 (AC-1..AC-5)",
+      "frontend/tests/unit/terminalOutputScheduler.test.ts (existing regression harness / test addition_site)"
+     ]
+    },
+    "scope_fit": {
+     "score": 10,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1769 (heading; Target=0.5.5-buildergate-stability, Scope=BGSTAB, Tags include xterm/output/performance)"
+     ]
+    },
+    "product_fit": {
+     "score": 10,
+     "evidence": [
+      "docs/research/2026-07-02.buildergate-native-performance-54-sessions-deep-analysis.md (Related Docs)",
+      "docs/spec/30.buildergate-stability.srs.md:1788 (Rationale: primary contributor to sluggish native performance at 54-session scale)"
+     ]
+    }
+   }
+  },
+  {
+   "req_id": "PERF-BGSTAB-002",
+   "feasibility": "high",
+   "score": 85,
+   "source": "prescreen-quick-pass",
+   "has_verification": false,
+   "current_stability": "draft",
+   "current_status": "planned",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    80,
+    90
+   ]
+  },
+  {
+   "req_id": "PERF-BGSTAB-003",
+   "feasibility": "high",
+   "score": 90,
+   "source": "prescreen-quick-pass",
+   "has_verification": false,
+   "current_stability": "draft",
+   "current_status": "planned",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    85,
+    95
+   ]
+  },
+  {
+   "req_id": "PERF-BGSTAB-004",
+   "feasibility": "high",
+   "score": 90,
+   "source": "prescreen-quick-pass",
+   "has_verification": false,
+   "current_stability": "draft",
+   "current_status": "planned",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    85,
+    95
+   ]
+  },
+  {
+   "req_id": "REL-BGSTAB-001",
+   "feasibility": "high",
+   "score": 85,
+   "source": "prescreen-quick-pass",
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    80,
+    90
+   ]
+  },
+  {
+   "req_id": "REL-BGSTAB-003",
+   "feasibility": "high",
+   "score": 82,
+   "source": "prescreen-quick-pass",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    75,
+    90
+   ]
+  },
+  {
+   "req_id": "REL-BGSTAB-004",
+   "feasibility": "high",
+   "score": 90,
+   "source": "prescreen-quick-pass",
+   "has_verification": true,
+   "current_stability": "evolving",
+   "current_status": "implemented",
+   "blockers": [],
+   "conditions": [],
+   "score_range": [
+    85,
+    95
+   ]
+  },
+  {
+   "req_id": "REL-BGSTAB-005",
+   "feasibility": "medium",
+   "score": 73,
+   "source": "senior",
+   "has_verification": false,
+   "current_stability": "draft",
+   "current_status": "planned",
+   "blockers": [
+    "{{OQ-1}} (bounded concurrency limit) and {{OQ-2}} (session-count timeout scaling value/formula) are undecided open questions pending user decision. AC-8 and AC-9 cannot be fully specified or given deterministic regression tests until these are resolved; the parallel-batch and scaled-timeout behaviors are blocked on that decision (the requirement's other 10 ACs remain implementable)."
+   ],
+   "conditions": [
+    "Preserve FR-BGSTAB-010 idempotent single finalization under parallel termination (AC-10) — concurrency-correctness constraint: no double finalization/double-count when natural PTY exit and shutdown termination target the same session.",
+    "Preserve the exact observable shutdown stage order (AC-1) and the no-broad-process-name-kill guarantee (AC-3) restated from REL-BGSTAB-002 (AC-6).",
+    "Depends on FR-BGSTAB-019 (currently draft) — its stability should firm up in tandem given both share the enforce/cleanup path.",
+    "AC-11 requires 54-session-scale shutdown-completion evidence (operational validation).",
+    "AC-12: TDD red-first regression tests (bounded-parallel termination, idempotent single finalization under parallelism, scaled-timeout completion) authored before implementation."
+   ],
+   "axes": {
+    "implementability": {
+     "score": 18,
+     "evidence": [
+      "server/src/services/SessionManager.ts:1783-1810 (sequential for-of await loop in terminateMultipleSessions)",
+      "server/src/services/SessionManager.ts:1795-1810 (the exact sequential await + telemetry aggregation to parallelize)",
+      "server/src/services/gracefulShutdown.ts:11 (DEFAULT_SESSION_CLEANUP_TIMEOUT_MS = 3_000)",
+      "server/src/services/SessionManager.ts:1156-1170 (enforce termination + finalize path relevant to idempotency)"
+     ]
+    },
+    "evidence_strength": {
+     "score": 18,
+     "evidence": [
+      "server/src/services/gracefulShutdown.ts:11",
+      "server/src/services/SessionManager.ts:1783-1810",
+      "server/src/test-runner.ts:198-200"
+     ]
+    },
+    "dependency_health": {
+     "score": 8,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1942 (supersedes REL-BGSTAB-002, discarded — expected pattern)",
+      "docs/spec/30.buildergate-stability.srs.md:1943 (depends_on FR-BGSTAB-010, healthy)",
+      "docs/spec/30.buildergate-stability.srs.md:1944 (depends_on FR-BGSTAB-019 — DRAFT, unhealthy edge)"
+     ]
+    },
+    "ac_verifiability": {
+     "score": 9,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1917-1928 (AC-1..AC-12)",
+      "docs/spec/30.buildergate-stability.srs.md:1924 (AC-8 embeds {{OQ-1}})",
+      "docs/spec/30.buildergate-stability.srs.md:1925 (AC-9 embeds {{OQ-2}})"
+     ]
+    },
+    "scope_fit": {
+     "score": 10,
+     "evidence": [
+      "docs/spec/30.buildergate-stability.srs.md:1892 (heading; Target=0.5.5-buildergate-stability, Scope=BGSTAB, Tags include shutdown/session-cleanup)"
+     ]
+    },
+    "product_fit": {
+     "score": 10,
+     "evidence": [
+      "docs/research/2026-07-02.buildergate-native-performance-54-sessions-deep-analysis.md (Related Docs; 54-session scale target)",
+      "docs/spec/30.buildergate-stability.srs.md:1911 (Rationale: fixed 3000ms + sequential does not complete at 54-session scale)"
+     ]
+    }
+   }
+  }
+ ],
+ "synthesis": {
+  "target_verdict": "conditionally-ready",
+  "feasibility_distribution": {
+   "high": 27,
+   "medium": 2,
+   "low": 0,
+   "blocked": 0
+  },
+  "critical_blocker_req_ids": [
+   "REL-BGSTAB-005"
+  ]
+ },
+ "mutation_plan": {
+  "plan": [
+   {
+    "req_id": "FR-BGSTAB-001",
+    "current_stability": "evolving",
+    "proposed_stability": "stable",
+    "matched_rule_index": 0,
+    "requires_user_confirm": true,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "FR-BGSTAB-002",
+    "current_stability": "evolving",
+    "proposed_stability": "stable",
+    "matched_rule_index": 0,
+    "requires_user_confirm": true,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "FR-BGSTAB-003",
+    "current_stability": "evolving",
+    "proposed_stability": "stable",
+    "matched_rule_index": 0,
+    "requires_user_confirm": true,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "FR-BGSTAB-004",
+    "current_stability": "evolving",
+    "proposed_stability": "stable",
+    "matched_rule_index": 0,
+    "requires_user_confirm": true,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "FR-BGSTAB-005",
+    "current_stability": "evolving",
+    "proposed_stability": "stable",
+    "matched_rule_index": 0,
+    "requires_user_confirm": true,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "FR-BGSTAB-006",
+    "current_stability": "evolving",
+    "proposed_stability": "stable",
+    "matched_rule_index": 0,
+    "requires_user_confirm": true,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "FR-BGSTAB-007",
+    "current_stability": "evolving",
+    "proposed_stability": "stable",
+    "matched_rule_index": 0,
+    "requires_user_confirm": true,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "FR-BGSTAB-008",
+    "current_stability": "evolving",
+    "proposed_stability": "stable",
+    "matched_rule_index": 0,
+    "requires_user_confirm": true,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "FR-BGSTAB-009",
+    "current_stability": "evolving",
+    "proposed_stability": "stable",
+    "matched_rule_index": 0,
+    "requires_user_confirm": true,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "FR-BGSTAB-010",
+    "current_stability": "evolving",
+    "proposed_stability": "stable",
+    "matched_rule_index": 0,
+    "requires_user_confirm": true,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "FR-BGSTAB-011",
+    "current_stability": "evolving",
+    "proposed_stability": "stable",
+    "matched_rule_index": 0,
+    "requires_user_confirm": true,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "FR-BGSTAB-012",
+    "current_stability": "evolving",
+    "proposed_stability": "stable",
+    "matched_rule_index": 0,
+    "requires_user_confirm": true,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "FR-BGSTAB-013",
+    "current_stability": "evolving",
+    "proposed_stability": "stable",
+    "matched_rule_index": 0,
+    "requires_user_confirm": true,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "FR-BGSTAB-014",
+    "current_stability": "evolving",
+    "proposed_stability": "stable",
+    "matched_rule_index": 0,
+    "requires_user_confirm": true,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "REL-BGSTAB-001",
+    "current_stability": "evolving",
+    "proposed_stability": "stable",
+    "matched_rule_index": 0,
+    "requires_user_confirm": true,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "REL-BGSTAB-004",
+    "current_stability": "evolving",
+    "proposed_stability": "stable",
+    "matched_rule_index": 0,
+    "requires_user_confirm": true,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "FR-BGSTAB-019",
+    "current_stability": "draft",
+    "proposed_stability": "evolving",
+    "matched_rule_index": 1,
+    "requires_user_confirm": false,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "PERF-BGSTAB-001",
+    "current_stability": "draft",
+    "proposed_stability": "evolving",
+    "matched_rule_index": 1,
+    "requires_user_confirm": false,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "PERF-BGSTAB-002",
+    "current_stability": "draft",
+    "proposed_stability": "evolving",
+    "matched_rule_index": 1,
+    "requires_user_confirm": false,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "PERF-BGSTAB-003",
+    "current_stability": "draft",
+    "proposed_stability": "evolving",
+    "matched_rule_index": 1,
+    "requires_user_confirm": false,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "PERF-BGSTAB-004",
+    "current_stability": "draft",
+    "proposed_stability": "evolving",
+    "matched_rule_index": 1,
+    "requires_user_confirm": false,
+    "dryrun_guard_verdict": "ok",
+    "user_decision": null
+   },
+   {
+    "req_id": "FR-BGSTAB-015",
+    "current_stability": "evolving",
+    "proposed_stability": "evolving",
+    "matched_rule_index": 1,
+    "requires_user_confirm": false,
+    "dryrun_guard_verdict": "n/a",
+    "user_decision": null,
+    "no_op": true
+   },
+   {
+    "req_id": "FR-BGSTAB-016",
+    "current_stability": "evolving",
+    "proposed_stability": "evolving",
+    "matched_rule_index": 1,
+    "requires_user_confirm": false,
+    "dryrun_guard_verdict": "n/a",
+    "user_decision": null,
+    "no_op": true
+   },
+   {
+    "req_id": "FR-BGSTAB-017",
+    "current_stability": "evolving",
+    "proposed_stability": "evolving",
+    "matched_rule_index": 1,
+    "requires_user_confirm": false,
+    "dryrun_guard_verdict": "n/a",
+    "user_decision": null,
+    "no_op": true
+   },
+   {
+    "req_id": "FR-BGSTAB-018",
+    "current_stability": "evolving",
+    "proposed_stability": "evolving",
+    "matched_rule_index": 1,
+    "requires_user_confirm": false,
+    "dryrun_guard_verdict": "n/a",
+    "user_decision": null,
+    "no_op": true
+   },
+   {
+    "req_id": "OBS-BGSTAB-002",
+    "current_stability": "evolving",
+    "proposed_stability": "evolving",
+    "matched_rule_index": 1,
+    "requires_user_confirm": false,
+    "dryrun_guard_verdict": "n/a",
+    "user_decision": null,
+    "no_op": true
+   },
+   {
+    "req_id": "REL-BGSTAB-003",
+    "current_stability": "evolving",
+    "proposed_stability": "evolving",
+    "matched_rule_index": 1,
+    "requires_user_confirm": false,
+    "dryrun_guard_verdict": "n/a",
+    "user_decision": null,
+    "no_op": true
+   },
+   {
+    "req_id": "OBS-BGSTAB-001",
+    "current_stability": "evolving",
+    "proposed_stability": "keep",
+    "matched_rule_index": 2,
+    "requires_user_confirm": false,
+    "dryrun_guard_verdict": "n/a",
+    "user_decision": null,
+    "no_op": true
+   },
+   {
+    "req_id": "REL-BGSTAB-005",
+    "current_stability": "draft",
+    "proposed_stability": "keep",
+    "matched_rule_index": 2,
+    "requires_user_confirm": false,
+    "dryrun_guard_verdict": "n/a",
+    "user_decision": null,
+    "no_op": true
+   }
+  ],
+  "summary": {
+   "total_mutations": 21,
+   "auto_apply": 5,
+   "user_confirm_required": 16,
+   "no_op": 8,
+   "guard_blocked": 0
+  }
+ },
+ "iter1_fix_summary": "FR-BGSTAB-015/016/017/018 정식 시니어 6축 채점으로 재판정(87/86/83/85 = high, 경계 위반 해소), FR-BGSTAB-019의 config.json5:21-24 오인용 evidence 교정(addition_site 명확화), 시니어 8건 전축 evidence 보강"
+}

@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-05-22.projectmaster.aitui-recovery",
+  "coder_run_id": "2026-05-22.projectmaster.aitui-recovery:T-PH001-01",
+  "task_id": "T-PH001-01",
+  "task_phase": "red",
+  "files": [
+    "server/src/test-runner.ts"
+  ],
+  "test_registration_lines": {
+    "start_line": 243,
+    "end_line": 264,
+    "count": 22
+  },
+  "build": {
+    "command": "npm --prefix server run build",
+    "exit_code": 0
+  },
+  "red_test": {
+    "command": "npm --prefix server test",
+    "exit_code": 1,
+    "expected_red": true,
+    "failed_tests": 22,
+    "primary_failure_signature": "Recovery option service not implemented or missing: Cannot find module server/dist/services/RecoveryOptionService.js",
+    "secondary_failure_signature": "recovery option route registration not implemented or not protected by authMiddleware"
+  },
+  "sub_agent_validation": {
+    "S1": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/tdd_review_s1_iter3.txt",
+    "S2": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/tdd_review_s2_iter5.txt",
+    "S3": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/tdd_review_s3.txt",
+    "S4": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/tdd_review_s4.txt"
+  }
+}

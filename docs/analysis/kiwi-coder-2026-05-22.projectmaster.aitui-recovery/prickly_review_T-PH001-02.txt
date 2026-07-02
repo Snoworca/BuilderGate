@@ -1,0 +1,14 @@
+T-PH001-02 prickly sub-agent review
+
+Initial review findings:
+- HIGH: createOption did not runtime-validate enabled.
+- MEDIUM: route handlers did not reject null or non-object JSON bodies before service calls.
+- LOW: reorder route silently coerced malformed optionIds to an empty array.
+
+Fixes applied:
+- createOption now validates enabled through validateEnabled when supplied.
+- POST/PATCH/PUT route bodies now pass through readBodyObject and return AppError INVALID_INPUT on invalid bodies.
+- reorderOptions now accepts unknown input, rejects non-arrays and non-string ids, and no longer route-coerces malformed input.
+
+Re-review:
+- Separate read-only Codex reviewer returned: No findings.

@@ -1,0 +1,27 @@
+{
+  "target": "0.5.5-buildergate-stability",
+  "classification": "new-scope",
+  "rationale": "The researched and implemented stability work is a BuilderGate-wide runtime reliability slice, not an AI TUI recovery option feature. It needs a separate target/scope to avoid mixing unrelated requirements into the active 0.5.4-ai-tui-recovery target.",
+  "evidence_paths": [
+    "docs/research/2026-06-17.buildergate-remaining-stability-work-implementation-plan.md",
+    "docs/research/2026-06-17.buildergate-remaining-stability-work-implementation-completion-report.md",
+    "frontend/src/utils/inputReliabilityMode.ts:72-184",
+    "frontend/src/contexts/WebSocketContext.tsx:600-640",
+    "frontend/src/utils/terminalOutputScheduler.ts:1-154",
+    "frontend/src/hooks/useTerminalRuntimeResidency.ts:1-286",
+    "server/src/ws/WsRouter.ts:188-389",
+    "server/src/ws/WsRouter.ts:954-1055",
+    "server/src/ws/WsRouter.ts:2108-2449"
+  ],
+  "affected_existing_reqs": [],
+  "proposed_scope": "NEW: BuilderGate Stability",
+  "proposed_prefix": "BGSTAB",
+  "proposed_type": "functional/reliability/observability",
+  "confidence": "high",
+  "scope_boundary_impact": null,
+  "external_module_impact": null,
+  "mutation_gate": {
+    "status": "blocked_pending_user_confirmation",
+    "reason": "New target and new scope require user confirmation before live SpecKiwi mutation."
+  }
+}

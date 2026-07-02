@@ -1,0 +1,22 @@
+{
+  "result": "conditional-pass",
+  "checked": [
+    {
+      "item": "Requirement IDs are unique within the proposed BGSTAB scope",
+      "result": "pass"
+    },
+    {
+      "item": "Requirements map to implementation or explicit remaining validation work",
+      "result": "pass"
+    },
+    {
+      "item": "The proposed scope is distinct from the active AITUI target",
+      "result": "pass"
+    },
+    {
+      "item": "Live SpecKiwi mutation can be performed safely without target/scope confirmation",
+      "result": "fail"
+    }
+  ],
+  "decision": "Proceed with feasibility dry-run only."
+}

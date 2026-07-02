@@ -1,0 +1,10 @@
+{
+ "phase1_sonnet": 3,
+ "phase2_prescreen_sonnet_agents": 3,
+ "phase2_prescreen_chunks": 6,
+ "phase2_senior_opus_estimate": "senior_targets/5 (예상 2-3 에이전트)",
+ "phase3_synthesis_opus": 1,
+ "phase5_evaluators_per_iter": 2,
+ "total_estimate": "12-16 subagents (research 비활성)",
+ "cost_cap": null
+}

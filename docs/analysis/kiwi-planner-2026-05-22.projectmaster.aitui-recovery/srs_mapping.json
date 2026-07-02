@@ -1,0 +1,235 @@
+{
+  "req_inventory": [
+    {
+      "req_id": "FR-AITUI-001",
+      "stability": "evolving",
+      "status": "planned",
+      "ac_total": 6,
+      "ac_ids": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "files_from_trace": [
+        "frontend/src/components/Header/Header.tsx:52-61",
+        "frontend/src/App.tsx:99-106",
+        "frontend/src/App.tsx:520-532",
+        "frontend/src/App.tsx:686-704",
+        "frontend/src/services/api.ts:458-570"
+      ],
+      "depends_on": [],
+      "feasibility_hint": "high"
+    },
+    {
+      "req_id": "FR-AITUI-002",
+      "stability": "evolving",
+      "status": "planned",
+      "ac_total": 6,
+      "ac_ids": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "files_from_trace": [
+        "server/src/services/CommandPresetService.ts:22-52",
+        "server/src/services/CommandPresetService.ts:155-176",
+        "server/src/services/CommandPresetService.ts:216-290",
+        "server/src/routes/commandPresetRoutes.ts:6-52",
+        "server/src/index.ts:280-287"
+      ],
+      "depends_on": [],
+      "feasibility_hint": "high"
+    },
+    {
+      "req_id": "FR-AITUI-003",
+      "stability": "evolving",
+      "status": "planned",
+      "ac_total": 6,
+      "ac_ids": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "files_from_trace": [
+        "server/src/services/SessionManager.ts:900-940",
+        "server/src/services/SessionManager.ts:2572-2608",
+        "server/src/types/workspace.types.ts:18-30",
+        "frontend/src/types/workspace.ts:12-31",
+        "frontend/src/components/MetadataBar/MetadataRow.tsx:67-120",
+        "frontend/src/components/Workspace/WorkspaceTabBar.tsx:75-143"
+      ],
+      "depends_on": [
+        "FR-AITUI-002"
+      ],
+      "feasibility_hint": "high"
+    },
+    {
+      "req_id": "FR-AITUI-004",
+      "stability": "evolving",
+      "status": "planned",
+      "ac_total": 6,
+      "ac_ids": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "files_from_trace": [
+        "server/src/services/WorkspaceService.ts:336-351",
+        "server/src/services/WorkspaceService.ts:595-614",
+        "server/src/services/WorkspaceService.ts:626-640",
+        "server/src/services/SessionManager.ts:1632-1668",
+        "server/src/services/SessionManager.ts:1701-1717"
+      ],
+      "depends_on": [
+        "FR-AITUI-002",
+        "FR-AITUI-003"
+      ],
+      "feasibility_hint": "high"
+    },
+    {
+      "req_id": "FR-AITUI-005",
+      "stability": "evolving",
+      "status": "planned",
+      "ac_total": 6,
+      "ac_ids": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "files_from_trace": [
+        "server/src/services/CommandPresetService.ts:22-52",
+        "server/src/services/SessionManager.ts:1701-1717",
+        "frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx:67-120",
+        "server/src/services/SessionManager.ts:2572-2608"
+      ],
+      "depends_on": [
+        "FR-AITUI-002"
+      ],
+      "feasibility_hint": "high"
+    },
+    {
+      "req_id": "SEC-AITUI-001",
+      "stability": "evolving",
+      "status": "planned",
+      "ac_total": 6,
+      "ac_ids": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "files_from_trace": [
+        "server/src/index.ts:280-287",
+        "server/src/routes/commandPresetRoutes.ts:6-52",
+        "server/src/services/CommandPresetService.ts:216-290",
+        "server/src/services/SessionManager.ts:1632-1668",
+        "server/src/services/WorkspaceService.ts:595-614"
+      ],
+      "depends_on": [
+        "FR-AITUI-002",
+        "FR-AITUI-004"
+      ],
+      "feasibility_hint": "high"
+    },
+    {
+      "req_id": "SEC-AITUI-002",
+      "stability": "evolving",
+      "status": "planned",
+      "ac_total": 5,
+      "ac_ids": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5"
+      ],
+      "files_from_trace": [
+        "server/src/services/CommandPresetService.ts:155-176",
+        "server/src/routes/commandPresetRoutes.ts:6-52",
+        "frontend/src/components/MetadataBar/MetadataRow.tsx:67-120",
+        "frontend/src/components/Workspace/WorkspaceTabBar.tsx:75-143"
+      ],
+      "depends_on": [
+        "FR-AITUI-001",
+        "FR-AITUI-003"
+      ],
+      "feasibility_hint": "high"
+    },
+    {
+      "req_id": "REL-AITUI-001",
+      "stability": "evolving",
+      "status": "planned",
+      "ac_total": 5,
+      "ac_ids": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5"
+      ],
+      "files_from_trace": [
+        "server/src/services/CommandPresetService.ts:216-290",
+        "server/src/services/CommandPresetService.ts:22-52"
+      ],
+      "depends_on": [
+        "FR-AITUI-002"
+      ],
+      "feasibility_hint": "high"
+    }
+  ],
+  "dependency_graph": [
+    {
+      "from": "FR-AITUI-003",
+      "to": "FR-AITUI-002"
+    },
+    {
+      "from": "FR-AITUI-004",
+      "to": "FR-AITUI-002"
+    },
+    {
+      "from": "FR-AITUI-004",
+      "to": "FR-AITUI-003"
+    },
+    {
+      "from": "FR-AITUI-005",
+      "to": "FR-AITUI-002"
+    },
+    {
+      "from": "SEC-AITUI-001",
+      "to": "FR-AITUI-002"
+    },
+    {
+      "from": "SEC-AITUI-001",
+      "to": "FR-AITUI-004"
+    },
+    {
+      "from": "SEC-AITUI-002",
+      "to": "FR-AITUI-001"
+    },
+    {
+      "from": "SEC-AITUI-002",
+      "to": "FR-AITUI-003"
+    },
+    {
+      "from": "REL-AITUI-001",
+      "to": "FR-AITUI-002"
+    }
+  ]
+}

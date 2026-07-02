@@ -1,0 +1,25 @@
+{
+  "chunk_id": "chunk4",
+  "senior_targets": ["FR-BGSTAB-019", "OBS-BGSTAB-001"],
+  "quick_pass": [
+    {
+      "req_id": "FR-BGSTAB-016",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [72, 85],
+      "note": "Priority-aware WS safe-send under output flood. status=planned, stability=evolving. AC 5개 명확(Given/When/Then), trace 5건 all_paths_exist=true·mismatch 0(wsSendPolicy.ts/WsRouter.ts 기존 파일 확장, addition_site+verifies 혼재로 기존 스냅샷 ACK 경로를 존중). 의존: FR-BGSTAB-012(extends, implemented/evolving) healthy, FR-BGSTAB-002(depends_on, implemented/evolving) healthy, FR-BGSTAB-015(depends_on, status=planned이나 stability=evolving)로 draft/blocked/discarded 아님 healthy."
+    },
+    {
+      "req_id": "FR-BGSTAB-017",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [70, 85],
+      "note": "Frontend recovery write gate/입력 릴리스 배리어. status=planned, stability=evolving. AC 6개 명확, trace 5건 all_paths_exist=true·mismatch 0(terminalOutputScheduler.ts/TerminalView.tsx/TerminalContainer.tsx/WebSocketContext.tsx 기존 파일 확장). 의존 FR-BGSTAB-003/014(extends, 둘 다 implemented/evolving) healthy, FR-BGSTAB-002(depends_on, implemented/evolving) healthy, REL-BGSTAB-003·FR-BGSTAB-015(depends_on, 둘 다 status=planned/stability=evolving으로 draft/blocked/discarded 아님) healthy."
+    },
+    {
+      "req_id": "FR-BGSTAB-018",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [72, 85],
+      "note": "빈 fallback 스냅샷 수렴/placeholder 억제. status=planned, stability=evolving. AC 6개 명확·근거 탄탄(2026-07-01 5-서브에이전트 조사에서 TerminalContainer.tsx:131/1419-1433 placeholder 발생 지점 특정). trace 4건 all_paths_exist=true·mismatch 0. 의존 FR-BGSTAB-014(extends, implemented/evolving) healthy, FR-BGSTAB-017·REL-BGSTAB-003(depends_on, 둘 다 status=planned/stability=evolving) healthy."
+    }
+  ],
+  "quick_block": []
+}

@@ -1,0 +1,31 @@
+{
+  "chunk_id": "chunk5",
+  "senior_targets": ["PERF-BGSTAB-001"],
+  "quick_pass": [
+    {
+      "req_id": "OBS-BGSTAB-002",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [80, 90],
+      "note": "All 6 trace paths exist with no mismatches (all addition_site, appropriate for a planned new observability requirement). 6 ACs are well-formed Given/When/Then with concrete bounded-telemetry scope (no raw payload persistence). Dependencies (extends OBS-BGSTAB-001 planned/evolving, depends_on FR-BGSTAB-018 planned/evolving, depends_on REL-BGSTAB-004 implemented/evolving) are all healthy — none draft/deprecated/discarded, and OBS-BGSTAB-002 is not listed in dependency_health_risks or ac_verifiability_risks. Note: OBS-BGSTAB-001 (one hop further) has its own stale extends-link to discarded REL-BGSTAB-002, but that does not propagate to OBS-BGSTAB-002's direct dependency health per the pre-computed risk list."
+    },
+    {
+      "req_id": "PERF-BGSTAB-002",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [80, 90],
+      "note": "New draft REQ (created today); planned-status feasibility judgment, addition_site trace is expected and not a blocked signal. All 4 trace paths exist, no mismatches. 5 ACs are clear and testable, including an explicit TDD terminate-before-capture race regression requirement. Dependencies extends FR-BGSTAB-009 (implemented/evolving) and depends_on FR-BGSTAB-011 (implemented/evolving) are both healthy. Implementation note reasons through FR-BGSTAB-009 AC-2 compatibility explicitly and is marked [INFERRED:advisory], not a contested assumption. Not flagged in dependency_health_risks or ac_verifiability_risks."
+    },
+    {
+      "req_id": "PERF-BGSTAB-003",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [85, 95],
+      "note": "New draft REQ, risk=low, all 6 trace paths exist with no mismatches. 5 ACs clearly testable (call-count regression guard, codec singleton reuse, skip-when-disabled, no-raw-input-leakage preserving FR-BGSTAB-014 AC-7). Single dependency (extends FR-BGSTAB-014, implemented/evolving) is healthy. Implementation note flags an open verification question (confirm terminalInputSequencer.test.ts coverage before planning) but this is a planning-phase caution for kiwi-planner, not a feasibility blocker — the REQ's own AC and trace are unambiguous."
+    },
+    {
+      "req_id": "PERF-BGSTAB-004",
+      "predicted_feasibility": "high",
+      "predicted_score_range": [85, 95],
+      "note": "New draft REQ, risk=low, all 3 trace paths exist with no mismatches. 4 ACs are clear and testable including explicit cache-invalidation-on-runtimeConfigVersion-change behavior. Dependencies extends FR-BGSTAB-014 and depends_on FR-BGSTAB-001, both implemented/evolving — healthy. Implementation note explicitly reuses an existing, already-verified invalidation mechanism (FR-BGSTAB-014 AC-1) rather than inventing a new one, reducing implementation risk."
+    }
+  ],
+  "quick_block": []
+}

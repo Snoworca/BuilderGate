@@ -1,0 +1,26 @@
+{
+  "iter": 4,
+  "purpose": "Review after path, dependency, scope, and mandatory E2E fixes",
+  "evaluators": [
+    {
+      "agent": "019f17d7-d20e-76e1-94ae-c1cc5c360ba0",
+      "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 1, "LOW": 0 },
+      "findings": [
+        "FR-BGSTAB-015 grouped Settings summary was not exact per-key matrix."
+      ]
+    },
+    {
+      "agent": "019f17d7-e894-79b0-b825-702d72542af1",
+      "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 1, "LOW": 0 },
+      "findings": [
+        "FR-BGSTAB-015 AC-6 and matrix omitted explicit recoveryReadyReleaseTimeoutMs and recoveryWriteLatencyWarnMs names."
+      ]
+    },
+    {
+      "agent": "019f17d7-ff34-7333-badc-cb65d4e2c679",
+      "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0 },
+      "findings": []
+    }
+  ],
+  "result": "fixes_required"
+}

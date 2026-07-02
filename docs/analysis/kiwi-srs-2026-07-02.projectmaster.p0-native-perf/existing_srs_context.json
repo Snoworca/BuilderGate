@@ -1,0 +1,166 @@
+{
+  "candidate_matches": [
+    {
+      "p0_item": "P0-1",
+      "id": "FR-BGSTAB-003",
+      "scope": "BGSTAB",
+      "title": "Visible terminal output scheduling and recovery",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.85,
+      "evidence": "Statement: 'Visible terminal output shall be written through a bounded scheduler that applies chunk and byte limits, preserves callback order, avoids splitting code points...'. AC-1 only requires 'writes output in bounded chunks and preserves callback order' -- it does NOT lock a 'one chunk per animation frame' cadence in the requirement text (that constraint only exists in code/research notes, e.g. terminalOutputScheduler.ts:52-105 flushing one chunk per rAF). P0-1's per-frame time-budget (6-8ms) multi-chunk flush stays within 'bounded chunks' + 'preserves callback order' + 'does not split code points' (AC-1, AC-2), so it reads as a refinement/extension of FR-BGSTAB-003 rather than a violation. Working tree already has an uncommitted partial step toward this (frontend/src/utils/terminalOutputScheduler.ts diff adds a shouldYield input-yield check before draining), consistent with P0-1's input-yield requirement."
+    },
+    {
+      "p0_item": "P0-1",
+      "id": "FR-BGSTAB-001",
+      "scope": "BGSTAB",
+      "title": "Runtime resource limits for terminal stability",
+      "relation_hint": "depends-on",
+      "similarity_score": 0.55,
+      "evidence": "AC-1: 'typed getters expose validated values with server-compatible defaults' for terminal limits including visibleFlushBudgetBytes. P0-1's 256KB restore targets the operational override in server/config.json5:79 (currently 16384), not the schema default, which is already bytesLimit(1024,16777216,262144) in server/src/schemas/config.schema.ts:150 and matches frontend/src/utils/inputReliabilityMode.ts:72 (262144). So P0-1 depends on FR-BGSTAB-001's existing central-config surface for this field; no statement/AC text is changed, only the config.json5 value."
+    },
+    {
+      "p0_item": "P0-1",
+      "id": "FR-BGSTAB-017",
+      "scope": "BGSTAB",
+      "title": "Frontend recovery write gate and queued input release barrier",
+      "relation_hint": "depends-on",
+      "similarity_score": 0.5,
+      "evidence": "FR-BGSTAB-017 (status=planned, not yet implemented) trace-links to 'frontend/src/utils/terminalOutputScheduler.ts:1-158 (addition_site) - generalize scheduler with recovery label, drain, and overflow hooks' -- the same module P0-1 is changing to add a per-frame time budget and shouldYield input-yield logic. Neither REQ's AC text conflicts with the other, but both intend to modify the internals of the same scheduler factory, so implementation sequencing/coordination is needed (whichever lands first changes the base the other extends)."
+    },
+    {
+      "p0_item": "P0-1",
+      "id": "FR-BGSTAB-013",
+      "scope": "BGSTAB",
+      "title": "Wave 6 browser Settings for resource limits",
+      "relation_hint": "unrelated",
+      "similarity_score": 0.2,
+      "evidence": "server/src/services/RuntimeConfigStore.ts:112-124 explicitly places resourceLimits.terminal.visibleFlushBudgetBytes in RESERVED_WAVE6_SETTING_KEYS with reason 'Reserved outside the selected Wave6 Settings field set'. P0-1 only changes the config.json5 default value and scheduler internals; it does not attempt to expose the field in the Settings UI, so it does not touch FR-BGSTAB-013's AC-1..AC-6 scope."
+    },
+    {
+      "p0_item": "P0-1",
+      "id": "FR-BGSTAB-016",
+      "scope": "BGSTAB",
+      "title": "Priority-aware WebSocket safe-send under output flood",
+      "relation_hint": "unrelated",
+      "similarity_score": 0.15,
+      "evidence": "FR-BGSTAB-016 governs server-side WsRouter/wsSendPolicy transport queues (server/src/ws/wsSendPolicy.ts, WsRouter.ts:1816-2037). P0-1 only changes the frontend visible-output scheduler (terminalOutputScheduler.ts) and a config value. Conceptually adjacent (both address output-flood throughput) but different layer/files; no shared AC or code path."
+    },
+    {
+      "p0_item": "P0-2",
+      "id": "FR-BGSTAB-011",
+      "scope": "BGSTAB",
+      "title": "Wave 2 verified process-tree termination",
+      "relation_hint": "depends-on",
+      "similarity_score": 0.9,
+      "evidence": "AC-1: 'when processCleanup.mode is enforce and an explicit session termination runs, then the system validates the live root process identity before attempting tree termination.' This REQ (status=implemented) already builds the full verified enforce-mode termination path (Windows taskkill /PID .../T /F, POSIX verified descendant leaf-first kill). The current schema/config default is 'observe' (server/src/utils/configTemplate.ts:40, no override in server/config.json5). P0-2's enforce activation is a config-value activation of an already-implemented, already-verified capability -- not new behavior."
+    },
+    {
+      "p0_item": "P0-2",
+      "id": "REL-BGSTAB-002",
+      "scope": "BGSTAB",
+      "title": "Wave 5 shutdown cleanup evidence and daemon stop validation",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.7,
+      "evidence": "No AC in REL-BGSTAB-002 pins a specific shutdown timeout number or sequential-vs-parallel batch processing. Current code: server/src/services/gracefulShutdown.ts:11 DEFAULT_SESSION_CLEANUP_TIMEOUT_MS=3000 (3s total), while server/src/services/SessionManager.ts:1783-1810 terminateMultipleSessions() awaits terminateSession() sequentially inside a for-loop. With gracefulWaitMs=750/forceWaitMs=1500 per session (configTemplate.ts:41-42) and 54 sessions processed sequentially, worst-case sequential cleanup can exceed 3s by an order of magnitude. P0-2's shutdown-timeout alignment plus batch parallelization extends this REQ's shutdown cleanup sequence (AC-1) and evidence fields (AC-2) without contradicting any fixed AC text -- it is a scale-driven refinement."
+    },
+    {
+      "p0_item": "P0-2",
+      "id": "FR-BGSTAB-009",
+      "scope": "BGSTAB",
+      "title": "Wave 1 server session process observation",
+      "relation_hint": "depends-on",
+      "similarity_score": 0.5,
+      "evidence": "AC-1 defines the observe-mode default (gracefulWaitMs=750, forceWaitMs=1500, descendantSampleLimit=64) that FR-BGSTAB-011's enforce path (which P0-2 activates) consumes. Activating enforce mode does not change FR-BGSTAB-009's own AC text, but the enforce termination path P0-2 turns on depends on the process metadata (rootPid, osStartIdentity) this REQ captures at session-creation time."
+    },
+    {
+      "p0_item": "P0-2",
+      "id": "FR-BGSTAB-010",
+      "scope": "BGSTAB",
+      "title": "Wave 3 session lifecycle semantics and orphan recovery",
+      "relation_hint": "depends-on",
+      "similarity_score": 0.35,
+      "evidence": "REL-BGSTAB-002 AC-6 explicitly requires shutdown cleanup to preserve 'FR-BGSTAB-010 stopped/non-recoverable lifecycle semantics'. P0-2's batch parallelization must not break the idempotent single-finalization guarantees (AC-1, AC-2) this REQ establishes for concurrent/racing termination triggers."
+    },
+    {
+      "p0_item": "P0-3",
+      "id": "FR-BGSTAB-009",
+      "scope": "BGSTAB",
+      "title": "Wave 1 server session process observation",
+      "relation_hint": "potential-conflict",
+      "similarity_score": 0.8,
+      "evidence": "AC-2 (unconditional, not gated by processCleanup.mode): 'Given a new server session is created, when the PTY is spawned, then the session stores process metadata including rootPid when available, shell command, shell args, shell type, cwd, platform, backend when known, launchedAt, and best-effort OS start identity...'. Code confirms this is captured synchronously and unconditionally at session creation: SessionManager.ts:2326-2347 createSessionProcessMetadata() calls readProcessStartIdentitySync(...) (SessionManager.ts:2345) for every new session regardless of mode. P0-3 proposes to skip this call entirely when mode=observe. Removing/skipping the synchronous call and making it async is compatible with AC-2's wording (which does not require synchronous timing), but unconditionally skipping identity capture whenever mode=observe (the current default) directly contradicts AC-2's unconditional 'the session stores ... best-effort OS start identity' for every new session. This is a genuine textual conflict, not just an implementation refinement, unless AC-2 is relaxed/updated to condition identity capture on mode."
+    },
+    {
+      "p0_item": "P0-3",
+      "id": "FR-BGSTAB-011",
+      "scope": "BGSTAB",
+      "title": "Wave 2 verified process-tree termination",
+      "relation_hint": "depends-on",
+      "similarity_score": 0.55,
+      "evidence": "AC-1/AC-2: enforce-mode termination validates root process identity against recorded session metadata before attempting tree termination; if identity cannot be verified or mismatches, termination is skipped and reported degraded/skipped-unverified (an explicitly allowed outcome, not a failure). If P0-3 makes identity capture async, a session terminated very soon after creation (before the async lookup resolves) would fall into this already-specified degraded/skipped-unverified path -- so the async conversion itself is compatible via FR-BGSTAB-011's existing race handling. The conflict is specifically the skip-entirely-in-observe-mode part interacting with FR-BGSTAB-009 AC-2 above, not the async timing change against FR-BGSTAB-011."
+    },
+    {
+      "p0_item": "P0-4",
+      "id": "FR-BGSTAB-014",
+      "scope": "BGSTAB",
+      "title": "Wave 7 frontend runtime resource consumers",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.6,
+      "evidence": "Trace links include 'frontend/src/utils/terminalDebugCapture.ts (implements) - local debug hook for send-failed regression capture without raw input leakage' and AC-7 requires 'input content remains out of debug logs'. P0-4 (buildTerminalInputDebugPayload 3x to 1x per keystroke, Segmenter/TextEncoder singleton, skip when capture disabled) is a pure performance refactor of code this REQ already governs; no AC specifies computation count or timing, so it extends rather than contradicts FR-BGSTAB-014, provided the no-raw-input-leakage guarantee (AC-7) is preserved by the singleton/caching change."
+    },
+    {
+      "p0_item": "P0-5",
+      "id": "FR-BGSTAB-014",
+      "scope": "BGSTAB",
+      "title": "Wave 7 frontend runtime resource consumers",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.6,
+      "evidence": "Trace links include 'frontend/src/components/Terminal/TerminalContainer.tsx (implements) - visible recovery barrier, screen repair request, and transport outbox gating'. P0-5's target (repeated new TextEncoder() and resourceLimits object spread per onOutput message in TerminalContainer.tsx:96-98,1661-1663, per research doc F18) sits inside code this REQ already covers. No AC constrains per-message allocation strategy, so caching/singleton-izing is an extension, not a conflict."
+    },
+    {
+      "p0_item": "P0-5",
+      "id": "FR-BGSTAB-001",
+      "scope": "BGSTAB",
+      "title": "Runtime resource limits for terminal stability",
+      "relation_hint": "depends-on",
+      "similarity_score": 0.4,
+      "evidence": "AC-1: 'typed getters expose validated values with server-compatible defaults.' P0-5's getTerminalResourceLimits caching targets the frontend getter(s) this REQ defines (frontend/src/utils/inputReliabilityMode.ts); caching call results at the onOutput call site depends on but does not alter the getter contract itself."
+    }
+  ],
+  "relevant_scopes": [
+    "BGSTAB"
+  ],
+  "no_match_reason": null,
+  "per_item_recommendation": [
+    {
+      "p0_item": "P0-1",
+      "recommended_classification": "update",
+      "primary_related_req": "FR-BGSTAB-003",
+      "rationale_short": "Extends the already-implemented bounded visible-output scheduler (FR-BGSTAB-003) with a per-frame time budget instead of a fixed one-chunk-per-frame cadence, and restores the config.json5 override toward the FR-BGSTAB-001 schema default (256KB). No AC text is contradicted. Coordinate with FR-BGSTAB-017 (planned) since both touch terminalOutputScheduler.ts internals."
+    },
+    {
+      "p0_item": "P0-2",
+      "recommended_classification": "update",
+      "primary_related_req": "FR-BGSTAB-011",
+      "rationale_short": "Activates the already-implemented and verified enforce-mode process-tree termination (FR-BGSTAB-011) by changing the config default from observe to enforce, and extends REL-BGSTAB-002's shutdown cleanup sequence/timeout for parallelized batch termination at 54-session scale. No AC numerically pins the current 3s timeout or sequential processing, so this is a scale-driven update, not a new requirement."
+    },
+    {
+      "p0_item": "P0-3",
+      "recommended_classification": "conflict",
+      "primary_related_req": "FR-BGSTAB-009",
+      "rationale_short": "FR-BGSTAB-009 AC-2 requires unconditional (mode-independent) capture of process metadata including best-effort OS start identity when any new session's PTY is spawned. P0-3's skip-in-observe-mode sub-requirement would skip that capture for the current default mode, directly contradicting AC-2's unconditional wording. The async/non-blocking conversion part of P0-3 is compatible on its own, but the mode-gated skip needs an explicit SRS decision (relax/update AC-2, or drop the observe-mode-skip sub-requirement) before implementation."
+    },
+    {
+      "p0_item": "P0-4",
+      "recommended_classification": "update",
+      "primary_related_req": "FR-BGSTAB-014",
+      "rationale_short": "Pure performance refactor (memoize/singleton Segmenter+TextEncoder, compute debug payload once per keystroke, skip when capture disabled) inside code FR-BGSTAB-014 already governs; no AC constrains computation count, so it extends the REQ."
+    },
+    {
+      "p0_item": "P0-5",
+      "recommended_classification": "update",
+      "primary_related_req": "FR-BGSTAB-014",
+      "rationale_short": "Pure performance refactor (singleton TextEncoder, cached resource-limit getter results) inside TerminalContainer.tsx onOutput handling that FR-BGSTAB-014 already governs; depends on FR-BGSTAB-001's getter contract but does not change it."
+    }
+  ]
+}

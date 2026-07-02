@@ -1,0 +1,30 @@
+{
+  "task_id": "T-PH002-02",
+  "reviewer": "formal-check",
+  "status": "pass",
+  "checked_at": "2026-05-22T01:40:45Z",
+  "findings": [],
+  "checks": [
+    {
+      "axis": "mock-regex",
+      "status": "pass",
+      "notes": "No mock or fake production dependency was introduced for recovery matching."
+    },
+    {
+      "axis": "type-build",
+      "status": "pass",
+      "command": "npm --prefix server test",
+      "notes": "The command includes npm --prefix server run build before executing tests."
+    },
+    {
+      "axis": "plan-code-mapping",
+      "status": "pass",
+      "notes": "SessionManager exposes submitted command callback; WorkspaceService matches enabled recovery options and persists/clears tab metadata; workspace tab types expose recovery metadata fields."
+    },
+    {
+      "axis": "test-coverage",
+      "status": "pass",
+      "notes": "T-PH002-01 matching tests pass, including quoted Windows executable matching and AI TUI Enter input remaining idle."
+    }
+  ]
+}
