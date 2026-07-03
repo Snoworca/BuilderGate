@@ -1,0 +1,929 @@
+{
+  "schema_version": "1.1.0",
+  "plan_contract": "1.2.0",
+  "run_id": "2026-07-03.projectmaster.p0-native-perf",
+  "target": "0.5.5-buildergate-stability",
+  "plan_version": "0.1.0",
+  "generated_at": "2026-07-03T00:00:00Z",
+  "tool_versions": {
+    "speckiwi": "mcp",
+    "kiwi_planner": "0.6.0",
+    "validator": "0.6.0"
+  },
+  "tdd_policy": "relaxed",
+  "md_path": "docs/plans/2026-07-03.projectmaster.p0-native-perf.plan.md",
+  "md_sha256": "pending",
+  "phases": [
+    {
+      "id": "PH-001",
+      "title": "Output Scheduler And Operational Config",
+      "goal": "PERF-BGSTAB-001 and FR-BGSTAB-019 config/scheduler foundations",
+      "depends_on": [],
+      "task_ids": ["T-PH001-01", "T-PH001-02", "T-PH001-03", "T-PH001-04"]
+    },
+    {
+      "id": "PH-002",
+      "title": "Async Process Identity",
+      "goal": "Remove synchronous process start identity capture from session creation",
+      "depends_on": ["PH-001"],
+      "task_ids": ["T-PH002-01", "T-PH002-02"]
+    },
+    {
+      "id": "PH-003",
+      "title": "Frontend Input And Output Hot Paths",
+      "goal": "Remove redundant input debug and output allocation work",
+      "depends_on": ["PH-001"],
+      "task_ids": ["T-PH003-01", "T-PH003-02", "T-PH003-03", "T-PH003-04"]
+    },
+    {
+      "id": "PH-004",
+      "title": "Evidence And Review",
+      "goal": "Collect required verification evidence and final review",
+      "depends_on": ["PH-002", "PH-003"],
+      "task_ids": ["T-PH004-01", "T-PH004-02", "T-PH004-03"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "title": "Scheduler time-budget red tests",
+      "type": "code",
+      "req_ids": ["PERF-BGSTAB-001"],
+      "files": [
+        { "path": "frontend/src/utils/terminalOutputScheduler.ts", "line_range": "1-208" },
+        { "path": "frontend/tests/unit/terminalOutputScheduler.test.ts", "line_range": "1-197" }
+      ],
+      "action": "Add failing scheduler tests for per-frame multi-chunk drain, input yield, and default frame budget.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts", "expected_exit": 1 }
+      ],
+      "verification_cmd": {
+        "posix": "cd frontend && node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+        "windows": "cd frontend; node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts"
+      },
+      "dod": ["New scheduler tests fail before implementation.", "Existing code-point safety tests remain present."],
+      "rollback": "Revert the added scheduler tests.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-01-001",
+          "source": { "type": "Task", "id": "T-PH001-01" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-001" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "depends_on_task": [],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-5"],
+      "test_files": [
+        { "path": "frontend/tests/unit/terminalOutputScheduler.test.ts", "line_range": "1-197" }
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-001-AC1-01",
+            "req_id": "PERF-BGSTAB-001",
+            "ac_refs": ["AC-1", "AC-2", "AC-3", "AC-5"],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "time-budgeted multi-chunk visible output flush",
+            "kind": "unit",
+            "expected_failure_signature": "multi-chunk|frame budget|input pending"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH001-02",
+      "phase_id": "PH-001",
+      "title": "Scheduler time-budget implementation",
+      "type": "code",
+      "req_ids": ["PERF-BGSTAB-001"],
+      "files": [
+        { "path": "frontend/src/utils/terminalOutputScheduler.ts", "line_range": "1-208" },
+        { "path": "frontend/tests/unit/terminalOutputScheduler.test.ts", "line_range": "1-197" }
+      ],
+      "action": "Implement frame-budgeted multi-chunk flush while preserving callback ordering and code-point safety.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts", "expected_exit": 0 }
+      ],
+      "verification_cmd": {
+        "posix": "cd frontend && node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+        "windows": "cd frontend; node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts"
+      },
+      "dod": ["Scheduler drains multiple chunks within budget.", "Pending input yields the current frame."],
+      "rollback": "Revert scheduler implementation and tests.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-02-001",
+          "source": { "type": "Task", "id": "T-PH001-02" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-001" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": ["T-PH001-01"],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-5"],
+      "test_files": [
+        { "path": "frontend/tests/unit/terminalOutputScheduler.test.ts", "line_range": "1-197" }
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-001-AC1-02",
+            "req_id": "PERF-BGSTAB-001",
+            "ac_refs": ["AC-1", "AC-2", "AC-3", "AC-5"],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "time-budgeted multi-chunk visible output flush",
+            "kind": "unit"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH001-03",
+      "phase_id": "PH-001",
+      "title": "Operational config red tests",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-019", "PERF-BGSTAB-001"],
+      "files": [
+        { "path": "server/config.json5", "line_range": "1-93" },
+        { "path": "server/src/schemas/config.schema.ts", "line_range": "70-155" },
+        { "path": "server/src/test-runner.ts", "line_range": "1-12162" }
+      ],
+      "action": "Add failing operational config tests for 262144 visible flush budget, enforce cleanup mode, and observe schema default.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "cd server && npx tsx src/test-runner.ts", "expected_exit": 1 }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx src/test-runner.ts",
+        "windows": "cd server; npx tsx src/test-runner.ts"
+      },
+      "dod": ["Tests distinguish operational config overrides from schema defaults."],
+      "rollback": "Revert only the added config tests.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-03-001",
+          "source": { "type": "Task", "id": "T-PH001-03" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-001" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH001-03-002",
+          "source": { "type": "Task", "id": "T-PH001-03" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-019" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "depends_on_task": [],
+      "covers_ac": ["AC-1", "AC-4", "AC-5"],
+      "test_files": [
+        { "path": "server/src/test-runner.ts", "line_range": "1-12162" }
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-001-AC4-01",
+            "req_id": "PERF-BGSTAB-001",
+            "ac_refs": ["AC-4"],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "operational visible flush byte budget resolves to schema default",
+            "kind": "integration",
+            "expected_failure_signature": "visibleFlushBudgetBytes"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-019-AC1-01",
+            "req_id": "FR-BGSTAB-019",
+            "ac_refs": ["AC-1", "AC-5"],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "operational process cleanup mode resolves to enforce while schema default remains observe",
+            "kind": "integration",
+            "expected_failure_signature": "processCleanup"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH001-04",
+      "phase_id": "PH-001",
+      "title": "Operational config implementation",
+      "type": "code",
+      "req_ids": ["FR-BGSTAB-019", "PERF-BGSTAB-001"],
+      "files": [
+        { "path": "server/config.json5", "line_range": "1-93" },
+        { "path": "server/src/schemas/config.schema.ts", "line_range": "70-155" },
+        { "path": "server/src/test-runner.ts", "line_range": "1-12162" }
+      ],
+      "action": "Restore operational visible flush budget to 262144 and enable session.processCleanup.mode=enforce without schema default changes.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "cd server && npx tsx src/test-runner.ts", "expected_exit": 0 }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx src/test-runner.ts",
+        "windows": "cd server; npx tsx src/test-runner.ts"
+      },
+      "dod": ["Operational config resolves to enforce and 262144.", "Schema omission still resolves cleanup mode observe."],
+      "rollback": "Set operational cleanup mode back to observe and restore prior visible flush override if needed.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-04-001",
+          "source": { "type": "Task", "id": "T-PH001-04" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-001" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH001-04-002",
+          "source": { "type": "Task", "id": "T-PH001-04" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-019" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "depends_on_task": ["T-PH001-03"],
+      "covers_ac": ["AC-1", "AC-4", "AC-5"],
+      "test_files": [
+        { "path": "server/src/test-runner.ts", "line_range": "1-12162" }
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-001-AC4-02",
+            "req_id": "PERF-BGSTAB-001",
+            "ac_refs": ["AC-4"],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "operational visible flush byte budget resolves to schema default",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-019-AC1-02",
+            "req_id": "FR-BGSTAB-019",
+            "ac_refs": ["AC-1", "AC-5"],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "operational process cleanup mode resolves to enforce while schema default remains observe",
+            "kind": "integration"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "title": "Async identity red tests",
+      "type": "code",
+      "req_ids": ["PERF-BGSTAB-002"],
+      "files": [
+        { "path": "server/src/services/SessionManager.ts", "line_range": "1-3568" },
+        { "path": "server/src/test-runner.ts", "line_range": "1-12162" },
+        { "path": "server/src/utils/processTreeTerminator.ts", "line_range": "1-638" }
+      ],
+      "action": "Add failing async identity tests for non-blocking createSession and terminate-before-capture race.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "cd server && npx tsx src/test-runner.ts", "expected_exit": 1 }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx src/test-runner.ts",
+        "windows": "cd server; npx tsx src/test-runner.ts"
+      },
+      "dod": ["Tests fail before async conversion and cover failure containment."],
+      "rollback": "Revert added async identity tests.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-01-001",
+          "source": { "type": "Task", "id": "T-PH002-01" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-002" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": ["T-PH001-04"],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"],
+      "test_files": [
+        { "path": "server/src/test-runner.ts", "line_range": "1-12162" }
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-002-AC1-01",
+            "req_id": "PERF-BGSTAB-002",
+            "ac_refs": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "SessionManager captures process start identity asynchronously",
+            "kind": "integration",
+            "expected_failure_signature": "start identity"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH002-02",
+      "phase_id": "PH-002",
+      "title": "Async identity implementation",
+      "type": "code",
+      "req_ids": ["PERF-BGSTAB-002"],
+      "files": [
+        { "path": "server/src/services/SessionManager.ts", "line_range": "1-3568" },
+        { "path": "server/src/test-runner.ts", "line_range": "1-12162" },
+        { "path": "server/src/utils/processTreeTerminator.ts", "line_range": "1-638" }
+      ],
+      "action": "Convert start identity capture to async best effort and update session metadata only while the session is still live.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "cd server && npx tsx src/test-runner.ts", "expected_exit": 0 }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx src/test-runner.ts",
+        "windows": "cd server; npx tsx src/test-runner.ts"
+      },
+      "dod": ["createSession does not call sync start identity lookup.", "Cleanup handles missing identity as unverified."],
+      "rollback": "Restore synchronous identity capture and remove tests.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-02-001",
+          "source": { "type": "Task", "id": "T-PH002-02" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-002" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": ["T-PH002-01"],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"],
+      "test_files": [
+        { "path": "server/src/test-runner.ts", "line_range": "1-12162" }
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-002-AC1-02",
+            "req_id": "PERF-BGSTAB-002",
+            "ac_refs": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "SessionManager captures process start identity asynchronously",
+            "kind": "integration"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "title": "Input debug payload red tests",
+      "type": "code",
+      "req_ids": ["PERF-BGSTAB-003"],
+      "files": [
+        { "path": "frontend/src/components/Terminal/TerminalContainer.tsx", "line_range": "1-1877" },
+        { "path": "frontend/src/components/Terminal/TerminalView.tsx", "line_range": "1-2292" },
+        { "path": "frontend/src/utils/terminalDebugCapture.ts", "line_range": "1-546" },
+        { "path": "frontend/src/utils/terminalInputSequencer.ts", "line_range": "1-199" },
+        { "path": "frontend/tests/unit/terminalInputSequencer.test.ts", "line_range": "1-47" }
+      ],
+      "action": "Add failing tests for singleton codec reuse, metadata reuse, skip-when-disabled, and no raw input leakage.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/terminalInputSequencer.test.ts", "expected_exit": 1 }
+      ],
+      "verification_cmd": {
+        "posix": "cd frontend && node --experimental-strip-types --test tests/unit/terminalInputSequencer.test.ts",
+        "windows": "cd frontend; node --experimental-strip-types --test tests/unit/terminalInputSequencer.test.ts"
+      },
+      "dod": ["Tests fail on current per-call codec and recomputation behavior."],
+      "rollback": "Revert added PERF-BGSTAB-003 tests.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-01-001",
+          "source": { "type": "Task", "id": "T-PH003-01" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-003" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": ["T-PH001-02"],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"],
+      "test_files": [
+        { "path": "frontend/tests/unit/terminalInputSequencer.test.ts", "line_range": "1-47" }
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-003-AC1-01",
+            "req_id": "PERF-BGSTAB-003",
+            "ac_refs": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"],
+            "test_file": "frontend/tests/unit/terminalInputSequencer.test.ts",
+            "test_symbol": "terminal input hot path reuses client observed metadata and codecs",
+            "kind": "unit",
+            "expected_failure_signature": "metadata|TextEncoder|Segmenter"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH003-02",
+      "phase_id": "PH-003",
+      "title": "Input debug payload implementation",
+      "type": "code",
+      "req_ids": ["PERF-BGSTAB-003"],
+      "files": [
+        { "path": "frontend/src/components/Terminal/TerminalContainer.tsx", "line_range": "1-1877" },
+        { "path": "frontend/src/components/Terminal/TerminalView.tsx", "line_range": "1-2292" },
+        { "path": "frontend/src/utils/terminalDebugCapture.ts", "line_range": "1-546" },
+        { "path": "frontend/src/utils/terminalInputSequencer.ts", "line_range": "1-199" },
+        { "path": "frontend/tests/unit/terminalInputSequencer.test.ts", "line_range": "1-47" }
+      ],
+      "action": "Implement singleton codec reuse, upstream metadata reuse, and skip high-cost payload work when debug capture is disabled.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/terminalInputSequencer.test.ts", "expected_exit": 0 }
+      ],
+      "verification_cmd": {
+        "posix": "cd frontend && node --experimental-strip-types --test tests/unit/terminalInputSequencer.test.ts",
+        "windows": "cd frontend; node --experimental-strip-types --test tests/unit/terminalInputSequencer.test.ts"
+      },
+      "dod": ["Keystroke metadata is computed once and reused downstream.", "Raw printable input remains excluded from debug logs."],
+      "rollback": "Revert PERF-BGSTAB-003 implementation and tests.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-02-001",
+          "source": { "type": "Task", "id": "T-PH003-02" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-003" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "L",
+      "depends_on_task": ["T-PH003-01"],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"],
+      "test_files": [
+        { "path": "frontend/tests/unit/terminalInputSequencer.test.ts", "line_range": "1-47" }
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-003-AC1-02",
+            "req_id": "PERF-BGSTAB-003",
+            "ac_refs": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"],
+            "test_file": "frontend/tests/unit/terminalInputSequencer.test.ts",
+            "test_symbol": "terminal input hot path reuses client observed metadata and codecs",
+            "kind": "unit"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH003-03",
+      "phase_id": "PH-003",
+      "title": "Output allocation red tests",
+      "type": "code",
+      "req_ids": ["PERF-BGSTAB-004"],
+      "files": [
+        { "path": "frontend/src/components/Terminal/TerminalContainer.tsx", "line_range": "1-1877" },
+        { "path": "frontend/src/utils/inputReliabilityMode.ts", "line_range": "80-210" },
+        { "path": "frontend/tests/unit/runtimeConfig.test.ts", "line_range": "1-549" }
+      ],
+      "action": "Add failing tests for singleton output TextEncoder and runtimeConfigVersion-based terminal limits cache invalidation.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/runtimeConfig.test.ts", "expected_exit": 1 }
+      ],
+      "verification_cmd": {
+        "posix": "cd frontend && node --experimental-strip-types --test tests/unit/runtimeConfig.test.ts",
+        "windows": "cd frontend; node --experimental-strip-types --test tests/unit/runtimeConfig.test.ts"
+      },
+      "dod": ["Tests fail on current direct getTerminalResourceLimits allocation path."],
+      "rollback": "Revert added PERF-BGSTAB-004 tests.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-03-001",
+          "source": { "type": "Task", "id": "T-PH003-03" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-004" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "depends_on_task": ["T-PH001-02"],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-4"],
+      "test_files": [
+        { "path": "frontend/tests/unit/runtimeConfig.test.ts", "line_range": "1-549" }
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-004-AC1-01",
+            "req_id": "PERF-BGSTAB-004",
+            "ac_refs": ["AC-1", "AC-2", "AC-3", "AC-4"],
+            "test_file": "frontend/tests/unit/runtimeConfig.test.ts",
+            "test_symbol": "terminal output hot path caches UTF-8 and resource limits by runtime config version",
+            "kind": "unit",
+            "expected_failure_signature": "TextEncoder|runtimeConfigVersion"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH003-04",
+      "phase_id": "PH-003",
+      "title": "Output allocation implementation",
+      "type": "code",
+      "req_ids": ["PERF-BGSTAB-004"],
+      "files": [
+        { "path": "frontend/src/components/Terminal/TerminalContainer.tsx", "line_range": "1-1877" },
+        { "path": "frontend/src/utils/inputReliabilityMode.ts", "line_range": "80-210" },
+        { "path": "frontend/tests/unit/runtimeConfig.test.ts", "line_range": "1-549" }
+      ],
+      "action": "Implement singleton byte-length helper and runtimeConfigVersion-invalidation cache for terminal output limits.",
+      "acceptance_tests": [
+        { "kind": "shell", "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/runtimeConfig.test.ts tests/unit/terminalHiddenOutput.test.ts", "expected_exit": 0 }
+      ],
+      "verification_cmd": {
+        "posix": "cd frontend && node --experimental-strip-types --test tests/unit/runtimeConfig.test.ts tests/unit/terminalHiddenOutput.test.ts",
+        "windows": "cd frontend; node --experimental-strip-types --test tests/unit/runtimeConfig.test.ts tests/unit/terminalHiddenOutput.test.ts"
+      },
+      "dod": ["Cached limits refresh after runtime config reload.", "Hidden output byte-length contract remains green."],
+      "rollback": "Remove cache helper and restore direct calls.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-04-001",
+          "source": { "type": "Task", "id": "T-PH003-04" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-004" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": ["T-PH003-03"],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-4"],
+      "test_files": [
+        { "path": "frontend/tests/unit/runtimeConfig.test.ts", "line_range": "1-549" }
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-004-AC1-02",
+            "req_id": "PERF-BGSTAB-004",
+            "ac_refs": ["AC-1", "AC-2", "AC-3", "AC-4"],
+            "test_file": "frontend/tests/unit/runtimeConfig.test.ts",
+            "test_symbol": "terminal output hot path caches UTF-8 and resource limits by runtime config version",
+            "kind": "unit"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH004-01",
+      "phase_id": "PH-004",
+      "title": "Throughput and input latency verification",
+      "type": "perf_test",
+      "req_ids": ["PERF-BGSTAB-001", "PERF-BGSTAB-003", "PERF-BGSTAB-004"],
+      "files": [
+        { "path": "docs/research/2026-07-02.buildergate-native-performance-54-sessions-deep-analysis.md", "line_range": "198-207" },
+        { "path": "frontend/src/utils/terminalOutputScheduler.ts", "line_range": "1-208" }
+      ],
+      "action": "Collect throughput and load-under-input latency evidence or explicitly record unavailable live evidence.",
+      "acceptance_tests": [
+        { "kind": "perf", "metric": "output throughput and keydown latency", "threshold": "documented pre/post evidence or explicit remaining validation", "tool": "local harness or focused unit/perf runner" }
+      ],
+      "verification_cmd": {
+        "posix": "cd frontend && node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts tests/unit/terminalInputSequencer.test.ts tests/unit/runtimeConfig.test.ts",
+        "windows": "cd frontend; node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts tests/unit/terminalInputSequencer.test.ts tests/unit/runtimeConfig.test.ts"
+      },
+      "dod": ["Research §6 output throughput/input latency items are evidenced or honestly marked remaining."],
+      "rollback": "Remove unreliable perf harness artifacts only.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-01-001",
+          "source": { "type": "Task", "id": "T-PH004-01" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-001" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH004-01-002",
+          "source": { "type": "Task", "id": "T-PH004-01" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-003" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH004-01-003",
+          "source": { "type": "Task", "id": "T-PH004-01" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-004" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": ["T-PH003-02", "T-PH003-04"],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"],
+      "tdd": {
+        "applicable": false,
+        "phase": "n/a",
+        "exempt_reason": "Perf evidence is a measurement gate rather than a code-unit red-green task.",
+        "test_cases": []
+      }
+    },
+    {
+      "id": "T-PH004-02",
+      "phase_id": "PH-004",
+      "title": "Cleanup enforce soak gate evidence",
+      "type": "perf_test",
+      "req_ids": ["FR-BGSTAB-019"],
+      "files": [
+        { "path": "docs/research/2026-07-02.buildergate-native-performance-54-sessions-deep-analysis.md", "line_range": "198-207" },
+        { "path": "server/config.json5", "line_range": "1-93" },
+        { "path": "server/src/test-runner.ts", "line_range": "1-12162" }
+      ],
+      "action": "Record enforce activation, rollback path, and available descendant-cleanup evidence.",
+      "acceptance_tests": [
+        { "kind": "perf", "metric": "verified-owned descendant cleanup", "threshold": "zero descendants in soak evidence or explicit remaining validation note", "tool": "server cleanup tests and soak record" }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx src/test-runner.ts",
+        "windows": "cd server; npx tsx src/test-runner.ts"
+      },
+      "dod": ["FR-BGSTAB-019 AC-2 through AC-4 have test/config/evidence support."],
+      "rollback": "Revert operational config mode to observe if enforce evidence fails.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-02-001",
+          "source": { "type": "Task", "id": "T-PH004-02" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-019" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": ["T-PH001-04", "T-PH002-02"],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"],
+      "tdd": {
+        "applicable": false,
+        "phase": "n/a",
+        "exempt_reason": "Soak and rollback evidence validates operations behavior beyond unit-test red-green scope.",
+        "test_cases": []
+      }
+    },
+    {
+      "id": "T-PH004-03",
+      "phase_id": "PH-004",
+      "title": "Final regression and sub-agent review",
+      "type": "review",
+      "req_ids": ["FR-BGSTAB-019", "PERF-BGSTAB-001", "PERF-BGSTAB-002", "PERF-BGSTAB-003", "PERF-BGSTAB-004"],
+      "files": [
+        { "path": "docs/plans/2026-07-03.projectmaster.p0-native-perf.plan.md" },
+        { "path": "docs/plans/2026-07-03.projectmaster.p0-native-perf.sidecar.json" }
+      ],
+      "action": "Run final automated checks and strict sub-agent review against plan and SRS.",
+      "acceptance_tests": [
+        { "kind": "checklist", "items": ["server tests pass", "frontend focused tests pass", "sub-agent review returns no findings"] }
+      ],
+      "verification_cmd": null,
+      "dod": ["Full server tests, focused frontend tests, performance evidence, and sub-agent review are complete."],
+      "rollback": "Revert only implementation patches associated with unresolved findings.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-03-001",
+          "source": { "type": "Task", "id": "T-PH004-03" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-001" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH004-03-002",
+          "source": { "type": "Task", "id": "T-PH004-03" },
+          "target": { "type": "Requirement", "reference": "FR-BGSTAB-019" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH004-03-003",
+          "source": { "type": "Task", "id": "T-PH004-03" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-002" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH004-03-004",
+          "source": { "type": "Task", "id": "T-PH004-03" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-003" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        },
+        {
+          "link_id": "TL-T-PH004-03-005",
+          "source": { "type": "Task", "id": "T-PH004-03" },
+          "target": { "type": "Requirement", "reference": "PERF-BGSTAB-004" },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": ["T-PH004-01", "T-PH004-02"],
+      "covers_ac": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"],
+      "tdd": {
+        "applicable": false,
+        "phase": "n/a",
+        "test_cases": []
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "req_id": "PERF-BGSTAB-001",
+      "stability": "evolving",
+      "ac_total": 5,
+      "ac_covered": 5,
+      "missing_ac_ids": [],
+      "covered_tasks": ["T-PH001-01", "T-PH001-02", "T-PH001-03", "T-PH001-04", "T-PH004-01", "T-PH004-03"],
+      "ac_test_map": [
+        { "ac_id": "AC-1", "test_case_ids": ["TC-REQ-PERF-BGSTAB-001-AC1-01", "TC-REQ-PERF-BGSTAB-001-AC1-02"] },
+        { "ac_id": "AC-2", "test_case_ids": ["TC-REQ-PERF-BGSTAB-001-AC1-01", "TC-REQ-PERF-BGSTAB-001-AC1-02"] },
+        { "ac_id": "AC-3", "test_case_ids": ["TC-REQ-PERF-BGSTAB-001-AC1-01", "TC-REQ-PERF-BGSTAB-001-AC1-02"] },
+        { "ac_id": "AC-4", "test_case_ids": ["TC-REQ-PERF-BGSTAB-001-AC4-01", "TC-REQ-PERF-BGSTAB-001-AC4-02"] },
+        { "ac_id": "AC-5", "test_case_ids": ["TC-REQ-PERF-BGSTAB-001-AC1-01", "TC-REQ-PERF-BGSTAB-001-AC1-02"] }
+      ]
+    },
+    {
+      "req_id": "FR-BGSTAB-019",
+      "stability": "evolving",
+      "ac_total": 5,
+      "ac_covered": 5,
+      "missing_ac_ids": [],
+      "covered_tasks": ["T-PH001-03", "T-PH001-04", "T-PH004-02", "T-PH004-03"],
+      "ac_test_map": [
+        { "ac_id": "AC-1", "test_case_ids": ["TC-REQ-FR-BGSTAB-019-AC1-01", "TC-REQ-FR-BGSTAB-019-AC1-02"] },
+        { "ac_id": "AC-2", "test_case_ids": [] },
+        { "ac_id": "AC-3", "test_case_ids": [] },
+        { "ac_id": "AC-4", "test_case_ids": [] },
+        { "ac_id": "AC-5", "test_case_ids": ["TC-REQ-FR-BGSTAB-019-AC1-01", "TC-REQ-FR-BGSTAB-019-AC1-02"] }
+      ]
+    },
+    {
+      "req_id": "PERF-BGSTAB-002",
+      "stability": "evolving",
+      "ac_total": 5,
+      "ac_covered": 5,
+      "missing_ac_ids": [],
+      "covered_tasks": ["T-PH002-01", "T-PH002-02", "T-PH004-03"],
+      "ac_test_map": [
+        { "ac_id": "AC-1", "test_case_ids": ["TC-REQ-PERF-BGSTAB-002-AC1-01", "TC-REQ-PERF-BGSTAB-002-AC1-02"] },
+        { "ac_id": "AC-2", "test_case_ids": ["TC-REQ-PERF-BGSTAB-002-AC1-01", "TC-REQ-PERF-BGSTAB-002-AC1-02"] },
+        { "ac_id": "AC-3", "test_case_ids": ["TC-REQ-PERF-BGSTAB-002-AC1-01", "TC-REQ-PERF-BGSTAB-002-AC1-02"] },
+        { "ac_id": "AC-4", "test_case_ids": ["TC-REQ-PERF-BGSTAB-002-AC1-01", "TC-REQ-PERF-BGSTAB-002-AC1-02"] },
+        { "ac_id": "AC-5", "test_case_ids": ["TC-REQ-PERF-BGSTAB-002-AC1-01", "TC-REQ-PERF-BGSTAB-002-AC1-02"] }
+      ]
+    },
+    {
+      "req_id": "PERF-BGSTAB-003",
+      "stability": "evolving",
+      "ac_total": 5,
+      "ac_covered": 5,
+      "missing_ac_ids": [],
+      "covered_tasks": ["T-PH003-01", "T-PH003-02", "T-PH004-01", "T-PH004-03"],
+      "ac_test_map": [
+        { "ac_id": "AC-1", "test_case_ids": ["TC-REQ-PERF-BGSTAB-003-AC1-01", "TC-REQ-PERF-BGSTAB-003-AC1-02"] },
+        { "ac_id": "AC-2", "test_case_ids": ["TC-REQ-PERF-BGSTAB-003-AC1-01", "TC-REQ-PERF-BGSTAB-003-AC1-02"] },
+        { "ac_id": "AC-3", "test_case_ids": ["TC-REQ-PERF-BGSTAB-003-AC1-01", "TC-REQ-PERF-BGSTAB-003-AC1-02"] },
+        { "ac_id": "AC-4", "test_case_ids": ["TC-REQ-PERF-BGSTAB-003-AC1-01", "TC-REQ-PERF-BGSTAB-003-AC1-02"] },
+        { "ac_id": "AC-5", "test_case_ids": ["TC-REQ-PERF-BGSTAB-003-AC1-01", "TC-REQ-PERF-BGSTAB-003-AC1-02"] }
+      ]
+    },
+    {
+      "req_id": "PERF-BGSTAB-004",
+      "stability": "evolving",
+      "ac_total": 4,
+      "ac_covered": 4,
+      "missing_ac_ids": [],
+      "covered_tasks": ["T-PH003-03", "T-PH003-04", "T-PH004-01", "T-PH004-03"],
+      "ac_test_map": [
+        { "ac_id": "AC-1", "test_case_ids": ["TC-REQ-PERF-BGSTAB-004-AC1-01", "TC-REQ-PERF-BGSTAB-004-AC1-02"] },
+        { "ac_id": "AC-2", "test_case_ids": ["TC-REQ-PERF-BGSTAB-004-AC1-01", "TC-REQ-PERF-BGSTAB-004-AC1-02"] },
+        { "ac_id": "AC-3", "test_case_ids": ["TC-REQ-PERF-BGSTAB-004-AC1-01", "TC-REQ-PERF-BGSTAB-004-AC1-02"] },
+        { "ac_id": "AC-4", "test_case_ids": ["TC-REQ-PERF-BGSTAB-004-AC1-01", "TC-REQ-PERF-BGSTAB-004-AC1-02"] }
+      ]
+    }
+  ],
+  "orphans": [],
+  "unreferenced_reqs": [],
+  "excluded_reqs": [
+    {
+      "req_id": "REL-BGSTAB-005",
+      "stability": "draft",
+      "reason": "Draft requirement with unresolved OQ-1/OQ-2; user objective explicitly excludes it."
+    }
+  ],
+  "deferred_ac": [],
+  "risks": [
+    {
+      "id": "R-001",
+      "severity": "high",
+      "description": "PERF-BGSTAB-001 shares terminalOutputScheduler internals with FR-BGSTAB-017.",
+      "mitigation": "Keep implementation local and preserve existing callback ordering/reset/code-point tests.",
+      "affected_task_ids": ["T-PH001-01", "T-PH001-02"]
+    },
+    {
+      "id": "R-002",
+      "severity": "high",
+      "description": "Operational enforce activation must not change schema default observe.",
+      "mitigation": "Assert operational config and schema default in one regression test.",
+      "affected_task_ids": ["T-PH001-03", "T-PH001-04"]
+    },
+    {
+      "id": "R-003",
+      "severity": "med",
+      "description": "TerminalContainer TSX is difficult to import directly in Node unit tests.",
+      "mitigation": "Extract only testable hot-path primitives if needed.",
+      "affected_task_ids": ["T-PH003-03", "T-PH003-04"]
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "OQ-1",
+      "question": "REL-BGSTAB-005 shutdown concurrency limit remains unresolved and excluded.",
+      "blocks_task_ids": []
+    },
+    {
+      "id": "OQ-2",
+      "question": "REL-BGSTAB-005 cleanup timeout scaling remains unresolved and excluded.",
+      "blocks_task_ids": []
+    }
+  ],
+  "external_module_impact": [],
+  "tdd_decisions": [],
+  "coder_handoff_readiness": [
+    { "phase_id": "PH-001", "ready": true, "blockers": [] },
+    { "phase_id": "PH-002", "ready": true, "blockers": [] },
+    { "phase_id": "PH-003", "ready": true, "blockers": [] },
+    { "phase_id": "PH-004", "ready": true, "blockers": [] }
+  ],
+  "mcp_call_log": [
+    { "seq": 1, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH001-01" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-001" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 2, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH001-02" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-001" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 3, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH001-03" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-001" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 4, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH001-03" }, "target": { "type": "Requirement", "reference": "FR-BGSTAB-019" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 5, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH001-04" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-001" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 6, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH001-04" }, "target": { "type": "Requirement", "reference": "FR-BGSTAB-019" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 7, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH002-01" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-002" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 8, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH002-02" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-002" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 9, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH003-01" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-003" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 10, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH003-02" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-003" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 11, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH003-03" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-004" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 12, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH003-04" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-004" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 13, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH004-01" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-001" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 14, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH004-01" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-003" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 15, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH004-01" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-004" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 16, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH004-02" }, "target": { "type": "Requirement", "reference": "FR-BGSTAB-019" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 17, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH004-03" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-001" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 18, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH004-03" }, "target": { "type": "Requirement", "reference": "FR-BGSTAB-019" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 19, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH004-03" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-002" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 20, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH004-03" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-003" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 21, "call": "add_trace_link", "args": { "source": { "type": "Task", "id": "T-PH004-03" }, "target": { "type": "Requirement", "reference": "PERF-BGSTAB-004" }, "relation": "depends_on" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 22, "call": "add_verification_evidence", "args": { "id": "PERF-BGSTAB-001", "type": "plan", "reference": "docs/plans/2026-07-03.projectmaster.p0-native-perf.plan.md#T-PH001-01" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 23, "call": "add_verification_evidence", "args": { "id": "FR-BGSTAB-019", "type": "plan", "reference": "docs/plans/2026-07-03.projectmaster.p0-native-perf.plan.md#T-PH001-03" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 24, "call": "add_verification_evidence", "args": { "id": "PERF-BGSTAB-002", "type": "plan", "reference": "docs/plans/2026-07-03.projectmaster.p0-native-perf.plan.md#T-PH002-01" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 25, "call": "add_verification_evidence", "args": { "id": "PERF-BGSTAB-003", "type": "plan", "reference": "docs/plans/2026-07-03.projectmaster.p0-native-perf.plan.md#T-PH003-01" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true },
+    { "seq": 26, "call": "add_verification_evidence", "args": { "id": "PERF-BGSTAB-004", "type": "plan", "reference": "docs/plans/2026-07-03.projectmaster.p0-native-perf.plan.md#T-PH003-03" }, "args_hash": "", "response_hash": null, "timestamp": "2026-07-03T00:00:00Z", "ok": null, "dry_run": true }
+  ]
+}
