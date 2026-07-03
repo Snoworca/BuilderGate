@@ -6,14 +6,16 @@ export interface TerminalOutputSchedulerOptions {
   visibleOutputQueueMaxBytes: number;
   visibleOutputMaxChunks: number;
   visibleFlushBudgetBytes: number;
+  visibleFlushFrameBudgetMs?: number;
   write: (data: string, onWritten: () => void) => void;
   schedule?: (drain: () => void) => void;
   shouldYield?: () => boolean;
+  now?: () => number;
 }
 
 export type TerminalOutputSchedulerConfig = Pick<
   TerminalOutputSchedulerOptions,
-  'visibleOutputQueueMaxBytes' | 'visibleOutputMaxChunks' | 'visibleFlushBudgetBytes'
+  'visibleOutputQueueMaxBytes' | 'visibleOutputMaxChunks' | 'visibleFlushBudgetBytes' | 'visibleFlushFrameBudgetMs'
 >;
 
 export interface TerminalOutputScheduler {
@@ -32,12 +34,14 @@ interface PendingOutputChunk {
 }
 
 const textEncoder = new TextEncoder();
+export const DEFAULT_VISIBLE_FLUSH_FRAME_BUDGET_MS = 7;
 
 export function createTerminalOutputScheduler(options: TerminalOutputSchedulerOptions): TerminalOutputScheduler {
   let config: TerminalOutputSchedulerConfig = {
     visibleOutputQueueMaxBytes: options.visibleOutputQueueMaxBytes,
     visibleOutputMaxChunks: options.visibleOutputMaxChunks,
     visibleFlushBudgetBytes: options.visibleFlushBudgetBytes,
+    visibleFlushFrameBudgetMs: normalizeFrameBudgetMs(options.visibleFlushFrameBudgetMs),
   };
   let queue: PendingOutputChunk[] = [];
   let queuedBytes = 0;
@@ -48,6 +52,7 @@ export function createTerminalOutputScheduler(options: TerminalOutputSchedulerOp
   let consecutiveInputYields = 0;
 
   const schedule = options.schedule ?? defaultSchedule;
+  const now = options.now ?? defaultNow;
 
   const requestFlush = (): void => {
     if (stale || inFlight || scheduled || queue.length === 0) {
@@ -65,43 +70,74 @@ export function createTerminalOutputScheduler(options: TerminalOutputSchedulerOp
       return;
     }
 
-    if (consecutiveInputYields === 0 && options.shouldYield?.()) {
-      consecutiveInputYields += 1;
-      requestFlush();
-      return;
-    }
-    consecutiveInputYields = 0;
+    const frameDeadline = now() + normalizeFrameBudgetMs(config.visibleFlushFrameBudgetMs);
+    drainFrame(frameDeadline);
+  };
 
-    const currentGeneration = generation;
-    const entry = queue[0];
-    const split = takeUtf8Prefix(entry.data, config.visibleFlushBudgetBytes);
-    if (!split.head) {
-      return;
-    }
-
-    queuedBytes -= split.headBytes;
-    if (split.tail) {
-      queue[0] = {
-        data: split.tail,
-        callbacks: entry.callbacks,
-      };
-    } else {
-      queue.shift();
-    }
-
-    inFlight = true;
-    options.write(split.head, () => {
-      if (currentGeneration !== generation) {
+  const drainFrame = (frameDeadline: number): void => {
+    while (!stale && !inFlight && queue.length > 0) {
+      if (consecutiveInputYields === 0 && options.shouldYield?.()) {
+        consecutiveInputYields += 1;
+        requestFlush();
         return;
       }
-      inFlight = false;
-      if (!split.tail) {
-        for (const callback of entry.callbacks) {
-          callback();
-        }
+      consecutiveInputYields = 0;
+
+      const currentGeneration = generation;
+      const entry = queue[0];
+      const split = takeUtf8Prefix(entry.data, config.visibleFlushBudgetBytes);
+      if (!split.head) {
+        return;
       }
-      requestFlush();
-    });
+
+      queuedBytes -= split.headBytes;
+      if (split.tail) {
+        queue[0] = {
+          data: split.tail,
+          callbacks: entry.callbacks,
+        };
+      } else {
+        queue.shift();
+      }
+
+      inFlight = true;
+      let continuedInCallback = false;
+      options.write(split.head, () => {
+        if (currentGeneration !== generation) {
+          return;
+        }
+        inFlight = false;
+        if (!split.tail) {
+          for (const callback of entry.callbacks) {
+            callback();
+          }
+        }
+        if (queue.length === 0) {
+          return;
+        }
+        continuedInCallback = true;
+        if (now() >= frameDeadline) {
+          requestFlush();
+          return;
+        }
+        if (consecutiveInputYields === 0 && options.shouldYield?.()) {
+          requestFlush();
+          return;
+        }
+        drainFrame(frameDeadline);
+      });
+
+      if (continuedInCallback) {
+        return;
+      }
+      if (inFlight) {
+        return;
+      }
+      if (now() >= frameDeadline) {
+        requestFlush();
+        return;
+      }
+    }
   };
 
   return {
@@ -143,6 +179,7 @@ export function createTerminalOutputScheduler(options: TerminalOutputSchedulerOp
         ...config,
         ...nextOptions,
       };
+      config.visibleFlushFrameBudgetMs = normalizeFrameBudgetMs(config.visibleFlushFrameBudgetMs);
       if (queue.length > config.visibleOutputMaxChunks) {
         queue = coalesceChunks(queue);
       }
@@ -205,4 +242,16 @@ function getUtf8ByteLength(value: string): number {
 
 function defaultSchedule(drain: () => void): void {
   requestAnimationFrame(drain);
+}
+
+function defaultNow(): number {
+  return typeof performance === 'object' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
+}
+
+function normalizeFrameBudgetMs(value: number | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : DEFAULT_VISIBLE_FLUSH_FRAME_BUDGET_MS;
 }

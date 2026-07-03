@@ -1,4 +1,5 @@
-import { tokenStorage } from '../services/tokenStorage';
+/* eslint-disable no-control-regex */
+import { tokenStorage } from '../services/tokenStorage.ts';
 import type {
   InputDebugMetadata,
   InputReliabilityMode,
@@ -8,13 +9,27 @@ import {
   getInputReliabilityMode,
   isInputReliabilityModeLoaded,
   setLocalInputReliabilityModeForTest,
-} from './inputReliabilityMode';
+} from './inputReliabilityMode.ts';
 
 export type TerminalDebugValue = string | number | boolean | null;
 
 export interface TerminalDebugInputPayload {
   details: Record<string, TerminalDebugValue>;
   preview?: string;
+}
+
+export interface TerminalInputDebugPayloadOptions {
+  captureEnabled?: boolean;
+}
+
+export type TerminalInputDebugPayloadBuilder = (
+  raw: string,
+  metadata?: Pick<InputDebugMetadata, 'captureSeq' | 'compositionSeq'>,
+  options?: TerminalInputDebugPayloadOptions,
+) => TerminalDebugInputPayload;
+
+export interface ResolveTerminalInputDebugPayloadOptions extends TerminalInputDebugPayloadOptions {
+  buildPayload?: TerminalInputDebugPayloadBuilder;
 }
 
 export interface TerminalInputCaptureState {
@@ -100,6 +115,8 @@ const CONTROL_NAV_KEYS = new Set([
   'Insert',
 ]);
 let clientDebugEventCounter = 0;
+const inputTextEncoder = new TextEncoder();
+const graphemeSegmenter = createGraphemeSegmenter();
 
 function getStore(): TerminalDebugStore | null {
   if (typeof window === 'undefined') {
@@ -318,7 +335,14 @@ function formatPreview(raw: string): string {
 export function buildTerminalInputDebugPayload(
   raw: string,
   metadata: Pick<InputDebugMetadata, 'captureSeq' | 'compositionSeq'> = {},
+  options: TerminalInputDebugPayloadOptions = {},
 ): TerminalDebugInputPayload {
+  const sequenceDetails = buildSequenceDetails(metadata);
+  if (options.captureEnabled === false) {
+    sequenceDetails.clientObservedMetricsSkipped = true;
+    return { details: sequenceDetails };
+  }
+
   const safePreview = formatSafeInputPreview(raw);
   const spaceCount = (raw.match(/ /g) ?? []).length;
   const backspaceCount = (raw.match(/\x7f/g) ?? []).length;
@@ -329,7 +353,7 @@ export function buildTerminalInputDebugPayload(
   const printableCount = Math.max(0, codePointCount - controlCount);
   const grapheme = countGraphemes(raw);
   const details: Record<string, TerminalDebugValue> = {
-    ...buildSequenceDetails(metadata),
+    ...sequenceDetails,
     byteLength: utf8ByteLength(raw),
     codePointCount,
     graphemeCount: grapheme.count,
@@ -366,10 +390,43 @@ export function buildClientInputDebugMetadata(
   copyBoolean(details.hasHangul, (value) => { metadata.clientObservedHasHangul = value; });
   copyBoolean(details.hasCjk, (value) => { metadata.clientObservedHasCjk = value; });
   copyBoolean(details.hasEnter, (value) => { metadata.clientObservedHasEnter = value; });
+  copyBoolean(details.clientObservedMetricsSkipped, (value) => { metadata.clientObservedMetricsSkipped = value; });
   return metadata;
 }
 
+export function buildTerminalInputDebugPayloadFromMetadata(
+  metadata: InputDebugMetadata,
+): TerminalDebugInputPayload {
+  const details: Record<string, TerminalDebugValue> = {
+    ...buildSequenceDetails(metadata),
+  };
+  copySafeNumber(metadata.clientObservedByteLength, (value) => { details.byteLength = value; });
+  copySafeNumber(metadata.clientObservedCodePointCount, (value) => { details.codePointCount = value; });
+  copySafeNumber(metadata.clientObservedGraphemeCount, (value) => { details.graphemeCount = value; });
+  copyBoolean(metadata.clientObservedGraphemeApproximate, (value) => { details.graphemeApproximate = value; });
+  copyBoolean(metadata.clientObservedHasHangul, (value) => { details.hasHangul = value; });
+  copyBoolean(metadata.clientObservedHasCjk, (value) => { details.hasCjk = value; });
+  copyBoolean(metadata.clientObservedHasEnter, (value) => { details.hasEnter = value; });
+  copyBoolean(metadata.clientObservedMetricsSkipped, (value) => { details.clientObservedMetricsSkipped = value; });
+  return { details };
+}
+
+export function resolveTerminalInputDebugPayload(
+  raw: string,
+  metadata: InputDebugMetadata | undefined,
+  options: ResolveTerminalInputDebugPayloadOptions = {},
+): TerminalDebugInputPayload {
+  const {
+    buildPayload = buildTerminalInputDebugPayload,
+    ...payloadOptions
+  } = options;
+  return metadata
+    ? buildTerminalInputDebugPayloadFromMetadata(metadata)
+    : buildPayload(raw, {}, payloadOptions);
+}
+
 export function shouldRecordTerminalInputDebug(_payload: TerminalDebugInputPayload): boolean {
+  void _payload;
   return true;
 }
 
@@ -498,10 +555,18 @@ function buildSequenceDetails(
 }
 
 function utf8ByteLength(raw: string): number {
-  return new TextEncoder().encode(raw).length;
+  return inputTextEncoder.encode(raw).length;
 }
 
 function countGraphemes(raw: string): { count: number; approximate: boolean } {
+  if (!graphemeSegmenter) {
+    return { count: Array.from(raw).length, approximate: true };
+  }
+
+  return { count: Array.from(graphemeSegmenter.segment(raw)).length, approximate: false };
+}
+
+function createGraphemeSegmenter(): { segment(input: string): Iterable<unknown> } | null {
   const segmenterCtor = (Intl as unknown as {
     Segmenter?: new (
       locale?: string,
@@ -510,11 +575,10 @@ function countGraphemes(raw: string): { count: number; approximate: boolean } {
   }).Segmenter;
 
   if (!segmenterCtor) {
-    return { count: Array.from(raw).length, approximate: true };
+    return null;
   }
 
-  const segmenter = new segmenterCtor(undefined, { granularity: 'grapheme' });
-  return { count: Array.from(segmenter.segment(raw)).length, approximate: false };
+  return new segmenterCtor(undefined, { granularity: 'grapheme' });
 }
 
 function copySafeNumber(value: TerminalDebugValue | undefined, assign: (value: number) => void): void {

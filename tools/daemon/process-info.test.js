@@ -157,6 +157,24 @@ test('validateDaemonAppProcess falls back to command, cwd, and fresh heartbeat w
   assert.equal(result.valid, true);
 });
 
+test('validateDaemonAppProcess accepts unknown process metadata when explicitly allowed and heartbeat is fresh', async () => {
+  const state = createState();
+  const result = await validateDaemonAppProcess(state, {
+    now: new Date('2026-04-27T00:00:15.000Z'),
+    allowUnknownProcessInfo: true,
+    processInfoProvider: async () => ({
+      pid: state.appPid,
+      running: true,
+      executablePath: null,
+      commandLine: null,
+      cwd: null,
+      startTime: null,
+    }),
+  });
+
+  assert.equal(result.valid, true);
+});
+
 test('validateDaemonSentinelProcess requires the internal sentinel marker', async () => {
   const state = createState();
   const valid = await validateDaemonSentinelProcess(state, {
@@ -257,6 +275,33 @@ test('queryProcessInfo hides the Windows PowerShell process probe', () => {
   assert.deepEqual(observedCall.options.stdio, ['ignore', 'pipe', 'ignore']);
   assert.equal(result.running, true);
   assert.equal(result.startTime, '2026-04-27T00:00:09.500Z');
+});
+
+test('queryProcessInfo bounds Windows process probe and preserves running state when metadata times out', () => {
+  const pid = process.pid;
+  let observedOptions = null;
+  const result = queryProcessInfo(pid, {
+    platform: 'win32',
+    spawnSyncFn: (_command, _args, options) => {
+      observedOptions = options;
+      return {
+        status: null,
+        signal: 'SIGTERM',
+        error: Object.assign(new Error('spawnSync powershell.exe ETIMEDOUT'), { code: 'ETIMEDOUT' }),
+        stdout: '',
+      };
+    },
+  });
+
+  assert.equal(observedOptions.timeout, 2000);
+  assert.deepEqual(result, {
+    pid,
+    running: true,
+    executablePath: null,
+    commandLine: null,
+    cwd: null,
+    startTime: null,
+  });
 });
 
 test('queryProcessInfo treats a missing Windows process probe result as not running', () => {

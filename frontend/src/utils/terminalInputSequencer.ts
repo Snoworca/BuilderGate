@@ -1,3 +1,4 @@
+/* eslint-disable no-control-regex */
 import type { InputDebugMetadata } from '../types/ws-protocol';
 
 const DEFAULT_COALESCE_DELAY_MS = 8;
@@ -5,6 +6,8 @@ export const MAX_INPUT_SEQUENCE_SPAN = 1024;
 const HANGUL_RE = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/u;
 const CJK_RE = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/u;
 const CONTROL_RE = /[\x00-\x1f\x7f]/u;
+const inputTextEncoder = new TextEncoder();
+const graphemeSegmenter = createGraphemeSegmenter();
 
 export interface SequencedTerminalInput {
   data: string;
@@ -163,6 +166,16 @@ function mergeInputMetadata(data: string, chunks: InputDebugMetadata[]): InputDe
     }
   }
 
+  const mergedClientObserved = mergeClientObservedMetadata(chunks);
+  if (mergedClientObserved) {
+    Object.assign(metadata, mergedClientObserved);
+    return metadata;
+  }
+  if (areClientObservedMetricsSkipped(chunks)) {
+    metadata.clientObservedMetricsSkipped = true;
+    return metadata;
+  }
+
   metadata.clientObservedByteLength = utf8ByteLength(data);
   metadata.clientObservedCodePointCount = Array.from(data).length;
   const grapheme = countGraphemes(data);
@@ -179,10 +192,18 @@ function isSafeInteger(value: unknown): value is number {
 }
 
 function utf8ByteLength(data: string): number {
-  return new TextEncoder().encode(data).length;
+  return inputTextEncoder.encode(data).length;
 }
 
 function countGraphemes(data: string): { count: number; approximate: boolean } {
+  if (!graphemeSegmenter) {
+    return { count: Array.from(data).length, approximate: true };
+  }
+
+  return { count: Array.from(graphemeSegmenter.segment(data)).length, approximate: false };
+}
+
+function createGraphemeSegmenter(): { segment(input: string): Iterable<unknown> } | null {
   const segmenterCtor = (Intl as unknown as {
     Segmenter?: new (
       locale?: string,
@@ -191,9 +212,58 @@ function countGraphemes(data: string): { count: number; approximate: boolean } {
   }).Segmenter;
 
   if (!segmenterCtor) {
-    return { count: Array.from(data).length, approximate: true };
+    return null;
   }
 
-  const segmenter = new segmenterCtor(undefined, { granularity: 'grapheme' });
-  return { count: Array.from(segmenter.segment(data)).length, approximate: false };
+  return new segmenterCtor(undefined, { granularity: 'grapheme' });
+}
+
+function mergeClientObservedMetadata(chunks: InputDebugMetadata[]): InputDebugMetadata | null {
+  if (chunks.length === 0) {
+    return null;
+  }
+
+  let clientObservedByteLength = 0;
+  let clientObservedCodePointCount = 0;
+  let clientObservedGraphemeCount = 0;
+  let clientObservedGraphemeApproximate = false;
+  let clientObservedHasHangul = false;
+  let clientObservedHasCjk = false;
+  let clientObservedHasEnter = false;
+
+  for (const chunk of chunks) {
+    if (
+      !isSafeInteger(chunk.clientObservedByteLength)
+      || !isSafeInteger(chunk.clientObservedCodePointCount)
+      || !isSafeInteger(chunk.clientObservedGraphemeCount)
+      || typeof chunk.clientObservedGraphemeApproximate !== 'boolean'
+      || typeof chunk.clientObservedHasHangul !== 'boolean'
+      || typeof chunk.clientObservedHasCjk !== 'boolean'
+      || typeof chunk.clientObservedHasEnter !== 'boolean'
+    ) {
+      return null;
+    }
+
+    clientObservedByteLength += chunk.clientObservedByteLength;
+    clientObservedCodePointCount += chunk.clientObservedCodePointCount;
+    clientObservedGraphemeCount += chunk.clientObservedGraphemeCount;
+    clientObservedGraphemeApproximate ||= chunk.clientObservedGraphemeApproximate;
+    clientObservedHasHangul ||= chunk.clientObservedHasHangul;
+    clientObservedHasCjk ||= chunk.clientObservedHasCjk;
+    clientObservedHasEnter ||= chunk.clientObservedHasEnter;
+  }
+
+  return {
+    clientObservedByteLength,
+    clientObservedCodePointCount,
+    clientObservedGraphemeCount,
+    clientObservedGraphemeApproximate,
+    clientObservedHasHangul,
+    clientObservedHasCjk,
+    clientObservedHasEnter,
+  };
+}
+
+function areClientObservedMetricsSkipped(chunks: InputDebugMetadata[]): boolean {
+  return chunks.length > 0 && chunks.every((chunk) => chunk.clientObservedMetricsSkipped === true);
 }

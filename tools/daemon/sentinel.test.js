@@ -70,6 +70,38 @@ test('runSentinelTick refreshes heartbeat while daemon state is running', async 
   assert.notEqual(nextState.updatedAt, running.updatedAt);
 });
 
+test('runSentinelTick refreshes heartbeat when app process metadata is unavailable but PID is running', async () => {
+  const { paths, running } = createFixture({ appPid: 49001, sentinelPid: 49002 });
+  const fixedNow = new Date('2026-04-27T00:00:20.000Z');
+  const spawns = [];
+
+  const result = await runSentinelTick({
+    statePath: paths.statePath,
+    startAttemptId: running.startAttemptId,
+    logPath: paths.logPath,
+    now: () => fixedNow,
+    processInfoProvider: async (pid) => ({
+      pid,
+      running: true,
+      executablePath: null,
+      commandLine: null,
+      cwd: null,
+      startTime: null,
+    }),
+    spawnApp: async () => {
+      spawns.push('spawned');
+      return { pid: 49003 };
+    },
+  });
+  const nextState = readState(paths.statePath);
+
+  assert.equal(result, 'continue');
+  assert.deepEqual(spawns, []);
+  assert.equal(nextState.status, 'running');
+  assert.equal(nextState.appPid, running.appPid);
+  assert.equal(nextState.heartbeatAt, fixedNow.toISOString());
+});
+
 test('runSentinelTick exits when stop utility marks daemon state as stopping', async () => {
   const { paths, running } = createFixture();
   writeStateAtomic(paths.statePath, {

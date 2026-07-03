@@ -192,6 +192,7 @@ async function inspectAppExit(state, options = {}) {
     maxHeartbeatAgeMs: options.maxHeartbeatAgeMs,
     platform: options.platform,
     processInfoProvider: options.processInfoProvider,
+    allowUnknownProcessInfo: true,
     skipHeartbeatFreshness: true,
   });
   return validation.valid

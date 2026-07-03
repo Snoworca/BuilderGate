@@ -17,6 +17,12 @@ import {
   createHiddenOutputState,
   resolveHiddenOutput,
 } from '../../src/utils/terminalHiddenOutput.ts';
+import {
+  getCachedTerminalOutputResourceLimits,
+  getOutputUtf8ByteLength,
+  getTerminalOutputTextEncoderForTest,
+  resetTerminalOutputHotPathCacheForTest,
+} from '../../src/utils/terminalOutputHotPath.ts';
 import { getTerminalSnapshotRemovalKey } from '../../src/utils/terminalSnapshot.ts';
 
 const defaultCapability = {
@@ -371,6 +377,50 @@ test('reloadRuntimeConfig publishes a version change after successful reload', a
     assert.equal(getRuntimeConfigVersion(), beforeVersion + 1);
     assert.equal(getFrontendRuntimeResidencyMode(), 'bounded');
   } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('terminal output hot path reuses a singleton TextEncoder for UTF-8 byte length', () => {
+  const encoder = getTerminalOutputTextEncoderForTest();
+
+  assert.equal(getOutputUtf8ByteLength('abc'), 3);
+  assert.equal(getOutputUtf8ByteLength('한'), 3);
+  assert.equal(getTerminalOutputTextEncoderForTest(), encoder);
+});
+
+test('terminal output hot path caches resource limits until runtime config version changes', async () => {
+  const originalFetch = globalThis.fetch;
+  resetTerminalOutputHotPathCacheForTest();
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    resourceLimits: {
+      terminal: {
+        hiddenOutputTailBytes: 111,
+      },
+    },
+  }), { status: 200 });
+
+  try {
+    await initializeInputReliabilityMode();
+    const first = getCachedTerminalOutputResourceLimits();
+    const second = getCachedTerminalOutputResourceLimits();
+    assert.equal(first, second);
+    assert.equal(first.hiddenOutputTailBytes, 111);
+
+    globalThis.fetch = async () => new Response(JSON.stringify({
+      resourceLimits: {
+        terminal: {
+          hiddenOutputTailBytes: 222,
+        },
+      },
+    }), { status: 200 });
+    await reloadRuntimeConfig();
+    const third = getCachedTerminalOutputResourceLimits();
+
+    assert.notEqual(third, first);
+    assert.equal(third.hiddenOutputTailBytes, 222);
+  } finally {
+    resetTerminalOutputHotPathCacheForTest();
     globalThis.fetch = originalFetch;
   }
 });

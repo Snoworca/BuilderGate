@@ -36,3 +36,21 @@ test('TerminalView uses runtime-configured input queue limits', () => {
   assert.doesNotMatch(source, /const INPUT_QUEUE_TTL_MS/);
   assert.match(source, /getInputQueueLimits/);
 });
+
+test('TerminalView visible output scheduler uses cached runtime output limits', () => {
+  assert.match(source, /getCachedTerminalOutputResourceLimits/);
+
+  const schedulerIndex = source.indexOf('const getOutputScheduler = useCallback');
+  assert.notEqual(schedulerIndex, -1);
+  const schedulerChunk = source.slice(schedulerIndex, schedulerIndex + 1400);
+  assert.match(schedulerChunk, /getCachedTerminalOutputResourceLimits\(\)/);
+  assert.doesNotMatch(schedulerChunk, /getTerminalResourceLimits\(\)/);
+});
+
+test('TerminalView plain Space and Backspace delegation does not rebuild input debug payload', () => {
+  const delegationIndex = source.indexOf("recordTerminalDebugEvent(sessionId, 'key_delegated_to_xterm'");
+  assert.notEqual(delegationIndex, -1);
+  const delegationChunk = source.slice(Math.max(0, delegationIndex - 550), delegationIndex + 550);
+  assert.match(delegationChunk, /delegatedToXterm: true/);
+  assert.doesNotMatch(delegationChunk, /buildTerminalInputDebugPayload/);
+});

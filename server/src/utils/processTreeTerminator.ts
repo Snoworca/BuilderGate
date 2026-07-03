@@ -1,4 +1,4 @@
-import { execFile, execFileSync } from 'child_process';
+import { execFile } from 'child_process';
 import { existsSync, readFileSync, readdirSync, readlinkSync } from 'fs';
 import type { SessionProcessMetadata, SessionCleanupStatus } from '../types/ws-protocol.js';
 
@@ -325,19 +325,19 @@ function queryWindowsProcessInfo(
   });
 }
 
-export function readProcessStartIdentitySync(
+export async function readProcessStartIdentity(
   pid: number | null,
   platform: NodeJS.Platform = process.platform,
-  execFileSyncFn: typeof execFileSync = execFileSync,
-): string | null {
+  execFileFn: typeof execFile = execFile,
+): Promise<string | null> {
   const normalizedPid = normalizePid(pid);
   if (normalizedPid === null || !isProcessRunning(normalizedPid)) {
     return null;
   }
 
   if (platform === 'win32') {
-    try {
-      const stdout = execFileSyncFn(
+    return await new Promise<string | null>((resolve) => {
+      execFileFn(
         'powershell.exe',
         [
           '-NoProfile',
@@ -351,11 +351,16 @@ export function readProcessStartIdentitySync(
           ].join('; '),
         ],
         { encoding: 'utf8', windowsHide: true, timeout: 1000 },
-      ).trim();
-      return stdout ? `win32:${normalizedPid}:${stdout}` : null;
-    } catch {
-      return null;
-    }
+        (error, stdout) => {
+          if (error) {
+            resolve(null);
+            return;
+          }
+          const trimmed = String(stdout ?? '').trim();
+          resolve(trimmed ? `win32:${normalizedPid}:${trimmed}` : null);
+        },
+      );
+    });
   }
 
   const stat = readLinuxProcStat(normalizedPid);

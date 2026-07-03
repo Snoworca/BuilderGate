@@ -59,7 +59,7 @@ import {
 } from '../utils/ptyPlatformPolicy.js';
 import {
   DefaultProcessTreeTerminator,
-  readProcessStartIdentitySync,
+  readProcessStartIdentity,
   type ProcessTreeTerminationResult,
   type ProcessTreeTerminator,
 } from '../utils/processTreeTerminator.js';
@@ -221,6 +221,8 @@ type SessionProcessInspector = (
   descendantSampleLimit: number,
 ) => SessionProcessInspection;
 
+type ReadProcessStartIdentity = typeof readProcessStartIdentity;
+
 interface SessionManagerDeps {
   execFileFn?: typeof execFile;
   execFileSyncFn?: typeof execFileSync;
@@ -228,6 +230,7 @@ interface SessionManagerDeps {
   spawnPty?: typeof pty.spawn;
   processInspector?: SessionProcessInspector;
   processTreeTerminator?: ProcessTreeTerminator;
+  readProcessStartIdentityFn?: ReadProcessStartIdentity;
 }
 
 interface SessionManagerInitialConfig {
@@ -481,6 +484,7 @@ export class SessionManager {
   private readonly spawnPty: typeof pty.spawn;
   private readonly processInspector: SessionProcessInspector;
   private readonly processTreeTerminator: ProcessTreeTerminator;
+  private readonly readProcessStartIdentityFn: ReadProcessStartIdentity;
   private cleanupTelemetry: SessionCleanupTelemetry = createInitialCleanupTelemetry(DEFAULT_SESSION_PROCESS_CLEANUP.mode);
   private cleanupRecordedSessionIds: Set<string> = new Set();
   private powerShellWinptyProbe: { checked: boolean; available: boolean; reason?: string } = {
@@ -535,6 +539,7 @@ export class SessionManager {
     this.spawnPty = deps.spawnPty ?? pty.spawn;
     this.processInspector = deps.processInspector ?? inspectSessionProcessBestEffort;
     this.processTreeTerminator = deps.processTreeTerminator ?? new DefaultProcessTreeTerminator({ platform: this.platform });
+    this.readProcessStartIdentityFn = deps.readProcessStartIdentityFn ?? readProcessStartIdentity;
     // 서버 시작 시 한 번만 셸 감지 후 캐싱
     this.cachedAvailableShells = this.detectAvailableShells();
   }
@@ -637,6 +642,7 @@ export class SessionManager {
     };
 
     this.sessions.set(id, sessionData);
+    this.scheduleProcessStartIdentityCapture(id, sessionData);
     this.initializeHeadlessState(id, sessionData);
     this.captureDebugEvent(id, 'pty', 'backend_resolved', {
       shellType,
@@ -2342,8 +2348,26 @@ export class SessionManager {
       platform: this.platform,
       backend: this.resolveSessionProcessBackend(shellCommand, shellType, windowsBackend),
       launchedAt,
-      osStartIdentity: readProcessStartIdentitySync(rootPid, this.platform, this.execFileSyncFn),
+      osStartIdentity: null,
     };
+  }
+
+  private scheduleProcessStartIdentityCapture(sessionId: string, data: SessionData): void {
+    const rootPid = data.processMetadata.rootPid;
+    void this.readProcessStartIdentityFn(rootPid, this.platform, this.execFileFn)
+      .then((identity) => {
+        if (!identity) {
+          return;
+        }
+        const current = this.sessions.get(sessionId);
+        if (current !== data || current.finalized) {
+          return;
+        }
+        current.processMetadata.osStartIdentity = identity;
+      })
+      .catch(() => {
+        // Best-effort metadata only; cleanup will follow the unverified path if identity is unavailable.
+      });
   }
 
   private resolveSessionProcessBackend(

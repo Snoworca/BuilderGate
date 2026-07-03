@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createTerminalOutputScheduler } from '../../src/utils/terminalOutputScheduler.ts';
+import {
+  DEFAULT_VISIBLE_FLUSH_FRAME_BUDGET_MS,
+  createTerminalOutputScheduler,
+} from '../../src/utils/terminalOutputScheduler.ts';
 
 test('terminal output scheduler writes queued output within the flush budget', async () => {
   const writes: string[] = [];
@@ -194,4 +197,78 @@ test('terminal output scheduler still makes progress when browser input stays pe
   scheduled.shift()?.();
   assert.deepEqual(writes, ['abcd', 'efgh']);
   assert.equal(scheduler.isIdle(), true);
+});
+
+test('terminal output scheduler drains multiple chunks in one frame until the frame time budget is reached', async () => {
+  const writes: string[] = [];
+  const scheduled: Array<() => void> = [];
+  let now = 0;
+  const scheduler = createTerminalOutputScheduler({
+    visibleOutputQueueMaxBytes: 1024,
+    visibleOutputMaxChunks: 16,
+    visibleFlushBudgetBytes: 4,
+    visibleFlushFrameBudgetMs: 7,
+    write: (data, onWritten) => {
+      writes.push(data);
+      now += 3;
+      onWritten();
+    },
+    schedule: (drain) => {
+      scheduled.push(drain);
+    },
+    now: () => now,
+  });
+
+  scheduler.enqueue('abcd');
+  scheduler.enqueue('efgh');
+  scheduler.enqueue('ijkl');
+  scheduler.enqueue('mnop');
+  scheduled.shift()?.();
+
+  assert.deepEqual(writes, ['abcd', 'efgh', 'ijkl']);
+  assert.equal(scheduler.isIdle(), false);
+
+  scheduled.shift()?.();
+
+  assert.deepEqual(writes, ['abcd', 'efgh', 'ijkl', 'mnop']);
+  assert.equal(scheduler.isIdle(), true);
+});
+
+test('terminal output scheduler yields the current frame when input becomes pending during a multi-chunk drain', async () => {
+  const writes: string[] = [];
+  const scheduled: Array<() => void> = [];
+  let inputPending = false;
+  const scheduler = createTerminalOutputScheduler({
+    visibleOutputQueueMaxBytes: 1024,
+    visibleOutputMaxChunks: 16,
+    visibleFlushBudgetBytes: 4,
+    visibleFlushFrameBudgetMs: 7,
+    write: (data, onWritten) => {
+      writes.push(data);
+      inputPending = true;
+      onWritten();
+    },
+    schedule: (drain) => {
+      scheduled.push(drain);
+    },
+    shouldYield: () => inputPending,
+  });
+
+  scheduler.enqueue('abcd');
+  scheduler.enqueue('efgh');
+  scheduled.shift()?.();
+
+  assert.deepEqual(writes, ['abcd']);
+  assert.equal(scheduler.isIdle(), false);
+
+  inputPending = false;
+  scheduled.shift()?.();
+
+  assert.deepEqual(writes, ['abcd', 'efgh']);
+  assert.equal(scheduler.isIdle(), true);
+});
+
+test('terminal output scheduler exposes a default frame time budget in the 6-8ms range', () => {
+  assert.equal(DEFAULT_VISIBLE_FLUSH_FRAME_BUDGET_MS >= 6, true);
+  assert.equal(DEFAULT_VISIBLE_FLUSH_FRAME_BUDGET_MS <= 8, true);
 });

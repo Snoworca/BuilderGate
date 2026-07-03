@@ -1,7 +1,9 @@
 const https = require('https');
+const { spawnSync } = require('child_process');
 
 const {
   isProcessRunning,
+  killProcess,
   validateDaemonAppProcess,
   validateDaemonSentinelProcess,
 } = require('./process-info');
@@ -13,6 +15,7 @@ const {
 
 const GRACEFUL_STOP_TIMEOUT_MS = 10_000;
 const STOP_POLL_INTERVAL_MS = 100;
+const DEFAULT_PORT_OWNER_LOOKUP_TIMEOUT_MS = 2_000;
 const SHUTDOWN_TOKEN_HEADER = 'X-BuilderGate-Shutdown-Token';
 const WORKSPACE_FLUSH_MARKER = '[Shutdown] Workspace state + CWDs saved';
 const SESSION_CLEANUP_EVIDENCE_FIELDS = [
@@ -34,6 +37,56 @@ function makeResult(exitCode, status, message, extra = {}) {
     message,
     ...extra,
   };
+}
+
+function localAddressMatchesPort(localAddress, port) {
+  return typeof localAddress === 'string' && localAddress.endsWith(`:${port}`);
+}
+
+function parseNetstatListeningPid(output, port) {
+  for (const line of String(output ?? '').split(/\r?\n/)) {
+    const parts = line.trim().split(/\s+/);
+    if (parts.length < 5 || parts[0].toUpperCase() !== 'TCP') {
+      continue;
+    }
+
+    const state = parts[3]?.toUpperCase();
+    const pid = Number.parseInt(parts.at(-1), 10);
+    if (state === 'LISTENING' && localAddressMatchesPort(parts[1], port) && Number.isInteger(pid) && pid > 0) {
+      return pid;
+    }
+  }
+
+  return null;
+}
+
+function findWindowsListeningProcessByPort(port, options = {}) {
+  const spawnSyncFn = options.spawnSyncFn ?? spawnSync;
+  const result = spawnSyncFn('netstat', ['-ano'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    timeout: options.portOwnerLookupTimeoutMs ?? DEFAULT_PORT_OWNER_LOOKUP_TIMEOUT_MS,
+    windowsHide: true,
+  });
+
+  if (result.error || result.status !== 0) {
+    return null;
+  }
+
+  return parseNetstatListeningPid(result.stdout, port);
+}
+
+function findListeningProcessByPort(port, options = {}) {
+  if (!Number.isInteger(port) || port < 1024 || port > 65535) {
+    return null;
+  }
+
+  const platform = options.platform ?? process.platform;
+  if (platform === 'win32') {
+    return findWindowsListeningProcessByPort(port, options);
+  }
+
+  return null;
 }
 
 function getRemainingTimeoutMs(deadlineMs) {
@@ -200,6 +253,18 @@ function isStoppableDaemonState(state) {
   return Boolean(state && state.mode === 'daemon' && (state.status === 'running' || state.status === 'stopping'));
 }
 
+function isRecoverableFatalPortOwnerState(state) {
+  return Boolean(
+    state
+    && state.mode === 'daemon'
+    && state.status === 'fatal'
+    && state.fatalStage === 'app-startup'
+    && Number.isInteger(state.port)
+    && state.port >= 1024
+    && state.port <= 65535,
+  );
+}
+
 function toStoppingState(state, now = new Date()) {
   return {
     ...state,
@@ -219,6 +284,13 @@ function toStoppedState(state, now = new Date()) {
     lastExitCode: 0,
     updatedAt: now.toISOString(),
   };
+}
+
+function formatOrphanStopSuccessMessage(state, ownerPid) {
+  return [
+    `[stop] BuilderGate daemon state was fatal, but validated app PID ${ownerPid} was still listening on port ${state.port}.`,
+    '[stop] Terminated orphaned BuilderGate app process and recorded stopped state.',
+  ].join('\n');
 }
 
 function markStopping(statePath, expectedState, now = new Date(), updateStateFn = updateStateAtomic) {
@@ -368,19 +440,115 @@ async function waitForHealthNonresponse({
   return { stopped: false, reason: `health still responds${status ? ` with ${status}` : ''}` };
 }
 
+async function tryStopFatalPortOwner(paths, state, options = {}) {
+  if (!isRecoverableFatalPortOwnerState(state)) {
+    return null;
+  }
+
+  const processExists = options.processExists ?? isProcessRunning;
+  const findPortOwnerProcessFn = options.findPortOwnerProcess ?? findListeningProcessByPort;
+  const ownerPid = await findPortOwnerProcessFn(state.port, options);
+  if (!Number.isInteger(ownerPid) || ownerPid <= 0 || !processExists(ownerPid)) {
+    return null;
+  }
+
+  const validationState = {
+    ...state,
+    status: 'running',
+    appPid: ownerPid,
+    appProcessStartedAt: state.appProcessStartedAt ?? state.startedAt,
+    heartbeatAt: state.heartbeatAt ?? state.updatedAt,
+  };
+  const validation = await validateDaemonAppProcess(validationState, {
+    now: options.now,
+    maxHeartbeatAgeMs: options.maxHeartbeatAgeMs,
+    platform: options.platform,
+    processInfoProvider: options.processInfoProvider,
+    skipHeartbeatFreshness: true,
+  });
+  if (!validation.valid) {
+    return makeResult(2, 'validation-failed', `[stop] Refusing to stop daemon: port owner PID ${ownerPid} is not a validated BuilderGate app process: ${validation.reason}`, {
+      validation,
+    });
+  }
+
+  const totalTimeoutMs = options.timeoutMs ?? GRACEFUL_STOP_TIMEOUT_MS;
+  const deadlineMs = options.deadlineMs ?? Date.now() + totalTimeoutMs;
+  const budget = getBudgetOrFailure(deadlineMs, totalTimeoutMs, 'orphan process termination');
+  if (budget.failure) {
+    return budget.failure;
+  }
+
+  const killProcessFn = options.killProcess ?? killProcess;
+  const terminated = killProcessFn(ownerPid);
+  if (!terminated && processExists(ownerPid)) {
+    return makeResult(1, 'graceful-failure', `[stop] Failed to terminate orphaned BuilderGate app PID ${ownerPid}.`);
+  }
+
+  const waitForProcessExitFn = options.waitForProcessExit ?? waitForProcessExit;
+  const ownerExit = await waitForProcessExitFn(ownerPid, {
+    timeoutMs: budget.timeoutMs,
+    intervalMs: options.intervalMs ?? STOP_POLL_INTERVAL_MS,
+    processExists,
+  });
+  if (!ownerExit.exited) {
+    return makeResult(1, 'graceful-failure', `[stop] Orphaned BuilderGate app PID ${ownerPid} did not exit: ${ownerExit.reason}`);
+  }
+
+  const healthBudget = getBudgetOrFailure(deadlineMs, totalTimeoutMs, 'health nonresponse verification');
+  if (healthBudget.failure) {
+    return healthBudget.failure;
+  }
+  const waitForHealthNonresponseFn = options.waitForHealthNonresponse ?? waitForHealthNonresponse;
+  const health = await waitForHealthNonresponseFn({
+    port: state.port,
+    timeoutMs: healthBudget.timeoutMs,
+    intervalMs: options.intervalMs ?? STOP_POLL_INTERVAL_MS,
+  });
+  if (!health.stopped) {
+    return makeResult(1, 'graceful-failure', `[stop] Orphaned app terminated but ${health.reason}`, { health });
+  }
+
+  const updateStateFn = options.updateStateAtomic ?? updateStateAtomic;
+  const stoppedState = markStopped(paths.statePath, state, options.now ?? new Date(), updateStateFn);
+  if (!stoppedState) {
+    return makeResult(3, 'state-changed', '[stop] Orphaned app stopped, but state changed before stopped marker could be written.', {
+      health,
+    });
+  }
+
+  return makeResult(0, 'orphan-stopped', formatOrphanStopSuccessMessage(state, ownerPid), {
+    health,
+    state: stoppedState,
+  });
+}
+
 async function stopDaemon(paths = resolveRuntimePaths(), options = {}) {
   const readStateFn = options.readState ?? readState;
   const state = readStateFn(paths.statePath);
-  if (!isStoppableDaemonState(state)) {
-    return makeResult(0, 'not-running', '[stop] BuilderGate daemon is not running.');
-  }
-
-  const resumingStop = state.status === 'stopping';
   const updateStateFn = options.updateStateAtomic ?? updateStateAtomic;
   const processExists = options.processExists ?? isProcessRunning;
   const waitForProcessExitFn = options.waitForProcessExit ?? waitForProcessExit;
   const totalTimeoutMs = options.timeoutMs ?? GRACEFUL_STOP_TIMEOUT_MS;
   const deadlineMs = options.deadlineMs ?? Date.now() + totalTimeoutMs;
+  if (!isStoppableDaemonState(state)) {
+    const fatalPortOwnerStop = await tryStopFatalPortOwner(paths, state, {
+      ...options,
+      processExists,
+      waitForProcessExit: waitForProcessExitFn,
+      updateStateAtomic: updateStateFn,
+      timeoutMs: totalTimeoutMs,
+      deadlineMs,
+    });
+    if (fatalPortOwnerStop) {
+      return fatalPortOwnerStop;
+    }
+    return makeResult(0, 'not-running', '[stop] BuilderGate daemon is not running.');
+  }
+
+  const resumingStop = state.status === 'stopping';
+  const stopWarnings = [];
+  let sentinelExitedBeforeShutdown = false;
 
   if (isProcessGone(state.appPid, processExists)) {
     const stoppingState = resumingStop
@@ -415,6 +583,8 @@ async function stopDaemon(paths = resolveRuntimePaths(), options = {}) {
     processInfoProvider: options.processInfoProvider,
     expectedStatePath: paths.statePath,
     allowStoppingState: resumingStop,
+    allowUnknownProcessInfo: true,
+    allowStaleHeartbeatWithUnknownProcessInfo: true,
     skipHeartbeatFreshness: resumingStop,
   };
   const appValidation = await (options.validateAppProcess ?? validateDaemonAppProcess)(state, validationOptions);
@@ -445,13 +615,22 @@ async function stopDaemon(paths = resolveRuntimePaths(), options = {}) {
     if (budget.failure) {
       return budget.failure;
     }
+    const sentinelTimeoutMs = resumingStop
+      ? Math.min(budget.timeoutMs, options.resumingSentinelGraceTimeoutMs ?? 1_000)
+      : budget.timeoutMs;
     const sentinelExit = await waitForProcessExitFn(state.sentinelPid, {
-      timeoutMs: budget.timeoutMs,
+      timeoutMs: sentinelTimeoutMs,
       intervalMs: options.intervalMs ?? STOP_POLL_INTERVAL_MS,
       processExists,
     });
     if (!sentinelExit.exited) {
-      return makeResult(1, 'graceful-failure', `[stop] Sentinel did not exit gracefully: ${sentinelExit.reason}`);
+      if (resumingStop) {
+        stopWarnings.push(`sentinel did not exit before app shutdown: ${sentinelExit.reason}`);
+      } else {
+        return makeResult(1, 'graceful-failure', `[stop] Sentinel did not exit gracefully: ${sentinelExit.reason}`);
+      }
+    } else {
+      sentinelExitedBeforeShutdown = true;
     }
   }
 
@@ -532,6 +711,31 @@ async function stopDaemon(paths = resolveRuntimePaths(), options = {}) {
     return makeResult(1, 'graceful-failure', `[stop] Internal shutdown completed but ${health.reason}`, { shutdown, health });
   }
 
+  if (!sentinelExitedBeforeShutdown && processExists(state.sentinelPid)) {
+    const killProcessFn = options.killProcess ?? killProcess;
+    const terminated = killProcessFn(state.sentinelPid);
+    if (!terminated && processExists(state.sentinelPid)) {
+      return makeResult(1, 'graceful-failure', `[stop] Failed to terminate stuck sentinel PID ${state.sentinelPid}.`, {
+        shutdown,
+        health,
+      });
+    }
+
+    const sentinelExit = await waitForProcessExitFn(state.sentinelPid, {
+      timeoutMs: options.sentinelForceExitTimeoutMs ?? 2_000,
+      intervalMs: options.intervalMs ?? STOP_POLL_INTERVAL_MS,
+      processExists,
+    });
+    if (!sentinelExit.exited) {
+      return makeResult(1, 'graceful-failure', `[stop] Stuck sentinel PID ${state.sentinelPid} did not exit after termination: ${sentinelExit.reason}`, {
+        shutdown,
+        health,
+      });
+    }
+
+    stopWarnings.push(`terminated stuck sentinel PID ${state.sentinelPid} after app shutdown`);
+  }
+
   const stoppedState = markStopped(paths.statePath, stoppingState, options.now ?? new Date(), updateStateFn);
   if (!stoppedState) {
     return makeResult(3, 'state-changed', '[stop] Daemon stopped, but state changed before stopped marker could be written.', {
@@ -544,11 +748,12 @@ async function stopDaemon(paths = resolveRuntimePaths(), options = {}) {
     state,
     flushEvidence.evidence,
     sessionCleanupEvidence.evidence,
-    sessionCleanupPolicy.warnings,
+    [...sessionCleanupPolicy.warnings, ...stopWarnings],
   ), {
     flushEvidence: flushEvidence.evidence,
     sessionCleanupEvidence: sessionCleanupEvidence.evidence,
     sessionCleanupWarnings: sessionCleanupPolicy.warnings,
+    stopWarnings,
     shutdown,
     health,
     state: stoppedState,
@@ -559,8 +764,10 @@ module.exports = {
   GRACEFUL_STOP_TIMEOUT_MS,
   SHUTDOWN_TOKEN_HEADER,
   WORKSPACE_FLUSH_MARKER,
+  findListeningProcessByPort,
   getShutdownSessionCleanupEvidence,
   getSessionCleanupStopPolicy,
+  parseNetstatListeningPid,
   markStopped,
   markStopping,
   sendShutdownRequest,

@@ -4,6 +4,7 @@ const path = require('path');
 
 const DEFAULT_HEARTBEAT_STALE_MS = 15_000;
 const START_TIME_FUTURE_TOLERANCE_MS = 5_000;
+const DEFAULT_PROCESS_INFO_TIMEOUT_MS = 2_000;
 
 function isProcessRunning(pid) {
   if (!Number.isInteger(pid) || pid <= 0) {
@@ -145,8 +146,13 @@ function queryWindowsProcessInfo(pid, options = {}) {
   const result = spawnSyncFn('powershell.exe', ['-NoProfile', '-Command', script], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'ignore'],
+    timeout: options.processInfoTimeoutMs ?? DEFAULT_PROCESS_INFO_TIMEOUT_MS,
     windowsHide: true,
   });
+
+  if (result.error?.code === 'ETIMEDOUT') {
+    return { pid, running: true, executablePath: null, commandLine: null, cwd: null, startTime: null };
+  }
 
   if (result.status !== 0 || !result.stdout.trim()) {
     return { pid, running: false };
@@ -258,6 +264,17 @@ function validateCwdIfAvailable(info, expectedCwd, platform = process.platform) 
   return `cwd mismatch: expected ${expectedCwd}, got ${info.cwd}`;
 }
 
+function hasUnknownProcessIdentity(info) {
+  return Boolean(
+    info
+    && info.running
+    && !info.executablePath
+    && !info.commandLine
+    && !info.cwd
+    && !info.startTime
+  );
+}
+
 function sentinelEntryPathFromState(state) {
   return path.join(path.dirname(state.serverCwd), 'tools', 'daemon', 'sentinel-entry.js');
 }
@@ -274,6 +291,18 @@ async function validateDaemonAppProcess(state, options = {}) {
   const info = await getProcessInfo(state.appPid, options);
   if (!info?.running) {
     return fail(`app PID ${state.appPid} is not running`, info);
+  }
+
+  if (options.allowUnknownProcessInfo && hasUnknownProcessIdentity(info)) {
+    if (
+      !options.skipHeartbeatFreshness
+      && options.allowStaleHeartbeatWithUnknownProcessInfo !== true
+      && !isHeartbeatFresh(state.heartbeatAt, options.now ?? new Date(), options.maxHeartbeatAgeMs)
+    ) {
+      return fail(`stale heartbeat: ${state.heartbeatAt}`, info);
+    }
+
+    return ok(info);
   }
 
   const platform = options.platform ?? process.platform;
@@ -318,6 +347,10 @@ async function validateDaemonSentinelProcess(state, options = {}) {
   const info = await getProcessInfo(state.sentinelPid, options);
   if (!info?.running) {
     return fail(`sentinel PID ${state.sentinelPid} is not running`, info);
+  }
+
+  if (options.allowUnknownProcessInfo && hasUnknownProcessIdentity(info)) {
+    return ok(info);
   }
 
   const commandLine = String(info.commandLine ?? '');

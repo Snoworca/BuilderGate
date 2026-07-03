@@ -55,6 +55,7 @@ export interface InputDebugMetadata {
   clientObservedHasHangul?: boolean;
   clientObservedHasCjk?: boolean;
   clientObservedHasEnter?: boolean;
+  clientObservedMetricsSkipped?: boolean;
 }
 
 export type InputRejectedReason =

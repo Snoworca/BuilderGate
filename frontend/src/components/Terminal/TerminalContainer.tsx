@@ -8,13 +8,18 @@ import type { TerminalShortcutState } from '../../types';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import {
   buildClientInputDebugMetadata,
-  buildTerminalInputDebugPayload,
+  isTerminalDebugCaptureEnabled,
   recordTerminalDebugEvent,
+  resolveTerminalInputDebugPayload,
 } from '../../utils/terminalDebugCapture';
 import {
   getInputReliabilityMode,
   getTerminalResourceLimits,
 } from '../../utils/inputReliabilityMode';
+import {
+  getCachedTerminalOutputResourceLimits,
+  getOutputUtf8ByteLength as getUtf8ByteLength,
+} from '../../utils/terminalOutputHotPath';
 import {
   beginHiddenOutputReplay,
   clearHiddenOutputState,
@@ -93,10 +98,6 @@ function mapSendFailureToRejectReason(reason: Exclude<SendResult, { ok: true }>[
   return reason === 'missing-token' ? 'auth-expired' : 'transport-closed';
 }
 
-function getUtf8ByteLength(raw: string): number {
-  return new TextEncoder().encode(raw).length;
-}
-
 function inputContainsEnter(raw: string): boolean {
   return raw.includes('\r') || raw.includes('\n');
 }
@@ -107,6 +108,16 @@ function getTransportOutboxLimits(): { transportOutboxMaxBytes: number; transpor
     transportOutboxMaxBytes: limits.transportOutboxMaxBytes,
     transportOutboxTtlMs: limits.transportOutboxTtlMs,
   };
+}
+
+function resolveInputDebugPayload(
+  data: string,
+  metadata: InputDebugMetadata | undefined,
+  sessionId: string,
+) {
+  return resolveTerminalInputDebugPayload(data, metadata, {
+    captureEnabled: isTerminalDebugCaptureEnabled(sessionId),
+  });
 }
 
 interface Props {
@@ -345,10 +356,7 @@ export const TerminalContainer = memo(
       queuedAt?: number,
       barrierReason: TerminalInputBarrierReason = 'none',
     ) => {
-      const debugInput = buildTerminalInputDebugPayload(input.data, {
-        captureSeq: input.metadata?.captureSeq,
-        compositionSeq: input.metadata?.compositionSeq,
-      });
+      const debugInput = resolveInputDebugPayload(input.data, input.metadata, sessionId);
       recordTerminalDebugEvent(sessionId, kind, {
         ...debugInput.details,
         inputSeqStart: input.inputSeqStart,
@@ -374,10 +382,7 @@ export const TerminalContainer = memo(
       input: SequencedTerminalInput,
       details: Record<string, string | number | boolean | null>,
     ) => {
-      const debugInput = buildTerminalInputDebugPayload(input.data, {
-        captureSeq: input.metadata?.captureSeq,
-        compositionSeq: input.metadata?.compositionSeq,
-      });
+      const debugInput = resolveInputDebugPayload(input.data, input.metadata, sessionId);
       recordTerminalDebugEvent(sessionId, kind, {
         ...debugInput.details,
         inputSeqStart: input.inputSeqStart,
@@ -614,10 +619,7 @@ export const TerminalContainer = memo(
         return;
       }
 
-      const debugInput = buildTerminalInputDebugPayload(input.data, {
-        captureSeq: input.metadata?.captureSeq,
-        compositionSeq: input.metadata?.compositionSeq,
-      });
+      const debugInput = resolveInputDebugPayload(input.data, input.metadata, sessionId);
       const byteLength =
         typeof debugInput.details.byteLength === 'number'
           ? debugInput.details.byteLength
@@ -699,16 +701,14 @@ export const TerminalContainer = memo(
       recordTransportInputQueueEvent,
       recordTransportInputRejected,
       scheduleTransportOutboxExpiry,
+      sessionId,
     ]);
 
     const transmitSequencedInput = useCallback((
       input: SequencedTerminalInput,
       source: string,
     ): SendResult => {
-      const debugInput = buildTerminalInputDebugPayload(input.data, {
-        captureSeq: input.metadata?.captureSeq,
-        compositionSeq: input.metadata?.compositionSeq,
-      });
+      const debugInput = resolveInputDebugPayload(input.data, input.metadata, sessionId);
       const metadata = input.metadata ?? buildClientInputDebugMetadata(debugInput.details);
       const result = send({
         type: 'input',
@@ -1659,7 +1659,7 @@ export const TerminalContainer = memo(
         onScreenRepairRejected: handleScreenRepairRejected,
         onOutput: (data) => {
           const byteLength = getUtf8ByteLength(data);
-          const terminalLimits = getTerminalResourceLimits();
+          const terminalLimits = getCachedTerminalOutputResourceLimits();
           const hiddenDecision = resolveHiddenOutput(hiddenOutputStateRef.current, {
             isVisible: isVisibleRef.current,
             byteLength,
@@ -1694,10 +1694,7 @@ export const TerminalContainer = memo(
     }, [sessionId, subscribeSession]);
 
     const handleInput = useCallback((data: string, metadata?: InputDebugMetadata) => {
-      const debugInput = buildTerminalInputDebugPayload(data, {
-        captureSeq: metadata?.captureSeq,
-        compositionSeq: metadata?.compositionSeq,
-      });
+      const debugInput = resolveInputDebugPayload(data, metadata, sessionId);
       recordTerminalDebugEvent(sessionId, 'terminal_input_sequencer_received', {
         ...debugInput.details,
         sessionGeneration: sessionGenerationRef.current,

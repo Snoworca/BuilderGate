@@ -6,6 +6,8 @@ const test = require('node:test');
 
 const {
   GRACEFUL_STOP_TIMEOUT_MS,
+  findListeningProcessByPort,
+  parseNetstatListeningPid,
   stopDaemon,
   waitForHealthNonresponse,
 } = require('./stop-client');
@@ -121,6 +123,166 @@ test('stopDaemon reports daemon not running when active daemon state is absent',
   assert.equal(result.status, 'not-running');
 });
 
+test('stopDaemon terminates a validated fatal-state port owner instead of reporting not running', async () => {
+  const paths = createFixturePaths('buildergate-stop-fatal-port-owner-');
+  const state = createRunningState(paths, {
+    status: 'fatal',
+    appPid: 52001,
+    sentinelPid: 52002,
+    fatalStage: 'app-startup',
+    fatalReason: 'readiness identity mismatch',
+  });
+  writeStateAtomic(paths.statePath, state);
+  const ownerPid = 62001;
+  const killed = [];
+
+  const result = await stopDaemon(paths, {
+    now: new Date('2026-04-27T00:00:15.000Z'),
+    findPortOwnerProcess: async (port) => {
+      assert.equal(port, state.port);
+      return ownerPid;
+    },
+    processExists: (pid) => pid === ownerPid,
+    processInfoProvider: async (pid) => ({
+      pid,
+      running: pid === ownerPid,
+      executablePath: state.nodeBinPath,
+      commandLine: `"${state.nodeBinPath}" "${state.serverEntryPath}"`,
+      cwd: state.serverCwd,
+      startTime: '2026-04-27T00:00:09.500Z',
+    }),
+    killProcess: (pid) => {
+      killed.push(pid);
+      return true;
+    },
+    waitForProcessExit: async (pid) => {
+      assert.equal(pid, ownerPid);
+      return { exited: true };
+    },
+    waitForHealthNonresponse: async ({ port }) => {
+      assert.equal(port, state.port);
+      return { stopped: true };
+    },
+  });
+  const nextState = readState(paths.statePath);
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.status, 'orphan-stopped');
+  assert.deepEqual(killed, [ownerPid]);
+  assert.equal(nextState.status, 'stopped');
+  assert.equal(nextState.appPid, null);
+  assert.equal(nextState.sentinelPid, null);
+});
+
+test('stopDaemon refuses fatal-state port owner cleanup when process identity does not match', async () => {
+  const paths = createFixturePaths('buildergate-stop-fatal-port-owner-mismatch-');
+  const state = createRunningState(paths, {
+    status: 'fatal',
+    appPid: 53001,
+    sentinelPid: 53002,
+    fatalStage: 'app-startup',
+    fatalReason: 'readiness identity mismatch',
+  });
+  writeStateAtomic(paths.statePath, state);
+  const killed = [];
+
+  const result = await stopDaemon(paths, {
+    now: new Date('2026-04-27T00:00:15.000Z'),
+    findPortOwnerProcess: async () => 63001,
+    processExists: (pid) => pid === 63001,
+    processInfoProvider: async (pid) => ({
+      pid,
+      running: true,
+      executablePath: state.nodeBinPath,
+      commandLine: `"${state.nodeBinPath}" "C:/other/server.js"`,
+      cwd: state.serverCwd,
+      startTime: '2026-04-27T00:00:09.500Z',
+    }),
+    killProcess: (pid) => {
+      killed.push(pid);
+      return true;
+    },
+  });
+  const nextState = readState(paths.statePath);
+
+  assert.equal(result.exitCode, 2);
+  assert.equal(result.status, 'validation-failed');
+  assert.match(result.message, /port owner/i);
+  assert.deepEqual(killed, []);
+  assert.equal(nextState.status, 'fatal');
+});
+
+test('stopDaemon recovers fatal app-startup state regardless of fatal reason when port owner validates', async () => {
+  const paths = createFixturePaths('buildergate-stop-fatal-port-owner-timeout-');
+  const state = createRunningState(paths, {
+    status: 'fatal',
+    appPid: 54001,
+    sentinelPid: 54002,
+    fatalStage: 'app-startup',
+    fatalReason: 'readiness timeout',
+  });
+  writeStateAtomic(paths.statePath, state);
+  const ownerPid = 64001;
+  const killed = [];
+
+  const result = await stopDaemon(paths, {
+    now: new Date('2026-04-27T00:00:15.000Z'),
+    findPortOwnerProcess: async () => ownerPid,
+    processExists: (pid) => pid === ownerPid,
+    processInfoProvider: async (pid) => ({
+      pid,
+      running: pid === ownerPid,
+      executablePath: state.nodeBinPath,
+      commandLine: `"${state.nodeBinPath}" "${state.serverEntryPath}"`,
+      cwd: state.serverCwd,
+      startTime: '2026-04-27T00:00:09.500Z',
+    }),
+    killProcess: (pid) => {
+      killed.push(pid);
+      return true;
+    },
+    waitForProcessExit: async () => ({ exited: true }),
+    waitForHealthNonresponse: async () => ({ stopped: true }),
+  });
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.status, 'orphan-stopped');
+  assert.deepEqual(killed, [ownerPid]);
+});
+
+test('parseNetstatListeningPid extracts IPv4 and IPv6 listening PIDs for the requested port', () => {
+  const output = [
+    '  TCP    0.0.0.0:2222           0.0.0.0:0              LISTENING       12496',
+    '  TCP    [::]:2223              [::]:0                 LISTENING       173640',
+    '  TCP    127.0.0.1:2222         127.0.0.1:55555        ESTABLISHED     99999',
+  ].join('\r\n');
+
+  assert.equal(parseNetstatListeningPid(output, 2222), 12496);
+  assert.equal(parseNetstatListeningPid(output, 2223), 173640);
+  assert.equal(parseNetstatListeningPid(output, 2224), null);
+});
+
+test('findListeningProcessByPort uses bounded hidden netstat lookup on Windows', () => {
+  let observedCall = null;
+  const pid = findListeningProcessByPort(2222, {
+    platform: 'win32',
+    spawnSyncFn: (command, args, options) => {
+      observedCall = { command, args, options };
+      return {
+        status: 0,
+        stdout: '  TCP    127.0.0.1:2222         0.0.0.0:0              LISTENING       777\r\n',
+      };
+    },
+  });
+
+  assert.equal(pid, 777);
+  assert.equal(observedCall.command, 'netstat');
+  assert.deepEqual(observedCall.args, ['-ano']);
+  assert.equal(observedCall.options.timeout, 2000);
+  assert.equal(observedCall.options.windowsHide, true);
+  assert.deepEqual(observedCall.options.stdio, ['ignore', 'pipe', 'ignore']);
+});
+
 test('stopDaemon default timeout is the Phase 5 fixed 10 second graceful budget', () => {
   assert.equal(GRACEFUL_STOP_TIMEOUT_MS, 10_000);
   assert.equal(DEFAULT_HEARTBEAT_INTERVAL_MS, 10_000);
@@ -234,6 +396,80 @@ test('stopDaemon marks stopping, waits sentinel first, shuts app down internally
     sessionCleanupSkippedUnverified: 0,
     remainingVerifiedDescendants: 0,
   });
+});
+
+test('stopDaemon uses shutdown token flow when process metadata is unavailable but heartbeat is fresh', async () => {
+  const paths = createFixturePaths('buildergate-stop-unknown-process-info-');
+  const state = createRunningState(paths);
+  writeStateAtomic(paths.statePath, state);
+  const events = [];
+
+  const result = await stopDaemon(paths, {
+    now: new Date('2026-04-27T00:00:15.000Z'),
+    processInfoProvider: async (pid) => ({
+      pid,
+      running: true,
+      executablePath: null,
+      commandLine: null,
+      cwd: null,
+      startTime: null,
+    }),
+    processExists: (pid) => pid === state.appPid || pid === state.sentinelPid,
+    waitForProcessExit: async () => {
+      events.push('sentinel-exit');
+      return { exited: true };
+    },
+    sendShutdownRequest: async ({ token }) => {
+      events.push('shutdown');
+      assert.equal(token, state.shutdownToken);
+      return { ok: true, statusCode: 200, body: createShutdownSuccessBody() };
+    },
+    waitForHealthNonresponse: async () => {
+      events.push('health-nonresponse');
+      return { stopped: true };
+    },
+  });
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.status, 'stopped');
+  assert.deepEqual(events, ['sentinel-exit', 'shutdown', 'health-nonresponse']);
+});
+
+test('stopDaemon uses shutdown token flow when process metadata is unavailable and heartbeat is stale', async () => {
+  const paths = createFixturePaths('buildergate-stop-unknown-process-info-stale-heartbeat-');
+  const state = createRunningState(paths, { heartbeatAt: '2026-04-27T00:00:00.000Z' });
+  writeStateAtomic(paths.statePath, state);
+  const events = [];
+
+  const result = await stopDaemon(paths, {
+    now: new Date('2026-04-27T00:00:35.000Z'),
+    processInfoProvider: async (pid) => ({
+      pid,
+      running: true,
+      executablePath: null,
+      commandLine: null,
+      cwd: null,
+      startTime: null,
+    }),
+    processExists: (pid) => pid === state.appPid || pid === state.sentinelPid,
+    waitForProcessExit: async () => {
+      events.push('sentinel-exit');
+      return { exited: true };
+    },
+    sendShutdownRequest: async ({ token }) => {
+      events.push('shutdown');
+      assert.equal(token, state.shutdownToken);
+      return { ok: true, statusCode: 200, body: createShutdownSuccessBody() };
+    },
+    waitForHealthNonresponse: async () => {
+      events.push('health-nonresponse');
+      return { stopped: true };
+    },
+  });
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.status, 'stopped');
+  assert.deepEqual(events, ['sentinel-exit', 'shutdown', 'health-nonresponse']);
 });
 
 test('stopDaemon requires health nonresponse after internal shutdown response', async () => {
@@ -567,6 +803,60 @@ test('stopDaemon resumes a previous stopping state after sentinel already exited
   assert.equal(result.exitCode, 0);
   assert.equal(result.status, 'stopped');
   assert.deepEqual(events, ['shutdown:stopping', 'health-nonresponse']);
+  assert.equal(nextState.status, 'stopped');
+  assert.equal(nextState.appPid, null);
+  assert.equal(nextState.sentinelPid, null);
+});
+
+test('stopDaemon resumes stopping state by shutting down app and terminating stuck sentinel PID', async () => {
+  const paths = createFixturePaths('buildergate-stop-resume-stuck-sentinel-');
+  const state = createRunningState(paths, { status: 'stopping' });
+  writeStateAtomic(paths.statePath, state);
+  const events = [];
+  const killed = [];
+  let appAlive = true;
+  let sentinelAlive = true;
+
+  const result = await stopDaemon(paths, {
+    now: new Date('2026-04-27T00:00:35.000Z'),
+    resumingSentinelGraceTimeoutMs: 50,
+    processInfoProvider: createProcessInfoProvider(state, paths),
+    processExists: (pid) => (
+      (pid === state.appPid && appAlive)
+      || (pid === state.sentinelPid && sentinelAlive)
+    ),
+    waitForProcessExit: async (pid) => {
+      events.push(`wait:${pid}`);
+      if (pid === state.sentinelPid && sentinelAlive) {
+        return { exited: false, reason: 'sentinel tick is blocked' };
+      }
+      return { exited: true };
+    },
+    sendShutdownRequest: async () => {
+      events.push('shutdown');
+      return { ok: true, statusCode: 200, body: createShutdownSuccessBody() };
+    },
+    waitForHealthNonresponse: async () => {
+      events.push('health-nonresponse');
+      appAlive = false;
+      return { stopped: true };
+    },
+    killProcess: (pid) => {
+      killed.push(pid);
+      if (pid === state.sentinelPid) {
+        sentinelAlive = false;
+      }
+      return true;
+    },
+  });
+  const nextState = readState(paths.statePath);
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.status, 'stopped');
+  assert.deepEqual(killed, [state.sentinelPid]);
+  assert.deepEqual(events, [`wait:${state.sentinelPid}`, 'shutdown', 'health-nonresponse', `wait:${state.sentinelPid}`]);
+  assert.match(result.message, /WARNING: sentinel did not exit before app shutdown/);
+  assert.match(result.message, /WARNING: terminated stuck sentinel PID/);
   assert.equal(nextState.status, 'stopped');
   assert.equal(nextState.appPid, null);
   assert.equal(nextState.sentinelPid, null);

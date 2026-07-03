@@ -20,6 +20,7 @@ import {
   buildClientInputDebugMetadata,
   buildTerminalEventTapeDetails,
   buildTerminalInputDebugPayload,
+  buildTerminalInputDebugPayloadFromMetadata,
   isTerminalDebugCaptureEnabled,
   registerInputTransportOverrideHandler,
   registerTerminalRepairLayoutHandler,
@@ -34,6 +35,9 @@ import {
   createTerminalOutputScheduler,
   type TerminalOutputScheduler,
 } from '../../utils/terminalOutputScheduler';
+import {
+  getCachedTerminalOutputResourceLimits,
+} from '../../utils/terminalOutputHotPath';
 import {
   shouldDropStaleRepeatedTerminalKey,
 } from '../../utils/terminalStaleKeyRepeat';
@@ -69,6 +73,7 @@ const FONT_STORAGE_KEY = 'terminal_font_size';
 const SNAPSHOT_SAVE_DEBOUNCE_MS = 2000;
 const LARGE_WRITE_THRESHOLD = 10_000;
 const MOBILE_TOUCH_PAN_THRESHOLD_PX = 12;
+const queueTextEncoder = new TextEncoder();
 
 type TerminalCaptureState = 'open' | 'transient-blocked' | 'closed';
 type InputRejectedReason =
@@ -334,7 +339,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     }, []);
 
     const getQueueByteLength = useCallback((raw: string): number => {
-      return new TextEncoder().encode(raw).length;
+      return queueTextEncoder.encode(raw).length;
     }, []);
 
     const computeInputGateSnapshot = useCallback(() => {
@@ -470,10 +475,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       reason: InputRejectedReason,
       detailReason: string = reason,
     ) => {
-      const debugInput = buildTerminalInputDebugPayload(entry.data, {
-        captureSeq: entry.captureSeq,
-        compositionSeq: entry.compositionSeq,
-      });
+      const debugInput = buildTerminalInputDebugPayloadFromMetadata(entry.metadata);
       recordTerminalDebugEvent(sessionId, 'terminal_input_rejected', {
         ...debugInput.details,
         reason,
@@ -538,10 +540,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const { inputQueueTtlMs } = getInputQueueLimits();
 
       for (const entry of entries) {
-        const debugInput = buildTerminalInputDebugPayload(entry.data, {
-          captureSeq: entry.captureSeq,
-          compositionSeq: entry.compositionSeq,
-        });
+        const debugInput = buildTerminalInputDebugPayloadFromMetadata(entry.metadata);
 
         if (entry.sessionGeneration !== sessionGenerationRef.current) {
           rejectQueuedInput(entry, 'context-changed', 'context-changed');
@@ -1185,7 +1184,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     }, [scheduleSnapshotSave, requestViewportSync]);
 
     const getOutputScheduler = useCallback((term: Terminal): TerminalOutputScheduler => {
-      const limits = getTerminalResourceLimits();
+      const limits = getCachedTerminalOutputResourceLimits();
       if (!outputSchedulerRef.current || outputSchedulerTermRef.current !== term) {
         outputSchedulerTermRef.current = term;
         outputSchedulerRef.current = createTerminalOutputScheduler({
@@ -1542,11 +1541,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         outputSchedulerRef.current?.reset();
       },
       sendInput: (data: string) => {
-        const debugInput = buildTerminalInputDebugPayload(data, { captureSeq: nextCaptureSeq() });
+        const debugInput = buildTerminalInputDebugPayload(data, { captureSeq: nextCaptureSeq() }, { captureEnabled: isTerminalDebugCaptureEnabled(sessionId) });
         return submitCapturedInput(data, debugInput, 'imperative');
       },
       pasteInput: (data: string) => {
-        const debugInput = buildTerminalInputDebugPayload(data, { captureSeq: nextCaptureSeq() });
+        const debugInput = buildTerminalInputDebugPayload(data, { captureSeq: nextCaptureSeq() }, { captureEnabled: isTerminalDebugCaptureEnabled(sessionId) });
         return submitCapturedInput(data, debugInput, 'command-preset-paste');
       },
       restoreSnapshot: () => restoreSnapshotAfterIme(),
@@ -1590,7 +1589,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       releaseRestorePending,
       focusTerminalInput,
       nextCaptureSeq,
+      queueFocusRestoreIfFocused,
       repairLayoutAfterIme,
+      sessionId,
       submitCapturedInput,
       syncInputReadiness,
     ]);
@@ -1801,7 +1802,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             ev.preventDefault();
             const debugInput = buildTerminalInputDebugPayload(shortcutResolution.action.data, {
               captureSeq: nextCaptureSeq(),
-            });
+            }, { captureEnabled: isTerminalDebugCaptureEnabled(sessionId) });
             submitCapturedInput(shortcutResolution.action.data, debugInput, 'shortcut-binding');
             return false;
           }
@@ -1842,14 +1843,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         // 2차 수정: plain Space/Backspace도 xterm 네이티브 경로에 맡긴다.
         // 다만 기존 회귀 테스트와 디버그 추적을 위해 관측 이벤트는 유지한다.
         if (isPlainKey && captureAllowedRef.current && (isSpaceKey || ev.key === 'Backspace')) {
-          const debugInput = buildTerminalInputDebugPayload(isSpaceKey ? ' ' : '\x7f');
           recordTerminalDebugEvent(sessionId, 'key_delegated_to_xterm', {
             safeKeyName: isSpaceKey ? null : 'Backspace',
             keyCategory: isSpaceKey ? 'space' : 'control-navigation',
             repeat: ev.repeat,
             delegatedToXterm: true,
-            ...debugInput.details,
-          }, debugInput.preview);
+          });
           return true;
         }
 
@@ -1894,7 +1893,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         const debugInput = buildTerminalInputDebugPayload(data, {
           captureSeq: nextCaptureSeq(),
           compositionSeq,
-        });
+        }, { captureEnabled: isTerminalDebugCaptureEnabled(sessionId) });
         submitCapturedInput(data, debugInput, 'xterm');
       });
 

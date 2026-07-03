@@ -8,8 +8,8 @@
 import {
   evictTerminalSnapshotsForAuthTokenWithLimits,
   isQuotaExceededError,
-} from '../utils/terminalSnapshot';
-import { getSnapshotResourceLimits } from '../utils/inputReliabilityMode';
+} from '../utils/terminalSnapshot.ts';
+import { getSnapshotResourceLimits } from '../utils/inputReliabilityMode.ts';
 
 const TOKEN_KEY = 'cws_auth_token';
 const EXPIRES_KEY = 'cws_auth_expires';

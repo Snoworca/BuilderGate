@@ -7,10 +7,11 @@ import http from 'node:http';
 import type net from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { Config } from './types/config.types.js';
-import type { Session } from './types/index.js';
+import type { Session, ShellType } from './types/index.js';
 import { twoFactorSchema, authSchema } from './schemas/config.schema.js';
 import {
   resourceLimitsSchema,
+  sessionProcessCleanupSchema,
   stabilityModesSchema,
 } from './schemas/config.schema.js';
 import { TOTPService } from './services/TOTPService.js';
@@ -65,6 +66,7 @@ import {
 } from './utils/ptyPlatformPolicy.js';
 import {
   DefaultProcessTreeTerminator,
+  readProcessStartIdentity,
   type ProcessTreeTerminator,
 } from './utils/processTreeTerminator.js';
 import { getConfigPath, loadConfigFromPath } from './utils/config.js';
@@ -82,6 +84,7 @@ async function main(): Promise<void> {
     { name: 'Config loader bootstraps missing config files with platform-aware PTY defaults', run: testLoadConfigFromPathBootstrapsMissingConfig },
     { name: 'Config loader bootstraps missing config files without copying config.json5.example', run: testLoadConfigFromPathDoesNotRequireExampleFile },
     { name: 'Config loader defaults legacy Windows configs without useConpty to ConPTY', run: testLoadConfigFromPathDefaultsLegacyMissingUseConpty },
+    { name: 'Config loader resolves enforce cleanup and visible flush budget overrides without changing schema defaults', run: testConfigLoaderNativePerformanceP0Overrides },
     { name: 'Config loader rejects invalid PTY section shapes', run: testLoadConfigFromPathRejectsInvalidPtyShape },
     { name: 'Config loader normalizes stale Windows PTY fields on non-Windows hosts', run: testLoadConfigFromPathNormalizesNonWindowsPtyFields },
     { name: 'Config loader canonicalizes empty-password bootstrap state from null or missing input', run: testLoadConfigFromPathCanonicalizesEmptyPasswordState },
@@ -154,6 +157,11 @@ async function main(): Promise<void> {
     { name: 'ProcessTreeTerminator reports sampled child that survives root exit', run: testProcessTreeTerminatorReportsSurvivingSampledChildAfterRootExit },
     { name: 'SessionManager terminateSession awaits enforce process-tree termination', run: testSessionManagerTerminateSessionAwaitsEnforceTerminator },
     { name: 'SessionManager terminateSession merges process exit race into explicit cleanup', run: testSessionManagerTerminateSessionMergesProcessExitRace },
+    { name: 'SessionManager.createSession does not synchronously read process start identity on Windows', run: testSessionManagerCreateSessionDoesNotReadStartIdentitySynchronously },
+    { name: 'SessionManager ignores rejected asynchronous process start identity capture', run: testSessionManagerIgnoresRejectedAsyncStartIdentityCapture },
+    { name: 'readProcessStartIdentity returns null when Windows process identity probe times out', run: testReadProcessStartIdentityWindowsTimeoutReturnsNull },
+    { name: 'SessionManager stores asynchronous process start identity when capture resolves', run: testSessionManagerStoresAsyncStartIdentity },
+    { name: 'SessionManager treats termination before async start identity capture as unverified cleanup', run: testSessionManagerTerminateBeforeAsyncStartIdentityCapture },
     { name: 'SessionManager updates process metadata cwd from verified cwd hook', run: testSessionManagerUpdatesProcessMetadataCwdFromHook },
     { name: 'SessionManager terminateSession finalizes when enforce terminator throws', run: testSessionManagerTerminateSessionFinalizesWhenTerminatorThrows },
     { name: 'SessionManager terminateMultipleSessions reports mixed missing sessions', run: testSessionManagerTerminateMultipleSessionsReportsMissing },
@@ -851,6 +859,48 @@ async function testLoadConfigFromPathDefaultsLegacyMissingUseConpty(): Promise<v
     assert.equal(windowsConfig.pty.windowsPowerShellBackend, 'inherit');
     assert.equal(linuxConfig.pty.useConpty, false);
     assert.equal(linuxConfig.pty.windowsPowerShellBackend, 'inherit');
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testConfigLoaderNativePerformanceP0Overrides(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-config-native-perf-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  const configContent = createConfigFixtureContent()
+    .replace(
+      '  session: {\n    idleDelayMs: 200,\n  },',
+      `  session: {
+    idleDelayMs: 200,
+    processCleanup: {
+      mode: "enforce",
+      gracefulWaitMs: 750,
+      forceWaitMs: 1500,
+      descendantSampleLimit: 64,
+    },
+  },`,
+    )
+    .replace(
+      '  twoFactor: {',
+      `  resourceLimits: {
+    terminal: {
+      visibleFlushBudgetBytes: 262144,
+    },
+  },
+  twoFactor: {`,
+    );
+
+  await fs.writeFile(configPath, configContent, 'utf-8');
+
+  try {
+    const loaded = loadConfigFromPath(configPath, 'win32');
+    const schemaDefaultProcessCleanup = sessionProcessCleanupSchema.parse(undefined);
+    const terminalLimits = loaded.resourceLimits?.terminal;
+
+    assert.ok(terminalLimits);
+    assert.equal(terminalLimits.visibleFlushBudgetBytes, 262144);
+    assert.equal(loaded.session.processCleanup?.mode, 'enforce');
+    assert.equal(schemaDefaultProcessCleanup.mode, 'observe');
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
@@ -1842,6 +1892,12 @@ function readCleanupTelemetry(manager: SessionManager): any {
 
 function createProcessCleanupSessionHarness(options: {
   pid?: number | null;
+  platform?: NodeJS.Platform;
+  shell?: ShellType;
+  useConpty?: boolean;
+  windowsPowerShellBackend?: 'inherit' | 'conpty' | 'winpty';
+  execFileSyncFn?: (...args: any[]) => any;
+  readProcessStartIdentityFn?: (...args: any[]) => Promise<string | null>;
   processCleanup?: Partial<{
     mode: 'legacy' | 'observe' | 'enforce';
     gracefulWaitMs: number;
@@ -1854,8 +1910,10 @@ function createProcessCleanupSessionHarness(options: {
   let exitHandler: ((event: { exitCode: number; signal?: number }) => void) | null = null;
   let killCalls = 0;
   const ptyPid = options.pid === null ? undefined : options.pid ?? 4321;
+  const platform = options.platform ?? 'linux';
+  const shell = options.shell ?? 'bash';
   const deps: any = {
-    platform: 'linux',
+    platform,
     spawnPty: ((spawnShell: string, spawnArgs: string[], spawnOptions: { cols?: number; rows?: number }) => {
       return {
         pid: ptyPid,
@@ -1875,6 +1933,12 @@ function createProcessCleanupSessionHarness(options: {
       } as any;
     }) as any,
   };
+  if (options.execFileSyncFn) {
+    deps.execFileSyncFn = options.execFileSyncFn;
+  }
+  if (options.readProcessStartIdentityFn) {
+    deps.readProcessStartIdentityFn = options.readProcessStartIdentityFn;
+  }
   if (options.processInspector) {
     deps.processInspector = options.processInspector;
   }
@@ -1887,10 +1951,11 @@ function createProcessCleanupSessionHarness(options: {
       termName: 'xterm-256color',
       defaultCols: 80,
       defaultRows: 24,
-      useConpty: false,
+      useConpty: options.useConpty ?? platform === 'win32',
+      windowsPowerShellBackend: options.windowsPowerShellBackend ?? 'inherit',
       scrollbackLines: 1000,
       maxSnapshotBytes: 1024,
-      shell: 'bash',
+      shell,
     },
     session: {
       idleDelayMs: 40,
@@ -1905,8 +1970,8 @@ function createProcessCleanupSessionHarness(options: {
     },
   } as any, deps);
 
-  (manager as any).isCommandAvailable = (cmd: string) => cmd === 'bash' || cmd === 'sh';
-  const session = manager.createSession('Cleanup Session', 'bash', process.cwd());
+  (manager as any).isCommandAvailable = (cmd: string) => ['bash', 'sh', 'powershell', 'powershell.exe', 'pwsh', 'cmd', 'cmd.exe'].includes(cmd.toLowerCase());
+  const session = manager.createSession('Cleanup Session', shell, process.cwd());
 
   return {
     manager,
@@ -2778,6 +2843,137 @@ async function testSessionManagerTerminateSessionMergesProcessExitRace(): Promis
   } finally {
     harness.cleanupIfActive();
   }
+}
+
+function testSessionManagerCreateSessionDoesNotReadStartIdentitySynchronously(): void {
+  let syncIdentityCalls = 0;
+  const harness = createProcessCleanupSessionHarness({
+    platform: 'win32',
+    shell: 'powershell',
+    pid: process.pid,
+    useConpty: true,
+    windowsPowerShellBackend: 'conpty',
+    execFileSyncFn: (() => {
+      syncIdentityCalls += 1;
+      return Buffer.from('');
+    }) as any,
+    readProcessStartIdentityFn: async () => null,
+  });
+
+  try {
+    assert.equal(syncIdentityCalls, 0);
+  } finally {
+    harness.cleanupIfActive();
+  }
+}
+
+async function testSessionManagerIgnoresRejectedAsyncStartIdentityCapture(): Promise<void> {
+  let captureCalls = 0;
+  const harness = createProcessCleanupSessionHarness({
+    readProcessStartIdentityFn: async () => {
+      captureCalls += 1;
+      throw new Error('identity probe failed');
+    },
+  });
+
+  try {
+    assert.equal(captureCalls, 1);
+    assert.ok(harness.manager.getSession(harness.session.id));
+    await delay(0);
+    assert.ok(harness.manager.getSession(harness.session.id));
+    assert.equal(harness.sessionData?.processMetadata.osStartIdentity, null);
+  } finally {
+    harness.cleanupIfActive();
+  }
+}
+
+async function testReadProcessStartIdentityWindowsTimeoutReturnsNull(): Promise<void> {
+  let observedTimeout: number | undefined;
+  const fakeExecFile = ((file: string, args: string[], options: any, callback: any) => {
+    assert.equal(file, 'powershell.exe');
+    assert.deepEqual(args.slice(0, 3), ['-NoProfile', '-NonInteractive', '-Command']);
+    observedTimeout = options.timeout;
+    queueMicrotask(() => {
+      const error = Object.assign(new Error('operation timed out'), { code: 'ETIMEDOUT' });
+      callback(error, '', '');
+    });
+    return {} as any;
+  }) as any;
+
+  const identity = await readProcessStartIdentity(process.pid, 'win32', fakeExecFile);
+
+  assert.equal(identity, null);
+  assert.equal(observedTimeout, 1000);
+}
+
+async function testSessionManagerStoresAsyncStartIdentity(): Promise<void> {
+  let requestedPid: number | null = null;
+  let resolveCapture: (identity: string | null) => void = () => {
+    throw new Error('Expected async start identity capture promise to be initialized');
+  };
+  const harness = createProcessCleanupSessionHarness({
+    readProcessStartIdentityFn: async (pid: number | null) => {
+      requestedPid = pid;
+      return await new Promise<string | null>((resolve) => {
+        resolveCapture = resolve;
+      });
+    },
+  });
+
+  try {
+    assert.equal(requestedPid, 4321);
+    assert.equal(harness.sessionData?.processMetadata.osStartIdentity, null);
+    resolveCapture('procfs:4321:async-start');
+    await delay(0);
+    assert.equal(harness.sessionData?.processMetadata.osStartIdentity, 'procfs:4321:async-start');
+  } finally {
+    harness.cleanupIfActive();
+  }
+}
+
+async function testSessionManagerTerminateBeforeAsyncStartIdentityCapture(): Promise<void> {
+  let resolveCapture: (identity: string | null) => void = () => {
+    throw new Error('Expected async start identity capture promise to be initialized');
+  };
+  let observedIdentity: string | null | undefined;
+  const fakeTerminator: ProcessTreeTerminator = {
+    async inspect() {
+      throw new Error('inspect should not be called directly');
+    },
+    async terminate(metadata) {
+      observedIdentity = metadata.osStartIdentity;
+      return {
+        status: 'skipped-unverified',
+        rootPid: metadata.rootPid,
+        terminatedPids: [],
+        remainingPids: [],
+        unverifiedPids: metadata.rootPid === null ? [] : [metadata.rootPid],
+        method: 'observe',
+        message: 'Session root identity is unavailable',
+      };
+    },
+  };
+  const harness = createProcessCleanupSessionHarness({
+    processCleanup: { mode: 'enforce' },
+    processTreeTerminator: fakeTerminator,
+    readProcessStartIdentityFn: async () => await new Promise<string | null>((resolve) => {
+      resolveCapture = resolve;
+    }),
+  });
+
+  const sessionId = harness.session.id;
+  const result = await harness.manager.terminateSession(sessionId, {
+    reason: 'direct-session-delete',
+  });
+  resolveCapture('procfs:4321:late-start');
+  await delay(0);
+
+  assert.equal(result, true);
+  assert.equal(observedIdentity, null);
+  assert.equal(harness.manager.getSession(sessionId), null);
+  const cleanup = readCleanupTelemetry(harness.manager);
+  assert.equal(cleanup.unverifiedSkipped, 1);
+  assert.equal(cleanup.recentResults[0].cleanupStatus, 'skipped-unverified');
 }
 
 async function testSessionManagerUpdatesProcessMetadataCwdFromHook(): Promise<void> {

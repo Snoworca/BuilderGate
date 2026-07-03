@@ -62,6 +62,7 @@ export function sanitizeClientInputDebugMetadata(metadata?: InputDebugMetadata):
   copyBoolean(metadata, sanitized, 'clientObservedHasHangul');
   copyBoolean(metadata, sanitized, 'clientObservedHasCjk');
   copyBoolean(metadata, sanitized, 'clientObservedHasEnter');
+  copyBoolean(metadata, sanitized, 'clientObservedMetricsSkipped');
   return sanitized;
 }
 
