@@ -173,7 +173,9 @@ const DEFAULT_SESSION_PROCESS_CLEANUP: SessionProcessCleanupConfig = {
   gracefulWaitMs: 750,
   forceWaitMs: 1500,
   descendantSampleLimit: 64,
+  identityProbeTimeoutMs: 3000,
 };
+const IDENTITY_CAPTURE_RETRY_BACKOFFS_MS = [200, 400] as const;
 const AI_TUI_TYPING_FEEDBACK_THRESHOLD_MS = 1000;
 const AI_TUI_SUBMITTED_ECHO_THRESHOLD_MS = 1000;
 const AI_TUI_DECORATIVE_FRAME_RE = /^[\s─╰╯│┃┆┄┈┊·•]+$/;
@@ -262,6 +264,7 @@ interface SessionData {
   pendingTermination: PendingSessionTermination | null;
   idleTimer: NodeJS.Timeout | null;
   runningTimer: NodeJS.Timeout | null;
+  identityCaptureTimer: NodeJS.Timeout | null;
   shellType?: SessionShellType;
   headless: HeadlessTerminalState | null;
   headlessHealth: HeadlessHealth;
@@ -371,6 +374,7 @@ function normalizeSessionProcessCleanupConfig(
     gracefulWaitMs: next?.gracefulWaitMs ?? DEFAULT_SESSION_PROCESS_CLEANUP.gracefulWaitMs,
     forceWaitMs: next?.forceWaitMs ?? DEFAULT_SESSION_PROCESS_CLEANUP.forceWaitMs,
     descendantSampleLimit: next?.descendantSampleLimit ?? DEFAULT_SESSION_PROCESS_CLEANUP.descendantSampleLimit,
+    identityProbeTimeoutMs: next?.identityProbeTimeoutMs ?? DEFAULT_SESSION_PROCESS_CLEANUP.identityProbeTimeoutMs,
   };
 }
 
@@ -381,6 +385,9 @@ function createInitialCleanupTelemetry(mode: SessionProcessCleanupConfig['mode']
     completed: 0,
     degraded: 0,
     unverifiedSkipped: 0,
+    identityCaptureSucceeded: 0,
+    identityCaptureRetried: 0,
+    identityCaptureFailed: 0,
     recentResults: [],
   };
 }
@@ -600,6 +607,7 @@ export class SessionManager {
       pendingTermination: null,
       idleTimer: null,
       runningTimer: null,
+      identityCaptureTimer: null,
       shellType,
       headless: null,
       headlessHealth: 'healthy',
@@ -2353,21 +2361,55 @@ export class SessionManager {
   }
 
   private scheduleProcessStartIdentityCapture(sessionId: string, data: SessionData): void {
+    this.attemptProcessStartIdentityCapture(sessionId, data, 0);
+  }
+
+  private attemptProcessStartIdentityCapture(sessionId: string, data: SessionData, attemptIndex: number): void {
+    // Stop before probing once the session has been deleted or finalized (immediate-delete race).
+    const current = this.sessions.get(sessionId);
+    if (current !== data || current.finalized) {
+      return;
+    }
     const rootPid = data.processMetadata.rootPid;
-    void this.readProcessStartIdentityFn(rootPid, this.platform, this.execFileFn)
+    const timeoutMs = this.runtimeSessionConfig.processCleanup.identityProbeTimeoutMs;
+    void this.readProcessStartIdentityFn(rootPid, this.platform, this.execFileFn, timeoutMs)
       .then((identity) => {
-        if (!identity) {
-          return;
-        }
-        const current = this.sessions.get(sessionId);
-        if (current !== data || current.finalized) {
-          return;
-        }
-        current.processMetadata.osStartIdentity = identity;
+        this.handleProcessStartIdentityResult(sessionId, data, attemptIndex, identity);
       })
       .catch(() => {
-        // Best-effort metadata only; cleanup will follow the unverified path if identity is unavailable.
+        this.handleProcessStartIdentityResult(sessionId, data, attemptIndex, null);
       });
+  }
+
+  private handleProcessStartIdentityResult(
+    sessionId: string,
+    data: SessionData,
+    attemptIndex: number,
+    identity: string | null,
+  ): void {
+    const current = this.sessions.get(sessionId);
+    if (current !== data || current.finalized) {
+      return;
+    }
+    if (identity) {
+      current.processMetadata.osStartIdentity = identity;
+      this.cleanupTelemetry.identityCaptureSucceeded += 1;
+      return;
+    }
+    const backoffMs = IDENTITY_CAPTURE_RETRY_BACKOFFS_MS[attemptIndex];
+    if (backoffMs === undefined) {
+      // Retries exhausted; cleanup will follow the unverified path if identity stays unavailable.
+      this.cleanupTelemetry.identityCaptureFailed += 1;
+      return;
+    }
+    this.cleanupTelemetry.identityCaptureRetried += 1;
+    current.identityCaptureTimer = setTimeout(() => {
+      const retryTarget = this.sessions.get(sessionId);
+      if (retryTarget === data && !retryTarget.finalized) {
+        retryTarget.identityCaptureTimer = null;
+      }
+      this.attemptProcessStartIdentityCapture(sessionId, data, attemptIndex + 1);
+    }, backoffMs);
   }
 
   private resolveSessionProcessBackend(
@@ -2400,6 +2442,10 @@ export class SessionManager {
     if (data.idleTimer) {
       clearTimeout(data.idleTimer);
       data.idleTimer = null;
+    }
+    if (data.identityCaptureTimer) {
+      clearTimeout(data.identityCaptureTimer);
+      data.identityCaptureTimer = null;
     }
     this.cancelPendingRunningTransition(data);
 

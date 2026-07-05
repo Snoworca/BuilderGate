@@ -57,6 +57,9 @@ export interface SessionCleanupTelemetry {
   completed: number;
   degraded: number;
   unverifiedSkipped: number;
+  identityCaptureSucceeded: number;
+  identityCaptureRetried: number;
+  identityCaptureFailed: number;
   recentResults: SessionCleanupTelemetryResult[];
 }
 

@@ -111,6 +111,7 @@ export interface SessionProcessCleanupConfig {
   gracefulWaitMs: number;
   forceWaitMs: number;
   descendantSampleLimit: number;
+  identityProbeTimeoutMs: number;
 }
 
 // ============================================================================

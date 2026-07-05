@@ -86,6 +86,7 @@ export const sessionProcessCleanupSchema = defaultObject(z.object({
   gracefulWaitMs: z.number().int().min(0).max(60000).default(750),
   forceWaitMs: z.number().int().min(0).max(60000).default(1500),
   descendantSampleLimit: z.number().int().min(1).max(4096).default(64),
+  identityProbeTimeoutMs: z.number().int().min(100).max(60000).default(3000),
 }).strict());
 
 export const sessionSchema = z.object({

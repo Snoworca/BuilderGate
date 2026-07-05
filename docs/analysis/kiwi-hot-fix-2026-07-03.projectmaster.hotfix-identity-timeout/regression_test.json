@@ -1,0 +1,16 @@
+{
+  "test_name": "testSessionManagerRetriesAsyncStartIdentityCaptureAfterTransientFailure",
+  "file": "server/src/test-runner.ts",
+  "registered_as": "SessionManager retries asynchronous process start identity capture after a transient failure",
+  "expected_failure_signature": "FAIL SessionManager retries asynchronous process start identity capture after a transient failure\nAssertionError [ERR_ASSERTION]: expected at least 2 identity probe attempts, saw 1\n    at Object.testSessionManagerRetriesAsyncStartIdentityCaptureAfterTransientFailure (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\test-runner.ts:2909:12)\n    at async main (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\test-runner.ts:403:7) {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: '==',\n  diff: 'simple'\n}",
+  "red_confirmed": true,
+  "red_run": {
+    "command": "npx tsx src/test-runner.ts (server dir)",
+    "total": 315,
+    "passed": 314,
+    "failed": 1,
+    "failed_test": "SessionManager retries asynchronous process start identity capture after a transient failure",
+    "note": "Only the new regression test failed at RED; the two soon-to-be-updated existing tests (testReadProcessStartIdentityWindowsTimeoutReturnsNull, testSessionManagerIgnoresRejectedAsyncStartIdentityCapture) still passed because source was unchanged, confirming the new test isolates the missing-retry defect."
+  },
+  "root_cause_confirmed": "With the pre-fix scheduleProcessStartIdentityCapture (single probe, no retry), a transient null/timeout leaves captureCalls at 1 and osStartIdentity null forever; the test asserts >=2 probe attempts and a recovered identity, so it fails on the first probe count assertion."
+}

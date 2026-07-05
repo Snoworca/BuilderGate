@@ -1,0 +1,103 @@
+{
+ "change_units": [
+  {
+   "id": "CU-001",
+   "files": [
+    {
+     "path": "server/src/types/config.types.ts",
+     "line_range": "114",
+     "change_type": "modified"
+    }
+   ],
+   "symbol_hints": [
+    "SessionProcessCleanupConfig"
+   ],
+   "loc_added": 1,
+   "loc_removed": 0
+  },
+  {
+   "id": "CU-002",
+   "files": [
+    {
+     "path": "server/src/schemas/config.schema.ts",
+     "line_range": "89",
+     "change_type": "modified"
+    }
+   ],
+   "symbol_hints": [
+    "sessionProcessCleanupSchema",
+    "identityProbeTimeoutMs"
+   ],
+   "loc_added": 1,
+   "loc_removed": 0
+  },
+  {
+   "id": "CU-003",
+   "files": [
+    {
+     "path": "server/src/utils/processTreeTerminator.ts",
+     "line_range": "328-354",
+     "change_type": "modified"
+    }
+   ],
+   "symbol_hints": [
+    "readProcessStartIdentity"
+   ],
+   "loc_added": 2,
+   "loc_removed": 1
+  },
+  {
+   "id": "CU-004",
+   "files": [
+    {
+     "path": "server/src/types/ws-protocol.ts",
+     "line_range": "60-62",
+     "change_type": "modified"
+    }
+   ],
+   "symbol_hints": [
+    "SessionCleanupTelemetry"
+   ],
+   "loc_added": 3,
+   "loc_removed": 0
+  },
+  {
+   "id": "CU-005",
+   "files": [
+    {
+     "path": "server/src/services/SessionManager.ts",
+     "line_range": "176-178,267,377,388-390,610,2363-2413,2446-2449",
+     "change_type": "modified"
+    }
+   ],
+   "symbol_hints": [
+    "scheduleProcessStartIdentityCapture",
+    "attemptProcessStartIdentityCapture",
+    "handleProcessStartIdentityResult",
+    "identityCaptureTimer",
+    "IDENTITY_CAPTURE_RETRY_BACKOFFS_MS",
+    "finalizeSession"
+   ],
+   "loc_added": 60,
+   "loc_removed": 7
+  },
+  {
+   "id": "CU-006",
+   "files": [
+    {
+     "path": "server/src/test-runner.ts",
+     "line_range": "162,2884-2929,2947",
+     "change_type": "modified"
+    }
+   ],
+   "symbol_hints": [
+    "testSessionManagerRetriesAsyncStartIdentityCaptureAfterTransientFailure",
+    "testSessionManagerIgnoresRejectedAsyncStartIdentityCapture",
+    "testReadProcessStartIdentityWindowsTimeoutReturnsNull"
+   ],
+   "loc_added": 39,
+   "loc_removed": 5
+  }
+ ],
+ "note": "단일 hot-fix 의미 단위(identity capture timeout/retry/observability)를 파일별 6개 CU로 분해. 모두 동일 fix의 부분."
+}

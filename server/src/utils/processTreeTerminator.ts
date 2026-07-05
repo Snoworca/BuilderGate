@@ -329,6 +329,7 @@ export async function readProcessStartIdentity(
   pid: number | null,
   platform: NodeJS.Platform = process.platform,
   execFileFn: typeof execFile = execFile,
+  timeoutMs = 3000,
 ): Promise<string | null> {
   const normalizedPid = normalizePid(pid);
   if (normalizedPid === null || !isProcessRunning(normalizedPid)) {
@@ -350,7 +351,7 @@ export async function readProcessStartIdentity(
             '$root.CreationDate.ToUniversalTime().ToString("o")',
           ].join('; '),
         ],
-        { encoding: 'utf8', windowsHide: true, timeout: 1000 },
+        { encoding: 'utf8', windowsHide: true, timeout: timeoutMs },
         (error, stdout) => {
           if (error) {
             resolve(null);

@@ -159,6 +159,7 @@ async function main(): Promise<void> {
     { name: 'SessionManager terminateSession merges process exit race into explicit cleanup', run: testSessionManagerTerminateSessionMergesProcessExitRace },
     { name: 'SessionManager.createSession does not synchronously read process start identity on Windows', run: testSessionManagerCreateSessionDoesNotReadStartIdentitySynchronously },
     { name: 'SessionManager ignores rejected asynchronous process start identity capture', run: testSessionManagerIgnoresRejectedAsyncStartIdentityCapture },
+    { name: 'SessionManager retries asynchronous process start identity capture after a transient failure', run: testSessionManagerRetriesAsyncStartIdentityCaptureAfterTransientFailure },
     { name: 'readProcessStartIdentity returns null when Windows process identity probe times out', run: testReadProcessStartIdentityWindowsTimeoutReturnsNull },
     { name: 'SessionManager stores asynchronous process start identity when capture resolves', run: testSessionManagerStoresAsyncStartIdentity },
     { name: 'SessionManager treats termination before async start identity capture as unverified cleanup', run: testSessionManagerTerminateBeforeAsyncStartIdentityCapture },
@@ -2877,11 +2878,51 @@ async function testSessionManagerIgnoresRejectedAsyncStartIdentityCapture(): Pro
   });
 
   try {
+    // Only the first probe has run synchronously at creation time.
     assert.equal(captureCalls, 1);
     assert.ok(harness.manager.getSession(harness.session.id));
-    await delay(0);
+
+    // Rejections trigger bounded retries; wait for the retry budget (200ms + 400ms) to drain.
+    await delay(900);
+
     assert.ok(harness.manager.getSession(harness.session.id));
+    assert.equal(captureCalls, 3);
     assert.equal(harness.sessionData?.processMetadata.osStartIdentity, null);
+
+    const cleanup = readCleanupTelemetry(harness.manager);
+    assert.equal(cleanup.identityCaptureRetried, 2);
+    assert.equal(cleanup.identityCaptureFailed, 1);
+    assert.equal(cleanup.identityCaptureSucceeded, 0);
+  } finally {
+    harness.cleanupIfActive();
+  }
+}
+
+async function testSessionManagerRetriesAsyncStartIdentityCaptureAfterTransientFailure(): Promise<void> {
+  let captureCalls = 0;
+  const harness = createProcessCleanupSessionHarness({
+    readProcessStartIdentityFn: async () => {
+      captureCalls += 1;
+      // First probe simulates a transient timeout/failure (null); later probes succeed.
+      return captureCalls >= 2 ? 'procfs:4321:recovered-start' : null;
+    },
+  });
+
+  try {
+    // Immediately after creation only the first (failing) probe has run synchronously.
+    assert.equal(captureCalls, 1);
+    assert.equal(harness.sessionData?.processMetadata.osStartIdentity, null);
+
+    // Allow the retry backoff to elapse and the second probe to resolve.
+    await delay(500);
+
+    assert.ok(captureCalls >= 2, `expected at least 2 identity probe attempts, saw ${captureCalls}`);
+    assert.equal(harness.sessionData?.processMetadata.osStartIdentity, 'procfs:4321:recovered-start');
+
+    const cleanup = readCleanupTelemetry(harness.manager);
+    assert.equal(cleanup.identityCaptureSucceeded, 1);
+    assert.equal(cleanup.identityCaptureRetried, 1);
+    assert.equal(cleanup.identityCaptureFailed, 0);
   } finally {
     harness.cleanupIfActive();
   }
@@ -2903,7 +2944,7 @@ async function testReadProcessStartIdentityWindowsTimeoutReturnsNull(): Promise<
   const identity = await readProcessStartIdentity(process.pid, 'win32', fakeExecFile);
 
   assert.equal(identity, null);
-  assert.equal(observedTimeout, 1000);
+  assert.equal(observedTimeout, 3000);
 }
 
 async function testSessionManagerStoresAsyncStartIdentity(): Promise<void> {

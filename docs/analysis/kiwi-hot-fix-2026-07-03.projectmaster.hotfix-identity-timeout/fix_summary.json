@@ -1,0 +1,83 @@
+{
+  "req_ids": ["PERF-BGSTAB-002", "FR-BGSTAB-019"],
+  "files_changed": [
+    {
+      "path": "server/src/types/config.types.ts",
+      "line_range": "114",
+      "change_type": "type-field-add",
+      "rationale": "Add identityProbeTimeoutMs to SessionProcessCleanupConfig so the OS start-identity probe timeout is a first-class, tunable config value alongside gracefulWaitMs/forceWaitMs/descendantSampleLimit."
+    },
+    {
+      "path": "server/src/schemas/config.schema.ts",
+      "line_range": "89",
+      "change_type": "zod-field-add",
+      "rationale": "Add identityProbeTimeoutMs to sessionProcessCleanupSchema (int, min 100, max 60000, default 3000). Raises the effective default probe timeout from the previously hardcoded 1000ms to 3000ms, mirroring the sibling duration fields' validation pattern."
+    },
+    {
+      "path": "server/src/utils/processTreeTerminator.ts",
+      "line_range": "328-354",
+      "change_type": "signature-param-add",
+      "rationale": "Add injectable timeoutMs param (default 3000) to readProcessStartIdentity and thread it into the win32 execFile { timeout } option, replacing the hardcoded timeout: 1000. queryWindowsProcessInfo (timeout:1500) intentionally left untouched per scope."
+    },
+    {
+      "path": "server/src/types/ws-protocol.ts",
+      "line_range": "60-62",
+      "change_type": "telemetry-field-add",
+      "rationale": "Add identityCaptureSucceeded / identityCaptureRetried / identityCaptureFailed counters to SessionCleanupTelemetry, exposing identity-capture outcomes through the existing sessions.cleanup observability surface so previously null-collapsed failures become observable."
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "176 (DEFAULT_SESSION_PROCESS_CLEANUP.identityProbeTimeoutMs), 178 (IDENTITY_CAPTURE_RETRY_BACKOFFS_MS=[200,400]), 267 & 610 & 2446-2449 (identityCaptureTimer field + init + finalize cleanup), 377 (normalize passthrough), 388-390 (telemetry init), 2363-2413 (retry rewrite)",
+      "change_type": "core-fix",
+      "rationale": "Rewrite scheduleProcessStartIdentityCapture into attemptProcessStartIdentityCapture + handleProcessStartIdentityResult with up to 3 total attempts (backoff 200ms, 400ms). Each attempt re-checks the (current !== data || current.finalized) guard before probing and before writing, so a deleted/finalized session stops retrying immediately. The pending retry setTimeout handle is stored in SessionData.identityCaptureTimer and cleared in finalizeSession alongside idleTimer. Success/retry/exhaustion increment the new cleanup telemetry counters. Probe timeout is read from runtimeSessionConfig.processCleanup.identityProbeTimeoutMs and passed to the probe."
+    },
+    {
+      "path": "server/src/test-runner.ts",
+      "line_range": "162 (registration), 2901-2929 (new regression test), 2884-2895 (updated reject test), 2947 (updated timeout assertion)",
+      "change_type": "test",
+      "rationale": "Add the new RED-first regression test plus counter assertions; update the two existing tests that encoded the old single-probe/1000ms behavior."
+    }
+  ],
+  "config_schema_changes": [
+    {
+      "field": "session.processCleanup.identityProbeTimeoutMs",
+      "type": "integer",
+      "min": 100,
+      "max": 60000,
+      "default": 3000,
+      "previous_effective_value": "1000 (hardcoded in readProcessStartIdentity win32 branch)",
+      "note": "Config template (configTemplate.ts) and config.json5.example intentionally NOT modified to keep the hot-fix blast radius minimal; the schema default (3000) applies whether or not the field is present in a user's config, and existing config template tests use subset matching so remain green."
+    }
+  ],
+  "observability_counters_added": {
+    "location": "SessionCleanupTelemetry (sessions.cleanup snapshot via getObservabilitySnapshot)",
+    "counters": {
+      "identityCaptureSucceeded": "incremented when a probe returns a non-null identity that is stored",
+      "identityCaptureRetried": "incremented each time a retry is scheduled after a null/rejected probe (backoff remaining)",
+      "identityCaptureFailed": "incremented once when all retries are exhausted and identity remains unavailable"
+    },
+    "timeout_counter_decision": "A distinct identityCaptureTimedOut counter was NOT added because readProcessStartIdentity collapses timeout and other errors into a single null result; fabricating a timeout signal would require expanding the probe's return contract (out of the scoped blast radius). identityCaptureRetried + identityCaptureFailed make the previously-invisible transient-failure path observable, which is the root-cause observability gap."
+  },
+  "updated_existing_tests": [
+    {
+      "test": "testReadProcessStartIdentityWindowsTimeoutReturnsNull",
+      "change": "assert.equal(observedTimeout, 1000) -> 3000 to match the new default probe timeout."
+    },
+    {
+      "test": "testSessionManagerIgnoresRejectedAsyncStartIdentityCapture",
+      "change": "Now waits ~900ms for the retry budget (200ms+400ms) to drain and asserts captureCalls === 3 (all three attempts reject) while osStartIdentity stays null; adds identityCaptureRetried===2 / identityCaptureFailed===1 / identityCaptureSucceeded===0 assertions. Confirms rejections trigger bounded retries and still land on the unverified path when all fail."
+    },
+    {
+      "test": "testSessionManagerTerminateBeforeAsyncStartIdentityCapture",
+      "change": "No code change needed; re-verified it still passes. The immediate delete race is still correctly skipped-unverified (observedIdentity===null, unverifiedSkipped===1) and the retry timer neither leaks nor mis-fires after finalize (session removed from the map, so the guard aborts and finalizeSession clears any pending timer)."
+    }
+  ],
+  "out_of_scope_confirmed": [
+    "queryWindowsProcessInfo (timeout:1500) left untouched - separate follow-up.",
+    "No delete-grace-period / termination-wait-for-identity logic added.",
+    "config template / config.json5.example not modified."
+  ],
+  "red_run_result": { "total": 315, "passed": 314, "failed": 1 },
+  "full_suite_result": { "total": 315, "passed": 315, "failed": 0 },
+  "typecheck_result": { "command": "npx tsc --noEmit", "exit": 0, "errors": 0 }
+}

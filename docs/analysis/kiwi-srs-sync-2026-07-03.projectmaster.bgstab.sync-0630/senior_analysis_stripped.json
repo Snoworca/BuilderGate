@@ -1,0 +1,152 @@
+{
+ "classification_decision": {
+  "primary_classification": "update",
+  "primary_target_req_id": "PERF-BGSTAB-002",
+  "cu_mapping": [
+   {
+    "cu_id": "CU-001",
+    "target_req_id": "PERF-BGSTAB-002"
+   },
+   {
+    "cu_id": "CU-002",
+    "target_req_id": "PERF-BGSTAB-002"
+   },
+   {
+    "cu_id": "CU-003",
+    "target_req_id": "PERF-BGSTAB-002"
+   },
+   {
+    "cu_id": "CU-004",
+    "target_req_id": "PERF-BGSTAB-002"
+   },
+   {
+    "cu_id": "CU-005",
+    "target_req_id": "PERF-BGSTAB-002"
+   },
+   {
+    "cu_id": "CU-006",
+    "target_req_id": "PERF-BGSTAB-002"
+   }
+  ]
+ },
+ "mutation_plan": [
+  {
+   "ordinal": 1,
+   "tool": "append_section_note",
+   "args": {
+    "id": "PERF-BGSTAB-002",
+    "section": "Acceptance Criteria",
+    "note": "- [ ] AC-6: Given the asynchronous start-identity probe runs, when the OS start-identity capture executes, then the probe timeout is read from session.processCleanup.identityProbeTimeoutMs (integer, min 100, max 60000, default 3000) instead of a hardcoded value, and the schema default (3000) applies whether or not the field is present in the loaded config.\n- [ ] AC-7: Given an asynchronous start-identity probe returns null or rejects while the session still exists and is not finalized, when the capture is retried, then it retries with bounded backoff up to 3 total attempts (backoff delays 200ms then 400ms), each attempt re-checks that the session still exists and is not finalized before probing and before storing the result so a deleted or finalized session stops retrying immediately, and the pending retry timer is cleared during session finalization.\n- [ ] AC-8: Given asynchronous start-identity capture with bounded retry runs, then the session cleanup telemetry exposes identityCaptureSucceeded (incremented when a probe returns a stored non-null identity), identityCaptureRetried (incremented each time a retry is scheduled after a null or rejected probe), and identityCaptureFailed (incremented once when all retries are exhausted and identity remains unavailable) through the existing sessions.cleanup observability surface."
+   }
+  },
+  {
+   "ordinal": 2,
+   "tool": "add_trace_link",
+   "args": {
+    "id": "PERF-BGSTAB-002",
+    "type": "Code",
+    "reference": "server/src/services/SessionManager.ts:2363-2413",
+    "relation": "verifies",
+    "trace_intent": "verifies",
+    "notes": "attemptProcessStartIdentityCapture + handleProcessStartIdentityResult retry 재작성(최대 3회, backoff [200,400]ms, 가드 재검사); identityCaptureTimer finalize clear는 2446-2449 동반. AC-7 검증."
+   }
+  },
+  {
+   "ordinal": 3,
+   "tool": "add_trace_link",
+   "args": {
+    "id": "PERF-BGSTAB-002",
+    "type": "Code",
+    "reference": "server/src/utils/processTreeTerminator.ts:328-354",
+    "relation": "verifies",
+    "trace_intent": "verifies",
+    "notes": "readProcessStartIdentity에 주입형 timeoutMs 파라미터(default 3000) 추가, win32 execFile { timeout }로 전달(하드코딩 1000 대체). AC-6 검증."
+   }
+  },
+  {
+   "ordinal": 4,
+   "tool": "add_trace_link",
+   "args": {
+    "id": "PERF-BGSTAB-002",
+    "type": "Code",
+    "reference": "server/src/types/config.types.ts:114",
+    "relation": "verifies",
+    "trace_intent": "verifies",
+    "notes": "SessionProcessCleanupConfig에 identityProbeTimeoutMs 타입 필드 추가. AC-6 검증."
+   }
+  },
+  {
+   "ordinal": 5,
+   "tool": "add_trace_link",
+   "args": {
+    "id": "PERF-BGSTAB-002",
+    "type": "Code",
+    "reference": "server/src/schemas/config.schema.ts:89",
+    "relation": "verifies",
+    "trace_intent": "verifies",
+    "notes": "sessionProcessCleanupSchema에 identityProbeTimeoutMs(int, min100, max60000, default3000) 추가 — 유효 기본 타임아웃 1000→3000 승격. AC-6 검증."
+   }
+  },
+  {
+   "ordinal": 6,
+   "tool": "add_trace_link",
+   "args": {
+    "id": "PERF-BGSTAB-002",
+    "type": "Code",
+    "reference": "server/src/types/ws-protocol.ts:60-62",
+    "relation": "verifies",
+    "trace_intent": "verifies",
+    "notes": "SessionCleanupTelemetry에 identityCaptureSucceeded/Retried/Failed 카운터 3종 추가. AC-8 검증."
+   }
+  },
+  {
+   "ordinal": 7,
+   "tool": "add_trace_link",
+   "args": {
+    "id": "PERF-BGSTAB-002",
+    "type": "Test",
+    "reference": "server/src/test-runner.ts:162,2884-2929,2947",
+    "relation": "verifies",
+    "trace_intent": "verifies",
+    "notes": "회귀 테스트 3종(신규 retry-after-transient + 갱신 reject-exhaustion + 갱신 win32 timeout 3000). AC-5/6/7/8 검증."
+   }
+  },
+  {
+   "ordinal": 8,
+   "tool": "add_verification_evidence",
+   "args": {
+    "id": "PERF-BGSTAB-002",
+    "type": "test",
+    "reference": "server/src/test-runner.ts (testSessionManagerRetriesAsyncStartIdentityCaptureAfterTransientFailure, testSessionManagerIgnoresRejectedAsyncStartIdentityCapture, testReadProcessStartIdentityWindowsTimeoutReturnsNull)",
+    "covers": "AC-5,AC-6,AC-7,AC-8",
+    "notes": "hot-fix 회귀 스위트. testSessionManagerRetriesAsyncStartIdentityCaptureAfterTransientFailure(신규, transient 실패 후 재시도 성공→AC-7), testSessionManagerIgnoresRejectedAsyncStartIdentityCapture(갱신, 3회 reject 소진→osStartIdentity null 유지 + identityCaptureRetried===2/Failed===1/Succeeded===0→AC-7/AC-8), testReadProcessStartIdentityWindowsTimeoutReturnsNull(갱신, observedTimeout 1000→3000→AC-6). full_suite 315/315 pass, tsc --noEmit exit 0."
+   }
+  },
+  {
+   "ordinal": 9,
+   "tool": "append_section_note",
+   "args": {
+    "id": "FR-BGSTAB-019",
+    "section": "Implementation Notes",
+    "note": "[2026-07-03] Preceding hot-fix applied (PERF-BGSTAB-002 reliability hardening): the async start-identity probe timeout was made configurable (session.processCleanup.identityProbeTimeoutMs, default 3000ms, previously hardcoded 1000ms), a bounded retry with backoff [200,400]ms up to 3 attempts was added, and identityCapture{Succeeded,Retried,Failed} telemetry counters were added. This strengthens the live root-process identity validation that this requirement's AC-2 depends on before enforce-mode activation. Residual limitation [INFERRED:advisory]: the retry and raised timeout reduce the probability of an unverified capture but do NOT change the core 'unverified identity -> no process-tree kill -> skipped-unverified' policy (FR-BGSTAB-011 AC-2). When the retry budget is exhausted, or when a session is deleted before the first probe resolves (immediate-delete race), the capture can still land on skipped-unverified, leaving a possible orphaned descendant under enforce mode. Open policy question (out of this hot-fix's scope, requires a separate SRS decision): whether enforce mode should permit a PID-tree fallback kill when start identity is unverifiable — this would be a change to the FR-BGSTAB-011 AC-2 / FR-BGSTAB-019 AC-2 skipped-unverified policy and must not be assumed here. This note records the hot-fix as a preceding condition and the residual open question only; it does NOT alter FR-BGSTAB-019's Acceptance Criteria or Status (the 2-hour multi-session soak in AC-3 remains unexecuted, so Status stays planned)."
+   }
+  },
+  {
+   "ordinal": 10,
+   "tool": "add_completed_work",
+   "args": {
+    "date": "2026-07-03",
+    "summary": "Hot-fix: enforce-mode 세션 삭제 시 osStartIdentity 미확인으로 taskkill이 스킵되던 문제를 완화. async start-identity probe 타임아웃을 config화(session.processCleanup.identityProbeTimeoutMs, 기본 3000ms, 이전 하드코딩 1000ms), bounded retry(backoff [200,400]ms, 최대 3회) 추가, identityCapture{Succeeded,Retried,Failed} 관측 카운터 3종 추가. PERF-BGSTAB-002의 비동기 캡처 신뢰성을 보강하는 update(AC-6/7/8 신설, 기존 AC-1..5 불변). 잔존 한계(재시도 소진/즉시삭제 race 시 여전히 skipped-unverified 가능)와 미결 정책 질문(enforce 미검증 시 PID-tree fallback kill 허용 여부)은 FR-BGSTAB-019 Implementation Notes에 기록. full suite 315/315, tsc exit 0.",
+    "target": "0.5.5-buildergate-stability",
+    "scope": "BGSTAB",
+    "requirementIds": [
+     "PERF-BGSTAB-002"
+    ],
+    "reportPaths": [
+     "docs/analysis/kiwi-hot-fix-2026-07-03.projectmaster.hotfix-identity-timeout/"
+    ]
+   }
+  }
+ ],
+ "external_module_touch": false
+}

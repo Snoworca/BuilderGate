@@ -1,0 +1,15 @@
+{
+ "source": "natural-language",
+ "symptom": "FR-BGSTAB-019(enforce 프로세스 트리 종료) 활성화 상태에서, 세션 삭제 시 종료 대상 프로세스의 신원(osStartIdentity)이 확인되지 않아 taskkill이 아예 시도되지 않고 skipped-unverified로 귀결된다. Start-Process로 분리된 손자 프로세스가 고아로 남는 것을 실측으로 재현했다.",
+ "evidence_doc": "docs/analysis/kiwi-planner-2026-07-03.projectmaster.p0-native-perf/soak-attempt-2026-07-03.md",
+ "candidate_root_cause_files": [
+  "server/src/utils/processTreeTerminator.ts:328-364",
+  "server/src/services/SessionManager.ts:2355-2369",
+  "server/src/utils/processTreeTerminator.ts:421"
+ ],
+ "related_req_ids": [
+  "PERF-BGSTAB-002",
+  "FR-BGSTAB-011",
+  "FR-BGSTAB-019"
+ ]
+}

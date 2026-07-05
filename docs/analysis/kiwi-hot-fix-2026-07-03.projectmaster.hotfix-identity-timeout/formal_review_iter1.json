@@ -1,0 +1,1 @@
+{"findings": [], "summary": {"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":5}, "note": "F1~F4 전축 LOW만, 기존 컨벤션 준수로 조치 불요. 전체 315 테스트 PASS, typecheck 0 errors 직접 재현 확인."}

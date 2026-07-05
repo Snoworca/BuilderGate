@@ -1,0 +1,6 @@
+{
+ "intent_consensus": "6개 CU 전부 high confidence — 단일 논리적 변경(신원 캡처 신뢰성 개선: configurable timeout + retry-with-backoff + observability)",
+ "mapping_consensus": "CU-003/005/006 = PERF-BGSTAB-002 high confidence(AC-1/AC-3/AC-4/AC-5 직접 대응). CU-001/002/004 = FR-BGSTAB-009(config/telemetry 컨테이너 소유) medium~high 겸 PERF-BGSTAB-002 medium",
+ "impact_consensus": "전 CU external_module_touch=false. 신규 갭 발견: finalizeSession의 identityCaptureTimer clearTimeout 경로 직접 테스트 없음(타이머 누수 회귀 갭, MEDIUM 수준)",
+ "single_semantic_unit_note": "change_units.json 자체가 6 CU를 단일 hot-fix 의미 단위로 명시 — 조각내어 여러 REQ에 분산 등록하기보다 PERF-BGSTAB-002 단일 REQ의 AC 보강으로 통합하는 것이 SRS 위생에 유리"
+}

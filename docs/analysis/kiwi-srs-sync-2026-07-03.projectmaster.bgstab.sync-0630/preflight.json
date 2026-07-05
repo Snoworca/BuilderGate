@@ -1,0 +1,8 @@
+{
+ "mcp": true,
+ "cli": null,
+ "git": true,
+ "base_ref": "HEAD",
+ "head_ref": "working-tree",
+ "halted": false
+}

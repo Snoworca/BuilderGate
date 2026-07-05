@@ -1,0 +1,16 @@
+{"ordinal": 1, "tool": "append_section_note", "target": "PERF-BGSTAB-002", "section": "implementation_notes", "topic": "AC-6 equivalent (configurable timeout)", "ok": true}
+{"ordinal": 2, "tool": "append_section_note", "target": "PERF-BGSTAB-002", "section": "implementation_notes", "topic": "AC-7 equivalent (bounded retry)", "ok": true}
+{"ordinal": 3, "tool": "append_section_note", "target": "PERF-BGSTAB-002", "section": "implementation_notes", "topic": "AC-8 equivalent (observability counters)", "ok": true}
+{"ordinal": 4, "tool": "add_trace_link", "target": "PERF-BGSTAB-002", "reference": "server/src/services/SessionManager.ts:2363-2413", "ok": true}
+{"ordinal": 5, "tool": "add_trace_link", "target": "PERF-BGSTAB-002", "reference": "server/src/utils/processTreeTerminator.ts:328-354", "ok": true}
+{"ordinal": 6, "tool": "add_trace_link", "target": "PERF-BGSTAB-002", "reference": "server/src/types/config.types.ts:114", "ok": true}
+{"ordinal": 7, "tool": "add_trace_link", "target": "PERF-BGSTAB-002", "reference": "server/src/schemas/config.schema.ts:89", "ok": true}
+{"ordinal": 8, "tool": "add_trace_link", "target": "PERF-BGSTAB-002", "reference": "server/src/types/ws-protocol.ts:60-62", "ok": true}
+{"ordinal": 9, "tool": "add_trace_link", "target": "PERF-BGSTAB-002", "reference": "server/src/test-runner.ts:2884-2929", "ok": true}
+{"ordinal": 10, "tool": "add_verification_evidence", "target": "PERF-BGSTAB-002", "evidenceId": "VE-2", "ok": true}
+{"ordinal": 11, "tool": "append_section_note", "target": "FR-BGSTAB-019", "section": "implementation_notes", "topic": "preceding hot-fix applied", "ok": true}
+{"ordinal": 12, "tool": "append_section_note", "target": "FR-BGSTAB-019", "section": "implementation_notes", "topic": "residual limitation", "ok": true}
+{"ordinal": 13, "tool": "append_section_note", "target": "FR-BGSTAB-019", "section": "implementation_notes", "topic": "open policy question", "ok": true}
+{"ordinal": 14, "tool": "append_section_note", "target": "FR-BGSTAB-009", "section": "implementation_notes", "topic": "cross-reference", "ok": true}
+{"ordinal": 15, "tool": "add_completed_work", "target": "0.5.5-buildergate-stability/BGSTAB", "ok": true}
+{"ordinal": "pre-1", "tool": "append_section_note", "target": "PERF-BGSTAB-002", "section": "Acceptance Criteria", "ok": false, "error": "MUTATION_DENIED structured table"}

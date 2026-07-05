@@ -1,0 +1,139 @@
+[
+ {
+  "ordinal": 1,
+  "tool": "append_section_note",
+  "args": {
+   "id": "PERF-BGSTAB-002",
+   "section": "Acceptance Criteria",
+   "note": "- [ ] AC-6: Given the asynchronous start-identity probe runs, when the OS start-identity capture executes, then the probe timeout is read from session.processCleanup.identityProbeTimeoutMs (integer, min 100, max 60000, default 3000) instead of a hardcoded value, and the schema default (3000) applies whether or not the field is present in the loaded config.\n- [ ] AC-7: Given an asynchronous start-identity probe returns null or rejects while the session still exists and is not finalized, when the capture is retried, then it retries with bounded backoff up to 3 total attempts (backoff delays 200ms then 400ms), each attempt re-checks that the session still exists and is not finalized before probing and before storing the result so a deleted or finalized session stops retrying immediately, and the pending retry timer is cleared during session finalization.\n- [ ] AC-8: Given asynchronous start-identity capture with bounded retry runs, then the session cleanup telemetry exposes identityCaptureSucceeded (incremented when a probe returns a stored non-null identity), identityCaptureRetried (incremented each time a retry is scheduled after a null or rejected probe), and identityCaptureFailed (incremented once when all retries are exhausted and identity remains unavailable) through the existing sessions.cleanup observability surface."
+  },
+  "rationale": "3개 AC 전부 fix_summary.json/change_units.json으로 뒷받침되는 구체·결정가능 명제만 사용(§0.15 fabricated AC 금지 준수). AC-6 값(min100/max60000/default3000, 이전 하드코딩 1000)은 fix_summary.config_schema_changes에서, AC-7 값(최대 3회, backoff [200,400]ms, 가드 재검사, finalizeSession 타이머 clear)은 fix_summary.files_changed[SessionManager]/change_units CU-005에서, AC-8 카운터 3종 의미는 fix_summary.observability_counters_added에서 각각 확인됨. 기존 AC-1..AC-5는 건드리지 않고 AC-6/7/8로 순수 증분 보강(update). 기존 5개 AC가 [ ] 미체크 스타일이므로 신규도 [ ] 미체크로 정렬(status는 implemented 유지, verified 아님)."
+ },
+ {
+  "ordinal": 2,
+  "tool": "add_trace_link",
+  "args": {
+   "id": "PERF-BGSTAB-002",
+   "type": "Code",
+   "reference": "server/src/services/SessionManager.ts:2363-2413",
+   "relation": "verifies",
+   "trace_intent": "verifies",
+   "notes": "attemptProcessStartIdentityCapture + handleProcessStartIdentityResult retry 재작성(최대 3회, backoff [200,400]ms, 가드 재검사); identityCaptureTimer finalize clear는 2446-2449 동반. AC-7 검증."
+  },
+  "rationale": "CU-005 핵심 fix. 코드가 이미 구현·통과(315/315)되어 있으므로 §0.14에 따라 addition_site가 아닌 verifies로 표기(statement 동작을 이미 수행하는 코드)."
+ },
+ {
+  "ordinal": 3,
+  "tool": "add_trace_link",
+  "args": {
+   "id": "PERF-BGSTAB-002",
+   "type": "Code",
+   "reference": "server/src/utils/processTreeTerminator.ts:328-354",
+   "relation": "verifies",
+   "trace_intent": "verifies",
+   "notes": "readProcessStartIdentity에 주입형 timeoutMs 파라미터(default 3000) 추가, win32 execFile { timeout }로 전달(하드코딩 1000 대체). AC-6 검증."
+  },
+  "rationale": "CU-003. 구현 완료 코드이므로 verifies."
+ },
+ {
+  "ordinal": 4,
+  "tool": "add_trace_link",
+  "args": {
+   "id": "PERF-BGSTAB-002",
+   "type": "Code",
+   "reference": "server/src/types/config.types.ts:114",
+   "relation": "verifies",
+   "trace_intent": "verifies",
+   "notes": "SessionProcessCleanupConfig에 identityProbeTimeoutMs 타입 필드 추가. AC-6 검증."
+  },
+  "rationale": "CU-001. 구현 완료 코드이므로 verifies. 물리적 컨테이너는 FR-BGSTAB-009 소유지만 의미는 PERF-BGSTAB-002."
+ },
+ {
+  "ordinal": 5,
+  "tool": "add_trace_link",
+  "args": {
+   "id": "PERF-BGSTAB-002",
+   "type": "Code",
+   "reference": "server/src/schemas/config.schema.ts:89",
+   "relation": "verifies",
+   "trace_intent": "verifies",
+   "notes": "sessionProcessCleanupSchema에 identityProbeTimeoutMs(int, min100, max60000, default3000) 추가 — 유효 기본 타임아웃 1000→3000 승격. AC-6 검증."
+  },
+  "rationale": "CU-002. 구현 완료 코드이므로 verifies."
+ },
+ {
+  "ordinal": 6,
+  "tool": "add_trace_link",
+  "args": {
+   "id": "PERF-BGSTAB-002",
+   "type": "Code",
+   "reference": "server/src/types/ws-protocol.ts:60-62",
+   "relation": "verifies",
+   "trace_intent": "verifies",
+   "notes": "SessionCleanupTelemetry에 identityCaptureSucceeded/Retried/Failed 카운터 3종 추가. AC-8 검증."
+  },
+  "rationale": "CU-004. 구현 완료 코드이므로 verifies."
+ },
+ {
+  "ordinal": 7,
+  "tool": "add_trace_link",
+  "args": {
+   "id": "PERF-BGSTAB-002",
+   "type": "Test",
+   "reference": "server/src/test-runner.ts:162,2884-2929,2947",
+   "relation": "verifies",
+   "trace_intent": "verifies",
+   "notes": "회귀 테스트 3종(신규 retry-after-transient + 갱신 reject-exhaustion + 갱신 win32 timeout 3000). AC-5/6/7/8 검증."
+  },
+  "rationale": "CU-006. 테스트가 이미 존재·통과하므로 verifies. 기존 PERF-BGSTAB-002 Test 트레이스는 addition_site(TDD red-first 계획)였으나, 이제 구현·통과 완료로 verifies 관계의 신규 트레이스를 추가."
+ },
+ {
+  "ordinal": 8,
+  "tool": "add_verification_evidence",
+  "args": {
+   "id": "PERF-BGSTAB-002",
+   "type": "test",
+   "reference": "server/src/test-runner.ts (testSessionManagerRetriesAsyncStartIdentityCaptureAfterTransientFailure, testSessionManagerIgnoresRejectedAsyncStartIdentityCapture, testReadProcessStartIdentityWindowsTimeoutReturnsNull)",
+   "covers": "AC-5,AC-6,AC-7,AC-8",
+   "notes": "hot-fix 회귀 스위트. testSessionManagerRetriesAsyncStartIdentityCaptureAfterTransientFailure(신규, transient 실패 후 재시도 성공→AC-7), testSessionManagerIgnoresRejectedAsyncStartIdentityCapture(갱신, 3회 reject 소진→osStartIdentity null 유지 + identityCaptureRetried===2/Failed===1/Succeeded===0→AC-7/AC-8), testReadProcessStartIdentityWindowsTimeoutReturnsNull(갱신, observedTimeout 1000→3000→AC-6). full_suite 315/315 pass, tsc --noEmit exit 0."
+  },
+  "rationale": "테스트 통과라는 객관적 사실(fix_summary.full_suite_result 315/315, typecheck_result exit 0)로 신규 AC-6/7/8 및 확장된 AC-5를 뒷받침. 단, 아래 no_status_change_rationale대로 status는 verified 미승급."
+ },
+ {
+  "ordinal": 9,
+  "tool": "append_section_note",
+  "args": {
+   "id": "FR-BGSTAB-019",
+   "section": "Implementation Notes",
+   "note": "[2026-07-03] Preceding hot-fix applied (PERF-BGSTAB-002 reliability hardening): the async start-identity probe timeout was made configurable (session.processCleanup.identityProbeTimeoutMs, default 3000ms, previously hardcoded 1000ms), a bounded retry with backoff [200,400]ms up to 3 attempts was added, and identityCapture{Succeeded,Retried,Failed} telemetry counters were added. This strengthens the live root-process identity validation that this requirement's AC-2 depends on before enforce-mode activation. Residual limitation [INFERRED:advisory]: the retry and raised timeout reduce the probability of an unverified capture but do NOT change the core 'unverified identity -> no process-tree kill -> skipped-unverified' policy (FR-BGSTAB-011 AC-2). When the retry budget is exhausted, or when a session is deleted before the first probe resolves (immediate-delete race), the capture can still land on skipped-unverified, leaving a possible orphaned descendant under enforce mode. Open policy question (out of this hot-fix's scope, requires a separate SRS decision): whether enforce mode should permit a PID-tree fallback kill when start identity is unverifiable — this would be a change to the FR-BGSTAB-011 AC-2 / FR-BGSTAB-019 AC-2 skipped-unverified policy and must not be assumed here. This note records the hot-fix as a preceding condition and the residual open question only; it does NOT alter FR-BGSTAB-019's Acceptance Criteria or Status (the 2-hour multi-session soak in AC-3 remains unexecuted, so Status stays planned)."
+  },
+  "rationale": "사용자가 명시적으로 요청한 잔존 한계·미결 정책 질문 기록. FR-BGSTAB-019는 enforce 활성화 REQ이고 그 AC-2가 skipped-unverified 정책을 재기술하므로, PID-tree fallback kill 허용 여부라는 open question의 의미적 소유가 여기다. Implementation Notes 섹션은 FR-BGSTAB-019에 실제로 존재하는 헤딩(별도 Open Questions 섹션은 이 SRS에 없고 REL-BGSTAB-005처럼 {{OQ-n}} 인라인 토큰만 있음). AC/Status 불변 — soak(AC-3) 미실행이므로 planned 유지. prickly_review_iter1.root_limitation_note와 정확히 일치."
+ },
+ {
+  "ordinal": 10,
+  "tool": "add_completed_work",
+  "args": {
+   "date": "2026-07-03",
+   "summary": "Hot-fix: enforce-mode 세션 삭제 시 osStartIdentity 미확인으로 taskkill이 스킵되던 문제를 완화. async start-identity probe 타임아웃을 config화(session.processCleanup.identityProbeTimeoutMs, 기본 3000ms, 이전 하드코딩 1000ms), bounded retry(backoff [200,400]ms, 최대 3회) 추가, identityCapture{Succeeded,Retried,Failed} 관측 카운터 3종 추가. PERF-BGSTAB-002의 비동기 캡처 신뢰성을 보강하는 update(AC-6/7/8 신설, 기존 AC-1..5 불변). 잔존 한계(재시도 소진/즉시삭제 race 시 여전히 skipped-unverified 가능)와 미결 정책 질문(enforce 미검증 시 PID-tree fallback kill 허용 여부)은 FR-BGSTAB-019 Implementation Notes에 기록. full suite 315/315, tsc exit 0.",
+   "target": "0.5.5-buildergate-stability",
+   "scope": "BGSTAB",
+   "requirementIds": [
+    "PERF-BGSTAB-002"
+   ],
+   "reportPaths": [
+    "docs/analysis/kiwi-hot-fix-2026-07-03.projectmaster.hotfix-identity-timeout/"
+   ]
+  },
+  "rationale": "Completed Work Log에 hot-fix 사실 기록. requirementIds는 의미적 소유 REQ인 PERF-BGSTAB-002만 기재(FR-BGSTAB-019는 note만 추가했고 status/AC 불변이므로 completed work의 대상 REQ가 아님). reportPaths는 hot-fix 산출물 디렉토리."
+ },
+ {
+  "ordinal": 11,
+  "tool": "append_section_note",
+  "args": {
+   "id": "FR-BGSTAB-009",
+   "section": "Implementation Notes",
+   "note": "[2026-07-03] Cross-reference: PERF-BGSTAB-002's identity-capture reliability hot-fix extended two config/telemetry surfaces this requirement owns — SessionProcessCleanupConfig gained identityProbeTimeoutMs (server/src/types/config.types.ts:114, server/src/schemas/config.schema.ts:89) and SessionCleanupTelemetry gained identityCaptureSucceeded/Retried/Failed (server/src/types/ws-protocol.ts:60-62). These new fields are additive and do not contradict this requirement's AC-1 (gracefulWaitMs/forceWaitMs/descendantSampleLimit enumeration) or AC-6 (mode/attempted/completed/degraded/unverifiedSkipped enumeration) — they are simply not yet listed there. No change to this requirement's Status/Stability/AC text. See PERF-BGSTAB-002 for the owning requirement of these new fields."
+  },
+  "rationale": "평가자 B(Sonnet) MEDIUM finding 반영 — FR-BGSTAB-009(stable)의 AC-1/AC-6 열거가 이번 sync로 non-exhaustive해지는데 교차 참조가 없던 갭 해소. AC/Status/Stability는 전혀 변경하지 않는 순수 정보성 note."
+ }
+]

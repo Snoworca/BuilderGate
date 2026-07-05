@@ -1,0 +1,53 @@
+{
+ "findings": [
+  {
+   "axis": "P1",
+   "severity": "MEDIUM",
+   "description": "Probabilistic mitigation over an unchanged skip-on-null-identity policy. Retry exhaustion still returns skipped-unverified; core 'no identity -> no kill -> leak' path intact.",
+   "file_line": "server/src/utils/processTreeTerminator.ts:422-423; server/src/services/SessionManager.ts:2399-2403"
+  },
+  {
+   "axis": "P2",
+   "severity": "MEDIUM",
+   "description": "Immediate-delete race uncovered by retry: session deleted before capture completes still leaks regardless of retry count (not a new regression, but retry provides zero benefit for this exact reported scenario).",
+   "file_line": "server/src/services/SessionManager.ts:2446-2449, 2390-2393"
+  },
+  {
+   "axis": "P4",
+   "severity": "MEDIUM",
+   "description": "Retry amplifies CIM/powershell load precisely when system is degraded: up to 3x heavy probe spawns per session, ~9.6s worst-case capture wall-time; 200/400ms backoff negligible vs 3s timeout.",
+   "file_line": "server/src/services/SessionManager.ts:2374-2375,2399,2406; server/src/utils/processTreeTerminator.ts:340-364"
+  },
+  {
+   "axis": "P6",
+   "severity": "MEDIUM",
+   "description": "Already-exited process returns null instantly and still increments identityCaptureFailed alongside genuine timeouts -- counter conflates benign and broken cases, muddying alerting semantics.",
+   "file_line": "server/src/utils/processTreeTerminator.ts:334-337; server/src/services/SessionManager.ts:2394-2403"
+  },
+  {
+   "axis": "P2",
+   "severity": "LOW",
+   "description": "In-flight probe subprocess not cancellable; raised timeout (3s vs 1s) lengthens orphaned-probe lifetime after session finalization (guards prevent stale-data access, but subprocess itself lingers longer).",
+   "file_line": "server/src/services/SessionManager.ts:2375-2381; server/src/utils/processTreeTerminator.ts:354"
+  },
+  {
+   "axis": "P2",
+   "severity": "LOW",
+   "description": "Regression tests coupled to real wall-clock timers (await delay(900)) with exact-count assertions -- timing drift risk under load/CI.",
+   "file_line": "server/src/test-runner.ts testSessionManagerIgnoresRejectedAsyncStartIdentityCapture / testSessionManagerRetriesAsyncStartIdentityCaptureAfterTransientFailure"
+  },
+  {
+   "axis": "P7",
+   "severity": "LOW",
+   "description": "Scope leans large for hot-fix: new strict() config schema field + 3 new WS telemetry protocol fields -- backward-compatible but should be captured by mandated kiwi-srs-sync.",
+   "file_line": "server/src/schemas/config.schema.ts:89; server/src/types/ws-protocol.ts:60-62"
+  }
+ ],
+ "summary": {
+  "CRITICAL": 0,
+  "HIGH": 0,
+  "MEDIUM": 4,
+  "LOW": 3
+ },
+ "root_limitation_note": "재시도/타임아웃 상향은 leak 확률을 낮추지만 '신원 미확보시 kill 스킵' 정책 자체는 그대로 남아 재시도 소진·즉시삭제 경로에서는 여전히 발생 가능. 완전 해소하려면 enforce 모드에서 미검증 시 PID-tree fallback kill 같은 정책 변경이 필요하며 이는 hot-fix 범위를 넘는 정식 SRS 결정 사항."
+}

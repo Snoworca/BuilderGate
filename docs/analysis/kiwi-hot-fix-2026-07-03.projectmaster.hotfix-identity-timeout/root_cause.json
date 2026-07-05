@@ -1,0 +1,43 @@
+{
+ "symptom": {
+  "symptom_summary": "enforce 모드에서 세션 삭제 시 processTreeTerminator.inspect()가 metadata.osStartIdentity==null이면 즉시 skipped-unverified로 귀결되어 taskkill이 시도되지 않는다. osStartIdentity는 scheduleProcessStartIdentityCapture(1회 시도, 재시도 없음)가 채우는데 1초 타임아웃 내 완료 못하면 영구 null로 남는다.",
+  "chosen_hypothesis": "1초 타임아웃이 부하 상황에서 초과되기 쉽고, 실패 시 재시도가 전혀 없으며, 원인 구분 없이 모두 null로 뭉개져 관측 불가능 — 3개 요소가 결합된 단일 결함",
+  "confidence": "high",
+  "fix_complexity_estimate": "small"
+ },
+ "scope": {
+  "affected_files": [
+   "server/src/utils/processTreeTerminator.ts",
+   "server/src/services/SessionManager.ts",
+   "server/src/test-runner.ts"
+  ],
+  "candidate_req_ids": [
+   {
+    "req_id": "PERF-BGSTAB-002",
+    "match_confidence": "high",
+    "role": "버그 발생 지점 REQ, AC 확장 필요"
+   },
+   {
+    "req_id": "FR-BGSTAB-011",
+    "match_confidence": "medium",
+    "role": "skipped-unverified 판정 자체는 스펙 준수 — 증상이 드러나는 지점일 뿐 원인 아님"
+   },
+   {
+    "req_id": "FR-BGSTAB-019",
+    "match_confidence": "high",
+    "role": "이 fix가 없으면 AC-3 soak 통과 불가 — 본 hot-fix의 목적"
+   }
+  ],
+  "external_module_touch": false,
+  "test_coverage_status": "partial",
+  "tests_encoding_buggy_behavior": [
+   "testReadProcessStartIdentityWindowsTimeoutReturnsNull (test-runner.ts:2890) — timeout:1000을 정답으로 고정",
+   "testSessionManagerIgnoresRejectedAsyncStartIdentityCapture (test-runner.ts:2870) — reject 시 재시도 없음을 정답으로 고정"
+  ],
+  "tests_expected_to_remain_valid": [
+   "testSessionManagerTerminateBeforeAsyncStartIdentityCapture (test-runner.ts:2934) — 삭제 유예 미도입이므로 즉시-삭제 레이스는 여전히 skipped-unverified가 맞음. 단, 재시도 타이머가 finalize 이후 누수/오발화하지 않는지 회귀 확인 필요"
+  ]
+ },
+ "adjacent_risk_out_of_scope": "queryWindowsProcessInfo(timeout:1500, processTreeTerminator.ts 292-326)도 동일한 오류-뭉개기 패턴이나 이번 fix 범위 밖(§0.13 단일 fix 의미 단위) — 별도 후속 항목으로 남김",
+ "decision_delete_grace_period": "채택하지 않음 — soak-attempt 문서의 '선택, 트레이드오프' 옵션이며 UX 영향 있어 이번 fix에서 제외. 핵심 3가지(타임아웃 상향/재시도/관측성)만 구현"
+}

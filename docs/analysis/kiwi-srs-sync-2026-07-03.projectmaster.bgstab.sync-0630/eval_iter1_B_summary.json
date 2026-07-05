@@ -1,0 +1,9 @@
+{
+ "evaluator": "sonnet-B",
+ "summary": {
+  "CRITICAL": 0,
+  "HIGH": 0,
+  "MEDIUM": 1,
+  "LOW": 3
+ }
+}
