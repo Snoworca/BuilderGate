@@ -130,10 +130,12 @@ test.describe('Command Management Dialog', () => {
     await createCommandPreset(page, 'prompt', promptLabel, `${promptMarker}\nsecond line`);
     await page.getByLabel(`${promptLabel} 수정`).click();
     await expect(page.getByLabel(`${promptLabel} 라벨 수정`)).toBeVisible();
-    await page.getByLabel(`${promptLabel} 프롬프트 수정`).fill(`${promptMarker}-edited\nsecond line`);
+    await page.getByLabel(`${promptLabel} 프롬프트 수정`).fill(`${promptMarker}-edited`);
     await page.getByLabel(`${promptLabel} 저장`).click();
     await expect(page.getByText('수정되었습니다.')).toBeVisible();
-    await expect(page.getByLabel(`${promptLabel} 실행`)).toHaveCount(0);
+    await page.getByLabel(`${promptLabel} 적용`).click();
+    await expect(page.getByText('붙여넣었습니다.')).toBeVisible();
+    await expect(page.locator('.xterm-screen:visible').first()).toContainText(`${promptMarker}-edited`, { timeout: 10000 });
     await page.getByLabel(`${promptLabel} 복사`).click();
     await expect(page.getByText('복사되었습니다.')).toBeVisible();
 

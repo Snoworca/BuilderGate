@@ -27,14 +27,14 @@ test('command and directory preset paste reject multiline values', () => {
   );
 });
 
-test('prompt preset paste rejects unsafe multiline values', () => {
+test('prompt preset paste allows multiline prompt values', () => {
   assert.deepEqual(
     buildCommandPresetPasteInput({ kind: 'prompt', value: 'first line\nsecond line' }),
-    { ok: false, reason: 'unsafe-multiline-prompt' },
+    { ok: true, data: 'first line\nsecond line' },
   );
 });
 
-test('all command preset paste kinds reject tab and other control characters', () => {
+test('all command preset paste kinds reject tab and non-line-break control characters', () => {
   const unsafeValues = [
     'tab\tvalue',
     'nul\u0000value',
@@ -64,6 +64,6 @@ test('line break rejection reason stays specific for each registered preset kind
   );
   assert.deepEqual(
     buildCommandPresetPasteInput({ kind: 'prompt', value: 'first\nsecond' }),
-    { ok: false, reason: 'unsafe-multiline-prompt' },
+    { ok: true, data: 'first\nsecond' },
   );
 });

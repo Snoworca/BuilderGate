@@ -18,11 +18,11 @@ export function buildCommandPresetPasteInput(
     return { ok: false, reason: 'empty-value' };
   }
 
-  if (hasLineBreak(preset.value)) {
+  if (preset.kind !== 'prompt' && hasLineBreak(preset.value)) {
     return { ok: false, reason: getMultilineFailureReason(preset.kind) };
   }
 
-  if (hasControlCharacter(preset.value)) {
+  if (hasControlCharacter(preset.value, { allowLineBreaks: preset.kind === 'prompt' })) {
     return { ok: false, reason: 'control-character' };
   }
 
@@ -43,9 +43,12 @@ function hasLineBreak(value: string): boolean {
   return value.includes('\r') || value.includes('\n');
 }
 
-function hasControlCharacter(value: string): boolean {
+function hasControlCharacter(value: string, options: { allowLineBreaks: boolean }): boolean {
   for (let index = 0; index < value.length; index += 1) {
     const code = value.charCodeAt(index);
+    if (options.allowLineBreaks && (code === 0x0a || code === 0x0d)) {
+      continue;
+    }
     if (code <= 0x1f || code === 0x7f) {
       return true;
     }

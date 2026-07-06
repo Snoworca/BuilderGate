@@ -81,6 +81,7 @@ type InputRejectedReason =
   | 'timeout-enter-safety'
   | 'queue-overflow'
   | 'context-changed'
+  | 'unsupported-multiline-paste'
   | 'session-missing'
   | 'session-closed'
   | 'server-error'
@@ -150,6 +151,10 @@ function hasPendingBrowserInput(): boolean {
     };
   }).scheduling;
   return scheduling?.isInputPending?.({ includeContinuous: true }) === true;
+}
+
+function hasLineBreak(value: string): boolean {
+  return value.includes('\r') || value.includes('\n');
 }
 
 // xterm.js v5는 방향키, Backspace 등 모든 제어 키를 네이티브로 처리.
@@ -274,6 +279,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     // IME 조합 상태 추적: compositionend/keydown(Space) race condition 보조 신호
     const isComposingRef = useRef<boolean>(false);
     const captureSeqRef = useRef(0);
+    const programmaticPasteRef = useRef<{
+      source: string;
+      captureSeq: number;
+      result: TerminalInputSubmitResult | null;
+    } | null>(null);
     const imeTransaction = useMemo(() => new ImeTransaction(), []);
     const imeTransactionRef = useRef<ImeTransaction | null>(imeTransaction);
     const { isMobile } = useResponsive();
@@ -1545,8 +1555,61 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         return submitCapturedInput(data, debugInput, 'imperative');
       },
       pasteInput: (data: string) => {
-        const debugInput = buildTerminalInputDebugPayload(data, { captureSeq: nextCaptureSeq() }, { captureEnabled: isTerminalDebugCaptureEnabled(sessionId) });
-        return submitCapturedInput(data, debugInput, 'command-preset-paste');
+        const term = xtermRef.current;
+        if (!term || terminalDisposedRef.current) {
+          return {
+            ok: false,
+            reason: 'context-changed',
+            source: 'command-preset-paste',
+            captureState: captureStateRef.current,
+            barrierReason: transportBarrierReasonRef.current,
+            closedReason: transportClosedReasonRef.current,
+          };
+        }
+        if (hasLineBreak(data) && !term.modes.bracketedPasteMode) {
+          const debugInput = buildTerminalInputDebugPayload(data, {
+            captureSeq: nextCaptureSeq(),
+          }, { captureEnabled: isTerminalDebugCaptureEnabled(sessionId) });
+          recordTerminalDebugEvent(sessionId, 'terminal_input_rejected', {
+            ...debugInput.details,
+            reason: 'unsupported-multiline-paste',
+            source: 'command-preset-paste',
+            captureState: captureStateRef.current,
+            barrierReason: transportBarrierReasonRef.current,
+            closedReason: transportClosedReasonRef.current,
+          }, debugInput.preview);
+          return {
+            ok: false,
+            reason: 'unsupported-multiline-paste',
+            source: 'command-preset-paste',
+            captureState: captureStateRef.current,
+            barrierReason: transportBarrierReasonRef.current,
+            closedReason: transportClosedReasonRef.current,
+          };
+        }
+
+        const pendingPaste = {
+          source: 'command-preset-paste',
+          captureSeq: nextCaptureSeq(),
+          result: null as TerminalInputSubmitResult | null,
+        };
+        programmaticPasteRef.current = pendingPaste;
+        try {
+          term.paste(data);
+        } finally {
+          if (programmaticPasteRef.current === pendingPaste) {
+            programmaticPasteRef.current = null;
+          }
+        }
+
+        return pendingPaste.result ?? {
+          ok: false,
+          reason: 'context-changed',
+          source: 'command-preset-paste',
+          captureState: captureStateRef.current,
+          barrierReason: transportBarrierReasonRef.current,
+          closedReason: transportClosedReasonRef.current,
+        };
       },
       restoreSnapshot: () => restoreSnapshotAfterIme(),
       replaceWithSnapshot: (data: string) => replaceWithSnapshot(data),
@@ -1889,12 +1952,18 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       term.onData((data) => {
         if (data.length === 0) return;
         if (data === '\x1b[I' || data === '\x1b[O') return;
+        const programmaticPaste = programmaticPasteRef.current;
         const compositionSeq = imeTransactionRef.current?.observeXtermData();
         const debugInput = buildTerminalInputDebugPayload(data, {
-          captureSeq: nextCaptureSeq(),
+          captureSeq: programmaticPaste?.captureSeq ?? nextCaptureSeq(),
           compositionSeq,
         }, { captureEnabled: isTerminalDebugCaptureEnabled(sessionId) });
-        submitCapturedInput(data, debugInput, 'xterm');
+        const source = programmaticPaste?.source ?? 'xterm';
+        const result = submitCapturedInput(data, debugInput, source);
+        if (programmaticPaste) {
+          programmaticPaste.result = result;
+          programmaticPasteRef.current = null;
+        }
       });
 
       // Track terminal focus via DOM events (xterm v5 has no onFocus/onBlur API)

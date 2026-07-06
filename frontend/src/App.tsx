@@ -648,6 +648,7 @@ function AppContent() {
           activeShellType={activeTab?.shellType ?? null}
           onClose={() => setShowCommandPresetDialog(false)}
           onSendTerminalInput={sendTerminalInput}
+          onPasteTerminalInput={pasteTerminalInput}
         />
       )}
 

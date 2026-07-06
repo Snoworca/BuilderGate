@@ -91,7 +91,6 @@ test.describe('Terminal context menu registered item paste', () => {
     await page.getByText(label).click();
 
     await expectRegisteredPaste(page, directory, pasteEventCountBefore);
-    await expect(page.locator('.xterm-screen:visible').first()).not.toContainText('cd ');
     await page.keyboard.press('Control+C');
   });
 
@@ -284,7 +283,7 @@ test.describe('Terminal context menu registered item paste', () => {
     await page.unroute('**/api/command-presets');
   });
 
-  test('refuses unsafe registered prompt values without terminal input side effects', async ({ page }, testInfo) => {
+  test('rejects a registered multiline prompt when the terminal lacks paste-safe multiline mode', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop coverage');
 
     const warnings: string[] = [];
@@ -294,19 +293,32 @@ test.describe('Terminal context menu registered item paste', () => {
       }
     });
 
-    const label = `e2e-dialog-context-unsafe-${Date.now()}`;
-    await createCommandPresetViaApi(page, 'prompt', label, 'unsafe-line-one\nunsafe-line-two');
+    const stamp = Date.now();
+    const label = `e2e-dialog-context-prompt-multiline-${stamp}`;
+    const prompt = `multiline-prompt-${stamp}\nsecond line`;
+    await createCommandPresetViaApi(page, 'prompt', label, prompt);
     await page.evaluate(() => window.__buildergateTerminalDebug?.clear());
 
     await openTerminalContextMenu(page);
     await page.getByText('등록 항목 붙여넣기').hover();
     await page.getByText('프롬프트').hover();
+    const pasteEventCountBefore = await countCommandPresetPasteDebugEvents(page);
     await page.getByText(label).click();
 
     await expect(page.locator('.context-menu')).toHaveCount(0);
-    await expect.poll(() => warnings.some(text => text.includes('Refused command preset paste'))).toBe(true);
-    await expect.poll(() => countCommandPresetPasteDebugEvents(page)).toBe(0);
-    await expect(page.locator('.xterm-screen:visible').first()).not.toContainText('unsafe-line-one');
+    expect(warnings.some(text => text.includes('Refused command preset paste'))).toBe(false);
+    await expect.poll(async () => countCommandPresetPasteDebugEvents(page)).toBe(pasteEventCountBefore);
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const events = window.__buildergateTerminalDebug?.getEvents() ?? [];
+        return events.some((event) => {
+          return event.kind === 'terminal_input_rejected'
+            && event.details?.source === 'command-preset-paste'
+            && event.details?.reason === 'unsupported-multiline-paste';
+        });
+      });
+    }).toBe(true);
+    await expect(page.locator('.xterm-screen:visible').first()).not.toContainText(`multiline-prompt-${stamp}`);
   });
 
   test('warns without input side effects when target terminal is not ready', async ({ page }, testInfo) => {

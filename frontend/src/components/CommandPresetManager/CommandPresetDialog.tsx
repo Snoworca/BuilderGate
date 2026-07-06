@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { MessageBox, WindowDialog } from '../dialog';
 import { buildTerminalInput } from './commandPresetExecution';
+import { buildCommandPresetPasteInput } from './commandPresetPaste';
 import { useCommandPresets } from './useCommandPresets';
 import type { CommandPreset, CommandPresetKind } from '../../types';
+import type { TerminalPasteInputResult } from '../Terminal/TerminalView';
 import './CommandPresetDialog.css';
 
 export interface CommandPresetDialogProps {
@@ -12,6 +14,7 @@ export interface CommandPresetDialogProps {
   activeShellType: string | null;
   onClose: () => void;
   onSendTerminalInput: (tabId: string, data: string) => void;
+  onPasteTerminalInput: (tabId: string, data: string) => TerminalPasteInputResult;
 }
 
 const ACTIVE_TAB_STORAGE_KEY = 'buildergate.commandPresetManager.activeTab';
@@ -70,6 +73,7 @@ export function CommandPresetDialog({
   activeShellType,
   onClose,
   onSendTerminalInput,
+  onPasteTerminalInput,
 }: CommandPresetDialogProps) {
   const {
     presets,
@@ -280,6 +284,18 @@ export function CommandPresetDialog({
       return;
     }
 
+    if (preset.kind === 'prompt') {
+      const validation = buildCommandPresetPasteInput(preset);
+      if (!validation.ok) {
+        showToast('붙여넣을 수 없습니다.');
+        return;
+      }
+
+      const result = onPasteTerminalInput(activeTabId, validation.data);
+      showToast(result.ok ? '붙여넣었습니다.' : '붙여넣지 못했습니다.');
+      return;
+    }
+
     const input = buildTerminalInput(preset.kind, preset.value, activeShellType);
     if (!input) {
       showToast('실행할 내용이 없습니다.');
@@ -287,8 +303,8 @@ export function CommandPresetDialog({
     }
 
     onSendTerminalInput(activeTabId, input);
-    showToast(preset.kind === 'prompt' ? '붙여넣었습니다.' : '실행했습니다.');
-  }, [activeShellType, activeTabId, onSendTerminalInput, showToast]);
+    showToast('실행했습니다.');
+  }, [activeShellType, activeTabId, onPasteTerminalInput, onSendTerminalInput, showToast]);
 
   if (!open) {
     return null;
@@ -456,7 +472,9 @@ function PresetItem({
   ) : (
     <div className="command-preset-item-actions">
       <PresetActionButton icon="copy" label={`${preset.label} 복사`} onClick={() => onCopy(preset)} />
-      {preset.kind !== 'prompt' && (
+      {preset.kind === 'prompt' ? (
+        <PresetActionButton icon="paste" label={`${preset.label} 적용`} onClick={() => onExecute(preset)} />
+      ) : (
         <PresetActionButton icon="play" label={`${preset.label} 실행`} onClick={() => onExecute(preset)} />
       )}
       <PresetActionButton icon="edit" label={`${preset.label} 수정`} onClick={() => onEdit(preset)} />
@@ -573,7 +591,7 @@ function PresetActionButton({
   );
 }
 
-type PresetActionIconName = 'copy' | 'play' | 'edit' | 'trash' | 'arrow-up' | 'arrow-down' | 'save' | 'cancel';
+type PresetActionIconName = 'copy' | 'paste' | 'play' | 'edit' | 'trash' | 'arrow-up' | 'arrow-down' | 'save' | 'cancel';
 
 function PresetActionIcon({ name }: { name: PresetActionIconName }) {
   return (
@@ -597,6 +615,15 @@ function PresetActionIcon({ name }: { name: PresetActionIconName }) {
         </>
       )}
       {name === 'play' && <path d="M8 5v14l11-7z" />}
+      {name === 'paste' && (
+        <>
+          <path d="M8 4h8" />
+          <path d="M9 2h6l1 2H8z" />
+          <rect x="6" y="4" width="12" height="18" rx="2" />
+          <path d="M9 12h6" />
+          <path d="M12 9v6" />
+        </>
+      )}
       {name === 'edit' && (
         <>
           <path d="M12 20h9" />
