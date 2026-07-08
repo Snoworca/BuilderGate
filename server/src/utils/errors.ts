@@ -71,6 +71,9 @@ export enum ErrorCode {
   WORKSPACE_LIMIT_EXCEEDED = 'WORKSPACE_LIMIT_EXCEEDED',
   SESSION_LIMIT_EXCEEDED = 'SESSION_LIMIT_EXCEEDED',
   LAST_WORKSPACE = 'LAST_WORKSPACE',
+  INVALID_WORKSPACE_MOVE = 'INVALID_WORKSPACE_MOVE',
+  SESSION_NOT_MOVABLE = 'SESSION_NOT_MOVABLE',
+  INVALID_REORDER_PAYLOAD = 'INVALID_REORDER_PAYLOAD',
   INVALID_NAME = 'INVALID_NAME'
 }
 
@@ -134,6 +137,9 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.WORKSPACE_LIMIT_EXCEEDED]: 'Maximum workspaces exceeded',
   [ErrorCode.SESSION_LIMIT_EXCEEDED]: 'Maximum total sessions exceeded',
   [ErrorCode.LAST_WORKSPACE]: 'Cannot delete the last workspace',
+  [ErrorCode.INVALID_WORKSPACE_MOVE]: 'Invalid workspace move',
+  [ErrorCode.SESSION_NOT_MOVABLE]: 'Session cannot be moved',
+  [ErrorCode.INVALID_REORDER_PAYLOAD]: 'Invalid reorder payload',
   [ErrorCode.INVALID_NAME]: 'Invalid name'
 };
 
@@ -197,6 +203,9 @@ export const ErrorStatusCodes: Record<ErrorCode, number> = {
   [ErrorCode.WORKSPACE_LIMIT_EXCEEDED]: 409,
   [ErrorCode.SESSION_LIMIT_EXCEEDED]: 409,
   [ErrorCode.LAST_WORKSPACE]: 409,
+  [ErrorCode.INVALID_WORKSPACE_MOVE]: 400,
+  [ErrorCode.SESSION_NOT_MOVABLE]: 409,
+  [ErrorCode.INVALID_REORDER_PAYLOAD]: 400,
   [ErrorCode.INVALID_NAME]: 400
 };
 

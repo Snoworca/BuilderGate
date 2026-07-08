@@ -1,0 +1,11 @@
+{
+  "primary_channel_requested": "doculight",
+  "doculight": {
+    "status": "pending",
+    "viewer_id": null,
+    "path": "docs/analysis/kiwi-srs-feasibility-2026-07-09.projectmaster.0-5-5-buildergate-stability.v01/report.md"
+  },
+  "telegram": { "status": "skipped", "char_count": 0 },
+  "google_chat": { "status": "skipped", "char_count": 0 },
+  "chat_message": { "status": "pending", "char_count": 0 }
+}

@@ -1,0 +1,25 @@
+{
+  "analyst": "existing-srs",
+  "source": "subagent 019f43fb-77e1-7320-b1c9-ac7f7a35dc91",
+  "target": "0.5.5-buildergate-stability",
+  "scope": "MCP",
+  "distributions": {
+    "scope": { "MCP": 15 },
+    "status": { "planned": 15 },
+    "stability": { "evolving": 15 },
+    "priority": { "critical": 7, "high": 8 },
+    "type": { "functional": 6, "interface": 5, "security": 2, "reliability": 1, "observability": 1 },
+    "totals": { "acceptance_criteria": 112, "trace_rows": 123 }
+  },
+  "dependency_graph": {
+    "foundation": ["SEC-MCP-001 -> IR-MCP-001", "IR-MCP-001 -> FR-MCP-001/FR-MCP-003/REL-MCP-001"],
+    "identity_input_launch": ["FR-MCP-001 -> FR-MCP-002 -> FR-MCP-003 -> REL-MCP-001"],
+    "webhook_ui_observability": ["SEC-MCP-001/FR-MCP-001/FR-MCP-002/FR-MCP-003 -> FR-MCP-004", "FR-MCP-004 + FR-MCP-003 + SEC-MCP-001 -> FR-MCP-005", "core flows -> OBS-MCP-001"],
+    "contract_tightening": ["SEC-MCP-002 extends security/tool/webhook contracts", "IR-MCP-002/IR-MCP-003 extend UI REST/action contracts", "IR-MCP-004 extends edge-case contracts", "IR-MCP-005 declares final precedence"]
+  },
+  "concerns": [
+    "MCP scope 안에는 draft/deprecated/status conflict가 없다.",
+    "FR-BGSTAB-010/011/017/019 등 BGSTAB 의존성이 존재하므로 구현 순서에서는 기존 lifecycle/input/recovery/process-cleanup 규칙을 보존해야 한다.",
+    "IR-MCP-005는 앞선 항목보다 후순위 보강이 아니라 최종 wire-contract 우선순위로 취급해야 한다."
+  ]
+}

@@ -6,6 +6,8 @@ import {
 } from '../utils/mosaic.ts';
 
 export type MosaicLayoutMode = 'equal' | 'focus' | 'auto' | 'none';
+export type EqualLayoutPreset = 'smart' | 'columns';
+
 export interface PersistedMosaicLayout {
   schemaVersion: 1;
   tree: MosaicNode<string>;
@@ -13,6 +15,17 @@ export interface PersistedMosaicLayout {
   focusTarget: string | null;
   savedAt: string;
 }
+
+export interface PersistedMosaicLayoutV2 {
+  schemaVersion: 2;
+  tree: MosaicNode<string>;
+  mode: MosaicLayoutMode;
+  focusTarget: string | null;
+  equalPreset: EqualLayoutPreset;
+  savedAt: string;
+}
+
+export type AnyPersistedMosaicLayout = PersistedMosaicLayout | PersistedMosaicLayoutV2;
 
 const STORAGE_KEY_PREFIX = 'mosaic_layout_';
 const suppressedMosaicLayoutSaveWorkspaces = new Set<string>();
@@ -48,6 +61,7 @@ export function saveMosaicLayoutForWorkspace(
   mode: MosaicLayoutMode,
   focusTarget: string | null,
   storage: Storage = localStorage,
+  equalPreset: EqualLayoutPreset = 'smart',
 ): boolean {
   if (isMosaicLayoutSaveSuppressed(workspaceId)) return false;
   if (!tree) {
@@ -60,11 +74,12 @@ export function saveMosaicLayoutForWorkspace(
   }
 
   try {
-    const data: PersistedMosaicLayout = {
-      schemaVersion: 1,
+    const data: PersistedMosaicLayoutV2 = {
+      schemaVersion: 2,
       tree,
       mode,
       focusTarget,
+      equalPreset,
       savedAt: new Date().toISOString(),
     };
     storage.setItem(getMosaicLayoutStorageKey(workspaceId), JSON.stringify(data));
@@ -75,21 +90,36 @@ export function saveMosaicLayoutForWorkspace(
   }
 }
 
+export function readPersistedMosaicLayout(
+  workspaceId: string,
+  storage: Storage = localStorage,
+): AnyPersistedMosaicLayout | null {
+  try {
+    const raw = storage.getItem(getMosaicLayoutStorageKey(workspaceId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<AnyPersistedMosaicLayout>;
+    if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) {
+      return null;
+    }
+    if (!isValidMosaicTree(parsed.tree)) {
+      return null;
+    }
+    if (parsed.schemaVersion === 2 && parsed.equalPreset !== 'smart' && parsed.equalPreset !== 'columns') {
+      return null;
+    }
+    return parsed as AnyPersistedMosaicLayout;
+  } catch {
+    return null;
+  }
+}
+
 export function pruneMosaicLayoutForDeletedTab(
   workspaceId: string,
   tabId: string,
   storage: Storage = localStorage,
 ): boolean {
-  let persisted: PersistedMosaicLayout | null = null;
-  try {
-    const raw = storage.getItem(getMosaicLayoutStorageKey(workspaceId));
-    if (!raw) return false;
-    const parsed = JSON.parse(raw) as Partial<PersistedMosaicLayout>;
-    if (parsed.schemaVersion !== 1 || !isValidMosaicTree(parsed.tree)) {
-      return false;
-    }
-    persisted = parsed as PersistedMosaicLayout;
-  } catch {
+  const persisted = readPersistedMosaicLayout(workspaceId, storage);
+  if (!persisted) {
     return false;
   }
 
@@ -108,5 +138,14 @@ export function pruneMosaicLayoutForDeletedTab(
 
   const focusTarget = persisted.focusTarget === tabId ? null : persisted.focusTarget;
   const mode = focusTarget === null && persisted.mode === 'focus' ? 'equal' : persisted.mode;
-  return saveMosaicLayoutForWorkspace(workspaceId, nextTree, mode, focusTarget, storage);
+  const equalPreset = persisted.schemaVersion === 2 ? persisted.equalPreset : 'smart';
+  return saveMosaicLayoutForWorkspace(workspaceId, nextTree, mode, focusTarget, storage, equalPreset);
+}
+
+export function pruneMosaicLayoutForMovedTab(
+  workspaceId: string,
+  tabId: string,
+  storage: Storage = localStorage,
+): boolean {
+  return pruneMosaicLayoutForDeletedTab(workspaceId, tabId, storage);
 }

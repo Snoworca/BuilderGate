@@ -1,0 +1,17 @@
+[
+  { "id": "SEC-MCP-001", "stability": "evolving", "ac_total": 6, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6"] },
+  { "id": "IR-MCP-001", "stability": "evolving", "ac_total": 5, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5"] },
+  { "id": "FR-MCP-001", "stability": "evolving", "ac_total": 7, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"] },
+  { "id": "FR-MCP-002", "stability": "evolving", "ac_total": 6, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6"] },
+  { "id": "FR-MCP-003", "stability": "evolving", "ac_total": 7, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"] },
+  { "id": "REL-MCP-001", "stability": "evolving", "ac_total": 7, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"] },
+  { "id": "FR-MCP-004", "stability": "evolving", "ac_total": 7, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"] },
+  { "id": "FR-MCP-005", "stability": "evolving", "ac_total": 7, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"] },
+  { "id": "OBS-MCP-001", "stability": "evolving", "ac_total": 7, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"] },
+  { "id": "SEC-MCP-002", "stability": "evolving", "ac_total": 9, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9"] },
+  { "id": "FR-MCP-006", "stability": "evolving", "ac_total": 6, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6"] },
+  { "id": "IR-MCP-002", "stability": "evolving", "ac_total": 8, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8"] },
+  { "id": "IR-MCP-003", "stability": "evolving", "ac_total": 10, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9", "AC-10"] },
+  { "id": "IR-MCP-004", "stability": "evolving", "ac_total": 10, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9", "AC-10"] },
+  { "id": "IR-MCP-005", "stability": "evolving", "ac_total": 10, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9", "AC-10"] }
+]

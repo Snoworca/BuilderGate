@@ -1,0 +1,11 @@
+{
+  "run_id": "2026-07-09.projectmaster.0-5-5-buildergate-stability.v01",
+  "enable_research": false,
+  "phase1_subagents": 3,
+  "phase5_evaluators_planned": 1,
+  "phase25_subagents": 0,
+  "notes": [
+    "Phase 2.5 research enrichment was not enabled because no medium/low/blocked or weak-evidence blocker required external research.",
+    "Normal evaluator topology was reduced to one independent evaluator because the MCP SRS already passed a prior five-agent SRS validation round and this run performs no stability mutation."
+  ]
+}

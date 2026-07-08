@@ -1,0 +1,28 @@
+{
+  "req_inventory": [
+    { "req_id": "SEC-MCP-001", "stability": "evolving", "status": "planned", "ac_total": 6, "files_from_trace": ["server/src/index.ts", "server/src/routes/internalShutdownRoutes.ts"], "depends_on": [] },
+    { "req_id": "IR-MCP-001", "stability": "evolving", "status": "planned", "ac_total": 5, "files_from_trace": ["server/src/index.ts", "server/package.json"], "depends_on": ["SEC-MCP-001"] },
+    { "req_id": "FR-MCP-001", "stability": "evolving", "status": "planned", "ac_total": 7, "files_from_trace": ["server/src/services/WorkspaceService.ts", "server/src/services/SessionManager.ts"], "depends_on": ["IR-MCP-001"] },
+    { "req_id": "FR-MCP-002", "stability": "evolving", "status": "planned", "ac_total": 6, "files_from_trace": ["server/src/ws/WsRouter.ts", "server/src/services/SessionManager.ts"], "depends_on": ["FR-MCP-001"] },
+    { "req_id": "FR-MCP-003", "stability": "evolving", "status": "planned", "ac_total": 7, "files_from_trace": ["server/src/services/WorkspaceService.ts", "server/src/services/CommandPresetService.ts"], "depends_on": ["FR-MCP-001", "FR-MCP-002", "IR-MCP-001"] },
+    { "req_id": "REL-MCP-001", "stability": "evolving", "status": "planned", "ac_total": 7, "files_from_trace": ["server/src/services/WorkspaceService.ts", "server/src/services/SessionManager.ts"], "depends_on": ["FR-MCP-003", "IR-MCP-001"] },
+    { "req_id": "FR-MCP-004", "stability": "evolving", "status": "planned", "ac_total": 7, "files_from_trace": ["server/src/index.ts", "server/src/middleware/authMiddleware.ts"], "depends_on": ["SEC-MCP-001", "FR-MCP-001", "FR-MCP-002", "FR-MCP-003"] },
+    { "req_id": "FR-MCP-005", "stability": "evolving", "status": "planned", "ac_total": 7, "files_from_trace": ["frontend/src/App.tsx", "frontend/src/services/api.ts"], "depends_on": ["SEC-MCP-001", "FR-MCP-001", "FR-MCP-003", "FR-MCP-004"] },
+    { "req_id": "OBS-MCP-001", "stability": "evolving", "status": "planned", "ac_total": 7, "files_from_trace": ["server/src/test-runner.ts", "server/src/ws/WsRouter.ts"], "depends_on": ["SEC-MCP-001", "FR-MCP-002", "FR-MCP-003", "REL-MCP-001", "FR-MCP-004", "FR-MCP-005"] },
+    { "req_id": "SEC-MCP-002", "stability": "evolving", "status": "planned", "ac_total": 9, "files_from_trace": ["server/src/middleware/authMiddleware.ts"], "depends_on": ["SEC-MCP-001", "IR-MCP-001", "FR-MCP-004", "OBS-MCP-001"] },
+    { "req_id": "FR-MCP-006", "stability": "evolving", "status": "planned", "ac_total": 6, "files_from_trace": ["server/src/services/WorkspaceService.ts", "server/src/services/SessionManager.ts"], "depends_on": ["FR-MCP-001", "OBS-MCP-001"] },
+    { "req_id": "IR-MCP-002", "stability": "evolving", "status": "planned", "ac_total": 8, "files_from_trace": ["server/src/index.ts", "frontend/src/services/api.ts"], "depends_on": ["FR-MCP-005", "FR-MCP-003", "FR-MCP-004", "REL-MCP-001"] },
+    { "req_id": "IR-MCP-003", "stability": "evolving", "status": "planned", "ac_total": 10, "files_from_trace": ["server/src/index.ts", "frontend/src/services/api.ts"], "depends_on": ["IR-MCP-002", "FR-MCP-004", "FR-MCP-003", "REL-MCP-001", "FR-MCP-002"] },
+    { "req_id": "IR-MCP-004", "stability": "evolving", "status": "planned", "ac_total": 10, "files_from_trace": ["server/src/ws/WsRouter.ts", "server/src/services/WorkspaceService.ts"], "depends_on": ["SEC-MCP-002", "FR-MCP-001", "FR-MCP-002", "REL-MCP-001", "FR-MCP-004", "IR-MCP-003"] },
+    { "req_id": "IR-MCP-005", "stability": "evolving", "status": "planned", "ac_total": 10, "files_from_trace": ["server/src/test-runner.ts", "frontend/src/services/api.ts"], "depends_on": ["SEC-MCP-001", "SEC-MCP-002", "FR-MCP-002", "FR-MCP-005", "OBS-MCP-001", "IR-MCP-003", "IR-MCP-004"] }
+  ],
+  "dependency_graph": [
+    { "from": "SEC-MCP-001", "to": "IR-MCP-001" },
+    { "from": "IR-MCP-001", "to": "FR-MCP-001" },
+    { "from": "FR-MCP-001", "to": "FR-MCP-002" },
+    { "from": "FR-MCP-002", "to": "FR-MCP-003" },
+    { "from": "FR-MCP-003", "to": "REL-MCP-001" },
+    { "from": "FR-MCP-004", "to": "FR-MCP-005" },
+    { "from": "IR-MCP-004", "to": "IR-MCP-005" }
+  ]
+}

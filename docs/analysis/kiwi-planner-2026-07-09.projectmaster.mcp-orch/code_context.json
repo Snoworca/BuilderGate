@@ -1,0 +1,28 @@
+{
+  "req_anchors": [
+    { "req_id": "SEC-MCP-001", "files": [{ "path": "server/src/index.ts", "line_range": "192-210" }, { "path": "server/src/routes/internalShutdownRoutes.ts", "line_range": "24-68" }] },
+    { "req_id": "IR-MCP-001", "files": [{ "path": "server/src/index.ts", "line_range": "372-462" }, { "path": "server/package.json", "line_range": "13-31" }] },
+    { "req_id": "FR-MCP-001", "files": [{ "path": "server/src/services/WorkspaceService.ts", "line_range": "331-399" }, { "path": "frontend/src/components/MetadataBar/MetadataRow.tsx", "line_range": "112-144" }] },
+    { "req_id": "FR-MCP-002", "files": [{ "path": "server/src/ws/WsRouter.ts", "line_range": "514-613" }, { "path": "server/src/services/SessionManager.ts", "line_range": "1250-1337" }] },
+    { "req_id": "FR-MCP-003", "files": [{ "path": "server/src/services/WorkspaceService.ts", "line_range": "331-370" }, { "path": "server/src/services/CommandPresetService.ts", "line_range": "17-19" }] },
+    { "req_id": "REL-MCP-001", "files": [{ "path": "server/src/services/WorkspaceService.ts", "line_range": "402-427" }, { "path": "server/src/services/SessionManager.ts", "line_range": "1168-1218" }] },
+    { "req_id": "FR-MCP-004", "files": [{ "path": "server/src/index.ts", "line_range": "240-336" }, { "path": "server/src/middleware/authMiddleware.ts", "line_range": "40-78" }] },
+    { "req_id": "FR-MCP-005", "files": [{ "path": "frontend/src/App.tsx", "line_range": "729-755" }, { "path": "frontend/src/services/api.ts", "line_range": "454-532" }] },
+    { "req_id": "OBS-MCP-001", "files": [{ "path": "server/src/test-runner.ts", "line_range": "27-64" }, { "path": "server/src/ws/WsRouter.ts", "line_range": "1507-1544" }] },
+    { "req_id": "SEC-MCP-002", "files": [{ "path": "server/src/middleware/authMiddleware.ts", "line_range": "40-78" }, { "path": "server/src/routes/internalShutdownRoutes.ts", "line_range": "24-68" }] }
+  ],
+  "missing_anchors": [],
+  "external_paths_detected": [],
+  "addition_sites": [
+    "server/src/types/mcp.types.ts",
+    "server/src/services/McpConfigService.ts",
+    "server/src/services/McpSessionRegistryService.ts",
+    "server/src/services/SessionInputGateway.ts",
+    "server/src/services/McpToolService.ts",
+    "server/src/mcp/McpHttpServerController.ts",
+    "server/src/routes/mcpControlRoutes.ts",
+    "server/src/routes/webhookRoutes.ts",
+    "frontend/src/components/McpSessionControl/*",
+    "frontend/src/types/mcp.ts"
+  ]
+}

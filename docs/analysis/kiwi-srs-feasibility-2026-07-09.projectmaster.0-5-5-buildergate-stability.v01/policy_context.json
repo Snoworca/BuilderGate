@@ -1,0 +1,27 @@
+{
+  "analyst": "policy-context",
+  "source": "subagent 019f43fb-a1a6-7fc3-a75f-6c4bf34de4e4",
+  "policy_source": "default",
+  "predicted_transitions": [
+    { "req_id": "SEC-MCP-001", "current_stability": "evolving", "predicted_stability": "evolving", "requires_user_confirm": false },
+    { "req_id": "IR-MCP-001", "current_stability": "evolving", "predicted_stability": "evolving", "requires_user_confirm": false },
+    { "req_id": "FR-MCP-001", "current_stability": "evolving", "predicted_stability": "evolving", "requires_user_confirm": false },
+    { "req_id": "FR-MCP-002", "current_stability": "evolving", "predicted_stability": "evolving", "requires_user_confirm": false },
+    { "req_id": "FR-MCP-003", "current_stability": "evolving", "predicted_stability": "evolving", "requires_user_confirm": false },
+    { "req_id": "REL-MCP-001", "current_stability": "evolving", "predicted_stability": "evolving", "requires_user_confirm": false },
+    { "req_id": "FR-MCP-004", "current_stability": "evolving", "predicted_stability": "evolving", "requires_user_confirm": false },
+    { "req_id": "FR-MCP-005", "current_stability": "evolving", "predicted_stability": "evolving", "requires_user_confirm": false },
+    { "req_id": "OBS-MCP-001", "current_stability": "evolving", "predicted_stability": "evolving", "requires_user_confirm": false },
+    { "req_id": "SEC-MCP-002", "current_stability": "evolving", "predicted_stability": "evolving", "requires_user_confirm": false },
+    { "req_id": "FR-MCP-006", "current_stability": "evolving", "predicted_stability": "evolving", "requires_user_confirm": false },
+    { "req_id": "IR-MCP-002", "current_stability": "evolving", "predicted_stability": "evolving", "requires_user_confirm": false },
+    { "req_id": "IR-MCP-003", "current_stability": "evolving", "predicted_stability": "evolving", "requires_user_confirm": false },
+    { "req_id": "IR-MCP-004", "current_stability": "evolving", "predicted_stability": "evolving", "requires_user_confirm": false },
+    { "req_id": "IR-MCP-005", "current_stability": "evolving", "predicted_stability": "evolving", "requires_user_confirm": false }
+  ],
+  "transition_guard_warnings": [],
+  "notes": [
+    "feasibility=high + has_verification=false 기본 매핑은 evolving 유지이다.",
+    "stable/frozen 승급, deprecated 강등, status conflict 게이트는 이번 scope에서 발생하지 않는다."
+  ]
+}

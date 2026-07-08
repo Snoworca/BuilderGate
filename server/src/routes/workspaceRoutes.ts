@@ -152,6 +152,19 @@ export function createWorkspaceRoutes(workspaceService: WorkspaceService): Route
     }
   });
 
+  // POST /api/workspaces/:wid/tabs/:tid/move — Move tab to another workspace
+  router.post('/:wid/tabs/:tid/move', async (req: Request, res: Response) => {
+    try {
+      const { targetWorkspaceId } = req.body;
+      const result = await workspaceService.moveTab(req.params.wid, req.params.tid, targetWorkspaceId);
+      const clientId = req.headers['x-client-id'] as string | undefined;
+      broadcast('tab:moved', result, clientId, req);
+      res.json(result);
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
   // POST /api/workspaces/:wid/tabs/:tid/restart — Restart tab
   router.post('/:wid/tabs/:tid/restart', async (req: Request, res: Response) => {
     try {

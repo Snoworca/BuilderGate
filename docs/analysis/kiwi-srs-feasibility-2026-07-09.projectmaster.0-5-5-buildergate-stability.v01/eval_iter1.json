@@ -1,0 +1,33 @@
+{
+  "pass": false,
+  "gate": "Normal",
+  "summary": {
+    "CRITICAL": 0,
+    "HIGH": 2,
+    "MEDIUM": 0,
+    "LOW": 0,
+    "evaluated_reqs": 15
+  },
+  "findings": [
+    {
+      "severity": "HIGH",
+      "axis": "internal coherence / AC verifiability ground",
+      "req_id": "ALL_MCP_REQS",
+      "evidence": "per-req-judgement.json omitted the required axes object with implementability, evidence_strength, dependency_health, ac_verifiability, scope_fit, and product_fit scores.",
+      "fix_recommendation": "Regenerate per-REQ judgements using the Phase 2 schema and recompute final score from the axis weights."
+    },
+    {
+      "severity": "HIGH",
+      "axis": "evidence existence",
+      "req_id": "IR-MCP-003, IR-MCP-004, IR-MCP-005",
+      "evidence": "Evidence arrays contained only requirement IDs and no code path:line evidence.",
+      "fix_recommendation": "Add concrete code path:line evidence or label weak evidence explicitly."
+    }
+  ],
+  "notes": [
+    "Score-label thresholds were otherwise consistent.",
+    "Default mapping was coherent.",
+    "No blocked/status-conflict case was present.",
+    "No golden-rule violation found."
+  ]
+}

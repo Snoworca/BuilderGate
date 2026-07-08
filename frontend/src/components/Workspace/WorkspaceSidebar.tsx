@@ -42,6 +42,7 @@ export function WorkspaceSidebar({
     onReorder: handleReorder,
     isLocked: () => false,
     longPressMs: 300,
+    axis: 'y',
   });
 
   const getRunningCount = (wsId: string) =>

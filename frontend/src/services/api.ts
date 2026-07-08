@@ -40,6 +40,7 @@ import type {
 } from '../types';
 import type {
   GridLayout,
+  MoveTabResult,
   Workspace,
   WorkspaceState,
   WorkspaceTab,
@@ -413,6 +414,20 @@ export const workspaceApi = {
       body: JSON.stringify({ tabIds }),
     });
     if (!res.ok) throw await parseError(res);
+  },
+
+  moveTab: async (
+    sourceWorkspaceId: string,
+    tabId: string,
+    targetWorkspaceId: string,
+  ): Promise<MoveTabResult> => {
+    const res = await authFetch(`${API_BASE}/workspaces/${sourceWorkspaceId}/tabs/${tabId}/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ targetWorkspaceId }),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
   },
 
   updateGrid: async (workspaceId: string, layout: Record<string, unknown>): Promise<GridLayout> => {

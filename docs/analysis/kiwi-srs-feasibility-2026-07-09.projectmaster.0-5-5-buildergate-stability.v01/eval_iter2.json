@@ -1,0 +1,26 @@
+{
+  "pass": true,
+  "gate": "Normal",
+  "summary": {
+    "CRITICAL": 0,
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 0,
+    "evaluated_reqs": 15
+  },
+  "previous_high_findings": {
+    "weighted_axes_missing": "resolved",
+    "ir_mcp_003_004_005_code_path_evidence_missing": "resolved"
+  },
+  "checks": {
+    "score_label_consistency": "pass",
+    "weighted_axes_and_score_sum": "pass",
+    "evidence_existence": "pass: 134 path:line references checked",
+    "ac_verifiability_ground": "pass",
+    "dependency_coherence": "pass",
+    "mapping_conformance": "pass",
+    "status_conflict": "pass: none present",
+    "golden_rule": "pass: no mutation/apply_patch conflict found"
+  },
+  "findings": []
+}

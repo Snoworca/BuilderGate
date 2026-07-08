@@ -14,6 +14,11 @@ export interface RegisteredPresetMenuOptions {
   onSelectPreset: (preset: CommandPreset) => void;
 }
 
+export interface MoveWorkspaceMenuOptions {
+  disabled: boolean;
+  onRequest: () => void;
+}
+
 export interface BuildTerminalMenuOptions {
   tab: WorkspaceTabRuntime | undefined;
   tabs: WorkspaceTabRuntime[];
@@ -25,6 +30,7 @@ export interface BuildTerminalMenuOptions {
   onPaste: () => Promise<void>;
   hasSelection: boolean;
   registeredPresetMenu?: RegisteredPresetMenuOptions;
+  moveWorkspace?: MoveWorkspaceMenuOptions;
 }
 
 export function buildTerminalContextMenuItems(
@@ -41,6 +47,7 @@ export function buildTerminalContextMenuItems(
     onPaste,
     hasSelection,
     registeredPresetMenu,
+    moveWorkspace,
   } = options;
 
   const newSessionItem: ContextMenuItem =
@@ -84,6 +91,20 @@ export function buildTerminalContextMenuItems(
       destructive: true,
       onClick: onCloseTab,
     },
+    ...(moveWorkspace
+      ? [
+          {
+            label: '워크스페이스 이동',
+            icon: '⇄',
+            disabled: moveWorkspace.disabled,
+            onClick: () => {
+              if (!moveWorkspace.disabled) {
+                moveWorkspace.onRequest();
+              }
+            },
+          } satisfies ContextMenuItem,
+        ]
+      : []),
     { separator: true },
     {
       label: '복사',

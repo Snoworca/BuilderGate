@@ -1,0 +1,13 @@
+{
+  "source_eval": "eval_iter1.json",
+  "changes": [
+    {
+      "finding": "ALL_MCP_REQS missing axes object",
+      "action": "Replaced per-req judgement schema with weighted axes for implementability, evidence_strength, dependency_health, ac_verifiability, scope_fit, and product_fit."
+    },
+    {
+      "finding": "IR-MCP-003/004/005 lacked code path evidence",
+      "action": "Added code path evidence through the REST route mount, frontend API, dialog shell, session input, close lifecycle, and audit/test surfaces that enforce the tightened interface contracts."
+    }
+  ]
+}

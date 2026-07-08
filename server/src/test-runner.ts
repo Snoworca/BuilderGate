@@ -335,6 +335,11 @@ async function main(): Promise<void> {
     { name: 'WorkspaceService deleteWorkspace does not terminate sessions when pre-delete save fails', run: testWorkspaceServiceDeleteWorkspaceSaveFailureDoesNotTerminate },
     { name: 'WorkspaceService deleteTab ignores tab-delete finalizer callback after pre-marking', run: testWorkspaceServiceDeleteTabIgnoresDeleteFinalizerCallback },
     { name: 'WorkspaceService deleteTab does not terminate session when pre-delete save fails', run: testWorkspaceServiceDeleteTabSaveFailureDoesNotTerminate },
+    { name: 'WorkspaceService moveTab preserves live session and reindexes source and target', run: testWorkspaceServiceMoveTabPreservesLiveSession },
+    { name: 'WorkspaceService moveTab appends moved tab to target workspace', run: testWorkspaceServiceMoveTabAppendsToTarget },
+    { name: 'WorkspaceService moveTab rejects full target and ended sessions', run: testWorkspaceServiceMoveTabRejectsInvalidTargets },
+    { name: 'WorkspaceService moveTab restores state when save fails', run: testWorkspaceServiceMoveTabSaveFailureRestoresState },
+    { name: 'WorkspaceService rejects invalid reorder payloads', run: testWorkspaceServiceRejectsInvalidReorderPayloads },
     { name: 'WorkspaceService passes session cleanup reasons', run: testWorkspaceServicePassesSessionCleanupReasons },
     { name: 'WorkspaceService orphan recovery recreates fresh session ids with saved cwd', run: testWorkspaceServiceCheckOrphanTabs },
     { name: 'WorkspaceService orphan recovery skips stopped or non-recoverable tabs', run: testWorkspaceServiceSkipsStoppedOrphanTabs },
@@ -360,6 +365,7 @@ async function main(): Promise<void> {
     { name: 'WorkspaceService manual rename cancels pending terminal title updates', run: testWorkspaceServiceManualRenameCancelsPendingTitle },
     { name: 'WorkspaceService restart cancels pending old-session terminal titles', run: testWorkspaceServiceRestartCancelsPendingTitle },
     { name: 'workspace tab rename route broadcasts normalized tab metadata', run: testWorkspaceTabRenameRouteBroadcastsNormalizedMetadata },
+    { name: 'workspace tab move route broadcasts moved tab state', run: testWorkspaceTabMoveRouteBroadcastsMovedState },
     { name: 'CommandPresetService persists CRUD operations and per-kind reorder', run: testCommandPresetServiceCrudAndReorder },
     { name: 'CommandPresetService serializes concurrent mutations', run: testCommandPresetServiceConcurrentCreates },
     { name: 'command preset routes expose CRUD and reject invalid order payloads', run: testCommandPresetRoutesCrudAndValidation },
@@ -10064,6 +10070,131 @@ async function testWorkspaceServiceDeleteTabSaveFailureDoesNotTerminate(): Promi
   assert.deepEqual(calls.order, ['save:true:failed']);
 }
 
+async function testWorkspaceServiceMoveTabPreservesLiveSession(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = createWorkspaceMoveState();
+  calls.hasSession.add('session-1');
+  calls.hasSession.add('session-2');
+  calls.hasSession.add('session-3');
+
+  const result = await (workspaceService as any).moveTab('ws-1', 'tab-2', 'ws-2');
+  const state = workspaceService.getState();
+  const moved = state.tabs.find(tab => tab.id === 'tab-2');
+  const source = state.workspaces.find(workspace => workspace.id === 'ws-1');
+  const target = state.workspaces.find(workspace => workspace.id === 'ws-2');
+
+  assert.equal(result.tab.id, 'tab-2');
+  assert.equal(result.tab.sessionId, 'session-2');
+  assert.equal(result.sourceWorkspaceId, 'ws-1');
+  assert.equal(result.targetWorkspaceId, 'ws-2');
+  assert.deepEqual(result.sourceTabIds, ['tab-1']);
+  assert.deepEqual(result.targetTabIds, ['tab-3', 'tab-2']);
+  assert.equal(result.sourceActiveTabId, 'tab-1');
+  assert.equal(result.targetActiveTabId, 'tab-2');
+  assert.equal(moved?.workspaceId, 'ws-2');
+  assert.equal(moved?.sortOrder, 1);
+  assert.equal(source?.activeTabId, 'tab-1');
+  assert.equal(target?.activeTabId, 'tab-2');
+  assert.deepEqual(calls.createSession, []);
+  assert.deepEqual(calls.terminateSession, []);
+  assert.equal(calls.save.length, 1);
+}
+
+async function testWorkspaceServiceMoveTabAppendsToTarget(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  const state = createWorkspaceMoveState();
+  state.workspaces.find((workspace: any) => workspace.id === 'ws-1')!.activeTabId = 'tab-1';
+  state.tabs.push({
+    id: 'tab-4',
+    workspaceId: 'ws-2',
+    sessionId: 'session-4',
+    name: 'Target 2',
+    colorIndex: 3,
+    sortOrder: 1,
+    shellType: 'bash',
+    createdAt: new Date().toISOString(),
+    lifecycleState: 'active',
+    recoverable: true,
+  });
+  (workspaceService as any).state = state;
+  calls.hasSession.add('session-1');
+  calls.hasSession.add('session-2');
+  calls.hasSession.add('session-3');
+  calls.hasSession.add('session-4');
+
+  const result = await (workspaceService as any).moveTab('ws-1', 'tab-1', 'ws-2');
+  const moved = workspaceService.getState().tabs.find(tab => tab.id === 'tab-1');
+
+  assert.deepEqual(result.sourceTabIds, ['tab-2']);
+  assert.deepEqual(result.targetTabIds, ['tab-3', 'tab-4', 'tab-1']);
+  assert.equal(moved?.workspaceId, 'ws-2');
+  assert.equal(moved?.sortOrder, 2);
+}
+
+async function testWorkspaceServiceMoveTabRejectsInvalidTargets(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = createWorkspaceMoveState();
+  (workspaceService as any).config.maxTabsPerWorkspace = 1;
+  calls.hasSession.add('session-1');
+  calls.hasSession.add('session-2');
+  calls.hasSession.add('session-3');
+
+  await assert.rejects(
+    () => (workspaceService as any).moveTab('ws-1', 'tab-2', 'ws-2'),
+    (error: unknown) => error instanceof AppError && error.code === ErrorCode.TAB_LIMIT_EXCEEDED,
+  );
+
+  (workspaceService as any).config.maxTabsPerWorkspace = 8;
+  const stoppedTab = (workspaceService as any).state.tabs.find((tab: any) => tab.id === 'tab-2');
+  stoppedTab.lifecycleState = 'stopped';
+  stoppedTab.recoverable = false;
+
+  await assert.rejects(
+    () => (workspaceService as any).moveTab('ws-1', 'tab-2', 'ws-2'),
+    (error: unknown) => error instanceof AppError && String(error.code) === 'SESSION_NOT_MOVABLE',
+  );
+}
+
+async function testWorkspaceServiceMoveTabSaveFailureRestoresState(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = createWorkspaceMoveState();
+  calls.hasSession.add('session-1');
+  calls.hasSession.add('session-2');
+  calls.hasSession.add('session-3');
+  const before = JSON.parse(JSON.stringify(workspaceService.getState()));
+  (workspaceService as any).save = async (immediate = false) => {
+    calls.order.push(`save:${immediate}:failed`);
+    throw new Error('persist failed');
+  };
+
+  await assert.rejects(
+    () => (workspaceService as any).moveTab('ws-1', 'tab-2', 'ws-2'),
+    /persist failed/,
+  );
+
+  assert.deepEqual(workspaceService.getState(), before);
+  assert.deepEqual(calls.createSession, []);
+  assert.deepEqual(calls.terminateSession, []);
+}
+
+async function testWorkspaceServiceRejectsInvalidReorderPayloads(): Promise<void> {
+  const { workspaceService } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = createWorkspaceMoveState();
+
+  await assert.rejects(
+    () => workspaceService.reorderWorkspaces(['ws-2']),
+    (error: unknown) => error instanceof AppError && String(error.code) === 'INVALID_REORDER_PAYLOAD',
+  );
+  await assert.rejects(
+    () => workspaceService.reorderWorkspaces(['ws-1', 'ws-1']),
+    (error: unknown) => error instanceof AppError && String(error.code) === 'INVALID_REORDER_PAYLOAD',
+  );
+  await assert.rejects(
+    () => workspaceService.reorderTabs('ws-1', ['tab-2']),
+    (error: unknown) => error instanceof AppError && String(error.code) === 'INVALID_REORDER_PAYLOAD',
+  );
+}
+
 async function testWorkspaceServicePassesSessionCleanupReasons(): Promise<void> {
   const { workspaceService, calls } = createWorkspaceServiceHarness();
   (workspaceService as any).state = {
@@ -10928,6 +11059,43 @@ async function testWorkspaceTabRenameRouteBroadcastsNormalizedMetadata(): Promis
   });
 }
 
+async function testWorkspaceTabMoveRouteBroadcastsMovedState(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness({ terminalTitleDebounceMs: 0 });
+  const broadcasts: Array<{ event: string; data: any; excludeClientId?: string }> = [];
+  (workspaceService as any).state = createWorkspaceMoveState();
+  calls.hasSession.add('session-1');
+  calls.hasSession.add('session-2');
+  calls.hasSession.add('session-3');
+
+  const app = express();
+  app.use(express.json());
+  app.set('wsRouter', {
+    broadcastAll(event: string, data: object, excludeClientId?: string) {
+      broadcasts.push({ event, data, excludeClientId });
+    },
+  });
+  app.use('/api/workspaces', createWorkspaceRoutes(workspaceService));
+
+  const response = await invokeJsonRoute(app, {
+    method: 'POST',
+    path: '/api/workspaces/ws-1/tabs/tab-2/move',
+    headers: { 'x-client-id': 'client-1' },
+    body: { targetWorkspaceId: 'ws-2' },
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.tab.id, 'tab-2');
+  assert.equal(response.body.tab.workspaceId, 'ws-2');
+  assert.deepEqual(response.body.sourceTabIds, ['tab-1']);
+  assert.deepEqual(response.body.targetTabIds, ['tab-3', 'tab-2']);
+  assert.equal(response.body.sourceActiveTabId, 'tab-1');
+  assert.equal(response.body.targetActiveTabId, 'tab-2');
+  assert.equal(broadcasts.length, 1);
+  assert.equal(broadcasts[0].event, 'tab:moved');
+  assert.equal(broadcasts[0].excludeClientId, 'client-1');
+  assert.deepEqual(broadcasts[0].data, response.body);
+}
+
 function createWorkspaceStateWithTab(tab: Partial<any>) {
   const now = new Date().toISOString();
   return {
@@ -10952,6 +11120,73 @@ function createWorkspaceStateWithTab(tab: Partial<any>) {
       createdAt: now,
       ...tab,
     }],
+    gridLayouts: [],
+  };
+}
+
+function createWorkspaceMoveState() {
+  const now = new Date().toISOString();
+  return {
+    workspaces: [
+      {
+        id: 'ws-1',
+        name: 'Source',
+        sortOrder: 0,
+        viewMode: 'tab',
+        activeTabId: 'tab-2',
+        colorCounter: 0,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'ws-2',
+        name: 'Target',
+        sortOrder: 1,
+        viewMode: 'grid',
+        activeTabId: 'tab-3',
+        colorCounter: 0,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
+    tabs: [
+      {
+        id: 'tab-1',
+        workspaceId: 'ws-1',
+        sessionId: 'session-1',
+        name: 'Source 1',
+        colorIndex: 0,
+        sortOrder: 0,
+        shellType: 'bash',
+        createdAt: now,
+        lifecycleState: 'active',
+        recoverable: true,
+      },
+      {
+        id: 'tab-2',
+        workspaceId: 'ws-1',
+        sessionId: 'session-2',
+        name: 'Source 2',
+        colorIndex: 1,
+        sortOrder: 1,
+        shellType: 'bash',
+        createdAt: now,
+        lifecycleState: 'active',
+        recoverable: true,
+      },
+      {
+        id: 'tab-3',
+        workspaceId: 'ws-2',
+        sessionId: 'session-3',
+        name: 'Target 1',
+        colorIndex: 2,
+        sortOrder: 0,
+        shellType: 'bash',
+        createdAt: now,
+        lifecycleState: 'active',
+        recoverable: true,
+      },
+    ],
     gridLayouts: [],
   };
 }

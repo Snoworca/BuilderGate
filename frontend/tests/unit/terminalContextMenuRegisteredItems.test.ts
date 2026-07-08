@@ -113,3 +113,51 @@ test('terminal context menu appends registered preset menu as the final item', (
   assert.ok(lastItem && !lastItem.separator);
   assert.equal(lastItem.label, '등록 항목 붙여넣기');
 });
+
+test('terminal context menu exposes move-to-workspace item and preserves disabled state', () => {
+  let requested = false;
+  const enabledItems = buildTerminalContextMenuItems({
+    tab: undefined,
+    tabs: [],
+    maxTabs: 8,
+    onAddTab: () => undefined,
+    onCloseTab: () => undefined,
+    onCopy: async () => undefined,
+    onPaste: async () => undefined,
+    hasSelection: false,
+    moveWorkspace: {
+      disabled: false,
+      onRequest: () => {
+        requested = true;
+      },
+    },
+  });
+
+  const moveItem = enabledItems.find(item => !item.separator && item.label === '워크스페이스 이동');
+  assert.ok(moveItem && !moveItem.separator);
+  assert.equal(moveItem.disabled, false);
+  moveItem.onClick?.();
+  assert.equal(requested, true);
+
+  const disabledItems = buildTerminalContextMenuItems({
+    tab: undefined,
+    tabs: [],
+    maxTabs: 8,
+    onAddTab: () => undefined,
+    onCloseTab: () => undefined,
+    onCopy: async () => undefined,
+    onPaste: async () => undefined,
+    hasSelection: false,
+    moveWorkspace: {
+      disabled: true,
+      onRequest: () => {
+        throw new Error('disabled item should not invoke move');
+      },
+    },
+  });
+
+  const disabledMoveItem = disabledItems.find(item => !item.separator && item.label === '워크스페이스 이동');
+  assert.ok(disabledMoveItem && !disabledMoveItem.separator);
+  assert.equal(disabledMoveItem.disabled, true);
+  assert.equal(typeof disabledMoveItem.onClick, 'function');
+});

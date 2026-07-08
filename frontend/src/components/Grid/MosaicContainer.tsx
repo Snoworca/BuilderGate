@@ -21,6 +21,7 @@ import {
   buildRecoveredEqualMosaicTree,
   FOCUS_RATIO_KEY,
   FOCUS_RATIO_DEFAULT,
+  buildEqualColumnsMosaicTree,
   buildEqualMosaicTree,
   clampSplitPercentages,
   extractLeafIds,
@@ -62,6 +63,7 @@ interface MosaicContainerProps {
   pasteTerminalInput?: (tabId: string, data: string) => TerminalPasteInputResult;
   focusTerminal?: (tabId: string) => void;
   onLayoutChange?: () => void;
+  onRequestMoveTab?: (tabId: string) => void;
 }
 
 function buildMissingTerminalPasteResult(): TerminalPasteInputResult {
@@ -73,6 +75,13 @@ function buildMissingTerminalPasteResult(): TerminalPasteInputResult {
     barrierReason: 'none',
     closedReason: 'terminal-disposed',
   };
+}
+
+function isWorkspaceMoveDisabled(tab: WorkspaceTabRuntime | undefined): boolean {
+  return !tab
+    || tab.status === 'disconnected'
+    || tab.lifecycleState === 'stopped'
+    || tab.recoverable === false;
 }
 
 export function MosaicContainer({
@@ -92,6 +101,7 @@ export function MosaicContainer({
   pasteTerminalInput,
   focusTerminal,
   onLayoutChange,
+  onRequestMoveTab,
 }: MosaicContainerProps) {
   const currentTabIds = tabs.map(t => t.id);
   const currentTabIdsKey = currentTabIds.join(',');
@@ -107,8 +117,10 @@ export function MosaicContainer({
     setMosaicTree,
     debouncedSave,
     layoutMode: persistedMode,
+    equalPreset,
     focusTarget: persistedFocusTarget,
     setLayoutMode: persistLayoutMode,
+    setEqualPreset: persistEqualPreset,
     setFocusTarget: persistFocusTarget,
   } = useMosaicLayout(workspaceId, currentTabIds);
 
@@ -211,7 +223,9 @@ export function MosaicContainer({
       const recoveredTree = sourceTree
         ? restoreLayoutWithSessionRecovery(sourceTree, ids).tree
         : buildEqualMosaicTree(ids, arrangement, metrics);
-      const equalTree = buildRecoveredEqualMosaicTree(recoveredTree, ids, arrangement, metrics);
+      const equalTree = equalPreset === 'columns'
+        ? buildEqualColumnsMosaicTree(extractLeafIds(recoveredTree))
+        : buildRecoveredEqualMosaicTree(recoveredTree, ids, arrangement, metrics);
 
       if (mode === 'none') {
         return recoveredTree;
@@ -236,7 +250,7 @@ export function MosaicContainer({
       );
       return applyMultiFocusApprox(recoveredTree, idleIds, minPct, getAutoRatio());
     },
-    [getAutoRatio, getCurrentEqualArrangement, getEqualLayoutMetrics, getFocusRatio, getValidFocusTarget, tabs],
+    [equalPreset, getAutoRatio, getCurrentEqualArrangement, getEqualLayoutMetrics, getFocusRatio, getValidFocusTarget, tabs],
   );
 
   useEffect(() => {
@@ -434,11 +448,17 @@ export function MosaicContainer({
     mode: typeof layoutMode,
     tree: MosaicNode<string>,
     focusTabId?: string | null,
+    preset: typeof equalPreset = equalPreset,
   ): MosaicNode<string> => {
     const minPct = getMinPercentage(tabs.length);
     const metrics = getEqualLayoutMetrics();
     if (mode === 'none') return tree;
-    if (mode === 'equal') return buildEqualMosaicTree(extractLeafIds(tree), equalArrangementRef.current, metrics);
+    if (mode === 'equal') {
+      const ids = extractLeafIds(tree);
+      return preset === 'columns'
+        ? buildEqualColumnsMosaicTree(ids)
+        : buildEqualMosaicTree(ids, equalArrangementRef.current, metrics);
+    }
     if (mode === 'focus') {
       const target = focusTabId ?? null;
       return target
@@ -447,7 +467,7 @@ export function MosaicContainer({
     }
     const idleIds = new Set(tabs.filter(t => t.status === 'idle').map(t => t.id));
     return applyMultiFocusApprox(tree, idleIds, minPct, getAutoRatio());
-  }, [tabs, getFocusRatio, getAutoRatio, getEqualLayoutMetrics]);
+  }, [equalPreset, tabs, getFocusRatio, getAutoRatio, getEqualLayoutMetrics]);
 
   const handleLayoutModeChange = useCallback(
     (mode: typeof layoutMode, focusTabId?: string, source: 'toolbar' | 'focus-sync' = 'toolbar') => {
@@ -457,6 +477,7 @@ export function MosaicContainer({
           : source === 'toolbar' && layoutMode === mode
           ? 'none'
           : mode;
+      const nextEqualPreset = source === 'toolbar' ? 'smart' : equalPreset;
       if (source === 'toolbar' && nextMode === 'equal') {
         equalArrangementRef.current = getEqualArrangementForButtonPress();
       }
@@ -464,10 +485,11 @@ export function MosaicContainer({
       // useMosaicLayout의 state도 동기화하여 debouncedSave가 올바른 값 저장
       persistLayoutMode(nextMode);
       persistFocusTarget(nextMode === 'focus' ? (focusTabId ?? null) : null);
+      persistEqualPreset(nextEqualPreset);
 
       // Apply immediately to tree
       if (mosaicTree) {
-        const newTree = applyModeToTree(nextMode, mosaicTree, focusTabId ?? null);
+        const newTree = applyModeToTree(nextMode, mosaicTree, focusTabId ?? null, nextEqualPreset);
         setMosaicTree(newTree);
       }
       debouncedSave();
@@ -480,8 +502,43 @@ export function MosaicContainer({
         });
       });
     },
-    [layoutMode, focusTarget, persistLayoutMode, persistFocusTarget, mosaicTree, setMosaicTree, debouncedSave, onLayoutChange, applyModeToTree, getEqualArrangementForButtonPress],
+    [layoutMode, focusTarget, equalPreset, persistLayoutMode, persistFocusTarget, persistEqualPreset, mosaicTree, setMosaicTree, debouncedSave, onLayoutChange, applyModeToTree, getEqualArrangementForButtonPress],
   );
+
+  const handleColumnsLayout = useCallback(() => {
+    const nextMode = layoutMode === 'equal' && equalPreset === 'columns' ? 'none' : 'equal';
+    const nextPreset = nextMode === 'equal' ? 'columns' : 'smart';
+
+    persistLayoutMode(nextMode);
+    persistFocusTarget(null);
+    persistEqualPreset(nextPreset);
+
+    const sourceTree = mosaicTree ?? (currentTabIds.length > 0 ? buildEqualColumnsMosaicTree(currentTabIds) : null);
+    if (sourceTree) {
+      const newTree = nextMode === 'equal'
+        ? buildEqualColumnsMosaicTree(extractLeafIds(sourceTree))
+        : sourceTree;
+      setMosaicTree(newTree);
+    }
+
+    debouncedSave();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        onLayoutChange?.();
+      });
+    });
+  }, [
+    currentTabIds,
+    debouncedSave,
+    equalPreset,
+    layoutMode,
+    mosaicTree,
+    onLayoutChange,
+    persistEqualPreset,
+    persistFocusTarget,
+    persistLayoutMode,
+    setMosaicTree,
+  ]);
 
   // Focus mode: if focus target tab is closed or replaced, revert to equal mode
   useEffect(() => {
@@ -516,6 +573,7 @@ export function MosaicContainer({
     if (layoutMode === 'equal' && hasRealResize) {
       persistLayoutMode('none');
       persistFocusTarget(null);
+      persistEqualPreset('smart');
     }
     setMosaicTree(clamped);
     debouncedSave();
@@ -523,25 +581,29 @@ export function MosaicContainer({
 
     isSplitResizeInteractionRef.current = false;
     splitInteractionStartKeyRef.current = null;
-  }, [layoutMode, persistLayoutMode, persistFocusTarget, setMosaicTree, debouncedSave, scheduleLayoutRefresh, tabs.length]);
+  }, [layoutMode, persistLayoutMode, persistFocusTarget, persistEqualPreset, setMosaicTree, debouncedSave, scheduleLayoutRefresh, tabs.length]);
 
   const handleTileDragEnd = useCallback((type: 'drop' | 'reset') => {
     if (type === 'drop' && layoutMode === 'equal' && lastMosaicChangeRef.current) {
-      const equalized = buildEqualMosaicTree(
-        extractLeafIds(lastMosaicChangeRef.current),
-        equalArrangementRef.current,
-        getEqualLayoutMetrics(),
-      );
+      const orderedIds = extractLeafIds(lastMosaicChangeRef.current);
+      const equalized = equalPreset === 'columns'
+        ? buildEqualColumnsMosaicTree(orderedIds)
+        : buildEqualMosaicTree(
+            orderedIds,
+            equalArrangementRef.current,
+            getEqualLayoutMetrics(),
+          );
       lastMosaicChangeRef.current = equalized;
       setMosaicTree(equalized);
       persistLayoutMode('equal');
       persistFocusTarget(null);
+      persistEqualPreset(equalPreset);
       debouncedSave();
       scheduleLayoutRefresh();
     }
 
     isTileDragInteractionRef.current = false;
-  }, [layoutMode, setMosaicTree, persistLayoutMode, persistFocusTarget, debouncedSave, scheduleLayoutRefresh, getEqualLayoutMetrics]);
+  }, [equalPreset, layoutMode, setMosaicTree, persistLayoutMode, persistFocusTarget, persistEqualPreset, debouncedSave, scheduleLayoutRefresh, getEqualLayoutMetrics]);
 
   // Clipboard: copy selected text from terminal (reads from clipboard after xterm writes it)
   const handleCopy = useCallback(async (tabId: string) => {
@@ -650,6 +712,13 @@ export function MosaicContainer({
         onCopy: () => handleCopy(tabId),
         onPaste: () => handlePaste(tabId),
         hasSelection,
+        moveWorkspace: {
+          disabled: !onRequestMoveTab || isWorkspaceMoveDisabled(tab),
+          onRequest: () => {
+            closeContextMenu();
+            onRequestMoveTab?.(tabId);
+          },
+        },
         registeredPresetMenu: {
           presets: registeredPresetSnapshot,
           onSelectPreset: (preset) => handleRegisteredPresetPaste(tabId, preset),
@@ -665,6 +734,7 @@ export function MosaicContainer({
       handleCopy,
       handlePaste,
       hasTerminalSelection,
+      onRequestMoveTab,
       registeredPresetSnapshot,
       handleRegisteredPresetPaste,
     ],
@@ -732,6 +802,7 @@ export function MosaicContainer({
             <div style={{ position: 'relative', width: '100%', height: 0, overflow: 'visible' }}>
               <MosaicToolbar
                 layoutMode={layoutMode}
+                equalPreset={equalPreset}
                 onLayoutModeChange={(mode) => {
                   if (mode === 'focus') {
                     handleLayoutModeChange('focus', tabId, 'toolbar');
@@ -739,6 +810,7 @@ export function MosaicContainer({
                     handleLayoutModeChange(mode, undefined, 'toolbar');
                   }
                 }}
+                onColumnsLayout={handleColumnsLayout}
               />
             </div>
           )}
@@ -768,8 +840,10 @@ export function MosaicContainer({
     [
       tabMap,
       layoutMode,
+      equalPreset,
       openContextMenu,
       handleLayoutModeChange,
+      handleColumnsLayout,
       handleTileDragEnd,
       onRestartTab,
       onAddTab,

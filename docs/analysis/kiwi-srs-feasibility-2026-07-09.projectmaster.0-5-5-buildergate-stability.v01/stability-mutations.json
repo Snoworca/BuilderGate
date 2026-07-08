@@ -1,0 +1,32 @@
+{
+  "run_id": "2026-07-09.projectmaster.0-5-5-buildergate-stability.v01",
+  "mode": "live",
+  "applied": [],
+  "skipped": [
+    { "req_id": "SEC-MCP-001", "reason": "keep_evolving_noop" },
+    { "req_id": "IR-MCP-001", "reason": "keep_evolving_noop" },
+    { "req_id": "FR-MCP-001", "reason": "keep_evolving_noop" },
+    { "req_id": "FR-MCP-002", "reason": "keep_evolving_noop" },
+    { "req_id": "FR-MCP-003", "reason": "keep_evolving_noop" },
+    { "req_id": "REL-MCP-001", "reason": "keep_evolving_noop" },
+    { "req_id": "FR-MCP-004", "reason": "keep_evolving_noop" },
+    { "req_id": "FR-MCP-005", "reason": "keep_evolving_noop" },
+    { "req_id": "OBS-MCP-001", "reason": "keep_evolving_noop" },
+    { "req_id": "SEC-MCP-002", "reason": "keep_evolving_noop" },
+    { "req_id": "FR-MCP-006", "reason": "keep_evolving_noop" },
+    { "req_id": "IR-MCP-002", "reason": "keep_evolving_noop" },
+    { "req_id": "IR-MCP-003", "reason": "keep_evolving_noop" },
+    { "req_id": "IR-MCP-004", "reason": "keep_evolving_noop" },
+    { "req_id": "IR-MCP-005", "reason": "keep_evolving_noop" }
+  ],
+  "guard_blocked": [],
+  "user_rejected": [],
+  "system_failed": [],
+  "summary": {
+    "applied_count": 0,
+    "skipped_count": 15,
+    "guard_blocked_count": 0,
+    "user_rejected_count": 0,
+    "system_failed_count": 0
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "run_id": "2026-07-09.projectmaster.0-5-5-buildergate-stability.v01",
+  "target": "0.5.5-buildergate-stability",
+  "scope_filter": "MCP",
+  "target_total": 45,
+  "scope_total": 15,
+  "filtered_count": 15,
+  "excluded": [],
+  "status_dist": { "planned": 15 },
+  "stability_dist": { "evolving": 15 },
+  "priority_dist": { "critical": 7, "high": 8 },
+  "type_dist": {
+    "security": 2,
+    "interface": 5,
+    "functional": 6,
+    "reliability": 1,
+    "observability": 1
+  },
+  "diagnostics": {
+    "errors": 0,
+    "warnings": 1,
+    "warning_note": "SRS-W023 REL-BGSTAB-005 is outside MCP scope"
+  },
+  "requirements": [
+    { "id": "SEC-MCP-001", "status": "planned", "stability": "evolving", "priority": "critical", "type": "security", "scope": "MCP", "ac_count": 6, "trace_count": 5, "evidence_count": 0 },
+    { "id": "IR-MCP-001", "status": "planned", "stability": "evolving", "priority": "critical", "type": "interface", "scope": "MCP", "ac_count": 5, "trace_count": 5, "evidence_count": 0 },
+    { "id": "FR-MCP-001", "status": "planned", "stability": "evolving", "priority": "critical", "type": "functional", "scope": "MCP", "ac_count": 7, "trace_count": 11, "evidence_count": 0 },
+    { "id": "FR-MCP-002", "status": "planned", "stability": "evolving", "priority": "critical", "type": "functional", "scope": "MCP", "ac_count": 6, "trace_count": 10, "evidence_count": 0 },
+    { "id": "FR-MCP-003", "status": "planned", "stability": "evolving", "priority": "critical", "type": "functional", "scope": "MCP", "ac_count": 7, "trace_count": 10, "evidence_count": 0 },
+    { "id": "REL-MCP-001", "status": "planned", "stability": "evolving", "priority": "critical", "type": "reliability", "scope": "MCP", "ac_count": 7, "trace_count": 9, "evidence_count": 0 },
+    { "id": "FR-MCP-004", "status": "planned", "stability": "evolving", "priority": "high", "type": "functional", "scope": "MCP", "ac_count": 7, "trace_count": 7, "evidence_count": 0 },
+    { "id": "FR-MCP-005", "status": "planned", "stability": "evolving", "priority": "high", "type": "functional", "scope": "MCP", "ac_count": 7, "trace_count": 12, "evidence_count": 0 },
+    { "id": "OBS-MCP-001", "status": "planned", "stability": "evolving", "priority": "high", "type": "observability", "scope": "MCP", "ac_count": 7, "trace_count": 10, "evidence_count": 0 },
+    { "id": "SEC-MCP-002", "status": "planned", "stability": "evolving", "priority": "critical", "type": "security", "scope": "MCP", "ac_count": 9, "trace_count": 7, "evidence_count": 0 },
+    { "id": "FR-MCP-006", "status": "planned", "stability": "evolving", "priority": "high", "type": "functional", "scope": "MCP", "ac_count": 6, "trace_count": 5, "evidence_count": 0 },
+    { "id": "IR-MCP-002", "status": "planned", "stability": "evolving", "priority": "high", "type": "interface", "scope": "MCP", "ac_count": 8, "trace_count": 9, "evidence_count": 0 },
+    { "id": "IR-MCP-003", "status": "planned", "stability": "evolving", "priority": "high", "type": "interface", "scope": "MCP", "ac_count": 10, "trace_count": 6, "evidence_count": 0 },
+    { "id": "IR-MCP-004", "status": "planned", "stability": "evolving", "priority": "high", "type": "interface", "scope": "MCP", "ac_count": 10, "trace_count": 7, "evidence_count": 0 },
+    { "id": "IR-MCP-005", "status": "planned", "stability": "evolving", "priority": "high", "type": "interface", "scope": "MCP", "ac_count": 10, "trace_count": 10, "evidence_count": 0 }
+  ]
+}

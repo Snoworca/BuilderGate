@@ -1,0 +1,300 @@
+{
+  "run_id": "2026-07-09.projectmaster.0-5-5-buildergate-stability.v01",
+  "target": "0.5.5-buildergate-stability",
+  "scope": "MCP",
+  "score_weights": {
+    "implementability": 30,
+    "evidence_strength": 20,
+    "dependency_health": 15,
+    "ac_verifiability": 15,
+    "scope_fit": 10,
+    "product_fit": 10
+  },
+  "judgements": [
+    {
+      "req_id": "SEC-MCP-001",
+      "feasibility": "high",
+      "score": 84,
+      "axes": {
+        "implementability": { "score": 24, "rationale": "Independent MCP listener and guard stack are additive, but security-sensitive.", "evidence": ["server/src/index.ts:192-210", "server/src/index.ts:372-462", "server/src/index.ts:552-612"] },
+        "evidence_strength": { "score": 17, "rationale": "Existing listener/auth/shutdown precedents and negative MCP dependency evidence are concrete.", "evidence": ["server/src/routes/internalShutdownRoutes.ts:24-68", "server/src/middleware/authMiddleware.ts:40-78", "server/package.json:13-31"] },
+        "dependency_health": { "score": 14, "rationale": "Foundation requirement with no unresolved MCP dependency.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:46"] },
+        "ac_verifiability": { "score": 13, "rationale": "Each AC maps to guard/rebind/audit tests.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:69-76"] },
+        "scope_fit": { "score": 8, "rationale": "MCP-only listener avoids app server restart coupling.", "evidence": ["server/src/index.ts:552-612"] },
+        "product_fit": { "score": 8, "rationale": "Required remote-control security foundation.", "evidence": ["docs/research/mcp/06.security-ops-test-plan.md:22-30"] }
+      },
+      "blockers": [],
+      "conditions": ["Keep browser JWT separate from MCP/webhook credentials.", "External whitelist mode requires TLS or trusted TLS proxy."],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "IR-MCP-001",
+      "feasibility": "high",
+      "score": 85,
+      "axes": {
+        "implementability": { "score": 25, "rationale": "Tool surface can be implemented as an additive MCP adapter over services.", "evidence": ["server/src/index.ts:372-462", "server/package.json:13-31"] },
+        "evidence_strength": { "score": 17, "rationale": "SRS and research define tool contracts and current code has clear startup hooks.", "evidence": ["docs/research/mcp/03.mcp-http-webhook-interface-design.md:132-276", "server/src/index.ts:372-462"] },
+        "dependency_health": { "score": 13, "rationale": "Depends on SEC-MCP-001 security foundation, already feasible.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:147-152"] },
+        "ac_verifiability": { "score": 14, "rationale": "Tools/list, tools/call, schema, and error cases are integration-testable.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:132-140"] },
+        "scope_fit": { "score": 8, "rationale": "Interface requirement stays in MCP control-plane.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:109-152"] },
+        "product_fit": { "score": 8, "rationale": "Defines the public MCP tool contract needed by downstream features.", "evidence": ["docs/research/mcp/03.mcp-http-webhook-interface-design.md:132-276"] }
+      },
+      "blockers": [],
+      "conditions": ["Choose MCP SDK or minimal JSON-RPC adapter before implementation."],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "FR-MCP-001",
+      "feasibility": "high",
+      "score": 88,
+      "axes": {
+        "implementability": { "score": 26, "rationale": "Existing session UUIDs, tab persistence, restart, orphan recovery, and rename flows provide solid hooks.", "evidence": ["server/src/services/SessionManager.ts:572-595", "server/src/services/WorkspaceService.ts:331-370", "server/src/services/WorkspaceService.ts:519-555"] },
+        "evidence_strength": { "score": 18, "rationale": "Trace points cover both server and UI alias flows.", "evidence": ["server/src/services/WorkspaceService.ts:384-399", "server/src/routes/workspaceRoutes.ts:123-137", "frontend/src/components/MetadataBar/MetadataRow.tsx:112-144"] },
+        "dependency_health": { "score": 14, "rationale": "Depends on existing BGSTAB lifecycle semantics and IR-MCP-001.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:222-223"] },
+        "ac_verifiability": { "score": 14, "rationale": "UUID, stale generation, list/search, alias update, and broadcast behavior are directly testable.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:194-202"] },
+        "scope_fit": { "score": 8, "rationale": "Stable binding is central to MCP targeting without changing PTY UUID semantics.", "evidence": ["docs/research/mcp/01.requirements-and-domain-model.md:110-122"] },
+        "product_fit": { "score": 8, "rationale": "Core user requirement: self ID, other sessions, aliases, and search.", "evidence": ["docs/research/mcp/00.index.md:42-47"] }
+      },
+      "blockers": [],
+      "conditions": ["Do not treat sessionId knowledge as permission proof.", "Persist MCP alias updates through WorkspaceTab.name/nameSource=user."],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "FR-MCP-002",
+      "feasibility": "high",
+      "score": 83,
+      "axes": {
+        "implementability": { "score": 23, "rationale": "Input gateway requires careful extraction from WsRouter but can reuse existing policy code.", "evidence": ["server/src/ws/WsRouter.ts:514-613", "server/src/ws/WsRouter.ts:1304-1340"] },
+        "evidence_strength": { "score": 17, "rationale": "Direct input write, replay queue, timeout, and rejection paths are traceable.", "evidence": ["server/src/ws/WsRouter.ts:1399-1479", "server/src/ws/WsRouter.ts:1507-1544", "server/src/services/SessionManager.ts:1250-1337"] },
+        "dependency_health": { "score": 13, "rationale": "Depends on stable session binding and BGSTAB replay/input policies.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:290-292"] },
+        "ac_verifiability": { "score": 14, "rationale": "Gateway ingress, replay rejection, paste/submit, live target, idle invariant, and reply-to-leader are testable.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:265-272"] },
+        "scope_fit": { "score": 8, "rationale": "Shared gateway reduces duplicated input policy rather than expanding scope.", "evidence": ["docs/research/mcp/04.session-orchestration-and-input-safety.md:23-31"] },
+        "product_fit": { "score": 8, "rationale": "Required for safe inter-session messaging.", "evidence": ["docs/research/mcp/04.session-orchestration-and-input-safety.md:154-165"] }
+      },
+      "blockers": [],
+      "conditions": ["Add regression tests for AI TUI idle invariant before gateway replacement.", "Preserve replay pending behavior exactly."],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "FR-MCP-003",
+      "feasibility": "high",
+      "score": 82,
+      "axes": {
+        "implementability": { "score": 23, "rationale": "Agent launch can extend WorkspaceService/SessionManager launch path but needs compensation state.", "evidence": ["server/src/services/WorkspaceService.ts:331-370", "server/src/services/SessionManager.ts:572-595"] },
+        "evidence_strength": { "score": 16, "rationale": "Command/recovery stores give import precedents; launch contract itself is new.", "evidence": ["server/src/services/CommandPresetService.ts:17-19", "server/src/types/commandPreset.types.ts:1-11", "server/src/services/RecoveryOptionService.ts:24-43"] },
+        "dependency_health": { "score": 13, "rationale": "Depends on registry, gateway, and tool surface; all high feasibility.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:360-362"] },
+        "ac_verifiability": { "score": 14, "rationale": "Profile validation, env/config injection, claim/kickoff, status, and launch failure compensation are testable.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:334-342"] },
+        "scope_fit": { "score": 8, "rationale": "Agent profile source is separate from command presets as required.", "evidence": ["server/src/services/CommandPresetService.ts:17-19"] },
+        "product_fit": { "score": 8, "rationale": "Enables leader/follower session orchestration.", "evidence": ["docs/research/mcp/04.session-orchestration-and-input-safety.md:101-121"] }
+      },
+      "blockers": [],
+      "conditions": ["Preallocate sessionKey/token before spawn.", "Generated config files must be cleaned on compensation paths."],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "REL-MCP-001",
+      "feasibility": "high",
+      "score": 81,
+      "axes": {
+        "implementability": { "score": 23, "rationale": "Close lifecycle can reuse deleteTab and terminateSession but self-close deferral is subtle.", "evidence": ["server/src/services/WorkspaceService.ts:402-427", "server/src/services/SessionManager.ts:1168-1218"] },
+        "evidence_strength": { "score": 16, "rationale": "Existing lifecycle and finalization hooks are concrete.", "evidence": ["server/src/services/SessionManager.ts:2725-2747", "server/src/services/WorkspaceService.ts:331-370"] },
+        "dependency_health": { "score": 13, "rationale": "Depends on BGSTAB lifecycle/process cleanup and MCP launch/tool contracts.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:428-432"] },
+        "ac_verifiability": { "score": 13, "rationale": "Launch compensation, close path uniqueness, self-close defer, and recovery of failed close are testable.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:405-412"] },
+        "scope_fit": { "score": 8, "rationale": "Reliability contract stays within MCP-created/closed session lifecycle.", "evidence": ["docs/research/mcp/04.session-orchestration-and-input-safety.md:101-129"] },
+        "product_fit": { "score": 8, "rationale": "Prevents leaked sessions and broken MCP response channels.", "evidence": ["docs/research/mcp/03.mcp-http-webhook-interface-design.md:259-276"] }
+      },
+      "blockers": [],
+      "conditions": ["Route all MCP closes through WorkspaceService.deleteTab.", "Defer self-close until after MCP response flush."],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "FR-MCP-004",
+      "feasibility": "high",
+      "score": 82,
+      "axes": {
+        "implementability": { "score": 23, "rationale": "Webhook route/store is additive but must reuse MCP auth and input gateway.", "evidence": ["server/src/index.ts:240-336", "server/src/routes/sessionRoutes.ts:138-139"] },
+        "evidence_strength": { "score": 16, "rationale": "Route mount, removed legacy input, and auth boundary evidence are concrete.", "evidence": ["server/src/middleware/authMiddleware.ts:40-78", "docs/research/mcp/03.mcp-http-webhook-interface-design.md:346-365"] },
+        "dependency_health": { "score": 13, "rationale": "Depends on listener security, session search, input gateway, and open_agent.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:496-499"] },
+        "ac_verifiability": { "score": 14, "rationale": "Query key, header key, target assignment, no-target launch, redaction, and denial behavior are testable.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:474-482"] },
+        "scope_fit": { "score": 8, "rationale": "Webhook is part of the requested MCP external invocation surface.", "evidence": ["docs/research/mcp/00.index.md:52"] },
+        "product_fit": { "score": 8, "rationale": "Enables external assignment invocation while preserving security boundaries.", "evidence": ["docs/research/mcp/03.mcp-http-webhook-interface-design.md:346-365"] }
+      },
+      "blockers": [],
+      "conditions": ["Store only key hashes.", "Redact query key and prompt material from logs."],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "FR-MCP-005",
+      "feasibility": "high",
+      "score": 84,
+      "axes": {
+        "implementability": { "score": 25, "rationale": "Existing Tools dialog state/API patterns make UI implementation additive.", "evidence": ["frontend/src/App.tsx:118-120", "frontend/src/App.tsx:729-755", "frontend/src/components/Header/Header.tsx:54-67"] },
+        "evidence_strength": { "score": 17, "rationale": "Dialog shell and API-object pattern are concrete.", "evidence": ["frontend/src/components/dialog/WindowDialog.tsx:21-70", "frontend/src/services/api.ts:454-532", "server/src/services/RuntimeConfigStore.ts:32-38"] },
+        "dependency_health": { "score": 13, "rationale": "Depends on security, registry, agent profile, and webhook APIs.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:567-570"] },
+        "ac_verifiability": { "score": 13, "rationale": "Dialog tabs, validation error display, alias change, masked webhook display, and status refresh are UI-testable.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:540-548"] },
+        "scope_fit": { "score": 8, "rationale": "The settings live in Tools dialog security tab, not generic settings.", "evidence": ["docs/research/mcp/05.frontend-tools-dialog-and-alias-ux.md:19-35"] },
+        "product_fit": { "score": 8, "rationale": "Directly satisfies user requirement for dialog-based whitelist/config.", "evidence": ["docs/research/mcp/05.frontend-tools-dialog-and-alias-ux.md:100-124"] }
+      },
+      "blockers": [],
+      "conditions": ["Do not move MCP whitelist into generic Settings page.", "Show full webhook secrets only on create/rotate response."],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "OBS-MCP-001",
+      "feasibility": "high",
+      "score": 86,
+      "axes": {
+        "implementability": { "score": 25, "rationale": "Audit/status stores can reuse existing JSON persistence and telemetry patterns.", "evidence": ["server/src/services/CommandPresetService.ts:264-280", "server/src/services/RecoveryOptionService.ts:410-428"] },
+        "evidence_strength": { "score": 18, "rationale": "Existing telemetry, persistence, and test harness surfaces are concrete.", "evidence": ["server/src/index.ts:289", "server/src/test-runner.ts:27-64", "server/src/ws/WsRouter.ts:1507-1544"] },
+        "dependency_health": { "score": 13, "rationale": "Depends on all major MCP flows but those are high feasibility.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:633-638"] },
+        "ac_verifiability": { "score": 14, "rationale": "Audit redaction, counters, recent event API, and verification coverage are testable.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:610-618"] },
+        "scope_fit": { "score": 8, "rationale": "Observability is scoped to MCP status/audit and verification.", "evidence": ["docs/research/mcp/06.security-ops-test-plan.md:90-126"] },
+        "product_fit": { "score": 8, "rationale": "Needed for operators to trust remote-control decisions.", "evidence": ["docs/research/mcp/06.security-ops-test-plan.md:126-145"] }
+      },
+      "blockers": [],
+      "conditions": ["Normalize promptPreview redaction and audit ids across tool/webhook/UI paths."],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "SEC-MCP-002",
+      "feasibility": "high",
+      "score": 80,
+      "axes": {
+        "implementability": { "score": 22, "rationale": "Capability model is implementable but broad and security-critical.", "evidence": ["server/src/middleware/authMiddleware.ts:40-78", "server/src/routes/internalShutdownRoutes.ts:24-68"] },
+        "evidence_strength": { "score": 16, "rationale": "Security precedents and research test plan exist; actual MCP auth code is new.", "evidence": ["docs/research/mcp/06.security-ops-test-plan.md:37-48", "docs/research/mcp/03.mcp-http-webhook-interface-design.md:68-81"] },
+        "dependency_health": { "score": 12, "rationale": "Extends security/tool/webhook/audit contracts, increasing coordination risk.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:703-706"] },
+        "ac_verifiability": { "score": 14, "rationale": "Token claims, scopes, JWT rejection, Origin, empty whitelist, entropy, binding, and denial codes are all testable.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:679-689"] },
+        "scope_fit": { "score": 8, "rationale": "Security contract remains in MCP/webhook auth boundary.", "evidence": ["docs/research/mcp/06.security-ops-test-plan.md:22-30"] },
+        "product_fit": { "score": 8, "rationale": "Critical to avoid overbroad remote control.", "evidence": ["docs/research/mcp/02.current-architecture-inventory.md:150-160"] }
+      },
+      "blockers": [],
+      "conditions": ["Implement token/key rotation and denial-code tests before marking implemented."],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "FR-MCP-006",
+      "feasibility": "high",
+      "score": 87,
+      "axes": {
+        "implementability": { "score": 26, "rationale": "Startup reconciliation and legacy backfill can be additive over workspace/session inventories.", "evidence": ["server/src/services/WorkspaceService.ts:1338-1365", "server/src/services/WorkspaceService.ts:519-555"] },
+        "evidence_strength": { "score": 18, "rationale": "Restart, orphan recovery, and session inventory paths are concrete.", "evidence": ["server/src/services/SessionManager.ts:1152-1218", "server/src/services/WorkspaceService.ts:331-370"] },
+        "dependency_health": { "score": 14, "rationale": "Extends FR-MCP-001 and depends on observability; both feasible.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:768-769"] },
+        "ac_verifiability": { "score": 14, "rationale": "Backfill, preserve existing keys, reject stale bindings, and report diagnostics are testable.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:747-754"] },
+        "scope_fit": { "score": 8, "rationale": "Keeps migration local to registry/workspace binding state.", "evidence": ["docs/research/mcp/07.implementation-plan.md:34-45"] },
+        "product_fit": { "score": 7, "rationale": "Operationally important for existing tabs after rollout.", "evidence": ["docs/research/mcp/07.implementation-plan.md:102-109"] }
+      },
+      "blockers": [],
+      "conditions": ["Backfill must not rewrite current runtime sessionId unexpectedly."],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "IR-MCP-002",
+      "feasibility": "high",
+      "score": 83,
+      "axes": {
+        "implementability": { "score": 24, "rationale": "Control REST/API/dialog contract can follow existing route and API-client patterns.", "evidence": ["server/src/index.ts:281-336", "frontend/src/services/api.ts:454-532"] },
+        "evidence_strength": { "score": 16, "rationale": "Existing route mount, API client, and dialog shell are concrete.", "evidence": ["frontend/src/App.tsx:729-755", "frontend/src/components/dialog/WindowDialog.tsx:21-70"] },
+        "dependency_health": { "score": 13, "rationale": "Extends UI, agent, webhook, and close contracts.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:835-838"] },
+        "ac_verifiability": { "score": 14, "rationale": "REST endpoints, schemas, conflict handling, and UI consumption are testable.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:811-820"] },
+        "scope_fit": { "score": 8, "rationale": "Separates UI admin REST from MCP runtime capability auth.", "evidence": ["docs/research/mcp/03.mcp-http-webhook-interface-design.md:401-416"] },
+        "product_fit": { "score": 8, "rationale": "Needed for dialog-driven MCP configuration.", "evidence": ["docs/research/mcp/05.frontend-tools-dialog-and-alias-ux.md:257-268"] }
+      },
+      "blockers": [],
+      "conditions": ["Do not expose webhook full secrets except create/rotate response."],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "IR-MCP-003",
+      "feasibility": "high",
+      "score": 82,
+      "axes": {
+        "implementability": { "score": 24, "rationale": "Action endpoints/status enum tighten already planned REST, webhook, agent, close, and reply-test paths.", "evidence": ["server/src/index.ts:281-336", "frontend/src/services/api.ts:454-532"] },
+        "evidence_strength": { "score": 16, "rationale": "Although this is a contract-tightening requirement, enforcement lands on concrete route/API/input/close surfaces.", "evidence": ["server/src/ws/WsRouter.ts:514-613", "server/src/services/WorkspaceService.ts:402-427", "frontend/src/components/dialog/WindowDialog.tsx:21-70"] },
+        "dependency_health": { "score": 13, "rationale": "Extends IR-MCP-002, FR-MCP-004, FR-MCP-003, and close/input contracts.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:902-906"] },
+        "ac_verifiability": { "score": 14, "rationale": "Close confirmation, webhook credential variants, reply-test, validation, and enum contracts are testable through REST and UI tests.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:879-890"] },
+        "scope_fit": { "score": 7, "rationale": "Touches several MCP interface paths but stays within control REST/MCP management.", "evidence": ["docs/research/mcp/03.mcp-http-webhook-interface-design.md:401-416"] },
+        "product_fit": { "score": 8, "rationale": "Reduces ambiguity before implementation.", "evidence": ["docs/research/mcp/05.frontend-tools-dialog-and-alias-ux.md:250-268"] }
+      },
+      "blockers": [],
+      "conditions": ["Treat as contract-tightening over concrete REST/API/session-input/close surfaces."],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "IR-MCP-004",
+      "feasibility": "high",
+      "score": 81,
+      "axes": {
+        "implementability": { "score": 23, "rationale": "Edge-case contract tightening is implementable across search, webhook, replay rejection, and close paths.", "evidence": ["server/src/services/WorkspaceService.ts:384-399", "server/src/ws/WsRouter.ts:1507-1544", "server/src/services/WorkspaceService.ts:402-427"] },
+        "evidence_strength": { "score": 16, "rationale": "Code surfaces for alias update/search source, input rejection, and close lifecycle exist; MCP-specific endpoints are new.", "evidence": ["server/src/routes/workspaceRoutes.ts:123-137", "server/src/index.ts:240-336", "server/src/middleware/authMiddleware.ts:40-78"] },
+        "dependency_health": { "score": 13, "rationale": "Extends several already-feasible requirements and follows IR-MCP-003.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:968-973"] },
+        "ac_verifiability": { "score": 14, "rationale": "includeSelf default, ambiguous search, replay-pending rejection, self-close notification, and webhook edge cases are testable.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:945-956"] },
+        "scope_fit": { "score": 7, "rationale": "Broad edge-case contract remains limited to MCP/session/webhook interface behavior.", "evidence": ["docs/research/mcp/03.mcp-http-webhook-interface-design.md:132-416"] },
+        "product_fit": { "score": 8, "rationale": "Prevents ambiguous or unsafe production behavior.", "evidence": ["docs/research/mcp/06.security-ops-test-plan.md:140-169"] }
+      },
+      "blockers": [],
+      "conditions": ["Implement after base routes/services so edge cases can be tested against real paths."],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "IR-MCP-005",
+      "feasibility": "high",
+      "score": 82,
+      "axes": {
+        "implementability": { "score": 24, "rationale": "Final precedence rules are implementable as contract constants/tests over the already planned MCP services.", "evidence": ["server/src/index.ts:281-336", "server/src/ws/WsRouter.ts:1507-1544", "server/src/services/WorkspaceService.ts:402-427"] },
+        "evidence_strength": { "score": 16, "rationale": "Contract is mostly SRS-level but maps to concrete REST/API/audit/input/UI surfaces.", "evidence": ["server/src/test-runner.ts:27-64", "frontend/src/services/api.ts:454-532", "frontend/src/components/dialog/WindowDialog.tsx:21-70"] },
+        "dependency_health": { "score": 13, "rationale": "Extends final security, input, UI, audit, status, and edge-case contracts.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:1035-1041"] },
+        "ac_verifiability": { "score": 14, "rationale": "Whitelist denial code, webhook header name, replay code, secret exposure, promptPreview, lifecycle/status precedence are testable.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:1012-1023"] },
+        "scope_fit": { "score": 7, "rationale": "Final precedence spans multiple MCP contracts but does not leave MCP scope.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:989-1041"] },
+        "product_fit": { "score": 8, "rationale": "Necessary to prevent conflicting earlier wording from driving implementation.", "evidence": ["docs/spec/40.mcp-session-orchestration.srs.md:1005-1008"] }
+      },
+      "blockers": [],
+      "conditions": ["Planner must treat this as final wire-contract precedence, not optional follow-up."],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned",
+      "external_module_impact": null
+    }
+  ]
+}

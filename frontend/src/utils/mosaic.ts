@@ -386,6 +386,11 @@ export function buildEqualMosaicTree(
   );
 }
 
+export function buildEqualColumnsMosaicTree(ids: string[]): MosaicNode<string> {
+  if (ids.length === 0) throw new Error('Cannot build tree from empty ids');
+  return buildLinearMosaicTree(ids, 'row');
+}
+
 export function buildRecoveredEqualMosaicTree(
   sourceTree: MosaicNode<string> | null,
   currentTabIds: string[],

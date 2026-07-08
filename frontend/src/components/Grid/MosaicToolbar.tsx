@@ -2,14 +2,18 @@ import { useState, useRef, useCallback, useEffect, useContext } from 'react';
 import type { CSSProperties } from 'react';
 import { MosaicWindowContext } from 'react-mosaic-component';
 import type { LayoutMode } from '../../hooks/useMosaicLayout';
+import type { EqualLayoutPreset } from '../../hooks/mosaicLayoutStorage';
 
 interface MosaicToolbarProps {
   layoutMode: LayoutMode;
+  equalPreset: EqualLayoutPreset;
   onLayoutModeChange: (mode: LayoutMode) => void;
+  onColumnsLayout: () => void;
 }
 
 interface ToolbarButtonProps {
-  mode: Exclude<LayoutMode, 'none'>;
+  mode?: Exclude<LayoutMode, 'none'>;
+  command?: string;
   label: string;
   title: string;
   active: boolean;
@@ -31,11 +35,12 @@ const controlStyle: CSSProperties = {
   flexShrink: 0,
 };
 
-function ToolbarButton({ mode, label, title, active, onClick }: ToolbarButtonProps) {
+function ToolbarButton({ mode, command, label, title, active, onClick }: ToolbarButtonProps) {
   return (
     <button
       type="button"
       data-layout-mode-button={mode}
+      data-layout-command={command}
       title={title}
       onClick={onClick}
       draggable={false}
@@ -56,7 +61,12 @@ function ToolbarButton({ mode, label, title, active, onClick }: ToolbarButtonPro
   );
 }
 
-export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarProps) {
+export function MosaicToolbar({
+  layoutMode,
+  equalPreset,
+  onLayoutModeChange,
+  onColumnsLayout,
+}: MosaicToolbarProps) {
   const [expanded, setExpanded] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mosaicWindowContext = useContext(MosaicWindowContext);
@@ -149,8 +159,15 @@ export function MosaicToolbar({ layoutMode, onLayoutModeChange }: MosaicToolbarP
             mode="equal"
             label="⊞"
             title="균등 분할 (Equal)"
-            active={layoutMode === 'equal'}
+            active={layoutMode === 'equal' && equalPreset !== 'columns'}
             onClick={() => onLayoutModeChange('equal')}
+          />
+          <ToolbarButton
+            command="columns"
+            label="||||"
+            title="세로 정렬"
+            active={layoutMode === 'equal' && equalPreset === 'columns'}
+            onClick={onColumnsLayout}
           />
           <ToolbarButton
             mode="focus"

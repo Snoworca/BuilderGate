@@ -6,6 +6,7 @@ import {
   getMosaicLayoutStorageKey,
   isMosaicLayoutSaveSuppressed,
   pruneMosaicLayoutForDeletedTab,
+  pruneMosaicLayoutForMovedTab,
   releaseMosaicLayoutSaveSuppression,
   saveMosaicLayoutForWorkspace,
 } from '../../src/hooks/mosaicLayoutStorage.ts';
@@ -111,4 +112,42 @@ test('pruneMosaicLayoutForDeletedTab removes persisted layout when the deleted t
 
   assert.equal(result, true);
   assert.equal(storage.getItem(key), null);
+});
+
+test('saveMosaicLayoutForWorkspace persists columns equal preset with migrated schema', () => {
+  const storage = new MemoryStorage();
+  const workspaceId = 'workspace-columns';
+  const key = getMosaicLayoutStorageKey(workspaceId);
+
+  assert.equal(saveMosaicLayoutForWorkspace(workspaceId, tree, 'equal', null, storage, 'columns'), true);
+
+  const parsed = JSON.parse(storage.getItem(key) ?? 'null') as {
+    schemaVersion: number;
+    mode: string;
+    equalPreset?: string;
+  };
+  assert.equal(parsed.schemaVersion, 2);
+  assert.equal(parsed.mode, 'equal');
+  assert.equal(parsed.equalPreset, 'columns');
+});
+
+test('pruneMosaicLayoutForMovedTab removes source leaf without dropping equal preset', () => {
+  const storage = new MemoryStorage();
+  const workspaceId = 'workspace-source';
+  const key = getMosaicLayoutStorageKey(workspaceId);
+  assert.equal(saveMosaicLayoutForWorkspace(workspaceId, tree, 'equal', null, storage, 'columns'), true);
+
+  const result = pruneMosaicLayoutForMovedTab(workspaceId, 'tab-2', storage);
+
+  assert.equal(result, true);
+  const parsed = JSON.parse(storage.getItem(key) ?? 'null') as {
+    tree: MosaicNode<string>;
+    mode: string;
+    focusTarget: string | null;
+    equalPreset?: string;
+  };
+  assert.equal(parsed.tree, 'tab-1');
+  assert.equal(parsed.mode, 'equal');
+  assert.equal(parsed.focusTarget, null);
+  assert.equal(parsed.equalPreset, 'columns');
 });

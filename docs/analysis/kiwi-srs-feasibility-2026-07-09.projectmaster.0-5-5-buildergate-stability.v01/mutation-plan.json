@@ -1,0 +1,29 @@
+{
+  "run_id": "2026-07-09.projectmaster.0-5-5-buildergate-stability.v01",
+  "mode": "live",
+  "plan": [
+    { "req_id": "SEC-MCP-001", "current_stability": "evolving", "proposed_stability": "evolving", "action": "keep", "matched_rule_index": 1, "requires_user_confirm": false, "reason": "Feasibility=high score=84; has_verification=false; default mapping keeps evolving." },
+    { "req_id": "IR-MCP-001", "current_stability": "evolving", "proposed_stability": "evolving", "action": "keep", "matched_rule_index": 1, "requires_user_confirm": false, "reason": "Feasibility=high score=85; has_verification=false; default mapping keeps evolving." },
+    { "req_id": "FR-MCP-001", "current_stability": "evolving", "proposed_stability": "evolving", "action": "keep", "matched_rule_index": 1, "requires_user_confirm": false, "reason": "Feasibility=high score=88; has_verification=false; default mapping keeps evolving." },
+    { "req_id": "FR-MCP-002", "current_stability": "evolving", "proposed_stability": "evolving", "action": "keep", "matched_rule_index": 1, "requires_user_confirm": false, "reason": "Feasibility=high score=83; has_verification=false; default mapping keeps evolving." },
+    { "req_id": "FR-MCP-003", "current_stability": "evolving", "proposed_stability": "evolving", "action": "keep", "matched_rule_index": 1, "requires_user_confirm": false, "reason": "Feasibility=high score=82; has_verification=false; default mapping keeps evolving." },
+    { "req_id": "REL-MCP-001", "current_stability": "evolving", "proposed_stability": "evolving", "action": "keep", "matched_rule_index": 1, "requires_user_confirm": false, "reason": "Feasibility=high score=81; has_verification=false; default mapping keeps evolving." },
+    { "req_id": "FR-MCP-004", "current_stability": "evolving", "proposed_stability": "evolving", "action": "keep", "matched_rule_index": 1, "requires_user_confirm": false, "reason": "Feasibility=high score=82; has_verification=false; default mapping keeps evolving." },
+    { "req_id": "FR-MCP-005", "current_stability": "evolving", "proposed_stability": "evolving", "action": "keep", "matched_rule_index": 1, "requires_user_confirm": false, "reason": "Feasibility=high score=84; has_verification=false; default mapping keeps evolving." },
+    { "req_id": "OBS-MCP-001", "current_stability": "evolving", "proposed_stability": "evolving", "action": "keep", "matched_rule_index": 1, "requires_user_confirm": false, "reason": "Feasibility=high score=86; has_verification=false; default mapping keeps evolving." },
+    { "req_id": "SEC-MCP-002", "current_stability": "evolving", "proposed_stability": "evolving", "action": "keep", "matched_rule_index": 1, "requires_user_confirm": false, "reason": "Feasibility=high score=80; has_verification=false; default mapping keeps evolving." },
+    { "req_id": "FR-MCP-006", "current_stability": "evolving", "proposed_stability": "evolving", "action": "keep", "matched_rule_index": 1, "requires_user_confirm": false, "reason": "Feasibility=high score=87; has_verification=false; default mapping keeps evolving." },
+    { "req_id": "IR-MCP-002", "current_stability": "evolving", "proposed_stability": "evolving", "action": "keep", "matched_rule_index": 1, "requires_user_confirm": false, "reason": "Feasibility=high score=83; has_verification=false; default mapping keeps evolving." },
+    { "req_id": "IR-MCP-003", "current_stability": "evolving", "proposed_stability": "evolving", "action": "keep", "matched_rule_index": 1, "requires_user_confirm": false, "reason": "Feasibility=high score=82; has_verification=false; default mapping keeps evolving." },
+    { "req_id": "IR-MCP-004", "current_stability": "evolving", "proposed_stability": "evolving", "action": "keep", "matched_rule_index": 1, "requires_user_confirm": false, "reason": "Feasibility=high score=81; has_verification=false; default mapping keeps evolving." },
+    { "req_id": "IR-MCP-005", "current_stability": "evolving", "proposed_stability": "evolving", "action": "keep", "matched_rule_index": 1, "requires_user_confirm": false, "reason": "Feasibility=high score=82; has_verification=false; default mapping keeps evolving." }
+  ],
+  "summary": {
+    "total": 15,
+    "total_mutations": 0,
+    "auto_apply": 0,
+    "user_confirm_required": 0,
+    "no_op": 15,
+    "guard_blocked": 0
+  }
+}

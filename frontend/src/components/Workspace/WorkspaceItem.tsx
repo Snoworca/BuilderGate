@@ -80,6 +80,7 @@ export function WorkspaceItem({
               if (e.key === 'Escape') setEditing(false);
             }}
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             maxLength={32}
             style={{
               background: '#1e1e2e',
@@ -99,7 +100,7 @@ export function WorkspaceItem({
         )}
         {runningCount > 0 && (
           <span style={{
-            backgroundColor: '#22c55e',
+            backgroundColor: '#f97316',
             color: '#fff',
             borderRadius: '10px',
             padding: '1px 6px',

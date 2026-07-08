@@ -1,0 +1,32 @@
+{
+  "analyst": "code-context",
+  "source": "subagent 019f43fb-4d18-7e73-b8bc-4021d5a45288 plus local rg checks",
+  "existing_mcp_code": {
+    "server_src_mcp_modules": false,
+    "mcp_sdk_dependency": false,
+    "summary": "MCP 전용 listener, registry, gateway, control REST, webhook 모듈은 아직 존재하지 않는다. 구현은 신규 control-plane을 추가하고 기존 WorkspaceService/SessionManager/WsRouter 진입점을 얇게 연결하는 형태가 된다."
+  },
+  "modules": [
+    { "name": "listener_and_security", "paths": ["server/src/index.ts", "server/src/routes/internalShutdownRoutes.ts", "server/src/middleware/authMiddleware.ts", "server/package.json"], "complexity_estimate": "high" },
+    { "name": "session_registry_identity_alias", "paths": ["server/src/services/SessionManager.ts", "server/src/types/workspace.types.ts", "frontend/src/types/workspace.ts", "server/src/services/WorkspaceService.ts", "server/src/routes/workspaceRoutes.ts", "frontend/src/components/MetadataBar/MetadataRow.tsx"], "complexity_estimate": "high" },
+    { "name": "session_input_gateway", "paths": ["server/src/ws/WsRouter.ts", "server/src/services/SessionManager.ts", "server/src/types/ws-protocol.ts"], "complexity_estimate": "high" },
+    { "name": "agent_launch_and_webhook", "paths": ["server/src/index.ts", "server/src/routes/sessionRoutes.ts", "server/src/services/WorkspaceService.ts", "server/src/services/CommandPresetService.ts", "server/src/services/RecoveryOptionService.ts"], "complexity_estimate": "high" },
+    { "name": "tools_dialog_and_control_api", "paths": ["frontend/src/App.tsx", "frontend/src/components/Header/Header.tsx", "frontend/src/components/dialog/WindowDialog.tsx", "frontend/src/services/api.ts", "server/src/services/RuntimeConfigStore.ts"], "complexity_estimate": "medium" },
+    { "name": "observability_and_lifecycle", "paths": ["server/src/index.ts", "server/src/services/SessionManager.ts", "server/src/ws/WsRouter.ts", "server/src/test-runner.ts", "server/src/services/WorkspaceService.ts"], "complexity_estimate": "high" }
+  ],
+  "trace_validation": {
+    "all_paths_exist": true,
+    "missing_paths": [],
+    "external_paths_detected": [],
+    "notes": [
+      "IR-MCP-003, IR-MCP-004, IR-MCP-005는 직접 Code trace보다 앞선 MCP 요구사항을 extends하는 wire-contract 보강 항목이다.",
+      "새 파일 예정 경로는 research docs에 제안되어 있으나 SRS trace에는 대부분 기존 addition_site가 지정되어 있다."
+    ]
+  },
+  "main_risks": [
+    "보안 경계: browser JWT, MCP capability token, webhook key, Origin, whitelist, TLS/proxy, audit redaction 분리 필요.",
+    "입력 안정성: WebSocket input, restore input, MCP/webhook input이 replay/repair 정책과 AI TUI idle invariant를 공유해야 한다.",
+    "라이프사이클: restart, orphan recovery, close_self, launch compensation, process cleanup telemetry가 WorkspaceService와 SessionManager를 교차한다.",
+    "Wire contract: IR-MCP-004/005가 error code, agentStatus, bindingLifecycle, promptPreview, close confirmation의 최종 우선순위를 제공한다."
+  ]
+}

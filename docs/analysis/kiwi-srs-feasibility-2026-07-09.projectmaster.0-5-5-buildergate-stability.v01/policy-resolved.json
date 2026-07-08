@@ -1,0 +1,40 @@
+{
+  "policy_source": "default",
+  "project_policy_path": ".kiwi/feasibility-policy.yaml",
+  "project_policy_found": false,
+  "user_policy_path": "~/.kiwi/feasibility-policy.yaml",
+  "user_policy_found": false,
+  "note": "프로젝트/사용자 정책 파일 미존재. kiwi-srs-feasibility §0.G6 기본 매핑 적용.",
+  "mappings": [
+    {
+      "if": { "feasibility": "high", "has_verification": true },
+      "then": { "stability": "stable" },
+      "require_user_confirm": true
+    },
+    {
+      "if": { "feasibility": "high" },
+      "then": { "stability": "evolving" },
+      "require_user_confirm": false
+    },
+    {
+      "if": { "feasibility": "medium" },
+      "then": { "stability": "keep" },
+      "require_user_confirm": false
+    },
+    {
+      "if": { "feasibility": "low" },
+      "then": { "stability": "draft" },
+      "require_user_confirm": "강등 시 필수"
+    },
+    {
+      "if": { "feasibility": "blocked", "status_in": ["in_progress", "implemented", "verified"] },
+      "then": { "stability": "keep" },
+      "note": "status conflict report only"
+    },
+    {
+      "if": { "feasibility": "blocked" },
+      "then": { "stability": "deprecated" },
+      "require_user_confirm": true
+    }
+  ]
+}

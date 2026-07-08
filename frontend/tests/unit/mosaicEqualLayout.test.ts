@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  buildEqualColumnsMosaicTree,
   buildEqualMosaicTree,
   extractLeafIds,
   inferEqualLayoutArrangement,
@@ -228,6 +229,19 @@ test('FR-GRID-015 preserves leaf order for wide and tall Equal trees', () => {
       assert.deepEqual(extractLeafIds(tree), tabIds, `count=${count}`);
     }
   }
+});
+
+test('forced columns preset creates a single row for one to eight tabs independent of viewport heuristics', () => {
+  for (let count = 1; count <= 8; count += 1) {
+    const tabIds = ids(count);
+    const tree = buildEqualColumnsMosaicTree(tabIds);
+
+    expectLinearTree(tree, 'row');
+    assert.deepEqual(extractLeafIds(tree), tabIds, `count=${count}`);
+    assert.equal(isFixedEqualMosaicTree(tree, 'rows'), true, `count=${count}`);
+  }
+
+  assert.throws(() => buildEqualColumnsMosaicTree([]), /empty ids/);
 });
 
 test('FR-GRID-015 infers and validates fixed Equal trees across wide and tall layouts', () => {

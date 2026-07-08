@@ -226,6 +226,7 @@ export type ServerWsMessage =
   | { type: 'tab:added';        data: unknown }
   | { type: 'tab:updated';      data: unknown }
   | { type: 'tab:removed';      data: unknown }
+  | { type: 'tab:moved';        data: unknown }
   | { type: 'tab:reordered';    data: unknown }
   | { type: 'tab:disconnected'; data: unknown }
   // Grid events

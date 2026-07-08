@@ -73,6 +73,16 @@ export interface WorkspaceState {
   gridLayouts: GridLayout[];
 }
 
+export interface MoveTabResult {
+  tab: WorkspaceTab;
+  sourceWorkspaceId: string;
+  targetWorkspaceId: string;
+  sourceActiveTabId: string | null;
+  targetActiveTabId: string | null;
+  sourceTabIds: string[];
+  targetTabIds: string[];
+}
+
 export interface WorkspaceFile {
   version: 1;
   lastUpdated: string;

@@ -1,13 +1,19 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { workspaceApi } from '../services/api';
 import { useWebSocketActions, useWebSocketState } from '../contexts/WebSocketContext';
-import type { Workspace, WorkspaceTab, WorkspaceTabRuntime, GridLayout, WorkspaceState } from '../types/workspace';
+import type { MoveTabResult, Workspace, WorkspaceTab, WorkspaceTabRuntime, GridLayout, WorkspaceState } from '../types/workspace';
 import { markTerminalSnapshotForRemoval } from '../utils/terminalSnapshot';
 import {
   clearMosaicLayoutForWorkspace,
   pruneMosaicLayoutForDeletedTab,
+  pruneMosaicLayoutForMovedTab,
 } from './mosaicLayoutStorage';
 import { resolveActiveWorkspaceAfterRemoval } from './workspaceActiveSelection';
+import {
+  applyMoveTabResultToTabs,
+  applyTabReorderResultToTabs,
+  canApplyMoveTabResult,
+} from './workspaceTabState';
 
 type WorkspaceTabChanges = Partial<Omit<
   WorkspaceTab,
@@ -99,6 +105,21 @@ function replaceWorkspaceTab(tab: WorkspaceTabRuntime, replacement: WorkspaceTab
   };
 }
 
+function applyMoveTabResultToWorkspaces(
+  workspaces: Workspace[],
+  result: MoveTabResult,
+): Workspace[] {
+  return workspaces.map((workspace) => {
+    if (workspace.id === result.sourceWorkspaceId) {
+      return { ...workspace, activeTabId: result.sourceActiveTabId };
+    }
+    if (workspace.id === result.targetWorkspaceId) {
+      return { ...workspace, activeTabId: result.targetActiveTabId };
+    }
+    return workspace;
+  });
+}
+
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -132,6 +153,7 @@ export interface UseWorkspaceManagerReturn {
   updateTab: (workspaceId: string, tabId: string, updates: { name?: string }) => Promise<void>;
   closeTab: (workspaceId: string, tabId: string) => Promise<void>;
   reorderTabs: (workspaceId: string, tabIds: string[]) => Promise<void>;
+  moveTab: (sourceWorkspaceId: string, tabId: string, targetWorkspaceId: string) => Promise<void>;
   restartTab: (workspaceId: string, tabId: string) => Promise<void>;
   setActiveTab: (workspaceId: string, tabId: string | null) => Promise<void>;
   setViewMode: (workspaceId: string, mode: 'tab' | 'grid') => Promise<void>;
@@ -157,6 +179,7 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   const [error, setError] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
   const activeWorkspaceIdRef = useRef(activeWorkspaceId);
+  const tabsRef = useRef(tabs);
 
   const setActiveWorkspaceIdAndPersist = useCallback((id: string | null) => {
     activeWorkspaceIdRef.current = id;
@@ -167,6 +190,10 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   useEffect(() => {
     activeWorkspaceIdRef.current = activeWorkspaceId;
   }, [activeWorkspaceId]);
+
+  useEffect(() => {
+    tabsRef.current = tabs;
+  }, [tabs]);
 
   // ============================================================================
   // Initial Load
@@ -302,13 +329,19 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
         });
       },
 
+      'tab:moved': (data) => {
+        const result = data as MoveTabResult;
+        if (!canApplyMoveTabResult(tabsRef.current, result)) {
+          return;
+        }
+        pruneMosaicLayoutForMovedTab(result.sourceWorkspaceId, result.tab.id);
+        setTabs(prev => applyMoveTabResultToTabs(prev, result));
+        setWorkspaces(prev => applyMoveTabResultToWorkspaces(prev, result));
+      },
+
       'tab:reordered': (data) => {
         const { workspaceId, tabIds } = data as { workspaceId: string; tabIds: string[] };
-        setTabs(prev => prev.map(t => {
-          if (t.workspaceId !== workspaceId) return t;
-          const idx = tabIds.indexOf(t.id);
-          return idx >= 0 ? { ...t, sortOrder: idx } : t;
-        }));
+        setTabs(prev => applyTabReorderResultToTabs(prev, workspaceId, tabIds));
       },
 
       'tab:disconnected': (data) => {
@@ -481,15 +514,31 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   const reorderTabs = useCallback(async (workspaceId: string, tabIds: string[]) => {
     try {
       await workspaceApi.reorderTabs(workspaceId, tabIds);
-      setTabs(prev => prev.map(t => {
-        if (t.workspaceId !== workspaceId) return t;
-        const idx = tabIds.indexOf(t.id);
-        return idx >= 0 ? { ...t, sortOrder: idx } : t;
-      }));
+      setTabs(prev => applyTabReorderResultToTabs(prev, workspaceId, tabIds));
     } catch (err: unknown) {
       setError(getErrorMessage(err));
     }
   }, []);
+
+  const moveTab = useCallback(async (
+    sourceWorkspaceId: string,
+    tabId: string,
+    targetWorkspaceId: string,
+  ) => {
+    try {
+      const result = await workspaceApi.moveTab(sourceWorkspaceId, tabId, targetWorkspaceId);
+      if (!canApplyMoveTabResult(tabsRef.current, result)) {
+        return;
+      }
+      pruneMosaicLayoutForMovedTab(sourceWorkspaceId, tabId);
+      setTabs(prev => applyMoveTabResultToTabs(prev, result));
+      setWorkspaces(prev => applyMoveTabResultToWorkspaces(prev, result));
+      setActiveWorkspaceIdAndPersist(targetWorkspaceId);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
+      throw err;
+    }
+  }, [setActiveWorkspaceIdAndPersist]);
 
   const restartTab = useCallback(async (workspaceId: string, tabId: string) => {
     try {
@@ -589,6 +638,7 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
     updateTab,
     closeTab,
     reorderTabs,
+    moveTab,
     restartTab,
     setActiveTab,
     setViewMode,

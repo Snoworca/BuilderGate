@@ -83,6 +83,16 @@ export interface WorkspaceState {
   gridLayouts: GridLayout[];
 }
 
+export interface MoveTabResult {
+  tab: WorkspaceTab;
+  sourceWorkspaceId: string;
+  targetWorkspaceId: string;
+  sourceActiveTabId: string | null;
+  targetActiveTabId: string | null;
+  sourceTabIds: string[];
+  targetTabIds: string[];
+}
+
 export const TAB_COLORS = [
   '#3b82f6', // Blue
   '#10b981', // Emerald

@@ -18,7 +18,14 @@ import { useTerminalRuntimeContext } from './components/Terminal/TerminalRuntime
 import type { TerminalHandle, TerminalPasteInputResult } from './components/Terminal/TerminalView';
 import { ConfirmModal } from './components/Modal';
 import { SettingsPage } from './components/Settings/SettingsPage';
-import { WorkspaceSidebar, WorkspaceTabBar, MobileDrawer, EmptyState, DisconnectedOverlay } from './components/Workspace';
+import {
+  WorkspaceSidebar,
+  WorkspaceTabBar,
+  MobileDrawer,
+  EmptyState,
+  DisconnectedOverlay,
+  WorkspaceMoveDialog,
+} from './components/Workspace';
 import { MosaicContainer } from './components/Grid';
 import { MetadataRow } from './components/MetadataBar/MetadataRow';
 import { ContextMenu } from './components/ContextMenu';
@@ -48,6 +55,13 @@ function buildMissingTerminalPasteResult(): TerminalPasteInputResult {
     barrierReason: 'none',
     closedReason: 'terminal-disposed',
   };
+}
+
+function isWorkspaceMoveDisabled(tab: WorkspaceTabRuntime | undefined): boolean {
+  return !tab
+    || tab.status === 'disconnected'
+    || tab.lifecycleState === 'stopped'
+    || tab.recoverable === false;
 }
 
 function TerminalWorkspaceStage({
@@ -133,6 +147,12 @@ function AppContent() {
   // ============================================================================
   const [pendingDeleteWorkspace, setPendingDeleteWorkspace] = useState<string | null>(null);
   const [pendingCloseTabId, setPendingCloseTabId] = useState<string | null>(null);
+  const [pendingWorkspaceMove, setPendingWorkspaceMove] = useState<{
+    sourceWorkspaceId: string;
+    tabId: string;
+  } | null>(null);
+  const [workspaceMoveBusy, setWorkspaceMoveBusy] = useState(false);
+  const [workspaceMoveError, setWorkspaceMoveError] = useState<string | null>(null);
 
   // ============================================================================
   // Workspace actions
@@ -295,6 +315,39 @@ function AppContent() {
     }
   }, []);
 
+  const handleRequestWorkspaceMove = useCallback((tabId: string) => {
+    const tab = wmRef.current.tabs.find(item => item.id === tabId);
+    if (!tab || isWorkspaceMoveDisabled(tab)) {
+      return;
+    }
+    setWorkspaceMoveError(null);
+    setPendingWorkspaceMove({
+      sourceWorkspaceId: tab.workspaceId,
+      tabId,
+    });
+  }, []);
+
+  const handleMoveTabToWorkspace = useCallback(async (targetWorkspaceId: string) => {
+    if (!pendingWorkspaceMove) {
+      return;
+    }
+
+    try {
+      setWorkspaceMoveBusy(true);
+      setWorkspaceMoveError(null);
+      await wmRef.current.moveTab(
+        pendingWorkspaceMove.sourceWorkspaceId,
+        pendingWorkspaceMove.tabId,
+        targetWorkspaceId,
+      );
+      setPendingWorkspaceMove(null);
+    } catch (error) {
+      setWorkspaceMoveError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setWorkspaceMoveBusy(false);
+    }
+  }, [pendingWorkspaceMove]);
+
   const handleSelectTab = useCallback((tabId: string) => {
     if (wmRef.current.activeWorkspaceId) {
       wmRef.current.setActiveTab(wmRef.current.activeWorkspaceId, tabId);
@@ -386,17 +439,19 @@ function AppContent() {
   );
 
   const tabContextMenuItems = useMemo(() => {
-    if (!tabContextMenu.targetId || !activeTab) return [];
+    if (!tabContextMenu.targetId) return [];
+    const targetTab = wm.activeWorkspaceTabs.find(t => t.id === tabContextMenu.targetId);
+    if (!targetTab) return [];
     const tabRef = terminalRefsMap.current.get(tabContextMenu.targetId);
     const hasSelection = tabRef?.current?.hasSelection() ?? false;
     return buildTerminalContextMenuItems({
-      tab: activeTab,
+      tab: targetTab,
       tabs: wm.activeWorkspaceTabs,
       maxTabs: 8,
       availableShells,
       onAddTab: handleAddTab,
       onCloseTab: () => {
-        handleCloseTab(activeTab.id);
+        handleCloseTab(targetTab.id);
         closeTabContextMenu();
       },
       onCopy: async () => {
@@ -410,6 +465,13 @@ function AppContent() {
         } catch { /* ignore */ }
       },
       hasSelection,
+      moveWorkspace: {
+        disabled: isWorkspaceMoveDisabled(targetTab),
+        onRequest: () => {
+          closeTabContextMenu();
+          handleRequestWorkspaceMove(targetTab.id);
+        },
+      },
       registeredPresetMenu: {
         presets: registeredPresetSnapshot,
         onSelectPreset: (preset) => handleRegisteredPresetPaste(tabContextMenu.targetId!, preset),
@@ -417,12 +479,12 @@ function AppContent() {
     });
   }, [
     tabContextMenu.targetId,
-    activeTab,
     wm.activeWorkspaceTabs,
     availableShells,
     handleAddTab,
     handleCloseTab,
     closeTabContextMenu,
+    handleRequestWorkspaceMove,
     registeredPresetSnapshot,
     handleRegisteredPresetPaste,
   ]);
@@ -560,6 +622,7 @@ function AppContent() {
                       pasteTerminalInput={pasteTerminalInput}
                       focusTerminal={focusTerminal}
                       onLayoutChange={handleLayoutChange}
+                      onRequestMoveTab={handleRequestWorkspaceMove}
                     />
                   ) : null}
 
@@ -641,6 +704,25 @@ function AppContent() {
           items={tabContextMenuItems}
           onClose={closeTabContextMenu}
           restoreFocusElement={tabContextMenuRestoreFocusElementRef.current}
+        />
+      )}
+
+      {pendingWorkspaceMove && (
+        <WorkspaceMoveDialog
+          open={true}
+          workspaces={wm.workspaces}
+          tabs={wm.tabs}
+          sourceWorkspaceId={pendingWorkspaceMove.sourceWorkspaceId}
+          maxTabsPerWorkspace={8}
+          moving={workspaceMoveBusy}
+          error={workspaceMoveError}
+          onMove={handleMoveTabToWorkspace}
+          onClose={() => {
+            if (!workspaceMoveBusy) {
+              setPendingWorkspaceMove(null);
+              setWorkspaceMoveError(null);
+            }
+          }}
         />
       )}
 

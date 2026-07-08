@@ -6,6 +6,7 @@ import type {
   Workspace,
   WorkspaceTab,
   GridLayout,
+  MoveTabResult,
   WorkspaceState,
   WorkspaceFile,
   WorkspaceTabCleanupStatus,
@@ -312,6 +313,10 @@ export class WorkspaceService {
   }
 
   async reorderWorkspaces(workspaceIds: string[]): Promise<void> {
+    this.validateExactIdSet(
+      workspaceIds,
+      this.state.workspaces.map(workspace => workspace.id),
+    );
     for (let i = 0; i < workspaceIds.length; i++) {
       const ws = this.state.workspaces.find(w => w.id === workspaceIds[i]);
       if (ws) ws.sortOrder = i;
@@ -432,11 +437,83 @@ export class WorkspaceService {
   }
 
   async reorderTabs(workspaceId: string, tabIds: string[]): Promise<void> {
+    this.getWorkspace(workspaceId);
+    this.validateExactIdSet(
+      tabIds,
+      this.getWorkspaceTabs(workspaceId).map(tab => tab.id),
+    );
     for (let i = 0; i < tabIds.length; i++) {
       const tab = this.state.tabs.find(t => t.id === tabIds[i] && t.workspaceId === workspaceId);
       if (tab) tab.sortOrder = i;
     }
     await this.save();
+  }
+
+  async moveTab(sourceWorkspaceId: string, tabId: string, targetWorkspaceId: string): Promise<MoveTabResult> {
+    if (sourceWorkspaceId === targetWorkspaceId) {
+      throw new AppError(ErrorCode.INVALID_WORKSPACE_MOVE);
+    }
+
+    const sourceWorkspace = this.getWorkspace(sourceWorkspaceId);
+    const targetWorkspace = this.getWorkspace(targetWorkspaceId);
+    const tab = this.getTab(tabId);
+    if (tab.workspaceId !== sourceWorkspaceId) {
+      throw new AppError(ErrorCode.TAB_NOT_FOUND);
+    }
+
+    if (this.getWorkspaceTabs(targetWorkspaceId).length >= this.config.maxTabsPerWorkspace) {
+      throw new AppError(ErrorCode.TAB_LIMIT_EXCEEDED);
+    }
+
+    if (!this.isMovableTab(tab)) {
+      throw new AppError(ErrorCode.SESSION_NOT_MOVABLE);
+    }
+
+    const snapshot = this.cloneState(this.state);
+
+    try {
+      const sourceTabs = this.sortTabs(
+        this.getWorkspaceTabs(sourceWorkspaceId).filter(sourceTab => sourceTab.id !== tabId),
+      );
+      const targetTabs = [
+        ...this.sortTabs(this.getWorkspaceTabs(targetWorkspaceId)),
+        tab,
+      ];
+
+      tab.workspaceId = targetWorkspaceId;
+
+      sourceTabs.forEach((sourceTab, index) => {
+        sourceTab.sortOrder = index;
+      });
+
+      targetTabs.forEach((targetTab, index) => {
+        targetTab.sortOrder = index;
+      });
+
+      if (sourceWorkspace.activeTabId === tabId) {
+        sourceWorkspace.activeTabId = sourceTabs[0]?.id ?? null;
+      }
+      targetWorkspace.activeTabId = tabId;
+
+      const updatedAt = new Date().toISOString();
+      sourceWorkspace.updatedAt = updatedAt;
+      targetWorkspace.updatedAt = updatedAt;
+
+      await this.save();
+
+      return {
+        tab,
+        sourceWorkspaceId,
+        targetWorkspaceId,
+        sourceActiveTabId: sourceWorkspace.activeTabId,
+        targetActiveTabId: targetWorkspace.activeTabId,
+        sourceTabIds: sourceTabs.map(sourceTab => sourceTab.id),
+        targetTabIds: targetTabs.map(targetTab => targetTab.id),
+      };
+    } catch (error) {
+      this.state = snapshot;
+      throw error;
+    }
   }
 
   async restartTab(workspaceId: string, tabId: string): Promise<WorkspaceTab> {
@@ -644,6 +721,45 @@ export class WorkspaceService {
   // ============================================================================
   // Internal
   // ============================================================================
+
+  private validateExactIdSet(actualIds: string[], expectedIds: string[]): void {
+    if (!Array.isArray(actualIds) || actualIds.length !== expectedIds.length) {
+      throw new AppError(ErrorCode.INVALID_REORDER_PAYLOAD);
+    }
+
+    const expected = new Set(expectedIds);
+    const actual = new Set(actualIds);
+    if (actual.size !== actualIds.length || actual.size !== expected.size) {
+      throw new AppError(ErrorCode.INVALID_REORDER_PAYLOAD);
+    }
+
+    for (const id of actual) {
+      if (!expected.has(id)) {
+        throw new AppError(ErrorCode.INVALID_REORDER_PAYLOAD);
+      }
+    }
+  }
+
+  private sortTabs(tabs: WorkspaceTab[]): WorkspaceTab[] {
+    return [...tabs].sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+
+  private isMovableTab(tab: WorkspaceTab): boolean {
+    if (tab.lifecycleState === 'stopped') {
+      return false;
+    }
+    if (tab.recoverable === false) {
+      return false;
+    }
+    if (!this.sessionManager.hasSession(tab.sessionId)) {
+      return false;
+    }
+    return true;
+  }
+
+  private cloneState(state: WorkspaceState): WorkspaceState {
+    return JSON.parse(JSON.stringify(state)) as WorkspaceState;
+  }
 
   private async markSessionLifecycleStopped(event: WorkspaceSessionStoppedEvent): Promise<boolean> {
     const tab = this.state.tabs.find(t => t.sessionId === event.sessionId);

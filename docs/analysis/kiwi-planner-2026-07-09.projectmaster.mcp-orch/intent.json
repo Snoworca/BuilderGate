@@ -1,0 +1,13 @@
+{
+  "target": "0.5.5-buildergate-stability",
+  "scope": "MCP",
+  "target_intent": "BuilderGate가 독립 MCP control-plane을 통해 세션 조회, 검색, alias, 안전한 메시지 전달, agent launch, webhook invocation, 관리 UI, audit/status를 제공한다.",
+  "user_priorities": [
+    "HTTP MCP는 기본 loopback이고 Tools dialog 보안 탭에서 외부 whitelist를 관리한다.",
+    "MCP는 자신의 UUID sessionId와 stable sessionKey를 알 수 있다.",
+    "MCP는 다른 세션 목록과 사용자가 지정한 alias를 조회하고 검색할 수 있다.",
+    "세션 간 메시지 전달은 stale sessionId, replay pending, submit 권한, AI TUI idle invariant를 지킨다."
+  ],
+  "ambiguities": [],
+  "non_coding_signals": ["도구 다이얼로그 UI", "보안 운영 설정", "audit/status 관측", "integration/manual validation"]
+}

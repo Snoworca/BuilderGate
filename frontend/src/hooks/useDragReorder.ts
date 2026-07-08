@@ -1,9 +1,25 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
+export type DragReorderAxis = 'x' | 'y';
+
+export interface DragReorderRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+export interface ComputeDragReorderTargetInput {
+  axis: DragReorderAxis;
+  pointer: number;
+  itemRects: DragReorderRect[];
+}
+
 interface UseDragReorderOptions {
   onReorder: (fromIndex: number, toIndex: number) => void;
   isLocked: (index: number) => boolean;
   longPressMs?: number;
+  axis?: DragReorderAxis;
 }
 
 export interface UseDragReorderReturn {
@@ -16,10 +32,28 @@ export interface UseDragReorderReturn {
   tabRefs: React.MutableRefObject<(HTMLElement | null)[]>;
 }
 
+export function computeDragReorderTarget({
+  axis,
+  pointer,
+  itemRects,
+}: ComputeDragReorderTargetInput): number {
+  for (let i = 0; i < itemRects.length; i += 1) {
+    const rect = itemRects[i];
+    const mid = axis === 'x'
+      ? rect.left + rect.width / 2
+      : rect.top + rect.height / 2;
+    if (pointer < mid) {
+      return i;
+    }
+  }
+  return itemRects.length;
+}
+
 export function useDragReorder({
   onReorder,
   isLocked,
   longPressMs = 300,
+  axis = 'x',
 }: UseDragReorderOptions): UseDragReorderReturn {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
@@ -40,24 +74,15 @@ export function useDragReorder({
     onReorderRef.current = onReorder;
   }, [onReorder]);
 
-  // Compute drop target from pointer X position
-  function computeDropTarget(clientX: number): number | null {
+  // Compute drop target from pointer position on the configured axis.
+  function computeDropTarget(pointer: number): number | null {
     const fromIdx = dragIndexRef.current;
     if (fromIdx === null) return null;
 
-    for (let i = 0; i < tabRefs.current.length; i++) {
-      const el = tabRefs.current[i];
-      if (!el) continue;
-      const rect = el.getBoundingClientRect();
-      const midX = rect.left + rect.width / 2;
-      if (clientX < midX) {
-        // Insert before this tab
-        const target = i < 1 ? 1 : i;
-        return target;
-      }
-    }
-    // Past last tab → insert at end
-    return tabRefs.current.length - 1;
+    const itemRects = tabRefs.current
+      .map((el) => el?.getBoundingClientRect() ?? null)
+      .filter((rect): rect is DOMRect => rect !== null);
+    return computeDragReorderTarget({ axis, pointer, itemRects });
   }
 
   function onPointerMove(e: PointerEvent) {
@@ -72,6 +97,7 @@ export function useDragReorder({
         }
         window.removeEventListener('pointermove', onPointerMove);
         window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('pointercancel', onPointerUp);
       }
       return;
     }
@@ -81,8 +107,8 @@ export function useDragReorder({
     if (originRect) {
       setGhostStyle({
         position: 'fixed',
-        left: e.clientX - pointerOffset.current.x,
-        top: originRect.top,
+        left: axis === 'x' ? e.clientX - pointerOffset.current.x : originRect.left,
+        top: axis === 'y' ? e.clientY - pointerOffset.current.y : originRect.top,
         width: originRect.width,
         height: originRect.height,
         pointerEvents: 'none',
@@ -92,13 +118,14 @@ export function useDragReorder({
     }
 
     // Compute drop target
-    const target = computeDropTarget(e.clientX);
+    const target = computeDropTarget(axis === 'x' ? e.clientX : e.clientY);
     setDropTargetIndex(target);
   }
 
   function onPointerUp() {
     window.removeEventListener('pointermove', onPointerMove);
     window.removeEventListener('pointerup', onPointerUp);
+    window.removeEventListener('pointercancel', onPointerUp);
 
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -138,6 +165,7 @@ export function useDragReorder({
 
       window.addEventListener('pointermove', onPointerMove);
       window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
 
       timerRef.current = setTimeout(() => {
         timerRef.current = null;
@@ -170,7 +198,7 @@ export function useDragReorder({
         setDropTargetIndex(index);
       }, longPressMs);
     },
-  }), [isLocked, longPressMs]);
+  }), [axis, isLocked, longPressMs]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -178,6 +206,7 @@ export function useDragReorder({
       if (timerRef.current) clearTimeout(timerRef.current);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
     };
   }, []);
 

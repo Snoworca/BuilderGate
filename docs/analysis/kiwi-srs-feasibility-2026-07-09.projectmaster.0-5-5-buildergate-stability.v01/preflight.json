@@ -1,0 +1,28 @@
+{
+  "run_id": "2026-07-09.projectmaster.0-5-5-buildergate-stability.v01",
+  "target": "0.5.5-buildergate-stability",
+  "scope": "MCP",
+  "mode": "live",
+  "started_at": "2026-07-09T08:08:23.7127084+09:00",
+  "mcp": {
+    "available": true,
+    "tools_detected": {
+      "get_active_target": true,
+      "list_requirements": true,
+      "get_requirement": true,
+      "summarize_target": true,
+      "validate_spec": true,
+      "update_stability": true,
+      "tag_mutation": false
+    }
+  },
+  "cli": {
+    "used_as_fallback": false
+  },
+  "halted": false,
+  "notes": [
+    "SpecKiwi MCP get_active_target, list_requirements, summarize_target, validate_spec succeeded.",
+    "validate_spec strict result: errors=0 warnings=1; warning is pre-existing REL-BGSTAB-005 draft blocker outside MCP scope.",
+    "Shared pipeline-event.md was resolved from C:/Users/beom/.agents/skills/_shared/kiwi/pipeline-event.md."
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "run_id": "2026-07-09.projectmaster.0-5-5-buildergate-stability.v01",
+  "target": "0.5.5-buildergate-stability",
+  "scope": "MCP",
+  "total_reqs_evaluated": 15,
+  "feasibility_distribution": { "high": 15, "medium": 0, "low": 0, "blocked": 0 },
+  "target_verdict": "conditionally-ready",
+  "critical_blockers": [],
+  "conditions": [
+    "구현은 대형 기능군이므로 planner/pm 단계에서 server control-plane, gateway, UI, tests를 여러 phase로 나누어야 한다.",
+    "IR-MCP-005의 final wire-contract precedence를 앞선 요구사항보다 우선한다.",
+    "보안/입력/lifecycle 변경은 regression tests 없이 완료 처리하면 안 된다."
+  ],
+  "dependency_chains": [
+    { "chain": ["SEC-MCP-001", "IR-MCP-001", "FR-MCP-001"], "weakest_link_score": 84 },
+    { "chain": ["FR-MCP-001", "FR-MCP-002", "FR-MCP-003", "REL-MCP-001"], "weakest_link_score": 81 },
+    { "chain": ["FR-MCP-004", "FR-MCP-005", "OBS-MCP-001"], "weakest_link_score": 82 },
+    { "chain": ["SEC-MCP-002", "IR-MCP-002", "IR-MCP-003", "IR-MCP-004", "IR-MCP-005"], "weakest_link_score": 80 }
+  ],
+  "stability_drift_candidates": []
+}
