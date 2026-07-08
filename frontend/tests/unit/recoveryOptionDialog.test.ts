@@ -82,31 +82,55 @@ test('T-PH004-01 FR-AITUI-001 AC-3 empty command is blocked in UI and API client
 test('T-PH004-01 FR-AITUI-001 AC-4 saving without arguments persists an empty arguments array', () => {
   const dialogSource = readSource('src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx');
   const typeSource = readSource('src/types/recoveryOption.ts');
+  const argumentSource = readSource('src/utils/recoveryOptionArguments.ts');
 
   expectSource(typeSource, /arguments\s*:\s*string\[\]/, 'RecoveryOption must model arguments as an array');
   expectAnySource(
-    dialogSource,
+    `${dialogSource}\n${argumentSource}`,
     [
       /arguments\s*:\s*\[\]/,
       /args\s*:\s*\[\]/,
-      /split\([^)]*\)[\s\S]{0,120}filter/,
+      /const\s+argumentsList:\s*string\[\]\s*=\s*\[\]/,
+      /parseRecoveryDraftArguments/,
     ],
     'Dialog must normalize empty arguments to an empty array when saving',
   );
 });
 
-test('T-PH005-01 review fix preserves arguments containing spaces through edit/save', () => {
+test('T-PH005-01 review fix preserves arguments containing spaces through one-line edit/save', () => {
   const dialogSource = readSource('src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx');
+  const styleSource = readSource('src/components/CommandPresetManager/CommandPresetDialog.css');
+  const argumentSource = readSource('src/utils/recoveryOptionArguments.ts');
 
   expectSource(
-    dialogSource,
-    /(option\.arguments\.join\(\s*['"`]\\n['"`]\s*\)|formatDraftArguments\(option\.arguments\))/,
-    'Dialog edit drafts must render one ordered argument per line',
+    argumentSource,
+    /argumentsList\.map\(\s*quoteRecoveryDraftArgument\s*\)\.join\(\s*['"`] ['"`]\s*\)/,
+    'Dialog edit drafts must render arguments as one shell-like line',
+  );
+  expectSource(
+    argumentSource,
+    /let\s+quote:[\s\S]{0,40}null\s*=\s*null/,
+    'Dialog must parse quoted one-line argument drafts without breaking spaces inside an argument',
+  );
+  expectSource(
+    argumentSource,
+    /replace\(\s*\/\\\\\/g,\s*['"`]\\\\\\\\['"`]\s*\)/,
+    'Dialog argument formatter must escape backslashes before quoting',
   );
   expectSource(
     dialogSource,
-    /split\(\s*\/\\r\?\\n\/\s*\)/,
-    'Dialog must parse argument drafts by line, not by whitespace',
+    /className=["']recovery-option-arguments-input["'][\s\S]{0,240}value=\{draft\.argumentsText\}/,
+    'Dialog argument editor must use a compact one-line input',
+  );
+  expectSource(
+    dialogSource,
+    /className=["']recovery-option-arguments-display["'][\s\S]{0,260}readOnly/,
+    'Dialog argument display must use a compact one-line input',
+  );
+  expectSource(
+    styleSource,
+    /\.recovery-option-icon-select[\s\S]{0,120}width:\s*64px/,
+    'Recovery option icon selector must be compact',
   );
   assert.doesNotMatch(
     dialogSource,
@@ -115,8 +139,23 @@ test('T-PH005-01 review fix preserves arguments containing spaces through edit/s
   );
   assert.doesNotMatch(
     dialogSource,
-    /option\.arguments\.join\(\s*['"`] ['"`]\s*\)/,
-    'Space-joined edit drafts cannot distinguish separators from spaces inside an argument',
+    /<textarea[\s\S]{0,260}(draft\.argumentsText|formatRecoveryDraftArguments\(option\.arguments\))/,
+    'The argument controls must not use large multi-line textareas',
+  );
+});
+
+test('T-PH005-02 recovery option icon value field uses compact icon label', () => {
+  const dialogSource = readSource('src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx');
+
+  expectSource(
+    dialogSource,
+    /iconLabel=["']icon["']/,
+    'Recovery option icon value field must use the compact icon label',
+  );
+  assert.doesNotMatch(
+    dialogSource,
+    /iconLabel=\{?\s*(?:`[^`]*(?:아이콘|icon)[^`]*수정`|["']아이콘\(icon\)["'])/,
+    'Recovery option icon value labels must not include the old Korean title or per-command edit title',
   );
 });
 

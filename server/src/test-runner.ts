@@ -38,6 +38,7 @@ import {
 } from './utils/terminalTitle.js';
 import { CommandPresetService } from './services/CommandPresetService.js';
 import { TerminalShortcutService } from './services/TerminalShortcutService.js';
+import { RecoveryOptionService } from './services/RecoveryOptionService.js';
 import {
   createHeadlessTerminalState,
   disposeHeadlessTerminal,
@@ -55,6 +56,7 @@ import { createAuthRoutes } from './routes/authRoutes.js';
 import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js';
 import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
 import { createTerminalShortcutRoutes } from './routes/terminalShortcutRoutes.js';
+import { createRecoveryOptionRoutes } from './routes/recoveryOptionRoutes.js';
 import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
 import sessionRoutes, { createSessionRoutes } from './routes/sessionRoutes.js';
 import { createAuthMiddleware } from './middleware/authMiddleware.js';
@@ -73,6 +75,7 @@ import { getConfigPath, loadConfigFromPath } from './utils/config.js';
 import { loadConfigFromPathStrict } from './utils/configStrictLoader.js';
 import { resolveInputReliabilityMode } from './utils/inputReliabilityMode.js';
 import { validatePasswordPolicy } from './utils/passwordPolicy.js';
+import { buildRecoveryRestoreInput, getRecoveryExecutableToken } from './utils/recoveryCommand.js';
 import express from 'express';
 import type { Request } from 'express';
 
@@ -173,6 +176,10 @@ async function main(): Promise<void> {
     { name: 'SessionManager keeps Claude submit idle in bash heuristic mode', run: testSessionManagerClaudeBashSubmitStaysIdle },
     { name: 'SessionManager keeps Codex typing idle after a prior running misclassification', run: testSessionManagerCodexTypingRestoresIdleAfterRunning },
     { name: 'SessionManager keeps Codex foreground when internal submit resembles AI command', run: testSessionManagerCodexInternalAiCommandSubmitDoesNotStartLaunchAttempt },
+    { name: 'SessionManager keeps custom recovery foreground input idle', run: testSessionManagerCustomRecoveryForegroundInputStaysIdle },
+    { name: 'SessionManager does not emit submitted command callback when PTY input write fails', run: testSessionManagerCommandSubmittedCallbackRequiresSuccessfulWrite },
+    { name: 'SessionManager queues restore input until shell startup readiness', run: testSessionManagerRestoreInputWaitsForStartupReady },
+    { name: 'SessionManager cancels scheduled restore input when guard fails', run: testSessionManagerRestoreInputGuardCancelsWrite },
     { name: 'SessionManager delays Codex semantic output before promoting to running', run: testSessionManagerCodexSemanticOutputUsesRunningDelay },
     { name: 'SessionManager treats prompt-prefixed Codex semantic output as running candidate', run: testSessionManagerCodexPromptPrefixedSemanticOutputUsesRunningDelay },
     { name: 'SessionManager returns idle and clears hints after Codex launch failure', run: testSessionManagerCodexLaunchFailureReturnsIdleAndClearsHints },
@@ -331,6 +338,17 @@ async function main(): Promise<void> {
     { name: 'WorkspaceService passes session cleanup reasons', run: testWorkspaceServicePassesSessionCleanupReasons },
     { name: 'WorkspaceService orphan recovery recreates fresh session ids with saved cwd', run: testWorkspaceServiceCheckOrphanTabs },
     { name: 'WorkspaceService orphan recovery skips stopped or non-recoverable tabs', run: testWorkspaceServiceSkipsStoppedOrphanTabs },
+    { name: 'WorkspaceService stores recovery metadata when shell submits codex', run: testWorkspaceServiceStoresCodexRecoveryMetadata },
+    { name: 'WorkspaceService stores custom recovery metadata when enabled option exists', run: testWorkspaceServiceStoresCustomRecoveryMetadata },
+    { name: 'WorkspaceService marks matched recovery command as foreground', run: testWorkspaceServiceMarksRecoveryForegroundCommand },
+    { name: 'WorkspaceService clears recovery metadata when shell command has no enabled option', run: testWorkspaceServiceClearsUnmatchedRecoveryMetadata },
+    { name: 'WorkspaceService restartTab schedules codex resume restore after save', run: testWorkspaceServiceRestartSchedulesRecoveryRestore },
+    { name: 'WorkspaceService restart uses resolved shell for restore quoting', run: testWorkspaceServiceRestartRestoreUsesResolvedShell },
+    { name: 'WorkspaceService orphan recovery schedules claude continue restore after final save', run: testWorkspaceServiceOrphanRecoverySchedulesRestore },
+    { name: 'WorkspaceService restart skips and clears disabled recovery option', run: testWorkspaceServiceRestartClearsDisabledRecoveryOption },
+    { name: 'WorkspaceService restart skips and clears deleted recovery option', run: testWorkspaceServiceRestartClearsDeletedRecoveryOption },
+    { name: 'WorkspaceService orphan recovery skips disabled recovery option', run: testWorkspaceServiceOrphanClearsDisabledRecoveryOption },
+    { name: 'WorkspaceService restart does not schedule restore when replacement save fails', run: testWorkspaceServiceRestartSaveFailureDoesNotScheduleRestore },
     { name: 'sessionRoutes direct delete marks workspace-owned tab stopped non-recoverable', run: testSessionRoutesDirectDeleteMarksWorkspaceTabStopped },
     { name: 'sessionRoutes direct delete does not terminate session when pre-delete workspace save fails', run: testSessionRoutesDirectDeleteSaveFailureDoesNotTerminate },
     { name: 'WorkspaceService infers tab name source for default and legacy names', run: testWorkspaceServiceTabNameSourceDefaults },
@@ -345,6 +363,11 @@ async function main(): Promise<void> {
     { name: 'CommandPresetService persists CRUD operations and per-kind reorder', run: testCommandPresetServiceCrudAndReorder },
     { name: 'CommandPresetService serializes concurrent mutations', run: testCommandPresetServiceConcurrentCreates },
     { name: 'command preset routes expose CRUD and reject invalid order payloads', run: testCommandPresetRoutesCrudAndValidation },
+    { name: 'RecoveryOptionService seeds Claude and Codex defaults once', run: testRecoveryOptionServiceSeedsDefaultsOnce },
+    { name: 'RecoveryOptionService finds enabled option by submitted command', run: testRecoveryOptionServiceFindsEnabledSubmittedCommand },
+    { name: 'recoveryCommand extracts executable through env assignments and paths', run: testRecoveryCommandExecutableParsing },
+    { name: 'recoveryCommand quotes restore arguments per shell', run: testRecoveryCommandRestoreQuoting },
+    { name: 'recovery option routes expose authenticated CRUD and reject unauthenticated requests', run: testRecoveryOptionRoutesCrudAndAuth },
     { name: 'TerminalShortcutService persists CRUD operations and validates reserved shortcuts', run: testTerminalShortcutServiceCrudValidationAndRecovery },
     { name: 'TerminalShortcutService serializes concurrent binding creates', run: testTerminalShortcutServiceConcurrentCreates },
     { name: 'terminal shortcut routes expose authenticated CRUD and reject unauthenticated requests', run: testTerminalShortcutRoutesCrudValidationAndAuth },
@@ -1821,10 +1844,12 @@ async function testBashOsc133HookAvoidsRcfileBootstrap(): Promise<void> {
 
 function createForegroundSessionHarness(
   shell: 'bash' | 'zsh' = 'bash',
-  sessionOverrides: { idleDelayMs?: number; runningDelayMs?: number } = {},
+  sessionOverrides: { idleDelayMs?: number; runningDelayMs?: number; writeError?: Error } = {},
 ) {
   let onDataHandler: ((data: string) => void) | null = null;
   let killCalled = false;
+  const writes: string[] = [];
+  const { writeError, ...timingOverrides } = sessionOverrides;
   const manager = new SessionManager({
     pty: {
       termName: 'xterm-256color',
@@ -1838,7 +1863,7 @@ function createForegroundSessionHarness(
     session: {
       idleDelayMs: 40,
       runningDelayMs: 40,
-      ...sessionOverrides,
+      ...timingOverrides,
     },
   }, {
     platform: 'linux',
@@ -1854,7 +1879,12 @@ function createForegroundSessionHarness(
           return { dispose() {} };
         },
         onExit() { return { dispose() {} }; },
-        write() {},
+        write(input: string) {
+          if (writeError) {
+            throw writeError;
+          }
+          writes.push(input);
+        },
         resize() {},
         kill() { killCalled = true; },
       } as any;
@@ -1880,6 +1910,7 @@ function createForegroundSessionHarness(
       }
       return onDataHandler;
     },
+    writes,
     cleanup() {
       assert.equal(manager.deleteSession(session.id), true);
       assert.equal(killCalled, true);
@@ -3275,14 +3306,22 @@ async function testSessionManagerCodexTypingRestoresIdleAfterRunning(): Promise<
 
 async function testSessionManagerCodexInternalAiCommandSubmitDoesNotStartLaunchAttempt(): Promise<void> {
   const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 30 });
+  const submittedCommands: Array<{ command: string; executable: string | null }> = [];
 
   try {
     const handler = harness.getHandler();
+    harness.manager.onCommandSubmitted((event) => {
+      submittedCommands.push({
+        command: event.command,
+        executable: event.executable,
+      });
+    });
     harness.manager.writeInput(harness.session.id, 'codex\r');
     handler('OpenAI Codex\r\n');
     await delay(10);
     assert.equal(harness.sessionData?.derivedState?.foregroundAppId, 'codex');
     assert.equal(harness.sessionData?.aiTuiLaunchAttempt, undefined);
+    assert.deepEqual(submittedCommands, [{ command: 'codex', executable: 'codex' }]);
 
     harness.manager.writeInput(harness.session.id, 'claude\r');
     await delay(10);
@@ -3290,11 +3329,98 @@ async function testSessionManagerCodexInternalAiCommandSubmitDoesNotStartLaunchA
     assert.equal(harness.sessionData?.derivedState?.foregroundAppId, 'codex');
     assert.equal(harness.sessionData?.pendingForegroundAppHint, undefined);
     assert.equal(harness.sessionData?.aiTuiLaunchAttempt, undefined);
+    assert.deepEqual(submittedCommands, [{ command: 'codex', executable: 'codex' }]);
 
     handler('/bin/bash: claude: command not found\r\n');
     await delay(60);
     assert.equal(harness.manager.getSession(harness.session.id)?.status, 'running');
     assert.equal(harness.sessionData?.derivedState?.foregroundAppId, 'codex');
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerCustomRecoveryForegroundInputStaysIdle(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 30 });
+  const submittedCommands: Array<{ command: string; executable: string | null }> = [];
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.onCommandSubmitted((event) => {
+      submittedCommands.push({
+        command: event.command,
+        executable: event.executable,
+      });
+    });
+    harness.manager.writeInput(harness.session.id, 'codex\r');
+    handler('OpenAI Codex\r\n');
+    await delay(10);
+    assert.equal(harness.sessionData?.derivedState?.foregroundAppId, 'codex');
+    submittedCommands.splice(0);
+
+    harness.manager.markRecoveryCommandForeground(harness.session.id, 'claudep');
+    assert.equal(harness.sessionData?.derivedState?.foregroundAppId, undefined);
+
+    harness.manager.writeInput(harness.session.id, 'hello from prompt\r');
+    await delay(50);
+
+    assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
+    assert.deepEqual(submittedCommands, []);
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerCommandSubmittedCallbackRequiresSuccessfulWrite(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', {
+    writeError: new Error('simulated write failure'),
+  });
+  const submittedCommands: Array<{ command: string; executable: string | null }> = [];
+
+  try {
+    harness.manager.onCommandSubmitted((event) => {
+      submittedCommands.push({
+        command: event.command,
+        executable: event.executable,
+      });
+    });
+
+    assert.equal(harness.manager.writeInput(harness.session.id, 'codex\r'), false);
+    assert.deepEqual(submittedCommands, []);
+  } finally {
+    if (harness.sessionData?.pty) {
+      harness.sessionData.pty.write = () => {};
+    }
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerRestoreInputWaitsForStartupReady(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash');
+
+  try {
+    harness.manager.scheduleRestoreInput(harness.session.id, 'codex resume --last\r', { delayMs: 0 });
+    await delay(10);
+    assert.deepEqual(harness.writes, []);
+
+    (harness.manager as any).markSessionStartupReady(harness.session.id, harness.sessionData, 'test_ready');
+    assert.deepEqual(harness.writes, ['codex resume --last\r']);
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerRestoreInputGuardCancelsWrite(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash');
+
+  try {
+    harness.manager.scheduleRestoreInput(harness.session.id, 'claude --continue\r', {
+      delayMs: 0,
+      guard: () => false,
+    });
+    await delay(10);
+    (harness.manager as any).markSessionStartupReady(harness.session.id, harness.sessionData, 'test_ready');
+    assert.deepEqual(harness.writes, []);
   } finally {
     harness.cleanup();
   }
@@ -6312,7 +6438,11 @@ function createDegradedSessionHarness(
   return harness;
 }
 
-function createWorkspaceServiceHarness(options: { terminalTitleDebounceMs?: number } = {}) {
+function createWorkspaceServiceHarness(options: {
+  terminalTitleDebounceMs?: number;
+  recoveryOptionService?: RecoveryOptionService;
+  restoreInputDelayMs?: number;
+} = {}) {
   const calls = {
     createSession: [] as Array<{ name?: string; shell?: string; cwd?: string }>,
     deleteSession: [] as string[],
@@ -6325,9 +6455,18 @@ function createWorkspaceServiceHarness(options: { terminalTitleDebounceMs?: numb
     createSessionError: null as Error | null,
     order: [] as string[],
     save: [] as Array<{ immediate: boolean; tabs: any[]; workspaces: any[] }>,
+    recoveryForeground: [] as Array<{ sessionId: string; command: string }>,
+    scheduleRestoreInput: [] as Array<{
+      sessionId: string;
+      input: string;
+      delayMs?: number;
+      guard?: () => boolean;
+    }>,
   };
   let sessionCounter = 0;
+  const resolvedShellBySession = new Map<string, string | undefined>();
   let sessionFinalizedCallback: ((event: SessionFinalizedEvent) => void) | null = null;
+  let commandSubmittedCallback: ((event: any) => void | Promise<void>) | null = null;
 
   const emitSessionFinalized = (id: string, reason?: string) => {
     sessionFinalizedCallback?.({
@@ -6345,6 +6484,13 @@ function createWorkspaceServiceHarness(options: { terminalTitleDebounceMs?: numb
     onSessionFinalized(cb: (event: SessionFinalizedEvent) => void) {
       sessionFinalizedCallback = cb;
     },
+    onCommandSubmitted(cb: (event: any) => void | Promise<void>) {
+      commandSubmittedCallback = cb;
+    },
+    markRecoveryCommandForeground(sessionId: string, command: string) {
+      calls.order.push(`markRecoveryForeground:${sessionId}:${command}`);
+      calls.recoveryForeground.push({ sessionId, command });
+    },
     createSession(name?: string, shell?: string, cwd?: string) {
       calls.order.push('createSession');
       calls.createSession.push({ name, shell, cwd });
@@ -6353,6 +6499,7 @@ function createWorkspaceServiceHarness(options: { terminalTitleDebounceMs?: numb
       }
       const id = `session-${++sessionCounter}`;
       calls.hasSession.add(id);
+      resolvedShellBySession.set(id, shell === 'auto' ? 'powershell' : shell);
       return {
         id,
         name: name ?? `Session-${sessionCounter}`,
@@ -6406,6 +6553,29 @@ function createWorkspaceServiceHarness(options: { terminalTitleDebounceMs?: numb
     getLastCwd() {
       return null;
     },
+    getResolvedShellType(sessionId: string) {
+      const shell = resolvedShellBySession.get(sessionId);
+      switch (shell) {
+        case 'powershell':
+        case 'bash':
+        case 'zsh':
+        case 'sh':
+        case 'cmd':
+        case 'wsl':
+          return shell;
+        default:
+          return null;
+      }
+    },
+    scheduleRestoreInput(sessionId: string, input: string, options?: { delayMs?: number; guard?: () => boolean }) {
+      calls.order.push(`scheduleRestoreInput:${sessionId}:${input}`);
+      calls.scheduleRestoreInput.push({
+        sessionId,
+        input,
+        delayMs: options?.delayMs,
+        guard: options?.guard,
+      });
+    },
   } as unknown as SessionManager;
 
   const workspaceService = new WorkspaceService(sessionManagerStub, options);
@@ -6419,7 +6589,26 @@ function createWorkspaceServiceHarness(options: { terminalTitleDebounceMs?: numb
   };
   (workspaceService as any).flushToDisk = async () => {};
 
-  return { workspaceService, calls };
+  const emitCommandSubmitted = async (event: any) => {
+    await commandSubmittedCallback?.(event);
+  };
+
+  return { workspaceService, calls, emitCommandSubmitted };
+}
+
+async function createTempRecoveryOptionService(): Promise<{
+  service: RecoveryOptionService;
+  cleanup: () => Promise<void>;
+}> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-recovery-options-'));
+  const service = new RecoveryOptionService({
+    dataPath: path.join(tempDir, 'recovery-options.json'),
+  });
+  await service.initialize();
+  return {
+    service,
+    cleanup: () => fs.rm(tempDir, { recursive: true, force: true }),
+  };
 }
 
 function readHeadlessLines(
@@ -10032,6 +10221,374 @@ async function testWorkspaceServiceSkipsStoppedOrphanTabs(): Promise<void> {
   assert.equal((workspaceService as any).state.tabs[1].generation, 5);
 }
 
+async function testWorkspaceServiceStoresCodexRecoveryMetadata(): Promise<void> {
+  const fixture = await createTempRecoveryOptionService();
+  try {
+    const { workspaceService, emitCommandSubmitted, calls } = createWorkspaceServiceHarness({
+      recoveryOptionService: fixture.service,
+    });
+    (workspaceService as any).state = createWorkspaceStateWithTab({ sessionId: 'session-1' });
+
+    await emitCommandSubmitted({ sessionId: 'session-1', command: 'codex', executable: 'codex' });
+
+    const tab = (workspaceService as any).state.tabs[0];
+    const codexOption = fixture.service.getAll().find(option => option.command === 'codex');
+    assert.equal(tab.recoveryOptionId, codexOption?.id);
+    assert.equal(tab.recoveryCommand, 'codex');
+    assert.deepEqual(tab.recoveryArguments, ['resume', '--last']);
+    assert.deepEqual(tab.recoveryIcon, { type: 'builtin', key: 'terminal' });
+    assert.equal(calls.save.at(-1)?.immediate, true);
+    assert.deepEqual(calls.recoveryForeground, []);
+  } finally {
+    await fixture.cleanup();
+  }
+}
+
+async function testWorkspaceServiceStoresCustomRecoveryMetadata(): Promise<void> {
+  const fixture = await createTempRecoveryOptionService();
+  try {
+    const custom = await fixture.service.createOption({
+      command: 'claudep',
+      arguments: ['--continue'],
+      icon: { type: 'text', value: 'CP' },
+    });
+    const { workspaceService, emitCommandSubmitted } = createWorkspaceServiceHarness({
+      recoveryOptionService: fixture.service,
+    });
+    (workspaceService as any).state = createWorkspaceStateWithTab({ sessionId: 'session-1' });
+
+    await emitCommandSubmitted({
+      sessionId: 'session-1',
+      command: '/usr/local/bin/claudep --dangerously-skip-permissions',
+      executable: 'claudep',
+    });
+
+    const tab = (workspaceService as any).state.tabs[0];
+    assert.equal(tab.recoveryOptionId, custom.id);
+    assert.equal(tab.recoveryCommand, 'claudep');
+    assert.deepEqual(tab.recoveryArguments, ['--continue']);
+    assert.deepEqual(tab.recoveryIcon, { type: 'text', value: 'CP' });
+  } finally {
+    await fixture.cleanup();
+  }
+}
+
+async function testWorkspaceServiceMarksRecoveryForegroundCommand(): Promise<void> {
+  const fixture = await createTempRecoveryOptionService();
+  try {
+    await fixture.service.createOption({
+      command: 'claudep',
+      arguments: ['--continue'],
+      icon: { type: 'builtin', key: 'brain' },
+    });
+    const { workspaceService, emitCommandSubmitted, calls } = createWorkspaceServiceHarness({
+      recoveryOptionService: fixture.service,
+    });
+    (workspaceService as any).state = createWorkspaceStateWithTab({ sessionId: 'session-1' });
+
+    await emitCommandSubmitted({
+      sessionId: 'session-1',
+      command: 'claudep',
+      executable: 'claudep',
+    });
+
+    assert.deepEqual(calls.recoveryForeground, [
+      { sessionId: 'session-1', command: 'claudep' },
+    ]);
+    assert.deepEqual(calls.order.slice(-2), [
+      'markRecoveryForeground:session-1:claudep',
+      'save:true',
+    ]);
+  } finally {
+    await fixture.cleanup();
+  }
+}
+
+async function testWorkspaceServiceClearsUnmatchedRecoveryMetadata(): Promise<void> {
+  const fixture = await createTempRecoveryOptionService();
+  try {
+    const { workspaceService, emitCommandSubmitted } = createWorkspaceServiceHarness({
+      recoveryOptionService: fixture.service,
+    });
+    const events: any[] = [];
+    workspaceService.onTabUpdated(event => events.push(event));
+    (workspaceService as any).state = createWorkspaceStateWithTab({
+      sessionId: 'session-1',
+      recoveryOptionId: 'stale-option',
+      recoveryCommand: 'codex',
+      recoveryArguments: ['resume', '--last'],
+      recoveryIcon: { type: 'builtin', key: 'terminal' },
+      recoveryUpdatedAt: 'before',
+    });
+
+    await emitCommandSubmitted({ sessionId: 'session-1', command: 'ls', executable: 'ls' });
+
+    const tab = (workspaceService as any).state.tabs[0];
+    assert.equal(tab.recoveryOptionId, undefined);
+    assert.equal(tab.recoveryCommand, undefined);
+    assert.deepEqual(events.at(-1)?.changes, {
+      recoveryOptionId: null,
+      recoveryCommand: null,
+      recoveryArguments: null,
+      recoveryIcon: null,
+      recoveryUpdatedAt: null,
+    });
+  } finally {
+    await fixture.cleanup();
+  }
+}
+
+async function testWorkspaceServiceRestartSchedulesRecoveryRestore(): Promise<void> {
+  const fixture = await createTempRecoveryOptionService();
+  try {
+    const codexOption = fixture.service.getAll().find(option => option.command === 'codex');
+    assert.ok(codexOption);
+    const { workspaceService, calls } = createWorkspaceServiceHarness({
+      recoveryOptionService: fixture.service,
+      restoreInputDelayMs: 0,
+    });
+    (workspaceService as any).state = createWorkspaceStateWithTab({
+      sessionId: 'old-session',
+      shellType: 'bash',
+      lastCwd: '/repo',
+      recoveryOptionId: codexOption.id,
+      recoveryCommand: 'codex',
+      recoveryArguments: ['resume', '--last'],
+      recoveryIcon: { type: 'builtin', key: 'terminal' },
+    });
+    calls.hasSession.add('old-session');
+
+    const tab = await workspaceService.restartTab('ws-1', 'tab-1');
+
+    assert.equal(calls.createSession[0].cwd, '/repo');
+    assert.equal(calls.scheduleRestoreInput.length, 1);
+    assert.equal(calls.scheduleRestoreInput[0].sessionId, tab.sessionId);
+    assert.equal(calls.scheduleRestoreInput[0].input, "codex 'resume' '--last'\r");
+    assert.equal(calls.scheduleRestoreInput[0].guard?.(), true);
+    assert.deepEqual(calls.order.slice(0, 4), [
+      'createSession',
+      'save:true',
+      `scheduleRestoreInput:${tab.sessionId}:codex 'resume' '--last'\r`,
+      'terminateSession:old-session:tab-restart',
+    ]);
+  } finally {
+    await fixture.cleanup();
+  }
+}
+
+async function testWorkspaceServiceRestartRestoreUsesResolvedShell(): Promise<void> {
+  const fixture = await createTempRecoveryOptionService();
+  try {
+    const claudeOption = fixture.service.getAll().find(option => option.command === 'claude');
+    assert.ok(claudeOption);
+    await fixture.service.updateOption(claudeOption.id, { arguments: ["O'Reilly"] });
+    const { workspaceService, calls } = createWorkspaceServiceHarness({
+      recoveryOptionService: fixture.service,
+      restoreInputDelayMs: 0,
+    });
+    (workspaceService as any).state = createWorkspaceStateWithTab({
+      sessionId: 'old-session',
+      shellType: 'auto',
+      lastCwd: 'C:\\repo',
+      recoveryOptionId: claudeOption.id,
+      recoveryCommand: 'claude',
+      recoveryArguments: ["O'Reilly"],
+      recoveryIcon: { type: 'builtin', key: 'bot' },
+    });
+
+    await workspaceService.restartTab('ws-1', 'tab-1');
+
+    assert.equal(calls.createSession[0].shell, 'auto');
+    assert.equal(calls.scheduleRestoreInput.length, 1);
+    assert.equal(calls.scheduleRestoreInput[0].input, "claude 'O''Reilly'\r");
+  } finally {
+    await fixture.cleanup();
+  }
+}
+
+async function testWorkspaceServiceOrphanRecoverySchedulesRestore(): Promise<void> {
+  const fixture = await createTempRecoveryOptionService();
+  try {
+    const claudeOption = fixture.service.getAll().find(option => option.command === 'claude');
+    assert.ok(claudeOption);
+    const { workspaceService, calls } = createWorkspaceServiceHarness({
+      recoveryOptionService: fixture.service,
+      restoreInputDelayMs: 0,
+    });
+    (workspaceService as any).state = createWorkspaceStateWithTab({
+      sessionId: 'orphan-session',
+      shellType: 'powershell',
+      lastCwd: 'C:\\repo',
+      recoveryOptionId: claudeOption.id,
+      recoveryCommand: 'claude',
+      recoveryArguments: ['--continue'],
+      recoveryIcon: { type: 'builtin', key: 'bot' },
+    });
+
+    const orphanTabIds = await workspaceService.checkOrphanTabs();
+
+    const tab = (workspaceService as any).state.tabs[0];
+    assert.deepEqual(orphanTabIds, ['tab-1']);
+    assert.equal(calls.createSession[0].cwd, 'C:\\repo');
+    assert.equal(calls.scheduleRestoreInput.length, 1);
+    assert.equal(calls.scheduleRestoreInput[0].sessionId, tab.sessionId);
+    assert.equal(calls.scheduleRestoreInput[0].input, "claude '--continue'\r");
+    assert.equal(calls.scheduleRestoreInput[0].guard?.(), true);
+    assert.equal(calls.order.at(-1), `scheduleRestoreInput:${tab.sessionId}:claude '--continue'\r`);
+  } finally {
+    await fixture.cleanup();
+  }
+}
+
+async function testWorkspaceServiceRestartClearsDeletedRecoveryOption(): Promise<void> {
+  const fixture = await createTempRecoveryOptionService();
+  try {
+    const codexOption = fixture.service.getAll().find(option => option.command === 'codex');
+    assert.ok(codexOption);
+    await fixture.service.deleteOption(codexOption.id);
+    const { workspaceService, calls } = createWorkspaceServiceHarness({
+      recoveryOptionService: fixture.service,
+      restoreInputDelayMs: 0,
+    });
+    (workspaceService as any).state = createWorkspaceStateWithTab({
+      sessionId: 'old-session',
+      recoveryOptionId: codexOption.id,
+      recoveryCommand: 'codex',
+      recoveryArguments: ['resume', '--last'],
+      recoveryIcon: { type: 'builtin', key: 'terminal' },
+      recoveryUpdatedAt: 'before',
+    });
+
+    await workspaceService.restartTab('ws-1', 'tab-1');
+
+    const tab = (workspaceService as any).state.tabs[0];
+    assert.equal(calls.scheduleRestoreInput.length, 0);
+    assert.equal(tab.recoveryOptionId, undefined);
+    assert.equal(tab.recoveryCommand, undefined);
+    assert.deepEqual(calls.order, [
+      'createSession',
+      'save:true',
+      'save:true',
+      'terminateSession:old-session:tab-restart',
+    ]);
+  } finally {
+    await fixture.cleanup();
+  }
+}
+
+async function testWorkspaceServiceOrphanClearsDisabledRecoveryOption(): Promise<void> {
+  const fixture = await createTempRecoveryOptionService();
+  try {
+    const claudeOption = fixture.service.getAll().find(option => option.command === 'claude');
+    assert.ok(claudeOption);
+    await fixture.service.updateOption(claudeOption.id, { enabled: false });
+    const { workspaceService, calls } = createWorkspaceServiceHarness({
+      recoveryOptionService: fixture.service,
+      restoreInputDelayMs: 0,
+    });
+    (workspaceService as any).state = createWorkspaceStateWithTab({
+      sessionId: 'orphan-session',
+      shellType: 'powershell',
+      lastCwd: 'C:\\repo',
+      recoveryOptionId: claudeOption.id,
+      recoveryCommand: 'claude',
+      recoveryArguments: ['--continue'],
+      recoveryIcon: { type: 'builtin', key: 'bot' },
+      recoveryUpdatedAt: 'before',
+    });
+
+    const orphanTabIds = await workspaceService.checkOrphanTabs();
+
+    const tab = (workspaceService as any).state.tabs[0];
+    assert.deepEqual(orphanTabIds, ['tab-1']);
+    assert.equal(calls.scheduleRestoreInput.length, 0);
+    assert.equal(tab.recoveryOptionId, undefined);
+    assert.equal(tab.recoveryCommand, undefined);
+    assert.deepEqual(calls.order, [
+      'createSession',
+      'save:true',
+      'save:true',
+    ]);
+  } finally {
+    await fixture.cleanup();
+  }
+}
+
+async function testWorkspaceServiceRestartSaveFailureDoesNotScheduleRestore(): Promise<void> {
+  const fixture = await createTempRecoveryOptionService();
+  try {
+    const codexOption = fixture.service.getAll().find(option => option.command === 'codex');
+    assert.ok(codexOption);
+    const { workspaceService, calls } = createWorkspaceServiceHarness({
+      recoveryOptionService: fixture.service,
+      restoreInputDelayMs: 0,
+    });
+    (workspaceService as any).state = createWorkspaceStateWithTab({
+      sessionId: 'old-session',
+      shellType: 'bash',
+      lastCwd: '/repo',
+      recoveryOptionId: codexOption.id,
+      recoveryCommand: 'codex',
+      recoveryArguments: ['resume', '--last'],
+      recoveryIcon: { type: 'builtin', key: 'terminal' },
+    });
+    (workspaceService as any).save = async (immediate = false) => {
+      calls.order.push(`save:${immediate}:failed`);
+      throw new Error('persist failed');
+    };
+
+    await assert.rejects(
+      () => workspaceService.restartTab('ws-1', 'tab-1'),
+      /persist failed/,
+    );
+
+    assert.equal(calls.scheduleRestoreInput.length, 0);
+    assert.deepEqual(calls.order, [
+      'createSession',
+      'save:true:failed',
+      'terminateSession:session-1:tab-restart',
+    ]);
+  } finally {
+    await fixture.cleanup();
+  }
+}
+
+async function testWorkspaceServiceRestartClearsDisabledRecoveryOption(): Promise<void> {
+  const fixture = await createTempRecoveryOptionService();
+  try {
+    const codexOption = fixture.service.getAll().find(option => option.command === 'codex');
+    assert.ok(codexOption);
+    await fixture.service.updateOption(codexOption.id, { enabled: false });
+    const { workspaceService, calls } = createWorkspaceServiceHarness({
+      recoveryOptionService: fixture.service,
+      restoreInputDelayMs: 0,
+    });
+    (workspaceService as any).state = createWorkspaceStateWithTab({
+      sessionId: 'old-session',
+      recoveryOptionId: codexOption.id,
+      recoveryCommand: 'codex',
+      recoveryArguments: ['resume', '--last'],
+      recoveryIcon: { type: 'builtin', key: 'terminal' },
+      recoveryUpdatedAt: 'before',
+    });
+
+    await workspaceService.restartTab('ws-1', 'tab-1');
+
+    const tab = (workspaceService as any).state.tabs[0];
+    assert.equal(calls.scheduleRestoreInput.length, 0);
+    assert.equal(tab.recoveryOptionId, undefined);
+    assert.equal(tab.recoveryCommand, undefined);
+    assert.deepEqual(calls.order, [
+      'createSession',
+      'save:true',
+      'save:true',
+      'terminateSession:old-session:tab-restart',
+    ]);
+  } finally {
+    await fixture.cleanup();
+  }
+}
+
 async function testSessionRoutesDirectDeleteMarksWorkspaceTabStopped(): Promise<void> {
   const { workspaceService } = createWorkspaceServiceHarness();
   (workspaceService as any).state = createWorkspaceStateWithTab({
@@ -10581,6 +11138,156 @@ async function testCommandPresetRoutesCrudAndValidation(): Promise<void> {
     assert.equal(invalidOrder.status, 400);
     assert.equal((invalidOrder.body.error as { code?: string }).code, 'INVALID_INPUT');
   } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testRecoveryOptionServiceSeedsDefaultsOnce(): Promise<void> {
+  const fixture = await createTempRecoveryOptionService();
+  try {
+    const initialCommands = fixture.service.getAll().map(option => option.command);
+    assert.deepEqual(initialCommands, ['claude', 'codex']);
+
+    const codexOption = fixture.service.getAll().find(option => option.command === 'codex');
+    assert.ok(codexOption);
+    await fixture.service.deleteOption(codexOption.id);
+
+    const reloaded = new RecoveryOptionService({
+      dataPath: fixture.service.getDataFilePath(),
+    });
+    await reloaded.initialize();
+    assert.deepEqual(reloaded.getAll().map(option => option.command), ['claude']);
+  } finally {
+    await fixture.cleanup();
+  }
+}
+
+async function testRecoveryOptionServiceFindsEnabledSubmittedCommand(): Promise<void> {
+  const fixture = await createTempRecoveryOptionService();
+  try {
+    const codex = fixture.service.findEnabledBySubmittedCommand('env FOO=bar "C:\\Tools\\codex.exe" --profile work');
+    assert.equal(codex?.command, 'codex');
+    assert.deepEqual(codex?.arguments, ['resume', '--last']);
+
+    if (!codex) {
+      throw new Error('codex option missing');
+    }
+    await fixture.service.updateOption(codex.id, { enabled: false });
+    assert.equal(fixture.service.findEnabledBySubmittedCommand('codex'), null);
+  } finally {
+    await fixture.cleanup();
+  }
+}
+
+async function testRecoveryCommandExecutableParsing(): Promise<void> {
+  assert.equal(getRecoveryExecutableToken('FOO=bar env BAZ=1 /usr/local/bin/claude --continue'), 'claude');
+  assert.equal(getRecoveryExecutableToken('command "C:\\Tools\\codex.cmd" resume --last'), 'codex');
+  assert.equal(getRecoveryExecutableToken('"C:\\Program Files\\OpenAI Codex\\codex.exe" resume --last'), 'codex');
+  assert.equal(getRecoveryExecutableToken('env A=1 command /opt/bin/claudep'), 'claudep');
+  assert.equal(getRecoveryExecutableToken('   '), null);
+  assert.equal(
+    buildRecoveryRestoreInput('bash', 'codex', ['resume', '--last', '$(touch injected)', 'path with spaces']),
+    "codex 'resume' '--last' '$(touch injected)' 'path with spaces'\r",
+  );
+  assert.equal(
+    buildRecoveryRestoreInput('powershell', 'claude', ['--continue', '$(Write-Error injected)']),
+    "claude '--continue' '$(Write-Error injected)'\r",
+  );
+  assert.equal(
+    buildRecoveryRestoreInput('cmd', 'codex', ['resume', '%PATH%', 'x!y']),
+    'codex "resume" "^%PATH^%" "x^!y"\r',
+  );
+}
+
+async function testRecoveryCommandRestoreQuoting(): Promise<void> {
+  assert.equal(
+    buildRecoveryRestoreInput('powershell', 'claude', ["O'Reilly", 'path with spaces']),
+    "claude 'O''Reilly' 'path with spaces'\r",
+  );
+  assert.equal(
+    buildRecoveryRestoreInput('bash', 'claude', ["O'Reilly", 'path with spaces']),
+    "claude 'O'\\''Reilly' 'path with spaces'\r",
+  );
+  assert.equal(
+    buildRecoveryRestoreInput('zsh', 'claude', ["O'Reilly"]),
+    "claude 'O'\\''Reilly'\r",
+  );
+  assert.equal(
+    buildRecoveryRestoreInput('sh', 'claude', ["O'Reilly"]),
+    "claude 'O'\\''Reilly'\r",
+  );
+  assert.equal(
+    buildRecoveryRestoreInput('cmd', 'claude', ['100% done', 'x!y', 'say "hi"']),
+    'claude "100^% done" "x^!y" "say ""hi"""\r',
+  );
+}
+
+async function testRecoveryOptionRoutesCrudAndAuth(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-recovery-option-routes-'));
+  const dataPath = path.join(tempDir, 'recovery-options.json');
+  const authService = new AuthService({
+    password: '1234',
+    durationMs: 60_000,
+    maxDurationMs: 60_000,
+    jwtSecret: 'recovery-option-route-test-secret',
+  }, new CryptoService('recovery-option-route-test'));
+  const updatedOptions: string[] = [];
+  const deletedOptions: string[] = [];
+
+  try {
+    const service = new RecoveryOptionService({ dataPath });
+    await service.initialize();
+    const token = authService.issueToken().token;
+    const authHeaders = { Authorization: `Bearer ${token}` };
+
+    const app = express();
+    app.use(express.json());
+    app.use('/api/recovery-options', createAuthMiddleware(authService), createRecoveryOptionRoutes(service, {
+      onOptionUpdated: (option) => {
+        updatedOptions.push(option.id);
+      },
+      onOptionDeleted: (id) => {
+        deletedOptions.push(id);
+      },
+    }));
+
+    for (const request of [
+      { method: 'GET', path: '/api/recovery-options' },
+      { method: 'POST', path: '/api/recovery-options', body: { command: 'x' } },
+      { method: 'PATCH', path: '/api/recovery-options/missing', body: { enabled: false } },
+      { method: 'DELETE', path: '/api/recovery-options/missing' },
+      { method: 'PUT', path: '/api/recovery-options/order', body: { optionIds: [] } },
+    ]) {
+      const unauthenticated = await requestJson(app, request.method, request.path, request.body);
+      assert.equal(unauthenticated.status, 401);
+    }
+
+    const created = await requestJson(app, 'POST', '/api/recovery-options', {
+      command: 'claudep',
+      arguments: ['--continue'],
+      icon: { type: 'text', value: 'CP' },
+    }, authHeaders);
+    assert.equal(created.status, 201);
+    assert.equal(created.body.command, 'claudep');
+    const createdId = created.body.id as string;
+
+    const patched = await requestJson(app, 'PATCH', `/api/recovery-options/${createdId}`, {
+      enabled: false,
+    }, authHeaders);
+    assert.equal(patched.status, 200);
+    assert.equal(patched.body.enabled, false);
+    assert.deepEqual(updatedOptions, [createdId]);
+
+    const listed = await requestJson(app, 'GET', '/api/recovery-options', undefined, authHeaders);
+    assert.equal(listed.status, 200);
+    assert.equal(Array.isArray(listed.body.options), true);
+
+    const deleted = await requestJson(app, 'DELETE', `/api/recovery-options/${createdId}`, undefined, authHeaders);
+    assert.equal(deleted.status, 200);
+    assert.equal(deleted.body.success, true);
+    assert.deepEqual(deletedOptions, [createdId]);
+  } finally {
+    authService.destroy();
     await fs.rm(tempDir, { recursive: true, force: true });
   }
 }

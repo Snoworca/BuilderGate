@@ -13,7 +13,9 @@ test('renderBootstrapConfigTemplate includes resourceLimits defaults', () => {
   assert.match(rendered, /inputBackpressureBytes:\s*1048576/);
   assert.match(rendered, /hiddenOutputPolicy:\s*"snapshot-restore"/);
   assert.match(rendered, /hiddenOutputTailBytes:\s*262144/);
-  assert.match(rendered, /maxLiveWorkspaces:\s*3/);
+  assert.match(rendered, /maxLiveWorkspaces:\s*10/);
+  assert.match(rendered, /maxLiveTerminals:\s*32/);
+  assert.match(rendered, /hiddenRuntimeTtlMs:\s*600000/);
   assert.match(rendered, /stabilityModes:\s*\{/);
   assert.match(rendered, /headlessQueueMode:\s*"observe"/);
   assert.match(rendered, /wsSendMode:\s*"direct"/);
@@ -39,6 +41,9 @@ test('config.json5.example documents resourceLimits defaults', async () => {
   assert.match(example, /perClientOutputQueueMaxBytes:\s*2097152/);
   assert.match(example, /transportOutboxTtlMs:\s*1500/);
   assert.match(example, /tombstoneTtlMs:\s*86400000/);
+  assert.match(example, /maxLiveWorkspaces:\s*10/);
+  assert.match(example, /maxLiveTerminals:\s*32/);
+  assert.match(example, /hiddenRuntimeTtlMs:\s*600000/);
   assert.match(example, /sampleIntervalMs:\s*60000/);
   assert.match(example, /stabilityModes:\s*\{/);
   assert.match(example, /headlessQueueMode:\s*"observe"/);

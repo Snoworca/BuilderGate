@@ -38,6 +38,7 @@ import {
 } from '../utils/headlessOutputQueue.js';
 import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 import { TerminalTitleDetector } from '../utils/terminalTitle.js';
+import { getRecoveryExecutableToken, normalizeRecoveryExecutable, type RecoveryRestoreShell } from '../utils/recoveryCommand.js';
 import type { WsRouter } from '../ws/WsRouter.js';
 import { OscDetector } from './OscDetector.js';
 import type {
@@ -255,6 +256,12 @@ interface PendingHeadlessOutput {
   queued: boolean;
 }
 
+interface PendingRestoreInput {
+  input: string;
+  guard?: () => boolean;
+  queuedAt: number;
+}
+
 interface SessionData {
   session: Session;
   pty: pty.IPty;
@@ -291,6 +298,10 @@ interface SessionData {
   initialCwd: string;   // CWD at session creation
   cwdFilePath?: string;  // Windows CWD tracking temp file path
   lastCwd?: string;      // Last known CWD for change detection
+  recoveryForegroundCommand?: string;
+  startupReady: boolean;
+  startupReadyTimer: NodeJS.Timeout | null;
+  pendingRestoreInputs: PendingRestoreInput[];
 
   // === Step 9: Idle Detection ===
   echoTracker: EchoTracker;
@@ -320,6 +331,12 @@ export interface SessionFinalizedEvent {
   exitCode: number | null;
   cleanupStatus: SessionCleanupStatus;
   recordedAt: string;
+}
+
+export interface SessionCommandSubmittedEvent {
+  sessionId: string;
+  command: string;
+  executable: string | null;
 }
 
 interface SessionBatchTerminationResult {
@@ -503,6 +520,7 @@ export class SessionManager {
   private cwdChangeCallback: ((sessionId: string, cwd: string) => void) | null = null;
   private terminalTitleChangeCallback: ((sessionId: string, title: string) => void) | null = null;
   private sessionFinalizedCallback: ((event: SessionFinalizedEvent) => void) | null = null;
+  private commandSubmittedCallback: ((event: SessionCommandSubmittedEvent) => void | Promise<void>) | null = null;
   private observability: Omit<SessionManagerObservability, 'totalSessions' | 'healthySessions' | 'degradedSessions' | 'headlessOutput' | 'cleanup'> = {
     snapshotRequests: 0,
     snapshotCacheHits: 0,
@@ -633,6 +651,9 @@ export class SessionManager {
       unsnapshottedOutputTruncated: false,
       initialCwd,
       cwdFilePath,
+      startupReady: false,
+      startupReadyTimer: null,
+      pendingRestoreInputs: [],
       // Step 9: Idle Detection
       echoTracker: {
         lastInputAt: 0,
@@ -688,6 +709,7 @@ export class SessionManager {
 
     // Inject CWD tracking hook based on shell type
     this.injectCwdHook(id, sessionData, ptyProcess, shellType);
+    this.scheduleStartupReadyFallback(id, shellType);
 
     // Handle PTY output (Step 9: Phase 3 통합 최종 버전)
     ptyProcess.onData((rawData: string) => {
@@ -724,8 +746,7 @@ export class SessionManager {
 
         if (!observation && sData.detectionMode === 'osc133') {
           const derivedState = this.ensureDerivedState(sData);
-          const isAiForeground = derivedState.ownership === 'foreground_app'
-            && isInteractiveAiAppId(derivedState.foregroundAppId);
+          const isAiForeground = this.isInteractiveForeground(sData, derivedState);
           if (isAiForeground || isInteractiveAiAppId(sData.pendingForegroundAppHint)) {
             if (isLikelyAiTuiLaunchFailureOutput(sData, statusData)) {
               this.markAiTuiLaunchFailure(id, 'osc133_ai_tui_launch_failure');
@@ -752,8 +773,7 @@ export class SessionManager {
           const isEcho = this.isEchoOutput(sData, statusData);
           if (!isEcho) {
             const derivedState = this.ensureDerivedState(sData);
-            const isAiForeground = derivedState.ownership === 'foreground_app'
-              && isInteractiveAiAppId(derivedState.foregroundAppId);
+            const isAiForeground = this.isInteractiveForeground(sData, derivedState);
             const isAiShellPromptReturn = (isAiForeground || sData.expectShellPromptAfterAiTuiFailure === true)
               && this.isShellPromptReturnOutput(sData, statusData);
             if (this.isPowerShellPromptRedrawOutput(sData, statusData) || isAiShellPromptReturn) {
@@ -983,11 +1003,13 @@ export class SessionManager {
     const data = this.sessions.get(id);
     if (!data) return;
 
+    this.markSessionStartupReady(id, data, reason);
     data.inputBuffer = '';
     delete data.pendingForegroundAppHint;
     delete data.aiTuiLaunchAttempt;
     delete data.expectShellPromptAfterAiTuiFailure;
     delete data.lastSubmittedCommand;
+    delete data.recoveryForegroundCommand;
     data.foregroundStartedAt = undefined;
     this.cancelPendingRunningTransition(data);
     this.ensureForegroundDetectorRegistry(data).reset();
@@ -1247,8 +1269,7 @@ export class SessionManager {
     const hasEnter = input.includes('\r') || input.includes('\n');
     const submittedCommand = this.updateCommandInputBuffer(data, input);
     const derivedState = this.ensureDerivedState(data);
-    const isAiForeground = derivedState.ownership === 'foreground_app'
-      && isInteractiveAiAppId(derivedState.foregroundAppId);
+    const isAiForeground = this.isInteractiveForeground(data, derivedState);
     const hintedAppId = submittedCommand && !isAiForeground ? detectForegroundAppHint(submittedCommand) : null;
     if (submittedCommand) {
       data.lastSubmittedCommand = submittedCommand;
@@ -1298,6 +1319,13 @@ export class SessionManager {
 
     try {
       data.pty.write(input);
+      if (submittedCommand && !isAiForeground) {
+        this.notifyCommandSubmitted({
+          sessionId: id,
+          command: submittedCommand,
+          executable: getRecoveryExecutableToken(submittedCommand),
+        });
+      }
     } catch (error) {
       this.captureDebugEvent(id, 'pty', 'input_write_failed', {
         error: error instanceof Error ? error.message : String(error),
@@ -1462,6 +1490,25 @@ export class SessionManager {
     return data?.cwdFilePath ?? null;
   }
 
+  getResolvedShellType(sessionId: string): RecoveryRestoreShell | null {
+    const data = this.sessions.get(sessionId);
+    if (!data) {
+      return null;
+    }
+    const shellType = data.shellType ?? data.processMetadata.shellType;
+    switch (shellType) {
+      case 'powershell':
+      case 'bash':
+      case 'zsh':
+      case 'sh':
+      case 'cmd':
+      case 'wsl':
+        return shellType;
+      default:
+        return null;
+    }
+  }
+
   /** Register a callback to be invoked when any session's CWD changes. */
   onCwdChange(cb: (sessionId: string, cwd: string) => void): void {
     this.cwdChangeCallback = cb;
@@ -1475,6 +1522,172 @@ export class SessionManager {
   /** Register a callback to be invoked after any session finalizer completes. */
   onSessionFinalized(cb: (event: SessionFinalizedEvent) => void): void {
     this.sessionFinalizedCallback = cb;
+  }
+
+  /** Register a callback to be invoked when a shell-level command is submitted. */
+  onCommandSubmitted(cb: (event: SessionCommandSubmittedEvent) => void | Promise<void>): void {
+    this.commandSubmittedCallback = cb;
+  }
+
+  markRecoveryCommandForeground(sessionId: string, command: string): void {
+    const data = this.sessions.get(sessionId);
+    if (!data) {
+      return;
+    }
+    const executable = getRecoveryExecutableToken(command) ?? normalizeRecoveryExecutable(command);
+    if (!executable) {
+      return;
+    }
+    data.recoveryForegroundCommand = executable;
+    delete data.pendingForegroundAppHint;
+    delete data.aiTuiLaunchAttempt;
+    this.cancelPendingRunningTransition(data);
+    this.updateDerivedState(sessionId, 'recovery_command_foreground', (state) => {
+      state.ownership = 'foreground_app';
+      state.activity = 'waiting_input';
+      const builtInHint = detectForegroundAppHint(executable);
+      if (builtInHint) {
+        state.foregroundAppId = builtInHint;
+      } else {
+        delete state.foregroundAppId;
+      }
+      delete state.detectorId;
+    });
+    data.foregroundStartedAt = Date.now();
+    this.captureDebugEvent(sessionId, 'pty', 'recovery_foreground_marked', {
+      command: executable,
+    });
+  }
+
+  scheduleRestoreInput(
+    sessionId: string,
+    input: string,
+    options: {
+      delayMs?: number;
+      guard?: () => boolean;
+    } = {},
+  ): void {
+    const delayMs = Math.max(0, options.delayMs ?? 600);
+    const timer = setTimeout(() => {
+      this.enqueueOrWriteRestoreInput(sessionId, {
+        input,
+        guard: options.guard,
+        queuedAt: Date.now(),
+      });
+    }, delayMs);
+    timer.unref?.();
+  }
+
+  private enqueueOrWriteRestoreInput(sessionId: string, pending: PendingRestoreInput): void {
+    const data = this.sessions.get(sessionId);
+    if (!data) {
+      this.recordRestoreInputFailure(sessionId, 'session_missing_before_restore');
+      return;
+    }
+    if (!this.isRestoreGuardAllowed(sessionId, data, pending.guard)) {
+      this.recordRestoreInputFailure(sessionId, 'restore_guard_cancelled', data);
+      return;
+    }
+    if (!data.startupReady) {
+      data.pendingRestoreInputs.push(pending);
+      this.captureDebugEvent(sessionId, 'pty', 'restore_input_queued', {
+        pendingCount: data.pendingRestoreInputs.length,
+      });
+      return;
+    }
+    this.writeRestoreInput(sessionId, data, pending);
+  }
+
+  private writeRestoreInput(sessionId: string, data: SessionData, pending: PendingRestoreInput): void {
+    if (this.sessions.get(sessionId) !== data) {
+      this.recordRestoreInputFailure(sessionId, 'session_replaced_before_restore');
+      return;
+    }
+    if (!this.isRestoreGuardAllowed(sessionId, data, pending.guard)) {
+      this.recordRestoreInputFailure(sessionId, 'restore_guard_cancelled', data);
+      return;
+    }
+    const written = this.writeInput(sessionId, pending.input);
+    if (!written) {
+      this.recordRestoreInputFailure(sessionId, 'restore_write_failed', data);
+      return;
+    }
+    this.captureDebugEvent(sessionId, 'pty', 'restore_input_written', {
+      queuedMs: Date.now() - pending.queuedAt,
+    });
+  }
+
+  private markSessionStartupReady(sessionId: string, data: SessionData, reason: string): void {
+    if (data.startupReady || this.sessions.get(sessionId) !== data) {
+      return;
+    }
+    data.startupReady = true;
+    if (data.startupReadyTimer) {
+      clearTimeout(data.startupReadyTimer);
+      data.startupReadyTimer = null;
+    }
+    this.captureDebugEvent(sessionId, 'pty', 'startup_ready', {
+      reason,
+      pendingRestoreInputs: data.pendingRestoreInputs.length,
+    });
+    const pendingInputs = data.pendingRestoreInputs.splice(0);
+    for (const pending of pendingInputs) {
+      this.writeRestoreInput(sessionId, data, pending);
+    }
+  }
+
+  private scheduleStartupReadyFallback(
+    sessionId: string,
+    shellType: 'powershell' | 'bash' | 'zsh' | 'sh' | 'cmd',
+  ): void {
+    const data = this.sessions.get(sessionId);
+    if (!data) {
+      return;
+    }
+    const delayMs = shellType === 'powershell' ? 1500 : 2500;
+    data.startupReadyTimer = setTimeout(() => {
+      const current = this.sessions.get(sessionId);
+      if (!current) {
+        return;
+      }
+      console.warn(`[SessionManager] Shell startup readiness fallback used for session ${sessionId}`);
+      this.markSessionStartupReady(sessionId, current, 'startup_ready_fallback');
+    }, delayMs);
+    data.startupReadyTimer.unref?.();
+  }
+
+  private recordRestoreInputFailure(sessionId: string, reason: string, data?: SessionData): void {
+    console.warn(`[SessionManager] Recovery restore input skipped for session ${sessionId}: ${reason}`);
+    if (data) {
+      this.captureDebugEvent(sessionId, 'pty', 'restore_input_failed', { reason });
+    }
+  }
+
+  private isInteractiveForeground(data: SessionData, derivedState: SessionDerivedState): boolean {
+    return derivedState.ownership === 'foreground_app'
+      && (
+        isInteractiveAiAppId(derivedState.foregroundAppId)
+        || Boolean(data.recoveryForegroundCommand)
+      );
+  }
+
+  private isRestoreGuardAllowed(
+    sessionId: string,
+    data: SessionData,
+    guard: (() => boolean) | undefined,
+  ): boolean {
+    if (!guard) {
+      return true;
+    }
+    try {
+      return guard();
+    } catch (error) {
+      console.warn(`[SessionManager] Recovery restore guard failed for session ${sessionId}:`, error);
+      this.captureDebugEvent(sessionId, 'pty', 'restore_guard_failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
   }
 
   /** Stop all CWD file watchers. Called during graceful shutdown. */
@@ -2095,6 +2308,9 @@ export class SessionManager {
         if (!ignoreStaleForegroundPrompt) {
           this.transitionToShellPrompt(id, 'cwd_prompt_refresh');
         }
+        if (cwd && currentData) {
+          this.markSessionStartupReady(id, currentData, 'cwd_file_ready');
+        }
         if (cwd && cwd !== sessionData.lastCwd) {
           sessionData.lastCwd = cwd;
           sessionData.processMetadata.cwd = cwd;
@@ -2447,6 +2663,11 @@ export class SessionManager {
       clearTimeout(data.identityCaptureTimer);
       data.identityCaptureTimer = null;
     }
+    if (data.startupReadyTimer) {
+      clearTimeout(data.startupReadyTimer);
+      data.startupReadyTimer = null;
+    }
+    data.pendingRestoreInputs = [];
     this.cancelPendingRunningTransition(data);
 
     const cleanupResult = this.recordCleanupObservation(
@@ -2522,6 +2743,19 @@ export class SessionManager {
       this.sessionFinalizedCallback(event);
     } catch (error) {
       console.warn('[SessionManager] session finalized callback failed:', error);
+    }
+  }
+
+  private notifyCommandSubmitted(event: SessionCommandSubmittedEvent): void {
+    if (!this.commandSubmittedCallback) {
+      return;
+    }
+    try {
+      Promise.resolve(this.commandSubmittedCallback(event)).catch((error) => {
+        console.warn('[SessionManager] command submitted callback failed:', error);
+      });
+    } catch (error) {
+      console.warn('[SessionManager] command submitted callback failed:', error);
     }
   }
 
@@ -3486,29 +3720,7 @@ function detectForegroundAppHint(command: string): ForegroundAppId | null {
 }
 
 function getCommandExecutableToken(command: string): string | null {
-  const tokens = command.trim().split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) {
-    return null;
-  }
-
-  let index = 0;
-  while (index < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=.*/.test(tokens[index])) {
-    index += 1;
-  }
-  while (index < tokens.length && (tokens[index] === 'env' || tokens[index] === 'command')) {
-    index += 1;
-    while (index < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=.*/.test(tokens[index])) {
-      index += 1;
-    }
-  }
-
-  return normalizeExecutableToken(tokens[index] ?? '');
-}
-
-function normalizeExecutableToken(token: string): string {
-  const cleaned = token.trim().replace(/^["']|["']$/g, '');
-  const basename = cleaned.split(/[\\/]/).at(-1) ?? cleaned;
-  return basename.toLowerCase().replace(/\.(?:exe|cmd|bat|ps1)$/i, '');
+  return getRecoveryExecutableToken(command);
 }
 
 function stripInputTrackingControlSequences(raw: string): string {

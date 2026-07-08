@@ -64,6 +64,7 @@
 }
 
 .command-preset-field input,
+.command-preset-field select,
 .command-preset-field textarea,
 .command-preset-inline-value input,
 .command-preset-item-textarea {
@@ -79,9 +80,39 @@
 }
 
 .command-preset-field input,
+.command-preset-field select,
 .command-preset-inline-value input {
   height: 34px;
   padding: 0 9px;
+}
+
+.recovery-option-form,
+.recovery-option-edit-grid {
+  display: grid;
+  grid-template-columns: minmax(130px, 190px) minmax(170px, 1fr) 86px 70px auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.command-preset-field .recovery-option-mode-select {
+  width: 86px;
+}
+
+.command-preset-field .recovery-option-icon-select,
+.command-preset-field .recovery-option-icon-text-input {
+  width: 64px;
+  text-align: center;
+}
+
+.command-preset-field .recovery-option-icon-select {
+  font-size: 16px;
+  padding: 0 5px;
+}
+
+.recovery-option-icon-field span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .command-preset-field textarea,
@@ -274,6 +305,11 @@
 
 @media (max-width: 720px) {
   .command-preset-form {
+    grid-template-columns: 1fr;
+  }
+
+  .recovery-option-form,
+  .recovery-option-edit-grid {
     grid-template-columns: 1fr;
   }
 

@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-05-22.projectmaster.aitui-recovery",
+  "coder_run_id": "2026-05-22.projectmaster.aitui-recovery:T-PH003-01",
+  "target": "0.5.4-ai-tui-recovery",
+  "task_id": "T-PH003-01",
+  "phase_id": "PH-003",
+  "status": "done",
+  "task_phase": "red",
+  "plan_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md",
+  "sidecar_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.sidecar.json",
+  "completed_at": "2026-05-22T01:50:43Z",
+  "req_ids": [
+    "FR-AITUI-004",
+    "FR-AITUI-005",
+    "SEC-AITUI-001"
+  ],
+  "files_touched": [
+    "server/src/test-runner.ts"
+  ],
+  "production_implementation_added": false,
+  "test_cases_added": 11,
+  "red_evidence": {
+    "command": "npm --prefix server test",
+    "exit_code": 1,
+    "expected_red": true,
+    "failed_tests": 11,
+    "failure_signature": "recovery option restore not implemented",
+    "captured_at": "2026-05-22T01:49:44Z"
+  },
+  "verification": [
+    {
+      "command": "npm --prefix server run build",
+      "exit_code": 0,
+      "captured_at": "2026-05-22T01:48:58Z"
+    },
+    {
+      "command": "npm --prefix server test",
+      "exit_code": 1,
+      "expected_red": true,
+      "failed_tests": 11,
+      "captured_at": "2026-05-22T01:49:44Z"
+    },
+    {
+      "command": "speckiwi.validate_spec",
+      "exit_code": 0,
+      "errors": 0,
+      "warnings": 25,
+      "captured_at": "2026-05-22T01:50:43Z"
+    }
+  ],
+  "sub_agent_validation": [
+    {
+      "reviewer": "S1-intent-alignment",
+      "status": "pass",
+      "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/tdd_review_T-PH003-01.json"
+    },
+    {
+      "reviewer": "S2-tech-quality",
+      "status": "pass",
+      "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/tdd_review_T-PH003-01.json"
+    },
+    {
+      "reviewer": "S3-req-mapping",
+      "status": "pass",
+      "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/tdd_review_T-PH003-01.json"
+    },
+    {
+      "reviewer": "S4-red-verification",
+      "status": "pass",
+      "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/tdd_review_T-PH003-01.json"
+    }
+  ],
+  "srs_mutation": {
+    "tool": "speckiwi.add_completed_work",
+    "status": "written",
+    "scope": "AITUI",
+    "target": "0.5.4-ai-tui-recovery",
+    "report_path": ".kiwi/sessions/2026-05-22.projectmaster.aitui-recovery/reports/coder-2026-05-22.projectmaster.aitui-recovery.md",
+    "allow_incomplete": true
+  }
+}

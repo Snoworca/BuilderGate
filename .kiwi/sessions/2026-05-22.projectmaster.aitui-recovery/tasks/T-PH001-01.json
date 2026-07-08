@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-05-22.projectmaster.aitui-recovery",
+  "coder_run_id": "2026-05-22.projectmaster.aitui-recovery:T-PH001-01",
+  "target": "0.5.4-ai-tui-recovery",
+  "task_id": "T-PH001-01",
+  "phase_id": "PH-001",
+  "status": "done",
+  "task_phase": "red",
+  "plan_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md",
+  "sidecar_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.sidecar.json",
+  "completed_at": "2026-05-22T00:53:15.000Z",
+  "req_ids": [
+    "FR-AITUI-002",
+    "FR-AITUI-005",
+    "REL-AITUI-001",
+    "SEC-AITUI-001",
+    "SEC-AITUI-002"
+  ],
+  "files_touched": [
+    "server/src/test-runner.ts"
+  ],
+  "production_implementation_added": false,
+  "test_cases_added": 22,
+  "red_evidence": {
+    "command": "npm --prefix server test",
+    "exit_code": 1,
+    "expected_red": true,
+    "failed_tests": 22,
+    "failure_signature": "Recovery option service not implemented or missing: Cannot find module server/dist/services/RecoveryOptionService.js; recovery option route registration not implemented or not protected by authMiddleware",
+    "captured_at": "2026-05-22T00:52:52.000Z"
+  },
+  "srs_mutation": {
+    "tool": "speckiwi.add_completed_work",
+    "status": "written",
+    "scope": "AITUI",
+    "target": "0.5.4-ai-tui-recovery",
+    "report_path": ".kiwi/sessions/2026-05-22.projectmaster.aitui-recovery/reports/coder-2026-05-22.projectmaster.aitui-recovery.md",
+    "allow_incomplete": true,
+    "post_validate": {
+      "errors": 0,
+      "warnings": 13,
+      "warning_code": "SRS-W015"
+    }
+  },
+  "verification": [
+    {
+      "command": "npm --prefix server run build",
+      "exit_code": 0,
+      "captured_at": "2026-05-22T00:49:40.000Z"
+    },
+    {
+      "command": "npm --prefix server test",
+      "exit_code": 1,
+      "expected_red": true,
+      "failed_tests": 22,
+      "captured_at": "2026-05-22T00:52:52.000Z"
+    }
+  ],
+  "sub_agent_validation": [
+    {
+      "reviewer": "S1-intent-alignment",
+      "status": "pass",
+      "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/tdd_review_s1_iter3.txt"
+    },
+    {
+      "reviewer": "S2-tech-quality",
+      "status": "pass",
+      "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/tdd_review_s2_iter5.txt"
+    },
+    {
+      "reviewer": "S3-requirement-mapping",
+      "status": "pass",
+      "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/tdd_review_s3.txt"
+    },
+    {
+      "reviewer": "S4-red-verification",
+      "status": "pass",
+      "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/tdd_review_s4.txt"
+    }
+  ]
+}

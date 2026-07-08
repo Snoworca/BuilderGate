@@ -87,9 +87,9 @@ const DEFAULT_SNAPSHOT_LIMITS: SnapshotResourceLimitsRuntimeConfig = {
 };
 
 const DEFAULT_WORKSPACE_RUNTIME_LIMITS: WorkspaceRuntimeResourceLimitsRuntimeConfig = {
-  maxLiveWorkspaces: 3,
-  maxLiveTerminals: 12,
-  hiddenRuntimeTtlMs: 60_000,
+  maxLiveWorkspaces: 10,
+  maxLiveTerminals: 32,
+  hiddenRuntimeTtlMs: 600_000,
 };
 
 let runtimeMode: InputReliabilityMode = 'observe';

@@ -32,11 +32,11 @@ export interface UpdateRecoveryOptionRequest {
 }
 
 const BUILTIN_RECOVERY_ICON_LABELS: Record<string, string> = {
-  bot: 'AI',
-  brain: 'AI',
-  code: '{}',
-  sparkles: '**',
-  terminal: '>_',
+  bot: '🤖',
+  brain: '🧠',
+  code: '🧩',
+  sparkles: '✨',
+  terminal: '💻',
 };
 
 const UNSAFE_TEXT_ICON_PATTERN = /<|>|javascript:|data:|https?:\/\/|url\s*\(|script|svg|on\w+\s*=|style\s*=/i;

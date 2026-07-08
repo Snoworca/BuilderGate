@@ -63,5 +63,12 @@ This repository stores requirements as Markdown SRS documents under `docs/spec/`
 Prefer SpecKiwi MCP tools when configured. Use the `speckiwi` CLI fallback when MCP is unavailable. Never bypass SRS-MD rules or create an alternate requirements source of truth.
 
 
+
+이슈 및 개발 진행 절차 (kiwi 5단계  작은 Task 면 경량 대안 경로 허용):
+ /kiwi-srs /kiwi-srs-feasibility /kiwi-planner /kiwi-pm /kiwi-review-fix-loop
+
+
 ## 현재 진행중인 작업
- - C:\Work\git\_Snoworca\ProjectMaster\docs\research\plug-leak 의 Wave 를 처리하고 있다.
+
+  - `docs/plan/step30.2026-07-08.ai-tui-last-command-auto-recovery/00.index.md`
+    - 마지막으로 실행한 AI TUI 명령을 탭에 기억하고, 탭 restart/orphan recovery 때 해당 복구 옵션을 찾아 자동 실행하는 구현

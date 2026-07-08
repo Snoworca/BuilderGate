@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-05-22.projectmaster.aitui-recovery",
+  "coder_run_id": "2026-05-22.projectmaster.aitui-recovery:T-PH001-02",
+  "target": "0.5.4-ai-tui-recovery",
+  "task_id": "T-PH001-02",
+  "phase_id": "PH-001",
+  "status": "done",
+  "task_phase": "green",
+  "plan_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md",
+  "sidecar_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.sidecar.json",
+  "completed_at": "2026-05-22T01:08:52.453Z",
+  "req_ids": [
+    "FR-AITUI-002",
+    "FR-AITUI-005",
+    "REL-AITUI-001",
+    "SEC-AITUI-001",
+    "SEC-AITUI-002"
+  ],
+  "files_touched": [
+    "server/src/types/recoveryOption.types.ts",
+    "server/src/utils/recoveryCommand.ts",
+    "server/src/services/RecoveryOptionService.ts",
+    "server/src/routes/recoveryOptionRoutes.ts",
+    "server/src/index.ts"
+  ],
+  "implementation": {
+    "dedicated_store": "data/recovery-options.json",
+    "seed_defaults": [
+      "claude --continue",
+      "codex resume --last"
+    ],
+    "defaults_exclude": [
+      "claudep",
+      "--dangerously-skip-permissions",
+      "--permission-mode bypassPermissions"
+    ],
+    "invalid_rows_observable": true,
+    "authenticated_routes_registered": true
+  },
+  "verification": [
+    {
+      "command": "npm --prefix server test",
+      "exit_code": 0,
+      "passed_tests": 244,
+      "captured_at": "2026-05-22T01:06:37.671Z"
+    }
+  ],
+  "sub_agent_validation": [
+    {
+      "reviewer": "codex-prickly-review",
+      "status": "fixed-findings",
+      "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/prickly_review_T-PH001-02.txt"
+    },
+    {
+      "reviewer": "codex-prickly-rereview",
+      "status": "pass",
+      "finding_summary": "No findings",
+      "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/prickly_review_T-PH001-02.txt"
+    }
+  ],
+  "srs_mutation": {
+    "tool": "speckiwi.add_completed_work",
+    "status": "written",
+    "scope": "AITUI",
+    "target": "0.5.4-ai-tui-recovery",
+    "report_path": ".kiwi/sessions/2026-05-22.projectmaster.aitui-recovery/reports/coder-2026-05-22.projectmaster.aitui-recovery.md",
+    "allow_incomplete": true
+  }
+}

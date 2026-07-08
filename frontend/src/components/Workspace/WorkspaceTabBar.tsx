@@ -5,6 +5,7 @@ import { useLongPress } from '../../hooks/useLongPress';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
+import { getRecoveryIconLabel } from '../../types/recoveryOption';
 import type { ShellInfo } from '../../types';
 import './WorkspaceTabBar.css';
 
@@ -20,6 +21,17 @@ interface Props {
   onAddTab: (shell?: string) => void;
   onReorderTabs: (tabIds: string[]) => void;
   availableShells?: ShellInfo[];
+}
+
+function getSafeRecoveryIconLabel(recoveryIcon: WorkspaceTabRuntime['recoveryIcon']): string | null {
+  if (recoveryIcon?.type === 'builtin') {
+    return getRecoveryIconLabel(recoveryIcon);
+  }
+  if (recoveryIcon?.type === 'text' && typeof recoveryIcon.value === 'string') {
+    return getRecoveryIconLabel(recoveryIcon);
+  }
+  // Unsupported persisted icons are omitted.
+  return null;
 }
 
 export function WorkspaceTabBar({
@@ -81,6 +93,7 @@ export function WorkspaceTabBar({
         const color = TAB_COLORS[tab.colorIndex] || TAB_COLORS[0];
         const isActive = tab.id === activeTabId;
         const isEditing = editingTabId === tab.id;
+        const recoveryIconLabel = getSafeRecoveryIconLabel(tab.recoveryIcon);
 
         return (
           <div
@@ -109,6 +122,19 @@ export function WorkspaceTabBar({
               borderBottom: isActive ? '1px solid #2a2d3e' : '1px solid #333',
             }}
           >
+            {recoveryIconLabel && (
+              <span
+                title={tab.recoveryCommand ? `Recovery: ${tab.recoveryCommand}` : 'Recovery'}
+                style={{
+                  color: isActive ? '#d7d7d7' : '#777',
+                  fontSize: '11px',
+                  lineHeight: 1,
+                  flexShrink: 0,
+                }}
+              >
+                {recoveryIconLabel}
+              </span>
+            )}
             {isEditing ? (
               <input
                 ref={inputRef}

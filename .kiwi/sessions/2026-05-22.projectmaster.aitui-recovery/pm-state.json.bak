@@ -1,0 +1,212 @@
+{
+  "run_id": "2026-05-22.projectmaster.aitui-recovery",
+  "plan_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md",
+  "sidecar_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.sidecar.json",
+  "plan_sha256": "d26fc052e5c8b9ead32c69e4d8caf939e2676479871e60b6ad5325216f327260",
+  "sidecar_sha256": "9533eff43f3f93538dafafce0c568f52fb19d7f19de83c2a8156f0ba891ca89e",
+  "target_slug": "0.5.4-ai-tui-recovery",
+  "started_at": "2026-05-22T00:29:16.032Z",
+  "last_updated_at": "2026-05-22T02:34:18.176Z",
+  "pm_version": "0.1",
+  "tasks": [
+    {
+      "task_id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-05-22T00:31:52.838Z",
+      "ended_at": "2026-05-22T00:56:01.641Z",
+      "coder_run_id": "2026-05-22.projectmaster.aitui-recovery:T-PH001-01",
+      "result_summary": "server/src/test-runner.ts? T-PH001-01 ??? backend red test 22?? ??????. npm --prefix server run build? ????, npm --prefix server test? production ?? ??? 22? red failure? ??????. sub-agent ??? speckiwi completed work ???? ??????.",
+      "trace_req_ids": [
+        "FR-AITUI-002",
+        "FR-AITUI-005",
+        "REL-AITUI-001",
+        "SEC-AITUI-001",
+        "SEC-AITUI-002"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH001-02",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-05-22T00:56:09.550Z",
+      "ended_at": "2026-05-22T01:10:52.512Z",
+      "coder_run_id": "2026-05-22.projectmaster.aitui-recovery:T-PH001-02",
+      "result_summary": "Dedicated RecoveryOption store/service, command normalization, validation, authenticated CRUD/reorder routes, and server registration were implemented. npm --prefix server test passed with 244 tests; sub-agent re-review returned No findings.",
+      "trace_req_ids": [
+        "FR-AITUI-002",
+        "FR-AITUI-005",
+        "REL-AITUI-001",
+        "SEC-AITUI-001",
+        "SEC-AITUI-002"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-05-22T01:11:02.745Z",
+      "ended_at": "2026-05-22T01:20:10.710Z",
+      "coder_run_id": "2026-05-22.projectmaster.aitui-recovery:T-PH002-01",
+      "result_summary": "server/src/test-runner.ts? submitted AI TUI command matching/tab recovery metadata red tests 7?? ??????. npm --prefix server run build? ????, npm --prefix server test? T-PH002-01 metadata ??? 7??? ??? red ??? ??????. S1-S4 sub-agent validation ??? ?????.",
+      "trace_req_ids": [
+        "FR-AITUI-003",
+        "SEC-AITUI-002"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-02",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-05-22T01:20:22.079Z",
+      "ended_at": "2026-05-22T01:42:44.330Z",
+      "coder_run_id": "2026-05-22.projectmaster.aitui-recovery:T-PH002-02",
+      "result_summary": "Implemented SessionManager submitted-command callback and WorkspaceService recovery option matching/clearing metadata on workspace tabs. T-PH002-01 recovery tests and full npm --prefix server test passed with 251 tests; sub-agent re-review returned No findings.",
+      "trace_req_ids": [
+        "FR-AITUI-003",
+        "SEC-AITUI-002"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-05-22T01:42:56.879Z",
+      "ended_at": "2026-05-22T01:52:30.188Z",
+      "coder_run_id": "2026-05-22.projectmaster.aitui-recovery:T-PH003-01",
+      "result_summary": "Added 11 backend red tests in server/src/test-runner.ts for restart/orphan restore execution, shell-specific quoting across PowerShell/cmd/bash/zsh/sh, readiness delay, deleted/disabled skips, claudep opt-in, and observable failures. npm --prefix server run build passed; npm --prefix server test fails red with 11 expected restore failures. S1-S4 validation and speckiwi completed-work logging were recorded.",
+      "trace_req_ids": [
+        "FR-AITUI-004",
+        "FR-AITUI-005",
+        "SEC-AITUI-001"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-02",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-05-22T01:52:37.820Z",
+      "ended_at": "2026-05-22T02:20:33.690Z",
+      "coder_run_id": "2026-05-22.projectmaster.aitui-recovery:T-PH003-02",
+      "result_summary": "Implemented readiness-aware restart/orphan restore execution with current option recheck, stale metadata clearing, shell-specific structured restore input, cmd readiness hook, and production recoveryOptionService wiring. npm --prefix server test passed with 262 tests; strict sub-agent re-review returned No findings.",
+      "trace_req_ids": [
+        "FR-AITUI-004",
+        "FR-AITUI-005",
+        "SEC-AITUI-001"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH004-01",
+      "phase_id": "PH-004",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-05-22T02:20:42.350Z",
+      "ended_at": "2026-05-22T02:34:08.970Z",
+      "coder_run_id": "2026-05-22.projectmaster.aitui-recovery:T-PH004-01",
+      "result_summary": "Added frontend red unit and desktop Playwright tests for recovery dialog/icon safety plus E2E helpers. Typecheck passes; unit and E2E red verification fail for the intended missing frontend UI/API hook and missing Tools menu ?? ?? item.",
+      "trace_req_ids": [
+        "FR-AITUI-001",
+        "SEC-AITUI-002"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH004-02",
+      "phase_id": "PH-004",
+      "status": "running",
+      "tdd_exempted": false,
+      "started_at": "2026-05-22T02:34:18.176Z",
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-AITUI-001",
+        "SEC-AITUI-002"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH005-01",
+      "phase_id": "PH-005",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-AITUI-001",
+        "FR-AITUI-002",
+        "FR-AITUI-003",
+        "FR-AITUI-004",
+        "FR-AITUI-005",
+        "SEC-AITUI-001",
+        "SEC-AITUI-002",
+        "REL-AITUI-001"
+      ],
+      "questions": [],
+      "attempts": 0
+    }
+  ],
+  "stats": {
+    "total": 9,
+    "done": 7,
+    "running": 1,
+    "pending": 1,
+    "failed": 0,
+    "blocked": 0,
+    "skipped": 0
+  },
+  "last_question": null,
+  "last_error": null,
+  "lifecycle_gate_state": {
+    "evaluated_at": "2026-05-22T00:29:16.032Z",
+    "blocked_req_ids": [],
+    "stability_snapshot": {
+      "FR-AITUI-002": "evolving",
+      "FR-AITUI-005": "evolving",
+      "REL-AITUI-001": "evolving",
+      "SEC-AITUI-001": "evolving",
+      "SEC-AITUI-002": "evolving",
+      "FR-AITUI-003": "evolving",
+      "FR-AITUI-004": "evolving",
+      "FR-AITUI-001": "evolving"
+    },
+    "status_snapshot": {
+      "FR-AITUI-002": "planned",
+      "FR-AITUI-005": "planned",
+      "REL-AITUI-001": "planned",
+      "SEC-AITUI-001": "planned",
+      "SEC-AITUI-002": "planned",
+      "FR-AITUI-003": "planned",
+      "FR-AITUI-004": "planned",
+      "FR-AITUI-001": "planned"
+    }
+  },
+  "req_coverage": {},
+  "final_mutations": [],
+  "pending_mutations": [],
+  "report_path": null,
+  "doculight_viewer_id": null,
+  "checklist_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.checklist.md"
+}

@@ -3,6 +3,10 @@ import type { FormEvent } from 'react';
 import { MessageBox, WindowDialog } from '../dialog';
 import { getRecoveryIconLabel } from '../../types/recoveryOption';
 import type { RecoveryOption, RecoveryOptionIcon } from '../../types';
+import {
+  formatRecoveryDraftArguments,
+  parseRecoveryDraftArguments,
+} from '../../utils/recoveryOptionArguments';
 import { useRecoveryOptions } from './useRecoveryOptions';
 import '../CommandPresetManager/CommandPresetDialog.css';
 
@@ -23,11 +27,11 @@ interface RecoveryOptionDraft {
 }
 
 const BUILTIN_ICON_OPTIONS = [
-  { key: 'bot', label: 'bot' },
-  { key: 'terminal', label: 'terminal' },
-  { key: 'brain', label: 'brain' },
-  { key: 'code', label: 'code' },
-  { key: 'sparkles', label: 'sparkles' },
+  { key: 'bot', label: '🤖' },
+  { key: 'terminal', label: '💻' },
+  { key: 'brain', label: '🧠' },
+  { key: 'code', label: '🧩' },
+  { key: 'sparkles', label: '✨' },
 ];
 
 const UNSAFE_ICON_HELP_TEXT = 'script, style, markup, URL icon values are rejected by validation.';
@@ -47,16 +51,11 @@ function createBlankDraft(): RecoveryOptionDraft {
 }
 
 // @req FR-AITUI-001
-function formatDraftArguments(argumentsList: string[]): string {
-  return argumentsList.join('\n');
-}
-
-// @req FR-AITUI-001
 function optionToDraft(option: RecoveryOption): RecoveryOptionDraft {
   return {
     id: option.id,
     command: option.command,
-    argumentsText: formatDraftArguments(option.arguments),
+    argumentsText: formatRecoveryDraftArguments(option.arguments),
     enabled: option.enabled,
     iconMode: option.icon?.type ?? 'none',
     iconValue: option.icon?.type === 'builtin'
@@ -67,11 +66,6 @@ function optionToDraft(option: RecoveryOption): RecoveryOptionDraft {
     saving: false,
     error: null,
   };
-}
-
-// @req FR-AITUI-001
-function parseDraftArguments(value: string): string[] {
-  return value.split(/\r?\n/).filter(argument => argument.trim().length > 0);
 }
 
 // @req SEC-AITUI-002
@@ -95,7 +89,7 @@ function buildDraftPayload(draft: RecoveryOptionDraft): {
 } {
   return {
     command: draft.command.trim(),
-    arguments: parseDraftArguments(draft.argumentsText),
+    arguments: parseRecoveryDraftArguments(draft.argumentsText),
     enabled: draft.enabled,
     icon: parseDraftIcon(draft),
   };
@@ -260,13 +254,13 @@ export function RecoveryOptionDialog({ open, onClose }: RecoveryOptionDialogProp
           </div>
 
           {createDraft && (
-            <form className="command-preset-form" onSubmit={handleSubmitCreate}>
+            <form className="command-preset-form recovery-option-form" onSubmit={handleSubmitCreate}>
               <RecoveryOptionDraftFields
                 draft={createDraft}
                 onChange={handleCreateDraftChange}
                 commandLabel="명령(command)"
                 argumentsLabel="인수(arguments)"
-                iconLabel="아이콘(icon)"
+                iconLabel="icon"
               />
               <div className="command-preset-form-actions">
                 <button type="submit" className="command-preset-primary-button" disabled={createDraft.saving}>
@@ -357,17 +351,18 @@ function RecoveryOptionDraftFields({
       </label>
       <label className="command-preset-field">
         <span>{argumentsLabel}</span>
-        <textarea
+        <input
+          className="recovery-option-arguments-input"
           value={draft.argumentsText}
           onChange={(event) => onChange({ ...draft, argumentsText: event.target.value, error: null })}
-          placeholder={'--continue\nworkspace path'}
+          placeholder={'--continue "workspace path"'}
           readOnly={draft.saving}
-          rows={3}
         />
       </label>
       <label className="command-preset-field">
         <span>표시 유형</span>
         <select
+          className="recovery-option-mode-select"
           value={draft.iconMode}
           onChange={(event) => {
             const iconMode = event.target.value as RecoveryOptionDraft['iconMode'];
@@ -379,35 +374,20 @@ function RecoveryOptionDraftFields({
             });
           }}
           disabled={draft.saving}
-          style={{
-            height: '34px',
-            background: '#1e1e1e',
-            border: '1px solid #4c4c4c',
-            borderRadius: '4px',
-            color: '#fff',
-            padding: '0 8px',
-          }}
         >
           <option value="none">없음</option>
           <option value="text">텍스트</option>
           <option value="builtin">기본</option>
         </select>
       </label>
-      <label className="command-preset-field">
+      <label className="command-preset-field recovery-option-icon-field">
         <span>{iconLabel}</span>
         {draft.iconMode === 'builtin' ? (
           <select
+            className="recovery-option-icon-select"
             value={draft.iconValue || BUILTIN_ICON_OPTIONS[0].key}
             onChange={(event) => onChange({ ...draft, iconValue: event.target.value, error: null })}
             disabled={draft.saving}
-            style={{
-              height: '34px',
-              background: '#1e1e1e',
-              border: '1px solid #4c4c4c',
-              borderRadius: '4px',
-              color: '#fff',
-              padding: '0 8px',
-            }}
           >
             {BUILTIN_ICON_OPTIONS.map(option => (
               <option key={option.key} value={option.key}>{option.label}</option>
@@ -415,15 +395,16 @@ function RecoveryOptionDraftFields({
           </select>
         ) : (
           <input
+            className="recovery-option-icon-text-input"
             value={draft.iconMode === 'none' ? '' : draft.iconValue}
-            maxLength={32}
+            maxLength={4}
             onChange={(event) => onChange({
               ...draft,
               iconMode: event.target.value ? 'text' : draft.iconMode,
               iconValue: event.target.value,
               error: null,
             })}
-            placeholder="AI"
+            placeholder="🤖"
             readOnly={draft.saving}
           />
         )}
@@ -469,13 +450,13 @@ function RecoveryOptionRow({
       data-testid="recovery-option-row"
     >
       {editingDraft ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr)) auto', gap: '8px', alignItems: 'end' }}>
+        <div className="recovery-option-edit-grid">
           <RecoveryOptionDraftFields
             draft={editingDraft}
             onChange={onDraftChange}
             commandLabel={`${option.command} 명령(command) 수정`}
             argumentsLabel={`${option.command} 인수(arguments) 수정`}
-            iconLabel={`${option.command} 아이콘(icon) 수정`}
+            iconLabel="icon"
           />
           <div className="command-preset-item-actions">
             <button type="button" onClick={() => onSaveDraft(editingDraft)} disabled={editingDraft.saving} aria-label={`${option.command} 저장`}>
@@ -508,13 +489,13 @@ function RecoveryOptionRow({
             </h3>
           </div>
           <div className="command-preset-inline-value">
-            <textarea
-              className="command-preset-item-textarea"
-              value={formatDraftArguments(option.arguments)}
+            <input
+              className="recovery-option-arguments-display"
+              value={formatRecoveryDraftArguments(option.arguments)}
               readOnly
               aria-label={`${option.command} 인수`}
               placeholder="인수 없음"
-              rows={Math.max(2, Math.min(option.arguments.length, 4))}
+              title={formatRecoveryDraftArguments(option.arguments)}
             />
             <div className="command-preset-item-actions">
               <button type="button" onClick={() => onEdit(option)} aria-label={`${option.command} 수정`}>

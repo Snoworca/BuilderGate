@@ -23,6 +23,7 @@ import { MosaicContainer } from './components/Grid';
 import { MetadataRow } from './components/MetadataBar/MetadataRow';
 import { ContextMenu } from './components/ContextMenu';
 import { CommandPresetDialog } from './components/CommandPresetManager';
+import { RecoveryOptionDialog } from './components/RecoveryOptionManager';
 import { buildCommandPresetPasteInput } from './components/CommandPresetManager/commandPresetPaste';
 import {
   TerminalShortcutDialog,
@@ -102,6 +103,7 @@ function AppContent() {
   const [availableShells, setAvailableShells] = useState<ShellInfo[]>([]);
   const [showCommandPresetDialog, setShowCommandPresetDialog] = useState(false);
   const [showTerminalShortcutDialog, setShowTerminalShortcutDialog] = useState(false);
+  const [showRecoveryOptionDialog, setShowRecoveryOptionDialog] = useState(false);
 
   const wm = useWorkspaceManager();
   // Stable ref to avoid re-creating callbacks on every render
@@ -492,6 +494,7 @@ function AppContent() {
         onToggleViewMode={wm.activeWorkspace ? handleToggleViewMode : undefined}
         onOpenCommandPresetManager={() => setShowCommandPresetDialog(true)}
         onOpenTerminalShortcutManager={() => setShowTerminalShortcutDialog(true)}
+        onOpenRecoveryOptionManager={() => setShowRecoveryOptionDialog(true)}
       />
       <div className="main">
         {/* Desktop sidebar */}
@@ -660,6 +663,13 @@ function AppContent() {
           activeSessionId={activeTab?.sessionId ?? null}
           onClose={() => setShowTerminalShortcutDialog(false)}
           onSendTerminalInput={sendTerminalInput}
+        />
+      )}
+
+      {showRecoveryOptionDialog && (
+        <RecoveryOptionDialog
+          open={showRecoveryOptionDialog}
+          onClose={() => setShowRecoveryOptionDialog(false)}
         />
       )}
 

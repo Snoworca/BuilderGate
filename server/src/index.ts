@@ -19,6 +19,7 @@ import { createFileRoutes } from './routes/fileRoutes.js';
 import { createSettingsRoutes } from './routes/settingsRoutes.js';
 import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
 import { createTerminalShortcutRoutes } from './routes/terminalShortcutRoutes.js';
+import { createRecoveryOptionRoutes } from './routes/recoveryOptionRoutes.js';
 import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
 import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
@@ -30,6 +31,7 @@ import { ConfigFileRepository } from './services/ConfigFileRepository.js';
 import { SettingsService } from './services/SettingsService.js';
 import { CommandPresetService } from './services/CommandPresetService.js';
 import { TerminalShortcutService } from './services/TerminalShortcutService.js';
+import { RecoveryOptionService } from './services/RecoveryOptionService.js';
 import { SessionManager, sessionManager } from './services/SessionManager.js';
 import { SSLService } from './services/SSLService.js';
 import { CryptoService } from './services/CryptoService.js';
@@ -73,6 +75,7 @@ let runtimeConfigStore: RuntimeConfigStore;
 let settingsService: SettingsService;
 let commandPresetService: CommandPresetService;
 let terminalShortcutService: TerminalShortcutService;
+let recoveryOptionService: RecoveryOptionService;
 let workspaceService: WorkspaceService;
 let cwdSnapshotTimer: ReturnType<typeof setInterval> | null = null;
 let terminalObservabilityTimer: ReturnType<typeof setInterval> | null = null;
@@ -283,6 +286,11 @@ function setupRoutes(): void {
   app.use('/api/command-presets', authMiddleware, commandPresetRoutes);
   const terminalShortcutRoutes = createTerminalShortcutRoutes(terminalShortcutService);
   app.use('/api/terminal-shortcuts', authMiddleware, terminalShortcutRoutes);
+  const recoveryOptionRoutes = createRecoveryOptionRoutes(recoveryOptionService, {
+    onOptionUpdated: (option) => workspaceService.applyRecoveryOptionToTabs(option),
+    onOptionDeleted: (id) => workspaceService.clearRecoveryMetadataForOption(id),
+  });
+  app.use('/api/recovery-options', authMiddleware, recoveryOptionRoutes);
   app.get('/api/sessions/telemetry', authMiddleware, (_req, res) => {
     const wsRouter = app.get('wsRouter') as WsRouter | undefined;
     res.json({
@@ -437,11 +445,14 @@ async function startServer(): Promise<void> {
     terminalShortcutService = new TerminalShortcutService();
     await terminalShortcutService.initialize();
     console.log('[TerminalShortcut] TerminalShortcutService initialized');
+    recoveryOptionService = new RecoveryOptionService();
+    await recoveryOptionService.initialize();
+    console.log('[RecoveryOption] RecoveryOptionService initialized');
 
     // ========================================================================
     // Initialize Workspace Service (Step 7)
     // ========================================================================
-    workspaceService = new WorkspaceService(sessionManager);
+    workspaceService = new WorkspaceService(sessionManager, { recoveryOptionService });
     await workspaceService.initialize();
     const orphanTabs = await workspaceService.checkOrphanTabs();
     if (orphanTabs.length > 0) {

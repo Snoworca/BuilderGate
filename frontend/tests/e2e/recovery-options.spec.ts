@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
-  clearRecoveryOptions,
+  clearRecoveryOptionsForE2E,
   createRecoveryOptionViaApi,
   ensureDefaultRecoveryOptionsForE2E,
   login,
@@ -8,9 +8,11 @@ import {
   readRecoveryOptionsViaApi,
 } from './helpers';
 
+const RECOVERY_OPTIONS_BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'https://localhost:2222';
+
 test.describe('Recovery Options Dialog', () => {
   test.use({
-    baseURL: 'https://localhost:2002',
+    baseURL: RECOVERY_OPTIONS_BASE_URL,
     ignoreHTTPSErrors: true,
     viewport: { width: 1280, height: 720 },
     isMobile: false,
@@ -22,18 +24,18 @@ test.describe('Recovery Options Dialog', () => {
       'Desktop-only recovery option coverage',
     );
     await login(page);
-    await clearRecoveryOptions(page);
+    await clearRecoveryOptionsForE2E(page);
     await ensureDefaultRecoveryOptionsForE2E(page);
   });
 
   test.afterEach(async ({ page }, testInfo) => {
     if (testInfo.project.name !== '' && testInfo.project.name !== 'Desktop Chrome') return;
-    await clearRecoveryOptions(page);
+    await clearRecoveryOptionsForE2E(page);
     await ensureDefaultRecoveryOptionsForE2E(page);
   });
 
   test('opens from desktop Tools menu and validates a blank add form', async ({ page }) => {
-    expect(new URL(page.url()).origin).toBe('https://localhost:2002');
+    expect(new URL(page.url()).origin).toBe(new URL(RECOVERY_OPTIONS_BASE_URL).origin);
 
     await page.locator('button[title="Tools"]').click();
     await expect(page.locator('.context-menu-item:has-text("복구 옵션")')).toBeVisible();
@@ -67,27 +69,22 @@ test.describe('Recovery Options Dialog', () => {
     const created = (await readRecoveryOptionsViaApi(page)).find(option => option.command === command);
     expect(created?.arguments).toEqual([]);
 
-    await page.locator('.window-dialog-close').click();
-    await ensureDefaultRecoveryOptionsForE2E(page);
-    await openRecoveryOptionDialog(page);
-    const refreshedDialog = page.getByTestId('recovery-option-dialog');
-
-    for (const command of ['claude', 'codex'] as const) {
+    for (const defaultCommand of ['claude', 'codex'] as const) {
       const options = await readRecoveryOptionsViaApi(page);
-      expect(options.some(option => option.command === command), `expected ${command} default recovery option`).toBe(true);
+      expect(options.some(option => option.command === defaultCommand), `expected ${defaultCommand} default recovery option`).toBe(true);
 
-      await page.getByLabel(`${command} 삭제`).click();
+      await dialog.getByLabel(`${defaultCommand} 삭제`, { exact: true }).click();
       await page.getByRole('button', { name: 'OK' }).click();
-      await expect(refreshedDialog.getByText(command)).toHaveCount(0);
-      expect((await readRecoveryOptionsViaApi(page)).some(option => option.command === command)).toBe(false);
+      await expect(dialog.getByRole('heading', { name: defaultCommand, exact: true })).toHaveCount(0);
+      expect((await readRecoveryOptionsViaApi(page)).some(option => option.command === defaultCommand)).toBe(false);
     }
 
     await page.locator('.window-dialog-close').click();
     await ensureDefaultRecoveryOptionsForE2E(page);
     await openRecoveryOptionDialog(page);
     const restoredDialog = page.getByTestId('recovery-option-dialog');
-    await expect(restoredDialog.getByText('claude')).toBeVisible();
-    await expect(restoredDialog.getByText('codex')).toBeVisible();
+    await expect(restoredDialog.getByRole('heading', { name: 'claude', exact: true })).toBeVisible();
+    await expect(restoredDialog.getByRole('heading', { name: 'codex', exact: true })).toBeVisible();
     await page.locator('.window-dialog-close').click();
   });
 

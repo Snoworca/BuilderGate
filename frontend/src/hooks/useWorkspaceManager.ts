@@ -9,8 +9,16 @@ import {
 } from './mosaicLayoutStorage';
 import { resolveActiveWorkspaceAfterRemoval } from './workspaceActiveSelection';
 
-type WorkspaceTabChanges = Partial<Omit<WorkspaceTab, 'terminalTitle'>> & {
+type WorkspaceTabChanges = Partial<Omit<
+  WorkspaceTab,
+  'terminalTitle' | 'recoveryOptionId' | 'recoveryCommand' | 'recoveryArguments' | 'recoveryIcon' | 'recoveryUpdatedAt'
+>> & {
   terminalTitle?: string | null;
+  recoveryOptionId?: string | null;
+  recoveryCommand?: string | null;
+  recoveryArguments?: string[] | null;
+  recoveryIcon?: WorkspaceTab['recoveryIcon'] | null;
+  recoveryUpdatedAt?: string | null;
 };
 
 // ============================================================================
@@ -43,7 +51,15 @@ function clearWorkspaceSnapshots(runtimeTabs: WorkspaceTabRuntime[], workspaceId
 }
 
 function applyWorkspaceTabChanges(tab: WorkspaceTabRuntime, changes: WorkspaceTabChanges): WorkspaceTabRuntime {
-  const { terminalTitle, ...rest } = changes;
+  const {
+    terminalTitle,
+    recoveryOptionId,
+    recoveryCommand,
+    recoveryArguments,
+    recoveryIcon,
+    recoveryUpdatedAt,
+    ...rest
+  } = changes;
   const next: WorkspaceTabRuntime = { ...tab, ...rest };
   if ('terminalTitle' in changes) {
     if (typeof terminalTitle === 'string') {
@@ -51,6 +67,26 @@ function applyWorkspaceTabChanges(tab: WorkspaceTabRuntime, changes: WorkspaceTa
     } else {
       delete next.terminalTitle;
     }
+  }
+  if ('recoveryOptionId' in changes) {
+    if (typeof recoveryOptionId === 'string') next.recoveryOptionId = recoveryOptionId;
+    else delete next.recoveryOptionId;
+  }
+  if ('recoveryCommand' in changes) {
+    if (typeof recoveryCommand === 'string') next.recoveryCommand = recoveryCommand;
+    else delete next.recoveryCommand;
+  }
+  if ('recoveryArguments' in changes) {
+    if (Array.isArray(recoveryArguments)) next.recoveryArguments = recoveryArguments;
+    else delete next.recoveryArguments;
+  }
+  if ('recoveryIcon' in changes) {
+    if (recoveryIcon) next.recoveryIcon = recoveryIcon;
+    else delete next.recoveryIcon;
+  }
+  if ('recoveryUpdatedAt' in changes) {
+    if (typeof recoveryUpdatedAt === 'string') next.recoveryUpdatedAt = recoveryUpdatedAt;
+    else delete next.recoveryUpdatedAt;
   }
   return next;
 }

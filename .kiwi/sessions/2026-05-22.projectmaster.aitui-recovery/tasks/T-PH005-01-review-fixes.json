@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-05-22.projectmaster.aitui-recovery",
+  "target": "0.5.4-ai-tui-recovery",
+  "task_id": "T-PH005-01-review-fixes",
+  "parent_task_id": "T-PH005-01",
+  "status": "completed",
+  "started_at": "2026-05-22T18:20:00+09:00",
+  "completed_at": "2026-05-22T18:33:36+09:00",
+  "changed_files": [
+    "frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx",
+    "frontend/tests/unit/recoveryOptionDialog.test.ts",
+    "frontend/tests/e2e/recovery-options.spec.ts",
+    "frontend/tests/e2e/helpers.ts"
+  ],
+  "findings_fixed": [
+    {
+      "severity": "high",
+      "summary": "RecoveryOptionDialog now uses one argument per line for edit/save so an argument such as \"workspace path\" remains one ordered argument instead of being split on whitespace.",
+      "coverage": [
+        "frontend/tests/unit/recoveryOptionDialog.test.ts"
+      ]
+    },
+    {
+      "severity": "medium",
+      "summary": "Recovery options E2E cleanup now restores valid Claude/Codex defaults with allowlisted built-in icon keys, and the deletion test repeats the default-delete cycle to prove repeatability.",
+      "coverage": [
+        "frontend/tests/unit/recoveryOptionDialog.test.ts",
+        "frontend/tests/e2e/recovery-options.spec.ts",
+        "frontend/tests/e2e/helpers.ts"
+      ]
+    }
+  ],
+  "verification": [
+    {
+      "cmd": "node --experimental-strip-types --test frontend/tests/unit/recoveryOptionDialog.test.ts frontend/tests/unit/recoveryOptionIcon.test.ts",
+      "exit_code": 1,
+      "result": "expected_red",
+      "notes": "New regression guards failed before implementation; 11 passed, 2 failed."
+    },
+    {
+      "cmd": "node --experimental-strip-types --test frontend/tests/unit/recoveryOptionDialog.test.ts frontend/tests/unit/recoveryOptionIcon.test.ts",
+      "exit_code": 0,
+      "result": "passed",
+      "notes": "13 tests passed."
+    },
+    {
+      "cmd": "npm --prefix frontend run typecheck",
+      "exit_code": 0,
+      "result": "passed"
+    },
+    {
+      "cmd": "npm --prefix frontend exec playwright test tests/e2e/recovery-options.spec.ts --project \"Desktop Chrome\"",
+      "exit_code": 0,
+      "result": "passed",
+      "notes": "3 tests passed against https://localhost:2002."
+    },
+    {
+      "cmd": "npm --prefix server test",
+      "exit_code": 0,
+      "result": "passed",
+      "notes": "262 tests passed; server production code was not changed."
+    }
+  ],
+  "reviewer": {
+    "tool": "codex exec --ephemeral --sandbox read-only",
+    "scope": [
+      "frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx",
+      "frontend/tests/unit/recoveryOptionDialog.test.ts",
+      "frontend/tests/e2e/recovery-options.spec.ts",
+      "frontend/tests/e2e/helpers.ts"
+    ],
+    "result": "No findings.",
+    "completed_at": "2026-05-22T18:31:40+09:00"
+  },
+  "summary": "Fixed argument round-trip semantics and E2E default deletion repeatability without changing production server behavior."
+}

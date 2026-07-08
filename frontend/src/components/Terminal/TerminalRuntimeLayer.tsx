@@ -6,6 +6,7 @@ import { ensureTerminalRef, pruneTerminalRefsMap } from './terminalRuntimeRefs';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import { useLongPress } from '../../hooks/useLongPress';
 import type { TerminalShortcutState } from '../../types';
+import { suppressTerminalSecondaryButtonEvent } from '../../utils/terminalPointerPolicy';
 
 const PARKED_STYLE: React.CSSProperties = {
   position: 'absolute',
@@ -95,6 +96,10 @@ function TerminalRuntimeEntry({
       data-terminal-runtime-entry="true"
       style={style}
       onPointerDownCapture={(event) => {
+        if (suppressTerminalSecondaryButtonEvent(event)) {
+          return;
+        }
+
         if (event.button === 1 && isGridSurface) {
           event.preventDefault();
           event.stopPropagation();
@@ -104,6 +109,9 @@ function TerminalRuntimeEntry({
 
         getHostInteractions(tab.id)?.onPointerDown?.();
         focusTerminal(event.currentTarget);
+      }}
+      onMouseDownCapture={(event) => {
+        suppressTerminalSecondaryButtonEvent(event);
       }}
       onClickCapture={(event) => {
         getHostInteractions(tab.id)?.onPointerDown?.();

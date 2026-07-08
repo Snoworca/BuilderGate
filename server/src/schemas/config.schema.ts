@@ -174,9 +174,9 @@ export const snapshotResourceLimitsSchema = defaultObject(z.object({
 });
 
 export const workspaceRuntimeResourceLimitsSchema = defaultObject(z.object({
-  maxLiveWorkspaces: countLimit(1, 10, 3),
-  maxLiveTerminals: countLimit(1, 128, 12),
-  hiddenRuntimeTtlMs: durationLimit(1000, 3600000, 60000),
+  maxLiveWorkspaces: countLimit(1, 10, 10),
+  maxLiveTerminals: countLimit(1, 128, 32),
+  hiddenRuntimeTtlMs: durationLimit(1000, 3600000, 600000),
 }).strict());
 
 export const telemetryResourceLimitsSchema = defaultObject(z.object({

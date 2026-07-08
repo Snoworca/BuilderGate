@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-05-22.projectmaster.aitui-recovery",
+  "coder_run_id": "2026-05-22.projectmaster.aitui-recovery:T-PH004-01",
+  "target": "0.5.4-ai-tui-recovery",
+  "task_id": "T-PH004-01",
+  "phase_id": "PH-004",
+  "status": "done",
+  "task_phase": "red",
+  "plan_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md",
+  "sidecar_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.sidecar.json",
+  "completed_at": "2026-05-22T02:30:40Z",
+  "req_ids": [
+    "FR-AITUI-001",
+    "SEC-AITUI-002"
+  ],
+  "files_touched": [
+    "frontend/tests/unit/recoveryOptionDialog.test.ts",
+    "frontend/tests/unit/recoveryOptionIcon.test.ts",
+    "frontend/tests/e2e/recovery-options.spec.ts",
+    "frontend/tests/e2e/helpers.ts"
+  ],
+  "production_implementation_added": false,
+  "test_cases_added": 14,
+  "red_evidence": {
+    "unit": {
+      "command": "node --experimental-strip-types --test frontend/tests/unit/recoveryOptionDialog.test.ts frontend/tests/unit/recoveryOptionIcon.test.ts",
+      "exit_code": 1,
+      "expected_red": true,
+      "failed_tests": 11,
+      "failure_signature": "recovery option UI/API hook is not implemented",
+      "captured_at": "2026-05-22T02:25:10Z"
+    },
+    "e2e": {
+      "command": "npm --prefix frontend exec playwright test tests/e2e/recovery-options.spec.ts --project \"Desktop Chrome\"",
+      "exit_code": 1,
+      "expected_red": true,
+      "failed_tests": 3,
+      "failure_signature": "locator('.context-menu-item:has-text(\"복구 옵션\")') element(s) not found",
+      "target": "https://localhost:2002",
+      "captured_at": "2026-05-22T02:29:30Z"
+    }
+  },
+  "verification": [
+    {
+      "command": "npm --prefix frontend run typecheck",
+      "exit_code": 0,
+      "captured_at": "2026-05-22T02:29:50Z"
+    },
+    {
+      "command": "git diff --check -- frontend/tests/unit/recoveryOptionDialog.test.ts frontend/tests/unit/recoveryOptionIcon.test.ts frontend/tests/e2e/recovery-options.spec.ts frontend/tests/e2e/helpers.ts",
+      "exit_code": 0,
+      "captured_at": "2026-05-22T02:25:10Z"
+    },
+    {
+      "command": "speckiwi.validate_spec",
+      "exit_code": 0,
+      "errors": 0,
+      "warnings": 30,
+      "captured_at": "2026-05-22T02:30:40Z"
+    }
+  ],
+  "sub_agent_validation": [
+    {
+      "reviewer": "S1-intent-alignment",
+      "status": "pass",
+      "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/tdd_review_T-PH004-01.json"
+    },
+    {
+      "reviewer": "S2-tech-quality",
+      "status": "pass",
+      "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/tdd_review_T-PH004-01.json"
+    },
+    {
+      "reviewer": "S3-req-mapping",
+      "status": "pass",
+      "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/tdd_review_T-PH004-01.json"
+    },
+    {
+      "reviewer": "S4-red-verification",
+      "status": "pass",
+      "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/tdd_review_T-PH004-01.json"
+    }
+  ],
+  "srs_mutation": {
+    "tool": "speckiwi.add_completed_work",
+    "status": "written",
+    "scope": "AITUI",
+    "target": "0.5.4-ai-tui-recovery",
+    "report_path": ".kiwi/sessions/2026-05-22.projectmaster.aitui-recovery/reports/coder-2026-05-22.projectmaster.aitui-recovery.md",
+    "allow_incomplete": true
+  }
+}

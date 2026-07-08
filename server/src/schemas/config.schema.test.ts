@@ -34,7 +34,9 @@ test('configSchema applies resourceLimits defaults to legacy config files', () =
   assert.equal(parsed.resourceLimits.terminal.hiddenOutputPolicy, 'snapshot-restore');
   assert.equal(parsed.resourceLimits.terminal.hiddenOutputTailBytes, 262144);
   assert.equal(parsed.resourceLimits.snapshots.maxEntries, 16);
-  assert.equal(parsed.resourceLimits.workspaceRuntime.maxLiveTerminals, 12);
+  assert.equal(parsed.resourceLimits.workspaceRuntime.maxLiveWorkspaces, 10);
+  assert.equal(parsed.resourceLimits.workspaceRuntime.maxLiveTerminals, 32);
+  assert.equal(parsed.resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs, 600000);
   assert.equal(parsed.resourceLimits.telemetry.recentEventLimit, 256);
   assert.equal(parsed.stabilityModes.headlessQueueMode, 'observe');
   assert.equal(parsed.stabilityModes.wsSendMode, 'direct');

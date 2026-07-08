@@ -10,6 +10,7 @@ import type {
   UpdateRecoveryOptionInput,
 } from '../types/recoveryOption.types.js';
 import {
+  getRecoveryExecutableToken,
   normalizeRecoveryExecutable,
   validateRecoveryArguments,
   validateRecoveryCommand,
@@ -79,6 +80,28 @@ export class RecoveryOptionService {
   // @req REL-AITUI-001
   getDiagnostics(): RecoveryOptionDiagnostic[] {
     return this.diagnostics.map(diagnostic => ({ ...diagnostic }));
+  }
+
+  // @req FR-AITUI-003
+  findEnabledBySubmittedCommand(commandLine: string): RecoveryOption | null {
+    const executable = getRecoveryExecutableToken(commandLine);
+    if (!executable) {
+      return null;
+    }
+    const option = this.options.find(item => (
+      item.enabled === true
+      && normalizeRecoveryExecutable(item.command) === executable
+    ));
+    return option ? this.cloneOption(option) : null;
+  }
+
+  // @req FR-AITUI-004
+  findEnabledById(id: string | undefined | null): RecoveryOption | null {
+    if (!id) {
+      return null;
+    }
+    const option = this.options.find(item => item.id === id && item.enabled === true);
+    return option ? this.cloneOption(option) : null;
   }
 
   // @req FR-AITUI-002

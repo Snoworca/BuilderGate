@@ -557,9 +557,9 @@ test('runtime config falls back to defaults for invalid resource limit sections'
       tombstoneTtlMs: 86_400_000,
     });
     assert.deepEqual(getWorkspaceRuntimeResourceLimits(), {
-      maxLiveWorkspaces: 3,
-      maxLiveTerminals: 12,
-      hiddenRuntimeTtlMs: 60_000,
+      maxLiveWorkspaces: 10,
+      maxLiveTerminals: 32,
+      hiddenRuntimeTtlMs: 600_000,
     });
   } finally {
     globalThis.fetch = originalFetch;

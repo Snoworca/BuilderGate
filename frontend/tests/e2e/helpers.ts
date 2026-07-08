@@ -1,5 +1,20 @@
 import { Page, expect } from '@playwright/test';
 
+interface RecoveryOptionPayload {
+  command: string;
+  arguments?: string[];
+  enabled?: boolean;
+  icon?: { type: 'builtin'; key: string } | { type: 'text'; value: string } | null;
+}
+
+interface RecoveryOptionRecord extends Required<Omit<RecoveryOptionPayload, 'icon'>> {
+  id: string;
+  icon?: RecoveryOptionPayload['icon'];
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Login with password from env or default */
 export async function login(page: Page) {
   const password = process.env.BUILDERGATE_PASSWORD || '1234';
@@ -27,6 +42,87 @@ export async function openTerminalShortcutDialog(page: Page): Promise<void> {
   await page.locator('button[title="Tools"]').click();
   await page.locator('.context-menu-item:has-text("터미널 키보드")').click();
   await expect(page.getByTestId('terminal-shortcut-dialog')).toBeVisible({ timeout: 10000 });
+}
+
+/** Open the recovery option manager through the header tools menu */
+export async function openRecoveryOptionDialog(page: Page): Promise<void> {
+  await page.locator('button[title="Tools"]').click();
+  await page.locator('.context-menu-item:has-text("복구 옵션")').click();
+  await expect(page.getByTestId('recovery-option-dialog')).toBeVisible({ timeout: 10000 });
+}
+
+/** Read recovery options directly through the API */
+export async function readRecoveryOptionsViaApi(page: Page): Promise<RecoveryOptionRecord[]> {
+  return page.evaluate(async () => {
+    const token = localStorage.getItem('cws_auth_token');
+    const res = await fetch('/api/recovery-options', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to read recovery options: ${res.status}`);
+    }
+    const data = await res.json();
+    return Array.isArray(data.options) ? data.options : [];
+  });
+}
+
+/** Create a recovery option directly through the API */
+export async function createRecoveryOptionViaApi(page: Page, input: RecoveryOptionPayload): Promise<RecoveryOptionRecord> {
+  return page.evaluate(async (payload) => {
+    const token = localStorage.getItem('cws_auth_token');
+    const res = await fetch('/api/recovery-options', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to create recovery option: ${res.status} ${await res.text()}`);
+    }
+    return await res.json();
+  }, input);
+}
+
+/** Remove only recovery options created by E2E tests */
+export async function clearRecoveryOptionsForE2E(page: Page, prefixes = ['e2e-recovery-']): Promise<void> {
+  await page.evaluate(async (commandPrefixes) => {
+    const token = localStorage.getItem('cws_auth_token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch('/api/recovery-options', { headers });
+    if (!res.ok) return;
+    const data = await res.json();
+    const options = Array.isArray(data.options) ? data.options : [];
+    await Promise.all(options
+      .filter((option: { command?: string }) => commandPrefixes.some(prefix => option.command?.startsWith(prefix)))
+      .map((option: { id: string }) => fetch(`/api/recovery-options/${option.id}`, {
+        method: 'DELETE',
+        headers,
+      })));
+  }, prefixes);
+}
+
+/** Ensure Claude and Codex defaults exist for repeatable recovery option E2E runs */
+export async function ensureDefaultRecoveryOptionsForE2E(page: Page): Promise<void> {
+  const options = await readRecoveryOptionsViaApi(page);
+  const existingCommands = new Set(options.map(option => option.command));
+  if (!existingCommands.has('claude')) {
+    await createRecoveryOptionViaApi(page, {
+      command: 'claude',
+      arguments: ['--continue'],
+      enabled: true,
+      icon: { type: 'builtin', key: 'bot' },
+    });
+  }
+  if (!existingCommands.has('codex')) {
+    await createRecoveryOptionViaApi(page, {
+      command: 'codex',
+      arguments: ['resume', '--last'],
+      enabled: true,
+      icon: { type: 'builtin', key: 'terminal' },
+    });
+  }
 }
 
 /** Remove terminal shortcut E2E data from the server and local browser preferences */

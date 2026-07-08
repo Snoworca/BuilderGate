@@ -1,0 +1,103 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-05-22.projectmaster.aitui-recovery",
+  "coder_run_id": "2026-05-22.projectmaster.aitui-recovery:T-PH002-02",
+  "target": "0.5.4-ai-tui-recovery",
+  "task_id": "T-PH002-02",
+  "phase_id": "PH-002",
+  "status": "done",
+  "task_phase": "green",
+  "plan_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md",
+  "sidecar_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.sidecar.json",
+  "started_at": "2026-05-22T01:20:22Z",
+  "completed_at": "2026-05-22T01:40:45Z",
+  "req_ids": [
+    "FR-AITUI-003",
+    "SEC-AITUI-002"
+  ],
+  "files_touched": [
+    "server/src/services/SessionManager.ts",
+    "server/src/services/WorkspaceService.ts",
+    "server/src/types/workspace.types.ts",
+    "server/src/test-runner.ts"
+  ],
+  "phase1": {
+    "tdd_source_task_id": "T-PH002-01",
+    "red_evidence": {
+      "command": "npm --prefix server test",
+      "exit_code": 1,
+      "expected_red": true,
+      "failed_tests": 7,
+      "failure_signature": "recovery option metadata not implemented"
+    }
+  },
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "server/src/services/SessionManager.ts",
+          "server/src/services/WorkspaceService.ts",
+          "server/src/types/workspace.types.ts",
+          "server/src/test-runner.ts"
+        ]
+      }
+    ],
+    "formal_reviews": [
+      {
+        "iter": 1,
+        "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/formal_review_T-PH002-02.json"
+      }
+    ],
+    "prickly_reviews": [
+      {
+        "iter": 3,
+        "result": "No findings",
+        "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/prickly_review_T-PH002-02.json"
+      }
+    ],
+    "green_evidence": {
+      "command": "npm --prefix server test",
+      "exit_code": 0,
+      "passed_tests": 251,
+      "timestamp": "2026-05-22T01:39:53Z"
+    },
+    "dod_check": [
+      {
+        "item": "All T-PH002-01 tests pass",
+        "satisfied": true
+      },
+      {
+        "item": "Metadata is cleared when no enabled option matches",
+        "satisfied": true
+      },
+      {
+        "item": "writeInput matching does not mark foreground AI TUI typing as running",
+        "satisfied": true
+      }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "scope": "full",
+      "command": "npm --prefix server test",
+      "passed": 251,
+      "failed": 0
+    },
+    "mcp_calls": [
+      {
+        "tool": "speckiwi.add_completed_work",
+        "ok": true,
+        "target": "0.5.4-ai-tui-recovery",
+        "scope": "AITUI"
+      }
+    ]
+  },
+  "sub_agent_validation": [
+    {
+      "reviewer": "codex-prickly-review-subagent",
+      "status": "pass",
+      "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/prickly_review_T-PH002-02.json"
+    }
+  ]
+}

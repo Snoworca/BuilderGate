@@ -156,9 +156,9 @@ test('RuntimeConfigStore exposes Wave6 resource capabilities without leaking ser
         tombstoneTtlMs: 86400000,
       },
       workspaceRuntime: {
-        maxLiveWorkspaces: 3,
-        maxLiveTerminals: 12,
-        hiddenRuntimeTtlMs: 60000,
+        maxLiveWorkspaces: 10,
+        maxLiveTerminals: 32,
+        hiddenRuntimeTtlMs: 600000,
       },
     },
   });

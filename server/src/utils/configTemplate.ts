@@ -86,9 +86,9 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
       tombstoneTtlMs: 86400000,
     },
     workspaceRuntime: {
-      maxLiveWorkspaces: 3,
-      maxLiveTerminals: 12,
-      hiddenRuntimeTtlMs: 60000,
+      maxLiveWorkspaces: 10,
+      maxLiveTerminals: 32,
+      hiddenRuntimeTtlMs: 600000,
     },
     telemetry: {
       sampleIntervalMs: 60000,

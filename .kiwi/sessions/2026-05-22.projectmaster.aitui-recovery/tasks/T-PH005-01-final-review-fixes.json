@@ -1,0 +1,90 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-05-22.projectmaster.aitui-recovery",
+  "target": "0.5.4-ai-tui-recovery",
+  "task_id": "T-PH005-01-final-review-fixes",
+  "parent_task_id": "T-PH005-01",
+  "status": "completed",
+  "started_at": "2026-05-22T18:34:00+09:00",
+  "completed_at": "2026-05-22T18:47:00+09:00",
+  "changed_files": [
+    ".gitignore",
+    "frontend/tests/e2e/recovery-options.spec.ts",
+    "docs/spec/00.index.md"
+  ],
+  "cleanup": [
+    {
+      "path": "server/data/recovery-options.json",
+      "action": "removed_generated_runtime_file",
+      "notes": "Inspected before deletion; contained generated recovery option runtime defaults."
+    },
+    {
+      "path": "server/data/recovery-options.json.bak",
+      "action": "removed_generated_runtime_file",
+      "notes": "Inspected before deletion; contained generated recovery option runtime data including E2E rows before verification and only regenerated defaults after verification."
+    },
+    {
+      "path": "-",
+      "action": "removed_generated_stray_file",
+      "notes": "Inspected before deletion; content was exactly \"Verified\"."
+    }
+  ],
+  "findings_fixed": [
+    {
+      "severity": "high",
+      "summary": "Added precise .gitignore entries for recovery-options runtime JSON and backup files, then removed generated recovery option runtime files from the worktree."
+    },
+    {
+      "severity": "medium",
+      "summary": "Updated the recovery-options Playwright test to delete both claude and codex defaults through UI controls, assert each deletion via API, then restore and verify both defaults for repeatability."
+    },
+    {
+      "severity": "low",
+      "summary": "Removed only the extra blank line at EOF from docs/spec/00.index.md."
+    },
+    {
+      "severity": "low",
+      "summary": "Removed the generated root stray file named '-' after confirming it contained only \"Verified\"."
+    }
+  ],
+  "verification": [
+    {
+      "cmd": "git diff --check",
+      "exit_code": 0,
+      "result": "passed",
+      "notes": "Git printed CRLF conversion warnings only; no whitespace errors."
+    },
+    {
+      "cmd": "npm --prefix frontend run typecheck",
+      "exit_code": 0,
+      "result": "passed"
+    },
+    {
+      "cmd": "node --experimental-strip-types --test frontend/tests/unit/recoveryOptionDialog.test.ts frontend/tests/unit/recoveryOptionIcon.test.ts",
+      "exit_code": 0,
+      "result": "passed",
+      "notes": "13 tests passed."
+    },
+    {
+      "cmd": "npm --prefix frontend exec playwright test tests/e2e/recovery-options.spec.ts --project \"Desktop Chrome\"",
+      "exit_code": 0,
+      "result": "passed",
+      "target": "https://localhost:2002",
+      "notes": "3 tests passed."
+    },
+    {
+      "cmd": "npm --prefix server test",
+      "exit_code": 0,
+      "result": "passed",
+      "notes": "262 tests passed."
+    }
+  ],
+  "reviewer": {
+    "tool": "codex exec --ephemeral --sandbox read-only",
+    "role": "strict phase-completion review sub-agent",
+    "completed_at": "2026-05-22T18:46:00+09:00",
+    "result": "No findings",
+    "summary": "Reviewer confirmed exact recovery runtime ignore entries, no candidate runtime/root '-' files, explicit UI deletion of both claude and codex, restored defaults, and no trailing blank line at EOF."
+  },
+  "summary": "Fixed the second final-review loop findings: recovery-options runtime files are ignored and cleaned, both default recovery options are deleted through the UI and restored in E2E, the SRS index EOF blank line is removed, and the generated root '-' file is removed."
+}

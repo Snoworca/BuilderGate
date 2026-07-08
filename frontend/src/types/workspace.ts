@@ -1,3 +1,5 @@
+import type { RecoveryOptionIcon } from './recoveryOption';
+
 export interface Workspace {
   id: string;
   name: string;
@@ -28,6 +30,11 @@ export interface WorkspaceTab {
   lastExitCode?: number | null;
   lifecycleUpdatedAt?: string;
   generation?: number;
+  recoveryOptionId?: string;
+  recoveryCommand?: string;
+  recoveryArguments?: string[];
+  recoveryIcon?: RecoveryOptionIcon | null;
+  recoveryUpdatedAt?: string;
 }
 
 export type WorkspaceTabNameSource = 'default' | 'terminal-title' | 'user';

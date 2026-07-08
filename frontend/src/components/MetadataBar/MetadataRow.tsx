@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
+import { getRecoveryIconLabel } from '../../types/recoveryOption';
 import { useInlineRename } from '../../hooks/useInlineRename';
 
 interface Props {
@@ -37,6 +38,17 @@ function truncatePath(cwd: string, maxChars = 30): string {
   return '...' + tail;
 }
 
+function getSafeRecoveryIconLabel(recoveryIcon: WorkspaceTabRuntime['recoveryIcon']): string | null {
+  if (recoveryIcon?.type === 'builtin') {
+    return getRecoveryIconLabel(recoveryIcon);
+  }
+  if (recoveryIcon?.type === 'text' && typeof recoveryIcon.value === 'string') {
+    return getRecoveryIconLabel(recoveryIcon);
+  }
+  // Unsupported persisted icons are omitted.
+  return null;
+}
+
 export function MetadataRow({ tab, onRename }: Props) {
   const [elapsed, setElapsed] = useState(() => formatElapsed(tab.createdAt));
   const [copied, setCopied] = useState(false);
@@ -63,6 +75,7 @@ export function MetadataRow({ tab, onRename }: Props) {
   }, [tab.cwd]);
 
   const color = TAB_COLORS[tab.colorIndex] || TAB_COLORS[0];
+  const recoveryIconLabel = getSafeRecoveryIconLabel(tab.recoveryIcon);
 
   return (
     <div style={{
@@ -82,6 +95,20 @@ export function MetadataRow({ tab, onRename }: Props) {
       }} />
 
       {/* Session name — 더블클릭 시 인라인 편집 */}
+      {recoveryIconLabel && (
+        <span
+          title={tab.recoveryCommand ? `Recovery: ${tab.recoveryCommand}` : 'Recovery'}
+          style={{
+            color: '#d7d7d7',
+            marginLeft: '8px',
+            fontSize: '11px',
+            lineHeight: 1,
+            flexShrink: 0,
+          }}
+        >
+          {recoveryIconLabel}
+        </span>
+      )}
       {rename.isEditing ? (
         <input
           ref={rename.inputRef}
@@ -92,7 +119,7 @@ export function MetadataRow({ tab, onRename }: Props) {
           onBlur={rename.handleBlur}
           style={{
             color: '#fff',
-            marginLeft: '8px',
+            marginLeft: recoveryIconLabel ? '4px' : '8px',
             background: 'transparent',
             border: '1px solid #555',
             borderRadius: '2px',
@@ -107,7 +134,7 @@ export function MetadataRow({ tab, onRename }: Props) {
           onDoubleClick={onRename ? () => rename.startEdit(tab.name) : undefined}
           style={{
             color: '#fff',
-            marginLeft: '8px',
+            marginLeft: recoveryIconLabel ? '4px' : '8px',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',

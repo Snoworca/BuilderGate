@@ -49,9 +49,13 @@ test('T-PH004-01 SEC-AITUI-002 AC-2 emoji or plain text icons render as text dat
   const typeSource = readSource('src/types/recoveryOption.ts');
   const metadataRowSource = readSource('src/components/MetadataBar/MetadataRow.tsx');
   const tabBarSource = readSource('src/components/Workspace/WorkspaceTabBar.tsx');
+  const dialogSource = readSource('src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx');
 
   expectSource(typeSource, /type\s*:\s*['"]text['"]/, 'RecoveryOptionIcon must include a safe text icon representation');
   expectSource(typeSource, /value\s*:\s*string/, 'Text recovery icons must store a string value');
+  expectSource(typeSource, /bot:\s*['"`]🤖['"`]/, 'Built-in bot icon must render as an emoji');
+  expectSource(typeSource, /terminal:\s*['"`]💻['"`]/, 'Built-in terminal icon must render as an emoji');
+  expectSource(dialogSource, /label:\s*['"`]🤖['"`]/, 'Built-in icon selector must show emoji labels');
   expectAnySource(metadataRowSource, [/recoveryIcon[^;\n]*\.value/, /\.value[^;\n]*recoveryIcon/], 'MetadataRow must render text icons as text data');
   expectAnySource(tabBarSource, [/recoveryIcon[^;\n]*\.value/, /\.value[^;\n]*recoveryIcon/], 'WorkspaceTabBar must render text icons as text data');
 });

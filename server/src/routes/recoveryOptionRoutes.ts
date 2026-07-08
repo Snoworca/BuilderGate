@@ -1,10 +1,18 @@
 import { Router, Request, Response } from 'express';
 import { RecoveryOptionService } from '../services/RecoveryOptionService.js';
-import type { CreateRecoveryOptionInput, UpdateRecoveryOptionInput } from '../types/recoveryOption.types.js';
+import type { CreateRecoveryOptionInput, RecoveryOption, UpdateRecoveryOptionInput } from '../types/recoveryOption.types.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 
+interface RecoveryOptionRouteHooks {
+  onOptionUpdated?: (option: RecoveryOption) => void | Promise<void>;
+  onOptionDeleted?: (id: string) => void | Promise<void>;
+}
+
 // @req SEC-AITUI-001
-export function createRecoveryOptionRoutes(recoveryOptionService: RecoveryOptionService): Router {
+export function createRecoveryOptionRoutes(
+  recoveryOptionService: RecoveryOptionService,
+  hooks: RecoveryOptionRouteHooks = {},
+): Router {
   const router = Router();
 
   router.get('/', (_req: Request, res: Response) => {
@@ -27,6 +35,7 @@ export function createRecoveryOptionRoutes(recoveryOptionService: RecoveryOption
   router.patch('/:id', async (req: Request, res: Response) => {
     try {
       const option = await recoveryOptionService.updateOption(req.params.id, readBodyObject(req.body) as unknown as UpdateRecoveryOptionInput);
+      await hooks.onOptionUpdated?.(option);
       res.json(option);
     } catch (error) {
       handleError(res, error);
@@ -36,6 +45,7 @@ export function createRecoveryOptionRoutes(recoveryOptionService: RecoveryOption
   router.delete('/:id', async (req: Request, res: Response) => {
     try {
       await recoveryOptionService.deleteOption(req.params.id);
+      await hooks.onOptionDeleted?.(req.params.id);
       res.json({ success: true });
     } catch (error) {
       handleError(res, error);

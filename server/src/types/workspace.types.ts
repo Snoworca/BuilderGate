@@ -1,4 +1,5 @@
 import type { ShellType } from './index.js';
+import type { RecoveryOptionIcon } from './recoveryOption.types.js';
 
 // ============================================================================
 // Workspace Types (Step 7: CMUX-Style Workspace Pivot)
@@ -34,6 +35,11 @@ export interface WorkspaceTab {
   lastExitCode?: number | null;
   lifecycleUpdatedAt?: string;
   generation?: number;
+  recoveryOptionId?: string;
+  recoveryCommand?: string;
+  recoveryArguments?: string[];
+  recoveryIcon?: RecoveryOptionIcon | null;
+  recoveryUpdatedAt?: string;
 }
 
 export type WorkspaceTabNameSource = 'default' | 'terminal-title' | 'user';

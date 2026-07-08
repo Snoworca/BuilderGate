@@ -12,11 +12,14 @@ import type {
   WorkspaceTabLifecycleReason,
   WorkspaceTabLifecycleState,
 } from '../types/workspace.types.js';
+import type { RecoveryOption, RecoveryOptionIcon } from '../types/recoveryOption.types.js';
 import type { ShellType } from '../types/index.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import { config } from '../utils/config.js';
 import { isDefaultTerminalTabName, isSystemAbsolutePathTerminalTitle, sanitizeTerminalTitle } from '../utils/terminalTitle.js';
-import type { SessionFinalizedEvent, SessionManager } from './SessionManager.js';
+import { buildRecoveryRestoreInput, getRecoveryExecutableToken, normalizeRecoveryExecutable, type RecoveryRestoreShell } from '../utils/recoveryCommand.js';
+import type { SessionCommandSubmittedEvent, SessionFinalizedEvent, SessionManager } from './SessionManager.js';
+import type { RecoveryOptionService } from './RecoveryOptionService.js';
 
 interface WorkspaceConfig {
   dataPath: string;
@@ -29,12 +32,25 @@ interface WorkspaceConfig {
 
 interface WorkspaceServiceOptions {
   terminalTitleDebounceMs?: number;
+  recoveryOptionService?: RecoveryOptionService;
+  restoreInputDelayMs?: number;
 }
 
 interface TabUpdatedEvent {
   tab: WorkspaceTab;
-  changes: Partial<WorkspaceTab>;
+  changes: WorkspaceTabChanges;
 }
+
+type WorkspaceTabChanges = Partial<Omit<
+  WorkspaceTab,
+  'recoveryOptionId' | 'recoveryCommand' | 'recoveryArguments' | 'recoveryIcon' | 'recoveryUpdatedAt'
+>> & {
+  recoveryOptionId?: string | null;
+  recoveryCommand?: string | null;
+  recoveryArguments?: string[] | null;
+  recoveryIcon?: RecoveryOptionIcon | null;
+  recoveryUpdatedAt?: string | null;
+};
 
 interface WorkspaceSessionStoppedEvent {
   sessionId: string;
@@ -59,11 +75,14 @@ export class WorkspaceService {
   private config: WorkspaceConfig;
   private dataFilePath: string;
   private sessionManager: SessionManager;
+  private recoveryOptionService: RecoveryOptionService | null;
+  private restoreInputDelayMs: number;
   private pendingTerminalTitles = new Map<string, { title: string; timer: NodeJS.Timeout }>();
   private tabUpdatedCallback: ((event: TabUpdatedEvent) => void) | null = null;
 
   constructor(sessionManager: SessionManager, options: WorkspaceServiceOptions = {}) {
     this.sessionManager = sessionManager;
+    this.recoveryOptionService = options.recoveryOptionService ?? null;
     const wsConfig = (config as any).workspace;
     this.config = {
       dataPath: wsConfig?.dataPath ?? './data/workspaces.json',
@@ -73,6 +92,7 @@ export class WorkspaceService {
       flushDebounceMs: wsConfig?.flushDebounceMs ?? 5000,
       terminalTitleDebounceMs: options.terminalTitleDebounceMs ?? wsConfig?.terminalTitleDebounceMs ?? 250,
     };
+    this.restoreInputDelayMs = Math.max(0, options.restoreInputDelayMs ?? wsConfig?.restoreInputDelayMs ?? 600);
     this.dataFilePath = path.resolve(this.config.dataPath);
 
     // Register CWD change callback to persist lastCwd to tab metadata
@@ -98,6 +118,17 @@ export class WorkspaceService {
         console.warn('[WorkspaceService] Failed to apply session lifecycle finalization:', error);
       });
     });
+
+    const commandSubmissionSource = this.sessionManager as SessionManager & {
+      onCommandSubmitted?: (cb: (event: SessionCommandSubmittedEvent) => void | Promise<void>) => void;
+    };
+    if (typeof commandSubmissionSource.onCommandSubmitted === 'function') {
+      commandSubmissionSource.onCommandSubmitted((event: SessionCommandSubmittedEvent) => {
+        this.applySubmittedRecoveryCommand(event).catch((error) => {
+          console.warn('[WorkspaceService] Failed to apply recovery command metadata:', error);
+        });
+      });
+    }
   }
 
   async initialize(): Promise<void> {
@@ -144,6 +175,7 @@ export class WorkspaceService {
       }
       this.normalizeTabNameMetadata(tab);
       this.normalizeTabLifecycleMetadata(tab);
+      this.normalizeTabRecoveryMetadata(tab);
     }
 
     // Migrate legacy GridLayout (columns/rows/cellSizes → mosaicTree)
@@ -442,6 +474,7 @@ export class WorkspaceService {
       }
       throw error;
     }
+    await this.scheduleRecoveryRestoreForTab(tab, sessionDTO.id);
     await this.sessionManager.terminateSession(oldSessionId, { reason: 'tab-restart' });
     return tab;
   }
@@ -474,6 +507,78 @@ export class WorkspaceService {
       exitCode: event.exitCode,
       recordedAt: event.recordedAt,
     });
+  }
+
+  async applySubmittedRecoveryCommand(event: SessionCommandSubmittedEvent): Promise<void> {
+    if (!this.recoveryOptionService) {
+      return;
+    }
+    const tab = this.state.tabs.find(t => t.sessionId === event.sessionId);
+    if (!tab) {
+      return;
+    }
+
+    const option = this.recoveryOptionService.findEnabledBySubmittedCommand(event.command);
+    if (!option) {
+      if (!this.hasRecoveryMetadata(tab)) {
+        return;
+      }
+      this.clearTabRecoveryMetadata(tab);
+      await this.save(true);
+      this.emitTabUpdated({ tab, changes: this.recoveryChanges(tab, true) });
+      return;
+    }
+
+    this.setTabRecoveryMetadata(tab, option);
+    this.markRecoveryForegroundCommand(event.sessionId, option.command);
+    await this.save(true);
+    this.emitTabUpdated({ tab, changes: this.recoveryChanges(tab) });
+  }
+
+  async applyRecoveryOptionToTabs(option: RecoveryOption): Promise<void> {
+    const changedTabs: Array<{ tab: WorkspaceTab; cleared: boolean }> = [];
+    for (const tab of this.state.tabs) {
+      if (tab.recoveryOptionId !== option.id) {
+        continue;
+      }
+      if (option.enabled) {
+        this.setTabRecoveryMetadata(tab, option);
+        changedTabs.push({ tab, cleared: false });
+      } else {
+        this.clearTabRecoveryMetadata(tab);
+        changedTabs.push({ tab, cleared: true });
+      }
+    }
+    if (changedTabs.length === 0) {
+      return;
+    }
+
+    await this.save(true);
+    for (const event of changedTabs) {
+      this.emitTabUpdated({
+        tab: event.tab,
+        changes: this.recoveryChanges(event.tab, event.cleared),
+      });
+    }
+  }
+
+  async clearRecoveryMetadataForOption(optionId: string): Promise<void> {
+    const changedTabs: WorkspaceTab[] = [];
+    for (const tab of this.state.tabs) {
+      if (tab.recoveryOptionId !== optionId) {
+        continue;
+      }
+      this.clearTabRecoveryMetadata(tab);
+      changedTabs.push(tab);
+    }
+    if (changedTabs.length === 0) {
+      return;
+    }
+
+    await this.save(true);
+    for (const tab of changedTabs) {
+      this.emitTabUpdated({ tab, changes: this.recoveryChanges(tab, true) });
+    }
   }
 
   onTabUpdated(cb: (event: TabUpdatedEvent) => void): void {
@@ -671,6 +776,156 @@ export class WorkspaceService {
     };
   }
 
+  private setTabRecoveryMetadata(tab: WorkspaceTab, option: RecoveryOption): void {
+    tab.recoveryOptionId = option.id;
+    tab.recoveryCommand = option.command;
+    tab.recoveryArguments = [...option.arguments];
+    tab.recoveryIcon = this.cloneRecoveryIcon(option.icon ?? null);
+    tab.recoveryUpdatedAt = new Date().toISOString();
+  }
+
+  private clearTabRecoveryMetadata(tab: WorkspaceTab): void {
+    delete tab.recoveryOptionId;
+    delete tab.recoveryCommand;
+    delete tab.recoveryArguments;
+    delete tab.recoveryIcon;
+    delete tab.recoveryUpdatedAt;
+  }
+
+  private hasRecoveryMetadata(tab: WorkspaceTab): boolean {
+    return Boolean(
+      tab.recoveryOptionId
+      || tab.recoveryCommand
+      || tab.recoveryArguments
+      || tab.recoveryIcon
+      || tab.recoveryUpdatedAt,
+    );
+  }
+
+  private recoveryChanges(tab: WorkspaceTab, cleared = false): WorkspaceTabChanges {
+    if (cleared) {
+      return {
+        recoveryOptionId: null,
+        recoveryCommand: null,
+        recoveryArguments: null,
+        recoveryIcon: null,
+        recoveryUpdatedAt: null,
+      };
+    }
+    return {
+      recoveryOptionId: tab.recoveryOptionId,
+      recoveryCommand: tab.recoveryCommand,
+      recoveryArguments: tab.recoveryArguments ? [...tab.recoveryArguments] : undefined,
+      recoveryIcon: this.cloneRecoveryIcon(tab.recoveryIcon ?? null),
+      recoveryUpdatedAt: tab.recoveryUpdatedAt,
+    };
+  }
+
+  private cloneRecoveryIcon(icon: RecoveryOptionIcon | null | undefined): RecoveryOptionIcon | null {
+    if (!icon) {
+      return null;
+    }
+    if (icon.type === 'builtin' && typeof icon.key === 'string') {
+      return { type: 'builtin', key: icon.key };
+    }
+    if (icon.type === 'text' && typeof icon.value === 'string') {
+      return { type: 'text', value: icon.value };
+    }
+    return null;
+  }
+
+  private markRecoveryForegroundCommand(sessionId: string, command: string): void {
+    if (this.isBuiltInInteractiveCommand(command)) {
+      return;
+    }
+    const foregroundMarker = (this.sessionManager as SessionManager & {
+      markRecoveryCommandForeground?: (sessionId: string, command: string) => void;
+    }).markRecoveryCommandForeground;
+    if (typeof foregroundMarker === 'function') {
+      foregroundMarker.call(this.sessionManager, sessionId, command);
+    }
+  }
+
+  private isBuiltInInteractiveCommand(command: string): boolean {
+    const executable = getRecoveryExecutableToken(command) ?? normalizeRecoveryExecutable(command);
+    return executable === 'hermes'
+      || executable === 'codex'
+      || executable === 'claude'
+      || executable === 'claude-code';
+  }
+
+  private async scheduleRecoveryRestoreForTab(tab: WorkspaceTab, sessionId: string): Promise<void> {
+    if (!this.recoveryOptionService || !tab.recoveryOptionId) {
+      return;
+    }
+
+    const option = this.recoveryOptionService.findEnabledById(tab.recoveryOptionId);
+    if (!option) {
+      this.clearTabRecoveryMetadata(tab);
+      try {
+        await this.save(true);
+        this.emitTabUpdated({ tab, changes: this.recoveryChanges(tab, true) });
+      } catch (error) {
+        console.warn('[WorkspaceService] Failed to persist stale recovery metadata cleanup:', error);
+      }
+      return;
+    }
+
+    let input: string;
+    try {
+      input = buildRecoveryRestoreInput(
+        this.resolveRecoveryRestoreShell(sessionId, tab.shellType),
+        option.command,
+        option.arguments,
+      );
+    } catch (error) {
+      console.warn('[WorkspaceService] Failed to build recovery restore input:', error);
+      return;
+    }
+
+    const scheduler = (this.sessionManager as SessionManager & {
+      scheduleRestoreInput?: (
+        sessionId: string,
+        input: string,
+        options?: { delayMs?: number; guard?: () => boolean },
+      ) => void;
+    }).scheduleRestoreInput;
+    if (typeof scheduler !== 'function') {
+      console.warn('[WorkspaceService] Recovery restore skipped because SessionManager does not support scheduled input');
+      return;
+    }
+
+    scheduler.call(this.sessionManager, sessionId, input, {
+      delayMs: this.restoreInputDelayMs,
+      guard: () => this.state.tabs.some(current => current.id === tab.id && current.sessionId === sessionId),
+    });
+  }
+
+  private resolveRecoveryRestoreShell(sessionId: string, fallbackShellType: ShellType): RecoveryRestoreShell {
+    const resolver = (this.sessionManager as SessionManager & {
+      getResolvedShellType?: (sessionId: string) => RecoveryRestoreShell | null;
+    }).getResolvedShellType;
+    const resolvedShell = typeof resolver === 'function'
+      ? resolver.call(this.sessionManager, sessionId)
+      : null;
+    return resolvedShell ?? this.toRecoveryRestoreShell(fallbackShellType);
+  }
+
+  private toRecoveryRestoreShell(shellType: ShellType): RecoveryRestoreShell {
+    switch (shellType) {
+      case 'powershell':
+      case 'wsl':
+      case 'bash':
+      case 'zsh':
+      case 'sh':
+      case 'cmd':
+        return shellType;
+      case 'auto':
+      default:
+        return 'auto';
+    }
+  }
+
   private toWorkspaceLifecycleReason(reason: SessionFinalizedEvent['reason']): WorkspaceTabLifecycleReason {
     switch (reason) {
       case 'tab-delete':
@@ -724,6 +979,43 @@ export class WorkspaceService {
     }
     if (tab.generation !== undefined && (!Number.isInteger(tab.generation) || tab.generation < 1)) {
       delete tab.generation;
+    }
+  }
+
+  private normalizeTabRecoveryMetadata(tab: WorkspaceTab): void {
+    const hasAnyRecoveryMetadata = this.hasRecoveryMetadata(tab);
+    if (!hasAnyRecoveryMetadata) {
+      return;
+    }
+
+    if (
+      typeof tab.recoveryOptionId !== 'string'
+      || tab.recoveryOptionId.trim() === ''
+      || typeof tab.recoveryCommand !== 'string'
+      || tab.recoveryCommand.trim() === ''
+    ) {
+      this.clearTabRecoveryMetadata(tab);
+      return;
+    }
+
+    if (tab.recoveryArguments === undefined) {
+      tab.recoveryArguments = [];
+    } else if (!Array.isArray(tab.recoveryArguments) || tab.recoveryArguments.some(argument => typeof argument !== 'string')) {
+      this.clearTabRecoveryMetadata(tab);
+      return;
+    }
+
+    if (tab.recoveryIcon !== undefined && tab.recoveryIcon !== null) {
+      const safeIcon = this.cloneRecoveryIcon(tab.recoveryIcon);
+      if (safeIcon) {
+        tab.recoveryIcon = safeIcon;
+      } else {
+        delete tab.recoveryIcon;
+      }
+    }
+
+    if (tab.recoveryUpdatedAt !== undefined && typeof tab.recoveryUpdatedAt !== 'string') {
+      delete tab.recoveryUpdatedAt;
     }
   }
 
@@ -929,6 +1221,7 @@ export class WorkspaceService {
 
   async checkOrphanTabs(): Promise<string[]> {
     const orphanTabIds: string[] = [];
+    const restoredSessions: Array<{ tab: WorkspaceTab; sessionId: string }> = [];
     for (const tab of this.state.tabs) {
       if (!this.sessionManager.hasSession(tab.sessionId)) {
         if (!this.isRecoverableOrphanTab(tab)) {
@@ -943,6 +1236,7 @@ export class WorkspaceService {
           tab.sessionId = sessionDTO.id;
           this.markTabActive(tab, 'orphan-recovery');
           orphanTabIds.push(tab.id);
+          restoredSessions.push({ tab, sessionId: sessionDTO.id });
           console.log(`[Workspace] Orphan tab "${tab.name}" recovered: ${previousSessionId} → ${sessionDTO.id} (cwd: ${tab.lastCwd || 'default'})`);
         } catch (err) {
           console.error(`[Workspace] Failed to recover orphan tab "${tab.name}":`, err);
@@ -951,6 +1245,9 @@ export class WorkspaceService {
     }
     if (orphanTabIds.length > 0) {
       await this.save(true); // immediate save with new sessionIds
+      for (const restored of restoredSessions) {
+        await this.scheduleRecoveryRestoreForTab(restored.tab, restored.sessionId);
+      }
     }
     return orphanTabIds;
   }

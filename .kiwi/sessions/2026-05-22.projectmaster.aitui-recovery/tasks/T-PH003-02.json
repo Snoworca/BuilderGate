@@ -1,0 +1,134 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-05-22.projectmaster.aitui-recovery",
+  "coder_run_id": "2026-05-22.projectmaster.aitui-recovery:T-PH003-02",
+  "target": "0.5.4-ai-tui-recovery",
+  "task_id": "T-PH003-02",
+  "phase_id": "PH-003",
+  "status": "done",
+  "task_phase": "green",
+  "plan_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.plan.md",
+  "sidecar_path": "docs/plans/2026-05-22.projectmaster.aitui-recovery.sidecar.json",
+  "completed_at": "2026-05-22T02:19:45.743Z",
+  "req_ids": [
+    "FR-AITUI-004",
+    "FR-AITUI-005",
+    "SEC-AITUI-001"
+  ],
+  "files_touched": [
+    "server/src/services/WorkspaceService.ts",
+    "server/src/services/SessionManager.ts",
+    "server/src/utils/recoveryCommand.ts",
+    "server/src/index.ts"
+  ],
+  "phase1": {
+    "red_source_task_id": "T-PH003-01",
+    "red_evidence": {
+      "command": "npm --prefix server test",
+      "exit_code": 1,
+      "expected_red": true,
+      "failed_tests": 11,
+      "failure_signature": "recovery option restore not implemented",
+      "captured_at": "2026-05-22T01:54:29Z"
+    }
+  },
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "server/src/services/WorkspaceService.ts",
+          "server/src/services/SessionManager.ts",
+          "server/src/utils/recoveryCommand.ts",
+          "server/src/index.ts"
+        ],
+        "summary": "Added pending restore queue processed by CWD readiness callback, current enabled-option recheck, stale metadata clearing, structured shell-specific restore input builder, resolved-shell lookup for auto sessions, cmd readiness hook, and production RecoveryOptionService wiring."
+      }
+    ],
+    "formal_reviews": [
+      {
+        "iter": 1,
+        "reviewer": "codex strict sub-agent",
+        "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/subagent-review-T-PH003-02.txt",
+        "findings_fixed": [
+          "auto shell quoting used requested shell",
+          "cmd %/! quoting"
+        ]
+      },
+      {
+        "iter": 2,
+        "reviewer": "codex strict sub-agent",
+        "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/subagent-review-T-PH003-02-r2.txt",
+        "findings_fixed": [
+          "cmd sessions received PowerShell CWD hook"
+        ]
+      },
+      {
+        "iter": 3,
+        "reviewer": "codex strict sub-agent",
+        "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/subagent-review-T-PH003-02-r3.txt",
+        "findings_fixed": [
+          "production WorkspaceService missing recoveryOptionService injection",
+          "PowerShell quoted command missing call operator"
+        ]
+      },
+      {
+        "iter": 4,
+        "reviewer": "codex strict sub-agent",
+        "evidence": "docs/analysis/kiwi-coder-2026-05-22.projectmaster.aitui-recovery/subagent-review-T-PH003-02-r4.txt",
+        "finding_summary": "No findings"
+      }
+    ],
+    "green_evidence": {
+      "command": "npm --prefix server test",
+      "exit_code": 0,
+      "passed_tests": 262,
+      "timestamp": "2026-05-22T02:19:45.743Z"
+    },
+    "dod_check": [
+      {
+        "item": "All T-PH003-01 tests pass",
+        "satisfied": true
+      },
+      {
+        "item": "Restore executes only after shell/CWD readiness",
+        "satisfied": true
+      },
+      {
+        "item": "Command construction uses structured command+arguments instead of raw concatenation",
+        "satisfied": true
+      },
+      {
+        "item": "Deleted/disabled options skip PTY writes and clear stale metadata",
+        "satisfied": true
+      },
+      {
+        "item": "Diagnostic restore failures are logged",
+        "satisfied": true
+      }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "scope": "full",
+      "command": "npm --prefix server test",
+      "passed": 262,
+      "failed": 0,
+      "captured_at": "2026-05-22T02:19:45.743Z"
+    },
+    "mcp_calls": [
+      {
+        "tool": "add_completed_work",
+        "ok": true,
+        "args_hash": "e257ee8bb497e734fd602afe9ebc45f2c979cd78",
+        "called_at": "2026-05-22T02:19:45.743Z"
+      }
+    ],
+    "srs_validate": {
+      "errors": 0,
+      "warnings": 28,
+      "warning_code": "SRS-W015",
+      "captured_at": "2026-05-22T02:19:45.743Z"
+    }
+  }
+}
