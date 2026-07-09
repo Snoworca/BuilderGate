@@ -1,0 +1,32 @@
+{
+  "task_id": "T-PH003-01",
+  "run_id": "2026-07-09.projectmaster.mcp-orch",
+  "reviewed_at": "2026-07-09T01:44:41.491Z",
+  "result": "PASS_RED_CONTRACT",
+  "failure_count": 26,
+  "failure_signature": "missing input gateway implementation: expected ./services/SessionInputGateway.js",
+  "axes": [
+    {
+      "notes": "Covers WebSocket, restore, MCP message send, reply_to_leader, webhook, open_agent command/kickoff, replay, paste/submit, stale target, and AI TUI idle invariant.",
+      "axis": "intent-alignment",
+      "severity": "PASS"
+    },
+    {
+      "notes": "Dynamic import keeps RED failure runtime-scoped; future implementation contract checks are centralized in a shared harness.",
+      "axis": "tech-quality",
+      "severity": "PASS"
+    },
+    {
+      "notes": "Uses the 26 sidecar test symbols for FR-MCP-002 AC-1..AC-6, IR-MCP-004 AC-1..AC-10, IR-MCP-005 AC-1..AC-10.",
+      "axis": "req-mapping",
+      "severity": "PASS"
+    },
+    {
+      "exit_code": 1,
+      "command": "cd server; npx tsx src/test-runner.ts",
+      "failure_count": 26,
+      "axis": "red-verification",
+      "severity": "PASS"
+    }
+  ]
+}

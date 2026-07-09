@@ -1,0 +1,103 @@
+{
+  "task_id": "T-PH003-01",
+  "started_at": "2026-07-09T01:44:41.491Z",
+  "completed_at": "2026-07-09T01:44:41.491Z",
+  "phase1": {
+    "tdd_draft_iters": [
+      {
+        "file_paths": [
+          "server/src/test-runner.ts"
+        ],
+        "iter": 1
+      }
+    ],
+    "standard4_reviews": [
+      {
+        "intent_alignment": {
+          "notes": "26 sidecar symbols map to FR-MCP-002, IR-MCP-004, and IR-MCP-005 input-gateway contract expectations.",
+          "finding_count": 0,
+          "severity": "PASS"
+        },
+        "tech_quality": {
+          "notes": "Tests use dynamic import of future SessionInputGateway module and shared scenario harness; no production implementation files edited.",
+          "finding_count": 0,
+          "severity": "PASS"
+        },
+        "red_verification": {
+          "exit_code": 1,
+          "finding_count": 0,
+          "signature": "missing input gateway implementation: expected ./services/SessionInputGateway.js",
+          "command": "cd server; npx tsx src/test-runner.ts",
+          "severity": "PASS",
+          "failure_count": 26
+        },
+        "req_mapping": {
+          "notes": "All T-PH003-01 sidecar test_symbol entries are registered.",
+          "finding_count": 0,
+          "severity": "PASS"
+        },
+        "iter": 1
+      }
+    ],
+    "red_evidence": {
+      "command": "cd server; npx tsx src/test-runner.ts",
+      "exit_code": 1,
+      "captured_failure": "26 input gateway RED tests fail with missing input gateway implementation: expected ./services/SessionInputGateway.js; existing MCP security and registry/alias contract tests pass before the new RED failures.",
+      "timestamp": "2026-07-09T01:44:41.491Z"
+    },
+    "red_evidence_meta": {
+      "test_case_ids": [
+        "TC-REQ-FR-MCP-002-AC1-01",
+        "TC-REQ-FR-MCP-002-AC2-01",
+        "TC-REQ-FR-MCP-002-AC3-01",
+        "TC-REQ-FR-MCP-002-AC4-01",
+        "TC-REQ-FR-MCP-002-AC5-01",
+        "TC-REQ-FR-MCP-002-AC6-01",
+        "TC-REQ-IR-MCP-004-AC1-01",
+        "TC-REQ-IR-MCP-004-AC2-01",
+        "TC-REQ-IR-MCP-004-AC3-01",
+        "TC-REQ-IR-MCP-004-AC4-01",
+        "TC-REQ-IR-MCP-004-AC5-01",
+        "TC-REQ-IR-MCP-004-AC6-01",
+        "TC-REQ-IR-MCP-004-AC7-01",
+        "TC-REQ-IR-MCP-004-AC8-01",
+        "TC-REQ-IR-MCP-004-AC9-01",
+        "TC-REQ-IR-MCP-004-AC10-01",
+        "TC-REQ-IR-MCP-005-AC1-03",
+        "TC-REQ-IR-MCP-005-AC2-03",
+        "TC-REQ-IR-MCP-005-AC3-03",
+        "TC-REQ-IR-MCP-005-AC4-03",
+        "TC-REQ-IR-MCP-005-AC5-03",
+        "TC-REQ-IR-MCP-005-AC6-03",
+        "TC-REQ-IR-MCP-005-AC7-03",
+        "TC-REQ-IR-MCP-005-AC8-03",
+        "TC-REQ-IR-MCP-005-AC9-03",
+        "TC-REQ-IR-MCP-005-AC10-03"
+      ],
+      "expected_failure_signature": "missing input gateway implementation|not implemented|endpoint not found|assertion failed",
+      "actual_failure_signature": "missing input gateway implementation: expected ./services/SessionInputGateway.js"
+    }
+  },
+  "phase2": {
+    "impl_iters": [],
+    "formal_reviews": [],
+    "prickly_reviews": [],
+    "green_evidence": null,
+    "dod_check": [
+      {
+        "satisfied": true,
+        "item": "Red tests include INPUT_REJECTED_REPLAY_PENDING and IR-MCP-005 final error-code precedence."
+      }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "scope": "red-only full test-runner",
+      "command": "cd server; npx tsx src/test-runner.ts",
+      "expected_red": true,
+      "failed": 26,
+      "exit_code": 1
+    },
+    "mcp_calls": []
+  }
+}

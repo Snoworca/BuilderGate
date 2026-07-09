@@ -252,6 +252,32 @@ async function main(): Promise<void> {
     { name: 'MCP alias contract FR-MCP-001 AC-7: search reports zero and ambiguous matches', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-001_AC-7_SEARCH_DENIALS'] },
     { name: 'MCP alias contract FR-MCP-006 AC-5: alias update persists WorkspaceTab user name', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-006_AC-5'] },
     { name: 'MCP alias contract FR-MCP-006 AC-6: alias update broadcasts tab metadata', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-006_AC-6'] },
+    { name: 'MCP input gateway FR-MCP-002 AC-1: all ingress paths route through SessionInputGateway', run: inputGatewayRedTests['Input_gateway_red_tests_FR-MCP-002_AC-1'] },
+    { name: 'MCP input gateway FR-MCP-002 AC-2: replay pending rejection uses stable code', run: inputGatewayRedTests['Input_gateway_red_tests_FR-MCP-002_AC-2'] },
+    { name: 'MCP input gateway FR-MCP-002 AC-3: paste-only delivery rejects submit and newlines without scope', run: inputGatewayRedTests['Input_gateway_red_tests_FR-MCP-002_AC-3'] },
+    { name: 'MCP input gateway FR-MCP-002 AC-4: stale or non-live targets reject before PTY write', run: inputGatewayRedTests['Input_gateway_red_tests_FR-MCP-002_AC-4'] },
+    { name: 'MCP input gateway FR-MCP-002 AC-5: AI TUI user/input repaint events preserve idle', run: inputGatewayRedTests['Input_gateway_red_tests_FR-MCP-002_AC-5'] },
+    { name: 'MCP input gateway FR-MCP-002 AC-6: reply_to_leader resolves live leader or preserves follower', run: inputGatewayRedTests['Input_gateway_red_tests_FR-MCP-002_AC-6'] },
+    { name: 'MCP input gateway IR-MCP-004 AC-1: webhook create/rotate secret material stays out of input audit', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-004_AC-1'] },
+    { name: 'MCP input gateway IR-MCP-004 AC-2: webhook header credentials share redacted gateway path', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-004_AC-2'] },
+    { name: 'MCP input gateway IR-MCP-004 AC-3: webhook rate limit denies before PTY write', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-004_AC-3'] },
+    { name: 'MCP input gateway IR-MCP-004 AC-4: webhook stable denial codes precede dispatch', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-004_AC-4'] },
+    { name: 'MCP input gateway IR-MCP-004 AC-5: revoked webhook keys do not reactivate delivery', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-004_AC-5'] },
+    { name: 'MCP input gateway IR-MCP-004 AC-6: session list self targeting defaults remain explicit', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-004_AC-6'] },
+    { name: 'MCP input gateway IR-MCP-004 AC-7: alias target ambiguity rejects before PTY write', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-004_AC-7'] },
+    { name: 'MCP input gateway IR-MCP-004 AC-8: close_self failure notification uses gateway', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-004_AC-8'] },
+    { name: 'MCP input gateway IR-MCP-004 AC-9: replay code is INPUT_REJECTED_REPLAY_PENDING', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-004_AC-9'] },
+    { name: 'MCP input gateway IR-MCP-004 AC-10: close confirmation rejects before side effects', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-004_AC-10'] },
+    { name: 'MCP input gateway IR-MCP-005 AC-1: whitelist denial precedence blocks dispatch', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-005_AC-1'] },
+    { name: 'MCP input gateway IR-MCP-005 AC-2: prompt preview redaction precedes audit/status', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-005_AC-2'] },
+    { name: 'MCP input gateway IR-MCP-005 AC-3: recent audit events are bounded and redacted', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-005_AC-3'] },
+    { name: 'MCP input gateway IR-MCP-005 AC-4: forbidden webhook headers reject before gateway write', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-005_AC-4'] },
+    { name: 'MCP input gateway IR-MCP-005 AC-5: webhook create or rotate is the only full-secret surface', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-005_AC-5'] },
+    { name: 'MCP input gateway IR-MCP-005 AC-6: invalid agentStatus rejects before delivery', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-005_AC-6'] },
+    { name: 'MCP input gateway IR-MCP-005 AC-7: legacy bindingLifecycle cannot reach delivery', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-005_AC-7'] },
+    { name: 'MCP input gateway IR-MCP-005 AC-8: final replay precedence uses exact stable code', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-005_AC-8'] },
+    { name: 'MCP input gateway IR-MCP-005 AC-9: final close confirmation shape precedes lifecycle', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-005_AC-9'] },
+    { name: 'MCP input gateway IR-MCP-005 AC-10: non-create webhook surfaces remain masked', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-005_AC-10'] },
     { name: 'performGracefulShutdown flushes workspace JSON lastUpdated and tab lastCwd', run: testPerformGracefulShutdownFlushesWorkspaceCwds },
     { name: 'performGracefulShutdown terminates sessions after first workspace flush and final flushes', run: testPerformGracefulShutdownTerminatesSessionsAfterWorkspaceFlush },
     { name: 'performGracefulShutdown degrades timed out session cleanup and still final flushes', run: testPerformGracefulShutdownSessionCleanupTimeoutDegradesAndFinalFlushes },
@@ -5221,6 +5247,356 @@ const registryAndAliasRedTests: Record<string, () => Promise<void>> = {
   'Registry_and_alias_red_tests_FR-MCP-006_AC-6': testMcpAliasFrMcp006Ac6,
 };
 
+type SessionInputGatewayContract = Record<string, unknown>;
+
+type InputGatewayScenario = {
+  request: Record<string, unknown>;
+  replayPending?: boolean;
+  screenRepairPending?: boolean;
+  target?: Record<string, unknown>;
+  leader?: Record<string, unknown> | null;
+  policyDenialCode?: string;
+  expected: {
+    accepted: boolean;
+    code?: string;
+    writes: number;
+    targetSessionKey?: string;
+    sessionActivityAfter?: string;
+    followerLifecycleAfter?: string;
+    requiresNoSecrets?: string[];
+    requiresAuditEvent?: boolean;
+    requiresIncludeSelf?: boolean;
+  };
+};
+
+const requiredInputGatewaySources = [
+  'websocket',
+  'restore',
+  'mcp-message-send',
+  'mcp-reply-to-leader',
+  'open-agent-command',
+  'open-agent-kickoff',
+  'webhook',
+];
+
+const inputGatewayRedTests: Record<string, () => Promise<void>> = {
+  'Input_gateway_red_tests_FR-MCP-002_AC-1': async () => {
+    const contract = await loadSessionInputGatewayContract();
+    assertInputGatewayContractExports(contract);
+    for (const source of requiredInputGatewaySources) {
+      await runInputGatewayContractScenario({
+        request: createGatewayRequest({ source, data: `input from ${source}` }),
+        expected: {
+          accepted: true,
+          writes: 1,
+          targetSessionKey: source === 'mcp-reply-to-leader' ? 'leader-session' : 'target-session',
+        },
+      }, contract);
+    }
+  },
+  'Input_gateway_red_tests_FR-MCP-002_AC-2': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({ source: 'mcp-message-send', replayPolicy: 'reject' }),
+    replayPending: true,
+    expected: {
+      accepted: false,
+      code: 'INPUT_REJECTED_REPLAY_PENDING',
+      writes: 0,
+    },
+  }),
+  'Input_gateway_red_tests_FR-MCP-002_AC-3': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'mcp-message-send',
+      data: 'paste-only text\nmust not submit',
+      delivery: { mode: 'paste', submit: false },
+      actor: { type: 'mcp', sessionKey: 'actor-session', scopes: ['mcp:message.paste'] },
+    }),
+    expected: {
+      accepted: false,
+      code: 'INPUT_REJECTED_ENTER_POLICY',
+      writes: 0,
+    },
+  }),
+  'Input_gateway_red_tests_FR-MCP-002_AC-4': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'mcp-message-send',
+      target: { sessionKey: 'target-session', sessionId: 'stale-session-id', expectedGeneration: 1 },
+    }),
+    target: {
+      sessionKey: 'target-session',
+      currentSessionId: 'current-session-id',
+      generation: 2,
+      lifecycle: 'live',
+      hidden: false,
+    },
+    expected: {
+      accepted: false,
+      code: 'STALE_SESSION_ID',
+      writes: 0,
+    },
+  }),
+  'Input_gateway_red_tests_FR-MCP-002_AC-5': async () => {
+    const contract = await loadSessionInputGatewayContract();
+    assertInputGatewayContractExports(contract);
+    for (const inputEventKind of ['user-typing', 'local-echo', 'prompt-redraw', 'cursor-movement', 'ticker-output', 'waiting-input-repaint']) {
+      await runInputGatewayContractScenario({
+        request: createGatewayRequest({
+          source: 'websocket',
+          data: inputEventKind === 'user-typing' ? 'h' : '',
+          inputEventKind,
+          sessionKind: 'ai-tui',
+          currentActivity: 'idle',
+        }),
+        expected: {
+          accepted: true,
+          writes: inputEventKind === 'user-typing' ? 1 : 0,
+          sessionActivityAfter: 'idle',
+        },
+      }, contract);
+    }
+  },
+  'Input_gateway_red_tests_FR-MCP-002_AC-6': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({ source: 'mcp-reply-to-leader', data: 'reply for leader' }),
+    leader: null,
+    expected: {
+      accepted: false,
+      code: 'TARGET_NOT_LIVE',
+      writes: 0,
+      followerLifecycleAfter: 'live',
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-004_AC-1': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'webhook',
+      data: 'create webhook delivery',
+      credential: { fullKey: 'webhook-full-key-create', fullUrl: 'https://localhost:2222/webhook?key=webhook-full-key-create' },
+      auditContext: { operation: 'create' },
+    }),
+    expected: {
+      accepted: true,
+      writes: 1,
+      requiresNoSecrets: ['webhook-full-key-create'],
+      requiresAuditEvent: true,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-004_AC-2': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'webhook',
+      credential: { headerName: 'X-BuilderGate-Webhook-Key', fullKey: 'header-webhook-secret' },
+      auditContext: { credentialMode: 'header' },
+    }),
+    expected: {
+      accepted: true,
+      writes: 1,
+      requiresNoSecrets: ['header-webhook-secret'],
+      requiresAuditEvent: true,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-004_AC-3': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({ source: 'webhook', data: 'rate limited prompt' }),
+    policyDenialCode: 'WEBHOOK_RATE_LIMITED',
+    expected: {
+      accepted: false,
+      code: 'WEBHOOK_RATE_LIMITED',
+      writes: 0,
+      requiresAuditEvent: true,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-004_AC-4': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({ source: 'webhook', data: 'x'.repeat(8192) }),
+    policyDenialCode: 'WEBHOOK_PROMPT_TOO_LARGE',
+    expected: {
+      accepted: false,
+      code: 'WEBHOOK_PROMPT_TOO_LARGE',
+      writes: 0,
+      requiresAuditEvent: true,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-004_AC-5': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'webhook',
+      credential: { keyId: 'revoked-key', revoked: true },
+    }),
+    policyDenialCode: 'WEBHOOK_KEY_REVOKED',
+    expected: {
+      accepted: false,
+      code: 'WEBHOOK_KEY_REVOKED',
+      writes: 0,
+      requiresAuditEvent: true,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-004_AC-6': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'mcp-message-send',
+      target: { self: true, includeSelf: undefined },
+    }),
+    expected: {
+      accepted: true,
+      writes: 1,
+      requiresIncludeSelf: true,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-004_AC-7': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'mcp-message-send',
+      target: { alias: 'api', matchMode: 'exact' },
+    }),
+    target: { ambiguousCandidates: ['sess-alpha', 'sess-beta'] },
+    expected: {
+      accepted: false,
+      code: 'AMBIGUOUS_TARGET',
+      writes: 0,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-004_AC-8': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'close-self-failure-notification',
+      data: 'follower close failed',
+      target: { leaderSessionKey: 'leader-session' },
+    }),
+    expected: {
+      accepted: true,
+      writes: 1,
+      targetSessionKey: 'leader-session',
+      followerLifecycleAfter: 'closing-failed',
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-004_AC-9': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({ source: 'webhook', replayPolicy: 'reject' }),
+    screenRepairPending: true,
+    expected: {
+      accepted: false,
+      code: 'INPUT_REJECTED_REPLAY_PENDING',
+      writes: 0,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-004_AC-10': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'control-close-live-session',
+      closeConfirmation: { confirmClose: true, expectedSessionKey: 'different-session', confirmationNonce: 'stale' },
+    }),
+    policyDenialCode: 'CLOSE_CONFIRMATION_REQUIRED',
+    expected: {
+      accepted: false,
+      code: 'CLOSE_CONFIRMATION_REQUIRED',
+      writes: 0,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-005_AC-1': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({ source: 'webhook' }),
+    policyDenialCode: 'MCP_WHITELIST_DENIED',
+    expected: {
+      accepted: false,
+      code: 'MCP_WHITELIST_DENIED',
+      writes: 0,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-005_AC-2': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'webhook',
+      data: '  token=super-secret\r\nnext line  ',
+      auditContext: { promptPreviewMaxChars: 18 },
+    }),
+    expected: {
+      accepted: true,
+      writes: 1,
+      requiresNoSecrets: ['super-secret', '\r', '\n'],
+      requiresAuditEvent: true,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-005_AC-3': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'webhook',
+      data: 'prompt that must be redacted from recent audit',
+      auditContext: { recentAuditEventsLimit: 2, rawToken: 'raw-capability-token' },
+    }),
+    expected: {
+      accepted: true,
+      writes: 1,
+      requiresNoSecrets: ['raw-capability-token', 'prompt that must be redacted from recent audit'],
+      requiresAuditEvent: true,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-005_AC-4': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'webhook',
+      credential: { headerName: 'X-Forwarded-For', fullKey: 'forwarded-secret' },
+    }),
+    policyDenialCode: 'WEBHOOK_HEADER_FORBIDDEN',
+    expected: {
+      accepted: false,
+      code: 'WEBHOOK_HEADER_FORBIDDEN',
+      writes: 0,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-005_AC-5': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'webhook',
+      data: 'rotate delivery',
+      credential: { fullKey: 'webhook-full-key-rotate', fullUrl: 'https://localhost:2222/webhook?key=webhook-full-key-rotate' },
+      auditContext: { operation: 'rotate' },
+    }),
+    expected: {
+      accepted: true,
+      writes: 1,
+      requiresNoSecrets: ['webhook-full-key-rotate'],
+      requiresAuditEvent: true,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-005_AC-6': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({ source: 'mcp-message-send' }),
+    target: { sessionKey: 'target-session', currentSessionId: 'current-session-id', generation: 2, lifecycle: 'live', agentStatus: 'arbitrary' },
+    expected: {
+      accepted: false,
+      code: 'INVALID_AGENT_STATUS',
+      writes: 0,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-005_AC-7': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({ source: 'mcp-message-send' }),
+    target: { sessionKey: 'target-session', currentSessionId: 'current-session-id', generation: 2, lifecycle: 'active' },
+    expected: {
+      accepted: false,
+      code: 'TARGET_NOT_LIVE',
+      writes: 0,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-005_AC-8': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({ source: 'mcp-message-send', replayPolicy: 'reject' }),
+    replayPending: true,
+    policyDenialCode: 'INPUT_REPLAY_BLOCKED',
+    expected: {
+      accepted: false,
+      code: 'INPUT_REJECTED_REPLAY_PENDING',
+      writes: 0,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-005_AC-9': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'control-close-live-session',
+      closeConfirmation: { confirmClose: false, expectedSessionKey: 'target-session', confirmationNonce: 'nonce-1' },
+    }),
+    policyDenialCode: 'CLOSE_CONFIRMATION_REQUIRED',
+    expected: {
+      accepted: false,
+      code: 'CLOSE_CONFIRMATION_REQUIRED',
+      writes: 0,
+    },
+  }),
+  'Input_gateway_red_tests_IR-MCP-005_AC-10': () => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'webhook',
+      credential: { fullKey: 'webhook-full-key-list', fullUrl: 'https://localhost:2222/webhook?key=webhook-full-key-list' },
+      auditContext: { operation: 'list' },
+    }),
+    expected: {
+      accepted: true,
+      writes: 1,
+      requiresNoSecrets: ['webhook-full-key-list'],
+      requiresAuditEvent: true,
+    },
+  }),
+};
+
 async function loadMcpSecurityContract(): Promise<McpSecurityContract> {
   try {
     return await import('./services/McpSecurityContract.js') as McpSecurityContract;
@@ -5259,6 +5635,212 @@ function getRegistryFunction(contract: McpSessionRegistryContract, name: string)
 async function callMcpSessionRegistryContract(name: string, ...args: unknown[]): Promise<unknown> {
   const contract = await loadMcpSessionRegistryContract();
   return await getRegistryFunction(contract, name)(...args);
+}
+
+async function loadSessionInputGatewayContract(): Promise<SessionInputGatewayContract> {
+  try {
+    return await import('./services/SessionInputGateway.js') as SessionInputGatewayContract;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    assert.fail(`missing input gateway implementation: expected ./services/SessionInputGateway.js (${message})`);
+  }
+}
+
+function assertInputGatewayContractExports(contract: SessionInputGatewayContract): void {
+  assert.equal(typeof contract.createSessionInputGateway, 'function', 'missing input gateway implementation: createSessionInputGateway must be exported');
+  assert.equal(contract.INPUT_REJECTED_REPLAY_PENDING, 'INPUT_REJECTED_REPLAY_PENDING');
+
+  const codes = readStringContractArray(contract.INPUT_GATEWAY_DENIAL_CODES, 'INPUT_GATEWAY_DENIAL_CODES');
+  for (const code of [
+    'INPUT_REJECTED_REPLAY_PENDING',
+    'INPUT_REJECTED_ENTER_POLICY',
+    'STALE_SESSION_ID',
+    'TARGET_NOT_LIVE',
+    'AMBIGUOUS_TARGET',
+    'WEBHOOK_RATE_LIMITED',
+    'WEBHOOK_PROMPT_TOO_LARGE',
+    'WEBHOOK_KEY_REVOKED',
+    'CLOSE_CONFIRMATION_REQUIRED',
+  ]) {
+    assert.ok(codes.includes(code), `missing input gateway denial code: ${code}`);
+  }
+
+  const sources = readStringContractArray(contract.SESSION_INPUT_GATEWAY_INGRESS_SOURCES, 'SESSION_INPUT_GATEWAY_INGRESS_SOURCES');
+  for (const source of requiredInputGatewaySources) {
+    assert.ok(sources.includes(source), `missing input gateway ingress source: ${source}`);
+  }
+}
+
+function readStringContractArray(value: unknown, label: string): string[] {
+  if (Array.isArray(value)) {
+    return value.map(String);
+  }
+  if (value !== null && typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).map(String);
+  }
+  assert.fail(`missing input gateway implementation: ${label} must be exported as an array or enum object`);
+}
+
+function createGatewayRequest(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  const source = String(overrides.source ?? 'mcp-message-send');
+  const base: Record<string, unknown> = {
+    source,
+    actor: {
+      type: source === 'webhook' ? 'webhook' : 'mcp',
+      sessionKey: 'actor-session',
+      scopes: ['mcp:message.paste', 'mcp:message.submit', 'mcp:webhook.invoke'],
+    },
+    target: source === 'mcp-reply-to-leader'
+      ? { leaderSessionKey: 'leader-session' }
+      : { sessionKey: 'target-session', sessionId: 'current-session-id', expectedGeneration: 2 },
+    data: 'gateway input',
+    delivery: { mode: 'paste', submit: false },
+    replayPolicy: 'reject',
+    enterPolicy: 'reject-without-submit-scope',
+    currentActivity: 'idle',
+  };
+
+  return {
+    ...base,
+    ...overrides,
+  };
+}
+
+async function runInputGatewayContractScenario(
+  scenario: InputGatewayScenario,
+  loadedContract?: SessionInputGatewayContract,
+): Promise<void> {
+  const contract = loadedContract ?? await loadSessionInputGatewayContract();
+  assertInputGatewayContractExports(contract);
+  const createGateway = contract.createSessionInputGateway as (...args: unknown[]) => unknown;
+  const calls = {
+    writeInput: [] as Array<Record<string, unknown>>,
+    auditInput: [] as Array<Record<string, unknown>>,
+    activityTransitions: [] as Array<Record<string, unknown>>,
+    lifecycleTransitions: [] as Array<Record<string, unknown>>,
+  };
+  const gateway = asRecord(createGateway({
+    writeInput: (write: unknown) => {
+      calls.writeInput.push(asRecord(write, 'input gateway low-level write'));
+      return { ok: true };
+    },
+    auditInput: (event: unknown) => {
+      calls.auditInput.push(asRecord(event, 'input gateway audit event'));
+    },
+    transitionSessionActivity: (event: unknown) => {
+      calls.activityTransitions.push(asRecord(event, 'input gateway activity transition'));
+    },
+    transitionLifecycle: (event: unknown) => {
+      calls.lifecycleTransitions.push(asRecord(event, 'input gateway lifecycle transition'));
+    },
+    resolveTarget: (request: unknown) => resolveInputGatewayTarget(request, scenario),
+    resolveLeader: () => scenario.leader === null
+      ? { ok: false, code: 'TARGET_NOT_LIVE' }
+      : {
+          ok: true,
+          binding: scenario.leader ?? {
+            sessionKey: 'leader-session',
+            currentSessionId: 'leader-current-session-id',
+            generation: 1,
+            lifecycle: 'live',
+            hidden: false,
+          },
+        },
+    readReplayState: () => ({
+      replayPending: scenario.replayPending === true,
+      screenRepairPending: scenario.screenRepairPending === true,
+    }),
+    evaluateInputPolicy: () => scenario.policyDenialCode
+      ? { ok: false, code: scenario.policyDenialCode }
+      : { ok: true },
+  }), 'SessionInputGateway instance');
+
+  const submitInput = gateway.submitInput;
+  assert.equal(typeof submitInput, 'function', 'missing input gateway implementation: gateway.submitInput must be a function');
+  const result = asRecord(await (submitInput as (...args: unknown[]) => unknown)(scenario.request), 'SessionInputGateway submit result');
+
+  assert.equal(result.accepted, scenario.expected.accepted);
+  assert.equal(result.code ?? null, scenario.expected.code ?? null);
+  assert.equal(calls.writeInput.length, scenario.expected.writes);
+
+  if (scenario.expected.targetSessionKey !== undefined && calls.writeInput.length > 0) {
+    assert.equal(calls.writeInput[0].sessionKey ?? calls.writeInput[0].targetSessionKey, scenario.expected.targetSessionKey);
+  }
+  if (scenario.expected.sessionActivityAfter !== undefined) {
+    assert.equal(result.sessionActivityAfter, scenario.expected.sessionActivityAfter);
+    assert.equal(calls.activityTransitions.some((event) => event.to === 'running' || event.status === 'running'), false);
+  }
+  if (scenario.expected.followerLifecycleAfter !== undefined) {
+    assert.equal(result.followerLifecycleAfter, scenario.expected.followerLifecycleAfter);
+  }
+  if (scenario.expected.requiresIncludeSelf === true) {
+    assert.equal(result.includeSelf, true);
+  }
+  if (scenario.expected.requiresAuditEvent === true) {
+    assert.ok(calls.auditInput.length > 0 || result.auditId !== undefined, 'input gateway must expose an audit hook or auditId');
+  }
+  if (scenario.expected.requiresNoSecrets !== undefined) {
+    assertNoSecretMaterial({
+      result,
+      auditInput: calls.auditInput,
+      writeMetadata: calls.writeInput.map((write) => {
+        const metadata = { ...write };
+        delete metadata.data;
+        return metadata;
+      }),
+    }, scenario.expected.requiresNoSecrets);
+  }
+}
+
+function resolveInputGatewayTarget(request: unknown, scenario: InputGatewayScenario): Record<string, unknown> {
+  if (scenario.target?.ambiguousCandidates !== undefined) {
+    return { ok: false, code: 'AMBIGUOUS_TARGET', candidates: scenario.target.ambiguousCandidates };
+  }
+
+  const requestRecord = asRecord(request, 'input gateway target request');
+  const target = asRecord(requestRecord.target ?? {}, 'input gateway request target');
+  const binding = {
+    sessionKey: 'target-session',
+    currentSessionId: 'current-session-id',
+    generation: 2,
+    lifecycle: 'live',
+    hidden: false,
+    agentStatus: 'waiting_input',
+    ...scenario.target,
+  };
+
+  if (target.leaderSessionKey !== undefined) {
+    return {
+      ok: true,
+      binding: {
+        sessionKey: String(target.leaderSessionKey),
+        currentSessionId: 'leader-current-session-id',
+        generation: 1,
+        lifecycle: 'live',
+        hidden: false,
+      },
+    };
+  }
+  if (binding.agentStatus === 'arbitrary') {
+    return { ok: false, code: 'INVALID_AGENT_STATUS' };
+  }
+  if (binding.lifecycle !== 'live') {
+    return { ok: false, code: 'TARGET_NOT_LIVE' };
+  }
+  if (binding.hidden === true || binding.lifecycle === 'closed' || binding.lifecycle === 'retired') {
+    return { ok: false, code: 'TARGET_NOT_LIVE' };
+  }
+  if (target.expectedGeneration !== undefined && target.expectedGeneration !== binding.generation) {
+    return { ok: false, code: 'STALE_SESSION_ID' };
+  }
+  if (target.sessionId !== undefined && target.sessionId !== binding.currentSessionId) {
+    return { ok: false, code: 'STALE_SESSION_ID' };
+  }
+
+  return {
+    ok: true,
+    binding,
+  };
 }
 
 async function createValidMcpCredential(

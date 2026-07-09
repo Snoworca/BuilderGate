@@ -6,7 +6,7 @@
   "sidecar_sha256": "7df43adac0e73284859a581d061be4c42c53beab9dff555e0cd5a1775a225084",
   "target_slug": "0.5.5-buildergate-stability",
   "started_at": "2026-07-08T23:44:40.561Z",
-  "last_updated_at": "2026-07-09T01:23:33.171Z",
+  "last_updated_at": "2026-07-09T01:50:24.225Z",
   "pm_version": "0.1",
   "tasks": [
     {
@@ -78,19 +78,19 @@
     {
       "task_id": "T-PH003-01",
       "phase_id": "PH-003",
-      "status": "pending",
+      "status": "done",
       "tdd_exempted": false,
-      "started_at": null,
-      "ended_at": null,
-      "coder_run_id": null,
-      "result_summary": null,
+      "started_at": "2026-07-09T01:37:48.886Z",
+      "ended_at": "2026-07-09T01:50:24.225Z",
+      "coder_run_id": "2026-07-09.projectmaster.mcp-orch",
+      "result_summary": "Added 26 RED input gateway contract tests to server/src/test-runner.ts. They fail only because ./services/SessionInputGateway.js is missing, while existing MCP security and registry/alias tests pass before the new RED block. No production implementation files were edited.",
       "trace_req_ids": [
         "FR-MCP-002",
         "IR-MCP-004",
         "IR-MCP-005"
       ],
       "questions": [],
-      "attempts": 0
+      "attempts": 1
     },
     {
       "task_id": "T-PH003-02",
@@ -308,9 +308,9 @@
   ],
   "stats": {
     "total": 16,
-    "done": 4,
+    "done": 5,
     "running": 0,
-    "pending": 12,
+    "pending": 11,
     "failed": 0,
     "blocked": 0,
     "skipped": 0
