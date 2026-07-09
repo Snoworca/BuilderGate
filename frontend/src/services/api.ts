@@ -36,7 +36,16 @@ import type {
   CreateRecoveryOptionRequest,
   RecoveryOption,
   RecoveryOptionListResponse,
-  UpdateRecoveryOptionRequest
+  UpdateRecoveryOptionRequest,
+  McpAgentProfile,
+  McpAgentProfileInput,
+  McpControlConfig,
+  McpControlConfigPatch,
+  McpSearchResponse,
+  McpSessionListResponse,
+  McpSessionRecord,
+  McpWebhookCreateResponse,
+  McpWebhookKey
 } from '../types';
 import type {
   GridLayout,
@@ -468,6 +477,180 @@ export const settingsApi = {
         ...getAuthHeaders(),
       },
       body: JSON.stringify(patch),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+};
+
+export const mcpControlApi = {
+  getConfig: async (): Promise<McpControlConfig> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/config`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  patchConfig: async (patch: McpControlConfigPatch): Promise<McpControlConfig> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/config`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  listAgents: async (): Promise<McpAgentProfile[]> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/agents`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+    const data = await res.json() as { agents: McpAgentProfile[] };
+    return data.agents;
+  },
+
+  createAgent: async (input: McpAgentProfileInput): Promise<McpAgentProfile> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/agents`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  updateAgent: async (id: string, input: Partial<McpAgentProfileInput>): Promise<McpAgentProfile> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/agents/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  deleteAgent: async (id: string): Promise<void> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/agents/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+  },
+
+  listWebhooks: async (): Promise<McpWebhookKey[]> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/webhooks`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+    const data = await res.json() as { webhooks: McpWebhookKey[] };
+    return data.webhooks;
+  },
+
+  createWebhook: async (input: Partial<McpWebhookKey>): Promise<McpWebhookCreateResponse> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/webhooks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  rotateWebhook: async (id: string): Promise<McpWebhookCreateResponse> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/webhooks/${encodeURIComponent(id)}/rotate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  revokeWebhook: async (id: string): Promise<McpWebhookKey> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/webhooks/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  listSessions: async (params: { query?: string; includeSelf?: boolean; actorSessionKey?: string } = {}): Promise<McpSessionListResponse> => {
+    const search = new URLSearchParams();
+    if (params.query) search.set('query', params.query);
+    if (params.includeSelf !== undefined) search.set('includeSelf', String(params.includeSelf));
+    if (params.actorSessionKey) search.set('actorSessionKey', params.actorSessionKey);
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    const res = await authFetch(`${API_BASE}/mcp-control/sessions${suffix}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  searchTest: async (query: string): Promise<McpSearchResponse> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/sessions/search-test`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({ query }),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  setSessionAlias: async (sessionKey: string, alias: string): Promise<McpSessionRecord> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/sessions/${encodeURIComponent(sessionKey)}/alias`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({ alias }),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  replyTest: async (sessionKey: string, prompt: string): Promise<{ accepted: boolean; auditId?: string; code?: string }> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/sessions/${encodeURIComponent(sessionKey)}/reply-test`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({ prompt, deliveryMode: 'paste' }),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  closeSession: async (
+    sessionKey: string,
+    confirmation: { confirmClose: boolean; expectedSessionKey: string; confirmationNonce: string },
+  ): Promise<{ ok: boolean; status?: string; code?: string }> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/sessions/${encodeURIComponent(sessionKey)}/close`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(confirmation),
     });
     if (!res.ok) throw await parseError(res);
     return res.json();

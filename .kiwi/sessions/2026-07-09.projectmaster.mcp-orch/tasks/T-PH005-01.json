@@ -1,0 +1,70 @@
+{
+  "task_id": "T-PH005-01",
+  "started_at": "2026-07-09T03:54:17.508Z",
+  "completed_at": "2026-07-09T04:06:10.353Z",
+  "phase1": {
+    "tdd_red_tests": {
+      "files_changed": [
+        "server/src/test-runner.ts"
+      ],
+      "test_case_count": 14,
+      "req_ids": [
+        "FR-MCP-003",
+        "REL-MCP-001"
+      ],
+      "summary": "Added 14 RED agent lifecycle tests for dedicated agent profiles, open_agent preallocation, spawn-time MCP config/currentSessionId, manual claim mode, SessionInputGateway command/kickoff, update_status registry refresh, launch compensation, safe close/deleteTab routing, deferred close_self, and close outcome observability. Expected RED verified: server test-runner exits 1 with 14 missing AgentLifecycleService failures; build passed; git diff check passed; final review No findings."
+    },
+    "red_evidence": {
+      "command": "cd server; npx tsx src/test-runner.ts",
+      "exit_code": 1,
+      "failure_count": 14,
+      "expected_red": true,
+      "captured_failure": "missing agent lifecycle implementation: expected ./services/AgentLifecycleService.js",
+      "timestamp": "2026-07-09T04:06:10.353Z"
+    },
+    "build_check": {
+      "command": "cd server; npm run build",
+      "exit_code": 0,
+      "timestamp": "2026-07-09T04:06:10.353Z"
+    }
+  },
+  "phase2": {
+    "tdd_review": {
+      "reviewer": "Peirce",
+      "rounds": [
+        {
+          "iter": 1,
+          "severity_summary": {
+            "CRITICAL": 0,
+            "HIGH": 0,
+            "MEDIUM": 2,
+            "LOW": 0
+          },
+          "status": "findings-fixed"
+        },
+        {
+          "iter": 2,
+          "severity_summary": {
+            "CRITICAL": 0,
+            "HIGH": 0,
+            "MEDIUM": 0,
+            "LOW": 0
+          },
+          "status": "No findings",
+          "final_findings": 0
+        }
+      ],
+      "status": "No findings",
+      "final_findings": 0
+    }
+  },
+  "phase3": {
+    "diff_check": {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "note": "CRLF warning only",
+      "timestamp": "2026-07-09T04:06:10.353Z"
+    },
+    "pending_mutations": []
+  }
+}

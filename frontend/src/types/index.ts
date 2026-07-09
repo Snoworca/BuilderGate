@@ -176,3 +176,16 @@ export type {
   RecoveryOptionListResponse,
   UpdateRecoveryOptionRequest
 } from './recoveryOption';
+
+export type {
+  McpAgentProfile,
+  McpAgentProfileInput,
+  McpClientConfigMode,
+  McpControlConfig,
+  McpControlConfigPatch,
+  McpSearchResponse,
+  McpSessionListResponse,
+  McpSessionRecord,
+  McpWebhookCreateResponse,
+  McpWebhookKey
+} from './mcpControl';

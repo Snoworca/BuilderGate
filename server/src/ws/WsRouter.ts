@@ -2103,6 +2103,19 @@ export class WsRouter {
     return subscribers !== undefined && subscribers.size > 0;
   }
 
+  readInputReplayState(sessionId: string): { replayPending: boolean; screenRepairPending: boolean } {
+    let replayPending = false;
+    let screenRepairPending = false;
+    for (const meta of this.clients.values()) {
+      replayPending = replayPending || meta.replayPendingSessions.has(sessionId);
+      screenRepairPending = screenRepairPending || this.getScreenRepairPendingSessions(meta).has(sessionId);
+      if (replayPending && screenRepairPending) {
+        break;
+      }
+    }
+    return { replayPending, screenRepairPending };
+  }
+
   getObservabilitySnapshot(): WsRouterObservabilitySnapshot {
     let replayPendingCount = 0;
     let screenRepairPendingCount = 0;

@@ -6,7 +6,7 @@
   "sidecar_sha256": "7df43adac0e73284859a581d061be4c42c53beab9dff555e0cd5a1775a225084",
   "target_slug": "0.5.5-buildergate-stability",
   "started_at": "2026-07-08T23:44:40.561Z",
-  "last_updated_at": "2026-07-09T03:01:07.313Z",
+  "last_updated_at": "2026-07-09T04:39:30.000Z",
   "pm_version": "0.1",
   "tasks": [
     {
@@ -129,61 +129,61 @@
     {
       "task_id": "T-PH004-02",
       "phase_id": "PH-004",
-      "status": "pending",
+      "status": "done",
       "tdd_exempted": false,
-      "started_at": null,
-      "ended_at": null,
-      "coder_run_id": null,
-      "result_summary": null,
+      "started_at": "2026-07-09T03:01:07.313Z",
+      "ended_at": "2026-07-09T03:54:17.508Z",
+      "coder_run_id": "2026-07-09.projectmaster.mcp-orch",
+      "result_summary": "Implemented MCP Streamable HTTP tool service and independent loopback MCP listener wiring with claim bootstrap, WorkspaceService session list/search/alias integration, SessionInputGateway-backed message delivery, listener rebind rollback, redacted audit/status, malformed-denial JSON-RPC handling, and replay-state-aware MCP input delivery. Server tests 431 passed, build passed, git diff check passed, final prickly review No findings.",
       "trace_req_ids": [
         "IR-MCP-001",
         "OBS-MCP-001",
         "SEC-MCP-001"
       ],
       "questions": [],
-      "attempts": 0
+      "attempts": 1
     },
     {
       "task_id": "T-PH005-01",
       "phase_id": "PH-005",
-      "status": "pending",
+      "status": "done",
       "tdd_exempted": false,
-      "started_at": null,
-      "ended_at": null,
-      "coder_run_id": null,
-      "result_summary": null,
+      "started_at": "2026-07-09T03:54:17.508Z",
+      "ended_at": "2026-07-09T04:06:10.353Z",
+      "coder_run_id": "2026-07-09.projectmaster.mcp-orch",
+      "result_summary": "Added 14 RED agent lifecycle tests for dedicated agent profiles, open_agent preallocation, spawn-time MCP config/currentSessionId, manual claim mode, SessionInputGateway command/kickoff, update_status registry refresh, launch compensation, safe close/deleteTab routing, deferred close_self, and close outcome observability. Expected RED verified: server test-runner exits 1 with 14 missing AgentLifecycleService failures; build passed; git diff check passed; final review No findings.",
       "trace_req_ids": [
         "FR-MCP-003",
         "REL-MCP-001"
       ],
       "questions": [],
-      "attempts": 0
+      "attempts": 1
     },
     {
       "task_id": "T-PH005-02",
       "phase_id": "PH-005",
-      "status": "pending",
+      "status": "done",
       "tdd_exempted": false,
-      "started_at": null,
-      "ended_at": null,
-      "coder_run_id": null,
-      "result_summary": null,
+      "started_at": "2026-07-09T04:06:10.353Z",
+      "ended_at": "2026-07-09T04:26:30.000Z",
+      "coder_run_id": "2026-07-09.projectmaster.mcp-orch",
+      "result_summary": "Implemented AgentLifecycleService and MCP tool wiring for agent profiles, open_agent preallocation, spawn-time MCP env/generated-file/manual claim config, SessionInputGateway command/kickoff delivery with readiness gating, update_status registry refresh, token revoke checks, generated-file-only config files, safe close/deleteTab routing, deferred close_self, and cleanup observability. Server tests 449 passed, build passed, git diff check passed, final prickly review No findings.",
       "trace_req_ids": [
         "FR-MCP-003",
         "REL-MCP-001"
       ],
       "questions": [],
-      "attempts": 0
+      "attempts": 1
     },
     {
       "task_id": "T-PH006-01",
       "phase_id": "PH-006",
-      "status": "pending",
+      "status": "done",
       "tdd_exempted": false,
-      "started_at": null,
-      "ended_at": null,
-      "coder_run_id": null,
-      "result_summary": null,
+      "started_at": "2026-07-09T04:26:30.000Z",
+      "ended_at": "2026-07-09T04:39:30.000Z",
+      "coder_run_id": "2026-07-09.projectmaster.mcp-orch",
+      "result_summary": "Added 35 RED webhook/control REST tests covering webhook key create/invoke/list/rotate/revoke, query and header credentials, no-target open_agent, alias resolution, rate limit and denial precedence, UI-auth-only MCP control config and mutation APIs, agent profile validation, sessions/search/reply/close endpoints, one-time secret exposure, redaction, includeSelf default, deferred close_self failure notification, and close confirmation nonce shape. Expected RED verified: server test-runner exits 1 with 35 missing WebhookInvocationService/McpControlService failures; build passed; git diff check passed; final TDD review No findings.",
       "trace_req_ids": [
         "FR-MCP-004",
         "IR-MCP-002",
@@ -191,7 +191,7 @@
         "IR-MCP-004"
       ],
       "questions": [],
-      "attempts": 0
+      "attempts": 1
     },
     {
       "task_id": "T-PH006-02",
@@ -308,9 +308,9 @@
   ],
   "stats": {
     "total": 16,
-    "done": 7,
+    "done": 11,
     "running": 0,
-    "pending": 9,
+    "pending": 5,
     "failed": 0,
     "blocked": 0,
     "skipped": 0

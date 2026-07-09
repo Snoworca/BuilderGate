@@ -11,3 +11,13 @@
 {"task_id":"T-PH003-02","command":"git diff --check","exit_code":0,"timestamp":"2026-07-09T02:28:02.188Z","note":"post-review fix loop final rerun"}
 {"task_id":"T-PH004-01","command":"cd server; npx tsx src/test-runner.ts","exit_code":1,"failed":18,"expected_red":true,"signature":"missing MCP transport/tool implementation: expected ./services/McpToolService.js","timestamp":"2026-07-09T03:01:07.313Z"}
 {"task_id":"T-PH004-01","command":"git diff --check","exit_code":0,"timestamp":"2026-07-09T03:01:07.313Z","note":"RED test diff check"}
+{"task_id":"T-PH004-02","command":"cd server; npx tsx src/test-runner.ts","exit_code":0,"passed":431,"failed":0,"expected_red":false,"signature":"MCP transport/tool green implementation passed full server regression","timestamp":"2026-07-09T03:54:17.508Z"}
+{"task_id":"T-PH004-02","command":"cd server; npm run build","exit_code":0,"passed":null,"failed":0,"expected_red":false,"signature":"TypeScript build passed after MCP transport/tool implementation","timestamp":"2026-07-09T03:54:17.508Z"}
+{"task_id":"T-PH005-01","command":"cd server; npx tsx src/test-runner.ts","exit_code":1,"failed":14,"expected_red":true,"signature":"missing agent lifecycle implementation: expected ./services/AgentLifecycleService.js","timestamp":"2026-07-09T04:06:10.353Z"}
+{"task_id":"T-PH005-01","command":"cd server; npm run build","exit_code":0,"failed":0,"expected_red":false,"signature":"TypeScript build passed after agent lifecycle RED tests","timestamp":"2026-07-09T04:06:10.353Z"}
+{"task_id":"T-PH005-02","run_at":"2026-07-09T04:26:30.000Z","command":"cd server; npm run build","exit_code":0,"result":"passed"}
+{"task_id":"T-PH005-02","run_at":"2026-07-09T04:26:30.000Z","command":"cd server; npx tsx src/test-runner.ts","exit_code":0,"passed":449,"failed":0,"result":"passed"}
+{"task_id":"T-PH005-02","run_at":"2026-07-09T04:26:30.000Z","command":"git diff --check","exit_code":0,"result":"passed","note":"CRLF warning only"}
+{"task_id":"T-PH006-01","run_at":"2026-07-09T04:39:30.000Z","command":"cd server; npm run build","exit_code":0,"result":"passed"}
+{"task_id":"T-PH006-01","run_at":"2026-07-09T04:39:30.000Z","command":"cd server; npx tsx src/test-runner.ts","exit_code":1,"failed":35,"expected_red":true,"result":"expected-red","signature":"missing WebhookInvocationService.js or McpControlService.js"}
+{"task_id":"T-PH006-01","run_at":"2026-07-09T04:39:30.000Z","command":"git diff --check","exit_code":0,"result":"passed","note":"CRLF warning only"}

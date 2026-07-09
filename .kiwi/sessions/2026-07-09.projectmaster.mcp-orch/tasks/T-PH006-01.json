@@ -1,0 +1,72 @@
+{
+  "task_id": "T-PH006-01",
+  "started_at": "2026-07-09T04:26:30.000Z",
+  "completed_at": "2026-07-09T04:39:30.000Z",
+  "phase1": {
+    "tdd_red_tests": {
+      "files_changed": [
+        "server/src/test-runner.ts"
+      ],
+      "test_case_count": 35,
+      "req_ids": [
+        "FR-MCP-004",
+        "IR-MCP-002",
+        "IR-MCP-003",
+        "IR-MCP-004"
+      ],
+      "summary": "Added 35 RED webhook/control REST tests covering webhook key create/invoke/list/rotate/revoke, query and header credentials, no-target open_agent, alias resolution, rate limit and denial precedence, UI-auth-only MCP control config and mutation APIs, agent profile validation, sessions/search/reply/close endpoints, one-time secret exposure, redaction, includeSelf default, deferred close_self failure notification, and close confirmation nonce shape. Expected RED verified: server test-runner exits 1 with 35 missing WebhookInvocationService/McpControlService failures; build passed; git diff check passed; final TDD review No findings."
+    },
+    "red_evidence": {
+      "command": "cd server; npx tsx src/test-runner.ts",
+      "exit_code": 1,
+      "failure_count": 35,
+      "expected_red": true,
+      "captured_failure": "missing webhook/control REST implementation: expected ./services/WebhookInvocationService.js or ./services/McpControlService.js",
+      "timestamp": "2026-07-09T04:39:30.000Z"
+    },
+    "build_check": {
+      "command": "cd server; npm run build",
+      "exit_code": 0,
+      "timestamp": "2026-07-09T04:39:30.000Z"
+    }
+  },
+  "phase2": {
+    "tdd_review": {
+      "reviewer": "Huygens",
+      "rounds": [
+        {
+          "iter": 1,
+          "severity_summary": {
+            "CRITICAL": 0,
+            "HIGH": 4,
+            "MEDIUM": 2,
+            "LOW": 0
+          },
+          "status": "findings-fixed"
+        },
+        {
+          "iter": 2,
+          "severity_summary": {
+            "CRITICAL": 0,
+            "HIGH": 0,
+            "MEDIUM": 0,
+            "LOW": 0
+          },
+          "status": "No findings",
+          "final_findings": 0
+        }
+      ],
+      "status": "No findings",
+      "final_findings": 0
+    }
+  },
+  "phase3": {
+    "diff_check": {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "note": "CRLF warning only",
+      "timestamp": "2026-07-09T04:39:30.000Z"
+    },
+    "pending_mutations": []
+  }
+}

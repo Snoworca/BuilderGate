@@ -23,6 +23,16 @@ export interface WorkspaceTab {
   sessionKey?: string;
   currentSessionId?: string;
   previousSessionIds?: string[];
+  leaderSessionKey?: string | null;
+  agentKind?: string;
+  agentStatus?: string;
+  agentStatusDetail?: string;
+  mcpConnected?: boolean;
+  bindingLifecycle?: string;
+  lastSeenAt?: string;
+  launchAttemptId?: string;
+  generatedConfigPath?: string;
+  kickoffPending?: boolean;
   name: string;
   nameSource?: WorkspaceTabNameSource;
   terminalTitle?: string;

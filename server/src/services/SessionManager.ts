@@ -340,6 +340,11 @@ export interface SessionCommandSubmittedEvent {
   executable: string | null;
 }
 
+export interface CreateSessionOptions {
+  sessionId?: string;
+  envPatch?: Record<string, string | undefined | null>;
+}
+
 interface SessionBatchTerminationResult {
   attempted: number;
   terminated: number;
@@ -570,8 +575,8 @@ export class SessionManager {
     this.cachedAvailableShells = this.detectAvailableShells();
   }
 
-  createSession(name?: string, shell?: ShellType, cwd?: string): SessionDTO {
-    const id = uuidv4();
+  createSession(name?: string, shell?: ShellType, cwd?: string, options: CreateSessionOptions = {}): SessionDTO {
+    const id = options.sessionId || uuidv4();
     this.sessionCounter++;
     const sessionName = name || `Session-${this.sessionCounter}`;
 
@@ -581,7 +586,10 @@ export class SessionManager {
     const initialCwd = this.resolveSpawnCwd(cwd, shellType);
 
     // Step 9: OSC 133 셸 통합 환경변수 구성
-    const env = this.buildShellEnv(shellType);
+    const env = {
+      ...this.buildShellEnv(shellType),
+      ...this.normalizeEnvPatch(options.envPatch),
+    };
     const cols = this.runtimePtyConfig.defaultCols;
     const rows = this.runtimePtyConfig.defaultRows;
 
@@ -1825,6 +1833,20 @@ export class SessionManager {
     // powershell: OSC 133 미지원, 기본 env 반환
 
     return baseEnv;
+  }
+
+  private normalizeEnvPatch(envPatch: Record<string, string | undefined | null> | undefined): Record<string, string> {
+    if (!envPatch) {
+      return {};
+    }
+    const normalized: Record<string, string> = {};
+    for (const [key, value] of Object.entries(envPatch)) {
+      if (!key || value === undefined || value === null) {
+        continue;
+      }
+      normalized[key] = String(value);
+    }
+    return normalized;
   }
 
   private getWindowsPtyInfo(backendOverride?: WindowsPtyBackend): WindowsPtyInfo | undefined {

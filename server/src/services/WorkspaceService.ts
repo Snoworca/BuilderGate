@@ -46,6 +46,23 @@ interface WorkspaceServiceOptions {
   restoreInputDelayMs?: number;
 }
 
+interface WorkspaceAddTabOptions {
+  sessionKey?: string;
+  currentSessionId?: string;
+  previousSessionIds?: string[];
+  envPatch?: Record<string, string | undefined | null>;
+  leaderSessionKey?: string | null;
+  agentKind?: string;
+  agentStatus?: string;
+  agentStatusDetail?: string;
+  mcpConnected?: boolean;
+  bindingLifecycle?: string;
+  lastSeenAt?: string;
+  launchAttemptId?: string;
+  generatedConfigPath?: string;
+  kickoffPending?: boolean;
+}
+
 interface TabUpdatedEvent {
   tab: WorkspaceTab;
   changes: WorkspaceTabChanges;
@@ -285,6 +302,138 @@ export class WorkspaceService {
     return tab;
   }
 
+  // @req FR-MCP-003
+  preallocateMcpSession(_request: unknown = {}): { sessionKey: string; currentSessionId: string } {
+    return {
+      sessionKey: uuidv4(),
+      currentSessionId: uuidv4(),
+    };
+  }
+
+  // @req FR-MCP-003
+  async addTabWithLaunchContext(request: unknown): Promise<Record<string, unknown>> {
+    const input = this.asRecord(request);
+    const workspaceId = this.asString(input.workspaceId) ?? this.state.workspaces[0]?.id;
+    if (!workspaceId) {
+      throw new AppError(ErrorCode.WORKSPACE_NOT_FOUND);
+    }
+    const tab = await this.addTab(
+      workspaceId,
+      this.asString(input.shellType) as ShellType | undefined,
+      this.asString(input.name) ?? this.asString(input.displayName),
+      this.asString(input.cwd),
+      {
+        sessionKey: this.asString(input.sessionKey),
+        currentSessionId: this.asString(input.currentSessionId),
+        envPatch: this.asStringRecord(input.envPatch),
+        leaderSessionKey: this.asString(input.leaderSessionKey),
+        agentKind: this.asString(input.agentKind),
+        agentStatus: this.asString(input.agentStatus),
+        agentStatusDetail: this.asString(input.agentStatusDetail),
+        mcpConnected: input.mcpConnected === true,
+        bindingLifecycle: this.asString(input.bindingLifecycle),
+        lastSeenAt: this.asString(input.lastSeenAt),
+        launchAttemptId: this.asString(input.launchAttemptId),
+        generatedConfigPath: this.asString(input.generatedConfigPath),
+        kickoffPending: input.kickoffPending === true,
+      },
+    );
+    return {
+      ok: true,
+      tabId: tab.id,
+      sessionId: tab.sessionId,
+      currentSessionId: tab.currentSessionId,
+      sessionKey: tab.sessionKey,
+      tab,
+    };
+  }
+
+  // @req FR-MCP-003
+  async updateMcpAgentStatus(request: unknown): Promise<Record<string, unknown>> {
+    const input = this.asRecord(request);
+    const actor = this.asRecord(input.actor);
+    const sessionKey = this.asString(input.sessionKey) ?? this.asString(actor.sessionKey);
+    const tab = sessionKey ? this.state.tabs.find(item => item.sessionKey === sessionKey) : undefined;
+    if (!tab) {
+      throw new AppError(ErrorCode.TAB_NOT_FOUND);
+    }
+
+    const now = this.asString(input.lastSeenAt) ?? new Date().toISOString();
+    const changes: WorkspaceTabChanges = {};
+    const assignString = (field: keyof WorkspaceTab, value: unknown): void => {
+      const text = this.asString(value);
+      if (text === undefined) {
+        return;
+      }
+      (tab as unknown as Record<string, unknown>)[field] = text;
+      (changes as Record<string, unknown>)[field] = text;
+    };
+
+    assignString('agentKind', input.agentKind);
+    assignString('agentStatus', input.agentStatus);
+    assignString('agentStatusDetail', input.detail ?? input.statusMessage);
+    assignString('bindingLifecycle', input.bindingLifecycle);
+    if (input.mcpConnected !== undefined) {
+      tab.mcpConnected = input.mcpConnected === true;
+      changes.mcpConnected = tab.mcpConnected;
+    } else {
+      tab.mcpConnected = true;
+      changes.mcpConnected = true;
+    }
+    if (input.kickoffPending !== undefined) {
+      tab.kickoffPending = input.kickoffPending === true;
+      changes.kickoffPending = tab.kickoffPending;
+    }
+    tab.lastSeenAt = now;
+    changes.lastSeenAt = now;
+
+    await this.save(true);
+    this.emitTabUpdated({ tab, changes });
+    return {
+      ok: true,
+      sessionKey: tab.sessionKey,
+      agentKind: tab.agentKind,
+      agentStatus: tab.agentStatus,
+      detail: tab.agentStatusDetail,
+      mcpConnected: tab.mcpConnected,
+      lastSeenAt: tab.lastSeenAt,
+      bindingLifecycle: tab.bindingLifecycle,
+    };
+  }
+
+  // @req REL-MCP-001
+  async deleteMcpSession(request: unknown): Promise<Record<string, unknown>> {
+    const input = this.asRecord(request);
+    const sessionKey = this.asString(input.sessionKey);
+    const tab = sessionKey ? this.state.tabs.find(item => item.sessionKey === sessionKey) : undefined;
+    if (!tab) {
+      return { ok: false, code: 'TARGET_NOT_FOUND', processTreeCleanupStatus: 'failed' };
+    }
+    try {
+      await this.deleteTab(tab.workspaceId, tab.id);
+      return {
+        ok: true,
+        sessionKey,
+        workspaceId: tab.workspaceId,
+        tabId: tab.id,
+        processTreeCleanupStatus: 'completed',
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        code: error instanceof Error ? error.message : 'TAB_DELETE_FAILED',
+        sessionKey,
+        workspaceId: tab.workspaceId,
+        tabId: tab.id,
+        processTreeCleanupStatus: 'failed',
+      };
+    }
+  }
+
+  getMcpSessionByKey(sessionKey: string): Record<string, unknown> | null {
+    return this.listMcpSessions(undefined, true).find(session => session.sessionKey === sessionKey) ?? null;
+  }
+
   getGridLayout(workspaceId: string): GridLayout | undefined {
     return this.state.gridLayouts.find(g => g.workspaceId === workspaceId);
   }
@@ -396,7 +545,7 @@ export class WorkspaceService {
   // Tab CRUD
   // ============================================================================
 
-  async addTab(workspaceId: string, shell?: ShellType, name?: string, cwd?: string): Promise<WorkspaceTab> {
+  async addTab(workspaceId: string, shell?: ShellType, name?: string, cwd?: string, options: WorkspaceAddTabOptions = {}): Promise<WorkspaceTab> {
     const ws = this.getWorkspace(workspaceId);
     const wsTabs = this.getWorkspaceTabs(workspaceId);
 
@@ -413,7 +562,11 @@ export class WorkspaceService {
     const sessionDTO = this.sessionManager.createSession(
       name || `Terminal-${wsTabs.length + 1}`,
       shellType,
-      cwd
+      cwd,
+      {
+        sessionId: options.currentSessionId,
+        envPatch: options.envPatch,
+      },
     );
 
     const colorIndex = ws.colorCounter % 8;
@@ -423,9 +576,19 @@ export class WorkspaceService {
       id: uuidv4(),
       workspaceId,
       sessionId: sessionDTO.id,
-      sessionKey: createStableSessionKey(),
+      sessionKey: options.sessionKey ?? createStableSessionKey(),
       currentSessionId: sessionDTO.id,
-      previousSessionIds: [],
+      previousSessionIds: options.previousSessionIds ?? [],
+      leaderSessionKey: options.leaderSessionKey,
+      agentKind: options.agentKind,
+      agentStatus: options.agentStatus,
+      agentStatusDetail: options.agentStatusDetail,
+      mcpConnected: options.mcpConnected,
+      bindingLifecycle: options.bindingLifecycle,
+      lastSeenAt: options.lastSeenAt,
+      launchAttemptId: options.launchAttemptId,
+      generatedConfigPath: options.generatedConfigPath,
+      kickoffPending: options.kickoffPending,
       name: name || `Terminal-${wsTabs.length + 1}`,
       nameSource: name ? 'user' : 'default',
       colorIndex,
@@ -818,6 +981,32 @@ export class WorkspaceService {
 
   private sortTabs(tabs: WorkspaceTab[]): WorkspaceTab[] {
     return [...tabs].sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : {};
+  }
+
+  private asString(value: unknown): string | undefined {
+    return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
+  }
+
+  private asStringRecord(value: unknown): Record<string, string | undefined | null> | undefined {
+    const record = this.asRecord(value);
+    if (Object.keys(record).length === 0) {
+      return undefined;
+    }
+    const normalized: Record<string, string | undefined | null> = {};
+    for (const [key, item] of Object.entries(record)) {
+      if (typeof item === 'string' || item === undefined || item === null) {
+        normalized[key] = item;
+      } else {
+        normalized[key] = String(item);
+      }
+    }
+    return normalized;
   }
 
   private isMovableTab(tab: WorkspaceTab): boolean {

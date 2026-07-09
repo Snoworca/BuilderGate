@@ -94,6 +94,8 @@ const TOKEN_SIGNING_SECRET = crypto.randomBytes(32);
 const consumedTokenJtis = new Map<string, number>();
 const ALLOWED_AGENT_STATUS = new Set(['unknown', 'starting', 'ready', 'busy', 'waiting_input', 'completed', 'failed']);
 const ALLOWED_BINDING_LIFECYCLE = new Set(['live', 'closing', 'closed', 'retired', 'failed', 'closing-failed']);
+const ALLOWED_BIND_MODES = new Set(['loopback', 'whitelist']);
+const ALLOWED_TRANSPORT_SECURITY = new Set(['none', 'direct_tls', 'trusted_tls_proxy']);
 const FORBIDDEN_WEBHOOK_HEADERS = new Set([
   'authorization',
   'cookie',
@@ -121,13 +123,39 @@ export function validateMcpSecurityConfig(
   candidate: McpSecurityConfig,
   context: { activeConfig?: unknown } = {},
 ): StringRecord {
-  if (candidate.bindMode === 'whitelist') {
+  const bindMode = candidate.bindMode ?? 'loopback';
+  const transportSecurity = candidate.transportSecurity ?? 'none';
+  if (!ALLOWED_BIND_MODES.has(bindMode)) {
+    return validationDenied('MCP_TRANSPORT_DENIED', context.activeConfig);
+  }
+  if (!ALLOWED_TRANSPORT_SECURITY.has(transportSecurity)) {
+    return validationDenied('MCP_TRANSPORT_DENIED', context.activeConfig);
+  }
+  if (!isValidOriginList(candidate.allowedOrigins ?? [])) {
+    return validationDenied('MCP_ORIGIN_DENIED', context.activeConfig);
+  }
+  if (!isValidOptionalCidrList(candidate.externalWhitelist)) {
+    return validationDenied('MCP_WHITELIST_DENIED', context.activeConfig);
+  }
+  if (!isValidOptionalCidrList(candidate.trustedProxies)) {
+    return validationDenied('MCP_TRUSTED_PROXY_DENIED', context.activeConfig);
+  }
+
+  if (bindMode === 'whitelist') {
     if (!Array.isArray(candidate.externalWhitelist) || candidate.externalWhitelist.length === 0) {
       return validationDenied('MCP_WHITELIST_EMPTY', context.activeConfig);
     }
-    if (candidate.transportSecurity !== 'direct_tls' && candidate.transportSecurity !== 'trusted_tls_proxy') {
+    if (transportSecurity !== 'direct_tls' && transportSecurity !== 'trusted_tls_proxy') {
       return validationDenied('MCP_TRANSPORT_TLS_REQUIRED', context.activeConfig);
     }
+    if (
+      transportSecurity === 'trusted_tls_proxy'
+      && (!Array.isArray(candidate.trustedProxies) || candidate.trustedProxies.length === 0)
+    ) {
+      return validationDenied('MCP_TRUSTED_PROXY_DENIED', context.activeConfig);
+    }
+  } else if (candidate.bindHost && !isLoopbackAddress(candidate.bindHost)) {
+    return validationDenied('MCP_LOOPBACK_ONLY', context.activeConfig);
   }
 
   return {
@@ -144,6 +172,10 @@ export function evaluateMcpRequestGuard(request: GuardRequest): StringRecord {
 
   if (request.credential?.type === 'browser-jwt') {
     return denied('CREDENTIAL_BOUNDARY_VIOLATION');
+  }
+
+  if (config.enabled === false) {
+    return denied('MCP_TRANSPORT_DENIED');
   }
 
   if (config.bindMode === 'whitelist') {
@@ -598,6 +630,41 @@ function resolveWhitelistedClientAddress(
 
 function matchesAnyCidr(address: string, cidrs: string[]): boolean {
   return cidrs.some((cidr) => matchesCidr(address, cidr));
+}
+
+function isValidOptionalCidrList(cidrs: unknown): boolean {
+  return cidrs === undefined || (Array.isArray(cidrs) && cidrs.every(isValidIpv4Cidr));
+}
+
+function isValidIpv4Cidr(value: unknown): boolean {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const [network, prefixText, extra] = value.split('/');
+  if (extra !== undefined || !network || ipv4ToInt(normalizeIp(network)) === null) {
+    return false;
+  }
+  if (prefixText === undefined) {
+    return true;
+  }
+  const prefix = Number(prefixText);
+  return /^\d+$/u.test(prefixText) && Number.isInteger(prefix) && prefix >= 0 && prefix <= 32;
+}
+
+function isValidOriginList(origins: unknown): boolean {
+  return Array.isArray(origins) && origins.every(isValidOrigin);
+}
+
+function isValidOrigin(value: unknown): boolean {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  try {
+    const parsed = new URL(value);
+    return parsed.origin === value && (parsed.protocol === 'http:' || parsed.protocol === 'https:');
+  } catch {
+    return false;
+  }
 }
 
 function matchesCidr(address: string, cidr: string): boolean {

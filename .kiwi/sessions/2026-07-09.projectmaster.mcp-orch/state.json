@@ -11,9 +11,9 @@
     "TASK_FILTER=T-PH002-01"
   ],
   "started_at": "2026-07-08T23:44:53.310Z",
-  "updated_at": "2026-07-09T03:01:07.313Z",
+  "updated_at": "2026-07-09T04:39:30.000Z",
   "frozen_at": null,
-  "current_phase_id": "PH-004",
+  "current_phase_id": "PH-006",
   "current_task_id": null,
   "next_resume_hint": null,
   "task_queue": [],
@@ -24,7 +24,11 @@
     "T-PH002-02",
     "T-PH003-01",
     "T-PH003-02",
-    "T-PH004-01"
+    "T-PH004-01",
+    "T-PH004-02",
+    "T-PH005-01",
+    "T-PH005-02",
+    "T-PH006-01"
   ],
   "skipped_task_ids": [],
   "failed_task_ids": [],
@@ -142,15 +146,79 @@
         "LOW": 0,
         "rounds": 0
       }
+    },
+    "T-PH004-02": {
+      "phase1": {
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0,
+        "rounds": 0
+      },
+      "phase2": {
+        "CRITICAL": 0,
+        "HIGH": 6,
+        "MEDIUM": 1,
+        "LOW": 0,
+        "rounds": 3
+      }
+    },
+    "T-PH005-01": {
+      "phase1": {
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 2,
+        "LOW": 0,
+        "rounds": 2
+      },
+      "phase2": {
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0,
+        "rounds": 0
+      }
+    },
+    "T-PH005-02": {
+      "phase1": {
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0,
+        "rounds": 0
+      },
+      "phase2": {
+        "CRITICAL": 0,
+        "HIGH": 4,
+        "MEDIUM": 2,
+        "LOW": 0,
+        "rounds": 2
+      }
+    },
+    "T-PH006-01": {
+      "phase1": {
+        "CRITICAL": 0,
+        "HIGH": 4,
+        "MEDIUM": 2,
+        "LOW": 0,
+        "rounds": 2
+      },
+      "phase2": {
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0,
+        "rounds": 0
+      }
     }
   },
   "regression_summary": {
-    "last_run_at": "2026-07-09T03:01:07.313Z",
+    "last_run_at": "2026-07-09T04:39:30.000Z",
     "scope": "red",
     "passed": null,
-    "failed": 18,
+    "failed": 35,
     "expected_red": true,
-    "signature": "missing MCP transport/tool implementation: expected ./services/McpToolService.js",
+    "signature": "missing webhook/control REST implementation: expected ./services/WebhookInvocationService.js or ./services/McpControlService.js",
     "regressed_files": []
   },
   "mcp_call_log": [
