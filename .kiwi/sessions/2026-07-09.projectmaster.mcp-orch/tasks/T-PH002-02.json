@@ -1,0 +1,249 @@
+{
+  "task_id": "T-PH002-02",
+  "phase_id": "PH-002",
+  "title": "Registry and alias implementation",
+  "started_at": "2026-07-09T00:45:11.503Z",
+  "completed_at": "2026-07-09T01:23:33.171Z",
+  "phase1": {
+    "tdd_draft_iters": [],
+    "standard4_reviews": [],
+    "red_evidence": null
+  },
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "server/src/services/McpSessionRegistryContract.ts",
+          "server/src/services/WorkspaceService.ts",
+          "server/src/types/workspace.types.ts",
+          "frontend/src/types/workspace.ts"
+        ],
+        "loc_added": null,
+        "loc_removed": null
+      },
+      {
+        "iter": 2,
+        "files_changed": [
+          "server/src/services/McpSessionRegistryContract.ts",
+          "server/src/services/WorkspaceService.ts",
+          "server/src/test-runner.ts"
+        ],
+        "loc_added": null,
+        "loc_removed": null,
+        "note": "Addressed independent prickly review findings for stopped/no-live sessionKey reservation and full search failure metadata preservation."
+      }
+    ],
+    "formal_reviews": [
+      {
+        "iter": 1,
+        "findings": [],
+        "summary": "server test-runner, server build, and diff check passed."
+      },
+      {
+        "iter": 2,
+        "findings": [],
+        "summary": "Final automated checks passed after review fixes: server test-runner, server build, and diff check."
+      }
+    ],
+    "prickly_reviews": [
+      {
+        "task_id": "T-PH002-02",
+        "reviewer": "codex-prickly-review-final",
+        "timestamp": "2026-07-09T00:54:39.508Z",
+        "pass": true,
+        "findings": [],
+        "addressed_findings": [
+          {
+            "severity": "HIGH",
+            "finding": "Startup legacy backfill could mutate sessionKey/currentSessionId inside normalizeTabLifecycleMetadata before initialize captured the changed flag, causing metadata not to be saved.",
+            "resolution": "Moved the startup backfill mutation out of normalizeTabLifecycleMetadata so initialize records tabMetadataChanged and saves immediately."
+          }
+        ],
+        "summary": "No remaining findings. Reviewed stable sessionKey/currentSessionId binding, stale sessionId rejection, alias list/search/set behavior, WorkspaceTab alias persistence, startup backfill, restart/orphan preservation, and type/build compatibility.",
+        "reviewed_files": [
+          "server/src/services/McpSessionRegistryContract.ts",
+          "server/src/services/WorkspaceService.ts",
+          "server/src/types/workspace.types.ts",
+          "frontend/src/types/workspace.ts"
+        ]
+      },
+      {
+        "task_id": "T-PH002-02",
+        "reviewer": "Maxwell",
+        "timestamp": "2026-07-09T01:12:09.000Z",
+        "pass": false,
+        "findings": [
+          {
+            "severity": "HIGH",
+            "finding": "materializeRegistry and reconcileMcpSessionRegistry filtered stopped or no-live bindings before reserving their sessionKey values.",
+            "resolution": "Reserve stopped/no-live keys before active repair in materialize and reconcile paths, with regression coverage."
+          },
+          {
+            "severity": "HIGH",
+            "finding": "WorkspaceService.searchMcpSessions returned only matches and dropped explicit zero-match or ambiguous failure metadata.",
+            "resolution": "Return full SearchMcpSessionsResult from WorkspaceService and add zero/ambiguous metadata regression coverage."
+          }
+        ]
+      },
+      {
+        "task_id": "T-PH002-02",
+        "reviewer": "Maxwell",
+        "timestamp": "2026-07-09T01:19:28.000Z",
+        "pass": false,
+        "findings": [
+          {
+            "severity": "HIGH",
+            "finding": "backfillLegacyWorkspaceTabs could let an active legacy tab reuse a stopped tab sessionKey when active input appeared first.",
+            "resolution": "Reserve stopped keys before active legacy backfill and add a direct backfill regression case."
+          }
+        ]
+      },
+      {
+        "task_id": "T-PH002-02",
+        "reviewer": "Maxwell",
+        "timestamp": "2026-07-09T01:23:33.171Z",
+        "pass": true,
+        "findings": [],
+        "summary": "No findings. Duplicate key repair and search failure metadata contracts are covered and preserved through WorkspaceService."
+      }
+    ],
+    "green_evidence": {
+      "command": "cd server; npx tsx src/test-runner.ts",
+      "exit_code": 0,
+      "timestamp": "2026-07-09T01:23:33.171Z"
+    },
+    "green_evidence_meta": {
+      "passed_test_case_ids": [
+        "TC-REQ-FR-MCP-001-AC1-02",
+        "TC-REQ-FR-MCP-001-AC2-02",
+        "TC-REQ-FR-MCP-001-AC3-02",
+        "TC-REQ-FR-MCP-001-AC4-02",
+        "TC-REQ-FR-MCP-001-AC5-02",
+        "TC-REQ-FR-MCP-001-AC6-02",
+        "TC-REQ-FR-MCP-001-AC7-02",
+        "TC-REQ-FR-MCP-006-AC1-02",
+        "TC-REQ-FR-MCP-006-AC2-02",
+        "TC-REQ-FR-MCP-006-AC3-02",
+        "TC-REQ-FR-MCP-006-AC4-02",
+        "TC-REQ-FR-MCP-006-AC5-02",
+        "TC-REQ-FR-MCP-006-AC6-02"
+      ],
+      "stdout_excerpt": "385 test(s) passed"
+    },
+    "dod_check": [
+      {
+        "item": "User-renamed status-bar/tab alias is the primary MCP alias and MCP alias changes persist through WorkspaceTab.name with nameSource user.",
+        "satisfied": true
+      }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "scope": "full",
+      "passed": 385,
+      "failed": 0
+    },
+    "mcp_calls": [
+      {
+        "called_at": "2026-07-09T00:57:13.057Z",
+        "task_id": "T-PH002-02",
+        "tool": "add_verification_evidence",
+        "args": {
+          "id": "FR-MCP-001",
+          "type": "test",
+          "reference": "server/src/test-runner.ts#Registry_and_alias_implementation_FR-MCP-001",
+          "covers": "AC-1,AC-2,AC-3,AC-4,AC-5,AC-6,AC-7"
+        },
+        "args_hash": "1dab1eacb0d97aa932f2c08a0342a90da2ff68ec",
+        "ok": true,
+        "response_hash": "054f9e0b43d5ebafb82e7914c8a1b0255586d0d5",
+        "dry_run": false,
+        "note": "MCP returned ok; local SRS file mutation was reverted to honor worker write scope.",
+        "response": {
+          "evidenceId": "VE-2",
+          "written": true
+        }
+      },
+      {
+        "called_at": "2026-07-09T00:57:13.057Z",
+        "task_id": "T-PH002-02",
+        "tool": "add_verification_evidence",
+        "args": {
+          "id": "FR-MCP-006",
+          "type": "test",
+          "reference": "server/src/test-runner.ts#Registry_and_alias_implementation_FR-MCP-006",
+          "covers": "AC-1,AC-2,AC-3,AC-4,AC-5,AC-6"
+        },
+        "args_hash": "37b4438c4ae013bf2bf34325e8bffb89074e50d0",
+        "ok": true,
+        "response_hash": "054f9e0b43d5ebafb82e7914c8a1b0255586d0d5",
+        "dry_run": false,
+        "note": "MCP returned ok; local SRS file mutation was reverted to honor worker write scope.",
+        "response": {
+          "evidenceId": "VE-2",
+          "written": true
+        }
+      },
+      {
+        "called_at": "2026-07-09T00:57:13.057Z",
+        "task_id": "T-PH002-02",
+        "tool": "add_completed_work",
+        "args": {
+          "date": "2026-07-09",
+          "target": "0.5.5-buildergate-stability",
+          "scope": "MCP",
+          "requirementIds": [
+            "FR-MCP-001",
+            "FR-MCP-006"
+          ],
+          "allowIncomplete": false
+        },
+        "args_hash": "1db5af109c2aa66aca8221561a34238bbfd5f070",
+        "ok": false,
+        "response_hash": "befceb39aac383615dd60361d8ed7cbad13754a6",
+        "dry_run": false,
+        "response": {
+          "code": "MUTATION_DENIED",
+          "message": "Completed Work Log references failed prevalidation"
+        }
+      },
+      {
+        "called_at": "2026-07-09T00:57:13.057Z",
+        "task_id": "T-PH002-02",
+        "tool": "add_completed_work",
+        "args": {
+          "date": "2026-07-09",
+          "target": "0.5.5-buildergate-stability",
+          "scope": "MCP",
+          "allowIncomplete": true
+        },
+        "args_hash": "f206ad4ef99cb9a5426df639765517625e1d42b5",
+        "ok": true,
+        "response_hash": "cad4f5853cefac107efc80c293c61c04f93f6bed",
+        "dry_run": false,
+        "note": "MCP returned ok; local index mutation was reverted to honor worker write scope.",
+        "response": {
+          "written": true
+        }
+      }
+    ]
+  },
+  "verification": [
+    {
+      "command": "cd server; npx tsx src/test-runner.ts",
+      "exit_code": 0,
+      "summary": "385 tests passed, including registry/alias duplicate key reservation, search ranking, zero-match, and ambiguous search regressions"
+    },
+    {
+      "command": "cd server; npm run build",
+      "exit_code": 0,
+      "summary": "TypeScript build passed"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "summary": "no whitespace errors; CRLF warnings only"
+    }
+  ]
+}

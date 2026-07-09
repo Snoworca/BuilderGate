@@ -20,6 +20,9 @@ export interface WorkspaceTab {
   id: string;
   workspaceId: string;
   sessionId: string;
+  sessionKey?: string;
+  currentSessionId?: string;
+  previousSessionIds?: string[];
   name: string;
   nameSource?: WorkspaceTabNameSource;
   terminalTitle?: string;
@@ -35,6 +38,7 @@ export interface WorkspaceTab {
   lastExitCode?: number | null;
   lifecycleUpdatedAt?: string;
   generation?: number;
+  generationReason?: WorkspaceTabLifecycleReason;
   recoveryOptionId?: string;
   recoveryCommand?: string;
   recoveryArguments?: string[];

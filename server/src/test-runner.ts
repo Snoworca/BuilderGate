@@ -236,6 +236,22 @@ async function main(): Promise<void> {
     { name: 'MCP security contract IR-MCP-005 AC-8: replay pending denial code is not substituted', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-8'] },
     { name: 'MCP security contract IR-MCP-005 AC-9: close confirmation shape is mandatory', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-9'] },
     { name: 'MCP security contract IR-MCP-005 AC-10: non-create webhook surfaces remain masked', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-10'] },
+    { name: 'MCP registry contract FR-MCP-001 AC-1: creates stable sessionKey with UUID currentSessionId', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-001_AC-1'] },
+    { name: 'MCP registry contract FR-MCP-001 AC-2: updates currentSessionId generation without changing sessionKey', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-001_AC-2'] },
+    { name: 'MCP registry contract FR-MCP-001 AC-3: rejects stale sessionId targets', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-001_AC-3'] },
+    { name: 'MCP registry contract FR-MCP-001 AC-4: accepts current sessionId targets', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-001_AC-4'] },
+    { name: 'MCP registry contract FR-MCP-001 AC-5: preserves sessionKey through restart recovery', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-001_AC-5'] },
+    { name: 'MCP registry contract FR-MCP-001 AC-6: startup reconcile indexes live workspace tabs', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-001_AC-6'] },
+    { name: 'MCP registry contract FR-MCP-001 AC-7: backfills legacy workspace tabs', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-001_AC-7'] },
+    { name: 'MCP registry contract FR-MCP-006 AC-6: reconcile repairs duplicate session keys', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-006_DUPLICATE_KEYS'] },
+    { name: 'MCP alias contract FR-MCP-006 AC-1: list excludes self by default', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-006_AC-1'] },
+    { name: 'MCP alias contract FR-MCP-006 AC-2: list includes self when includeSelf is true', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-006_AC-2'] },
+    { name: 'MCP alias contract FR-MCP-006 AC-3: list surfaces user alias and current session binding', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-006_AC-3'] },
+    { name: 'MCP alias contract FR-MCP-006 AC-4: exact alias search ranks before partial matches', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-006_AC-4'] },
+    { name: 'MCP alias contract FR-MCP-001 AC-7: search ranks user aliases before weaker fields', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-001_AC-7_SEARCH_RANKING'] },
+    { name: 'MCP alias contract FR-MCP-001 AC-7: search reports zero and ambiguous matches', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-001_AC-7_SEARCH_DENIALS'] },
+    { name: 'MCP alias contract FR-MCP-006 AC-5: alias update persists WorkspaceTab user name', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-006_AC-5'] },
+    { name: 'MCP alias contract FR-MCP-006 AC-6: alias update broadcasts tab metadata', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-006_AC-6'] },
     { name: 'performGracefulShutdown flushes workspace JSON lastUpdated and tab lastCwd', run: testPerformGracefulShutdownFlushesWorkspaceCwds },
     { name: 'performGracefulShutdown terminates sessions after first workspace flush and final flushes', run: testPerformGracefulShutdownTerminatesSessionsAfterWorkspaceFlush },
     { name: 'performGracefulShutdown degrades timed out session cleanup and still final flushes', run: testPerformGracefulShutdownSessionCleanupTimeoutDegradesAndFinalFlushes },
@@ -368,6 +384,9 @@ async function main(): Promise<void> {
     { name: 'WorkspaceService passes session cleanup reasons', run: testWorkspaceServicePassesSessionCleanupReasons },
     { name: 'WorkspaceService orphan recovery recreates fresh session ids with saved cwd', run: testWorkspaceServiceCheckOrphanTabs },
     { name: 'WorkspaceService orphan recovery skips stopped or non-recoverable tabs', run: testWorkspaceServiceSkipsStoppedOrphanTabs },
+    { name: 'WorkspaceService MCP registry excludes active tabs without live runtime sessions', run: testWorkspaceServiceMcpRegistryExcludesNonLiveTabs },
+    { name: 'WorkspaceService MCP registry regenerates duplicate persisted session keys', run: testWorkspaceServiceMcpRegistryRegeneratesDuplicateSessionKeys },
+    { name: 'WorkspaceService MCP search preserves zero and ambiguous result metadata', run: testWorkspaceServiceMcpSearchPreservesFailureMetadata },
     { name: 'WorkspaceService stores recovery metadata when shell submits codex', run: testWorkspaceServiceStoresCodexRecoveryMetadata },
     { name: 'WorkspaceService stores custom recovery metadata when enabled option exists', run: testWorkspaceServiceStoresCustomRecoveryMetadata },
     { name: 'WorkspaceService marks matched recovery command as foreground', run: testWorkspaceServiceMarksRecoveryForegroundCommand },
@@ -5179,6 +5198,29 @@ const mcpSecurityContractRedTests: Record<string, () => Promise<void>> = {
   'Security_contract_red_tests_IR-MCP-005_AC-10': testMcpSecurityIrMcp005Ac10,
 };
 
+type McpSessionRegistryContract = Record<string, unknown>;
+
+const uuidV4Pattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+
+const registryAndAliasRedTests: Record<string, () => Promise<void>> = {
+  'Registry_and_alias_red_tests_FR-MCP-001_AC-1': testMcpRegistryFrMcp001Ac1,
+  'Registry_and_alias_red_tests_FR-MCP-001_AC-2': testMcpRegistryFrMcp001Ac2,
+  'Registry_and_alias_red_tests_FR-MCP-001_AC-3': testMcpRegistryFrMcp001Ac3,
+  'Registry_and_alias_red_tests_FR-MCP-001_AC-4': testMcpRegistryFrMcp001Ac4,
+  'Registry_and_alias_red_tests_FR-MCP-001_AC-5': testMcpRegistryFrMcp001Ac5,
+  'Registry_and_alias_red_tests_FR-MCP-001_AC-6': testMcpRegistryFrMcp001Ac6,
+  'Registry_and_alias_red_tests_FR-MCP-001_AC-7': testMcpRegistryFrMcp001Ac7,
+  'Registry_and_alias_red_tests_FR-MCP-006_DUPLICATE_KEYS': testMcpRegistryFrMcp006Ac6,
+  'Registry_and_alias_red_tests_FR-MCP-001_AC-7_SEARCH_RANKING': testMcpAliasFrMcp001Ac7SearchRanking,
+  'Registry_and_alias_red_tests_FR-MCP-001_AC-7_SEARCH_DENIALS': testMcpAliasFrMcp001Ac7SearchDenials,
+  'Registry_and_alias_red_tests_FR-MCP-006_AC-1': testMcpAliasFrMcp006Ac1,
+  'Registry_and_alias_red_tests_FR-MCP-006_AC-2': testMcpAliasFrMcp006Ac2,
+  'Registry_and_alias_red_tests_FR-MCP-006_AC-3': testMcpAliasFrMcp006Ac3,
+  'Registry_and_alias_red_tests_FR-MCP-006_AC-4': testMcpAliasFrMcp006Ac4,
+  'Registry_and_alias_red_tests_FR-MCP-006_AC-5': testMcpAliasFrMcp006Ac5,
+  'Registry_and_alias_red_tests_FR-MCP-006_AC-6': testMcpAliasFrMcp006Ac6,
+};
+
 async function loadMcpSecurityContract(): Promise<McpSecurityContract> {
   try {
     return await import('./services/McpSecurityContract.js') as McpSecurityContract;
@@ -5197,6 +5239,26 @@ function getContractFunction(contract: McpSecurityContract, name: string): (...a
 async function callMcpSecurityContract(name: string, ...args: unknown[]): Promise<unknown> {
   const contract = await loadMcpSecurityContract();
   return await getContractFunction(contract, name)(...args);
+}
+
+async function loadMcpSessionRegistryContract(): Promise<McpSessionRegistryContract> {
+  try {
+    return await import('./services/McpSessionRegistryContract.js') as McpSessionRegistryContract;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    assert.fail(`missing MCP session registry/alias implementation: expected ./services/McpSessionRegistryContract.js (${message})`);
+  }
+}
+
+function getRegistryFunction(contract: McpSessionRegistryContract, name: string): (...args: unknown[]) => unknown {
+  const value = contract[name];
+  assert.equal(typeof value, 'function', `missing MCP session registry/alias implementation: ${name} must be exported`);
+  return value as (...args: unknown[]) => unknown;
+}
+
+async function callMcpSessionRegistryContract(name: string, ...args: unknown[]): Promise<unknown> {
+  const contract = await loadMcpSessionRegistryContract();
+  return await getRegistryFunction(contract, name)(...args);
 }
 
 async function createValidMcpCredential(
@@ -5219,6 +5281,52 @@ async function createValidMcpCredential(
 function asRecord(value: unknown, label: string): Record<string, unknown> {
   assert.ok(value !== null && typeof value === 'object' && !Array.isArray(value), `${label} must be an object`);
   return value as Record<string, unknown>;
+}
+
+function asRecordArray(value: unknown, label: string): Array<Record<string, unknown>> {
+  assert.equal(Array.isArray(value), true, `${label} must be an array`);
+  return (value as unknown[]).map((item, index) => asRecord(item, `${label}[${index}]`));
+}
+
+function createMcpRegistryFixture(): Array<Record<string, unknown>> {
+  return [
+    {
+      sessionKey: 'sess_alpha',
+      currentSessionId: '550e8400-e29b-41d4-a716-446655440000',
+      previousSessionIds: [],
+      tabId: 'tab-alpha',
+      workspaceId: 'ws-1',
+      alias: 'api',
+      aliasSource: 'user',
+      cwd: 'C:/Work/api',
+      lifecycleState: 'active',
+      sortOrder: 0,
+    },
+    {
+      sessionKey: 'sess_beta',
+      currentSessionId: '6ba7b811-9dad-41d1-80b4-00c04fd430c8',
+      previousSessionIds: [],
+      tabId: 'tab-beta',
+      workspaceId: 'ws-1',
+      alias: 'api worker',
+      aliasSource: 'user',
+      cwd: 'C:/Work/api-worker',
+      lifecycleState: 'active',
+      sortOrder: 1,
+    },
+    {
+      sessionKey: 'sess_gamma',
+      currentSessionId: '6ba7b812-9dad-41d1-80b4-00c04fd430c8',
+      previousSessionIds: [],
+      tabId: 'tab-gamma',
+      workspaceId: 'ws-1',
+      alias: 'logs',
+      aliasSource: 'default',
+      cwd: 'C:/Work/logs',
+      lifecycleState: 'active',
+      sortOrder: 2,
+    },
+  ];
 }
 
 function assertMcpDenied(value: unknown, expectedCode: string): Record<string, unknown> {
@@ -5251,6 +5359,466 @@ function readDenialCodes(contract: McpSecurityContract): string[] {
     return Object.values(raw as Record<string, unknown>).map(String);
   }
   assert.fail('missing MCP implementation: MCP_DENIAL_CODES must be exported');
+}
+
+async function testMcpRegistryFrMcp001Ac1(): Promise<void> {
+  const currentSessionId = '550e8400-e29b-41d4-a716-446655440000';
+  const binding = asRecord(await callMcpSessionRegistryContract('createMcpSessionBinding', {
+    tab: {
+      id: 'tab-alpha',
+      workspaceId: 'ws-1',
+      sessionId: currentSessionId,
+      name: 'Build Agent',
+      nameSource: 'user',
+    },
+    now: '2026-07-09T00:00:00.000Z',
+  }), 'MCP session binding');
+
+  assert.equal(typeof binding.sessionKey, 'string');
+  assert.notEqual(binding.sessionKey, '');
+  assert.notEqual(binding.sessionKey, currentSessionId);
+  assert.equal(binding.currentSessionId, currentSessionId);
+  assert.match(String(binding.currentSessionId), uuidV4Pattern);
+  assert.equal(binding.tabId, 'tab-alpha');
+  assert.equal(binding.workspaceId, 'ws-1');
+  assert.equal(binding.alias, 'Build Agent');
+  assert.equal(binding.generation, 1);
+}
+
+async function testMcpRegistryFrMcp001Ac2(): Promise<void> {
+  const previousSessionId = '550e8400-e29b-41d4-a716-446655440000';
+  const nextSessionId = '6ba7b810-9dad-41d1-80b4-00c04fd430c8';
+  const updated = asRecord(await callMcpSessionRegistryContract('updateCurrentSessionIdGeneration', {
+    binding: {
+      sessionKey: 'sess_tab_alpha',
+      currentSessionId: previousSessionId,
+      previousSessionIds: [],
+      generation: 1,
+      tabId: 'tab-alpha',
+    },
+    nextSessionId,
+    reason: 'tab-restart',
+    now: '2026-07-09T00:01:00.000Z',
+  }), 'MCP updated session generation');
+
+  assert.equal(updated.sessionKey, 'sess_tab_alpha');
+  assert.equal(updated.currentSessionId, nextSessionId);
+  assert.match(String(updated.currentSessionId), uuidV4Pattern);
+  assert.deepEqual(updated.previousSessionIds, [previousSessionId]);
+  assert.equal(updated.generation, 2);
+  assert.equal(updated.generationReason, 'tab-restart');
+}
+
+async function testMcpRegistryFrMcp001Ac3(): Promise<void> {
+  const result = asRecord(await callMcpSessionRegistryContract('resolveMcpSessionTarget', {
+    actorSessionKey: 'sess_actor',
+    target: {
+      sessionKey: 'sess_tab_alpha',
+      sessionId: '550e8400-e29b-41d4-a716-446655440000',
+    },
+    registry: [{
+      sessionKey: 'sess_tab_alpha',
+      currentSessionId: '6ba7b810-9dad-41d1-80b4-00c04fd430c8',
+      previousSessionIds: ['550e8400-e29b-41d4-a716-446655440000'],
+      lifecycleState: 'active',
+    }],
+  }), 'MCP stale target resolution');
+
+  assert.equal(result.allowed, false);
+  assert.equal(result.code, 'STALE_SESSION_ID');
+  assert.equal(result.sessionKey, 'sess_tab_alpha');
+  assert.equal(result.currentSessionId, '6ba7b810-9dad-41d1-80b4-00c04fd430c8');
+}
+
+async function testMcpRegistryFrMcp001Ac4(): Promise<void> {
+  const result = asRecord(await callMcpSessionRegistryContract('resolveMcpSessionTarget', {
+    actorSessionKey: 'sess_actor',
+    target: {
+      sessionKey: 'sess_tab_alpha',
+      sessionId: '6ba7b810-9dad-41d1-80b4-00c04fd430c8',
+    },
+    registry: [{
+      sessionKey: 'sess_tab_alpha',
+      currentSessionId: '6ba7b810-9dad-41d1-80b4-00c04fd430c8',
+      previousSessionIds: ['550e8400-e29b-41d4-a716-446655440000'],
+      lifecycleState: 'active',
+    }],
+  }), 'MCP current target resolution');
+
+  assert.equal(result.allowed, true);
+  assert.equal(result.code ?? null, null);
+  assert.equal(result.sessionKey, 'sess_tab_alpha');
+  assert.equal(result.currentSessionId, '6ba7b810-9dad-41d1-80b4-00c04fd430c8');
+}
+
+async function testMcpRegistryFrMcp001Ac5(): Promise<void> {
+  const recovered = asRecord(await callMcpSessionRegistryContract('reconcileMcpSessionRegistry', {
+    reason: 'orphan-recovery',
+    workspaceTabs: [{
+      id: 'tab-alpha',
+      workspaceId: 'ws-1',
+      sessionKey: 'sess_tab_alpha',
+      sessionId: '550e8400-e29b-41d4-a716-446655440000',
+      name: 'Build Agent',
+      nameSource: 'user',
+      lifecycleState: 'active',
+    }],
+    liveSessions: [{
+      tabId: 'tab-alpha',
+      sessionId: '6ba7b810-9dad-41d1-80b4-00c04fd430c8',
+    }],
+    now: '2026-07-09T00:02:00.000Z',
+  }), 'MCP orphan recovery reconcile');
+  const bindings = asRecordArray(recovered.bindings, 'MCP orphan recovery bindings');
+  const binding = asRecord(bindings[0], 'MCP orphan recovery binding');
+
+  assert.equal(binding.sessionKey, 'sess_tab_alpha');
+  assert.equal(binding.currentSessionId, '6ba7b810-9dad-41d1-80b4-00c04fd430c8');
+  assert.match(String(binding.currentSessionId), uuidV4Pattern);
+  assert.deepEqual(binding.previousSessionIds, ['550e8400-e29b-41d4-a716-446655440000']);
+  assert.equal(binding.generationReason, 'orphan-recovery');
+}
+
+async function testMcpRegistryFrMcp001Ac6(): Promise<void> {
+  const reconciled = asRecord(await callMcpSessionRegistryContract('reconcileMcpSessionRegistry', {
+    reason: 'startup',
+    workspaceTabs: [
+      {
+        id: 'tab-alpha',
+        workspaceId: 'ws-1',
+        sessionKey: 'sess_tab_alpha',
+        sessionId: '550e8400-e29b-41d4-a716-446655440000',
+        name: 'Build Agent',
+        nameSource: 'user',
+        lifecycleState: 'active',
+      },
+      {
+        id: 'tab-stopped',
+        workspaceId: 'ws-1',
+        sessionKey: 'sess_tab_stopped',
+        sessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        name: 'Stopped Agent',
+        nameSource: 'user',
+        lifecycleState: 'stopped',
+      },
+    ],
+    liveSessions: [{
+      tabId: 'tab-alpha',
+      sessionId: '550e8400-e29b-41d4-a716-446655440000',
+    }],
+    now: '2026-07-09T00:03:00.000Z',
+  }), 'MCP startup reconcile');
+  const bindings = asRecordArray(reconciled.bindings, 'MCP startup bindings');
+
+  assert.deepEqual(bindings.map(binding => binding.sessionKey), ['sess_tab_alpha']);
+  assert.equal(bindings[0].currentSessionId, '550e8400-e29b-41d4-a716-446655440000');
+  assert.equal(reconciled.removedStaleBindings, 1);
+}
+
+async function testMcpRegistryFrMcp001Ac7(): Promise<void> {
+  const result = asRecord(await callMcpSessionRegistryContract('backfillLegacyWorkspaceTabs', {
+    workspaceTabs: [{
+      id: 'tab-legacy',
+      workspaceId: 'ws-1',
+      sessionId: '550e8400-e29b-41d4-a716-446655440000',
+      name: 'Legacy Agent',
+      nameSource: 'default',
+      lifecycleState: 'active',
+    }],
+    now: '2026-07-09T00:04:00.000Z',
+  }), 'MCP legacy tab backfill');
+  const tabs = asRecordArray(result.tabs, 'MCP backfilled tabs');
+  const tab = asRecord(tabs[0], 'MCP backfilled tab');
+
+  assert.equal(typeof tab.sessionKey, 'string');
+  assert.notEqual(tab.sessionKey, '');
+  assert.equal(tab.currentSessionId, '550e8400-e29b-41d4-a716-446655440000');
+  assert.match(String(tab.currentSessionId), uuidV4Pattern);
+  assert.equal(result.changed, true);
+
+  const reserved = asRecord(await callMcpSessionRegistryContract('backfillLegacyWorkspaceTabs', {
+    workspaceTabs: [
+      {
+        id: 'tab-beta',
+        workspaceId: 'ws-1',
+        sessionId: '6ba7b811-9dad-41d1-80b4-00c04fd430c8',
+        name: 'Active Legacy',
+        nameSource: 'default',
+        lifecycleState: 'active',
+        sortOrder: 0,
+      },
+      {
+        id: 'tab-stopped',
+        workspaceId: 'ws-1',
+        sessionKey: 'sess_tab_beta',
+        sessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        name: 'Stopped Owner',
+        nameSource: 'user',
+        lifecycleState: 'stopped',
+        sortOrder: 1,
+      },
+    ],
+    now: '2026-07-09T00:04:30.000Z',
+  }), 'MCP legacy tab backfill reserved keys');
+  const reservedTabs = asRecordArray(reserved.tabs, 'MCP reserved-key backfilled tabs');
+
+  assert.notEqual(reservedTabs[0].sessionKey, 'sess_tab_beta');
+  assert.equal(reservedTabs[1].sessionKey, 'sess_tab_beta');
+  assert.equal(new Set(reservedTabs.map(item => item.sessionKey)).size, 2);
+}
+
+async function testMcpRegistryFrMcp006Ac6(): Promise<void> {
+  const reconciled = asRecord(await callMcpSessionRegistryContract('reconcileMcpSessionRegistry', {
+    reason: 'startup',
+    workspaceTabs: [
+      {
+        id: 'tab-stopped',
+        workspaceId: 'ws-1',
+        sessionKey: 'sess_tab_beta',
+        sessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        name: 'Stopped Owner',
+        nameSource: 'user',
+        lifecycleState: 'stopped',
+        sortOrder: 0,
+      },
+      {
+        id: 'tab-alpha',
+        workspaceId: 'ws-1',
+        sessionKey: 'sess_duplicate',
+        sessionId: '550e8400-e29b-41d4-a716-446655440000',
+        name: 'Primary',
+        nameSource: 'user',
+        lifecycleState: 'active',
+        sortOrder: 1,
+      },
+      {
+        id: 'tab-beta',
+        workspaceId: 'ws-1',
+        sessionKey: 'sess_duplicate',
+        sessionId: '6ba7b811-9dad-41d1-80b4-00c04fd430c8',
+        name: 'Duplicate',
+        nameSource: 'user',
+        lifecycleState: 'active',
+        sortOrder: 2,
+      },
+    ],
+    liveSessions: [
+      { tabId: 'tab-alpha', sessionId: '550e8400-e29b-41d4-a716-446655440000' },
+      { tabId: 'tab-beta', sessionId: '6ba7b811-9dad-41d1-80b4-00c04fd430c8' },
+    ],
+    now: '2026-07-09T00:05:00.000Z',
+  }), 'MCP startup duplicate key reconcile');
+  const bindings = asRecordArray(reconciled.bindings, 'MCP duplicate key bindings');
+  const tabs = asRecordArray(reconciled.tabs, 'MCP duplicate key tabs');
+
+  assert.equal(bindings[0].sessionKey, 'sess_duplicate');
+  assert.equal(tabs[0].sessionKey, 'sess_duplicate');
+  assert.notEqual(bindings[1].sessionKey, 'sess_duplicate');
+  assert.notEqual(bindings[1].sessionKey, 'sess_tab_beta');
+  assert.equal(tabs[1].sessionKey, bindings[1].sessionKey);
+  assert.equal(new Set(bindings.map(binding => binding.sessionKey)).size, 2);
+}
+
+async function testMcpAliasFrMcp006Ac1(): Promise<void> {
+  const result = asRecord(await callMcpSessionRegistryContract('listMcpSessions', {
+    actorSessionKey: 'sess_alpha',
+    includeSelf: false,
+    registry: createMcpRegistryFixture(),
+  }), 'MCP session list');
+  const sessions = asRecordArray(result.sessions, 'MCP session list items');
+
+  assert.equal(sessions.some(session => session.sessionKey === 'sess_alpha'), false);
+  assert.deepEqual(sessions.map(session => session.sessionKey), ['sess_beta', 'sess_gamma']);
+}
+
+async function testMcpAliasFrMcp006Ac2(): Promise<void> {
+  const result = asRecord(await callMcpSessionRegistryContract('listMcpSessions', {
+    actorSessionKey: 'sess_alpha',
+    includeSelf: true,
+    registry: createMcpRegistryFixture(),
+  }), 'MCP session list include self');
+  const sessions = asRecordArray(result.sessions, 'MCP session list include self items');
+
+  assert.deepEqual(sessions.map(session => session.sessionKey), ['sess_alpha', 'sess_beta', 'sess_gamma']);
+  assert.equal(sessions[0].isSelf, true);
+}
+
+async function testMcpAliasFrMcp006Ac3(): Promise<void> {
+  const result = asRecord(await callMcpSessionRegistryContract('listMcpSessions', {
+    actorSessionKey: 'sess_beta',
+    includeSelf: false,
+    registry: createMcpRegistryFixture(),
+  }), 'MCP session list aliases');
+  const sessions = asRecordArray(result.sessions, 'MCP session alias items');
+  const alpha = asRecord(sessions.find(session => session.sessionKey === 'sess_alpha'), 'alpha MCP session');
+
+  assert.equal(alpha.alias, 'api');
+  assert.equal(alpha.aliasSource, 'user');
+  assert.equal(alpha.nameSource, 'user');
+  assert.equal(alpha.sessionId, '550e8400-e29b-41d4-a716-446655440000');
+  assert.equal(alpha.currentSessionId, '550e8400-e29b-41d4-a716-446655440000');
+  assert.equal(alpha.workspaceId, 'ws-1');
+  assert.equal(alpha.tabId, 'tab-alpha');
+  assert.equal(alpha.agentKind, 'terminal');
+  assert.equal(alpha.agentStatus, 'unknown');
+  assert.equal(alpha.bindingLifecycle, 'live');
+  assert.equal(alpha.mcpConnected, false);
+  assert.equal(alpha.leaderSessionKey, null);
+}
+
+async function testMcpAliasFrMcp006Ac4(): Promise<void> {
+  const result = asRecord(await callMcpSessionRegistryContract('searchMcpSessions', {
+    actorSessionKey: 'sess_gamma',
+    query: 'api',
+    includeSelf: false,
+    registry: createMcpRegistryFixture(),
+  }), 'MCP session search');
+  const matches = asRecordArray(result.matches, 'MCP session search matches');
+
+  assert.deepEqual(matches.map(match => match.sessionKey), ['sess_alpha', 'sess_beta']);
+  assert.equal(matches[0].alias, 'api');
+  assert.equal(matches[0].matchType, 'exact-alias');
+  assert.equal(matches[1].matchType, 'partial-alias');
+  assert.ok(Number(matches[0].score) > Number(matches[1].score));
+}
+
+async function testMcpAliasFrMcp001Ac7SearchRanking(): Promise<void> {
+  const result = asRecord(await callMcpSessionRegistryContract('searchMcpSessions', {
+    actorSessionKey: undefined,
+    query: 'builder gate',
+    includeSelf: true,
+    registry: [
+      {
+        sessionKey: 'sess_user_alias',
+        currentSessionId: '550e8400-e29b-41d4-a716-446655440000',
+        tabId: 'tab-user-alias',
+        workspaceId: 'ws-1',
+        alias: 'Builder Gate',
+        aliasSource: 'user',
+        terminalTitle: 'generic shell',
+        sortOrder: 0,
+      },
+      {
+        sessionKey: 'sess_terminal_title',
+        currentSessionId: '6ba7b811-9dad-41d1-80b4-00c04fd430c8',
+        tabId: 'tab-terminal-title',
+        workspaceId: 'ws-1',
+        alias: 'Terminal',
+        aliasSource: 'default',
+        terminalTitle: 'Builder Gate',
+        sortOrder: 1,
+      },
+      {
+        sessionKey: 'sess_cwd',
+        currentSessionId: '6ba7b812-9dad-41d1-80b4-00c04fd430c8',
+        tabId: 'tab-cwd',
+        workspaceId: 'ws-1',
+        alias: 'Worker',
+        aliasSource: 'default',
+        cwd: 'C:/Work/builder gate',
+        sortOrder: 2,
+      },
+      {
+        sessionKey: 'sess_recovery',
+        currentSessionId: '6ba7b813-9dad-41d1-80b4-00c04fd430c8',
+        tabId: 'tab-recovery',
+        workspaceId: 'ws-1',
+        alias: 'Recovery',
+        aliasSource: 'default',
+        recoveryCommand: 'npm run builder gate',
+        sortOrder: 3,
+      },
+    ],
+  }), 'MCP session search ranking');
+  const matches = asRecordArray(result.matches, 'MCP ranked search matches');
+
+  assert.equal(result.allowed, true);
+  assert.deepEqual(matches.map(match => match.sessionKey), ['sess_user_alias', 'sess_terminal_title', 'sess_cwd', 'sess_recovery']);
+  assert.equal(matches[0].matchType, 'exact-alias');
+  assert.equal(matches[0].matchSource, 'user-alias');
+  assert.ok(Number(matches[0].score) > Number(matches[1].score));
+  assert.ok(Number(matches[1].score) > Number(matches[2].score));
+  assert.ok(Number(matches[2].score) > Number(matches[3].score));
+}
+
+async function testMcpAliasFrMcp001Ac7SearchDenials(): Promise<void> {
+  const zero = asRecord(await callMcpSessionRegistryContract('searchMcpSessions', {
+    actorSessionKey: undefined,
+    query: 'missing',
+    includeSelf: true,
+    registry: createMcpRegistryFixture(),
+  }), 'MCP zero-match search result');
+  assert.equal(zero.allowed, false);
+  assert.equal(zero.code, 'TARGET_NOT_FOUND');
+  assert.equal(zero.reason, 'zero-matches');
+  assert.deepEqual(asRecordArray(zero.matches, 'MCP zero-match matches'), []);
+
+  const ambiguous = asRecord(await callMcpSessionRegistryContract('searchMcpSessions', {
+    actorSessionKey: undefined,
+    query: 'builder',
+    includeSelf: true,
+    registry: [
+      {
+        sessionKey: 'sess_one',
+        currentSessionId: '550e8400-e29b-41d4-a716-446655440000',
+        alias: 'builder',
+        aliasSource: 'user',
+        lifecycleState: 'active',
+        sortOrder: 0,
+      },
+      {
+        sessionKey: 'sess_two',
+        currentSessionId: '6ba7b811-9dad-41d1-80b4-00c04fd430c8',
+        alias: 'builder',
+        aliasSource: 'user',
+        lifecycleState: 'active',
+        sortOrder: 1,
+      },
+    ],
+  }), 'MCP ambiguous search result');
+  const candidates = asRecordArray(ambiguous.candidates, 'MCP ambiguous search candidates');
+
+  assert.equal(ambiguous.allowed, false);
+  assert.equal(ambiguous.code, 'AMBIGUOUS_TARGET');
+  assert.equal(ambiguous.reason, 'ambiguous-equal-rank');
+  assert.deepEqual(candidates.map(candidate => candidate.sessionKey), ['sess_one', 'sess_two']);
+}
+
+async function testMcpAliasFrMcp006Ac5(): Promise<void> {
+  const result = asRecord(await callMcpSessionRegistryContract('setMcpSessionAlias', {
+    actorSessionKey: 'sess_alpha',
+    targetSessionKey: 'sess_beta',
+    alias: 'worker-main',
+    registry: createMcpRegistryFixture(),
+  }), 'MCP alias update');
+  const tab = asRecord(result.updatedTab, 'MCP alias updated tab');
+  const binding = asRecord(result.binding, 'MCP alias updated binding');
+
+  assert.equal(tab.id, 'tab-beta');
+  assert.equal(tab.name, 'worker-main');
+  assert.equal(tab.nameSource, 'user');
+  assert.equal(binding.sessionKey, 'sess_beta');
+  assert.equal(binding.alias, 'worker-main');
+  assert.equal(binding.aliasSource, 'user');
+}
+
+async function testMcpAliasFrMcp006Ac6(): Promise<void> {
+  const result = asRecord(await callMcpSessionRegistryContract('setMcpSessionAlias', {
+    actorSessionKey: 'sess_alpha',
+    targetSessionKey: 'sess_beta',
+    alias: 'worker-main',
+    registry: createMcpRegistryFixture(),
+    broadcast: true,
+  }), 'MCP alias broadcast update');
+  const broadcast = asRecord(result.broadcast, 'MCP alias update broadcast');
+  const payload = asRecord(broadcast.payload, 'MCP alias update broadcast payload');
+
+  assert.equal(broadcast.event, 'tab:updated');
+  assert.equal(payload.tabId, 'tab-beta');
+  assert.equal(payload.sessionKey, 'sess_beta');
+  assert.equal(payload.currentSessionId, '6ba7b811-9dad-41d1-80b4-00c04fd430c8');
+  assert.equal(payload.name, 'worker-main');
+  assert.equal(payload.nameSource, 'user');
 }
 
 async function testMcpSecuritySecMcp001Ac1(): Promise<void> {
@@ -11091,6 +11659,177 @@ async function testWorkspaceServiceSkipsStoppedOrphanTabs(): Promise<void> {
   assert.equal((workspaceService as any).state.tabs[0].generation, 4);
   assert.equal((workspaceService as any).state.tabs[1].sessionId, 'non-recoverable-session');
   assert.equal((workspaceService as any).state.tabs[1].generation, 5);
+}
+
+async function testWorkspaceServiceMcpRegistryExcludesNonLiveTabs(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = {
+    workspaces: [{
+      id: 'ws-1',
+      name: 'Workspace 1',
+      sortOrder: 0,
+      viewMode: 'tab',
+      activeTabId: 'tab-live',
+      colorCounter: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }],
+    tabs: [
+      {
+        id: 'tab-live',
+        workspaceId: 'ws-1',
+        sessionId: 'session-live',
+        sessionKey: 'sess_live',
+        currentSessionId: 'session-live',
+        name: 'Live',
+        nameSource: 'user',
+        colorIndex: 0,
+        sortOrder: 0,
+        shellType: 'bash',
+        lifecycleState: 'active',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'tab-ghost',
+        workspaceId: 'ws-1',
+        sessionId: 'session-ghost',
+        sessionKey: 'sess_ghost',
+        currentSessionId: 'session-ghost',
+        name: 'Ghost',
+        nameSource: 'user',
+        colorIndex: 1,
+        sortOrder: 1,
+        shellType: 'bash',
+        lifecycleState: 'active',
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    gridLayouts: [],
+  };
+  calls.hasSession.add('session-live');
+
+  const sessions = workspaceService.listMcpSessions(undefined, true);
+
+  assert.deepEqual(sessions.map(session => session.sessionKey), ['sess_live']);
+  assert.equal(sessions[0].sessionId, 'session-live');
+  assert.equal(sessions[0].bindingLifecycle, 'live');
+}
+
+async function testWorkspaceServiceMcpRegistryRegeneratesDuplicateSessionKeys(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = {
+    workspaces: [{
+      id: 'ws-1',
+      name: 'Workspace 1',
+      sortOrder: 0,
+      viewMode: 'tab',
+      activeTabId: 'tab-1',
+      colorCounter: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }],
+    tabs: [
+      {
+        id: 'tab-1',
+        workspaceId: 'ws-1',
+        sessionId: 'session-1',
+        sessionKey: 'sess_duplicate',
+        currentSessionId: 'session-1',
+        name: 'Primary',
+        nameSource: 'user',
+        colorIndex: 0,
+        sortOrder: 0,
+        shellType: 'bash',
+        lifecycleState: 'active',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'tab-2',
+        workspaceId: 'ws-1',
+        sessionId: 'session-2',
+        sessionKey: 'sess_duplicate',
+        currentSessionId: 'session-2',
+        name: 'Duplicate',
+        nameSource: 'user',
+        colorIndex: 1,
+        sortOrder: 1,
+        shellType: 'bash',
+        lifecycleState: 'active',
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    gridLayouts: [],
+  };
+  calls.hasSession.add('session-1');
+  calls.hasSession.add('session-2');
+
+  const sessions = workspaceService.listMcpSessions(undefined, true);
+  const tabs = (workspaceService as any).state.tabs;
+
+  assert.deepEqual(sessions.map(session => session.sessionKey), ['sess_duplicate', 'sess_tab_2']);
+  assert.equal(tabs[0].sessionKey, 'sess_duplicate');
+  assert.equal(tabs[1].sessionKey, 'sess_tab_2');
+  assert.equal(new Set(sessions.map(session => session.sessionKey)).size, 2);
+}
+
+async function testWorkspaceServiceMcpSearchPreservesFailureMetadata(): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceServiceHarness();
+  (workspaceService as any).state = {
+    workspaces: [{
+      id: 'ws-1',
+      name: 'Workspace 1',
+      sortOrder: 0,
+      viewMode: 'tab',
+      activeTabId: 'tab-1',
+      colorCounter: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }],
+    tabs: [
+      {
+        id: 'tab-1',
+        workspaceId: 'ws-1',
+        sessionId: 'session-1',
+        sessionKey: 'sess_one',
+        currentSessionId: 'session-1',
+        name: 'builder',
+        nameSource: 'user',
+        colorIndex: 0,
+        sortOrder: 0,
+        shellType: 'bash',
+        lifecycleState: 'active',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'tab-2',
+        workspaceId: 'ws-1',
+        sessionId: 'session-2',
+        sessionKey: 'sess_two',
+        currentSessionId: 'session-2',
+        name: 'builder',
+        nameSource: 'user',
+        colorIndex: 1,
+        sortOrder: 1,
+        shellType: 'bash',
+        lifecycleState: 'active',
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    gridLayouts: [],
+  };
+  calls.hasSession.add('session-1');
+  calls.hasSession.add('session-2');
+
+  const zero = asRecord(workspaceService.searchMcpSessions(undefined, 'missing', true), 'WorkspaceService MCP zero search');
+  assert.equal(zero.allowed, false);
+  assert.equal(zero.code, 'TARGET_NOT_FOUND');
+  assert.equal(zero.reason, 'zero-matches');
+
+  const ambiguous = asRecord(workspaceService.searchMcpSessions(undefined, 'builder', true), 'WorkspaceService MCP ambiguous search');
+  const candidates = asRecordArray(ambiguous.candidates, 'WorkspaceService MCP ambiguous candidates');
+  assert.equal(ambiguous.allowed, false);
+  assert.equal(ambiguous.code, 'AMBIGUOUS_TARGET');
+  assert.deepEqual(candidates.map(candidate => candidate.sessionKey), ['sess_one', 'sess_two']);
 }
 
 async function testWorkspaceServiceStoresCodexRecoveryMetadata(): Promise<void> {

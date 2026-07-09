@@ -1,90 +1,191 @@
-﻿{
-    "schema_version":  "1.0.0",
-    "run_id":  "2026-07-09.projectmaster.mcp-orch",
-    "plan_run_id":  "2026-07-09.projectmaster.mcp-orch",
-    "plan_path":  "docs/plans/2026-07-09.projectmaster.mcp-orch.plan.md",
-    "sidecar_path":  "docs/plans/2026-07-09.projectmaster.mcp-orch.sidecar.json",
-    "target":  "0.5.5-buildergate-stability",
-    "mode":  "pm-child-green",
-    "flags":  [
-                  "--auto",
-                  "TASK_FILTER=T-PH001-02"
-              ],
-    "started_at":  "2026-07-08T23:44:53.310Z",
-    "updated_at":  "2026-07-09T00:00:25.9730400Z",
-    "frozen_at":  null,
-    "current_phase_id":  "PH-001",
-    "current_task_id":  null,
-    "next_resume_hint":  null,
-    "task_queue":  [
-
-                   ],
-    "completed_task_ids":  [
-                               "T-PH001-01",
-                               "T-PH001-02"
-                           ],
-    "skipped_task_ids":  [
-
-                         ],
-    "failed_task_ids":  [
-
-                        ],
-    "tdd_exempted_task_ids":  [
-
-                              ],
-    "tdd_pending_task_ids":  [
-
-                             ],
-    "severity_counters":  {
-                              "T-PH001-01":  {
-                                                 "phase1":  {
-                                                                "CRITICAL":  0,
-                                                                "HIGH":  0,
-                                                                "MEDIUM":  0,
-                                                                "LOW":  0,
-                                                                "rounds":  1
-                                                            },
-                                                 "phase2":  {
-                                                                "CRITICAL":  0,
-                                                                "HIGH":  0,
-                                                                "MEDIUM":  0,
-                                                                "LOW":  0,
-                                                                "rounds":  0
-                                                            }
-                                             },
-                              "T-PH001-02":  {
-                                                 "phase1":  {
-                                                                "CRITICAL":  0,
-                                                                "HIGH":  0,
-                                                                "MEDIUM":  0,
-                                                                "LOW":  0,
-                                                                "rounds":  0
-                                                            },
-                                                 "phase2":  {
-                                                                "CRITICAL":  0,
-                                                                "HIGH":  0,
-                                                                "MEDIUM":  0,
-                                                                "LOW":  0,
-                                                                "rounds":  1
-                                                            }
-                                             }
-                          },
-    "regression_summary":  {
-                               "last_run_at":  "2026-07-09T00:00:25.9730400Z",
-                               "scope":  "full",
-                               "passed":  366,
-                               "failed":  0,
-                               "regressed_files":  [
-
-                                                   ]
-                           },
-    "mcp_call_log":  [
-
-                     ],
-    "pending_mutations":  [
-
-                          ],
-    "tool_versions":  {
-                          "kiwi_coder":  "0.1.9"
-                      }
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-09.projectmaster.mcp-orch",
+  "plan_run_id": "2026-07-09.projectmaster.mcp-orch",
+  "plan_path": "docs/plans/2026-07-09.projectmaster.mcp-orch.plan.md",
+  "sidecar_path": "docs/plans/2026-07-09.projectmaster.mcp-orch.sidecar.json",
+  "target": "0.5.5-buildergate-stability",
+  "mode": "pm-child-red",
+  "flags": [
+    "--auto",
+    "TASK_FILTER=T-PH002-01"
+  ],
+  "started_at": "2026-07-08T23:44:53.310Z",
+  "updated_at": "2026-07-09T01:23:33.171Z",
+  "frozen_at": null,
+  "current_phase_id": "PH-002",
+  "current_task_id": null,
+  "next_resume_hint": null,
+  "task_queue": [],
+  "completed_task_ids": [
+    "T-PH001-01",
+    "T-PH001-02",
+    "T-PH002-01",
+    "T-PH002-02"
+  ],
+  "skipped_task_ids": [],
+  "failed_task_ids": [],
+  "tdd_exempted_task_ids": [],
+  "tdd_pending_task_ids": [],
+  "severity_counters": {
+    "T-PH001-01": {
+      "phase1": {
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0,
+        "rounds": 1
+      },
+      "phase2": {
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0,
+        "rounds": 0
+      }
+    },
+    "T-PH001-02": {
+      "phase1": {
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0,
+        "rounds": 0
+      },
+      "phase2": {
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0,
+        "rounds": 1
+      }
+    },
+    "T-PH002-01": {
+      "phase1": {
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0,
+        "rounds": 1
+      },
+      "phase2": {
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0,
+        "rounds": 0
+      }
+    },
+    "T-PH002-02": {
+      "phase1": {
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0,
+        "rounds": 0
+      },
+      "phase2": {
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0,
+        "rounds": 4
+      }
+    }
+  },
+  "regression_summary": {
+    "last_run_at": "2026-07-09T01:23:33.171Z",
+    "scope": "full",
+    "passed": 385,
+    "failed": 0,
+    "regressed_files": []
+  },
+  "mcp_call_log": [
+    {
+      "called_at": "2026-07-09T00:57:13.057Z",
+      "task_id": "T-PH002-02",
+      "tool": "add_verification_evidence",
+      "args": {
+        "id": "FR-MCP-001",
+        "type": "test",
+        "reference": "server/src/test-runner.ts#Registry_and_alias_implementation_FR-MCP-001",
+        "covers": "AC-1,AC-2,AC-3,AC-4,AC-5,AC-6,AC-7"
+      },
+      "args_hash": "1dab1eacb0d97aa932f2c08a0342a90da2ff68ec",
+      "ok": true,
+      "response_hash": "054f9e0b43d5ebafb82e7914c8a1b0255586d0d5",
+      "dry_run": false,
+      "note": "MCP returned ok; local SRS file mutation was reverted to honor worker write scope.",
+      "response": {
+        "evidenceId": "VE-2",
+        "written": true
+      }
+    },
+    {
+      "called_at": "2026-07-09T00:57:13.057Z",
+      "task_id": "T-PH002-02",
+      "tool": "add_verification_evidence",
+      "args": {
+        "id": "FR-MCP-006",
+        "type": "test",
+        "reference": "server/src/test-runner.ts#Registry_and_alias_implementation_FR-MCP-006",
+        "covers": "AC-1,AC-2,AC-3,AC-4,AC-5,AC-6"
+      },
+      "args_hash": "37b4438c4ae013bf2bf34325e8bffb89074e50d0",
+      "ok": true,
+      "response_hash": "054f9e0b43d5ebafb82e7914c8a1b0255586d0d5",
+      "dry_run": false,
+      "note": "MCP returned ok; local SRS file mutation was reverted to honor worker write scope.",
+      "response": {
+        "evidenceId": "VE-2",
+        "written": true
+      }
+    },
+    {
+      "called_at": "2026-07-09T00:57:13.057Z",
+      "task_id": "T-PH002-02",
+      "tool": "add_completed_work",
+      "args": {
+        "date": "2026-07-09",
+        "target": "0.5.5-buildergate-stability",
+        "scope": "MCP",
+        "requirementIds": [
+          "FR-MCP-001",
+          "FR-MCP-006"
+        ],
+        "allowIncomplete": false
+      },
+      "args_hash": "1db5af109c2aa66aca8221561a34238bbfd5f070",
+      "ok": false,
+      "response_hash": "befceb39aac383615dd60361d8ed7cbad13754a6",
+      "dry_run": false,
+      "response": {
+        "code": "MUTATION_DENIED",
+        "message": "Completed Work Log references failed prevalidation"
+      }
+    },
+    {
+      "called_at": "2026-07-09T00:57:13.057Z",
+      "task_id": "T-PH002-02",
+      "tool": "add_completed_work",
+      "args": {
+        "date": "2026-07-09",
+        "target": "0.5.5-buildergate-stability",
+        "scope": "MCP",
+        "allowIncomplete": true
+      },
+      "args_hash": "f206ad4ef99cb9a5426df639765517625e1d42b5",
+      "ok": true,
+      "response_hash": "cad4f5853cefac107efc80c293c61c04f93f6bed",
+      "dry_run": false,
+      "note": "MCP returned ok; local index mutation was reverted to honor worker write scope.",
+      "response": {
+        "written": true
+      }
+    }
+  ],
+  "pending_mutations": [],
+  "tool_versions": {
+    "kiwi_coder": "0.1.9"
+  }
 }

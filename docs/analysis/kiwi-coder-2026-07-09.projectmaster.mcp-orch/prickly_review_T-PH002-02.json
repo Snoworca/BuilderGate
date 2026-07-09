@@ -1,0 +1,21 @@
+{
+  "task_id": "T-PH002-02",
+  "reviewer": "codex-prickly-review-final",
+  "timestamp": "2026-07-09T00:54:39.508Z",
+  "pass": true,
+  "findings": [],
+  "addressed_findings": [
+    {
+      "severity": "HIGH",
+      "finding": "Startup legacy backfill could mutate sessionKey/currentSessionId inside normalizeTabLifecycleMetadata before initialize captured the changed flag, causing metadata not to be saved.",
+      "resolution": "Moved the startup backfill mutation out of normalizeTabLifecycleMetadata so initialize records tabMetadataChanged and saves immediately."
+    }
+  ],
+  "summary": "No remaining findings. Reviewed stable sessionKey/currentSessionId binding, stale sessionId rejection, alias list/search/set behavior, WorkspaceTab alias persistence, startup backfill, restart/orphan preservation, and type/build compatibility.",
+  "reviewed_files": [
+    "server/src/services/McpSessionRegistryContract.ts",
+    "server/src/services/WorkspaceService.ts",
+    "server/src/types/workspace.types.ts",
+    "frontend/src/types/workspace.ts"
+  ]
+}

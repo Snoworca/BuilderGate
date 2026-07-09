@@ -6,7 +6,7 @@
   "sidecar_sha256": "7df43adac0e73284859a581d061be4c42c53beab9dff555e0cd5a1775a225084",
   "target_slug": "0.5.5-buildergate-stability",
   "started_at": "2026-07-08T23:44:40.561Z",
-  "last_updated_at": "2026-07-09T00:28:41.168Z",
+  "last_updated_at": "2026-07-09T01:23:33.171Z",
   "pm_version": "0.1",
   "tasks": [
     {
@@ -46,34 +46,34 @@
     {
       "task_id": "T-PH002-01",
       "phase_id": "PH-002",
-      "status": "pending",
+      "status": "done",
       "tdd_exempted": false,
-      "started_at": null,
-      "ended_at": null,
-      "coder_run_id": null,
-      "result_summary": null,
+      "started_at": "2026-07-09T00:36:51.111Z",
+      "ended_at": "2026-07-09T00:44:23.312Z",
+      "coder_run_id": "2026-07-09.projectmaster.mcp-orch",
+      "result_summary": "Added 13 RED registry/alias contract tests for sessionKey/currentSessionId binding, stale target rejection, includeSelf list/search behavior, alias persistence, broadcast, startup reconcile, and legacy backfill. Expected RED verified: server test-runner exit 1 with 13 missing McpSessionRegistryContract failures.",
       "trace_req_ids": [
         "FR-MCP-001",
         "FR-MCP-006"
       ],
       "questions": [],
-      "attempts": 0
+      "attempts": 1
     },
     {
       "task_id": "T-PH002-02",
       "phase_id": "PH-002",
-      "status": "pending",
+      "status": "done",
       "tdd_exempted": false,
-      "started_at": null,
-      "ended_at": null,
-      "coder_run_id": null,
-      "result_summary": null,
+      "started_at": "2026-07-09T00:45:11.503Z",
+      "ended_at": "2026-07-09T01:23:33.171Z",
+      "coder_run_id": "2026-07-09.projectmaster.mcp-orch",
+      "result_summary": "Implemented MCP session registry and alias contract with stable sessionKey/currentSessionId binding, restart generation tracking, stale target rejection, list/search/set alias behavior, duplicate key repair with stopped-key reservation, and full WorkspaceService search failure metadata preservation. Server tests 385 passed, build passed, final prickly review No findings.",
       "trace_req_ids": [
         "FR-MCP-001",
         "FR-MCP-006"
       ],
       "questions": [],
-      "attempts": 0
+      "attempts": 1
     },
     {
       "task_id": "T-PH003-01",
@@ -308,9 +308,9 @@
   ],
   "stats": {
     "total": 16,
-    "done": 2,
+    "done": 4,
     "running": 0,
-    "pending": 14,
+    "pending": 12,
     "failed": 0,
     "blocked": 0,
     "skipped": 0

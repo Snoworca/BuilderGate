@@ -1,0 +1,82 @@
+{
+  "task_id": "T-PH002-01",
+  "phase_id": "PH-002",
+  "title": "Registry and alias red tests",
+  "started_at": "2026-07-09T00:36:51.111Z",
+  "completed_at": "2026-07-09T09:41:21.0488961+09:00",
+  "red_only": true,
+  "phase1": {
+    "tdd_draft_iters": [
+      {
+        "iter": 1,
+        "file_paths": [
+          "server/src/test-runner.ts"
+        ],
+        "test_case_count": 13
+      }
+    ],
+    "standard4_reviews": [
+      {
+        "iter": 1,
+        "intent_alignment": {
+          "severity": "PASS",
+          "summary": "13 tests map to FR-MCP-001 and FR-MCP-006 session registry and alias contracts."
+        },
+        "tech_quality": {
+          "severity": "PASS",
+          "summary": "Tests use deterministic fixtures and no mocks or network dependencies."
+        },
+        "req_mapping": {
+          "severity": "PASS",
+          "summary": "All sidecar test_symbol entries for T-PH002-01 are represented."
+        },
+        "red_verification": {
+          "severity": "PASS",
+          "command": "cd server; npx tsx src/test-runner.ts",
+          "exit_code": 1,
+          "actual_signature": "missing MCP session registry/alias implementation: expected ./services/McpSessionRegistryContract.js",
+          "expected_signature": "missing MCP implementation|not implemented|endpoint not found|assertion failed"
+        }
+      }
+    ],
+    "red_evidence": {
+      "command": "cd server; npx tsx src/test-runner.ts",
+      "exit_code": 1,
+      "captured_failure": "13 registry/alias RED tests fail because ./services/McpSessionRegistryContract.js is missing.",
+      "timestamp": "2026-07-09T09:41:21.0488961+09:00"
+    },
+    "red_evidence_meta": {
+      "test_case_ids": [
+        "TC-REQ-FR-MCP-001-AC1-01",
+        "TC-REQ-FR-MCP-001-AC2-01",
+        "TC-REQ-FR-MCP-001-AC3-01",
+        "TC-REQ-FR-MCP-001-AC4-01",
+        "TC-REQ-FR-MCP-001-AC5-01",
+        "TC-REQ-FR-MCP-001-AC6-01",
+        "TC-REQ-FR-MCP-001-AC7-01",
+        "TC-REQ-FR-MCP-006-AC1-01",
+        "TC-REQ-FR-MCP-006-AC2-01",
+        "TC-REQ-FR-MCP-006-AC3-01",
+        "TC-REQ-FR-MCP-006-AC4-01",
+        "TC-REQ-FR-MCP-006-AC5-01",
+        "TC-REQ-FR-MCP-006-AC6-01"
+      ]
+    }
+  },
+  "phase2": {
+    "impl_iters": [],
+    "formal_reviews": [],
+    "prickly_reviews": [],
+    "green_evidence": null,
+    "dod_check": []
+  },
+  "phase3": {
+    "regression": {
+      "scope": "full",
+      "passed": null,
+      "failed": 13,
+      "expected_exit": 1
+    },
+    "mcp_calls": []
+  }
+}

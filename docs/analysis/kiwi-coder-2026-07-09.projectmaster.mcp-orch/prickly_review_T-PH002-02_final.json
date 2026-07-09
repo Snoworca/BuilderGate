@@ -1,0 +1,38 @@
+{
+  "task_id": "T-PH002-02",
+  "reviewer": "Maxwell",
+  "timestamp": "2026-07-09T01:23:33.171Z",
+  "pass": true,
+  "iterations": [
+    {
+      "pass": false,
+      "findings": [
+        {
+          "severity": "HIGH",
+          "file": "server/src/services/McpSessionRegistryContract.ts",
+          "summary": "materializeRegistry and reconcileMcpSessionRegistry filtered stopped or no-live bindings before reserving their sessionKey values."
+        },
+        {
+          "severity": "HIGH",
+          "file": "server/src/services/WorkspaceService.ts",
+          "summary": "WorkspaceService.searchMcpSessions returned only matches and dropped zero-match or ambiguous failure metadata."
+        }
+      ]
+    },
+    {
+      "pass": false,
+      "findings": [
+        {
+          "severity": "HIGH",
+          "file": "server/src/services/McpSessionRegistryContract.ts",
+          "summary": "backfillLegacyWorkspaceTabs still allowed an active legacy tab to reuse a stopped tab sessionKey when active input appeared first."
+        }
+      ]
+    },
+    {
+      "pass": true,
+      "findings": []
+    }
+  ],
+  "summary": "No findings. materializeRegistry, reconcileMcpSessionRegistry, and backfillLegacyWorkspaceTabs now reserve stopped keys before active repair. WorkspaceService.searchMcpSessions preserves full search result metadata. Regression tests cover duplicate key reservation, user-alias ranking, zero-match, and ambiguous search paths."
+}

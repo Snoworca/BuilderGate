@@ -21,6 +21,15 @@ import { isDefaultTerminalTabName, isSystemAbsolutePathTerminalTitle, sanitizeTe
 import { buildRecoveryRestoreInput, getRecoveryExecutableToken, normalizeRecoveryExecutable, type RecoveryRestoreShell } from '../utils/recoveryCommand.js';
 import type { SessionCommandSubmittedEvent, SessionFinalizedEvent, SessionManager } from './SessionManager.js';
 import type { RecoveryOptionService } from './RecoveryOptionService.js';
+import {
+  createMcpSessionBinding,
+  createStableSessionKey,
+  listMcpSessions as listMcpSessionBindings,
+  searchMcpSessions as searchMcpSessionBindings,
+  setMcpSessionAlias as applyMcpSessionAlias,
+  type McpSessionBinding,
+  type SearchMcpSessionsResult,
+} from './McpSessionRegistryContract.js';
 
 interface WorkspaceConfig {
   dataPath: string;
@@ -170,6 +179,7 @@ export class WorkspaceService {
     }
 
     // Sanitize lastCwd values loaded from disk (reject control characters)
+    let tabMetadataChanged = false;
     for (const tab of this.state.tabs) {
       if (tab.lastCwd && /[\x00-\x1f]/.test(tab.lastCwd)) {
         tab.lastCwd = undefined;
@@ -177,7 +187,9 @@ export class WorkspaceService {
       this.normalizeTabNameMetadata(tab);
       this.normalizeTabLifecycleMetadata(tab);
       this.normalizeTabRecoveryMetadata(tab);
+      tabMetadataChanged = this.ensureMcpTabBinding(tab) || tabMetadataChanged;
     }
+    tabMetadataChanged = this.ensureUniqueMcpSessionKeys() || tabMetadataChanged;
 
     // Migrate legacy GridLayout (columns/rows/cellSizes → mosaicTree)
     this.migrateGridLayouts();
@@ -186,6 +198,8 @@ export class WorkspaceService {
     if (this.state.workspaces.length === 0) {
       this.state = this.createDefaultState();
       await this.save();
+    } else if (tabMetadataChanged) {
+      await this.save(true);
     }
   }
 
@@ -214,6 +228,60 @@ export class WorkspaceService {
   getTab(tabId: string): WorkspaceTab {
     const tab = this.state.tabs.find(t => t.id === tabId);
     if (!tab) throw new AppError(ErrorCode.TAB_NOT_FOUND);
+    return tab;
+  }
+
+  // @req FR-MCP-006
+  listMcpSessions(actorSessionKey?: string, includeSelf = false): Array<Record<string, unknown>> {
+    return listMcpSessionBindings({
+      actorSessionKey,
+      includeSelf,
+      registry: this.getMcpSessionRegistry(),
+    }).sessions;
+  }
+
+  // @req FR-MCP-006
+  searchMcpSessions(actorSessionKey: string | undefined, query: string, includeSelf = false): SearchMcpSessionsResult {
+    return searchMcpSessionBindings({
+      actorSessionKey,
+      query,
+      includeSelf,
+      registry: this.getMcpSessionRegistry(),
+    });
+  }
+
+  // @req FR-MCP-006
+  async setMcpSessionAlias(targetSessionKey: string, alias: string, actorSessionKey?: string): Promise<WorkspaceTab> {
+    const result = applyMcpSessionAlias({
+      actorSessionKey,
+      targetSessionKey,
+      alias,
+      registry: this.getMcpSessionRegistry(),
+    });
+    if (result.allowed === false) {
+      throw new AppError(ErrorCode.TAB_NOT_FOUND);
+    }
+
+    const tab = this.state.tabs.find(item => item.sessionKey === targetSessionKey);
+    if (!tab) {
+      throw new AppError(ErrorCode.TAB_NOT_FOUND);
+    }
+    const binding = result.binding as McpSessionBinding;
+    this.cancelPendingTerminalTitle(tab.sessionId);
+    tab.name = binding.alias;
+    tab.nameSource = 'user';
+    delete tab.terminalTitle;
+    await this.save();
+    this.emitTabUpdated({
+      tab,
+      changes: {
+        name: tab.name,
+        nameSource: tab.nameSource,
+        terminalTitle: undefined,
+        sessionKey: tab.sessionKey,
+        currentSessionId: tab.currentSessionId,
+      },
+    });
     return tab;
   }
 
@@ -355,6 +423,9 @@ export class WorkspaceService {
       id: uuidv4(),
       workspaceId,
       sessionId: sessionDTO.id,
+      sessionKey: createStableSessionKey(),
+      currentSessionId: sessionDTO.id,
+      previousSessionIds: [],
       name: name || `Terminal-${wsTabs.length + 1}`,
       nameSource: name ? 'user' : 'default',
       colorIndex,
@@ -526,6 +597,9 @@ export class WorkspaceService {
     this.cancelPendingTerminalTitle(oldSessionId);
     const previousTabState: Partial<WorkspaceTab> = {
       sessionId: tab.sessionId,
+      sessionKey: tab.sessionKey,
+      currentSessionId: tab.currentSessionId,
+      previousSessionIds: tab.previousSessionIds ? [...tab.previousSessionIds] : undefined,
       lifecycleState: tab.lifecycleState,
       recoverable: tab.recoverable,
       lifecycleReason: tab.lifecycleReason,
@@ -533,11 +607,13 @@ export class WorkspaceService {
       lastExitCode: tab.lastExitCode,
       lifecycleUpdatedAt: tab.lifecycleUpdatedAt,
       generation: tab.generation,
+      generationReason: tab.generationReason,
     };
 
     // Create new PTY session with same shell type, restoring last CWD
     const sessionDTO = this.sessionManager.createSession(tab.name, tab.shellType, tab.lastCwd);
     tab.sessionId = sessionDTO.id;
+    this.bindCurrentSessionId(tab, sessionDTO.id, oldSessionId);
     this.markTabActive(tab, 'tab-restart');
 
     try {
@@ -761,6 +837,112 @@ export class WorkspaceService {
     return JSON.parse(JSON.stringify(state)) as WorkspaceState;
   }
 
+  // @req FR-MCP-001
+  private getMcpSessionRegistry(): McpSessionBinding[] {
+    this.ensureUniqueMcpSessionKeys();
+    return this.sortTabs(this.state.tabs)
+      .filter(tab => tab.lifecycleState !== 'stopped' && this.sessionManager.hasSession(tab.sessionId))
+      .map(tab => {
+        this.ensureMcpTabBinding(tab);
+        return createMcpSessionBinding({ tab });
+      });
+  }
+
+  // @req FR-MCP-001
+  private ensureMcpTabBinding(tab: WorkspaceTab): boolean {
+    let changed = false;
+    if (!tab.sessionKey || tab.sessionKey.trim() === '' || tab.sessionKey === tab.sessionId) {
+      tab.sessionKey = createStableSessionKey(tab.id);
+      changed = true;
+    }
+    if (!tab.currentSessionId || tab.currentSessionId.trim() === '') {
+      tab.currentSessionId = tab.sessionId;
+      changed = true;
+    }
+    const previous = this.normalizePreviousSessionIds(tab.previousSessionIds, tab.currentSessionId);
+    if (JSON.stringify(previous) !== JSON.stringify(tab.previousSessionIds ?? [])) {
+      tab.previousSessionIds = previous;
+      changed = true;
+    } else if (!tab.previousSessionIds) {
+      tab.previousSessionIds = [];
+      changed = true;
+    }
+    return changed;
+  }
+
+  // @req FR-MCP-001
+  private bindCurrentSessionId(tab: WorkspaceTab, nextSessionId: string, previousSessionId: string): void {
+    this.ensureMcpTabBinding(tab);
+    const priorCurrentSessionId = tab.currentSessionId || previousSessionId;
+    const previous = this.normalizePreviousSessionIds(tab.previousSessionIds, nextSessionId);
+    if (priorCurrentSessionId !== nextSessionId && !previous.includes(priorCurrentSessionId)) {
+      previous.push(priorCurrentSessionId);
+    }
+    tab.currentSessionId = nextSessionId;
+    tab.previousSessionIds = previous;
+  }
+
+  // @req FR-MCP-001
+  private normalizePreviousSessionIds(value: readonly string[] | undefined, currentSessionId?: string): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const raw of value) {
+      if (typeof raw !== 'string') {
+        continue;
+      }
+      const sessionId = raw.trim();
+      if (!sessionId || sessionId === currentSessionId || seen.has(sessionId)) {
+        continue;
+      }
+      seen.add(sessionId);
+      result.push(sessionId);
+    }
+    return result;
+  }
+
+  // @req FR-MCP-006
+  private ensureUniqueMcpSessionKeys(): boolean {
+    const used = new Set<string>();
+    let changed = false;
+
+    for (const tab of this.sortTabs(this.state.tabs)) {
+      changed = this.ensureMcpTabBinding(tab) || changed;
+      const currentKey = tab.sessionKey;
+      if (!currentKey) {
+        continue;
+      }
+      if (!used.has(currentKey)) {
+        used.add(currentKey);
+        continue;
+      }
+
+      const replacement = this.createUniqueMcpSessionKey(tab, used);
+      console.warn(`[WorkspaceService] Duplicate MCP sessionKey detected for tab ${tab.id}; regenerated stable key`);
+      tab.sessionKey = replacement;
+      used.add(replacement);
+      changed = true;
+    }
+
+    return changed;
+  }
+
+  // @req FR-MCP-006
+  private createUniqueMcpSessionKey(tab: WorkspaceTab, used: Set<string>): string {
+    const preferred = createStableSessionKey(tab.id);
+    if (!used.has(preferred)) {
+      return preferred;
+    }
+
+    let candidate = createStableSessionKey();
+    while (used.has(candidate)) {
+      candidate = createStableSessionKey();
+    }
+    return candidate;
+  }
+
   private async markSessionLifecycleStopped(event: WorkspaceSessionStoppedEvent): Promise<boolean> {
     const tab = this.state.tabs.find(t => t.sessionId === event.sessionId);
     if (!tab) {
@@ -800,6 +982,11 @@ export class WorkspaceService {
     tab.lastExitCode = null;
     tab.lifecycleUpdatedAt = updatedAt;
     tab.generation = this.nextTabGeneration(tab);
+    if (reason === 'tab-restart' || reason === 'orphan-recovery') {
+      tab.generationReason = reason;
+    } else {
+      delete tab.generationReason;
+    }
   }
 
   private markTabStopped(
@@ -1096,6 +1283,9 @@ export class WorkspaceService {
     if (tab.generation !== undefined && (!Number.isInteger(tab.generation) || tab.generation < 1)) {
       delete tab.generation;
     }
+    if (tab.generationReason !== undefined && tab.generationReason !== 'tab-restart' && tab.generationReason !== 'orphan-recovery') {
+      delete tab.generationReason;
+    }
   }
 
   private normalizeTabRecoveryMetadata(tab: WorkspaceTab): void {
@@ -1350,6 +1540,7 @@ export class WorkspaceService {
           this.cancelPendingTerminalTitle(previousSessionId);
           const sessionDTO = this.sessionManager.createSession(tab.name, tab.shellType, tab.lastCwd);
           tab.sessionId = sessionDTO.id;
+          this.bindCurrentSessionId(tab, sessionDTO.id, previousSessionId);
           this.markTabActive(tab, 'orphan-recovery');
           orphanTabIds.push(tab.id);
           restoredSessions.push({ tab, sessionId: sessionDTO.id });
