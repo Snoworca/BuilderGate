@@ -1,0 +1,144 @@
+{
+  "task_id": "T-PH003-02",
+  "started_at": "2026-07-09T01:57:05.253Z",
+  "completed_at": "2026-07-09T02:28:02.188Z",
+  "phase1": {
+    "inherited_red_from_task_id": "T-PH003-01",
+    "red_evidence": {
+      "command": "cd server; npx tsx src/test-runner.ts",
+      "exit_code": 1,
+      "captured_failure": "Cannot find module 'server/src/services/SessionInputGateway.js'",
+      "timestamp": "2026-07-09T01:44:41.491Z"
+    }
+  },
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "server/src/services/SessionInputGateway.ts",
+          "server/src/services/SessionManager.ts",
+          "server/src/ws/WsRouter.ts",
+          "server/src/test-runner.ts"
+        ],
+        "summary": "Implemented SessionInputGateway and routed restore/WebSocket input through it while preserving SessionManager.writeInput as the low-level PTY writer."
+      },
+      {
+        "iter": 2,
+        "files_changed": [
+          "server/src/services/SessionInputGateway.ts",
+          "server/src/ws/WsRouter.ts",
+          "server/src/test-runner.ts"
+        ],
+        "summary": "Resolved prickly review findings: sanitized caller metadata before writeInput, supplied real WebSocket replay/screen-repair state to the gateway, added screen-repair barrier integration coverage, and required submit scope for submit intent even without newline bytes."
+      }
+    ],
+    "formal_reviews": [
+      {
+        "iter": 1,
+        "findings": []
+      }
+    ],
+    "prickly_reviews": [
+      {
+        "iter": 1,
+        "reviewer": "PricklyStaticReviewer",
+        "findings": []
+      },
+      {
+        "iter": 2,
+        "reviewer": "Zeno",
+        "findings": [
+          {
+            "severity": "high",
+            "file": "server/src/ws/WsRouter.ts",
+            "issue": "WebSocket and restore gateway adapters used fabricated live bindings and constant replay state."
+          },
+          {
+            "severity": "medium",
+            "file": "server/src/services/SessionInputGateway.ts",
+            "issue": "Caller-provided metadata bypassed gateway sanitization before writeInput."
+          },
+          {
+            "severity": "medium",
+            "file": "server/src/test-runner.ts",
+            "issue": "Gateway tests did not cover WsRouter/restore integration risk."
+          }
+        ]
+      },
+      {
+        "iter": 3,
+        "reviewer": "Zeno",
+        "findings": [
+          {
+            "severity": "medium",
+            "file": "server/src/services/SessionInputGateway.ts",
+            "issue": "Submit intent without newline was accepted without mcp:message.submit scope."
+          }
+        ]
+      },
+      {
+        "iter": 4,
+        "reviewer": "Zeno",
+        "findings": [],
+        "status": "No findings",
+        "final_findings": 0
+      }
+    ],
+    "green_evidence": {
+      "command": "cd server; npx tsx src/test-runner.ts",
+      "exit_code": 0,
+      "passed": 412,
+      "failed": 0,
+      "timestamp": "2026-07-09T02:28:02.188Z"
+    },
+    "dod_check": [
+      {
+        "item": "All declared ingress paths route through SessionInputGateway before low-level PTY write.",
+        "satisfied": true
+      },
+      {
+        "item": "Replay and screen-repair barriers reject before PTY write and preserve existing WebSocket reject contract.",
+        "satisfied": true
+      },
+      {
+        "item": "MCP/open-agent submit intent requires mcp:message.submit scope, including submit requests without literal newline bytes.",
+        "satisfied": true
+      },
+      {
+        "item": "Gateway audit/write metadata remains sanitized and raw token, webhook key, full URL, and prompt material do not leak.",
+        "satisfied": true
+      },
+      {
+        "item": "User typing/local echo/prompt redraw still keeps AI TUI sessions idle unless substantive command output occurs.",
+        "satisfied": true
+      }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "scope": "full",
+      "passed": 412,
+      "failed": 0
+    },
+    "build": {
+      "command": "cd server; npm run build",
+      "exit_code": 0
+    },
+    "diff_check": {
+      "command": "git diff --check",
+      "exit_code": 0
+    },
+    "mcp_calls": [],
+    "pending_mutations": [
+      {
+        "reason": "Worker write scope excludes direct docs/spec mutation side effects; automated evidence recorded in task-owned artifacts instead.",
+        "req_ids": [
+          "FR-MCP-002",
+          "IR-MCP-004",
+          "IR-MCP-005"
+        ]
+      }
+    ]
+  }
+}

@@ -6,7 +6,7 @@
   "sidecar_sha256": "7df43adac0e73284859a581d061be4c42c53beab9dff555e0cd5a1775a225084",
   "target_slug": "0.5.5-buildergate-stability",
   "started_at": "2026-07-08T23:44:40.561Z",
-  "last_updated_at": "2026-07-09T01:50:24.225Z",
+  "last_updated_at": "2026-07-09T03:01:07.313Z",
   "pm_version": "0.1",
   "tasks": [
     {
@@ -95,36 +95,36 @@
     {
       "task_id": "T-PH003-02",
       "phase_id": "PH-003",
-      "status": "pending",
+      "status": "done",
       "tdd_exempted": false,
-      "started_at": null,
-      "ended_at": null,
-      "coder_run_id": null,
-      "result_summary": null,
+      "started_at": "2026-07-09T01:57:05.253Z",
+      "ended_at": "2026-07-09T02:28:02.188Z",
+      "coder_run_id": "2026-07-09.projectmaster.mcp-orch",
+      "result_summary": "Implemented shared SessionInputGateway and routed restore/WebSocket input through it. Hardened replay/screen-repair barrier handling, low-level metadata sanitization, and protected-source submit scope enforcement. Server tests 412 passed, build passed, git diff check passed, final prickly review No findings.",
       "trace_req_ids": [
         "FR-MCP-002",
         "IR-MCP-004",
         "IR-MCP-005"
       ],
       "questions": [],
-      "attempts": 0
+      "attempts": 1
     },
     {
       "task_id": "T-PH004-01",
       "phase_id": "PH-004",
-      "status": "pending",
+      "status": "done",
       "tdd_exempted": false,
-      "started_at": null,
-      "ended_at": null,
-      "coder_run_id": null,
-      "result_summary": null,
+      "started_at": "2026-07-09T02:33:44.523Z",
+      "ended_at": "2026-07-09T03:01:07.313Z",
+      "coder_run_id": "2026-07-09.projectmaster.mcp-orch",
+      "result_summary": "Added 18 RED MCP transport/tool tests for Streamable HTTP tools/list and tools/call, whoami, claim, list/search/set_alias, message.send, update_status, audit/status observability, listener policy, and rebind rollback. Expected RED verified: server test-runner exits 1 because ./services/McpToolService.js is missing; git diff check passed; final review No findings.",
       "trace_req_ids": [
         "IR-MCP-001",
         "OBS-MCP-001",
         "SEC-MCP-001"
       ],
       "questions": [],
-      "attempts": 0
+      "attempts": 1
     },
     {
       "task_id": "T-PH004-02",
@@ -308,9 +308,9 @@
   ],
   "stats": {
     "total": 16,
-    "done": 5,
+    "done": 7,
     "running": 0,
-    "pending": 11,
+    "pending": 9,
     "failed": 0,
     "blocked": 0,
     "skipped": 0

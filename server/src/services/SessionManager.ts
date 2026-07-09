@@ -69,6 +69,7 @@ import {
   formatSafeInputPreview,
   type InputDebugValue,
 } from '../utils/inputDebugMetadata.js';
+import { createSessionInputGateway } from './SessionInputGateway.js';
 import {
   ForegroundAppDetectorRegistry,
   createInitialDerivedState,
@@ -1607,7 +1608,7 @@ export class SessionManager {
       this.recordRestoreInputFailure(sessionId, 'restore_guard_cancelled', data);
       return;
     }
-    const written = this.writeInput(sessionId, pending.input);
+    const written = this.submitRestoreInputThroughGateway(sessionId, pending.input);
     if (!written) {
       this.recordRestoreInputFailure(sessionId, 'restore_write_failed', data);
       return;
@@ -1615,6 +1616,41 @@ export class SessionManager {
     this.captureDebugEvent(sessionId, 'pty', 'restore_input_written', {
       queuedMs: Date.now() - pending.queuedAt,
     });
+  }
+
+  // @req FR-MCP-002
+  // @req IR-MCP-004
+  private submitRestoreInputThroughGateway(sessionId: string, input: string): boolean {
+    const gateway = createSessionInputGateway({
+      writeInput: (write) => this.writeInput(
+        String(write.sessionId ?? ''),
+        String(write.data ?? ''),
+      ),
+      resolveTarget: () => this.hasSession(sessionId)
+        ? {
+            ok: true,
+            binding: {
+              sessionKey: sessionId,
+              currentSessionId: sessionId,
+              generation: 1,
+              lifecycle: 'live',
+            },
+          }
+        : { ok: false, code: 'TARGET_NOT_LIVE' },
+      readReplayState: () => ({
+        replayPending: false,
+        screenRepairPending: false,
+      }),
+      evaluateInputPolicy: () => ({ ok: true }),
+    });
+    const result = gateway.submitInput({
+      source: 'restore',
+      target: { sessionId },
+      data: input,
+      delivery: { mode: 'paste', submit: input.includes('\r') || input.includes('\n') },
+      replayPolicy: 'allow',
+    });
+    return result.accepted === true;
   }
 
   private markSessionStartupReady(sessionId: string, data: SessionData, reason: string): void {

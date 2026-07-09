@@ -1,0 +1,65 @@
+{
+  "reviewer": "Zeno",
+  "task_id": "T-PH003-02",
+  "reviewed_at": "2026-07-09T02:28:02.188Z",
+  "inputs": {
+    "plan_path": "docs/plans/2026-07-09.projectmaster.mcp-orch.plan.md",
+    "sidecar_path": "docs/plans/2026-07-09.projectmaster.mcp-orch.sidecar.json",
+    "files_reviewed": [
+      "server/src/services/SessionInputGateway.ts",
+      "server/src/services/SessionManager.ts",
+      "server/src/ws/WsRouter.ts",
+      "server/src/test-runner.ts"
+    ]
+  },
+  "review_rounds": [
+    {
+      "iter": 1,
+      "final_findings": 3,
+      "findings": [
+        {
+          "severity": "high",
+          "file": "server/src/ws/WsRouter.ts",
+          "issue": "WebSocket and restore gateway adapters used fabricated live bindings and constant replay state."
+        },
+        {
+          "severity": "medium",
+          "file": "server/src/services/SessionInputGateway.ts",
+          "issue": "Caller-provided metadata bypassed gateway sanitization before writeInput."
+        },
+        {
+          "severity": "medium",
+          "file": "server/src/test-runner.ts",
+          "issue": "Gateway tests did not cover WsRouter/restore integration risk."
+        }
+      ]
+    },
+    {
+      "iter": 2,
+      "final_findings": 1,
+      "findings": [
+        {
+          "severity": "medium",
+          "file": "server/src/services/SessionInputGateway.ts",
+          "issue": "Submit intent without newline was accepted without mcp:message.submit scope."
+        }
+      ]
+    },
+    {
+      "iter": 3,
+      "final_findings": 0,
+      "status": "No findings",
+      "findings": []
+    }
+  ],
+  "checks": [
+    "Gateway denies replay before policy fallback and target write.",
+    "WebSocket and restore ingress delegate to SessionInputGateway while preserving SessionManager.writeInput as low-level PTY writer.",
+    "WebSocket gateway reads actual client replay and screen-repair pending state.",
+    "Protected MCP/open-agent submit intent requires mcp:message.submit scope even without CR/LF bytes.",
+    "Secret-bearing webhook and caller metadata are sanitized before audit and write metadata."
+  ],
+  "findings": [],
+  "status": "No findings",
+  "final_findings": 0
+}

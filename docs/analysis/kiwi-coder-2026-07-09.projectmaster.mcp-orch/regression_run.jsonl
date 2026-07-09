@@ -1,6 +1,13 @@
-﻿{"ts":"2026-07-09T00:00:25.9730400Z","task_id":"T-PH001-02","cmd":"cd server; npx tsx src/test-runner.ts","exit_code":0,"passed":366,"failed":0}
+{"ts":"2026-07-09T00:00:25.9730400Z","task_id":"T-PH001-02","cmd":"cd server; npx tsx src/test-runner.ts","exit_code":0,"passed":366,"failed":0}
 {"ts":"2026-07-09T00:26:10.768Z","task_id":"T-PH001-02","cmd":"cd server; npx tsx src/test-runner.ts","exit_code":0,"passed":366,"failed":0,"note":"post-review hardening rerun"}
 {"ts":"2026-07-09T00:26:10.768Z","task_id":"T-PH001-02","cmd":"cd server; npm run build","exit_code":0,"note":"post-review hardening rerun"}
 {"ts":"2026-07-09T00:54:39.508Z","task_id":"T-PH002-02","scope":"full","command":"cd server; npx tsx src/test-runner.ts","exit_code":0,"passed":379,"failed":0}
 {"ts":"2026-07-09T01:23:33.171Z","task_id":"T-PH002-02","scope":"full","command":"cd server; npx tsx src/test-runner.ts","exit_code":0,"passed":385,"failed":0,"note":"post-prickly-review fix loop final rerun"}
 {"timestamp":"2026-07-09T01:44:41.491Z","task_id":"T-PH003-01","command":"cd server; npx tsx src/test-runner.ts","exit_code":1,"failure_count":26,"expected_red":true,"signature":"missing input gateway implementation: expected ./services/SessionInputGateway.js","notes":"Existing tests reached before the new input gateway block passed; failures are attributable to the missing future SessionInputGateway contract."}
+{"task_id":"T-PH003-02","command":"cd server; npx tsx src/test-runner.ts","exit_code":0,"passed":411,"failed":0,"timestamp":"2026-07-09T02:07:59.065Z"}
+{"task_id":"T-PH003-02","command":"cd server; npm run build","exit_code":0,"timestamp":"2026-07-09T02:07:59.065Z"}
+{"task_id":"T-PH003-02","command":"cd server; npx tsx src/test-runner.ts","exit_code":0,"passed":412,"failed":0,"timestamp":"2026-07-09T02:28:02.188Z","note":"post-review fix loop final rerun"}
+{"task_id":"T-PH003-02","command":"cd server; npm run build","exit_code":0,"timestamp":"2026-07-09T02:28:02.188Z","note":"post-review fix loop final rerun"}
+{"task_id":"T-PH003-02","command":"git diff --check","exit_code":0,"timestamp":"2026-07-09T02:28:02.188Z","note":"post-review fix loop final rerun"}
+{"task_id":"T-PH004-01","command":"cd server; npx tsx src/test-runner.ts","exit_code":1,"failed":18,"expected_red":true,"signature":"missing MCP transport/tool implementation: expected ./services/McpToolService.js","timestamp":"2026-07-09T03:01:07.313Z"}
+{"task_id":"T-PH004-01","command":"git diff --check","exit_code":0,"timestamp":"2026-07-09T03:01:07.313Z","note":"RED test diff check"}

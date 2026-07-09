@@ -58,6 +58,10 @@ import {
   type WsTransportQueueState,
 } from './wsSendPolicy.js';
 import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
+import {
+  createSessionInputGateway,
+  INPUT_REJECTED_REPLAY_PENDING,
+} from '../services/SessionInputGateway.js';
 
 const HEARTBEAT_INTERVAL = 30_000;
 const REPLAY_ACK_TIMEOUT_MS = 5_000;
@@ -67,6 +71,13 @@ const MAX_REPLAY_QUEUED_INPUT_BYTES = 64 * 1024;
 const MAX_REPLAY_QUEUED_INPUT_AGE_MS = 3_000;
 const MAX_INPUT_SEQUENCE_SPAN = 1024;
 const TRANSPORT_FLUSH_RETRY_MS = 25;
+
+type WebSocketInputGatewayResult = {
+  accepted: true;
+} | {
+  accepted: false;
+  reason: InputRejectedReason;
+};
 
 type PartialResourceLimits = {
   [K in keyof ResourceLimitsConfig]?: Partial<ResourceLimitsConfig[K]>;
@@ -581,12 +592,15 @@ export class WsRouter {
       return;
     }
 
-    let inputAccepted = false;
+    let gatewayResult: WebSocketInputGatewayResult = { accepted: false, reason: 'server-error' };
     try {
-      inputAccepted = this.sessionManager.writeInput(input.sessionId, input.data, input.metadata, {
+      gatewayResult = this.submitWebSocketInputThroughGateway({
+        sessionId: input.sessionId,
+        data: input.data,
+        metadata: input.metadata,
         inputSeqStart: input.inputSeqStart,
         inputSeqEnd: input.inputSeqEnd,
-      });
+      }, meta);
     } catch (error) {
       console.error('[WS] PTY input write failed:', error);
       this.rejectInput(ws, {
@@ -600,14 +614,14 @@ export class WsRouter {
       return;
     }
 
-    if (!inputAccepted) {
+    if (!gatewayResult.accepted) {
       this.rejectInput(ws, {
         sessionId: input.sessionId,
         data: input.data,
         metadata: input.metadata,
         inputSeqStart: input.inputSeqStart,
         inputSeqEnd: input.inputSeqEnd,
-        reason: 'server-error',
+        reason: gatewayResult.reason,
       });
     }
   }
@@ -1433,12 +1447,15 @@ export class WsRouter {
         continue;
       }
 
-      let inputAccepted = false;
+      let gatewayResult: WebSocketInputGatewayResult = { accepted: false, reason: 'server-error' };
       try {
-        inputAccepted = this.sessionManager.writeInput(sessionId, input.data, input.metadata, {
+        gatewayResult = this.submitWebSocketInputThroughGateway({
+          sessionId,
+          data: input.data,
+          metadata: input.metadata,
           inputSeqStart: input.inputSeqStart,
           inputSeqEnd: input.inputSeqEnd,
-        });
+        }, this.clients.get(ws));
       } catch (error) {
         console.error('[WS] Queued PTY input write failed:', error);
         this.rejectInput(ws, {
@@ -1454,14 +1471,14 @@ export class WsRouter {
         continue;
       }
 
-      if (!inputAccepted) {
+      if (!gatewayResult.accepted) {
         this.rejectInput(ws, {
           sessionId,
           data: input.data,
           metadata: input.metadata,
           inputSeqStart: input.inputSeqStart,
           inputSeqEnd: input.inputSeqEnd,
-          reason: 'session-missing',
+          reason: gatewayResult.reason,
           replayToken,
           snapshotSeq,
         });
@@ -1480,6 +1497,71 @@ export class WsRouter {
         },
       });
     }
+  }
+
+  // @req FR-MCP-002
+  // @req IR-MCP-004
+  private submitWebSocketInputThroughGateway(input: {
+    sessionId: string;
+    data: string;
+    metadata?: InputDebugMetadata;
+    inputSeqStart?: number;
+    inputSeqEnd?: number;
+  }, meta?: WsClientMeta): WebSocketInputGatewayResult {
+    const gateway = createSessionInputGateway({
+      writeInput: (write) => this.sessionManager.writeInput(
+        String(write.sessionId ?? ''),
+        String(write.data ?? ''),
+        write.metadata as InputDebugMetadata | undefined,
+        {
+          inputSeqStart: typeof write.inputSeqStart === 'number' ? write.inputSeqStart : undefined,
+          inputSeqEnd: typeof write.inputSeqEnd === 'number' ? write.inputSeqEnd : undefined,
+        },
+      ),
+      resolveTarget: () => this.resolveWebSocketGatewayTarget(input.sessionId),
+      readReplayState: () => ({
+        replayPending: meta?.replayPendingSessions.has(input.sessionId) === true,
+        screenRepairPending: meta ? this.getScreenRepairPendingSessions(meta).has(input.sessionId) : false,
+      }),
+      evaluateInputPolicy: () => ({ ok: true }),
+    });
+    const hasReplayBarrier = meta?.replayPendingSessions.has(input.sessionId) === true
+      || (meta ? this.getScreenRepairPendingSessions(meta).has(input.sessionId) : false);
+    const result = gateway.submitInput({
+      source: 'websocket',
+      target: { sessionId: input.sessionId },
+      data: input.data,
+      metadata: input.metadata,
+      inputSeqStart: input.inputSeqStart,
+      inputSeqEnd: input.inputSeqEnd,
+      delivery: { mode: 'paste', submit: input.data.includes('\r') || input.data.includes('\n') },
+      replayPolicy: hasReplayBarrier ? 'reject' : 'allow',
+    });
+    if (result.accepted === true) {
+      return { accepted: true };
+    }
+    return {
+      accepted: false,
+      reason: result.code === INPUT_REJECTED_REPLAY_PENDING ? 'context-changed' : 'server-error',
+    };
+  }
+
+  // @req FR-MCP-002
+  // @req IR-MCP-004
+  private resolveWebSocketGatewayTarget(sessionId: string): Record<string, unknown> {
+    const session = this.sessionManager.getSession(sessionId);
+    if (!session) {
+      return { ok: false, code: 'TARGET_NOT_LIVE' };
+    }
+    return {
+      ok: true,
+      binding: {
+        sessionKey: session.id,
+        currentSessionId: session.id,
+        generation: 1,
+        lifecycle: 'live',
+      },
+    };
   }
 
   private rejectQueuedReplayInputs(

@@ -278,6 +278,24 @@ async function main(): Promise<void> {
     { name: 'MCP input gateway IR-MCP-005 AC-8: final replay precedence uses exact stable code', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-005_AC-8'] },
     { name: 'MCP input gateway IR-MCP-005 AC-9: final close confirmation shape precedes lifecycle', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-005_AC-9'] },
     { name: 'MCP input gateway IR-MCP-005 AC-10: non-create webhook surfaces remain masked', run: inputGatewayRedTests['Input_gateway_red_tests_IR-MCP-005_AC-10'] },
+    { name: 'MCP transport/tool IR-MCP-001 AC-1: tools/list exposes stable ASCII schemas', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_IR-MCP-001_AC-1'] },
+    { name: 'MCP transport/tool IR-MCP-001 AC-2: whoami returns current session binding', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_IR-MCP-001_AC-2'] },
+    { name: 'MCP transport/tool IR-MCP-001 AC-3: claim mints token once and rejects reuse', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_IR-MCP-001_AC-3'] },
+    { name: 'MCP transport/tool IR-MCP-001 AC-4: validation and policy failures use stable codes', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_IR-MCP-001_AC-4'] },
+    { name: 'MCP transport/tool IR-MCP-001 AC-5: Streamable HTTP JSON stays UTF-8 with ASCII tool names', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_IR-MCP-001_AC-5'] },
+    { name: 'MCP transport/tool OBS-MCP-001 AC-1: tool calls emit redacted audit events', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-1'] },
+    { name: 'MCP transport/tool OBS-MCP-001 AC-2: logs and status omit secrets and raw prompts', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-2'] },
+    { name: 'MCP transport/tool OBS-MCP-001 AC-3: listener status exposes health and reject counters', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-3'] },
+    { name: 'MCP transport/tool OBS-MCP-001 AC-4: live session status omits secret tokens', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-4'] },
+    { name: 'MCP transport/tool OBS-MCP-001 AC-5: assignment status remains queryable', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-5'] },
+    { name: 'MCP transport/tool OBS-MCP-001 AC-6: coverage manifest names required verification lanes', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-6'] },
+    { name: 'MCP transport/tool OBS-MCP-001 AC-7: skipped validation is explicit', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-7'] },
+    { name: 'MCP transport/tool SEC-MCP-001 AC-1: default listener is loopback only', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-1'] },
+    { name: 'MCP transport/tool SEC-MCP-001 AC-2: whitelist mode requires TLS', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-2'] },
+    { name: 'MCP transport/tool SEC-MCP-001 AC-3: forwarded IP trust requires HTTPS trusted proxy', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-3'] },
+    { name: 'MCP transport/tool SEC-MCP-001 AC-4: denied requests include redacted error and audit id', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-4'] },
+    { name: 'MCP transport/tool SEC-MCP-001 AC-5: successful rebind swaps only MCP listener', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-5'] },
+    { name: 'MCP transport/tool SEC-MCP-001 AC-6: failed rebind rolls back listener and config', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-6'] },
     { name: 'performGracefulShutdown flushes workspace JSON lastUpdated and tab lastCwd', run: testPerformGracefulShutdownFlushesWorkspaceCwds },
     { name: 'performGracefulShutdown terminates sessions after first workspace flush and final flushes', run: testPerformGracefulShutdownTerminatesSessionsAfterWorkspaceFlush },
     { name: 'performGracefulShutdown degrades timed out session cleanup and still final flushes', run: testPerformGracefulShutdownSessionCleanupTimeoutDegradesAndFinalFlushes },
@@ -328,6 +346,7 @@ async function main(): Promise<void> {
     { name: 'SessionManager detects terminal titles from raw OSC133-mode output', run: testSessionManagerTerminalTitleRawOsc133Mode },
     { name: 'WsRouter sends screen snapshot before flushing queued live output', run: testWsRouterScreenSnapshotOrdering },
     { name: 'WsRouter queues input while replay is pending and flushes after ACK', run: testWsRouterQueuesInputWhileReplayPendingAndFlushesAfterAck },
+    { name: 'WsRouter routes screen-repair input barriers through SessionInputGateway', run: testWsRouterRejectsInputDuringScreenRepairThroughGateway },
     { name: 'WsRouter preserves queued input across replay refresh', run: testWsRouterPreservesInputQueueAcrossReplayRefresh },
     { name: 'WsRouter does not flush queued input for stale ACK', run: testWsRouterDoesNotFlushInputForStaleAck },
     { name: 'WsRouter rejects expired replay input on ACK', run: testWsRouterRejectsExpiredReplayInputOnAck },
@@ -5308,6 +5327,18 @@ const inputGatewayRedTests: Record<string, () => Promise<void>> = {
       source: 'mcp-message-send',
       data: 'paste-only text\nmust not submit',
       delivery: { mode: 'paste', submit: false },
+      actor: { type: 'mcp', sessionKey: 'actor-session', scopes: ['mcp:message.paste', 'mcp:message.submit'] },
+    }),
+    expected: {
+      accepted: false,
+      code: 'INPUT_REJECTED_ENTER_POLICY',
+      writes: 0,
+    },
+  }).then(() => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'mcp-message-send',
+      data: 'submit text\nwithout scope',
+      delivery: { mode: 'submit', submit: true },
       actor: { type: 'mcp', sessionKey: 'actor-session', scopes: ['mcp:message.paste'] },
     }),
     expected: {
@@ -5315,7 +5346,30 @@ const inputGatewayRedTests: Record<string, () => Promise<void>> = {
       code: 'INPUT_REJECTED_ENTER_POLICY',
       writes: 0,
     },
-  }),
+  })).then(() => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'mcp-message-send',
+      data: 'submit intent without newline',
+      delivery: { mode: 'submit', submit: true },
+      actor: { type: 'mcp', sessionKey: 'actor-session', scopes: ['mcp:message.paste'] },
+    }),
+    expected: {
+      accepted: false,
+      code: 'INPUT_REJECTED_ENTER_POLICY',
+      writes: 0,
+    },
+  })).then(() => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'mcp-message-send',
+      data: 'submit text\nwith scope',
+      delivery: { mode: 'submit', submit: true },
+      actor: { type: 'mcp', sessionKey: 'actor-session', scopes: ['mcp:message.paste', 'mcp:message.submit'] },
+    }),
+    expected: {
+      accepted: true,
+      writes: 1,
+    },
+  })),
   'Input_gateway_red_tests_FR-MCP-002_AC-4': () => runInputGatewayContractScenario({
     request: createGatewayRequest({
       source: 'mcp-message-send',
@@ -5507,12 +5561,22 @@ const inputGatewayRedTests: Record<string, () => Promise<void>> = {
     request: createGatewayRequest({
       source: 'webhook',
       data: 'prompt that must be redacted from recent audit',
+      metadata: {
+        rawToken: 'metadata-raw-capability-token',
+        fullUrl: 'https://localhost:2222/webhook?key=metadata-webhook-full-key',
+        safeCounter: 1,
+      },
       auditContext: { recentAuditEventsLimit: 2, rawToken: 'raw-capability-token' },
     }),
     expected: {
       accepted: true,
       writes: 1,
-      requiresNoSecrets: ['raw-capability-token', 'prompt that must be redacted from recent audit'],
+      requiresNoSecrets: [
+        'raw-capability-token',
+        'metadata-raw-capability-token',
+        'metadata-webhook-full-key',
+        'prompt that must be redacted from recent audit',
+      ],
       requiresAuditEvent: true,
     },
   }),
@@ -5597,6 +5661,539 @@ const inputGatewayRedTests: Record<string, () => Promise<void>> = {
   }),
 };
 
+type McpTransportToolContract = Record<string, unknown>;
+
+const requiredMcpToolNames = [
+  'buildergate.session.whoami',
+  'buildergate.session.claim',
+  'buildergate.session.list',
+  'buildergate.session.search',
+  'buildergate.message.send',
+  'buildergate.session.set_alias',
+  'buildergate.session.open_agent',
+  'buildergate.session.close',
+  'buildergate.session.close_self',
+  'buildergate.message.reply_to_leader',
+  'buildergate.session.update_status',
+];
+
+const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
+  'MCP_transport_and_tool_red_tests_IR-MCP-001_AC-1': async () => {
+    const service = await createMcpToolServiceHarness();
+    const tools = await callMcpToolService(service, 'listTools', {});
+    const toolList = asRecordArray(asRecord(tools, 'MCP tools/list result').tools, 'MCP tools/list tools');
+    const handler = await createMcpHttpHandlerHarness();
+    const httpTools = asRecord(await callMcpHttpHandler(handler, {
+      method: 'POST',
+      path: '/mcp',
+      headers: { 'content-type': 'application/json; charset=utf-8', authorization: 'Bearer valid-mcp-capability-token' },
+      credential: createMcpActor({ token: 'valid-mcp-capability-token' }),
+      body: Buffer.from(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/list',
+        params: {},
+      }), 'utf8'),
+      remoteAddress: '127.0.0.1',
+    }), 'MCP streamable HTTP tools/list response');
+    const httpBody = asRecord(httpTools.body, 'MCP tools/list JSON-RPC body');
+    const httpResult = asRecord(httpBody.result, 'MCP tools/list JSON-RPC result');
+    const httpToolList = asRecordArray(httpResult.tools, 'MCP JSON-RPC tools/list tools');
+
+    assert.equal(httpTools.status, 200);
+    assert.match(String(httpTools.contentType), /application\/json/u);
+    assert.match(String(httpTools.contentType), /utf-8/i);
+    assert.equal(httpBody.jsonrpc, '2.0');
+    assert.equal(httpBody.id, 1);
+    assertRequiredMcpTools(toolList, 'service tools/list');
+    assertRequiredMcpTools(httpToolList, 'HTTP tools/list');
+  },
+  'MCP_transport_and_tool_red_tests_IR-MCP-001_AC-2': async () => {
+    const service = await createMcpToolServiceHarness();
+    const result = asRecord(await callMcpToolService(service, 'callTool', {
+      name: 'buildergate.session.whoami',
+      actor: createMcpActor(),
+      arguments: {},
+    }), 'MCP whoami tool result');
+
+    for (const key of ['sessionId', 'sessionKey', 'workspaceId', 'tabId', 'alias', 'agentKind', 'leaderSessionKey', 'bindingLifecycle', 'agentStatus']) {
+      assert.ok(result[key] !== undefined, `whoami must include ${key}`);
+    }
+    assert.equal(result.sessionKey, 'self-session-key');
+    assert.equal(result.bindingLifecycle, 'live');
+  },
+  'MCP_transport_and_tool_red_tests_IR-MCP-001_AC-3': async () => {
+    const service = await createMcpToolServiceHarness();
+    const first = asRecord(await callMcpToolService(service, 'callTool', {
+      name: 'buildergate.session.claim',
+      actor: createMcpActor({ sessionKey: undefined }),
+      arguments: { claimCode: 'claim-once-code', sessionKey: 'manual-session-key' },
+    }), 'MCP claim first result');
+    const second = asRecord(await callMcpToolService(service, 'callTool', {
+      name: 'buildergate.session.claim',
+      actor: createMcpActor({ sessionKey: undefined }),
+      arguments: { claimCode: 'claim-once-code', sessionKey: 'manual-session-key' },
+    }), 'MCP claim reuse result');
+
+    assert.equal(first.ok, true);
+    assert.equal(typeof first.actorToken, 'string');
+    assert.equal(first.sessionKey, 'manual-session-key');
+    assert.equal(second.ok, false);
+    assert.equal(second.code, 'CLAIM_CODE_REUSED');
+  },
+  'MCP_transport_and_tool_red_tests_IR-MCP-001_AC-4': async () => {
+    const service = await createMcpToolServiceHarness();
+    const invalidPayload = asRecord(await callMcpToolService(service, 'callTool', {
+      name: 'buildergate.message.send',
+      actor: createMcpActor({ scopes: ['mcp:self.read'] }),
+      arguments: { sessionKey: 'target-session', prompt: 'hello' },
+    }), 'MCP invalid payload result');
+    const unknownTool = asRecord(await callMcpToolService(service, 'callTool', {
+      name: 'buildergate.session.unknown',
+      actor: createMcpActor(),
+      arguments: {},
+    }), 'MCP unknown tool result');
+
+    assert.equal(invalidPayload.ok, false);
+    assert.equal(invalidPayload.code, 'INVALID_SCOPE');
+    assert.equal(unknownTool.ok, false);
+    assert.equal(unknownTool.code, 'UNKNOWN_TOOL');
+  },
+  'MCP_transport_and_tool_red_tests_IR-MCP-001_AC-5': async () => {
+    const handler = await createMcpHttpHandlerHarness();
+    const toolCalls = [
+      { id: 7, name: 'buildergate.session.whoami', arguments: {} },
+      { id: 8, name: 'buildergate.session.list', arguments: { includeSelf: true } },
+      { id: 9, name: 'buildergate.session.search', arguments: { query: '빌더 게이트' } },
+      { id: 10, name: 'buildergate.session.set_alias', arguments: { sessionKey: 'target-session', alias: '새 별칭' } },
+      { id: 11, name: 'buildergate.message.send', arguments: { sessionKey: 'target-session', prompt: 'HTTP paste prompt', deliveryMode: 'paste' } },
+      { id: 12, name: 'buildergate.session.update_status', arguments: { agentStatus: 'waiting_input' } },
+    ];
+
+    for (const toolCall of toolCalls) {
+      const requestBody = {
+        jsonrpc: '2.0',
+        id: toolCall.id,
+        method: 'tools/call',
+        params: {
+          name: toolCall.name,
+          arguments: toolCall.arguments,
+        },
+      };
+      const response = asRecord(await callMcpHttpHandler(handler, {
+        method: 'POST',
+        path: '/mcp',
+        headers: { 'content-type': 'application/json; charset=utf-8', authorization: 'Bearer valid-mcp-capability-token' },
+        credential: createMcpActor({ token: 'valid-mcp-capability-token' }),
+        body: Buffer.from(JSON.stringify(requestBody), 'utf8'),
+        remoteAddress: '127.0.0.1',
+      }), `MCP streamable HTTP response: ${toolCall.name}`);
+
+      assert.equal(response.status, 200);
+      assert.match(String(response.contentType), /application\/json/u);
+      assert.match(String(response.contentType), /utf-8/i);
+      const body = asRecord(response.body, `MCP JSON-RPC response: ${toolCall.name}`);
+      assert.equal(body.jsonrpc, '2.0');
+      assert.equal(body.id, toolCall.id);
+      assert.equal(body.error, undefined);
+      assert.ok(body.result !== undefined);
+      assert.match(toolCall.name, /^[\x20-\x7e]+$/u);
+      assert.doesNotMatch(JSON.stringify(response.body), /빌더 게이트.*buildergate\./u);
+    }
+  },
+  'MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-1': async () => {
+    const calls = createMcpToolHarnessCalls();
+    const service = await createMcpToolServiceHarness({ calls });
+    const result = asRecord(await callMcpToolService(service, 'callTool', {
+      name: 'buildergate.message.send',
+      actor: createMcpActor(),
+      arguments: { sessionKey: 'target-session', prompt: 'audit prompt', deliveryMode: 'paste' },
+      requestId: 'req-audit-1',
+      sourceIp: '127.0.0.1',
+    }), 'MCP message send result');
+    const statusUpdate = asRecord(await callMcpToolService(service, 'callTool', {
+      name: 'buildergate.session.update_status',
+      actor: createMcpActor(),
+      arguments: { agentStatus: 'waiting_input', statusMessage: 'ready for next task' },
+      requestId: 'req-status-1',
+      sourceIp: '127.0.0.1',
+    }), 'MCP update_status result');
+
+    assert.equal(result.ok, true);
+    assert.equal(typeof result.auditId, 'string');
+    assert.equal(statusUpdate.ok, true);
+    assert.equal(statusUpdate.agentStatus, 'waiting_input');
+    assert.ok(calls.auditEvents.length > 0, 'MCP tool call must record an audit event');
+    const audit = asRecord(calls.auditEvents.find((event) => event.action === 'buildergate.message.send'), 'message.send audit event');
+    const statusAudit = asRecord(calls.auditEvents.find((event) => event.action === 'buildergate.session.update_status'), 'update_status audit event');
+    assert.equal(audit.actorType, 'mcp');
+    assert.equal(audit.actorSessionKey, 'self-session-key');
+    assert.equal(audit.sourceIp, '127.0.0.1');
+    assert.equal(audit.requestId, 'req-audit-1');
+    assert.ok(Array.isArray(audit.scopes));
+    assert.ok(audit.result !== undefined || audit.reason !== undefined);
+    const messageTargetBinding = asRecord(audit.targetBinding ?? audit.target, 'message.send audit target binding');
+    assert.equal(messageTargetBinding.sessionKey, 'target-session');
+    assert.ok(audit.promptHash || audit.promptPreview);
+    assert.equal(statusAudit.actorType, 'mcp');
+    assert.equal(statusAudit.actorSessionKey, 'self-session-key');
+    assert.equal(statusAudit.sourceIp, '127.0.0.1');
+    assert.equal(statusAudit.requestId, 'req-status-1');
+    assert.ok(Array.isArray(statusAudit.scopes));
+    assert.ok(statusAudit.result !== undefined || statusAudit.reason !== undefined);
+  },
+  'MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-2': async () => {
+    const calls = createMcpToolHarnessCalls();
+    const service = await createMcpToolServiceHarness({ calls });
+    await callMcpToolService(service, 'callTool', {
+      name: 'buildergate.message.send',
+      actor: createMcpActor({ token: 'raw-mcp-token-secret' }),
+      arguments: {
+        sessionKey: 'target-session',
+        prompt: 'raw long prompt material that must not be persisted',
+        webhookKey: 'raw-webhook-key-secret',
+        fullUrl: 'https://localhost:2222/mcp?token=raw-query-token-secret',
+      },
+    });
+    const status = await callMcpToolService(service, 'getStatus', {});
+
+    assertNoSecretMaterial({
+      audit: calls.auditEvents,
+      logs: calls.logs,
+      status,
+    }, [
+      'raw-mcp-token-secret',
+      'raw-webhook-key-secret',
+      'raw-query-token-secret',
+      'raw long prompt material that must not be persisted',
+    ]);
+  },
+  'MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-3': async () => {
+    const service = await createMcpToolServiceHarness();
+    const status = asRecord(await callMcpToolService(service, 'getStatus', {}), 'MCP listener status');
+    for (const key of ['enabled', 'bindHost', 'port', 'listenerStatus', 'activeConnectionCount', 'lastRebindResult', 'lastError', 'rejectedRequestCounters']) {
+      assert.ok(status[key] !== undefined, `MCP listener status must include ${key}`);
+    }
+    assert.equal(status.bindHost, '127.0.0.1');
+    assert.equal(typeof status.activeConnectionCount, 'number');
+  },
+  'MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-4': async () => {
+    const calls = createMcpToolHarnessCalls();
+    const service = await createMcpToolServiceHarness({ calls });
+    const result = asRecord(await callMcpToolService(service, 'callTool', {
+      name: 'buildergate.session.list',
+      actor: createMcpActor(),
+      arguments: { includeSelf: true },
+      requestId: 'req-list-1',
+      sourceIp: '127.0.0.1',
+    }), 'MCP session list result');
+    const search = asRecord(await callMcpToolService(service, 'callTool', {
+      name: 'buildergate.session.search',
+      actor: createMcpActor(),
+      arguments: { query: '클로드' },
+      requestId: 'req-search-1',
+      sourceIp: '127.0.0.1',
+    }), 'MCP session search result');
+    const aliasUpdate = asRecord(await callMcpToolService(service, 'callTool', {
+      name: 'buildergate.session.set_alias',
+      actor: createMcpActor(),
+      arguments: { sessionKey: 'target-session', alias: '새 별칭' },
+      requestId: 'req-alias-1',
+      sourceIp: '127.0.0.1',
+    }), 'MCP session set_alias result');
+    const sessions = asRecordArray(result.sessions, 'MCP live sessions');
+    const matches = asRecordArray(search.matches, 'MCP session search matches');
+
+    for (const session of sessions) {
+      for (const key of ['alias', 'agentKind', 'agentStatus', 'bindingLifecycle', 'mcpConnected', 'leader', 'workspaceId', 'tabId', 'sessionId', 'sessionKey', 'lastSeenAt']) {
+        assert.ok(session[key] !== undefined, `live session status must include ${key}`);
+      }
+      assert.equal(session.token, undefined);
+      assert.equal(session.actorToken, undefined);
+      assert.equal(session.mcpToken, undefined);
+    }
+    for (const match of matches) {
+      assert.equal(match.token, undefined);
+      assert.equal(match.actorToken, undefined);
+      assert.equal(match.mcpToken, undefined);
+    }
+    assert.ok(matches.some((match) => match.sessionKey === 'target-session'));
+    assert.equal(aliasUpdate.ok, true);
+    assert.equal(aliasUpdate.alias, '새 별칭');
+    assertNoSecretMaterial({ result, search, aliasUpdate }, ['must-not-leak-session-token', 'redacted-session-token']);
+
+    for (const expected of [
+      { action: 'buildergate.session.list', requestId: 'req-list-1' },
+      { action: 'buildergate.session.search', requestId: 'req-search-1' },
+      { action: 'buildergate.session.set_alias', requestId: 'req-alias-1', targetSessionKey: 'target-session' },
+    ]) {
+      const audit = asRecord(calls.auditEvents.find((event) => event.action === expected.action), `${expected.action} audit event`);
+      assert.equal(audit.actorType, 'mcp');
+      assert.equal(audit.actorSessionKey, 'self-session-key');
+      assert.equal(audit.sourceIp, '127.0.0.1');
+      assert.equal(audit.requestId, expected.requestId);
+      assert.ok(Array.isArray(audit.scopes));
+      assert.ok(audit.result !== undefined || audit.reason !== undefined);
+      if (expected.targetSessionKey) {
+        const targetBinding = asRecord(audit.targetBinding ?? audit.target, `${expected.action} audit target binding`);
+        assert.equal(targetBinding.sessionKey, expected.targetSessionKey);
+      }
+    }
+    assertNoSecretMaterial(calls.auditEvents, ['must-not-leak-session-token', 'redacted-session-token']);
+  },
+  'MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-5': async () => {
+    const service = await createMcpToolServiceHarness();
+    const result = asRecord(await callMcpToolService(service, 'callTool', {
+      name: 'buildergate.message.send',
+      actor: createMcpActor(),
+      arguments: { sessionKey: 'target-session', prompt: 'assignment prompt', deliveryMode: 'paste' },
+    }), 'MCP message assignment result');
+    assert.equal(typeof result.assignmentId, 'string');
+    assert.match(String(result.assignmentId), /\S/u);
+    const status = asRecord(await callMcpToolService(service, 'getAssignmentStatus', {
+      assignmentId: result.assignmentId,
+    }), 'MCP assignment status');
+
+    assert.equal(status.assignmentId, result.assignmentId);
+    const transitions = asRecordArray(status.transitions ?? status.history, 'MCP assignment status transitions');
+    const transitionStatuses = transitions.map((transition) => String(transition.status));
+    const createdIndex = transitionStatuses.indexOf('created');
+    const resolvedIndex = transitionStatuses.indexOf('resolved');
+    const finalIndex = transitionStatuses.findIndex((value) => value === 'delivered' || value === 'failed');
+    assert.notEqual(createdIndex, -1, 'assignment transitions must include created');
+    assert.ok(resolvedIndex > createdIndex, 'assignment transitions must progress from created to resolved');
+    assert.ok(finalIndex > resolvedIndex, 'assignment transitions must progress from resolved to delivered or failed');
+    assert.equal(status.status, transitionStatuses[transitionStatuses.length - 1]);
+    assert.ok(['delivered', 'failed'].includes(String(status.status)));
+    for (const key of ['promptHash', 'promptPreview', 'deliveryMode', 'target', 'source', 'auditId']) {
+      assert.ok(status[key] !== undefined, `assignment status must include ${key}`);
+    }
+    assert.doesNotMatch(JSON.stringify(status), /assignment prompt/u);
+  },
+  'MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-6': async () => {
+    const service = await createMcpToolServiceHarness();
+    const manifest = asRecord(await callMcpToolService(service, 'getVerificationCoverage', {}), 'MCP verification coverage');
+    for (const lane of ['serverUnit', 'mcpStreamableHttp', 'frontendUnit', 'playwrightCoreE2E']) {
+      const laneRecord = asRecord(manifest[lane], `coverage lane ${lane}`);
+      const hasExplicitStatus = typeof laneRecord.status === 'string';
+      const hasLegacyStatus = typeof laneRecord.covered === 'boolean' || typeof laneRecord.skipped === 'boolean';
+      assert.ok(hasExplicitStatus || hasLegacyStatus, `${lane} coverage status must be explicit`);
+      const status = hasExplicitStatus
+        ? String(laneRecord.status)
+        : laneRecord.covered === true ? 'covered' : laneRecord.skipped === true ? 'skipped' : 'remaining';
+      assert.ok(['covered', 'skipped', 'remaining'].includes(status), `${lane} coverage status must be explicit`);
+      if (status === 'skipped' || status === 'remaining') {
+        assert.notEqual(laneRecord.reason ?? laneRecord.evidence ?? laneRecord.reference, undefined, `${lane} coverage must carry reason, evidence, or reference`);
+      }
+    }
+    for (const flow of ['loopbackSecurity', 'whitelistProxyRejection', 'toolSchemas', 'searchAndSend', 'openAgentReadyKickoff', 'replyToLeader', 'closeSelf', 'webhookKeyFlow', 'redaction', 'toolsDialog']) {
+      const flowRecord = asRecord(asRecord(manifest.flows, 'coverage flows')[flow], `coverage flow ${flow}`);
+      const hasExplicitStatus = typeof flowRecord.status === 'string';
+      const hasLegacyStatus = typeof flowRecord.covered === 'boolean' || typeof flowRecord.skipped === 'boolean';
+      assert.ok(hasExplicitStatus || hasLegacyStatus, `${flow} coverage status must be explicit`);
+      const status = hasExplicitStatus
+        ? String(flowRecord.status)
+        : flowRecord.covered === true ? 'covered' : flowRecord.skipped === true ? 'skipped' : 'remaining';
+      assert.ok(['covered', 'skipped', 'remaining'].includes(status), `${flow} coverage status must be explicit`);
+      if (status === 'skipped' || status === 'remaining') {
+        assert.notEqual(flowRecord.reason ?? flowRecord.evidence ?? flowRecord.reference, undefined, `${flow} coverage must carry reason, evidence, or reference`);
+      }
+    }
+  },
+  'MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-7': async () => {
+    const service = await createMcpToolServiceHarness();
+    const report = asRecord(await callMcpToolService(service, 'recordValidationResult', {
+      scenario: 'playwright-core-e2e',
+      status: 'skipped',
+      reason: 'local dev server unavailable',
+    }), 'MCP validation result report');
+    assert.equal(report.status, 'skipped');
+    assert.match(String(report.reason), /unavailable/u);
+    assert.notEqual(report.covered, true);
+  },
+  'MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-1': async () => {
+    const controller = await createMcpListenerControllerHarness();
+    const status = asRecord(await callMcpListenerController(controller, 'start', { enabled: true }), 'MCP listener start status');
+    const remote = asRecord(await callMcpListenerController(controller, 'evaluateRequest', {
+      remoteAddress: '192.168.0.10',
+      headers: {},
+      credential: createMcpActor(),
+    }), 'MCP remote request guard result');
+
+    assert.equal(status.bindHost, '127.0.0.1');
+    assert.equal(remote.ok, false);
+    assert.equal(remote.code, 'MCP_LOOPBACK_ONLY');
+    assert.equal(remote.dispatched, false);
+  },
+  'MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-2': async () => {
+    const contract = await loadMcpTransportToolContract();
+    const validate = getMcpTransportFunction(contract, 'validateMcpListenerConfig');
+    const result = asRecord(await validate({
+      current: { bindHost: '127.0.0.1', port: 3333 },
+      candidate: { bindMode: 'whitelist', bindHost: '0.0.0.0', externalWhitelist: ['203.0.113.7'], transportSecurity: 'none' },
+    }), 'MCP listener config validation result');
+
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'MCP_TRANSPORT_TLS_REQUIRED');
+    assert.equal(asRecord(result.activeListener, 'active listener').bindHost, '127.0.0.1');
+  },
+  'MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-3': async () => {
+    const contract = await loadMcpTransportToolContract();
+    const evaluate = getMcpTransportFunction(contract, 'evaluateMcpTransportRequest');
+    const untrusted = asRecord(await evaluate({
+      config: { bindMode: 'whitelist', trustedProxies: ['10.0.0.5'], externalWhitelist: ['203.0.113.7'], transportSecurity: 'trusted_tls_proxy' },
+      remoteAddress: '10.0.0.6',
+      headers: { 'x-forwarded-for': '203.0.113.7', 'x-forwarded-proto': 'https' },
+    }), 'MCP untrusted proxy result');
+    const insecure = asRecord(await evaluate({
+      config: { bindMode: 'whitelist', trustedProxies: ['10.0.0.5'], externalWhitelist: ['203.0.113.7'], transportSecurity: 'trusted_tls_proxy' },
+      remoteAddress: '10.0.0.5',
+      headers: { 'x-forwarded-for': '203.0.113.7', 'x-forwarded-proto': 'http' },
+    }), 'MCP insecure forwarded proto result');
+
+    assert.equal(untrusted.ok, false);
+    assert.equal(untrusted.code, 'MCP_TRUSTED_PROXY_DENIED');
+    assert.equal(insecure.ok, false);
+    assert.equal(insecure.code, 'MCP_TRANSPORT_DENIED');
+  },
+  'MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-4': async () => {
+    const calls = createMcpToolHarnessCalls();
+    const controller = await createMcpListenerControllerHarness({ calls });
+    const deniedCases = [
+      {
+        label: 'non-loopback remote',
+        expectedCode: 'MCP_LOOPBACK_ONLY',
+        request: {
+          remoteAddress: '192.168.0.10',
+          headers: { authorization: 'Bearer raw-browser-jwt-token' },
+          body: { prompt: 'raw prompt denied before dispatch' },
+        },
+      },
+      {
+        label: 'origin denied',
+        expectedCode: 'MCP_ORIGIN_DENIED',
+        request: {
+          remoteAddress: '127.0.0.1',
+          headers: { origin: 'https://evil.example' },
+          credential: createMcpActor(),
+          body: { prompt: 'origin denied raw prompt' },
+        },
+      },
+      {
+        label: 'browser credential boundary',
+        expectedCode: 'CREDENTIAL_BOUNDARY_VIOLATION',
+        request: {
+          remoteAddress: '127.0.0.1',
+          headers: { authorization: 'Bearer raw-browser-jwt-token' },
+          credential: { type: 'browser-jwt', token: 'raw-browser-jwt-token' },
+          body: { prompt: 'browser jwt raw prompt' },
+        },
+      },
+      {
+        label: 'missing credential',
+        expectedCode: 'INVALID_TOKEN',
+        request: {
+          remoteAddress: '127.0.0.1',
+          headers: {},
+          body: { prompt: 'missing credential raw prompt' },
+        },
+      },
+      {
+        label: 'invalid credential',
+        expectedCode: 'INVALID_TOKEN',
+        request: {
+          remoteAddress: '127.0.0.1',
+          headers: { authorization: 'Bearer raw-invalid-mcp-token' },
+          credential: { type: 'mcp-capability', token: 'raw-invalid-mcp-token' },
+          body: { prompt: 'invalid credential raw prompt' },
+        },
+      },
+    ];
+
+    for (const testCase of deniedCases) {
+      const result = asRecord(await callMcpListenerController(controller, 'evaluateRequest', testCase.request), `MCP denied request result: ${testCase.label}`);
+      assert.equal(result.ok, false);
+      assert.equal(result.code, testCase.expectedCode);
+      assert.equal(typeof result.auditId, 'string');
+      assert.equal(result.dispatched, false);
+      const audit = asRecord(calls.auditEvents.find((event) => event.auditId === result.auditId), `MCP denied audit event: ${testCase.label}`);
+      assert.equal(audit.auditId, result.auditId);
+      const requestRecord = asRecord(testCase.request, `${testCase.label} request`);
+      const auditIp = audit.sourceIp ?? audit.effectiveClientIp ?? audit.remoteAddress;
+      assert.equal(auditIp, requestRecord.remoteAddress);
+      if (requestRecord.credential !== undefined) {
+        assert.ok(audit.actorType !== undefined);
+        const credential = asRecord(requestRecord.credential, `${testCase.label} credential`);
+        if (credential.sessionKey !== undefined) {
+          assert.equal(audit.actorSessionKey, credential.sessionKey);
+        }
+      }
+      assert.ok(audit.reason === testCase.expectedCode || audit.code === testCase.expectedCode);
+      assert.ok(audit.result !== undefined || audit.outcome !== undefined);
+      assertNoSecretMaterial({ result, audit }, [
+        'raw-browser-jwt-token',
+        'raw-invalid-mcp-token',
+        'raw prompt denied before dispatch',
+        'origin denied raw prompt',
+        'browser jwt raw prompt',
+        'missing credential raw prompt',
+        'invalid credential raw prompt',
+      ]);
+    }
+  },
+  'MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-5': async () => {
+    const controller = await createMcpListenerControllerHarness();
+    const result = asRecord(await callMcpListenerController(controller, 'rebind', {
+      current: { bindHost: '127.0.0.1', port: 3333, appServerGeneration: 1 },
+      candidate: { bindHost: '127.0.0.1', port: 3334 },
+      probeResult: { ok: true },
+    }), 'MCP listener rebind success');
+
+    assert.equal(result.ok, true);
+    assert.equal(result.candidateHealthProbed, true);
+    assert.equal(asRecord(result.active, 'MCP active listener after successful rebind').port, 3334);
+    assert.equal(result.oldListenerDrained, true);
+    assert.equal(result.appServerRestarted, false);
+    assert.equal(result.redirectServerRestarted, false);
+  },
+  'MCP_transport_and_tool_red_tests_SEC-MCP-001_AC-6': async () => {
+    const calls = createMcpToolHarnessCalls();
+    const controller = await createMcpListenerControllerHarness({ calls });
+    const result = asRecord(await callMcpListenerController(controller, 'rebind', {
+      current: { bindHost: '127.0.0.1', port: 3333, generation: 4 },
+      candidate: { bindHost: '127.0.0.1', port: 3334 },
+      probeResult: { ok: false, code: 'HEALTH_PROBE_FAILED' },
+    }), 'MCP listener rebind rollback');
+    const status = asRecord(await callMcpListenerController(controller, 'getStatus', {}), 'MCP listener status after failed rebind');
+
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'MCP_PORT_REBIND_FAILED');
+    assert.equal(asRecord(result.active, 'MCP active listener after failed rebind').port, 3333);
+    assert.equal(asRecord(result.persisted, 'MCP persisted listener after failed rebind').port, 3333);
+    assert.ok(result.lastError);
+    assert.ok(result.auditId);
+    const audit = asRecord(calls.auditEvents.find((event) => event.auditId === result.auditId), 'MCP rebind failure audit event');
+    assert.equal(audit.auditId, result.auditId);
+    assert.ok(audit.action === 'mcp.listener.rebind' || audit.reason === 'MCP_PORT_REBIND_FAILED' || audit.code === 'MCP_PORT_REBIND_FAILED');
+    assert.ok(audit.result !== undefined || audit.outcome !== undefined);
+    assert.equal(asRecord(status.lastRebindResult, 'MCP last rebind result').code, 'MCP_PORT_REBIND_FAILED');
+    assert.ok(status.lastError);
+    assert.equal(asRecord(status.active, 'MCP active listener after failed rebind').port, 3333);
+  },
+};
+
+function assertRequiredMcpTools(toolList: Array<Record<string, unknown>>, label: string): void {
+  const names = toolList.map((tool) => String(tool.name));
+  for (const name of names) {
+    assert.match(name, /^[\x20-\x7e]+$/u, `${label} MCP tool name must remain ASCII: ${name}`);
+  }
+  for (const name of requiredMcpToolNames) {
+    assert.ok(names.includes(name), `${label} missing MCP tool: ${name}`);
+    const tool = toolList.find((candidate) => candidate.name === name);
+    assert.equal(asRecord(tool?.inputSchema, `${label} ${name} input schema`).type, 'object');
+  }
+}
+
 async function loadMcpSecurityContract(): Promise<McpSecurityContract> {
   try {
     return await import('./services/McpSecurityContract.js') as McpSecurityContract;
@@ -5635,6 +6232,178 @@ function getRegistryFunction(contract: McpSessionRegistryContract, name: string)
 async function callMcpSessionRegistryContract(name: string, ...args: unknown[]): Promise<unknown> {
   const contract = await loadMcpSessionRegistryContract();
   return await getRegistryFunction(contract, name)(...args);
+}
+
+async function loadMcpTransportToolContract(): Promise<McpTransportToolContract> {
+  try {
+    return await import('./services/McpToolService.js') as McpTransportToolContract;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    assert.fail(`missing MCP transport/tool implementation: expected ./services/McpToolService.js (${message})`);
+  }
+}
+
+function getMcpTransportFunction(contract: McpTransportToolContract, name: string): (...args: unknown[]) => unknown {
+  const value = contract[name];
+  assert.equal(typeof value, 'function', `missing MCP transport/tool implementation: ${name} must be exported`);
+  return value as (...args: unknown[]) => unknown;
+}
+
+function assertMcpTransportContractExports(contract: McpTransportToolContract): void {
+  assert.equal(typeof contract.createMcpToolService, 'function', 'missing MCP transport/tool implementation: createMcpToolService must be exported');
+  assert.equal(typeof contract.createMcpHttpHandler, 'function', 'missing MCP transport/tool implementation: createMcpHttpHandler must be exported');
+  assert.equal(typeof contract.createMcpListenerController, 'function', 'missing MCP transport/tool implementation: createMcpListenerController must be exported');
+  assert.equal(typeof contract.validateMcpListenerConfig, 'function', 'missing MCP transport/tool implementation: validateMcpListenerConfig must be exported');
+  assert.equal(typeof contract.evaluateMcpTransportRequest, 'function', 'missing MCP transport/tool implementation: evaluateMcpTransportRequest must be exported');
+  const toolNames = readStringContractArray(contract.BUILDERGATE_MCP_TOOL_NAMES, 'BUILDERGATE_MCP_TOOL_NAMES');
+  for (const name of requiredMcpToolNames) {
+    assert.ok(toolNames.includes(name), `missing MCP tool name export: ${name}`);
+  }
+}
+
+type McpHarnessCalls = {
+  auditEvents: Array<Record<string, unknown>>;
+  assignments: Array<Record<string, unknown>>;
+  logs: Array<Record<string, unknown>>;
+};
+
+function createMcpToolHarnessCalls(): McpHarnessCalls {
+  return {
+    auditEvents: [],
+    assignments: [],
+    logs: [],
+  };
+}
+
+function createMcpActor(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  const actor: Record<string, unknown> = {
+    type: 'mcp',
+    sessionKey: 'self-session-key',
+    scopes: [
+      'mcp:self.read',
+      'mcp:sessions.list',
+      'mcp:sessions.search',
+      'mcp:sessions.alias.write',
+      'mcp:message.paste',
+      'mcp:message.submit',
+      'mcp:status.write',
+      'mcp:session.claim',
+      'mcp:session.close.self',
+    ],
+    token: 'redacted-session-token',
+  };
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value === undefined) {
+      delete actor[key];
+    } else {
+      actor[key] = value;
+    }
+  }
+  return actor;
+}
+
+async function createMcpToolServiceHarness(options: { calls?: McpHarnessCalls } = {}): Promise<Record<string, unknown>> {
+  const contract = await loadMcpTransportToolContract();
+  assertMcpTransportContractExports(contract);
+  const createService = getMcpTransportFunction(contract, 'createMcpToolService');
+  const calls = options.calls ?? createMcpToolHarnessCalls();
+  return asRecord(createService({
+    now: () => '2026-07-09T02:30:00.000Z',
+    audit: (event: unknown) => calls.auditEvents.push(asRecord(event, 'MCP audit event')),
+    log: (event: unknown) => calls.logs.push(asRecord(event, 'MCP log event')),
+    createAssignment: (assignment: unknown) => {
+      const record = asRecord(assignment, 'MCP assignment');
+      calls.assignments.push(record);
+      return { ok: true, assignmentId: record.assignmentId ?? 'assignment-1', status: 'delivered' };
+    },
+    sessions: [
+      {
+        sessionId: 'current-session-id',
+        sessionKey: 'self-session-key',
+        workspaceId: 'workspace-1',
+        tabId: 'tab-1',
+        alias: '빌더 게이트',
+        agentKind: 'codex',
+        leaderSessionKey: 'leader-session-key',
+        bindingLifecycle: 'live',
+        agentStatus: 'ready',
+        mcpConnected: true,
+        leader: false,
+        lastSeenAt: '2026-07-09T02:30:00.000Z',
+        token: 'must-not-leak-session-token',
+      },
+      {
+        sessionId: 'target-current-session-id',
+        sessionKey: 'target-session',
+        workspaceId: 'workspace-1',
+        tabId: 'tab-2',
+        alias: '클로드',
+        agentKind: 'claude',
+        leaderSessionKey: 'self-session-key',
+        bindingLifecycle: 'live',
+        agentStatus: 'waiting_input',
+        mcpConnected: true,
+        leader: false,
+        lastSeenAt: '2026-07-09T02:30:00.000Z',
+      },
+    ],
+    claimCodes: new Map([['claim-once-code', { sessionKey: 'manual-session-key', used: false }]]),
+    listener: {
+      enabled: true,
+      bindHost: '127.0.0.1',
+      port: 3333,
+      listenerStatus: 'listening',
+      activeConnectionCount: 1,
+      lastRebindResult: null,
+      lastError: null,
+      rejectedRequestCounters: { MCP_LOOPBACK_ONLY: 1 },
+    },
+  }), 'MCP tool service instance');
+}
+
+async function callMcpToolService(service: Record<string, unknown>, method: string, payload: unknown): Promise<unknown> {
+  const fn = service[method];
+  assert.equal(typeof fn, 'function', `missing MCP transport/tool implementation: service.${method} must be a function`);
+  return await (fn as (...args: unknown[]) => unknown)(payload);
+}
+
+async function createMcpHttpHandlerHarness(): Promise<Record<string, unknown> | ((request: unknown) => unknown)> {
+  const contract = await loadMcpTransportToolContract();
+  assertMcpTransportContractExports(contract);
+  const createHandler = getMcpTransportFunction(contract, 'createMcpHttpHandler');
+  const service = await createMcpToolServiceHarness();
+  const handler = createHandler({ service });
+  if (typeof handler === 'function') {
+    return handler as (request: unknown) => unknown;
+  }
+  return asRecord(handler, 'MCP HTTP handler');
+}
+
+async function callMcpHttpHandler(handler: Record<string, unknown> | ((request: unknown) => unknown), request: unknown): Promise<unknown> {
+  if (typeof handler === 'function') {
+    return await handler(request);
+  }
+  const handleRequest = handler.handleRequest;
+  assert.equal(typeof handleRequest, 'function', 'missing MCP transport/tool implementation: MCP HTTP handler.handleRequest must be a function');
+  return await (handleRequest as (...args: unknown[]) => unknown)(request);
+}
+
+async function createMcpListenerControllerHarness(options: { calls?: McpHarnessCalls } = {}): Promise<Record<string, unknown>> {
+  const contract = await loadMcpTransportToolContract();
+  assertMcpTransportContractExports(contract);
+  const createController = getMcpTransportFunction(contract, 'createMcpListenerController');
+  const calls = options.calls ?? createMcpToolHarnessCalls();
+  return asRecord(createController({
+    current: { bindHost: '127.0.0.1', port: 3333, generation: 1 },
+    audit: (event: unknown) => calls.auditEvents.push(asRecord(event, 'MCP listener audit event')),
+    healthProbe: () => ({ ok: true }),
+  }), 'MCP listener controller');
+}
+
+async function callMcpListenerController(controller: Record<string, unknown>, method: string, payload: unknown): Promise<unknown> {
+  const fn = controller[method];
+  assert.equal(typeof fn, 'function', `missing MCP transport/tool implementation: listenerController.${method} must be a function`);
+  return await (fn as (...args: unknown[]) => unknown)(payload);
 }
 
 async function loadSessionInputGatewayContract(): Promise<SessionInputGatewayContract> {
@@ -5799,7 +6568,7 @@ function resolveInputGatewayTarget(request: unknown, scenario: InputGatewayScena
 
   const requestRecord = asRecord(request, 'input gateway target request');
   const target = asRecord(requestRecord.target ?? {}, 'input gateway request target');
-  const binding = {
+  const binding: Record<string, unknown> = {
     sessionKey: 'target-session',
     currentSessionId: 'current-session-id',
     generation: 2,
@@ -5827,7 +6596,7 @@ function resolveInputGatewayTarget(request: unknown, scenario: InputGatewayScena
   if (binding.lifecycle !== 'live') {
     return { ok: false, code: 'TARGET_NOT_LIVE' };
   }
-  if (binding.hidden === true || binding.lifecycle === 'closed' || binding.lifecycle === 'retired') {
+  if (binding.hidden === true) {
     return { ok: false, code: 'TARGET_NOT_LIVE' };
   }
   if (target.expectedGeneration !== undefined && target.expectedGeneration !== binding.generation) {
@@ -9297,6 +10066,30 @@ function testWsRouterQueuesInputWhileReplayPendingAndFlushesAfterAck(): void {
   const flushedEvent = router.getObservabilitySnapshot().recentReplayEvents.find((event) => event.kind === 'input_flushed');
   assert.equal(flushedEvent?.details?.inputSeqStart, 5);
   assert.equal(sent[sent.length - 1].type, 'session:ready');
+
+  router.destroy();
+}
+
+function testWsRouterRejectsInputDuringScreenRepairThroughGateway(): void {
+  const { router, ws, sent, calls } = createWsRouterHarness();
+
+  (router as any).markScreenRepairPending(ws, 'session-1', 1);
+  (router as any).handleInput(ws, {
+    type: 'input',
+    sessionId: 'session-1',
+    data: 'blocked during repair',
+    inputSeqStart: 9,
+    inputSeqEnd: 9,
+    metadata: { captureSeq: 9, rawToken: 'ws-metadata-raw-token' },
+  });
+
+  assert.equal(calls.writeInput.length, 0);
+  const rejected = sent.find((message) => message.type === 'input:rejected');
+  assert.ok(rejected, 'screen-repair input barrier should reject before PTY write');
+  assert.equal(rejected?.sessionId, 'session-1');
+  assert.equal(rejected?.inputSeqStart, 9);
+  assert.equal(rejected?.reason, 'context-changed');
+  assert.doesNotMatch(JSON.stringify(sent), /ws-metadata-raw-token/);
 
   router.destroy();
 }
