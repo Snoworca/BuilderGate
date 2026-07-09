@@ -1,0 +1,90 @@
+{
+  "task_id": "T-PH001-02",
+  "phase_id": "PH-001",
+  "started_at": "2026-07-08T23:54:12.328Z",
+  "completed_at": "2026-07-09T00:26:10.768Z",
+  "phase1": {
+    "reused_red_tests_from_task": "T-PH001-01",
+    "test_case_count": 25
+  },
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "server/src/services/McpSecurityContract.ts"
+        ],
+        "loc_added": 0,
+        "loc_removed": 0
+      },
+      {
+        "iter": 2,
+        "files_changed": [
+          "server/src/services/McpSecurityContract.ts",
+          "server/src/test-runner.ts"
+        ],
+        "note": "Main session security hardening after prickly review: credential fail-closed, Origin fail-closed, trusted proxy fail-closed, webhook binding fail-closed, token replay denial."
+      }
+    ],
+    "formal_reviews": [
+      {
+        "iter": 1,
+        "findings": [],
+        "note": "tsc build and contract test shape passed"
+      }
+    ],
+    "prickly_reviews": [
+      {
+        "iter": 1,
+        "findings": [],
+        "note": "security boundary review: no secret echo in denial/audit responses, browser JWT boundary rejected, webhook non-create responses masked"
+      },
+      {
+        "iter": 2,
+        "findings": [
+          "CRITICAL evaluateMcpRequestGuard accepted missing/garbage credential",
+          "HIGH empty allowedOrigins allowed malicious Origin",
+          "MEDIUM webhook header token syntax not validated",
+          "MEDIUM rebind accepted unsafe candidate",
+          "CRITICAL webhook accepted attacker-provided keyHash or missing binding context",
+          "MEDIUM malformed 127.* host accepted as loopback",
+          "MEDIUM trusted_tls_proxy no-forwarded-header bypass",
+          "MEDIUM token replay not rejected"
+        ],
+        "resolution": "All blocking findings fixed and re-reviewed until No findings."
+      },
+      {
+        "iter": 3,
+        "findings": [],
+        "note": "Final PH-001 review: No findings."
+      }
+    ],
+    "green_evidence": {
+      "command": "cd server; npx tsx src/test-runner.ts",
+      "exit_code": 0,
+      "timestamp": "2026-07-09T00:26:10.768Z",
+      "passed": 366,
+      "focused_mcp_tests": 25
+    },
+    "dod_check": [
+      {
+        "item": "MCP security boundary is separate from browser JWT auth and rejects unsafe whitelist modes.",
+        "satisfied": true
+      }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "scope": "full",
+      "passed": 366,
+      "failed": 0,
+      "timestamp": "2026-07-09T00:26:10.768Z"
+    },
+    "build": {
+      "command": "cd server; npm run build",
+      "exit_code": 0,
+      "timestamp": "2026-07-09T00:26:10.768Z"
+    },
+    "mcp_calls": []
+  }
+}

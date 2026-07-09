@@ -211,6 +211,31 @@ async function main(): Promise<void> {
     { name: 'internal shutdown route rejects missing token and forwarded-loopback spoofing', run: testInternalShutdownRouteAuthAndLoopbackGuard },
     { name: 'internal shutdown route flushes and returns structured shutdown result', run: testInternalShutdownRouteSuccess },
     { name: 'internal shutdown route returns 500 when graceful shutdown fails', run: testInternalShutdownRouteFailure },
+    { name: 'MCP security contract SEC-MCP-001 AC-1: defaults bind loopback and reject non-loopback dispatch', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-001_AC-1'] },
+    { name: 'MCP security contract SEC-MCP-001 AC-2: whitelist requires TLS or trusted TLS proxy', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-001_AC-2'] },
+    { name: 'MCP security contract SEC-MCP-001 AC-3: forwarded IP is trusted only from HTTPS trusted proxies', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-001_AC-3'] },
+    { name: 'MCP security contract SEC-MCP-001 AC-4: denials expose stable code and audit id without secrets', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-001_AC-4'] },
+    { name: 'MCP security contract SEC-MCP-001 AC-5: listener rebind swaps MCP listener without app restart', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-001_AC-5'] },
+    { name: 'MCP security contract SEC-MCP-001 AC-6: failed rebind rolls back listener and persisted config', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-001_AC-6'] },
+    { name: 'MCP security contract SEC-MCP-002 AC-1: scoped session token claims and rejection cases', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-002_AC-1'] },
+    { name: 'MCP security contract SEC-MCP-002 AC-2: default session actor scopes are least privilege', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-002_AC-2'] },
+    { name: 'MCP security contract SEC-MCP-002 AC-3: close-self and close-other grants stay distinct', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-002_AC-3'] },
+    { name: 'MCP security contract SEC-MCP-002 AC-4: browser JWT is rejected as MCP or webhook credential', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-002_AC-4'] },
+    { name: 'MCP security contract SEC-MCP-002 AC-5: Origin policy composes with transport and credential checks', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-002_AC-5'] },
+    { name: 'MCP security contract SEC-MCP-002 AC-6: empty whitelist mode is rejected', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-002_AC-6'] },
+    { name: 'MCP security contract SEC-MCP-002 AC-7: webhook secrets use entropy, hashes, and one-time exposure', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-002_AC-7'] },
+    { name: 'MCP security contract SEC-MCP-002 AC-8: webhook bindings constrain target, profile, mode, and scope', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-002_AC-8'] },
+    { name: 'MCP security contract SEC-MCP-002 AC-9: policy denials use stable MCP codes', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-002_AC-9'] },
+    { name: 'MCP security contract IR-MCP-005 AC-1: whitelist empty and nonmatch codes take precedence', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-1'] },
+    { name: 'MCP security contract IR-MCP-005 AC-2: promptPreview is redacted, normalized, and bounded', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-2'] },
+    { name: 'MCP security contract IR-MCP-005 AC-3: recent audit status is bounded and redacted', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-3'] },
+    { name: 'MCP security contract IR-MCP-005 AC-4: forbidden webhook header names are rejected', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-4'] },
+    { name: 'MCP security contract IR-MCP-005 AC-5: webhook full secret exposure is create-or-rotate only', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-5'] },
+    { name: 'MCP security contract IR-MCP-005 AC-6: agentStatus wire enum rejects arbitrary values', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-6'] },
+    { name: 'MCP security contract IR-MCP-005 AC-7: bindingLifecycle wire enum rejects legacy active value', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-7'] },
+    { name: 'MCP security contract IR-MCP-005 AC-8: replay pending denial code is not substituted', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-8'] },
+    { name: 'MCP security contract IR-MCP-005 AC-9: close confirmation shape is mandatory', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-9'] },
+    { name: 'MCP security contract IR-MCP-005 AC-10: non-create webhook surfaces remain masked', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-10'] },
     { name: 'performGracefulShutdown flushes workspace JSON lastUpdated and tab lastCwd', run: testPerformGracefulShutdownFlushesWorkspaceCwds },
     { name: 'performGracefulShutdown terminates sessions after first workspace flush and final flushes', run: testPerformGracefulShutdownTerminatesSessionsAfterWorkspaceFlush },
     { name: 'performGracefulShutdown degrades timed out session cleanup and still final flushes', run: testPerformGracefulShutdownSessionCleanupTimeoutDegradesAndFinalFlushes },
@@ -5099,6 +5124,722 @@ async function testInternalShutdownRouteFailure(): Promise<void> {
   assert.equal(result.body.ok, false);
   assert.equal((result.body.error as { code?: string })?.code, 'SHUTDOWN_FAILED');
   assert.match(String((result.body.error as { message?: string })?.message ?? ''), /flush failed/);
+}
+
+type McpSecurityContract = Record<string, unknown>;
+
+const expectedDefaultMcpScopes = [
+  'mcp:self.read',
+  'mcp:sessions.list',
+  'mcp:message.paste',
+  'mcp:status.write',
+];
+
+const requiredMcpDenialCodes = [
+  'UNBOUND_ACTOR',
+  'INVALID_SCOPE',
+  'TARGET_NOT_FOUND',
+  'AMBIGUOUS_TARGET',
+  'STALE_SESSION_ID',
+  'TARGET_NOT_LIVE',
+  'INPUT_REJECTED_REPLAY_PENDING',
+  'INPUT_REJECTED_ENTER_POLICY',
+  'SELF_CLOSE_DENIED_NO_LEADER',
+  'MCP_PORT_REBIND_FAILED',
+  'WEBHOOK_KEY_INVALID',
+  'MCP_WHITELIST_EMPTY',
+  'MCP_WHITELIST_DENIED',
+];
+
+const mcpSecurityContractRedTests: Record<string, () => Promise<void>> = {
+  'Security_contract_red_tests_SEC-MCP-001_AC-1': testMcpSecuritySecMcp001Ac1,
+  'Security_contract_red_tests_SEC-MCP-001_AC-2': testMcpSecuritySecMcp001Ac2,
+  'Security_contract_red_tests_SEC-MCP-001_AC-3': testMcpSecuritySecMcp001Ac3,
+  'Security_contract_red_tests_SEC-MCP-001_AC-4': testMcpSecuritySecMcp001Ac4,
+  'Security_contract_red_tests_SEC-MCP-001_AC-5': testMcpSecuritySecMcp001Ac5,
+  'Security_contract_red_tests_SEC-MCP-001_AC-6': testMcpSecuritySecMcp001Ac6,
+  'Security_contract_red_tests_SEC-MCP-002_AC-1': testMcpSecuritySecMcp002Ac1,
+  'Security_contract_red_tests_SEC-MCP-002_AC-2': testMcpSecuritySecMcp002Ac2,
+  'Security_contract_red_tests_SEC-MCP-002_AC-3': testMcpSecuritySecMcp002Ac3,
+  'Security_contract_red_tests_SEC-MCP-002_AC-4': testMcpSecuritySecMcp002Ac4,
+  'Security_contract_red_tests_SEC-MCP-002_AC-5': testMcpSecuritySecMcp002Ac5,
+  'Security_contract_red_tests_SEC-MCP-002_AC-6': testMcpSecuritySecMcp002Ac6,
+  'Security_contract_red_tests_SEC-MCP-002_AC-7': testMcpSecuritySecMcp002Ac7,
+  'Security_contract_red_tests_SEC-MCP-002_AC-8': testMcpSecuritySecMcp002Ac8,
+  'Security_contract_red_tests_SEC-MCP-002_AC-9': testMcpSecuritySecMcp002Ac9,
+  'Security_contract_red_tests_IR-MCP-005_AC-1': testMcpSecurityIrMcp005Ac1,
+  'Security_contract_red_tests_IR-MCP-005_AC-2': testMcpSecurityIrMcp005Ac2,
+  'Security_contract_red_tests_IR-MCP-005_AC-3': testMcpSecurityIrMcp005Ac3,
+  'Security_contract_red_tests_IR-MCP-005_AC-4': testMcpSecurityIrMcp005Ac4,
+  'Security_contract_red_tests_IR-MCP-005_AC-5': testMcpSecurityIrMcp005Ac5,
+  'Security_contract_red_tests_IR-MCP-005_AC-6': testMcpSecurityIrMcp005Ac6,
+  'Security_contract_red_tests_IR-MCP-005_AC-7': testMcpSecurityIrMcp005Ac7,
+  'Security_contract_red_tests_IR-MCP-005_AC-8': testMcpSecurityIrMcp005Ac8,
+  'Security_contract_red_tests_IR-MCP-005_AC-9': testMcpSecurityIrMcp005Ac9,
+  'Security_contract_red_tests_IR-MCP-005_AC-10': testMcpSecurityIrMcp005Ac10,
+};
+
+async function loadMcpSecurityContract(): Promise<McpSecurityContract> {
+  try {
+    return await import('./services/McpSecurityContract.js') as McpSecurityContract;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    assert.fail(`missing MCP implementation: expected ./services/McpSecurityContract.js for MCP security foundation (${message})`);
+  }
+}
+
+function getContractFunction(contract: McpSecurityContract, name: string): (...args: unknown[]) => unknown {
+  const value = contract[name];
+  assert.equal(typeof value, 'function', `missing MCP implementation: ${name} must be exported`);
+  return value as (...args: unknown[]) => unknown;
+}
+
+async function callMcpSecurityContract(name: string, ...args: unknown[]): Promise<unknown> {
+  const contract = await loadMcpSecurityContract();
+  return await getContractFunction(contract, name)(...args);
+}
+
+async function createValidMcpCredential(
+  sessionKey = 'sess_A',
+  scopes: readonly string[] = expectedDefaultMcpScopes,
+): Promise<{ type: 'mcp-capability'; token: string }> {
+  const tokenResult = asRecord(await callMcpSecurityContract('mintMcpCapabilityToken', {
+    audience: 'buildergate-mcp',
+    scopes: [...scopes],
+    sessionKey,
+    expiresInSeconds: 60,
+  }), 'MCP token mint result');
+  assert.equal(typeof tokenResult.token, 'string');
+  return {
+    type: 'mcp-capability',
+    token: String(tokenResult.token),
+  };
+}
+
+function asRecord(value: unknown, label: string): Record<string, unknown> {
+  assert.ok(value !== null && typeof value === 'object' && !Array.isArray(value), `${label} must be an object`);
+  return value as Record<string, unknown>;
+}
+
+function assertMcpDenied(value: unknown, expectedCode: string): Record<string, unknown> {
+  const result = asRecord(value, 'MCP denial result');
+  assert.equal(result.allowed, false);
+  assert.equal(result.code, expectedCode);
+  return result;
+}
+
+function assertMcpAccepted(value: unknown): Record<string, unknown> {
+  const result = asRecord(value, 'MCP acceptance result');
+  assert.equal(result.allowed, true);
+  assert.equal(result.code ?? null, null);
+  return result;
+}
+
+function assertNoSecretMaterial(value: unknown, secrets: string[]): void {
+  const serialized = JSON.stringify(value);
+  for (const secret of secrets) {
+    assert.equal(serialized.includes(secret), false, `secret material leaked: ${secret}`);
+  }
+}
+
+function readDenialCodes(contract: McpSecurityContract): string[] {
+  const raw = contract.MCP_DENIAL_CODES;
+  if (Array.isArray(raw)) {
+    return raw.map(String);
+  }
+  if (raw !== null && typeof raw === 'object') {
+    return Object.values(raw as Record<string, unknown>).map(String);
+  }
+  assert.fail('missing MCP implementation: MCP_DENIAL_CODES must be exported');
+}
+
+async function testMcpSecuritySecMcp001Ac1(): Promise<void> {
+  const config = asRecord(await callMcpSecurityContract('createDefaultMcpSecurityConfig'), 'default MCP security config');
+  assert.equal(config.bindHost, '127.0.0.1');
+  assert.equal(config.bindMode, 'loopback');
+
+  const denied = await callMcpSecurityContract('evaluateMcpRequestGuard', {
+    config,
+    remoteAddress: '203.0.113.10',
+    headers: {},
+    credential: await createValidMcpCredential(),
+    dispatchKind: 'mcp',
+  });
+  assertMcpDenied(denied, 'MCP_LOOPBACK_ONLY');
+}
+
+async function testMcpSecuritySecMcp001Ac2(): Promise<void> {
+  const activeConfig = { enabled: true, bindMode: 'loopback', bindHost: '127.0.0.1' };
+  const result = asRecord(await callMcpSecurityContract('validateMcpSecurityConfig', {
+    enabled: true,
+    bindMode: 'whitelist',
+    externalWhitelist: ['203.0.113.0/24'],
+    transportSecurity: 'none',
+  }, { activeConfig }), 'MCP config validation result');
+
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'MCP_TRANSPORT_TLS_REQUIRED');
+  assert.deepEqual(result.activeConfig, activeConfig);
+}
+
+async function testMcpSecuritySecMcp001Ac3(): Promise<void> {
+  const untrustedProxy = await callMcpSecurityContract('evaluateMcpRequestGuard', {
+    config: {
+      bindMode: 'whitelist',
+      externalWhitelist: ['198.51.100.10/32'],
+      transportSecurity: 'trusted_tls_proxy',
+      trustedProxies: ['127.0.0.1/32'],
+    },
+    remoteAddress: '192.0.2.44',
+    headers: {
+      'x-forwarded-for': '198.51.100.10',
+      'x-forwarded-proto': 'https',
+    },
+    credential: await createValidMcpCredential(),
+    dispatchKind: 'mcp',
+  });
+  const insecureProto = await callMcpSecurityContract('evaluateMcpRequestGuard', {
+    config: {
+      bindMode: 'whitelist',
+      externalWhitelist: ['198.51.100.10/32'],
+      transportSecurity: 'trusted_tls_proxy',
+      trustedProxies: ['127.0.0.1/32'],
+    },
+    remoteAddress: '127.0.0.1',
+    headers: {
+      'x-forwarded-for': '198.51.100.10',
+      'x-forwarded-proto': 'http',
+    },
+    credential: await createValidMcpCredential(),
+    dispatchKind: 'mcp',
+  });
+  const missingForwardedHeaders = await callMcpSecurityContract('evaluateMcpRequestGuard', {
+    config: {
+      bindMode: 'whitelist',
+      externalWhitelist: ['198.51.100.10/32'],
+      transportSecurity: 'trusted_tls_proxy',
+      trustedProxies: ['127.0.0.1/32'],
+    },
+    remoteAddress: '198.51.100.10',
+    headers: {},
+    credential: await createValidMcpCredential(),
+    dispatchKind: 'mcp',
+  });
+
+  assertMcpDenied(untrustedProxy, 'MCP_TRUSTED_PROXY_DENIED');
+  assertMcpDenied(insecureProto, 'MCP_TRANSPORT_DENIED');
+  assertMcpDenied(missingForwardedHeaders, 'MCP_TRUSTED_PROXY_DENIED');
+}
+
+async function testMcpSecuritySecMcp001Ac4(): Promise<void> {
+  const secretToken = 'mcp-secret-token-123';
+  const result = assertMcpDenied(await callMcpSecurityContract('evaluateMcpRequestGuard', {
+    config: {
+      bindMode: 'loopback',
+      bindHost: '127.0.0.1',
+      allowedOrigins: ['https://localhost:2222'],
+    },
+    remoteAddress: '127.0.0.1',
+    headers: { origin: 'https://evil.example' },
+    credential: await createValidMcpCredential(),
+    dispatchKind: 'mcp',
+  }), 'MCP_ORIGIN_DENIED');
+
+  assert.equal(typeof result.auditId, 'string');
+  assert.match(String(result.auditId), /\S/u);
+  assertNoSecretMaterial(result, [secretToken, 'raw prompt material']);
+}
+
+async function testMcpSecuritySecMcp001Ac5(): Promise<void> {
+  const result = asRecord(await callMcpSecurityContract('rebindMcpListener', {
+    current: { host: '127.0.0.1', port: 3333, generation: 1 },
+    candidate: { host: '127.0.0.1', port: 3334, generation: 2 },
+    probeResult: { ok: true },
+  }), 'MCP listener rebind result');
+
+  assert.equal(result.ok, true);
+  assert.equal(result.candidateHealthProbed, true);
+  assert.equal(result.oldListenerDrained, true);
+  assert.equal(result.appHttpsServerRestarted, false);
+  assert.equal(result.redirectServerRestarted, false);
+}
+
+async function testMcpSecuritySecMcp001Ac6(): Promise<void> {
+  const activeConfig = { host: '127.0.0.1', port: 3333, generation: 7 };
+  const result = asRecord(await callMcpSecurityContract('rebindMcpListener', {
+    current: activeConfig,
+    candidate: { host: '0.0.0.0', port: 3334, generation: 8 },
+    probeResult: { ok: false, code: 'health-probe-failed' },
+  }), 'MCP failed rebind result');
+
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'MCP_PORT_REBIND_FAILED');
+  assert.deepEqual(result.activeConfig, activeConfig);
+  assert.equal(result.persistedConfigUpdated, false);
+  assert.equal(typeof result.auditId, 'string');
+
+  const unsafeCandidate = asRecord(await callMcpSecurityContract('rebindMcpListener', {
+    current: activeConfig,
+    candidate: { host: '0.0.0.0', port: 3334, generation: 8, bindMode: 'loopback' },
+    probeResult: { ok: true },
+  }), 'MCP unsafe rebind result');
+
+  assert.equal(unsafeCandidate.ok, false);
+  assert.equal(unsafeCandidate.code, 'MCP_PORT_REBIND_FAILED');
+  assert.deepEqual(unsafeCandidate.activeConfig, activeConfig);
+  assert.equal(unsafeCandidate.persistedConfigUpdated, false);
+
+  const malformedLoopbackCandidate = asRecord(await callMcpSecurityContract('rebindMcpListener', {
+    current: activeConfig,
+    candidate: { host: '127.evil', port: 3334, generation: 9, bindMode: 'loopback' },
+    probeResult: { ok: true },
+  }), 'MCP malformed loopback rebind result');
+
+  assert.equal(malformedLoopbackCandidate.ok, false);
+  assert.equal(malformedLoopbackCandidate.code, 'MCP_PORT_REBIND_FAILED');
+  assert.deepEqual(malformedLoopbackCandidate.activeConfig, activeConfig);
+  assert.equal(malformedLoopbackCandidate.persistedConfigUpdated, false);
+}
+
+async function testMcpSecuritySecMcp002Ac1(): Promise<void> {
+  const tokenResult = asRecord(await callMcpSecurityContract('mintMcpCapabilityToken', {
+    audience: 'buildergate-mcp',
+    scopes: expectedDefaultMcpScopes,
+    sessionKey: 'sess_A',
+    expiresInSeconds: 60,
+  }), 'MCP token mint result');
+  assert.equal(typeof tokenResult.token, 'string');
+  assert.equal(tokenResult.persistedRawToken, undefined);
+  const claims = asRecord(tokenResult.claims, 'MCP token claims');
+
+  assert.equal(claims.aud, 'buildergate-mcp');
+  assert.equal(claims.sessionKey, 'sess_A');
+  assert.equal(typeof claims.jti, 'string');
+  assert.ok(Array.isArray(claims.scope));
+
+  assertMcpDenied(await callMcpSecurityContract('verifyMcpCapabilityToken', tokenResult.token, {
+    expectedAudience: 'buildergate-browser',
+    sessionKey: 'sess_A',
+  }), 'INVALID_TOKEN_AUDIENCE');
+  assertMcpDenied(await callMcpSecurityContract('verifyMcpCapabilityToken', tokenResult.token, {
+    expectedAudience: 'buildergate-mcp',
+    sessionKey: 'sess_B',
+  }), 'STALE_SESSION_ID');
+
+  assertMcpAccepted(await callMcpSecurityContract('verifyMcpCapabilityToken', tokenResult.token, {
+    expectedAudience: 'buildergate-mcp',
+    sessionKey: 'sess_A',
+  }));
+  assertMcpDenied(await callMcpSecurityContract('verifyMcpCapabilityToken', tokenResult.token, {
+    expectedAudience: 'buildergate-mcp',
+    sessionKey: 'sess_A',
+  }), 'TOKEN_REPLAYED');
+}
+
+async function testMcpSecuritySecMcp002Ac2(): Promise<void> {
+  const scopes = await callMcpSecurityContract('getDefaultMcpSessionScopes');
+  assert.deepEqual([...scopes as string[]].sort(), [...expectedDefaultMcpScopes].sort());
+  assert.equal((scopes as string[]).includes('mcp:message.submit'), false);
+  assert.equal((scopes as string[]).includes('mcp:session.open'), false);
+  assert.equal((scopes as string[]).includes('mcp:sessions.alias.write'), false);
+  assert.equal((scopes as string[]).includes('mcp:session.close'), false);
+  assert.equal((scopes as string[]).includes('mcp:session.close_self'), false);
+}
+
+async function testMcpSecuritySecMcp002Ac3(): Promise<void> {
+  assertMcpDenied(await callMcpSecurityContract('authorizeMcpScope', {
+    scopes: ['mcp:session.close_self'],
+    sessionKey: 'follower',
+    leaderSessionKey: null,
+  }, 'mcp:session.close_self', { targetSessionKey: 'follower' }), 'SELF_CLOSE_DENIED_NO_LEADER');
+
+  assertMcpDenied(await callMcpSecurityContract('authorizeMcpScope', {
+    scopes: ['mcp:session.close_self'],
+    sessionKey: 'follower',
+    leaderSessionKey: 'leader',
+  }, 'mcp:session.close', { targetSessionKey: 'other' }), 'INVALID_SCOPE');
+
+  assertMcpAccepted(await callMcpSecurityContract('authorizeMcpScope', {
+    scopes: ['mcp:session.close_self'],
+    sessionKey: 'follower',
+    leaderSessionKey: 'leader',
+  }, 'mcp:session.close_self', { targetSessionKey: 'follower' }));
+}
+
+async function testMcpSecuritySecMcp002Ac4(): Promise<void> {
+  const browserJwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.browser-admin-token.signature';
+  const result = assertMcpDenied(await callMcpSecurityContract('evaluateMcpRequestGuard', {
+    config: { bindMode: 'loopback', bindHost: '127.0.0.1' },
+    remoteAddress: '127.0.0.1',
+    headers: { authorization: `Bearer ${browserJwt}` },
+    credential: { type: 'browser-jwt', token: browserJwt },
+    dispatchKind: 'mcp',
+  }), 'CREDENTIAL_BOUNDARY_VIOLATION');
+
+  assertNoSecretMaterial(result, [browserJwt]);
+}
+
+async function testMcpSecuritySecMcp002Ac5(): Promise<void> {
+  const validCredential = await createValidMcpCredential();
+
+  assertMcpDenied(await callMcpSecurityContract('evaluateMcpRequestGuard', {
+    config: {
+      bindMode: 'loopback',
+      bindHost: '127.0.0.1',
+      allowedOrigins: ['https://localhost:2222'],
+    },
+    remoteAddress: '127.0.0.1',
+    headers: { origin: 'https://evil.example' },
+    credential: validCredential,
+    dispatchKind: 'mcp',
+  }), 'MCP_ORIGIN_DENIED');
+
+  assertMcpDenied(await callMcpSecurityContract('evaluateMcpRequestGuard', {
+    config: {
+      bindMode: 'loopback',
+      bindHost: '127.0.0.1',
+      allowedOrigins: [],
+    },
+    remoteAddress: '127.0.0.1',
+    headers: { origin: 'https://evil.example' },
+    credential: validCredential,
+    dispatchKind: 'mcp',
+  }), 'MCP_ORIGIN_DENIED');
+
+  assertMcpDenied(await callMcpSecurityContract('evaluateMcpRequestGuard', {
+    config: {
+      bindMode: 'loopback',
+      bindHost: '127.0.0.1',
+      allowedOrigins: ['https://localhost:2222'],
+    },
+    remoteAddress: '127.0.0.1',
+    headers: {},
+    dispatchKind: 'mcp',
+  }), 'UNBOUND_ACTOR');
+
+  assertMcpDenied(await callMcpSecurityContract('evaluateMcpRequestGuard', {
+    config: {
+      bindMode: 'loopback',
+      bindHost: '127.0.0.1',
+      allowedOrigins: ['https://localhost:2222'],
+    },
+    remoteAddress: '127.0.0.1',
+    headers: {},
+    credential: { type: 'mcp-capability', token: 'not-a-valid-token' },
+    dispatchKind: 'mcp',
+  }), 'INVALID_TOKEN');
+
+  assertMcpAccepted(await callMcpSecurityContract('evaluateMcpRequestGuard', {
+    config: {
+      bindMode: 'loopback',
+      bindHost: '127.0.0.1',
+      allowedOrigins: ['https://localhost:2222'],
+    },
+    remoteAddress: '127.0.0.1',
+    headers: {},
+    credential: validCredential,
+    dispatchKind: 'mcp',
+  }));
+}
+
+async function testMcpSecuritySecMcp002Ac6(): Promise<void> {
+  const result = asRecord(await callMcpSecurityContract('validateMcpSecurityConfig', {
+    enabled: true,
+    bindMode: 'whitelist',
+    externalWhitelist: [],
+    transportSecurity: 'direct_tls',
+  }), 'MCP empty whitelist validation result');
+
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'MCP_WHITELIST_EMPTY');
+}
+
+async function testMcpSecuritySecMcp002Ac7(): Promise<void> {
+  const created = asRecord(await callMcpSecurityContract('createWebhookCredential', {
+    targetSessionKey: 'sess_A',
+    profileId: 'default',
+    mode: 'send-only',
+    scopes: ['mcp:webhook.invoke'],
+  }), 'webhook credential creation result');
+  const record = asRecord(created.record, 'persisted webhook credential record');
+
+  assert.equal(typeof created.fullKey, 'string');
+  assert.ok(Buffer.byteLength(String(created.fullKey), 'utf-8') >= 32);
+  assert.equal(typeof record.keyHash, 'string');
+  assert.equal('fullKey' in record, false);
+  assert.equal('fullUrl' in record, false);
+
+  const rotated = asRecord(await callMcpSecurityContract('rotateWebhookCredential', record), 'webhook credential rotation result');
+  assert.equal(typeof rotated.fullKey, 'string');
+  assert.notEqual(rotated.fullKey, created.fullKey);
+}
+
+async function testMcpSecuritySecMcp002Ac8(): Promise<void> {
+  const created = asRecord(await callMcpSecurityContract('createWebhookCredential', {
+    targetSessionKey: 'sess_A',
+    profileId: 'profile_A',
+    mode: 'send-only',
+    scopes: ['mcp:webhook.invoke'],
+  }), 'webhook credential creation result');
+  const record = asRecord(created.record, 'persisted webhook credential record');
+  const requestedWebhook = {
+    targetSessionKey: 'sess_A',
+    profileId: 'profile_A',
+    mode: 'send-only',
+  };
+  const credential = {
+    keyHash: 'hash',
+    targetSessionKey: 'sess_A',
+    profileId: 'profile_A',
+    mode: 'send-only',
+    scopes: ['mcp:webhook.invoke'],
+  };
+
+  assertMcpDenied(await callMcpSecurityContract('authorizeWebhookInvocation', credential, {
+    targetSessionKey: 'sess_B',
+    profileId: 'profile_A',
+    mode: 'send-only',
+  }), 'WEBHOOK_BINDING_DENIED');
+  assertMcpDenied(await callMcpSecurityContract('authorizeWebhookInvocation', credential, {
+    targetSessionKey: 'sess_A',
+    profileId: 'profile_B',
+    mode: 'open-or-send',
+  }), 'WEBHOOK_BINDING_DENIED');
+
+  assertMcpDenied(await callMcpSecurityContract('evaluateMcpRequestGuard', {
+    config: { bindMode: 'loopback', bindHost: '127.0.0.1' },
+    remoteAddress: '127.0.0.1',
+    headers: {},
+    credential: { type: 'webhook-key', fullKey: String(created.fullKey), keyHash: String(record.keyHash) },
+    dispatchKind: 'webhook',
+    requestedWebhook,
+  }), 'WEBHOOK_KEY_INVALID');
+
+  assertMcpDenied(await callMcpSecurityContract('evaluateMcpRequestGuard', {
+    config: { bindMode: 'loopback', bindHost: '127.0.0.1' },
+    remoteAddress: '127.0.0.1',
+    headers: {},
+    credential: { type: 'webhook-key', fullKey: String(created.fullKey), record },
+    dispatchKind: 'webhook',
+  }), 'WEBHOOK_BINDING_DENIED');
+
+  assertMcpDenied(await callMcpSecurityContract('evaluateMcpRequestGuard', {
+    config: { bindMode: 'loopback', bindHost: '127.0.0.1' },
+    remoteAddress: '127.0.0.1',
+    headers: {},
+    credential: {
+      type: 'webhook-key',
+      fullKey: String(created.fullKey),
+      record: { ...record, scopes: [] },
+    },
+    dispatchKind: 'webhook',
+    requestedWebhook,
+  }), 'WEBHOOK_BINDING_DENIED');
+
+  assertMcpAccepted(await callMcpSecurityContract('evaluateMcpRequestGuard', {
+    config: { bindMode: 'loopback', bindHost: '127.0.0.1' },
+    remoteAddress: '127.0.0.1',
+    headers: {},
+    credential: { type: 'webhook-key', fullKey: String(created.fullKey), record },
+    dispatchKind: 'webhook',
+    requestedWebhook,
+  }));
+}
+
+async function testMcpSecuritySecMcp002Ac9(): Promise<void> {
+  const contract = await loadMcpSecurityContract();
+  const codes = readDenialCodes(contract);
+  for (const code of requiredMcpDenialCodes.slice(0, 11)) {
+    assert.ok(codes.includes(code), `missing stable MCP denial code ${code}`);
+  }
+}
+
+async function testMcpSecurityIrMcp005Ac1(): Promise<void> {
+  const emptyWhitelist = asRecord(await callMcpSecurityContract('validateMcpSecurityConfig', {
+    enabled: true,
+    bindMode: 'whitelist',
+    externalWhitelist: [],
+    transportSecurity: 'direct_tls',
+  }), 'MCP empty whitelist validation result');
+  const credential = await createValidMcpCredential();
+  const nonMatchingRequest = await callMcpSecurityContract('evaluateMcpRequestGuard', {
+    config: {
+      bindMode: 'whitelist',
+      externalWhitelist: ['198.51.100.10/32'],
+      transportSecurity: 'direct_tls',
+    },
+    remoteAddress: '203.0.113.8',
+    headers: {},
+    credential,
+    dispatchKind: 'mcp',
+  });
+
+  assert.equal(emptyWhitelist.ok, false);
+  assert.equal(emptyWhitelist.code, 'MCP_WHITELIST_EMPTY');
+  assertMcpDenied(nonMatchingRequest, 'MCP_WHITELIST_DENIED');
+}
+
+async function testMcpSecurityIrMcp005Ac2(): Promise<void> {
+  const preview = await callMcpSecurityContract('normalizeMcpPromptPreview', {
+    prompt: '  Bearer abc.def.ghi\r\nsend secret webhook_key=super-secret\nnext line  ',
+    maxChars: 40,
+  });
+
+  assert.equal(typeof preview, 'string');
+  assert.equal(String(preview).includes('\n'), false);
+  assert.equal(String(preview).includes('\r'), false);
+  assert.equal(String(preview).trim(), preview);
+  assert.ok(String(preview).length <= 40);
+  assertNoSecretMaterial(preview, ['abc.def.ghi', 'super-secret']);
+}
+
+async function testMcpSecurityIrMcp005Ac3(): Promise<void> {
+  const status = asRecord(await callMcpSecurityContract('createMcpOperationalStatus', {
+    auditRecentEventsLimit: 1,
+    events: [
+      {
+        auditId: 'audit-1',
+        timestamp: '2026-07-09T00:00:00.000Z',
+        category: 'denial',
+        code: 'WEBHOOK_KEY_INVALID',
+        target: 'sess_A',
+        token: 'raw-token',
+        fullUrl: 'https://example.invalid/hook?key=raw-key',
+        prompt: 'raw prompt',
+      },
+      {
+        auditId: 'audit-2',
+        timestamp: '2026-07-09T00:00:01.000Z',
+        category: 'denial',
+        code: 'MCP_WHITELIST_DENIED',
+        target: 'sess_B',
+      },
+    ],
+  }), 'MCP operational status');
+  const recentAuditEvents = status.recentAuditEvents as unknown[];
+
+  assert.equal(Array.isArray(recentAuditEvents), true);
+  assert.equal(recentAuditEvents.length, 1);
+  assertNoSecretMaterial(recentAuditEvents, ['raw-token', 'raw-key', 'raw prompt']);
+  assert.equal(typeof asRecord(recentAuditEvents[0], 'recent audit event').auditId, 'string');
+}
+
+async function testMcpSecurityIrMcp005Ac4(): Promise<void> {
+  const forbidden = [
+    'Authorization',
+    'Cookie',
+    'Set-Cookie',
+    'Forwarded',
+    'X-Forwarded-For',
+    'X-Forwarded-Anything',
+    'Host',
+    'Content-Length',
+    'X-Test: injected',
+    'X-Test\r\nInjected',
+    'X Test',
+    '',
+  ];
+
+  for (const headerName of forbidden) {
+    const result = asRecord(await callMcpSecurityContract('validateMcpWebhookKeyHeaderName', headerName), `webhook header validation ${headerName}`);
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'WEBHOOK_HEADER_FORBIDDEN');
+  }
+
+  const accepted = asRecord(await callMcpSecurityContract('validateMcpWebhookKeyHeaderName', 'X-BuilderGate-Webhook-Key'), 'accepted webhook header validation');
+  assert.equal(accepted.ok, true);
+}
+
+async function testMcpSecurityIrMcp005Ac5(): Promise<void> {
+  const created = asRecord(await callMcpSecurityContract('serializeWebhookCredentialResponse', {
+    operation: 'create',
+    fullKey: 'webhook-full-key-create',
+    fullUrl: 'https://localhost:2222/api/webhooks/x?key=webhook-full-key-create',
+    record: { id: 'wh_1', keyHash: 'hash', maskedKey: 'bgwh_****_tail' },
+  }), 'webhook create response');
+  const rotated = asRecord(await callMcpSecurityContract('serializeWebhookCredentialResponse', {
+    operation: 'rotate',
+    fullKey: 'webhook-full-key-rotate',
+    fullUrl: 'https://localhost:2222/api/webhooks/x?key=webhook-full-key-rotate',
+    record: { id: 'wh_1', keyHash: 'hash2', maskedKey: 'bgwh_****_tail2' },
+  }), 'webhook rotate response');
+
+  assert.equal(created.fullKey, 'webhook-full-key-create');
+  assert.equal(typeof created.fullUrl, 'string');
+  assert.equal(rotated.fullKey, 'webhook-full-key-rotate');
+  assert.equal(typeof rotated.fullUrl, 'string');
+}
+
+async function testMcpSecurityIrMcp005Ac6(): Promise<void> {
+  const allowed = ['unknown', 'starting', 'ready', 'busy', 'waiting_input', 'completed', 'failed'];
+
+  for (const status of allowed) {
+    const result = asRecord(await callMcpSecurityContract('validateMcpAgentStatus', status), `agentStatus ${status}`);
+    assert.equal(result.ok, true);
+    assert.equal(result.value, status);
+  }
+
+  const invalid = asRecord(await callMcpSecurityContract('validateMcpAgentStatus', 'sleeping'), 'invalid agentStatus');
+  assert.equal(invalid.ok, false);
+  assert.equal(invalid.code, 'INVALID_AGENT_STATUS');
+}
+
+async function testMcpSecurityIrMcp005Ac7(): Promise<void> {
+  const allowed = ['live', 'closing', 'closed', 'retired', 'failed', 'closing-failed'];
+
+  for (const lifecycle of allowed) {
+    const result = asRecord(await callMcpSecurityContract('validateMcpBindingLifecycle', lifecycle), `bindingLifecycle ${lifecycle}`);
+    assert.equal(result.ok, true);
+    assert.equal(result.value, lifecycle);
+  }
+
+  const invalid = asRecord(await callMcpSecurityContract('validateMcpBindingLifecycle', 'active'), 'legacy bindingLifecycle');
+  assert.equal(invalid.ok, false);
+  assert.equal(invalid.code, 'INVALID_BINDING_LIFECYCLE');
+}
+
+async function testMcpSecurityIrMcp005Ac8(): Promise<void> {
+  const result = assertMcpDenied(await callMcpSecurityContract('mapMcpInputRejection', {
+    reason: 'replay-pending',
+    earlierEquivalentCode: 'SESSION_BUSY',
+  }), 'INPUT_REJECTED_REPLAY_PENDING');
+
+  assert.equal(result.code, 'INPUT_REJECTED_REPLAY_PENDING');
+}
+
+async function testMcpSecurityIrMcp005Ac9(): Promise<void> {
+  const missingNonce = asRecord(await callMcpSecurityContract('validateMcpCloseConfirmation', {
+    pathSessionKey: 'sess_A',
+    confirmClose: true,
+    expectedSessionKey: 'sess_A',
+  }), 'missing close confirmation nonce');
+  const mismatchedKey = asRecord(await callMcpSecurityContract('validateMcpCloseConfirmation', {
+    pathSessionKey: 'sess_A',
+    confirmClose: true,
+    expectedSessionKey: 'sess_B',
+    confirmationNonce: 'nonce-current',
+    currentNonce: 'nonce-current',
+  }), 'mismatched close confirmation key');
+
+  assert.equal(missingNonce.ok, false);
+  assert.equal(missingNonce.code, 'CLOSE_CONFIRMATION_REQUIRED');
+  assert.equal(mismatchedKey.ok, false);
+  assert.equal(mismatchedKey.code, 'CLOSE_CONFIRMATION_REQUIRED');
+}
+
+async function testMcpSecurityIrMcp005Ac10(): Promise<void> {
+  for (const operation of ['revoke', 'list', 'config', 'history']) {
+    const response = await callMcpSecurityContract('serializeWebhookCredentialResponse', {
+      operation,
+      fullKey: `webhook-full-key-${operation}`,
+      fullUrl: `https://localhost:2222/api/webhooks/x?key=webhook-full-key-${operation}`,
+      record: { id: 'wh_1', keyHash: 'hash', maskedKey: 'bgwh_****_tail' },
+    });
+
+    assertNoSecretMaterial(response, [`webhook-full-key-${operation}`]);
+    assert.equal('fullKey' in asRecord(response, `webhook ${operation} response`), false);
+    assert.equal('fullUrl' in asRecord(response, `webhook ${operation} response`), false);
+  }
 }
 
 async function testPerformGracefulShutdownFlushesWorkspaceCwds(): Promise<void> {

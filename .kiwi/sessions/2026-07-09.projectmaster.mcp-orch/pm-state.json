@@ -1,0 +1,363 @@
+{
+  "run_id": "2026-07-09.projectmaster.mcp-orch",
+  "plan_path": "docs/plans/2026-07-09.projectmaster.mcp-orch.plan.md",
+  "sidecar_path": "docs/plans/2026-07-09.projectmaster.mcp-orch.sidecar.json",
+  "plan_sha256": "2fbc722a0fab18b72f8ed2eadf42f2ba6fb45cb35d61c53bbd03962c22533b95",
+  "sidecar_sha256": "7df43adac0e73284859a581d061be4c42c53beab9dff555e0cd5a1775a225084",
+  "target_slug": "0.5.5-buildergate-stability",
+  "started_at": "2026-07-08T23:44:40.561Z",
+  "last_updated_at": "2026-07-09T00:28:41.168Z",
+  "pm_version": "0.1",
+  "tasks": [
+    {
+      "task_id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-08T23:44:53.310Z",
+      "ended_at": "2026-07-08T23:53:44.492Z",
+      "coder_run_id": "2026-07-09.projectmaster.mcp-orch",
+      "result_summary": "Added 25 MCP security contract RED tests in server/src/test-runner.ts and confirmed expected RED failure.",
+      "trace_req_ids": [
+        "IR-MCP-005",
+        "SEC-MCP-001",
+        "SEC-MCP-002"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH001-02",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-08T23:54:12.328Z",
+      "ended_at": "2026-07-09T00:26:10.768Z",
+      "coder_run_id": "2026-07-09.projectmaster.mcp-orch",
+      "result_summary": "Added McpSecurityContract security foundation and hardened credential fail-closed, Origin fail-closed, trusted proxy fail-closed, webhook binding, and token replay denial. Server tests 366 passed, build passed, final prickly review No findings.",
+      "trace_req_ids": [
+        "IR-MCP-005",
+        "SEC-MCP-001",
+        "SEC-MCP-002"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-MCP-001",
+        "FR-MCP-006"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH002-02",
+      "phase_id": "PH-002",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-MCP-001",
+        "FR-MCP-006"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-MCP-002",
+        "IR-MCP-004",
+        "IR-MCP-005"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH003-02",
+      "phase_id": "PH-003",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-MCP-002",
+        "IR-MCP-004",
+        "IR-MCP-005"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH004-01",
+      "phase_id": "PH-004",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "IR-MCP-001",
+        "OBS-MCP-001",
+        "SEC-MCP-001"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH004-02",
+      "phase_id": "PH-004",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "IR-MCP-001",
+        "OBS-MCP-001",
+        "SEC-MCP-001"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH005-01",
+      "phase_id": "PH-005",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-MCP-003",
+        "REL-MCP-001"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH005-02",
+      "phase_id": "PH-005",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-MCP-003",
+        "REL-MCP-001"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH006-01",
+      "phase_id": "PH-006",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-MCP-004",
+        "IR-MCP-002",
+        "IR-MCP-003",
+        "IR-MCP-004"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH006-02",
+      "phase_id": "PH-006",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-MCP-004",
+        "IR-MCP-002",
+        "IR-MCP-003",
+        "IR-MCP-004"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH007-01",
+      "phase_id": "PH-007",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-MCP-005",
+        "IR-MCP-002",
+        "IR-MCP-003",
+        "IR-MCP-005"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH007-02",
+      "phase_id": "PH-007",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-MCP-005",
+        "IR-MCP-002",
+        "IR-MCP-003",
+        "IR-MCP-005"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH008-01",
+      "phase_id": "PH-008",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-MCP-001",
+        "FR-MCP-002",
+        "FR-MCP-003",
+        "FR-MCP-004",
+        "FR-MCP-005",
+        "FR-MCP-006",
+        "IR-MCP-001",
+        "IR-MCP-002",
+        "IR-MCP-003",
+        "IR-MCP-004",
+        "IR-MCP-005",
+        "OBS-MCP-001",
+        "REL-MCP-001",
+        "SEC-MCP-001",
+        "SEC-MCP-002"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH008-02",
+      "phase_id": "PH-008",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-MCP-001",
+        "FR-MCP-002",
+        "FR-MCP-003",
+        "FR-MCP-004",
+        "FR-MCP-005",
+        "FR-MCP-006",
+        "IR-MCP-001",
+        "IR-MCP-002",
+        "IR-MCP-003",
+        "IR-MCP-004",
+        "IR-MCP-005",
+        "OBS-MCP-001",
+        "REL-MCP-001",
+        "SEC-MCP-001",
+        "SEC-MCP-002"
+      ],
+      "questions": [],
+      "attempts": 0
+    }
+  ],
+  "stats": {
+    "total": 16,
+    "done": 2,
+    "running": 0,
+    "pending": 14,
+    "failed": 0,
+    "blocked": 0,
+    "skipped": 0
+  },
+  "last_question": null,
+  "last_error": null,
+  "lifecycle_gate_state": {
+    "evaluated_at": "2026-07-08T23:44:40.561Z",
+    "blocked_req_ids": [],
+    "stability_snapshot": {
+      "SEC-MCP-001": "evolving",
+      "IR-MCP-001": "evolving",
+      "FR-MCP-001": "evolving",
+      "FR-MCP-002": "evolving",
+      "FR-MCP-003": "evolving",
+      "REL-MCP-001": "evolving",
+      "FR-MCP-004": "evolving",
+      "FR-MCP-005": "evolving",
+      "OBS-MCP-001": "evolving",
+      "SEC-MCP-002": "evolving",
+      "FR-MCP-006": "evolving",
+      "IR-MCP-002": "evolving",
+      "IR-MCP-003": "evolving",
+      "IR-MCP-004": "evolving",
+      "IR-MCP-005": "evolving"
+    },
+    "status_snapshot": {
+      "SEC-MCP-001": "planned",
+      "IR-MCP-001": "planned",
+      "FR-MCP-001": "planned",
+      "FR-MCP-002": "planned",
+      "FR-MCP-003": "planned",
+      "REL-MCP-001": "planned",
+      "FR-MCP-004": "planned",
+      "FR-MCP-005": "planned",
+      "OBS-MCP-001": "planned",
+      "SEC-MCP-002": "planned",
+      "FR-MCP-006": "planned",
+      "IR-MCP-002": "planned",
+      "IR-MCP-003": "planned",
+      "IR-MCP-004": "planned",
+      "IR-MCP-005": "planned"
+    }
+  },
+  "req_coverage": {},
+  "final_mutations": [],
+  "pending_mutations": [],
+  "report_path": null,
+  "doculight_viewer_id": null
+}

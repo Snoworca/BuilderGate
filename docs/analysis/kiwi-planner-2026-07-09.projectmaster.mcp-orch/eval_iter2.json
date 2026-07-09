@@ -1,0 +1,19 @@
+{
+  "pass": true,
+  "reviewer": "Faraday",
+  "findings": [],
+  "resolved": [
+    "HIGH coder_handoff_test_file_consistency",
+    "MEDIUM coverage_granularity_overclaim",
+    "LOW pm_user_gate_ui_change"
+  ],
+  "residual_notes": [
+    "LOW md_sha256 pending remains non-blocking; sidecar md_sha256 stores concrete plan hash."
+  ],
+  "summary": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0
+  }
+}

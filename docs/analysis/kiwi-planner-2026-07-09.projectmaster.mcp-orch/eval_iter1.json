@@ -1,0 +1,47 @@
+{
+  "pass": false,
+  "reviewers": [
+    {
+      "reviewer": "Anscombe",
+      "pass": true,
+      "findings": [
+        {
+          "severity": "LOW",
+          "axis": "report_quality",
+          "location": "docs/plans/2026-07-09.projectmaster.mcp-orch.plan.md:15",
+          "description": "md_sha256 pending frontmatter note; non-blocking."
+        }
+      ]
+    },
+    {
+      "reviewer": "Beauvoir",
+      "pass": false,
+      "findings": [
+        {
+          "severity": "HIGH",
+          "axis": "coder_handoff_test_file_consistency",
+          "location": "T-PH007-01/T-PH007-02",
+          "description": "PH-007 plan verification command referenced mcpSessionControlDialog.test.ts while sidecar/test files pointed to runtimeConfig.test.ts."
+        },
+        {
+          "severity": "MEDIUM",
+          "axis": "coverage_granularity_overclaim",
+          "location": "docs/plans/2026-07-09.projectmaster.mcp-orch.sidecar.json",
+          "description": "Umbrella test cases mapped broad AC sets instead of AC-specific assertions."
+        },
+        {
+          "severity": "LOW",
+          "axis": "pm_user_gate_ui_change",
+          "location": "PH-007",
+          "description": "UI labels/layout/style constraints were not pinned."
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "critical": 0,
+    "high": 1,
+    "medium": 1,
+    "low": 2
+  }
+}

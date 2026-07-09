@@ -1,0 +1,24 @@
+{
+  "fixes": [
+    {
+      "finding": "coder_handoff_test_file_consistency",
+      "action": "Aligned PH-007 plan verification command/action/acceptance tests with runtimeConfig.test.ts and regenerated sidecar."
+    },
+    {
+      "finding": "coverage_granularity_overclaim",
+      "action": "Regenerated sidecar TDD test_cases per REQ AC. Total code-task test_cases increased to 332; each case has exactly one ac_ref."
+    },
+    {
+      "finding": "pm_user_gate_ui_change",
+      "action": "Pinned PH-007 to existing Header Tools menu and WindowDialog visual/interaction pattern with fixed tab labels and no unrelated UI style changes."
+    }
+  ],
+  "validator_after_fix": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "validator_check_files_after_fix": {
+    "errors": 0,
+    "warnings": 0
+  }
+}

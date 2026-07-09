@@ -1,0 +1,35 @@
+# kiwi-planner ???: MCP Session Orchestration
+
+## ??
+
+- run_id: 2026-07-09.projectmaster.mcp-orch
+- target: 0.5.5-buildergate-stability
+- plan: docs/plans/2026-07-09.projectmaster.mcp-orch.plan.md
+- sidecar: docs/plans/2026-07-09.projectmaster.mcp-orch.sidecar.json
+- phase/task: 8 phases / 16 tasks
+- coverage: 15/15 REQ, 112/112 AC
+- TDD test cases: 332
+
+## ??
+
+- validator: errors 0, warnings 0, checks 25
+- validator --check-files: errors 0, warnings 0, checks 26
+- sub-agent review: iter1 HIGH 1 / MEDIUM 1 / LOW 2 ??, iter2 No findings
+- SpecKiwi validate_spec: errors 0, warnings 1. ?? warning? MCP scope ?? ?? REL-BGSTAB-005 draft ??
+
+## ??? ??
+
+- PH-007 ??? ??/?? ??? runtimeConfig.test.ts ???? ?????.
+- sidecar test_case? AC ??? ??? umbrella coverage? ????.
+- Tools dialog UI? ?? Header Tools menu? WindowDialog ??? ?????, tab label ??? ????? plan? ????.
+
+## SpecKiwi mutation
+
+- add_trace_link: 72? ??
+- add_verification_evidence(type=plan): 15? ??
+- sidecar mcp_call_log: 87/87 ok=true
+
+## ?? ??
+
+- kiwi-pm? plan task? ?? ????.
+- ?? ?? ? kiwi-review-fix-loop? CRITICAL/HIGH zero ?? ??? ????.

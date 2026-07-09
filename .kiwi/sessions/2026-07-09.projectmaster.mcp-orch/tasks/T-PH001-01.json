@@ -1,0 +1,88 @@
+{
+  "task_id": "T-PH001-01",
+  "phase_id": "PH-001",
+  "title": "Security contract red tests",
+  "started_at": "2026-07-08T23:44:53.310Z",
+  "completed_at": "2026-07-08T23:52:23.299Z",
+  "red_only": true,
+  "files_changed": [
+    "server/src/test-runner.ts"
+  ],
+  "phase1": {
+    "tdd_draft_iters": [
+      {
+        "iter": 1,
+        "file_paths": [
+          "server/src/test-runner.ts"
+        ],
+        "test_case_count": 25
+      }
+    ],
+    "standard4_reviews": [],
+    "red_evidence": {
+      "command": "cd server; npx tsx src/test-runner.ts",
+      "exit_code": 1,
+      "captured_failure": "25 MCP security contract tests fail with: missing MCP implementation: expected ./services/McpSecurityContract.js for MCP security foundation",
+      "timestamp": "2026-07-08T23:52:23.299Z"
+    },
+    "red_evidence_meta": {
+      "expected_exit": 1,
+      "failure_kind": "missing MCP security foundation implementation",
+      "covered_req_ids": [
+        "IR-MCP-005",
+        "SEC-MCP-001",
+        "SEC-MCP-002"
+      ],
+      "test_case_ids": [
+        "TC-REQ-IR-MCP-005-AC1-01",
+        "TC-REQ-IR-MCP-005-AC2-01",
+        "TC-REQ-IR-MCP-005-AC3-01",
+        "TC-REQ-IR-MCP-005-AC4-01",
+        "TC-REQ-IR-MCP-005-AC5-01",
+        "TC-REQ-IR-MCP-005-AC6-01",
+        "TC-REQ-IR-MCP-005-AC7-01",
+        "TC-REQ-IR-MCP-005-AC8-01",
+        "TC-REQ-IR-MCP-005-AC9-01",
+        "TC-REQ-IR-MCP-005-AC10-01",
+        "TC-REQ-SEC-MCP-001-AC1-01",
+        "TC-REQ-SEC-MCP-001-AC2-01",
+        "TC-REQ-SEC-MCP-001-AC3-01",
+        "TC-REQ-SEC-MCP-001-AC4-01",
+        "TC-REQ-SEC-MCP-001-AC5-01",
+        "TC-REQ-SEC-MCP-001-AC6-01",
+        "TC-REQ-SEC-MCP-002-AC1-01",
+        "TC-REQ-SEC-MCP-002-AC2-01",
+        "TC-REQ-SEC-MCP-002-AC3-01",
+        "TC-REQ-SEC-MCP-002-AC4-01",
+        "TC-REQ-SEC-MCP-002-AC5-01",
+        "TC-REQ-SEC-MCP-002-AC6-01",
+        "TC-REQ-SEC-MCP-002-AC7-01",
+        "TC-REQ-SEC-MCP-002-AC8-01",
+        "TC-REQ-SEC-MCP-002-AC9-01"
+      ]
+    }
+  },
+  "phase2": {
+    "impl_iters": [],
+    "formal_reviews": [],
+    "prickly_reviews": [],
+    "green_evidence": null,
+    "dod_check": [
+      {
+        "item": "Red tests cover SEC-MCP-001 AC-1..AC-6, SEC-MCP-002 AC-1..AC-9, and IR-MCP-005 security precedence.",
+        "satisfied": true
+      }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "scope": "full",
+      "command": "cd server; npx tsx src/test-runner.ts",
+      "exit_code": 1,
+      "expected_exit": 1,
+      "failed": 25,
+      "summary": "Expected RED failure from missing MCP security foundation contract module."
+    },
+    "mcp_calls": []
+  }
+}

@@ -1,0 +1,19 @@
+{"ts":"2026-07-08T23:44:40.561Z","event":"pm_start","run_id":"2026-07-09.projectmaster.mcp-orch","plan_path":"docs/plans/2026-07-09.projectmaster.mcp-orch.plan.md","sidecar_path":"docs/plans/2026-07-09.projectmaster.mcp-orch.sidecar.json","blocked_req_ids":[]}
+{"ts":"2026-07-08T23:44:53.310Z","event":"task_started","task_id":"T-PH001-01","attempt":1}
+{"ts":"2026-07-08T23:50:36.646Z","event":"phase_start","run_id":"2026-07-09.projectmaster.mcp-orch","plan_path":"docs/plans/2026-07-09.projectmaster.mcp-orch.plan.md","target":"0.5.5-buildergate-stability","mode":"pm-child-red","flags":["--auto","TASK_FILTER=T-PH001-01"]}
+{"ts":"2026-07-08T23:50:36.646Z","event":"task_start","task_id":"T-PH001-01","phase_id":"PH-001"}
+{"ts":"2026-07-08T23:50:36.646Z","event":"tdd_draft_done","task_id":"T-PH001-01","iter":1,"file_paths":["server/src/test-runner.ts"],"test_case_count":25}
+{"ts":"2026-07-08T23:50:36.646Z","event":"tdd_red_confirmed","task_id":"T-PH001-01","exit_code":1,"expected_exit":1,"test_case_ids":["TC-REQ-IR-MCP-005-AC1-01","TC-REQ-IR-MCP-005-AC2-01","TC-REQ-IR-MCP-005-AC3-01","TC-REQ-IR-MCP-005-AC4-01","TC-REQ-IR-MCP-005-AC5-01","TC-REQ-IR-MCP-005-AC6-01","TC-REQ-IR-MCP-005-AC7-01","TC-REQ-IR-MCP-005-AC8-01","TC-REQ-IR-MCP-005-AC9-01","TC-REQ-IR-MCP-005-AC10-01","TC-REQ-SEC-MCP-001-AC1-01","TC-REQ-SEC-MCP-001-AC2-01","TC-REQ-SEC-MCP-001-AC3-01","TC-REQ-SEC-MCP-001-AC4-01","TC-REQ-SEC-MCP-001-AC5-01","TC-REQ-SEC-MCP-001-AC6-01","TC-REQ-SEC-MCP-002-AC1-01","TC-REQ-SEC-MCP-002-AC2-01","TC-REQ-SEC-MCP-002-AC3-01","TC-REQ-SEC-MCP-002-AC4-01","TC-REQ-SEC-MCP-002-AC5-01","TC-REQ-SEC-MCP-002-AC6-01","TC-REQ-SEC-MCP-002-AC7-01","TC-REQ-SEC-MCP-002-AC8-01","TC-REQ-SEC-MCP-002-AC9-01"]}
+{"ts":"2026-07-08T23:50:36.646Z","event":"regression_done","task_id":"T-PH001-01","scope":"full","passed":null,"failed":25,"expected_exit":1}
+{"ts":"2026-07-08T23:50:36.646Z","event":"task_done","task_id":"T-PH001-01","duration_ms":343336,"red_only":true}
+{"ts":"2026-07-08T23:52:23.299Z","event":"regression_done","task_id":"T-PH001-01","scope":"full","passed":null,"failed":25,"expected_exit":1,"final":true}
+{"ts":"2026-07-08T23:53:44.492Z","event":"task_done","task_id":"T-PH001-01","coder_run_id":"2026-07-09.projectmaster.mcp-orch","summary":"server/src/test-runner.ts? MCP ?? ?? RED ??? 25? ??. expected RED: ./services/McpSecurityContract.js ????? 25? ??."}
+{"ts":"2026-07-08T23:54:12.328Z","event":"task_started","task_id":"T-PH001-02","attempt":1}
+{"ts":"2026-07-09T00:00:25.9730400Z","event":"impl_done","task_id":"T-PH001-02","iter":1,"files_changed":["server/src/services/McpSecurityContract.ts"]}
+{"ts":"2026-07-09T00:00:25.9730400Z","event":"prickly_review_done","task_id":"T-PH001-02","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":0}}
+{"ts":"2026-07-09T00:00:25.9730400Z","event":"test_green","task_id":"T-PH001-02","exit_code":0}
+{"ts":"2026-07-09T00:00:25.9730400Z","event":"regression_done","task_id":"T-PH001-02","scope":"full","passed":366,"failed":0}
+{"ts":"2026-07-09T00:00:25.9730400Z","event":"task_done","task_id":"T-PH001-02","duration_ms":null,"green":true}
+{"ts":"2026-07-09T00:26:10.768Z","event":"task_done","task_id":"T-PH001-02","coder_run_id":"2026-07-09.projectmaster.mcp-orch","summary":"McpSecurityContract ?? foundation? ???? credential ???, Origin fail-closed, trusted proxy fail-closed, webhook binding ??, token replay ??? ????. ?? ??? 366?? build ??, ?? ??? No findings."}
+{"ts":"2026-07-09T00:26:48.275Z","event":"task_started","task_id":"T-PH002-01","attempt":1}
+{"ts":"2026-07-09T00:28:41.168Z","event":"task_start_reverted","task_id":"T-PH002-01","reason":"checkpoint before auto commit; no coder worker or task artifacts were started","status":"pending","attempt":0}
