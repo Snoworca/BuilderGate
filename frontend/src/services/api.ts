@@ -43,7 +43,9 @@ import type {
   McpAgentProfileInput,
   McpControlConfig,
   McpControlConfigPatch,
+  McpFixedAccessKeyRotation,
   McpSearchResponse,
+  McpSessionClaimCode,
   McpSessionListResponse,
   McpSessionRecord,
   McpWebhookCreateResponse,
@@ -507,6 +509,16 @@ export const mcpControlApi = {
     return res.json();
   },
 
+  rotateFixedAccessKey: async (signal?: AbortSignal): Promise<McpFixedAccessKeyRotation> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/access-key/rotate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      signal,
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
   listAgents: async (): Promise<McpAgentProfile[]> => {
     const res = await authFetch(`${API_BASE}/mcp-control/agents`, {
       headers: getAuthHeaders(),
@@ -624,6 +636,15 @@ export const mcpControlApi = {
         ...getAuthHeaders(),
       },
       body: JSON.stringify({ alias }),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  createSessionClaimCode: async (sessionKey: string): Promise<McpSessionClaimCode> => {
+    const res = await authFetch(`${API_BASE}/mcp-control/sessions/${encodeURIComponent(sessionKey)}/claim-code`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
     });
     if (!res.ok) throw await parseError(res);
     return res.json();

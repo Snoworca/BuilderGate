@@ -1,0 +1,46 @@
+{
+  "task_id": "T-PH007-01",
+  "started_at": "2026-07-10T00:20:00.000Z",
+  "completed_at": "2026-07-10T01:26:12.000Z",
+  "phase1": {
+    "tests": {
+      "files_changed": [
+        "frontend/tests/unit/mcpControlDialog.test.ts",
+        "frontend/tests/e2e/mcp-control-dialog.spec.ts"
+      ],
+      "req_ids": [
+        "FR-MCP-005",
+        "IR-MCP-002",
+        "IR-MCP-003",
+        "IR-MCP-005"
+      ],
+      "summary": "Added MCP dialog coverage for Tools menu access, Security whitelist controls, agent profile edit/save/default fields, session status formatting, audit rendering, webhook masking, reply prompt default Hello, World!, and Enter submit behavior."
+    }
+  },
+  "phase2": {
+    "verification": {
+      "unit": {
+        "command": "cd frontend; node --experimental-strip-types --test tests/unit/mcpControlDialog.test.ts",
+        "exit_code": 0,
+        "passed": 17,
+        "failed": 0,
+        "timestamp": "2026-07-10T01:16:56.000Z"
+      },
+      "e2e": {
+        "command": "cd frontend; npx playwright test tests/e2e/mcp-control-dialog.spec.ts --project \"Desktop Chrome\"",
+        "exit_code": 0,
+        "passed": 3,
+        "failed": 0,
+        "timestamp": "2026-07-10T01:17:10.000Z"
+      }
+    },
+    "review": {
+      "reviewer": "Locke",
+      "status": "No findings",
+      "final_findings": 0
+    }
+  },
+  "phase3": {
+    "pending_mutations": []
+  }
+}

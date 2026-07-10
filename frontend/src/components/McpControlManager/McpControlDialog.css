@@ -159,6 +159,12 @@
   gap: 6px;
 }
 
+.mcp-control-secret-value {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
 .mcp-control-primary-button,
 .mcp-control-secondary-button,
 .mcp-control-item-actions button {
@@ -278,6 +284,26 @@
   overflow-wrap: anywhere;
   color: #ffffff;
   font-size: 12px;
+}
+
+.mcp-control-audit-list {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 6px;
+  overflow: auto;
+}
+
+.mcp-control-audit-item {
+  padding: 7px 9px;
+  overflow: hidden;
+  background: #2a2a2a;
+  border: 1px solid #3f3f3f;
+  border-radius: 4px;
+  color: #bdbdbd;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mcp-control-credential {

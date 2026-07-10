@@ -8,6 +8,7 @@ const test = require('node:test');
 const { createRandomToken, readState, writeStateAtomic } = require('./state-store');
 
 const startRuntimePath = path.resolve(__dirname, '..', 'start-runtime.js');
+const frontendPackagePath = path.resolve(__dirname, '..', '..', 'frontend', 'package.json');
 
 function loadStartRuntimeWithConfig(configPath) {
   return loadStartRuntimeWithEnv({ BUILDERGATE_CONFIG_PATH: configPath });
@@ -184,6 +185,94 @@ test('hasDeploymentArtifacts requires daemon TOTP preflight helper artifact', ()
   } finally {
     restoreRebuilt();
   }
+});
+
+test('existing deployment artifacts still stage the latest frontend build', () => {
+  const fixture = createRuntimeRootFixture({ prefix: 'buildergate-frontend-restage-' });
+  const frontendDist = path.join(fixture.root, 'frontend', 'dist');
+  const stagedIndex = path.join(fixture.root, 'web', 'index.html');
+  fs.mkdirSync(path.join(frontendDist, 'assets'), { recursive: true });
+  fs.writeFileSync(path.join(frontendDist, 'index.html'), '<script src="/assets/latest.js"></script>\n', 'utf8');
+  fs.writeFileSync(path.join(frontendDist, 'assets', 'latest.js'), 'window.latest = true;\n', 'utf8');
+  fs.writeFileSync(stagedIndex, '<script src="/assets/stale.js"></script>\n', 'utf8');
+  fs.mkdirSync(path.join(fixture.root, 'web', 'assets'), { recursive: true });
+  fs.writeFileSync(path.join(fixture.root, 'web', 'assets', 'stale.js'), 'window.stale = true;\n', 'utf8');
+
+  const { startRuntime, restore } = loadStartRuntimeWithEnv({ BUILDERGATE_ROOT: fixture.root });
+  try {
+    assert.equal(startRuntime.hasDeploymentArtifacts(), true);
+    startRuntime.ensureDependenciesAndBuild();
+    assert.match(fs.readFileSync(stagedIndex, 'utf8'), /latest\.js/);
+    assert.equal(fs.readFileSync(path.join(fixture.root, 'web', 'assets', 'latest.js'), 'utf8'), 'window.latest = true;\n');
+    assert.equal(fs.existsSync(path.join(fixture.root, 'web', 'assets', 'stale.js')), false);
+  } finally {
+    restore();
+  }
+});
+
+test('deployment artifacts require every local asset referenced by index.html', () => {
+  const fixture = createRuntimeRootFixture({ prefix: 'buildergate-missing-web-asset-' });
+  fs.writeFileSync(
+    path.join(fixture.root, 'web', 'index.html'),
+    '<script src="/assets/missing.js"></script>\n',
+    'utf8',
+  );
+  const { startRuntime, restore } = loadStartRuntimeWithEnv({ BUILDERGATE_ROOT: fixture.root });
+  try {
+    assert.equal(startRuntime.hasDeploymentArtifacts(), false);
+  } finally {
+    restore();
+  }
+});
+
+test('frontend staging rejects an incomplete source build without damaging the active public tree', () => {
+  const fixture = createRuntimeRootFixture({ prefix: 'buildergate-incomplete-frontend-source-' });
+  const frontendDist = path.join(fixture.root, 'frontend', 'dist');
+  const activeIndex = path.join(fixture.root, 'web', 'index.html');
+  fs.mkdirSync(frontendDist, { recursive: true });
+  fs.writeFileSync(path.join(frontendDist, 'index.html'), '<script src="/assets/missing.js"></script>\n', 'utf8');
+  fs.writeFileSync(activeIndex, '<!doctype html><p>active deployment</p>\n', 'utf8');
+
+  const { startRuntime, restore } = loadStartRuntimeWithEnv({ BUILDERGATE_ROOT: fixture.root });
+  try {
+    assert.throws(() => startRuntime.stageFrontendAssets(), /incomplete|missing|asset/i);
+    assert.match(fs.readFileSync(activeIndex, 'utf8'), /active deployment/);
+  } finally {
+    restore();
+  }
+});
+
+test('frontend staging rejects a public directory link that escapes the runtime root', (t) => {
+  const fixture = createRuntimeRootFixture({ prefix: 'buildergate-linked-web-root-' });
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'buildergate-linked-web-outside-'));
+  const frontendDist = path.join(fixture.root, 'frontend', 'dist');
+  const webDir = path.join(fixture.root, 'web');
+  fs.mkdirSync(frontendDist, { recursive: true });
+  fs.writeFileSync(path.join(frontendDist, 'index.html'), '<!doctype html>\n', 'utf8');
+  fs.rmSync(webDir, { recursive: true, force: true });
+  try {
+    fs.symlinkSync(outside, webDir, process.platform === 'win32' ? 'junction' : 'dir');
+  } catch (error) {
+    if (error && ['EPERM', 'EACCES'].includes(error.code)) {
+      t.skip(`directory links are unavailable: ${error.code}`);
+      return;
+    }
+    throw error;
+  }
+
+  const { startRuntime, restore } = loadStartRuntimeWithEnv({ BUILDERGATE_ROOT: fixture.root });
+  try {
+    assert.throws(() => startRuntime.stageFrontendAssets(), /escaped runtime root|link|junction/i);
+    assert.equal(fs.existsSync(path.join(outside, 'index.html')), false);
+  } finally {
+    restore();
+  }
+});
+
+test('frontend postbuild stages assets for the running source runtime', () => {
+  const frontendPackage = JSON.parse(fs.readFileSync(frontendPackagePath, 'utf8'));
+
+  assert.match(frontendPackage.scripts.postbuild, /stageFrontendAssets/);
 });
 
 test('start-runtime default daemon path no longer contains PM2 runtime calls', () => {

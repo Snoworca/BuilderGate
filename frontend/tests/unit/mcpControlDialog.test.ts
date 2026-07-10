@@ -4,10 +4,19 @@ import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
+  buildMcpAgentProfileInput,
   buildMcpControlConfigPatch,
   createMcpSecurityDraft,
+  formatMcpAuditAction,
+  formatMcpAuditOutcome,
+  formatMcpAgentStatus,
+  formatMcpBindingLifecycle,
+  formatMcpControlStatus,
   formatMcpControlListInput,
+  formatMcpWebhookMode,
+  normalizeMcpWebhookMode,
   parseMcpControlListInput,
+  validateMcpAgentDraft,
   validateMcpWebhookDraft,
   validateMcpSecurityDraft,
 } from '../../src/components/McpControlManager/mcpControlDialogModel.ts';
@@ -48,10 +57,10 @@ test('T-PH007-01 FR-MCP-005 desktop Tools menu exposes MCP settings dialog outsi
   );
 });
 
-test('T-PH007-01 FR-MCP-005 dialog exposes fixed MCP tabs and Security whitelist controls', () => {
+test('T-PH007-01 FR-MCP-005 MCP settings dialog exposes Korean tabs and security controls', () => {
   const dialogSource = readSource('src/components/McpControlManager/McpControlDialog.tsx');
 
-  for (const label of ['Security', 'Agent Profiles', 'Webhooks', 'Sessions', 'Audit/Status']) {
+  for (const label of ['보안', '에이전트 프로필', '웹훅', '세션', '감사/상태']) {
     expectSource(dialogSource, new RegExp(label.replace('/', '\\/')), `Dialog must expose ${label} tab`);
   }
 
@@ -63,6 +72,54 @@ test('T-PH007-01 FR-MCP-005 dialog exposes fixed MCP tabs and Security whitelist
   expectSource(dialogSource, /role=["']alert["']/, 'Security tab must display validation errors through an alert path');
   expectSource(dialogSource, /mcpControlApi\.getConfig/, 'Dialog must load config through the MCP control API');
   expectSource(dialogSource, /mcpControlApi\.patchConfig/, 'Dialog must save config through the MCP control API');
+});
+
+test('MCP settings dialog uses Korean labels for every visible configuration panel', () => {
+  const dialogSource = readSource('src/components/McpControlManager/McpControlDialog.tsx');
+
+  const koreanLabels = [
+    'MCP 엔드포인트 사용', '바인드 모드', '호스트 주소', '포트', '전송 보안',
+    '웹훅 헤더', '웹훅 요청 제한 시간(초)', '웹훅 순간 요청 한도', '외부 IP/CIDR 허용 목록',
+    '신뢰 프록시', '허용 오리진', '프로필 이름', '실행 명령', '설정 방식',
+    '사용', '기본 프로필', '실행 인수', '별칭', '시작 프롬프트', '대상 세션',
+    '프로필 ID', '전달 방식', '만료 시각', '권한 범위', '전체 키', '전체 URL',
+    '검색', '전달 테스트 프롬프트', '감사 기록', '최근 오류', '최근 재바인드',
+  ];
+
+  for (const label of koreanLabels) {
+    expectSource(dialogSource, new RegExp(label.replace(/[()]/g, '\\$&')), `Dialog must expose Korean label ${label}`);
+  }
+
+  for (const englishLabel of [
+    'MCP endpoint enabled', 'Bind mode', 'Transport security', 'Trusted proxies',
+    'Allowed origins', 'Profile name', 'Config mode', 'Target session', 'Reply test prompt',
+    'Last error', 'Audit stream', 'Recent audit events',
+  ]) {
+    assert.doesNotMatch(dialogSource, new RegExp(englishLabel), `Dialog must not expose English label ${englishLabel}`);
+  }
+});
+
+test('MCP settings localizes runtime statuses, audit values, and webhook delivery modes', () => {
+  assert.equal(formatMcpControlStatus('listening'), '수신 대기');
+  assert.equal(formatMcpControlStatus('stopped'), '중지됨');
+  assert.equal(formatMcpAuditAction('mcp.listener.rebind'), 'MCP 리스너 재바인드');
+  assert.equal(formatMcpAuditAction('buildergate.message.reply_to_leader'), '리더에게 응답 전달');
+  assert.equal(formatMcpAuditOutcome('rollback'), '되돌림');
+  assert.equal(formatMcpAuditOutcome('MCP_ORIGIN_DENIED'), '허용되지 않은 오리진');
+  assert.equal(formatMcpWebhookMode('paste'), '붙여넣기');
+  assert.equal(formatMcpWebhookMode('submit'), '전송 후 엔터');
+  assert.equal(normalizeMcpWebhookMode('붙여넣기'), 'paste');
+});
+
+test('T-PH007-01 FR-MCP-005 agent profile panel supports edit/save for full profile fields', () => {
+  const dialogSource = readSource('src/components/McpControlManager/McpControlDialog.tsx');
+
+  expectSource(dialogSource, /editingAgentId/, 'Agent profile UI must track edit mode');
+  expectSource(dialogSource, /handleEditAgent/, 'Agent profile UI must expose an edit handler');
+  expectSource(dialogSource, /mcpControlApi\.updateAgent/, 'Agent profile UI must save edits through updateAgent');
+  expectSource(dialogSource, /isDefault/, 'Agent profile UI must edit the default profile flag');
+  expectSource(dialogSource, /buildMcpAgentProfileInput/, 'Agent profile UI must build a complete profile payload');
+  expectSource(dialogSource, /validateMcpAgentDraft/, 'Agent profile UI must validate all editable profile fields before save');
 });
 
 test('T-PH007-01 IR-MCP-004 sessions panel exposes nonce-backed close confirmation', () => {
@@ -81,12 +138,41 @@ test('T-PH007-01 FR-MCP-001 sessions panel exposes runtime UUID session ids and 
 
   expectSource(typeSource, /sessionId\?:\s*string/, 'MCP session type must include runtime sessionId');
   expectSource(typeSource, /currentSessionId\?:\s*string/, 'MCP session type must include currentSessionId');
-  expectSource(typeSource, /bindingLifecycle\?:\s*string/, 'MCP session type must include binding lifecycle status');
+  expectSource(typeSource, /bindingLifecycle\?:\s*McpBindingLifecycle/, 'MCP session type must include binding lifecycle status');
   expectSource(typeSource, /mcpConnected\?:\s*boolean/, 'MCP session type must include MCP connection status');
   expectSource(dialogSource, /session\.sessionId/, 'Sessions panel must render runtime sessionId');
   expectSource(dialogSource, /session\.currentSessionId/, 'Sessions panel must render currentSessionId');
   expectSource(dialogSource, /session\.bindingLifecycle/, 'Sessions panel must render lifecycle status');
   expectSource(dialogSource, /session\.mcpConnected/, 'Sessions panel must render MCP connection status');
+});
+
+test('MCP settings session panel issues a one-time Claude Code connection claim', () => {
+  const dialogSource = readSource('src/components/McpControlManager/McpControlDialog.tsx');
+  const apiSource = readSource('src/services/api.ts');
+  const typeSource = readSource('src/types/mcpControl.ts');
+
+  expectSource(dialogSource, /handleCreateSessionClaimCode/, 'Sessions panel must create a session claim code');
+  expectSource(dialogSource, /mcpControlApi\.createSessionClaimCode/, 'Sessions panel must call the claim-code API');
+  expectSource(dialogSource, /일회성 연결 코드/, 'Sessions panel must label the one-time connection code in Korean');
+  expectSource(dialogSource, /연결 코드 발급/, 'Sessions panel must expose a claim-code action');
+  expectSource(apiSource, /createSessionClaimCode[\s\S]*\/claim-code/, 'MCP control API must call the claim-code route');
+  expectSource(typeSource, /McpSessionClaimCode/, 'MCP control types must expose a one-time claim code response');
+});
+
+test('MCP security panel rotates a fixed access key only after confirmation and exposes a copy action', () => {
+  const dialogSource = readSource('src/components/McpControlManager/McpControlDialog.tsx');
+  const apiSource = readSource('src/services/api.ts');
+  const typeSource = readSource('src/types/mcpControl.ts');
+
+  expectSource(dialogSource, /MessageBox/, 'Fixed access-key rotation must use the shared confirmation dialog');
+  expectSource(dialogSource, /handleRequestFixedAccessKeyRotation/, 'Security panel must request fixed access-key rotation');
+  expectSource(dialogSource, /mcpControlApi\.rotateFixedAccessKey/, 'Security panel must call the fixed access-key API');
+  expectSource(dialogSource, /고정 인증키 재생성/, 'Security panel must label fixed access-key regeneration in Korean');
+  expectSource(dialogSource, /정말로 재생성하시겠습니까\?/, 'Fixed access-key regeneration must require explicit confirmation');
+  expectSource(dialogSource, /복사/, 'Generated fixed access key must expose a Korean copy action');
+  expectSource(dialogSource, /navigator\.clipboard\.writeText/, 'Fixed access key copy action must use the clipboard API');
+  expectSource(apiSource, /rotateFixedAccessKey[\s\S]*\/access-key\/rotate/, 'MCP control API must call the fixed access-key rotation route');
+  expectSource(typeSource, /McpFixedAccessKeyRotation/, 'MCP control types must expose the one-time fixed access-key response');
 });
 
 test('T-PH007-01 FR-MCP-002 reply test defaults to Hello World and submits with enter', () => {
@@ -96,6 +182,30 @@ test('T-PH007-01 FR-MCP-002 reply test defaults to Hello World and submits with 
   expectSource(dialogSource, /DEFAULT_REPLY_TEST_PROMPT\s*=\s*['"]Hello, World!['"]/, 'Reply test prompt must default to Hello, World!');
   expectSource(dialogSource, /useState\(DEFAULT_REPLY_TEST_PROMPT\)/, 'Reply test input must initialize with the default prompt');
   expectSource(apiSource, /replyTest[\s\S]*deliveryMode:\s*['"]submit['"]/, 'Reply test API must request submit delivery so Enter is included');
+});
+
+test('T-PH007-01 IR-MCP-005 session statuses surface invalid enum values explicitly', () => {
+  const dialogSource = readSource('src/components/McpControlManager/McpControlDialog.tsx');
+  const typeSource = readSource('src/types/mcpControl.ts');
+
+  expectSource(typeSource, /McpAgentStatus/, 'MCP session type must use an explicit agentStatus enum');
+  expectSource(typeSource, /McpBindingLifecycle/, 'MCP session type must use an explicit bindingLifecycle enum');
+  expectSource(dialogSource, /formatMcpAgentStatus\(session\.agentStatus \?\? session\.status\)/, 'Sessions panel must format agentStatus through runtime validation');
+  expectSource(dialogSource, /formatMcpBindingLifecycle\(session\.bindingLifecycle\)/, 'Sessions panel must format bindingLifecycle through runtime validation');
+  assert.equal(formatMcpAgentStatus('ready'), '준비됨');
+  assert.equal(formatMcpAgentStatus('sleeping'), '알 수 없는 상태: sleeping');
+  assert.equal(formatMcpBindingLifecycle('live'), '활성');
+  assert.equal(formatMcpBindingLifecycle('active'), '알 수 없는 수명 주기: active');
+});
+
+test('T-PH007-01 IR-MCP-005 Audit Status tab renders recent redacted audit events from config', () => {
+  const dialogSource = readSource('src/components/McpControlManager/McpControlDialog.tsx');
+  const typeSource = readSource('src/types/mcpControl.ts');
+
+  expectSource(typeSource, /recentAuditEvents\?:\s*McpRecentAuditEvent\[\]/, 'MCP config type must include recent audit events');
+  expectSource(dialogSource, /recentAuditEvents/, 'Audit Status tab must read recent audit events');
+  expectSource(dialogSource, /summarizeAuditEvent/, 'Audit Status tab must render redacted audit summaries');
+  assert.doesNotMatch(dialogSource, /REST status only/, 'Audit Status tab must not be a REST-only placeholder');
 });
 
 test('T-PH007-01 IR-MCP-005 webhook credential surfaces are one-time and cleared on non-create paths', () => {
@@ -119,7 +229,7 @@ test('T-PH007-01 IR-MCP-005 webhook create validates routing target and scopes b
     targetSessionKey: 'target-session',
     profileId: '',
     scopesText: '',
-  }) ?? '', /scope|스코프/i);
+  }) ?? '', /권한 범위/i);
 
   assert.equal(validateMcpWebhookDraft({
     targetSessionKey: '',
@@ -150,6 +260,35 @@ test('T-PH007-01 FR-MCP-005 security list parser normalizes line and comma separ
     '198.51.100.0/24',
   ]);
   assert.equal(formatMcpControlListInput(['203.0.113.7/32', '198.51.100.0/24']), '203.0.113.7/32\n198.51.100.0/24');
+});
+
+test('T-PH007-01 FR-MCP-005 agent profile draft validation and payload cover all editable fields', () => {
+  const draft = {
+    displayName: 'Codex Worker',
+    command: 'codex',
+    argsText: '--model\ngpt-5',
+    aliasesText: 'builder\nworker',
+    enabled: true,
+    isDefault: true,
+    kickoffPrompt: 'Hello, World!',
+    mcpClientConfigMode: 'generated-file' as const,
+  };
+
+  assert.equal(validateMcpAgentDraft(draft), null);
+  assert.deepEqual(buildMcpAgentProfileInput(draft), {
+    displayName: 'Codex Worker',
+    command: 'codex',
+    args: ['--model', 'gpt-5'],
+    aliases: ['builder', 'worker'],
+    enabled: true,
+    isDefault: true,
+    kickoffPrompt: 'Hello, World!',
+    mcpClientConfigMode: 'generated-file',
+  });
+  assert.match(validateMcpAgentDraft({ ...draft, displayName: '' }) ?? '', /이름|name/i);
+  assert.match(validateMcpAgentDraft({ ...draft, command: 'bad\u0000command' }) ?? '', /command|제어/i);
+  assert.match(validateMcpAgentDraft({ ...draft, aliasesText: 'dup\ndup' }) ?? '', /중복|duplicate/i);
+  assert.match(validateMcpAgentDraft({ ...draft, mcpClientConfigMode: 'bad' as never }) ?? '', /설정 방식/i);
 });
 
 test('T-PH007-01 FR-MCP-005 security draft validation blocks unsafe whitelist states before PATCH', () => {
@@ -195,7 +334,10 @@ test('T-PH007-01 FR-MCP-005 security draft validation blocks unsafe whitelist st
     externalWhitelistText: '203.0.113.7/32',
     transportSecurity: 'none',
   };
-  assert.match(validateMcpSecurityDraft(missingTlsDraft) ?? '', /TLS|transport/i);
+  assert.equal(
+    validateMcpSecurityDraft(missingTlsDraft),
+    '허용 목록 모드는 직접 TLS 또는 신뢰 프록시 TLS 전송 보안이 필요합니다.',
+  );
 
   const missingProxyDraft = {
     ...draft,
@@ -203,7 +345,10 @@ test('T-PH007-01 FR-MCP-005 security draft validation blocks unsafe whitelist st
     transportSecurity: 'trusted_tls_proxy',
     trustedProxiesText: '',
   };
-  assert.match(validateMcpSecurityDraft(missingProxyDraft) ?? '', /proxy|Trusted/i);
+  assert.equal(
+    validateMcpSecurityDraft(missingProxyDraft),
+    '신뢰 프록시 TLS 전송 보안은 신뢰 프록시 설정이 필요합니다.',
+  );
 
   const trailingSlashOriginDraft = {
     ...draft,

@@ -1,0 +1,48 @@
+{
+  "task_id": "T-PH008-01",
+  "started_at": "2026-07-10T01:16:56.000Z",
+  "completed_at": "2026-07-10T01:26:12.000Z",
+  "phase1": {
+    "integration_validation": {
+      "target": "https://localhost:2222",
+      "req_ids": [
+        "FR-MCP-001",
+        "FR-MCP-002",
+        "FR-MCP-003",
+        "FR-MCP-004",
+        "FR-MCP-005",
+        "FR-MCP-006",
+        "IR-MCP-001",
+        "IR-MCP-002",
+        "IR-MCP-003",
+        "IR-MCP-004",
+        "IR-MCP-005",
+        "OBS-MCP-001",
+        "REL-MCP-001",
+        "SEC-MCP-001",
+        "SEC-MCP-002"
+      ],
+      "summary": "Validated the running local app health endpoint, MCP dialog Desktop Chrome Playwright flow, and server direct_tls listener behavior through an actual HTTPS request."
+    }
+  },
+  "phase2": {
+    "verification": {
+      "health": {
+        "command": "curl.exe -k https://localhost:2222/health",
+        "exit_code": 0,
+        "status": "ok",
+        "timestamp": "2026-07-10T01:16:56.000Z"
+      },
+      "playwright": {
+        "command": "cd frontend; npx playwright test tests/e2e/mcp-control-dialog.spec.ts --project \"Desktop Chrome\"",
+        "exit_code": 0,
+        "passed": 3,
+        "failed": 0,
+        "timestamp": "2026-07-10T01:17:10.000Z"
+      }
+    }
+  },
+  "phase3": {
+    "pending_mutations": []
+  }
+}

@@ -11,9 +11,9 @@
     "TASK_FILTER=T-PH002-01"
   ],
   "started_at": "2026-07-08T23:44:53.310Z",
-  "updated_at": "2026-07-09T04:39:30.000Z",
+  "updated_at": "2026-07-10T01:34:53.000Z",
   "frozen_at": null,
-  "current_phase_id": "PH-006",
+  "current_phase_id": "PH-008",
   "current_task_id": null,
   "next_resume_hint": null,
   "task_queue": [],
@@ -28,11 +28,19 @@
     "T-PH004-02",
     "T-PH005-01",
     "T-PH005-02",
-    "T-PH006-01"
+    "T-PH006-01",
+    "T-PH006-02",
+    "T-PH007-01",
+    "T-PH007-02",
+    "T-PH008-01",
+    "T-PH008-02"
   ],
   "skipped_task_ids": [],
   "failed_task_ids": [],
-  "tdd_exempted_task_ids": [],
+  "tdd_exempted_task_ids": [
+    "T-PH008-01",
+    "T-PH008-02"
+  ],
   "tdd_pending_task_ids": [],
   "severity_counters": {
     "T-PH001-01": {
@@ -213,12 +221,12 @@
     }
   },
   "regression_summary": {
-    "last_run_at": "2026-07-09T04:39:30.000Z",
-    "scope": "red",
-    "passed": null,
-    "failed": 35,
-    "expected_red": true,
-    "signature": "missing webhook/control REST implementation: expected ./services/WebhookInvocationService.js or ./services/McpControlService.js",
+    "last_run_at": "2026-07-10T01:34:53.000Z",
+    "scope": "full",
+    "passed": 505,
+    "failed": 0,
+    "expected_red": false,
+    "signature": "server test-runner 485 passed including final coverage assertions; frontend unit 17 passed; MCP dialog Playwright 3 passed; server/frontend build, typecheck, targeted ESLint, health check, PM JSON parse, and git diff check passed",
     "regressed_files": []
   },
   "mcp_call_log": [
@@ -305,18 +313,7 @@
       }
     }
   ],
-  "pending_mutations": [
-    {
-      "task_id": "T-PH003-02",
-      "req_ids": [
-        "FR-MCP-002",
-        "IR-MCP-004",
-        "IR-MCP-005"
-      ],
-      "reason": "MCP mutation deferred to avoid docs/spec file changes outside worker write scope.",
-      "recorded_at": "2026-07-09T02:28:02.188Z"
-    }
-  ],
+  "pending_mutations": [],
   "tool_versions": {
     "kiwi_coder": "0.1.9"
   }

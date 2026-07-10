@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'https://localhost:2002';
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'https://localhost:2222';
 const webServerPort = Number(new URL(baseURL).port || 443);
 
 export default defineConfig({
@@ -31,9 +31,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    // Keep the default E2E loop on dev.js.
-    // Production smoke for shell/batch launchers uses: ./start.sh -p 2002 or start.bat -p 2002
-    command: 'cd .. && node dev.js',
+    command: 'cd .. && start.bat --port 2222',
     port: webServerPort,
     reuseExistingServer: true,
     timeout: 30000,

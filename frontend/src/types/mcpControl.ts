@@ -1,4 +1,21 @@
 export type McpClientConfigMode = 'env' | 'generated-file' | 'manual';
+export type McpAgentStatus = 'unknown' | 'starting' | 'ready' | 'busy' | 'waiting_input' | 'completed' | 'failed';
+export type McpBindingLifecycle = 'live' | 'closing' | 'closed' | 'retired' | 'failed' | 'closing-failed';
+
+export interface McpRecentAuditEvent {
+  auditId?: string;
+  timestamp?: string;
+  action?: string;
+  category?: string;
+  result?: string;
+  reason?: string;
+  code?: string;
+  targetBinding?: unknown;
+  target?: unknown;
+  promptHash?: string;
+  promptPreview?: string;
+  [key: string]: unknown;
+}
 
 export interface McpControlConfig {
   enabled: boolean;
@@ -17,6 +34,8 @@ export interface McpControlConfig {
     windowSeconds: number;
     burstLimit: number;
   };
+  fixedAccessKeyConfigured?: boolean;
+  recentAuditEvents?: McpRecentAuditEvent[];
 }
 
 export type McpControlConfigPatch = Partial<Pick<
@@ -47,7 +66,6 @@ export type McpAgentProfileInput = Partial<McpAgentProfile> & {
 export interface McpWebhookKey {
   keyId: string;
   id?: string;
-  keyHash?: string;
   maskedKey: string;
   targetSessionKey?: string;
   profileId?: string;
@@ -80,11 +98,11 @@ export interface McpSessionRecord {
   workspaceId?: string;
   tabId?: string;
   agentKind?: string;
-  agentStatus?: string;
+  agentStatus?: McpAgentStatus;
   status?: string;
   role?: string;
   leaderSessionKey?: string | null;
-  bindingLifecycle?: string;
+  bindingLifecycle?: McpBindingLifecycle;
   mcpConnected?: boolean;
   leader?: boolean;
   lastSeenAt?: string;
@@ -92,6 +110,17 @@ export interface McpSessionRecord {
   recoveryCommand?: string;
   matchReason?: string;
   closeConfirmationNonce?: string;
+}
+
+export interface McpSessionClaimCode {
+  ok: true;
+  sessionKey: string;
+  claimCode: string;
+}
+
+export interface McpFixedAccessKeyRotation {
+  ok: true;
+  accessKey: string;
 }
 
 export interface McpSessionListResponse {

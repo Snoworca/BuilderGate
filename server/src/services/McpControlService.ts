@@ -33,6 +33,8 @@ type McpControlDeps = {
   closeLifecycle?: (request: unknown) => unknown;
   mutateProfile?: (request: unknown) => unknown;
   mutateWebhook?: (request: unknown) => unknown;
+  createSessionClaimCode?: (request: unknown) => unknown;
+  rotateFixedAccessKey?: () => unknown | Promise<unknown>;
 };
 
 const ALLOWED_CONFIG_MODES = new Set(['env', 'generated-file', 'manual']);
@@ -69,6 +71,7 @@ export function createMcpControlService(deps: McpControlDeps = {}): StringRecord
       trustedProxies: asStringArray(controlConfig.trustedProxies),
       externalWhitelist: asStringArray(controlConfig.externalWhitelist),
       allowedOrigins: asStringArray(controlConfig.allowedOrigins),
+      fixedAccessKeyConfigured: controlConfig.fixedAccessKeyConfigured === true,
       status: asString(controlConfig.status) ?? 'stopped',
       lastError: controlConfig.lastError ?? null,
       lastRebindResult: controlConfig.lastRebindResult ?? null,
@@ -118,6 +121,23 @@ export function createMcpControlService(deps: McpControlDeps = {}): StringRecord
       }
     }
     return getConfig({ auth: { type: 'browser-jwt' } });
+  };
+
+  const rotateFixedAccessKey = async (request: unknown): Promise<StringRecord> => {
+    const boundary = requireUiAuth(request, true);
+    if (boundary) {
+      return boundary;
+    }
+    const rotated = asRecord(await callMaybeAsync(deps.rotateFixedAccessKey, {}));
+    if (rotated.ok === false) {
+      return rotated;
+    }
+    const accessKey = asString(rotated.accessKey);
+    if (!accessKey) {
+      return { ok: false, code: 'MCP_FIXED_ACCESS_KEY_ROTATION_FAILED', auditId: createAuditId() };
+    }
+    controlConfig.fixedAccessKeyConfigured = true;
+    return { ok: true, accessKey };
   };
 
   const createAgentProfile = async (request: unknown): Promise<StringRecord> => {
@@ -335,6 +355,44 @@ export function createMcpControlService(deps: McpControlDeps = {}): StringRecord
     };
   };
 
+  const createSessionClaimCode = async (request: unknown): Promise<StringRecord> => {
+    const boundary = requireUiAuth(request, true);
+    if (boundary) {
+      return boundary;
+    }
+    const input = asRecord(request);
+    const sessionKey = asString(input.sessionKey);
+    if (!sessionKey) {
+      return validationError({ sessionKey: 'required' });
+    }
+    const listed = deps.listSessions
+      ? await callMaybeAsync(deps.listSessions, { includeSelf: true })
+      : filterSessions(deps, undefined, true, undefined, sessionStatus);
+    const listedRecord = asRecord(listed);
+    if (!Array.isArray(listed) && isMcpControlFailure(listedRecord)) {
+      return listedRecord;
+    }
+    const sessions = Array.isArray(listed)
+      ? listed.map(asRecord)
+      : Array.isArray(listedRecord.sessions) ? listedRecord.sessions.map(asRecord) : [];
+    const session = sessions.find(item => asString(item.sessionKey) === sessionKey);
+    if (!session) {
+      return { ok: false, code: 'TARGET_NOT_FOUND', auditId: createAuditId() };
+    }
+    if (asString(session.bindingLifecycle) && asString(session.bindingLifecycle) !== 'live') {
+      return { ok: false, code: 'TARGET_NOT_LIVE', auditId: createAuditId() };
+    }
+    const issued = asRecord(await callMaybeAsync(deps.createSessionClaimCode, {
+      sessionKey,
+      leaderSessionKey: asString(session.leaderSessionKey),
+    }));
+    const claimCode = asString(issued.claimCode);
+    if (!claimCode) {
+      return { ok: false, code: 'MCP_CLAIM_CODE_ISSUE_FAILED', auditId: createAuditId() };
+    }
+    return { ok: true, sessionKey, claimCode };
+  };
+
   const setSessionAlias = async (request: unknown): Promise<StringRecord> => {
     const boundary = requireUiAuth(request, true);
     if (boundary) {
@@ -427,6 +485,7 @@ export function createMcpControlService(deps: McpControlDeps = {}): StringRecord
     }
     const closeRequest = {
       sessionKey,
+      expectedSessionKey: sessionKey,
       confirmClose: true,
       confirmationNonce: asString(input.confirmationNonce),
     };
@@ -487,6 +546,7 @@ export function createMcpControlService(deps: McpControlDeps = {}): StringRecord
   return {
     getConfig,
     setConfig,
+    rotateFixedAccessKey,
     createAgentProfile,
     updateAgentProfile,
     createWebhook,
@@ -496,6 +556,7 @@ export function createMcpControlService(deps: McpControlDeps = {}): StringRecord
     listSessions,
     searchSessions,
     searchTest,
+    createSessionClaimCode,
     setSessionAlias,
     replyTest,
     closeSession,

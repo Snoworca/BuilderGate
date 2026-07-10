@@ -439,6 +439,14 @@ export function createWebhookRecordFileStore(options: { dataPath?: string } = {}
   };
 }
 
+export function sanitizeWebhookPublicRecord(value: unknown): StringRecord {
+  const record = { ...asRecord(value) };
+  delete record.keyHash;
+  delete record.fullKey;
+  delete record.fullUrl;
+  return record;
+}
+
 function normalizeWebhookRecords(deps: WebhookInvocationDeps): StringRecord[] {
   const records = Array.isArray(deps.webhookRecords) ? deps.webhookRecords.map(asRecord) : [];
   const record = asRecord(deps.webhookRecord);

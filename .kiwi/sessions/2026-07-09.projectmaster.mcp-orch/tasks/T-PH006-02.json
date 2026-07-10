@@ -1,0 +1,88 @@
+{
+  "task_id": "T-PH006-02",
+  "started_at": "2026-07-09T04:39:30.000Z",
+  "completed_at": "2026-07-10T01:26:12.000Z",
+  "phase1": {
+    "implementation": {
+      "files_changed": [
+        "server/src/index.ts",
+        "server/src/services/McpToolService.ts",
+        "server/src/services/WebhookInvocationService.ts",
+        "server/src/services/McpNodeHttpListener.ts",
+        "server/src/test-runner.ts"
+      ],
+      "req_ids": [
+        "FR-MCP-004",
+        "IR-MCP-002",
+        "IR-MCP-003",
+        "IR-MCP-004",
+        "IR-MCP-005",
+        "SEC-MCP-001"
+      ],
+      "summary": "Implemented webhook/control REST hardening, public webhook redaction, MCP control status audit exposure, message.send alias/sessionId targeting, stale previous-session-id rejection, duplicate target ambiguity, reply_to_leader delivery, prompt validation, and a direct_tls-capable MCP node HTTP listener."
+    }
+  },
+  "phase2": {
+    "verification": {
+      "build": {
+        "command": "cd server; npm run build",
+        "exit_code": 0,
+        "timestamp": "2026-07-10T01:20:00.000Z"
+      },
+      "tests": {
+        "command": "cd server; npx tsx src/test-runner.ts",
+        "exit_code": 0,
+        "passed": 485,
+        "failed": 0,
+        "timestamp": "2026-07-10T01:24:45.000Z"
+      },
+      "diff_check": {
+        "command": "git diff --check",
+        "exit_code": 0,
+        "note": "CRLF warning only",
+        "timestamp": "2026-07-10T01:26:12.000Z"
+      }
+    },
+    "prickly_review": {
+      "reviewer": "Hooke",
+      "rounds": [
+        {
+          "iter": 1,
+          "severity_summary": {
+            "CRITICAL": 0,
+            "HIGH": 2,
+            "MEDIUM": 0,
+            "LOW": 0
+          },
+          "status": "findings-fixed"
+        },
+        {
+          "iter": 2,
+          "severity_summary": {
+            "CRITICAL": 0,
+            "HIGH": 0,
+            "MEDIUM": 0,
+            "LOW": 1
+          },
+          "status": "low-finding-fixed"
+        },
+        {
+          "iter": 3,
+          "severity_summary": {
+            "CRITICAL": 0,
+            "HIGH": 0,
+            "MEDIUM": 0,
+            "LOW": 0
+          },
+          "status": "No findings",
+          "final_findings": 0
+        }
+      ],
+      "status": "No findings",
+      "final_findings": 0
+    }
+  },
+  "phase3": {
+    "pending_mutations": []
+  }
+}

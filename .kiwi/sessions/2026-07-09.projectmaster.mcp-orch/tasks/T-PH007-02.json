@@ -1,0 +1,51 @@
+{
+  "task_id": "T-PH007-02",
+  "started_at": "2026-07-10T00:20:00.000Z",
+  "completed_at": "2026-07-10T01:26:12.000Z",
+  "phase1": {
+    "implementation": {
+      "files_changed": [
+        "frontend/src/components/McpControlManager/McpControlDialog.css",
+        "frontend/src/components/McpControlManager/McpControlDialog.tsx",
+        "frontend/src/components/McpControlManager/mcpControlDialogModel.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/types/mcpControl.ts",
+        "frontend/tests/unit/mcpControlDialog.test.ts"
+      ],
+      "req_ids": [
+        "FR-MCP-005",
+        "IR-MCP-002",
+        "IR-MCP-003",
+        "IR-MCP-005"
+      ],
+      "summary": "Implemented the desktop Tools menu MCP settings surface with Security whitelist controls, editable agent profile fields, default profile flag, alias display, status/lifecycle formatting, recent audit event rendering, masked webhook surfaces, and reply test default Hello, World! submitted through the Enter path."
+    }
+  },
+  "phase2": {
+    "verification": {
+      "typecheck": {
+        "command": "cd frontend; npm run typecheck",
+        "exit_code": 0,
+        "timestamp": "2026-07-10T01:16:56.000Z"
+      },
+      "lint": {
+        "command": "cd frontend; npx eslint src/App.tsx src/components/Header/Header.tsx src/components/McpControlManager src/services/api.ts src/services/apiError.ts src/types/mcpControl.ts src/types/index.ts tests/unit/mcpControlDialog.test.ts tests/e2e/mcp-control-dialog.spec.ts",
+        "exit_code": 0,
+        "timestamp": "2026-07-10T01:16:56.000Z"
+      },
+      "build": {
+        "command": "cd frontend; npm run build",
+        "exit_code": 0,
+        "timestamp": "2026-07-10T01:17:10.000Z"
+      }
+    },
+    "review": {
+      "reviewer": "Noether/Locke",
+      "status": "No findings",
+      "final_findings": 0
+    }
+  },
+  "phase3": {
+    "pending_mutations": []
+  }
+}

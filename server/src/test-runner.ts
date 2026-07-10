@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { existsSync, writeFileSync as fsSyncWriteFile } from 'fs';
 import http from 'node:http';
+import https from 'node:https';
 import type net from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { Config } from './types/config.types.js';
@@ -47,6 +48,11 @@ import {
   buildMcpNodeRequestErrorResponse,
   readMcpIncomingRequestBody,
 } from './services/McpNodeHttpBoundary.js';
+import {
+  classifyMcpBearerCredential,
+  closeMcpNodeHttpListener,
+  createMcpNodeHttpListener,
+} from './services/McpNodeHttpListener.js';
 import { buildMcpGatewayDeliveryResponse } from './services/McpGatewayDeliveryResult.js';
 import { applyMcpControlConfigPatch } from './services/McpControlConfigCoordinator.js';
 import { buildMcpControlRouteFailure, isMcpControlRouteFailure } from './services/McpControlRouteResult.js';
@@ -87,7 +93,8 @@ import { loadConfigFromPathStrict } from './utils/configStrictLoader.js';
 import { resolveInputReliabilityMode } from './utils/inputReliabilityMode.js';
 import { validatePasswordPolicy } from './utils/passwordPolicy.js';
 import { buildRecoveryRestoreInput, getRecoveryExecutableToken } from './utils/recoveryCommand.js';
-import { validateMcpWebhookKeyHeaderName } from './services/McpSecurityContract.js';
+import { mintMcpCapabilityToken, validateMcpWebhookKeyHeaderName, verifyMcpFixedAccessKey } from './services/McpSecurityContract.js';
+import { sanitizeWebhookPublicRecord } from './services/WebhookInvocationService.js';
 import express from 'express';
 import type { Request } from 'express';
 
@@ -238,6 +245,11 @@ async function main(): Promise<void> {
     { name: 'MCP security contract SEC-MCP-002 AC-7: webhook secrets use entropy, hashes, and one-time exposure', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-002_AC-7'] },
     { name: 'MCP security contract SEC-MCP-002 AC-8: webhook bindings constrain target, profile, mode, and scope', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-002_AC-8'] },
     { name: 'MCP security contract SEC-MCP-002 AC-9: policy denials use stable MCP codes', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-002_AC-9'] },
+    { name: 'MCP security contract SEC-MCP-002 AC-10: fixed access key is hashed and least-privilege', run: mcpSecurityContractRedTests['Security_contract_red_tests_SEC-MCP-002_AC-10'] },
+    { name: 'MCP fixed access key Bearer resolves to a limited non-session actor', run: testMcpFixedAccessKeyBearerTransport },
+    { name: 'MCP HTTP initialize authenticates fixed keys and rejects browser or missing credentials', run: testMcpFixedAccessKeyHttpAuthentication },
+    { name: 'MCP fixed access key hash persists across config updates without plaintext', run: testMcpFixedAccessKeyHashPersistence },
+    { name: 'MCP claim code issuance expires and prunes bounded records', run: testMcpClaimCodeIssuanceBounds },
     { name: 'MCP security contract IR-MCP-005 AC-1: whitelist empty and nonmatch codes take precedence', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-1'] },
     { name: 'MCP security contract IR-MCP-005 AC-2: promptPreview is redacted, normalized, and bounded', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-2'] },
     { name: 'MCP security contract IR-MCP-005 AC-3: recent audit status is bounded and redacted', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-3'] },
@@ -296,6 +308,7 @@ async function main(): Promise<void> {
     { name: 'MCP transport/tool IR-MCP-001 AC-3: claim mints token once and rejects reuse', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_IR-MCP-001_AC-3'] },
     { name: 'MCP transport/tool IR-MCP-001 AC-4: validation and policy failures use stable codes', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_IR-MCP-001_AC-4'] },
     { name: 'MCP transport/tool IR-MCP-001 AC-5: Streamable HTTP JSON stays UTF-8 with ASCII tool names', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_IR-MCP-001_AC-5'] },
+    { name: 'MCP Claude Code compatibility: bootstrap session claims before protected tools', run: mcpTransportAndToolRedTests['MCP_Claude_Code_compatibility_bootstrap_session_claims_before_protected_tools'] },
     { name: 'MCP transport/tool OBS-MCP-001 AC-1: tool calls emit redacted audit events', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-1'] },
     { name: 'MCP transport/tool OBS-MCP-001 AC-2: logs and status omit secrets and raw prompts', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-2'] },
     { name: 'MCP transport/tool OBS-MCP-001 AC-3: listener status exposes health and reject counters', run: mcpTransportAndToolRedTests['MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-3'] },
@@ -352,6 +365,8 @@ async function main(): Promise<void> {
     { name: 'MCP webhook/control IR-MCP-003 AC-8: header-only webhook key is accepted', run: webhookAndControlRestRedTests['Webhook_control_red_tests_IR-MCP-003_AC-8'] },
     { name: 'MCP webhook/control IR-MCP-003 AC-9: query/header key conflict rejects', run: webhookAndControlRestRedTests['Webhook_control_red_tests_IR-MCP-003_AC-9'] },
     { name: 'MCP webhook/control IR-MCP-003 AC-10: agentStatus enum is consistent', run: webhookAndControlRestRedTests['Webhook_control_red_tests_IR-MCP-003_AC-10'] },
+    { name: 'MCP manual client claim code is UI-auth only and bound to a live session', run: webhookAndControlRestRedTests['MCP_manual_client_claim_code_is_UI_auth_only_and_bound_to_a_live_session'] },
+    { name: 'MCP fixed access key rotation is UI-auth only and one-time', run: testMcpFixedAccessKeyControlRotation },
     { name: 'MCP webhook/control IR-MCP-004 AC-1: create/rotate are only full secret surfaces', run: webhookAndControlRestRedTests['Webhook_control_red_tests_IR-MCP-004_AC-1'] },
     { name: 'MCP webhook/control IR-MCP-004 AC-2: webhook header defaults and custom names validate', run: webhookAndControlRestRedTests['Webhook_control_red_tests_IR-MCP-004_AC-2'] },
     { name: 'MCP webhook/control IR-MCP-004 AC-3: rate limit is per key and client IP', run: webhookAndControlRestRedTests['Webhook_control_red_tests_IR-MCP-004_AC-3'] },
@@ -581,9 +596,17 @@ async function main(): Promise<void> {
     { name: 'authRoutes totp-qr reads the latest TOTP runtime instance', run: testAuthRoutesTotpQrLatestRuntime },
   ];
 
+  const testFilter = process.env.BUILDERGATE_TEST_FILTER?.trim().toLowerCase();
+  const selectedTests = testFilter
+    ? tests.filter(testCase => testCase.name.toLowerCase().includes(testFilter))
+    : tests;
+  if (testFilter && selectedTests.length === 0) {
+    throw new Error(`No tests matched BUILDERGATE_TEST_FILTER=${testFilter}`);
+  }
+
   let failures = 0;
 
-  for (const testCase of tests) {
+  for (const testCase of selectedTests) {
     try {
       await testCase.run();
       console.log(`PASS ${testCase.name}`);
@@ -600,7 +623,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  console.log(`\n${tests.length} test(s) passed`);
+  console.log(`\n${selectedTests.length} test(s) passed`);
 }
 
 interface BoundedByteDequeResult {
@@ -5299,6 +5322,7 @@ const mcpSecurityContractRedTests: Record<string, () => Promise<void>> = {
   'Security_contract_red_tests_SEC-MCP-002_AC-7': testMcpSecuritySecMcp002Ac7,
   'Security_contract_red_tests_SEC-MCP-002_AC-8': testMcpSecuritySecMcp002Ac8,
   'Security_contract_red_tests_SEC-MCP-002_AC-9': testMcpSecuritySecMcp002Ac9,
+  'Security_contract_red_tests_SEC-MCP-002_AC-10': testMcpSecuritySecMcp002Ac10,
   'Security_contract_red_tests_IR-MCP-005_AC-1': testMcpSecurityIrMcp005Ac1,
   'Security_contract_red_tests_IR-MCP-005_AC-2': testMcpSecurityIrMcp005Ac2,
   'Security_contract_red_tests_IR-MCP-005_AC-3': testMcpSecurityIrMcp005Ac3,
@@ -5873,6 +5897,218 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
     assert.equal(sendResult.ok, true);
     assert.equal(typeof sendResult.assignmentId, 'string');
 
+    const authenticatedAliasSend = asRecord(await callMcpHttpHandler(authenticatedHandler, {
+      method: 'POST',
+      path: '/mcp',
+      headers: sharedAuthHeaders,
+      credential,
+      body: Buffer.from(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 105,
+        method: 'tools/call',
+        params: {
+          name: 'buildergate.message.send',
+          arguments: { alias: '클로드', prompt: 'message by alias' },
+        },
+      }), 'utf8'),
+      remoteAddress: '127.0.0.1',
+    }), 'authenticated MCP message.send by alias response');
+    const aliasSendBody = asRecord(authenticatedAliasSend.body, 'authenticated MCP alias send JSON-RPC body');
+    const aliasSendResult = asRecord(aliasSendBody.result, 'authenticated MCP alias send result');
+    assert.equal(authenticatedAliasSend.status, 200);
+    assert.equal(aliasSendBody.id, 105);
+    assert.equal(aliasSendResult.ok, true);
+
+    const authenticatedSessionIdSend = asRecord(await callMcpHttpHandler(authenticatedHandler, {
+      method: 'POST',
+      path: '/mcp',
+      headers: sharedAuthHeaders,
+      credential,
+      body: Buffer.from(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 106,
+        method: 'tools/call',
+        params: {
+          name: 'buildergate.message.send',
+          arguments: { sessionId: 'target-current-session-id', prompt: 'message by runtime session id' },
+        },
+      }), 'utf8'),
+      remoteAddress: '127.0.0.1',
+    }), 'authenticated MCP message.send by sessionId response');
+    const sessionIdSendBody = asRecord(authenticatedSessionIdSend.body, 'authenticated MCP sessionId send JSON-RPC body');
+    const sessionIdSendResult = asRecord(sessionIdSendBody.result, 'authenticated MCP sessionId send result');
+    assert.equal(authenticatedSessionIdSend.status, 200);
+    assert.equal(sessionIdSendBody.id, 106);
+    assert.equal(sessionIdSendResult.ok, true);
+
+    const staleSessionIdService = await createMcpToolServiceHarness({
+      deps: {
+        sessions: [{
+          sessionId: 'target-current-session-id',
+          currentSessionId: 'target-current-session-id',
+          previousSessionIds: ['old-target-session-id'],
+          sessionKey: 'target-session',
+          alias: '클로드',
+          workspaceId: 'workspace-1',
+          tabId: 'tab-2',
+          bindingLifecycle: 'live',
+          agentStatus: 'ready',
+          mcpConnected: true,
+        }],
+      },
+    });
+    const staleSessionIdSend = asRecord(await callMcpToolService(staleSessionIdService, 'callTool', {
+      name: 'buildergate.message.send',
+      actor: createMcpActor(),
+      arguments: { sessionId: 'old-target-session-id', prompt: 'stale session id message' },
+    }), 'MCP message.send stale sessionId result');
+    assert.equal(staleSessionIdSend.ok, false);
+    assert.equal(staleSessionIdSend.code, 'STALE_SESSION_ID');
+    assert.equal(staleSessionIdSend.currentSessionId, 'target-current-session-id');
+
+    const staleTargetSend = asRecord(await callMcpToolService(staleSessionIdService, 'callTool', {
+      name: 'buildergate.message.send',
+      actor: createMcpActor(),
+      arguments: { target: 'old-target-session-id', prompt: 'stale generic target message' },
+    }), 'MCP message.send stale target sessionId result');
+    assert.equal(staleTargetSend.ok, false);
+    assert.equal(staleTargetSend.code, 'STALE_SESSION_ID');
+    assert.equal(staleTargetSend.currentSessionId, 'target-current-session-id');
+
+    const staleSearchTargetService = await createMcpToolServiceHarness({
+      deps: {
+        sessions: [{
+          sessionId: 'target-current-session-id',
+          currentSessionId: 'target-current-session-id',
+          sessionKey: 'target-session',
+          alias: '클로드',
+          workspaceId: 'workspace-1',
+          tabId: 'tab-2',
+          bindingLifecycle: 'live',
+          agentStatus: 'ready',
+          mcpConnected: true,
+        }],
+        searchSessions: () => ({
+          allowed: true,
+          matches: [{
+            sessionId: 'target-current-session-id',
+            currentSessionId: 'target-current-session-id',
+            sessionKey: 'target-session',
+            alias: '클로드',
+            matchSource: 'previous-session-id',
+            matchType: 'exact-previous-session-id',
+          }],
+        }),
+      },
+    });
+    const staleSearchTargetSend = asRecord(await callMcpToolService(staleSearchTargetService, 'callTool', {
+      name: 'buildergate.message.send',
+      actor: createMcpActor(),
+      arguments: { target: 'old-target-session-id', prompt: 'stale search target message' },
+    }), 'MCP message.send stale search target result');
+    assert.equal(staleSearchTargetSend.ok, false);
+    assert.equal(staleSearchTargetSend.code, 'STALE_SESSION_ID');
+    assert.equal(staleSearchTargetSend.currentSessionId, 'target-current-session-id');
+
+    const ambiguousAliasService = await createMcpToolServiceHarness({
+      deps: {
+        sessions: [
+          {
+            sessionId: 'sess-one-current',
+            currentSessionId: 'sess-one-current',
+            sessionKey: 'sess-one',
+            alias: 'builder',
+            workspaceId: 'workspace-1',
+            tabId: 'tab-one',
+            bindingLifecycle: 'live',
+            agentStatus: 'ready',
+            mcpConnected: true,
+          },
+          {
+            sessionId: 'sess-two-current',
+            currentSessionId: 'sess-two-current',
+            sessionKey: 'sess-two',
+            alias: 'builder',
+            workspaceId: 'workspace-1',
+            tabId: 'tab-two',
+            bindingLifecycle: 'live',
+            agentStatus: 'ready',
+            mcpConnected: true,
+          },
+        ],
+      },
+    });
+    const ambiguousAliasSend = asRecord(await callMcpToolService(ambiguousAliasService, 'callTool', {
+      name: 'buildergate.message.send',
+      actor: createMcpActor(),
+      arguments: { alias: 'builder', prompt: 'ambiguous alias message' },
+    }), 'MCP message.send ambiguous alias result');
+    assert.equal(ambiguousAliasSend.ok, false);
+    assert.equal(ambiguousAliasSend.code, 'AMBIGUOUS_TARGET');
+    assert.equal(asRecordArray(ambiguousAliasSend.matches, 'ambiguous alias matches').length, 2);
+
+    const replyDeliveries: Record<string, unknown>[] = [];
+    const replyService = await createMcpToolServiceHarness({
+      deps: {
+        sessions: [
+          {
+            sessionId: 'follower-current-session-id',
+            currentSessionId: 'follower-current-session-id',
+            sessionKey: 'follower-session',
+            alias: 'Follower',
+            leaderSessionKey: 'leader-session',
+            workspaceId: 'workspace-1',
+            tabId: 'tab-follower',
+            bindingLifecycle: 'live',
+            agentStatus: 'ready',
+            mcpConnected: true,
+          },
+          {
+            sessionId: 'leader-current-session-id',
+            currentSessionId: 'leader-current-session-id',
+            sessionKey: 'leader-session',
+            alias: 'Leader',
+            workspaceId: 'workspace-1',
+            tabId: 'tab-leader',
+            bindingLifecycle: 'live',
+            agentStatus: 'ready',
+            mcpConnected: true,
+          },
+        ],
+        deliverMessage: (delivery: unknown) => {
+          const record = asRecord(delivery, 'reply_to_leader delivery');
+          replyDeliveries.push(record);
+          return { ok: true, accepted: true, status: 'delivered', assignmentId: 'reply-assignment' };
+        },
+      },
+    });
+    const replyToLeader = asRecord(await callMcpToolService(replyService, 'callTool', {
+      name: 'buildergate.message.reply_to_leader',
+      actor: createMcpActor({ sessionKey: 'follower-session' }),
+      arguments: { prompt: 'reply to leader', deliveryMode: 'submit' },
+    }), 'MCP reply_to_leader result');
+    assert.equal(replyToLeader.ok, true);
+    assert.equal(replyDeliveries.length, 1);
+    assert.equal(replyDeliveries[0].sessionKey, 'leader-session');
+    assert.equal(replyDeliveries[0].source, 'mcp-reply-to-leader');
+
+    const missingPromptSend = asRecord(await callMcpToolService(replyService, 'callTool', {
+      name: 'buildergate.message.send',
+      actor: createMcpActor({ sessionKey: 'follower-session' }),
+      arguments: { sessionKey: 'leader-session' },
+    }), 'MCP message.send missing prompt result');
+    const emptyPromptReply = asRecord(await callMcpToolService(replyService, 'callTool', {
+      name: 'buildergate.message.reply_to_leader',
+      actor: createMcpActor({ sessionKey: 'follower-session' }),
+      arguments: { prompt: '   ', deliveryMode: 'paste' },
+    }), 'MCP reply_to_leader empty prompt result');
+    assert.equal(missingPromptSend.ok, false);
+    assert.equal(missingPromptSend.code, 'VALIDATION_ERROR');
+    assert.equal(asRecord(missingPromptSend.fieldErrors, 'missing prompt errors').prompt, 'required');
+    assert.equal(emptyPromptReply.ok, false);
+    assert.equal(emptyPromptReply.code, 'VALIDATION_ERROR');
+    assert.equal(asRecord(emptyPromptReply.fieldErrors, 'empty reply prompt errors').prompt, 'required');
+
     const failingDeliveryService = await createMcpToolServiceHarness({
       deps: {
         deliverMessage: () => ({
@@ -5953,7 +6189,28 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
     assert.equal(result.bindingLifecycle, 'live');
   },
   'MCP_transport_and_tool_red_tests_IR-MCP-001_AC-3': async () => {
-    const service = await createMcpToolServiceHarness();
+    const claimTokenMints: Record<string, unknown>[] = [];
+    const service = await createMcpToolServiceHarness({
+      deps: {
+        tokenStore: {
+          mint: (request: unknown) => {
+            const record = asRecord(request, 'claim token mint request');
+            claimTokenMints.push(record);
+            return mintMcpCapabilityToken({
+              audience: String(record.audience),
+              sessionKey: String(record.sessionKey),
+              scopes: Array.isArray(record.scopes) ? record.scopes.map(String) : [],
+              expiresInSeconds: Number(record.expiresInSeconds ?? 300),
+            });
+          },
+        },
+      },
+    });
+    const ordinaryDenied = asRecord(await callMcpToolService(service, 'callTool', {
+      name: 'buildergate.session.claim',
+      actor: createMcpActor({ sessionKey: undefined, scopes: [...expectedDefaultMcpScopes] }),
+      arguments: { claimCode: 'claim-once-code', sessionKey: 'manual-session-key' },
+    }), 'ordinary MCP actor claim denial');
     const first = asRecord(await callMcpToolService(service, 'callTool', {
       name: 'buildergate.session.claim',
       actor: createMcpActor({ sessionKey: undefined }),
@@ -5965,14 +6222,50 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
       arguments: { claimCode: 'claim-once-code', sessionKey: 'manual-session-key' },
     }), 'MCP claim reuse result');
 
+    assert.equal(ordinaryDenied.ok, false);
+    assert.equal(ordinaryDenied.code, 'INVALID_SCOPE');
     assert.equal(first.ok, true);
     assert.equal(typeof first.actorToken, 'string');
     assert.equal(first.sessionKey, 'manual-session-key');
     assert.deepEqual(readMcpTokenScopes(String(first.actorToken)).sort(), [...expectedDefaultMcpScopes].sort());
     assert.equal(readMcpTokenScopes(String(first.actorToken)).includes('mcp:session.open'), false);
     assert.equal(readMcpTokenScopes(String(first.actorToken)).includes('mcp:session.close_self'), false);
+    assert.equal(claimTokenMints.length, 1);
+    assert.equal(claimTokenMints[0].sessionKey, 'manual-session-key');
     assert.equal(second.ok, false);
     assert.equal(second.code, 'CLAIM_CODE_REUSED');
+
+    const expiredService = await createMcpToolServiceHarness({
+      deps: {
+        claimCodes: new Map([['claim-expired', {
+          sessionKey: 'manual-session-key',
+          used: false,
+          expiresAt: '2026-07-09T02:29:59.000Z',
+        }]]),
+      },
+    });
+    const expired = asRecord(await callMcpToolService(expiredService, 'callTool', {
+      name: 'buildergate.session.claim',
+      actor: createMcpActor({ sessionKey: undefined, scopes: ['mcp:session.claim'] }),
+      arguments: { claimCode: 'claim-expired', sessionKey: 'manual-session-key' },
+    }), 'expired claim denial');
+    assert.equal(expired.code, 'CLAIM_CODE_EXPIRED');
+
+    const deadSessionService = await createMcpToolServiceHarness({
+      deps: {
+        claimCodes: new Map([['claim-dead-session', {
+          sessionKey: 'dead-session-key',
+          used: false,
+          expiresAt: '2026-07-09T02:35:00.000Z',
+        }]]),
+      },
+    });
+    const deadSession = asRecord(await callMcpToolService(deadSessionService, 'callTool', {
+      name: 'buildergate.session.claim',
+      actor: createMcpActor({ sessionKey: undefined, scopes: ['mcp:session.claim'] }),
+      arguments: { claimCode: 'claim-dead-session', sessionKey: 'dead-session-key' },
+    }), 'dead claim session denial');
+    assert.equal(deadSession.code, 'TARGET_NOT_LIVE');
 
     const httpService = await createMcpToolServiceHarness();
     const contract = await loadMcpTransportToolContract();
@@ -5982,10 +6275,27 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
       service: httpService,
       listenerController: createController({ current: { bindHost: '127.0.0.1', port: 3333 } }),
     });
+    const initialized = asRecord(await callMcpHttpHandler(asRecord(httpHandler, 'MCP HTTP claim handler'), {
+      method: 'POST',
+      path: '/mcp',
+      headers: { 'content-type': 'application/json; charset=utf-8', authorization: 'Bearer claim-once-code' },
+      credential: classifyMcpBearerCredential('claim-once-code'),
+      body: Buffer.from(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 30,
+        method: 'initialize',
+        params: { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'manual', version: '1' } },
+      }), 'utf8'),
+      remoteAddress: '127.0.0.1',
+    }), 'MCP HTTP claim initialize response');
+    const mcpSessionId = String(asRecord(initialized.headers, 'MCP HTTP claim initialize headers')['mcp-session-id'] ?? '');
+    assert.equal(initialized.status, 200);
+    assert.match(mcpSessionId, /^[0-9a-f-]{36}$/iu);
     const httpClaim = asRecord(await callMcpHttpHandler(asRecord(httpHandler, 'MCP HTTP claim handler'), {
       method: 'POST',
       path: '/mcp',
-      headers: { 'content-type': 'application/json; charset=utf-8' },
+      headers: { 'content-type': 'application/json; charset=utf-8', 'mcp-session-id': mcpSessionId },
+      credential: classifyMcpBearerCredential('claim-once-code'),
       body: Buffer.from(JSON.stringify({
         jsonrpc: '2.0',
         id: 31,
@@ -6002,7 +6312,141 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
     assert.equal(httpClaim.status, 200);
     assert.equal(claimBody.id, 31);
     assert.equal(claimResult.ok, true);
-    assert.equal(typeof claimResult.actorToken, 'string');
+    assert.equal('actorToken' in claimResult, false);
+  },
+  'MCP_Claude_Code_compatibility_bootstrap_session_claims_before_protected_tools': async () => {
+    const contract = await loadMcpTransportToolContract();
+    const createHandler = getMcpTransportFunction(contract, 'createMcpHttpHandler');
+    const createController = getMcpTransportFunction(contract, 'createMcpListenerController');
+    const handler = asRecord(createHandler({
+      service: await createMcpToolServiceHarness({
+        deps: {
+          sessions: [{
+            sessionId: 'manual-current-session-id',
+            sessionKey: 'manual-session-key',
+            workspaceId: 'workspace-1',
+            tabId: 'tab-manual',
+            alias: '수동 Claude',
+            agentKind: 'claude',
+            bindingLifecycle: 'live',
+            agentStatus: 'ready',
+            mcpConnected: true,
+          }],
+        },
+      }),
+      listenerController: createController({ current: { bindHost: '127.0.0.1', port: 3333 } }),
+    }), 'Claude Code MCP HTTP handler');
+    const request = async (body: Record<string, unknown>, headers: Record<string, string> = {}) => asRecord(
+      await callMcpHttpHandler(handler, {
+        method: 'POST',
+        path: '/mcp',
+        headers: {
+          'content-type': 'application/json; charset=utf-8',
+          accept: 'application/json, text/event-stream',
+          ...headers,
+        },
+        credential: headers.authorization?.startsWith('Bearer ')
+          ? classifyMcpBearerCredential(headers.authorization.slice('Bearer '.length))
+          : undefined,
+        body: Buffer.from(JSON.stringify(body), 'utf8'),
+        remoteAddress: '127.0.0.1',
+      }),
+      'Claude Code MCP HTTP response',
+    );
+
+    const unauthenticated = await request({
+      jsonrpc: '2.0',
+      id: 101,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-11-25',
+        capabilities: {},
+        clientInfo: { name: 'Claude Code', version: '2.1.198' },
+      },
+    });
+    assert.equal(unauthenticated.status, 403);
+    assert.equal(asRecord(asRecord(unauthenticated.body, 'unauthenticated initialize body').error, 'unauthenticated initialize error').message, 'INVALID_TOKEN');
+
+    const initialized = await request({
+      jsonrpc: '2.0',
+      id: 101,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-11-25',
+        capabilities: {},
+        clientInfo: { name: 'Claude Code', version: '2.1.198' },
+      },
+    }, { authorization: 'Bearer claim-once-code' });
+    const initializedBody = asRecord(initialized.body, 'MCP initialize body');
+    const initializedResult = asRecord(initializedBody.result, 'MCP initialize result');
+    const mcpSessionId = String(asRecord(initialized.headers, 'MCP initialize headers')['mcp-session-id'] ?? '');
+    assert.equal(initialized.status, 200);
+    assert.equal(initializedBody.id, 101);
+    assert.equal(initializedResult.protocolVersion, '2025-11-25');
+    assert.equal(asRecord(initializedResult.serverInfo, 'MCP server info').name, 'BuilderGate MCP Server');
+    assert.match(mcpSessionId, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu);
+
+    const ready = await request({
+      jsonrpc: '2.0',
+      method: 'notifications/initialized',
+      params: {},
+    }, { 'mcp-session-id': mcpSessionId, authorization: 'Bearer claim-once-code' });
+    assert.equal(ready.status, 202);
+
+    const bootstrapTools = await request({
+      jsonrpc: '2.0',
+      id: 102,
+      method: 'tools/list',
+      params: {},
+    }, { 'mcp-session-id': mcpSessionId, authorization: 'Bearer claim-once-code' });
+    const bootstrapToolList = asRecordArray(
+      asRecord(asRecord(bootstrapTools.body, 'bootstrap tools body').result, 'bootstrap tools result').tools,
+      'bootstrap tool list',
+    );
+    assert.deepEqual(bootstrapToolList.map(tool => tool.name), ['buildergate.session.claim']);
+
+    const unboundWhoami = await request({
+      jsonrpc: '2.0',
+      id: 102,
+      method: 'tools/call',
+      params: { name: 'buildergate.session.whoami', arguments: {} },
+    }, { 'mcp-session-id': mcpSessionId, authorization: 'Bearer claim-once-code' });
+    assert.equal(unboundWhoami.status, 403);
+    assert.equal(asRecord(unboundWhoami.body, 'unbound whoami body').error !== undefined, true);
+
+    const claimed = await request({
+      jsonrpc: '2.0',
+      id: 103,
+      method: 'tools/call',
+      params: {
+        name: 'buildergate.session.claim',
+        arguments: { claimCode: 'claim-once-code', sessionKey: 'manual-session-key' },
+      },
+    }, { 'mcp-session-id': mcpSessionId, authorization: 'Bearer claim-once-code' });
+    const claimedResult = asRecord(asRecord(claimed.body, 'claimed response body').result, 'claimed response result');
+    assert.equal(claimed.status, 200);
+    assert.equal(claimedResult.ok, true);
+    assert.equal('actorToken' in claimedResult, false);
+
+    const boundWhoami = await request({
+      jsonrpc: '2.0',
+      id: 104,
+      method: 'tools/call',
+      params: { name: 'buildergate.session.whoami', arguments: {} },
+    }, { 'mcp-session-id': mcpSessionId, authorization: 'Bearer claim-once-code' });
+    const boundResult = asRecord(asRecord(boundWhoami.body, 'bound whoami body').result, 'bound whoami result');
+    assert.equal(boundWhoami.status, 200);
+    assert.equal(boundResult.sessionKey, 'manual-session-key');
+
+    const get = asRecord(await callMcpHttpHandler(handler, {
+      method: 'GET',
+      path: '/mcp',
+      headers: { accept: 'text/event-stream', 'mcp-session-id': mcpSessionId },
+      body: Buffer.alloc(0),
+      remoteAddress: '127.0.0.1',
+    }), 'MCP GET response');
+    assert.equal(get.status, 405);
+    assert.equal(asRecord(get.headers, 'MCP GET headers').allow, 'POST');
   },
   'MCP_transport_and_tool_red_tests_IR-MCP-001_AC-4': async () => {
     const service = await createMcpToolServiceHarness();
@@ -6349,7 +6793,8 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
   'MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-6': async () => {
     const service = await createMcpToolServiceHarness();
     const manifest = asRecord(await callMcpToolService(service, 'getVerificationCoverage', {}), 'MCP verification coverage');
-    for (const lane of ['serverUnit', 'mcpStreamableHttp', 'frontendUnit', 'playwrightCoreE2E']) {
+    const coveredLanes = ['serverUnit', 'mcpStreamableHttp', 'frontendUnit', 'playwrightCoreE2E'];
+    for (const lane of coveredLanes) {
       const laneRecord = asRecord(manifest[lane], `coverage lane ${lane}`);
       const hasExplicitStatus = typeof laneRecord.status === 'string';
       const hasLegacyStatus = typeof laneRecord.covered === 'boolean' || typeof laneRecord.skipped === 'boolean';
@@ -6358,11 +6803,11 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
         ? String(laneRecord.status)
         : laneRecord.covered === true ? 'covered' : laneRecord.skipped === true ? 'skipped' : 'remaining';
       assert.ok(['covered', 'skipped', 'remaining'].includes(status), `${lane} coverage status must be explicit`);
-      if (status === 'skipped' || status === 'remaining') {
-        assert.notEqual(laneRecord.reason ?? laneRecord.evidence ?? laneRecord.reference, undefined, `${lane} coverage must carry reason, evidence, or reference`);
-      }
+      assert.equal(status, 'covered', `${lane} coverage should be covered after final MCP implementation`);
+      assert.notEqual(laneRecord.evidence ?? laneRecord.reference, undefined, `${lane} covered status must carry evidence`);
     }
-    for (const flow of ['loopbackSecurity', 'whitelistProxyRejection', 'toolSchemas', 'searchAndSend', 'openAgentReadyKickoff', 'replyToLeader', 'closeSelf', 'webhookKeyFlow', 'redaction', 'toolsDialog']) {
+    const coveredFlows = ['loopbackSecurity', 'whitelistProxyRejection', 'toolSchemas', 'searchAndSend', 'openAgentReadyKickoff', 'replyToLeader', 'closeSelf', 'webhookKeyFlow', 'redaction', 'toolsDialog'];
+    for (const flow of coveredFlows) {
       const flowRecord = asRecord(asRecord(manifest.flows, 'coverage flows')[flow], `coverage flow ${flow}`);
       const hasExplicitStatus = typeof flowRecord.status === 'string';
       const hasLegacyStatus = typeof flowRecord.covered === 'boolean' || typeof flowRecord.skipped === 'boolean';
@@ -6371,9 +6816,8 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
         ? String(flowRecord.status)
         : flowRecord.covered === true ? 'covered' : flowRecord.skipped === true ? 'skipped' : 'remaining';
       assert.ok(['covered', 'skipped', 'remaining'].includes(status), `${flow} coverage status must be explicit`);
-      if (status === 'skipped' || status === 'remaining') {
-        assert.notEqual(flowRecord.reason ?? flowRecord.evidence ?? flowRecord.reference, undefined, `${flow} coverage must carry reason, evidence, or reference`);
-      }
+      assert.equal(status, 'covered', `${flow} coverage should be covered after final MCP implementation`);
+      assert.notEqual(flowRecord.evidence ?? flowRecord.reference, undefined, `${flow} covered status must carry evidence`);
     }
   },
   'MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-7': async () => {
@@ -6668,9 +7112,6 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
       current: { bindHost: '127.0.0.1', port: 4441, transportSecurity: 'none' },
       bindListener: (candidate: unknown) => {
         const record = asRecord(candidate, 'MCP direct TLS bind candidate');
-        if (record.transportSecurity === 'direct_tls') {
-          throw new Error('MCP_DIRECT_TLS_REQUIRES_HTTPS_LISTENER');
-        }
         return {
           bindHost: record.bindHost,
           port: Number(record.port),
@@ -6684,12 +7125,82 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
     await callMcpListenerController(directTlsController, 'start', { enabled: true });
     const directTlsRebind = asRecord(await callMcpListenerController(directTlsController, 'rebind', {
       candidate: { bindHost: '127.0.0.1', port: 4441, transportSecurity: 'direct_tls' },
-    }), 'MCP direct TLS rebind on HTTP listener');
-    const directTlsStatus = asRecord(await callMcpListenerController(directTlsController, 'getStatus', {}), 'MCP direct TLS rollback status');
-    assert.equal(directTlsRebind.ok, false);
-    assert.equal(directTlsRebind.code, 'MCP_PORT_REBIND_FAILED');
-    assert.match(String(directTlsRebind.lastError), /MCP_DIRECT_TLS_REQUIRES_HTTPS_LISTENER/u);
-    assert.equal(asRecord(directTlsStatus.active, 'direct TLS rollback active').transportSecurity, 'none');
+    }), 'MCP direct TLS rebind on HTTPS-capable listener');
+    const directTlsStatus = asRecord(await callMcpListenerController(directTlsController, 'getStatus', {}), 'MCP direct TLS status');
+    assert.equal(directTlsRebind.ok, true);
+    assert.equal(asRecord(directTlsRebind.active, 'direct TLS active listener').transportSecurity, 'direct_tls');
+    assert.equal(asRecord(directTlsStatus.active, 'direct TLS status active').transportSecurity, 'direct_tls');
+
+    const previousServerRoot = process.env.BUILDERGATE_SERVER_ROOT;
+    const tlsRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-mcp-direct-tls-'));
+    let tlsHandle: unknown;
+    let tlsDispatchCount = 0;
+    try {
+      process.env.BUILDERGATE_SERVER_ROOT = tlsRoot;
+      tlsHandle = await createMcpNodeHttpListener({
+        bindHost: '127.0.0.1',
+        port: 0,
+        transportSecurity: 'direct_tls',
+      }, async (request) => {
+        tlsDispatchCount += 1;
+        const record = asRecord(request, 'direct TLS MCP request');
+        assert.equal(record.method, 'POST');
+        assert.equal(record.path, '/mcp');
+        assert.equal(asRecord(record.credential, 'direct TLS credential').token, 'direct-tls-token');
+        assert.ok(Buffer.isBuffer(record.body), 'direct TLS request body should be buffered');
+        assert.equal(asRecord(JSON.parse((record.body as Buffer).toString('utf-8')), 'direct TLS JSON-RPC body').method, 'ping');
+        return {
+          status: 200,
+          contentType: 'application/json; charset=utf-8',
+          body: { jsonrpc: '2.0', id: 'direct-tls', result: { ok: true } },
+        };
+      }, { sslConfig: { certPath: '', keyPath: '', caPath: '' } });
+      const directTlsPort = Number(asRecord(tlsHandle, 'direct TLS listener handle').port);
+      assert.ok(directTlsPort > 0, 'direct TLS listener must bind an OS-assigned port');
+      const directTlsResponseBody = await new Promise<string>((resolve, reject) => {
+        const payload = JSON.stringify({ jsonrpc: '2.0', id: 'direct-tls', method: 'ping' });
+        const req = https.request({
+          hostname: '127.0.0.1',
+          port: directTlsPort,
+          path: '/mcp',
+          method: 'POST',
+          rejectUnauthorized: false,
+          headers: {
+            authorization: 'Bearer direct-tls-token',
+            'content-type': 'application/json',
+            'content-length': Buffer.byteLength(payload),
+          },
+        }, (res) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+          res.on('error', reject);
+          res.on('end', () => {
+            assert.equal(res.statusCode, 200);
+            assert.match(String(res.headers['content-type'] ?? ''), /application\/json/u);
+            resolve(Buffer.concat(chunks).toString('utf-8'));
+          });
+        });
+        req.setTimeout(10_000, () => req.destroy(new Error('direct TLS MCP request timed out')));
+        req.on('error', reject);
+        req.end(payload);
+      });
+      assert.deepEqual(JSON.parse(directTlsResponseBody), {
+        jsonrpc: '2.0',
+        id: 'direct-tls',
+        result: { ok: true },
+      });
+      assert.equal(tlsDispatchCount, 1);
+    } finally {
+      if (tlsHandle) {
+        await closeMcpNodeHttpListener(tlsHandle);
+      }
+      if (previousServerRoot === undefined) {
+        delete process.env.BUILDERGATE_SERVER_ROOT;
+      } else {
+        process.env.BUILDERGATE_SERVER_ROOT = previousServerRoot;
+      }
+      await fs.rm(tlsRoot, { recursive: true, force: true });
+    }
   },
 };
 
@@ -6873,8 +7384,24 @@ async function createMcpToolServiceHarness(options: { calls?: McpHarnessCalls; d
         leader: false,
         lastSeenAt: '2026-07-09T02:30:00.000Z',
       },
+      {
+        sessionId: 'manual-current-session-id',
+        sessionKey: 'manual-session-key',
+        workspaceId: 'workspace-1',
+        tabId: 'tab-manual',
+        alias: '수동 클라이언트',
+        agentKind: 'claude',
+        bindingLifecycle: 'live',
+        agentStatus: 'ready',
+        mcpConnected: false,
+        lastSeenAt: '2026-07-09T02:30:00.000Z',
+      },
     ],
-    claimCodes: new Map([['claim-once-code', { sessionKey: 'manual-session-key', used: false }]]),
+    claimCodes: new Map([['claim-once-code', {
+      sessionKey: 'manual-session-key',
+      used: false,
+      expiresAt: '2026-07-09T02:35:00.000Z',
+    }]]),
     listener: {
       enabled: true,
       bindHost: '127.0.0.1',
@@ -7173,6 +7700,8 @@ const agentLifecycleRedTests: Record<string, () => Promise<void>> = {
     assert.equal(calls.broadcasts.some((event) => asRecord(event, 'broadcast event').type === 'tab:removed'), true);
     assert.equal(asRecord(calls.auditEvents.at(-1), 'close audit event').result, 'closed');
     assert.equal(asRecord(calls.cleanupEvidence.at(-1), 'cleanup evidence').processTreeCleanupStatus, 'completed');
+    assert.equal(calls.revokedTokens.length, 1);
+    assert.equal(asRecord(calls.revokedTokens[0], 'closed session token revocation').sessionKey, 'follower-session-key');
 
     const failedHarness = await createAgentLifecycleHarness({ closeFails: true });
     const failed = asRecord(await callObjectMethod(failedHarness.service, 'closeSession', {
@@ -7186,6 +7715,8 @@ const agentLifecycleRedTests: Record<string, () => Promise<void>> = {
     assert.equal(asRecord(failedHarness.calls.registryUpdates.at(-1), 'failed close registry update').bindingLifecycle, 'closing-failed');
     assert.equal(asRecord(failedHarness.calls.auditEvents.at(-1), 'failed close audit event').result, 'failed');
     assert.equal(asRecord(failedHarness.calls.cleanupEvidence.at(-1), 'failed close cleanup evidence').processTreeCleanupStatus, 'failed');
+    assert.equal(failedHarness.calls.revokedTokens.length, 1);
+    assert.equal(asRecord(failedHarness.calls.revokedTokens[0], 'failed close token revocation').sessionKey, 'follower-session-key');
   },
   'Agent_lifecycle_regression_tool_scope_gate': async () => {
     let delegated = 0;
@@ -7957,6 +8488,7 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
     assert.equal(close.ok, true);
     assert.equal(calls.replyGateway.length, 1);
     assert.equal(calls.closeLifecycle.length, 1);
+    assert.equal(asRecord(calls.closeLifecycle[0], 'control close lifecycle call').expectedSessionKey, 'follower-session');
     const pasteReplyCall = asRecord(calls.replyGateway[0], 'paste reply gateway call');
     const pasteReplyDelivery = asRecord(pasteReplyCall.delivery, 'paste reply delivery');
     assert.equal(pasteReplyCall.data, 'reply');
@@ -8091,6 +8623,33 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
     assert.equal(result.accepted, true);
     assert.equal(asRecord(calls.replyGateway[0], 'reply gateway call').source, 'mcp-reply-to-leader');
   },
+  'MCP_manual_client_claim_code_is_UI_auth_only_and_bound_to_a_live_session': async () => {
+    const { service, calls } = await createMcpControlHarness();
+    const issued = asRecord(await callObjectMethod(service, 'createSessionClaimCode', {
+      sessionKey: 'target-session',
+    }), 'manual client claim code');
+    assert.equal(issued.ok, true);
+    assert.equal(issued.sessionKey, 'target-session');
+    assert.equal(issued.claimCode, 'claim_target-session');
+    assert.equal(asRecord(calls.claimCodes[0], 'claim code request').sessionKey, 'target-session');
+
+    const listed = await callObjectMethod(service, 'listSessions', {});
+    assertNoSecretMaterial(listed, [String(issued.claimCode)]);
+
+    const denied = asRecord(await callObjectMethod(service, 'createSessionClaimCode', {
+      auth: { type: 'mcp-capability', token: 'mcp-token' },
+      sessionKey: 'target-session',
+    }), 'MCP actor claim-code denial');
+    assert.equal(denied.ok, false);
+    assert.equal(denied.code, 'CREDENTIAL_BOUNDARY_VIOLATION');
+
+    const missing = asRecord(await callObjectMethod(service, 'createSessionClaimCode', {
+      sessionKey: 'missing-session',
+    }), 'missing claim-code session');
+    assert.equal(missing.ok, false);
+    assert.equal(missing.code, 'TARGET_NOT_FOUND');
+    assert.equal(calls.claimCodes.length, 1);
+  },
   'Webhook_control_red_tests_IR-MCP-003_AC-4': async () => {
     const { service, calls } = await createMcpControlHarness();
     const missing = asRecord(await callObjectMethod(service, 'closeSession', { sessionKey: 'follower-session' }), 'missing close confirmation');
@@ -8107,7 +8666,20 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
       }
       assert.equal('fullKey' in record, false);
       assert.equal('fullUrl' in record, false);
+      assert.equal('keyHash' in record, false);
     }
+    const routePublicRecord = sanitizeWebhookPublicRecord({
+      keyId: 'wh_route',
+      keyHash: 'sha256:must-not-leak',
+      maskedKey: 'bgwh_****_route',
+      fullKey: 'webhook-full-key-route',
+      fullUrl: 'https://localhost:2222/webhook?key=webhook-full-key-route',
+      scopes: ['mcp:webhook.invoke'],
+      revoked: false,
+    });
+    assert.equal('keyHash' in routePublicRecord, false);
+    assert.equal('fullKey' in routePublicRecord, false);
+    assert.equal('fullUrl' in routePublicRecord, false);
   },
   'Webhook_control_red_tests_IR-MCP-003_AC-6': async () => {
     const { service } = await createMcpControlHarness();
@@ -8956,6 +9528,8 @@ async function createMcpControlHarness(options: Record<string, unknown> = {}): P
     profileMutations: [],
     webhookMutations: [],
     mutateConfig: [],
+    claimCodes: [],
+    fixedAccessKeyRotations: [],
   };
   const rawService = asRecord(createService({
     now: () => '2026-07-09T05:00:00.000Z',
@@ -9169,9 +9743,39 @@ async function createMcpControlHarness(options: Record<string, unknown> = {}): P
       calls.webhookMutations.push(asRecord(request, 'webhook mutation'));
       return { ok: true };
     },
+    createSessionClaimCode: (request: unknown) => {
+      const record = asRecord(request, 'session claim-code request');
+      calls.claimCodes.push(record);
+      return { claimCode: `claim_${record.sessionKey}` };
+    },
+    rotateFixedAccessKey: () => {
+      calls.fixedAccessKeyRotations.push({ requestedAt: '2026-07-09T05:00:00.000Z' });
+      return options.fixedAccessKeyRotationFails === true
+        ? { ok: false, code: 'MCP_CONTROL_CONFIG_PERSIST_FAILED' }
+        : { ok: true, accessKey: 'bgmcp_one-time-fixed-access-key' };
+    },
   }), 'MCP control service');
   const service = withDefaultControlUiAuth(rawService);
   return { service, calls };
+}
+
+async function testMcpFixedAccessKeyControlRotation(): Promise<void> {
+  const { service, calls } = await createMcpControlHarness();
+  const rotated = asRecord(await callObjectMethod(service, 'rotateFixedAccessKey', {}), 'fixed access key rotation result');
+  assert.equal(rotated.ok, true);
+  assert.equal(rotated.accessKey, 'bgmcp_one-time-fixed-access-key');
+  assert.equal(calls.fixedAccessKeyRotations.length, 1);
+
+  const config = asRecord(await callObjectMethod(service, 'getConfig', {}), 'fixed access key control config');
+  assert.equal(config.fixedAccessKeyConfigured, true);
+  assert.equal('accessKey' in config, false);
+
+  const denied = asRecord(await callObjectMethod(service, 'rotateFixedAccessKey', {
+    auth: { type: 'mcp-capability', token: 'mcp-token' },
+  }), 'fixed access key rotation auth denial');
+  assert.equal(denied.ok, false);
+  assert.equal(denied.code, 'CREDENTIAL_BOUNDARY_VIOLATION');
+  assert.equal(calls.fixedAccessKeyRotations.length, 1);
 }
 
 function withDefaultControlUiAuth(service: Record<string, unknown>): Record<string, unknown> {
@@ -10698,6 +11302,343 @@ async function testMcpSecuritySecMcp002Ac9(): Promise<void> {
   const codes = readDenialCodes(contract);
   for (const code of requiredMcpDenialCodes.slice(0, 11)) {
     assert.ok(codes.includes(code), `missing stable MCP denial code ${code}`);
+  }
+}
+
+async function testMcpSecuritySecMcp002Ac10(): Promise<void> {
+  const created = asRecord(await callMcpSecurityContract('createMcpFixedAccessKey'), 'fixed MCP access key creation result');
+  const accessKey = String(created.accessKey ?? '');
+  const keyHash = String(created.keyHash ?? '');
+
+  assert.match(accessKey, /^bgmcp_[A-Za-z0-9_-]+$/u);
+  assert.ok(Buffer.byteLength(accessKey, 'utf-8') >= 48);
+  assert.match(keyHash, /^sha256:[a-f0-9]{64}$/u);
+  assert.equal(created.persistedAccessKey, undefined);
+  assert.equal(await callMcpSecurityContract('verifyMcpFixedAccessKey', accessKey, keyHash), true);
+  assert.equal(await callMcpSecurityContract('verifyMcpFixedAccessKey', `${accessKey}x`, keyHash), false);
+
+  const scopes = await callMcpSecurityContract('getFixedMcpAccessKeyScopes');
+  assert.deepEqual([...scopes as string[]].sort(), [
+    'mcp:message.paste',
+    'mcp:message.submit',
+    'mcp:sessions.list',
+    'mcp:sessions.search',
+  ]);
+}
+
+async function testMcpFixedAccessKeyBearerTransport(): Promise<void> {
+  const created = asRecord(await callMcpSecurityContract('createMcpFixedAccessKey'), 'fixed MCP access key');
+  const accessKey = String(created.accessKey ?? '');
+  const keyHash = String(created.keyHash ?? '');
+  const scopes = await callMcpSecurityContract('getFixedMcpAccessKeyScopes') as string[];
+  const contract = await loadMcpTransportToolContract();
+  const createController = getMcpTransportFunction(contract, 'createMcpListenerController');
+  const controller = asRecord(createController({
+    current: { bindHost: '127.0.0.1', port: 2222 },
+    resolveFixedAccessKeyActor: (token: string) => verifyMcpFixedAccessKey(token, keyHash)
+      ? { type: 'mcp-fixed-access-key', scopes }
+      : undefined,
+  }), 'fixed MCP access key listener controller');
+
+  const accepted = asRecord(await callMcpListenerController(controller, 'evaluateRequest', {
+    remoteAddress: '127.0.0.1',
+    headers: {},
+    credential: { type: 'mcp-capability', token: accessKey },
+  }), 'fixed access key accepted request');
+  assert.equal(accepted.ok, true);
+  assert.equal(asRecord(accepted.actor, 'fixed access key actor').type, 'mcp-fixed-access-key');
+  assert.deepEqual(asRecord(accepted.actor, 'fixed access key actor').scopes, scopes);
+
+  const denied = asRecord(await callMcpListenerController(controller, 'evaluateRequest', {
+    remoteAddress: '127.0.0.1',
+    headers: {},
+    credential: { type: 'mcp-capability', token: `${accessKey}invalid` },
+  }), 'fixed access key denied request');
+  assert.equal(denied.ok, false);
+  assert.equal(denied.code, 'INVALID_TOKEN');
+  assert.equal(await callMcpSecurityContract('verifyMcpFixedAccessKey', accessKey, keyHash), true);
+}
+
+async function testMcpClaimCodeIssuanceBounds(): Promise<void> {
+  const contract = await loadMcpTransportToolContract();
+  const issueClaimCode = getMcpTransportFunction(contract, 'issueMcpClaimCode');
+  const claimCodes = new Map<string, Record<string, unknown>>([
+    ['claim-expired', {
+      sessionKey: 'expired-session',
+      used: false,
+      expiresAt: '2026-07-09T02:29:59.000Z',
+    }],
+    ['claim-used', {
+      sessionKey: 'used-session',
+      used: true,
+      expiresAt: '2026-07-09T02:40:00.000Z',
+    }],
+    ['claim-active', {
+      sessionKey: 'active-session',
+      used: false,
+      createdAt: '2099-01-01T00:00:00.000Z',
+      expiresAt: '2026-07-09T02:40:00.000Z',
+    }],
+    ['claim-active-newer', {
+      sessionKey: 'active-newer-session',
+      used: false,
+      createdAt: '2026-07-09T02:29:30.000Z',
+      expiresAt: '2026-07-09T02:40:00.000Z',
+    }],
+  ]);
+
+  const issued = asRecord(issueClaimCode(
+    claimCodes,
+    { sessionKey: 'new-session' },
+    {
+      now: () => '2026-07-09T02:30:00.000Z',
+      ttlMs: 60_000,
+      maxEntries: 2,
+    },
+  ), 'issued MCP claim code');
+
+  assert.match(String(issued.claimCode ?? ''), /^claim_[A-Za-z0-9_-]{43}$/u);
+  assert.equal(issued.sessionKey, 'new-session');
+  assert.equal(issued.createdAt, '2026-07-09T02:30:00.000Z');
+  assert.equal(issued.expiresAt, '2026-07-09T02:31:00.000Z');
+  assert.equal(claimCodes.has('claim-expired'), false);
+  assert.equal(claimCodes.has('claim-used'), false);
+  assert.equal(claimCodes.has('claim-active'), false);
+  assert.equal(claimCodes.has('claim-active-newer'), true);
+  assert.equal(claimCodes.size, 2);
+}
+
+async function testMcpFixedAccessKeyHttpAuthentication(): Promise<void> {
+  const created = asRecord(await callMcpSecurityContract('createMcpFixedAccessKey'), 'fixed MCP access key');
+  const accessKey = String(created.accessKey ?? '');
+  let activeHash = String(created.keyHash ?? '');
+  let now = 1_000;
+  let ordinarySessionLive = true;
+  const auditEvents: Record<string, unknown>[] = [];
+  const scopes = await callMcpSecurityContract('getFixedMcpAccessKeyScopes') as string[];
+  const contract = await loadMcpTransportToolContract();
+  const createHandler = getMcpTransportFunction(contract, 'createMcpHttpHandler');
+  const createController = getMcpTransportFunction(contract, 'createMcpListenerController');
+  const noBoundaryHandler = asRecord(createHandler({
+    service: await createMcpToolServiceHarness(),
+  }), 'MCP HTTP handler without listener controller');
+  const handler = asRecord(createHandler({
+    service: await createMcpToolServiceHarness(),
+    listenerController: createController({
+      current: { bindHost: '127.0.0.1', port: 2222 },
+      audit: (event: Record<string, unknown>) => auditEvents.push(event),
+      resolveFixedAccessKeyActor: (token: string) => verifyMcpFixedAccessKey(token, activeHash)
+        ? { type: 'mcp-fixed-access-key', scopes }
+        : undefined,
+      resolveSession: (sessionKey: string) => ({
+        sessionKey,
+        bindingLifecycle: sessionKey === 'self-session-key' && ordinarySessionLive ? 'live' : 'stopped',
+      }),
+    }),
+    now: () => now,
+    sessionTtlMs: 500,
+  }), 'fixed MCP HTTP handler');
+  const initializeBody = Buffer.from(JSON.stringify({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'initialize',
+    params: { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'test', version: '1' } },
+  }), 'utf8');
+  const request = (credential?: Record<string, unknown>) => callMcpHttpHandler(handler, {
+    method: 'POST',
+    path: '/mcp',
+    headers: { 'content-type': 'application/json; charset=utf-8' },
+    credential,
+    body: initializeBody,
+    remoteAddress: '127.0.0.1',
+  });
+
+  const missing = asRecord(await request(), 'missing fixed key initialize');
+  assert.equal(missing.status, 403);
+  const invalid = asRecord(await request({ type: 'mcp-capability', token: `${accessKey}invalid` }), 'invalid fixed key initialize');
+  assert.equal(invalid.status, 403);
+
+  const browserToken = `header.${Buffer.from(JSON.stringify({ sub: 'admin', jti: 'browser', exp: 9999999999 })).toString('base64url')}.signature`;
+  const browserCredential = classifyMcpBearerCredential(browserToken);
+  assert.equal(browserCredential.type, 'browser-jwt');
+  const unprotectedBrowser = asRecord(await callMcpHttpHandler(noBoundaryHandler, {
+    method: 'POST',
+    path: '/mcp',
+    headers: { 'content-type': 'application/json; charset=utf-8' },
+    credential: browserCredential,
+    body: initializeBody,
+    remoteAddress: '127.0.0.1',
+  }), 'browser JWT initialize without listener controller');
+  assert.equal(unprotectedBrowser.status, 403);
+  assert.equal(asRecord(asRecord(unprotectedBrowser.body, 'unprotected browser body').error, 'unprotected browser error').message, 'CREDENTIAL_BOUNDARY_VIOLATION');
+  const browser = asRecord(await request(browserCredential), 'browser JWT initialize');
+  assert.equal(asRecord(asRecord(browser.body, 'browser JWT body').error, 'browser JWT error').message, 'CREDENTIAL_BOUNDARY_VIOLATION');
+  assert.equal(auditEvents.some(event => event.code === 'CREDENTIAL_BOUNDARY_VIOLATION'), true);
+  assert.doesNotMatch(JSON.stringify(auditEvents), new RegExp(browserToken.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u'));
+
+  const initialized = asRecord(await request({ type: 'mcp-capability', token: accessKey }), 'valid fixed key initialize');
+  assert.equal(initialized.status, 200);
+  const sessionId = String(asRecord(initialized.headers, 'fixed key initialize headers')['mcp-session-id'] ?? '');
+  assert.match(sessionId, /^[0-9a-f-]{36}$/iu);
+
+  const missingSessionBearer = asRecord(await callMcpHttpHandler(handler, {
+    method: 'POST',
+    path: '/mcp',
+    headers: { 'content-type': 'application/json; charset=utf-8', 'mcp-session-id': sessionId },
+    body: Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 11, method: 'ping', params: {} }), 'utf8'),
+    remoteAddress: '127.0.0.1',
+  }), 'missing fixed key session bearer response');
+  assert.equal(missingSessionBearer.status, 403);
+  assert.equal(asRecord(asRecord(missingSessionBearer.body, 'missing bearer body').error, 'missing bearer error').message, 'INVALID_TOKEN');
+
+  const browserSessionCredential = asRecord(await callMcpHttpHandler(handler, {
+    method: 'POST',
+    path: '/mcp',
+    headers: { 'content-type': 'application/json; charset=utf-8', 'mcp-session-id': sessionId },
+    credential: browserCredential,
+    body: Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 12, method: 'ping', params: {} }), 'utf8'),
+    remoteAddress: '127.0.0.1',
+  }), 'browser JWT fixed key session response');
+  assert.equal(browserSessionCredential.status, 403);
+  assert.equal(asRecord(asRecord(browserSessionCredential.body, 'browser session body').error, 'browser session error').message, 'CREDENTIAL_BOUNDARY_VIOLATION');
+
+  const forbidden = asRecord(await callMcpHttpHandler(handler, {
+    method: 'POST',
+    path: '/mcp',
+    headers: { 'content-type': 'application/json; charset=utf-8', 'mcp-session-id': sessionId },
+    credential: { type: 'mcp-capability', token: accessKey },
+    body: Buffer.from(JSON.stringify({
+      jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'buildergate.session.open_agent', arguments: {} },
+    }), 'utf8'),
+    remoteAddress: '127.0.0.1',
+  }), 'fixed key forbidden tool response');
+  assert.equal(asRecord(asRecord(forbidden.body, 'forbidden response body').result, 'forbidden result').code, 'INVALID_SCOPE');
+
+  const fixedKeyClaim = asRecord(await callMcpHttpHandler(handler, {
+    method: 'POST',
+    path: '/mcp',
+    headers: { 'content-type': 'application/json; charset=utf-8', 'mcp-session-id': sessionId },
+    credential: { type: 'mcp-capability', token: accessKey },
+    body: Buffer.from(JSON.stringify({
+      jsonrpc: '2.0',
+      id: 21,
+      method: 'tools/call',
+      params: {
+        name: 'buildergate.session.claim',
+        arguments: { claimCode: 'claim-once-code', sessionKey: 'manual-session-key' },
+      },
+    }), 'utf8'),
+    remoteAddress: '127.0.0.1',
+  }), 'fixed key claim denial response');
+  assert.equal(asRecord(asRecord(fixedKeyClaim.body, 'fixed key claim body').result, 'fixed key claim result').code, 'INVALID_SCOPE');
+
+  const sessionCredential = await createValidMcpCredential('self-session-key');
+  const sessionInitialized = asRecord(await request(sessionCredential), 'ordinary session initialize');
+  const ordinarySessionId = String(asRecord(sessionInitialized.headers, 'ordinary session headers')['mcp-session-id'] ?? '');
+  ordinarySessionLive = false;
+  const stoppedSessionToken = asRecord(await callMcpHttpHandler(handler, {
+    method: 'POST',
+    path: '/mcp',
+    headers: { 'content-type': 'application/json; charset=utf-8', 'mcp-session-id': ordinarySessionId },
+    credential: sessionCredential,
+    body: Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 14, method: 'ping', params: {} }), 'utf8'),
+    remoteAddress: '127.0.0.1',
+  }), 'stopped session token response');
+  assert.equal(stoppedSessionToken.status, 403);
+  assert.equal(asRecord(asRecord(stoppedSessionToken.body, 'stopped session body').error, 'stopped session error').message, 'TOKEN_REVOKED');
+  ordinarySessionLive = true;
+  const mismatchedSessionBearer = asRecord(await callMcpHttpHandler(handler, {
+    method: 'POST',
+    path: '/mcp',
+    headers: { 'content-type': 'application/json; charset=utf-8', 'mcp-session-id': sessionId },
+    credential: sessionCredential,
+    body: Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 13, method: 'ping', params: {} }), 'utf8'),
+    remoteAddress: '127.0.0.1',
+  }), 'mismatched MCP session bearer response');
+  assert.equal(mismatchedSessionBearer.status, 403);
+  assert.equal(asRecord(asRecord(mismatchedSessionBearer.body, 'mismatched bearer body').error, 'mismatched bearer error').message, 'INVALID_TOKEN');
+  const sessionClaim = asRecord(await callMcpHttpHandler(handler, {
+    method: 'POST',
+    path: '/mcp',
+    headers: { 'content-type': 'application/json; charset=utf-8', 'mcp-session-id': ordinarySessionId },
+    credential: sessionCredential,
+    body: Buffer.from(JSON.stringify({
+      jsonrpc: '2.0',
+      id: 22,
+      method: 'tools/call',
+      params: {
+        name: 'buildergate.session.claim',
+        arguments: { claimCode: 'claim-once-code', sessionKey: 'manual-session-key' },
+      },
+    }), 'utf8'),
+    remoteAddress: '127.0.0.1',
+  }), 'ordinary session claim denial response');
+  assert.equal(asRecord(asRecord(sessionClaim.body, 'ordinary session claim body').result, 'ordinary session claim result').code, 'INVALID_SCOPE');
+
+  const rotated = asRecord(await callMcpSecurityContract('createMcpFixedAccessKey'), 'rotated MCP fixed key');
+  activeHash = String(rotated.keyHash ?? '');
+  const revoked = asRecord(await callMcpHttpHandler(handler, {
+    method: 'POST',
+    path: '/mcp',
+    headers: { 'content-type': 'application/json; charset=utf-8', 'mcp-session-id': sessionId },
+    credential: { type: 'mcp-capability', token: accessKey },
+    body: Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'ping', params: {} }), 'utf8'),
+    remoteAddress: '127.0.0.1',
+  }), 'revoked fixed key session response');
+  assert.equal(revoked.status, 403);
+
+  activeHash = String(rotated.keyHash ?? '');
+  const fresh = asRecord(await request({ type: 'mcp-capability', token: String(rotated.accessKey ?? '') }), 'fresh fixed key initialize');
+  const freshSessionId = String(asRecord(fresh.headers, 'fresh fixed key headers')['mcp-session-id'] ?? '');
+  const rotatedAccessKey = String(rotated.accessKey ?? '');
+  now += 501;
+  const expired = asRecord(await callMcpHttpHandler(handler, {
+    method: 'POST',
+    path: '/mcp',
+    headers: { 'content-type': 'application/json; charset=utf-8', 'mcp-session-id': freshSessionId },
+    credential: { type: 'mcp-capability', token: rotatedAccessKey },
+    body: Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 4, method: 'ping', params: {} }), 'utf8'),
+    remoteAddress: '127.0.0.1',
+  }), 'expired MCP HTTP session response');
+  assert.equal(expired.status, 404);
+}
+
+async function testMcpFixedAccessKeyHashPersistence(): Promise<void> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-mcp-fixed-key-'));
+  const configPath = path.join(tempDir, 'mcp-control-config.json');
+  try {
+    const created = asRecord(await callMcpSecurityContract('createMcpFixedAccessKey'), 'fixed MCP access key');
+    const accessKey = String(created.accessKey ?? '');
+    const keyHash = String(created.keyHash ?? '');
+    const store = asRecord(createMcpControlConfigFileStore({ dataPath: configPath }), 'MCP control config store');
+    const saveConfig = store.saveConfig as (config: unknown) => Promise<unknown>;
+    const loadConfig = store.loadConfig as () => Promise<unknown>;
+    const initialSave = asRecord(await saveConfig({
+      enabled: true,
+      bindMode: 'loopback',
+      host: '127.0.0.1',
+      port: 2222,
+      transportSecurity: 'none',
+      trustedProxies: [],
+      externalWhitelist: [],
+      allowedOrigins: [],
+      fixedAccessKeyHash: keyHash,
+    }), 'fixed access key initial config save');
+    assert.equal(initialSave.ok, true);
+    const rotated = asRecord(await callMcpSecurityContract('createMcpFixedAccessKey'), 'rotated fixed MCP access key');
+    const rotatedHash = String(rotated.keyHash ?? '');
+    const [rotationSave, updatedSave] = await Promise.all([
+      saveConfig({ fixedAccessKeyHash: rotatedHash }),
+      saveConfig({ allowedOrigins: ['https://localhost:2222'] }),
+    ]);
+    assert.equal(asRecord(rotationSave, 'fixed key rotation save').ok, true);
+    assert.equal(asRecord(updatedSave, 'fixed access key config update').ok, true);
+    const loaded = asRecord(await loadConfig(), 'fixed access key loaded config');
+    assert.equal(loaded.fixedAccessKeyHash, rotatedHash);
+    const persisted = await fs.readFile(configPath, 'utf-8');
+    assertNoSecretMaterial({ persisted }, [accessKey, String(rotated.accessKey ?? '')]);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
   }
 }
 

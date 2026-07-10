@@ -22,6 +22,10 @@ type McpToolServiceDeps = {
   searchSessions?: (actorSessionKey: string | undefined, query: string, includeSelf: boolean) => unknown | Promise<unknown>;
   setSessionAlias?: (targetSessionKey: string, alias: string, actorSessionKey: string | undefined) => unknown | Promise<unknown>;
   claimCodes?: Map<string, StringRecord>;
+  resolveClaimSession?: (sessionKey: string) => unknown;
+  tokenStore?: {
+    mint?: (request: StringRecord) => unknown | Promise<unknown>;
+  };
   listener?: StringRecord | (() => StringRecord);
   agentLifecycle?: {
     openAgent?: (request: unknown) => unknown | Promise<unknown>;
@@ -38,6 +42,39 @@ type McpToolServiceState = {
   listener: StringRecord;
 };
 
+type McpHttpTransportSession = {
+  protocolVersion: string;
+  credential: StringRecord;
+  bearerToken: string;
+  lastSeenAt: number;
+};
+
+type McpClaimCodeIssueOptions = {
+  now?: () => string;
+  ttlMs?: number;
+  maxEntries?: number;
+};
+
+type McpHttpHandlerInput = {
+  service: StringRecord;
+  listenerController?: StringRecord;
+  now?: () => number;
+  sessionTtlMs?: number;
+  maxSessions?: number;
+};
+
+const MCP_SESSION_HEADER = 'mcp-session-id';
+const DEFAULT_MCP_PROTOCOL_VERSION = '2025-11-25';
+const DEFAULT_MCP_HTTP_SESSION_TTL_MS = 10 * 60 * 1000;
+const DEFAULT_MCP_HTTP_MAX_SESSIONS = 256;
+const CLAIM_BOOTSTRAP_OPERATIONS = new Set([
+  'initialize',
+  'notifications/initialized',
+  'ping',
+  'tools/list',
+  'buildergate.session.claim',
+]);
+
 type ListenerControllerDeps = {
   current?: StringRecord;
   audit?: (event: StringRecord) => void;
@@ -45,6 +82,8 @@ type ListenerControllerDeps = {
   bindListener?: (candidate: StringRecord) => unknown | Promise<unknown>;
   closeListener?: (handle: unknown) => unknown | Promise<unknown>;
   isCredentialRevoked?: (credential: StringRecord) => boolean;
+  resolveFixedAccessKeyActor?: (token: string) => StringRecord | undefined;
+  resolveSession?: (sessionKey: string) => unknown;
 };
 
 export const BUILDERGATE_MCP_TOOL_NAMES = [
@@ -111,10 +150,13 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
     type: 'object',
     properties: {
       sessionKey: { type: 'string' },
+      sessionId: { type: 'string' },
+      alias: { type: 'string' },
+      target: { type: 'string' },
       prompt: { type: 'string' },
       deliveryMode: { type: 'string', enum: ['paste', 'submit'] },
     },
-    required: ['sessionKey', 'prompt'],
+    required: ['prompt'],
     additionalProperties: false,
   },
   'buildergate.session.set_alias': {
@@ -159,6 +201,7 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
       prompt: { type: 'string' },
       deliveryMode: { type: 'string', enum: ['paste', 'submit'] },
     },
+    required: ['prompt'],
     additionalProperties: false,
   },
   'buildergate.session.update_status': {
@@ -185,6 +228,7 @@ export function createMcpToolService(deps: McpToolServiceDeps = {}): StringRecor
   return {
     listTools: () => listTools(),
     callTool: (request: unknown) => callTool(deps, state, asRecord(request)),
+    validateClaimCode: (request: unknown) => validateClaimCode(deps, asRecord(request)),
     getStatus: () => getServiceStatus(deps, state),
     getAssignmentStatus: (request: unknown) => getAssignmentStatus(state, asRecord(request)),
     getVerificationCoverage: () => getVerificationCoverage(state),
@@ -192,11 +236,48 @@ export function createMcpToolService(deps: McpToolServiceDeps = {}): StringRecor
   };
 }
 
+// @req SEC-MCP-001
+export function issueMcpClaimCode(
+  claimCodes: Map<string, StringRecord>,
+  request: unknown,
+  options: McpClaimCodeIssueOptions = {},
+): StringRecord {
+  const createdAt = options.now?.() ?? new Date().toISOString();
+  const createdAtMs = Date.parse(createdAt);
+  const effectiveCreatedAtMs = Number.isFinite(createdAtMs) ? createdAtMs : Date.now();
+  const ttlMs = Math.max(1, options.ttlMs ?? 5 * 60 * 1000);
+  const maxEntries = Math.max(1, options.maxEntries ?? 256);
+
+  for (const [claimCode, claim] of claimCodes) {
+    const expiresAtMs = Date.parse(asString(claim.expiresAt) ?? '');
+    if (claim.used === true || !Number.isFinite(expiresAtMs) || expiresAtMs <= effectiveCreatedAtMs) {
+      claimCodes.delete(claimCode);
+    }
+  }
+  while (claimCodes.size >= maxEntries) {
+    const oldestClaimCode = claimCodes.keys().next().value as string | undefined;
+    if (!oldestClaimCode) break;
+    claimCodes.delete(oldestClaimCode);
+  }
+
+  const claimCode = `claim_${crypto.randomBytes(32).toString('base64url')}`;
+  const record = {
+    ...asRecord(request),
+    claimCode,
+    used: false,
+    createdAt: new Date(effectiveCreatedAtMs).toISOString(),
+    expiresAt: new Date(effectiveCreatedAtMs + ttlMs).toISOString(),
+  };
+  claimCodes.set(claimCode, record);
+  return { ...record };
+}
+
 // @req IR-MCP-001
 // @req SEC-MCP-001
-export function createMcpHttpHandler(input: { service: StringRecord; listenerController?: StringRecord }): StringRecord {
+export function createMcpHttpHandler(input: McpHttpHandlerInput): StringRecord {
+  const sessions = new Map<string, McpHttpTransportSession>();
   return {
-    handleRequest: async (request: unknown) => handleMcpHttpRequest(input, asRecord(request)),
+    handleRequest: async (request: unknown) => handleMcpHttpRequest(input, asRecord(request), sessions),
   };
 }
 
@@ -286,11 +367,19 @@ export function createMcpListenerController(deps: ListenerControllerDeps = {}): 
       };
     },
     evaluateRequest: (request: unknown) => {
-      const credential = asRecord(asRecord(request).credential);
-      if (deps.isCredentialRevoked?.(credential) === true) {
+      const requestRecord = asRecord(request);
+      const credential = asRecord(requestRecord.credential);
+      const fixedAccessKeyActor = credential.type === 'mcp-capability' && asString(credential.token)
+        ? asRecord(deps.resolveFixedAccessKeyActor?.(asString(credential.token) ?? ''))
+        : {};
+      const hasFixedAccessKeyActor = fixedAccessKeyActor.type === 'mcp-fixed-access-key';
+      const effectiveRequest = hasFixedAccessKeyActor
+        ? { ...requestRecord, credential: fixedAccessKeyActor }
+        : requestRecord;
+      if (!hasFixedAccessKeyActor && deps.isCredentialRevoked?.(credential) === true) {
         const auditId = createAuditId();
         rejectedRequestCounters.TOKEN_REVOKED = (rejectedRequestCounters.TOKEN_REVOKED ?? 0) + 1;
-        emitListenerAudit(deps, asRecord(request), {
+        emitListenerAudit(deps, effectiveRequest, {
           auditId,
           code: 'TOKEN_REVOKED',
           result: 'denied',
@@ -299,18 +388,32 @@ export function createMcpListenerController(deps: ListenerControllerDeps = {}): 
       }
       const result = evaluateMcpTransportRequest({
         config: listenerConfigFromActive(active),
-        ...asRecord(request),
+        ...effectiveRequest,
       });
       if (result.ok === false) {
         const code = String(result.code);
         rejectedRequestCounters[code] = (rejectedRequestCounters[code] ?? 0) + 1;
         const auditId = asString(result.auditId) ?? createAuditId();
-        emitListenerAudit(deps, asRecord(request), {
+        emitListenerAudit(deps, effectiveRequest, {
           auditId,
           code,
           result: 'denied',
         });
         return { ...result, auditId, dispatched: false };
+      }
+      const actorSessionKey = asString(asRecord(result.actor).sessionKey);
+      if (actorSessionKey && deps.resolveSession) {
+        const session = asRecord(deps.resolveSession(actorSessionKey));
+        if (asString(session.sessionKey) !== actorSessionKey || asString(session.bindingLifecycle) !== 'live') {
+          const auditId = createAuditId();
+          rejectedRequestCounters.TOKEN_REVOKED = (rejectedRequestCounters.TOKEN_REVOKED ?? 0) + 1;
+          emitListenerAudit(deps, effectiveRequest, {
+            auditId,
+            code: 'TOKEN_REVOKED',
+            result: 'denied',
+          });
+          return { ok: false, code: 'TOKEN_REVOKED', auditId, dispatched: false };
+        }
       }
       return { ...result, dispatched: true };
     },
@@ -461,10 +564,18 @@ export function evaluateMcpTransportRequest(input: unknown): StringRecord {
       actor: sanitizeActor(credential),
     };
   }
+  if (credential.type === 'mcp-fixed-access-key') {
+    return {
+      ok: true,
+      actor: sanitizeActor(credential),
+    };
+  }
+  const bootstrapOperation = asString(request.bootstrapOperation) ?? asString(request.requestedToolName);
   if (
     credential.type === 'mcp-claim-bootstrap'
     && request.allowClaimBootstrap === true
-    && asString(request.requestedToolName) === 'buildergate.session.claim'
+    && bootstrapOperation
+    && CLAIM_BOOTSTRAP_OPERATIONS.has(bootstrapOperation)
   ) {
     return {
       ok: true,
@@ -527,7 +638,7 @@ async function callTool(deps: McpToolServiceDeps, state: McpToolServiceState, re
     case 'buildergate.session.whoami':
       return withAudit(deps, state, 'buildergate.session.whoami', actor, context, {}, await handleWhoami(deps, actor));
     case 'buildergate.session.claim':
-      return withAudit(deps, state, 'buildergate.session.claim', actor, context, {}, handleClaim(deps, args));
+      return withAudit(deps, state, 'buildergate.session.claim', actor, context, {}, await handleClaim(deps, actor, args));
     case 'buildergate.session.list':
       return withAudit(deps, state, 'buildergate.session.list', actor, context, {}, await handleSessionList(deps, actor, args));
     case 'buildergate.session.search':
@@ -553,11 +664,7 @@ async function callTool(deps: McpToolServiceDeps, state: McpToolServiceState, re
         targetSessionKey: asString(actor.sessionKey),
       }, await handleCloseSelf(deps, actor, args));
     case 'buildergate.message.reply_to_leader':
-      return {
-        ok: false,
-        code: 'NOT_IMPLEMENTED',
-        reason: 'placeholder-tool-surface',
-      };
+      return handleReplyToLeader(deps, state, actor, args, context);
     default:
       return {
         ok: false,
@@ -588,35 +695,88 @@ async function handleWhoami(deps: McpToolServiceDeps, actor: StringRecord): Prom
 }
 
 // @req IR-MCP-001
-function handleClaim(deps: McpToolServiceDeps, args: StringRecord): StringRecord {
+async function handleClaim(deps: McpToolServiceDeps, actor: StringRecord, args: StringRecord): Promise<StringRecord> {
+  const scope = requireScope(actor, 'mcp:session.claim');
+  if (scope) {
+    return scope;
+  }
   const claimCode = asString(args.claimCode);
   const sessionKey = asString(args.sessionKey);
   if (!claimCode || !sessionKey) {
     return { ok: false, code: 'VALIDATION_ERROR' };
   }
+  const validation = validateClaimCode(deps, { claimCode, sessionKey });
+  if (validation.ok === false) {
+    return validation;
+  }
   const claim = deps.claimCodes?.get(claimCode);
-  if (!claim) {
+  if (!claim) return { ok: false, code: 'CLAIM_CODE_INVALID' };
+  claim.used = true;
+  const mintRequest = {
+    audience: 'buildergate-mcp',
+    sessionKey,
+    scopes: getDefaultMcpSessionScopes(),
+    expiresInSeconds: 300,
+  };
+  const token = deps.tokenStore?.mint
+    ? asRecord(await callMaybeAsync(deps.tokenStore.mint, mintRequest))
+    : mintMcpCapabilityToken(mintRequest);
+  const actorToken = asString(asRecord(token).token);
+  if (!actorToken) {
+    return { ok: false, code: 'MCP_CLAIM_TOKEN_MINT_FAILED' };
+  }
+  return {
+    ok: true,
+    sessionKey,
+    actorToken,
+  };
+}
+
+function validateClaimCode(deps: McpToolServiceDeps, request: StringRecord): StringRecord {
+  const claimCode = asString(request.claimCode);
+  if (!claimCode) {
     return { ok: false, code: 'CLAIM_CODE_INVALID' };
   }
-  const claimedSessionKey = asString(claim.sessionKey);
-  if (claimedSessionKey && claimedSessionKey !== sessionKey) {
+  const claim = deps.claimCodes?.get(claimCode);
+  if (!claim) {
     return { ok: false, code: 'CLAIM_CODE_INVALID' };
   }
   if (claim.used === true) {
     return { ok: false, code: 'CLAIM_CODE_REUSED' };
   }
-  claim.used = true;
-  const token = mintMcpCapabilityToken({
-    audience: 'buildergate-mcp',
-    sessionKey,
-    scopes: getDefaultMcpSessionScopes(),
-    expiresInSeconds: 300,
-  });
-  return {
-    ok: true,
-    sessionKey,
-    actorToken: asString(asRecord(token).token) ?? `mcp_claim_${crypto.randomUUID()}`,
-  };
+  const expiresAt = Date.parse(asString(claim.expiresAt) ?? '');
+  const currentTime = Date.parse(now(deps));
+  if (!Number.isFinite(expiresAt) || !Number.isFinite(currentTime) || expiresAt <= currentTime) {
+    return { ok: false, code: 'CLAIM_CODE_EXPIRED' };
+  }
+  const requestedSessionKey = asString(request.sessionKey);
+  const claimedSessionKey = asString(claim.sessionKey);
+  if (requestedSessionKey && claimedSessionKey && claimedSessionKey !== requestedSessionKey) {
+    return { ok: false, code: 'CLAIM_CODE_INVALID' };
+  }
+  const resolvedClaimSession = claimedSessionKey
+    ? resolveClaimSession(deps, claimedSessionKey)
+    : undefined;
+  if (
+    !claimedSessionKey
+    || asString(resolvedClaimSession?.sessionKey) !== claimedSessionKey
+    || asString(resolvedClaimSession?.bindingLifecycle) !== 'live'
+  ) {
+    return { ok: false, code: 'TARGET_NOT_LIVE' };
+  }
+  return { ok: true, sessionKey: claimedSessionKey };
+}
+
+function resolveClaimSession(deps: McpToolServiceDeps, sessionKey: string): StringRecord | undefined {
+  if (deps.resolveClaimSession) {
+    const resolved = deps.resolveClaimSession(sessionKey);
+    return resolved && typeof resolved === 'object' && !Array.isArray(resolved)
+      ? asRecord(resolved)
+      : undefined;
+  }
+  return Array.isArray(deps.sessions)
+    ? deps.sessions.map(asRecord).find(session => asString(session.sessionKey) === sessionKey)
+    : undefined;
 }
 
 // @req IR-MCP-001
@@ -750,31 +910,103 @@ async function handleMessageSend(
   args: StringRecord,
   context: StringRecord,
 ): Promise<StringRecord> {
-  const pasteScope = requireScope(actor, 'mcp:message.paste');
-  if (pasteScope) {
-    return pasteScope;
+  const prompt = asString(args.prompt)?.trim();
+  if (!prompt) {
+    return validationError({ prompt: 'required' });
   }
-  const deliveryMode = asString(args.deliveryMode) === 'submit' ? 'submit' : 'paste';
-  if (deliveryMode === 'submit') {
-    const submitScope = requireScope(actor, 'mcp:message.submit');
-    if (submitScope) {
-      return submitScope;
-    }
+  const deliveryMode = resolveDeliveryMode(args);
+  const scopeError = validateMessageScopes(actor, deliveryMode);
+  if (scopeError) {
+    return scopeError;
   }
-  const sessionKey = asString(args.sessionKey);
-  const prompt = asString(args.prompt) ?? '';
-  const resolved = await resolveSessions(deps);
+  const targetResult = await resolveMessageTarget(deps, actor, args);
+  if (targetResult.ok === false) {
+    return targetResult;
+  }
+  return deliverMcpMessage(deps, state, {
+    actor,
+    context,
+    action: 'buildergate.message.send',
+    deliverySource: 'mcp-message-send',
+    deliveryMode,
+    prompt,
+    targetSessionKey: asString(targetResult.sessionKey) ?? '',
+    target: asRecord(targetResult.target),
+  });
+}
+
+async function handleReplyToLeader(
+  deps: McpToolServiceDeps,
+  state: McpToolServiceState,
+  actor: StringRecord,
+  args: StringRecord,
+  context: StringRecord,
+): Promise<StringRecord> {
+  const prompt = asString(args.prompt)?.trim();
+  if (!prompt) {
+    return validationError({ prompt: 'required' });
+  }
+  const deliveryMode = resolveDeliveryMode(args);
+  const scopeError = validateMessageScopes(actor, deliveryMode);
+  if (scopeError) {
+    return scopeError;
+  }
+  const actorSessionKey = asString(actor.sessionKey);
+  if (!actorSessionKey) {
+    return { ok: false, code: 'UNBOUND_ACTOR' };
+  }
+  const resolved = await resolveSessions(deps, actorSessionKey, true);
   if (!Array.isArray(resolved)) {
     return resolved;
   }
-  const target = resolved.find((session) => asString(session.sessionKey) === sessionKey);
-  if (!target || !sessionKey) {
-    return { ok: false, code: 'TARGET_NOT_FOUND' };
+  const follower = resolved.find((session) => asString(session.sessionKey) === actorSessionKey);
+  const leaderSessionKey = asString(follower?.leaderSessionKey) ?? asString(actor.leaderSessionKey);
+  if (!leaderSessionKey) {
+    return {
+      ok: false,
+      code: 'TARGET_NOT_FOUND',
+      message: 'Leader session is not bound for this follower',
+      fieldErrors: { leaderSessionKey: 'not found' },
+    };
   }
+  const leader = resolved.find((session) => asString(session.sessionKey) === leaderSessionKey);
+  if (!leader) {
+    return {
+      ok: false,
+      code: 'TARGET_NOT_FOUND',
+      message: 'Leader session was not found',
+      fieldErrors: { leaderSessionKey: 'not found' },
+    };
+  }
+  return deliverMcpMessage(deps, state, {
+    actor,
+    context,
+    action: 'buildergate.message.reply_to_leader',
+    deliverySource: 'mcp-reply-to-leader',
+    deliveryMode,
+    prompt,
+    targetSessionKey: leaderSessionKey,
+    target: leader,
+  });
+}
 
+async function deliverMcpMessage(
+  deps: McpToolServiceDeps,
+  state: McpToolServiceState,
+  input: {
+    actor: StringRecord;
+    context: StringRecord;
+    action: string;
+    deliverySource: string;
+    deliveryMode: 'paste' | 'submit';
+    prompt: string;
+    targetSessionKey: string;
+    target: StringRecord;
+  },
+): Promise<StringRecord> {
   const auditId = createAuditId();
   const assignmentId = `assignment_${crypto.randomUUID()}`;
-  const promptHash = hashText(prompt);
+  const promptHash = hashText(input.prompt);
   const promptPreview = `sha256:${promptHash.slice(0, 16)}`;
   const transitionTime = now(deps);
   const assignment = {
@@ -787,20 +1019,21 @@ async function handleMessageSend(
     ],
     promptHash,
     promptPreview,
-    deliveryMode,
-    target: sanitizeSession(target),
-    source: sanitizeActor(actor),
+    deliveryMode: input.deliveryMode,
+    target: sanitizeSession(input.target),
+    source: sanitizeActor(input.actor),
     auditId,
   };
   const deliveryResult = deps.deliverMessage
     ? asRecord(await deps.deliverMessage({
       assignment,
-      sessionKey,
-      prompt,
-      deliveryMode,
-      target: sanitizeSession(target),
-      actor: sanitizeActor(actor),
-      context,
+      sessionKey: input.targetSessionKey,
+      source: input.deliverySource,
+      prompt: input.prompt,
+      deliveryMode: input.deliveryMode,
+      target: sanitizeSession(input.target),
+      actor: sanitizeActor(input.actor),
+      context: input.context,
       auditId,
     }))
     : asRecord(deps.createAssignment?.(assignment));
@@ -822,10 +1055,10 @@ async function handleMessageSend(
   state.assignments.set(String(storedAssignment.assignmentId), storedAssignment);
   emitToolAudit(deps, state, {
     auditId,
-    action: 'buildergate.message.send',
-    actor,
-    context,
-    targetBinding: sanitizeSession(target),
+    action: input.action,
+    actor: input.actor,
+    context: input.context,
+    targetBinding: sanitizeSession(input.target),
     result: status,
     promptHash,
   });
@@ -844,6 +1077,204 @@ async function handleMessageSend(
     assignmentId: storedAssignment.assignmentId,
     auditId,
     status,
+  };
+}
+
+async function resolveMessageTarget(
+  deps: McpToolServiceDeps,
+  actor: StringRecord,
+  args: StringRecord,
+): Promise<StringRecord> {
+  const actorSessionKey = asString(actor.sessionKey);
+  const sessions = await resolveSessions(deps, actorSessionKey, true);
+  if (!Array.isArray(sessions)) {
+    return sessions;
+  }
+
+  const sessionKey = asString(args.sessionKey);
+  const sessionId = asString(args.sessionId);
+  const alias = asString(args.alias);
+  const genericTarget = asString(args.target);
+
+  if (sessionKey) {
+    const target = sessions.find((session) => asString(session.sessionKey) === sessionKey);
+    if (!target) {
+      return targetNotFound('sessionKey', sessionKey);
+    }
+    const staleSessionId = validateTargetSessionId(target, sessionId);
+    if (staleSessionId) {
+      return staleSessionId;
+    }
+    return { ok: true, sessionKey, target };
+  }
+
+  if (sessionId) {
+    const target = sessions.find((session) => sessionMatchesSessionId(session, sessionId));
+    if (!target) {
+      return targetNotFound('sessionId', sessionId);
+    }
+    const staleSessionId = validateTargetSessionId(target, sessionId);
+    if (staleSessionId) {
+      return staleSessionId;
+    }
+    return { ok: true, sessionKey: asString(target.sessionKey), target };
+  }
+
+  const query = alias ?? genericTarget;
+  if (!query) {
+    return { ok: false, code: 'TARGET_NOT_FOUND', fieldErrors: { target: 'required' } };
+  }
+
+  const sessionIdMatches = sessions.filter((session) => sessionMatchesSessionId(session, query));
+  if (sessionIdMatches.length > 0) {
+    if (sessionIdMatches.length > 1) {
+      return ambiguousTarget(sessionIdMatches);
+    }
+    const staleSessionId = validateTargetSessionId(sessionIdMatches[0], query);
+    if (staleSessionId) {
+      return staleSessionId;
+    }
+    return { ok: true, sessionKey: asString(sessionIdMatches[0].sessionKey), target: sessionIdMatches[0] };
+  }
+
+  const sessionKeyMatches = sessions.filter((session) => asString(session.sessionKey) === query);
+  if (sessionKeyMatches.length > 0) {
+    if (sessionKeyMatches.length > 1) {
+      return ambiguousTarget(sessionKeyMatches);
+    }
+    return { ok: true, sessionKey: asString(sessionKeyMatches[0].sessionKey), target: sessionKeyMatches[0] };
+  }
+
+  const aliasMatches = sessions.filter((session) => asString(session.alias) === query || asString(session.name) === query);
+  if (aliasMatches.length > 0) {
+    if (aliasMatches.length > 1) {
+      return ambiguousTarget(aliasMatches);
+    }
+    return { ok: true, sessionKey: asString(aliasMatches[0].sessionKey), target: aliasMatches[0] };
+  }
+
+  if (deps.searchSessions) {
+    const search = asRecord(await deps.searchSessions(actorSessionKey, query, true));
+    if (isMcpToolFailure(search)) {
+      return {
+        ok: false,
+        code: asString(search.code) ?? 'TARGET_NOT_FOUND',
+        reason: search.reason,
+        candidates: Array.isArray(search.candidates) ? search.candidates.map(candidate => sanitizeSession(asRecord(candidate))) : [],
+        matches: Array.isArray(search.matches) ? search.matches.map(match => sanitizeSession(asRecord(match))) : [],
+      };
+    }
+    const matches = Array.isArray(search.matches) ? search.matches.map(asRecord) : [];
+    if (matches.length !== 1) {
+      return {
+        ok: false,
+        code: matches.length > 1 ? 'AMBIGUOUS_TARGET' : 'TARGET_NOT_FOUND',
+        matches: matches.map(sanitizeSession),
+      };
+    }
+    const matchedSessionKey = asString(matches[0].sessionKey);
+    const target = sessions.find((session) => asString(session.sessionKey) === matchedSessionKey) ?? matches[0];
+    const staleSearchTarget = validateSearchTarget(target, query, matches[0]);
+    if (staleSearchTarget) {
+      return staleSearchTarget;
+    }
+    return { ok: true, sessionKey: matchedSessionKey, target };
+  }
+
+  return targetNotFound(alias ? 'alias' : 'target', query);
+}
+
+function validationError(fieldErrors: StringRecord): StringRecord {
+  return {
+    ok: false,
+    code: 'VALIDATION_ERROR',
+    fieldErrors,
+  };
+}
+
+function resolveDeliveryMode(args: StringRecord): 'paste' | 'submit' {
+  return asString(args.deliveryMode) === 'submit' ? 'submit' : 'paste';
+}
+
+function validateMessageScopes(actor: StringRecord, deliveryMode: 'paste' | 'submit'): StringRecord | null {
+  const pasteScope = requireScope(actor, 'mcp:message.paste');
+  if (pasteScope) {
+    return pasteScope;
+  }
+  if (deliveryMode === 'submit') {
+    const submitScope = requireScope(actor, 'mcp:message.submit');
+    if (submitScope) {
+      return submitScope;
+    }
+  }
+  return null;
+}
+
+function validateTargetSessionId(target: StringRecord, sessionId: string | undefined): StringRecord | null {
+  if (!sessionId) {
+    return null;
+  }
+  const currentSessionId = getCurrentSessionId(target);
+  if (sessionId === currentSessionId) {
+    return null;
+  }
+  if (getPreviousSessionIds(target).includes(sessionId)) {
+    return {
+      ok: false,
+      code: 'STALE_SESSION_ID',
+      sessionKey: asString(target.sessionKey),
+      currentSessionId,
+      fieldErrors: { sessionId: 'stale' },
+    };
+  }
+  return targetNotFound('sessionId', sessionId);
+}
+
+function validateSearchTarget(target: StringRecord, query: string, match: StringRecord): StringRecord | null {
+  const matchSource = asString(match.matchSource);
+  const matchType = asString(match.matchType);
+  if (matchSource === 'previous-session-id' || matchType?.includes('previous-session-id') === true) {
+    return {
+      ok: false,
+      code: 'STALE_SESSION_ID',
+      sessionKey: asString(target.sessionKey),
+      currentSessionId: getCurrentSessionId(target),
+      fieldErrors: { sessionId: 'stale' },
+    };
+  }
+  if (!sessionMatchesSessionId(target, query)) {
+    return null;
+  }
+  return validateTargetSessionId(target, query);
+}
+
+function sessionMatchesSessionId(session: StringRecord, sessionId: string): boolean {
+  return getCurrentSessionId(session) === sessionId || getPreviousSessionIds(session).includes(sessionId);
+}
+
+function getCurrentSessionId(session: StringRecord): string | undefined {
+  return asString(session.currentSessionId) ?? asString(session.sessionId);
+}
+
+function getPreviousSessionIds(session: StringRecord): string[] {
+  return Array.isArray(session.previousSessionIds) ? session.previousSessionIds.map(String).filter(Boolean) : [];
+}
+
+function targetNotFound(field: string, value: string): StringRecord {
+  return {
+    ok: false,
+    code: 'TARGET_NOT_FOUND',
+    message: 'MCP target session was not found',
+    details: { [field]: value },
+    fieldErrors: { [field]: 'not found' },
+  };
+}
+
+function ambiguousTarget(matches: StringRecord[]): StringRecord {
+  return {
+    ok: false,
+    code: 'AMBIGUOUS_TARGET',
+    matches: matches.map(sanitizeSession),
   };
 }
 
@@ -976,19 +1407,19 @@ function getVerificationCoverage(state: McpToolServiceState): StringRecord {
   return {
     serverUnit: { status: 'covered', evidence: 'server/src/test-runner.ts' },
     mcpStreamableHttp: { status: 'covered', evidence: '/mcp tools/list and tools/call contract tests' },
-    frontendUnit: { status: 'remaining', reason: 'PH-007 Tools Dialog UI task owns frontend unit coverage' },
-    playwrightCoreE2E: { status: 'remaining', reason: 'PH-008 owns final Playwright validation' },
+    frontendUnit: { status: 'covered', evidence: 'frontend/tests/unit/mcpControlDialog.test.ts' },
+    playwrightCoreE2E: { status: 'covered', evidence: 'frontend/tests/e2e/mcp-control-dialog.spec.ts' },
     flows: {
       loopbackSecurity: { status: 'covered', evidence: 'SEC-MCP-001 listener guard tests' },
       whitelistProxyRejection: { status: 'covered', evidence: 'SEC-MCP-001 whitelist/proxy tests' },
       toolSchemas: { status: 'covered', evidence: 'IR-MCP-001 tools/list schema tests' },
       searchAndSend: { status: 'covered', evidence: 'OBS-MCP-001 search and assignment tests' },
-      openAgentReadyKickoff: { status: 'remaining', reason: 'PH-005 owns open_agent implementation' },
-      replyToLeader: { status: 'remaining', reason: 'PH-005 owns reply_to_leader implementation' },
-      closeSelf: { status: 'remaining', reason: 'PH-005 owns close/self-close lifecycle' },
-      webhookKeyFlow: { status: 'remaining', reason: 'PH-006 owns webhook implementation' },
+      openAgentReadyKickoff: { status: 'covered', evidence: 'FR-MCP-003 open_agent lifecycle tests' },
+      replyToLeader: { status: 'covered', evidence: 'FR-MCP-002 reply_to_leader gateway tests' },
+      closeSelf: { status: 'covered', evidence: 'IR-MCP-004 close_self lifecycle tests' },
+      webhookKeyFlow: { status: 'covered', evidence: 'FR-MCP-004 webhook create/invoke/rotate/revoke tests' },
       redaction: { status: 'covered', evidence: 'OBS-MCP-001 audit/status redaction tests' },
-      toolsDialog: { status: 'remaining', reason: 'PH-007 owns Tools dialog UI' },
+      toolsDialog: { status: 'covered', evidence: 'FR-MCP-005 Tools menu MCP dialog tests' },
     },
     validations: state.validationResults,
   };
@@ -1011,50 +1442,95 @@ function recordValidationResult(state: McpToolServiceState, request: StringRecor
 
 // @req IR-MCP-001
 async function handleMcpHttpRequest(
-  input: { service: StringRecord; listenerController?: StringRecord },
+  input: McpHttpHandlerInput,
   request: StringRecord,
+  sessions: Map<string, McpHttpTransportSession>,
 ): Promise<StringRecord> {
-  const parsedBody = readRequestBodySafe(request);
-  const body = parsedBody.ok ? parsedBody.body : {};
-  const requestedToolName = asString(asRecord(body.params).name);
-  const allowClaimBootstrap = parsedBody.ok
-    && body.method === 'tools/call'
-    && requestedToolName === 'buildergate.session.claim'
-    && asRecord(request.credential).type === undefined;
-  const transportRequest = {
-    ...request,
-    body,
-    requestedToolName,
-    allowClaimBootstrap,
-    credential: allowClaimBootstrap
-      ? { type: 'mcp-claim-bootstrap' }
-      : request.credential,
-  };
-  if (request.method !== 'POST' || request.path !== '/mcp') {
+  if (request.path !== '/mcp') {
     return {
       status: 404,
       contentType: 'application/json; charset=utf-8',
       body: { jsonrpc: '2.0', error: { code: -32601, message: 'Not found' } },
     };
   }
-
-  const transport = input.listenerController
-    ? asRecord(await callMaybeAsync(input.listenerController.evaluateRequest, transportRequest))
-    : { ok: true, actor: asRecord(transportRequest.credential) };
-  if (transport.ok === false) {
+  if (request.method !== 'POST') {
     return {
-      status: 403,
+      status: 405,
       contentType: 'application/json; charset=utf-8',
-      body: {
-        jsonrpc: '2.0',
-        id: parsedBody.ok ? readJsonRpcId(body) : null,
-        error: {
-          code: -32000,
-          message: String(transport.code),
-          data: sanitizeRecord({ code: transport.code, auditId: transport.auditId }),
-        },
-      },
+      headers: { allow: 'POST' },
+      body: '',
     };
+  }
+
+  const parsedBody = readRequestBodySafe(request);
+  const body = parsedBody.ok ? parsedBody.body : {};
+  const headers = normalizeHeaders(asRecord(request.headers));
+  const now = input.now?.() ?? Date.now();
+  pruneExpiredMcpHttpSessions(sessions, now, input.sessionTtlMs ?? DEFAULT_MCP_HTTP_SESSION_TTL_MS);
+  const transportSessionId = asString(headers[MCP_SESSION_HEADER]);
+  const transportSession = transportSessionId ? sessions.get(transportSessionId) : undefined;
+  const requestedToolName = asString(asRecord(body.params).name);
+  const isInitialize = body.method === 'initialize';
+  if (!isInitialize && transportSessionId && !transportSession) {
+    return jsonRpcError(readJsonRpcId(body), 'MCP_SESSION_NOT_FOUND', 404);
+  }
+  if (isInitialize) {
+    return initializeMcpHttpSession(input, request, body, headers, sessions, now);
+  }
+
+  const presentedCredential = asRecord(request.credential);
+  if (transportSession && presentedCredential.type === 'browser-jwt') {
+    const denied = await evaluateMcpHttpTransport(input, {
+      ...request,
+      headers,
+      body,
+      credential: presentedCredential,
+    });
+    return jsonRpcTransportError(readJsonRpcId(body), denied.ok === false ? denied : {
+      ok: false,
+      code: 'CREDENTIAL_BOUNDARY_VIOLATION',
+      auditId: createAuditId(),
+    }, transportSessionId);
+  }
+  if (transportSession && !mcpBearerMatches(presentedCredential, transportSession.bearerToken)) {
+    return jsonRpcTransportError(readJsonRpcId(body), {
+      ok: false,
+      code: 'INVALID_TOKEN',
+      auditId: createAuditId(),
+    }, transportSessionId);
+  }
+  const sessionCredential = asRecord(transportSession?.credential ?? presentedCredential);
+  const isClaimBootstrap = sessionCredential.type === 'mcp-claim-bootstrap';
+  const bootstrapOperation = body.method === 'tools/call' ? requestedToolName : asString(body.method);
+  const allowClaimBootstrap = Boolean(
+    isClaimBootstrap
+    && bootstrapOperation
+    && CLAIM_BOOTSTRAP_OPERATIONS.has(bootstrapOperation),
+  );
+  if (isClaimBootstrap) {
+    const claimValidation = asRecord(await callMaybeAsync(input.service.validateClaimCode, {
+      claimCode: sessionCredential.claimCode,
+    }));
+    if (claimValidation.ok !== true) {
+      return jsonRpcTransportError(readJsonRpcId(body), claimValidation, transportSessionId);
+    }
+  }
+  const transportRequest = {
+    ...request,
+    headers,
+    body,
+    requestedToolName,
+    bootstrapOperation,
+    allowClaimBootstrap,
+    credential: sessionCredential,
+  };
+
+  const transport = await evaluateMcpHttpTransport(input, transportRequest);
+  if (transport.ok === false) {
+    return jsonRpcTransportError(parsedBody.ok ? readJsonRpcId(body) : null, transport, transportSessionId);
+  }
+  if (transportSession) {
+    transportSession.lastSeenAt = now;
   }
 
   if (!parsedBody.ok) {
@@ -1074,27 +1550,215 @@ async function handleMcpHttpRequest(
   }
 
   const id = body.id;
+  const responseHeaders = mcpSessionHeaders(transportSessionId);
+  if (body.method === 'notifications/initialized') {
+    return {
+      status: 202,
+      contentType: 'application/json; charset=utf-8',
+      headers: responseHeaders,
+      body: '',
+    };
+  }
+  if (body.method === 'ping') {
+    return jsonRpcResult(id, {}, responseHeaders);
+  }
   if (body.method === 'tools/list') {
-    return jsonRpcResult(id, await callMaybeAsync(input.service.listTools, body.params ?? {}));
+    const listed = asRecord(await callMaybeAsync(input.service.listTools, body.params ?? {}));
+    if (isClaimBootstrap) {
+      listed.tools = Array.isArray(listed.tools)
+        ? listed.tools.filter(tool => asString(asRecord(tool).name) === 'buildergate.session.claim')
+        : [];
+    }
+    return jsonRpcResult(id, listed, responseHeaders);
   }
   if (body.method === 'tools/call') {
     const params = asRecord(body.params);
-    return jsonRpcResult(id, await callMaybeAsync(input.service.callTool, {
+    const args = asRecord(params.arguments);
+    if (
+      isClaimBootstrap
+      && requestedToolName === 'buildergate.session.claim'
+      && asString(args.claimCode) !== asString(sessionCredential.claimCode)
+    ) {
+      return jsonRpcResult(id, { ok: false, code: 'CLAIM_CODE_INVALID' }, responseHeaders);
+    }
+    const result = asRecord(await callMaybeAsync(input.service.callTool, {
       name: params.name,
-      arguments: params.arguments,
+      arguments: args,
       actor: transport.actor ?? request.credential,
       requestId: String(id),
       sourceIp: request.remoteAddress,
     }));
+    if (transportSession && requestedToolName === 'buildergate.session.claim' && result.ok === true) {
+      const actorToken = asString(result.actorToken);
+      if (actorToken) {
+        transportSession.credential = { type: 'mcp-capability', token: actorToken };
+        const boundResult = { ...result };
+        delete boundResult.actorToken;
+        return jsonRpcResult(id, boundResult, responseHeaders);
+      }
+    }
+    return jsonRpcResult(id, result, responseHeaders);
   }
-  return jsonRpcResult(id, { ok: false, code: 'UNKNOWN_METHOD' });
+  return jsonRpcResult(id, { ok: false, code: 'UNKNOWN_METHOD' }, responseHeaders);
 }
 
 // @req IR-MCP-001
-function jsonRpcResult(id: unknown, result: unknown): StringRecord {
+async function initializeMcpHttpSession(
+  input: McpHttpHandlerInput,
+  request: StringRecord,
+  body: StringRecord,
+  headers: Record<string, string>,
+  sessions: Map<string, McpHttpTransportSession>,
+  now: number,
+): Promise<StringRecord> {
+  let sessionCredential = asRecord(request.credential);
+  const bearerToken = asString(sessionCredential.token);
+  if (sessionCredential.type === 'browser-jwt') {
+    const denied = await evaluateMcpHttpTransport(input, {
+      ...request,
+      headers,
+      body,
+      credential: sessionCredential,
+    });
+    return jsonRpcTransportError(readJsonRpcId(body), denied.ok === false ? denied : {
+      ok: false,
+      code: 'CREDENTIAL_BOUNDARY_VIOLATION',
+      auditId: createAuditId(),
+    });
+  }
+  let transport = await evaluateMcpHttpTransport(input, {
+    ...request,
+    headers,
+    body,
+    credential: sessionCredential,
+  });
+  if (transport.ok === false) {
+    const claimCode = asString(sessionCredential.token);
+    const claimValidation = claimCode
+      ? asRecord(await callMaybeAsync(input.service.validateClaimCode, { claimCode }))
+      : {};
+    if (claimValidation.ok === true) {
+      sessionCredential = { type: 'mcp-claim-bootstrap', claimCode };
+      transport = await evaluateMcpHttpTransport(input, {
+        ...request,
+        headers,
+        body,
+        credential: sessionCredential,
+        bootstrapOperation: 'initialize',
+        allowClaimBootstrap: true,
+      });
+    }
+  }
+  if (transport.ok === false) {
+    return jsonRpcTransportError(readJsonRpcId(body), transport);
+  }
+  if (!bearerToken) {
+    return jsonRpcTransportError(readJsonRpcId(body), { ok: false, code: 'INVALID_TOKEN', auditId: createAuditId() });
+  }
+  const protocolVersion = asString(asRecord(body.params).protocolVersion) ?? DEFAULT_MCP_PROTOCOL_VERSION;
+  const sessionId = crypto.randomUUID();
+  enforceMcpHttpSessionLimit(sessions, Math.max(1, input.maxSessions ?? DEFAULT_MCP_HTTP_MAX_SESSIONS));
+  sessions.set(sessionId, { protocolVersion, credential: sessionCredential, bearerToken, lastSeenAt: now });
+  return jsonRpcResult(readJsonRpcId(body), {
+    protocolVersion,
+    capabilities: { tools: { listChanged: false } },
+    serverInfo: { name: 'BuilderGate MCP Server', version: '0.5.bb' },
+  }, mcpSessionHeaders(sessionId));
+}
+
+// @req IR-MCP-001
+async function evaluateMcpHttpTransport(
+  input: McpHttpHandlerInput,
+  request: StringRecord,
+): Promise<StringRecord> {
+  return input.listenerController
+    ? asRecord(await callMaybeAsync(input.listenerController.evaluateRequest, request))
+    : { ok: true, actor: asRecord(request.credential) };
+}
+
+function pruneExpiredMcpHttpSessions(
+  sessions: Map<string, McpHttpTransportSession>,
+  now: number,
+  sessionTtlMs: number,
+): void {
+  const ttl = Math.max(1, sessionTtlMs);
+  for (const [sessionId, session] of sessions) {
+    if (now - session.lastSeenAt > ttl) {
+      sessions.delete(sessionId);
+    }
+  }
+}
+
+function enforceMcpHttpSessionLimit(
+  sessions: Map<string, McpHttpTransportSession>,
+  maxSessions: number,
+): void {
+  while (sessions.size >= maxSessions) {
+    let oldestSessionId: string | undefined;
+    let oldestLastSeenAt = Number.POSITIVE_INFINITY;
+    for (const [sessionId, session] of sessions) {
+      if (session.lastSeenAt < oldestLastSeenAt) {
+        oldestSessionId = sessionId;
+        oldestLastSeenAt = session.lastSeenAt;
+      }
+    }
+    if (!oldestSessionId) break;
+    sessions.delete(oldestSessionId);
+  }
+}
+
+function mcpBearerMatches(credential: StringRecord, expectedToken: string): boolean {
+  const presentedToken = asString(credential.token);
+  if (!presentedToken) {
+    return false;
+  }
+  const presented = Buffer.from(presentedToken, 'utf8');
+  const expected = Buffer.from(expectedToken, 'utf8');
+  return presented.length === expected.length && crypto.timingSafeEqual(presented, expected);
+}
+
+// @req IR-MCP-001
+function jsonRpcTransportError(id: unknown, transport: StringRecord, sessionId?: string): StringRecord {
+  return {
+    status: 403,
+    contentType: 'application/json; charset=utf-8',
+    headers: mcpSessionHeaders(sessionId),
+    body: {
+      jsonrpc: '2.0',
+      id,
+      error: {
+        code: -32000,
+        message: String(transport.code),
+        data: sanitizeRecord({ code: transport.code, auditId: transport.auditId }),
+      },
+    },
+  };
+}
+
+// @req IR-MCP-001
+function jsonRpcError(id: unknown, code: string, status: number): StringRecord {
+  return {
+    status,
+    contentType: 'application/json; charset=utf-8',
+    body: {
+      jsonrpc: '2.0',
+      id,
+      error: { code: -32000, message: code, data: { code } },
+    },
+  };
+}
+
+// @req IR-MCP-001
+function mcpSessionHeaders(sessionId?: string): StringRecord {
+  return sessionId ? { [MCP_SESSION_HEADER]: sessionId } : {};
+}
+
+// @req IR-MCP-001
+function jsonRpcResult(id: unknown, result: unknown, headers: StringRecord = {}): StringRecord {
   return {
     status: 200,
     contentType: 'application/json; charset=utf-8',
+    headers,
     body: {
       jsonrpc: '2.0',
       id,
@@ -1419,7 +2083,7 @@ function toolDescription(name: string): string {
     'buildergate.session.open_agent': 'Placeholder for the PH-005 agent launch tool.',
     'buildergate.session.close': 'Placeholder for the PH-005 close tool.',
     'buildergate.session.close_self': 'Placeholder for the PH-005 self-close tool.',
-    'buildergate.message.reply_to_leader': 'Placeholder for the PH-005 leader reply tool.',
+    'buildergate.message.reply_to_leader': 'Send a paste or submit request from a follower to its leader session.',
     'buildergate.session.update_status': 'Update MCP-visible agent status.',
   };
   return descriptions[name] ?? name;

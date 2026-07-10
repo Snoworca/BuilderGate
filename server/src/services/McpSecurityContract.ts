@@ -90,6 +90,12 @@ const DEFAULT_MCP_SCOPES = [
   'mcp:message.paste',
   'mcp:status.write',
 ] as const;
+const FIXED_MCP_ACCESS_KEY_SCOPES = [
+  'mcp:sessions.list',
+  'mcp:sessions.search',
+  'mcp:message.paste',
+  'mcp:message.submit',
+] as const;
 
 const TOKEN_SIGNING_SECRET = crypto.randomBytes(32);
 const ALLOWED_AGENT_STATUS = new Set(['unknown', 'starting', 'ready', 'busy', 'waiting_input', 'completed', 'failed']);
@@ -290,6 +296,32 @@ export function verifyMcpCapabilityToken(token: string, expected: {
 // @req SEC-MCP-002
 export function getDefaultMcpSessionScopes(): string[] {
   return [...DEFAULT_MCP_SCOPES];
+}
+
+// @req SEC-MCP-002
+export function createMcpFixedAccessKey(): StringRecord {
+  const accessKey = `bgmcp_${crypto.randomBytes(32).toString('base64url')}`;
+  return {
+    accessKey,
+    keyHash: hashMcpFixedAccessKey(accessKey),
+  };
+}
+
+// @req SEC-MCP-002
+export function verifyMcpFixedAccessKey(accessKey: string, expectedHash: string): boolean {
+  return Boolean(accessKey)
+    && Boolean(expectedHash)
+    && timingSafeEqual(hashMcpFixedAccessKey(accessKey), expectedHash);
+}
+
+// @req SEC-MCP-002
+export function getFixedMcpAccessKeyScopes(): string[] {
+  return [...FIXED_MCP_ACCESS_KEY_SCOPES];
+}
+
+// @req SEC-MCP-002
+export function isMcpFixedAccessKeyHash(value: string): boolean {
+  return /^sha256:[a-f0-9]{64}$/u.test(value);
 }
 
 // @req SEC-MCP-002
@@ -768,6 +800,10 @@ function createWebhookSecret(): string {
 
 function hashWebhookSecret(secret: string): string {
   return `sha256:${crypto.createHash('sha256').update(secret).digest('hex')}`;
+}
+
+function hashMcpFixedAccessKey(accessKey: string): string {
+  return `sha256:${crypto.createHash('sha256').update(accessKey).digest('hex')}`;
 }
 
 function maskWebhookSecret(secret: string): string {

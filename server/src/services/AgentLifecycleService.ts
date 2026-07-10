@@ -441,6 +441,7 @@ export function createMcpAgentLifecycleService(deps: AgentLifecycleDeps = {}): S
     }
 
     await updateRegistry(deps, { sessionKey, bindingLifecycle: 'closing', lastSeenAt: nowIso(deps) });
+    await revokeToken(deps, { sessionKey, reason: 'session-close-started' });
     const deleteResult = await deleteWorkspaceTab(deps, {
       sessionKey,
       confirmClose: true,
@@ -785,14 +786,17 @@ async function cleanupPostTabFailure(
   return { cleanupStatus };
 }
 
-async function revokeToken(deps: AgentLifecycleDeps, input: { sessionKey: string; actorToken?: string }): Promise<void> {
+async function revokeToken(
+  deps: AgentLifecycleDeps,
+  input: { sessionKey: string; actorToken?: string; reason?: string },
+): Promise<void> {
   if (!deps.tokenStore?.revoke) {
     return;
   }
   await callMaybeAsync(deps.tokenStore.revoke, {
     sessionKey: input.sessionKey,
     token: input.actorToken,
-    reason: 'agent-launch-cleanup',
+    reason: input.reason ?? 'agent-launch-cleanup',
   });
 }
 

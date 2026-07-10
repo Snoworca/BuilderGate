@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
+  isMcpFixedAccessKeyHash,
   validateMcpSecurityConfig,
   validateMcpWebhookKeyHeaderName,
 } from './McpSecurityContract.js';
@@ -21,6 +22,7 @@ const DEFAULT_WEBHOOK_RATE_LIMIT = { windowSeconds: 60, burstLimit: 10 };
 
 export function createMcpControlConfigFileStore(options: McpControlConfigStoreOptions = {}): StringRecord {
   const dataFilePath = path.resolve(options.dataPath ?? DEFAULT_MCP_CONTROL_CONFIG_DATA_PATH);
+  let saveQueue: Promise<void> = Promise.resolve();
   const warn = options.warn ?? ((event: StringRecord) => {
     console.warn('[McpControlConfigStore] MCP control config fallback:', event);
   });
@@ -52,21 +54,28 @@ export function createMcpControlConfigFileStore(options: McpControlConfigStoreOp
         return {};
       }
     },
-    saveConfig: async (config: unknown): Promise<StringRecord> => {
-      const sanitized = sanitizeMcpControlConfig(config);
-      const validation = validatePersistedMcpControlConfig(sanitized);
-      if (validation.ok === false) {
-        return validation;
-      }
-      await fs.mkdir(path.dirname(dataFilePath), { recursive: true });
-      const tempPath = `${dataFilePath}.${process.pid}.${Date.now()}.tmp`;
-      await fs.writeFile(tempPath, JSON.stringify({
-        version: 1,
-        config: sanitized,
-        updatedAt: new Date().toISOString(),
-      }, null, 2), { encoding: 'utf-8', mode: 0o600 });
-      await fs.rename(tempPath, dataFilePath);
-      return { ok: true, path: dataFilePath, config: sanitized };
+    saveConfig: (config: unknown): Promise<StringRecord> => {
+      const operation = saveQueue.then(async (): Promise<StringRecord> => {
+        const sanitized = {
+          ...await readPersistedMcpControlConfig(dataFilePath),
+          ...sanitizeMcpControlConfig(config),
+        };
+        const validation = validatePersistedMcpControlConfig(sanitized);
+        if (validation.ok === false) {
+          return validation;
+        }
+        await fs.mkdir(path.dirname(dataFilePath), { recursive: true });
+        const tempPath = `${dataFilePath}.${process.pid}.${Date.now()}.tmp`;
+        await fs.writeFile(tempPath, JSON.stringify({
+          version: 1,
+          config: sanitized,
+          updatedAt: new Date().toISOString(),
+        }, null, 2), { encoding: 'utf-8', mode: 0o600 });
+        await fs.rename(tempPath, dataFilePath);
+        return { ok: true, path: dataFilePath, config: sanitized };
+      });
+      saveQueue = operation.then(() => undefined, () => undefined);
+      return operation;
     },
   };
 }
@@ -87,6 +96,7 @@ export function sanitizeMcpControlConfig(value: unknown): StringRecord {
   if (Array.isArray(record.trustedProxies)) config.trustedProxies = asStringArray(record.trustedProxies);
   if (Array.isArray(record.externalWhitelist)) config.externalWhitelist = asStringArray(record.externalWhitelist);
   if (Array.isArray(record.allowedOrigins)) config.allowedOrigins = asStringArray(record.allowedOrigins);
+  if (asString(record.fixedAccessKeyHash)) config.fixedAccessKeyHash = asString(record.fixedAccessKeyHash);
   if (asString(record.webhookKeyHeaderName)) config.webhookKeyHeaderName = asString(record.webhookKeyHeaderName);
   if (webhookRateLimit) config.webhookRateLimit = webhookRateLimit;
 
@@ -137,6 +147,10 @@ export function validatePersistedMcpControlConfig(value: unknown): StringRecord 
   if (securityValidation.ok === false) {
     return securityValidation;
   }
+  const fixedAccessKeyHash = asString(record.fixedAccessKeyHash);
+  if (fixedAccessKeyHash && !isMcpFixedAccessKeyHash(fixedAccessKeyHash)) {
+    return { ok: false, code: 'MCP_FIXED_ACCESS_KEY_HASH_INVALID' };
+  }
   const webhookHeaderValidation = asRecord(validateMcpWebhookKeyHeaderName(
     asString(record.webhookKeyHeaderName) ?? DEFAULT_WEBHOOK_HEADER,
   ));
@@ -157,6 +171,17 @@ function normalizeRateLimit(value: unknown): { windowSeconds: number; burstLimit
     return null;
   }
   return { windowSeconds, burstLimit };
+}
+
+async function readPersistedMcpControlConfig(dataFilePath: string): Promise<StringRecord> {
+  try {
+    const raw = await fs.readFile(dataFilePath, 'utf-8');
+    const parsed = JSON.parse(raw) as { config?: unknown };
+    const config = sanitizeMcpControlConfig(parsed.config);
+    return validatePersistedMcpControlConfig(config).ok === true ? config : {};
+  } catch {
+    return {};
+  }
 }
 
 function asRecord(value: unknown): StringRecord {

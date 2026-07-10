@@ -244,9 +244,31 @@ function hasDeploymentArtifacts() {
     fs.existsSync(SERVER_ENTRY)
     && fs.existsSync(SERVER_STRICT_CONFIG_LOADER)
     && fs.existsSync(SERVER_DAEMON_TOTP_PREFLIGHT)
-    && fs.existsSync(SERVER_PUBLIC_INDEX)
+    && hasCompleteWebArtifacts(SERVER_PUBLIC_INDEX, SERVER_PUBLIC_DIR)
     && fs.existsSync(path.join(RUNTIME_PATHS.shellIntegrationDir, 'bash-osc133.sh'))
   );
+}
+
+function hasCompleteWebArtifacts(indexPath, publicDir) {
+  if (!fs.existsSync(indexPath)) {
+    return false;
+  }
+  try {
+    const html = fs.readFileSync(indexPath, 'utf8');
+    const publicRoot = path.resolve(publicDir);
+    const references = [...html.matchAll(/(?:src|href)=["']([^"']+)["']/giu)]
+      .map((match) => match[1])
+      .filter((reference) => !/^(?:[a-z]+:|\/\/|#)/iu.test(reference));
+    return references.every((reference) => {
+      const pathOnly = decodeURIComponent(reference.split(/[?#]/u, 1)[0]).replace(/^\/+/, '');
+      const resolved = path.resolve(publicRoot, pathOnly);
+      return resolved.startsWith(`${publicRoot}${path.sep}`)
+        && fs.existsSync(resolved)
+        && fs.statSync(resolved).isFile();
+    });
+  } catch {
+    return false;
+  }
 }
 
 function normalizeLogChunk(chunk, encoding) {
@@ -299,18 +321,110 @@ function installDaemonLogTee(logPath = process.env[daemonLauncher.DAEMON_LOG_PAT
   return true;
 }
 
-function ensureSafePublicTarget(targetPath) {
+function ensureSafePublicTarget(targetPath, paths = RUNTIME_PATHS) {
   const resolvedTarget = path.resolve(targetPath);
-  const expectedTarget = path.resolve(SERVER_PUBLIC_DIR);
-  const serverRoot = path.resolve(SERVER_DIR);
+  const expectedTarget = path.resolve(paths.serverPublicDir);
+  const runtimeRoot = path.resolve(paths.root);
 
   if (resolvedTarget !== expectedTarget) {
     throw new Error(`Refusing to modify unexpected staging directory: ${resolvedTarget}`);
   }
 
-  if (resolvedTarget !== serverRoot && !resolvedTarget.startsWith(`${serverRoot}${path.sep}`)) {
-    throw new Error(`Staging directory escaped server root: ${resolvedTarget}`);
+  if (resolvedTarget === runtimeRoot || !resolvedTarget.startsWith(`${runtimeRoot}${path.sep}`)) {
+    throw new Error(`Staging directory escaped runtime root: ${resolvedTarget}`);
   }
+
+  const realRuntimeRoot = fs.realpathSync.native(runtimeRoot);
+  const realTarget = resolveRealPathForWrite(resolvedTarget);
+  if (realTarget === realRuntimeRoot || !realTarget.startsWith(`${realRuntimeRoot}${path.sep}`)) {
+    throw new Error(`Staging directory link escaped runtime root: ${realTarget}`);
+  }
+  assertNoLinkedEntries(resolvedTarget);
+}
+
+function resolveRealPathForWrite(targetPath) {
+  let existingPath = targetPath;
+  const missingSegments = [];
+  while (!fs.existsSync(existingPath)) {
+    const parent = path.dirname(existingPath);
+    if (parent === existingPath) {
+      throw new Error(`Cannot resolve staging path: ${targetPath}`);
+    }
+    missingSegments.unshift(path.basename(existingPath));
+    existingPath = parent;
+  }
+  return path.join(fs.realpathSync.native(existingPath), ...missingSegments);
+}
+
+function assertNoLinkedEntries(rootPath) {
+  if (!fs.existsSync(rootPath)) {
+    return;
+  }
+  const rootStat = fs.lstatSync(rootPath);
+  if (rootStat.isSymbolicLink()) {
+    throw new Error(`Staging directory link is not allowed: ${rootPath}`);
+  }
+  if (!rootStat.isDirectory()) {
+    return;
+  }
+  for (const entry of fs.readdirSync(rootPath, { withFileTypes: true })) {
+    const entryPath = path.join(rootPath, entry.name);
+    if (entry.isSymbolicLink()) {
+      throw new Error(`Staging directory link is not allowed: ${entryPath}`);
+    }
+    if (entry.isDirectory()) {
+      assertNoLinkedEntries(entryPath);
+    }
+  }
+}
+
+function stageFrontendAssets(paths = RUNTIME_PATHS) {
+  if (paths.isPackaged) {
+    return false;
+  }
+  const sourceDir = path.resolve(paths.frontendDistDir);
+  const sourceIndex = path.join(sourceDir, 'index.html');
+  if (!fs.existsSync(sourceIndex)) {
+    return false;
+  }
+  if (!hasCompleteWebArtifacts(sourceIndex, sourceDir)) {
+    throw new Error(`Frontend build is incomplete or references a missing asset: ${sourceIndex}`);
+  }
+
+  const targetDir = path.resolve(paths.serverPublicDir);
+  ensureSafePublicTarget(targetDir, paths);
+  assertNoLinkedEntries(sourceDir);
+  const suffix = `${process.pid}-${Date.now()}`;
+  const stagingDir = `${targetDir}.staging-${suffix}`;
+  const backupDir = `${targetDir}.backup-${suffix}`;
+  fs.mkdirSync(path.dirname(targetDir), { recursive: true });
+  fs.rmSync(stagingDir, { recursive: true, force: true });
+  fs.rmSync(backupDir, { recursive: true, force: true });
+  fs.cpSync(sourceDir, stagingDir, { recursive: true, force: true });
+  assertNoLinkedEntries(stagingDir);
+  if (!hasCompleteWebArtifacts(path.join(stagingDir, 'index.html'), stagingDir)) {
+    fs.rmSync(stagingDir, { recursive: true, force: true });
+    throw new Error(`Staged frontend build is incomplete: ${stagingDir}`);
+  }
+
+  let activeMoved = false;
+  try {
+    if (fs.existsSync(targetDir)) {
+      fs.renameSync(targetDir, backupDir);
+      activeMoved = true;
+    }
+    fs.renameSync(stagingDir, targetDir);
+  } catch (error) {
+    if (!fs.existsSync(targetDir) && activeMoved && fs.existsSync(backupDir)) {
+      fs.renameSync(backupDir, targetDir);
+    }
+    throw error;
+  } finally {
+    fs.rmSync(stagingDir, { recursive: true, force: true });
+  }
+  fs.rmSync(backupDir, { recursive: true, force: true });
+  console.log(`[start] Frontend assets staged into ${targetDir}`);
+  return true;
 }
 
 function runCommand(command, args, options = {}) {
@@ -336,6 +450,7 @@ function runCommand(command, args, options = {}) {
 
 function ensureDependenciesAndBuild() {
   if (hasDeploymentArtifacts()) {
+    stageFrontendAssets();
     console.log('[start] Deployment dist already exists. Skipping install/build.');
     return;
   }
@@ -362,9 +477,7 @@ function ensureDependenciesAndBuild() {
     throw new Error(`Server build artifact missing after build: ${SERVER_ENTRY}`);
   }
 
-  ensureSafePublicTarget(SERVER_PUBLIC_DIR);
-  fs.rmSync(SERVER_PUBLIC_DIR, { recursive: true, force: true });
-  fs.cpSync(FRONTEND_DIST_DIR, SERVER_PUBLIC_DIR, { recursive: true, force: true });
+  stageFrontendAssets();
 
   if (!fs.existsSync(SERVER_PUBLIC_INDEX)) {
     throw new Error(`Frontend staging failed: ${SERVER_PUBLIC_INDEX}`);
@@ -554,6 +667,8 @@ module.exports = {
   loadConfigPort,
   resolvePort,
   hasDeploymentArtifacts,
+  ensureDependenciesAndBuild,
+  stageFrontendAssets,
   installDaemonLogTee,
   resetPasswordInConfigContent,
   resetPasswordInConfigFile,
