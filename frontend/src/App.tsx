@@ -31,6 +31,7 @@ import { MetadataRow } from './components/MetadataBar/MetadataRow';
 import { ContextMenu } from './components/ContextMenu';
 import { CommandPresetDialog } from './components/CommandPresetManager';
 import { RecoveryOptionDialog } from './components/RecoveryOptionManager';
+import { McpControlDialog } from './components/McpControlManager';
 import { buildCommandPresetPasteInput } from './components/CommandPresetManager/commandPresetPaste';
 import {
   TerminalShortcutDialog,
@@ -118,6 +119,7 @@ function AppContent() {
   const [showCommandPresetDialog, setShowCommandPresetDialog] = useState(false);
   const [showTerminalShortcutDialog, setShowTerminalShortcutDialog] = useState(false);
   const [showRecoveryOptionDialog, setShowRecoveryOptionDialog] = useState(false);
+  const [showMcpControlDialog, setShowMcpControlDialog] = useState(false);
 
   const wm = useWorkspaceManager();
   // Stable ref to avoid re-creating callbacks on every render
@@ -382,7 +384,6 @@ function AppContent() {
     ) {
       wmRef.current.setViewMode(wm.activeWorkspaceId, 'tab');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, wm.activeWorkspace?.viewMode, wm.activeWorkspaceId]);
 
   const handleRestartTab = useCallback((tabId: string) => {
@@ -557,6 +558,7 @@ function AppContent() {
         onOpenCommandPresetManager={() => setShowCommandPresetDialog(true)}
         onOpenTerminalShortcutManager={() => setShowTerminalShortcutDialog(true)}
         onOpenRecoveryOptionManager={() => setShowRecoveryOptionDialog(true)}
+        onOpenMcpControlManager={() => setShowMcpControlDialog(true)}
       />
       <div className="main">
         {/* Desktop sidebar */}
@@ -752,6 +754,13 @@ function AppContent() {
         <RecoveryOptionDialog
           open={showRecoveryOptionDialog}
           onClose={() => setShowRecoveryOptionDialog(false)}
+        />
+      )}
+
+      {showMcpControlDialog && (
+        <McpControlDialog
+          open={showMcpControlDialog}
+          onClose={() => setShowMcpControlDialog(false)}
         />
       )}
 

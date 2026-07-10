@@ -51,6 +51,9 @@ type SessionInputGatewayDeps = {
 type SubmitInputResult = {
   accepted: boolean;
   code?: InputGatewayDenialCode;
+  message?: string;
+  details?: unknown;
+  fieldErrors?: unknown;
   auditId?: string;
   includeSelf?: boolean;
   sessionActivityAfter?: string;
@@ -108,7 +111,7 @@ function submitInputThroughGateway(
 
   const policy = asRecord(deps.evaluateInputPolicy?.(request) ?? { ok: true });
   if (isDenied(policy)) {
-    return denyWithAudit(deps, request, String(policy.code));
+    return denyWithAudit(deps, request, String(policy.code), policy);
   }
 
   const enterPolicyDenial = evaluateEnterPolicy(request);
@@ -118,7 +121,7 @@ function submitInputThroughGateway(
 
   const targetResult = resolveGatewayTarget(deps, request, source);
   if (isDenied(targetResult)) {
-    const denied = denyWithAudit(deps, request, String(targetResult.code));
+    const denied = denyWithAudit(deps, request, String(targetResult.code), targetResult);
     return source === 'mcp-reply-to-leader'
       ? { ...denied, followerLifecycleAfter: 'live' }
       : denied;
@@ -244,6 +247,7 @@ function denyWithAudit(
   deps: SessionInputGatewayDeps,
   request: StringRecord,
   code: InputGatewayDenialCode,
+  failure: StringRecord = {},
 ): SubmitInputResult {
   const auditId = shouldAudit(asString(request.source) ?? '', request)
     ? auditGatewayInput(deps, request, String(code), code)
@@ -251,8 +255,19 @@ function denyWithAudit(
   return {
     accepted: false,
     code,
+    ...pickFailureDetails(failure),
     ...(auditId ? { auditId } : {}),
   };
+}
+
+function pickFailureDetails(failure: StringRecord): StringRecord {
+  const result: StringRecord = {};
+  for (const key of ['message', 'details', 'fieldErrors']) {
+    if (failure[key] !== undefined) {
+      result[key] = failure[key];
+    }
+  }
+  return result;
 }
 
 // @req IR-MCP-004

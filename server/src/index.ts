@@ -57,6 +57,13 @@ import {
   createMcpToolService,
 } from './services/McpToolService.js';
 import {
+  buildMcpNodeRequestErrorResponse,
+  readMcpIncomingRequestBody,
+} from './services/McpNodeHttpBoundary.js';
+import {
+  buildMcpGatewayDeliveryResponse,
+} from './services/McpGatewayDeliveryResult.js';
+import {
   createAgentCommandProfileService,
   createMcpAgentLifecycleService,
 } from './services/AgentLifecycleService.js';
@@ -64,6 +71,17 @@ import {
   createMcpControlService,
   mergeMcpControlSecurityConfig,
 } from './services/McpControlService.js';
+import {
+  createMcpControlConfigFileStore,
+  mergeStoredMcpControlConfig,
+} from './services/McpControlConfigStore.js';
+import {
+  applyMcpControlConfigPatch,
+} from './services/McpControlConfigCoordinator.js';
+import {
+  buildMcpControlRouteFailure,
+  isMcpControlRouteFailure,
+} from './services/McpControlRouteResult.js';
 import {
   createWebhookInvocationService,
   createWebhookRecordFileStore,
@@ -121,6 +139,7 @@ let workspaceService: WorkspaceService;
 let mcpListenerControllerInstance: StringRecord | null = null;
 let mcpControlService: StringRecord | null = null;
 let webhookInvocationService: StringRecord | null = null;
+let mcpControlConfigStore: StringRecord | null = null;
 let agentCommandProfileService: StringRecord | null = null;
 let cwdSnapshotTimer: ReturnType<typeof setInterval> | null = null;
 let terminalObservabilityTimer: ReturnType<typeof setInterval> | null = null;
@@ -260,7 +279,7 @@ async function handleMcpNodeRequest(
   dispatch: (request: unknown) => unknown | Promise<unknown>,
 ): Promise<void> {
   try {
-    const body = await readIncomingRequestBody(req);
+    const body = await readMcpIncomingRequestBody(req);
     const bearer = typeof req.headers.authorization === 'string'
       ? req.headers.authorization.match(/^Bearer\s+(.+)$/iu)?.[1]
       : undefined;
@@ -275,26 +294,8 @@ async function handleMcpNodeRequest(
     writeMcpNodeResponse(res, response);
   } catch (error) {
     console.warn('[MCP] Request handling failed:', error instanceof Error ? error.message : String(error));
-    writeMcpNodeResponse(res, {
-      status: 500,
-      contentType: 'application/json; charset=utf-8',
-      body: { jsonrpc: '2.0', id: null, error: { code: -32603, message: 'Internal error' } },
-    });
+    writeMcpNodeResponse(res, buildMcpNodeRequestErrorResponse(error));
   }
-}
-
-async function readIncomingRequestBody(req: IncomingMessage): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  let totalBytes = 0;
-  for await (const chunk of req) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), 'utf8');
-    totalBytes += buffer.length;
-    if (totalBytes > 1024 * 1024) {
-      throw new Error('MCP request body too large');
-    }
-    chunks.push(buffer);
-  }
-  return Buffer.concat(chunks);
 }
 
 function writeMcpNodeResponse(res: ServerResponse, response: StringRecord): void {
@@ -313,16 +314,9 @@ async function callMcpControlRoute(service: StringRecord | null, method: string,
 }
 
 function sendMcpControlRouteResult(res: express.Response, result: StringRecord, successStatus = 200): void {
-  if (result.ok === false || result.allowed === false) {
-    const code = asString(result.code) ?? 'MCP_CONTROL_ERROR';
-    res.status(statusForMcpControlCode(code)).json({
-      ok: false,
-      code,
-      message: code,
-      requestId: result.requestId ?? result.auditId ?? `req_${crypto.randomUUID()}`,
-      fieldErrors: result.fieldErrors,
-      auditId: result.auditId,
-    });
+  if (isMcpControlRouteFailure(result)) {
+    const failure = buildMcpControlRouteFailure(result);
+    res.status(failure.status).json(failure.body);
     return;
   }
   res.status(successStatus).json(result);
@@ -336,25 +330,6 @@ function sendMcpControlRouteError(res: express.Response, error: unknown): void {
     message,
     requestId: `req_${crypto.randomUUID()}`,
   });
-}
-
-function statusForMcpControlCode(code: string): number {
-  if (code === 'CREDENTIAL_BOUNDARY_VIOLATION' || code === 'MISSING_TOKEN' || code === 'INVALID_TOKEN') {
-    return 401;
-  }
-  if (code === 'VALIDATION_ERROR' || code === 'CLOSE_CONFIRMATION_REQUIRED') {
-    return 400;
-  }
-  if (code === 'TARGET_NOT_FOUND' || code === 'AGENT_PROFILE_NOT_FOUND' || code === 'WEBHOOK_KEY_INVALID') {
-    return 404;
-  }
-  if (code.includes('DENIED') || code === 'INVALID_SCOPE') {
-    return 403;
-  }
-  if (code === 'WEBHOOK_RATE_LIMITED') {
-    return 429;
-  }
-  return 400;
 }
 
 function flattenWebhookCredentialResult(result: StringRecord): StringRecord {
@@ -413,14 +388,7 @@ function createMcpGatewayDelivery(): (delivery: StringRecord) => Promise<StringR
         promptPreviewMaxChars: 24,
       },
     }));
-    const accepted = result.accepted === true;
-    return {
-      ok: accepted,
-      accepted,
-      status: accepted ? 'delivered' : 'failed',
-      code: accepted ? undefined : result.code ?? 'DELIVERY_FAILED',
-      auditId: result.auditId,
-    };
+    return buildMcpGatewayDeliveryResponse(result);
   };
 }
 
@@ -467,13 +435,29 @@ function resolveMcpGatewayTarget(targetSessionKey: string, actorSessionKey?: str
     .listMcpSessions(actorSessionKey, true)
     .find((session) => session.sessionKey === targetSessionKey);
   if (!binding) {
-    return { ok: false, code: 'TARGET_NOT_FOUND' };
+    return {
+      ok: false,
+      code: 'TARGET_NOT_FOUND',
+      message: 'MCP target session was not found',
+      details: { sessionKey: targetSessionKey },
+      fieldErrors: { sessionKey: 'not found' },
+    };
   }
   const currentSessionId = typeof binding.currentSessionId === 'string'
     ? binding.currentSessionId
     : typeof binding.sessionId === 'string' ? binding.sessionId : '';
   if (!currentSessionId || binding.bindingLifecycle !== 'live' || !sessionManager.hasSession(currentSessionId)) {
-    return { ok: false, code: 'TARGET_NOT_LIVE' };
+    return {
+      ok: false,
+      code: 'TARGET_NOT_LIVE',
+      message: 'MCP target session is not live',
+      details: {
+        sessionKey: targetSessionKey,
+        currentSessionId,
+        bindingLifecycle: binding.bindingLifecycle ?? 'unknown',
+      },
+      fieldErrors: { sessionKey: 'not live' },
+    };
   }
   return {
     ok: true,
@@ -492,6 +476,10 @@ function asRecord(value: unknown): StringRecord {
 
 function asString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(String).filter(item => item.trim() !== '') : [];
 }
 
 // ============================================================================
@@ -660,7 +648,15 @@ function setupRoutes(): void {
   app.get('/api/mcp-control/config', authMiddleware, async (_req, res) => {
     try {
       const control = asRecord(await callMcpControlRoute(mcpControlService, 'getConfig', { auth: { type: 'browser-jwt' } }));
+      if (isMcpControlRouteFailure(control)) {
+        sendMcpControlRouteResult(res, control);
+        return;
+      }
       const webhook = asRecord(await callMcpControlRoute(webhookInvocationService, 'getWebhookConfig', {}));
+      if (isMcpControlRouteFailure(webhook)) {
+        sendMcpControlRouteResult(res, webhook);
+        return;
+      }
       res.json({ ...control, webhookKeyHeaderName: webhook.webhookKeyHeaderName, webhookRateLimit: webhook.rateLimit });
     } catch (error) {
       sendMcpControlRouteError(res, error);
@@ -669,40 +665,14 @@ function setupRoutes(): void {
 
   app.patch('/api/mcp-control/config', authMiddleware, async (req, res) => {
     try {
-      const body = asRecord(req.body);
-      const hasWebhookHeaderName = Object.prototype.hasOwnProperty.call(body, 'webhookKeyHeaderName');
-      const webhookHeaderName = typeof body.webhookKeyHeaderName === 'string' ? body.webhookKeyHeaderName.trim() : undefined;
-      let webhookPatch: StringRecord = {};
-      if (hasWebhookHeaderName) {
-        const headerValidation = asRecord(validateMcpWebhookKeyHeaderName(typeof body.webhookKeyHeaderName === 'string' ? body.webhookKeyHeaderName : ''));
-        if (headerValidation.ok === false) {
-          sendMcpControlRouteResult(res, headerValidation);
-          return;
-        }
-      }
-      const control = asRecord(await callMcpControlRoute(mcpControlService, 'setConfig', {
-        ...body,
-        auth: { type: 'browser-jwt' },
+      const result = asRecord(await applyMcpControlConfigPatch({
+        body: req.body,
+        controlService: mcpControlService,
+        webhookService: webhookInvocationService,
+        configStore: mcpControlConfigStore,
+        validateWebhookHeaderName: validateMcpWebhookKeyHeaderName,
       }));
-      if (control.ok === false) {
-        sendMcpControlRouteResult(res, control);
-        return;
-      }
-      if (hasWebhookHeaderName && webhookHeaderName) {
-        webhookPatch = asRecord(await callMcpControlRoute(webhookInvocationService, 'setWebhookConfig', {
-          webhookKeyHeaderName: webhookHeaderName,
-        }));
-        if (webhookPatch.ok === false) {
-          sendMcpControlRouteResult(res, webhookPatch);
-          return;
-        }
-      }
-      const webhook = asRecord(await callMcpControlRoute(webhookInvocationService, 'getWebhookConfig', {}));
-      res.json({
-        ...control,
-        webhookKeyHeaderName: webhook.webhookKeyHeaderName,
-        webhookRateLimit: webhook.rateLimit,
-      });
+      sendMcpControlRouteResult(res, result);
     } catch (error) {
       sendMcpControlRouteError(res, error);
     }
@@ -754,7 +724,13 @@ function setupRoutes(): void {
 
   app.get('/api/mcp-control/webhooks', authMiddleware, async (_req, res) => {
     try {
-      res.json({ webhooks: await callMcpControlRoute(webhookInvocationService, 'listWebhookKeys', {}) });
+      const rawResult = await callMcpControlRoute(webhookInvocationService, 'listWebhookKeys', {});
+      const result = asRecord(rawResult);
+      if (isMcpControlRouteFailure(result)) {
+        sendMcpControlRouteResult(res, result);
+        return;
+      }
+      res.json({ webhooks: Array.isArray(rawResult) ? rawResult : Array.isArray(result.webhooks) ? result.webhooks : [] });
     } catch (error) {
       sendMcpControlRouteError(res, error);
     }
@@ -792,13 +768,13 @@ function setupRoutes(): void {
 
   app.get('/api/mcp-control/sessions', authMiddleware, async (req, res) => {
     try {
-      const result = await callMcpControlRoute(mcpControlService, 'listSessions', {
+      const result = asRecord(await callMcpControlRoute(mcpControlService, 'listSessions', {
         query: asString(req.query.query),
         includeSelf: parseBooleanQuery(req.query.includeSelf, true),
         actorSessionKey: asString(req.query.actorSessionKey),
         auth: { type: 'browser-jwt' },
-      });
-      res.json(result);
+      }));
+      sendMcpControlRouteResult(res, result);
     } catch (error) {
       sendMcpControlRouteError(res, error);
     }
@@ -806,10 +782,11 @@ function setupRoutes(): void {
 
   app.post('/api/mcp-control/sessions/search-test', authMiddleware, async (req, res) => {
     try {
-      res.json(await callMcpControlRoute(mcpControlService, 'searchTest', {
+      const result = asRecord(await callMcpControlRoute(mcpControlService, 'searchTest', {
         ...asRecord(req.body),
         auth: { type: 'browser-jwt' },
       }));
+      sendMcpControlRouteResult(res, result);
     } catch (error) {
       sendMcpControlRouteError(res, error);
     }
@@ -817,12 +794,12 @@ function setupRoutes(): void {
 
   app.patch('/api/mcp-control/sessions/:sessionKey/alias', authMiddleware, async (req, res) => {
     try {
-      const result = await callMcpControlRoute(mcpControlService, 'setSessionAlias', {
+      const result = asRecord(await callMcpControlRoute(mcpControlService, 'setSessionAlias', {
         ...asRecord(req.body),
         sessionKey: req.params.sessionKey,
         auth: { type: 'browser-jwt' },
-      });
-      res.json(result);
+      }));
+      sendMcpControlRouteResult(res, result);
     } catch (error) {
       sendMcpControlRouteError(res, error);
     }
@@ -1120,13 +1097,36 @@ async function startServer(): Promise<void> {
         return token ? mcpAgentTokens.get(token)?.revoked === true : false;
       },
     };
-    const mcpPort = Number.parseInt(process.env.BUILDERGATE_MCP_PORT ?? '3333', 10) || 3333;
+    mcpControlConfigStore = createMcpControlConfigFileStore();
+    const loadMcpControlConfig = mcpControlConfigStore.loadConfig as (() => Promise<unknown>) | undefined;
+    const getMcpControlConfigDataPath = mcpControlConfigStore.getDataFilePath as (() => string) | undefined;
+    const defaultMcpPort = Number.parseInt(process.env.BUILDERGATE_MCP_PORT ?? '3333', 10) || 3333;
+    const initialMcpControlConfig = mergeStoredMcpControlConfig({
+      enabled: true,
+      bindMode: 'loopback',
+      bindHost: '127.0.0.1',
+      host: '127.0.0.1',
+      port: defaultMcpPort,
+      externalWhitelist: [],
+      transportSecurity: 'none',
+      trustedProxies: [],
+      allowedOrigins: [],
+    }, loadMcpControlConfig ? await loadMcpControlConfig() : {}, {
+      dataPath: getMcpControlConfigDataPath?.(),
+      warn: event => console.warn('[McpControlConfigStore] Ignoring invalid persisted MCP control config:', event),
+    });
+    const mcpPort = Number(initialMcpControlConfig.port ?? defaultMcpPort) || defaultMcpPort;
     let mcpAgentLifecycleService: Record<string, unknown>;
     let mcpHandlerForListener: McpHttpHandler | null = null;
     const mcpListenerController = createMcpListenerController({
       current: {
-        bindHost: '127.0.0.1',
+        bindMode: asString(initialMcpControlConfig.bindMode) ?? 'loopback',
+        bindHost: asString(initialMcpControlConfig.bindHost) ?? asString(initialMcpControlConfig.host) ?? '127.0.0.1',
         port: mcpPort,
+        externalWhitelist: stringArray(initialMcpControlConfig.externalWhitelist),
+        transportSecurity: asString(initialMcpControlConfig.transportSecurity) ?? 'none',
+        trustedProxies: stringArray(initialMcpControlConfig.trustedProxies),
+        allowedOrigins: stringArray(initialMcpControlConfig.allowedOrigins),
         listenerStatus: 'stopped',
       },
       audit: (event) => console.info('[MCP Audit]', JSON.stringify(event)),
@@ -1215,14 +1215,14 @@ async function startServer(): Promise<void> {
     });
     const webhookRateLimits = new Map<string, { windowStartedAt: number; count: number }>();
     const mcpControlSecurityConfig: StringRecord = {
-      enabled: true,
-      bindMode: 'loopback',
-      bindHost: '127.0.0.1',
+      enabled: initialMcpControlConfig.enabled !== false,
+      bindMode: asString(initialMcpControlConfig.bindMode) ?? 'loopback',
+      bindHost: asString(initialMcpControlConfig.bindHost) ?? asString(initialMcpControlConfig.host) ?? '127.0.0.1',
       port: mcpPort,
-      externalWhitelist: [],
-      transportSecurity: 'none',
-      trustedProxies: [],
-      allowedOrigins: [],
+      externalWhitelist: stringArray(initialMcpControlConfig.externalWhitelist),
+      transportSecurity: asString(initialMcpControlConfig.transportSecurity) ?? 'none',
+      trustedProxies: stringArray(initialMcpControlConfig.trustedProxies),
+      allowedOrigins: stringArray(initialMcpControlConfig.allowedOrigins),
     };
     const webhookRecordStore = createWebhookRecordFileStore();
     const existingWebhookRecords = typeof webhookRecordStore.loadRecords === 'function'
@@ -1231,6 +1231,8 @@ async function startServer(): Promise<void> {
     webhookInvocationService = createWebhookInvocationService({
       now: () => new Date().toISOString(),
       webhookRecords: existingWebhookRecords,
+      webhookKeyHeaderName: initialMcpControlConfig.webhookKeyHeaderName,
+      webhookRateLimit: initialMcpControlConfig.webhookRateLimit,
       persistWebhookRecords: async (records) => {
         const saveRecords = webhookRecordStore.saveRecords as ((payload: unknown) => Promise<unknown>) | undefined;
         await saveRecords?.(records);
@@ -1275,15 +1277,15 @@ async function startServer(): Promise<void> {
     mcpControlService = createMcpControlService({
       now: () => new Date().toISOString(),
       config: {
-        enabled: true,
-        bindMode: 'loopback',
-        host: '127.0.0.1',
+        enabled: initialMcpControlConfig.enabled !== false,
+        bindMode: asString(initialMcpControlConfig.bindMode) ?? 'loopback',
+        host: asString(initialMcpControlConfig.host) ?? asString(initialMcpControlConfig.bindHost) ?? '127.0.0.1',
         port: mcpPort,
-        transportSecurity: 'none',
-        trustedProxies: [],
-        externalWhitelist: [],
-        allowedOrigins: [],
-        status: 'listening',
+        transportSecurity: asString(initialMcpControlConfig.transportSecurity) ?? 'none',
+        trustedProxies: stringArray(initialMcpControlConfig.trustedProxies),
+        externalWhitelist: stringArray(initialMcpControlConfig.externalWhitelist),
+        allowedOrigins: stringArray(initialMcpControlConfig.allowedOrigins),
+        status: initialMcpControlConfig.enabled === false ? 'stopped' : 'listening',
         lastError: null,
         lastRebindResult: null,
       },
@@ -1360,7 +1362,11 @@ async function startServer(): Promise<void> {
           sessionKey: asString(target.sessionKey) ?? asString(input.sessionKey),
           prompt: asString(input.data) ?? asString(input.prompt) ?? '',
           deliveryMode: asString(asRecord(input.delivery).mode) ?? 'paste',
-          actor: { type: 'ui', sessionKey: '0' },
+          actor: {
+            type: 'ui',
+            sessionKey: '0',
+            scopes: ['mcp:message.paste', 'mcp:message.submit'],
+          },
           context: { requestId: asString(input.requestId), sourceIp: 'ui' },
         });
       },
@@ -1380,7 +1386,7 @@ async function startServer(): Promise<void> {
       listenerController: mcpListenerController,
     }) as McpHttpHandler;
     mcpHandlerForListener = mcpHttpHandler;
-    await (mcpListenerController.start as (request: unknown) => Promise<unknown>)({ enabled: true });
+    await (mcpListenerController.start as (request: unknown) => Promise<unknown>)({ enabled: mcpControlSecurityConfig.enabled !== false });
     mcpListenerControllerInstance = mcpListenerController;
     app.set('mcpListenerController', mcpListenerController);
     app.set('mcpClaimCodes', mcpClaimCodes);

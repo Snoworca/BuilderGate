@@ -462,6 +462,47 @@ function buildBestSearchMatch(binding: McpSessionBinding, actorSessionKey: strin
   const userAlias = binding.aliasSource === 'user';
   const aliasSource = userAlias ? 'user-alias' : `${binding.aliasSource}-alias`;
 
+  const sessionKeyMatch = buildFieldMatch(
+    binding.sessionKey,
+    query,
+    'session-key',
+    'exact-session-key',
+    'partial-session-key',
+    980,
+    560,
+  );
+  if (sessionKeyMatch) {
+    candidates.push(sessionKeyMatch);
+  }
+
+  const currentSessionIdMatch = buildFieldMatch(
+    binding.currentSessionId,
+    query,
+    'current-session-id',
+    'exact-current-session-id',
+    'partial-current-session-id',
+    970,
+    550,
+  );
+  if (currentSessionIdMatch) {
+    candidates.push(currentSessionIdMatch);
+  }
+
+  for (const previousSessionId of binding.previousSessionIds ?? []) {
+    const match = buildFieldMatch(
+      previousSessionId,
+      query,
+      'previous-session-id',
+      'exact-previous-session-id',
+      'partial-previous-session-id',
+      880,
+      440,
+    );
+    if (match) {
+      candidates.push(match);
+    }
+  }
+
   const aliasMatch = buildFieldMatch(
     binding.alias,
     query,

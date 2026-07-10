@@ -86,12 +86,12 @@ type McpClaims = {
 const DEFAULT_MCP_SCOPES = [
   'mcp:self.read',
   'mcp:sessions.list',
+  'mcp:sessions.search',
   'mcp:message.paste',
   'mcp:status.write',
 ] as const;
 
 const TOKEN_SIGNING_SECRET = crypto.randomBytes(32);
-const consumedTokenJtis = new Map<string, number>();
 const ALLOWED_AGENT_STATUS = new Set(['unknown', 'starting', 'ready', 'busy', 'waiting_input', 'completed', 'failed']);
 const ALLOWED_BINDING_LIFECYCLE = new Set(['live', 'closing', 'closed', 'retired', 'failed', 'closing-failed']);
 const ALLOWED_BIND_MODES = new Set(['loopback', 'whitelist']);
@@ -135,6 +135,9 @@ export function validateMcpSecurityConfig(
     return validationDenied('MCP_ORIGIN_DENIED', context.activeConfig);
   }
   if (!isValidOptionalCidrList(candidate.externalWhitelist)) {
+    return validationDenied('MCP_WHITELIST_DENIED', context.activeConfig);
+  }
+  if (hasWideOpenIpv4Cidr(candidate.externalWhitelist)) {
     return validationDenied('MCP_WHITELIST_DENIED', context.activeConfig);
   }
   if (!isValidOptionalCidrList(candidate.trustedProxies)) {
@@ -278,13 +281,6 @@ export function verifyMcpCapabilityToken(token: string, expected: {
   if (expected.sessionKey && claims.sessionKey !== expected.sessionKey) {
     return denied('STALE_SESSION_ID');
   }
-  purgeExpiredConsumedTokenJtis();
-  const replayKey = `${claims.aud}:${claims.sessionKey}:${claims.jti}`;
-  if (consumedTokenJtis.has(replayKey)) {
-    return denied('TOKEN_REPLAYED');
-  }
-  consumedTokenJtis.set(replayKey, claims.exp);
-
   return {
     allowed: true,
     claims,
@@ -651,6 +647,22 @@ function isValidIpv4Cidr(value: unknown): boolean {
   return /^\d+$/u.test(prefixText) && Number.isInteger(prefix) && prefix >= 0 && prefix <= 32;
 }
 
+function hasWideOpenIpv4Cidr(cidrs: unknown): boolean {
+  return Array.isArray(cidrs) && cidrs.some(isWideOpenIpv4Cidr);
+}
+
+function isWideOpenIpv4Cidr(value: unknown): boolean {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const [network, prefixText, extra] = value.split('/');
+  if (extra !== undefined || !network || prefixText === undefined || ipv4ToInt(normalizeIp(network)) === null) {
+    return false;
+  }
+  const prefix = Number(prefixText);
+  return /^\d+$/u.test(prefixText) && Number.isInteger(prefix) && prefix === 0;
+}
+
 function isValidOriginList(origins: unknown): boolean {
   return Array.isArray(origins) && origins.every(isValidOrigin);
 }
@@ -734,14 +746,6 @@ function parseAndVerifyToken(token: string): McpClaims | null {
     return claims as McpClaims;
   } catch {
     return null;
-  }
-}
-
-function purgeExpiredConsumedTokenJtis(now = Math.floor(Date.now() / 1000)): void {
-  for (const [key, expiresAt] of consumedTokenJtis) {
-    if (expiresAt <= now) {
-      consumedTokenJtis.delete(key);
-    }
   }
 }
 

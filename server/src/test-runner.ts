@@ -40,6 +40,17 @@ import { CommandPresetService } from './services/CommandPresetService.js';
 import { TerminalShortcutService } from './services/TerminalShortcutService.js';
 import { RecoveryOptionService } from './services/RecoveryOptionService.js';
 import {
+  createMcpControlConfigFileStore,
+  mergeStoredMcpControlConfig,
+} from './services/McpControlConfigStore.js';
+import {
+  buildMcpNodeRequestErrorResponse,
+  readMcpIncomingRequestBody,
+} from './services/McpNodeHttpBoundary.js';
+import { buildMcpGatewayDeliveryResponse } from './services/McpGatewayDeliveryResult.js';
+import { applyMcpControlConfigPatch } from './services/McpControlConfigCoordinator.js';
+import { buildMcpControlRouteFailure, isMcpControlRouteFailure } from './services/McpControlRouteResult.js';
+import {
   createHeadlessTerminalState,
   disposeHeadlessTerminal,
   resizeHeadlessTerminal,
@@ -76,6 +87,7 @@ import { loadConfigFromPathStrict } from './utils/configStrictLoader.js';
 import { resolveInputReliabilityMode } from './utils/inputReliabilityMode.js';
 import { validatePasswordPolicy } from './utils/passwordPolicy.js';
 import { buildRecoveryRestoreInput, getRecoveryExecutableToken } from './utils/recoveryCommand.js';
+import { validateMcpWebhookKeyHeaderName } from './services/McpSecurityContract.js';
 import express from 'express';
 import type { Request } from 'express';
 
@@ -249,6 +261,7 @@ async function main(): Promise<void> {
     { name: 'MCP alias contract FR-MCP-006 AC-3: list surfaces user alias and current session binding', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-006_AC-3'] },
     { name: 'MCP alias contract FR-MCP-006 AC-4: exact alias search ranks before partial matches', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-006_AC-4'] },
     { name: 'MCP alias contract FR-MCP-001 AC-7: search ranks user aliases before weaker fields', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-001_AC-7_SEARCH_RANKING'] },
+    { name: 'MCP alias contract FR-MCP-001 AC-7: search matches session keys and ids', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-001_AC-7_SEARCH_SESSION_IDS'] },
     { name: 'MCP alias contract FR-MCP-001 AC-7: search reports zero and ambiguous matches', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-001_AC-7_SEARCH_DENIALS'] },
     { name: 'MCP alias contract FR-MCP-006 AC-5: alias update persists WorkspaceTab user name', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-006_AC-5'] },
     { name: 'MCP alias contract FR-MCP-006 AC-6: alias update broadcasts tab metadata', run: registryAndAliasRedTests['Registry_and_alias_red_tests_FR-MCP-006_AC-6'] },
@@ -5249,6 +5262,7 @@ type McpSecurityContract = Record<string, unknown>;
 const expectedDefaultMcpScopes = [
   'mcp:self.read',
   'mcp:sessions.list',
+  'mcp:sessions.search',
   'mcp:message.paste',
   'mcp:status.write',
 ];
@@ -5311,6 +5325,7 @@ const registryAndAliasRedTests: Record<string, () => Promise<void>> = {
   'Registry_and_alias_red_tests_FR-MCP-001_AC-7': testMcpRegistryFrMcp001Ac7,
   'Registry_and_alias_red_tests_FR-MCP-006_DUPLICATE_KEYS': testMcpRegistryFrMcp006Ac6,
   'Registry_and_alias_red_tests_FR-MCP-001_AC-7_SEARCH_RANKING': testMcpAliasFrMcp001Ac7SearchRanking,
+  'Registry_and_alias_red_tests_FR-MCP-001_AC-7_SEARCH_SESSION_IDS': testMcpAliasFrMcp001Ac7SearchSessionIds,
   'Registry_and_alias_red_tests_FR-MCP-001_AC-7_SEARCH_DENIALS': testMcpAliasFrMcp001Ac7SearchDenials,
   'Registry_and_alias_red_tests_FR-MCP-006_AC-1': testMcpAliasFrMcp006Ac1,
   'Registry_and_alias_red_tests_FR-MCP-006_AC-2': testMcpAliasFrMcp006Ac2,
@@ -5332,6 +5347,9 @@ type InputGatewayScenario = {
   expected: {
     accepted: boolean;
     code?: string;
+    message?: string;
+    details?: Record<string, unknown>;
+    fieldErrors?: Record<string, unknown>;
     writes: number;
     targetSessionKey?: string;
     sessionActivityAfter?: string;
@@ -5441,7 +5459,26 @@ const inputGatewayRedTests: Record<string, () => Promise<void>> = {
       code: 'STALE_SESSION_ID',
       writes: 0,
     },
-  }),
+  }).then(() => runInputGatewayContractScenario({
+    request: createGatewayRequest({
+      source: 'mcp-message-send',
+      target: { sessionKey: 'target-session' },
+    }),
+    target: {
+      lifecycle: 'stopped',
+      message: 'target is no longer live',
+      details: { sessionKey: 'target-session' },
+      fieldErrors: { sessionKey: 'not live' },
+    },
+    expected: {
+      accepted: false,
+      code: 'TARGET_NOT_LIVE',
+      message: 'target is no longer live',
+      details: { sessionKey: 'target-session' },
+      fieldErrors: { sessionKey: 'not live' },
+      writes: 0,
+    },
+  })),
   'Input_gateway_red_tests_FR-MCP-002_AC-5': async () => {
     const contract = await loadSessionInputGatewayContract();
     assertInputGatewayContractExports(contract);
@@ -5761,6 +5798,145 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
     assert.equal(httpBody.id, 1);
     assertRequiredMcpTools(toolList, 'service tools/list');
     assertRequiredMcpTools(httpToolList, 'HTTP tools/list');
+
+    const contract = await loadMcpTransportToolContract();
+    const createHandler = getMcpTransportFunction(contract, 'createMcpHttpHandler');
+    const createController = getMcpTransportFunction(contract, 'createMcpListenerController');
+    const authenticatedService = await createMcpToolServiceHarness();
+    const authenticatedHandler = asRecord(createHandler({
+      service: authenticatedService,
+      listenerController: createController({ current: { bindHost: '127.0.0.1', port: 3333 } }),
+    }), 'authenticated MCP HTTP handler');
+    const credential = await createValidMcpCredential('self-session-key');
+    const sharedAuthHeaders = {
+      'content-type': 'application/json; charset=utf-8',
+      authorization: `Bearer ${credential.token}`,
+    };
+    const authenticatedList = asRecord(await callMcpHttpHandler(authenticatedHandler, {
+      method: 'POST',
+      path: '/mcp',
+      headers: sharedAuthHeaders,
+      credential,
+      body: Buffer.from(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 101,
+        method: 'tools/list',
+        params: {},
+      }), 'utf8'),
+      remoteAddress: '127.0.0.1',
+    }), 'authenticated MCP tools/list response');
+    const authenticatedSearch = asRecord(await callMcpHttpHandler(authenticatedHandler, {
+      method: 'POST',
+      path: '/mcp',
+      headers: sharedAuthHeaders,
+      credential,
+      body: Buffer.from(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 102,
+        method: 'tools/call',
+        params: {
+          name: 'buildergate.session.search',
+          arguments: { query: '클로드' },
+        },
+      }), 'utf8'),
+      remoteAddress: '127.0.0.1',
+    }), 'authenticated MCP session.search response');
+    const searchBody = asRecord(authenticatedSearch.body, 'authenticated MCP search JSON-RPC body');
+    const searchResult = asRecord(searchBody.result, 'authenticated MCP search result');
+    const searchMatches = asRecordArray(searchResult.matches, 'authenticated MCP search matches');
+    const authenticatedSend = asRecord(await callMcpHttpHandler(authenticatedHandler, {
+      method: 'POST',
+      path: '/mcp',
+      headers: sharedAuthHeaders,
+      credential,
+      body: Buffer.from(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 103,
+        method: 'tools/call',
+        params: {
+          name: 'buildergate.message.send',
+          arguments: { sessionKey: searchMatches[0].sessionKey, prompt: 'message after search' },
+        },
+      }), 'utf8'),
+      remoteAddress: '127.0.0.1',
+    }), 'authenticated MCP message.send after search response');
+    const sendBody = asRecord(authenticatedSend.body, 'authenticated MCP send JSON-RPC body');
+    const sendResult = asRecord(sendBody.result, 'authenticated MCP send result');
+
+    assert.equal(authenticatedList.status, 200);
+    assert.equal(authenticatedSearch.status, 200);
+    assert.equal(searchBody.id, 102);
+    assert.equal(searchResult.allowed, true);
+    assert.equal(searchMatches[0].sessionKey, 'target-session');
+    assert.equal(authenticatedSend.status, 200);
+    assert.equal(sendBody.id, 103);
+    assert.equal(sendResult.ok, true);
+    assert.equal(typeof sendResult.assignmentId, 'string');
+
+    const failingDeliveryService = await createMcpToolServiceHarness({
+      deps: {
+        deliverMessage: () => ({
+          ok: false,
+          accepted: false,
+          code: 'TARGET_NOT_LIVE',
+          message: 'target is no longer live',
+          details: { lifecycle: 'stopped' },
+          fieldErrors: { sessionKey: 'not live' },
+          auditId: 'audit-provider-delivery',
+          status: 'failed',
+        }),
+      },
+    });
+    const failingDeliveryHandler = asRecord(createHandler({
+      service: failingDeliveryService,
+      listenerController: createController({ current: { bindHost: '127.0.0.1', port: 3333 } }),
+    }), 'failing delivery MCP HTTP handler');
+    const failingDeliveryCredential = await createValidMcpCredential('self-session-key');
+    const failingDelivery = asRecord(await callMcpHttpHandler(failingDeliveryHandler, {
+      method: 'POST',
+      path: '/mcp',
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        authorization: `Bearer ${failingDeliveryCredential.token}`,
+      },
+      credential: failingDeliveryCredential,
+      body: Buffer.from(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 104,
+        method: 'tools/call',
+        params: {
+          name: 'buildergate.message.send',
+          arguments: { sessionKey: 'target-session', prompt: 'message to stopped session' },
+        },
+      }), 'utf8'),
+      remoteAddress: '127.0.0.1',
+    }), 'authenticated MCP message.send delivery failure response');
+    const failingDeliveryBody = asRecord(failingDelivery.body, 'authenticated MCP failed send JSON-RPC body');
+    const failingDeliveryResult = asRecord(failingDeliveryBody.result, 'authenticated MCP failed send result');
+    assert.equal(failingDelivery.status, 200);
+    assert.equal(failingDeliveryBody.id, 104);
+    assert.equal(failingDeliveryResult.ok, false);
+    assert.equal(failingDeliveryResult.code, 'TARGET_NOT_LIVE');
+    assert.equal(failingDeliveryResult.message, 'target is no longer live');
+    assert.equal(asRecord(failingDeliveryResult.details, 'failed send details').lifecycle, 'stopped');
+    assert.equal(asRecord(failingDeliveryResult.fieldErrors, 'failed send field errors').sessionKey, 'not live');
+    assert.equal(failingDeliveryResult.deliveryAuditId, 'audit-provider-delivery');
+
+    const gatewayDeliveryFailure = asRecord(buildMcpGatewayDeliveryResponse({
+      accepted: false,
+      code: 'TARGET_NOT_LIVE',
+      message: 'target is no longer live',
+      details: { sessionKey: 'target-session' },
+      fieldErrors: { sessionKey: 'not live' },
+      auditId: 'audit-runtime-gateway',
+    }), 'runtime gateway delivery failure');
+    assert.equal(gatewayDeliveryFailure.ok, false);
+    assert.equal(gatewayDeliveryFailure.status, 'failed');
+    assert.equal(gatewayDeliveryFailure.code, 'TARGET_NOT_LIVE');
+    assert.equal(gatewayDeliveryFailure.message, 'target is no longer live');
+    assert.equal(asRecord(gatewayDeliveryFailure.details, 'runtime gateway delivery details').sessionKey, 'target-session');
+    assert.equal(asRecord(gatewayDeliveryFailure.fieldErrors, 'runtime gateway delivery field errors').sessionKey, 'not live');
+    assert.equal(gatewayDeliveryFailure.auditId, 'audit-runtime-gateway');
   },
   'MCP_transport_and_tool_red_tests_IR-MCP-001_AC-2': async () => {
     const service = await createMcpToolServiceHarness();
@@ -5886,6 +6062,22 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
       assert.ok(body.result !== undefined);
       assert.match(toolCall.name, /^[\x20-\x7e]+$/u);
       assert.doesNotMatch(JSON.stringify(response.body), /빌더 게이트.*buildergate\./u);
+    }
+
+    try {
+      await readMcpIncomingRequestBody((async function* overflowBody() {
+        yield Buffer.alloc((1024 * 1024) + 1);
+      })());
+      assert.fail('oversized MCP request body must throw');
+    } catch (error) {
+      const response = asRecord(buildMcpNodeRequestErrorResponse(error, () => 'audit-oversized-mcp-body'), 'oversized MCP body response');
+      const body = asRecord(response.body, 'oversized MCP body JSON-RPC body');
+      const errorBody = asRecord(body.error, 'oversized MCP body error');
+      const data = asRecord(errorBody.data, 'oversized MCP body error data');
+      assert.equal(response.status, 413);
+      assert.equal(errorBody.message, 'MCP_REQUEST_TOO_LARGE');
+      assert.equal(data.code, 'MCP_REQUEST_TOO_LARGE');
+      assert.equal(data.auditId, 'audit-oversized-mcp-body');
     }
   },
   'MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-1': async () => {
@@ -6036,6 +6228,74 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
       }
     }
     assertNoSecretMaterial(calls.auditEvents, ['must-not-leak-session-token', 'redacted-session-token']);
+
+    const failureCalls = createMcpToolHarnessCalls();
+    const failureService = await createMcpToolServiceHarness({
+      calls: failureCalls,
+      deps: {
+        listSessions: () => ({
+          allowed: false,
+          code: 'TARGET_NOT_FOUND',
+          message: 'list failed',
+          candidates: [{ sessionKey: 'candidate-list' }],
+        }),
+        setSessionAlias: () => ({
+          ok: false,
+          code: 'TARGET_NOT_FOUND',
+          message: 'alias failed',
+          fieldErrors: { sessionKey: 'not found' },
+        }),
+      },
+    });
+    const failedList = asRecord(await callMcpToolService(failureService, 'callTool', {
+      name: 'buildergate.session.list',
+      actor: createMcpActor(),
+      arguments: { includeSelf: true },
+      requestId: 'req-list-failed',
+      sourceIp: '127.0.0.1',
+    }), 'MCP failed session list result');
+    const failedAlias = asRecord(await callMcpToolService(failureService, 'callTool', {
+      name: 'buildergate.session.set_alias',
+      actor: createMcpActor(),
+      arguments: { sessionKey: 'missing-session', alias: 'missing' },
+      requestId: 'req-alias-failed',
+      sourceIp: '127.0.0.1',
+    }), 'MCP failed set_alias result');
+    assert.equal(failedList.allowed, false);
+    assert.equal(failedList.code, 'TARGET_NOT_FOUND');
+    assert.equal(failedList.message, 'list failed');
+    assert.equal(asRecordArray(failedList.candidates, 'failed MCP list candidates')[0]?.sessionKey, 'candidate-list');
+    assert.equal(failedAlias.ok, false);
+    assert.equal(failedAlias.code, 'TARGET_NOT_FOUND');
+    assert.equal(failedAlias.message, 'alias failed');
+    assert.equal(asRecord(failedAlias.fieldErrors, 'failed MCP alias field errors').sessionKey, 'not found');
+    const throwingAliasService = await createMcpToolServiceHarness({
+      deps: {
+        setSessionAlias: () => {
+          const error = new Error('tab missing');
+          (error as Error & { code?: string }).code = 'TAB_NOT_FOUND';
+          throw error;
+        },
+      },
+    });
+    const thrownAlias = asRecord(await callMcpToolService(throwingAliasService, 'callTool', {
+      name: 'buildergate.session.set_alias',
+      actor: createMcpActor(),
+      arguments: { sessionKey: 'missing-session', alias: 'missing' },
+      requestId: 'req-alias-throws',
+      sourceIp: '127.0.0.1',
+    }), 'MCP thrown set_alias result');
+    assert.equal(thrownAlias.ok, false);
+    assert.equal(thrownAlias.code, 'TARGET_NOT_FOUND');
+    assert.equal(thrownAlias.message, 'tab missing');
+    assert.equal(asRecord(thrownAlias.fieldErrors, 'thrown MCP alias field errors').sessionKey, 'not found');
+    assert.equal(typeof thrownAlias.auditId, 'string');
+    const deniedListAudit = asRecord(failureCalls.auditEvents.find(event => event.requestId === 'req-list-failed'), 'failed MCP list audit');
+    const deniedAliasAudit = asRecord(failureCalls.auditEvents.find(event => event.requestId === 'req-alias-failed'), 'failed MCP alias audit');
+    assert.equal(deniedListAudit.result, 'denied');
+    assert.equal(deniedListAudit.reason, 'TARGET_NOT_FOUND');
+    assert.equal(deniedAliasAudit.result, 'denied');
+    assert.equal(deniedAliasAudit.reason, 'TARGET_NOT_FOUND');
   },
   'MCP_transport_and_tool_red_tests_OBS-MCP-001_AC-5': async () => {
     const service = await createMcpToolServiceHarness();
@@ -6315,6 +6575,21 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
 
     const contract = await loadMcpTransportToolContract();
     const createController = getMcpTransportFunction(contract, 'createMcpListenerController');
+    const disabledBoundPorts: number[] = [];
+    const disabledController = asRecord(createController({
+      current: { enabled: false, bindHost: '127.0.0.1', port: 3337 },
+      bindListener: (candidate: unknown) => {
+        disabledBoundPorts.push(Number(asRecord(candidate, 'disabled MCP bind candidate').port));
+        return { bindHost: '127.0.0.1', port: 3337, listenerStatus: 'listening', activeConnectionCount: 0 };
+      },
+      closeListener: () => undefined,
+      healthProbe: () => ({ ok: true }),
+    }), 'disabled MCP real bind listener controller');
+    const disabledStart = asRecord(await callMcpListenerController(disabledController, 'start', { enabled: false }), 'disabled MCP listener start');
+    assert.equal(disabledStart.enabled, false);
+    assert.equal(disabledStart.listenerStatus, 'stopped');
+    assert.deepEqual(disabledBoundPorts, []);
+
     const boundPorts: number[] = [];
     const closedPorts: number[] = [];
     const realController = asRecord(createController({
@@ -7143,6 +7418,21 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
     assert.equal(delivery.deliveryMode, 'paste');
     assert.notEqual(delivery.deliveryMode, 'submit');
 
+    const deliveryFailureHarness = await createWebhookInvocationHarness({ deliveryFails: true });
+    const deliveryFailure = asRecord(await callObjectMethod(deliveryFailureHarness.service, 'invokeWebhook', createWebhookInvokeRequest({
+      query: { key: 'webhook-full-key', prompt: 'hello', target: '빌더 게이트' },
+    })), 'webhook delivery failure result');
+    assert.equal(deliveryFailure.ok, false);
+    assert.equal(deliveryFailure.code, 'TARGET_NOT_LIVE');
+    assert.equal(deliveryFailure.message, 'target is no longer live');
+    assert.equal(typeof deliveryFailure.auditId, 'string');
+    assert.equal(asRecord(deliveryFailure.fieldErrors, 'webhook delivery field errors').sessionKey, 'not live');
+    const deliveryFailureRoute = buildMcpControlRouteFailure(deliveryFailure, () => 'req_webhook_delivery');
+    const deliveryFailureBody = asRecord(deliveryFailureRoute.body, 'webhook delivery route failure body');
+    assert.equal(deliveryFailureRoute.status, 400);
+    assert.equal(deliveryFailureBody.code, 'TARGET_NOT_LIVE');
+    assert.equal(deliveryFailureBody.auditId, deliveryFailure.auditId);
+
     const ambiguousHarness = await createWebhookInvocationHarness({ ambiguousTarget: true });
     const ambiguous = asRecord(await callObjectMethod(ambiguousHarness.service, 'invokeWebhook', createWebhookInvokeRequest({
       query: { key: 'webhook-full-key', prompt: 'hello', target: 'builder' },
@@ -7182,6 +7472,22 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
     assert.equal(restCreatedHarness.calls.deliverMessage.length, 0);
     assert.equal(restCreatedHarness.calls.openAgent.length, 1);
 
+    const openFailureHarness = await createWebhookInvocationHarness({ noTarget: true, openAgentFails: true });
+    const openFailure = asRecord(await callObjectMethod(openFailureHarness.service, 'invokeWebhook', createWebhookInvokeRequest({
+      query: { key: 'webhook-full-key', prompt: 'open default failure' },
+    })), 'webhook no-target open failure result');
+    assert.equal(openFailure.ok, false);
+    assert.equal(openFailure.code, 'AGENT_PROFILE_NOT_FOUND');
+    assert.equal(openFailure.message, 'agent profile missing');
+    assert.equal(asRecord(openFailure.details, 'open failure details').profileId, 'codex-env');
+    assert.equal(asRecord(openFailure.fieldErrors, 'open failure field errors').profileId, 'not found');
+    assert.equal(openFailure.openAgentAuditId, 'audit-open-agent-provider');
+    const openFailureRoute = buildMcpControlRouteFailure(openFailure, () => 'req_open_agent_failure');
+    const openFailureBody = asRecord(openFailureRoute.body, 'open agent failure route body');
+    assert.equal(openFailureRoute.status, 404);
+    assert.equal(openFailureBody.code, 'AGENT_PROFILE_NOT_FOUND');
+    assert.equal(openFailureBody.message, 'agent profile missing');
+
     const missingDefault = await createWebhookInvocationHarness({ noTarget: true, noDefaultProfile: true });
     const failed = asRecord(await callObjectMethod(missingDefault.service, 'invokeWebhook', createWebhookInvokeRequest({
       query: { key: 'webhook-full-key', prompt: 'open default' },
@@ -7191,6 +7497,18 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
     assert.equal(missingDefault.calls.openAgent.length, 0);
   },
   'Webhook_control_red_tests_FR-MCP-004_AC-7': async () => {
+    const validationHarness = await createWebhookInvocationHarness();
+    const emptyBody = asRecord(await callObjectMethod(validationHarness.service, 'createWebhookKey', {}), 'empty webhook create result');
+    const emptyScopes = asRecord(await callObjectMethod(validationHarness.service, 'createWebhookKey', {
+      targetSessionKey: 'target-session',
+      scopes: [],
+    }), 'empty webhook scopes create result');
+    assert.equal(emptyBody.ok, false);
+    assert.equal(emptyBody.code, 'VALIDATION_ERROR');
+    assert.equal(emptyScopes.ok, false);
+    assert.equal(emptyScopes.code, 'VALIDATION_ERROR');
+    assert.equal(validationHarness.calls.persistedWebhooks.length, 0);
+
     const { service, calls } = await createWebhookInvocationHarness();
     await callObjectMethod(service, 'invokeWebhook', createWebhookInvokeRequest({
       url: '/webhook/agent?key=webhook-full-key&prompt=raw-long-secret-prompt',
@@ -7357,11 +7675,22 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
       transportSecurity: 'none',
     }), 'unsafe whitelist config mutation');
     assert.equal(unsafeWhitelist.ok, false);
-    assert.equal(unsafeWhitelist.code, 'MCP_TRANSPORT_TLS_REQUIRED');
+    assert.equal(unsafeWhitelist.code, 'MCP_WHITELIST_DENIED');
     assert.equal(unsafeWhitelistHarness.calls.mutateConfig.length, 0);
     const configAfterUnsafeWhitelist = asRecord(await callObjectMethod(unsafeWhitelistHarness.service, 'getConfig', {}), 'config after unsafe whitelist');
     assert.equal(configAfterUnsafeWhitelist.bindMode, 'loopback');
     assert.deepEqual(configAfterUnsafeWhitelist.externalWhitelist, []);
+
+    const unsafeDirectTlsHarness = await createMcpControlHarness();
+    const unsafeDirectTls = asRecord(await callObjectMethod(unsafeDirectTlsHarness.service, 'setConfig', {
+      bindMode: 'whitelist',
+      host: '0.0.0.0',
+      externalWhitelist: ['0.0.0.0/0'],
+      transportSecurity: 'direct_tls',
+    }), 'unsafe direct TLS whitelist config mutation');
+    assert.equal(unsafeDirectTls.ok, false);
+    assert.equal(unsafeDirectTls.code, 'MCP_WHITELIST_DENIED');
+    assert.equal(unsafeDirectTlsHarness.calls.mutateConfig.length, 0);
 
     const disabledUnsafeHarness = await createMcpControlHarness();
     const disabledUnsafe = asRecord(await callObjectMethod(disabledUnsafeHarness.service, 'setConfig', {
@@ -7371,7 +7700,7 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
       transportSecurity: 'none',
     }), 'disabled unsafe whitelist config mutation');
     assert.equal(disabledUnsafe.ok, false);
-    assert.equal(disabledUnsafe.code, 'MCP_TRANSPORT_TLS_REQUIRED');
+    assert.equal(disabledUnsafe.code, 'MCP_WHITELIST_DENIED');
     assert.equal(disabledUnsafeHarness.calls.mutateConfig.length, 0);
 
     const disabledLoopbackExternalHarness = await createMcpControlHarness();
@@ -7406,6 +7735,24 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
           bindMode: 'whitelist',
           externalWhitelist: ['not-a-cidr'],
           transportSecurity: 'direct_tls',
+        },
+        code: 'MCP_WHITELIST_DENIED',
+      },
+      {
+        label: 'loopback wide-open external whitelist CIDR',
+        request: {
+          bindMode: 'loopback',
+          host: '127.0.0.1',
+          externalWhitelist: ['0.0.0.0/0'],
+        },
+        code: 'MCP_WHITELIST_DENIED',
+      },
+      {
+        label: 'loopback wide-open zero-padded external whitelist CIDR',
+        request: {
+          bindMode: 'loopback',
+          host: '127.0.0.1',
+          externalWhitelist: ['0.0.0.0/00'],
         },
         code: 'MCP_WHITELIST_DENIED',
       },
@@ -7559,6 +7906,48 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
     assert.equal(asyncAlias.name, 'async-alias');
     assert.equal(asyncAlias.nameSource ?? asyncAlias.aliasSource, 'user');
     assert.equal(asRecord(asyncHarness.calls.setAlias[0], 'async set alias call').sessionKey, 'target-session');
+
+    const failureHarness = await createMcpControlHarness({
+      listSessionsFails: true,
+      searchSessionsFails: true,
+      aliasFails: true,
+    });
+    const failedList = asRecord(await callObjectMethod(failureHarness.service, 'listSessions', {}), 'control list dependency failure');
+    const failedQueryList = asRecord(await callObjectMethod(failureHarness.service, 'listSessions', { query: 'missing' }), 'control query list dependency failure');
+    const failedSearch = asRecord(await callObjectMethod(failureHarness.service, 'searchSessions', { query: 'missing' }), 'control search dependency failure');
+    const failedSearchTest = asRecord(await callObjectMethod(failureHarness.service, 'searchTest', { query: 'missing' }), 'control search-test dependency failure');
+    const failedAlias = asRecord(await callObjectMethod(failureHarness.service, 'setSessionAlias', {
+      sessionKey: 'missing-session',
+      alias: 'missing',
+    }), 'control alias dependency failure');
+    assert.equal(failedList.allowed, false);
+    assert.equal(failedList.code, 'TARGET_NOT_FOUND');
+    assert.equal(failedList.message, 'list target missing');
+    assert.equal(asRecordArray(failedList.candidates, 'failed list candidates')[0]?.sessionKey, 'candidate-list');
+    assert.equal(failedQueryList.allowed, false);
+    assert.equal(failedQueryList.code, 'TARGET_NOT_FOUND');
+    assert.equal(failedSearch.allowed, false);
+    assert.equal(failedSearch.code, 'TARGET_NOT_FOUND');
+    assert.equal(failedSearch.reason, 'missing-session');
+    assert.equal(asRecordArray(failedSearch.candidates, 'failed search candidates')[0]?.sessionKey, 'candidate-search');
+    assert.equal(failedSearchTest.allowed, false);
+    assert.equal(failedSearchTest.code, 'TARGET_NOT_FOUND');
+    assert.equal(failedSearchTest.readOnly, true);
+    assert.equal(failedAlias.allowed, false);
+    assert.equal(failedAlias.code, 'TARGET_NOT_FOUND');
+    assert.equal(failedAlias.message, 'alias target missing');
+    assert.equal(asRecord(failedAlias.fieldErrors, 'failed alias field errors').sessionKey, 'not found');
+
+    const aliasThrowHarness = await createMcpControlHarness({ aliasThrows: true });
+    const thrownAlias = asRecord(await callObjectMethod(aliasThrowHarness.service, 'setSessionAlias', {
+      sessionKey: 'missing-session',
+      alias: 'missing',
+    }), 'control alias provider throw result');
+    assert.equal(thrownAlias.ok, false);
+    assert.equal(thrownAlias.code, 'TARGET_NOT_FOUND');
+    assert.equal(thrownAlias.message, 'Tab not found');
+    assert.equal(asRecord(thrownAlias.fieldErrors, 'thrown alias field errors').sessionKey, 'not found');
+    assert.equal(typeof thrownAlias.auditId, 'string');
   },
   'Webhook_control_red_tests_IR-MCP-002_AC-6': async () => {
     const { service, calls } = await createMcpControlHarness();
@@ -7568,6 +7957,24 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
     assert.equal(close.ok, true);
     assert.equal(calls.replyGateway.length, 1);
     assert.equal(calls.closeLifecycle.length, 1);
+    const pasteReplyCall = asRecord(calls.replyGateway[0], 'paste reply gateway call');
+    const pasteReplyDelivery = asRecord(pasteReplyCall.delivery, 'paste reply delivery');
+    assert.equal(pasteReplyCall.data, 'reply');
+    assert.equal(pasteReplyDelivery.mode, 'paste');
+    assert.equal(pasteReplyDelivery.submit, false);
+
+    const submitReply = asRecord(await callObjectMethod(service, 'replyTest', {
+      sessionKey: 'follower-session',
+      prompt: 'Hello, World!',
+      deliveryMode: 'submit',
+    }), 'submit reply test result');
+    const submitReplyCall = asRecord(calls.replyGateway[1], 'submit reply gateway call');
+    const submitReplyDelivery = asRecord(submitReplyCall.delivery, 'submit reply delivery');
+    assert.equal(submitReply.accepted, true);
+    assert.equal(calls.replyGateway.length, 2);
+    assert.equal(submitReplyCall.data, 'Hello, World!\r');
+    assert.equal(submitReplyDelivery.mode, 'submit');
+    assert.equal(submitReplyDelivery.submit, true);
 
     const asyncFailureHarness = await createMcpControlHarness({
       asyncDeps: true,
@@ -7586,7 +7993,13 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
       confirmationNonce: 'nonce-current',
     }), 'async close lifecycle failure result');
     assert.equal(asyncReply.accepted, false);
+    assert.equal(asyncReply.ok, false);
     assert.equal(asyncReply.code, 'INPUT_REJECTED_REPLAY_PENDING');
+    const replyRouteFailure = buildMcpControlRouteFailure(asyncReply, () => 'req_reply_failure');
+    const replyRouteFailureBody = asRecord(replyRouteFailure.body, 'reply route failure body');
+    assert.notEqual(replyRouteFailure.status, 200);
+    assert.equal(replyRouteFailureBody.ok, false);
+    assert.equal(replyRouteFailureBody.code, 'INPUT_REJECTED_REPLAY_PENDING');
     assert.equal(asyncClose.ok, false);
     assert.equal(asyncClose.status, 'failed');
     assert.equal(asyncClose.code, 'TAB_DELETE_FAILED');
@@ -7656,6 +8069,13 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
     assert.equal(result.allowed ?? true, true);
     assert.equal(asRecord(calls.searchSessions[0], 'control search call').query, '빌더 게이트');
     assertNoSecretMaterial(result, ['raw-token', 'webhook-full-key', 'hidden-terminal-payload']);
+    const match = asRecord(asRecordArray(result.matches, 'control query matches')[0], 'control query match');
+    assert.equal(match.sessionId, 'target-current-session-id');
+    assert.equal(match.currentSessionId, 'target-current-session-id');
+    assert.equal(match.bindingLifecycle, 'live');
+    assert.equal(match.mcpConnected, true);
+    assert.equal(match.leader, false);
+    assert.equal(match.lastSeenAt, '2026-07-09T05:00:00.000Z');
   },
   'Webhook_control_red_tests_IR-MCP-003_AC-2': async () => {
     const { service, calls } = await createMcpControlHarness();
@@ -7771,11 +8191,23 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
     const { service } = await createWebhookInvocationHarness();
     const defaults = asRecord(await callObjectMethod(service, 'getWebhookConfig', {}), 'webhook config defaults');
     const valid = asRecord(await callObjectMethod(service, 'setWebhookConfig', { webhookKeyHeaderName: 'X-Custom-Webhook-Key' }), 'valid webhook config');
+    const validRateLimit = asRecord(await callObjectMethod(service, 'setWebhookConfig', {
+      webhookKeyHeaderName: 'X-Custom-Webhook-Key',
+      rateLimit: { windowSeconds: 30, burstLimit: 4 },
+    }), 'valid webhook rate limit config');
+    const invalidRateLimit = asRecord(await callObjectMethod(service, 'setWebhookConfig', {
+      webhookKeyHeaderName: 'X-Custom-Webhook-Key',
+      rateLimit: { windowSeconds: 0, burstLimit: 4 },
+    }), 'invalid webhook rate limit config');
     const invalid = asRecord(await callObjectMethod(service, 'setWebhookConfig', { webhookKeyHeaderName: 'Authorization' }), 'invalid webhook config');
     const blank = asRecord(await callObjectMethod(service, 'setWebhookConfig', { webhookKeyHeaderName: '' }), 'blank webhook config');
     const whitespace = asRecord(await callObjectMethod(service, 'setWebhookConfig', { webhookKeyHeaderName: '   ' }), 'whitespace webhook config');
     assert.equal(defaults.webhookKeyHeaderName, 'X-BuilderGate-Webhook-Key');
+    assert.deepEqual(defaults.rateLimit, { windowSeconds: 60, burstLimit: 10 });
     assert.equal(valid.webhookKeyHeaderName, 'X-Custom-Webhook-Key');
+    assert.deepEqual(validRateLimit.rateLimit, { windowSeconds: 30, burstLimit: 4 });
+    assert.equal(invalidRateLimit.ok, false);
+    assert.equal(invalidRateLimit.code, 'WEBHOOK_RATE_LIMIT_INVALID');
     assert.equal(invalid.ok, false);
     assert.equal(invalid.code, 'WEBHOOK_HEADER_FORBIDDEN');
     assert.equal(blank.ok, false);
@@ -7796,6 +8228,487 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
     assert.equal(defaultHeader.code, 'WEBHOOK_KEY_INVALID');
     assert.equal(customHeader.ok, true);
     assert.equal(asRecord(customHarness.calls.auditEvents.at(-1), 'custom header audit').credentialKind, 'header');
+
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-mcp-control-config-'));
+    try {
+      const store = createMcpControlConfigFileStore({ dataPath: path.join(tmpDir, 'mcp-control-config.json') });
+      const saved = asRecord(await callObjectMethod(store, 'saveConfig', {
+        enabled: true,
+        bindMode: 'whitelist',
+        bindHost: '0.0.0.0',
+        host: '0.0.0.0',
+        port: 4444,
+        transportSecurity: 'trusted_tls_proxy',
+        trustedProxies: ['10.0.0.1/32'],
+        externalWhitelist: ['203.0.113.7/32'],
+        allowedOrigins: ['https://localhost:2222'],
+        webhookKeyHeaderName: 'X-Custom-Webhook-Key',
+        webhookRateLimit: { windowSeconds: 30, burstLimit: 4 },
+      }), 'mcp control config save result');
+      const loaded = asRecord(await callObjectMethod(store, 'loadConfig', {}), 'mcp control config load result');
+      assert.equal(saved.ok, true);
+      assert.equal(loaded.bindMode, 'whitelist');
+      assert.equal(loaded.host, '0.0.0.0');
+      assert.equal(loaded.bindHost, '0.0.0.0');
+      assert.equal(loaded.port, 4444);
+      assert.deepEqual(loaded.trustedProxies, ['10.0.0.1/32']);
+      assert.deepEqual(loaded.externalWhitelist, ['203.0.113.7/32']);
+      assert.deepEqual(loaded.allowedOrigins, ['https://localhost:2222']);
+      assert.equal(loaded.webhookKeyHeaderName, 'X-Custom-Webhook-Key');
+      assert.deepEqual(loaded.webhookRateLimit, { windowSeconds: 30, burstLimit: 4 });
+
+      const invalidPersistedWarnings: Record<string, unknown>[] = [];
+      const fallback = mergeStoredMcpControlConfig({
+        enabled: true,
+        bindMode: 'loopback',
+        host: '127.0.0.1',
+        bindHost: '127.0.0.1',
+        port: 3333,
+        transportSecurity: 'none',
+        trustedProxies: [],
+        externalWhitelist: [],
+        allowedOrigins: [],
+      }, {
+        enabled: true,
+        bindMode: 'whitelist',
+        host: '0.0.0.0',
+        bindHost: '0.0.0.0',
+        port: 4444,
+        transportSecurity: 'none',
+        externalWhitelist: ['not-a-cidr'],
+        allowedOrigins: ['https://localhost:2222/'],
+        webhookKeyHeaderName: 'Authorization',
+        webhookRateLimit: { windowSeconds: 0, burstLimit: 0 },
+      }, {
+        dataPath: path.join(tmpDir, 'mcp-control-config.json'),
+        warn: event => invalidPersistedWarnings.push({ ...event }),
+      });
+      assert.equal(fallback.bindMode, 'loopback');
+      assert.equal(fallback.host, '127.0.0.1');
+      assert.equal(fallback.bindHost, '127.0.0.1');
+      assert.equal(fallback.port, 3333);
+      assert.deepEqual(fallback.externalWhitelist, []);
+      assert.equal(fallback.webhookKeyHeaderName, 'X-BuilderGate-Webhook-Key');
+      assert.deepEqual(fallback.webhookRateLimit, { windowSeconds: 60, burstLimit: 10 });
+      assert.equal(invalidPersistedWarnings.length, 1);
+      assert.equal(typeof invalidPersistedWarnings[0]?.code, 'string');
+      assert.equal(invalidPersistedWarnings[0]?.path, path.join(tmpDir, 'mcp-control-config.json'));
+
+      const malformedConfigPath = path.join(tmpDir, 'malformed-mcp-control-config.json');
+      await fs.writeFile(malformedConfigPath, '{ invalid json', 'utf-8');
+      const loadWarnings: Record<string, unknown>[] = [];
+      const malformedStore = createMcpControlConfigFileStore({
+        dataPath: malformedConfigPath,
+        warn: event => loadWarnings.push({ ...event }),
+      });
+      const malformedLoaded = asRecord(await callObjectMethod(malformedStore, 'loadConfig', {}), 'malformed mcp config load fallback');
+      assert.deepEqual(malformedLoaded, {});
+      assert.equal(loadWarnings.length, 1);
+      assert.equal(loadWarnings[0]?.code, 'MCP_CONTROL_CONFIG_LOAD_FAILED');
+      assert.equal(loadWarnings[0]?.path, malformedConfigPath);
+      assert.equal(typeof loadWarnings[0]?.message, 'string');
+
+      const invalidRateLimitConfigPath = path.join(tmpDir, 'invalid-rate-limit-mcp-control-config.json');
+      await fs.writeFile(invalidRateLimitConfigPath, JSON.stringify({
+        version: 1,
+        config: {
+          bindMode: 'loopback',
+          host: '127.0.0.1',
+          webhookRateLimit: { windowSeconds: 0, burstLimit: 10 },
+        },
+      }), 'utf-8');
+      const invalidRateLimitWarnings: Record<string, unknown>[] = [];
+      const invalidRateLimitStore = createMcpControlConfigFileStore({
+        dataPath: invalidRateLimitConfigPath,
+        warn: event => invalidRateLimitWarnings.push({ ...event }),
+      });
+      const invalidRateLimitLoaded = asRecord(await callObjectMethod(invalidRateLimitStore, 'loadConfig', {}), 'invalid rate limit mcp config load fallback');
+      assert.deepEqual(invalidRateLimitLoaded, {});
+      assert.equal(invalidRateLimitWarnings.length, 1);
+      assert.equal(invalidRateLimitWarnings[0]?.code, 'WEBHOOK_RATE_LIMIT_INVALID');
+      assert.equal(invalidRateLimitWarnings[0]?.path, invalidRateLimitConfigPath);
+
+      const rejectedSave = asRecord(await callObjectMethod(store, 'saveConfig', {
+        bindMode: 'whitelist',
+        host: '0.0.0.0',
+        bindHost: '0.0.0.0',
+        port: 4444,
+        transportSecurity: 'none',
+        externalWhitelist: ['203.0.113.7/32'],
+      }), 'invalid mcp control config save result');
+      assert.equal(rejectedSave.ok, false);
+      assert.equal(rejectedSave.code, 'MCP_TRANSPORT_TLS_REQUIRED');
+
+      const wideOpenRejectedSave = asRecord(await callObjectMethod(store, 'saveConfig', {
+        bindMode: 'whitelist',
+        host: '0.0.0.0',
+        bindHost: '0.0.0.0',
+        port: 4444,
+        transportSecurity: 'direct_tls',
+        externalWhitelist: ['0.0.0.0/0'],
+      }), 'wide-open mcp control config save result');
+      assert.equal(wideOpenRejectedSave.ok, false);
+      assert.equal(wideOpenRejectedSave.code, 'MCP_WHITELIST_DENIED');
+
+      const loopbackWideOpenRejectedSave = asRecord(await callObjectMethod(store, 'saveConfig', {
+        bindMode: 'loopback',
+        host: '127.0.0.1',
+        bindHost: '127.0.0.1',
+        externalWhitelist: ['0.0.0.0/00'],
+      }), 'loopback wide-open mcp control config save result');
+      assert.equal(loopbackWideOpenRejectedSave.ok, false);
+      assert.equal(loopbackWideOpenRejectedSave.code, 'MCP_WHITELIST_DENIED');
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+
+    const controlState: Record<string, unknown> = {
+      enabled: true,
+      bindMode: 'loopback',
+      host: '127.0.0.1',
+      port: 3333,
+      transportSecurity: 'none',
+      trustedProxies: [],
+      externalWhitelist: [],
+      allowedOrigins: [],
+      status: 'listening',
+      lastError: null,
+      lastRebindResult: null,
+    };
+    const webhookState: Record<string, unknown> = {
+      webhookKeyHeaderName: 'X-BuilderGate-Webhook-Key',
+      rateLimit: { windowSeconds: 60, burstLimit: 10 },
+    };
+    const coordinatorResult = asRecord(await applyMcpControlConfigPatch({
+      body: {
+        host: '127.0.0.1',
+        port: 4444,
+        webhookKeyHeaderName: 'X-Custom-Webhook-Key',
+        webhookRateLimit: { windowSeconds: 30, burstLimit: 4 },
+      },
+      controlService: {
+        getConfig: () => ({ ...controlState }),
+        setConfig: (request: unknown) => {
+          Object.assign(controlState, pickControlConfigFields(asRecord(request, 'coordinator control request')));
+          return { ok: true, ...controlState };
+        },
+      },
+      webhookService: {
+        getWebhookConfig: () => ({ ...webhookState }),
+        setWebhookConfig: (request: unknown) => {
+          const input = asRecord(request, 'coordinator webhook request');
+          if (input.webhookKeyHeaderName !== undefined) webhookState.webhookKeyHeaderName = input.webhookKeyHeaderName;
+          if (input.rateLimit !== undefined) webhookState.rateLimit = input.rateLimit;
+          return { ok: true, ...webhookState };
+        },
+      },
+      configStore: {
+        saveConfig: async () => {
+          throw new Error('persist failed');
+        },
+      },
+      validateWebhookHeaderName: validateMcpWebhookKeyHeaderName,
+    }), 'mcp control config coordinator persist failure');
+    assert.equal(coordinatorResult.ok, false);
+    assert.equal(coordinatorResult.code, 'MCP_CONTROL_CONFIG_PERSIST_FAILED');
+    assert.equal(controlState.port, 3333);
+    assert.equal(webhookState.webhookKeyHeaderName, 'X-BuilderGate-Webhook-Key');
+    assert.deepEqual(webhookState.rateLimit, { windowSeconds: 60, burstLimit: 10 });
+
+    let initialSnapshotSetConfigCalls = 0;
+    const initialSnapshotFailure = asRecord(await applyMcpControlConfigPatch({
+      body: { host: '127.0.0.1', port: 4444 },
+      controlService: {
+        getConfig: () => ({ ...controlState }),
+        setConfig: () => {
+          initialSnapshotSetConfigCalls += 1;
+          return { ok: true };
+        },
+      },
+      webhookService: {
+        getWebhookConfig: () => ({
+          ok: false,
+          code: 'MCP_CONTROL_WEBHOOK_CONFIG_FAILED',
+          message: 'webhook snapshot failed',
+          auditId: 'audit-initial-webhook-snapshot',
+        }),
+        setWebhookConfig: () => ({ ok: true }),
+      },
+      validateWebhookHeaderName: validateMcpWebhookKeyHeaderName,
+    }), 'mcp control coordinator initial webhook snapshot failure');
+    assert.equal(initialSnapshotFailure.ok, false);
+    assert.equal(initialSnapshotFailure.code, 'MCP_CONTROL_WEBHOOK_CONFIG_FAILED');
+    assert.equal(initialSnapshotFailure.auditId, 'audit-initial-webhook-snapshot');
+    assert.equal(initialSnapshotSetConfigCalls, 0);
+
+    const finalSnapshotControlState: Record<string, unknown> = {
+      enabled: true,
+      bindMode: 'loopback',
+      host: '127.0.0.1',
+      port: 3333,
+      transportSecurity: 'none',
+      trustedProxies: [],
+      externalWhitelist: [],
+      allowedOrigins: [],
+    };
+    const finalSnapshotWebhookState: Record<string, unknown> = {
+      webhookKeyHeaderName: 'X-BuilderGate-Webhook-Key',
+      rateLimit: { windowSeconds: 60, burstLimit: 10 },
+    };
+    let finalSnapshotWebhookReads = 0;
+    let finalSnapshotPersisted = false;
+    const finalSnapshotFailure = asRecord(await applyMcpControlConfigPatch({
+      body: { host: '127.0.0.1', port: 4444, webhookKeyHeaderName: 'X-Custom-Webhook-Key' },
+      controlService: {
+        getConfig: () => ({ ...finalSnapshotControlState }),
+        setConfig: (request: unknown) => {
+          Object.assign(finalSnapshotControlState, pickControlConfigFields(asRecord(request, 'final snapshot control request')));
+          return { ok: true, ...finalSnapshotControlState };
+        },
+      },
+      webhookService: {
+        getWebhookConfig: () => {
+          finalSnapshotWebhookReads += 1;
+          if (finalSnapshotWebhookReads === 1) {
+            return { ...finalSnapshotWebhookState };
+          }
+          return {
+            ok: false,
+            code: 'MCP_CONTROL_WEBHOOK_CONFIG_FAILED',
+            message: 'webhook final snapshot failed',
+            auditId: 'audit-final-webhook-snapshot',
+          };
+        },
+        setWebhookConfig: (request: unknown) => {
+          const input = asRecord(request, 'final snapshot webhook request');
+          if (input.webhookKeyHeaderName !== undefined) finalSnapshotWebhookState.webhookKeyHeaderName = input.webhookKeyHeaderName;
+          if (input.rateLimit !== undefined) finalSnapshotWebhookState.rateLimit = input.rateLimit;
+          return { ok: true, ...finalSnapshotWebhookState };
+        },
+      },
+      configStore: {
+        saveConfig: async () => {
+          finalSnapshotPersisted = true;
+          return { ok: true };
+        },
+      },
+      validateWebhookHeaderName: validateMcpWebhookKeyHeaderName,
+    }), 'mcp control coordinator final webhook snapshot failure');
+    assert.equal(finalSnapshotFailure.ok, false);
+    assert.equal(finalSnapshotFailure.code, 'MCP_CONTROL_WEBHOOK_CONFIG_FAILED');
+    assert.equal(finalSnapshotFailure.auditId, 'audit-final-webhook-snapshot');
+    assert.equal(finalSnapshotControlState.port, 3333);
+    assert.equal(finalSnapshotWebhookState.webhookKeyHeaderName, 'X-BuilderGate-Webhook-Key');
+    assert.equal(finalSnapshotPersisted, false);
+
+    const controlRestoreFailureState: Record<string, unknown> = {
+      enabled: true,
+      bindMode: 'loopback',
+      host: '127.0.0.1',
+      port: 3333,
+      transportSecurity: 'none',
+      trustedProxies: [],
+      externalWhitelist: [],
+      allowedOrigins: [],
+    };
+    const webhookAfterControlRestoreFailureState: Record<string, unknown> = {
+      webhookKeyHeaderName: 'X-BuilderGate-Webhook-Key',
+      rateLimit: { windowSeconds: 60, burstLimit: 10 },
+    };
+    const controlRestoreFailureResult = asRecord(await applyMcpControlConfigPatch({
+      body: {
+        host: '127.0.0.1',
+        port: 4444,
+        webhookKeyHeaderName: 'X-Custom-Webhook-Key',
+        webhookRateLimit: { windowSeconds: 30, burstLimit: 4 },
+      },
+      controlService: {
+        getConfig: () => ({ ...controlRestoreFailureState }),
+        setConfig: (request: unknown) => {
+          const next = pickControlConfigFields(asRecord(request, 'control restore failure request'));
+          if (next.port === 3333) {
+            return { ok: false, code: 'CONTROL_RESTORE_FAILED', message: 'control rollback failed' };
+          }
+          Object.assign(controlRestoreFailureState, next);
+          return { ok: true, ...controlRestoreFailureState };
+        },
+      },
+      webhookService: {
+        getWebhookConfig: () => ({ ...webhookAfterControlRestoreFailureState }),
+        setWebhookConfig: (request: unknown) => {
+          const input = asRecord(request, 'webhook restore after control failure request');
+          if (input.webhookKeyHeaderName !== undefined) webhookAfterControlRestoreFailureState.webhookKeyHeaderName = input.webhookKeyHeaderName;
+          if (input.rateLimit !== undefined) webhookAfterControlRestoreFailureState.rateLimit = input.rateLimit;
+          return { ok: true, ...webhookAfterControlRestoreFailureState };
+        },
+      },
+      configStore: {
+        saveConfig: async () => {
+          throw new Error('persist failed');
+        },
+      },
+      validateWebhookHeaderName: validateMcpWebhookKeyHeaderName,
+    }), 'mcp control coordinator control rollback failure');
+    const controlRollbackErrors = asRecordArray(controlRestoreFailureResult.rollbackErrors, 'control rollback errors');
+    assert.equal(controlRestoreFailureResult.ok, false);
+    assert.equal(controlRestoreFailureResult.code, 'MCP_CONTROL_CONFIG_PERSIST_FAILED');
+    assert.equal(controlRollbackErrors.some(error => error.target === 'control' && error.code === 'CONTROL_RESTORE_FAILED'), true);
+    assert.equal(webhookAfterControlRestoreFailureState.webhookKeyHeaderName, 'X-BuilderGate-Webhook-Key');
+    assert.deepEqual(webhookAfterControlRestoreFailureState.rateLimit, { windowSeconds: 60, burstLimit: 10 });
+    const routeFailure = buildMcpControlRouteFailure(controlRestoreFailureResult, () => 'req_route_failure');
+    const routeFailureBody = asRecord(routeFailure.body, 'mcp route failure body');
+    assert.equal(routeFailure.status, 400);
+    assert.equal(routeFailureBody.code, 'MCP_CONTROL_CONFIG_PERSIST_FAILED');
+    assert.equal(routeFailureBody.message, 'persist failed');
+    assert.equal(routeFailureBody.requestId, 'req_route_failure');
+    assert.equal(
+      asRecordArray(routeFailureBody.rollbackErrors, 'route rollback errors')
+        .some(error => error.target === 'control' && error.code === 'CONTROL_RESTORE_FAILED'),
+      true,
+    );
+
+    const webhookRestoreFailureControlState: Record<string, unknown> = {
+      enabled: true,
+      bindMode: 'loopback',
+      host: '127.0.0.1',
+      port: 3333,
+      transportSecurity: 'none',
+      trustedProxies: [],
+      externalWhitelist: [],
+      allowedOrigins: [],
+    };
+    const webhookRestoreFailureState: Record<string, unknown> = {
+      webhookKeyHeaderName: 'X-BuilderGate-Webhook-Key',
+      rateLimit: { windowSeconds: 60, burstLimit: 10 },
+    };
+    const webhookRestoreFailureResult = asRecord(await applyMcpControlConfigPatch({
+      body: {
+        host: '127.0.0.1',
+        port: 4444,
+        webhookKeyHeaderName: 'X-Custom-Webhook-Key',
+        webhookRateLimit: { windowSeconds: 30, burstLimit: 4 },
+      },
+      controlService: {
+        getConfig: () => ({ ...webhookRestoreFailureControlState }),
+        setConfig: (request: unknown) => {
+          Object.assign(webhookRestoreFailureControlState, pickControlConfigFields(asRecord(request, 'webhook restore failure control request')));
+          return { ok: true, ...webhookRestoreFailureControlState };
+        },
+      },
+      webhookService: {
+        getWebhookConfig: () => ({ ...webhookRestoreFailureState }),
+        setWebhookConfig: (request: unknown) => {
+          const input = asRecord(request, 'webhook restore failure request');
+          if (input.webhookKeyHeaderName === 'X-BuilderGate-Webhook-Key') {
+            throw new Error('webhook rollback failed');
+          }
+          if (input.webhookKeyHeaderName !== undefined) webhookRestoreFailureState.webhookKeyHeaderName = input.webhookKeyHeaderName;
+          if (input.rateLimit !== undefined) webhookRestoreFailureState.rateLimit = input.rateLimit;
+          return { ok: true, ...webhookRestoreFailureState };
+        },
+      },
+      configStore: {
+        saveConfig: async () => {
+          throw new Error('persist failed');
+        },
+      },
+      validateWebhookHeaderName: validateMcpWebhookKeyHeaderName,
+    }), 'mcp control coordinator webhook rollback failure');
+    const webhookRollbackErrors = asRecordArray(webhookRestoreFailureResult.rollbackErrors, 'webhook rollback errors');
+    assert.equal(webhookRestoreFailureResult.ok, false);
+    assert.equal(webhookRestoreFailureResult.code, 'MCP_CONTROL_CONFIG_PERSIST_FAILED');
+    assert.equal(webhookRollbackErrors.some(error => error.target === 'webhook' && error.code === 'MCP_CONTROL_CONFIG_ROLLBACK_FAILED'), true);
+    assert.equal(webhookRestoreFailureControlState.port, 3333);
+    const aliasRouteFailure = buildMcpControlRouteFailure({
+      ok: false,
+      code: 'TARGET_NOT_FOUND',
+      message: 'alias target missing',
+      fieldErrors: { sessionKey: 'not found' },
+    }, () => 'req_alias_failure');
+    const aliasRouteFailureBody = asRecord(aliasRouteFailure.body, 'alias route failure body');
+    assert.equal(aliasRouteFailure.status, 404);
+    assert.equal(aliasRouteFailureBody.message, 'alias target missing');
+    assert.equal(asRecord(aliasRouteFailureBody.fieldErrors, 'alias route field errors').sessionKey, 'not found');
+
+    const webhookConfigRouteFailureSource = {
+      ok: false,
+      code: 'MCP_CONTROL_WEBHOOK_CONFIG_FAILED',
+      message: 'webhook config unavailable',
+      auditId: 'audit-webhook-config',
+    };
+    assert.equal(isMcpControlRouteFailure(webhookConfigRouteFailureSource), true);
+    const webhookConfigRouteFailure = buildMcpControlRouteFailure(webhookConfigRouteFailureSource, () => 'req_webhook_config');
+    const webhookConfigRouteFailureBody = asRecord(webhookConfigRouteFailure.body, 'webhook config route failure body');
+    assert.equal(webhookConfigRouteFailure.status, 400);
+    assert.equal(webhookConfigRouteFailureBody.code, 'MCP_CONTROL_WEBHOOK_CONFIG_FAILED');
+    assert.equal(webhookConfigRouteFailureBody.message, 'webhook config unavailable');
+    assert.equal(webhookConfigRouteFailureBody.auditId, 'audit-webhook-config');
+    assert.equal(webhookConfigRouteFailureBody.requestId, 'audit-webhook-config');
+
+    const webhookListRouteFailureSource = {
+      allowed: false,
+      code: 'WEBHOOK_KEY_INVALID',
+      message: 'webhook list unavailable',
+      auditId: 'audit-webhook-list',
+    };
+    assert.equal(isMcpControlRouteFailure(webhookListRouteFailureSource), true);
+    const webhookListRouteFailure = buildMcpControlRouteFailure(webhookListRouteFailureSource, () => 'req_webhook_list');
+    const webhookListRouteFailureBody = asRecord(webhookListRouteFailure.body, 'webhook list route failure body');
+    assert.equal(webhookListRouteFailure.status, 404);
+    assert.equal(webhookListRouteFailureBody.code, 'WEBHOOK_KEY_INVALID');
+    assert.equal(webhookListRouteFailureBody.message, 'webhook list unavailable');
+    assert.equal(webhookListRouteFailureBody.auditId, 'audit-webhook-list');
+
+    const webhookThrowControlState: Record<string, unknown> = {
+      enabled: true,
+      bindMode: 'loopback',
+      host: '127.0.0.1',
+      port: 3333,
+      transportSecurity: 'none',
+      trustedProxies: [],
+      externalWhitelist: [],
+      allowedOrigins: [],
+    };
+    const webhookThrowState: Record<string, unknown> = {
+      webhookKeyHeaderName: 'X-BuilderGate-Webhook-Key',
+      rateLimit: { windowSeconds: 60, burstLimit: 10 },
+    };
+    const webhookThrowResult = asRecord(await applyMcpControlConfigPatch({
+      body: {
+        host: '127.0.0.1',
+        port: 4444,
+        webhookKeyHeaderName: 'X-Throws-Webhook-Key',
+      },
+      controlService: {
+        getConfig: () => ({ ...webhookThrowControlState }),
+        setConfig: (request: unknown) => {
+          Object.assign(webhookThrowControlState, pickControlConfigFields(asRecord(request, 'webhook throw control request')));
+          return { ok: true, ...webhookThrowControlState };
+        },
+      },
+      webhookService: {
+        getWebhookConfig: () => ({ ...webhookThrowState }),
+        setWebhookConfig: (request: unknown) => {
+          const input = asRecord(request, 'webhook throw config request');
+          if (input.webhookKeyHeaderName === 'X-Throws-Webhook-Key') {
+            throw new Error('webhook config exploded');
+          }
+          if (input.webhookKeyHeaderName !== undefined) webhookThrowState.webhookKeyHeaderName = input.webhookKeyHeaderName;
+          if (input.rateLimit !== undefined) webhookThrowState.rateLimit = input.rateLimit;
+          return { ok: true, ...webhookThrowState };
+        },
+      },
+      validateWebhookHeaderName: validateMcpWebhookKeyHeaderName,
+    }), 'mcp control coordinator webhook config throw');
+    assert.equal(webhookThrowResult.ok, false);
+    assert.equal(webhookThrowResult.code, 'MCP_CONTROL_WEBHOOK_CONFIG_FAILED');
+    assert.equal(webhookThrowResult.message, 'webhook config exploded');
+    assert.equal(webhookThrowControlState.port, 3333);
+    assert.equal(webhookThrowState.webhookKeyHeaderName, 'X-BuilderGate-Webhook-Key');
+    const webhookThrowRouteFailure = buildMcpControlRouteFailure(webhookThrowResult, () => 'req_webhook_throw');
+    const webhookThrowRouteBody = asRecord(webhookThrowRouteFailure.body, 'webhook throw route failure body');
+    assert.equal(webhookThrowRouteBody.message, 'webhook config exploded');
+    assert.equal(webhookThrowRouteBody.code, 'MCP_CONTROL_WEBHOOK_CONFIG_FAILED');
   },
   'Webhook_control_red_tests_IR-MCP-004_AC-3': async () => {
     const { service, calls } = await createWebhookInvocationHarness({ rateLimited: true });
@@ -7993,10 +8906,30 @@ async function createWebhookInvocationHarness(options: Record<string, unknown> =
     },
     openAgent: (request: unknown) => {
       calls.openAgent.push(asRecord(request, 'webhook open agent request'));
+      if (options.openAgentFails === true) {
+        return {
+          ok: false,
+          code: 'AGENT_PROFILE_NOT_FOUND',
+          message: 'agent profile missing',
+          details: { profileId: 'codex-env' },
+          fieldErrors: { profileId: 'not found' },
+          auditId: 'audit-open-agent-provider',
+        };
+      }
       return { ok: true, sessionKey: 'opened-session' };
     },
     deliverMessage: (request: unknown) => {
       calls.deliverMessage.push(asRecord(request, 'webhook delivery request'));
+      if (options.deliveryFails === true) {
+        return {
+          ok: false,
+          accepted: false,
+          code: 'TARGET_NOT_LIVE',
+          message: 'target is no longer live',
+          status: 'failed',
+          fieldErrors: { sessionKey: 'not live' },
+        };
+      }
       return { ok: true, accepted: true, assignmentId: 'assignment-webhook-1' };
     },
     checkRateLimit: (request: unknown) => {
@@ -8091,26 +9024,47 @@ async function createMcpControlHarness(options: Record<string, unknown> = {}): P
         },
       };
     },
+    listSessions: options.listSessionsFails === true
+      ? () => ({
+        allowed: false,
+        code: 'TARGET_NOT_FOUND',
+        message: 'list target missing',
+        reason: 'missing-session',
+        candidates: [{ sessionKey: 'candidate-list' }],
+      })
+      : undefined,
     sessions: [
       {
         sessionKey: 'self-session-key',
+        sessionId: 'self-current-session-id',
+        currentSessionId: 'self-current-session-id',
         alias: 'self',
         workspaceId: 'workspace-1',
         tabId: 'tab-self',
         agentKind: 'codex',
         agentStatus: 'ready',
         role: 'leader',
+        bindingLifecycle: 'live',
+        mcpConnected: true,
+        leader: true,
+        lastSeenAt: '2026-07-09T05:00:00.000Z',
         cwd: 'C:/Work/app',
         recoveryCommand: 'npm test',
       },
       {
         sessionKey: 'target-session',
+        sessionId: 'target-current-session-id',
+        currentSessionId: 'target-current-session-id',
         alias: '빌더 게이트',
         workspaceId: 'workspace-1',
         tabId: 'tab-target',
         agentKind: 'codex',
         agentStatus: 'waiting_input',
         role: 'reviewer',
+        bindingLifecycle: 'live',
+        mcpConnected: true,
+        leader: false,
+        lastSeenAt: '2026-07-09T05:00:00.000Z',
         cwd: 'C:/Work/reviewer',
         recoveryCommand: 'npm test',
         token: 'raw-token',
@@ -8135,12 +9089,30 @@ async function createMcpControlHarness(options: Record<string, unknown> = {}): P
     searchSessions: (request: unknown) => {
       const record = asRecord(request, 'control search request');
       calls.searchSessions.push(record);
+      if (options.searchSessionsFails === true) {
+        return {
+          allowed: false,
+          code: 'TARGET_NOT_FOUND',
+          message: 'search target missing',
+          reason: 'missing-session',
+          candidates: [{ sessionKey: 'candidate-search' }],
+        };
+      }
       return {
         allowed: true,
         matches: [{
           sessionKey: 'target-session',
+          sessionId: 'target-current-session-id',
+          currentSessionId: 'target-current-session-id',
           alias: '빌더 게이트',
           workspaceId: 'workspace-1',
+          tabId: 'tab-target',
+          agentKind: 'codex',
+          role: 'reviewer',
+          bindingLifecycle: 'live',
+          mcpConnected: true,
+          leader: false,
+          lastSeenAt: '2026-07-09T05:00:00.000Z',
           status: 'ready',
           matchReason: record.query === 'npm test' ? 'recoveryCommand' : record.query === 'reviewer' ? 'role' : 'alias',
         }],
@@ -8149,6 +9121,19 @@ async function createMcpControlHarness(options: Record<string, unknown> = {}): P
     setAlias: (request: unknown) => {
       const record = asRecord(request, 'control alias request');
       calls.setAlias.push(record);
+      if (options.aliasThrows === true) {
+        const error = new Error('Tab not found');
+        (error as Error & { code?: string }).code = 'TAB_NOT_FOUND';
+        throw error;
+      }
+      if (options.aliasFails === true) {
+        return {
+          allowed: false,
+          code: 'TARGET_NOT_FOUND',
+          message: 'alias target missing',
+          fieldErrors: { sessionKey: 'not found' },
+        };
+      }
       const result = { ...record, name: record.alias, nameSource: 'user' };
       return options.asyncDeps === true ? Promise.resolve(result) : result;
     },
@@ -8383,6 +9368,28 @@ async function callObjectMethod(target: Record<string, unknown>, method: string,
   return await (fn as (...args: unknown[]) => unknown)(payload);
 }
 
+function pickControlConfigFields(input: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const key of [
+    'enabled',
+    'bindMode',
+    'host',
+    'port',
+    'transportSecurity',
+    'trustedProxies',
+    'externalWhitelist',
+    'allowedOrigins',
+    'status',
+    'lastError',
+    'lastRebindResult',
+  ]) {
+    if (Object.prototype.hasOwnProperty.call(input, key)) {
+      result[key] = input[key];
+    }
+  }
+  return result;
+}
+
 async function loadSessionInputGatewayContract(): Promise<SessionInputGatewayContract> {
   try {
     return await import('./services/SessionInputGateway.js') as SessionInputGatewayContract;
@@ -8508,6 +9515,15 @@ async function runInputGatewayContractScenario(
   assert.equal(result.accepted, scenario.expected.accepted);
   assert.equal(result.code ?? null, scenario.expected.code ?? null);
   assert.equal(calls.writeInput.length, scenario.expected.writes);
+  if (scenario.expected.message !== undefined) {
+    assert.equal(result.message, scenario.expected.message);
+  }
+  if (scenario.expected.details !== undefined) {
+    assert.deepEqual(asRecord(result.details, 'input gateway failure details'), scenario.expected.details);
+  }
+  if (scenario.expected.fieldErrors !== undefined) {
+    assert.deepEqual(asRecord(result.fieldErrors, 'input gateway failure field errors'), scenario.expected.fieldErrors);
+  }
 
   if (scenario.expected.targetSessionKey !== undefined && calls.writeInput.length > 0) {
     assert.equal(calls.writeInput[0].sessionKey ?? calls.writeInput[0].targetSessionKey, scenario.expected.targetSessionKey);
@@ -8571,10 +9587,10 @@ function resolveInputGatewayTarget(request: unknown, scenario: InputGatewayScena
     return { ok: false, code: 'INVALID_AGENT_STATUS' };
   }
   if (binding.lifecycle !== 'live') {
-    return { ok: false, code: 'TARGET_NOT_LIVE' };
+    return { ok: false, code: 'TARGET_NOT_LIVE', ...pickScenarioFailureFields(binding) };
   }
   if (binding.hidden === true) {
-    return { ok: false, code: 'TARGET_NOT_LIVE' };
+    return { ok: false, code: 'TARGET_NOT_LIVE', ...pickScenarioFailureFields(binding) };
   }
   if (target.expectedGeneration !== undefined && target.expectedGeneration !== binding.generation) {
     return { ok: false, code: 'STALE_SESSION_ID' };
@@ -8587,6 +9603,16 @@ function resolveInputGatewayTarget(request: unknown, scenario: InputGatewayScena
     ok: true,
     binding,
   };
+}
+
+function pickScenarioFailureFields(source: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const key of ['message', 'details', 'fieldErrors']) {
+    if (source[key] !== undefined) {
+      result[key] = source[key];
+    }
+  }
+  return result;
 }
 
 async function createValidMcpCredential(
@@ -9069,6 +10095,50 @@ async function testMcpAliasFrMcp001Ac7SearchRanking(): Promise<void> {
   assert.ok(Number(matches[2].score) > Number(matches[3].score));
 }
 
+async function testMcpAliasFrMcp001Ac7SearchSessionIds(): Promise<void> {
+  const registry = [
+    {
+      sessionKey: 'sess_lookup_target',
+      currentSessionId: '550e8400-e29b-41d4-a716-446655440000',
+      previousSessionIds: ['6ba7b811-9dad-41d1-80b4-00c04fd430c8'],
+      alias: 'Target',
+      aliasSource: 'default',
+      lifecycleState: 'active',
+      sortOrder: 0,
+    },
+  ];
+  const bySessionKey = asRecord(await callMcpSessionRegistryContract('searchMcpSessions', {
+    actorSessionKey: undefined,
+    query: 'sess_lookup_target',
+    includeSelf: true,
+    registry,
+  }), 'MCP search by session key');
+  const byCurrentSessionId = asRecord(await callMcpSessionRegistryContract('searchMcpSessions', {
+    actorSessionKey: undefined,
+    query: '550e8400-e29b-41d4-a716-446655440000',
+    includeSelf: true,
+    registry,
+  }), 'MCP search by current session id');
+  const byPreviousSessionId = asRecord(await callMcpSessionRegistryContract('searchMcpSessions', {
+    actorSessionKey: undefined,
+    query: '6ba7b811-9dad-41d1-80b4-00c04fd430c8',
+    includeSelf: true,
+    registry,
+  }), 'MCP search by previous session id');
+
+  const keyMatch = asRecord(asRecordArray(bySessionKey.matches, 'session-key search matches')[0], 'session-key search match');
+  const currentIdMatch = asRecord(asRecordArray(byCurrentSessionId.matches, 'current-session-id search matches')[0], 'current-session-id search match');
+  const previousIdMatch = asRecord(asRecordArray(byPreviousSessionId.matches, 'previous-session-id search matches')[0], 'previous-session-id search match');
+  assert.equal(bySessionKey.allowed, true);
+  assert.equal(keyMatch.sessionKey, 'sess_lookup_target');
+  assert.equal(keyMatch.matchSource, 'session-key');
+  assert.equal(keyMatch.matchType, 'exact-session-key');
+  assert.equal(currentIdMatch.matchSource, 'current-session-id');
+  assert.equal(currentIdMatch.matchType, 'exact-current-session-id');
+  assert.equal(previousIdMatch.matchSource, 'previous-session-id');
+  assert.equal(previousIdMatch.matchType, 'exact-previous-session-id');
+}
+
 async function testMcpAliasFrMcp001Ac7SearchDenials(): Promise<void> {
   const zero = asRecord(await callMcpSessionRegistryContract('searchMcpSessions', {
     actorSessionKey: undefined,
@@ -9208,6 +10278,21 @@ async function testMcpSecuritySecMcp001Ac2(): Promise<void> {
     {
       label: 'external whitelist CIDR',
       candidate: { enabled: true, bindMode: 'whitelist', externalWhitelist: ['not-a-cidr'], transportSecurity: 'direct_tls' },
+      code: 'MCP_WHITELIST_DENIED',
+    },
+    {
+      label: 'wide-open external whitelist CIDR',
+      candidate: { enabled: true, bindMode: 'whitelist', externalWhitelist: ['0.0.0.0/0'], transportSecurity: 'direct_tls' },
+      code: 'MCP_WHITELIST_DENIED',
+    },
+    {
+      label: 'loopback wide-open external whitelist CIDR',
+      candidate: { enabled: true, bindMode: 'loopback', bindHost: '127.0.0.1', externalWhitelist: ['0.0.0.0/0'] },
+      code: 'MCP_WHITELIST_DENIED',
+    },
+    {
+      label: 'loopback wide-open zero-padded external whitelist CIDR',
+      candidate: { enabled: true, bindMode: 'loopback', bindHost: '127.0.0.1', externalWhitelist: ['0.0.0.0/00'] },
       code: 'MCP_WHITELIST_DENIED',
     },
     {
@@ -9392,10 +10477,10 @@ async function testMcpSecuritySecMcp002Ac1(): Promise<void> {
     expectedAudience: 'buildergate-mcp',
     sessionKey: 'sess_A',
   }));
-  assertMcpDenied(await callMcpSecurityContract('verifyMcpCapabilityToken', tokenResult.token, {
+  assertMcpAccepted(await callMcpSecurityContract('verifyMcpCapabilityToken', tokenResult.token, {
     expectedAudience: 'buildergate-mcp',
     sessionKey: 'sess_A',
-  }), 'TOKEN_REPLAYED');
+  }));
 }
 
 async function testMcpSecuritySecMcp002Ac2(): Promise<void> {

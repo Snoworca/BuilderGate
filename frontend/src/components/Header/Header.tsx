@@ -22,6 +22,7 @@ interface HeaderProps {
   onOpenCommandPresetManager?: () => void;
   onOpenTerminalShortcutManager?: () => void;
   onOpenRecoveryOptionManager?: () => void;
+  onOpenMcpControlManager?: () => void;
 }
 
 function truncateText(value: string, maxLen: number): string {
@@ -43,6 +44,7 @@ export function Header({
   onOpenCommandPresetManager,
   onOpenTerminalShortcutManager,
   onOpenRecoveryOptionManager,
+  onOpenMcpControlManager,
 }: HeaderProps) {
   const [toolsMenuPosition, setToolsMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const displayWorkspaceName = activeWorkspaceName
@@ -64,7 +66,11 @@ export function Header({
       label: '복구 옵션',
       onClick: () => onOpenRecoveryOptionManager?.(),
     }] : []),
-  ], [onOpenCommandPresetManager, onOpenRecoveryOptionManager, onOpenTerminalShortcutManager]);
+    ...(onOpenMcpControlManager ? [{
+      label: 'MCP 설정',
+      onClick: () => onOpenMcpControlManager?.(),
+    }] : []),
+  ], [onOpenCommandPresetManager, onOpenMcpControlManager, onOpenRecoveryOptionManager, onOpenTerminalShortcutManager]);
 
   return (
     <header className="header">
@@ -101,7 +107,7 @@ export function Header({
         </div>
       )}
 
-      {(onOpenSettings || onLogout || onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenRecoveryOptionManager) && (
+      {(onOpenSettings || onLogout || onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenRecoveryOptionManager || onOpenMcpControlManager) && (
         <div className="header-right">
           {onToggleViewMode && !isMobile && (
             <button
@@ -112,7 +118,7 @@ export function Header({
               {viewMode === 'tab' ? '⊞' : '☰'}
             </button>
           )}
-          {(onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenRecoveryOptionManager) && !isMobile && (
+          {(onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenRecoveryOptionManager || onOpenMcpControlManager) && !isMobile && (
             <button
               className="header-action-button header-tools-button"
               onClick={(event) => {

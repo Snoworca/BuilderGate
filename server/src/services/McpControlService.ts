@@ -265,6 +265,9 @@ export function createMcpControlService(deps: McpControlDeps = {}): StringRecord
     const query = asString(input.query);
     if (query) {
       const result = asRecord(await deps.searchSessions?.({ query, includeSelf, actorSessionKey }) ?? { allowed: true, matches: filterSessions(deps, query, includeSelf, actorSessionKey, sessionStatus) });
+      if (isMcpControlFailure(result)) {
+        return result;
+      }
       return {
         ...result,
         includeSelf,
@@ -275,6 +278,9 @@ export function createMcpControlService(deps: McpControlDeps = {}): StringRecord
       ? await callMaybeAsync(deps.listSessions, { includeSelf, actorSessionKey })
       : filterSessions(deps, undefined, includeSelf, actorSessionKey, sessionStatus);
     const listedRecord = asRecord(listed);
+    if (!Array.isArray(listed) && isMcpControlFailure(listedRecord)) {
+      return listedRecord;
+    }
     const rawSessions = Array.isArray(listed)
       ? listed
       : Array.isArray(listedRecord.sessions) ? listedRecord.sessions : [];
@@ -302,6 +308,9 @@ export function createMcpControlService(deps: McpControlDeps = {}): StringRecord
         matchReason: deriveMatchReason(session, query),
       })),
     });
+    if (isMcpControlFailure(result)) {
+      return result;
+    }
     return {
       allowed: result.allowed !== false,
       matches: Array.isArray(result.matches)
@@ -316,6 +325,9 @@ export function createMcpControlService(deps: McpControlDeps = {}): StringRecord
 
   const searchTest = async (request: unknown): Promise<StringRecord> => {
     const result = await searchSessions(request);
+    if (isMcpControlFailure(asRecord(result))) {
+      return { ...asRecord(result), readOnly: true };
+    }
     return {
       ...result,
       matches: Array.isArray(result.matches) ? result.matches.map(stripCloseConfirmationNonce) : [],
@@ -333,14 +345,22 @@ export function createMcpControlService(deps: McpControlDeps = {}): StringRecord
       sessionKey: asString(input.sessionKey),
       alias: asString(input.alias),
     };
-    const result = asRecord(deps.setAlias
-      ? await callMaybeAsync(deps.setAlias, aliasRequest)
-      : {
+    let result: StringRecord;
+    try {
+      result = asRecord(deps.setAlias
+        ? await callMaybeAsync(deps.setAlias, aliasRequest)
+        : {
         sessionKey: asString(input.sessionKey),
         alias: asString(input.alias),
         name: asString(input.alias),
         nameSource: 'user',
-      });
+        });
+    } catch (error) {
+      return mapAliasProviderError(error);
+    }
+    if (isMcpControlFailure(result)) {
+      return result;
+    }
     return sanitizeSession({ ...result, alias: result.alias ?? result.name, aliasSource: result.aliasSource ?? result.nameSource });
   };
 
@@ -350,18 +370,31 @@ export function createMcpControlService(deps: McpControlDeps = {}): StringRecord
       return boundary;
     }
     const input = asRecord(request);
+    const deliveryMode = asString(input.deliveryMode) === 'submit' ? 'submit' : 'paste';
+    const prompt = asString(input.prompt) ?? '';
     const replyRequest = {
       source: asString(input.source) ?? 'mcp-reply-to-leader',
       target: { sessionKey: asString(input.sessionKey) },
-      data: asString(input.prompt) ?? '',
-      delivery: { mode: asString(input.deliveryMode) ?? 'paste', submit: false },
+      data: deliveryMode === 'submit' ? ensureTrailingEnter(prompt) : prompt,
+      delivery: { mode: deliveryMode, submit: deliveryMode === 'submit' },
       replayPolicy: 'reject',
       auditContext: { purpose: 'reply-test' },
     };
     const result = asRecord(deps.replyGateway
       ? await callMaybeAsync(deps.replyGateway, replyRequest)
       : { accepted: true, auditId: createAuditId() });
+    if (result.accepted === false || result.ok === false || result.status === 'failed') {
+      return {
+        ok: false,
+        accepted: false,
+        code: asString(result.code) ?? 'MCP_REPLY_TEST_FAILED',
+        message: asString(result.message) ?? asString(result.code) ?? 'MCP_REPLY_TEST_FAILED',
+        auditId: result.auditId ?? createAuditId(),
+        ...pickFailureFields(result),
+      };
+    }
     return {
+      ok: true,
       accepted: result.accepted !== false,
       auditId: result.auditId ?? createAuditId(),
       code: result.code,
@@ -469,6 +502,20 @@ export function createMcpControlService(deps: McpControlDeps = {}): StringRecord
     updateAgentStatus,
     handleDeferredCloseSelfFailure,
   };
+}
+
+function ensureTrailingEnter(value: string): string {
+  return value.endsWith('\r') || value.endsWith('\n') ? value : `${value}\r`;
+}
+
+function pickFailureFields(result: StringRecord): StringRecord {
+  const fields: StringRecord = {};
+  for (const key of ['details', 'fieldErrors']) {
+    if (result[key] !== undefined) {
+      fields[key] = result[key];
+    }
+  }
+  return fields;
 }
 
 export function mergeMcpControlSecurityConfig(current: StringRecord, input: StringRecord, defaults: StringRecord = {}): StringRecord {
@@ -623,6 +670,29 @@ function replaceRecord(target: StringRecord, source: StringRecord): void {
   Object.assign(target, source);
 }
 
+function isMcpControlFailure(result: StringRecord): boolean {
+  return result.ok === false || result.allowed === false;
+}
+
+function mapAliasProviderError(error: unknown): StringRecord {
+  const code = error instanceof Error && 'code' in error ? String((error as { code?: unknown }).code) : undefined;
+  if (code === 'TAB_NOT_FOUND' || code === 'SESSION_NOT_FOUND') {
+    return {
+      ok: false,
+      code: 'TARGET_NOT_FOUND',
+      message: error instanceof Error ? error.message : 'Alias target session was not found',
+      fieldErrors: { sessionKey: 'not found' },
+      auditId: createAuditId(),
+    };
+  }
+  return {
+    ok: false,
+    code: 'MCP_CONTROL_ERROR',
+    message: error instanceof Error ? error.message : 'Failed to set session alias',
+    auditId: createAuditId(),
+  };
+}
+
 async function callMaybeAsync(fn: ((request: unknown) => unknown) | undefined, request: unknown): Promise<unknown> {
   return fn ? await fn(request) : undefined;
 }
@@ -694,6 +764,8 @@ function sanitizeSession(session: StringRecord): StringRecord {
   const sessionKey = asString(session.sessionKey);
   return {
     sessionKey,
+    sessionId: asString(session.sessionId) ?? asString(session.currentSessionId),
+    currentSessionId: asString(session.currentSessionId) ?? asString(session.sessionId),
     name: asString(session.name) ?? asString(session.alias) ?? sessionKey,
     alias: asString(session.alias) ?? asString(session.name) ?? sessionKey,
     nameSource: asString(session.nameSource) ?? asString(session.aliasSource),
@@ -702,7 +774,13 @@ function sanitizeSession(session: StringRecord): StringRecord {
     tabId: session.tabId,
     agentKind: session.agentKind,
     agentStatus: asString(session.agentStatus) ?? 'unknown',
+    status: asString(session.status) ?? asString(session.agentStatus) ?? 'unknown',
     role: session.role,
+    leaderSessionKey: session.leaderSessionKey ?? null,
+    bindingLifecycle: session.bindingLifecycle,
+    mcpConnected: session.mcpConnected === true,
+    leader: session.leader === true,
+    lastSeenAt: session.lastSeenAt,
     cwd: session.cwd,
     recoveryCommand: session.recoveryCommand,
     matchReason: session.matchReason,

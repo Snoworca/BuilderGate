@@ -4,6 +4,9 @@
  */
 
 import { tokenStorage } from './tokenStorage';
+import { parseApiErrorPayload } from './apiError.ts';
+export { parseApiErrorPayload } from './apiError.ts';
+
 import type {
   Session,
   UpdateSessionRequest,
@@ -14,7 +17,6 @@ import type {
   VerifyResponse,
   RefreshResponse,
   TOTPQRInfo,
-  ErrorResponse,
   DirectoryListing,
   FileContent,
   ShellInfo,
@@ -73,8 +75,8 @@ export function setWsClientId(id: string | null): void {
  */
 async function parseError(res: Response): Promise<Error> {
   try {
-    const data: ErrorResponse = await res.json();
-    return new Error(data.error?.message || 'Request failed');
+    const data: unknown = await res.json();
+    return new Error(parseApiErrorPayload(res.status, res.statusText, data));
   } catch {
     return new Error(`HTTP ${res.status}: ${res.statusText}`);
   }
@@ -634,7 +636,7 @@ export const mcpControlApi = {
         'Content-Type': 'application/json',
         ...getAuthHeaders(),
       },
-      body: JSON.stringify({ prompt, deliveryMode: 'paste' }),
+      body: JSON.stringify({ prompt, deliveryMode: 'submit' }),
     });
     if (!res.ok) throw await parseError(res);
     return res.json();

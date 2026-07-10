@@ -18,7 +18,7 @@ type McpToolServiceDeps = {
   createAssignment?: (assignment: StringRecord) => unknown;
   deliverMessage?: (delivery: StringRecord) => unknown | Promise<unknown>;
   sessions?: unknown[] | (() => unknown[] | Promise<unknown[]>);
-  listSessions?: (actorSessionKey: string | undefined, includeSelf: boolean) => unknown[] | Promise<unknown[]>;
+  listSessions?: (actorSessionKey: string | undefined, includeSelf: boolean) => unknown[] | StringRecord | Promise<unknown[] | StringRecord>;
   searchSessions?: (actorSessionKey: string | undefined, query: string, includeSelf: boolean) => unknown | Promise<unknown>;
   setSessionAlias?: (targetSessionKey: string, alias: string, actorSessionKey: string | undefined) => unknown | Promise<unknown>;
   claimCodes?: Map<string, StringRecord>;
@@ -224,6 +224,16 @@ export function createMcpListenerController(deps: ListenerControllerDeps = {}): 
     start: async (request: unknown) => {
       const payload = asRecord(request);
       const candidate = normalizeListenerStatus({ ...active, ...payload, enabled: payload.enabled ?? true });
+      if (candidate.enabled === false) {
+        const handle = activeHandle;
+        activeHandle = null;
+        if (handle && deps.closeListener) {
+          await deps.closeListener(handle);
+        }
+        active = normalizeListenerStatus({ ...candidate, enabled: false, listenerStatus: 'stopped', activeConnectionCount: 0 });
+        lastError = null;
+        return getStatus();
+      }
       if (deps.bindListener) {
         try {
           activeHandle = await deps.bindListener(candidate);
@@ -566,7 +576,11 @@ async function handleWhoami(deps: McpToolServiceDeps, actor: StringRecord): Prom
   if (!sessionKey) {
     return { ok: false, code: 'UNBOUND_ACTOR' };
   }
-  const session = (await resolveSessions(deps)).find((candidate) => asString(candidate.sessionKey) === sessionKey);
+  const resolved = await resolveSessions(deps);
+  if (!Array.isArray(resolved)) {
+    return resolved;
+  }
+  const session = resolved.find((candidate) => asString(candidate.sessionKey) === sessionKey);
   if (!session) {
     return { ok: false, code: 'TARGET_NOT_FOUND' };
   }
@@ -613,7 +627,11 @@ async function handleSessionList(deps: McpToolServiceDeps, actor: StringRecord, 
   }
   const actorSessionKey = asString(actor.sessionKey);
   const includeSelf = args.includeSelf !== false;
-  const sessions = (await resolveSessions(deps, actorSessionKey, includeSelf))
+  const resolved = await resolveSessions(deps, actorSessionKey, includeSelf);
+  if (!Array.isArray(resolved)) {
+    return resolved;
+  }
+  const sessions = resolved
     .filter((session) => includeSelf || asString(session.sessionKey) !== actorSessionKey)
     .map(sanitizeSession);
   return { sessions };
@@ -639,7 +657,11 @@ async function handleSessionSearch(deps: McpToolServiceDeps, actor: StringRecord
       candidates: Array.isArray(result.candidates) ? result.candidates.map((candidate) => sanitizeSession(asRecord(candidate))) : result.candidates,
     };
   }
-  const matches = (await resolveSessions(deps))
+  const resolved = await resolveSessions(deps);
+  if (!Array.isArray(resolved)) {
+    return resolved;
+  }
+  const matches = resolved
     .filter((session) => includeSelf || asString(session.sessionKey) !== actorSessionKey)
     .map(sanitizeSession)
     .filter((session) => sessionMatchesQuery(session, query));
@@ -662,6 +684,9 @@ async function handleSetAlias(deps: McpToolServiceDeps, actor: StringRecord, arg
   if (deps.setSessionAlias) {
     try {
       const updated = asRecord(await deps.setSessionAlias(sessionKey, alias, asString(actor.sessionKey)));
+      if (isMcpToolFailure(updated)) {
+        return updated;
+      }
       return {
         ok: true,
         sessionKey,
@@ -673,11 +698,14 @@ async function handleSetAlias(deps: McpToolServiceDeps, actor: StringRecord, arg
           aliasSource: updated.nameSource ?? 'user',
         }),
       };
-    } catch {
-      return { ok: false, code: 'TARGET_NOT_FOUND' };
+    } catch (error) {
+      return mapAliasProviderError(error);
     }
   }
   const sessions = await resolveSessions(deps);
+  if (!Array.isArray(sessions)) {
+    return sessions;
+  }
   const target = sessions.find((session) => asString(session.sessionKey) === sessionKey);
   if (!target) {
     return { ok: false, code: 'TARGET_NOT_FOUND' };
@@ -691,6 +719,25 @@ async function handleSetAlias(deps: McpToolServiceDeps, actor: StringRecord, arg
     sessionKey,
     alias,
     session: sanitizeSession(target),
+  };
+}
+
+function mapAliasProviderError(error: unknown): StringRecord {
+  const code = error instanceof Error && 'code' in error ? String((error as { code?: unknown }).code) : undefined;
+  if (code === 'TAB_NOT_FOUND' || code === 'SESSION_NOT_FOUND') {
+    return {
+      ok: false,
+      code: 'TARGET_NOT_FOUND',
+      message: error instanceof Error ? error.message : 'Alias target session was not found',
+      fieldErrors: { sessionKey: 'not found' },
+      auditId: createAuditId(),
+    };
+  }
+  return {
+    ok: false,
+    code: 'MCP_CONTROL_ERROR',
+    message: error instanceof Error ? error.message : 'Failed to set session alias',
+    auditId: createAuditId(),
   };
 }
 
@@ -716,7 +763,11 @@ async function handleMessageSend(
   }
   const sessionKey = asString(args.sessionKey);
   const prompt = asString(args.prompt) ?? '';
-  const target = (await resolveSessions(deps)).find((session) => asString(session.sessionKey) === sessionKey);
+  const resolved = await resolveSessions(deps);
+  if (!Array.isArray(resolved)) {
+    return resolved;
+  }
+  const target = resolved.find((session) => asString(session.sessionKey) === sessionKey);
   if (!target || !sessionKey) {
     return { ok: false, code: 'TARGET_NOT_FOUND' };
   }
@@ -782,6 +833,7 @@ async function handleMessageSend(
     return {
       ok: false,
       code: asString(deliveryResult.code) ?? 'DELIVERY_FAILED',
+      ...pickDeliveryFailureFields(deliveryResult),
       assignmentId: storedAssignment.assignmentId,
       auditId,
       status,
@@ -793,6 +845,20 @@ async function handleMessageSend(
     auditId,
     status,
   };
+}
+
+function pickDeliveryFailureFields(deliveryResult: StringRecord): StringRecord {
+  const result: StringRecord = {};
+  for (const key of ['message', 'details', 'fieldErrors']) {
+    if (deliveryResult[key] !== undefined) {
+      result[key] = deliveryResult[key];
+    }
+  }
+  const providerAuditId = asString(deliveryResult.auditId);
+  if (providerAuditId) {
+    result.deliveryAuditId = providerAuditId;
+  }
+  return result;
 }
 
 // @req IR-MCP-001
@@ -1068,14 +1134,22 @@ async function resolveSessions(
   deps: McpToolServiceDeps,
   actorSessionKey?: string,
   includeSelf = true,
-): Promise<StringRecord[]> {
+): Promise<StringRecord[] | StringRecord> {
   const raw = deps.listSessions
     ? await deps.listSessions(actorSessionKey, includeSelf)
     : Array.isArray(deps.sessions) ? deps.sessions : await callMaybeAsync(deps.sessions);
+  const rawRecord = asRecord(raw);
+  if (!Array.isArray(raw) && isMcpToolFailure(rawRecord)) {
+    return rawRecord;
+  }
   if (!Array.isArray(raw)) {
     return [];
   }
   return raw.map(asRecord);
+}
+
+function isMcpToolFailure(result: StringRecord): boolean {
+  return result.ok === false || result.allowed === false;
 }
 
 // @req IR-MCP-001
@@ -1098,8 +1172,8 @@ function withAudit(
     action,
     actor,
     context,
-    result: result.ok === false ? 'denied' : 'ok',
-    reason: result.ok === false ? result.code : undefined,
+    result: isMcpToolFailure(result) ? 'denied' : 'ok',
+    reason: isMcpToolFailure(result) ? result.code : undefined,
     ...auditExtras,
   });
   return result;

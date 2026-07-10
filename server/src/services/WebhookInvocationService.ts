@@ -19,6 +19,7 @@ type WebhookInvocationDeps = {
   persistWebhookRecords?: (records: StringRecord[]) => unknown | Promise<unknown>;
   defaultProfile?: StringRecord | null;
   webhookKeyHeaderName?: unknown;
+  webhookRateLimit?: unknown;
   denialCode?: unknown;
   revoked?: boolean;
   rateLimited?: boolean;
@@ -45,7 +46,7 @@ export function createWebhookInvocationService(deps: WebhookInvocationDeps = {})
   let persistChain: Promise<unknown> = Promise.resolve();
   let lifecycleChain: Promise<unknown> = Promise.resolve();
   const status = {
-    rateLimit: {
+    rateLimit: normalizeWebhookRateLimit(deps.webhookRateLimit) ?? {
       windowSeconds: 60,
       burstLimit: 10,
     },
@@ -96,11 +97,29 @@ export function createWebhookInvocationService(deps: WebhookInvocationDeps = {})
   const createWebhookKey = async (request: unknown): Promise<StringRecord> => runLifecycleMutation(async () => {
     const input = asRecord(request);
     const targetSessionKey = asString(input.targetSessionKey);
+    const profileId = asString(input.profileId);
+    const scopes = Object.prototype.hasOwnProperty.call(input, 'scopes') ? asStringArray(input.scopes) : ['mcp:webhook.invoke'];
+    const fieldErrors: StringRecord = {};
+    if (!targetSessionKey && !profileId) {
+      fieldErrors.targetSessionKey = 'required_without_profileId';
+      fieldErrors.profileId = 'required_without_targetSessionKey';
+    }
+    if (scopes.length === 0) {
+      fieldErrors.scopes = 'required';
+    }
+    if (Object.keys(fieldErrors).length > 0) {
+      return {
+        ok: false,
+        code: 'VALIDATION_ERROR',
+        fieldErrors,
+        auditId: `audit_${crypto.randomUUID()}`,
+      };
+    }
     const credential = createWebhookCredential({
       targetSessionKey: targetSessionKey ?? '',
-      profileId: asString(input.profileId) ?? 'default',
+      profileId: profileId ?? 'default',
       mode: asString(input.mode) ?? 'send-only',
-      scopes: asStringArray(input.scopes).length > 0 ? asStringArray(input.scopes) : ['mcp:webhook.invoke'],
+      scopes,
     });
     const record = {
       ...asRecord(credential.record),
@@ -174,15 +193,23 @@ export function createWebhookInvocationService(deps: WebhookInvocationDeps = {})
 
   const setWebhookConfig = (request: unknown): StringRecord => {
     const input = asRecord(request);
-    const headerName = asString(input.webhookKeyHeaderName) ?? '';
+    const hasHeaderName = Object.prototype.hasOwnProperty.call(input, 'webhookKeyHeaderName');
+    const hasRateLimit = Object.prototype.hasOwnProperty.call(input, 'rateLimit');
+    const headerName = hasHeaderName ? asString(input.webhookKeyHeaderName) ?? '' : webhookKeyHeaderName;
     const validation = validateMcpWebhookKeyHeaderName(headerName);
     if (validation.ok === false) {
       return { ok: false, code: validation.code };
     }
+    const nextRateLimit = hasRateLimit ? normalizeWebhookRateLimit(input.rateLimit) : status.rateLimit;
+    if (!nextRateLimit) {
+      return { ok: false, code: 'WEBHOOK_RATE_LIMIT_INVALID' };
+    }
     webhookKeyHeaderName = headerName;
+    status.rateLimit = nextRateLimit;
     return {
       ok: true,
       webhookKeyHeaderName,
+      rateLimit: status.rateLimit,
     };
   };
 
@@ -317,7 +344,14 @@ export function createWebhookInvocationService(deps: WebhookInvocationDeps = {})
         markWebhookUsed(record, deps);
         await persistUsageMetadata(auditId);
       }
-      return { ok: openResult.ok !== false, assignmentId: assignment.assignmentId, auditId, openedSessionKey: openResult.sessionKey };
+      const opened = openResult.ok !== false;
+      return {
+        ok: opened,
+        assignmentId: assignment.assignmentId,
+        auditId,
+        openedSessionKey: openResult.sessionKey,
+        ...(!opened ? pickProviderFailureFields(openResult, 'openAgentAuditId') : {}),
+      };
     }
 
     deps.recordAssignment?.(assignment);
@@ -335,11 +369,13 @@ export function createWebhookInvocationService(deps: WebhookInvocationDeps = {})
       markWebhookUsed(record, deps);
       await persistUsageMetadata(auditId);
     }
+    const delivered = deliveryResult.ok !== false && deliveryResult.accepted !== false;
     return {
-      ok: deliveryResult.ok !== false && deliveryResult.accepted !== false,
+      ok: delivered,
       assignmentId: assignment.assignmentId,
       auditId,
       status: deliveryResult.status ?? 'delivered',
+      ...(!delivered ? pickProviderFailureFields(deliveryResult, 'deliveryAuditId') : {}),
     };
   };
 
@@ -353,6 +389,20 @@ export function createWebhookInvocationService(deps: WebhookInvocationDeps = {})
     getWebhookStatus,
     invokeWebhook,
   };
+}
+
+function pickProviderFailureFields(providerResult: StringRecord, providerAuditIdKey: string): StringRecord {
+  const result: StringRecord = {};
+  for (const key of ['code', 'message', 'details', 'fieldErrors']) {
+    if (providerResult[key] !== undefined) {
+      result[key] = providerResult[key];
+    }
+  }
+  const providerAuditId = asString(providerResult.auditId);
+  if (providerAuditId) {
+    result[providerAuditIdKey] = providerAuditId;
+  }
+  return result;
 }
 
 export function createWebhookRecordFileStore(options: { dataPath?: string } = {}): StringRecord {
@@ -521,4 +571,14 @@ function asString(value: unknown): string | undefined {
 
 function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String).filter(item => item.trim() !== '') : [];
+}
+
+function normalizeWebhookRateLimit(value: unknown): { windowSeconds: number; burstLimit: number } | null {
+  const record = asRecord(value);
+  const windowSeconds = Number(record.windowSeconds);
+  const burstLimit = Number(record.burstLimit);
+  if (!Number.isInteger(windowSeconds) || windowSeconds < 1 || !Number.isInteger(burstLimit) || burstLimit < 1) {
+    return null;
+  }
+  return { windowSeconds, burstLimit };
 }

@@ -21,7 +21,7 @@ export interface McpControlConfig {
 
 export type McpControlConfigPatch = Partial<Pick<
   McpControlConfig,
-  'enabled' | 'bindMode' | 'host' | 'port' | 'transportSecurity' | 'trustedProxies' | 'externalWhitelist' | 'allowedOrigins' | 'webhookKeyHeaderName'
+  'enabled' | 'bindMode' | 'host' | 'port' | 'transportSecurity' | 'trustedProxies' | 'externalWhitelist' | 'allowedOrigins' | 'webhookKeyHeaderName' | 'webhookRateLimit'
 >>;
 
 export interface McpAgentProfile {
@@ -71,6 +71,8 @@ export interface McpWebhookCreateResponse extends McpWebhookKey {
 
 export interface McpSessionRecord {
   sessionKey: string;
+  sessionId?: string;
+  currentSessionId?: string;
   name?: string;
   alias: string;
   nameSource?: string;
@@ -81,6 +83,11 @@ export interface McpSessionRecord {
   agentStatus?: string;
   status?: string;
   role?: string;
+  leaderSessionKey?: string | null;
+  bindingLifecycle?: string;
+  mcpConnected?: boolean;
+  leader?: boolean;
+  lastSeenAt?: string;
   cwd?: string;
   recoveryCommand?: string;
   matchReason?: string;
