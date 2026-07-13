@@ -1246,6 +1246,7 @@ export const TerminalContainer = memo(
       focus: (reason) => terminalRef.current?.focus(reason),
       hasSelection: () => terminalRef.current?.hasSelection() ?? false,
       getSelection: () => terminalRef.current?.getSelection() ?? '',
+      getMouseTrackingActive: () => terminalRef.current?.getMouseTrackingActive() ?? false,
       clearSelection: () => terminalRef.current?.clearSelection(),
       fit: () => terminalRef.current?.fit(),
       repairLayout: (reason) => terminalRef.current?.repairLayout(reason) ?? Promise.resolve(false),

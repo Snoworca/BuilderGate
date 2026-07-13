@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   buildRegisteredPresetContextMenuItem,
   buildTerminalContextMenuItems,
+  type BuildTerminalMenuOptions,
 } from '../../src/utils/contextMenuBuilder.ts';
 import type { CommandPreset } from '../../src/types/commandPreset.ts';
 
@@ -17,6 +18,41 @@ function preset(input: Partial<CommandPreset> & Pick<CommandPreset, 'kind' | 'la
     updatedAt: input.updatedAt ?? '2026-05-18T00:00:00.000Z',
   };
 }
+
+function terminalMenuBase(overrides: Partial<BuildTerminalMenuOptions> = {}): BuildTerminalMenuOptions {
+  return {
+    tab: undefined,
+    tabs: [],
+    maxTabs: 8,
+    onAddTab: () => undefined,
+    onCloseTab: () => undefined,
+    onCopy: async () => undefined,
+    onPaste: async () => undefined,
+    hasSelection: true,
+    ...overrides,
+  };
+}
+
+function hasMenuLabel(items: ReturnType<typeof buildTerminalContextMenuItems>, label: string): boolean {
+  return items.some(item => !item.separator && item.label === label);
+}
+
+test('복사 항목은 기본(마우스 트래킹 비활성)에서 표시된다', () => {
+  const items = buildTerminalContextMenuItems(terminalMenuBase());
+  assert.ok(hasMenuLabel(items, '복사'));
+  assert.ok(hasMenuLabel(items, '붙여넣기'));
+});
+
+test('mouseTrackingActive 이면 복사 항목을 숨기고 붙여넣기는 유지한다', () => {
+  const items = buildTerminalContextMenuItems(terminalMenuBase({ mouseTrackingActive: true }));
+  assert.ok(!hasMenuLabel(items, '복사'), '마우스 트래킹 모드에서는 복사 항목이 없어야 한다');
+  assert.ok(hasMenuLabel(items, '붙여넣기'), '붙여넣기는 마우스 트래킹 모드에서도 유지되어야 한다');
+});
+
+test('mouseTrackingActive 가 false 면 복사 항목을 유지한다', () => {
+  const items = buildTerminalContextMenuItems(terminalMenuBase({ mouseTrackingActive: false }));
+  assert.ok(hasMenuLabel(items, '복사'));
+});
 
 test('registered preset context menu returns null when no categories have items', () => {
   assert.equal(

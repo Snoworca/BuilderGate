@@ -227,6 +227,9 @@ function AppContent() {
   const hasTerminalSelection = useCallback((tabId: string): boolean => {
     return terminalRefsMap.current.get(tabId)?.current?.hasSelection() ?? false;
   }, []);
+  const isTerminalMouseTracking = useCallback((tabId: string): boolean => {
+    return terminalRefsMap.current.get(tabId)?.current?.getMouseTrackingActive() ?? false;
+  }, []);
 
   const sendTerminalInput = useCallback((tabId: string, data: string): void => {
     terminalRefsMap.current.get(tabId)?.current?.sendInput(data);
@@ -445,6 +448,7 @@ function AppContent() {
     if (!targetTab) return [];
     const tabRef = terminalRefsMap.current.get(tabContextMenu.targetId);
     const hasSelection = tabRef?.current?.hasSelection() ?? false;
+    const mouseTrackingActive = tabRef?.current?.getMouseTrackingActive() ?? false;
     return buildTerminalContextMenuItems({
       tab: targetTab,
       tabs: wm.activeWorkspaceTabs,
@@ -466,6 +470,7 @@ function AppContent() {
         } catch { /* ignore */ }
       },
       hasSelection,
+      mouseTrackingActive,
       moveWorkspace: {
         disabled: isWorkspaceMoveDisabled(targetTab),
         onRequest: () => {
@@ -620,6 +625,7 @@ function AppContent() {
                       availableShells={availableShells}
                       getTerminalSelection={getTerminalSelection}
                       hasTerminalSelection={hasTerminalSelection}
+                      isTerminalMouseTracking={isTerminalMouseTracking}
                       sendTerminalInput={sendTerminalInput}
                       pasteTerminalInput={pasteTerminalInput}
                       focusTerminal={focusTerminal}

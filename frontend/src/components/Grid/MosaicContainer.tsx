@@ -59,6 +59,7 @@ interface MosaicContainerProps {
   availableShells?: ShellInfo[];
   getTerminalSelection?: (tabId: string) => string;
   hasTerminalSelection?: (tabId: string) => boolean;
+  isTerminalMouseTracking?: (tabId: string) => boolean;
   sendTerminalInput?: (tabId: string, data: string) => void;
   pasteTerminalInput?: (tabId: string, data: string) => TerminalPasteInputResult;
   focusTerminal?: (tabId: string) => void;
@@ -97,6 +98,7 @@ export function MosaicContainer({
   availableShells,
   getTerminalSelection,
   hasTerminalSelection,
+  isTerminalMouseTracking,
   sendTerminalInput,
   pasteTerminalInput,
   focusTerminal,
@@ -699,6 +701,7 @@ export function MosaicContainer({
     (tabId: string) => {
       const tab = tabMap.get(tabId);
       const hasSelection = hasTerminalSelection ? hasTerminalSelection(tabId) : false;
+      const mouseTrackingActive = isTerminalMouseTracking ? isTerminalMouseTracking(tabId) : false;
       return buildTerminalContextMenuItems({
         tab,
         tabs,
@@ -712,6 +715,7 @@ export function MosaicContainer({
         onCopy: () => handleCopy(tabId),
         onPaste: () => handlePaste(tabId),
         hasSelection,
+        mouseTrackingActive,
         moveWorkspace: {
           disabled: !onRequestMoveTab || isWorkspaceMoveDisabled(tab),
           onRequest: () => {
@@ -734,6 +738,7 @@ export function MosaicContainer({
       handleCopy,
       handlePaste,
       hasTerminalSelection,
+      isTerminalMouseTracking,
       onRequestMoveTab,
       registeredPresetSnapshot,
       handleRegisteredPresetPaste,

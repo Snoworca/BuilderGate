@@ -167,6 +167,7 @@ export interface TerminalHandle {
   focus: (reason?: string) => void;
   hasSelection: () => boolean;
   getSelection: () => string;
+  getMouseTrackingActive: () => boolean;
   clearSelection: () => void;
   fit: () => void;
   repairLayout: (reason?: string) => Promise<boolean>;
@@ -1534,6 +1535,13 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       },
       hasSelection: () => !!(xtermRef.current?.hasSelection() || savedRightClickSelRef.current),
       getSelection: () => xtermRef.current?.getSelection() || savedRightClickSelRef.current || '',
+      getMouseTrackingActive: () => {
+        const term = xtermRef.current;
+        const mode = term?.modes.mouseTrackingMode;
+        const result = mode !== undefined && mode !== 'none';
+        console.log('[COPYHIDE] getMouseTrackingActive mode=', mode, 'bufferType=', term?.buffer.active.type, 'result=', result);
+        return result;
+      },
       clearSelection: () => {
         xtermRef.current?.clearSelection();
         savedRightClickSelRef.current = '';
