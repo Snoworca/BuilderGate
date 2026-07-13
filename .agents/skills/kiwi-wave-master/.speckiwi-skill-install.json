@@ -1,0 +1,24 @@
+{
+  "name": "kiwi-wave-master",
+  "agent": "codex",
+  "installedAt": "2026-07-13T15:01:59.283Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "codex",
+  "sourceRoot": "skills/codex",
+  "sourcePath": "skills/codex/kiwi-wave-master",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/kiwi-wave-master",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:46e4581b673c4e2595729b0099d77a220f4c6695206eba0b152ea88ef8b1265a",
+  "installedChecksum": "sha256:46e4581b673c4e2595729b0099d77a220f4c6695206eba0b152ea88ef8b1265a",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/_shared/kiwi",
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/loop-option.md",
+    "_shared/kiwi/pipeline-event.md",
+    "_shared/kiwi/waves-event.md"
+  ],
+  "refreshCommand": "node bin/speckiwi --root . skills install codex kiwi-wave-master --dest C:/Work/git/_Snoworca/ProjectMaster/.agents/skills --json",
+  "noManualEdit": true
+}

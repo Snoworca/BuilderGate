@@ -106,7 +106,7 @@ Codex clarification gate 4옵션:
 ---
 run_id: ...
 target: ...
-mode: normal|max|squirrel|dry-run-only
+mode: normal|max|model|dry-run-only
 base_ref: main
 head_ref: HEAD
 applied: 12
@@ -143,10 +143,13 @@ $kiwi-srs-sync --files=src/auth.ts,src/payment.ts
 $kiwi-srs-sync --max
 $kiwi-srs-sync --auto-apply --yes-all
 $kiwi-srs-sync --dry-run-only
-$kiwi-srs-sync --squirrel
+$kiwi-srs-sync --model <name>
 $kiwi-srs-sync TARGET=v1.0.0
 $kiwi-srs-sync TARGET=v1.0.0 --base=develop
 ```
+
+`--auto-apply` / `--yes-all` 은 사용자가 직접 요청한 경우에만 사용한다.
+부모 skill 의 `--auto` 전파만으로 이 예시를 실행하지 않는다.
 
 자연어 매핑 예시:
 - "타겟 1.0.0 에 대하여 비교하고 업데이트 해줘" → `$kiwi-srs-sync TARGET=v1.0.0`
@@ -203,4 +206,3 @@ $kiwi-srs-sync TARGET=v1.0.0 --base=develop
 - `notes`: 4방향 분류 통계 ("conflict:1 update:3 new-feature:2 new-scope:0") 권장
 
 emit 실패는 best-effort.
-

@@ -1,6 +1,6 @@
 ---
 name: kiwi-pipeline
-description: "kiwi-* 스킬 파이프라인 메타 오케스트레이터. ./kiwi/pipeline.jsonl 의 직전 이벤트를 읽어 다음 단계를 추천하고, 사용자 게이트 후 자동 진행한다. 결정표 T1 (직전 skill × status → next_hint) 적용 + Codex clarification gate 다지선다 + --auto 모드 자동 진행 (FAILED/NEEDS_USER 는 자동 진행 차단). jsonl 부재 시 시작 후보 (kiwi-srs / kiwi-srs-from-code) 제안. 마지막 N 이벤트 통계 출력 (스킬별 횟수 / 평균 소요 / 마지막 실행 시각). 트리거 — kiwi pipeline, 파이프라인 상태, 다음 단계 추천, kiwi 다음 뭐 해, pipeline status, kiwi next step, 파이프라인 진행, kiwi 자동 진행, pipeline resume, 다음 스킬 추천. 옵션 — --auto (사용자 게이트 우회 자동 진행), --tail=N (마지막 N 이벤트 표시), --stats (통계만 출력), --run (추천 후보 즉시 실행)."
+description: "kiwi-* 스킬 파이프라인 메타 오케스트레이터. 공식 workflow tools(`workflow_pipeline_tail`, `workflow_pipeline_status`, `get_next_work_order`, `workflow_pipeline_emit`)로 직전 이벤트를 읽고 다음 단계를 추천한 뒤 사용자 게이트 후 자동 진행한다. 결정표 T1 (직전 skill × status → next_hint) 적용 + Codex clarification gate 다지선다 + --auto 모드 자동 진행 (FAILED/NEEDS_USER 는 자동 진행 차단). 이벤트 부재 시 시작 후보 (kiwi-srs / kiwi-srs-from-code) 제안. 마지막 N 이벤트 통계 출력 (스킬별 횟수 / 평균 소요 / 마지막 실행 시각). 트리거 — kiwi pipeline, 파이프라인 상태, 다음 단계 추천, kiwi 다음 뭐 해, pipeline status, kiwi next step, 파이프라인 진행, kiwi 자동 진행, pipeline resume, 다음 스킬 추천. 옵션 — --auto (사용자 게이트 우회 자동 진행), --tail=N (마지막 N 이벤트 표시), --stats (통계만 출력), --run (추천 후보 즉시 실행)."
 ---
 > Kiwi MCP rule: normal target-scoped SRS reads, mutations, validation, status/stability updates, acceptance-criteria changes, evidence, trace links, and completed-work logging require working `speckiwi mcp`. CLI is diagnostic/remediation only and is not a normal replacement for MCP mutations.
 # kiwi-pipeline v0.1
@@ -8,15 +8,19 @@ description: "kiwi-* 스킬 파이프라인 메타 오케스트레이터. ./kiwi
 > Codex clarification gate means: ask the user directly in Default mode; use `request_user_input` only in Plan mode when that tool is available.
 > Model tier terms are role guidance, not provider names: `high-reasoning`, `standard`, and `lightweight` map to the current Codex model and effort options available in the session.
 
-`kiwi-*` 스킬 시리즈의 **파이프라인 상태 추적·다음 단계 추천·자동 진행** 메타 스킬. SSOT 는 `./kiwi/pipeline.jsonl` (cwd-relative append-only JSONL).
+## Official Workflow Tool Policy
+
+Workflow 상태 조회·다음 작업 선택·이벤트 기록의 정상 경로는 MCP `workflow_pipeline_tail`, `workflow_pipeline_status`, `get_next_work_order`, `workflow_pipeline_emit` 또는 동일 기능의 `speckiwi workflow ...` CLI 이다. Raw file append/read 는 degraded mode 에서만 허용하며, 반드시 capturing tool diagnostics, affected artifact paths, active target, follow-up requirement or candidate ID 를 사용자 보고와 pipeline notes 에 남긴다.
+
+`kiwi-*` 스킬 시리즈의 **파이프라인 상태 추적·다음 단계 추천·자동 진행** 메타 스킬. SSOT 는 공식 workflow tools 가 해석한 pipeline event stream 이며, raw JSONL 파일은 degraded mode fallback artifact 이다.
 
 이 스킬은 *직접 작업을 수행하지 않는다* — 다른 kiwi-* 스킬의 호출 순서를 사용자에게 권고하거나 (`--auto` 시) 직접 spawn 한다.
 
 본 스킬의 책임:
-1. `pipeline.jsonl` 읽기 (마지막 N 줄)
-2. 직전 이벤트 분석 → 다음 단계 후보 도출 (Table T1)
+1. `workflow_pipeline_tail` / `workflow_pipeline_status` 로 마지막 N 이벤트 읽기
+2. `get_next_work_order` 와 직전 이벤트 분석으로 다음 단계 후보 도출 (Table T1)
 3. 사용자 게이트 (`Codex clarification gate`) 또는 자동 진행
-4. 자기 실행도 1줄 이벤트로 jsonl 에 append
+4. 자기 실행도 `workflow_pipeline_emit` 로 1줄 이벤트 기록
 
 ---
 
@@ -25,14 +29,26 @@ description: "kiwi-* 스킬 파이프라인 메타 오케스트레이터. ./kiwi
 | 키 | 규칙 |
 |---|---|
 | §0.1 | **이벤트 SSOT**: `../_shared/kiwi/pipeline-event.md` v1.0.0 가 schema·파일위치·emit 규칙의 SSOT. 본 문서는 *read·다음 단계 추천* 만 담당. |
-| §0.2 | **자기 mutation 금지**: 본 스킬은 speckiwi MCP / 파일 시스템 / git 어느 것도 mutation 하지 않는다. 유일한 부작용 = `pipeline.jsonl` 에 자기 실행 1줄 append. |
+| §0.2 | **자기 mutation 금지**: 본 스킬은 SRS / git 을 mutation 하지 않는다. 유일한 부작용 = `workflow_pipeline_emit` 로 자기 실행 이벤트 1줄 기록. |
 | §0.3 | **/snoworca-\* 호출 절대 금지**. kiwi-* 시리즈만 Codex skill invocation prose로 안내하거나 실행한다. |
 | §0.4 | **--auto 안전 게이트**: 직전 이벤트 `status ∈ {NEEDS_USER, FAILED}` 시 --auto 라도 자동 진행 차단 + 사용자 결정 강제. |
 | §0.5 | **자기 무한 루프 방지**: 본 스킬의 `next_hint` 가 `kiwi-pipeline` 인 경우 자동 진행 불가 (사용자 확인 의무). 직전 직전 이벤트도 `kiwi-pipeline` 이면 ERROR. |
 | §0.6 | **project signature-ban instruction** + **project change-history policy**. 본 스킬 본문에 변경 이력 섹션 없음 — git history 가 SSOT. |
 | §0.7 | **사용자 확인 의무**: 추천 후보 ≥2 개 / next_hint = null / 자기 호출 충돌 / schema major mismatch — 모두 `Codex clarification gate` 단일 호출 분해. |
 | §0.8 | **best-effort emit**: 자기 jsonl emit 실패가 본 작업 (추천 출력) 의 실패로 이어지면 안 됨. emit 실패 시 stderr WARN. |
-| §0.9 | **외부 스킬 spawn 모드**: `--auto --run` 시 추천 스킬을 `Skill` 도구로 호출. 추가 옵션은 prompt 끝에 인계. |
+| §0.9 | **외부 스킬 실행 모드**: `--auto --run` 시 추천 스킬을 Codex skill invocation prose로 실행하거나, 가능한 delegation 도구가 있으면 해당 스킬을 별도 작업으로 위임한다. 추가 옵션은 prompt 끝에 인계. |
+| §0.10 | **`--auto` 옵션 SSOT**. 본 스킬은 `../_shared/kiwi/auto-option.md` v1.0 을 따른다. 본 스킬의 고유 `--auto --run` semantics 는 유지하되 §0.AG critical_gates[] 는 항상 HALT. |
+| §0.11 | **`--mini` / `--loops N` 옵션 SSOT**. 본 스킬은 `../_shared/kiwi/loop-option.md` v1.0 을 따른다. `--mini` = 검증-개선 루프 라운드 상한 3, `--loops N` = 라운드 상한 N(정수 ≥1). 동시 지정 시 **`--loops` 우선(경고)**. `--max` 와 직교(조합). 상한 도달 시 잔여 finding 보고(안전 게이트 불우회) |
+| §7 참고 | `--mini`/`--loops N` 를 spawn 하는 모든 kiwi 하위 스킬에 전파 (loop-option.md §6) |
+
+### §0.AG — `--auto` critical_gates[]
+
+| gate_id | reason | location |
+|---|---|---|
+| `pipeline-event-needs-user-or-failed` | 직전 이벤트가 NEEDS_USER/FAILED 이면 원 작업자의 사용자 결정이 필요 | §6.3 / §6.4 |
+| `self-recursive-spawn` | `kiwi-pipeline` 자기 호출 반복 방지 | §6.5 |
+| `pipeline-start-candidate-ambiguous` | pipeline 미시작 시 시작 후보 선택은 사용자 의도 영역 | §3 |
+| `pipeline-schema-major-mismatch` | major schema mismatch 는 자동 해석 금지 | §4 |
 
 ---
 
@@ -40,7 +56,7 @@ description: "kiwi-* 스킬 파이프라인 메타 오케스트레이터. ./kiwi
 
 ### 1.1 필수 입력
 
-(없음) — pipeline.jsonl 의 마지막 이벤트로부터 자동 추론.
+(없음) — `workflow_pipeline_tail` / `get_next_work_order` 결과로부터 자동 추론.
 
 ### 1.2 선택 입력 + 자연어 매핑
 
@@ -51,6 +67,13 @@ description: "kiwi-* 스킬 파이프라인 메타 오케스트레이터. ./kiwi
 | "통계만", "stats" | `--stats` | off (추천 + 통계 모두 출력) |
 | "실행해", "run", "진행해" | `--run` | off (추천만 출력) |
 | "이전 단계로", "이전" | `--prev` | off (마지막 이벤트 무시하고 그 직전으로) |
+| "풀 사이클", "처음부터 끝까지", "연구부터 구현까지", "cycle" | `--cycle` (전체 연구→구현 사이클 오케스트레이션 §2.5) | off (단일 다음-단계 추천) |
+| "중간부터", "feasibility 부터", "계획부터" | `--from=<stage>` (skip-authoring 진입 §2.5.2) | off (kiwi-srs 부터) |
+| "연구 문서로", "리서치 문서 첨부" | 연구 문서 경로 (research document → `$kiwi-srs` passthrough §7.2) | (없음) |
+| "max 모드", "고강도" | `--max` (모든 하위 스킬로 전파 §7.1) | off |
+| "워크트리에서", "격리해서", "worktree isolation" | `--wt` (전용 git worktree 격리 사이클 §2.6) | off |
+| "미니 모드", "빠른 모드", "3라운드" | `--mini` (모든 하위 스킬로 전파 §7.3) | off (스킬 기본 상한) |
+| "루프 N회", "N라운드", "N번 돌려" | `--loops N` (모든 하위 스킬로 전파 §7.3) | off (스킬 기본 상한) |
 
 옵션 매트릭스:
 - `--stats` 단독 → 통계만, 추천·실행 없음
@@ -65,7 +88,7 @@ description: "kiwi-* 스킬 파이프라인 메타 오케스트레이터. ./kiwi
   - 추천 다음 단계 (단일 / 다지선다 / 종료)
   - 통계 (스킬별 실행 횟수 / 평균 duration / 마지막 실행 시각)
   - 다음 행동 (사용자 결정 또는 자동 spawn)
-- **Pipeline event append** (의무): 본 호출도 1줄 이벤트로 `pipeline.jsonl` 에 기록
+- **Pipeline event append** (의무): 본 호출도 1줄 이벤트로 `workflow_pipeline_emit` 에 기록
 - **마커 파일**: `{pipeline_dir}/.pipeline-path` (절대 경로 1줄, 같은 cwd 의 모든 스킬이 동일 경로 사용)
 
 ---
@@ -73,7 +96,7 @@ description: "kiwi-* 스킬 파이프라인 메타 오케스트레이터. ./kiwi
 ## 2. Phase 흐름
 
 ```
-Phase 0  : 파일 경로 해석 + jsonl read (마지막 N 줄)
+Phase 0  : workflow tool 상태 조회 + 이벤트 tail (마지막 N 줄)
 Phase 1  : 직전 이벤트 파싱 + schema 검증
 Phase 2  : 다음 단계 후보 도출 (Table T1)
 Phase 3  : 사용자 게이트 또는 자동 결정
@@ -81,9 +104,75 @@ Phase 4  : (--run 시) 선택된 스킬 spawn
 Phase 5  : 통계 출력 + 자기 이벤트 emit
 ```
 
+`--cycle` 활성 시 위 Phase 0~5 는 단일 다음-단계가 아니라 §2.5 의 전체 사이클을 순차 오케스트레이션하는 루프로 확장된다.
+
 ---
 
-## 3. Phase 0 — 파일 경로 해석
+## 2.5 End-to-end 사이클 오케스트레이션 (research → plan → implement)
+
+`--cycle` (자연어 "처음부터 끝까지", "풀 사이클", "연구부터 구현까지") 로 호출하면 본 스킬은 단일 다음-단계 추천을 넘어 전체 연구→계획→구현 사이클을 하나의 체인으로 오케스트레이션한다. 각 단계는 직전 단계의 `TASK_DONE` 이벤트를 게이트로 다음 단계를 spawn 한다. 사이클 계약의 공유 참조는 `../_shared/kiwi/pipeline-v1.md` 이다.
+
+**체인 순서**:
+
+`kiwi-srs → (조건부) kiwi-srs-feasibility → kiwi-planner → kiwi-pm → kiwi-review-fix-loop`
+
+즉 본 스킬은 하나의 다음 단계에서 멈추지 않고 위 다섯 단계를 연결된 사이클로 진행한다.
+
+### 2.5.1 조건부 feasibility (AC-2)
+
+`kiwi-srs` 가 방금 작성·갱신한 요구사항이 **draft** stability 이거나 implementability(구현 가능성)가 **unverified**(미검증) 인 경우에만 `kiwi-srs-feasibility` 를 실행한다. 신규 요구사항이 모두 evolving 이상 + 구현 가능성 확인 상태면 feasibility 단계를 **skip**(생략)하고 곧바로 `kiwi-planner` 로 진행한다. 즉 feasibility 는 conditional(조건부) 단계이며, draft/미검증 요구가 없으면 건너뛴다.
+
+### 2.5.2 skip-authoring / resume-from-stage 진입
+
+SRS 가 이미 저작되어 있으면 `--from=feasibility` 또는 `--from=planner` 로 `kiwi-srs` 저작을 건너뛰고 사이클을 중간 단계에서 시작한다. 이 진입점은 `kiwi-wave-master`(FR-FLOW-029)의 wave 별 사이클 호출이 소비한다 (R-005 크로스-스킬 통합).
+
+### 2.5.3 사이클 게이트·전파 요약
+
+- `--auto` 위원회 자동 결정 + 완주 규약: §6.6.
+- `--max` 하위 스킬 전파: §7.1.
+- 연구 문서 `$kiwi-srs` passthrough: §7.2.
+
+---
+
+## 2.6 Worktree 격리 + 완료 게이트 (merge-or-PR, FR-FLOW-027)
+
+`--wt` 인자 또는 워크트리 격리(worktree isolation) 요청("워크트리에서 돌려", "격리해서 진행")으로 호출하면, 본 스킬은 사이클 전체를 현재 작업 트리와 분리된 공간에서 실행하기 위해 전용 worktree 를 준비한다. `--wt` 미지정 + 격리 요청이 없으면 현재 작업 트리에서 그대로 진행한다.
+
+### 2.6.1 Worktree 격리 진입 (AC-1)
+
+`--wt` 또는 worktree 격리 요청 시, 본 스킬은 현재 작업 트리를 오염시키지 않도록 **전용(dedicated) git worktree** 를 새로 **생성(create)** 한다 — `git worktree add <path> -b <cycle-branch>` 로 사이클 전용 브랜치를 별도 worktree 에 배치한다. 이후 §2.5 의 전체 연구→계획→구현 사이클은 그 생성된 **worktree 안에서(inside the worktree)** 실행되며, 원래 작업 트리(base 작업 공간)는 건드리지 않는다.
+
+### 2.6.2 완료 게이트 — 비-auto 대화형 (AC-2)
+
+비-auto(non-auto) 대화형(interactive) 모드에서 사이클이 성공적으로 **완료(completion)** 되면, 본 스킬은 격리에 사용한 worktree 브랜치를 어떻게 통합할지 사용자에게 **묻는다(ask)**: worktree 브랜치를 base 로 **머지(merge)** 할지, 아니면 **PR** 을 열지 여부를 `Codex clarification gate` 2지선다로 질문한다. 사용자가 선택하기 전에는 어느 통합도 자동으로 수행하지 않는다.
+
+### 2.6.3 완료 게이트 — --auto 자동 PR (AC-3)
+
+`--auto` 활성 시에는 위 merge-or-PR 질문을 사용자에게 묻지 않고, 완료(completion) 후 항상 `kiwi-commit-auto-pr` 를 호출하여 **PR 을 연다**. 이때 **base 브랜치(base branch)** 를 **직접 병합하지 않는다**(base 브랜치로의 direct-merge 금지) — `--auto` 라도 base 브랜치에 직접 merge 하지 않고 반드시 PR 경로로만 통합한다. `kiwi-commit-auto-pr` 는 편집 없이 그대로(as-is) 호출한다(OQ-027-autopr).
+
+---
+
+## 2.7 GitHub 이슈 진입 모드 — research-first 흐름 (FR-FLOW-028)
+
+GitHub 이슈 번호(github issue number, "이슈 #123", "이슈 번호")가 진입 인자 또는 프롬프트 참조로 제공되면, 본 스킬은 Phase 0(§3)에서 이를 이슈 진입 큐로 감지하고 요구사항 저작 이전에 연구를 먼저 수행하는 **research-first** 흐름으로 분기한다. 이슈 번호가 없으면 §2.5 의 일반 사이클(또는 단일 다음-단계 추천)로 진행한다.
+
+### 2.7.1 이슈 해결 + 구현 접근 연구 (AC-1)
+
+이슈 번호(issue number)가 감지되면, 본 스킬은 곧바로 저작 단계로 가지 않고 먼저 `kiwi-srs-research` 를 실행하여 (1) 이슈의 해결(resolution) 방향과 (2) 추가로 구현 접근(implementation-approach)을 연구한다. 즉 이슈가 트리거하는 첫 파이프라인 단계는 반드시 `kiwi-srs-research` 이며, 이 연구가 끝난 뒤에야 `kiwi-srs` 로 SRS 저작을 시작한다 (research-first order). 이슈 진입 큐와 `kiwi-srs` 시작 사이에는 오직 `kiwi-srs-research` 만 위치하고, 연구 없이 `kiwi-srs` 를 곧바로 시작하지 않는다.
+
+### 2.7.2 불충분한 연구 시 --qna-force 에스컬레이션 (AC-2)
+
+`kiwi-srs-research` 연구만으로 요구사항이 여전히 모호(ambiguous)하거나 불충분(insufficient)하면, 본 스킬은 `kiwi-srs` 를 `--qna-force` 로 시작하여 남은 미해결(unresolved) 모호성을 사용자와 해소한다. 단 `--auto` 활성 시에는 `--qna-force` 를 **억제(suppress)**하여 --qna-force 없이 진행하고, 남은 모호성은 FR-FLOW-025 결정 위원회(decision committee)가 자동 결정한다.
+
+### 2.7.3 이슈 흐름의 사이클 계속 (AC-3)
+
+이슈 번호(issue number) 기반의 연구와 SRS 저작이 끝나면, 이 이슈 진입 흐름은 §2.5 의 표준 사이클로 **계속(continue)**되어 `kiwi-planner` → `kiwi-pm` → `kiwi-review-fix-loop` 로 이어진다. 즉 이슈에서 시작한 작업도 연구·저작 이후 planner/pm/review 단계를 그대로 진행한다.
+
+---
+
+## 3. Phase 0 — workflow 상태 해석
+
+우선 MCP `workflow_pipeline_status` 와 `workflow_pipeline_tail { limit: N }` 를 호출한다. MCP 가 없으면 CLI `speckiwi workflow pipeline-status --json` / `speckiwi workflow pipeline-tail --limit <N> --json` 을 사용한다. 다음 작업 추천은 가능하면 `get_next_work_order` 또는 CLI `speckiwi workflow work-order next --json` 결과를 우선한다.
 
 `../_shared/kiwi/pipeline-event.md` §1 의 해석 순서:
 
@@ -91,9 +180,9 @@ Phase 5  : 통계 출력 + 자기 이벤트 emit
 2. 위 실패 + cwd 에 `kiwi/` 디렉토리 존재 → `{cwd}/kiwi/pipeline.jsonl`
 3. 둘 다 부재 → `~/.kiwi/pipeline.jsonl`
 
-결정 후 `{dir}/.pipeline-path` 마커 파일 갱신.
+위 경로 해석과 `{dir}/.pipeline-path` 갱신은 공식 도구가 모두 실패한 degraded mode 에서만 수행한다. 이 경우 capturing tool diagnostics, affected artifact paths, active target, follow-up requirement or candidate ID 를 기록한 뒤 `./kiwi/pipeline.jsonl` raw file fallback 을 사용한다.
 
-jsonl 부재 시:
+이벤트 부재 시:
 - 메시지 "파이프라인 미시작. 시작 후보:" 출력
 - `Codex clarification gate` 2지선다:
   - (A) `kiwi-srs` — 신규 요구사항 → SRS 작성
@@ -104,7 +193,7 @@ jsonl 부재 시:
 
 ## 4. Phase 1 — 직전 이벤트 파싱
 
-마지막 N 줄 (`--tail=N`, 기본 10) 을 현재 OS에 맞는 방식으로 읽음:
+마지막 N 이벤트 (`--tail=N`, 기본 10) 는 공식 workflow tool 응답을 기준으로 읽는다. degraded mode 에서만 현재 OS에 맞는 방식으로 raw file tail 을 읽음:
 
 ```powershell
 Get-Content -LiteralPath $PIPE_FILE -Tail $N -Encoding UTF8
@@ -142,9 +231,12 @@ tail -n "$N" "$PIPE_FILE"
 | kiwi-srs-feasibility | TASK_DONE | `kiwi-planner` 우선; 블로커 모호 시 `kiwi-srs-research` 도 후보 |
 | kiwi-srs-research | TASK_DONE | `kiwi-srs-feasibility` (재평가) |
 | kiwi-planner | TASK_DONE | `kiwi-pm` |
-| kiwi-pm | TASK_DONE | `kiwi-commit-auto-push` |
-| kiwi-coder (단독) | TASK_DONE | `kiwi-commit-auto-push` |
+| kiwi-pm | TASK_DONE | `kiwi-review-fix-loop --close-reqs` |
+| kiwi-coder (단독) | TASK_DONE | `kiwi-review-fix-loop` 또는 `kiwi-commit-auto-push` |
+| kiwi-review-fix-loop | TASK_DONE | `kiwi-commit-auto-push` 또는 종료 |
+| kiwi-hot-fix | TASK_DONE | `kiwi-commit-auto-push` 또는 `kiwi-pipeline` |
 | kiwi-commit-auto-push | TASK_DONE | `kiwi-pipeline` (다음 plan or 종료, 사용자 결정) |
+| kiwi-commit-auto-pr | TASK_DONE | `kiwi-pipeline` (다음 plan or 종료, 사용자 결정) |
 | any | NEEDS_USER | (없음 — 사용자 결정 강제) |
 | any | FAILED | (없음 — 재시도/건너뛰기/중단 3지선다) |
 | any | DRY_RUN | (직전 동일 skill 의 실제 실행) |
@@ -195,6 +287,10 @@ tail -n "$N" "$PIPE_FILE"
 - 직전 직전 이벤트(마지막 2개 이벤트 중 첫 번째)를 기준으로 다시 추론
 - 만약 그것도 `kiwi-pipeline` 이면 → ERROR + "kiwi-pipeline 이 연속 2회 호출됨. 직접 다음 스킬 호출 권장." 메시지 출력 후 종료
 
+### 6.6 사이클 모드 게이트 (--auto 위원회 자동 결정, AC-3)
+
+`--cycle` + `--auto` 활성 시 단계 사이의 모든 게이트(inter-stage gate)는 `../_shared/kiwi/auto-option.md` 의 결정 위원회(decision committee)가 자동 결정하며, 사이클은 사용자 개입 없이 **끝까지**(to the end) 완주한다. 단, 어떤 하위 스킬이 `NEEDS_USER` 또는 `FAILED` 를 반환하거나 §0.AG 의 critical gate 에 도달하면 위원회 자동 결정을 우회하지 않고 즉시 **중단**(halt)하여 사용자 결정을 받는다 — `--auto` 라도 이 게이트는 항상 중단한다.
+
 ---
 
 ## 7. Phase 4 — 외부 스킬 실행 (--run 시)
@@ -207,11 +303,23 @@ Use $kiwi-<chosen> <inherited-or-empty-args>
 
 추가 인자 인계:
 - `--auto` (kiwi-pipeline) → 자식 스킬에도 전파 (자식의 `--auto` 의미는 자체 SSOT 따름)
-- `--mini` (kiwi-pipeline 본 스킬에는 정의 안 됨; 그러나 사용자가 명시한 경우 자식에 전파)
+- `--model <name>` (kiwi-pipeline 본 스킬에는 정의 안 됨; 그러나 사용자가 명시한 경우 자식에 전파)
 
-spawn 결과는 사용자 메시지로 직접 출력. 자식 스킬도 자기 jsonl 이벤트를 append 하므로 본 스킬이 별도 기록할 필요 없음.
+spawn 결과는 사용자 메시지로 직접 출력. 자식 스킬도 `workflow_pipeline_emit` 로 자기 이벤트를 기록하므로 본 스킬이 별도 기록할 필요 없음.
+
+### 7.1 --max 전파 (AC-4)
+
+`--max` 로 본 스킬을 호출하면 사이클이 spawn 하는 **모든 하위 스킬(every spawned sub-skill)** — `kiwi-srs` · `kiwi-srs-feasibility` · `kiwi-planner` · `kiwi-pm` · `kiwi-review-fix-loop` — 에 `--max` 를 그대로 **전파**(propagate)한다. 하위 스킬의 `--max` 의미는 각자의 SSOT 를 따른다.
+
+### 7.2 연구 문서 passthrough (AC-5)
+
+사용자가 **연구 문서**(research document)를 인자 또는 프롬프트 참조로 제공하면, 사이클 시작 시 본 스킬은 그 문서를 `$kiwi-srs` 로 **전달**(passthrough)하여 SRS 저작의 입력으로 공급한다. `kiwi-srs` 는 이를 FR-FLOW-023 research verify/improve 루프의 입력으로 사용한다.
 
 `--run` 미지정 시 본 Phase skip.
+
+### 7.3 `--mini` / `--loops N` 전파
+
+`--mini` 또는 `--loops N` 으로 본 스킬을 호출하면 (`../_shared/kiwi/loop-option.md` v1.0 SSOT), 사이클이 spawn 하는 **모든 하위 스킬(every spawned sub-skill)** — `kiwi-srs` · `kiwi-srs-feasibility` · `kiwi-planner` · `kiwi-pm` · `kiwi-review-fix-loop` — 에 해당 플래그를 그대로 **전파**(propagate)한다. 하위 스킬의 라운드 상한 시맨틱은 각자의 `loop-option.md` 참조를 따른다.
 
 ---
 
@@ -239,7 +347,7 @@ spawn 결과는 사용자 메시지로 직접 출력. 자식 스킬도 자기 js
 
 ### 8.2 자기 이벤트 emit
 
-본 호출 종료 직전 `pipeline.jsonl` 에 1줄 append:
+본 호출 종료 직전 `workflow_pipeline_emit` 로 1줄 기록:
 
 ```json
 {
@@ -258,7 +366,7 @@ spawn 결과는 사용자 메시지로 직접 출력. 자식 스킬도 자기 js
 }
 ```
 
-run_id = `pipeline-{YYYYMMDDHHMMSS}` (`pipeline-` prefix + UTC 압축 시각). 멱등성은 본 스킬에 일반적이지 않으므로 (매 호출 새 run_id) 항상 append.
+run_id = `pipeline-{YYYYMMDDHHMMSS}` (`pipeline-` prefix + UTC 압축 시각). 멱등성은 본 스킬에 일반적이지 않으므로 (매 호출 새 run_id) 항상 append. degraded mode 에서만 동일 schema 로 `./kiwi/pipeline.jsonl` 에 raw append 하며, 이 경우 진단과 artifact 경로를 함께 보고한다.
 
 ---
 

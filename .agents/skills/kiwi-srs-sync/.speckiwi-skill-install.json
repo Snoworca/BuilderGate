@@ -1,5 +1,24 @@
 {
   "name": "kiwi-srs-sync",
   "agent": "codex",
-  "installedAt": "2026-05-21T16:10:56.507Z"
+  "installedAt": "2026-07-13T15:01:59.161Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "codex",
+  "sourceRoot": "skills/codex",
+  "sourcePath": "skills/codex/kiwi-srs-sync",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/kiwi-srs-sync",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:1823892263e492356443c020d4e40949cf0c57121d07b226c4f990f203ee3627",
+  "installedChecksum": "sha256:1823892263e492356443c020d4e40949cf0c57121d07b226c4f990f203ee3627",
+  "sourceFileCount": 3,
+  "installedFileCount": 3,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/_shared/kiwi",
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md",
+    "_shared/kiwi/pipeline-event.md"
+  ],
+  "refreshCommand": "node bin/speckiwi --root . skills install codex kiwi-srs-sync --dest C:/Work/git/_Snoworca/ProjectMaster/.agents/skills --json",
+  "noManualEdit": true
 }

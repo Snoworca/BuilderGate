@@ -1,5 +1,24 @@
 {
   "name": "kiwi-pm",
   "agent": "codex",
-  "installedAt": "2026-05-21T16:10:56.456Z"
+  "installedAt": "2026-07-13T15:01:58.787Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "codex",
+  "sourceRoot": "skills/codex",
+  "sourcePath": "skills/codex/kiwi-pm",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/kiwi-pm",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:bdefb478c6de4e76ade1209ace48a8a444644fdef060ee38fdaa367d0873be1c",
+  "installedChecksum": "sha256:bdefb478c6de4e76ade1209ace48a8a444644fdef060ee38fdaa367d0873be1c",
+  "sourceFileCount": 3,
+  "installedFileCount": 3,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/_shared/kiwi",
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md",
+    "_shared/kiwi/pipeline-event.md"
+  ],
+  "refreshCommand": "node bin/speckiwi --root . skills install codex kiwi-pm --dest C:/Work/git/_Snoworca/ProjectMaster/.agents/skills --json",
+  "noManualEdit": true
 }

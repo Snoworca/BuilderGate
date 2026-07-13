@@ -1,0 +1,20 @@
+{
+  "name": "kiwi-commit-auto-push",
+  "agent": "claude",
+  "installedAt": "2026-07-13T15:01:57.556Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "claude",
+  "sourceRoot": "skills/claude",
+  "sourcePath": "skills/claude/kiwi-commit-auto-push",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-commit-auto-push",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:31b311c968f06184718a8a57097733fcb0276c779003f4efad6083930bd2d41b",
+  "installedChecksum": "sha256:31b311c968f06184718a8a57097733fcb0276c779003f4efad6083930bd2d41b",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
+  "sharedResourceValidation": "not-required",
+  "sharedResourceReferences": [],
+  "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-commit-auto-push --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
+  "noManualEdit": true
+}

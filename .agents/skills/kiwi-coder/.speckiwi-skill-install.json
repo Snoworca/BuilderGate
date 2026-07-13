@@ -1,5 +1,24 @@
 {
   "name": "kiwi-coder",
   "agent": "codex",
-  "installedAt": "2026-05-21T16:10:56.416Z"
+  "installedAt": "2026-07-13T15:01:58.398Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "codex",
+  "sourceRoot": "skills/codex",
+  "sourcePath": "skills/codex/kiwi-coder",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/kiwi-coder",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:136640561322ab9d1abb0e48dbe1fbab5513bf3780c74f1ad0876d528edd1886",
+  "installedChecksum": "sha256:136640561322ab9d1abb0e48dbe1fbab5513bf3780c74f1ad0876d528edd1886",
+  "sourceFileCount": 3,
+  "installedFileCount": 3,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/_shared/kiwi",
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md",
+    "_shared/kiwi/pipeline-event.md"
+  ],
+  "refreshCommand": "node bin/speckiwi --root . skills install codex kiwi-coder --dest C:/Work/git/_Snoworca/ProjectMaster/.agents/skills --json",
+  "noManualEdit": true
 }

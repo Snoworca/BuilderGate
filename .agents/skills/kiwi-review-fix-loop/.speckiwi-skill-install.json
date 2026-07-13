@@ -1,0 +1,24 @@
+{
+  "name": "kiwi-review-fix-loop",
+  "agent": "codex",
+  "installedAt": "2026-07-13T15:01:58.855Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "codex",
+  "sourceRoot": "skills/codex",
+  "sourcePath": "skills/codex/kiwi-review-fix-loop",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/kiwi-review-fix-loop",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:c99f86f4857804639421e4be09ed8ea61e58134a39898f9b779d6d67a7de2ecc",
+  "installedChecksum": "sha256:c99f86f4857804639421e4be09ed8ea61e58134a39898f9b779d6d67a7de2ecc",
+  "sourceFileCount": 3,
+  "installedFileCount": 3,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/_shared/kiwi",
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md",
+    "_shared/kiwi/pipeline-event.md"
+  ],
+  "refreshCommand": "node bin/speckiwi --root . skills install codex kiwi-review-fix-loop --dest C:/Work/git/_Snoworca/ProjectMaster/.agents/skills --json",
+  "noManualEdit": true
+}

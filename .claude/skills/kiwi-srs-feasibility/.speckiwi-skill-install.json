@@ -1,0 +1,20 @@
+{
+  "name": "kiwi-srs-feasibility",
+  "agent": "claude",
+  "installedAt": "2026-07-13T15:01:57.944Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "claude",
+  "sourceRoot": "skills/claude",
+  "sourcePath": "skills/claude/kiwi-srs-feasibility",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-srs-feasibility",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:9aff0e12c61f51d222c360abdbd0cd4b1f22c1de2a600fd709f05508f5640c1f",
+  "installedChecksum": "sha256:9aff0e12c61f51d222c360abdbd0cd4b1f22c1de2a600fd709f05508f5640c1f",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
+  "sharedResourceValidation": "not-required",
+  "sharedResourceReferences": [],
+  "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-srs-feasibility --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
+  "noManualEdit": true
+}

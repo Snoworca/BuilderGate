@@ -1,0 +1,85 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-07-13T15:01:57.374Z",
+  "source": "speckiwi",
+  "specFingerprint": {
+    "algorithm": "sha256",
+    "value": "4d242d5a54a0443cb3dadb74b19159270449d8d227aa5f1351fc37332a2b2e0d",
+    "files": [
+      {
+        "path": "docs/spec/00.index.md",
+        "sha256": "3af4b4883ed72ed8dc62705dd7e087bdcd0bf22ad90d60ad43ca9fb9fac08a83",
+        "size": 3801,
+        "mtimeMs": 1783558587090.762
+      },
+      {
+        "path": "docs/spec/10.product-architecture.srs.md",
+        "sha256": "7f7ff64ab632c468d3b8cb6877f3ed3b4905ba3955aef141703eca882e5b4b65",
+        "size": 18460,
+        "mtimeMs": 1779081464397.9382
+      },
+      {
+        "path": "docs/spec/20.ai-tui-recovery.srs.md",
+        "sha256": "a31260945530e98f6233751268275799802ce1cdec501ec6760eefd710407bb9",
+        "size": 37268,
+        "mtimeMs": 1779443443342.6135
+      },
+      {
+        "path": "docs/spec/30.buildergate-stability.srs.md",
+        "sha256": "c5785f569cca412ba15bb4f7d643a1f6f95ad525209b44db1e8ba6b2231fd575",
+        "size": 186047,
+        "mtimeMs": 1783240343669.6108
+      },
+      {
+        "path": "docs/spec/40.mcp-session-orchestration.srs.md",
+        "sha256": "8bef54e7b5c84c7519c05f0e0724a56308b3102782f2b3b1ca4bcbce6defec01",
+        "size": 94763,
+        "mtimeMs": 1783674857385.719
+      },
+      {
+        "path": "docs/spec/90.appendix.md",
+        "sha256": "f212b5924f51cffb3d4ecc714282a4e0c4a5c4ab25d3f154864ef1b333125c5c",
+        "size": 121,
+        "mtimeMs": 1778345537159.6023
+      }
+    ]
+  },
+  "idCounters": {
+    "functional": {
+      "ARCH": 6,
+      "AITUI": 5,
+      "BGSTAB": 19,
+      "MCP": 6
+    },
+    "security": {
+      "AITUI": 2,
+      "MCP": 2
+    },
+    "reliability": {
+      "AITUI": 1,
+      "BGSTAB": 5,
+      "MCP": 1
+    },
+    "observability": {
+      "BGSTAB": 2,
+      "MCP": 1
+    },
+    "performance": {
+      "BGSTAB": 4
+    },
+    "interface": {
+      "MCP": 5
+    }
+  },
+  "lock": {
+    "active": true,
+    "metadata": {
+      "schemaVersion": "1.0.0",
+      "owner": "DESKTOP-LCF0D3R:71896",
+      "operation": "init_project",
+      "requestId": "b52ab3cb-ca83-4729-80e3-9d344d41e35a",
+      "acquiredAt": "2026-07-13T15:01:57.346Z",
+      "expiresAt": "2026-07-13T15:02:57.346Z"
+    }
+  }
+}

@@ -14,10 +14,11 @@
 ## Quick Start
 
 ```bash
-node dev.js          # 서버(4242) + 프론트(4545) 동시 실행
+node dev.js --port 2222   # 서버(2222) + 프론트(2223) 동시 실행
 ```
 
-브라우저에서 `http://localhost:4545` 접속. 서버 상태 확인: `curl -k https://localhost:4242/health`
+**dev 서버는 항상 2222 포트를 사용한다** (`--port 2222`, 프론트는 `serverPort+1`=2223). 브라우저·실측·health 체크 모두 2222 기준으로 한다.
+브라우저에서 `https://localhost:2222` 접속. 서버 상태 확인: `curl -k https://localhost:2222/health`
 - 비밀번호 1234
 - 코드 수정하면 자동으로 갱신됨
 
@@ -49,6 +50,7 @@ frontend/src/
 
 ## Rules
 
+- **dev 서버 포트는 항상 2222** — `node dev.js --port 2222`로 실행하며, health/브라우저 접속은 `https://localhost:2222`. 4242·4545·2002 등 다른 포트로 접속 시도 금지
 - **`kill {pid}`** 또는  **`taskkill /F /IM node.exe` 절대 금지** — dev.js가 hot reload로 자동 재시작함
 - **스크린샷 저장 경로**: `.playwright-mcp/` (루트에 png 파일 두지 말 것)
 - **보안**: HTTPS + JWT + 2FA(선택) + 파일 경로 보안. localhost 전용
@@ -138,8 +140,62 @@ node tools/worklog.mjs list 2026-04-03
 | GET | `/api/sessions/:id/files` | 파일 목록 |
 | GET | `/health` | 상태 확인 |
 
-# SpecKiwi SRS workflow
+# SpecKiwi SRS 워크플로 v1.4
 
-This repository stores requirements as Markdown SRS documents under `docs/spec/`. For detailed authoring and validation rules, read [the rules document](docs/rule/SRS-MD-Rules-v1.0.0.md).
+This repository uses `docs/spec/` as the required source of truth for requirements.
 
-Prefer SpecKiwi MCP tools when configured. Use the `speckiwi` CLI fallback when MCP is unavailable. Never bypass SRS-MD rules or create an alternate requirements source of truth.
+Before making any code, test, CLI, MCP, or documentation change, agents MUST:
+1. Read `docs/spec/00.index.md`.
+2. Find the relevant Requirement ID in the scope SRS files.
+3. Mention the Requirement ID in the work summary.
+4. If no matching requirement exists, stop and ask whether to create/update an SRS requirement first.
+
+Requirement metadata has two separate lifecycle fields:
+- `Status` tracks implementation and verification progress.
+- `Stability` tracks requirement maturity and change-control maturity.
+
+Agents MUST stop before implementing a non-discarded requirement with `Stability=draft` or `Stability=deprecated` unless the user explicitly overrides that workflow.
+
+TDD principle:
+- Agents MUST follow TDD for behavior changes: write or update a failing automated test for the relevant Requirement ID before implementation, make the smallest change to pass, then refactor while keeping tests green.
+- If no meaningful automated test can be written, agents MUST stop before implementation and explain the exception and alternative verification evidence.
+
+Agents MUST NOT:
+- Implement behavior that is not covered by an SRS requirement.
+- Create an alternate requirements source outside `docs/spec/`.
+- Change requirement IDs manually.
+- Mark requirements as verified without evidence.
+- Introduce or invoke bulk-archive / bulk-finalize tooling that flips multiple requirements to `verified` or empties Active Target without per-requirement evidence and stability gate checks.
+
+When SpecKiwi MCP tools are available, agents MUST use them for requirement lookup and safe SRS updates. If MCP is unavailable, use the `speckiwi` CLI.
+
+Current work status workflow:
+1. Read the active target with MCP `get_active_target`, or CLI `speckiwi active-target --json` if MCP is unavailable.
+2. If `activeTarget` is empty, report that no active target is set and ask which target to use before making target-scoped changes.
+3. Read `summary.countsByStatus`, `summary.countsByStability`, `summary.stabilityBlockers`, `summary.stabilityWarnings`, and `summary.newWorkCandidates` before selecting work.
+4. Read open work with MCP `list_requirements` for `status=in_progress`, `status=blocked`, and `status=implemented`; CLI fallback is `speckiwi list --status <status> --json`.
+5. Check missing verification evidence through `summary` or MCP `summarize_target` before saying work is complete.
+6. Read recent completed work with MCP `list_completed_work`; CLI fallback is `speckiwi completed-work --json`.
+
+Next target authoring workflow:
+1. If the user asks to set the next target, first read the current Active Target and Target Map.
+2. If the target is not registered, use a supported target-registration mutation such as MCP `set_active_target` with creation support, or CLI `speckiwi set-active-target <target> --create` when that option is available.
+3. If the configured MCP/CLI cannot register the target, stop before target-scoped SRS changes and report the tool gap, unless the user explicitly authorizes a minimal SRS-MD patch.
+4. After target assignment, confirm the resolved Active Target with MCP `get_active_target`, or CLI `speckiwi active-target --json` if MCP is unavailable.
+5. When the user provides a target goal, record it with MCP `set_target_goal`, or CLI `speckiwi set-target-goal <target> --goal <text>` if MCP is unavailable.
+6. For later SRS creation, omit the target only when the tool supports Active Target defaulting; otherwise pass the confirmed Active Target explicitly.
+7. If the user provides an explicit different target for a requirement, the explicit target wins over Active Target.
+
+Merge-time duplicate Requirement ID repair workflow:
+1. Run `speckiwi validate --json` or MCP `validate_spec` first. Use repair only when `SRS-E002` duplicate Requirement ID diagnostics exist, or when a named duplicate ID is confirmed in parsed diagnostics.
+2. Resolve normal Git conflict markers before repair. Then run MCP `diagnose_requirement_id_collisions` or CLI `speckiwi repair requirement-id-collisions diagnose --json`.
+3. Select explicit keep and rename occurrences by `filePath`, `headingLine`, and `blockHash`. A duplicate ID alone is never enough to write.
+4. Create a dry-run plan with MCP `plan_requirement_id_collision_repair` or CLI `speckiwi repair requirement-id-collisions plan --duplicate-id <id> --keep <file:line:blockHash> --rename <file:line:blockHash> [--replacement-id <id>|--allocate-next] --write-plan <path> --json`.
+5. Apply only from the explicit plan or equivalent explicit mapping with MCP `apply_requirement_id_collision_repair` or CLI `speckiwi repair requirement-id-collisions apply --plan <path> --json`. `--ignore-lock` is allowed only on apply and bypasses only the SRS mutation lock.
+6. Do not use collision repair for general renumbering, gap filling, ID beautification, bulk archive, bulk finalize, or Status/Stability changes. When two duplicate logical requirements should be merged or discarded, first repair IDs to uniqueness, then use separate guarded SRS mutations for discard, supersedes, Status, Stability, AC, or evidence changes.
+7. When implemented runtime CLI or MCP repair tooling is available, do not hand-edit Requirement IDs. If tooling is unavailable and the user explicitly authorizes a degraded SRS-MD patch, limit it to the selected occurrence and explicitly mapped references.
+8. Finish with `speckiwi validate --fail-on-warning --json`, `speckiwi summary --target <target> --json`, and `speckiwi links check --json` or MCP equivalents. Evidence must show duplicate IDs are zero and ambiguous references were reported or explicitly mapped.
+
+Completed Work Log is a read-only summary for agents. Requirement Block status, Acceptance Criteria, Verification Evidence, and Change Notes remain the source of truth for completion.
+
+<!-- /SpecKiwi SRS 워크플로 -->

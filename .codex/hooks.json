@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "match": {
+          "tool": "apply_patch"
+        },
+        "command": [
+          "node",
+          "docs/.kiwi/hooks/trace.mjs"
+        ]
+      }
+    ]
+  }
+}

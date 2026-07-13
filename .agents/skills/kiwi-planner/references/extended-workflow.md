@@ -506,7 +506,9 @@ doculight MCP 부재 시:
 
 ## 17. Pipeline event emit (의무)
 
-`../../_shared/kiwi/pipeline-event.md` v1.0.0 의 §2 schema 와 §5 emit 패턴을 따라 본 스킬 1회 실행 종료 직전 `./kiwi/pipeline.jsonl` 에 정확히 1줄 append. 멱등성: 동일 `run_id` 의 이벤트가 이미 존재하면 skip.
+`../../_shared/kiwi/pipeline-event.md` v1.0.0 의 §2 schema 로 이벤트를 작성한 뒤, 본 스킬 1회 실행 종료 직전 MCP `workflow_pipeline_emit` 를 호출한다. 멱등성, source hash, owner, dry-run, stale guard 는 공식 mutation envelope 를 따른다.
+
+CLI `speckiwi workflow pipeline-emit --json` 은 MCP 미가용 진단/복구 중에만 사용한다. 직접 `./kiwi/pipeline.jsonl` 에 append 하는 것은 degraded mode 이며, 사용하려면 captured tool diagnostics, affected artifact paths, active target, follow-up requirement or candidate ID 를 보고서와 worklog 에 남긴다.
 
 - `skill`: `"kiwi-planner"`
 - `status`: plan 확정 + mutation 완료 = `TASK_DONE`; plan freeze (G5 발산) = `NEEDS_USER`; 실패 = `FAILED`; dry-run = `DRY_RUN`

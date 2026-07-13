@@ -1,0 +1,20 @@
+{
+  "name": "kiwi-review-fix-loop",
+  "agent": "claude",
+  "installedAt": "2026-07-13T15:01:57.836Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "claude",
+  "sourceRoot": "skills/claude",
+  "sourcePath": "skills/claude/kiwi-review-fix-loop",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-review-fix-loop",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:573fb9b438074a8c9d5f771a03e016226f0a1151f997e19360ebc3b0c6cfbc69",
+  "installedChecksum": "sha256:573fb9b438074a8c9d5f771a03e016226f0a1151f997e19360ebc3b0c6cfbc69",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
+  "sharedResourceValidation": "not-required",
+  "sharedResourceReferences": [],
+  "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-review-fix-loop --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
+  "noManualEdit": true
+}

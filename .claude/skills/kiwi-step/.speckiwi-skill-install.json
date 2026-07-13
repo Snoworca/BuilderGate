@@ -1,0 +1,20 @@
+{
+  "name": "kiwi-step",
+  "agent": "claude",
+  "installedAt": "2026-07-13T15:01:58.163Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "claude",
+  "sourceRoot": "skills/claude",
+  "sourcePath": "skills/claude/kiwi-step",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-step",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:db8f9d034e1553864146c2e54aa9c23f8f066121ff1af65d09998a0fe09f1a7e",
+  "installedChecksum": "sha256:db8f9d034e1553864146c2e54aa9c23f8f066121ff1af65d09998a0fe09f1a7e",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
+  "sharedResourceValidation": "not-required",
+  "sharedResourceReferences": [],
+  "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-step --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
+  "noManualEdit": true
+}

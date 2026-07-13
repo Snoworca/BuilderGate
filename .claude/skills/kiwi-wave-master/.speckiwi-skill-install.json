@@ -1,0 +1,20 @@
+{
+  "name": "kiwi-wave-master",
+  "agent": "claude",
+  "installedAt": "2026-07-13T15:01:58.222Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "claude",
+  "sourceRoot": "skills/claude",
+  "sourcePath": "skills/claude/kiwi-wave-master",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-wave-master",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:97d63c5f8e9d9e25d8df547d4528bbd33c76f36e9d86600c23b7d1fadefa0caa",
+  "installedChecksum": "sha256:97d63c5f8e9d9e25d8df547d4528bbd33c76f36e9d86600c23b7d1fadefa0caa",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
+  "sharedResourceValidation": "not-required",
+  "sharedResourceReferences": [],
+  "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-wave-master --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
+  "noManualEdit": true
+}

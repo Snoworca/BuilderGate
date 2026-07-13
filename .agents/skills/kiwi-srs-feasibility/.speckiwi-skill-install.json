@@ -1,5 +1,26 @@
 {
   "name": "kiwi-srs-feasibility",
   "agent": "codex",
-  "installedAt": "2026-05-21T16:10:56.478Z"
+  "installedAt": "2026-07-13T15:01:58.975Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "codex",
+  "sourceRoot": "skills/codex",
+  "sourcePath": "skills/codex/kiwi-srs-feasibility",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/kiwi-srs-feasibility",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:5917f8d144fc438858902a9e998c8a016fac5bac5aacdf488b6a7da0da51f311",
+  "installedChecksum": "sha256:5917f8d144fc438858902a9e998c8a016fac5bac5aacdf488b6a7da0da51f311",
+  "sourceFileCount": 3,
+  "installedFileCount": 3,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/_shared/kiwi",
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/feasibility-policy-schema-v1.md",
+    "_shared/kiwi/loop-option.md",
+    "_shared/kiwi/pipeline-event.md",
+    "_shared/kiwi/pipeline-v1.md"
+  ],
+  "refreshCommand": "node bin/speckiwi --root . skills install codex kiwi-srs-feasibility --dest C:/Work/git/_Snoworca/ProjectMaster/.agents/skills --json",
+  "noManualEdit": true
 }

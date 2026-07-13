@@ -1,0 +1,20 @@
+{
+  "name": "kiwi-pm",
+  "agent": "claude",
+  "installedAt": "2026-07-13T15:01:57.783Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "claude",
+  "sourceRoot": "skills/claude",
+  "sourcePath": "skills/claude/kiwi-pm",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-pm",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:7a3948f43bd40c346012d8e95a1196829db0d3b9a180b0d6d4f2599351c42c0e",
+  "installedChecksum": "sha256:7a3948f43bd40c346012d8e95a1196829db0d3b9a180b0d6d4f2599351c42c0e",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
+  "sharedResourceValidation": "not-required",
+  "sharedResourceReferences": [],
+  "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-pm --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
+  "noManualEdit": true
+}

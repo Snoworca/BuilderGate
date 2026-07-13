@@ -1,0 +1,20 @@
+{
+  "name": "kiwi-step",
+  "agent": "codex",
+  "installedAt": "2026-07-13T15:01:59.224Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "codex",
+  "sourceRoot": "skills/codex",
+  "sourcePath": "skills/codex/kiwi-step",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/kiwi-step",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:ba446bb3848bf93cfb807cf86fbacd1fd0320a8bdb9cb3528653298be0123355",
+  "installedChecksum": "sha256:ba446bb3848bf93cfb807cf86fbacd1fd0320a8bdb9cb3528653298be0123355",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/_shared/kiwi",
+  "sharedResourceValidation": "not-required",
+  "sharedResourceReferences": [],
+  "refreshCommand": "node bin/speckiwi --root . skills install codex kiwi-step --dest C:/Work/git/_Snoworca/ProjectMaster/.agents/skills --json",
+  "noManualEdit": true
+}

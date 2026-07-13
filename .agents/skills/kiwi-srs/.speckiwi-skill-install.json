@@ -1,5 +1,24 @@
 {
   "name": "kiwi-srs",
   "agent": "codex",
-  "installedAt": "2026-05-21T16:10:56.467Z"
+  "installedAt": "2026-07-13T15:01:58.915Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "codex",
+  "sourceRoot": "skills/codex",
+  "sourcePath": "skills/codex/kiwi-srs",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/kiwi-srs",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:285b5ac9dc9dc1f21b1932e588540b88e422d1bb929cdc0e0961f2a97427fbd4",
+  "installedChecksum": "sha256:285b5ac9dc9dc1f21b1932e588540b88e422d1bb929cdc0e0961f2a97427fbd4",
+  "sourceFileCount": 3,
+  "installedFileCount": 3,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/_shared/kiwi",
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md",
+    "_shared/kiwi/pipeline-event.md"
+  ],
+  "refreshCommand": "node bin/speckiwi --root . skills install codex kiwi-srs --dest C:/Work/git/_Snoworca/ProjectMaster/.agents/skills --json",
+  "noManualEdit": true
 }

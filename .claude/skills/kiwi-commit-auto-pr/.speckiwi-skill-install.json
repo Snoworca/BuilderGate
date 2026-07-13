@@ -1,0 +1,20 @@
+{
+  "name": "kiwi-commit-auto-pr",
+  "agent": "claude",
+  "installedAt": "2026-07-13T15:01:57.504Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "claude",
+  "sourceRoot": "skills/claude",
+  "sourcePath": "skills/claude/kiwi-commit-auto-pr",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-commit-auto-pr",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:3bd5dbc60ea6d36f98a85a3a520d17a5759a5a30c83512532645694efaef12da",
+  "installedChecksum": "sha256:3bd5dbc60ea6d36f98a85a3a520d17a5759a5a30c83512532645694efaef12da",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
+  "sharedResourceValidation": "not-required",
+  "sharedResourceReferences": [],
+  "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-commit-auto-pr --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
+  "noManualEdit": true
+}

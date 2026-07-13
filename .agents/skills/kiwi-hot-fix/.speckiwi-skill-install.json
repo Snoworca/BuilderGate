@@ -1,0 +1,23 @@
+{
+  "name": "kiwi-hot-fix",
+  "agent": "codex",
+  "installedAt": "2026-07-13T15:01:58.600Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "codex",
+  "sourceRoot": "skills/codex",
+  "sourcePath": "skills/codex/kiwi-hot-fix",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/kiwi-hot-fix",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:6baa83286ad698d4361dc9e846fe291ba42ff309451ee9ee73e0c768f5f50486",
+  "installedChecksum": "sha256:6baa83286ad698d4361dc9e846fe291ba42ff309451ee9ee73e0c768f5f50486",
+  "sourceFileCount": 3,
+  "installedFileCount": 3,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/_shared/kiwi",
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md"
+  ],
+  "refreshCommand": "node bin/speckiwi --root . skills install codex kiwi-hot-fix --dest C:/Work/git/_Snoworca/ProjectMaster/.agents/skills --json",
+  "noManualEdit": true
+}

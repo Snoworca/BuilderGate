@@ -1,0 +1,20 @@
+{
+  "name": "kiwi-srs-sync",
+  "agent": "claude",
+  "installedAt": "2026-07-13T15:01:58.110Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "claude",
+  "sourceRoot": "skills/claude",
+  "sourcePath": "skills/claude/kiwi-srs-sync",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-srs-sync",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:0bd6f072d5a508b5f6210b2882f34cad0c98a2b3677fdb661e7eb5c41e617c6d",
+  "installedChecksum": "sha256:0bd6f072d5a508b5f6210b2882f34cad0c98a2b3677fdb661e7eb5c41e617c6d",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
+  "sharedResourceValidation": "not-required",
+  "sharedResourceReferences": [],
+  "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-srs-sync --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
+  "noManualEdit": true
+}

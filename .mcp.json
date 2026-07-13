@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "speckiwi": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "speckiwi",
+        "mcp"
+      ]
+    }
+  }
+}

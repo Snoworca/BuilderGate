@@ -1,0 +1,20 @@
+{
+  "name": "kiwi-srs-from-code",
+  "agent": "claude",
+  "installedAt": "2026-07-13T15:01:58.003Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "claude",
+  "sourceRoot": "skills/claude",
+  "sourcePath": "skills/claude/kiwi-srs-from-code",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-srs-from-code",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:d33bc1cc1b0a6fa7beeeca55cfa0e42ebaae1c33a9f8f9c281fafe28dccda6a2",
+  "installedChecksum": "sha256:d33bc1cc1b0a6fa7beeeca55cfa0e42ebaae1c33a9f8f9c281fafe28dccda6a2",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
+  "sharedResourceValidation": "not-required",
+  "sharedResourceReferences": [],
+  "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-srs-from-code --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
+  "noManualEdit": true
+}

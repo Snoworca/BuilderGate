@@ -37,7 +37,7 @@ This file was split from `SKILL.md` for progressive disclosure. Read it only whe
 - 다음 단계
 - 비용 (--enable-research 활성 시)
 - 보고 채널
-- 12. MCP / CLI fallback
+- 12. MCP availability and remediation
 - 13. 수렴 기준 (Phase 8 객관 메트릭)
 - 14. 주의사항
 - 15. 파이프라인 위치
@@ -154,7 +154,7 @@ per_req.research_enrichment = {
   - Phase 2.0 prescreen = ceil(N / chunk-size) (standard, N≥7 시)
   - Phase 2 per-REQ = senior_targets 수 (high-reasoning)
   - Phase 2.5 = 최대 75
-  - Phase 5 evaluator = 2-3 × iter (Normal 최대 5 iter / Max 최대 15)
+  - Phase 5 evaluator = 1-2 × iter (Normal 단일 검증 서브에이전트 1 / Max +독립 2차 패스 2; Normal 최대 5 iter / Max 최대 15)
   - **총량 가드**: 위 합산이 사용자가 직관적으로 예측 가능하도록 `cost-estimate.json` 산출물(Phase 0 종료 시) 에 사전 추정치 기록 + 사용자에게 보고. `--cost-cap N` 옵션으로 상한 강제 가능 (초과 시 HALT + 옵션 조정 안내).
 
 ### 5.5.7 산출물
@@ -267,10 +267,12 @@ per-REQ judgement + 정책 → per-REQ stability 제안.
 
 ### 8.4 토폴로지
 
-| 모드 | Evaluator A | B | C |
-|---|---|---|---|
-| Normal | high-reasoning | standard | — |
-| --max | high-reasoning | standard | high-reasoning |
+평가·검증은 **단일 검증 서브에이전트**가 수행하며 기본적으로 **현재 세션 모델(current session model)**을 상속한다. `--model <name>` (또는 사용자가 지명한 모델) 로 이 검증 서브에이전트의 모델을 override 한다.
+
+| 모드 | 검증 서브에이전트 | 모델 |
+|---|---|---|
+| Normal | 단일 검증 서브에이전트 × 1 | 현재 세션 모델 (`--model` override) |
+| --max | 단일 검증 서브에이전트 + 독립 2차 검증 패스 | 현재 세션 모델 (`--model` override) |
 
 ---
 
@@ -549,17 +551,22 @@ open_markdown({
 
 ---
 
-## 12. MCP / CLI fallback
+## 12. MCP availability and remediation
 
-| 작업 | MCP | CLI fallback |
+Normal target-scoped SRS reads, mutations, status/stability changes, evidence,
+trace links, and completed-work logging require `speckiwi mcp`. CLI commands may
+diagnose installation/version/configuration or help the user restore MCP, but
+they are not normal fallback mutation paths.
+
+| 작업 | MCP | CLI diagnostic only |
 |---|---|---|
-| Active target | `get_active_target` | `speckiwi active-target --json` |
-| Target 활성화 | `set_active_target` | `speckiwi set-active-target <t>` |
-| REQ 조회 | `get_requirement` | `speckiwi show <id> --json` |
-| REQ 목록 | `list_requirements` | `speckiwi list --target <t> --json` |
-| **Stability 변경** | **`update_stability`** | **`speckiwi update-stability <id> <stability> --reason ... [--dry-run]`** |
-| 검증 | `validate_spec` | `speckiwi validate --json` |
-| 요약 | `summarize_target` | `speckiwi summary --target <t> --json` |
+| Active target | `get_active_target` | 설치/버전/설정 확인만 |
+| Target 활성화 | `set_active_target` | 설치/버전/설정 확인만 |
+| REQ 조회 | `get_requirement` | 설치/버전/설정 확인만 |
+| REQ 목록 | `list_requirements` | 설치/버전/설정 확인만 |
+| **Stability 변경** | **`update_stability`** | **설치/버전/설정 확인만** |
+| 검증 | `validate_spec` | 설치/버전/설정 확인만 |
+| 요약 | `summarize_target` | 설치/버전/설정 확인만 |
 
 ---
 

@@ -1,0 +1,20 @@
+{
+  "name": "kiwi-planner",
+  "agent": "claude",
+  "installedAt": "2026-07-13T15:01:57.729Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "claude",
+  "sourceRoot": "skills/claude",
+  "sourcePath": "skills/claude/kiwi-planner",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-planner",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:2723c163bf6367b07d7d99bbf613db86ef1e18926702561758e88f1ac05174ea",
+  "installedChecksum": "sha256:2723c163bf6367b07d7d99bbf613db86ef1e18926702561758e88f1ac05174ea",
+  "sourceFileCount": 2,
+  "installedFileCount": 2,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
+  "sharedResourceValidation": "not-required",
+  "sharedResourceReferences": [],
+  "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-planner --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
+  "noManualEdit": true
+}

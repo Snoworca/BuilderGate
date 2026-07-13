@@ -1,0 +1,20 @@
+{
+  "name": "kiwi-hot-fix",
+  "agent": "claude",
+  "installedAt": "2026-07-13T15:01:57.613Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "claude",
+  "sourceRoot": "skills/claude",
+  "sourcePath": "skills/claude/kiwi-hot-fix",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-hot-fix",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:aa52347a82c2ae24f11fcd7ba9795b669d237df098f06e71ca76d6b2a237a00d",
+  "installedChecksum": "sha256:aa52347a82c2ae24f11fcd7ba9795b669d237df098f06e71ca76d6b2a237a00d",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
+  "sharedResourceValidation": "not-required",
+  "sharedResourceReferences": [],
+  "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-hot-fix --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
+  "noManualEdit": true
+}

@@ -1,0 +1,20 @@
+{
+  "name": "kiwi-coder",
+  "agent": "claude",
+  "installedAt": "2026-07-13T15:01:57.443Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "claude",
+  "sourceRoot": "skills/claude",
+  "sourcePath": "skills/claude/kiwi-coder",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-coder",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:f3a90211a642f507135928bcb3ccd25fb482a6f9e41f84dc4844f1db17f1cdc5",
+  "installedChecksum": "sha256:f3a90211a642f507135928bcb3ccd25fb482a6f9e41f84dc4844f1db17f1cdc5",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
+  "sharedResourceValidation": "not-required",
+  "sharedResourceReferences": [],
+  "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-coder --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
+  "noManualEdit": true
+}
