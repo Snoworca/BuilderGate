@@ -24,6 +24,16 @@ export class HermesForegroundDetector implements ForegroundAppDetector {
   private recentRaw = '';
 
   inspect(input: ForegroundAppDetectorInput): ForegroundAppObservation | null {
+    // PERF-BGSTAB-005: non-attach, non-hermes sessions (e.g. Codex/Claude) can never
+    // attach here (shouldAttach requires appHint === 'hermes'), so skip the per-chunk
+    // strip/appendTail string processing and return null immediately. The skipped
+    // recentRaw/recentText accumulation only feeds shouldAttach, and Hermes bootstrap
+    // output always arrives with appHint === 'hermes' (the hint is derived from the
+    // submitted command), so no attach signal can be stranded in a skipped prelude.
+    if (!this.attached && input.appHint !== 'hermes') {
+      return null;
+    }
+
     this.recentRaw = appendTail(this.recentRaw, input.chunk, MAX_RECENT_RAW_CHARS);
     const cleanedChunk = stripTerminalControlSequences(input.chunk);
     this.recentText = appendTail(this.recentText, cleanedChunk, MAX_RECENT_TEXT_CHARS);

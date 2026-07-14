@@ -1,0 +1,228 @@
+{
+  "relevant_files": [
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "724-830",
+      "signature": "ptyProcess.onData((rawData: string) => { ... })",
+      "relevance": "PTY 출력 청크마다 동기 실행되는 onData 핫패스. OSC133 처리(731), 터미널 타이틀 감지(745/747), foreground/echo/AI-TUI 분류, 디버그 상세 생성(822), queueHeadlessOutput 호출(828)이 모두 이 콜백 안에서 순차 동기 실행된다.",
+      "verified": true
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "3302-3404",
+      "signature": "private queueHeadlessOutput(...) / private async applyHeadlessOutput(...)",
+      "relevance": "F1/F2 핵심 근거. queueHeadlessOutput(3302)이 headlessWriteChain에 applyHeadlessOutput(3371)을 체이닝하고, applyHeadlessOutput은 writeHeadlessTerminal(3384)로 headless xterm 상태만 갱신한 뒤 routeSessionOutput(3400)에는 원본 큐 데이터(flushedOutput, 3391-3393)를 그대로 전달한다.",
+      "verified": true
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "2443-2510",
+      "signature": "getScreenSnapshot(sessionId): SessionScreenSnapshot | null",
+      "relevance": "F2 핵심 근거. serializeHeadlessTerminal(2489)은 스냅샷 캐시가 dirty이거나 seq/cols/rows 불일치일 때만(2465-2473 조건 실패 시) lazy 호출되고, 결과는 snapshotCache에 저장되어 이후 dirty=false 동안 재사용된다.",
+      "verified": true
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "1259-1347",
+      "signature": "writeInput(id, input, clientMetadata?, inputSequence?): boolean",
+      "relevance": "입력 경로 최종 단계. 부가 처리(에코 추적/포그라운드 힌트/커맨드버퍼 갱신/상태전환, 1277-1327, 약 51줄)가 pty.write(1330) 앞에 위치. 부가 처리 중 어떤 것도 pty.write에 전달되는 input 문자열 자체를 변형하지 않는다(1330에서 원본 input을 그대로 사용).",
+      "verified": true
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "3883-3889",
+      "signature": "function stripTerminalControlSequences(raw: string): string",
+      "relevance": "정규식 4패스(.replace 4회 체이닝) 확인. HermesForegroundDetector.ts:253-259에 동일 로직이 중복 정의됨(모듈 간 비공유).",
+      "verified": true
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "3710-3730 (buildRawOutputDebugDetails), 1251 / 3619 (isDebugCaptureEnabled)",
+      "signature": "function buildRawOutputDebugDetails(...) / isDebugCaptureEnabled(sessionId)",
+      "relevance": "onData 핸들러(822)는 outputData.length>0이면 항상 buildRawOutputDebugDetails를 호출한 뒤 captureDebugEvent(827)에 전달한다. captureDebugEvent 자체는 3619에서 isDebugCaptureEnabled 가드를 갖지만, buildRawOutputDebugDetails 호출 자체는 가드 앞(822)에서 매 청크 무조건 실행된다.",
+      "verified": true
+    },
+    {
+      "path": "server/src/services/HermesForegroundDetector.ts",
+      "line_range": "26-53, 98-111",
+      "signature": "inspect(input): ForegroundAppObservation | null / shouldAttach(...)",
+      "relevance": "inspect() 최상단(27-31)에서 appendTail ×2 + stripTerminalControlSequences + replace + trim을 this.attached / input.appHint 체크보다 먼저 무조건 실행한다. shouldAttach(106)는 input.appHint==='hermes' 를 요구하므로 Codex/Claude 세션은 attached=true가 될 수 없는데도 매 청크 strip 비용을 지불한다.",
+      "verified": true
+    },
+    {
+      "path": "server/src/ws/wsSendPolicy.ts",
+      "line_range": "1-188",
+      "signature": "WsTransportMessageKind / pushTransportMessage / getTransportMessagesInPriorityOrder / tryCoalesceOutputMessage",
+      "relevance": "서버→클라이언트 전송 큐. 메시지 종류는 3종(output/control/terminal-control)이지만 물리 큐는 2개(controlItems, terminalItems)뿐 — 'output'과 'terminal-control'은 같은 terminalItems 큐를 공유한다. 클라→서버 입력에는 이런 큐/우선순위 구조가 전혀 없다.",
+      "verified": true
+    },
+    {
+      "path": "server/src/ws/WsRouter.ts",
+      "line_range": "2198-2292",
+      "signature": "sendTransportMessage(ws, message) / enqueueTransportMessage(...)",
+      "relevance": "F4 핵심 근거. mode==='direct'(기본값)이면 sendTransportMessage가 바로 sendRawTransportMessage를 호출해 청크당 1회 전송, 큐잉·coalescing 완전 우회. tryCoalesceOutputMessage(2254)는 enqueueTransportMessage 내부에서만, 즉 mode!=='direct'이고 버퍼드amount>=highWater 또는 이미 큐잉된 메시지가 있을 때만 도달한다.",
+      "verified": true
+    },
+    {
+      "path": "server/src/ws/WsRouter.ts",
+      "line_range": "243-335, 525-560, 1504-1540",
+      "signature": "ws.on('message', ...) → handleMessage → case 'input': handleInput → submitWebSocketInputThroughGateway",
+      "relevance": "입력 경로가 일반 EventEmitter 콜백(ws.on('message'))으로 진입해 switch문으로 동기 디스패치될 뿐, wsSendPolicy 같은 우선순위/큐 메커니즘을 전혀 거치지 않음을 확인.",
+      "verified": true
+    },
+    {
+      "path": "server/src/services/SessionInputGateway.ts",
+      "line_range": "102-164, 206-230",
+      "signature": "submitInputThroughGateway(deps, request) / writeLowLevelInput(...)",
+      "relevance": "입력 게이트웨이 로직도 정책 평가 후 곧바로 deps.writeInput(→ SessionManager.writeInput)을 동기 호출. 별도 스케줄링/패스트패스 없음.",
+      "verified": true
+    },
+    {
+      "path": "server/src/schemas/config.schema.ts",
+      "line_range": "114, 115, 124, 199",
+      "signature": "writeLagWarnMs / writeBatchMaxBytes / outputCoalesceWindowMs / wsSendMode",
+      "relevance": "wsSendMode 기본값 'direct'(199), writeLagWarnMs 기본 500(114)·writeBatchMaxBytes 기본 65536(115)·outputCoalesceWindowMs 기본 16(124) 정확히 일치.",
+      "verified": true
+    },
+    {
+      "path": "server/src/utils/headlessOutputQueue.ts",
+      "line_range": "10-70",
+      "signature": "interface HeadlessOutputQueueOptions / createHeadlessOutputQueue(options)",
+      "relevance": "F4 보강 근거. HeadlessOutputQueueOptions는 maxBytes/maxChunks/overflowPolicy만 받는다 — writeBatchMaxBytes/writeLagWarnMs는 큐 생성자에 전달되지 않아 실제 배칭/지연경고 로직에 소비되지 않는다(스캐폴딩 확인).",
+      "verified": true
+    },
+    {
+      "path": "server/src/services/RuntimeConfigStore.ts",
+      "line_range": "71-72, 112-125",
+      "signature": "SETTINGS_METADATA['resourceLimits.headless.writeLagWarnMs'/'writeBatchMaxBytes'] / RESERVED_WAVE6_SETTING_KEYS",
+      "relevance": "두 필드가 'Reserved outside the selected Wave6 Settings field set'로 명시되어 설정 UI에서도 available:false 처리됨. 스캐폴딩이라는 F4 주장을 config 계층에서도 재확인.",
+      "verified": true
+    },
+    {
+      "path": "server/src/services/ForegroundAppDetector.ts",
+      "line_range": "13-21",
+      "signature": "interface SessionDerivedState { lastObservationAt?; lastSemanticOutputAt?; lastRepaintOnlyAt? }",
+      "relevance": "2단계 항목 ⑧(repaint throttle)이 재사용하자고 제안한 기존 상태 필드가 실제로 존재함을 확인.",
+      "verified": true
+    },
+    {
+      "path": "server/src/services/OscDetector.ts",
+      "line_range": "34, 65",
+      "signature": "OSC_133_REGEX / process(data: string)",
+      "relevance": "OSC133 감지기 정규식(34)과 진입점(65) 라인 인용 정확.",
+      "verified": true
+    },
+    {
+      "path": "server/src/utils/terminalTitle.ts",
+      "line_range": "30-106",
+      "signature": "process(data: string): void",
+      "relevance": "터미널 타이틀 감지기 진입점, 인용 라인 범위(30-106) 정확히 함수 전체 범위와 일치.",
+      "verified": true
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "132-147",
+      "signature": "interface SessionManagerObservability",
+      "relevance": "observability 스냅샷 타입 정의 라인 인용 정확. maxSnapshotSerializeMs 등 필드 확인(headlessOutput.overflowCount/degradedCount는 별도 HeadlessOutputObservability/HeadlessOutputQueueSnapshot 타입에 존재).",
+      "verified": true
+    },
+    {
+      "path": "server/src/index.ts",
+      "line_range": "36, 797-801",
+      "signature": "import { SessionManager, sessionManager } / app.get('/api/sessions/telemetry', ...)",
+      "relevance": "싱글턴 sessionManager import(36)와 telemetry 라우트(797)가 getObservabilitySnapshot()을 그대로 노출함을 확인. worker_threads/cluster 사용 없음(전체 server/src 검색 결과 0건).",
+      "verified": true
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "590-591, 1814-1838",
+      "signature": "createSession(...) envPatch 적용부 / private buildShellEnv(shellType) / normalizeEnvPatch(envPatch)",
+      "relevance": "buildShellEnv 호출은 590행, envPatch 정규화·병합은 591행(연구 문서는 590행 단일 인용, 실제로는 590-591 두 줄에 걸쳐 있음 — 사소한 오프바이원). buildShellEnv 정의는 1814행 정확.",
+      "verified": true
+    }
+  ],
+  "related_modules": [
+    "server/src/utils/boundedByteDeque.ts (headlessOutputQueue의 바이트 상한 큐 구현체)",
+    "server/src/services/ConfigFileRepository.ts / SettingsService.ts (writeLagWarnMs/writeBatchMaxBytes를 config 파일에 배선하지만 런타임 소비처는 없음)",
+    "server/src/types/config.types.ts (HeadlessResourceLimitsConfig 등 타입 정의)"
+  ],
+  "verified_facts": [
+    {
+      "fact_id": "F1",
+      "claim": "라이브 출력은 이미 raw passthrough — applyHeadlessOutput이 headless 직렬화 결과가 아닌 원본 바이트를 routeSessionOutput으로 보낸다",
+      "evidence_path": "server/src/services/SessionManager.ts:3391-3400",
+      "verdict": "CONFIRMED",
+      "note": "writeHeadlessTerminal(3384) 호출로 headless xterm 상태는 갱신되지만, 그 반환값은 사용되지 않는다. routeSessionOutput에 전달되는 flushedOutput(3391-3393)은 headlessOutputQueue.dequeue()에서 꺼낸 원본 큐 데이터(또는 output.data)이며 headless 직렬화 결과가 아니다."
+    },
+    {
+      "fact_id": "F2",
+      "claim": "serialize는 스냅샷 요청 시에만 lazy 호출되고 screenSeq 캐시가 있다",
+      "evidence_path": "server/src/services/SessionManager.ts:2465-2489",
+      "verdict": "CONFIRMED",
+      "note": "getScreenSnapshot에서 cached.seq===data.screenSeq && !cached.dirty 등 조건(2466-2473)을 만족하면 캐시를 그대로 반환하고, serializeHeadlessTerminal(2489)은 그 조건이 깨졌을 때만 호출된다. 연속 라이브 스트리밍(onData 경로)에서는 이 함수가 전혀 호출되지 않는다."
+    },
+    {
+      "fact_id": "F3",
+      "claim": "wsSendPolicy.ts/WsRouter.ts의 전송 우선순위는 서버→클라 출력 전용이고 클라→서버 입력엔 우선순위/패스트패스가 없다",
+      "evidence_path": "server/src/ws/wsSendPolicy.ts:1-188, server/src/ws/WsRouter.ts:243-335,1504-1540",
+      "verdict": "PARTIAL",
+      "note": "출력 전용 우선순위 큐 및 입력 경로에 큐/우선순위 부재라는 핵심 주장은 CONFIRMED. 다만 '3-레인'이라는 표현은 부정확 — 메시지 종류(kind)는 output/control/terminal-control 3종이지만 물리적 큐(state.controlItems, state.terminalItems)는 2개뿐이며 output과 terminal-control은 같은 terminalItems 큐를 공유한다."
+    },
+    {
+      "fact_id": "F4",
+      "claim": "coalescing 인프라는 있으나 기본값 wsSendMode='direct'에서 꺼져 있고, writeBatchMaxBytes/writeLagWarnMs는 배선만 되고 미구현 스캐폴딩이다",
+      "evidence_path": "server/src/schemas/config.schema.ts:114-115,199; server/src/ws/WsRouter.ts:2198-2292; server/src/utils/headlessOutputQueue.ts:10-70",
+      "verdict": "CONFIRMED",
+      "note": "mode==='direct'일 때 sendTransportMessage(2207-2210)가 큐를 거치지 않고 즉시 전송하므로 tryCoalesceOutputMessage는 이 경로에서 절대 호출되지 않는다. writeBatchMaxBytes/writeLagWarnMs는 HeadlessOutputQueueOptions(headlessOutputQueue.ts:10-15)에 전달되지 않아 실제 큐 동작에 아무 영향을 주지 않으며, RuntimeConfigStore.ts에서도 'Reserved outside the selected Wave6 Settings field set'로 명시되어 있어 스캐폴딩이라는 주장이 config 계층에서도 뒷받침된다."
+    },
+    {
+      "fact_id": "F5",
+      "claim": "onData 핫패스가 SessionManager.ts:724에서 시작해 731/745/747의 감지기를 동기 실행한다",
+      "evidence_path": "server/src/services/SessionManager.ts:724-830",
+      "verdict": "CONFIRMED",
+      "note": "ptyProcess.onData 콜백(724) 내부에서 oscDetector.process(731), terminalTitleDetector.process(745), terminalTitleSignalDetector.process(747)가 순서대로 동기 호출되고, 이어서 buildRawOutputDebugDetails(822)·captureDebugEvent(827)·queueHeadlessOutput(828)까지 모두 같은 콜백 프레임 안에서 실행된다."
+    },
+    {
+      "fact_id": "F6",
+      "claim": "queueHeadlessOutput(3302)이 headlessWriteChain.then(3350) 마이크로태스크 체인으로 applyHeadlessOutput(3371)을 스케줄한다",
+      "evidence_path": "server/src/services/SessionManager.ts:3302-3369",
+      "verdict": "CONFIRMED",
+      "note": "sessionData.headlessWriteChain = sessionData.headlessWriteChain.then(...)  형태로 세션별 Promise 체인이 누적되며, 각 청크마다 새 .then/.catch/.finally 마이크로태스크가 추가된다."
+    },
+    {
+      "fact_id": "F7",
+      "claim": "writeInput은 pty.write(1330) 앞에 ~50줄의 부가 처리(1277-1327)를 두며, 이 중 pty에 쓰이는 바이트를 바꾸는 것은 없다",
+      "evidence_path": "server/src/services/SessionManager.ts:1277-1330",
+      "verdict": "CONFIRMED",
+      "note": "1277-1327(51줄)은 에코 추적, foreground 힌트 갱신, heuristic 모드 상태 전환만 수행한다. 1330의 data.pty.write(input)은 함수 인자로 받은 원본 input을 그대로 사용하며 위 부가 처리에서 변형되지 않는다."
+    },
+    {
+      "fact_id": "F8",
+      "claim": "HermesForegroundDetector.inspect가 appHint!=='hermes'인 세션에서도 strip을 먼저 수행한다(조기 bail 없음)",
+      "evidence_path": "server/src/services/HermesForegroundDetector.ts:26-53,105-111",
+      "verdict": "CONFIRMED",
+      "note": "inspect() 최상단(27-31)에서 appendTail ×2 + stripTerminalControlSequences + normalize + trim을 무조건 실행한 뒤에야 !this.attached && shouldAttach(...) 를 평가한다(35행). shouldAttach는 input.appHint==='hermes' 를 강제하므로(106행) Codex/Claude 세션은 절대 attach되지 않지만, 매 청크마다 위 문자열 처리 비용은 이미 지불된 뒤다."
+    },
+    {
+      "fact_id": "F9",
+      "claim": "stripTerminalControlSequences는 정규식 4패스(.replace 4회 체이닝)로 구현되어 있고, 프레임당 여러 차례(연구 문서 표현: 약 4회) 호출될 수 있다",
+      "evidence_path": "server/src/services/SessionManager.ts:3883-3889; server/src/services/HermesForegroundDetector.ts:253-259",
+      "verdict": "PARTIAL",
+      "note": "4-패스 정규식 체이닝 자체는 두 파일 모두에서 정확히 확인됨(CONFIRMED). 다만 '프레임당 약 4회 호출'은 heuristic/osc133 분기 조건에 따라 달라지는 근사치다 — 예: osc133 분기에서 isLikelyCommandEchoOutput(1회) → classifyAiTuiOutputSignal 내부에서 직접 1회 + 내부적으로 isLikelyCommandEchoOutput 재호출 1회 = 이 경로만으로 최소 3회이며, isPowerShellPromptRedrawOutput/isShellPromptReturnOutput 분기가 추가로 실행되면 4회에 도달한다. 즉 코드 구조상 '최대 약 4회'는 타당하지만 모든 프레임에서 항상 4회라는 의미는 아니다."
+    },
+    {
+      "fact_id": "F10",
+      "claim": "서버는 worker_threads/cluster를 전혀 사용하지 않는 단일 이벤트 루프 구조다",
+      "evidence_path": "server/src/index.ts:36 (전체 server/src grep 결과 0건)",
+      "verdict": "CONFIRMED",
+      "note": "server/src 전체에서 'worker_threads', 'cluster' 모듈 import/require, Worker( 생성자 사용 사례가 발견되지 않음."
+    }
+  ],
+  "missing_evidence": [
+    "'우선순위 3-레인'이라는 표현: 실제로는 메시지 kind 3종(output/control/terminal-control)이 물리 큐 2개(controlItems/terminalItems)로 매핑되는 구조 — 연구 문서 §3 F3 행의 '3-레인' 표현은 부정확하다(위 F3 PARTIAL 참조).",
+    "'프레임당 약 4회 호출' 수치: 코드상 조건 분기에 따라 2~4회로 달라지며, 모든 onData 프레임에서 정확히 4회 호출된다는 근거는 찾지 못함(F9 PARTIAL 참조).",
+    "createSession envPatch 인용 라인(':590'): 실제로는 buildShellEnv 호출이 590행, envPatch 정규화 적용은 591행으로 1줄 차이(경미한 오프바이원, 코드 위치 자체는 정확).",
+    "Codex 외부 근거(tui.animations/tui.alternate_screen/CODEX_HOME/codex exec 비대화형 모드)는 이 저장소 코드로 검증 불가능한 외부 CLI 동작이므로 코드 컨텍스트 분석 범위 밖."
+  ],
+  "external_paths_detected": []
+}

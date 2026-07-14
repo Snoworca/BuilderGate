@@ -1,0 +1,47 @@
+{
+  "task_id": "T-PH002-02",
+  "phase_id": "PH-002",
+  "req_ids": ["OBS-BGSTAB-003"],
+  "type": "code",
+  "tdd_phase": "green",
+  "started_at": "2026-07-14T07:00:00Z",
+  "completed_at": "2026-07-14T07:25:00Z",
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": ["server/src/services/SessionManager.ts", "server/src/test-runner.ts"],
+        "summary": "Added perf_hooks import, module-level shared monitorEventLoopDelay histogram (enabled once), EventLoopDelayObservability + 3 fields on SessionManagerObservability, headlessWriteCumulativeMs counter + CPU baseline fields, sampleEventLoopDelay()/sampleProcessCpuPercentOfOneCore() injected into getObservabilitySnapshot(), writeHeadlessTerminal span instrumentation in applyHeadlessOutput(). index.ts telemetry route forwards snapshot as-is (unchanged)."
+      }
+    ],
+    "formal_and_prickly_review": {
+      "test_verifier": "0 open after fix (was 1C/1H): distinction test strengthened to 3-axis derivability, tautology removed.",
+      "prickly_reviewer": "was 0C/1H/3M/1L. HIGH (CPU baseline corrupted by two snapshot readers: telemetry route index.ts:800 + 60s logger index.ts:1540) fixed via throttled 250ms-min-window sampling with cached value. MEDIUM-1 (Promise.race over-count) + MEDIUM-2 (rejection drops accumulation) fixed by timing the write via .finally on the write promise. MEDIUM-3 (histogram not windowed) deferred with rationale (requirement + R-03 mandate single boot-time reused histogram; windowing out of scope like OQ-02), semantics documented. LOW (comment accuracy) fixed. Post-fix gate: CRITICAL=0 + HIGH=0."
+    },
+    "green_evidence": {
+      "command": "cd server && npx tsx src/test-runner.ts",
+      "exit_code": 0,
+      "tsc_exit": 0,
+      "passed_test_case_ids": [
+        "TC-REQ-OBS-BGSTAB-003-AC1-02",
+        "TC-REQ-OBS-BGSTAB-003-AC2-02"
+      ],
+      "timestamp": "2026-07-14T07:25:00Z"
+    },
+    "dod_check": [
+      {"item": "OBS-BGSTAB-003 신규 테스트 green(종료 0)", "satisfied": true},
+      {"item": "기존 test-runner.ts 전체 회귀 통과", "satisfied": true, "note": "503/503 (499 baseline + 4 new)"},
+      {"item": "AC-1: loop delay mean/p99·CPU%·headless write 누적 시간 필드 존재", "satisfied": true},
+      {"item": "AC-2: 이벤트 루프 포화와 CPU 여유 원인 구분 판정 가능", "satisfied": true, "note": "3-axis derivability demonstrated; thresholds excluded (OQ-02)"}
+    ]
+  },
+  "phase3": {
+    "regression": {"scope": "full", "passed": 503, "failed": 0, "tsc_exit": 0},
+    "mcp_calls": [
+      {"tool": "add_trace_link", "args": {"id": "OBS-BGSTAB-003", "type": "Code", "reference": "server/src/services/SessionManager.ts:2994-3030", "relation": "implements"}, "ok": true},
+      {"tool": "add_verification_evidence", "args": {"id": "OBS-BGSTAB-003", "type": "test", "reference": "server/src/test-runner.ts#OBS_BGSTAB_003_impl_telemetry_metric_fields_present", "covers": "AC-1"}, "ok": true, "response": {"evidenceId": "VE-2"}},
+      {"tool": "add_verification_evidence", "args": {"id": "OBS-BGSTAB-003", "type": "test", "reference": "server/src/test-runner.ts#OBS_BGSTAB_003_impl_saturation_vs_cpu_headroom_distinction", "covers": "AC-2"}, "ok": true, "response": {"evidenceId": "VE-3"}},
+      {"tool": "update_status", "args": {"id": "OBS-BGSTAB-003", "status": "implemented"}, "ok": true}
+    ]
+  }
+}

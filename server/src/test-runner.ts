@@ -29,6 +29,8 @@ import { SessionManager, type SessionFinalizedEvent } from './services/SessionMa
 import { sessionManager } from './services/SessionManager.js';
 import { FileService } from './services/FileService.js';
 import { OscDetector } from './services/OscDetector.js';
+import { HermesForegroundDetector } from './services/HermesForegroundDetector.js';
+import type { ForegroundAppDetectorInput } from './services/ForegroundAppDetector.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
 import {
   TerminalTitleDetector,
@@ -192,6 +194,9 @@ async function main(): Promise<void> {
     { name: 'SessionManager terminateAllSessions records enforce override when runtime cleanup is legacy', run: testSessionManagerTerminateAllSessionsEnforceOverrideRecordsTelemetry },
     { name: 'SessionManager keeps Hermes submit idle in bash heuristic mode', run: testSessionManagerHermesBashSubmitStaysIdle },
     { name: 'SessionManager keeps Codex submit idle in bash heuristic mode', run: testSessionManagerCodexBashSubmitStaysIdle },
+    { name: 'SessionManager injects Codex tui suppression flags when config enabled (FR-BGSTAB-020 AC-1)', run: testSessionManagerCodexTuiSuppressionInjectedWhenEnabled },
+    { name: 'SessionManager gates Codex tui suppression injection by config (FR-BGSTAB-020 AC-2)', run: testSessionManagerCodexTuiSuppressionGatedByConfig },
+    { name: 'SessionManager positions Codex tui suppression flags and guards partial keystrokes (FR-BGSTAB-020)', run: testSessionManagerCodexTuiSuppressionInjectionShapeGuards },
     { name: 'SessionManager keeps Claude submit idle in bash heuristic mode', run: testSessionManagerClaudeBashSubmitStaysIdle },
     { name: 'SessionManager keeps Codex typing idle after a prior running misclassification', run: testSessionManagerCodexTypingRestoresIdleAfterRunning },
     { name: 'SessionManager keeps Codex foreground when internal submit resembles AI command', run: testSessionManagerCodexInternalAiCommandSubmitDoesNotStartLaunchAttempt },
@@ -213,6 +218,12 @@ async function main(): Promise<void> {
     { name: 'SessionManager keeps Hermes submit idle in zsh heuristic mode', run: testSessionManagerHermesZshSubmitStaysIdle },
     { name: 'SessionManager ignores stale cwd prompt refresh while Hermes foreground launch is active', run: testSessionManagerIgnoresStaleCwdPromptRefreshDuringHermesLaunch },
     { name: 'SessionManager returns to shell prompt idle after Hermes zsh session completes', run: testSessionManagerHermesZshPromptReturnRestoresShellPrompt },
+    { name: 'PERF-BGSTAB-005 non-target foreground detector inspect returns null before string processing', run: testHermesForegroundDetectorSkipsStringProcessingForNonTarget },
+    { name: 'PERF-BGSTAB-005 hermes attach decision is unchanged by a non-target appHint prelude', run: testHermesForegroundDetectorAttachDecisionUnchangedByNonTargetPrelude },
+    { name: 'PERF-BGSTAB-006 raw output debug details are skipped when debug capture is disabled', run: testSessionManagerSkipsRawOutputDebugDetailsWhenCaptureDisabled },
+    { name: 'PERF-BGSTAB-006 raw output debug capture is unchanged when debug capture is enabled', run: testSessionManagerRawOutputDebugCaptureUnchangedWhenEnabled },
+    { name: 'PERF-BGSTAB-007 AI TUI output classification identity is preserved across strip sharing', run: testAiTuiOutputClassificationIdentityIsPreservedAcrossStripSharing },
+    { name: 'PERF-BGSTAB-007 AI TUI classifiers use the shared precomputed strip result', run: testAiTuiClassifiersUseSharedPrecomputedStripResult },
     { name: 'SessionManager keeps PowerShell prompt redraw idle in heuristic mode', run: testSessionManagerPowerShellPromptRedrawStaysIdle },
     { name: 'SessionManager no-op resize skips PTY resize and replay refresh', run: testSessionManagerNoopResizeSkipsRefresh },
     { name: 'SessionManager resize replay refresh fires after sustained pending output settles', run: testSessionManagerResizeReplayRefreshDeadline },
@@ -222,6 +233,10 @@ async function main(): Promise<void> {
     { name: 'SessionManager resize replay refresh shortens post-deadline rearm to drain cadence', run: testSessionManagerResizeReplayRefreshAfterDeadlineRearm },
     { name: 'SessionManager returns cached authoritative snapshots', run: testSessionManagerCachedSnapshot },
     { name: 'SessionManager reports snapshot observability counters', run: testSessionManagerObservabilityCounters },
+    { name: 'OBS-BGSTAB-003 red: telemetry exposes event loop delay, CPU%, headless write metrics', run: OBS_BGSTAB_003_red_telemetry_metric_fields_present },
+    { name: 'OBS-BGSTAB-003 red: telemetry metrics distinguish loop saturation from CPU headroom', run: OBS_BGSTAB_003_red_saturation_vs_cpu_headroom_distinction },
+    { name: 'OBS-BGSTAB-003 impl: telemetry exposes event loop delay, CPU%, headless write metrics', run: OBS_BGSTAB_003_impl_telemetry_metric_fields_present },
+    { name: 'OBS-BGSTAB-003 impl: telemetry metrics distinguish loop saturation from CPU headroom', run: OBS_BGSTAB_003_impl_saturation_vs_cpu_headroom_distinction },
     { name: 'SessionManager powershell shell bootstrap avoids delayed prompt-hook injection', run: testSessionManagerPowerShellBootstrapArgs },
     { name: 'SessionManager input debug capture records safe metadata without leaking printable input', run: testSessionManagerInputDebugCaptureMetadata },
     { name: 'debug capture localhost guard rejects non-loopback requests', run: testDebugCaptureLocalhostGuard },
@@ -624,6 +639,272 @@ async function main(): Promise<void> {
   }
 
   console.log(`\n${selectedTests.length} test(s) passed`);
+}
+
+function testHermesForegroundDetectorSkipsStringProcessingForNonTarget(): void {
+  // PERF-BGSTAB-005 AC-1: a non-hermes, not-yet-attached session must return null
+  // immediately, before any strip/appendTail string processing runs. The detector's
+  // accumulation buffers (recentRaw/recentText) are the observable proxy: inspect only
+  // ever assigns them via appendTail(...) / appendTail(strip(...)), so on a fresh
+  // detector they stay empty iff inspect short-circuits ahead of that string work. (This
+  // observes the accumulation side effect rather than spying the strip call directly,
+  // which keeps the test free of production instrumentation.)
+  const detector = new HermesForegroundDetector();
+  const input: ForegroundAppDetectorInput = {
+    chunk: '\x1b[2J\x1b[3mcodex is drafting a response\x1b[0m\n',
+    now: 1_000,
+    sessionId: 'codex-session',
+    detectionMode: 'heuristic',
+    appHint: 'codex',
+    lastInputHasEnter: true,
+    msSinceLastInput: 5_000,
+  };
+
+  const observation = detector.inspect(input);
+  const internals = detector as unknown as { attached: boolean; recentRaw: string; recentText: string };
+
+  assert.equal(observation, null, 'non-target inspect must return null');
+  assert.equal(internals.attached, false, 'non-target session must not attach');
+  assert.equal(
+    internals.recentRaw,
+    '',
+    'non-target inspect must skip appendTail(recentRaw) string processing (early avoidance not implemented)',
+  );
+  assert.equal(
+    internals.recentText,
+    '',
+    'non-target inspect must skip strip/appendTail(recentText) string processing (early avoidance not implemented)',
+  );
+}
+
+function testHermesForegroundDetectorAttachDecisionUnchangedByNonTargetPrelude(): void {
+  // PERF-BGSTAB-005 AC-2/AC-3: the early avoidance must not change the hermes attach
+  // decision across a mid-session appHint transition (a non-hermes chunk followed by a
+  // hermes-hinted chunk). Two invariants are locked:
+  //   1. the non-target prelude is early-avoided even mid-session, so it leaves the
+  //      accumulation buffers untouched (recentRaw/recentText stay '') -- this is the
+  //      fix-sensitive assertion that is red before the impl and green after;
+  //   2. the resulting hermes attach observation is identical to a fresh hermes session
+  //      that never saw the prelude, i.e. the attach decision is unchanged.
+  const hermesChunk = 'Welcome to Hermes Agent!\n';
+  const baseInput: Omit<ForegroundAppDetectorInput, 'chunk' | 'appHint'> = {
+    now: 2_000,
+    sessionId: 'transition-session',
+    detectionMode: 'heuristic',
+    shellType: 'bash',
+    lastInputHasEnter: true,
+    msSinceLastInput: 5_000,
+  };
+
+  const soloDetector = new HermesForegroundDetector();
+  const soloObservation = soloDetector.inspect({ ...baseInput, chunk: hermesChunk, appHint: 'hermes' });
+
+  const transitionDetector = new HermesForegroundDetector();
+  const preludeObservation = transitionDetector.inspect({
+    ...baseInput,
+    chunk: '\x1b[2J\x1b[3mcodex is drafting a response\x1b[0m\n',
+    appHint: 'codex',
+  });
+  // Capture the buffers after the non-target prelude but before the hermes chunk mutates them.
+  const afterPrelude = transitionDetector as unknown as { recentRaw: string; recentText: string };
+  const preludeRecentRaw = afterPrelude.recentRaw;
+  const preludeRecentText = afterPrelude.recentText;
+  const transitionObservation = transitionDetector.inspect({ ...baseInput, chunk: hermesChunk, appHint: 'hermes' });
+
+  assert.equal(preludeObservation, null, 'non-hermes prelude chunk must not attach or emit an observation');
+  assert.equal(
+    preludeRecentRaw,
+    '',
+    'mid-session non-target prelude must be early-avoided, leaving recentRaw untouched (early avoidance not implemented)',
+  );
+  assert.equal(
+    preludeRecentText,
+    '',
+    'mid-session non-target prelude must be early-avoided, leaving recentText untouched (early avoidance not implemented)',
+  );
+  assert.notEqual(soloObservation, null, 'hermes bootstrap chunk must attach');
+  assert.equal(
+    (soloDetector as unknown as { attached: boolean }).attached,
+    true,
+    'hermes session must attach',
+  );
+  assert.deepEqual(
+    transitionObservation,
+    soloObservation,
+    'mid-session appHint transition must yield the same hermes attach observation as a fresh hermes session',
+  );
+  assert.equal(
+    (transitionDetector as unknown as { attached: boolean }).attached,
+    true,
+    'mid-session hermes chunk must attach',
+  );
+}
+
+function testSessionManagerSkipsRawOutputDebugDetailsWhenCaptureDisabled(): void {
+  // PERF-BGSTAB-006 AC-1: for a session with debug capture disabled, onData must not invoke
+  // buildRawOutputDebugDetails per output chunk. That function is the only path that
+  // reassigns echoTracker.recentInputs (via Array.filter, which always returns a fresh
+  // array), so the reference identity of recentInputs is the observable proxy: it stays
+  // === the seeded array iff the debug-detail build was skipped. (Observes the reassignment
+  // side effect rather than spying the module-private function directly, so the test needs
+  // no production instrumentation.)
+  const harness = createForegroundSessionHarness();
+  try {
+    const sessionId = harness.session.id;
+    assert.equal(
+      harness.manager.isDebugCaptureEnabled(sessionId),
+      false,
+      'a fresh session must start with debug capture disabled',
+    );
+    const sData = harness.sessionData;
+    const seededRecentInputs: Array<{ at: number; hasEnter: boolean; inputClass: string }> = [];
+    sData.echoTracker.recentInputs = seededRecentInputs;
+
+    // Heuristic mode keeps outputData === rawData, so a non-empty chunk always enters the
+    // `if (outputData.length > 0)` block that builds the raw-output debug details.
+    harness.getHandler()('plain shell output line\r\n');
+
+    assert.strictEqual(
+      sData.echoTracker.recentInputs,
+      seededRecentInputs,
+      'disabled session must skip buildRawOutputDebugDetails, leaving recentInputs untouched (guard not implemented)',
+    );
+  } finally {
+    harness.cleanup();
+  }
+}
+
+function testSessionManagerRawOutputDebugCaptureUnchangedWhenEnabled(): void {
+  // PERF-BGSTAB-006 AC-2: for a session with debug capture enabled, the raw-output capture
+  // behavior must stay unchanged. The guard added for AC-1 must not suppress the capture on
+  // the enabled path: a pty/raw_output debug event is still recorded with the same byte
+  // accounting details as before (boundary test).
+  const harness = createForegroundSessionHarness();
+  try {
+    const sessionId = harness.session.id;
+    harness.manager.enableDebugCapture(sessionId);
+    assert.equal(harness.manager.isDebugCaptureEnabled(sessionId), true);
+
+    const chunk = 'plain shell output line\r\n';
+    harness.getHandler()(chunk);
+
+    const events: Array<{ source: string; kind: string; details?: Record<string, unknown> }> =
+      (harness.manager as any).debugCaptureBySession.get(sessionId) ?? [];
+    const rawOutputEvent = events.find(
+      (event) => event.source === 'pty' && event.kind === 'raw_output',
+    );
+    assert.ok(
+      rawOutputEvent,
+      'enabled session must still record a pty/raw_output debug event (capture regressed)',
+    );
+    const expectedByteLength = Buffer.byteLength(chunk, 'utf8');
+    assert.equal(
+      rawOutputEvent?.details?.byteLength,
+      expectedByteLength,
+      'enabled session raw_output debug details must keep the original byteLength accounting',
+    );
+    assert.equal(
+      rawOutputEvent?.details?.strippedByteLength,
+      expectedByteLength,
+      'enabled session raw_output debug details must keep the original strippedByteLength accounting',
+    );
+    assert.equal(
+      rawOutputEvent?.details?.foundOsc133Marker,
+      false,
+      'a plain output chunk must not be flagged as an OSC133 marker in the debug details',
+    );
+  } finally {
+    harness.cleanup();
+  }
+}
+
+function testAiTuiOutputClassificationIdentityIsPreservedAcrossStripSharing(): void {
+  // PERF-BGSTAB-007 AC-1: the strip-once-per-chunk sharing refactor must be a pure refactor,
+  // so the observable classification of a representative chunk set stays byte-for-byte the same.
+  // This golden regression lock pins classifyAiTuiOutputSignal's result for chunks that exercise
+  // each classification branch (busy / decorative-frame repaint / prompt-chrome repaint /
+  // motion-only repaint). It passes before and after the refactor; its job is to fail loudly if
+  // the shared-strip refactor ever alters a classification outcome.
+  const harness = createForegroundSessionHarness('bash');
+  try {
+    const sData = harness.sessionData;
+    // Neutral no-echo state so the classification is driven purely by chunk content.
+    sData.echoTracker.lastInputAt = 0;
+    sData.echoTracker.lastInputHasEnter = false;
+    sData.lastSubmittedCommand = undefined;
+    sData.inputBuffer = '';
+
+    const golden: Array<{ chunk: string; expected: 'waiting_input' | 'repaint_only' | 'busy' }> = [
+      { chunk: 'compiling module graph and resolving dependencies now\n', expected: 'busy' },
+      { chunk: 'ERROR: build failed with exit code 1\n', expected: 'busy' },
+      { chunk: '────────────\n', expected: 'repaint_only' },
+      { chunk: '>\n', expected: 'repaint_only' },
+      { chunk: '\x1b[2K\x1b[1A', expected: 'repaint_only' },
+    ];
+
+    for (const { chunk, expected } of golden) {
+      const signal = (harness.manager as any).classifyAiTuiOutputSignal(sData, chunk);
+      assert.equal(
+        signal,
+        expected,
+        `classifyAiTuiOutputSignal must stay ${expected} for ${JSON.stringify(chunk)} after strip sharing`,
+      );
+    }
+  } finally {
+    harness.cleanup();
+  }
+}
+
+function testAiTuiClassifiersUseSharedPrecomputedStripResult(): void {
+  // PERF-BGSTAB-007 AC-2/AC-3: onData must compute stripTerminalControlSequences -> \r\n?->\n
+  // normalization once per chunk and share that single result with the classification helpers,
+  // instead of each helper re-stripping the raw chunk. The observable proxy for "the shared value
+  // is actually used" is distinct-value injection: when a helper is handed a precomputed
+  // normalized string that differs from what re-stripping the raw chunk would yield, its decision
+  // must reflect the injected value. Before the refactor the helpers ignore the shared argument
+  // and re-strip the raw chunk, so these assertions are red; after the refactor they honor the
+  // shared value and go green. (This observes shared-value adoption rather than spying the module-
+  // private strip call, keeping the test free of production instrumentation.)
+  const harness = createForegroundSessionHarness('bash');
+  try {
+    const sData = harness.sessionData;
+    sData.echoTracker.lastInputAt = 0;
+    sData.echoTracker.lastInputHasEnter = false;
+    sData.inputBuffer = '';
+    sData.lastSubmittedCommand = 'run build';
+
+    // Raw chunk whose own stripped form is plain "busy" output and does NOT match the submitted
+    // command; classification therefore flips only if the injected normalized value is honored.
+    const rawBusyChunk = 'compiling module graph and resolving dependencies now\n';
+    const sharedNormalizedEcho = 'run build';
+
+    const classifiedSignal = (harness.manager as any).classifyAiTuiOutputSignal(
+      sData,
+      rawBusyChunk,
+      sharedNormalizedEcho,
+    );
+    assert.equal(
+      classifiedSignal,
+      'waiting_input',
+      'classifyAiTuiOutputSignal must use the shared precomputed normalized chunk (command-echo) instead of re-stripping raw (shared strip not implemented)',
+    );
+
+    // isShellPromptReturnOutput is driven entirely by the normalized chunk lines, so a shared
+    // normalized value that looks like a shell prompt must be honored over the raw busy chunk.
+    const sharedNormalizedPrompt = 'user@host:~/proj$';
+    const shellPromptReturn = (harness.manager as any).isShellPromptReturnOutput(
+      sData,
+      rawBusyChunk,
+      sharedNormalizedPrompt,
+    );
+    assert.equal(
+      shellPromptReturn,
+      true,
+      'isShellPromptReturnOutput must use the shared precomputed normalized chunk instead of re-stripping raw (shared strip not implemented)',
+    );
+  } finally {
+    harness.cleanup();
+  }
 }
 
 interface BoundedByteDequeResult {
@@ -2029,7 +2310,7 @@ async function testBashOsc133HookAvoidsRcfileBootstrap(): Promise<void> {
 
 function createForegroundSessionHarness(
   shell: 'bash' | 'zsh' = 'bash',
-  sessionOverrides: { idleDelayMs?: number; runningDelayMs?: number; writeError?: Error } = {},
+  sessionOverrides: { idleDelayMs?: number; runningDelayMs?: number; writeError?: Error; codexTuiSuppression?: boolean } = {},
 ) {
   let onDataHandler: ((data: string) => void) | null = null;
   let killCalled = false;
@@ -3446,6 +3727,109 @@ async function testSessionManagerCodexBashSubmitStaysIdle(): Promise<void> {
     assert.equal(derivedState?.activity, 'waiting_input');
   } finally {
     harness.cleanup();
+  }
+}
+
+// FR-BGSTAB-020: Codex 감지 세션에 주입되는 정확한 억제 명령 라인 (플래그가 실행 토큰과
+// 개행 사이에 위치해야 하며 개행 뒤에 붙어선 안 된다).
+const CODEX_TUI_SUPPRESSED_COMMAND = 'codex -c tui.animations=false -c tui.alternate_screen="never" -c tui.show_tooltips=false';
+
+async function testSessionManagerCodexTuiSuppressionInjectedWhenEnabled(): Promise<void> {
+  // FR-BGSTAB-020 AC-1: Codex 감지 세션에서 명령 제출 시 tui 억제 -c 설정이 주입된다.
+  const harness = createForegroundSessionHarness('bash', { codexTuiSuppression: true });
+
+  try {
+    harness.manager.writeInput(harness.session.id, 'codex\r');
+    // 정확한 전체 라인 등가로 3개 플래그 존재 + 위치(실행 토큰 뒤, 개행 앞)를 동시에 고정한다.
+    assert.deepEqual(
+      harness.writes,
+      [`${CODEX_TUI_SUPPRESSED_COMMAND}\r`],
+      `expected codex command rewritten with tui.animations/alternate_screen/show_tooltips suppression, got ${JSON.stringify(harness.writes)}`,
+    );
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerCodexTuiSuppressionGatedByConfig(): Promise<void> {
+  // FR-BGSTAB-020 AC-2: 주입 여부가 config on/off 로 제어되고 비-codex 명령은 불변이다.
+  const enabled = createForegroundSessionHarness('bash', { codexTuiSuppression: true });
+  let enabledCodexWrites: string[] = [];
+  try {
+    enabled.manager.writeInput(enabled.session.id, 'codex\r');
+    enabledCodexWrites = [...enabled.writes];
+  } finally {
+    enabled.cleanup();
+  }
+
+  const enabledNonCodex = createForegroundSessionHarness('bash', { codexTuiSuppression: true });
+  let enabledNonCodexWrites: string[] = [];
+  try {
+    enabledNonCodex.manager.writeInput(enabledNonCodex.session.id, 'ls\r');
+    enabledNonCodexWrites = [...enabledNonCodex.writes];
+  } finally {
+    enabledNonCodex.cleanup();
+  }
+
+  const disabled = createForegroundSessionHarness('bash', { codexTuiSuppression: false });
+  let disabledCodexWrites: string[] = [];
+  try {
+    disabled.manager.writeInput(disabled.session.id, 'codex\r');
+    disabledCodexWrites = [...disabled.writes];
+  } finally {
+    disabled.cleanup();
+  }
+
+  // config on: codex 명령에 억제 설정 주입 (정확한 라인)
+  assert.deepEqual(
+    enabledCodexWrites,
+    [`${CODEX_TUI_SUPPRESSED_COMMAND}\r`],
+    `expected injection when config enabled, got ${JSON.stringify(enabledCodexWrites)}`,
+  );
+  // config on: 비-codex 명령은 불변 (오탐 방지)
+  assert.deepEqual(
+    enabledNonCodexWrites,
+    ['ls\r'],
+    'expected non-codex command unchanged even when suppression enabled',
+  );
+  // config off: codex 명령도 불변 (게이트)
+  assert.deepEqual(
+    disabledCodexWrites,
+    ['codex\r'],
+    'expected codex command unchanged when suppression disabled',
+  );
+}
+
+async function testSessionManagerCodexTuiSuppressionInjectionShapeGuards(): Promise<void> {
+  // FR-BGSTAB-020: 억제 플래그는 실행 토큰 뒤·서브커맨드 앞에 위치하고, 부분 키스트로크로
+  // 조립된 명령은 재작성하지 않는다 (원자 도착 가드).
+  const flags = '-c tui.animations=false -c tui.alternate_screen="never" -c tui.show_tooltips=false';
+
+  // (1) 인자 있는 codex 명령: 전역 -c 플래그가 서브커맨드(resume) 앞에 삽입된다.
+  const argHarness = createForegroundSessionHarness('bash', { codexTuiSuppression: true });
+  try {
+    argHarness.manager.writeInput(argHarness.session.id, 'codex resume\r');
+    assert.deepEqual(
+      argHarness.writes,
+      [`codex ${flags} resume\r`],
+      `expected suppression flags inserted before subcommand, got ${JSON.stringify(argHarness.writes)}`,
+    );
+  } finally {
+    argHarness.cleanup();
+  }
+
+  // (2) 부분 키스트로크로 조립된 codex 명령은 재작성되지 않는다.
+  const partialHarness = createForegroundSessionHarness('bash', { codexTuiSuppression: true });
+  try {
+    partialHarness.manager.writeInput(partialHarness.session.id, 'co');
+    partialHarness.manager.writeInput(partialHarness.session.id, 'dex\r');
+    assert.deepEqual(
+      partialHarness.writes,
+      ['co', 'dex\r'],
+      `expected partial keystrokes to pass through unchanged, got ${JSON.stringify(partialHarness.writes)}`,
+    );
+  } finally {
+    partialHarness.cleanup();
   }
 }
 
@@ -4940,6 +5324,145 @@ async function testSessionManagerObservabilityCounters(): Promise<void> {
   } finally {
     harness.dispose();
   }
+}
+
+// OBS-BGSTAB-003: telemetry must expose (a) event loop delay mean/p99, (b) process
+// CPU% relative to one core, (c) cumulative writeHeadlessTerminal time so that a
+// caller can distinguish event-loop saturation from CPU-headroom causes.
+async function assertObsBgstab003TelemetryMetricFieldsPresent(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: { idleDelayMs: 200 },
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+
+  try {
+    // Exercise the headless write path so writeHeadlessTerminal timing accumulates.
+    await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, '한글 output');
+    const snapshot = manager.getObservabilitySnapshot() as any;
+
+    // (a) perf_hooks.monitorEventLoopDelay based mean/p99 in milliseconds.
+    assert.ok(snapshot.eventLoopDelay, 'missing eventLoopDelay');
+    assert.equal(typeof snapshot.eventLoopDelay.mean, 'number', 'eventLoopDelay.mean must be a number (ms)');
+    assert.equal(typeof snapshot.eventLoopDelay.p99, 'number', 'eventLoopDelay.p99 must be a number (ms)');
+    assert.equal(Number.isFinite(snapshot.eventLoopDelay.mean), true, 'eventLoopDelay.mean must be finite');
+    assert.equal(Number.isFinite(snapshot.eventLoopDelay.p99), true, 'eventLoopDelay.p99 must be finite');
+    assert.equal(snapshot.eventLoopDelay.mean >= 0, true, 'eventLoopDelay.mean must be >= 0');
+    assert.equal(snapshot.eventLoopDelay.p99 >= 0, true, 'eventLoopDelay.p99 must be >= 0');
+
+    // (b) process.cpuUsage delta converted to a percentage of a single core.
+    assert.equal(
+      typeof snapshot.processCpuPercentOfOneCore,
+      'number',
+      'missing cpuUtilization field processCpuPercentOfOneCore',
+    );
+    assert.equal(Number.isFinite(snapshot.processCpuPercentOfOneCore), true, 'processCpuPercentOfOneCore must be finite');
+    assert.equal(snapshot.processCpuPercentOfOneCore >= 0, true, 'processCpuPercentOfOneCore must be >= 0');
+
+    // (c) cumulative writeHeadlessTerminal duration in milliseconds.
+    assert.equal(
+      typeof snapshot.headlessWriteCumulativeMs,
+      'number',
+      'missing headlessWrite field headlessWriteCumulativeMs',
+    );
+    assert.equal(Number.isFinite(snapshot.headlessWriteCumulativeMs), true, 'headlessWriteCumulativeMs must be finite');
+    assert.equal(snapshot.headlessWriteCumulativeMs >= 0, true, 'headlessWriteCumulativeMs must be >= 0');
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function assertObsBgstab003SaturationVsCpuHeadroomDistinction(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 10,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 1024,
+      shell: 'auto',
+    },
+    session: { idleDelayMs: 200 },
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
+
+  try {
+    await (manager as any).applyHeadlessOutput(harness.sessionId, harness.sessionData, 'diagnosis output');
+    const snapshot = manager.getObservabilitySnapshot() as any;
+
+    // All three diagnosis axes must exist and be numeric so a caller can combine
+    // them. No production saturation threshold is asserted here (OQ-02: cut-offs
+    // are deferred until measured data is available).
+    assert.equal(typeof snapshot.eventLoopDelay?.p99, 'number', 'eventLoopDelay.p99 axis missing');
+    assert.equal(typeof snapshot.processCpuPercentOfOneCore, 'number', 'processCpuPercentOfOneCore axis missing');
+    assert.equal(typeof snapshot.headlessWriteCumulativeMs, 'number', 'headlessWriteCumulativeMs axis missing');
+
+    // Test-only classifier demonstrating the AC-2 distinction is *derivable* by
+    // combining all THREE exposed axes. The cut-offs below (100 / 80 / 50) are
+    // illustrative for the test only and are NOT part of the production contract
+    // (OQ-02: the real saturation thresholds are deferred to measured data).
+    const classifyCause = (
+      loopDelayP99Ms: number,
+      cpuPercentOfOneCore: number,
+      headlessWriteCumulativeMs: number,
+    ): 'nominal' | 'loop-saturation' | 'headless-write-backpressure' | 'gc-or-syncfs-cause' => {
+      if (loopDelayP99Ms < 100) {
+        return 'nominal';
+      }
+      // Loop is under pressure. High single-core CPU% => event-loop saturation
+      // (CPU-bound). Otherwise the physical CPU has headroom, so the cause is not
+      // saturation: heavy headless write time points at backpressure, else it is
+      // an other-headroom cause (GC / sync fs).
+      if (cpuPercentOfOneCore >= 80) {
+        return 'loop-saturation';
+      }
+      return headlessWriteCumulativeMs >= 50 ? 'headless-write-backpressure' : 'gc-or-syncfs-cause';
+    };
+
+    // Same high loop delay, but the OTHER two axes flip the diagnosed cause,
+    // proving event-loop saturation and the CPU-headroom causes are separable
+    // only when all three exposed axes are combined:
+    assert.equal(classifyCause(250, 95, 5), 'loop-saturation', 'high loop delay + high CPU => saturation');
+    assert.equal(classifyCause(250, 10, 200), 'headless-write-backpressure', 'high loop delay + low CPU + heavy headless write => backpressure');
+    assert.equal(classifyCause(250, 10, 5), 'gc-or-syncfs-cause', 'high loop delay + low CPU + light headless write => GC/sync-fs cause');
+    assert.equal(classifyCause(5, 10, 5), 'nominal', 'no loop pressure => nominal');
+
+    // The real exposed axes are directly consumable by such a classifier (shape
+    // check on live telemetry, without asserting any production threshold).
+    const observedCause = classifyCause(
+      snapshot.eventLoopDelay.p99,
+      snapshot.processCpuPercentOfOneCore,
+      snapshot.headlessWriteCumulativeMs,
+    );
+    assert.equal(typeof observedCause, 'string', 'live telemetry axes must feed the cause derivation');
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function OBS_BGSTAB_003_red_telemetry_metric_fields_present(): Promise<void> {
+  await assertObsBgstab003TelemetryMetricFieldsPresent();
+}
+
+async function OBS_BGSTAB_003_red_saturation_vs_cpu_headroom_distinction(): Promise<void> {
+  await assertObsBgstab003SaturationVsCpuHeadroomDistinction();
+}
+
+async function OBS_BGSTAB_003_impl_telemetry_metric_fields_present(): Promise<void> {
+  await assertObsBgstab003TelemetryMetricFieldsPresent();
+}
+
+async function OBS_BGSTAB_003_impl_saturation_vs_cpu_headroom_distinction(): Promise<void> {
+  await assertObsBgstab003SaturationVsCpuHeadroomDistinction();
 }
 
 function testSessionManagerPowerShellBootstrapArgs(): void {

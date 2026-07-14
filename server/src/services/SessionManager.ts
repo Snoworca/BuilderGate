@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { unlinkSync, watchFile, unwatchFile, readFileSync, existsSync, statSync } from 'fs';
 import { execFile, execFileSync, execSync } from 'child_process';
+import { monitorEventLoopDelay, performance, type IntervalHistogram } from 'node:perf_hooks';
 import { Session, SessionDTO, SessionStatus, UpdateSessionRequest, ShellType, ShellInfo } from '../types/index.js';
 import type {
   HeadlessResourceLimitsConfig,
@@ -129,6 +130,11 @@ interface DeferredSignal<T> {
   resolve: (value: T) => void;
 }
 
+interface EventLoopDelayObservability {
+  mean: number;
+  p99: number;
+}
+
 interface SessionManagerObservability {
   totalSessions: number;
   healthySessions: number;
@@ -144,6 +150,9 @@ interface SessionManagerObservability {
   maxSnapshotBytesObserved: number;
   totalSnapshotSerializeMs: number;
   maxSnapshotSerializeMs: number;
+  headlessWriteCumulativeMs: number;
+  eventLoopDelay: EventLoopDelayObservability;
+  processCpuPercentOfOneCore: number;
 }
 
 type SessionDebugCaptureValue = string | number | boolean | null;
@@ -177,6 +186,20 @@ const DEFAULT_SESSION_PROCESS_CLEANUP: SessionProcessCleanupConfig = {
   descendantSampleLimit: 64,
   identityProbeTimeoutMs: 3000,
 };
+
+// OBS-BGSTAB-003: a single shared event-loop delay histogram, created and enabled
+// once at module load, so telemetry snapshots can sample mean/p99 cheaply without
+// paying per-instance monitoring overhead (see risk R-03). mean/p99 are cumulative
+// since boot; windowed reset is out of scope here (deferred with the saturation
+// threshold open question OQ-02).
+const eventLoopDelayHistogram: IntervalHistogram = monitorEventLoopDelay();
+eventLoopDelayHistogram.enable();
+
+// OBS-BGSTAB-003: minimum real-time window between process CPU% re-samplings. The
+// telemetry endpoint and the periodic observability logger both read the snapshot,
+// so throttling the baseline advance keeps every reader on one meaningful window
+// instead of shrinking each other's delta window down to noise.
+const CPU_SAMPLE_MIN_INTERVAL_MS = 250;
 const IDENTITY_CAPTURE_RETRY_BACKOFFS_MS = [200, 400] as const;
 const AI_TUI_TYPING_FEEDBACK_THRESHOLD_MS = 1000;
 const AI_TUI_SUBMITTED_ECHO_THRESHOLD_MS = 1000;
@@ -506,6 +529,7 @@ export class SessionManager {
     idleDelayMs: number;
     runningDelayMs: number;
     processCleanup: SessionProcessCleanupConfig;
+    codexTuiSuppression: boolean;
   };
   private runtimeHeadlessQueueConfig: RuntimeHeadlessQueueConfig;
   private readonly execFileFn: typeof execFile;
@@ -527,7 +551,7 @@ export class SessionManager {
   private terminalTitleChangeCallback: ((sessionId: string, title: string) => void) | null = null;
   private sessionFinalizedCallback: ((event: SessionFinalizedEvent) => void) | null = null;
   private commandSubmittedCallback: ((event: SessionCommandSubmittedEvent) => void | Promise<void>) | null = null;
-  private observability: Omit<SessionManagerObservability, 'totalSessions' | 'healthySessions' | 'degradedSessions' | 'headlessOutput' | 'cleanup'> = {
+  private observability: Omit<SessionManagerObservability, 'totalSessions' | 'healthySessions' | 'degradedSessions' | 'headlessOutput' | 'cleanup' | 'eventLoopDelay' | 'processCpuPercentOfOneCore'> = {
     snapshotRequests: 0,
     snapshotCacheHits: 0,
     snapshotSerializeFailures: 0,
@@ -537,7 +561,11 @@ export class SessionManager {
     maxSnapshotBytesObserved: 0,
     totalSnapshotSerializeMs: 0,
     maxSnapshotSerializeMs: 0,
+    headlessWriteCumulativeMs: 0,
   };
+  private lastCpuUsageSample: NodeJS.CpuUsage = process.cpuUsage();
+  private lastCpuSampleAt: bigint = process.hrtime.bigint();
+  private lastCpuPercentOfOneCore = 0;
 
   constructor(
     initialConfig: SessionManagerInitialConfig = {
@@ -559,6 +587,7 @@ export class SessionManager {
       idleDelayMs: initialConfig.session.idleDelayMs,
       runningDelayMs: initialConfig.session.runningDelayMs ?? DEFAULT_RUNNING_DELAY_MS,
       processCleanup: normalizeSessionProcessCleanupConfig(initialConfig.session.processCleanup),
+      codexTuiSuppression: (initialConfig.session as { codexTuiSuppression?: boolean }).codexTuiSuppression ?? false,
     };
     this.runtimeHeadlessQueueConfig = {
       mode: initialStabilityModes.headlessQueueMode,
@@ -748,6 +777,13 @@ export class SessionManager {
       const statusData = sData.terminalTitleSignalDetector.getSignalData();
 
       if (statusData.length > 0) {
+        // PERF-BGSTAB-007: compute the strip -> \r\n?->\n normalization at most once per chunk and
+        // share it with the classification helpers below, instead of each helper re-stripping
+        // statusData. Computed lazily so chunks that never reach a classifier (e.g. the observation
+        // path) keep their original zero-strip cost.
+        let sharedNormalizedStatusData: string | undefined;
+        const getNormalizedStatusData = (): string =>
+          (sharedNormalizedStatusData ??= stripAndNormalizeTerminalOutput(statusData));
         const observation = this.inspectForegroundAppOutput(id, sData, statusData);
         if (observation) {
           this.applyForegroundObservation(id, observation);
@@ -757,12 +793,12 @@ export class SessionManager {
           const derivedState = this.ensureDerivedState(sData);
           const isAiForeground = this.isInteractiveForeground(sData, derivedState);
           if (isAiForeground || isInteractiveAiAppId(sData.pendingForegroundAppHint)) {
-            if (isLikelyAiTuiLaunchFailureOutput(sData, statusData)) {
+            if (isLikelyAiTuiLaunchFailureOutput(sData, statusData, getNormalizedStatusData())) {
               this.markAiTuiLaunchFailure(id, 'osc133_ai_tui_launch_failure');
             } else {
               const isLaunchEcho = this.isEchoOutput(sData, statusData)
-                || isLikelyCommandEchoOutput(statusData, sData.lastSubmittedCommand);
-              const signal = this.classifyAiTuiOutputSignal(sData, statusData);
+                || isLikelyCommandEchoOutput(statusData, sData.lastSubmittedCommand, getNormalizedStatusData());
+              const signal = this.classifyAiTuiOutputSignal(sData, statusData, getNormalizedStatusData());
               if (signal === 'waiting_input' || signal === 'repaint_only') {
                 this.beginForegroundActivity(id, signal, `osc133_ai_tui_${signal}`);
               } else {
@@ -784,8 +820,8 @@ export class SessionManager {
             const derivedState = this.ensureDerivedState(sData);
             const isAiForeground = this.isInteractiveForeground(sData, derivedState);
             const isAiShellPromptReturn = (isAiForeground || sData.expectShellPromptAfterAiTuiFailure === true)
-              && this.isShellPromptReturnOutput(sData, statusData);
-            if (this.isPowerShellPromptRedrawOutput(sData, statusData) || isAiShellPromptReturn) {
+              && this.isShellPromptReturnOutput(sData, statusData, getNormalizedStatusData());
+            if (this.isPowerShellPromptRedrawOutput(sData, statusData, getNormalizedStatusData()) || isAiShellPromptReturn) {
               this.transitionToShellPrompt(
                 id,
                 isAiShellPromptReturn ? 'heuristic_ai_tui_shell_prompt_return' : 'heuristic_powershell_prompt_redraw',
@@ -793,12 +829,12 @@ export class SessionManager {
             } else {
               if (isAiForeground || isInteractiveAiAppId(sData.pendingForegroundAppHint)) {
                 if (!observation) {
-                  if (isLikelyAiTuiLaunchFailureOutput(sData, statusData)) {
+                  if (isLikelyAiTuiLaunchFailureOutput(sData, statusData, getNormalizedStatusData())) {
                     this.markAiTuiLaunchFailure(id, 'heuristic_ai_tui_launch_failure');
                   } else {
                     const isLaunchEcho = this.isEchoOutput(sData, statusData)
-                      || isLikelyCommandEchoOutput(statusData, sData.lastSubmittedCommand);
-                    const signal = this.classifyAiTuiOutputSignal(sData, statusData);
+                      || isLikelyCommandEchoOutput(statusData, sData.lastSubmittedCommand, getNormalizedStatusData());
+                    const signal = this.classifyAiTuiOutputSignal(sData, statusData, getNormalizedStatusData());
                     if (signal === 'waiting_input' || signal === 'repaint_only') {
                       this.beginForegroundActivity(id, signal, `heuristic_ai_tui_${signal}`);
                     } else {
@@ -819,7 +855,9 @@ export class SessionManager {
       }
 
       if (outputData.length > 0) {
-        const outputDebugDetails = buildRawOutputDebugDetails(sData, rawData, outputData, foundMarker);
+        const outputDebugDetails = this.isDebugCaptureEnabled(id)
+          ? buildRawOutputDebugDetails(sData, rawData, outputData, foundMarker)
+          : undefined;
         if (this.pendingResizeReplaySessions.has(id)) {
           this.pendingResizeReplayLastOutputAt.set(id, Date.now());
           this.scheduleResizeReplayRefresh(id, RESIZE_REPLAY_QUIET_WINDOW_MS);
@@ -1326,8 +1364,10 @@ export class SessionManager {
       }
     }
 
+    // FR-BGSTAB-020: Codex 감지 명령에 한해 tui 억제 -c 설정을 주입한다 (감지/추적은 원본 명령 기준 유지).
+    const inputToWrite = this.maybeInjectCodexTuiSuppression(input, submittedCommand, hintedAppId, hasEnter);
     try {
-      data.pty.write(input);
+      data.pty.write(inputToWrite);
       if (submittedCommand && !isAiForeground) {
         this.notifyCommandSubmitted({
           sessionId: id,
@@ -1344,6 +1384,36 @@ export class SessionManager {
     }
     data.session.lastActiveAt = new Date();
     return true;
+  }
+
+  /**
+   * @req FR-BGSTAB-020
+   * Codex 로 감지된 명령이 이번 write 로 원자적으로 제출된 경우에만 tui 억제 -c 플래그를
+   * 삽입해 PTY 로 보낼 문자열을 재작성한다. config off / 비-codex / 부분 키스트로크는 원본을 그대로 반환한다.
+   */
+  private maybeInjectCodexTuiSuppression(
+    input: string,
+    submittedCommand: string | null,
+    hintedAppId: ForegroundAppId | null,
+    hasEnter: boolean,
+  ): string {
+    if (
+      !this.runtimeSessionConfig.codexTuiSuppression ||
+      !hasEnter ||
+      hintedAppId !== 'codex' ||
+      !submittedCommand
+    ) {
+      return input;
+    }
+    // 명령 전체가 이번 write 로 원자적으로 도착했는지 확인 (부분 버퍼 누적 시 재작성하지 않는다).
+    const cleaned = stripInputTrackingControlSequences(input);
+    const withoutTerminator = cleaned.replace(/(\r\n|\r|\n)+$/, '');
+    if (withoutTerminator.trim() !== submittedCommand) {
+      return input;
+    }
+    const terminatorMatch = input.match(/(\r\n|\r|\n)+$/);
+    const terminator = terminatorMatch ? terminatorMatch[0] : '\r';
+    return `${injectCodexTuiSuppressionFlags(submittedCommand)}${terminator}`;
   }
 
   private updateCommandInputBuffer(data: SessionData, input: string): string | null {
@@ -2956,9 +3026,43 @@ export class SessionManager {
       healthySessions,
       degradedSessions,
       headlessOutput: this.getHeadlessOutputObservability(),
+      eventLoopDelay: this.sampleEventLoopDelay(),
+      processCpuPercentOfOneCore: this.sampleProcessCpuPercentOfOneCore(),
       ...this.observability,
       cleanup: this.getCleanupTelemetrySnapshot(),
     };
+  }
+
+  /** @req OBS-BGSTAB-003 */
+  private sampleEventLoopDelay(): EventLoopDelayObservability {
+    // monitorEventLoopDelay reports nanoseconds; convert to ms. On an empty
+    // histogram `mean` is NaN (coerced to 0 here) and `percentile(99)` floors to a
+    // small non-zero resolution artifact, so both stay finite and >= 0.
+    const meanNs = eventLoopDelayHistogram.mean;
+    const p99Ns = eventLoopDelayHistogram.percentile(99);
+    return {
+      mean: Number.isFinite(meanNs) ? meanNs / 1e6 : 0,
+      p99: Number.isFinite(p99Ns) ? p99Ns / 1e6 : 0,
+    };
+  }
+
+  /** @req OBS-BGSTAB-003 */
+  private sampleProcessCpuPercentOfOneCore(): number {
+    const now = process.hrtime.bigint();
+    const elapsedMicros = Number(now - this.lastCpuSampleAt) / 1000;
+    // Only advance the CPU baseline once per CPU_SAMPLE_MIN_INTERVAL_MS so that
+    // multiple readers of the same snapshot (telemetry endpoint + periodic logger)
+    // observe one stable windowed value rather than corrupting each other's delta.
+    if (elapsedMicros < CPU_SAMPLE_MIN_INTERVAL_MS * 1000) {
+      return this.lastCpuPercentOfOneCore;
+    }
+    const currentCpu = process.cpuUsage();
+    const cpuMicros = (currentCpu.user - this.lastCpuUsageSample.user)
+      + (currentCpu.system - this.lastCpuUsageSample.system);
+    this.lastCpuUsageSample = currentCpu;
+    this.lastCpuSampleAt = now;
+    this.lastCpuPercentOfOneCore = (cpuMicros / elapsedMicros) * 100;
+    return this.lastCpuPercentOfOneCore;
   }
 
   /** Broadcast to all WS subscribers of a session */
@@ -3003,7 +3107,7 @@ export class SessionManager {
     );
   }
 
-  private isPowerShellPromptRedrawOutput(sData: SessionData, output: string): boolean {
+  private isPowerShellPromptRedrawOutput(sData: SessionData, output: string, precomputedNormalized?: string): boolean {
     if (sData.shellType !== 'powershell') {
       return false;
     }
@@ -3014,8 +3118,7 @@ export class SessionManager {
     }
 
     const prompt = `PS ${cwd}>`;
-    const printableLines = stripTerminalControlSequences(output)
-      .replace(/\r\n?/g, '\n')
+    const printableLines = (precomputedNormalized ?? stripAndNormalizeTerminalOutput(output))
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean);
@@ -3023,9 +3126,8 @@ export class SessionManager {
     return printableLines.length > 0 && printableLines.every((line) => line === prompt);
   }
 
-  private isShellPromptReturnOutput(sData: SessionData, output: string): boolean {
-    const printableLines = stripTerminalControlSequences(output)
-      .replace(/\r\n?/g, '\n')
+  private isShellPromptReturnOutput(sData: SessionData, output: string, precomputedNormalized?: string): boolean {
+    const printableLines = (precomputedNormalized ?? stripAndNormalizeTerminalOutput(output))
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean);
@@ -3069,11 +3171,12 @@ export class SessionManager {
   private classifyAiTuiOutputSignal(
     sData: SessionData,
     output: string,
+    precomputedNormalized?: string,
   ): 'waiting_input' | 'repaint_only' | 'busy' {
-    const normalized = stripTerminalControlSequences(output).replace(/\r\n?/g, '\n');
+    const normalized = precomputedNormalized ?? stripAndNormalizeTerminalOutput(output);
     const trimmed = normalized.trim();
 
-    if (this.isEchoOutput(sData, output) || isLikelyCommandEchoOutput(output, sData.lastSubmittedCommand)) {
+    if (this.isEchoOutput(sData, output) || isLikelyCommandEchoOutput(output, sData.lastSubmittedCommand, normalized)) {
       return 'waiting_input';
     }
 
@@ -3380,8 +3483,17 @@ export class SessionManager {
       return;
     }
 
+    // OBS-BGSTAB-003: accumulate time spent in the writeHeadlessTerminal span so the
+    // telemetry snapshot can expose headless write cost as a saturation-cause axis.
+    // The timer is attached to the write itself (via finally) so it measures only the
+    // write duration — not any extra wait when the close signal wins the race — and
+    // still records the elapsed time when the write rejects.
+    const headlessWriteStartedAt = performance.now();
+    const trackedHeadlessWrite = writeHeadlessTerminal(sessionData.headless, output.data).finally(() => {
+      this.observability.headlessWriteCumulativeMs += performance.now() - headlessWriteStartedAt;
+    });
     await Promise.race([
-      writeHeadlessTerminal(sessionData.headless, output.data),
+      trackedHeadlessWrite,
       sessionData.headlessCloseSignal.promise,
     ]);
     if (!this.isActiveSession(sessionId, sessionData) || sessionData.headlessHealth !== 'healthy' || !sessionData.headless) {
@@ -3762,6 +3874,26 @@ function isInteractiveAiAppId(value: string | undefined | null): value is Foregr
   return value === 'hermes' || value === 'codex' || value === 'claude';
 }
 
+// FR-BGSTAB-020: Codex TUI 의 초당 다수 repaint(스피너/텍스트 반짝임) 발생원을 줄이기 위한
+// tui 억제 설정. -c 플래그 최소개입 방식으로 codex 실행 명령에 주입한다.
+const CODEX_TUI_SUPPRESSION_FLAGS = '-c tui.animations=false -c tui.alternate_screen="never" -c tui.show_tooltips=false';
+
+/**
+ * @req FR-BGSTAB-020
+ * codex 실행 명령의 실행 토큰 직후에 tui 억제 -c 플래그를 삽입한다. 전역 옵션을 서브커맨드/인자
+ * 앞에 두어 codex CLI 인자 파싱 순서를 보존한다.
+ */
+function injectCodexTuiSuppressionFlags(command: string): string {
+  const trimmed = command.trimEnd();
+  const firstSpace = trimmed.indexOf(' ');
+  if (firstSpace === -1) {
+    return `${trimmed} ${CODEX_TUI_SUPPRESSION_FLAGS}`;
+  }
+  const executable = trimmed.slice(0, firstSpace);
+  const rest = trimmed.slice(firstSpace + 1);
+  return `${executable} ${CODEX_TUI_SUPPRESSION_FLAGS} ${rest}`;
+}
+
 function detectForegroundAppHint(command: string): ForegroundAppId | null {
   const executable = getCommandExecutableToken(command);
   if (executable === 'hermes') {
@@ -3792,18 +3924,17 @@ function containsHistoryRecallControlSequence(raw: string): boolean {
   return /\x1b\[(?:A|B)/.test(raw);
 }
 
-function isLikelyCommandEchoOutput(raw: string, lastSubmittedCommand?: string): boolean {
-  const normalized = stripTerminalControlSequences(raw)
-    .replace(/\r\n?/g, '\n')
+function isLikelyCommandEchoOutput(raw: string, lastSubmittedCommand?: string, precomputedNormalized?: string): boolean {
+  const normalizedLines = (precomputedNormalized ?? stripAndNormalizeTerminalOutput(raw))
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
 
-  if (normalized.length === 0) {
+  if (normalizedLines.length === 0) {
     return false;
   }
 
-  for (const line of normalized) {
+  for (const line of normalizedLines) {
     const directHint = detectForegroundAppHint(line);
     if (directHint) {
       return true;
@@ -3826,7 +3957,7 @@ function isLikelyCommandEchoOutput(raw: string, lastSubmittedCommand?: string): 
   return false;
 }
 
-function isLikelyAiTuiLaunchFailureOutput(sessionData: SessionData, raw: string): boolean {
+function isLikelyAiTuiLaunchFailureOutput(sessionData: SessionData, raw: string, precomputedNormalized?: string): boolean {
   const attempt = sessionData.aiTuiLaunchAttempt;
   if (!attempt) {
     return false;
@@ -3836,8 +3967,7 @@ function isLikelyAiTuiLaunchFailureOutput(sessionData: SessionData, raw: string)
     return false;
   }
 
-  const cleanedLines = stripTerminalControlSequences(raw)
-    .replace(/\r\n?/g, '\n')
+  const cleanedLines = (precomputedNormalized ?? stripAndNormalizeTerminalOutput(raw))
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
@@ -3886,6 +4016,13 @@ function stripTerminalControlSequences(raw: string): string {
     .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '')
     .replace(/\x1b[@-_]/g, '')
     .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
+}
+
+// PERF-BGSTAB-007: single shared strip -> \r\n?->\n normalization for the onData classification
+// hot path. onData computes this once per output chunk and passes the result to the classification
+// helpers so the multi-pass control-sequence strip runs once instead of once per helper.
+function stripAndNormalizeTerminalOutput(raw: string): string {
+  return stripTerminalControlSequences(raw).replace(/\r\n?/g, '\n');
 }
 
 function countNonEmptyLines(value: string): number {

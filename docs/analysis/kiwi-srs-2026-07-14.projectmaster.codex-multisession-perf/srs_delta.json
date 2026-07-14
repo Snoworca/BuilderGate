@@ -1,0 +1,69 @@
+{
+  "generatedAt": "2026-07-14",
+  "target": "0.5.5-buildergate-stability",
+  "scope": "BGSTAB",
+  "file": "docs/spec/30.buildergate-stability.srs.md",
+  "ssot": "speckiwi MCP",
+  "goldenRuleCompliance": "모든 §4 Requirements 변경은 speckiwi MCP mutation으로만 수행. mutation 후 동일 SRS 파일에 Edit 도구 미사용.",
+  "addedRequirements": [
+    "OBS-BGSTAB-003",
+    "FR-BGSTAB-020",
+    "PERF-BGSTAB-005",
+    "PERF-BGSTAB-006",
+    "PERF-BGSTAB-007"
+  ],
+  "mcp_calls": [
+    {"seq": 1, "tool": "get_active_target", "result": "activeTarget=0.5.5-buildergate-stability"},
+    {"seq": 2, "tool": "list_requirements", "args": {"scope": "BGSTAB"}, "result": "30 records; 최신 ID FR-BGSTAB-019/OBS-BGSTAB-002/PERF-BGSTAB-004/REL-BGSTAB-005 확인"},
+    {"seq": 3, "tool": "add_requirement", "dryRun": true, "id": "OBS-BGSTAB-003", "note": "trace_intent 필드 미매핑 발견(relation=related_to), AC 이중 접두사 발견"},
+    {"seq": 4, "tool": "add_requirement", "dryRun": true, "id": "OBS-BGSTAB-003", "note": "relation=addition_site + AC 접두사 제거로 교정 확인, diagnostics 0"},
+    {"seq": 5, "tool": "add_requirement", "id": "OBS-BGSTAB-003", "written": true, "status": "proposed(초기)", "diagnostics": 0},
+    {"seq": 6, "tool": "add_requirement", "id": "FR-BGSTAB-020", "written": true, "status": "proposed(초기)", "diagnostics": 0},
+    {"seq": 7, "tool": "add_requirement", "id": "PERF-BGSTAB-005", "written": true, "status": "proposed(초기)", "diagnostics": 0},
+    {"seq": 8, "tool": "add_requirement", "id": "PERF-BGSTAB-006", "written": true, "status": "proposed(초기)", "diagnostics": 0},
+    {"seq": 9, "tool": "add_requirement", "id": "PERF-BGSTAB-007", "written": true, "status": "proposed(초기)", "diagnostics": 0},
+    {"seq": 10, "tool": "replace_acceptance_criteria", "id": "FR-BGSTAB-020", "reason": "AC-2 오타 '비활'->'비활성' 교정"},
+    {"seq": 11, "tool": "replace_acceptance_criteria", "id": "PERF-BGSTAB-006", "reason": "AC-2 오타 '캐프처'->'캡처' 교정"},
+    {"seq": 12, "tool": "validate_spec", "result": "FAIL: SRS-E005 Invalid status x5 (proposed는 이 리포 상태 어휘에 없음)"},
+    {"seq": 13, "tool": "update_status", "id": "OBS-BGSTAB-003", "from": "proposed", "to": "planned"},
+    {"seq": 14, "tool": "update_status", "id": "FR-BGSTAB-020", "from": "proposed", "to": "planned"},
+    {"seq": 15, "tool": "update_status", "id": "PERF-BGSTAB-005", "from": "proposed", "to": "planned"},
+    {"seq": 16, "tool": "update_status", "id": "PERF-BGSTAB-006", "from": "proposed", "to": "planned"},
+    {"seq": 17, "tool": "update_status", "id": "PERF-BGSTAB-007", "from": "proposed", "to": "planned"},
+    {"seq": 18, "tool": "validate_spec", "result": "PASS: errors=0, warnings=1 (기존 SRS-W023 REL-BGSTAB-005 draft, 본 작업과 무관)"}
+  ],
+  "statusDeviation": {
+    "instructed": "proposed",
+    "applied": "planned",
+    "reason": "task는 §0.14에 따라 status=proposed 지시. 그러나 이 리포 speckiwi 검증 어휘에 proposed 없음(SRS-E005). 미구현 신규 작업(addition_site trace)에 대한 형제 BGSTAB 요구사항(FR-BGSTAB-015~019 등)이 모두 planned를 사용하므로 planned로 교정. §0.14 의도(구현/검증 미주장)는 planned로 동일하게 유지."
+  },
+  "commonFields": {
+    "target": "0.5.5-buildergate-stability",
+    "scope": "BGSTAB",
+    "status": "planned",
+    "stability": "evolving",
+    "tags_common": ["buildergate", "stability", "codex-multisession-perf", "feasibility:high"]
+  },
+  "openQuestions": [
+    {
+      "req": "OBS-BGSTAB-003",
+      "location": "Rationale [NEEDS-USER]",
+      "question": "포화 판정 임계치(이벤트 루프 지연 p99 상한, CPU% 기준)는 실측 데이터 확보 후 확정. 코드 증거가 없어 구체 수치를 AC에 넣지 않음(§0.15)."
+    },
+    {
+      "req": "FR-BGSTAB-020",
+      "location": "Rationale [NEEDS-USER] (1)",
+      "question": "설정 주입을 CODEX_HOME 격리 config 방식으로 할지 -c 플래그 최소개입 방식으로 할지 선택. 격리 시 기존 ~/.codex 인증 상속 방식 결정 필요."
+    },
+    {
+      "req": "FR-BGSTAB-020",
+      "location": "Rationale [NEEDS-USER] (2)",
+      "question": "tui.animations=false가 elapsed-timer repaint까지 제거하는지 실측 확인 필요."
+    }
+  ],
+  "validation": {
+    "errors": 0,
+    "warnings": 1,
+    "preExistingWarning": "SRS-W023 (REL-BGSTAB-005 draft, 본 작업 이전부터 존재, 본 5건과 무관)"
+  }
+}

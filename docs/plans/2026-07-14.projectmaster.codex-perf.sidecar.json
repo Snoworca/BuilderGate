@@ -1,0 +1,1478 @@
+{
+  "schema_version": "1.1.0",
+  "plan_contract": "1.2.0",
+  "run_id": "2026-07-14.projectmaster.codex-perf",
+  "target": "0.5.5-buildergate-stability",
+  "plan_version": "0.1.0",
+  "generated_at": "2026-07-14T02:00:00Z",
+  "tool_versions": {
+    "speckiwi": "2.3.1",
+    "kiwi_planner": "0.6.0",
+    "validator": "0.6.0"
+  },
+  "tdd_policy": "relaxed",
+  "md_path": "docs/plans/2026-07-14.projectmaster.codex-perf.plan.md",
+  "md_sha256": "a79fd52e82c8ab7f6adbcc78e32a7a3c6a6d6a0eb7fdfb18ce44db6e03dc3759",
+  "phases": [
+    {
+      "id": "PH-001",
+      "title": "Server Hot-Path Low-Risk Optimization",
+      "goal": "onData/foreground-detector 핫패스의 청크당 중복·불필요 비용을 관측 가능한 동작 변화 없이 제거한다 (PERF-BGSTAB-005/006/007).",
+      "depends_on": [],
+      "task_ids": [
+        "T-PH001-01",
+        "T-PH001-02",
+        "T-PH001-03",
+        "T-PH001-04",
+        "T-PH001-05",
+        "T-PH001-06"
+      ]
+    },
+    {
+      "id": "PH-002",
+      "title": "Observability And Source Suppression",
+      "goal": "이벤트 루프 포화 진단 telemetry 지표를 노출하고 Codex TUI repaint 발생원을 억제한다 (OBS-BGSTAB-003, FR-BGSTAB-020).",
+      "depends_on": [],
+      "task_ids": [
+        "T-PH002-01",
+        "T-PH002-02",
+        "T-PH002-03",
+        "T-PH002-04"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "title": "PERF-BGSTAB-005 비대상 포그라운드 감지기 조기 회피 실패 테스트 고정",
+      "type": "code",
+      "req_ids": [
+        "PERF-BGSTAB-005"
+      ],
+      "files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "action": "test-runner.ts에 비대상(appHint!==hermes && !attached) 청크에서 inspect가 strip/appendTail 문자열 처리 없이 즉시 null을 반환하는지, hermes attach 판정이 불변인지 검증하는 실패 테스트를 추가한다. strip 호출을 계측해 조기 회피 미구현 시 red 로 실패하도록 고정한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "cd server; npx tsx src/test-runner.ts",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx src/test-runner.ts",
+        "windows": "cd server; npx tsx src/test-runner.ts"
+      },
+      "dod": [
+        "PERF-BGSTAB-005 AC-1/AC-2 검증 실패 테스트가 test-runner.ts에 등록됨",
+        "구현 전 실행 시 신규 테스트가 red(비-0 종료)로 실패"
+      ],
+      "rollback": "추가한 PERF-BGSTAB-005 테스트만 revert",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-01-PERF-BGSTAB-005",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-005"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-005-AC1-01",
+            "req_id": "PERF-BGSTAB-005",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "PERF_BGSTAB_005_red_nontarget_early_null",
+            "kind": "unit",
+            "expected_failure_signature": "inspect processed strip for non-target|early return not implemented|assertion failed"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-005-AC2-01",
+            "req_id": "PERF-BGSTAB-005",
+            "ac_refs": [
+              "AC-2",
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "PERF_BGSTAB_005_red_hermes_attach_decision_unchanged",
+            "kind": "unit",
+            "expected_failure_signature": "hermes attach decision changed|attach observation regressed|assertion failed"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3"
+      ]
+    },
+    {
+      "id": "T-PH001-02",
+      "phase_id": "PH-001",
+      "title": "PERF-BGSTAB-005 비대상 세션 inspect 조기 null 반환 구현",
+      "type": "code",
+      "req_ids": [
+        "PERF-BGSTAB-005"
+      ],
+      "files": [
+        {
+          "path": "server/src/services/HermesForegroundDetector.ts",
+          "line_range": "26-53"
+        },
+        {
+          "path": "server/src/services/HermesForegroundDetector.ts",
+          "line_range": "98-111"
+        }
+      ],
+      "action": "HermesForegroundDetector.inspect(26-53) 진입부에 `if (!this.attached && input.appHint !== 'hermes') return null;`를 추가해 문자열 처리 이전 즉시 null 반환. shouldAttach(98-111) hermes attach 판정 경로는 불변 유지.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "cd server; npx tsx src/test-runner.ts",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx src/test-runner.ts",
+        "windows": "cd server; npx tsx src/test-runner.ts"
+      },
+      "dod": [
+        "PERF-BGSTAB-005 신규 테스트 green(종료 0)",
+        "기존 test-runner.ts 전체 회귀 통과",
+        "AC-1: 비대상 세션에서 strip 생략·즉시 null 반환",
+        "AC-2: hermes attach 판정 결과 불변(회귀; mid-session appHint 전환 케이스 포함)"
+      ],
+      "rollback": "server/src/services/HermesForegroundDetector.ts, server/src/services/HermesForegroundDetector.ts 변경 revert",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-02-PERF-BGSTAB-005",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-005"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-005-AC1-02",
+            "req_id": "PERF-BGSTAB-005",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "PERF_BGSTAB_005_impl_nontarget_early_null",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-005-AC2-02",
+            "req_id": "PERF-BGSTAB-005",
+            "ac_refs": [
+              "AC-2",
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "PERF_BGSTAB_005_impl_hermes_attach_decision_unchanged",
+            "kind": "unit"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH001-01"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3"
+      ]
+    },
+    {
+      "id": "T-PH001-03",
+      "phase_id": "PH-001",
+      "title": "PERF-BGSTAB-006 디버그 캡처 비활성 시 디버그 상세 생성 미호출 실패 테스트 고정",
+      "type": "code",
+      "req_ids": [
+        "PERF-BGSTAB-006"
+      ],
+      "files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "action": "test-runner.ts에 isDebugCaptureEnabled(sessionId)=false 세션에서 onData 청크 처리 시 buildRawOutputDebugDetails가 호출되지 않는지(호출 계수 0), true 세션에서 기존 캡처 동작이 불변인지 검증하는 실패 테스트를 추가한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "cd server; npx tsx src/test-runner.ts",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx src/test-runner.ts",
+        "windows": "cd server; npx tsx src/test-runner.ts"
+      },
+      "dod": [
+        "PERF-BGSTAB-006 AC-1/AC-2 검증 실패 테스트가 test-runner.ts에 등록됨",
+        "구현 전 실행 시 신규 테스트가 red(비-0 종료)로 실패"
+      ],
+      "rollback": "추가한 PERF-BGSTAB-006 테스트만 revert",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-03-PERF-BGSTAB-006",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-03"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-006"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-006-AC1-01",
+            "req_id": "PERF-BGSTAB-006",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "PERF_BGSTAB_006_red_disabled_no_debug_details",
+            "kind": "unit",
+            "expected_failure_signature": "buildRawOutputDebugDetails called while capture disabled|debug details built unexpectedly|assertion failed"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-006-AC2-01",
+            "req_id": "PERF-BGSTAB-006",
+            "ac_refs": [
+              "AC-2",
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "PERF_BGSTAB_006_red_enabled_capture_unchanged",
+            "kind": "unit",
+            "expected_failure_signature": "debug capture output changed for enabled session|capture regressed|assertion failed"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3"
+      ]
+    },
+    {
+      "id": "T-PH001-04",
+      "phase_id": "PH-001",
+      "title": "PERF-BGSTAB-006 디버그 캡처 비활성 세션 원시 출력 디버그 상세 생성 생략 구현",
+      "type": "code",
+      "req_ids": [
+        "PERF-BGSTAB-006"
+      ],
+      "files": [
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "821-828"
+        }
+      ],
+      "action": "onData(821-828)에서 buildRawOutputDebugDetails 호출을 isDebugCaptureEnabled(id) 가드로 감싸 비활성 시 미호출·undefined 상세 전달. 활성 세션 캡처 동작 불변.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "cd server; npx tsx src/test-runner.ts",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx src/test-runner.ts",
+        "windows": "cd server; npx tsx src/test-runner.ts"
+      },
+      "dod": [
+        "PERF-BGSTAB-006 신규 테스트 green(종료 0)",
+        "기존 test-runner.ts 전체 회귀 통과",
+        "AC-1: 비활성 세션에서 buildRawOutputDebugDetails 청크당 미호출",
+        "AC-2: 활성 세션 기존 캡처 동작 불변(경계값)"
+      ],
+      "rollback": "server/src/services/SessionManager.ts 변경 revert",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-04-PERF-BGSTAB-006",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-04"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-006"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-006-AC1-02",
+            "req_id": "PERF-BGSTAB-006",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "PERF_BGSTAB_006_impl_disabled_no_debug_details",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-006-AC2-02",
+            "req_id": "PERF-BGSTAB-006",
+            "ac_refs": [
+              "AC-2",
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "PERF_BGSTAB_006_impl_enabled_capture_unchanged",
+            "kind": "unit"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH001-03"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3"
+      ]
+    },
+    {
+      "id": "T-PH001-05",
+      "phase_id": "PH-001",
+      "title": "PERF-BGSTAB-007 onData strip 단일 계산 공유 회귀·계수 실패 테스트 고정",
+      "type": "code",
+      "req_ids": [
+        "PERF-BGSTAB-007"
+      ],
+      "files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "action": "test-runner.ts에 (a) 대표 출력 청크 집합의 분류 결과(classifyAiTuiOutputSignal/isLikelyCommandEchoOutput 등) 골든 스냅샷 회귀 테스트와 (b) 청크당 stripTerminalControlSequences 계산이 1회로 제한되는지 계수하는 테스트를 추가한다. 현재 다중 패스 구조에서 (b)가 red 로 실패하도록 고정한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "cd server; npx tsx src/test-runner.ts",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx src/test-runner.ts",
+        "windows": "cd server; npx tsx src/test-runner.ts"
+      },
+      "dod": [
+        "PERF-BGSTAB-007 AC-1/AC-2 검증 실패 테스트가 test-runner.ts에 등록됨",
+        "구현 전 실행 시 신규 테스트가 red(비-0 종료)로 실패"
+      ],
+      "rollback": "추가한 PERF-BGSTAB-007 테스트만 revert",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-05-PERF-BGSTAB-007",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-05"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-007"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-007-AC1-01",
+            "req_id": "PERF-BGSTAB-007",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "PERF_BGSTAB_007_red_classification_identity_golden",
+            "kind": "unit",
+            "expected_failure_signature": "classification result changed after refactor|golden snapshot mismatch|assertion failed"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-007-AC2-01",
+            "req_id": "PERF-BGSTAB-007",
+            "ac_refs": [
+              "AC-2",
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "PERF_BGSTAB_007_red_strip_once_per_chunk",
+            "kind": "unit",
+            "expected_failure_signature": "strip computed more than once per chunk|expected 1 strip call but got|shared strip not implemented"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3"
+      ]
+    },
+    {
+      "id": "T-PH001-06",
+      "phase_id": "PH-001",
+      "title": "PERF-BGSTAB-007 onData 청크당 제어시퀀스 strip 1회 계산 공유 리팩터",
+      "type": "code",
+      "req_ids": [
+        "PERF-BGSTAB-007"
+      ],
+      "files": [
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "724-830"
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "3069-3093"
+        }
+      ],
+      "action": "onData(724-830)에서 stripTerminalControlSequences→정규화→trim을 청크당 1회 계산해 분류 함수들(classifyAiTuiOutputSignal 3069-3093 등)에 인자로 공유 전달하도록 리팩터. 분류 결과 동일성 불변(순수 리팩터).",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "cd server; npx tsx src/test-runner.ts",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx src/test-runner.ts",
+        "windows": "cd server; npx tsx src/test-runner.ts"
+      },
+      "dod": [
+        "PERF-BGSTAB-007 신규 테스트 green(종료 0)",
+        "기존 test-runner.ts 전체 회귀 통과",
+        "AC-1: 리팩터 전후 분류 결과 동일성(골든 스냅샷 회귀 고정)",
+        "AC-2: strip→정규화→trim 청크당 1회 계산 공유(계수 검증)"
+      ],
+      "rollback": "server/src/services/SessionManager.ts, server/src/services/SessionManager.ts 변경 revert",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-06-PERF-BGSTAB-007",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-06"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-007"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-007-AC1-02",
+            "req_id": "PERF-BGSTAB-007",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "PERF_BGSTAB_007_impl_classification_identity_golden",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-007-AC2-02",
+            "req_id": "PERF-BGSTAB-007",
+            "ac_refs": [
+              "AC-2",
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "PERF_BGSTAB_007_impl_strip_once_per_chunk",
+            "kind": "unit"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH001-05"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3"
+      ]
+    },
+    {
+      "id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "title": "OBS-BGSTAB-003 telemetry 이벤트 루프·CPU·headless write 지표 부재 실패 테스트 고정",
+      "type": "code",
+      "req_ids": [
+        "OBS-BGSTAB-003"
+      ],
+      "files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "action": "test-runner.ts에 GET /api/sessions/telemetry(getObservabilitySnapshot) 응답에 (a) perf_hooks.monitorEventLoopDelay 기반 loop delay mean/p99, (b) process.cpuUsage 델타를 1코어 대비 %로 환산한 CPU 점유율, (c) writeHeadlessTerminal 누적 소요 시간 필드 존재와 포화/여유 구분 판정 가능성을 검증하는 실패 테스트를 추가한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "cd server; npx tsx src/test-runner.ts",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx src/test-runner.ts",
+        "windows": "cd server; npx tsx src/test-runner.ts"
+      },
+      "dod": [
+        "OBS-BGSTAB-003 AC-1/AC-2 검증 실패 테스트가 test-runner.ts에 등록됨",
+        "구현 전 실행 시 신규 테스트가 red(비-0 종료)로 실패"
+      ],
+      "rollback": "추가한 OBS-BGSTAB-003 테스트만 revert",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-01-OBS-BGSTAB-003",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "OBS-BGSTAB-003"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-OBS-BGSTAB-003-AC1-01",
+            "req_id": "OBS-BGSTAB-003",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "OBS_BGSTAB_003_red_telemetry_metric_fields_present",
+            "kind": "integration",
+            "expected_failure_signature": "missing eventLoopDelay|missing cpuUtilization|missing headlessWrite|telemetry field not found|assertion failed"
+          },
+          {
+            "id": "TC-REQ-OBS-BGSTAB-003-AC2-01",
+            "req_id": "OBS-BGSTAB-003",
+            "ac_refs": [
+              "AC-2",
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "OBS_BGSTAB_003_red_saturation_vs_cpu_headroom_distinction",
+            "kind": "integration",
+            "expected_failure_signature": "cannot distinguish loop saturation from cpu headroom|distinction not derivable|assertion failed"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3"
+      ]
+    },
+    {
+      "id": "T-PH002-02",
+      "phase_id": "PH-002",
+      "title": "OBS-BGSTAB-003 telemetry 이벤트 루프 지연·CPU 점유율·headless write 누적 시간 노출 구현",
+      "type": "code",
+      "req_ids": [
+        "OBS-BGSTAB-003"
+      ],
+      "files": [
+        {
+          "path": "server/src/index.ts",
+          "line_range": "797-803"
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "132-147"
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "2942-2962"
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "3371-3404"
+        }
+      ],
+      "action": "SessionManagerObservability(132-147)에 loop delay·cpu·headlessWrite 누적 필드 추가, monitorEventLoopDelay 히스토그램·cpuUsage 델타 수집, applyHeadlessOutput(3371-3404) writeHeadlessTerminal 구간 계측, getObservabilitySnapshot(2942-2962)에 노출. telemetry 라우트(797-803)는 스냅샷을 그대로 전달. 포화 판정 임계치는 노출 대상에서 제외.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "cd server; npx tsx src/test-runner.ts",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx src/test-runner.ts",
+        "windows": "cd server; npx tsx src/test-runner.ts"
+      },
+      "dod": [
+        "OBS-BGSTAB-003 신규 테스트 green(종료 0)",
+        "기존 test-runner.ts 전체 회귀 통과",
+        "AC-1: loop delay mean/p99·CPU%·headless write 누적 시간 필드 존재",
+        "AC-2: 이벤트 루프 포화와 CPU 여유 원인 구분 판정 가능"
+      ],
+      "rollback": "server/src/index.ts, server/src/services/SessionManager.ts, server/src/services/SessionManager.ts, server/src/services/SessionManager.ts 변경 revert",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-02-OBS-BGSTAB-003",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "OBS-BGSTAB-003"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-OBS-BGSTAB-003-AC1-02",
+            "req_id": "OBS-BGSTAB-003",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "OBS_BGSTAB_003_impl_telemetry_metric_fields_present",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-OBS-BGSTAB-003-AC2-02",
+            "req_id": "OBS-BGSTAB-003",
+            "ac_refs": [
+              "AC-2",
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "OBS_BGSTAB_003_impl_saturation_vs_cpu_headroom_distinction",
+            "kind": "integration"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH002-01"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3"
+      ]
+    },
+    {
+      "id": "T-PH002-03",
+      "phase_id": "PH-002",
+      "title": "FR-BGSTAB-020 Codex 감지 세션 tui 억제 주입·config on/off 실패 테스트 고정",
+      "type": "code",
+      "req_ids": [
+        "FR-BGSTAB-020"
+      ],
+      "files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "action": "test-runner.ts에 Codex 코딩 에이전트로 감지된 세션 생성 시 tui.animations=false / tui.alternate_screen=\"never\" / tui.show_tooltips=false 가 -c 플래그로 주입되는지, config 활성/비활성으로 주입 여부가 on/off 제어되는지 검증하는 실패 테스트를 추가한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "cd server; npx tsx src/test-runner.ts",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx src/test-runner.ts",
+        "windows": "cd server; npx tsx src/test-runner.ts"
+      },
+      "dod": [
+        "FR-BGSTAB-020 AC-1/AC-2 검증 실패 테스트가 test-runner.ts에 등록됨",
+        "구현 전 실행 시 신규 테스트가 red(비-0 종료)로 실패"
+      ],
+      "rollback": "추가한 FR-BGSTAB-020 테스트만 revert",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-03-FR-BGSTAB-020",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-03"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-BGSTAB-020"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-BGSTAB-020-AC1-01",
+            "req_id": "FR-BGSTAB-020",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "FR_BGSTAB_020_red_codex_detected_tui_suppression_injected",
+            "kind": "integration",
+            "expected_failure_signature": "tui suppression not injected|missing -c tui.animations|assertion failed"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-020-AC2-01",
+            "req_id": "FR-BGSTAB-020",
+            "ac_refs": [
+              "AC-2",
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "FR_BGSTAB_020_red_config_on_off_gate",
+            "kind": "integration",
+            "expected_failure_signature": "config gate not honored|injection not toggled by config|assertion failed"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3"
+      ]
+    },
+    {
+      "id": "T-PH002-04",
+      "phase_id": "PH-002",
+      "title": "FR-BGSTAB-020 Codex 감지 세션 tui 억제 설정 -c 주입 및 config 게이트 구현",
+      "type": "code",
+      "req_ids": [
+        "FR-BGSTAB-020"
+      ],
+      "files": [
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "578-604"
+        },
+        {
+          "path": "server/src/schemas/config.schema.ts"
+        }
+      ],
+      "action": "createSession(578-604)에서 Codex 감지 시 -c 플래그 최소개입 방식으로 tui 억제 설정을 codex 실행 인자에 주입하고, config.schema.ts에 억제 on/off 플래그를 추가해 게이트한다. CODEX_HOME 격리·인증 상속 방식은 채택하지 않음(§5.2 OQ-01).",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "cd server; npx tsx src/test-runner.ts",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx src/test-runner.ts",
+        "windows": "cd server; npx tsx src/test-runner.ts"
+      },
+      "dod": [
+        "FR-BGSTAB-020 신규 테스트 green(종료 0)",
+        "기존 test-runner.ts 전체 회귀 통과",
+        "AC-1: Codex 감지 시 tui 억제 설정(-c) 주입",
+        "AC-2: config 값에 따른 주입 on/off 제어"
+      ],
+      "rollback": "server/src/services/SessionManager.ts, server/src/schemas/config.schema.ts 변경 revert",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-04-FR-BGSTAB-020",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-04"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-BGSTAB-020"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-BGSTAB-020-AC1-02",
+            "req_id": "FR-BGSTAB-020",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "FR_BGSTAB_020_impl_codex_detected_tui_suppression_injected",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-020-AC2-02",
+            "req_id": "FR-BGSTAB-020",
+            "ac_refs": [
+              "AC-2",
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "FR_BGSTAB_020_impl_config_on_off_gate",
+            "kind": "integration"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      },
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH002-03"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3"
+      ],
+      "needs_clarification": [
+        {
+          "slug": "codex-detection-trigger",
+          "question": "세션 생성 시 Codex 코딩 에이전트를 어떤 신호로 감지하는가(CreateSessionOptions 확장 vs 실행 명령 토큰 검사)? 현재 detectForegroundAppHint는 출력 시점 명령 토큰 기반이며 생성 시점 감지 경로가 미확립.",
+          "blocks_task": false,
+          "auto_severity": "clarification"
+        }
+      ]
+    }
+  ],
+  "coverage": [
+    {
+      "req_id": "PERF-BGSTAB-005",
+      "stability": "evolving",
+      "ac_total": 3,
+      "ac_covered": 3,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH001-01",
+        "T-PH001-02"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-005-AC1-01",
+            "TC-REQ-PERF-BGSTAB-005-AC1-02"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-005-AC2-01",
+            "TC-REQ-PERF-BGSTAB-005-AC2-02"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-005-AC2-01",
+            "TC-REQ-PERF-BGSTAB-005-AC2-02"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "PERF-BGSTAB-006",
+      "stability": "evolving",
+      "ac_total": 3,
+      "ac_covered": 3,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH001-03",
+        "T-PH001-04"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-006-AC1-01",
+            "TC-REQ-PERF-BGSTAB-006-AC1-02"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-006-AC2-01",
+            "TC-REQ-PERF-BGSTAB-006-AC2-02"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-006-AC2-01",
+            "TC-REQ-PERF-BGSTAB-006-AC2-02"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "PERF-BGSTAB-007",
+      "stability": "evolving",
+      "ac_total": 3,
+      "ac_covered": 3,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH001-05",
+        "T-PH001-06"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-007-AC1-01",
+            "TC-REQ-PERF-BGSTAB-007-AC1-02"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-007-AC2-01",
+            "TC-REQ-PERF-BGSTAB-007-AC2-02"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-007-AC2-01",
+            "TC-REQ-PERF-BGSTAB-007-AC2-02"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "OBS-BGSTAB-003",
+      "stability": "evolving",
+      "ac_total": 3,
+      "ac_covered": 3,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH002-01",
+        "T-PH002-02"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-003-AC1-01",
+            "TC-REQ-OBS-BGSTAB-003-AC1-02"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-003-AC2-01",
+            "TC-REQ-OBS-BGSTAB-003-AC2-02"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-003-AC2-01",
+            "TC-REQ-OBS-BGSTAB-003-AC2-02"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "FR-BGSTAB-020",
+      "stability": "evolving",
+      "ac_total": 3,
+      "ac_covered": 3,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH002-03",
+        "T-PH002-04"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-FR-BGSTAB-020-AC1-01",
+            "TC-REQ-FR-BGSTAB-020-AC1-02"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-FR-BGSTAB-020-AC2-01",
+            "TC-REQ-FR-BGSTAB-020-AC2-02"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-FR-BGSTAB-020-AC2-01",
+            "TC-REQ-FR-BGSTAB-020-AC2-02"
+          ]
+        }
+      ]
+    }
+  ],
+  "orphans": [],
+  "unreferenced_reqs": [],
+  "excluded_reqs": [],
+  "deferred_ac": [],
+  "risks": [
+    {
+      "id": "R-01",
+      "severity": "med",
+      "description": "PERF-BGSTAB-007 리팩터가 분류 결과를 미세하게 바꿔 AI TUI 상태 판정 회귀를 유발할 수 있다.",
+      "mitigation": "골든 스냅샷 회귀 테스트를 리팩터 전에 red 로 고정하고 green 에서 동일성 검증.",
+      "affected_task_ids": [
+        "T-PH001-05",
+        "T-PH001-06"
+      ]
+    },
+    {
+      "id": "R-02",
+      "severity": "med",
+      "description": "FR-BGSTAB-020 Codex 감지 트리거가 현재 코드에 미확립되어 감지 오탐/누락 위험이 있다.",
+      "mitigation": "config 기본 off + 감지 경로 계약(CreateSessionOptions 확장 등) 확정 후 주입.",
+      "affected_task_ids": [
+        "T-PH002-03",
+        "T-PH002-04"
+      ]
+    },
+    {
+      "id": "R-03",
+      "severity": "low",
+      "description": "OBS-BGSTAB-003 monitorEventLoopDelay 상시 활성화가 자체 오버헤드를 유발할 수 있다.",
+      "mitigation": "단일 histogram 인스턴스를 재사용하고 스냅샷 시점에만 percentile 계산.",
+      "affected_task_ids": [
+        "T-PH002-01",
+        "T-PH002-02"
+      ]
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "OQ-01",
+      "question": "FR-BGSTAB-020 설정 주입 방식: -c 플래그 최소개입을 기본 결정으로 채택한다. 잔여 — CODEX_HOME 격리 config 방식 채택 여부 및 격리 시 ~/.codex 인증 상속 방식은 미확정.",
+      "blocks_task_ids": []
+    },
+    {
+      "id": "OQ-02",
+      "question": "OBS-BGSTAB-003 포화 판정 임계치(loop delay p99 상한, CPU% 기준)는 실측 데이터 확보 후 확정. 본 계획은 지표 노출+판정가능성만 다루고 임계치는 제외.",
+      "blocks_task_ids": []
+    },
+    {
+      "id": "OQ-03",
+      "question": "FR-BGSTAB-020 Codex 감지 트리거 지점(세션 생성 시 코딩 에이전트 식별) — createSession 호출자 계약 확장 방식 확정 필요.",
+      "blocks_task_ids": []
+    }
+  ],
+  "external_module_impact": [],
+  "tdd_decisions": [],
+  "coder_handoff_readiness": [
+    {
+      "phase_id": "PH-001",
+      "ready": true,
+      "blockers": []
+    },
+    {
+      "phase_id": "PH-002",
+      "ready": true,
+      "blockers": []
+    }
+  ],
+  "mcp_call_log": [
+    {
+      "seq": 1,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-005"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "843c38b483cdf9a8a08e377234efef9a25764336",
+      "response_hash": "03ec2b4f4f63d810c4a8ec3a8706b1e054022b70",
+      "timestamp": "2026-07-14T02:30:01.000Z",
+      "ok": true
+    },
+    {
+      "seq": 2,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-005"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "4b0a688c3cfef2e984519b0cff0174bd605444a1",
+      "response_hash": "dd02ff219d4ecc47bd85810c8fabc9016d85a7d6",
+      "timestamp": "2026-07-14T02:30:02.000Z",
+      "ok": true
+    },
+    {
+      "seq": 3,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-03"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-006"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "3bb4a9e6ebd20ec16094b6d2c157344d434a526b",
+      "response_hash": "56f8cc7b076827fe0ddc0d6305f098f3343a3e06",
+      "timestamp": "2026-07-14T02:30:03.000Z",
+      "ok": true
+    },
+    {
+      "seq": 4,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-04"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-006"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "c8a39dc7c737e933ca7348e3427693908edc3f41",
+      "response_hash": "ee7eb899b5a671333c444ca12876cfe2e17552c7",
+      "timestamp": "2026-07-14T02:30:04.000Z",
+      "ok": true
+    },
+    {
+      "seq": 5,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-05"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-007"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "2ae0fa0a0eb7959283f2f545894022caf8cb6933",
+      "response_hash": "471217ffef97d1cd097ced4d53d7f8ab51ee0946",
+      "timestamp": "2026-07-14T02:30:05.000Z",
+      "ok": true
+    },
+    {
+      "seq": 6,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-06"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-007"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "12c2879374c627e5d7f59e9bfc4ca1f02eb1dabf",
+      "response_hash": "cf9e5f1b5ddfb9d82fe9ad76565f65e984a9608e",
+      "timestamp": "2026-07-14T02:30:06.000Z",
+      "ok": true
+    },
+    {
+      "seq": 7,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "OBS-BGSTAB-003"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "7f98590b088e2fc20980a4a29adb324e32d0bdaf",
+      "response_hash": "c099d350c176101c6a2b4e0c348ab8b21517e736",
+      "timestamp": "2026-07-14T02:30:07.000Z",
+      "ok": true
+    },
+    {
+      "seq": 8,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "OBS-BGSTAB-003"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "87e609d6a85f04d0a20e93c55381484afa47923d",
+      "response_hash": "9df84d82fe5a05f97b8ca829fda231c49554215d",
+      "timestamp": "2026-07-14T02:30:08.000Z",
+      "ok": true
+    },
+    {
+      "seq": 9,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-03"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-BGSTAB-020"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "271e4748d1a3f95d7e310443ad72f6a881e8c5c5",
+      "response_hash": "4248de01680987b1deac29389726d61529927bcd",
+      "timestamp": "2026-07-14T02:30:09.000Z",
+      "ok": true
+    },
+    {
+      "seq": 10,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-04"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-BGSTAB-020"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "fbaa60368e3178a0ff6667606a3212df095c1a13",
+      "response_hash": "2cfbb973b2252bc407e79d206c2da159c0842838",
+      "timestamp": "2026-07-14T02:30:10.000Z",
+      "ok": true
+    },
+    {
+      "seq": 11,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "PERF-BGSTAB-005",
+        "type": "plan",
+        "reference": "docs/plans/2026-07-14.projectmaster.codex-perf.plan.md#T-PH001-02"
+      },
+      "args_hash": "20ef3f122a1221531e5c52cfcab126fbe9b434d9",
+      "response_hash": "f7fae2e46bb6332ce6d5945200913efe14fe1956",
+      "timestamp": "2026-07-14T02:30:11.000Z",
+      "ok": true
+    },
+    {
+      "seq": 12,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "PERF-BGSTAB-006",
+        "type": "plan",
+        "reference": "docs/plans/2026-07-14.projectmaster.codex-perf.plan.md#T-PH001-04"
+      },
+      "args_hash": "c660f1f071df14382311464b2646c945cd8a53d3",
+      "response_hash": "668e30b1e751303e2a855b556b3f8b53f1546d03",
+      "timestamp": "2026-07-14T02:30:12.000Z",
+      "ok": true
+    },
+    {
+      "seq": 13,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "PERF-BGSTAB-007",
+        "type": "plan",
+        "reference": "docs/plans/2026-07-14.projectmaster.codex-perf.plan.md#T-PH001-06"
+      },
+      "args_hash": "89293d99407e76a813b34235608eddbe81ac9055",
+      "response_hash": "65d6a57d97540cf882cc7ffb5b28af9413fef220",
+      "timestamp": "2026-07-14T02:30:13.000Z",
+      "ok": true
+    },
+    {
+      "seq": 14,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "OBS-BGSTAB-003",
+        "type": "plan",
+        "reference": "docs/plans/2026-07-14.projectmaster.codex-perf.plan.md#T-PH002-02"
+      },
+      "args_hash": "6ad9ab2c8f836f15f15211e9db9479f236aff80a",
+      "response_hash": "6c3e979b62ab0bb72d6fdc615f618d160207e4cc",
+      "timestamp": "2026-07-14T02:30:14.000Z",
+      "ok": true
+    },
+    {
+      "seq": 15,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "FR-BGSTAB-020",
+        "type": "plan",
+        "reference": "docs/plans/2026-07-14.projectmaster.codex-perf.plan.md#T-PH002-04"
+      },
+      "args_hash": "2f0fdfe01997b7fb5ba417ad9540a39f511acc00",
+      "response_hash": "9884e59916bbf301c640c24f11feed6620242b46",
+      "timestamp": "2026-07-14T02:30:15.000Z",
+      "ok": true
+    }
+  ]
+}

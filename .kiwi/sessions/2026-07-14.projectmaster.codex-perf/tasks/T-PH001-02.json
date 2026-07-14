@@ -1,0 +1,52 @@
+{
+  "task_id": "T-PH001-02",
+  "phase_id": "PH-001",
+  "req_ids": ["PERF-BGSTAB-005"],
+  "started_at": "2026-07-13T17:22:40Z",
+  "completed_at": "2026-07-13T17:26:18Z",
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": ["server/src/services/HermesForegroundDetector.ts"],
+        "change": "Added early-avoidance guard at inspect() entry: `if (!this.attached && input.appHint !== 'hermes') return null;` before strip/appendTail. shouldAttach unchanged.",
+        "loc_added": 9,
+        "loc_removed": 0
+      }
+    ],
+    "prickly_reviews": [
+      {
+        "iter": 1,
+        "verdict": "pass",
+        "behavioral_equivalence": "preserved",
+        "findings": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 1},
+        "low_note": "Reviewer verified appHint-timing invariant (appHint derived from submitted command in SessionManager.ts:1287/1048 => hermes bootstrap output always carries appHint==='hermes', so no attach signal can be stranded in a skipped prelude). Applied optional comment extension documenting this invariant."
+      }
+    ],
+    "green_evidence": {
+      "command": "cd server && npx tsx src/test-runner.ts",
+      "exit_code": 0,
+      "timestamp": "2026-07-13T17:25:00Z"
+    },
+    "green_evidence_meta": {
+      "filtered_new_tests": "BUILDERGATE_TEST_FILTER=perf-bgstab-005 => 2/2 passed, exit 0",
+      "passed_test_case_ids": ["TC-REQ-PERF-BGSTAB-005-AC1-02", "TC-REQ-PERF-BGSTAB-005-AC2-02"],
+      "tsc": "npx tsc --noEmit exit 0"
+    },
+    "dod_check": [
+      {"item": "PERF-BGSTAB-005 신규 테스트 green(종료 0)", "satisfied": true},
+      {"item": "기존 test-runner.ts 전체 회귀 통과", "satisfied": true, "evidence": "495/495 passed"},
+      {"item": "AC-1: 비대상 세션에서 strip 생략·즉시 null 반환", "satisfied": true},
+      {"item": "AC-2: hermes attach 판정 결과 불변(mid-session appHint 전환 포함)", "satisfied": true}
+    ]
+  },
+  "phase3": {
+    "regression": {"scope": "full", "passed": 495, "failed": 0, "tsc_exit": 0},
+    "mcp_calls": [
+      {"tool": "add_trace_link", "id": "PERF-BGSTAB-005", "reference": "server/src/services/HermesForegroundDetector.ts:33-35", "ok": true},
+      {"tool": "add_verification_evidence", "id": "PERF-BGSTAB-005", "evidenceId": "VE-2", "covers": "AC-1", "ok": true},
+      {"tool": "add_verification_evidence", "id": "PERF-BGSTAB-005", "evidenceId": "VE-3", "covers": "AC-2", "ok": true},
+      {"tool": "update_status", "id": "PERF-BGSTAB-005", "status": "in_progress", "ok": true}
+    ]
+  }
+}

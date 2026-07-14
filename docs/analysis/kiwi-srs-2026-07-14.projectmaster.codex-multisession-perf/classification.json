@@ -1,0 +1,56 @@
+{
+  "generatedAt": "2026-07-14",
+  "phase": "kiwi-srs Phase 4 (SRS authoring)",
+  "target": "0.5.5-buildergate-stability",
+  "scope": "BGSTAB",
+  "theme": "codex-multisession-perf",
+  "ssot": "speckiwi MCP (docs/spec/30.buildergate-stability.srs.md)",
+  "classificationBasis": "기존 PERF-BGSTAB-001~004는 프론트엔드 출력 스케줄러/키스트로크 영역(implemented). 이번 5건은 서버 onData 핫패스/telemetry/Codex 세션 생성 영역으로 충돌 없음. 5건 모두 new-feature.",
+  "requirements": [
+    {
+      "id": "OBS-BGSTAB-003",
+      "title": "다중 세션 이벤트 루프 포화 진단 관측 지표",
+      "type": "observability",
+      "priority": "high",
+      "classification": "new-feature",
+      "conflictsWith": [],
+      "rationale": "서버 telemetry(getObservabilitySnapshot)에 이벤트 루프 지연/프로세스 CPU 점유율/headless write 누적 시간 신규 노출. 기존 관측 요구사항(OBS-BGSTAB-001/002)은 ConPTY 입력지연/fallback 스냅샷 진단 영역이라 별개."
+    },
+    {
+      "id": "FR-BGSTAB-020",
+      "title": "Codex TUI 세션의 애니메이션·대체화면 억제 설정 주입",
+      "type": "functional",
+      "priority": "high",
+      "classification": "new-feature",
+      "conflictsWith": [],
+      "rationale": "세션 생성 경로에 Codex 감지 시 tui 억제 설정 주입 신규 도입. 기존 세션 생성/수명주기 요구사항(FR-BGSTAB-010 등)과 중첩되지 않는 신규 발생원 억제 기능."
+    },
+    {
+      "id": "PERF-BGSTAB-005",
+      "title": "비대상 포그라운드 감지기의 프레임당 문자열 처리 조기 회피",
+      "type": "performance",
+      "priority": "medium",
+      "classification": "new-feature",
+      "conflictsWith": [],
+      "rationale": "HermesForegroundDetector.inspect 서버 핫패스 조기 회피. 기존 PERF-BGSTAB-001~004(프론트엔드)와 영역 분리."
+    },
+    {
+      "id": "PERF-BGSTAB-006",
+      "title": "디버그 캡처 비활성 시 원시 출력 디버그 상세 생성 생략",
+      "type": "performance",
+      "priority": "medium",
+      "classification": "new-feature",
+      "conflictsWith": [],
+      "rationale": "SessionManager onData 서버 핫패스에서 buildRawOutputDebugDetails 조건부 생략. 기존 프론트엔드 디버그 캡처(PERF-BGSTAB-003)와 별개 서버측 최적화."
+    },
+    {
+      "id": "PERF-BGSTAB-007",
+      "title": "onData 청크당 제어시퀀스 strip 단일 계산 공유",
+      "type": "performance",
+      "priority": "high",
+      "classification": "new-feature",
+      "conflictsWith": [],
+      "rationale": "onData 분류 함수들의 중복 strip을 청크당 1회로 통합하는 서버 순수 리팩터. 관측 가능한 동작 변화 없음, 기존 분류 동작 회귀 테스트로 고정."
+    }
+  ]
+}

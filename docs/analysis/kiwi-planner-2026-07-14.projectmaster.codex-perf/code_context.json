@@ -1,0 +1,52 @@
+{
+  "req_anchors": [
+    {
+      "req_id": "OBS-BGSTAB-003",
+      "files": [
+        { "path": "server/src/index.ts", "line_range": "797-803", "signature": "app.get('/api/sessions/telemetry', ...) → res.json({ sessions: sessionManager.getObservabilitySnapshot(), ws })" },
+        { "path": "server/src/services/SessionManager.ts", "line_range": "132-147", "signature": "interface SessionManagerObservability { totalSessions, healthySessions, degradedSessions, headlessOutput, cleanup, snapshot* }" },
+        { "path": "server/src/services/SessionManager.ts", "line_range": "2942-2962", "signature": "getObservabilitySnapshot(): SessionManagerObservability" },
+        { "path": "server/src/services/SessionManager.ts", "line_range": "3371-3404", "signature": "private async applyHeadlessOutput(...) → await Promise.race([writeHeadlessTerminal(headless, output.data), closeSignal]) @3384" }
+      ]
+    },
+    {
+      "req_id": "FR-BGSTAB-020",
+      "files": [
+        { "path": "server/src/services/SessionManager.ts", "line_range": "578-604", "signature": "createSession(name?, shell?, cwd?, options: CreateSessionOptions) → spawnPty(shellCmd, shellArgs, { env, ... }); env = {...buildShellEnv(shellType), ...normalizeEnvPatch(options.envPatch)} @589-591" },
+        { "path": "server/src/schemas/config.schema.ts", "line_range": null, "signature": "Zod config schemas (302 lines) — add codex TUI suppression on/off flag" }
+      ]
+    },
+    {
+      "req_id": "PERF-BGSTAB-005",
+      "files": [
+        { "path": "server/src/services/HermesForegroundDetector.ts", "line_range": "26-53", "signature": "inspect(input): ForegroundAppObservation|null — 27-31 unconditionally appendTail/stripTerminalControlSequences before attach check" },
+        { "path": "server/src/services/HermesForegroundDetector.ts", "line_range": "98-111", "signature": "private shouldAttach(...) → requires input.appHint === 'hermes'" }
+      ]
+    },
+    {
+      "req_id": "PERF-BGSTAB-006",
+      "files": [
+        { "path": "server/src/services/SessionManager.ts", "line_range": "821-828", "signature": "onData: buildRawOutputDebugDetails(sData, rawData, outputData, foundMarker) @822 unconditional → captureDebugEvent @827 (which early-returns if !isDebugCaptureEnabled)" },
+        { "path": "server/src/services/SessionManager.ts", "line_range": "1251-1253", "signature": "isDebugCaptureEnabled(sessionId): boolean → debugCaptureEnabledSessions.has(sessionId)" }
+      ]
+    },
+    {
+      "req_id": "PERF-BGSTAB-007",
+      "files": [
+        { "path": "server/src/services/SessionManager.ts", "line_range": "724-830", "signature": "ptyProcess.onData((rawData) => {...}) — classify calls on statusData: isEchoOutput, isLikelyCommandEchoOutput, classifyAiTuiOutputSignal each re-strip" },
+        { "path": "server/src/services/SessionManager.ts", "line_range": "3069-3093", "signature": "private classifyAiTuiOutputSignal(sData, output) → stripTerminalControlSequences(output).replace(/\\r\\n?/g,'\\n').trim() @3073-3074" },
+        { "path": "server/src/services/SessionManager.ts", "line_range": "3795-3814", "signature": "function isLikelyCommandEchoOutput(raw, lastSubmittedCommand) → stripTerminalControlSequences(raw)... @3796" },
+        { "path": "server/src/services/SessionManager.ts", "line_range": "3883-3889", "signature": "function stripTerminalControlSequences(raw): string — 4 regex passes" }
+      ]
+    }
+  ],
+  "missing_anchors": [],
+  "external_paths_detected": [],
+  "addition_sites": [
+    "server/src/test-runner.ts (20280 lines) — backend test harness; new red/green test_cases registered in `tests` array @102 with per-test functions",
+    "server/src/services/SessionManager.ts (3908 lines)",
+    "server/src/services/HermesForegroundDetector.ts (285 lines)",
+    "server/src/index.ts (1597 lines)",
+    "server/src/schemas/config.schema.ts (302 lines)"
+  ]
+}

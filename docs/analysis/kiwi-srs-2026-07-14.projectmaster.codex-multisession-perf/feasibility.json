@@ -1,0 +1,60 @@
+{
+  "generatedAt": "2026-07-14",
+  "target": "0.5.5-buildergate-stability",
+  "scope": "BGSTAB",
+  "theme": "codex-multisession-perf",
+  "overall": "high",
+  "note": "5건 모두 feasibility=high. 코드 위치는 다른 서브에이전트가 CONFIRMED 검증한 것을 trace로 사용(사실 위조 없음). trace_intent는 모두 addition_site(구현 예정 위치) 또는 verifies(기존 판정 경로 확인).",
+  "requirements": [
+    {
+      "id": "OBS-BGSTAB-003",
+      "feasibility": "high",
+      "tag": "feasibility:high",
+      "codeEvidence": [
+        {"reference": "server/src/index.ts:797-801", "trace_intent": "addition_site"},
+        {"reference": "server/src/services/SessionManager.ts:132-147", "trace_intent": "addition_site"},
+        {"reference": "server/src/services/SessionManager.ts:3384", "trace_intent": "addition_site"}
+      ],
+      "basis": "perf_hooks.monitorEventLoopDelay / process.cpuUsage는 Node 표준 API. telemetry 라우트와 SessionManager 계측 훅 삽입 지점 확인됨."
+    },
+    {
+      "id": "FR-BGSTAB-020",
+      "feasibility": "high",
+      "tag": "feasibility:high",
+      "codeEvidence": [
+        {"reference": "server/src/services/SessionManager.ts:590-591", "trace_intent": "addition_site"},
+        {"reference": "server/src/services/SessionManager.ts:1814", "trace_intent": "addition_site"}
+      ],
+      "basis": "세션 생성 경로에 에이전트 감지 지점 존재. tui 억제 설정 주입은 config/-c 플래그 주입으로 실현 가능(주입 방식은 OQ)."
+    },
+    {
+      "id": "PERF-BGSTAB-005",
+      "feasibility": "high",
+      "tag": "feasibility:high",
+      "codeEvidence": [
+        {"reference": "server/src/services/HermesForegroundDetector.ts:26-53", "trace_intent": "addition_site"},
+        {"reference": "server/src/services/HermesForegroundDetector.ts:105-111", "trace_intent": "verifies"}
+      ],
+      "basis": "inspect 진입부에 appHint/attach 상태 조기 검사 추가. hermes attach 판정 경로 불변 확인 지점 존재."
+    },
+    {
+      "id": "PERF-BGSTAB-006",
+      "feasibility": "high",
+      "tag": "feasibility:high",
+      "codeEvidence": [
+        {"reference": "server/src/services/SessionManager.ts:822", "trace_intent": "addition_site"}
+      ],
+      "basis": "isDebugCaptureEnabled(sessionId) 게이트로 buildRawOutputDebugDetails 호출을 조건부 생략. 활성 세션 경계값 불변."
+    },
+    {
+      "id": "PERF-BGSTAB-007",
+      "feasibility": "high",
+      "tag": "feasibility:high",
+      "codeEvidence": [
+        {"reference": "server/src/services/SessionManager.ts:3883-3889", "trace_intent": "addition_site"},
+        {"reference": "server/src/services/SessionManager.ts:724-830", "trace_intent": "addition_site"}
+      ],
+      "basis": "strip→정규화→trim 결과를 onData 상단에서 1회 계산해 분류 함수에 공유 전달. 순수 리팩터, 분류 결과 회귀 고정."
+    }
+  ]
+}

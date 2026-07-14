@@ -1,0 +1,17 @@
+{
+  "target_intent": "다중 Codex 세션 운용 시 이벤트 루프 포화를 진단(관측)하고, 출력 핫패스의 청크당 중복 비용을 제거하며, Codex TUI repaint 발생원 자체를 억제해 BuilderGate 안정성을 높인다.",
+  "user_priorities": [
+    "서버 출력 핫패스(onData) 저위험 최적화 우선 (PERF-005/006/007) — 관측 가능한 동작 변화 없이 청크당 비용 제거",
+    "이벤트 루프 포화 원인 정량 판정을 위한 telemetry 지표 노출 (OBS-003)",
+    "Codex TUI 억제 설정 주입으로 repaint 발생원 감축 (FR-020)"
+  ],
+  "ambiguities": [
+    "FR-020: 세션 생성 시 Codex 코딩 에이전트 감지 트리거 지점이 현재 코드에 미확립 (CreateSessionOptions 확장 vs 실행 명령 토큰 검사)",
+    "FR-020: 설정 주입 방식 -c 플래그 최소개입을 기본 결정으로 채택하나 CODEX_HOME 격리 config·인증 상속 방식은 미확정 (Open Question)",
+    "OBS-003: 포화 판정 임계치(loop delay p99 상한, CPU% 기준)는 실측 데이터 확보 후 확정 — 본 계획은 지표 노출+판정가능성만 다루고 임계치는 제외"
+  ],
+  "non_coding_signals": [
+    "성능 회귀 방지를 위한 골든 스냅샷 회귀 테스트 필요 (PERF-007 순수 리팩터)",
+    "telemetry 필드 계약 문서화는 SRS Verification Method로 충족 (별도 문서 Task 불요)"
+  ]
+}

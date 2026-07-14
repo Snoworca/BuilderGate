@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-14.projectmaster.codex-perf",
+  "plan_run_id": "2026-07-14.projectmaster.codex-perf",
+  "plan_path": "docs/plans/2026-07-14.projectmaster.codex-perf.plan.md",
+  "sidecar_path": "docs/plans/2026-07-14.projectmaster.codex-perf.sidecar.json",
+  "target": "0.5.5-buildergate-stability",
+  "mode": "normal",
+  "flags": ["TASK_FILTER=T-PH002-01,T-PH002-02 (this child); prior child: T-PH001-01,T-PH001-02"],
+  "spawn_context": "pm-child",
+  "started_at": "2026-07-13T17:06:51Z",
+  "updated_at": "2026-07-14T07:25:00Z",
+  "frozen_at": null,
+  "current_phase_id": "PH-002",
+  "current_task_id": null,
+  "next_resume_hint": null,
+  "task_queue": [],
+  "completed_task_ids": ["T-PH001-01", "T-PH001-02", "T-PH002-01", "T-PH002-02"],
+  "skipped_task_ids": [],
+  "failed_task_ids": [],
+  "tdd_exempted_task_ids": [],
+  "tdd_pending_task_ids": [],
+  "severity_counters": {
+    "T-PH001-01": {
+      "phase1": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 1, "LOW": 1, "rounds": 2}
+    },
+    "T-PH001-02": {
+      "phase2": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 1, "rounds": 1}
+    },
+    "T-PH002-01": {
+      "phase1": {"CRITICAL": 1, "HIGH": 1, "MEDIUM": 1, "LOW": 2, "rounds": 1, "note": "resolved via 3-axis distinction test strengthening"}
+    },
+    "T-PH002-02": {
+      "phase2": {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 3, "LOW": 1, "rounds": 1, "note": "HIGH+2 MEDIUM fixed; 1 MEDIUM deferred with rationale (histogram windowing / OQ-02)"}
+    }
+  },
+  "regression_summary": {
+    "last_run_at": "2026-07-14T07:25:00Z",
+    "scope": "full",
+    "passed": 503,
+    "failed": 0,
+    "regressed_files": [],
+    "tsc_exit": 0
+  },
+  "mcp_call_log": [
+    {"called_at": "2026-07-13T17:24:30Z", "tool": "add_trace_link", "args": {"id": "PERF-BGSTAB-005", "type": "Code", "reference": "server/src/services/HermesForegroundDetector.ts:33-35", "relation": "implements"}, "ok": true, "dry_run": false, "task_id": "T-PH001-02"},
+    {"called_at": "2026-07-13T17:24:45Z", "tool": "add_verification_evidence", "args": {"id": "PERF-BGSTAB-005", "type": "test", "reference": "server/src/test-runner.ts#testHermesForegroundDetectorSkipsStringProcessingForNonTarget", "covers": "AC-1"}, "ok": true, "response": {"evidenceId": "VE-2"}, "dry_run": false, "task_id": "T-PH001-02"},
+    {"called_at": "2026-07-13T17:25:00Z", "tool": "add_verification_evidence", "args": {"id": "PERF-BGSTAB-005", "type": "test", "reference": "server/src/test-runner.ts#testHermesForegroundDetectorAttachDecisionUnchangedByNonTargetPrelude", "covers": "AC-2"}, "ok": true, "response": {"evidenceId": "VE-3"}, "dry_run": false, "task_id": "T-PH001-02"},
+    {"called_at": "2026-07-13T17:25:30Z", "tool": "update_status", "args": {"id": "PERF-BGSTAB-005", "status": "in_progress"}, "ok": true, "dry_run": false, "task_id": "T-PH001-02"},
+    {"called_at": "2026-07-14T07:22:00Z", "tool": "add_trace_link", "args": {"id": "OBS-BGSTAB-003", "type": "Code", "reference": "server/src/services/SessionManager.ts:2994-3030", "relation": "implements"}, "ok": true, "dry_run": false, "task_id": "T-PH002-02"},
+    {"called_at": "2026-07-14T07:22:10Z", "tool": "add_verification_evidence", "args": {"id": "OBS-BGSTAB-003", "type": "test", "reference": "server/src/test-runner.ts#OBS_BGSTAB_003_impl_telemetry_metric_fields_present", "covers": "AC-1"}, "ok": true, "response": {"evidenceId": "VE-2"}, "dry_run": false, "task_id": "T-PH002-02"},
+    {"called_at": "2026-07-14T07:22:20Z", "tool": "add_verification_evidence", "args": {"id": "OBS-BGSTAB-003", "type": "test", "reference": "server/src/test-runner.ts#OBS_BGSTAB_003_impl_saturation_vs_cpu_headroom_distinction", "covers": "AC-2"}, "ok": true, "response": {"evidenceId": "VE-3"}, "dry_run": false, "task_id": "T-PH002-02"},
+    {"called_at": "2026-07-14T07:22:30Z", "tool": "update_status", "args": {"id": "OBS-BGSTAB-003", "status": "implemented"}, "ok": true, "dry_run": false, "task_id": "T-PH002-02"}
+  ],
+  "pending_mutations": [],
+  "tool_versions": {
+    "kiwi_planner": "0.6.0",
+    "kiwi_coder": "0.1.9",
+    "speckiwi": "2.3.1"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "mcp": "pass",
+  "cli": "not-checked",
+  "halted": false,
+  "node_version": "v24.16.0",
+  "git_repo": true,
+  "active_target": "0.5.5-buildergate-stability"
+}

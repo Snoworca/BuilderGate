@@ -1,0 +1,43 @@
+{
+  "task_id": "T-PH001-01",
+  "phase_id": "PH-001",
+  "req_ids": ["PERF-BGSTAB-005"],
+  "started_at": "2026-07-13T17:06:51Z",
+  "completed_at": null,
+  "phase1": {
+    "tdd_draft_iters": [
+      {
+        "iter": 1,
+        "file_paths": ["server/src/test-runner.ts"],
+        "tests_added": [
+          "PERF-BGSTAB-005 non-target foreground detector inspect returns null before string processing",
+          "PERF-BGSTAB-005 hermes attach decision is unchanged by a non-target appHint prelude"
+        ]
+      },
+      {
+        "iter": 2,
+        "file_paths": ["server/src/test-runner.ts"],
+        "change": "Strengthened AC-2 transition test after Sonnet x4 review (S1/S3 CRITICAL): capture recentRaw/recentText right after the non-hermes prelude and assert both '' so the test is red-before/green-after and sensitive to the fix in the mid-session appHint transition context (previously it short-circuited via bootstrapActivity and was invariant). Refined AC-1 comment to note the buffer check is a proxy for the accumulation side effect."
+      }
+    ],
+    "sonnet4_reviews": [
+      {
+        "iter": 1,
+        "intent_alignment": {"verdict": "needs-change", "critical": 1, "low": 1},
+        "tech_quality": {"verdict": "needs-change", "medium": 1},
+        "req_mapping": {"verdict": "needs-change", "critical": 1},
+        "red_verification": {"verdict": "pass", "exit_code": 1, "ac1": "fail", "ac2": "pass", "signature_matched": true}
+      }
+    ],
+    "red_evidence": {
+      "command": "BUILDERGATE_TEST_FILTER=perf-bgstab-005 npx tsx src/test-runner.ts",
+      "exit_code": 1,
+      "captured_failure": "FAIL PERF-BGSTAB-005 non-target foreground detector inspect returns null before string processing (recentRaw non-empty); FAIL PERF-BGSTAB-005 hermes attach decision is unchanged by a non-target appHint prelude (mid-session prelude recentRaw non-empty). 2 test(s) failed.",
+      "timestamp": "2026-07-13T17:20:00Z"
+    },
+    "red_evidence_meta": {
+      "note": "After strengthening, BOTH new tests are red before impl. AC-1 test: non-target chunk populates recentRaw (string processing runs). AC-2 test: mid-session non-target prelude populates recentRaw before hermes chunk. Both go green after the early-return fix. Suite exits 1 => red confirmed.",
+      "failing_test_case_ids": ["TC-REQ-PERF-BGSTAB-005-AC1-01", "TC-REQ-PERF-BGSTAB-005-AC2-01"]
+    }
+  }
+}

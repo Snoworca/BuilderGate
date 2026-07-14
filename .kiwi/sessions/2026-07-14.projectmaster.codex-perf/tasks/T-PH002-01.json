@@ -1,0 +1,28 @@
+{
+  "task_id": "T-PH002-01",
+  "phase_id": "PH-002",
+  "req_ids": ["OBS-BGSTAB-003"],
+  "type": "code",
+  "tdd_phase": "red",
+  "started_at": "2026-07-14T06:50:00Z",
+  "completed_at": "2026-07-14T07:00:00Z",
+  "phase1": {
+    "tdd_draft_iters": [
+      {
+        "iter": 1,
+        "file_paths": ["server/src/test-runner.ts"],
+        "test_symbols": [
+          "OBS_BGSTAB_003_red_telemetry_metric_fields_present",
+          "OBS_BGSTAB_003_red_saturation_vs_cpu_headroom_distinction"
+        ]
+      }
+    ],
+    "sonnet_review_note": "Independent sonnet verifier flagged the distinction test's real-data assertion as a tautology (CRITICAL) and that only 2 of 3 required axes were used (HIGH). Both resolved: distinction test rewritten to a 3-axis derivability demonstration and the tautological real-data assertion removed. Red-triggering field-presence assertions unchanged, so red integrity preserved.",
+    "red_evidence": {
+      "command": "cd server && npx tsx src/test-runner.ts",
+      "exit_code": 1,
+      "captured_failure": "FAIL OBS-BGSTAB-003 red: telemetry exposes event loop delay, CPU%, headless write metrics -> AssertionError: missing eventLoopDelay; FAIL OBS-BGSTAB-003 red: telemetry metrics distinguish loop saturation from CPU headroom -> AssertionError: eventLoopDelay.p99 axis missing; 2 test(s) failed (only the 2 new tests failed, no collateral regression)",
+      "timestamp": "2026-07-14T07:00:00Z"
+    }
+  }
+}

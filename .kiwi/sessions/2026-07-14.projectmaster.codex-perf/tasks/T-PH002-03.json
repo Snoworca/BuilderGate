@@ -1,0 +1,35 @@
+{
+  "task_id": "T-PH002-03",
+  "phase_id": "PH-002",
+  "req_ids": ["FR-BGSTAB-020"],
+  "type": "code",
+  "tdd_phase": "red",
+  "spawn_context": "pm-child",
+  "started_at": "2026-07-14T16:20:00Z",
+  "completed_at": "2026-07-14T16:40:00Z",
+  "phase1": {
+    "tdd_draft_iters": [
+      {
+        "iter": 1,
+        "file_paths": ["server/src/test-runner.ts"],
+        "summary": "Extended createForegroundSessionHarness overrides with codexTuiSuppression?: boolean (spread into session config; existing callers default false, no regression). Added 2 failing tests: testSessionManagerCodexTuiSuppressionInjectedWhenEnabled (AC-1: exact-line equality asserting all 3 -c flags injected between codex token and \\r) and testSessionManagerCodexTuiSuppressionGatedByConfig (AC-2: config on injects / config off unchanged / non-codex unchanged)."
+      }
+    ],
+    "sonnet4_reviews": [
+      {
+        "iter": 1,
+        "intent_alignment": {"verdict": "pass", "notes": "MEDIUM: .includes() position-agnostic -> strengthened to exact-line deepEqual."},
+        "tech_quality": {"verdict": "pass", "notes": "MEDIUM: exact-array equality couples to write chunking (acceptable: 1 full-line submission = 1 pty.write)."},
+        "req_mapping": {"verdict": "pass", "notes": "AC1-01/02 collapse onto single command-submission path (no session-creation codex path in codebase; documented)."},
+        "red_verification": {"verdict": "pass", "pass_count": 503, "fail_count": 2, "exit_code": 1}
+      }
+    ],
+    "red_evidence": {
+      "command": "cd server && npx tsx src/test-runner.ts",
+      "exit_code": 1,
+      "captured_failure": "FAIL SessionManager injects Codex tui suppression flags when config enabled (FR-BGSTAB-020 AC-1) -> AssertionError: expected codex command rewritten with tui.animations/alternate_screen/show_tooltips suppression, got [\"codex\\r\"]; FAIL SessionManager gates Codex tui suppression injection by config (FR-BGSTAB-020 AC-2) -> AssertionError: expected injection when config enabled, got [\"codex\\r\"]",
+      "baseline_pass": 503,
+      "timestamp": "2026-07-14T16:35:00Z"
+    }
+  }
+}

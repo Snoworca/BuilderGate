@@ -1,0 +1,160 @@
+{
+  "summary": "Codex 등 TUI 코딩 에이전트를 다수(목표 수십 개) 동시 실행할 때 발생하는 전체 성능 저하와 특히 키 입력 지연을, 단일 Node.js 이벤트 루프에 집중되는 PTY onData 핫패스(감지기 다발 + headless 직렬화 write + WS 브로드캐스트) 병목으로 규명하고, 측정 하니스 → 즉효 저위험 조치 → 구조 개선 → 장기 확장의 4단계 11개 항목으로 재배열한 통합 실행 로드맵 연구 문서.",
+  "intent_type_hint": "new-feature",
+  "key_entities": [
+    "SessionManager.ts onData 핫패스 (:724)",
+    "stripTerminalControlSequences (:3883, 프레임당 4패스)",
+    "writeHeadlessTerminal / queueHeadlessOutput / applyHeadlessOutput (:3302,:3350,:3371,:3391-3400)",
+    "routeSessionOutput / raw passthrough (:3391-3400)",
+    "serializeHeadlessTerminal (:2489, headlessTerminal.ts:133)",
+    "writeInput / pty.write (:1259,:1330, 부가처리 :1277-1327)",
+    "HermesForegroundDetector (:26-33,:105-111)",
+    "ForegroundAppDetector / OscDetector / terminalTitle 감지기",
+    "buildRawOutputDebugDetails 디버그 캡처 (:822)",
+    "wsSendPolicy.ts 우선순위 3-레인 (:102-138, 출력 전용)",
+    "config.schema.ts wsSendMode='direct' (:199), writeBatchMaxBytes(미구현, :115), outputCoalesceWindowMs=16 (:124)",
+    "GET /api/sessions/telemetry, getObservabilitySnapshot (index.ts:797, SessionManager.ts:132-147)",
+    "Codex tui.animations / tui.alternate_screen / CODEX_HOME (buildShellEnv :1814, createSession envPatch :590)",
+    "perf_hooks.monitorEventLoopDelay / process.cpuUsage",
+    "FR-BGSTAB-016 (기존 REQ: safe-send 모드 하 우선순위·coalescing 계약)",
+    "FR-BGSTAB-012 (기존 REQ: bounded headless queue / WS backpressure)",
+    "OBS-BGSTAB-001/002 (기존 REQ: ConPTY 텔레메트리·fallback 진단)"
+  ],
+  "requirement_candidates": [
+    {
+      "draft_id_hint": "OBS-BGSTAB",
+      "title": "이벤트 루프 지연·CPU 점유·headless write 시간 관측 하니스",
+      "roadmap_stage": "0",
+      "type_hint": "observability",
+      "statement": "시스템은 GET /api/sessions/telemetry(getObservabilitySnapshot)에 perf_hooks.monitorEventLoopDelay 기반 이벤트 루프 지연 히스토그램(mean/p99), process.cpuUsage 델타를 1코어 대비 %로 환산한 프로세스 CPU 점유율, applyHeadlessOutput의 writeHeadlessTerminal 구간 누적 소요 시간을 노출해야 한다. 이 세 지표로 '이벤트 루프 포화(CPU-bound)'와 '물리 CPU 여유 있는 GC/동기 fs/backpressure 원인'을 구분 판정할 수 있어야 한다.",
+      "code_evidence_hint": "index.ts:797 telemetry route, SessionManager.ts:132-147 observability, SessionManager.ts:3384 writeHeadlessTerminal 구간",
+      "priority_hint": "critical"
+    },
+    {
+      "draft_id_hint": "FR-BGSTAB",
+      "title": "세션 생성 시 Codex TUI 애니메이션/대체화면 억제 설정 주입",
+      "roadmap_stage": "1",
+      "type_hint": "functional",
+      "statement": "Codex 세션 생성 시 격리된 CODEX_HOME config 또는 -c tui.animations=false -c tui.alternate_screen=\"never\" -c tui.show_tooltips=false 인자를 주입하여, 초당 수 회 발생하는 전체 화면 repaint(스피너/텍스트 반짝임)의 발생원 자체를 줄여야 한다.",
+      "code_evidence_hint": "buildShellEnv (:1814), createSession envPatch (:590)",
+      "priority_hint": "critical"
+    },
+    {
+      "draft_id_hint": "PERF-BGSTAB",
+      "title": "대화형 TUI 포그라운드 세션의 headless 직렬화 write 생략",
+      "roadmap_stage": "1",
+      "type_hint": "performance",
+      "statement": "isInteractiveForeground로 감지된 세션은 writeHeadlessTerminal 호출을 생략해야 한다(라이브 스트리밍은 이미 raw passthrough이므로 headless write는 재접속/스냅샷/screen-repair 용도로만 필요하다는 F1 근거). 생략된 세션의 재접속 시에는 raw ring buffer + resize/\\x0c nudge로 앱 자가 repaint를 유도해 화면을 복구해야 하며, 이 동작은 opt-in 설정 플래그 뒤에 있어야 한다.",
+      "code_evidence_hint": "SessionManager.ts:3302 queueHeadlessOutput, :3350 headlessWriteChain, :3371 applyHeadlessOutput, :3391-3400 raw passthrough",
+      "priority_hint": "critical"
+    },
+    {
+      "draft_id_hint": "PERF-BGSTAB",
+      "title": "writeInput 경로에서 pty.write 최우선 실행",
+      "roadmap_stage": "1",
+      "type_hint": "performance",
+      "statement": "writeInput은 입력 가드 통과 직후 pty.write를 최우선으로 실행해야 하며, pty에 쓰이는 바이트에 영향을 주지 않는 부가 처리(커맨드버퍼 갱신, foreground hint, 상태전환, echoTracker 등)는 write 이후(필요 시 setImmediate)로 지연되어야 한다. status 및 input:rejected 브로드캐스트의 기존 순서는 회귀되지 않아야 한다.",
+      "code_evidence_hint": "SessionManager.ts:1259 writeInput, :1277-1327 부가처리, :1330 pty.write",
+      "priority_hint": "critical"
+    },
+    {
+      "draft_id_hint": "PERF-BGSTAB",
+      "title": "HermesForegroundDetector 비대상 세션 조기 반환",
+      "roadmap_stage": "1",
+      "type_hint": "performance",
+      "statement": "HermesForegroundDetector.inspect는 세션이 attach되지 않았고 appHint가 hermes가 아닌 경우 최상단에서 즉시 null을 반환해, 프레임당 발생하는 불필요한 strip 1회 및 appendTail 연산을 생략해야 한다. 기존 attach 판정 동작과 결과는 변경되지 않아야 한다.",
+      "code_evidence_hint": "HermesForegroundDetector.ts:26-33,105-111",
+      "priority_hint": "medium"
+    },
+    {
+      "draft_id_hint": "PERF-BGSTAB",
+      "title": "디버그 비활성 시 서버측 원시 출력 디버그 캡처 생략",
+      "roadmap_stage": "1",
+      "type_hint": "performance",
+      "statement": "buildRawOutputDebugDetails는 isDebugCaptureEnabled가 false인 경우 호출 자체를 생략해야 한다. 현재는 결과가 매 청크마다 즉시 폐기됨에도 객체 할당과 byteLength 계산이 청크당 2회 반복 수행된다.",
+      "code_evidence_hint": "SessionManager.ts:822 buildRawOutputDebugDetails",
+      "priority_hint": "medium"
+    },
+    {
+      "draft_id_hint": "PERF-BGSTAB",
+      "title": "onData 청크당 strip/정규화/trim 단일 계산 메모이제이션",
+      "roadmap_stage": "2",
+      "type_hint": "performance",
+      "statement": "onData 핸들러는 stripTerminalControlSequences → 정규화 → trim 결과를 청크당 한 번만 계산하여 classifyAiTuiOutputSignal과 isLikelyCommandEchoOutput에 공유 전달해야 한다. 현재 프레임당 최대 4회(정규식 약 16패스) 호출되는 strip 연산을 1회(약 4패스)로 줄여야 하며, 동작 변경이 없는 순수 리팩터이므로 회귀 테스트로 기존 분류 결과 동일성을 고정해야 한다.",
+      "code_evidence_hint": "SessionManager.ts:3883 stripTerminalControlSequences 4-pass, onData 감지기 호출부 :731/:745/:747",
+      "priority_hint": "high"
+    },
+    {
+      "draft_id_hint": "PERF-BGSTAB",
+      "title": "세션별 출력 병합(coalescing)을 기본 경로에서 상시 적용",
+      "roadmap_stage": "2",
+      "type_hint": "performance",
+      "statement": "onData 청크는 세션별 8-16ms 창(leading-edge)으로 병합되어, 감지·headless write·라우팅이 청크당이 아니라 병합 창당 1회로 수렴해야 한다. 미구현 상태인 writeBatchMaxBytes/writeLagWarnMs 스캐폴딩과 기존 outputCoalesceWindowMs=16 설정값을 그대로 배선하여 config on/off로 제어 가능해야 하며, headless write의 마이크로태스크 홍수를 해소해 입력이 매크로태스크 사이에 끼어들 여지를 확보해야 한다.",
+      "code_evidence_hint": "config.schema.ts:115 writeBatchMaxBytes(미구현), :124 outputCoalesceWindowMs=16, :199 wsSendMode='direct', SessionManager.ts:3350 headless 마이크로태스크",
+      "priority_hint": "high"
+    },
+    {
+      "draft_id_hint": "PERF-BGSTAB",
+      "title": "포그라운드 AI 확정 후 repaint-only 프레임 재분류 스로틀",
+      "roadmap_stage": "2",
+      "type_hint": "performance",
+      "statement": "foreground가 AI로 확정되고 직전 activity가 repaint_only인 경우, 이후 프레임은 값싼 semantic-hint(raw 1패스)가 false인 동안 전체(full) 분류를 생략해야 한다. 기존 lastRepaintOnlyAt/lastSemanticOutputAt 상태를 재사용해야 하며, 상태 전이(idle/running 표시) 감지 지연은 보수적으로 실측 튜닝된 THROTTLE_MS 상한 이내로 제한되어야 한다.",
+      "code_evidence_hint": "축3 B3, lastRepaintOnlyAt/lastSemanticOutputAt 재사용",
+      "priority_hint": "medium"
+    },
+    {
+      "draft_id_hint": "FR-BGSTAB",
+      "title": "비포커스(백그라운드) 세션 프레임 감축을 위한 포커스 신호",
+      "roadmap_stage": "3",
+      "type_hint": "performance",
+      "statement": "클라이언트는 세션의 포커스/비포커스 상태를 서버에 신호하는 새 채널을 가져야 하며, 서버는 비가시 세션에 대해 감지·직렬화·전송 빈도를 저레이트로 낮추거나 드롭한 뒤 재포커스 시 screen-repair로 재동기화해야 한다. 이를 통해 전송/직렬화 부하가 총 세션 수가 아니라 가시 세션 수에 비례하도록 만들어야 한다.",
+      "code_evidence_hint": "축1 H3, client→server focus 신호(신규), screen-repair 재동기화",
+      "priority_hint": "low"
+    },
+    {
+      "draft_id_hint": "ARCH",
+      "title": "headless 상태유지·직렬화의 worker_threads 풀 오프로드",
+      "roadmap_stage": "3",
+      "type_hint": "performance",
+      "statement": "headless 터미널 상태유지와 serialize 작업을 hash(sessionId) 기준으로 워커 스레드 풀에 고정 배정하여 메인 이벤트 루프에서 오프로드해야 한다. 라이브/헤드리스 경로 분리(②) 선행 시 워커가 순수 백그라운드 작업이 되어 도입 난이도가 낮아지며, postMessage 구조적 복제 비용 완화(예: SharedArrayBuffer 링버퍼)와 세션-워커 1:1 순서 보장이 검토되어야 한다.",
+      "code_evidence_hint": "축4 A, worker_threads 풀, hash(sessionId) 고정 배정",
+      "priority_hint": "low"
+    },
+    {
+      "draft_id_hint": "ARCH",
+      "title": "멀티 프로세스 세션 샤딩",
+      "roadmap_stage": "3",
+      "type_hint": "performance",
+      "statement": "세션을 샤드별 node-pty + 부분 SessionManager로 분리하고 메인 프로세스는 라우팅만 수행하는 멀티 프로세스 아키텍처로 전환하여, 코어 수만큼 선형 확장과 장애 격리를 달성해야 한다. WorkspaceService·MCP·cross-session broadcast 결합 해체가 선행되어야 하는 최대 리팩터이며, 1·2단계로 단일 프로세스 상한을 최대한 밀어낸 뒤에도 부족한 경우의 최후 수단으로 취급되어야 한다.",
+      "code_evidence_hint": "축4 B, 샤드별 node-pty + 부분 SessionManager",
+      "priority_hint": "low"
+    }
+  ],
+  "ambiguities": [
+    {
+      "question": "3단계 항목(⑨ 백그라운드 세션 프레임 감축, ⑩ worker_threads 오프로드, ⑪ 세션 샤딩)을 지금 SRS 요구사항으로 등록해 구현 대상에 포함시킬지, 아니면 1·2단계 조치의 실측 결과를 본 뒤 결정할 장기 백로그로만 남길지.",
+      "why_nonstandard": "문서 스스로 3단계를 '난이도 L, 스케일 목표 도달용', ⑪을 '최후 수단'으로 명시하며 1·2단계 이후 재평가를 전제한다. 표준 관행(효과/난이도 우선순위)으로는 지금 등록 여부가 결정되지 않고, 사용자의 로드맵 우선순위 판단이 필요하다."
+    },
+    {
+      "question": "⑦(기본 direct 경로에서 출력 coalescing 상시 적용)이 기존 FR-BGSTAB-016의 정책과 충돌한다 — FR-BGSTAB-016 Implementation Notes는 'wsSendMode 기본값을 direct로 유지하고, coalescing을 포함한 관련 변경은 safe-send-observe/enforce 모드 롤아웃 근거가 나올 때까지 도입하지 않는다'를 명시한다. 이번 연구는 wsSendMode와 무관하게 기본 경로에서 coalescing을 상시 켜자고 제안하는데, 이를 FR-BGSTAB-016의 정책을 개정(update)하는 것으로 볼지, 별도의 독립적인(safe-send와 무관한) requirement로 병존시킬지.",
+      "why_nonstandard": "동일 스코프(BGSTAB) 내 기존 evolving 요구사항의 명시적 정책과 정면 충돌하는 사안이라 자동으로 new-feature로 분류할 수 없고, conflict/update 판정과 FR-BGSTAB-016 개정 여부를 사용자가 결정해야 한다."
+    },
+    {
+      "question": "0단계 판정 임계치(루프 지연 p99 상한, CPU 점유율 기준), ⑧의 THROTTLE_MS 값, 40세션 재현 시나리오의 '입력→에코 지연' 목표 상한 등 구체적인 성능 목표 수치를 지금 사용자가 정할지, 아니면 실측 하니스 도입 후 데이터 기반으로 후속 결정할지.",
+      "why_nonstandard": "문서가 '실측 필요'/'실측 튜닝'이라고 명시적으로 유보한 항목이라 표준 기본값으로 채울 수 없으며, AC의 검증 가능성을 위해 수치 확정 시점에 대한 사용자 결정이 필요하다."
+    },
+    {
+      "question": "⑩/⑪(worker_threads 오프로드, 세션 샤딩)을 BuilderGate Stability(BGSTAB) 스코프에 계속 둘지, 아키텍처 수준 변경이므로 Product Architecture(ARCH) 스코프로 옮길지.",
+      "why_nonstandard": "두 항목 모두 SessionManager 단일 프로세스 모델 자체를 바꾸는 구조적 변경으로, 기존 스코프 경계(BGSTAB=런타임 안정성 vs ARCH=제품 아키텍처) 중 어디에 속하는지가 코드 위치만으로 자명하지 않다."
+    },
+    {
+      "question": "①의 CODEX_HOME 격리 방식이 사용자 기존 ~/.codex 인증과 분리되는 문제를, 인증을 상속하는 방식으로 해결할지 아니면 -c 플래그 최소 개입 방식(격리 없이 tui 옵션만 주입)으로 우회할지.",
+      "why_nonstandard": "문서 6장이 '실측 필요'로 명시한 미확인 사항이며, 인증 상속 메커니즘 선택은 보안·사용자 경험에 영향을 주는 정책 결정이라 표준 기본값으로 해소할 수 없다."
+    }
+  ],
+  "implied_requirements": [
+    "F3(입력 방향에 우선순위/패스트패스가 전무하다는 발견)은 ③(writeInput 재정렬)만으로 완전히 해소되지 않을 수 있다 — 로드맵에 명시된 항목은 아니지만, 향후 전송 계층에 출력과 대칭되는 입력 전용 fast lane을 두는 별도 요구사항이 함축될 수 있다.",
+    "F1(라이브 출력은 이미 raw passthrough)과 F2(직렬화는 스냅샷 요청 시에만 lazy)는 ②/⑥ 구현의 안전성 근거로 인용되는 현재 상태의 불변식이다 — 로드맵이 별도 요구사항으로 명시하지는 않았으나, ②/⑥ 구현 시 이 두 불변식이 깨지지 않았음을 확인하는 회귀 테스트가 암묵적으로 필요하다."
+  ],
+  "semantic_equivalences": []
+}

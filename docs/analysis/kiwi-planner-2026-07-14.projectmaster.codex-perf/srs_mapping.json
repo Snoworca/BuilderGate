@@ -1,0 +1,55 @@
+{
+  "req_inventory": [
+    {
+      "req_id": "OBS-BGSTAB-003",
+      "stability": "evolving",
+      "status": "planned",
+      "ac_total": 3,
+      "ac_ids": ["AC-1", "AC-2", "AC-3"],
+      "files_from_trace": ["server/src/index.ts:797-801", "server/src/services/SessionManager.ts:132-147", "server/src/services/SessionManager.ts:3384"],
+      "depends_on": [],
+      "feasibility_hint": "high"
+    },
+    {
+      "req_id": "FR-BGSTAB-020",
+      "stability": "evolving",
+      "status": "planned",
+      "ac_total": 3,
+      "ac_ids": ["AC-1", "AC-2", "AC-3"],
+      "files_from_trace": ["server/src/services/SessionManager.ts:590-591", "server/src/services/SessionManager.ts:1814"],
+      "depends_on": [],
+      "feasibility_hint": "high"
+    },
+    {
+      "req_id": "PERF-BGSTAB-005",
+      "stability": "evolving",
+      "status": "planned",
+      "ac_total": 3,
+      "ac_ids": ["AC-1", "AC-2", "AC-3"],
+      "files_from_trace": ["server/src/services/HermesForegroundDetector.ts:26-53", "server/src/services/HermesForegroundDetector.ts:105-111"],
+      "depends_on": [],
+      "feasibility_hint": "high"
+    },
+    {
+      "req_id": "PERF-BGSTAB-006",
+      "stability": "evolving",
+      "status": "planned",
+      "ac_total": 3,
+      "ac_ids": ["AC-1", "AC-2", "AC-3"],
+      "files_from_trace": ["server/src/services/SessionManager.ts:822"],
+      "depends_on": [],
+      "feasibility_hint": "high"
+    },
+    {
+      "req_id": "PERF-BGSTAB-007",
+      "stability": "evolving",
+      "status": "planned",
+      "ac_total": 3,
+      "ac_ids": ["AC-1", "AC-2", "AC-3"],
+      "files_from_trace": ["server/src/services/SessionManager.ts:3883-3889", "server/src/services/SessionManager.ts:724-830"],
+      "depends_on": [],
+      "feasibility_hint": "high"
+    }
+  ],
+  "dependency_graph": []
+}

@@ -1,0 +1,7 @@
+[
+  { "id": "OBS-BGSTAB-003", "stability": "evolving", "ac_total": 3, "ac_ids": ["AC-1", "AC-2", "AC-3"] },
+  { "id": "FR-BGSTAB-020", "stability": "evolving", "ac_total": 3, "ac_ids": ["AC-1", "AC-2", "AC-3"] },
+  { "id": "PERF-BGSTAB-005", "stability": "evolving", "ac_total": 3, "ac_ids": ["AC-1", "AC-2", "AC-3"] },
+  { "id": "PERF-BGSTAB-006", "stability": "evolving", "ac_total": 3, "ac_ids": ["AC-1", "AC-2", "AC-3"] },
+  { "id": "PERF-BGSTAB-007", "stability": "evolving", "ac_total": 3, "ac_ids": ["AC-1", "AC-2", "AC-3"] }
+]

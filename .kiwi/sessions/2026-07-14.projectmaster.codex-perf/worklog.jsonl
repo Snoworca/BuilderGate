@@ -1,0 +1,48 @@
+{"event":"phase_start","ts":"2026-07-13T17:06:51Z","run_id":"2026-07-14.projectmaster.codex-perf","plan_path":"docs/plans/2026-07-14.projectmaster.codex-perf.plan.md","target":"0.5.5-buildergate-stability","mode":"normal","flags":["TASK_FILTER=T-PH001-01,T-PH001-02"]}
+{"event":"task_start","ts":"2026-07-13T17:06:51Z","task_id":"T-PH001-01","phase_id":"PH-001"}
+{"event":"tdd_draft_done","ts":"2026-07-13T17:10:00Z","task_id":"T-PH001-01","iter":1,"file_paths":["server/src/test-runner.ts"]}
+{"event":"tdd_review_done","ts":"2026-07-13T17:18:00Z","task_id":"T-PH001-01","iter":1,"severity_summary":{"CRITICAL":2,"HIGH":0,"MEDIUM":1,"LOW":1}}
+{"event":"tdd_draft_done","ts":"2026-07-13T17:20:00Z","task_id":"T-PH001-01","iter":2,"file_paths":["server/src/test-runner.ts"],"note":"strengthened AC-2 transition test per S1/S3 CRITICAL"}
+{"event":"tdd_review_done","ts":"2026-07-13T17:22:00Z","task_id":"T-PH001-01","iter":2,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":1,"LOW":1},"note":"S1/S3 re-review: critical_resolved=true, verdict pass"}
+{"event":"tdd_red_confirmed","ts":"2026-07-13T17:22:30Z","task_id":"T-PH001-01","exit_code":1,"test_case_ids":["TC-REQ-PERF-BGSTAB-005-AC1-01","TC-REQ-PERF-BGSTAB-005-AC2-01"]}
+{"event":"task_start","ts":"2026-07-13T17:22:40Z","task_id":"T-PH001-02","phase_id":"PH-001"}
+{"event":"impl_done","ts":"2026-07-13T17:23:30Z","task_id":"T-PH001-02","iter":1,"files_changed":["server/src/services/HermesForegroundDetector.ts"]}
+{"event":"prickly_review_done","ts":"2026-07-13T17:24:00Z","task_id":"T-PH001-02","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":1},"verdict":"pass","behavioral_equivalence":"preserved"}
+{"event":"test_green","ts":"2026-07-13T17:25:00Z","task_id":"T-PH001-02","exit_code":0}
+{"event":"regression_done","ts":"2026-07-13T17:25:10Z","task_id":"T-PH001-02","scope":"full","passed":495,"failed":0}
+{"event":"mcp_call","ts":"2026-07-13T17:24:30Z","task_id":"T-PH001-02","tool":"add_trace_link","ok":true}
+{"event":"mcp_call","ts":"2026-07-13T17:24:45Z","task_id":"T-PH001-02","tool":"add_verification_evidence","ok":true}
+{"event":"mcp_call","ts":"2026-07-13T17:25:00Z","task_id":"T-PH001-02","tool":"add_verification_evidence","ok":true}
+{"event":"mcp_call","ts":"2026-07-13T17:25:30Z","task_id":"T-PH001-02","tool":"update_status","ok":true}
+{"event":"task_done","ts":"2026-07-13T17:22:35Z","task_id":"T-PH001-01","duration_ms":940000}
+{"event":"task_done","ts":"2026-07-13T17:26:18Z","task_id":"T-PH001-02","duration_ms":218000}
+{"event":"phase_end","ts":"2026-07-13T17:26:18Z","run_id":"2026-07-14.projectmaster.codex-perf","summary":"PERF-BGSTAB-005 red+green pair complete; 495/495 suite; status in_progress; pm-child (no §8.4 follow-up)"}
+{"event":"phase_start","ts":"2026-07-14T06:50:00Z","run_id":"2026-07-14.projectmaster.codex-perf","plan_path":"docs/plans/2026-07-14.projectmaster.codex-perf.plan.md","target":"0.5.5-buildergate-stability","mode":"normal","flags":["TASK_FILTER=T-PH002-01,T-PH002-02"]}
+{"event":"task_start","ts":"2026-07-14T06:50:00Z","task_id":"T-PH002-01","phase_id":"PH-002"}
+{"event":"tdd_draft_done","ts":"2026-07-14T06:55:00Z","task_id":"T-PH002-01","iter":1,"file_paths":["server/src/test-runner.ts"]}
+{"event":"tdd_review_done","ts":"2026-07-14T07:15:00Z","task_id":"T-PH002-01","iter":1,"severity_summary":{"CRITICAL":1,"HIGH":1,"MEDIUM":1,"LOW":2},"note":"sonnet verifier: tautological real-data assertion + only 2/3 axes; resolved by 3-axis distinction test rewrite"}
+{"event":"tdd_red_confirmed","ts":"2026-07-14T07:00:00Z","task_id":"T-PH002-01","exit_code":1,"test_case_ids":["TC-REQ-OBS-BGSTAB-003-AC1-01","TC-REQ-OBS-BGSTAB-003-AC2-01"]}
+{"event":"task_start","ts":"2026-07-14T07:00:00Z","task_id":"T-PH002-02","phase_id":"PH-002"}
+{"event":"impl_done","ts":"2026-07-14T07:10:00Z","task_id":"T-PH002-02","iter":1,"files_changed":["server/src/services/SessionManager.ts","server/src/test-runner.ts"]}
+{"event":"prickly_review_done","ts":"2026-07-14T07:16:00Z","task_id":"T-PH002-02","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":1,"MEDIUM":3,"LOW":1},"note":"HIGH cpu-baseline-corruption + 2 MEDIUM fixed; 1 MEDIUM (histogram windowing) deferred with rationale (OQ-02); LOW comment fixed"}
+{"event":"test_green","ts":"2026-07-14T07:20:00Z","task_id":"T-PH002-02","exit_code":0}
+{"event":"regression_done","ts":"2026-07-14T07:24:00Z","task_id":"T-PH002-02","scope":"full","passed":503,"failed":0}
+{"event":"mcp_call","ts":"2026-07-14T07:22:00Z","task_id":"T-PH002-02","tool":"add_trace_link","ok":true}
+{"event":"mcp_call","ts":"2026-07-14T07:22:10Z","task_id":"T-PH002-02","tool":"add_verification_evidence","ok":true}
+{"event":"mcp_call","ts":"2026-07-14T07:22:20Z","task_id":"T-PH002-02","tool":"add_verification_evidence","ok":true}
+{"event":"mcp_call","ts":"2026-07-14T07:22:30Z","task_id":"T-PH002-02","tool":"update_status","ok":true}
+{"event":"task_done","ts":"2026-07-14T07:00:00Z","task_id":"T-PH002-01","duration_ms":600000}
+{"event":"task_done","ts":"2026-07-14T07:25:00Z","task_id":"T-PH002-02","duration_ms":1500000}
+{"event":"phase_end","ts":"2026-07-14T07:25:00Z","run_id":"2026-07-14.projectmaster.codex-perf","summary":"OBS-BGSTAB-003 red+green pair complete; 503/503 suite; tsc 0; status implemented; pm-child (no §8.4 follow-up, no pipeline emit)"}
+{"event":"task_start","ts":"2026-07-14T16:20:00Z","task_id":"T-PH002-03","phase_id":"PH-002"}
+{"event":"tdd_draft_done","ts":"2026-07-14T16:30:00Z","task_id":"T-PH002-03","iter":1,"file_paths":["server/src/test-runner.ts"]}
+{"event":"tdd_review_done","ts":"2026-07-14T16:33:00Z","task_id":"T-PH002-03","iter":1,"severity_summary":"sonnet4 4-axis all pass (CRITICAL=0,HIGH=0); MEDIUM position-lock applied (exact-line equality)"}
+{"event":"tdd_red_confirmed","ts":"2026-07-14T16:35:00Z","task_id":"T-PH002-03","exit_code":1,"test_case_ids":["TC-REQ-FR-BGSTAB-020-AC1-01","TC-REQ-FR-BGSTAB-020-AC2-01"]}
+{"event":"task_done","ts":"2026-07-14T16:40:00Z","task_id":"T-PH002-03","duration_ms":1200000}
+{"event":"task_start","ts":"2026-07-14T16:40:00Z","task_id":"T-PH002-04","phase_id":"PH-002"}
+{"event":"impl_done","ts":"2026-07-14T16:55:00Z","task_id":"T-PH002-04","iter":1,"files_changed":["server/src/services/SessionManager.ts","server/src/schemas/config.schema.ts"]}
+{"event":"prickly_review_done","ts":"2026-07-14T17:00:00Z","task_id":"T-PH002-04","iter":1,"severity_summary":"pass (CRITICAL=0,HIGH=0); 2 MEDIUM addressed by shape-guard test; 3 LOW accepted with rationale"}
+{"event":"test_green","ts":"2026-07-14T17:03:00Z","task_id":"T-PH002-04","exit_code":0}
+{"event":"regression_done","ts":"2026-07-14T17:04:00Z","task_id":"T-PH002-04","scope":"full","passed":506,"failed":0}
+{"event":"mcp_call","ts":"2026-07-14T17:05:00Z","task_id":"T-PH002-04","tool":"update_status","ok":true}
+{"event":"task_done","ts":"2026-07-14T17:05:00Z","task_id":"T-PH002-04","duration_ms":1500000}

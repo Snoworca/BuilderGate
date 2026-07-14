@@ -1,0 +1,56 @@
+{
+  "task_id": "T-PH002-04",
+  "phase_id": "PH-002",
+  "req_ids": ["FR-BGSTAB-020"],
+  "type": "code",
+  "tdd_phase": "green",
+  "spawn_context": "pm-child",
+  "started_at": "2026-07-14T16:40:00Z",
+  "completed_at": "2026-07-14T17:05:00Z",
+  "clarification_resolved": {
+    "slug": "codex-detection-trigger",
+    "severity": "clarification",
+    "decision": "OQ-03: This codebase launches codex via command submission (submitAgentCommand -> SessionInputGateway -> SessionManager.writeInput), not at session creation (createSession spawns a shell only). Detection/injection point resolved to writeInput's codex command-submission path, reusing existing detectForegroundAppHint (codex executable token). createSession never sees a codex command; injecting there would be hollow. Non-codex sessions unchanged; config default off."
+  },
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": ["server/src/services/SessionManager.ts", "server/src/schemas/config.schema.ts"],
+        "summary": "config.schema.ts: added sessionSchema.codexTuiSuppression z.boolean().default(false) (gate, default off per plan R-02). SessionManager: runtimeSessionConfig gains codexTuiSuppression, read in constructor via structural cast (SessionConfig interface in config.types.ts is out of plan files[], so cast avoids touching a 3rd file). Module-level CODEX_TUI_SUPPRESSION_FLAGS + pure injectCodexTuiSuppressionFlags(command) inserting -c flags after the executable token (before subcommand). writeInput calls new private maybeInjectCodexTuiSuppression(input, submittedCommand, hintedAppId, hasEnter) before pty.write: rewrites only when config on + hintedAppId==='codex' + full-line atomic submission (guards partial keystrokes); detection/tracking (submittedCommand, aiTuiLaunchAttempt, notifyCommandSubmitted) stay on the original command."
+      }
+    ],
+    "formal_and_prickly_review": {
+      "formal": "Files changed subset of plan files[] (SessionManager.ts, config.schema.ts + test-runner.ts red pair). No config.types.ts touched (cast). No Mock in impl. tsc exit 0.",
+      "prickly_reviewer": "verdict=pass (CRITICAL=0, HIGH=0). 2 MEDIUM (both test-quality: partial-keystroke guard untested + arg-bearing flag position untested) -> addressed by adding testSessionManagerCodexTuiSuppressionInjectionShapeGuards. 3 LOW: echo-divergence (salvaged by detectForegroundAppHint leading-token match, low risk), cast (accepted under file-scope constraint, TODO to fold into SessionConfig when config.types.ts in scope), spec-literal quotes in alternate_screen=\"never\" (shell-consumed, functionally equivalent) - all accepted with rationale."
+    },
+    "green_evidence": {
+      "command": "cd server && npx tsx src/test-runner.ts",
+      "exit_code": 0,
+      "tsc_exit": 0,
+      "passed_test_case_ids": [
+        "TC-REQ-FR-BGSTAB-020-AC1-02",
+        "TC-REQ-FR-BGSTAB-020-AC2-02"
+      ],
+      "extra_tests": ["testSessionManagerCodexTuiSuppressionInjectionShapeGuards"],
+      "timestamp": "2026-07-14T17:05:00Z"
+    },
+    "dod_check": [
+      {"item": "FR-BGSTAB-020 신규 테스트 green(종료 0)", "satisfied": true},
+      {"item": "기존 test-runner.ts 전체 회귀 통과", "satisfied": true, "note": "506/506 (503 baseline + 3 new)"},
+      {"item": "AC-1: Codex 감지 시 tui 억제 설정(-c) 주입", "satisfied": true, "note": "exact-line equality: codex -c tui.animations=false -c tui.alternate_screen=\"never\" -c tui.show_tooltips=false"},
+      {"item": "AC-2: config 값에 따른 주입 on/off 제어", "satisfied": true, "note": "on injects / off unchanged / non-codex unchanged"}
+    ]
+  },
+  "phase3": {
+    "regression": {"scope": "full", "passed": 506, "failed": 0, "tsc_exit": 0},
+    "mcp_calls": [
+      {"tool": "update_status", "args": {"id": "FR-BGSTAB-020", "status": "implemented"}, "ok": true},
+      {"tool": "add_verification_evidence", "args": {"id": "FR-BGSTAB-020", "type": "test", "reference": "server/src/test-runner.ts#testSessionManagerCodexTuiSuppressionInjectedWhenEnabled", "covers": "AC-1"}, "ok": true, "response": {"evidenceId": "VE-2"}},
+      {"tool": "add_verification_evidence", "args": {"id": "FR-BGSTAB-020", "type": "test", "reference": "server/src/test-runner.ts#testSessionManagerCodexTuiSuppressionGatedByConfig", "covers": "AC-2"}, "ok": true, "response": {"evidenceId": "VE-3"}},
+      {"tool": "add_trace_link", "args": {"id": "FR-BGSTAB-020", "type": "Code", "reference": "server/src/services/SessionManager.ts:1394-1417", "relation": "implements"}, "ok": true},
+      {"tool": "add_trace_link", "args": {"id": "FR-BGSTAB-020", "type": "Code", "reference": "server/src/schemas/config.schema.ts:97", "relation": "implements"}, "ok": true}
+    ],
+    "completed_work_note": "add_completed_work(plan-summary) deferred to parent kiwi-pm per pm-child convention."
+  }
+}

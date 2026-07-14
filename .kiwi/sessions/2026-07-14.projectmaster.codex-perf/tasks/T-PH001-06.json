@@ -1,0 +1,49 @@
+{
+  "task_id": "T-PH001-06",
+  "paired_red_task_id": "T-PH001-05",
+  "req_id": "PERF-BGSTAB-007",
+  "spawn_context": "pm-child",
+  "coder_run_id": "2026-07-14.projectmaster.codex-perf.coder-perf007",
+  "completed_at": "2026-07-14",
+  "phase1": {
+    "red_evidence": {
+      "command": "BUILDERGATE_TEST_FILTER=\"PERF-BGSTAB-007\" npx tsx src/test-runner.ts",
+      "exit_code": 1,
+      "captured_failure": "FAIL PERF-BGSTAB-007 AI TUI classifiers use the shared precomputed strip result -> AssertionError: actual 'busy' - expected 'waiting_input' (shared strip not implemented). Golden identity test PASS.",
+      "timestamp": "2026-07-14"
+    }
+  },
+  "phase2": {
+    "green_evidence": {
+      "command": "npx tsx src/test-runner.ts",
+      "exit_code": 0,
+      "timestamp": "2026-07-14"
+    },
+    "green_evidence_meta": {
+      "full_suite": "499 test(s) passed (497 baseline + 2 new)",
+      "tsc_noEmit_exit": 0,
+      "passed_test_case_ids": [
+        "testAiTuiOutputClassificationIdentityIsPreservedAcrossStripSharing",
+        "testAiTuiClassifiersUseSharedPrecomputedStripResult"
+      ]
+    },
+    "files_changed": [
+      "server/src/services/SessionManager.ts",
+      "server/src/test-runner.ts"
+    ],
+    "refactor": "onData computes stripAndNormalizeTerminalOutput(statusData) at most once per chunk (lazy-memoized) and shares it via optional precomputedNormalized param to classifyAiTuiOutputSignal / isLikelyCommandEchoOutput / isLikelyAiTuiLaunchFailureOutput / isShellPromptReturnOutput / isPowerShellPromptRedrawOutput. Pure refactor: shared value byte-identical to each helper's prior internal strip+CRLF-normalize; raw-dependent paths (containsAiTuiTerminalMotion/hasAiTuiRepaintHint/isEchoOutput/isAiTuiRepaintOnlyOutput) keep raw."
+  },
+  "phase3": {
+    "regression": { "scope": "full", "passed": 499, "failed": 0 },
+    "mcp_calls": [
+      { "tool": "add_verification_evidence", "id": "PERF-BGSTAB-007", "evidenceId": "VE-2", "covers": "AC-1", "ok": true },
+      { "tool": "add_verification_evidence", "id": "PERF-BGSTAB-007", "evidenceId": "VE-3", "covers": "AC-2", "ok": true },
+      { "tool": "add_trace_link", "id": "PERF-BGSTAB-007", "type": "Code", "reference": "server/src/services/SessionManager.ts:724-832", "relation": "implements", "ok": true },
+      { "tool": "update_status", "id": "PERF-BGSTAB-007", "status": "implemented", "ok": true }
+    ]
+  },
+  "verification_subagents": {
+    "refactor_correctness": "No behavior-change findings (byte-identical threading; raw/normalized routing correct; tsc exit 0).",
+    "test_integrity": "AC-2 confirmed genuine red->green lock via real production methods, no mocks; onData-integration covered by ~20 pre-existing foreground classification tests (all green)."
+  }
+}

@@ -93,6 +93,8 @@ export const sessionSchema = z.object({
   idleDelayMs: z.number().min(50).max(5000).default(200),
   runningDelayMs: z.number().min(0).max(2000).default(250),
   processCleanup: sessionProcessCleanupSchema,
+  // FR-BGSTAB-020: Codex 감지 세션에 tui 억제 -c 설정 주입 여부 (기본 off — 감지 오탐 위험 완화).
+  codexTuiSuppression: z.boolean().default(false),
 });
 
 // ============================================================================

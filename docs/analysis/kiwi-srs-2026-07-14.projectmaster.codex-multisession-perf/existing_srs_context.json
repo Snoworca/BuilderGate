@@ -1,0 +1,165 @@
+{
+  "candidate_matches": [
+    {
+      "id": "REL-BGSTAB-004",
+      "scope": "BGSTAB",
+      "title": "Fallback replay output preservation and degraded snapshot convergence",
+      "relation_hint": "potential-conflict",
+      "similarity_score": 0.75,
+      "note": "Status=implemented, Stability=stable. AC-4/AC-5 already distinguish 'fallback data is empty because no recoverable data exists' vs 'data was withheld' and require the degraded path to converge into a usable recovery instead of an opaque empty-fallback loop. New idea (2) 'TUI headless write skip' (research F1: skip @xterm/headless terminal.write() for isInteractiveForeground sessions since live output already streams raw) would make EVERY reconnect to a live TUI session hit the 'no recoverable data exists' branch by construction, not as a rare degraded edge case. That inverts this requirement's intent (recoverable degraded state is the exception) into the common case for exactly the sessions this optimization targets. Any authoring of idea (2) must extend this REQ's AC-4/AC-5 with an explicit new recovery story (e.g. research's proposed raw ring buffer + resize/\\x0c nudge) rather than silently letting stable/implemented ACs regress."
+    },
+    {
+      "id": "FR-BGSTAB-018",
+      "scope": "BGSTAB",
+      "title": "Empty fallback snapshot convergence and placeholder suppression",
+      "relation_hint": "potential-conflict",
+      "similarity_score": 0.7,
+      "note": "Status=planned. AC-1 depends on 'a valid local viewport snapshot exists for the same session and geometry' as the good path; AC-2 handles repeated empty-fallback as the degraded path. If idea (2) headless-skip makes server-authoritative recovery unavailable for TUI sessions, local-restore-fails-then-repeated-empty-fallback becomes the default path for those sessions, i.e. this REQ's suppression logic would be exercised constantly rather than occasionally. Needs coordinated design, not independent authoring."
+    },
+    {
+      "id": "OBS-BGSTAB-002",
+      "scope": "BGSTAB",
+      "title": "Empty fallback snapshot diagnostics and regression evidence",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.55,
+      "note": "Status=planned. AC-2/AC-3 enumerate fallback/degraded reason taxonomy (degraded headless, truncated-empty oversized, no recoverable data, recoverable data withheld, replay refresh, repair replay). A deliberate 'headless intentionally not maintained for this TUI session' state is a NEW reason category not yet in this taxonomy -- if idea (2) ships, this REQ needs a new AC/reason value so operators can distinguish 'skipped by policy' from 'degraded by failure'."
+    },
+    {
+      "id": "FR-BGSTAB-003",
+      "scope": "BGSTAB",
+      "title": "Visible terminal output scheduling and recovery",
+      "relation_hint": "potential-conflict",
+      "similarity_score": 0.6,
+      "note": "Status=implemented, Stability=stable. Rationale explicitly frames the bounded scheduler as shifting recovery to 'server-authoritative snapshot or repair paths' -- idea (2) removes the server-side headless state that backs that authoritative snapshot for TUI-foreground sessions specifically, i.e. it weakens the recovery half of the exact tradeoff this REQ already made. Also the source-of-truth: F1 in the new research (raw passthrough bypasses headless already for live output) is itself evidence FOR this REQ's existing design, not new information contradicting it -- cite F1 as confirming context, not as grounds to reopen FR-BGSTAB-003 itself."
+    },
+    {
+      "id": "FR-BGSTAB-014",
+      "scope": "BGSTAB",
+      "title": "Wave 7 frontend runtime resource consumers",
+      "relation_hint": "potential-conflict",
+      "similarity_score": 0.5,
+      "note": "Status=implemented, Stability=stable. AC-5 already implements a DIFFERENT-LAYER version of 'skip write, restore from authoritative recovery': client-side hidden-tab xterm writes are skipped and only cleared after 'snapshot restore, repair, or equivalent authoritative recovery succeeds'. That client-side skip is safe today because the server still maintains authoritative headless state to restore from. Idea (2)/(9) (server headless skip for TUI sessions; background/non-focus frame reduction) would remove that safety net for exactly the sessions where AC-5's hidden-output skip is most likely to be active (long-running background AI TUI tabs), compounding two independent 'skip and trust recovery' optimizations across layers."
+    },
+    {
+      "id": "FR-MCP-002",
+      "scope": "MCP",
+      "title": "Shared input gateway for MCP messages and leader replies",
+      "relation_hint": "potential-conflict",
+      "similarity_score": 0.75,
+      "note": "Status=planned, Priority=critical. Trace links list server/src/services/SessionManager.ts:1250-1337 with relation 'verifies' (i.e. FR-MCP-002 treats writeInput's current internal behavior, including the AI TUI idle invariant, as an already-existing fixed dependency it builds a gateway in front of -- it does not plan to modify writeInput's internals). New idea (3) 'writeInput reorder' (research F3/finding at SessionManager.ts:1277-1327: move pty.write to the front, defer commandBuffer/foreground-hint/status-transition/echoTracker updates to after, possibly via setImmediate) restructures exactly that region. AC-5 requires 'the shared input path preserves the existing invariant that [echo/redraw/ticker/waiting-input] events do not transition the session to running' -- deferring status-transition bookkeeping asynchronously risks a race where a subsequent gateway decision (audit, replay-pending check) observes a stale status. Any REQ authored for idea (3) should add a depends_on/related trace to FR-MCP-002 and confirm ordering guarantees survive the deferral, since FR-MCP-002 is planned concurrently in the same 0.5.5-buildergate-stability target."
+    },
+    {
+      "id": "FR-BGSTAB-002",
+      "scope": "BGSTAB",
+      "title": "Browser WebSocket input backpressure",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.55,
+      "note": "Status=implemented, Stability=stable. This REQ governs the BROWSER-side (client) input send path only (WebSocket.bufferedAmount gating before the socket). New idea (3) is the SERVER-side counterpart: reordering work inside SessionManager.writeInput after the byte already arrived server-side. Different layer, not literally overlapping code, but conceptually the same 'input priority' theme this REQ established; AC-6 ('raw input content is not written to debug output' when backpressured/queued) must still hold if writeInput's bookkeeping (which includes debug/echo tracking) is deferred. Depends_on relation is appropriate, not conflict, provided AC-6 is explicitly re-verified for the new ordering."
+    },
+    {
+      "id": "FR-BGSTAB-017",
+      "scope": "BGSTAB",
+      "title": "Frontend recovery write gate and queued input release barrier",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.5,
+      "note": "Status=planned. Gates queued input release on recovery drain (frontend). Depends_on FR-BGSTAB-002. If idea (3)'s server-side writeInput reorder changes timing/ordering of server-side input acceptance signals, this REQ's release-timeout/drain semantics should be re-checked for consistency, though the direct dependency chain is FR-BGSTAB-002 not writeInput internals -- lower conflict risk than FR-MCP-002's direct trace."
+    },
+    {
+      "id": "FR-BGSTAB-016",
+      "scope": "BGSTAB",
+      "title": "Priority-aware WebSocket safe-send under output flood",
+      "relation_hint": "potential-overlap",
+      "similarity_score": 0.65,
+      "note": "Status=planned. This REQ already specifies 'output coalescing' (AC-4: adjacent output messages belonging to the same session may be coalesced within byte/window limits) but at the OUTBOUND WEBSOCKET TRANSPORT layer (server->client send policy in wsSendPolicy.ts/WsRouter.ts), gated behind wsSendMode=safe-send-*. New research idea (7) 'per-session output coalescing' proposes coalescing at PTY onData INGESTION time (before detectors/headless even run), which is upstream of and independent from wsSendMode. Same word ('coalescing'), same conceptual family, different pipeline stage and different trigger condition (always-on ingestion merge vs safe-send-mode-gated transport merge). High naming-collision risk for config keys and code review confusion; recommend the new REQ explicitly distinguish 'ingestion coalescing' from this REQ's 'transport coalescing' in its Requirement/Rationale text, and consider a differently-named config key from FR-BGSTAB-015's existing resourceLimits.ws.outputCoalesceWindowMs."
+    },
+    {
+      "id": "FR-BGSTAB-015",
+      "scope": "BGSTAB",
+      "title": "ConPTY transport and recovery Settings contract",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.6,
+      "note": "Status=planned. Establishes the precedent and exact Settings-key matrix pattern (every new queue size/flush interval/timeout/threshold/mode must be Settings-exposed, validated, persisted, with applyScope). Any new tunables introduced by ideas (0)/(1)/(2)/(6)/(7)/(8) (per-frame time budget already exists via PERF-BGSTAB-001, but a new ingestion coalesce window, headless-skip toggle, repaint-throttle-ms, Codex animation-suppression flags) should be added as rows to this REQ's Settings matrix rather than introduced as new hard-coded constants, per this REQ's own rationale ('every new queue size, flush interval, timeout, threshold, and mode value to be configurable ... instead of being hard-coded')."
+    },
+    {
+      "id": "OBS-BGSTAB-001",
+      "scope": "BGSTAB",
+      "title": "ConPTY input-lag recovery telemetry and soak evidence",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.6,
+      "note": "Status=planned. Already requires baseline telemetry for queue depth, projected buffered amount, control flush latency, recovery-to-ready latency, input write correlation -- all scoped to ConPTY RECOVERY/OUTPUT-FLOOD conditions. New research's Phase 0 measurement harness (perf_hooks.monitorEventLoopDelay histogram, process.cpuUsage() delta as %-of-one-core, headless-write cumulative time) is a GENERAL always-on health metric, not recovery-specific, and would extend rather than duplicate this REQ. Research explicitly proposes reusing the existing GET /api/sessions/telemetry / getObservabilitySnapshot() surface this REQ's trace links already touch (server/src/ws/WsRouter.ts:1738-1772, server/src/types/ws-protocol.ts:331-393) -- strong candidate for 'extends' rather than a disconnected new observability requirement."
+    },
+    {
+      "id": "FR-BGSTAB-012",
+      "scope": "BGSTAB",
+      "title": "Wave 4 bounded output queues and WebSocket backpressure",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.6,
+      "note": "Status=implemented, Stability=stable. Owns the exact SessionManager.ts headless-output hot path (queueHeadlessOutput, commit-after-write routeSessionOutput ordering, O(1) dequeue, byte/chunk caps) that ideas (2)/(7) both touch. AC-4 requires routeSessionOutput() to run only AFTER the headless write commits so screenSeq ordering stays consistent -- if idea (2) skips the headless write entirely for some sessions, this ordering guarantee needs an explicit carve-out (what does 'after headless commit' mean when there is no headless write?). Any new REQ touching this code path should add a depends_on/extends trace to FR-BGSTAB-012 and confirm AC-2/AC-4/AC-5 are not silently regressed."
+    },
+    {
+      "id": "PERF-BGSTAB-001",
+      "scope": "BGSTAB",
+      "title": "Frame time-budgeted visible output flush with input yield",
+      "relation_hint": "potential-overlap",
+      "similarity_score": 0.55,
+      "note": "Status=implemented, Stability=evolving. This is the FRONTEND, client-side precedent for exactly the pattern research ideas (3)/(7) want on the SERVER: drain multiple units of work per tick within a time budget, and yield/skip when higher-priority work (keyboard input) is pending (AC-2). Same research lineage: cites docs/research/2026-07-02.buildergate-native-performance-54-sessions-deep-analysis.md, the direct predecessor to the new 2026-07-13 Codex multisession research. Strong precedent to reference/extend conceptually (not code-overlapping, frontend vs backend), and evidence this pattern is already an accepted approach in this codebase."
+    },
+    {
+      "id": "PERF-BGSTAB-002",
+      "scope": "BGSTAB",
+      "title": "Non-blocking session process start-identity capture",
+      "relation_hint": "unrelated",
+      "similarity_score": 0.4,
+      "note": "Status=implemented. Same research lineage (2026-07-02 54-session deep analysis) and same general theme (Node.js single-thread event-loop blocking), but a DIFFERENT specific root cause already fixed: a one-time synchronous execFileSync at session-creation time, not the new research's ongoing per-chunk onData hot path across many concurrent sessions. Listed as continuity context, not overlapping work -- shows this target already has a track record of 'PERF-BGSTAB-NNN' style incremental fixes for the same performance investigation, supporting continuing the numbering (PERF-BGSTAB-005+) for the new items rather than starting a new scope."
+    },
+    {
+      "id": "PERF-BGSTAB-003",
+      "scope": "BGSTAB",
+      "title": "Single-pass keystroke debug payload computation with cached codec instances",
+      "relation_hint": "potential-overlap",
+      "similarity_score": 0.6,
+      "note": "Status=implemented. Established the exact pattern research idea (5) wants on the server: 'skip the high-cost debug payload computation when debug capture is disabled' (AC-3) plus 'reuse module-singleton codec instances instead of constructing new instances per call' (AC-2) -- but scoped to the FRONTEND keystroke debug path (buildTerminalInputDebugPayload). Idea (5) is the SERVER-side counterpart (buildRawOutputDebugDetails gated behind isDebugCaptureEnabled in SessionManager onData). Same pattern family, different function/file -- precedent, not code overlap."
+    },
+    {
+      "id": "PERF-BGSTAB-004",
+      "scope": "BGSTAB",
+      "title": "Cached UTF-8 byte-length and resource-limit reuse in terminal output handling",
+      "relation_hint": "potential-overlap",
+      "similarity_score": 0.45,
+      "note": "Status=implemented. Same 'remove per-message/per-call allocation via singleton/cache reuse' pattern family as research idea (6) (memoize strip/normalize once per onData call instead of ~4x), though the specific computation differs (byte-length codec + resource-limit cache vs strip/normalize/regex passes) and this one is frontend TerminalContainer, idea (6) is server SessionManager.onData."
+    },
+    {
+      "id": "FR-BGSTAB-001",
+      "scope": "BGSTAB",
+      "title": "Runtime resource limits for terminal stability",
+      "relation_hint": "unrelated",
+      "similarity_score": 0.3,
+      "note": "Status=implemented, Stability=stable. Foundational typed runtime-config contract nearly every other BGSTAB REQ depends_on. New tunables from this research (idea 1's Codex animation-suppression flags, idea 2's headless-skip toggle, idea 7's ingestion coalesce window) would ultimately need to route through this contract (or its FR-BGSTAB-015 ConPTY-specific extension) rather than duplicate it. Listed as an anchor dependency, not a conflict."
+    }
+  ],
+  "relevant_scopes": [
+    {
+      "scope": "BGSTAB",
+      "file": "docs/spec/30.buildergate-stability.srs.md",
+      "why": "Primary scope. Owns the exact SessionManager.ts onData hot path (headless output queue, output scheduling, WS transport safe-send/coalescing, replay/repair recovery, Settings-backed runtime config) that every research idea (0-11) modifies or extends. Active target 0.5.5-buildergate-stability is also the target for FR-MCP-002 below."
+    },
+    {
+      "scope": "MCP",
+      "file": "docs/spec/40.mcp-session-orchestration.srs.md",
+      "why": "FR-MCP-002 (Shared input gateway, planned, priority=critical, same 0.5.5-buildergate-stability target) explicitly treats SessionManager.ts:1250-1337 (the writeInput function research idea (3) wants to restructure) and the AI TUI idle invariant as fixed dependencies it builds a policy gateway in front of. Any authoring of idea (3) must cross-reference this scope, not just BGSTAB."
+    },
+    {
+      "scope": "AITUI",
+      "file": "docs/spec/20.ai-tui-recovery.srs.md",
+      "why": "Checked specifically because the task brief hypothesized a headless-skip vs. AI-TUI-recovery tradeoff conflict here. Ruled out: this scope's actual content (FR-AITUI-001..005, REL-AITUI-001) is exclusively about the desktop Tools-menu 'recovery option manager' -- persisted Claude/Codex/custom command configs, command-submission matching, icon metadata, and restart/orphan-tab command re-execution. It contains no headless-terminal, snapshot, or reconnect-screen-recovery content at all (grep for headless/reconnect/screen-repair/snapshot in this file returns nothing behaviorally relevant). The actual headless/reconnect authoritative-recovery mechanics live entirely in BGSTAB (FR-BGSTAB-003/007/014/017/018, REL-BGSTAB-003/004, OBS-BGSTAB-002), not in AITUI."
+    },
+    {
+      "scope": "ARCH",
+      "file": "docs/spec/10.product-architecture.srs.md",
+      "why": "Checked for research ideas (10)/(11) (worker_threads offload, multi-process session sharding). Ruled out as a home: this scope currently contains only FR-ARCH-001 (context-menu multi-level navigation) and boilerplate 'Describe the scope' / 'None' placeholders -- there is no existing architectural requirement about the single-process/single-event-loop model at all. Ideas (10)/(11) would need either a new BGSTAB Wave-style requirement or a genuinely new scope; no existing content to conflict or overlap with either way."
+    }
+  ],
+  "overlap_analysis": "The new research is a direct continuation of the SAME performance investigation that already produced PERF-BGSTAB-001..004 (all cite docs/research/2026-07-02.buildergate-native-performance-54-sessions-deep-analysis.md; the new doc is docs/research/2026-07-13.codex-multisession-terminal-performance-research.md, one research pass later, on 2026-07-13/14). PERF-BGSTAB-002 already fixed one event-loop-blocking culprit (sync execFileSync at session creation); PERF-BGSTAB-003/004 already fixed the exact 'per-call codec construction / redundant debug payload computation' anti-pattern that research ideas (5)/(6) now propose applying to the SERVER's onData hot path (they were previously fixed only on the frontend). PERF-BGSTAB-001 already established the exact 'per-frame time budget + input-yield' pattern research ideas (3)/(7) want to add server-side (it exists only on the frontend visible-output scheduler today). This strongly supports treating most of the new items as incremental PERF-BGSTAB-005+ / a small new OBS-BGSTAB-003-style extension within the SAME BGSTAB scope and SAME active target, continuing the existing Wave/PERF numbering convention, rather than a new scope. Two items are genuinely new mechanisms with no direct precedent: idea (1) Codex/Claude CLI animation-suppression via CODEX_HOME/-c flags at session creation (new-feature, low conflict risk, touches session env config near FR-BGSTAB-009/PERF-BGSTAB-002 territory but a different lever), and idea (4) HermesForegroundDetector early-bail (trivial, new, no conflict). Two long-term items, worker_threads offload (10) and multi-process session sharding (11), have no existing architectural requirement to build on or conflict with (ARCH scope is an unrelated placeholder) -- they are new-feature-scale for this target or candidates for a future dedicated scope, and the research itself frames them as scale-of-last-resort (Stage 3, 'if 1-2 are not enough'). The one HIGH-RISK real conflict is idea (2) 'TUI headless write skip' (skip server-side @xterm/headless terminal.write() for isInteractiveForeground sessions since research finding F1 shows live output already bypasses headless via raw passthrough). This directly tensions with THREE already-stable/implemented BGSTAB requirements that assume server-side headless state remains the authoritative recovery source for ALL sessions including TUI ones: REL-BGSTAB-004 (Fallback replay output preservation, stable/implemented -- its AC-4/AC-5 'no recoverable data exists' branch would become the routine case instead of a rare degraded edge case for exactly the sessions idea (2) targets), FR-BGSTAB-003 (Visible terminal output scheduling and recovery, stable/implemented -- rationale explicitly relies on 'server-authoritative snapshot or repair paths' as the recovery backstop for the bounded scheduler), and FR-BGSTAB-014 AC-5 (Wave7 frontend hidden-output policy, stable/implemented -- client-side hidden-tab output skip already depends on server snapshot-restore succeeding). It also interacts with two planned requirements: FR-BGSTAB-018 (empty fallback convergence -- would be exercised constantly instead of occasionally) and OBS-BGSTAB-002 (needs a new 'skipped by policy' reason distinct from 'degraded by failure' in its diagnostics taxonomy). The team-lead's hypothesized AITUI-scope conflict for this tradeoff was investigated directly and does NOT apply -- AITUI scope is unrelated (Tools-menu command-recovery option manager, not headless/reconnect recovery); the real conflict surface is entirely within BGSTAB's own already-stable requirements. Additionally, research idea (9) (background/non-focus session frame reduction, relying on screen-repair resync on refocus) shares the same underlying dependency on server-authoritative headless/replay state as idea (2) -- if both ship together for the same sessions, refocus-resync would have nothing authoritative to repair from. A second distinct conflict surface, in the MCP scope, involves idea (3) 'writeInput reorder' (defer ~50 lines of bookkeeping in SessionManager.writeInput to after pty.write, per research F3). FR-MCP-002 (Shared input gateway, planned, priority=critical, same active target) explicitly traces SessionManager.ts:1250-1337 with relation 'verifies' -- i.e. it currently treats writeInput's internal ordering and the AI TUI idle invariant (its own AC-5) as a fixed, already-correct dependency to wrap a policy gateway around, not something it plans to change. Reordering writeInput's internals concurrently with FR-MCP-002's gateway work risks a race on the same code region under two independently-planned changes in the same target window. Finally, research idea (8) (repaint-only reclassification throttle, ~100-150ms detection delay for idle/running state transitions) should be flagged against BGSTAB's own stated scope boundary: docs/spec/30.buildergate-stability.srs.md section 2 Out of Scope explicitly lists 'Changing AI TUI idle/running semantic invariants,' and FR-MCP-002 AC-5 restates that exact invariant. Whether a reclassification-cadence throttle counts as 'changing the invariant' versus 'not changing it, just delaying detection of it' is a judgment call the research author asserts but does not prove -- this should be surfaced as an explicit question rather than silently authored as in-scope.",
+  "recommended_classification": "update (majority) with two flagged high-risk items requiring explicit design decisions before authoring, plus a smaller set of clean new-feature items. (A) UPDATE, low risk, extend PERF-BGSTAB-00x numbering: ideas (4) Hermes early-bail, (5) server-side debug-capture gating [precedent: PERF-BGSTAB-003], (6) strip/normalize memoize [precedent: PERF-BGSTAB-004], plus a Phase-0 measurement-harness extension to OBS-BGSTAB-001 (event-loop-delay histogram, cpuUsage%, headless-write cumulative time) -- all new-feature-shaped but should be authored as PERF-BGSTAB-005+ / OBS-BGSTAB-001 extension within the existing BGSTAB scope and 0.5.5-buildergate-stability target, following the established Wave/PERF numbering and citing the existing telemetry surface (GET /api/sessions/telemetry, getObservabilitySnapshot). (B) UPDATE, medium risk, needs explicit scope-disambiguation text: idea (7) per-session output ingestion coalescing must be authored with clear language distinguishing it from FR-BGSTAB-016's already-planned WS-transport-layer coalescing (same word, different pipeline stage) and should route its new tunable through FR-BGSTAB-015's Settings matrix pattern rather than a bespoke config key; idea (3) writeInput reorder should be authored as an update/extension trace-linked to FR-BGSTAB-002 (AC-6 raw-input-redaction must still hold) and explicitly cross-referenced to FR-MCP-002 (MCP scope) so the two concurrently-planned changes to the same code region are sequenced/coordinated rather than silently colliding. (C) NEW-FEATURE, low risk: idea (1) Codex/Claude CLI animation suppression via env/config injection at session creation -- no existing REQ covers this lever; author as a new BGSTAB (or session-creation-adjacent) requirement. (D) NEW-FEATURE, deferred/long-term, no existing home: ideas (10) worker_threads offload and (11) multi-process session sharding -- no conflicting or overlapping REQ exists (ARCH scope is an unrelated placeholder); recommend authoring as a new BGSTAB Wave-style requirement (or explicitly proposing a new scope if the team wants architectural isolation) but flagged as out of scope for an initial pass per the research's own 'last resort' framing. (E) STOP-AND-ASK before authoring, high risk: idea (2) TUI headless write skip conflicts with three stable/implemented requirements (REL-BGSTAB-004, FR-BGSTAB-003, FR-BGSTAB-014 AC-5) whose verified acceptance criteria assume server-authoritative headless recovery remains available for every session including TUI ones; authoring this as a simple 'new feature' without first deciding how REL-BGSTAB-004/FR-BGSTAB-018/OBS-BGSTAB-002 will represent the new 'recoverable data intentionally not maintained' state would silently regress already-verified stable requirements. Idea (9) (background/non-focus frame reduction) shares this same dependency and should be decided alongside idea (2), not independently. Idea (8) (repaint-only throttle) touches BGSTAB's explicit Out-of-Scope line ('Changing AI TUI idle/running semantic invariants') and FR-MCP-002 AC-5 and should be posed as an explicit question to the user (does a detection-cadence delay count as changing the invariant?) rather than assumed in-scope.",
+  "no_match_reason": null
+}
