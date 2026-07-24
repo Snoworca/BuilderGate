@@ -1419,6 +1419,20 @@ function validateRetryAttemptEvidence(e2eReport) {
   return Object.freeze(records);
 }
 
+function runCompositeDiagnosticSelfTestChild() {
+  validateRetryAttemptEvidence({
+    records: new Map([[
+      'positional all-view handoff',
+      Object.freeze({
+        name: 'positional all-view handoff',
+        status: 'fail',
+        errors: 'fixture positional body/setup failure',
+        attachments: Object.freeze([]),
+      }),
+    ]]),
+  });
+}
+
 function parsePlaywrightReport(run) {
   let report;
   try {
@@ -2005,6 +2019,249 @@ function runEvidenceToolSelfTests() {
   };
   assert.equal(validatePreparationOperationLedger(validPreparationLedger, 'self-test'), validPreparationLedger,
     'valid preparation operation ledger must be returned unchanged');
+  const validRetryEvidence = {
+    schemaVersion: 'ph005-retry-evidence/v1',
+    operation: 'canary-selection',
+    maxAttempts: 8,
+    attempts: [
+      { attempt: 1, outcome: 'retry', failureReason: 'fixture transient failure' },
+      { attempt: 2, outcome: 'success' },
+    ],
+  };
+  const jsonAttachment = (name, value, overrides = {}) => ({
+    name,
+    contentType: 'application/json',
+    body: Buffer.from(JSON.stringify(value), 'utf8').toString('base64'),
+    ...overrides,
+  });
+  const retryReportFixture = retryAttachments => ({
+    records: new Map([
+      ['positional all-view handoff', Object.freeze({
+        name: 'positional all-view handoff',
+        status: 'pass',
+        errors: '',
+        attachments: Object.freeze(retryAttachments),
+      })],
+      ['poisoned no-cache reload', Object.freeze({
+        name: 'poisoned no-cache reload',
+        status: 'pass',
+        errors: '',
+        attachments: Object.freeze([
+          jsonAttachment('ph005-preparation-operation-ledger', validPreparationLedger),
+        ]),
+      })],
+    ]),
+  });
+  const validRetryAttachment = jsonAttachment('ph005-positional-retry-evidence', validRetryEvidence);
+  assert.doesNotThrow(
+    () => validateRetryAttemptEvidence(retryReportFixture([validRetryAttachment])),
+    'valid retry attachment body must pass',
+  );
+  const retryAttachmentFixtureRoot = mkdtempSync(join(tmpdir(), 'buildergate-ph006-retry-'));
+  try {
+    const validRetryAttachmentPath = join(retryAttachmentFixtureRoot, 'valid.json');
+    const malformedRetryAttachmentPath = join(retryAttachmentFixtureRoot, 'malformed.json');
+    writeFileSync(validRetryAttachmentPath, JSON.stringify(validRetryEvidence), 'utf8');
+    writeFileSync(malformedRetryAttachmentPath, '{', 'utf8');
+    assert.doesNotThrow(
+      () => validateRetryAttemptEvidence(retryReportFixture([
+        jsonAttachment('ph005-positional-retry-evidence', validRetryEvidence, {
+          body: undefined,
+          path: validRetryAttachmentPath,
+        }),
+      ])),
+      'valid retry attachment path must pass',
+    );
+    const invalidRetryFixtures = [
+      {
+        name: 'missing selected retry record',
+        report: { records: new Map() },
+        error: /retry evidence test did not execute/u,
+      },
+      {
+        name: 'missing retry attachment',
+        report: retryReportFixture([]),
+        error: /retry evidence attachment count differs/u,
+      },
+      {
+        name: 'duplicate retry attachment',
+        report: retryReportFixture([validRetryAttachment, validRetryAttachment]),
+        error: /retry evidence attachment count differs/u,
+      },
+      {
+        name: 'wrong retry attachment content type',
+        report: retryReportFixture([jsonAttachment('ph005-positional-retry-evidence', validRetryEvidence, {
+          contentType: 'text/plain',
+        })]),
+        error: /wrong content type/u,
+      },
+      {
+        name: 'malformed retry attachment body',
+        report: retryReportFixture([jsonAttachment('ph005-positional-retry-evidence', validRetryEvidence, {
+          body: Buffer.from('{', 'utf8').toString('base64'),
+        })]),
+        error: /(Unexpected token|Expected property)/u,
+      },
+      {
+        name: 'missing retry attachment body and path',
+        report: retryReportFixture([jsonAttachment('ph005-positional-retry-evidence', validRetryEvidence, {
+          body: undefined,
+        })]),
+        error: /body\/path is missing/u,
+      },
+      {
+        name: 'missing retry attachment path',
+        report: retryReportFixture([jsonAttachment('ph005-positional-retry-evidence', validRetryEvidence, {
+          body: undefined,
+          path: join(retryAttachmentFixtureRoot, 'missing.json'),
+        })]),
+        error: /ENOENT/u,
+      },
+      {
+        name: 'malformed retry attachment path',
+        report: retryReportFixture([jsonAttachment('ph005-positional-retry-evidence', validRetryEvidence, {
+          body: undefined,
+          path: malformedRetryAttachmentPath,
+        })]),
+        error: /(Unexpected token|Expected property)/u,
+      },
+      {
+        name: 'wrong retry evidence schema',
+        report: retryReportFixture([jsonAttachment('ph005-positional-retry-evidence', {
+          ...validRetryEvidence,
+          schemaVersion: 'wrong-schema',
+        })]),
+        error: /retry evidence schema differs/u,
+      },
+      {
+        name: 'wrong retry evidence operation',
+        report: retryReportFixture([jsonAttachment('ph005-positional-retry-evidence', {
+          ...validRetryEvidence,
+          operation: 'wrong-operation',
+        })]),
+        error: /retry evidence operation differs/u,
+      },
+      {
+        name: 'wrong retry maximum attempts',
+        report: retryReportFixture([jsonAttachment('ph005-positional-retry-evidence', {
+          ...validRetryEvidence,
+          maxAttempts: 7,
+        })]),
+        error: /retry evidence maximum differs/u,
+      },
+      {
+        name: 'missing retry attempts array',
+        report: retryReportFixture([jsonAttachment('ph005-positional-retry-evidence', {
+          ...validRetryEvidence,
+          attempts: null,
+        })]),
+        error: /retry evidence attempts are missing/u,
+      },
+      {
+        name: 'empty retry attempts array',
+        report: retryReportFixture([jsonAttachment('ph005-positional-retry-evidence', {
+          ...validRetryEvidence,
+          attempts: [],
+        })]),
+        error: /retry evidence attempt count is out of bounds/u,
+      },
+      {
+        name: 'too many retry attempts',
+        report: retryReportFixture([jsonAttachment('ph005-positional-retry-evidence', {
+          ...validRetryEvidence,
+          attempts: Array.from({ length: 9 }, (_, index) => ({
+            attempt: index + 1,
+            outcome: index === 8 ? 'success' : 'retry',
+            ...(index === 8 ? {} : { failureReason: 'fixture retry' }),
+          })),
+        })]),
+        error: /retry evidence attempt count is out of bounds/u,
+      },
+      {
+        name: 'noncontiguous retry attempt ordinal',
+        report: retryReportFixture([jsonAttachment('ph005-positional-retry-evidence', {
+          ...validRetryEvidence,
+          attempts: [
+            { attempt: 1, outcome: 'retry', failureReason: 'fixture retry' },
+            { attempt: 3, outcome: 'success' },
+          ],
+        })]),
+        error: /retry evidence attempt ordinals are not contiguous/u,
+      },
+      {
+        name: 'invalid retry attempt outcome',
+        report: retryReportFixture([jsonAttachment('ph005-positional-retry-evidence', {
+          ...validRetryEvidence,
+          attempts: [{ attempt: 1, outcome: 'unknown' }],
+        })]),
+        error: /retry evidence outcome is invalid/u,
+      },
+      {
+        name: 'missing retry failure reason',
+        report: retryReportFixture([jsonAttachment('ph005-positional-retry-evidence', {
+          ...validRetryEvidence,
+          attempts: [
+            { attempt: 1, outcome: 'retry' },
+            { attempt: 2, outcome: 'success' },
+          ],
+        })]),
+        error: /retry failure reason is missing/u,
+      },
+      {
+        name: 'empty retry failure reason',
+        report: retryReportFixture([jsonAttachment('ph005-positional-retry-evidence', {
+          ...validRetryEvidence,
+          attempts: [
+            { attempt: 1, outcome: 'retry', failureReason: '' },
+            { attempt: 2, outcome: 'success' },
+          ],
+        })]),
+        error: /retry failure reason is missing/u,
+      },
+      {
+        name: 'retry evidence without terminal success',
+        report: retryReportFixture([jsonAttachment('ph005-positional-retry-evidence', {
+          ...validRetryEvidence,
+          attempts: [{ attempt: 1, outcome: 'terminal-failure', failureReason: 'fixture terminal failure' }],
+        })]),
+        error: /terminal successful retry attempt/u,
+      },
+    ];
+    for (const fixture of invalidRetryFixtures) {
+      assert.throws(
+        () => validateRetryAttemptEvidence(fixture.report),
+        fixture.error,
+        `${fixture.name} must fail closed`,
+      );
+    }
+  } finally {
+    rmSync(retryAttachmentFixtureRoot, { recursive: true, force: true });
+  }
+  const compositeDiagnosticChild = spawnSync(
+    process.execPath,
+    [fileURLToPath(import.meta.url), '--self-test-composite-fixture'],
+    { cwd: repositoryRoot, encoding: 'utf8' },
+  );
+  assert.equal(compositeDiagnosticChild.error, undefined,
+    'composite diagnostic child must start without a process error');
+  assert.equal(compositeDiagnosticChild.signal, null,
+    'composite diagnostic child must terminate without a signal');
+  assert.equal(compositeDiagnosticChild.status, 1,
+    'composite diagnostic child must reject the invalid retry evidence');
+  assert.equal(compositeDiagnosticChild.stderr.trim().length > 0, true,
+    'composite diagnostic child must write its rejected error to stderr');
+  const compositeDiagnosticLines = compositeDiagnosticChild.stdout.trimEnd().split(/\r?\n/u);
+  assert.equal(compositeDiagnosticLines.length, 1,
+    'composite diagnostic child must emit exactly one JSON stdout line');
+  const compositeDiagnostic = JSON.parse(compositeDiagnosticLines[0]);
+  assert.equal(compositeDiagnostic.contractSatisfied, false,
+    'composite diagnostic child must preserve a rejected contract result');
+  assert.match(compositeDiagnostic.error, /positional all-view handoff/u,
+    'composite diagnostic error must preserve the failed positional record name');
+  assert.match(compositeDiagnostic.error, /fixture positional body\/setup failure/u,
+    'composite diagnostic error must preserve the failed positional body/setup error');
+  assert.match(compositeDiagnostic.error, /retry evidence attachment count differs/u,
+    'composite diagnostic error must preserve the retry attachment validation error');
   assert.throws(
     () => validatePreparationOperationLedger({
       ...validPreparationLedger,
@@ -2178,12 +2435,19 @@ function persistRawExecutionEvidence(reports, supplemental) {
 
 async function main() {
   const args = process.argv.slice(2);
-  const knownArgs = new Set(['--expect-red', '--expect-green', '--self-test']);
+  const knownArgs = new Set(['--expect-red', '--expect-green', '--self-test', '--self-test-composite-fixture']);
   assert.equal(args.every(arg => knownArgs.has(arg)), true, `unknown argument: ${args.join(' ')}`);
   assert.equal(args.filter(arg => arg === '--expect-red' || arg === '--expect-green').length <= 1, true,
     'choose only one expectation mode');
   assert.equal(!args.includes('--self-test') || args.length === 1, true,
     '--self-test cannot be combined with an execution mode');
+  assert.equal(!args.includes('--self-test-composite-fixture') || args.length === 1, true,
+    '--self-test-composite-fixture cannot be combined with an execution mode');
+
+  if (args.includes('--self-test-composite-fixture')) {
+    runCompositeDiagnosticSelfTestChild();
+    return;
+  }
 
   const selfTestOnly = args.includes('--self-test');
   const executionMode = args.includes('--expect-red')
