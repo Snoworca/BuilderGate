@@ -1380,32 +1380,44 @@ function validateRetryAttemptEvidence(e2eReport) {
   for (const [testName, expected] of Object.entries(required)) {
     const testRecord = e2eReport.records.get(testName);
     assert.notEqual(testRecord, undefined, `retry evidence test did not execute: ${testName}`);
-    const matching = testRecord.attachments.filter(attachment => attachment.name === expected.attachmentName);
-    assert.equal(matching.length, 1, `retry evidence attachment count differs: ${testName}`);
-    const evidence = decodePlaywrightAttachment(matching[0]);
-    assert.equal(evidence.schemaVersion, 'ph005-retry-evidence/v1',
-      `retry evidence schema differs: ${testName}`);
-    assert.equal(evidence.operation, expected.operation, `retry evidence operation differs: ${testName}`);
-    assert.equal(evidence.maxAttempts, expected.maxAttempts, `retry evidence maximum differs: ${testName}`);
-    assert.equal(Array.isArray(evidence.attempts), true, `retry evidence attempts are missing: ${testName}`);
-    assert.equal(evidence.attempts.length >= 1 && evidence.attempts.length <= expected.maxAttempts, true,
-      `retry evidence attempt count is out of bounds: ${testName}`);
-    assert.deepEqual(
-      evidence.attempts.map(attempt => attempt.attempt),
-      Array.from({ length: evidence.attempts.length }, (_, index) => index + 1),
-      `retry evidence attempt ordinals are not contiguous: ${testName}`,
-    );
-    for (const attempt of evidence.attempts) {
-      assert.equal(['success', 'retry', 'terminal-failure'].includes(attempt.outcome), true,
-        `retry evidence outcome is invalid: ${testName}`);
-      if (attempt.outcome !== 'success') {
-        assert.equal(typeof attempt.failureReason === 'string' && attempt.failureReason.length > 0, true,
-          `retry failure reason is missing: ${testName}`);
+    try {
+      const matching = testRecord.attachments.filter(attachment => attachment.name === expected.attachmentName);
+      assert.equal(matching.length, 1, `retry evidence attachment count differs: ${testName}`);
+      const evidence = decodePlaywrightAttachment(matching[0]);
+      assert.equal(evidence.schemaVersion, 'ph005-retry-evidence/v1',
+        `retry evidence schema differs: ${testName}`);
+      assert.equal(evidence.operation, expected.operation, `retry evidence operation differs: ${testName}`);
+      assert.equal(evidence.maxAttempts, expected.maxAttempts, `retry evidence maximum differs: ${testName}`);
+      assert.equal(Array.isArray(evidence.attempts), true, `retry evidence attempts are missing: ${testName}`);
+      assert.equal(evidence.attempts.length >= 1 && evidence.attempts.length <= expected.maxAttempts, true,
+        `retry evidence attempt count is out of bounds: ${testName}`);
+      assert.deepEqual(
+        evidence.attempts.map(attempt => attempt.attempt),
+        Array.from({ length: evidence.attempts.length }, (_, index) => index + 1),
+        `retry evidence attempt ordinals are not contiguous: ${testName}`,
+      );
+      for (const attempt of evidence.attempts) {
+        assert.equal(['success', 'retry', 'terminal-failure'].includes(attempt.outcome), true,
+          `retry evidence outcome is invalid: ${testName}`);
+        if (attempt.outcome !== 'success') {
+          assert.equal(typeof attempt.failureReason === 'string' && attempt.failureReason.length > 0, true,
+            `retry failure reason is missing: ${testName}`);
+        }
       }
+      assert.equal(evidence.attempts.at(-1)?.outcome, 'success',
+        `successful E2E must record a terminal successful retry attempt: ${testName}`);
+      records[testName] = evidence;
+    } catch (cause) {
+      if (testRecord.status !== 'fail') throw cause;
+      const recordError = typeof testRecord.errors === 'string' && testRecord.errors.length > 0
+        ? testRecord.errors
+        : 'failed positional record did not report a body/setup error';
+      const attachmentError = cause instanceof Error ? cause.message : String(cause);
+      throw new Error(
+        `failed positional record ${testName}; body/setup error: ${recordError}; retry attachment validation error: ${attachmentError}`,
+        { cause },
+      );
     }
-    assert.equal(evidence.attempts.at(-1)?.outcome, 'success',
-      `successful E2E must record a terminal successful retry attempt: ${testName}`);
-    records[testName] = evidence;
   }
   const poisonedTestName = 'poisoned no-cache reload';
   const poisonedRecord = e2eReport.records.get(poisonedTestName);
