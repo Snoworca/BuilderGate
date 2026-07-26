@@ -26,11 +26,11 @@ function trustedPowerShellFs() {
   };
 }
 
-function batchSuccess(options) {
+function strictBatchSuccess(options) {
   const paths = JSON.parse(Buffer.from(options.env[batchEnvKey], 'base64').toString('utf8'));
   const canonical = JSON.stringify(paths);
   const digest = createHash('sha256').update(canonical, 'utf8').digest('hex');
-  return `FRRPB1:${paths.length}:${digest}\n`;
+  return { status: 0, stdout: `FRRPB1:${paths.length}:${digest}\n`, stderr: '' };
 }
 
 function recordSpawn(result) {
@@ -56,7 +56,7 @@ function probeOptions(spawnSync, candidate = 'C:/Work/kiwi-run-output/ancestor')
 test('SDS-AC-1 delegates the public one-path wrapper to the same FRRPB1 batch child contract', async () => {
   const { probeWindowsReparsePoint } = await loadCollector();
   const candidate = 'C:/Work/kiwi-run-output/normal';
-  const probe = recordSpawn(batchSuccess);
+  const probe = recordSpawn(strictBatchSuccess);
 
   assert.equal(typeof probeWindowsReparsePoint, 'function');
   assert.equal(probeWindowsReparsePoint(probeOptions(probe.spawnSync, candidate)), false);
@@ -98,7 +98,9 @@ test('SDS-AC-2 fails closed for an unsafe or malformed one-path batch result', a
     ['unsafe reparse', { status: 1, stdout: '', stderr: '' }],
     ['malformed success', { status: 0, stdout: '0\n', stderr: '' }],
     ['child error', { error: new Error('child failed'), status: null, stdout: '', stderr: '' }],
-    ['stderr', options => ({ status: 0, stdout: batchSuccess(options), stderr: 'warning\n' })],
+    ['missing stderr', { status: 0, stdout: 'FRRPB1:1:missing-stderr\n' }],
+    ['stderr', options => ({ ...strictBatchSuccess(options), stderr: 'warning\n' })],
+    ['raw string', options => strictBatchSuccess(options).stdout],
   ];
 
   for (const [label, result] of cases) {
