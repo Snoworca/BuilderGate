@@ -146,6 +146,23 @@ function expectedSplit(paths, { maxCount = 64, maxBytes = 8 * 1024 } = {}) {
   return batches;
 }
 
+function existingFrontier(paths) {
+  const frontier = [];
+  const seen = new Set();
+  for (const candidate of paths) {
+    const normalized = candidate.replaceAll('\\', '/');
+    const segments = normalized.split('/').filter(Boolean);
+    let current = segments[0];
+    for (const segment of segments.slice(1)) {
+      current = `${current}/${segment}`;
+      if (seen.has(current)) continue;
+      seen.add(current);
+      frontier.push(current);
+    }
+  }
+  return frontier;
+}
+
 test('SDS-AC-1 runs the fixed batch protocol with case-preserving canonical JSON only in Base64 child env', async () => {
   const { probeWindowsReparsePoints } = await loadCollector();
   const firstPaths = ['C:/Work/closure/Case', 'C:/Work/closure/lower'];
@@ -212,12 +229,14 @@ test('SDS-AC-2 fails closed on reparse, nonzero, child error, timeout, or captur
 test('SDS-AC-2 invalidates an otherwise safe batch when a pre/post lstat identity changes', async () => {
   const { createSegmentReparseGuard } = await loadCollector();
   const candidate = 'C:/Work/closure/identity-change';
-  const stats = [stat(1), stat(2), stat(2), stat(2)];
+  const frontier = existingFrontier([candidate]);
+  let lstatCount = 0;
   const fs = {
     calls: [],
     lstatSync(pathname) {
       this.calls.push(pathname);
-      return stats.shift();
+      lstatCount += 1;
+      return stat(lstatCount <= frontier.length ? 1 : 2);
     },
   };
   const batches = [];
@@ -232,8 +251,8 @@ test('SDS-AC-2 invalidates an otherwise safe batch when a pre/post lstat identit
   assert.equal(typeof guard?.assertSafeMany, 'function');
   assert.throws(() => guard.assertSafeMany([candidate]), /identity|changed|reparse|unsafe|fail.closed/i);
   assert.doesNotThrow(() => guard.assertSafeMany([candidate]));
-  assert.deepEqual(batches, [[candidate], [candidate]], 'a changed post-probe identity must not be cached as safe');
-  assert.equal(fs.calls.length, 4);
+  assert.deepEqual(batches, [frontier, frontier], 'a changed complete frontier must not be cached as safe');
+  assert.equal(fs.calls.length, frontier.length * 4, 'each failed and retried frontier must lstat before and after its batch');
 });
 
 test('SDS-AC-3 deduplicates a frontier without case folding and forceFresh bypasses only the guard-local cache', async () => {
@@ -241,6 +260,7 @@ test('SDS-AC-3 deduplicates a frontier without case folding and forceFresh bypas
   const canonical = 'C:/Work/closure/CaseSensitive/Segment';
   const sameSegmentWithBackslashes = canonical.replaceAll('/', '\\');
   const caseVariant = 'C:/Work/closure/CaseSensitive/segment';
+  const frontier = existingFrontier([canonical, sameSegmentWithBackslashes, caseVariant]);
   const fs = stableFs();
   const batches = [];
   const guard = createSegmentReparseGuard({
@@ -256,10 +276,10 @@ test('SDS-AC-3 deduplicates a frontier without case folding and forceFresh bypas
   guard.assertSafeMany([canonical, caseVariant], { forceFresh: true });
   assert.deepEqual(
     batches,
-    [[canonical, caseVariant], [canonical, caseVariant]],
-    'only exact normalized duplicates may coalesce; casing and discovery order are significant',
+    [frontier, frontier],
+    'only exact normalized duplicates may coalesce; every existing ancestor plus case-preserving leaf remains significant',
   );
-  assert.equal(fs.calls.length, 14, 'every frontier check must lstat before and after batching');
+  assert.equal(fs.calls.length, frontier.length * 6, 'cached and force-fresh validations must lstat every complete frontier before and after batching');
 
   const secondGuard = createSegmentReparseGuard({
     fs: stableFs(),
@@ -268,12 +288,13 @@ test('SDS-AC-3 deduplicates a frontier without case folding and forceFresh bypas
     },
   });
   secondGuard.assertSafeMany([canonical]);
-  assert.deepEqual(batches.at(-1), [canonical], 'a new public guard must not reuse another capture cache');
+  assert.deepEqual(batches.at(-1), existingFrontier([canonical]), 'a new public guard must not reuse another capture cache');
 });
 
 test('SDS-AC-4 splits by 64 unique segments with stable case-preserving order', async () => {
   const { createSegmentReparseGuard } = await loadCollector();
   const paths = Array.from({ length: 65 }, (_, index) => `C:/Work/closure/Count/${String(index).padStart(2, '0')}Case`);
+  const frontier = existingFrontier(paths);
   const batches = [];
   const guard = createSegmentReparseGuard({
     fs: stableFs(),
@@ -283,8 +304,8 @@ test('SDS-AC-4 splits by 64 unique segments with stable case-preserving order', 
   });
 
   guard.assertSafeMany(paths);
-  assert.deepEqual(batches, [paths.slice(0, 64), paths.slice(64)]);
-  assert.deepEqual(batches.flat(), paths);
+  assert.deepEqual(batches, expectedSplit(frontier));
+  assert.deepEqual(batches.flat(), frontier);
 });
 
 test('SDS-AC-4 deterministically splits below 64 paths when canonical JSON exceeds 8 KiB', async () => {
@@ -293,17 +314,18 @@ test('SDS-AC-4 deterministically splits below 64 paths when canonical JSON excee
     { length: 63 },
     (_, index) => `C:/Work/closure/Bytes/${String(index).padStart(2, '0')}${index % 2 === 0 ? 'Case' : 'case'}-${'x'.repeat(105)}`,
   );
-  const expected = expectedSplit(paths);
+  const frontier = existingFrontier(paths);
+  const expected = expectedSplit(frontier);
   const first = [];
   const second = [];
   const firstGuard = createSegmentReparseGuard({ fs: stableFs(), probeBatch: batch => first.push(batch) });
   const secondGuard = createSegmentReparseGuard({ fs: stableFs(), probeBatch: batch => second.push(batch) });
 
-  assert.equal(Buffer.byteLength(canonicalPathJson(paths), 'utf8') > 8 * 1024, true, 'the fixture must exercise the byte split rather than the count split');
+  assert.equal(Buffer.byteLength(canonicalPathJson(frontier), 'utf8') > 8 * 1024, true, 'the complete segment frontier must exercise the byte split rather than the count split');
   firstGuard.assertSafeMany(paths);
   secondGuard.assertSafeMany(paths);
   assert.deepEqual(first, expected);
   assert.deepEqual(second, expected, 'a fresh guard must calculate the same deterministic batches');
   assert.equal(first.every(batch => batch.length <= 64 && Buffer.byteLength(canonicalPathJson(batch), 'utf8') <= 8 * 1024), true);
-  assert.deepEqual(first.flat(), paths, 'splitting must preserve aggregate case and discovery order');
+  assert.deepEqual(first.flat(), frontier, 'splitting must preserve aggregate ancestor/leaf case and discovery order');
 });
