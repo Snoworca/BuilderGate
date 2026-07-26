@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 import test from 'node:test';
@@ -49,6 +50,18 @@ type FairSchedulerBenchmarkInput = {
   repeats: number;
   samples: number;
 };
+
+function findDistinctWindowsShortPath(directory: string): string | undefined {
+  if (process.platform !== 'win32' || !/^[A-Za-z]:\\[A-Za-z0-9_.\\-]+$/u.test(directory)) return undefined;
+  const shortPath = execFileSync(
+    'cmd.exe',
+    ['/d', '/c', `for %I in (${directory}) do @echo %~sI`],
+    { encoding: 'utf8' },
+  ).trim();
+  return shortPath.length > 0 && shortPath.toLocaleLowerCase() !== directory.toLocaleLowerCase()
+    ? shortPath
+    : undefined;
+}
 
 const benchmarkInput: FairSchedulerBenchmarkInput = {
   clients: [1, 2, 8],
@@ -363,6 +376,54 @@ test('PERF-BGSTAB-010 docs publication path aliases share one output lock', asyn
     );
   } finally {
     releaseFirstWriter?.();
+    await firstWriter?.catch(() => undefined);
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 docs publication shares its lock across an NTFS 8.3 output alias', async (t) => {
+  const signature = 'PERF-BGSTAB-010 docs writer must serialize an NTFS 8.3 output alias';
+  const fairness = await loadFairness(signature);
+  const directory = await mkdtemp(join(process.cwd(), '.fair-scheduler-short-path-'));
+  const outputDirectory = join(directory, 'fair-scheduler-evidence');
+  await mkdir(outputDirectory);
+  const aliasOutputDirectory = findDistinctWindowsShortPath(outputDirectory);
+  if (!aliasOutputDirectory) {
+    t.skip('NTFS 8.3 short path is unavailable for this test directory');
+    await rm(directory, { recursive: true, force: true });
+    return;
+  }
+  const outputPath = join(outputDirectory, 'fair-scheduler-decision.json');
+  const aliasOutputPath = join(aliasOutputDirectory, 'fair-scheduler-decision.json');
+  const firstProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(8_192));
+  const secondProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(12_288));
+  let signalAtLock!: () => void;
+  const firstWriterAtLock = new Promise<void>(resolve => { signalAtLock = resolve; });
+  let releaseFirstWriter!: () => void;
+  const releaseGate = new Promise<void>(resolve => { releaseFirstWriter = resolve; });
+  let firstWriter: Promise<unknown> | undefined;
+  try {
+    firstWriter = fairness.writeFairSchedulerDecisionArtifact({
+      ...benchmarkInput,
+      outputPath,
+      runtimePolicyProfile: firstProfile,
+      afterPublicationLockAcquired: async () => {
+        signalAtLock();
+        await releaseGate;
+      },
+    });
+    await firstWriterAtLock;
+    await assert.rejects(
+      fairness.writeFairSchedulerDecisionArtifact({
+        ...benchmarkInput,
+        outputPath: aliasOutputPath,
+        runtimePolicyProfile: secondProfile,
+      }),
+      /publication lock exists/u,
+      signature,
+    );
+  } finally {
+    releaseFirstWriter();
     await firstWriter?.catch(() => undefined);
     await rm(directory, { recursive: true, force: true });
   }

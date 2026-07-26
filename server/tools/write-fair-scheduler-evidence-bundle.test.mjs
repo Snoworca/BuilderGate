@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -112,6 +112,32 @@ test('PERF-BGSTAB-010 bundle writer rejects an output-root junction before readi
   } finally {
     await rm(aliasContainer, { recursive: true, force: true });
     await rm(outsideParent, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 bundle writer preserves a staging path that becomes a junction during a failed publication', async () => {
+  const writer = await import(`${writerUrl}?bundle-staging-junction-cleanup=${Date.now()}`);
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-staging-junction-'));
+  const outputRoot = join(temporaryRoot, 'fair-scheduler-evidence');
+  const externalRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-staging-junction-external-'));
+  let stagingRoot;
+  try {
+    await assert.rejects(
+      writer.writeFairSchedulerEvidenceBundle({
+        sourceRoot,
+        outputRoot,
+        beforeStagedValidation: async ({ stagingRoot: createdStagingRoot }) => {
+          stagingRoot = createdStagingRoot;
+          await rm(createdStagingRoot, { recursive: true, force: true });
+          await symlink(externalRoot, createdStagingRoot, 'junction');
+        },
+      }),
+      /staged fair scheduler evidence rejected/u,
+    );
+    assert.equal((await lstat(stagingRoot)).isSymbolicLink(), true);
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+    await rm(externalRoot, { recursive: true, force: true });
   }
 });
 
