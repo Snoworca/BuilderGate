@@ -62,6 +62,31 @@ test('PERF-BGSTAB-010 failed staged admission removes its inactive generation an
   }
 });
 
+test('PERF-BGSTAB-010 inactive-generation cleanup failure never removes the already activated generation', async () => {
+  const writer = await import(`${writerUrl}?bundle-cleanup-failure=${Date.now()}`);
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-cleanup-'));
+  const outputRoot = join(temporaryRoot, 'fair-scheduler-evidence');
+  const pointerPath = join(outputRoot, 'fair-scheduler-decision.json.publication.json');
+  try {
+    await mkdir(join(outputRoot, 'fair-scheduler-publications', 'previous'), { recursive: true });
+    await writeFile(pointerPath, '{"generationId":"previous"}\n', 'utf8');
+    await assert.rejects(
+      writer.writeFairSchedulerEvidenceBundle({
+        sourceRoot,
+        outputRoot,
+        validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+        validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+        removeInactiveGenerations: async () => { throw new Error('cleanup-failed'); },
+      }),
+      /cleanup-failed/u,
+    );
+    const publication = JSON.parse(await readFile(pointerPath, 'utf8'));
+    assert.equal((await readdir(join(outputRoot, ...publication.artifactPath.split('/').slice(0, 2)))).length > 0, true);
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
 test('PERF-BGSTAB-010 default bundle writer stages exactly one complete generation accepted by compiled runtime', async () => {
   const writer = await import(`${writerUrl}?bundle-success=${Date.now()}`);
   const result = await writer.writeFairSchedulerEvidenceBundle();
