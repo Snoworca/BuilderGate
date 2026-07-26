@@ -25,7 +25,10 @@ function touch(filePath, content = '') {
   fs.writeFileSync(filePath, content, 'utf8');
 }
 
-function createPortableOutputFixture(platform = 'win32', { includeFairSchedulerProvenance = true } = {}) {
+function createPortableOutputFixture(platform = 'win32', {
+  includeFairSchedulerProvenance = true,
+  includeFairSchedulerEvidence = true,
+} = {}) {
   const outputDir = makeTempDir('buildergate-portable-output-');
   touch(path.join(outputDir, 'web', 'index.html'), '<!doctype html>\n');
   touch(path.join(outputDir, 'shell-integration', 'bash-osc133.sh'), '# integration\n');
@@ -42,6 +45,12 @@ function createPortableOutputFixture(platform = 'win32', { includeFairSchedulerP
     touch(
       path.join(outputDir, 'server', 'dist', 'benchmarks', 'fair-scheduler-source-provenance.json'),
       '{"schemaVersion":"fair-scheduler-source-provenance/v1"}\n',
+    );
+  }
+  if (includeFairSchedulerEvidence) {
+    touch(
+      path.join(outputDir, 'server', 'dist', 'benchmarks', 'fair-scheduler-evidence', 'fair-scheduler-decision.json.publication.json'),
+      '{"schemaVersion":"fair-scheduler-publication/v1"}\n',
     );
   }
   touch(path.join(outputDir, 'server', 'dist', 'utils', 'configStrictLoader.js'), 'export {};\n');
@@ -114,7 +123,7 @@ test('validatePortableBuildOutput requires the compiled fair scheduler provenanc
 });
 
 test('validatePortableBuildOutput requires the staged fair scheduler evidence bundle', () => {
-  const outputDir = createPortableOutputFixture('linux');
+  const outputDir = createPortableOutputFixture('linux', { includeFairSchedulerEvidence: false });
   assert.throws(
     () => validatePortableBuildOutput(outputDir, { platform: 'linux' }),
     /fair-scheduler-evidence/i,
