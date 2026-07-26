@@ -12,6 +12,13 @@ const sourceRoot = resolve(
   '../docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness',
 );
 
+async function readGenerationJsonFiles(root) {
+  const files = (await readdir(root, { recursive: true }))
+    .filter(filePath => filePath.endsWith('.json'))
+    .sort();
+  return await Promise.all(files.map(async filePath => [filePath, await readFile(join(root, filePath), 'utf8')]));
+}
+
 test('PERF-BGSTAB-010 bundle promotion keeps the last known-good deployment evidence when final admission rejects', async () => {
   const writer = await import(`${writerUrl}?bundle-atomic-red=${Date.now()}`);
   assert.equal(typeof writer.writeFairSchedulerEvidenceBundle, 'function');
@@ -64,6 +71,46 @@ test('PERF-BGSTAB-010 stale publish lock fails closed without changing the activ
     assert.equal(await readFile(pointerPath, 'utf8'), pointerBefore);
     assert.equal(await readFile(lockPath, 'utf8'), 'stale-owner\n');
   } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 sibling output roots use independent staging directories', async () => {
+  const writer = await import(`${writerUrl}?bundle-sibling-staging=${Date.now()}`);
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-sibling-staging-'));
+  const outputA = join(temporaryRoot, 'evidence-a');
+  const outputB = join(temporaryRoot, 'evidence-b');
+  const fixedNow = Date.now;
+  const firstAtStaging = Promise.withResolvers();
+  const releaseFirst = Promise.withResolvers();
+  let firstWriter;
+  try {
+    Date.now = () => 1_726_000_000_000;
+    firstWriter = writer.writeFairSchedulerEvidenceBundle({
+      sourceRoot,
+      outputRoot: outputA,
+      validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+      validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+      beforeStagedValidation: async () => {
+        firstAtStaging.resolve();
+        await releaseFirst.promise;
+      },
+    });
+    await firstAtStaging.promise;
+    await assert.doesNotReject(writer.writeFairSchedulerEvidenceBundle({
+      sourceRoot,
+      outputRoot: outputB,
+      validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+      validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+    }));
+    releaseFirst.resolve();
+    await assert.doesNotReject(firstWriter);
+    assert.equal(await readFile(join(outputA, 'fair-scheduler-decision.json.publication.json'), 'utf8').then(Boolean), true);
+    assert.equal(await readFile(join(outputB, 'fair-scheduler-decision.json.publication.json'), 'utf8').then(Boolean), true);
+  } finally {
+    Date.now = fixedNow;
+    releaseFirst.resolve();
+    await firstWriter?.catch(() => undefined);
     await rm(temporaryRoot, { recursive: true, force: true });
   }
 });
@@ -205,6 +252,9 @@ test('PERF-BGSTAB-010 default staged validators reject serialized raw and sideca
       const pointerBefore = await readFile(pointerPath, 'utf8');
       const publication = JSON.parse(pointerBefore);
       const artifactBefore = await readFile(join(outputRoot, ...publication.artifactPath.split('/')), 'utf8');
+      const generationBefore = await readGenerationJsonFiles(
+        join(outputRoot, ...publication.artifactPath.split('/').slice(0, 2)),
+      );
       await assert.rejects(
         writer.writeFairSchedulerEvidenceBundle({
           sourceRoot,
@@ -222,6 +272,10 @@ test('PERF-BGSTAB-010 default staged validators reject serialized raw and sideca
       assert.equal(
         await readFile(join(outputRoot, ...publication.artifactPath.split('/')), 'utf8'),
         artifactBefore,
+      );
+      assert.deepEqual(
+        await readGenerationJsonFiles(join(outputRoot, ...publication.artifactPath.split('/').slice(0, 2))),
+        generationBefore,
       );
     } finally {
       await rm(temporaryRoot, { recursive: true, force: true });

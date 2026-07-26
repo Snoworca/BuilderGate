@@ -16,9 +16,20 @@ const {
 } = require('../build-portable-runtime');
 const { ICON_ICNS_NAME, ICON_ICO_NAME, ICON_SVG_NAME } = require('./icon-assets');
 
+const temporaryDirectories = new Set();
+
 function makeTempDir(prefix) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  temporaryDirectories.add(directory);
+  return directory;
 }
+
+test.afterEach(() => {
+  for (const directory of temporaryDirectories) {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+  temporaryDirectories.clear();
+});
 
 function touch(filePath, content = '') {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
