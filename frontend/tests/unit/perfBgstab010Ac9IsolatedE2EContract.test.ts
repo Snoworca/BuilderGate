@@ -6,6 +6,7 @@ const isolatedSpecUrl = new URL(
   '../e2e/perf-bgstab-010-ac9-isolated.spec.ts',
   import.meta.url,
 );
+const filesystemWriterToken = /\b(?:write|append)File(?:Sync)?\b/u;
 
 test('PERF-BGSTAB-010 AC-9 isolated E2E has no historical-evidence writer dependency', () => {
   assert.equal(
@@ -17,7 +18,7 @@ test('PERF-BGSTAB-010 AC-9 isolated E2E has no historical-evidence writer depend
   const source = readFileSync(isolatedSpecUrl, 'utf8');
   assert.doesNotMatch(source, /wave3-terminal-authority-fairness\.spec/u);
   assert.doesNotMatch(source, /docs\/analysis\/kiwi-coder-2026-07-16\.projectmaster\.wave3-authority-fairness/u);
-  assert.doesNotMatch(source, /\bwriteFileSync\s*\(/u);
+  assert.doesNotMatch(source, filesystemWriterToken);
   assert.doesNotMatch(source, /createIsolatedPowerShellWorkspace/u);
   assert.doesNotMatch(source, /deleteWorkspace/u);
   assert.doesNotMatch(source, /method:\s*'POST'/u);
@@ -26,4 +27,12 @@ test('PERF-BGSTAB-010 AC-9 isolated E2E has no historical-evidence writer depend
   assert.doesNotMatch(source, /method:\s*'DELETE'/u);
   assert.match(source, /selectReusableWave3Workspace/u);
   assert.match(source, /blockSyntheticAck/u);
+});
+
+test('PERF-BGSTAB-010 AC-9 writer guard recognizes alternate filesystem writers', () => {
+  assert.match('writeFile', filesystemWriterToken);
+  assert.match('writeFileSync', filesystemWriterToken);
+  assert.match('appendFile', filesystemWriterToken);
+  assert.match('appendFileSync', filesystemWriterToken);
+  assert.doesNotMatch('readFileSync', filesystemWriterToken);
 });

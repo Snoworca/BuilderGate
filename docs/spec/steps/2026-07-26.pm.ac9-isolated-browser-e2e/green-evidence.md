@@ -13,7 +13,9 @@ Run from `frontend`:
 node --experimental-strip-types --test tests/unit/perfBgstab010Ac9IsolatedE2EContract.test.ts
 ```
 
-Result: exit 0; `tests 1`, `pass 1`, `fail 0`.
+Result: exit 0; `tests 2`, `pass 2`, `fail 0`. The contract rejects
+`writeFile`, `writeFileSync`, `appendFile`, and `appendFileSync` tokens while
+allowing the spec's read-only `readFileSync` source inspection.
 
 ```text
 npx.cmd playwright test tests/e2e/perf-bgstab-010-ac9-isolated.spec.ts --project "Desktop Chrome"
