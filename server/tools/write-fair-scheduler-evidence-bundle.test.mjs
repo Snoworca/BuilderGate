@@ -101,6 +101,30 @@ test('PERF-BGSTAB-010 bundle writer rejects an output-root junction before readi
   }
 });
 
+test('PERF-BGSTAB-010 bundle writer rejects an output root that overlaps its audit source', async () => {
+  const writer = await import(`${writerUrl}?bundle-overlapping-roots=${Date.now()}`);
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-overlapping-roots-'));
+  const auditRoot = join(temporaryRoot, 'audit-source');
+  try {
+    await cp(sourceRoot, auditRoot, { recursive: true });
+    const filesBefore = await readGenerationJsonFiles(auditRoot);
+    const pointerBefore = await readFile(join(auditRoot, 'fair-scheduler-decision.json.publication.json'), 'utf8');
+    await assert.rejects(
+      writer.writeFairSchedulerEvidenceBundle({
+        sourceRoot: auditRoot,
+        outputRoot: auditRoot,
+        validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+        validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+      }),
+      /source and output roots overlap/u,
+    );
+    assert.equal(await readFile(join(auditRoot, 'fair-scheduler-decision.json.publication.json'), 'utf8'), pointerBefore);
+    assert.deepEqual(await readGenerationJsonFiles(auditRoot), filesBefore);
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
 test('PERF-BGSTAB-010 sibling output roots use independent staging directories', async () => {
   const writer = await import(`${writerUrl}?bundle-sibling-staging=${Date.now()}`);
   const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-sibling-staging-'));
