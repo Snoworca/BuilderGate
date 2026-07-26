@@ -43,12 +43,19 @@ test('PERF-BGSTAB-010 compiled runtime validates the published artifact through 
       reason: string;
     };
   };
-  const runtimePolicy = resolveFairTerminalDeliveryPolicy(
-    new RuntimeConfigStore(config).getEditableValues().resourceLimits.ws,
-  );
+  const runtimeWsLimits = new RuntimeConfigStore(config).getEditableValues().resourceLimits.ws;
+  const runtimePolicy = resolveFairTerminalDeliveryPolicy(runtimeWsLimits);
   assert.deepEqual(
     compiled.validatePublishedFairDeliveryCandidateArtifact({ runtimePolicy }),
     { accepted: true, reason: 'decision-artifact-verified' },
+  );
+  const driftedRuntimePolicy = resolveFairTerminalDeliveryPolicy({
+    ...runtimeWsLimits,
+    perClientOutputQueueMaxBytes: runtimeWsLimits.perClientOutputQueueMaxBytes + 1,
+  });
+  assert.deepEqual(
+    compiled.validatePublishedFairDeliveryCandidateArtifact({ runtimePolicy: driftedRuntimePolicy }),
+    { accepted: false, reason: 'decision-artifact-runtime-policy-hash-mismatch' },
   );
 });
 

@@ -113,6 +113,14 @@ test('validatePortableBuildOutput requires the compiled fair scheduler provenanc
   );
 });
 
+test('validatePortableBuildOutput requires the staged fair scheduler evidence bundle', () => {
+  const outputDir = createPortableOutputFixture('linux');
+  assert.throws(
+    () => validatePortableBuildOutput(outputDir, { platform: 'linux' }),
+    /fair-scheduler-evidence/i,
+  );
+});
+
 test('validatePortableBuildOutput rejects exposed server config in portable runtime', () => {
   const outputDir = createPortableOutputFixture('linux');
   touch(path.join(outputDir, 'server', 'config.json5'), 'auth: { password: "secret" }\n');

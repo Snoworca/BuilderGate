@@ -101,6 +101,38 @@ test('PERF-BGSTAB-010 RuntimeConfigStore profile is non-secret and binds raw plu
   }), { accepted: true, reason: 'decision-artifact-verified' }, signature);
 });
 
+test('PERF-BGSTAB-010 policy profile deeply freezes leaves and changes measured evidence for a non-default policy', async () => {
+  const signature = 'PERF-BGSTAB-010 profile leaves and measured evidence must remain policy-bound';
+  const fairness = await loadFairness(signature);
+  const baselineProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(8_192));
+  const nonDefaultProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(12_288));
+  const baseline = fairness.createFairSchedulerDecisionArtifact({
+    ...benchmarkInput,
+    runtimePolicyProfile: baselineProfile,
+  });
+  const nonDefault = fairness.createFairSchedulerDecisionArtifact({
+    ...benchmarkInput,
+    runtimePolicyProfile: nonDefaultProfile,
+  });
+  const nestedPolicyValue = nonDefaultProfile.policy.socketSoftGateBytes as { value: number };
+
+  assert.throws(() => {
+    nestedPolicyValue.value = 999;
+  }, TypeError, signature);
+  assert.notEqual(
+    ((baseline.artifact.thresholds as Record<string, { exact: number }>).peakApplicationQueuedBytes.exact),
+    ((nonDefault.artifact.thresholds as Record<string, { exact: number }>).peakApplicationQueuedBytes.exact),
+    signature,
+  );
+  assert.notEqual(
+    ((baseline.rawArtifacts.samples as Array<{ candidate: { throughputBytesPerSecond: number } }>)[0])
+      ?.candidate.throughputBytesPerSecond,
+    ((nonDefault.rawArtifacts.samples as Array<{ candidate: { throughputBytesPerSecond: number } }>)[0])
+      ?.candidate.throughputBytesPerSecond,
+    signature,
+  );
+});
+
 test('PERF-BGSTAB-010 one-field policy profile drift rejects fair-delivery evidence', async () => {
   const signature = 'PERF-BGSTAB-010 one-field runtime policy drift must fail closed';
   const fairness = await loadFairness(signature);
