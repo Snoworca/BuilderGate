@@ -154,12 +154,30 @@ test('PERF-BGSTAB-010 publication directory read-back rejects serialized raw evi
       reason: 'fair-scheduler-publication-verified',
     });
 
-    const rawPath = `${outputPath}.raw.json`;
+    const publication = JSON.parse(await readFile(`${outputPath}.publication.json`, 'utf8')) as { rawPath: string };
+    const rawPath = join(artifactRoot, publication.rawPath);
     const raw = JSON.parse(await readFile(rawPath, 'utf8')) as Record<string, unknown>;
     await writeFile(rawPath, `${canonicalJson({ ...raw, samples: [] })}\n`, 'utf8');
     assert.deepEqual(fairness.validateFairSchedulerPublicationDirectory({ artifactRoot }), {
       accepted: false,
       reason: 'raw-evidence-digest-mismatch',
+    });
+  } finally {
+    await rm(artifactRoot, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 root raw mirrors cannot invalidate the pointer-selected generation', async () => {
+  const fairness = await loadFairness();
+  const runtimePolicyProfile = createRuntimePolicyProfile(fairness);
+  const artifactRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-root-mirror-'));
+  const outputPath = join(artifactRoot, 'fair-scheduler-decision.json');
+  try {
+    await fairness.writeFairSchedulerDecisionArtifact({ ...input, outputPath, runtimePolicyProfile });
+    await writeFile(`${outputPath}.raw.json`, '{"obsolete":true}\n', 'utf8');
+    assert.deepEqual(fairness.validateFairSchedulerPublicationDirectory({ artifactRoot }), {
+      accepted: true,
+      reason: 'fair-scheduler-publication-verified',
     });
   } finally {
     await rm(artifactRoot, { recursive: true, force: true });

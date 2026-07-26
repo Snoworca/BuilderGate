@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { rename } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
@@ -15,6 +16,7 @@ test('PERF-BGSTAB-010 compiled runtime resolves only its staged evidence bundle 
       accepted: boolean;
       reason?: string;
     };
+    validatePublishedFairDeliveryCandidateArtifact?: () => { accepted: boolean; reason: string };
   };
   assert.equal(typeof compiled.resolveFairSchedulerEvidenceRoot, 'function');
   assert.equal(typeof compiled.validateFairSchedulerEvidenceReference, 'function');
@@ -25,5 +27,15 @@ test('PERF-BGSTAB-010 compiled runtime resolves only its staged evidence bundle 
       compiled.validateFairSchedulerEvidenceReference?.(evidenceRoot!, escapedReference),
       { accepted: false, reason: 'evidence-reference-invalid' },
     );
+  }
+  const parkedEvidenceRoot = `${evidenceRoot}.missing-${process.pid}`;
+  await rename(evidenceRoot!, parkedEvidenceRoot);
+  try {
+    assert.deepEqual(compiled.validatePublishedFairDeliveryCandidateArtifact?.(), {
+      accepted: false,
+      reason: 'decision-artifact-publication-missing',
+    });
+  } finally {
+    await rename(parkedEvidenceRoot, evidenceRoot!);
   }
 });

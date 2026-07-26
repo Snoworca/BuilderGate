@@ -30,6 +30,8 @@ function createPortableOutputFixture(platform = 'win32', {
   includeFairSchedulerEvidence = true,
   includeFairSchedulerEvidenceRaw = true,
   includeFairSchedulerEvidenceSidecars = true,
+  fairSchedulerSidecarCount = 15,
+  fairSchedulerRuntimeAccepted = true,
 } = {}) {
   const outputDir = makeTempDir('buildergate-portable-output-');
   touch(path.join(outputDir, 'web', 'index.html'), '<!doctype html>\n');
@@ -51,10 +53,9 @@ function createPortableOutputFixture(platform = 'win32', {
   }
   if (includeFairSchedulerEvidence) {
     const evidenceRoot = path.join(outputDir, 'server', 'dist', 'benchmarks', 'fair-scheduler-evidence');
-    const generationRoot = path.join(evidenceRoot, 'fair-scheduler-publications', 'fixture-generation');
     const artifactPath = 'fair-scheduler-publications/fixture-generation/fair-scheduler-decision.json';
     const rawPath = 'fair-scheduler-publications/fixture-generation/fair-scheduler-decision.raw.json';
-    const rawEvidencePaths = Array.from({ length: 15 }, (_, index) => (
+    const rawEvidencePaths = Array.from({ length: fairSchedulerSidecarCount }, (_, index) => (
       `fair-scheduler-publications/fixture-generation/fair-scheduler-runs/raw/sidecar-${index}.json`
     ));
     touch(
@@ -69,6 +70,10 @@ function createPortableOutputFixture(platform = 'win32', {
   }
   touch(path.join(outputDir, 'server', 'dist', 'utils', 'configStrictLoader.js'), 'export {};\n');
   touch(path.join(outputDir, 'server', 'dist', 'services', 'daemonTotpPreflight.js'), 'export {};\n');
+  touch(
+    path.join(outputDir, 'server', 'dist', 'services', 'TerminalResourcePolicyCanary.js'),
+    `export function validatePublishedFairDeliveryCandidateArtifact() { return { accepted: ${fairSchedulerRuntimeAccepted}, reason: 'fixture-runtime' }; }\n`,
+  );
   touch(path.join(outputDir, 'server', 'node_modules', 'node-pty', 'package.json'), '{}\n');
   touch(path.join(outputDir, 'server', 'node_modules', 'node-pty', 'lib', 'conpty_console_list_agent.js'), 'module.exports = {};\n');
 
@@ -154,6 +159,24 @@ test('validatePortableBuildOutput requires fair scheduler raw evidence and every
   assert.throws(
     () => validatePortableBuildOutput(missingSidecar, { platform: 'linux' }),
     /fair-scheduler-evidence.*sidecar/i,
+  );
+});
+
+test('validatePortableBuildOutput requires exactly fifteen unique fair scheduler sidecars', () => {
+  for (const fairSchedulerSidecarCount of [14, 16]) {
+    const outputDir = createPortableOutputFixture('linux', { fairSchedulerSidecarCount });
+    assert.throws(
+      () => validatePortableBuildOutput(outputDir, { platform: 'linux' }),
+      /fair-scheduler-evidence.*sidecar/i,
+    );
+  }
+});
+
+test('validatePortableBuildOutput rejects evidence that the packaged compiled canary cannot admit', () => {
+  const outputDir = createPortableOutputFixture('linux', { fairSchedulerRuntimeAccepted: false });
+  assert.throws(
+    () => validatePortableBuildOutput(outputDir, { platform: 'linux' }),
+    /compiled fair scheduler evidence rejected/i,
   );
 });
 
