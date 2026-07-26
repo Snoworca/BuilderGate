@@ -37,7 +37,8 @@ monolith untouched and cannot verify a parent PERF acceptance criterion.
   test seam.
 - **Decision**: construct the fake-PTY fixture with public `platform: 'win32'`
   and `shell: 'powershell'` inputs / basis: this selects the public deterministic
-  PowerShell resolution path without probing or overriding command availability /
+  PowerShell resolution path without overriding command availability; constructor
+  shell discovery remains outside the asserted resolution contract /
   trade-off: the fake process models no real shell execution /
   rejected: a private `isCommandAvailable` override or a host-dependent shell.
 - **Decision**: add a new public-fixture module and focused test rather than
@@ -72,6 +73,9 @@ monolith untouched and cannot verify a parent PERF acceptance criterion.
 - SDS-AC-5: WHEN this superseding fixture is added, THE SYSTEM SHALL leave the
   superseded fixture path, the untracked Canary monolith, all production entry
   imports, and parent `PERF-BGSTAB-010` lifecycle rows unchanged.
+- SDS-AC-6: WHEN the fixture requests the public `powershell` shell on the
+  public `win32` platform input, THE fake PTY SHALL observe `powershell.exe` as
+  the spawn command and preserve the corresponding public resolved arguments.
 
 ## 6. Test Plan
 
@@ -82,6 +86,7 @@ monolith untouched and cannot verify a parent PERF acceptance criterion.
 | SDS-AC-3 | `server/src/services/TerminalResourcePolicyCanaryPublicFixture.test.ts` | Assert only matching public DTO IDs and forbid internal identity assertions. |
 | SDS-AC-4 | `server/src/services/TerminalResourcePolicyCanaryPublicFixture.test.ts` | Assert public delete, `getSession` absence, and callback release. |
 | SDS-AC-5 | independent diff/import audit | Confirm private-internal references are absent; old monolith hash/status and parent lifecycle rows are unchanged. |
+| SDS-AC-6 | `server/src/services/TerminalResourcePolicyCanaryPublicFixture.test.ts` | Assert the fake PTY captured the public PowerShell command and argument array. |
 
 ## 7. Open Questions
 

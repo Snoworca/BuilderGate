@@ -16,6 +16,11 @@ test('public recovery fixture observes one public session and releases it', () =
     assert.equal(fixture.onDataRegistrationCount, 1);
     assert.equal(fixture.createdSession.id, 'canary-public-fixture-session');
     assert.equal(fixture.observedSession?.id, fixture.createdSession.id);
+    assert.equal(fixture.spawnCommand, 'powershell.exe');
+    assert.deepEqual(fixture.spawnArgs.slice(0, 6), [
+      '-NoLogo', '-NoExit', '-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand',
+    ]);
+    assert.match(fixture.spawnArgs[6] ?? '', /^[A-Za-z0-9+/]+={0,2}$/);
   } finally {
     assert.equal(fixture.dispose(), true);
     assert.equal(fixture.manager.getSession(fixture.createdSession.id), null);
