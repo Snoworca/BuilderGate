@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import test from 'node:test';
@@ -90,7 +91,7 @@ function assertFailsBeforeWriting({ captureFrozenProvenance, label, expected, op
 }
 
 test('SDS-AC-1 admits only the actual TerminalView CSS import as a hash-only source row', async () => {
-  const { collectSourceClosure } = await loadCollector();
+  const { FROZEN_CONTRACT, collectSourceClosure } = await loadCollector();
 
   assert.equal(typeof collectSourceClosure, 'function');
   const closure = collectSourceClosure({
@@ -106,6 +107,15 @@ test('SDS-AC-1 admits only the actual TerminalView CSS import as a hash-only sou
     sha256: cssRows[0]?.sha256,
   }]);
   assert.match(cssRows[0].sha256, /^[a-f0-9]{64}$/i);
+  assert.equal(FROZEN_CONTRACT.sourceRoots.includes('frontend/src/components/Terminal/TerminalView.css'), false);
+  assert.throws(
+    () => collectSourceClosure({
+      workspaceRoot,
+      sourceRoots: ['frontend/src/components/Terminal/TerminalView.css'],
+      fs,
+    }),
+    /TerminalView\.tsx|non-code|dependency/i,
+  );
   assert.throws(
     () => collectSourceClosure({ workspaceRoot, sourceRoots: ['server/config.json5'], fs }),
     /non-code|dependency/i,
@@ -189,9 +199,20 @@ test('SDS-AC-4 captures the actual workspace into one disposable manifest withou
       fs,
     });
     const written = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const writtenBytes = fs.readFileSync(manifestPath);
 
-    assert.equal(written.contract.sha256, manifest.contract.sha256);
-    assert.equal(written.protectedInput.sha256, manifest.protectedInput.sha256);
+    assert.equal(writtenBytes.subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf])), false);
+    assert.equal(writtenBytes.includes(0x0d), false, 'manifest must use LF only');
+    assert.deepEqual(written, manifest);
+    assert.equal(written.contract.sha256, createHash('sha256').update(written.contract.canonicalJson, 'utf8').digest('hex'));
+    assert.equal(written.protectedInput.sha256, createHash('sha256').update(written.protectedInput.canonicalJson, 'utf8').digest('hex'));
+    assert.equal(written.protectedInput.value.sourceClosureRows.some(row => row.path === 'frontend/src/components/Terminal/TerminalView.tsx'), true);
+    assert.equal(written.protectedInput.value.sourceClosureRows.some(row => row.path === 'frontend/src/components/Terminal/TerminalView.css'), true);
+    assert.equal(written.protectedInput.value.fixtureRows.length > 0, true);
+    assert.equal(written.protectedInput.value.configLockRows.some(row => row.path === 'server/config.json5'), true);
+    assert.deepEqual(written.protectedInput.value.git.commandPrefix, ['git', '-c', 'core.longpaths=true']);
+    assert.equal(written.protectedInput.value.git.protectedRepoPaths.includes('server/config.json5'), true);
+    assert.match(written.protectedInput.value.nodeRuntime.sha256, /^[a-f0-9]{64}$/i);
     assert.equal(fs.existsSync(outputDir), false, 'provenance capture must not launch Playwright or create external output');
   } finally {
     if (fs.existsSync(manifestPath)) fs.rmSync(manifestPath);
@@ -217,6 +238,12 @@ test('SDS-AC-5 fails on injected source, fixture, and scoped-Git faults before w
     expected: /fixture/i,
     options: { fs: fileSystemWith({ missingPaths: [fixtureEntry] }) },
   });
+  assertFailsBeforeWriting({
+    captureFrozenProvenance,
+    label: 'missing-config-lock',
+    expected: /missing config_lock/i,
+    options: { fs: fileSystemWith({ missingPaths: [path.join(workspaceRoot, 'server', 'config.json5')] }) },
+  });
 
   const savedPath = process.env.PATH;
   const savedWindowsPath = process.env.Path;
@@ -235,4 +262,15 @@ test('SDS-AC-5 fails on injected source, fixture, and scoped-Git faults before w
     if (savedWindowsPath === undefined) delete process.env.Path;
     else process.env.Path = savedWindowsPath;
   }
+});
+
+test('SDS-AC-4 rejects test-only input overrides so every capture binds the frozen closure', async () => {
+  const { captureFrozenProvenance } = await loadCollector();
+
+  assertFailsBeforeWriting({
+    captureFrozenProvenance,
+    label: 'test-input-override',
+    expected: /test.?only|frozen.*input|override/i,
+    options: { testOnlyInputs: { sourceRoots: [] } },
+  });
 });
