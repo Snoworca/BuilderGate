@@ -53,6 +53,11 @@ const CONFIG_LOCK_PATHS = [
 const FIXTURE_ROOT = 'docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness';
 const FIXTURE_ENTRY = `${FIXTURE_ROOT}/fair-scheduler-decision.json`;
 const HASH_PATTERN = /^[a-f0-9]{64}$/i;
+const REPARSE_BATCH_ENV_KEY = 'FAIR_READMISSION_CLOSURE_V3_REPARSE_BATCH_PATHS_BASE64';
+const REPARSE_PATH_ENV_KEY = 'FAIR_READMISSION_CLOSURE_V3_REPARSE_PATH_BASE64';
+const REPARSE_BATCH_MAX_COUNT = 64;
+const REPARSE_BATCH_MAX_BYTES = 8 * 1024;
+const REPARSE_PROBE_TIMEOUT_MS = 10_000;
 
 function normalizeLf(value) {
   return String(value).replace(/\r\n?/g, '\n');
@@ -159,11 +164,265 @@ function isAbsoluteWindowsPath(value) {
   return /^[a-zA-Z]:\//.test(normalizePath(value));
 }
 
-function assertPathHasNoLinkOrReparsePoint(fs, absolutePath, label) {
+function assertExistingWindowsPath(value, label) {
+  if (typeof value !== 'string' || !value || value.includes('\0')) {
+    throw new Error(`${label} must be a non-empty path`);
+  }
+  const normalized = normalizePath(value);
+  if (!isAbsoluteWindowsPath(normalized)) {
+    throw new Error(`${label} must be an absolute Windows path`);
+  }
+  return normalized;
+}
+
+function systemRootFrom(env) {
+  const systemRoot = env?.SystemRoot ?? env?.SYSTEMROOT;
+  if (!isAbsoluteWindowsPath(systemRoot ?? '')) {
+    throw new Error('SystemRoot must be an absolute Windows path for the reparse probe');
+  }
+  return systemRoot;
+}
+
+function powershellPathFor(env) {
+  return nodePath.win32.join(systemRootFrom(env), 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+}
+
+const REPARSE_BATCH_PROGRAM = [
+  "$ErrorActionPreference = 'Stop'",
+  "$ProgressPreference = 'SilentlyContinue'",
+  'try {',
+  `  $inputBase64 = $env:${REPARSE_BATCH_ENV_KEY}`,
+  '  if ([string]::IsNullOrWhiteSpace($inputBase64)) { exit 1 }',
+  '  $inputJson = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($inputBase64))',
+  '  Add-Type -AssemblyName System.Web.Extensions',
+  '  $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer',
+  '  $paths = $serializer.DeserializeObject($inputJson)',
+  '  if ($paths -isnot [System.Array]) { exit 1 }',
+  '  foreach ($candidate in $paths) {',
+  '    if (-not ($candidate -is [string])) { exit 1 }',
+  '    $attributes = [System.IO.File]::GetAttributes([string]$candidate)',
+  '    if (($attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { exit 1 }',
+  '  }',
+  '  $hash = [System.Security.Cryptography.SHA256]::Create()',
+  '  try { $digest = -join ($hash.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($inputJson)) | ForEach-Object { $_.ToString("x2") }) } finally { $hash.Dispose() }',
+  '  [Console]::Out.Write(("FRRPB1:{0}:{1}`n" -f $paths.Count, $digest))',
+  '} catch {',
+  '  exit 1',
+  '}',
+].join('\n');
+const REPARSE_BATCH_ARGV = [
+  '-NoProfile',
+  '-NonInteractive',
+  '-ExecutionPolicy',
+  'Bypass',
+  '-EncodedCommand',
+  Buffer.from(REPARSE_BATCH_PROGRAM, 'utf16le').toString('base64'),
+];
+
+const REPARSE_PATH_PROGRAM = [
+  "$ErrorActionPreference = 'Stop'",
+  'try {',
+  `  $candidate = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($env:${REPARSE_PATH_ENV_KEY}))`,
+  '  $attributes = [System.IO.File]::GetAttributes($candidate)',
+  '  [Console]::Out.Write((if (($attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { "1`n" } else { "0`n" }))',
+  '} catch {',
+  '  exit 1',
+  '}',
+].join('\n');
+const REPARSE_PATH_ARGV = [
+  '-NoProfile',
+  '-NonInteractive',
+  '-ExecutionPolicy',
+  'Bypass',
+  '-EncodedCommand',
+  Buffer.from(REPARSE_PATH_PROGRAM, 'utf16le').toString('base64'),
+];
+
+function reparseProbeOptions(env, environmentKey, environmentValue) {
+  return {
+    env: { ...(env ?? process.env), [environmentKey]: environmentValue },
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: REPARSE_PROBE_TIMEOUT_MS,
+    windowsHide: true,
+  };
+}
+
+function exactBatchPaths(paths) {
+  if (!Array.isArray(paths)) throw new Error('reparse batch paths must be an array');
+  const normalized = paths.map((candidate, index) => assertExistingWindowsPath(candidate, `reparse batch path ${index}`));
+  if (normalized.length > REPARSE_BATCH_MAX_COUNT || Buffer.byteLength(JSON.stringify(normalized), 'utf8') > REPARSE_BATCH_MAX_BYTES) {
+    throw new Error('reparse batch exceeds the fixed count or byte limit');
+  }
+  return normalized;
+}
+
+export function probeWindowsReparsePoints({ paths, execFileSync: run = execFileSync, env = process.env }) {
+  const normalizedPaths = exactBatchPaths(paths);
+  if (normalizedPaths.length === 0) return false;
+  const inputJson = JSON.stringify(normalizedPaths);
+  const expected = `FRRPB1:${normalizedPaths.length}:${sha256(inputJson)}\n`;
+  let output;
+  try {
+    output = run(
+      powershellPathFor(env),
+      REPARSE_BATCH_ARGV,
+      reparseProbeOptions(env, REPARSE_BATCH_ENV_KEY, Buffer.from(inputJson, 'utf8').toString('base64')),
+    );
+  } catch (error) {
+    throw new Error(`PowerShell reparse batch probe failed closed: ${error?.message ?? String(error)}`);
+  }
+  if (String(output) !== expected) {
+    throw new Error('PowerShell reparse batch probe failed closed: invalid FRRPB1 success record');
+  }
+  return false;
+}
+
+// This wrapper remains compatible with the already-published one-path probe protocol.
+// New provenance capture uses the bound FRRPB1 batch protocol above.
+export function probeWindowsReparsePoint({ path, execFileSync: run = execFileSync, env = process.env }) {
+  const candidate = assertExistingWindowsPath(path, 'reparse probe path');
+  let output;
+  try {
+    output = run(
+      powershellPathFor(env),
+      REPARSE_PATH_ARGV,
+      reparseProbeOptions(env, REPARSE_PATH_ENV_KEY, Buffer.from(path, 'utf8').toString('base64')),
+    );
+  } catch (error) {
+    throw new Error(`PowerShell reparse probe failed closed: ${error?.message ?? String(error)}`);
+  }
+  if (output === '0\n') return false;
+  if (output === '1\n') return true;
+  throw new Error(`PowerShell reparse probe failed closed for ${candidate}`);
+}
+
+function statIdentity(stat, label) {
+  const fields = ['dev', 'ino', 'mode', 'ctimeMs', 'mtimeMs', 'size'];
+  const identity = {};
+  for (const field of fields) {
+    if (!Object.hasOwn(stat ?? {}, field)) throw new Error(`cannot establish ${label} identity`);
+    identity[field] = stat[field];
+  }
+  return identity;
+}
+
+function sameIdentity(left, right) {
+  return left !== undefined && right !== undefined
+    && left.dev === right.dev
+    && left.ino === right.ino
+    && left.mode === right.mode
+    && left.ctimeMs === right.ctimeMs
+    && left.mtimeMs === right.mtimeMs
+    && left.size === right.size;
+}
+
+function lstatSafeSegment(fs, candidate, label) {
+  let stat;
+  try {
+    stat = fs.lstatSync(candidate);
+  } catch (error) {
+    throw new Error(`cannot inspect ${label}: ${candidate} (${error?.message ?? String(error)})`);
+  }
+  if (stat?.isSymbolicLink?.() || stat?.isReparsePoint?.()) {
+    throw new Error(`${label} is a reparse point or link: ${candidate}`);
+  }
+  return statIdentity(stat, label);
+}
+
+function splitReparseBatches(paths) {
+  const batches = [];
+  let batch = [];
+  for (const candidate of paths) {
+    const proposed = [...batch, candidate];
+    if (batch.length > 0 && (
+      proposed.length > REPARSE_BATCH_MAX_COUNT
+      || Buffer.byteLength(JSON.stringify(proposed), 'utf8') > REPARSE_BATCH_MAX_BYTES
+    )) {
+      batches.push(batch);
+      batch = [candidate];
+      continue;
+    }
+    batch = proposed;
+  }
+  if (batch.length > 0) batches.push(batch);
+  return batches;
+}
+
+export function createSegmentReparseGuard({ fs = nodeFs, probe = probeWindowsReparsePoint, probeBatch } = {}) {
+  if (!fs || typeof fs.lstatSync !== 'function') throw new Error('reparse guard requires lstatSync');
+  if (probeBatch !== undefined && typeof probeBatch !== 'function') throw new Error('reparse guard probeBatch must be a function');
+  if (probeBatch === undefined && typeof probe !== 'function') throw new Error('reparse guard probe must be a function');
+  const cache = new Map();
+
+  if (probeBatch === undefined) {
+    const assertSafe = (candidate, { forceFresh = false } = {}) => {
+      const normalized = assertExistingWindowsPath(candidate, 'reparse guard path');
+      const identity = lstatSafeSegment(fs, normalized, 'reparse guard path');
+      const cached = cache.get(normalized);
+      if (!forceFresh && sameIdentity(cached, identity)) return;
+      let unsafe;
+      try {
+        unsafe = probe(candidate);
+      } catch (error) {
+        cache.delete(normalized);
+        throw error;
+      }
+      if (unsafe) {
+        cache.delete(normalized);
+        throw new Error(`reparse guard rejected unsafe path: ${normalized}`);
+      }
+      cache.set(normalized, identity);
+    };
+    return {
+      assertSafe,
+      assertSafeMany(paths, options) {
+        if (!Array.isArray(paths)) throw new Error('reparse guard paths must be an array');
+        for (const candidate of paths) assertSafe(candidate, options);
+      },
+    };
+  }
+
+  const assertSafeMany = (paths, { forceFresh = false } = {}) => {
+    if (!Array.isArray(paths)) throw new Error('reparse guard paths must be an array');
+    const occurrences = paths.map(candidate => ({ candidate: assertExistingWindowsPath(candidate, 'reparse guard path') }));
+    if (occurrences.length === 0) return;
+    const pre = occurrences.map(({ candidate }) => lstatSafeSegment(fs, candidate, 'reparse guard path'));
+    const probeCandidates = [];
+    const queued = new Set();
+    for (let index = 0; index < occurrences.length; index += 1) {
+      const candidate = occurrences[index].candidate;
+      if ((forceFresh || !sameIdentity(cache.get(candidate), pre[index])) && !queued.has(candidate)) {
+        queued.add(candidate);
+        probeCandidates.push(candidate);
+      }
+    }
+    try {
+      for (const batch of splitReparseBatches(probeCandidates)) probeBatch(batch);
+      const post = occurrences.map(({ candidate }) => lstatSafeSegment(fs, candidate, 'reparse guard path'));
+      if (post.some((identity, index) => !sameIdentity(pre[index], identity))) {
+        throw new Error('reparse guard identity changed during batch probe');
+      }
+      for (let index = 0; index < occurrences.length; index += 1) cache.set(occurrences[index].candidate, post[index]);
+    } catch (error) {
+      for (const { candidate } of occurrences) cache.delete(candidate);
+      throw error;
+    }
+  };
+  return {
+    assertSafe(candidate, options) {
+      assertSafeMany([candidate], options);
+    },
+    assertSafeMany,
+  };
+}
+
+function checkedPathSegments(fs, absolutePath, label) {
   const resolved = nodePath.resolve(absolutePath);
   const parsed = nodePath.parse(resolved);
   const segments = nodePath.relative(parsed.root, resolved).split(nodePath.sep).filter(Boolean);
   let current = parsed.root;
+  const checked = [];
   for (const segment of segments) {
     current = nodePath.join(current, segment);
     let stat;
@@ -176,10 +435,17 @@ function assertPathHasNoLinkOrReparsePoint(fs, absolutePath, label) {
     if (stat?.isSymbolicLink?.() || stat?.isReparsePoint?.()) {
       throw new Error(`${label} is a reparse point or link: ${current}`);
     }
+    checked.push(normalizePath(current));
   }
+  return checked;
 }
 
-function assertExternalOutputPath({ workspaceRoot, outputDir, fs }) {
+function assertPathHasNoLinkOrReparsePoint(fs, absolutePath, label, reparseGuard, { forceFresh = false } = {}) {
+  const checked = checkedPathSegments(fs, absolutePath, label);
+  if (reparseGuard && checked.length > 0) reparseGuard.assertSafeMany(checked, { forceFresh });
+}
+
+function assertExternalOutputPath({ workspaceRoot, outputDir, fs, reparseGuard }) {
   const normalizedOutput = normalizePath(outputDir);
   const normalizedWorkspace = normalizePath(workspaceRoot);
   if (normalizedOutput !== PLAYWRIGHT_OUTPUT_DIR || !isAbsoluteWindowsPath(normalizedOutput)) {
@@ -191,16 +457,16 @@ function assertExternalOutputPath({ workspaceRoot, outputDir, fs }) {
   if (fs.existsSync(normalizedOutput)) {
     throw new Error('Playwright output leaf must be absent before launch');
   }
-  assertPathHasNoLinkOrReparsePoint(fs, normalizedOutput, 'Playwright output ancestor or leaf');
+  assertPathHasNoLinkOrReparsePoint(fs, normalizedOutput, 'Playwright output ancestor or leaf', reparseGuard, { forceFresh: true });
 }
 
-export function validateFrozenContract({ workspaceRoot, contract = FROZEN_CONTRACT, fs = nodeFs }) {
+export function validateFrozenContract({ workspaceRoot, contract = FROZEN_CONTRACT, fs = nodeFs, reparseGuard }) {
   if (!workspaceRoot || !isAbsoluteWindowsPath(workspaceRoot)) {
     throw new Error('workspaceRoot must be an absolute Windows path');
   }
   assertPlainObject(contract, 'frozen contract');
   assertPlainObject(contract.playwright, 'frozen contract playwright');
-  assertExternalOutputPath({ workspaceRoot, outputDir: contract.playwright.outputDir, fs });
+  assertExternalOutputPath({ workspaceRoot, outputDir: contract.playwright.outputDir, fs, reparseGuard });
   if (canonicalJson(contract) !== canonicalJson(FROZEN_CONTRACT)) {
     throw new Error('frozen contract does not match closure-v3 literals and argv');
   }
@@ -334,9 +600,9 @@ function hashFile(fs, absolutePath) {
   return createHash('sha256').update(fs.readFileSync(absolutePath)).digest('hex');
 }
 
-function requireFile(fs, workspaceRoot, relativePath, kind) {
+function requireFile(fs, workspaceRoot, relativePath, kind, { reparseGuard, alreadyGuarded = false } = {}) {
   const absolutePath = workspacePath(workspaceRoot, relativePath);
-  assertPathHasNoLinkOrReparsePoint(fs, absolutePath, `${kind} input`);
+  if (!alreadyGuarded) assertPathHasNoLinkOrReparsePoint(fs, absolutePath, `${kind} input`, reparseGuard);
   if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
     throw new Error(`missing ${kind}: ${relativePath}`);
   }
@@ -359,7 +625,7 @@ function compilerOptionsFor(ts, workspaceRoot, relativePath, cache) {
   return parsed.options;
 }
 
-function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOTS) {
+function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOTS, reparseGuard) {
   if (!Array.isArray(sourceRoots) || sourceRoots.some(relativePath => typeof relativePath !== 'string')) {
     throw new Error('source closure roots must be a string array');
   }
@@ -378,14 +644,31 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOT
   const externalSpecifierRows = [];
   const compilerOptionsCache = new Map();
   while (pending.length > 0) {
-    const relativePath = normalizePath(pending.pop());
-    if (resolved.has(relativePath)) continue;
-    if (relativePath.endsWith('.css')) {
+    const currentWave = [];
+    const queued = new Set();
+    for (const pendingPath of pending.splice(0)) {
+      const relativePath = normalizePath(pendingPath);
+      if (resolved.has(relativePath) || queued.has(relativePath)) continue;
+      if (relativePath.endsWith('.css') && relativePath !== 'frontend/src/components/Terminal/TerminalView.css') {
+        throw new Error(`unexpected workspace-local non-code dependency: ${relativePath}`);
+      }
+      if (!relativePath.endsWith('.css') && !isCodeFile(relativePath)) {
+        throw new Error(`unexpected workspace-local non-code dependency: ${relativePath}`);
+      }
+      queued.add(relativePath);
+      currentWave.push(relativePath);
+    }
+    if (reparseGuard && currentWave.length > 0) {
+      reparseGuard.assertSafeMany(currentWave.map(relativePath => workspacePath(workspaceRoot, relativePath)));
+    }
+    for (const relativePath of currentWave) {
+      if (resolved.has(relativePath)) continue;
+      if (relativePath.endsWith('.css')) {
       if (relativePath !== 'frontend/src/components/Terminal/TerminalView.css') {
         throw new Error(`unexpected workspace-local non-code dependency: ${relativePath}`);
       }
       const cssPath = workspacePath(workspaceRoot, relativePath);
-      requireFile(fs, workspaceRoot, relativePath, 'source');
+      requireFile(fs, workspaceRoot, relativePath, 'source', { reparseGuard, alreadyGuarded: Boolean(reparseGuard) });
       const css = fs.readFileSync(cssPath, 'utf8');
       if (/@import\s+(?!url\(['"]?(?:https?:|\/\/))/i.test(css) || /url\(\s*['"]?(?!data:|https?:|\/\/|#)/i.test(css)) {
         throw new Error('TerminalView.css has a local @import or url dependency');
@@ -395,7 +678,7 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOT
     }
     if (!isCodeFile(relativePath)) throw new Error(`unexpected workspace-local non-code dependency: ${relativePath}`);
     const absolutePath = workspacePath(workspaceRoot, relativePath);
-    requireFile(fs, workspaceRoot, relativePath, 'source closure input');
+    requireFile(fs, workspaceRoot, relativePath, 'source closure input', { reparseGuard, alreadyGuarded: Boolean(reparseGuard) });
     resolved.add(relativePath);
     const sourceText = fs.readFileSync(absolutePath, 'utf8');
     const imported = ts.preProcessFile(sourceText, true, true).importedFiles;
@@ -435,9 +718,20 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOT
         resolvedOrBuiltin: specifier.startsWith('node:') ? 'builtin' : `package:${specifier}`,
       });
     }
+    }
+  }
+  const resolvedPaths = [...resolved];
+  if (reparseGuard && resolvedPaths.length > 0) {
+    reparseGuard.assertSafeMany(resolvedPaths.map(relativePath => workspacePath(workspaceRoot, relativePath)));
   }
   return {
-    sourceClosureRows: stableRows([...resolved].map(relativePath => requireFile(fs, workspaceRoot, relativePath, 'source'))),
+    sourceClosureRows: stableRows(resolvedPaths.map(relativePath => requireFile(
+      fs,
+      workspaceRoot,
+      relativePath,
+      'source',
+      { reparseGuard, alreadyGuarded: Boolean(reparseGuard) },
+    ))),
     externalSpecifierRows: stableRows(externalSpecifierRows),
   };
 }
@@ -449,10 +743,17 @@ export function collectSourceClosure({ workspaceRoot, sourceRoots = SOURCE_ROOTS
   return sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots);
 }
 
-function readJsonFixture(fs, workspaceRoot, relativePath) {
+function collectSourceClosureWithGuard({ workspaceRoot, sourceRoots = SOURCE_ROOTS, fs = nodeFs, reparseGuard }) {
+  if (!workspaceRoot || !isAbsoluteWindowsPath(workspaceRoot)) {
+    throw new Error('workspaceRoot must be an absolute Windows path');
+  }
+  return sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots, reparseGuard);
+}
+
+function readJsonFixture(fs, workspaceRoot, relativePath, { reparseGuard, alreadyGuarded = false } = {}) {
   const absolutePath = workspacePath(workspaceRoot, relativePath);
   try {
-    requireFile(fs, workspaceRoot, relativePath, 'fixture');
+    requireFile(fs, workspaceRoot, relativePath, 'fixture', { reparseGuard, alreadyGuarded });
     return JSON.parse(fs.readFileSync(absolutePath, 'utf8'));
   } catch (error) {
     throw new Error(`fixture is not valid JSON: ${relativePath} (${error.message})`);
@@ -469,14 +770,21 @@ function fixtureRelativePath(value) {
   return path;
 }
 
-function fixtureRowsFromEntry(fs, workspaceRoot) {
-  const decision = readJsonFixture(fs, workspaceRoot, FIXTURE_ENTRY);
+function fixtureRowsFromEntry(fs, workspaceRoot, reparseGuard) {
   const publicationPath = `${FIXTURE_ENTRY}.publication.json`;
   const rawPath = `${FIXTURE_ENTRY}.raw.json`;
-  const publication = readJsonFixture(fs, workspaceRoot, publicationPath);
+  if (reparseGuard) {
+    reparseGuard.assertSafeMany([FIXTURE_ENTRY, publicationPath].map(relativePath => workspacePath(workspaceRoot, relativePath)));
+  }
+  const fixtureReadOptions = { reparseGuard, alreadyGuarded: Boolean(reparseGuard) };
+  const decision = readJsonFixture(fs, workspaceRoot, FIXTURE_ENTRY, fixtureReadOptions);
+  const publication = readJsonFixture(fs, workspaceRoot, publicationPath, fixtureReadOptions);
   const publicationArtifactPath = fixtureRelativePath(publication.artifactPath);
   const publicationRawPath = fixtureRelativePath(publication.rawPath);
-  const publishedArtifact = readJsonFixture(fs, workspaceRoot, publicationArtifactPath);
+  if (reparseGuard) {
+    reparseGuard.assertSafeMany([publicationArtifactPath, publicationRawPath].map(relativePath => workspacePath(workspaceRoot, relativePath)));
+  }
+  const publishedArtifact = readJsonFixture(fs, workspaceRoot, publicationArtifactPath, fixtureReadOptions);
   const rawEvidencePaths = [
     ...(decision.rawEvidencePaths ?? []),
     ...(publishedArtifact.rawEvidencePaths ?? []),
@@ -492,7 +800,15 @@ function fixtureRowsFromEntry(fs, workspaceRoot) {
     publicationRawPath,
     ...rawEvidencePaths.map(fixtureRelativePath),
   ]);
-  return stableRows([...paths].map(relativePath => requireFile(fs, workspaceRoot, relativePath, 'fixture')));
+  const fixturePaths = [...paths];
+  if (reparseGuard) reparseGuard.assertSafeMany(fixturePaths.map(relativePath => workspacePath(workspaceRoot, relativePath)));
+  return stableRows(fixturePaths.map(relativePath => requireFile(
+    fs,
+    workspaceRoot,
+    relativePath,
+    'fixture',
+    { reparseGuard, alreadyGuarded: Boolean(reparseGuard) },
+  )));
 }
 
 function readGitLines(workspaceRoot, args) {
@@ -552,13 +868,13 @@ function runtimeRecord(fs, execFile) {
   };
 }
 
-function assertManifestDestination(workspaceRoot, manifestPath, fs) {
+function assertManifestDestination(workspaceRoot, manifestPath, fs, reparseGuard) {
   const analysisRoot = workspacePath(workspaceRoot, ANALYSIS_DIRECTORY);
   const destination = nodePath.resolve(manifestPath);
   if (!isWithinPath(destination, analysisRoot) || nodePath.dirname(destination) !== analysisRoot || nodePath.extname(destination).toLowerCase() !== '.json') {
     throw new Error(`manifest must be a JSON leaf in ${ANALYSIS_DIRECTORY}`);
   }
-  assertPathHasNoLinkOrReparsePoint(fs, destination, 'manifest destination');
+  assertPathHasNoLinkOrReparsePoint(fs, destination, 'manifest destination', reparseGuard, { forceFresh: true });
   if (fs.existsSync(destination)) throw new Error(`manifest already exists: ${destination}`);
   return { analysisRoot, destination };
 }
@@ -575,15 +891,28 @@ export function captureFrozenProvenance(options) {
     execFile = fileURLToPath(import.meta.url),
     fs = nodeFs,
   } = options;
-  const contract = validateFrozenContract({ workspaceRoot, contract: FROZEN_CONTRACT, fs });
-  const { analysisRoot, destination } = assertManifestDestination(workspaceRoot, manifestPath, fs);
-  const { sourceClosureRows, externalSpecifierRows } = collectSourceClosure({
+  const reparseGuard = createSegmentReparseGuard({
+    fs,
+    probeBatch: paths => probeWindowsReparsePoints({ paths }),
+  });
+  const contract = validateFrozenContract({ workspaceRoot, contract: FROZEN_CONTRACT, fs, reparseGuard });
+  const { analysisRoot, destination } = assertManifestDestination(workspaceRoot, manifestPath, fs, reparseGuard);
+  reparseGuard.assertSafeMany(CONFIG_LOCK_PATHS.map(relativePath => workspacePath(workspaceRoot, relativePath)));
+  const { sourceClosureRows, externalSpecifierRows } = collectSourceClosureWithGuard({
     workspaceRoot,
     sourceRoots: SOURCE_ROOTS,
     fs,
+    reparseGuard,
   });
-  const fixtureRows = fixtureRowsFromEntry(fs, workspaceRoot);
-  const configLockRows = CONFIG_LOCK_PATHS.map(relativePath => requireFile(fs, workspaceRoot, relativePath, 'config_lock'));
+  const fixtureRows = fixtureRowsFromEntry(fs, workspaceRoot, reparseGuard);
+  const configLockRows = CONFIG_LOCK_PATHS.map(relativePath => requireFile(
+    fs,
+    workspaceRoot,
+    relativePath,
+    'config_lock',
+    { reparseGuard, alreadyGuarded: true },
+  ));
+  reparseGuard.assertSafeMany([execFile, process.execPath].map(candidate => nodePath.resolve(candidate)));
   const protectedPaths = [...new Set([...sourceClosureRows, ...fixtureRows, ...configLockRows].map(row => row.path))].sort();
   const git = gitProtectedInput(workspaceRoot, protectedPaths);
   const manifest = buildCanonicalManifest({
@@ -599,6 +928,7 @@ export function captureFrozenProvenance(options) {
     git,
   });
   fs.mkdirSync(analysisRoot, { recursive: true });
+  assertPathHasNoLinkOrReparsePoint(fs, destination, 'manifest destination', reparseGuard, { forceFresh: true });
   fs.writeFileSync(destination, `${canonicalJson(manifest)}\n`, { encoding: 'utf8', flag: 'wx' });
   return manifest;
 }
