@@ -176,18 +176,6 @@ function assertExistingWindowsPath(value, label) {
   return normalized;
 }
 
-function systemRootFrom(env) {
-  const systemRoot = env?.SystemRoot ?? env?.SYSTEMROOT;
-  if (!isAbsoluteWindowsPath(systemRoot ?? '')) {
-    throw new Error('SystemRoot must be an absolute Windows path for the reparse probe');
-  }
-  return systemRoot;
-}
-
-function powershellPathFor(env) {
-  return nodePath.win32.join(systemRootFrom(env), 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-}
-
 const REPARSE_BATCH_PROGRAM = [
   "$ErrorActionPreference = 'Stop'",
   "$ProgressPreference = 'SilentlyContinue'",
@@ -238,16 +226,6 @@ const REPARSE_PATH_ARGV = [
   '-EncodedCommand',
   Buffer.from(REPARSE_PATH_PROGRAM, 'utf16le').toString('base64'),
 ];
-
-function legacyReparseProbeOptions(env, environmentKey, environmentValue) {
-  return {
-    env: { ...(env ?? process.env), [environmentKey]: environmentValue },
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: REPARSE_PROBE_TIMEOUT_MS,
-    windowsHide: true,
-  };
-}
 
 function fixedReparseProbeOptions(environmentKey, environmentValue) {
   return {
@@ -323,95 +301,68 @@ function assertExactBatchResult(result, expected) {
   }
 }
 
+function runTrustedReparseProbe({ spawn, fs, platform, argv, environmentKey, environmentValue, label }) {
+  const run = spawn ?? nodeSpawnSync;
+  if (typeof run !== 'function') {
+    throw new Error(`PowerShell reparse ${label} probe failed closed: spawnSync must be a function`);
+  }
+  const executable = resolveTrustedWindowsPowerShell({ fs, platform });
+  try {
+    return run(
+      executable,
+      argv,
+      fixedReparseProbeOptions(environmentKey, environmentValue),
+    );
+  } catch (error) {
+    throw new Error(`PowerShell reparse ${label} probe failed closed: ${error?.message ?? String(error)}`);
+  }
+}
+
 export function probeWindowsReparsePoints({
   paths,
   spawnSync: spawn = undefined,
-  execFileSync: legacyRun = undefined,
   fs = nodeFs,
   platform = process.platform,
-  env = process.env,
 } = {}) {
   const normalizedPaths = exactBatchPaths(paths);
   if (normalizedPaths.length === 0) return false;
   const inputJson = JSON.stringify(normalizedPaths);
   const expected = `FRRPB1:${normalizedPaths.length}:${sha256(inputJson)}\n`;
   const encodedPaths = Buffer.from(inputJson, 'utf8').toString('base64');
-  if (legacyRun !== undefined && spawn === undefined) {
-    let output;
-    try {
-      output = legacyRun(
-        powershellPathFor(env),
-        REPARSE_BATCH_ARGV,
-        legacyReparseProbeOptions(env, REPARSE_BATCH_ENV_KEY, encodedPaths),
-      );
-    } catch (error) {
-      throw new Error(`PowerShell reparse batch probe failed closed: ${error?.message ?? String(error)}`);
-    }
-    if (String(output) !== expected) {
-      throw new Error('PowerShell reparse batch probe failed closed: invalid FRRPB1 success record');
-    }
-    return false;
-  }
-  const run = spawn ?? nodeSpawnSync;
-  const executable = resolveTrustedWindowsPowerShell({ fs, platform });
-  let result;
-  try {
-    result = run(
-      executable,
-      REPARSE_BATCH_ARGV,
-      fixedReparseProbeOptions(REPARSE_BATCH_ENV_KEY, encodedPaths),
-    );
-  } catch (error) {
-    throw new Error(`PowerShell reparse batch probe failed closed: ${error?.message ?? String(error)}`);
-  }
+  const result = runTrustedReparseProbe({
+    spawn,
+    fs,
+    platform,
+    argv: REPARSE_BATCH_ARGV,
+    environmentKey: REPARSE_BATCH_ENV_KEY,
+    environmentValue: encodedPaths,
+    label: 'batch',
+  });
   assertExactBatchResult(result, expected);
   return false;
 }
 
-// This wrapper remains compatible with the already-published one-path probe protocol.
-// New provenance capture uses the bound FRRPB1 batch protocol above.
 export function probeWindowsReparsePoint({
   path,
   spawnSync: spawn = undefined,
-  execFileSync: legacyRun = undefined,
   fs = nodeFs,
   platform = process.platform,
-  env = process.env,
 } = {}) {
   const candidate = assertExistingWindowsPath(path, 'reparse probe path');
   const encodedPath = Buffer.from(path, 'utf8').toString('base64');
-  if (legacyRun !== undefined && spawn === undefined) {
-    let output;
-    try {
-      output = legacyRun(
-        powershellPathFor(env),
-        REPARSE_PATH_ARGV,
-        legacyReparseProbeOptions(env, REPARSE_PATH_ENV_KEY, encodedPath),
-      );
-    } catch (error) {
-      throw new Error(`PowerShell reparse probe failed closed: ${error?.message ?? String(error)}`);
-    }
-    if (output === '0\n') return false;
-    if (output === '1\n') return true;
-    throw new Error(`PowerShell reparse probe failed closed for ${candidate}`);
-  }
-  const run = spawn ?? nodeSpawnSync;
-  const executable = resolveTrustedWindowsPowerShell({ fs, platform });
-  let result;
-  let output;
-  try {
-    result = run(
-      executable,
-      REPARSE_PATH_ARGV,
-      fixedReparseProbeOptions(REPARSE_PATH_ENV_KEY, encodedPath),
-    );
-  } catch (error) {
-    throw new Error(`PowerShell reparse probe failed closed: ${error?.message ?? String(error)}`);
-  }
+  const result = runTrustedReparseProbe({
+    spawn,
+    fs,
+    platform,
+    argv: REPARSE_PATH_ARGV,
+    environmentKey: REPARSE_PATH_ENV_KEY,
+    environmentValue: encodedPath,
+    label: 'path',
+  });
   if (!result || result.error || result.status !== 0 || typeof result.stdout !== 'string' || typeof result.stderr !== 'string' || result.stderr !== '') {
     throw new Error(`PowerShell reparse probe failed closed for ${candidate}`);
   }
-  output = result.stdout;
+  const output = result.stdout;
   if (output === '0\n') return false;
   if (output === '1\n') return true;
   throw new Error(`PowerShell reparse probe failed closed for ${candidate}`);
@@ -469,7 +420,49 @@ function splitReparseBatches(paths) {
   return batches;
 }
 
-export function createSegmentReparseGuard({ fs = nodeFs, probe = probeWindowsReparsePoint, probeBatch } = {}) {
+function windowsSegmentFrontier(paths) {
+  const frontier = [];
+  const seen = new Set();
+  for (const candidate of paths) {
+    const parsed = nodePath.win32.parse(candidate);
+    const segments = nodePath.win32.relative(parsed.root, candidate).split(nodePath.win32.sep).filter(Boolean);
+    let current = parsed.root;
+    for (const segment of segments) {
+      current = nodePath.win32.join(current, segment);
+      const normalized = normalizePath(current);
+      if (seen.has(normalized)) continue;
+      seen.add(normalized);
+      frontier.push(normalized);
+    }
+  }
+  return frontier;
+}
+
+function lstatExistingSafeSegment(fs, candidate, label) {
+  let stat;
+  try {
+    stat = fs.lstatSync(candidate);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return undefined;
+    throw new Error(`cannot inspect ${label}: ${candidate} (${error?.message ?? String(error)})`);
+  }
+  if (stat?.isSymbolicLink?.() || stat?.isReparsePoint?.()) {
+    throw new Error(`${label} is a reparse point or link: ${candidate}`);
+  }
+  return statIdentity(stat, label);
+}
+
+function collectExistingSegmentFrontier(fs, candidates) {
+  return windowsSegmentFrontier(candidates).flatMap(candidate => {
+    const identity = lstatExistingSafeSegment(fs, candidate, 'reparse guard path');
+    return identity === undefined ? [] : [{ candidate, identity }];
+  });
+}
+
+export function createSegmentReparseGuard({ fs = nodeFs, probe, probeBatch } = {}) {
+  if (probe === undefined && probeBatch === undefined) {
+    probeBatch = paths => probeWindowsReparsePoints({ paths });
+  }
   if (!fs || typeof fs.lstatSync !== 'function') throw new Error('reparse guard requires lstatSync');
   if (probeBatch !== undefined && typeof probeBatch !== 'function') throw new Error('reparse guard probeBatch must be a function');
   if (probeBatch === undefined && typeof probe !== 'function') throw new Error('reparse guard probe must be a function');
@@ -505,27 +498,30 @@ export function createSegmentReparseGuard({ fs = nodeFs, probe = probeWindowsRep
 
   const assertSafeMany = (paths, { forceFresh = false } = {}) => {
     if (!Array.isArray(paths)) throw new Error('reparse guard paths must be an array');
-    const occurrences = paths.map(candidate => ({ candidate: assertExistingWindowsPath(candidate, 'reparse guard path') }));
-    if (occurrences.length === 0) return;
-    const pre = occurrences.map(({ candidate }) => lstatSafeSegment(fs, candidate, 'reparse guard path'));
+    const candidates = paths.map(candidate => assertExistingWindowsPath(candidate, 'reparse guard path'));
+    if (candidates.length === 0) return;
+    const frontier = collectExistingSegmentFrontier(fs, candidates);
+    if (frontier.length === 0) return;
     const probeCandidates = [];
     const queued = new Set();
-    for (let index = 0; index < occurrences.length; index += 1) {
-      const candidate = occurrences[index].candidate;
-      if ((forceFresh || !sameIdentity(cache.get(candidate), pre[index])) && !queued.has(candidate)) {
+    for (const { candidate, identity } of frontier) {
+      if ((forceFresh || !sameIdentity(cache.get(candidate), identity)) && !queued.has(candidate)) {
         queued.add(candidate);
         probeCandidates.push(candidate);
       }
     }
     try {
       for (const batch of splitReparseBatches(probeCandidates)) probeBatch(batch);
-      const post = occurrences.map(({ candidate }) => lstatSafeSegment(fs, candidate, 'reparse guard path'));
-      if (post.some((identity, index) => !sameIdentity(pre[index], identity))) {
+      const post = collectExistingSegmentFrontier(fs, candidates);
+      if (
+        post.length !== frontier.length
+        || post.some(({ candidate, identity }, index) => candidate !== frontier[index].candidate || !sameIdentity(frontier[index].identity, identity))
+      ) {
         throw new Error('reparse guard identity changed during batch probe');
       }
-      for (let index = 0; index < occurrences.length; index += 1) cache.set(occurrences[index].candidate, post[index]);
+      for (const { candidate, identity } of post) cache.set(candidate, identity);
     } catch (error) {
-      for (const { candidate } of occurrences) cache.delete(candidate);
+      for (const { candidate } of frontier) cache.delete(candidate);
       throw error;
     }
   };
@@ -708,26 +704,35 @@ function workspacePath(workspaceRoot, relativePath) {
   return nodePath.resolve(workspaceRoot, ...normalized.split('/'));
 }
 
-export function resolveFixturePath({ workspaceRoot, fixtureRoot = FIXTURE_ROOT, value } = {}) {
-  if (typeof value !== 'string') throw new Error('fixture path must be a string');
-  const normalizedRoot = normalizePath(fixtureRoot);
-  const normalizedValue = normalizePath(value);
-  if (
-    !normalizedRoot
-    || normalizedRoot.startsWith('/')
-    || /^[a-zA-Z]:/.test(normalizedRoot)
-    || normalizedRoot.includes('../')
-    || !normalizedValue
-    || normalizedValue.startsWith('/')
-    || /^[a-zA-Z]:/.test(normalizedValue)
-    || normalizedValue.includes('../')
-    || nodePath.win32.isAbsolute(value)
-  ) {
-    throw new Error(`unsafe fixture path: ${value}`);
+function assertSafeFixtureComponents(value, label) {
+  if (typeof value !== 'string' || !value || value.includes('\0')) {
+    throw new Error(`${label} must be a non-empty fixture path`);
   }
+  if (nodePath.win32.isAbsolute(value) || /^[a-zA-Z]:/.test(value)) {
+    throw new Error(`unsafe fixture ${label}: absolute or volume-qualified path`);
+  }
+  const components = value.replaceAll('\\', '/').split('/');
+  const reservedDevice = /^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?$/i;
+  for (const component of components) {
+    if (!component || component === '.' || component === '..') {
+      throw new Error(`unsafe fixture ${label} component`);
+    }
+    if (component.includes(':') || /[<>"|?*]/.test(component) || /[. ]$/.test(component) || reservedDevice.test(component)) {
+      throw new Error(`unsafe fixture ${label} component: ${component}`);
+    }
+  }
+  return components;
+}
+
+export function resolveFixturePath({ workspaceRoot, fixtureRoot = FIXTURE_ROOT, value } = {}) {
   const normalizedWorkspace = assertExistingWindowsPath(workspaceRoot, 'fixture workspace root');
-  const evidenceRoot = nodePath.win32.resolve(normalizedWorkspace, ...normalizedRoot.split('/'));
-  const resolved = nodePath.win32.resolve(evidenceRoot, ...normalizedValue.split('/'));
+  const rootComponents = assertSafeFixtureComponents(fixtureRoot, 'root');
+  const valueComponents = assertSafeFixtureComponents(value, 'path');
+  const evidenceRoot = nodePath.win32.resolve(normalizedWorkspace, ...rootComponents);
+  if (!isWithinPath(evidenceRoot, normalizedWorkspace)) {
+    throw new Error(`fixture root escapes workspace: ${fixtureRoot}`);
+  }
+  const resolved = nodePath.win32.resolve(evidenceRoot, ...valueComponents);
   if (!isWithinPath(resolved, evidenceRoot)) {
     throw new Error(`fixture path escapes evidence root: ${value}`);
   }
@@ -761,7 +766,9 @@ export function hashConfigLockFile({ fs = nodeFs, workspaceRoot, relativePath, r
     throw new Error(`missing config_lock: ${relativePath}`);
   }
   if (reparseGuard) reparseGuard.assertSafeMany([absolutePath], { forceFresh: true });
-  return { kind: 'config_lock', path: normalizePath(relativePath), sha256: hashFile(fs, absolutePath) };
+  const digest = hashFile(fs, absolutePath);
+  if (reparseGuard) reparseGuard.assertSafeMany([absolutePath], { forceFresh: true });
+  return { kind: 'config_lock', path: normalizePath(relativePath), sha256: digest };
 }
 
 function isCodeFile(relativePath) {
