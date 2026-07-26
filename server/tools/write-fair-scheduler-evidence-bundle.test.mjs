@@ -87,6 +87,29 @@ test('PERF-BGSTAB-010 inactive-generation cleanup failure never removes the alre
   }
 });
 
+test('PERF-BGSTAB-010 existing output generation must byte-match the staged compiled-admitted generation', async () => {
+  const writer = await import(`${writerUrl}?bundle-generation-collision=${Date.now()}`);
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-collision-'));
+  const outputRoot = join(temporaryRoot, 'fair-scheduler-evidence');
+  const sourcePointer = JSON.parse(await readFile(join(sourceRoot, 'fair-scheduler-decision.json.publication.json'), 'utf8'));
+  const generationDirectory = sourcePointer.artifactPath.split('/').slice(0, 2);
+  try {
+    await mkdir(join(outputRoot, ...generationDirectory), { recursive: true });
+    await writeFile(join(outputRoot, ...generationDirectory, 'fair-scheduler-decision.json'), '{"corrupt":true}\n', 'utf8');
+    await assert.rejects(
+      writer.writeFairSchedulerEvidenceBundle({
+        sourceRoot,
+        outputRoot,
+        validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+        validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+      }),
+      /existing fair scheduler generation differs from staged evidence/u,
+    );
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
 test('PERF-BGSTAB-010 default bundle writer stages exactly one complete generation accepted by compiled runtime', async () => {
   const writer = await import(`${writerUrl}?bundle-success=${Date.now()}`);
   const result = await writer.writeFairSchedulerEvidenceBundle();

@@ -236,6 +236,48 @@ test('PERF-BGSTAB-010 publication validation rejects an evidence-root junction',
   }
 });
 
+test('PERF-BGSTAB-010 publication validation rejects a junction ancestor above an ordinary evidence root', async () => {
+  const fairness = await loadFairness();
+  const runtimePolicyProfile = createRuntimePolicyProfile(fairness);
+  const physicalParent = await mkdtemp(join(tmpdir(), 'buildergate-fair-physical-parent-'));
+  const aliasContainer = await mkdtemp(join(tmpdir(), 'buildergate-fair-parent-alias-'));
+  const physicalRoot = join(physicalParent, 'fair-scheduler-evidence');
+  const aliasParent = join(aliasContainer, 'benchmarks');
+  try {
+    await fairness.writeFairSchedulerDecisionArtifact({
+      ...input,
+      outputPath: join(physicalRoot, 'fair-scheduler-decision.json'),
+      runtimePolicyProfile,
+    });
+    await symlink(physicalParent, aliasParent, 'junction');
+    assert.deepEqual(fairness.validateFairSchedulerPublicationDirectory({
+      artifactRoot: join(aliasParent, 'fair-scheduler-evidence'),
+    }), { accepted: false, reason: 'publication-reference-invalid' });
+  } finally {
+    await rm(aliasContainer, { recursive: true, force: true });
+    await rm(physicalParent, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 publication generation metadata must match every selected evidence path', async () => {
+  const fairness = await loadFairness();
+  const runtimePolicyProfile = createRuntimePolicyProfile(fairness);
+  const artifactRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-generation-binding-'));
+  const outputPath = join(artifactRoot, 'fair-scheduler-decision.json');
+  try {
+    await fairness.writeFairSchedulerDecisionArtifact({ ...input, outputPath, runtimePolicyProfile });
+    const pointerPath = `${outputPath}.publication.json`;
+    const publication = JSON.parse(await readFile(pointerPath, 'utf8')) as Record<string, unknown>;
+    await writeFile(pointerPath, `${canonicalJson({ ...publication, generationId: '0'.repeat(64) })}\n`, 'utf8');
+    assert.deepEqual(fairness.validateFairSchedulerPublicationDirectory({ artifactRoot }), {
+      accepted: false,
+      reason: 'publication-generation-mismatch',
+    });
+  } finally {
+    await rm(artifactRoot, { recursive: true, force: true });
+  }
+});
+
 test('PERF-BGSTAB-010 publication validation requires a post-readback staging marker', async () => {
   const fairness = await loadFairness();
   const runtimePolicyProfile = createRuntimePolicyProfile(fairness);

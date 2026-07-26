@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { rename } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import { readFile, rename, writeFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 
@@ -9,6 +10,19 @@ const compiledCanaryUrl = pathToFileURL(
   resolve(serverRoot, 'dist/services/TerminalResourcePolicyCanary.js'),
 ).href;
 
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value !== null && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map(key => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function digest(value: unknown): string {
+  return createHash('sha256').update(canonicalJson(value)).digest('hex');
+}
+
 test('PERF-BGSTAB-010 compiled runtime resolves only its staged evidence bundle and rejects escaped references', async () => {
   const compiled = await import(`${compiledCanaryUrl}?evidence-bundle-red=${Date.now()}`) as {
     resolveFairSchedulerEvidenceRoot?: () => string;
@@ -16,7 +30,7 @@ test('PERF-BGSTAB-010 compiled runtime resolves only its staged evidence bundle 
       accepted: boolean;
       reason?: string;
     };
-    validatePublishedFairDeliveryCandidateArtifact?: () => { accepted: boolean; reason: string };
+    validatePublishedFairDeliveryCandidateArtifact?: (input?: { runtimePolicy?: unknown }) => { accepted: boolean; reason: string };
   };
   assert.equal(typeof compiled.resolveFairSchedulerEvidenceRoot, 'function');
   assert.equal(typeof compiled.validateFairSchedulerEvidenceReference, 'function');
@@ -37,5 +51,23 @@ test('PERF-BGSTAB-010 compiled runtime resolves only its staged evidence bundle 
     });
   } finally {
     await rename(parkedEvidenceRoot, evidenceRoot!);
+  }
+  const pointerPath = join(evidenceRoot!, 'fair-scheduler-decision.json.publication.json');
+  const originalPointer = await readFile(pointerPath, 'utf8');
+  const publication = JSON.parse(originalPointer) as Record<string, unknown> & { artifactPath: string };
+  const artifactPath = join(evidenceRoot!, ...publication.artifactPath.split('/'));
+  const originalArtifact = await readFile(artifactPath, 'utf8');
+  const artifact = JSON.parse(originalArtifact) as Record<string, unknown>;
+  const { digest: ignoredDigest, stagingValidated: ignoredMarker, ...unmarkedArtifact } = artifact;
+  const artifactDigest = digest(unmarkedArtifact);
+  try {
+    await writeFile(artifactPath, `${canonicalJson({ ...unmarkedArtifact, digest: artifactDigest })}\n`, 'utf8');
+    await writeFile(pointerPath, `${canonicalJson({ ...publication, digest: artifactDigest })}\n`, 'utf8');
+    assert.deepEqual(compiled.validatePublishedFairDeliveryCandidateArtifact?.({
+      runtimePolicy: artifact.policy,
+    }), { accepted: false, reason: 'decision-artifact-staging-validation-missing' });
+  } finally {
+    await writeFile(artifactPath, originalArtifact, 'utf8');
+    await writeFile(pointerPath, originalPointer, 'utf8');
   }
 });
