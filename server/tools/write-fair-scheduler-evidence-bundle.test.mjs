@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -72,6 +72,32 @@ test('PERF-BGSTAB-010 stale publish lock fails closed without changing the activ
     assert.equal(await readFile(lockPath, 'utf8'), 'stale-owner\n');
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 bundle writer rejects an output-root junction before reading its external lock', async () => {
+  const writer = await import(`${writerUrl}?bundle-output-root-junction=${Date.now()}`);
+  const aliasContainer = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-output-root-alias-'));
+  const outsideParent = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-output-root-outside-'));
+  const aliasParent = join(aliasContainer, 'redirected-parent');
+  const outputRoot = join(aliasParent, 'fair-scheduler-evidence');
+  const externalLockPath = join(outsideParent, '.fair-scheduler-evidence.publish.lock');
+  try {
+    await symlink(outsideParent, aliasParent, 'junction');
+    await writeFile(externalLockPath, 'outside-lock\n', 'utf8');
+    await assert.rejects(
+      writer.writeFairSchedulerEvidenceBundle({
+        sourceRoot,
+        outputRoot,
+        validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+        validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+      }),
+      /symbolic-link evidence root/u,
+    );
+    assert.equal(await readFile(externalLockPath, 'utf8'), 'outside-lock\n');
+  } finally {
+    await rm(aliasContainer, { recursive: true, force: true });
+    await rm(outsideParent, { recursive: true, force: true });
   }
 });
 
