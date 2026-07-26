@@ -35,16 +35,28 @@ function linkStat() {
   };
 }
 
-function fileSystemWith({ linkedPaths = [], missingPaths = [] } = {}) {
+function reparseStat() {
+  return {
+    isReparsePoint: () => true,
+    isSymbolicLink: () => false,
+  };
+}
+
+function fileSystemWith({ linkedPaths = [], missingPaths = [], reparsePaths = [] } = {}) {
   const links = new Set(linkedPaths.map(normalizedPath));
   const missing = new Set(missingPaths.map(normalizedPath));
+  const reparses = new Set(reparsePaths.map(normalizedPath));
   return new Proxy(fs, {
     get(target, property) {
       if (property === 'existsSync') {
         return candidate => !missing.has(normalizedPath(candidate)) && target.existsSync(candidate);
       }
       if (property === 'lstatSync') {
-        return candidate => links.has(normalizedPath(candidate)) ? linkStat() : target.lstatSync(candidate);
+        return candidate => reparses.has(normalizedPath(candidate))
+          ? reparseStat()
+          : links.has(normalizedPath(candidate))
+            ? linkStat()
+            : target.lstatSync(candidate);
       }
       if (property === 'readFileSync') {
         return (...args) => {
@@ -81,12 +93,16 @@ function withOwnedManifestDirectory(callback) {
 function assertFailsBeforeWriting({ captureFrozenProvenance, label, expected, options }) {
   const manifestPath = ownedManifestPath(label);
   withOwnedManifestDirectory(() => {
-    assert.equal(fs.existsSync(manifestPath), false, `${label} manifest leaf must start absent`);
-    assert.throws(
-      () => captureFrozenProvenance({ workspaceRoot, manifestPath, phase: `remediation-${label}`, ...options }),
-      expected,
-    );
-    assert.equal(fs.existsSync(manifestPath), false, `${label} failure must precede manifest write`);
+    try {
+      assert.equal(fs.existsSync(manifestPath), false, `${label} manifest leaf must start absent`);
+      assert.throws(
+        () => captureFrozenProvenance({ workspaceRoot, manifestPath, phase: `remediation-${label}`, ...options }),
+        expected,
+      );
+      assert.equal(fs.existsSync(manifestPath), false, `${label} failure must precede manifest write`);
+    } finally {
+      if (fs.existsSync(manifestPath)) fs.rmSync(manifestPath);
+    }
   });
 }
 
@@ -131,6 +147,14 @@ test('SDS-AC-2 rejects dangling output leaves and linked protected or manifest p
       workspaceRoot,
       contract: FROZEN_CONTRACT,
       fs: fileSystemWith({ linkedPaths: [outputDir] }),
+    }),
+    /output.*(?:link|reparse)|(?:link|reparse).*output/i,
+  );
+  assert.throws(
+    () => validateFrozenContract({
+      workspaceRoot,
+      contract: FROZEN_CONTRACT,
+      fs: fileSystemWith({ reparsePaths: [outputDir] }),
     }),
     /output.*(?:link|reparse)|(?:link|reparse).*output/i,
   );
