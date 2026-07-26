@@ -188,7 +188,7 @@ test('PERF-BGSTAB-010 writer refuses a corrupt existing generation without movin
   }
 });
 
-test('PERF-BGSTAB-010 publication validation rejects a fixed pointer symlink that escapes its root', async t => {
+test('PERF-BGSTAB-010 publication validation rejects a fixed pointer symlink that escapes its root', async () => {
   const fairness = await loadFairness();
   const artifactRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-pointer-root-'));
   const outsideRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-pointer-outside-'));
@@ -200,10 +200,10 @@ test('PERF-BGSTAB-010 publication validation rejects a fixed pointer symlink tha
       await symlink(join(outsideRoot, 'publication.json'), pointerPath, 'file');
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'EPERM') {
-        t.skip('file symlink creation is unavailable on this Windows host');
-        return;
+        await symlink(outsideRoot, pointerPath, 'junction');
+      } else {
+        throw error;
       }
-      throw error;
     }
     assert.deepEqual(fairness.validateFairSchedulerPublicationDirectory({ artifactRoot }), {
       accepted: false,
