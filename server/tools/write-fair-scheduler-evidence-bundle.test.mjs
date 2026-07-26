@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { cp, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -37,6 +37,31 @@ test('PERF-BGSTAB-010 bundle promotion keeps the last known-good deployment evid
   }
 });
 
+test('PERF-BGSTAB-010 failed staged admission removes its inactive generation and preserves the active pointer', async () => {
+  const writer = await import(`${writerUrl}?bundle-no-inactive-generation=${Date.now()}`);
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-inactive-'));
+  const outputRoot = join(temporaryRoot, 'fair-scheduler-evidence');
+  const pointerPath = join(outputRoot, 'fair-scheduler-decision.json.publication.json');
+  const previousPointer = '{"generationId":"previous"}\n';
+  try {
+    await mkdir(join(outputRoot, 'fair-scheduler-publications', 'previous'), { recursive: true });
+    await writeFile(pointerPath, previousPointer, 'utf8');
+    await assert.rejects(
+      writer.writeFairSchedulerEvidenceBundle({
+        sourceRoot,
+        outputRoot,
+        validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+        validateRuntime: () => ({ accepted: false, reason: 'runtime-rejected' }),
+      }),
+      /runtime-rejected/u,
+    );
+    assert.equal(await readFile(pointerPath, 'utf8'), previousPointer);
+    assert.deepEqual(await readdir(join(outputRoot, 'fair-scheduler-publications')), ['previous']);
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
 test('PERF-BGSTAB-010 default bundle writer stages exactly one complete generation accepted by compiled runtime', async () => {
   const writer = await import(`${writerUrl}?bundle-success=${Date.now()}`);
   const result = await writer.writeFairSchedulerEvidenceBundle();
@@ -49,6 +74,8 @@ test('PERF-BGSTAB-010 default bundle writer stages exactly one complete generati
   ).href);
 
   assert.equal(result.fileCount, 18);
+  assert.equal((await readdir(join(outputRoot, 'fair-scheduler-publications'))).length, 1);
+  assert.equal((await readdir(outputRoot, { recursive: true })).filter(entry => entry.endsWith('.json')).length, 18);
   assert.equal((await readdir(generationDirectory, { recursive: true })).filter(entry => entry.endsWith('.json')).length, 17);
   assert.deepEqual(canary.validatePublishedFairDeliveryCandidateArtifact({ runtimePolicy: artifact.policy }), {
     accepted: true,

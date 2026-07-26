@@ -213,6 +213,53 @@ test('PERF-BGSTAB-010 root raw mirrors cannot invalidate the pointer-selected ge
   }
 });
 
+test('PERF-BGSTAB-010 publication validation rejects an evidence-root junction', async () => {
+  const fairness = await loadFairness();
+  const runtimePolicyProfile = createRuntimePolicyProfile(fairness);
+  const physicalRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-physical-root-'));
+  const aliasContainer = await mkdtemp(join(tmpdir(), 'buildergate-fair-root-alias-'));
+  const aliasRoot = join(aliasContainer, 'fair-scheduler-evidence');
+  try {
+    await fairness.writeFairSchedulerDecisionArtifact({
+      ...input,
+      outputPath: join(physicalRoot, 'fair-scheduler-decision.json'),
+      runtimePolicyProfile,
+    });
+    await symlink(physicalRoot, aliasRoot, 'junction');
+    assert.deepEqual(fairness.validateFairSchedulerPublicationDirectory({ artifactRoot: aliasRoot }), {
+      accepted: false,
+      reason: 'publication-reference-invalid',
+    });
+  } finally {
+    await rm(aliasContainer, { recursive: true, force: true });
+    await rm(physicalRoot, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 publication validation requires a post-readback staging marker', async () => {
+  const fairness = await loadFairness();
+  const runtimePolicyProfile = createRuntimePolicyProfile(fairness);
+  const artifactRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-staging-marker-'));
+  const outputPath = join(artifactRoot, 'fair-scheduler-decision.json');
+  try {
+    await fairness.writeFairSchedulerDecisionArtifact({ ...input, outputPath, runtimePolicyProfile });
+    const pointerPath = `${outputPath}.publication.json`;
+    const publication = JSON.parse(await readFile(pointerPath, 'utf8')) as Record<string, unknown> & { artifactPath: string };
+    const artifactPath = join(artifactRoot, publication.artifactPath);
+    const artifact = JSON.parse(await readFile(artifactPath, 'utf8')) as Record<string, unknown>;
+    const { digest: ignoredDigest, stagingValidated: ignoredMarker, ...unmarkedArtifact } = artifact;
+    const artifactDigest = digest(unmarkedArtifact);
+    await writeFile(artifactPath, `${canonicalJson({ ...unmarkedArtifact, digest: artifactDigest })}\n`, 'utf8');
+    await writeFile(pointerPath, `${canonicalJson({ ...publication, digest: artifactDigest })}\n`, 'utf8');
+    assert.deepEqual(fairness.validateFairSchedulerPublicationDirectory({ artifactRoot }), {
+      accepted: false,
+      reason: 'publication-staging-validation-missing',
+    });
+  } finally {
+    await rm(artifactRoot, { recursive: true, force: true });
+  }
+});
+
 test('PERF-BGSTAB-010 writer refuses a corrupt existing generation without moving its canonical pointer', async () => {
   const fairness = await loadFairness();
   const runtimePolicyProfile = createRuntimePolicyProfile(fairness);
