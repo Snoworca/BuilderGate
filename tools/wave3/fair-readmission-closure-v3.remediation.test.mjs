@@ -300,3 +300,26 @@ test('SDS-AC-4 rejects test-only input overrides so every capture binds the froz
     options: { testOnlyInputs: { sourceRoots: [] } },
   });
 });
+
+test('test capture helper preserves a pre-existing manifest leaf when its absence precondition fails', async () => {
+  const manifestPath = ownedManifestPath('pre-existing-helper');
+  withOwnedManifestDirectory(() => {
+    fs.writeFileSync(manifestPath, '{"owned":"pre-existing"}\n', { encoding: 'utf8', flag: 'wx' });
+    try {
+      assert.throws(
+        () => assertFailsBeforeWriting({
+          captureFrozenProvenance: () => {
+            throw new Error('capture must not run when the leaf already exists');
+          },
+          label: 'pre-existing-helper',
+          expected: /never reached/i,
+          options: {},
+        }),
+        /must start absent/i,
+      );
+      assert.equal(fs.existsSync(manifestPath), true, 'the helper must not delete a pre-existing leaf');
+    } finally {
+      if (fs.existsSync(manifestPath)) fs.rmSync(manifestPath);
+    }
+  });
+});
