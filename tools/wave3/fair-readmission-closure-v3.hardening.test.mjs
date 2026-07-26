@@ -138,7 +138,7 @@ test('SDS-AC-3 rejects volume-qualified, absolute, UNC, and escaping fixture val
   }
 });
 
-test('SDS-AC-4 force-fresh checks a config lock identity immediately before its hash read', async () => {
+test('SDS-AC-4 force-fresh checks a config lock identity immediately before and after its hash read', async () => {
   const { hashConfigLockFile } = await loadCollector();
   const events = [];
   const configPath = path.win32.join(workspaceRoot, 'server', 'config.json5');
@@ -178,8 +178,12 @@ test('SDS-AC-4 force-fresh checks a config lock identity immediately before its 
       sha256: createHash('sha256').update('{ "locked": true }\n', 'utf8').digest('hex'),
     },
   );
-  assert.equal(events.at(-2), `guard:${configPath}:${JSON.stringify({ forceFresh: true })}`);
-  assert.equal(events.at(-1), `read:${configPath}`);
+  const guardEvent = `guard:${configPath}:${JSON.stringify({ forceFresh: true })}`;
+  assert.deepEqual(
+    events.slice(-3),
+    [guardEvent, `read:${configPath}`, guardEvent],
+    'the success path must force-fresh guard immediately before and after the config byte read',
+  );
 });
 
 test('SDS-AC-4 fails before a config read when its force-fresh identity guard detects a change', async () => {
