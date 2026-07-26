@@ -163,6 +163,41 @@ test('PERF-BGSTAB-010 concurrent bundle promotion fails closed without changing 
   }
 });
 
+test('PERF-BGSTAB-010 default staged validators reject serialized raw and sidecar corruption without changing LKG', async () => {
+  const writer = await import(`${writerUrl}?bundle-default-staged-corruption=${Date.now()}`);
+  for (const evidenceKind of ['raw', 'sidecar']) {
+    const temporaryRoot = await mkdtemp(join(tmpdir(), `buildergate-fair-bundle-${evidenceKind}-corruption-`));
+    const outputRoot = join(temporaryRoot, 'fair-scheduler-evidence');
+    const pointerPath = join(outputRoot, 'fair-scheduler-decision.json.publication.json');
+    try {
+      await cp(sourceRoot, outputRoot, { recursive: true });
+      const pointerBefore = await readFile(pointerPath, 'utf8');
+      const publication = JSON.parse(pointerBefore);
+      const artifactBefore = await readFile(join(outputRoot, ...publication.artifactPath.split('/')), 'utf8');
+      await assert.rejects(
+        writer.writeFairSchedulerEvidenceBundle({
+          sourceRoot,
+          outputRoot,
+          beforeStagedValidation: async ({ stagingRoot, bundle }) => {
+            const evidencePath = evidenceKind === 'raw'
+              ? bundle.publication.rawPath
+              : bundle.artifact.rawEvidencePaths[0];
+            await writeFile(join(stagingRoot, ...evidencePath.split('/')), '{"corrupt":true}\n', 'utf8');
+          },
+        }),
+        /staged fair scheduler evidence rejected/u,
+      );
+      assert.equal(await readFile(pointerPath, 'utf8'), pointerBefore);
+      assert.equal(
+        await readFile(join(outputRoot, ...publication.artifactPath.split('/')), 'utf8'),
+        artifactBefore,
+      );
+    } finally {
+      await rm(temporaryRoot, { recursive: true, force: true });
+    }
+  }
+});
+
 test('PERF-BGSTAB-010 default bundle writer stages exactly one complete generation accepted by compiled runtime', async () => {
   const writer = await import(`${writerUrl}?bundle-success=${Date.now()}`);
   const result = await writer.writeFairSchedulerEvidenceBundle();
