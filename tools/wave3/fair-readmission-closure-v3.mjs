@@ -25,7 +25,6 @@ const SOURCE_ROOTS = [
   'tools/wave3/fair-scheduler-decision.test.mjs',
   'frontend/src/components/Terminal/TerminalContainer.tsx',
   'frontend/src/components/Terminal/TerminalView.tsx',
-  'frontend/src/components/Terminal/TerminalView.css',
   'frontend/src/contexts/WebSocketContext.tsx',
   'frontend/src/types/ws-protocol.ts',
   'frontend/src/utils/terminalDebugCapture.ts',
@@ -364,6 +363,9 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOT
   if (!Array.isArray(sourceRoots) || sourceRoots.some(relativePath => typeof relativePath !== 'string')) {
     throw new Error('source closure roots must be a string array');
   }
+  if (sourceRoots.some(relativePath => normalizePath(relativePath).endsWith('.css'))) {
+    throw new Error('TerminalView.css is permitted only as a TerminalView.tsx dependency');
+  }
   const serverRequire = createRequire(workspacePath(workspaceRoot, 'server/package.json'));
   let ts;
   try {
@@ -561,34 +563,23 @@ function assertManifestDestination(workspaceRoot, manifestPath, fs) {
   return { analysisRoot, destination };
 }
 
-function sourceRootsForTestCapture(testOnlyInputs) {
-  if (testOnlyInputs === undefined) return SOURCE_ROOTS;
-  assertPlainObject(testOnlyInputs, 'test-only capture inputs');
-  const keys = Object.keys(testOnlyInputs);
-  if (keys.length !== 1 || keys[0] !== 'sourceRoots' || !Array.isArray(testOnlyInputs.sourceRoots)) {
-    throw new Error('test-only capture inputs may contain only sourceRoots');
+export function captureFrozenProvenance(options) {
+  assertPlainObject(options, 'capture options');
+  if (Object.hasOwn(options, 'testOnlyInputs') || Object.hasOwn(options, 'sourceRoots')) {
+    throw new Error('frozen capture inputs reject test-only or source-root overrides');
   }
-  for (const relativePath of testOnlyInputs.sourceRoots) {
-    if (typeof relativePath !== 'string' || !relativePath || normalizePath(relativePath).includes('../')) {
-      throw new Error('test-only source root must be a safe repository-relative path');
-    }
-  }
-  return testOnlyInputs.sourceRoots;
-}
-
-export function captureFrozenProvenance({
-  workspaceRoot,
-  manifestPath,
-  phase,
-  execFile = fileURLToPath(import.meta.url),
-  fs = nodeFs,
-  testOnlyInputs,
-}) {
+  const {
+    workspaceRoot,
+    manifestPath,
+    phase,
+    execFile = fileURLToPath(import.meta.url),
+    fs = nodeFs,
+  } = options;
   const contract = validateFrozenContract({ workspaceRoot, contract: FROZEN_CONTRACT, fs });
   const { analysisRoot, destination } = assertManifestDestination(workspaceRoot, manifestPath, fs);
   const { sourceClosureRows, externalSpecifierRows } = collectSourceClosure({
     workspaceRoot,
-    sourceRoots: sourceRootsForTestCapture(testOnlyInputs),
+    sourceRoots: SOURCE_ROOTS,
     fs,
   });
   const fixtureRows = fixtureRowsFromEntry(fs, workspaceRoot);
