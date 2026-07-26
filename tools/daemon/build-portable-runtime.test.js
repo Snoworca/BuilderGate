@@ -180,6 +180,22 @@ test('validatePortableBuildOutput rejects evidence that the packaged compiled ca
   );
 });
 
+test('validatePortableBuildOutput rejects an evidence root reached through a junction ancestor', () => {
+  const outputDir = createPortableOutputFixture('linux');
+  const aliasContainer = makeTempDir('buildergate-portable-evidence-alias-');
+  const outputAlias = path.join(aliasContainer, 'runtime');
+  try {
+    fs.symlinkSync(outputDir, outputAlias, 'junction');
+    assert.throws(
+      () => validatePortableBuildOutput(outputAlias, { platform: 'linux' }),
+      /symbolic link/i,
+    );
+  } finally {
+    fs.rmSync(aliasContainer, { recursive: true, force: true });
+    fs.rmSync(outputDir, { recursive: true, force: true });
+  }
+});
+
 test('validatePortableBuildOutput rejects exposed server config in portable runtime', () => {
   const outputDir = createPortableOutputFixture('linux');
   touch(path.join(outputDir, 'server', 'config.json5'), 'auth: { password: "secret" }\n');
