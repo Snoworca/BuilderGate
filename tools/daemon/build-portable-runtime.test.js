@@ -25,7 +25,7 @@ function touch(filePath, content = '') {
   fs.writeFileSync(filePath, content, 'utf8');
 }
 
-function createPortableOutputFixture(platform = 'win32') {
+function createPortableOutputFixture(platform = 'win32', { includeFairSchedulerProvenance = true } = {}) {
   const outputDir = makeTempDir('buildergate-portable-output-');
   touch(path.join(outputDir, 'web', 'index.html'), '<!doctype html>\n');
   touch(path.join(outputDir, 'shell-integration', 'bash-osc133.sh'), '# integration\n');
@@ -38,6 +38,12 @@ function createPortableOutputFixture(platform = 'win32') {
   touch(path.join(outputDir, 'server', 'package.json'), '{"type":"module"}\n');
   touch(path.join(outputDir, 'server', 'package-lock.json'), '{}\n');
   touch(path.join(outputDir, 'server', 'dist', 'index.js'), 'export {};\n');
+  if (includeFairSchedulerProvenance) {
+    touch(
+      path.join(outputDir, 'server', 'dist', 'benchmarks', 'fair-scheduler-source-provenance.json'),
+      '{"schemaVersion":"fair-scheduler-source-provenance/v1"}\n',
+    );
+  }
   touch(path.join(outputDir, 'server', 'dist', 'utils', 'configStrictLoader.js'), 'export {};\n');
   touch(path.join(outputDir, 'server', 'dist', 'services', 'daemonTotpPreflight.js'), 'export {};\n');
   touch(path.join(outputDir, 'server', 'node_modules', 'node-pty', 'package.json'), '{}\n');
@@ -97,6 +103,14 @@ test('writePortableLaunchers creates platform launcher entrypoints', () => {
 test('validatePortableBuildOutput accepts portable Windows runtime layout', () => {
   const outputDir = createPortableOutputFixture('win32');
   assert.doesNotThrow(() => validatePortableBuildOutput(outputDir, { platform: 'win32' }));
+});
+
+test('validatePortableBuildOutput requires the compiled fair scheduler provenance manifest', () => {
+  const outputDir = createPortableOutputFixture('linux', { includeFairSchedulerProvenance: false });
+  assert.throws(
+    () => validatePortableBuildOutput(outputDir, { platform: 'linux' }),
+    /fair-scheduler-source-provenance\.json/i,
+  );
 });
 
 test('validatePortableBuildOutput rejects exposed server config in portable runtime', () => {
