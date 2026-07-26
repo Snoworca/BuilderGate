@@ -18,4 +18,12 @@ test('PERF-BGSTAB-010 AC-9 isolated E2E has no historical-evidence writer depend
   assert.doesNotMatch(source, /wave3-terminal-authority-fairness\.spec/u);
   assert.doesNotMatch(source, /docs\/analysis\/kiwi-coder-2026-07-16\.projectmaster\.wave3-authority-fairness/u);
   assert.doesNotMatch(source, /\bwriteFileSync\s*\(/u);
+  assert.doesNotMatch(source, /createIsolatedPowerShellWorkspace/u);
+  assert.doesNotMatch(source, /deleteWorkspace/u);
+  assert.doesNotMatch(source, /method:\s*'POST'/u);
+  assert.doesNotMatch(source, /method:\s*'PUT'/u);
+  assert.doesNotMatch(source, /method:\s*'PATCH'/u);
+  assert.doesNotMatch(source, /method:\s*'DELETE'/u);
+  assert.match(source, /selectReusableWave3Workspace/u);
+  assert.match(source, /blockSyntheticAck/u);
 });
