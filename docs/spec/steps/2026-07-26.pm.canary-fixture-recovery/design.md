@@ -5,7 +5,7 @@
 | Document Type | sds |
 | Task | 2026-07-26.pm.canary-fixture-recovery |
 | Target | wave-3 |
-| Status | agreed |
+| Status | superseded |
 | Date | 2026-07-26 |
 
 ## 1. Context & Scope
@@ -80,5 +80,9 @@ monolith, and it cannot satisfy any parent PERF acceptance criterion by itself.
 
 ## 7. Open Questions
 
-- (none; the three-member decision committee unanimously selected this isolated
-  harness on 2026-07-26. The narrow test-support design is self-agreed.)
+- Superseded on 2026-07-26 by
+  `2026-07-26.pm.canary-fixture-recovery-public-api`: SDS-AC-3 required an
+  internal state-object identity that public `SessionManager` APIs cannot
+  observe. Its committed RED test and uncommitted Green harness are retired,
+  not reused as evidence. The replacement contracts use only public DTO IDs and
+  public deletion observations.
