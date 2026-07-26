@@ -217,3 +217,29 @@ test('PERF-BGSTAB-010 official writer reissues an already moved identical genera
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('PERF-BGSTAB-010 official writer preserves an earlier pointer when the moved retry generation differs', async () => {
+  const signature = 'PERF-BGSTAB-010 pointer retry must reject a corrupted moved generation';
+  const fairness = await loadFairness(signature);
+  const directory = await mkdtemp(join(tmpdir(), 'buildergate-fairness-pointer-retry-corrupt-'));
+  const outputPath = join(directory, 'fair-scheduler-decision.json');
+  const pointerPath = `${outputPath}.publication.json`;
+  const firstProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(8_192));
+  const secondProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(12_288));
+  try {
+    await fairness.writeFairSchedulerDecisionArtifact({ ...benchmarkInput, outputPath, runtimePolicyProfile: firstProfile });
+    const firstPointer = await readFile(pointerPath, 'utf8');
+    await fairness.writeFairSchedulerDecisionArtifact({ ...benchmarkInput, outputPath, runtimePolicyProfile: secondProfile });
+    const secondPublication = JSON.parse(await readFile(pointerPath, 'utf8')) as { artifactPath: string };
+    await writeFile(pointerPath, firstPointer, 'utf8');
+    await writeFile(join(directory, secondPublication.artifactPath), '{"corrupt":true}\n', 'utf8');
+    await assert.rejects(fairness.writeFairSchedulerDecisionArtifact({
+      ...benchmarkInput,
+      outputPath,
+      runtimePolicyProfile: secondProfile,
+    }), /existing fair scheduler generation is invalid/u, signature);
+    assert.equal(await readFile(pointerPath, 'utf8'), firstPointer, signature);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
