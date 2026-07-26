@@ -110,6 +110,59 @@ test('PERF-BGSTAB-010 existing output generation must byte-match the staged comp
   }
 });
 
+test('PERF-BGSTAB-010 concurrent bundle promotion fails closed without changing the active pointer', async () => {
+  const writer = await import(`${writerUrl}?bundle-exclusive-publish=${Date.now()}`);
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-exclusive-'));
+  const outputRoot = join(temporaryRoot, 'fair-scheduler-evidence');
+  const pointerPath = join(outputRoot, 'fair-scheduler-decision.json.publication.json');
+  const lockPath = join(temporaryRoot, '.fair-scheduler-evidence.publish.lock');
+  let releaseFirstWriter;
+  const releaseGate = new Promise(resolve => { releaseFirstWriter = resolve; });
+  let firstWriter;
+  try {
+    await cp(sourceRoot, outputRoot, { recursive: true });
+    const pointerBefore = await readFile(pointerPath, 'utf8');
+    const firstWriterAtLock = Promise.withResolvers();
+    firstWriter = writer.writeFairSchedulerEvidenceBundle({
+      sourceRoot,
+      outputRoot,
+      validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+      validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+      afterPublishLockAcquired: async () => {
+        firstWriterAtLock.resolve();
+        await releaseGate;
+      },
+    });
+    assert.equal(await Promise.race([
+      firstWriterAtLock.promise.then(() => true),
+      new Promise(resolve => setTimeout(() => resolve(false), 100)),
+    ]), true);
+    await assert.rejects(
+      writer.writeFairSchedulerEvidenceBundle({
+        sourceRoot,
+        outputRoot,
+        validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+        validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+      }),
+      /publication lock exists/u,
+    );
+    assert.equal(await readFile(pointerPath, 'utf8'), pointerBefore);
+    releaseFirstWriter();
+    await firstWriter;
+    await assert.rejects(readFile(lockPath, 'utf8'), { code: 'ENOENT' });
+    await assert.doesNotReject(writer.writeFairSchedulerEvidenceBundle({
+      sourceRoot,
+      outputRoot,
+      validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+      validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+    }));
+  } finally {
+    releaseFirstWriter?.();
+    await firstWriter?.catch(() => undefined);
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
 test('PERF-BGSTAB-010 default bundle writer stages exactly one complete generation accepted by compiled runtime', async () => {
   const writer = await import(`${writerUrl}?bundle-success=${Date.now()}`);
   const result = await writer.writeFairSchedulerEvidenceBundle();
