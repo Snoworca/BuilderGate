@@ -32,6 +32,37 @@ test('PERF-BGSTAB-010 bundle promotion keeps the last known-good deployment evid
       /runtime-rejected/u,
     );
     assert.equal(await readFile(markerPath, 'utf8'), 'preserve-me\n');
+    await assert.rejects(
+      readFile(join(temporaryRoot, '.fair-scheduler-evidence.publish.lock'), 'utf8'),
+      { code: 'ENOENT' },
+    );
+    await assert.doesNotReject(writer.writeFairSchedulerEvidenceBundle({
+      sourceRoot,
+      outputRoot,
+      validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+      validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+    }));
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 stale publish lock fails closed without changing the active pointer', async () => {
+  const writer = await import(`${writerUrl}?bundle-stale-lock=${Date.now()}`);
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-stale-lock-'));
+  const outputRoot = join(temporaryRoot, 'fair-scheduler-evidence');
+  const pointerPath = join(outputRoot, 'fair-scheduler-decision.json.publication.json');
+  const lockPath = join(temporaryRoot, '.fair-scheduler-evidence.publish.lock');
+  try {
+    await cp(sourceRoot, outputRoot, { recursive: true });
+    const pointerBefore = await readFile(pointerPath, 'utf8');
+    await writeFile(lockPath, 'stale-owner\n', 'utf8');
+    await assert.rejects(
+      writer.writeFairSchedulerEvidenceBundle({ sourceRoot, outputRoot }),
+      /publication lock exists/u,
+    );
+    assert.equal(await readFile(pointerPath, 'utf8'), pointerBefore);
+    assert.equal(await readFile(lockPath, 'utf8'), 'stale-owner\n');
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
