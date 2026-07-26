@@ -386,3 +386,22 @@ test('PERF-BGSTAB-010 publication validation rejects symlinked artifact, raw, an
     }
   }
 });
+
+test('PERF-BGSTAB-010 publication validation rejects an extra file in the active generation', async () => {
+  const fairness = await loadFairness();
+  const runtimePolicyProfile = createRuntimePolicyProfile(fairness);
+  const artifactRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-extra-active-file-'));
+  const outputPath = join(artifactRoot, 'fair-scheduler-decision.json');
+  try {
+    await fairness.writeFairSchedulerDecisionArtifact({ ...input, outputPath, runtimePolicyProfile });
+    const publication = JSON.parse(await readFile(`${outputPath}.publication.json`, 'utf8')) as { artifactPath: string };
+    const generationDirectory = join(artifactRoot, ...publication.artifactPath.split('/').slice(0, 2));
+    await writeFile(join(generationDirectory, 'unselected.json'), '{"unselected":true}\n', 'utf8');
+    assert.deepEqual(fairness.validateFairSchedulerPublicationDirectory({ artifactRoot }), {
+      accepted: false,
+      reason: 'publication-generation-inventory-mismatch',
+    });
+  } finally {
+    await rm(artifactRoot, { recursive: true, force: true });
+  }
+});

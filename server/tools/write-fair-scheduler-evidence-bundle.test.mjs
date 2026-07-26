@@ -188,6 +188,31 @@ test('PERF-BGSTAB-010 existing output generation must byte-match the staged comp
   }
 });
 
+test('PERF-BGSTAB-010 existing output generation rejects unselected files before pointer replacement', async () => {
+  const writer = await import(`${writerUrl}?bundle-generation-inventory=${Date.now()}`);
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-extra-generation-file-'));
+  const outputRoot = join(temporaryRoot, 'fair-scheduler-evidence');
+  const pointerPath = join(outputRoot, 'fair-scheduler-decision.json.publication.json');
+  try {
+    await cp(sourceRoot, outputRoot, { recursive: true });
+    const pointerBefore = await readFile(pointerPath, 'utf8');
+    const publication = JSON.parse(pointerBefore);
+    await writeFile(join(outputRoot, ...publication.artifactPath.split('/').slice(0, 2), 'unselected.json'), '{"unselected":true}\n', 'utf8');
+    await assert.rejects(
+      writer.writeFairSchedulerEvidenceBundle({
+        sourceRoot,
+        outputRoot,
+        validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+        validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+      }),
+      /existing fair scheduler generation differs from staged evidence/u,
+    );
+    assert.equal(await readFile(pointerPath, 'utf8'), pointerBefore);
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
 test('PERF-BGSTAB-010 concurrent bundle promotion fails closed without changing the active pointer', async () => {
   const writer = await import(`${writerUrl}?bundle-exclusive-publish=${Date.now()}`);
   const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-exclusive-'));

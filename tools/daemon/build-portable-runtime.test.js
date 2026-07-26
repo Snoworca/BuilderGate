@@ -209,6 +209,13 @@ test('validatePortableBuildOutput admits a real compiled fair bundle and rejects
   const artifactPath = path.join(evidenceRoot, ...publication.artifactPath.split('/'));
   const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
   assert.doesNotThrow(() => validatePortableBuildOutput(outputDir, { platform: 'linux' }));
+  const extraPath = path.join(path.dirname(artifactPath), 'unselected.json');
+  fs.writeFileSync(extraPath, '{"unselected":true}\n', 'utf8');
+  assert.throws(
+    () => validatePortableBuildOutput(outputDir, { platform: 'linux' }),
+    /compiled fair scheduler evidence rejected/i,
+  );
+  fs.rmSync(extraPath);
   delete artifact.stagingValidated;
   fs.writeFileSync(artifactPath, `${JSON.stringify(artifact)}\n`, 'utf8');
   assert.throws(
