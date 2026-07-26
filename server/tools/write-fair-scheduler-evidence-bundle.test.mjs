@@ -200,21 +200,26 @@ test('PERF-BGSTAB-010 default staged validators reject serialized raw and sideca
 
 test('PERF-BGSTAB-010 default bundle writer stages exactly one complete generation accepted by compiled runtime', async () => {
   const writer = await import(`${writerUrl}?bundle-success=${Date.now()}`);
-  const result = await writer.writeFairSchedulerEvidenceBundle();
-  const outputRoot = resolve(serverRoot, 'dist/benchmarks/fair-scheduler-evidence');
-  const pointer = JSON.parse(await readFile(join(outputRoot, 'fair-scheduler-decision.json.publication.json'), 'utf8'));
-  const artifact = JSON.parse(await readFile(join(outputRoot, ...pointer.artifactPath.split('/')), 'utf8'));
-  const generationDirectory = join(outputRoot, ...pointer.artifactPath.split('/').slice(0, 2));
-  const canary = await import(pathToFileURL(
-    resolve(serverRoot, 'dist/services/TerminalResourcePolicyCanary.js'),
-  ).href);
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-success-'));
+  const outputRoot = join(temporaryRoot, 'fair-scheduler-evidence');
+  try {
+    const result = await writer.writeFairSchedulerEvidenceBundle({ sourceRoot, outputRoot });
+    const pointer = JSON.parse(await readFile(join(outputRoot, 'fair-scheduler-decision.json.publication.json'), 'utf8'));
+    const artifact = JSON.parse(await readFile(join(outputRoot, ...pointer.artifactPath.split('/')), 'utf8'));
+    const generationDirectory = join(outputRoot, ...pointer.artifactPath.split('/').slice(0, 2));
+    const canary = await import(pathToFileURL(
+      resolve(serverRoot, 'dist/services/TerminalResourcePolicyCanary.js'),
+    ).href);
 
-  assert.equal(result.fileCount, 18);
-  assert.equal((await readdir(join(outputRoot, 'fair-scheduler-publications'))).length, 1);
-  assert.equal((await readdir(outputRoot, { recursive: true })).filter(entry => entry.endsWith('.json')).length, 18);
-  assert.equal((await readdir(generationDirectory, { recursive: true })).filter(entry => entry.endsWith('.json')).length, 17);
-  assert.deepEqual(canary.validatePublishedFairDeliveryCandidateArtifact({ runtimePolicy: artifact.policy }), {
-    accepted: true,
-    reason: 'decision-artifact-verified',
-  });
+    assert.equal(result.fileCount, 18);
+    assert.equal((await readdir(join(outputRoot, 'fair-scheduler-publications'))).length, 1);
+    assert.equal((await readdir(outputRoot, { recursive: true })).filter(entry => entry.endsWith('.json')).length, 18);
+    assert.equal((await readdir(generationDirectory, { recursive: true })).filter(entry => entry.endsWith('.json')).length, 17);
+    assert.deepEqual(canary.validateStagedFairDeliveryCandidateArtifact({
+      artifactRoot: outputRoot,
+      runtimePolicy: artifact.policy,
+    }), { accepted: true, reason: 'decision-artifact-verified' });
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
 });

@@ -94,6 +94,14 @@ function createPortableOutputFixture(platform = 'win32', {
   return outputDir;
 }
 
+function createRealFairSchedulerPortableFixture(platform = 'linux') {
+  const outputDir = createPortableOutputFixture(platform);
+  const stagedDist = path.join(outputDir, 'server', 'dist');
+  fs.rmSync(stagedDist, { recursive: true, force: true });
+  fs.cpSync(path.resolve(__dirname, '..', '..', 'server', 'dist'), stagedDist, { recursive: true });
+  return outputDir;
+}
+
 test('portable launchers set runtime root, config, web, and shell integration envs', () => {
   const cmd = createWindowsCmdLauncher();
   assert.match(cmd, /BUILDERGATE_ROOT=%ROOT%/);
@@ -174,6 +182,24 @@ test('validatePortableBuildOutput requires exactly fifteen unique fair scheduler
 
 test('validatePortableBuildOutput rejects evidence that the packaged compiled canary cannot admit', () => {
   const outputDir = createPortableOutputFixture('linux', { fairSchedulerRuntimeAccepted: false });
+  assert.throws(
+    () => validatePortableBuildOutput(outputDir, { platform: 'linux' }),
+    /compiled fair scheduler evidence rejected/i,
+  );
+});
+
+test('validatePortableBuildOutput admits a real compiled fair bundle and rejects its missing staging marker', () => {
+  const outputDir = createRealFairSchedulerPortableFixture('linux');
+  const evidenceRoot = path.join(outputDir, 'server', 'dist', 'benchmarks', 'fair-scheduler-evidence');
+  const publication = JSON.parse(fs.readFileSync(
+    path.join(evidenceRoot, 'fair-scheduler-decision.json.publication.json'),
+    'utf8',
+  ));
+  const artifactPath = path.join(evidenceRoot, ...publication.artifactPath.split('/'));
+  const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+  assert.doesNotThrow(() => validatePortableBuildOutput(outputDir, { platform: 'linux' }));
+  delete artifact.stagingValidated;
+  fs.writeFileSync(artifactPath, `${JSON.stringify(artifact)}\n`, 'utf8');
   assert.throws(
     () => validatePortableBuildOutput(outputDir, { platform: 'linux' }),
     /compiled fair scheduler evidence rejected/i,

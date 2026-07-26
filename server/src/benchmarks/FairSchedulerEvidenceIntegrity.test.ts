@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import test from 'node:test';
 
 type RuntimePolicyProfile = {
@@ -348,5 +348,41 @@ test('PERF-BGSTAB-010 publication validation rejects a fixed pointer symlink tha
   } finally {
     await rm(artifactRoot, { recursive: true, force: true });
     await rm(outsideRoot, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 publication validation rejects symlinked artifact, raw, and trial evidence paths', async () => {
+  const fairness = await loadFairness();
+  const runtimePolicyProfile = createRuntimePolicyProfile(fairness);
+  for (const evidenceKind of ['artifact', 'raw', 'trial']) {
+    const artifactRoot = await mkdtemp(join(tmpdir(), `buildergate-fair-${evidenceKind}-link-root-`));
+    const outsideRoot = await mkdtemp(join(tmpdir(), `buildergate-fair-${evidenceKind}-link-outside-`));
+    const outputPath = join(artifactRoot, 'fair-scheduler-decision.json');
+    try {
+      await fairness.writeFairSchedulerDecisionArtifact({ ...input, outputPath, runtimePolicyProfile });
+      const publication = JSON.parse(await readFile(`${outputPath}.publication.json`, 'utf8')) as {
+        artifactPath: string;
+        rawPath: string;
+      };
+      const artifact = JSON.parse(await readFile(join(artifactRoot, publication.artifactPath), 'utf8')) as {
+        rawEvidencePaths: string[];
+      };
+      const evidencePath = evidenceKind === 'artifact'
+        ? publication.artifactPath
+        : evidenceKind === 'raw'
+          ? publication.rawPath
+          : artifact.rawEvidencePaths[0];
+      const selectedPath = join(artifactRoot, evidencePath);
+      const linkParent = dirname(selectedPath);
+      const outsideParent = join(outsideRoot, evidenceKind);
+      await mkdir(outsideParent, { recursive: true });
+      await writeFile(join(outsideParent, basename(selectedPath)), '{"outside":true}\n', 'utf8');
+      await rm(linkParent, { recursive: true, force: true });
+      await symlink(outsideParent, linkParent, 'junction');
+      assert.equal(fairness.validateFairSchedulerPublicationDirectory({ artifactRoot }).accepted, false);
+    } finally {
+      await rm(artifactRoot, { recursive: true, force: true });
+      await rm(outsideRoot, { recursive: true, force: true });
+    }
   }
 });
