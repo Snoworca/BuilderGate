@@ -160,6 +160,26 @@ function isAbsoluteWindowsPath(value) {
   return /^[a-zA-Z]:\//.test(normalizePath(value));
 }
 
+function assertPathHasNoLinkOrReparsePoint(fs, absolutePath, label) {
+  const resolved = nodePath.resolve(absolutePath);
+  const parsed = nodePath.parse(resolved);
+  const segments = nodePath.relative(parsed.root, resolved).split(nodePath.sep).filter(Boolean);
+  let current = parsed.root;
+  for (const segment of segments) {
+    current = nodePath.join(current, segment);
+    let stat;
+    try {
+      stat = fs.lstatSync(normalizePath(current));
+    } catch (error) {
+      if (error?.code === 'ENOENT') continue;
+      throw new Error(`cannot inspect ${label}: ${current}`);
+    }
+    if (stat?.isSymbolicLink?.() || stat?.isReparsePoint?.()) {
+      throw new Error(`${label} is a reparse point or link: ${current}`);
+    }
+  }
+}
+
 function assertExternalOutputPath({ workspaceRoot, outputDir, fs }) {
   const normalizedOutput = normalizePath(outputDir);
   const normalizedWorkspace = normalizePath(workspaceRoot);
@@ -172,22 +192,7 @@ function assertExternalOutputPath({ workspaceRoot, outputDir, fs }) {
   if (fs.existsSync(normalizedOutput)) {
     throw new Error('Playwright output leaf must be absent before launch');
   }
-
-  const parts = normalizedOutput.split('/');
-  for (let index = 1; index < parts.length; index += 1) {
-    const ancestor = parts.slice(0, index + 1).join('/');
-    if (ancestor === normalizedOutput) continue;
-    let stat;
-    try {
-      stat = fs.lstatSync(ancestor);
-    } catch (error) {
-      if (error?.code === 'ENOENT') continue;
-      throw new Error(`cannot inspect Playwright output ancestor: ${ancestor}`);
-    }
-    if (stat?.isSymbolicLink?.() || stat?.isReparsePoint?.()) {
-      throw new Error(`Playwright output ancestor is a reparse point or link: ${ancestor}`);
-    }
-  }
+  assertPathHasNoLinkOrReparsePoint(fs, normalizedOutput, 'Playwright output ancestor or leaf');
 }
 
 export function validateFrozenContract({ workspaceRoot, contract = FROZEN_CONTRACT, fs = nodeFs }) {
@@ -247,6 +252,15 @@ export function validateProtectedRows({
   for (const row of configLockRows) assertHashRow(row, 'config_lock', 'config-lock row');
 }
 
+export function contractFingerprint(contract = FROZEN_CONTRACT) {
+  assertPlainObject(contract, 'frozen contract');
+  const contractCanonicalJson = canonicalJson(contract);
+  return {
+    canonicalJson: contractCanonicalJson,
+    sha256: sha256(contractCanonicalJson),
+  };
+}
+
 export function buildCanonicalManifest({
   contract = FROZEN_CONTRACT,
   phase,
@@ -292,6 +306,7 @@ export function buildCanonicalManifest({
   return {
     schemaVersion: 'fair-readmission-provenance/v3',
     phase,
+    contract: contractFingerprint(contract),
     protectedInput: {
       canonicalJson: protectedInputCanonicalJson,
       sha256: sha256(protectedInputCanonicalJson),
@@ -322,6 +337,7 @@ function hashFile(fs, absolutePath) {
 
 function requireFile(fs, workspaceRoot, relativePath, kind) {
   const absolutePath = workspacePath(workspaceRoot, relativePath);
+  assertPathHasNoLinkOrReparsePoint(fs, absolutePath, `${kind} input`);
   if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
     throw new Error(`missing ${kind}: ${relativePath}`);
   }
@@ -329,7 +345,7 @@ function requireFile(fs, workspaceRoot, relativePath, kind) {
 }
 
 function isCodeFile(relativePath) {
-  return /\.(?:[cm]?[jt]sx?|json)$/i.test(relativePath);
+  return /\.(?:[cm]?[jt]sx?)$/i.test(relativePath);
 }
 
 function compilerOptionsFor(ts, workspaceRoot, relativePath, cache) {
@@ -344,7 +360,10 @@ function compilerOptionsFor(ts, workspaceRoot, relativePath, cache) {
   return parsed.options;
 }
 
-function sourceClosureRowsFromRoots(fs, workspaceRoot) {
+function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOTS) {
+  if (!Array.isArray(sourceRoots) || sourceRoots.some(relativePath => typeof relativePath !== 'string')) {
+    throw new Error('source closure roots must be a string array');
+  }
   const serverRequire = createRequire(workspacePath(workspaceRoot, 'server/package.json'));
   let ts;
   try {
@@ -352,7 +371,7 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot) {
   } catch (error) {
     throw new Error(`TypeScript resolver is unavailable: ${error.message}`);
   }
-  const pending = [...SOURCE_ROOTS];
+  const pending = [...sourceRoots];
   const resolved = new Set();
   const externalSpecifierRows = [];
   const compilerOptionsCache = new Map();
@@ -363,7 +382,9 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot) {
       if (relativePath !== 'frontend/src/components/Terminal/TerminalView.css') {
         throw new Error(`unexpected workspace-local non-code dependency: ${relativePath}`);
       }
-      const css = fs.readFileSync(workspacePath(workspaceRoot, relativePath), 'utf8');
+      const cssPath = workspacePath(workspaceRoot, relativePath);
+      requireFile(fs, workspaceRoot, relativePath, 'source');
+      const css = fs.readFileSync(cssPath, 'utf8');
       if (/@import\s+(?!url\(['"]?(?:https?:|\/\/))/i.test(css) || /url\(\s*['"]?(?!data:|https?:|\/\/|#)/i.test(css)) {
         throw new Error('TerminalView.css has a local @import or url dependency');
       }
@@ -372,21 +393,27 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot) {
     }
     if (!isCodeFile(relativePath)) throw new Error(`unexpected workspace-local non-code dependency: ${relativePath}`);
     const absolutePath = workspacePath(workspaceRoot, relativePath);
-    if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
-      throw new Error(`missing source closure input: ${relativePath}`);
-    }
+    requireFile(fs, workspaceRoot, relativePath, 'source closure input');
     resolved.add(relativePath);
     const sourceText = fs.readFileSync(absolutePath, 'utf8');
     const imported = ts.preProcessFile(sourceText, true, true).importedFiles;
     const options = compilerOptionsFor(ts, workspaceRoot, relativePath, compilerOptionsCache);
     for (const { fileName: specifier } of imported) {
+      if (relativePath === 'frontend/src/components/Terminal/TerminalView.tsx' && specifier === './TerminalView.css') {
+        const cssRelativePath = relativeWorkspacePath(workspaceRoot, nodePath.resolve(nodePath.dirname(absolutePath), specifier));
+        if (cssRelativePath !== 'frontend/src/components/Terminal/TerminalView.css') {
+          throw new Error(`unexpected workspace-local non-code dependency: ${relativePath} -> ${specifier}`);
+        }
+        pending.push(cssRelativePath);
+        continue;
+      }
       const moduleResolution = ts.resolveModuleName(specifier, absolutePath, options, ts.sys).resolvedModule;
       if (moduleResolution?.resolvedFileName) {
         const resolvedRelativePath = relativeWorkspacePath(workspaceRoot, moduleResolution.resolvedFileName);
-        if (resolvedRelativePath.endsWith('.css') && relativePath !== 'frontend/src/components/Terminal/TerminalView.tsx') {
-          throw new Error(`only TerminalView.tsx may reference TerminalView.css: ${relativePath}`);
+        if (resolvedRelativePath.endsWith('.css')) {
+          throw new Error(`unexpected workspace-local non-code dependency: ${relativePath} -> ${specifier}`);
         }
-        if (!isCodeFile(resolvedRelativePath) && !resolvedRelativePath.endsWith('.css')) {
+        if (!isCodeFile(resolvedRelativePath)) {
           throw new Error(`unexpected workspace-local non-code dependency: ${resolvedRelativePath}`);
         }
         pending.push(resolvedRelativePath);
@@ -395,6 +422,9 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot) {
       const configuredPaths = Object.keys(options.paths ?? {});
       const configuredAlias = configuredPaths.some(pattern => specifier.startsWith(pattern.replace(/\*$/, '')));
       if (specifier.startsWith('.') || specifier.startsWith('/') || configuredAlias) {
+        if (/\.(?:css|json(?:5)?)$/i.test(specifier)) {
+          throw new Error(`unexpected workspace-local non-code dependency: ${relativePath} -> ${specifier}`);
+        }
         throw new Error(`unresolved workspace-relative or alias import: ${relativePath} -> ${specifier}`);
       }
       externalSpecifierRows.push({
@@ -410,9 +440,17 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot) {
   };
 }
 
+export function collectSourceClosure({ workspaceRoot, sourceRoots = SOURCE_ROOTS, fs = nodeFs }) {
+  if (!workspaceRoot || !isAbsoluteWindowsPath(workspaceRoot)) {
+    throw new Error('workspaceRoot must be an absolute Windows path');
+  }
+  return sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots);
+}
+
 function readJsonFixture(fs, workspaceRoot, relativePath) {
   const absolutePath = workspacePath(workspaceRoot, relativePath);
   try {
+    requireFile(fs, workspaceRoot, relativePath, 'fixture');
     return JSON.parse(fs.readFileSync(absolutePath, 'utf8'));
   } catch (error) {
     throw new Error(`fixture is not valid JSON: ${relativePath} (${error.message})`);
@@ -518,8 +556,24 @@ function assertManifestDestination(workspaceRoot, manifestPath, fs) {
   if (!isWithinPath(destination, analysisRoot) || nodePath.dirname(destination) !== analysisRoot || nodePath.extname(destination).toLowerCase() !== '.json') {
     throw new Error(`manifest must be a JSON leaf in ${ANALYSIS_DIRECTORY}`);
   }
+  assertPathHasNoLinkOrReparsePoint(fs, destination, 'manifest destination');
   if (fs.existsSync(destination)) throw new Error(`manifest already exists: ${destination}`);
   return { analysisRoot, destination };
+}
+
+function sourceRootsForTestCapture(testOnlyInputs) {
+  if (testOnlyInputs === undefined) return SOURCE_ROOTS;
+  assertPlainObject(testOnlyInputs, 'test-only capture inputs');
+  const keys = Object.keys(testOnlyInputs);
+  if (keys.length !== 1 || keys[0] !== 'sourceRoots' || !Array.isArray(testOnlyInputs.sourceRoots)) {
+    throw new Error('test-only capture inputs may contain only sourceRoots');
+  }
+  for (const relativePath of testOnlyInputs.sourceRoots) {
+    if (typeof relativePath !== 'string' || !relativePath || normalizePath(relativePath).includes('../')) {
+      throw new Error('test-only source root must be a safe repository-relative path');
+    }
+  }
+  return testOnlyInputs.sourceRoots;
 }
 
 export function captureFrozenProvenance({
@@ -528,10 +582,15 @@ export function captureFrozenProvenance({
   phase,
   execFile = fileURLToPath(import.meta.url),
   fs = nodeFs,
+  testOnlyInputs,
 }) {
   const contract = validateFrozenContract({ workspaceRoot, contract: FROZEN_CONTRACT, fs });
   const { analysisRoot, destination } = assertManifestDestination(workspaceRoot, manifestPath, fs);
-  const { sourceClosureRows, externalSpecifierRows } = sourceClosureRowsFromRoots(fs, workspaceRoot);
+  const { sourceClosureRows, externalSpecifierRows } = collectSourceClosure({
+    workspaceRoot,
+    sourceRoots: sourceRootsForTestCapture(testOnlyInputs),
+    fs,
+  });
   const fixtureRows = fixtureRowsFromEntry(fs, workspaceRoot);
   const configLockRows = CONFIG_LOCK_PATHS.map(relativePath => requireFile(fs, workspaceRoot, relativePath, 'config_lock'));
   const protectedPaths = [...new Set([...sourceClosureRows, ...fixtureRows, ...configLockRows].map(row => row.path))].sort();
