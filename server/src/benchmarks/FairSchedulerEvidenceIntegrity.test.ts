@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import test from 'node:test';
@@ -384,6 +384,27 @@ test('PERF-BGSTAB-010 publication validation rejects symlinked artifact, raw, an
       await rm(artifactRoot, { recursive: true, force: true });
       await rm(outsideRoot, { recursive: true, force: true });
     }
+  }
+});
+
+test('PERF-BGSTAB-010 official writer rejects a publication-parent junction before replacing its pointer', async () => {
+  const fairness = await loadFairness();
+  const runtimePolicyProfile = createRuntimePolicyProfile(fairness);
+  const artifactRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-publication-parent-junction-'));
+  const outsideRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-publication-parent-outside-'));
+  const outputPath = join(artifactRoot, 'fair-scheduler-decision.json');
+  const pointerPath = `${outputPath}.publication.json`;
+  try {
+    await symlink(outsideRoot, join(artifactRoot, 'fair-scheduler-publications'), 'junction');
+    await assert.rejects(
+      fairness.writeFairSchedulerDecisionArtifact({ ...input, outputPath, runtimePolicyProfile }),
+      /publication-reference-invalid/u,
+    );
+    await assert.rejects(readFile(pointerPath, 'utf8'), { code: 'ENOENT' });
+    assert.deepEqual(await readdir(outsideRoot), []);
+  } finally {
+    await rm(artifactRoot, { recursive: true, force: true });
+    await rm(outsideRoot, { recursive: true, force: true });
   }
 });
 
