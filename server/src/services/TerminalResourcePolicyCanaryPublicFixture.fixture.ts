@@ -10,6 +10,8 @@ export interface PublicObservedSessionFixture {
   readonly observedSession: SessionDto | null;
   readonly createCallCount: number;
   readonly spawnCount: number;
+  readonly spawnCommand: string | undefined;
+  readonly spawnArgs: readonly string[];
   readonly onDataRegistrationCount: number;
   readonly activeDataCallbackCount: number;
   dispose(): boolean;
@@ -34,6 +36,8 @@ export function createPublicObservedSessionFixture(input: {
   sessionId: string;
 }): PublicObservedSessionFixture {
   let spawnCount = 0;
+  let spawnCommand: string | undefined;
+  let spawnArgs: string[] = [];
   let onDataRegistrationCount = 0;
   let activeDataCallbackCount = 0;
   const disposeDataCallbacks: Array<() => void> = [];
@@ -45,8 +49,10 @@ export function createPublicObservedSessionFixture(input: {
     stabilityModes: config.stabilityModes,
   }, {
     platform: 'win32',
-    spawnPty: () => {
+    spawnPty: (command: string, args: string[]) => {
       spawnCount += 1;
+      spawnCommand = command;
+      spawnArgs = [...args];
       return {
         pid: 701,
         cols: 80,
@@ -67,8 +73,10 @@ export function createPublicObservedSessionFixture(input: {
           return { dispose };
         },
         onExit() { return { dispose() {} }; },
+        clear() {},
         write() {},
         pause() {},
+        resume() {},
         resize() {},
         kill() {},
       };
@@ -92,6 +100,8 @@ export function createPublicObservedSessionFixture(input: {
     observedSession,
     get createCallCount() { return createCallCount; },
     get spawnCount() { return spawnCount; },
+    get spawnCommand() { return spawnCommand; },
+    get spawnArgs() { return [...spawnArgs]; },
     get onDataRegistrationCount() { return onDataRegistrationCount; },
     get activeDataCallbackCount() { return activeDataCallbackCount; },
     dispose() {
