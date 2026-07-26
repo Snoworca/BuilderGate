@@ -252,7 +252,7 @@ test('PERF-BGSTAB-010 official writer fails closed on a stale output lock withou
   const outputDirectory = join(directory, 'evidence');
   const outputPath = join(outputDirectory, 'fair-scheduler-decision.json');
   const pointerPath = `${outputPath}.publication.json`;
-  const lockPath = join(directory, '.evidence.publish.lock');
+  const lockPath = join(outputDirectory, '.fair-scheduler-publication.publish.lock');
   const firstProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(8_192));
   const secondProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(12_288));
   try {
@@ -283,7 +283,7 @@ test('PERF-BGSTAB-010 concurrent docs publication fails closed while its output 
   const outputDirectory = join(directory, 'evidence');
   const outputPath = join(outputDirectory, 'fair-scheduler-decision.json');
   const pointerPath = `${outputPath}.publication.json`;
-  const lockPath = join(directory, '.evidence.publish.lock');
+  const lockPath = join(outputDirectory, '.fair-scheduler-publication.publish.lock');
   const firstProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(8_192));
   const secondProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(12_288));
   let releaseFirstWriter: (() => void) | undefined;

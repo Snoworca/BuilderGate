@@ -53,7 +53,7 @@ test('PERF-BGSTAB-010 bundle promotion keeps the last known-good deployment evid
     );
     assert.equal(await readFile(markerPath, 'utf8'), 'preserve-me\n');
     await assert.rejects(
-      readFile(join(temporaryRoot, '.fair-scheduler-evidence.publish.lock'), 'utf8'),
+      readFile(join(outputRoot, '.fair-scheduler-publication.publish.lock'), 'utf8'),
       { code: 'ENOENT' },
     );
     await assert.doesNotReject(writer.writeFairSchedulerEvidenceBundle({
@@ -72,7 +72,7 @@ test('PERF-BGSTAB-010 stale publish lock fails closed without changing the activ
   const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-stale-lock-'));
   const outputRoot = join(temporaryRoot, 'fair-scheduler-evidence');
   const pointerPath = join(outputRoot, 'fair-scheduler-decision.json.publication.json');
-  const lockPath = join(temporaryRoot, '.fair-scheduler-evidence.publish.lock');
+  const lockPath = join(outputRoot, '.fair-scheduler-publication.publish.lock');
   try {
     await cp(sourceRoot, outputRoot, { recursive: true });
     const pointerBefore = await readFile(pointerPath, 'utf8');
@@ -94,8 +94,9 @@ test('PERF-BGSTAB-010 bundle writer rejects an output-root junction before readi
   const outsideParent = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-output-root-outside-'));
   const aliasParent = join(aliasContainer, 'redirected-parent');
   const outputRoot = join(aliasParent, 'fair-scheduler-evidence');
-  const externalLockPath = join(outsideParent, '.fair-scheduler-evidence.publish.lock');
+  const externalLockPath = join(outsideParent, 'fair-scheduler-evidence', '.fair-scheduler-publication.publish.lock');
   try {
+    await mkdir(dirname(externalLockPath), { recursive: true });
     await symlink(outsideParent, aliasParent, 'junction');
     await writeFile(externalLockPath, 'outside-lock\n', 'utf8');
     await assert.rejects(
@@ -288,7 +289,7 @@ test('PERF-BGSTAB-010 concurrent bundle promotion fails closed without changing 
   const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-exclusive-'));
   const outputRoot = join(temporaryRoot, 'fair-scheduler-evidence');
   const pointerPath = join(outputRoot, 'fair-scheduler-decision.json.publication.json');
-  const lockPath = join(temporaryRoot, '.fair-scheduler-evidence.publish.lock');
+  const lockPath = join(outputRoot, '.fair-scheduler-publication.publish.lock');
   let releaseFirstWriter;
   const releaseGate = new Promise(resolve => { releaseFirstWriter = resolve; });
   let firstWriter;
