@@ -28,6 +28,8 @@ function touch(filePath, content = '') {
 function createPortableOutputFixture(platform = 'win32', {
   includeFairSchedulerProvenance = true,
   includeFairSchedulerEvidence = true,
+  includeFairSchedulerEvidenceRaw = true,
+  includeFairSchedulerEvidenceSidecars = true,
 } = {}) {
   const outputDir = makeTempDir('buildergate-portable-output-');
   touch(path.join(outputDir, 'web', 'index.html'), '<!doctype html>\n');
@@ -48,10 +50,22 @@ function createPortableOutputFixture(platform = 'win32', {
     );
   }
   if (includeFairSchedulerEvidence) {
+    const evidenceRoot = path.join(outputDir, 'server', 'dist', 'benchmarks', 'fair-scheduler-evidence');
+    const generationRoot = path.join(evidenceRoot, 'fair-scheduler-publications', 'fixture-generation');
+    const artifactPath = 'fair-scheduler-publications/fixture-generation/fair-scheduler-decision.json';
+    const rawPath = 'fair-scheduler-publications/fixture-generation/fair-scheduler-decision.raw.json';
+    const rawEvidencePaths = Array.from({ length: 15 }, (_, index) => (
+      `fair-scheduler-publications/fixture-generation/fair-scheduler-runs/raw/sidecar-${index}.json`
+    ));
     touch(
-      path.join(outputDir, 'server', 'dist', 'benchmarks', 'fair-scheduler-evidence', 'fair-scheduler-decision.json.publication.json'),
-      '{"schemaVersion":"fair-scheduler-publication/v1"}\n',
+      path.join(evidenceRoot, 'fair-scheduler-decision.json.publication.json'),
+      `${JSON.stringify({ schemaVersion: 'fair-scheduler-publication/v1', artifactPath, rawPath })}\n`,
     );
+    touch(path.join(evidenceRoot, artifactPath), `${JSON.stringify({ rawEvidencePaths })}\n`);
+    if (includeFairSchedulerEvidenceRaw) touch(path.join(evidenceRoot, rawPath), '{}\n');
+    if (includeFairSchedulerEvidenceSidecars) {
+      for (const evidencePath of rawEvidencePaths) touch(path.join(evidenceRoot, evidencePath), '{}\n');
+    }
   }
   touch(path.join(outputDir, 'server', 'dist', 'utils', 'configStrictLoader.js'), 'export {};\n');
   touch(path.join(outputDir, 'server', 'dist', 'services', 'daemonTotpPreflight.js'), 'export {};\n');
@@ -127,6 +141,19 @@ test('validatePortableBuildOutput requires the staged fair scheduler evidence bu
   assert.throws(
     () => validatePortableBuildOutput(outputDir, { platform: 'linux' }),
     /fair-scheduler-evidence/i,
+  );
+});
+
+test('validatePortableBuildOutput requires fair scheduler raw evidence and every staged sidecar', () => {
+  const missingRaw = createPortableOutputFixture('linux', { includeFairSchedulerEvidenceRaw: false });
+  assert.throws(
+    () => validatePortableBuildOutput(missingRaw, { platform: 'linux' }),
+    /fair-scheduler-evidence.*raw/i,
+  );
+  const missingSidecar = createPortableOutputFixture('linux', { includeFairSchedulerEvidenceSidecars: false });
+  assert.throws(
+    () => validatePortableBuildOutput(missingSidecar, { platform: 'linux' }),
+    /fair-scheduler-evidence.*sidecar/i,
   );
 });
 

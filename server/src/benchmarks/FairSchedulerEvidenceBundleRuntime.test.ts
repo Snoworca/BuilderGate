@@ -20,8 +20,10 @@ test('PERF-BGSTAB-010 compiled runtime resolves only its staged evidence bundle 
   assert.equal(typeof compiled.validateFairSchedulerEvidenceReference, 'function');
   const evidenceRoot = compiled.resolveFairSchedulerEvidenceRoot?.();
   assert.match(evidenceRoot ?? '', /dist[\\/]benchmarks[\\/]fair-scheduler-evidence$/u);
-  assert.deepEqual(
-    compiled.validateFairSchedulerEvidenceReference?.(evidenceRoot!, '../outside.json'),
-    { accepted: false, reason: 'evidence-reference-invalid' },
-  );
+  for (const escapedReference of ['../outside.json', './local.json', '/absolute.json', 'C:\\absolute.json', 'dir\\file.json']) {
+    assert.deepEqual(
+      compiled.validateFairSchedulerEvidenceReference?.(evidenceRoot!, escapedReference),
+      { accepted: false, reason: 'evidence-reference-invalid' },
+    );
+  }
 });

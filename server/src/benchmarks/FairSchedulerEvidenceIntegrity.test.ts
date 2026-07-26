@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -122,10 +122,30 @@ test('PERF-BGSTAB-010 evidence validator rejects a self-consistent publication m
   }), { accepted: false, reason: 'trial-evidence-coverage-mismatch' });
 });
 
+test('PERF-BGSTAB-010 evidence validator rejects duplicate raw trial samples', async () => {
+  const fairness = await loadFairness();
+  const runtimePolicyProfile = createRuntimePolicyProfile(fairness);
+  const generated = fairness.createFairSchedulerDecisionArtifact({ ...input, runtimePolicyProfile });
+  const rawArtifacts = structuredClone(generated.rawArtifacts) as Record<string, unknown> & {
+    samples: unknown[];
+  };
+  const artifact = structuredClone(generated.artifact) as Record<string, unknown> & {
+    rawEvidenceDigest: string;
+  };
+  rawArtifacts.samples[1] = rawArtifacts.samples[0];
+  artifact.rawEvidenceDigest = digest(rawArtifacts);
+
+  assert.deepEqual(fairness.validateFairSchedulerDecisionArtifact({
+    artifact,
+    rawArtifacts,
+    runtimePolicyProfile,
+  }), { accepted: false, reason: 'raw-trial-coverage-mismatch' });
+});
+
 test('PERF-BGSTAB-010 publication directory read-back rejects serialized raw evidence corruption', async () => {
   const fairness = await loadFairness();
   const runtimePolicyProfile = createRuntimePolicyProfile(fairness);
-  const artifactRoot = await import('node:fs/promises').then(({ mkdtemp }) => mkdtemp(join(tmpdir(), 'buildergate-fair-readback-')));
+  const artifactRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-readback-'));
   const outputPath = join(artifactRoot, 'fair-scheduler-decision.json');
   try {
     await fairness.writeFairSchedulerDecisionArtifact({ ...input, outputPath, runtimePolicyProfile });
@@ -142,6 +162,55 @@ test('PERF-BGSTAB-010 publication directory read-back rejects serialized raw evi
       reason: 'raw-evidence-digest-mismatch',
     });
   } finally {
-    await import('node:fs/promises').then(({ rm }) => rm(artifactRoot, { recursive: true, force: true }));
+    await rm(artifactRoot, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 writer refuses a corrupt existing generation without moving its canonical pointer', async () => {
+  const fairness = await loadFairness();
+  const runtimePolicyProfile = createRuntimePolicyProfile(fairness);
+  const artifactRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-generation-collision-'));
+  const outputPath = join(artifactRoot, 'fair-scheduler-decision.json');
+  try {
+    await fairness.writeFairSchedulerDecisionArtifact({ ...input, outputPath, runtimePolicyProfile });
+    const pointerPath = `${outputPath}.publication.json`;
+    const beforePointer = await readFile(pointerPath, 'utf8');
+    const publication = JSON.parse(beforePointer) as { artifactPath: string };
+    await writeFile(join(artifactRoot, publication.artifactPath), '{"corrupt":true}\n', 'utf8');
+
+    await assert.rejects(
+      fairness.writeFairSchedulerDecisionArtifact({ ...input, outputPath, runtimePolicyProfile }),
+      /existing fair scheduler generation is invalid/u,
+    );
+    assert.equal(await readFile(pointerPath, 'utf8'), beforePointer);
+  } finally {
+    await rm(artifactRoot, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 publication validation rejects a fixed pointer symlink that escapes its root', async t => {
+  const fairness = await loadFairness();
+  const artifactRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-pointer-root-'));
+  const outsideRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-pointer-outside-'));
+  const pointerPath = join(artifactRoot, 'fair-scheduler-decision.json.publication.json');
+  try {
+    await mkdir(artifactRoot, { recursive: true });
+    await writeFile(join(outsideRoot, 'publication.json'), 'not-json\n', 'utf8');
+    try {
+      await symlink(join(outsideRoot, 'publication.json'), pointerPath, 'file');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EPERM') {
+        t.skip('file symlink creation is unavailable on this Windows host');
+        return;
+      }
+      throw error;
+    }
+    assert.deepEqual(fairness.validateFairSchedulerPublicationDirectory({ artifactRoot }), {
+      accepted: false,
+      reason: 'publication-reference-invalid',
+    });
+  } finally {
+    await rm(artifactRoot, { recursive: true, force: true });
+    await rm(outsideRoot, { recursive: true, force: true });
   }
 });
