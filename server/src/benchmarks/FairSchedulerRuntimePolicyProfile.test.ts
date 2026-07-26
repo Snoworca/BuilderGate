@@ -36,6 +36,7 @@ type FairnessModule = {
   writeFairSchedulerDecisionArtifact(input: FairSchedulerBenchmarkInput & {
     outputPath: string;
     runtimePolicyProfile?: RuntimePolicyProfile;
+    afterPublicationLockAcquired?: () => Promise<void>;
   }): Promise<{ artifactPath: string; digest: string }>;
 };
 
@@ -240,6 +241,85 @@ test('PERF-BGSTAB-010 official writer preserves an earlier pointer when the move
     }), /existing fair scheduler generation is invalid/u, signature);
     assert.equal(await readFile(pointerPath, 'utf8'), firstPointer, signature);
   } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 official writer fails closed on a stale output lock without changing LKG', async () => {
+  const signature = 'PERF-BGSTAB-010 stale docs publication lock must preserve the active pointer';
+  const fairness = await loadFairness(signature);
+  const directory = await mkdtemp(join(tmpdir(), 'buildergate-fairness-docs-stale-lock-'));
+  const outputDirectory = join(directory, 'evidence');
+  const outputPath = join(outputDirectory, 'fair-scheduler-decision.json');
+  const pointerPath = `${outputPath}.publication.json`;
+  const lockPath = join(directory, '.evidence.publish.lock');
+  const firstProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(8_192));
+  const secondProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(12_288));
+  try {
+    await fairness.writeFairSchedulerDecisionArtifact({ ...benchmarkInput, outputPath, runtimePolicyProfile: firstProfile });
+    const pointerBefore = await readFile(pointerPath, 'utf8');
+    await writeFile(lockPath, 'stale-lock\n', 'utf8');
+
+    await assert.rejects(
+      fairness.writeFairSchedulerDecisionArtifact({ ...benchmarkInput, outputPath, runtimePolicyProfile: secondProfile }),
+      /publication lock exists/u,
+      signature,
+    );
+    assert.equal(await readFile(pointerPath, 'utf8'), pointerBefore, signature);
+    await rm(lockPath);
+    await assert.doesNotReject(
+      fairness.writeFairSchedulerDecisionArtifact({ ...benchmarkInput, outputPath, runtimePolicyProfile: secondProfile }),
+      signature,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 concurrent docs publication fails closed while its output lock is held', async () => {
+  const signature = 'PERF-BGSTAB-010 concurrent docs publication must not replace LKG during an active publish';
+  const fairness = await loadFairness(signature);
+  const directory = await mkdtemp(join(tmpdir(), 'buildergate-fairness-docs-exclusive-lock-'));
+  const outputDirectory = join(directory, 'evidence');
+  const outputPath = join(outputDirectory, 'fair-scheduler-decision.json');
+  const pointerPath = `${outputPath}.publication.json`;
+  const lockPath = join(directory, '.evidence.publish.lock');
+  const firstProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(8_192));
+  const secondProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(12_288));
+  let releaseFirstWriter: (() => void) | undefined;
+  let firstWriter: Promise<unknown> | undefined;
+  try {
+    await fairness.writeFairSchedulerDecisionArtifact({ ...benchmarkInput, outputPath, runtimePolicyProfile: firstProfile });
+    const pointerBefore = await readFile(pointerPath, 'utf8');
+    let releaseFirstWriterAtLock: () => void = () => undefined;
+    const firstWriterAtLock = new Promise<void>(resolve => { releaseFirstWriterAtLock = resolve; });
+    const releaseGate = new Promise<void>(resolve => { releaseFirstWriter = resolve; });
+    firstWriter = fairness.writeFairSchedulerDecisionArtifact({
+      ...benchmarkInput,
+      outputPath,
+      runtimePolicyProfile: secondProfile,
+      afterPublicationLockAcquired: async () => {
+        releaseFirstWriterAtLock();
+        await releaseGate;
+      },
+    });
+    assert.equal(await Promise.race([
+      firstWriterAtLock.then(() => true),
+      new Promise<boolean>(resolve => setTimeout(() => resolve(false), 100)),
+    ]), true, signature);
+    await assert.rejects(
+      fairness.writeFairSchedulerDecisionArtifact({ ...benchmarkInput, outputPath, runtimePolicyProfile: secondProfile }),
+      /publication lock exists/u,
+      signature,
+    );
+    assert.equal(await readFile(pointerPath, 'utf8'), pointerBefore, signature);
+    if (!releaseFirstWriter) throw new Error(`${signature}: first writer release was unavailable`);
+    releaseFirstWriter();
+    await firstWriter;
+    await assert.rejects(readFile(lockPath, 'utf8'), { code: 'ENOENT' }, signature);
+  } finally {
+    releaseFirstWriter?.();
+    await firstWriter?.catch(() => undefined);
     await rm(directory, { recursive: true, force: true });
   }
 });
