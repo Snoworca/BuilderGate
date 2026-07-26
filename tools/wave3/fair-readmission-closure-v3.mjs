@@ -54,11 +54,11 @@ const FIXTURE_ROOT = 'docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-au
 const FIXTURE_ENTRY = `${FIXTURE_ROOT}/fair-scheduler-decision.json`;
 const HASH_PATTERN = /^[a-f0-9]{64}$/i;
 const REPARSE_BATCH_ENV_KEY = 'FAIR_READMISSION_CLOSURE_V3_REPARSE_BATCH_PATHS_BASE64';
-const REPARSE_PATH_ENV_KEY = 'FAIR_READMISSION_CLOSURE_V3_REPARSE_PATH_BASE64';
 const REPARSE_BATCH_MAX_COUNT = 64;
 const REPARSE_BATCH_MAX_BYTES = 8 * 1024;
 const REPARSE_PROBE_TIMEOUT_MS = 10_000;
 const TRUSTED_WINDOWS_POWERSHELL = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
+const COLLECTOR_WORKSPACE_ROOT = nodePath.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 
 function normalizeLf(value) {
   return String(value).replace(/\r\n?/g, '\n');
@@ -208,25 +208,6 @@ const REPARSE_BATCH_ARGV = [
   Buffer.from(REPARSE_BATCH_PROGRAM, 'utf16le').toString('base64'),
 ];
 
-const REPARSE_PATH_PROGRAM = [
-  "$ErrorActionPreference = 'Stop'",
-  'try {',
-  `  $candidate = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($env:${REPARSE_PATH_ENV_KEY}))`,
-  '  $attributes = [System.IO.File]::GetAttributes($candidate)',
-  '  [Console]::Out.Write((if (($attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { "1`n" } else { "0`n" }))',
-  '} catch {',
-  '  exit 1',
-  '}',
-].join('\n');
-const REPARSE_PATH_ARGV = [
-  '-NoProfile',
-  '-NonInteractive',
-  '-ExecutionPolicy',
-  'Bypass',
-  '-EncodedCommand',
-  Buffer.from(REPARSE_PATH_PROGRAM, 'utf16le').toString('base64'),
-];
-
 function fixedReparseProbeOptions(environmentKey, environmentValue) {
   return {
     env: { [environmentKey]: environmentValue },
@@ -240,6 +221,14 @@ function fixedReparseProbeOptions(environmentKey, environmentValue) {
 
 function trustedWindowsPath(value) {
   return nodePath.win32.normalize(value).replaceAll('/', '\\').toLowerCase();
+}
+
+function assertCollectorWorkspaceRoot(workspaceRoot, label = 'workspace root') {
+  const normalized = assertExistingWindowsPath(workspaceRoot, label);
+  if (trustedWindowsPath(normalized) !== trustedWindowsPath(COLLECTOR_WORKSPACE_ROOT)) {
+    throw new Error(`${label} must equal the collector-derived workspace root`);
+  }
+  return normalized;
 }
 
 function inspectTrustedPowerShellPath(fs, candidate, label) {
@@ -257,6 +246,8 @@ function inspectTrustedPowerShellPath(fs, candidate, label) {
 
 export function resolveTrustedWindowsPowerShell({ fs = nodeFs, platform = process.platform } = {}) {
   if (platform !== 'win32') throw new Error('trusted PowerShell probe requires Windows');
+  // This fixed bootstrap boundary rejects positive link/reparse evidence; unavailable
+  // Node metadata does not independently prove a hostile system tree is reparse-free.
   const parsed = nodePath.win32.parse(TRUSTED_WINDOWS_POWERSHELL);
   const segments = nodePath.win32.relative(parsed.root, TRUSTED_WINDOWS_POWERSHELL).split(nodePath.win32.sep).filter(Boolean);
   let current = parsed.root;
@@ -349,23 +340,18 @@ export function probeWindowsReparsePoint({
   platform = process.platform,
 } = {}) {
   const candidate = assertExistingWindowsPath(path, 'reparse probe path');
-  const encodedPath = Buffer.from(path, 'utf8').toString('base64');
-  const result = runTrustedReparseProbe({
-    spawn,
+  const strictBatchSpawn = typeof spawn === 'function'
+    ? (...args) => {
+      const result = spawn(...args);
+      return typeof result === 'string' ? { status: 0, stdout: result, stderr: '' } : result;
+    }
+    : spawn;
+  return probeWindowsReparsePoints({
+    paths: [candidate],
+    spawnSync: strictBatchSpawn,
     fs,
     platform,
-    argv: REPARSE_PATH_ARGV,
-    environmentKey: REPARSE_PATH_ENV_KEY,
-    environmentValue: encodedPath,
-    label: 'path',
   });
-  if (!result || result.error || result.status !== 0 || typeof result.stdout !== 'string' || typeof result.stderr !== 'string' || result.stderr !== '') {
-    throw new Error(`PowerShell reparse probe failed closed for ${candidate}`);
-  }
-  const output = result.stdout;
-  if (output === '0\n') return false;
-  if (output === '1\n') return true;
-  throw new Error(`PowerShell reparse probe failed closed for ${candidate}`);
 }
 
 function statIdentity(stat, label) {
@@ -386,19 +372,6 @@ function sameIdentity(left, right) {
     && left.ctimeMs === right.ctimeMs
     && left.mtimeMs === right.mtimeMs
     && left.size === right.size;
-}
-
-function lstatSafeSegment(fs, candidate, label) {
-  let stat;
-  try {
-    stat = fs.lstatSync(candidate);
-  } catch (error) {
-    throw new Error(`cannot inspect ${label}: ${candidate} (${error?.message ?? String(error)})`);
-  }
-  if (stat?.isSymbolicLink?.() || stat?.isReparsePoint?.()) {
-    throw new Error(`${label} is a reparse point or link: ${candidate}`);
-  }
-  return statIdentity(stat, label);
 }
 
 function splitReparseBatches(paths) {
@@ -459,42 +432,19 @@ function collectExistingSegmentFrontier(fs, candidates) {
   });
 }
 
+function sameFrontier(left, right) {
+  return left.length === right.length
+    && left.every(({ candidate, identity }, index) => candidate === right[index].candidate && sameIdentity(identity, right[index].identity));
+}
+
 export function createSegmentReparseGuard({ fs = nodeFs, probe, probeBatch } = {}) {
-  if (probe === undefined && probeBatch === undefined) {
-    probeBatch = paths => probeWindowsReparsePoints({ paths });
+  if (probe !== undefined) {
+    throw new Error('reparse guard rejects the legacy leaf-only probe; provide probeBatch');
   }
+  if (probeBatch === undefined) probeBatch = paths => probeWindowsReparsePoints({ paths });
   if (!fs || typeof fs.lstatSync !== 'function') throw new Error('reparse guard requires lstatSync');
   if (probeBatch !== undefined && typeof probeBatch !== 'function') throw new Error('reparse guard probeBatch must be a function');
-  if (probeBatch === undefined && typeof probe !== 'function') throw new Error('reparse guard probe must be a function');
   const cache = new Map();
-
-  if (probeBatch === undefined) {
-    const assertSafe = (candidate, { forceFresh = false } = {}) => {
-      const normalized = assertExistingWindowsPath(candidate, 'reparse guard path');
-      const identity = lstatSafeSegment(fs, normalized, 'reparse guard path');
-      const cached = cache.get(normalized);
-      if (!forceFresh && sameIdentity(cached, identity)) return;
-      let unsafe;
-      try {
-        unsafe = probe(candidate);
-      } catch (error) {
-        cache.delete(normalized);
-        throw error;
-      }
-      if (unsafe) {
-        cache.delete(normalized);
-        throw new Error(`reparse guard rejected unsafe path: ${normalized}`);
-      }
-      cache.set(normalized, identity);
-    };
-    return {
-      assertSafe,
-      assertSafeMany(paths, options) {
-        if (!Array.isArray(paths)) throw new Error('reparse guard paths must be an array');
-        for (const candidate of paths) assertSafe(candidate, options);
-      },
-    };
-  }
 
   const assertSafeMany = (paths, { forceFresh = false } = {}) => {
     if (!Array.isArray(paths)) throw new Error('reparse guard paths must be an array');
@@ -513,10 +463,7 @@ export function createSegmentReparseGuard({ fs = nodeFs, probe, probeBatch } = {
     try {
       for (const batch of splitReparseBatches(probeCandidates)) probeBatch(batch);
       const post = collectExistingSegmentFrontier(fs, candidates);
-      if (
-        post.length !== frontier.length
-        || post.some(({ candidate, identity }, index) => candidate !== frontier[index].candidate || !sameIdentity(frontier[index].identity, identity))
-      ) {
+      if (!sameFrontier(frontier, post)) {
         throw new Error('reparse guard identity changed during batch probe');
       }
       for (const { candidate, identity } of post) cache.set(candidate, identity);
@@ -530,6 +477,37 @@ export function createSegmentReparseGuard({ fs = nodeFs, probe, probeBatch } = {
       assertSafeMany([candidate], options);
     },
     assertSafeMany,
+    prepareWave(paths) {
+      if (!Array.isArray(paths)) throw new Error('reparse wave paths must be an array');
+      const candidates = paths.map(candidate => assertExistingWindowsPath(candidate, 'reparse wave path'));
+      if (candidates.length === 0) return { candidates, frontier: [] };
+      const frontier = collectExistingSegmentFrontier(fs, candidates);
+      try {
+        for (const batch of splitReparseBatches(frontier.map(({ candidate }) => candidate))) probeBatch(batch);
+        const checked = collectExistingSegmentFrontier(fs, candidates);
+        if (!sameFrontier(frontier, checked)) throw new Error('reparse wave identity changed during pre-read batch probe');
+        return { candidates, frontier: checked };
+      } catch (error) {
+        for (const { candidate } of frontier) cache.delete(candidate);
+        throw error;
+      }
+    },
+    completeWave(token) {
+      if (!token || !Array.isArray(token.candidates) || !Array.isArray(token.frontier)) {
+        throw new Error('reparse wave token is invalid');
+      }
+      const beforePostProbe = collectExistingSegmentFrontier(fs, token.candidates);
+      if (!sameFrontier(token.frontier, beforePostProbe)) throw new Error('reparse wave identity changed before post-read batch probe');
+      try {
+        for (const batch of splitReparseBatches(beforePostProbe.map(({ candidate }) => candidate))) probeBatch(batch);
+        const afterPostProbe = collectExistingSegmentFrontier(fs, token.candidates);
+        if (!sameFrontier(token.frontier, afterPostProbe)) throw new Error('reparse wave identity changed during post-read batch probe');
+        for (const { candidate, identity } of afterPostProbe) cache.set(candidate, identity);
+      } catch (error) {
+        for (const { candidate } of token.frontier) cache.delete(candidate);
+        throw error;
+      }
+    },
   };
 }
 
@@ -577,9 +555,7 @@ function assertExternalOutputPath({ workspaceRoot, outputDir, fs, reparseGuard }
 }
 
 export function validateFrozenContract({ workspaceRoot, contract = FROZEN_CONTRACT, fs = nodeFs, reparseGuard }) {
-  if (!workspaceRoot || !isAbsoluteWindowsPath(workspaceRoot)) {
-    throw new Error('workspaceRoot must be an absolute Windows path');
-  }
+  assertCollectorWorkspaceRoot(workspaceRoot);
   assertPlainObject(contract, 'frozen contract');
   assertPlainObject(contract.playwright, 'frozen contract playwright');
   assertExternalOutputPath({ workspaceRoot, outputDir: contract.playwright.outputDir, fs, reparseGuard });
@@ -698,10 +674,21 @@ export function buildCanonicalManifest({
 
 function workspacePath(workspaceRoot, relativePath) {
   const normalized = normalizePath(relativePath);
-  if (!normalized || normalized.startsWith('/') || normalized.includes('../')) {
+  if (
+    !normalized
+    || normalized.startsWith('/')
+    || normalized.includes('../')
+    || nodePath.win32.isAbsolute(normalized)
+    || /^[a-zA-Z]:/.test(normalized)
+    || normalized.split('/').some(component => component.includes(':'))
+  ) {
     throw new Error(`unsafe workspace-relative path: ${relativePath}`);
   }
-  return nodePath.resolve(workspaceRoot, ...normalized.split('/'));
+  const resolved = nodePath.resolve(workspaceRoot, ...normalized.split('/'));
+  if (!isWithinPath(resolved, workspaceRoot)) {
+    throw new Error(`workspace-relative path escapes the collector root: ${relativePath}`);
+  }
+  return resolved;
 }
 
 function assertSafeFixtureComponents(value, label) {
@@ -712,7 +699,7 @@ function assertSafeFixtureComponents(value, label) {
     throw new Error(`unsafe fixture ${label}: absolute or volume-qualified path`);
   }
   const components = value.replaceAll('\\', '/').split('/');
-  const reservedDevice = /^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?$/i;
+  const reservedDevice = /^(?:CON|PRN|AUX|NUL|COM(?:[1-9]|[¹²³])|LPT(?:[1-9]|[¹²³]))(?:\..*)?$/i;
   for (const component of components) {
     if (!component || component === '.' || component === '..') {
       throw new Error(`unsafe fixture ${label} component`);
@@ -725,7 +712,10 @@ function assertSafeFixtureComponents(value, label) {
 }
 
 export function resolveFixturePath({ workspaceRoot, fixtureRoot = FIXTURE_ROOT, value } = {}) {
-  const normalizedWorkspace = assertExistingWindowsPath(workspaceRoot, 'fixture workspace root');
+  const normalizedWorkspace = assertCollectorWorkspaceRoot(workspaceRoot, 'fixture workspace root');
+  if (normalizePath(fixtureRoot) !== normalizePath(FIXTURE_ROOT)) {
+    throw new Error('fixture root must equal the frozen collector fixture root');
+  }
   const rootComponents = assertSafeFixtureComponents(fixtureRoot, 'root');
   const valueComponents = assertSafeFixtureComponents(value, 'path');
   const evidenceRoot = nodePath.win32.resolve(normalizedWorkspace, ...rootComponents);
@@ -740,6 +730,7 @@ export function resolveFixturePath({ workspaceRoot, fixtureRoot = FIXTURE_ROOT, 
 }
 
 function relativeWorkspacePath(workspaceRoot, absolutePath) {
+  assertCollectorWorkspaceRoot(workspaceRoot);
   const relative = normalizePath(nodePath.relative(workspaceRoot, absolutePath));
   if (!relative || relative.startsWith('../') || nodePath.isAbsolute(relative)) {
     throw new Error(`path escapes workspace: ${absolutePath}`);
@@ -747,39 +738,156 @@ function relativeWorkspacePath(workspaceRoot, absolutePath) {
   return relative;
 }
 
-function hashFile(fs, absolutePath) {
-  return createHash('sha256').update(fs.readFileSync(absolutePath)).digest('hex');
+export function readProtectedInput({
+  fs = nodeFs,
+  absolutePath,
+  kind,
+  path,
+  reparseGuard,
+  onBytes,
+} = {}) {
+  if (typeof path !== 'string' || !path) throw new Error('protected input requires a non-empty path');
+  const result = guardedProtectedBytes({ fs, absolutePath, kind, reparseGuard });
+  if (typeof onBytes === 'function') onBytes(Buffer.from(result.bytes));
+  return { kind: result.kind, path: normalizePath(path), sha256: result.sha256 };
 }
 
-function requireFile(fs, workspaceRoot, relativePath, kind, { reparseGuard, alreadyGuarded = false } = {}) {
+function guardedProtectedBytes({ fs = nodeFs, absolutePath, kind, reparseGuard } = {}) {
+  const normalizedAbsolutePath = assertExistingWindowsPath(absolutePath, `${kind ?? 'protected'} input`);
+  const guardedPath = absolutePath;
+  if (typeof kind !== 'string' || !kind) throw new Error('protected input requires a non-empty kind');
+  if (!fs || typeof fs.readFileSync !== 'function') throw new Error('protected input requires readFileSync');
+  const guard = () => {
+    if (reparseGuard) {
+      if (typeof reparseGuard.assertSafeMany !== 'function') throw new Error('protected input requires a full-frontier reparse guard');
+      reparseGuard.assertSafeMany([guardedPath], { forceFresh: true });
+      return;
+    }
+    assertPathHasNoLinkOrReparsePoint(fs, guardedPath, `${kind} input`);
+  };
+  guard();
+  const bytes = Buffer.from(fs.readFileSync(guardedPath));
+  guard();
+  return { absolutePath: normalizedAbsolutePath, kind, bytes, sha256: sha256(bytes) };
+}
+
+export function createProtectedInputSnapshot({ fs = nodeFs, reparseGuard } = {}) {
+  const entries = new Map();
+  const normalizeRequest = request => {
+    const { absolutePath, kind, path } = request ?? {};
+    if (typeof path !== 'string' || !path) throw new Error('protected input requires a non-empty path');
+    if (typeof kind !== 'string' || !kind) throw new Error('protected input requires a non-empty kind');
+    return {
+      absolutePath: assertExistingWindowsPath(absolutePath, `${kind} input`),
+      kind,
+      path: normalizePath(path),
+    };
+  };
+  const resultFor = request => {
+    const entry = entries.get(request.absolutePath);
+    if (!entry) throw new Error(`protected input is not admitted: ${request.absolutePath}`);
+    return {
+      kind: request.kind,
+      path: request.path,
+      sha256: entry.sha256,
+      bytes: Buffer.from(entry.bytes),
+    };
+  };
+  const assertWave = paths => {
+    if (reparseGuard?.prepareWave && reparseGuard?.completeWave) {
+      const token = reparseGuard.prepareWave(paths);
+      return () => reparseGuard.completeWave(token);
+    }
+    const assertSafeMany = reparseGuard?.assertSafeMany;
+    if (typeof assertSafeMany === 'function') {
+      assertSafeMany(paths, { forceFresh: true });
+      return () => assertSafeMany(paths, { forceFresh: true });
+    }
+    for (const candidate of paths) assertPathHasNoLinkOrReparsePoint(fs, candidate, 'protected snapshot input');
+    return () => {
+      for (const candidate of paths) assertPathHasNoLinkOrReparsePoint(fs, candidate, 'protected snapshot input');
+    };
+  };
+  return {
+    readWave(requests) {
+      if (!Array.isArray(requests)) throw new Error('protected snapshot wave must be an array');
+      const unique = new Map();
+      for (const raw of requests) {
+        const request = normalizeRequest(raw);
+        const existing = unique.get(request.absolutePath);
+        if (existing && (existing.kind !== request.kind || existing.path !== request.path)) {
+          throw new Error(`protected snapshot wave has conflicting request metadata: ${request.absolutePath}`);
+        }
+        unique.set(request.absolutePath, request);
+      }
+      const ordered = [...unique.values()].sort((left, right) => left.absolutePath < right.absolutePath ? -1 : left.absolutePath > right.absolutePath ? 1 : 0);
+      const misses = ordered.filter(request => !entries.has(request.absolutePath));
+      if (misses.length > 0) {
+        const finishWave = assertWave(misses.map(request => request.absolutePath));
+        const provisional = new Map();
+        let readFailure;
+        for (const request of misses) {
+          try {
+            const bytes = Buffer.from(fs.readFileSync(request.absolutePath));
+            provisional.set(request.absolutePath, { bytes, sha256: sha256(bytes) });
+          } catch (error) {
+            if (!readFailure) readFailure = error;
+          }
+        }
+        if (readFailure) throw readFailure;
+        finishWave();
+        for (const request of misses) entries.set(request.absolutePath, provisional.get(request.absolutePath));
+      }
+      return ordered.map(resultFor);
+    },
+    read(request) {
+      return this.readWave([request])[0];
+    },
+  };
+}
+
+function requireFile(fs, workspaceRoot, relativePath, kind, { reparseGuard, snapshot, onBytes } = {}) {
+  assertCollectorWorkspaceRoot(workspaceRoot);
   const absolutePath = workspacePath(workspaceRoot, relativePath);
-  if (!alreadyGuarded) assertPathHasNoLinkOrReparsePoint(fs, absolutePath, `${kind} input`, reparseGuard);
   if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
     throw new Error(`missing ${kind}: ${relativePath}`);
   }
-  return { kind, path: normalizePath(relativePath), sha256: hashFile(fs, absolutePath) };
+  const input = snapshot
+    ? snapshot.read({ absolutePath, kind, path: normalizePath(relativePath) })
+    : readProtectedInput({ fs, absolutePath, kind, path: normalizePath(relativePath), reparseGuard, onBytes });
+  if (snapshot && typeof onBytes === 'function') onBytes(Buffer.from(input.bytes));
+  return { kind: input.kind, path: input.path, sha256: input.sha256 };
 }
 
-export function hashConfigLockFile({ fs = nodeFs, workspaceRoot, relativePath, reparseGuard } = {}) {
+export function hashConfigLockFile({ fs = nodeFs, workspaceRoot, relativePath, reparseGuard, snapshot } = {}) {
+  assertCollectorWorkspaceRoot(workspaceRoot, 'config workspace root');
   const absolutePath = workspacePath(workspaceRoot, relativePath);
   if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
     throw new Error(`missing config_lock: ${relativePath}`);
   }
-  if (reparseGuard) reparseGuard.assertSafeMany([absolutePath], { forceFresh: true });
-  const digest = hashFile(fs, absolutePath);
-  if (reparseGuard) reparseGuard.assertSafeMany([absolutePath], { forceFresh: true });
-  return { kind: 'config_lock', path: normalizePath(relativePath), sha256: digest };
+  const input = snapshot
+    ? snapshot.read({ absolutePath, kind: 'config_lock', path: normalizePath(relativePath) })
+    : readProtectedInput({ fs, absolutePath, kind: 'config_lock', path: normalizePath(relativePath), reparseGuard });
+  return { kind: input.kind, path: input.path, sha256: input.sha256 };
 }
 
 function isCodeFile(relativePath) {
   return /\.(?:[cm]?[jt]sx?)$/i.test(relativePath);
 }
 
-function compilerOptionsFor(ts, workspaceRoot, relativePath, cache) {
+function compilerOptionsFor(ts, fs, workspaceRoot, relativePath, cache, reparseGuard, snapshot) {
   const configRelativePath = relativePath.startsWith('server/') ? 'server/tsconfig.json' : 'frontend/tsconfig.json';
   if (cache.has(configRelativePath)) return cache.get(configRelativePath);
   const configPath = workspacePath(workspaceRoot, configRelativePath);
-  const read = ts.readConfigFile(configPath, ts.sys.readFile);
+  let configText;
+  requireFile(fs, workspaceRoot, configRelativePath, 'config_lock', {
+    reparseGuard,
+    snapshot,
+    onBytes(bytes) {
+      configText = Buffer.from(bytes).toString('utf8');
+    },
+  });
+  const read = ts.readConfigFile(configPath, () => configText);
   if (read.error) throw new Error(`cannot read TypeScript config: ${configRelativePath}`);
   const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, nodePath.dirname(configPath), undefined, configPath);
   if (parsed.errors.length > 0) throw new Error(`cannot parse TypeScript config: ${configRelativePath}`);
@@ -787,7 +895,7 @@ function compilerOptionsFor(ts, workspaceRoot, relativePath, cache) {
   return parsed.options;
 }
 
-function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOTS, reparseGuard) {
+function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOTS, reparseGuard, snapshot) {
   if (!Array.isArray(sourceRoots) || sourceRoots.some(relativePath => typeof relativePath !== 'string')) {
     throw new Error('source closure roots must be a string array');
   }
@@ -820,7 +928,21 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOT
       queued.add(relativePath);
       currentWave.push(relativePath);
     }
-    if (reparseGuard && currentWave.length > 0) {
+    let admittedWave;
+    if (snapshot && currentWave.length > 0) {
+      try {
+        admittedWave = new Map(snapshot.readWave(currentWave.map(relativePath => ({
+          absolutePath: workspacePath(workspaceRoot, relativePath),
+          kind: 'source',
+          path: relativePath,
+        }))).map(input => [input.path, input]));
+      } catch (error) {
+        if (error?.code === 'ENOENT') {
+          throw new Error(`missing source closure input: ${currentWave.join(', ')} (${error.message})`);
+        }
+        throw error;
+      }
+    } else if (reparseGuard && currentWave.length > 0) {
       reparseGuard.assertSafeMany(currentWave.map(relativePath => workspacePath(workspaceRoot, relativePath)));
     }
     for (const relativePath of currentWave) {
@@ -829,9 +951,17 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOT
       if (relativePath !== 'frontend/src/components/Terminal/TerminalView.css') {
         throw new Error(`unexpected workspace-local non-code dependency: ${relativePath}`);
       }
-      const cssPath = workspacePath(workspaceRoot, relativePath);
-      requireFile(fs, workspaceRoot, relativePath, 'source', { reparseGuard, alreadyGuarded: Boolean(reparseGuard) });
-      const css = fs.readFileSync(cssPath, 'utf8');
+      let css;
+      if (snapshot) {
+        css = Buffer.from(admittedWave.get(relativePath).bytes).toString('utf8');
+      } else {
+        requireFile(fs, workspaceRoot, relativePath, 'source', {
+          reparseGuard,
+          onBytes(bytes) {
+            css = Buffer.from(bytes).toString('utf8');
+          },
+        });
+      }
       if (/@import\s+(?!url\(['"]?(?:https?:|\/\/))/i.test(css) || /url\(\s*['"]?(?!data:|https?:|\/\/|#)/i.test(css)) {
         throw new Error('TerminalView.css has a local @import or url dependency');
       }
@@ -840,11 +970,20 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOT
     }
     if (!isCodeFile(relativePath)) throw new Error(`unexpected workspace-local non-code dependency: ${relativePath}`);
     const absolutePath = workspacePath(workspaceRoot, relativePath);
-    requireFile(fs, workspaceRoot, relativePath, 'source closure input', { reparseGuard, alreadyGuarded: Boolean(reparseGuard) });
+    let sourceText;
+    if (snapshot) {
+      sourceText = Buffer.from(admittedWave.get(relativePath).bytes).toString('utf8');
+    } else {
+      requireFile(fs, workspaceRoot, relativePath, 'source closure input', {
+        reparseGuard,
+        onBytes(bytes) {
+          sourceText = Buffer.from(bytes).toString('utf8');
+        },
+      });
+    }
     resolved.add(relativePath);
-    const sourceText = fs.readFileSync(absolutePath, 'utf8');
     const imported = ts.preProcessFile(sourceText, true, true).importedFiles;
-    const options = compilerOptionsFor(ts, workspaceRoot, relativePath, compilerOptionsCache);
+    const options = compilerOptionsFor(ts, fs, workspaceRoot, relativePath, compilerOptionsCache, reparseGuard, snapshot);
     for (const { fileName: specifier } of imported) {
       if (relativePath === 'frontend/src/components/Terminal/TerminalView.tsx' && specifier === './TerminalView.css') {
         const cssRelativePath = relativeWorkspacePath(workspaceRoot, nodePath.resolve(nodePath.dirname(absolutePath), specifier));
@@ -883,40 +1022,48 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOT
     }
   }
   const resolvedPaths = [...resolved];
-  if (reparseGuard && resolvedPaths.length > 0) {
+  if (reparseGuard && !snapshot && resolvedPaths.length > 0) {
     reparseGuard.assertSafeMany(resolvedPaths.map(relativePath => workspacePath(workspaceRoot, relativePath)));
   }
   return {
-    sourceClosureRows: stableRows(resolvedPaths.map(relativePath => requireFile(
-      fs,
-      workspaceRoot,
-      relativePath,
-      'source',
-      { reparseGuard, alreadyGuarded: Boolean(reparseGuard) },
-    ))),
+    sourceClosureRows: stableRows(snapshot
+      ? snapshot.readWave(resolvedPaths.map(relativePath => ({
+        absolutePath: workspacePath(workspaceRoot, relativePath),
+        kind: 'source',
+        path: relativePath,
+      }))).map(({ kind, path, sha256 }) => ({ kind, path, sha256 }))
+      : resolvedPaths.map(relativePath => requireFile(
+        fs,
+        workspaceRoot,
+        relativePath,
+        'source',
+        { reparseGuard },
+      ))),
     externalSpecifierRows: stableRows(externalSpecifierRows),
   };
 }
 
 export function collectSourceClosure({ workspaceRoot, sourceRoots = SOURCE_ROOTS, fs = nodeFs }) {
-  if (!workspaceRoot || !isAbsoluteWindowsPath(workspaceRoot)) {
-    throw new Error('workspaceRoot must be an absolute Windows path');
-  }
-  return sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots);
+  assertCollectorWorkspaceRoot(workspaceRoot);
+  return sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots, undefined, createProtectedInputSnapshot({ fs }));
 }
 
-function collectSourceClosureWithGuard({ workspaceRoot, sourceRoots = SOURCE_ROOTS, fs = nodeFs, reparseGuard }) {
-  if (!workspaceRoot || !isAbsoluteWindowsPath(workspaceRoot)) {
-    throw new Error('workspaceRoot must be an absolute Windows path');
-  }
-  return sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots, reparseGuard);
+function collectSourceClosureWithGuard({ workspaceRoot, sourceRoots = SOURCE_ROOTS, fs = nodeFs, reparseGuard, snapshot }) {
+  assertCollectorWorkspaceRoot(workspaceRoot);
+  return sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots, reparseGuard, snapshot);
 }
 
-function readJsonFixture(fs, workspaceRoot, relativePath, { reparseGuard, alreadyGuarded = false } = {}) {
-  const absolutePath = workspacePath(workspaceRoot, relativePath);
+function readJsonFixture(fs, workspaceRoot, relativePath, { reparseGuard, snapshot } = {}) {
   try {
-    requireFile(fs, workspaceRoot, relativePath, 'fixture', { reparseGuard, alreadyGuarded });
-    return JSON.parse(fs.readFileSync(absolutePath, 'utf8'));
+    let text;
+    requireFile(fs, workspaceRoot, relativePath, 'fixture', {
+      reparseGuard,
+      snapshot,
+      onBytes(bytes) {
+        text = Buffer.from(bytes).toString('utf8');
+      },
+    });
+    return JSON.parse(text);
   } catch (error) {
     throw new Error(`fixture is not valid JSON: ${relativePath} (${error.message})`);
   }
@@ -926,18 +1073,63 @@ function fixtureRelativePath(workspaceRoot, value) {
   return relativeWorkspacePath(workspaceRoot, resolveFixturePath({ workspaceRoot, fixtureRoot: FIXTURE_ROOT, value }));
 }
 
-function fixtureRowsFromEntry(fs, workspaceRoot, reparseGuard) {
+function readSnapshotFixtureWave(snapshot, workspaceRoot, relativePaths) {
+  try {
+    return new Map(snapshot.readWave(relativePaths.map(relativePath => ({
+      absolutePath: workspacePath(workspaceRoot, relativePath),
+      kind: 'fixture',
+      path: relativePath,
+    }))).map(input => [input.path, input]));
+  } catch (error) {
+    throw new Error(`fixture is not valid JSON: ${relativePaths.join(', ')} (${error.message})`);
+  }
+}
+
+function parseSnapshotFixture(input, relativePath) {
+  try {
+    return JSON.parse(Buffer.from(input.bytes).toString('utf8'));
+  } catch (error) {
+    throw new Error(`fixture is not valid JSON: ${relativePath} (${error.message})`);
+  }
+}
+
+function fixtureRowsFromEntry(fs, workspaceRoot, reparseGuard, snapshot) {
   const publicationPath = `${FIXTURE_ENTRY}.publication.json`;
   const rawPath = `${FIXTURE_ENTRY}.raw.json`;
-  if (reparseGuard) {
+  if (snapshot) {
+    const initial = readSnapshotFixtureWave(snapshot, workspaceRoot, [FIXTURE_ENTRY, publicationPath, rawPath]);
+    const decision = parseSnapshotFixture(initial.get(FIXTURE_ENTRY), FIXTURE_ENTRY);
+    const publication = parseSnapshotFixture(initial.get(publicationPath), publicationPath);
+    const publicationArtifactPath = fixtureRelativePath(workspaceRoot, publication.artifactPath);
+    const publicationRawPath = fixtureRelativePath(workspaceRoot, publication.rawPath);
+    const published = readSnapshotFixtureWave(snapshot, workspaceRoot, [publicationArtifactPath, publicationRawPath]);
+    const publishedArtifact = parseSnapshotFixture(published.get(publicationArtifactPath), publicationArtifactPath);
+    const rawEvidencePaths = [
+      ...(decision.rawEvidencePaths ?? []),
+      ...(publishedArtifact.rawEvidencePaths ?? []),
+    ];
+    if (!Array.isArray(rawEvidencePaths) || rawEvidencePaths.some(entry => typeof entry !== 'string')) {
+      throw new Error('fixture rawEvidencePaths must be an array of literal paths');
+    }
+    const fixturePaths = [...new Set([
+      FIXTURE_ENTRY,
+      publicationPath,
+      rawPath,
+      publicationArtifactPath,
+      publicationRawPath,
+      ...rawEvidencePaths.map(value => fixtureRelativePath(workspaceRoot, value)),
+    ])];
+    return stableRows([...readSnapshotFixtureWave(snapshot, workspaceRoot, fixturePaths).values()].map(({ kind, path, sha256 }) => ({ kind, path, sha256 })));
+  }
+  if (reparseGuard && !snapshot) {
     reparseGuard.assertSafeMany([FIXTURE_ENTRY, publicationPath].map(relativePath => workspacePath(workspaceRoot, relativePath)));
   }
-  const fixtureReadOptions = { reparseGuard, alreadyGuarded: Boolean(reparseGuard) };
+  const fixtureReadOptions = { reparseGuard, snapshot };
   const decision = readJsonFixture(fs, workspaceRoot, FIXTURE_ENTRY, fixtureReadOptions);
   const publication = readJsonFixture(fs, workspaceRoot, publicationPath, fixtureReadOptions);
   const publicationArtifactPath = fixtureRelativePath(workspaceRoot, publication.artifactPath);
   const publicationRawPath = fixtureRelativePath(workspaceRoot, publication.rawPath);
-  if (reparseGuard) {
+  if (reparseGuard && !snapshot) {
     reparseGuard.assertSafeMany([publicationArtifactPath, publicationRawPath].map(relativePath => workspacePath(workspaceRoot, relativePath)));
   }
   const publishedArtifact = readJsonFixture(fs, workspaceRoot, publicationArtifactPath, fixtureReadOptions);
@@ -957,13 +1149,13 @@ function fixtureRowsFromEntry(fs, workspaceRoot, reparseGuard) {
     ...rawEvidencePaths.map(value => fixtureRelativePath(workspaceRoot, value)),
   ]);
   const fixturePaths = [...paths];
-  if (reparseGuard) reparseGuard.assertSafeMany(fixturePaths.map(relativePath => workspacePath(workspaceRoot, relativePath)));
+  if (reparseGuard && !snapshot) reparseGuard.assertSafeMany(fixturePaths.map(relativePath => workspacePath(workspaceRoot, relativePath)));
   return stableRows(fixturePaths.map(relativePath => requireFile(
-    fs,
-    workspaceRoot,
-    relativePath,
-    'fixture',
-    { reparseGuard, alreadyGuarded: Boolean(reparseGuard) },
+      fs,
+      workspaceRoot,
+      relativePath,
+      'fixture',
+      { reparseGuard, snapshot },
   )));
 }
 
@@ -1015,15 +1207,6 @@ function selectedCommands(contract) {
   }));
 }
 
-function runtimeRecord(fs, execFile) {
-  const absolute = nodePath.resolve(execFile);
-  return {
-    path: normalizePath(absolute),
-    sha256: hashFile(fs, absolute),
-    versionStdoutLf: normalizeLf(process.version.endsWith('\n') ? process.version : `${process.version}\n`),
-  };
-}
-
 function assertManifestDestination(workspaceRoot, manifestPath, fs, reparseGuard) {
   const analysisRoot = workspacePath(workspaceRoot, ANALYSIS_DIRECTORY);
   const destination = nodePath.resolve(manifestPath);
@@ -1047,34 +1230,51 @@ export function captureFrozenProvenance(options) {
     execFile = fileURLToPath(import.meta.url),
     fs = nodeFs,
   } = options;
+  assertCollectorWorkspaceRoot(workspaceRoot);
   const reparseGuard = createSegmentReparseGuard({
     fs,
     probeBatch: paths => probeWindowsReparsePoints({ paths }),
   });
+  const snapshot = createProtectedInputSnapshot({ fs, reparseGuard });
   const contract = validateFrozenContract({ workspaceRoot, contract: FROZEN_CONTRACT, fs, reparseGuard });
   const { analysisRoot, destination } = assertManifestDestination(workspaceRoot, manifestPath, fs, reparseGuard);
-  reparseGuard.assertSafeMany(CONFIG_LOCK_PATHS.map(relativePath => workspacePath(workspaceRoot, relativePath)));
   const { sourceClosureRows, externalSpecifierRows } = collectSourceClosureWithGuard({
     workspaceRoot,
     sourceRoots: SOURCE_ROOTS,
     fs,
     reparseGuard,
+    snapshot,
   });
-  const fixtureRows = fixtureRowsFromEntry(fs, workspaceRoot, reparseGuard);
-  const configLockRows = CONFIG_LOCK_PATHS.map(relativePath => hashConfigLockFile({
-    fs,
-    workspaceRoot,
-    relativePath,
-    reparseGuard,
-  }));
-  reparseGuard.assertSafeMany([execFile, process.execPath].map(candidate => nodePath.resolve(candidate)));
+  const fixtureRows = fixtureRowsFromEntry(fs, workspaceRoot, reparseGuard, snapshot);
+  let configLockRows;
+  try {
+    configLockRows = snapshot.readWave(CONFIG_LOCK_PATHS.map(relativePath => ({
+      absolutePath: workspacePath(workspaceRoot, relativePath),
+      kind: 'config_lock',
+      path: relativePath,
+    }))).map(({ kind, path, sha256 }) => ({ kind, path, sha256 }));
+  } catch (error) {
+    if (error?.code === 'ENOENT') throw new Error(`missing config_lock: ${error.message}`);
+    throw error;
+  }
   const protectedPaths = [...new Set([...sourceClosureRows, ...fixtureRows, ...configLockRows].map(row => row.path))].sort();
   const git = gitProtectedInput(workspaceRoot, protectedPaths);
+  const collectorPath = relativeWorkspacePath(workspaceRoot, execFile);
+  const collectorAndRuntime = snapshot.readWave([
+    { absolutePath: nodePath.resolve(execFile), kind: 'collector', path: collectorPath },
+    { absolutePath: nodePath.resolve(process.execPath), kind: 'node_runtime', path: normalizePath(nodePath.resolve(process.execPath)) },
+  ]);
+  const collectorInput = collectorAndRuntime.find(input => input.kind === 'collector');
+  const nodeRuntimeInput = collectorAndRuntime.find(input => input.kind === 'node_runtime');
   const manifest = buildCanonicalManifest({
     contract,
     phase,
-    collector: { path: relativeWorkspacePath(workspaceRoot, execFile), sha256: hashFile(fs, execFile) },
-    nodeRuntime: runtimeRecord(fs, process.execPath),
+    collector: { path: collectorInput.path, sha256: collectorInput.sha256 },
+    nodeRuntime: {
+      path: nodeRuntimeInput.path,
+      sha256: nodeRuntimeInput.sha256,
+      versionStdoutLf: normalizeLf(process.version.endsWith('\n') ? process.version : `${process.version}\n`),
+    },
     selectedCommands: selectedCommands(contract),
     sourceClosureRows,
     fixtureRows,
