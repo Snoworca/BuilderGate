@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import * as path from 'node:path';
 import test from 'node:test';
 
-const systemRoot = 'C:\\Windows';
+const trustedPowerShell = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
 const batchEnvKey = 'FAIR_READMISSION_CLOSURE_V3_REPARSE_BATCH_PATHS_BASE64';
 
 async function loadCollector() {
@@ -27,24 +27,41 @@ function successRecord(paths) {
   return `FRRPB1:${paths.length}:${sha256(canonical)}\n`;
 }
 
-function recordExec(result = options => successRecord(decodeBatch(options))) {
+function recordSpawn(result = options => ({ status: 0, stdout: successRecord(decodeBatch(options)), stderr: '' })) {
   const calls = [];
   return {
     calls,
-    execFileSync(executable, argv, options) {
+    spawnSync(executable, argv, options) {
       calls.push({ executable, argv, options });
       const value = typeof result === 'function' ? result(options, calls.length - 1) : result;
-      if (value instanceof Error) throw value;
+      if (value instanceof Error) return { error: value, status: null, stdout: '', stderr: '' };
       return value;
     },
   };
 }
 
-function batchProbeOptions(execFileSync, paths) {
+function trustedPowerShellFs() {
+  return {
+    lstatSync(candidate) {
+      const isLeaf = path.win32.normalize(candidate) === trustedPowerShell;
+      return {
+        isFile: () => isLeaf,
+        isSymbolicLink: () => false,
+        isReparsePoint: () => false,
+      };
+    },
+    realpathSync: {
+      native: () => trustedPowerShell,
+    },
+  };
+}
+
+function batchProbeOptions(spawnSync, paths) {
   return {
     paths,
-    execFileSync,
-    env: { SystemRoot: systemRoot },
+    spawnSync,
+    fs: trustedPowerShellFs(),
+    platform: 'win32',
   };
 }
 
@@ -55,7 +72,7 @@ function assertFixedPowerShellBatchInvocation(call, paths) {
 
   assert.equal(
     call.executable,
-    path.win32.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
+    trustedPowerShell,
   );
   assert.equal(commandIndex >= 0, true, 'the fixed PowerShell program must use encoded argv');
   assert.match(call.argv[commandIndex + 1], /^[A-Za-z0-9+/]+={0,2}$/);
@@ -68,7 +85,7 @@ function assertFixedPowerShellBatchInvocation(call, paths) {
   assert.deepEqual(decodeBatch(call.options), paths, 'the child input must preserve path case and order');
   assert.equal(call.options.encoding, 'utf8');
   assert.equal(call.options.windowsHide, true);
-  assert.equal(call.options.shell, undefined, 'the probe must not invoke a shell');
+  assert.equal(call.options.shell, false, 'the probe must not invoke a shell');
   assert.equal(Number.isFinite(call.options.timeout) && call.options.timeout > 0, true);
   assert.deepEqual(call.options.stdio, ['ignore', 'pipe', 'pipe'], 'the probe must capture stderr and reject it');
 
@@ -133,12 +150,12 @@ test('SDS-AC-1 runs the fixed batch protocol with case-preserving canonical JSON
   const { probeWindowsReparsePoints } = await loadCollector();
   const firstPaths = ['C:/Work/closure/Case', 'C:/Work/closure/lower'];
   const secondPaths = ['C:/Work/closure/Other'];
-  const first = recordExec();
-  const second = recordExec();
+  const first = recordSpawn();
+  const second = recordSpawn();
 
   assert.equal(typeof probeWindowsReparsePoints, 'function');
-  assert.doesNotThrow(() => probeWindowsReparsePoints(batchProbeOptions(first.execFileSync, firstPaths)));
-  assert.doesNotThrow(() => probeWindowsReparsePoints(batchProbeOptions(second.execFileSync, secondPaths)));
+  assert.doesNotThrow(() => probeWindowsReparsePoints(batchProbeOptions(first.spawnSync, firstPaths)));
+  assert.doesNotThrow(() => probeWindowsReparsePoints(batchProbeOptions(second.spawnSync, secondPaths)));
   assert.equal(first.calls.length, 1);
   assert.equal(second.calls.length, 1);
   assertFixedPowerShellBatchInvocation(first.calls[0], firstPaths);
@@ -159,9 +176,9 @@ test('SDS-AC-1 accepts only the exact LF-terminated FRRPB1 count-and-digest succ
 
   assert.equal(typeof probeWindowsReparsePoints, 'function');
   for (const [label, result] of cases) {
-    const probe = recordExec(result);
+    const probe = recordSpawn(result);
     assert.throws(
-      () => probeWindowsReparsePoints(batchProbeOptions(probe.execFileSync, paths)),
+      () => probeWindowsReparsePoints(batchProbeOptions(probe.spawnSync, paths)),
       /reparse|probe|FRRPB1|fail.closed|PowerShell/i,
       `${label} must fail closed`,
     );
@@ -173,18 +190,18 @@ test('SDS-AC-2 fails closed on reparse, nonzero, child error, timeout, or captur
   const { probeWindowsReparsePoints } = await loadCollector();
   const paths = ['C:/Work/closure/failure'];
   const cases = [
-    ['reparse point', childError('reparse point detected', { status: 1, stderr: 'ReparsePoint\n' })],
-    ['nonzero exit', childError('PowerShell exited nonzero', { status: 2, stderr: '' })],
+    ['reparse point', { status: 1, stdout: '', stderr: 'ReparsePoint\n' }],
+    ['nonzero exit', { status: 2, stdout: '', stderr: '' }],
     ['child process error', childError('spawn failure', { code: 'ENOENT' })],
     ['timeout', childError('timed out', { code: 'ETIMEDOUT' })],
-    ['stderr', childError('unexpected stderr', { status: 0, stderr: 'warning\n' })],
+    ['stderr', { status: 0, stdout: successRecord(paths), stderr: 'warning\n' }],
   ];
 
   assert.equal(typeof probeWindowsReparsePoints, 'function');
   for (const [label, result] of cases) {
-    const probe = recordExec(result);
+    const probe = recordSpawn(result);
     assert.throws(
-      () => probeWindowsReparsePoints(batchProbeOptions(probe.execFileSync, paths)),
+      () => probeWindowsReparsePoints(batchProbeOptions(probe.spawnSync, paths)),
       /reparse|probe|fail.closed|PowerShell|stderr|timeout/i,
       `${label} must fail closed`,
     );

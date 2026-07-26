@@ -2,37 +2,54 @@ import assert from 'node:assert/strict';
 import * as path from 'node:path';
 import test from 'node:test';
 
-const systemRoot = 'C:\\Windows';
+const trustedPowerShell = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
 const pathEnvKey = 'FAIR_READMISSION_CLOSURE_V3_REPARSE_PATH_BASE64';
 
 async function loadCollector() {
   return import('./fair-readmission-closure-v3.mjs');
 }
 
-function recordExec(result) {
+function recordSpawn(result) {
   const calls = [];
   return {
     calls,
-    execFileSync(executable, argv, options) {
+    spawnSync(executable, argv, options) {
       calls.push({ executable, argv, options });
-      if (result instanceof Error) throw result;
+      if (result instanceof Error) return { error: result, status: null, stdout: '', stderr: '' };
       return result;
     },
   };
 }
 
-function probeOptions(execFileSync, candidate = 'C:\\Work\\kiwi-run-output\\ancestor') {
+function trustedPowerShellFs() {
+  return {
+    lstatSync(candidate) {
+      const isLeaf = path.win32.normalize(candidate) === trustedPowerShell;
+      return {
+        isFile: () => isLeaf,
+        isSymbolicLink: () => false,
+        isReparsePoint: () => false,
+      };
+    },
+    realpathSync: {
+      native: () => trustedPowerShell,
+    },
+  };
+}
+
+function probeOptions(spawnSync, candidate = 'C:\\Work\\kiwi-run-output\\ancestor') {
   return {
     path: candidate,
-    execFileSync,
-    env: { SystemRoot: systemRoot },
+    spawnSync,
+    fs: trustedPowerShellFs(),
+    platform: 'win32',
   };
 }
 
 function assertFixedPowerShellInvocation(call, candidate) {
   assert.equal(
     call.executable,
-    path.win32.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
+    trustedPowerShell,
   );
   assert.equal(call.argv.includes(candidate), false, 'a dynamic candidate path must not appear in argv');
   assert.equal(call.argv.includes(Buffer.from(candidate, 'utf8').toString('base64')), false, 'the candidate Base64 value must not appear in argv');
@@ -41,7 +58,9 @@ function assertFixedPowerShellInvocation(call, candidate) {
   assert.equal(call.options.env[pathEnvKey], Buffer.from(candidate, 'utf8').toString('base64'));
   assert.equal(call.options.encoding, 'utf8');
   assert.equal(call.options.windowsHide, true);
+  assert.equal(call.options.shell, false, 'the strict probe must not invoke a shell');
   assert.equal(Number.isFinite(call.options.timeout) && call.options.timeout > 0, true);
+  assert.deepEqual(call.options.stdio, ['ignore', 'pipe', 'pipe'], 'the strict probe must capture stderr');
 
   const encodedProgram = Buffer.from(call.argv[call.argv.indexOf('-EncodedCommand') + 1], 'base64').toString('utf16le');
   assert.match(encodedProgram, new RegExp(`\\$env:${pathEnvKey}`));
@@ -51,14 +70,14 @@ function assertFixedPowerShellInvocation(call, candidate) {
 
 test('SDS-AC-1/2 accepts only a normal zero probe through fixed PowerShell argv and Base64 child env', async () => {
   const { probeWindowsReparsePoint } = await loadCollector();
-  const first = recordExec('0\n');
-  const second = recordExec('0\n');
+  const first = recordSpawn({ status: 0, stdout: '0\n', stderr: '' });
+  const second = recordSpawn({ status: 0, stdout: '0\n', stderr: '' });
   const firstCandidate = 'C:\\Work\\kiwi-run-output\\normal';
   const secondCandidate = 'C:\\Work\\kiwi-run-output\\different-normal';
 
   assert.equal(typeof probeWindowsReparsePoint, 'function');
-  assert.equal(probeWindowsReparsePoint(probeOptions(first.execFileSync, firstCandidate)), false);
-  assert.equal(probeWindowsReparsePoint(probeOptions(second.execFileSync, secondCandidate)), false);
+  assert.equal(probeWindowsReparsePoint(probeOptions(first.spawnSync, firstCandidate)), false);
+  assert.equal(probeWindowsReparsePoint(probeOptions(second.spawnSync, secondCandidate)), false);
   assert.equal(first.calls.length, 1);
   assert.equal(second.calls.length, 1);
   assertFixedPowerShellInvocation(first.calls[0], firstCandidate);
@@ -68,42 +87,34 @@ test('SDS-AC-1/2 accepts only a normal zero probe through fixed PowerShell argv 
 
 test('SDS-AC-1 rejects a Windows ReparsePoint result even without a symbolic-link result', async () => {
   const { probeWindowsReparsePoint } = await loadCollector();
-  const probe = recordExec('1\n');
+  const probe = recordSpawn({ status: 0, stdout: '1\n', stderr: '' });
 
   assert.equal(typeof probeWindowsReparsePoint, 'function');
-  assert.equal(probeWindowsReparsePoint(probeOptions(probe.execFileSync)), true);
+  assert.equal(probeWindowsReparsePoint(probeOptions(probe.spawnSync)), true);
   assert.equal(probe.calls.length, 1);
 });
 
-test('SDS-AC-3 fails closed on malformed probe output, child error, timeout, or missing SystemRoot', async () => {
+test('SDS-AC-3 fails closed on malformed probe output, child error, timeout, or captured stderr', async () => {
   const { probeWindowsReparsePoint } = await loadCollector();
-  const malformed = recordExec('0\nextra\n');
-  const childError = recordExec(Object.assign(new Error('child process failed'), { code: 1 }));
-  const timeout = recordExec(Object.assign(new Error('child timed out'), { code: 'ETIMEDOUT' }));
-  const missingSystemRoot = recordExec('0\n');
+  const malformed = recordSpawn({ status: 0, stdout: '0\nextra\n', stderr: '' });
+  const childError = recordSpawn(Object.assign(new Error('child process failed'), { code: 1 }));
+  const timeout = recordSpawn(Object.assign(new Error('child timed out'), { code: 'ETIMEDOUT' }));
+  const stderr = recordSpawn({ status: 0, stdout: '0\n', stderr: 'warning\n' });
 
   assert.equal(typeof probeWindowsReparsePoint, 'function');
   for (const [name, probe] of [
     ['malformed output', malformed],
     ['child error', childError],
     ['timeout', timeout],
+    ['captured stderr', stderr],
   ]) {
     assert.throws(
-      () => probeWindowsReparsePoint(probeOptions(probe.execFileSync)),
+      () => probeWindowsReparsePoint(probeOptions(probe.spawnSync)),
       /reparse|probe|fail.closed|PowerShell/i,
       `${name} must fail closed`,
     );
     assert.equal(probe.calls.length, 1);
   }
-  assert.throws(
-    () => probeWindowsReparsePoint({
-      path: 'C:\\Work\\kiwi-run-output\\missing-system-root',
-      execFileSync: missingSystemRoot.execFileSync,
-      env: {},
-    }),
-    /SystemRoot|reparse|probe|fail.closed/i,
-  );
-  assert.equal(missingSystemRoot.calls.length, 0, 'the probe must not launch without an absolute Windows PowerShell path');
 });
 
 function segmentStat(identity, { symbolicLink = false, reparsePoint = false } = {}) {
