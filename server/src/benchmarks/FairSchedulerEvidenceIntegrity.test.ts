@@ -142,6 +142,35 @@ test('PERF-BGSTAB-010 evidence validator rejects duplicate raw trial samples', a
   }), { accepted: false, reason: 'raw-trial-coverage-mismatch' });
 });
 
+test('PERF-BGSTAB-010 evidence records the independent 1/2/8 by 5 by 30 raw matrix exactly once', async () => {
+  const fairness = await loadFairness();
+  const runtimePolicyProfile = createRuntimePolicyProfile(fairness);
+  const generated = fairness.createFairSchedulerDecisionArtifact({ ...input, runtimePolicyProfile });
+  const rawArtifacts = generated.rawArtifacts as {
+    samples: Array<{ clientCount: number; trial: number; sample: number; client: number }>;
+    trialSchedules: Array<{ clientCount: number; trial: number }>;
+  };
+  const expectedIdentities = new Set<string>();
+  for (const clientCount of [1, 2, 8]) {
+    for (let trial = 0; trial < 5; trial += 1) {
+      for (let sample = 0; sample < 30; sample += 1) {
+        for (let client = 0; client < clientCount; client += 1) {
+          expectedIdentities.add(`${clientCount}/${trial}/${sample}/${client}`);
+        }
+      }
+    }
+  }
+  const observedIdentities = rawArtifacts.samples.map(sample => (
+    `${sample.clientCount}/${sample.trial}/${sample.sample}/${sample.client}`
+  ));
+
+  assert.equal(rawArtifacts.trialSchedules.length, 15);
+  assert.equal(rawArtifacts.samples.length, 1_650);
+  assert.equal(new Set(observedIdentities).size, 1_650);
+  assert.deepEqual(new Set(observedIdentities), expectedIdentities);
+  assert.equal(fairness.createFairSchedulerTrialArtifacts(generated.rawArtifacts).length, 15);
+});
+
 test('PERF-BGSTAB-010 publication directory read-back rejects serialized raw evidence corruption', async () => {
   const fairness = await loadFairness();
   const runtimePolicyProfile = createRuntimePolicyProfile(fairness);

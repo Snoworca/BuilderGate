@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -35,4 +35,23 @@ test('PERF-BGSTAB-010 bundle promotion keeps the last known-good deployment evid
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
+});
+
+test('PERF-BGSTAB-010 default bundle writer stages exactly one complete generation accepted by compiled runtime', async () => {
+  const writer = await import(`${writerUrl}?bundle-success=${Date.now()}`);
+  const result = await writer.writeFairSchedulerEvidenceBundle();
+  const outputRoot = resolve(serverRoot, 'dist/benchmarks/fair-scheduler-evidence');
+  const pointer = JSON.parse(await readFile(join(outputRoot, 'fair-scheduler-decision.json.publication.json'), 'utf8'));
+  const artifact = JSON.parse(await readFile(join(outputRoot, ...pointer.artifactPath.split('/')), 'utf8'));
+  const generationDirectory = join(outputRoot, ...pointer.artifactPath.split('/').slice(0, 2));
+  const canary = await import(pathToFileURL(
+    resolve(serverRoot, 'dist/services/TerminalResourcePolicyCanary.js'),
+  ).href);
+
+  assert.equal(result.fileCount, 18);
+  assert.equal((await readdir(generationDirectory, { recursive: true })).filter(entry => entry.endsWith('.json')).length, 17);
+  assert.deepEqual(canary.validatePublishedFairDeliveryCandidateArtifact({ runtimePolicy: artifact.policy }), {
+    accepted: true,
+    reason: 'decision-artifact-verified',
+  });
 });
