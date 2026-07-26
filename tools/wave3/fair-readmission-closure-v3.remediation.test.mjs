@@ -93,15 +93,17 @@ function withOwnedManifestDirectory(callback) {
 function assertFailsBeforeWriting({ captureFrozenProvenance, label, expected, options }) {
   const manifestPath = ownedManifestPath(label);
   withOwnedManifestDirectory(() => {
+    let absencePreconditionSucceeded = false;
     try {
       assert.equal(fs.existsSync(manifestPath), false, `${label} manifest leaf must start absent`);
+      absencePreconditionSucceeded = true;
       assert.throws(
         () => captureFrozenProvenance({ workspaceRoot, manifestPath, phase: `remediation-${label}`, ...options }),
         expected,
       );
       assert.equal(fs.existsSync(manifestPath), false, `${label} failure must precede manifest write`);
     } finally {
-      if (fs.existsSync(manifestPath)) fs.rmSync(manifestPath);
+      if (absencePreconditionSucceeded && fs.existsSync(manifestPath)) fs.rmSync(manifestPath);
     }
   });
 }
