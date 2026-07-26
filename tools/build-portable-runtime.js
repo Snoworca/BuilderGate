@@ -1,5 +1,7 @@
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
+const { pathToFileURL } = require('url');
 
 const {
   CONFIG_POLICY_BOOTSTRAP_TEMPLATE,
@@ -159,6 +161,93 @@ function writePortableLaunchers(outputDir, platform) {
   fs.chmodSync(launcherPath, 0o755);
 }
 
+function hasSymbolicLinkAncestor(filePath) {
+  let candidate = path.resolve(filePath);
+  while (true) {
+    if (fs.existsSync(candidate) && fs.lstatSync(candidate).isSymbolicLink()) return true;
+    const parent = path.dirname(candidate);
+    if (parent === candidate) return false;
+    candidate = parent;
+  }
+}
+
+function resolvePortableFairSchedulerEvidencePath(evidenceRoot, declaredPath, label) {
+  if (
+    typeof declaredPath !== 'string'
+    || declaredPath.length === 0
+    || declaredPath.includes('\\')
+    || declaredPath.includes('\0')
+    || path.isAbsolute(declaredPath)
+    || path.win32.isAbsolute(declaredPath)
+    || declaredPath.startsWith('./')
+    || declaredPath.split('/').some(segment => segment.length === 0 || segment === '.' || segment === '..')
+  ) {
+    throw new Error(`fair-scheduler-evidence ${label} is invalid`);
+  }
+  const resolvedPath = path.resolve(evidenceRoot, ...declaredPath.split('/'));
+  if (hasSymbolicLinkAncestor(resolvedPath)) {
+    throw new Error('fair-scheduler-evidence root must not be a symbolic link');
+  }
+  const containedPath = path.relative(evidenceRoot, resolvedPath);
+  if (
+    containedPath.length === 0
+    || path.isAbsolute(containedPath)
+    || containedPath === '..'
+    || containedPath.startsWith(`..${path.sep}`)
+  ) {
+    throw new Error(`fair-scheduler-evidence ${label} escapes its root`);
+  }
+  return resolvedPath;
+}
+
+function validatePortableFairSchedulerEvidenceBundle(outputDir) {
+  const evidenceRoot = path.join(outputDir, 'server', 'dist', 'benchmarks', 'fair-scheduler-evidence');
+  const publicationPath = path.join(evidenceRoot, 'fair-scheduler-decision.json.publication.json');
+  const provenancePath = path.join(outputDir, 'server', 'dist', 'benchmarks', 'fair-scheduler-source-provenance.json');
+  if (hasSymbolicLinkAncestor(evidenceRoot) || hasSymbolicLinkAncestor(provenancePath)) {
+    throw new Error('fair-scheduler-evidence roots must not be symbolic links');
+  }
+  let publication;
+  try {
+    publication = JSON.parse(fs.readFileSync(publicationPath, 'utf8'));
+  } catch {
+    throw new Error('fair-scheduler-evidence publication is invalid');
+  }
+  const artifactPath = resolvePortableFairSchedulerEvidencePath(evidenceRoot, publication.artifactPath, 'artifact path');
+  const rawPath = resolvePortableFairSchedulerEvidencePath(evidenceRoot, publication.rawPath, 'raw path');
+  assertPathExists(artifactPath, 'fair-scheduler-evidence artifact');
+  assertPathExists(rawPath, 'fair-scheduler-evidence raw evidence');
+  let artifact;
+  try {
+    artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+  } catch {
+    throw new Error('fair-scheduler-evidence artifact is invalid');
+  }
+  if (!Array.isArray(artifact.rawEvidencePaths) || artifact.rawEvidencePaths.length !== 15) {
+    throw new Error('fair-scheduler-evidence sidecar manifest is invalid');
+  }
+  for (const [index, sidecarPath] of artifact.rawEvidencePaths.entries()) {
+    assertPathExists(
+      resolvePortableFairSchedulerEvidencePath(evidenceRoot, sidecarPath, `sidecar ${index}`),
+      `fair-scheduler-evidence sidecar ${index}`,
+    );
+  }
+  const canaryPath = path.join(outputDir, 'server', 'dist', 'services', 'TerminalResourcePolicyCanary.js');
+  const validationScript = [
+    "import { readFile } from 'node:fs/promises';",
+    `const artifact = JSON.parse(await readFile(${JSON.stringify(artifactPath)}, 'utf8'));`,
+    `const canary = await import(${JSON.stringify(pathToFileURL(canaryPath).href)});`,
+    'const result = canary.validatePublishedFairDeliveryCandidateArtifact({ runtimePolicy: artifact.policy });',
+    "if (!result?.accepted) throw new Error(result?.reason ?? 'runtime validation failed');",
+  ].join('\n');
+  const runtimeValidation = spawnSync(process.execPath, ['--input-type=module', '--eval', validationScript], {
+    encoding: 'utf8',
+  });
+  if (runtimeValidation.error || runtimeValidation.status !== 0) {
+    throw new Error('compiled fair scheduler evidence rejected by portable preflight');
+  }
+}
+
 function validatePortableBuildOutput(outputDir, target) {
   const requiredPaths = [
     [path.join(outputDir, 'web', 'index.html'), path.join('web', 'index.html')],
@@ -172,6 +261,9 @@ function validatePortableBuildOutput(outputDir, target) {
     [path.join(outputDir, 'server', 'package.json'), path.join('server', 'package.json')],
     [path.join(outputDir, 'server', 'package-lock.json'), path.join('server', 'package-lock.json')],
     [path.join(outputDir, 'server', 'dist', 'index.js'), path.join('server', 'dist', 'index.js')],
+    [path.join(outputDir, 'server', 'dist', 'benchmarks', 'fair-scheduler-source-provenance.json'), path.join('server', 'dist', 'benchmarks', 'fair-scheduler-source-provenance.json')],
+    [path.join(outputDir, 'server', 'dist', 'benchmarks', 'fair-scheduler-evidence', 'fair-scheduler-decision.json.publication.json'), path.join('server', 'dist', 'benchmarks', 'fair-scheduler-evidence', 'fair-scheduler-decision.json.publication.json')],
+    [path.join(outputDir, 'server', 'dist', 'services', 'TerminalResourcePolicyCanary.js'), path.join('server', 'dist', 'services', 'TerminalResourcePolicyCanary.js')],
     [path.join(outputDir, 'server', 'dist', 'utils', 'configStrictLoader.js'), path.join('server', 'dist', 'utils', 'configStrictLoader.js')],
     [path.join(outputDir, 'server', 'dist', 'services', 'daemonTotpPreflight.js'), path.join('server', 'dist', 'services', 'daemonTotpPreflight.js')],
     [path.join(outputDir, 'server', 'node_modules', 'node-pty', 'package.json'), path.join('server', 'node_modules', 'node-pty', 'package.json')],
@@ -199,6 +291,7 @@ function validatePortableBuildOutput(outputDir, target) {
   for (const [filePath, label] of requiredPaths) {
     assertPathExists(filePath, label);
   }
+  validatePortableFairSchedulerEvidenceBundle(outputDir);
 
   const forbiddenPaths = [
     [path.join(outputDir, 'server', 'config.json5'), 'server/config.json5 must not be exposed in release artifact'],
