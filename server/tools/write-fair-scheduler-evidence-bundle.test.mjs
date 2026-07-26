@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
@@ -17,6 +18,18 @@ async function readGenerationJsonFiles(root) {
     .filter(filePath => filePath.endsWith('.json'))
     .sort();
   return await Promise.all(files.map(async filePath => [filePath, await readFile(join(root, filePath), 'utf8')]));
+}
+
+function findDistinctWindowsShortPath(directory) {
+  if (process.platform !== 'win32' || !/^[A-Za-z]:\\[A-Za-z0-9_.\\-]+$/u.test(directory)) return undefined;
+  const shortPath = execFileSync(
+    'cmd.exe',
+    ['/d', '/c', `for %I in (${directory}) do @echo %~sI`],
+    { encoding: 'utf8' },
+  ).trim();
+  return shortPath.length > 0 && shortPath.toLocaleLowerCase() !== directory.toLocaleLowerCase()
+    ? shortPath
+    : undefined;
 }
 
 test('PERF-BGSTAB-010 bundle promotion keeps the last known-good deployment evidence when final admission rejects', async () => {
@@ -104,22 +117,29 @@ test('PERF-BGSTAB-010 bundle writer rejects an output-root junction before readi
 test('PERF-BGSTAB-010 bundle writer rejects an output root that overlaps its audit source', async () => {
   const writer = await import(`${writerUrl}?bundle-overlapping-roots=${Date.now()}`);
   const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-overlapping-roots-'));
-  const auditRoot = join(temporaryRoot, 'audit-source');
   try {
-    await cp(sourceRoot, auditRoot, { recursive: true });
-    const filesBefore = await readGenerationJsonFiles(auditRoot);
-    const pointerBefore = await readFile(join(auditRoot, 'fair-scheduler-decision.json.publication.json'), 'utf8');
-    await assert.rejects(
-      writer.writeFairSchedulerEvidenceBundle({
-        sourceRoot: auditRoot,
-        outputRoot: auditRoot,
-        validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
-        validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
-      }),
-      /source and output roots overlap/u,
-    );
-    assert.equal(await readFile(join(auditRoot, 'fair-scheduler-decision.json.publication.json'), 'utf8'), pointerBefore);
-    assert.deepEqual(await readGenerationJsonFiles(auditRoot), filesBefore);
+    for (const [name, outputFrom] of [
+      ['same-root', (auditRoot) => auditRoot],
+      ['output-inside-source', (auditRoot) => join(auditRoot, 'nested-output')],
+      ['source-inside-output', (auditRoot) => dirname(auditRoot)],
+    ]) {
+      const auditRoot = join(temporaryRoot, name, 'audit-source');
+      await cp(sourceRoot, auditRoot, { recursive: true });
+      const filesBefore = await readGenerationJsonFiles(auditRoot);
+      const pointerBefore = await readFile(join(auditRoot, 'fair-scheduler-decision.json.publication.json'), 'utf8');
+      await assert.rejects(
+        writer.writeFairSchedulerEvidenceBundle({
+          sourceRoot: auditRoot,
+          outputRoot: outputFrom(auditRoot),
+          validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+          validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+        }),
+        /source and output roots overlap/u,
+        name,
+      );
+      assert.equal(await readFile(join(auditRoot, 'fair-scheduler-decision.json.publication.json'), 'utf8'), pointerBefore, name);
+      assert.deepEqual(await readGenerationJsonFiles(auditRoot), filesBefore, name);
+    }
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
@@ -340,6 +360,49 @@ test('PERF-BGSTAB-010 bundle output path aliases share one publish lock', async 
       firstWriterAtLock.promise.then(() => true),
       new Promise(resolve => setTimeout(() => resolve(false), 100)),
     ]), true);
+    await assert.rejects(
+      writer.writeFairSchedulerEvidenceBundle({
+        sourceRoot,
+        outputRoot: aliasOutputRoot,
+        validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+        validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+      }),
+      /publication lock exists/u,
+    );
+  } finally {
+    releaseFirstWriter?.();
+    await firstWriter?.catch(() => undefined);
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 bundle writer shares its publish lock across an NTFS 8.3 output-root alias', async (t) => {
+  const writer = await import(`${writerUrl}?bundle-short-path-lock=${Date.now()}`);
+  const temporaryRoot = await mkdtemp(join(process.cwd(), '.fair-scheduler-short-path-'));
+  const outputRoot = join(temporaryRoot, 'fair-scheduler-evidence');
+  await mkdir(outputRoot);
+  const aliasOutputRoot = findDistinctWindowsShortPath(outputRoot);
+  if (!aliasOutputRoot) {
+    t.skip('NTFS 8.3 short path is unavailable for this test directory');
+    await rm(temporaryRoot, { recursive: true, force: true });
+    return;
+  }
+  let releaseFirstWriter;
+  let firstWriter;
+  try {
+    const firstWriterAtLock = Promise.withResolvers();
+    const releaseGate = new Promise(resolve => { releaseFirstWriter = resolve; });
+    firstWriter = writer.writeFairSchedulerEvidenceBundle({
+      sourceRoot,
+      outputRoot,
+      validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+      validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+      afterPublishLockAcquired: async () => {
+        firstWriterAtLock.resolve();
+        await releaseGate;
+      },
+    });
+    await firstWriterAtLock.promise;
     await assert.rejects(
       writer.writeFairSchedulerEvidenceBundle({
         sourceRoot,
