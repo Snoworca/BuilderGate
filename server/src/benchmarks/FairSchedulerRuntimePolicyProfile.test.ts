@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -178,6 +178,39 @@ test('PERF-BGSTAB-010 official writer retains an earlier generation when a polic
       directory,
       'fair-scheduler-publications',
       firstPublication.generationId,
+      'fair-scheduler-decision.json',
+    )), true, signature);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 official writer reissues an already moved identical generation after a pointer-swap interruption', async () => {
+  const signature = 'PERF-BGSTAB-010 pointer retry must reuse only the exact staged generation while preserving LKG';
+  const fairness = await loadFairness(signature);
+  const directory = await mkdtemp(join(tmpdir(), 'buildergate-fairness-pointer-retry-'));
+  const outputPath = join(directory, 'fair-scheduler-decision.json');
+  const pointerPath = `${outputPath}.publication.json`;
+  const firstProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(8_192));
+  const secondProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(12_288));
+  try {
+    await fairness.writeFairSchedulerDecisionArtifact({ ...benchmarkInput, outputPath, runtimePolicyProfile: firstProfile });
+    const firstPointer = await readFile(pointerPath, 'utf8');
+    await fairness.writeFairSchedulerDecisionArtifact({ ...benchmarkInput, outputPath, runtimePolicyProfile: secondProfile });
+    const secondPointer = await readFile(pointerPath, 'utf8');
+    const secondPublication = JSON.parse(secondPointer) as { generationId: string };
+
+    await writeFile(pointerPath, firstPointer, 'utf8');
+    await assert.doesNotReject(fairness.writeFairSchedulerDecisionArtifact({
+      ...benchmarkInput,
+      outputPath,
+      runtimePolicyProfile: secondProfile,
+    }), signature);
+    assert.equal(await readFile(pointerPath, 'utf8'), secondPointer, signature);
+    assert.equal(existsSync(join(
+      directory,
+      'fair-scheduler-publications',
+      secondPublication.generationId,
       'fair-scheduler-decision.json',
     )), true, signature);
   } finally {
