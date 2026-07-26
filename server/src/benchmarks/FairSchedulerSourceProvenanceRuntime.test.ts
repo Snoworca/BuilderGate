@@ -5,6 +5,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 
 import { resolveFairTerminalDeliveryPolicy } from '../services/TerminalResourcePolicy.js';
+import { RuntimeConfigStore } from '../services/RuntimeConfigStore.js';
+import { config } from '../utils/config.js';
 
 const serverRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const artifactRoot = resolve(
@@ -41,13 +43,9 @@ test('PERF-BGSTAB-010 compiled runtime validates the published artifact through 
       reason: string;
     };
   };
-  const runtimePolicy = resolveFairTerminalDeliveryPolicy({
-    serverBufferedHighWaterBytes: 1_024,
-    serverBufferedHardLimitBytes: 2_048,
-    perClientOutputQueueMaxBytes: 4_096,
-    perClientControlQueueMaxBytes: 1_024,
-    outputCoalesceWindowMs: 1,
-  });
+  const runtimePolicy = resolveFairTerminalDeliveryPolicy(
+    new RuntimeConfigStore(config).getEditableValues().resourceLimits.ws,
+  );
   assert.deepEqual(
     compiled.validatePublishedFairDeliveryCandidateArtifact({ runtimePolicy }),
     { accepted: true, reason: 'decision-artifact-verified' },
