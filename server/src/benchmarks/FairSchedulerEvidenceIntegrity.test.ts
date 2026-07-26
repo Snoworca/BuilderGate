@@ -39,6 +39,10 @@ type FairnessModule = {
     outputPath: string;
     runtimePolicyProfile: RuntimePolicyProfile;
     beforeStagedValidation?: (input: { stagingRoot: string }) => Promise<void>;
+    beforeCanonicalPointerPromotion?: (input: {
+      artifactRoot: string;
+      evidencePaths: string[];
+    }) => Promise<void>;
   }): Promise<{ artifactPath: string; digest: string }>;
   validateFairSchedulerPublicationDirectory(input: {
     artifactRoot: string;
@@ -359,6 +363,47 @@ test('PERF-BGSTAB-010 official writer preserves LKG when staged raw or sidecar e
     } finally {
       await rm(artifactRoot, { recursive: true, force: true });
     }
+  }
+});
+
+test('PERF-BGSTAB-010 official writer revalidates its output generation immediately before pointer promotion', async () => {
+  const fairness = await loadFairness();
+  const firstProfile = fairness.createFairSchedulerRuntimePolicyProfile({
+    getEditableValues: () => ({ resourceLimits: { ws: {
+      serverBufferedHighWaterBytes: 1_536,
+      perClientOutputQueueMaxBytes: 8_192,
+      perClientControlQueueMaxBytes: 2_048,
+      outputCoalesceWindowMs: 4,
+    } } }),
+  });
+  const secondProfile = fairness.createFairSchedulerRuntimePolicyProfile({
+    getEditableValues: () => ({ resourceLimits: { ws: {
+      serverBufferedHighWaterBytes: 1_536,
+      perClientOutputQueueMaxBytes: 12_288,
+      perClientControlQueueMaxBytes: 2_048,
+      outputCoalesceWindowMs: 4,
+    } } }),
+  });
+  const artifactRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-final-promotion-validation-'));
+  const outputPath = join(artifactRoot, 'fair-scheduler-decision.json');
+  const pointerPath = `${outputPath}.publication.json`;
+  let hookCalled = false;
+  try {
+    await fairness.writeFairSchedulerDecisionArtifact({ ...input, outputPath, runtimePolicyProfile: firstProfile });
+    const pointerBefore = await readFile(pointerPath, 'utf8');
+    await assert.rejects(fairness.writeFairSchedulerDecisionArtifact({
+      ...input,
+      outputPath,
+      runtimePolicyProfile: secondProfile,
+      beforeCanonicalPointerPromotion: async ({ artifactRoot: root, evidencePaths }) => {
+        hookCalled = true;
+        await writeFile(join(root, ...evidencePaths[0].split('/')), '{"corrupt":true}\n', 'utf8');
+      },
+    }), /published fair scheduler generation is invalid/u);
+    assert.equal(hookCalled, true);
+    assert.equal(await readFile(pointerPath, 'utf8'), pointerBefore);
+  } finally {
+    await rm(artifactRoot, { recursive: true, force: true });
   }
 });
 

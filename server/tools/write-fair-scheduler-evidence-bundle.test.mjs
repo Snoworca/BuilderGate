@@ -332,6 +332,32 @@ test('PERF-BGSTAB-010 bundle output path aliases share one publish lock', async 
   }
 });
 
+test('PERF-BGSTAB-010 bundle writer revalidates its output generation immediately before pointer promotion', async () => {
+  const writer = await import(`${writerUrl}?bundle-final-promotion-validation=${Date.now()}`);
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-final-promotion-validation-'));
+  const outputRoot = join(temporaryRoot, 'fair-scheduler-evidence');
+  const pointerPath = join(outputRoot, 'fair-scheduler-decision.json.publication.json');
+  let hookCalled = false;
+  try {
+    await cp(sourceRoot, outputRoot, { recursive: true });
+    const pointerBefore = await readFile(pointerPath, 'utf8');
+    await assert.rejects(writer.writeFairSchedulerEvidenceBundle({
+      sourceRoot,
+      outputRoot,
+      validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+      validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+      beforeCanonicalPointerPromotion: async ({ bundle }) => {
+        hookCalled = true;
+        await writeFile(join(outputRoot, ...bundle.publication.artifactPath.split('/')), '{"corrupt":true}\n', 'utf8');
+      },
+    }), /existing fair scheduler generation differs from staged evidence/u);
+    assert.equal(hookCalled, true);
+    assert.equal(await readFile(pointerPath, 'utf8'), pointerBefore);
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
 test('PERF-BGSTAB-010 default staged validators reject serialized raw and sidecar corruption without changing LKG', async () => {
   const writer = await import(`${writerUrl}?bundle-default-staged-corruption=${Date.now()}`);
   for (const evidenceKind of ['raw', 'sidecar']) {
