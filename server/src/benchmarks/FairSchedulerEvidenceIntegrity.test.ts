@@ -38,6 +38,7 @@ type FairnessModule = {
   writeFairSchedulerDecisionArtifact(input: FairSchedulerBenchmarkInput & {
     outputPath: string;
     runtimePolicyProfile: RuntimePolicyProfile;
+    beforeStagedValidation?: (input: { stagingRoot: string }) => Promise<void>;
   }): Promise<{ artifactPath: string; digest: string }>;
   validateFairSchedulerPublicationDirectory(input: {
     artifactRoot: string;
@@ -321,6 +322,43 @@ test('PERF-BGSTAB-010 writer refuses a corrupt existing generation without movin
     assert.equal(await readFile(pointerPath, 'utf8'), beforePointer);
   } finally {
     await rm(artifactRoot, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 official writer preserves LKG when staged raw or sidecar evidence is corrupted', async () => {
+  const fairness = await loadFairness();
+  const runtimePolicyProfile = createRuntimePolicyProfile(fairness);
+  for (const evidenceKind of ['raw', 'sidecar'] as const) {
+    const artifactRoot = await mkdtemp(join(tmpdir(), `buildergate-fair-staged-${evidenceKind}-corruption-`));
+    const outputPath = join(artifactRoot, 'fair-scheduler-decision.json');
+    const pointerPath = `${outputPath}.publication.json`;
+    let hookCalled = false;
+    try {
+      await fairness.writeFairSchedulerDecisionArtifact({ ...input, outputPath, runtimePolicyProfile });
+      const pointerBefore = await readFile(pointerPath, 'utf8');
+      await assert.rejects(fairness.writeFairSchedulerDecisionArtifact({
+        ...input,
+        outputPath,
+        runtimePolicyProfile,
+        beforeStagedValidation: async ({ stagingRoot }) => {
+          hookCalled = true;
+          const publication = JSON.parse(await readFile(
+            join(stagingRoot, 'fair-scheduler-decision.json.publication.json'),
+            'utf8',
+          )) as { artifactPath: string; rawPath: string };
+          const artifact = JSON.parse(await readFile(
+            join(stagingRoot, ...publication.artifactPath.split('/')),
+            'utf8',
+          )) as { rawEvidencePaths: string[] };
+          const corruptPath = evidenceKind === 'raw' ? publication.rawPath : artifact.rawEvidencePaths[0];
+          await writeFile(join(stagingRoot, ...corruptPath.split('/')), '{"corrupt":true}\n', 'utf8');
+        },
+      }), /Cannot publish fair scheduler artifact:/u);
+      assert.equal(hookCalled, true);
+      assert.equal(await readFile(pointerPath, 'utf8'), pointerBefore);
+    } finally {
+      await rm(artifactRoot, { recursive: true, force: true });
+    }
   }
 });
 

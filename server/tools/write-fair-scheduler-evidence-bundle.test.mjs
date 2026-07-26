@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 
@@ -259,6 +259,46 @@ test('PERF-BGSTAB-010 concurrent bundle promotion fails closed without changing 
       validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
       validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
     }));
+  } finally {
+    releaseFirstWriter?.();
+    await firstWriter?.catch(() => undefined);
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 bundle output path aliases share one publish lock', async () => {
+  const writer = await import(`${writerUrl}?bundle-alias-lock=${Date.now()}`);
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'buildergate-fair-bundle-alias-lock-'));
+  const outputRoot = join(temporaryRoot, 'fair-scheduler-evidence');
+  const aliasOutputRoot = `${outputRoot}${sep}.`;
+  let releaseFirstWriter;
+  let firstWriter;
+  try {
+    const firstWriterAtLock = Promise.withResolvers();
+    const releaseGate = new Promise(resolve => { releaseFirstWriter = resolve; });
+    firstWriter = writer.writeFairSchedulerEvidenceBundle({
+      sourceRoot,
+      outputRoot,
+      validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+      validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+      afterPublishLockAcquired: async () => {
+        firstWriterAtLock.resolve();
+        await releaseGate;
+      },
+    });
+    assert.equal(await Promise.race([
+      firstWriterAtLock.promise.then(() => true),
+      new Promise(resolve => setTimeout(() => resolve(false), 100)),
+    ]), true);
+    await assert.rejects(
+      writer.writeFairSchedulerEvidenceBundle({
+        sourceRoot,
+        outputRoot: aliasOutputRoot,
+        validateStaged: () => ({ accepted: true, reason: 'staged-verified' }),
+        validateRuntime: () => ({ accepted: true, reason: 'runtime-verified' }),
+      }),
+      /publication lock exists/u,
+    );
   } finally {
     releaseFirstWriter?.();
     await firstWriter?.catch(() => undefined);

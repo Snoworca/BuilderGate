@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import test from 'node:test';
 
 type RuntimePolicyProfile = {
@@ -317,6 +317,50 @@ test('PERF-BGSTAB-010 concurrent docs publication fails closed while its output 
     releaseFirstWriter();
     await firstWriter;
     await assert.rejects(readFile(lockPath, 'utf8'), { code: 'ENOENT' }, signature);
+  } finally {
+    releaseFirstWriter?.();
+    await firstWriter?.catch(() => undefined);
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('PERF-BGSTAB-010 docs publication path aliases share one output lock', async () => {
+  const signature = 'PERF-BGSTAB-010 normalized docs output aliases must not bypass an active publish lock';
+  const fairness = await loadFairness(signature);
+  const directory = await mkdtemp(join(tmpdir(), 'buildergate-fairness-docs-alias-lock-'));
+  const outputDirectory = join(directory, 'evidence');
+  const outputPath = join(outputDirectory, 'fair-scheduler-decision.json');
+  const aliasOutputPath = `${outputDirectory}${sep}.${sep}fair-scheduler-decision.json`;
+  const firstProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(8_192));
+  const secondProfile = fairness.createFairSchedulerRuntimePolicyProfile(createRuntimeConfig(12_288));
+  let releaseFirstWriter: (() => void) | undefined;
+  let firstWriter: Promise<unknown> | undefined;
+  try {
+    let releaseFirstWriterAtLock: () => void = () => undefined;
+    const firstWriterAtLock = new Promise<void>(resolve => { releaseFirstWriterAtLock = resolve; });
+    const releaseGate = new Promise<void>(resolve => { releaseFirstWriter = resolve; });
+    firstWriter = fairness.writeFairSchedulerDecisionArtifact({
+      ...benchmarkInput,
+      outputPath,
+      runtimePolicyProfile: firstProfile,
+      afterPublicationLockAcquired: async () => {
+        releaseFirstWriterAtLock();
+        await releaseGate;
+      },
+    });
+    assert.equal(await Promise.race([
+      firstWriterAtLock.then(() => true),
+      new Promise<boolean>(resolve => setTimeout(() => resolve(false), 100)),
+    ]), true, signature);
+    await assert.rejects(
+      fairness.writeFairSchedulerDecisionArtifact({
+        ...benchmarkInput,
+        outputPath: aliasOutputPath,
+        runtimePolicyProfile: secondProfile,
+      }),
+      /publication lock exists/u,
+      signature,
+    );
   } finally {
     releaseFirstWriter?.();
     await firstWriter?.catch(() => undefined);
