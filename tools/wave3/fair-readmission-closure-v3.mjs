@@ -3,7 +3,6 @@ import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync as nodeSpawnSync } from 'node:child_process';
 import * as nodeFs from 'node:fs';
 import * as nodePath from 'node:path';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const TASK = '2026-07-27.pm.fair-readmission-closure-v3';
@@ -340,15 +339,9 @@ export function probeWindowsReparsePoint({
   platform = process.platform,
 } = {}) {
   const candidate = assertExistingWindowsPath(path, 'reparse probe path');
-  const strictBatchSpawn = typeof spawn === 'function'
-    ? (...args) => {
-      const result = spawn(...args);
-      return typeof result === 'string' ? { status: 0, stdout: result, stderr: '' } : result;
-    }
-    : spawn;
   return probeWindowsReparsePoints({
     paths: [candidate],
-    spawnSync: strictBatchSpawn,
+    spawnSync: spawn,
     fs,
     platform,
   });
@@ -445,13 +438,19 @@ export function createSegmentReparseGuard({ fs = nodeFs, probe, probeBatch } = {
   if (!fs || typeof fs.lstatSync !== 'function') throw new Error('reparse guard requires lstatSync');
   if (probeBatch !== undefined && typeof probeBatch !== 'function') throw new Error('reparse guard probeBatch must be a function');
   const cache = new Map();
+  const clearCachedFrontier = candidates => {
+    for (const candidate of windowsSegmentFrontier(candidates)) cache.delete(candidate);
+  };
 
   const assertSafeMany = (paths, { forceFresh = false } = {}) => {
     if (!Array.isArray(paths)) throw new Error('reparse guard paths must be an array');
     const candidates = paths.map(candidate => assertExistingWindowsPath(candidate, 'reparse guard path'));
     if (candidates.length === 0) return;
     const frontier = collectExistingSegmentFrontier(fs, candidates);
-    if (frontier.length === 0) return;
+    if (frontier.length === 0) {
+      clearCachedFrontier(candidates);
+      return;
+    }
     const probeCandidates = [];
     const queued = new Set();
     for (const { candidate, identity } of frontier) {
@@ -468,7 +467,7 @@ export function createSegmentReparseGuard({ fs = nodeFs, probe, probeBatch } = {
       }
       for (const { candidate, identity } of post) cache.set(candidate, identity);
     } catch (error) {
-      for (const { candidate } of frontier) cache.delete(candidate);
+      clearCachedFrontier(candidates);
       throw error;
     }
   };
@@ -488,7 +487,7 @@ export function createSegmentReparseGuard({ fs = nodeFs, probe, probeBatch } = {
         if (!sameFrontier(frontier, checked)) throw new Error('reparse wave identity changed during pre-read batch probe');
         return { candidates, frontier: checked };
       } catch (error) {
-        for (const { candidate } of frontier) cache.delete(candidate);
+        clearCachedFrontier(candidates);
         throw error;
       }
     },
@@ -497,14 +496,17 @@ export function createSegmentReparseGuard({ fs = nodeFs, probe, probeBatch } = {
         throw new Error('reparse wave token is invalid');
       }
       const beforePostProbe = collectExistingSegmentFrontier(fs, token.candidates);
-      if (!sameFrontier(token.frontier, beforePostProbe)) throw new Error('reparse wave identity changed before post-read batch probe');
+      if (!sameFrontier(token.frontier, beforePostProbe)) {
+        clearCachedFrontier(token.candidates);
+        throw new Error('reparse wave identity changed before post-read batch probe');
+      }
       try {
         for (const batch of splitReparseBatches(beforePostProbe.map(({ candidate }) => candidate))) probeBatch(batch);
         const afterPostProbe = collectExistingSegmentFrontier(fs, token.candidates);
         if (!sameFrontier(token.frontier, afterPostProbe)) throw new Error('reparse wave identity changed during post-read batch probe');
         for (const { candidate, identity } of afterPostProbe) cache.set(candidate, identity);
       } catch (error) {
-        for (const { candidate } of token.frontier) cache.delete(candidate);
+        clearCachedFrontier(token.candidates);
         throw error;
       }
     },
@@ -849,12 +851,15 @@ export function createProtectedInputSnapshot({ fs = nodeFs, reparseGuard } = {})
 function requireFile(fs, workspaceRoot, relativePath, kind, { reparseGuard, snapshot, onBytes } = {}) {
   assertCollectorWorkspaceRoot(workspaceRoot);
   const absolutePath = workspacePath(workspaceRoot, relativePath);
-  if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
-    throw new Error(`missing ${kind}: ${relativePath}`);
+  let input;
+  try {
+    input = snapshot
+      ? snapshot.read({ absolutePath, kind, path: normalizePath(relativePath) })
+      : readProtectedInput({ fs, absolutePath, kind, path: normalizePath(relativePath), reparseGuard, onBytes });
+  } catch (error) {
+    if (error?.code === 'ENOENT') throw new Error(`missing ${kind}: ${relativePath} (${error.message})`);
+    throw error;
   }
-  const input = snapshot
-    ? snapshot.read({ absolutePath, kind, path: normalizePath(relativePath) })
-    : readProtectedInput({ fs, absolutePath, kind, path: normalizePath(relativePath), reparseGuard, onBytes });
   if (snapshot && typeof onBytes === 'function') onBytes(Buffer.from(input.bytes));
   return { kind: input.kind, path: input.path, sha256: input.sha256 };
 }
@@ -862,12 +867,15 @@ function requireFile(fs, workspaceRoot, relativePath, kind, { reparseGuard, snap
 export function hashConfigLockFile({ fs = nodeFs, workspaceRoot, relativePath, reparseGuard, snapshot } = {}) {
   assertCollectorWorkspaceRoot(workspaceRoot, 'config workspace root');
   const absolutePath = workspacePath(workspaceRoot, relativePath);
-  if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
-    throw new Error(`missing config_lock: ${relativePath}`);
+  let input;
+  try {
+    input = snapshot
+      ? snapshot.read({ absolutePath, kind: 'config_lock', path: normalizePath(relativePath) })
+      : readProtectedInput({ fs, absolutePath, kind: 'config_lock', path: normalizePath(relativePath), reparseGuard });
+  } catch (error) {
+    if (error?.code === 'ENOENT') throw new Error(`missing config_lock: ${relativePath} (${error.message})`);
+    throw error;
   }
-  const input = snapshot
-    ? snapshot.read({ absolutePath, kind: 'config_lock', path: normalizePath(relativePath) })
-    : readProtectedInput({ fs, absolutePath, kind: 'config_lock', path: normalizePath(relativePath), reparseGuard });
   return { kind: input.kind, path: input.path, sha256: input.sha256 };
 }
 
@@ -875,24 +883,68 @@ function isCodeFile(relativePath) {
   return /\.(?:[cm]?[jt]sx?)$/i.test(relativePath);
 }
 
-function compilerOptionsFor(ts, fs, workspaceRoot, relativePath, cache, reparseGuard, snapshot) {
-  const configRelativePath = relativePath.startsWith('server/') ? 'server/tsconfig.json' : 'frontend/tsconfig.json';
-  if (cache.has(configRelativePath)) return cache.get(configRelativePath);
-  const configPath = workspacePath(workspaceRoot, configRelativePath);
-  let configText;
-  requireFile(fs, workspaceRoot, configRelativePath, 'config_lock', {
-    reparseGuard,
-    snapshot,
-    onBytes(bytes) {
-      configText = Buffer.from(bytes).toString('utf8');
-    },
-  });
-  const read = ts.readConfigFile(configPath, () => configText);
-  if (read.error) throw new Error(`cannot read TypeScript config: ${configRelativePath}`);
-  const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, nodePath.dirname(configPath), undefined, configPath);
-  if (parsed.errors.length > 0) throw new Error(`cannot parse TypeScript config: ${configRelativePath}`);
-  cache.set(configRelativePath, parsed.options);
-  return parsed.options;
+function sourceScope(relativePath) {
+  const normalized = normalizePath(relativePath);
+  return [
+    'server/src/',
+    'frontend/',
+    'tools/wave3/',
+  ].find(prefix => normalized.startsWith(prefix));
+}
+
+const ADMITTED_TSX_MODULES = new Set([
+  'frontend/src/components/Terminal/FontSizeToast',
+  'frontend/src/components/Terminal/TerminalRuntimeContext',
+  'frontend/src/components/Terminal/TerminalView',
+  'frontend/src/contexts/WebSocketContext',
+]);
+
+function importedSpecifiers(sourceText) {
+  const matches = [];
+  let statement = '';
+  for (const line of sourceText.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!statement) {
+      if (!/^(?:import|export)\b/.test(trimmed)) continue;
+      statement = trimmed;
+    } else {
+      statement += `\n${trimmed}`;
+    }
+    if (!trimmed.endsWith(';')) continue;
+    const match = statement.startsWith('import')
+      ? /^import\b[\s\S]*?(?:\bfrom\s+)?['"]([^'"]+)['"]\s*;$/.exec(statement)
+      : /^export\b[\s\S]*?\bfrom\s+['"]([^'"]+)['"]\s*;$/.exec(statement);
+    if (match) matches.push(match[1]);
+    statement = '';
+  }
+  return matches;
+}
+
+export function resolveAdmittedRelativeSpecifier({ workspaceRoot, fromPath, specifier } = {}) {
+  assertCollectorWorkspaceRoot(workspaceRoot);
+  const normalizedFrom = normalizePath(fromPath);
+  const scope = sourceScope(normalizedFrom);
+  if (!scope || !isCodeFile(normalizedFrom)) throw new Error(`workspace source path is unsupported: ${fromPath}`);
+  if (typeof specifier !== 'string' || !specifier.startsWith('.')) {
+    throw new Error(`package or alias specifier is unsupported: ${specifier}`);
+  }
+  if (!specifier.startsWith('./') && !specifier.startsWith('../')) {
+    throw new Error(`relative specifier is unsafe: ${specifier}`);
+  }
+  const normalizedSpecifier = normalizePath(specifier);
+  if (normalizedSpecifier.includes('\0') || normalizedSpecifier.includes(':') || normalizedSpecifier.startsWith('/')) {
+    throw new Error(`relative specifier is unsafe: ${specifier}`);
+  }
+  let resolved = normalizePath(nodePath.posix.normalize(nodePath.posix.join(nodePath.posix.dirname(normalizedFrom), normalizedSpecifier)));
+  if (resolved.endsWith('.js')) resolved = `${resolved.slice(0, -3)}.ts`;
+  if (!nodePath.posix.extname(resolved)) {
+    if (resolved.endsWith('/types')) resolved = `${resolved}/index.ts`;
+    else resolved = `${resolved}${ADMITTED_TSX_MODULES.has(resolved) ? '.tsx' : '.ts'}`;
+  }
+  if (!resolved.startsWith(scope) || resolved.includes('../') || !isCodeFile(resolved)) {
+    throw new Error(`relative specifier escapes its admitted workspace scope: ${specifier}`);
+  }
+  return resolved.endsWith('.js') ? `${resolved.slice(0, -3)}.ts` : resolved;
 }
 
 function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOTS, reparseGuard, snapshot) {
@@ -902,17 +954,9 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOT
   if (sourceRoots.some(relativePath => normalizePath(relativePath).endsWith('.css'))) {
     throw new Error('TerminalView.css is permitted only as a TerminalView.tsx dependency');
   }
-  const serverRequire = createRequire(workspacePath(workspaceRoot, 'server/package.json'));
-  let ts;
-  try {
-    ts = serverRequire('typescript');
-  } catch (error) {
-    throw new Error(`TypeScript resolver is unavailable: ${error.message}`);
-  }
   const pending = [...sourceRoots];
   const resolved = new Set();
   const externalSpecifierRows = [];
-  const compilerOptionsCache = new Map();
   while (pending.length > 0) {
     const currentWave = [];
     const queued = new Set();
@@ -969,7 +1013,6 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOT
       continue;
     }
     if (!isCodeFile(relativePath)) throw new Error(`unexpected workspace-local non-code dependency: ${relativePath}`);
-    const absolutePath = workspacePath(workspaceRoot, relativePath);
     let sourceText;
     if (snapshot) {
       sourceText = Buffer.from(admittedWave.get(relativePath).bytes).toString('utf8');
@@ -982,36 +1025,24 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOT
       });
     }
     resolved.add(relativePath);
-    const imported = ts.preProcessFile(sourceText, true, true).importedFiles;
-    const options = compilerOptionsFor(ts, fs, workspaceRoot, relativePath, compilerOptionsCache, reparseGuard, snapshot);
-    for (const { fileName: specifier } of imported) {
+    for (const specifier of importedSpecifiers(sourceText)) {
       if (relativePath === 'frontend/src/components/Terminal/TerminalView.tsx' && specifier === './TerminalView.css') {
-        const cssRelativePath = relativeWorkspacePath(workspaceRoot, nodePath.resolve(nodePath.dirname(absolutePath), specifier));
+        const cssRelativePath = 'frontend/src/components/Terminal/TerminalView.css';
         if (cssRelativePath !== 'frontend/src/components/Terminal/TerminalView.css') {
           throw new Error(`unexpected workspace-local non-code dependency: ${relativePath} -> ${specifier}`);
         }
         pending.push(cssRelativePath);
         continue;
       }
-      const moduleResolution = ts.resolveModuleName(specifier, absolutePath, options, ts.sys).resolvedModule;
-      if (moduleResolution?.resolvedFileName) {
-        const resolvedRelativePath = relativeWorkspacePath(workspaceRoot, moduleResolution.resolvedFileName);
-        if (resolvedRelativePath.endsWith('.css')) {
-          throw new Error(`unexpected workspace-local non-code dependency: ${relativePath} -> ${specifier}`);
-        }
-        if (!isCodeFile(resolvedRelativePath)) {
-          throw new Error(`unexpected workspace-local non-code dependency: ${resolvedRelativePath}`);
-        }
-        pending.push(resolvedRelativePath);
-        continue;
-      }
-      const configuredPaths = Object.keys(options.paths ?? {});
-      const configuredAlias = configuredPaths.some(pattern => specifier.startsWith(pattern.replace(/\*$/, '')));
-      if (specifier.startsWith('.') || specifier.startsWith('/') || configuredAlias) {
+      if (specifier.startsWith('.')) {
         if (/\.(?:css|json(?:5)?)$/i.test(specifier)) {
           throw new Error(`unexpected workspace-local non-code dependency: ${relativePath} -> ${specifier}`);
         }
-        throw new Error(`unresolved workspace-relative or alias import: ${relativePath} -> ${specifier}`);
+        pending.push(resolveAdmittedRelativeSpecifier({ workspaceRoot, fromPath: relativePath, specifier }));
+        continue;
+      }
+      if (specifier.startsWith('/')) {
+        throw new Error(`workspace absolute import is unsupported: ${relativePath} -> ${specifier}`);
       }
       externalSpecifierRows.push({
         from: relativePath,
@@ -1043,9 +1074,36 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOT
   };
 }
 
-export function collectSourceClosure({ workspaceRoot, sourceRoots = SOURCE_ROOTS, fs = nodeFs }) {
+function isStrictReparseGuard(reparseGuard) {
+  return Boolean(
+    reparseGuard
+    && typeof reparseGuard.assertSafeMany === 'function'
+    && typeof reparseGuard.prepareWave === 'function'
+    && typeof reparseGuard.completeWave === 'function',
+  );
+}
+
+export function collectSourceClosure({
+  workspaceRoot,
+  sourceRoots = SOURCE_ROOTS,
+  fs = nodeFs,
+  reparseGuard,
+  snapshot,
+} = {}) {
   assertCollectorWorkspaceRoot(workspaceRoot);
-  return sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots, undefined, createProtectedInputSnapshot({ fs }));
+  if (!reparseGuard) {
+    if (fs !== nodeFs) throw new Error('public source closure requires a strict reparse guard and admitted snapshot');
+    reparseGuard = createSegmentReparseGuard({
+      fs,
+      probeBatch: paths => probeWindowsReparsePoints({ paths }),
+    });
+  }
+  if (!isStrictReparseGuard(reparseGuard)) {
+    throw new Error('public source closure requires a strict full-frontier reparse guard');
+  }
+  if (!snapshot) snapshot = createProtectedInputSnapshot({ fs, reparseGuard });
+  if (typeof snapshot.readWave !== 'function') throw new Error('public source closure requires an admitted snapshot');
+  return sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots, reparseGuard, snapshot);
 }
 
 function collectSourceClosureWithGuard({ workspaceRoot, sourceRoots = SOURCE_ROOTS, fs = nodeFs, reparseGuard, snapshot }) {
@@ -1213,9 +1271,34 @@ function assertManifestDestination(workspaceRoot, manifestPath, fs, reparseGuard
   if (!isWithinPath(destination, analysisRoot) || nodePath.dirname(destination) !== analysisRoot || nodePath.extname(destination).toLowerCase() !== '.json') {
     throw new Error(`manifest must be a JSON leaf in ${ANALYSIS_DIRECTORY}`);
   }
-  assertPathHasNoLinkOrReparsePoint(fs, destination, 'manifest destination', reparseGuard, { forceFresh: true });
-  if (fs.existsSync(destination)) throw new Error(`manifest already exists: ${destination}`);
   return { analysisRoot, destination };
+}
+
+export function writeCapturedManifest({
+  workspaceRoot,
+  manifestPath,
+  manifest,
+  fs = nodeFs,
+  reparseGuard,
+  serialized = JSON.stringify(manifest),
+} = {}) {
+  assertCollectorWorkspaceRoot(workspaceRoot);
+  if (typeof reparseGuard?.assertSafeMany !== 'function') throw new Error('manifest writer requires a full-frontier reparse guard');
+  const { analysisRoot, destination } = assertManifestDestination(workspaceRoot, manifestPath, fs, reparseGuard);
+  fs.mkdirSync(analysisRoot, { recursive: true });
+  // Node pathname APIs have no native no-follow guarantee against a hostile kernel-time parent swap.
+  try {
+    reparseGuard.assertSafeMany([analysisRoot, destination], { forceFresh: true });
+  } catch (error) {
+    throw new Error(`manifest path is a reparse point or link: ${error?.message ?? String(error)}`);
+  }
+  fs.writeFileSync(destination, `${serialized}\n`, { encoding: 'utf8', flag: 'wx' });
+  try {
+    reparseGuard.assertSafeMany([analysisRoot, destination], { forceFresh: true });
+  } catch (error) {
+    throw new Error(`manifest path is a reparse point or link after write: ${error?.message ?? String(error)}`);
+  }
+  return manifest;
 }
 
 export function captureFrozenProvenance(options) {
@@ -1237,7 +1320,7 @@ export function captureFrozenProvenance(options) {
   });
   const snapshot = createProtectedInputSnapshot({ fs, reparseGuard });
   const contract = validateFrozenContract({ workspaceRoot, contract: FROZEN_CONTRACT, fs, reparseGuard });
-  const { analysisRoot, destination } = assertManifestDestination(workspaceRoot, manifestPath, fs, reparseGuard);
+  assertManifestDestination(workspaceRoot, manifestPath, fs, reparseGuard);
   const { sourceClosureRows, externalSpecifierRows } = collectSourceClosureWithGuard({
     workspaceRoot,
     sourceRoots: SOURCE_ROOTS,
@@ -1282,10 +1365,14 @@ export function captureFrozenProvenance(options) {
     externalSpecifierRows,
     git,
   });
-  fs.mkdirSync(analysisRoot, { recursive: true });
-  assertPathHasNoLinkOrReparsePoint(fs, destination, 'manifest destination', reparseGuard, { forceFresh: true });
-  fs.writeFileSync(destination, `${canonicalJson(manifest)}\n`, { encoding: 'utf8', flag: 'wx' });
-  return manifest;
+  return writeCapturedManifest({
+    workspaceRoot,
+    manifestPath,
+    manifest,
+    fs,
+    reparseGuard,
+    serialized: canonicalJson(manifest),
+  });
 }
 
 function parseCaptureArguments(argv) {
