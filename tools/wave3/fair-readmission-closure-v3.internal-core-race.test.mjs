@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import test from 'node:test';
@@ -179,6 +179,60 @@ fs.closeSync = function trackRetainedFdClose(candidate) {
 syncBuiltinESMExports();
 `;
 
+const guardBeforeMutationPreloaderSource = `'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const { syncBuiltinESMExports } = require('node:module');
+
+const actor = process.env.WAVE3_NATIVE_RACE_ACTOR;
+const suppliedAnalysisRoot = process.env.WAVE3_NATIVE_RACE_ANALYSIS_ROOT;
+if (actor !== 'G' || typeof suppliedAnalysisRoot !== 'string' || suppliedAnalysisRoot.length === 0) {
+  throw new Error('guard-before-mutation preloader requires one exact G analysis root');
+}
+const analysisRoot = path.resolve(suppliedAnalysisRoot);
+const originalLstatSync = fs.lstatSync;
+const originalMkdirSync = fs.mkdirSync;
+let initialMissingLstatGated = false;
+
+function emit(event, extra) {
+  fs.writeSync(1, JSON.stringify(Object.assign({
+    protocol: 'fair-readmission-wx-race-v1',
+    actor,
+    event,
+  }, extra || {})) + '\\n');
+}
+
+function isExactAnalysisRoot(candidate) {
+  return typeof candidate === 'string' && path.resolve(candidate) === analysisRoot;
+}
+
+fs.lstatSync = function gateInitialMissingAnalysisRoot(candidate) {
+  if (!initialMissingLstatGated && isExactAnalysisRoot(candidate)) {
+    try {
+      return originalLstatSync.apply(fs, arguments);
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+      initialMissingLstatGated = true;
+      emit('initial-lstat-missing');
+      const release = Buffer.alloc(1);
+      if (fs.readSync(0, release, 0, 1, null) !== 1 || release[0] !== 0x52) {
+        throw new Error('guard-before-mutation preloader did not receive the R release byte');
+      }
+      emit('release');
+      throw error;
+    }
+  }
+  return originalLstatSync.apply(fs, arguments);
+};
+
+fs.mkdirSync = function observeAnalysisRootMutation(candidate) {
+  const result = originalMkdirSync.apply(fs, arguments);
+  if (isExactAnalysisRoot(candidate)) emit('mkdir');
+  return result;
+};
+syncBuiltinESMExports();
+`;
+
 const wxRaceRunnerSource = `import { writeSync } from 'node:fs';
 
 const protocol = 'fair-readmission-wx-race-v1';
@@ -193,7 +247,7 @@ function emit(event, extra) {
 }
 
 try {
-  if (!['A', 'B'].includes(actor) || !collectorUrl || !workspaceRoot || !manifestPath || !phase) {
+  if (!['A', 'B', 'G'].includes(actor) || !collectorUrl || !workspaceRoot || !manifestPath || !phase) {
     throw new Error('wx race runner has incomplete fixed inputs');
   }
   const { captureFrozenProvenance } = await import(collectorUrl);
@@ -260,14 +314,22 @@ function removeOwnedWorkspace(ownedRoot) {
   rmSync(normalizedRoot, { recursive: true, force: true });
 }
 
+function assertOwnedWorkspaceDescendant(candidate, ownedRoot, label) {
+  const normalizedCandidate = path.resolve(candidate);
+  const normalizedRoot = `${path.resolve(ownedRoot)}${path.sep}`;
+  assert.equal(normalizedCandidate.startsWith(normalizedRoot), true, `${label} stays within the test-owned workspace root`);
+}
+
 function createOwnedWxRaceHarness() {
   const ownedRoot = mkdtempSync(path.join(tmpdir(), 'fair-readmission-wx-race-'));
   const preloaderPath = path.join(ownedRoot, 'wx-race-preloader.cjs');
+  const guardPreloaderPath = path.join(ownedRoot, 'guard-before-mutation-preloader.cjs');
   const runnerPath = path.join(ownedRoot, 'wx-race-runner.mjs');
   try {
     writeFileSync(preloaderPath, wxRacePreloaderSource, { encoding: 'utf8', flag: 'wx' });
+    writeFileSync(guardPreloaderPath, guardBeforeMutationPreloaderSource, { encoding: 'utf8', flag: 'wx' });
     writeFileSync(runnerPath, wxRaceRunnerSource, { encoding: 'utf8', flag: 'wx' });
-    return Object.freeze({ ownedRoot, preloaderPath, runnerPath });
+    return Object.freeze({ ownedRoot, preloaderPath, guardPreloaderPath, runnerPath });
   } catch (error) {
     rmSync(ownedRoot, { recursive: true, force: true });
     throw error;
@@ -282,30 +344,59 @@ function removeOwnedWxRaceHarness(ownedRoot) {
   rmSync(normalizedRoot, { recursive: true, force: true });
 }
 
-function wxRaceChildEnvironment({ actor, manifestPath, phase, fault = 'none' }) {
+function wxRaceChildEnvironment({
+  actor,
+  manifestPath,
+  phase,
+  fault = 'none',
+  collectorSourceUrl = collectorUrl,
+  childWorkspaceRoot = workspaceRoot,
+  guardAnalysisRoot = undefined,
+}) {
   const environment = {
     SystemRoot: process.env.SystemRoot ?? 'C:\\Windows',
     SystemDrive: process.env.SystemDrive ?? 'C:',
     ComSpec: process.env.ComSpec ?? 'C:\\Windows\\System32\\cmd.exe',
     WAVE3_NATIVE_RACE_ACTOR: actor,
-    WAVE3_NATIVE_RACE_COLLECTOR_URL: collectorUrl,
-    WAVE3_NATIVE_RACE_WORKSPACE_ROOT: workspaceRoot,
+    WAVE3_NATIVE_RACE_COLLECTOR_URL: collectorSourceUrl,
+    WAVE3_NATIVE_RACE_WORKSPACE_ROOT: childWorkspaceRoot,
     WAVE3_NATIVE_RACE_MANIFEST_PATH: manifestPath,
     WAVE3_NATIVE_RACE_PHASE: phase,
     WAVE3_NATIVE_RACE_TARGET: manifestPath,
     WAVE3_NATIVE_RACE_FAULT: fault,
+    ...(guardAnalysisRoot === undefined ? {} : { WAVE3_NATIVE_RACE_ANALYSIS_ROOT: guardAnalysisRoot }),
   };
   assert.equal(Object.hasOwn(environment, 'NODE_OPTIONS'), false, 'child environment must scrub inherited NODE_OPTIONS rather than forwarding ambient preload state');
   return environment;
 }
 
-function spawnWxRaceChild({ harness, actor, manifestPath, phase, preload, fault = 'none', timeline }) {
+function spawnWxRaceChild({
+  harness,
+  actor,
+  manifestPath,
+  phase,
+  preload,
+  fault = 'none',
+  timeline,
+  preloaderPath = harness.preloaderPath,
+  collectorSourceUrl = collectorUrl,
+  childWorkspaceRoot = workspaceRoot,
+  guardAnalysisRoot = undefined,
+}) {
   const args = preload
-    ? ['--require', harness.preloaderPath, harness.runnerPath]
+    ? ['--require', preloaderPath, harness.runnerPath]
     : [harness.runnerPath];
   const child = spawn(process.execPath, args, {
-    cwd: workspaceRoot,
-    env: wxRaceChildEnvironment({ actor, manifestPath, phase, fault }),
+    cwd: childWorkspaceRoot,
+    env: wxRaceChildEnvironment({
+      actor,
+      manifestPath,
+      phase,
+      fault,
+      collectorSourceUrl,
+      childWorkspaceRoot,
+      guardAnalysisRoot,
+    }),
     shell: false,
     windowsHide: true,
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -470,6 +561,65 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
       assert.equal(existsSync(manifestPath), true, 'first capture writes its requested fixed manifest leaf after parent creation');
       assert.equal(JSON.parse(readFileSync(manifestPath, 'utf8')).protectedInput.sha256, manifest.protectedInput.sha256);
     } finally {
+      removeOwnedWorkspace(ownedRoot);
+    }
+  });
+
+  test('SDS-AC-1 rejects a swapped docs junction before any missing analysis parent mutation', { timeout: 115_000 }, async () => {
+    const { ownedRoot, fixtureRoot } = createOwnedWorkspaceWithoutAnalysisParent();
+    const harness = createOwnedWxRaceHarness();
+    const fixtureDocs = path.join(fixtureRoot, 'docs');
+    const renamedFixtureDocs = path.join(ownedRoot, 'docs-before-guard-junction');
+    const externalDocs = path.join(ownedRoot, 'external-docs');
+    const fixtureAnalysisRoot = path.join(fixtureRoot, analysisRootRelativePath);
+    const externalAnalysisRoot = path.join(externalDocs, path.relative('docs', analysisRootRelativePath));
+    const manifestPath = path.join(fixtureAnalysisRoot, 'guard-before-mutation.json');
+    const fixtureCollectorUrl = pathToFileURL(path.join(fixtureRoot, 'tools', 'wave3', 'fair-readmission-closure-v3.mjs')).href;
+    const timeline = [];
+    let actorGuard;
+    try {
+      assert.equal(existsSync(fixtureAnalysisRoot), false, 'the copied workspace starts with the fixed analysis parent absent');
+      assertOwnedWorkspaceDescendant(fixtureDocs, ownedRoot, 'fixture docs swap source');
+      assertOwnedWorkspaceDescendant(renamedFixtureDocs, ownedRoot, 'fixture docs swap backup');
+      assertOwnedWorkspaceDescendant(externalDocs, ownedRoot, 'external junction target');
+      assertOwnedWorkspaceDescendant(fixtureAnalysisRoot, ownedRoot, 'guarded fixture analysis root');
+      assertOwnedWorkspaceDescendant(externalAnalysisRoot, ownedRoot, 'observed external analysis root');
+      actorGuard = spawnWxRaceChild({
+        harness,
+        actor: 'G',
+        manifestPath,
+        phase: 'internal-core-guard-before-mutation',
+        preload: true,
+        preloaderPath: harness.guardPreloaderPath,
+        collectorSourceUrl: fixtureCollectorUrl,
+        childWorkspaceRoot: fixtureRoot,
+        guardAnalysisRoot: fixtureAnalysisRoot,
+        timeline,
+      });
+      await waitForWxRaceEvent(actorGuard, 'initial-lstat-missing', 'guarded initial missing analysis lstat');
+      assert.equal(existsSync(externalAnalysisRoot), false, 'the external junction target is untouched before the controlled docs swap');
+      renameSync(fixtureDocs, renamedFixtureDocs);
+      mkdirSync(externalDocs, { recursive: true });
+      symlinkSync(externalDocs, fixtureDocs, 'junction');
+      releaseWxRaceChild(actorGuard, 0x52);
+
+      const terminal = await waitForWxRaceTerminalEvent(actorGuard, 'guard-before-mutation capture');
+      assert.equal(terminal.event, 'error', `the swapped docs junction must reject during a later reparse guard; transcript=${JSON.stringify(actorGuard.transcript)}`);
+      assert.match(terminal.message, /reparse|link|manifest path/i);
+      assert.deepEqual(await waitForWxRaceExit(actorGuard, 'guard-before-mutation capture'), { code: 1, signal: null });
+      assert.equal(transcriptIndex(timeline, 'G', 'initial-lstat-missing') < transcriptIndex(timeline, 'G', 'release'), true, 'the parent swaps only after the initial missing analysis lstat is gated');
+      assert.deepEqual(
+        [
+          actorGuard.transcript.some(candidate => candidate.event === 'mkdir'),
+          existsSync(externalAnalysisRoot),
+        ],
+        [false, false],
+        'the reparse guard must reject before recursive parent creation can mutate the external junction target',
+      );
+    } finally {
+      if (actorGuard && !actorGuard.released && !actorGuard.exitState) releaseWxRaceChild(actorGuard, 0x52);
+      await Promise.allSettled([actorGuard?.exited].filter(Boolean));
+      removeOwnedWxRaceHarness(harness.ownedRoot);
       removeOwnedWorkspace(ownedRoot);
     }
   });

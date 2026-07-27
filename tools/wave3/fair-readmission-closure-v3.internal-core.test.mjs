@@ -83,6 +83,7 @@ function allowedManifestState(overrides = {}) {
     parentBefore: parentState(),
     parentAfter: parentState({ ctimeMs: 101, mtimeMs: 201 }),
     leafBefore: leafState('missing'),
+    leafWritten: leafState('regular'),
     leafAfter: leafState('regular'),
     ...overrides,
   };
@@ -386,5 +387,16 @@ test('SDS-AC-3 rejects a post-wx manifest leaf replacement before acceptance', a
     })),
     /manifest|leaf|identity|replacement|postflight/i,
     'the postflight leaf must retain the identity returned by the exclusive wx write',
+  );
+});
+
+test('SDS-AC-2 rejects a postflight success attempt without retained-fd leaf identity', async () => {
+  const { evaluateManifestWriteState } = await loadCore();
+  const state = allowedManifestState();
+  delete state.leafWritten;
+  assert.throws(
+    () => evaluateManifestWriteState(state),
+    /manifest|leaf|written|identity|fstat/i,
+    'postflight cannot substitute pathname leaf state for the identity sampled from the retained descriptor',
   );
 });
