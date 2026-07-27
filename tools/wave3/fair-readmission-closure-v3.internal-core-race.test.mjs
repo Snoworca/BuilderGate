@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import test from 'node:test';
@@ -341,20 +341,92 @@ function removeOwnedLeaf(candidate, prefix) {
   if (existsSync(candidate)) unlinkSync(candidate);
 }
 
-function createOwnedWorkspaceWithoutAnalysisParent() {
+function assertFixtureRelativePath(relativePath, label) {
+  assert.equal(typeof relativePath, 'string', `${label} is a string`);
+  assert.equal(relativePath.length > 0 && !path.isAbsolute(relativePath) && !relativePath.includes('..') && !relativePath.startsWith('.git/'), true, `${label} stays within the minimal fixture payload`);
+  return relativePath.replaceAll('/', path.sep);
+}
+
+function copyFixtureRegularFile({ fixtureRoot, relativePath }) {
+  const relativeNativePath = assertFixtureRelativePath(relativePath, 'protected fixture input');
+  const sourcePath = path.resolve(workspaceRoot, relativeNativePath);
+  const destinationPath = path.resolve(fixtureRoot, relativeNativePath);
+  assertOwnedWorkspaceDescendant(destinationPath, fixtureRoot, 'protected fixture destination');
+  const sourceStat = lstatSync(sourcePath);
+  assert.equal(sourceStat.isFile(), true, `protected source input is a regular file: ${relativePath}`);
+  assert.equal(isLinkOrReparsePoint(sourceStat), false, `protected source input is not a link or reparse point: ${relativePath}`);
+  mkdirSync(path.dirname(destinationPath), { recursive: true });
+  const bytes = readFileSync(sourcePath);
+  writeFileSync(destinationPath, bytes, { flag: 'wx' });
+  assert.deepEqual(readFileSync(destinationPath), bytes, `protected fixture input is byte-identical: ${relativePath}`);
+  const destinationStat = lstatSync(destinationPath);
+  assert.equal(destinationStat.isFile(), true, `protected fixture input is copied as a regular file: ${relativePath}`);
+  assert.equal(isLinkOrReparsePoint(destinationStat), false, `protected fixture input is copied without a link or reparse point: ${relativePath}`);
+  return Object.freeze({ path: relativePath.replaceAll(path.sep, '/'), bytes: bytes.length });
+}
+
+async function protectedCaptureManifestInputs() {
+  const prefix = `minimal-native-fixture-seed-${process.pid}-${randomBytes(6).toString('hex')}`;
+  const manifestPath = path.join(analysisRoot, `${prefix}.json`);
+  try {
+    const { captureFrozenProvenance } = await import(collectorUrl);
+    const manifest = captureFrozenProvenance({
+      workspaceRoot,
+      manifestPath,
+      phase: 'minimal-native-fixture-protected-input-seed',
+    });
+    const protectedValue = manifest?.protectedInput?.value;
+    assert.ok(protectedValue && typeof protectedValue === 'object', 'normal seed capture returns its protected manifest value');
+    const protectedRows = [
+      ...(protectedValue.sourceClosureRows ?? []),
+      ...(protectedValue.fixtureRows ?? []),
+      ...(protectedValue.configLockRows ?? []),
+      protectedValue.collector,
+      { path: 'tools/wave3/internal/fair-readmission-closure-v3-internal-core.mjs' },
+    ];
+    const seen = new Set();
+    const inputs = [];
+    for (const row of protectedRows) {
+      const relativePath = row?.path;
+      if (seen.has(relativePath)) continue;
+      seen.add(relativePath);
+      inputs.push(relativePath);
+    }
+    return Object.freeze(inputs.sort((left, right) => left.localeCompare(right)));
+  } finally {
+    removeOwnedLeaf(manifestPath, prefix);
+  }
+}
+
+function initializeMinimalFixtureGit(fixtureRoot) {
+  writeFileSync(path.join(fixtureRoot, '.gitignore'), 'server/config.json5\n', { encoding: 'utf8', flag: 'wx' });
+  runFixtureGit(fixtureRoot, ['init', '--quiet']);
+  runFixtureGit(fixtureRoot, ['config', 'core.longpaths', 'true']);
+  runFixtureGit(fixtureRoot, ['config', 'user.name', 'minimal-native-fixture']);
+  runFixtureGit(fixtureRoot, ['config', 'user.email', 'minimal-native-fixture@example.invalid']);
+  runFixtureGit(fixtureRoot, ['add', '--all']);
+  runFixtureGit(fixtureRoot, ['commit', '--quiet', '--no-gpg-sign', '-m', 'minimal native fixture']);
+}
+
+async function createOwnedWorkspaceWithoutAnalysisParent() {
   const ownedRoot = mkdtempSync(path.join(tmpdir(), 'fair-readmission-missing-parent-'));
   const fixtureRoot = path.join(ownedRoot, 'workspace');
-  const excludedRoot = path.resolve(analysisRoot);
   try {
-    cpSync(workspaceRoot, fixtureRoot, {
-      recursive: true,
-      filter(source) {
-        const resolvedSource = path.resolve(source);
-        if (resolvedSource === excludedRoot || resolvedSource.startsWith(`${excludedRoot}${path.sep}`)) return false;
-        return !path.relative(workspaceRoot, resolvedSource).split(path.sep).includes('node_modules');
-      },
+    mkdirSync(fixtureRoot, { recursive: true });
+    const protectedInputs = await protectedCaptureManifestInputs();
+    const protectedFiles = Object.freeze(protectedInputs.map(relativePath => copyFixtureRegularFile({ fixtureRoot, relativePath })));
+    initializeMinimalFixtureGit(fixtureRoot);
+    const inventory = fixtureRegularFileInventory(fixtureRoot);
+    const fixture = Object.freeze({
+      ownedRoot,
+      fixtureRoot,
+      protectedFiles,
+      inventory,
+      payloadFileCount: protectedFiles.length,
+      payloadByteCount: protectedFiles.reduce((total, file) => total + file.bytes, 0),
     });
-    return Object.freeze({ ownedRoot, fixtureRoot });
+    assertMinimalNativeFixtureParity(fixture);
+    return fixture;
   } catch (error) {
     rmSync(ownedRoot, { recursive: true, force: true });
     throw error;
@@ -367,6 +439,82 @@ function removeOwnedWorkspace(ownedRoot) {
   assert.equal(normalizedRoot.startsWith(normalizedTemp), true, 'fixture cleanup stays within the OS temporary directory');
   assert.equal(path.basename(normalizedRoot).startsWith('fair-readmission-missing-parent-'), true, 'fixture cleanup targets only its mkdtemp root');
   rmSync(normalizedRoot, { recursive: true, force: true });
+}
+
+function fixtureRegularFileInventory(fixtureRoot) {
+  const normalizedRoot = path.resolve(fixtureRoot);
+  const files = [];
+  const visit = candidate => {
+    const normalizedCandidate = path.resolve(candidate);
+    const relative = path.relative(normalizedRoot, normalizedCandidate);
+    assert.equal(relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)), true, 'fixture inventory remains under its owned root');
+    const stat = lstatSync(normalizedCandidate);
+    assert.equal(isLinkOrReparsePoint(stat), false, `fixture inventory rejects link or reparse input: ${relative || '.'}`);
+    if (stat.isFile()) {
+      files.push(Object.freeze({ path: relative.replaceAll(path.sep, '/'), bytes: stat.size }));
+      return;
+    }
+    assert.equal(stat.isDirectory(), true, `fixture inventory accepts only ordinary directories or regular files: ${relative || '.'}`);
+    for (const name of readdirSync(normalizedCandidate, { encoding: 'utf8' }).sort()) visit(path.join(normalizedCandidate, name));
+  };
+  visit(normalizedRoot);
+  return Object.freeze(files.sort((left, right) => left.path.localeCompare(right.path)));
+}
+
+function runFixtureGit(fixtureRoot, args) {
+  return execFileSync('C:\\Program Files\\Git\\cmd\\git.exe', args, {
+    cwd: fixtureRoot,
+    encoding: 'utf8',
+    env: {
+      SystemRoot: process.env.SystemRoot ?? 'C:\\Windows',
+      SystemDrive: process.env.SystemDrive ?? 'C:',
+      ComSpec: process.env.ComSpec ?? 'C:\\Windows\\System32\\cmd.exe',
+      PATH: 'C:\\Windows\\System32;C:\\Windows',
+      PATHEXT: '.COM;.EXE;.BAT;.CMD',
+      LANG: 'C',
+      LC_ALL: 'C',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+}
+
+function assertMinimalNativeFixtureParity({ fixtureRoot, protectedFiles = [], inventory = fixtureRegularFileInventory(fixtureRoot) }) {
+  const fixtureCollector = path.join(fixtureRoot, 'tools', 'wave3', 'fair-readmission-closure-v3.mjs');
+  const fixtureCore = path.join(fixtureRoot, 'tools', 'wave3', 'internal', 'fair-readmission-closure-v3-internal-core.mjs');
+  assert.deepEqual(readFileSync(fixtureCollector), readFileSync(path.join(workspaceRoot, 'tools', 'wave3', 'fair-readmission-closure-v3.mjs')), 'fixture collector bytes remain identical to the source collector');
+  assert.deepEqual(readFileSync(fixtureCore), readFileSync(path.join(workspaceRoot, 'tools', 'wave3', 'internal', 'fair-readmission-closure-v3-internal-core.mjs')), 'fixture internal core bytes remain identical to the source internal module');
+  const expectedPayloadPaths = protectedFiles.map(file => file.path).sort((left, right) => left.localeCompare(right));
+  if (expectedPayloadPaths.length > 0) {
+    assert.deepEqual(
+      inventory.filter(file => !file.path.startsWith('.git/')).map(file => file.path),
+      ['.gitignore', ...expectedPayloadPaths].sort((left, right) => left.localeCompare(right)),
+      'fixture payload contains only the protected capture manifest inputs and its config-lock ignore rule',
+    );
+    for (const { path: relativePath, bytes } of protectedFiles) {
+      const sourcePath = path.join(workspaceRoot, assertFixtureRelativePath(relativePath, 'protected source parity input'));
+      const fixturePath = path.join(fixtureRoot, assertFixtureRelativePath(relativePath, 'protected fixture parity input'));
+      assert.deepEqual(readFileSync(fixturePath), readFileSync(sourcePath), `protected fixture bytes match the source manifest input: ${relativePath}`);
+      assert.equal(lstatSync(fixturePath).size, bytes, `protected fixture byte count remains exact: ${relativePath}`);
+    }
+  }
+  for (const pathName of ['.agents', '.claude', '.codex', 'docs/memory', 'docs/plans', 'kiwi', 'node_modules', 'AGENTS.md', 'CLAUDE.md']) {
+    assert.equal(existsSync(path.join(fixtureRoot, pathName)), false, `fixture excludes unrelated root/log/build payload: ${pathName}`);
+  }
+  const sourceHead = runFixtureGit(workspaceRoot, ['rev-parse', 'HEAD']).trim();
+  const fixtureHead = runFixtureGit(fixtureRoot, ['rev-parse', 'HEAD']).trim();
+  assert.notEqual(fixtureHead, sourceHead, 'fixture Git HEAD is independently initialized rather than copied from the worktree');
+  assert.deepEqual(
+    runFixtureGit(fixtureRoot, ['status', '--porcelain=v1', '--untracked-files=all', '--ignored=matching', '--', 'server/config.json5']).trim().split('\n').filter(Boolean),
+    ['!! server/config.json5'],
+    'fixture config lock remains the exact ignored-untracked Git status row',
+  );
+  assert.deepEqual(
+    runFixtureGit(fixtureRoot, ['ls-files', '--stage', '--', 'server/config.json5']).trim().split('\n').filter(Boolean),
+    [],
+    'fixture config lock remains absent from the Git index',
+  );
+  return inventory;
 }
 
 function assertOwnedWorkspaceDescendant(candidate, ownedRoot, label) {
@@ -643,8 +791,35 @@ async function runNativeWorker() {
 if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race') {
   await runNativeWorker();
 } else {
+  test('SDS-AC-1 requires the native race fixture to exclude copied worktree payload while preserving independent Git parity', { timeout: 115_000 }, async () => {
+    const { ownedRoot, fixtureRoot } = await createOwnedWorkspaceWithoutAnalysisParent();
+    try {
+      assertMinimalNativeFixtureParity({ fixtureRoot });
+    } finally {
+      removeOwnedWorkspace(ownedRoot);
+    }
+  });
+
+  test('SDS-AC-1 fails normal closed capture when a protected minimal-fixture input is absent instead of falling back to the worktree', { timeout: 115_000 }, async () => {
+    const { ownedRoot, fixtureRoot } = await createOwnedWorkspaceWithoutAnalysisParent();
+    const fixtureAnalysisRoot = path.join(fixtureRoot, analysisRootRelativePath);
+    const manifestPath = path.join(fixtureAnalysisRoot, 'missing-protected-input.json');
+    try {
+      unlinkSync(path.join(fixtureRoot, 'server', 'package.json'));
+      const { captureFrozenProvenance } = await import(pathToFileURL(path.join(fixtureRoot, 'tools', 'wave3', 'fair-readmission-closure-v3.mjs')).href);
+      assert.throws(
+        () => captureFrozenProvenance({ workspaceRoot: fixtureRoot, manifestPath, phase: 'minimal-fixture-missing-protected-input' }),
+        /missing config_lock|server[\\/]package\.json|ENOENT/i,
+        'fixture capture must fail from its own missing protected file and never resolve a worktree fallback',
+      );
+      assert.equal(existsSync(manifestPath), false, 'a missing protected fixture input publishes no fallback manifest');
+    } finally {
+      removeOwnedWorkspace(ownedRoot);
+    }
+  });
+
   test('SDS-AC-1 and SDS-AC-3 create an absent fixed analysis parent only after fresh native guard probes at manifest boundaries, then serially reset the fixture for junction admission', { timeout: 115_000 }, async t => {
-    const { ownedRoot, fixtureRoot } = createOwnedWorkspaceWithoutAnalysisParent();
+    const { ownedRoot, fixtureRoot } = await createOwnedWorkspaceWithoutAnalysisParent();
     const harness = createOwnedWxRaceHarness();
     const fixtureDocs = path.join(fixtureRoot, 'docs');
     const renamedFixtureDocs = path.join(ownedRoot, 'docs-before-guard-junction');
