@@ -16,6 +16,10 @@ const internalCoreUrl = new URL('./internal/fair-readmission-closure-v3-internal
 const analysisRootRelativePath = path.join('docs', 'analysis', 'kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3');
 const WX_RACE_PROTOCOL = 'fair-readmission-wx-race-v1';
 const WX_RACE_TIMEOUT_MS = 45_000;
+const FIXTURE_SUPPORT_INPUTS = Object.freeze([
+  'tools/wave3/internal/fair-readmission-closure-v3-internal-core.mjs',
+]);
+let protectedFixtureSeedPromise;
 
 const wxRacePreloaderSource = `'use strict';
 const fs = require('node:fs');
@@ -386,25 +390,57 @@ function assertFixtureRelativePath(relativePath, label) {
   return relativePath.replaceAll('/', path.sep);
 }
 
-function copyFixtureRegularFile({ fixtureRoot, relativePath }) {
-  const relativeNativePath = assertFixtureRelativePath(relativePath, 'protected fixture input');
+function readCurrentProtectedFixtureSource(relativePath, label) {
+  const relativeNativePath = assertFixtureRelativePath(relativePath, label);
   const sourcePath = path.resolve(workspaceRoot, relativeNativePath);
+  const sourceStat = lstatSync(sourcePath);
+  assert.equal(sourceStat.isFile(), true, `${label} is a regular file: ${relativePath}`);
+  assert.equal(isLinkOrReparsePoint(sourceStat), false, `${label} is not a link or reparse point: ${relativePath}`);
+  return readFileSync(sourcePath);
+}
+
+function assertCurrentProtectedFixtureSeedSource(seedInput) {
+  const currentBytes = readCurrentProtectedFixtureSource(seedInput.path, 'protected fixture source manifest input');
+  assert.equal(
+    sha256Bytes(currentBytes),
+    seedInput.sha256,
+    `protected fixture source manifest input SHA-256 matches the closed seed: ${seedInput.path}`,
+  );
+}
+
+function copyFixtureRegularFile({ fixtureRoot, seedInput }) {
+  const { path: relativePath, sha256 } = seedInput;
+  const relativeNativePath = assertFixtureRelativePath(relativePath, 'protected fixture input');
   const destinationPath = path.resolve(fixtureRoot, relativeNativePath);
   assertOwnedWorkspaceDescendant(destinationPath, fixtureRoot, 'protected fixture destination');
-  const sourceStat = lstatSync(sourcePath);
-  assert.equal(sourceStat.isFile(), true, `protected source input is a regular file: ${relativePath}`);
-  assert.equal(isLinkOrReparsePoint(sourceStat), false, `protected source input is not a link or reparse point: ${relativePath}`);
+  assert.equal(Buffer.isBuffer(seedInput.bytes), true, `protected fixture seed bytes are a Buffer: ${relativePath}`);
+  const bytes = Buffer.from(seedInput.bytes);
+  assert.notStrictEqual(bytes, seedInput.bytes, `fixture receives an independent Buffer instance: ${relativePath}`);
+  assert.equal(sha256Bytes(bytes), sha256, `protected fixture seed bytes match their SHA-256: ${relativePath}`);
   mkdirSync(path.dirname(destinationPath), { recursive: true });
-  const bytes = readFileSync(sourcePath);
   writeFileSync(destinationPath, bytes, { flag: 'wx' });
   assert.deepEqual(readFileSync(destinationPath), bytes, `protected fixture input is byte-identical: ${relativePath}`);
   const destinationStat = lstatSync(destinationPath);
   assert.equal(destinationStat.isFile(), true, `protected fixture input is copied as a regular file: ${relativePath}`);
   assert.equal(isLinkOrReparsePoint(destinationStat), false, `protected fixture input is copied without a link or reparse point: ${relativePath}`);
-  return Object.freeze({ path: relativePath.replaceAll(path.sep, '/'), bytes: bytes.length });
+  return Object.freeze({ path: relativePath.replaceAll(path.sep, '/'), bytes: bytes.length, sha256 });
 }
 
-async function protectedCaptureManifestInputs() {
+function addProtectedFixtureSeedRow(rowsByPath, row, label) {
+  const relativePath = row?.path;
+  const sha256 = row?.sha256;
+  const relativeNativePath = assertFixtureRelativePath(relativePath, label);
+  assert.match(sha256, /^[a-f0-9]{64}$/i, `${label} has a SHA-256`);
+  const normalizedPath = relativeNativePath.replaceAll(path.sep, '/');
+  const existing = rowsByPath.get(normalizedPath);
+  if (existing) {
+    assert.equal(existing.sha256, sha256, `${label} has one stable SHA-256 per protected path: ${normalizedPath}`);
+    return;
+  }
+  rowsByPath.set(normalizedPath, Object.freeze({ path: normalizedPath, sha256 }));
+}
+
+async function captureProtectedFixtureSeed() {
   const prefix = `minimal-native-fixture-seed-${process.pid}-${randomBytes(6).toString('hex')}`;
   const manifestPath = path.join(analysisRoot, `${prefix}.json`);
   try {
@@ -421,20 +457,37 @@ async function protectedCaptureManifestInputs() {
       ...(protectedValue.fixtureRows ?? []),
       ...(protectedValue.configLockRows ?? []),
       protectedValue.collector,
-      { path: 'tools/wave3/internal/fair-readmission-closure-v3-internal-core.mjs' },
     ];
-    const seen = new Set();
-    const inputs = [];
+    const rowsByPath = new Map();
     for (const row of protectedRows) {
-      const relativePath = row?.path;
-      if (seen.has(relativePath)) continue;
-      seen.add(relativePath);
-      inputs.push(relativePath);
+      addProtectedFixtureSeedRow(rowsByPath, row, 'protected root manifest row');
     }
-    return Object.freeze(inputs.sort((left, right) => left.localeCompare(right)));
+    for (const relativePath of FIXTURE_SUPPORT_INPUTS) {
+      if (rowsByPath.has(relativePath)) continue;
+      const bytes = readCurrentProtectedFixtureSource(relativePath, 'fixture support input');
+      rowsByPath.set(relativePath, Object.freeze({ path: relativePath, sha256: sha256Bytes(bytes) }));
+    }
+    return Object.freeze([...rowsByPath.values()]
+      .sort((left, right) => left.path.localeCompare(right.path))
+      .map(({ path: relativePath, sha256 }) => {
+        const bytes = readCurrentProtectedFixtureSource(relativePath, 'protected root manifest input');
+        assert.equal(sha256Bytes(bytes), sha256, `protected root manifest input bytes match the manifest SHA-256: ${relativePath}`);
+        return Object.freeze({ path: relativePath, bytes: Buffer.from(bytes), sha256 });
+      }));
   } finally {
     removeOwnedLeaf(manifestPath, prefix);
   }
+}
+
+function protectedCaptureManifestInputs() {
+  if (!protectedFixtureSeedPromise) {
+    const seedPromise = captureProtectedFixtureSeed();
+    protectedFixtureSeedPromise = seedPromise;
+    seedPromise.catch(() => {
+      if (protectedFixtureSeedPromise === seedPromise) protectedFixtureSeedPromise = undefined;
+    });
+  }
+  return protectedFixtureSeedPromise;
 }
 
 function initializeMinimalFixtureGit(fixtureRoot) {
@@ -452,8 +505,9 @@ async function createOwnedWorkspaceWithoutAnalysisParent() {
   const fixtureRoot = path.join(ownedRoot, 'workspace');
   try {
     mkdirSync(fixtureRoot, { recursive: true });
-    const protectedInputs = await protectedCaptureManifestInputs();
-    const protectedFiles = Object.freeze(protectedInputs.map(relativePath => copyFixtureRegularFile({ fixtureRoot, relativePath })));
+    const protectedSeed = await protectedCaptureManifestInputs();
+    for (const seedInput of protectedSeed) assertCurrentProtectedFixtureSeedSource(seedInput);
+    const protectedFiles = Object.freeze(protectedSeed.map(seedInput => copyFixtureRegularFile({ fixtureRoot, seedInput })));
     initializeMinimalFixtureGit(fixtureRoot);
     const inventory = fixtureRegularFileInventory(fixtureRoot);
     const fixture = Object.freeze({
@@ -521,8 +575,18 @@ function runFixtureGit(fixtureRoot, args) {
 function assertMinimalNativeFixtureParity({ fixtureRoot, protectedFiles = [], inventory = fixtureRegularFileInventory(fixtureRoot) }) {
   const fixtureCollector = path.join(fixtureRoot, 'tools', 'wave3', 'fair-readmission-closure-v3.mjs');
   const fixtureCore = path.join(fixtureRoot, 'tools', 'wave3', 'internal', 'fair-readmission-closure-v3-internal-core.mjs');
-  assert.deepEqual(readFileSync(fixtureCollector), readFileSync(path.join(workspaceRoot, 'tools', 'wave3', 'fair-readmission-closure-v3.mjs')), 'fixture collector bytes remain identical to the source collector');
-  assert.deepEqual(readFileSync(fixtureCore), readFileSync(path.join(workspaceRoot, 'tools', 'wave3', 'internal', 'fair-readmission-closure-v3-internal-core.mjs')), 'fixture internal core bytes remain identical to the source internal module');
+  const protectedFileByPath = new Map(protectedFiles.map(file => [file.path, file]));
+  for (const [fixturePath, protectedPath, label] of [
+    [fixtureCollector, 'tools/wave3/fair-readmission-closure-v3.mjs', 'fixture collector'],
+    [fixtureCore, 'tools/wave3/internal/fair-readmission-closure-v3-internal-core.mjs', 'fixture internal core'],
+  ]) {
+    const protectedFile = protectedFileByPath.get(protectedPath);
+    if (protectedFile) {
+      assert.equal(sha256Bytes(readFileSync(fixturePath)), protectedFile.sha256, `${label} bytes remain identical to the immutable seed`);
+    } else {
+      assert.deepEqual(readFileSync(fixturePath), readFileSync(path.join(workspaceRoot, protectedPath)), `${label} bytes remain identical to the source module`);
+    }
+  }
   const expectedPayloadPaths = protectedFiles.map(file => file.path).sort((left, right) => left.localeCompare(right));
   if (expectedPayloadPaths.length > 0) {
     assert.deepEqual(
@@ -530,10 +594,9 @@ function assertMinimalNativeFixtureParity({ fixtureRoot, protectedFiles = [], in
       ['.gitignore', ...expectedPayloadPaths].sort((left, right) => left.localeCompare(right)),
       'fixture payload contains only the protected capture manifest inputs and its config-lock ignore rule',
     );
-    for (const { path: relativePath, bytes } of protectedFiles) {
-      const sourcePath = path.join(workspaceRoot, assertFixtureRelativePath(relativePath, 'protected source parity input'));
+    for (const { path: relativePath, bytes, sha256 } of protectedFiles) {
       const fixturePath = path.join(fixtureRoot, assertFixtureRelativePath(relativePath, 'protected fixture parity input'));
-      assert.deepEqual(readFileSync(fixturePath), readFileSync(sourcePath), `protected fixture bytes match the source manifest input: ${relativePath}`);
+      assert.equal(sha256Bytes(readFileSync(fixturePath)), sha256, `protected fixture bytes match the immutable seed: ${relativePath}`);
       assert.equal(lstatSync(fixturePath).size, bytes, `protected fixture byte count remains exact: ${relativePath}`);
     }
   }
