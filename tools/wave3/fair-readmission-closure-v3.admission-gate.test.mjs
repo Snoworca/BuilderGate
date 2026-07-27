@@ -19,6 +19,7 @@ const fixedClosureTests = [
   'tools/wave3/fair-readmission-closure-v3.boundary.test.mjs',
   'tools/wave3/fair-readmission-closure-v3.boundary-gate.test.mjs',
   'tools/wave3/fair-readmission-closure-v3.admission.test.mjs',
+  'tools/wave3/fair-readmission-closure-v3.manifest-race.test.mjs',
 ];
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(testDirectory, '..', '..');
