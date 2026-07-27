@@ -22,6 +22,14 @@ const fixedClosureTests = [
   'tools/wave3/fair-readmission-closure-v3.manifest-race.test.mjs',
   'tools/wave3/fair-readmission-closure-v3.trust.test.mjs',
   'tools/wave3/fair-readmission-closure-v3.trust-race.test.mjs',
+  'tools/wave3/fair-readmission-closure-v3.seal.test.mjs',
+  'tools/wave3/fair-readmission-closure-v3.seal-race.test.mjs',
+  'tools/wave3/fair-readmission-closure-v3.lexical.test.mjs',
+  'tools/wave3/fair-readmission-closure-v3.lexical-race.test.mjs',
+];
+const requiredLexicalSuites = [
+  'tools/wave3/fair-readmission-closure-v3.lexical.test.mjs',
+  'tools/wave3/fair-readmission-closure-v3.lexical-race.test.mjs',
 ];
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(testDirectory, '..', '..');
@@ -37,6 +45,9 @@ test('SDS-AC-4 runs the fixed nonrecursive closure gate with boundary and admiss
   assert.equal(fixedClosureTests.includes(`tools/wave3/${self}`), false, 'the gate must exclude only itself to prevent recursion');
   assert.equal(fixedClosureTests.includes('tools/wave3/fair-readmission-closure-v3.boundary.test.mjs'), true);
   assert.equal(fixedClosureTests.includes('tools/wave3/fair-readmission-closure-v3.admission.test.mjs'), true);
+  for (const suite of requiredLexicalSuites) {
+    assert.equal(fixedClosureTests.includes(suite), true, `the fixed combined gate must execute ${suite}`);
+  }
   assert.deepEqual([...fixedClosureTests].sort(), discovered, 'every closure suite other than this combined gate must be covered');
 
   const startedAt = Date.now();

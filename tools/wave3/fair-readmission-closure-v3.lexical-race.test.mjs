@@ -13,6 +13,15 @@ const analysisRoot = path.join(
   'analysis',
   'kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3',
 );
+const dynamicImportSources = [
+  'server/src/ws/FairTerminalDeliveryScheduler.test.ts',
+  'server/src/ws/WsRouterSendPriority.test.ts',
+  'server/src/services/TerminalResourcePolicyCanary.test.ts',
+];
+const dynamicImportTargets = [
+  'server/src/ws/wsSendPolicy.ts',
+  'server/src/services/TerminalResourcePolicyCanary.ts',
+];
 
 function assertOwnedLeaf(candidate, prefix) {
   const resolvedCandidate = path.resolve(candidate);
@@ -41,7 +50,18 @@ function waitForMessages(messages, predicate, label, timeoutMs = 30_000) {
   });
 }
 
-async function runNativeSealWorker() {
+function assertDynamicClosureRows(manifest) {
+  const sourcePaths = new Set(manifest.protectedInput.value.sourceClosureRows.map(row => row.path));
+  for (const sourcePath of [...dynamicImportSources, ...dynamicImportTargets]) {
+    assert.equal(
+      sourcePaths.has(sourcePath),
+      true,
+      `default frozen capture must retain ${sourcePath} while resolving the sixteen proved runtime import(identifier) occurrences`,
+    );
+  }
+}
+
+async function runNativeLexicalWorker() {
   const { index, manifestPath, barrier, collectorUrl } = workerData;
   const control = new Int32Array(barrier);
   try {
@@ -53,8 +73,9 @@ async function runNativeSealWorker() {
     const manifest = captureFrozenProvenance({
       workspaceRoot,
       manifestPath,
-      phase: `seal-native-worker-${index}`,
+      phase: `lexical-native-worker-${index}`,
     });
+    assertDynamicClosureRows(manifest);
     parentPort.postMessage({
       phase: 'captured',
       index,
@@ -71,11 +92,11 @@ async function runNativeSealWorker() {
   }
 }
 
-if (!isMainThread && workerData?.kind === 'fair-readmission-seal-race') {
-  await runNativeSealWorker();
+if (!isMainThread && workerData?.kind === 'fair-readmission-lexical-race') {
+  await runNativeLexicalWorker();
 } else {
-  test('SDS-AC-4 observes a native Worker ready/release/captured protocol and creator-owned cleanup', { timeout: 115_000 }, async () => {
-    const prefix = `seal-native-race-${process.pid}-${Date.now()}-${randomBytes(8).toString('hex')}`;
+  test('SDS-AC-4 observes a native Worker barrier and default frozen closure for all sixteen proved dynamic imports', { timeout: 115_000 }, async () => {
+    const prefix = `lexical-native-race-${process.pid}-${Date.now()}-${randomBytes(8).toString('hex')}`;
     const leaves = [
       path.join(analysisRoot, `${prefix}-one.json`),
       path.join(analysisRoot, `${prefix}-two.json`),
@@ -85,7 +106,7 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-seal-race') {
     const messages = [];
     const workers = leaves.map((manifestPath, index) => new Worker(new URL(import.meta.url), {
       workerData: {
-        kind: 'fair-readmission-seal-race',
+        kind: 'fair-readmission-lexical-race',
         index,
         manifestPath,
         barrier,
@@ -100,8 +121,8 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-seal-race') {
 
     try {
       await waitForMessages(messages, () => messages.filter(message => message.phase === 'ready').length === workers.length, 'both native Worker ready acknowledgements');
-      assert.equal(Atomics.load(control, 0), workers.length, 'each worker must reach the shared release barrier before either capture begins');
-      assert.deepEqual(messages.filter(message => message.phase === 'captured'), [], 'neither capture may run before the creator releases the barrier');
+      assert.equal(Atomics.load(control, 0), workers.length, 'each worker must reach the shared release barrier before either default capture begins');
+      assert.deepEqual(messages.filter(message => message.phase === 'captured'), [], 'neither default capture may run before the creator releases the barrier');
 
       Atomics.store(control, 1, 1);
       Atomics.notify(control, 1, workers.length);
@@ -109,18 +130,18 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-seal-race') {
         messages,
         () => messages.filter(message => message.phase === 'captured').length === workers.length
           || messages.some(message => message.phase === 'error' || message.phase === 'worker-error'),
-        'both native Worker capture acknowledgements or a surfaced worker failure',
+        'both native Worker default-capture acknowledgements or a surfaced worker failure',
         100_000,
       );
 
-      assert.deepEqual(messages.filter(message => message.phase === 'error'), [], 'the native worker protocol must not hide capture errors');
-      assert.deepEqual(messages.filter(message => message.phase === 'worker-error'), [], 'the native worker protocol must surface no worker runtime errors');
+      assert.deepEqual(messages.filter(message => message.phase === 'error'), [], 'the native lexical worker protocol must not hide capture errors');
+      assert.deepEqual(messages.filter(message => message.phase === 'worker-error'), [], 'the native lexical worker protocol must surface no worker runtime errors');
       const exitCodes = await Promise.all(exits);
-      assert.deepEqual(exitCodes, [0, 0], 'both native Worker captures must exit cleanly');
+      assert.deepEqual(exitCodes, [0, 0], 'both native Worker default captures must exit cleanly');
       assert.equal(new Set(leaves.map(candidate => path.resolve(candidate))).size, leaves.length, 'each worker must own a distinct manifest leaf');
       for (const [index, leaf] of leaves.entries()) {
         assert.equal(existsSync(leaf), true, `worker ${index} must create its distinct owned leaf`);
-        assert.equal(JSON.parse(readFileSync(leaf, 'utf8')).phase, `seal-native-worker-${index}`, `worker ${index} must retain its own capture phase`);
+        assert.equal(JSON.parse(readFileSync(leaf, 'utf8')).phase, `lexical-native-worker-${index}`, `worker ${index} must retain its own capture phase`);
       }
     } finally {
       Atomics.store(control, 1, 1);
