@@ -43,6 +43,7 @@ let fstatObserved = false;
 let postflightObserved = false;
 let replacementBytes = null;
 let closeCount = 0;
+let allowReplacementNativeOpen = false;
 
 function emit(event, extra) {
   fs.writeSync(1, JSON.stringify(Object.assign({
@@ -80,10 +81,13 @@ function releaseAfterDelegatedFdWrite() {
       return;
     }
     try {
+      allowReplacementNativeOpen = true;
       originalWriteFileSync.call(fs, target, replacementBytes, { flag: 'wx' });
       emit('replaced');
     } catch (error) {
       emit('replacement-partial', { stage: 'rewrite', code: error?.code ?? 'UNKNOWN' });
+    } finally {
+      allowReplacementNativeOpen = false;
     }
   } else if (release[0] !== 0x50 && release[0] !== 0x52) {
     throw new Error('fd race preloader received an invalid release byte');
@@ -92,7 +96,7 @@ function releaseAfterDelegatedFdWrite() {
 }
 
 fs.openSync = function trackExactNonceOpen(candidate, flags) {
-  if (!isExactTarget(candidate) || !isWxFlag(flags)) {
+  if (!isExactTarget(candidate) || !isWxFlag(flags) || trackedFd !== null || allowReplacementNativeOpen) {
     return originalOpenSync.apply(fs, arguments);
   }
   try {
