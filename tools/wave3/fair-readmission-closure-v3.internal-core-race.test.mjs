@@ -1174,7 +1174,7 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
       for (const [index, leaf] of leaves.entries()) {
         const manifest = JSON.parse(readFileSync(leaf, 'utf8'));
         assert.equal(manifest.phase, `fixture-native-worker-${index}`);
-        assert.equal(manifest.collector.sha256, sha256Bytes(readFileSync(path.join(fixtureRoot, 'tools', 'wave3', 'fair-readmission-closure-v3.mjs'))), 'fixture worker manifest records the fixture collector bytes');
+        assert.equal(manifest.protectedInput.value.collector.sha256, sha256Bytes(readFileSync(path.join(fixtureRoot, 'tools', 'wave3', 'fair-readmission-closure-v3.mjs'))), 'fixture worker manifest records the fixture collector bytes');
       }
       for (const leaf of originalRootLeaves) assert.equal(existsSync(leaf), false, 'the worker must never publish its fixture manifest in the original workspace');
     } finally {
