@@ -384,6 +384,28 @@ async function withSyntheticRootSourceDrift(relativePath, run) {
   }
 }
 
+async function withPostCopySyntheticRootSourceDrift(relativePath, run) {
+  const originalReadFileSync = readFileSync;
+  const sourcePath = path.resolve(workspaceRoot, assertFixtureRelativePath(relativePath, 'post-copy synthetic root source drift path'));
+  const changedBytes = Buffer.from(`${originalReadFileSync(sourcePath)}\n`, 'utf8');
+  const nodeFs = await import('node:fs');
+  let sourceReadCount = 0;
+  nodeFs.default.readFileSync = function synthesizePostCopyRootSourceDrift(candidate) {
+    if (typeof candidate === 'string' && path.resolve(candidate) === sourcePath) {
+      sourceReadCount += 1;
+      if (sourceReadCount > 1) return Buffer.from(changedBytes);
+    }
+    return originalReadFileSync.apply(this, arguments);
+  };
+  syncBuiltinESMExports();
+  try {
+    return await run();
+  } finally {
+    nodeFs.default.readFileSync = originalReadFileSync;
+    syncBuiltinESMExports();
+  }
+}
+
 function assertFixtureRelativePath(relativePath, label) {
   assert.equal(typeof relativePath, 'string', `${label} is a string`);
   assert.equal(relativePath.length > 0 && !path.isAbsolute(relativePath) && !relativePath.includes('..') && !relativePath.startsWith('.git/'), true, `${label} stays within the minimal fixture payload`);
@@ -929,6 +951,21 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
         () => withSyntheticRootSourceDrift('server/package.json', () => createOwnedWorkspaceWithoutAnalysisParent()),
         /protected fixture bytes match|source manifest input|seed|sha-?256|parity/i,
         'root source drift after seed discovery must reject rather than create a fixture from a stale protected-input seed',
+      );
+    } finally {
+      if (baselineFixture) removeOwnedWorkspace(baselineFixture.ownedRoot);
+    }
+  });
+
+  test('SDS-AC-1 rejects root source drift after byte copy and independent fixture Git setup before return', { timeout: 115_000 }, async () => {
+    let baselineFixture;
+    try {
+      baselineFixture = await createOwnedWorkspaceWithoutAnalysisParent();
+      assertMinimalNativeFixtureParity(baselineFixture);
+      await assert.rejects(
+        () => withPostCopySyntheticRootSourceDrift('server/package.json', () => createOwnedWorkspaceWithoutAnalysisParent()),
+        /protected fixture bytes match|source manifest input|seed|sha-?256|parity/i,
+        'root source drift that starts after the pre-copy source check must reject before the fixture can return',
       );
     } finally {
       if (baselineFixture) removeOwnedWorkspace(baselineFixture.ownedRoot);
