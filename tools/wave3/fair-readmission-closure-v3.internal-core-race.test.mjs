@@ -661,6 +661,25 @@ function assertMinimalNativeFixtureParity({ fixtureRoot, protectedFiles = [], in
   return inventory;
 }
 
+function assertLightweightFixtureScenarioInvariant({ fixtureRoot, fixtureAnalysisRoot, ownedLeaves }) {
+  const normalizedAnalysisRoot = assertFixedFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, 'lightweight fixture scenario invariant');
+  assert.equal(existsSync(normalizedAnalysisRoot), false, 'lightweight fixture scenario invariant leaves the fixed analysis root absent');
+  for (const ownedLeaf of ownedLeaves) {
+    assertOwnedWorkspaceDescendant(ownedLeaf, normalizedAnalysisRoot, 'lightweight fixture scenario manifest leaf');
+    assert.equal(existsSync(ownedLeaf), false, 'lightweight fixture scenario leaves every owned manifest leaf absent');
+  }
+  assert.deepEqual(
+    runFixtureGit(fixtureRoot, ['status', '--porcelain=v1', '--untracked-files=all', '--ignored=matching']).trim().split('\n').filter(Boolean),
+    ['!! server/config.json5'],
+    'lightweight fixture Git porcelain contains only the ignored config lock',
+  );
+  assert.deepEqual(
+    runFixtureGit(fixtureRoot, ['ls-files', '--stage', '--', 'server/config.json5']).trim().split('\n').filter(Boolean),
+    [],
+    'lightweight fixture Git index keeps the config lock absent',
+  );
+}
+
 function assertOwnedWorkspaceDescendant(candidate, ownedRoot, label) {
   const normalizedCandidate = path.resolve(candidate);
   const normalizedRoot = `${path.resolve(ownedRoot)}${path.sep}`;
@@ -1058,120 +1077,6 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
     }
   });
 
-  test('SDS-AC-3 keeps an ordinary fixture analysis parent when an owned manifest leaf is already absent', { timeout: 115_000 }, async () => {
-    const { ownedRoot, fixtureRoot } = await createOwnedWorkspaceWithoutAnalysisParent();
-    const fixtureAnalysisRoot = path.join(fixtureRoot, analysisRootRelativePath);
-    const absentManifestPath = path.join(fixtureAnalysisRoot, `already-absent-owned-leaf-${process.pid}-${randomBytes(6).toString('hex')}.json`);
-    try {
-      mkdirSync(fixtureAnalysisRoot, { recursive: true });
-      assert.equal(existsSync(absentManifestPath), false, 'the focused cleanup input starts with its owned fixture manifest leaf already absent');
-      const initialParentStat = lstatSync(fixtureAnalysisRoot);
-      assert.equal(initialParentStat.isDirectory(), true, 'the focused cleanup input has an ordinary fixture analysis parent');
-      assert.equal(isLinkOrReparsePoint(initialParentStat), false, 'the focused cleanup input parent is neither a link nor a reparse point');
-
-      removeOwnedFixtureManifestLeaf(fixtureRoot, fixtureAnalysisRoot, absentManifestPath);
-
-      assert.equal(existsSync(absentManifestPath), false, 'an absent owned manifest leaf remains absent after leaf-only cleanup');
-      const retainedParentStat = lstatSync(fixtureAnalysisRoot);
-      assert.equal(retainedParentStat.isDirectory(), true, 'leaf-only cleanup retains the ordinary fixture analysis parent');
-      assert.equal(isLinkOrReparsePoint(retainedParentStat), false, 'leaf-only cleanup retains a non-reparse fixture analysis parent');
-    } finally {
-      removeOwnedWorkspace(ownedRoot);
-    }
-  });
-
-  test('SDS-AC-3 preserves an earlier missing-parent capture failure when successful-capture cleanup is skipped', { timeout: 115_000 }, async () => {
-    const { ownedRoot, fixtureRoot } = await createOwnedWorkspaceWithoutAnalysisParent();
-    const fixtureAnalysisRoot = path.join(fixtureRoot, analysisRootRelativePath);
-    const absentManifestPath = path.join(fixtureAnalysisRoot, `capture-failed-before-parent-${process.pid}-${randomBytes(6).toString('hex')}.json`);
-    const originalCaptureError = new Error('injected earlier missing-parent capture failure');
-    try {
-      assert.equal(existsSync(fixtureAnalysisRoot), false, 'an earlier missing-parent failure leaves the fixture analysis parent absent');
-      assert.equal(existsSync(absentManifestPath), false, 'an earlier missing-parent failure leaves its owned manifest leaf absent');
-      let observedError;
-      try {
-        try {
-          throw originalCaptureError;
-        } finally {
-          cleanupFixtureManifestAfterSuccessfulCapture({
-            didCapture: false,
-            fixtureRoot,
-            fixtureAnalysisRoot,
-            manifestPath: absentManifestPath,
-          });
-        }
-      } catch (error) {
-        observedError = error;
-      }
-      assert.strictEqual(observedError, originalCaptureError, 'successful-capture-only cleanup must not replace an earlier capture failure');
-      assert.equal(existsSync(fixtureAnalysisRoot), false, 'skipped successful-capture cleanup must not create or require the absent fixture analysis parent');
-      assert.equal(existsSync(absentManifestPath), false, 'skipped successful-capture cleanup must leave the absent owned manifest leaf untouched');
-    } finally {
-      removeOwnedWorkspace(ownedRoot);
-    }
-  });
-
-  test('SDS-AC-1 lightweight fixture scenario invariant rejects tracked fixture mutation after proving clean owned state', { timeout: 115_000 }, () => {
-    const ownedRoot = mkdtempSync(path.join(tmpdir(), 'fair-readmission-missing-parent-'));
-    const fixtureRoot = path.join(ownedRoot, 'workspace');
-    const fixtureAnalysisRoot = path.join(fixtureRoot, analysisRootRelativePath);
-    const ownedLeaf = path.join(fixtureAnalysisRoot, `lightweight-invariant-${process.pid}-${randomBytes(6).toString('hex')}.json`);
-    const trackedFixturePath = path.join(fixtureRoot, 'tracked-fixture-input.txt');
-    try {
-      mkdirSync(fixtureRoot, { recursive: true });
-      writeFileSync(trackedFixturePath, 'fixture input before commit\n', { encoding: 'utf8', flag: 'wx' });
-      initializeMinimalFixtureGit(fixtureRoot);
-      mkdirSync(path.join(fixtureRoot, 'server'), { recursive: true });
-      writeFileSync(path.join(fixtureRoot, 'server', 'config.json5'), '{}\n', { encoding: 'utf8', flag: 'wx' });
-      assert.equal(existsSync(fixtureAnalysisRoot), false, 'the lightweight invariant fixture starts without its fixed analysis root');
-      assert.equal(existsSync(ownedLeaf), false, 'the lightweight invariant fixture starts without its owned manifest leaf');
-
-      assertLightweightFixtureScenarioInvariant({
-        fixtureRoot,
-        fixtureAnalysisRoot,
-        ownedLeaves: [ownedLeaf],
-      });
-
-      writeFileSync(trackedFixturePath, 'fixture input after mutation\n', { encoding: 'utf8', flag: 'w' });
-      assert.throws(
-        () => assertLightweightFixtureScenarioInvariant({
-          fixtureRoot,
-          fixtureAnalysisRoot,
-          ownedLeaves: [ownedLeaf],
-        }),
-        /fixture Git|porcelain|tracked/i,
-        'the lightweight invariant must immediately reject a modified tracked fixture file',
-      );
-
-      writeFileSync(trackedFixturePath, 'fixture input before commit\n', { encoding: 'utf8', flag: 'w' });
-      const unexpectedFixturePath = path.join(fixtureRoot, 'unexpected-fixture-leaf.txt');
-      writeFileSync(unexpectedFixturePath, 'unexpected fixture content\n', { encoding: 'utf8', flag: 'wx' });
-      assert.throws(
-        () => assertLightweightFixtureScenarioInvariant({
-          fixtureRoot,
-          fixtureAnalysisRoot,
-          ownedLeaves: [ownedLeaf],
-        }),
-        /fixture Git|porcelain|untracked/i,
-        'the lightweight invariant must reject a whole-fixture untracked file instead of checking only the config path',
-      );
-
-      unlinkSync(unexpectedFixturePath);
-      runFixtureGit(fixtureRoot, ['add', '--force', 'server/config.json5']);
-      assert.throws(
-        () => assertLightweightFixtureScenarioInvariant({
-          fixtureRoot,
-          fixtureAnalysisRoot,
-          ownedLeaves: [ownedLeaf],
-        }),
-        /fixture Git|index|config/i,
-        'the lightweight invariant must reject an ignored config lock that has entered the fixture Git index',
-      );
-    } finally {
-      removeOwnedWorkspace(ownedRoot);
-    }
-  });
-
   test('SDS-AC-1 and SDS-AC-3 create an absent fixed analysis parent only after fresh native guard probes at manifest boundaries, then serially reset the fixture for junction admission', { timeout: 115_000 }, async t => {
     const fixture = await createOwnedWorkspaceWithoutAnalysisParent();
     const { ownedRoot, fixtureRoot } = fixture;
@@ -1184,6 +1089,71 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
     const firstManifestPrefix = `missing-parent-first-capture-${process.pid}-${randomBytes(6).toString('hex')}`;
     const firstManifestPath = path.join(fixtureAnalysisRoot, `${firstManifestPrefix}.json`);
     try {
+      await t.test('SDS-AC-1 lightweight fixture scenario invariant rejects tracked fixture mutation after proving clean owned state', { timeout: 115_000 }, () => {
+        const ownedLeaf = path.join(fixtureAnalysisRoot, `lightweight-invariant-${process.pid}-${randomBytes(6).toString('hex')}.json`);
+        const trackedFixtureFile = fixture.protectedFiles.find(file => file.path !== 'server/config.json5');
+        assert.notEqual(trackedFixtureFile, undefined, 'the physical fixture contains a protected tracked file for lightweight invariant mutation');
+        const trackedFixturePath = path.join(fixtureRoot, assertFixtureRelativePath(trackedFixtureFile.path, 'lightweight invariant tracked fixture path'));
+        const originalTrackedBytes = readFileSync(trackedFixturePath);
+        const unexpectedFixturePath = path.join(fixtureRoot, 'unexpected-fixture-leaf.txt');
+        let configIndexed = false;
+        try {
+          assert.equal(existsSync(fixtureAnalysisRoot), false, 'the lightweight invariant fixture starts without its fixed analysis root');
+          assert.equal(existsSync(ownedLeaf), false, 'the lightweight invariant fixture starts without its owned manifest leaf');
+
+          assertLightweightFixtureScenarioInvariant({
+            fixtureRoot,
+            fixtureAnalysisRoot,
+            ownedLeaves: [ownedLeaf],
+          });
+
+          writeFileSync(trackedFixturePath, Buffer.concat([originalTrackedBytes, Buffer.from('lightweight tracked mutation\n')]), { flag: 'w' });
+          assert.throws(
+            () => assertLightweightFixtureScenarioInvariant({
+              fixtureRoot,
+              fixtureAnalysisRoot,
+              ownedLeaves: [ownedLeaf],
+            }),
+            /fixture Git|porcelain|tracked/i,
+            'the lightweight invariant must immediately reject a modified tracked fixture file',
+          );
+
+          writeFileSync(trackedFixturePath, originalTrackedBytes, { flag: 'w' });
+          writeFileSync(unexpectedFixturePath, 'unexpected fixture content\n', { encoding: 'utf8', flag: 'wx' });
+          assert.throws(
+            () => assertLightweightFixtureScenarioInvariant({
+              fixtureRoot,
+              fixtureAnalysisRoot,
+              ownedLeaves: [ownedLeaf],
+            }),
+            /fixture Git|porcelain|untracked/i,
+            'the lightweight invariant must reject a whole-fixture untracked file instead of checking only the config path',
+          );
+
+          unlinkSync(unexpectedFixturePath);
+          runFixtureGit(fixtureRoot, ['add', '--force', 'server/config.json5']);
+          configIndexed = true;
+          assert.throws(
+            () => assertLightweightFixtureScenarioInvariant({
+              fixtureRoot,
+              fixtureAnalysisRoot,
+              ownedLeaves: [ownedLeaf],
+            }),
+            /fixture Git|index|config/i,
+            'the lightweight invariant must reject an ignored config lock that has entered the fixture Git index',
+          );
+        } finally {
+          if (existsSync(unexpectedFixturePath)) unlinkSync(unexpectedFixturePath);
+          writeFileSync(trackedFixturePath, originalTrackedBytes, { flag: 'w' });
+          if (configIndexed) runFixtureGit(fixtureRoot, ['reset', '--quiet', '--', 'server/config.json5']);
+          assertLightweightFixtureScenarioInvariant({
+            fixtureRoot,
+            fixtureAnalysisRoot,
+            ownedLeaves: [ownedLeaf],
+          });
+        }
+      });
+
       await t.test('SDS-AC-1 and SDS-AC-3 create an absent fixed analysis parent only after fresh native guard probes at manifest boundaries', async () => {
         const timeline = [];
         let actorGuard;
@@ -1232,6 +1202,25 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
             manifestPath: firstManifestPath,
           });
         }
+      });
+
+      await t.test('SDS-AC-3 keeps an ordinary fixture analysis parent when an owned manifest leaf is already absent', { timeout: 115_000 }, () => {
+        assert.equal(existsSync(firstManifestPath), false, 'the focused cleanup input starts with its owned fixture manifest leaf already absent');
+        const initialParentStat = lstatSync(fixtureAnalysisRoot);
+        assert.equal(initialParentStat.isDirectory(), true, 'the focused cleanup input has an ordinary fixture analysis parent');
+        assert.equal(isLinkOrReparsePoint(initialParentStat), false, 'the focused cleanup input parent is neither a link nor a reparse point');
+
+        cleanupFixtureManifestAfterSuccessfulCapture({
+          didCapture: true,
+          fixtureRoot,
+          fixtureAnalysisRoot,
+          manifestPath: firstManifestPath,
+        });
+
+        assert.equal(existsSync(firstManifestPath), false, 'an absent owned manifest leaf remains absent after leaf-only cleanup');
+        const retainedParentStat = lstatSync(fixtureAnalysisRoot);
+        assert.equal(retainedParentStat.isDirectory(), true, 'leaf-only cleanup retains the ordinary fixture analysis parent');
+        assert.equal(isLinkOrReparsePoint(retainedParentStat), false, 'leaf-only cleanup retains a non-reparse fixture analysis parent');
       });
 
       await t.test('SDS-AC-3 runs both native barrier workers only through one owned fixture collector after missing-parent admission, then resets its analysis root', async () => {
@@ -1305,8 +1294,33 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
           removeFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, leaves[0]);
           for (const leaf of leaves) assert.equal(existsSync(leaf), false, 'fixture worker reset removes every worker-owned fixture leaf');
           for (const leaf of originalRootLeaves) removeOwnedLeaf(leaf, prefix);
-          assertMinimalNativeFixtureParity({ fixtureRoot, protectedFiles: fixture.protectedFiles });
+          assertLightweightFixtureScenarioInvariant({ fixtureRoot, fixtureAnalysisRoot, ownedLeaves: leaves });
         }
+      });
+
+      await t.test('SDS-AC-3 preserves an earlier missing-parent capture failure when successful-capture cleanup is skipped', { timeout: 115_000 }, () => {
+        const absentManifestPath = path.join(fixtureAnalysisRoot, `capture-failed-before-parent-${process.pid}-${randomBytes(6).toString('hex')}.json`);
+        const originalCaptureError = new Error('injected earlier missing-parent capture failure');
+        assert.equal(existsSync(fixtureAnalysisRoot), false, 'an earlier missing-parent failure leaves the fixture analysis parent absent');
+        assert.equal(existsSync(absentManifestPath), false, 'an earlier missing-parent failure leaves its owned manifest leaf absent');
+        let observedError;
+        try {
+          try {
+            throw originalCaptureError;
+          } finally {
+            cleanupFixtureManifestAfterSuccessfulCapture({
+              didCapture: false,
+              fixtureRoot,
+              fixtureAnalysisRoot,
+              manifestPath: absentManifestPath,
+            });
+          }
+        } catch (error) {
+          observedError = error;
+        }
+        assert.strictEqual(observedError, originalCaptureError, 'successful-capture-only cleanup must not replace an earlier capture failure');
+        assert.equal(existsSync(fixtureAnalysisRoot), false, 'skipped successful-capture cleanup must not create or require the absent fixture analysis parent');
+        assert.equal(existsSync(absentManifestPath), false, 'skipped successful-capture cleanup must leave the absent owned manifest leaf untouched');
       });
 
       await t.test('SDS-AC-1 rejects a swapped docs junction before any missing analysis parent mutation', async () => {
@@ -1427,7 +1441,7 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
           for (const leaf of [leafA, leafB]) assertOwnedWorkspaceDescendant(leaf, fixtureAnalysisRoot, 'fixture sibling manifest leaf cleanup');
           removeFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, leafA);
           for (const leaf of [leafA, leafB]) assert.equal(existsSync(leaf), false, 'serial fixture reset removes every sibling-owned fixture leaf');
-          assertMinimalNativeFixtureParity({ fixtureRoot, protectedFiles: fixture.protectedFiles });
+          assertLightweightFixtureScenarioInvariant({ fixtureRoot, fixtureAnalysisRoot, ownedLeaves: [leafA, leafB] });
         }
       });
 
@@ -1492,7 +1506,7 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
           assertOwnedWorkspaceDescendant(leafA, fixtureAnalysisRoot, 'fixture replacement manifest leaf cleanup');
           removeFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, leafA);
           assert.equal(existsSync(leafA), false, 'serial fixture reset removes the replacement-owned fixture leaf');
-          assertMinimalNativeFixtureParity({ fixtureRoot, protectedFiles: fixture.protectedFiles });
+          assertLightweightFixtureScenarioInvariant({ fixtureRoot, fixtureAnalysisRoot, ownedLeaves: [leafA] });
         }
       });
 
