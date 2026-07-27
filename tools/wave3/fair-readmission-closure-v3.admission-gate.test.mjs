@@ -33,8 +33,13 @@ const requiredLexicalSuites = [
   'tools/wave3/fair-readmission-closure-v3.lexical.test.mjs',
   'tools/wave3/fair-readmission-closure-v3.lexical-race.test.mjs',
 ];
+const FIXED_GATE_LIMIT_MS = 120_000;
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(testDirectory, '..', '..');
+
+test('SDS-AC-3 fixes the named admission gate limit below 118 seconds', () => {
+  assert.equal(FIXED_GATE_LIMIT_MS, 118_000, 'the fixed admission gate limit must stay below 118 seconds');
+});
 
 test('SDS-AC-4 runs the fixed nonrecursive closure gate with boundary and admission suites under 120 seconds', t => {
   const discovered = readdirSync(testDirectory, { encoding: 'utf8' })
