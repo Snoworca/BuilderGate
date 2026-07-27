@@ -121,8 +121,8 @@ test('SDS-AC-1 rejects raw child strings, caps a singleton before launch, and in
   );
 });
 
-test('SDS-AC-2 public closure rejects unguarded ingress before metadata I/O', async () => {
-  const { collectSourceClosure } = await loadCollector();
+test('SDS-AC-1 keeps closure ingress private and rejects caller filesystem authority before metadata I/O', async () => {
+  const collector = await loadCollector();
   const preflightCalls = [];
   const unguardedFs = {
     existsSync() {
@@ -143,14 +143,16 @@ test('SDS-AC-2 public closure rejects unguarded ingress before metadata I/O', as
     },
   };
 
-  assert.equal(typeof collectSourceClosure, 'function');
+  assert.equal(Object.hasOwn(collector, 'collectSourceClosure'), false, 'source closure collection must remain behind native capture');
   assert.throws(
-    () => collectSourceClosure({
+    () => collector.captureFrozenProvenance({
       workspaceRoot,
+      manifestPath: path.win32.join(analysisRoot, 'boundary-private-ingress.json'),
+      phase: 'boundary-private-ingress',
       fs: unguardedFs,
     }),
-    /guard|snapshot|strict|reparse|admitted/i,
-    'the public closure entrypoint must refuse an absent strict full-frontier guard',
+    /capture options|native|authority|unsupported|forbid|reject/i,
+    'native capture must refuse caller filesystem authority before metadata admission',
   );
   assert.deepEqual(
     preflightCalls,
@@ -159,61 +161,18 @@ test('SDS-AC-2 public closure rejects unguarded ingress before metadata I/O', as
   );
 });
 
-test('SDS-AC-2 low-level protected snapshot publishes a relative dependency only in a later wave', async () => {
+test('SDS-AC-2 keeps protected snapshot ownership private while lexical discovery remains explicit', async () => {
   const {
     createProtectedInputSnapshot,
     parseAdmittedImportSpecifiers,
     resolveAdmittedRelativeSpecifier,
   } = await loadCollector();
-  const reads = [];
-  const bytesByPath = new Map([
-    ['server/src/boundary-entry.ts', 'import "./boundary-child.ts";\n'],
-    ['server/src/boundary-child.ts', 'export const child = true;\n'],
-    ['server/tsconfig.json', '{ "compilerOptions": {} }\n'],
-  ]);
-  const strictGuard = {
-    prepareWave(paths) {
-      return { paths: [...paths] };
-    },
-    completeWave() {},
-    assertSafeMany() {},
-  };
-  const guardedFs = {
-    readFileSync(candidate) {
-      const relativePath = path.win32.relative(workspaceRoot, candidate).replaceAll('\\', '/');
-      const bytes = bytesByPath.get(relativePath);
-      assert.ok(bytes, `the protected low-level fixture must define ${relativePath}`);
-      reads.push(relativePath);
-      return Buffer.from(bytes, 'utf8');
-    },
-  };
-  const snapshot = createProtectedInputSnapshot({ fs: guardedFs, reparseGuard: strictGuard });
-  const entry = {
-    absolutePath: path.win32.join(workspaceRoot, 'server', 'src', 'boundary-entry.ts'),
-    kind: 'source',
-    path: 'server/src/boundary-entry.ts',
-  };
-  const child = {
-    absolutePath: path.win32.join(workspaceRoot, 'server', 'src', 'boundary-child.ts'),
-    kind: 'source',
-    path: 'server/src/boundary-child.ts',
-  };
+  assert.equal(Object.hasOwn(await loadCollector(), 'createProtectedInputSnapshot'), false, 'a caller must not mint or read a protected snapshot');
   assert.deepEqual(
-    snapshot.readWave([entry]).map(({ kind, path: admittedPath, sha256: digest }) => ({ kind, path: admittedPath, sha256: digest })),
-    [{ kind: 'source', path: entry.path, sha256: sha256(bytesByPath.get(entry.path)) }],
-    'the first protected wave must publish only its own admitted entry bytes',
-  );
-  assert.deepEqual(
-    parseAdmittedImportSpecifiers({ sourceText: bytesByPath.get(entry.path), fromPath: entry.path }),
+    parseAdmittedImportSpecifiers({ sourceText: 'import "./boundary-child.ts";\n', fromPath: 'server/src/boundary-entry.ts' }),
     ['./boundary-child.ts'],
-    'collector-owned lexical parsing must discover the relative dependency only after entry publication',
+    'collector-owned lexical discovery may schedule a relative dependency without exposing protected bytes',
   );
-  assert.deepEqual(
-    snapshot.readWave([child]).map(({ kind, path: admittedPath, sha256: digest }) => ({ kind, path: admittedPath, sha256: digest })),
-    [{ kind: 'source', path: child.path, sha256: sha256(bytesByPath.get(child.path)) }],
-    'the parser-discovered dependency must be admitted in a later protected wave',
-  );
-  assert.deepEqual(reads, [entry.path, child.path], 'the low-level primitive must not read the parser-discovered path early');
   assert.equal(typeof resolveAdmittedRelativeSpecifier, 'function');
   assert.equal(
     resolveAdmittedRelativeSpecifier({
@@ -232,10 +191,9 @@ test('SDS-AC-2 low-level protected snapshot publishes a relative dependency only
   }
 });
 
-test('SDS-AC-3 writes a manifest only after fresh parent-and-leaf admission and rejects a failed post-write admission', async () => {
-  const { writeCapturedManifest } = await loadCollector();
+test('SDS-AC-3 keeps manifest writing private and rejects caller writer or guard authority before admission', async () => {
+  const collector = await loadCollector();
   const destination = path.win32.join(analysisRoot, 'boundary-manifest.json');
-  const manifest = { schemaVersion: 'boundary-test', protectedInput: { sha256: 'a'.repeat(64) } };
   const events = [];
   const fs = {
     mkdirSync(candidate, options) {
@@ -251,45 +209,22 @@ test('SDS-AC-3 writes a manifest only after fresh parent-and-leaf admission and 
     },
   };
 
-  assert.equal(typeof writeCapturedManifest, 'function');
-  assert.deepEqual(
-    writeCapturedManifest({ workspaceRoot, manifestPath: destination, manifest, fs, reparseGuard }),
-    manifest,
-  );
-  assert.deepEqual(
-    events,
-    [
-      ['mkdir', analysisRoot, { recursive: true }],
-      ['guard', [analysisRoot, destination], { forceFresh: true }],
-      ['write', destination, `${JSON.stringify(manifest)}\n`, { encoding: 'utf8', flag: 'wx' }],
-      ['guard', [analysisRoot, destination], { forceFresh: true }],
-    ],
-    'the writer must create the root, force-fresh validate parent plus leaf around wx, and only then accept output',
-  );
-
-  let writeCalls = 0;
-  let guardCalls = 0;
+  assert.equal(Object.hasOwn(collector, 'writeCapturedManifest'), false, 'a caller must not inject a manifest writer');
   assert.throws(
-    () => writeCapturedManifest({
+    () => collector.captureFrozenProvenance({
       workspaceRoot,
       manifestPath: destination,
-      manifest,
       fs: {
-        mkdirSync() {},
+        mkdirSync() { events.push(['mkdir']); },
         writeFileSync() {
-          writeCalls += 1;
+          events.push(['write']);
         },
       },
-      reparseGuard: {
-        assertSafeMany(_paths, options) {
-          guardCalls += 1;
-          assert.deepEqual(options, { forceFresh: true });
-          if (guardCalls === 2) throw new Error('manifest destination identity changed after wx');
-        },
-      },
+      reparseGuard,
+      phase: 'boundary-private-writer',
     }),
-    /identity|changed|manifest|reparse|guard/i,
-    'a post-write destination change must reject the output rather than return evidence',
+    /capture options|native|authority|unsupported|forbid|reject/i,
+    'caller writer or guard authority must be rejected before native manifest admission',
   );
-  assert.equal(writeCalls, 1, 'the fake writer proves post-write rejection without touching a real external path');
+  assert.deepEqual(events, [], 'rejected caller authority must not reach caller mkdir, write, or guard seams');
 });

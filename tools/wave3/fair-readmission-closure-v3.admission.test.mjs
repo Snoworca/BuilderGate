@@ -47,57 +47,35 @@ function counterfeitIngress(probeCalls) {
   };
 }
 
-test('SDS-AC-1 rejects absent, no-op, and counterfeit admission contexts before filesystem or probe work', async () => {
-  const {
-    collectSourceClosure,
-    hashConfigLockFile,
-    readProtectedInput,
-  } = await loadCollector();
+test('SDS-AC-1 keeps protected ingress private and rejects every caller authority before filesystem or probe work', async () => {
+  const collector = await loadCollector();
   const cases = [
-    ['absent', undefined],
-    ['no-op', Object.freeze({})],
-    ['counterfeit', Object.freeze({ token: 'module-minted' })],
+    ['filesystem', { fs: noFilesystemAccess() }],
+    ['no-op admission', { admission: Object.freeze({}) }],
+    ['counterfeit admission', { admission: Object.freeze({ token: 'module-minted' }) }],
+    ['caller reparse guard', { reparseGuard: counterfeitIngress([]).reparseGuard }],
+    ['caller snapshot', { snapshot: counterfeitIngress([]).snapshot }],
   ];
 
-  for (const [label, admission] of cases) {
-    const fs = noFilesystemAccess();
+  for (const [label, suppliedAuthority] of cases) {
     const probeCalls = [];
     const counterfeit = counterfeitIngress(probeCalls);
-    const publicCalls = [
-      () => readProtectedInput({
-        fs,
-        absolutePath: `${workspaceRoot}/server/src/ws/WsRouter.ts`,
-        kind: 'source',
-        path: 'server/src/ws/WsRouter.ts',
-        ...(label === 'absent' ? {} : { admission }),
-        reparseGuard: counterfeit.reparseGuard,
-      }),
-      () => hashConfigLockFile({
-        fs,
-        workspaceRoot,
-        relativePath: 'server/config.json5',
-        ...(label === 'absent' ? {} : { admission }),
-        reparseGuard: counterfeit.reparseGuard,
-        snapshot: counterfeit.snapshot,
-      }),
-      () => collectSourceClosure({
-        fs,
-        workspaceRoot,
-        ...(label === 'absent' ? {} : { admission }),
-        reparseGuard: counterfeit.reparseGuard,
-        snapshot: counterfeit.snapshot,
-      }),
-    ];
-
-    for (const invoke of publicCalls) {
-      assert.throws(
-        invoke,
-        /admission|minted|capabilit|strict|protected/i,
-        `${label} context must be rejected before any protected ingress work`,
-      );
+    for (const protectedName of ['collectSourceClosure', 'hashConfigLockFile', 'readProtectedInput']) {
+      assert.equal(Object.hasOwn(collector, protectedName), false, `${protectedName} must not expose a caller-controlled protected ingress`);
     }
-    assert.deepEqual(fs.calls, [], `${label} context must perform zero filesystem operations`);
-    assert.deepEqual(probeCalls, [], `${label} context must perform zero guard, snapshot, or probe operations`);
+    assert.throws(
+      () => collector.captureFrozenProvenance({
+        workspaceRoot,
+        manifestPath: `${workspaceRoot}/docs/analysis/kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3/admission-${label}.json`,
+        phase: `admission-${label}`,
+        ...suppliedAuthority,
+        reparseGuard: suppliedAuthority.reparseGuard ?? counterfeit.reparseGuard,
+      }),
+      /capture options|native|authority|unsupported|forbid|reject/i,
+      `${label} authority must be rejected before native protected ingress work`,
+    );
+    assert.deepEqual(probeCalls, [], `${label} context must not invoke a caller-supplied guard, snapshot, or probe`);
+    if (suppliedAuthority.fs) assert.deepEqual(suppliedAuthority.fs.calls, [], `${label} context must perform zero caller filesystem operations`);
   }
 });
 
@@ -141,7 +119,7 @@ test('SDS-AC-3 fails closed instead of omitting a nonliteral dynamic import', as
   const { parseAdmittedImportSpecifiers } = await loadCollector();
   const sourceText = [
     "import type { TerminalResourceKey } from './TerminalResourcePolicy.js';",
-    "const requestedModule = './dynamic-child.js';",
+    "let requestedModule = './dynamic-child.js';",
     'await import(requestedModule);',
   ].join('\n');
 

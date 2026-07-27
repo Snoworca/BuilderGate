@@ -138,10 +138,9 @@ test('SDS-AC-3 rejects volume-qualified, absolute, UNC, and escaping fixture val
   }
 });
 
-test('SDS-AC-4 low-level protected snapshot force-fresh checks a config lock identity immediately before and after its hash read', async () => {
-  const { createProtectedInputSnapshot } = await loadCollector();
+test('SDS-AC-1 keeps config-lock snapshot admission private from caller filesystem authority', async () => {
+  const collector = await loadCollector();
   const events = [];
-  const configPath = path.win32.join(workspaceRoot, 'server', 'config.json5').replaceAll('\\', '/');
   const fs = {
     existsSync(candidate) {
       events.push(`exists:${candidate}`);
@@ -159,39 +158,27 @@ test('SDS-AC-4 low-level protected snapshot force-fresh checks a config lock ide
   const reparseGuard = {
     assertSafeMany(paths, options) {
       events.push(`guard:${paths.join(',')}:${JSON.stringify(options)}`);
-      assert.deepEqual(paths, [configPath]);
-      assert.deepEqual(options, { forceFresh: true });
+      events.push(`guard-options:${JSON.stringify(paths)}:${JSON.stringify(options)}`);
     },
   };
 
-  assert.equal(typeof createProtectedInputSnapshot, 'function');
-  const input = createProtectedInputSnapshot({ fs, reparseGuard }).read({
-    absolutePath: configPath,
-    kind: 'config_lock',
-    path: 'server/config.json5',
-  });
-  assert.deepEqual(
-    {
-      kind: input.kind,
-      path: input.path,
-      sha256: input.sha256,
-    },
-    {
-      kind: 'config_lock',
-      path: 'server/config.json5',
-      sha256: createHash('sha256').update('{ "locked": true }\n', 'utf8').digest('hex'),
-    },
+  assert.equal(Object.hasOwn(collector, 'createProtectedInputSnapshot'), false, 'config snapshots must be minted only by native capture');
+  assert.throws(
+    () => collector.captureFrozenProvenance({
+      workspaceRoot,
+      manifestPath: `${workspaceRoot}/docs/analysis/kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3/hardening-private-config.json`,
+      phase: 'hardening-private-config',
+      fs,
+      reparseGuard,
+    }),
+    /capture options|native|authority|unsupported|forbid|reject/i,
+    'caller filesystem and guard authority must be rejected before a config byte can be read',
   );
-  const guardEvent = `guard:${configPath}:${JSON.stringify({ forceFresh: true })}`;
-  assert.deepEqual(
-    events.slice(-3),
-    [guardEvent, `read:${configPath}`, guardEvent],
-    'the success path must force-fresh guard immediately before and after the config byte read',
-  );
+  assert.deepEqual(events, [], 'rejected config authority must not invoke caller metadata, read, or guard seams');
 });
 
-test('SDS-AC-4 low-level protected snapshot fails before a config read when its force-fresh identity guard detects a change', async () => {
-  const { createProtectedInputSnapshot } = await loadCollector();
+test('SDS-AC-1 rejects caller snapshots before a staged config read can be attempted', async () => {
+  const collector = await loadCollector();
   let readCount = 0;
   const fs = {
     existsSync: () => true,
@@ -201,21 +188,17 @@ test('SDS-AC-4 low-level protected snapshot fails before a config read when its 
       return Buffer.from('must not be read', 'utf8');
     },
   };
-  const reparseGuard = {
-    assertSafeMany(_paths, options) {
-      assert.deepEqual(options, { forceFresh: true });
-      throw new Error('identity changed during reparse probe');
-    },
-  };
-
-  assert.equal(typeof createProtectedInputSnapshot, 'function');
+  const snapshot = Object.freeze({ readWave: () => { throw new Error('caller snapshot must not be used'); } });
+  assert.equal(Object.hasOwn(collector, 'createProtectedInputSnapshot'), false);
   assert.throws(
-    () => createProtectedInputSnapshot({ fs, reparseGuard }).read({
-      absolutePath: path.win32.join(workspaceRoot, 'server', 'config.json5'),
-      kind: 'config_lock',
-      path: 'server/config.json5',
+    () => collector.captureFrozenProvenance({
+      workspaceRoot,
+      manifestPath: `${workspaceRoot}/docs/analysis/kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3/hardening-private-snapshot.json`,
+      phase: 'hardening-private-snapshot',
+      fs,
+      snapshot,
     }),
-    /identity|reparse|config/i,
+    /capture options|native|authority|unsupported|forbid|reject/i,
   );
-  assert.equal(readCount, 0, 'config content must not be read after a failed fresh identity check');
+  assert.equal(readCount, 0, 'caller-config content must not be read after private admission rejects supplied authority');
 });
