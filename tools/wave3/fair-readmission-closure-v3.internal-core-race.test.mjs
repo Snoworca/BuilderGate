@@ -1038,6 +1038,28 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
     }
   });
 
+  test('SDS-AC-3 keeps an ordinary fixture analysis parent when an owned manifest leaf is already absent', { timeout: 115_000 }, async () => {
+    const { ownedRoot, fixtureRoot } = await createOwnedWorkspaceWithoutAnalysisParent();
+    const fixtureAnalysisRoot = path.join(fixtureRoot, analysisRootRelativePath);
+    const absentManifestPath = path.join(fixtureAnalysisRoot, `already-absent-owned-leaf-${process.pid}-${randomBytes(6).toString('hex')}.json`);
+    try {
+      mkdirSync(fixtureAnalysisRoot, { recursive: true });
+      assert.equal(existsSync(absentManifestPath), false, 'the focused cleanup input starts with its owned fixture manifest leaf already absent');
+      const initialParentStat = lstatSync(fixtureAnalysisRoot);
+      assert.equal(initialParentStat.isDirectory(), true, 'the focused cleanup input has an ordinary fixture analysis parent');
+      assert.equal(isLinkOrReparsePoint(initialParentStat), false, 'the focused cleanup input parent is neither a link nor a reparse point');
+
+      removeOwnedFixtureManifestLeaf(fixtureRoot, fixtureAnalysisRoot, absentManifestPath);
+
+      assert.equal(existsSync(absentManifestPath), false, 'an absent owned manifest leaf remains absent after leaf-only cleanup');
+      const retainedParentStat = lstatSync(fixtureAnalysisRoot);
+      assert.equal(retainedParentStat.isDirectory(), true, 'leaf-only cleanup retains the ordinary fixture analysis parent');
+      assert.equal(isLinkOrReparsePoint(retainedParentStat), false, 'leaf-only cleanup retains a non-reparse fixture analysis parent');
+    } finally {
+      removeOwnedWorkspace(ownedRoot);
+    }
+  });
+
   test('SDS-AC-1 fails normal closed capture when a protected minimal-fixture input is absent instead of falling back to the worktree', { timeout: 115_000 }, async () => {
     const { ownedRoot, fixtureRoot } = await createOwnedWorkspaceWithoutAnalysisParent();
     const fixtureAnalysisRoot = path.join(fixtureRoot, analysisRootRelativePath);
