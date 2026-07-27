@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import test from 'node:test';
@@ -375,6 +375,50 @@ function assertOwnedWorkspaceDescendant(candidate, ownedRoot, label) {
   assert.equal(normalizedCandidate.startsWith(normalizedRoot), true, `${label} stays within the test-owned workspace root`);
 }
 
+function isLinkOrReparsePoint(stat) {
+  return stat.isSymbolicLink() || stat.isReparsePoint?.() === true;
+}
+
+function assertFixedFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, label) {
+  const normalizedFixtureRoot = path.resolve(fixtureRoot);
+  const normalizedAnalysisRoot = path.resolve(fixtureAnalysisRoot);
+  assertOwnedWorkspaceDescendant(normalizedAnalysisRoot, normalizedFixtureRoot, label);
+  assert.equal(path.relative(normalizedFixtureRoot, normalizedAnalysisRoot), analysisRootRelativePath, `${label} is the copied workspace's exact fixed analysis root`);
+  return normalizedAnalysisRoot;
+}
+
+function removeFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, previousManifestPath) {
+  const normalizedAnalysisRoot = assertFixedFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, 'analysis root reset cleanup');
+  assertOwnedWorkspaceDescendant(previousManifestPath, normalizedAnalysisRoot, 'previous manifest reset cleanup');
+  if (existsSync(normalizedAnalysisRoot)) rmSync(normalizedAnalysisRoot, { recursive: true, force: true });
+  assert.equal(existsSync(normalizedAnalysisRoot), false, 'the reset removes only the copied fixed analysis root');
+  assert.equal(existsSync(previousManifestPath), false, 'the reset removes the previous nonce-owned manifest leaf');
+}
+
+function assertRealFixtureDocs(fixtureDocs, label) {
+  const stat = lstatSync(fixtureDocs);
+  assert.equal(stat.isDirectory(), true, `${label} is a real directory`);
+  assert.equal(isLinkOrReparsePoint(stat), false, `${label} is neither a symbolic link nor a reparse point`);
+}
+
+function restoreFixtureDocsAndRemoveExternalRoot({ fixtureDocs, renamedFixtureDocs, externalDocs, ownedRoot }) {
+  assertOwnedWorkspaceDescendant(fixtureDocs, ownedRoot, 'fixture docs restore destination');
+  assertOwnedWorkspaceDescendant(renamedFixtureDocs, ownedRoot, 'fixture docs restore backup');
+  assertOwnedWorkspaceDescendant(externalDocs, ownedRoot, 'fixture external cleanup root');
+  assert.equal(path.dirname(path.resolve(externalDocs)), path.resolve(ownedRoot), 'junction cleanup removes only the fixture external root');
+  if (existsSync(renamedFixtureDocs)) {
+    if (existsSync(fixtureDocs)) {
+      assert.equal(isLinkOrReparsePoint(lstatSync(fixtureDocs)), true, 'only the test-installed docs junction is removed before restoring the backup');
+      unlinkSync(fixtureDocs);
+    }
+    renameSync(renamedFixtureDocs, fixtureDocs);
+  }
+  assertRealFixtureDocs(fixtureDocs, 'fixture docs after junction cleanup');
+  if (existsSync(externalDocs)) rmSync(externalDocs, { recursive: true, force: true });
+  assert.equal(existsSync(renamedFixtureDocs), false, 'junction cleanup restores the original docs backup');
+  assert.equal(existsSync(externalDocs), false, 'junction cleanup removes only the fixture external root');
+}
+
 function createOwnedWxRaceHarness() {
   const ownedRoot = mkdtempSync(path.join(tmpdir(), 'fair-readmission-wx-race-'));
   const preloaderPath = path.join(ownedRoot, 'wx-race-preloader.cjs');
@@ -599,108 +643,113 @@ async function runNativeWorker() {
 if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race') {
   await runNativeWorker();
 } else {
-  test('SDS-AC-1 and SDS-AC-3 create an absent fixed analysis parent only after fresh native guard probes at manifest boundaries', { timeout: 115_000 }, async () => {
-    const { ownedRoot, fixtureRoot } = createOwnedWorkspaceWithoutAnalysisParent();
-    const harness = createOwnedWxRaceHarness();
-    const fixtureAnalysisRoot = path.join(fixtureRoot, analysisRootRelativePath);
-    const manifestPath = path.join(fixtureAnalysisRoot, 'missing-parent-first-capture.json');
-    const fixtureCollectorUrl = pathToFileURL(path.join(fixtureRoot, 'tools', 'wave3', 'fair-readmission-closure-v3.mjs')).href;
-    const timeline = [];
-    let actorGuard;
-    try {
-      assert.equal(existsSync(fixtureAnalysisRoot), false, 'the copied workspace starts with the fixed analysis parent absent');
-      actorGuard = spawnWxRaceChild({
-        harness,
-        actor: 'G',
-        manifestPath,
-        phase: 'internal-core-missing-parent-first-capture',
-        preload: true,
-        preloaderPath: harness.guardPreloaderPath,
-        collectorSourceUrl: fixtureCollectorUrl,
-        childWorkspaceRoot: fixtureRoot,
-        guardAnalysisRoot: fixtureAnalysisRoot,
-        timeline,
-      });
-      await waitForWxRaceEvent(actorGuard, 'initial-lstat-missing', 'guarded initial missing analysis lstat');
-      releaseWxRaceChild(actorGuard, 0x52);
-      const terminal = await waitForWxRaceTerminalEvent(actorGuard, 'guarded missing-parent capture');
-      assert.equal(terminal.event, 'captured', `the owned missing parent capture must succeed after its guard release; transcript=${JSON.stringify(actorGuard.transcript)}`);
-      assert.deepEqual(await waitForWxRaceExit(actorGuard, 'guarded missing-parent capture'), { code: 0, signal: null });
-      assert.equal(existsSync(fixtureAnalysisRoot), true, 'first capture creates only its fixed analysis parent');
-      assert.equal(existsSync(manifestPath), true, 'first capture writes its requested fixed manifest leaf after parent creation');
-      assert.equal(JSON.parse(readFileSync(manifestPath, 'utf8')).protectedInput.sha256, terminal.sha256);
-      const mkdirIndexes = actorGuard.transcript
-        .map((candidate, index) => candidate.event === 'mkdir' ? index : -1)
-        .filter(index => index >= 0);
-      assert.equal(mkdirIndexes.length, 2, 'native capture mutates the fixed parent once during admission and once during its private manifest write path');
-      const openIndex = actorTranscriptIndex(actorGuard, 'open');
-      assert.equal(mkdirIndexes[1] < openIndex, true, 'the private manifest parent boundary precedes exclusive create');
-      const freshProbesAfterPrivateParentBoundary = actorGuard.transcript
-        .slice(mkdirIndexes[1] + 1, openIndex)
-        .filter(candidate => candidate.event === 'manifest-probe' && candidate.containsAnalysisRoot);
-      assert.equal(freshProbesAfterPrivateParentBoundary.length > 0, true, 'the same-identity cached manifest parent must be native-probed again after the private parent boundary and before exclusive create');
-    } finally {
-      if (actorGuard && !actorGuard.released && !actorGuard.exitState) releaseWxRaceChild(actorGuard, 0x52);
-      await Promise.allSettled([actorGuard?.exited].filter(Boolean));
-      removeOwnedWxRaceHarness(harness.ownedRoot);
-      removeOwnedWorkspace(ownedRoot);
-    }
-  });
-
-  test('SDS-AC-1 rejects a swapped docs junction before any missing analysis parent mutation', { timeout: 115_000 }, async () => {
+  test('SDS-AC-1 and SDS-AC-3 create an absent fixed analysis parent only after fresh native guard probes at manifest boundaries, then serially reset the fixture for junction admission', { timeout: 115_000 }, async t => {
     const { ownedRoot, fixtureRoot } = createOwnedWorkspaceWithoutAnalysisParent();
     const harness = createOwnedWxRaceHarness();
     const fixtureDocs = path.join(fixtureRoot, 'docs');
     const renamedFixtureDocs = path.join(ownedRoot, 'docs-before-guard-junction');
     const externalDocs = path.join(ownedRoot, 'external-docs');
     const fixtureAnalysisRoot = path.join(fixtureRoot, analysisRootRelativePath);
-    const externalAnalysisRoot = path.join(externalDocs, path.relative('docs', analysisRootRelativePath));
-    const manifestPath = path.join(fixtureAnalysisRoot, 'guard-before-mutation.json');
     const fixtureCollectorUrl = pathToFileURL(path.join(fixtureRoot, 'tools', 'wave3', 'fair-readmission-closure-v3.mjs')).href;
-    const timeline = [];
-    let actorGuard;
+    const firstManifestPrefix = `missing-parent-first-capture-${process.pid}-${randomBytes(6).toString('hex')}`;
+    const firstManifestPath = path.join(fixtureAnalysisRoot, `${firstManifestPrefix}.json`);
     try {
-      assert.equal(existsSync(fixtureAnalysisRoot), false, 'the copied workspace starts with the fixed analysis parent absent');
-      assertOwnedWorkspaceDescendant(fixtureDocs, ownedRoot, 'fixture docs swap source');
-      assertOwnedWorkspaceDescendant(renamedFixtureDocs, ownedRoot, 'fixture docs swap backup');
-      assertOwnedWorkspaceDescendant(externalDocs, ownedRoot, 'external junction target');
-      assertOwnedWorkspaceDescendant(fixtureAnalysisRoot, ownedRoot, 'guarded fixture analysis root');
-      assertOwnedWorkspaceDescendant(externalAnalysisRoot, ownedRoot, 'observed external analysis root');
-      actorGuard = spawnWxRaceChild({
-        harness,
-        actor: 'G',
-        manifestPath,
-        phase: 'internal-core-guard-before-mutation',
-        preload: true,
-        preloaderPath: harness.guardPreloaderPath,
-        collectorSourceUrl: fixtureCollectorUrl,
-        childWorkspaceRoot: fixtureRoot,
-        guardAnalysisRoot: fixtureAnalysisRoot,
-        timeline,
+      await t.test('SDS-AC-1 and SDS-AC-3 create an absent fixed analysis parent only after fresh native guard probes at manifest boundaries', async () => {
+        const timeline = [];
+        let actorGuard;
+        try {
+          assert.equal(existsSync(fixtureAnalysisRoot), false, 'the copied workspace starts with the fixed analysis parent absent');
+          actorGuard = spawnWxRaceChild({
+            harness,
+            actor: 'G',
+            manifestPath: firstManifestPath,
+            phase: 'internal-core-missing-parent-first-capture',
+            preload: true,
+            preloaderPath: harness.guardPreloaderPath,
+            collectorSourceUrl: fixtureCollectorUrl,
+            childWorkspaceRoot: fixtureRoot,
+            guardAnalysisRoot: fixtureAnalysisRoot,
+            timeline,
+          });
+          await waitForWxRaceEvent(actorGuard, 'initial-lstat-missing', 'guarded initial missing analysis lstat');
+          releaseWxRaceChild(actorGuard, 0x52);
+          const terminal = await waitForWxRaceTerminalEvent(actorGuard, 'guarded missing-parent capture');
+          assert.equal(terminal.event, 'captured', `the owned missing parent capture must succeed after its guard release; transcript=${JSON.stringify(actorGuard.transcript)}`);
+          assert.deepEqual(await waitForWxRaceExit(actorGuard, 'guarded missing-parent capture'), { code: 0, signal: null });
+          assert.equal(existsSync(fixtureAnalysisRoot), true, 'first capture creates only its fixed analysis parent');
+          assert.equal(existsSync(firstManifestPath), true, 'first capture writes its requested fixed manifest leaf after parent creation');
+          assert.equal(JSON.parse(readFileSync(firstManifestPath, 'utf8')).protectedInput.sha256, terminal.sha256);
+          const mkdirIndexes = actorGuard.transcript
+            .map((candidate, index) => candidate.event === 'mkdir' ? index : -1)
+            .filter(index => index >= 0);
+          assert.equal(mkdirIndexes.length, 2, 'native capture mutates the fixed parent once during admission and once during its private manifest write path');
+          const openIndex = actorTranscriptIndex(actorGuard, 'open');
+          assert.equal(mkdirIndexes[1] < openIndex, true, 'the private manifest parent boundary precedes exclusive create');
+          const freshProbesAfterPrivateParentBoundary = actorGuard.transcript
+            .slice(mkdirIndexes[1] + 1, openIndex)
+            .filter(candidate => candidate.event === 'manifest-probe' && candidate.containsAnalysisRoot);
+          assert.equal(freshProbesAfterPrivateParentBoundary.length > 0, true, 'the same-identity cached manifest parent must be native-probed again after the private parent boundary and before exclusive create');
+        } finally {
+          if (actorGuard && !actorGuard.released && !actorGuard.exitState) releaseWxRaceChild(actorGuard, 0x52);
+          await Promise.allSettled([actorGuard?.exited].filter(Boolean));
+          if (actorGuard) assert.notEqual(actorGuard.exitState, undefined, 'the first gated child exits before the shared fixture resets');
+          removeFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, firstManifestPath);
+        }
       });
-      await waitForWxRaceEvent(actorGuard, 'initial-lstat-missing', 'guarded initial missing analysis lstat');
-      assert.equal(existsSync(externalAnalysisRoot), false, 'the external junction target is untouched before the controlled docs swap');
-      renameSync(fixtureDocs, renamedFixtureDocs);
-      mkdirSync(externalDocs, { recursive: true });
-      symlinkSync(externalDocs, fixtureDocs, 'junction');
-      releaseWxRaceChild(actorGuard, 0x52);
 
-      const terminal = await waitForWxRaceTerminalEvent(actorGuard, 'guard-before-mutation capture');
-      assert.equal(terminal.event, 'error', `the swapped docs junction must reject during a later reparse guard; transcript=${JSON.stringify(actorGuard.transcript)}`);
-      assert.match(terminal.message, /reparse|link|manifest path/i);
-      assert.deepEqual(await waitForWxRaceExit(actorGuard, 'guard-before-mutation capture'), { code: 1, signal: null });
-      assert.equal(transcriptIndex(timeline, 'G', 'initial-lstat-missing') < transcriptIndex(timeline, 'G', 'release'), true, 'the parent swaps only after the initial missing analysis lstat is gated');
-      assert.deepEqual(
-        [
-          actorGuard.transcript.some(candidate => candidate.event === 'mkdir'),
-          existsSync(externalAnalysisRoot),
-        ],
-        [false, false],
-        'the reparse guard must reject before recursive parent creation can mutate the external junction target',
-      );
+      await t.test('SDS-AC-1 rejects a swapped docs junction before any missing analysis parent mutation', async () => {
+        const externalAnalysisRoot = path.join(externalDocs, path.relative('docs', analysisRootRelativePath));
+        const manifestPath = path.join(fixtureAnalysisRoot, 'guard-before-mutation.json');
+        const timeline = [];
+        let actorGuard;
+        try {
+          assert.equal(existsSync(fixtureAnalysisRoot), false, 'the reset leaves the copied fixed analysis parent absent before the junction case');
+          assert.equal(existsSync(firstManifestPath), false, 'the reset leaves the previous nonce-owned manifest absent before the junction case');
+          assertOwnedWorkspaceDescendant(fixtureDocs, ownedRoot, 'fixture docs swap source');
+          assertOwnedWorkspaceDescendant(renamedFixtureDocs, ownedRoot, 'fixture docs swap backup');
+          assertOwnedWorkspaceDescendant(externalDocs, ownedRoot, 'external junction target');
+          assertOwnedWorkspaceDescendant(fixtureAnalysisRoot, ownedRoot, 'guarded fixture analysis root');
+          assertOwnedWorkspaceDescendant(externalAnalysisRoot, ownedRoot, 'observed external analysis root');
+          assertRealFixtureDocs(fixtureDocs, 'fixture docs before controlled junction swap');
+          actorGuard = spawnWxRaceChild({
+            harness,
+            actor: 'G',
+            manifestPath,
+            phase: 'internal-core-guard-before-mutation',
+            preload: true,
+            preloaderPath: harness.guardPreloaderPath,
+            collectorSourceUrl: fixtureCollectorUrl,
+            childWorkspaceRoot: fixtureRoot,
+            guardAnalysisRoot: fixtureAnalysisRoot,
+            timeline,
+          });
+          await waitForWxRaceEvent(actorGuard, 'initial-lstat-missing', 'guarded initial missing analysis lstat');
+          assert.equal(existsSync(externalAnalysisRoot), false, 'the external junction target is untouched before the controlled docs swap');
+          renameSync(fixtureDocs, renamedFixtureDocs);
+          mkdirSync(externalDocs, { recursive: true });
+          symlinkSync(externalDocs, fixtureDocs, 'junction');
+          releaseWxRaceChild(actorGuard, 0x52);
+
+          const terminal = await waitForWxRaceTerminalEvent(actorGuard, 'guard-before-mutation capture');
+          assert.equal(terminal.event, 'error', `the swapped docs junction must reject during a later reparse guard; transcript=${JSON.stringify(actorGuard.transcript)}`);
+          assert.match(terminal.message, /reparse|link|manifest path/i);
+          assert.deepEqual(await waitForWxRaceExit(actorGuard, 'guard-before-mutation capture'), { code: 1, signal: null });
+          assert.equal(transcriptIndex(timeline, 'G', 'initial-lstat-missing') < transcriptIndex(timeline, 'G', 'release'), true, 'the parent swaps only after the initial missing analysis lstat is gated');
+          assert.deepEqual(
+            [
+              actorGuard.transcript.some(candidate => candidate.event === 'mkdir'),
+              existsSync(externalAnalysisRoot),
+            ],
+            [false, false],
+            'the reparse guard must reject before recursive parent creation can mutate the external junction target',
+          );
+        } finally {
+          if (actorGuard && !actorGuard.released && !actorGuard.exitState) releaseWxRaceChild(actorGuard, 0x52);
+          await Promise.allSettled([actorGuard?.exited].filter(Boolean));
+          restoreFixtureDocsAndRemoveExternalRoot({ fixtureDocs, renamedFixtureDocs, externalDocs, ownedRoot });
+        }
+      });
     } finally {
-      if (actorGuard && !actorGuard.released && !actorGuard.exitState) releaseWxRaceChild(actorGuard, 0x52);
-      await Promise.allSettled([actorGuard?.exited].filter(Boolean));
       removeOwnedWxRaceHarness(harness.ownedRoot);
       removeOwnedWorkspace(ownedRoot);
     }
