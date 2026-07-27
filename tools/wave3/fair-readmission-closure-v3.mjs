@@ -4,6 +4,7 @@ import { execFileSync, spawnSync as nodeSpawnSync } from 'node:child_process';
 import * as nodeFs from 'node:fs';
 import * as nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createOpaqueWaveCache, evaluateManifestWriteState } from './internal/fair-readmission-closure-v3-internal-core.mjs';
 
 const TASK = '2026-07-27.pm.fair-readmission-closure-v3';
 const PLAYWRIGHT_OUTPUT_DIR = 'C:/Work/kiwi-run-output/2026-07-27.pm.fair-readmission-closure-v3/ac9-playwright';
@@ -57,6 +58,16 @@ const REPARSE_BATCH_MAX_COUNT = 64;
 const REPARSE_BATCH_MAX_BYTES = 8 * 1024;
 const REPARSE_PROBE_TIMEOUT_MS = 10_000;
 const TRUSTED_WINDOWS_POWERSHELL = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
+const TRUSTED_WINDOWS_GIT = 'C:\\Program Files\\Git\\cmd\\git.exe';
+const MINIMAL_GIT_ENVIRONMENT = Object.freeze({
+  SystemRoot: 'C:\\Windows',
+  SystemDrive: 'C:',
+  ComSpec: 'C:\\Windows\\System32\\cmd.exe',
+  PATH: 'C:\\Windows\\System32;C:\\Windows',
+  PATHEXT: '.COM;.EXE;.BAT;.CMD',
+  LANG: 'C',
+  LC_ALL: 'C',
+});
 const COLLECTOR_WORKSPACE_ROOT = nodePath.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const strictAdmissionCapabilities = new WeakMap();
 
@@ -757,7 +768,7 @@ function strictAdmissionFor(options) {
   return capabilities;
 }
 
-export function readProtectedInput(options = {}) {
+function readProtectedInput(options = {}) {
   const admission = strictAdmissionFor(options);
   const {
     absolutePath,
@@ -771,8 +782,10 @@ export function readProtectedInput(options = {}) {
   return { kind: result.kind, path: normalizePath(path), sha256: result.sha256 };
 }
 
-export function createProtectedInputSnapshot({ fs = nodeFs, reparseGuard } = {}) {
-  const entries = new Map();
+function createProtectedInputSnapshot({ fs = nodeFs, reparseGuard } = {}) {
+  const physicalPathsByTicket = new Map();
+  let activeWave;
+  let nextWaveId = 0;
   const normalizeRequest = request => {
     const { absolutePath, kind, path } = request ?? {};
     if (typeof path !== 'string' || !path) throw new Error('protected input requires a non-empty path');
@@ -783,15 +796,14 @@ export function createProtectedInputSnapshot({ fs = nodeFs, reparseGuard } = {})
       path: normalizePath(path),
     };
   };
-  const resultFor = request => {
-    const entry = entries.get(request.absolutePath);
-    if (!entry) throw new Error(`protected input is not admitted: ${request.absolutePath}`);
-    return {
-      kind: request.kind,
-      path: request.path,
-      sha256: entry.sha256,
-      bytes: Buffer.from(entry.bytes),
-    };
+  const opaqueTicketFor = request => {
+    const opaqueId = `ticket-${sha256(Buffer.from(request.absolutePath, 'utf8'))}`;
+    const knownPath = physicalPathsByTicket.get(opaqueId);
+    if (knownPath !== undefined && knownPath !== request.absolutePath) {
+      throw new Error('protected snapshot opaque ticket collision');
+    }
+    physicalPathsByTicket.set(opaqueId, request.absolutePath);
+    return Object.freeze({ opaqueId, byteBudget: Buffer.byteLength(opaqueId, 'utf8') });
   };
   const assertWave = paths => {
     if (reparseGuard?.prepareWave && reparseGuard?.completeWave) {
@@ -808,7 +820,39 @@ export function createProtectedInputSnapshot({ fs = nodeFs, reparseGuard } = {})
       for (const candidate of paths) assertPathHasNoLinkOrReparsePoint(fs, candidate, 'protected snapshot input');
     };
   };
-  return {
+  const cache = createOpaqueWaveCache({
+    beginWave(tickets) {
+      if (activeWave !== undefined) throw new Error('protected snapshot wave is already active');
+      const paths = tickets.map(ticket => {
+        const candidate = physicalPathsByTicket.get(ticket.opaqueId);
+        if (candidate === undefined) throw new Error('protected snapshot opaque ticket is unknown');
+        return candidate;
+      });
+      const finish = assertWave(paths);
+      activeWave = { id: nextWaveId += 1, finish };
+      return Object.freeze({ id: activeWave.id });
+    },
+    readTicket(ticket) {
+      const candidate = physicalPathsByTicket.get(ticket.opaqueId);
+      if (candidate === undefined) throw new Error('protected snapshot opaque ticket is unknown');
+      try {
+        return Buffer.from(fs.readFileSync(candidate));
+      } catch (error) {
+        activeWave = undefined;
+        throw error;
+      }
+    },
+    finishWave(wave) {
+      if (!activeWave || wave?.id !== activeWave.id) throw new Error('protected snapshot wave token is invalid');
+      const { finish } = activeWave;
+      activeWave = undefined;
+      finish();
+    },
+    digestBytes(bytes) {
+      return sha256(bytes);
+    },
+  });
+  return Object.freeze({
     readWave(requests) {
       if (!Array.isArray(requests)) throw new Error('protected snapshot wave must be an array');
       const unique = new Map();
@@ -820,46 +864,35 @@ export function createProtectedInputSnapshot({ fs = nodeFs, reparseGuard } = {})
         }
         unique.set(request.absolutePath, request);
       }
-      const ordered = [...unique.values()].sort((left, right) => left.absolutePath < right.absolutePath ? -1 : left.absolutePath > right.absolutePath ? 1 : 0);
-      const misses = ordered.filter(request => !entries.has(request.absolutePath));
-      if (misses.length > 0) {
-        const finishWave = assertWave(misses.map(request => request.absolutePath));
-        const provisional = new Map();
-        let readFailure;
-        for (const request of misses) {
-          try {
-            const bytes = Buffer.from(fs.readFileSync(request.absolutePath));
-            provisional.set(request.absolutePath, { bytes, sha256: sha256(bytes) });
-          } catch (error) {
-            if (!readFailure) readFailure = error;
-          }
-        }
-        if (readFailure) throw readFailure;
-        finishWave();
-        for (const request of misses) entries.set(request.absolutePath, provisional.get(request.absolutePath));
-      }
-      return ordered.map(resultFor);
+      const requestsByTicket = new Map();
+      const tickets = [...unique.values()].map(request => {
+        const ticket = opaqueTicketFor(request);
+        requestsByTicket.set(ticket.opaqueId, request);
+        return ticket;
+      });
+      return cache.readWave(tickets).map(result => {
+        const request = requestsByTicket.get(result.opaqueId);
+        if (!request) throw new Error('protected snapshot result has an unknown opaque ticket');
+        return {
+          kind: request.kind,
+          path: request.path,
+          sha256: result.sha256,
+          bytes: Buffer.from(result.bytes),
+        };
+      });
     },
     read(request) {
       return this.readWave([request])[0];
     },
-  };
+  });
 }
 
-function createNativeStrictAdmission(options = {}) {
-  if (Object.hasOwn(options, 'reparseGuard') || Object.hasOwn(options, 'snapshot')) {
-    throw new Error('strict admission context mints its own reparse guard and protected snapshot');
-  }
-  const { fs = nodeFs, probeBatch } = options;
-  const reparseGuard = createSegmentReparseGuard({ fs, probeBatch });
-  const snapshot = createProtectedInputSnapshot({ fs, reparseGuard });
+function createNativeStrictAdmission() {
+  const reparseGuard = createSegmentReparseGuard({ fs: nodeFs });
+  const snapshot = createProtectedInputSnapshot({ fs: nodeFs, reparseGuard });
   const admission = Object.freeze({});
-  strictAdmissionCapabilities.set(admission, { fs, reparseGuard, snapshot });
+  strictAdmissionCapabilities.set(admission, { fs: nodeFs, reparseGuard, snapshot });
   return admission;
-}
-
-export function createStrictAdmissionContext(options = {}) {
-  return createNativeStrictAdmission(options);
 }
 
 function requireFile(fs, workspaceRoot, relativePath, kind, { reparseGuard, snapshot, onBytes } = {}) {
@@ -878,7 +911,7 @@ function requireFile(fs, workspaceRoot, relativePath, kind, { reparseGuard, snap
   return { kind: input.kind, path: input.path, sha256: input.sha256 };
 }
 
-export function hashConfigLockFile(options = {}) {
+function hashConfigLockFile(options = {}) {
   const admission = strictAdmissionFor(options);
   const {
     workspaceRoot,
@@ -1050,13 +1083,177 @@ function literalSpecifier(token, label) {
   return token.value;
 }
 
+function lexicalScopeMap(tokens) {
+  const scopes = [{ parent: undefined }];
+  const activeScopes = [0];
+  const tokenScopes = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    tokenScopes[index] = activeScopes.at(-1);
+    if (tokens[index].value === '{') {
+      scopes.push({ parent: activeScopes.at(-1) });
+      activeScopes.push(scopes.length - 1);
+    } else if (tokens[index].value === '}') {
+      if (activeScopes.length === 1) throw new Error('admitted source has an unmatched closing brace');
+      activeScopes.pop();
+    }
+  }
+  if (activeScopes.length !== 1) throw new Error('admitted source has an unmatched opening brace');
+  return { scopes, tokenScopes };
+}
+
+function lexicalStatementEnd(tokens, start) {
+  const depth = { paren: 0, bracket: 0, brace: 0 };
+  for (let index = start; index < tokens.length; index += 1) {
+    const value = tokens[index].value;
+    if (value === '(') depth.paren += 1;
+    else if (value === ')') depth.paren -= 1;
+    else if (value === '[') depth.bracket += 1;
+    else if (value === ']') depth.bracket -= 1;
+    else if (value === '{') depth.brace += 1;
+    else if (value === '}') {
+      if (depth.brace === 0 && depth.paren === 0 && depth.bracket === 0) return index;
+      depth.brace -= 1;
+    } else if (value === ';' && depth.paren === 0 && depth.bracket === 0 && depth.brace === 0) {
+      return index;
+    }
+    if (depth.paren < 0 || depth.bracket < 0 || depth.brace < 0) throw new Error('admitted source has an unmatched closing delimiter');
+  }
+  return tokens.length;
+}
+
+function dynamicImportClose(tokens, openIndex) {
+  if (tokens[openIndex]?.value !== '(') return undefined;
+  let depth = 0;
+  for (let index = openIndex; index < tokens.length; index += 1) {
+    const value = tokens[index].value;
+    if (value === '(') depth += 1;
+    if (value === ')') {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  throw new Error('admitted source has an unterminated dynamic import');
+}
+
+function isTypeImportQuery(tokens, importIndex) {
+  for (let index = importIndex - 1; index >= 0; index -= 1) {
+    if (tokens[index].value === ';') break;
+    if (tokens[index].type === 'word' && tokens[index].value === 'as' && tokens[index - 1]?.value !== '.') return true;
+  }
+  for (let index = importIndex - 1; index >= 0; index -= 1) {
+    if ([';', '{', '}'].includes(tokens[index].value)) break;
+    if (tokens[index].type === 'word' && ['type', 'interface', 'implements', 'extends'].includes(tokens[index].value)) return true;
+  }
+  let depth = 0;
+  let openingParen = -1;
+  for (let index = importIndex - 1; index >= 0; index -= 1) {
+    const value = tokens[index].value;
+    if (value === ')') depth += 1;
+    if (value === '(') {
+      if (depth === 0) {
+        openingParen = index;
+        break;
+      }
+      depth -= 1;
+    }
+  }
+  if (openingParen < 0) return false;
+  for (let index = openingParen - 1; index >= 0; index -= 1) {
+    const value = tokens[index].value;
+    if ([';', '{', '}'].includes(value)) break;
+    if (tokens[index].type === 'word' && tokens[index].value === 'function') return true;
+  }
+  return false;
+}
+
+function constLiteralDeclarations(tokens, tokenScopes) {
+  const declarations = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index].type !== 'word' || tokens[index].value !== 'const') continue;
+    const name = tokens[index + 1];
+    if (name?.type !== 'word') continue;
+    let cursor = index + 2;
+    if (tokens[cursor]?.value === ':') {
+      cursor += 1;
+      let typeDepth = 0;
+      while (cursor < tokens.length) {
+        const value = tokens[cursor].value;
+        if (['(', '[', '{', '<'].includes(value)) typeDepth += 1;
+        if ([')', ']', '}', '>'].includes(value)) typeDepth -= 1;
+        if (value === '=' && typeDepth === 0) break;
+        if (value === ';' || value === ',' || typeDepth < 0) break;
+        cursor += 1;
+      }
+    }
+    if (tokens[cursor]?.value !== '=') continue;
+    const value = tokens[cursor + 1];
+    const terminator = tokens[cursor + 2]?.value;
+    if (value?.type !== 'string' || value.escaped || (terminator !== undefined && ![';', '}'].includes(terminator))) continue;
+    declarations.push({
+      declarationIndex: index,
+      name: name.value,
+      scope: tokenScopes[index],
+      value: value.value,
+    });
+  }
+  return declarations;
+}
+
+function isDirectAssignment(tokens, index) {
+  const next = tokens[index + 1]?.value;
+  const afterNext = tokens[index + 2]?.value;
+  if (next === '=' && afterNext !== '=' && afterNext !== '>') return true;
+  if (['+', '-', '*', '/', '%', '&', '|', '^'].includes(next) && afterNext === '=') return true;
+  if (next === '+' && afterNext === '+') return true;
+  if (next === '-' && afterNext === '-') return true;
+  return false;
+}
+
+function hasBindingMutation(tokens, name, declarationIndex) {
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index].type !== 'word' || tokens[index].value !== name || index === declarationIndex + 1) continue;
+    if (tokens[index - 1]?.value === '.') continue;
+    if (isDirectAssignment(tokens, index)) return true;
+    if (tokens[index - 1]?.value === '+' && tokens[index - 2]?.value === '+') return true;
+    if (tokens[index - 1]?.value === '-' && tokens[index - 2]?.value === '-') return true;
+    if (tokens[index + 1]?.type === 'word' && ['in', 'of'].includes(tokens[index + 1].value)) return true;
+  }
+  return false;
+}
+
+function resolveLiteralConstDynamicImport(tokens, scopeMap, declarations, importIndex, closeIndex) {
+  if (closeIndex !== importIndex + 3) {
+    throw new Error('admitted source has a nonliteral or unsupported dynamic import');
+  }
+  const identifier = tokens[importIndex + 2];
+  if (identifier?.type !== 'word') throw new Error('admitted source has a nonliteral or unsupported dynamic import');
+  const matching = declarations.filter(declaration => declaration.name === identifier.value);
+  if (matching.length !== 1) {
+    throw new Error('admitted source has an ambiguous, shadowed, or redeclared dynamic import binding');
+  }
+  const declaration = matching[0];
+  if (declaration.declarationIndex >= importIndex) {
+    throw new Error('admitted source has a use-before-declare dynamic import binding');
+  }
+  const callScope = scopeMap.tokenScopes[importIndex];
+  const visibleScopes = new Set();
+  for (let scope = callScope; scope !== undefined; scope = scopeMap.scopes[scope].parent) visibleScopes.add(scope);
+  if (!visibleScopes.has(declaration.scope)) {
+    throw new Error('admitted source has an out-of-scope dynamic import binding');
+  }
+  if (hasBindingMutation(tokens, declaration.name, declaration.declarationIndex)) {
+    throw new Error('admitted source has a mutable dynamic import binding');
+  }
+  return declaration.value;
+}
+
 export function parseAdmittedImportSpecifiers({ sourceText, fromPath } = {}) {
   const normalizedFromPath = normalizePath(fromPath);
   if (typeof sourceText !== 'string' || !sourceScope(normalizedFromPath) || !isCodeFile(normalizedFromPath)) {
     throw new Error('admitted import parser requires a contained source file and source text');
   }
-  const testHarnessSource = /\.test\.[cm]?[jt]sx?$/i.test(normalizedFromPath);
   const tokens = lexicalImportTokens(sourceText);
+  let dynamicBindingContext;
   const specifiers = [];
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
@@ -1064,19 +1261,39 @@ export function parseAdmittedImportSpecifiers({ sourceText, fromPath } = {}) {
     const next = tokens[index + 1];
     if (next?.value === '(') {
       const argument = tokens[index + 2];
-      const close = tokens[index + 3];
-      if (argument?.type === 'string' && !argument.escaped && close?.value === ')') {
+      const closeIndex = dynamicImportClose(tokens, index + 1);
+      if (argument?.type === 'string' && !argument.escaped && closeIndex === index + 3) {
+        if (isTypeImportQuery(tokens, index)) {
+          index = closeIndex;
+          continue;
+        }
         specifiers.push(argument.value);
-        index += 3;
+        index = closeIndex;
         continue;
       }
-      if (testHarnessSource) {
-        index = statementEnd(tokens, index);
-        continue;
+      if (!dynamicBindingContext) {
+        const scopeMap = lexicalScopeMap(tokens);
+        dynamicBindingContext = { scopeMap, declarations: constLiteralDeclarations(tokens, scopeMap.tokenScopes) };
       }
-      throw new Error('admitted source has a nonliteral or unsupported dynamic import');
+      specifiers.push(resolveLiteralConstDynamicImport(
+        tokens,
+        dynamicBindingContext.scopeMap,
+        dynamicBindingContext.declarations,
+        index,
+        closeIndex,
+      ));
+      index = closeIndex;
+      continue;
     }
-    if (next?.value === '.') continue;
+    if (next?.value === '.') {
+      if (tokens[index + 2]?.type === 'word' && tokens[index + 2].value === 'meta'
+        && tokens[index + 3]?.value === '.'
+        && tokens[index + 4]?.type === 'word' && tokens[index + 4].value === 'url') {
+        index += 4;
+        continue;
+      }
+      throw new Error('admitted source has an unsupported import.meta expression');
+    }
     if (next?.type === 'string') {
       specifiers.push(literalSpecifier(next, 'static'));
       index += 1;
@@ -1093,6 +1310,10 @@ export function parseAdmittedImportSpecifiers({ sourceText, fromPath } = {}) {
     const token = tokens[index];
     if (token.type !== 'word' || token.value !== 'export') continue;
     let cursor = index + 1;
+    if (tokens[cursor]?.type === 'word' && tokens[cursor].value === 'default') {
+      index = lexicalStatementEnd(tokens, cursor + 1) - 1;
+      continue;
+    }
     if (tokens[cursor]?.type === 'word' && tokens[cursor].value === 'type') cursor += 1;
     if (tokens[cursor]?.value === '{') {
       let depth = 1;
@@ -1109,7 +1330,10 @@ export function parseAdmittedImportSpecifiers({ sourceText, fromPath } = {}) {
     } else {
       continue;
     }
-    if (tokens[cursor]?.type !== 'word' || tokens[cursor].value !== 'from') continue;
+    if (tokens[cursor]?.type !== 'word' || tokens[cursor].value !== 'from') {
+      index = lexicalStatementEnd(tokens, cursor) - 1;
+      continue;
+    }
     specifiers.push(literalSpecifier(tokens[cursor + 1], 'export'));
     index = cursor + 1;
   }
@@ -1276,7 +1500,7 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOT
   };
 }
 
-export function collectSourceClosure(options = {}) {
+function collectSourceClosure(options = {}) {
   const admission = strictAdmissionFor(options);
   const {
     workspaceRoot,
@@ -1398,11 +1622,45 @@ function fixtureRowsFromEntry(fs, workspaceRoot, reparseGuard, snapshot) {
   )));
 }
 
+function resolveTrustedWindowsGit() {
+  const parsed = nodePath.win32.parse(TRUSTED_WINDOWS_GIT);
+  const segments = nodePath.win32.relative(parsed.root, TRUSTED_WINDOWS_GIT).split(nodePath.win32.sep).filter(Boolean);
+  let current = parsed.root;
+  for (const segment of segments) {
+    current = nodePath.win32.join(current, segment);
+    let stat;
+    try {
+      stat = nodeFs.lstatSync(current);
+    } catch (error) {
+      throw new Error(`cannot inspect trusted Git path: ${current} (${error?.message ?? String(error)})`);
+    }
+    if (stat?.isSymbolicLink?.() || stat?.isReparsePoint?.()) {
+      throw new Error(`trusted Git path is a reparse point or link: ${current}`);
+    }
+    if (current === TRUSTED_WINDOWS_GIT ? !stat?.isFile?.() : !stat?.isDirectory?.()) {
+      throw new Error(`trusted Git path has an unexpected role: ${current}`);
+    }
+  }
+  let realpath;
+  try {
+    realpath = nodeFs.realpathSync.native(TRUSTED_WINDOWS_GIT);
+  } catch (error) {
+    throw new Error(`cannot inspect trusted Git realpath: ${error?.message ?? String(error)}`);
+  }
+  if (trustedWindowsPath(realpath) !== trustedWindowsPath(TRUSTED_WINDOWS_GIT)) {
+    throw new Error(`trusted Git realpath differs from fixed binary: ${realpath}`);
+  }
+  return TRUSTED_WINDOWS_GIT;
+}
+
 function readGitLines(workspaceRoot, args) {
-  const result = execFileSync('git', ['-c', 'core.longpaths=true', ...args], {
+  const executable = resolveTrustedWindowsGit();
+  const result = execFileSync(executable, ['-c', 'core.longpaths=true', ...args], {
     cwd: workspaceRoot,
     encoding: 'utf8',
+    env: MINIMAL_GIT_ENVIRONMENT,
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   });
   return normalizeLf(result).split('\n').filter(Boolean);
 }
@@ -1427,7 +1685,7 @@ function gitProtectedInput(workspaceRoot, protectedPaths) {
   const configIndexRows = indexRows.filter(row => row.path === 'server/config.json5');
   validateConfigLockRows({ statusRows: configStatusRows, indexRows: configIndexRows });
   return {
-    commandPrefix: ['git', '-c', 'core.longpaths=true'],
+    commandPrefix: [normalizePath(TRUSTED_WINDOWS_GIT), '-c', 'core.longpaths=true'],
     head: readGitLines(workspaceRoot, ['rev-parse', 'HEAD'])[0],
     protectedRepoPaths: [...protectedPaths].sort(),
     statusRows,
@@ -1446,7 +1704,7 @@ function selectedCommands(contract) {
   }));
 }
 
-function assertManifestDestination(workspaceRoot, manifestPath, fs, reparseGuard) {
+function assertManifestDestination(workspaceRoot, manifestPath) {
   const analysisRoot = workspacePath(workspaceRoot, ANALYSIS_DIRECTORY);
   const destination = nodePath.resolve(manifestPath);
   if (!isWithinPath(destination, analysisRoot) || nodePath.dirname(destination) !== analysisRoot || nodePath.extname(destination).toLowerCase() !== '.json') {
@@ -1455,25 +1713,44 @@ function assertManifestDestination(workspaceRoot, manifestPath, fs, reparseGuard
   return { analysisRoot, destination };
 }
 
-function assertManifestLeafRole(fs, destination) {
-  if (typeof fs?.lstatSync !== 'function') return;
+function manifestRoleState(fs, candidate, label) {
   let stat;
   try {
-    stat = fs.lstatSync(destination);
+    stat = fs.lstatSync(candidate);
   } catch (error) {
-    if (error?.code === 'ENOENT') return;
-    throw new Error(`cannot inspect manifest leaf: ${destination} (${error?.message ?? String(error)})`);
+    if (error?.code === 'ENOENT') return { role: 'missing' };
+    throw new Error(`cannot inspect ${label}: ${candidate} (${error?.message ?? String(error)})`);
   }
-  if (stat?.isSymbolicLink?.() || stat?.isReparsePoint?.()) {
-    throw new Error(`manifest leaf is a reparse point or link: ${destination}`);
+  const role = stat?.isSymbolicLink?.()
+    ? 'link'
+    : stat?.isReparsePoint?.()
+      ? 'reparse'
+      : stat?.isDirectory?.()
+        ? 'directory'
+        : stat?.isFile?.()
+          ? 'regular'
+          : 'special';
+  const state = { role };
+  for (const key of ['dev', 'ino', 'mode', 'ctimeMs', 'mtimeMs', 'size']) {
+    if (Object.hasOwn(stat ?? {}, key)) state[key] = stat[key];
   }
-  if (!stat?.isFile?.()) {
-    const role = stat?.isDirectory?.() ? 'directory' : 'special';
-    throw new Error(`manifest leaf must be absent or a regular file, not ${role}: ${destination}`);
-  }
+  return state;
 }
 
-export function writeCapturedManifest({
+function assertManifestDestinationRoles(fs, { analysisRoot, destination }) {
+  const parentBefore = manifestRoleState(fs, analysisRoot, 'manifest parent');
+  const leafBefore = manifestRoleState(fs, destination, 'manifest leaf');
+  evaluateManifestWriteState({
+    transition: ['ensure-parent', 'preflight', 'exclusive-write', 'postflight'],
+    parentBefore,
+    parentAfter: parentBefore,
+    leafBefore,
+    leafAfter: { role: 'regular' },
+  });
+  return { parentBefore, leafBefore };
+}
+
+function writeCapturedManifest({
   workspaceRoot,
   manifestPath,
   manifest,
@@ -1483,8 +1760,9 @@ export function writeCapturedManifest({
 } = {}) {
   assertCollectorWorkspaceRoot(workspaceRoot);
   if (typeof reparseGuard?.assertSafeMany !== 'function') throw new Error('manifest writer requires a full-frontier reparse guard');
-  const { analysisRoot, destination } = assertManifestDestination(workspaceRoot, manifestPath, fs, reparseGuard);
-  assertManifestLeafRole(fs, destination);
+  const destinationInfo = assertManifestDestination(workspaceRoot, manifestPath);
+  const { analysisRoot, destination } = destinationInfo;
+  const beforeState = assertManifestDestinationRoles(fs, destinationInfo);
   fs.mkdirSync(analysisRoot, { recursive: true });
   // Node pathname APIs have no native no-follow guarantee against a hostile kernel-time parent swap.
   try {
@@ -1498,32 +1776,39 @@ export function writeCapturedManifest({
   } catch (error) {
     throw new Error(`manifest path is a reparse point or link after write: ${error?.message ?? String(error)}`);
   }
+  evaluateManifestWriteState({
+    transition: ['ensure-parent', 'preflight', 'exclusive-write', 'postflight'],
+    parentBefore: beforeState.parentBefore,
+    parentAfter: manifestRoleState(fs, analysisRoot, 'manifest parent'),
+    leafBefore: beforeState.leafBefore,
+    leafAfter: manifestRoleState(fs, destination, 'manifest leaf'),
+  });
   return manifest;
 }
 
 export function captureFrozenProvenance(options) {
   assertPlainObject(options, 'capture options');
-  if (Object.hasOwn(options, 'testOnlyInputs') || Object.hasOwn(options, 'sourceRoots')) {
-    throw new Error('frozen capture inputs reject test-only or source-root overrides');
+  const allowedOptions = new Set(['workspaceRoot', 'manifestPath', 'phase']);
+  if (Object.keys(options).some(key => !allowedOptions.has(key))) {
+    throw new Error('native capture rejects caller-supplied authority or unsupported options');
   }
   const {
     workspaceRoot,
     manifestPath,
     phase,
-    execFile = fileURLToPath(import.meta.url),
-    fs = nodeFs,
   } = options;
   assertCollectorWorkspaceRoot(workspaceRoot);
-  const admission = createNativeStrictAdmission({ fs });
+  const manifestDestination = assertManifestDestination(workspaceRoot, manifestPath);
+  assertManifestDestinationRoles(nodeFs, manifestDestination);
+  const admission = createNativeStrictAdmission();
   const { reparseGuard, snapshot } = strictAdmissionCapabilities.get(admission);
-  const contract = validateFrozenContract({ workspaceRoot, contract: FROZEN_CONTRACT, fs, reparseGuard });
-  assertManifestDestination(workspaceRoot, manifestPath, fs, reparseGuard);
+  const contract = validateFrozenContract({ workspaceRoot, contract: FROZEN_CONTRACT, fs: nodeFs, reparseGuard });
   const { sourceClosureRows, externalSpecifierRows } = collectSourceClosure({
     workspaceRoot,
     sourceRoots: SOURCE_ROOTS,
     admission,
   });
-  const fixtureRows = fixtureRowsFromEntry(fs, workspaceRoot, reparseGuard, snapshot);
+  const fixtureRows = fixtureRowsFromEntry(nodeFs, workspaceRoot, reparseGuard, snapshot);
   let configLockRows;
   try {
     configLockRows = snapshot.readWave(CONFIG_LOCK_PATHS.map(relativePath => ({
@@ -1537,6 +1822,7 @@ export function captureFrozenProvenance(options) {
   }
   const protectedPaths = [...new Set([...sourceClosureRows, ...fixtureRows, ...configLockRows].map(row => row.path))].sort();
   const git = gitProtectedInput(workspaceRoot, protectedPaths);
+  const execFile = fileURLToPath(import.meta.url);
   const collectorPath = relativeWorkspacePath(workspaceRoot, execFile);
   const collectorAndRuntime = snapshot.readWave([
     { absolutePath: nodePath.resolve(execFile), kind: 'collector', path: collectorPath },
@@ -1564,7 +1850,7 @@ export function captureFrozenProvenance(options) {
     workspaceRoot,
     manifestPath,
     manifest,
-    fs,
+    fs: nodeFs,
     reparseGuard,
     serialized: canonicalJson(manifest),
   });
