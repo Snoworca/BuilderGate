@@ -1070,6 +1070,37 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
     }
   });
 
+  test('SDS-AC-3 preserves an earlier missing-parent capture failure when successful-capture cleanup is skipped', { timeout: 115_000 }, async () => {
+    const { ownedRoot, fixtureRoot } = await createOwnedWorkspaceWithoutAnalysisParent();
+    const fixtureAnalysisRoot = path.join(fixtureRoot, analysisRootRelativePath);
+    const absentManifestPath = path.join(fixtureAnalysisRoot, `capture-failed-before-parent-${process.pid}-${randomBytes(6).toString('hex')}.json`);
+    const originalCaptureError = new Error('injected earlier missing-parent capture failure');
+    try {
+      assert.equal(existsSync(fixtureAnalysisRoot), false, 'an earlier missing-parent failure leaves the fixture analysis parent absent');
+      assert.equal(existsSync(absentManifestPath), false, 'an earlier missing-parent failure leaves its owned manifest leaf absent');
+      let observedError;
+      try {
+        try {
+          throw originalCaptureError;
+        } finally {
+          cleanupFixtureManifestAfterSuccessfulCapture({
+            didCapture: false,
+            fixtureRoot,
+            fixtureAnalysisRoot,
+            manifestPath: absentManifestPath,
+          });
+        }
+      } catch (error) {
+        observedError = error;
+      }
+      assert.strictEqual(observedError, originalCaptureError, 'successful-capture-only cleanup must not replace an earlier capture failure');
+      assert.equal(existsSync(fixtureAnalysisRoot), false, 'skipped successful-capture cleanup must not create or require the absent fixture analysis parent');
+      assert.equal(existsSync(absentManifestPath), false, 'skipped successful-capture cleanup must leave the absent owned manifest leaf untouched');
+    } finally {
+      removeOwnedWorkspace(ownedRoot);
+    }
+  });
+
   test('SDS-AC-1 fails normal closed capture when a protected minimal-fixture input is absent instead of falling back to the worktree', { timeout: 115_000 }, async () => {
     const { ownedRoot, fixtureRoot } = await createOwnedWorkspaceWithoutAnalysisParent();
     const fixtureAnalysisRoot = path.join(fixtureRoot, analysisRootRelativePath);
