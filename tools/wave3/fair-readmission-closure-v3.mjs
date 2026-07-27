@@ -1730,7 +1730,19 @@ function manifestRoleStateFromStat(stat) {
   return state;
 }
 
-function manifestRoleState(fs, candidate, label) {
+function assertManifestReparseAdmission(reparseGuard, paths, phase) {
+  if (typeof reparseGuard?.assertSafeMany !== 'function') {
+    throw new Error('manifest path requires a native strict reparse admission guard');
+  }
+  try {
+    reparseGuard.assertSafeMany(paths);
+  } catch (error) {
+    throw new Error(`manifest path is a reparse point or link ${phase}: ${error?.message ?? String(error)}`);
+  }
+}
+
+function manifestRoleState(fs, candidate, label, reparseGuard) {
+  assertManifestReparseAdmission(reparseGuard, [candidate], `before ${label} inspection`);
   try {
     return manifestRoleStateFromStat(fs.lstatSync(candidate));
   } catch (error) {
@@ -1739,17 +1751,19 @@ function manifestRoleState(fs, candidate, label) {
   }
 }
 
-function assertManifestDestinationRoles(fs, { analysisRoot, destination }) {
-  const parentBefore = manifestRoleState(fs, analysisRoot, 'manifest parent');
-  const leafBefore = manifestRoleState(fs, destination, 'manifest leaf');
+function assertManifestDestinationRoles(fs, { analysisRoot, destination }, reparseGuard) {
+  const parentBefore = manifestRoleState(fs, analysisRoot, 'manifest parent', reparseGuard);
+  const leafBefore = manifestRoleState(fs, destination, 'manifest leaf', reparseGuard);
   evaluateManifestWriteState({
     stage: 'preflight',
     transition: ['ensure-parent', 'preflight', 'exclusive-write', 'postflight'],
     parentBefore,
     leafBefore,
   });
+  assertManifestReparseAdmission(reparseGuard, [analysisRoot, destination], 'before parent creation');
   fs.mkdirSync(analysisRoot, { recursive: true });
-  const parentAfter = manifestRoleState(fs, analysisRoot, 'manifest parent');
+  assertManifestReparseAdmission(reparseGuard, [analysisRoot, destination], 'after parent creation');
+  const parentAfter = manifestRoleState(fs, analysisRoot, 'manifest parent', reparseGuard);
   evaluateManifestWriteState({
     stage: 'preflight',
     transition: ['ensure-parent', 'preflight', 'exclusive-write', 'postflight'],
@@ -1772,30 +1786,22 @@ function writeCapturedManifest({
   if (typeof reparseGuard?.assertSafeMany !== 'function') throw new Error('manifest writer requires a full-frontier reparse guard');
   const destinationInfo = assertManifestDestination(workspaceRoot, manifestPath);
   const { analysisRoot, destination } = destinationInfo;
-  const beforeState = assertManifestDestinationRoles(fs, destinationInfo);
+  const beforeState = assertManifestDestinationRoles(fs, destinationInfo, reparseGuard);
   // Node pathname APIs have no native no-follow guarantee against a hostile kernel-time parent swap.
-  try {
-    reparseGuard.assertSafeMany([analysisRoot, destination], { forceFresh: true });
-  } catch (error) {
-    throw new Error(`manifest path is a reparse point or link: ${error?.message ?? String(error)}`);
-  }
+  assertManifestReparseAdmission(reparseGuard, [analysisRoot, destination], 'before exclusive create');
   let descriptor;
   try {
     descriptor = fs.openSync(destination, 'wx');
     fs.writeFileSync(descriptor, Buffer.from(`${serialized}\n`, 'utf8'));
     const leafWritten = manifestRoleStateFromStat(fs.fstatSync(descriptor));
-    try {
-      reparseGuard.assertSafeMany([analysisRoot, destination], { forceFresh: true });
-    } catch (error) {
-      throw new Error(`manifest path is a reparse point or link after write: ${error?.message ?? String(error)}`);
-    }
+    assertManifestReparseAdmission(reparseGuard, [analysisRoot, destination], 'after exclusive write');
     evaluateManifestWriteState({
       transition: ['ensure-parent', 'preflight', 'exclusive-write', 'postflight'],
       parentBefore: beforeState.parentBefore,
-      parentAfter: manifestRoleState(fs, analysisRoot, 'manifest parent'),
+      parentAfter: manifestRoleState(fs, analysisRoot, 'manifest parent', reparseGuard),
       leafBefore: beforeState.leafBefore,
       leafWritten,
-      leafAfter: manifestRoleState(fs, destination, 'manifest leaf'),
+      leafAfter: manifestRoleState(fs, destination, 'manifest leaf', reparseGuard),
     });
     return manifest;
   } finally {
@@ -1816,9 +1822,9 @@ export function captureFrozenProvenance(options) {
   } = options;
   assertCollectorWorkspaceRoot(workspaceRoot);
   const manifestDestination = assertManifestDestination(workspaceRoot, manifestPath);
-  assertManifestDestinationRoles(nodeFs, manifestDestination);
   const admission = createNativeStrictAdmission();
   const { reparseGuard, snapshot } = strictAdmissionCapabilities.get(admission);
+  assertManifestDestinationRoles(nodeFs, manifestDestination, reparseGuard);
   const contract = validateFrozenContract({ workspaceRoot, contract: FROZEN_CONTRACT, fs: nodeFs, reparseGuard });
   const { sourceClosureRows, externalSpecifierRows } = collectSourceClosure({
     workspaceRoot,

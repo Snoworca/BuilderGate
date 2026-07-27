@@ -202,9 +202,7 @@ export function evaluateManifestWriteState(state) {
   }
 
   const leafAfter = assertLeaf(state.leafAfter, 'manifest leaf after write', 'regular');
-  const leafWritten = state.leafWritten === undefined
-    ? leafAfter
-    : assertLeaf(state.leafWritten, 'manifest leaf written by exclusive write', 'regular');
+  const leafWritten = assertLeaf(state.leafWritten, 'manifest leaf written by exclusive write', 'regular');
   if (!sameLeafIdentity(leafWritten, leafAfter)) {
     throw new Error('manifest leaf identity changed after exclusive write');
   }
