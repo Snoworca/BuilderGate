@@ -44,6 +44,7 @@ let postflightObserved = false;
 let replacementBytes = null;
 let closeCount = 0;
 let allowReplacementNativeOpen = false;
+let postwriteTargetLstatCount = 0;
 
 function emit(event, extra) {
   fs.writeSync(1, JSON.stringify(Object.assign({
@@ -124,7 +125,7 @@ fs.writeFileSync = function requireTrackedFdWrite(candidate, data, options) {
     emit('write-failure');
     throw new Error('injected retained-fd write failure after delegated descriptor write');
   }
-  releaseAfterDelegatedFdWrite();
+  if (fault !== 'replacement') releaseAfterDelegatedFdWrite();
   return result;
 };
 
@@ -150,11 +151,21 @@ fs.lstatSync = function requirePostflightAfterFstat(candidate) {
   }
   const result = originalLstatSync.apply(fs, arguments);
   if (isExactTarget(candidate) && delegatedFdWrite && fstatObserved && !postflightObserved) {
+    postwriteTargetLstatCount += 1;
     postflightObserved = true;
     emit('postflight');
+    emit('guarded-postwrite-probe', { count: postwriteTargetLstatCount });
     if (fault === 'postflight-failure') {
       emit('postflight-failure');
       throw new Error('injected retained-fd postflight failure');
+    }
+  } else if (isExactTarget(candidate) && delegatedFdWrite && fstatObserved) {
+    postwriteTargetLstatCount += 1;
+    if (postwriteTargetLstatCount === 2) {
+      emit('guarded-postwrite-probe-complete', { count: postwriteTargetLstatCount });
+      if (fault === 'replacement') releaseAfterDelegatedFdWrite();
+    } else if (postwriteTargetLstatCount === 5) {
+      emit('final-leaf-identity-observation', { count: postwriteTargetLstatCount });
     }
   }
   return result;
@@ -182,17 +193,23 @@ syncBuiltinESMExports();
 const guardBeforeMutationPreloaderSource = `'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
+const childProcess = require('node:child_process');
 const { syncBuiltinESMExports } = require('node:module');
 
 const actor = process.env.WAVE3_NATIVE_RACE_ACTOR;
 const suppliedAnalysisRoot = process.env.WAVE3_NATIVE_RACE_ANALYSIS_ROOT;
-if (actor !== 'G' || typeof suppliedAnalysisRoot !== 'string' || suppliedAnalysisRoot.length === 0) {
-  throw new Error('guard-before-mutation preloader requires one exact G analysis root');
+const suppliedTarget = process.env.WAVE3_NATIVE_RACE_TARGET;
+if (actor !== 'G' || typeof suppliedAnalysisRoot !== 'string' || suppliedAnalysisRoot.length === 0 || typeof suppliedTarget !== 'string' || suppliedTarget.length === 0) {
+  throw new Error('guard-before-mutation preloader requires exact G analysis and manifest paths');
 }
 const analysisRoot = path.resolve(suppliedAnalysisRoot);
+const target = path.resolve(suppliedTarget);
 const originalLstatSync = fs.lstatSync;
 const originalMkdirSync = fs.mkdirSync;
+const originalOpenSync = fs.openSync;
+const originalSpawnSync = childProcess.spawnSync;
 let initialMissingLstatGated = false;
+let analysisMkdirCount = 0;
 
 function emit(event, extra) {
   fs.writeSync(1, JSON.stringify(Object.assign({
@@ -205,6 +222,35 @@ function emit(event, extra) {
 function isExactAnalysisRoot(candidate) {
   return typeof candidate === 'string' && path.resolve(candidate) === analysisRoot;
 }
+
+function isExactTarget(candidate) {
+  return typeof candidate === 'string' && path.resolve(candidate) === target;
+}
+
+function decodeFixedProbePaths(args) {
+  const environment = args[2]?.env;
+  const encoded = environment?.FAIR_READMISSION_CLOSURE_V3_REPARSE_BATCH_PATHS_BASE64;
+  if (typeof encoded !== 'string') return undefined;
+  try {
+    const paths = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'));
+    if (!Array.isArray(paths) || !paths.every(candidate => typeof candidate === 'string')) return undefined;
+    return paths;
+  } catch {
+    return undefined;
+  }
+}
+
+childProcess.spawnSync = function observeFixedReparseProbe() {
+  const probePaths = decodeFixedProbePaths(arguments);
+  const result = originalSpawnSync.apply(childProcess, arguments);
+  if (probePaths?.some(candidate => isExactAnalysisRoot(candidate) || isExactTarget(candidate))) {
+    emit('manifest-probe', {
+      containsAnalysisRoot: probePaths.some(isExactAnalysisRoot),
+      containsTarget: probePaths.some(isExactTarget),
+    });
+  }
+  return result;
+};
 
 fs.lstatSync = function gateInitialMissingAnalysisRoot(candidate) {
   if (!initialMissingLstatGated && isExactAnalysisRoot(candidate)) {
@@ -227,7 +273,16 @@ fs.lstatSync = function gateInitialMissingAnalysisRoot(candidate) {
 
 fs.mkdirSync = function observeAnalysisRootMutation(candidate) {
   const result = originalMkdirSync.apply(fs, arguments);
-  if (isExactAnalysisRoot(candidate)) emit('mkdir');
+  if (isExactAnalysisRoot(candidate)) {
+    analysisMkdirCount += 1;
+    emit('mkdir', { count: analysisMkdirCount });
+  }
+  return result;
+};
+
+fs.openSync = function observeManifestExclusiveOpen(candidate, flags) {
+  const result = originalOpenSync.apply(fs, arguments);
+  if (isExactTarget(candidate) && flags === 'wx') emit('open');
   return result;
 };
 syncBuiltinESMExports();
@@ -544,23 +599,50 @@ async function runNativeWorker() {
 if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race') {
   await runNativeWorker();
 } else {
-  test('SDS-AC-3 creates an absent fixed analysis parent in an owned workspace before capture preflight', { timeout: 115_000 }, async () => {
+  test('SDS-AC-1 and SDS-AC-3 create an absent fixed analysis parent only after fresh native guard probes at manifest boundaries', { timeout: 115_000 }, async () => {
     const { ownedRoot, fixtureRoot } = createOwnedWorkspaceWithoutAnalysisParent();
+    const harness = createOwnedWxRaceHarness();
     const fixtureAnalysisRoot = path.join(fixtureRoot, analysisRootRelativePath);
     const manifestPath = path.join(fixtureAnalysisRoot, 'missing-parent-first-capture.json');
+    const fixtureCollectorUrl = pathToFileURL(path.join(fixtureRoot, 'tools', 'wave3', 'fair-readmission-closure-v3.mjs')).href;
+    const timeline = [];
+    let actorGuard;
     try {
       assert.equal(existsSync(fixtureAnalysisRoot), false, 'the copied workspace starts with the fixed analysis parent absent');
-      const fixtureCollectorUrl = pathToFileURL(path.join(fixtureRoot, 'tools', 'wave3', 'fair-readmission-closure-v3.mjs')).href;
-      const { captureFrozenProvenance } = await import(fixtureCollectorUrl);
-      const manifest = captureFrozenProvenance({
-        workspaceRoot: fixtureRoot,
+      actorGuard = spawnWxRaceChild({
+        harness,
+        actor: 'G',
         manifestPath,
         phase: 'internal-core-missing-parent-first-capture',
+        preload: true,
+        preloaderPath: harness.guardPreloaderPath,
+        collectorSourceUrl: fixtureCollectorUrl,
+        childWorkspaceRoot: fixtureRoot,
+        guardAnalysisRoot: fixtureAnalysisRoot,
+        timeline,
       });
+      await waitForWxRaceEvent(actorGuard, 'initial-lstat-missing', 'guarded initial missing analysis lstat');
+      releaseWxRaceChild(actorGuard, 0x52);
+      const terminal = await waitForWxRaceTerminalEvent(actorGuard, 'guarded missing-parent capture');
+      assert.equal(terminal.event, 'captured', `the owned missing parent capture must succeed after its guard release; transcript=${JSON.stringify(actorGuard.transcript)}`);
+      assert.deepEqual(await waitForWxRaceExit(actorGuard, 'guarded missing-parent capture'), { code: 0, signal: null });
       assert.equal(existsSync(fixtureAnalysisRoot), true, 'first capture creates only its fixed analysis parent');
       assert.equal(existsSync(manifestPath), true, 'first capture writes its requested fixed manifest leaf after parent creation');
-      assert.equal(JSON.parse(readFileSync(manifestPath, 'utf8')).protectedInput.sha256, manifest.protectedInput.sha256);
+      assert.equal(JSON.parse(readFileSync(manifestPath, 'utf8')).protectedInput.sha256, terminal.sha256);
+      const mkdirIndexes = actorGuard.transcript
+        .map((candidate, index) => candidate.event === 'mkdir' ? index : -1)
+        .filter(index => index >= 0);
+      assert.equal(mkdirIndexes.length, 2, 'native capture mutates the fixed parent once during admission and once during its private manifest write path');
+      const openIndex = actorTranscriptIndex(actorGuard, 'open');
+      assert.equal(mkdirIndexes[1] < openIndex, true, 'the private manifest parent boundary precedes exclusive create');
+      const freshProbesAfterPrivateParentBoundary = actorGuard.transcript
+        .slice(mkdirIndexes[1] + 1, openIndex)
+        .filter(candidate => candidate.event === 'manifest-probe' && candidate.containsAnalysisRoot);
+      assert.equal(freshProbesAfterPrivateParentBoundary.length > 0, true, 'the same-identity cached manifest parent must be native-probed again after the private parent boundary and before exclusive create');
     } finally {
+      if (actorGuard && !actorGuard.released && !actorGuard.exitState) releaseWxRaceChild(actorGuard, 0x52);
+      await Promise.allSettled([actorGuard?.exited].filter(Boolean));
+      removeOwnedWxRaceHarness(harness.ownedRoot);
       removeOwnedWorkspace(ownedRoot);
     }
   });
@@ -728,7 +810,7 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
     }
   });
 
-  test('SDS-AC-3 either keeps same-byte replacement OS-blocked or rejects the swapped leaf before A accepts it', { timeout: 115_000 }, async () => {
+  test('SDS-AC-3 distinguishes the guarded postwrite probe from final leaf identity observation during same-byte replacement', { timeout: 115_000 }, async () => {
     const harness = createOwnedWxRaceHarness();
     const prefix = `wx-replacement-${process.pid}-${randomBytes(6).toString('hex')}`;
     const leafA = path.join(analysisRoot, `${prefix}-a.json`);
@@ -747,11 +829,16 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
       });
       await waitForWxRaceEvent(actorA, 'open', 'A replacement retained-fd open');
       await waitForWxRaceEvent(actorA, 'fd-write', 'A replacement retained-fd write gate');
+      await waitForWxRaceEvent(actorA, 'fstat', 'A replacement retained-fd fstat');
+      await waitForWxRaceEvent(actorA, 'guarded-postwrite-probe', 'A guarded postwrite target probe');
+      await waitForWxRaceEvent(actorA, 'guarded-postwrite-probe-complete', 'A completed guarded postwrite target probe');
       releaseWxRaceChild(actorA, 0x58);
       const replacement = await waitForOneOfWxRaceEvents(actorA, ['replacement-blocked', 'replaced', 'replacement-partial'], 'A same-byte replacement result');
       await waitForWxRaceEvent(actorA, 'release', 'A replacement release');
       const terminal = await waitForWxRaceTerminalEvent(actorA, 'A replacement capture');
-      await waitForWxRaceEvent(actorA, 'fstat', 'A replacement retained-fd fstat');
+      const finalLeafIdentity = replacement.event === 'replacement-partial'
+        ? undefined
+        : await waitForWxRaceEvent(actorA, 'final-leaf-identity-observation', 'A final leaf identity observation');
       await waitForWxRaceEvent(actorA, 'postflight', 'A replacement retained-fd postflight');
       await waitForWxRaceEvent(actorA, 'close', 'A replacement retained-fd close');
       if (replacement.event === 'replacement-blocked') {
@@ -765,11 +852,15 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
         assert.deepEqual(await waitForWxRaceExit(actorA, 'A replacement capture'), { code: 1, signal: null });
       }
       assert.equal(transcriptIndex(timeline, 'A', 'open') < transcriptIndex(timeline, 'A', 'fd-write'), true);
-      assert.equal(transcriptIndex(timeline, 'A', 'fd-write') < transcriptIndex(timeline, 'A', replacement.event), true);
-      assert.equal(transcriptIndex(timeline, 'A', replacement.event) < transcriptIndex(timeline, 'A', 'release'), true);
       assert.equal(transcriptIndex(timeline, 'A', 'fd-write') < transcriptIndex(timeline, 'A', 'fstat'), true);
-      assert.equal(transcriptIndex(timeline, 'A', 'fstat') < transcriptIndex(timeline, 'A', 'postflight'), true);
-      assert.equal(transcriptIndex(timeline, 'A', 'postflight') < transcriptIndex(timeline, 'A', 'close'), true);
+      assert.equal(transcriptIndex(timeline, 'A', 'fstat') < transcriptIndex(timeline, 'A', 'guarded-postwrite-probe'), true, 'the first target lstat after retained-fd fstat is the guarded postwrite probe');
+      assert.equal(transcriptIndex(timeline, 'A', 'guarded-postwrite-probe') < transcriptIndex(timeline, 'A', 'guarded-postwrite-probe-complete'), true, 'the guarded postwrite probe completes before replacement is released');
+      assert.equal(transcriptIndex(timeline, 'A', 'guarded-postwrite-probe-complete') < transcriptIndex(timeline, 'A', replacement.event), true, 'same-byte replacement begins only after the guard has completed its postwrite target probe');
+      assert.equal(transcriptIndex(timeline, 'A', replacement.event) < transcriptIndex(timeline, 'A', 'release'), true);
+      if (finalLeafIdentity) {
+        assert.equal(transcriptIndex(timeline, 'A', 'release') < transcriptIndex(timeline, 'A', 'final-leaf-identity-observation'), true, 'the later final leaf identity observation occurs only after the replacement attempt');
+        assert.equal(transcriptIndex(timeline, 'A', 'final-leaf-identity-observation') < transcriptIndex(timeline, 'A', 'close'), true, 'the final leaf identity observation precedes retained descriptor cleanup');
+      }
       assert.equal(actorA.transcript.filter(candidate => candidate.event === 'close').length, 1, 'the replacement run closes its retained descriptor exactly once');
       assert.equal(actorA.transcript.some(candidate => candidate.event === 'path-write-bypass' || candidate.event === 'pathname-read-before-postflight' || candidate.event === 'target-lstat-before-fstat' || candidate.event === 'fstat-before-fd-write'), false, 'replacement handling keeps the security-sensitive write and identity sequence on the retained descriptor');
     } finally {

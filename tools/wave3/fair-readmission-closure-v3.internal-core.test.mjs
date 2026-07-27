@@ -143,6 +143,34 @@ test('SDS-AC-1 keeps the opaque core internal and rejects authority-shaped input
   );
 });
 
+test('SDS-AC-1 rejects hidden, symbol, and inherited caller authority before workspace path validation', async () => {
+  const collector = await import('./fair-readmission-closure-v3.mjs');
+  const hiddenAuthority = { workspaceRoot: '', manifestPath: '', phase: 'hidden-authority' };
+  Object.defineProperty(hiddenAuthority, 'fs', { value: Object.freeze({}), enumerable: false });
+  const symbolAuthority = {
+    workspaceRoot: '',
+    manifestPath: '',
+    phase: 'symbol-authority',
+    [Symbol('reparseGuard')]: Object.freeze({}),
+  };
+  const inheritedAuthority = Object.assign(Object.create({ snapshot: Object.freeze({}) }), {
+    workspaceRoot: '',
+    manifestPath: '',
+    phase: 'inherited-authority',
+  });
+  for (const [label, options] of [
+    ['non-enumerable filesystem', hiddenAuthority],
+    ['symbol reparse guard', symbolAuthority],
+    ['inherited snapshot', inheritedAuthority],
+  ]) {
+    assert.throws(
+      () => collector.captureFrozenProvenance(options),
+      /capture options|unsupported|authority|reject/i,
+      `${label} must reject before the invalid empty workspace/path can reach any filesystem validation`,
+    );
+  }
+});
+
 test('SDS-AC-2 deterministically deduplicates opaque tickets and plans fixed 64-ticket or 8-KiB waves', async () => {
   const { createOpaqueWaveCache } = await loadCore();
   const bytesById = new Map([
