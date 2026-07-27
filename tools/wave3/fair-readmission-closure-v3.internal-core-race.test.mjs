@@ -697,6 +697,15 @@ function removeOwnedFixtureManifestLeaf(fixtureRoot, fixtureAnalysisRoot, manife
   assert.equal(isLinkOrReparsePoint(analysisRootStat), false, 'fixture manifest leaf cleanup retains a non-reparse fixture analysis parent');
 }
 
+function cleanupFixtureManifestAfterSuccessfulCapture({ didCapture, fixtureRoot, fixtureAnalysisRoot, manifestPath }) {
+  if (!didCapture) return;
+  removeOwnedFixtureManifestLeaf(fixtureRoot, fixtureAnalysisRoot, manifestPath);
+  assert.equal(existsSync(manifestPath), false, 'the first nonce-owned manifest leaf is removed before the fixture worker barrier');
+  const analysisRootStat = lstatSync(fixtureAnalysisRoot);
+  assert.equal(analysisRootStat.isDirectory(), true, 'the first native capture leaves an ordinary fixture analysis parent for the fixture worker barrier');
+  assert.equal(isLinkOrReparsePoint(analysisRootStat), false, 'the retained fixture analysis parent is neither a symbolic link nor a reparse point');
+}
+
 function assertRealFixtureDocs(fixtureDocs, label) {
   const stat = lstatSync(fixtureDocs);
   assert.equal(stat.isDirectory(), true, `${label} is a real directory`);
@@ -1134,6 +1143,7 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
       await t.test('SDS-AC-1 and SDS-AC-3 create an absent fixed analysis parent only after fresh native guard probes at manifest boundaries', async () => {
         const timeline = [];
         let actorGuard;
+        let didCapture = false;
         try {
           assert.equal(existsSync(fixtureAnalysisRoot), false, 'the copied workspace starts with the fixed analysis parent absent');
           actorGuard = spawnWxRaceChild({
@@ -1166,15 +1176,17 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
             .slice(mkdirIndexes[1] + 1, openIndex)
             .filter(candidate => candidate.event === 'manifest-probe' && candidate.containsAnalysisRoot);
           assert.equal(freshProbesAfterPrivateParentBoundary.length > 0, true, 'the same-identity cached manifest parent must be native-probed again after the private parent boundary and before exclusive create');
+          didCapture = true;
         } finally {
           if (actorGuard && !actorGuard.released && !actorGuard.exitState) releaseWxRaceChild(actorGuard, 0x52);
           await Promise.allSettled([actorGuard?.exited].filter(Boolean));
           if (actorGuard) assert.notEqual(actorGuard.exitState, undefined, 'the first gated child exits before the shared fixture resets');
-          removeOwnedFixtureManifestLeaf(fixtureRoot, fixtureAnalysisRoot, firstManifestPath);
-          assert.equal(existsSync(firstManifestPath), false, 'the first nonce-owned manifest leaf is removed before the fixture worker barrier');
-          const analysisRootStat = lstatSync(fixtureAnalysisRoot);
-          assert.equal(analysisRootStat.isDirectory(), true, 'the first native capture leaves an ordinary fixture analysis parent for the fixture worker barrier');
-          assert.equal(isLinkOrReparsePoint(analysisRootStat), false, 'the retained fixture analysis parent is neither a symbolic link nor a reparse point');
+          cleanupFixtureManifestAfterSuccessfulCapture({
+            didCapture,
+            fixtureRoot,
+            fixtureAnalysisRoot,
+            manifestPath: firstManifestPath,
+          });
         }
       });
 
