@@ -4,6 +4,7 @@ import { execFileSync, spawnSync as nodeSpawnSync } from 'node:child_process';
 import * as nodeFs from 'node:fs';
 import * as nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
+import * as ts from '../../server/node_modules/typescript/lib/typescript.js';
 
 const TASK = '2026-07-27.pm.fair-readmission-closure-v3';
 const PLAYWRIGHT_OUTPUT_DIR = 'C:/Work/kiwi-run-output/2026-07-27.pm.fair-readmission-closure-v3/ac9-playwright';
@@ -58,6 +59,7 @@ const REPARSE_BATCH_MAX_BYTES = 8 * 1024;
 const REPARSE_PROBE_TIMEOUT_MS = 10_000;
 const TRUSTED_WINDOWS_POWERSHELL = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
 const COLLECTOR_WORKSPACE_ROOT = nodePath.resolve(fileURLToPath(new URL('../..', import.meta.url)));
+const strictAdmissionCapabilities = new WeakMap();
 
 function normalizeLf(value) {
   return String(value).replace(/\r\n?/g, '\n');
@@ -348,29 +350,39 @@ export function probeWindowsReparsePoint({
 }
 
 function statIdentity(stat, label) {
-  const fields = ['dev', 'ino', 'mode', 'ctimeMs', 'mtimeMs', 'size'];
+  const type = stat?.isDirectory?.() ? 'directory' : stat?.isFile?.() ? 'file' : 'other';
+  const fields = type === 'directory'
+    ? ['dev', 'ino', 'mode']
+    : ['dev', 'ino', 'mode', 'ctimeMs', 'mtimeMs', 'size'];
   const identity = {};
   for (const field of fields) {
     if (!Object.hasOwn(stat ?? {}, field)) throw new Error(`cannot establish ${label} identity`);
     identity[field] = stat[field];
   }
-  return identity;
+  return { type, ...identity };
 }
 
 function sameIdentity(left, right) {
   return left !== undefined && right !== undefined
+    && left.type === right.type
     && left.dev === right.dev
     && left.ino === right.ino
     && left.mode === right.mode
-    && left.ctimeMs === right.ctimeMs
-    && left.mtimeMs === right.mtimeMs
-    && left.size === right.size;
+    && (left.type === 'directory' || (
+      left.ctimeMs === right.ctimeMs
+      && left.mtimeMs === right.mtimeMs
+      && left.size === right.size
+    ));
 }
 
 function splitReparseBatches(paths) {
   const batches = [];
   let batch = [];
   for (const candidate of paths) {
+    const singleton = [candidate];
+    if (singleton.length > REPARSE_BATCH_MAX_COUNT || Buffer.byteLength(JSON.stringify(singleton), 'utf8') > REPARSE_BATCH_MAX_BYTES) {
+      throw new Error('reparse batch singleton exceeds the fixed count or byte limit');
+    }
     const proposed = [...batch, candidate];
     if (batch.length > 0 && (
       proposed.length > REPARSE_BATCH_MAX_COUNT
@@ -740,16 +752,27 @@ function relativeWorkspacePath(workspaceRoot, absolutePath) {
   return relative;
 }
 
-export function readProtectedInput({
-  fs = nodeFs,
-  absolutePath,
-  kind,
-  path,
-  reparseGuard,
-  onBytes,
-} = {}) {
+function strictAdmissionFor(options) {
+  if (!Object.hasOwn(options, 'admission')) return undefined;
+  const capabilities = strictAdmissionCapabilities.get(options.admission);
+  if (!capabilities) throw new Error('protected input requires a module-minted strict admission capability');
+  return capabilities;
+}
+
+export function readProtectedInput(options = {}) {
+  const admission = strictAdmissionFor(options);
+  const {
+    fs = nodeFs,
+    absolutePath,
+    kind,
+    path,
+    reparseGuard,
+    onBytes,
+  } = options;
   if (typeof path !== 'string' || !path) throw new Error('protected input requires a non-empty path');
-  const result = guardedProtectedBytes({ fs, absolutePath, kind, reparseGuard });
+  const result = admission
+    ? admission.snapshot.read({ absolutePath, kind, path: normalizePath(path) })
+    : guardedProtectedBytes({ fs, absolutePath, kind, reparseGuard });
   if (typeof onBytes === 'function') onBytes(Buffer.from(result.bytes));
   return { kind: result.kind, path: normalizePath(path), sha256: result.sha256 };
 }
@@ -848,6 +871,18 @@ export function createProtectedInputSnapshot({ fs = nodeFs, reparseGuard } = {})
   };
 }
 
+export function createStrictAdmissionContext(options = {}) {
+  if (Object.hasOwn(options, 'reparseGuard') || Object.hasOwn(options, 'snapshot')) {
+    throw new Error('strict admission context mints its own reparse guard and protected snapshot');
+  }
+  const { fs = nodeFs, probeBatch } = options;
+  const reparseGuard = createSegmentReparseGuard({ fs, probeBatch });
+  const snapshot = createProtectedInputSnapshot({ fs, reparseGuard });
+  const admission = Object.freeze({});
+  strictAdmissionCapabilities.set(admission, { fs, reparseGuard, snapshot });
+  return admission;
+}
+
 function requireFile(fs, workspaceRoot, relativePath, kind, { reparseGuard, snapshot, onBytes } = {}) {
   assertCollectorWorkspaceRoot(workspaceRoot);
   const absolutePath = workspacePath(workspaceRoot, relativePath);
@@ -864,12 +899,22 @@ function requireFile(fs, workspaceRoot, relativePath, kind, { reparseGuard, snap
   return { kind: input.kind, path: input.path, sha256: input.sha256 };
 }
 
-export function hashConfigLockFile({ fs = nodeFs, workspaceRoot, relativePath, reparseGuard, snapshot } = {}) {
+export function hashConfigLockFile(options = {}) {
+  const admission = strictAdmissionFor(options);
+  const {
+    fs = nodeFs,
+    workspaceRoot,
+    relativePath,
+    reparseGuard,
+    snapshot,
+  } = options;
   assertCollectorWorkspaceRoot(workspaceRoot, 'config workspace root');
   const absolutePath = workspacePath(workspaceRoot, relativePath);
   let input;
   try {
-    input = snapshot
+    input = admission
+      ? admission.snapshot.read({ absolutePath, kind: 'config_lock', path: normalizePath(relativePath) })
+      : snapshot
       ? snapshot.read({ absolutePath, kind: 'config_lock', path: normalizePath(relativePath) })
       : readProtectedInput({ fs, absolutePath, kind: 'config_lock', path: normalizePath(relativePath), reparseGuard });
   } catch (error) {
@@ -899,25 +944,40 @@ const ADMITTED_TSX_MODULES = new Set([
   'frontend/src/contexts/WebSocketContext',
 ]);
 
-function importedSpecifiers(sourceText) {
-  const matches = [];
-  let statement = '';
-  for (const line of sourceText.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!statement) {
-      if (!/^(?:import|export)\b/.test(trimmed)) continue;
-      statement = trimmed;
-    } else {
-      statement += `\n${trimmed}`;
-    }
-    if (!trimmed.endsWith(';')) continue;
-    const match = statement.startsWith('import')
-      ? /^import\b[\s\S]*?(?:\bfrom\s+)?['"]([^'"]+)['"]\s*;$/.exec(statement)
-      : /^export\b[\s\S]*?\bfrom\s+['"]([^'"]+)['"]\s*;$/.exec(statement);
-    if (match) matches.push(match[1]);
-    statement = '';
+export function parseAdmittedImportSpecifiers({ sourceText, fromPath } = {}) {
+  const normalizedFromPath = normalizePath(fromPath);
+  if (typeof sourceText !== 'string' || !sourceScope(normalizedFromPath) || !isCodeFile(normalizedFromPath)) {
+    throw new Error('admitted import parser requires a contained source file and source text');
   }
-  return matches;
+  const scriptKind = normalizedFromPath.endsWith('.tsx') ? ts.ScriptKind.TSX
+    : normalizedFromPath.endsWith('.jsx') ? ts.ScriptKind.JSX
+      : normalizedFromPath.endsWith('.js') || normalizedFromPath.endsWith('.mjs') || normalizedFromPath.endsWith('.cjs')
+        ? ts.ScriptKind.JS
+        : ts.ScriptKind.TS;
+  const sourceFile = ts.createSourceFile(normalizedFromPath, sourceText, ts.ScriptTarget.Latest, false, scriptKind);
+  const testHarnessSource = /\.test\.[cm]?[jt]sx?$/i.test(normalizedFromPath);
+  const requireLiteral = node => {
+    if (ts.isStringLiteral(node)) return;
+    if (testHarnessSource) return;
+    throw new Error('admitted source has a nonliteral dynamic import');
+  };
+  const visit = node => {
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      if (node.arguments.length !== 1) {
+        if (!testHarnessSource) throw new Error('admitted source has an unsupported dynamic import');
+      } else {
+        requireLiteral(node.arguments[0]);
+      }
+    }
+    if (ts.isImportTypeNode(node)) {
+      const argument = node.argument;
+      if (!ts.isLiteralTypeNode(argument)) requireLiteral(argument);
+      else requireLiteral(argument.literal);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return ts.preProcessFile(sourceText, true, true).importedFiles.map(({ fileName }) => fileName);
 }
 
 export function resolveAdmittedRelativeSpecifier({ workspaceRoot, fromPath, specifier } = {}) {
@@ -1025,7 +1085,13 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOT
       });
     }
     resolved.add(relativePath);
-    for (const specifier of importedSpecifiers(sourceText)) {
+    let specifiers;
+    try {
+      specifiers = parseAdmittedImportSpecifiers({ sourceText, fromPath: relativePath });
+    } catch (error) {
+      throw new Error(`cannot parse admitted source imports: ${relativePath} (${error.message})`);
+    }
+    for (const specifier of specifiers) {
       if (relativePath === 'frontend/src/components/Terminal/TerminalView.tsx' && specifier === './TerminalView.css') {
         const cssRelativePath = 'frontend/src/components/Terminal/TerminalView.css';
         if (cssRelativePath !== 'frontend/src/components/Terminal/TerminalView.css') {
@@ -1083,31 +1149,39 @@ function isStrictReparseGuard(reparseGuard) {
   );
 }
 
-export function collectSourceClosure({
-  workspaceRoot,
-  sourceRoots = SOURCE_ROOTS,
-  fs = nodeFs,
-  reparseGuard,
-  snapshot,
-} = {}) {
+export function collectSourceClosure(options = {}) {
+  const admission = strictAdmissionFor(options);
+  const {
+    workspaceRoot,
+    sourceRoots = SOURCE_ROOTS,
+    fs = nodeFs,
+    reparseGuard: suppliedReparseGuard,
+    snapshot: suppliedSnapshot,
+  } = options;
   assertCollectorWorkspaceRoot(workspaceRoot);
+  if (admission) {
+    return sourceClosureRowsFromRoots(
+      admission.fs,
+      workspaceRoot,
+      sourceRoots,
+      admission.reparseGuard,
+      admission.snapshot,
+    );
+  }
+  let reparseGuard = suppliedReparseGuard;
+  let snapshot = suppliedSnapshot;
   if (!reparseGuard) {
     if (fs !== nodeFs) throw new Error('public source closure requires a strict reparse guard and admitted snapshot');
-    reparseGuard = createSegmentReparseGuard({
-      fs,
-      probeBatch: paths => probeWindowsReparsePoints({ paths }),
-    });
+    const legacyAdmission = createStrictAdmissionContext({ fs });
+    const capabilities = strictAdmissionCapabilities.get(legacyAdmission);
+    reparseGuard = capabilities.reparseGuard;
+    snapshot = capabilities.snapshot;
   }
   if (!isStrictReparseGuard(reparseGuard)) {
     throw new Error('public source closure requires a strict full-frontier reparse guard');
   }
   if (!snapshot) snapshot = createProtectedInputSnapshot({ fs, reparseGuard });
   if (typeof snapshot.readWave !== 'function') throw new Error('public source closure requires an admitted snapshot');
-  return sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots, reparseGuard, snapshot);
-}
-
-function collectSourceClosureWithGuard({ workspaceRoot, sourceRoots = SOURCE_ROOTS, fs = nodeFs, reparseGuard, snapshot }) {
-  assertCollectorWorkspaceRoot(workspaceRoot);
   return sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots, reparseGuard, snapshot);
 }
 
@@ -1314,19 +1388,14 @@ export function captureFrozenProvenance(options) {
     fs = nodeFs,
   } = options;
   assertCollectorWorkspaceRoot(workspaceRoot);
-  const reparseGuard = createSegmentReparseGuard({
-    fs,
-    probeBatch: paths => probeWindowsReparsePoints({ paths }),
-  });
-  const snapshot = createProtectedInputSnapshot({ fs, reparseGuard });
+  const admission = createStrictAdmissionContext({ fs });
+  const { reparseGuard, snapshot } = strictAdmissionCapabilities.get(admission);
   const contract = validateFrozenContract({ workspaceRoot, contract: FROZEN_CONTRACT, fs, reparseGuard });
   assertManifestDestination(workspaceRoot, manifestPath, fs, reparseGuard);
-  const { sourceClosureRows, externalSpecifierRows } = collectSourceClosureWithGuard({
+  const { sourceClosureRows, externalSpecifierRows } = collectSourceClosure({
     workspaceRoot,
     sourceRoots: SOURCE_ROOTS,
-    fs,
-    reparseGuard,
-    snapshot,
+    admission,
   });
   const fixtureRows = fixtureRowsFromEntry(fs, workspaceRoot, reparseGuard, snapshot);
   let configLockRows;
