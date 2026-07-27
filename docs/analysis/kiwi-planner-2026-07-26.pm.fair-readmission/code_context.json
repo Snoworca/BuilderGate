@@ -1,0 +1,64 @@
+{
+  "req_anchors": [
+    {
+      "req_id": "PERF-BGSTAB-010",
+      "files": [
+        {"path":"server/src/ws/FairTerminalDeliveryScheduler.test.ts","signature":"exact five-file replay member and AC-9 interactive-AI idle-status assertion"},
+        {"path":"server/src/ws/WsRouterSendPriority.test.ts","signature":"exact five-file replay member"},
+        {"path":"server/src/ws/wsSendPolicyRestoreMetadata.test.ts","signature":"exact five-file replay member"},
+        {"path":"server/src/services/TerminalResourcePolicy.test.ts","signature":"exact five-file replay member"},
+        {"path":"server/src/services/TerminalResourcePolicyCanary.test.ts","signature":"exact five-file replay member"},
+        {"path":"tools/wave3/fair-scheduler-decision.test.mjs","signature":"existing decision validator"},
+        {"path":"server/src/ws/WsRouter.ts","signature":"recursive closure root for terminal delivery routing"},
+        {"path":"server/src/services/SessionManager.ts","signature":"recursive closure root for session lifetime and status"},
+        {"path":"server/src/ws/wsSendPolicy.ts","signature":"recursive closure root for send-policy behavior"},
+        {"path":"server/src/services/TerminalResourcePolicy.ts","signature":"recursive closure root for resource policy"},
+        {"path":"server/src/benchmarks/terminalFairnessCharacterization.ts","signature":"decision-validator benchmark input"},
+        {"path":"frontend/src/contexts/WebSocketContext.tsx","signature":"browser rejected-ACK handling"},
+        {"path":"frontend/src/components/Terminal/TerminalContainer.tsx","signature":"accepted ACK, idle, and hidden recovery capability boundary"},
+        {"path":"frontend/src/components/Terminal/TerminalView.tsx","signature":"recursive closure root for terminal rendering boundary"},
+        {"path":"frontend/src/components/Terminal/TerminalView.css","signature":"hash-only local terminal asset dependency of TerminalView"},
+        {"path":"frontend/src/types/ws-protocol.ts","signature":"recursive closure root for browser protocol shape"},
+        {"path":"frontend/src/utils/terminalDebugCapture.ts","signature":"recursive closure root for rejected-ACK observability"},
+        {"path":"frontend/tests/unit/terminalContainerRecoveryContract.test.ts","signature":"browser contract evidence"},
+        {"path":"frontend/tests/unit/webSocketBackpressure.test.ts","signature":"browser ACK parser and idle contract evidence"},
+        {"path":"frontend/tests/unit/terminalDebugCapture.test.ts","signature":"rejected-ACK debug observability evidence"},
+        {"path":"frontend/tests/e2e/perf-bgstab-010-ac9-isolated.spec.ts","signature":"PERF-BGSTAB-010 synthetic ACK blocked before relay then idle browser session-state E2E evidence"},
+        {"path":"frontend/tests/unit/perfBgstab010Ac9IsolatedE2EContract.test.ts","signature":"isolated AC-9 E2E writer guard"}
+      ]
+    }
+  ],
+  "closure_procedure": {
+    "version": "closure-v2",
+    "protected_input_schema": "fair-readmission-protected-input/v1",
+    "resolver": "Execute only from explicit server CWD; derive and validate the workspace root from that CWD. Every ancestor in workspace-root -> server -> node_modules -> tsx -> dist and workspace-root -> server -> node_modules -> typescript -> lib must be a directory, non-reparse/non-symlink, exact-realpath-contained. server/package.json, server/node_modules/tsx/package.json, server/node_modules/tsx/dist/cli.mjs, server/node_modules/typescript/package.json, and server/node_modules/typescript/lib/typescript.js must be regular non-reparse leaves at their exact workspace-relative paths, with realpath, size, and SHA-256 unchanged immediately before and after direct local CLI execution and TypeScript load. Anchor createRequire at exact server/package.json; require createRequire.resolve('typescript') to equal the exact compiler leaf; load only that compiler with pinned path/SHA/version and require preProcessFile plus resolveModuleName. Preserve repository-owned paths as slash-normalized workspace-relative paths with no escape. Record runtime.closure_resolver_cwd=server and runtime.typescript_compiler_api={path:server/node_modules/typescript/lib/typescript.js,sha256,version}; every mismatch, unresolved path, reparse point, pre-existing output, or external-command failure fails closed before rows or capture.",
+    "non_source_fingerprints": ["server/package.json", "server/package-lock.json", "server/config.json5 raw-byte hash only", "server/tsconfig.json", "frontend/package.json", "frontend/package-lock.json", "frontend/pnpm-lock.yaml", "frontend/tsconfig.json", "frontend/tsconfig.app.json", "frontend/tsconfig.node.json", "frontend/vite.config.ts", "frontend/playwright.config.ts", "node executable SHA-256 and version", "browser npx/npx.cmd executable SHA-256 and version", "server-cwd direct node node_modules/tsx/dist/cli.mjs --version", "server/node_modules/tsx/package.json and server/node_modules/tsx/dist/cli.mjs regular non-reparse SHA-256/version fingerprints", "server/node_modules/typescript/package.json and server/node_modules/typescript/lib/typescript.js regular non-reparse SHA-256/version fingerprints", "closure_resolver_cwd=server", "frontend-cwd npx.cmd --no-install playwright --version", "frontend/node_modules/.bin/playwright and playwright.cmd SHA-256", "frontend/node_modules/playwright/cli.js SHA-256", "C:/Work/kiwi-run-output/2026-07-27.pm.fair-readmission-current/ac9-playwright, https://localhost:2222, retries=0, workers=1"],
+    "fixed_command_families": {
+      "five_file_replay": "server: node node_modules/tsx/dist/cli.mjs --test src/ws/FairTerminalDeliveryScheduler.test.ts src/ws/WsRouterSendPriority.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/TerminalResourcePolicy.test.ts src/services/TerminalResourcePolicyCanary.test.ts on both platforms",
+      "browser_ac9_isolated": "frontend: PLAYWRIGHT_BASE_URL=https://localhost:2222 npx|npx.cmd --no-install playwright test perf-bgstab-010-ac9-isolated.spec.ts --project Desktop Chrome --retries=0 --workers=1 --output C:/Work/kiwi-run-output/2026-07-27.pm.fair-readmission-current/ac9-playwright --grep exact PERF-BGSTAB-010 isolated-ACK-idle expression"
+    },
+    "output_namespace": {"current_root":"docs/analysis/kiwi-coder-2026-07-27.pm.fair-readmission-current/","nine_leaves":["baseline-provenance-manifest.json","decision-validator-pre.json","five-file-replay-result.json","decision-validator-post.json","post-replay-provenance-manifest.json","browser-ack-idle-hidden-boundary.json","final-protected-input-manifest.json","ac-matrix.json","independent-admission-review.md"],"precondition":"Before PH-002, current_root and every named leaf are absent; any pre-existence fails closed. Each permitted leaf is created only with create-new/no-overwrite semantics.","historical_reference":"docs/analysis/kiwi-coder-2026-07-26.pm.fair-readmission/ is immutable historical/rejected observation only and is never read, written, replaced, or an output exception."},
+    "comparison": "Construct a single canonical protected-input JSON record with closure, fixture, config/lock, runtime including toolchain_rows, closure_resolver_cwd and typescript_compiler_api, exact argv, Git protected-path state, and output exclusion list; require exact pre/post canonical string plus SHA-256 equality. Sorted stable-JSON row arrays use UTF-8 byte lexical/ordinal order only, never locale-aware collation. A closure digest or fair-scheduler-decision result alone cannot pass.",
+    "git_protected_input_scope": "exact literal source/fixture/config/fixed-root paths only; each protected status call uses core.longpaths=true plus --ignored=matching; server/config.json5 must be the exact !! ignored row with index absence and raw SHA-256 only; exactly the nine enumerated current-run analysis leaves are excluded only after their PH-001 absence gate; no broad worktree status scan",
+    "capture_timing": "PH-002 before evidence commands/output; PH-003 intermediate diagnostic after replay; PH-005 final after all planned evidence commands",
+    "scope_boundary": "The unrelated closure-v3 21-suite/default-concurrency contract is explicitly out of this five-file provenance scope and is not changed.",
+    "dirty_baseline_policy": "Existing protected-scope M, ??, and !! states are observed-only baseline provenance with raw hashes/status/index/HEAD frozen verbatim; missing or unresolved inputs and any baseline-to-final protected-input drift fail closed. This is not clean-HEAD or SRS lifecycle verification."
+  },
+  "ph001_frozen_browser_runtime": {
+    "playwright_output_dir": "C:/Work/kiwi-run-output/2026-07-27.pm.fair-readmission-current/ac9-playwright",
+    "path_state_at_freeze": "absent; external to C:/Work/git/_Snoworca/ProjectMaster; reserved for PH-004 only",
+    "environment": {"PLAYWRIGHT_BASE_URL": "https://localhost:2222"},
+    "retries": 0,
+    "workers": 1,
+    "command_status": "not_run",
+    "not_run_reason": "PH-004 isolated AC-9 boundary observation only"
+  },
+  "canonical_ph001_verifier": {"authoritative":"The current 2026-07-26 plan/sidecar/context only. The untracked 2026-07-24 fair-admission code_context is non-authoritative, unreferenced, and excluded from closure-v2 verification read/write/delete scope.","cwd":"server","leaves":["server/package.json","server/node_modules/tsx/package.json","server/node_modules/tsx/dist/cli.mjs","server/node_modules/typescript/package.json","server/node_modules/typescript/lib/typescript.js"],"root_rule":"Allow workspace root relative path ''; reject only absolute or true .. escape.","snapshot_fields":["path","realpath","size","sha256"],"sequence":["snapshot cliBefore","direct local CLI through spawnSync(process.execPath,[tsxCli,'--version']) from server with exact stdout and zero error/signal/status/stderr","snapshot cliAfter exact equality","snapshot tsBefore","server package anchored createRequire resolves/loads exact TypeScript with preProcessFile and resolveModuleName","snapshot tsAfter exact equality"],"failure":"Any leaf, ancestor, CLI, TypeScript, or snapshot mismatch fails closed before rows/capture."},
+  "canonical_ph001_stdout_contract": {"normalization":"LF","exact_value":"tsx v4.21.0\nnode v24.16.0\n","rule":"Normalize CRLF to LF before exact comparison; stderr must be empty."},
+  "missing_anchors": [],
+  "external_paths_detected": [],
+  "addition_sites": [
+    "docs/analysis/kiwi-coder-2026-07-27.pm.fair-readmission-current/ (only the nine output_namespace leaves, create-new/no-overwrite after the absence gate)"
+  ],
+  "source_mutation_allowed": false
+}
