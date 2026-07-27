@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import { execFileSync, spawn } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import childProcess, { execFileSync, spawn } from 'node:child_process';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import test from 'node:test';
@@ -339,6 +340,44 @@ function assertOwnedLeaf(candidate, prefix) {
 function removeOwnedLeaf(candidate, prefix) {
   assertOwnedLeaf(candidate, prefix);
   if (existsSync(candidate)) unlinkSync(candidate);
+}
+
+function sha256Bytes(bytes) {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+async function observeNativeRootDiscovery(run) {
+  const originalSpawnSync = childProcess.spawnSync;
+  let nativeProbeCount = 0;
+  childProcess.spawnSync = function observeDelegatedNativeProbe(executable) {
+    if (typeof executable === 'string' && executable.toLowerCase().includes('powershell')) nativeProbeCount += 1;
+    return originalSpawnSync.apply(this, arguments);
+  };
+  syncBuiltinESMExports();
+  try {
+    return { result: await run(), nativeProbeCount };
+  } finally {
+    childProcess.spawnSync = originalSpawnSync;
+    syncBuiltinESMExports();
+  }
+}
+
+async function withSyntheticRootSourceDrift(relativePath, run) {
+  const originalReadFileSync = readFileSync;
+  const sourcePath = path.resolve(workspaceRoot, assertFixtureRelativePath(relativePath, 'synthetic root source drift path'));
+  const changedBytes = Buffer.from(`${originalReadFileSync(sourcePath)}\n`, 'utf8');
+  const nodeFs = await import('node:fs');
+  nodeFs.default.readFileSync = function synthesizeRootSourceDrift(candidate) {
+    if (typeof candidate === 'string' && path.resolve(candidate) === sourcePath) return Buffer.from(changedBytes);
+    return originalReadFileSync.apply(this, arguments);
+  };
+  syncBuiltinESMExports();
+  try {
+    return await run();
+  } finally {
+    nodeFs.default.readFileSync = originalReadFileSync;
+    syncBuiltinESMExports();
+  }
 }
 
 function assertFixtureRelativePath(relativePath, label) {
@@ -791,6 +830,48 @@ async function runNativeWorker() {
 if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race') {
   await runNativeWorker();
 } else {
+  test('SDS-AC-1 and SDS-AC-2 derive one immutable manifest-bound root seed across independent minimal fixture roots', { timeout: 115_000 }, async () => {
+    let firstFixture;
+    let secondFixture;
+    try {
+      const firstDiscovery = await observeNativeRootDiscovery(() => createOwnedWorkspaceWithoutAnalysisParent());
+      firstFixture = firstDiscovery.result;
+      assert.equal(firstDiscovery.nativeProbeCount > 0, true, 'the first minimal fixture derives its seed through delegated native fresh probes');
+
+      const secondDiscovery = await observeNativeRootDiscovery(() => createOwnedWorkspaceWithoutAnalysisParent());
+      secondFixture = secondDiscovery.result;
+      assert.equal(secondDiscovery.nativeProbeCount, 0, 'a second independent fixture reuses the one private root protected-input discovery instead of recapturing the worktree');
+      assert.notEqual(firstFixture.ownedRoot, secondFixture.ownedRoot, 'each fixture still owns an independent temporary root');
+      assert.notEqual(firstFixture.fixtureRoot, secondFixture.fixtureRoot, 'each fixture still owns an independent workspace root');
+      assertMinimalNativeFixtureParity(firstFixture);
+      assertMinimalNativeFixtureParity(secondFixture);
+      assert.deepEqual(firstFixture.protectedFiles, secondFixture.protectedFiles, 'independent fixtures receive the same immutable protected-input seed metadata');
+      for (const file of firstFixture.protectedFiles) {
+        assert.match(file.sha256, /^[a-f0-9]{64}$/i, `protected fixture seed records the captured manifest SHA-256: ${file.path}`);
+        const fixturePath = path.join(firstFixture.fixtureRoot, assertFixtureRelativePath(file.path, 'protected fixture seed path'));
+        assert.equal(sha256Bytes(readFileSync(fixturePath)), file.sha256, `fixture bytes remain bound to the seed manifest SHA-256: ${file.path}`);
+      }
+    } finally {
+      if (secondFixture) removeOwnedWorkspace(secondFixture.ownedRoot);
+      if (firstFixture) removeOwnedWorkspace(firstFixture.ownedRoot);
+    }
+  });
+
+  test('SDS-AC-1 rejects root source drift before a cached protected-input seed can publish a stale fixture', { timeout: 115_000 }, async () => {
+    let baselineFixture;
+    try {
+      baselineFixture = await createOwnedWorkspaceWithoutAnalysisParent();
+      assertMinimalNativeFixtureParity(baselineFixture);
+      await assert.rejects(
+        () => withSyntheticRootSourceDrift('server/package.json', () => createOwnedWorkspaceWithoutAnalysisParent()),
+        /protected fixture bytes match|source manifest input|seed|sha-?256|parity/i,
+        'root source drift after seed discovery must reject rather than create a fixture from a stale protected-input seed',
+      );
+    } finally {
+      if (baselineFixture) removeOwnedWorkspace(baselineFixture.ownedRoot);
+    }
+  });
+
   test('SDS-AC-1 requires the native race fixture to exclude copied worktree payload while preserving independent Git parity', { timeout: 115_000 }, async () => {
     const { ownedRoot, fixtureRoot } = await createOwnedWorkspaceWithoutAnalysisParent();
     try {
