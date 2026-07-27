@@ -12,6 +12,7 @@ const BROWSER_GREP = 'PERF-BGSTAB-010 AC-9 isolated browser evidence.*visible fa
 const ANALYSIS_DIRECTORY = `docs/analysis/kiwi-coder-${TASK}`;
 
 const SOURCE_ROOTS = [
+  'tools/wave3/internal/fair-readmission-closure-v3-internal-core.mjs',
   'server/src/ws/FairTerminalDeliveryScheduler.test.ts',
   'server/src/ws/WsRouterSendPriority.test.ts',
   'server/src/ws/wsSendPolicyRestoreMetadata.test.ts',
@@ -70,6 +71,7 @@ const MINIMAL_GIT_ENVIRONMENT = Object.freeze({
 });
 const COLLECTOR_WORKSPACE_ROOT = nodePath.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const strictAdmissionCapabilities = new WeakMap();
+const CAPTURE_OPTION_KEYS = new Set(['workspaceRoot', 'manifestPath', 'phase']);
 
 function normalizeLf(value) {
   return String(value).replace(/\r\n?/g, '\n');
@@ -83,6 +85,19 @@ function normalizePath(value) {
 function assertPlainObject(value, label) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error(`${label} must be an object`);
+  }
+}
+
+function assertClosedCaptureOptions(options) {
+  assertPlainObject(options, 'capture options');
+  const prototype = Object.getPrototypeOf(options);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new Error('capture options reject inherited authority or custom prototypes');
+  }
+  for (const key of Reflect.ownKeys(options)) {
+    if (typeof key !== 'string' || !CAPTURE_OPTION_KEYS.has(key)) {
+      throw new Error(`capture options reject authority or unsupported option: ${String(key)}`);
+    }
   }
 }
 
@@ -1735,7 +1750,7 @@ function assertManifestReparseAdmission(reparseGuard, paths, phase) {
     throw new Error('manifest path requires a native strict reparse admission guard');
   }
   try {
-    reparseGuard.assertSafeMany(paths);
+    reparseGuard.assertSafeMany(paths, { forceFresh: true });
   } catch (error) {
     throw new Error(`manifest path is a reparse point or link ${phase}: ${error?.message ?? String(error)}`);
   }
@@ -1810,11 +1825,7 @@ function writeCapturedManifest({
 }
 
 export function captureFrozenProvenance(options) {
-  assertPlainObject(options, 'capture options');
-  const allowedOptions = new Set(['workspaceRoot', 'manifestPath', 'phase']);
-  if (Object.keys(options).some(key => !allowedOptions.has(key))) {
-    throw new Error('native capture rejects caller-supplied authority or unsupported options');
-  }
+  assertClosedCaptureOptions(options);
   const {
     workspaceRoot,
     manifestPath,
