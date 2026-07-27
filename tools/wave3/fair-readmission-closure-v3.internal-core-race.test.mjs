@@ -366,6 +366,25 @@ async function observeNativeRootDiscovery(run) {
   }
 }
 
+async function withInitialDelegatedNativeSpawnSyncFault(run, observation) {
+  const originalSpawnSync = childProcess.spawnSync;
+  childProcess.spawnSync = function failInitialDelegatedNativeProbe(executable) {
+    if (!observation.faultInjected && typeof executable === 'string' && executable.toLowerCase().includes('powershell')) {
+      observation.faultInjected = true;
+      observation.nativeProbeCount += 1;
+      throw new Error('injected initial private fixture seed native spawnSync failure');
+    }
+    return originalSpawnSync.apply(this, arguments);
+  };
+  syncBuiltinESMExports();
+  try {
+    return await run();
+  } finally {
+    childProcess.spawnSync = originalSpawnSync;
+    syncBuiltinESMExports();
+  }
+}
+
 async function withSyntheticRootSourceDrift(relativePath, run) {
   const originalReadFileSync = readFileSync;
   const sourcePath = path.resolve(workspaceRoot, assertFixtureRelativePath(relativePath, 'synthetic root source drift path'));
@@ -935,7 +954,27 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
   test('SDS-AC-1 and SDS-AC-2 derive one immutable manifest-bound root seed across independent minimal fixture roots', { timeout: 115_000 }, async () => {
     let firstFixture;
     let secondFixture;
+    let initialFailure;
     try {
+      const originalSpawnSync = childProcess.spawnSync;
+      initialFailure = { faultInjected: false, nativeProbeCount: 0, publishedFixture: undefined };
+      assert.equal(protectedFixtureSeedPromise, undefined, 'the controlled initial seed fault runs before any successful private seed is cached');
+      await assert.rejects(
+        async () => {
+          initialFailure.publishedFixture = await withInitialDelegatedNativeSpawnSyncFault(
+            () => createOwnedWorkspaceWithoutAnalysisParent(),
+            initialFailure,
+          );
+        },
+        /PowerShell reparse batch probe failed closed|injected initial private fixture seed native spawnSync failure/i,
+        'the first private root seed attempt fails closed through its delegated native spawnSync boundary',
+      );
+      assert.equal(initialFailure.faultInjected, true, 'the rejected first seed reaches the delegated native PowerShell spawnSync boundary');
+      assert.equal(initialFailure.nativeProbeCount, 1, 'the injected first seed failure stops at the first delegated native probe');
+      assert.equal(initialFailure.publishedFixture, undefined, 'a rejected private seed attempt publishes no fixture');
+      assert.strictEqual(childProcess.spawnSync, originalSpawnSync, 'the native spawnSync fault is restored before the recovery capture');
+      assert.equal(protectedFixtureSeedPromise, undefined, 'a rejected private seed promise resets instead of remaining cached');
+
       const firstDiscovery = await observeNativeRootDiscovery(() => createOwnedWorkspaceWithoutAnalysisParent());
       firstFixture = firstDiscovery.result;
       assert.equal(firstDiscovery.nativeProbeCount > 0, true, 'the first minimal fixture derives its seed through delegated native fresh probes');
@@ -956,6 +995,7 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
     } finally {
       if (secondFixture) removeOwnedWorkspace(secondFixture.ownedRoot);
       if (firstFixture) removeOwnedWorkspace(firstFixture.ownedRoot);
+      if (initialFailure?.publishedFixture) removeOwnedWorkspace(initialFailure.publishedFixture.ownedRoot);
     }
   });
 
