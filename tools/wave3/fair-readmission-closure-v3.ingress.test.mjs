@@ -86,8 +86,8 @@ test('SDS-AC-1 rejects the legacy injected leaf-only probe fallback before it ca
   assert.equal(legacyCalls, 0, 'a caller-supplied leaf-only probe must never admit a candidate');
 });
 
-test('SDS-AC-2 uses one exported force-fresh guarded read for every protected input kind', async () => {
-  const { readProtectedInput } = await loadCollector();
+test('SDS-AC-2 uses one low-level protected snapshot wave for every protected input kind', async () => {
+  const { createProtectedInputSnapshot } = await loadCollector();
   const protectedInputs = [
     ['source', 'server/src/ws/WsRouter.ts', 'C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/WsRouter.ts'],
     ['fixture', `${fixedFixtureRoot}/fair-scheduler-decision.json`, `C:/Work/git/_Snoworca/ProjectMaster/${fixedFixtureRoot}/fair-scheduler-decision.json`],
@@ -96,7 +96,7 @@ test('SDS-AC-2 uses one exported force-fresh guarded read for every protected in
     ['node_runtime', 'C:/Program Files/nodejs/node.exe', 'C:/Program Files/nodejs/node.exe'],
   ];
 
-  assert.equal(typeof readProtectedInput, 'function');
+  assert.equal(typeof createProtectedInputSnapshot, 'function');
   for (const [kind, rowPath, absolutePath] of protectedInputs) {
     const events = [];
     const bytes = Buffer.from(`${kind} bytes`, 'utf8');
@@ -112,8 +112,9 @@ test('SDS-AC-2 uses one exported force-fresh guarded read for every protected in
       },
     };
 
+    const input = createProtectedInputSnapshot({ fs, reparseGuard }).read({ absolutePath, kind, path: rowPath });
     assert.deepEqual(
-      readProtectedInput({ fs, absolutePath, kind, path: rowPath, reparseGuard }),
+      { kind: input.kind, path: input.path, sha256: input.sha256 },
       { kind, path: rowPath, sha256: sha256(bytes) },
       `${kind} must return a digest only after its guarded byte read completes`,
     );
@@ -129,8 +130,8 @@ test('SDS-AC-2 uses one exported force-fresh guarded read for every protected in
   }
 });
 
-test('SDS-AC-2 returns no hash when a post-read force-fresh guard detects a staged change', async () => {
-  const { readProtectedInput } = await loadCollector();
+test('SDS-AC-2 low-level protected snapshot returns no row when a post-read force-fresh guard detects a staged change', async () => {
+  const { createProtectedInputSnapshot } = await loadCollector();
   const protectedInputs = [
     ['source', 'server/src/ws/WsRouter.ts', 'C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/WsRouter.ts'],
     ['fixture', `${fixedFixtureRoot}/fair-scheduler-decision.json`, `C:/Work/git/_Snoworca/ProjectMaster/${fixedFixtureRoot}/fair-scheduler-decision.json`],
@@ -139,7 +140,7 @@ test('SDS-AC-2 returns no hash when a post-read force-fresh guard detects a stag
     ['node_runtime', 'C:/Program Files/nodejs/node.exe', 'C:/Program Files/nodejs/node.exe'],
   ];
 
-  assert.equal(typeof readProtectedInput, 'function');
+  assert.equal(typeof createProtectedInputSnapshot, 'function');
   for (const [kind, rowPath, absolutePath] of protectedInputs) {
     const events = [];
     let guardCalls = 0;
@@ -158,7 +159,7 @@ test('SDS-AC-2 returns no hash when a post-read force-fresh guard detects a stag
     };
 
     assert.throws(
-      () => readProtectedInput({ fs, absolutePath, kind, path: rowPath, reparseGuard }),
+      () => createProtectedInputSnapshot({ fs, reparseGuard }).read({ absolutePath, kind, path: rowPath }),
       /identity|changed|reparse|guard/i,
       `${kind} must withhold its digest when the post-read frontier changes`,
     );
@@ -193,7 +194,7 @@ test('SDS-AC-3 binds exported fixture and workspace helpers to the derived repos
       workspaceRoot: 'C:/Work/git/_Snoworca/outside-project',
       relativePath: 'server/config.json5',
     }),
-    /workspace|derived|root|outside/i,
+    /admission|native|minted|capabilit|strict|protected/i,
     'an outside workspace must fail before any filesystem operation',
   );
   assert.deepEqual(outsideFs.calls, []);

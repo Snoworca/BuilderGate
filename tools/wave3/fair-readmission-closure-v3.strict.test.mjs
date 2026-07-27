@@ -211,9 +211,9 @@ test('SDS-AC-2 rejects an unsafe ancestor and does not retain a safe cache after
   assert.deepEqual(batches, [frontier, frontier], 'a rejected identity must never populate the safe cache');
 });
 
-test('SDS-AC-3 force-fresh guards config bytes immediately before and after the read, returning no digest when the post-read identity changes', async () => {
-  const { hashConfigLockFile } = await loadCollector();
-  const configPath = path.win32.join(workspaceRoot, 'server', 'config.json5');
+test('SDS-AC-3 low-level protected snapshot force-fresh guards config bytes immediately before and after the read, returning no row when the post-read identity changes', async () => {
+  const { createProtectedInputSnapshot } = await loadCollector();
+  const configPath = path.win32.join(workspaceRoot, 'server', 'config.json5').replaceAll('\\', '/');
   const guardCalls = [];
   let reads = 0;
   const fs = {
@@ -233,13 +233,12 @@ test('SDS-AC-3 force-fresh guards config bytes immediately before and after the 
     },
   };
 
-  assert.equal(typeof hashConfigLockFile, 'function');
+  assert.equal(typeof createProtectedInputSnapshot, 'function');
   assert.throws(
-    () => hashConfigLockFile({
-      fs,
-      workspaceRoot,
-      relativePath: 'server/config.json5',
-      reparseGuard,
+    () => createProtectedInputSnapshot({ fs, reparseGuard }).read({
+      absolutePath: configPath,
+      kind: 'config_lock',
+      path: 'server/config.json5',
     }),
     /identity|config|reparse|digest/i,
   );

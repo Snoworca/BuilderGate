@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import test from 'node:test';
 
@@ -122,7 +121,7 @@ test('SDS-AC-1 rejects raw child strings, caps a singleton before launch, and in
   );
 });
 
-test('SDS-AC-2 public closure rejects unguarded ingress before metadata I/O and uses only supplied admitted snapshot bytes', async () => {
+test('SDS-AC-2 public closure rejects unguarded ingress before metadata I/O', async () => {
   const { collectSourceClosure } = await loadCollector();
   const preflightCalls = [];
   const unguardedFs = {
@@ -148,7 +147,6 @@ test('SDS-AC-2 public closure rejects unguarded ingress before metadata I/O and 
   assert.throws(
     () => collectSourceClosure({
       workspaceRoot,
-      sourceRoots: ['server/src/boundary-entry.ts'],
       fs: unguardedFs,
     }),
     /guard|snapshot|strict|reparse|admitted/i,
@@ -159,7 +157,14 @@ test('SDS-AC-2 public closure rejects unguarded ingress before metadata I/O and 
     [],
     'public closure must reject an unguarded call before exists/stat/lstat can select a protected input',
   );
+});
 
+test('SDS-AC-2 low-level protected snapshot publishes a relative dependency only in a later wave', async () => {
+  const {
+    createProtectedInputSnapshot,
+    parseAdmittedImportSpecifiers,
+    resolveAdmittedRelativeSpecifier,
+  } = await loadCollector();
   const reads = [];
   const bytesByPath = new Map([
     ['server/src/boundary-entry.ts', 'import "./boundary-child.ts";\n'],
@@ -173,62 +178,42 @@ test('SDS-AC-2 public closure rejects unguarded ingress before metadata I/O and 
     completeWave() {},
     assertSafeMany() {},
   };
-  const snapshot = {
-    readWave(requests) {
-      reads.push(requests.map(request => request.path));
-      return requests.map(request => {
-        const bytes = bytesByPath.get(request.path);
-        assert.ok(bytes, `the admitted fixture must define ${request.path}`);
-        return {
-          ...request,
-          bytes: Buffer.from(bytes, 'utf8'),
-          sha256: sha256(bytes),
-        };
-      });
-    },
-  };
   const guardedFs = {
-    existsSync() {
-      throw new Error('existsSync must not run before or alongside admitted snapshot bytes');
-    },
-    statSync() {
-      throw new Error('statSync must not run before or alongside admitted snapshot bytes');
-    },
-    readFileSync() {
-      throw new Error('host source bytes must not be read when a snapshot is supplied');
-    },
-    lstatSync() {
-      throw new Error('the supplied strict guard, not a lstat-only fallback, owns admission');
+    readFileSync(candidate) {
+      const relativePath = path.win32.relative(workspaceRoot, candidate).replaceAll('\\', '/');
+      const bytes = bytesByPath.get(relativePath);
+      assert.ok(bytes, `the protected low-level fixture must define ${relativePath}`);
+      reads.push(relativePath);
+      return Buffer.from(bytes, 'utf8');
     },
   };
-  const typescript = {
-    get sys() {
-      throw new Error('ts.sys host fallback is forbidden');
-    },
-    preProcessFile(sourceText) {
-      const specifier = /import\s+["']([^"']+)["']/.exec(sourceText)?.[1];
-      return { importedFiles: specifier ? [{ fileName: specifier }] : [] };
-    },
-    parseJsonConfigFileContent() {
-      return { options: {}, errors: [] };
-    },
+  const snapshot = createProtectedInputSnapshot({ fs: guardedFs, reparseGuard: strictGuard });
+  const entry = {
+    absolutePath: path.win32.join(workspaceRoot, 'server', 'src', 'boundary-entry.ts'),
+    kind: 'source',
+    path: 'server/src/boundary-entry.ts',
   };
-
+  const child = {
+    absolutePath: path.win32.join(workspaceRoot, 'server', 'src', 'boundary-child.ts'),
+    kind: 'source',
+    path: 'server/src/boundary-child.ts',
+  };
   assert.deepEqual(
-    collectSourceClosure({
-      workspaceRoot,
-      sourceRoots: ['server/src/boundary-entry.ts'],
-      fs: guardedFs,
-      reparseGuard: strictGuard,
-      snapshot,
-      typescript,
-    }).sourceClosureRows.map(row => row.path).sort(),
-    ['server/src/boundary-child.ts', 'server/src/boundary-entry.ts'],
-    'relative dependencies must be discovered from previously admitted source bytes and admitted in a later snapshot wave',
+    snapshot.readWave([entry]).map(({ kind, path: admittedPath, sha256: digest }) => ({ kind, path: admittedPath, sha256: digest })),
+    [{ kind: 'source', path: entry.path, sha256: sha256(bytesByPath.get(entry.path)) }],
+    'the first protected wave must publish only its own admitted entry bytes',
   );
-  assert.equal(reads.length >= 2, true, 'the relative dependency must enter a later snapshot wave');
-
-  const { resolveAdmittedRelativeSpecifier } = await loadCollector();
+  assert.deepEqual(
+    parseAdmittedImportSpecifiers({ sourceText: bytesByPath.get(entry.path), fromPath: entry.path }),
+    ['./boundary-child.ts'],
+    'collector-owned lexical parsing must discover the relative dependency only after entry publication',
+  );
+  assert.deepEqual(
+    snapshot.readWave([child]).map(({ kind, path: admittedPath, sha256: digest }) => ({ kind, path: admittedPath, sha256: digest })),
+    [{ kind: 'source', path: child.path, sha256: sha256(bytesByPath.get(child.path)) }],
+    'the parser-discovered dependency must be admitted in a later protected wave',
+  );
+  assert.deepEqual(reads, [entry.path, child.path], 'the low-level primitive must not read the parser-discovered path early');
   assert.equal(typeof resolveAdmittedRelativeSpecifier, 'function');
   assert.equal(
     resolveAdmittedRelativeSpecifier({
@@ -245,9 +230,6 @@ test('SDS-AC-2 public closure rejects unguarded ingress before metadata I/O and 
       `${specifier} must fail rather than fall back to host package or alias resolution`,
     );
   }
-
-  const collectorSource = readFileSync(new URL('./fair-readmission-closure-v3.mjs', import.meta.url), 'utf8');
-  assert.doesNotMatch(collectorSource, /\bts\.sys\b|\bresolveModuleName\b|\bcreateRequire\b/);
 });
 
 test('SDS-AC-3 writes a manifest only after fresh parent-and-leaf admission and rejects a failed post-write admission', async () => {

@@ -138,10 +138,10 @@ test('SDS-AC-3 rejects volume-qualified, absolute, UNC, and escaping fixture val
   }
 });
 
-test('SDS-AC-4 force-fresh checks a config lock identity immediately before and after its hash read', async () => {
-  const { hashConfigLockFile } = await loadCollector();
+test('SDS-AC-4 low-level protected snapshot force-fresh checks a config lock identity immediately before and after its hash read', async () => {
+  const { createProtectedInputSnapshot } = await loadCollector();
   const events = [];
-  const configPath = path.win32.join(workspaceRoot, 'server', 'config.json5');
+  const configPath = path.win32.join(workspaceRoot, 'server', 'config.json5').replaceAll('\\', '/');
   const fs = {
     existsSync(candidate) {
       events.push(`exists:${candidate}`);
@@ -164,14 +164,18 @@ test('SDS-AC-4 force-fresh checks a config lock identity immediately before and 
     },
   };
 
-  assert.equal(typeof hashConfigLockFile, 'function');
+  assert.equal(typeof createProtectedInputSnapshot, 'function');
+  const input = createProtectedInputSnapshot({ fs, reparseGuard }).read({
+    absolutePath: configPath,
+    kind: 'config_lock',
+    path: 'server/config.json5',
+  });
   assert.deepEqual(
-    hashConfigLockFile({
-      fs,
-      workspaceRoot,
-      relativePath: 'server/config.json5',
-      reparseGuard,
-    }),
+    {
+      kind: input.kind,
+      path: input.path,
+      sha256: input.sha256,
+    },
     {
       kind: 'config_lock',
       path: 'server/config.json5',
@@ -186,8 +190,8 @@ test('SDS-AC-4 force-fresh checks a config lock identity immediately before and 
   );
 });
 
-test('SDS-AC-4 fails before a config read when its force-fresh identity guard detects a change', async () => {
-  const { hashConfigLockFile } = await loadCollector();
+test('SDS-AC-4 low-level protected snapshot fails before a config read when its force-fresh identity guard detects a change', async () => {
+  const { createProtectedInputSnapshot } = await loadCollector();
   let readCount = 0;
   const fs = {
     existsSync: () => true,
@@ -204,13 +208,12 @@ test('SDS-AC-4 fails before a config read when its force-fresh identity guard de
     },
   };
 
-  assert.equal(typeof hashConfigLockFile, 'function');
+  assert.equal(typeof createProtectedInputSnapshot, 'function');
   assert.throws(
-    () => hashConfigLockFile({
-      fs,
-      workspaceRoot,
-      relativePath: 'server/config.json5',
-      reparseGuard,
+    () => createProtectedInputSnapshot({ fs, reparseGuard }).read({
+      absolutePath: path.win32.join(workspaceRoot, 'server', 'config.json5'),
+      kind: 'config_lock',
+      path: 'server/config.json5',
     }),
     /identity|reparse|config/i,
   );

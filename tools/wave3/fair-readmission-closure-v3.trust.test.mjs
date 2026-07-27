@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, unlinkSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import * as path from 'node:path';
 import test from 'node:test';
 
@@ -77,6 +78,16 @@ function normalizeWindows(value) {
   return path.win32.normalize(value).replaceAll('\\', '/').toLowerCase();
 }
 
+function ownedNativeCaptureManifestPath() {
+  return path.win32.join(analysisRoot, `.trust-native-capture-${process.pid}-${randomBytes(6).toString('hex')}.json`);
+}
+
+function removeOwnedNativeCaptureManifest(manifestPath) {
+  assert.equal(path.win32.dirname(manifestPath), analysisRoot, 'trust capture cleanup must stay within its analysis directory');
+  assert.equal(path.win32.basename(manifestPath).startsWith('.trust-native-capture-'), true, 'trust capture cleanup must target only its own leaf');
+  if (existsSync(manifestPath)) unlinkSync(manifestPath);
+}
+
 test('SDS-AC-1 rejects absent, counterfeit, and no-op admission before any protected ingress I/O', async () => {
   const {
     collectSourceClosure,
@@ -113,7 +124,6 @@ test('SDS-AC-1 rejects absent, counterfeit, and no-op admission before any prote
       () => collectSourceClosure({
         fs,
         workspaceRoot,
-        sourceRoots: [inventoryPath],
         ...(label === 'absent' ? {} : { admission }),
         reparseGuard: ingress.reparseGuard,
         snapshot: ingress.snapshot,
@@ -134,8 +144,7 @@ test('SDS-AC-1 rejects absent, counterfeit, and no-op admission before any prote
 
 test('SDS-AC-2 uses collector-owned lexical parsing without executing TypeScript and retains literal inventory imports', async () => {
   const {
-    collectSourceClosure,
-    createStrictAdmissionContext,
+    captureFrozenProvenance,
     parseAdmittedImportSpecifiers,
   } = await loadCollector();
   const collectorSource = readFileSync(new URL('./fair-readmission-closure-v3.mjs', import.meta.url), 'utf8');
@@ -180,26 +189,29 @@ test('SDS-AC-2 uses collector-owned lexical parsing without executing TypeScript
     'a nonliteral dynamic import must fail closed instead of escaping lexical provenance',
   );
 
-  const admission = createStrictAdmissionContext();
-  const closure = collectSourceClosure({
-    workspaceRoot,
-    sourceRoots: [inventoryPath],
-    admission,
-  });
-  assert.equal(
-    closure.sourceClosureRows.some(row => row.path === inventoryPath),
-    true,
-    'the real inventory must remain in the admitted source closure',
-  );
-  assert.equal(
-    closure.externalSpecifierRows.some(row => (
+  const manifestPath = ownedNativeCaptureManifestPath();
+  assert.equal(existsSync(manifestPath), false, 'the test-owned native capture leaf must start absent');
+  try {
+    const manifest = captureFrozenProvenance({
+      workspaceRoot,
+      manifestPath,
+      phase: 'trust-native-frozen-capture',
+    });
+    assert.deepEqual(JSON.parse(readFileSync(manifestPath, 'utf8')), manifest, 'the native capture must persist exactly the admitted manifest');
+    const protectedInput = manifest.protectedInput.value;
+    assert.equal(
+      protectedInput.sourceClosureRows.some(row => row.path === inventoryPath),
+      true,
+      'the default frozen native closure must reach the real Inventory through its admitted source roots',
+    );
+    assert.equal(protectedInput.externalSpecifierRows.some(row => (
       row.from === inventoryPath
       && row.specifier === 'typescript'
       && row.resolvedOrBuiltin === 'package:typescript'
-    )),
-    true,
-    'the real literal type/dynamic imports must be represented in the external closure inventory',
-  );
+    )), true, 'the default frozen native closure must retain the Inventory TypeScript external rows');
+  } finally {
+    removeOwnedNativeCaptureManifest(manifestPath);
+  }
 });
 
 test('SDS-AC-3 rejects special and directory manifest leaves before probing or writing', async () => {

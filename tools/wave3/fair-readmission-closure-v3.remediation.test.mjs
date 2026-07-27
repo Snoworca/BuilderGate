@@ -108,40 +108,8 @@ function assertFailsBeforeWriting({ captureFrozenProvenance, label, expected, op
   });
 }
 
-test('SDS-AC-1 admits only the actual TerminalView CSS import as a hash-only source row', async () => {
-  const { FROZEN_CONTRACT, collectSourceClosure } = await loadCollector();
-
-  assert.equal(typeof collectSourceClosure, 'function');
-  const closure = collectSourceClosure({
-    workspaceRoot,
-    sourceRoots: ['frontend/src/components/Terminal/TerminalView.tsx'],
-    fs,
-  });
-  const cssRows = closure.sourceClosureRows.filter(row => row.path === 'frontend/src/components/Terminal/TerminalView.css');
-
-  assert.deepEqual(cssRows, [{
-    kind: 'source',
-    path: 'frontend/src/components/Terminal/TerminalView.css',
-    sha256: cssRows[0]?.sha256,
-  }]);
-  assert.match(cssRows[0].sha256, /^[a-f0-9]{64}$/i);
-  assert.equal(FROZEN_CONTRACT.sourceRoots.includes('frontend/src/components/Terminal/TerminalView.css'), false);
-  assert.throws(
-    () => collectSourceClosure({
-      workspaceRoot,
-      sourceRoots: ['frontend/src/components/Terminal/TerminalView.css'],
-      fs,
-    }),
-    /TerminalView\.tsx|non-code|dependency/i,
-  );
-  assert.throws(
-    () => collectSourceClosure({ workspaceRoot, sourceRoots: ['server/config.json5'], fs }),
-    /non-code|dependency/i,
-  );
-});
-
 test('SDS-AC-2 rejects dangling output leaves and linked protected or manifest paths before writing', async () => {
-  const { FROZEN_CONTRACT, captureFrozenProvenance, collectSourceClosure, validateFrozenContract } = await loadCollector();
+  const { FROZEN_CONTRACT, captureFrozenProvenance, validateFrozenContract } = await loadCollector();
   const manifestPath = ownedManifestPath('link');
 
   assert.throws(
@@ -159,14 +127,6 @@ test('SDS-AC-2 rejects dangling output leaves and linked protected or manifest p
       fs: fileSystemWith({ reparsePaths: [outputDir] }),
     }),
     /output.*(?:link|reparse)|(?:link|reparse).*output/i,
-  );
-  assert.throws(
-    () => collectSourceClosure({
-      workspaceRoot,
-      sourceRoots: ['frontend/src/components/Terminal/TerminalView.tsx'],
-      fs: fileSystemWith({ linkedPaths: [path.join(workspaceRoot, 'frontend', 'src', 'components', 'Terminal', 'TerminalView.css')] }),
-    }),
-    /link|reparse/i,
   );
   withOwnedManifestDirectory(() => {
     assert.throws(
@@ -212,7 +172,7 @@ test('SDS-AC-3 writes a contract-only canonical fingerprint independently of pro
 });
 
 test('SDS-AC-4 captures the actual workspace into one disposable manifest without Playwright output', async () => {
-  const { captureFrozenProvenance } = await loadCollector();
+  const { FROZEN_CONTRACT, captureFrozenProvenance } = await loadCollector();
   const manifestPath = ownedManifestPath('capture');
   const analysisDirectoryExisted = fs.existsSync(analysisDirectory);
 
@@ -234,6 +194,14 @@ test('SDS-AC-4 captures the actual workspace into one disposable manifest withou
     assert.equal(written.protectedInput.sha256, createHash('sha256').update(written.protectedInput.canonicalJson, 'utf8').digest('hex'));
     assert.equal(written.protectedInput.value.sourceClosureRows.some(row => row.path === 'frontend/src/components/Terminal/TerminalView.tsx'), true);
     assert.equal(written.protectedInput.value.sourceClosureRows.some(row => row.path === 'frontend/src/components/Terminal/TerminalView.css'), true);
+    const cssRows = written.protectedInput.value.sourceClosureRows.filter(row => row.path === 'frontend/src/components/Terminal/TerminalView.css');
+    assert.deepEqual(cssRows, [{
+      kind: 'source',
+      path: 'frontend/src/components/Terminal/TerminalView.css',
+      sha256: cssRows[0]?.sha256,
+    }]);
+    assert.match(cssRows[0].sha256, /^[a-f0-9]{64}$/i);
+    assert.equal(FROZEN_CONTRACT.sourceRoots.includes('frontend/src/components/Terminal/TerminalView.css'), false);
     assert.equal(written.protectedInput.value.fixtureRows.length > 0, true);
     assert.equal(written.protectedInput.value.configLockRows.some(row => row.path === 'server/config.json5'), true);
     assert.deepEqual(written.protectedInput.value.git.commandPrefix, ['git', '-c', 'core.longpaths=true']);

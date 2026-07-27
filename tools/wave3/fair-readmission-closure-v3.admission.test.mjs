@@ -69,22 +69,21 @@ test('SDS-AC-1 rejects absent, no-op, and counterfeit admission contexts before 
         absolutePath: `${workspaceRoot}/server/src/ws/WsRouter.ts`,
         kind: 'source',
         path: 'server/src/ws/WsRouter.ts',
-        admission,
+        ...(label === 'absent' ? {} : { admission }),
         reparseGuard: counterfeit.reparseGuard,
       }),
       () => hashConfigLockFile({
         fs,
         workspaceRoot,
         relativePath: 'server/config.json5',
-        admission,
+        ...(label === 'absent' ? {} : { admission }),
         reparseGuard: counterfeit.reparseGuard,
         snapshot: counterfeit.snapshot,
       }),
       () => collectSourceClosure({
         fs,
         workspaceRoot,
-        sourceRoots: ['server/src/services/TerminalResourcePolicyInventory.ts'],
-        admission,
+        ...(label === 'absent' ? {} : { admission }),
         reparseGuard: counterfeit.reparseGuard,
         snapshot: counterfeit.snapshot,
       }),
@@ -121,18 +120,14 @@ test('SDS-AC-2 rejects an 8 KiB-plus singleton before an injected custom batch p
   assert.equal(probeCalls, 0, 'the oversized singleton must not launch a custom probe');
 });
 
-test('SDS-AC-3 includes TerminalResourcePolicyInventory literal dynamic and type imports in admitted closure discovery', async () => {
+test('SDS-AC-3 collector-owned lexical parsing retains TerminalResourcePolicyInventory literal dynamic and type imports', async () => {
   const {
-    collectSourceClosure,
-    createStrictAdmissionContext,
     parseAdmittedImportSpecifiers,
   } = await loadCollector();
   const inventoryText = readFileSync(inventoryPath, 'utf8');
-  const probeBatches = [];
 
   assert.match(inventoryText, /await\s+import\(\s*['"]typescript['"]\s*\)/, 'the real inventory must retain its literal dynamic import fixture');
   assert.match(inventoryText, /(?:typeof\s+)?import\(\s*['"]typescript['"]\s*\)\./, 'the real inventory must retain its literal type-import fixture');
-  assert.equal(typeof createStrictAdmissionContext, 'function');
   assert.equal(typeof parseAdmittedImportSpecifiers, 'function');
   assert.equal(
     parseAdmittedImportSpecifiers({ sourceText: inventoryText, fromPath: inventoryPath }).includes('typescript'),
@@ -140,31 +135,6 @@ test('SDS-AC-3 includes TerminalResourcePolicyInventory literal dynamic and type
     'the admitted parser must retain literal dynamic/type import specifiers from the real inventory source',
   );
 
-  const admission = createStrictAdmissionContext({
-    probeBatch(paths) {
-      probeBatches.push([...paths]);
-    },
-  });
-  const closure = collectSourceClosure({
-    workspaceRoot,
-    sourceRoots: [inventoryPath],
-    admission,
-  });
-  const inventoryExternalSpecifiers = closure.externalSpecifierRows.filter(row => (
-    row.from === inventoryPath && row.specifier === 'typescript' && row.resolvedOrBuiltin === 'package:typescript'
-  ));
-
-  assert.equal(
-    closure.sourceClosureRows.some(row => row.path === inventoryPath),
-    true,
-    'the real inventory root must remain in the admitted source closure',
-  );
-  assert.equal(
-    inventoryExternalSpecifiers.length >= 1,
-    true,
-    'literal dynamic/type imports must remain represented as admitted external closure rows',
-  );
-  assert.equal(probeBatches.length > 0, true, 'a minted admission context must own guarded discovery');
 });
 
 test('SDS-AC-3 fails closed instead of omitting a nonliteral dynamic import', async () => {
