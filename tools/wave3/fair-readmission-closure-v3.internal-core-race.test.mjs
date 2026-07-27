@@ -1192,6 +1192,71 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
           assertMinimalNativeFixtureParity({ fixtureRoot, protectedFiles: fixture.protectedFiles });
         }
       });
+
+      await t.test('SDS-AC-3 distinguishes the guarded postwrite probe from final leaf identity observation during same-byte replacement', async () => {
+        const prefix = `fixture-wx-replacement-${process.pid}-${randomBytes(6).toString('hex')}`;
+        const leafA = path.join(fixtureAnalysisRoot, `${prefix}-a.json`);
+        const timeline = [];
+        let actorA;
+        try {
+          assert.equal(existsSync(fixtureAnalysisRoot), false, 'the serial fixture reset leaves the fixed analysis parent absent before same-byte replacement');
+          assert.equal(existsSync(leafA), false, 'A starts with an absent nonce-owned target leaf');
+          actorA = spawnWxRaceChild({
+            harness,
+            actor: 'A',
+            manifestPath: leafA,
+            phase: 'fixture-wx-replacement-a',
+            preload: true,
+            fault: 'replacement',
+            collectorSourceUrl: fixtureCollectorUrl,
+            childWorkspaceRoot: fixtureRoot,
+            timeline,
+          });
+          await waitForWxRaceEvent(actorA, 'open', 'A replacement retained-fd open');
+          await waitForWxRaceEvent(actorA, 'fd-write', 'A replacement retained-fd write gate');
+          await waitForWxRaceEvent(actorA, 'fstat', 'A replacement retained-fd fstat');
+          await waitForWxRaceEvent(actorA, 'guarded-postwrite-probe', 'A guarded postwrite target probe');
+          await waitForWxRaceEvent(actorA, 'guarded-postwrite-probe-complete', 'A completed guarded postwrite target probe');
+          releaseWxRaceChild(actorA, 0x58);
+          const replacement = await waitForOneOfWxRaceEvents(actorA, ['replacement-blocked', 'replaced', 'replacement-partial'], 'A same-byte replacement result');
+          await waitForWxRaceEvent(actorA, 'release', 'A replacement release');
+          const terminal = await waitForWxRaceTerminalEvent(actorA, 'A replacement capture');
+          const finalLeafIdentity = replacement.event === 'replacement-partial'
+            ? undefined
+            : await waitForWxRaceEvent(actorA, 'final-leaf-identity-observation', 'A final leaf identity observation');
+          await waitForWxRaceEvent(actorA, 'postflight', 'A replacement retained-fd postflight');
+          await waitForWxRaceEvent(actorA, 'close', 'A replacement retained-fd close');
+          if (replacement.event === 'replacement-blocked') {
+            assert.equal(terminal.event, 'captured', `an OS-blocked replacement keeps the original manifest eligible for acceptance; transcript=${JSON.stringify(actorA.transcript)}`);
+            assert.equal(JSON.parse(readFileSync(leafA, 'utf8')).phase, 'fixture-wx-replacement-a');
+            assert.deepEqual(await waitForWxRaceExit(actorA, 'A blocked replacement capture'), { code: 0, signal: null });
+          } else {
+            assert.equal(terminal.event, 'error', `a same-byte swapped or partially swapped leaf must reject before manifest acceptance; transcript=${JSON.stringify(actorA.transcript)}`);
+            assert.match(terminal.message, /manifest|leaf|identity|replacement|postflight|changed|missing/i);
+            assert.equal(actorA.transcript.some(candidate => candidate.event === 'captured'), false, 'a swapped leaf must never reach accepted capture output');
+            assert.deepEqual(await waitForWxRaceExit(actorA, 'A replacement capture'), { code: 1, signal: null });
+          }
+          assert.equal(transcriptIndex(timeline, 'A', 'open') < transcriptIndex(timeline, 'A', 'fd-write'), true);
+          assert.equal(transcriptIndex(timeline, 'A', 'fd-write') < transcriptIndex(timeline, 'A', 'fstat'), true);
+          assert.equal(transcriptIndex(timeline, 'A', 'fstat') < transcriptIndex(timeline, 'A', 'guarded-postwrite-probe'), true, 'the first target lstat after retained-fd fstat is the guarded postwrite probe');
+          assert.equal(transcriptIndex(timeline, 'A', 'guarded-postwrite-probe') < transcriptIndex(timeline, 'A', 'guarded-postwrite-probe-complete'), true, 'the guarded postwrite probe completes before replacement is released');
+          assert.equal(transcriptIndex(timeline, 'A', 'guarded-postwrite-probe-complete') < transcriptIndex(timeline, 'A', replacement.event), true, 'same-byte replacement begins only after the guard has completed its postwrite target probe');
+          assert.equal(transcriptIndex(timeline, 'A', replacement.event) < transcriptIndex(timeline, 'A', 'release'), true);
+          if (finalLeafIdentity) {
+            assert.equal(transcriptIndex(timeline, 'A', 'release') < transcriptIndex(timeline, 'A', 'final-leaf-identity-observation'), true, 'the later final leaf identity observation occurs only after the replacement attempt');
+            assert.equal(transcriptIndex(timeline, 'A', 'final-leaf-identity-observation') < transcriptIndex(timeline, 'A', 'close'), true, 'the final leaf identity observation precedes retained descriptor cleanup');
+          }
+          assert.equal(actorA.transcript.filter(candidate => candidate.event === 'close').length, 1, 'the replacement run closes its retained descriptor exactly once');
+          assert.equal(actorA.transcript.some(candidate => candidate.event === 'path-write-bypass' || candidate.event === 'pathname-read-before-postflight' || candidate.event === 'target-lstat-before-fstat' || candidate.event === 'fstat-before-fd-write'), false, 'replacement handling keeps the security-sensitive write and identity sequence on the retained descriptor');
+        } finally {
+          if (actorA && !actorA.released && !actorA.exitState) releaseWxRaceChild(actorA, 0x52);
+          await Promise.allSettled([actorA?.exited].filter(Boolean));
+          assertOwnedWorkspaceDescendant(leafA, fixtureAnalysisRoot, 'fixture replacement manifest leaf cleanup');
+          removeFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, leafA);
+          assert.equal(existsSync(leafA), false, 'serial fixture reset removes the replacement-owned fixture leaf');
+          assertMinimalNativeFixtureParity({ fixtureRoot, protectedFiles: fixture.protectedFiles });
+        }
+      });
     } finally {
       removeOwnedWxRaceHarness(harness.ownedRoot);
       removeOwnedWorkspace(ownedRoot);
@@ -1312,67 +1377,6 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
       await Promise.allSettled(exits);
       for (const leaf of leaves) removeOwnedLeaf(leaf, prefix);
       for (const leaf of leaves) assert.equal(existsSync(leaf), false, 'creator-owned cleanup removes every test leaf');
-    }
-  });
-
-  test('SDS-AC-3 distinguishes the guarded postwrite probe from final leaf identity observation during same-byte replacement', { timeout: 115_000 }, async () => {
-    const harness = createOwnedWxRaceHarness();
-    const prefix = `wx-replacement-${process.pid}-${randomBytes(6).toString('hex')}`;
-    const leafA = path.join(analysisRoot, `${prefix}-a.json`);
-    const timeline = [];
-    let actorA;
-    try {
-      assert.equal(existsSync(leafA), false, 'A starts with an absent nonce-owned target leaf');
-      actorA = spawnWxRaceChild({
-        harness,
-        actor: 'A',
-        manifestPath: leafA,
-        phase: 'internal-core-wx-replacement-a',
-        preload: true,
-        fault: 'replacement',
-        timeline,
-      });
-      await waitForWxRaceEvent(actorA, 'open', 'A replacement retained-fd open');
-      await waitForWxRaceEvent(actorA, 'fd-write', 'A replacement retained-fd write gate');
-      await waitForWxRaceEvent(actorA, 'fstat', 'A replacement retained-fd fstat');
-      await waitForWxRaceEvent(actorA, 'guarded-postwrite-probe', 'A guarded postwrite target probe');
-      await waitForWxRaceEvent(actorA, 'guarded-postwrite-probe-complete', 'A completed guarded postwrite target probe');
-      releaseWxRaceChild(actorA, 0x58);
-      const replacement = await waitForOneOfWxRaceEvents(actorA, ['replacement-blocked', 'replaced', 'replacement-partial'], 'A same-byte replacement result');
-      await waitForWxRaceEvent(actorA, 'release', 'A replacement release');
-      const terminal = await waitForWxRaceTerminalEvent(actorA, 'A replacement capture');
-      const finalLeafIdentity = replacement.event === 'replacement-partial'
-        ? undefined
-        : await waitForWxRaceEvent(actorA, 'final-leaf-identity-observation', 'A final leaf identity observation');
-      await waitForWxRaceEvent(actorA, 'postflight', 'A replacement retained-fd postflight');
-      await waitForWxRaceEvent(actorA, 'close', 'A replacement retained-fd close');
-      if (replacement.event === 'replacement-blocked') {
-        assert.equal(terminal.event, 'captured', `an OS-blocked replacement keeps the original manifest eligible for acceptance; transcript=${JSON.stringify(actorA.transcript)}`);
-        assert.equal(JSON.parse(readFileSync(leafA, 'utf8')).phase, 'internal-core-wx-replacement-a');
-        assert.deepEqual(await waitForWxRaceExit(actorA, 'A blocked replacement capture'), { code: 0, signal: null });
-      } else {
-        assert.equal(terminal.event, 'error', `a same-byte swapped or partially swapped leaf must reject before manifest acceptance; transcript=${JSON.stringify(actorA.transcript)}`);
-        assert.match(terminal.message, /manifest|leaf|identity|replacement|postflight|changed|missing/i);
-        assert.equal(actorA.transcript.some(candidate => candidate.event === 'captured'), false, 'a swapped leaf must never reach accepted capture output');
-        assert.deepEqual(await waitForWxRaceExit(actorA, 'A replacement capture'), { code: 1, signal: null });
-      }
-      assert.equal(transcriptIndex(timeline, 'A', 'open') < transcriptIndex(timeline, 'A', 'fd-write'), true);
-      assert.equal(transcriptIndex(timeline, 'A', 'fd-write') < transcriptIndex(timeline, 'A', 'fstat'), true);
-      assert.equal(transcriptIndex(timeline, 'A', 'fstat') < transcriptIndex(timeline, 'A', 'guarded-postwrite-probe'), true, 'the first target lstat after retained-fd fstat is the guarded postwrite probe');
-      assert.equal(transcriptIndex(timeline, 'A', 'guarded-postwrite-probe') < transcriptIndex(timeline, 'A', 'guarded-postwrite-probe-complete'), true, 'the guarded postwrite probe completes before replacement is released');
-      assert.equal(transcriptIndex(timeline, 'A', 'guarded-postwrite-probe-complete') < transcriptIndex(timeline, 'A', replacement.event), true, 'same-byte replacement begins only after the guard has completed its postwrite target probe');
-      assert.equal(transcriptIndex(timeline, 'A', replacement.event) < transcriptIndex(timeline, 'A', 'release'), true);
-      if (finalLeafIdentity) {
-        assert.equal(transcriptIndex(timeline, 'A', 'release') < transcriptIndex(timeline, 'A', 'final-leaf-identity-observation'), true, 'the later final leaf identity observation occurs only after the replacement attempt');
-        assert.equal(transcriptIndex(timeline, 'A', 'final-leaf-identity-observation') < transcriptIndex(timeline, 'A', 'close'), true, 'the final leaf identity observation precedes retained descriptor cleanup');
-      }
-      assert.equal(actorA.transcript.filter(candidate => candidate.event === 'close').length, 1, 'the replacement run closes its retained descriptor exactly once');
-      assert.equal(actorA.transcript.some(candidate => candidate.event === 'path-write-bypass' || candidate.event === 'pathname-read-before-postflight' || candidate.event === 'target-lstat-before-fstat' || candidate.event === 'fstat-before-fd-write'), false, 'replacement handling keeps the security-sensitive write and identity sequence on the retained descriptor');
-    } finally {
-      if (actorA && !actorA.released && !actorA.exitState) releaseWxRaceChild(actorA, 0x52);
-      await Promise.allSettled([actorA?.exited].filter(Boolean));
-      removeOwnedLeaf(leafA, prefix);
-      removeOwnedWxRaceHarness(harness.ownedRoot);
     }
   });
 
