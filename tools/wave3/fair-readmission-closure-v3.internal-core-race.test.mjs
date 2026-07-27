@@ -894,17 +894,33 @@ function actorTranscriptIndex(actor, event) {
 }
 
 async function runNativeWorker() {
-  const { controlBuffer, index, leaf } = workerData;
+  const {
+    controlBuffer,
+    index,
+    leaf,
+    collectorUrl: workerCollectorUrl = collectorUrl,
+    internalCoreUrl: workerInternalCoreUrl = internalCoreUrl,
+    workspaceRoot: workerWorkspaceRoot = workspaceRoot,
+    analysisRoot: workerAnalysisRoot = analysisRoot,
+    phase: workerPhase = `internal-core-native-worker-${index}`,
+  } = workerData;
   const control = new Int32Array(controlBuffer);
   try {
-    await Promise.all([import(collectorUrl), import(internalCoreUrl)]);
-    parentPort.postMessage({ phase: 'ready', index });
+    await Promise.all([import(workerCollectorUrl), import(workerInternalCoreUrl)]);
+    parentPort.postMessage({
+      phase: 'ready',
+      index,
+      collectorUrl: workerCollectorUrl,
+      internalCoreUrl: workerInternalCoreUrl,
+      workspaceRoot: workerWorkspaceRoot,
+      analysisRoot: workerAnalysisRoot,
+    });
     Atomics.wait(control, 0, 0);
-    const { captureFrozenProvenance } = await import(collectorUrl);
+    const { captureFrozenProvenance } = await import(workerCollectorUrl);
     const manifest = captureFrozenProvenance({
-      workspaceRoot,
+      workspaceRoot: workerWorkspaceRoot,
       manifestPath: leaf,
-      phase: `internal-core-native-worker-${index}`,
+      phase: workerPhase,
     });
     parentPort.postMessage({ phase: 'captured', index, leaf, sha256: manifest.protectedInput.sha256 });
   } catch (error) {
@@ -1135,6 +1151,7 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
         internalCoreUrl: fixtureInternalCoreUrl,
         workspaceRoot: fixtureRoot,
         analysisRoot: fixtureAnalysisRoot,
+        phase: `fixture-native-worker-${index}`,
       },
     }));
     const exits = workers.map(worker => new Promise(resolve => {
