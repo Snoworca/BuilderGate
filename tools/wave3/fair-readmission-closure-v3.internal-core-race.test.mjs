@@ -687,6 +687,16 @@ function removeFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, previousMan
   assert.equal(existsSync(previousManifestPath), false, 'the reset removes the previous nonce-owned manifest leaf');
 }
 
+function removeOwnedFixtureManifestLeaf(fixtureRoot, fixtureAnalysisRoot, manifestPath) {
+  const normalizedAnalysisRoot = assertFixedFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, 'fixture manifest leaf cleanup');
+  assertOwnedWorkspaceDescendant(manifestPath, normalizedAnalysisRoot, 'fixture manifest leaf cleanup');
+  if (existsSync(manifestPath)) unlinkSync(manifestPath);
+  assert.equal(existsSync(manifestPath), false, 'fixture manifest leaf cleanup leaves its owned leaf absent');
+  const analysisRootStat = lstatSync(normalizedAnalysisRoot);
+  assert.equal(analysisRootStat.isDirectory(), true, 'fixture manifest leaf cleanup retains the ordinary fixture analysis parent');
+  assert.equal(isLinkOrReparsePoint(analysisRootStat), false, 'fixture manifest leaf cleanup retains a non-reparse fixture analysis parent');
+}
+
 function assertRealFixtureDocs(fixtureDocs, label) {
   const stat = lstatSync(fixtureDocs);
   assert.equal(stat.isDirectory(), true, `${label} is a real directory`);
@@ -1129,7 +1139,7 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
           if (actorGuard && !actorGuard.released && !actorGuard.exitState) releaseWxRaceChild(actorGuard, 0x52);
           await Promise.allSettled([actorGuard?.exited].filter(Boolean));
           if (actorGuard) assert.notEqual(actorGuard.exitState, undefined, 'the first gated child exits before the shared fixture resets');
-          unlinkSync(firstManifestPath);
+          removeOwnedFixtureManifestLeaf(fixtureRoot, fixtureAnalysisRoot, firstManifestPath);
           assert.equal(existsSync(firstManifestPath), false, 'the first nonce-owned manifest leaf is removed before the fixture worker barrier');
           const analysisRootStat = lstatSync(fixtureAnalysisRoot);
           assert.equal(analysisRootStat.isDirectory(), true, 'the first native capture leaves an ordinary fixture analysis parent for the fixture worker barrier');
