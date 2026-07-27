@@ -33,7 +33,7 @@ const requiredLexicalSuites = [
   'tools/wave3/fair-readmission-closure-v3.lexical.test.mjs',
   'tools/wave3/fair-readmission-closure-v3.lexical-race.test.mjs',
 ];
-const FIXED_GATE_LIMIT_MS = 120_000;
+const FIXED_GATE_LIMIT_MS = 118_000;
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(testDirectory, '..', '..');
 
@@ -41,7 +41,7 @@ test('SDS-AC-3 fixes the named admission gate limit below 118 seconds', () => {
   assert.equal(FIXED_GATE_LIMIT_MS, 118_000, 'the fixed admission gate limit must stay below 118 seconds');
 });
 
-test('SDS-AC-4 runs the fixed nonrecursive closure gate with boundary and admission suites under 120 seconds', t => {
+test('SDS-AC-3 runs the fixed nonrecursive closure gate with boundary and admission suites under 118 seconds', t => {
   const discovered = readdirSync(testDirectory, { encoding: 'utf8' })
     .filter(name => /^fair-readmission-closure-v3(?:\.[a-z-]+)?\.test\.mjs$/.test(name))
     .filter(name => name !== self)
@@ -63,14 +63,14 @@ test('SDS-AC-4 runs the fixed nonrecursive closure gate with boundary and admiss
     env: Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('NODE_TEST_'))),
     encoding: 'utf8',
     shell: false,
-    timeout: 120_000,
+    timeout: FIXED_GATE_LIMIT_MS,
     windowsHide: true,
   });
   const elapsedMs = Date.now() - startedAt;
-  t.diagnostic(`SDS-AC-4 combined closure gate elapsed_ms=${elapsedMs}`);
+  t.diagnostic(`SDS-AC-3 combined closure gate elapsed_ms=${elapsedMs}`);
 
   assert.equal(result.error, undefined, `combined closure gate failed to launch: ${result.error?.message ?? ''}`);
   assert.equal(result.signal, null, `combined closure gate timed out or was signaled: ${result.signal ?? ''}`);
   assert.equal(result.status, 0, `combined closure gate exited ${result.status}\n${result.stdout ?? ''}\n${result.stderr ?? ''}`);
-  assert.ok(elapsedMs < 120_000, `combined closure gate exceeded the 120-second contract: ${elapsedMs}ms`);
+  assert.ok(elapsedMs < FIXED_GATE_LIMIT_MS, `combined closure gate exceeded the 118-second contract: ${elapsedMs}ms`);
 });
