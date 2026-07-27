@@ -1111,6 +1111,67 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
     }
   });
 
+  test('SDS-AC-1 lightweight fixture scenario invariant rejects tracked fixture mutation after proving clean owned state', { timeout: 115_000 }, () => {
+    const ownedRoot = mkdtempSync(path.join(tmpdir(), 'fair-readmission-missing-parent-'));
+    const fixtureRoot = path.join(ownedRoot, 'workspace');
+    const fixtureAnalysisRoot = path.join(fixtureRoot, analysisRootRelativePath);
+    const ownedLeaf = path.join(fixtureAnalysisRoot, `lightweight-invariant-${process.pid}-${randomBytes(6).toString('hex')}.json`);
+    const trackedFixturePath = path.join(fixtureRoot, 'tracked-fixture-input.txt');
+    try {
+      mkdirSync(fixtureRoot, { recursive: true });
+      writeFileSync(trackedFixturePath, 'fixture input before commit\n', { encoding: 'utf8', flag: 'wx' });
+      initializeMinimalFixtureGit(fixtureRoot);
+      mkdirSync(path.join(fixtureRoot, 'server'), { recursive: true });
+      writeFileSync(path.join(fixtureRoot, 'server', 'config.json5'), '{}\n', { encoding: 'utf8', flag: 'wx' });
+      assert.equal(existsSync(fixtureAnalysisRoot), false, 'the lightweight invariant fixture starts without its fixed analysis root');
+      assert.equal(existsSync(ownedLeaf), false, 'the lightweight invariant fixture starts without its owned manifest leaf');
+
+      assertLightweightFixtureScenarioInvariant({
+        fixtureRoot,
+        fixtureAnalysisRoot,
+        ownedLeaves: [ownedLeaf],
+      });
+
+      writeFileSync(trackedFixturePath, 'fixture input after mutation\n', { encoding: 'utf8', flag: 'w' });
+      assert.throws(
+        () => assertLightweightFixtureScenarioInvariant({
+          fixtureRoot,
+          fixtureAnalysisRoot,
+          ownedLeaves: [ownedLeaf],
+        }),
+        /fixture Git|porcelain|tracked/i,
+        'the lightweight invariant must immediately reject a modified tracked fixture file',
+      );
+
+      writeFileSync(trackedFixturePath, 'fixture input before commit\n', { encoding: 'utf8', flag: 'w' });
+      const unexpectedFixturePath = path.join(fixtureRoot, 'unexpected-fixture-leaf.txt');
+      writeFileSync(unexpectedFixturePath, 'unexpected fixture content\n', { encoding: 'utf8', flag: 'wx' });
+      assert.throws(
+        () => assertLightweightFixtureScenarioInvariant({
+          fixtureRoot,
+          fixtureAnalysisRoot,
+          ownedLeaves: [ownedLeaf],
+        }),
+        /fixture Git|porcelain|untracked/i,
+        'the lightweight invariant must reject a whole-fixture untracked file instead of checking only the config path',
+      );
+
+      unlinkSync(unexpectedFixturePath);
+      runFixtureGit(fixtureRoot, ['add', '--force', 'server/config.json5']);
+      assert.throws(
+        () => assertLightweightFixtureScenarioInvariant({
+          fixtureRoot,
+          fixtureAnalysisRoot,
+          ownedLeaves: [ownedLeaf],
+        }),
+        /fixture Git|index|config/i,
+        'the lightweight invariant must reject an ignored config lock that has entered the fixture Git index',
+      );
+    } finally {
+      removeOwnedWorkspace(ownedRoot);
+    }
+  });
+
   test('SDS-AC-1 and SDS-AC-3 create an absent fixed analysis parent only after fresh native guard probes at manifest boundaries, then serially reset the fixture for junction admission', { timeout: 115_000 }, async t => {
     const fixture = await createOwnedWorkspaceWithoutAnalysisParent();
     const { ownedRoot, fixtureRoot } = fixture;
