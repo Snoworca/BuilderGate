@@ -1380,6 +1380,11 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
         const prefix = `fixture-wx-sibling-${process.pid}-${randomBytes(6).toString('hex')}`;
         const leafA = path.join(fixtureAnalysisRoot, `${prefix}-a.json`);
         const leafB = path.join(fixtureAnalysisRoot, `${prefix}-b.json`);
+        const originalRootLeaves = [leafA, leafB].map(leaf => path.join(analysisRoot, path.basename(leaf)));
+        const fixtureCollectorPath = path.join(fixtureRoot, 'tools', 'wave3', 'fair-readmission-closure-v3.mjs');
+        const fixtureInternalCorePath = path.join(fixtureRoot, 'tools', 'wave3', 'internal', 'fair-readmission-closure-v3-internal-core.mjs');
+        const fixtureCollectorSha256 = sha256Bytes(readFileSync(fixtureCollectorPath));
+        const fixtureInternalCoreSha256 = sha256Bytes(readFileSync(fixtureInternalCorePath));
         const timeline = [];
         let actorA;
         let actorB;
@@ -1387,6 +1392,12 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
           assert.equal(existsSync(fixtureAnalysisRoot), false, 'the serial fixture reset leaves the fixed analysis parent absent before the sibling race');
           assert.equal(existsSync(leafA), false, 'A starts with an absent nonce-owned target leaf');
           assert.equal(existsSync(leafB), false, 'B starts with an absent distinct nonce-owned sibling leaf');
+          assert.equal(new Set([path.resolve(leafA), path.resolve(leafB)]).size, 2, 'the sibling race uses distinct fixture-owned manifest leaves');
+          for (const leaf of [leafA, leafB]) assertOwnedWorkspaceDescendant(leaf, fixtureAnalysisRoot, 'sibling fixture manifest leaf');
+          for (const leaf of originalRootLeaves) {
+            assertOwnedLeaf(leaf, prefix);
+            assert.equal(existsSync(leaf), false, 'a same-basename sibling manifest leaf starts absent in the original workspace');
+          }
           actorA = spawnWxRaceChild({
             harness,
             actor: 'A',
@@ -1433,14 +1444,33 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
           assert.equal(transcriptIndex(timeline, 'A', 'postflight') < transcriptIndex(timeline, 'A', 'close'), true, 'postflight finishes before the retained descriptor is closed');
           assert.equal(actorA.transcript.filter(candidate => candidate.event === 'close').length, 1, 'the successful retained descriptor closes exactly once');
           assert.equal(actorA.transcript.some(candidate => candidate.event === 'path-write-bypass' || candidate.event === 'pathname-read-before-postflight' || candidate.event === 'target-lstat-before-fstat' || candidate.event === 'fstat-before-fd-write'), false, 'the successful path never falls back to a target pathname write/read or premature identity/postflight probe');
-          assert.equal(JSON.parse(readFileSync(leafA, 'utf8')).phase, 'fixture-wx-sibling-a');
-          assert.equal(JSON.parse(readFileSync(leafB, 'utf8')).phase, 'fixture-wx-sibling-b');
+          const siblingManifests = [
+            [leafA, 'fixture-wx-sibling-a'],
+            [leafB, 'fixture-wx-sibling-b'],
+          ].map(([leaf, phase]) => [JSON.parse(readFileSync(leaf, 'utf8')), phase]);
+          for (const [manifest, phase] of siblingManifests) {
+            assert.equal(manifest.phase, phase);
+            assert.equal(manifest.protectedInput.value.collector.sha256, fixtureCollectorSha256, 'each sibling fixture manifest binds the copied collector bytes');
+            assert.deepEqual(
+              manifest.protectedInput.value.sourceClosureRows.find(row => row.path === 'tools/wave3/internal/fair-readmission-closure-v3-internal-core.mjs'),
+              {
+                kind: 'source',
+                path: 'tools/wave3/internal/fair-readmission-closure-v3-internal-core.mjs',
+                sha256: fixtureInternalCoreSha256,
+              },
+              'each sibling fixture manifest binds the copied internal-core bytes through its protected source closure',
+            );
+          }
+          for (const leaf of originalRootLeaves) assert.equal(existsSync(leaf), false, 'the sibling race never publishes a same-basename leaf in the original workspace');
         } finally {
           if (actorA && !actorA.released && !actorA.exitState) releaseWxRaceChild(actorA, 0x52);
           await Promise.allSettled([actorA?.exited, actorB?.exited].filter(Boolean));
           for (const leaf of [leafA, leafB]) assertOwnedWorkspaceDescendant(leaf, fixtureAnalysisRoot, 'fixture sibling manifest leaf cleanup');
           removeFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, leafA);
           for (const leaf of [leafA, leafB]) assert.equal(existsSync(leaf), false, 'serial fixture reset removes every sibling-owned fixture leaf');
+          const publishedOriginalLeaves = originalRootLeaves.filter(existsSync);
+          for (const leaf of originalRootLeaves) removeOwnedLeaf(leaf, prefix);
+          assert.deepEqual(publishedOriginalLeaves, [], 'the sibling reset leaves every same-basename original-workspace leaf absent');
           assertLightweightFixtureScenarioInvariant({ fixtureRoot, fixtureAnalysisRoot, ownedLeaves: [leafA, leafB] });
         }
       });
