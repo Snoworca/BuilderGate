@@ -1,6 +1,7 @@
 const MAX_TICKETS_PER_WAVE = 64;
 const MAX_TICKET_BYTES_PER_WAVE = 8 * 1024;
-const PORT_KEYS = new Set(['beginWave', 'readTicket', 'finishWave', 'digestBytes', 'events', 'reads']);
+const PORT_KEYS = Object.freeze(['beginWave', 'readTicket', 'finishWave', 'digestBytes']);
+const PORT_KEY_SET = new Set(PORT_KEYS);
 const FORBIDDEN_KEYS = new Set([
   'fs',
   'path',
@@ -11,18 +12,36 @@ const FORBIDDEN_KEYS = new Set([
   'writer',
   'admission',
   'options',
+  'capability',
 ]);
 const REQUIRED_TRANSITION = Object.freeze(['ensure-parent', 'preflight', 'exclusive-write', 'postflight']);
+const MANIFEST_STATE_KEYS = new Set([
+  'stage',
+  'transition',
+  'parentBefore',
+  'parentAfter',
+  'leafBefore',
+  'leafWritten',
+  'leafAfter',
+]);
+const PARENT_STATE_KEYS = new Set(['role', 'dev', 'ino', 'mode', 'ctimeMs', 'mtimeMs', 'size']);
+const LEAF_STATE_KEYS = new Set(['role', 'dev', 'ino', 'mode', 'ctimeMs', 'mtimeMs', 'size']);
 
 function assertPlainObject(value, label) {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+  if (value === null
+    || typeof value !== 'object'
+    || Array.isArray(value)
+    || (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)) {
     throw new Error(`${label} must be an object`);
   }
 }
 
-function assertNoForbiddenKeys(value, label) {
-  for (const key of Object.keys(value)) {
+function assertOnlyKeys(value, label, allowedKeys) {
+  assertPlainObject(value, label);
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== 'string') throw new Error(`${label} rejects symbol-shaped input`);
     if (FORBIDDEN_KEYS.has(key)) throw new Error(`${label} rejects authority-shaped input: ${key}`);
+    if (!allowedKeys.has(key)) throw new Error(`${label} rejects unsupported field: ${key}`);
   }
 }
 
@@ -37,11 +56,7 @@ function normalizeTickets(tickets) {
   if (!Array.isArray(tickets)) throw new Error('opaque ticket wave must be an array');
   const byId = new Map();
   for (const candidate of tickets) {
-    assertPlainObject(candidate, 'opaque ticket');
-    const keys = Object.keys(candidate);
-    if (keys.some(key => key !== 'opaqueId' && key !== 'byteBudget')) {
-      throw new Error('opaque ticket rejects paths and unsupported fields');
-    }
+    assertOnlyKeys(candidate, 'opaque ticket', new Set(['opaqueId', 'byteBudget']));
     if (typeof candidate.opaqueId !== 'string' || !candidate.opaqueId) {
       throw new Error('opaque ticket requires a non-empty identity');
     }
@@ -83,12 +98,12 @@ function resultFor(ticket, entry) {
 }
 
 export function createOpaqueWaveCache(port) {
-  assertPlainObject(port, 'opaque wave port');
-  assertNoForbiddenKeys(port, 'opaque wave port');
-  for (const key of Object.keys(port)) {
-    if (!PORT_KEYS.has(key)) throw new Error(`opaque wave port rejects unsupported field: ${key}`);
+  assertOnlyKeys(port, 'opaque wave port', PORT_KEY_SET);
+  const portKeys = Reflect.ownKeys(port);
+  if (portKeys.length !== PORT_KEYS.length) {
+    throw new Error('opaque wave port requires exactly four callbacks');
   }
-  for (const key of ['beginWave', 'readTicket', 'finishWave', 'digestBytes']) {
+  for (const key of PORT_KEYS) {
     if (typeof port[key] !== 'function') throw new Error(`opaque wave port requires ${key}`);
   }
 
@@ -120,12 +135,14 @@ function sameTransition(actual) {
     && actual.every((step, index) => step === REQUIRED_TRANSITION[index]);
 }
 
-function assertParent(state, label) {
-  assertPlainObject(state, label);
+function assertParent(state, label, { allowMissing = false } = {}) {
+  assertOnlyKeys(state, label, PARENT_STATE_KEYS);
+  if (allowMissing && state.role === 'missing') return state;
   if (state.role !== 'directory') throw new Error(`${label} must be a directory`);
   for (const key of ['dev', 'ino', 'mode']) {
     if (!Object.hasOwn(state, key)) throw new Error(`${label} lacks structural identity`);
   }
+  return state;
 }
 
 function sameParentStructure(left, right) {
@@ -133,23 +150,64 @@ function sameParentStructure(left, right) {
 }
 
 function assertLeaf(state, label, expectedRole) {
-  assertPlainObject(state, label);
+  assertOnlyKeys(state, label, LEAF_STATE_KEYS);
   if (state.role !== expectedRole) {
     throw new Error(`${label} has an invalid manifest leaf role: ${state.role ?? 'unknown'}`);
   }
+  if (expectedRole === 'regular') {
+    for (const key of ['dev', 'ino', 'mode', 'ctimeMs', 'mtimeMs', 'size']) {
+      if (!Object.hasOwn(state, key)) throw new Error(`${label} lacks manifest leaf identity`);
+    }
+  }
+  return state;
+}
+
+function sameLeafIdentity(left, right) {
+  return ['dev', 'ino', 'mode', 'ctimeMs', 'mtimeMs', 'size'].every(key => left[key] === right[key]);
 }
 
 export function evaluateManifestWriteState(state) {
-  assertPlainObject(state, 'manifest write state');
-  assertNoForbiddenKeys(state, 'manifest write state');
+  assertOnlyKeys(state, 'manifest write state', MANIFEST_STATE_KEYS);
   if (!sameTransition(state.transition)) throw new Error('manifest write transition is invalid');
-  assertParent(state.parentBefore, 'manifest parent before write');
-  assertParent(state.parentAfter, 'manifest parent after write');
-  if (!sameParentStructure(state.parentBefore, state.parentAfter)) {
+  if (state.stage !== undefined && state.stage !== 'preflight') {
+    throw new Error('manifest write state has an invalid evaluation stage');
+  }
+  const parentBefore = assertParent(state.parentBefore, 'manifest parent before write', { allowMissing: true });
+  const leafBefore = assertLeaf(state.leafBefore, 'manifest leaf before write', 'missing');
+
+  if (state.stage === 'preflight') {
+    if (state.leafWritten !== undefined || state.leafAfter !== undefined) {
+      throw new Error('manifest preflight rejects postflight leaf state');
+    }
+    if (state.parentAfter === undefined) {
+      return {
+        allowed: true,
+        transition: [...REQUIRED_TRANSITION],
+      };
+    }
+
+    const parentAfter = assertParent(state.parentAfter, 'manifest parent after write');
+    if (parentBefore.role === 'directory' && !sameParentStructure(parentBefore, parentAfter)) {
+      throw new Error('manifest parent identity changed structurally');
+    }
+    return {
+      allowed: true,
+      transition: [...REQUIRED_TRANSITION],
+    };
+  }
+
+  const parentAfter = assertParent(state.parentAfter, 'manifest parent after write');
+  if (parentBefore.role === 'directory' && !sameParentStructure(parentBefore, parentAfter)) {
     throw new Error('manifest parent identity changed structurally');
   }
-  assertLeaf(state.leafBefore, 'manifest leaf before write', 'missing');
-  assertLeaf(state.leafAfter, 'manifest leaf after write', 'regular');
+
+  const leafAfter = assertLeaf(state.leafAfter, 'manifest leaf after write', 'regular');
+  const leafWritten = state.leafWritten === undefined
+    ? leafAfter
+    : assertLeaf(state.leafWritten, 'manifest leaf written by exclusive write', 'regular');
+  if (!sameLeafIdentity(leafWritten, leafAfter)) {
+    throw new Error('manifest leaf identity changed after exclusive write');
+  }
   return {
     allowed: true,
     transition: [...REQUIRED_TRANSITION],

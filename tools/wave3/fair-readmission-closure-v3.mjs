@@ -1713,14 +1713,7 @@ function assertManifestDestination(workspaceRoot, manifestPath) {
   return { analysisRoot, destination };
 }
 
-function manifestRoleState(fs, candidate, label) {
-  let stat;
-  try {
-    stat = fs.lstatSync(candidate);
-  } catch (error) {
-    if (error?.code === 'ENOENT') return { role: 'missing' };
-    throw new Error(`cannot inspect ${label}: ${candidate} (${error?.message ?? String(error)})`);
-  }
+function manifestRoleStateFromStat(stat) {
   const role = stat?.isSymbolicLink?.()
     ? 'link'
     : stat?.isReparsePoint?.()
@@ -1737,17 +1730,34 @@ function manifestRoleState(fs, candidate, label) {
   return state;
 }
 
+function manifestRoleState(fs, candidate, label) {
+  try {
+    return manifestRoleStateFromStat(fs.lstatSync(candidate));
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { role: 'missing' };
+    throw new Error(`cannot inspect ${label}: ${candidate} (${error?.message ?? String(error)})`);
+  }
+}
+
 function assertManifestDestinationRoles(fs, { analysisRoot, destination }) {
   const parentBefore = manifestRoleState(fs, analysisRoot, 'manifest parent');
   const leafBefore = manifestRoleState(fs, destination, 'manifest leaf');
   evaluateManifestWriteState({
+    stage: 'preflight',
     transition: ['ensure-parent', 'preflight', 'exclusive-write', 'postflight'],
     parentBefore,
-    parentAfter: parentBefore,
     leafBefore,
-    leafAfter: { role: 'regular' },
   });
-  return { parentBefore, leafBefore };
+  fs.mkdirSync(analysisRoot, { recursive: true });
+  const parentAfter = manifestRoleState(fs, analysisRoot, 'manifest parent');
+  evaluateManifestWriteState({
+    stage: 'preflight',
+    transition: ['ensure-parent', 'preflight', 'exclusive-write', 'postflight'],
+    parentBefore,
+    parentAfter,
+    leafBefore,
+  });
+  return { parentBefore, parentAfter, leafBefore };
 }
 
 function writeCapturedManifest({
@@ -1763,27 +1773,34 @@ function writeCapturedManifest({
   const destinationInfo = assertManifestDestination(workspaceRoot, manifestPath);
   const { analysisRoot, destination } = destinationInfo;
   const beforeState = assertManifestDestinationRoles(fs, destinationInfo);
-  fs.mkdirSync(analysisRoot, { recursive: true });
   // Node pathname APIs have no native no-follow guarantee against a hostile kernel-time parent swap.
   try {
     reparseGuard.assertSafeMany([analysisRoot, destination], { forceFresh: true });
   } catch (error) {
     throw new Error(`manifest path is a reparse point or link: ${error?.message ?? String(error)}`);
   }
-  fs.writeFileSync(destination, `${serialized}\n`, { encoding: 'utf8', flag: 'wx' });
+  let descriptor;
   try {
-    reparseGuard.assertSafeMany([analysisRoot, destination], { forceFresh: true });
-  } catch (error) {
-    throw new Error(`manifest path is a reparse point or link after write: ${error?.message ?? String(error)}`);
+    descriptor = fs.openSync(destination, 'wx');
+    fs.writeFileSync(descriptor, Buffer.from(`${serialized}\n`, 'utf8'));
+    const leafWritten = manifestRoleStateFromStat(fs.fstatSync(descriptor));
+    try {
+      reparseGuard.assertSafeMany([analysisRoot, destination], { forceFresh: true });
+    } catch (error) {
+      throw new Error(`manifest path is a reparse point or link after write: ${error?.message ?? String(error)}`);
+    }
+    evaluateManifestWriteState({
+      transition: ['ensure-parent', 'preflight', 'exclusive-write', 'postflight'],
+      parentBefore: beforeState.parentBefore,
+      parentAfter: manifestRoleState(fs, analysisRoot, 'manifest parent'),
+      leafBefore: beforeState.leafBefore,
+      leafWritten,
+      leafAfter: manifestRoleState(fs, destination, 'manifest leaf'),
+    });
+    return manifest;
+  } finally {
+    if (descriptor !== undefined) fs.closeSync(descriptor);
   }
-  evaluateManifestWriteState({
-    transition: ['ensure-parent', 'preflight', 'exclusive-write', 'postflight'],
-    parentBefore: beforeState.parentBefore,
-    parentAfter: manifestRoleState(fs, analysisRoot, 'manifest parent'),
-    leafBefore: beforeState.leafBefore,
-    leafAfter: manifestRoleState(fs, destination, 'manifest leaf'),
-  });
-  return manifest;
 }
 
 export function captureFrozenProvenance(options) {
