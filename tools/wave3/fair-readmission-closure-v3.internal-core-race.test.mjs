@@ -1017,7 +1017,8 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
   });
 
   test('SDS-AC-1 and SDS-AC-3 create an absent fixed analysis parent only after fresh native guard probes at manifest boundaries, then serially reset the fixture for junction admission', { timeout: 115_000 }, async t => {
-    const { ownedRoot, fixtureRoot } = await createOwnedWorkspaceWithoutAnalysisParent();
+    const fixture = await createOwnedWorkspaceWithoutAnalysisParent();
+    const { ownedRoot, fixtureRoot } = fixture;
     const harness = createOwnedWxRaceHarness();
     const fixtureDocs = path.join(fixtureRoot, 'docs');
     const renamedFixtureDocs = path.join(ownedRoot, 'docs-before-guard-junction');
@@ -1120,6 +1121,75 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
           if (actorGuard && !actorGuard.released && !actorGuard.exitState) releaseWxRaceChild(actorGuard, 0x52);
           await Promise.allSettled([actorGuard?.exited].filter(Boolean));
           restoreFixtureDocsAndRemoveExternalRoot({ fixtureDocs, renamedFixtureDocs, externalDocs, ownedRoot });
+        }
+      });
+
+      await t.test('SDS-AC-4 proves sibling native capture completes between A retained-fd write and postflight without a collector test mode', async () => {
+        const prefix = `fixture-wx-sibling-${process.pid}-${randomBytes(6).toString('hex')}`;
+        const leafA = path.join(fixtureAnalysisRoot, `${prefix}-a.json`);
+        const leafB = path.join(fixtureAnalysisRoot, `${prefix}-b.json`);
+        const timeline = [];
+        let actorA;
+        let actorB;
+        try {
+          assert.equal(existsSync(fixtureAnalysisRoot), false, 'the serial fixture reset leaves the fixed analysis parent absent before the sibling race');
+          assert.equal(existsSync(leafA), false, 'A starts with an absent nonce-owned target leaf');
+          assert.equal(existsSync(leafB), false, 'B starts with an absent distinct nonce-owned sibling leaf');
+          actorA = spawnWxRaceChild({
+            harness,
+            actor: 'A',
+            manifestPath: leafA,
+            phase: 'fixture-wx-sibling-a',
+            preload: true,
+            collectorSourceUrl: fixtureCollectorUrl,
+            childWorkspaceRoot: fixtureRoot,
+            timeline,
+          });
+          await waitForWxRaceEvent(actorA, 'open', 'A retained-fd open');
+          await waitForWxRaceEvent(actorA, 'fd-write', 'A retained-fd write gate');
+          actorB = spawnWxRaceChild({
+            harness,
+            actor: 'B',
+            manifestPath: leafB,
+            phase: 'fixture-wx-sibling-b',
+            preload: false,
+            collectorSourceUrl: fixtureCollectorUrl,
+            childWorkspaceRoot: fixtureRoot,
+            timeline,
+          });
+          await waitForWxRaceEvent(actorB, 'captured', 'B sibling capture');
+          assert.equal(actorA.transcript.some(candidate => candidate.event === 'release' || candidate.event === 'captured'), false, 'A remains blocked after the delegated retained-fd write before postflight while B completes');
+
+          releaseWxRaceChild(actorA, 0x52);
+          await waitForWxRaceEvent(actorA, 'release', 'A controlled release');
+          await waitForWxRaceEvent(actorA, 'fstat', 'A retained-fd fstat');
+          await waitForWxRaceEvent(actorA, 'postflight', 'A retained-fd postflight');
+          await waitForWxRaceEvent(actorA, 'close', 'A retained-fd close');
+          await waitForWxRaceEvent(actorA, 'captured', 'A postflight capture');
+          const [exitA, exitB] = await Promise.all([
+            waitForWxRaceExit(actorA, 'A sibling capture'),
+            waitForWxRaceExit(actorB, 'B sibling capture'),
+          ]);
+          assert.deepEqual(exitA, { code: 0, signal: null }, `A must succeed after permitted sibling timestamp churn\n${actorA.stderr}`);
+          assert.deepEqual(exitB, { code: 0, signal: null }, `B must complete its native sibling capture\n${actorB.stderr}`);
+          assert.equal(transcriptIndex(timeline, 'A', 'open') < transcriptIndex(timeline, 'A', 'fd-write'), true, 'A opens the nonce leaf before it writes through the retained descriptor');
+          assert.equal(transcriptIndex(timeline, 'A', 'fd-write') < transcriptIndex(timeline, 'B', 'captured'), true, 'B capture begins only after A has completed the delegated descriptor write');
+          assert.equal(transcriptIndex(timeline, 'B', 'captured') < transcriptIndex(timeline, 'A', 'release'), true, 'B preflight/write/postflight completes while A remains gated');
+          assert.equal(transcriptIndex(timeline, 'A', 'release') < transcriptIndex(timeline, 'A', 'captured'), true, 'A postflight can only occur after the explicit release');
+          assert.equal(transcriptIndex(timeline, 'A', 'fd-write') < transcriptIndex(timeline, 'A', 'fstat'), true, 'the retained descriptor is written before its identity is sampled');
+          assert.equal(transcriptIndex(timeline, 'A', 'fstat') < transcriptIndex(timeline, 'A', 'postflight'), true, 'the retained descriptor identity is checked before pathname postflight');
+          assert.equal(transcriptIndex(timeline, 'A', 'postflight') < transcriptIndex(timeline, 'A', 'close'), true, 'postflight finishes before the retained descriptor is closed');
+          assert.equal(actorA.transcript.filter(candidate => candidate.event === 'close').length, 1, 'the successful retained descriptor closes exactly once');
+          assert.equal(actorA.transcript.some(candidate => candidate.event === 'path-write-bypass' || candidate.event === 'pathname-read-before-postflight' || candidate.event === 'target-lstat-before-fstat' || candidate.event === 'fstat-before-fd-write'), false, 'the successful path never falls back to a target pathname write/read or premature identity/postflight probe');
+          assert.equal(JSON.parse(readFileSync(leafA, 'utf8')).phase, 'fixture-wx-sibling-a');
+          assert.equal(JSON.parse(readFileSync(leafB, 'utf8')).phase, 'fixture-wx-sibling-b');
+        } finally {
+          if (actorA && !actorA.released && !actorA.exitState) releaseWxRaceChild(actorA, 0x52);
+          await Promise.allSettled([actorA?.exited, actorB?.exited].filter(Boolean));
+          for (const leaf of [leafA, leafB]) assertOwnedWorkspaceDescendant(leaf, fixtureAnalysisRoot, 'fixture sibling manifest leaf cleanup');
+          removeFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, leafA);
+          for (const leaf of [leafA, leafB]) assert.equal(existsSync(leaf), false, 'serial fixture reset removes every sibling-owned fixture leaf');
+          assertMinimalNativeFixtureParity({ fixtureRoot, protectedFiles: fixture.protectedFiles });
         }
       });
     } finally {
@@ -1242,70 +1312,6 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
       await Promise.allSettled(exits);
       for (const leaf of leaves) removeOwnedLeaf(leaf, prefix);
       for (const leaf of leaves) assert.equal(existsSync(leaf), false, 'creator-owned cleanup removes every test leaf');
-    }
-  });
-
-  test('SDS-AC-4 proves sibling native capture completes between A retained-fd write and postflight without a collector test mode', { timeout: 115_000 }, async () => {
-    const harness = createOwnedWxRaceHarness();
-    const prefix = `wx-sibling-${process.pid}-${randomBytes(6).toString('hex')}`;
-    const leafA = path.join(analysisRoot, `${prefix}-a.json`);
-    const leafB = path.join(analysisRoot, `${prefix}-b.json`);
-    const timeline = [];
-    let actorA;
-    let actorB;
-    try {
-      assert.equal(existsSync(leafA), false, 'A starts with an absent nonce-owned target leaf');
-      assert.equal(existsSync(leafB), false, 'B starts with an absent distinct nonce-owned sibling leaf');
-      actorA = spawnWxRaceChild({
-        harness,
-        actor: 'A',
-        manifestPath: leafA,
-        phase: 'internal-core-wx-sibling-a',
-        preload: true,
-        timeline,
-      });
-      await waitForWxRaceEvent(actorA, 'open', 'A retained-fd open');
-      await waitForWxRaceEvent(actorA, 'fd-write', 'A retained-fd write gate');
-      actorB = spawnWxRaceChild({
-        harness,
-        actor: 'B',
-        manifestPath: leafB,
-        phase: 'internal-core-wx-sibling-b',
-        preload: false,
-        timeline,
-      });
-      await waitForWxRaceEvent(actorB, 'captured', 'B sibling capture');
-      assert.equal(actorA.transcript.some(candidate => candidate.event === 'release' || candidate.event === 'captured'), false, 'A remains blocked after the delegated retained-fd write before postflight while B completes');
-
-      releaseWxRaceChild(actorA, 0x52);
-      await waitForWxRaceEvent(actorA, 'release', 'A controlled release');
-      await waitForWxRaceEvent(actorA, 'fstat', 'A retained-fd fstat');
-      await waitForWxRaceEvent(actorA, 'postflight', 'A retained-fd postflight');
-      await waitForWxRaceEvent(actorA, 'close', 'A retained-fd close');
-      await waitForWxRaceEvent(actorA, 'captured', 'A postflight capture');
-      const [exitA, exitB] = await Promise.all([
-        waitForWxRaceExit(actorA, 'A sibling capture'),
-        waitForWxRaceExit(actorB, 'B sibling capture'),
-      ]);
-      assert.deepEqual(exitA, { code: 0, signal: null }, `A must succeed after permitted sibling timestamp churn\n${actorA.stderr}`);
-      assert.deepEqual(exitB, { code: 0, signal: null }, `B must complete its native sibling capture\n${actorB.stderr}`);
-      assert.equal(transcriptIndex(timeline, 'A', 'open') < transcriptIndex(timeline, 'A', 'fd-write'), true, 'A opens the nonce leaf before it writes through the retained descriptor');
-      assert.equal(transcriptIndex(timeline, 'A', 'fd-write') < transcriptIndex(timeline, 'B', 'captured'), true, 'B capture begins only after A has completed the delegated descriptor write');
-      assert.equal(transcriptIndex(timeline, 'B', 'captured') < transcriptIndex(timeline, 'A', 'release'), true, 'B preflight/write/postflight completes while A remains gated');
-      assert.equal(transcriptIndex(timeline, 'A', 'release') < transcriptIndex(timeline, 'A', 'captured'), true, 'A postflight can only occur after the explicit release');
-      assert.equal(transcriptIndex(timeline, 'A', 'fd-write') < transcriptIndex(timeline, 'A', 'fstat'), true, 'the retained descriptor is written before its identity is sampled');
-      assert.equal(transcriptIndex(timeline, 'A', 'fstat') < transcriptIndex(timeline, 'A', 'postflight'), true, 'the retained descriptor identity is checked before pathname postflight');
-      assert.equal(transcriptIndex(timeline, 'A', 'postflight') < transcriptIndex(timeline, 'A', 'close'), true, 'postflight finishes before the retained descriptor is closed');
-      assert.equal(actorA.transcript.filter(candidate => candidate.event === 'close').length, 1, 'the successful retained descriptor closes exactly once');
-      assert.equal(actorA.transcript.some(candidate => candidate.event === 'path-write-bypass' || candidate.event === 'pathname-read-before-postflight' || candidate.event === 'target-lstat-before-fstat' || candidate.event === 'fstat-before-fd-write'), false, 'the successful path never falls back to a target pathname write/read or premature identity/postflight probe');
-      assert.equal(JSON.parse(readFileSync(leafA, 'utf8')).phase, 'internal-core-wx-sibling-a');
-      assert.equal(JSON.parse(readFileSync(leafB, 'utf8')).phase, 'internal-core-wx-sibling-b');
-    } finally {
-      if (actorA && !actorA.released && !actorA.exitState) releaseWxRaceChild(actorA, 0x52);
-      await Promise.allSettled([actorA?.exited, actorB?.exited].filter(Boolean));
-      removeOwnedLeaf(leafA, prefix);
-      removeOwnedLeaf(leafB, prefix);
-      removeOwnedWxRaceHarness(harness.ownedRoot);
     }
   });
 
