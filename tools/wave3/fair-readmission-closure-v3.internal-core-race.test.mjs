@@ -970,90 +970,91 @@ async function runNativeWorker() {
 if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race') {
   await runNativeWorker();
 } else {
-  test('SDS-AC-1 and SDS-AC-2 derive one immutable manifest-bound root seed across independent minimal fixture roots', { timeout: 115_000 }, async () => {
+  test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for seed recovery, drift, parity, and missing-input evidence', async t => {
     let firstFixture;
     let secondFixture;
     let initialFailure;
     try {
-      const originalSpawnSync = childProcess.spawnSync;
-      initialFailure = { faultInjected: false, nativeProbeCount: 0, publishedFixture: undefined };
-      assert.equal(protectedFixtureSeedPromise, undefined, 'the controlled initial seed fault runs before any successful private seed is cached');
-      await assert.rejects(
-        async () => {
-          initialFailure.publishedFixture = await withInitialDelegatedNativeSpawnSyncFault(
-            () => createOwnedWorkspaceWithoutAnalysisParent(),
-            initialFailure,
-          );
-        },
-        /PowerShell reparse batch probe failed closed|injected initial private fixture seed native spawnSync failure/i,
-        'the first private root seed attempt fails closed through its delegated native spawnSync boundary',
-      );
-      assert.equal(initialFailure.faultInjected, true, 'the rejected first seed reaches the delegated native PowerShell spawnSync boundary');
-      assert.equal(initialFailure.nativeProbeCount, 1, 'the injected first seed failure stops at the first delegated native probe');
-      assert.equal(initialFailure.publishedFixture, undefined, 'a rejected private seed attempt publishes no fixture');
-      assert.strictEqual(childProcess.spawnSync, originalSpawnSync, 'the native spawnSync fault is restored before the recovery capture');
-      assert.equal(protectedFixtureSeedPromise, undefined, 'a rejected private seed promise resets instead of remaining cached');
+      await t.test('SDS-AC-1 and SDS-AC-2 derive one immutable manifest-bound root seed across independent minimal fixture roots', { timeout: 115_000 }, async () => {
+        const originalSpawnSync = childProcess.spawnSync;
+        initialFailure = { faultInjected: false, nativeProbeCount: 0, publishedFixture: undefined };
+        assert.equal(protectedFixtureSeedPromise, undefined, 'the controlled initial seed fault runs before any successful private seed is cached');
+        await assert.rejects(
+          async () => {
+            initialFailure.publishedFixture = await withInitialDelegatedNativeSpawnSyncFault(
+              () => createOwnedWorkspaceWithoutAnalysisParent(),
+              initialFailure,
+            );
+          },
+          /PowerShell reparse batch probe failed closed|injected initial private fixture seed native spawnSync failure/i,
+          'the first private root seed attempt fails closed through its delegated native spawnSync boundary',
+        );
+        assert.equal(initialFailure.faultInjected, true, 'the rejected first seed reaches the delegated native PowerShell spawnSync boundary');
+        assert.equal(initialFailure.nativeProbeCount, 1, 'the injected first seed failure stops at the first delegated native probe');
+        assert.equal(initialFailure.publishedFixture, undefined, 'a rejected private seed attempt publishes no fixture');
+        assert.strictEqual(childProcess.spawnSync, originalSpawnSync, 'the native spawnSync fault is restored before the recovery capture');
+        assert.equal(protectedFixtureSeedPromise, undefined, 'a rejected private seed promise resets instead of remaining cached');
 
-      const firstDiscovery = await observeNativeRootDiscovery(() => createOwnedWorkspaceWithoutAnalysisParent());
-      firstFixture = firstDiscovery.result;
-      assert.equal(firstDiscovery.nativeProbeCount > 0, true, 'the first minimal fixture derives its seed through delegated native fresh probes');
+        const firstDiscovery = await observeNativeRootDiscovery(() => createOwnedWorkspaceWithoutAnalysisParent());
+        firstFixture = firstDiscovery.result;
+        assert.equal(firstDiscovery.nativeProbeCount > 0, true, 'the first minimal fixture derives its seed through delegated native fresh probes');
 
-      const secondDiscovery = await observeNativeRootDiscovery(() => createOwnedWorkspaceWithoutAnalysisParent());
-      secondFixture = secondDiscovery.result;
-      assert.equal(secondDiscovery.nativeProbeCount, 0, 'a second independent fixture reuses the one private root protected-input discovery instead of recapturing the worktree');
-      assert.notEqual(firstFixture.ownedRoot, secondFixture.ownedRoot, 'each fixture still owns an independent temporary root');
-      assert.notEqual(firstFixture.fixtureRoot, secondFixture.fixtureRoot, 'each fixture still owns an independent workspace root');
-      assertMinimalNativeFixtureParity(firstFixture);
-      assertMinimalNativeFixtureParity(secondFixture);
-      assert.deepEqual(firstFixture.protectedFiles, secondFixture.protectedFiles, 'independent fixtures receive the same immutable protected-input seed metadata');
-      for (const file of firstFixture.protectedFiles) {
-        assert.match(file.sha256, /^[a-f0-9]{64}$/i, `protected fixture seed records the captured manifest SHA-256: ${file.path}`);
-        const fixturePath = path.join(firstFixture.fixtureRoot, assertFixtureRelativePath(file.path, 'protected fixture seed path'));
-        assert.equal(sha256Bytes(readFileSync(fixturePath)), file.sha256, `fixture bytes remain bound to the seed manifest SHA-256: ${file.path}`);
-      }
+        const secondDiscovery = await observeNativeRootDiscovery(() => createOwnedWorkspaceWithoutAnalysisParent());
+        secondFixture = secondDiscovery.result;
+        assert.equal(secondDiscovery.nativeProbeCount, 0, 'a second independent fixture reuses the one private root protected-input discovery instead of recapturing the worktree');
+        assert.notEqual(firstFixture.ownedRoot, secondFixture.ownedRoot, 'each fixture still owns an independent temporary root');
+        assert.notEqual(firstFixture.fixtureRoot, secondFixture.fixtureRoot, 'each fixture still owns an independent workspace root');
+        assertMinimalNativeFixtureParity(firstFixture);
+        assertMinimalNativeFixtureParity(secondFixture);
+        assert.deepEqual(firstFixture.protectedFiles, secondFixture.protectedFiles, 'independent fixtures receive the same immutable protected-input seed metadata');
+        for (const file of firstFixture.protectedFiles) {
+          assert.match(file.sha256, /^[a-f0-9]{64}$/i, `protected fixture seed records the captured manifest SHA-256: ${file.path}`);
+          const fixturePath = path.join(firstFixture.fixtureRoot, assertFixtureRelativePath(file.path, 'protected fixture seed path'));
+          assert.equal(sha256Bytes(readFileSync(fixturePath)), file.sha256, `fixture bytes remain bound to the seed manifest SHA-256: ${file.path}`);
+        }
+      });
+
+      await t.test('SDS-AC-1 rejects root source drift before a cached protected-input seed can publish a stale fixture', { timeout: 115_000 }, async () => {
+        assertMinimalNativeFixtureParity(firstFixture);
+        await assert.rejects(
+          () => withSyntheticRootSourceDrift('server/package.json', () => createOwnedWorkspaceWithoutAnalysisParent()),
+          /protected fixture bytes match|source manifest input|seed|sha-?256|parity/i,
+          'root source drift after seed discovery must reject rather than create a fixture from a stale protected-input seed',
+        );
+        assertMinimalNativeFixtureParity(firstFixture);
+      });
+
+      await t.test('SDS-AC-1 rejects root source drift after byte copy and independent fixture Git setup before return', { timeout: 115_000 }, async () => {
+        assertMinimalNativeFixtureParity(firstFixture);
+        await assert.rejects(
+          () => withPostCopySyntheticRootSourceDrift('server/package.json', () => createOwnedWorkspaceWithoutAnalysisParent()),
+          /protected fixture bytes match|source manifest input|seed|sha-?256|parity/i,
+          'root source drift that starts after the pre-copy source check must reject before the fixture can return',
+        );
+        assertMinimalNativeFixtureParity(firstFixture);
+      });
+
+      await t.test('SDS-AC-1 requires the native race fixture to exclude copied worktree payload while preserving independent Git parity', { timeout: 115_000 }, async () => {
+        assertMinimalNativeFixtureParity({ fixtureRoot: firstFixture.fixtureRoot });
+      });
+
+      await t.test('SDS-AC-1 fails normal closed capture when a protected minimal-fixture input is absent instead of falling back to the worktree', { timeout: 115_000 }, async () => {
+        const { fixtureRoot } = secondFixture;
+        const fixtureAnalysisRoot = path.join(fixtureRoot, analysisRootRelativePath);
+        const manifestPath = path.join(fixtureAnalysisRoot, 'missing-protected-input.json');
+        unlinkSync(path.join(fixtureRoot, 'server', 'package.json'));
+        const { captureFrozenProvenance } = await import(pathToFileURL(path.join(fixtureRoot, 'tools', 'wave3', 'fair-readmission-closure-v3.mjs')).href);
+        assert.throws(
+          () => captureFrozenProvenance({ workspaceRoot: fixtureRoot, manifestPath, phase: 'minimal-fixture-missing-protected-input' }),
+          /missing config_lock|server[\\/]package\.json|ENOENT/i,
+          'fixture capture must fail from its own missing protected file and never resolve a worktree fallback',
+        );
+        assert.equal(existsSync(manifestPath), false, 'a missing protected fixture input publishes no fallback manifest');
+      });
     } finally {
       if (secondFixture) removeOwnedWorkspace(secondFixture.ownedRoot);
       if (firstFixture) removeOwnedWorkspace(firstFixture.ownedRoot);
       if (initialFailure?.publishedFixture) removeOwnedWorkspace(initialFailure.publishedFixture.ownedRoot);
-    }
-  });
-
-  test('SDS-AC-1 rejects root source drift before a cached protected-input seed can publish a stale fixture', { timeout: 115_000 }, async () => {
-    let baselineFixture;
-    try {
-      baselineFixture = await createOwnedWorkspaceWithoutAnalysisParent();
-      assertMinimalNativeFixtureParity(baselineFixture);
-      await assert.rejects(
-        () => withSyntheticRootSourceDrift('server/package.json', () => createOwnedWorkspaceWithoutAnalysisParent()),
-        /protected fixture bytes match|source manifest input|seed|sha-?256|parity/i,
-        'root source drift after seed discovery must reject rather than create a fixture from a stale protected-input seed',
-      );
-    } finally {
-      if (baselineFixture) removeOwnedWorkspace(baselineFixture.ownedRoot);
-    }
-  });
-
-  test('SDS-AC-1 rejects root source drift after byte copy and independent fixture Git setup before return', { timeout: 115_000 }, async () => {
-    let baselineFixture;
-    try {
-      baselineFixture = await createOwnedWorkspaceWithoutAnalysisParent();
-      assertMinimalNativeFixtureParity(baselineFixture);
-      await assert.rejects(
-        () => withPostCopySyntheticRootSourceDrift('server/package.json', () => createOwnedWorkspaceWithoutAnalysisParent()),
-        /protected fixture bytes match|source manifest input|seed|sha-?256|parity/i,
-        'root source drift that starts after the pre-copy source check must reject before the fixture can return',
-      );
-    } finally {
-      if (baselineFixture) removeOwnedWorkspace(baselineFixture.ownedRoot);
-    }
-  });
-
-  test('SDS-AC-1 requires the native race fixture to exclude copied worktree payload while preserving independent Git parity', { timeout: 115_000 }, async () => {
-    const { ownedRoot, fixtureRoot } = await createOwnedWorkspaceWithoutAnalysisParent();
-    try {
-      assertMinimalNativeFixtureParity({ fixtureRoot });
-    } finally {
-      removeOwnedWorkspace(ownedRoot);
     }
   });
 
@@ -1105,24 +1106,6 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
       assert.strictEqual(observedError, originalCaptureError, 'successful-capture-only cleanup must not replace an earlier capture failure');
       assert.equal(existsSync(fixtureAnalysisRoot), false, 'skipped successful-capture cleanup must not create or require the absent fixture analysis parent');
       assert.equal(existsSync(absentManifestPath), false, 'skipped successful-capture cleanup must leave the absent owned manifest leaf untouched');
-    } finally {
-      removeOwnedWorkspace(ownedRoot);
-    }
-  });
-
-  test('SDS-AC-1 fails normal closed capture when a protected minimal-fixture input is absent instead of falling back to the worktree', { timeout: 115_000 }, async () => {
-    const { ownedRoot, fixtureRoot } = await createOwnedWorkspaceWithoutAnalysisParent();
-    const fixtureAnalysisRoot = path.join(fixtureRoot, analysisRootRelativePath);
-    const manifestPath = path.join(fixtureAnalysisRoot, 'missing-protected-input.json');
-    try {
-      unlinkSync(path.join(fixtureRoot, 'server', 'package.json'));
-      const { captureFrozenProvenance } = await import(pathToFileURL(path.join(fixtureRoot, 'tools', 'wave3', 'fair-readmission-closure-v3.mjs')).href);
-      assert.throws(
-        () => captureFrozenProvenance({ workspaceRoot: fixtureRoot, manifestPath, phase: 'minimal-fixture-missing-protected-input' }),
-        /missing config_lock|server[\\/]package\.json|ENOENT/i,
-        'fixture capture must fail from its own missing protected file and never resolve a worktree fallback',
-      );
-      assert.equal(existsSync(manifestPath), false, 'a missing protected fixture input publishes no fallback manifest');
     } finally {
       removeOwnedWorkspace(ownedRoot);
     }
