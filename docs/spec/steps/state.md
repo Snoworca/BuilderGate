@@ -1,8 +1,7 @@
 # Step State
 
-Mode: tdd
+Mode: sdd
 
-Active Task: 2026-07-27.pm.fair-readmission-closure-v3-worker-ssot-successor
 | Step | Status | DependsOn | TouchesScope | TouchesReq | Created | Updated |
 | --- | --- | --- | --- | --- | --- | --- |
 | wave3-daemon-identity-probe | active | - | BGSTAB | REL-BGSTAB-013 | 2026-07-21 | 2026-07-21 |
@@ -36,4 +35,4 @@ Active Task: 2026-07-27.pm.fair-readmission-closure-v3-worker-ssot-successor
 | 2026-07-27.pm.fair-readmission-closure-v3-internal-core-callbacks | abandoned | - | tools/wave3/fair-readmission-closure-v3.mjs, internal opaque-ticket core, and provenance closure tests | PERF-BGSTAB-010 | 2026-07-27 | 2026-07-27 |
 | 2026-07-27.pm.fair-readmission-closure-v3-fd-manifest | abandoned | - | tools/wave3/fair-readmission-closure-v3.mjs, internal manifest policy, and retained-fd provenance tests | PERF-BGSTAB-010 | 2026-07-27 | 2026-07-27 |
 | 2026-07-27.pm.fair-readmission-closure-v3-minimal-native-fixture | abandoned | - | tools/wave3 native manifest race fixture and guarded provenance regression tests | PERF-BGSTAB-010 | 2026-07-27 | 2026-07-27 |
-| 2026-07-27.pm.fair-readmission-closure-v3-worker-ssot-successor | active | - | tools/wave3 fixture Worker evidence allocation and fixed admission timing | PERF-BGSTAB-010 | 2026-07-27 | 2026-07-27 |
+| 2026-07-27.pm.fair-readmission-closure-v3-worker-ssot-successor | merged | - | tools/wave3 fixture Worker evidence allocation and fixed admission timing | PERF-BGSTAB-010 | 2026-07-27 | 2026-07-27 |
