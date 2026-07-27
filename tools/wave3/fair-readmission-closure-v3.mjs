@@ -4,7 +4,6 @@ import { execFileSync, spawnSync as nodeSpawnSync } from 'node:child_process';
 import * as nodeFs from 'node:fs';
 import * as nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
-import * as ts from '../../server/node_modules/typescript/lib/typescript.js';
 
 const TASK = '2026-07-27.pm.fair-readmission-closure-v3';
 const PLAYWRIGHT_OUTPUT_DIR = 'C:/Work/kiwi-run-output/2026-07-27.pm.fair-readmission-closure-v3/ac9-playwright';
@@ -753,47 +752,23 @@ function relativeWorkspacePath(workspaceRoot, absolutePath) {
 }
 
 function strictAdmissionFor(options) {
-  if (!Object.hasOwn(options, 'admission')) return undefined;
-  const capabilities = strictAdmissionCapabilities.get(options.admission);
-  if (!capabilities) throw new Error('protected input requires a module-minted strict admission capability');
+  const capabilities = strictAdmissionCapabilities.get(options?.admission);
+  if (!capabilities) throw new Error('protected input requires a module-minted native strict admission capability');
   return capabilities;
 }
 
 export function readProtectedInput(options = {}) {
   const admission = strictAdmissionFor(options);
   const {
-    fs = nodeFs,
     absolutePath,
     kind,
     path,
-    reparseGuard,
     onBytes,
   } = options;
   if (typeof path !== 'string' || !path) throw new Error('protected input requires a non-empty path');
-  const result = admission
-    ? admission.snapshot.read({ absolutePath, kind, path: normalizePath(path) })
-    : guardedProtectedBytes({ fs, absolutePath, kind, reparseGuard });
+  const result = admission.snapshot.read({ absolutePath, kind, path: normalizePath(path) });
   if (typeof onBytes === 'function') onBytes(Buffer.from(result.bytes));
   return { kind: result.kind, path: normalizePath(path), sha256: result.sha256 };
-}
-
-function guardedProtectedBytes({ fs = nodeFs, absolutePath, kind, reparseGuard } = {}) {
-  const normalizedAbsolutePath = assertExistingWindowsPath(absolutePath, `${kind ?? 'protected'} input`);
-  const guardedPath = absolutePath;
-  if (typeof kind !== 'string' || !kind) throw new Error('protected input requires a non-empty kind');
-  if (!fs || typeof fs.readFileSync !== 'function') throw new Error('protected input requires readFileSync');
-  const guard = () => {
-    if (reparseGuard) {
-      if (typeof reparseGuard.assertSafeMany !== 'function') throw new Error('protected input requires a full-frontier reparse guard');
-      reparseGuard.assertSafeMany([guardedPath], { forceFresh: true });
-      return;
-    }
-    assertPathHasNoLinkOrReparsePoint(fs, guardedPath, `${kind} input`);
-  };
-  guard();
-  const bytes = Buffer.from(fs.readFileSync(guardedPath));
-  guard();
-  return { absolutePath: normalizedAbsolutePath, kind, bytes, sha256: sha256(bytes) };
 }
 
 export function createProtectedInputSnapshot({ fs = nodeFs, reparseGuard } = {}) {
@@ -871,7 +846,7 @@ export function createProtectedInputSnapshot({ fs = nodeFs, reparseGuard } = {})
   };
 }
 
-export function createStrictAdmissionContext(options = {}) {
+function createNativeStrictAdmission(options = {}) {
   if (Object.hasOwn(options, 'reparseGuard') || Object.hasOwn(options, 'snapshot')) {
     throw new Error('strict admission context mints its own reparse guard and protected snapshot');
   }
@@ -881,6 +856,10 @@ export function createStrictAdmissionContext(options = {}) {
   const admission = Object.freeze({});
   strictAdmissionCapabilities.set(admission, { fs, reparseGuard, snapshot });
   return admission;
+}
+
+export function createStrictAdmissionContext(options = {}) {
+  return createNativeStrictAdmission(options);
 }
 
 function requireFile(fs, workspaceRoot, relativePath, kind, { reparseGuard, snapshot, onBytes } = {}) {
@@ -902,21 +881,14 @@ function requireFile(fs, workspaceRoot, relativePath, kind, { reparseGuard, snap
 export function hashConfigLockFile(options = {}) {
   const admission = strictAdmissionFor(options);
   const {
-    fs = nodeFs,
     workspaceRoot,
     relativePath,
-    reparseGuard,
-    snapshot,
   } = options;
   assertCollectorWorkspaceRoot(workspaceRoot, 'config workspace root');
   const absolutePath = workspacePath(workspaceRoot, relativePath);
   let input;
   try {
-    input = admission
-      ? admission.snapshot.read({ absolutePath, kind: 'config_lock', path: normalizePath(relativePath) })
-      : snapshot
-      ? snapshot.read({ absolutePath, kind: 'config_lock', path: normalizePath(relativePath) })
-      : readProtectedInput({ fs, absolutePath, kind: 'config_lock', path: normalizePath(relativePath), reparseGuard });
+    input = admission.snapshot.read({ absolutePath, kind: 'config_lock', path: normalizePath(relativePath) });
   } catch (error) {
     if (error?.code === 'ENOENT') throw new Error(`missing config_lock: ${relativePath} (${error.message})`);
     throw error;
@@ -944,40 +916,204 @@ const ADMITTED_TSX_MODULES = new Set([
   'frontend/src/contexts/WebSocketContext',
 ]);
 
+function isLexicalWordCharacter(value) {
+  return Boolean(value) && /[A-Za-z0-9_$]/.test(value);
+}
+
+function readLexicalString(sourceText, start) {
+  const quote = sourceText[start];
+  let escaped = false;
+  let value = '';
+  for (let cursor = start + 1; cursor < sourceText.length; cursor += 1) {
+    const character = sourceText[cursor];
+    if (character === quote) return { end: cursor + 1, escaped, value };
+    if (character === '\\') {
+      escaped = true;
+      cursor += 1;
+      if (cursor >= sourceText.length || sourceText[cursor] === '\n' || sourceText[cursor] === '\r') {
+        throw new Error('admitted source has an unsupported escaped import literal');
+      }
+      value += sourceText[cursor];
+      continue;
+    }
+    if (character === '\n' || character === '\r') throw new Error('admitted source has an unterminated string literal');
+    value += character;
+  }
+  throw new Error('admitted source has an unterminated string literal');
+}
+
+function skipLexicalTemplate(sourceText, start) {
+  for (let cursor = start + 1; cursor < sourceText.length; cursor += 1) {
+    if (sourceText[cursor] === '\\') {
+      cursor += 1;
+      continue;
+    }
+    if (sourceText[cursor] === '`') return cursor + 1;
+  }
+  throw new Error('admitted source has an unterminated template literal');
+}
+
+function canStartLexicalRegex(tokens, sourceText, index) {
+  const previous = tokens.at(-1)?.value;
+  if (previous === '<' && /[A-Za-z]/.test(sourceText[index + 1] ?? '')) return false;
+  return previous === undefined
+    || ['(', '[', '{', '=', ':', ',', ';', '!', '?', '&', '|', '+', '-', '*', '~', '%', '^', '<', '>'].includes(previous)
+    || ['return', 'throw', 'case', 'delete', 'typeof', 'void', 'new', 'in', 'instanceof'].includes(previous);
+}
+
+function skipLexicalRegex(sourceText, start) {
+  let characterClass = false;
+  for (let cursor = start + 1; cursor < sourceText.length; cursor += 1) {
+    const character = sourceText[cursor];
+    if (character === '\\') {
+      cursor += 1;
+      continue;
+    }
+    if (character === '\n' || character === '\r') return start + 1;
+    if (character === '[') {
+      characterClass = true;
+      continue;
+    }
+    if (character === ']') {
+      characterClass = false;
+      continue;
+    }
+    if (character === '/' && !characterClass) {
+      let end = cursor + 1;
+      while (/[A-Za-z]/.test(sourceText[end] ?? '')) end += 1;
+      return end;
+    }
+  }
+  return start + 1;
+}
+
+function lexicalImportTokens(sourceText) {
+  const tokens = [];
+  for (let cursor = 0; cursor < sourceText.length;) {
+    const character = sourceText[cursor];
+    if (/\s/.test(character)) {
+      cursor += 1;
+      continue;
+    }
+    if (sourceText.startsWith('//', cursor)) {
+      const lineEnd = sourceText.indexOf('\n', cursor + 2);
+      cursor = lineEnd === -1 ? sourceText.length : lineEnd + 1;
+      continue;
+    }
+    if (sourceText.startsWith('/*', cursor)) {
+      const commentEnd = sourceText.indexOf('*/', cursor + 2);
+      if (commentEnd === -1) throw new Error('admitted source has an unterminated comment');
+      cursor = commentEnd + 2;
+      continue;
+    }
+    if (character === '\'' || character === '"') {
+      const literal = readLexicalString(sourceText, cursor);
+      tokens.push({ type: 'string', value: literal.value, escaped: literal.escaped });
+      cursor = literal.end;
+      continue;
+    }
+    if (character === '`') {
+      cursor = skipLexicalTemplate(sourceText, cursor);
+      tokens.push({ type: 'template', value: '`' });
+      continue;
+    }
+    if (isLexicalWordCharacter(character)) {
+      let end = cursor + 1;
+      while (isLexicalWordCharacter(sourceText[end])) end += 1;
+      tokens.push({ type: 'word', value: sourceText.slice(cursor, end) });
+      cursor = end;
+      continue;
+    }
+    if (character === '/' && canStartLexicalRegex(tokens, sourceText, cursor)) {
+      const end = skipLexicalRegex(sourceText, cursor);
+      if (end !== cursor + 1) {
+        tokens.push({ type: 'regex', value: '/' });
+        cursor = end;
+        continue;
+      }
+    }
+    tokens.push({ type: 'punctuation', value: character });
+    cursor += 1;
+  }
+  return tokens;
+}
+
+function statementEnd(tokens, start) {
+  for (let index = start; index < tokens.length; index += 1) {
+    if (tokens[index].value === ';') return index;
+  }
+  return tokens.length;
+}
+
+function literalSpecifier(token, label) {
+  if (token?.type !== 'string' || token.escaped) throw new Error(`admitted source has an unsupported ${label} import`);
+  return token.value;
+}
+
 export function parseAdmittedImportSpecifiers({ sourceText, fromPath } = {}) {
   const normalizedFromPath = normalizePath(fromPath);
   if (typeof sourceText !== 'string' || !sourceScope(normalizedFromPath) || !isCodeFile(normalizedFromPath)) {
     throw new Error('admitted import parser requires a contained source file and source text');
   }
-  const scriptKind = normalizedFromPath.endsWith('.tsx') ? ts.ScriptKind.TSX
-    : normalizedFromPath.endsWith('.jsx') ? ts.ScriptKind.JSX
-      : normalizedFromPath.endsWith('.js') || normalizedFromPath.endsWith('.mjs') || normalizedFromPath.endsWith('.cjs')
-        ? ts.ScriptKind.JS
-        : ts.ScriptKind.TS;
-  const sourceFile = ts.createSourceFile(normalizedFromPath, sourceText, ts.ScriptTarget.Latest, false, scriptKind);
   const testHarnessSource = /\.test\.[cm]?[jt]sx?$/i.test(normalizedFromPath);
-  const requireLiteral = node => {
-    if (ts.isStringLiteral(node)) return;
-    if (testHarnessSource) return;
-    throw new Error('admitted source has a nonliteral dynamic import');
-  };
-  const visit = node => {
-    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
-      if (node.arguments.length !== 1) {
-        if (!testHarnessSource) throw new Error('admitted source has an unsupported dynamic import');
-      } else {
-        requireLiteral(node.arguments[0]);
+  const tokens = lexicalImportTokens(sourceText);
+  const specifiers = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (token.type !== 'word' || token.value !== 'import') continue;
+    const next = tokens[index + 1];
+    if (next?.value === '(') {
+      const argument = tokens[index + 2];
+      const close = tokens[index + 3];
+      if (argument?.type === 'string' && !argument.escaped && close?.value === ')') {
+        specifiers.push(argument.value);
+        index += 3;
+        continue;
       }
+      if (testHarnessSource) {
+        index = statementEnd(tokens, index);
+        continue;
+      }
+      throw new Error('admitted source has a nonliteral or unsupported dynamic import');
     }
-    if (ts.isImportTypeNode(node)) {
-      const argument = node.argument;
-      if (!ts.isLiteralTypeNode(argument)) requireLiteral(argument);
-      else requireLiteral(argument.literal);
+    if (next?.value === '.') continue;
+    if (next?.type === 'string') {
+      specifiers.push(literalSpecifier(next, 'static'));
+      index += 1;
+      continue;
     }
-    ts.forEachChild(node, visit);
-  };
-  visit(sourceFile);
-  return ts.preProcessFile(sourceText, true, true).importedFiles.map(({ fileName }) => fileName);
+    const end = statementEnd(tokens, index + 1);
+    const from = tokens.slice(index + 1, end).findIndex(candidate => candidate.type === 'word' && candidate.value === 'from');
+    if (from < 0) throw new Error('admitted source has an unsupported static import');
+    const fromToken = tokens[index + 1 + from + 1];
+    specifiers.push(literalSpecifier(fromToken, 'static'));
+    index = end;
+  }
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (token.type !== 'word' || token.value !== 'export') continue;
+    let cursor = index + 1;
+    if (tokens[cursor]?.type === 'word' && tokens[cursor].value === 'type') cursor += 1;
+    if (tokens[cursor]?.value === '{') {
+      let depth = 1;
+      cursor += 1;
+      while (cursor < tokens.length && depth > 0) {
+        if (tokens[cursor].value === '{') depth += 1;
+        if (tokens[cursor].value === '}') depth -= 1;
+        cursor += 1;
+      }
+      if (depth !== 0) throw new Error('admitted source has an unterminated export clause');
+    } else if (tokens[cursor]?.value === '*') {
+      cursor += 1;
+      if (tokens[cursor]?.type === 'word' && tokens[cursor].value === 'as') cursor += 2;
+    } else {
+      continue;
+    }
+    if (tokens[cursor]?.type !== 'word' || tokens[cursor].value !== 'from') continue;
+    specifiers.push(literalSpecifier(tokens[cursor + 1], 'export'));
+    index = cursor + 1;
+  }
+  return specifiers;
 }
 
 export function resolveAdmittedRelativeSpecifier({ workspaceRoot, fromPath, specifier } = {}) {
@@ -1140,49 +1276,20 @@ function sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots = SOURCE_ROOT
   };
 }
 
-function isStrictReparseGuard(reparseGuard) {
-  return Boolean(
-    reparseGuard
-    && typeof reparseGuard.assertSafeMany === 'function'
-    && typeof reparseGuard.prepareWave === 'function'
-    && typeof reparseGuard.completeWave === 'function',
-  );
-}
-
 export function collectSourceClosure(options = {}) {
   const admission = strictAdmissionFor(options);
   const {
     workspaceRoot,
     sourceRoots = SOURCE_ROOTS,
-    fs = nodeFs,
-    reparseGuard: suppliedReparseGuard,
-    snapshot: suppliedSnapshot,
   } = options;
   assertCollectorWorkspaceRoot(workspaceRoot);
-  if (admission) {
-    return sourceClosureRowsFromRoots(
-      admission.fs,
-      workspaceRoot,
-      sourceRoots,
-      admission.reparseGuard,
-      admission.snapshot,
-    );
-  }
-  let reparseGuard = suppliedReparseGuard;
-  let snapshot = suppliedSnapshot;
-  if (!reparseGuard) {
-    if (fs !== nodeFs) throw new Error('public source closure requires a strict reparse guard and admitted snapshot');
-    const legacyAdmission = createStrictAdmissionContext({ fs });
-    const capabilities = strictAdmissionCapabilities.get(legacyAdmission);
-    reparseGuard = capabilities.reparseGuard;
-    snapshot = capabilities.snapshot;
-  }
-  if (!isStrictReparseGuard(reparseGuard)) {
-    throw new Error('public source closure requires a strict full-frontier reparse guard');
-  }
-  if (!snapshot) snapshot = createProtectedInputSnapshot({ fs, reparseGuard });
-  if (typeof snapshot.readWave !== 'function') throw new Error('public source closure requires an admitted snapshot');
-  return sourceClosureRowsFromRoots(fs, workspaceRoot, sourceRoots, reparseGuard, snapshot);
+  return sourceClosureRowsFromRoots(
+    admission.fs,
+    workspaceRoot,
+    sourceRoots,
+    admission.reparseGuard,
+    admission.snapshot,
+  );
 }
 
 function readJsonFixture(fs, workspaceRoot, relativePath, { reparseGuard, snapshot } = {}) {
@@ -1348,6 +1455,24 @@ function assertManifestDestination(workspaceRoot, manifestPath, fs, reparseGuard
   return { analysisRoot, destination };
 }
 
+function assertManifestLeafRole(fs, destination) {
+  if (typeof fs?.lstatSync !== 'function') return;
+  let stat;
+  try {
+    stat = fs.lstatSync(destination);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return;
+    throw new Error(`cannot inspect manifest leaf: ${destination} (${error?.message ?? String(error)})`);
+  }
+  if (stat?.isSymbolicLink?.() || stat?.isReparsePoint?.()) {
+    throw new Error(`manifest leaf is a reparse point or link: ${destination}`);
+  }
+  if (!stat?.isFile?.()) {
+    const role = stat?.isDirectory?.() ? 'directory' : 'special';
+    throw new Error(`manifest leaf must be absent or a regular file, not ${role}: ${destination}`);
+  }
+}
+
 export function writeCapturedManifest({
   workspaceRoot,
   manifestPath,
@@ -1359,6 +1484,7 @@ export function writeCapturedManifest({
   assertCollectorWorkspaceRoot(workspaceRoot);
   if (typeof reparseGuard?.assertSafeMany !== 'function') throw new Error('manifest writer requires a full-frontier reparse guard');
   const { analysisRoot, destination } = assertManifestDestination(workspaceRoot, manifestPath, fs, reparseGuard);
+  assertManifestLeafRole(fs, destination);
   fs.mkdirSync(analysisRoot, { recursive: true });
   // Node pathname APIs have no native no-follow guarantee against a hostile kernel-time parent swap.
   try {
@@ -1388,7 +1514,7 @@ export function captureFrozenProvenance(options) {
     fs = nodeFs,
   } = options;
   assertCollectorWorkspaceRoot(workspaceRoot);
-  const admission = createStrictAdmissionContext({ fs });
+  const admission = createNativeStrictAdmission({ fs });
   const { reparseGuard, snapshot } = strictAdmissionCapabilities.get(admission);
   const contract = validateFrozenContract({ workspaceRoot, contract: FROZEN_CONTRACT, fs, reparseGuard });
   assertManifestDestination(workspaceRoot, manifestPath, fs, reparseGuard);
