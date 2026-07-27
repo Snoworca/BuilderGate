@@ -541,6 +541,7 @@ async function createOwnedWorkspaceWithoutAnalysisParent() {
       payloadByteCount: protectedFiles.reduce((total, file) => total + file.bytes, 0),
     });
     assertMinimalNativeFixtureParity(fixture);
+    for (const seedInput of protectedSeed) assertCurrentProtectedFixtureSeedSource(seedInput);
     return fixture;
   } catch (error) {
     rmSync(ownedRoot, { recursive: true, force: true });
