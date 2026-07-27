@@ -23,12 +23,26 @@ const { syncBuiltinESMExports } = require('node:module');
 
 const actor = process.env.WAVE3_NATIVE_RACE_ACTOR;
 const suppliedTarget = process.env.WAVE3_NATIVE_RACE_TARGET;
+const fault = process.env.WAVE3_NATIVE_RACE_FAULT || 'none';
 if (actor !== 'A' || typeof suppliedTarget !== 'string' || suppliedTarget.length === 0) {
-  throw new Error('wx race preloader requires one exact A target');
+  throw new Error('fd race preloader requires one exact A target');
+}
+if (!['none', 'eexist', 'replacement', 'write-failure', 'postflight-failure'].includes(fault)) {
+  throw new Error('fd race preloader received an unsupported fault');
 }
 const target = path.resolve(suppliedTarget);
+const originalOpenSync = fs.openSync;
 const originalWriteFileSync = fs.writeFileSync;
-let intercepted = false;
+const originalFstatSync = fs.fstatSync;
+const originalLstatSync = fs.lstatSync;
+const originalReadFileSync = fs.readFileSync;
+const originalCloseSync = fs.closeSync;
+let trackedFd = null;
+let delegatedFdWrite = false;
+let fstatObserved = false;
+let postflightObserved = false;
+let replacementBytes = null;
+let closeCount = 0;
 
 function emit(event, extra) {
   fs.writeSync(1, JSON.stringify(Object.assign({
@@ -38,38 +52,123 @@ function emit(event, extra) {
   }, extra || {})) + '\\n');
 }
 
-fs.writeFileSync = function writeNonceTargetThenGate(candidate, data, options) {
-  const result = originalWriteFileSync.apply(fs, arguments);
-  const matchesExactWxTarget = !intercepted
-    && typeof candidate === 'string'
-    && path.resolve(candidate) === target
-    && options !== null
-    && typeof options === 'object'
-    && options.flag === 'wx';
-  if (!matchesExactWxTarget) return result;
+function isExactTarget(candidate) {
+  return typeof candidate === 'string' && path.resolve(candidate) === target;
+}
 
-  intercepted = true;
-  try {
-    emit('wx');
-    const release = Buffer.alloc(1);
-    if (fs.readSync(0, release, 0, 1, null) !== 1) {
-      throw new Error('wx race preloader did not receive a release byte');
-    }
-    if (release[0] === 0x58) {
-      const current = fs.lstatSync(target);
-      if (!current.isFile() || current.isSymbolicLink?.() || current.isReparsePoint?.()) {
-        throw new Error('wx race preloader target stopped being an owned regular file');
-      }
+function isWxFlag(flags) {
+  return flags === 'wx';
+}
+
+function missingTargetError() {
+  const error = new Error('injected pre-open missing target view for actual EEXIST open');
+  error.code = 'ENOENT';
+  return error;
+}
+
+function releaseAfterDelegatedFdWrite() {
+  const release = Buffer.alloc(1);
+  if (fs.readSync(0, release, 0, 1, null) !== 1) {
+    throw new Error('fd race preloader did not receive a release byte');
+  }
+  if (release[0] === 0x58) {
+    try {
       fs.unlinkSync(target);
-      originalWriteFileSync.call(fs, target, '{"replacement":"owned"}\\n', { encoding: 'utf8', flag: 'wx' });
-      emit('replaced');
-    } else if (release[0] !== 0x52) {
-      throw new Error('wx race preloader received an invalid release byte');
+    } catch (error) {
+      emit('replacement-blocked', { stage: 'unlink', code: error?.code ?? 'UNKNOWN' });
+      emit('release');
+      return;
     }
-    emit('release');
-  } finally {
-    fs.writeFileSync = originalWriteFileSync;
-    syncBuiltinESMExports();
+    try {
+      originalWriteFileSync.call(fs, target, replacementBytes, { flag: 'wx' });
+      emit('replaced');
+    } catch (error) {
+      emit('replacement-partial', { stage: 'rewrite', code: error?.code ?? 'UNKNOWN' });
+    }
+  } else if (release[0] !== 0x50 && release[0] !== 0x52) {
+    throw new Error('fd race preloader received an invalid release byte');
+  }
+  emit('release');
+}
+
+fs.openSync = function trackExactNonceOpen(candidate, flags) {
+  if (!isExactTarget(candidate) || !isWxFlag(flags)) {
+    return originalOpenSync.apply(fs, arguments);
+  }
+  try {
+    const fd = originalOpenSync.apply(fs, arguments);
+    trackedFd = fd;
+    emit('open', { fd });
+    return fd;
+  } catch (error) {
+    if (error?.code === 'EEXIST') emit('open-eexist');
+    throw error;
+  }
+};
+
+fs.writeFileSync = function requireTrackedFdWrite(candidate, data, options) {
+  if (isExactTarget(candidate)) {
+    emit('path-write-bypass');
+    throw new Error('manifest persistence must use the retained openSync wx descriptor, not a pathname writeFileSync');
+  }
+  if (candidate !== trackedFd) return originalWriteFileSync.apply(fs, arguments);
+  const result = originalWriteFileSync.apply(fs, arguments);
+  delegatedFdWrite = true;
+  replacementBytes = Buffer.from(data);
+  emit('fd-write', { fd: trackedFd });
+  if (fault === 'write-failure') {
+    emit('write-failure');
+    throw new Error('injected retained-fd write failure after delegated descriptor write');
+  }
+  releaseAfterDelegatedFdWrite();
+  return result;
+};
+
+fs.fstatSync = function trackRetainedFdPostWrite(candidate) {
+  const result = originalFstatSync.apply(fs, arguments);
+  if (candidate === trackedFd) {
+    if (!delegatedFdWrite) {
+      emit('fstat-before-fd-write', { fd: trackedFd });
+    } else {
+      fstatObserved = true;
+      emit('fstat', { fd: trackedFd });
+    }
+  }
+  return result;
+};
+
+fs.lstatSync = function requirePostflightAfterFstat(candidate) {
+  if (fault === 'eexist' && trackedFd === null && isExactTarget(candidate)) {
+    throw missingTargetError();
+  }
+  if (isExactTarget(candidate) && delegatedFdWrite && !fstatObserved) {
+    emit('target-lstat-before-fstat');
+  }
+  const result = originalLstatSync.apply(fs, arguments);
+  if (isExactTarget(candidate) && delegatedFdWrite && fstatObserved && !postflightObserved) {
+    postflightObserved = true;
+    emit('postflight');
+    if (fault === 'postflight-failure') {
+      emit('postflight-failure');
+      throw new Error('injected retained-fd postflight failure');
+    }
+  }
+  return result;
+};
+
+fs.readFileSync = function rejectPathnameReadBeforePostflight(candidate) {
+  if (isExactTarget(candidate) && trackedFd !== null && !postflightObserved) {
+    emit('pathname-read-before-postflight');
+    throw new Error('manifest persistence read its pathname before retained-fd postflight');
+  }
+  return originalReadFileSync.apply(fs, arguments);
+};
+
+fs.closeSync = function trackRetainedFdClose(candidate) {
+  const result = originalCloseSync.apply(fs, arguments);
+  if (candidate === trackedFd) {
+    closeCount += 1;
+    emit('close', { fd: trackedFd, closeCount });
   }
   return result;
 };
@@ -179,7 +278,7 @@ function removeOwnedWxRaceHarness(ownedRoot) {
   rmSync(normalizedRoot, { recursive: true, force: true });
 }
 
-function wxRaceChildEnvironment({ actor, manifestPath, phase }) {
+function wxRaceChildEnvironment({ actor, manifestPath, phase, fault = 'none' }) {
   const environment = {
     SystemRoot: process.env.SystemRoot ?? 'C:\\Windows',
     SystemDrive: process.env.SystemDrive ?? 'C:',
@@ -190,18 +289,19 @@ function wxRaceChildEnvironment({ actor, manifestPath, phase }) {
     WAVE3_NATIVE_RACE_MANIFEST_PATH: manifestPath,
     WAVE3_NATIVE_RACE_PHASE: phase,
     WAVE3_NATIVE_RACE_TARGET: manifestPath,
+    WAVE3_NATIVE_RACE_FAULT: fault,
   };
   assert.equal(Object.hasOwn(environment, 'NODE_OPTIONS'), false, 'child environment must scrub inherited NODE_OPTIONS rather than forwarding ambient preload state');
   return environment;
 }
 
-function spawnWxRaceChild({ harness, actor, manifestPath, phase, preload, timeline }) {
+function spawnWxRaceChild({ harness, actor, manifestPath, phase, preload, fault = 'none', timeline }) {
   const args = preload
     ? ['--require', harness.preloaderPath, harness.runnerPath]
     : [harness.runnerPath];
   const child = spawn(process.execPath, args, {
     cwd: workspaceRoot,
-    env: wxRaceChildEnvironment({ actor, manifestPath, phase }),
+    env: wxRaceChildEnvironment({ actor, manifestPath, phase, fault }),
     shell: false,
     windowsHide: true,
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -267,6 +367,22 @@ async function waitForWxRaceEvent(actor, event, label, timeoutMs = WX_RACE_TIMEO
   throw new Error(`${label} timed out waiting for ${event}`);
 }
 
+async function waitForOneOfWxRaceEvents(actor, events, label, timeoutMs = WX_RACE_TIMEOUT_MS) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (actor.spawnError) throw new Error(`${label} failed to spawn: ${actor.spawnError.message}`);
+    const matched = actor.transcript.find(candidate => candidate.protocol === WX_RACE_PROTOCOL
+      && candidate.actor === actor.actor
+      && events.includes(candidate.event));
+    if (matched) return matched;
+    const childError = actor.transcript.find(candidate => candidate.event === 'error' || candidate.event === 'protocol-error');
+    if (childError) throw new Error(`${label} reported ${childError.message ?? childError.event}`);
+    if (actor.exitState) throw new Error(`${label} exited before ${events.join(' or ')}: ${JSON.stringify(actor.exitState)}\n${actor.stderr}`);
+    await sleep(5);
+  }
+  throw new Error(`${label} timed out waiting for ${events.join(' or ')}`);
+}
+
 async function waitForWxRaceExit(actor, label, timeoutMs = WX_RACE_TIMEOUT_MS) {
   let timeoutId;
   const deadline = new Promise((_, reject) => {
@@ -301,6 +417,12 @@ function releaseWxRaceChild(actor, releaseByte) {
 function transcriptIndex(timeline, actor, event) {
   const index = timeline.findIndex(candidate => candidate.actor === actor && candidate.event === event);
   assert.notEqual(index, -1, `missing transcript event ${actor}.${event}`);
+  return index;
+}
+
+function actorTranscriptIndex(actor, event) {
+  const index = actor.transcript.findIndex(candidate => candidate.event === event);
+  assert.notEqual(index, -1, `missing child transcript event ${actor.actor}.${event}`);
   return index;
 }
 
@@ -388,7 +510,7 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
     }
   });
 
-  test('SDS-AC-4 proves sibling native capture completes between A wx and A postflight without a collector test mode', { timeout: 115_000 }, async () => {
+  test('SDS-AC-4 proves sibling native capture completes between A retained-fd write and postflight without a collector test mode', { timeout: 115_000 }, async () => {
     const harness = createOwnedWxRaceHarness();
     const prefix = `wx-sibling-${process.pid}-${randomBytes(6).toString('hex')}`;
     const leafA = path.join(analysisRoot, `${prefix}-a.json`);
@@ -407,7 +529,8 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
         preload: true,
         timeline,
       });
-      await waitForWxRaceEvent(actorA, 'wx', 'A wx gate');
+      await waitForWxRaceEvent(actorA, 'open', 'A retained-fd open');
+      await waitForWxRaceEvent(actorA, 'fd-write', 'A retained-fd write gate');
       actorB = spawnWxRaceChild({
         harness,
         actor: 'B',
@@ -417,10 +540,13 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
         timeline,
       });
       await waitForWxRaceEvent(actorB, 'captured', 'B sibling capture');
-      assert.equal(actorA.transcript.some(candidate => candidate.event === 'release' || candidate.event === 'captured'), false, 'A remains blocked after its exclusive wx before postflight while B completes');
+      assert.equal(actorA.transcript.some(candidate => candidate.event === 'release' || candidate.event === 'captured'), false, 'A remains blocked after the delegated retained-fd write before postflight while B completes');
 
       releaseWxRaceChild(actorA, 0x52);
       await waitForWxRaceEvent(actorA, 'release', 'A controlled release');
+      await waitForWxRaceEvent(actorA, 'fstat', 'A retained-fd fstat');
+      await waitForWxRaceEvent(actorA, 'postflight', 'A retained-fd postflight');
+      await waitForWxRaceEvent(actorA, 'close', 'A retained-fd close');
       await waitForWxRaceEvent(actorA, 'captured', 'A postflight capture');
       const [exitA, exitB] = await Promise.all([
         waitForWxRaceExit(actorA, 'A sibling capture'),
@@ -428,9 +554,15 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
       ]);
       assert.deepEqual(exitA, { code: 0, signal: null }, `A must succeed after permitted sibling timestamp churn\n${actorA.stderr}`);
       assert.deepEqual(exitB, { code: 0, signal: null }, `B must complete its native sibling capture\n${actorB.stderr}`);
-      assert.equal(transcriptIndex(timeline, 'A', 'wx') < transcriptIndex(timeline, 'B', 'captured'), true, 'B capture begins only after A exclusive wx returned');
+      assert.equal(transcriptIndex(timeline, 'A', 'open') < transcriptIndex(timeline, 'A', 'fd-write'), true, 'A opens the nonce leaf before it writes through the retained descriptor');
+      assert.equal(transcriptIndex(timeline, 'A', 'fd-write') < transcriptIndex(timeline, 'B', 'captured'), true, 'B capture begins only after A has completed the delegated descriptor write');
       assert.equal(transcriptIndex(timeline, 'B', 'captured') < transcriptIndex(timeline, 'A', 'release'), true, 'B preflight/write/postflight completes while A remains gated');
       assert.equal(transcriptIndex(timeline, 'A', 'release') < transcriptIndex(timeline, 'A', 'captured'), true, 'A postflight can only occur after the explicit release');
+      assert.equal(transcriptIndex(timeline, 'A', 'fd-write') < transcriptIndex(timeline, 'A', 'fstat'), true, 'the retained descriptor is written before its identity is sampled');
+      assert.equal(transcriptIndex(timeline, 'A', 'fstat') < transcriptIndex(timeline, 'A', 'postflight'), true, 'the retained descriptor identity is checked before pathname postflight');
+      assert.equal(transcriptIndex(timeline, 'A', 'postflight') < transcriptIndex(timeline, 'A', 'close'), true, 'postflight finishes before the retained descriptor is closed');
+      assert.equal(actorA.transcript.filter(candidate => candidate.event === 'close').length, 1, 'the successful retained descriptor closes exactly once');
+      assert.equal(actorA.transcript.some(candidate => candidate.event === 'path-write-bypass' || candidate.event === 'pathname-read-before-postflight' || candidate.event === 'target-lstat-before-fstat' || candidate.event === 'fstat-before-fd-write'), false, 'the successful path never falls back to a target pathname write/read or premature identity/postflight probe');
       assert.equal(JSON.parse(readFileSync(leafA, 'utf8')).phase, 'internal-core-wx-sibling-a');
       assert.equal(JSON.parse(readFileSync(leafB, 'utf8')).phase, 'internal-core-wx-sibling-b');
     } finally {
@@ -442,7 +574,7 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
     }
   });
 
-  test('SDS-AC-3 rejects an owned post-wx regular-leaf replacement before A can accept its manifest', { timeout: 115_000 }, async () => {
+  test('SDS-AC-3 either keeps same-byte replacement OS-blocked or rejects the swapped leaf before A accepts it', { timeout: 115_000 }, async () => {
     const harness = createOwnedWxRaceHarness();
     const prefix = `wx-replacement-${process.pid}-${randomBytes(6).toString('hex')}`;
     const leafA = path.join(analysisRoot, `${prefix}-a.json`);
@@ -456,23 +588,132 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
         manifestPath: leafA,
         phase: 'internal-core-wx-replacement-a',
         preload: true,
+        fault: 'replacement',
         timeline,
       });
-      await waitForWxRaceEvent(actorA, 'wx', 'A replacement wx gate');
+      await waitForWxRaceEvent(actorA, 'open', 'A replacement retained-fd open');
+      await waitForWxRaceEvent(actorA, 'fd-write', 'A replacement retained-fd write gate');
       releaseWxRaceChild(actorA, 0x58);
-      await waitForWxRaceEvent(actorA, 'replaced', 'A owned regular-leaf replacement');
+      const replacement = await waitForOneOfWxRaceEvents(actorA, ['replacement-blocked', 'replaced', 'replacement-partial'], 'A same-byte replacement result');
       await waitForWxRaceEvent(actorA, 'release', 'A replacement release');
       const terminal = await waitForWxRaceTerminalEvent(actorA, 'A replacement capture');
-      assert.equal(terminal.event, 'error', `post-wx replacement must reject before manifest acceptance; transcript=${JSON.stringify(actorA.transcript)}`);
-      assert.match(terminal.message, /manifest|leaf|identity|replacement|postflight|changed/i);
-      assert.equal(actorA.transcript.some(candidate => candidate.event === 'captured'), false, 'a replaced leaf must never reach accepted capture output');
-      assert.deepEqual(await waitForWxRaceExit(actorA, 'A replacement capture'), { code: 1, signal: null });
-      assert.equal(transcriptIndex(timeline, 'A', 'wx') < transcriptIndex(timeline, 'A', 'replaced'), true);
-      assert.equal(transcriptIndex(timeline, 'A', 'replaced') < transcriptIndex(timeline, 'A', 'release'), true);
+      await waitForWxRaceEvent(actorA, 'fstat', 'A replacement retained-fd fstat');
+      await waitForWxRaceEvent(actorA, 'postflight', 'A replacement retained-fd postflight');
+      await waitForWxRaceEvent(actorA, 'close', 'A replacement retained-fd close');
+      if (replacement.event === 'replacement-blocked') {
+        assert.equal(terminal.event, 'captured', `an OS-blocked replacement keeps the original manifest eligible for acceptance; transcript=${JSON.stringify(actorA.transcript)}`);
+        assert.equal(JSON.parse(readFileSync(leafA, 'utf8')).phase, 'internal-core-wx-replacement-a');
+        assert.deepEqual(await waitForWxRaceExit(actorA, 'A blocked replacement capture'), { code: 0, signal: null });
+      } else {
+        assert.equal(terminal.event, 'error', `a same-byte swapped or partially swapped leaf must reject before manifest acceptance; transcript=${JSON.stringify(actorA.transcript)}`);
+        assert.match(terminal.message, /manifest|leaf|identity|replacement|postflight|changed|missing/i);
+        assert.equal(actorA.transcript.some(candidate => candidate.event === 'captured'), false, 'a swapped leaf must never reach accepted capture output');
+        assert.deepEqual(await waitForWxRaceExit(actorA, 'A replacement capture'), { code: 1, signal: null });
+      }
+      assert.equal(transcriptIndex(timeline, 'A', 'open') < transcriptIndex(timeline, 'A', 'fd-write'), true);
+      assert.equal(transcriptIndex(timeline, 'A', 'fd-write') < transcriptIndex(timeline, 'A', replacement.event), true);
+      assert.equal(transcriptIndex(timeline, 'A', replacement.event) < transcriptIndex(timeline, 'A', 'release'), true);
+      assert.equal(transcriptIndex(timeline, 'A', 'fd-write') < transcriptIndex(timeline, 'A', 'fstat'), true);
+      assert.equal(transcriptIndex(timeline, 'A', 'fstat') < transcriptIndex(timeline, 'A', 'postflight'), true);
+      assert.equal(transcriptIndex(timeline, 'A', 'postflight') < transcriptIndex(timeline, 'A', 'close'), true);
+      assert.equal(actorA.transcript.filter(candidate => candidate.event === 'close').length, 1, 'the replacement run closes its retained descriptor exactly once');
+      assert.equal(actorA.transcript.some(candidate => candidate.event === 'path-write-bypass' || candidate.event === 'pathname-read-before-postflight' || candidate.event === 'target-lstat-before-fstat' || candidate.event === 'fstat-before-fd-write'), false, 'replacement handling keeps the security-sensitive write and identity sequence on the retained descriptor');
     } finally {
       if (actorA && !actorA.released && !actorA.exitState) releaseWxRaceChild(actorA, 0x52);
       await Promise.allSettled([actorA?.exited].filter(Boolean));
       removeOwnedLeaf(leafA, prefix);
+      removeOwnedWxRaceHarness(harness.ownedRoot);
+    }
+  });
+
+  test('SDS-AC-2 closes every acquired retained descriptor exactly once across write and postflight failures, and never closes an EEXIST non-descriptor', { timeout: 115_000 }, async () => {
+    const harness = createOwnedWxRaceHarness();
+    const prefix = `fd-lifecycle-${process.pid}-${randomBytes(6).toString('hex')}`;
+    const existingLeaf = path.join(analysisRoot, `${prefix}-eexist.json`);
+    const writeLeaf = path.join(analysisRoot, `${prefix}-write.json`);
+    const postflightLeaf = path.join(analysisRoot, `${prefix}-postflight.json`);
+    const timeline = [];
+    let actorExisting;
+    let actorWrite;
+    let actorPostflight;
+    try {
+      const existingBytes = Buffer.from('{"already":"exists"}\n');
+      writeFileSync(existingLeaf, existingBytes, { flag: 'wx' });
+      actorExisting = spawnWxRaceChild({
+        harness,
+        actor: 'A',
+        manifestPath: existingLeaf,
+        phase: 'internal-core-fd-eexist',
+        preload: true,
+        fault: 'eexist',
+        timeline,
+      });
+      actorWrite = spawnWxRaceChild({
+        harness,
+        actor: 'A',
+        manifestPath: writeLeaf,
+        phase: 'internal-core-fd-write-failure',
+        preload: true,
+        fault: 'write-failure',
+        timeline,
+      });
+      actorPostflight = spawnWxRaceChild({
+        harness,
+        actor: 'A',
+        manifestPath: postflightLeaf,
+        phase: 'internal-core-fd-postflight-failure',
+        preload: true,
+        fault: 'postflight-failure',
+        timeline,
+      });
+
+      await Promise.all([
+        waitForWxRaceEvent(actorExisting, 'open-eexist', 'EEXIST retained-fd open'),
+        waitForWxRaceEvent(actorWrite, 'open', 'write-failure retained-fd open'),
+        waitForWxRaceEvent(actorWrite, 'fd-write', 'write-failure delegated retained-fd write'),
+        waitForWxRaceEvent(actorWrite, 'write-failure', 'write-failure injection'),
+        waitForWxRaceEvent(actorPostflight, 'open', 'postflight-failure retained-fd open'),
+        waitForWxRaceEvent(actorPostflight, 'fd-write', 'postflight-failure retained-fd write gate'),
+      ]);
+      releaseWxRaceChild(actorPostflight, 0x50);
+      await Promise.all([
+        waitForWxRaceEvent(actorPostflight, 'fstat', 'postflight-failure retained-fd fstat'),
+        waitForWxRaceEvent(actorPostflight, 'postflight-failure', 'postflight-failure injection'),
+        waitForWxRaceEvent(actorWrite, 'close', 'write-failure retained-fd close'),
+        waitForWxRaceEvent(actorPostflight, 'close', 'postflight-failure retained-fd close'),
+      ]);
+
+      const [existingTerminal, writeTerminal, postflightTerminal] = await Promise.all([
+        waitForWxRaceTerminalEvent(actorExisting, 'EEXIST retained-fd failure'),
+        waitForWxRaceTerminalEvent(actorWrite, 'write retained-fd failure'),
+        waitForWxRaceTerminalEvent(actorPostflight, 'postflight retained-fd failure'),
+      ]);
+      assert.deepEqual([existingTerminal.event, writeTerminal.event, postflightTerminal.event], ['error', 'error', 'error']);
+      assert.match(existingTerminal.message, /EEXIST|exist/i);
+      assert.match(writeTerminal.message, /retained-fd write failure/i);
+      assert.match(postflightTerminal.message, /retained-fd postflight failure/i);
+      assert.equal(actorExisting.transcript.filter(candidate => candidate.event === 'close').length, 0, 'EEXIST returns no retained descriptor to close');
+      assert.deepEqual(readFileSync(existingLeaf), existingBytes, 'an actual wx EEXIST collision preserves the pre-existing target bytes');
+      assert.equal(actorWrite.transcript.filter(candidate => candidate.event === 'close').length, 1, 'a retained descriptor closes once after write failure');
+      assert.equal(actorPostflight.transcript.filter(candidate => candidate.event === 'close').length, 1, 'a retained descriptor closes once after postflight failure');
+      assert.equal(actorTranscriptIndex(actorPostflight, 'fd-write') < actorTranscriptIndex(actorPostflight, 'fstat'), true, 'the postflight failure first writes and samples the retained descriptor');
+      assert.equal(actorWrite.transcript.some(candidate => candidate.event === 'path-write-bypass' || candidate.event === 'pathname-read-before-postflight' || candidate.event === 'fstat-before-fd-write'), false, 'write failure occurs through the retained descriptor before any pathname fallback or premature identity probe');
+      assert.equal(actorPostflight.transcript.some(candidate => candidate.event === 'path-write-bypass' || candidate.event === 'pathname-read-before-postflight' || candidate.event === 'target-lstat-before-fstat' || candidate.event === 'fstat-before-fd-write'), false, 'postflight failure occurs only after the retained descriptor identity check');
+      assert.deepEqual(await Promise.all([
+        waitForWxRaceExit(actorExisting, 'EEXIST retained-fd failure'),
+        waitForWxRaceExit(actorWrite, 'write retained-fd failure'),
+        waitForWxRaceExit(actorPostflight, 'postflight retained-fd failure'),
+      ]), [
+        { code: 1, signal: null },
+        { code: 1, signal: null },
+        { code: 1, signal: null },
+      ]);
+    } finally {
+      if (actorPostflight && !actorPostflight.released && !actorPostflight.exitState) releaseWxRaceChild(actorPostflight, 0x52);
+      await Promise.allSettled([actorExisting?.exited, actorWrite?.exited, actorPostflight?.exited].filter(Boolean));
+      removeOwnedLeaf(existingLeaf, prefix);
+      removeOwnedLeaf(writeLeaf, prefix);
+      removeOwnedLeaf(postflightLeaf, prefix);
       removeOwnedWxRaceHarness(harness.ownedRoot);
     }
   });
