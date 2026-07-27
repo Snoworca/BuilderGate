@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, unlinkSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import * as path from 'node:path';
 import test from 'node:test';
@@ -59,25 +59,6 @@ function noOpIngress(events) {
   };
 }
 
-function roleStat(role, seed = 1) {
-  return {
-    dev: 7,
-    ino: seed,
-    mode: role === 'directory' ? 0o040755 : role === 'file' ? 0o100644 : 0o020666,
-    ctimeMs: 10_000 + seed,
-    mtimeMs: 20_000 + seed,
-    size: 30_000 + seed,
-    isDirectory: () => role === 'directory',
-    isFile: () => role === 'file',
-    isSymbolicLink: () => false,
-    isReparsePoint: () => false,
-  };
-}
-
-function normalizeWindows(value) {
-  return path.win32.normalize(value).replaceAll('\\', '/').toLowerCase();
-}
-
 function ownedNativeCaptureManifestPath() {
   return path.win32.join(analysisRoot, `.trust-native-capture-${process.pid}-${randomBytes(6).toString('hex')}.json`);
 }
@@ -88,57 +69,37 @@ function removeOwnedNativeCaptureManifest(manifestPath) {
   if (existsSync(manifestPath)) unlinkSync(manifestPath);
 }
 
-test('SDS-AC-1 rejects absent, counterfeit, and no-op admission before any protected ingress I/O', async () => {
-  const {
-    collectSourceClosure,
-    hashConfigLockFile,
-    readProtectedInput,
-  } = await loadCollector();
+test('SDS-AC-1 rejects every caller-provided protected ingress authority before native capture I/O', async () => {
+  const collector = await loadCollector();
   const cases = [
-    ['absent', undefined],
-    ['counterfeit', Object.freeze({ token: 'counterfeit-admission' })],
-    ['no-op', Object.freeze({ reparseGuard: Object.freeze({}), snapshot: Object.freeze({}) })],
+    ['counterfeit admission', { admission: Object.freeze({ token: 'counterfeit-admission' }) }],
+    ['caller filesystem', { fs: noProtectedIo() }],
+    ['caller guard and snapshot', noOpIngress([])],
   ];
 
-  for (const [label, admission] of cases) {
-    const fs = noProtectedIo();
+  for (const [label, supplied] of cases) {
+    const fs = supplied.fs ?? noProtectedIo();
     const ingressEvents = [];
-    const ingress = noOpIngress(ingressEvents);
-    const calls = [
-      () => readProtectedInput({
-        fs,
-        absolutePath: `${workspaceRoot}/server/src/ws/WsRouter.ts`,
-        kind: 'source',
-        path: 'server/src/ws/WsRouter.ts',
-        ...(label === 'absent' ? {} : { admission }),
-        reparseGuard: ingress.reparseGuard,
-      }),
-      () => hashConfigLockFile({
-        fs,
-        workspaceRoot,
-        relativePath: 'server/config.json5',
-        ...(label === 'absent' ? {} : { admission }),
-        reparseGuard: ingress.reparseGuard,
-        snapshot: ingress.snapshot,
-      }),
-      () => collectSourceClosure({
-        fs,
-        workspaceRoot,
-        ...(label === 'absent' ? {} : { admission }),
-        reparseGuard: ingress.reparseGuard,
-        snapshot: ingress.snapshot,
-      }),
-    ];
-
-    for (const invoke of calls) {
+    const ingress = label === 'caller guard and snapshot' ? noOpIngress(ingressEvents) : {};
+    const manifestPath = ownedNativeCaptureManifestPath();
+    try {
       assert.throws(
-        invoke,
-        /admission|native|minted|capabilit|strict|protected/i,
-        `${label} admission must be rejected before a row-producing ingress can observe a caller seam`,
+        () => collector.captureFrozenProvenance({
+          workspaceRoot,
+          manifestPath,
+          phase: 'trust-forged-ingress',
+          ...supplied,
+          ...ingress,
+        }),
+        /capture options|native|authority|unsupported|forbid|reject/i,
+        `${label} must be rejected before native capture can observe a caller seam`,
       );
+      assert.equal(existsSync(manifestPath), false, `${label} must not mint a manifest leaf`);
+    } finally {
+      removeOwnedNativeCaptureManifest(manifestPath);
     }
-    assert.deepEqual(fs.calls, [], `${label} admission must perform zero filesystem operations`);
-    assert.deepEqual(ingressEvents, [], `${label} admission must not invoke a caller-supplied probe, guard, or snapshot`);
+    assert.deepEqual(fs.calls, [], `${label} must perform zero caller filesystem operations`);
+    assert.deepEqual(ingressEvents, [], `${label} must not invoke a caller-supplied probe, guard, or snapshot`);
   }
 });
 
@@ -172,21 +133,29 @@ test('SDS-AC-2 uses collector-owned lexical parsing without executing TypeScript
   ].join('\n');
   assert.deepEqual(
     parseAdmittedImportSpecifiers({ sourceText: synthetic, fromPath: inventoryPath }).sort(),
-    ['./TerminalResourcePolicy.js', './TerminalResourcePolicy.js', 'typescript', 'typescript'].sort(),
-    'the lexical extractor must retain contained literal static/type/dynamic import specifiers without a host parser',
+    ['./TerminalResourcePolicy.js', './TerminalResourcePolicy.js', 'typescript'].sort(),
+    'the lexical extractor must retain normal literal static/type/dynamic edges while consuming a TypeScript literal import type query as zero-edge syntax',
   );
   assert.equal(
     parseAdmittedImportSpecifiers({ sourceText: inventorySource, fromPath: inventoryPath }).includes('typescript'),
     true,
     'the real inventory type/dynamic forms must remain in the admitted parser result',
   );
-  assert.throws(
-    () => parseAdmittedImportSpecifiers({
+  assert.deepEqual(
+    parseAdmittedImportSpecifiers({
       sourceText: "const requested = './child.js'; await import(requested);",
       fromPath: inventoryPath,
     }),
-    /nonliteral|dynamic|unsupported|lexical|import/i,
-    'a nonliteral dynamic import must fail closed instead of escaping lexical provenance',
+    ['./child.js'],
+    'one prior immutable literal const must form a normal runtime dynamic-import edge',
+  );
+  assert.throws(
+    () => parseAdmittedImportSpecifiers({
+      sourceText: "let requested = './child.js'; await import(requested);",
+      fromPath: inventoryPath,
+    }),
+    /nonliteral|dynamic|unsupported|lexical|import|mutable/i,
+    'a mutable dynamic import must still fail closed instead of escaping lexical provenance',
   );
 
   const manifestPath = ownedNativeCaptureManifestPath();
@@ -214,46 +183,34 @@ test('SDS-AC-2 uses collector-owned lexical parsing without executing TypeScript
   }
 });
 
-test('SDS-AC-3 rejects special and directory manifest leaves before probing or writing', async () => {
-  const { createSegmentReparseGuard, writeCapturedManifest } = await loadCollector();
-  const manifest = { schemaVersion: 'trust-role-test', protectedInput: { sha256: 'a'.repeat(64) } };
-
-  for (const role of ['special', 'directory']) {
-    const destination = path.win32.join(analysisRoot, `trust-${role}-leaf.json`);
-    const destinationKey = normalizeWindows(destination);
-    const operations = [];
-    const fs = {
-      lstatSync(candidate) {
-        return normalizeWindows(candidate) === destinationKey ? roleStat(role, 99) : roleStat('directory', 1);
-      },
-      mkdirSync(candidate, options) {
-        operations.push(['mkdir', candidate, options]);
-      },
-      writeFileSync(candidate, text, options) {
-        operations.push(['write', candidate, text, options]);
-      },
-    };
-    const reparseGuard = createSegmentReparseGuard({
-      fs,
-      probeBatch(paths) {
-        operations.push(['probe', paths]);
-      },
-    });
-
+test('SDS-AC-3 rejects real directory leaves before native probing or writing and keeps special-role simulation private', async () => {
+  const { captureFrozenProvenance } = await loadCollector();
+  const directoryLeaf = ownedNativeCaptureManifestPath();
+  const callerFs = noProtectedIo();
+  try {
+    mkdirSync(directoryLeaf);
     assert.throws(
-      () => writeCapturedManifest({ workspaceRoot, manifestPath: destination, manifest, fs, reparseGuard }),
+      () => captureFrozenProvenance({
+        workspaceRoot,
+        manifestPath: directoryLeaf,
+        phase: 'trust-directory-role',
+      }),
       /regular|file|directory|special|role|manifest|reparse/i,
-      `${role} leaf must fail role admission before it can become a manifest destination`,
+      'a real directory leaf must fail native role admission before it can become a manifest destination',
     );
-    assert.equal(
-      operations.some(([operation]) => operation === 'probe'),
-      false,
-      `${role} leaf must fail before a reparse probe can bless it`,
+    assert.equal(existsSync(directoryLeaf), true, 'native capture must not replace a disallowed directory leaf');
+    assert.throws(
+      () => captureFrozenProvenance({
+        workspaceRoot,
+        manifestPath: ownedNativeCaptureManifestPath(),
+        phase: 'trust-special-role',
+        fs: callerFs,
+      }),
+      /capture options|native|authority|unsupported|forbid|reject/i,
+      'a caller must not simulate a special role through a public manifest-writing seam',
     );
-    assert.equal(
-      operations.some(([operation]) => operation === 'write'),
-      false,
-      `${role} leaf must fail before a write can replace or race it`,
-    );
+    assert.deepEqual(callerFs.calls, [], 'the rejected caller filesystem cannot be probed or asked to write');
+  } finally {
+    if (existsSync(directoryLeaf)) rmSync(directoryLeaf, { recursive: true, force: true });
   }
 });

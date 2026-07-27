@@ -80,19 +80,31 @@ test('SDS-AC-1 keeps protected-admission minting and protected I/O private to na
   }
 });
 
-test('SDS-AC-2 fails closed for every unsupported import or export form without a test-source exception', async () => {
+test('SDS-AC-2 consumes explicit lexical zero-edge forms and fails closed for unsupported resolution without a test-source exception', async () => {
   const { parseAdmittedImportSpecifiers } = await loadCollector();
   assert.equal(typeof parseAdmittedImportSpecifiers, 'function', 'the lexical extractor remains directly contract-testable without exposing protected I/O');
 
   const fromPath = 'server/src/ws/WsRouter.ts';
-  const unsupportedForms = [
-    ['import.meta', 'void import.meta.url;'],
+  const zeroEdgeForms = [
+    ['import.meta.url', 'void import.meta.url;'],
     ['export default', 'export default { retained: true };'],
     ['local export', 'const retained = true; export { retained };'],
     ['export default declaration', 'export default function retained() {}'],
+    ['TypeScript literal import type query', "type Retained = import('./retained.js').Retained;"],
+  ];
+  for (const [label, sourceText] of zeroEdgeForms) {
+    assert.deepEqual(
+      parseAdmittedImportSpecifiers({ sourceText, fromPath }),
+      [],
+      `${label} is explicit zero-edge syntax and must not produce a closure dependency`,
+    );
+  }
+
+  const unsupportedForms = [
+    ['resolver-capable import.meta', "import.meta.resolve('./child.js');"],
     ['escaped static literal', "import './child\\x2ejs';"],
     ['template dynamic import', 'await import(`./child.js`);'],
-    ['dynamic expression', "const target = './child.js'; await import(target);"],
+    ['mutable dynamic binding', "let target = './child.js'; await import(target);"],
     ['options dynamic import', "await import('./child.js', { with: { type: 'json' } });"],
   ];
 

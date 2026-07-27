@@ -26,6 +26,8 @@ const fixedClosureTests = [
   'tools/wave3/fair-readmission-closure-v3.seal-race.test.mjs',
   'tools/wave3/fair-readmission-closure-v3.lexical.test.mjs',
   'tools/wave3/fair-readmission-closure-v3.lexical-race.test.mjs',
+  'tools/wave3/fair-readmission-closure-v3.internal-core.test.mjs',
+  'tools/wave3/fair-readmission-closure-v3.internal-core-race.test.mjs',
 ];
 const requiredLexicalSuites = [
   'tools/wave3/fair-readmission-closure-v3.lexical.test.mjs',

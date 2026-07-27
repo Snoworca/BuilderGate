@@ -175,36 +175,27 @@ test('SDS-AC-2 rejects a regular manifest leaf full-identity change', async () =
   );
 });
 
-test('SDS-AC-3 admits interleaved outer manifest captures without serializing benign sibling leaf churn', async () => {
-  const { createSegmentReparseGuard, writeCapturedManifest } = await loadCollector();
-  const fs = fakeManifestFs();
-  let interleavedSiblingCreates = 0;
-  const reparseGuard = createSegmentReparseGuard({
-    fs,
-    probeBatch() {
-      interleavedSiblingCreates += 1;
-      fs.churnDirectoryForSiblingLeaf();
+test('SDS-AC-3 keeps interleaved manifest admission native so callers cannot serialize sibling leaves through a writer seam', async () => {
+  const collector = await loadCollector();
+  const events = [];
+  const fs = new Proxy({}, {
+    get(_target, property) {
+      events.push(String(property));
+      throw new Error(`caller manifest filesystem must not be observed: ${String(property)}`);
     },
   });
-  const manifest = { schemaVersion: 'manifest-race-test', protectedInput: { sha256: 'a'.repeat(64) } };
+  const reparseGuard = { assertSafeMany() { events.push('guard'); } };
 
-  const captures = await Promise.all([
-    Promise.resolve().then(() => writeCapturedManifest({
+  assert.equal(Object.hasOwn(collector, 'writeCapturedManifest'), false, 'outer callers have no manifest-writing seam');
+  assert.throws(
+    () => collector.captureFrozenProvenance({
       workspaceRoot,
       manifestPath: firstLeaf,
-      manifest,
+      phase: 'manifest-race-forged-writer',
       fs,
       reparseGuard,
-    })),
-    Promise.resolve().then(() => writeCapturedManifest({
-      workspaceRoot,
-      manifestPath: secondLeaf,
-      manifest,
-      fs,
-      reparseGuard,
-    })),
-  ]);
-
-  assert.deepEqual(captures, [manifest, manifest]);
-  assert.equal(interleavedSiblingCreates > 1, true, 'both captures must retain their own active frontier checks');
+    }),
+    /capture options|native|authority|unsupported|forbid|reject/i,
+  );
+  assert.deepEqual(events, [], 'native capture must reject a forged writer before it can probe or write sibling leaves');
 });

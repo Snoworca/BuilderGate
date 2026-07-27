@@ -108,7 +108,7 @@ function assertFailsBeforeWriting({ captureFrozenProvenance, label, expected, op
   });
 }
 
-test('SDS-AC-2 rejects dangling output leaves and linked protected or manifest paths before writing', async () => {
+test('SDS-AC-2 rejects dangling output leaves and caller-supplied protected or manifest authority before writing', async () => {
   const { FROZEN_CONTRACT, captureFrozenProvenance, validateFrozenContract } = await loadCollector();
   const manifestPath = ownedManifestPath('link');
 
@@ -136,9 +136,9 @@ test('SDS-AC-2 rejects dangling output leaves and linked protected or manifest p
         phase: 'remediation-link',
         fs: fileSystemWith({ linkedPaths: [manifestPath] }),
       }),
-      /manifest.*(?:link|reparse)|(?:link|reparse).*manifest/i,
+      /capture options|native|authority|unsupported|forbid|reject/i,
     );
-    assert.equal(fs.existsSync(manifestPath), false, 'linked manifest leaf must not be overwritten');
+    assert.equal(fs.existsSync(manifestPath), false, 'a caller-supplied manifest authority must not write a leaf');
   });
 });
 
@@ -182,7 +182,6 @@ test('SDS-AC-4 captures the actual workspace into one disposable manifest withou
       workspaceRoot,
       manifestPath,
       phase: 'remediation-disposable-capture',
-      fs,
     });
     const written = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     const writtenBytes = fs.readFileSync(manifestPath);
@@ -204,7 +203,7 @@ test('SDS-AC-4 captures the actual workspace into one disposable manifest withou
     assert.equal(FROZEN_CONTRACT.sourceRoots.includes('frontend/src/components/Terminal/TerminalView.css'), false);
     assert.equal(written.protectedInput.value.fixtureRows.length > 0, true);
     assert.equal(written.protectedInput.value.configLockRows.some(row => row.path === 'server/config.json5'), true);
-    assert.deepEqual(written.protectedInput.value.git.commandPrefix, ['git', '-c', 'core.longpaths=true']);
+    assert.deepEqual(written.protectedInput.value.git.commandPrefix, ['C:/Program Files/Git/cmd/git.exe', '-c', 'core.longpaths=true']);
     assert.equal(written.protectedInput.value.git.protectedRepoPaths.includes('server/config.json5'), true);
     assert.match(written.protectedInput.value.nodeRuntime.sha256, /^[a-f0-9]{64}$/i);
     assert.equal(fs.existsSync(outputDir), false, 'provenance capture must not launch Playwright or create external output');
@@ -216,26 +215,26 @@ test('SDS-AC-4 captures the actual workspace into one disposable manifest withou
   }
 });
 
-test('SDS-AC-5 fails on injected source, fixture, and scoped-Git faults before writing', async () => {
+test('SDS-AC-5 rejects caller-injected source, fixture, and config authority before writing while fixed Git ignores ambient PATH', async () => {
   const { captureFrozenProvenance } = await loadCollector();
   const terminalView = path.join(workspaceRoot, 'frontend', 'src', 'components', 'Terminal', 'TerminalView.tsx');
 
   assertFailsBeforeWriting({
     captureFrozenProvenance,
     label: 'missing-source',
-    expected: /missing source closure input/i,
+    expected: /capture options|native|authority|unsupported|forbid|reject/i,
     options: { fs: fileSystemWith({ missingPaths: [terminalView] }) },
   });
   assertFailsBeforeWriting({
     captureFrozenProvenance,
     label: 'missing-fixture',
-    expected: /fixture/i,
+    expected: /capture options|native|authority|unsupported|forbid|reject/i,
     options: { fs: fileSystemWith({ missingPaths: [fixtureEntry] }) },
   });
   assertFailsBeforeWriting({
     captureFrozenProvenance,
     label: 'missing-config-lock',
-    expected: /missing config_lock/i,
+    expected: /capture options|native|authority|unsupported|forbid|reject/i,
     options: { fs: fileSystemWith({ missingPaths: [path.join(workspaceRoot, 'server', 'config.json5')] }) },
   });
 
@@ -244,11 +243,19 @@ test('SDS-AC-5 fails on injected source, fixture, and scoped-Git faults before w
   process.env.PATH = path.join(workspaceRoot, '__remediation-test-no-git__');
   process.env.Path = process.env.PATH;
   try {
-    assertFailsBeforeWriting({
-      captureFrozenProvenance,
-      label: 'scoped-git',
-      expected: /git|enoent/i,
-      options: { fs },
+    const manifestPath = ownedManifestPath('fixed-git');
+    withOwnedManifestDirectory(() => {
+      try {
+        const manifest = captureFrozenProvenance({
+          workspaceRoot,
+          manifestPath,
+          phase: 'remediation-fixed-git',
+        });
+        assert.equal(manifest.protectedInput.value.git.commandPrefix[0], 'C:/Program Files/Git/cmd/git.exe');
+        assert.equal(fs.existsSync(manifestPath), true, 'fixed Git capture must not depend on ambient PATH');
+      } finally {
+        if (fs.existsSync(manifestPath)) fs.rmSync(manifestPath);
+      }
     });
   } finally {
     if (savedPath === undefined) delete process.env.PATH;
@@ -264,7 +271,7 @@ test('SDS-AC-4 rejects test-only input overrides so every capture binds the froz
   assertFailsBeforeWriting({
     captureFrozenProvenance,
     label: 'test-input-override',
-    expected: /test.?only|frozen.*input|override/i,
+    expected: /capture options|native|authority|unsupported|forbid|reject/i,
     options: { testOnlyInputs: { sourceRoots: [] } },
   });
 });

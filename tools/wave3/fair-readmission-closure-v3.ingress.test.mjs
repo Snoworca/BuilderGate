@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import * as path from 'node:path';
 import test from 'node:test';
 
@@ -9,10 +8,6 @@ const trustedPowerShell = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\power
 
 async function loadCollector() {
   return import('./fair-readmission-closure-v3.mjs');
-}
-
-function sha256(value) {
-  return createHash('sha256').update(value, 'utf8').digest('hex');
 }
 
 function regularStat({ file = false, link = false, reparse = false } = {}) {
@@ -86,18 +81,12 @@ test('SDS-AC-1 rejects the legacy injected leaf-only probe fallback before it ca
   assert.equal(legacyCalls, 0, 'a caller-supplied leaf-only probe must never admit a candidate');
 });
 
-test('SDS-AC-2 uses one low-level protected snapshot wave for every protected input kind', async () => {
-  const { createProtectedInputSnapshot } = await loadCollector();
-  const protectedInputs = [
-    ['source', 'server/src/ws/WsRouter.ts', 'C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/WsRouter.ts'],
-    ['fixture', `${fixedFixtureRoot}/fair-scheduler-decision.json`, `C:/Work/git/_Snoworca/ProjectMaster/${fixedFixtureRoot}/fair-scheduler-decision.json`],
-    ['config_lock', 'server/config.json5', 'C:/Work/git/_Snoworca/ProjectMaster/server/config.json5'],
-    ['collector', 'tools/wave3/fair-readmission-closure-v3.mjs', 'C:/Work/git/_Snoworca/ProjectMaster/tools/wave3/fair-readmission-closure-v3.mjs'],
-    ['node_runtime', 'C:/Program Files/nodejs/node.exe', 'C:/Program Files/nodejs/node.exe'],
-  ];
+test('SDS-AC-1 keeps every protected input kind behind native capture ownership', async () => {
+  const collector = await loadCollector();
+  const protectedKinds = ['source', 'fixture', 'config_lock', 'collector', 'node_runtime'];
 
-  assert.equal(typeof createProtectedInputSnapshot, 'function');
-  for (const [kind, rowPath, absolutePath] of protectedInputs) {
+  assert.equal(Object.hasOwn(collector, 'createProtectedInputSnapshot'), false, 'callers must not construct a protected snapshot for any input kind');
+  for (const kind of protectedKinds) {
     const events = [];
     const bytes = Buffer.from(`${kind} bytes`, 'utf8');
     const reparseGuard = {
@@ -112,36 +101,27 @@ test('SDS-AC-2 uses one low-level protected snapshot wave for every protected in
       },
     };
 
-    const input = createProtectedInputSnapshot({ fs, reparseGuard }).read({ absolutePath, kind, path: rowPath });
-    assert.deepEqual(
-      { kind: input.kind, path: input.path, sha256: input.sha256 },
-      { kind, path: rowPath, sha256: sha256(bytes) },
-      `${kind} must return a digest only after its guarded byte read completes`,
+    assert.throws(
+      () => collector.captureFrozenProvenance({
+        workspaceRoot,
+        manifestPath: `${workspaceRoot}/docs/analysis/kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3/ingress-${kind}.json`,
+        phase: `ingress-${kind}`,
+        fs,
+        reparseGuard,
+      }),
+      /capture options|native|authority|unsupported|forbid|reject/i,
+      `${kind} caller authority must be rejected before a protected digest can be published`,
     );
-    assert.deepEqual(
-      events,
-      [
-        ['guard', [absolutePath], { forceFresh: true }],
-        ['read', absolutePath],
-        ['guard', [absolutePath], { forceFresh: true }],
-      ],
-      `${kind} must full-frontier force-fresh guard immediately before and after its read`,
-    );
+    assert.deepEqual(events, [], `${kind} caller filesystem and guard seams must remain untouched`);
   }
 });
 
-test('SDS-AC-2 low-level protected snapshot returns no row when a post-read force-fresh guard detects a staged change', async () => {
-  const { createProtectedInputSnapshot } = await loadCollector();
-  const protectedInputs = [
-    ['source', 'server/src/ws/WsRouter.ts', 'C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/WsRouter.ts'],
-    ['fixture', `${fixedFixtureRoot}/fair-scheduler-decision.json`, `C:/Work/git/_Snoworca/ProjectMaster/${fixedFixtureRoot}/fair-scheduler-decision.json`],
-    ['config_lock', 'server/config.json5', 'C:/Work/git/_Snoworca/ProjectMaster/server/config.json5'],
-    ['collector', 'tools/wave3/fair-readmission-closure-v3.mjs', 'C:/Work/git/_Snoworca/ProjectMaster/tools/wave3/fair-readmission-closure-v3.mjs'],
-    ['node_runtime', 'C:/Program Files/nodejs/node.exe', 'C:/Program Files/nodejs/node.exe'],
-  ];
+test('SDS-AC-1 rejects staged caller snapshot authority before a protected row can be published', async () => {
+  const collector = await loadCollector();
+  const protectedKinds = ['source', 'fixture', 'config_lock', 'collector', 'node_runtime'];
 
-  assert.equal(typeof createProtectedInputSnapshot, 'function');
-  for (const [kind, rowPath, absolutePath] of protectedInputs) {
+  assert.equal(Object.hasOwn(collector, 'createProtectedInputSnapshot'), false);
+  for (const kind of protectedKinds) {
     const events = [];
     let guardCalls = 0;
     const reparseGuard = {
@@ -159,25 +139,28 @@ test('SDS-AC-2 low-level protected snapshot returns no row when a post-read forc
     };
 
     assert.throws(
-      () => createProtectedInputSnapshot({ fs, reparseGuard }).read({ absolutePath, kind, path: rowPath }),
-      /identity|changed|reparse|guard/i,
-      `${kind} must withhold its digest when the post-read frontier changes`,
+      () => collector.captureFrozenProvenance({
+        workspaceRoot,
+        manifestPath: `${workspaceRoot}/docs/analysis/kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3/ingress-staged-${kind}.json`,
+        phase: `ingress-staged-${kind}`,
+        fs,
+        reparseGuard,
+        snapshot: Object.freeze({ readWave() { throw new Error('caller snapshot must not run'); } }),
+      }),
+      /capture options|native|authority|unsupported|forbid|reject/i,
+      `${kind} caller snapshot must be rejected before a protected row can be published`,
     );
-    assert.deepEqual(events, [
-      ['guard', [absolutePath], { forceFresh: true }],
-      ['read', absolutePath],
-      ['guard', [absolutePath], { forceFresh: true }],
-    ]);
+    assert.deepEqual(events, [], `${kind} caller guard and filesystem seams must not run`);
   }
 });
 
-test('SDS-AC-3 binds exported fixture and workspace helpers to the derived repository and fixed fixture root before filesystem access', async () => {
-  const { hashConfigLockFile, resolveFixturePath } = await loadCollector();
+test('SDS-AC-1 keeps config-lock hashing private while fixture resolution remains frozen-root only', async () => {
+  const { captureFrozenProvenance, resolveFixturePath } = await loadCollector();
   const safeValue = 'raw/observed.json';
   const outsideFs = noFilesystemAccess();
 
   assert.equal(typeof resolveFixturePath, 'function');
-  assert.equal(typeof hashConfigLockFile, 'function');
+  assert.equal(Object.hasOwn(await loadCollector(), 'hashConfigLockFile'), false, 'config-lock hashing must remain private to native capture');
   assert.equal(
     resolveFixturePath({ workspaceRoot, value: safeValue }),
     path.win32.join(workspaceRoot, fixedFixtureRoot, 'raw', 'observed.json'),
@@ -189,13 +172,14 @@ test('SDS-AC-3 binds exported fixture and workspace helpers to the derived repos
     'a caller must not substitute another otherwise-relative fixture root',
   );
   assert.throws(
-    () => hashConfigLockFile({
+    () => captureFrozenProvenance({
       fs: outsideFs,
       workspaceRoot: 'C:/Work/git/_Snoworca/outside-project',
-      relativePath: 'server/config.json5',
+      manifestPath: `${workspaceRoot}/docs/analysis/kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3/ingress-outside.json`,
+      phase: 'ingress-outside',
     }),
-    /admission|native|minted|capabilit|strict|protected/i,
-    'an outside workspace must fail before any filesystem operation',
+    /capture options|native|authority|unsupported|forbid|reject/i,
+    'caller filesystem authority must fail before any protected config operation',
   );
   assert.deepEqual(outsideFs.calls, []);
 });

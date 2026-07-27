@@ -211,8 +211,8 @@ test('SDS-AC-2 rejects an unsafe ancestor and does not retain a safe cache after
   assert.deepEqual(batches, [frontier, frontier], 'a rejected identity must never populate the safe cache');
 });
 
-test('SDS-AC-3 low-level protected snapshot force-fresh guards config bytes immediately before and after the read, returning no row when the post-read identity changes', async () => {
-  const { createProtectedInputSnapshot } = await loadCollector();
+test('SDS-AC-3 rejects caller-provided config snapshot authority before native capture can read or publish a row', async () => {
+  const collector = await loadCollector();
   const configPath = path.win32.join(workspaceRoot, 'server', 'config.json5').replaceAll('\\', '/');
   const guardCalls = [];
   let reads = 0;
@@ -233,17 +233,19 @@ test('SDS-AC-3 low-level protected snapshot force-fresh guards config bytes imme
     },
   };
 
-  assert.equal(typeof createProtectedInputSnapshot, 'function');
+  assert.equal(Object.hasOwn(collector, 'createProtectedInputSnapshot'), false, 'the low-level protected snapshot must remain private');
   assert.throws(
-    () => createProtectedInputSnapshot({ fs, reparseGuard }).read({
-      absolutePath: configPath,
-      kind: 'config_lock',
-      path: 'server/config.json5',
+    () => collector.captureFrozenProvenance({
+      workspaceRoot,
+      manifestPath: path.win32.join(workspaceRoot, 'docs', 'analysis', 'kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3', 'strict-forged-config.json'),
+      phase: 'strict-forged-config',
+      fs,
+      reparseGuard,
     }),
-    /identity|config|reparse|digest/i,
+    /capture options|native|authority|unsupported|forbid|reject/i,
   );
-  assert.equal(reads, 1, 'the staged mutation must occur only after the pre-read fresh guard');
-  assert.equal(guardCalls.length, 2, 'the config path must be force-fresh guarded before and after the byte read');
+  assert.equal(reads, 0, 'the caller filesystem must not be reached before native admission rejects it');
+  assert.equal(guardCalls.length, 0, 'the caller guard must not be reached before native admission rejects it');
 });
 
 test('SDS-AC-4 rejects unsafe Windows fixture components while resolving an ordinary descendant exactly below the fixed evidence root', async () => {
