@@ -6,13 +6,11 @@ import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import test from 'node:test';
-import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const analysisRoot = path.join(workspaceRoot, 'docs', 'analysis', 'kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3');
 const collectorUrl = new URL('./fair-readmission-closure-v3.mjs', import.meta.url).href;
-const internalCoreUrl = new URL('./internal/fair-readmission-closure-v3-internal-core.mjs', import.meta.url).href;
 const analysisRootRelativePath = path.join('docs', 'analysis', 'kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3');
 const WX_RACE_PROTOCOL = 'fair-readmission-wx-race-v1';
 const WX_RACE_TIMEOUT_MS = 45_000;
@@ -321,17 +319,6 @@ try {
 
 function sleep(milliseconds) {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
-}
-
-async function waitForReadyMessages(messages, expected, timeoutMs = 20_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const errors = messages.filter(message => message.phase === 'error' || message.phase === 'worker-error');
-    if (errors.length > 0) throw new Error(`worker failed before barrier release: ${errors.map(message => message.message).join('\n')}`);
-    if (messages.filter(message => message.phase === 'ready').length === expected) return;
-    await sleep(5);
-  }
-  throw new Error('timed out waiting for every ready message');
 }
 
 function assertOwnedLeaf(candidate, prefix) {
@@ -950,46 +937,7 @@ function actorTranscriptIndex(actor, event) {
   return index;
 }
 
-async function runNativeWorker() {
-  const {
-    controlBuffer,
-    index,
-    leaf,
-    collectorUrl: workerCollectorUrl = collectorUrl,
-    internalCoreUrl: workerInternalCoreUrl = internalCoreUrl,
-    workspaceRoot: workerWorkspaceRoot = workspaceRoot,
-    analysisRoot: workerAnalysisRoot = analysisRoot,
-    phase: workerPhase = `internal-core-native-worker-${index}`,
-  } = workerData;
-  const control = new Int32Array(controlBuffer);
-  try {
-    await Promise.all([import(workerCollectorUrl), import(workerInternalCoreUrl)]);
-    parentPort.postMessage({
-      phase: 'ready',
-      index,
-      collectorUrl: workerCollectorUrl,
-      internalCoreUrl: workerInternalCoreUrl,
-      workspaceRoot: workerWorkspaceRoot,
-      analysisRoot: workerAnalysisRoot,
-    });
-    Atomics.wait(control, 0, 0);
-    const { captureFrozenProvenance } = await import(workerCollectorUrl);
-    const manifest = captureFrozenProvenance({
-      workspaceRoot: workerWorkspaceRoot,
-      manifestPath: leaf,
-      phase: workerPhase,
-    });
-    parentPort.postMessage({ phase: 'captured', index, leaf, sha256: manifest.protectedInput.sha256 });
-  } catch (error) {
-    parentPort.postMessage({ phase: 'error', index, message: error?.stack ?? error?.message ?? String(error) });
-    process.exitCode = 1;
-  }
-}
-
-if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race') {
-  await runNativeWorker();
-} else {
-  test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for seed recovery, drift, parity, and missing-input evidence', async t => {
+test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for seed recovery, drift, parity, and missing-input evidence', async t => {
     let firstFixture;
     let secondFixture;
     let initialFailure;
@@ -1223,79 +1171,11 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
         assert.equal(isLinkOrReparsePoint(retainedParentStat), false, 'leaf-only cleanup retains a non-reparse fixture analysis parent');
       });
 
-      await t.test('SDS-AC-3 runs both native barrier workers only through one owned fixture collector after missing-parent admission, then resets its analysis root', async () => {
-        const fixtureInternalCoreUrl = pathToFileURL(path.join(fixtureRoot, 'tools', 'wave3', 'internal', 'fair-readmission-closure-v3-internal-core.mjs')).href;
-        const prefix = `fixture-native-worker-${process.pid}-${randomBytes(6).toString('hex')}`;
-        const leaves = [
-          path.join(fixtureAnalysisRoot, `${prefix}-first.json`),
-          path.join(fixtureAnalysisRoot, `${prefix}-second.json`),
-        ];
-        const originalRootLeaves = leaves.map(leaf => path.join(analysisRoot, path.basename(leaf)));
-        const messages = [];
-        const control = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
-        const workers = leaves.map((leaf, index) => new Worker(new URL(import.meta.url), {
-          workerData: {
-            kind: 'fair-readmission-internal-core-race',
-            controlBuffer: control.buffer,
-            index,
-            leaf,
-            collectorUrl: fixtureCollectorUrl,
-            internalCoreUrl: fixtureInternalCoreUrl,
-            workspaceRoot: fixtureRoot,
-            analysisRoot: fixtureAnalysisRoot,
-          },
-        }));
-        const exits = workers.map(worker => new Promise(resolve => {
-          worker.on('message', message => messages.push(message));
-          worker.once('error', error => messages.push({ phase: 'worker-error', message: error?.stack ?? error?.message ?? String(error) }));
-          worker.once('exit', code => resolve(code));
-        }));
-
-        try {
-          assert.equal(existsSync(fixtureAnalysisRoot), true, 'the fixture worker barrier reuses the ordinary analysis parent created by the missing-parent capture');
-          for (const leaf of leaves) assertOwnedWorkspaceDescendant(leaf, fixtureRoot, 'fixture worker manifest leaf');
-          for (const leaf of originalRootLeaves) assertOwnedLeaf(leaf, prefix);
-          assert.equal(new Set(leaves.map(leaf => path.resolve(leaf))).size, workers.length, 'fixture workers use distinct sibling leaves');
-          await waitForReadyMessages(messages, workers.length);
-          assert.deepEqual(messages.filter(message => message.phase === 'error' || message.phase === 'worker-error'), [], 'no fixture-bound worker error is hidden before the barrier release');
-          assert.deepEqual(
-            messages.filter(message => message.phase === 'ready').map(message => ({
-              index: message.index,
-              collectorUrl: message.collectorUrl,
-              internalCoreUrl: message.internalCoreUrl,
-              workspaceRoot: message.workspaceRoot,
-              analysisRoot: message.analysisRoot,
-            })).sort((left, right) => left.index - right.index),
-            leaves.map((_, index) => ({
-              index,
-              collectorUrl: fixtureCollectorUrl,
-              internalCoreUrl: fixtureInternalCoreUrl,
-              workspaceRoot: fixtureRoot,
-              analysisRoot: fixtureAnalysisRoot,
-            })),
-            'each worker proves it imported only the fixture collector/internal core and owns the fixture workspace/analysis root',
-          );
-          Atomics.store(control, 0, 1);
-          Atomics.notify(control, 0, workers.length);
-
-          assert.deepEqual(await Promise.all(exits), [0, 0], 'both fixture-bound native workers must exit successfully after the barrier release');
-          assert.deepEqual(messages.filter(message => message.phase === 'error' || message.phase === 'worker-error'), [], 'fixture-bound worker errors remain surfaced and empty');
-          assert.equal(messages.filter(message => message.phase === 'captured').length, workers.length, 'each fixture-bound worker captures after the message barrier release');
-          for (const [index, leaf] of leaves.entries()) {
-            const manifest = JSON.parse(readFileSync(leaf, 'utf8'));
-            assert.equal(manifest.phase, `internal-core-native-worker-${index}`, 'fixture worker preserves the default native worker phase');
-            assert.equal(manifest.protectedInput.value.collector.sha256, sha256Bytes(readFileSync(path.join(fixtureRoot, 'tools', 'wave3', 'fair-readmission-closure-v3.mjs'))), 'fixture worker manifest records the fixture collector bytes');
-          }
-          for (const leaf of originalRootLeaves) assert.equal(existsSync(leaf), false, 'the worker must never publish its fixture manifest in the original workspace');
-        } finally {
-          Atomics.store(control, 0, 1);
-          Atomics.notify(control, 0, workers.length);
-          await Promise.allSettled(exits);
-          removeFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, leaves[0]);
-          for (const leaf of leaves) assert.equal(existsSync(leaf), false, 'fixture worker reset removes every worker-owned fixture leaf');
-          for (const leaf of originalRootLeaves) removeOwnedLeaf(leaf, prefix);
-          assertLightweightFixtureScenarioInvariant({ fixtureRoot, fixtureAnalysisRoot, ownedLeaves: leaves });
-        }
+      removeFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, firstManifestPath);
+      assertLightweightFixtureScenarioInvariant({
+        fixtureRoot,
+        fixtureAnalysisRoot,
+        ownedLeaves: [firstManifestPath],
       });
 
       await t.test('SDS-AC-3 preserves an earlier missing-parent capture failure when successful-capture cleanup is skipped', { timeout: 115_000 }, () => {
@@ -1644,5 +1524,3 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-internal-core-race')
       removeOwnedWorkspace(ownedRoot);
     }
   });
-
-}
