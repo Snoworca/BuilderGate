@@ -54,6 +54,8 @@ frontend/src/
 - **`kill {pid}`** 또는  **`taskkill /F /IM node.exe` 절대 금지** — dev.js가 hot reload로 자동 재시작함
 - **스크린샷 저장 경로**: `.playwright-mcp/` (루트에 png 파일 두지 말 것)
 - **보안**: HTTPS + JWT + 2FA(선택) + 파일 경로 보안. localhost 전용
+- **연구·계획은 항상 서브에이전트로 수행한다.** 코드베이스 조사, 근본 원인 분석, 설계/구현 계획 수립 등 연구·계획 성격의 작업은 메인 세션에서 직접 하지 않고 서브에이전트에 위임한다. 이때 모델은 opus5 를 사용한다.
+- **코드 주석(comment)은 검증(리뷰) 범위에서 제외한다.** 서브에이전트 기반 검증·리뷰는 동작·정확성·회귀에 집중하고, 주석 문구의 정확성/과장 여부는 finding으로 보고하지 않는다.
 
 ## 테스트 규칙 (필수)
 
@@ -140,7 +142,7 @@ node tools/worklog.mjs list 2026-04-03
 | GET | `/api/sessions/:id/files` | 파일 목록 |
 | GET | `/health` | 상태 확인 |
 
-# SpecKiwi SRS 워크플로 v1.4
+# SpecKiwi SRS workflow v1.9
 
 This repository uses `docs/spec/` as the required source of truth for requirements.
 
@@ -159,6 +161,20 @@ Agents MUST stop before implementing a non-discarded requirement with `Stability
 TDD principle:
 - Agents MUST follow TDD for behavior changes: write or update a failing automated test for the relevant Requirement ID before implementation, make the smallest change to pass, then refactor while keeping tests green.
 - If no meaningful automated test can be written, agents MUST stop before implementation and explain the exception and alternative verification evidence.
+
+Work-mode and the TDD First (tdd) workflow:
+1. Before starting work, read the persisted work-mode with the MCP `get_work_mode` tool, or CLI `speckiwi mode` when MCP is unavailable (stored in `docs/spec/steps/state.md`). When no mode is set the mode is wait and the sdd (SRS-first) rules in this document apply.
+2. Switch modes with the MCP `set_work_mode` tool (mode plus an optional activeTask for vibe/tdd) or CLI `speckiwi mode <value>`. Any mode may switch to any other of sdd, vibe, wait, and tdd; switching to sdd or wait drops a stale Active Task line, and an out-of-enum value is rejected with INVALID_MODE.
+3. When the mode is `tdd`, step-scoped work follows the TDD First cycle: author the step SDS at `docs/spec/steps/<task>/design.md` per the installed SDS-MD Authoring Rules (`docs/rule/SDS-MD-Rules-v2.5.0.md`) with EARS acceptance contracts (SDS-AC), translate the SDS-ACs into failing tests and confirm they fail, implement the smallest change to green, run regression, then synthesize the step SRS and promote the step requirement with verification evidence.
+4. tdd gates (all mandatory): do not write tests before the step's SDS exists; commit tests first and never weaken a test to reach green; never promote a step requirement without verification evidence.
+5. In tdd mode the rule "do not implement behavior not covered by an SRS requirement" is satisfied for step-scoped work by the agreed SDS plus the mandatory post-hoc promotion; body-scope work keeps the sdd rules in this document.
+6. Edits to existing body requirements and large architecture changes stay in sdd mode — never route them through a tdd step.
+
+Scope SRS document naming:
+1. A scope SRS document is named `docs/spec/{NN}.{scope-slug}.srs.md`, where `{NN}` is a two-digit ordering number. The full rules are in `docs/rule/SRS-MD-Rules-v2.5.0.md` §5.2.
+2. Allocate `{NN}` as one above the highest number already present among the project's scope documents. The first scope document of a project is `01`, the next `02`. Do not number by tens.
+3. Never reuse a number another scope document holds, and never renumber an existing document.
+4. Prefer `speckiwi scaffold-scope <Name>:<PREFIX> --apply`, which allocates the number and registers the document in both index sections in one operation, over writing the file and the index rows by hand.
 
 Agents MUST NOT:
 - Implement behavior that is not covered by an SRS requirement.
@@ -196,6 +212,6 @@ Merge-time duplicate Requirement ID repair workflow:
 7. When implemented runtime CLI or MCP repair tooling is available, do not hand-edit Requirement IDs. If tooling is unavailable and the user explicitly authorizes a degraded SRS-MD patch, limit it to the selected occurrence and explicitly mapped references.
 8. Finish with `speckiwi validate --fail-on-warning --json`, `speckiwi summary --target <target> --json`, and `speckiwi links check --json` or MCP equivalents. Evidence must show duplicate IDs are zero and ambiguous references were reported or explicitly mapped.
 
-Completed Work Log is a read-only summary for agents. Requirement Block status, Acceptance Criteria, Verification Evidence, and Change Notes remain the source of truth for completion.
+The Completed Work Log — inline in `docs/spec/00.index.md` §7 and its split history file `docs/spec/91.completed-work-log.md` — is a read-only summary for agents. Requirement Block status, Acceptance Criteria, Verification Evidence, and Change Notes remain the source of truth for completion.
 
-<!-- /SpecKiwi SRS 워크플로 -->
+<!-- /SpecKiwi SRS workflow -->
