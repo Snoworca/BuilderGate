@@ -88,6 +88,25 @@ v1 acceptedFlagMask / activeFlagMask     = 0x000B   (= MANDATORY | NEGOTIABLE)
 
 `0x000B` 이므로 **bit2 는 마스크 밖**이고, 예약 비트 거부 규칙이 bit2 와 bit4-15 를 함께 잡는다.
 
+#### ⚠️ 정정 (D14, 2026-08-19) — `MANDATORY_FLAGS` 는 **협상 불변식**이며 프레임별 술어가 아니다
+
+위 문단은 **서로 다른 두 불변식을 한 상수에 담았다.** 확정 처분은 `06` §3.5 D14 이며, 아래가 그 반영이다.
+
+| 불변식 | 대상 | v1 값 | 위반 시 |
+|---|---|---|---|
+| **협상 불변식** | 클라이언트 `acceptedFlagMask` 가 포함해야 하는 비트 집합 | `MANDATORY_FLAGS = bit0 \| bit3 = 0x0009` | 협상 실패 — `terminal-binary:rejected(reason='mandatory-flag-not-accepted')` (아래 송신 규칙) |
+| **프레임별 불변식** | 개별 프레임의 `flags` 가 세워야 하는 비트 | **`PROLOGUE_PRESENT`(bit3) 뿐** | 프레임 거부 — `mandatory-flag-cleared` (§3.4) |
+
+**bit0 은 프레임별 불변식이 아니다.** §1.2 표 자신이 `END_OF_BATCH` 를 "현재 WS 메시지의 **마지막** 논리 프레임" 에만 세우도록 규정하므로(위 bit0 행), **마지막이 아닌 프레임의 bit0 = 0 은 정상**이다. 따라서 디코더 술어를 `(flags & MANDATORY_FLAGS) === MANDATORY_FLAGS` 로 두면 **모든 배치 중간 프레임을 거부**한다.
+
+이것은 추론이 아니라 **측정된 사실**이다 `[설계결정]` — 잘못된 술어를 실제로 넣고 코덱 스위트를 돌린 결과 **78건 중 14건이 red** 였고, 그중 **11건은 D14 를 위해 신설한 대조군이 아니라 기존 테스트**였다(배치·채널·등급 테스트 포함). 실측 기록은 `06` §5 S2-g "D14 구현 결과" 에 있다.
+
+**확정 술어**: `prologueBytes(opcode) > 0 && (flags & PROLOGUE_PRESENT) === 0` → `mandatory-flag-cleared`(fatal). `MANDATORY_FLAGS` 를 마스크로 쓰지 않는다.
+
+**프롤로그가 없는 opcode 에서 bit3 = 0 은 정상이다.** 술어의 정의역을 `prologueBytes(opcode) > 0` 으로 좁힌 이유가 이것이다 — 프롤로그 스키마가 없는 opcode 의 프레임은 **실제로 프롤로그를 싣지 않으므로**, 그 프레임에서 거짓말은 bit3 를 끈 것이 아니라 **켠 것**이다. §1.8 이 7종 전부에 프롤로그를 정의한 뒤에는 이 정의역이 자동으로 전체로 넓어지며 술어는 한 글자도 바뀌지 않는다.
+
+⚠️ **디코더는 bit3 로 레이아웃을 결정하지 않는다.** 프롤로그 크기는 **opcode 만의 함수**다(§1.8, `prologueBytes()`). 따라서 위 문단이 경고한 "비트만 지우면 디코더가 프롤로그를 본문으로 오독한다" 는 이 설계에서는 **성립하지 않는다** — bit3 검사의 목적은 정확성 방어가 아니라 **비정합 피어의 조기 검출**이고, 그래서 등급이 fatal(연결 단위 재협상)이다.
+
 **수신 거부 규칙 (단일 정의)**: `(flags & ~activeFlagMask) !== 0` 이면 `reserved-flag-set` 으로 프레임 거부. 협상 전 기본 마스크는 `0x000B` 다. 이 동적 규칙이 정본이며, "bit4-15 고정 거부" 는 그 특수 사례다 — 두 규칙을 병기하지 않는다.
 
 **송신 규칙**: 서버는 `flags & ~activeFlagMask` 를 세우지 않는다. 단 `MANDATORY_FLAGS` 는 마스크에서 제외될 수 없으므로 — 클라이언트가 `acceptedFlagMask` 에 `MANDATORY_FLAGS` 를 포함하지 않으면 서버는 `terminal-binary:rejected(reason='mandatory-flag-not-accepted')` 로 협상을 실패시킨다.
@@ -172,7 +191,18 @@ activeFlagMask: number;     // 서버가 실제로 세울 비트. 항상 client 
 
 > ⚠️ **`screen-repair` 는 같은 `type` 문자열이 양방향에 존재한다.** C→S 요청은 `ScreenRepairRequestMessage` (`ws-protocol.ts:618-626`, `{cols, rows, reason, clientAtBottom, clientBufferType}`), S→C 패치는 `ScreenRepairMessage` (`:648-660`, `{seq, cols, rows, bufferType, cursor, viewportRows, ansiPatch}`) 로 **구조가 전혀 다른데 판별자가 같다.** 현행 JSON 에서는 방향이 곧 판별자라 문제가 없다. 바이너리에서도 opcode `0x03` 은 **S→C 방향에만 할당**되며, C→S 요청은 JSON 평면에 남으므로 충돌하지 않는다. 다만 opcode 표를 방향 구분 없이 기계 생성하면 두 타입이 하나의 opcode 로 접히므로 `[설계결정]` — **opcode 네임스페이스는 방향별로 분리**한다(S→C 표와 C→S 표를 따로 둔다). v1 의 C→S 는 전부 JSON 이므로 C→S opcode 표는 비어 있다.
 
-`terminal-checkpoint:commit`(0x06) 은 페이로드가 작아 바이너리 이득이 거의 없다. 그럼에도 데이터 평면에 둔 것은 `[설계결정]` 이며 근거는 **순서**다: start → chunk × N → commit 이 하나의 `sourceSeq` 연속열을 이루는데, commit 만 JSON 텍스트 프레임으로 내보내면 그 연속열이 두 인코딩에 걸쳐 쪼개진다. WS 자체는 순서를 보장하므로 정확성 문제는 없으나, 디코더가 "이 스트림의 sourceSeq 는 연속이다"라는 불변식을 유지할 수 없게 된다.
+`terminal-checkpoint:commit`(0x06) 을 데이터 평면에 둔 것은 `[설계결정]` 이다. **근거 서술은 2026-08-19 에 정정되었다 — 아래가 정본이며, 이전 판의 두 근거는 둘 다 틀렸다.**
+
+| 이전 판의 근거 | 판정 | 정정 |
+|---|---|---|
+| "commit 은 페이로드가 작아 바이너리 이득이 거의 없다" | **틀렸다** | commit 은 sha256 hex 문자열 **2개**(각 71자)와 Ordinal64 decimal **6개**를 싣는다. JSON **약 730 B** `[추정]` → 바이너리 **116 B**(헤더 28 + 프롤로그 88). **대역폭만으로 독립적으로 정당화된다.** 셈법은 `07` §8.3 |
+| "start → chunk×N → commit 이 하나의 `sourceSeq` 연속열을 이룬다" | **틀렸다** | checkpoint 평면의 `sourceSeq` 는 세 메시지에서 **연속열이 아니라 상수**다. 서버는 셋 다 같은 `identity` 에서 만들고(`TerminalAuthorityProductionAdapter.ts:1677` `identity.sourceSeq = snapshotSeq`), 클라이언트는 output 이 아닌 모든 checkpoint 메시지에 대해 `activeIdentity.sourceSeq !== message.sourceSeq` 이면 `checkpoint-identity-mismatch` 로 실패시킨다(`frontend/src/utils/terminalCheckpointRuntime.ts:1209`). 즉 **같아야만 한다** — 전진하면 오히려 오류다 |
+
+**정정된 근거** `[설계결정]`: 지키려는 실질은 **한 체크포인트 트랜잭션이 두 인코딩에 걸쳐 쪼개지지 않는 것**이고, 그것은 `0x04`~`0x07` 을 전부 바이너리 평면에 두면 성립한다. 헤더의 **전송 계층** `sourceSeq`(§1.4 의 2계층 식별)는 바이너리 프레임마다 1 증가하므로 트랜잭션이 하나의 연속 구간(예: start 12 → chunk 13/14/15 → commit 16 → output 17)을 차지하고, checkpoint 평면 ordinal 은 start·commit 이 같은 값으로 유지되어 `:1209` 의 등식 검사가 그대로 성립한다.
+
+> ⚠️ **JSON control 메시지는 전송 계층 ordinal 을 소비하지 않는다** — 헤더가 없기 때문이다. 따라서 "commit 만 JSON 으로 나가면 남은 바이너리 프레임의 `sourceSeq` 연속성이 깨진다" 도 성립하지 않았다. 이전 판의 문언이 가리킨 불변식은 **애초에 존재하지 않았다.** 전수 논증은 `07` §6.
+>
+> `[미확인]` — 전송 계층 ordinal 은 **아직 배선되어 있지 않다**(§1.4 의 최대 리스크 절). 위 연속 구간은 S4 가 프레임마다 세션 ordinal 을 1 증가시키는 배선을 실제로 넣어야 성립한다.
 
 #### JSON 평면 (control plane) — 전수
 
@@ -483,7 +513,9 @@ WebSocket 프레임이 이미 길이를 갖는데 4바이트를 더 쓰는 것�
 
 ### 1.8 payload 프롤로그
 
-`PROLOGUE_PRESENT` 플래그가 설 때만 존재. opcode 별로 고정 레이아웃이며, 프롤로그 뒤부터 본문이다.
+opcode 별로 고정 레이아웃이며, 프롤로그 뒤부터 본문이다.
+
+⚠️ **프롤로그의 존재와 크기를 정하는 것은 `opcode` 이지 `PROLOGUE_PRESENT`(bit3)가 아니다** (D14 정정). bit3 는 그 사실을 **선언**하는 비트이고, 프롤로그를 싣는 opcode 가 bit3 를 끄면 `mandatory-flag-cleared`(fatal)로 거부된다(§1.2, §3.4). 디코더가 bit3 를 레이아웃 결정에 쓰지 않는다는 성질이 이 절의 안전성 근거다.
 
 #### `0x01 OUTPUT` (프롤로그 24B)
 
@@ -524,6 +556,49 @@ WebSocket 프레임이 이미 길이를 갖는데 4바이트를 더 쓰는 것�
 `chunkIndex`(u32) / `chunkCount`(u32) / `viewGeneration`(u32). 본문은 **base64 디코딩된 원시 바이트**. 현행은 base64 문자열(`ws-protocol.ts:75-79`, 64 KiB 청크 `TerminalAuthorityProductionAdapter.ts:298`)이므로 여기서 33% 가 즉시 절약된다.
 
 `digest` 는 sha256 hex 32바이트 — `commit`(0x06) 프롤로그에 원시 32바이트로 싣는다(hex 64자 → 32B, 50% 절약).
+
+#### 나머지 4종 `0x03` · `0x04` · `0x06` · `0x07` (D15, 2026-08-19 편입)
+
+이전 판은 프롤로그를 `0x01`/`0x02`/`0x05` 세 opcode 에만 정의했다. 그 결과 배정된 opcode 7종 중 **4종이 인코딩 불가**였고(`prologueBytes()` 가 0 을 반환 → 인코더가 입구에서 거부), 그것이 `06` §3.5 **D15 = S4 착수 차단 항목**으로 등재되었다. **D15 안 (a)(나머지 4종 레이아웃 추가)를 채택해 여기서 닫는다.**
+
+##### 정본 관계 `[설계결정]` — 어느 쪽이 SSOT 인가
+
+| | 규정 |
+|---|---|
+| **SSOT** | **`01 §1.8` 이 프롤로그 사양의 유일한 정본이다.** 아래 요약 표와 §1.8 의 불변식이 계약이다 |
+| **참조편입** | 4종의 **바이트 오프셋 표 · 필드 분류 근거 · 거부 조건 · 손계산 골든 벡터**는 `docs/research/binary-comms/07-prologue-spec-remaining-opcodes.md` §1.6 / §2.9 / §3.4 / §4.3 을 **참조편입**한다. 여기에 복제하지 않는다 (중복 금지) |
+| **`07` 의 지위** | **2026-08-19 내용으로 동결된 부속서**다. 개정은 `07` 을 고치는 것이 아니라 `01 §1.8` 에 개정 조항을 적는 방식으로 한다 |
+| **충돌 시** | **`01 §1.8` 이 이긴다.** 두 문서가 어긋나면 `07` 이 stale 인 것이다 |
+
+##### 요약 표 (계약 — 상세는 `07`)
+
+| opcode | 메시지 (S→C) | 프롤로그 | 본문 | flags | 상세 |
+|---:|---|---:|---|---|---|
+| `0x03` | `ScreenRepairMessage` (`ws-protocol.ts:648-660`) | **24 B** | `ansiPatch` UTF-8 | `0x0009` | `07` §1.6 |
+| `0x04` | `TerminalCheckpointStartMessage` (`:81-94`) | **160 B** | `parserTail` 원시 바이트 (**0 B 가 통상**) | `0x0009` | `07` §2.9 |
+| `0x06` | `TerminalCheckpointCommitMessage` (`:103-109`) | **88 B** | **없음.** `payloadLength === 88` 이어야 한다 | `0x0009` | `07` §3.4 |
+| `0x07` | `TerminalCheckpointOutputMessage` (`:111-114`) | **12 B** | 원시 바이트 (0 B 가능) | `0x0009` | `07` §4.3 |
+
+`prologueBytes()` 확정값: `0x01` 24 / `0x02` 24 / `0x03` 24 / `0x04` 160 / `0x05` 12 / `0x06` 88 / `0x07` 12. **배정 7종 전부가 0 이 아니게 되므로 D15 가 닫힌다.**
+
+##### 7종 전체에 걸리는 불변식 (여기가 소유자)
+
+아래는 `07` 이 아니라 **이 절이 소유한다** — `0x01`/`0x02`/`0x05` 에도 함께 걸리기 때문이다.
+
+1. **프롤로그 길이는 `opcode` 만의 함수다.** `flags` 에 의존시키지 않는다. 이것이 §1.2 D14 정정의 전제 — bit3 가 잘못 서거나 꺼져도 디코더가 프롤로그를 본문으로 오독하지 않는 이유다.
+2. **checkpoint 계열(`0x04`/`0x05`/`0x06`/`0x07`)의 프롤로그 오프셋 8..11 은 항상 `viewGeneration` uint32** 다.
+3. **`0x04` 와 `0x06` 의 프롤로그 오프셋 0..15 는 동일**하다 (`checkpointSourceSeq` u64 / `viewGeneration` u32 / `chunkCount` u32).
+4. **checkpoint 평면 ordinal 은 헤더 값과 다른 값이며 프롤로그가 명시적으로 싣는다.** 이름은 `checkpointSourceSeq` / `checkpointStreamEpoch` 로 헤더 필드명과 구분한다 — §1.4 의 "수렴시킨다" 는 **미래형**이고, 현재 두 값의 출처가 다르다(checkpoint 쪽 `TerminalAuthorityProductionAdapter.ts:1667`, 전송 계층 쪽 §1.6 이 정본으로 지정한 `SessionManager.ts:1076`).
+5. **`flags2` 는 "opcode 별 확장 비트필드" 이지 고정 오프셋 필드가 아니다.** `0x02`/`0x03` 은 프롤로그+14, `0x04` 는 +74, `0x06` 은 +20 이다. checkpoint 계열은 ordinal 블록이 앞에 와야 8정렬이 성립해 고정이 불가능하다.
+6. **v1 에서 `PAYLOAD_UTF8_TEXT`(bit1)를 세우는 opcode 는 `0x01` 뿐이다.** §1.2 의 "인코더가 `Buffer.from(str,'utf8')` 를 쓰는 경로에서는 무조건 세운다" 는 기준을 문자 그대로 적용하면 `0x03`/`0x04`/`0x05`/`0x07` 도 해당하는데, 그렇게 하면 기존 골든 벡터 2개가 바뀐다. bit1 은 **힌트**이고 이득은 핫패스뿐이므로 **기준을 "opcode 기준, v1 은 `0x01` 만" 으로 재서술**한다 `[설계결정]`.
+
+##### ⚠️ `[미확인]` — 인덱스 `0` 의 의미가 정의되어 있지 않다
+
+§1.8 은 `authorityEpochIndex` / `replayTokenIndex`(그리고 D15 가 추가한 `repairTokenIndex`)를 uint16 으로 정했으나 **`0` 의 의미를 정의한 적이 없다.** `authorityEpoch` 는 optional 이므로(`ws-protocol.ts:30`) 부재를 표현할 수단이 필요하다.
+
+`07` §8.2 는 **1-based · `0` = absent** 를 제안했고(`channelId = 0` 예약과 같은 논리), 그 규칙 자체는 타당하다. **그러나 소급 적용에 걸리는 것이 있다** — 기존 골든 벡터 **`output-minimal-52` 가 `authorityEpochIndex = 0`** 을 쓰고 있어, 규칙을 채택하면 그 벡터의 의미가 "authorityEpoch 부재" 로 **바뀐다.** 그것이 원 의도였는지 확인하지 못했다.
+
+⇒ **`[미확인]` 으로 등재하고 §6 확인 목록에 남긴다.** 확정 전까지 인코더/디코더는 이 슬롯에 의미를 부여하지 않는다. 규칙을 채택하지 않기로 결정할 경우의 대안은 `0x04` `flags2` bit4(현재 예약)를 `AUTHORITY_EPOCH_PRESENT` 로 쓰는 것이다.
 
 ### 1.9 프레임에 넣지 **않는** 것과 그 이유
 
@@ -927,7 +1002,22 @@ onmessage(event):
       dispatch(parsed)
 ```
 
-`decodeFrame` 의 거부 사유 전수 (부록 B 와 1:1):
+#### 거부 사유 — **두 계열**이다 (D13 정정, 2026-08-19)
+
+이전 판은 아래 10종을 **"전수"** 라고 불렀다. 정정한다: **10종은 *wire 어휘*이고, 그와 별도로 *디코더 정책 코드* 계열이 존재한다.**
+
+| 시점 | wire | policy | 합 |
+|---|---:|---:|---:|
+| 현행 구현 (`binaryFrameCodec.ts`, 2026-08-19) | **10** | 3 (`payload-underrun` · `payload-limit-exceeded` · `mandatory-flag-cleared`) | **13** |
+| D15(§1.8) 반영 후 | **10** | 4 (+ `prologue-domain-violation`) | **14** |
+
+**wire 10종은 어느 판본에서도 불변이다** — 그것이 이 분리의 요지다.
+
+**왜 두 계열로 나누는가** `[설계결정]` — 아래 10종 목록은 **이 문서 문면의 축자 사본**이고, 구현의 인벤토리 테스트가 그 10종을 리터럴로 적어 대조한다. 즉 기대값의 출처가 `01` 이라서 성립하는 검사다. 여기에 구현이 발명한 코드를 끼워 넣는 순간 그 리스트는 축자 사본이 아니게 되고, **인벤토리 테스트는 구현을 구현 자신과 대조**하게 되어 공허해진다. 그래서 **wire 어휘는 동결하고, "`01` 에 코드가 없는데 거부해야 하는" 조건은 별도 계열에 담는다.**
+
+##### 계열 1 — wire 어휘 **10종 (동결)**
+
+`server/src/ws/binaryFrameCodec.ts:125-136` `WIRE_REJECTION_CODES` 가 이 표의 축자 사본이다. **이 목록은 늘리지 않는다.**
 
 | 코드 | 조건 |
 |---|---|
@@ -944,6 +1034,25 @@ onmessage(event):
 
 전부 진단 이벤트로 기록한다. `RETIRED` 채널의 프레임은 이 목록에 없다 — 폐기하되 복구를 요청하지 않는다 (§1.5).
 
+##### 계열 2 — 디코더 정책 코드 (wire 어휘 밖)
+
+`binaryFrameCodec.ts:168-172` `DECODER_POLICY_CODES`. **소속이 등급을 정하지 않는다** — 등급은 아래 성질 규칙으로 갈린다.
+
+| 코드 | 조건 | 등급 | 근거 |
+|---|---|---|---|
+| `payload-underrun` | `payloadLength` 가 필수 프롤로그(+ 세그먼트 배열)를 담을 수 없다 | **fatal** | `PROLOGUE_PRESENT` 는 프레임별 필수(§1.2 D14)이므로 `payloadLength = 0` 인 OUTPUT 은 "빈 본문" 이 아니라 "프롤로그 없음" 이다. 선언 길이 자체를 못 믿으므로 그것이 함의하는 `frameEnd` 도 못 믿는다. `length-overrun`(`28 + 0 ≤ 28`)으로도 `truncated-header`(헤더 28B 는 온전)로도 표현되지 않는다 |
+| `payload-limit-exceeded` | 본문 바이트가 정책 상한 초과 | **scoped** | 아래 |
+| `mandatory-flag-cleared` | 프롤로그를 싣는 opcode 인데 bit3 = 0 (§1.2 D14) | **fatal** | `reserved-flag-set` 에 합치지 않는다 — 그 코드는 마스크 *밖* 비트가 **선** 것을 뜻하고 이것은 마스크 *안* 비트가 **꺼진** 것이라, 합치면 진단이 정반대로 읽힌다 |
+| `prologue-domain-violation` | 프레이밍은 건전한데 **프롤로그 필드 값이 정의된 도메인 밖** (D15 신설) | **scoped** | 아래 |
+
+**`payload-limit-exceeded` 를 `length-overrun` 에 합치지 않는 이유**: 두 조건을 한 코드로 묶으면 상한 초과 fault 테스트가 실제로는 **길이 불일치 fault** 를 측정하게 된다. 분리해야 어느 쪽이 발동했는지 구별된다.
+
+**`prologue-domain-violation` (D15 신설)** — 신설 4종이 도입하는 fault 는 전부 같은 성격이다: 프레이밍은 건전한데 프롤로그 필드 값이 도메인 밖이다(`0x03` `bufferType > 1`·`cursorHidden > 2`·예약 슬롯 ≠ 0 / `0x04` `chunkCount == 0`·`cols|rows == 0`·`modesValueMask & ~modesPresentMask` / `0x06` `payloadLength > 88` 등 — 전수는 `07` §1.8 / §2.11 / §3.6). 기존 12종 중 어느 것으로도 표현되지 않는다 — `reserved-flag-set` 은 **헤더의 `flags`** 전용이고 `payload-underrun` 은 길이 전용이다. **위반 종류마다 코드를 신설하지 않는다** — 그러면 어휘가 opcode 수에 비례해 늘어난다.
+
+> **이 코드는 기존 `0x05` 의 공백도 함께 닫는다.** `0x05` 의 클라이언트 계약은 `chunkIndex < chunkCount` 이고 `chunkCount` 는 양수여야 하는데(`frontend/src/types/ws-protocol.ts:1233-1235`), 현행 디코더는 둘 다 검사하지 않고 값을 그대로 넘긴다.
+>
+> `0x07` 은 프롤로그가 uint64 + uint32 뿐이고 둘 다 전 범위가 유효하므로, **배정 7종 중 유일하게 이 코드를 유발할 수 없다.**
+
 > **`stale-codec-epoch` 는 클라이언트 측 코드가 아니다.** `codecEpoch` 는 헤더 28B 에 없고 서버측 `WirePayload` 에만 있으므로(§3.1), 클라이언트는 프레임 바이트만으로 구세대 여부를 판정할 수 없다. 구세대 프레임 차단은 **서버가 전송 직전에** 수행하며 그 에러 문자열은 `codec-epoch-retired` 다 (§4.4). 클라이언트 쪽 최후 방어선은 `codecEpoch` 가 아니라 **`streamEpoch`** 다 — 롤백은 항상 `streamEpoch` 을 올리므로 구세대 프레임은 `stale-stream-epoch` 로 걸린다 (`terminalWriteCoordinator.ts:1127-1130`). `codecEpoch` 를 헤더에 넣지 않는 이유가 이것이다 `[설계결정]` — `streamEpoch` 이 이미 그 일을 하고 있어 4바이트가 중복이다.
 
 #### 배치 안의 부분 실패 — 유효 프레임을 버리지 않는다
@@ -952,10 +1061,19 @@ onmessage(event):
 
 `[설계결정]` — 오류를 **치명(fatal)** 과 **국소(scoped)** 로 나눈다.
 
-| 등급 | 코드 | 처리 |
+> ⚠️ **등급은 목록이 아니라 성질로 정한다** (D13 정정, 2026-08-19). 아래 표의 코드 나열은 **성질을 적용한 결과의 예시**이지 정의가 아니다. 목록으로 읽으면 새 코드마다 같은 오분류가 반복된다 — 실제로 `payload-limit-exceeded` 가 처음에 fatal 로 분류됐다가 성질 기준으로 scoped 로 정정되었고, 국소 등급이 `unknown-channel` 하나뿐이라는 전제도 그때 무너졌다.
+>
+> **성질 (정의)**: *"프레이밍 자체를 신뢰할 수 없어 이후 오프셋이 무의미한가."* 그렇다면 fatal, 아니면 scoped.
+>
+> 이 기준의 적용 사례:
+> - `payload-limit-exceeded` → **scoped.** 프레이밍이 건전하다 — `payloadLength` 가 버퍼와 일치하며(그게 `length-overrun` 과 구분되는 지점이다) `frameEnd` 를 알 수 있으므로 그 프레임만 건너뛰고 배치를 이어간다. fatal 로 두면 같은 WS 메시지의 이후 프레임을 전부 버리는데, 그것이 바로 아래 문단이 반대하는 손실 패턴이다.
+> - `prologue-domain-violation` → **scoped.** 같은 이유 — `opcode` 가 레이아웃을 주고 `payloadLength` 가 버퍼와 일치한다.
+> - `mandatory-flag-cleared` → **fatal.** `frameEnd` 는 알 수 있지만(레이아웃은 opcode 가 준다), 여기서 신뢰할 수 없는 것은 **한 오프셋이 아니라 피어의 인코더 전체**이고 처분은 연결 단위 재협상이다. 배치를 이어갈 실익이 없다.
+
+| 등급 | 코드 (성질 적용 결과) | 처리 |
 |---|---|---|
-| **치명** — 프레이밍 자체를 신뢰할 수 없어 이후 오프셋이 무의미 | `truncated-header`, `bad-frame-version`, `unknown-opcode`, `reserved-flag-set`, `length-overrun`, `batch-terminated-early`, `batch-not-terminated`, `reserved-channel`, `binary-frame-on-json-group` | **이미 파싱된 프레임을 먼저 디스패치**한 뒤 연결 단위 복구(재협상/reconnect)로 수렴 |
-| **국소** — 프레이밍은 건전하고 해당 채널만 문제 | `unknown-channel` | 그 프레임만 건너뛰고 **파싱을 계속**한다. 해당 채널에만 fresh snapshot 요청 |
+| **치명** — 프레이밍 자체를 신뢰할 수 없어 이후 오프셋이 무의미 | `truncated-header`, `bad-frame-version`, `unknown-opcode`, `reserved-flag-set`, `length-overrun`, `batch-terminated-early`, `batch-not-terminated`, `reserved-channel`, `binary-frame-on-json-group`, `payload-underrun`, `mandatory-flag-cleared` | **이미 파싱된 프레임을 먼저 디스패치**한 뒤 연결 단위 복구(재협상/reconnect)로 수렴 |
+| **국소** — 프레이밍은 건전하고 그 프레임/채널만 문제 | `unknown-channel`, `payload-limit-exceeded`, `prologue-domain-violation` | 그 프레임만 건너뛰고 **파싱을 계속**한다. `unknown-channel` 은 해당 채널에만 fresh snapshot 요청 |
 
 치명 등급에서도 "먼저 디스패치"가 핵심이다 — 앞쪽 프레임들은 정상적으로 검증을 통과했으므로 버릴 이유가 없다. 디코더는 `{ frames, fatal? }` 를 반환하고, 호출자가 `frames` 를 디스패치한 뒤 `fatal` 을 처리한다.
 
@@ -1187,8 +1305,9 @@ splitSocketGroups.get(control)?.output ?? control
 | 8 | `FR-BGSTAB-006` AC-3 identity 검증 | §5.3 | split 단계 선행 |
 | 9 | `WsRouter.ts:5843` mode 검사 | §5.5 | split 단계 선행 |
 | 10 | `FR-BGSTAB-017` recovery write gate | `00-decision-record.md:93` | snapshot/repair write 일부가 live scheduler 를 우회 |
+| 11 | **인덱스 `0` 의 의미 확정** `[미확인]` | §1.8 (D15) | `07` §8.2 의 "1-based, `0` = absent" 규칙을 채택할지. **기존 골든 벡터 `output-minimal-52` 가 `authorityEpochIndex = 0`** 이라 소급 적용 시 그 벡터의 의미가 바뀐다. 확정 전까지 인코더/디코더는 이 슬롯에 의미를 부여하지 않는다. 미채택 시 대안은 `0x04` `flags2` bit4 를 `AUTHORITY_EPOCH_PRESENT` 로 쓰는 것 |
 
-`[설계결정]` — 1~6 은 `unified` 바이너리의 선행이고, 7~9 는 split 바이너리의 선행이다. **두 묶음을 분리하면 #3 완료를 기다리지 않고 착수할 수 있다.**
+`[설계결정]` — 1~6 과 11 은 `unified` 바이너리의 선행이고, 7~9 는 split 바이너리의 선행이다. **두 묶음을 분리하면 #3 완료를 기다리지 않고 착수할 수 있다.**
 
 ### 검증 불가 사항 — TDD 관점
 
@@ -1230,6 +1349,8 @@ flags: bit0 END_OF_BATCH      (마지막 프레임에 필수)
        bit3 PROLOGUE_PRESENT
        bit2, bit4-15 reserved
        서버는 협상된 activeFlagMask 밖의 비트를 세우지 않는다 (§1.2)
+       ⚠️ 프레임별 필수 비트는 bit3 뿐이다. MANDATORY_FLAGS(bit0|bit3)는 협상 불변식이며
+          디코더 술어로 쓰지 않는다 — 쓰면 배치 중간 프레임이 전부 거부된다 (§1.2 D14)
 
 한 WS 메시지 = 1..N 프레임. 마지막 프레임은 반드시 END_OF_BATCH.
   EOB 인데 마지막이 아님  → batch-terminated-early
@@ -1247,6 +1368,20 @@ flags: bit0 END_OF_BATCH      (마지막 프레임에 필수)
                              truncated u8 | flags2 u16 | authorityRevision u32 |
                              authorityEpochIndex u16 | replayTokenIndex u16
   0x05 CHECKPOINT_CHUNK 12B  chunkIndex u32 | chunkCount u32 | viewGeneration u32
+
+  0x03 SCREEN_REPAIR     24B  ─┐
+  0x04 CHECKPOINT_START 160B   │ 필드 배치는 07 §1.6 / §2.9 / §3.4 / §4.3 을 참조편입한다
+  0x06 CHECKPOINT_COMMIT 88B   │ (§1.8 — 여기에 복제하지 않는다. 충돌 시 §1.8 이 이긴다)
+  0x07 CHECKPOINT_OUTPUT 12B  ─┘
+
+프롤로그 불변식 (7종 전체, §1.8 소유):
+  - 프롤로그 길이는 opcode 만의 함수다. flags 에 의존시키지 않는다
+  - checkpoint 계열(0x04/0x05/0x06/0x07) 프롤로그 오프셋 8..11 = viewGeneration u32
+  - 0x04 와 0x06 의 프롤로그 오프셋 0..15 는 동일
+  - checkpoint 평면 ordinal 은 헤더 값과 다르며 checkpointSourceSeq/checkpointStreamEpoch 로 구분
+  - flags2 는 opcode 별 확장 비트필드다. 고정 오프셋이 아니다
+  - PAYLOAD_UTF8_TEXT(bit1)를 세우는 opcode 는 v1 에서 0x01 뿐이다
+  - 인덱스 필드(authorityEpochIndex/replayTokenIndex/repairTokenIndex)의 0 은 [미확인] — §1.8
 ```
 
 ## 부록 B — 디코더 의사코드

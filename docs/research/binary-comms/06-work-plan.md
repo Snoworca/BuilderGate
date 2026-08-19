@@ -3,9 +3,9 @@
 | 항목 | 값 |
 |---|---|
 | 작성일 | 2026-08-16 |
-| 개정일 | 2026-08-18 (독립 검증 **6차** 반영 — HIGH 3 · MEDIUM 2 · LOW 4. 인용 `file:line` 을 전부 직접 열어 재확인. **전건 반영, 기각 0건 · 수치 정밀화 1건**(§14.0). 라벨 규약은 §14.0·§14.1·§14.2 주의 참조. 선행 5차 기록은 §14.1) |
+| 개정일 | **2026-08-19** (연구 `07`·`08`·`09` 반영 — D13·D14·D15 확정 등재, S4 를 **C0~C6** 으로 재설계, **ACK 도메인 전환을 S4 → S5-c0 로 이관**, 타입 검사 공백 폐쇄(S4-0) 신설, §4.2 줄번호 +8 드리프트 정정. §0 표 43~48행). 선행 2026-08-18 판은 독립 검증 6차 반영 — HIGH 3 · MEDIUM 2 · LOW 4, 기각 0건(§14.0). 라벨 규약은 §14.0·§14.1·§14.2 주의 참조 |
 | 상위 결정 | [`00-decision-record.md`](./00-decision-record.md) — 무조건 도입, 측정 게이트 폐기 |
-| 근거 연구 | [`01`](./01-frame-format-and-negotiation.md) 프레임·협상 / [`02`](./02-server-integration-sites.md) 서버 / [`03`](./03-client-decode-path.md) 클라이언트 / [`04`](./04-srs-amendment-plan.md) SRS / [`05`](./05-test-migration-rollback.md) 테스트·롤백 |
+| 근거 연구 | [`01`](./01-frame-format-and-negotiation.md) 프레임·협상 / [`02`](./02-server-integration-sites.md) 서버 / [`03`](./03-client-decode-path.md) 클라이언트 / [`04`](./04-srs-amendment-plan.md) SRS / [`05`](./05-test-migration-rollback.md) 테스트·롤백 / [`07`](./07-prologue-spec-remaining-opcodes.md) 프롤로그 4종(**`01 §1.8` 이 참조편입**) / [`08`](./08-client-wiring-design.md) S4 클라이언트 배선(**§5 S4-b2 의 정본**) / [`09`](./09-frontend-typecheck-gap.md) 타입 검사 공백(**§5 S4-0 의 정본**) |
 | 대상 target | `wave-5` (현재 Active Target 은 `wave-3` — **`docs/spec/00.index.md:9`** `\| Active Target \| wave-3 \|`. `:35` 는 Target Map 의 wave-3 **행**이지 Active Target 필드가 아니다. 전환은 S0 소관) |
 | 현재 상태 | 착수 전. **S-1 부터** 시작한다 |
 
@@ -61,6 +61,13 @@
 | **40** | (6차 LOW ×4) §1.5 P1 파일 열거 1건 누락(`:8`) · S5-a0 경계 대조군의 "52" · AC 문면 예시가 ledger 실제 범위보다 좁음 · `:836-838` 표기 | 전건 반영. 상세는 §14.0 |
 | **41** | (7차 **HIGH H-1**) §3.1-B 지시 3 의 AC 문면 후보가 **②를 `serverBufferedHardLimitBytes` 백프레셔 게이트로 이름 지목** — 그 게이트가 **`wsSendMode` 종속**이라 스키마 기본값 `'direct'` 에서는 평가조차 되지 않는다 | **AC 문면을 도메인 수준으로 교체**(*"`encodedBytes` 회계 도메인과 와이어 `byteLength` 도메인이 각각 준다"*) + **설정 키 이름 박기 금지.** `wsSendMode` 종속은 노트(S0 지시 5)로 분리. line 427 의 *"기본 배포에서는 ②가 실효 상한 — ≈645,277 프레임"* **폐기**(게이트 미도달). direct 모드의 `byteLength` 상한은 `WsRouter.ts:6169`·`:6182`(`:6158` → `:5761-5763` `perClientOutputQueueMaxBytes`)이며 **적재량 상한이지 총 프레임 수 상한이 아니다** |
 | **42** | (7차 MEDIUM M-1 · LOW ×4) 129 B 대조군의 대체 관측(round-delay)이 **단일 lane 에서 vacuous** · `createPolicy` 인자 타입 · 처치군 한 칸 어긋남 · quantum 384 · `:801` 인용 | M-1 = `:812-814` 가 같은 `drain()` 안에서 quantum 을 재적립해 재시도하므로 라운드 수·`sentCount`·latency 어느 것도 갈리지 않는다 → **경쟁 lane + `sent` 순서(round-robin 스킵) 단정으로 교체.** LOW 4건 전건 반영(`{value, source}` · 3번째 delivery · quantum **256** · `:800`). 상세는 §14.0-A |
+| **43** | **D13·D14·D15 가 "개정 필요"·"차단" 상태로 열려 있었다** | **§3.5 에서 전건 확정 등재.** D13 = wire 10종(동결) + policy 계열 분리 / D14 = 프레임별 필수 비트는 **bit3 뿐**, **측정 근거 14/78(그중 기존 11건)** 을 함께 기록 / D15 = **안 (a) 채택, S4 차단 해제**. `01` 은 §1.2·§1.8·§3.4·부록 A·§6 에 반영 |
+| **44** | `01:175` 를 commit 의 데이터 평면 귀속 근거로 인용 | **근거 서술 2건이 틀렸음을 정정** (§5 S2-g D15 "근거 정정"). ① checkpoint 평면 `sourceSeq` 는 연속열이 아니라 **상수**(`TerminalAuthorityProductionAdapter.ts:1677` + `terminalCheckpointRuntime.ts:1209`) ② commit 은 이득이 거의 없는 것이 아니라 **~730 B → 116 B**. **결론은 유지, 근거만 교체** |
+| **45** | **ACK 도메인 전환(`deliverySeq → sourceSeq`)이 S4 과제로 등재** | **S5-c0 으로 이관 + 신설** (§5). S4 에서는 불가능하고 무의미하다 — `sourceSeq` 는 `wsSendPolicy.ts` 에 **0회** 등장하고, `01:748` 이 요구한 `WsTransportMessage.sourceSeq` 승격이 **S1 에서 안 됐으며**(승격분은 `connectionEpoch`/`deliverySeq`/`deliveryKind` 3개), S4 는 `binary-shadow` 라 와이어가 JSON 이다. **S5-c 진입의 하드 선행조건**으로 재배치 |
+| **46** | S4 클라이언트가 *"`onOutput` 전체 재작성 / 난이도 L / 위험 높음"* 3줄 | **C0~C6 으로 분해** (§5 S4-b2, 정본 `08`). 정정 3건 등재 — ① **전체 재작성이 아니다**(codec 의존은 세그먼트 분할 **8줄**, 처방은 중립 IR + 어댑터 2개) ② `03:181` 교차평면 순서 위험은 **도달 불가**(`authorityEpoch` 세션당 1회 배정, 재배정 0건) ③ **핀이 이 문서 서술보다 넓다**(P2 18개 중 **6개**, P3 는 2개가 아니라 **11개 파일** 중 **5개**가 S4 대상). **워킹트리가 이미 P2 를 dirty 로 만들어 S4 착수 전부터 red** |
+| **47** | 세그먼트 연접성 검증·`viewportRows[]` 함정이 계획에 없음 | **작업 항목 2건 신설** (§5 S4-b2). ① `visibleOutputRecovery.ts:421`/`:434`/`:436` 의 연접성 검증이 **바이너리 경로에서 조용히 사라진다**(코덱은 `byteStart`/`byteEnd` 를 읽기만 한다) → **공유 순수 함수 `assertContiguousSegments` 추출**(C4) ② `viewportRows[]` 는 wire **100% 중복**이라 제거가 `0x03` 이득의 대부분인데, **왕복 계약을 "클라이언트 관측 투영" 으로 재정의하지 않으면 차분 테스트가 구조적으로 실패**한다(C5/C6) |
+| **48** | 프론트 `tests/**` 98개가 **어떤 tsconfig 에도 속하지 않음** · §4.2 줄번호 5개가 8줄 어긋남 | **S4-0 신설** (정본 `09`) — `tsconfig.test.json`(`extends: tsconfig.app.json`, `include:["src"]` + `files:` allowlist) + `typecheck:tests`. **`tsconfig.json` references 에는 넣지 않는다**(`npm run build` 가 `tsc -b` 라 루트 build 18종 + CI 를 인질로 잡는다). 실측 244/32 · S4 관련 82/8 · **유닛만 35/3(최소 착수 단위)**. **drift 가드가 25줄 차이로 빗나가 있어**(마커 종료 `:310` 직후부터 drift) 타입 검사로는 못 잡는다 → **심볼집합 동결 테스트**. 그리고 §4.2 의 `wsSendPolicy.ts` 인용 5개를 **`:847`/`:848`/`:851`/`:852`/`:853`** 로, `fairDeliveryBytes` 를 **`:606-619`** 로 정정 |
+| **49** | 프롤로그 사양의 `[미확인]` 9건이 어디에도 등재되지 않음 | **§5 S4-0b 신설** — S4 착수 전 확인 목록. **#1 `streamEpoch` 중복 가능성 · #2 lane 폴백 시 순서 역전 · #3 `responderLeaseId` wire 대입 경로 부재**는 판정 필수, 나머지 6건은 기록 후 진행 가능 |
 
 ---
 
@@ -157,7 +164,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 정의 | `tools/wave3/authority-promotion-evidence.test.mjs:129-140` — **`frontend/src/contexts/WebSocketContext.tsx` 와 `frontend/src/types/ws-protocol.ts` 의 sha256** 포함. `:766-777` `readProductionGitStatus()` 가 `git status --porcelain` 출력까지 baseline 과 대조(`:816-819`) |
+| 정의 | `tools/wave3/authority-promotion-evidence.test.mjs:129-140` `redFrontendSourceBaseline` — ⚠️ **정정 (연구8, 2026-08-19): 2개가 아니라 11개 파일**이다. 이전 판은 `WebSocketContext.tsx` 와 `ws-protocol.ts` 2개만 적었다. **그중 S4 대상이 5개** — `:135` `WebSocketContext.tsx` · `:136` `TerminalView.tsx` · `:137` `TerminalContainer.tsx` · `:138` `types/ws-protocol.ts` · `:139` `visibleOutputRecovery.ts`(추가로 `:130` `terminalCheckpointRuntime.ts` 는 S4 범위 밖). **D6 이 재핀 주체를 S3 담당자로 확정했으므로, 이 문서가 열거하지 않았던 `:136`~`:139` 도 baseline 갱신 대상임을 S3 담당자에게 전달해야 한다.** `:766-777` `readProductionGitStatus()` 가 `git status --porcelain` 출력까지 baseline 과 대조(`:816-819`) |
 | 발동 조건 | `mode === 'red'` (`:2522`), mode 는 `--expect-red` 로만 red (`:2470`) → **기본(green) 실행에서는 안 돈다.** 이 파일의 플래그는 `--expect-red`·`--expect-green`·`--self-test`·`--self-test-composite-fixture` (`:2450` 부근) |
 | **⚠️ git 의존 — 단 `--expect-red` 에서만** | `:766-777` `readProductionGitStatus()` 가 `git status --porcelain=v1` 을 실제로 실행한다 → **§2.1 의 "provenance 는 git 을 호출하지 않는다" 는 P1 에만 적용되고 P3 에는 적용되지 않는다** (2차 검증 H-4). ⚠️ **그러나 이 게이트는 무조건 돌지 않는다** (4차 M-2, 직접 확인): `readProductionGitStatus()` 의 **유일한 호출부는 `:816`** 이고 그것을 감싼 `verifyRedProductionUnchanged()`(`:779`)는 **`:2522` `const redProductionUnchanged = mode === 'red' ? verifyRedProductionUnchanged() : null;` 한 곳에서만** 호출된다. **프론트엔드 소스 sha256 핀(`redFrontendSourceBaseline` `:129`)도 같은 함수 안(`:804-805`)이라 동일하게 red 전용이다.** 즉 **워킹트리 dirty 는 `--expect-red` 실행에서만 red** 이며 기본(green) 실행에서는 dirty 여부를 보지 않는다 |
 | 그러나 green 에서도 깨짐 | `:934`/`:938` 실 WS 프로브가 **모든 프레임을 무조건 `JSON.parse`** 한다 (`05:145`) |
@@ -517,7 +524,7 @@ D10–D12 는 이번 검증에서 추가된 것이다.
 | Q5 | **승인** — GitHub 이슈 9건 갱신 (외부 쓰기) | §3.4 가 요구한 명시 승인. **읽기 전용 조사와 달리 되돌리기 어려우므로 코멘트 우선·본문 최소 변경** |
 | Q6 | **삭제하지 않음** (권장안) | `docs/issues/` 는 **git 미추적** → 삭제 시 복구 불가. 조항은 이미 무력화됐고 프레임 계약·롤백 요건·하네스 함정 등 잔여 가치가 있다 |
 
-#### 설계 결정 (D1~D12)
+#### 설계 결정 (D1~D15)
 
 | # | 확정 | 비고 |
 |---|---|---|
@@ -533,6 +540,9 @@ D10–D12 는 이번 검증에서 추가된 것이다.
 | D10 | **(가)안 — 요청/응답 `type` 분리**, 이름은 `terminal-binary:*` 계열 | `terminal-binary:negotiate`(C→S) / `terminal-binary:capability`(S→C) / `:rejected` / `:channel-retired` / `:unknown-channel` = **distinct type 5개**. `01:575` `[설계결정]`(*"checkpoint 관용구를 본뜨고 delivery 형태는 본뜨지 않는다"*)과 `01:577` 의 결함 지적을 **둘 다 만족**한다 — (나)안은 `01:577` 을 철회해야 하므로 기각. `02:594` 의 `terminal-encoding:capability` 도 기각(계열 통일) |
 | D11 | **unified 선행** — `FR-BGSTAB-017` recovery write gate 를 S0.7 에 배치 | `01:1191` 미배정을 이 계획이 확정 |
 | D12 | **4값 사다리** `json \| binary-shadow \| binary-optin \| binary` | 2값은 `binary-shadow` 단계를 삭제한다 |
+| D13 | **확정 (권장안 채택, 2026-08-19).** rejection code 는 **두 계열**이다 — wire 어휘 **10종(동결, 어느 판본에서도 불변)** + decoder-policy 계열. 구현 시점 policy **3종**(`payload-underrun` fatal / `payload-limit-exceeded` **scoped** / `mandatory-flag-cleared` fatal) = **총 13종**, D15 의 `prologue-domain-violation` 을 더하면 policy 4종 = 총 14종. 등급은 목록이 아니라 **성질**로 갈린다 | 본문 §5 S2-g. **`01` 반영 완료** — §3.4 가 두 계열로 분리되고 등급표에 성질 규칙이 명시됐다. 분리 사유: wire 목록은 `01` 문면의 **축자 사본**이라, 발명한 코드를 넣으면 인벤토리 테스트가 **구현을 구현 자신과 대조**하게 되어 공허해진다. 구현: `binaryFrameCodec.ts:125-136`(wire) / `:168-172`(policy) / `:201-206`(등급) |
+| D14 | **확정 (권장안 ① 채택, 구현 완료 2026-08-19).** 프레임별 필수 비트는 **bit3 뿐**. 술어는 `prologueBytes(opcode) > 0 && (flags & PROLOGUE_PRESENT) === 0` → **`mandatory-flag-cleared`(fatal, `DECODER_POLICY_CODES`)**. `MANDATORY_FLAGS` 는 **협상 불변식으로만** 남는다 | 본문 §5 S2-g. **`01` 반영 완료** — §1.2 에 두 불변식 분리표 추가. ⚠️ **측정 근거**: 잘못된 술어 `(flags & MANDATORY_FLAGS) === MANDATORY_FLAGS` 를 실제로 넣고 돌린 결과 **78건 중 14건 red**, **그중 11건이 신설 대조군이 아닌 기존 테스트**(배치·채널·등급 테스트 포함)였다. 즉 "배치 중간 프레임이 전부 거부된다" 는 추론이 아니라 **실측**이다 |
+| D15 | **확정 (안 (a) 채택, 2026-08-19).** `0x03` 24B / `0x04` 160B / `0x06` 88B / `0x07` 12B 프롤로그를 정의해 **배정 7종 전부 인코딩 가능**. **S4 착수 차단 해제** | 사양은 `07-prologue-spec-remaining-opcodes.md`, **`01 §1.8` 이 참조편입**(정본은 `01 §1.8`, `07` 은 동결 부속서, 충돌 시 `01` 이 이긴다). 함께 처리: 신설 거부코드 **`prologue-domain-violation`**(scoped, policy 계열) — 기존 `0x05` 의 `chunkIndex < chunkCount` 미검사 공백도 닫는다. ⚠️ **`01:175` 의 근거 서술 2건이 틀렸음이 드러나 정정됐다** — (i) checkpoint 평면 `sourceSeq` 는 연속열이 아니라 **상수**(`TerminalAuthorityProductionAdapter.ts:1677` + `terminalCheckpointRuntime.ts:1209` 가 등식 강제), (ii) commit 은 이득이 "거의 없는" 것이 아니라 **~730 B → 116 B**. 요구 자체는 충족되나 **근거가 다르다.** 미정 1건: **인덱스 `0` 의 의미** `[미확인]`(기존 골든 벡터 `output-minimal-52` 가 `authorityEpochIndex = 0`) |
 
 **D10 의 셈법 귀결**: (가)안 채택으로 distinct `type` 이 **4개 → 5개**가 되어 `01:637` 의 *"신규 메시지 5종"* 과 인터페이스 수(5)와 type 수(5)가 **처음으로 일치**한다. §6 의 협상 메시지 표와 S0-b 의 `IR-BGSTAB-001` AC 저작이 이 이름을 SSOT 로 쓴다.
 
@@ -609,16 +619,31 @@ encodedBytes(d) = max( bodyBytes(d), 1 )                       // 본문만. 헤
 ```
 // ACK 1회가 반환하는 값 — "직전 ACK 이후 델타" 다. 누적 총액이 아니다.
 creditedBytes(ACK) = Σ_{ lane.lastAcknowledgedSeq < d ≤ ack.deliverySeq } encodedBytes(d)
-                     // wsSendPolicy.ts:839  lane.sent.filter(d => d.deliverySeq > lane.lastAcknowledgedSeq
+                     // wsSendPolicy.ts:847  lane.sent.filter(d => d.deliverySeq > lane.lastAcknowledgedSeq
                      //                                        && d.deliverySeq <= input.deliverySeq)
-                     // wsSendPolicy.ts:840  .reduce((total, d) => total + d.encodedBytes, 0)
-                     // 반환은 :845 { accepted: true, creditedBytes }        → 테스트 :478 이 보는 값
+                     // wsSendPolicy.ts:848  .reduce((total, d) => total + d.encodedBytes, 0)
+                     // 반환은 :853 { accepted: true, creditedBytes }        → 테스트 :478 이 보는 값
 
 // 누적 총액 — lane 원장에 순증한다.
-lane.creditBytes += creditedBytes(ACK)                          // wsSendPolicy.ts:843 → 테스트 :479 가 보는 값
+lane.creditBytes += creditedBytes(ACK)                          // wsSendPolicy.ts:851 → 테스트 :479 가 보는 값
 ```
 
-⚠️ **이전 판의 `creditedBytes(ACK) = Σ_{d ≤ ack.deliverySeq} encodedBytes(d)` 는 누적 총액 식이며, 그대로 구현하면 두 번째 ACK 부터 크레딧이 중복 계상된다** — `:844` `lane.socketQueuedBytes = Math.max(0, lane.socketQueuedBytes - creditedBytes)` 가 과다 차감되어 백프레셔가 조기에 풀린다.
+⚠️ **이전 판의 `creditedBytes(ACK) = Σ_{d ≤ ack.deliverySeq} encodedBytes(d)` 는 누적 총액 식이며, 그대로 구현하면 두 번째 ACK 부터 크레딧이 중복 계상된다** — `:852` `lane.socketQueuedBytes = Math.max(0, lane.socketQueuedBytes - creditedBytes)` 가 과다 차감되어 백프레셔가 조기에 풀린다.
+
+> ⚠️ **줄번호 정정 (연구8 실측, 2026-08-19 — 직접 재확인함).** 위 5개 인용은 이전 판에서 **`:839`/`:840`/`:843`/`:844`/`:845`** 였고 **현재 트리에서 정확히 8줄 어긋나 있었다** → `:847`/`:848`/`:851`/`:852`/`:853`. 같은 절의 `fairDeliveryBytes()` 도 **`:598-611` → `:606-619`** 다(`:606` 함수 선언, `:618` `}).byteLength;`, `:619` 닫는 중괄호). **S1 이 사이드카 3필드(`connectionEpoch`/`deliverySeq`/`deliveryKind`)를 `createWsTransportMessage` 에 추가하며 밀린 것**이다. 옛 줄번호로 찾으면 `:839-840` 은 lane 조회와 `if (!lane)` 가드이고 `:843-845` 는 `ACK_STALE_EPOCH`/`ACK_DUPLICATE`/`ACK_OVER_ACK` 거부 검사라, **S5-a0 담당자가 정산 로직 대신 거부 검사를 고치게 된다.**
+>
+> ⚠️ **같은 드리프트가 이 문서의 다른 절에도 남아 있다. 그리고 폭이 한 가지가 아니다.** 이번 개정은 §4.2 만 정정했다.
+>
+> | 드리프트 | 미정정 인용 | 실제 |
+> |---:|---|---|
+> | **+8** | `06:341`·`:395`·`:406`·`:439`·`:1422`·`:1542`·`:1626`·`:1864`·`:2119`·`:2162`·`:2295`·`:2376` 의 `wsSendPolicy.ts:598` / `:598-611` (함수 본문 끝 `:610`) | `:606` / `:606-619` (`:618`) |
+> | **+8** | §3.1-B·§5 S5-a0·§14 의 `:836`/`:837`/`:838` — 귀속(`ACK_DUPLICATE`/`ACK_OVER_ACK`/`ACK_OUT_OF_ORDER`) 자체는 **여전히 참** | `:844`/`:845`/`:846` |
+> | **+8** | `acknowledge` 시그니처 `:830` · `FairTerminalDelivery.encodedBytes` **`:510`**(§3.1·§4.2·§4 S2-b 등 다수) · 인터페이스 닫는 중괄호 `:511` | `:838` · **`:518`** · `:519` |
+> | **+5** | `FairTerminalDeliveryKind` `:493` · `FairTerminalDeliveryInput` 헤더 `:495` · `payload: string` `:499` | `:498` · `:500` · `:504` |
+>
+> **폭이 갈리는 이유**: S1 이 `FairTerminalDeliveryInput` **안쪽**(`:505-507`)에 `payloadFields` 사이드카 3줄을 넣었다. 그 지점 **앞**은 +5, **뒤**는 +8 이다. ⚠️ **따라서 "전부 +8" 로 일괄 치환하면 안 된다** — 앞쪽 4개가 3줄씩 어긋난다. `FairTerminalDelivery` 자체는 `:516-519` 이고 `encodedBytes` 는 **`:518`** 이다(직접 확인).
+>
+> **§14 검증 반영 기록은 그 시점의 관측을 보존해야 하므로 손대지 않는다.** 나머지는 S5-a0 착수 전에 일괄 정정한다.
 
 ⚠️ **테스트가 이 오류를 못 잡는다.** `FairTerminalDeliveryScheduler.test.ts:472-479` 는 **새 lane 에서 ACK 를 한 번만** 보내므로 `lane.lastAcknowledgedSeq === 0` 이고, 그때는 델타와 누적 총액이 **우연히 일치**해 `:478` 과 `:479` 가 같은 `expectedBytes` 로 통과한다. **§S5-a0 에서 이 단정을 손볼 때 두 번째 ACK(seq3)를 추가해 두 값을 갈라 놓는다** — 그러지 않으면 도메인 전환 뒤에도 같은 사각지대가 남는다.
 
@@ -628,7 +653,7 @@ lane.creditBytes += creditedBytes(ACK)                          // wsSendPolicy.
 
 - `bufferedAmount` 는 `WsRouter.ts` 에 **9회** (`:6083`, `:6084`, `:6098`, `:6213`, `:6214`, `:6219`, `:6223`, `:6573`, `:6574`)
 - `02:252` 가 "변경 불필요" 로 열거한 바이트 회계 지점은 그보다 많지만 **정확한 수는 `02` 가 세지 않았다**
-- **두 번째 회계 지점**은 `wsSendPolicy.ts:598-611` `fairDeliveryBytes()` — 회계 목적으로 `createWsTransportMessage(...).byteLength` 를 **재호출**한다 (직접 확인). ⚠️ **이것이 오늘의 `encodedBytes` 산출식이며 도메인은 JSON 봉투 전체다** — 위 확정식과 어긋나므로 **무수정 대상이 아니라 §S5-a0 의 변경 대상**이다 (§3.1-B, 4차 검증 H-1)
+- **두 번째 회계 지점**은 `wsSendPolicy.ts:606-619` `fairDeliveryBytes()` — 회계 목적으로 `createWsTransportMessage(...).byteLength` 를 **재호출**한다 (직접 확인, 줄번호는 위 정정 반영). ⚠️ **이것이 오늘의 `encodedBytes` 산출식이며 도메인은 JSON 봉투 전체다** — 위 확정식과 어긋나므로 **무수정 대상이 아니라 §S5-a0 의 변경 대상**이다 (§3.1-B, 4차 검증 H-1)
 
 **클라이언트는 오히려 반대다**: **산수와 결론은 `03:396`** — *"청크 512개로 4 MiB 를 채우려면 **청크당 평균 8,192 바이트**가 필요하다. 즉 평균 프레임이 **8 KiB** 보다 작아지는 순간 바이트 예산이 아니라 **청크 예산이 먼저 터진다**"* (기본값 출처는 `03:394`, `inputReliabilityMode.ts:70-71` = 바이트 4,194,304 / 청크 512). **`03:777` 은 그 결과만 담은 변경 지점 표의 한 행**이다 (2차 검증 L-17 — 이전 판은 8 KiB 산수를 `:777` 에 귀속시켰다). → `chunk-cap-exceeded`(`WebSocketContext.tsx:477`) 조기 발생. 위험 **높음**. `03:404` 의 `[설계결정]` — **청크 회계 단위를 프레임이 아니라 "스케줄러 큐 원소"로 유지**한다.
 
@@ -825,6 +850,8 @@ node --test server/tools/ensure-node-pty-windows-hide.test.cjs
 
 **게이트**: 기준선 문서화 완료. **green 일 필요는 없다** — 알려진 red 를 목록화하는 것이 목적이다.
 
+> ⚠️ **이 문장은 이후 단계의 진입 조건과 모순이 아니다.** 이후 단계(예: §S4-d)가 요구하는 것은 절대 green 이 아니라 **이 기준선 대비 신규 red 0** + **그 단계가 신설·변경한 테스트의 green** 이다. 정의는 §S4-d 의 정합 표. 그리고 **기준선은 각 단계 착수 시점에 다시 떠야 한다** — 워킹트리가 그 사이에 변하면 델타 판정이 성립하지 않는다.
+
 ---
 
 ### S0 — SRS 저작 (코드 없음)
@@ -1008,6 +1035,24 @@ MCP 가용 시 `get_requirement(id="FR-BGSTAB-017")` 로 검증 증거 유무를
 
 이 리팩터는 바이너리와 무관하게 옳다(`01:1182`, `02:665`). `hasFairDeliveryIdentity` 가 **파싱 실패 시 `true`** 를 반환하는 것은 그 자체로 결함이다.
 
+#### S1 — 실행 완료 (2026-08-19) 및 잔여 처분
+
+**결과**: RED(`pass 3 / fail 10`) → GREEN(13/13). 회귀 **증가 0건** — `test-runner.ts` 실패 21건의 **테스트명 집합이 기준선 A-1~A-21 과 완전 일치**. 독립 검증 CRITICAL 0 / HIGH 0.
+
+경계 대조군은 **뮤턴트 실험으로 실증**했다 — 5개 지점을 사이드카 무시로 일시 변조하니 `pass 5 / fail 8`. 검증자가 코드 변조 없이 논리로 재판정한 결과도 *"13개 중 vacuous 없음"* 이었다.
+
+**핀은 S0.5 리허설이 예고한 그대로 물었다**: 구현 직후 `WsRouterSendPriority` 13건 red(`decision-artifact-source-digest-mismatch`) → 재발행(5.2초)으로 41/41 복구 → 그러나 provenance 런타임은 여전히 1건 red → **server 빌드까지** 해야 4/4 green. **재발행만으로는 부족하다**는 것이 실제 작업에서 재확인됐다.
+
+**잔여 3건의 처분** (검증 finding M-1·M-2·M-3):
+
+| # | 사안 | 처분 | 사유 |
+|---|---|---|---|
+| M-3 | dataGap 의 `payload`(직렬화) / `payloadFields`(구조체) 이중 보유 | **일관성 단정을 넣지 않는다. S5-a0 에서 `payload` 제거로 해소** | 생산자(`WsRouter.ts:5100`·`:5120-5121`)가 **단일 `gapFields` 객체**에서 둘 다 파생한다 — SSOT 가 둘이 아니라 하나를 두 형태로 직렬화한 것이다. `JSON.stringify(payloadFields) === payload` 단정은 **같은 출처의 두 값을 비교**하게 되어 §S2-a 가 금지한 vacuity 에 스스로 걸린다(메모리 `check-operands-must-have-independent-origins`). 진짜 해소는 회계가 `payload` 를 더 이상 요구하지 않게 되는 **S5-a0** 이다 |
+| M-1 | P2(`canary-admission-evidence`) 재발행 미이행 | **보류. 워킹트리 커밋 후 재수립** | 이 아티팩트는 **S1 이전부터 이미 stale** 이었다(mtime 2026-07-17, `wave3-baseline.md:69` 기준 이미 exit 1). 지금 재발행하면 **완료되지 않은 남의 미커밋 작업**(추적 수정 121)이 동결 아티팩트에 박힌다. green→red 회귀가 아니므로 급하지 않다 |
+| M-2 | §7 항목 6 이 **개명 축만** 닫고 인자 shape 축은 열려 있음 | **S5-a 전에 닫는다** | `createWsTransportMessage(message: object, …)` 의 첫 인자가 `object` 라 어떤 리터럴도 대입되고, 2·3번째가 optional 이라 호출부가 변경을 관측하지 못한다. 게다가 `npx tsx --test` 는 타입 검사를 하지 않는다. **S5-a 가 9키 정책 인터페이스를 바꾸므로 그 전에 필요하다** |
+
+**함께 이월**: L-5(`SchedulerPolicy` 등 로컬 재선언 + 무검증 캐스트 — S5-a 의 9키 변경이 조용히 통과한다) 와 L-6(`deliveryKind: string` → `FairTerminalDeliveryKind`)는 **다음 핀 파일 편집(S3) 때 함께** 처리한다. 단독으로 고치면 재발행+빌드 사이클을 한 번 더 태운다.
+
 ⚠️ **S1 은 §7 항목 1·2·6 도 함께 처리한다.** 특히 항목 1(vacuous ACK credit 단정)의 기대값은 **이 단계에서는 봉투 도메인**이어야 한다 — S1 의 계약이 *"JSON 상태, 관측 동작 불변"* 이기 때문이다. **본문-only 리터럴(12/9)로 바꾸는 것은 S1 이 아니라 §S5-a0** 이며, 그때 도메인이 실제로 바뀐다. 두 단계의 리터럴을 뒤바꾸면 S1 이 처음부터 red 다 (4차 검증 H-2, §7 항목 1 주).
 
 ---
@@ -1179,6 +1224,131 @@ encode(m).byteLength === 28 + prologueBytes(opcode(m)) + 16 * segmentCount(m) + 
 | **검증 커맨드** | `npx tsx --test src/ws/binaryFrameCodec.test.ts` (cwd=`server/`) |
 | **핀 영향** | **조건부 0** — 새 파일만 만들므로 핀 파일 diff 는 0. **단 새 `*.test.ts` 를 P2 `focusedCommands`(`:58-79`) 나 P4 focused 목록에 넣는 순간 P2·P4 가 동시에 붙는다**(§1.5 매트릭스 각주 ¹). ⚠️ **넣지 않는다** |
 
+#### S2-g. S2 실행 결과 및 잔여 처분 (2026-08-19)
+
+코덱 모듈·골든 벡터·fault 표를 실제로 구현한 결과다. **코드로 닫은 것**과 **`01` 개정이나 결정 등재가 필요해 코드로 닫지 못한 것**을 나눈다. 산출 요건상 `01`~`05` 는 수정하지 않으므로, 아래 **D13~D15** 가 그 개정의 근거 기록이자 SSOT 다.
+
+##### 코드로 닫은 것
+
+| 항목 | 처분 | 확인 |
+|---|---|---|
+| `IR-BGSTAB-001` AC-2 의 Ordinal64 경계 6점 | `2^53-1`(`001fffffffffffff`)·`2^63`(`8000000000000000`)이 벡터 집합에 없었다. 골든 벡터 `output-ordinal-signed-boundary-52` 로 두 점을 손계산 추가 | AC 문면을 리터럴로 적은 기대 집합과 **디코더 출력**을 대조하는 커버리지 테스트를 함께 둔다 — 두 피연산자의 출처가 갈린다(§S2-a) |
+| `readOrdinal64` 의 fast/slow 분기 | fast 경로 값이 전부 `lo ≤ 1000`, slow 경로가 전부 `≥ 2^53` 이라 `[2^31, 2^32)` 와 `2^32` 가 비어 있었다. `output-ordinal-fastpath-boundary-52` 로 `2^31-1`/`2^31`/`2^32-1`/`2^32` 를 straddle | fast 경로를 `getInt32` 로 바꾸면 **기존 60건이 전건 green** 이었다. 벡터 추가 후 red 로 갈린다 |
+| `payload-limit-exceeded` 등급 | **fatal → scoped.** D13 참조 | 오버사이즈 프레임 앞의 프레임이 살아남는지 단정하는 배치 대조군을 추가 |
+| 빈 바이너리 WS 메시지 | 현행 **수용**(frames 0 / fatal 없음)을 fault id `P8` 로 고정. 아래 판단 참조 | 경계 대조군은 1바이트 → `truncated-header`. 수용이 "짧은 버퍼 관용"이 아니라 **정확히 0바이트에서만** 성립함을 가른다 |
+| 수용 대조군의 vacuity | 건수와 fatal 부재만 보던 수용 케이스 **16건**에 디코드된 필드 단정(`expect.decoded`)을 의무화 | 4 KiB 초과 payload 를 조용히 잘라내는 디코더가 **기존 단정을 전부 통과**했다. 지금은 F5 대조군에서 red |
+| `PROLOGUE_PRESENT`(bit3) 미검사 | **D14 권장안 ① 구현 완료** — 전용 코드 `mandatory-flag-cleared`(fatal). 아래 "D14 구현 결과" 참조 | 대조군은 **`bit0=0` 배치 중간 프레임**. 잘못된 `MANDATORY_FLAGS` 술어로 바꿔 넣으면 이 대조군을 포함해 **14건이 red** 가 된다(반증 실측) |
+
+> **빈 WS 메시지를 수용으로 유지한 판단.** 동작을 바꾸지 않는다. ① 부록 B 의사코드(`01:1262`)의 `while off < byteLength` 가 0바이트에서 한 번도 돌지 않는 것이 정본 동작이다. ② 이슈 AC 가 금지한 silent drop 은 **디코드 가능한 페이로드**를 말없이 버리는 것인데, 0바이트는 버릴 것을 싣고 있지 않다. ③ 맞는 코드가 없다 — `batch-not-terminated`(`01:943`)는 프레임 단위 판정인데 프레임이 없다. ④ 그렇다고 무해하지도 않다(빈 바이너리 메시지를 보내는 피어는 고장난 것이다). **권장 처분은 코덱이 아니라 배선(S4) 층의 관측**이다 — "프레임 0개 · 거부 0건인 WS 메시지" 를 세는 것은 연결·세션에 귀속시킬 수 있는 그 층에서만 의미가 있고, 그렇게 하면 11번째 wire 코드를 만들지 않아도 된다.
+
+##### D13 — rejection code 는 10종이 아니라 **12종**이고, 등급은 목록이 아니라 **성질**로 갈린다
+
+`payload-underrun` · `payload-limit-exceeded` 두 코드는 (a) 필요하고 (b) 기존 10종으로 표현 불가하며 (c) 분리 보관이 타당하다.
+
+- **필요성** — `payload-underrun`: OUTPUT 이 `payloadLength = 0` 을 선언한 경우. `PROLOGUE_PRESENT` 가 필수(`01:84`)이므로 이것은 "빈 본문"이 아니라 "프롤로그 없음"이다(P7 정정본).
+- **표현 불가** — 그 프레임에 `length-overrun`(`01:941`, `off + 28 + payloadLength > byteLength`)은 성립하지 않고(`28 + 0 ≤ 28`), 헤더 28B 는 온전하므로 `truncated-header` 도 아니다.
+- **분리 보관** — `payload-limit-exceeded` 를 `length-overrun` 에 합치면 F5 가 F2 를 측정하게 된다(§S2-b F5 주).
+
+그런데 `01:930` 이 여전히 10종을 *"전수"* 라 부른다 → **`01` 개정 필요**(F9 주·L-7 주가 등재한 구조적 공백 2건과 같은 자리에서 닫는다).
+
+**등급.** `01:957` 은 치명을 **성질**로 정의한다 — *"프레이밍 자체를 신뢰할 수 없어 이후 오프셋이 무의미"*. 그 성질을 두 코드에 적용하면 갈린다:
+
+| 코드 | 등급 | 근거 |
+|---|---|---|
+| `payload-underrun` | **fatal** (변경 없음) | 선언 길이 자체를 못 믿으므로 그 길이가 함의하는 `frameEnd` 도 못 믿는다 |
+| `payload-limit-exceeded` | **scoped** (fatal 에서 변경) | 프레이밍이 건전하다 — `payloadLength` 가 버퍼와 일치한다(그게 F2 와 구분되는 지점이다). `frameEnd` 를 알 수 있으므로 그 프레임만 건너뛰고 배치를 이어간다. fatal 로 두면 같은 WS 메시지의 이후 프레임을 전부 버리는데, 그것이 `01:951` 이 반대하는 손실 패턴이다 |
+
+⚠️ 개정 시 `01:957` 의 치명 목록이 **목록이 아니라 성질의 예시**임이 문면에 드러나야 한다. 국소 등급이 `unknown-channel` 하나가 아니게 되므로, 목록으로 읽으면 다음 코드에서 같은 오분류가 반복된다.
+
+> **셈법 갱신 (2026-08-19)**: 이 절이 "12종" 이라 적은 것은 **D14 구현 전** 기준이다. D14 가 `mandatory-flag-cleared` 를 `DECODER_POLICY_CODES` 에 추가해 **정책 코드가 2종 → 3종**이 되었고, D15 가 `prologue-domain-violation` 을 같은 계열에 추가한다. 확정 셈법은 **wire 10 (동결) + policy 4 = 14종**이며, §3.5 D13 행의 "13종" 은 **D15 반영 전** 시점 수치다. **어느 판본에서도 wire 10종은 불변**이고, 그것이 이 결정의 요지다.
+>
+> **`01` 반영 완료** — §3.4 가 계열 1(wire 10, 동결) / 계열 2(policy)로 분리되었고 등급표에 성질 규칙이 명시됐다.
+
+##### D14 — `PROLOGUE_PRESENT`(bit3) 미검사의 처분
+
+§S2-b(`:1079`)가 S2 착수 전에 정하라고 한 항목인데 D1~D12 에 없다. 여기서 닫는다.
+
+**먼저, 검증자의 지적이 옳다.** `01:84` 의 `MANDATORY_FLAGS = bit0 | bit3` 는 **서로 다른 두 불변식을 한 상수에 담은 것**이다.
+
+- **협상 불변식** — 클라이언트 `acceptedFlagMask` 가 이 비트들을 포함해야 한다(`01:93`, 미포함 시 `mandatory-flag-not-accepted` 로 협상 실패). 여기서는 `bit0 | bit3` 이 맞다.
+- **프레임별 불변식** — 개별 프레임의 `flags` 가 무엇을 세워야 하는가. 여기서 **bit0 은 정당하게 0 이다**: `01:75` 가 `END_OF_BATCH` 를 마지막 논리 프레임에만 세우라고 규정하므로, 마지막이 아닌 프레임의 bit0 = 0 은 정상이다. 저장소 안의 실물 — 골든 벡터 `batch-two-output-frames-106` 의 프레임 A 는 `flags = 0x000A` 이고 `defaultFlagsForOpcode(OUTPUT, { endOfBatch: false })` 도 `0x000A` 다.
+
+⚠️ 따라서 디코더에 **`(flags & MANDATORY_FLAGS) === MANDATORY_FLAGS` 를 넣으면 틀린다** — 모든 배치의 마지막이 아닌 프레임을 거부하게 된다. **프레임별 불변식은 bit3 뿐이다.**
+
+**구현이 알려준 사실 하나 더**: 이 코덱에서 bit3 를 검사하지 않아도 `01:81` 이 경고한 오독(프롤로그를 본문으로 읽음)은 일어나지 않는다. 프롤로그 크기를 **opcode 로 결정**하기 때문이다(`prologueBytes()`, `01 §1.8`). 즉 bit3 는 수신 경로에서 레이아웃 결정에 쓰이지 않으며, 검사의 목적은 정확성 방어가 아니라 **비정합 피어의 조기 검출**이다. 이 사실이 아래 선택지의 비용/편익을 정한다.
+
+| 선택지 | 장 | 단 |
+|---|---|---|
+| ① **전용 코드 신설**(예: `mandatory-flag-cleared`) | 진단이 정확하고 F10 과 섞이지 않는다. **D13 이 이미 `01:930`·`01:957` 개정을 요구하므로 한계 비용이 사실상 0** | 코드 수가 다시 늘어난다 |
+| ② `reserved-flag-set` 수렴 | 코드 증가 0 | **이름이 사실과 반대다** — 마스크 *밖* 비트가 선 것이 아니라 마스크 *안* 비트가 꺼진 것이다. F10 의 fault(마스크 밖 비트 set)와 그 대조군이 흐려지고, 진단 문자열만 보는 운영자를 오도한다 |
+| ③ 진단 메타데이터만(`detail`, F9 선례) | 코드 증가 0 | **단독으로 성립하지 않는다** — `detail` 은 *거부에 붙는* 필드인데 이 프레임은 다른 이유로는 거부되지 않는다. 쓰려면 "수용 + 별도 진단 이벤트"(retired-channel 선례 `01:395`) 형태여야 한다 |
+
+**권장 = ①**, 단 두 가지 단서를 붙인다.
+1. 술어는 **`(flags & FLAG_PROLOGUE_PRESENT) === 0` — bit3 단독**이며, `MANDATORY_FLAGS` 를 마스크로 쓰지 않는다.
+2. 등급은 **fatal**. D13 의 성질 기준만 보면 scoped 로 보이지만(opcode 가 레이아웃을 주므로 `frameEnd` 는 안다), 여기서 의심스러운 것은 이 프레임의 오프셋이 아니라 **피어의 인코더 전체**이고 처분은 연결 단위 재협상이다.
+
+`01` 개정 시 함께: `MANDATORY_FLAGS` 는 **협상용**으로 남기고 프레임별 필수 비트를 별도 이름으로 분리해 두 불변식이 다시 섞이지 않게 한다.
+
+###### D14 구현 결과 (2026-08-19, 권장안 ① 채택)
+
+오너 확정("결정은 권장사항을 따른다")에 따라 TDD 로 구현했다. 변경 파일은 `binaryFrameCodec.ts` · `binaryFrameCodec.test.ts` · `__fixtures__/binary-frame-vectors.json` 3개뿐이고 핀 파일 diff 는 0 이다.
+
+| 항목 | 처분 |
+|---|---|
+| **코드명** | `mandatory-flag-cleared` |
+| **소속 리스트** | **`DECODER_POLICY_CODES`** (2종 → 3종). `WIRE_REJECTION_CODES` 는 10종 그대로 |
+| **등급** | **fatal** (권장안 단서 2 그대로) |
+| **술어** | `prologueBytes(opcode) > 0 && (flags & FLAG_PROLOGUE_PRESENT) === 0` — bit3 단독, `MANDATORY_FLAGS` 미사용 |
+| **위치** | `decodeWsMessage` 의 `reserved-flag-set` 검사 직후. fatal 이라 오프셋을 전진시키지 않으므로 배치 경계·길이 검사와 순서 의존이 없다 |
+| **테스트** | 68 → **78건**, 전건 green (`todo 0`, `✖` 0줄) |
+
+**소속 리스트 근거.** `WIRE_REJECTION_CODES` 는 정의상 `01:934-943` 의 **축자 사본**이고, 인벤토리 테스트(`binaryFrameCodec.test.ts`)가 그 10종을 리터럴로 적어 대조한다 — 기대값의 출처가 `01` 문면이라서 성립하는 검사다. 여기에 우리가 신설한 코드를 넣으면 그 리스트는 더 이상 축자 사본이 아니게 되고, 테스트는 **구현을 구현과 대조**하게 되어 공허해진다(§S2-a 의 "두 피연산자의 출처가 갈려야 한다"). D13 이 `payload-underrun`·`payload-limit-exceeded` 에 대해 세운 규칙 — *"`01:934-943` 에 코드가 없는데 거부해야 하면 별도 리스트"* — 을 그대로 적용하면 이 코드도 같은 자리다. 세 번째 리스트를 새로 만들지 않은 것은 기존 계층에 자리가 있기 때문이다. 등급은 리스트 소속이 아니라 성질로 갈리므로(`rejectionGrade`) policy 리스트에 넣어도 fatal 유지에 지장이 없다.
+
+⚠️ 리스트 이름이 `DECODER_POLICY_CODES` 지만 이 코드는 정책값이 아니라 **정합성 신호**다. `01` 개정 시 리스트 이름을 성질에 맞게(예: `NON_WIRE_REJECTION_CODES`) 재검토할 것.
+
+**프롤로그 없는 opcode 의 판정 — bit3=0 을 수용한다.** `01 §1.8` 이 `0x03`/`0x04`/`0x06`/`0x07` 에 프롤로그를 정의하지 않으므로 그 프레임은 **실제로 프롤로그를 싣지 않는다.** 그 프레임에서 거짓말은 bit3 를 끈 것이 아니라 **켠 것**이다. 근거 셋:
+1. **인코더가 그 opcode 를 애초에 못 만든다** (`assertEncodableHead` 가 `prologueBytes === 0` 에서 거부, D15). D14 의 목적은 인코더/디코더 비대칭 해소인데, 그 영역에는 해소할 비대칭이 없다.
+2. 거부하면 D15 가 아직 열어 둔 명세 공백을 **디코더가 먼저 판결**하는 셈이 된다. `01 §1.8` 에 나머지 4개 레이아웃이 추가되면(D15 안 (a)) 그때 술어의 정의역이 자동으로 넓어진다 — `prologueBytes()` 를 술어에 쓴 이유다.
+3. 현행 골든 벡터 `F3-control-max-defined-opcode-07` 이 `flags=0x0009` 로 bit3 를 켜 두고 있으나, 이는 관례일 뿐 계약이 아니다. 대조군 `D14-control-no-prologue-schema-bit3-cleared` 가 bit3 를 끈 같은 프레임도 수용됨을 고정한다.
+
+**⚠️ 잘못된 구현에 대한 반증 실측.** 술어를 `(flags & MANDATORY_FLAGS) !== MANDATORY_FLAGS` 로 바꿔 넣고 돌린 결과 **78건 중 14건이 red** 였다 — 신설 대조군 2건(`D14-control-mid-batch-bit0-cleared`, `D14-control-mid-batch-mandatory-flag-only`)뿐 아니라 **기존 11건**(`S2-a decode(hexFrame) …`, `P4 …`, `F11-control-unknown-channel-is-scoped`, `M-3 …` 등)이 함께 깨졌다. 즉 D14 본문의 경고 *"모든 배치의 마지막이 아닌 프레임을 거부하게 된다"* 는 추론이 아니라 **측정된 사실**이다.
+
+**추가한 벡터 (fault 2 / control 4).** `D14-fault-prologue-present-cleared-52` 만 손계산 리터럴(`layout` + `hexFrame`, 기존 self-audit 테스트가 축자 검증)이고, 나머지는 layout 검증된 골든 벡터의 `derivedFrom` 패치라 손으로 쓴 부분이 flag 2바이트뿐이다.
+
+##### D15 — 배정된 opcode 7개 중 4개를 **인코딩할 수 없다** ✅ **해소됨 (2026-08-19, 안 (a) 채택)**
+
+> **처분 요약** (상세는 아래 원문 + §3.5 D15 행):
+> - **안 (a) 채택** — `07-prologue-spec-remaining-opcodes.md` 가 `0x03` **24 B** / `0x04` **160 B** / `0x06` **88 B** / `0x07` **12 B** 를 확정했고, **`01 §1.8` 이 그것을 참조편입**했다(정본은 `01 §1.8`, `07` 은 동결 부속서, 충돌 시 `01` 이 이긴다). **`prologueBytes()` 가 배정 7종 전부에 0 이 아닌 값을 반환하게 되므로 차단 해제.**
+> - **신설 거부 코드 1개** — `prologue-domain-violation`(scoped, `DECODER_POLICY_CODES`). **기존 `0x05` 의 `chunkIndex < chunkCount` 미검사 공백도 함께 닫힌다.**
+> - ⚠️ **아래 원문이 인용한 `01:175` 의 근거 서술 자체가 틀렸다.** 정정 내용은 이 절 끝의 "⚠️ 근거 정정" 참조. **결론(4종을 바이너리 평면에 둔다)은 바뀌지 않는다 — 근거만 바뀐다.**
+> - **잔여 `[미확인]` 9건**은 §5 S4-0b 에 착수 전 확인 목록으로 등재했다.
+
+`01 §1.8` 이 프롤로그를 `0x01`/`0x02`/`0x05` 에만 정의했으므로 `prologueBytes()` 가 나머지에 0 을 반환하고, 인코더는 그 opcode 를 입구에서 거부한다. **`0x03`(screen-repair S→C) · `0x04`(checkpoint:start) · `0x06`(checkpoint:commit) · `0x07`(checkpoint:output) 는 송신 경로가 없다.** 디코드 쪽은 성립한다 — 유효 프레임으로 수용되고 payload 가 불투명하게 남는다. **공백은 송신 측 전용이다.**
+
+귀결이 `01` 자신의 설계결정을 깬다. `01:175` 가 `commit`(0x06)을 바이너리 평면에 둔 **유일한** 근거는 순서였다 — `start → chunk×N → commit` 이 한 `sourceSeq` 연속열을 이루므로 commit 만 JSON 으로 내보내면 그 연속열이 두 인코딩에 걸쳐 쪼개진다. 그런데 0x04·0x06 을 인코딩할 수 없으면 **start 와 commit 이 JSON 으로, chunk 만 바이너리로** 나가 정확히 그 상태가 된다.
+
+**S4 배선 착수 전에 둘 중 하나를 고른다.**
+
+| 안 | 내용 | 주의 |
+|---|---|---|
+| (a) | `01 §1.8` 에 나머지 4개 프롤로그 레이아웃을 추가 | `0x03` 은 **S→C 패치 전용**이다(`01:173`, S2-d). C→S 요청은 JSON 에 남으므로 레이아웃도 S→C 형태(`ScreenRepairMessage`)만 정의한다 |
+| (b) | v1 데이터 평면을 실제로 인코딩 가능한 3개(`0x01`/`0x02`/`0x05`)로 좁히고, checkpoint start/commit 이 JSON 에 남는 것을 `01:175` 의 **명시적 예외**로 등재 | `sourceSeq` 연속열 불변식을 어떻게 유지할지 — 또는 포기하고 무엇으로 대체할지 — 를 같은 자리에 적어야 한다. 적지 않으면 `01:175` 가 조용히 무효가 된다 |
+
+어느 쪽이든 S4 담당자는 **`SERVER_TO_CLIENT_OPCODE_BY_TYPE` 의 7개 항목 중 4개가 현재 송신 경로 없는 예약 등록**이라는 사실을 알고 시작해야 한다.
+
+###### ⚠️ 근거 정정 — 위 문단이 인용한 `01:175` 는 **두 곳 다 틀렸다** (2026-08-19)
+
+**(a) 채택으로 결론은 유지되지만, 위 문단이 든 근거는 성립하지 않는다.** `01` 을 그에 맞게 개정했다.
+
+| `01:175` 의 서술 | 판정 | 사실 |
+|---|---|---|
+| *"`start → chunk×N → commit` 이 한 `sourceSeq` 연속열을 이룬다"* | **틀렸다** | checkpoint 평면의 `sourceSeq` 는 세 메시지에서 **연속열이 아니라 상수**다. 서버는 셋 다 같은 `identity` 에서 만들고(`TerminalAuthorityProductionAdapter.ts:1677` `identity.sourceSeq = snapshotSeq`), 클라이언트는 `terminalCheckpointRuntime.ts:1209` 가 `activeIdentity.sourceSeq !== message.sourceSeq` 를 **실패로 처리**한다 — 즉 **같아야만 하고 전진하면 오류**다. 그리고 헤더의 전송 계층 `sourceSeq` 로 해석해도, **JSON control 메시지는 그 ordinal 을 소비하지 않으므로**(헤더가 없다) commit 이 JSON 으로 나가도 남은 바이너리 프레임의 연속성은 깨지지 않는다. **두 해석 모두에서 그 불변식은 애초에 존재하지 않았다** |
+| *"commit 은 페이로드가 작아 바이너리 이득이 거의 없다"* | **틀렸다** | commit 은 sha256 hex **2개(각 71자)** + Ordinal64 decimal **6개**를 싣는다. **약 730 B `[추정]` → 116 B.** ⇒ **commit 을 데이터 평면에 두는 결정은 순서 논증이 무너져도 대역폭만으로 독립 정당화된다.** 이것이 안 (b) 를 기각한 실질적 이유다 |
+
+**정정된 근거** `[설계결정]`: 지키려는 실질은 **한 체크포인트 트랜잭션이 두 인코딩에 걸쳐 쪼개지지 않는 것**이고, 4종을 전부 바이너리에 두면 성립한다 — 전송 계층 `sourceSeq` 가 트랜잭션 하나에 연속 구간(start 12 → chunk 13/14/15 → commit 16 → output 17)을 주고, checkpoint 평면 ordinal 은 start·commit 이 같은 값으로 유지되어 `:1209` 의 등식 검사가 성립한다.
+
+⚠️ **단, 이것은 S4 배선에 대한 전제 조건이다** `[미확인]`. **전송 계층 ordinal 은 아직 존재하지 않는다** — 현행 live output 은 `streamEpoch`/`sourceSeq` 를 싣지 않는다(`01` §1.4 최대 리스크 절). **S4 가 프레임마다 세션 ordinal 을 1 증가시키는 배선을 실제로 넣어야** 위 연속 구간이 성립한다. 넣지 않으면 헤더의 두 필드가 상수가 되어 **갭 검출과 롤백이 무력화**된다.
+
 ---
 
 ### S2.5 — `channelId` 할당·생명주기 ⚠️ **신설**
@@ -1289,6 +1459,86 @@ encode(m).byteLength === 28 + prologueBytes(opcode(m)) + 16 * segmentCount(m) + 
 
 ### S4 — 서버 송신 + 클라이언트 수신 배선 → `binary-shadow`
 
+#### S4-0. 프론트엔드 타입 검사 공백 폐쇄 ⚠️ **신설 — S4 착수 전** (연구9, 2026-08-19)
+
+정본은 `docs/research/binary-comms/09-frontend-typecheck-gap.md` §A~§D. 여기에는 결정과 게이트만 싣는다.
+
+**공백**: 프론트 타입 검사 범위는 **`src/**` + `vite.config.ts` 뿐**이다. `tsc -b` 가 정확히 두 프로젝트(`tsconfig.app.json`·`tsconfig.node.json`)만 돌고, **`frontend/tests/**` 98개 파일과 `playwright.config.ts` 는 어떤 tsconfig 에도 속하지 않는다.** 실행이 `--experimental-strip-types` 라 런타임도 타입을 보지 않는다(strip / transform / Node 24 기본값 **셋 다** 타입 에러 2건이 있는 파일을 exit 0 으로 실행함을 실측으로 반증했다).
+
+**권장안 (등재)** — `09` §B-1:
+
+```jsonc
+// frontend/tsconfig.test.json  (신설)
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": { "types": ["vite/client", "node"],
+                       "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo" },
+  "include": ["src"],          // ← src 는 include, tests 는 files allowlist
+  "files": [ /* S4 관련 유닛 9개부터 */ ]
+}
+```
+```jsonc
+// frontend/package.json scripts
+"typecheck:tests": "tsc -p tsconfig.test.json --noEmit"
+```
+
+⚠️ **`frontend/tsconfig.json` 의 `references` 에는 넣지 않는다.** `npm run build` 가 `tsc -b && vite build` 이고, `tools/build-daemon-exe.js:756-764` 의 `ensureBuildArtifacts()` 가 `frontend` → `server` 순으로 `npm run build` 를 부른다. references 에 편입하면 **테스트 타입 에러 하나가 루트 build 계열 스크립트 18개 전부와 `release.yml` CI 를 red 로 만든다** — CLAUDE.md 가 경고한 "frontend 실패 시 server build 미도달" 함정이 그대로 발동한다. references 편입은 전면 green 달성 후의 **최종 상태**로 보류한다 `[설계결정]`.
+
+**실측 수치 (워킹트리 기준)**:
+
+| 범위 | error | 파일 |
+|---|---:|---:|
+| `src` 152개만 | **0** | 0 |
+| `src` + `tests` 98개 전부 | **244** | 32 |
+| `src` + **S4 관련 전체**(유닛 9 + e2e 4) | **82** | 8 |
+| **`src` + S4 관련 유닛 9개 ← 최소 착수 단위** | **35** | **3** |
+
+**35건은 단 3개 파일에 몰려 있다** — `terminalCheckpointRuntime.test.ts`(23, 미추적) · `terminalCheckpointCapabilityScoping.test.ts`(7, 미추적) · `terminalInputSequencer.test.ts`(5, 수정). 나머지 6개는 이미 green 이다. 그리고 244건 중 **166건(68%)이 미추적 신규 테스트 12개**의 빚이다. **S4 전에 끝내야 하는 것은 35건뿐이고, 244건 전면 green 은 S4 의 선행 조건이 아니다.**
+
+⚠️ **`tests` 를 `src` 없이 재면 수치가 무의미하다.** tests 안에 `src` 정본의 **축소 사본 `declare global`** 이 있어(`grid-equal-mode.spec.ts:64-76` vs `terminalDebugCapture.ts:122-126`), 정본 ambient 선언 없이 재면 그 사본이 정본 행세를 해 **TS2554 48건**(`debug.enable(sessionId)` — "Expected 0 arguments, but got 1")이 통째로 생긴다. 그래서 위 권장안이 `include: ["src"]` 를 유지한다. 역으로 **`src` 를 함께 넣으면 이 중복 자체가 타입 검사로 잡힌다**(TS2554 48 + TS2717 2).
+
+⚠️ **`as any` / `as unknown as {...}` 로 덮지 않는다.** 35건 중 상당수가 "테스트를 고치면 통과하지만 고쳐서는 안 되는" 부류일 수 있다 — 어서션이 공허했던 것이면 타입을 맞추는 순간 진짜로 실패하며, **그것이 정상이다.** 각 건마다 "픽스처가 틀렸나 구현이 틀렸나" 를 판정한다.
+
+| 항목 | 내용 |
+|---|---|
+| **검증 커맨드** | `npx tsc -p tsconfig.test.json --noEmit` (cwd=`frontend/`, `env -u NODE_ENV`) — 1단계에서 **35 error**, 3단계 후 **exit 0** |
+| **게이트** | `typecheck:tests` exit 0 (S4 관련 유닛 9개 범위) |
+| **핀 영향** | **0** — `tsconfig.test.json` 은 P2 `productionSourcePaths` 에도 P3 baseline 에도 없다. `frontend/package.json` 도 마찬가지 |
+
+##### ⚠️ 타입 검사로는 못 잡는 것 — drift 가드가 **25줄 차이로 빗나가 있다**
+
+**두 `ws-protocol.ts` 는 각자 내부적으로 일관하므로 양쪽 다 컴파일에 성공한다** — 실제로 `frontend tsc -p tsconfig.app.json --noEmit` 과 `server tsc --noEmit` 이 **둘 다 error 0** 인데 drift 는 실재한다: `export` 심볼이 server 92 / frontend 101(공통 77), 메시지 타입 리터럴이 server 44 / frontend 51(frontend-only 6종, 전부 `terminal-authority:*`). 그리고 `server/src` 전체가 아는 `terminal-authority:*` 는 **17종**인데 `server/src/types/ws-protocol.ts` 가 선언한 것은 **0종**이다. ⇒ **진짜 SSOT 는 두 타입 파일 중 어느 쪽도 아니고 `WsRouter.ts` 의 문자열 리터럴이며, 타입 파일 두 개는 둘 다 부분 사본이다.**
+
+이미 있는 크로스 바운더리 가드(`frontend/tests/unit/wsCheckpointProtocol.test.ts:182-186`)는 `// terminal-checkpoint-contract:start` ~ `:end` 마커 사이만 대조한다 — 커버리지 **24.5%(server) / 21.4%(frontend)**. **drift 한 6종은 프론트 `:335`·`:346`·`:376`·`:405`·`:409`·`:425` 에 있고, 마커 종료(`:310`)에서 25줄 뒤부터 시작한다.** **가드가 딱 그 앞에서 멈춘다.**
+
+⚠️ 그 가드는 **소스 텍스트 동등성**을 요구하므로 **주석 문구 차이만으로 red** 가 된다(기준선이 실제로 그렇게 기록했다). **CLAUDE.md Rules 가 주석을 검증 범위에서 제외**하므로 **가드가 프로젝트 규칙과 충돌한 채 red 를 내고 있다.** 마커 구간을 정규화 비교 없이 파일 전체로 넓히면 이 오탐이 4배로 늘어난다.
+
+⇒ **[설계결정] S4 전에는 "심볼/리터럴 집합 동결 테스트" 만 신설한다.** 현재 차이(심볼 15/24, 리터럴 6)를 allowlist 로 **동결**하고 증가 시 red — 값싸고, 기존 drift 를 고치지 않고 동결하므로 §S-1 기준선 원칙과도 맞는다. 마커 구간 확대(정규화 비교 동반)는 그다음, 단일 선언원(`shared/` 워크스페이스)은 **S4 범위 밖**이다(`server/tsconfig.json:7` `rootDir: "./src"` · 프론트 `moduleResolution: "bundler"` vs 서버 `NodeNext` · 패키지 매니저 분기). 라운드트립 차분 테스트(`01:1197`)는 **S4 산출물**로 그 자리에 들어간다.
+
+> ⚠️ **`ws-protocol.ts` 를 두 벌로 두는 구조 자체가 §10.2 위반이라는 사실은 명시적으로 기록해 둔다** — 동결 테스트와 라운드트립 차분은 증상 완화이지 치료가 아니다.
+
+---
+
+#### S4-0b. 프롤로그 사양의 열린 항목 **9건** — S4 착수 전 확인 목록 ⚠️ **신설** (연구7, 2026-08-19)
+
+D15 는 닫혔으나 그 사양(`07`)이 **`[미확인]` 9건**을 남겼다. 전부 S4 배선 설계에 영향을 주므로 착수 전에 판정한다. **어느 것도 D15 를 다시 열지 않는다** — 대부분은 프롤로그를 좁힐 수 있는지(이득)이거나 배선 순서 문제다.
+
+| # | 항목 | 무엇이 걸려 있나 | 확인 방법 |
+|---|---|---|---|
+| 1 | **`streamEpoch` 중복 가능성** — `SessionManager.ts:1076` `retainedTerminalStreamEpochCounter` 와 controller `getState().streamEpoch` 이 같은 값인가 | **같다면 `0x04` 프롤로그의 `checkpointStreamEpoch` 8 B 가 중복**이다. 다르다면 §1.8 불변식 4(두 평면 ordinal 분리)가 그대로 유지된다 | 두 값을 읽는 단위 테스트로 대조 |
+| 2 | **lane 폴백 시 순서 역전** — 체크포인트 트랜잭션 도중 `WsRouter.ts:1111-1113` 폴백이 발생 가능한가 | 가능하면 start 는 output 소켓 / commit 은 control 소켓으로 나가고 **두 소켓 사이에 순서 보장이 없다.** JSON 에서는 전송 `sourceSeq` 가 없어 조용히 지나갔으나 **바이너리에서는 `non-monotonic-source-seq` 로 드러난다** — 관측 개선이지만 **정상 운영 중 폴백만으로 복구 사이클이 도는 새 경로**가 생긴다 | `enqueueSettledViewFrame(..., 'terminal')` 이 target 을 **프레임 단위**로 재평가하는지 **트랜잭션 단위**로 고정하는지 |
+| 3 | **`responderLeaseId` 의 wire 대입 경로 부재** — 선언(`ws-protocol.ts:31`)에 있고 `matchesTransactionIdentity` 가 비교하는데, **checkpoint wire 메시지에 대입하는 경로를 찾지 못했다** | 가변 길이 문자열이라 고정폭 프롤로그에 못 넣는다. v1 처분은 **인코더가 `responderLeaseId !== undefined` 인 start 를 `RangeError` 로 거부**다 — 조용히 떨어뜨리면 클라이언트 `activeIdentity` 가 어긋나 **원인은 프레임 인코딩인데 증상은 `checkpoint-identity-mismatch`** 로 나타난다. 경로가 실재하면 인덱스 필드가 필요하다 | `createCheckpoint` 의 `identity` 조립 전수 + 뷰별 주입 지점 |
+| 4 | `retained.checkpoint.cursor` 의 상한 | uint16 로 충분하면 `0x04` 프롤로그 160 → **152 B**. 잘라서 틀리면 digest 재계산이 어긋나 **잘림이 아니라 복구 루프**로 나타난다(그래서 현재는 uint32) | 값의 출처 추적 |
+| 5 | split 모드에서 `view.connectionId` 가 어느 소켓의 id 인가 | `0x04` 가 `connectionId` 를 제거하고 "수신 클라이언트가 자기 `connected` 값으로 복원" 하는 판정의 전제 | split 경로 추적 (**D3 상 v1 범위 밖이나 판정 근거는 필요**) |
+| 6 | `0x04` metadata **13종**(선언에 없는데 실제 wire 에 나가는 필드)을 프론트엔드 **이외**의 소비자가 읽는가 | 읽는다면 제거가 회귀다. 프론트 검증기·런타임은 읽지 않음이 확인됐다 | 테스트·디버그 툴 전수 |
+| 7 | 골든 벡터 `output-minimal-52` 의 `authorityEpochIndex = 0` 이 "부재" 의도였는가 | **§3.5 D15 의 미정 1건과 같은 항목.** 인덱스 1-based 규칙의 소급 적용 가부를 가른다 | 벡터 저작 의도 확인 |
+| 8 | `replayToken` 회전 속도 (`01:520` 의 열린 항목) | 인덱스화 이득 유무. `repairToken` 은 "(소켓, 세션)당 동시 1개" 로 닫혔으나 `replayToken` 은 매 snapshot 트랜잭션마다 재발급될 수 있어 같은 논증이 성립하는지 미확인 | 발급 지점 계측 |
+| 9 | `0x03` 의 미지 `repairTokenIndex` 수신 시 ACK 타임아웃 수렴 | 디코더는 프레임을 **적용**하되(`ansiPatch` 는 토큰과 무관하게 유효) `screen-repair:ready` 를 못 보내므로 타임아웃 경로로 간다 — **그 경로가 안전하게 수렴하는지 실측하지 않았다** | 타임아웃 경로 실측 |
+
+**⇒ 착수 게이트**: #1·#2·#3 은 **판정 필수**(각각 프롤로그 폭·운영 중 복구 루프·인코더 거부 규칙을 확정한다). #4~#9 는 **기록 후 진행 가능** — 전부 "더 줄일 수 있는가" 이거나 관측 항목이다.
+
+---
+
 #### S4-a. 서버 인코드 표면 — **1곳이 아니다**
 
 이전 판은 *"인코드 1곳(`wsSendPolicy.ts:91`), 소켓 write 1곳(`WsRouter.ts:6268`)"* 이라 했다. 소켓 write 는 맞다 — **직접 확인 결과 `WsRouter.ts` 전체에서 `ws.send(` 는 `:6268` 단 1곳**이다. 그러나 인코드 측은 다르다. `02:29-118` 이 **7개 개입 지점**을 번호로 매핑했는데 이전 판은 2개만 다뤘다.
@@ -1324,19 +1574,35 @@ type WirePayload =
 
 그리고 `01:1066-1081` 이 `WsRouter.ts:6249` 의 기존 binding 검사 **바로 아래**에 `payload.codecEpoch !== groupCodecEpoch(ws)` 게이트를 두어 `codec-epoch-retired` 로 종결시킨다 — **재인코딩하지 않고 버리고 정산한다.**
 
-#### S4-b. 클라이언트 — **난이도 L / 위험 높음 / 차단 전제 있음**
+#### S4-b. 클라이언트 — **난이도 L / 차단 전제 있음** (위험 등급은 §S4-b2 가 **높음 → 중간**으로 정정)
 
 이전 판은 이 작업을 3줄로 적었다. `03` 은 같은 작업을 **난이도 L, 위험 높음**으로 매기고 **차단 전제**를 단다.
 
 > `03:756` — `TerminalContainer.tsx:3192-3443` `onOutput` 핸들러 **전체 재작성**. *"시그니처 교체가 아니라 핸들러 재작성. **§3.5 방안 확정 전 착수 불가**"*
+>
+> ⚠️ **이 인용은 §S4-b2 정정 #1 이 좁혔다** — 재작성해야 하는 **로직은 세그먼트 분할 8줄뿐**이고, `03:756` 이 "재작성" 이라 부른 것은 **인자 형태 교체가 전파되는 범위**다. 처방은 중립 IR + 어댑터 2개.
 
 **`03:179-185` 의 신규 상태 3종** — 전부 "필드를 옮겨 담는" 수준이 아니라 **새 상태를 갖는** 일이다:
 
 | # | 신규 상태 | 내용 |
 |---|---|---|
-| 1 | **`authorityEpochIndex` ↔ UUID 매핑 테이블** | 바이너리는 인덱스만 주고 매핑은 JSON control 로 온다 → **두 평면 간 상태 동기화**가 새로 생긴다. `03:181` `[미확인]` — *"매핑이 도착하기 전에 그 인덱스를 쓰는 프레임이 오면 어떻게 할지"* 순서 보장 미확인 |
+| 1 | **`authorityEpochIndex` ↔ UUID 매핑 테이블** | 바이너리는 인덱스만 주고 매핑은 JSON control 로 온다 → **두 평면 간 상태 동기화**가 새로 생긴다. ⚠️ **`03:181` 의 `[미확인]`(*"매핑이 도착하기 전에 그 인덱스를 쓰는 프레임이 오면"*)은 해소됐다 — 도달 불가.** §S4-b2 정정 #2 |
 | 2 | **`replayToken`/`repairToken` 채널 상태** | 지금은 stateless(메시지마다 동봉) → **stateful**. 재연결·epoch 롤백 시 언제 버릴지가 **새 계약** (`03:182`) |
-| 3 | **ACK 도메인 `deliverySeq` → `sourceSeq`** | 기존 ACK 경로(`TerminalContainer.tsx:3377-3379`, `:3398-3402`)가 **통째로 바뀐다** (`03:183`) |
+| 3 | ~~**ACK 도메인 `deliverySeq` → `sourceSeq`**~~ → **S5-c 로 이관** | `03:183` 이 S4 과제로 올렸으나 **S4 에 두면 안 된다** — 아래 재배치 참조. S4 에서 이 항목은 **작업이 아니라 제약**이다: 바이너리 어댑터의 `ack` 는 `undefined` 이고, `TerminalContainer.tsx:3415` 의 `deliveryIdentity === undefined` 분기가 그것을 자동으로 커버하므로 **새 코드가 필요 없다** |
+
+##### ⚠️ ACK 도메인 전환은 S4 가 아니라 **S5-c 의 하드 선행조건**이다 (연구8 판정, 2026-08-19)
+
+세 근거가 **각각 독립적으로** 충분하다.
+
+| # | 근거 | 확인 |
+|---|---|---|
+| 1 | **서버 원장이 `deliverySeq` 전용이다.** `sourceSeq` 는 `server/src/ws/wsSendPolicy.ts` 에 **0회** 등장하고(전수 grep), `FairTerminalDelivery` 에도 없다(`wsSendPolicy.ts:516-519` — `deliverySeq`·`encodedBytes` 2개뿐). ACK 메시지 스키마도 `deliverySeq: number` 고정이다(`server/src/types/ws-protocol.ts:436-441`) | 연구8 §3.1 |
+| 2 | **`01:748` 이 요구한 `WsTransportMessage.sourceSeq` 1급 승격이 S1 에서 일어나지 않았다.** S1 이 승격한 사이드카는 `connectionEpoch`·`deliverySeq`·`deliveryKind` **3개**이고 `sourceSeq` 는 그중에 없다(`wsSendPolicy.ts:85-131`) | 연구8 §3.1 #4 |
+| 3 | **S4 는 `binary-shadow` 라 와이어가 JSON 이다.** 클라이언트가 받는 것은 여전히 `{type:'output', …, deliverySeq}` 이므로, ACK 도메인을 바꾸면 **서버가 보내지도 않은 값으로 ACK** 하게 된다. 구현 불가가 아니라 **의미가 없다** | §S4-d 사다리 정의 |
+
+**왜 S5-c 의 *하드* 선행조건인가**: opt-in 으로 바이너리가 실제 와이어에 나가는 순간, ACK 가 오지 않으면 `wsSendPolicy.ts` 의 credit window 가 닫히고 `advanceTo`(`:829-836` `[미확인]` — §4.2 의 +8 드리프트 대상일 수 있으므로 착수 시 재확인)의 `ackTimeoutMs` 가 fallback 을 건다. **즉 "ACK 없이 바이너리를 켜는" 상태는 존재할 수 없다.** 작업 항목은 §5 S5-c 에 신설했다.
+
+⚠️ **`03:177` 의 *"`deliverySeq` 는 서버 내부 회계로 강등"* 과 모순이 아니다.** 그 문장은 `01` §1.9 의 **와이어 설계**(프레임 헤더에 넣지 않는다)를 말한 것이고, S1 이 `deliverySeq` 를 **전송 계층 사이드카로 1급화**한 것과는 다른 축이다.
 
 **이전 판이 빠뜨린 필수 항목**:
 
@@ -1346,6 +1612,56 @@ type WirePayload =
 | **view 보존 (복사 없음)** | `03:138`, `03:140` | ⚠️ **`03:138` 은 아직 `new Uint8Array(buffer, 21, length)` 로 쓰여 있다** — `03` 의 디코더 의사코드는 §2.3 이 정리한 대로 **21B 초안 기반**이다. 이전 판은 이 값을 조용히 `28` 로 고쳐 인용했다 (2차 검증 M-14). **확정 오프셋은 `28 + 프롤로그` 이므로 본문 뷰는 `new Uint8Array(buffer, off + 28 + prologueBytes + 16*segmentCount, bodyLen)`** 이다(헤더 표 `01:45-52`, OUTPUT 프롤로그 표 `01:490-496`, 세그먼트 표 `01:500-507`). 어느 쪽이든 **뷰**이므로 `.slice()` 를 쓰면 이득이 사라진다. ⚠️ **단 뷰가 큐에 살아 있으면 원본 `ArrayBuffer` 전체(= DRR quantum)가 GC 되지 않는다** → 큐 보관 시 `.slice()` 분리 또는 회계 변경 중 **반드시 하나**. §9.3 복사-0 이득과 **정면 상충하는 유일한 지점**(`03:800` #3) |
 | **restore 게이트 `terminalOutputScheduler.ts:459-462`** | `03:460`, `03:752`, `03:788` — **3회 경고** | *"**output 평면 몫이다.** snapshot 범위로 오인해 미루면 **restore 대기 중 보류된 live 출력이 전부 거부된다**"*. 이 큐는 `bufferedOutputRef` 이고 채우는 것은 `TerminalView.tsx:1745` `bufferOutputWhileRestorePending`(호출 `:2909`, flush `:2096`) |
 | **`enqueueLegacy` + retry defer** | §4.4 | 변환 장벽 3곳 전부 |
+
+#### S4-b2. 클라이언트 단계 분해 — **C0~C6** (연구8, 2026-08-19)
+
+**정본은 `docs/research/binary-comms/08-client-wiring-design.md` §6 이다.** 단계별 작업·실패 테스트·경계 대조군·파일·검증/회귀 커맨드·핀 영향은 전부 거기 있다. **여기에 복제하지 않는다** — 아래는 계획 층위에서 필요한 **순서·의존·게이트**만이다.
+
+**분해가 가능한 이유**: `binary-shadow` 는 와이어에 JSON 만 내보내므로, S4 종료 시점의 클라이언트 바이너리 경로는 **프로덕션에서 한 번도 실행되지 않는다**(협상 미체결 → ArrayBuffer 미도착). 따라서 바이너리 경로 검증은 단위 테스트로 충분하고 E2E 는 "JSON 동작 불변" 만 보면 된다. 이것이 난이도 L 을 쪼갤 수 있게 하는 유일한 성질이다.
+
+| 단계 | 내용 | 프로덕션 동작 | 핀 |
+|---|---|---|---|
+| **C0** | P5 재고정 (코드 변경 0). ⚠️ **워킹트리 정리가 선행** — P5 candidate 은 워킹트리를 읽는다 | 불변 | P5 |
+| **C1** | xterm 혼류 특성화 (프로덕션 코드 변경 0). **결과가 C3·C5 설계를 확정하므로 가장 먼저** | 불변 | 0 |
+| **C2** | 스케줄러 바이트 진입점 `enqueueBytes` (+ `enqueueLegacy` 대응분, `instanceof Uint8Array` 거부 가드) | 불변 | P2 · P5 |
+| **C3** | 하류 시그니처 확장 6개 + **restore 게이트** (`terminalOutputScheduler.ts:454-462`) | 불변 | P2 · P3 · P5 |
+| **C4** | **IR 도입 (`onOutput` 재작성, JSON 전용).** S4 클라이언트의 본체이자 최대 위험 — 그러나 **바이너리를 한 줄도 다루지 않는 순수 리팩터** | 불변 (비트 단위 동일이 계약) | P2 · P3 |
+| **C5** | 수신 분기 + 프론트 코덱 (`binaryType='arraybuffer'`, 배치 루프, 채널/authorityEpoch 등록부) | **미도달** (협상 미체결) | P2 · P3 |
+| **C6** | 소켓 ingress 마이크로벤치 + 의미 동등성 | 불변 | 0 |
+
+**의존**: `C0 → C1 → C2 → C3 → C4 → C5 → C6` 직렬. 단 **C1 은 C2 와 병렬 가능**하다(코드 접점 0).
+
+##### 이 분해가 뒤집은 `06` 서술 3건
+
+| # | 이전 판 | 정정 |
+|---|---|---|
+| 1 | *"`TerminalContainer.tsx:3192-3443` `onOutput` 핸들러 **전체 재작성**"* (`03:756` 인용) | **전체 재작성이 아니다.** 252줄을 정독한 결과 책임 6개 중 **codec 에 실제로 의존하는 것은 세그먼트 분할 1개(8줄, `:3381-3388`)뿐**이고, 나머지 5개는 `data: string` 대신 `{data, byteLength}` 를 받으면 그대로 공유된다. 처방은 **중립 IR 1개 + 어댑터 2개**(`fromJsonOutputMessage` / `fromBinaryOutputFrame`)다. `03:756` 이 "재작성" 이라 부른 것은 **인자 형태 교체가 전파되는 범위**이지 재작성해야 하는 로직이 아니다. 난이도 L 은 유지되나 위험은 M/중간으로 내려간다 (연구8 §1) |
+| 2 | `03:181` **`[미확인]`** — *"매핑이 도착하기 전에 그 인덱스를 쓰는 프레임이 오면"* 교차평면 순서 위험 | **도달 불가. `[미확인]` 해소.** `authorityEpoch` 는 `SessionManager.ts:1252` 에서 **세션 생성 시 1회** `uuidv4()` 로 배정되며 서버 프로덕션 소스 전체에 **재배정 0건**(전수 grep)이다. 매핑은 `channelId` 와 **같은 JSON 메시지**로 오고, 미지 `channelId` 프레임은 프롤로그를 읽기 **전에** `unknown-channel` 로 scoped 거부된다(`binaryFrameCodec.ts:640-646`). "매핑 없이 인덱스를 쓰는 프레임" 은 **구조적으로 존재할 수 없다** (연구8 §2.1) |
+| 3 | §1.5 P2 *"18개 중 …"* / P3 *"`WebSocketContext.tsx` 와 `ws-protocol.ts` 2개"* | **핀이 이 문서 서술보다 넓다.** P2 `productionSourcePaths` 18개 중 S4 클라이언트가 건드리는 것은 **6개**(`canary-admission-evidence.test.mjs:49`·`:50`·`:52`·`:53`·`:54`·`:55`). P3 `redFrontendSourceBaseline`(`authority-promotion-evidence.test.mjs:129-140`)은 2개가 아니라 **11개 파일**이고 그중 **5개가 S4 대상**(`:135`~`:139`). **D6 이 P3 재핀 주체를 S3 담당자로 확정했으므로, `06` 이 열거하지 않은 4개(`:136`~`:139`)도 baseline 갱신 대상임을 S3 담당자에게 전달해야 한다** (연구8 §7.1·§7.2) |
+
+⚠️ **착수 전 상태 — 워킹트리가 이미 P2 를 dirty 로 만들었다.** `git status --porcelain` 기준 P2 `productionSourcePaths` 18개 중 **최소 12개**가 `M` 이다. 즉 **P2 는 S4 가 시작되기 전부터 red** 이며, `06` §S1 잔여처분 M-1 이 예고한 상태다 — *"지금 재발행하면 완료되지 않은 남의 미커밋 작업이 동결 아티팩트에 박힌다."* **C0 의 P5 재고정도 같은 이유로 워킹트리 정리 뒤여야 한다.**
+
+##### ⚠️ 신규 작업 항목 1 — 세그먼트 연접성 검증이 바이너리 경로에서 **조용히 사라진다**
+
+`splitVisibleOutputSourceSegments`(`frontend/src/utils/visibleOutputRecovery.ts:408-452`)가 하는 일은 둘이다: **① 검증** — 세그먼트가 `byteStart=0` 부터 빈틈없이 연접하고 마지막이 정확히 `encoded.byteLength` 여야 한다(**`:421`·`:434`·`:436`**, 위반 시 `null`). **② UTF-8 왕복** — `:415` encode → `:443` decode.
+
+바이너리에서는 **②가 통째로 사라지지만 ①은 남아야 한다.** 그런데 **코덱은 ①을 하지 않는다** — `binaryFrameCodec.ts:700-709` 의 세그먼트 파싱은 `byteStart`/`byteEnd` 를 **읽기만** 하고 관계를 검사하지 않는다. 코덱이 강제하는 것은 `payloadLength ≥ 24 + 16×segmentCount` 하한(`:626-630`)뿐이다.
+
+⇒ **JSON 경로가 `:421`/`:434`/`:436` 으로 지키던 불변식이 바이너리 경로에서 아무 신호 없이 소멸한다.**
+
+**[설계결정] 검증 로직을 두 어댑터가 공유하는 순수 함수로 추출한다** — `assertContiguousSegments(segments, totalBytes): boolean`. 이 함수 하나가 JSON 의 `:417-438` 과 바이너리 어댑터 양쪽에서 호출되어야 §10.2(같은 책임을 두 곳이 나눠 갖지 않는다)를 만족한다. **작업 단계는 C4**(IR 도입과 같은 자리 — `visibleOutputRecovery.ts` 가 P2 `:55` · P3 `:139` 핀이므로 접촉을 한 단계에 모은다).
+
+**경계 대조군**: 추출 후 기존 `splitVisibleOutputSourceSegments` 와 새 어댑터에 **같은 입력**을 주고 결과가 같은지 단정하되, ⚠️ **기대값은 픽스처 리터럴**이어야 한다 — 두 구현이 각각 그 리터럴과 대조해야 피연산자의 출처가 갈린다. 한쪽 구현으로 기대값을 만들면 그 단정은 공허하다.
+
+##### ⚠️ 신규 작업 항목 2 — `viewportRows[]` 제거가 라운드트립 테스트 계약을 깬다
+
+`0x03`(screen-repair) 의 바이너리 이득 **대부분**이 `viewportRows[]` 제거에서 나온다 — 그 배열은 **wire 상에서 100% 중복**이기 때문이다: 클라이언트는 `.length` **만** 읽고(참조 2곳 전부 진단 이벤트 필드), `ansiPatch` 가 애초에 `viewportRows` 에서 파생되며(`headlessTerminal.ts:495`), `viewportRows.length === rows` 가 항상 성립한다(`:479` 루프가 매 반복 정확히 1회 push). 즉 뷰포트 전체를 행별 ANSI + plain text 로 한 번 더 싣던 것이 통째로 사라진다. 전수 근거는 `07` §1.4.
+
+⚠️ **그런데 이것이 `01:1197` 이 요구한 차분 테스트와 정면으로 부딪친다.** `01` 은 *"서버 인코딩 → 프론트 디코딩 → 원본 대조"* 를 라운드트립으로 강제하라고 했는데, **`0x03` 은 원본 JSON 객체와 무손실 왕복하지 않는다.**
+
+⇒ **왕복 계약을 "클라이언트 관측 가능 투영" 으로 재정의해야 한다** — `0x03` 의 대조 대상은 `{seq, cols, rows, bufferType, cursor, repairToken, ansiPatch}` 이지 원본 메시지 전체가 아니다. **이것을 명시하지 않으면 `0x03` 차분 테스트가 구조적으로 실패한다** — 구현이 옳아도 red 가 되고, 그 red 를 없애려다 `viewportRows` 를 되싣게 되어 이득이 통째로 사라진다. **작업 단계는 C5/C6**(프론트 코덱 + 동등성).
+
+> 같은 함정이 `0x04`/`0x06`/`0x07` 에도 약한 형태로 있다 — `contentDigest`(파생), `protocolVersion`/`encoding`(상수), start 로부터 상속되는 identity 필드들이 원본에 있고 wire 에 없다. **투영 정의는 opcode 별로 명시한다** (`07` §2.4 / §3.3 / §4.2 의 필드 분류표가 그 목록이다).
 
 #### S4-c. xterm 이중 디코더 순서 위험
 
@@ -1364,7 +1680,17 @@ type WirePayload =
 
 | 항목 | 내용 |
 |---|---|
-| **진입 조건** | S1~S3 green · S0.5 리허설 성공 · **§S3 의 조용한 폐기 경로 8항목**(= `05:170-176` 의 7 + `WsRouter.ts:1745`, §S3 상단 집합 확정 참조) **이 전부 명시 실패로 전환됨** (`05:559`) |
+| **진입 조건** | **① 기준선 대비 신규 red 0 · ② S1~S3 산출물 전건 green** (아래 정합 참조) · S0.5 리허설 성공 · **§S3 의 조용한 폐기 경로 8항목**(= `05:170-176` 의 7 + `WsRouter.ts:1745`, §S3 상단 집합 확정 참조) **이 전부 명시 실패로 전환됨** (`05:559`) |
+
+⚠️ **"S1~S3 green" 의 정의 — §S-1 게이트와의 정합** (연구8 열린항목 #9, 2026-08-19 정리). 이전 판은 진입 조건을 *"S1~S3 green"* 이라고만 적었고, §S-1 게이트는 *"green 일 필요는 없다 — 알려진 red 를 목록화하는 것이 목적"* 이라 적어 **두 문장이 같은 대상을 두고 반대로 읽혔다.** 서로 다른 대상을 말한 것이므로 아래로 확정한다 — **두 문장 모두 유효하며, 어느 쪽도 철회하지 않는다.**
+
+| | 대상 | 요구 |
+|---|---|---|
+| **§S-1 게이트** | 저장소 **전체 스위트 A~F 의 현재 상태** | **green 불요.** 문서화만 하면 통과. 기존 red(P5 등)를 "우리가 깼다" 로 오진하지 않기 위한 기준선이다 |
+| **S4-d 진입 ①** | 같은 A~F 를 다시 돌린 결과 | **기준선에 없던 red 가 0.** 즉 판정 기준은 절대 green 이 아니라 **기준선 대비 델타**다 |
+| **S4-d 진입 ②** | S1·S2·S2.5·S3 이 **신설·변경한** 테스트 파일 | **전건 green.** 이것은 절대 기준이다 — 새로 쓴 것이 red 인 채로 다음 단계에 가지 않는다 |
+
+⚠️ **기준선은 S4 착수 시점에 다시 떠야 한다.** S1/S2 시점의 기준선은 그 사이 워킹트리 변화로 무효다 — 무엇이 "우리가 깬 것" 인지 구분할 수 없다(연구8 §7.4).
 | **측정** | ① 의미 불일치 건수 ② 인코딩 CPU 오버헤드(양쪽 다 하므로 증가 — 감내 상한 필요) ③ 프레임당 바이트 절감 예측치 ④ fair scheduler capability `accepted` 비율 |
 | **이탈 조건** | **불일치 0건**을 목표 워크로드 전수에서. 축은 client `1/2/8` × session `1/8/32/54` (`05:561`) |
 | **위험** | 사용자 노출 동작 변화 **없음**. `05:562` — *"가장 안전한 단계이므로 **여기서 최대한 오래 머문다**"* |
@@ -1590,13 +1916,40 @@ type WirePayload =
 
 반면 `TerminalAuthorityProductionAdapter.ts:1659` 의 checkpoint digest 는 **원본 문자열** 기준(`createHash('sha256').update(data,'utf8')`)이라 **무관**하다(`02:381`).
 
+#### S5-c0. ACK 도메인 전환 (`deliverySeq → sourceSeq`) ⚠️ **신설 — S5-c 진입의 하드 선행조건** (연구8, 2026-08-19)
+
+이전 판은 이 전환을 **S4 과제**(§S4-b 신규 상태 #3)로 두었다. **S4 에서는 불가능하고 무의미하다** — 근거 3건은 §S4-b 의 재배치 절. 여기가 그 작업의 자리다.
+
+**왜 S5-c 의 하드 선행인가**: opt-in 으로 바이너리가 실제 와이어에 나가는 순간 ACK 는 반드시 흘러야 한다. 안 오면 credit window 가 닫히고 `ackTimeoutMs` fallback 이 걸린다. **"ACK 없이 바이너리를 켜는" 상태는 존재할 수 없다.** 이전 판의 §5 S5 에는 이 항목이 **아예 없었다.**
+
+**작업 4건** (`unified` 전용이므로 `01:746` 의 채널 단위 정산 승격은 **불필요** — `01:746` 자신이 *"`unified` 우선 착수에서는 이 변경이 필요 없고 split 단계에서 도입한다"* 고 적었고 **D3** 가 "바이너리는 `unified` 에서만" 을 확정했다):
+
+| # | 작업 | 위치 |
+|---|---|---|
+| 1 | `WsTransportMessage` 에 `sourceSeq?: Ordinal64` 사이드카 승격 — **S1 과 같은 패턴**. `01:748` 이 요구했으나 S1 에서 누락됐다 | `wsSendPolicy.ts:85-131` |
+| 2 | `FairTerminalDeliveryInput` / `FairTerminalDelivery` 에 `sourceSeq` 부착 | `wsSendPolicy.ts:500-519` |
+| 3 | `acknowledge` 를 `deliverySeq \| sourceSeq` 판별 유니온으로 | `wsSendPolicy.ts:838-853` (§4.2 정정 줄번호) |
+| 4 | `TerminalDeliveryAckMessage` 변형 추가 + 프론트 사본 | `server/src/types/ws-protocol.ts:436-441` |
+
+**미해결 설계 항목** `[미확인]` — `01:742` 가 스코프 불일치를 규정만 하고 경로를 정하지 않았다: `deliverySeq` 는 lane 스코프이고 lane 재생성 시 1 로 리셋되는데 `sourceSeq` 는 세션 스코프이고 리셋되지 않는다. `01:742` 는 *"lane 을 새로 만들면 `lane.lastAcknowledgedSeq` 의 초기값을 0 이 아니라 그 세션의 현재 `sourceSeq` 로 세워야 한다"* 고만 적었고, **그 초기값을 어느 쪽이 어떤 경로로 읽을지는 미정**이다. S5-c0 착수 전 확정 필요.
+
+**경계 대조군 (필수)**: 새 lane 의 **첫 ACK 와 두 번째 ACK 를 둘 다** 단정한다. §4.2 가 지적한 대로 `FairTerminalDeliveryScheduler.test.ts:472-479` 는 첫 ACK 만 보므로 `lane.lastAcknowledgedSeq === 0` 이라 **델타와 누적 총액이 우연히 일치**해 오류를 못 잡는다. 도메인 전환 테스트에서 같은 사각지대를 반복하면 그 테스트도 공허하다.
+
+| 항목 | 내용 |
+|---|---|
+| **검증 커맨드** | `npx tsx --test src/ws/FairTerminalDeliveryScheduler.test.ts` (cwd=`server/`) |
+| **회귀 커맨드** | `npx tsx src/test-runner.ts` (cwd=`server/`) · `npx tsx --test src/ws/WsRouterSendPriority.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts` (cwd=`server/`) |
+| **핀 영향** | **P1**(`wsSendPolicy.ts` — 재발행 필수) · **P4**(`server/src/types/ws-protocol.ts`) |
+
+---
+
 #### S5-c. 사다리: `binary-optin`
 
 **동작** (`05:566-574`): capability 로 바이너리를 선언한 클라이언트에만 바이너리 전송. **기본 클라이언트는 선언하지 않는다.**
 
 | 항목 | 내용 |
 |---|---|
-| **진입 조건** | shadow 이탈 조건 충족 · §S6 매트릭스 M1~M4 통과 |
+| **진입 조건** | shadow 이탈 조건 충족 · §S6 매트릭스 M1~M4 통과 · **§S5-c0 ACK 도메인 전환 완료 (하드 선행)** |
 | **측정** | ① 화면 정합성(구멍/깨짐 0) ② downgrade 건수·사유 분포 ③ echo p50/p95/p99 (JSON 대조군 대비) ④ **CPU 프로파일 — 서버·브라우저 분리**(`03:726`: `JSON.stringify` 는 Node, `JSON.parse` 는 브라우저. 섞으면 귀속 불가) ⑤ ACK credit 원장 정합성 |
 | **이탈 조건** | 정합성 결함 0 + downgrade 가 전부 **의도된 사유**로 설명됨 + echo 회귀 없음 |
 | **위험** | opt-in 사용자만. 롤백 = 선언 중단 |
@@ -2028,7 +2381,28 @@ cd frontend && node --experimental-strip-types --test tests/unit/binaryFrameCode
 [ ] §5 S3 조용한 폐기 경로 8항목 목록화 및 담당 지정
         └ 05:170-176 의 7 + WsRouter.ts:1745 (서버 프로덕션, 05 에 없음)
         └ 이 8항목이 0 이 되는 것이 S4-d(binary-shadow) 진입 조건
-[ ] P5 스케줄러 벤치 baseline 재고정          → S4 착수 전 (§1.5)
+[ ] P5 스케줄러 벤치 baseline 재고정          → S4 착수 전 (§1.5, = S4-C0)
+        └ ⚠️ 워킹트리 정리가 선행이다 — candidate 은 워킹트리를 읽는다 (§5 S4-b2)
+[ ] S4-0 프론트 타입 검사 게이트                → S4 착수 전 (연구9)
+        └ frontend/tsconfig.test.json 신설 (extends tsconfig.app.json, include:["src"] + files allowlist)
+        └ tsconfig.json references 에는 넣지 않는다 — npm run build 가 tsc -b 라
+          루트 build 계열 18종 + release.yml CI 를 인질로 잡는다
+        └ package.json "typecheck:tests": "tsc -p tsconfig.test.json --noEmit"
+        └ 게이트 = S4 관련 유닛 9개 범위에서 exit 0 (착수 시점 35 error / 3 file)
+        └ as any / as unknown as 로 덮지 않는다 — 공허했던 어서션이 진짜 red 가 되는 것이 정상이다
+[ ] 심볼/리터럴 집합 동결 테스트 신설            → S4 착수 전 (연구9 §D)
+        └ 기존 가드(wsCheckpointProtocol.test.ts:182-186)는 마커 구간만 덮어 24.5%/21.4%
+          이고 drift 6종은 마커 종료(프론트 :310) 직후 25줄 뒤부터다 — 타입 검사로도 못 잡는다
+        └ 현재 차이(심볼 15/24, 리터럴 6)를 allowlist 로 동결하고 증가 시 red
+[ ] S4-0b 프롤로그 열린 항목 #1·#2·#3 판정        → S4 착수 전 (연구7 §9)
+        └ #1 retainedTerminalStreamEpochCounter ↔ controller streamEpoch 동일성
+        └ #2 체크포인트 트랜잭션 도중 lane 폴백 가능성 (가능하면 순서 역전 → 복구 루프)
+        └ #3 responderLeaseId 의 wire 대입 경로 유무 (없으면 인코더가 RangeError 로 거부)
+[ ] S5-c0 ACK 도메인 전환 (deliverySeq → sourceSeq)  → S5-c(binary-optin) 진입 *전* (하드 선행)
+        └ ⚠️ S4 과제가 아니다 — sourceSeq 는 wsSendPolicy.ts 에 0회, 01:748 승격이 S1 에서 누락,
+          S4 는 binary-shadow 라 와이어가 JSON 이다
+        └ 미정: lane 재생성 시 lastAcknowledgedSeq 초기값을 누가 어떤 경로로 읽는가 [미확인]
+        └ 경계 대조군: 새 lane 의 첫 ACK 와 두 번째 ACK 를 둘 다 단정 (첫 ACK 만 보면 공허)
 [ ] §7 항목 9 — TerminalResourcePolicy.test.ts 키 집합 단정 보강  → S5 재측정 전
         └ strategy / visibilityWeight / driverWeight 가 현재 무단정
         └ 기대값은 리터럴로 ('deficit-round-robin' / 8 / 16) — resolver 재호출 금지
@@ -2036,7 +2410,8 @@ cd frontend && node --experimental-strip-types --test tests/unit/binaryFrameCode
         └ WsRouter.ts:612(handleProtocols) — P1 핀 파일이므로 저장 후 republish 필수
         └ WebSocketContext.tsx:1201 · :1007 — 생성자 인자 추가
 [ ] S5-a0 encodedBytes 도메인 전환 (JSON codec 측)  → S5-a 재측정 *전* (4차 H-1)
-        └ wsSendPolicy.ts:598-611 → Math.max(1, Buffer.byteLength(input.payload,'utf8'))
+        └ wsSendPolicy.ts:606-619 → Math.max(1, Buffer.byteLength(input.payload,'utf8'))
+             ※ 줄번호는 2026-08-19 정정본. 이전 판의 :598-611 은 +8 어긋나 있었다 (§4.2)
         └ FairTerminalDeliveryScheduler.test.ts 의 S1 봉투 기대값을 본문 리터럴
           (12 / 9, expectedBytes 21)로 교체 — 이 교체가 도메인 전환의 가시적 증거다
              ※ S1 이 남긴 것은 맨 숫자 131/128 이 아니라 **손으로 적은 봉투 문자열 +
@@ -2239,8 +2614,11 @@ cd frontend && node --experimental-strip-types --test tests/unit/binaryFrameCode
 
 | 주제 | 정본 |
 |---|---|
-| 프레임 바이트 레이아웃 · flags · 프롤로그 | `01` §1.1–§1.8, 부록 A |
-| 디코더 의사코드 · rejection code · 오류 등급 | `01` §3.4, `01:934-958`, 부록 B |
+| 프레임 바이트 레이아웃 · flags · 프롤로그 | `01` §1.1–§1.8, 부록 A. ⚠️ **`0x03`/`0x04`/`0x06`/`0x07` 프롤로그의 오프셋 표·거부 조건·골든 벡터는 `07` §1.6/§2.9/§3.4/§4.3 이 보유**하되 **정본은 `01 §1.8`**(참조편입, `07` 은 동결 부속서, 충돌 시 `01` 이 이긴다) — D15 |
+| 디코더 의사코드 · rejection code · 오류 등급 | `01` §3.4, 부록 B. ⚠️ **줄번호 인용 금지** — D13 반영으로 §3.4 가 재작성됐다(계열 1 wire 10종 동결 / 계열 2 decoder-policy) |
+| **S4 클라이언트 배선 (C0~C6)** | **`08-client-wiring-design.md` §6.** 이 문서 §5 S4-b2 는 순서·의존·게이트만 갖는다 |
+| **프론트 타입 검사 공백 · drift 가드** | **`09-frontend-typecheck-gap.md` §A~§D.** 이 문서 §5 S4-0 은 결정과 게이트만 갖는다 |
+| **ACK 도메인 전환 (`deliverySeq → sourceSeq`)** | **이 문서 §5 S5-c0.** ⚠️ **S4 과제가 아니다** — S5-c 진입의 하드 선행조건이다 (§5 S4-b2 의 재배치 절, `08` §3) |
 | 인코더 · 배치 조립기 · 채널 할당기 의사코드 | `01` 부록 B2 (`01:1387-1395` 헤더 write, `01:1400-1404` `flushBatch` — **배치마다 `new GrowableBuffer()`**) |
 | 협상 메시지 스키마 — **인터페이스 5개 / distinct type 4개** | `01:638-690` (§3.3 D10 주) |
 | 롤백 상태 전이도 · 3중 방어 | `01` §4.2, §4.4 |
@@ -2249,10 +2627,10 @@ cd frontend && node --experimental-strip-types --test tests/unit/binaryFrameCode
 | SRS mutation 시퀀스 (Phase 0–8) | `04` §5 |
 | 테스트 영향 전수 | `05` §3 |
 | **fault 경계 대조군** | **종류·논리는 `05` §6.3, 숫자·오류코드는 이 문서 §4 S2-b (28B 정정본).** `05` 는 21B 초안 기반이다 — §2.3 |
-| **rejection code 전수 (10종)** | `01:934-943` (표 헤더 `:932`, 구분선 `:933`). ⚠️ **공백 2건** — `frameVersion` `0x00`/`0xFF` 전용 코드 없음(§4 S2-b F9 주) · `PROLOGUE_PRESENT` 누락 전용 코드 없음(§4 S2-b L-7 주). 둘 다 S2 착수 전 처분 |
+| **rejection code — 두 계열** | `01` §3.4. **계열 1 = wire 어휘 10종(동결, 어느 판본에서도 불변)** = `binaryFrameCodec.ts:125-136` 의 축자 사본 / **계열 2 = decoder-policy** = `:168-172`. 등급은 소속이 아니라 **성질**로 갈린다(`:201-206`). ⚠️ **공백 2건 중 하나는 닫혔다** — `PROLOGUE_PRESENT` 누락은 **D14 `mandatory-flag-cleared`(fatal)** 로 종결. **`frameVersion` `0x00`/`0xFF` 전용 코드 없음**은 여전히 열려 있고 `bad-frame-version` 단일 수렴이 현행 처분이다(§5 S2-b F9 주). D15 가 `prologue-domain-violation`(scoped)을 계열 2 에 추가한다 |
 | **`encodedBytes` 회계 도메인** | ⚠️ **`01:728`·`02:243` 이 아니라 이 문서 §3.1-A + §3.1-B 다.** 두 정본은 명시 기각되었고 사유는 §3.1-A 가, **그 사유가 성립하기 위한 전제(JSON codec 도 본문-only, 전환 시점 S5-a0, floor 1)는 §3.1-B** 가 보유한다. `00:78`(단일 domain 요건)은 유효하며 그 뜻은 **"서버 원장 ↔ 클라이언트 ACK 보고 일치"** 로 고정했다 — 본문-only 가 그것을 만족한다. **현행 구현은 봉투 포함**(`wsSendPolicy.ts:598-611` → `:91`/`:95`)이므로 전환 대상이다 |
 | **`byteLength` 회계 도메인 (배치 포함)** | `01:1429` `byteLength: out.length` + 이 문서 §4.2 확정식. **프레임 1개 식이 아니다.** ⚠️ 그리고 `encodedBytes` 와 **층위가 다르다** — `byteLength` 는 WS 메시지 단위, `encodedBytes` 는 delivery 단위(`wsSendPolicy.ts:510`). 배치 합 형태로 나란히 적지 않는다 (§4.2, 4차 L-5). ⚠️ **정책 9키 중 `byteLength` 를 먹는 것은 하나도 없다** — `queueMaxBytes`(`:758`)·`creditWindowBytes`(`:701`)·`socketSoftGateBytes`(`:702`)·`smallOutputBypassBytes`(`:703`/`:716`/`:738`)는 전부 **`encodedBytes` 도메인**이다 (5차 H-1). `byteLength` 를 먹는 것은 `WsRouter` 쪽이며 **게이트가 하나가 아니다** (7차 H-1) — `wsSendMode='safe-send-*'` 에서는 `:6098-6099` 백프레셔 게이트, 기본 `'direct'` 에서는 `:6169`·`:6182` 출력 큐 상한이다 |
-| **ACK 정산 값 두 종** | `creditedBytes`(ACK 1회 반환값) = **직전 ACK 이후 델타**, `wsSendPolicy.ts:839-840` → 반환 `:845` / `lane.creditBytes` = **누적 총액**, `:843`. **누적 식으로 `creditedBytes` 를 정의하면 두 번째 ACK 부터 중복 계상**된다 (§4.2, 5차 M-3). 테스트 `FairTerminalDeliveryScheduler.test.ts:478`(델타)·`:479`(누적)는 `lastAcknowledgedSeq === 0` 이라 두 값이 우연히 같다 |
+| **ACK 정산 값 두 종** | `creditedBytes`(ACK 1회 반환값) = **직전 ACK 이후 델타**, `wsSendPolicy.ts:847-848` → 반환 `:853` / `lane.creditBytes` = **누적 총액**, `:851`. **누적 식으로 `creditedBytes` 를 정의하면 두 번째 ACK 부터 중복 계상**된다 (§4.2, 5차 M-3). 테스트 `FairTerminalDeliveryScheduler.test.ts:478`(델타)·`:479`(누적)는 `lastAcknowledgedSeq === 0` 이라 두 값이 우연히 같다. ⚠️ **줄번호는 2026-08-19 정정본** — 이전 판의 `:839-840`/`:843`/`:845` 는 **+8 어긋나 있었다**(§4.2 정정 주) |
 | 회귀 전수 커맨드 | `05` §5.3 |
 | 마이그레이션 사다리 4단계 | `05` §8.2 |
 | 롤백 드릴 R1–R7 | `05` §9.2 |

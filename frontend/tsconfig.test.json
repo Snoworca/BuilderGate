@@ -1,0 +1,30 @@
+{
+  // Type-checks test files, which no other tsconfig covers.
+  // Deliberately NOT listed in tsconfig.json "references": `npm run build` is
+  // `tsc -b`, so a referenced project would make every root build script and CI
+  // fail on a test-only type error. Run it via `npm run typecheck:tests`.
+  //
+  // "include": ["src"] is mandatory, not decorative: e2e specs never import
+  // src/utils/terminalDebugCapture.ts, so without src the only `declare global`
+  // in the program is a narrowed copy and the measurement becomes meaningless.
+  //
+  // "files" is an allowlist that grows one file at a time. Scope today: the unit
+  // tests S4 touches (they import ws-protocol / WsTransportMessage / wsCodec).
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    "types": ["vite/client", "node"]
+  },
+  "include": ["src"],
+  "files": [
+    "tests/unit/terminalAuthorityProductionWiring.test.ts",
+    "tests/unit/terminalCheckpointCapabilityScoping.test.ts",
+    "tests/unit/terminalCheckpointRollbackTailWatermark.test.ts",
+    "tests/unit/terminalCheckpointRuntime.test.ts",
+    "tests/unit/terminalContainerRecoveryContract.test.ts",
+    "tests/unit/terminalInputSequencer.test.ts",
+    "tests/unit/terminalRetainedStateDigest.test.ts",
+    "tests/unit/webSocketBackpressure.test.ts",
+    "tests/unit/wsCheckpointProtocol.test.ts"
+  ]
+}

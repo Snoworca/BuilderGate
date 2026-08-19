@@ -1,0 +1,911 @@
+{
+  "$schemaNote": "Golden vectors for the binary terminal data-plane frame codec (S2). SSOT - do NOT copy this file. The frontend codec test (S4) must read THIS path. See 06-work-plan.md S2-a and 05:452.",
+  "$handComputed": "Every hexFrame here was computed by hand from the byte-offset tables in docs/research/binary-comms/01-frame-format-and-negotiation.md (header 01:45-52, OUTPUT prologue 01:490-496, segment 01:500-507, SCREEN_SNAPSHOT prologue 01:518, CHECKPOINT_CHUNK prologue 01:524). No hexFrame was produced by dumping encoder output - that would make the round-trip assertion vacuous (05:450, memory check_operands_must_have_independent_origins). Two devices keep the hand computation auditable: (1) every vector carries a `layout` array whose rows are [byteOffset, hexBytes, meaning]; the test asserts the rows are contiguous from 0 and that their concatenation equals hexFrame, so a typo in either form is red. (2) fault cases are expressed as `derivedFrom` patches of a layout-verified vector, so the only hand-written part of a fault is the 1-2 bytes that create the fault.",
+  "$rules": {
+    "endianness": "big-endian for every integer (01:41)",
+    "headerBytes": 28,
+    "prologueBytes": { "1": 24, "2": 24, "5": 12 },
+    "segmentBytes": 16,
+    "mandatoryFlags": 9,
+    "negotiableFlagsV1": 2,
+    "activeFlagMaskV1": 11,
+    "frameVersionV1": 1,
+    "minimumValidOutputFrameBytes": 52
+  },
+
+  "defaultContext": {
+    "codec": "binary",
+    "frameVersion": 1,
+    "activeFlagMask": 11,
+    "maxBodyBytesFrom": "pty.maxSnapshotBytes",
+    "channels": {
+      "1": "active",
+      "2": "active",
+      "3": "active",
+      "5": "retired",
+      "7": "active",
+      "4294967295": "active"
+    }
+  },
+
+  "vectors": [
+    {
+      "name": "output-minimal-52",
+      "note": "Minimum valid OUTPUT frame: header 28 + prologue 24, payloadLength=24, channelId=1. payloadLength=0 is NOT a valid OUTPUT frame because PROLOGUE_PRESENT is mandatory (01:78 / 01:84).",
+      "byteLength": 52,
+      "layout": [
+        [0, "01", "frameVersion = 1"],
+        [1, "01", "opcode = 0x01 OUTPUT"],
+        [2, "000b", "flags = 0x000B = END_OF_BATCH|PAYLOAD_UTF8_TEXT|PROLOGUE_PRESENT"],
+        [4, "00000001", "channelId = 1"],
+        [8, "0000000000000001", "streamEpoch = 1"],
+        [16, "0000000000000001", "sourceSeq = 1"],
+        [24, "00000018", "payloadLength = 24 = prologue 24 + 16*0 segments + 0 body"],
+        [28, "0000000000000000", "prologue.screenSeq = 0"],
+        [36, "0000000000000000", "prologue.chunkIdBase = 0"],
+        [44, "00000000", "prologue.authorityRevision = 0"],
+        [48, "0000", "prologue.authorityEpochIndex = 0"],
+        [50, "0000", "prologue.segmentCount = 0"]
+      ],
+      "hexFrame": "0101000b000000010000000000000001000000000000000100000018000000000000000000000000000000000000000000000000",
+      "messages": [
+        {
+          "opcode": 1,
+          "flags": 11,
+          "channelId": 1,
+          "streamEpoch": "1",
+          "sourceSeq": "1",
+          "prologue": { "screenSeq": "0", "chunkIdBase": "0", "authorityRevision": 0, "authorityEpochIndex": 0 },
+          "segments": [],
+          "bodyHex": ""
+        }
+      ]
+    },
+
+    {
+      "name": "output-utf8-body-60",
+      "note": "P6 - UTF-8 multi-byte preservation. body = \"a<U+D55C><U+1F600>\" = 0x61 | 0xED 0x95 0x9C | 0xF0 0x9F 0x98 0x80 = 8 bytes (1B + 3B + 4B).",
+      "byteLength": 60,
+      "layout": [
+        [0, "01", "frameVersion = 1"],
+        [1, "01", "opcode = 0x01 OUTPUT"],
+        [2, "000b", "flags = 0x000B"],
+        [4, "00000007", "channelId = 7"],
+        [8, "0000000000000002", "streamEpoch = 2"],
+        [16, "000000000000002a", "sourceSeq = 42 = 0x2A"],
+        [24, "00000020", "payloadLength = 32 = 24 + 0 + 8"],
+        [28, "000000000000012c", "prologue.screenSeq = 300 = 0x12C"],
+        [36, "00000000000003e8", "prologue.chunkIdBase = 1000 = 0x3E8"],
+        [44, "00000005", "prologue.authorityRevision = 5"],
+        [48, "0003", "prologue.authorityEpochIndex = 3"],
+        [50, "0000", "prologue.segmentCount = 0"],
+        [52, "61ed959cf09f9880", "body = UTF-8 of \"a<U+D55C><U+1F600>\" (8 bytes)"]
+      ],
+      "hexFrame": "0101000b000000070000000000000002000000000000002a00000020000000000000012c00000000000003e8000000050003000061ed959cf09f9880",
+      "messages": [
+        {
+          "opcode": 1,
+          "flags": 11,
+          "channelId": 7,
+          "streamEpoch": "2",
+          "sourceSeq": "42",
+          "prologue": { "screenSeq": "300", "chunkIdBase": "1000", "authorityRevision": 5, "authorityEpochIndex": 3 },
+          "segments": [],
+          "bodyHex": "61ed959cf09f9880"
+        }
+      ]
+    },
+
+    {
+      "name": "output-two-segments-95",
+      "note": "P2 - encode(m).byteLength === 28 + prologueBytes + 16*segmentCount + bodyBytes = 28 + 24 + 32 + 11 = 95. All three segment deltas are relative to the prologue values (01:508).",
+      "byteLength": 95,
+      "layout": [
+        [0, "01", "frameVersion = 1"],
+        [1, "01", "opcode = 0x01 OUTPUT"],
+        [2, "000b", "flags = 0x000B"],
+        [4, "00000002", "channelId = 2"],
+        [8, "0000000000000001", "streamEpoch = 1"],
+        [16, "0000000000000064", "sourceSeq = 100 = 0x64"],
+        [24, "00000043", "payloadLength = 67 = 24 + 16*2 + 11 = 0x43"],
+        [28, "000000000000000a", "prologue.screenSeq = 10"],
+        [36, "00000000000001f4", "prologue.chunkIdBase = 500 = 0x1F4"],
+        [44, "00000001", "prologue.authorityRevision = 1"],
+        [48, "0000", "prologue.authorityEpochIndex = 0"],
+        [50, "0002", "prologue.segmentCount = 2"],
+        [52, "00000000", "segment[0].byteStart = 0"],
+        [56, "00000005", "segment[0].byteEnd = 5"],
+        [60, "00000000", "segment[0].screenSeqDelta = 0"],
+        [64, "0000", "segment[0].authorityRevisionDelta = 0"],
+        [66, "0000", "segment[0].chunkIdDelta = 0"],
+        [68, "00000005", "segment[1].byteStart = 5"],
+        [72, "0000000b", "segment[1].byteEnd = 11 = 0x0B"],
+        [76, "00000001", "segment[1].screenSeqDelta = 1"],
+        [80, "0002", "segment[1].authorityRevisionDelta = 2"],
+        [82, "0003", "segment[1].chunkIdDelta = 3"],
+        [84, "68656c6c6f20776f726c64", "body = \"hello world\" (11 bytes)"]
+      ],
+      "hexFrame": "0101000b000000020000000000000001000000000000006400000043000000000000000a00000000000001f4000000010000000200000000000000050000000000000000000000050000000b000000010002000368656c6c6f20776f726c64",
+      "messages": [
+        {
+          "opcode": 1,
+          "flags": 11,
+          "channelId": 2,
+          "streamEpoch": "1",
+          "sourceSeq": "100",
+          "prologue": { "screenSeq": "10", "chunkIdBase": "500", "authorityRevision": 1, "authorityEpochIndex": 0 },
+          "segments": [
+            { "byteStart": 0, "byteEnd": 5, "screenSeqDelta": 0, "authorityRevisionDelta": 0, "chunkIdDelta": 0 },
+            { "byteStart": 5, "byteEnd": 11, "screenSeqDelta": 1, "authorityRevisionDelta": 2, "chunkIdDelta": 3 }
+          ],
+          "bodyHex": "68656c6c6f20776f726c64"
+        }
+      ]
+    },
+
+    {
+      "name": "screen-snapshot-54",
+      "note": "0x02 prologue 24B = seq u64 | cols u16 | rows u16 | mode u8 | truncated u8 | flags2 u16 | authorityRevision u32 | authorityEpochIndex u16 | replayTokenIndex u16 (01:518). flags = 0x0009 (MANDATORY only) - the encoder sets PAYLOAD_UTF8_TEXT for OUTPUT only (01 appendix B2:1384). This vector doubles as the F10 boundary control 'flags = 0x0009 must be accepted'.",
+      "byteLength": 54,
+      "layout": [
+        [0, "01", "frameVersion = 1"],
+        [1, "02", "opcode = 0x02 SCREEN_SNAPSHOT"],
+        [2, "0009", "flags = 0x0009 = END_OF_BATCH|PROLOGUE_PRESENT"],
+        [4, "00000003", "channelId = 3"],
+        [8, "0000000000000009", "streamEpoch = 9"],
+        [16, "0000000000000007", "sourceSeq = 7"],
+        [24, "0000001a", "payloadLength = 26 = 24 + 2 = 0x1A"],
+        [28, "000000000000004d", "prologue.seq = 77 = 0x4D"],
+        [36, "0078", "prologue.cols = 120 = 0x78"],
+        [38, "0028", "prologue.rows = 40 = 0x28"],
+        [40, "00", "prologue.mode = 0 (authoritative)"],
+        [41, "00", "prologue.truncated = 0"],
+        [42, "0000", "prologue.flags2 = 0"],
+        [44, "00000002", "prologue.authorityRevision = 2"],
+        [48, "0001", "prologue.authorityEpochIndex = 1"],
+        [50, "0004", "prologue.replayTokenIndex = 4"],
+        [52, "4f4b", "body = \"OK\" (2 bytes)"]
+      ],
+      "hexFrame": "0102000900000003000000000000000900000000000000070000001a000000000000004d007800280000000000000002000100044f4b",
+      "messages": [
+        {
+          "opcode": 2,
+          "flags": 9,
+          "channelId": 3,
+          "streamEpoch": "9",
+          "sourceSeq": "7",
+          "prologue": {
+            "seq": "77",
+            "cols": 120,
+            "rows": 40,
+            "mode": 0,
+            "truncated": 0,
+            "flags2": 0,
+            "authorityRevision": 2,
+            "authorityEpochIndex": 1,
+            "replayTokenIndex": 4
+          },
+          "bodyHex": "4f4b"
+        }
+      ]
+    },
+
+    {
+      "name": "checkpoint-chunk-44",
+      "note": "0x05 prologue 12B = chunkIndex u32 | chunkCount u32 | viewGeneration u32 (01:524). Body is raw (base64-decoded) bytes, so PAYLOAD_UTF8_TEXT is not set.",
+      "byteLength": 44,
+      "layout": [
+        [0, "01", "frameVersion = 1"],
+        [1, "05", "opcode = 0x05 CHECKPOINT_CHUNK"],
+        [2, "0009", "flags = 0x0009"],
+        [4, "00000001", "channelId = 1"],
+        [8, "0000000000000001", "streamEpoch = 1"],
+        [16, "0000000000000005", "sourceSeq = 5"],
+        [24, "00000010", "payloadLength = 16 = 12 + 4 = 0x10"],
+        [28, "00000002", "prologue.chunkIndex = 2"],
+        [32, "00000003", "prologue.chunkCount = 3"],
+        [36, "0000000b", "prologue.viewGeneration = 11 = 0x0B"],
+        [40, "00ff107f", "body = raw 4 bytes 0x00 0xFF 0x10 0x7F"]
+      ],
+      "hexFrame": "0105000900000001000000000000000100000000000000050000001000000002000000030000000b00ff107f",
+      "messages": [
+        {
+          "opcode": 5,
+          "flags": 9,
+          "channelId": 1,
+          "streamEpoch": "1",
+          "sourceSeq": "5",
+          "prologue": { "chunkIndex": 2, "chunkCount": 3, "viewGeneration": 11 },
+          "bodyHex": "00ff107f"
+        }
+      ]
+    },
+
+    {
+      "name": "output-ordinal-extremes-52",
+      "note": "P5 - u64 ordinals at extremes. streamEpoch = 2^53 = 9007199254740992 = 0x0020000000000000. sourceSeq = 2^64-1 = 18446744073709551615 = 0xFFFFFFFFFFFFFFFF. channelId = 0xFFFFFFFF (last valid channel id, 01:1448). chunkIdBase = 2^53+1 = 9007199254740993 = 0x0020000000000001 - a value NOT representable as a JS number, so a String(Number(...)) round-trip would corrupt it.",
+      "byteLength": 52,
+      "layout": [
+        [0, "01", "frameVersion = 1"],
+        [1, "01", "opcode = 0x01 OUTPUT"],
+        [2, "000b", "flags = 0x000B"],
+        [4, "ffffffff", "channelId = 4294967295"],
+        [8, "0020000000000000", "streamEpoch = 9007199254740992 = 2^53"],
+        [16, "ffffffffffffffff", "sourceSeq = 18446744073709551615 = 2^64-1"],
+        [24, "00000018", "payloadLength = 24"],
+        [28, "ffffffffffffffff", "prologue.screenSeq = 18446744073709551615"],
+        [36, "0020000000000001", "prologue.chunkIdBase = 9007199254740993 = 2^53+1"],
+        [44, "ffffffff", "prologue.authorityRevision = 4294967295"],
+        [48, "ffff", "prologue.authorityEpochIndex = 65535"],
+        [50, "0000", "prologue.segmentCount = 0"]
+      ],
+      "hexFrame": "0101000bffffffff0020000000000000ffffffffffffffff00000018ffffffffffffffff0020000000000001ffffffffffff0000",
+      "messages": [
+        {
+          "opcode": 1,
+          "flags": 11,
+          "channelId": 4294967295,
+          "streamEpoch": "9007199254740992",
+          "sourceSeq": "18446744073709551615",
+          "prologue": {
+            "screenSeq": "18446744073709551615",
+            "chunkIdBase": "9007199254740993",
+            "authorityRevision": 4294967295,
+            "authorityEpochIndex": 65535
+          },
+          "segments": [],
+          "bodyHex": ""
+        }
+      ]
+    },
+
+    {
+      "name": "output-ordinal-signed-boundary-52",
+      "note": "IR-BGSTAB-001 AC-2 mandates proof at 0 / 1 / 2^53-1 / 2^53 / 2^63 / 2^64-1. output-minimal-52 carries 0 and 1, output-ordinal-extremes-52 carries 2^53 and 2^64-1; this vector supplies the two that were missing. Derivation: output-ordinal-extremes-52 fixes 2^53 = 0x0020000000000000, so 2^53-1 = 0x0020000000000000 - 1 = 0x001FFFFFFFFFFFFF = 9007199254740991 (the largest exact JS integer - one below it the double grid is still spacing 1). 2^63 sets only the top bit: top nibble 8, fifteen zero nibbles = 0x8000000000000000, and 2^63 = 2^64/2 = 18446744073709551616/2 = 9223372036854775808. 2^63 is the point where a signed 64-bit read wraps to a negative decimal while every value below it reads the same either way.",
+      "byteLength": 52,
+      "layout": [
+        [0, "01", "frameVersion = 1"],
+        [1, "01", "opcode = 0x01 OUTPUT"],
+        [2, "000b", "flags = 0x000B"],
+        [4, "00000001", "channelId = 1"],
+        [8, "001fffffffffffff", "streamEpoch = 9007199254740991 = 2^53-1"],
+        [16, "8000000000000000", "sourceSeq = 9223372036854775808 = 2^63 (signed/unsigned flip point)"],
+        [24, "00000018", "payloadLength = 24 = prologue 24 + 16*0 segments + 0 body"],
+        [28, "8000000000000000", "prologue.screenSeq = 9223372036854775808 = 2^63"],
+        [36, "001fffffffffffff", "prologue.chunkIdBase = 9007199254740991 = 2^53-1"],
+        [44, "00000000", "prologue.authorityRevision = 0"],
+        [48, "0000", "prologue.authorityEpochIndex = 0"],
+        [50, "0000", "prologue.segmentCount = 0"]
+      ],
+      "hexFrame": "0101000b00000001001fffffffffffff8000000000000000000000188000000000000000001fffffffffffff0000000000000000",
+      "messages": [
+        {
+          "opcode": 1,
+          "flags": 11,
+          "channelId": 1,
+          "streamEpoch": "9007199254740991",
+          "sourceSeq": "9223372036854775808",
+          "prologue": {
+            "screenSeq": "9223372036854775808",
+            "chunkIdBase": "9007199254740991",
+            "authorityRevision": 0,
+            "authorityEpochIndex": 0
+          },
+          "segments": [],
+          "bodyHex": ""
+        }
+      ]
+    },
+
+    {
+      "name": "output-ordinal-fastpath-boundary-52",
+      "note": "Straddles the decoder's own fast/slow branch (binaryFrameCodec.ts readOrdinal64: hi === 0 takes a uint32 shortcut, otherwise BigInt). Every other vector sits far from that seam - the fast-path values are all <= 1000 and the slow-path values are all >= 2^53 - so a signed 32-bit read of either half stays invisible. Derivation, all four as u64 big-endian: 2^31-1 = 2147483647 = 0x7FFFFFFF -> 0x000000007FFFFFFF (last value int32 and uint32 agree on); 2^31 = 2147483648 = 0x80000000 -> 0x0000000080000000 (first value where int32 goes negative); 2^32-1 = 4294967295 = 0xFFFFFFFF -> 0x00000000FFFFFFFF (largest hi === 0 value); 2^32 = 4294967296 = 0x100000000 -> 0x0000000100000000 (first hi !== 0 value, i.e. the first that must take the BigInt path).",
+      "byteLength": 52,
+      "layout": [
+        [0, "01", "frameVersion = 1"],
+        [1, "01", "opcode = 0x01 OUTPUT"],
+        [2, "000b", "flags = 0x000B"],
+        [4, "00000002", "channelId = 2"],
+        [8, "0000000080000000", "streamEpoch = 2147483648 = 2^31 (int32 sign flip, still fast path)"],
+        [16, "00000000ffffffff", "sourceSeq = 4294967295 = 2^32-1 (largest fast-path value)"],
+        [24, "00000018", "payloadLength = 24"],
+        [28, "0000000100000000", "prologue.screenSeq = 4294967296 = 2^32 (first slow-path value)"],
+        [36, "000000007fffffff", "prologue.chunkIdBase = 2147483647 = 2^31-1"],
+        [44, "00000000", "prologue.authorityRevision = 0"],
+        [48, "0000", "prologue.authorityEpochIndex = 0"],
+        [50, "0000", "prologue.segmentCount = 0"]
+      ],
+      "hexFrame": "0101000b00000002000000008000000000000000ffffffff000000180000000100000000000000007fffffff0000000000000000",
+      "messages": [
+        {
+          "opcode": 1,
+          "flags": 11,
+          "channelId": 2,
+          "streamEpoch": "2147483648",
+          "sourceSeq": "4294967295",
+          "prologue": {
+            "screenSeq": "4294967296",
+            "chunkIdBase": "2147483647",
+            "authorityRevision": 0,
+            "authorityEpochIndex": 0
+          },
+          "segments": [],
+          "bodyHex": ""
+        }
+      ]
+    },
+
+    {
+      "name": "batch-two-output-frames-106",
+      "note": "P4 - one WS message = 2 complete frames (01:459). END_OF_BATCH is set on the LAST frame only (01:75); setting it on the first would be batch-terminated-early. Frame A = 53 B (payloadLength 25 = 24 + 1 body byte 'A'), frame B = 53 B (body 'B'). Total 106 B.",
+      "byteLength": 106,
+      "layout": [
+        [0, "01", "A.frameVersion = 1"],
+        [1, "01", "A.opcode = 0x01"],
+        [2, "000a", "A.flags = 0x000A = PAYLOAD_UTF8_TEXT|PROLOGUE_PRESENT (NO END_OF_BATCH - not the last frame)"],
+        [4, "00000001", "A.channelId = 1"],
+        [8, "0000000000000001", "A.streamEpoch = 1"],
+        [16, "0000000000000001", "A.sourceSeq = 1"],
+        [24, "00000019", "A.payloadLength = 25 = 24 + 1 = 0x19"],
+        [28, "0000000000000000", "A.prologue.screenSeq = 0"],
+        [36, "0000000000000000", "A.prologue.chunkIdBase = 0"],
+        [44, "00000000", "A.prologue.authorityRevision = 0"],
+        [48, "0000", "A.prologue.authorityEpochIndex = 0"],
+        [50, "0000", "A.prologue.segmentCount = 0"],
+        [52, "41", "A.body = \"A\""],
+        [53, "01", "B.frameVersion = 1"],
+        [54, "01", "B.opcode = 0x01"],
+        [55, "000b", "B.flags = 0x000B - END_OF_BATCH set, last frame"],
+        [57, "00000001", "B.channelId = 1"],
+        [61, "0000000000000001", "B.streamEpoch = 1"],
+        [69, "0000000000000002", "B.sourceSeq = 2"],
+        [77, "00000019", "B.payloadLength = 25"],
+        [81, "0000000000000000", "B.prologue.screenSeq = 0"],
+        [89, "0000000000000000", "B.prologue.chunkIdBase = 0"],
+        [97, "00000000", "B.prologue.authorityRevision = 0"],
+        [101, "0000", "B.prologue.authorityEpochIndex = 0"],
+        [103, "0000", "B.prologue.segmentCount = 0"],
+        [105, "42", "B.body = \"B\""]
+      ],
+      "hexFrame": "0101000a000000010000000000000001000000000000000100000019000000000000000000000000000000000000000000000000410101000b00000001000000000000000100000000000000020000001900000000000000000000000000000000000000000000000042",
+      "messages": [
+        {
+          "opcode": 1,
+          "flags": 10,
+          "channelId": 1,
+          "streamEpoch": "1",
+          "sourceSeq": "1",
+          "prologue": { "screenSeq": "0", "chunkIdBase": "0", "authorityRevision": 0, "authorityEpochIndex": 0 },
+          "segments": [],
+          "bodyHex": "41"
+        },
+        {
+          "opcode": 1,
+          "flags": 11,
+          "channelId": 1,
+          "streamEpoch": "1",
+          "sourceSeq": "2",
+          "prologue": { "screenSeq": "0", "chunkIdBase": "0", "authorityRevision": 0, "authorityEpochIndex": 0 },
+          "segments": [],
+          "bodyHex": "42"
+        }
+      ]
+    }
+  ],
+
+  "faults": [
+    {
+      "name": "F1-fault-truncated-header-27",
+      "faultId": "F1",
+      "role": "fault",
+      "note": "output-minimal-52 cut to 27 bytes (the last byte of payloadLength removed). Remaining bytes < 28 (01:935).",
+      "derivedFrom": { "vector": "output-minimal-52", "truncateTo": 27 },
+      "expect": { "frames": 0, "fatal": "truncated-header" }
+    },
+    {
+      "name": "F1-control-minimum-valid-52",
+      "faultId": "F1",
+      "role": "control",
+      "note": "The 52-byte minimum valid OUTPUT frame MUST be accepted. If this fails we measured 'empty body unsupported' or 'prologue not implemented', not 'truncation'.",
+      "derivedFrom": { "vector": "output-minimal-52" },
+      "expect": {
+        "frames": 1, "fatal": null,
+        "decoded": [{"vector": "output-minimal-52"}]
+      }
+    },
+
+    {
+      "name": "F2-fault-length-overrun-142",
+      "faultId": "F2",
+      "role": "fault",
+      "note": "payloadLength declares 124 (= prologue 24 + body 100) but the buffer holds only 28 + 24 + 90 = 142 bytes. 0 + 28 + 124 = 152 > 142 (01:941).",
+      "derivedFrom": {
+        "vector": "output-minimal-52",
+        "patch": [[24, "0000007c", "payloadLength = 124 = 0x7C"]],
+        "bodyFill": { "byteValue": 65, "count": 90 }
+      },
+      "expect": { "frames": 0, "fatal": "length-overrun" }
+    },
+    {
+      "name": "F2-control-exact-152",
+      "faultId": "F2",
+      "role": "control",
+      "note": "Exactly 28 + 124 = 152 bytes must be accepted.",
+      "derivedFrom": {
+        "vector": "output-minimal-52",
+        "patch": [[24, "0000007c", "payloadLength = 124"]],
+        "bodyFill": { "byteValue": 65, "count": 100 }
+      },
+      "expect": {
+        "frames": 1, "fatal": null,
+        "decoded": [{"vector": "output-minimal-52", "bodyByteLength": 100}]
+      }
+    },
+    {
+      "name": "F2-control-surplus-153",
+      "faultId": "F2",
+      "role": "control",
+      "note": "153 bytes (one surplus byte) must fail with a DIFFERENT code than F2: END_OF_BATCH is set but 28+124=152 is not the buffer end (01:942).",
+      "derivedFrom": {
+        "vector": "output-minimal-52",
+        "patch": [[24, "0000007c", "payloadLength = 124"]],
+        "bodyFill": { "byteValue": 65, "count": 101 }
+      },
+      "expect": { "frames": 0, "fatal": "batch-terminated-early" }
+    },
+
+    {
+      "name": "F3-fault-unknown-opcode-ff",
+      "faultId": "F3",
+      "role": "fault",
+      "note": "opcode 0xFF is permanently reserved (01:171) - must be an explicit unknown-opcode rejection, never a silent drop.",
+      "derivedFrom": { "vector": "output-minimal-52", "patch": [[1, "ff", "opcode = 0xFF"]] },
+      "expect": { "frames": 0, "fatal": "unknown-opcode" }
+    },
+    {
+      "name": "F3-control-max-defined-opcode-07",
+      "faultId": "F3",
+      "role": "control",
+      "note": "0x07 terminal-checkpoint:output is the highest defined opcode (01:166) and MUST be accepted. 01 section 1.8 defines no prologue layout for 0x07, so payloadLength carries 8 opaque body bytes.",
+      "byteLength": 36,
+      "layout": [
+        [0, "01", "frameVersion = 1"],
+        [1, "07", "opcode = 0x07 CHECKPOINT_OUTPUT (highest defined)"],
+        [2, "0009", "flags = 0x0009"],
+        [4, "00000001", "channelId = 1"],
+        [8, "0000000000000001", "streamEpoch = 1"],
+        [16, "0000000000000001", "sourceSeq = 1"],
+        [24, "00000008", "payloadLength = 8 (opaque - no v1 prologue schema for 0x07)"],
+        [28, "0011223344556677", "payload = 8 opaque bytes"]
+      ],
+      "hexFrame": "010700090000000100000000000000010000000000000001000000080011223344556677",
+      "expect": {
+        "frames": 1, "fatal": null,
+        "decoded": [{"opcode": 7, "flags": 9, "channelId": 1, "streamEpoch": "1", "sourceSeq": "1", "prologue": null, "payloadHex": "0011223344556677"}]
+      }
+    },
+    {
+      "name": "F3-control-min-undefined-opcode-08",
+      "faultId": "F3",
+      "role": "control",
+      "note": "0x08 is the first reserved (undefined) opcode (01:167) and MUST be rejected. Identical to the 0x07 vector except byte 1. If 0x07 and 0x08 do not split, the decoder is not checking opcodes.",
+      "derivedFrom": { "fault": "F3-control-max-defined-opcode-07", "patch": [[1, "08", "opcode = 0x08"]] },
+      "expect": { "frames": 0, "fatal": "unknown-opcode" }
+    },
+
+    {
+      "name": "F4-control-exact",
+      "faultId": "F4",
+      "role": "control",
+      "note": "output-utf8-body-60 declares payloadLength = 32 and the buffer is exactly 28 + 32 = 60 bytes.",
+      "derivedFrom": { "vector": "output-utf8-body-60" },
+      "expect": {
+        "frames": 1, "fatal": null,
+        "decoded": [{"vector": "output-utf8-body-60"}]
+      }
+    },
+    {
+      "name": "F4-fault-declared-plus-one",
+      "faultId": "F4",
+      "role": "fault",
+      "note": "output-utf8-body-60 with payloadLength 33 (0x21). 28 + 33 = 61 > 60 -> length-overrun (01:941).",
+      "derivedFrom": { "vector": "output-utf8-body-60", "patch": [[24, "00000021", "payloadLength = 33"]] },
+      "expect": { "frames": 0, "fatal": "length-overrun" }
+    },
+    {
+      "name": "F4-fault-declared-minus-one",
+      "faultId": "F4",
+      "role": "fault",
+      "note": "output-utf8-body-60 with payloadLength 31 (0x1F). 28 + 31 = 59 != 60 while END_OF_BATCH is set -> batch-terminated-early (01:942). This MUST differ from the +1 code; if both give the same code the decoder is not reading the length field.",
+      "derivedFrom": { "vector": "output-utf8-body-60", "patch": [[24, "0000001f", "payloadLength = 31"]] },
+      "expect": { "frames": 0, "fatal": "batch-terminated-early" }
+    },
+
+    {
+      "name": "F5-control-below-limit",
+      "faultId": "F5",
+      "role": "control",
+      "note": "bodyBytes = 2097151 (limit-1) -> payloadLength = 2097151 + 24 = 2097175 = 0x00200017. The limit is derived from pty.maxSnapshotBytes (config.schema.ts:77 default 2097152) and applies to the bodyBytes domain, NOT payloadLength (06 section 5 S2-b F5 note). The declared length matches the buffer length, so this exercises the policy bound and not F2.",
+      "derivedFrom": {
+        "vector": "output-minimal-52",
+        "patch": [[24, "00200017", "payloadLength = 2097175 = 24 + 2097151"]],
+        "bodyFill": { "byteValue": 65, "count": 2097151 }
+      },
+      "expect": {
+        "frames": 1, "fatal": null,
+        "decoded": [{"vector": "output-minimal-52", "bodyByteLength": 2097151}]
+      }
+    },
+    {
+      "name": "F5-control-at-limit",
+      "faultId": "F5",
+      "role": "control",
+      "note": "bodyBytes = 2097152 (exactly the limit) -> payloadLength = 2097176 = 0x00200018. Must be accepted.",
+      "derivedFrom": {
+        "vector": "output-minimal-52",
+        "patch": [[24, "00200018", "payloadLength = 2097176 = 24 + 2097152"]],
+        "bodyFill": { "byteValue": 65, "count": 2097152 }
+      },
+      "expect": {
+        "frames": 1, "fatal": null,
+        "decoded": [{"vector": "output-minimal-52", "bodyByteLength": 2097152}]
+      }
+    },
+    {
+      "name": "F5-fault-above-limit",
+      "faultId": "F5",
+      "role": "fault",
+      "note": "bodyBytes = 2097153 (limit+1) -> payloadLength = 2097177 = 0x00200019. Must be rejected. payload-limit-exceeded is a decoder POLICY code, deliberately distinct from length-overrun so F5 and F2 do not collapse into one measurement.",
+      "derivedFrom": {
+        "vector": "output-minimal-52",
+        "patch": [[24, "00200019", "payloadLength = 2097177 = 24 + 2097153"]],
+        "bodyFill": { "byteValue": 65, "count": 2097153 }
+      },
+      "expect": {
+        "frames": 0,
+        "fatal": null,
+        "scoped": [{ "code": "payload-limit-exceeded", "channelId": 1 }]
+      }
+    },
+    {
+      "name": "F5-control-oversized-frame-keeps-the-batch",
+      "faultId": "F5",
+      "role": "control",
+      "note": "M-3 grading control. batch-two-output-frames-106 with frame B (offset 53) inflated past the body bound: B.payloadLength (offset 53+24 = 77) = 24 + 2097153 = 2097177 = 0x00200019 and 2097152 filler bytes appended to B's existing 1-byte body. Buffer = 106 + 2097152 = 2097258 and B.frameEnd = 53 + 28 + 2097177 = 2097258, so the DECLARED length still matches the buffer exactly - that is what separates this from F2 (length-overrun) and keeps framing sound. Because framing is sound the decoder knows frameEnd and can resume, so payload-limit-exceeded is SCOPED (01:958 grading rule applied to a code 01:934-943 does not list): frame A on channelId 1 must still be delivered. If it were fatal, one oversized frame would erase every later frame of the same WS message - the loss pattern 01:951 argues against.",
+      "derivedFrom": {
+        "vector": "batch-two-output-frames-106",
+        "patch": [[77, "00200019", "B.payloadLength = 2097177 = 24 + 2097153"]],
+        "bodyFill": { "byteValue": 66, "count": 2097152 }
+      },
+      "expect": {
+        "frames": 1,
+        "fatal": null,
+        "scoped": [{ "code": "payload-limit-exceeded", "channelId": 1 }],
+        "decoded": [{"vector": "batch-two-output-frames-106", "index": 0}]
+      }
+    },
+
+    {
+      "name": "F7-fault-binary-frame-on-json-group",
+      "faultId": "F7",
+      "role": "fault",
+      "note": "A perfectly valid binary frame arriving while the group codec is JSON must fail explicitly, never return silently (01:934).",
+      "derivedFrom": { "vector": "output-minimal-52" },
+      "context": { "codec": "json" },
+      "expect": { "frames": 0, "fatal": "binary-frame-on-json-group" }
+    },
+    {
+      "name": "F7-control-binary-frame-on-binary-group",
+      "faultId": "F7",
+      "role": "control",
+      "note": "The same bytes on a binary group must be processed normally. If this fails, the codec branch itself is broken and F7 measured nothing.",
+      "derivedFrom": { "vector": "output-minimal-52" },
+      "expect": {
+        "frames": 1, "fatal": null,
+        "decoded": [{"vector": "output-minimal-52"}]
+      }
+    },
+
+    {
+      "name": "F8-fault-json-text-into-binary-decoder",
+      "faultId": "F8",
+      "role": "fault",
+      "note": "A JSON control frame delivered to the binary decoder. The first byte is '{' = 0x7B, which is not the negotiated frameVersion, so it converges on bad-frame-version. The point is that it fails EXPLICITLY rather than being mis-parsed or silently dropped.",
+      "utf8Text": "{\"type\":\"output\",\"sessionId\":\"s1\",\"data\":\"x\"}",
+      "expect": { "frames": 0, "fatal": "bad-frame-version" }
+    },
+    {
+      "name": "F8-control-binary-frame-into-binary-decoder",
+      "faultId": "F8",
+      "role": "control",
+      "derivedFrom": { "vector": "output-minimal-52" },
+      "expect": {
+        "frames": 1, "fatal": null,
+        "decoded": [{"vector": "output-minimal-52"}]
+      }
+    },
+
+    {
+      "name": "F9-fault-version-02",
+      "faultId": "F9",
+      "role": "fault",
+      "note": "frameVersion 0x02 != negotiated 0x01 (01:936).",
+      "derivedFrom": { "vector": "output-minimal-52", "patch": [[0, "02", "frameVersion = 2"]] },
+      "expect": { "frames": 0, "fatal": "bad-frame-version" }
+    },
+    {
+      "name": "F9-fault-version-00",
+      "faultId": "F9",
+      "role": "fault",
+      "note": "frameVersion 0x00 is permanently reserved (01:45) but 01:934-943 has NO dedicated rejection code for it - all of 0x00/0x02/0xFF converge on bad-frame-version (06 section 5 S2-b F9 note, decided). The 'zero-filled buffer' hypothesis is recorded as diagnostic METADATA, not as a code.",
+      "derivedFrom": { "vector": "output-minimal-52", "patch": [[0, "00", "frameVersion = 0"]] },
+      "expect": { "frames": 0, "fatal": "bad-frame-version", "detail": "reserved-frame-version-zero" }
+    },
+    {
+      "name": "F9-fault-version-ff",
+      "faultId": "F9",
+      "role": "fault",
+      "derivedFrom": { "vector": "output-minimal-52", "patch": [[0, "ff", "frameVersion = 0xFF"]] },
+      "expect": { "frames": 0, "fatal": "bad-frame-version", "detail": "reserved-frame-version-ff" }
+    },
+    {
+      "name": "F9-fault-zero-filled-52",
+      "faultId": "F9",
+      "role": "fault",
+      "note": "The canary case that 01:171 / 01:362 exist for: a 52-byte all-zero buffer must not look like a valid frame.",
+      "derivedFrom": { "vector": "output-minimal-52", "zeroFill": true },
+      "expect": { "frames": 0, "fatal": "bad-frame-version", "detail": "reserved-frame-version-zero" }
+    },
+    {
+      "name": "F9-control-version-01",
+      "faultId": "F9",
+      "role": "control",
+      "derivedFrom": { "vector": "output-minimal-52" },
+      "expect": {
+        "frames": 1, "fatal": null,
+        "decoded": [{"vector": "output-minimal-52"}]
+      }
+    },
+
+    {
+      "name": "F10-fault-reserved-bit2",
+      "faultId": "F10",
+      "role": "fault",
+      "note": "flags = 0x000F = 0x000B | bit2. bit2 is the abandoned CONTINUATION candidate and sits outside v1 activeFlagMask 0x000B (01:89, 01:91).",
+      "derivedFrom": { "vector": "output-minimal-52", "patch": [[2, "000f", "flags = 0x000F"]] },
+      "expect": { "frames": 0, "fatal": "reserved-flag-set" }
+    },
+    {
+      "name": "F10-fault-reserved-bit4",
+      "faultId": "F10",
+      "role": "fault",
+      "note": "flags = 0x001B = 0x000B | bit4.",
+      "derivedFrom": { "vector": "output-minimal-52", "patch": [[2, "001b", "flags = 0x001B"]] },
+      "expect": { "frames": 0, "fatal": "reserved-flag-set" }
+    },
+    {
+      "name": "F10-control-full-mask-000b",
+      "faultId": "F10",
+      "role": "control",
+      "note": "flags = 0x000B (the entire v1 activeFlagMask, 01:86) must be accepted.",
+      "derivedFrom": { "vector": "output-minimal-52" },
+      "expect": {
+        "frames": 1, "fatal": null,
+        "decoded": [{"vector": "output-minimal-52"}]
+      }
+    },
+    {
+      "name": "F10-control-mandatory-only-0009",
+      "faultId": "F10",
+      "role": "control",
+      "note": "flags = 0x0009 (MANDATORY_FLAGS only, 01:84) must be accepted.",
+      "derivedFrom": { "vector": "screen-snapshot-54" },
+      "expect": {
+        "frames": 1, "fatal": null,
+        "decoded": [{"vector": "screen-snapshot-54"}]
+      }
+    },
+    {
+      "name": "F10-control-missing-end-of-batch",
+      "faultId": "F10",
+      "role": "control",
+      "note": "flags = 0x000A on the LAST frame - END_OF_BATCH missing. Must give batch-not-terminated (01:943), a DIFFERENT code from reserved-flag-set.",
+      "derivedFrom": { "vector": "output-minimal-52", "patch": [[2, "000a", "flags = 0x000A"]] },
+      "expect": { "frames": 0, "fatal": "batch-not-terminated" }
+    },
+
+    {
+      "name": "F11-fault-reserved-channel-zero",
+      "faultId": "F11",
+      "role": "fault",
+      "note": "channelId 0 is permanently reserved and must be rejected as reserved-channel, NOT unknown-channel (01:362, 01:939).",
+      "derivedFrom": { "vector": "output-minimal-52", "patch": [[4, "00000000", "channelId = 0"]] },
+      "expect": { "frames": 0, "fatal": "reserved-channel" }
+    },
+    {
+      "name": "F11-control-registered-channel",
+      "faultId": "F11",
+      "role": "control",
+      "note": "channelId 1 is ACTIVE in defaultContext.channels -> accepted.",
+      "derivedFrom": { "vector": "output-minimal-52" },
+      "expect": {
+        "frames": 1, "fatal": null,
+        "decoded": [{"vector": "output-minimal-52"}]
+      }
+    },
+    {
+      "name": "F11-control-unknown-channel-is-scoped",
+      "faultId": "F11",
+      "role": "control",
+      "note": "Two-frame batch built from batch-two-output-frames-106 by moving frame A onto channelId 99 (absent from the registry). unknown-channel is a SCOPED error: the frame is skipped and parsing CONTINUES (01:958), so frame B on channelId 1 must still be delivered. If unknown-channel were fatal, or shared a code with reserved-channel, frame B would be lost - exactly the silent drop the issue AC forbids.",
+      "derivedFrom": {
+        "vector": "batch-two-output-frames-106",
+        "patch": [[4, "00000063", "A.channelId = 99 = 0x63 (unregistered)"]]
+      },
+      "expect": {
+        "frames": 1, "fatal": null, "scoped": [{ "code": "unknown-channel", "channelId": 99 }],
+        "decoded": [{"vector": "batch-two-output-frames-106", "index": 1}]
+      }
+    },
+    {
+      "name": "F11-control-retired-channel-is-silent-but-observable",
+      "faultId": "F11",
+      "role": "control",
+      "note": "Same batch with frame A on channelId 5, which is RETIRED. It is discarded WITHOUT requesting recovery, but a terminal_binary_retired_channel_frame diagnostic is recorded (01:392, 01:395). Frame B must still be delivered.",
+      "derivedFrom": {
+        "vector": "batch-two-output-frames-106",
+        "patch": [[4, "00000005", "A.channelId = 5 (RETIRED)"]]
+      },
+      "expect": {
+        "frames": 1,
+        "fatal": null,
+        "scoped": [],
+        "diagnostics": [{ "event": "terminal_binary_retired_channel_frame", "channelId": 5 }],
+        "decoded": [{"vector": "batch-two-output-frames-106", "index": 1}]
+      }
+    },
+
+    {
+      "name": "P7-fault-output-payload-length-zero",
+      "faultId": "P7",
+      "role": "fault",
+      "note": "28-byte header only, payloadLength = 0. PROLOGUE_PRESENT is mandatory for OUTPUT so a declared payload of 0 cannot hold the 24-byte prologue. 01:934-943 has NO code for this; payload-underrun is a decoder POLICY code (see codec docs). Without this control, 'empty body' and 'no prologue' are indistinguishable.",
+      "derivedFrom": {
+        "vector": "output-minimal-52",
+        "patch": [[24, "00000000", "payloadLength = 0"]],
+        "truncateTo": 28
+      },
+      "expect": { "frames": 0, "fatal": "payload-underrun" }
+    },
+    {
+      "name": "P7-control-output-empty-body",
+      "faultId": "P7",
+      "role": "control",
+      "note": "payloadLength = 24 (prologue only, segmentCount 0, zero body bytes) is accepted and round-trips.",
+      "derivedFrom": { "vector": "output-minimal-52" },
+      "expect": {
+        "frames": 1, "fatal": null,
+        "decoded": [{"vector": "output-minimal-52"}]
+      }
+    },
+    {
+      "name": "P7-fault-segment-array-underrun",
+      "faultId": "P7",
+      "role": "fault",
+      "note": "segmentCount = 2 declares a 32-byte segment array, but payloadLength is only 24 (0x18) so the array cannot fit. Same length domain as the prologue check -> payload-underrun.",
+      "derivedFrom": { "vector": "output-minimal-52", "patch": [[50, "0002", "prologue.segmentCount = 2"]] },
+      "expect": { "frames": 0, "fatal": "payload-underrun" }
+    },
+
+    {
+      "name": "P8-fault-empty-binary-ws-message",
+      "faultId": "P8",
+      "role": "fault",
+      "note": "L-1 pin. A zero-byte binary WS message is ACCEPTED as a no-op: the appendix B loop (01:1262) is `while off < byteLength`, so with 0 bytes it never runs and there is no frame to reject. This is recorded deliberately, not inherited by accident. It is not the silent drop the issue AC forbids - that prohibition is about discarding decodable PAYLOAD, and zero bytes carry none. No wire code fits either: `batch-not-terminated` (01:943) is a per-frame verdict and there is no frame, and inventing an 11th code was already rejected for the same structural gap in 06 section 5 S2-b F9. See 06 section 5 S2 'S2 execution outcome' for the recommended disposition (observability at the wiring layer, not a new code).",
+      "derivedFrom": { "vector": "output-minimal-52", "truncateTo": 0 },
+      "expect": { "frames": 0, "fatal": null }
+    },
+    {
+      "name": "P8-control-one-byte-is-truncated-header",
+      "faultId": "P8",
+      "role": "control",
+      "note": "The acceptance above holds at EXACTLY zero bytes. One byte is already a rejection, so P8 is not measuring 'the decoder tolerates short buffers' - if this control also passed, the loop guard would be wrong rather than the empty case being intentional.",
+      "derivedFrom": { "vector": "output-minimal-52", "truncateTo": 1 },
+      "expect": { "frames": 0, "fatal": "truncated-header" }
+    },
+
+    {
+      "name": "D14-fault-prologue-present-cleared-52",
+      "faultId": "D14",
+      "role": "fault",
+      "note": "D14 (06 section 5 S2-g). A frame that CARRIES its 24-byte prologue but declares PROLOGUE_PRESENT = 0. Hand-derived, not patched, so the whole 52 bytes are auditable against the header table (01:45-52) and the OUTPUT prologue table (01:490-496): it is output-minimal-52 with flags recomputed as END_OF_BATCH|PAYLOAD_UTF8_TEXT = 0x0001|0x0002 = 0x0003, i.e. 0x000B with bit3 subtracted. Every other field is unchanged, so payloadLength 24 still holds the prologue exactly, END_OF_BATCH is set on the only (therefore last) frame, and channelId 1 is ACTIVE - the frame passes every other check and is rejected on bit3 alone. The encoder already refuses to emit exactly this shape (assertEncodableHead: 'PROLOGUE_PRESENT is mandatory and cannot be cleared'); before D14 the decoder accepted it, and closing that asymmetry is the whole point.",
+      "byteLength": 52,
+      "layout": [
+        [0, "01", "frameVersion = 1"],
+        [1, "01", "opcode = 0x01 OUTPUT"],
+        [2, "0003", "flags = 0x0003 = END_OF_BATCH|PAYLOAD_UTF8_TEXT - PROLOGUE_PRESENT (bit3) CLEARED"],
+        [4, "00000001", "channelId = 1"],
+        [8, "0000000000000001", "streamEpoch = 1"],
+        [16, "0000000000000001", "sourceSeq = 1"],
+        [24, "00000018", "payloadLength = 24 = prologue 24 + 16*0 segments + 0 body (the prologue IS present)"],
+        [28, "0000000000000000", "prologue.screenSeq = 0"],
+        [36, "0000000000000000", "prologue.chunkIdBase = 0"],
+        [44, "00000000", "prologue.authorityRevision = 0"],
+        [48, "0000", "prologue.authorityEpochIndex = 0"],
+        [50, "0000", "prologue.segmentCount = 0"]
+      ],
+      "hexFrame": "01010003000000010000000000000001000000000000000100000018000000000000000000000000000000000000000000000000",
+      "expect": { "frames": 0, "fatal": "mandatory-flag-cleared" }
+    },
+    {
+      "name": "D14-control-prologue-present-set-52",
+      "faultId": "D14",
+      "role": "control",
+      "note": "The same frame with bit3 SET (flags = 0x000B) must be accepted. It differs from D14-fault-prologue-present-cleared-52 in exactly the two flag bytes at offset 2, so if this control also failed we would be measuring something other than bit3.",
+      "derivedFrom": { "vector": "output-minimal-52" },
+      "expect": {
+        "frames": 1, "fatal": null,
+        "decoded": [{"vector": "output-minimal-52"}]
+      }
+    },
+    {
+      "name": "D14-control-mid-batch-bit0-cleared",
+      "faultId": "D14",
+      "role": "control",
+      "note": "THE decisive control for D14. batch-two-output-frames-106 unmodified: frame A carries flags = 0x000A, i.e. END_OF_BATCH (bit0) = 0 because A is not the last frame (01:75). MANDATORY_FLAGS = bit0|bit3 = 0x0009 (01:84) is a NEGOTIATION invariant (01:93), not a per-frame one: 0x000A & 0x0009 = 0x0008 != 0x0009, so a decoder predicate '(flags & MANDATORY_FLAGS) === MANDATORY_FLAGS' would reject frame A and with it every mid-batch frame ever sent. Both frames must decode.",
+      "derivedFrom": { "vector": "batch-two-output-frames-106" },
+      "expect": {
+        "frames": 2, "fatal": null,
+        "decoded": [
+          {"vector": "batch-two-output-frames-106", "index": 0},
+          {"vector": "batch-two-output-frames-106", "index": 1}
+        ]
+      }
+    },
+    {
+      "name": "D14-control-mid-batch-mandatory-flag-only",
+      "faultId": "D14",
+      "role": "control",
+      "note": "The tightest form of the control above. Frame A's flags at offset 2 are hand-patched 0x000A -> 0x0008, so A now carries PROLOGUE_PRESENT and nothing else: bit0 = 0 (not the last frame) and bit1 = 0 (the negotiable PAYLOAD_UTF8_TEXT dropped). flags & MANDATORY_FLAGS = 0x0008 != 0x0009 while flags & FLAG_PROLOGUE_PRESENT = 0x0008 != 0. The two candidate predicates give opposite verdicts on this exact frame, and the frame is legal, so it must be accepted. Frame B is untouched and still terminates the batch.",
+      "derivedFrom": {
+        "vector": "batch-two-output-frames-106",
+        "patch": [[2, "0008", "A.flags = 0x0008 = PROLOGUE_PRESENT only"]]
+      },
+      "expect": {
+        "frames": 2, "fatal": null,
+        "decoded": [
+          {"vector": "batch-two-output-frames-106", "index": 0, "flags": 8},
+          {"vector": "batch-two-output-frames-106", "index": 1}
+        ]
+      }
+    },
+    {
+      "name": "D14-fault-mid-batch-prologue-present-cleared",
+      "faultId": "D14",
+      "role": "fault",
+      "note": "The check is per FRAME, not per WS message. batch-two-output-frames-106 with frame B's flags at offset 55 hand-patched 0x000B -> 0x0003: B still terminates the batch (bit0 set) but clears bit3 while carrying its prologue. Frame A (offset 0, flags 0x000A, bit0 already 0) must decode first and survive the fatal that follows at offset 53 - 01:949-960 forbids a fatal from erasing frames already parsed.",
+      "derivedFrom": {
+        "vector": "batch-two-output-frames-106",
+        "patch": [[55, "0003", "B.flags = 0x0003 - bit3 cleared, bit0 still set"]]
+      },
+      "expect": {
+        "frames": 1, "fatal": "mandatory-flag-cleared",
+        "decoded": [{"vector": "batch-two-output-frames-106", "index": 0}]
+      }
+    },
+    {
+      "name": "D14-control-no-prologue-schema-bit3-cleared",
+      "faultId": "D14",
+      "role": "control",
+      "note": "Opcode 0x07 with flags hand-patched 0x0009 -> 0x0001, i.e. bit3 cleared. This MUST be accepted. 01 section 1.8 defines no prologue layout for 0x03/0x04/0x06/0x07, so prologueBytes() is 0 and such a frame genuinely carries no prologue: for it, SETTING PROLOGUE_PRESENT would be the false statement and clearing it is honest. The encoder cannot emit these opcodes at all (assertEncodableHead rejects prologueBytes === 0), so there is no encoder/decoder asymmetry here for D14 to close, and rejecting would pre-judge the spec gap D15 records. The frame stays opaque.",
+      "derivedFrom": {
+        "fault": "F3-control-max-defined-opcode-07",
+        "patch": [[2, "0001", "flags = 0x0001 = END_OF_BATCH only, bit3 cleared"]]
+      },
+      "expect": {
+        "frames": 1, "fatal": null,
+        "decoded": [{"opcode": 7, "flags": 1, "channelId": 1, "streamEpoch": "1", "sourceSeq": "1", "prologue": null, "payloadHex": "0011223344556677"}]
+      }
+    }
+  ]
+}
