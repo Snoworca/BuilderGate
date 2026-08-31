@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import * as webSocketBackpressure from '../../src/utils/webSocketBackpressure.ts';
+import * as wsProtocol from '../../src/types/ws-protocol.ts';
 import {
   evaluateBrowserInputBackpressure,
   getBrowserInputBackpressureLowWaterBytes,
@@ -198,4 +199,108 @@ test('browser websocket send gate reports send-failed when socket.send throws', 
   assert.equal(result.reason, 'send-failed');
   assert.equal(result.bufferedAmount, 0);
   assert.equal(typeof result.payloadBytes, 'number');
+});
+
+test('PERF-BGSTAB-010 AC-5/AC-9 accepted delivery ACK protocol 계약 부재 때문에 실패', () => {
+  type AckParser = (value: unknown) =>
+    | { ok: true; message: { type: 'terminal-delivery:ack'; sessionId: string; connectionEpoch: string; deliverySeq: number } }
+    | { ok: false; reason: string };
+  const parse = (wsProtocol as { parseTerminalDeliveryAckMessage?: AckParser }).parseTerminalDeliveryAckMessage;
+  const failure = 'PERF-BGSTAB-010 AC-5/AC-9 accepted delivery ACK protocol 계약 부재 때문에 실패';
+  assert.equal(typeof parse, 'function', failure);
+  assert.deepEqual(parse!({
+    type: 'terminal-delivery:ack',
+    sessionId: 'session-1',
+    connectionEpoch: 'epoch-1',
+    deliverySeq: 7,
+  }), {
+    ok: true,
+    message: {
+      type: 'terminal-delivery:ack',
+      sessionId: 'session-1',
+      connectionEpoch: 'epoch-1',
+      deliverySeq: 7,
+    },
+  }, failure);
+  assert.deepEqual(parse!({
+    type: 'terminal-delivery:ack',
+    sessionId: 'session-1',
+    connectionEpoch: 'epoch-1',
+    deliverySeq: 0,
+  }), {
+    ok: false,
+    reason: 'invalid-delivery-seq',
+  }, failure);
+});
+
+test('PERF-BGSTAB-010 AC-6 parses only valid rejected delivery ACK identities', () => {
+  type AckRejectedParser = (value: unknown) =>
+    | {
+      ok: true;
+      message: {
+        type: 'terminal-delivery:ack-rejected';
+        sessionId: string;
+        connectionEpoch: string;
+        deliverySeq: number;
+        reason: string;
+      };
+    }
+    | { ok: false; reason: string };
+  const parse = (wsProtocol as {
+    parseTerminalDeliveryAckRejectedMessage?: AckRejectedParser;
+  }).parseTerminalDeliveryAckRejectedMessage;
+  const failure = 'PERF-BGSTAB-010 AC-6 rejected ACK parser 계약 부재 때문에 실패';
+
+  assert.equal(typeof parse, 'function', failure);
+  assert.deepEqual(parse!({
+    type: 'terminal-delivery:ack-rejected',
+    sessionId: 'session-1',
+    connectionEpoch: 'epoch-1',
+    deliverySeq: 7,
+    reason: 'stale-delivery-seq',
+  }), {
+    ok: true,
+    message: {
+      type: 'terminal-delivery:ack-rejected',
+      sessionId: 'session-1',
+      connectionEpoch: 'epoch-1',
+      deliverySeq: 7,
+      reason: 'stale-delivery-seq',
+    },
+  }, failure);
+
+  for (const invalid of [
+    null,
+    'terminal-delivery:ack-rejected',
+    {
+      type: 'terminal-delivery:ack-rejected',
+      sessionId: '',
+      connectionEpoch: 'epoch-1',
+      deliverySeq: 7,
+      reason: 'stale-delivery-seq',
+    },
+    {
+      type: 'terminal-delivery:ack-rejected',
+      sessionId: 'session-1',
+      connectionEpoch: '',
+      deliverySeq: 7,
+      reason: 'stale-delivery-seq',
+    },
+    {
+      type: 'terminal-delivery:ack-rejected',
+      sessionId: 'session-1',
+      connectionEpoch: 'epoch-1',
+      deliverySeq: 0,
+      reason: 'stale-delivery-seq',
+    },
+    {
+      type: 'terminal-delivery:ack-rejected',
+      sessionId: 'session-1',
+      connectionEpoch: 'epoch-1',
+      deliverySeq: 7,
+      reason: '',
+    },
+  ]) {
+    assert.equal(parse!(invalid).ok, false, failure);
+  }
 });

@@ -37,21 +37,39 @@ function hasMenuLabel(items: ReturnType<typeof buildTerminalContextMenuItems>, l
   return items.some(item => !item.separator && item.label === label);
 }
 
+function findMenuItem(items: ReturnType<typeof buildTerminalContextMenuItems>, label: string) {
+  return items.find(item => !item.separator && item.label === label);
+}
+
 test('복사 항목은 기본(마우스 트래킹 비활성)에서 표시된다', () => {
   const items = buildTerminalContextMenuItems(terminalMenuBase());
   assert.ok(hasMenuLabel(items, '복사'));
   assert.ok(hasMenuLabel(items, '붙여넣기'));
 });
 
-test('mouseTrackingActive 이면 복사 항목을 숨기고 붙여넣기는 유지한다', () => {
-  const items = buildTerminalContextMenuItems(terminalMenuBase({ mouseTrackingActive: true }));
-  assert.ok(!hasMenuLabel(items, '복사'), '마우스 트래킹 모드에서는 복사 항목이 없어야 한다');
-  assert.ok(hasMenuLabel(items, '붙여넣기'), '붙여넣기는 마우스 트래킹 모드에서도 유지되어야 한다');
+
+/**
+ * 복사 항목은 항상 표시되고, 활성 여부는 선택 유무만으로 정한다.
+ *
+ * 이전에는 마우스 트래킹 모드(Claude Code 등 TUI)에서 "xterm 로컬 선택이 만들어지지
+ * 않는다"는 전제로 항목을 숨겼으나, 그 전제는 사실이 아니다. TerminalView 의
+ * hasSelection 은 우클릭 시점에 보존한 선택(savedRightClickSelRef)까지 포함하므로
+ * TUI 세션에서도 참이 될 수 있고, 실제로 Claude Code 세션에서 복사가 동작한다.
+ * 숨기면 동작하는 기능으로 가는 길만 사라진다.
+ */
+test('선택이 있으면 복사 항목이 활성화된다', () => {
+  const items = buildTerminalContextMenuItems(terminalMenuBase({ hasSelection: true }));
+  const copy = findMenuItem(items, '복사');
+  assert.ok(copy, '복사 항목이 없다');
+  assert.notEqual(copy.disabled, true, '선택이 있는데 복사가 비활성화되었다');
 });
 
-test('mouseTrackingActive 가 false 면 복사 항목을 유지한다', () => {
-  const items = buildTerminalContextMenuItems(terminalMenuBase({ mouseTrackingActive: false }));
-  assert.ok(hasMenuLabel(items, '복사'));
+test('선택이 없으면 복사 항목은 비활성화되되 사라지지는 않는다', () => {
+  const items = buildTerminalContextMenuItems(terminalMenuBase({ hasSelection: false }));
+  const copy = findMenuItem(items, '복사');
+  assert.ok(copy, '복사 항목이 없다');
+  assert.equal(copy.disabled, true, '선택이 없는데 복사가 활성화되었다');
+  assert.ok(hasMenuLabel(items, '붙여넣기'), '붙여넣기는 선택과 무관하게 유지되어야 한다');
 });
 
 test('registered preset context menu returns null when no categories have items', () => {

@@ -5,11 +5,18 @@ import { getActiveSessionId, login, waitForTerminal } from './helpers';
 
 type JsonFrame = Record<string, unknown> & {
   type?: string;
+  channel?: string;
+  wsTransportMode?: string;
   sessionId?: string;
   connectionEpoch?: string;
   deliverySeq?: number;
   replayToken?: string;
+  seq?: number;
+  snapshotSeq?: number;
 };
+
+type WebSocketChannel = 'control' | 'output';
+type WsTransportMode = 'unified' | 'split-shadow' | 'split';
 
 interface CapturedFrame {
   direction: 'page-to-server' | 'server-to-page';
@@ -80,6 +87,38 @@ class IsolatedWebSocketRelay {
     return this.connections.get(generation)?.url ?? null;
   }
 
+  connectionChannel(generation: number): WebSocketChannel | null {
+    for (const frame of this.frames) {
+      if (
+        frame.direction === 'server-to-page'
+        && frame.generation === generation
+        && frame.message?.type === 'connected'
+        && (frame.message.channel === 'control' || frame.message.channel === 'output')
+      ) {
+        return frame.message.channel;
+      }
+    }
+    return null;
+  }
+
+  connectionTransportMode(generation: number): WsTransportMode | null {
+    for (const frame of this.frames) {
+      if (
+        frame.direction === 'server-to-page'
+        && frame.generation === generation
+        && frame.message?.type === 'connected'
+        && (
+          frame.message.wsTransportMode === 'unified'
+          || frame.message.wsTransportMode === 'split-shadow'
+          || frame.message.wsTransportMode === 'split'
+        )
+      ) {
+        return frame.message.wsTransportMode;
+      }
+    }
+    return null;
+  }
+
   private isSyntheticAck(message: JsonFrame | null): boolean {
     return message?.type === 'terminal-delivery:ack'
       && message.sessionId === this.syntheticAck?.sessionId
@@ -103,6 +142,8 @@ interface ReusableWave3Workspace {
   createdAt: string;
 }
 
+// Fixture precondition (SDS-AC-3): a test-owned idle W3-SOLE-WRITER workspace
+// must already exist. This evidence test is read-only and fails closed otherwise.
 async function listReusableWave3Workspaces(page: Page): Promise<ReusableWave3Workspace[]> {
   return page.evaluate(async () => {
     const token = localStorage.getItem('cws_auth_token');
@@ -248,6 +289,25 @@ test.describe('PERF-BGSTAB-010 AC-9 isolated browser evidence', () => {
     }).not.toBeNull();
     const snapshot = relay.latestSnapshot(reusable.sessionId);
     if (!snapshot) throw new Error('isolated AC-9 routed snapshot disappeared');
+    const snapshotSeq = snapshot.frame.seq;
+    if (!Number.isSafeInteger(snapshotSeq) || snapshotSeq < 0) {
+      throw new Error('isolated AC-9 snapshot sequence is invalid');
+    }
+    const replayToken = snapshot.frame.replayToken;
+    if (typeof replayToken !== 'string' || replayToken.length === 0) {
+      throw new Error('isolated AC-9 snapshot replay token is invalid');
+    }
+    const snapshotTransportMode = relay.connectionTransportMode(snapshot.generation);
+    if (!snapshotTransportMode) throw new Error('isolated AC-9 snapshot transport mode is unavailable');
+    const snapshotChannel = relay.connectionChannel(snapshot.generation);
+    expect(
+      snapshotChannel,
+      'isolated AC-9 snapshot did not use the live unified control WebSocket',
+    ).toBe('control');
+    expect(
+      snapshotTransportMode,
+      'isolated AC-9 did not run against the live unified transport configuration',
+    ).toBe('unified');
     const webSocketUrl = relay.connectionUrl(snapshot.generation);
     expect(webSocketUrl, 'isolated AC-9 routed WebSocket URL is unavailable').not.toBeNull();
     const parsedWebSocketUrl = new URL(webSocketUrl!);
@@ -257,11 +317,13 @@ test.describe('PERF-BGSTAB-010 AC-9 isolated browser evidence', () => {
     await expect.poll(() => relay.frames.some(frame => (
       frame.direction === 'page-to-server'
       && frame.generation === snapshot.generation
+      && relay.connectionChannel(frame.generation) === 'control'
       && frame.message?.type === 'screen-snapshot:ready'
       && frame.message.sessionId === reusable.sessionId
-      && frame.message.replayToken === snapshot.frame.replayToken
+      && frame.message.replayToken === replayToken
+      && (frame.message.snapshotSeq === undefined || frame.message.snapshotSeq === snapshotSeq)
     )), {
-      message: 'isolated AC-9 snapshot did not drain before output injection',
+      message: 'isolated AC-9 unified snapshot did not drain through its control WebSocket before output injection',
       timeout: 15_000,
     }).toBe(true);
 

@@ -232,3 +232,59 @@ test('runtime residency does not reschedule immediately for already expired hidd
 
   assert.equal(delay, null);
 });
+
+test('REL-BGSTAB-012 preserves the existing renderer residency policy during hidden recovery', () => {
+  const signature = 'REL-BGSTAB-012 AC-9: a hidden recovery transition must preserve owner policy outputs and must neither suspend nor dispose a warm runtime';
+  const recoveryInput = {
+    tabs: [tab('active', 'w1'), tab('hidden-recovery', 'w2'), tab('expired-hidden', 'w3')],
+    pinnedTabIds: new Set(['active']),
+    activeWorkspaceId: 'w1',
+    now: 10_000,
+    limits: { maxLiveWorkspaces: 2, maxLiveTerminals: 1, hiddenRuntimeTtlMs: 5_000 },
+    frontendRuntimeResidencyMode: 'bounded' as const,
+    metadataByTabId: metadata([
+      ['active', { workspaceId: 'w1', hiddenSince: null, lastAccessedAt: 10_000 }],
+      ['hidden-recovery', { workspaceId: 'w2', hiddenSince: 8_000, lastAccessedAt: 9_000 }],
+      ['expired-hidden', { workspaceId: 'w3', hiddenSince: 4_000, lastAccessedAt: 8_000 }],
+    ]),
+  };
+  const beforeHiddenRecovery = resolveTerminalRuntimeResidency(recoveryInput);
+  const existingPolicy = {
+    residentCount: beforeHiddenRecovery.residentTabs.length,
+    hiddenRuntimeTtlMs: recoveryInput.limits.hiddenRuntimeTtlMs,
+    frontendRuntimeResidencyMode: recoveryInput.frontendRuntimeResidencyMode,
+  };
+  const afterHiddenRecovery = resolveTerminalRuntimeResidency({
+    ...recoveryInput,
+    hiddenRecovery: {
+      sessionId: 'hidden-recovery',
+      recoveryGeneration: 2,
+      outcome: 'authoritative-checkpoint-applied',
+    },
+  } as Parameters<typeof resolveTerminalRuntimeResidency>[0]);
+
+  assert.deepEqual(beforeHiddenRecovery.residentTabs.map(item => item.id), ['active', 'hidden-recovery'], signature);
+  assert.deepEqual(beforeHiddenRecovery.evictedTabIds, ['expired-hidden'], signature);
+  assert.deepEqual(
+    afterHiddenRecovery.residentTabs.map(item => item.id),
+    beforeHiddenRecovery.residentTabs.map(item => item.id),
+    signature,
+  );
+  assert.deepEqual(afterHiddenRecovery.evictedTabIds, beforeHiddenRecovery.evictedTabIds, signature);
+  assert.deepEqual(
+    (afterHiddenRecovery as unknown as { hiddenRecoveryTransition?: unknown }).hiddenRecoveryTransition,
+    {
+      status: 'applied',
+      sessionId: 'hidden-recovery',
+      recoveryGeneration: 2,
+      beforePolicy: existingPolicy,
+      afterPolicy: existingPolicy,
+      lifecycle: {
+        warmRuntimeDelta: 0,
+        suspended: false,
+        disposed: false,
+      },
+    },
+    signature,
+  );
+});

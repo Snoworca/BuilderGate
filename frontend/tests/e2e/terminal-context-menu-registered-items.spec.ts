@@ -14,10 +14,19 @@ import {
   waitForTerminal,
 } from './helpers';
 
+const initialGridModeByPage = new WeakMap<Page, boolean>();
+
 test.describe('Terminal context menu registered item paste', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
     await waitForTerminal(page);
+    const startedInGridMode = await page.getByTitle('Switch to Tabs').isVisible();
+    initialGridModeByPage.set(page, startedInGridMode);
+    if (startedInGridMode) {
+      await page.getByTitle('Switch to Tabs').click();
+      await expect(page.getByTitle('Switch to Grid')).toBeVisible();
+      await expect(page.locator('.workspace-tabbar [role="tab"][aria-selected="true"]')).toBeVisible();
+    }
     await clearCommandPresets(page);
     await page.locator('.terminal-view:visible .xterm-helper-textarea').first().focus();
     await page.keyboard.press('Control+C');
@@ -28,7 +37,18 @@ test.describe('Terminal context menu registered item paste', () => {
   });
 
   test.afterEach(async ({ page }) => {
-    await clearCommandPresets(page);
+    try {
+      await clearCommandPresets(page);
+    } finally {
+      if (initialGridModeByPage.has(page)) {
+        if (initialGridModeByPage.get(page) === true) {
+          await switchToGridMode(page);
+        } else {
+          await switchToTabMode(page);
+        }
+        initialGridModeByPage.delete(page);
+      }
+    }
   });
 
   test('hides registered paste menu when no presets exist', async ({ page }, testInfo) => {
@@ -71,6 +91,36 @@ test.describe('Terminal context menu registered item paste', () => {
 
     await expect(page.locator('.context-menu')).toHaveCount(0);
     await expectRegisteredPaste(page, command, pasteEventCountBefore);
+    await page.keyboard.press('Control+C');
+  });
+
+  test('routes a registered command through the clipboard coordinator exactly once', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop coordinator coverage');
+
+    const stamp = Date.now();
+    const label = `e2e-dialog-context-coordinator-${stamp}`;
+    const command = `coordinator-preset-${stamp}`;
+    await createCommandPresetViaApi(page, 'command', label, command);
+
+    await openTerminalContextMenu(page);
+    await page.getByText('등록 항목 붙여넣기').hover();
+    await page.getByText('커맨드 라인').hover();
+    const pasteEventCountBefore = await countCommandPresetPasteDebugEvents(page);
+    const clipboardEventCountBefore = await countClipboardActionEvents(page, 'command-preset');
+    await page.getByText(label).click();
+
+    await expect(page.locator('.context-menu')).toHaveCount(0);
+    await expect.poll(async () => countCommandPresetPasteDebugEvents(page), {
+      timeout: 10_000,
+    }).toBe(pasteEventCountBefore + 1);
+    await expectClipboardActionAfterCount(page, clipboardEventCountBefore, {
+      action: 'paste',
+      source: 'command-preset',
+      outcome: 'accepted',
+      payloadBytes: new TextEncoder().encode(command).byteLength,
+      secret: command,
+    });
+    await expectTerminalFocusRestored(page);
     await page.keyboard.press('Control+C');
   });
 
@@ -530,6 +580,51 @@ async function expectRegisteredPaste(page: Page, value: string, pasteEventCountB
   await expectTerminalFocusRestored(page);
 }
 
+async function countClipboardActionEvents(page: Page, source: string): Promise<number> {
+  return page.evaluate((expectedSource) => {
+    return (window.__buildergateTerminalDebug?.getEvents() ?? []).filter((event) => (
+      event.kind === 'terminal_clipboard_action'
+      && event.details?.source === expectedSource
+    )).length;
+  }, source);
+}
+
+async function expectClipboardActionAfterCount(
+  page: Page,
+  previousCount: number,
+  expected: {
+    action: 'copy' | 'paste';
+    source: string;
+    outcome: 'accepted' | 'rejected';
+    payloadBytes: number;
+    reason?: string;
+    secret: string;
+  },
+): Promise<void> {
+  await expect.poll(async () => {
+    return page.evaluate(({ countBefore, matcher }) => {
+      const events = (window.__buildergateTerminalDebug?.getEvents() ?? []).filter((event) => (
+        event.kind === 'terminal_clipboard_action'
+        && event.details?.source === matcher.source
+      ));
+      const next = events.slice(countBefore);
+      if (next.length !== 1) {
+        return { count: next.length, matches: false, rawPayloadExposed: false };
+      }
+      const event = next[0];
+      return {
+        count: next.length,
+        matches: event.details?.action === matcher.action
+          && event.details?.source === matcher.source
+          && event.details?.outcome === matcher.outcome
+          && event.details?.payloadBytes === matcher.payloadBytes
+          && (matcher.reason === undefined || event.details?.reason === matcher.reason),
+        rawPayloadExposed: JSON.stringify(event).includes(matcher.secret),
+      };
+    }, { countBefore: previousCount, matcher: expected });
+  }, { timeout: 10000 }).toEqual({ count: 1, matches: true, rawPayloadExposed: false });
+}
+
 async function activeContextMenuItemText(page: Page): Promise<string> {
   return page.evaluate(() => {
     const active = document.activeElement;
@@ -555,6 +650,15 @@ async function switchToGridMode(page: Page): Promise<void> {
   }
   await expect(page.getByTitle('Switch to Tabs')).toBeVisible();
   await expect(page.locator('.grid-cell .xterm-screen:visible').first()).toBeVisible({ timeout: 15000 });
+}
+
+async function switchToTabMode(page: Page): Promise<void> {
+  const switchToTabs = page.getByTitle('Switch to Tabs');
+  if (await switchToTabs.isVisible()) {
+    await switchToTabs.click();
+  }
+  await expect(page.getByTitle('Switch to Grid')).toBeVisible();
+  await expect(page.locator('.workspace-tabbar [role="tab"][aria-selected="true"]')).toBeVisible();
 }
 
 async function expectAllVisibleContextMenusInsideViewport(page: Page): Promise<void> {

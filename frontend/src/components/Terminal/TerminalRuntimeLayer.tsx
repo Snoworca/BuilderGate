@@ -47,7 +47,7 @@ function TerminalRuntimeEntry({
   onAuthError,
   terminalShortcutState,
 }: TerminalRuntimeEntryProps) {
-  const { getHostInteractions } = useTerminalRuntimeContext();
+  const { getHostInteractions, outputPolicySelectionCoordinator } = useTerminalRuntimeContext();
   const isVisible = Boolean(host?.isVisible && host.rect.width > 0 && host.rect.height > 0);
   const isGridSurface = Boolean(host?.className?.includes('grid-cell'));
   const style: React.CSSProperties = isVisible && host
@@ -94,6 +94,8 @@ function TerminalRuntimeEntry({
     <div
       className={host?.className}
       data-terminal-runtime-entry="true"
+      data-session-id={tab.sessionId}
+      data-tab-id={tab.id}
       style={style}
       onPointerDownCapture={(event) => {
         if (suppressTerminalSecondaryButtonEvent(event)) {
@@ -105,6 +107,12 @@ function TerminalRuntimeEntry({
           event.stopPropagation();
           terminalRefsMap.current.get(tab.id)?.current?.requestGridRepair?.('manual');
           return;
+        }
+
+        if (isGridSurface) {
+          for (const terminalRef of terminalRefsMap.current.values()) {
+            terminalRef.current?.invalidateClipboardContext();
+          }
         }
 
         getHostInteractions(tab.id)?.onPointerDown?.();
@@ -136,6 +144,8 @@ function TerminalRuntimeEntry({
         terminalShortcutState={terminalShortcutState}
         isVisible={isVisible}
         isGridSurface={isGridSurface}
+        clipboardContextKey={host?.clipboardContextKey}
+        outputPolicySelectionCoordinator={outputPolicySelectionCoordinator}
         onStatusChange={onStatusChange}
         onCwdChange={onCwdChange}
         onAuthError={onAuthError}

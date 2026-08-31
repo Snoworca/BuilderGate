@@ -36,7 +36,10 @@ import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import type { MosaicNode } from '../../types/workspace';
 import type { CommandPreset, ShellInfo } from '../../types';
-import type { TerminalPasteInputResult } from '../Terminal/TerminalView';
+import type {
+  TerminalClipboardActionResult,
+  TerminalClipboardSource,
+} from '../../utils/terminalClipboardCoordinator';
 
 interface MosaicContainerProps {
   tabs: WorkspaceTabRuntime[];
@@ -54,27 +57,36 @@ interface MosaicContainerProps {
       style?: React.CSSProperties;
       onContextMenu?: (x: number, y: number) => void;
       onPointerDown?: () => void;
+      clipboardContextKey?: string | null;
     },
   ) => React.ReactNode;
   availableShells?: ShellInfo[];
-  getTerminalSelection?: (tabId: string) => string;
   hasTerminalSelection?: (tabId: string) => boolean;
   isTerminalMouseTracking?: (tabId: string) => boolean;
-  sendTerminalInput?: (tabId: string, data: string) => void;
-  pasteTerminalInput?: (tabId: string, data: string) => TerminalPasteInputResult;
+  copyTerminalSelection?: (
+    tabId: string,
+    source: TerminalClipboardSource,
+  ) => Promise<TerminalClipboardActionResult>;
+  pasteTerminalClipboard?: (
+    tabId: string,
+    source: TerminalClipboardSource,
+  ) => Promise<TerminalClipboardActionResult>;
+  pasteTerminalText?: (
+    tabId: string,
+    data: string,
+    source?: TerminalClipboardSource,
+  ) => TerminalClipboardActionResult;
   focusTerminal?: (tabId: string) => void;
   onLayoutChange?: () => void;
   onRequestMoveTab?: (tabId: string) => void;
 }
 
-function buildMissingTerminalPasteResult(): TerminalPasteInputResult {
+function buildMissingTerminalClipboardResult(): TerminalClipboardActionResult {
   return {
     ok: false,
+    action: 'paste',
     reason: 'context-changed',
-    source: 'command-preset-paste',
-    captureState: 'closed',
-    barrierReason: 'none',
-    closedReason: 'terminal-disposed',
+    source: 'command-preset',
   };
 }
 
@@ -96,11 +108,11 @@ export function MosaicContainer({
   onRenameTab,
   renderTerminal,
   availableShells,
-  getTerminalSelection,
   hasTerminalSelection,
   isTerminalMouseTracking,
-  sendTerminalInput,
-  pasteTerminalInput,
+  copyTerminalSelection,
+  pasteTerminalClipboard,
+  pasteTerminalText,
   focusTerminal,
   onLayoutChange,
   onRequestMoveTab,
@@ -607,24 +619,13 @@ export function MosaicContainer({
     isTileDragInteractionRef.current = false;
   }, [equalPreset, layoutMode, setMosaicTree, persistLayoutMode, persistFocusTarget, persistEqualPreset, debouncedSave, scheduleLayoutRefresh, getEqualLayoutMetrics]);
 
-  // Clipboard: copy selected text from terminal (reads from clipboard after xterm writes it)
-  const handleCopy = useCallback(async (tabId: string) => {
-    try {
-      const text = getTerminalSelection ? getTerminalSelection(tabId) : '';
-      if (text) await navigator.clipboard.writeText(text);
-    } catch {
-      console.warn('[MosaicContainer] Clipboard copy failed');
-    }
-  }, [getTerminalSelection]);
+  const handleCopy = useCallback(async (tabId: string): Promise<void> => {
+    await copyTerminalSelection?.(tabId, 'grid-context-menu');
+  }, [copyTerminalSelection]);
 
-  const handlePaste = useCallback(async (tabId: string) => {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) sendTerminalInput?.(tabId, text);
-    } catch {
-      console.warn('[MosaicContainer] Clipboard paste failed');
-    }
-  }, [sendTerminalInput]);
+  const handlePaste = useCallback(async (tabId: string): Promise<void> => {
+    await pasteTerminalClipboard?.(tabId, 'grid-context-menu');
+  }, [pasteTerminalClipboard]);
 
   const handleRegisteredPresetPaste = useCallback((tabId: string, preset: CommandPreset) => {
     const validation = buildCommandPresetPasteInput(preset);
@@ -634,11 +635,11 @@ export function MosaicContainer({
         kind: preset.kind,
         reason: validation.reason,
       });
-      requestAnimationFrame(() => focusTerminal?.(tabId));
       return;
     }
 
-    const result = pasteTerminalInput?.(tabId, validation.data) ?? buildMissingTerminalPasteResult();
+    const result = pasteTerminalText?.(tabId, validation.data, 'command-preset')
+      ?? buildMissingTerminalClipboardResult();
     if (!result.ok) {
       console.warn('[CommandPresetContextMenu] Failed to paste command preset', {
         presetId: preset.id,
@@ -646,8 +647,7 @@ export function MosaicContainer({
         result,
       });
     }
-    requestAnimationFrame(() => focusTerminal?.(tabId));
-  }, [focusTerminal, pasteTerminalInput]);
+  }, [pasteTerminalText]);
 
   const openContextMenu = useCallback((x: number, y: number, tabId: string) => {
     const now = performance.now();
@@ -701,7 +701,6 @@ export function MosaicContainer({
     (tabId: string) => {
       const tab = tabMap.get(tabId);
       const hasSelection = hasTerminalSelection ? hasTerminalSelection(tabId) : false;
-      const mouseTrackingActive = isTerminalMouseTracking ? isTerminalMouseTracking(tabId) : false;
       return buildTerminalContextMenuItems({
         tab,
         tabs,
@@ -715,7 +714,6 @@ export function MosaicContainer({
         onCopy: () => handleCopy(tabId),
         onPaste: () => handlePaste(tabId),
         hasSelection,
-        mouseTrackingActive,
         moveWorkspace: {
           disabled: !onRequestMoveTab || isWorkspaceMoveDisabled(tab),
           onRequest: () => {
@@ -837,6 +835,7 @@ export function MosaicContainer({
                 handleTileFocus(tabId);
                 focusTerminal?.(tabId);
               },
+              clipboardContextKey: activeTabId,
             }) : null}
           </MosaicTile>
         </MosaicWindow>

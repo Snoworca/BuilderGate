@@ -29,6 +29,30 @@ export interface TerminalRuntimeResidencyResult {
   residentTabs: WorkspaceTabRuntime[];
   evictedTabIds: string[];
   pinnedTabIds: string[];
+  hiddenRecoveryTransition?: {
+    status: 'applied';
+    sessionId: string;
+    recoveryGeneration: number;
+    beforePolicy: TerminalRuntimeResidencyPolicySnapshot;
+    afterPolicy: TerminalRuntimeResidencyPolicySnapshot;
+    lifecycle: {
+      warmRuntimeDelta: 0;
+      suspended: false;
+      disposed: false;
+    };
+  };
+}
+
+interface TerminalRuntimeResidencyPolicySnapshot {
+  residentCount: number;
+  hiddenRuntimeTtlMs: number;
+  frontendRuntimeResidencyMode: FrontendRuntimeResidencyMode | undefined;
+}
+
+interface TerminalRuntimeHiddenRecoveryAuditInput {
+  sessionId: string;
+  recoveryGeneration: number;
+  outcome: 'authoritative-checkpoint-applied';
 }
 
 export interface ResolveTerminalRuntimeResidencyInput {
@@ -39,6 +63,7 @@ export interface ResolveTerminalRuntimeResidencyInput {
   limits: WorkspaceRuntimeResourceLimitsRuntimeConfig;
   frontendRuntimeResidencyMode?: FrontendRuntimeResidencyMode;
   metadataByTabId: Record<string, TerminalRuntimeResidencyMetadata>;
+  hiddenRecovery?: TerminalRuntimeHiddenRecoveryAuditInput;
 }
 
 export interface TerminalRuntimeResidencyRefreshDelayInput {
@@ -110,13 +135,13 @@ export function resolveTerminalRuntimeResidency(input: ResolveTerminalRuntimeRes
     [...input.pinnedTabIds].filter(tabId => runnableTabIds.has(tabId)),
   );
   if (input.frontendRuntimeResidencyMode !== 'bounded') {
-    return {
+    return withHiddenRecoveryTransition(input, {
       residentTabs: runnableTabs,
       evictedTabIds: input.tabs
         .filter(tab => tab.status === 'disconnected')
         .map(tab => tab.id),
       pinnedTabIds: [...pinnedTabIds],
-    };
+    });
   }
 
   const residentIds = new Set<string>(pinnedTabIds);
@@ -168,10 +193,39 @@ export function resolveTerminalRuntimeResidency(input: ResolveTerminalRuntimeRes
     .filter(tab => tab.status === 'disconnected' || !residentIds.has(tab.id))
     .map(tab => tab.id);
 
-  return {
+  return withHiddenRecoveryTransition(input, {
     residentTabs,
     evictedTabIds,
     pinnedTabIds: [...pinnedTabIds],
+  });
+}
+
+function withHiddenRecoveryTransition(
+  input: ResolveTerminalRuntimeResidencyInput,
+  result: TerminalRuntimeResidencyResult,
+): TerminalRuntimeResidencyResult {
+  if (input.hiddenRecovery?.outcome !== 'authoritative-checkpoint-applied') {
+    return result;
+  }
+  const policy: TerminalRuntimeResidencyPolicySnapshot = {
+    residentCount: result.residentTabs.length,
+    hiddenRuntimeTtlMs: input.limits.hiddenRuntimeTtlMs,
+    frontendRuntimeResidencyMode: input.frontendRuntimeResidencyMode,
+  };
+  return {
+    ...result,
+    hiddenRecoveryTransition: {
+      status: 'applied',
+      sessionId: input.hiddenRecovery.sessionId,
+      recoveryGeneration: input.hiddenRecovery.recoveryGeneration,
+      beforePolicy: policy,
+      afterPolicy: { ...policy },
+      lifecycle: {
+        warmRuntimeDelta: 0,
+        suspended: false,
+        disposed: false,
+      },
+    },
   };
 }
 

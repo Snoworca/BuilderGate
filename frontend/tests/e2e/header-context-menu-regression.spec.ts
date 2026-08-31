@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { login, waitForTerminal } from './helpers';
+import { login, sendVisibleTerminalCommand, waitForTerminal } from './helpers';
 
 async function fetchWorkspaceState(page: Page) {
   return page.evaluate(async () => {
@@ -34,11 +34,6 @@ async function readVisibleTerminalText(page: Page) {
   return text ?? '';
 }
 
-async function sendVisibleTerminalCommand(page: Page, command: string) {
-  const input = page.locator('.terminal-view:visible .xterm-helper-textarea').first();
-  await input.fill(command);
-  await input.press('Enter');
-}
 
 async function readTerminalSnapshotPayload(page: Page, sessionId: string): Promise<{
   schemaVersion?: number;
@@ -319,11 +314,153 @@ async function ensureDistinctVisibleTabCwds(page: Page) {
   return distinct;
 }
 
+const TC7004_OWNED_WORKSPACE_KEY = '__bg_tc7004_owned_workspace';
+const TC7004_PREVIOUS_WORKSPACE_KEY = '__bg_tc7004_previous_workspace';
+
+async function createOwnedTc7004Workspace(page: Page) {
+  const ownerToken = `${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 10)}`;
+  const workspaceName = `PW-TC7004-${ownerToken}`;
+  return page.evaluate(async ({ ownedKey, previousKey, workspaceName, ownerToken }) => {
+    const token = localStorage.getItem('cws_auth_token');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+    const previousWorkspaceId = localStorage.getItem('active_workspace_id');
+    const response = await fetch('/api/workspaces', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ name: workspaceName }),
+    });
+    if (!response.ok) throw new Error(`owned workspace create failed: ${response.status}`);
+    const workspace = await response.json();
+    const tabResponse = await fetch(`/api/workspaces/${workspace.id}/tabs`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ shell: 'powershell' }),
+    });
+    if (!tabResponse.ok) {
+      await fetch(`/api/workspaces/${workspace.id}`, { method: 'DELETE', headers });
+      throw new Error(`owned tab create failed: ${tabResponse.status}`);
+    }
+    const tab = await tabResponse.json();
+    localStorage.setItem(ownedKey, JSON.stringify({
+      workspaceId: workspace.id,
+      ownerToken,
+      workspaceName,
+    }));
+    if (previousWorkspaceId) {
+      localStorage.setItem(previousKey, previousWorkspaceId);
+    } else {
+      localStorage.removeItem(previousKey);
+    }
+    localStorage.setItem('active_workspace_id', workspace.id);
+    return { workspaceId: workspace.id, tabId: tab.id, sessionId: tab.sessionId };
+  }, {
+    ownedKey: TC7004_OWNED_WORKSPACE_KEY,
+    previousKey: TC7004_PREVIOUS_WORKSPACE_KEY,
+    workspaceName,
+    ownerToken,
+  });
+}
+
+async function cleanupOwnedTc7004Workspace(page: Page) {
+  const cleanup = await page.evaluate(async ({ ownedKey, previousKey }) => {
+    const token = localStorage.getItem('cws_auth_token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const rawOwnership = localStorage.getItem(ownedKey);
+    const ownership = rawOwnership ? (() => {
+      try {
+        return JSON.parse(rawOwnership) as {
+          workspaceId?: unknown;
+          ownerToken?: unknown;
+          workspaceName?: unknown;
+        };
+      } catch {
+        throw new Error('owned TC-7004 workspace record is invalid; deletion refused');
+      }
+    })() : null;
+    if (ownership && (
+      typeof ownership.workspaceId !== 'string'
+      || typeof ownership.ownerToken !== 'string'
+      || typeof ownership.workspaceName !== 'string'
+      || !ownership.workspaceName.includes(ownership.ownerToken)
+    )) {
+      throw new Error('owned TC-7004 workspace record is incomplete; deletion refused');
+    }
+    const workspaceId = ownership?.workspaceId ?? null;
+    const previousWorkspaceId = localStorage.getItem(previousKey);
+    if (workspaceId) {
+      const ownershipStateResponse = await fetch('/api/workspaces', { headers });
+      if (!ownershipStateResponse.ok) {
+        throw new Error(`ownership workspace fetch failed: ${ownershipStateResponse.status}`);
+      }
+      const ownershipState = await ownershipStateResponse.json();
+      const exactWorkspace = ownershipState.workspaces.find(
+        (workspace: { id: string }) => workspace.id === workspaceId,
+      );
+      if (
+        !exactWorkspace
+        || exactWorkspace.name !== ownership!.workspaceName
+        || !exactWorkspace.name.includes(ownership!.ownerToken)
+      ) {
+        throw new Error('owned TC-7004 workspace ownership proof mismatch; deletion refused');
+      }
+      const response = await fetch(`/api/workspaces/${workspaceId}`, {
+        method: 'DELETE',
+        headers,
+      });
+      if (!response.ok && response.status !== 404) {
+        throw new Error(`owned TC-7004 workspace cleanup failed: ${response.status}`);
+      }
+    }
+    const stateResponse = await fetch('/api/workspaces', { headers });
+    if (!stateResponse.ok) {
+      throw new Error(`post-cleanup workspace fetch failed: ${stateResponse.status}`);
+    }
+    const state = await stateResponse.json();
+    if (workspaceId && state.workspaces.some((workspace: { id: string }) => workspace.id === workspaceId)) {
+      throw new Error('owned TC-7004 workspace remained after cleanup');
+    }
+    const previousWorkspaceStillExists = previousWorkspaceId
+      ? state.workspaces.some((workspace: { id: string }) => workspace.id === previousWorkspaceId)
+      : false;
+    if (previousWorkspaceStillExists) {
+      localStorage.setItem('active_workspace_id', previousWorkspaceId!);
+    } else {
+      localStorage.removeItem('active_workspace_id');
+    }
+    localStorage.removeItem(ownedKey);
+    localStorage.removeItem(previousKey);
+    return {
+      cleanedWorkspaceId: workspaceId,
+      restoredWorkspaceId: previousWorkspaceStillExists ? previousWorkspaceId : null,
+      activeWorkspaceBeforeReload: localStorage.getItem('active_workspace_id'),
+    };
+  }, {
+    ownedKey: TC7004_OWNED_WORKSPACE_KEY,
+    previousKey: TC7004_PREVIOUS_WORKSPACE_KEY,
+  });
+  if (cleanup.cleanedWorkspaceId) {
+    expect(cleanup.activeWorkspaceBeforeReload).toBe(cleanup.restoredWorkspaceId);
+    await page.reload();
+    if (cleanup.restoredWorkspaceId) {
+      await waitForTerminal(page);
+      await expect.poll(() => page.evaluate(() => localStorage.getItem('active_workspace_id')))
+        .toBe(cleanup.restoredWorkspaceId);
+    }
+  }
+}
+
 test.describe('Header And Context Menu Regressions', () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop-only regression coverage');
     await login(page);
     await waitForTerminal(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await cleanupOwnedTc7004Workspace(page);
   });
 
   test('TC-7001: grid pane focus should update header cwd to the clicked terminal', async ({ page }) => {
@@ -436,8 +573,18 @@ test.describe('Header And Context Menu Regressions', () => {
     }, { timeout: 15000 }).toEqual({ snapshot: null, removal: null });
   });
 
-  test('TC-7004: reload should keep the active session visible and restore its snapshot without xterm runtime errors', async ({ page }) => {
+  test('TC-7004: reload should keep the active session visible and restore its snapshot without xterm runtime errors', async ({ page }, testInfo) => {
+    test.setTimeout(120000);
     await ensureTabMode(page);
+
+    // Characterize a test-owned shell rather than whichever long-running AI
+    // TUI happens to be active. afterEach deletes only this owned workspace
+    // and restores the user's previously active workspace.
+    const owned = await createOwnedTc7004Workspace(page);
+    await page.reload();
+    await waitForTerminal(page);
+    await expect.poll(async () => (await getActiveTab(page))?.id, { timeout: 15000 })
+      .toBe(owned.tabId);
 
     const runtimeErrors: string[] = [];
     page.on('console', (message) => {
@@ -483,13 +630,79 @@ test.describe('Header And Context Menu Regressions', () => {
     const reloadedActiveTab = await getActiveTab(page);
     expect(reloadedActiveTab?.id).toBe(activeTab!.id);
 
-    expect(
-      runtimeErrors.filter((message) =>
-        message.includes("reading 'dimensions'")
-        || message.includes('[TerminalView] snapshot restore failed')
-        || message.includes('[TerminalView] viewport sync failed'),
-      ),
-    ).toEqual([]);
+    const visibleAfterReload = await readVisibleTerminalText(page);
+    const fatalRuntimeErrors = runtimeErrors.filter((message) =>
+      message.includes("reading 'dimensions'")
+      || message.includes('[TerminalView] snapshot restore failed')
+      || message.includes('[TerminalView] viewport sync failed'));
+    await testInfo.attach('tc7004-current-behavior', {
+      body: Buffer.from(JSON.stringify({
+        schemaVersion: '1.0.0',
+        testId: 'TC-7004',
+        executionKind: 'live_browser_refresh',
+        workspaceIsolation: {
+          workspaceId: owned.workspaceId,
+          deletionScope: 'exact-created-workspace-id-only',
+        },
+        oldMarkerAfterReload: visibleAfterReload.includes(oldMarker) ? 'present' : 'absent',
+        latestMarkerAfterReload: visibleAfterReload.includes(latestMarker) ? 'present' : 'absent',
+        beforeReloadSnapshotUtf8Bytes: beforeReloadPayload.raw === null
+          ? 0
+          : Buffer.byteLength(beforeReloadPayload.raw, 'utf8'),
+        afterReloadSnapshotUtf8Bytes: afterReloadPayload.raw === null
+          ? 0
+          : Buffer.byteLength(afterReloadPayload.raw, 'utf8'),
+        runtimeErrorCount: runtimeErrors.length,
+        fatalRuntimeErrorCount: fatalRuntimeErrors.length,
+        rawTerminalTextOmitted: true,
+      }), 'utf8'),
+      contentType: 'application/json',
+    });
+
+    expect(fatalRuntimeErrors).toEqual([]);
+  });
+
+  test('TC-OWNERSHIP-7004 cleanup guard refuses an exact-ID name/token mismatch', async ({ page }) => {
+    const owned = await createOwnedTc7004Workspace(page);
+    const ownership = await page.evaluate((ownedKey) => {
+      const raw = localStorage.getItem(ownedKey);
+      if (!raw) throw new Error('owned workspace record is missing');
+      return JSON.parse(raw) as {
+        workspaceId: string;
+        ownerToken: string;
+        workspaceName: string;
+      };
+    }, TC7004_OWNED_WORKSPACE_KEY);
+    expect(ownership).toEqual({
+      workspaceId: owned.workspaceId,
+      ownerToken: expect.any(String),
+      workspaceName: expect.stringContaining(ownership.ownerToken),
+    });
+
+    await page.evaluate(({ ownedKey, tampered }) => {
+      localStorage.setItem(ownedKey, JSON.stringify(tampered));
+    }, {
+      ownedKey: TC7004_OWNED_WORKSPACE_KEY,
+      tampered: { ...ownership, workspaceName: `${ownership.workspaceName}-tampered` },
+    });
+    await expect(cleanupOwnedTc7004Workspace(page)).rejects.toThrow(
+      /ownership proof mismatch; deletion refused/u,
+    );
+    const workspaceStillExists = await page.evaluate(async (workspaceId) => {
+      const token = localStorage.getItem('cws_auth_token');
+      const response = await fetch('/api/workspaces', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error(`workspace fetch failed: ${response.status}`);
+      const state = await response.json();
+      return state.workspaces.some((workspace: { id: string }) => workspace.id === workspaceId);
+    }, owned.workspaceId);
+    expect(workspaceStillExists).toBe(true);
+
+    await page.evaluate(({ ownedKey, ownershipRecord }) => {
+      localStorage.setItem(ownedKey, JSON.stringify(ownershipRecord));
+    }, { ownedKey: TC7004_OWNED_WORKSPACE_KEY, ownershipRecord: ownership });
+    await cleanupOwnedTc7004Workspace(page);
   });
 
   test('TC-7005: reload should prefer server history over a poisoned local snapshot', async ({ page }) => {

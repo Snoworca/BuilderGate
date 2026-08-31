@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { login, waitForTerminal } from './helpers';
+import { login, sendVisibleTerminalCommand, waitForTerminal } from './helpers';
 
 type CapturedWsMessage = {
   direction?: 'in' | 'out';
@@ -9,6 +9,8 @@ type CapturedWsMessage = {
   data?: string;
   replayToken?: string;
   seq?: number;
+  connectionEpoch?: string;
+  deliverySeq?: number;
 };
 
 declare global {
@@ -16,6 +18,7 @@ declare global {
     __buildergateCapturedWsMessages?: CapturedWsMessage[];
     __buildergateCapturedWsSockets?: WebSocket[];
     __buildergateWsCaptureInstalled?: boolean;
+    __buildergateUndecodableWsFrames?: number;
     __buildergateOriginalWebSocket?: typeof WebSocket;
     __buildergateOriginalWsSend?: WebSocket['send'];
   }
@@ -129,11 +132,6 @@ async function readVisibleTerminalText(page: Page) {
   return text ?? '';
 }
 
-async function sendVisibleTerminalCommand(page: Page, command: string) {
-  const input = page.locator('.terminal-view:visible .xterm-helper-textarea').first();
-  await input.fill(command);
-  await input.press('Enter');
-}
 
 async function installWsMessageCapture(page: Page): Promise<void> {
   const install = () => {
@@ -144,15 +142,21 @@ async function installWsMessageCapture(page: Page): Promise<void> {
     }
     window.__buildergateWsCaptureInstalled = true;
 
+    // `06 §S3` — a frame this capture cannot read is counted, never dropped in
+    // silence. The assertions below filter by `type`, so a swallowed frame makes
+    // them vacuous instead of failing, and the wire format is exactly what this
+    // migration changes.
+    window.__buildergateUndecodableWsFrames = 0;
     const captureFrame = (direction: 'in' | 'out', data: unknown) => {
       if (typeof data !== 'string') {
+        window.__buildergateUndecodableWsFrames! += 1;
         return;
       }
       try {
         const message = JSON.parse(data) as CapturedWsMessage;
         window.__buildergateCapturedWsMessages?.push({ ...message, direction });
       } catch {
-        // Ignore non-JSON frames.
+        window.__buildergateUndecodableWsFrames! += 1;
       }
     };
 
@@ -195,7 +199,17 @@ async function clearWsMessageCapture(page: Page): Promise<void> {
 }
 
 async function readCapturedWsMessages(page: Page): Promise<CapturedWsMessage[]> {
-  return page.evaluate(() => window.__buildergateCapturedWsMessages ?? []);
+  const captured = await page.evaluate(() => ({
+    messages: window.__buildergateCapturedWsMessages ?? [],
+    undecodable: window.__buildergateUndecodableWsFrames ?? 0,
+  }));
+  // `06 §S3` — the callers below filter by `type`, so a frame the capture could
+  // not read would quietly shrink the set instead of failing.
+  expect(
+    captured.undecodable,
+    'the ws capture could not read a frame; the assertions on it are vacuous',
+  ).toBe(0);
+  return captured.messages;
 }
 
 function findViewportSnapshot(
@@ -242,6 +256,20 @@ async function sendCapturedWsMessage(page: Page, message: Record<string, unknown
   }, { message });
 }
 
+async function dispatchCapturedWsMessage(page: Page, message: unknown): Promise<void> {
+  await page.evaluate(({ message }) => {
+    const socket = [...(window.__buildergateCapturedWsSockets ?? [])].reverse()
+      .find((candidate) => (
+        candidate.readyState === WebSocket.OPEN
+        && !candidate.url.includes('channel=output')
+      ));
+    if (!socket) {
+      throw new Error('No open captured WebSocket');
+    }
+    socket.dispatchEvent(new MessageEvent('message', { data: JSON.stringify(message) }));
+  }, { message });
+}
+
 async function waitForViewportOnlySnapshot(
   page: Page,
   sessionId: string,
@@ -266,6 +294,18 @@ test.describe('Terminal Authority Regressions', () => {
     test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop-only regression coverage');
     await login(page);
     await waitForTerminal(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    // `06 §S3` — checked here rather than only inside `readCapturedWsMessages`,
+    // which not every test calls. A frame the capture could not read leaves the
+    // assertions of whichever test ran filtering over a smaller set.
+    const undecodable = await page.evaluate(() => window.__buildergateUndecodableWsFrames ?? 0)
+      .catch(() => 0);
+    expect(
+      undecodable,
+      'the ws capture could not read a frame; the assertions in this test are vacuous',
+    ).toBe(0);
   });
 
   test('TC-7101: hidden workspace should recover through server snapshots after refresh', async ({ page }) => {
@@ -434,5 +474,116 @@ test.describe('Terminal Authority Regressions', () => {
       const text = await readVisibleTerminalText(page);
       return Array.from({ length: 8 }, (_, index) => `${marker}-${index + 1}`).every((line) => text.includes(line));
     }, { timeout: 15000 }).toBe(true);
+  });
+
+  test('PERF-BGSTAB-010 AC-6: ACK rejection is observable without browser delivery side effects', async ({ page }) => {
+    await installWsMessageCapture(page);
+    await page.reload();
+    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
+    await waitForTerminal(page);
+
+    const state = await fetchWorkspaceState(page);
+    const activeWorkspaceId = await page.evaluate(() => localStorage.getItem('active_workspace_id'));
+    const workspace = state.workspaces.find((item: { id: string }) => item.id === activeWorkspaceId) ?? state.workspaces[0];
+    const activeTab = state.tabs.find((item: { id: string }) => item.id === workspace?.activeTabId);
+    test.skip(!activeTab, 'Need an active tab');
+
+    const before = await page.evaluate((sessionId) => {
+      const terminalText = document.querySelector('.terminal-view .xterm-rows')?.textContent ?? '';
+      const debug = window.__buildergateTerminalDebug;
+      if (!debug) {
+        throw new Error('Terminal debug capture is unavailable');
+      }
+      debug.enable(sessionId);
+      debug.clear(sessionId);
+      return {
+        socketCount: window.__buildergateCapturedWsSockets?.length ?? 0,
+        terminalText,
+      };
+    }, activeTab.sessionId);
+
+    await dispatchCapturedWsMessage(page, {
+      type: 'terminal-delivery:ack-rejected',
+      sessionId: activeTab.sessionId,
+      connectionEpoch: 'test-epoch-1',
+      deliverySeq: 7,
+      reason: 'stale-delivery-seq',
+    });
+
+    await expect.poll(async () => page.evaluate((sessionId) => (
+      window.__buildergateTerminalDebug?.getEvents(sessionId).find(event => (
+        event.kind === 'terminal_delivery_ack_rejected'
+      )) ?? null
+    ), activeTab.sessionId), { timeout: 5000 }).not.toBeNull();
+
+    const validResult = await page.evaluate(({ sessionId, before }) => {
+      const event = window.__buildergateTerminalDebug?.getEvents(sessionId).find(candidate => (
+        candidate.kind === 'terminal_delivery_ack_rejected'
+      ));
+      return {
+        event,
+        rejectedAckCreditReturns: (window.__buildergateCapturedWsMessages ?? []).filter(frame => (
+          frame.direction === 'out'
+          && frame.type === 'terminal-delivery:ack'
+          && frame.sessionId === sessionId
+          && frame.connectionEpoch === 'test-epoch-1'
+          && frame.deliverySeq === 7
+        )).length,
+        socketCount: window.__buildergateCapturedWsSockets?.length ?? 0,
+        terminalText: document.querySelector('.terminal-view .xterm-rows')?.textContent ?? '',
+        before,
+      };
+    }, { sessionId: activeTab.sessionId, before });
+
+    expect(validResult.event).toMatchObject({
+      sessionId: activeTab.sessionId,
+      kind: 'terminal_delivery_ack_rejected',
+      details: {
+        connectionEpoch: 'test-epoch-1',
+        deliverySeq: 7,
+        reason: 'stale-delivery-seq',
+      },
+      preview: undefined,
+    });
+    expect(Object.keys(validResult.event?.details ?? {}).sort()).toEqual([
+      'connectionEpoch',
+      'deliverySeq',
+      'reason',
+    ]);
+    expect(validResult.rejectedAckCreditReturns).toBe(0);
+    expect(validResult.socketCount).toBe(before.socketCount);
+    expect(validResult.terminalText).toBe(before.terminalText);
+
+    await page.evaluate((sessionId) => window.__buildergateTerminalDebug?.clear(sessionId), activeTab.sessionId);
+    for (const malformed of [null, 'terminal-delivery:ack-rejected', {
+      type: 'terminal-delivery:ack-rejected',
+      sessionId: '',
+      connectionEpoch: '',
+      deliverySeq: 0,
+      reason: '',
+    }]) {
+      await dispatchCapturedWsMessage(page, malformed);
+    }
+
+    const malformedResult = await page.evaluate(({ sessionId, before }) => ({
+      ackRejections: window.__buildergateTerminalDebug?.getEvents(sessionId).filter(event => (
+        event.kind === 'terminal_delivery_ack_rejected'
+      )).length ?? 0,
+      rejectedAckCreditReturns: (window.__buildergateCapturedWsMessages ?? []).filter(frame => (
+        frame.direction === 'out'
+        && frame.type === 'terminal-delivery:ack'
+        && frame.sessionId === sessionId
+        && frame.connectionEpoch === 'test-epoch-1'
+        && frame.deliverySeq === 7
+      )).length,
+      socketCount: window.__buildergateCapturedWsSockets?.length ?? 0,
+      terminalText: document.querySelector('.terminal-view .xterm-rows')?.textContent ?? '',
+      before,
+    }), { sessionId: activeTab.sessionId, before: validResult.before });
+
+    expect(malformedResult.ackRejections).toBe(0);
+    expect(malformedResult.rejectedAckCreditReturns).toBe(0);
+    expect(malformedResult.socketCount).toBe(before.socketCount);
+    expect(malformedResult.terminalText).toBe(before.terminalText);
   });
 });

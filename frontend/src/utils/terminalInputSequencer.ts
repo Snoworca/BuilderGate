@@ -1,5 +1,8 @@
 /* eslint-disable no-control-regex */
-import type { InputDebugMetadata } from '../types/ws-protocol';
+import {
+  isCanonicalOrdinal64,
+  type InputDebugMetadata,
+} from '../types/ws-protocol.ts';
 
 const DEFAULT_COALESCE_DELAY_MS = 8;
 export const MAX_INPUT_SEQUENCE_SPAN = 1024;
@@ -8,6 +11,18 @@ const CJK_RE = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/u;
 const CONTROL_RE = /[\x00-\x1f\x7f]/u;
 const inputTextEncoder = new TextEncoder();
 const graphemeSegmenter = createGraphemeSegmenter();
+
+// @req MIG-BGSTAB-002 AC-4
+export function disposeTerminalPendingInputQueueLifetime(input: Readonly<{
+  expiryTimers: Set<ReturnType<typeof setTimeout>>;
+  rejectPending: () => void;
+}>): void {
+  for (const timer of input.expiryTimers) {
+    clearTimeout(timer);
+  }
+  input.expiryTimers.clear();
+  input.rejectPending();
+}
 
 export interface SequencedTerminalInput {
   data: string;
@@ -266,4 +281,180 @@ function mergeClientObservedMetadata(chunks: InputDebugMetadata[]): InputDebugMe
 
 function areClientObservedMetricsSkipped(chunks: InputDebugMetadata[]): boolean {
   return chunks.length > 0 && chunks.every((chunk) => chunk.clientObservedMetricsSkipped === true);
+}
+
+export interface TerminalQueryReplyResponderIdentity {
+  sessionId: string;
+  connectionId: string;
+  viewGeneration: number;
+  transitionEpoch: string;
+  authorityEpoch: string;
+  streamEpoch: string;
+  boundarySourceSeq: string;
+  responderLeaseId: string;
+  queryReplyCapability?: 'terminal.query-reply-input.v1';
+  parserResponderCapability?: 'terminal.parser-responder-disable.v1';
+  driverLeaseGeneration?: string;
+  acceptedViewAttributesGeneration?: string;
+}
+
+export type TerminalInputRouteRequest = Readonly<{
+  inputKind: 'user';
+  userInputKind: 'key' | 'paste' | 'ime' | 'mouse';
+  data: string;
+}> | Readonly<{
+  inputKind: 'query-reply';
+  data: string;
+  replyOrdinal: number;
+  responderIdentity: TerminalQueryReplyResponderIdentity;
+}>;
+
+export interface TerminalInputKindRouteResult {
+  accepted: boolean;
+  reason?: string;
+}
+
+export type OrderedTerminalInputSendResult = Readonly<{
+  ok: true;
+  controlSocketId: string;
+  enqueueOrdinal: number;
+}> | Readonly<{
+  ok: false;
+  reason: string;
+  queued?: boolean;
+  controlSocketId: string;
+}>;
+
+export interface TerminalInputKindRouterOptions {
+  controlSocketId: string;
+  getCurrentResponderIdentity: () => TerminalQueryReplyResponderIdentity | null;
+  submitUserInput: (
+    input: Extract<TerminalInputRouteRequest, { inputKind: 'user' }>,
+  ) => void;
+  flushPendingUserInputBeforeQueryReply: (input: {
+    controlSocketId: string;
+    responderIdentity: TerminalQueryReplyResponderIdentity;
+  }) => OrderedTerminalInputSendResult;
+  sendQueryReplyImmediate: (input: {
+    expectedControlSocketId: string;
+    afterEnqueueOrdinal: number;
+    inputKind: 'query-reply';
+    data: string;
+    replyOrdinal: number;
+    responderIdentity: TerminalQueryReplyResponderIdentity;
+  }) => OrderedTerminalInputSendResult;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
+
+function isNonNegativeSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isTerminalQueryReplyResponderIdentity(
+  value: unknown,
+): value is TerminalQueryReplyResponderIdentity {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const identity = value as Partial<TerminalQueryReplyResponderIdentity>;
+  const hasExtendedIdentity = identity.queryReplyCapability !== undefined
+    || identity.parserResponderCapability !== undefined
+    || identity.driverLeaseGeneration !== undefined
+    || identity.acceptedViewAttributesGeneration !== undefined;
+  return isNonEmptyString(identity.sessionId)
+    && isNonEmptyString(identity.connectionId)
+    && isNonNegativeSafeInteger(identity.viewGeneration)
+    && isCanonicalOrdinal64(identity.transitionEpoch)
+    && isNonEmptyString(identity.authorityEpoch)
+    && isCanonicalOrdinal64(identity.streamEpoch)
+    && isCanonicalOrdinal64(identity.boundarySourceSeq)
+    && isNonEmptyString(identity.responderLeaseId)
+    && (!hasExtendedIdentity || (
+      identity.queryReplyCapability === 'terminal.query-reply-input.v1'
+      && identity.parserResponderCapability === 'terminal.parser-responder-disable.v1'
+      && isCanonicalOrdinal64(identity.driverLeaseGeneration)
+      && isCanonicalOrdinal64(identity.acceptedViewAttributesGeneration)
+    ));
+}
+
+function responderIdentitiesEqual(
+  left: TerminalQueryReplyResponderIdentity,
+  right: TerminalQueryReplyResponderIdentity,
+): boolean {
+  return left.sessionId === right.sessionId
+    && left.connectionId === right.connectionId
+    && left.viewGeneration === right.viewGeneration
+    && left.transitionEpoch === right.transitionEpoch
+    && left.authorityEpoch === right.authorityEpoch
+    && left.streamEpoch === right.streamEpoch
+    && left.boundarySourceSeq === right.boundarySourceSeq
+    && left.responderLeaseId === right.responderLeaseId
+    && left.queryReplyCapability === right.queryReplyCapability
+    && left.parserResponderCapability === right.parserResponderCapability
+    && left.driverLeaseGeneration === right.driverLeaseGeneration
+    && left.acceptedViewAttributesGeneration === right.acceptedViewAttributesGeneration;
+}
+
+function rejectedRoute(reason: string): TerminalInputKindRouteResult {
+  return Object.freeze({ accepted: false, reason });
+}
+
+// @req MIG-BGSTAB-002
+export function createTerminalInputKindRouter(options: TerminalInputKindRouterOptions): Readonly<{
+  route(input: TerminalInputRouteRequest): TerminalInputKindRouteResult;
+}> {
+  return Object.freeze({
+    route(input: TerminalInputRouteRequest): TerminalInputKindRouteResult {
+      if (input.inputKind === 'user') {
+        options.submitUserInput(input);
+        return Object.freeze({ accepted: true });
+      }
+
+      const currentIdentity = options.getCurrentResponderIdentity();
+      if (!currentIdentity) return rejectedRoute('query-responder-identity-unavailable');
+      if (
+        !isTerminalQueryReplyResponderIdentity(input.responderIdentity)
+        || !isTerminalQueryReplyResponderIdentity(currentIdentity)
+        || !responderIdentitiesEqual(input.responderIdentity, currentIdentity)
+      ) {
+        return rejectedRoute('query-responder-identity-mismatch');
+      }
+      if (!isNonNegativeSafeInteger(input.replyOrdinal)) {
+        return rejectedRoute('query-reply-invalid-ordinal');
+      }
+
+      const flush = options.flushPendingUserInputBeforeQueryReply({
+        controlSocketId: options.controlSocketId,
+        responderIdentity: input.responderIdentity,
+      });
+      if (!flush.ok) return rejectedRoute(flush.reason);
+      if (flush.controlSocketId !== options.controlSocketId) {
+        return rejectedRoute('pending-user-flush-control-socket-mismatch');
+      }
+      if (!isNonNegativeSafeInteger(flush.enqueueOrdinal)) {
+        return rejectedRoute('pending-user-flush-invalid-enqueue-ordinal');
+      }
+
+      const sent = options.sendQueryReplyImmediate({
+        expectedControlSocketId: options.controlSocketId,
+        afterEnqueueOrdinal: flush.enqueueOrdinal,
+        inputKind: 'query-reply',
+        data: input.data,
+        replyOrdinal: input.replyOrdinal,
+        responderIdentity: input.responderIdentity,
+      });
+      if (!sent.ok) return rejectedRoute(sent.reason);
+      if (sent.controlSocketId !== options.controlSocketId) {
+        return rejectedRoute('query-send-control-socket-mismatch');
+      }
+      if (!isNonNegativeSafeInteger(sent.enqueueOrdinal)) {
+        return rejectedRoute('query-send-invalid-enqueue-ordinal');
+      }
+      if (sent.enqueueOrdinal <= flush.enqueueOrdinal) {
+        return rejectedRoute('query-send-enqueue-order-regression');
+      }
+      return Object.freeze({ accepted: true });
+    },
+  });
 }

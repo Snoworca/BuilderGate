@@ -150,3 +150,26 @@ test('hidden output snapshot recovery clear criteria rejects fallback placeholde
     localRestoreSucceeded: false,
   }), true);
 });
+
+test('REL-BGSTAB-012 settles ledger and holds stale view through drain', () => {
+  const signature = 'REL-BGSTAB-012 AC-5/AC-6: hidden delivery needs a pending dataGap ledger and cannot clear its restore barrier before checkpoint drain acknowledgement';
+  const hidden = resolveHiddenOutput(createHiddenOutputState(), {
+    isVisible: false,
+    byteLength: 9,
+    data: 'hidden-gap',
+    hiddenOutputPolicy: 'snapshot-restore',
+  });
+
+  assert.equal(
+    (hidden.nextState as Record<string, unknown>).dataGapPending,
+    true,
+    signature,
+  );
+
+  const replay = beginHiddenOutputReplay(createHiddenOutputReplayState(), false);
+  const beforeDrainAcknowledgement = finishHiddenOutputReplay(
+    replay.replayState,
+    replay.initialRestorePending,
+  );
+  assert.equal(beforeDrainAcknowledgement.initialRestorePending, true, signature);
+});

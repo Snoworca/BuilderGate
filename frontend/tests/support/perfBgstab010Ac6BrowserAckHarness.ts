@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 const AC6_SOCKET_ORIGIN = 'wss://localhost:2222/ws';
 const AC6_PROBE_STORE_KEY = '__perfBgstab010Ac6BrowserAckProbes';
@@ -26,12 +26,41 @@ interface CapabilityAdmission {
   deliverySeq: number;
 }
 
+async function assertNoUndecodableProbeFrames(page: Page): Promise<void> {
+  const undecodable = await page.evaluate(() => (
+    (window as typeof window & { __buildergateUndecodableWsFrames?: number })
+      .__buildergateUndecodableWsFrames ?? 0
+  ));
+  expect(
+    undecodable,
+    'the AC-6 probe could not read a ws frame; every ack assertion after this is unsound',
+  ).toBe(0);
+}
+
 export async function openAc6BrowserAckProbe(page: Page): Promise<Ac6Probe> {
-  const token = await page.evaluate(() => localStorage.getItem('cws_auth_token'));
-  if (!token) throw new Error('AC-6 probe requires the authenticated browser token');
+  const maybeToken = await page.evaluate(() => localStorage.getItem('cws_auth_token'));
+  if (!maybeToken) throw new Error('AC-6 probe requires the authenticated browser token');
+  // Bound outside the nested helpers below: a narrowing from the guard above
+  // does not survive into a function declaration.
+  const token: string = maybeToken;
 
   const probeId = crypto.randomUUID();
-  const admission = await page.evaluate(async ({ probeId: id, authToken, socketOrigin, storeKey, timeoutMs }) => {
+  const admission = await runProbeAdmission();
+
+  async function runProbeAdmission(): Promise<CapabilityAdmission> {
+    try {
+      return await openProbeSocket();
+    } catch (error) {
+      // The probe rejects on timeout. If a frame was unreadable that IS the
+      // timeout's cause, so it has to be named here rather than after the
+      // await that never resolves.
+      await assertNoUndecodableProbeFrames(page);
+      throw error;
+    }
+  }
+
+  async function openProbeSocket(): Promise<CapabilityAdmission> {
+    return page.evaluate(async ({ probeId: id, authToken, socketOrigin, storeKey, timeoutMs }) => {
     type Frame = Record<string, unknown>;
     type StoredProbe = {
       socket: WebSocket;
@@ -42,11 +71,19 @@ export async function openAc6BrowserAckProbe(page: Page): Promise<Ac6Probe> {
     type ProbeStore = Record<string, StoredProbe>;
 
     const parse = (raw: unknown): Frame | null => {
-      if (typeof raw !== 'string') return null;
+      // `06 §S3` — an unreadable frame is counted on the window so the caller can
+      // fail on it. Returning null alone made the probe time out with no
+      // indication that a frame had been thrown away.
+      const counted = window as typeof window & { __buildergateUndecodableWsFrames?: number };
+      if (typeof raw !== 'string') {
+        counted.__buildergateUndecodableWsFrames = (counted.__buildergateUndecodableWsFrames ?? 0) + 1;
+        return null;
+      }
       try {
         const parsed = JSON.parse(raw);
         return parsed && typeof parsed === 'object' ? parsed as Frame : null;
       } catch {
+        counted.__buildergateUndecodableWsFrames = (counted.__buildergateUndecodableWsFrames ?? 0) + 1;
         return null;
       }
     };
@@ -103,13 +140,18 @@ export async function openAc6BrowserAckProbe(page: Page): Promise<Ac6Probe> {
         }));
       }, { once: true });
     });
-  }, {
-    probeId,
-    authToken: token,
-    socketOrigin: AC6_SOCKET_ORIGIN,
-    storeKey: AC6_PROBE_STORE_KEY,
-    timeoutMs: ACK_TIMEOUT_MS,
-  });
+    }, {
+      probeId,
+      authToken: token,
+      socketOrigin: AC6_SOCKET_ORIGIN,
+      storeKey: AC6_PROBE_STORE_KEY,
+      timeoutMs: ACK_TIMEOUT_MS,
+    });
+  }
+
+  // `06 §S3` — also checked on the success path, so a frame dropped after
+  // admission is named rather than shrinking a later assertion.
+  await assertNoUndecodableProbeFrames(page);
 
   return {
     ...admission,
@@ -126,11 +168,19 @@ export async function openAc6BrowserAckProbe(page: Page): Promise<Ac6Probe> {
         const probe = store?.[id];
         if (!probe) throw new Error('AC-6 browser probe state is unavailable');
         const parse = (raw: unknown): Frame | null => {
-          if (typeof raw !== 'string') return null;
+          // `06 §S3` — an unreadable frame is counted on the window so the caller can
+          // fail on it. Returning null alone made the probe time out with no
+          // indication that a frame had been thrown away.
+          const counted = window as typeof window & { __buildergateUndecodableWsFrames?: number };
+          if (typeof raw !== 'string') {
+            counted.__buildergateUndecodableWsFrames = (counted.__buildergateUndecodableWsFrames ?? 0) + 1;
+            return null;
+          }
           try {
             const parsed = JSON.parse(raw);
             return parsed && typeof parsed === 'object' ? parsed as Frame : null;
           } catch {
+            counted.__buildergateUndecodableWsFrames = (counted.__buildergateUndecodableWsFrames ?? 0) + 1;
             return null;
           }
         };
@@ -188,11 +238,19 @@ export async function openAc6BrowserAckProbe(page: Page): Promise<Ac6Probe> {
         const probe = store?.[id];
         if (!probe) return;
         const parse = (raw: unknown): Frame | null => {
-          if (typeof raw !== 'string') return null;
+          // `06 §S3` — an unreadable frame is counted on the window so the caller can
+          // fail on it. Returning null alone made the probe time out with no
+          // indication that a frame had been thrown away.
+          const counted = window as typeof window & { __buildergateUndecodableWsFrames?: number };
+          if (typeof raw !== 'string') {
+            counted.__buildergateUndecodableWsFrames = (counted.__buildergateUndecodableWsFrames ?? 0) + 1;
+            return null;
+          }
           try {
             const parsed = JSON.parse(raw);
             return parsed && typeof parsed === 'object' ? parsed as Frame : null;
           } catch {
+            counted.__buildergateUndecodableWsFrames = (counted.__buildergateUndecodableWsFrames ?? 0) + 1;
             return null;
           }
         };

@@ -9,6 +9,7 @@ import { useTerminalRuntimeContext } from './TerminalRuntimeContext';
 interface TerminalHostSlotProps {
   tabId: string;
   isVisible: boolean;
+  clipboardContextKey?: string | null;
   className?: string;
   style?: React.CSSProperties;
   onContextMenu?: (x: number, y: number) => void;
@@ -18,6 +19,7 @@ interface TerminalHostSlotProps {
 export function TerminalHostSlot({
   tabId,
   isVisible,
+  clipboardContextKey,
   className,
   style,
   onContextMenu,
@@ -50,11 +52,12 @@ export function TerminalHostSlot({
       {
         className,
         style,
+        clipboardContextKey,
         onContextMenu,
         onPointerDown,
       },
     );
-  }, [className, hostId, isVisible, onContextMenu, onPointerDown, rootRef, style, tabId, upsertHost]);
+  }, [className, clipboardContextKey, hostId, isVisible, onContextMenu, onPointerDown, rootRef, style, tabId, upsertHost]);
 
   const scheduleMeasure = useCallback(() => {
     if (rafMeasureRef.current !== null) {

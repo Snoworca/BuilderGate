@@ -24,6 +24,22 @@ export interface BuildSplitOutputWebSocketUrlOptions {
   metadata: SplitOutputMetadata;
 }
 
+export interface WebSocketConnectAttemptFence {
+  begin(): number;
+  isCurrent(generation: number): boolean;
+  invalidate(): void;
+}
+
+// @req MIG-BGSTAB-002 AC-3 AC-4
+export function createWebSocketConnectAttemptFence(): WebSocketConnectAttemptFence {
+  let generation = 0;
+  return Object.freeze({
+    begin: () => ++generation,
+    isCurrent: (candidate: number) => candidate === generation,
+    invalidate: () => { generation += 1; },
+  });
+}
+
 function toWsProtocol(protocol: string): 'ws:' | 'wss:' {
   return protocol === 'https:' ? 'wss:' : 'ws:';
 }

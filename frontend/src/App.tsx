@@ -15,7 +15,7 @@ import { AuthGuard } from './components/Auth';
 import { Header } from './components/Header';
 import { TerminalHostSlot, TerminalRuntimeLayer, TerminalRuntimeProvider } from './components/Terminal';
 import { useTerminalRuntimeContext } from './components/Terminal/TerminalRuntimeContext';
-import type { TerminalHandle, TerminalPasteInputResult } from './components/Terminal/TerminalView';
+import type { TerminalHandle } from './components/Terminal/TerminalView';
 import { ConfirmModal } from './components/Modal';
 import { SettingsPage } from './components/Settings/SettingsPage';
 import {
@@ -39,6 +39,10 @@ import {
   useTerminalShortcutContext,
 } from './components/TerminalShortcutManager';
 import { buildTerminalContextMenuItems } from './utils/contextMenuBuilder';
+import type {
+  TerminalClipboardActionResult,
+  TerminalClipboardSource,
+} from './utils/terminalClipboardCoordinator';
 import { TAB_COLORS } from './types/workspace';
 import { resolveCwd } from './utils/shell';
 import type { WorkspaceTabRuntime } from './types/workspace';
@@ -47,14 +51,14 @@ import { WebSocketProvider } from './contexts/WebSocketContext';
 import './styles/globals.css';
 import './components/Workspace/breathing.css';
 
-function buildMissingTerminalPasteResult(): TerminalPasteInputResult {
+function buildMissingTerminalClipboardResult(
+  source: TerminalClipboardSource,
+): TerminalClipboardActionResult {
   return {
     ok: false,
+    action: 'paste',
     reason: 'context-changed',
-    source: 'command-preset-paste',
-    captureState: 'closed',
-    barrierReason: 'none',
-    closedReason: 'terminal-disposed',
+    source,
   };
 }
 
@@ -220,10 +224,6 @@ function AppContent() {
     setPendingCloseTabId(null);
   }, [pendingCloseTabId]);
 
-  const getTerminalSelection = useCallback((tabId: string): string => {
-    return terminalRefsMap.current.get(tabId)?.current?.getSelection() ?? '';
-  }, []);
-
   const hasTerminalSelection = useCallback((tabId: string): boolean => {
     return terminalRefsMap.current.get(tabId)?.current?.hasSelection() ?? false;
   }, []);
@@ -235,8 +235,33 @@ function AppContent() {
     terminalRefsMap.current.get(tabId)?.current?.sendInput(data);
   }, []);
 
-  const pasteTerminalInput = useCallback((tabId: string, data: string): TerminalPasteInputResult => {
-    return terminalRefsMap.current.get(tabId)?.current?.pasteInput(data) ?? buildMissingTerminalPasteResult();
+  const copyTerminalSelection = useCallback((
+    tabId: string,
+    source: TerminalClipboardSource,
+  ): Promise<TerminalClipboardActionResult> => {
+    return terminalRefsMap.current.get(tabId)?.current?.copySelection(source) ?? Promise.resolve({
+      ok: false,
+      action: 'copy',
+      source,
+      reason: 'context-changed',
+    });
+  }, []);
+
+  const pasteTerminalClipboard = useCallback((
+    tabId: string,
+    source: TerminalClipboardSource,
+  ): Promise<TerminalClipboardActionResult> => {
+    return terminalRefsMap.current.get(tabId)?.current?.pasteClipboard(source)
+      ?? Promise.resolve(buildMissingTerminalClipboardResult(source));
+  }, []);
+
+  const pasteTerminalText = useCallback((
+    tabId: string,
+    data: string,
+    source: TerminalClipboardSource = 'command-preset',
+  ): TerminalClipboardActionResult => {
+    return terminalRefsMap.current.get(tabId)?.current?.pasteText(data, source)
+      ?? buildMissingTerminalClipboardResult(source);
   }, []);
 
   const focusTerminal = useCallback((tabId: string): void => {
@@ -251,11 +276,10 @@ function AppContent() {
         kind: preset.kind,
         reason: validation.reason,
       });
-      requestAnimationFrame(() => focusTerminal(tabId));
       return;
     }
 
-    const result = pasteTerminalInput(tabId, validation.data);
+    const result = pasteTerminalText(tabId, validation.data, 'command-preset');
     if (!result.ok) {
       console.warn('[CommandPresetContextMenu] Failed to paste command preset', {
         presetId: preset.id,
@@ -263,8 +287,7 @@ function AppContent() {
         result,
       });
     }
-    requestAnimationFrame(() => focusTerminal(tabId));
-  }, [focusTerminal, pasteTerminalInput]);
+  }, [pasteTerminalText]);
 
   const openTabContextMenu = useCallback((x: number, y: number, tabId: string) => {
     const now = performance.now();
@@ -448,7 +471,6 @@ function AppContent() {
     if (!targetTab) return [];
     const tabRef = terminalRefsMap.current.get(tabContextMenu.targetId);
     const hasSelection = tabRef?.current?.hasSelection() ?? false;
-    const mouseTrackingActive = tabRef?.current?.getMouseTrackingActive() ?? false;
     return buildTerminalContextMenuItems({
       tab: targetTab,
       tabs: wm.activeWorkspaceTabs,
@@ -460,17 +482,12 @@ function AppContent() {
         closeTabContextMenu();
       },
       onCopy: async () => {
-        const text = tabRef?.current?.getSelection() ?? '';
-        if (text) await navigator.clipboard.writeText(text);
+        await copyTerminalSelection(targetTab.id, 'tab-context-menu');
       },
       onPaste: async () => {
-        try {
-          const text = await navigator.clipboard.readText();
-          if (text) tabRef?.current?.sendInput(text);
-        } catch { /* ignore */ }
+        await pasteTerminalClipboard(targetTab.id, 'tab-context-menu');
       },
       hasSelection,
-      mouseTrackingActive,
       moveWorkspace: {
         disabled: isWorkspaceMoveDisabled(targetTab),
         onRequest: () => {
@@ -493,6 +510,8 @@ function AppContent() {
     handleRequestWorkspaceMove,
     registeredPresetSnapshot,
     handleRegisteredPresetPaste,
+    copyTerminalSelection,
+    pasteTerminalClipboard,
   ]);
 
   const renderTerminal = useCallback((
@@ -502,6 +521,7 @@ function AppContent() {
       style?: React.CSSProperties;
       onContextMenu?: (x: number, y: number) => void;
       onPointerDown?: () => void;
+      clipboardContextKey?: string | null;
     },
   ) => {
     if (tab.status === 'disconnected') {
@@ -512,6 +532,7 @@ function AppContent() {
       <TerminalHostSlot
         tabId={tab.id}
         isVisible={true}
+        clipboardContextKey={surface?.clipboardContextKey}
         className={surface?.className}
         style={surface?.style}
         onContextMenu={surface?.onContextMenu}
@@ -623,11 +644,11 @@ function AppContent() {
                       onRenameTab={handleRenameTab}
                       renderTerminal={renderTerminal}
                       availableShells={availableShells}
-                      getTerminalSelection={getTerminalSelection}
                       hasTerminalSelection={hasTerminalSelection}
                       isTerminalMouseTracking={isTerminalMouseTracking}
-                      sendTerminalInput={sendTerminalInput}
-                      pasteTerminalInput={pasteTerminalInput}
+                      copyTerminalSelection={copyTerminalSelection}
+                      pasteTerminalClipboard={pasteTerminalClipboard}
+                      pasteTerminalText={pasteTerminalText}
                       focusTerminal={focusTerminal}
                       onLayoutChange={handleLayoutChange}
                       onRequestMoveTab={handleRequestWorkspaceMove}
@@ -669,6 +690,7 @@ function AppContent() {
                             <TerminalHostSlot
                               tabId={tab.id}
                               isVisible={isVisible}
+                              clipboardContextKey={tab.id}
                               className={isVisible && tab.status === 'running' ? 'terminal-running' : ''}
                               style={{ '--tab-color': TAB_COLORS[tab.colorIndex] || TAB_COLORS[0] } as React.CSSProperties}
                               onContextMenu={(x, y) => openTabContextMenu(x, y, tab.id)}
@@ -741,7 +763,7 @@ function AppContent() {
           activeShellType={activeTab?.shellType ?? null}
           onClose={() => setShowCommandPresetDialog(false)}
           onSendTerminalInput={sendTerminalInput}
-          onPasteTerminalInput={pasteTerminalInput}
+          onPasteTerminalInput={pasteTerminalText}
         />
       )}
 

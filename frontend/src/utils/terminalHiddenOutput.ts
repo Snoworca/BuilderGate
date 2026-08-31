@@ -41,7 +41,11 @@ export function resolveHiddenOutput(
   input: {
     isVisible: boolean;
     byteLength: number;
-    data?: string;
+    /**
+     * A deferred preview is only read when the tail budget is positive, so a
+     * byte-backed delivery never decodes on the branches that discard it.
+     */
+    data?: string | (() => string);
     hiddenOutputPolicy?: HiddenOutputPolicy;
     hiddenOutputTailBytes?: number;
   },
@@ -69,7 +73,7 @@ export function resolveHiddenOutput(
       skippedBytes: state.skippedBytes + Math.max(0, input.byteLength),
       debugTail: appendDebugTail(
         state.debugTail,
-        input.data ?? '',
+        input.data,
         hiddenOutputPolicy === 'debug-tail' ? input.hiddenOutputTailBytes ?? 0 : 0,
       ),
     },
@@ -128,12 +132,16 @@ export function clearHiddenOutputState(state: HiddenOutputState): HiddenOutputSt
   return createHiddenOutputState();
 }
 
-function appendDebugTail(current: string, next: string, maxBytes: number): string {
+function appendDebugTail(
+  current: string,
+  next: string | (() => string) | undefined,
+  maxBytes: number,
+): string {
   if (maxBytes <= 0) {
     return '';
   }
 
-  const merged = `${current}${next}`;
+  const merged = `${current}${typeof next === 'function' ? next() : next ?? ''}`;
   if (getUtf8ByteLength(merged) <= maxBytes) {
     return merged;
   }

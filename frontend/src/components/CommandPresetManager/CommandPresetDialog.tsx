@@ -5,7 +5,7 @@ import { buildTerminalInput } from './commandPresetExecution';
 import { buildCommandPresetPasteInput } from './commandPresetPaste';
 import { useCommandPresets } from './useCommandPresets';
 import type { CommandPreset, CommandPresetKind } from '../../types';
-import type { TerminalPasteInputResult } from '../Terminal/TerminalView';
+import type { TerminalClipboardActionResult } from '../../utils/terminalClipboardCoordinator';
 import './CommandPresetDialog.css';
 
 export interface CommandPresetDialogProps {
@@ -14,7 +14,7 @@ export interface CommandPresetDialogProps {
   activeShellType: string | null;
   onClose: () => void;
   onSendTerminalInput: (tabId: string, data: string) => void;
-  onPasteTerminalInput: (tabId: string, data: string) => TerminalPasteInputResult;
+  onPasteTerminalInput: (tabId: string, data: string) => TerminalClipboardActionResult;
 }
 
 const ACTIVE_TAB_STORAGE_KEY = 'buildergate.commandPresetManager.activeTab';

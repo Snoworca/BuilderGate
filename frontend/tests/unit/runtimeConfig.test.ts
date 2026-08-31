@@ -13,6 +13,7 @@ import {
   reloadRuntimeConfig,
   subscribeRuntimeConfigChanges,
 } from '../../src/utils/inputReliabilityMode.ts';
+import * as terminalViewAttributesModule from '../../src/utils/terminalViewAttributes.ts';
 import {
   createHiddenOutputState,
   resolveHiddenOutput,
@@ -214,6 +215,27 @@ const settingsSnapshotWithWriteHiddenPolicy = {
 
 test('settings snapshot type accepts legacy write-hidden terminal policy', () => {
   assert.equal(settingsSnapshotWithWriteHiddenPolicy.values.resourceLimits.terminal.hiddenOutputPolicy, 'write-hidden');
+});
+
+test('REL-BGSTAB-007 AC-1 browser xterm options use the configured terminal scrollback policy', () => {
+  const signature = 'browser xterm scrollback must use the configured resourceLimits.terminal.scrollbackLines value';
+  const resolveTerminalXtermOptions = (
+    terminalViewAttributesModule as Record<string, unknown>
+  ).resolveTerminalXtermOptions;
+
+  assert.equal(
+    typeof resolveTerminalXtermOptions,
+    'function',
+    `${signature}; terminal view attributes must expose a pure xterm-options resolver`,
+  );
+  if (typeof resolveTerminalXtermOptions !== 'function') return;
+
+  for (const scrollbackLines of [9_999, 10_001]) {
+    const options = (resolveTerminalXtermOptions as (
+      limits: Readonly<{ scrollbackLines: number }>
+    ) => Readonly<{ scrollback: number }>)(Object.freeze({ scrollbackLines }));
+    assert.equal(options.scrollback, scrollbackLines, signature);
+  }
 });
 
 test('runtime config loads terminal hidden output limits from public payload', async () => {

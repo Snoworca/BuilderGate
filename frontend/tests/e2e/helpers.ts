@@ -374,16 +374,31 @@ export async function expectVisibleTerminalCurrentInputEquals(page: Page, value:
         const row = rows[index];
         const matches = Array.from(row.matchAll(/PS\s+[^>]*>\s*/g));
         const prompt = matches[matches.length - 1];
-        if (!prompt || prompt.index === undefined) {
-          continue;
+        if (prompt && prompt.index !== undefined) {
+          const promptEnd = prompt.index + prompt[0].length;
+          const head = row.slice(promptEnd).trimEnd();
+          const continuation = rows.slice(index + 1)
+            .map(nextRow => nextRow.trimEnd())
+            .join('')
+            .trimEnd();
+          return `${head}${continuation}`.trim();
         }
-        const promptEnd = prompt.index + prompt[0].length;
-        const head = row.slice(promptEnd).trimEnd();
-        const continuation = rows.slice(index + 1)
-          .map(nextRow => nextRow.trimEnd())
-          .join('')
-          .trimEnd();
-        return `${head}${continuation}`.trim();
+        // Narrow terminals can wrap the PowerShell prompt between the path and the final `>`.
+        // Evaluate it in the same reverse scan so the newest full/split candidate always wins.
+        const inputRow = rows[index + 1];
+        if (
+          inputRow !== undefined
+          && /^\s*PS\s+\S/.test(row)
+          && !row.includes('>')
+          && /^\s*>\s?/.test(inputRow)
+        ) {
+          const head = inputRow.replace(/^\s*>\s?/, '').trimEnd();
+          const continuation = rows.slice(index + 2)
+            .map(nextRow => nextRow.trimEnd())
+            .join('')
+            .trimEnd();
+          return `${head}${continuation}`.trim();
+        }
       }
 
       const lastNonEmptyRow = [...rows].reverse().find(row => row.trim().length > 0)?.trim() ?? '';
@@ -538,4 +553,22 @@ export async function getServerSessionCount(page: Page): Promise<number> {
     return Array.isArray(data) ? data.length : 0;
   });
   return result;
+}
+
+/**
+ * Types a command into the visible terminal and submits it.
+ *
+ * `fill()` cannot be used here. It assigns the helper textarea's value without
+ * producing the key events xterm listens for, so the PTY never receives the
+ * command and the shell prompt is left untouched — measured 2026-08-30 with and
+ * without a prior click to focus, both negative, while `keyboard.type()` was
+ * positive. A spec that used `fill()` therefore asserted against a terminal it
+ * had never driven.
+ */
+export async function sendVisibleTerminalCommand(page: Page, command: string): Promise<void> {
+  const input = page.locator('.terminal-view:visible .xterm-helper-textarea').first();
+  await input.click();
+  await page.waitForTimeout(300);
+  await page.keyboard.type(command);
+  await page.keyboard.press('Enter');
 }

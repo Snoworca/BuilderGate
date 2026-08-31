@@ -10,6 +10,11 @@ import {
   isInputReliabilityModeLoaded,
   setLocalInputReliabilityModeForTest,
 } from './inputReliabilityMode.ts';
+import type {
+  TerminalRetainedStateEvidence,
+  TerminalStreamingRetainedStateEvidence,
+  TerminalStreamingRetainedStateOptions,
+} from './terminalRetainedState.ts';
 
 export type TerminalDebugValue = string | number | boolean | null;
 
@@ -60,11 +65,25 @@ export interface TerminalClientDebugEvent {
   preview?: string;
 }
 
+export interface TerminalDebugEventOptions {
+  includeInputReliabilityMode?: boolean;
+}
+
 export type DebugWebSocketSendFailureReason = 'not-open' | 'missing-token' | 'stale-socket' | 'send-failed';
 
 export interface DebugWebSocketSendFailureOverride {
   reason: DebugWebSocketSendFailureReason;
   count?: number;
+}
+
+export interface TerminalInputGateDebugSnapshot {
+  inputReady: boolean;
+  captureState: string;
+  barrierReason: string;
+  closedReason: string;
+  restorePending: boolean;
+  geometryReady: boolean;
+  serverReady: boolean;
 }
 
 interface TerminalDebugStore {
@@ -81,11 +100,23 @@ interface TerminalDebugStore {
   getInputReliabilityMode: () => InputReliabilityMode;
   setInputReliabilityMode: (mode: InputReliabilityMode | null) => InputReliabilityMode;
   setInputTransportOverride: (sessionId: string, override: TerminalInputTransportOverride | null) => boolean;
+  readInputGateSnapshot: (sessionId: string) => TerminalInputGateDebugSnapshot | null;
   setNextWebSocketInputSendFailure: (override: DebugWebSocketSendFailureOverride | null) => boolean;
   requestRepairLayout: (sessionId: string, reason?: string) => Promise<boolean>;
+  captureRetainedState: (sessionId: string) => TerminalRetainedStateEvidence | null;
+  captureRetainedStateStreaming: (
+    sessionId: string,
+    options: TerminalStreamingRetainedStateOptions,
+  ) => TerminalStreamingRetainedStateEvidence | null;
   inputTransportOverrideHandlers: Map<string, (override: TerminalInputTransportOverride | null) => void>;
+  inputGateSnapshotReaders: Map<string, () => TerminalInputGateDebugSnapshot>;
   webSocketSendFailureHandlers: Set<(override: DebugWebSocketSendFailureOverride | null) => void>;
   repairLayoutHandlers: Map<string, (reason: string) => Promise<boolean>>;
+  retainedStateCaptureHandlers: Map<string, () => TerminalRetainedStateEvidence>;
+  retainedStateStreamingCaptureHandlers: Map<
+    string,
+    (options: TerminalStreamingRetainedStateOptions) => TerminalStreamingRetainedStateEvidence
+  >;
 }
 
 declare global {
@@ -197,6 +228,12 @@ function getStore(): TerminalDebugStore | null {
         handler(override);
         return true;
       },
+      readInputGateSnapshot(sessionId: string) {
+        if (!isLocalTestHost()) {
+          return null;
+        }
+        return this.inputGateSnapshotReaders.get(sessionId)?.() ?? null;
+      },
       setNextWebSocketInputSendFailure(override: DebugWebSocketSendFailureOverride | null) {
         if (!isLocalTestHost()) {
           return false;
@@ -216,9 +253,27 @@ function getStore(): TerminalDebugStore | null {
         }
         return await handler(reason);
       },
+      captureRetainedState(sessionId: string) {
+        if (!isLocalTestHost()) {
+          return null;
+        }
+        return this.retainedStateCaptureHandlers.get(sessionId)?.() ?? null;
+      },
+      captureRetainedStateStreaming(sessionId: string, options: TerminalStreamingRetainedStateOptions) {
+        if (!isLocalTestHost()) {
+          return null;
+        }
+        return this.retainedStateStreamingCaptureHandlers.get(sessionId)?.(options) ?? null;
+      },
       inputTransportOverrideHandlers: new Map<string, (override: TerminalInputTransportOverride | null) => void>(),
+      inputGateSnapshotReaders: new Map<string, () => TerminalInputGateDebugSnapshot>(),
       webSocketSendFailureHandlers: new Set<(override: DebugWebSocketSendFailureOverride | null) => void>(),
       repairLayoutHandlers: new Map<string, (reason: string) => Promise<boolean>>(),
+      retainedStateCaptureHandlers: new Map<string, () => TerminalRetainedStateEvidence>(),
+      retainedStateStreamingCaptureHandlers: new Map<
+        string,
+        (options: TerminalStreamingRetainedStateOptions) => TerminalStreamingRetainedStateEvidence
+      >(),
     };
   }
 
@@ -239,6 +294,23 @@ export function registerInputTransportOverrideHandler(
     const current = store.inputTransportOverrideHandlers.get(sessionId);
     if (current === handler) {
       store.inputTransportOverrideHandlers.delete(sessionId);
+    }
+  };
+}
+
+export function registerInputGateSnapshotReader(
+  sessionId: string,
+  reader: () => TerminalInputGateDebugSnapshot,
+): () => void {
+  const store = getStore();
+  if (!store) {
+    return () => {};
+  }
+
+  store.inputGateSnapshotReaders.set(sessionId, reader);
+  return () => {
+    if (store.inputGateSnapshotReaders.get(sessionId) === reader) {
+      store.inputGateSnapshotReaders.delete(sessionId);
     }
   };
 }
@@ -275,6 +347,46 @@ export function registerTerminalRepairLayoutHandler(
   };
 }
 
+// @req OBS-BGSTAB-004
+export function registerTerminalRetainedStateCaptureHandler(
+  sessionId: string,
+  handler: () => TerminalRetainedStateEvidence,
+): () => void {
+  const store = getStore();
+  if (!store || !isLocalTestHost()) {
+    return () => {};
+  }
+
+  store.retainedStateCaptureHandlers.set(sessionId, handler);
+  return () => {
+    const current = store.retainedStateCaptureHandlers.get(sessionId);
+    if (current === handler) {
+      store.retainedStateCaptureHandlers.delete(sessionId);
+    }
+  };
+}
+
+// @req MIG-BGSTAB-002 AC-4
+export function registerTerminalRetainedStateStreamingCaptureHandler(
+  sessionId: string,
+  handler: (
+    options: TerminalStreamingRetainedStateOptions,
+  ) => TerminalStreamingRetainedStateEvidence,
+): () => void {
+  const store = getStore();
+  if (!store || !isLocalTestHost()) {
+    return () => {};
+  }
+
+  store.retainedStateStreamingCaptureHandlers.set(sessionId, handler);
+  return () => {
+    const current = store.retainedStateStreamingCaptureHandlers.get(sessionId);
+    if (current === handler) {
+      store.retainedStateStreamingCaptureHandlers.delete(sessionId);
+    }
+  };
+}
+
 export function isTerminalDebugCaptureEnabled(sessionId: string): boolean {
   const store = getStore();
   return Boolean(store?.isEnabled(sessionId));
@@ -284,23 +396,29 @@ export function recordTerminalDebugEvent(
   sessionId: string,
   kind: string,
   details?: Record<string, TerminalDebugValue>,
-  rawPreview?: string,
+  // Deferred so a caller holding an undecoded payload pays nothing while capture
+  // is off, which is every session by default.
+  rawPreview?: string | (() => string),
+  options: TerminalDebugEventOptions = {},
 ): void {
   const store = getStore();
   if (!store || !store.isEnabled(sessionId)) {
     return;
   }
 
+  const preview = typeof rawPreview === 'function' ? rawPreview() : rawPreview;
   const event: TerminalClientDebugEvent = {
     eventId: ++clientDebugEventCounter,
     recordedAt: new Date().toISOString(),
     sessionId,
     kind,
     details: {
-      inputReliabilityMode: getInputReliabilityMode(),
+      ...(options.includeInputReliabilityMode === false
+        ? {}
+        : { inputReliabilityMode: getInputReliabilityMode() }),
       ...(details ?? {}),
     },
-    preview: rawPreview ? formatPreview(rawPreview) : undefined,
+    preview: preview ? formatPreview(preview) : undefined,
   };
 
   pushDebugEvent(store, event);

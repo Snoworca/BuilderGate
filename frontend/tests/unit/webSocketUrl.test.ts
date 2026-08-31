@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   buildControlWebSocketUrl,
   buildSplitOutputWebSocketUrl,
+  createWebSocketConnectAttemptFence,
 } from '../../src/utils/webSocketUrl.ts';
 
 const location = {
@@ -64,5 +65,15 @@ test('split output websocket URL is created only from split control metadata', (
       pairToken: 'pair-token',
     },
   }), null);
+});
+
+test('MIG-BGSTAB-002 async connect fence invalidates StrictMode predecessors and final cleanup', () => {
+  const fence = createWebSocketConnectAttemptFence();
+  const staleMount = fence.begin();
+  const currentMount = fence.begin();
+  assert.equal(fence.isCurrent(staleMount), false);
+  assert.equal(fence.isCurrent(currentMount), true);
+  fence.invalidate();
+  assert.equal(fence.isCurrent(currentMount), false);
 });
 

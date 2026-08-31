@@ -8,6 +8,10 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
+import {
+  createTerminalOutputPolicySelectionCoordinator,
+  type TerminalOutputPolicySelectionCoordinator,
+} from '../../utils/terminalOutputScheduler';
 
 interface HostRect {
   left: number;
@@ -21,6 +25,7 @@ export interface TerminalHostState {
   tabId: string;
   rect: HostRect;
   isVisible: boolean;
+  clipboardContextKey?: string | null;
   className?: string;
   style?: CSSProperties;
 }
@@ -34,12 +39,13 @@ interface TerminalRuntimeContextValue {
   rootRef: React.RefObject<HTMLDivElement | null>;
   hosts: Map<string, TerminalHostState>;
   layoutVersion: number;
+  outputPolicySelectionCoordinator: TerminalOutputPolicySelectionCoordinator;
   upsertHost: (
     tabId: string,
     hostId: string,
     rect: HostRect,
     isVisible: boolean,
-    extras?: Pick<TerminalHostState, 'className' | 'style'> & TerminalHostInteractions,
+    extras?: Pick<TerminalHostState, 'className' | 'style' | 'clipboardContextKey'> & TerminalHostInteractions,
   ) => void;
   removeHost: (tabId: string, hostId: string) => void;
   getHostInteractions: (tabId: string) => TerminalHostInteractions | undefined;
@@ -48,18 +54,29 @@ interface TerminalRuntimeContextValue {
 
 const TerminalRuntimeContext = createContext<TerminalRuntimeContextValue | null>(null);
 
-export function TerminalRuntimeProvider({ children }: { children: ReactNode }) {
+export function TerminalRuntimeProvider({
+  children,
+  outputPolicySelectionCoordinator,
+}: {
+  children: ReactNode;
+  outputPolicySelectionCoordinator?: TerminalOutputPolicySelectionCoordinator;
+}) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [hosts, setHosts] = useState<Map<string, TerminalHostState>>(new Map());
   const [layoutVersion, setLayoutVersion] = useState(0);
   const hostInteractionsRef = useRef<Map<string, TerminalHostInteractions>>(new Map());
+  const [defaultOutputPolicySelectionCoordinator] = useState(
+    () => createTerminalOutputPolicySelectionCoordinator(),
+  );
+  const activeOutputPolicySelectionCoordinator = outputPolicySelectionCoordinator
+    ?? defaultOutputPolicySelectionCoordinator;
 
   const upsertHost = useCallback((
     tabId: string,
     hostId: string,
     rect: HostRect,
     isVisible: boolean,
-    extras?: Pick<TerminalHostState, 'className' | 'style'> & TerminalHostInteractions,
+    extras?: Pick<TerminalHostState, 'className' | 'style' | 'clipboardContextKey'> & TerminalHostInteractions,
   ) => {
     hostInteractionsRef.current.set(tabId, {
       onContextMenu: extras?.onContextMenu,
@@ -73,6 +90,7 @@ export function TerminalRuntimeProvider({ children }: { children: ReactNode }) {
         tabId,
         rect,
         isVisible,
+        clipboardContextKey: extras?.clipboardContextKey,
         className: extras?.className,
         style: extras?.style,
       };
@@ -81,6 +99,7 @@ export function TerminalRuntimeProvider({ children }: { children: ReactNode }) {
         current &&
         current.hostId === nextState.hostId &&
         current.isVisible === nextState.isVisible &&
+        current.clipboardContextKey === nextState.clipboardContextKey &&
         current.className === nextState.className &&
         sameRect(current.rect, nextState.rect) &&
         sameStyle(current.style, nextState.style)
@@ -120,11 +139,20 @@ export function TerminalRuntimeProvider({ children }: { children: ReactNode }) {
     rootRef,
     hosts,
     layoutVersion,
+    outputPolicySelectionCoordinator: activeOutputPolicySelectionCoordinator,
     upsertHost,
     removeHost,
     getHostInteractions,
     invalidateHostLayouts,
-  }), [getHostInteractions, hosts, invalidateHostLayouts, layoutVersion, removeHost, upsertHost]);
+  }), [
+    activeOutputPolicySelectionCoordinator,
+    getHostInteractions,
+    hosts,
+    invalidateHostLayouts,
+    layoutVersion,
+    removeHost,
+    upsertHost,
+  ]);
 
   return (
     <TerminalRuntimeContext.Provider value={value}>
@@ -133,6 +161,7 @@ export function TerminalRuntimeProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTerminalRuntimeContext(): TerminalRuntimeContextValue {
   const context = useContext(TerminalRuntimeContext);
   if (!context) {

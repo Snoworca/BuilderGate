@@ -29,12 +29,6 @@ export interface BuildTerminalMenuOptions {
   onCopy: () => Promise<void>;
   onPaste: () => Promise<void>;
   hasSelection: boolean;
-  /**
-   * 애플리케이션 마우스 트래킹 모드(Claude Code 등 TUI)가 활성이면 true.
-   * 이 경우 xterm 로컬 선택이 만들어지지 않아 '복사'가 무의미하고, TUI가 OSC 52 로
-   * 자체 복사를 처리하므로 컨텍스트 메뉴에서 '복사' 항목을 숨긴다.
-   */
-  mouseTrackingActive?: boolean;
   registeredPresetMenu?: RegisteredPresetMenuOptions;
   moveWorkspace?: MoveWorkspaceMenuOptions;
 }
@@ -52,7 +46,6 @@ export function buildTerminalContextMenuItems(
     onCopy,
     onPaste,
     hasSelection,
-    mouseTrackingActive,
     registeredPresetMenu,
     moveWorkspace,
   } = options;
@@ -113,16 +106,14 @@ export function buildTerminalContextMenuItems(
         ]
       : []),
     { separator: true },
-    ...(mouseTrackingActive
-      ? []
-      : [{
-          label: '복사',
-          icon: '⎘',
-          disabled: !hasSelection,
-          onClick: () => {
-            void onCopy();
-          },
-        } satisfies ContextMenuItem]),
+    {
+      label: '복사',
+      icon: '⎘',
+      disabled: !hasSelection,
+      onClick: () => {
+        void onCopy();
+      },
+    },
     {
       label: '붙여넣기',
       icon: '⎗',

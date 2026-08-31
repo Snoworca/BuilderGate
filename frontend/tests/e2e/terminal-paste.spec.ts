@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { login, waitForTerminal } from './helpers';
+import { getActiveSessionId, login, waitForTerminal } from './helpers';
+
+interface CapturedInputFrame {
+  sessionId?: string;
+  data: string;
+}
 
 /**
  * TC-PASTE-01: Ctrl+V 이중 붙여넣기 방지 테스트
@@ -18,11 +23,11 @@ import { login, waitForTerminal } from './helpers';
 test.describe('Terminal Paste', () => {
   test('TC-PASTE-01: Ctrl+V로 붙여넣기 시 단 한 번만 전송되어야 한다', async ({ page }) => {
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], {
-      origin: 'https://localhost:2002',
+      origin: 'https://localhost:2222',
     });
 
     // WebSocket 리스너는 연결 생성 전에 등록해야 함
-    const inputMessages: string[] = [];
+    const inputMessages: CapturedInputFrame[] = [];
     page.on('websocket', ws => {
       ws.on('framesent', frame => {
         try {
@@ -31,7 +36,7 @@ test.describe('Terminal Paste', () => {
             : Buffer.from(frame.payload as Buffer).toString('utf8');
           const data = JSON.parse(payload);
           if (data.type === 'input' && typeof data.data === 'string') {
-            inputMessages.push(data.data);
+            inputMessages.push({ sessionId: data.sessionId, data: data.data });
           }
         } catch {
           // JSON이 아닌 프레임은 무시
@@ -41,6 +46,8 @@ test.describe('Terminal Paste', () => {
 
     await login(page);
     await waitForTerminal(page);
+    const sessionId = await getActiveSessionId(page);
+    expect(sessionId, 'E2E precondition failed: active session is unavailable').not.toBeNull();
 
     // 터미널 클릭으로 포커스
     await page.click('.xterm-screen');
@@ -57,17 +64,15 @@ test.describe('Terminal Paste', () => {
     await page.keyboard.press('Control+v');
     await page.waitForTimeout(500);
 
-    // 해당 텍스트가 포함된 input 메시지 횟수 확인
-    const pasteCount = inputMessages.filter(m => m.includes(clipText)).length;
-    expect(pasteCount).toBe(1);
+    await expect.poll(() => reconstructNativePaste(inputMessages, sessionId!)).toBe(clipText);
   });
 
   test('TC-PASTE-02: 연속 Ctrl+V 는 각각 한 번씩만 전송되어야 한다', async ({ page }) => {
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], {
-      origin: 'https://localhost:2002',
+      origin: 'https://localhost:2222',
     });
 
-    const inputMessages: string[] = [];
+    const inputMessages: CapturedInputFrame[] = [];
     page.on('websocket', ws => {
       ws.on('framesent', frame => {
         try {
@@ -76,7 +81,7 @@ test.describe('Terminal Paste', () => {
             : Buffer.from(frame.payload as Buffer).toString('utf8');
           const data = JSON.parse(payload);
           if (data.type === 'input' && typeof data.data === 'string') {
-            inputMessages.push(data.data);
+            inputMessages.push({ sessionId: data.sessionId, data: data.data });
           }
         } catch {
           // ignore
@@ -86,6 +91,8 @@ test.describe('Terminal Paste', () => {
 
     await login(page);
     await waitForTerminal(page);
+    const sessionId = await getActiveSessionId(page);
+    expect(sessionId, 'E2E precondition failed: active session is unavailable').not.toBeNull();
 
     await page.click('.xterm-screen');
     await page.waitForTimeout(300);
@@ -102,8 +109,15 @@ test.describe('Terminal Paste', () => {
     await page.keyboard.press('Control+v');
     await page.waitForTimeout(500);
 
-    // 각 키입력마다 정확히 1번씩 → 총 3번
-    const pasteCount = inputMessages.filter(m => m.includes(clipText)).length;
-    expect(pasteCount).toBe(3);
+    await expect.poll(() => reconstructNativePaste(inputMessages, sessionId!)).toBe(clipText.repeat(3));
   });
 });
+
+function reconstructNativePaste(frames: CapturedInputFrame[], sessionId: string): string {
+  return frames
+    .filter(frame => frame.sessionId === sessionId)
+    .map(frame => frame.data)
+    .join('')
+    .replaceAll('\u001b[200~', '')
+    .replaceAll('\u001b[201~', '');
+}

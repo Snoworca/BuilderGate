@@ -65,6 +65,7 @@ declare global {
   interface Window {
     __buildergateCapturedWsMessages?: CapturedWsMessage[];
     __buildergateWsCaptureInstalled?: boolean;
+    __buildergateUndecodableWsFrames?: number;
     __buildergateOriginalWebSocket?: typeof WebSocket;
     __buildergateOriginalWsSend?: WebSocket['send'];
     __buildergateTerminalDebug?: {
@@ -466,14 +467,19 @@ async function installWsMessageCapture(page: Page): Promise<void> {
     }
     window.__buildergateWsCaptureInstalled = true;
 
+    // `06 §S3` — an unreadable frame is counted rather than ignored, so a wire
+    // format change makes this capture fail instead of quietly capturing less.
+    window.__buildergateUndecodableWsFrames = 0;
     const captureFrame = (direction: 'in' | 'out', data: unknown) => {
-      if (typeof data === 'string') {
-        try {
-          const message = JSON.parse(data) as CapturedWsMessage;
-          window.__buildergateCapturedWsMessages?.push({ ...message, direction });
-        } catch {
-          // Ignore non-JSON frames.
-        }
+      if (typeof data !== 'string') {
+        window.__buildergateUndecodableWsFrames! += 1;
+        return;
+      }
+      try {
+        const message = JSON.parse(data) as CapturedWsMessage;
+        window.__buildergateCapturedWsMessages?.push({ ...message, direction });
+      } catch {
+        window.__buildergateUndecodableWsFrames! += 1;
       }
     };
 
@@ -515,7 +521,17 @@ async function clearWsMessageCapture(page: Page): Promise<void> {
 }
 
 async function readCapturedWsMessages(page: Page): Promise<CapturedWsMessage[]> {
-  return page.evaluate(() => window.__buildergateCapturedWsMessages ?? []);
+  const captured = await page.evaluate(() => ({
+    messages: window.__buildergateCapturedWsMessages ?? [],
+    undecodable: window.__buildergateUndecodableWsFrames ?? 0,
+  }));
+  // `06 §S3` — a frame the capture could not read shrinks the set the callers
+  // filter over, which turns a real regression into a passing test.
+  expect(
+    captured.undecodable,
+    'the ws capture could not read a frame; the assertions on it are vacuous',
+  ).toBe(0);
+  return captured.messages;
 }
 
 async function readTerminalDebugEvents(page: Page): Promise<TerminalDebugEvent[]> {
@@ -620,21 +636,36 @@ async function expectCapturedResizeBeforeScreenRepair(
     expect(resizeSuppressed).toBe(true);
   }
 
-  await expect.poll(async () => {
-    const latestMessages = await readCapturedWsMessages(page);
-    const latestRepairIndex = latestMessages.findIndex(message => (
-      message.type === 'screen-repair'
-      && (message.direction ?? 'out') === 'out'
-      && message.sessionId === repairMessage.sessionId
-      && (!expectedReason || message.reason === expectedReason)
-    ));
-    return latestRepairIndex >= 0 && latestMessages.some((message, index) => (
-      index > latestRepairIndex
-      && message.direction === 'in'
-      && message.type === 'screen-repair'
-      && message.sessionId === repairMessage.sessionId
-    ));
-  }, { timeout: 10000 }).toBe(true);
+  try {
+    await expect.poll(async () => {
+      const latestMessages = await readCapturedWsMessages(page);
+      const latestRepairIndex = latestMessages.findIndex(message => (
+        message.type === 'screen-repair'
+        && (message.direction ?? 'out') === 'out'
+        && message.sessionId === repairMessage.sessionId
+        && (!expectedReason || message.reason === expectedReason)
+      ));
+      return latestRepairIndex >= 0 && latestMessages.some((message, index) => (
+        index > latestRepairIndex
+        && message.direction === 'in'
+        && message.type === 'screen-repair'
+        && message.sessionId === repairMessage.sessionId
+      ));
+    }, { timeout: 10000 }).toBe(true);
+  } catch (error) {
+    const allDiagnosticMessages = await readCapturedWsMessages(page);
+    const diagnosticMessages = allDiagnosticMessages
+      .filter(message => message.type !== 'output')
+      .slice(-20);
+    const diagnosticEvents = (await readTerminalDebugEvents(page))
+      .filter(event => event.sessionId === repairMessage.sessionId)
+      .filter(event => !['live_output_received', 'output_enqueued'].includes(event.kind))
+      .slice(-30);
+    throw new Error(
+      `screen-repair response timeout\nmessages=${JSON.stringify(diagnosticMessages)}\nevents=${JSON.stringify(diagnosticEvents)}`,
+      { cause: error },
+    );
+  }
 
   const messagesAfterRepair = await readCapturedWsMessages(page);
   const serverRepair = messagesAfterRepair.find((message, index) => (
