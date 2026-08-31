@@ -1,3 +1,4 @@
+const { rotateLogIfOversized } = require('./daemon/log');
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -291,6 +292,7 @@ function installDaemonLogTee(logPath = process.env[daemonLauncher.DAEMON_LOG_PAT
     const originalWrite = stream.write.bind(stream);
     stream.write = (chunk, encoding, callback) => {
       try {
+        rotateLogIfOversized(logPath);
         fs.appendFileSync(logPath, normalizeLogChunk(chunk, encoding));
       } catch {
         // Runtime logging must not prevent an internal daemon child from starting.

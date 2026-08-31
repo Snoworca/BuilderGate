@@ -5,6 +5,10 @@ const webServerPort = Number(new URL(baseURL).port || 443);
 
 export default defineConfig({
   testDir: './tests/e2e',
+  // Brackets the run so workspaces it creates cannot accumulate past the
+  // instance quota; see tests/e2e/workspaceLeakGuard.ts.
+  globalSetup: './tests/e2e/workspaceLeakGuard.ts',
+  globalTeardown: './tests/e2e/workspaceTeardown.ts',
   timeout: 60000,
   retries: 1,
   fullyParallel: false,

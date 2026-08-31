@@ -56,6 +56,8 @@ export interface ProcessTreeTerminator {
 
 interface ProcessTreeTerminatorDeps {
   execFileFn?: typeof execFile;
+    /** Budget for the Windows process query; see DEFAULT_PROCESS_INFO_TIMEOUT_MS. */
+    processInfoTimeoutMs?: number;
   killFn?: (pid: number, signal?: NodeJS.Signals | number) => void;
   processInfoProvider?: (pid: number) => Promise<ProcessInfoSnapshot>;
   platform?: NodeJS.Platform;
@@ -257,11 +259,30 @@ function parseWindowsProcessJson(pid: number, raw: string): ProcessInfoSnapshot 
   };
 }
 
+/**
+ * Joined with newlines, not "; ".
+ *
+ * A semicolon join puts one immediately after `[pscustomobject]@{`, and a hash
+ * literal cannot start with an empty statement — PowerShell rejected the whole
+ * script as an incomplete hash literal, wrote nothing to stdout, and every
+ * process reported a null identity. That made the identity comparison in
+ * `inspect` fail for every session, so no process tree was ever terminated.
+ */
 function buildWindowsProcessQueryScript(pid: number): string {
   return [
     '$ErrorActionPreference = "Stop"',
-    `$root = Get-CimInstance Win32_Process -Filter "ProcessId=${pid}"`,
+    // One enumeration, then the walk happens in memory. Asking CIM once per
+    // node cost 5.8s on a machine with a few hundred processes, which no
+    // reasonable timeout would have absorbed.
+    '$all = Get-CimInstance Win32_Process -Property ProcessId,ParentProcessId,CreationDate,ExecutablePath,CommandLine',
+    `$root = $all | Where-Object { $_.ProcessId -eq ${pid} } | Select-Object -First 1`,
     'if ($null -eq $root) { Write-Output "{}"; exit 0 }',
+    '$byParent = @{}',
+    'foreach ($entry in $all) {',
+    '  $key = [int]$entry.ParentProcessId',
+    '  if (-not $byParent.ContainsKey($key)) { $byParent[$key] = New-Object "System.Collections.Generic.List[int]" }',
+    '  [void]$byParent[$key].Add([int]$entry.ProcessId)',
+    '}',
     '$seen = @{}',
     '$children = New-Object "System.Collections.Generic.List[int]"',
     '$pending = New-Object "System.Collections.Generic.Queue[int]"',
@@ -269,12 +290,13 @@ function buildWindowsProcessQueryScript(pid: number): string {
     '$pending.Enqueue([int]$root.ProcessId)',
     'while ($pending.Count -gt 0) {',
     '  $parent = $pending.Dequeue()',
-    '  Get-CimInstance Win32_Process -Filter "ParentProcessId=$parent" | ForEach-Object {',
-    '    $childPid = [int]$_.ProcessId',
-    '    if (-not $seen.ContainsKey($childPid)) {',
-    '      $seen[$childPid] = $true',
-    '      [void]$children.Add($childPid)',
-    '      $pending.Enqueue($childPid)',
+    '  if ($byParent.ContainsKey($parent)) {',
+    '    foreach ($childPid in $byParent[$parent]) {',
+    '      if (-not $seen.ContainsKey($childPid)) {',
+    '        $seen[$childPid] = $true',
+    '        [void]$children.Add($childPid)',
+    '        $pending.Enqueue($childPid)',
+    '      }',
     '    }',
     '  }',
     '}',
@@ -286,18 +308,30 @@ function buildWindowsProcessQueryScript(pid: number): string {
     '  CommandLine = $root.CommandLine;',
     '  Children = @($children.ToArray())',
     '} | ConvertTo-Json -Compress',
-  ].join('; ');
+    // Newline, not ";": a semicolon after `[pscustomobject]@{` breaks the hash
+    // literal, which is what made this query fail on every process.
+  ].join(String.fromCharCode(10));
 }
+
+/**
+ * The verification query must not be stricter than the capture it verifies.
+ * Capture defaults to 3000ms and is configurable; this used to be a hardcoded
+ * 1500ms, so on a machine where the PowerShell CIM query costs about two
+ * seconds the capture succeeded and the verification always timed out — the
+ * identities then disagreed and the process tree was never terminated.
+ */
+const DEFAULT_PROCESS_INFO_TIMEOUT_MS = 3000;
 
 function queryWindowsProcessInfo(
   pid: number,
   execFileFn: typeof execFile,
+  timeoutMs: number,
 ): Promise<ProcessInfoSnapshot> {
   return new Promise((resolve) => {
     execFileFn(
       'powershell.exe',
       ['-NoProfile', '-NonInteractive', '-Command', buildWindowsProcessQueryScript(pid)],
-      { windowsHide: true, shell: false, timeout: 1500 },
+      { windowsHide: true, shell: false, timeout: timeoutMs },
       (error, stdout) => {
         if (error) {
           resolve({
@@ -372,10 +406,13 @@ export function createDefaultProcessInfoProvider(
   deps: {
     platform?: NodeJS.Platform;
     execFileFn?: typeof execFile;
+    /** Budget for the Windows process query; see DEFAULT_PROCESS_INFO_TIMEOUT_MS. */
+    processInfoTimeoutMs?: number;
   } = {},
 ): (pid: number) => Promise<ProcessInfoSnapshot> {
   const platform = deps.platform ?? process.platform;
   const execFileFn = deps.execFileFn ?? execFile;
+  const timeoutMs = deps.processInfoTimeoutMs ?? DEFAULT_PROCESS_INFO_TIMEOUT_MS;
   return async (pid: number) => {
     const rootPid = normalizePid(pid);
     if (rootPid === null) {
@@ -388,7 +425,7 @@ export function createDefaultProcessInfoProvider(
       };
     }
     if (platform === 'win32') {
-      return queryWindowsProcessInfo(rootPid, execFileFn);
+      return queryWindowsProcessInfo(rootPid, execFileFn, timeoutMs);
     }
     return readPosixProcessInfo(rootPid);
   };
@@ -407,6 +444,7 @@ export class DefaultProcessTreeTerminator implements ProcessTreeTerminator {
     this.processInfoProvider = deps.processInfoProvider ?? createDefaultProcessInfoProvider({
       platform: this.platform,
       execFileFn: this.execFileFn,
+      processInfoTimeoutMs: deps.processInfoTimeoutMs,
     });
   }
 

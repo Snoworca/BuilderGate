@@ -3,7 +3,7 @@ const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const { appendLog } = require('./log');
+const { appendLog, rotateLogIfOversized } = require('./log');
 const { isActiveDaemonState, isProcessRunning, killProcess } = require('./process-info');
 const { waitForReadiness } = require('./readiness');
 const {
@@ -423,6 +423,9 @@ function spawnDetachedProcess(launch) {
     return spawnWindowsPackagedProcess(launch);
   }
 
+  // The child writes straight to these descriptors, so once they are open the
+  // file cannot be rotated underneath it. Launch is the one point where it can.
+  rotateLogIfOversized(launch.logPath);
   const stdoutFd = fs.openSync(launch.logPath, 'a');
   const stderrFd = fs.openSync(launch.logPath, 'a');
 

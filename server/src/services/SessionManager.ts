@@ -44,6 +44,7 @@ import {
   type HeadlessOutputQueue,
   type HeadlessOutputQueueSnapshot,
 } from '../utils/headlessOutputQueue.js';
+import { VALIDATION_LIMITS } from '../utils/constants.js';
 import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 import { advanceTerminalPartialEscapeTail } from '../utils/terminalPartialEscapeTail.js';
 import { TerminalTitleDetector } from '../utils/terminalTitle.js';
@@ -975,6 +976,29 @@ function createInitialCleanupTelemetry(mode: SessionProcessCleanupConfig['mode']
     identityCaptureRetried: 0,
     identityCaptureFailed: 0,
     recentResults: [],
+  };
+}
+
+/**
+ * Terminal geometry the server will carry, or null when it cannot be honoured.
+ *
+ * The two shapes differ. A non-positive or non-integer size is structurally
+ * invalid — there is no terminal it describes — so it is refused. An oversized
+ * one is a real request the server declines to carry, and clamping keeps the
+ * session working where refusing would leave the client's geometry permanently
+ * disagreeing with the server's. Without this the numbers reached `pty.resize`
+ * untouched: a 70000-column request really does allocate that buffer.
+ *
+ * `MIN_COLS` / `MIN_ROWS` are deliberately not enforced. Widening a narrow
+ * terminal would make the PTY wrap at a width the browser does not render,
+ * which is worse than honouring the small size.
+ */
+function normalizeTerminalGeometry(cols: number, rows: number): { cols: number; rows: number } | null {
+  if (!Number.isSafeInteger(cols) || !Number.isSafeInteger(rows)) return null;
+  if (cols <= 0 || rows <= 0) return null;
+  return {
+    cols: Math.min(cols, VALIDATION_LIMITS.MAX_COLS),
+    rows: Math.min(rows, VALIDATION_LIMITS.MAX_ROWS),
   };
 }
 
@@ -3428,6 +3452,11 @@ export class SessionManager {
     rows: number,
     retainedIdentity?: RetainedTerminalMutationIdentity,
   ): boolean {
+    const geometry = normalizeTerminalGeometry(cols, rows);
+    if (!geometry) return false;
+    cols = geometry.cols;
+    rows = geometry.rows;
+
     const data = this.sessions.get(id);
     if (!data) {
       this.recordRetainedTerminalLateMessage(id);
