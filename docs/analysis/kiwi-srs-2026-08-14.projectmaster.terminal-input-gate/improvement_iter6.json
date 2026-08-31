@@ -1,0 +1,76 @@
+{
+  "iter": 6,
+  "fixed": [
+    {
+      "finding": "VP5-F1",
+      "req_id": "REL-BGSTAB-018",
+      "what_changed": "AC-7 rewritten so the vacuity guard is per-rejection-path, not shadow-only: the shared premise is retained.mode='shadow' (SessionManager.ts:2977), and on top of it (a) the mutation-identity-missing path only rejects when runtime.admission.mode === 'server', because the branch records the blocker unconditionally but returns `runtime.admission.mode !== 'server'` (2986), while (b) the driver-lease-failure path rejects whenever exactRegisteredView combined with either serverAuthorityUserMutation or legacyDriverMutation is false (3008-3010), independently of admission mode. AC-7 now explicitly states that a shadow-only test that leaves admission mode unfixed can observe acceptance and still pass, so it does not satisfy the AC. New AC-8 adds boundary controls: identity-missing under a non-'server' admission mode must be observed to be ACCEPTED, and an identity satisfying exactRegisteredView plus the mode-specific acceptance conjunction must be observed to be accepted; if both controls reject, the test is not measuring fencing rejection and cannot be used as evidence. Rationale effectivity paragraph, Verification Method and the SessionManager trace note corrected to distinguish the two paths' preconditions. No metadata row and no other requirement touched.",
+      "evidence": "docs/spec/30.buildergate-stability.srs.md:4357 (AC-7), 4358 (AC-8), 4347 (Rationale effectivity paragraph), 4335 (Verification Method), 4369 (SessionManager trace note); code fact at server/src/services/SessionManager.ts:2985-2986"
+    },
+    {
+      "finding": "VP5-F2",
+      "req_id": "OPS-BGSTAB-003",
+      "what_changed": "cause-1 raised to per-test parity with cause-2's AC-8. AC-4 now requires, in addition to a reachable StatusBar and an out-of-file prefixMode supplier: for TC-6601 a Ctrl+B keydown handler that enters prefix mode plus the state path that feeds StatusBar's prefixMode prop so `.status-prefix` becomes visible within 2000ms; for TC-6606 additionally an auto-exit timer at or under 1500ms (the test asserts visible, waits 1600ms, then asserts hidden). AC-4 records the 2026-08-14 code facts (zero Ctrl+B handlers in frontend/src; prefixMode exists only as the StatusBar prop at StatusBar.tsx:6,12,20 with no supplier; no auto-exit timer) and states that mounting StatusBar and supplying prefixMode alone does not satisfy it, closing the hole where AC-4 could be fully met while both tests stayed RED. Requirement cause-1 bullet, disposition-A parenthetical, Rationale, Verification Method (which now ends in an actual test run, since a statically-satisfied AC-4 with RED tests violates AC-2) and the pane-keyboard / StatusBar / helpers trace notes updated to match. AC-8's cause-2 enumeration left unchanged.",
+      "evidence": "docs/spec/30.buildergate-stability.srs.md:4612 (AC-4), 4596 (cause-1 bullet), 4599 (disposition A), 4603 (Rationale), 4582 (Verification Method), 4628/4629/4631 (trace notes); code facts at frontend/tests/e2e/pane-keyboard.spec.ts:10-21, frontend/tests/e2e/helpers.ts:510-514, frontend/src/components/StatusBar/StatusBar.tsx:6,12,20"
+    },
+    {
+      "finding": "VP5-F7",
+      "req_id": "REL-BGSTAB-017",
+      "what_changed": "Rationale replaced with a per-site account of three distinct behaviours instead of the false claim that all four sites detect 0-size: (1) dimension-checked silent give-up at the initial-mount double-rAF (guard 3862, return 3868), the ResizeObserver callback (guard 4112, return 4117) and the visibility-transition handler (guard 4306, return 4312); (2) no dimension check at all in the imperative fit() handle (2991-2997), which tests only isVisibleRef (2992), emits no debug event, and calls submitTerminalFit regardless of a 0x0 container (2995) — this removes the contradiction with AC-3 inside the same block; (3) performRepairLayout (1184-1213), which skips and then reports success via resolve(true) (1196) without setting geometryReadyRef, so its caller repairLayoutAfterIme (1215-1222) reads an unopened barrier as opened. performRepairLayout added as a fifth site to the Requirement paragraph and to the TerminalView Trace Links row, and the imperative fit() citation corrected from 2991-2996 to 2991-2997. New AC-7 makes 'skip then report success' a separate defect: skip must not return success, no combination of returned-true with geometryReadyRef=false may remain, and verification must observe the return value together with geometryReadyRef rather than the return value alone. AC-1/AC-4 tension resolved: AC-1 now requires re-measurement without further ResizeObserver events and convergence to true only if dimensions recover within the retry budget, and explicitly defers the never-recovering case to AC-4, which requires ending in a non-ready state carrying an observable terminal signal rather than flipping geometryReadyRef to true. AC-3 extended to cover the visible-but-0x0 case that the imperative handle currently cannot detect. Verification Method gained the AC-4 exhaustion case and the AC-7 boundary control (a non-zero container must yield true together with geometryReadyRef=true).",
+      "evidence": "docs/spec/30.buildergate-stability.srs.md:4274 (Requirement), 4278-4282 (Rationale), 4288/4290/4291/4294 (AC-1/AC-3/AC-4/AC-7), 4305 (Trace Links), 4268 (Verification Method); code facts at frontend/src/components/Terminal/TerminalView.tsx:1190-1196, 2991-2997"
+    }
+  ],
+  "not_fixed": [],
+  "new_code_facts_confirmed": [
+    {
+      "claim": "performRepairLayout resolves true after skipping the fit, without setting geometryReadyRef",
+      "verified": true,
+      "evidence": "frontend/src/components/Terminal/TerminalView.tsx:1190 (guard: !term || !fitAddon || !isVisibleRef.current || !container || container.offsetWidth === 0 || container.offsetHeight === 0), 1191-1195 (records fit_skipped_non_renderable), 1196 (resolve(true)), 1197 (return); geometryReadyRef is set only on the success path at 1206"
+    },
+    {
+      "claim": "performRepairLayout's success value is consumed by repairLayoutAfterIme and returned to the imperative repairLayout handle",
+      "verified": true,
+      "evidence": "frontend/src/components/Terminal/TerminalView.tsx:1215-1222 (repairLayoutAfterIme returns performRepairLayout(reason)); 2998 (imperative repairLayout handle delegates to repairLayoutAfterIme)"
+    },
+    {
+      "claim": "The !identity branch of acceptRetainedTerminalMutationIdentity returns runtime.admission.mode !== 'server', not false",
+      "verified": true,
+      "evidence": "server/src/services/SessionManager.ts:2979 (if (!identity) {), 2985 (retained.blockers.add('mutation-identity-missing')), 2986 (return runtime.admission.mode !== 'server';) — the blocker is recorded but the call is ACCEPTED whenever admission mode is not 'server'"
+    },
+    {
+      "claim": "The driver-lease-failure rejection is independent of admission mode",
+      "verified": true,
+      "evidence": "server/src/services/SessionManager.ts:2996-3002 (serverAuthorityUserMutation requires admission.mode === 'server' plus suspendedBrowserDriver clientId/viewGeneration/leaseGeneration match), 3003-3007 (legacyDriverMutation requires admission.mode !== 'server' plus driverLease.state==='active' and ownerClientId/driverViewGeneration/generation match), 3008-3010 (accepted = exactRegisteredView && (serverAuthorityUserMutation || legacyDriverMutation); blocker added and false returned otherwise)"
+    },
+    {
+      "claim": "The imperative fit() handle performs no dimension check",
+      "verified": true,
+      "evidence": "frontend/src/components/Terminal/TerminalView.tsx:2991-2997 — 2992 checks only isVisibleRef.current, 2993-2996 call submitTerminalFit inside a single rAF with no offsetWidth/offsetHeight test and no fit_skipped_non_renderable event"
+    },
+    {
+      "claim": "The other three fit sites do check dimensions and return without scheduling a retry",
+      "verified": true,
+      "evidence": "frontend/src/components/Terminal/TerminalView.tsx:3862/3868 (initial mount), 4112/4117 (ResizeObserver), 4306/4312 (visibility transition)"
+    },
+    {
+      "claim": "No Ctrl+B handler and no prefixMode supplier exist in frontend/src",
+      "verified": true,
+      "evidence": "grep for ctrl\\+b / key === 'b' / keyCode === 66 over frontend/src returns zero matches; prefixMode occurs only at frontend/src/components/StatusBar/StatusBar.tsx:6 (prop declaration), 12 (destructuring), 20 (render of .status-prefix) — nothing supplies the prop; helpers.ts:510-514 defines pressCtrlB as Control+b"
+    },
+    {
+      "claim": "TC-6606 requires a prefix auto-exit at or under 1500ms",
+      "verified": true,
+      "evidence": "frontend/tests/e2e/pane-keyboard.spec.ts:16-21 — pressCtrlB, expect .status-prefix visible, page.waitForTimeout(1600), expect .status-prefix not visible"
+    }
+  ],
+  "existing_reqs_touched": [],
+  "validate_spec_result": {
+    "new_diagnostics": [],
+    "preexisting_diagnostics": [
+      {"code": "SRS-E002", "count": 1, "detail": "Duplicate requirement ID REL-BGSTAB-015 in docs/spec/steps/2026-07-26.pm.canary-fixture-recovery-public-api/01.public-sessionmanager-fixture.srs.md:3"},
+      {"code": "SRS-W018", "count": 5, "detail": "Step-scope SRS documents not registered in the Scope Map of docs/spec/00.index.md"},
+      {"code": "SRS-W023", "count": 14, "detail": "Draft requirements not ready as an implementation contract (the 14 REQ blocks created by this run)"}
+    ],
+    "note": "An intermediate run raised SRS-W017 x2 on the REL-BGSTAB-018 Trace Links row because a '||' inside the note split the table cells; the wording was changed to 'either ... or' and the diagnostic disappeared. Final counts match the baseline exactly: errors 1, warnings 19, byCode {SRS-W018:5, SRS-W023:14, SRS-E002:1}."
+  }
+}

@@ -1,0 +1,388 @@
+{
+  "sources_consulted": [
+    {
+      "type": "filesystem",
+      "ref": "src/main/daemon/headless-emulator.ts:58-136",
+      "summary": "Daemon/headless xterm creation, default 5,000-row scrollback, query-reply separation."
+    },
+    {
+      "type": "filesystem",
+      "ref": "src/main/daemon/headless-emulator.ts:293-354",
+      "summary": "Resize and snapshot contents, including split normal/alternate buffers and pending escape tail."
+    },
+    {
+      "type": "filesystem",
+      "ref": "src/main/daemon/session.ts:129-163",
+      "summary": "Session ownership of subprocess and emulator; history restoration precedes PTY listeners."
+    },
+    {
+      "type": "filesystem",
+      "ref": "src/main/daemon/session.ts:286-361",
+      "summary": "Client attach/detach, sequence-bearing snapshots, atomic checkpoint take."
+    },
+    {
+      "type": "filesystem",
+      "ref": "src/main/daemon/session.ts:530-631",
+      "summary": "Bounded checkpoint records and PTY-output ingestion order."
+    },
+    {
+      "type": "filesystem",
+      "ref": "src/main/daemon/terminal-host.ts:61-87",
+      "summary": "Warm create-or-attach contract retaining the existing process/model."
+    },
+    {
+      "type": "filesystem",
+      "ref": "src/main/daemon/daemon-init.ts:318-360",
+      "summary": "Electron-specific detached daemon launch and host relocation."
+    },
+    {
+      "type": "filesystem",
+      "ref": "src/main/daemon/daemon-stream-keep-tail-drop.ts:40-79",
+      "summary": "Hidden-session keep-tail, aggregate budget, and explicit gap policy."
+    },
+    {
+      "type": "filesystem",
+      "ref": "src/main/ipc/pty.ts:1611-1739",
+      "summary": "Main-to-renderer queue, ACK windows, pending cap, producer control, hidden-session classification."
+    },
+    {
+      "type": "filesystem",
+      "ref": "src/main/ipc/pty.ts:1944-1967",
+      "summary": "Renderer reload/crash accounting reset and dispatcher-ready gate."
+    },
+    {
+      "type": "filesystem",
+      "ref": "src/main/ipc/pty.ts:2209-2465",
+      "summary": "Overflow sentinel, query salvage, bounded flush, and snapshot-based healing."
+    },
+    {
+      "type": "filesystem",
+      "ref": "src/main/ipc/pty.ts:3491-3557",
+      "summary": "Authoritative snapshot selection and snapshot/live deduplication boundary."
+    },
+    {
+      "type": "filesystem",
+      "ref": "src/renderer/src/components/terminal-pane/pty-connection.ts:6588-6820",
+      "summary": "Reattach live-data deferral, replay precedence, dimensions, reset, and SIGWINCH."
+    },
+    {
+      "type": "filesystem",
+      "ref": "src/main/runtime/rpc/methods/terminal.ts:1463-1655",
+      "summary": "Remote multiplex ACK/backpressure and snapshot recovery."
+    },
+    {
+      "type": "filesystem",
+      "ref": "src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:432-622",
+      "summary": "Remote sequence-gap detection, snapshot application, and resynchronization."
+    },
+    {
+      "type": "filesystem",
+      "ref": "src/shared/terminal-scrollback-policy.ts:1-52",
+      "summary": "Desktop scrollback settings and backlog-cap scaling."
+    },
+    {
+      "type": "git",
+      "ref": "e84a8ddec97d5f367298fa22a9db2bbed8478af4",
+      "summary": "Terminal performance architecture: bounded delivery, hidden thinning, sequence gaps, snapshot recovery."
+    },
+    {
+      "type": "git",
+      "ref": "2f62292944f7fa6f36b61dd9ee7df51814154d54",
+      "summary": "Renderer lifecycle reset accounting and dispatcher-ready handshake."
+    }
+  ],
+  "model_lifecycle": [
+    {
+      "claim": "TerminalHost의 Session 맵이 로컬 daemon PTY의 장기 소유자이며, 각 Session이 subprocess와 headless xterm 모델을 함께 소유한다.",
+      "evidence": "src/main/daemon/terminal-host.ts:42-52; src/main/daemon/session.ts:102-144"
+    },
+    {
+      "claim": "복구 seed는 PTY listener 등록 전에 모델에 적용되며, live 출력은 absolute sequence 증가, 모델 ingest, checkpoint 기록, client fan-out 순으로 처리된다.",
+      "evidence": "src/main/daemon/session.ts:145-163; src/main/daemon/session.ts:571-587"
+    },
+    {
+      "claim": "Warm reattach는 subprocess를 재생성하지 않는다. 기존 모델 snapshot을 취한 뒤 이전 client를 떼고 새 client를 연결한다.",
+      "evidence": "src/main/daemon/terminal-host.ts:61-81"
+    },
+    {
+      "claim": "Renderer view detach와 PTY 종료는 별개다. 이동·parking unmount는 transport listener만 detach하지만 명시적 pane close/destroy는 PTY를 kill한다.",
+      "evidence": "src/renderer/src/components/terminal-pane/use-terminal-pane-lifecycle.ts:1278-1317; src/renderer/src/components/terminal-pane/use-terminal-pane-lifecycle.ts:1774-1796"
+    },
+    {
+      "claim": "Electron 종료 시 daemon 연결만 끊으면 subprocess/model은 별도 프로세스에서 살아남아 다음 실행에서 warm reattach된다. 전체 daemon shutdown만 모든 session을 종료한다.",
+      "evidence": "src/main/daemon/daemon-init.ts:458-463; src/main/daemon/daemon-init.ts:765-779"
+    },
+    {
+      "claim": "Subprocess exit 또는 kill은 client exit를 fan-out하고 emulator를 dispose한 뒤 Session 맵에서 제거한다.",
+      "evidence": "src/main/daemon/session.ts:590-631; src/main/daemon/terminal-host.ts:196-221"
+    },
+    {
+      "claim": "Main runtime의 headless xterm은 보조 모델이다. daemon monitoring stream에 gap이 생기면 parser carry와 이 보조 모델을 폐기하고 provider snapshot을 요구한다.",
+      "evidence": "src/main/runtime/orca-runtime.ts:6046-6070; src/main/ipc/pty.ts:2576-2599"
+    }
+  ],
+  "view_lifecycle": [
+    {
+      "claim": "Local renderer attach는 eager/replay 데이터를 replay guard를 통해 적용하고, detach는 data/status listener를 제거하되 exit observer와 PTY process를 보존한다.",
+      "evidence": "src/renderer/src/components/terminal-pane/pty-transport.ts:882-964; src/renderer/src/components/terminal-pane/pty-transport.ts:979-993"
+    },
+    {
+      "claim": "Renderer reload/crash 시 main은 죽은 page의 pending bytes와 ACK debt를 모두 폐기하고 producer pause를 해제한 뒤, 새 page의 dispatcher-ready handshake까지 전송을 보류한다.",
+      "evidence": "src/main/ipc/pty.ts:1944-1967; src/main/ipc/pty.ts:4808-4833"
+    },
+    {
+      "claim": "Reattach 중 도착한 live bytes는 snapshot이 먼저 그려질 때까지 renderer에서 지연된다. 복구 소스 우선순위는 daemon snapshot, relay replay, cold restore 순으로 하나만 적용된다.",
+      "evidence": "src/renderer/src/components/terminal-pane/pty-connection.ts:6588-6605; src/renderer/src/components/terminal-pane/pty-connection.ts:6691-6700"
+    },
+    {
+      "claim": "Cold parking은 30초 hysteresis와 15분 hot-retain을 사용하며, daemon snapshot이 보장되는 로컬 session만 허용한다. Remote-runtime, SSH, daemon fail-open PTY는 제외된다.",
+      "evidence": "src/renderer/src/components/terminal-pane/terminal-hidden-view-parking.ts:6-19; src/renderer/src/components/terminal-pane/terminal-hidden-view-parking.ts:53-67"
+    },
+    {
+      "claim": "Remote transport가 닫히면 기존 multiplex slot을 폐기하고 새 subscription을 만든다. Host-mirror의 경우 현재 session snapshot에서 handle을 다시 유도해 stale handle 오입력을 막는다.",
+      "evidence": "src/renderer/src/components/terminal-pane/remote-runtime-pty-transport.ts:434-483; src/renderer/src/components/terminal-pane/remote-runtime-pty-transport.ts:566-620"
+    }
+  ],
+  "snapshot_and_reconnect_contract": [
+    {
+      "claim": "Snapshot은 단순 텍스트가 아니라 normal scrollback, active screen, mode rehydrate ANSI, dimensions, cwd, title, OSC links, alternate-screen 상태와 미완성 escape tail을 포함한다.",
+      "evidence": "src/main/daemon/types.ts:29-52; src/main/daemon/headless-emulator.ts:309-354"
+    },
+    {
+      "claim": "Snapshot의 outputSequence는 daemon이 ingest한 UTF-16 문자 절대 high-water다. Main은 snapshot 시점에 아직 renderer로 갈 수 있는 pending start sequence도 반환해 중복 제거 범위를 제한한다.",
+      "evidence": "src/main/daemon/types.ts:50-52; src/main/ipc/pty.ts:3521-3557"
+    },
+    {
+      "claim": "Local warm reattach는 snapshot 자체 dimensions에서 먼저 replay하고 clear/reset 및 pending escape tail을 적용한 다음 현재 pane 크기로 fit·resize하고 명시적 SIGWINCH로 TUI repaint를 유도한다.",
+      "evidence": "src/renderer/src/components/terminal-pane/pty-connection.ts:6701-6745; src/renderer/src/components/terminal-pane/pty-connection.ts:6804-6820"
+    },
+    {
+      "claim": "Remote subscribe는 live listener를 먼저 등록해 최대 256 KiB를 buffer하고 snapshot을 만든 뒤, snapshot sequence가 이미 덮는 buffered output을 제거하고 나머지만 전송한다.",
+      "evidence": "src/main/runtime/rpc/methods/terminal.ts:2032-2077; src/main/runtime/rpc/methods/terminal.ts:2143-2232"
+    },
+    {
+      "claim": "Remote Output frame의 sequence가 건너뛰면 client는 live tail을 버리고 untagged authoritative snapshot을 요청한다. 복구 snapshot 적용 중 live output에도 ACK credit은 돌려준다.",
+      "evidence": "src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:440-466; src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:569-622"
+    },
+    {
+      "claim": "Remote desktop의 최초 subscribe, frame-gap resync, ACK-overflow recovery는 scrollbackRows=0 snapshot을 사용한다. 복구는 화면과 renderer scrollback을 clear하므로 현재 screen은 복원하지만 기존 remote renderer scrollback은 보존하지 않는다.",
+      "evidence": "src/main/runtime/rpc/methods/terminal.ts:622-631; src/main/runtime/rpc/methods/terminal.ts:1573-1595; src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:525-530"
+    },
+    {
+      "claim": "Normal-buffer mobile width 변경은 새 폭에서 full bounded snapshot을 다시 직렬화해 reflow하지만 alternate-screen TUI는 scrollback replay 없이 geometry와 애플리케이션 redraw를 사용한다.",
+      "evidence": "src/main/runtime/rpc/methods/terminal.ts:653-690"
+    },
+    {
+      "claim": "Persistence checkpoint는 pending record drain과 snapshot을 같은 synchronous turn에 수행하며 generation이 맞는 incremental log만 재생해 snapshot/live 중복과 손상된 log replay를 막는다.",
+      "evidence": "src/main/daemon/session.ts:334-361; src/main/daemon/history-reader.ts:137-179"
+    }
+  ],
+  "retention_and_limits": [
+    {
+      "claim": "Orca는 무제한 full scrollback을 보존하지 않는다. Desktop 설정 범위는 1,000~50,000행이지만 daemon create contract에는 scrollback 설정이 없고 headless emulator 기본값은 5,000행이므로 warm reload/parking의 authoritative daemon snapshot은 실제로 최대 약 5,000행이다.",
+      "evidence": "src/shared/terminal-scrollback-policy.ts:1-4; src/main/daemon/terminal-host-create-contract.ts:5-22; src/main/daemon/terminal-host.ts:118-135; src/main/daemon/headless-emulator.ts:58-101"
+    },
+    {
+      "claim": "Daemon snapshot API가 요청값을 50,000행까지 허용해도 이미 모델에서 trim된 5,000행보다 오래된 내용은 되살릴 수 없다.",
+      "evidence": "src/main/daemon/daemon-server.ts:532-550; src/main/daemon/headless-emulator.ts:98-102"
+    },
+    {
+      "claim": "Main의 별도 transcript/tail은 화면 모델이 아니며 2,000 lines, 256 KiB characters, 4,000-character partial line로 제한된다.",
+      "evidence": "src/main/runtime/orca-runtime.ts:24978-24984; src/main/runtime/orca-runtime.ts:25515-25548"
+    },
+    {
+      "claim": "Incremental history log는 session당 5 MiB이며 도달 시 bounded model의 full snapshot으로 대체된다. Crash recovery는 일반적으로 약 5초, streaming cooldown 중에는 약 45초까지 stale할 수 있다.",
+      "evidence": "src/main/daemon/history-manager.ts:24-28; src/main/daemon/history-reader.ts:68-83"
+    },
+    {
+      "claim": "Checkpoint 대기 record는 session당 2 MiB다. 넘으면 records를 버리고 overflow를 표시해 다음 checkpoint가 full snapshot으로 재기준화한다.",
+      "evidence": "src/main/daemon/session.ts:26-39; src/main/daemon/session.ts:530-550"
+    },
+    {
+      "claim": "Hidden daemon monitoring stream은 session당 최대 512 KiB tail, 최소 64 KiB, 전체 약 2 MiB budget을 공유하고 2배 hysteresis cap에서 가장 오래된 bytes를 버린다. 실제 daemon model과 PTY producer는 유지된다.",
+      "evidence": "src/main/daemon/daemon-stream-keep-tail-drop.ts:1-8; src/main/daemon/daemon-stream-keep-tail-drop.ts:40-67"
+    },
+    {
+      "claim": "Main→renderer pending cap은 max(2 MiB, scrollbackRows×120 chars)이고 overflow 시 중간 tail을 부분 보존하지 않고 전체 queued content를 sentinel로 대체한다. Query bytes만 최대 4,096 chars salvaged된다.",
+      "evidence": "src/shared/terminal-scrollback-policy.ts:31-45; src/main/ipc/pty.ts:2243-2298"
+    },
+    {
+      "claim": "Local renderer delivery ACK window는 PTY당 512 KiB, 전체 8 MiB다. Pending queue가 256 KiB를 넘으면 지원 provider의 실제 PTY read를 pause하고 32 KiB 아래에서 resume한다.",
+      "evidence": "src/main/ipc/pty.ts:1639-1663; src/main/ipc/pty-producer-flow-control.ts:1-13"
+    },
+    {
+      "claim": "Remote desktop multiplex는 stream당 512 KiB, 전체 2 MiB ACK in-flight window와 stream당 256 KiB pending queue를 사용한다. Overflow는 screen snapshot 뒤 retained tail로 복구한다.",
+      "evidence": "src/main/runtime/rpc/methods/terminal.ts:41-52; src/main/runtime/rpc/methods/terminal.ts:1527-1625"
+    },
+    {
+      "claim": "Remote requested snapshot은 최대 2 MiB이며 초과 시 요청 행을 1,000, 500, 250, 100, 25, 0 순으로 줄인다. Client도 2 MiB를 넘는 snapshot을 적용하지 않고 live output만 계속한다.",
+      "evidence": "src/main/runtime/rpc/methods/terminal.ts:552-581; src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:122-128; src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:482-510"
+    },
+    {
+      "claim": "Mobile snapshot은 1,000행과 512 KiB budget으로 별도 제한된다.",
+      "evidence": "src/main/runtime/scrollback-limits.ts:1-8; src/main/runtime/rpc/methods/terminal.ts:633-647"
+    }
+  ],
+  "electron_specific_assumptions": [
+    {
+      "claim": "Daemon bootstrap은 Electron app.getPath('userData'), app.getAppPath(), app.asar.unpacked 구조에 의존한다.",
+      "evidence": "src/main/daemon/daemon-init.ts:96-118"
+    },
+    {
+      "claim": "Packaged Windows에서는 updater가 설치 경로를 교체해도 PTY가 죽지 않도록 Electron executable과 daemon closure를 userData로 복사하고 ELECTRON_RUN_AS_NODE로 실행한다.",
+      "evidence": "src/main/daemon/daemon-init.ts:322-360"
+    },
+    {
+      "claim": "Local view delivery는 BrowserWindow.webContents.send, ipcMain, did-start-loading, render-process-gone, destroyed 같은 Electron lifecycle event를 직접 사용한다.",
+      "evidence": "src/main/ipc/pty.ts:1409-1427; src/main/ipc/pty.ts:2163-2180"
+    },
+    {
+      "claim": "Hidden-delivery와 pending-cap 방어의 직접 원인은 Electron/Chromium renderer background throttling과 reload 중 listener 부재다.",
+      "evidence": "src/main/ipc/pty.ts:1645-1659; src/main/ipc/pty.ts:1689-1694"
+    },
+    {
+      "claim": "한 local mainWindow page의 lifecycle reset이 해당 page에 속한 모든 PTY delivery accounting을 일괄 폐기한다. 이 부분은 다중 WebSocket client 구조에 그대로 적용할 수 없는 single-renderer 전제다.",
+      "evidence": "src/main/ipc/pty.ts:1944-1963; src/main/ipc/pty.ts:4813-4827"
+    }
+  ],
+  "portable_invariants": [
+    {
+      "claim": "PTY/model ingest는 view delivery보다 먼저 완료되어야 하며, view queue drop은 model loss로 취급하면 안 된다.",
+      "evidence": "src/main/daemon/session.ts:576-587; src/main/ipc/pty.ts:2612-2656"
+    },
+    {
+      "claim": "Queue를 제한할 때 silent middle trim을 하지 말고 explicit gap/sentinel을 내보낸 뒤 authoritative snapshot으로 복구해야 한다.",
+      "evidence": "src/main/daemon/daemon-stream-keep-tail-drop.ts:74-79; src/main/ipc/pty.ts:2289-2298"
+    },
+    {
+      "claim": "Snapshot에는 absolute output high-water가 있어야 하며 live chunk도 같은 sequence domain을 사용해야 중복과 누락을 판정할 수 있다.",
+      "evidence": "src/main/daemon/session.ts:309-314; src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:569-583"
+    },
+    {
+      "claim": "Snapshot 획득 전 live listener를 등록하고 bytes를 bounded buffer에 보관한 뒤 snapshot-covered bytes를 제거해야 snapshot/live 경계가 원자적으로 보인다.",
+      "evidence": "src/main/runtime/rpc/methods/terminal.ts:2067-2077; src/main/runtime/rpc/methods/terminal.ts:2220-2232"
+    },
+    {
+      "claim": "Cumulative ACK는 monotonic max-merge로 처리해야 loss, duplicate, reorder가 자동 회복되고 credit이 음수가 되지 않는다.",
+      "evidence": "src/main/ipc/pty.ts:2039-2060"
+    },
+    {
+      "claim": "View detach, transport reconnect, PTY termination은 서로 다른 lifecycle operation이어야 한다.",
+      "evidence": "src/renderer/src/components/terminal-pane/pty-transport.ts:966-993; src/main/daemon/terminal-host.ts:196-230"
+    },
+    {
+      "claim": "Resize는 output과 같은 ordered model stream에 들어가야 하며 snapshot은 source dimensions에서 replay한 뒤 live PTY dimensions로 전환해야 한다.",
+      "evidence": "src/main/daemon/session.ts:210-221; src/renderer/src/components/terminal-pane/pty-connection.ts:6703-6729"
+    },
+    {
+      "claim": "Normal scrollback reflow와 alternate-screen application redraw는 별도 정책이어야 한다.",
+      "evidence": "src/main/runtime/rpc/methods/terminal.ts:653-669"
+    },
+    {
+      "claim": "Renderer reload 시 죽은 consumer의 ACK debt와 queued delivery를 폐기하고 새 consumer readiness handshake 뒤 snapshot으로 재구축해야 한다.",
+      "evidence": "src/main/ipc/pty.ts:1944-1967; src/main/ipc/pty.ts:4808-4833"
+    },
+    {
+      "claim": "Hidden/background thinning은 실제 visible/raw-byte subscriber가 하나라도 있으면 금지해야 한다.",
+      "evidence": "src/main/ipc/pty.ts:1715-1733; src/main/runtime/orca-runtime.ts:6603-6648"
+    },
+    {
+      "claim": "Persistence는 atomic snapshot, generation-tagged incremental log, overflow 시 full re-anchor를 함께 사용해야 한다.",
+      "evidence": "src/main/daemon/history-manager.ts:224-255; src/main/daemon/history-reader.ts:137-179"
+    }
+  ],
+  "findings": [
+    {
+      "id": "B1",
+      "claim": "Orca의 authoritative local terminal model은 renderer xterm이 아니라 daemon Session의 headless xterm이며 view와 Electron process보다 오래 산다.",
+      "evidence_path": "src/main/daemon/session.ts:102-163; src/main/daemon/daemon-init.ts:765-770",
+      "confidence": "high"
+    },
+    {
+      "id": "B2",
+      "claim": "Local warm refresh/reload는 process를 유지하고 daemon snapshot 뒤 live bytes를 순서대로 적용해 현재 screen과 bounded scrollback을 복구한다.",
+      "evidence_path": "src/main/daemon/terminal-host.ts:61-81; src/renderer/src/components/terminal-pane/pty-connection.ts:6588-6605",
+      "confidence": "high"
+    },
+    {
+      "id": "B3",
+      "claim": "보존되는 scrollback은 무제한이 아니다. Desktop 설정은 최대 50,000행이지만 daemon 모델은 create 경로에서 설정을 받지 않아 기본 5,000행만 유지한다.",
+      "evidence_path": "src/shared/terminal-scrollback-policy.ts:1-4; src/main/daemon/terminal-host-create-contract.ts:5-22; src/main/daemon/headless-emulator.ts:58-101",
+      "confidence": "high"
+    },
+    {
+      "id": "B4",
+      "claim": "따라서 5,000행을 넘는 renderer scrollback은 local parking, renderer reload 또는 app 재실행의 daemon snapshot에서 보존되지 않는다.",
+      "evidence_path": "src/main/daemon/terminal-host.ts:118-135; src/main/daemon/headless-emulator.ts:98-102",
+      "confidence": "high"
+    },
+    {
+      "id": "B5",
+      "claim": "Remote desktop reconnect와 frame-gap recovery는 scrollbackRows=0 snapshot으로 screen을 복구하면서 renderer scrollback을 clear하므로 과거 remote scrollback을 보존하지 않는다.",
+      "evidence_path": "src/main/runtime/rpc/methods/terminal.ts:622-631; src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:525-530",
+      "confidence": "high"
+    },
+    {
+      "id": "B6",
+      "claim": "Remote ACK backpressure는 runtime PTY ingestion을 멈추지 않고 network delivery만 stream당 512 KiB, 전체 2 MiB로 제한하며 overflow는 snapshot으로 self-heal한다.",
+      "evidence_path": "src/main/runtime/rpc/methods/terminal.ts:46-51; src/main/runtime/rpc/methods/terminal.ts:1527-1625",
+      "confidence": "high"
+    },
+    {
+      "id": "B7",
+      "claim": "Hidden local sessions는 producer를 catch-up시키지 않고 monitoring feed의 오래된 bytes를 버린다. 실제 모델은 계속 모든 bytes를 ingest하고 dataGap이 sequence 손실을 명시한다.",
+      "evidence_path": "src/main/daemon/daemon-stream-keep-tail-drop.ts:1-8; src/main/daemon/daemon-stream-events.ts:44-51",
+      "confidence": "high"
+    },
+    {
+      "id": "B8",
+      "claim": "Renderer pending overflow는 임의 tail을 이어 붙이지 않고 content 전체를 sentinel로 바꿔 snapshot repaint를 강제한다. 이는 화면 깨짐 방지의 핵심이다.",
+      "evidence_path": "src/main/ipc/pty.ts:2263-2298",
+      "confidence": "high"
+    },
+    {
+      "id": "B9",
+      "claim": "Snapshot/live 정합성의 핵심 계약은 absolute UTF-16 sequence, pendingDeliveryStartSeq, snapshot-covered tail slicing이다.",
+      "evidence_path": "src/main/daemon/types.ts:50-52; src/main/ipc/pty.ts:3521-3557",
+      "confidence": "high"
+    },
+    {
+      "id": "B10",
+      "claim": "Reload 안정성은 죽은 renderer의 ACK debt와 backlog를 보존하는 것이 아니라 모두 폐기하고 새 dispatcher handshake 후 authoritative snapshot으로 다시 그리는 방식으로 확보한다.",
+      "evidence_path": "src/main/ipc/pty.ts:1944-1967; src/main/ipc/pty.ts:4808-4833",
+      "confidence": "high"
+    },
+    {
+      "id": "B11",
+      "claim": "Resize/reflow 복구는 snapshot source dimensions에서 replay하고 normal buffer만 full restream하며 alternate-screen TUI는 SIGWINCH/application redraw에 맡긴다.",
+      "evidence_path": "src/renderer/src/components/terminal-pane/pty-connection.ts:6703-6729; src/main/runtime/rpc/methods/terminal.ts:653-690",
+      "confidence": "high"
+    },
+    {
+      "id": "B12",
+      "claim": "Disk history도 완전한 무제한 transcript가 아니다. 5 MiB incremental log와 5,000행 모델 snapshot으로 순환하며 crash 시 최대 약 45초의 output이 stale할 수 있다.",
+      "evidence_path": "src/main/daemon/history-manager.ts:24-28; src/main/daemon/history-reader.ts:68-83",
+      "confidence": "high"
+    },
+    {
+      "id": "B13",
+      "claim": "Orca의 모델·sequence·bounded queue·snapshot 원칙은 portable하지만 BrowserWindow lifecycle, ipcMain/webContents, app.asar, ELECTRON_RUN_AS_NODE daemon bootstrap은 Electron 전용이다.",
+      "evidence_path": "src/main/ipc/pty.ts:1409-1427; src/main/daemon/daemon-init.ts:96-118; src/main/daemon/daemon-init.ts:322-360",
+      "confidence": "high"
+    }
+  ],
+  "unknowns": [
+    {
+      "issue": "Daemon RPC의 detach case는 token을 추적하거나 TerminalHost.detach를 호출하지 않는 no-op이다. 실제 client-view release는 createOrAttach의 detachAllClients와 socket replacement에 의존하며 장기 orphan attachment 영향은 추가 검증이 필요하다.",
+      "evidence": "src/main/daemon/daemon-server.ts:508-512"
+    },
+    {
+      "issue": "Remote desktop ACK는 onData callback 호출 직후 반환되며 xterm parse/render 완료 ACK는 아니다. 느린 GPU/render consumer까지 backpressure가 전달되는지는 이 계약만으로 보장되지 않는다.",
+      "evidence": "src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:440-465"
+    },
+    {
+      "issue": "Remote initial snapshot의 truncated 값은 별도 bounded transcript read 상태에도 연결된다. 오래 실행된 session에서 유효한 current-screen snapshot이 truncated로 거부되는지 실환경 확인이 필요하다.",
+      "evidence": "src/main/runtime/rpc/methods/terminal.ts:2143-2215; src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:497-546"
+    }
+  ]
+}

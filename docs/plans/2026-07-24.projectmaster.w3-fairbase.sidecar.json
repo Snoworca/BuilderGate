@@ -1,0 +1,109 @@
+{
+  "schema_version": "1.1.0",
+  "plan_contract": "1.2.0",
+  "run_id": "2026-07-24.projectmaster.w3-fairbase",
+  "target": "wave-3",
+  "plan_version": "0.1.0",
+  "generated_at": "2026-07-24T00:00:00Z",
+  "tool_versions": {"speckiwi":"2.4.1","kiwi_planner":"0.6.0","validator":"0.6.0"},
+  "tdd_policy": "relaxed",
+  "md_path": "docs/plans/2026-07-24.projectmaster.w3-fairbase.plan.md",
+  "md_sha256": "<self>",
+  "phases": [
+    {"id":"PH-001","title":"PH-005 reconciliation and PH-002 inventory freeze","goal":"stale workflow projection을 정합화하고 PH-002 전체 입력을 immutable baseline으로 동결한다.","depends_on":[],"task_ids":["T-PH001-01"]},
+    {"id":"PH-002","title":"Fair-delivery baseline provenance","goal":"행동 변경 없이 동결한 source/test/artifact/raw-evidence 전체 inventory의 pre/post 일치를 검증한다.","depends_on":["PH-001"],"task_ids":["T-PH002-01"]},
+    {"id":"PH-003","title":"AC admission characterization","goal":"기존 command와 artifact를 다시 실행해 AC 증거와 gap을 분리한다.","depends_on":["PH-002"],"task_ids":["T-PH003-01","T-PH003-02"]},
+    {"id":"PH-004","title":"Independent admission review","goal":"fail-closed 조건, TODO 경계, rollback과 evidence를 독립 검토한다.","depends_on":["PH-003"],"task_ids":["T-PH004-01"]},
+    {"id":"PH-005","title":"Conditional close or corrective handoff","goal":"evidence 충족 시에만 guarded sync를 수행하고, 아니면 true-TDD corrective scope를 만든다.","depends_on":["PH-004"],"task_ids":["T-PH005-01"]}
+  ],
+  "tasks": [
+    {
+      "id":"T-PH001-01","phase_id":"PH-001","title":"Reconcile the stale PH-005 projection and freeze the PH-002 inventory","type":"review","req_ids":["MIG-BGSTAB-002"],
+      "files":[{"path":".kiwi/sessions/2026-07-16.projectmaster.wave3-authority/pm-state.json"},{"path":"docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/authority-promotion-decision.json"},{"path":"docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-005/report.md"},{"path":"docs/plans/2026-07-16.projectmaster.wave3-authority.checklist.md"},{"path":"docs/spec/30.buildergate-stability.srs.md"},{"path":"docs/spec/91.completed-work-log.md"},{"path":"server/src/ws/FairTerminalDeliveryScheduler.test.ts"},{"path":"server/src/ws/WsRouter.ts"},{"path":"server/src/ws/WsRouterSendPriority.test.ts"},{"path":"server/src/ws/wsSendPolicy.ts"},{"path":"server/src/ws/wsSendPolicyRestoreMetadata.test.ts"},{"path":"server/src/services/TerminalResourcePolicy.ts"},{"path":"server/src/services/TerminalResourcePolicy.test.ts"},{"path":"server/src/services/TerminalResourcePolicyCanary.ts"},{"path":"server/src/services/TerminalResourcePolicyCanary.test.ts"},{"path":"server/src/benchmarks/terminalFairnessCharacterization.ts"},{"path":"tools/wave3/fair-scheduler-decision.test.mjs"},{"path":"frontend/src/contexts/WebSocketContext.tsx"},{"path":"frontend/src/components/Terminal/TerminalContainer.tsx"},{"path":"frontend/tests/unit/terminalContainerRecoveryContract.test.ts"},{"path":"frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts"},{"path":"docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/fair-scheduler-decision.json"},{"path":"docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/fair-scheduler-decision.json.raw.json"},{"path":"docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/fair-scheduler-decision.json.publication.json"}],
+      "action":"Reconcile the PH-005 projection and freeze the complete PH-002 scheduler/policy/restore, benchmark, browser ACK/unit/E2E, decision/publication inventory with Git state and SHA-256; record the decision artifact raw-evidence root with the declared canonical tree path, count, and digest before replay.",
+      "acceptance_tests":[{"kind":"checklist","items":["MIG AC-1..AC-6 evidence is rechecked","workflow discrepancy is observable","the complete PH-002 inventory and canonical raw-evidence tree baseline are recorded","no speculative SRS mutation"]}],
+      "verification_cmd":{"posix":"node tools/wave3/authority-promotion-evidence.test.mjs","windows":"node tools/wave3/authority-promotion-evidence.test.mjs","cwd":"."},
+      "dod":["PH-005 projection is reconciled or its exact workflow blocker is recorded.","PH-002 whole inventory and canonical raw-evidence tree are frozen before replay.","Existing MIG status and AC are not changed by inference."],"rollback":"If guarded workflow mutation fails, preserve the current projection and record the diagnostic only.","estimated_effort":"S","depends_on_task":[],"covers_ac":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6"],
+      "trace_links":[{"link_id":"TL-001","source":{"type":"Task","id":"T-PH001-01"},"target":{"type":"Requirement","reference":"MIG-BGSTAB-002"},"relation":"depends_on"}],
+      "tdd":{"applicable":false,"phase":"n/a","test_cases":[]}
+    },
+    {
+      "id":"T-PH002-01","phase_id":"PH-002","title":"Freeze external fair-delivery baseline provenance","type":"doc","req_ids":["PERF-BGSTAB-010"],
+      "files":[{"path":"docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/fair-scheduler-decision.json"},{"path":"docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/fair-scheduler-decision.json.raw.json"},{"path":"docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/fair-scheduler-decision.json.publication.json"},{"path":"frontend/src/components/Terminal/TerminalContainer.tsx"},{"path":"frontend/src/contexts/WebSocketContext.tsx"},{"path":"frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts"},{"path":"frontend/tests/unit/terminalContainerRecoveryContract.test.ts"},{"path":"server/src/benchmarks/terminalFairnessCharacterization.ts"},{"path":"server/src/services/TerminalResourcePolicy.ts"},{"path":"server/src/services/TerminalResourcePolicy.test.ts"},{"path":"server/src/services/TerminalResourcePolicyCanary.ts"},{"path":"server/src/services/TerminalResourcePolicyCanary.test.ts"},{"path":"server/src/ws/FairTerminalDeliveryScheduler.test.ts"},{"path":"server/src/ws/WsRouter.ts"},{"path":"server/src/ws/WsRouterSendPriority.test.ts"},{"path":"server/src/ws/wsSendPolicy.ts"},{"path":"server/src/ws/wsSendPolicyRestoreMetadata.test.ts"},{"path":"tools/wave3/fair-scheduler-decision.test.mjs"}],
+      "action":"Compare the complete PH-001 immutable inventory before and after replay, including Git state, SHA-256, and the canonical raw-evidence tree; only an exact whole-inventory match may be recorded as external provenance.",
+      "acceptance_tests":[{"kind":"checklist","items":["pre/post Git state and SHA-256 cover every frozen PH-002 input","the canonical raw-evidence tree path, count, and digest match","any mismatch rejects admission","fail-closed and evidence-gap boundaries are explicit"]}],
+      "verification_cmd":{"posix":"node tools/wave3/fair-scheduler-decision.test.mjs --verify-existing","windows":"node tools/wave3/fair-scheduler-decision.test.mjs --verify-existing","cwd":"."},
+      "dod":["external-baseline-manifest.json records the complete pre/post inventory, input/raw-evidence hashes, canonical tree digest, publication pointer and gap classification.","Any whole-inventory mismatch rejects admission and triggers recharacterization.","No production or test behavior is changed."],"rollback":"Remove only the generated manifest; leave fair-delivery code and legacy fallback untouched.","estimated_effort":"S","depends_on_task":["T-PH001-01"],"covers_ac":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6","AC-7","AC-8","AC-9"],
+      "trace_links":[{"link_id":"TL-002","source":{"type":"Task","id":"T-PH002-01"},"target":{"type":"Requirement","reference":"PERF-BGSTAB-010"},"relation":"depends_on"}],
+      "tdd":{"applicable":false,"phase":"n/a","test_cases":[]}
+    },
+    {
+      "id":"T-PH003-01","phase_id":"PH-003","title":"Replay server fairness, ledger, and fallback evidence","type":"perf_test","req_ids":["PERF-BGSTAB-010"],
+      "files":[{"path":"server/src/benchmarks/terminalFairnessCharacterization.ts"},{"path":"server/src/services/TerminalResourcePolicy.test.ts"},{"path":"server/src/services/TerminalResourcePolicyCanary.test.ts"},{"path":"server/src/ws/FairTerminalDeliveryScheduler.test.ts"},{"path":"server/src/ws/WsRouterSendPriority.test.ts"},{"path":"server/src/ws/wsSendPolicyRestoreMetadata.test.ts"},{"path":"tools/wave3/fair-scheduler-decision.test.mjs"}],
+      "action":"AC-1..AC-8 lane ordering, encoded-byte metric, artifact provenance, policy, ACK error, bounded fallback, cleanup와 epoch evidence를 replay하고 docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-006/external-baseline-ac-matrix.json 및 external-baseline-replay-report.md에 verdict and hashes를 기록한다; split TODO 의존 claim은 unsatisfied로 분류한다.",
+      "acceptance_tests":[{"kind":"perf","metric":"1/2/8-client encoded-byte lane and control metrics","threshold":"published artifact thresholds, tolerances, raw trial and starvation gate","tool":"tools/wave3/fair-scheduler-decision.test.mjs"},{"kind":"shell","cmd":"npx tsx --test src/ws/FairTerminalDeliveryScheduler.test.ts src/ws/WsRouterSendPriority.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/TerminalResourcePolicy.test.ts src/services/TerminalResourcePolicyCanary.test.ts","expected_exit":0}],
+      "verification_cmd":{"posix":"npx tsx --test src/ws/FairTerminalDeliveryScheduler.test.ts src/ws/WsRouterSendPriority.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/TerminalResourcePolicy.test.ts src/services/TerminalResourcePolicyCanary.test.ts","windows":"npx tsx --test src/ws/FairTerminalDeliveryScheduler.test.ts src/ws/WsRouterSendPriority.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/TerminalResourcePolicy.test.ts src/services/TerminalResourcePolicyCanary.test.ts","cwd":"server"},
+      "dod":["external-baseline-ac-matrix.json and external-baseline-replay-report.md record every AC-1..AC-8 verdict, evidence path and input/raw-evidence hash or explicit gap.","Incomplete artifact provenance rejects promotion."],"rollback":"Keep candidate admission closed and retain legacy safe-send.","estimated_effort":"M","depends_on_task":["T-PH002-01"],"covers_ac":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6","AC-7","AC-8"],
+      "trace_links":[{"link_id":"TL-003","source":{"type":"Task","id":"T-PH003-01"},"target":{"type":"Requirement","reference":"PERF-BGSTAB-010"},"relation":"depends_on"}],
+      "tdd":{"applicable":false,"phase":"n/a","test_cases":[],"exempt_reason":"This task only characterizes an external shared-worktree baseline and makes no production or test behavior change."}
+    },
+    {
+      "id":"T-PH003-02","phase_id":"PH-003","title":"Replay browser ACK and idle-invariant boundary evidence","type":"review","req_ids":["PERF-BGSTAB-010"],
+      "files":[{"path":"frontend/src/components/Terminal/TerminalContainer.tsx"},{"path":"frontend/src/contexts/WebSocketContext.tsx"},{"path":"frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts"},{"path":"frontend/tests/unit/terminalContainerRecoveryContract.test.ts"}],
+      "action":"Accepted-write ACK, AI TUI idle invariant, hidden recovery false capability와 injected E2E boundary를 replay하고 docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-006/external-baseline-ac-matrix.json 및 external-baseline-replay-report.md의 AC-9 row에 결과를 기록한다; normal browser activation 또는 PH-007 behavior claim을 거부한다.",
+      "acceptance_tests":[{"kind":"checklist","items":["Normal browser capability remains false","ACK and idle evidence are separate","hidden recovery or split TODO dependencies are explicit"]}],
+      "verification_cmd":{"posix":"pnpm exec vitest run tests/unit/terminalContainerRecoveryContract.test.ts && pnpm exec playwright test tests/e2e/wave3-terminal-authority-fairness.spec.ts --project \"Desktop Chrome\" --grep \"identified-delivery ACK|idle\"","windows":"pnpm exec vitest run tests/unit/terminalContainerRecoveryContract.test.ts; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; pnpm exec playwright test tests/e2e/wave3-terminal-authority-fairness.spec.ts --project \"Desktop Chrome\" --grep \"identified-delivery ACK|idle\"","cwd":"frontend"},
+      "dod":["external-baseline-ac-matrix.json and external-baseline-replay-report.md record the AC-9 evidence/hash or explicit gap without changing browser behavior.","E2E targets https://localhost:2222 only."],"rollback":"No browser capability or renderer behavior is changed.","estimated_effort":"S","depends_on_task":["T-PH003-01"],"covers_ac":["AC-5","AC-6","AC-7","AC-8","AC-9"],
+      "trace_links":[{"link_id":"TL-004","source":{"type":"Task","id":"T-PH003-02"},"target":{"type":"Requirement","reference":"PERF-BGSTAB-010"},"relation":"depends_on"}],
+      "tdd":{"applicable":false,"phase":"n/a","test_cases":[]}
+    },
+    {
+      "id":"T-PH004-01","phase_id":"PH-004","title":"Review baseline provenance, gaps, and rollback gate","type":"review","req_ids":["PERF-BGSTAB-010"],
+      "files":[{"path":"docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/fair-scheduler-decision.json"},{"path":"server/src/services/TerminalResourcePolicyCanary.ts"},{"path":"server/src/ws/WsRouter.ts"},{"path":"server/src/ws/wsSendPolicy.ts"},{"path":"tools/wave3/fair-scheduler-decision.test.mjs"}],
+      "action":"Independent review compares the provenance, AC matrix, replay report, raw evidence, policy provenance, TODO boundaries, cleanup/rollback and no-retroactive-TDD statement; only a No-findings review plus complete independent AC-1..AC-9 evidence permits add_verification_evidence, then check_acceptance_criteria, then update_status(implemented); completed-work and verified are prohibited before every prior AC evidence/check and the implemented mutation succeed; unsatisfied AC rejects admission and leaves PERF in_progress.",
+      "acceptance_tests":[{"kind":"checklist","items":["Every AC is independently evidenced, unsatisfied, or explicitly deferred","Only a No-findings review plus complete independent AC-1..AC-9 evidence permits add_verification_evidence, then check_acceptance_criteria, then update_status(implemented)","completed-work and verified are prohibited before every prior AC evidence/check and the implemented mutation succeed","No retrospective TDD or default promotion claim","Legacy rollback and fail-closed behavior are preserved"]}],
+      "verification_cmd":{"posix":"node tools/wave3/fair-scheduler-decision.test.mjs --verify-existing","windows":"node tools/wave3/fair-scheduler-decision.test.mjs --verify-existing","cwd":"."},
+      "dod":["Only a No-findings independent review with complete AC-1..AC-9 evidence permits the exact add_verification_evidence, check_acceptance_criteria, then update_status(implemented) lifecycle.","Reject creates a bounded true-TDD follow-up and leaves PERF in_progress without completed-work or verified promotion."],"rollback":"Reject leaves PERF in_progress and candidate admission closed.","estimated_effort":"S","depends_on_task":["T-PH003-02"],"covers_ac":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6","AC-7","AC-8","AC-9"],
+      "trace_links":[{"link_id":"TL-005","source":{"type":"Task","id":"T-PH004-01"},"target":{"type":"Requirement","reference":"PERF-BGSTAB-010"},"relation":"depends_on"}],
+      "tdd":{"applicable":false,"phase":"n/a","test_cases":[]}
+    },
+    {
+      "id":"T-PH005-01","phase_id":"PH-005","title":"Apply conditional evidence sync or create true-TDD corrective scope","type":"review","req_ids":["PERF-BGSTAB-010"],
+      "files":[{"path":"docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/fair-scheduler-decision.json"},{"path":"docs/spec/30.buildergate-stability.srs.md"},{"path":"docs/spec/91.completed-work-log.md"}],
+      "action":"Only after PH-004 No findings and complete per-AC evidence, perform guarded per-AC evidence mutation, per-AC acceptance checks, then update_status(implemented); completed-work and verified are prohibited until all prior steps succeed. Otherwise preserve in_progress without completed-work or verified mutation and create a separate strict RED-to-GREEN corrective scope.",
+      "acceptance_tests":[{"kind":"checklist","items":["Mutation is conditional on complete evidence","promotion order is per-AC evidence, per-AC acceptance check, then implemented status; completed-work and verified occur only after success","Rejection preserves in_progress, fail-closed behavior, and no completed-work or verified mutation","Corrective code work is genuine test-first"]}],
+      "verification_cmd":{"posix":"speckiwi validate --fail-on-warning --json","windows":"speckiwi validate --fail-on-warning --json","cwd":"."},
+      "dod":["Guarded lifecycle follows evidence, AC-check, implemented order with completed-work and verified deferred until success, or strict-TDD handoff is recorded.","PH-007 is not started from an unadmitted baseline."],"rollback":"Do not change status, AC, or completed-work when admission is rejected.","estimated_effort":"S","depends_on_task":["T-PH004-01"],"covers_ac":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6","AC-7","AC-8","AC-9"],
+      "trace_links":[{"link_id":"TL-006","source":{"type":"Task","id":"T-PH005-01"},"target":{"type":"Requirement","reference":"PERF-BGSTAB-010"},"relation":"depends_on"}],
+      "tdd":{"applicable":false,"phase":"n/a","test_cases":[]}
+    }
+  ],
+  "coverage": [
+    {"req_id":"MIG-BGSTAB-002","stability":"evolving","ac_total":6,"ac_covered":6,"missing_ac_ids":[],"covered_tasks":["T-PH001-01"]},
+    {"req_id":"PERF-BGSTAB-010","stability":"evolving","ac_total":9,"ac_covered":9,"missing_ac_ids":[],"covered_tasks":["T-PH002-01","T-PH003-01","T-PH003-02","T-PH004-01","T-PH005-01"]}
+  ],
+  "orphans": [],"unreferenced_reqs": [],"excluded_reqs": [],"deferred_ac": [],
+  "risks": [
+    {"id":"R-1","severity":"high","description":"Shared worktree change invalidates baseline provenance.","mitigation":"Reject admission and regenerate manifest on hash mismatch.","affected_task_ids":["T-PH002-01","T-PH003-01"]},
+    {"id":"R-2","severity":"high","description":"Split TODO or hidden-recovery boundary could be misrepresented as green evidence.","mitigation":"Mark affected AC unsatisfied and keep promotion fail-closed.","affected_task_ids":["T-PH003-01","T-PH003-02","T-PH004-01"]},
+    {"id":"R-3","severity":"high","description":"Legacy workflow schema can block PH-005 reconciliation.","mitigation":"Use official repair record; never hand-edit checklist state.","affected_task_ids":["T-PH001-01"]}
+  ],
+  "open_questions": [],"external_module_impact": [],"tdd_decisions": [],
+  "coder_handoff_readiness": [
+    {"phase_id":"PH-001","ready":true,"blockers":[]},
+    {"phase_id":"PH-002","ready":true,"blockers":[]},
+    {"phase_id":"PH-003","ready":true,"blockers":[]},
+    {"phase_id":"PH-004","ready":true,"blockers":[]},
+    {"phase_id":"PH-005","ready":true,"blockers":[]}
+  ],
+  "mcp_call_log": [
+    {"seq":1,"call":"add_trace_link","args":{"source":{"type":"Task","id":"T-PH001-01"},"target":{"type":"Requirement","reference":"MIG-BGSTAB-002"},"relation":"depends_on"},"args_hash":"fb8b05d2e5f3d8623587de7b01c1e6c0954b9d0a","response_hash":"written","timestamp":"2026-07-24T00:00:00Z","ok":true},
+    {"seq":2,"call":"add_trace_link","args":{"source":{"type":"Task","id":"T-PH002-01"},"target":{"type":"Requirement","reference":"PERF-BGSTAB-010"},"relation":"depends_on"},"args_hash":"cf2171a80a1bc3836d238679ef958abbb885e2ba","response_hash":"written","timestamp":"2026-07-24T00:00:00Z","ok":true},
+    {"seq":3,"call":"add_trace_link","args":{"source":{"type":"Task","id":"T-PH003-01"},"target":{"type":"Requirement","reference":"PERF-BGSTAB-010"},"relation":"depends_on"},"args_hash":"b4933fe8b39807ece37ef9e2a2dd5cedef36991f","response_hash":"written","timestamp":"2026-07-24T00:00:00Z","ok":true},
+    {"seq":4,"call":"add_trace_link","args":{"source":{"type":"Task","id":"T-PH003-02"},"target":{"type":"Requirement","reference":"PERF-BGSTAB-010"},"relation":"depends_on"},"args_hash":"e92428c1439211d7df1a2288e9d9b788a1eb313e","response_hash":"written","timestamp":"2026-07-24T00:00:00Z","ok":true},
+    {"seq":5,"call":"add_trace_link","args":{"source":{"type":"Task","id":"T-PH004-01"},"target":{"type":"Requirement","reference":"PERF-BGSTAB-010"},"relation":"depends_on"},"args_hash":"89f04af91157a45442c740ca3f2830c2a3184e64","response_hash":"written","timestamp":"2026-07-24T00:00:00Z","ok":true},
+    {"seq":6,"call":"add_trace_link","args":{"source":{"type":"Task","id":"T-PH005-01"},"target":{"type":"Requirement","reference":"PERF-BGSTAB-010"},"relation":"depends_on"},"args_hash":"9f4ff5f8c448770f91b2953f07de0526ec38dde0","response_hash":"written","timestamp":"2026-07-24T00:00:00Z","ok":true},
+    {"seq":7,"call":"add_verification_evidence","args":{"id":"MIG-BGSTAB-002","type":"plan","reference":"docs/plans/2026-07-24.projectmaster.w3-fairbase.plan.md#T-PH001-01"},"args_hash":"2c2e5ab4dd29a230389e44d5687b5b0f761f5023","response_hash":"VE-4","timestamp":"2026-07-24T00:00:00Z","ok":true},
+    {"seq":8,"call":"add_verification_evidence","args":{"id":"PERF-BGSTAB-010","type":"plan","reference":"docs/plans/2026-07-24.projectmaster.w3-fairbase.plan.md#T-PH002-01"},"args_hash":"3aa6f8398c4824829fd6fefebd918fd33c148fe0","response_hash":"VE-2","timestamp":"2026-07-24T00:00:00Z","ok":true}
+  ]
+}

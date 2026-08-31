@@ -1,0 +1,748 @@
+{
+  "schemaVersion": "kiwi-tdd-green-evidence/v3",
+  "runId": "2026-07-16.projectmaster.wave3-authority",
+  "requirementId": "REL-BGSTAB-010",
+  "phaseId": "PH-002",
+  "taskIds": [
+    "T-PH002-02",
+    "T-PH002-03",
+    "T-PH002-04",
+    "T-PH002-05",
+    "T-PH002-06"
+  ],
+  "capturedAt": "2026-07-16T20:15:59.323Z",
+  "commands": [
+    {
+      "cwd": "server",
+      "value": "npx tsx --test src/services/TerminalResourcePolicyCanary.test.ts src/ws/WsRouterSendPriority.test.ts src/ws/WsRouterRestoreMetadata.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts",
+      "exitCode": 0,
+      "result": {
+        "total": 42,
+        "passed": 42,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      }
+    },
+    {
+      "cwd": "frontend",
+      "value": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts tests/unit/terminalViewRecoveryContract.test.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/unit/visibleOutputRecovery.test.ts",
+      "exitCode": 0,
+      "result": {
+        "total": 133,
+        "passed": 133,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      }
+    },
+    {
+      "cwd": "server",
+      "value": "npx tsx --eval <runtime registry inspection>",
+      "exitCode": 0,
+      "result": {
+        "stableProfileCount": 0,
+        "registryHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "selectedProfileCount": 0,
+        "mode": "legacy",
+        "reason": "candidate-unavailable"
+      }
+    },
+    {
+      "cwd": "frontend",
+      "value": "node --experimental-strip-types --input-type=module --eval <zero-profile coordinator inspection>",
+      "exitCode": 0,
+      "result": {
+        "stableProfileCount": 0,
+        "selectedProfileCount": 0,
+        "mode": "legacy",
+        "reason": "candidate-unavailable",
+        "registryHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    }
+  ],
+  "historicalRedBaseline": {
+    "source": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/red-evidence-iteration10.json",
+    "artifactSha256": "4ebd24ac98bcce70e75013344c47cacd423bfa38838792abdd7641e2e2832859",
+    "currentCorpusClaim": "superseded-by-reviewed-regression-corpus",
+    "testInputs": [
+      {
+        "path": "server/src/services/TerminalResourcePolicyCanary.test.ts",
+        "sha256": "71b9ba7f9d579bcecceaa91017d70ad4eb76e3fca121ad3dbbfc39da427cdc56"
+      },
+      {
+        "path": "server/src/ws/WsRouterSendPriority.test.ts",
+        "sha256": "844e38031c7a07f9c046e59e1304e820a620f8c54da3c6297bc6e4b174f43142"
+      },
+      {
+        "path": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+        "sha256": "ece53112705f26c07ba1ceead3ccd59f099549d89e9dc6aa869f42df78cebac5"
+      }
+    ]
+  },
+  "reviewRegressionCorpus": {
+    "stage": "green-after-exact-no-findings",
+    "files": [
+      {
+        "path": "server/src/services/TerminalResourcePolicyCanary.test.ts",
+        "sha256": "b6257fac889a92ccc7c7775a692b613fa79c68f2ba93e40a5385ff9175a84072"
+      },
+      {
+        "path": "server/src/ws/WsRouterSendPriority.test.ts",
+        "sha256": "9e0411924491fe8f8004ff18fe2fda8676a2d3d5539e3b418b289d063d33b6e2"
+      },
+      {
+        "path": "server/src/ws/WsRouterRestoreMetadata.test.ts",
+        "sha256": "593dd4959a447de2f4b68e97461fe42a0c4c0e65d346805ef8ec0396419c0be4"
+      },
+      {
+        "path": "server/src/ws/wsSendPolicyRestoreMetadata.test.ts",
+        "sha256": "6ab3e7fe2c9dd34e5fc26373a0687438c05950559f36c21048db75cf18975def"
+      },
+      {
+        "path": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+        "sha256": "df9900b78eb60773faa011a11d269a0ce5d347e1b0e9db7c001beeed311ebd01"
+      },
+      {
+        "path": "frontend/tests/unit/terminalViewRecoveryContract.test.ts",
+        "sha256": "a3bfaf08d5b6b6db34546d0d1994ee311959077a74b268c0c638def3c0d3af68"
+      },
+      {
+        "path": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+        "sha256": "f1a5812def96d504ebdd833159716caeae3fa9e0c076cf405e7318dc97faf5c2"
+      },
+      {
+        "path": "frontend/tests/unit/visibleOutputRecovery.test.ts",
+        "sha256": "08b52cdbcfcd58d7cd2fd3393e6b356c9db466008728f9dd76ae11f0968ca796"
+      }
+    ],
+    "requirementBearingFiles": [
+      "server/src/services/TerminalResourcePolicyCanary.test.ts",
+      "server/src/ws/WsRouterSendPriority.test.ts",
+      "frontend/tests/unit/terminalOutputScheduler.test.ts",
+      "frontend/tests/unit/terminalViewRecoveryContract.test.ts",
+      "frontend/tests/unit/terminalContainerRecoveryContract.test.ts"
+    ],
+    "requiredRelTestNames": {
+      "server": [
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-1",
+        "REL-BGSTAB-010 production assembly shares one registry-derived lease authority",
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-2",
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-3",
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-4",
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-5",
+        "REL-BGSTAB-010 headless finalizer revokes the old epoch and isolates same-ID recreation",
+        "REL-BGSTAB-010 headless maxChunks admits exact N and rejects N+1 without bypass",
+        "REL-BGSTAB-010 headless write failure settles the candidate to target-scoped legacy recovery",
+        "REL-BGSTAB-010 valid but inactive leases cannot preview admit or rollback active WS and headless targets",
+        "REL-BGSTAB-010 production PTY path uses target-scoped non-destructive headless policy and restores legacy limit",
+        "REL-BGSTAB-010 headless rollback closes only after the actual write chain drains",
+        "REL-BGSTAB-010 headless rollback fences every pre-boundary policy generation",
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-6",
+        "REL-BGSTAB-010 coalescing preserves every admission identity and lifetime fence",
+        "REL-BGSTAB-010 AC-6 RED — policy rollback does not direct-flush queued output past an in-flight callback",
+        "REL-BGSTAB-010 AC-6 RED — target rollback isolates client B and drains client A callback-by-callback",
+        "REL-BGSTAB-010 WS rollback blocks fresh activation until the old callback fence closes",
+        "REL-BGSTAB-010 WS rollback fences every pre-boundary generation before closing",
+        "REL-BGSTAB-010 production route grandfathers preserved backlog above a smaller candidate cap",
+        "REL-BGSTAB-010 explicit admission flushes in direct and observe modes without a permanent queue",
+        "REL-BGSTAB-010 direct and observe candidate send failures settle to legacy without forced reconnect",
+        "REL-BGSTAB-010 enforce candidate synchronous failure settles only the canary target",
+        "REL-BGSTAB-010 candidate callback failure automatically resumes the preserved queue in every mode",
+        "REL-BGSTAB-010 persistent candidate callback failure holds the complete boundary without a retry loop",
+        "REL-BGSTAB-010 persistent candidate synchronous failure holds the complete boundary without a retry loop",
+        "REL-BGSTAB-010 rollback-boundary send failures preserve queued transport in direct and observe modes",
+        "REL-BGSTAB-010 enforce rollback callback failure preserves the remaining pre-boundary queue",
+        "REL-BGSTAB-010 legacy overflow records rejection before bounded target close cleanup",
+        "REL-BGSTAB-010 direct and observe admission overflow fences only the target without reconnect",
+        "REL-BGSTAB-010 disconnect cleanup uses measured registries and bounds retained ledgers"
+      ],
+      "frontend": [
+        "REL-BGSTAB-010 AC-3 RED — explicit canary transition preserves below/at/above-cap retained FIFO",
+        "REL-BGSTAB-010 frontend canary rejects stale and duplicate policy generations state-preservingly",
+        "REL-BGSTAB-010 frontend canary fallback preserves retained FIFO and uses a separate new-admission budget",
+        "REL-BGSTAB-010 frontend canary rollback fences admissions and closes at the pre-boundary FIFO",
+        "REL-BGSTAB-010 frontend canary ledger is bounded immutable and records exact transition decisions",
+        "REL-BGSTAB-010 production scheduler wires an inactive runtime and supports future stable injection",
+        "REL-BGSTAB-010 rejected compaction does not leave a rollback sequence hole",
+        "REL-BGSTAB-010 compaction preserves the rollback pre-boundary completion",
+        "REL-BGSTAB-010 rollback ledger records the actual fallback decision through closure",
+        "REL-BGSTAB-010 production binding uses real connection identity and the same selected-profile path",
+        "REL-BGSTAB-010 selected profiles bind approved decisions and fail closed on ambiguity",
+        "REL-BGSTAB-010 reset and repair explicitly abort active and draining canaries",
+        "REL-BGSTAB-010 fallback gives grandfathered backlog a separate new-admission budget",
+        "REL-BGSTAB-010 production component tree carries the zero or injected selection coordinator to TerminalView",
+        "REL-BGSTAB-010 duplicate rollback is idempotent and cannot move the drain boundary",
+        "REL-BGSTAB-010 bounded ingress retry queue drains two fenced outputs with one FIFO barrier",
+        "REL-BGSTAB-010 oversized or saturated canary ingress settles to bounded target-local legacy without recovery",
+        "REL-BGSTAB-010 legacy handoff bounds active plus 2L+1/N+2 burst without false written settlement",
+        "REL-BGSTAB-010 legacy retry during rollback preserves boundary through rollback-closed",
+        "REL-BGSTAB-010 restore-buffer flush retains ownership until write or observable rejection settlement",
+        "REL-BGSTAB-010 restore-buffer ownership helper commits once and fails closed on identity mismatch",
+        "REL-BGSTAB-010 restore-buffer helper waits for actual legacy callback and rejects contradictory sync admission",
+        "REL-BGSTAB-010 restore attempt identity fences a superseded identical-string callback",
+        "REL-BGSTAB-010 restore release is single-flight per attempt and supersedes exactly once",
+        "REL-BGSTAB-010 authoritative coverage proves sequence, replay token, and failed-attempt ownership",
+        "REL-BGSTAB-010 stable server authority covers tokenless normal live output across replacement connections",
+        "REL-BGSTAB-010 authoritative coverage rollback restores exact ownership after partial drain",
+        "REL-BGSTAB-010 rollback provenance allows a fresh checkpoint to complete and ACK",
+        "REL-BGSTAB-010 delayed same-data restore A cannot release or drain restore B"
+      ]
+    },
+    "authorityLineageTestNames": {
+      "server": [
+        "server RED — real output sequence and ready authority tokens",
+        "server fresh replay request is token-fenced and supersedes the pending snapshot",
+        "server recovery refresh requires both replay and repair ownership tokens",
+        "server RED — normal identified output coalesces while preserving source segment boundaries",
+        "server RED — three identity-less output frames remain coalescible",
+        "server RED — split surrogate chunks never produce invalid UTF-8 source offsets"
+      ],
+      "frontend": [
+        "TerminalContainer never ACKs a TerminalView restore-buffer rejection as an applied snapshot",
+        "TerminalView propagates restore-buffer failure as FAILED_HELD without allowing live-output overtake",
+        "TerminalView refuses FAILED_HELD convergence when coverage identity is unproven",
+        "TerminalView leaves FAILED_HELD ownership untouched on reset throw or replay-probe timeout",
+        "TerminalView restore replay is fenced by exact attempt epoch and xterm identity",
+        "TerminalView resets scheduler and ingress retry ownership on terminal identity change and cleanup",
+        "restore-needed and snapshot authority proof is exact and fail-closed",
+        "coalesced UTF-8 output expands to exact recovery chunks without losing identity",
+        "coalesced recovery output rejects the whole batch before a later stale segment can partially apply"
+      ]
+    },
+    "excludedPassingTests": {
+      "server": [
+        "safe-send closes when projected buffered amount crosses hard limit",
+        "safe-send drains independent control before queued output backlog",
+        "safe-send preserves output queued while a previous output send is in flight",
+        "safe-send preserves same-session lifecycle ordering behind queued output",
+        "safe-send queues output when projected buffered amount crosses high-water"
+      ],
+      "frontend": [
+        "chunk compaction never moves a FIFO barrier behind later output",
+        "chunk compaction tracks callback byte offsets even at a one-chunk limit",
+        "FIFO completion barrier is attached to the current boundary, not later output",
+        "Frontend stale/resync barrier RED 계약 — AC-10",
+        "Frontend stale/resync barrier RED 계약 — AC-11",
+        "Frontend stale/resync barrier RED 계약 — AC-2",
+        "Frontend stale/resync barrier RED 계약 — AC-3",
+        "Frontend stale/resync barrier RED 계약 — AC-5",
+        "Frontend stale/resync barrier RED 계약 — AC-6",
+        "no-active reconnect-required invalidates legacy speculative repair before installing its barrier",
+        "PERF-BGSTAB-008 AC-1 GREEN contract",
+        "PERF-BGSTAB-008 AC-1 RED contract",
+        "PERF-BGSTAB-008 AC-2 GREEN contract",
+        "PERF-BGSTAB-008 AC-2 RED contract",
+        "Remount adapter RED — fault input barrier",
+        "Remount adapter RED — grace authority barrier",
+        "Remount adapter RED — live/restore non-overlap",
+        "Remount adapter RED — normal path compatibility",
+        "Remount adapter RED — null-ref dispose ownership",
+        "Remount adapter RED — parser and Unicode corpus",
+        "replacement authoritative convergence is serialized behind in-flight speculative writes",
+        "replacement authoritative identity bypasses duplicate content optimization while recovery is blocking",
+        "replacement authoritative identity is reapplied even when seq and content are unchanged",
+        "replacement-socket authoritative ACK plus matching ready resets the recovery budget",
+        "restore-needed and reconnect-required terminate the legacy repair in-flight suppression",
+        "terminal output FIFO proof never retires a newer active write",
+        "terminal output scheduler can update queue limits without recreating the instance",
+        "terminal output scheduler does not split multibyte code points",
+        "terminal output scheduler drains multiple chunks in one frame until the frame time budget is reached",
+        "terminal output scheduler exposes a default frame time budget in the 6-8ms range",
+        "terminal output scheduler overflow includes already queued bytes in dropped count",
+        "terminal output scheduler preserves callback ordering after full chunk writes",
+        "terminal output scheduler reports overflow instead of accumulating unbounded output",
+        "terminal output scheduler reset cancels queued callbacks",
+        "terminal output scheduler reset fences a queued animation-frame callback before remount",
+        "terminal output scheduler retires a lost in-flight write only after FIFO proof",
+        "terminal output scheduler still makes progress when browser input stays pending",
+        "terminal output scheduler writes queued output within the flush budget",
+        "terminal output scheduler yields a flush turn while browser input is pending",
+        "terminal output scheduler yields the current frame when input becomes pending during a multi-chunk drain",
+        "TerminalContainer applies visible resync output admission in the production handler",
+        "TerminalContainer binds Container and TerminalView adapters to one recovery identity",
+        "TerminalContainer bounds authority recovery retries and resets them only after matching ready plus ACK",
+        "TerminalContainer completion probe writes an empty frame to the same xterm FIFO",
+        "TerminalContainer does not clear hidden output recovery after fallback placeholder",
+        "TerminalContainer does not finish visible recovery after fallback snapshot placeholder",
+        "TerminalContainer does not suppress authoritative repair while visible recovery is pending",
+        "TerminalContainer does not suppress recent repair while visible recovery is pending",
+        "TerminalContainer fences stale snapshot tokens before terminal replacement",
+        "TerminalContainer forces current replay snapshot past legacy content dedup",
+        "TerminalContainer keeps active resync isolated from late legacy repair callbacks",
+        "TerminalContainer keeps legacy repair recovery blocked when ready ACK send fails",
+        "TerminalContainer keeps queued input deferred while visible output recovery is blocking",
+        "TerminalContainer keeps snapshot recovery blocked when ready ACK send fails",
+        "TerminalContainer leaves provisional fallback unacked for bounded server reconnect",
+        "TerminalContainer makes duplicate restore-needed idempotent and fences snapshot sequence",
+        "TerminalContainer maps visible output recovery into the input transport barrier",
+        "TerminalContainer only finishes visible recovery after authoritative snapshot or local restore success",
+        "TerminalContainer preserves absent normal-wire screen sequence as unknown",
+        "TerminalContainer production recovery requests a token-fenced fresh snapshot and real reconnect",
+        "TerminalContainer rejects late authoritative snapshots after the active recovery is terminally failed",
+        "TerminalContainer retries queued input after visible output recovery finishes",
+        "TerminalContainer serializes legacy and hidden mutations before server authority",
+        "TerminalContainer settles the live-lane idle fence before resetting visible output",
+        "TerminalContainer uses runtime terminal limits for transport outbox budget and TTL",
+        "TerminalContainer uses runtime-configured transport outbox limits",
+        "TerminalView allows screen repair readiness while visible output recovery barrier is active",
+        "TerminalView bounds restore-pending output and drains segmented chunks without join",
+        "TerminalView live output idle uses a bounded FIFO fallback and retires the proven scheduler write",
+        "TerminalView plain Space and Backspace delegation does not rebuild input debug payload",
+        "TerminalView replay writes use a bounded same-xterm FIFO probe before releasing the lease",
+        "TerminalView suppresses parser replies during replay without silently dropping user onData",
+        "TerminalView uses runtime terminal limits for input queue budget and TTL",
+        "TerminalView uses runtime-configured input queue limits",
+        "TerminalView visible output scheduler uses cached runtime output limits",
+        "UTF-8 segmented queue RED 계약 — AC-1",
+        "UTF-8 segmented queue RED 계약 — AC-10",
+        "UTF-8 segmented queue RED 계약 — AC-2",
+        "UTF-8 segmented queue RED 계약 — AC-3",
+        "UTF-8 segmented queue RED 계약 — AC-4",
+        "UTF-8 segmented queue RED 계약 — AC-5",
+        "UTF-8 segmented queue RED 계약 — AC-6",
+        "UTF-8 segmented queue RED 계약 — AC-7",
+        "visible output mutation fence keeps authoritative replacement last",
+        "visible output recovery drops a snapshot-covered late chunk before cap accounting",
+        "visible output recovery exposes a transport barrier while pending or stale",
+        "visible output recovery ignores duplicate overflow while pending and clears on finish",
+        "visible output recovery keeps input blocked when abandoning a stale terminal view",
+        "visible output recovery retries failed replay sends before abandoning",
+        "visible output recovery seals terminal faults and releases held payloads",
+        "visible recovery retry budget is bounded across transactions and resets only after convergence",
+        "visible resync output admission separates tagged recovery from normal live output",
+        "WebSocket grace fences replay generations and makes reconnect terminal",
+        "WebSocket grace installs restore barrier before subscribed-ready and preserves duplicate chunks",
+        "WebSocket grace recovery state is discarded before a replacement socket resubscribes"
+      ],
+      "reason": "focused-file regression context outside REL-BGSTAB-010 and the explicitly registered authority-lineage corpus"
+    }
+  },
+  "implementationInputs": [
+    {
+      "path": "server/src/index.ts",
+      "sha256": "c01462baf96394d5c11dc125f8f34822abe6c53531f4ffa5780d2d12c94bcdf9"
+    },
+    {
+      "path": "server/src/services/TerminalResourcePolicyRuntime.ts",
+      "sha256": "ad32dd32d46d7552aa630c45ff6517fdc8963960bd5ccc4bd289c8e12bb1e103"
+    },
+    {
+      "path": "server/src/services/TerminalResourcePolicyCanary.ts",
+      "sha256": "1a511626b5b7814b20d30672b0ff1ab0b328ae70c9c44130a4c13ff934796402"
+    },
+    {
+      "path": "server/src/services/TerminalResourcePolicy.ts",
+      "sha256": "ea4bcab84cb299dba662dd59163af873cbf4510b48fb603538b60e881274e7f8"
+    },
+    {
+      "path": "server/src/services/RuntimeConfigStore.ts",
+      "sha256": "466442cdde123f3d162b1c8e966085d9542cb59ad66ea7215782802ea7ff6530"
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "sha256": "ca752793a40d5d2d561071a9fb18be42b5f82d4fe07840d0f33b28f5bb03b6f8"
+    },
+    {
+      "path": "server/src/utils/boundedByteDeque.ts",
+      "sha256": "1a77f4967b11d2d634a44c84c4e80e54e2e9e0588400a4b2b347213635be2aca"
+    },
+    {
+      "path": "server/src/utils/headlessOutputQueue.ts",
+      "sha256": "ed47eceab0b9e749fac589f59bfe7b9bf357da9749ea0aa2b08cc68a56e33ee8"
+    },
+    {
+      "path": "server/src/ws/WsRouter.ts",
+      "sha256": "7217600bf1580e477519e5af73c042ece4c48e697046ffa70dcc923588bcd140"
+    },
+    {
+      "path": "server/src/ws/wsSendPolicy.ts",
+      "sha256": "7ffe6f580e30f0a903c76742c6ba6344b3f9424b8812a82b62eff2b2a92e05bb"
+    },
+    {
+      "path": "server/src/types/ws-protocol.ts",
+      "sha256": "cba248f348ad0e57b1fbc03513b5fbbcf508eb023160df4b8ae1605233ce0465"
+    },
+    {
+      "path": "frontend/src/contexts/WebSocketContext.tsx",
+      "sha256": "a7b6cfa13a852bef94bfb30668826407452956e79354a6da879380a7492680ab"
+    },
+    {
+      "path": "frontend/src/types/ws-protocol.ts",
+      "sha256": "3f76033ad84a2879bf6dc3334a00fde2147dbd332323a9f2e179cc3d5c8eb0ef"
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalRuntimeContext.tsx",
+      "sha256": "90ec997100ad7a77023acc32cc0b3da8f985b35a547b4b89274bfa2b749c9040"
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalView.tsx",
+      "sha256": "49dd100e9e937c26bda188633c6d6448b1e6be3518eba43f7d81912168394a14"
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalContainer.tsx",
+      "sha256": "5903d483e5d0e33fa6df4fd0f2c9bfd70e8329816a650246c7b521d3a79f668f"
+    },
+    {
+      "path": "frontend/src/utils/terminalOutputScheduler.ts",
+      "sha256": "f5b579f8bffe2e466ce318114477b9fb0edcae87ec720dd068af353f5867692f"
+    },
+    {
+      "path": "frontend/src/utils/visibleOutputRecovery.ts",
+      "sha256": "c04be7f92dfb7ee8bd1dcf0ac5c56ae992cb87613be8dde601257c2fff496171"
+    }
+  ],
+  "trustedObservationManifest": {
+    "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.json",
+    "sha256": "2dfec602f8e22db0569e5ff67f75bceada37d1959af38ecdb52441ebca7b3b57",
+    "requirementId": "OBS-BGSTAB-005",
+    "status": "implemented"
+  },
+  "productionRuntimeRegistry": {
+    "source": "executed-runtime-modules",
+    "server": {
+      "command": "npx tsx --eval <runtime registry inspection>",
+      "cwd": "server",
+      "snapshot": {
+        "stableProfileCount": 0,
+        "registryHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "selectedProfileCount": 0,
+        "mode": "legacy",
+        "reason": "candidate-unavailable"
+      },
+      "stdoutSha256": "254a03c7ac5611c228db4537794456fb461898224ed851d3604b362a95720c4b"
+    },
+    "frontend": {
+      "command": "node --experimental-strip-types --input-type=module --eval <zero-profile coordinator inspection>",
+      "cwd": "frontend",
+      "snapshot": {
+        "stableProfileCount": 0,
+        "selectedProfileCount": 0,
+        "mode": "legacy",
+        "reason": "candidate-unavailable",
+        "registryHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "stdoutSha256": "d1887d6d87ff11781e5564673178e8c2e53a9bdb47974d286546dd1429045d0a"
+    }
+  },
+  "evidenceTool": {
+    "path": "tools/wave3/canary-admission-evidence.test.mjs",
+    "sha256": "ed7c177b437d528a71700bbf9f800eb31772592e631d8bc28242235f7ae1b778"
+  },
+  "consumerAcMatrix": [
+    {
+      "consumer": "server.ws.router",
+      "acceptanceCriterion": "AC-1",
+      "status": "pass",
+      "testNames": [
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-1",
+        "REL-BGSTAB-010 production assembly shares one registry-derived lease authority",
+        "REL-BGSTAB-010 valid but inactive leases cannot preview admit or rollback active WS and headless targets"
+      ],
+      "evidenceSha256": "4f9f60c9cda519ed3b8bb61cb920a51e192b793af5fa33ed41cfa6cee706746a"
+    },
+    {
+      "consumer": "server.ws.router",
+      "acceptanceCriterion": "AC-2",
+      "status": "pass",
+      "testNames": [
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-2",
+        "REL-BGSTAB-010 production route grandfathers preserved backlog above a smaller candidate cap",
+        "REL-BGSTAB-010 explicit admission flushes in direct and observe modes without a permanent queue"
+      ],
+      "evidenceSha256": "17f2544615edda26a1dc3c6abf556f080334cc093dc6076076148e8f5446be0d"
+    },
+    {
+      "consumer": "server.ws.router",
+      "acceptanceCriterion": "AC-3",
+      "status": "pass",
+      "testNames": [
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-3",
+        "REL-BGSTAB-010 direct and observe candidate send failures settle to legacy without forced reconnect",
+        "REL-BGSTAB-010 direct and observe admission overflow fences only the target without reconnect"
+      ],
+      "evidenceSha256": "d85d65c4061a5881491e2995b54957e96dd4bd8490c3c86485e3de1bb79455b4"
+    },
+    {
+      "consumer": "server.ws.router",
+      "acceptanceCriterion": "AC-4",
+      "status": "pass",
+      "testNames": [
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-4",
+        "REL-BGSTAB-010 legacy overflow records rejection before bounded target close cleanup",
+        "REL-BGSTAB-010 disconnect cleanup uses measured registries and bounds retained ledgers"
+      ],
+      "evidenceSha256": "88edaabdb71e570eb0c1bb451985ff91f05ca472b5940bf5cb4ea6bcbd2a0ba9"
+    },
+    {
+      "consumer": "server.ws.router",
+      "acceptanceCriterion": "AC-5",
+      "status": "pass",
+      "testNames": [
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-5",
+        "REL-BGSTAB-010 enforce candidate synchronous failure settles only the canary target",
+        "REL-BGSTAB-010 candidate callback failure automatically resumes the preserved queue in every mode",
+        "REL-BGSTAB-010 persistent candidate callback failure holds the complete boundary without a retry loop",
+        "REL-BGSTAB-010 persistent candidate synchronous failure holds the complete boundary without a retry loop",
+        "REL-BGSTAB-010 rollback-boundary send failures preserve queued transport in direct and observe modes",
+        "REL-BGSTAB-010 enforce rollback callback failure preserves the remaining pre-boundary queue"
+      ],
+      "evidenceSha256": "b250175d32e22dae1b6b412ad719a7b33463e250e474076c2e917f16bf33859c"
+    },
+    {
+      "consumer": "server.ws.router",
+      "acceptanceCriterion": "AC-6",
+      "status": "pass",
+      "testNames": [
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-6",
+        "REL-BGSTAB-010 coalescing preserves every admission identity and lifetime fence",
+        "REL-BGSTAB-010 AC-6 RED — policy rollback does not direct-flush queued output past an in-flight callback",
+        "REL-BGSTAB-010 AC-6 RED — target rollback isolates client B and drains client A callback-by-callback",
+        "REL-BGSTAB-010 WS rollback blocks fresh activation until the old callback fence closes",
+        "REL-BGSTAB-010 WS rollback fences every pre-boundary generation before closing",
+        "server RED — real output sequence and ready authority tokens",
+        "server fresh replay request is token-fenced and supersedes the pending snapshot",
+        "server recovery refresh requires both replay and repair ownership tokens",
+        "server RED — normal identified output coalesces while preserving source segment boundaries",
+        "server RED — three identity-less output frames remain coalescible",
+        "server RED — split surrogate chunks never produce invalid UTF-8 source offsets"
+      ],
+      "evidenceSha256": "1ebcb7de668a9f6d75e44d3ad4bd6164aedd1b95e4df0ad9c5d21ec9bdc43a5c"
+    },
+    {
+      "consumer": "server.pty.headless-model",
+      "acceptanceCriterion": "AC-1",
+      "status": "pass",
+      "testNames": [
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-1",
+        "REL-BGSTAB-010 production assembly shares one registry-derived lease authority",
+        "REL-BGSTAB-010 valid but inactive leases cannot preview admit or rollback active WS and headless targets"
+      ],
+      "evidenceSha256": "20d0fdaba8b16b1a3e2cbc7a0ba1f7283fade8bfce8690c07403637cad8c2317"
+    },
+    {
+      "consumer": "server.pty.headless-model",
+      "acceptanceCriterion": "AC-2",
+      "status": "pass",
+      "testNames": [
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-2",
+        "REL-BGSTAB-010 headless maxChunks admits exact N and rejects N+1 without bypass",
+        "REL-BGSTAB-010 production PTY path uses target-scoped non-destructive headless policy and restores legacy limit"
+      ],
+      "evidenceSha256": "0a9efec5a49178353b9992fb4a1fe172edb4553b915d3cf0cfd4bc6274f074ec"
+    },
+    {
+      "consumer": "server.pty.headless-model",
+      "acceptanceCriterion": "AC-3",
+      "status": "pass",
+      "testNames": [
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-3"
+      ],
+      "evidenceSha256": "6c6a3db9dddaaa0e896252ab720bccbb1b663146aaffbfcbc915999c6374de58"
+    },
+    {
+      "consumer": "server.pty.headless-model",
+      "acceptanceCriterion": "AC-4",
+      "status": "pass",
+      "testNames": [
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-4",
+        "REL-BGSTAB-010 headless maxChunks admits exact N and rejects N+1 without bypass"
+      ],
+      "evidenceSha256": "86b9df8b74ad5159d925793830d3bf0c5ec13d12ce1df866c337d135384a3c37"
+    },
+    {
+      "consumer": "server.pty.headless-model",
+      "acceptanceCriterion": "AC-5",
+      "status": "pass",
+      "testNames": [
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-5",
+        "REL-BGSTAB-010 headless finalizer revokes the old epoch and isolates same-ID recreation",
+        "REL-BGSTAB-010 headless write failure settles the candidate to target-scoped legacy recovery"
+      ],
+      "evidenceSha256": "04507adf909d22bad9ecf672d43fa3bd542e59287461ab2d264c4b925d5fc651"
+    },
+    {
+      "consumer": "server.pty.headless-model",
+      "acceptanceCriterion": "AC-6",
+      "status": "pass",
+      "testNames": [
+        "REL-BGSTAB-010 headless finalizer revokes the old epoch and isolates same-ID recreation",
+        "REL-BGSTAB-010 headless rollback closes only after the actual write chain drains",
+        "REL-BGSTAB-010 headless rollback fences every pre-boundary policy generation",
+        "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-6"
+      ],
+      "evidenceSha256": "140d08cf348879e774354826f1a233a1e0599ab5ef93e8c766ff640d871c37e2"
+    },
+    {
+      "consumer": "frontend.output-scheduler",
+      "acceptanceCriterion": "AC-1",
+      "status": "pass",
+      "testNames": [
+        "REL-BGSTAB-010 production scheduler wires an inactive runtime and supports future stable injection",
+        "REL-BGSTAB-010 production binding uses real connection identity and the same selected-profile path",
+        "REL-BGSTAB-010 selected profiles bind approved decisions and fail closed on ambiguity",
+        "REL-BGSTAB-010 production component tree carries the zero or injected selection coordinator to TerminalView"
+      ],
+      "evidenceSha256": "baeef3e7aaeb3d63905f8cb0d01707005a1c088449e11264461205fc9c96ced6"
+    },
+    {
+      "consumer": "frontend.output-scheduler",
+      "acceptanceCriterion": "AC-2",
+      "status": "pass",
+      "testNames": [
+        "REL-BGSTAB-010 AC-3 RED — explicit canary transition preserves below/at/above-cap retained FIFO",
+        "REL-BGSTAB-010 frontend canary rejects stale and duplicate policy generations state-preservingly",
+        "REL-BGSTAB-010 frontend canary fallback preserves retained FIFO and uses a separate new-admission budget",
+        "REL-BGSTAB-010 rejected compaction does not leave a rollback sequence hole",
+        "REL-BGSTAB-010 compaction preserves the rollback pre-boundary completion",
+        "REL-BGSTAB-010 fallback gives grandfathered backlog a separate new-admission budget",
+        "REL-BGSTAB-010 legacy handoff bounds active plus 2L+1/N+2 burst without false written settlement"
+      ],
+      "evidenceSha256": "20dc9ad1df6c57f601264852b1b7ead60e7c25f68ff635c7b2811b541308bc3d"
+    },
+    {
+      "consumer": "frontend.output-scheduler",
+      "acceptanceCriterion": "AC-3",
+      "status": "pass",
+      "testNames": [
+        "REL-BGSTAB-010 AC-3 RED — explicit canary transition preserves below/at/above-cap retained FIFO",
+        "REL-BGSTAB-010 reset and repair explicitly abort active and draining canaries",
+        "REL-BGSTAB-010 oversized or saturated canary ingress settles to bounded target-local legacy without recovery",
+        "REL-BGSTAB-010 restore-buffer flush retains ownership until write or observable rejection settlement",
+        "TerminalContainer never ACKs a TerminalView restore-buffer rejection as an applied snapshot",
+        "TerminalView propagates restore-buffer failure as FAILED_HELD without allowing live-output overtake",
+        "restore-needed and snapshot authority proof is exact and fail-closed"
+      ],
+      "evidenceSha256": "42bb499f9e95e91b3e26a36116f5e86797b3f29c9ba879bc2d34dc3ecbede8c4"
+    },
+    {
+      "consumer": "frontend.output-scheduler",
+      "acceptanceCriterion": "AC-4",
+      "status": "pass",
+      "testNames": [
+        "REL-BGSTAB-010 frontend canary ledger is bounded immutable and records exact transition decisions",
+        "REL-BGSTAB-010 rollback ledger records the actual fallback decision through closure",
+        "REL-BGSTAB-010 authoritative coverage proves sequence, replay token, and failed-attempt ownership",
+        "REL-BGSTAB-010 stable server authority covers tokenless normal live output across replacement connections"
+      ],
+      "evidenceSha256": "e0147843457a225afc508b0c6e29f2a569350c52e560b8488a2469cdaa29fb65"
+    },
+    {
+      "consumer": "frontend.output-scheduler",
+      "acceptanceCriterion": "AC-5",
+      "status": "pass",
+      "testNames": [
+        "REL-BGSTAB-010 frontend canary rejects stale and duplicate policy generations state-preservingly",
+        "REL-BGSTAB-010 selected profiles bind approved decisions and fail closed on ambiguity",
+        "REL-BGSTAB-010 oversized or saturated canary ingress settles to bounded target-local legacy without recovery",
+        "REL-BGSTAB-010 restore-buffer ownership helper commits once and fails closed on identity mismatch",
+        "REL-BGSTAB-010 restore-buffer helper waits for actual legacy callback and rejects contradictory sync admission",
+        "TerminalView refuses FAILED_HELD convergence when coverage identity is unproven",
+        "TerminalView leaves FAILED_HELD ownership untouched on reset throw or replay-probe timeout",
+        "coalesced recovery output rejects the whole batch before a later stale segment can partially apply"
+      ],
+      "evidenceSha256": "ff439e565e136b18286944ab7846cbcc10039352df44c7d43546026a30825950"
+    },
+    {
+      "consumer": "frontend.output-scheduler",
+      "acceptanceCriterion": "AC-6",
+      "status": "pass",
+      "testNames": [
+        "REL-BGSTAB-010 frontend canary rollback fences admissions and closes at the pre-boundary FIFO",
+        "REL-BGSTAB-010 rejected compaction does not leave a rollback sequence hole",
+        "REL-BGSTAB-010 compaction preserves the rollback pre-boundary completion",
+        "REL-BGSTAB-010 rollback ledger records the actual fallback decision through closure",
+        "REL-BGSTAB-010 duplicate rollback is idempotent and cannot move the drain boundary",
+        "REL-BGSTAB-010 bounded ingress retry queue drains two fenced outputs with one FIFO barrier",
+        "REL-BGSTAB-010 legacy retry during rollback preserves boundary through rollback-closed",
+        "REL-BGSTAB-010 restore-buffer flush retains ownership until write or observable rejection settlement",
+        "REL-BGSTAB-010 restore-buffer ownership helper commits once and fails closed on identity mismatch",
+        "REL-BGSTAB-010 restore-buffer helper waits for actual legacy callback and rejects contradictory sync admission",
+        "REL-BGSTAB-010 restore attempt identity fences a superseded identical-string callback",
+        "REL-BGSTAB-010 restore release is single-flight per attempt and supersedes exactly once",
+        "REL-BGSTAB-010 authoritative coverage proves sequence, replay token, and failed-attempt ownership",
+        "REL-BGSTAB-010 stable server authority covers tokenless normal live output across replacement connections",
+        "REL-BGSTAB-010 authoritative coverage rollback restores exact ownership after partial drain",
+        "REL-BGSTAB-010 rollback provenance allows a fresh checkpoint to complete and ACK",
+        "REL-BGSTAB-010 delayed same-data restore A cannot release or drain restore B",
+        "TerminalView restore replay is fenced by exact attempt epoch and xterm identity",
+        "TerminalView resets scheduler and ingress retry ownership on terminal identity change and cleanup",
+        "coalesced UTF-8 output expands to exact recovery chunks without losing identity"
+      ],
+      "evidenceSha256": "a961b0624132faea68ef629846feec75ebf5edc4940c3507d17745a99874efe6"
+    }
+  ],
+  "acceptanceEvidence": [
+    {
+      "ac": "AC-1",
+      "status": "pass",
+      "matrixCells": [
+        "server.ws.router::AC-1",
+        "server.pty.headless-model::AC-1",
+        "frontend.output-scheduler::AC-1"
+      ]
+    },
+    {
+      "ac": "AC-2",
+      "status": "pass",
+      "matrixCells": [
+        "server.ws.router::AC-2",
+        "server.pty.headless-model::AC-2",
+        "frontend.output-scheduler::AC-2"
+      ]
+    },
+    {
+      "ac": "AC-3",
+      "status": "pass",
+      "matrixCells": [
+        "server.ws.router::AC-3",
+        "server.pty.headless-model::AC-3",
+        "frontend.output-scheduler::AC-3"
+      ]
+    },
+    {
+      "ac": "AC-4",
+      "status": "pass",
+      "matrixCells": [
+        "server.ws.router::AC-4",
+        "server.pty.headless-model::AC-4",
+        "frontend.output-scheduler::AC-4"
+      ]
+    },
+    {
+      "ac": "AC-5",
+      "status": "pass",
+      "matrixCells": [
+        "server.ws.router::AC-5",
+        "server.pty.headless-model::AC-5",
+        "frontend.output-scheduler::AC-5"
+      ]
+    },
+    {
+      "ac": "AC-6",
+      "status": "pass",
+      "matrixCells": [
+        "server.ws.router::AC-6",
+        "server.pty.headless-model::AC-6",
+        "frontend.output-scheduler::AC-6"
+      ]
+    }
+  ],
+  "activationBoundary": {
+    "productionStableProfiles": {
+      "server": 0,
+      "frontend": 0
+    },
+    "registryHashes": {
+      "server": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "frontend": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "defaultMode": "legacy",
+    "defaultReason": "candidate-unavailable",
+    "userSettingsChanged": false,
+    "uiWiringChanged": false
+  },
+  "verdict": "GREEN_EXACT_CONSUMER_AC_MATRIX_CONFIRMED"
+}

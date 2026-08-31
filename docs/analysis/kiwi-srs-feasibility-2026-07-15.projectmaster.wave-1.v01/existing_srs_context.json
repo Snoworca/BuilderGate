@@ -1,0 +1,1287 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-07-15.projectmaster.wave-1.v01",
+  "analyst_role": "existing_srs",
+  "target": "wave-1",
+  "source": {
+    "system": "SpecKiwi MCP",
+    "workspace_root": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+    "index_path": "docs/spec/00.index.md",
+    "package_version": "2.3.1",
+    "active_target": "wave-1",
+    "active_target_matches_requested": true,
+    "target_goal": "split drift와 refresh 절단을 재현하고 retained-state authority 계약·benchmark evidence·G1 분기를 확정하며, bug-only이면 선택된 단일 국소 결함과 회귀 evidence까지 종결한다.",
+    "inspection_scope": {
+      "target_requirements": [
+        "REL-BGSTAB-006",
+        "OBS-BGSTAB-004",
+        "PERF-BGSTAB-008",
+        "MIG-BGSTAB-001"
+      ],
+      "directly_referenced_requirements": [
+        "FR-BGSTAB-004",
+        "FR-BGSTAB-006",
+        "FR-BGSTAB-007",
+        "FR-BGSTAB-014",
+        "FR-BGSTAB-018",
+        "OBS-BGSTAB-001",
+        "OBS-BGSTAB-002",
+        "OBS-BGSTAB-003",
+        "REL-BGSTAB-004"
+      ],
+      "recursive_expansion": false,
+      "note": "Only wave-1 requirements and their directly referenced Requirement links were inspected."
+    }
+  },
+  "req_summaries": [
+    {
+      "id": "REL-BGSTAB-006",
+      "title": "Split runtime·test·SRS drift characterization",
+      "type": "reliability",
+      "scope": "BGSTAB",
+      "target": "wave-1",
+      "status": "planned",
+      "stability": "draft",
+      "priority": "high",
+      "risk": "medium",
+      "file_path": "docs/spec/30.buildergate-stability.srs.md",
+      "heading_line": 2498,
+      "statement": "시스템은 wave-1에서 split WebSocket 계약의 SRS 기대, 실제 production runtime construction·HTTPS upgrade·browser URL 연결 동작, 실행되는 자동화 test 동작을 서로 독립된 관측으로 수집하고 그 차이를 machine-readable mismatch evidence로 기록해야 한다. 이 characterization은 split 계약의 restore 또는 supersede를 미리 선택하거나 runtime split activation을 승인하지 않는다.",
+      "acceptance_criteria": {
+        "total": 5,
+        "checked": 0,
+        "unchecked": 5
+      },
+      "verification_evidence_count": 0,
+      "trace": {
+        "total": 7,
+        "by_type": {
+          "code": 5,
+          "requirement": 2
+        },
+        "by_relation": {
+          "verifies": 4,
+          "addition_site": 1,
+          "extends": 2
+        }
+      },
+      "requirement_links": [
+        {
+          "id": "FR-BGSTAB-006",
+          "relation": "extends",
+          "target": "0.5.5-buildergate-stability",
+          "status": "implemented",
+          "stability": "stable",
+          "health": "healthy"
+        },
+        {
+          "id": "FR-BGSTAB-007",
+          "relation": "extends",
+          "target": "0.5.5-buildergate-stability",
+          "status": "implemented",
+          "stability": "stable",
+          "health": "healthy"
+        }
+      ],
+      "hard_dependencies": [],
+      "contextual_links": [
+        "FR-BGSTAB-006",
+        "FR-BGSTAB-007"
+      ]
+    },
+    {
+      "id": "OBS-BGSTAB-004",
+      "title": "Refresh retained-state boundary characterization",
+      "type": "observability",
+      "scope": "BGSTAB",
+      "target": "wave-1",
+      "status": "planned",
+      "stability": "draft",
+      "priority": "high",
+      "risk": "medium",
+      "file_path": "docs/spec/30.buildergate-stability.srs.md",
+      "heading_line": 2560,
+      "statement": "시스템은 wave-1에서 browser refresh·reconnect·remount 전후의 terminal retained-state를 deterministic하게 비교하고, 현재 viewport-only/local-cache/replay 경로에서 발생하는 eviction·truncation·fallback·replay-tail·remount 경계를 machine-readable evidence로 기록해야 한다. 이 characterization은 현재 configured boundary와 observed loss를 구분하되 향후 제품 retained range 또는 transport budget 값을 약속하지 않는다.",
+      "acceptance_criteria": {
+        "total": 7,
+        "checked": 0,
+        "unchecked": 7
+      },
+      "verification_evidence_count": 0,
+      "trace": {
+        "total": 11,
+        "by_type": {
+          "code": 6,
+          "requirement": 5
+        },
+        "by_relation": {
+          "verifies": 5,
+          "addition_site": 1,
+          "depends_on": 1,
+          "extends": 4
+        }
+      },
+      "requirement_links": [
+        {
+          "id": "FR-BGSTAB-004",
+          "relation": "depends_on",
+          "target": "0.5.5-buildergate-stability",
+          "status": "implemented",
+          "stability": "stable",
+          "health": "healthy"
+        },
+        {
+          "id": "FR-BGSTAB-014",
+          "relation": "extends",
+          "target": "0.5.5-buildergate-stability",
+          "status": "implemented",
+          "stability": "stable",
+          "health": "healthy"
+        },
+        {
+          "id": "OBS-BGSTAB-002",
+          "relation": "extends",
+          "target": "0.5.5-buildergate-stability",
+          "status": "planned",
+          "stability": "evolving",
+          "health": "planned_evolving"
+        },
+        {
+          "id": "FR-BGSTAB-018",
+          "relation": "extends",
+          "target": "0.5.5-buildergate-stability",
+          "status": "planned",
+          "stability": "evolving",
+          "health": "planned_evolving"
+        },
+        {
+          "id": "REL-BGSTAB-004",
+          "relation": "extends",
+          "target": "0.5.5-buildergate-stability",
+          "status": "implemented",
+          "stability": "stable",
+          "health": "healthy"
+        }
+      ],
+      "hard_dependencies": [
+        "FR-BGSTAB-004"
+      ],
+      "contextual_links": [
+        "FR-BGSTAB-014",
+        "OBS-BGSTAB-002",
+        "FR-BGSTAB-018",
+        "REL-BGSTAB-004"
+      ]
+    },
+    {
+      "id": "PERF-BGSTAB-008",
+      "title": "Benchmark modes and raw evidence contract",
+      "type": "performance",
+      "scope": "BGSTAB",
+      "target": "wave-1",
+      "status": "planned",
+      "stability": "draft",
+      "priority": "high",
+      "risk": "medium",
+      "file_path": "docs/spec/30.buildergate-stability.srs.md",
+      "heading_line": 2628,
+      "statement": "시스템은 wave-1 terminal characterization을 위해 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW` benchmark mode와 재현 가능한 execution manifest·raw sample artifact를 제공해야 한다. Evidence는 mode와 workload별 raw observation, p50·p95·p99와 confidence interval을 연결하되 이 Requirement 자체는 product performance threshold, SLO 또는 resource budget을 설정하지 않는다.",
+      "acceptance_criteria": {
+        "total": 7,
+        "checked": 0,
+        "unchecked": 7
+      },
+      "verification_evidence_count": 0,
+      "trace": {
+        "total": 9,
+        "by_type": {
+          "code": 6,
+          "requirement": 3
+        },
+        "by_relation": {
+          "addition_site": 3,
+          "verifies": 3,
+          "extends": 2,
+          "depends_on": 1
+        }
+      },
+      "requirement_links": [
+        {
+          "id": "OBS-BGSTAB-001",
+          "relation": "extends",
+          "target": "0.5.5-buildergate-stability",
+          "status": "planned",
+          "stability": "evolving",
+          "health": "planned_evolving"
+        },
+        {
+          "id": "OBS-BGSTAB-002",
+          "relation": "extends",
+          "target": "0.5.5-buildergate-stability",
+          "status": "planned",
+          "stability": "evolving",
+          "health": "planned_evolving"
+        },
+        {
+          "id": "OBS-BGSTAB-003",
+          "relation": "depends_on",
+          "target": "0.5.5-buildergate-stability",
+          "status": "implemented",
+          "stability": "evolving",
+          "health": "implemented_evolving"
+        }
+      ],
+      "hard_dependencies": [
+        "OBS-BGSTAB-003"
+      ],
+      "contextual_links": [
+        "OBS-BGSTAB-001",
+        "OBS-BGSTAB-002"
+      ]
+    },
+    {
+      "id": "MIG-BGSTAB-001",
+      "title": "G1 evidence decision and activation gate",
+      "type": "migration",
+      "scope": "BGSTAB",
+      "target": "wave-1",
+      "status": "planned",
+      "stability": "draft",
+      "priority": "high",
+      "risk": "high",
+      "file_path": "docs/spec/30.buildergate-stability.srs.md",
+      "heading_line": 2694,
+      "statement": "시스템은 REL-BGSTAB-006, OBS-BGSTAB-004, PERF-BGSTAB-008의 완료 evidence를 참조하는 G1 decision record를 통해 `confirmed-bug-only` 또는 `architectural migration` 중 하나만 선택하고, 선택 결과에 따라 wave-1 local-fix 범위와 후속 wave activation을 gate해야 한다. 이 Requirement 자체는 retained-state authority promotion, UI change 또는 legacy deletion을 승인하지 않는다.",
+      "acceptance_criteria": {
+        "total": 6,
+        "checked": 0,
+        "unchecked": 6
+      },
+      "verification_evidence_count": 0,
+      "trace": {
+        "total": 3,
+        "by_type": {
+          "requirement": 3
+        },
+        "by_relation": {
+          "depends_on": 3
+        }
+      },
+      "requirement_links": [
+        {
+          "id": "REL-BGSTAB-006",
+          "relation": "depends_on",
+          "target": "wave-1",
+          "status": "planned",
+          "stability": "draft",
+          "health": "planned_draft"
+        },
+        {
+          "id": "OBS-BGSTAB-004",
+          "relation": "depends_on",
+          "target": "wave-1",
+          "status": "planned",
+          "stability": "draft",
+          "health": "planned_draft"
+        },
+        {
+          "id": "PERF-BGSTAB-008",
+          "relation": "depends_on",
+          "target": "wave-1",
+          "status": "planned",
+          "stability": "draft",
+          "health": "planned_draft"
+        }
+      ],
+      "hard_dependencies": [
+        "REL-BGSTAB-006",
+        "OBS-BGSTAB-004",
+        "PERF-BGSTAB-008"
+      ],
+      "contextual_links": []
+    }
+  ],
+  "linked_requirement_summaries": [
+    {
+      "id": "FR-BGSTAB-004",
+      "title": "Terminal snapshot storage budgets and tombstone expiry",
+      "type": "functional",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "status": "implemented",
+      "stability": "stable",
+      "priority": "high",
+      "risk": "medium",
+      "file_path": "docs/spec/30.buildergate-stability.srs.md",
+      "heading_line": 230,
+      "statement": "Terminal snapshot persistence shall enforce runtime-configured per-snapshot size, total storage budget, maximum entry count, and removal tombstone TTL so localStorage does not grow or remain blocked indefinitely during long-running sessions.",
+      "acceptance_criteria": {
+        "total": 5,
+        "checked": 0,
+        "unchecked": 5
+      },
+      "verification_evidence_count": 1,
+      "trace": {
+        "total": 3,
+        "by_type": {
+          "code": 2,
+          "requirement": 1
+        },
+        "by_relation": {
+          "verifies": 2,
+          "depends_on": 1
+        }
+      },
+      "referenced_by": [
+        {
+          "from": "OBS-BGSTAB-004",
+          "relation": "depends_on"
+        }
+      ],
+      "outbound_requirement_links": [
+        {
+          "to": "FR-BGSTAB-001",
+          "relation": "depends_on"
+        }
+      ]
+    },
+    {
+      "id": "FR-BGSTAB-006",
+      "title": "Split WebSocket handshake and channel isolation",
+      "type": "functional",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "status": "implemented",
+      "stability": "stable",
+      "priority": "high",
+      "risk": "high",
+      "file_path": "docs/spec/30.buildergate-stability.srs.md",
+      "heading_line": 353,
+      "statement": "The WebSocket transport shall support unified, split-shadow, and split modes. Split control connections shall receive logical group metadata and a short-lived pair token, while output connections shall be accepted only when the pair token and authenticated identity match the live control group.",
+      "acceptance_criteria": {
+        "total": 5,
+        "checked": 0,
+        "unchecked": 5
+      },
+      "verification_evidence_count": 4,
+      "trace": {
+        "total": 5,
+        "by_type": {
+          "code": 4,
+          "requirement": 1
+        },
+        "by_relation": {
+          "verifies": 4,
+          "depends_on": 1
+        }
+      },
+      "referenced_by": [
+        {
+          "from": "REL-BGSTAB-006",
+          "relation": "extends"
+        }
+      ],
+      "outbound_requirement_links": [
+        {
+          "to": "FR-BGSTAB-001",
+          "relation": "depends_on"
+        }
+      ]
+    },
+    {
+      "id": "FR-BGSTAB-007",
+      "title": "Split WebSocket terminal payload routing and failure recovery",
+      "type": "functional",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "status": "implemented",
+      "stability": "stable",
+      "priority": "high",
+      "risk": "high",
+      "file_path": "docs/spec/30.buildergate-stability.srs.md",
+      "heading_line": 419,
+      "statement": "In full split mode, terminal output, replay snapshot payloads, and screen repair payloads shall route through the paired output socket when it is open. Input, resize, subscribe, unsubscribe, ACK, ping, and repair request messages shall remain on the control socket. If the output socket is missing, closed, not open, over hard backpressure, over queue limit, or fails send, terminal payloads shall fall back to the control socket without dropping current, queued, replay-pending, or screen-repair-pending terminal output.",
+      "acceptance_criteria": {
+        "total": 7,
+        "checked": 0,
+        "unchecked": 7
+      },
+      "verification_evidence_count": 2,
+      "trace": {
+        "total": 5,
+        "by_type": {
+          "code": 4,
+          "requirement": 1
+        },
+        "by_relation": {
+          "verifies": 4,
+          "depends_on": 1
+        }
+      },
+      "referenced_by": [
+        {
+          "from": "REL-BGSTAB-006",
+          "relation": "extends"
+        }
+      ],
+      "outbound_requirement_links": [
+        {
+          "to": "FR-BGSTAB-006",
+          "relation": "depends_on"
+        }
+      ]
+    },
+    {
+      "id": "FR-BGSTAB-014",
+      "title": "Wave 7 frontend runtime resource consumers",
+      "type": "functional",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "status": "implemented",
+      "stability": "stable",
+      "priority": "high",
+      "risk": "high",
+      "file_path": "docs/spec/30.buildergate-stability.srs.md",
+      "heading_line": 1106,
+      "statement": "The browser frontend shall consume the Wave6 runtime resource-limit configuration in the default product path so terminal runtime residency, hidden terminal output, snapshot storage, workspace layout cleanup, visible output overflow recovery, and browser input WebSocket send failure handling remain bounded and observable during long-running BuilderGate sessions.",
+      "acceptance_criteria": {
+        "total": 8,
+        "checked": 8,
+        "unchecked": 0
+      },
+      "verification_evidence_count": 8,
+      "trace": {
+        "total": 29,
+        "by_type": {
+          "code": 18,
+          "config": 1,
+          "test": 4,
+          "requirement": 6
+        },
+        "by_relation": {
+          "implements": 18,
+          "verifies": 5,
+          "depends_on": 6
+        }
+      },
+      "referenced_by": [
+        {
+          "from": "OBS-BGSTAB-004",
+          "relation": "extends"
+        }
+      ],
+      "outbound_requirement_links": [
+        {
+          "to": "FR-BGSTAB-001",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-002",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-003",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-004",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-005",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-013",
+          "relation": "depends_on"
+        }
+      ]
+    },
+    {
+      "id": "FR-BGSTAB-018",
+      "title": "Empty fallback snapshot convergence and placeholder suppression",
+      "type": "functional",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "status": "planned",
+      "stability": "evolving",
+      "priority": "high",
+      "risk": "high",
+      "file_path": "docs/spec/30.buildergate-stability.srs.md",
+      "heading_line": 1586,
+      "statement": "The frontend terminal runtime shall treat empty fallback screen snapshots as a non-destructive recovery state that converges without repeatedly writing shell-looking placeholder text into xterm, while preserving replay ACK ordering and recovery-pending semantics.",
+      "acceptance_criteria": {
+        "total": 6,
+        "checked": 0,
+        "unchecked": 6
+      },
+      "verification_evidence_count": 0,
+      "trace": {
+        "total": 7,
+        "by_type": {
+          "code": 3,
+          "test": 1,
+          "requirement": 3
+        },
+        "by_relation": {
+          "addition_site": 3,
+          "verifies": 1,
+          "extends": 1,
+          "depends_on": 2
+        }
+      },
+      "referenced_by": [
+        {
+          "from": "OBS-BGSTAB-004",
+          "relation": "extends"
+        }
+      ],
+      "outbound_requirement_links": [
+        {
+          "to": "FR-BGSTAB-014",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-017",
+          "relation": "depends_on"
+        },
+        {
+          "to": "REL-BGSTAB-003",
+          "relation": "depends_on"
+        }
+      ]
+    },
+    {
+      "id": "OBS-BGSTAB-001",
+      "title": "ConPTY input-lag recovery telemetry and soak evidence",
+      "type": "observability",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "status": "planned",
+      "stability": "evolving",
+      "priority": "high",
+      "risk": "medium",
+      "file_path": "docs/spec/30.buildergate-stability.srs.md",
+      "heading_line": 1516,
+      "statement": "The ConPTY recovery work shall provide telemetry, debug-capture correlation, deterministic redraw-flood tests, and soak evidence that measure queue pressure, recovery ordering, input latency, and cleanup results without persisting raw terminal input or output payloads.",
+      "acceptance_criteria": {
+        "total": 5,
+        "checked": 0,
+        "unchecked": 5
+      },
+      "verification_evidence_count": 0,
+      "trace": {
+        "total": 11,
+        "by_type": {
+          "code": 5,
+          "requirement": 6
+        },
+        "by_relation": {
+          "addition_site": 5,
+          "extends": 2,
+          "depends_on": 4
+        }
+      },
+      "referenced_by": [
+        {
+          "from": "PERF-BGSTAB-008",
+          "relation": "extends"
+        }
+      ],
+      "outbound_requirement_links": [
+        {
+          "to": "REL-BGSTAB-001",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-015",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-016",
+          "relation": "depends_on"
+        },
+        {
+          "to": "REL-BGSTAB-003",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-017",
+          "relation": "depends_on"
+        },
+        {
+          "to": "REL-BGSTAB-002",
+          "relation": "extends"
+        }
+      ]
+    },
+    {
+      "id": "OBS-BGSTAB-002",
+      "title": "Empty fallback snapshot diagnostics and regression evidence",
+      "type": "observability",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "status": "planned",
+      "stability": "evolving",
+      "priority": "high",
+      "risk": "medium",
+      "file_path": "docs/spec/30.buildergate-stability.srs.md",
+      "heading_line": 1721,
+      "statement": "The BuilderGate terminal recovery diagnostics shall expose bounded, redacted evidence for empty fallback snapshot loops, placeholder suppression, degraded headless phases, replay timeout output preservation, and recovery convergence so repeated fallback noise can be diagnosed without storing raw terminal payloads.",
+      "acceptance_criteria": {
+        "total": 6,
+        "checked": 0,
+        "unchecked": 6
+      },
+      "verification_evidence_count": 0,
+      "trace": {
+        "total": 9,
+        "by_type": {
+          "code": 6,
+          "requirement": 3
+        },
+        "by_relation": {
+          "addition_site": 6,
+          "extends": 1,
+          "depends_on": 2
+        }
+      },
+      "referenced_by": [
+        {
+          "from": "OBS-BGSTAB-004",
+          "relation": "extends"
+        },
+        {
+          "from": "PERF-BGSTAB-008",
+          "relation": "extends"
+        }
+      ],
+      "outbound_requirement_links": [
+        {
+          "to": "OBS-BGSTAB-001",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-018",
+          "relation": "depends_on"
+        },
+        {
+          "to": "REL-BGSTAB-004",
+          "relation": "depends_on"
+        }
+      ]
+    },
+    {
+      "id": "OBS-BGSTAB-003",
+      "title": "다중 세션 이벤트 루프 포화 진단 관측 지표",
+      "type": "observability",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "status": "implemented",
+      "stability": "evolving",
+      "priority": "high",
+      "risk": "low",
+      "file_path": "docs/spec/30.buildergate-stability.srs.md",
+      "heading_line": 2181,
+      "statement": "시스템은 GET /api/sessions/telemetry(getObservabilitySnapshot)에 (a) perf_hooks.monitorEventLoopDelay 기반 이벤트 루프 지연 히스토그램(mean/p99), (b) process.cpuUsage 델타를 1코어 대비 %로 환산한 프로세스 CPU 점유율, (c) applyHeadlessOutput의 writeHeadlessTerminal 구간 누적 소요 시간을 노출해야 한다. 이 지표들로 이벤트 루프 포화(단일 스레드 CPU-bound)와 물리 CPU 여유가 있는 원인(GC/동기 fs/backpressure)을 구분 판정할 수 있어야 한다.",
+      "acceptance_criteria": {
+        "total": 3,
+        "checked": 0,
+        "unchecked": 3
+      },
+      "verification_evidence_count": 3,
+      "trace": {
+        "total": 6,
+        "by_type": {
+          "code": 4,
+          "task": 2
+        },
+        "by_relation": {
+          "addition_site": 3,
+          "depends_on": 2,
+          "implements": 1
+        }
+      },
+      "referenced_by": [
+        {
+          "from": "PERF-BGSTAB-008",
+          "relation": "depends_on"
+        }
+      ],
+      "outbound_requirement_links": []
+    },
+    {
+      "id": "REL-BGSTAB-004",
+      "title": "Fallback replay output preservation and degraded snapshot convergence",
+      "type": "reliability",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "status": "implemented",
+      "stability": "stable",
+      "priority": "high",
+      "risk": "high",
+      "file_path": "docs/spec/30.buildergate-stability.srs.md",
+      "heading_line": 1649,
+      "statement": "The server replay and degraded snapshot paths shall preserve ordered terminal output across empty fallback snapshots, replay refreshes, and replay ACK timeouts, and shall converge repeated degraded fallback states without silently dropping queued output or indefinitely churning replay tokens.",
+      "acceptance_criteria": {
+        "total": 6,
+        "checked": 6,
+        "unchecked": 0
+      },
+      "verification_evidence_count": 1,
+      "trace": {
+        "total": 13,
+        "by_type": {
+          "code": 5,
+          "test": 5,
+          "requirement": 3
+        },
+        "by_relation": {
+          "verifies": 6,
+          "addition_site": 4,
+          "extends": 1,
+          "depends_on": 2
+        }
+      },
+      "referenced_by": [
+        {
+          "from": "OBS-BGSTAB-004",
+          "relation": "extends"
+        }
+      ],
+      "outbound_requirement_links": [
+        {
+          "to": "REL-BGSTAB-003",
+          "relation": "extends"
+        },
+        {
+          "to": "FR-BGSTAB-016",
+          "relation": "depends_on"
+        },
+        {
+          "to": "FR-BGSTAB-018",
+          "relation": "depends_on"
+        }
+      ]
+    }
+  ],
+  "dependency_graph": {
+    "nodes": [
+      {
+        "id": "REL-BGSTAB-006",
+        "target": "wave-1",
+        "status": "planned",
+        "stability": "draft",
+        "role": "target"
+      },
+      {
+        "id": "OBS-BGSTAB-004",
+        "target": "wave-1",
+        "status": "planned",
+        "stability": "draft",
+        "role": "target"
+      },
+      {
+        "id": "PERF-BGSTAB-008",
+        "target": "wave-1",
+        "status": "planned",
+        "stability": "draft",
+        "role": "target"
+      },
+      {
+        "id": "MIG-BGSTAB-001",
+        "target": "wave-1",
+        "status": "planned",
+        "stability": "draft",
+        "role": "target"
+      },
+      {
+        "id": "FR-BGSTAB-004",
+        "target": "0.5.5-buildergate-stability",
+        "status": "implemented",
+        "stability": "stable",
+        "role": "direct_reference"
+      },
+      {
+        "id": "FR-BGSTAB-006",
+        "target": "0.5.5-buildergate-stability",
+        "status": "implemented",
+        "stability": "stable",
+        "role": "direct_reference"
+      },
+      {
+        "id": "FR-BGSTAB-007",
+        "target": "0.5.5-buildergate-stability",
+        "status": "implemented",
+        "stability": "stable",
+        "role": "direct_reference"
+      },
+      {
+        "id": "FR-BGSTAB-014",
+        "target": "0.5.5-buildergate-stability",
+        "status": "implemented",
+        "stability": "stable",
+        "role": "direct_reference"
+      },
+      {
+        "id": "FR-BGSTAB-018",
+        "target": "0.5.5-buildergate-stability",
+        "status": "planned",
+        "stability": "evolving",
+        "role": "direct_reference"
+      },
+      {
+        "id": "OBS-BGSTAB-001",
+        "target": "0.5.5-buildergate-stability",
+        "status": "planned",
+        "stability": "evolving",
+        "role": "direct_reference"
+      },
+      {
+        "id": "OBS-BGSTAB-002",
+        "target": "0.5.5-buildergate-stability",
+        "status": "planned",
+        "stability": "evolving",
+        "role": "direct_reference"
+      },
+      {
+        "id": "OBS-BGSTAB-003",
+        "target": "0.5.5-buildergate-stability",
+        "status": "implemented",
+        "stability": "evolving",
+        "role": "direct_reference"
+      },
+      {
+        "id": "REL-BGSTAB-004",
+        "target": "0.5.5-buildergate-stability",
+        "status": "implemented",
+        "stability": "stable",
+        "role": "direct_reference"
+      }
+    ],
+    "edges": [
+      {
+        "from": "REL-BGSTAB-006",
+        "to": "FR-BGSTAB-006",
+        "relation": "extends",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "implemented",
+        "to_stability": "stable",
+        "notes": "Adds production-runtime, test, and SRS drift characterization without changing the 0.5.5 split handshake contract."
+      },
+      {
+        "from": "REL-BGSTAB-006",
+        "to": "FR-BGSTAB-007",
+        "relation": "extends",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "implemented",
+        "to_stability": "stable",
+        "notes": "Adds evidence of runtime routing/recovery drift without modifying or superseding the 0.5.5 payload-routing contract."
+      },
+      {
+        "from": "OBS-BGSTAB-004",
+        "to": "FR-BGSTAB-004",
+        "relation": "depends_on",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "implemented",
+        "to_stability": "stable",
+        "notes": "Uses the existing local snapshot budget/tombstone contract only as a current cache-boundary baseline."
+      },
+      {
+        "from": "OBS-BGSTAB-004",
+        "to": "FR-BGSTAB-014",
+        "relation": "extends",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "implemented",
+        "to_stability": "stable",
+        "notes": "Adds refresh boundary evidence across active/hidden lifecycle states without changing the existing runtime-resource contract."
+      },
+      {
+        "from": "OBS-BGSTAB-004",
+        "to": "OBS-BGSTAB-002",
+        "relation": "extends",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "planned",
+        "to_stability": "evolving",
+        "notes": "Adds retained-state hashes and cause-separated boundary evidence to existing empty-fallback diagnostics."
+      },
+      {
+        "from": "OBS-BGSTAB-004",
+        "to": "FR-BGSTAB-018",
+        "relation": "extends",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "planned",
+        "to_stability": "evolving",
+        "notes": "Separates current fallback convergence behavior from retained-state loss characterization without revising the planned contract."
+      },
+      {
+        "from": "OBS-BGSTAB-004",
+        "to": "REL-BGSTAB-004",
+        "relation": "extends",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "implemented",
+        "to_stability": "stable",
+        "notes": "Adds pre/post retained-state and replay/remount cause evidence while preserving the stable bounded fallback contract."
+      },
+      {
+        "from": "PERF-BGSTAB-008",
+        "to": "OBS-BGSTAB-001",
+        "relation": "extends",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "planned",
+        "to_stability": "evolving",
+        "notes": "Extends the existing queue/recovery soak evidence baseline with explicit benchmark modes, manifests, and raw samples."
+      },
+      {
+        "from": "PERF-BGSTAB-008",
+        "to": "OBS-BGSTAB-002",
+        "relation": "extends",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "planned",
+        "to_stability": "evolving",
+        "notes": "Extends fallback/recovery evidence with reproducible mode and percentile/CI provenance without setting product thresholds."
+      },
+      {
+        "from": "PERF-BGSTAB-008",
+        "to": "OBS-BGSTAB-003",
+        "relation": "depends_on",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "implemented",
+        "to_stability": "evolving",
+        "notes": "AC-6 consumes event-loop delay, one-core CPU, and headless-write metrics exposed by OBS-BGSTAB-003."
+      },
+      {
+        "from": "MIG-BGSTAB-001",
+        "to": "REL-BGSTAB-006",
+        "relation": "depends_on",
+        "cross_target": false,
+        "to_target": "wave-1",
+        "to_status": "planned",
+        "to_stability": "draft",
+        "notes": "G1 requires completed split runtime/test/SRS drift evidence before selecting a branch."
+      },
+      {
+        "from": "MIG-BGSTAB-001",
+        "to": "OBS-BGSTAB-004",
+        "relation": "depends_on",
+        "cross_target": false,
+        "to_target": "wave-1",
+        "to_status": "planned",
+        "to_stability": "draft",
+        "notes": "G1 requires completed refresh retained-state boundary and loss-cause evidence before selecting a branch."
+      },
+      {
+        "from": "MIG-BGSTAB-001",
+        "to": "PERF-BGSTAB-008",
+        "relation": "depends_on",
+        "cross_target": false,
+        "to_target": "wave-1",
+        "to_status": "planned",
+        "to_stability": "draft",
+        "notes": "G1 requires reproducible benchmark manifest, raw samples, summaries, and confidence intervals before selecting a branch."
+      }
+    ],
+    "edge_counts": {
+      "total": 13,
+      "by_relation": {
+        "extends": 8,
+        "depends_on": 5
+      },
+      "target_internal": 3,
+      "cross_target": 10
+    },
+    "cycles": [],
+    "cycle_analysis": {
+      "target_graph_complete": true,
+      "target_graph_cycles": [],
+      "directly_loaded_expansion_cycles": [],
+      "return_edges_from_direct_references_to_wave_1": [],
+      "global_graph_complete": false,
+      "boundary_outbound_link_count": 17,
+      "conclusion": "No cycle exists in the complete wave-1 outbound graph or in the loaded direct-reference expansion. This is not a claim about the unexpanded global SRS graph."
+    }
+  },
+  "cross_target_dependencies": {
+    "edge_count": 10,
+    "unique_requirement_count": 9,
+    "by_external_target": {
+      "0.5.5-buildergate-stability": {
+        "edge_count": 10,
+        "unique_requirement_count": 9,
+        "requirement_ids": [
+          "FR-BGSTAB-004",
+          "FR-BGSTAB-006",
+          "FR-BGSTAB-007",
+          "FR-BGSTAB-014",
+          "FR-BGSTAB-018",
+          "OBS-BGSTAB-001",
+          "OBS-BGSTAB-002",
+          "OBS-BGSTAB-003",
+          "REL-BGSTAB-004"
+        ]
+      }
+    },
+    "by_relation": {
+      "extends": 8,
+      "depends_on": 2
+    },
+    "by_referenced_status": {
+      "implemented": 6,
+      "planned": 4
+    },
+    "by_referenced_stability": {
+      "stable": 5,
+      "evolving": 5
+    },
+    "hard_dependency_edges": [
+      {
+        "from": "OBS-BGSTAB-004",
+        "to": "FR-BGSTAB-004",
+        "relation": "depends_on",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "implemented",
+        "to_stability": "stable",
+        "notes": "Uses the existing local snapshot budget/tombstone contract only as a current cache-boundary baseline."
+      },
+      {
+        "from": "PERF-BGSTAB-008",
+        "to": "OBS-BGSTAB-003",
+        "relation": "depends_on",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "implemented",
+        "to_stability": "evolving",
+        "notes": "AC-6 consumes event-loop delay, one-core CPU, and headless-write metrics exposed by OBS-BGSTAB-003."
+      }
+    ],
+    "contextual_edges": [
+      {
+        "from": "REL-BGSTAB-006",
+        "to": "FR-BGSTAB-006",
+        "relation": "extends",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "implemented",
+        "to_stability": "stable",
+        "notes": "Adds production-runtime, test, and SRS drift characterization without changing the 0.5.5 split handshake contract."
+      },
+      {
+        "from": "REL-BGSTAB-006",
+        "to": "FR-BGSTAB-007",
+        "relation": "extends",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "implemented",
+        "to_stability": "stable",
+        "notes": "Adds evidence of runtime routing/recovery drift without modifying or superseding the 0.5.5 payload-routing contract."
+      },
+      {
+        "from": "OBS-BGSTAB-004",
+        "to": "FR-BGSTAB-014",
+        "relation": "extends",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "implemented",
+        "to_stability": "stable",
+        "notes": "Adds refresh boundary evidence across active/hidden lifecycle states without changing the existing runtime-resource contract."
+      },
+      {
+        "from": "OBS-BGSTAB-004",
+        "to": "OBS-BGSTAB-002",
+        "relation": "extends",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "planned",
+        "to_stability": "evolving",
+        "notes": "Adds retained-state hashes and cause-separated boundary evidence to existing empty-fallback diagnostics."
+      },
+      {
+        "from": "OBS-BGSTAB-004",
+        "to": "FR-BGSTAB-018",
+        "relation": "extends",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "planned",
+        "to_stability": "evolving",
+        "notes": "Separates current fallback convergence behavior from retained-state loss characterization without revising the planned contract."
+      },
+      {
+        "from": "OBS-BGSTAB-004",
+        "to": "REL-BGSTAB-004",
+        "relation": "extends",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "implemented",
+        "to_stability": "stable",
+        "notes": "Adds pre/post retained-state and replay/remount cause evidence while preserving the stable bounded fallback contract."
+      },
+      {
+        "from": "PERF-BGSTAB-008",
+        "to": "OBS-BGSTAB-001",
+        "relation": "extends",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "planned",
+        "to_stability": "evolving",
+        "notes": "Extends the existing queue/recovery soak evidence baseline with explicit benchmark modes, manifests, and raw samples."
+      },
+      {
+        "from": "PERF-BGSTAB-008",
+        "to": "OBS-BGSTAB-002",
+        "relation": "extends",
+        "cross_target": true,
+        "to_target": "0.5.5-buildergate-stability",
+        "to_status": "planned",
+        "to_stability": "evolving",
+        "notes": "Extends fallback/recovery evidence with reproducible mode and percentile/CI provenance without setting product thresholds."
+      }
+    ],
+    "health": {
+      "deprecated_or_blocked_edges": 0,
+      "stable_implemented_edges": 5,
+      "implemented_evolving_edges": 1,
+      "planned_evolving_edges": 4,
+      "note": "External hard dependencies are FR-BGSTAB-004 (implemented/stable) and OBS-BGSTAB-003 (implemented/evolving). Planned/evolving external references are contextual extends links, not hard depends_on edges."
+    }
+  },
+  "distributions": {
+    "scope": {
+      "BGSTAB": 4
+    },
+    "type": {
+      "reliability": 1,
+      "observability": 1,
+      "performance": 1,
+      "migration": 1
+    },
+    "status": {
+      "planned": 4
+    },
+    "stability": {
+      "draft": 4
+    },
+    "priority": {
+      "high": 4
+    },
+    "risk": {
+      "medium": 3,
+      "high": 1
+    }
+  },
+  "status_stability_health": {
+    "target_total": 4,
+    "counts_by_status": {
+      "planned": 4
+    },
+    "counts_by_stability": {
+      "draft": 4
+    },
+    "stability_blockers": [
+      "REL-BGSTAB-006",
+      "OBS-BGSTAB-004",
+      "PERF-BGSTAB-008",
+      "MIG-BGSTAB-001"
+    ],
+    "stability_warnings": [],
+    "new_work_candidates": [],
+    "blocked_requirements": [],
+    "implemented_not_verified": [],
+    "summary_missing_evidence": [],
+    "planned_draft_count": 4,
+    "g1_gate_health": {
+      "requirement_id": "MIG-BGSTAB-001",
+      "hard_prerequisites": [
+        "REL-BGSTAB-006",
+        "OBS-BGSTAB-004",
+        "PERF-BGSTAB-008"
+      ],
+      "prerequisite_state": "all_planned_draft",
+      "readiness": "not_ready",
+      "note": "MIG-BGSTAB-001 is intentionally downstream of the three evidence-producing wave-1 requirements."
+    },
+    "assessment": "All four wave-1 requirements are planned/draft and are stability blockers; none is ready to serve as an implementation contract."
+  },
+  "acceptance_trace_health": {
+    "target": {
+      "acceptance_criteria_total": 25,
+      "acceptance_criteria_checked": 0,
+      "acceptance_criteria_unchecked": 25,
+      "verification_evidence_rows": 0,
+      "trace_links_total": 30,
+      "trace_links_by_type": {
+        "code": 17,
+        "requirement": 13
+      },
+      "trace_links_by_relation": {
+        "verifies": 12,
+        "addition_site": 5,
+        "extends": 8,
+        "depends_on": 5
+      },
+      "requirements_with_verification_method": 4
+    },
+    "directly_referenced": {
+      "acceptance_criteria_total": 51,
+      "acceptance_criteria_checked": 14,
+      "acceptance_criteria_unchecked": 37,
+      "verification_evidence_rows": 19,
+      "trace_links_total": 88,
+      "trace_links_by_type": {
+        "code": 51,
+        "requirement": 24,
+        "config": 1,
+        "test": 10,
+        "task": 2
+      }
+    },
+    "findings": [
+      "The wave-1 target has 25 acceptance criteria, all unchecked, and zero verification-evidence rows.",
+      "All four target requirements have an explicit verification method and 30 trace links in total (17 code, 13 requirement).",
+      "SpecKiwi summary does not classify planned requirements as missing-evidence items, even though their evidence tables are currently empty."
+    ]
+  },
+  "diagnostics": {
+    "errors": 0,
+    "warnings": 4,
+    "by_code": {
+      "SRS-W023": 4
+    },
+    "items": [
+      {
+        "code": "SRS-W023",
+        "severity": "warning",
+        "requirement_id": "REL-BGSTAB-006",
+        "message": "Draft requirement is not ready as an implementation contract: REL-BGSTAB-006"
+      },
+      {
+        "code": "SRS-W023",
+        "severity": "warning",
+        "requirement_id": "OBS-BGSTAB-004",
+        "message": "Draft requirement is not ready as an implementation contract: OBS-BGSTAB-004"
+      },
+      {
+        "code": "SRS-W023",
+        "severity": "warning",
+        "requirement_id": "PERF-BGSTAB-008",
+        "message": "Draft requirement is not ready as an implementation contract: PERF-BGSTAB-008"
+      },
+      {
+        "code": "SRS-W023",
+        "severity": "warning",
+        "requirement_id": "MIG-BGSTAB-001",
+        "message": "Draft requirement is not ready as an implementation contract: MIG-BGSTAB-001"
+      }
+    ]
+  }
+}

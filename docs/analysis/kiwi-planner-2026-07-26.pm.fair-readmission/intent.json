@@ -1,0 +1,24 @@
+{
+  "run_id": "2026-07-26.pm.fair-readmission",
+  "target_intent": "Readmit or fail-close the current fair-delivery baseline through immutable observation only.",
+  "requirement_filter": ["PERF-BGSTAB-010"],
+  "user_priorities": [
+    "Treat the prior 98/98 only as a pre-admission observed diagnostic; obtain fresh current-generation replay only after frozen provenance capture.",
+    "Keep historical manifests and replay results immutable.",
+    "Record rejected-ACK, idle, and hidden-recovery=false browser boundaries separately.",
+    "Leave all lifecycle and acceptance checks untouched; keep REL-BGSTAB-012 blocked."
+  ],
+  "planned_future_artifacts": [
+    "docs/analysis/kiwi-coder-2026-07-26.pm.fair-readmission/baseline-provenance-manifest.json",
+    "docs/analysis/kiwi-coder-2026-07-26.pm.fair-readmission/decision-validator-pre.json",
+    "docs/analysis/kiwi-coder-2026-07-26.pm.fair-readmission/five-file-replay-result.json",
+    "docs/analysis/kiwi-coder-2026-07-26.pm.fair-readmission/decision-validator-post.json",
+    "docs/analysis/kiwi-coder-2026-07-26.pm.fair-readmission/post-replay-provenance-manifest.json",
+    "docs/analysis/kiwi-coder-2026-07-26.pm.fair-readmission/browser-ack-idle-hidden-boundary.json",
+    "docs/analysis/kiwi-coder-2026-07-26.pm.fair-readmission/final-protected-input-manifest.json",
+    "docs/analysis/kiwi-coder-2026-07-26.pm.fair-readmission/ac-matrix.json",
+    "docs/analysis/kiwi-coder-2026-07-26.pm.fair-readmission/independent-admission-review.md"
+  ],
+  "ambiguities": [],
+  "non_coding_signals": ["immutable provenance", "safe replay", "AC observation matrix", "independent review"]
+}

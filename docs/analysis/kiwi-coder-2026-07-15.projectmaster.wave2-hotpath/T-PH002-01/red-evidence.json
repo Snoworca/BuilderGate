@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "kiwi-coder-evidence-v1",
+  "executionId": "2026-07-15.projectmaster.wave2-hotpath",
+  "taskId": "T-PH002-01",
+  "requirementId": "REL-BGSTAB-008",
+  "capturedAt": "2026-07-16T04:46:41.6835771+09:00",
+  "headRevision": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+  "result": "EXPECTED_RED",
+  "scope": {
+    "productionFilesChangedByTask": [],
+    "testFiles": [
+      "server/src/test-runner.ts",
+      "server/src/ws/WsRouterSplitHandshake.test.ts"
+    ],
+    "removedObsoleteFullFlushExpectations": [
+      "screen-repair ACK timeout full flush",
+      "covered client-failure full flush",
+      "covered ACK-timeout full flush",
+      "screen-repair failed full flush",
+      "byte overflow giant concatenated output",
+      "UTF-8 byte overflow giant output"
+    ]
+  },
+  "verification": {
+    "build": {
+      "command": "npm run build",
+      "cwd": "server",
+      "exitCode": 0
+    },
+    "runnerExact": {
+      "command": "$env:BUILDERGATE_TEST_FILTER='Repair queue·protocol RED 계약'; node dist/test-runner.js",
+      "cwd": "server",
+      "exitCode": 1,
+      "passed": 0,
+      "failed": 5,
+      "failingAcceptanceCriteria": ["AC-1", "AC-3", "AC-5", "AC-7", "AC-10"]
+    },
+    "runnerScreenRepair": {
+      "command": "$env:BUILDERGATE_TEST_FILTER='screen repair'; node dist/test-runner.js",
+      "cwd": "server",
+      "exitCode": 1,
+      "legacyPassed": 14,
+      "newFailed": 5,
+      "obsoleteFullFlushPassed": 0
+    },
+    "splitExact": {
+      "command": "npx tsx --test --test-name-pattern='Repair queue·protocol RED 계약' src/ws/WsRouterSplitHandshake.test.ts",
+      "cwd": "server",
+      "exitCode": 1,
+      "passed": 1,
+      "failed": 4,
+      "passingCharacterization": ["AC-6"],
+      "failingAcceptanceCriteria": ["AC-2", "AC-4", "AC-9", "AC-11"],
+      "note": "AC-6 current connection-generation safety already satisfies the requirement. It is not forced RED through a new telemetry requirement."
+    },
+    "splitFull": {
+      "command": "npx tsx --test src/ws/WsRouterSplitHandshake.test.ts",
+      "cwd": "server",
+      "exitCode": 1,
+      "total": 21,
+      "passed": 4,
+      "failed": 4,
+      "todo": 13,
+      "unexpectedFailures": 0,
+      "note": "The 13 todo cases preserve the pre-existing standalone split activation limitation; only new missing resync contracts fail."
+    },
+    "diffCheck": {
+      "command": "git diff --check -- server/src/test-runner.ts server/src/ws/WsRouterSplitHandshake.test.ts",
+      "exitCode": 0
+    }
+  },
+  "coverage": {
+    "byteAndChunkBounds": "UTF-8 byte and chunk N-1/N/N+1 plus empty-chunk admission",
+    "freshResync": "Overflow abort, restore-needed, fresh snapshot token/barrier, sequence coverage prefix removal, post-snapshot chunk identity and ready-after-drain",
+    "faultMatrix": "timeout, failure, parser-reset failure, authority unavailable, second overflow after a fresh transaction, close/dispose",
+    "generationIsolation": "Old replay/repair callbacks after close/dispose cannot mutate the new connection transaction or release old output",
+    "clientIsolation": "Other client output/input/control, router-protocol authoritative headless repair, and post-overflow producer output continue while the affected client overflows",
+    "safeSendPressure": "Recovery control competes with an actual output-lane message after a real high-water queue hold; control must drain first and prohibited repair output must remain absent",
+    "redaction": "Assertions and this artifact store no raw terminal input/output payload"
+  },
+  "expectedFailureSignatureTemplate": "Repair queue·protocol RED 계약 RED AC-X: 기존 full-flush 기대를 overflow/timeout/failure stale-resync RED로 전환한다. Byte cap은 `Math.min(runtimePtyConfig.maxSnapshotBytes, 262_144)`와 `source=compatibility-cap`, chunk cap은 `resourceLimits.headless.pendingOutputMaxChunks`를 정확히 사용한다. Byte/chunk N-1·N·N+1, snapshot coverage prefix 제거",
+  "review": {
+    "reviewer": "tph00102_prickly_review",
+    "resolvedFindings": [
+      "obsolete full-flush tests remained registered and defined",
+      "fresh resync and second overflow were not actually exercised",
+      "AC-6 RED depended only on unspecified telemetry",
+      "safe-send pressure lacked a competing output lane",
+      "multi-client authority check bypassed router protocol",
+      "fresh replay did not assert no output or ready before ACK"
+    ],
+    "verdict": "No findings"
+  }
+}

@@ -1,0 +1,257 @@
+{
+  "schemaVersion": "1.0.0",
+  "artifactType": "g1-decision-record",
+  "decisionRecordId": "G1-2026-07-15-ORCA-ARCHITECTURAL-MIGRATION",
+  "requirementId": "MIG-BGSTAB-001",
+  "runId": "2026-07-15.projectmaster.wave1-baseline",
+  "buildId": "git:ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+  "evidenceAudit": {
+    "reference": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/g1-evidence-audit.json",
+    "fileSha256": "2925a676b25c2ebaed39b06f4cc1f2d399b6512a6f8d6490cf9e43eea979bdf9"
+  },
+  "businessDecision": {
+    "actor": "user",
+    "decision": "architectural migration",
+    "explicit": true,
+    "source": "conversation",
+    "sourceMessages": [
+      {
+        "date": "2026-07-15",
+        "text": "그냥 우리 로직 다 걷어내고 orca 로직을 흡수해도 좋습니다."
+      },
+      {
+        "date": "2026-07-15",
+        "text": "기존 구현을 전부 적출하고 orca ide 형식으로 가는 것에 대해서 연구해 보시오."
+      },
+      {
+        "date": "2026-07-15",
+        "text": "Wave끝까지 진행하시오."
+      }
+    ],
+    "oppositeBranch": "confirmed-bug-only",
+    "oppositeBranchRejectedBecause": [
+      "Wave-1 evidence shows browser/server retained-range mismatch, a server serialization boundary, and independent performance/data-path issues rather than one isolated defect.",
+      "The user explicitly selected Orca-style architectural replacement and continuation through all waves."
+    ]
+  },
+  "decisionInput": {
+    "decision": "architectural migration",
+    "prerequisiteEvidence": {
+      "splitDrift": {
+        "requirementId": "REL-BGSTAB-006",
+        "runId": "2026-07-15.projectmaster.wave1-baseline",
+        "buildId": "git:ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+        "artifacts": [
+          {
+            "kind": "split-characterization",
+            "reference": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/split-characterization.json",
+            "contentDigest": "sha256:d54487ef941f53c165dcc0c1878ea62e5cda1f5843fcca3c3e84294cd6999fda"
+          }
+        ]
+      },
+      "refreshBoundary": {
+        "requirementId": "OBS-BGSTAB-004",
+        "runId": "2026-07-15.projectmaster.wave1-baseline",
+        "buildId": "git:ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+        "artifacts": [
+          {
+            "kind": "retained-state-characterization",
+            "reference": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/retained-state-characterization.json",
+            "contentDigest": "sha256:ebdd8e5296cadb047eb8ad2c46a0c91d630fe5ac0a9d0f31baf308530d969e1f"
+          }
+        ]
+      },
+      "benchmark": {
+        "requirementId": "PERF-BGSTAB-008",
+        "runId": "2026-07-15.projectmaster.wave1-baseline",
+        "buildId": "git:ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+        "artifacts": [
+          {
+            "kind": "benchmark-raw",
+            "reference": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/benchmark-raw-samples.json",
+            "contentDigest": "sha256:d82398218a04418de9a3bbf6b38a124a5f05ceaa7aa2f008dc5dc625dbcdc146"
+          },
+          {
+            "kind": "benchmark-summary",
+            "reference": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/benchmark-summary.json",
+            "contentDigest": "sha256:bb63c56be66e04b9ec05a2a72aa736ac4d3baa6b08820003686f23c4eeafa583"
+          }
+        ]
+      }
+    },
+    "decisionRationale": {
+      "selectedBranchEvidenceReferences": [
+        "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/g1-evidence-audit.json",
+        "docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md",
+        "conversation://2026-07-15/orca-full-refactor-and-all-waves"
+      ],
+      "rejectedBranchEvidenceReferences": [
+        "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/retained-state-characterization.json",
+        "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/benchmark-summary.json",
+        "conversation://2026-07-15/orca-full-refactor-and-all-waves"
+      ]
+    },
+    "localFixAuthorizations": [],
+    "authorityRequirement": {
+      "requirementId": "REL-BGSTAB-007",
+      "stability": "stable",
+      "authorizationEvidenceReference": "docs/spec/30.buildergate-stability.srs.md#REL-BGSTAB-007",
+      "boundaries": {
+        "configuredRetainedStateRange": true,
+        "browserServerAuthorityRange": true,
+        "retentionEviction": true,
+        "checkpointTransaction": true,
+        "compatibilityBoundary": true
+      }
+    },
+    "activationLifecycleEvidence": {
+      "phaseReview": null,
+      "migrationRequirement": null,
+      "wave1Closure": null
+    }
+  },
+  "evaluation": {
+    "schemaVersion": "1.0.0",
+    "evaluationStage": "decision",
+    "selectedDecision": "architectural migration",
+    "result": "allow",
+    "prerequisiteEvidenceComplete": true,
+    "prerequisiteEvidence": {
+      "splitDrift": {
+        "requirementId": "REL-BGSTAB-006",
+        "complete": true,
+        "missing": []
+      },
+      "refreshBoundary": {
+        "requirementId": "OBS-BGSTAB-004",
+        "complete": true,
+        "missing": []
+      },
+      "benchmark": {
+        "requirementId": "PERF-BGSTAB-008",
+        "complete": true,
+        "missing": []
+      }
+    },
+    "decisionRationale": {
+      "selectedBranchEvidenceReferences": [
+        "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/g1-evidence-audit.json",
+        "docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md",
+        "conversation://2026-07-15/orca-full-refactor-and-all-waves"
+      ],
+      "rejectedBranchEvidenceReferences": [
+        "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/retained-state-characterization.json",
+        "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/benchmark-summary.json",
+        "conversation://2026-07-15/orca-full-refactor-and-all-waves"
+      ]
+    },
+    "authorizedLocalFixId": null,
+    "stableAuthorityRequirementId": "REL-BGSTAB-007",
+    "activationState": {
+      "waves": {
+        "wave-1": "pending-wave1-closure",
+        "wave-2": "eligible-after-wave1-closure",
+        "wave-3": "deferred",
+        "wave-4": "deferred",
+        "wave-5": "deferred"
+      },
+      "githubIssues": {
+        "#4": "deferred",
+        "#5": "deferred",
+        "#6": "deferred",
+        "#7": "deferred",
+        "#8": "deferred",
+        "#9": "deferred",
+        "#10": "deferred",
+        "#11": "deferred",
+        "#12": "deferred",
+        "#13": "deferred",
+        "#14": "deferred",
+        "#15": "deferred",
+        "#16": "deferred",
+        "#17": "deferred",
+        "#18": "deferred",
+        "#19": "deferred",
+        "#20": "deferred",
+        "#21": "deferred",
+        "#22": "deferred"
+      }
+    },
+    "activationReadiness": {
+      "applicable": true,
+      "ready": false,
+      "status": "pending-wave1-closure",
+      "checks": {
+        "phaseReview": {
+          "complete": false,
+          "taskId": "T-PH004-05",
+          "requiredVerdict": "No findings",
+          "evidenceReference": null
+        },
+        "migrationRequirement": {
+          "complete": false,
+          "requirementId": "MIG-BGSTAB-001",
+          "requiredStatus": "implemented",
+          "evidenceReference": null
+        },
+        "wave1Closure": {
+          "complete": false,
+          "target": "wave-1",
+          "requiredStatus": "completed",
+          "completionEventReference": null
+        }
+      },
+      "pendingReasons": [
+        {
+          "code": "PHASE_REVIEW_NOT_COMPLETE",
+          "path": "activationLifecycleEvidence.phaseReview",
+          "message": "T-PH004-05 must have an external No findings review evidence reference."
+        },
+        {
+          "code": "MIGRATION_REQUIREMENT_NOT_IMPLEMENTED",
+          "path": "activationLifecycleEvidence.migrationRequirement",
+          "message": "MIG-BGSTAB-001 must have external Status=implemented evidence."
+        },
+        {
+          "code": "WAVE1_NOT_CLOSED",
+          "path": "activationLifecycleEvidence.wave1Closure",
+          "message": "Wave 1 must have an external completed event reference."
+        }
+      ]
+    },
+    "authorizations": {
+      "serverAuthorityPromotion": false,
+      "uiVisualChange": false,
+      "legacyCodeDeletion": false,
+      "retainedRowsBudget": false,
+      "aggregateMemoryBudget": false,
+      "checkpointChunkOrInflightBudget": false
+    },
+    "denialReasons": []
+  },
+  "activationSemantics": {
+    "decisionValiditySeparatedFromActivationReadiness": true,
+    "currentEvaluationStage": "decision",
+    "currentWave1State": "pending-wave1-closure",
+    "currentWave2State": "eligible-after-wave1-closure",
+    "finalActivationEvaluator": "evaluateG1Activation",
+    "finalActivationRequiresExternalEvidence": [
+      "T-PH004-05 verdict=No findings with evidence reference",
+      "MIG-BGSTAB-001 Status=implemented with evidence reference",
+      "wave-1 Status=completed with completion event reference"
+    ],
+    "wave3ThroughWave5RemainSequentiallyDeferred": true,
+    "githubIssues4Through22RemainDeferredUntilTheirWaveAndRequirementGates": true,
+    "noImmediateProductMutation": true
+  },
+  "reviewFixes": [
+    {
+      "findingId": "FND-PH004-001",
+      "fixedAt": "2026-07-15T16:29:08.1095049Z",
+      "redEvidenceReference": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/ph004-fnd001-red-evidence.json",
+      "greenEvidenceReference": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/ph004-fnd001-green-evidence.json",
+      "resolution": "Decision validity remains allow while Wave 1 and Wave 2 states remain conditional until an external post-closure activation re-evaluation."
+    }
+  ],
+  "recordedAt": "2026-07-15T16:16:54.5800634Z"
+}

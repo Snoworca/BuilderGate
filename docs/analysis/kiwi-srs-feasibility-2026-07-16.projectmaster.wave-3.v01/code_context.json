@@ -1,0 +1,114 @@
+{
+  "schemaVersion": "1.0",
+  "analyst": "/root/wave3_feas_code",
+  "inspectionMode": "read-only",
+  "sourceFiles": 248,
+  "frontendTestFiles": 73,
+  "colocatedTestFiles": 17,
+  "externalModificationRequired": false,
+  "orcaModificationRequired": false,
+  "requirements": {
+    "OBS-BGSTAB-005": {
+      "complexity": "high",
+      "evidence": [
+        "server/src/types/config.types.ts:173",
+        "server/src/schemas/config.schema.ts:189",
+        "server/src/services/RuntimeConfigStore.ts:69",
+        "frontend/src/utils/inputReliabilityMode.ts:236",
+        "frontend/src/components/Terminal/TerminalView.tsx:2133"
+      ],
+      "reusableTests": [
+        "server/src/services/RuntimeConfigStore.test.ts:66",
+        "server/src/services/SettingsService.resourceLimits.test.ts:102",
+        "frontend/tests/unit/runtimeConfig.test.ts:219"
+      ]
+    },
+    "REL-BGSTAB-010": {
+      "complexity": "high",
+      "evidence": [
+        "server/src/services/RuntimeConfigStore.ts:192",
+        "server/src/ws/WsRouter.ts:197",
+        "server/src/services/SessionManager.ts:2263",
+        "frontend/src/utils/terminalOutputScheduler.ts:330"
+      ],
+      "reusableTests": [
+        "server/src/services/RuntimeConfigStore.test.ts:170",
+        "server/src/ws/WsRouterSendPriority.test.ts:158",
+        "frontend/tests/unit/terminalOutputScheduler.test.ts:121"
+      ]
+    },
+    "FR-BGSTAB-022": {
+      "complexity": "high",
+      "evidence": [
+        "frontend/src/utils/terminalOutputScheduler.ts:67",
+        "frontend/src/utils/visibleOutputRecovery.ts:687",
+        "frontend/src/components/Terminal/TerminalView.tsx:1242",
+        "frontend/src/components/Terminal/TerminalView.tsx:1592",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:2738"
+      ],
+      "reusableTests": [
+        "frontend/tests/unit/terminalOutputScheduler.test.ts:900",
+        "frontend/tests/unit/visibleOutputRecovery.test.ts:776",
+        "frontend/tests/e2e/wave2-terminal-restore.spec.ts:163"
+      ]
+    },
+    "REL-BGSTAB-011": {
+      "complexity": "high",
+      "evidence": [
+        "server/src/services/SessionManager.ts:325",
+        "server/src/services/SessionManager.ts:3625",
+        "server/src/services/SessionManager.ts:3681",
+        "server/src/utils/headlessTerminal.ts:95",
+        "server/src/ws/WsRouter.ts:585"
+      ],
+      "reusableTests": [
+        "server/src/services/SessionManagerPartialEscapeTail.test.ts:206",
+        "server/src/ws/WsRouterRestoreMetadata.test.ts:238",
+        "frontend/tests/e2e/terminal-authority.spec.ts:394"
+      ]
+    },
+    "MIG-BGSTAB-002": {
+      "complexity": "high",
+      "evidence": [
+        "server/src/services/SessionManager.ts:2554",
+        "server/src/ws/WsRouter.ts:474",
+        "server/src/ws/WsRouter.ts:1030",
+        "server/src/ws/WsRouter.ts:3211"
+      ],
+      "reusableTests": [
+        "server/src/ws/WsRouterRestoreMetadata.test.ts:456",
+        "frontend/tests/e2e/terminal-authority.spec.ts:361"
+      ]
+    },
+    "PERF-BGSTAB-010": {
+      "complexity": "high",
+      "evidence": [
+        "server/src/ws/wsSendPolicy.ts:25",
+        "server/src/ws/wsSendPolicy.ts:312",
+        "server/src/ws/WsRouter.ts:2455",
+        "server/src/ws/WsRouter.ts:2964",
+        "server/src/ws/WsRouter.ts:3061"
+      ],
+      "reusableTests": [
+        "server/src/ws/WsRouterSendPriority.test.ts:101",
+        "server/src/ws/wsSendPolicyRestoreMetadata.test.ts:104",
+        "server/src/benchmarks/terminalCharacterization.ts:702"
+      ]
+    },
+    "REL-BGSTAB-012": {
+      "complexity": "high",
+      "evidence": [
+        "server/src/ws/WsRouter.ts:386",
+        "server/src/ws/WsRouter.ts:2455",
+        "frontend/src/utils/terminalHiddenOutput.ts:39",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:2851",
+        "frontend/src/utils/visibleOutputRecovery.ts:868"
+      ],
+      "reusableTests": [
+        "frontend/tests/unit/terminalHiddenOutput.test.ts:21",
+        "frontend/tests/unit/terminalContainerRecoveryContract.test.ts:471",
+        "frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:551"
+      ]
+    }
+  }
+}

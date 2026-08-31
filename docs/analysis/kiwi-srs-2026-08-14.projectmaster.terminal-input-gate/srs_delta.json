@@ -1,0 +1,65 @@
+{
+  "mode": "live",
+  "run_interrupted": {
+    "phase": "4",
+    "cause": "subagent terminated on API 529 Overloaded while writing this delta file",
+    "note": "The 14 add_requirement mutations had already completed. This file was reconstructed by the main session from observed speckiwi state, not from the writer's own log."
+  },
+  "added_ids": [
+    "REL-BGSTAB-016",
+    "REL-BGSTAB-017",
+    "REL-BGSTAB-018",
+    "REL-BGSTAB-019",
+    "OBS-BGSTAB-007",
+    "MIG-BGSTAB-003",
+    "FR-BGSTAB-023",
+    "OPS-BGSTAB-001",
+    "OPS-BGSTAB-002",
+    "OPS-BGSTAB-003",
+    "OPS-BGSTAB-004",
+    "OPS-BGSTAB-005",
+    "OPS-BGSTAB-006",
+    "OPS-BGSTAB-007"
+  ],
+  "ref_to_id": {
+    "RC1": "REL-BGSTAB-016",
+    "RC2": "OPS-BGSTAB-001",
+    "RC4": "OBS-BGSTAB-007",
+    "RC5": "REL-BGSTAB-017",
+    "RC6": "REL-BGSTAB-018",
+    "RC8": "MIG-BGSTAB-003",
+    "RC9": "REL-BGSTAB-019",
+    "RC10": "OPS-BGSTAB-002",
+    "RC11": "OPS-BGSTAB-003",
+    "RC12": "OPS-BGSTAB-004",
+    "RC14": "OPS-BGSTAB-005",
+    "RC15": "OPS-BGSTAB-006",
+    "RC16": "OPS-BGSTAB-007",
+    "RC17": "FR-BGSTAB-023"
+  },
+  "target_count_before": 13,
+  "target_count_after": 27,
+  "status_changes_to_existing": [],
+  "existing_status_snapshot_unchanged": {
+    "implemented": ["FR-BGSTAB-022", "MIG-BGSTAB-002", "OBS-BGSTAB-005", "OBS-BGSTAB-006", "REL-BGSTAB-010", "REL-BGSTAB-011", "REL-BGSTAB-014", "REL-BGSTAB-015"],
+    "in_progress": ["PERF-BGSTAB-010"],
+    "planned": ["REL-BGSTAB-007", "REL-BGSTAB-012"],
+    "discarded": ["REL-BGSTAB-013"]
+  },
+  "new_requirement_status": "planned",
+  "new_requirement_status_note": "The authoring instruction specified status=proposed. The installed speckiwi 2.2.3 status enum does not include 'proposed', so the requirements landed as 'planned'. Stability=draft on all 14, which per CLAUDE.md blocks implementation entry until stability is raised.",
+  "new_requirement_stability": "draft",
+  "deferred": {
+    "RC3": "Audit record for dropped input conflicts with the BGSTAB scope constraint against logging raw input. Needs a user decision on what may be recorded.",
+    "RC7": "MCP gateway does not pass retainedIdentity. Ambiguity A2 has no reasonable default: intentional architecture boundary vs defect changes the scope entirely.",
+    "RC13": "Input-only backpressure is the approved design of FR-BGSTAB-002 (Stability=stable). Extending it to the output path is a policy reversal, not a defect fix."
+  },
+  "trace_links_pending_verification": true,
+  "trace_links_note": "Registered by the Phase 4 writer but not independently confirmed by the main session. Phase 5 verification must check them.",
+  "preexisting_diagnostics": {
+    "SRS-E002": ["Duplicate requirement ID REL-BGSTAB-015 in docs/spec/30.buildergate-stability.srs.md:4001 and docs/spec/steps/2026-07-26.pm.canary-fixture-recovery-public-api/01.public-sessionmanager-fixture.srs.md:3"],
+    "SRS-W018": 5,
+    "note": "Present before this run. The installed speckiwi lacks the repair subcommand, so these were left untouched and reported instead."
+  },
+  "validate_spec_result": "pending Phase 5"
+}

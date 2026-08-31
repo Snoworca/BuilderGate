@@ -1,0 +1,15 @@
+{
+  "requirement_id":"OBS-BGSTAB-006",
+  "decision":"retain Status=planned and Stability=evolving",
+  "committee_size":3,
+  "unanimous":true,
+  "votes":["planned/evolving","planned/evolving","planned/evolving"],
+  "authoritative_status_enum":["planned","in_progress","blocked","implemented","verified","discarded"],
+  "rejected_alternatives":[
+    {"value":"proposed","reason":"invalid persisted Status; validate_spec reports SRS-E005"},
+    {"value":"draft","reason":"not a Status; it is a Stability value and would block implementation"}
+  ],
+  "skill_tool_conflict":"kiwi-srs addition_site guidance names proposed as the cap, while current SpecKiwi persisted grammar rejects proposed.",
+  "scope_boundary":"Do not change the external kiwi-srs skill or SpecKiwi installation during this requirement-authoring task. Create follow-up tooling work separately.",
+  "verification":"validate_spec({failOnWarning:true}) returned zero errors and zero warnings after official update_status to planned."
+}

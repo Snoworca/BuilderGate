@@ -347,7 +347,7 @@ decode(dv: DataView, off: number): ParsedOrdinal64
 
 **기각안**: 헤더의 `streamEpoch`/`sourceSeq` 를 retained 평면 값으로 직결. **기각 사유** — retained 평면이 비활성(`WsRouter.ts:2396-2399`)이므로 지금 그 값을 실으면 프레임이 항상 초기값이 되어 갭 검출과 롤백이 무력화된다. 그리고 이 방식은 바이너리 전환을 checkpoint 승격 완료 뒤로 미루게 만드는데, 승격은 `allRespondersCapable` 게이트(`TerminalAuthorityProductionAdapter.ts:2228`, `WsRouter.ts:874-876`) 때문에 **협상 안 된 클라이언트가 하나만 붙어 있어도 차단**된다. 즉 무기한 대기다.
 
-`authorityEpoch` UUID 는 `authorityEpochIndex: uint16` 으로 압축한다. 매핑은 채널 개설 시와 변경 시 JSON control 로 전달한다 (§1.5).
+`authorityEpoch` UUID 는 `authorityEpochIndex: uint16` 으로 압축한다. 매핑은 채널 개설 시와 변경 시 JSON control 로 전달한다 (§1.5). — 🔴 **개정 R3 (2026-08-26)**: 이전 판은 매핑을 "JSON control 로 전달한다" 고만 하고 **어느 메시지가 UUID 를 싣는지 정하지 않았다**. 그 자리로 지목된 두 메시지(`:374-385` `SubscribedSessionInfo`, `:725-737` `terminal-binary:capability` 의 `channels[]`)는 **둘 다 인덱스만 싣는다** — 별칭을 별칭으로 설명한다. 그대로 구현하면 `08:192` 가 요구하는 클라이언트 표를 채울 재료가 없어 **표가 영원히 비고 모든 프레임이 `unknown-channel` 로 거부되며 채널별 복구 폭풍(`:433`)이 돈다**. **정본 규칙: 위 두 메시지가 `authorityEpoch: string`(UUID) 를 `authorityEpochIndex` 와 **함께** 싣는다.** 프레임 레이아웃은 바뀌지 않으므로 골든 벡터와 `07` 의 오프셋 표는 영향이 없다. 서버는 그 값을 이미 쥐고 있다 — `subscribed` 빌더(`WsRouter.ts:2634`)가 `:2611` 에서 가져오는 스냅샷 타입이 `authorityEpoch: string` 를 갖는다(`SessionManager.ts:182`). ⚠️ 대안이던 "프롤로그에서 인덱스를 제거하고 클라이언트가 `channelId → 세션 → UUID` 로 찾게 한다" 는 **채택하지 않는다** — 논리적으로는 인덱스가 재진술에 불과하나(채널↔세션 1:1, `:369-371`·`:393`), 골든 벡터 11개 중 10개 재계산 + `07` 이 오프셋을 고정한 레이아웃 전면 무효(`07` §2.6.1 off 72 등)라는 비용이 이득을 넘는다. ⚠️ 위 두 인터페이스 블록의 필드 목록은 **이 개정에 밀린 stale** 이며 위 규칙이 이긴다(`:571`). ⚠️ 인덱스 `0` 의 의미(`:1308`)는 이 개정이 닫지 **않는다** — 다만 클라이언트는 `channelId` 로 표를 찾으므로 프레임의 인덱스를 읽을 이유가 없어져, 남은 문제는 서버 인코더와 벡터 해석에 한정된다.
 
 ### 1.5 `channelId` — sessionId 매핑과 할당 프로토콜
 
@@ -541,7 +541,7 @@ opcode 별로 고정 레이아웃이며, 프롤로그 뒤부터 본문이다.
 
 **`chunkIdBase` 는 생략할 수 없다** `[설계결정]`. `chunkId` 는 클라이언트의 **중복제거 키**다 — `frontend/src/utils/visibleOutputRecovery.ts` 가 `record.writtenChunkIds.has(chunk.chunkId)` (`:1360`), `.add(...)` (`:1364`), `expectedDrainChunkIds.add(...)` (`:1351`), 그리고 `typeof chunk.chunkId !== 'string' || chunk.chunkId.length === 0` 이면 청크를 거부(`:1403-1404`)한다. 값은 세션별 bigint 카운터(`WsRouter.ts:3641-3645`)이므로 uint64 로 무손실 표현되고, 디코더는 부록 B 의 `readOrdinal64` 와 동일하게 `String(v)` 로 원래의 decimal 문자열을 복원한다. 세그먼트의 `chunkIdDelta` 는 이 base 로부터의 상대값이다 — base 없이 delta 만 두면 **절대 `chunkId` 복원이 불가능**하고 중복제거가 통째로 무력화된다.
 
-`output.chunkId` 는 optional 이다 (`ws-protocol.ts:721`). 부재 시 `chunkIdBase = 0` + `segmentCount = 0` 을 싣고, 디코더는 **`segmentCount === 0` 이면 `chunkIdBase` 를 chunkId 로 해석하지 않는다** — 0 이 유효한 chunkId 와 구별되지 않는 문제를 이렇게 회피한다. 현행 서버는 output 마다 chunkId 를 발급하므로(`WsRouter.ts:3641-3645`) 이 경로는 legacy 호환용이다.
+`output.chunkId` 는 optional 이다 (`ws-protocol.ts:721`). — 🔴 **개정 R2 (2026-08-23)**: 이전 판은 *"디코더는 `segmentCount === 0` 이면 `chunkIdBase` 를 chunkId 로 해석하지 않는다"* 고 했다. **그 규칙은 틀렸고 그대로 구현하면 정상 출력이 전부 버려진다** — 통상 프레임은 chunkId 를 갖고 세그먼트는 **없으므로**(`segmentCount === 0` 이 정상 상태다) 규칙이 매 프레임의 chunkId 를 지우고, 클라이언트는 chunkId 없는 청크를 거부한다(`visibleOutputRecovery.ts:1419-1422`). **정본 규칙: 부재는 `chunkIdBase = 0` 으로만 표현하고, `segmentCount` 와는 무관하다.** `chunkIdBase !== 0` 이면 그것이 chunkId 다. 0 이 모호하지 않은 이유는 발급기가 `(prev ?? 0n) + 1n` 로 세어(`WsRouter.ts:3642-3646`) **0 을 절대 내지 않기** 때문이며, 원판이 찾던 그 판별을 세그먼트 수가 아니라 값 자체가 제공한다. 세그먼트가 있는데 base 가 0 이면 세그먼트 identity 가 유도 불가이므로 **타일링 실패로 처리**한다(빈 `chunkId` 는 `assertContiguousSegments` 가 이미 거부한다).
 
 프롤로그의 `screenSeq` 를 8바이트로 잡은 것은 `[설계결정]` 이다. 현재 타입은 `number`(`SessionManager.ts:810`)이고 통상 범위는 uint32 로 충분하지만, 세션 수명 동안 리셋되지 않으므로(§1.6) 4바이트로 자르면 장수명 세션에서 조용히 wrap 한다. 세그먼트 쪽이 더 좁은 폭을 쓰는 것은 **전부 상대값이기 때문**이며, 절대값을 좁게 자른 것이 아니다.
 
@@ -575,11 +575,11 @@ opcode 별로 고정 레이아웃이며, 프롤로그 뒤부터 본문이다.
 | opcode | 메시지 (S→C) | 프롤로그 | 본문 | flags | 상세 |
 |---:|---|---:|---|---|---|
 | `0x03` | `ScreenRepairMessage` (`ws-protocol.ts:648-660`) | **24 B** | `ansiPatch` UTF-8 | `0x0009` | `07` §1.6 |
-| `0x04` | `TerminalCheckpointStartMessage` (`:81-94`) | **160 B** | `parserTail` 원시 바이트 (**0 B 가 통상**) | `0x0009` | `07` §2.9 |
+| `0x04` | `TerminalCheckpointStartMessage` (`:81-94`) | **200 B** (개정 R1, 아래) | `parserTail` 원시 바이트 (**0 B 가 통상**) | `0x0009` | `07` §2.9 |
 | `0x06` | `TerminalCheckpointCommitMessage` (`:103-109`) | **88 B** | **없음.** `payloadLength === 88` 이어야 한다 | `0x0009` | `07` §3.4 |
 | `0x07` | `TerminalCheckpointOutputMessage` (`:111-114`) | **12 B** | 원시 바이트 (0 B 가능) | `0x0009` | `07` §4.3 |
 
-`prologueBytes()` 확정값: `0x01` 24 / `0x02` 24 / `0x03` 24 / `0x04` 160 / `0x05` 12 / `0x06` 88 / `0x07` 12. **배정 7종 전부가 0 이 아니게 되므로 D15 가 닫힌다.**
+`prologueBytes()` 확정값: `0x01` 24 / `0x02` 24 / `0x03` 24 / **`0x04` 200** / `0x05` 12 / `0x06` 88 / `0x07` 12. **배정 7종 전부가 0 이 아니게 되므로 D15 가 닫힌다.** — **개정 R1 (2026-08-21)**: `0x04` 를 **160 → 200 B** 로 넓힌다. 사유는 `responderLeaseId` 가 와이어에 있어야 한다는 것이다 — `TerminalAuthorityController.ts:1592` 가 모든 rollback checkpoint 에 주입하고 클라이언트가 상속 전에 **비교**한다(`terminalCheckpointRuntime.ts:522`). 레이아웃은 off 160 `responderLeaseIdLength` uint8(도메인 `0..38`) + off 161 `responderLeaseIdBytes` raw 39 B(`[length,39)` 는 0 고정), `flags2` **bit4 = `RESPONDER_LEASE_ID_PRESENT`** 신설로 예약 마스크가 `0xFFF0` → **`0xFFE0`**. **고정폭 슬롯을 쓴 이유는 아래 불변식 1(프롤로그 길이는 opcode 만의 함수)을 지키기 위해서**다 — 가변 길이면 D14 안전성 논증이 무너진다. 상세 표는 `07` §2.6.1 / §2.9 를 참조편입한다. ⚠️ `07` 본문에 남은 `160` 표기(§0·§2.10·§2.11 등)는 **이 개정에 밀린 stale** 이며 위 값이 이긴다(`:571`).
 
 ##### 7종 전체에 걸리는 불변식 (여기가 소유자)
 
@@ -618,7 +618,7 @@ opcode 별로 고정 레이아웃이며, 프롤로그 뒤부터 본문이다.
 
 ### 1.10 크기 비교
 
-`server/src/ws/wsSendPolicy.ts:91` 은 `JSON.stringify(wireMessage)` 하나로 전 메시지를 직렬화하고, `:95` 가 `Buffer.byteLength(payload, 'utf8')` 로 길이를 잰다. `perMessageDeflate` 는 어디에도 설정되어 있지 않다 — ws 서버 생성은 `WsRouter.ts:612` `new WebSocketServer({ noServer: true })` 단 한 곳이고 옵션은 `noServer` 뿐이다. ws v8 기본값이 `false` 이므로 **현재 JSON 은 무압축으로 나간다.**
+`server/src/ws/wsSendPolicy.ts:96` 은 `JSON.stringify(wireMessage)` 하나로 전 메시지를 직렬화하고, `:100` 이 `Buffer.byteLength(payload, 'utf8')` 로 길이를 잰다. `perMessageDeflate` 는 어디에도 설정되어 있지 않다 — ws 서버 생성은 `WsRouter.ts:612` `new WebSocketServer({ noServer: true })` 단 한 곳이고 옵션은 `noServer` 뿐이다. ws v8 기본값이 `false` 이므로 **현재 JSON 은 무압축으로 나간다.**
 
 전형적 `output` 메시지 (sessionId UUID + authorityEpoch UUID + chunkId + connectionEpoch + deliverySeq + screenSeq):
 
@@ -632,7 +632,7 @@ ANSI 이스케이프 항이 특히 크다. JSON 은 U+001F 이하 제어문자�
 
 > ⚠️ **압축과의 공정 비교**: 현재 수치는 "무압축 JSON" 기준이다. `perMessageDeflate` 를 켠 JSON 은 반복적인 SGR 시퀀스를 잘 압축하므로 훨씬 싼 대안일 수 있다. 도입 후 측정에서 **binary vs deflate-JSON** 대조군을 반드시 포함해야 한다. 다만 deflate 는 CPU 를 쓰므로 "JSON.stringify CPU 를 줄인다"는 원 동기와는 반대 방향이다.
 >
-> 그리고 deflate 를 켜면 백프레셔 계산이 깨진다: `getServerBufferedAmount`(`WsRouter.ts:6572-6576`)의 `ws.bufferedAmount` 는 **압축 후** 바이트인데 `message.byteLength`(`wsSendPolicy.ts:95`)는 **압축 전** 바이트다. `:6098` `projectedBufferedAmount = bufferedAmount + message.byteLength` 가 과대평가된다.
+> 그리고 deflate 를 켜면 백프레셔 계산이 깨진다: `getServerBufferedAmount`(`WsRouter.ts:6572-6576`)의 `ws.bufferedAmount` 는 **압축 후** 바이트인데 `message.byteLength`(`wsSendPolicy.ts:100`)는 **압축 전** 바이트다. `:6098` `projectedBufferedAmount = bufferedAmount + message.byteLength` 가 과대평가된다.
 
 ---
 
@@ -1089,18 +1089,18 @@ onmessage(event):
 
 `visibleOutputRecovery.ts:408-450` `splitVisibleOutputSourceSegments` 는 `byteStart`/`byteEnd` 로 UTF-8 오프셋 분할을 하는데, 바이너리에서는 payload 가 이미 바이트열이라 **슬라이싱이 `subarray` 한 번**이 된다.
 
-### 3.6 서버측 JSON 역파싱 지점 — 전환 시 깨지는 곳
+### 3.6 서버측 JSON 역파싱 지점 — ✅ S1 에서 제거 완료 (0곳)
 
-`wsSendPolicy` 와 `WsRouter` 에는 **큐에 든 payload 를 다시 `JSON.parse` 하는** 코드가 여럿 있다. 바이너리에서는 전부 오작동한다.
+🔴 **이 절의 `[설계결정]` 은 S1 에서 집행 완료됐고, 아래 표가 예측한 증상은 하나도 발생할 수 없다** (2026-08-21 실측). **`wsSendPolicy.ts` 의 `JSON.parse` 0건**, **`WsRouter.ts` 의 `JSON.parse` 는 `:1746`·`:2554` 2곳뿐이고 둘 다 ingress**, **큐에 든 payload 를 되읽는 지점 0곳.** 표는 *S1 이 무엇을 없앴는지의 기록*으로 남긴다 — **이 표를 근거로 재파싱 방어를 설계하지 말 것.** (본 절 개정은 줄 수 중립이다. 이 파일을 가리키는 하류 앵커 20여 개가 밀리지 않도록 의도적으로 10줄에 맞췄다.)
 
-| 위치 | 하는 일 | 바이너리에서의 증상 |
+| pre-S1 위치 (당시 표기) | 하는 일 | **오늘의 실체 (직접 확인)** |
 |---|---|---|
-| `wsSendPolicy.ts:286-295` `hasFairDeliveryIdentity` | `JSON.parse(message.payload)` 로 `connectionEpoch`/`deliverySeq`/`deliveryKind` 유무 확인 | `catch` 에서 **`true` 반환**(`:293`) → **모든 바이너리 메시지의 coalesce 가 무조건 차단** |
-| `WsRouter.ts:6394-6406` `isFairTerminalDeliveryTransportMessage` | 실패 분류 | `catch` → `false` 오분류 → `safe-send-enforce` 에서 연결을 끊을 수 있음 |
-| `WsRouter.ts:5534-5544`, `:5563-5571` | `discard*FairDeliveryTransport` 필터링 | 폐기 대상 식별 실패 |
-| `WsRouter.ts:2551-2557` `tryParseRawMessage` | 에러 응답용 sessionId 추출 | sessionId 미검출 |
+| `wsSendPolicy.ts:286-295` `hasFairDeliveryIdentity` | coalesce 차단 판정 | **`:296-300`.** `connectionEpoch \|\| deliverySeq \|\| deliveryKind` 의 `!== undefined` 논리합이며 `try`/`catch` 자체가 없다 → *"`catch` 에서 `true` 반환"* 이라는 증상은 도달 불가 |
+| `WsRouter.ts:6394-6406` `isFairTerminalDeliveryTransportMessage` | 실패 분류 | **`:6394-6400`.** `type === 'output'`(`:6395`) + `connectionEpoch`·`sessionId`·`deliverySeq`·`deliveryKind` **4필드의 `!== undefined`**(`:6396-6399`) |
+| `WsRouter.ts:5534-5544`, `:5563-5571` | `discard*FairDeliveryTransport` 필터링 | **`discardCheckpointQueuedFairDeliveryTransport`(`:5519-`) 술어 `:5532-5540`** / **`discardQueuedFairDeliveryTransport`(`:5547-`) 술어 `:5557-5562`.** 둘 다 사이드카 비교 |
+| `WsRouter.ts:2551-2557` `tryParseRawMessage` | 에러 응답용 sessionId 추출 | **`:2552-2558`. 이 행만 여전히 유효하다** — ingress 라 S1 의 대상이 아니었다. 바이너리 raw 에 `JSON.parse` 를 재시도하지 않도록 하는 확장은 **S3 소관**이며 **이 절에서 살아남은 유일한 작업**이다 |
 
-`[설계결정]` — **payload 역파싱을 전부 제거**하고, 필요한 값을 `WsTransportMessage` 의 **1급 필드로 승격**한다. `createWsTransportMessage` (`wsSendPolicy.ts:80-125`)는 이미 원본 객체(`record`)에서 10개 필드(`type`/`sessionId`/`repairToken`/`replayToken`/`screenSeq`/`authorityEpoch`/`authorityRevision`/`chunkId`/`outputData`/`sourceSegments`)를 뽑아 올려두는 구조이므로, `connectionEpoch`/`deliverySeq`/`deliveryKind` 3개를 같은 방식으로 추가하면 된다. **이 리팩터는 바이너리와 무관하게 지금도 옳다** — 직렬화된 payload 를 되읽는 것은 계층 위반이고, `hasFairDeliveryIdentity` 는 이미 파싱 실패를 `true` 로 처리하는 방어적 코드를 달고 있다.
+`[설계결정]` **(집행됨)** — payload 역파싱을 전부 제거하고 필요한 값을 `WsTransportMessage` 의 **1급 필드로 승격**한다. `createWsTransportMessage`(**`wsSendPolicy.ts:85-135`**)가 `record` 에서 뽑아 올리는 필드는 **오늘 13개**다 — 기존 10개(`type`/`sessionId`/`repairToken`/`replayToken`/`screenSeq`/`authorityEpoch`/`authorityRevision`/`chunkId`/`outputData`/`sourceSegments`)에 **S1 이 `connectionEpoch`(`:116`)·`deliverySeq`(`:117-119`)·`deliveryKind`(`:120`) 3개를 추가**했다. 🔴 **이 닫힌 목록에 `responderLeaseId`·`sourceSeq`·`streamEpoch` 는 없다** — **`:823`** 이 *"§3.6 의 필드 승격 작업에 함께 포함시킨다"* 며 요구한 `WsTransportMessage.sourceSeq` 승격은 **일어나지 않았다.** 세 필드는 `payload` 문자열 안에 불투명 텍스트로만 남고 서버에 되파싱 지점이 없으므로(위 표), 이것이 `0x01` 프롤로그에서 세 필드를 뺄 수 있다는 판정의 **무조건 성립하는 근거**다. `metadata` 출처 7개(`policyGeneration`·`expiresAt`·`ready`·`recoveryGeneration`·`source`·`exactlyOnceKey`·`policyAdmissionMode`)는 별도 계열이다.
 
 ### 3.7 lane 분류
 

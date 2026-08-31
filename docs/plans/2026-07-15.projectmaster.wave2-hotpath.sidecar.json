@@ -1,0 +1,4316 @@
+{
+  "schema_version": "1.1.0",
+  "plan_contract": "1.2.0",
+  "run_id": "2026-07-15.projectmaster.wave2-hotpath",
+  "target": "wave-2",
+  "plan_version": "0.1.0",
+  "generated_at": "2026-07-15T12:00:00Z",
+  "tool_versions": {
+    "speckiwi": "2.3.1",
+    "kiwi_planner": "0.6.0",
+    "validator": "0.6.0"
+  },
+  "tdd_policy": "strict",
+  "md_path": "docs/plans/2026-07-15.projectmaster.wave2-hotpath.plan.md",
+  "md_sha256": "9463237baef00adf157a712f982178d6cb1189d73b9e6b6fb4b6f6044bc97de9",
+  "phases": [
+    {
+      "id": "PH-001",
+      "title": "Segmented UTF-8 scheduler",
+      "goal": "hot-path allocation을 제거하고 기존 scheduler 계약과 baseline을 보존한다.",
+      "depends_on": [],
+      "task_ids": [
+        "T-PH001-01",
+        "T-PH001-02",
+        "T-PH001-03",
+        "T-PH001-04",
+        "T-PH001-05"
+      ]
+    },
+    {
+      "id": "PH-002",
+      "title": "Explicit screen-repair resync",
+      "goal": "giant recovery flush를 제거하고 client-local stale/resync로 수렴한다.",
+      "depends_on": [
+        "PH-001"
+      ],
+      "task_ids": [
+        "T-PH002-01",
+        "T-PH002-02",
+        "T-PH002-03",
+        "T-PH002-04",
+        "T-PH002-05"
+      ]
+    },
+    {
+      "id": "PH-003",
+      "title": "Bounded remount restore",
+      "goal": "snapshot→held tail→ready/input의 generation-safe bounded restore를 만든다.",
+      "depends_on": [
+        "PH-001",
+        "PH-002"
+      ],
+      "task_ids": [
+        "T-PH003-01",
+        "T-PH003-02",
+        "T-PH003-03",
+        "T-PH003-04",
+        "T-PH003-05"
+      ]
+    },
+    {
+      "id": "PH-004",
+      "title": "Generation-safe clipboard",
+      "goal": "programmatic clipboard ownership을 통합하고 native/SIGINT/IME semantics를 보존한다.",
+      "depends_on": [
+        "PH-003"
+      ],
+      "task_ids": [
+        "T-PH004-01",
+        "T-PH004-02",
+        "T-PH004-03",
+        "T-PH004-04",
+        "T-PH004-05"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "title": "UTF-8 segmented queue RED 계약",
+      "type": "code",
+      "req_ids": [
+        "PERF-BGSTAB-009"
+      ],
+      "files": [
+        "frontend/tests/unit/terminalOutputScheduler.test.ts"
+      ],
+      "action": "기존 scheduler unit suite에 encoder 계측, surrogate/ANSI/N-1·N·N+1, no-full-join, bounded compaction, overflow, callback/reset/single-flight/input-yield 실패 사례를 먼저 추가한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+        "windows": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "새 계약 때문에만 RED가 재현된다.",
+        "기존 production code는 이 Task에서 변경하지 않는다."
+      ],
+      "rollback": "추가 RED test만 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-01-PERF-BGSTAB-009",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-009"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        {
+          "path": "frontend/tests/unit/terminalOutputScheduler.test.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-10"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC1-01",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-1",
+            "kind": "contract",
+            "expected_failure_signature": "UTF-8 segmented queue RED 계약 RED AC-1: 기존 scheduler unit suite에 encoder 계측, surrogate/ANSI/N-1·N·N+1, no-full-join, bounded compaction, overflow, callback/reset/single-flight/input-yield 실패 사례를 먼저 추가한다."
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC2-01",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-2",
+            "kind": "contract",
+            "expected_failure_signature": "UTF-8 segmented queue RED 계약 RED AC-2: 기존 scheduler unit suite에 encoder 계측, surrogate/ANSI/N-1·N·N+1, no-full-join, bounded compaction, overflow, callback/reset/single-flight/input-yield 실패 사례를 먼저 추가한다."
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC3-01",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-3",
+            "kind": "contract",
+            "expected_failure_signature": "UTF-8 segmented queue RED 계약 RED AC-3: 기존 scheduler unit suite에 encoder 계측, surrogate/ANSI/N-1·N·N+1, no-full-join, bounded compaction, overflow, callback/reset/single-flight/input-yield 실패 사례를 먼저 추가한다."
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC4-01",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-4",
+            "kind": "contract",
+            "expected_failure_signature": "UTF-8 segmented queue RED 계약 RED AC-4: 기존 scheduler unit suite에 encoder 계측, surrogate/ANSI/N-1·N·N+1, no-full-join, bounded compaction, overflow, callback/reset/single-flight/input-yield 실패 사례를 먼저 추가한다."
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC5-01",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-5",
+            "kind": "contract",
+            "expected_failure_signature": "UTF-8 segmented queue RED 계약 RED AC-5: 기존 scheduler unit suite에 encoder 계측, surrogate/ANSI/N-1·N·N+1, no-full-join, bounded compaction, overflow, callback/reset/single-flight/input-yield 실패 사례를 먼저 추가한다."
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC6-01",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-6",
+            "kind": "contract",
+            "expected_failure_signature": "UTF-8 segmented queue RED 계약 RED AC-6: 기존 scheduler unit suite에 encoder 계측, surrogate/ANSI/N-1·N·N+1, no-full-join, bounded compaction, overflow, callback/reset/single-flight/input-yield 실패 사례를 먼저 추가한다."
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC7-01",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-7",
+            "kind": "contract",
+            "expected_failure_signature": "UTF-8 segmented queue RED 계약 RED AC-7: 기존 scheduler unit suite에 encoder 계측, surrogate/ANSI/N-1·N·N+1, no-full-join, bounded compaction, overflow, callback/reset/single-flight/input-yield 실패 사례를 먼저 추가한다."
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC10-01",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-10",
+            "kind": "contract",
+            "expected_failure_signature": "UTF-8 segmented queue RED 계약 RED AC-10: 기존 scheduler unit suite에 encoder 계측, surrogate/ANSI/N-1·N·N+1, no-full-join, bounded compaction, overflow, callback/reset/single-flight/input-yield 실패 사례를 먼저 추가한다."
+          }
+        ],
+        "red_evidence": {
+          "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+          "cwd": "frontend",
+          "exit_code": 1,
+          "passed": 20,
+          "failed": 4,
+          "failure_signatures": [
+            "UTF-8 segmented queue RED AC-1: accepted ingress encode must be exactly once and prefix-loop encode must be zero",
+            "UTF-8 segmented queue RED AC-3: scheduler writes must use encoded segments/subarrays instead of string prefix copies",
+            "UTF-8 segmented queue RED AC-4: non-compacting chunk pressure must overflow instead of allocating a full pending join",
+            "UTF-8 segmented queue RED AC-7: scheduler-to-xterm staged writer must accept Uint8Array output"
+          ],
+          "artifact": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave2-hotpath/T-PH001-01/red-evidence.json"
+        }
+      }
+    },
+    {
+      "id": "T-PH001-02",
+      "phase_id": "PH-001",
+      "title": "Segmented byte deque와 Uint8Array writer GREEN",
+      "type": "code",
+      "req_ids": [
+        "PERF-BGSTAB-009"
+      ],
+      "files": [
+        "frontend/src/utils/terminalOutputScheduler.ts",
+        "frontend/src/components/Terminal/TerminalView.tsx",
+        "frontend/tests/unit/terminalOutputScheduler.test.ts",
+        "frontend/tests/benchmarks/terminalNoRenderFixture.ts"
+      ],
+      "action": "accepted ingress를 한 번 encode한 segment+head offset deque로 바꾸고 UTF-8 continuation boundary subarray, bounded leaf compaction과 string|Uint8Array writer를 최소 구현한다. 기존 문자열 payload 고정 회귀 assertion과 Wave-1 NO_RENDER fixture consumer는 동일 delivered bytes/string을 UTF-8 decode-normalize하여 비교하도록만 조정하며 digest·bytes·invocation assertion 범위를 약화하지 않는다. 기존 limit/cache/callback/generation contract를 유지한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+        "windows": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "prefix loop encode/allocation 0이다.",
+        "ingress encode는 최대 1회다.",
+        "full pending join/allocation이 없다.",
+        "기존 callback/single-flight/overflow semantics가 통과한다."
+      ],
+      "rollback": "scheduler representation과 writer adapter 변경을 되돌린다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-02-PERF-BGSTAB-009",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-009"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "frontend/tests/unit/terminalOutputScheduler.test.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH001-01"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-10"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC1-02",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-1",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC2-02",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-2",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC3-02",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-3",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC4-02",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-4",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC5-02",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-5",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC6-02",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-6",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC7-02",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-7",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC10-02",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-10",
+            "kind": "contract"
+          }
+        ],
+        "red_evidence": {
+          "source_task": "T-PH001-01",
+          "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+          "cwd": "frontend",
+          "exit_code": 1,
+          "passed": 20,
+          "failed": 4,
+          "artifact": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave2-hotpath/T-PH001-01/red-evidence.json"
+        },
+        "green_evidence": {
+          "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+          "cwd": "frontend",
+          "exit_code": 0,
+          "passed": 24,
+          "failed": 0,
+          "typecheck": "PASS",
+          "scoped_eslint": "PASS with 3 pre-existing TerminalView warnings",
+          "independent_review": "No findings",
+          "artifact": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave2-hotpath/T-PH001-02/green-evidence.json"
+        }
+      }
+    },
+    {
+      "id": "T-PH001-03",
+      "phase_id": "PH-001",
+      "title": "NO_RENDER paired benchmark RED 계약",
+      "type": "perf_test",
+      "req_ids": [
+        "PERF-BGSTAB-009"
+      ],
+      "files": [
+        "frontend/tests/benchmarks/terminalNoRenderFixture.ts",
+        "frontend/tests/benchmarks/terminalNoRenderFixtureEvidence.ts",
+        "frontend/tests/benchmarks/terminalNoRenderFixture.test.ts",
+        "frontend/tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts"
+      ],
+      "action": "Wave-1 동일 seed·warm-up·trial manifest에서 before/post digest, bytes, invocation, encode/allocation counter와 paired bootstrap CI gate가 없으면 실패하는 benchmark tests를 추가한다. 두 test file을 독립 실행해 각 RED failure signature를 보존한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/benchmarks/terminalNoRenderFixture.test.ts",
+          "expected_exit": 1
+        },
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/benchmarks/terminalNoRenderFixture.test.ts; first=$?; node --experimental-strip-types --test tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts; second=$?; if [ $first -ne 0 ]; then exit $first; fi; exit $second",
+        "windows": "node --experimental-strip-types --test tests/benchmarks/terminalNoRenderFixture.test.ts; $first=$LASTEXITCODE; node --experimental-strip-types --test tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts; $second=$LASTEXITCODE; if ($first -ne 0) { exit $first }; exit $second",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "110/65542 byte baseline 및 invocation 1/2 gate가 RED다.",
+        "5%는 측정 허용치로만 표기된다."
+      ],
+      "rollback": "신규 benchmark RED 계약만 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-03-PERF-BGSTAB-009",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-03"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-009"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        {
+          "path": "frontend/tests/benchmarks/terminalNoRenderFixture.ts"
+        },
+        {
+          "path": "frontend/tests/benchmarks/terminalNoRenderFixtureEvidence.ts"
+        },
+        {
+          "path": "frontend/tests/benchmarks/terminalNoRenderFixture.test.ts"
+        },
+        {
+          "path": "frontend/tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-8",
+        "AC-9",
+        "AC-10"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC8-03",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-8"
+            ],
+            "test_file": "frontend/tests/benchmarks/terminalNoRenderFixture.test.ts",
+            "test_symbol": "NO_RENDER paired benchmark RED 계약 — AC-8",
+            "kind": "performance",
+            "expected_failure_signature": "NO_RENDER paired benchmark RED 계약 RED AC-8: Wave-1 동일 seed·warm-up·trial manifest에서 before/post digest, bytes, invocation, encode/allocation counter와 paired bootstrap CI gate가 없으면 실패하는 benchmark tests를 추가한다. 두 test file을 독립 실행해 각 RED failure signature를 보존한다."
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC9-03",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-9"
+            ],
+            "test_file": "frontend/tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+            "test_symbol": "NO_RENDER paired benchmark RED 계약 — AC-9",
+            "kind": "performance",
+            "expected_failure_signature": "NO_RENDER paired benchmark RED 계약 RED AC-9: Wave-1 동일 seed·warm-up·trial manifest에서 before/post digest, bytes, invocation, encode/allocation counter와 paired bootstrap CI gate가 없으면 실패하는 benchmark tests를 추가한다. 두 test file을 독립 실행해 각 RED failure signature를 보존한다."
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC10-03",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "frontend/tests/benchmarks/terminalNoRenderFixture.test.ts",
+            "test_symbol": "NO_RENDER paired benchmark RED 계약 — AC-10",
+            "kind": "performance",
+            "expected_failure_signature": "NO_RENDER paired benchmark RED 계약 RED AC-10: Wave-1 동일 seed·warm-up·trial manifest에서 before/post digest, bytes, invocation, encode/allocation counter와 paired bootstrap CI gate가 없으면 실패하는 benchmark tests를 추가한다. 두 test file을 독립 실행해 각 RED failure signature를 보존한다."
+          }
+        ],
+        "red_evidence": {
+          "commands": [
+            "node --experimental-strip-types --test tests/benchmarks/terminalNoRenderFixture.test.ts",
+            "node --experimental-strip-types --test tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts"
+          ],
+          "cwd": "frontend",
+          "exit_codes": [1, 1],
+          "failure_signatures": [
+            "NO_RENDER paired benchmark RED 계약 RED AC-8",
+            "NO_RENDER paired benchmark RED 계약 RED AC-10",
+            "NO_RENDER paired benchmark RED 계약 RED AC-9"
+          ],
+          "unit_regression": "24/24 PASS",
+          "independent_review": "No findings",
+          "artifact": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave2-hotpath/T-PH001-03/red-evidence.json"
+        }
+      }
+    },
+    {
+      "id": "T-PH001-04",
+      "phase_id": "PH-001",
+      "title": "Paired benchmark와 frontend 통합 GREEN 검증",
+      "type": "perf_test",
+      "req_ids": [
+        "PERF-BGSTAB-009"
+      ],
+      "files": [
+        "frontend/tests/benchmarks/terminalNoRenderFixture.ts",
+        "frontend/tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+        "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave2-hotpath/scheduler-benchmark.json"
+      ],
+      "action": "existing fixture를 재사용해 paired raw sample/summary를 생성하고 exact gate와 p95 CI upper delta를 검증한 뒤 typecheck/scoped lint를 실행한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/benchmarks/terminalNoRenderFixture.test.ts tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+          "expected_exit": 0
+        },
+        {
+          "kind": "perf",
+          "metric": "paired_p95_upper_delta",
+          "threshold": "<= baseline p95 5%; exact gates all pass",
+          "tool": "node:test paired bootstrap"
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm run typecheck && npx eslint tests/benchmarks/terminalNoRenderFixture.ts tests/benchmarks/terminalNoRenderFixtureEvidence.ts tests/benchmarks/terminalNoRenderFixture.test.ts tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+        "windows": "npm run typecheck; if ($LASTEXITCODE -eq 0) { npx eslint tests/benchmarks/terminalNoRenderFixture.ts tests/benchmarks/terminalNoRenderFixtureEvidence.ts tests/benchmarks/terminalNoRenderFixture.test.ts tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts }",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "digest/bytes/invocation baseline이 exact match다.",
+        "raw sample provenance와 counter가 artifact에 있다.",
+        "typecheck와 task-scoped lint가 통과하고 full lint의 기존 unrelated baseline debt는 증거에 분리 기록된다."
+      ],
+      "rollback": "benchmark hook/artifact만 제거하고 scheduler GREEN unit 상태를 보존한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-04-PERF-BGSTAB-009",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-04"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-009"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        {
+          "path": "frontend/tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts"
+        },
+        {
+          "path": "frontend/tests/benchmarks/terminalNoRenderFixture.ts"
+        },
+        {
+          "path": "frontend/tests/benchmarks/terminalNoRenderFixture.test.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH001-02",
+        "T-PH001-03"
+      ],
+      "covers_ac": [
+        "AC-7",
+        "AC-8",
+        "AC-9",
+        "AC-10"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC7-04",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "UTF-8 segmented queue RED 계약 — AC-7",
+            "kind": "performance"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC8-04",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-8"
+            ],
+            "test_file": "frontend/tests/benchmarks/terminalNoRenderFixture.test.ts",
+            "test_symbol": "NO_RENDER paired benchmark RED 계약 — AC-8",
+            "kind": "performance"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC9-04",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-9"
+            ],
+            "test_file": "frontend/tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+            "test_symbol": "NO_RENDER paired benchmark RED 계약 — AC-9",
+            "kind": "performance"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-009-AC10-04",
+            "req_id": "PERF-BGSTAB-009",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "frontend/tests/benchmarks/terminalNoRenderFixture.test.ts",
+            "test_symbol": "NO_RENDER paired benchmark RED 계약 — AC-10",
+            "kind": "performance"
+          }
+        ],
+        "red_evidence": {
+          "source_task": "T-PH001-03",
+          "commands": [
+            "node --experimental-strip-types --test tests/benchmarks/terminalNoRenderFixture.test.ts",
+            "node --experimental-strip-types --test tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts"
+          ],
+          "cwd": "frontend",
+          "exit_code": 1,
+          "exit_codes": [
+            1,
+            1
+          ],
+          "artifact": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave2-hotpath/T-PH001-03/red-evidence.json"
+        },
+        "green_evidence": {
+          "command": "node --experimental-strip-types --test tests/benchmarks/terminalNoRenderFixture.test.ts tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+          "cwd": "frontend",
+          "exit_code": 0,
+          "passed": 3,
+          "failed": 0,
+          "scheduler_unit": "24/24 PASS",
+          "typecheck": "PASS",
+          "scoped_eslint": "PASS",
+          "full_lint": "pre-existing unrelated debt: 42 errors and 18 warnings",
+          "benchmark_artifact": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave2-hotpath/scheduler-benchmark.json",
+          "benchmark_artifact_digest": "sha256:1af45c5ae4ccc7fae82680db4ef263b23d4988f2a6870579806632cb7d36899d",
+          "benchmark_artifact_file_sha256": "ceef7e8b40415c55e3095f0fe9b7e5280c1f08a82f0480c62a3bc799f44795c8",
+          "default_verification_artifact_invariant": true,
+          "independent_review": "No findings",
+          "artifact": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave2-hotpath/T-PH001-04/green-evidence.json"
+        }
+      }
+    },
+    {
+      "id": "T-PH001-05",
+      "phase_id": "PH-001",
+      "title": "Scheduler 까칠한 Phase 리뷰",
+      "type": "review",
+      "req_ids": [
+        "PERF-BGSTAB-009"
+      ],
+      "files": [
+        "frontend/src/utils/terminalOutputScheduler.ts",
+        "frontend/tests/unit/terminalOutputScheduler.test.ts",
+        "docs/plans/2026-07-15.projectmaster.wave2-hotpath.plan.md"
+      ],
+      "action": "SRS/plan/diff/test/benchmark를 까칠한 reviewer가 전수 대조하고 finding을 수정·재검증한 뒤 `No findings`를 받아야 Phase를 완료한다.",
+      "acceptance_tests": [
+        {
+          "kind": "checklist",
+          "items": [
+            "AC-1~AC-10 전수 대조",
+            "no authority/default/UI change",
+            "benchmark raw evidence",
+            "review verdict=No findings"
+          ]
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts tests/benchmarks/terminalNoRenderFixture.test.ts tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts && npm run typecheck && npx eslint src/utils/terminalOutputScheduler.ts src/components/Terminal/TerminalView.tsx tests/unit/terminalOutputScheduler.test.ts tests/benchmarks/terminalNoRenderFixture.ts tests/benchmarks/terminalNoRenderFixtureEvidence.ts tests/benchmarks/terminalNoRenderFixture.test.ts tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+        "windows": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts tests/benchmarks/terminalNoRenderFixture.test.ts tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts; if ($LASTEXITCODE -eq 0) { npm run typecheck }; if ($LASTEXITCODE -eq 0) { npx eslint src/utils/terminalOutputScheduler.ts src/components/Terminal/TerminalView.tsx tests/unit/terminalOutputScheduler.test.ts tests/benchmarks/terminalNoRenderFixture.ts tests/benchmarks/terminalNoRenderFixtureEvidence.ts tests/benchmarks/terminalNoRenderFixture.test.ts tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts }",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "review finding 0건이다.",
+        "관련 test/typecheck/task-scoped lint를 최종 재실행하고 full lint의 기존 unrelated baseline debt를 증거에 분리 기록한다."
+      ],
+      "rollback": "Phase 상태를 미완료로 되돌리고 finding을 유지한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-05-PERF-BGSTAB-009",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-05"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-009"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "test_files": [
+        {
+          "path": "frontend/tests/unit/terminalOutputScheduler.test.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH001-04"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-8",
+        "AC-9",
+        "AC-10"
+      ],
+      "tdd": null,
+      "review_evidence": {
+        "unit_and_benchmark": "27/27 PASS",
+        "explicit_benchmark_record": "1/1 PASS with atomic temp rename",
+        "typecheck": "PASS",
+        "task_scoped_eslint": "PASS with 0 errors and 3 pre-existing TerminalView warnings",
+        "full_lint": "pre-existing unrelated debt: 42 errors and 18 warnings",
+        "benchmark_artifact_digest": "sha256:1af45c5ae4ccc7fae82680db4ef263b23d4988f2a6870579806632cb7d36899d",
+        "benchmark_artifact_file_sha256": "ceef7e8b40415c55e3095f0fe9b7e5280c1f08a82f0480c62a3bc799f44795c8",
+        "reviewer": "g1_authority_contract_draft",
+        "verdict": "No findings",
+        "artifact": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave2-hotpath/T-PH001-05/review-fix-evidence.json"
+      }
+    },
+    {
+      "id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "title": "Repair queue·protocol RED 계약",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-008"
+      ],
+      "files": [
+        "server/src/test-runner.ts",
+        "server/src/ws/WsRouterSplitHandshake.test.ts"
+      ],
+      "action": "기존 full-flush 기대를 overflow/timeout/failure stale-resync RED로 전환한다. Byte cap은 `Math.min(runtimePtyConfig.maxSnapshotBytes, 262_144)`와 `source=compatibility-cap`, chunk cap은 `resourceLimits.headless.pendingOutputMaxChunks`를 정확히 사용한다. Byte/chunk N-1·N·N+1, snapshot coverage prefix 제거, post-snapshot held tail exactly-once ordering, parser incomplete/reset failure, reconnect-required/authority-unavailable, close/dispose, stale generation, raw-payload redaction, multi-client isolation과 unified/split limitation을 독립 failure signature로 추가한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npm run build; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; $env:BUILDERGATE_TEST_FILTER='screen repair'; node dist/test-runner.js",
+          "expected_exit": 1
+        },
+        {
+          "kind": "shell",
+          "cmd": "npx tsx --test src/ws/WsRouterSplitHandshake.test.ts",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm run build && BUILDERGATE_TEST_FILTER='screen repair' node dist/test-runner.js",
+        "windows": "npm run build; if ($LASTEXITCODE -eq 0) { $env:BUILDERGATE_TEST_FILTER='screen repair'; node dist/test-runner.js }",
+        "cwd": "server"
+      },
+      "dod": [
+        "giant full-flush expectation이 사라진다.",
+        "새 resync 계약 부재 때문에만 RED다."
+      ],
+      "rollback": "RED tests만 원복한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-01-REL-BGSTAB-008",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-008"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        },
+        {
+          "path": "server/src/ws/WsRouterSplitHandshake.test.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-9",
+        "AC-10",
+        "AC-11"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC1-01",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "Repair queue·protocol RED 계약 — AC-1",
+            "kind": "contract",
+            "expected_failure_signature": "Repair queue·protocol RED 계약 RED AC-1: 기존 full-flush 기대를 overflow/timeout/failure stale-resync RED로 전환한다. Byte cap은 `Math.min(runtimePtyConfig.maxSnapshotBytes, 262_144)`와 `source=compatibility-cap`, chunk cap은 `resourceLimits.headless.pendingOutputMaxChunks`를 정확히 사용한다. Byte/chunk N-1·N·N+1, snapshot coverage prefix 제거"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC2-01",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/ws/WsRouterSplitHandshake.test.ts",
+            "test_symbol": "Repair queue·protocol RED 계약 — AC-2",
+            "kind": "contract",
+            "expected_failure_signature": "Repair queue·protocol RED 계약 RED AC-2: 기존 full-flush 기대를 overflow/timeout/failure stale-resync RED로 전환한다. Byte cap은 `Math.min(runtimePtyConfig.maxSnapshotBytes, 262_144)`와 `source=compatibility-cap`, chunk cap은 `resourceLimits.headless.pendingOutputMaxChunks`를 정확히 사용한다. Byte/chunk N-1·N·N+1, snapshot coverage prefix 제거"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC3-01",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "Repair queue·protocol RED 계약 — AC-3",
+            "kind": "contract",
+            "expected_failure_signature": "Repair queue·protocol RED 계약 RED AC-3: 기존 full-flush 기대를 overflow/timeout/failure stale-resync RED로 전환한다. Byte cap은 `Math.min(runtimePtyConfig.maxSnapshotBytes, 262_144)`와 `source=compatibility-cap`, chunk cap은 `resourceLimits.headless.pendingOutputMaxChunks`를 정확히 사용한다. Byte/chunk N-1·N·N+1, snapshot coverage prefix 제거"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC4-01",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/ws/WsRouterSplitHandshake.test.ts",
+            "test_symbol": "Repair queue·protocol RED 계약 — AC-4",
+            "kind": "contract",
+            "expected_failure_signature": "Repair queue·protocol RED 계약 RED AC-4: 기존 full-flush 기대를 overflow/timeout/failure stale-resync RED로 전환한다. Byte cap은 `Math.min(runtimePtyConfig.maxSnapshotBytes, 262_144)`와 `source=compatibility-cap`, chunk cap은 `resourceLimits.headless.pendingOutputMaxChunks`를 정확히 사용한다. Byte/chunk N-1·N·N+1, snapshot coverage prefix 제거"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC5-01",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "Repair queue·protocol RED 계약 — AC-5",
+            "kind": "contract",
+            "expected_failure_signature": "Repair queue·protocol RED 계약 RED AC-5: 기존 full-flush 기대를 overflow/timeout/failure stale-resync RED로 전환한다. Byte cap은 `Math.min(runtimePtyConfig.maxSnapshotBytes, 262_144)`와 `source=compatibility-cap`, chunk cap은 `resourceLimits.headless.pendingOutputMaxChunks`를 정확히 사용한다. Byte/chunk N-1·N·N+1, snapshot coverage prefix 제거"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC6-01",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "server/src/ws/WsRouterSplitHandshake.test.ts",
+            "test_symbol": "Repair queue·protocol RED 계약 — AC-6",
+            "kind": "contract",
+            "expected_failure_signature": "Not applicable: AC-6 old-connection callback isolation already passes as a pre-existing GREEN characterization; no telemetry-only RED is manufactured.",
+            "expected_outcome": "pass-existing-contract",
+            "red_gap": false
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC7-01",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "Repair queue·protocol RED 계약 — AC-7",
+            "kind": "contract",
+            "expected_failure_signature": "Repair queue·protocol RED 계약 RED AC-7: 기존 full-flush 기대를 overflow/timeout/failure stale-resync RED로 전환한다. Byte cap은 `Math.min(runtimePtyConfig.maxSnapshotBytes, 262_144)`와 `source=compatibility-cap`, chunk cap은 `resourceLimits.headless.pendingOutputMaxChunks`를 정확히 사용한다. Byte/chunk N-1·N·N+1, snapshot coverage prefix 제거"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC9-01",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-9"
+            ],
+            "test_file": "server/src/ws/WsRouterSplitHandshake.test.ts",
+            "test_symbol": "Repair queue·protocol RED 계약 — AC-9",
+            "kind": "contract",
+            "expected_failure_signature": "Repair queue·protocol RED 계약 RED AC-9: 기존 full-flush 기대를 overflow/timeout/failure stale-resync RED로 전환한다. Byte cap은 `Math.min(runtimePtyConfig.maxSnapshotBytes, 262_144)`와 `source=compatibility-cap`, chunk cap은 `resourceLimits.headless.pendingOutputMaxChunks`를 정확히 사용한다. Byte/chunk N-1·N·N+1, snapshot coverage prefix 제거"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC10-01",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "Repair queue·protocol RED 계약 — AC-10",
+            "kind": "contract",
+            "expected_failure_signature": "Repair queue·protocol RED 계약 RED AC-10: 기존 full-flush 기대를 overflow/timeout/failure stale-resync RED로 전환한다. Byte cap은 `Math.min(runtimePtyConfig.maxSnapshotBytes, 262_144)`와 `source=compatibility-cap`, chunk cap은 `resourceLimits.headless.pendingOutputMaxChunks`를 정확히 사용한다. Byte/chunk N-1·N·N+1, snapshot coverage prefix 제"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC11-01",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-11"
+            ],
+            "test_file": "server/src/ws/WsRouterSplitHandshake.test.ts",
+            "test_symbol": "Repair queue·protocol RED 계약 — AC-11",
+            "kind": "contract",
+            "expected_failure_signature": "Repair queue·protocol RED 계약 RED AC-11: 기존 full-flush 기대를 overflow/timeout/failure stale-resync RED로 전환한다. Byte cap은 `Math.min(runtimePtyConfig.maxSnapshotBytes, 262_144)`와 `source=compatibility-cap`, chunk cap은 `resourceLimits.headless.pendingOutputMaxChunks`를 정확히 사용한다. Byte/chunk N-1·N·N+1, snapshot coverage prefix 제"
+          }
+        ],
+        "red_evidence": {
+          "build": "PASS",
+          "screen_repair": "14 legacy PASS; 5 new intended RED",
+          "split_exact": "AC-6 pre-existing characterization PASS; AC-2/4/9/11 intended RED",
+          "split_full": "4 PASS; 4 new intended RED; 13 pre-existing TODO",
+          "obsolete_giant_full_flush_expectations": 0,
+          "unexpected_failures": 0,
+          "raw_payload_recorded": false,
+          "reviewer": "tph00102_prickly_review",
+          "verdict": "No findings",
+          "artifact": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave2-hotpath/T-PH002-01/red-evidence.json"
+        }
+      }
+    },
+    {
+      "id": "T-PH002-02",
+      "phase_id": "PH-002",
+      "title": "Client-local repair state와 fresh snapshot GREEN",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-008"
+      ],
+      "files": [
+        "server/src/ws/WsRouter.ts",
+        "server/src/ws/wsSendPolicy.ts",
+        "server/src/types/ws-protocol.ts",
+        "server/src/services/SessionManager.ts",
+        "server/src/test-runner.ts",
+        "server/src/ws/WsRouterSplitHandshake.test.ts"
+      ],
+      "action": "queuedOutput giant string을 제거하고 chunk+byte accounting을 authority로 사용한다. Byte cap은 `Math.min(runtimePtyConfig.maxSnapshotBytes, 262_144)`와 `source=compatibility-cap`, chunk cap은 `resourceLimits.headless.pendingOutputMaxChunks`로 기록한다. Under-cap ACK에서는 snapshot sequence coverage prefix를 버리고 post-snapshot held tail만 exactly-once 순서대로 drain한다. Overflow/timeout/parser reset failure/authority unavailable/close-dispose 시 이전 token과 callback을 폐기하고 explicit restore-needed 또는 reconnect-required 결과와 fresh snapshot transaction을 affected client에만 시작한다. Safe-send queue에서는 message type/session/token metadata 기반 pure removal helper로 superseded repair/snapshot/output suffix만 제거하고 unrelated lane 순서와 byte counters를 보존한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npm run build; if ($LASTEXITCODE -eq 0) { $env:BUILDERGATE_TEST_FILTER='screen repair'; node dist/test-runner.js }",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm run build && BUILDERGATE_TEST_FILTER='screen repair' node dist/test-runner.js",
+        "windows": "npm run build; if ($LASTEXITCODE -eq 0) { $env:BUILDERGATE_TEST_FILTER='screen repair'; node dist/test-runner.js }",
+        "cwd": "server"
+      },
+      "dod": [
+        "giant join/direct output이 없다.",
+        "snapshot coverage prefix는 중복 전송되지 않고 held tail은 exactly-once다.",
+        "parser reset 실패와 authority unavailable이 explicit 결과로 수렴한다.",
+        "close/dispose와 stale generation callback은 no-op이다.",
+        "affected client만 stale다.",
+        "raw terminal payload가 telemetry에 없다.",
+        "Settings-backed policy를 주장하지 않는다."
+      ],
+      "rollback": "additive protocol과 router state 변경을 되돌려 기존 characterization 상태로 복귀한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-02-REL-BGSTAB-008",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-008"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "server/src/test-runner.ts"
+        },
+        {
+          "path": "server/src/ws/WsRouterSplitHandshake.test.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH002-01"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-9",
+        "AC-10"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC1-02",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "Client-local repair state와 fresh snapshot GREEN — AC-1",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC2-02",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "Client-local repair state와 fresh snapshot GREEN — AC-2",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC3-02",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "Client-local repair state와 fresh snapshot GREEN — AC-3",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC4-02",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "Client-local repair state와 fresh snapshot GREEN — AC-4",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC5-02",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "Client-local repair state와 fresh snapshot GREEN — AC-5",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC6-02",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "Client-local repair state와 fresh snapshot GREEN — AC-6",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC7-02",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "Client-local repair state와 fresh snapshot GREEN — AC-7",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC9-02",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-9"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "Client-local repair state와 fresh snapshot GREEN — AC-9",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC10-02",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "server/src/test-runner.ts",
+            "test_symbol": "Client-local repair state와 fresh snapshot GREEN — AC-10",
+            "kind": "contract"
+          }
+        ],
+        "red_evidence": {
+          "source_task": "T-PH002-01",
+          "commands": [
+            "npm run build; $env:BUILDERGATE_TEST_FILTER='screen repair'; node dist/test-runner.js",
+            "npx tsx --test src/ws/WsRouterSplitHandshake.test.ts"
+          ],
+          "cwd": "server",
+          "exit_code": 1,
+          "passed": 18,
+          "failed": 9,
+          "artifact": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave2-hotpath/T-PH002-01/red-evidence.json"
+        },
+        "green_evidence": {
+          "commands": [
+            "npm run build",
+            "$env:BUILDERGATE_TEST_FILTER='screen repair'; node dist/test-runner.js",
+            "npx tsx --test --test-name-pattern='Repair queue·protocol RED 계약' src/ws/WsRouterSplitHandshake.test.ts",
+            "npx tsx --test src/ws/WsRouterSplitHandshake.test.ts",
+            "npm test"
+          ],
+          "cwd": "server",
+          "exit_code": 0,
+          "screen_repair": "21/21 PASS",
+          "strict_split": "5/5 PASS",
+          "full_split": "8 PASS, 0 FAIL, 13 pre-existing TODO",
+          "full_server": "507/507 PASS",
+          "diff_check": "PASS",
+          "independent_review": "No findings",
+          "artifact": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave2-hotpath/T-PH002-02/green-evidence.json"
+        }
+      }
+    },
+    {
+      "id": "T-PH002-03",
+      "phase_id": "PH-002",
+      "title": "Frontend stale/resync barrier RED 계약",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-008"
+      ],
+      "files": [
+        "frontend/tests/helpers/visibleOutputRecoveryContract.ts",
+        "frontend/tests/unit/visibleOutputRecovery.test.ts",
+        "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+        "frontend/tests/e2e/wave2-screen-repair-resync.spec.ts"
+      ],
+      "action": "additive protocol mirror, stale generation 무시, provisional local state, snapshot coverage prefix 제거와 held tail exactly-once drain, apply+drain 전 ready/input 금지, parser incomplete/reset failure, reconnect-required/authority-unavailable, close/dispose, multi-client fault를 검증하는 pure/contract RED tests와 `https://localhost:2222` resync E2E를 추가한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts",
+          "expected_exit": 1
+        },
+        {
+          "kind": "shell",
+          "cmd": "npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --project \"Desktop Chrome\"",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts",
+        "windows": "node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "stale/resync message와 ready barrier 부재가 RED로 재현된다.",
+        "retainedHistoryEquivalent=true를 허용하지 않는다."
+      ],
+      "rollback": "frontend RED tests만 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-03-REL-BGSTAB-008",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-03"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-008"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        {
+          "path": "frontend/tests/helpers/visibleOutputRecoveryContract.ts"
+        },
+        {
+          "path": "frontend/tests/unit/visibleOutputRecovery.test.ts"
+        },
+        {
+          "path": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts"
+        },
+        {
+          "path": "frontend/tests/e2e/wave2-screen-repair-resync.spec.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-8",
+        "AC-10",
+        "AC-11"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC2-03",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/unit/visibleOutputRecovery.test.ts",
+            "test_symbol": "Frontend stale/resync barrier RED 계약 — AC-2",
+            "kind": "contract",
+            "expected_failure_signature": "Frontend stale/resync barrier RED 계약 RED AC-2: current-view ready/input release occurred before authoritative apply plus held-tail write drain, or tail order/chunk identity changed"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC3-03",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+            "test_symbol": "Frontend stale/resync barrier RED 계약 — AC-3",
+            "kind": "contract",
+            "expected_failure_signature": "Frontend stale/resync barrier RED 계약 RED AC-3: overflow did not abort the active token into affected-view restore-needed plus fresh server snapshot without pending-output flush"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC4-03",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/e2e/wave2-screen-repair-resync.spec.ts",
+            "test_symbol": "Frontend stale/resync barrier RED 계약 — AC-4",
+            "kind": "contract",
+            "expected_failure_signature": "Frontend stale/resync barrier RED 계약 RED AC-4: restore-needed did not engage the stale barrier, or snapshot-covered prefix/tail was lost, duplicated, or reordered"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC5-03",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/unit/visibleOutputRecovery.test.ts",
+            "test_symbol": "Frontend stale/resync barrier RED 계약 — AC-5",
+            "kind": "contract",
+            "expected_failure_signature": "Frontend stale/resync barrier RED 계약 RED AC-5: failed/timeout/reoverflow/parser-reset failure reported success, released input, or lacked reconnect-required/authority-unavailable"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC6-03",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+            "test_symbol": "Frontend stale/resync barrier RED 계약 — AC-6",
+            "kind": "contract",
+            "expected_failure_signature": "Frontend stale/resync barrier RED 계약 RED AC-6: stale token/generation/duplicate/late-dispose signal mutated the live transaction or released held output"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC8-03",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-8"
+            ],
+            "test_file": "frontend/tests/e2e/wave2-screen-repair-resync.spec.ts",
+            "test_symbol": "Frontend stale/resync barrier RED 계약 — AC-8",
+            "kind": "contract",
+            "expected_failure_signature": "Frontend stale/resync barrier RED 계약 RED AC-8: restore-needed did not engage the stale barrier, or provisional local restore cleared hidden dirty/skipped/stale or promoted retained equivalence"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC10-03",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "frontend/tests/unit/visibleOutputRecovery.test.ts",
+            "test_symbol": "Frontend stale/resync barrier RED 계약 — AC-10",
+            "kind": "contract",
+            "expected_failure_signature": "Frontend stale/resync barrier RED 계약 RED AC-10: recovery bypassed the bounded scheduler, used direct/giant write, activated split parity, or promoted retained history equivalence"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC11-03",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-11"
+            ],
+            "test_file": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+            "test_symbol": "Frontend stale/resync barrier RED 계약 — AC-11",
+            "kind": "contract",
+            "expected_failure_signature": "Frontend stale/resync barrier RED 계약 RED AC-11: real UTF-8 byte/chunk boundary accounting, incomplete-parser non-ready, close/dispose, multi-client isolation, or unified/split limitation failed"
+          }
+        ],
+        "red_evidence": {
+          "commands": [
+            "node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts",
+            "npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --project \"Desktop Chrome\""
+          ],
+          "cwd": "frontend",
+          "exit_code": 1,
+          "unit": "14 baseline PASS; 6 intended RED",
+          "e2e": "2 collected; AC-4 and AC-8 intended RED; infrastructure errors 0",
+          "typecheck": "PASS",
+          "scoped_eslint": "PASS",
+          "independent_review": "No findings",
+          "artifact": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave2-hotpath/T-PH002-03/red-evidence.json"
+        }
+      }
+    },
+    {
+      "id": "T-PH002-04",
+      "phase_id": "PH-002",
+      "title": "Frontend resync state·barrier GREEN 통합",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-008"
+      ],
+      "files": [
+        "frontend/src/types/ws-protocol.ts",
+        "frontend/src/utils/visibleOutputRecovery.ts",
+        "frontend/src/contexts/WebSocketContext.tsx",
+        "frontend/src/components/Terminal/TerminalView.tsx",
+        "frontend/src/components/Terminal/TerminalContainer.tsx",
+        "frontend/tests/unit/visibleOutputRecovery.test.ts",
+        "frontend/tests/e2e/wave2-screen-repair-resync.spec.ts"
+      ],
+      "action": "server result를 additive mirror하고 WebSocketContext의 handler/grace routing과 existing VisibleOutputRecoveryState/input barrier에 연결한다. Grace output은 ordered chunk identity를 보존하고 동일 transaction의 duplicate chunkId admission은 accounting·schedule 전에 idempotent no-op 처리하며 TerminalView는 awaitable write-drain completion을 제공한다. Fresh current-server snapshot의 coverage prefix를 제외하고 held tail을 exactly-once drain할 때까지 stale/ready/input을 유지한다. Parser reset 실패는 reconnect-required/authority-unavailable로 수렴시키고 dispose된 generation과 다른 client에는 영향을 주지 않는다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts",
+          "expected_exit": 0
+        },
+        {
+          "kind": "shell",
+          "cmd": "npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --project \"Desktop Chrome\"",
+          "expected_exit": 0
+        },
+        {
+          "kind": "shell",
+          "cmd": "Push-Location ../server; npx tsx --test src/ws/WsRouterSplitHandshake.test.ts; $code=$LASTEXITCODE; Pop-Location; exit $code",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts && npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --project \"Desktop Chrome\" && (cd ../server && npx tsx --test src/ws/WsRouterSplitHandshake.test.ts) && npm run typecheck && npm run lint",
+        "windows": "node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts; if ($LASTEXITCODE -eq 0) { npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --project \"Desktop Chrome\" }; if ($LASTEXITCODE -eq 0) { Push-Location ../server; npx tsx --test src/ws/WsRouterSplitHandshake.test.ts; $code=$LASTEXITCODE; Pop-Location; if ($code -ne 0) { exit $code } }; if ($LASTEXITCODE -eq 0) { npm run typecheck }; if ($LASTEXITCODE -eq 0) { npm run lint }",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "stale generation callback이 no-op이다.",
+        "current-view ready와 retained equivalence가 분리된다.",
+        "unified/split limitation이 보존된다."
+      ],
+      "rollback": "frontend additive protocol consumer와 recovery transition을 되돌린다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-04-REL-BGSTAB-008",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-04"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-008"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "frontend/tests/unit/visibleOutputRecovery.test.ts"
+        },
+        {
+          "path": "frontend/tests/e2e/wave2-screen-repair-resync.spec.ts"
+        },
+        {
+          "path": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts"
+        },
+        {
+          "path": "server/src/ws/WsRouterSplitHandshake.test.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH002-02",
+        "T-PH002-03"
+      ],
+      "covers_ac": [
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-8",
+        "AC-9",
+        "AC-10",
+        "AC-11"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC2-04",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/unit/visibleOutputRecovery.test.ts",
+            "test_symbol": "Frontend resync state·barrier GREEN 통합 — AC-2",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC3-04",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/e2e/wave2-screen-repair-resync.spec.ts",
+            "test_symbol": "Frontend resync state·barrier GREEN 통합 — AC-3",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC4-04",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+            "test_symbol": "Frontend resync state·barrier GREEN 통합 — AC-4",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC5-04",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/ws/WsRouterSplitHandshake.test.ts",
+            "test_symbol": "Frontend resync state·barrier GREEN 통합 — AC-5",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC6-04",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "frontend/tests/unit/visibleOutputRecovery.test.ts",
+            "test_symbol": "Frontend resync state·barrier GREEN 통합 — AC-6",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC7-04",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "frontend/tests/e2e/wave2-screen-repair-resync.spec.ts",
+            "test_symbol": "Frontend resync state·barrier GREEN 통합 — AC-7",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC8-04",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-8"
+            ],
+            "test_file": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+            "test_symbol": "Frontend resync state·barrier GREEN 통합 — AC-8",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC9-04",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-9"
+            ],
+            "test_file": "server/src/ws/WsRouterSplitHandshake.test.ts",
+            "test_symbol": "Frontend resync state·barrier GREEN 통합 — AC-9",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC10-04",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "frontend/tests/unit/visibleOutputRecovery.test.ts",
+            "test_symbol": "Frontend resync state·barrier GREEN 통합 — AC-10",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-008-AC11-04",
+            "req_id": "REL-BGSTAB-008",
+            "ac_refs": [
+              "AC-11"
+            ],
+            "test_file": "frontend/tests/e2e/wave2-screen-repair-resync.spec.ts",
+            "test_symbol": "Frontend resync state·barrier GREEN 통합 — AC-11",
+            "kind": "contract"
+          }
+        ],
+        "red_evidence": {
+          "source_task": "T-PH002-03",
+          "commands": [
+            "node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts",
+            "npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --project \"Desktop Chrome\""
+          ],
+          "cwd": "frontend",
+          "exit_code": 1,
+          "unit": "14 baseline PASS; 6 intended RED",
+          "e2e": "2 intended RED; infrastructure errors 0",
+          "artifact": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave2-hotpath/T-PH002-03/red-evidence.json"
+        },
+        "green_evidence": {
+          "commands": [
+            "npx tsx --test tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts",
+            "npm run typecheck",
+            "npm run build",
+            "npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --project=\"Desktop Chrome\"",
+            "npx tsx --test src/ws/WsRouterSplitHandshake.test.ts"
+          ],
+          "exit_code": 0,
+          "unit": "31/31 PASS",
+          "e2e": "2/2 PASS on https://localhost:2222",
+          "typecheck": "PASS",
+          "build": "PASS",
+          "scoped_eslint": "0 errors; 5 pre-existing warnings",
+          "full_split": "8 PASS, 0 FAIL, 13 known TODO",
+          "diff_check": "PASS",
+          "independent_review": "No findings",
+          "artifact": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave2-hotpath/T-PH002-04/green-evidence.json"
+        }
+      }
+    },
+    {
+      "id": "T-PH002-05",
+      "phase_id": "PH-002",
+      "title": "Repair fault matrix와 까칠한 Phase 리뷰",
+      "type": "review",
+      "req_ids": [
+        "REL-BGSTAB-008"
+      ],
+      "files": [
+        "server/src/ws/WsRouter.ts",
+        "server/src/test-runner.ts",
+        "server/src/ws/WsRouterSplitHandshake.test.ts",
+        "frontend/src/components/Terminal/TerminalContainer.tsx",
+        "frontend/tests/e2e/wave2-screen-repair-resync.spec.ts",
+        "docs/plans/2026-07-15.projectmaster.wave2-hotpath.plan.md"
+      ],
+      "action": "server/frontend tests, split compatibility와 exact source/SRS/diff를 까칠한 reviewer가 검토하고 수정·재검증 후 `No findings`를 받는다.",
+      "acceptance_tests": [
+        {
+          "kind": "checklist",
+          "items": [
+            "AC-1~AC-11 전수 대조",
+            "N-1/N/N+1·timeout·reoverflow·generation·multi-client",
+            "no giant/direct flush",
+            "review verdict=No findings"
+          ]
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm run build && BUILDERGATE_TEST_FILTER='screen repair' node dist/test-runner.js && npx tsx --test src/ws/WsRouterSplitHandshake.test.ts && (cd ../frontend && node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts && npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --project \"Desktop Chrome\" && npm run typecheck && npm run lint)",
+        "windows": "npm run build; if ($LASTEXITCODE -eq 0) { $env:BUILDERGATE_TEST_FILTER='screen repair'; node dist/test-runner.js }; if ($LASTEXITCODE -eq 0) { npx tsx --test src/ws/WsRouterSplitHandshake.test.ts }; if ($LASTEXITCODE -eq 0) { Push-Location ../frontend; node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts; if ($LASTEXITCODE -eq 0) { npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --project \"Desktop Chrome\" }; if ($LASTEXITCODE -eq 0) { npm run typecheck }; if ($LASTEXITCODE -eq 0) { npm run lint }; $code=$LASTEXITCODE; Pop-Location; exit $code }",
+        "cwd": "server"
+      },
+      "dod": [
+        "review finding 0건이다.",
+        "server build/tests와 frontend typecheck/lint가 재통과한다."
+      ],
+      "rollback": "Phase 미완료 상태로 복귀한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-05-REL-BGSTAB-008",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-05"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-008"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        {
+          "path": "frontend/tests/e2e/wave2-screen-repair-resync.spec.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH002-04"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-8",
+        "AC-9",
+        "AC-10",
+        "AC-11"
+      ],
+      "tdd": null,
+      "review_evidence": {
+        "server_full_regression": "PASS",
+        "screen_repair": "24/24 PASS",
+        "supersession": "3/3 PASS",
+        "split_characterization": "8 PASS, 0 FAIL, 13 known TODO",
+        "frontend_targeted_unit": "34/34 PASS",
+        "frontend_full_unit": "278/278 PASS",
+        "frontend_typecheck_build_scoped_eslint": "PASS",
+        "https_e2e": "2/2 PASS on https://localhost:2222",
+        "diff_check": "PASS",
+        "reviewer": "/root/wave2_ph2_prickly_review",
+        "verdict": "No findings",
+        "artifact": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave2-hotpath/T-PH002-05/fix-evidence.json"
+      }
+    },
+    {
+      "id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "title": "Restore coordinator RED 단위 계약",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-009"
+      ],
+      "files": [
+        "frontend/tests/unit/terminalRestoreCoordinator.test.ts"
+      ],
+      "action": "기존 `createVisibleOutputRecoveryCoordinator`를 직접 대상으로 byte·chunk cap 각각의 N-1·N·N+1, snapshot→tail→matching-ready/ACK/input, live-lane idle fence, same-session view/xterm generation, dispose/remount ownership, replay auto-reply guard, FIFO completion probe와 authoritative partial-escape tail을 요구하는 9개 non-vacuous RED tests를 추가한다. 신규 coordinator module이나 product default는 만들지 않는다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts",
+          "expected_exit": 1,
+          "stdout_regex": "tests 9"
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts",
+        "windows": "node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "9개 case가 모두 발견·실행되어 각자의 고유 semantic assertion으로 실패하고 tests 9/fail 9를 보고한다.",
+        "ERR_MODULE_NOT_FOUND·import·parse failure가 0건이다.",
+        "AC-1은 actual TextEncoder로 ASCII/CJK/emoji/empty의 byte·chunk N-1·N·N+1을 각각 검증하고 두 overflow 모두 recovery 1회와 held accounting 0을 요구한다.",
+        "새 limit 숫자를 test product default로 만들지 않는다."
+      ],
+      "rollback": "신규 RED test를 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-01-REL-BGSTAB-009",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-009"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "frontend/tests/unit/terminalRestoreCoordinator.test.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-8",
+        "AC-10"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC1-01",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Restore coordinator RED — byte/chunk N-1·N·N+1",
+            "kind": "contract",
+            "expected_failure_signature": "expected byte and chunk N-1/N/N+1 admission matrix to overflow once with zero held accounting"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC2-01",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Restore coordinator RED — overflow generation discard",
+            "kind": "contract",
+            "expected_failure_signature": "expected overflow to discard current generation and publish exactly one fresh recovery"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC3-01",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Restore coordinator RED — authority barrier order",
+            "kind": "contract",
+            "expected_failure_signature": "expected matching authority ready to wait for ACK and all tail credits in snapshot-tail-ready-input order"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC4-01",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Restore coordinator RED — live idle fence",
+            "kind": "contract",
+            "expected_failure_signature": "expected restore snapshot writer to wait for the live scheduler idle fence"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC5-01",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Restore coordinator RED — same-session generation fence",
+            "kind": "contract",
+            "expected_failure_signature": "expected stale same-session view/xterm callbacks timers IME and ACK results to be ignored"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC6-01",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Restore coordinator RED — dispose/remount ownership",
+            "kind": "contract",
+            "expected_failure_signature": "expected dispose/remount to release bounded grace ownership without queue or timer theft"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC7-01",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Restore coordinator RED — replay auto-reply and ACK fault",
+            "kind": "contract",
+            "expected_failure_signature": "expected replay-generated xterm auto-reply and ACK failure to keep user input blocked or observably rejected"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC8-01",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-8"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Restore coordinator RED — FIFO probe and leak fence",
+            "kind": "contract",
+            "expected_failure_signature": "expected lost callback FIFO probe or wedged pipeline to remain stale with zero leaked timers/listeners"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC10-01",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Restore coordinator RED — authoritative partial escape tail",
+            "kind": "contract",
+            "expected_failure_signature": "expected production pending escape tail to block ready until authoritative parser completion"
+          }
+        ],
+        "red_evidence": {
+          "command": "node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts",
+          "exit_code": 1,
+          "captured_failure": "tests 9, pass 0, fail 9; all nine planned semantic AssertionError signatures matched; import/parse/module failures 0",
+          "timestamp": "2026-07-15T23:14:54.6465765Z"
+        }
+      }
+    },
+    {
+      "id": "T-PH003-02",
+      "phase_id": "PH-003",
+      "title": "Bounded restore state machine GREEN",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-009"
+      ],
+      "files": [
+        "frontend/src/utils/visibleOutputRecovery.ts",
+        "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+        "frontend/tests/unit/visibleOutputRecovery.test.ts"
+      ],
+      "action": "existing `createVisibleOutputRecoveryCoordinator`를 이중 authority 없이 확장한다. connection/session/view/xterm generation, transactionId와 discriminated snapshot/replay 또는 repair authority token, timer/credit identity, explicit restore-needed, pending-tail/replay-guard command를 기존 terminal limits와 scheduler semantics로 구현한다. 별도 이름이 필요하면 동일 authority의 thin compatibility re-export만 허용한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts",
+          "expected_exit": 0,
+          "stdout_regex": "tests 9"
+        },
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts tests/unit/visibleOutputRecovery.test.ts",
+        "windows": "node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts tests/unit/visibleOutputRecovery.test.ts",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "신규 coordinator 9개 case와 기존 visible recovery 회귀가 모두 GREEN이다.",
+        "queue/accounting이 bounded다.",
+        "timeout에서 input을 PTY로 degraded send하지 않는다.",
+        "old callback이 current state를 변경하지 않는다.",
+        "pending escape tail 또는 replay guard가 남으면 current-view ready/input을 해제하지 않는다."
+      ],
+      "rollback": "기존 visible recovery 확장을 제거해 T-PH003-01 RED 상태로 복귀한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-02-REL-BGSTAB-009",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-009"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "frontend/tests/unit/terminalRestoreCoordinator.test.ts"
+        },
+        {
+          "path": "frontend/tests/unit/visibleOutputRecovery.test.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH003-01"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-8",
+        "AC-10"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC1-02",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Bounded restore state machine GREEN — AC-1",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC2-02",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Bounded restore state machine GREEN — AC-2",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC3-02",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Bounded restore state machine GREEN — AC-3",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC4-02",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Bounded restore state machine GREEN — AC-4",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC5-02",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Bounded restore state machine GREEN — AC-5",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC6-02",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Bounded restore state machine GREEN — AC-6",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC7-02",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Bounded restore state machine GREEN — AC-7",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC8-02",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-8"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Bounded restore state machine GREEN — AC-8",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC10-02",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "Bounded restore state machine GREEN — authoritative partial escape tail",
+            "kind": "contract"
+          }
+        ],
+        "red_evidence": {
+          "command": "node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts",
+          "exit_code": 1,
+          "captured_failure": "pre-implementation tests 9, pass 0, fail 9; all planned semantic signatures matched; infrastructure failures 0",
+          "timestamp": "2026-07-15T23:14:54.6465765Z"
+        },
+        "green_evidence": {
+          "command": "node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts tests/unit/visibleOutputRecovery.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-07-15T23:36:45.3390084Z"
+        }
+      }
+    },
+    {
+      "id": "T-PH003-03",
+      "phase_id": "PH-003",
+      "title": "Remount adapter·HTTPS RED 계약",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-009"
+      ],
+      "files": [
+        "frontend/tests/e2e/wave2-terminal-restore.spec.ts",
+        "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+        "frontend/tests/unit/terminalOutputScheduler.test.ts",
+        "frontend/tests/unit/terminalViewRecoveryContract.test.ts",
+        "server/src/services/SessionManagerPartialEscapeTail.test.ts",
+        "server/src/ws/WsRouterRestoreMetadata.test.ts",
+        "server/src/ws/wsSendPolicyRestoreMetadata.test.ts"
+      ],
+      "action": "frontend adapter/E2E RED와 6개 dedicated non-todo server RED를 추가한다. 실제 outputScreenSeq·ready token의 normal/replay/repair 종단 간 보존, coalesced segment boundary의 snapshot straddle, SessionManager ingest의 split CSI/OSC/DCS/ST/CAN/SUB tail, serialized display 제외, atomic snapshot authority revision race와 unstable pending-write 거절을 검증한다. frontend는 grace, live idle fence, replay auto-reply, early ready와 repeated remount를 검증한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/unit/terminalViewRecoveryContract.test.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/unit/terminalOutputScheduler.test.ts",
+          "expected_exit": 1
+        },
+        {
+          "kind": "shell",
+          "cmd": "npx playwright test tests/e2e/wave2-terminal-restore.spec.ts --project \"Desktop Chrome\"",
+          "expected_exit": 1
+        },
+        {
+          "kind": "shell",
+          "cmd": "npx tsx --test src/ws/WsRouterRestoreMetadata.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/SessionManagerPartialEscapeTail.test.ts",
+          "expected_exit": 1,
+          "stdout_regex": "tests 6"
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npx tsx --test src/ws/WsRouterRestoreMetadata.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/SessionManagerPartialEscapeTail.test.ts",
+        "windows": "npx tsx --test src/ws/WsRouterRestoreMetadata.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/SessionManagerPartialEscapeTail.test.ts",
+        "cwd": "server"
+      },
+      "dod": [
+        "server RED는 tests 6/fail 6이며 각 case가 고유 semantic signature로 실패하고 todo/skip/import/parse/module failure가 없다.",
+        "snapshot→held tail→matching ready/ACK/input 위반이 frontend RED다.",
+        "null-ref/remount overflow, replay auto-reply와 incomplete ANSI가 non-ready로 실패한다.",
+        "coalesced frame이 snapshot sequence를 가로질러도 실제 source segment 경계를 잃는 현재 결함이 RED다."
+      ],
+      "rollback": "신규 frontend adapter/E2E RED와 dedicated server RED test만 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-03-REL-BGSTAB-009",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-03"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-009"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "frontend/tests/e2e/wave2-terminal-restore.spec.ts"
+        },
+        {
+          "path": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts"
+        },
+        {
+          "path": "frontend/tests/unit/terminalOutputScheduler.test.ts"
+        },
+        {
+          "path": "frontend/tests/unit/terminalViewRecoveryContract.test.ts"
+        },
+        {
+          "path": "server/src/services/SessionManagerPartialEscapeTail.test.ts"
+        },
+        {
+          "path": "server/src/ws/WsRouterRestoreMetadata.test.ts"
+        },
+        {
+          "path": "server/src/ws/wsSendPolicyRestoreMetadata.test.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-8",
+        "AC-9",
+        "AC-10"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC3-03",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/unit/terminalViewRecoveryContract.test.ts",
+            "test_symbol": "Remount adapter RED — grace authority barrier",
+            "kind": "contract",
+            "expected_failure_signature": "expected grace snapshot-tail-ready-input order and matching token propagation"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC4-03",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+            "test_symbol": "Remount adapter RED — live/restore non-overlap",
+            "kind": "contract",
+            "expected_failure_signature": "expected restore and live xterm writers never to overlap"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC5-03",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/e2e/wave2-terminal-restore.spec.ts",
+            "test_symbol": "Remount adapter RED — same-session remount fence",
+            "kind": "contract",
+            "expected_failure_signature": "expected same-session remount stale async callbacks to be fenced"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC6-03",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "frontend/tests/unit/terminalViewRecoveryContract.test.ts",
+            "test_symbol": "Remount adapter RED — null-ref dispose ownership",
+            "kind": "contract",
+            "expected_failure_signature": "expected null-ref dispose and repeated remount to clear all bounded ownership"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC7-03",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+            "test_symbol": "Remount adapter RED — fault input barrier",
+            "kind": "contract",
+            "expected_failure_signature": "expected IME geometry buffer writer timeout and ACK faults to block input"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC8-03",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-8"
+            ],
+            "test_file": "frontend/tests/e2e/wave2-terminal-restore.spec.ts",
+            "test_symbol": "Remount adapter RED — bounded retries and ownership",
+            "kind": "contract",
+            "expected_failure_signature": "expected retries transactions timers and listeners to remain bounded"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC9-03",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-9"
+            ],
+            "test_file": "frontend/tests/unit/terminalViewRecoveryContract.test.ts",
+            "test_symbol": "Remount adapter RED — normal path compatibility",
+            "kind": "contract",
+            "expected_failure_signature": "expected hidden snapshot tombstone unified split and normal path behavior to remain unchanged"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC10-03",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+            "test_symbol": "Remount adapter RED — parser and Unicode corpus",
+            "kind": "contract",
+            "expected_failure_signature": "expected incomplete ANSI and ASCII CJK emoji corpus to remain non-ready or exact"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC3-13",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/ws/WsRouterRestoreMetadata.test.ts",
+            "test_symbol": "server RED — real output sequence and ready authority tokens",
+            "kind": "integration",
+            "expected_failure_signature": "expected normal replay repair output sequence and matching ready token metadata"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC3-23",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/ws/wsSendPolicyRestoreMetadata.test.ts",
+            "test_symbol": "server RED — coalesced snapshot straddle segments",
+            "kind": "unit",
+            "expected_failure_signature": "expected coalesced output to preserve source segment offsets across snapshot sequence"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC5-13",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/services/SessionManagerPartialEscapeTail.test.ts",
+            "test_symbol": "server RED — atomic authority revision race",
+            "kind": "integration",
+            "expected_failure_signature": "expected mixed snapshot N and parser-tail N+1 authority sample to be rejected or retried"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC5-23",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/services/SessionManagerPartialEscapeTail.test.ts",
+            "test_symbol": "server RED — unstable pending-write authority",
+            "kind": "integration",
+            "expected_failure_signature": "expected unstable pending headless write snapshot to retry or report generation-failed"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC10-13",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "server/src/services/SessionManagerPartialEscapeTail.test.ts",
+            "test_symbol": "server RED — split terminal escape ingest",
+            "kind": "integration",
+            "expected_failure_signature": "expected split CSI OSC DCS ST CAN SUB ingest to derive authoritative parser tail"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC10-23",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "server/src/services/SessionManagerPartialEscapeTail.test.ts",
+            "test_symbol": "server RED — pending tail sequence attachment",
+            "kind": "integration",
+            "expected_failure_signature": "expected pending escape tail excluded from display bytes and attached to exact snapshot sequence"
+          }
+        ],
+        "red_evidence": {
+          "command": "npx tsx --test src/ws/WsRouterRestoreMetadata.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/SessionManagerPartialEscapeTail.test.ts && node --experimental-strip-types --test tests/unit/terminalViewRecoveryContract.test.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/unit/terminalOutputScheduler.test.ts && npx playwright test tests/e2e/wave2-terminal-restore.spec.ts --project \"Desktop Chrome\"",
+          "exit_code": 1,
+          "captured_failure": "14/14 planned semantic RED: server 6/6 fail, frontend unit 6 planned fail with 52 baseline pass, HTTPS E2E 2/2 fail; infrastructure failures 0; fake/stub paths removed",
+          "timestamp": "2026-07-16T00:03:35.0828647Z",
+          "artifact": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave2-hotpath/T-PH003-03/red-evidence.json"
+        }
+      }
+    },
+    {
+      "id": "T-PH003-04",
+      "phase_id": "PH-003",
+      "title": "TerminalView·Container·grace GREEN 통합",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-009"
+      ],
+      "files": [
+        "frontend/src/components/Terminal/TerminalContainer.tsx",
+        "frontend/src/components/Terminal/TerminalView.tsx",
+        "frontend/src/contexts/WebSocketContext.tsx",
+        "frontend/src/types/ws-protocol.ts",
+        "frontend/src/utils/terminalOutputScheduler.ts",
+        "frontend/src/utils/terminalReplayGuard.ts",
+        "frontend/src/utils/visibleOutputRecovery.ts",
+        "frontend/tests/e2e/grid-equal-mode.spec.ts",
+        "frontend/tests/e2e/wave2-terminal-restore.spec.ts",
+        "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+        "frontend/tests/unit/terminalOutputScheduler.test.ts",
+        "frontend/tests/unit/terminalReplayGuard.test.ts",
+        "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+        "frontend/tests/unit/terminalViewRecoveryContract.test.ts",
+        "frontend/tests/unit/visibleOutputRecovery.test.ts",
+        "server/src/services/SessionManager.ts",
+        "server/src/services/SessionManagerPartialEscapeTail.test.ts",
+        "server/src/types/ws-protocol.ts",
+        "server/src/utils/terminalPartialEscapeTail.ts",
+        "server/src/ws/WsRouter.ts",
+        "server/src/ws/WsRouterRestoreMetadata.test.ts",
+        "server/src/ws/wsSendPolicy.ts",
+        "server/src/ws/wsSendPolicyRestoreMetadata.test.ts"
+      ],
+      "action": "기존 visible recovery authority에 WebSocket grace와 TerminalView·Container를 위임하고 xterm/view generation fence를 둔다. server는 모든 output path의 실제 sequence/segment identity와 ready token을 보존하고 atomic `{authorityRevision,snapshotSeq,parserComplete,pendingEscapeTailAnsi,serializedData}`를 생성한다. client는 live-lane idle→snapshot→pending tail→seq-proven held tail→matching ready+ACK+all credits 순으로 단 한 번 input을 해제하며, callback timeout은 empty FIFO probe로 판정하고 replay 중 xterm onData auto-reply는 queue/send하지 않는다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts tests/unit/terminalViewRecoveryContract.test.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalOutputScheduler.test.ts tests/unit/terminalReplayGuard.test.ts",
+          "expected_exit": 0
+        },
+        {
+          "kind": "shell",
+          "cmd": "npx playwright test tests/e2e/wave2-terminal-restore.spec.ts tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"",
+          "expected_exit": 0
+        },
+        {
+          "kind": "shell",
+          "cmd": "npx tsx --test src/ws/WsRouterRestoreMetadata.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/SessionManagerPartialEscapeTail.test.ts",
+          "expected_exit": 0,
+          "stdout_regex": "tests 6"
+        },
+        {
+          "kind": "shell",
+          "cmd": "npm run build",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx --test src/ws/WsRouterRestoreMetadata.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/SessionManagerPartialEscapeTail.test.ts && npm run build && cd ../frontend && node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts tests/unit/terminalViewRecoveryContract.test.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalOutputScheduler.test.ts tests/unit/terminalReplayGuard.test.ts && npx playwright test tests/e2e/wave2-terminal-restore.spec.ts tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\" && npm run typecheck && npm run lint",
+        "windows": "Push-Location server; npx tsx --test src/ws/WsRouterRestoreMetadata.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/SessionManagerPartialEscapeTail.test.ts; if ($LASTEXITCODE -eq 0) { npm run build }; $serverExit=$LASTEXITCODE; Pop-Location; if ($serverExit -eq 0) { Push-Location frontend; node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts tests/unit/terminalViewRecoveryContract.test.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalOutputScheduler.test.ts tests/unit/terminalReplayGuard.test.ts; if ($LASTEXITCODE -eq 0) { npx playwright test tests/e2e/wave2-terminal-restore.spec.ts tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\" }; if ($LASTEXITCODE -eq 0) { npm run typecheck }; if ($LASTEXITCODE -eq 0) { npm run lint }; $frontendExit=$LASTEXITCODE; Pop-Location; exit $frontendExit }; exit $serverExit",
+        "cwd": "."
+      },
+      "dod": [
+        "server dedicated tests 6/6과 server build/typecheck가 통과한다.",
+        "server lint는 구성된 script/config가 없어 N/A로 기록하고 실행했다고 주장하지 않는다.",
+        "restore/live lane가 중첩 write하지 않고 lost callback의 blind timeout unlock이 없다.",
+        "output coalescing이 snapshot을 가로질러도 source segment descriptor/offset을 보존하거나 identity-bearing frame을 non-coalescing으로 보낸다.",
+        "atomic snapshot authority가 mixed generation과 unstable pending write를 반환하지 않는다.",
+        "overflow와 writer/ACK/parser failure는 explicit restore-needed 또는 입력 reject로 수렴한다.",
+        "replay auto-reply는 queue/send되지 않고 keyboard/local echo가 session을 running으로 바꾸지 않는다.",
+        "IME·geometry·hidden·snapshot/tombstone·unified/split·ASCII/CJK/emoji·normal path와 HTTPS E2E가 통과한다."
+      ],
+      "rollback": "adapter delegation을 되돌리고 coordinator를 비활성화한다. giant/unbounded 경로는 rollback 후보로 재도입하지 않는다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-04-REL-BGSTAB-009",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-04"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-009"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "XL",
+      "test_files": [
+        {
+          "path": "frontend/tests/e2e/wave2-terminal-restore.spec.ts"
+        },
+        {
+          "path": "frontend/tests/unit/terminalRestoreCoordinator.test.ts"
+        },
+        {
+          "path": "frontend/tests/unit/terminalViewRecoveryContract.test.ts"
+        },
+        {
+          "path": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts"
+        },
+        {
+          "path": "frontend/tests/unit/visibleOutputRecovery.test.ts"
+        },
+        {
+          "path": "frontend/tests/e2e/grid-equal-mode.spec.ts"
+        },
+        {
+          "path": "frontend/tests/unit/terminalOutputScheduler.test.ts"
+        },
+        {
+          "path": "frontend/tests/unit/terminalReplayGuard.test.ts"
+        },
+        {
+          "path": "server/src/services/SessionManagerPartialEscapeTail.test.ts"
+        },
+        {
+          "path": "server/src/ws/WsRouterRestoreMetadata.test.ts"
+        },
+        {
+          "path": "server/src/ws/wsSendPolicyRestoreMetadata.test.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH003-02",
+        "T-PH003-03"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-8",
+        "AC-9",
+        "AC-10"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC1-04",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/e2e/wave2-terminal-restore.spec.ts",
+            "test_symbol": "TerminalView·Container·grace GREEN 통합 — AC-1",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC2-04",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "TerminalView·Container·grace GREEN 통합 — AC-2",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC3-04",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/unit/terminalViewRecoveryContract.test.ts",
+            "test_symbol": "TerminalView·Container·grace GREEN 통합 — AC-3",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC4-04",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+            "test_symbol": "TerminalView·Container·grace GREEN 통합 — AC-4",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC5-04",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/unit/visibleOutputRecovery.test.ts",
+            "test_symbol": "TerminalView·Container·grace GREEN 통합 — AC-5",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC6-04",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "frontend/tests/e2e/grid-equal-mode.spec.ts",
+            "test_symbol": "TerminalView·Container·grace GREEN 통합 — AC-6",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC7-04",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "frontend/tests/e2e/wave2-terminal-restore.spec.ts",
+            "test_symbol": "TerminalView·Container·grace GREEN 통합 — AC-7",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC8-04",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-8"
+            ],
+            "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+            "test_symbol": "TerminalView·Container·grace GREEN 통합 — AC-8",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC9-04",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-9"
+            ],
+            "test_file": "frontend/tests/unit/terminalViewRecoveryContract.test.ts",
+            "test_symbol": "TerminalView·Container·grace GREEN 통합 — AC-9",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC10-04",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+            "test_symbol": "TerminalView·Container·grace GREEN 통합 — AC-10",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC3-14",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/ws/WsRouterRestoreMetadata.test.ts",
+            "test_symbol": "server GREEN — real output sequence and ready authority tokens",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC3-24",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/ws/wsSendPolicyRestoreMetadata.test.ts",
+            "test_symbol": "server GREEN — coalesced snapshot straddle segments",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC5-14",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/services/SessionManagerPartialEscapeTail.test.ts",
+            "test_symbol": "server GREEN — atomic authority revision race",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC5-24",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/services/SessionManagerPartialEscapeTail.test.ts",
+            "test_symbol": "server GREEN — unstable pending-write authority",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC10-14",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "server/src/services/SessionManagerPartialEscapeTail.test.ts",
+            "test_symbol": "server GREEN — split terminal escape ingest",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-009-AC10-24",
+            "req_id": "REL-BGSTAB-009",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "server/src/services/SessionManagerPartialEscapeTail.test.ts",
+            "test_symbol": "server GREEN — pending tail sequence attachment",
+            "kind": "integration"
+          }
+        ]
+      }
+    },
+    {
+      "id": "T-PH003-05",
+      "phase_id": "PH-003",
+      "title": "Restore fault E2E와 까칠한 Phase 리뷰",
+      "type": "review",
+      "req_ids": [
+        "REL-BGSTAB-009"
+      ],
+      "files": [
+        "frontend/src/components/Terminal/TerminalContainer.tsx",
+        "frontend/src/components/Terminal/TerminalView.tsx",
+        "frontend/src/contexts/WebSocketContext.tsx",
+        "frontend/src/utils/terminalOutputScheduler.ts",
+        "frontend/src/utils/terminalReplayGuard.ts",
+        "frontend/src/utils/visibleOutputRecovery.ts",
+        "frontend/tests/e2e/wave2-terminal-restore.spec.ts",
+        "server/src/services/SessionManager.ts",
+        "server/src/services/SessionManagerPartialEscapeTail.test.ts",
+        "server/src/ws/WsRouter.ts",
+        "server/src/ws/WsRouterRestoreMetadata.test.ts",
+        "server/src/ws/wsSendPolicy.ts",
+        "server/src/ws/wsSendPolicyRestoreMetadata.test.ts"
+      ],
+      "action": "server 6-case metadata/partial-tail authority와 build, frontend unit/HTTPS E2E 및 leak/generation/fault evidence를 까칠한 reviewer가 plan/SRS에 대조한다. sequence segment, atomic snapshot authority, live idle fence, FIFO probe, replay guard, IME, geometry/buffer, ACK/input, hidden/snapshot/tombstone/unified/split/normal/Unicode를 수정·재리뷰해 `No findings`를 받는다.",
+      "acceptance_tests": [
+        {
+          "kind": "checklist",
+          "items": [
+            "AC-1~AC-10 전수 대조",
+            "server metadata/atomic partial-tail 6/6와 build 통과",
+            "no early ready/input 또는 replay auto-reply send",
+            "no unbounded join/array 또는 mixed authority generation",
+            "no retainedHistoryEquivalent promotion",
+            "server lint N/A 근거 기록",
+            "review verdict=No findings"
+          ]
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx --test src/ws/WsRouterRestoreMetadata.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/SessionManagerPartialEscapeTail.test.ts && npm run build && cd ../frontend && node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts tests/unit/terminalViewRecoveryContract.test.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalOutputScheduler.test.ts tests/unit/terminalReplayGuard.test.ts && npx playwright test tests/e2e/wave2-terminal-restore.spec.ts tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\" && npm run typecheck && npm run lint",
+        "windows": "Push-Location server; npx tsx --test src/ws/WsRouterRestoreMetadata.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/SessionManagerPartialEscapeTail.test.ts; if ($LASTEXITCODE -eq 0) { npm run build }; $serverExit=$LASTEXITCODE; Pop-Location; if ($serverExit -eq 0) { Push-Location frontend; node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts tests/unit/terminalViewRecoveryContract.test.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalOutputScheduler.test.ts tests/unit/terminalReplayGuard.test.ts; if ($LASTEXITCODE -eq 0) { npx playwright test tests/e2e/wave2-terminal-restore.spec.ts tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\" }; if ($LASTEXITCODE -eq 0) { npm run typecheck }; if ($LASTEXITCODE -eq 0) { npm run lint }; $frontendExit=$LASTEXITCODE; Pop-Location; exit $frontendExit }; exit $serverExit",
+        "cwd": "."
+      },
+      "dod": [
+        "server 6-case/build와 frontend unit/typecheck/lint/E2E를 최종 재실행한다.",
+        "server lint N/A를 구성 부재 근거와 함께 기록한다.",
+        "같은 까칠한 reviewer의 최종 finding이 0건이다."
+      ],
+      "rollback": "Phase 미완료 상태로 복귀한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-05-REL-BGSTAB-009",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-05"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-009"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        {
+          "path": "frontend/tests/e2e/wave2-terminal-restore.spec.ts"
+        },
+        {
+          "path": "server/src/services/SessionManagerPartialEscapeTail.test.ts"
+        },
+        {
+          "path": "server/src/ws/WsRouterRestoreMetadata.test.ts"
+        },
+        {
+          "path": "server/src/ws/wsSendPolicyRestoreMetadata.test.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH003-04"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-8",
+        "AC-9",
+        "AC-10"
+      ],
+      "tdd": null
+    },
+    {
+      "id": "T-PH004-01",
+      "phase_id": "PH-004",
+      "title": "Clipboard coordinator RED 단위 계약",
+      "type": "code",
+      "req_ids": [
+        "FR-BGSTAB-021"
+      ],
+      "files": [
+        "frontend/tests/unit/terminalClipboardCoordinator.test.ts"
+      ],
+      "action": "copy success/failure/selection·generation change, async read context change, accepted programmatic paste one admission, multiline, dispose와 payload redaction pure RED tests를 추가한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/unit/terminalClipboardCoordinator.test.ts",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/unit/terminalClipboardCoordinator.test.ts",
+        "windows": "node --experimental-strip-types --test tests/unit/terminalClipboardCoordinator.test.ts",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "copy/paste ownership 부재 때문에만 RED다.",
+        "raw clipboard payload가 assertion output/durable log에 없다."
+      ],
+      "rollback": "신규 RED test를 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-01-FR-BGSTAB-021",
+          "source": {
+            "type": "Task",
+            "id": "T-PH004-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-BGSTAB-021"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        {
+          "path": "frontend/tests/unit/terminalClipboardCoordinator.test.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-8",
+        "AC-9"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC1-01",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/unit/terminalClipboardCoordinator.test.ts",
+            "test_symbol": "Clipboard coordinator RED 단위 계약 — AC-1",
+            "kind": "contract",
+            "expected_failure_signature": "Clipboard coordinator RED 단위 계약 RED AC-1: copy success/failure/selection·generation change, async read context change, accepted programmatic paste one admission, multiline, dispose와 payload redaction pure RED tests를 추가한다."
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC2-01",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/unit/terminalClipboardCoordinator.test.ts",
+            "test_symbol": "Clipboard coordinator RED 단위 계약 — AC-2",
+            "kind": "contract",
+            "expected_failure_signature": "Clipboard coordinator RED 단위 계약 RED AC-2: copy success/failure/selection·generation change, async read context change, accepted programmatic paste one admission, multiline, dispose와 payload redaction pure RED tests를 추가한다."
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC3-01",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/unit/terminalClipboardCoordinator.test.ts",
+            "test_symbol": "Clipboard coordinator RED 단위 계약 — AC-3",
+            "kind": "contract",
+            "expected_failure_signature": "Clipboard coordinator RED 단위 계약 RED AC-3: copy success/failure/selection·generation change, async read context change, accepted programmatic paste one admission, multiline, dispose와 payload redaction pure RED tests를 추가한다."
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC5-01",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/unit/terminalClipboardCoordinator.test.ts",
+            "test_symbol": "Clipboard coordinator RED 단위 계약 — AC-5",
+            "kind": "contract",
+            "expected_failure_signature": "Clipboard coordinator RED 단위 계약 RED AC-5: copy success/failure/selection·generation change, async read context change, accepted programmatic paste one admission, multiline, dispose와 payload redaction pure RED tests를 추가한다."
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC6-01",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "frontend/tests/unit/terminalClipboardCoordinator.test.ts",
+            "test_symbol": "Clipboard coordinator RED 단위 계약 — AC-6",
+            "kind": "contract",
+            "expected_failure_signature": "Clipboard coordinator RED 단위 계약 RED AC-6: copy success/failure/selection·generation change, async read context change, accepted programmatic paste one admission, multiline, dispose와 payload redaction pure RED tests를 추가한다."
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC7-01",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "frontend/tests/unit/terminalClipboardCoordinator.test.ts",
+            "test_symbol": "Clipboard coordinator RED 단위 계약 — AC-7",
+            "kind": "contract",
+            "expected_failure_signature": "Clipboard coordinator RED 단위 계약 RED AC-7: copy success/failure/selection·generation change, async read context change, accepted programmatic paste one admission, multiline, dispose와 payload redaction pure RED tests를 추가한다."
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC8-01",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-8"
+            ],
+            "test_file": "frontend/tests/unit/terminalClipboardCoordinator.test.ts",
+            "test_symbol": "Clipboard coordinator RED 단위 계약 — AC-8",
+            "kind": "contract",
+            "expected_failure_signature": "Clipboard coordinator RED 단위 계약 RED AC-8: copy success/failure/selection·generation change, async read context change, accepted programmatic paste one admission, multiline, dispose와 payload redaction pure RED tests를 추가한다."
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC9-01",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-9"
+            ],
+            "test_file": "frontend/tests/unit/terminalClipboardCoordinator.test.ts",
+            "test_symbol": "Clipboard coordinator RED 단위 계약 — AC-9",
+            "kind": "contract",
+            "expected_failure_signature": "Clipboard coordinator RED 단위 계약 RED AC-9: copy success/failure/selection·generation change, async read context change, accepted programmatic paste one admission, multiline, dispose와 payload redaction pure RED tests를 추가한다."
+          }
+        ]
+      }
+    },
+    {
+      "id": "T-PH004-02",
+      "phase_id": "PH-004",
+      "title": "Clipboard pure coordinator·handle GREEN",
+      "type": "code",
+      "req_ids": [
+        "FR-BGSTAB-021"
+      ],
+      "files": [
+        "frontend/src/utils/terminalClipboardCoordinator.ts",
+        "frontend/src/components/Terminal/TerminalView.tsx",
+        "frontend/src/components/Terminal/TerminalContainer.tsx"
+      ],
+      "action": "clipboard API와 target identity를 주입받는 coordinator를 만들고 TerminalHandle에 generation-safe copySelection/pasteClipboard를 노출한다. Programmatic paste는 existing pasteInput pipeline으로 위임한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/unit/terminalClipboardCoordinator.test.ts tests/unit/commandPresetPaste.test.ts",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/unit/terminalClipboardCoordinator.test.ts tests/unit/commandPresetPaste.test.ts",
+        "windows": "node --experimental-strip-types --test tests/unit/terminalClipboardCoordinator.test.ts tests/unit/commandPresetPaste.test.ts",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "copy 성공 뒤 동일 target/selection에서만 clear한다.",
+        "context change는 explicit reject다.",
+        "programmatic paste가 pasteInput barrier/debug/multiline을 재사용한다."
+      ],
+      "rollback": "new utility와 handle methods를 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-02-FR-BGSTAB-021",
+          "source": {
+            "type": "Task",
+            "id": "T-PH004-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-BGSTAB-021"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "frontend/tests/unit/terminalClipboardCoordinator.test.ts"
+        },
+        {
+          "path": "frontend/tests/unit/commandPresetPaste.test.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH004-01"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-3",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-8"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC1-02",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/unit/terminalClipboardCoordinator.test.ts",
+            "test_symbol": "Clipboard pure coordinator·handle GREEN — AC-1",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC3-02",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/unit/commandPresetPaste.test.ts",
+            "test_symbol": "Clipboard pure coordinator·handle GREEN — AC-3",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC5-02",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/unit/terminalClipboardCoordinator.test.ts",
+            "test_symbol": "Clipboard pure coordinator·handle GREEN — AC-5",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC6-02",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "frontend/tests/unit/commandPresetPaste.test.ts",
+            "test_symbol": "Clipboard pure coordinator·handle GREEN — AC-6",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC7-02",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "frontend/tests/unit/terminalClipboardCoordinator.test.ts",
+            "test_symbol": "Clipboard pure coordinator·handle GREEN — AC-7",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC8-02",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-8"
+            ],
+            "test_file": "frontend/tests/unit/commandPresetPaste.test.ts",
+            "test_symbol": "Clipboard pure coordinator·handle GREEN — AC-8",
+            "kind": "contract"
+          }
+        ]
+      }
+    },
+    {
+      "id": "T-PH004-03",
+      "phase_id": "PH-004",
+      "title": "Keyboard·context·native adapter RED 계약",
+      "type": "code",
+      "req_ids": [
+        "FR-BGSTAB-021"
+      ],
+      "files": [
+        "frontend/tests/e2e/terminal-paste.spec.ts",
+        "frontend/tests/e2e/terminal-clipboard.spec.ts",
+        "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts"
+      ],
+      "action": "selected/unselected Ctrl+C, tab/grid context copy/paste, registered preset, native Ctrl+V capture guard, IME/remount race와 focus restore를 검증하는 adapter/E2E RED cases를 추가하고 clipboard permission origin을 2222로 고정한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npx playwright test tests/e2e/terminal-paste.spec.ts tests/e2e/terminal-clipboard.spec.ts tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Desktop Chrome\"",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npx playwright test tests/e2e/terminal-paste.spec.ts tests/e2e/terminal-clipboard.spec.ts tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Desktop Chrome\"",
+        "windows": "npx playwright test tests/e2e/terminal-paste.spec.ts tests/e2e/terminal-clipboard.spec.ts tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Desktop Chrome\"",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "direct sendInput 우회가 RED다.",
+        "no-selection Ctrl+C와 native Ctrl+V semantics regression이 독립적으로 검출된다."
+      ],
+      "rollback": "신규 adapter/E2E RED cases만 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-03-FR-BGSTAB-021",
+          "source": {
+            "type": "Task",
+            "id": "T-PH004-03"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-BGSTAB-021"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "frontend/tests/e2e/terminal-paste.spec.ts"
+        },
+        {
+          "path": "frontend/tests/e2e/terminal-clipboard.spec.ts"
+        },
+        {
+          "path": "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-8",
+        "AC-9"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC2-03",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/e2e/terminal-paste.spec.ts",
+            "test_symbol": "Keyboard·context·native adapter RED 계약 — AC-2",
+            "kind": "contract",
+            "expected_failure_signature": "Keyboard·context·native adapter RED 계약 RED AC-2: selected/unselected Ctrl+C, tab/grid context copy/paste, registered preset, native Ctrl+V capture guard, IME/remount race와 focus restore를 검증하는 adapter/E2E RED cases를 추가하고 clipboard permission origin을 2222로 고정한다."
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC3-03",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/e2e/terminal-clipboard.spec.ts",
+            "test_symbol": "Keyboard·context·native adapter RED 계약 — AC-3",
+            "kind": "contract",
+            "expected_failure_signature": "Keyboard·context·native adapter RED 계약 RED AC-3: selected/unselected Ctrl+C, tab/grid context copy/paste, registered preset, native Ctrl+V capture guard, IME/remount race와 focus restore를 검증하는 adapter/E2E RED cases를 추가하고 clipboard permission origin을 2222로 고정한다."
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC4-03",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts",
+            "test_symbol": "Keyboard·context·native adapter RED 계약 — AC-4",
+            "kind": "contract",
+            "expected_failure_signature": "Keyboard·context·native adapter RED 계약 RED AC-4: selected/unselected Ctrl+C, tab/grid context copy/paste, registered preset, native Ctrl+V capture guard, IME/remount race와 focus restore를 검증하는 adapter/E2E RED cases를 추가하고 clipboard permission origin을 2222로 고정한다."
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC5-03",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/e2e/terminal-paste.spec.ts",
+            "test_symbol": "Keyboard·context·native adapter RED 계약 — AC-5",
+            "kind": "contract",
+            "expected_failure_signature": "Keyboard·context·native adapter RED 계약 RED AC-5: selected/unselected Ctrl+C, tab/grid context copy/paste, registered preset, native Ctrl+V capture guard, IME/remount race와 focus restore를 검증하는 adapter/E2E RED cases를 추가하고 clipboard permission origin을 2222로 고정한다."
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC6-03",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "frontend/tests/e2e/terminal-clipboard.spec.ts",
+            "test_symbol": "Keyboard·context·native adapter RED 계약 — AC-6",
+            "kind": "contract",
+            "expected_failure_signature": "Keyboard·context·native adapter RED 계약 RED AC-6: selected/unselected Ctrl+C, tab/grid context copy/paste, registered preset, native Ctrl+V capture guard, IME/remount race와 focus restore를 검증하는 adapter/E2E RED cases를 추가하고 clipboard permission origin을 2222로 고정한다."
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC7-03",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts",
+            "test_symbol": "Keyboard·context·native adapter RED 계약 — AC-7",
+            "kind": "contract",
+            "expected_failure_signature": "Keyboard·context·native adapter RED 계약 RED AC-7: selected/unselected Ctrl+C, tab/grid context copy/paste, registered preset, native Ctrl+V capture guard, IME/remount race와 focus restore를 검증하는 adapter/E2E RED cases를 추가하고 clipboard permission origin을 2222로 고정한다."
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC8-03",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-8"
+            ],
+            "test_file": "frontend/tests/e2e/terminal-paste.spec.ts",
+            "test_symbol": "Keyboard·context·native adapter RED 계약 — AC-8",
+            "kind": "contract",
+            "expected_failure_signature": "Keyboard·context·native adapter RED 계약 RED AC-8: selected/unselected Ctrl+C, tab/grid context copy/paste, registered preset, native Ctrl+V capture guard, IME/remount race와 focus restore를 검증하는 adapter/E2E RED cases를 추가하고 clipboard permission origin을 2222로 고정한다."
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC9-03",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-9"
+            ],
+            "test_file": "frontend/tests/e2e/terminal-clipboard.spec.ts",
+            "test_symbol": "Keyboard·context·native adapter RED 계약 — AC-9",
+            "kind": "contract",
+            "expected_failure_signature": "Keyboard·context·native adapter RED 계약 RED AC-9: selected/unselected Ctrl+C, tab/grid context copy/paste, registered preset, native Ctrl+V capture guard, IME/remount race와 focus restore를 검증하는 adapter/E2E RED cases를 추가하고 clipboard permission origin을 2222로 고정한다."
+          }
+        ]
+      }
+    },
+    {
+      "id": "T-PH004-04",
+      "phase_id": "PH-004",
+      "title": "App·Grid·TerminalView clipboard GREEN 통합",
+      "type": "code",
+      "req_ids": [
+        "FR-BGSTAB-021"
+      ],
+      "files": [
+        "frontend/src/App.tsx",
+        "frontend/src/components/Grid/MosaicContainer.tsx",
+        "frontend/src/components/Terminal/TerminalView.tsx",
+        "frontend/tests/e2e/terminal-paste.spec.ts"
+      ],
+      "action": "tab/grid raw clipboard+sendInput를 TerminalHandle coordinator로 교체하고 keyboard copy도 같은 copy coordinator를 사용한다. Native Ctrl+V xterm owner/capture guard, no-selection SIGINT와 기존 UI를 유지한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/unit/terminalClipboardCoordinator.test.ts tests/unit/commandPresetPaste.test.ts tests/unit/terminalContextMenuRegisteredItems.test.ts",
+          "expected_exit": 0
+        },
+        {
+          "kind": "shell",
+          "cmd": "npx playwright test tests/e2e/terminal-paste.spec.ts tests/e2e/terminal-clipboard.spec.ts tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Desktop Chrome\"",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm run typecheck && npm run lint",
+        "windows": "npm run typecheck; if ($LASTEXITCODE -eq 0) { npm run lint }",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "programmatic direct sendInput가 없다.",
+        "copy failure에서 selection이 남는다.",
+        "native paste/no-selection SIGINT/IME가 보존된다.",
+        "accepted reconstructed payload loss/duplicate 0이다."
+      ],
+      "rollback": "App/Grid/keyboard adapters를 이전 handle 경로로 되돌리되 direct programmatic sendInput는 복원하지 않는다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-04-FR-BGSTAB-021",
+          "source": {
+            "type": "Task",
+            "id": "T-PH004-04"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-BGSTAB-021"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "frontend/tests/e2e/terminal-clipboard.spec.ts"
+        },
+        {
+          "path": "frontend/tests/e2e/terminal-paste.spec.ts"
+        },
+        {
+          "path": "frontend/tests/unit/terminalClipboardCoordinator.test.ts"
+        },
+        {
+          "path": "frontend/tests/unit/commandPresetPaste.test.ts"
+        },
+        {
+          "path": "frontend/tests/unit/terminalContextMenuRegisteredItems.test.ts"
+        },
+        {
+          "path": "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH004-02",
+        "T-PH004-03"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-8",
+        "AC-9"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC1-04",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/e2e/terminal-clipboard.spec.ts",
+            "test_symbol": "App·Grid·TerminalView clipboard GREEN 통합 — AC-1",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC2-04",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/e2e/terminal-paste.spec.ts",
+            "test_symbol": "App·Grid·TerminalView clipboard GREEN 통합 — AC-2",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC3-04",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/unit/terminalClipboardCoordinator.test.ts",
+            "test_symbol": "App·Grid·TerminalView clipboard GREEN 통합 — AC-3",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC4-04",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/unit/commandPresetPaste.test.ts",
+            "test_symbol": "App·Grid·TerminalView clipboard GREEN 통합 — AC-4",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC5-04",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/unit/terminalContextMenuRegisteredItems.test.ts",
+            "test_symbol": "App·Grid·TerminalView clipboard GREEN 통합 — AC-5",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC6-04",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts",
+            "test_symbol": "App·Grid·TerminalView clipboard GREEN 통합 — AC-6",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC7-04",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "frontend/tests/e2e/terminal-clipboard.spec.ts",
+            "test_symbol": "App·Grid·TerminalView clipboard GREEN 통합 — AC-7",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC8-04",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-8"
+            ],
+            "test_file": "frontend/tests/e2e/terminal-paste.spec.ts",
+            "test_symbol": "App·Grid·TerminalView clipboard GREEN 통합 — AC-8",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-FR-BGSTAB-021-AC9-04",
+            "req_id": "FR-BGSTAB-021",
+            "ac_refs": [
+              "AC-9"
+            ],
+            "test_file": "frontend/tests/unit/terminalClipboardCoordinator.test.ts",
+            "test_symbol": "App·Grid·TerminalView clipboard GREEN 통합 — AC-9",
+            "kind": "contract"
+          }
+        ]
+      }
+    },
+    {
+      "id": "T-PH004-05",
+      "phase_id": "PH-004",
+      "title": "Clipboard HTTPS 회귀와 까칠한 Phase 리뷰",
+      "type": "review",
+      "req_ids": [
+        "FR-BGSTAB-021"
+      ],
+      "files": [
+        "frontend/src/utils/terminalClipboardCoordinator.ts",
+        "frontend/src/App.tsx",
+        "frontend/src/components/Grid/MosaicContainer.tsx",
+        "frontend/src/components/Terminal/TerminalView.tsx",
+        "frontend/tests/e2e/terminal-clipboard.spec.ts"
+      ],
+      "action": "clipboard unit/E2E, debug redaction, focus·native·SIGINT semantics와 diff를 까칠한 reviewer가 전수 검토하고 수정·재리뷰해 `No findings`를 받는다.",
+      "acceptance_tests": [
+        {
+          "kind": "checklist",
+          "items": [
+            "AC-1~AC-9 전수 대조",
+            "copy clear after success only",
+            "programmatic one coordinator",
+            "native Ctrl+V adapter exception",
+            "review verdict=No findings"
+          ]
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/unit/terminalClipboardCoordinator.test.ts tests/unit/commandPresetPaste.test.ts tests/unit/terminalContextMenuRegisteredItems.test.ts && npx playwright test tests/e2e/terminal-paste.spec.ts tests/e2e/terminal-clipboard.spec.ts tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Desktop Chrome\" && npm run typecheck && npm run lint",
+        "windows": "node --experimental-strip-types --test tests/unit/terminalClipboardCoordinator.test.ts tests/unit/commandPresetPaste.test.ts tests/unit/terminalContextMenuRegisteredItems.test.ts; if ($LASTEXITCODE -eq 0) { npx playwright test tests/e2e/terminal-paste.spec.ts tests/e2e/terminal-clipboard.spec.ts tests/e2e/terminal-context-menu-registered-items.spec.ts --project \"Desktop Chrome\" }; if ($LASTEXITCODE -eq 0) { npm run typecheck }; if ($LASTEXITCODE -eq 0) { npm run lint }",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "review finding 0건이다.",
+        "관련 unit/E2E/typecheck/lint를 최종 재실행한다."
+      ],
+      "rollback": "Phase 미완료 상태로 복귀한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-05-FR-BGSTAB-021",
+          "source": {
+            "type": "Task",
+            "id": "T-PH004-05"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "FR-BGSTAB-021"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        {
+          "path": "frontend/tests/e2e/terminal-clipboard.spec.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH004-04"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7",
+        "AC-8",
+        "AC-9"
+      ],
+      "tdd": null
+    }
+  ],
+  "coverage": [
+    {
+      "req_id": "PERF-BGSTAB-009",
+      "stability": "evolving",
+      "ac_total": 10,
+      "ac_covered": 10,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH001-01",
+        "T-PH001-02",
+        "T-PH001-03",
+        "T-PH001-04",
+        "T-PH001-05"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-009-AC1-01",
+            "TC-REQ-PERF-BGSTAB-009-AC1-02"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-009-AC2-01",
+            "TC-REQ-PERF-BGSTAB-009-AC2-02"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-009-AC3-01",
+            "TC-REQ-PERF-BGSTAB-009-AC3-02"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-009-AC4-01",
+            "TC-REQ-PERF-BGSTAB-009-AC4-02"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-009-AC5-01",
+            "TC-REQ-PERF-BGSTAB-009-AC5-02"
+          ]
+        },
+        {
+          "ac_id": "AC-6",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-009-AC6-01",
+            "TC-REQ-PERF-BGSTAB-009-AC6-02"
+          ]
+        },
+        {
+          "ac_id": "AC-7",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-009-AC7-01",
+            "TC-REQ-PERF-BGSTAB-009-AC7-02",
+            "TC-REQ-PERF-BGSTAB-009-AC7-04"
+          ]
+        },
+        {
+          "ac_id": "AC-8",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-009-AC8-03",
+            "TC-REQ-PERF-BGSTAB-009-AC8-04"
+          ]
+        },
+        {
+          "ac_id": "AC-9",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-009-AC9-03",
+            "TC-REQ-PERF-BGSTAB-009-AC9-04"
+          ]
+        },
+        {
+          "ac_id": "AC-10",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-009-AC10-01",
+            "TC-REQ-PERF-BGSTAB-009-AC10-02",
+            "TC-REQ-PERF-BGSTAB-009-AC10-03",
+            "TC-REQ-PERF-BGSTAB-009-AC10-04"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "REL-BGSTAB-008",
+      "stability": "evolving",
+      "ac_total": 11,
+      "ac_covered": 11,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH002-01",
+        "T-PH002-02",
+        "T-PH002-03",
+        "T-PH002-04",
+        "T-PH002-05"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-008-AC1-01",
+            "TC-REQ-REL-BGSTAB-008-AC1-02"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-008-AC2-01",
+            "TC-REQ-REL-BGSTAB-008-AC2-02",
+            "TC-REQ-REL-BGSTAB-008-AC2-03",
+            "TC-REQ-REL-BGSTAB-008-AC2-04"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-008-AC3-01",
+            "TC-REQ-REL-BGSTAB-008-AC3-02",
+            "TC-REQ-REL-BGSTAB-008-AC3-03",
+            "TC-REQ-REL-BGSTAB-008-AC3-04"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-008-AC4-01",
+            "TC-REQ-REL-BGSTAB-008-AC4-02",
+            "TC-REQ-REL-BGSTAB-008-AC4-03",
+            "TC-REQ-REL-BGSTAB-008-AC4-04"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-008-AC5-01",
+            "TC-REQ-REL-BGSTAB-008-AC5-02",
+            "TC-REQ-REL-BGSTAB-008-AC5-03",
+            "TC-REQ-REL-BGSTAB-008-AC5-04"
+          ]
+        },
+        {
+          "ac_id": "AC-6",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-008-AC6-01",
+            "TC-REQ-REL-BGSTAB-008-AC6-02",
+            "TC-REQ-REL-BGSTAB-008-AC6-03",
+            "TC-REQ-REL-BGSTAB-008-AC6-04"
+          ]
+        },
+        {
+          "ac_id": "AC-7",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-008-AC7-01",
+            "TC-REQ-REL-BGSTAB-008-AC7-02",
+            "TC-REQ-REL-BGSTAB-008-AC7-04"
+          ]
+        },
+        {
+          "ac_id": "AC-8",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-008-AC8-03",
+            "TC-REQ-REL-BGSTAB-008-AC8-04"
+          ]
+        },
+        {
+          "ac_id": "AC-9",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-008-AC9-01",
+            "TC-REQ-REL-BGSTAB-008-AC9-02",
+            "TC-REQ-REL-BGSTAB-008-AC9-04"
+          ]
+        },
+        {
+          "ac_id": "AC-10",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-008-AC10-01",
+            "TC-REQ-REL-BGSTAB-008-AC10-02",
+            "TC-REQ-REL-BGSTAB-008-AC10-03",
+            "TC-REQ-REL-BGSTAB-008-AC10-04"
+          ]
+        },
+        {
+          "ac_id": "AC-11",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-008-AC11-01",
+            "TC-REQ-REL-BGSTAB-008-AC11-03",
+            "TC-REQ-REL-BGSTAB-008-AC11-04"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "REL-BGSTAB-009",
+      "stability": "evolving",
+      "ac_total": 10,
+      "ac_covered": 10,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH003-01",
+        "T-PH003-02",
+        "T-PH003-03",
+        "T-PH003-04",
+        "T-PH003-05"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-009-AC1-01",
+            "TC-REQ-REL-BGSTAB-009-AC1-02",
+            "TC-REQ-REL-BGSTAB-009-AC1-04"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-009-AC2-01",
+            "TC-REQ-REL-BGSTAB-009-AC2-02",
+            "TC-REQ-REL-BGSTAB-009-AC2-04"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-009-AC3-01",
+            "TC-REQ-REL-BGSTAB-009-AC3-02",
+            "TC-REQ-REL-BGSTAB-009-AC3-03",
+            "TC-REQ-REL-BGSTAB-009-AC3-04",
+            "TC-REQ-REL-BGSTAB-009-AC3-13",
+            "TC-REQ-REL-BGSTAB-009-AC3-14",
+            "TC-REQ-REL-BGSTAB-009-AC3-23",
+            "TC-REQ-REL-BGSTAB-009-AC3-24"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-009-AC4-01",
+            "TC-REQ-REL-BGSTAB-009-AC4-02",
+            "TC-REQ-REL-BGSTAB-009-AC4-03",
+            "TC-REQ-REL-BGSTAB-009-AC4-04"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-009-AC5-01",
+            "TC-REQ-REL-BGSTAB-009-AC5-02",
+            "TC-REQ-REL-BGSTAB-009-AC5-03",
+            "TC-REQ-REL-BGSTAB-009-AC5-04",
+            "TC-REQ-REL-BGSTAB-009-AC5-13",
+            "TC-REQ-REL-BGSTAB-009-AC5-14",
+            "TC-REQ-REL-BGSTAB-009-AC5-23",
+            "TC-REQ-REL-BGSTAB-009-AC5-24"
+          ]
+        },
+        {
+          "ac_id": "AC-6",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-009-AC6-01",
+            "TC-REQ-REL-BGSTAB-009-AC6-02",
+            "TC-REQ-REL-BGSTAB-009-AC6-03",
+            "TC-REQ-REL-BGSTAB-009-AC6-04"
+          ]
+        },
+        {
+          "ac_id": "AC-7",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-009-AC7-01",
+            "TC-REQ-REL-BGSTAB-009-AC7-02",
+            "TC-REQ-REL-BGSTAB-009-AC7-03",
+            "TC-REQ-REL-BGSTAB-009-AC7-04"
+          ]
+        },
+        {
+          "ac_id": "AC-8",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-009-AC8-01",
+            "TC-REQ-REL-BGSTAB-009-AC8-02",
+            "TC-REQ-REL-BGSTAB-009-AC8-03",
+            "TC-REQ-REL-BGSTAB-009-AC8-04"
+          ]
+        },
+        {
+          "ac_id": "AC-9",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-009-AC9-03",
+            "TC-REQ-REL-BGSTAB-009-AC9-04"
+          ]
+        },
+        {
+          "ac_id": "AC-10",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-009-AC10-01",
+            "TC-REQ-REL-BGSTAB-009-AC10-02",
+            "TC-REQ-REL-BGSTAB-009-AC10-03",
+            "TC-REQ-REL-BGSTAB-009-AC10-04",
+            "TC-REQ-REL-BGSTAB-009-AC10-13",
+            "TC-REQ-REL-BGSTAB-009-AC10-14",
+            "TC-REQ-REL-BGSTAB-009-AC10-23",
+            "TC-REQ-REL-BGSTAB-009-AC10-24"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "FR-BGSTAB-021",
+      "stability": "evolving",
+      "ac_total": 9,
+      "ac_covered": 9,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH004-01",
+        "T-PH004-02",
+        "T-PH004-03",
+        "T-PH004-04",
+        "T-PH004-05"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-FR-BGSTAB-021-AC1-01",
+            "TC-REQ-FR-BGSTAB-021-AC1-02",
+            "TC-REQ-FR-BGSTAB-021-AC1-04"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-FR-BGSTAB-021-AC2-01",
+            "TC-REQ-FR-BGSTAB-021-AC2-03",
+            "TC-REQ-FR-BGSTAB-021-AC2-04"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-FR-BGSTAB-021-AC3-01",
+            "TC-REQ-FR-BGSTAB-021-AC3-02",
+            "TC-REQ-FR-BGSTAB-021-AC3-03",
+            "TC-REQ-FR-BGSTAB-021-AC3-04"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-FR-BGSTAB-021-AC4-03",
+            "TC-REQ-FR-BGSTAB-021-AC4-04"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-FR-BGSTAB-021-AC5-01",
+            "TC-REQ-FR-BGSTAB-021-AC5-02",
+            "TC-REQ-FR-BGSTAB-021-AC5-03",
+            "TC-REQ-FR-BGSTAB-021-AC5-04"
+          ]
+        },
+        {
+          "ac_id": "AC-6",
+          "test_case_ids": [
+            "TC-REQ-FR-BGSTAB-021-AC6-01",
+            "TC-REQ-FR-BGSTAB-021-AC6-02",
+            "TC-REQ-FR-BGSTAB-021-AC6-03",
+            "TC-REQ-FR-BGSTAB-021-AC6-04"
+          ]
+        },
+        {
+          "ac_id": "AC-7",
+          "test_case_ids": [
+            "TC-REQ-FR-BGSTAB-021-AC7-01",
+            "TC-REQ-FR-BGSTAB-021-AC7-02",
+            "TC-REQ-FR-BGSTAB-021-AC7-03",
+            "TC-REQ-FR-BGSTAB-021-AC7-04"
+          ]
+        },
+        {
+          "ac_id": "AC-8",
+          "test_case_ids": [
+            "TC-REQ-FR-BGSTAB-021-AC8-01",
+            "TC-REQ-FR-BGSTAB-021-AC8-02",
+            "TC-REQ-FR-BGSTAB-021-AC8-03",
+            "TC-REQ-FR-BGSTAB-021-AC8-04"
+          ]
+        },
+        {
+          "ac_id": "AC-9",
+          "test_case_ids": [
+            "TC-REQ-FR-BGSTAB-021-AC9-01",
+            "TC-REQ-FR-BGSTAB-021-AC9-03",
+            "TC-REQ-FR-BGSTAB-021-AC9-04"
+          ]
+        }
+      ]
+    }
+  ],
+  "orphans": [],
+  "unreferenced_reqs": [],
+  "excluded_reqs": [],
+  "deferred_ac": [],
+  "risks": [
+    {
+      "id": "RISK-001",
+      "severity": "high",
+      "description": "UTF-8/parser/callback parity 훼손",
+      "mitigation": "exact digest/counter/boundary tests",
+      "affected_task_ids": [
+        "T-PH001-01",
+        "T-PH001-04"
+      ]
+    },
+    {
+      "id": "RISK-002",
+      "severity": "high",
+      "description": "repair giant flush 또는 cross-client stale 회귀",
+      "mitigation": "fault matrix와 multi-client isolation",
+      "affected_task_ids": [
+        "T-PH002-01",
+        "T-PH002-05"
+      ]
+    },
+    {
+      "id": "RISK-003",
+      "severity": "critical",
+      "description": "restore ready/input 조기 해제",
+      "mitigation": "pure generation coordinator와 HTTPS ordering",
+      "affected_task_ids": [
+        "T-PH003-01",
+        "T-PH003-05"
+      ]
+    },
+    {
+      "id": "RISK-004",
+      "severity": "high",
+      "description": "clipboard duplicate/SIGINT/native paste 회귀",
+      "mitigation": "pure coordinator와 HTTPS E2E",
+      "affected_task_ids": [
+        "T-PH004-01",
+        "T-PH004-05"
+      ]
+    }
+  ],
+  "open_questions": [],
+  "external_module_impact": [],
+  "tdd_decisions": [],
+  "coder_handoff_readiness": [
+    {
+      "phase_id": "PH-001",
+      "ready": true,
+      "blockers": []
+    },
+    {
+      "phase_id": "PH-002",
+      "ready": true,
+      "blockers": []
+    },
+    {
+      "phase_id": "PH-003",
+      "ready": true,
+      "blockers": []
+    },
+    {
+      "phase_id": "PH-004",
+      "ready": true,
+      "blockers": []
+    }
+  ],
+  "mcp_call_log": [
+    {
+      "seq": 1,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-009"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 2,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-009"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 3,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-03"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-009"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 4,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-04"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-009"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 5,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-05"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-009"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 6,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-008"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 7,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-008"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 8,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-03"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-008"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 9,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-04"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-008"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 10,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-05"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-008"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 11,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-009"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 12,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-009"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 13,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-03"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-009"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 14,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-04"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-009"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 15,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-05"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-009"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 16,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH004-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-BGSTAB-021"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 17,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH004-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-BGSTAB-021"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 18,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH004-03"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-BGSTAB-021"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 19,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH004-04"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-BGSTAB-021"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 20,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH004-05"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "FR-BGSTAB-021"
+        },
+        "relation": "depends_on"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 21,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "PERF-BGSTAB-009",
+        "type": "plan",
+        "reference": "docs/plans/2026-07-15.projectmaster.wave2-hotpath.plan.md#T-PH001-01"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 22,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "REL-BGSTAB-008",
+        "type": "plan",
+        "reference": "docs/plans/2026-07-15.projectmaster.wave2-hotpath.plan.md#T-PH002-01"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 23,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "REL-BGSTAB-009",
+        "type": "plan",
+        "reference": "docs/plans/2026-07-15.projectmaster.wave2-hotpath.plan.md#T-PH003-01"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    },
+    {
+      "seq": 24,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "FR-BGSTAB-021",
+        "type": "plan",
+        "reference": "docs/plans/2026-07-15.projectmaster.wave2-hotpath.plan.md#T-PH004-01"
+      },
+      "timestamp": "2026-07-15T12:00:00.000Z",
+      "ok": true
+    }
+  ]
+}

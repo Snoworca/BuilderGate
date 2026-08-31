@@ -1,0 +1,159 @@
+{
+  "config": {
+    "configFile": "C:\\Work\\git\\_Snoworca\\ProjectMaster\\frontend\\playwright.config.ts",
+    "rootDir": "C:/Work/git/_Snoworca/ProjectMaster/frontend/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Work/git/_Snoworca/ProjectMaster/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "Desktop Chrome",
+        "name": "Desktop Chrome",
+        "testDir": "C:/Work/git/_Snoworca/ProjectMaster/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Work/git/_Snoworca/ProjectMaster/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "Mobile Safari",
+        "name": "Mobile Safari",
+        "testDir": "C:/Work/git/_Snoworca/ProjectMaster/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "C:/Work/git/_Snoworca/ProjectMaster/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "Tablet",
+        "name": "Tablet",
+        "testDir": "C:/Work/git/_Snoworca/ProjectMaster/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.58.2",
+    "workers": 16,
+    "webServer": {
+      "command": "cd .. && start.bat --port 2222",
+      "port": 2222,
+      "reuseExistingServer": true,
+      "timeout": 30000
+    }
+  },
+  "suites": [
+    {
+      "title": "header-context-menu-regression.spec.ts",
+      "file": "header-context-menu-regression.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Header And Context Menu Regressions",
+          "file": "header-context-menu-regression.spec.ts",
+          "line": 460,
+          "column": 6,
+          "specs": [
+            {
+              "title": "TC-7004: reload should keep the active session visible and restore its snapshot without xterm runtime errors",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Desktop Chrome",
+                  "projectName": "Desktop Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 11642,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-15T15:51:27.508Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "tc7004-current-behavior",
+                          "contentType": "application/json",
+                          "body": "eyJzY2hlbWFWZXJzaW9uIjoiMS4wLjAiLCJ0ZXN0SWQiOiJUQy03MDA0IiwiZXhlY3V0aW9uS2luZCI6ImxpdmVfYnJvd3Nlcl9yZWZyZXNoIiwid29ya3NwYWNlSXNvbGF0aW9uIjp7IndvcmtzcGFjZUlkIjoiMjA4ODA3MzMtY2ZiNS00NzAyLWIwYzEtMDE3N2ExMDc2NjkxIiwiZGVsZXRpb25TY29wZSI6ImV4YWN0LWNyZWF0ZWQtd29ya3NwYWNlLWlkLW9ubHkifSwib2xkTWFya2VyQWZ0ZXJSZWxvYWQiOiJhYnNlbnQiLCJsYXRlc3RNYXJrZXJBZnRlclJlbG9hZCI6InByZXNlbnQiLCJiZWZvcmVSZWxvYWRTbmFwc2hvdFV0ZjhCeXRlcyI6OTM4LCJhZnRlclJlbG9hZFNuYXBzaG90VXRmOEJ5dGVzIjo5MzgsInJ1bnRpbWVFcnJvckNvdW50Ijo3LCJmYXRhbFJ1bnRpbWVFcnJvckNvdW50IjowLCJyYXdUZXJtaW5hbFRleHRPbWl0dGVkIjp0cnVlfQ=="
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "5e683fa17d188b84554a-6fb3a1d7d452b76a61de",
+              "file": "header-context-menu-regression.spec.ts",
+              "line": 581,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-07-15T15:51:26.271Z",
+    "duration": 13079.295,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

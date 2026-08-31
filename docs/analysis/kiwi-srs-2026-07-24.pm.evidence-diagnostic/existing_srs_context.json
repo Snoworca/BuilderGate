@@ -1,0 +1,1 @@
+{"candidate_matches":[{"id":"MIG-BGSTAB-002","scope":"BGSTAB","relation_hint":"depends_on","similarity_score":0.84},{"id":"OBS-BGSTAB-005","scope":"BGSTAB","relation_hint":"unrelated","similarity_score":0.37}],"relevant_scopes":["BGSTAB"],"no_match_reason":"No existing requirement defines combined failed-record and retry-attachment verifier diagnostics."}

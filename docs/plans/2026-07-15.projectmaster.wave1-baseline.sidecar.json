@@ -1,0 +1,3247 @@
+{
+  "schema_version": "1.1.0",
+  "plan_contract": "1.2.0",
+  "run_id": "2026-07-15.projectmaster.wave1-baseline",
+  "target": "wave-1",
+  "plan_version": "0.1.0",
+  "generated_at": "2026-07-15T09:00:00Z",
+  "tool_versions": {
+    "speckiwi": "2.3.1",
+    "kiwi_planner": "0.6.0",
+    "validator": "0.6.0"
+  },
+  "tdd_policy": "strict",
+  "md_path": "docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md",
+  "md_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "phases": [
+    {
+      "id": "PH-001",
+      "title": "공통 artifact 계약과 split drift characterization",
+      "goal": "split SRS/runtime/test 관측을 실제 HTTPS 경로로 분리하고 unresolved evidence를 고정한다.",
+      "depends_on": [],
+      "task_ids": [
+        "T-PH001-01",
+        "T-PH001-02",
+        "T-PH001-03",
+        "T-PH001-04",
+        "T-PH001-05",
+        "T-PH001-06"
+      ]
+    },
+    {
+      "id": "PH-002",
+      "title": "Refresh retained-state boundary characterization",
+      "goal": "현재 retained boundary와 refresh loss를 deterministic pre/post state로 분리한다.",
+      "depends_on": [
+        "PH-001"
+      ],
+      "task_ids": [
+        "T-PH002-01",
+        "T-PH002-02",
+        "T-PH002-03",
+        "T-PH002-04",
+        "T-PH002-05",
+        "T-PH002-06"
+      ]
+    },
+    {
+      "id": "PH-003",
+      "title": "Benchmark modes와 raw evidence",
+      "goal": "네 mode, workload corpus와 raw/summary provenance를 재현 가능하게 고정한다.",
+      "depends_on": [
+        "PH-001"
+      ],
+      "task_ids": [
+        "T-PH003-01",
+        "T-PH003-02",
+        "T-PH003-03",
+        "T-PH003-04",
+        "T-PH003-05",
+        "T-PH003-06",
+        "T-PH003-07",
+        "T-PH003-08"
+      ]
+    },
+    {
+      "id": "PH-004",
+      "title": "G1 schema·evaluator·evidence audit·branch decision",
+      "goal": "세 evidence family 완료 뒤에만 명시적 두 값 branch를 선택하고 downstream gate를 기록한다.",
+      "depends_on": [
+        "PH-001",
+        "PH-002",
+        "PH-003"
+      ],
+      "task_ids": [
+        "T-PH004-01",
+        "T-PH004-02",
+        "T-PH004-03",
+        "T-PH004-04",
+        "T-PH004-05"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "title": "Split observation schema와 mismatch guard RED 계약",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-006"
+      ],
+      "files": [],
+      "action": "[NEW FILE CANDIDATE] machine-readable observation row, match|mismatch|not_exercised 집계, disposition=unresolved와 비활성화 guard를 요구하는 실패 테스트를 먼저 추가한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/e2e/wave1-characterization-artifacts.test.ts",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/e2e/wave1-characterization-artifacts.test.ts",
+        "windows": "node --experimental-strip-types --test tests/e2e/wave1-characterization-artifacts.test.ts",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "세 AC의 기대 실패 signature가 각각 관측된다.",
+        "split activation 또는 기존 SRS mutation을 테스트 fixture가 수행하지 않는다."
+      ],
+      "rollback": "신규 RED 테스트 파일만 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-01-REL-BGSTAB-006",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-006"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        {
+          "path": "frontend/tests/e2e/wave1-characterization-artifacts.test.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-4",
+        "AC-5"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-006-AC1-01",
+            "req_id": "REL-BGSTAB-006",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-characterization-artifacts.test.ts",
+            "test_symbol": "REL-BGSTAB-006 AC-1 RED contract",
+            "kind": "contract",
+            "expected_failure_signature": "REL-BGSTAB-006 AC-1 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-006-AC4-01",
+            "req_id": "REL-BGSTAB-006",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-characterization-artifacts.test.ts",
+            "test_symbol": "REL-BGSTAB-006 AC-4 RED contract",
+            "kind": "contract",
+            "expected_failure_signature": "REL-BGSTAB-006 AC-4 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-006-AC5-01",
+            "req_id": "REL-BGSTAB-006",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-characterization-artifacts.test.ts",
+            "test_symbol": "REL-BGSTAB-006 AC-5 RED contract",
+          "kind": "contract",
+          "expected_failure_signature": "REL-BGSTAB-006 AC-5 contract not implemented"
+        }
+      ],
+      "red_evidence": {
+        "command": "node --experimental-strip-types --test tests/e2e/wave1-characterization-artifacts.test.ts",
+        "exit_code": 1,
+        "captured_failure": "3/3 RED contracts failed only because the planned helper module is absent: REL-BGSTAB-006 AC-1 contract not implemented; REL-BGSTAB-006 AC-4 contract not implemented; REL-BGSTAB-006 AC-5 contract not implemented",
+        "timestamp": "2026-07-15T11:58:00.6463929Z"
+      },
+      "green_evidence": null
+    }
+    },
+    {
+      "id": "T-PH001-02",
+      "phase_id": "PH-001",
+      "title": "Split observation artifact helper GREEN 구현",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-006"
+      ],
+      "files": [
+        {
+          "path": "frontend/tests/e2e/wave1-characterization-artifacts.ts"
+        }
+      ],
+      "action": "[NEW FILE CANDIDATE] 기존 URL/transport helpers를 재사용해 observation schema, mismatch matrix와 non-activation guard를 최소 구현한다. 제품 runtime 설정은 변경하지 않는다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/e2e/wave1-characterization-artifacts.test.ts",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/e2e/wave1-characterization-artifacts.test.ts",
+        "windows": "node --experimental-strip-types --test tests/e2e/wave1-characterization-artifacts.test.ts",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "RED 테스트가 모두 통과한다.",
+        "artifact가 build/config/case/source/command/result provenance를 보존한다.",
+        "disposition은 unresolved로 유지된다."
+      ],
+      "rollback": "신규 helper를 제거하고 RED 테스트 상태로 복귀한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-02-REL-BGSTAB-006",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-006"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        {
+          "path": "frontend/tests/e2e/wave1-characterization-artifacts.test.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH001-01"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-4",
+        "AC-5"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-006-AC1-02",
+            "req_id": "REL-BGSTAB-006",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-characterization-artifacts.test.ts",
+            "test_symbol": "REL-BGSTAB-006 AC-1 RED contract",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-006-AC4-02",
+            "req_id": "REL-BGSTAB-006",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-characterization-artifacts.test.ts",
+            "test_symbol": "REL-BGSTAB-006 AC-4 RED contract",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-006-AC5-02",
+            "req_id": "REL-BGSTAB-006",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-characterization-artifacts.test.ts",
+            "test_symbol": "REL-BGSTAB-006 AC-5 RED contract",
+            "kind": "contract"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": {
+          "command": "node --experimental-strip-types --test tests/e2e/wave1-characterization-artifacts.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-07-15T12:21:44.2555633Z"
+        }
+      }
+    },
+    {
+      "id": "T-PH001-03",
+      "phase_id": "PH-001",
+      "title": "Production HTTPS와 standalone split 관측 RED 회귀",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-006"
+      ],
+      "files": [],
+      "action": "[NEW FILE CANDIDATE] 실제 https://localhost:2222 browser URL/socket 경로와 injected standalone 관측을 구분하고, production 경로가 빠지면 완료를 거부하는 Playwright RED 사례를 추가한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\"",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\"",
+        "windows": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\"",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "actual upgrade 경로 누락 사례가 실패한다.",
+        "standalone metadata injection만으로 completion이 성립하지 않는다."
+      ],
+      "rollback": "신규 E2E RED spec만 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-03-REL-BGSTAB-006",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-03"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-006"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "frontend/tests/e2e/wave1-split-characterization.spec.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-2",
+        "AC-3"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-006-AC2-01",
+            "req_id": "REL-BGSTAB-006",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-split-characterization.spec.ts",
+            "test_symbol": "REL-BGSTAB-006 AC-2 RED contract",
+            "kind": "e2e",
+            "expected_failure_signature": "REL-BGSTAB-006 AC-2 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-006-AC3-01",
+            "req_id": "REL-BGSTAB-006",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-split-characterization.spec.ts",
+            "test_symbol": "REL-BGSTAB-006 AC-3 RED contract",
+            "kind": "e2e",
+            "expected_failure_signature": "REL-BGSTAB-006 AC-3 contract not implemented"
+          }
+        ],
+        "red_evidence": {
+          "command": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\" --reporter=line",
+          "exit_code": 1,
+          "captured_failure": "2/2 intended RED failures: REL-BGSTAB-006 AC-2 contract not implemented; REL-BGSTAB-006 AC-3 contract not implemented",
+          "timestamp": "2026-07-15T12:50:02.1472255Z"
+        },
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH001-04",
+      "phase_id": "PH-001",
+      "title": "Production split observation fixture GREEN 구현",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-006"
+      ],
+      "files": [
+        {
+          "path": "frontend/tests/e2e/wave1-characterization-artifacts.ts"
+        },
+        {
+          "path": "frontend/src/utils/webSocketUrl.ts",
+          "line_range": "35-70"
+        }
+      ],
+      "action": "기존 webSocketUrl builder와 live socket interception을 재사용해 production construction→HTTPS /ws upgrade/auth/router dispatch→browser URL open 결과를 수집한다. split mode 자체는 활성화하지 않는다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\"",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\"",
+        "windows": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\"",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "production 및 standalone observation이 서로 다른 source kind로 기록된다.",
+        "https://localhost:2222 actual path evidence가 completion에 필수다.",
+        "기존 unified runtime 동작은 변경되지 않는다."
+      ],
+      "rollback": "fixture helper 변경만 되돌리고 production 설정은 그대로 둔다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-04-REL-BGSTAB-006",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-04"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-006"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "frontend/tests/e2e/wave1-split-characterization.spec.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH001-03"
+      ],
+      "covers_ac": [
+        "AC-2",
+        "AC-3"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-006-AC2-02",
+            "req_id": "REL-BGSTAB-006",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-split-characterization.spec.ts",
+            "test_symbol": "REL-BGSTAB-006 AC-2 RED contract",
+            "kind": "e2e"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-006-AC3-02",
+            "req_id": "REL-BGSTAB-006",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-split-characterization.spec.ts",
+            "test_symbol": "REL-BGSTAB-006 AC-3 RED contract",
+            "kind": "e2e"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": {
+          "command": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\" --reporter=line",
+          "exit_code": 0,
+          "timestamp": "2026-07-15T13:12:34.6735559Z"
+        }
+      }
+    },
+    {
+      "id": "T-PH001-05",
+      "phase_id": "PH-001",
+      "title": "Split characterization 실행과 raw artifact 고정",
+      "type": "perf_test",
+      "req_ids": [
+        "REL-BGSTAB-006"
+      ],
+      "files": [
+        {
+          "path": "frontend/tests/e2e/wave1-split-characterization.spec.ts"
+        },
+        {
+          "path": "server/src/ws/WsRouterSplitHandshake.test.ts",
+          "line_range": "50-121"
+        },
+        {
+          "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/split-characterization.json"
+        }
+      ],
+      "action": "live production suite와 standalone comparator를 실행해 raw observation/mismatch artifact를 남기고 content digest를 계산한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\"",
+          "expected_exit": 0
+        },
+        {
+          "kind": "perf",
+          "metric": "split_characterization_artifact_completeness",
+          "threshold": "all required fields present; disposition unresolved",
+          "tool": "Playwright + schema assertion"
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\"",
+        "windows": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\"",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "raw artifact와 digest가 생성된다.",
+        "SRS/production/test 세 source가 독립 행으로 존재한다.",
+        "restore/supersede 선택은 없다."
+      ],
+      "rollback": "생성 artifact만 폐기하고 코드는 유지한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-05-REL-BGSTAB-006",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-05"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-006"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": [
+        "T-PH001-02",
+        "T-PH001-04"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5"
+      ]
+    },
+    {
+      "id": "T-PH001-06",
+      "phase_id": "PH-001",
+      "title": "Split characterization 까칠한 Phase 리뷰",
+      "type": "review",
+      "req_ids": [
+        "REL-BGSTAB-006"
+      ],
+      "files": [
+        {
+          "path": "docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md"
+        },
+        {
+          "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/split-characterization.json"
+        }
+      ],
+      "action": "계획·SRS·raw artifact를 대조하고 까칠한 reviewer가 No findings를 선언할 때까지 수정·재리뷰한다.",
+      "acceptance_tests": [
+        {
+          "kind": "checklist",
+          "items": [
+            "REL-BGSTAB-006 AC-1~AC-5 전수 대조",
+            "production actual path 증거 확인",
+            "split activation/SRS mutation 부재 확인",
+            "review verdict=No findings"
+          ]
+        }
+      ],
+      "verification_cmd": null,
+      "dod": [
+        "리뷰 finding 0건이다.",
+        "자동 테스트와 digest가 재현된다."
+      ],
+      "rollback": "리뷰 산출물만 폐기하고 Phase를 미완료로 유지한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH001-06-REL-BGSTAB-006",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-06"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-006"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "depends_on_task": [
+        "T-PH001-05"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5"
+      ]
+    },
+    {
+      "id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "title": "Retained-state canonical hash와 loss 분류 RED 단위 계약",
+      "type": "code",
+      "req_ids": [
+        "OBS-BGSTAB-004"
+      ],
+      "files": [],
+      "action": "[NEW FILE CANDIDATE] ordered lines/cells/attributes/cursor/saved cursor/modes/buffer/geometry canonicalization과 expected_current_eviction|observed_loss 분류의 실패 테스트를 먼저 추가한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/unit/terminalRetainedState.test.ts",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/unit/terminalRetainedState.test.ts",
+        "windows": "node --experimental-strip-types --test tests/unit/terminalRetainedState.test.ts",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "ASCII/CJK-wide/combining/emoji와 normal/alternate 사례가 실패한다.",
+        "field verdict equal|changed|missing과 loss 분류 실패가 재현된다."
+      ],
+      "rollback": "신규 RED 단위 테스트만 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-01-OBS-BGSTAB-004",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "OBS-BGSTAB-004"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        {
+          "path": "frontend/tests/unit/terminalRetainedState.test.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-4",
+        "AC-6"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-OBS-BGSTAB-004-AC4-01",
+            "req_id": "OBS-BGSTAB-004",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/unit/terminalRetainedState.test.ts",
+            "test_symbol": "OBS-BGSTAB-004 AC-4 RED contract",
+            "kind": "unit",
+            "expected_failure_signature": "OBS-BGSTAB-004 AC-4 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-OBS-BGSTAB-004-AC6-01",
+            "req_id": "OBS-BGSTAB-004",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "frontend/tests/unit/terminalRetainedState.test.ts",
+            "test_symbol": "OBS-BGSTAB-004 AC-6 RED contract",
+            "kind": "unit",
+            "expected_failure_signature": "OBS-BGSTAB-004 AC-6 contract not implemented"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH002-02",
+      "phase_id": "PH-002",
+      "title": "Retained-state canonicalizer와 analyzer GREEN 구현",
+      "type": "code",
+      "req_ids": [
+        "OBS-BGSTAB-004"
+      ],
+      "files": [
+        {
+          "path": "frontend/src/utils/terminalRetainedState.ts"
+        }
+      ],
+      "action": "[NEW FILE CANDIDATE] xterm state를 주입받는 순수 canonicalizer/hash/diff/analyzer를 구현한다. UI와 authority에는 관여하지 않는다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/unit/terminalRetainedState.test.ts",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/unit/terminalRetainedState.test.ts",
+        "windows": "node --experimental-strip-types --test tests/unit/terminalRetainedState.test.ts",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "모든 canonicalization/loss 분류 테스트가 통과한다.",
+        "동일 입력의 digest가 deterministic하다.",
+        "candidate cause를 손실 없이 보존한다."
+      ],
+      "rollback": "신규 utility를 제거해 RED 상태로 복귀한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-02-OBS-BGSTAB-004",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "OBS-BGSTAB-004"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "frontend/tests/unit/terminalRetainedState.test.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH002-01"
+      ],
+      "covers_ac": [
+        "AC-4",
+        "AC-6"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-OBS-BGSTAB-004-AC4-02",
+            "req_id": "OBS-BGSTAB-004",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "frontend/tests/unit/terminalRetainedState.test.ts",
+            "test_symbol": "OBS-BGSTAB-004 AC-4 GREEN contract",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-OBS-BGSTAB-004-AC6-02",
+            "req_id": "OBS-BGSTAB-004",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "frontend/tests/unit/terminalRetainedState.test.ts",
+            "test_symbol": "OBS-BGSTAB-004 AC-6 GREEN contract",
+            "kind": "unit"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH002-03",
+      "phase_id": "PH-002",
+      "title": "Refresh corpus와 cause provenance RED E2E 계약",
+      "type": "code",
+      "req_ids": [
+        "OBS-BGSTAB-004"
+      ],
+      "files": [],
+      "action": "[NEW FILE CANDIDATE] TC-7004 분리, 24/1000/10000행과 legacy 2MiB 경계, cache/view/text/buffer 축, cause signal 및 no-product-promise를 검증하는 실패 E2E를 추가한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npx playwright test tests/e2e/wave1-retained-state-characterization.spec.ts --project \"Desktop Chrome\"",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npx playwright test tests/e2e/wave1-retained-state-characterization.spec.ts --project \"Desktop Chrome\"",
+        "windows": "npx playwright test tests/e2e/wave1-retained-state-characterization.spec.ts --project \"Desktop Chrome\"",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "manifest 축 누락과 cause provenance 누락이 각각 실패한다.",
+        "수치를 제품 retained range로 표기하면 실패한다."
+      ],
+      "rollback": "신규 E2E RED spec만 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-03-OBS-BGSTAB-004",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-03"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "OBS-BGSTAB-004"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-5",
+        "AC-7"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-OBS-BGSTAB-004-AC1-01",
+            "req_id": "OBS-BGSTAB-004",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts",
+            "test_symbol": "OBS-BGSTAB-004 AC-1 RED contract",
+            "kind": "e2e",
+            "expected_failure_signature": "OBS-BGSTAB-004 AC-1 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-OBS-BGSTAB-004-AC2-01",
+            "req_id": "OBS-BGSTAB-004",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts",
+            "test_symbol": "OBS-BGSTAB-004 AC-2 RED contract",
+            "kind": "e2e",
+            "expected_failure_signature": "OBS-BGSTAB-004 AC-2 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-OBS-BGSTAB-004-AC3-01",
+            "req_id": "OBS-BGSTAB-004",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts",
+            "test_symbol": "OBS-BGSTAB-004 AC-3 RED contract",
+            "kind": "e2e",
+            "expected_failure_signature": "OBS-BGSTAB-004 AC-3 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-OBS-BGSTAB-004-AC5-01",
+            "req_id": "OBS-BGSTAB-004",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts",
+            "test_symbol": "OBS-BGSTAB-004 AC-5 RED contract",
+            "kind": "e2e",
+            "expected_failure_signature": "OBS-BGSTAB-004 AC-5 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-OBS-BGSTAB-004-AC7-01",
+            "req_id": "OBS-BGSTAB-004",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts",
+            "test_symbol": "OBS-BGSTAB-004 AC-7 RED contract",
+            "kind": "e2e",
+            "expected_failure_signature": "OBS-BGSTAB-004 AC-7 contract not implemented"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH002-04",
+      "phase_id": "PH-002",
+      "title": "Read-only retained capture와 refresh fixture GREEN 구현",
+      "type": "code",
+      "req_ids": [
+        "OBS-BGSTAB-004"
+      ],
+      "files": [
+        {
+          "path": "frontend/src/components/Terminal/TerminalView.tsx",
+          "line_range": "164-186"
+        },
+        {
+          "path": "frontend/src/components/Terminal/TerminalView.tsx",
+          "line_range": "1517-1549"
+        },
+        {
+          "path": "frontend/tests/e2e/wave1-characterization-artifacts.ts"
+        }
+      ],
+      "action": "기존 TerminalHandle·snapshot/repair debug seam을 재사용해 read-only capture와 deterministic case runner를 구현한다. Terminal UI, buffer defaults와 authority는 변경하지 않는다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npx playwright test tests/e2e/wave1-retained-state-characterization.spec.ts --project \"Desktop Chrome\"",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npx playwright test tests/e2e/wave1-retained-state-characterization.spec.ts --project \"Desktop Chrome\"",
+        "windows": "npx playwright test tests/e2e/wave1-retained-state-characterization.spec.ts --project \"Desktop Chrome\"",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "전체 열거축이 최소 한 deterministic case에 포함된다.",
+        "pre/post artifact가 동일 schema를 사용한다.",
+        "TC-7004 결과가 별도 current-behavior artifact로 남는다."
+      ],
+      "rollback": "read-only handle과 fixture 변경만 되돌린다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-04-OBS-BGSTAB-004",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-04"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "OBS-BGSTAB-004"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH002-03"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-5",
+        "AC-7"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-OBS-BGSTAB-004-AC1-02",
+            "req_id": "OBS-BGSTAB-004",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts",
+            "test_symbol": "OBS-BGSTAB-004 AC-1 GREEN contract",
+            "kind": "e2e"
+          },
+          {
+            "id": "TC-REQ-OBS-BGSTAB-004-AC2-02",
+            "req_id": "OBS-BGSTAB-004",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts",
+            "test_symbol": "OBS-BGSTAB-004 AC-2 GREEN contract",
+            "kind": "e2e"
+          },
+          {
+            "id": "TC-REQ-OBS-BGSTAB-004-AC3-02",
+            "req_id": "OBS-BGSTAB-004",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts",
+            "test_symbol": "OBS-BGSTAB-004 AC-3 GREEN contract",
+            "kind": "e2e"
+          },
+          {
+            "id": "TC-REQ-OBS-BGSTAB-004-AC5-02",
+            "req_id": "OBS-BGSTAB-004",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts",
+            "test_symbol": "OBS-BGSTAB-004 AC-5 GREEN contract",
+            "kind": "e2e"
+          },
+          {
+            "id": "TC-REQ-OBS-BGSTAB-004-AC7-02",
+            "req_id": "OBS-BGSTAB-004",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts",
+            "test_symbol": "OBS-BGSTAB-004 AC-7 GREEN contract",
+            "kind": "e2e"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH002-05",
+      "phase_id": "PH-002",
+      "title": "Refresh retained-state matrix 실행과 raw artifact 고정",
+      "type": "perf_test",
+      "req_ids": [
+        "OBS-BGSTAB-004"
+      ],
+      "files": [
+        {
+          "path": "frontend/tests/e2e/header-context-menu-regression.spec.ts",
+          "line_range": "439-493"
+        },
+        {
+          "path": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts"
+        },
+        {
+          "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/retained-state-characterization.json"
+        }
+      ],
+      "action": "TC-7004와 신규 matrix를 분리 실행해 pre/post hashes, cause signals, eviction/loss summary 및 digest를 고정한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npx playwright test tests/e2e/header-context-menu-regression.spec.ts tests/e2e/wave1-retained-state-characterization.spec.ts --project \"Desktop Chrome\"",
+          "expected_exit": 0
+        },
+        {
+          "kind": "perf",
+          "metric": "retained_state_case_coverage",
+          "threshold": "all enumerated seed values covered; no product budget inferred",
+          "tool": "Playwright artifact validator"
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npx playwright test tests/e2e/header-context-menu-regression.spec.ts tests/e2e/wave1-retained-state-characterization.spec.ts --project \"Desktop Chrome\"",
+        "windows": "npx playwright test tests/e2e/header-context-menu-regression.spec.ts tests/e2e/wave1-retained-state-characterization.spec.ts --project \"Desktop Chrome\"",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "24/1000/10000와 2MiB before/at/after 사례가 기록된다.",
+        "expected eviction과 observed loss가 분리된다.",
+        "raw reference와 digest가 존재한다."
+      ],
+      "rollback": "생성 artifact만 폐기하고 Phase를 미완료로 둔다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-05-OBS-BGSTAB-004",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-05"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "OBS-BGSTAB-004"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "L",
+      "depends_on_task": [
+        "T-PH002-02",
+        "T-PH002-04"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7"
+      ]
+    },
+    {
+      "id": "T-PH002-06",
+      "phase_id": "PH-002",
+      "title": "Refresh characterization 까칠한 Phase 리뷰",
+      "type": "review",
+      "req_ids": [
+        "OBS-BGSTAB-004"
+      ],
+      "files": [
+        {
+          "path": "docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md"
+        },
+        {
+          "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/retained-state-characterization.json"
+        }
+      ],
+      "action": "SRS의 7개 AC, raw state/digest와 cause 분류를 대조하고 No findings까지 수정·재리뷰한다.",
+      "acceptance_tests": [
+        {
+          "kind": "checklist",
+          "items": [
+            "OBS-BGSTAB-004 AC-1~AC-7 전수 대조",
+            "UI/authority/default 변경 부재 확인",
+            "TC-7004 분리 확인",
+            "review verdict=No findings"
+          ]
+        }
+      ],
+      "verification_cmd": null,
+      "dod": [
+        "리뷰 finding 0건이다.",
+        "artifact schema와 digest 재검증이 통과한다."
+      ],
+      "rollback": "리뷰 산출물만 폐기하고 Phase 완료를 취소한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH002-06-OBS-BGSTAB-004",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-06"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "OBS-BGSTAB-004"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "depends_on_task": [
+        "T-PH002-05"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7"
+      ]
+    },
+    {
+      "id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "title": "Benchmark manifest·statistics RED 계약",
+      "type": "code",
+      "req_ids": [
+        "PERF-BGSTAB-008"
+      ],
+      "files": [],
+      "action": "[NEW FILE CANDIDATE] seed/digest/config provenance, raw-before-summary, p50/p95/p99와 seeded CI 재계산, no-SLO-promotion의 실패 테스트를 추가한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npm run build && node --test dist/benchmarks/benchmarkStatistics.test.js",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm run build && node --test dist/benchmarks/benchmarkStatistics.test.js",
+        "windows": "npm run build && node --test dist/benchmarks/benchmarkStatistics.test.js",
+        "cwd": "server"
+      },
+      "dod": [
+        "manifest/summary 필드별 RED가 관측된다.",
+        "raw sample 없이 summary를 만들면 실패한다.",
+        "제품 threshold 필드가 있으면 실패한다."
+      ],
+      "rollback": "신규 RED 통계 테스트만 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-01-PERF-BGSTAB-008",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-008"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        {
+          "path": "server/src/benchmarks/benchmarkStatistics.test.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-3",
+        "AC-5",
+        "AC-7"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC3-01",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/benchmarks/benchmarkStatistics.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-3 RED contract",
+            "kind": "unit",
+            "expected_failure_signature": "PERF-BGSTAB-008 AC-3 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC5-01",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/benchmarks/benchmarkStatistics.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-5 RED contract",
+            "kind": "unit",
+            "expected_failure_signature": "PERF-BGSTAB-008 AC-5 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC7-01",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "server/src/benchmarks/benchmarkStatistics.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-7 RED contract",
+            "kind": "unit",
+            "expected_failure_signature": "PERF-BGSTAB-008 AC-7 contract not implemented"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH003-02",
+      "phase_id": "PH-003",
+      "title": "Deterministic benchmark statistics GREEN 구현",
+      "type": "code",
+      "req_ids": [
+        "PERF-BGSTAB-008"
+      ],
+      "files": [
+        {
+          "path": "server/src/benchmarks/benchmarkStatistics.ts"
+        }
+      ],
+      "action": "[NEW FILE CANDIDATE] 순수 manifest/raw sample validator와 deterministic percentile/CI aggregator를 구현하고 source sample ID를 보존한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npm run build && node --test dist/benchmarks/benchmarkStatistics.test.js",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm run build && node --test dist/benchmarks/benchmarkStatistics.test.js",
+        "windows": "npm run build && node --test dist/benchmarks/benchmarkStatistics.test.js",
+        "cwd": "server"
+      },
+      "dod": [
+        "고정 seed에서 summary가 byte-stable하다.",
+        "raw samples로 percentile/CI를 재계산할 수 있다.",
+        "SLO/default 승격 필드가 없다."
+      ],
+      "rollback": "신규 statistics module을 제거해 RED 상태로 복귀한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-02-PERF-BGSTAB-008",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-008"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "server/src/benchmarks/benchmarkStatistics.test.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH003-01"
+      ],
+      "covers_ac": [
+        "AC-3",
+        "AC-5",
+        "AC-7"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC3-02",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/benchmarks/benchmarkStatistics.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-3 GREEN contract",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC5-02",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/benchmarks/benchmarkStatistics.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-5 GREEN contract",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC7-02",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "server/src/benchmarks/benchmarkStatistics.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-7 GREEN contract",
+            "kind": "unit"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH003-03",
+      "phase_id": "PH-003",
+      "title": "NO_RENDER mode RED fixture 계약",
+      "type": "code",
+      "req_ids": [
+        "PERF-BGSTAB-008"
+      ],
+      "files": [],
+      "action": "기존 injected write/schedule/clock seam을 사용해 NO_RENDER가 renderer 소비만 제외하고 동일 ingress/control comparator를 유지하는 실패 테스트를 추가한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+        "windows": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "mode ID와 disabled/retained layer 누락이 실패한다.",
+        "동일 ingress digest가 아니면 실패한다."
+      ],
+      "rollback": "추가한 RED fixture cases만 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-03-PERF-BGSTAB-008",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-03"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-008"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        {
+          "path": "frontend/tests/unit/terminalOutputScheduler.test.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC1-03",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-1 RED contract",
+            "kind": "unit",
+            "expected_failure_signature": "PERF-BGSTAB-008 AC-1 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC2-03",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-2 RED contract",
+            "kind": "unit",
+            "expected_failure_signature": "PERF-BGSTAB-008 AC-2 contract not implemented"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH003-04",
+      "phase_id": "PH-003",
+      "title": "NO_RENDER benchmark adapter GREEN 구현",
+      "type": "code",
+      "req_ids": [
+        "PERF-BGSTAB-008"
+      ],
+      "files": [
+        {
+          "path": "frontend/tests/benchmarks/terminalNoRenderFixture.ts"
+        }
+      ],
+      "action": "[NEW FILE CANDIDATE] production scheduler를 변경하지 않고 injected write consumer를 대체하는 benchmark adapter를 구현한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+        "windows": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+        "cwd": "frontend"
+      },
+      "dod": [
+        "NO_RENDER fixture가 control comparator와 동일 ingress digest를 기록한다.",
+        "UI visual 또는 scheduler default를 변경하지 않는다."
+      ],
+      "rollback": "신규 benchmark adapter만 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-04-PERF-BGSTAB-008",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-04"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-008"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        {
+          "path": "frontend/tests/unit/terminalOutputScheduler.test.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH003-03"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC1-04",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-1 GREEN contract",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC2-04",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-2 GREEN contract",
+            "kind": "unit"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH003-05",
+      "phase_id": "PH-003",
+      "title": "Server modes·multi-client raw evidence RED 계약",
+      "type": "code",
+      "req_ids": [
+        "PERF-BGSTAB-008"
+      ],
+      "files": [],
+      "action": "[NEW FILE CANDIDATE] NO_ANALYZER, NO_NETWORK, ONE_CLIENT_SLOW, 1|8|32|54 sessions, 1|2|8 clients, normal-peer isolation과 interval metric delta의 실패 테스트를 먼저 추가한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npm run build && node --test dist/benchmarks/terminalCharacterization.test.js",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm run build && node --test dist/benchmarks/terminalCharacterization.test.js",
+        "windows": "npm run build && node --test dist/benchmarks/terminalCharacterization.test.js",
+        "cwd": "server"
+      },
+      "dod": [
+        "각 mode/corpus/metric 누락이 독립 RED로 관측된다.",
+        "ONE_CLIENT_SLOW 1-client case는 isolation으로 인정되지 않는다."
+      ],
+      "rollback": "신규 RED runner test만 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-05-PERF-BGSTAB-008",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-05"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-008"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "server/src/benchmarks/terminalCharacterization.test.ts"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-4",
+        "AC-6"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC1-05",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/benchmarks/terminalCharacterization.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-1 RED contract",
+            "kind": "integration",
+            "expected_failure_signature": "PERF-BGSTAB-008 AC-1 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC2-05",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/benchmarks/terminalCharacterization.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-2 RED contract",
+            "kind": "integration",
+            "expected_failure_signature": "PERF-BGSTAB-008 AC-2 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC4-05",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/benchmarks/terminalCharacterization.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-4 RED contract",
+            "kind": "integration",
+            "expected_failure_signature": "PERF-BGSTAB-008 AC-4 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC6-05",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "server/src/benchmarks/terminalCharacterization.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-6 RED contract",
+            "kind": "integration",
+            "expected_failure_signature": "PERF-BGSTAB-008 AC-6 contract not implemented"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH003-06",
+      "phase_id": "PH-003",
+      "title": "Terminal characterization runner GREEN 구현",
+      "type": "code",
+      "req_ids": [
+        "PERF-BGSTAB-008"
+      ],
+      "files": [
+        {
+          "path": "server/src/benchmarks/terminalCharacterization.ts"
+        },
+        {
+          "path": "server/src/ws/wsSendPolicy.ts",
+          "line_range": "23-140"
+        }
+      ],
+      "action": "[NEW FILE CANDIDATE] 기존 fake PTY/socket, wsSendPolicy와 observability snapshots를 재사용하는 mode runner를 구현한다. 한 slow client만 pressure하고 normal peer와 비교하며 metric interval delta를 기록한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npm run build && node --test dist/benchmarks/terminalCharacterization.test.js",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm run build && node --test dist/benchmarks/terminalCharacterization.test.js",
+        "windows": "npm run build && node --test dist/benchmarks/terminalCharacterization.test.js",
+        "cwd": "server"
+      },
+      "dod": [
+        "네 mode가 machine-readable ID로 실행된다.",
+        "각 enumerated session/client 값이 corpus에 존재한다.",
+        "raw sample이 summary보다 먼저 보존된다.",
+        "서버 metric delta와 unit/source가 기록된다."
+      ],
+      "rollback": "신규 runner를 제거하고 기존 wsSendPolicy 동작은 유지한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-06-PERF-BGSTAB-008",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-06"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-008"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "L",
+      "test_files": [
+        {
+          "path": "server/src/benchmarks/terminalCharacterization.test.ts"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH003-05"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-4",
+        "AC-6"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC1-06",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/benchmarks/terminalCharacterization.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-1 GREEN contract",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC2-06",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/benchmarks/terminalCharacterization.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-2 GREEN contract",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC4-06",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/benchmarks/terminalCharacterization.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-4 GREEN contract",
+            "kind": "integration"
+          },
+          {
+            "id": "TC-REQ-PERF-BGSTAB-008-AC6-06",
+            "req_id": "PERF-BGSTAB-008",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "server/src/benchmarks/terminalCharacterization.test.ts",
+            "test_symbol": "PERF-BGSTAB-008 AC-6 GREEN contract",
+            "kind": "integration"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH003-07",
+      "phase_id": "PH-003",
+      "title": "Benchmark matrix 실행과 raw/summary 재계산",
+      "type": "perf_test",
+      "req_ids": [
+        "PERF-BGSTAB-008"
+      ],
+      "files": [
+        {
+          "path": "server/src/benchmarks/terminalCharacterization.ts"
+        },
+        {
+          "path": "server/src/benchmarks/benchmarkStatistics.ts"
+        },
+        {
+          "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/benchmark-raw-samples.json"
+        },
+        {
+          "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/benchmark-summary.json"
+        }
+      ],
+      "action": "고정 manifest와 seed로 mode/workload trials를 실행하고 raw samples를 먼저 보존한 뒤 summary를 독립 재계산해 digest를 고정한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npm run build && node --test dist/benchmarks/benchmarkStatistics.test.js dist/benchmarks/terminalCharacterization.test.js",
+          "expected_exit": 0
+        },
+        {
+          "kind": "perf",
+          "metric": "benchmark_summary_recalculation",
+          "threshold": "p50/p95/p99 and CI exactly recompute from referenced raw sample IDs; no product pass/fail threshold",
+          "tool": "terminalCharacterization + benchmarkStatistics"
+        }
+      ],
+      "verification_cmd": {
+        "posix": "npm run build && node --test dist/benchmarks/benchmarkStatistics.test.js dist/benchmarks/terminalCharacterization.test.js",
+        "windows": "npm run build; if ($LASTEXITCODE -eq 0) { node --test dist/benchmarks/benchmarkStatistics.test.js dist/benchmarks/terminalCharacterization.test.js }",
+        "cwd": "server"
+      },
+      "dod": [
+        "manifest/raw/summary artifact와 digest가 존재한다.",
+        "ONE_CLIENT_SLOW normal-client comparator가 기록된다.",
+        "summary가 raw에서 재현된다."
+      ],
+      "rollback": "생성 benchmark artifact만 폐기하고 제품 설정은 변경하지 않는다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-07-PERF-BGSTAB-008",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-07"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-008"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "L",
+      "depends_on_task": [
+        "T-PH003-02",
+        "T-PH003-04",
+        "T-PH003-06"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7"
+      ]
+    },
+    {
+      "id": "T-PH003-08",
+      "phase_id": "PH-003",
+      "title": "Benchmark evidence 까칠한 Phase 리뷰",
+      "type": "review",
+      "req_ids": [
+        "PERF-BGSTAB-008"
+      ],
+      "files": [
+        {
+          "path": "docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md"
+        },
+        {
+          "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/benchmark-raw-samples.json"
+        },
+        {
+          "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/benchmark-summary.json"
+        }
+      ],
+      "action": "7개 AC, fixture isolation, raw provenance와 no-SLO boundary를 대조하고 No findings까지 수정·재리뷰한다.",
+      "acceptance_tests": [
+        {
+          "kind": "checklist",
+          "items": [
+            "PERF-BGSTAB-008 AC-1~AC-7 전수 대조",
+            "raw-before-summary와 CI 재계산 확인",
+            "slow/normal client isolation 확인",
+            "제품 threshold/default 부재 확인",
+            "review verdict=No findings"
+          ]
+        }
+      ],
+      "verification_cmd": null,
+      "dod": [
+        "리뷰 finding 0건이다.",
+        "server build와 focused benchmark tests가 재통과한다."
+      ],
+      "rollback": "리뷰 산출물만 폐기하고 Phase를 미완료로 유지한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH003-08-PERF-BGSTAB-008",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-08"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "PERF-BGSTAB-008"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "depends_on_task": [
+        "T-PH003-07"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "AC-7"
+      ]
+    },
+    {
+      "id": "T-PH004-01",
+      "phase_id": "PH-004",
+      "title": "G1 schema와 denial semantics RED 계약",
+      "type": "code",
+      "req_ids": [
+        "MIG-BGSTAB-001"
+      ],
+      "files": [],
+      "action": "[NEW FILE CANDIDATE] prerequisite digest completeness, exact enum, max-one fix, stable authority Requirement, non-authorization와 resulting state/denial reason의 실패 테스트를 먼저 추가한다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --test tools/wave1/g1-decision-gate.test.mjs",
+          "expected_exit": 1
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --test tools/wave1/g1-decision-gate.test.mjs",
+        "windows": "node --test tools/wave1/g1-decision-gate.test.mjs",
+        "cwd": "."
+      },
+      "dod": [
+        "불완전 evidence, 제3 enum, 2개 fix, unstable authority와 implicit activation이 각각 실패한다.",
+        "어떤 wave state도 테스트가 직접 변경하지 않는다."
+      ],
+      "rollback": "신규 RED gate test만 제거한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-01-MIG-BGSTAB-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH004-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "MIG-BGSTAB-001"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        {
+          "path": "tools/wave1/g1-decision-gate.test.mjs"
+        }
+      ],
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-MIG-BGSTAB-001-AC1-01",
+            "req_id": "MIG-BGSTAB-001",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "tools/wave1/g1-decision-gate.test.mjs",
+            "test_symbol": "MIG-BGSTAB-001 AC-1 RED contract",
+            "kind": "contract",
+            "expected_failure_signature": "MIG-BGSTAB-001 AC-1 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-MIG-BGSTAB-001-AC2-01",
+            "req_id": "MIG-BGSTAB-001",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "tools/wave1/g1-decision-gate.test.mjs",
+            "test_symbol": "MIG-BGSTAB-001 AC-2 RED contract",
+            "kind": "contract",
+            "expected_failure_signature": "MIG-BGSTAB-001 AC-2 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-MIG-BGSTAB-001-AC3-01",
+            "req_id": "MIG-BGSTAB-001",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "tools/wave1/g1-decision-gate.test.mjs",
+            "test_symbol": "MIG-BGSTAB-001 AC-3 RED contract",
+            "kind": "contract",
+            "expected_failure_signature": "MIG-BGSTAB-001 AC-3 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-MIG-BGSTAB-001-AC4-01",
+            "req_id": "MIG-BGSTAB-001",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "tools/wave1/g1-decision-gate.test.mjs",
+            "test_symbol": "MIG-BGSTAB-001 AC-4 RED contract",
+            "kind": "contract",
+            "expected_failure_signature": "MIG-BGSTAB-001 AC-4 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-MIG-BGSTAB-001-AC5-01",
+            "req_id": "MIG-BGSTAB-001",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "tools/wave1/g1-decision-gate.test.mjs",
+            "test_symbol": "MIG-BGSTAB-001 AC-5 RED contract",
+            "kind": "contract",
+            "expected_failure_signature": "MIG-BGSTAB-001 AC-5 contract not implemented"
+          },
+          {
+            "id": "TC-REQ-MIG-BGSTAB-001-AC6-01",
+            "req_id": "MIG-BGSTAB-001",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "tools/wave1/g1-decision-gate.test.mjs",
+            "test_symbol": "MIG-BGSTAB-001 AC-6 RED contract",
+            "kind": "contract",
+            "expected_failure_signature": "MIG-BGSTAB-001 AC-6 contract not implemented"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH004-02",
+      "phase_id": "PH-004",
+      "title": "Pure G1 decision gate GREEN 구현",
+      "type": "code",
+      "req_ids": [
+        "MIG-BGSTAB-001"
+      ],
+      "files": [
+        {
+          "path": "tools/wave1/g1-decision-gate.mjs"
+        }
+      ],
+      "action": "[NEW FILE CANDIDATE] wave state를 쓰지 않는 순수 schema/evidence evaluator를 구현한다. decision은 외부 명시 입력으로만 받고 default/fallback을 두지 않는다.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node --test tools/wave1/g1-decision-gate.test.mjs",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "node --test tools/wave1/g1-decision-gate.test.mjs",
+        "windows": "node --test tools/wave1/g1-decision-gate.test.mjs",
+        "cwd": "."
+      },
+      "dod": [
+        "모든 denial/allow 테스트가 통과한다.",
+        "evaluator가 waves.jsonl, SRS 또는 runtime을 mutate하지 않는다.",
+        "decision 누락은 명시적 denial이다."
+      ],
+      "rollback": "신규 evaluator를 제거해 RED 상태로 복귀한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-02-MIG-BGSTAB-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH004-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "MIG-BGSTAB-001"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "M",
+      "test_files": [
+        {
+          "path": "tools/wave1/g1-decision-gate.test.mjs"
+        }
+      ],
+      "depends_on_task": [
+        "T-PH004-01"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-MIG-BGSTAB-001-AC1-02",
+            "req_id": "MIG-BGSTAB-001",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "tools/wave1/g1-decision-gate.test.mjs",
+            "test_symbol": "MIG-BGSTAB-001 AC-1 GREEN contract",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-MIG-BGSTAB-001-AC2-02",
+            "req_id": "MIG-BGSTAB-001",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "tools/wave1/g1-decision-gate.test.mjs",
+            "test_symbol": "MIG-BGSTAB-001 AC-2 GREEN contract",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-MIG-BGSTAB-001-AC3-02",
+            "req_id": "MIG-BGSTAB-001",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "tools/wave1/g1-decision-gate.test.mjs",
+            "test_symbol": "MIG-BGSTAB-001 AC-3 GREEN contract",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-MIG-BGSTAB-001-AC4-02",
+            "req_id": "MIG-BGSTAB-001",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "tools/wave1/g1-decision-gate.test.mjs",
+            "test_symbol": "MIG-BGSTAB-001 AC-4 GREEN contract",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-MIG-BGSTAB-001-AC5-02",
+            "req_id": "MIG-BGSTAB-001",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "tools/wave1/g1-decision-gate.test.mjs",
+            "test_symbol": "MIG-BGSTAB-001 AC-5 GREEN contract",
+            "kind": "contract"
+          },
+          {
+            "id": "TC-REQ-MIG-BGSTAB-001-AC6-02",
+            "req_id": "MIG-BGSTAB-001",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "tools/wave1/g1-decision-gate.test.mjs",
+            "test_symbol": "MIG-BGSTAB-001 AC-6 GREEN contract",
+            "kind": "contract"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH004-03",
+      "phase_id": "PH-004",
+      "title": "세 prerequisite evidence audit와 G1 input 봉인",
+      "type": "review",
+      "req_ids": [
+        "MIG-BGSTAB-001"
+      ],
+      "files": [
+        {
+          "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/split-characterization.json"
+        },
+        {
+          "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/retained-state-characterization.json"
+        },
+        {
+          "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/benchmark-summary.json"
+        },
+        {
+          "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/g1-evidence-audit.json"
+        }
+      ],
+      "action": "세 Requirement의 artifact reference, run/build ID와 digest를 검증하고 하나라도 미완료면 G1 입력 생성을 거부한다.",
+      "acceptance_tests": [
+        {
+          "kind": "checklist",
+          "items": [
+            "REL-BGSTAB-006 완료 evidence와 digest 확인",
+            "OBS-BGSTAB-004 완료 evidence와 digest 확인",
+            "PERF-BGSTAB-008 raw/summary evidence와 digest 확인",
+            "세 값 중 하나라도 누락 시 denial 확인"
+          ]
+        }
+      ],
+      "verification_cmd": null,
+      "dod": [
+        "g1-evidence-audit artifact가 세 prerequisite를 정확히 참조한다.",
+        "모든 Phase reviewer verdict가 No findings다."
+      ],
+      "rollback": "audit artifact만 폐기하고 G1을 미개방으로 유지한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-03-MIG-BGSTAB-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH004-03"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "MIG-BGSTAB-001"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": [
+        "T-PH004-02"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-5"
+      ]
+    },
+    {
+      "id": "T-PH004-04",
+      "phase_id": "PH-004",
+      "title": "G1 branch 명시 선택과 decision record 생성",
+      "type": "review",
+      "req_ids": [
+        "MIG-BGSTAB-001"
+      ],
+      "files": [
+        {
+          "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/g1-evidence-audit.json"
+        },
+        {
+          "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/g1-decision-record.json"
+        }
+      ],
+      "action": "검증된 evidence를 사용자에게 제시하고 명시 선택을 받은 뒤에만 exact two-value decision record와 downstream activation/denial state를 생성한다. 선택 전에는 실행하지 않는다.",
+      "acceptance_tests": [
+        {
+          "kind": "checklist",
+          "items": [
+            "사용자가 confirmed-bug-only 또는 architectural migration 중 하나를 명시 선택",
+            "선택 근거와 반대 분기 기각 evidence 기록",
+            "bug-only면 별도 local-fix ID 최대 1건과 후속 wave inactive",
+            "migration이면 별도 exact stable authority Requirement 없이는 wave-2 denial",
+            "UI/authority/default/deletion 자동 승인 없음"
+          ]
+        }
+      ],
+      "verification_cmd": null,
+      "dod": [
+        "business decision 식별자가 기록된다.",
+        "decision record가 gate evaluator를 통과한다.",
+        "공식 workflow mutation은 별도 승인 이후에만 수행된다."
+      ],
+      "rollback": "decision record를 무효화하고 모든 후속 wave를 inactive로 유지한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-04-MIG-BGSTAB-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH004-04"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "MIG-BGSTAB-001"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": [
+        "T-PH004-03"
+      ],
+      "covers_ac": [
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ],
+      "needs_clarification": [
+        {
+          "slug": "g1-branch-selection",
+          "question": "세 prerequisite evidence와 digest를 검토한 뒤 G1을 confirmed-bug-only 또는 architectural migration 중 어느 branch로 명시 선택할 것인가? 선택 branch에 따라 별도 local-fix ID 또는 stable authority Requirement ID도 제공해야 한다.",
+          "blocks_task": true,
+          "auto_severity": "business-decision"
+        }
+      ]
+    },
+    {
+      "id": "T-PH004-05",
+      "phase_id": "PH-004",
+      "title": "G1 decision과 downstream state 최종 까칠한 리뷰",
+      "type": "review",
+      "req_ids": [
+        "MIG-BGSTAB-001"
+      ],
+      "files": [
+        {
+          "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/g1-decision-record.json"
+        },
+        {
+          "path": "docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md"
+        }
+      ],
+      "action": "사용자 결정과 evaluator 결과, downstream inactive/activation gate를 독립 대조하고 No findings까지 재리뷰한다.",
+      "acceptance_tests": [
+        {
+          "kind": "checklist",
+          "items": [
+            "MIG-BGSTAB-001 AC-1~AC-6 전수 대조",
+            "implicit fallback/third value 부재",
+            "conditional ID와 downstream state 일치",
+            "authority/UI/default/deletion 비승인 확인",
+            "review verdict=No findings"
+          ]
+        }
+      ],
+      "verification_cmd": null,
+      "dod": [
+        "리뷰 finding 0건이다.",
+        "decision record digest와 evaluator 결과가 재현된다."
+      ],
+      "rollback": "최종 승인을 취소하고 wave-2~wave-5를 inactive로 유지한다.",
+      "trace_links": [
+        {
+          "link_id": "TL-T-PH004-05-MIG-BGSTAB-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH004-05"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "MIG-BGSTAB-001"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "depends_on_task": [
+        "T-PH004-04"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6"
+      ]
+    }
+  ],
+  "coverage": [
+    {
+      "req_id": "REL-BGSTAB-006",
+      "stability": "evolving",
+      "ac_total": 5,
+      "ac_covered": 5,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH001-01",
+        "T-PH001-02",
+        "T-PH001-03",
+        "T-PH001-04",
+        "T-PH001-05",
+        "T-PH001-06"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC1-01",
+            "TC-REQ-REL-BGSTAB-006-AC1-02"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC2-01",
+            "TC-REQ-REL-BGSTAB-006-AC2-02"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC3-01",
+            "TC-REQ-REL-BGSTAB-006-AC3-02"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC4-01",
+            "TC-REQ-REL-BGSTAB-006-AC4-02"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC5-01",
+            "TC-REQ-REL-BGSTAB-006-AC5-02"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "OBS-BGSTAB-004",
+      "stability": "evolving",
+      "ac_total": 7,
+      "ac_covered": 7,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH002-01",
+        "T-PH002-02",
+        "T-PH002-03",
+        "T-PH002-04",
+        "T-PH002-05",
+        "T-PH002-06"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC1-01",
+            "TC-REQ-OBS-BGSTAB-004-AC1-02"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC2-01",
+            "TC-REQ-OBS-BGSTAB-004-AC2-02"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC3-01",
+            "TC-REQ-OBS-BGSTAB-004-AC3-02"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC4-01",
+            "TC-REQ-OBS-BGSTAB-004-AC4-02"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC5-01",
+            "TC-REQ-OBS-BGSTAB-004-AC5-02"
+          ]
+        },
+        {
+          "ac_id": "AC-6",
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC6-01",
+            "TC-REQ-OBS-BGSTAB-004-AC6-02"
+          ]
+        },
+        {
+          "ac_id": "AC-7",
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC7-01",
+            "TC-REQ-OBS-BGSTAB-004-AC7-02"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "PERF-BGSTAB-008",
+      "stability": "evolving",
+      "ac_total": 7,
+      "ac_covered": 7,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH003-01",
+        "T-PH003-02",
+        "T-PH003-03",
+        "T-PH003-04",
+        "T-PH003-05",
+        "T-PH003-06",
+        "T-PH003-07",
+        "T-PH003-08"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC1-03",
+            "TC-REQ-PERF-BGSTAB-008-AC1-04",
+            "TC-REQ-PERF-BGSTAB-008-AC1-05",
+            "TC-REQ-PERF-BGSTAB-008-AC1-06"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC2-03",
+            "TC-REQ-PERF-BGSTAB-008-AC2-04",
+            "TC-REQ-PERF-BGSTAB-008-AC2-05",
+            "TC-REQ-PERF-BGSTAB-008-AC2-06"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC3-01",
+            "TC-REQ-PERF-BGSTAB-008-AC3-02"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC4-05",
+            "TC-REQ-PERF-BGSTAB-008-AC4-06"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC5-01",
+            "TC-REQ-PERF-BGSTAB-008-AC5-02"
+          ]
+        },
+        {
+          "ac_id": "AC-6",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC6-05",
+            "TC-REQ-PERF-BGSTAB-008-AC6-06"
+          ]
+        },
+        {
+          "ac_id": "AC-7",
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC7-01",
+            "TC-REQ-PERF-BGSTAB-008-AC7-02"
+          ]
+        }
+      ]
+    },
+    {
+      "req_id": "MIG-BGSTAB-001",
+      "stability": "evolving",
+      "ac_total": 6,
+      "ac_covered": 6,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH004-01",
+        "T-PH004-02",
+        "T-PH004-03",
+        "T-PH004-04",
+        "T-PH004-05"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC1-01",
+            "TC-REQ-MIG-BGSTAB-001-AC1-02"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC2-01",
+            "TC-REQ-MIG-BGSTAB-001-AC2-02"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC3-01",
+            "TC-REQ-MIG-BGSTAB-001-AC3-02"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC4-01",
+            "TC-REQ-MIG-BGSTAB-001-AC4-02"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC5-01",
+            "TC-REQ-MIG-BGSTAB-001-AC5-02"
+          ]
+        },
+        {
+          "ac_id": "AC-6",
+          "test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC6-01",
+            "TC-REQ-MIG-BGSTAB-001-AC6-02"
+          ]
+        }
+      ]
+    }
+  ],
+  "orphans": [],
+  "unreferenced_reqs": [],
+  "excluded_reqs": [],
+  "deferred_ac": [],
+  "risks": [
+    {
+      "id": "RISK-001",
+      "severity": "high",
+      "description": "Live HTTPS characterization이 injected standalone path로 대체될 위험",
+      "mitigation": "PH-001 AC-2/3 E2E와 raw source kind를 completion gate로 사용",
+      "affected_task_ids": [
+        "T-PH001-03",
+        "T-PH001-04",
+        "T-PH001-05"
+      ]
+    },
+    {
+      "id": "RISK-002",
+      "severity": "high",
+      "description": "Refresh corpus 수치가 제품 retained/default 약속으로 오해될 위험",
+      "mitigation": "OBS AC-7 음성 테스트와 reviewer gate를 유지",
+      "affected_task_ids": [
+        "T-PH002-03",
+        "T-PH002-04",
+        "T-PH002-06"
+      ]
+    },
+    {
+      "id": "RISK-003",
+      "severity": "med",
+      "description": "Benchmark summary가 raw sample provenance 없이 생성될 위험",
+      "mitigation": "raw-before-summary 계약과 독립 재계산을 강제",
+      "affected_task_ids": [
+        "T-PH003-01",
+        "T-PH003-02",
+        "T-PH003-07"
+      ]
+    },
+    {
+      "id": "RISK-004",
+      "severity": "critical",
+      "description": "G1이 evidence 없이 implicit branch를 선택할 위험",
+      "mitigation": "business-decision gate와 pure evaluator denial을 강제",
+      "affected_task_ids": [
+        "T-PH004-01",
+        "T-PH004-02",
+        "T-PH004-04"
+      ]
+    },
+    {
+      "id": "RISK-005",
+      "severity": "high",
+      "description": "architectural migration 선택이 authority promotion으로 오해될 위험",
+      "mitigation": "별도 exact stable authority Requirement 없이는 wave-2 denial",
+      "affected_task_ids": [
+        "T-PH004-04",
+        "T-PH004-05"
+      ]
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "OQ-G1-001",
+      "question": "세 prerequisite evidence 완료 뒤 G1 branch와 조건부 별도 ID(local-fix 또는 stable authority Requirement)를 사용자가 무엇으로 지정할 것인가?",
+      "blocks_task_ids": [
+        "T-PH004-04",
+        "T-PH004-05"
+      ]
+    }
+  ],
+  "external_module_impact": [],
+  "tdd_decisions": [],
+  "coder_handoff_readiness": [
+    {
+      "phase_id": "PH-001",
+      "ready": true,
+      "blockers": []
+    },
+    {
+      "phase_id": "PH-002",
+      "ready": true,
+      "blockers": []
+    },
+    {
+      "phase_id": "PH-003",
+      "ready": true,
+      "blockers": []
+    },
+    {
+      "phase_id": "PH-004",
+      "ready": false,
+      "blockers": [
+        "business-decision:g1-branch-selection:T-PH004-04"
+      ]
+    }
+  ],
+  "mcp_call_log": [
+    {
+      "seq": 1,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-006"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "bf5ba48f74302565f38e5a0988bf421b89ab7455",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 2,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-006"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "5195f0bb7ea2037e38fc0a262620435a3e6b0400",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 3,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-03"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-006"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "95ba1a1d14374be189f9daa0a7376518a1d86e21",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 4,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-04"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-006"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "acac57d680152da67bab6bbf29f073a7019ffaeb",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 5,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-05"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-006"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "cc2f4f01969c1d98bf86aa2c26a41e755e8a1777",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 6,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-06"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-006"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "20a343f6543a842cdeb090df59d261876ca3fd92",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 7,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "OBS-BGSTAB-004"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "14e3330e24e96128101dc5bc16d3befc09309de0",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 8,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "OBS-BGSTAB-004"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "e07b4d45369c92fdddc86776440e9aada90ab59e",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 9,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-03"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "OBS-BGSTAB-004"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "1e113d29cfe6267317d498b1b7b719239defb83d",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 10,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-04"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "OBS-BGSTAB-004"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "2f78f6e0ab2f391049079b44c30a786d1a9ad0ff",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 11,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-05"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "OBS-BGSTAB-004"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "6710f1997d25a4d3d015f1c0cc7e64911267e6af",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 12,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-06"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "OBS-BGSTAB-004"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "c649a17f7b408b78852b82ea563f4fdaaabf6756",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 13,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-008"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "1634c38ac827baf93ede56444f175920de3f1c54",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 14,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-008"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "8c970aaa2fdccff428a53d3edee7a2c39192cbf7",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 15,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-03"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-008"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "5f1c4a2961d16414ff8261498f14a06f320a607d",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 16,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-04"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-008"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "12e8db13256788cf44784dd3fb89db9d99ffa4b0",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 17,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-05"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-008"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "3b85fe1f00e37ba04dc08cffd032238ff32c69d3",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 18,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-06"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-008"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "a5608a95410dab5c11beb3b5d279a29360d4979c",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 19,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-07"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-008"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "001cad795e71d6d49ecb7e70f9c84294d0886698",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 20,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-08"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "PERF-BGSTAB-008"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "4465da3fb23e4e8453627c3098b60ed4da9aac01",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 21,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH004-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "MIG-BGSTAB-001"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "c06e5192acd4527e1b8d155c07531701111cb4c6",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 22,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH004-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "MIG-BGSTAB-001"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "0f223b01e52e392cef632b05aa92c773f8d414ce",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 23,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH004-03"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "MIG-BGSTAB-001"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "9772d7a7410e29a1774c55b49bd9524df67f1147",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 24,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH004-04"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "MIG-BGSTAB-001"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "ad1efe8ef1a34cb57a8d9780a3d5c01f7152522b",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 25,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH004-05"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "MIG-BGSTAB-001"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "acfb35ac0370906084aa3c67bc04a95e9c00de39",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 26,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "REL-BGSTAB-006",
+        "type": "plan",
+        "reference": "docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md#T-PH001-01"
+      },
+      "args_hash": "0d6dc941a119d3877623156d5442811befc5d713",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 27,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "OBS-BGSTAB-004",
+        "type": "plan",
+        "reference": "docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md#T-PH002-01"
+      },
+      "args_hash": "1e852541f5ad9a0f8eaeaaa9457e58cd383179b7",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 28,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "PERF-BGSTAB-008",
+        "type": "plan",
+        "reference": "docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md#T-PH003-01"
+      },
+      "args_hash": "9e7879386b344527e5e6f15556794213645fe65f",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    },
+    {
+      "seq": 29,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "MIG-BGSTAB-001",
+        "type": "plan",
+        "reference": "docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md#T-PH004-01"
+      },
+      "args_hash": "a94b4c0b63371fdc1b2e8455c3c58f62f75b9f4a",
+      "response_hash": null,
+      "timestamp": "2026-07-15T06:36:30.898Z",
+      "ok": true
+    }
+  ]
+}

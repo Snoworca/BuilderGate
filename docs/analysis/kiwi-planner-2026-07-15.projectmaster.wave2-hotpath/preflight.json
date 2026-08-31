@@ -1,0 +1,25 @@
+{
+  "run_id": "2026-07-15.projectmaster.wave2-hotpath",
+  "target": "wave-2",
+  "mcp_available": true,
+  "active_target_confirmed": true,
+  "active_target_goal": "Orca 원칙을 흡수하여 기존 UI와 authority를 바꾸지 않고 segmented UTF-8 output scheduling, explicit stale/resync repair, bounded snapshot-drain-ready restore, paste/copy exactly-once ownership을 TDD로 구현한다.",
+  "requirements_source": "docs/spec/",
+  "source_of_truth": "SpecKiwi MCP",
+  "workspace_diagnostics": {
+    "strict_spec_errors": 0,
+    "strict_spec_warnings": 0,
+    "broken_links": 0,
+    "legacy_workflow_artifact_note": "기존 wave-master 및 legacy plan companion 누락 진단은 별도 artifact debt다. 이 run은 새 plan+sidecar+validator companion을 완결하여 진행한다."
+  },
+  "constraints": [
+    "UTF-8 only",
+    "TDD RED before GREEN",
+    "각 Phase 종료 시 까칠한 reviewer No findings",
+    "https://localhost:2222 E2E",
+    "node.exe와 TCP 2001/2002 프로세스 비중단",
+    "C:/Work/git-none/orca read-only",
+    "UI 시각·label·layout·interaction 비변경",
+    "새 buffer/default/user option 비도입"
+  ]
+}

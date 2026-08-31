@@ -1,0 +1,98 @@
+{
+  "task_id": "T-PH003-01",
+  "req_id": "REL-BGSTAB-007",
+  "phase": "red",
+  "recorded_at": "2026-07-30T00:05:49.6706436Z",
+  "production_state": "implementation-free RED baseline; do not reapply the preserved patch during T-PH003-01",
+  "preservation": {
+    "attribution": "docs/analysis/kiwi-coder-2026-07-28.pm.wave3-completion/T-PH003-01-attribution.md",
+    "reversible_patch": "docs/analysis/kiwi-coder-2026-07-28.pm.wave3-completion/T-PH003-01-attributed-production.removal.patch",
+    "note": "Only four mapped production consequence blocks were removed. Test files and excluded adjacent dirty blocks were not edited."
+  },
+  "individual_runs": [
+    {
+      "test_case_id": "TC-REQ-REL-BGSTAB-007-AC2-01",
+      "command": "cd server && node node_modules\\tsx\\dist\\cli.mjs --test --test-reporter=tap --test-name-pattern \"^REL-BGSTAB-007 applies configured retained policy before delivery$\" src\\services\\TerminalAuthorityController.test.ts",
+      "test_path": "server/src/services/TerminalAuthorityController.test.ts",
+      "executed_at": "2026-07-30T00:05:49.6706436Z",
+      "selected_test_count": 1,
+      "exit_code": 1,
+      "failure_classification": "assertion-level (ERR_ASSERTION)",
+      "failure": "After a physical checkpoint commit, actual recovery remained {authority:'legacy-local', provisionalCacheUsed:true} instead of server/non-provisional.",
+      "attribution": "Removed only the adapter settled-commit call to SessionManager.recordTerminalAuthorityServerCheckpointDelivery; adapter-local active checkpoint bookkeeping remains."
+    },
+    {
+      "test_case_id": "TC-REQ-REL-BGSTAB-007-AC8-02",
+      "command": "cd frontend && node --experimental-strip-types --test --test-reporter=tap --test-name-pattern \"^REL-BGSTAB-007 keeps generic screen repair independent of checkpoint ACK evidence$\" tests\\unit\\terminalContainerRecoveryContract.test.ts",
+      "test_path": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+      "executed_at": "2026-07-30T00:05:49.6706436Z",
+      "selected_test_count": 1,
+      "exit_code": 1,
+      "failure_classification": "assertion-level (ERR_ASSERTION)",
+      "failure": "After physical write, generic repair ACK and server-ready latch, actual state was ready=false, provisional=true and hiddenDirty=true; the strengthened assertions first proved there were no terminal-checkpoint:* commands and no checkpointEpoch control identity.",
+      "attribution": "Removed only finishCurrentView readiness/state-release consequences in visibleOutputRecovery; no Container/View bridge or UI code was changed."
+    },
+    {
+      "test_case_id": "TC-REQ-REL-BGSTAB-007-AC4-03",
+      "command": "cd server && node node_modules\\tsx\\dist\\cli.mjs --test --test-reporter=tap --test-name-pattern \"^REL-BGSTAB-007 validates Ordinal64 checkpoint apply and drain$\" src\\services\\TerminalAuthorityController.test.ts",
+      "test_path": "server/src/services/TerminalAuthorityController.test.ts",
+      "executed_at": "2026-07-30T00:05:49.6706436Z",
+      "selected_test_count": 1,
+      "exit_code": 1,
+      "failure_classification": "assertion-level (ERR_ASSERTION)",
+      "failure": "Canonical apply+drain ACKs left physical drain count unchanged; assertion `the same active adapter ledger must settle only after canonical apply and drain acknowledgements` failed.",
+      "attribution": "Removed only adapter physical-drain evidence writes while parser validation and invalid ACK rejection remained available."
+    },
+    {
+      "test_case_id": "TC-REQ-REL-BGSTAB-007-AC9-04",
+      "command": "cd server && node node_modules\\tsx\\dist\\cli.mjs --test --test-reporter=tap --test-name-pattern \"^REL-BGSTAB-007 isolates driver lease ledger and rollback epoch$\" src\\services\\TerminalAuthorityController.test.ts",
+      "test_path": "server/src/services/TerminalAuthorityController.test.ts",
+      "executed_at": "2026-07-30T00:05:49.6706436Z",
+      "selected_test_count": 1,
+      "exit_code": 1,
+      "failure_classification": "assertion-level (ERR_ASSERTION)",
+      "failure": "After each compatibility drain frame, authority mode remained `rolling-back` rather than completing as `legacy`.",
+      "attribution": "Removed only the adapter forwarding of terminal-authority:compatibility-drained to controller acknowledgement; rollback setup, checkpoint frames and parity promotion foundations remained."
+    }
+  ],
+  "ac8_control_strengthening": {
+    "scope": "checkpoint-ACK-free (generic repair ACK required)",
+    "sequence": "physical write -> generic repair ACK -> server-ready latch",
+    "assertions_before_the_intended_final_red": [
+      "physical write alone keeps ready=false, provisional=true, hiddenDirty=true",
+      "commands contains no terminal-checkpoint:* runtime control",
+      "commands contains no checkpointEpoch control identity",
+      "generic repair ACK alone still keeps currentViewTransactionReady=false"
+    ],
+    "latest_exact_run": {
+      "command": "cd frontend && node --experimental-strip-types --test --test-reporter=tap --test-name-pattern \"^REL-BGSTAB-007 keeps generic screen repair independent of checkpoint ACK evidence$\" tests\\unit\\terminalContainerRecoveryContract.test.ts",
+      "test_path": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+      "executed_at": "2026-07-30T00:05:49.6706436Z",
+      "selected_test_count": 1,
+      "exit_code": 1,
+      "failure_kind": "ERR_ASSERTION",
+      "failure_classification": "assertion-level",
+      "failure": "Final expected ready=true, retainedHistoryEquivalent=false, provisional=false and hiddenDirty=false remained false/false/true/true after the required generic repair ACK and server-ready latch."
+    }
+  },
+  "aggregate_wrapper": {
+    "command": "$sidecar=Get-Content -Raw -Encoding UTF8 'docs\\plans\\2026-07-28.pm.wave3-completion.sidecar.json' | ConvertFrom-Json; $task=$sidecar.tasks | Where-Object id -eq 'T-PH003-01'; Invoke-Expression $task.verification_cmd.windows; exit $LASTEXITCODE",
+    "exit_code": 0,
+    "executed_at": "2026-07-30T00:05:49.6706436Z",
+    "meaning": "The plan wrapper prechecked all top-level declarations and accepted the four individually observed RED outcomes."
+  },
+  "workflow_mutation": {
+    "tool": "workflow_worklog_emit",
+    "result": "MUTATION_DENIED / SRS-E072",
+    "reason": "The supplied idempotency key was rejected as incompatible with the canonical journal identity; this is recorded before the degraded task-local fallback."
+  },
+  "independent_rereview": {
+    "mapping_control": "Initial partial checkpoint-control exclusion was strengthened to ban all terminal-checkpoint:* command types; re-review reported no remaining mapping/control finding.",
+    "red_evidence": "All four exact contracts independently selected one test and failed with assertion-level RED; aggregate sidecar wrapper independently exited 0."
+  },
+  "scope_guards": [
+    "No SRS lifecycle, acceptance criteria, completed-work or UI mutation.",
+    "No browser integration or Playwright run.",
+    "AC-1 resolver partial evidence and TerminalContainer/TerminalView scope remain untouched."
+  ]
+}

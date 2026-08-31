@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "requirementId": "OBS-BGSTAB-005",
+  "phaseId": "PH-001",
+  "reviewFindings": { "high": 4, "medium": 1 },
+  "command": "npx tsx --test src/services/TerminalResourcePolicy.test.ts src/services/RuntimeConfigStore.test.ts",
+  "cwd": "server",
+  "exitCode": 1,
+  "tests": { "total": 22, "passed": 18, "failed": 4 },
+  "failureAxes": [
+    "explicit non-scrollback raw provenance was mislabeled schema-default",
+    "AC1 consumerId mutation was omitted from tuple identity",
+    "production observe generation did not seed registered consumer/resource decisions",
+    "differential did not expose actual server/frontend consumer harness results"
+  ],
+  "knownPathResidualMutation": "The known TerminalView/WsRouter mutation is part of the same test and is evaluated after tuple identity is repaired."
+}

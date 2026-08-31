@@ -1,0 +1,16 @@
+{
+  "iteration": 2,
+  "plan": "docs/plans/2026-07-15.projectmaster.wave2-hotpath.plan.md",
+  "sidecar": "docs/plans/2026-07-15.projectmaster.wave2-hotpath.sidecar.json",
+  "canonical_md_sha256": "a234af126a53ca1f5e84561961c5bcc35926c4e2277d9ce37ea49f6f47532cb9",
+  "tasks": 20,
+  "requirements": 4,
+  "acceptance_criteria": 40,
+  "changes": [
+    "plan and sidecar executable fields synchronized",
+    "all RED files and test_files populated",
+    "screen-repair fault matrix and HTTPS resync E2E added",
+    "restore IME/geometry/write/ACK/hidden/tombstone/Unicode matrix added",
+    "review aggregate commands and independent RED benchmark commands added"
+  ]
+}

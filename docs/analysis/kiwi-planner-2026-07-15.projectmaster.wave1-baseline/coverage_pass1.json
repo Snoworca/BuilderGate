@@ -1,0 +1,98 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-15.projectmaster.wave1-baseline",
+  "coverage_pass": 1,
+  "mode": "normal",
+  "reconciliation": {
+    "inventory_requirement_count": 4,
+    "plan_coverage_requirement_count": 4,
+    "requirement_ids_match": true,
+    "inventory_ac_count": 25,
+    "plan_task_mapped_ac_count": 25,
+    "test_case_mapped_ac_count": 25,
+    "missing_requirement_ids": [],
+    "extra_requirement_ids": [],
+    "missing_ac_refs": [],
+    "extra_ac_refs": []
+  },
+  "requirements": [
+    {
+      "req_id": "REL-BGSTAB-006",
+      "stability": "evolving",
+      "ac_total": 5,
+      "pass1_confirmed": true,
+      "verification_complete": false,
+      "acceptance_criteria": [
+        {"ac_id":"AC-1","status":"covered","task_ids":["T-PH001-01","T-PH001-02","T-PH001-05","T-PH001-06"],"test_case_ids":["TC-REQ-REL-BGSTAB-006-AC1-01","TC-REQ-REL-BGSTAB-006-AC1-02"],"fit":"Observation kind, build/config/case/source/command/result provenance and artifact execution are explicit."},
+        {"ac_id":"AC-2","status":"covered","task_ids":["T-PH001-03","T-PH001-04","T-PH001-05","T-PH001-06"],"test_case_ids":["TC-REQ-REL-BGSTAB-006-AC2-01","TC-REQ-REL-BGSTAB-006-AC2-02"],"fit":"The actual https://localhost:2222 browser URL, HTTPS /ws upgrade/auth/router dispatch and production construction path are completion requirements."},
+        {"ac_id":"AC-3","status":"covered","task_ids":["T-PH001-03","T-PH001-04","T-PH001-05","T-PH001-06"],"test_case_ids":["TC-REQ-REL-BGSTAB-006-AC3-01","TC-REQ-REL-BGSTAB-006-AC3-02"],"fit":"Standalone injection is separately classified and cannot substitute for the production-path observation."},
+        {"ac_id":"AC-4","status":"covered","task_ids":["T-PH001-01","T-PH001-02","T-PH001-05","T-PH001-06"],"test_case_ids":["TC-REQ-REL-BGSTAB-006-AC4-01","TC-REQ-REL-BGSTAB-006-AC4-02"],"fit":"Mismatch rows and match|mismatch|not_exercised aggregation retain case/source/evidence provenance."},
+        {"ac_id":"AC-5","status":"covered","task_ids":["T-PH001-01","T-PH001-02","T-PH001-05","T-PH001-06"],"test_case_ids":["TC-REQ-REL-BGSTAB-006-AC5-01","TC-REQ-REL-BGSTAB-006-AC5-02"],"fit":"Disposition remains unresolved and split activation/SRS mutation is prohibited and reviewed."}
+      ]
+    },
+    {
+      "req_id": "OBS-BGSTAB-004",
+      "stability": "evolving",
+      "ac_total": 7,
+      "pass1_confirmed": true,
+      "verification_complete": false,
+      "acceptance_criteria": [
+        {"ac_id":"AC-1","status":"covered","task_ids":["T-PH002-03","T-PH002-04","T-PH002-05","T-PH002-06"],"test_case_ids":["TC-REQ-OBS-BGSTAB-004-AC1-01","TC-REQ-OBS-BGSTAB-004-AC1-02"],"fit":"TC-7004 runs separately as current viewport-only behavior and is not promoted to a retention promise."},
+        {"ac_id":"AC-2","status":"covered","task_ids":["T-PH002-03","T-PH002-04","T-PH002-05","T-PH002-06"],"test_case_ids":["TC-REQ-OBS-BGSTAB-004-AC2-01","TC-REQ-OBS-BGSTAB-004-AC2-02"],"fit":"24/1000/10000 lines and 2 MiB before/at/after are explicit characterization seeds."},
+        {"ac_id":"AC-3","status":"covered","task_ids":["T-PH002-03","T-PH002-04","T-PH002-05","T-PH002-06"],"test_case_ids":["TC-REQ-OBS-BGSTAB-004-AC3-01","TC-REQ-OBS-BGSTAB-004-AC3-02"],"fit":"Cache, view, text and buffer enumerations are required in deterministic cases and result rows."},
+        {"ac_id":"AC-4","status":"covered","task_ids":["T-PH002-01","T-PH002-02","T-PH002-05","T-PH002-06"],"test_case_ids":["TC-REQ-OBS-BGSTAB-004-AC4-01","TC-REQ-OBS-BGSTAB-004-AC4-02"],"fit":"Ordered lines, cell attributes, cursor/saved cursor, modes, buffer and geometry use the same pre/post schema and field verdicts."},
+        {"ac_id":"AC-5","status":"covered","task_ids":["T-PH002-03","T-PH002-04","T-PH002-05","T-PH002-06"],"test_case_ids":["TC-REQ-OBS-BGSTAB-004-AC5-01","TC-REQ-OBS-BGSTAB-004-AC5-02"],"fit":"Runtime/config boundary, cause signals and raw candidate-cause provenance are planned."},
+        {"ac_id":"AC-6","status":"covered","task_ids":["T-PH002-01","T-PH002-02","T-PH002-05","T-PH002-06"],"test_case_ids":["TC-REQ-OBS-BGSTAB-004-AC6-01","TC-REQ-OBS-BGSTAB-004-AC6-02"],"fit":"expected_current_eviction and observed_loss are separate tested analyzer outcomes and separate artifact totals."},
+        {"ac_id":"AC-7","status":"covered","task_ids":["T-PH002-03","T-PH002-04","T-PH002-05","T-PH002-06"],"test_case_ids":["TC-REQ-OBS-BGSTAB-004-AC7-01","TC-REQ-OBS-BGSTAB-004-AC7-02"],"fit":"Negative tests and review prohibit retained rows, aggregate memory, checkpoint budgets, recovery SLO and authority promotion."}
+      ]
+    },
+    {
+      "req_id": "PERF-BGSTAB-008",
+      "stability": "evolving",
+      "ac_total": 7,
+      "pass1_confirmed": true,
+      "verification_complete": false,
+      "acceptance_criteria": [
+        {"ac_id":"AC-1","status":"covered","task_ids":["T-PH003-03","T-PH003-04","T-PH003-05","T-PH003-06","T-PH003-07","T-PH003-08"],"test_case_ids":["TC-REQ-PERF-BGSTAB-008-AC1-03","TC-REQ-PERF-BGSTAB-008-AC1-04","TC-REQ-PERF-BGSTAB-008-AC1-05","TC-REQ-PERF-BGSTAB-008-AC1-06"],"fit":"All four mode IDs, disabled/retained layers, fixtures and control comparators are tested."},
+        {"ac_id":"AC-2","status":"covered","task_ids":["T-PH003-03","T-PH003-04","T-PH003-05","T-PH003-06","T-PH003-07","T-PH003-08"],"test_case_ids":["TC-REQ-PERF-BGSTAB-008-AC2-03","TC-REQ-PERF-BGSTAB-008-AC2-04","TC-REQ-PERF-BGSTAB-008-AC2-05","TC-REQ-PERF-BGSTAB-008-AC2-06"],"fit":"NO_RENDER, NO_ANALYZER, NO_NETWORK and two-or-more-client ONE_CLIENT_SLOW isolation are explicit."},
+        {"ac_id":"AC-3","status":"covered","task_ids":["T-PH003-01","T-PH003-02","T-PH003-07","T-PH003-08"],"test_case_ids":["TC-REQ-PERF-BGSTAB-008-AC3-01","TC-REQ-PERF-BGSTAB-008-AC3-02"],"fit":"Seed, payload/build/config provenance and deterministic manifest validation are assigned to RED/GREEN statistics contracts."},
+        {"ac_id":"AC-4","status":"covered","task_ids":["T-PH003-05","T-PH003-06","T-PH003-07","T-PH003-08"],"test_case_ids":["TC-REQ-PERF-BGSTAB-008-AC4-05","TC-REQ-PERF-BGSTAB-008-AC4-06"],"fit":"Session 1|8|32|54, client 1|2|8, workload provenance and one-client baseline exclusion are explicit."},
+        {"ac_id":"AC-5","status":"covered","task_ids":["T-PH003-01","T-PH003-02","T-PH003-07","T-PH003-08"],"test_case_ids":["TC-REQ-PERF-BGSTAB-008-AC5-01","TC-REQ-PERF-BGSTAB-008-AC5-02"],"fit":"Raw-before-summary, source sample IDs, p50/p95/p99, seeded CI and independent recomputation are enforced."},
+        {"ac_id":"AC-6","status":"covered","task_ids":["T-PH003-05","T-PH003-06","T-PH003-07","T-PH003-08"],"test_case_ids":["TC-REQ-PERF-BGSTAB-008-AC6-05","TC-REQ-PERF-BGSTAB-008-AC6-06"],"fit":"Existing observability snapshots are reused and interval delta, unit and source are required."},
+        {"ac_id":"AC-7","status":"covered","task_ids":["T-PH003-01","T-PH003-02","T-PH003-07","T-PH003-08"],"test_case_ids":["TC-REQ-PERF-BGSTAB-008-AC7-01","TC-REQ-PERF-BGSTAB-008-AC7-02"],"fit":"A negative contract and final review prohibit product threshold, SLO and resource/default promotion."}
+      ]
+    },
+    {
+      "req_id": "MIG-BGSTAB-001",
+      "stability": "evolving",
+      "ac_total": 6,
+      "pass1_confirmed": true,
+      "verification_complete": false,
+      "acceptance_criteria": [
+        {"ac_id":"AC-1","status":"covered","task_ids":["T-PH004-01","T-PH004-02","T-PH004-03","T-PH004-05"],"test_case_ids":["TC-REQ-MIG-BGSTAB-001-AC1-01","TC-REQ-MIG-BGSTAB-001-AC1-02"],"fit":"All three prerequisite Requirement IDs, artifact references, run/build IDs and digests are required before G1 input is valid."},
+        {"ac_id":"AC-2","status":"covered","task_ids":["T-PH004-01","T-PH004-02","T-PH004-04","T-PH004-05"],"test_case_ids":["TC-REQ-MIG-BGSTAB-001-AC2-01","TC-REQ-MIG-BGSTAB-001-AC2-02"],"fit":"The exact two-value enum has no default/fallback and the chosen and rejected branch evidence is recorded."},
+        {"ac_id":"AC-3","status":"covered","task_ids":["T-PH004-01","T-PH004-02","T-PH004-04","T-PH004-05"],"test_case_ids":["TC-REQ-MIG-BGSTAB-001-AC3-01","TC-REQ-MIG-BGSTAB-001-AC3-02"],"fit":"Bug-only requires a separate authorized ID, maximum one fix and inactive/deferred migration downstream state."},
+        {"ac_id":"AC-4","status":"covered","task_ids":["T-PH004-01","T-PH004-02","T-PH004-04","T-PH004-05"],"test_case_ids":["TC-REQ-MIG-BGSTAB-001-AC4-01","TC-REQ-MIG-BGSTAB-001-AC4-02"],"fit":"Migration cannot open wave 2 without an exact separate stable retained-state authority Requirement ID."},
+        {"ac_id":"AC-5","status":"covered","task_ids":["T-PH004-01","T-PH004-02","T-PH004-03","T-PH004-04","T-PH004-05"],"test_case_ids":["TC-REQ-MIG-BGSTAB-001-AC5-01","TC-REQ-MIG-BGSTAB-001-AC5-02"],"fit":"Authority promotion, UI change, legacy deletion and product defaults/budgets are denied throughout the gate and review tasks."},
+        {"ac_id":"AC-6","status":"covered","task_ids":["T-PH004-01","T-PH004-02","T-PH004-04","T-PH004-05"],"test_case_ids":["TC-REQ-MIG-BGSTAB-001-AC6-01","TC-REQ-MIG-BGSTAB-001-AC6-02"],"fit":"Decision, completeness, conditional ID, downstream state and denial reason are fields of the tested gate/record flow."}
+      ]
+    }
+  ],
+  "omissions": [],
+  "out_of_scope_tasks": [],
+  "intentional_conditional_boundary": {
+    "task_id": "T-PH004-04",
+    "classification": "business-decision gate, not an omission",
+    "reason": "The selected branch and separately authorized local-fix or stable-authority Requirement ID do not exist until prerequisite evidence is complete and the user explicitly decides. The plan correctly blocks instead of inventing a branch, product default, UI change or implementation scope."
+  },
+  "summary": {
+    "requirements_reconciled": 4,
+    "acceptance_criteria_reconciled": 25,
+    "covered_acceptance_criteria": 25,
+    "missing_acceptance_criteria": 0,
+    "out_of_scope_task_count": 0,
+    "pass1": "pass",
+    "persistent_verification_complete_marks": 0,
+    "next_required_pass": 2
+  }
+}

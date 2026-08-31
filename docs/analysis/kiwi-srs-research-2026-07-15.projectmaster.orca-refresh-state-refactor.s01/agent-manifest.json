@@ -1,0 +1,102 @@
+{
+  "run_id": "2026-07-15.projectmaster.orca-refresh-state-refactor.s01",
+  "topology": "triage 1 + isolated researchers A/B/C + synthesizer 1",
+  "valid_core_role_count": 5,
+  "executed_unique_subagent_count": 9,
+  "core_roles": [
+    {
+      "canonical_task": "/root/refresh_refactor_triage",
+      "role": "Triage",
+      "input_scope": "subject only",
+      "isolation": "fork_turns=none; no repository inspection and no researcher output",
+      "artifact": "triage.json",
+      "status": "completed"
+    },
+    {
+      "canonical_task": "/root/refresh_buildergate_code_fallback",
+      "role": "Researcher A - BuilderGate code archaeology",
+      "input_scope": "code_package + BuilderGate repository",
+      "isolation": "BuilderGate only; Orca and Researcher B/C outputs excluded",
+      "artifact": "research-raw/code-research.json",
+      "status": "completed"
+    },
+    {
+      "canonical_task": "/root/refresh_orca_source",
+      "role": "Researcher B - Orca source audit",
+      "input_scope": "external_package + C:/Work/git-none/orca read-only",
+      "isolation": "Orca only; BuilderGate and Researcher A/C outputs excluded",
+      "artifact": "research-raw/external-research.json",
+      "status": "completed"
+    },
+    {
+      "canonical_task": "/root/refresh_refactor_risk",
+      "role": "Researcher C - risk and alternatives",
+      "input_scope": "risk_package only",
+      "isolation": "fork_turns=none; no repository or A/B output inspection",
+      "artifact": "research-raw/risk-research.json",
+      "status": "completed"
+    },
+    {
+      "canonical_task": "/root/refresh_refactor_synthesizer",
+      "role": "Synthesizer",
+      "input_scope": "triage + final Researcher A/B/C raw only",
+      "isolation": "fork_turns=none; repositories, user conclusion, plan and GitHub excluded",
+      "artifact": "research-summary.json",
+      "status": "completed"
+    }
+  ],
+  "discarded_or_replacement_runs": [
+    {
+      "canonical_task": "/root/refresh_buildergate_code",
+      "reason": "initial Researcher A timed out before a complete artifact was produced",
+      "result_usage": "excluded"
+    },
+    {
+      "canonical_task": "/root/refresh_buildergate_fast_audit",
+      "reason": "redundant fallback was interrupted as soon as canonical replacement A completed",
+      "result_usage": "excluded"
+    }
+  ],
+  "validation_runs": [
+    {
+      "canonical_task": "/root/refresh_paraphrase_standard",
+      "role": "standard paraphrase detector",
+      "input_scope": "Researcher A/B/C raw + research-summary only",
+      "artifact": "paraphrase-detector-standard.json",
+      "status": "pass after one revision"
+    },
+    {
+      "canonical_task": "/root/refresh_paraphrase_adversarial",
+      "role": "high-reasoning adversarial paraphrase detector",
+      "input_scope": "Researcher A/B/C raw + research-summary only",
+      "artifact": "paraphrase-detector-adversarial.json",
+      "status": "pass after two revisions"
+    }
+  ],
+  "review_runs": [
+    {
+      "canonical_task": "/root/refresh_refactor_synthesizer",
+      "role": "harsh plan and GitHub reviewer",
+      "round": 1,
+      "status": "6 findings resolved"
+    },
+    {
+      "canonical_task": "/root/refresh_refactor_synthesizer",
+      "role": "harsh conditionality and threshold reviewer",
+      "round": 2,
+      "status": "2 findings resolved"
+    },
+    {
+      "canonical_task": "/root/refresh_refactor_synthesizer/final_remote_audit",
+      "role": "independent remote GitHub auditor",
+      "round": 3,
+      "status": "No findings"
+    },
+    {
+      "canonical_task": "/root/refresh_refactor_synthesizer",
+      "role": "final harsh re-review",
+      "round": 3,
+      "status": "No findings"
+    }
+  ]
+}

@@ -29,7 +29,7 @@
 | 8 | "봉투 250~400B → 28B" | 산수 정정 (§10). 250–400 은 `02:268` 의 `[추정]`, 프롤로그 포함 시 **52B** |
 | 9 | 커밋 순서 전제 | **정정 명시** (§2.1) — provenance 는 git 을 호출하지 않는다. **단 범위는 fair-scheduler provenance/evidence-bundle 쌍에 한정**(2차 검증 H-4) |
 | **10** | `05` 를 조건 없이 "정본" 으로 인용 | **`05` 전체가 21B 초안 기반**임을 §2.3 에 명시하고, F1~F8·P2 를 28B 로 재작성 (§4 S2-b). **2차 검증 CRITICAL** |
-| **11** | S5 재조정 임계값 "5개" | `wsSendPolicy.ts:518-528` 은 **9필드 인터페이스**이고 `resolveFairTerminalDeliveryPolicy` 는 `TerminalResourcePolicy.ts:26` 에 있다 (§5 S5-a). **2차 검증 HIGH** |
+| **11** | S5 재조정 임계값 "5개" | `wsSendPolicy.ts:526-536` 은 **9필드 인터페이스**이고 `resolveFairTerminalDeliveryPolicy` 는 `TerminalResourcePolicy.ts:26` 에 있다 (§5 S5-a). **2차 검증 HIGH** |
 | **12** | silent drop 7/8 혼재 | 집합을 **8항목으로 확정**하고 `05` 정본(7)과의 차이를 명시 (§5 S3, §9, §13) |
 | **13** | 인용 오차 20여 건 | `file:line` 전건 재확인 후 정정. **기각한 finding 1건은 §14 에 근거와 함께 기록** |
 | **14** | (3차 검증) `visibilityWeight`/`driverWeight` 가 "같이 움직인다" | **거짓.** 둘은 **8 / 16 고정 비율**이다. S5 는 *"바이트 5개 재측정 + 비율·문자열 4개 재귀속"* 으로 재정의 (§5 S5-a). ⚠️ **단 무조건 항등식이 아니다 — 아래 20행이 조건을 정정한다.** 그리고 **셈법은 5차에서 `5 + 3 + 1` 로 다시 정정되었다**(아래 32행) |
@@ -117,19 +117,26 @@
 
 ### 1.4 진짜 난관은 payload 타입이 아니라 payload 를 되읽는 곳
 
-`JSON.parse(message.payload)` 로 **라우팅 결정**을 내리는 지점 — **직접 전수 확인한 결과 5곳**이다.
+🔴 **이 절은 pre-S1 세계를 서술했다. S1 이 그 세계를 없앴다** (4차 세션 실측 정정).
 
-| 위치 | 용도 | 바이너리에서의 실패 방향 |
+**오늘의 실측: `JSON.parse(message.payload)` 로 라우팅 결정을 내리는 지점은 `0`곳이다.**
+
+- `wsSendPolicy.ts` 의 `JSON.parse` — **0건**
+- `WsRouter.ts` 의 `JSON.parse` — **`:1746`·`:2554` 2곳뿐이고 둘 다 ingress**
+
+S1 이 payload 필드를 **사이드카로 승격**해 판별을 전부 `!== undefined` 검사로 바꿨기 때문이다. 아래 표는 **S1 이 무엇을 없앴는지의 기록**으로 남긴다 — 각 행의 "실패 방향" 은 **오늘은 발생할 수 없다.** 이 표를 근거로 S5-a0 에서 재파싱 방어를 설계하지 말 것.
+
+| pre-S1 위치 (당시 표기) | 용도 | **오늘의 실체 (직접 확인)** |
 |---|---|---|
-| `wsSendPolicy.ts:288` `hasFairDeliveryIdentity` | coalesce 차단 판정 | **`true`**(`:293`) → 모든 output coalesce 차단 |
-| `WsRouter.ts:5535` | checkpoint 큐 폐기 | `false` → 큐 정리 안 됨 |
-| `WsRouter.ts:5564` | epoch 큐 폐기 | `false` → 큐 정리 안 됨 |
-| `WsRouter.ts:6396` | fair-delivery 판별 | `false` → `safe-send-enforce` 강제 종료 위험 |
-| **`WsRouter.ts:5846`** | dataGap 재구성 (§8 H-4) | throw — **`01:978-983` 표에 없다** |
+| `wsSendPolicy.ts:288` `hasFairDeliveryIdentity` | coalesce 차단 판정 | **`:296-300`.** `connectionEpoch \|\| deliverySeq \|\| deliveryKind` 의 `!== undefined` **논리합**. 파싱 없음 |
+| `WsRouter.ts:5535` | checkpoint 큐 폐기 | **`discardCheckpointQueuedFairDeliveryTransport` `:5519-`**, 술어 **`:5532-5540`** — `isFairTerminalDeliveryTransportMessage` + `connectionEpoch`·`deliveryKind === 'output'`·`deliverySeq`. 사이드카 |
+| `WsRouter.ts:5564` | epoch 큐 폐기 | **`discardQueuedFairDeliveryTransport` `:5547-`**, 술어 **`:5557-5562`** — `connectionEpoch` 일치 + `deliverySeq`·`deliveryKind` 의 `!== undefined`. 사이드카 |
+| `WsRouter.ts:6396` | fair-delivery 판별 | **`:6394-6400`** 정의 — `type === 'output'`(`:6395`) + `connectionEpoch`·`sessionId`·`deliverySeq`·`deliveryKind` **4필드의 `!== undefined`**(`:6396-6399`). 사이드카 |
+| **`WsRouter.ts:5846`** | dataGap 재구성 (§8 H-4) | **`:5846` 은 빈 줄이다.** `createFairDeliveryWireMessage`(**`:5820-5845`**)가 `delivery.*` 필드로 객체를 **조립**한다. dataGap 갈래(`:5824-5831`)는 **`:5826` `...delivery.payloadFields`** — 사이드카 스프레드이지 파싱이 아니다 |
 
-그리고 **ingress 방향 raw 파싱 2곳**은 별개 범주다: `WsRouter.ts:1745`(`handleMessage` 하류의 `JSON.parse`), **`:2551` `tryParseRawMessage`(그 안의 `JSON.parse` 는 `:2553`)**.
+**ingress 방향 raw 파싱 2곳**은 별개 범주이고 **여전히 유효하다**: `WsRouter.ts:1746`(`handleMessage` 하류의 `JSON.parse`, `try` 는 `:1745`), **`:2552` `tryParseRawMessage`(그 안의 `JSON.parse` 는 `:2554`)**.
 
-> **정정**: 이전 판은 "4곳"이라 했고 `01:978-983` 은 "5곳"이라 했으나 `01` 의 5번째는 ingress(`tryParseRawMessage`) 이고 `:5846`(outbound) 이 빠져 있다. 위 표가 직접 확인한 정본이다. `02:450` 이 요구한 대로 **`handleMessageError`(시그니처 `:2534`, `tryParseRawMessage` 호출 `:2538`)와 `tryParseRawMessage`(시그니처 `:2551`, `JSON.parse` `:2553`)** 가 **바이너리 raw 에 `JSON.parse` 를 재시도하지 않도록** 확장하는 것은 S3 소관이다 (2차 검증 L-24 — 이전 판은 `:2534` 를 재파싱 지점 문맥에 섞었다).
+> **정정 이력**: 이전 판은 "4곳" → "5곳" 으로 올렸고 `01` 도 4행 표를 실었으나, **S1 이후 정답은 0곳**이다. ⚠️ **`01:978-983` 인용도 틀렸다 (4차 세션)** — 그 줄은 재파싱 표가 아니라 **클라이언트 `handleMessage` 코드 블록**(`01:976-985`, `WebSocketContext.tsx:684-690` 인용)이다. `01` 의 해당 표는 **`01 §3.6`(표 `:1096-1101`)** 이며, 그 절 역시 같은 pre-S1 화석이라 **4차 세션에 함께 정정**했다. `02:450` 이 요구한 대로 **`handleMessageError`(시그니처 **`:2535`**, `tryParseRawMessage` 호출 **`:2539`**)와 `tryParseRawMessage`(시그니처 **`:2552`**, `JSON.parse` **`:2554`**)** 가 **바이너리 raw 에 `JSON.parse` 를 재시도하지 않도록** 확장하는 것은 S3 소관이며, **이것만이 이 절에서 살아남은 작업**이다.
 
 **실패 방향이 서로 반대**라 부분 전환 시 "coalescing 은 죽고 큐 정리도 안 되는" 최악 조합이 나온다(`02:154`). → payload 재파싱 제거는 **이 프로젝트와 무관하게 옳은 수정**이므로 S1 에서 JSON 상태로 선행한다(`01:1182`, `02:519-530`).
 
@@ -345,7 +352,7 @@ D10–D12 는 이번 검증에서 추가된 것이다.
 **[설계결정] 두 값을 분리한다.** 실은 하나의 필드가 아니다.
 
 - `WsTransportMessage.byteLength` (백프레셔·큐 예산) = **와이어 전체 바이트**. `bufferedAmount` 와 도메인 일치 필요 (`02:236`)
-- `FairTerminalDelivery.encodedBytes` (ACK credit ledger, `wsSendPolicy.ts:510`) = **본문(body) 바이트만** — 헤더 28B · 프롤로그 · 세그먼트 배열 제외. `05:204` 의 A 를 28B 프레임에 적용한 형태다 (§4.2 참조: 프롤로그 크기가 opcode 별로 달라 그것까지 빼야 "인코딩 불변" 이 성립한다). ⚠️ **이 규정은 바이너리 codec 전용이 아니다** — **JSON codec 도 같은 도메인으로 전환**하며 시점은 S5 다. **현행은 봉투 포함**(`wsSendPolicy.ts:598-611` → `:91`/`:95`)이므로 이것은 무수정 항목이 아니라 **변경 항목**이다. 근거·시점·비용은 §3.1-B
+- `FairTerminalDelivery.encodedBytes` (ACK credit ledger, `wsSendPolicy.ts:518`) = **본문(body) 바이트만** — 헤더 28B · 프롤로그 · 세그먼트 배열 제외. `05:204` 의 A 를 28B 프레임에 적용한 형태다 (§4.2 참조: 프롤로그 크기가 opcode 별로 달라 그것까지 빼야 "인코딩 불변" 이 성립한다). ⚠️ **이 규정은 바이너리 codec 전용이 아니다** — **JSON codec 도 같은 도메인으로 전환**하며 시점은 S5 다. **현행은 봉투 포함**(`wsSendPolicy.ts:606-619` → `:91`/`:95`)이므로 이것은 무수정 항목이 아니라 **변경 항목**이다. 근거·시점·비용은 §3.1-B
 
 두 값이 다르다는 사실 자체를 `IR-BGSTAB-001`/`PERF-BGSTAB-011` AC 에 명문화한다. **이것이 D1 의 결론이며 S0 SRS 저작의 입력이다.** 이전 판처럼 "무수정"이라 단언하지 않는다 — §11 M-5 참조.
 
@@ -399,18 +406,18 @@ D10–D12 는 이번 검증에서 추가된 것이다.
 
 | 위치 | 코드 |
 |---|---|
-| `wsSendPolicy.ts:598` | `function fairDeliveryBytes(input, deliverySeq): number {` |
+| `wsSendPolicy.ts:606` | `function fairDeliveryBytes(input, deliverySeq): number {` |
 | `:599-609` | `return createWsTransportMessage({ type:'output', sessionId, data: input.payload, connectionEpoch, deliverySeq, deliveryKind, screenSeq, authorityEpoch, authorityRevision, chunkId })` |
-| **`:610`** | `}).byteLength;` |
+| **`:618`** | `}).byteLength;` |
 | `:91` / `:95` | 그 `byteLength` 의 정체 — `const payload = JSON.stringify(wireMessage);` / `byteLength: Buffer.byteLength(payload,'utf8')` |
 
-즉 **오늘의 `FairTerminalDelivery.encodedBytes`(`wsSendPolicy.ts:510`)는 JSON 봉투 전체 바이트다.** 그대로 두고 바이너리만 본문-only 로 가면 **크레딧 도메인이 codec 별로 갈린다.**
+즉 **오늘의 `FairTerminalDelivery.encodedBytes`(`wsSendPolicy.ts:518`)는 JSON 봉투 전체 바이트다.** 그대로 두고 바이너리만 본문-only 로 가면 **크레딧 도메인이 codec 별로 갈린다.**
 
 ##### [설계결정] 두 codec 모두 본문-only. JSON 측 전환 시점은 **S5** 다
 
 | 항목 | 결정 |
 |---|---|
-| **도메인** | `encodedBytes` = **본문(body) 바이트**. **codec 무관** — JSON 경로도 `Buffer.byteLength(input.payload,'utf8')` 로 바꾼다. `fairDeliveryBytes()`(`wsSendPolicy.ts:598-611`)의 `createWsTransportMessage` 재호출이 사라진다(§5 S4-a ② 의 CPU 이득 항목과 같은 편집) |
+| **도메인** | `encodedBytes` = **본문(body) 바이트**. **codec 무관** — JSON 경로도 `Buffer.byteLength(input.payload,'utf8')` 로 바꾼다. `fairDeliveryBytes()`(`wsSendPolicy.ts:606-619`)의 `createWsTransportMessage` 재호출이 사라진다(§5 S4-a ② 의 CPU 이득 항목과 같은 편집) |
 | **전환 시점** | **S5.** 그 앞 단계에서는 codec 이 갈릴 수 없다 — **S4 는 `binary-shadow` 라 바이너리를 계산만 하고 와이어에 내보내지 않으므로**(`05:554-562`), **바이너리 delivery 가 크레딧을 소모하는 최초 시점이 `binary-optin`(S5-c)** 이다. 그전까지 원장에 기록되는 것은 JSON delivery 뿐이므로 도메인 분열이 실재하지 않는다 |
 | **`05:204` 인코딩 불변** | **S5 전환 이후 성립.** 전환 후에는 같은 터미널 출력이 JSON 이든 바이너리든 **같은 크레딧**을 소모한다 → `01:728` 기각 사유(§3.1-A)가 실제로 선다 |
 | **`00:78` 단일 domain** | **어느 시점에도 위반 없음.** S5 이전엔 codec 이 하나뿐이고, S5 이후엔 두 codec 이 같은 도메인이다 |
@@ -434,16 +441,16 @@ D10–D12 는 이번 검증에서 추가된 것이다.
 | floor **없이** 두면 크레딧 원장이 프레임 수를 묶는가 | **아니다.** 본문 0 이면 소모 0 이므로 원장은 프레임 수에 상한을 주지 않는다 |
 | **floor 1 을 채택한 뒤에는?** | ⚠️ **묶는다** (5차 검증 L-6 정정). delivery 당 최소 1 B 를 계상하므로 `:701` `lane.socketQueuedBytes + delivery.encodedBytes > creditWindowBytes.value` 가 **미확인 delivery 수를 `creditWindowBytes` 개로**, `:758` `lane.queuedBytes + encodedBytes > queueMaxBytes.value` 가 **큐 적재 수를 `queueMaxBytes` 개로** 묶는다. 이전 판의 1행은 **floor 없는 전제의 답**을 3행이 floor 를 채택한 뒤에도 그대로 두어 표 안에서 어긋나 있었다 |
 | 그러면 무한정 나가는가 | **아니다. 상한이 두 도메인 모두에서 온다.** ① 위의 크레딧/큐 상한(**`encodedBytes` 도메인** — `:701`·`:758` 의 피연산자는 `byteLength` 가 아니라 `encodedBytes` 다, 직접 확인) ② `WsRouter.ts:6098-6099` `bufferedAmount + message.byteLength >= limits.serverBufferedHardLimitBytes` 백프레셔 게이트(**와이어 도메인**, 프레임당 52 B 이상). ⚠️ **어느 쪽이 실효 상한인지는 *구성 의존*이다 — 무조건으로 쓰면 반증된다** (6차 검증 H-3, 직접 확인). 두 상한은 **서로 다른 설정 키**에서 오고 스키마가 둘의 관계를 제약하지 않는다:<br>• ① = `creditWindowBytes` = `perClientOutputQueueMaxBytes` — 범위 `[1024, 268435456]`, 기본 **2,097,152** (`config.schema.ts:124`)<br>• ② = `serverBufferedHardLimitBytes` — 범위 `[1024, 536870912]`, 기본 **33,554,432** (`config.schema.ts:123`). ⚠️ **단 이 게이트는 `wsSendMode` 에 종속된다 — 아래 참조**<br>• `config.schema.ts:127-135` 의 `superRefine` 은 `serverBufferedHardLimitBytes > serverBufferedHighWaterBytes` 만 강제하고 **①과 ②의 관계는 제약하지 않는다**<br>⚠️ **②로 지목한 게이트는 스키마 기본 배포에서 아예 평가되지 않는다** (7차 검증 H-1, 직접 확인). `config.schema.ts:201` `wsSendMode: z.enum(['direct','safe-send-observe','safe-send-enforce']).default('direct')` 이고, `WsRouter.ts:6086-6094` 가 `mode === 'direct'` 일 때 `:6097` **이전에 early return** 하므로 `:6098-6099` `bufferedAmount + message.byteLength >= limits.serverBufferedHardLimitBytes` 에 **도달하지 않는다.** `safe-send-observe` 도 상한을 닫지 않는다 — `:6100-6103` 은 `transportBackpressureObserveCount` 만 올리고 `sendRawTransportMessage(ws, message)` 로 **그대로 내보낸다.** 실제로 닫는 것은 `:6105` `closeBackpressuredClient(ws, 'server-buffered-hard-limit')` 로 가는 **`safe-send-enforce` 하나뿐**이다<br>**그래도 `byteLength` 도메인 상한 자체는 direct 모드에도 있다** — `:6089` 가 `enqueueTransportMessage(ws, directState, message)` 를 호출하고 그 4번째 인자 기본값이 `:6158` `outputQueueMaxBytes = this.getEffectiveOutputQueueLimit(ws, message)`(`:5761-5763` — canary 미적용 시 `this.runtimeSendPolicyConfig.limits.perClientOutputQueueMaxBytes`)이며, 강제는 `:6169` `nextOutputBytes > outputQueueMaxBytes` 와 `:6182` `state.outputBytes + message.byteLength > outputQueueMaxBytes` 다. 피연산자가 `message.byteLength` 이므로 **도메인은 여전히 ②쪽**이다. ⚠️ **다만 두 가지가 약해진다**: (a) 그 상한값이 direct 모드에서 ①과 ***같은 설정 키*(`perClientOutputQueueMaxBytes`)에서 온다** — *"두 상한은 서로 다른 설정 키에서 온다"* 는 서술도 `wsSendMode` 종속이다. (b) direct 모드의 그 경로는 **큐가 이미 비어 있지 않을 때만** 탄다(`:6088` `directState.sending \|\| hasTransportQueuedMessages(directState)`) — 큐가 한가하면 `:6093` `sendRawTransportMessage` 로 **상한 검사 없이** 나간다. 즉 direct 모드에서 ②가 묶는 것은 **적재량**이지 총 프레임 수가 아니다<br>**귀결**: 이전 판의 *"기본 배포 구성에서는 ②가 실효 상한 — ② ≈ 33,554,432 / 52 ≈ 645,277 프레임 < ① 2,097,152 delivery"* 는 **성립하지 않는다**(게이트 미도달). 그 산수는 `wsSendMode='safe-send-enforce'` 를 전제로 할 때만 뜻이 있고, 그 전제 위에서의 **합법 구성 반증**(`perClientOutputQueueMaxBytes=1024` · `serverBufferedHardLimitBytes=536,870,912` → ① **1,024** < ② ≈ **10,324,440**)은 여전히 유효하다. ⚠️ **그러므로 *"프레임 수 상한은 `byteLength` 도메인 소관"* 도(5차 L-6), *"실효 상한은 `byteLength` 쪽이 준다"* 도(6차 H-3), **특정 설정 키를 이름으로 지목하는 것**도(7차 H-1) 무조건 명제로 쓰면 안 된다.** 참인 무조건 명제는 **"`encodedBytes` 도메인과 `byteLength` 도메인이 각각 상한을 준다"** 하나뿐이다 — **도메인 수준**에서만 참이고, 어느 키가 그 상한을 주는지는 `wsSendMode` 와 두 키의 상대 크기에 달렸다 |
-| 그래도 원장에 손을 대는가 | **[설계결정] per-delivery floor `max(bodyBytes, 1)` 을 둔다. 이유는 예산이다** — ⚠️ **이전 판의 사유(*"AC-6 의 duplicate/over-ACK 판정이 `deliverySeq` 에만 의존하게 된다"*)는 코드로 반증된다** (5차 검증 M-1, 직접 확인): `wsSendPolicy.ts:836` `if (input.deliverySeq <= lane.lastAcknowledgedSeq) return recordError('ACK_DUPLICATE', …)` / `:837` `if (input.deliverySeq > lane.nextDeliverySeq - 1) return recordError('ACK_OVER_ACK', …)` — **오늘 이미 `deliverySeq` 에만 의존하며 바이트를 보지 않는다.** AC-6 원문(`docs/spec/30.buildergate-stability.srs.md:3678`)도 바이트 기반 구분을 요구하지 않고 *"client 가 보낸 byte count 를 신뢰해서는 안 된다"* 고만 한다(실제로 `:830` 의 `clientBytes` 는 받기만 하고 어디서도 읽지 않는다). **즉 floor 가 막는다던 열화는 본문-only 의 귀결이 아니라 기존 설계다.**<br>**정정된 사유**: floor 1 은 **본문 0 delivery 가 크레딧·큐 예산을 전혀 쓰지 않고 lane 을 점유하는 상태를 막는다.** 프롤로그-only 프레임을 무제한 밀어 넣어도 `:701`/`:758` 이 delivery 수를 세게 되므로, 원장이 **"바이트 0 = 무료" 라는 구멍**을 갖지 않는다. floor 1 은 **codec 무관**이므로 인코딩 불변(§3.1-B)을 깨지 않는다 |
+| 그래도 원장에 손을 대는가 | **[설계결정] per-delivery floor `max(bodyBytes, 1)` 을 둔다. 이유는 예산이다** — ⚠️ **이전 판의 사유(*"AC-6 의 duplicate/over-ACK 판정이 `deliverySeq` 에만 의존하게 된다"*)는 코드로 반증된다** (5차 검증 M-1, 직접 확인): `wsSendPolicy.ts:844` `if (input.deliverySeq <= lane.lastAcknowledgedSeq) return recordError('ACK_DUPLICATE', …)` / `:845` `if (input.deliverySeq > lane.nextDeliverySeq - 1) return recordError('ACK_OVER_ACK', …)` — **오늘 이미 `deliverySeq` 에만 의존하며 바이트를 보지 않는다.** AC-6 원문(`docs/spec/30.buildergate-stability.srs.md:3678`)도 바이트 기반 구분을 요구하지 않고 *"client 가 보낸 byte count 를 신뢰해서는 안 된다"* 고만 한다(실제로 `:838` 의 `clientBytes` 는 받기만 하고 어디서도 읽지 않는다). **즉 floor 가 막는다던 열화는 본문-only 의 귀결이 아니라 기존 설계다.**<br>**정정된 사유**: floor 1 은 **본문 0 delivery 가 크레딧·큐 예산을 전혀 쓰지 않고 lane 을 점유하는 상태를 막는다.** 프롤로그-only 프레임을 무제한 밀어 넣어도 `:701`/`:758` 이 delivery 수를 세게 되므로, 원장이 **"바이트 0 = 무료" 라는 구멍**을 갖지 않는다. floor 1 은 **codec 무관**이므로 인코딩 불변(§3.1-B)을 깨지 않는다 |
 
 ⚠️ **이 세 줄(도메인 · 전환 시점 · floor)은 `IR-BGSTAB-001` AC 문면에 들어간다.** AC 는 사후 편집 불가(`04:18-31`, `04:141`)다.
 
 ##### S0 저작에 대한 직접 지시
 
 1. **`IR-BGSTAB-001` AC 에 "delivery 본문(body) 바이트" 를 문면에 박는다** — "payload 바이트" 라 쓰면 `payloadLength`(= 프롤로그 + 본문, `01:51`)와 혼동된다. **`01` 의 `payload` 는 프롤로그를 포함한다.** 이 용어 함정은 되돌릴 수 없는 AC 텍스트에 들어간다
-2. **같은 문장에 "codec 과 무관하게" 를 넣는다** (4차 H-1). 바이너리에만 걸리는 것으로 읽히면 §3.1-B 의 결정이 AC 밖으로 새고, `01:728` 기각 근거가 계약 수준에서 사라진다. ⚠️ **그러나 codec 무관 조항에 "프레임" 이라는 말을 쓰면 안 된다** (5차 검증 L-5): **JSON codec 경로에는 프레임이 없고**, 구현 피연산자는 필드명이 문자 그대로 `payload` 인 **`FairTerminalDeliveryInput.payload`**(`wsSendPolicy.ts:499`, 타입 `string`)다 — 지시 1 이 경계한 용어 함정(`01` 의 `payload` = 프롤로그 포함)이 **반대 방향으로** 남는다. 두 함정을 한 문장에서 동시에 막는 문면 예:
+2. **같은 문장에 "codec 과 무관하게" 를 넣는다** (4차 H-1). 바이너리에만 걸리는 것으로 읽히면 §3.1-B 의 결정이 AC 밖으로 새고, `01:728` 기각 근거가 계약 수준에서 사라진다. ⚠️ **그러나 codec 무관 조항에 "프레임" 이라는 말을 쓰면 안 된다** (5차 검증 L-5): **JSON codec 경로에는 프레임이 없고**, 구현 피연산자는 필드명이 문자 그대로 `payload` 인 **`FairTerminalDeliveryInput.payload`**(`wsSendPolicy.ts:504`, 타입 `string`)다 — 지시 1 이 경계한 용어 함정(`01` 의 `payload` = 프롤로그 포함)이 **반대 방향으로** 남는다. 두 함정을 한 문장에서 동시에 막는 문면 예:
    > *"`encodedBytes` 원장은 codec(json/binary)과 무관하게 **delivery 본문 바이트**만 계상한다. delivery 본문이란 **스케줄러 입력이 나르는 payload**(구현 피연산자는 `FairTerminalDeliveryInput.payload` 의 UTF-8 바이트 길이)이며, **JSON 봉투 필드도 바이너리 프레임의 헤더·프롤로그·세그먼트 배열도 포함하지 않는다** — `01` 의 `payloadLength`(프롤로그 포함)와 같지 않다. 본문이 0인 delivery 는 1로 계상한다."*
-   > ⚠️ **"터미널 출력 바이트" 라고 쓰지 않는다** (6차 검증 L-3, 직접 확인). 원장이 계상하는 것은 output 만이 아니다 — `FairTerminalDeliveryKind`(`wsSendPolicy.ts:493`)는 `'output' | 'dataGap' | 'checkpoint' | 'readyBarrier' | 'control'` **5종**이고 `fairDeliveryBytes()`(`:598-611`)는 `kind` 를 가리지 않고 전건을 계상한다(호출부 `:757` `const encodedBytes = fairDeliveryBytes(input, deliverySeq);` 는 `kind` 분기 앞에 있다). AC 에 "터미널 출력" 을 박으면 나머지 4종의 회계가 **문면상 미규정**이 되고, AC 는 사후 편집 불가다. **"delivery 입력 payload" 로 중립화한다.**
+   > ⚠️ **"터미널 출력 바이트" 라고 쓰지 않는다** (6차 검증 L-3, 직접 확인). 원장이 계상하는 것은 output 만이 아니다 — `FairTerminalDeliveryKind`(`wsSendPolicy.ts:498`)는 `'output' | 'dataGap' | 'checkpoint' | 'readyBarrier' | 'control'` **5종**이고 `fairDeliveryBytes()`(`:606-619`)는 `kind` 를 가리지 않고 전건을 계상한다(호출부 `:757` `const encodedBytes = fairDeliveryBytes(input, deliverySeq);` 는 `kind` 분기 앞에 있다). AC 에 "터미널 출력" 을 박으면 나머지 4종의 회계가 **문면상 미규정**이 되고, AC 는 사후 편집 불가다. **"delivery 입력 payload" 로 중립화한다.**
 3. **같은 AC 에 `byteLength` ≠ `encodedBytes` 를 함께 명문화**한다(§4.2). 두 값이 같다고 읽히면 `01:728` 이 사실상 복권된다. ⚠️ **단 어느 쪽이 실효 상한인지를 AC 에 박으면 안 된다** — 배타적 소관("프레임 수 상한은 `byteLength` 도메인 소관", 5차 검증 L-6)도, 우열("실효 상한은 프레임당 바이트가 큰 `byteLength` 쪽이 준다", **6차 검증 H-3**)도 **둘 다 반증 가능하다.** 후자는 **두 예산의 크기가 같다고 가정**한 산수인데 실제로는 서로 다른 설정 키에서 오고(① `perClientOutputQueueMaxBytes` 기본 2,097,152 / ② `serverBufferedHardLimitBytes` 기본 33,554,432, `config.schema.ts:124`·`:123`) `superRefine`(`:127-135`)이 둘의 관계를 제약하지 않는다 — `perClientOutputQueueMaxBytes=1024` · `serverBufferedHardLimitBytes=536870912` 인 **합법 구성에서 ①이 실효 상한이 되어 문면이 거짓**이 된다(§3.1-B 0B 처분 표 3행).<br>**→ AC 문면은 조건절 없는 참인 명제 하나로, 그리고 *도메인 수준*으로 적는다**: *"delivery 수의 상한은 `encodedBytes` 회계 도메인과 와이어 `byteLength` 도메인이 **각각** 준다."* 어느 쪽이 먼저 걸리는지는 **구성 의존이므로 AC 가 아니라 노트(지시 5)에 적는다.** 조건절을 넣어 *"기본 배포 구성에서는 `byteLength` 쪽이 먼저 걸린다"* 로 쓰는 것도 가능하나, **기본값이 바뀌면 낡는 문면**을 사후 편집 불가한 계약에 넣는 것이므로 권장하지 않는다 `[설계결정]`<br>⚠️ **AC 문면에 `serverBufferedHardLimitBytes` 를 *이름으로* 박으면 안 된다** (7차 검증 H-1, 직접 확인). 그 게이트(`WsRouter.ts:6098-6099`)는 **`wsSendMode` 종속**이고 스키마 기본값은 `'direct'`(`config.schema.ts:201`)인데, `:6086-6094` 가 direct 에서 `:6097` 이전에 early return 하므로 **기본 배포에서는 그 키가 상한을 주지 않는다** — 이름을 박은 문면은 그 자리에서 거짓이 된다. direct 모드에서 `byteLength` 도메인 상한을 주는 것은 `:6169`·`:6182` 의 출력 큐 상한(`:6158` `getEffectiveOutputQueueLimit` → `:5761-5763` `perClientOutputQueueMaxBytes`)이다. **도메인 수준으로 적으면 세 `wsSendMode` 값 전부에서 참이고**, 모드 종속은 노트(지시 5)로 분리된다. ⚠️ 같은 이유로 위 §3.1-B 0B 처분 표 3행의 *"기본 배포 구성에서는 ②가 실효 상한(≈645,277 프레임)"* 도 폐기되었다 — **AC 에 옮기지 않는다**
 4. **`PERF-BGSTAB-011` 에 "JSON codec 측 `encodedBytes` 재정의 + `creditWindowBytes` 재측정" 을 명시**한다 — 이것이 S5 의 실체다. 재벤치 근거는 `01:732` 가 아니라 §3.1-B 의 도메인 전환 위에서 세운다 (§5 S5-a 말미)
 5. **이 절과 §3.1-A 전체를 SRS 노트로 남긴다** (`append_section_note`, `rationale`). 노트는 도구로 갱신 가능하지만 AC 는 아니다(`04:174`) — 기각 사유가 AC 밖에 있어야 나중에 재검토할 수 있다. ⚠️ **노트에 `wsSendMode` 종속을 반드시 포함한다** (7차 검증 H-1): 어느 게이트가 실효 상한인지는 **두 설정 키의 상대 크기**뿐 아니라 **`wsSendMode` 값**(`config.schema.ts:201`, 기본 `'direct'`)에도 달렸다 — `direct` 에서는 `serverBufferedHardLimitBytes` 게이트가 미도달(`WsRouter.ts:6086-6094`), `safe-send-observe` 는 카운트만 올리고 전송(`:6100-6103`), 실제로 닫는 것은 `safe-send-enforce`(`:6105`) 뿐이다. **두 변수 모두 시간에 따라 바뀌므로 AC 가 아니라 노트에 있어야 한다**
@@ -542,7 +549,7 @@ D10–D12 는 이번 검증에서 추가된 것이다.
 | D12 | **4값 사다리** `json \| binary-shadow \| binary-optin \| binary` | 2값은 `binary-shadow` 단계를 삭제한다 |
 | D13 | **확정 (권장안 채택, 2026-08-19).** rejection code 는 **두 계열**이다 — wire 어휘 **10종(동결, 어느 판본에서도 불변)** + decoder-policy 계열. 구현 시점 policy **3종**(`payload-underrun` fatal / `payload-limit-exceeded` **scoped** / `mandatory-flag-cleared` fatal) = **총 13종**, D15 의 `prologue-domain-violation` 을 더하면 policy 4종 = 총 14종. 등급은 목록이 아니라 **성질**로 갈린다 | 본문 §5 S2-g. **`01` 반영 완료** — §3.4 가 두 계열로 분리되고 등급표에 성질 규칙이 명시됐다. 분리 사유: wire 목록은 `01` 문면의 **축자 사본**이라, 발명한 코드를 넣으면 인벤토리 테스트가 **구현을 구현 자신과 대조**하게 되어 공허해진다. 구현: `binaryFrameCodec.ts:125-136`(wire) / `:168-172`(policy) / `:201-206`(등급) |
 | D14 | **확정 (권장안 ① 채택, 구현 완료 2026-08-19).** 프레임별 필수 비트는 **bit3 뿐**. 술어는 `prologueBytes(opcode) > 0 && (flags & PROLOGUE_PRESENT) === 0` → **`mandatory-flag-cleared`(fatal, `DECODER_POLICY_CODES`)**. `MANDATORY_FLAGS` 는 **협상 불변식으로만** 남는다 | 본문 §5 S2-g. **`01` 반영 완료** — §1.2 에 두 불변식 분리표 추가. ⚠️ **측정 근거**: 잘못된 술어 `(flags & MANDATORY_FLAGS) === MANDATORY_FLAGS` 를 실제로 넣고 돌린 결과 **78건 중 14건 red**, **그중 11건이 신설 대조군이 아닌 기존 테스트**(배치·채널·등급 테스트 포함)였다. 즉 "배치 중간 프레임이 전부 거부된다" 는 추론이 아니라 **실측**이다 |
-| D15 | **확정 (안 (a) 채택, 2026-08-19).** `0x03` 24B / `0x04` 160B / `0x06` 88B / `0x07` 12B 프롤로그를 정의해 **배정 7종 전부 인코딩 가능**. **S4 착수 차단 해제** | 사양은 `07-prologue-spec-remaining-opcodes.md`, **`01 §1.8` 이 참조편입**(정본은 `01 §1.8`, `07` 은 동결 부속서, 충돌 시 `01` 이 이긴다). 함께 처리: 신설 거부코드 **`prologue-domain-violation`**(scoped, policy 계열) — 기존 `0x05` 의 `chunkIndex < chunkCount` 미검사 공백도 닫는다. ⚠️ **`01:175` 의 근거 서술 2건이 틀렸음이 드러나 정정됐다** — (i) checkpoint 평면 `sourceSeq` 는 연속열이 아니라 **상수**(`TerminalAuthorityProductionAdapter.ts:1677` + `terminalCheckpointRuntime.ts:1209` 가 등식 강제), (ii) commit 은 이득이 "거의 없는" 것이 아니라 **~730 B → 116 B**. 요구 자체는 충족되나 **근거가 다르다.** 미정 1건: **인덱스 `0` 의 의미** `[미확인]`(기존 골든 벡터 `output-minimal-52` 가 `authorityEpochIndex = 0`) |
+| D15 | **확정 (안 (a) 채택, 2026-08-19).** `0x03` 24B / `0x04` **200B** (`01 §1.8` 개정 R1, 2026-08-21 — 원안 160B 에 `responderLeaseId` 고정폭 슬롯 40B 추가) / `0x06` 88B / `0x07` 12B 프롤로그를 정의해 **배정 7종 전부 인코딩 가능**. **S4 착수 차단 해제** | 사양은 `07-prologue-spec-remaining-opcodes.md`, **`01 §1.8` 이 참조편입**(정본은 `01 §1.8`, `07` 은 동결 부속서, 충돌 시 `01` 이 이긴다). 함께 처리: 신설 거부코드 **`prologue-domain-violation`**(scoped, policy 계열) — 기존 `0x05` 의 `chunkIndex < chunkCount` 미검사 공백도 닫는다. ⚠️ **`01:175` 의 근거 서술 2건이 틀렸음이 드러나 정정됐다** — (i) checkpoint 평면 `sourceSeq` 는 연속열이 아니라 **상수**(`TerminalAuthorityProductionAdapter.ts:1677` + `terminalCheckpointRuntime.ts:1209` 가 등식 강제), (ii) commit 은 이득이 "거의 없는" 것이 아니라 **~730 B → 116 B**. 요구 자체는 충족되나 **근거가 다르다.** 미정 1건: **인덱스 `0` 의 의미** `[미확인]`(기존 골든 벡터 `output-minimal-52` 가 `authorityEpochIndex = 0`) |
 
 **D10 의 셈법 귀결**: (가)안 채택으로 distinct `type` 이 **4개 → 5개**가 되어 `01:637` 의 *"신규 메시지 5종"* 과 인터페이스 수(5)와 type 수(5)가 **처음으로 일치**한다. §6 의 협상 메시지 표와 S0-b 의 `IR-BGSTAB-001` AC 저작이 이 이름을 SSOT 로 쓴다.
 
@@ -585,7 +592,7 @@ terminalWireFormat: z.enum(['json', 'binary-shadow', 'binary-optin', 'binary']).
 ### 4.2 회계 단위 — **두 값으로 분리** (§3.1 D1)
 
 - `byteLength` = **WS 메시지 전체 바이트 = Σ 프레임** (아래 배치 정정 참조). `bufferedAmount` 와 도메인 일치
-- `encodedBytes` (ACK credit) = **본문(body) 바이트만.** 헤더·프롤로그·세그먼트 배열을 제외한다 — `05:204` 의 A 안이 요구하는 "인코딩 불변" 은 프롤로그까지 빼야 성립한다(프롤로그 크기가 opcode 별로 다르므로). **이 결론이 `01:728`·`02:243` 을 기각한 결과라는 사실은 §3.1-A 가, 그 기각이 성립하려면 JSON codec 도 같은 도메인이어야 한다는 사실은 §3.1-B 가 보유한다** — 두 절을 읽지 않고 이 줄만 인용하지 않는다. ⚠️ **`encodedBytes` 는 delivery 단위 필드**다(`wsSendPolicy.ts:510`) — 아래 층위 주의 참조
+- `encodedBytes` (ACK credit) = **본문(body) 바이트만.** 헤더·프롤로그·세그먼트 배열을 제외한다 — `05:204` 의 A 안이 요구하는 "인코딩 불변" 은 프롤로그까지 빼야 성립한다(프롤로그 크기가 opcode 별로 다르므로). **이 결론이 `01:728`·`02:243` 을 기각한 결과라는 사실은 §3.1-A 가, 그 기각이 성립하려면 JSON codec 도 같은 도메인이어야 한다는 사실은 §3.1-B 가 보유한다** — 두 절을 읽지 않고 이 줄만 인용하지 않는다. ⚠️ **`encodedBytes` 는 delivery 단위 필드**다(`wsSendPolicy.ts:518`) — 아래 층위 주의 참조
 
 ⚠️ **`byteLength` 배치 정정 — 프레임 1개 식을 그대로 쓰면 안 된다** (3차 검증-B M-1). 이전 판은
 
@@ -612,7 +619,7 @@ encodedBytes(d) = max( bodyBytes(d), 1 )                       // 본문만. 헤
                                                                // floor 1 의 사유는 §3.1-B
 ```
 
-⚠️ **두 식의 층위가 다르다 — Σ 로 나란히 적지 않는다** (4차 검증 L-5). 이전 판은 두 번째 줄을 `encodedBytes = Σ_{f ∈ 배치} bodyBytes(f)` 로 적어 **`byteLength` 와 같은 층위(배치 단위)로 읽히게** 했다. 그러나 **`encodedBytes` 는 `FairTerminalDelivery` 의 delivery 단위 필드**(`wsSendPolicy.ts:510`, §3.1 도 그렇게 인용)이고, 배치 합은 그 필드가 아니라 **누적 ACK 정산의 총액**이다 — 실제로 `FairTerminalDeliveryScheduler.test.ts:469` 도 `const expectedBytes = firstWireBytes + secondWireBytes;` 로 **두 delivery 를 더한 별도 값**으로 다룬다. ⚠️ **그 값을 쓰는 곳은 `:478` 하나가 아니라 둘이다** (5차 검증 L-1, 직접 확인): `:478` `assert.deepEqual(ack, { accepted: true, creditedBytes: expectedBytes }, signature)` 와 **`:479` `assert.equal(scheduler.snapshot().lanes['epoch-a/session-a'].creditBytes, expectedBytes, signature)`** — **두 단정이 서로 다른 값을 보고 있는데 우연히 같다**(아래 참조). §7 항목 1 은 `:478`·`:479` 를 정확히 구분하는데 이 절만 `:478` 로 좁혀 문서 안에서 어긋나 있었다. **이것이 정확히 §3.1-A 지시 3 이 경고한 오독 경로**다 — 두 값이 같은 층위로 읽히면 `01:728`(배치 전체 길이)이 사실상 복권된다.
+⚠️ **두 식의 층위가 다르다 — Σ 로 나란히 적지 않는다** (4차 검증 L-5). 이전 판은 두 번째 줄을 `encodedBytes = Σ_{f ∈ 배치} bodyBytes(f)` 로 적어 **`byteLength` 와 같은 층위(배치 단위)로 읽히게** 했다. 그러나 **`encodedBytes` 는 `FairTerminalDelivery` 의 delivery 단위 필드**(`wsSendPolicy.ts:518`, §3.1 도 그렇게 인용)이고, 배치 합은 그 필드가 아니라 **누적 ACK 정산의 총액**이다 — 실제로 `FairTerminalDeliveryScheduler.test.ts:469` 도 `const expectedBytes = firstWireBytes + secondWireBytes;` 로 **두 delivery 를 더한 별도 값**으로 다룬다. ⚠️ **그 값을 쓰는 곳은 `:478` 하나가 아니라 둘이다** (5차 검증 L-1, 직접 확인): `:478` `assert.deepEqual(ack, { accepted: true, creditedBytes: expectedBytes }, signature)` 와 **`:479` `assert.equal(scheduler.snapshot().lanes['epoch-a/session-a'].creditBytes, expectedBytes, signature)`** — **두 단정이 서로 다른 값을 보고 있는데 우연히 같다**(아래 참조). §7 항목 1 은 `:478`·`:479` 를 정확히 구분하는데 이 절만 `:478` 로 좁혀 문서 안에서 어긋나 있었다. **이것이 정확히 §3.1-A 지시 3 이 경고한 오독 경로**다 — 두 값이 같은 층위로 읽히면 `01:728`(배치 전체 길이)이 사실상 복권된다.
 
 **정산 값이 필요하면 이름을 달리한다 — 그리고 둘은 같은 값이 아니다** (5차 검증 M-3 정정, 직접 확인):
 
@@ -900,7 +907,7 @@ IR-BGSTAB-001   와이어 포맷 + capability 협상          (기반)
 | `terminalWireFormat` **4값 사다리** | §4.1, `05:545` | `04:231` 초안(2값)대로 쓰면 SRS 가 사다리를 잠근다. AC 는 사후 편집 불가(`04:18-31`) |
 | `PERF-BGSTAB-011` AC-7 에서 **커밋 순서 조항 삭제 + "fair-scheduler evidence bundle" 한정어 추가** | §2.1 | 반박된 전제를 stable 계약에 굳히지 않기 위함. **한정어가 없으면 P3·P5 가 반증 사례**가 된다 |
 | **S5 재조정 범위 = 정책 키 9개를 *다룬다*, 단 처분이 셋으로 갈린다** — **바이트 5개 재측정 + 비율/문자열 3개 재귀속 + 시간 1개 별도** | §5 S5-a | ⚠️ **4차 M-3 + 5차 M-2 정정. "9개를 재조정한다" 로도, "5 + 4" 로도 쓰면 안 된다.**<br>① *"9개를 재조정"* 은 **충족 불가능한 검증 대상을 stable 계약에 굳힌다** — `visibilityWeight`·`driverWeight` 는 값이 움직일 수 없다(`TerminalResourcePolicy.ts:49-51`·`:53-55` + `config.schema.ts:124-125` 의 하한 1024 보증). 게다가 `PERF-BGSTAB-010` AC-4(`30.*:3676`)는 **7개**만 명시하므로 "9" 는 AC-4 와도 어긋난다<br>② *"5 + 4"* 는 **`ackTimeoutMs` 를 "비율/문자열 4개" 에 넣은 것인데 그것은 비율도 문자열도 아니다** (5차 검증 M-2). 시간 도메인 키이고 §5 S5-a #8 은 *"재측정 범위에는 넣는다 `[추정]`"*, §13 층 B 는 별도 줄로 두어 **세 곳이 서로 달랐다**<br>③ *"5개" 로만* 쓰면 재귀속 대상을 놓친 채 아티팩트가 재발행된다<br>**저작 문면**: *"바이트 도메인 5개(`socketSoftGateBytes`·`bulkSliceBytes`·`smallOutputBypassBytes`·`creditWindowBytes`·`queueMaxBytes`)는 재측정하고, `strategy`·`visibilityWeight`·`driverWeight` 는 재발행된 아티팩트에 **재귀속**하며, `ackTimeoutMs` 는 시간 도메인이므로 값 변화 여부를 재측정 범위에 포함하되 바이트 재측정과 **별도 항목**으로 기록한다."*<br>⚠️ **`bulkSliceBytes` 는 한 키가 두 도메인에 걸쳐 있다**(5차 H-1) — deficit quantum(`wsSendPolicy.ts:706-712`, 대조 `:717`)은 `encodedBytes` 도메인, 배치 상한(`01:1401`, `out.length`)은 와이어 도메인. **AC 문면이 "재측정" 을 한 번으로 읽히게 쓰면 (b) 가 누락된다** — 두 역할을 각각 재측정한다고 적는다 |
-| **D1 의 두 도메인 분리 + JSON codec 측 규정** 명문화 | §3.1, **§3.1-B** | `byteLength` ≠ `encodedBytes`. **그리고 `encodedBytes` 본문-only 가 codec 무관이라는 것과 floor 1** — 빠뜨리면 `01:728` 기각 근거가 계약 밖으로 샌다 (4차 H-1). ⚠️ **두 도메인의 *우열*은 AC 에 넣지 않는다** (6차 검증 H-3): *"실효 상한은 `byteLength` 쪽이 준다"* 는 두 예산 크기가 같다는 가정 위에서만 참이고, `perClientOutputQueueMaxBytes=1024` · `serverBufferedHardLimitBytes=536870912` 인 **합법 구성이 반증 사례**다(`config.schema.ts:123`·`:124`, `superRefine` `:127-135` 은 두 키 관계 무제약). 저작 문면은 **"두 도메인이 각각 상한을 준다"** — 상세는 §3.1-B S0 지시 3. ⚠️ **AC 문면에 "터미널 출력 바이트" 도 쓰지 않는다** (6차 L-3): 원장은 `FairTerminalDeliveryKind` **5종**(`wsSendPolicy.ts:493`) 전건을 계상한다 → **"delivery 입력 payload"** 로 중립화 |
+| **D1 의 두 도메인 분리 + JSON codec 측 규정** 명문화 | §3.1, **§3.1-B** | `byteLength` ≠ `encodedBytes`. **그리고 `encodedBytes` 본문-only 가 codec 무관이라는 것과 floor 1** — 빠뜨리면 `01:728` 기각 근거가 계약 밖으로 샌다 (4차 H-1). ⚠️ **두 도메인의 *우열*은 AC 에 넣지 않는다** (6차 검증 H-3): *"실효 상한은 `byteLength` 쪽이 준다"* 는 두 예산 크기가 같다는 가정 위에서만 참이고, `perClientOutputQueueMaxBytes=1024` · `serverBufferedHardLimitBytes=536870912` 인 **합법 구성이 반증 사례**다(`config.schema.ts:123`·`:124`, `superRefine` `:127-135` 은 두 키 관계 무제약). 저작 문면은 **"두 도메인이 각각 상한을 준다"** — 상세는 §3.1-B S0 지시 3. ⚠️ **AC 문면에 "터미널 출력 바이트" 도 쓰지 않는다** (6차 L-3): 원장은 `FairTerminalDeliveryKind` **5종**(`wsSendPolicy.ts:498`) 전건을 계상한다 → **"delivery 입력 payload"** 로 중립화 |
 | D3 · D5 · D9 확정 | `05:745`, `:747`, `:751` | S2/S6 의 전제 |
 | **`FR-BGSTAB-017` 관계** 명시 | `00:93`, `01:1189` | D11 |
 
@@ -1318,7 +1325,7 @@ encode(m).byteLength === 28 + prologueBytes(opcode(m)) + 16 * segmentCount(m) + 
 ##### D15 — 배정된 opcode 7개 중 4개를 **인코딩할 수 없다** ✅ **해소됨 (2026-08-19, 안 (a) 채택)**
 
 > **처분 요약** (상세는 아래 원문 + §3.5 D15 행):
-> - **안 (a) 채택** — `07-prologue-spec-remaining-opcodes.md` 가 `0x03` **24 B** / `0x04` **160 B** / `0x06` **88 B** / `0x07` **12 B** 를 확정했고, **`01 §1.8` 이 그것을 참조편입**했다(정본은 `01 §1.8`, `07` 은 동결 부속서, 충돌 시 `01` 이 이긴다). **`prologueBytes()` 가 배정 7종 전부에 0 이 아닌 값을 반환하게 되므로 차단 해제.**
+> - **안 (a) 채택** — `07-prologue-spec-remaining-opcodes.md` 가 `0x03` **24 B** / `0x04` **200 B** (개정 R1) / `0x06` **88 B** / `0x07` **12 B** 를 확정했고, **`01 §1.8` 이 그것을 참조편입**했다(정본은 `01 §1.8`, `07` 은 동결 부속서, 충돌 시 `01` 이 이긴다). **`prologueBytes()` 가 배정 7종 전부에 0 이 아닌 값을 반환하게 되므로 차단 해제.**
 > - **신설 거부 코드 1개** — `prologue-domain-violation`(scoped, `DECODER_POLICY_CODES`). **기존 `0x05` 의 `chunkIndex < chunkCount` 미검사 공백도 함께 닫힌다.**
 > - ⚠️ **아래 원문이 인용한 `01:175` 의 근거 서술 자체가 틀렸다.** 정정 내용은 이 절 끝의 "⚠️ 근거 정정" 참조. **결론(4종을 바이너리 평면에 둔다)은 바뀌지 않는다 — 근거만 바뀐다.**
 > - **잔여 `[미확인]` 9건**은 §5 S4-0b 에 착수 전 확인 목록으로 등재했다.
@@ -1528,7 +1535,7 @@ D15 는 닫혔으나 그 사양(`07`)이 **`[미확인]` 9건**을 남겼다. �
 | 1 | **`streamEpoch` 중복 가능성** — `SessionManager.ts:1076` `retainedTerminalStreamEpochCounter` 와 controller `getState().streamEpoch` 이 같은 값인가 | **같다면 `0x04` 프롤로그의 `checkpointStreamEpoch` 8 B 가 중복**이다. 다르다면 §1.8 불변식 4(두 평면 ordinal 분리)가 그대로 유지된다 | 두 값을 읽는 단위 테스트로 대조 |
 | 2 | **lane 폴백 시 순서 역전** — 체크포인트 트랜잭션 도중 `WsRouter.ts:1111-1113` 폴백이 발생 가능한가 | 가능하면 start 는 output 소켓 / commit 은 control 소켓으로 나가고 **두 소켓 사이에 순서 보장이 없다.** JSON 에서는 전송 `sourceSeq` 가 없어 조용히 지나갔으나 **바이너리에서는 `non-monotonic-source-seq` 로 드러난다** — 관측 개선이지만 **정상 운영 중 폴백만으로 복구 사이클이 도는 새 경로**가 생긴다 | `enqueueSettledViewFrame(..., 'terminal')` 이 target 을 **프레임 단위**로 재평가하는지 **트랜잭션 단위**로 고정하는지 |
 | 3 | **`responderLeaseId` 의 wire 대입 경로 부재** — 선언(`ws-protocol.ts:31`)에 있고 `matchesTransactionIdentity` 가 비교하는데, **checkpoint wire 메시지에 대입하는 경로를 찾지 못했다** | 가변 길이 문자열이라 고정폭 프롤로그에 못 넣는다. v1 처분은 **인코더가 `responderLeaseId !== undefined` 인 start 를 `RangeError` 로 거부**다 — 조용히 떨어뜨리면 클라이언트 `activeIdentity` 가 어긋나 **원인은 프레임 인코딩인데 증상은 `checkpoint-identity-mismatch`** 로 나타난다. 경로가 실재하면 인덱스 필드가 필요하다 | `createCheckpoint` 의 `identity` 조립 전수 + 뷰별 주입 지점 |
-| 4 | `retained.checkpoint.cursor` 의 상한 | uint16 로 충분하면 `0x04` 프롤로그 160 → **152 B**. 잘라서 틀리면 digest 재계산이 어긋나 **잘림이 아니라 복구 루프**로 나타난다(그래서 현재는 uint32) | 값의 출처 추적 |
+| 4 | `retained.checkpoint.cursor` 의 상한 | uint16 로 충분하면 `0x04` 프롤로그 200 → **192 B**. 잘라서 틀리면 digest 재계산이 어긋나 **잘림이 아니라 복구 루프**로 나타난다(그래서 현재는 uint32) | 값의 출처 추적 |
 | 5 | split 모드에서 `view.connectionId` 가 어느 소켓의 id 인가 | `0x04` 가 `connectionId` 를 제거하고 "수신 클라이언트가 자기 `connected` 값으로 복원" 하는 판정의 전제 | split 경로 추적 (**D3 상 v1 범위 밖이나 판정 근거는 필요**) |
 | 6 | `0x04` metadata **13종**(선언에 없는데 실제 wire 에 나가는 필드)을 프론트엔드 **이외**의 소비자가 읽는가 | 읽는다면 제거가 회귀다. 프론트 검증기·런타임은 읽지 않음이 확인됐다 | 테스트·디버그 툴 전수 |
 | 7 | 골든 벡터 `output-minimal-52` 의 `authorityEpochIndex = 0` 이 "부재" 의도였는가 | **§3.5 D15 의 미정 1건과 같은 항목.** 인덱스 1-based 규칙의 소급 적용 가부를 가른다 | 벡터 저작 의도 확인 |
@@ -1541,24 +1548,24 @@ D15 는 닫혔으나 그 사양(`07`)이 **`[미확인]` 9건**을 남겼다. �
 
 #### S4-a. 서버 인코드 표면 — **1곳이 아니다**
 
-이전 판은 *"인코드 1곳(`wsSendPolicy.ts:91`), 소켓 write 1곳(`WsRouter.ts:6268`)"* 이라 했다. 소켓 write 는 맞다 — **직접 확인 결과 `WsRouter.ts` 전체에서 `ws.send(` 는 `:6268` 단 1곳**이다. 그러나 인코드 측은 다르다. `02:29-118` 이 **7개 개입 지점**을 번호로 매핑했는데 이전 판은 2개만 다뤘다.
+이전 판은 *"인코드 1곳(`wsSendPolicy.ts:96`, 당시 표기 `:91`), 소켓 write 1곳(`WsRouter.ts:6268`)"* 이라 했다. 소켓 write 는 맞다 — **직접 확인 결과 `WsRouter.ts` 전체에서 `ws.send(` 는 `:6268` 단 1곳**이다. 그러나 인코드 측은 다르다. `02:29-118` 이 **7개 개입 지점**을 번호로 매핑했는데 이전 판은 2개만 다뤘다.
 
 | # | 위치 | 하는 일 | S4 의 처분 |
 |---|---|---|---|
 | ① | `SessionManager.ts:1353` | `ptyProcess.onData((rawData: string))` — **소스가 이미 JS string** | `02:554` — *"**어디서 인코딩할지가 곧 어디까지 문자열로 다루는지의 경계**"*. 경계 위치를 명시 결정한다 |
-| ② | **`wsSendPolicy.ts:598-611`** `fairDeliveryBytes()` | 회계 목적으로 `createWsTransportMessage(...)` **재호출** 후 `.byteLength`(`:610`)만 취한다 (직접 확인). ⚠️ **이 값이 곧 오늘의 `encodedBytes` 도메인 = JSON 봉투 전체**다 (§3.1-B) | **S4 에서는 손대지 않는다.** 이 함수의 교체는 `encodedBytes` 도메인 전환이므로 **S5-a0 소관**이다 — S4 는 `binary-shadow`(관측 동작 불변)이고 도메인 전환은 관측 가능한 회계 변화다. 전환 후 형태는 `Buffer.byteLength(input.payload,'utf8')` 이며 **회계 전용 JSON 생성이 사라진다 (CPU 이득 항목)** |
-| ③ | `wsSendPolicy.ts:91` | `JSON.stringify(wireMessage)` — 유일한 payload 생산자 | codec 분기 |
-| ④ | `wsSendPolicy.ts:95` | `Buffer.byteLength(payload,'utf8')` | §4.2 두 도메인 |
-| ⑤ | `wsSendPolicy.ts:216` `tryCoalesceOutputMessage` | JSON 재생성 → `Buffer.concat` | §4.5 |
+| ② | **`wsSendPolicy.ts:606-619`** `fairDeliveryBytes()` | 회계 목적으로 `createWsTransportMessage(...)` **재호출** 후 `.byteLength`(`:618`)만 취한다 (직접 확인). ⚠️ **이 값이 곧 오늘의 `encodedBytes` 도메인 = JSON 봉투 전체**다 (§3.1-B) | **S4 에서는 손대지 않는다.** 이 함수의 교체는 `encodedBytes` 도메인 전환이므로 **S5-a0 소관**이다 — S4 는 `binary-shadow`(관측 동작 불변)이고 도메인 전환은 관측 가능한 회계 변화다. 전환 후 형태는 `Buffer.byteLength(input.payload,'utf8')` 이며 **회계 전용 JSON 생성이 사라진다 (CPU 이득 항목)** |
+| ③ | **`wsSendPolicy.ts:96`** | `JSON.stringify(wireMessage)` — 유일한 payload 생산자 | codec 분기 |
+| ④ | **`wsSendPolicy.ts:100`** | `Buffer.byteLength(payload,'utf8')` | §4.2 두 도메인 |
+| ⑤ | **`wsSendPolicy.ts:226`** `tryCoalesceOutputMessage` | 🔴 **정정 (4차 세션): `Buffer.concat` 은 이 파일에 0건이다.** 함수는 사이드카 `outputData` 를 이어 붙이고 `materializeOutputSourceSegments`(`:262-265`)로 세그먼트를 재배치한 뒤 **`createWsTransportMessage` 를 재호출**(`:273`)한다. "JSON 재생성" 은 그 재호출 안의 `JSON.stringify`(`:96`) 한 번이다 | §4.5 |
 | ⑥ | `WsRouter.ts:6268` | `ws.send(message.payload, cb)` — **유일 송신 지점** | `{ binary: true }` 명시 필요 여부는 `[미확인]`(`02:678`) |
-| ⑦ | `WsRouter.ts:6396` | `isFairTerminalDeliveryTransportMessage` — `JSON.parse` | S1 에서 처리됨 |
+| ⑦ | **`WsRouter.ts:6394-6400`** | `isFairTerminalDeliveryTransportMessage` — 🔴 **`JSON.parse` 아님 (4차 세션).** S1 이후 `type === 'output'`(`:6395`) + `connectionEpoch`·`sessionId`·`deliverySeq`·`deliveryKind` **4필드의 `!== undefined`**(`:6396-6399`) 다 | S1 에서 처리됨 |
 
 **이전 판이 빠뜨린 두 지점** (직접 확인):
 
 | 위치 | 내용 |
 |---|---|
-| **`WsRouter.ts:5842-5850`** | fair-delivery send 콜백이 **두 번째 wire 객체를 생성**한다 (`:5852-5860` 의 `{type:'output', data: delivery.payload, ...}`). **`:5846` 에서 `...JSON.parse(delivery.payload)` 로 dataGap payload 를 재파싱**한다 |
-| **`WsRouter.ts:5099`** | dataGap `JSON.stringify({...})`. `05:104-116` 이 **근본 원인을 `FairTerminalDeliveryInput` 의 `payload: string` 으로 추적**했다 — ⚠️ **그 필드는 `wsSendPolicy.ts:499` 다.** `:495` 는 인터페이스 헤더 `export interface FairTerminalDeliveryInput {` 이다 (2차 검증 L-2, 직접 확인). 참고로 `FairTerminalDelivery.encodedBytes` 는 **`:510`**(`02:185`·`02:538` 의 `:511` 은 닫는 중괄호). 스케줄러의 payload 타입이 문자열이라 미리 문자열화한다. **credit 산수(§4.2)와 직결** |
+| **`WsRouter.ts:5820-5845`** `createFairDeliveryWireMessage` | fair-delivery send 경로가 **두 번째 wire 객체를 생성**한다 — output 갈래는 **`:5833-5844`** 의 `{type:'output', data: delivery.payload, …}`. 🔴 **정정 (4차 세션): `:5846` 의 `...JSON.parse(delivery.payload)` 는 존재하지 않는다** — `:5846` 은 빈 줄이고, dataGap 갈래(`:5824-5831`)는 **`:5826` `...delivery.payloadFields`** 로 **사이드카를 스프레드**한다. S1 이 재파싱을 없앤 결과이며, `06` 이 그 서술을 갱신하지 않아 남아 있던 것이다. **이 객체가 세 필드(`responderLeaseId`·`sourceSeq`·`streamEpoch`)를 담지 않는 closed list 라는 사실이 `0x01` 처분의 무조건 근거다** |
+| **`WsRouter.ts:5099`** | dataGap `JSON.stringify({...})`. `05:104-116` 이 **근본 원인을 `FairTerminalDeliveryInput` 의 `payload: string` 으로 추적**했다 — ⚠️ **그 필드는 `wsSendPolicy.ts:504` 다.** `:500` 은 인터페이스 헤더 `export interface FairTerminalDeliveryInput {` 이다 (2차 검증 L-2, 직접 확인). 참고로 `FairTerminalDelivery.encodedBytes` 는 **`:518`**(`02:185`·`02:538` 의 `:519` 는 닫는 중괄호). 스케줄러의 payload 타입이 문자열이라 미리 문자열화한다. **credit 산수(§4.2)와 직결** |
 
 **[설계결정]** dataGap 은 control 성격이므로 **JSON 유지**(`02:127`). 단 scheduler `payload` 타입이 넓어지면 이 경로가 문자열임을 **타입으로 구분**해야 한다.
 
@@ -1742,7 +1749,7 @@ type WirePayload =
 
 | 항목 | 내용 |
 |---|---|
-| **변경 지점** | `wsSendPolicy.ts:598-611` `fairDeliveryBytes()` → `Math.max(1, Buffer.byteLength(input.payload, 'utf8'))`. floor 1 의 사유는 §3.1-B — ⚠️ **"원장의 순증" 이 아니라 "예산"** 이다 (5차 검증 M-1): 본문 0 delivery 가 `:701`/`:758` 예산을 전혀 쓰지 않고 lane 을 점유하는 구멍을 막는다. ACK duplicate/over-ACK 판정(**`:836`·`:837`**)은 **오늘 이미 `deliverySeq` 에만 의존**하므로 floor 와 무관하다. ⚠️ **줄 범위 표기 정정** (6차 검증 L-4): 이전 판의 `:836-838` 중 **`:838` 은 `ACK_OUT_OF_ORDER`** 이지 duplicate/over-ACK 가 아니다. 세 줄 모두 `deliverySeq` 만 보므로 주장 자체는 참이나, §3.1-B 표 3행이 `:836`·`:837` 로 정확히 적은 것과 표기를 맞춘다 |
+| **변경 지점** | `wsSendPolicy.ts:606-619` `fairDeliveryBytes()` → `Math.max(1, Buffer.byteLength(input.payload, 'utf8'))`. floor 1 의 사유는 §3.1-B — ⚠️ **"원장의 순증" 이 아니라 "예산"** 이다 (5차 검증 M-1): 본문 0 delivery 가 `:701`/`:758` 예산을 전혀 쓰지 않고 lane 을 점유하는 구멍을 막는다. ACK duplicate/over-ACK 판정(**`:844`·`:845`**)은 **오늘 이미 `deliverySeq` 에만 의존**하므로 floor 와 무관하다. ⚠️ **줄 범위 표기 정정** (6차 검증 L-4): 이전 판의 `:844-846` 중 **`:846` 은 `ACK_OUT_OF_ORDER`** 이지 duplicate/over-ACK 가 아니다. 세 줄 모두 `deliverySeq` 만 보므로 주장 자체는 참이나, §3.1-B 표 3행이 `:844`·`:845` 로 정확히 적은 것과 표기를 맞춘다 |
 | **실패 테스트 (ACK 정산)** | ⚠️ **같은 편집에서 두 번째 ACK(seq3)를 추가한다** (5차 검증 M-3). 현행 `:472-479` 는 새 lane 에 ACK 1회뿐이라 `creditedBytes`(델타, `:839-840`)와 `lane.creditBytes`(누적, `:843`)가 우연히 같아 **두 값을 혼동한 구현이 통과한다.** 두 번째 ACK 를 넣으면 `creditedBytes` 는 세 번째 delivery 분만, `creditBytes` 는 셋의 합이어야 한다 — 갈라지지 않으면 정산이 누적 식으로 구현된 것이다 |
 | **실패 테스트 선행** | `FairTerminalDeliveryScheduler.test.ts` 의 크레딧 단정을 **본문 리터럴로 먼저 바꿔 red 를 확인**한다 — `:470` → 12, `:471` → 9, `:478`·`:479` 의 `expectedBytes` → 21. ⚠️ **S1 이 남긴 것은 맨 숫자 `131`/`128` 이 아니다** (5차 검증 L-2): §7 항목 1 주의 처방은 **손으로 적은 봉투 문자열 + `Buffer.byteLength(expectedWire1, 'utf8')`** 형태이고 131/128 은 그 옆 **주석에만** 나온다. **S5 에서 교체되는 것은 그 봉투 문자열 표현식 전체**이며, 그 교체가 도메인 전환의 가시적 증거다. 테스트에서 숫자 `131` 을 grep 해도 나오지 않는다 |
 | **경계 대조군** | **본문이 0바이트인 delivery 의 `encodedBytes` 가 1** 이어야 한다. 0 이면 floor 가 안 붙은 것이고, **119**(= 전환 전 봉투값)면 도메인이 안 바뀐 것이다. **두 방향 모두 red 로 갈리는지 확인**한다. ⚠️ **"52" 를 쓰지 않는다** (6차 검증 L-2): 52 B 는 **바이너리 최소 유효 OUTPUT 프레임**(28 헤더 + 24 프롤로그, §4 S2-b F1)인데 **S5-a0 시점의 산출식은 `fairDeliveryBytes()`(JSON 봉투) 하나뿐**이라 52 가 될 경로가 없다 — 와이어 도메인 잔재다. 전환 전 실제 값은 **119 B** (직접 계산: `{"type":"output","sessionId":"session-a","data":"","connectionEpoch":"epoch-a","deliverySeq":1,"deliveryKind":"output"}` = 119자 전건 ASCII. §7 항목 1 주의 131 = 119 + `'한글-alpha'` 12 B, 128 = 119 + `'🙂-beta'` 9 B 와 정합). ⚠️ 119 도 `deliverySeq` 자릿수 의존이므로 **맨 숫자로 박지 말고 §7 항목 1 주의 "손으로 적은 봉투 문자열 + `Buffer.byteLength`" 형태를 쓴다** |
@@ -1759,7 +1766,7 @@ type WirePayload =
 
 | 이전 판 주장 | 직접 확인한 사실 |
 |---|---|
-| *"`resolveFairTerminalDeliveryPolicy` 주입 임계값(`wsSendPolicy.ts:518-528`)"* | **`wsSendPolicy.ts:518-528` 은 함수가 아니라 `export interface FairTerminalDeliveryPolicy` 선언**이다 |
+| *"`resolveFairTerminalDeliveryPolicy` 주입 임계값(`wsSendPolicy.ts:526-536`)"* | **`wsSendPolicy.ts:526-536` 은 함수가 아니라 `export interface FairTerminalDeliveryPolicy` 선언**이다 |
 | 필드 5개 | **필드 9개** — `strategy`(`:519`) · `socketSoftGateBytes`(`:520`) · `bulkSliceBytes`(`:521`) · `smallOutputBypassBytes`(`:522`) · **`visibilityWeight`(`:523`)** · **`driverWeight`(`:524`)** · `creditWindowBytes`(`:525`) · **`ackTimeoutMs`(`:526`)** · `queueMaxBytes`(`:527`) |
 | 함수 위치 | **`resolveFairTerminalDeliveryPolicy` 는 `server/src/services/TerminalResourcePolicy.ts:26`** 에 있고 반환형은 `FairTerminalDeliveryPolicyProjection`(`:14-24`)이다. 방출 키도 **9개**: `:36` `strategy` / `:37` `socketSoftGateBytes` / `:41` `bulkSliceBytes` / `:45` `smallOutputBypassBytes` / `:49` `visibilityWeight` / `:53` `driverWeight` / `:57` `creditWindowBytes` / `:61` `ackTimeoutMs` / `:65` `queueMaxBytes` |
 | 완전성 | *"5개 전부"* 라는 **완전성 주장** 때문에 **4개(`strategy`·`visibilityWeight`·`driverWeight`·`ackTimeoutMs`)를 놓친 채 아티팩트를 재발행**하게 된다 |
@@ -1826,7 +1833,7 @@ type WirePayload =
 >
 > | 시점 | `encodedBytes` 산출식 | 40B 청크의 값 | `≤ 128` ? |
 > |---|---|---:|---|
-> | **오늘** (봉투 도메인) | `fairDeliveryBytes()` = `createWsTransportMessage(...).byteLength` (`wsSendPolicy.ts:598-611` → `:91`/`:95`) | **≈356** `[추정]` (`02:366`) | ❌ bypass 안 됨 |
+> | **오늘** (봉투 도메인) | `fairDeliveryBytes()` = `createWsTransportMessage(...).byteLength` (`wsSendPolicy.ts:606-619` → `:91`/`:95`) | **≈356** `[추정]` (`02:366`) | ❌ bypass 안 됨 |
 > | **S5-a0 직후** (본문 도메인, **아직 JSON**) | `Math.max(1, Buffer.byteLength(input.payload,'utf8'))` | **40** | ✅ bypass 됨 |
 > | **S5-c `binary-optin` 이후** | 동상 — codec 무관(§3.1-B) | **40** | ✅ **변화 없음** |
 >
@@ -1886,7 +1893,7 @@ type WirePayload =
 
 ⚠️ **`PERF-BGSTAB-010` AC-4 파생 규칙**: 새 정책 상수 도입 금지(`01:397`, `01:477`). 재튜닝은 기존 **9개** 값의 **재측정**이지 새 상수 추가가 아니다. AC-3(`docs/spec/30.buildergate-stability.srs.md:3675`)이 decision artifact 에 `workload schema/config hash` 와 metric 별 threshold 를 고정하도록 요구하므로 **숫자를 바꾸려면 재벤치와 아티팩트 재발행이 필요**하다(`01:733`).
 
-⚠️ **부수 발견 — 정책 타입이 두 벌이다** (직접 확인, `[설계결정]` 대상): `FairTerminalDeliveryPolicy`(`wsSendPolicy.ts:518`)와 `FairTerminalDeliveryPolicyProjection`(`TerminalResourcePolicy.ts:14`)이 **구조적으로 동일**하고(후자는 `readonly` + `T extends number | string` 제약), `FairTerminalDeliveryPolicyValue<T>` 도 **두 곳(`wsSendPolicy.ts:513`, `TerminalResourcePolicy.ts:9`)에 선언**되어 있다. **§10.2(중복 아키텍처 금지) 위반 후보**다. **다만 이번 범위 밖이므로 발견 사실만 보고하고 통합하지 않는다** — S5 는 값을 재측정할 뿐 타입을 건드리지 않는다.
+⚠️ **부수 발견 — 정책 타입이 두 벌이다** (직접 확인, `[설계결정]` 대상): `FairTerminalDeliveryPolicy`(`wsSendPolicy.ts:526`)와 `FairTerminalDeliveryPolicyProjection`(`TerminalResourcePolicy.ts:14`)이 **구조적으로 동일**하고(후자는 `readonly` + `T extends number | string` 제약), `FairTerminalDeliveryPolicyValue<T>` 도 **두 곳(`wsSendPolicy.ts:521`, `TerminalResourcePolicy.ts:9`)에 선언**되어 있다. **§10.2(중복 아키텍처 금지) 위반 후보**다. **다만 이번 범위 밖이므로 발견 사실만 보고하고 통합하지 않는다** — S5 는 값을 재측정할 뿐 타입을 건드리지 않는다.
 
 **검증 커맨드** (cwd=`server/`): `npx tsx --test src/services/TerminalResourcePolicy.test.ts`
 
@@ -2091,7 +2098,7 @@ new WebSocket(url, ['buildergate.v1.binary', 'buildergate.v1.json'])
 > | `FairTerminalDeliveryScheduler.test.ts:467` | `const firstWireBytes = encodedOutputBytes('epoch-a','session-a',seq1,'한글-alpha');` |
 > | `:213-227` `encodedOutputBytes` | `return createWsTransportMessage({ type:'output', sessionId, data: payload, connectionEpoch, deliverySeq, deliveryKind:'output' }).byteLength;` |
 > | `:470` / `:471` | `assert.equal(sent1.encodedBytes, firstWireBytes, signature);` / `sent2 …, secondWireBytes` |
-> | 구현측 (같은 도메인) | `wsSendPolicy.ts:598-611` `fairDeliveryBytes()` → `createWsTransportMessage(...).byteLength` → `:91` `JSON.stringify` / `:95` `Buffer.byteLength(payload,'utf8')` |
+> | 구현측 (같은 도메인) | `wsSendPolicy.ts:606-619` `fairDeliveryBytes()` → `createWsTransportMessage(...).byteLength` → `:91` `JSON.stringify` / `:95` `Buffer.byteLength(payload,'utf8')` |
 >
 > **`05:213` 예시 자체가 `encodedBytes` 를 payload 바이트로 오인했고, 06 이 그 전제를 승계했다.** 이것은 §3.1-B(JSON codec 의 `encodedBytes` 가 규정되지 않았던 문제)와 **같은 뿌리**다.
 >
@@ -2346,7 +2353,7 @@ cd frontend && node --experimental-strip-types --test tests/unit/binaryFrameCode
         └ byteLength ≠ encodedBytes 를 같은 AC 에 명문화 (§4.2)
 [ ] §3.1-B  JSON codec 의 encodedBytes 도메인 규정 — S0-b 착수 전 (하드 게이트, 4차 H-1)
         └ 이것 없이는 §3.1-A 의 01:728 기각 근거(05:204 인코딩 불변)가 성립하지 않는다
-        └ 현행은 봉투 포함이다 (wsSendPolicy.ts:598-611 → :91/:95) — 무수정 항목이 아니라 변경 항목
+        └ 현행은 봉투 포함이다 (wsSendPolicy.ts:606-619 → :91/:95) — 무수정 항목이 아니라 변경 항목
         └ 결정: 두 codec 모두 본문-only, JSON 측 전환 시점 = S5(S5-a0), floor max(bodyBytes,1)
         └ floor 1 의 사유는 "AC-6 duplicate/over-ACK 판정" 이 아니다 — 그 판정은 오늘 이미
           deliverySeq 에만 의존한다(:836 ACK_DUPLICATE · :837 ACK_OVER_ACK — :838 은
@@ -2354,7 +2361,7 @@ cd frontend && node --experimental-strip-types --test tests/unit/binaryFrameCode
           예산을 전혀 쓰지 않고 lane 을 점유하는 구멍을 막는다 (5차 검증 M-1)
         └ AC 문면에 "codec 과 무관하게" 와 floor 를 함께 박는다 (사후 편집 불가)
              ※ 단 codec 무관 조항에 "프레임" 을 쓰지 말 것 — JSON 경로에는 프레임이 없다.
-               피연산자는 FairTerminalDeliveryInput.payload(wsSendPolicy.ts:499) 다 (5차 L-5)
+               피연산자는 FairTerminalDeliveryInput.payload(wsSendPolicy.ts:504) 다 (5차 L-5)
         └ 프레임 수 상한은 **두 도메인이 각각** 준다 — floor 1 이 있으면 :701/:758 도 묶는다.
           "byteLength 도메인 소관" 이라는 배타적 문면은 반증 가능하므로 AC 에 박지 않는다 (5차 L-6)
 [ ] S0   wave-5 SRS 저작 (§5 S0) — 없이는 코드 작성 불가
@@ -2628,8 +2635,8 @@ cd frontend && node --experimental-strip-types --test tests/unit/binaryFrameCode
 | 테스트 영향 전수 | `05` §3 |
 | **fault 경계 대조군** | **종류·논리는 `05` §6.3, 숫자·오류코드는 이 문서 §4 S2-b (28B 정정본).** `05` 는 21B 초안 기반이다 — §2.3 |
 | **rejection code — 두 계열** | `01` §3.4. **계열 1 = wire 어휘 10종(동결, 어느 판본에서도 불변)** = `binaryFrameCodec.ts:125-136` 의 축자 사본 / **계열 2 = decoder-policy** = `:168-172`. 등급은 소속이 아니라 **성질**로 갈린다(`:201-206`). ⚠️ **공백 2건 중 하나는 닫혔다** — `PROLOGUE_PRESENT` 누락은 **D14 `mandatory-flag-cleared`(fatal)** 로 종결. **`frameVersion` `0x00`/`0xFF` 전용 코드 없음**은 여전히 열려 있고 `bad-frame-version` 단일 수렴이 현행 처분이다(§5 S2-b F9 주). D15 가 `prologue-domain-violation`(scoped)을 계열 2 에 추가한다 |
-| **`encodedBytes` 회계 도메인** | ⚠️ **`01:728`·`02:243` 이 아니라 이 문서 §3.1-A + §3.1-B 다.** 두 정본은 명시 기각되었고 사유는 §3.1-A 가, **그 사유가 성립하기 위한 전제(JSON codec 도 본문-only, 전환 시점 S5-a0, floor 1)는 §3.1-B** 가 보유한다. `00:78`(단일 domain 요건)은 유효하며 그 뜻은 **"서버 원장 ↔ 클라이언트 ACK 보고 일치"** 로 고정했다 — 본문-only 가 그것을 만족한다. **현행 구현은 봉투 포함**(`wsSendPolicy.ts:598-611` → `:91`/`:95`)이므로 전환 대상이다 |
-| **`byteLength` 회계 도메인 (배치 포함)** | `01:1429` `byteLength: out.length` + 이 문서 §4.2 확정식. **프레임 1개 식이 아니다.** ⚠️ 그리고 `encodedBytes` 와 **층위가 다르다** — `byteLength` 는 WS 메시지 단위, `encodedBytes` 는 delivery 단위(`wsSendPolicy.ts:510`). 배치 합 형태로 나란히 적지 않는다 (§4.2, 4차 L-5). ⚠️ **정책 9키 중 `byteLength` 를 먹는 것은 하나도 없다** — `queueMaxBytes`(`:758`)·`creditWindowBytes`(`:701`)·`socketSoftGateBytes`(`:702`)·`smallOutputBypassBytes`(`:703`/`:716`/`:738`)는 전부 **`encodedBytes` 도메인**이다 (5차 H-1). `byteLength` 를 먹는 것은 `WsRouter` 쪽이며 **게이트가 하나가 아니다** (7차 H-1) — `wsSendMode='safe-send-*'` 에서는 `:6098-6099` 백프레셔 게이트, 기본 `'direct'` 에서는 `:6169`·`:6182` 출력 큐 상한이다 |
+| **`encodedBytes` 회계 도메인** | ⚠️ **`01:728`·`02:243` 이 아니라 이 문서 §3.1-A + §3.1-B 다.** 두 정본은 명시 기각되었고 사유는 §3.1-A 가, **그 사유가 성립하기 위한 전제(JSON codec 도 본문-only, 전환 시점 S5-a0, floor 1)는 §3.1-B** 가 보유한다. `00:78`(단일 domain 요건)은 유효하며 그 뜻은 **"서버 원장 ↔ 클라이언트 ACK 보고 일치"** 로 고정했다 — 본문-only 가 그것을 만족한다. **현행 구현은 봉투 포함**(`wsSendPolicy.ts:606-619` → `:91`/`:95`)이므로 전환 대상이다 |
+| **`byteLength` 회계 도메인 (배치 포함)** | `01:1429` `byteLength: out.length` + 이 문서 §4.2 확정식. **프레임 1개 식이 아니다.** ⚠️ 그리고 `encodedBytes` 와 **층위가 다르다** — `byteLength` 는 WS 메시지 단위, `encodedBytes` 는 delivery 단위(`wsSendPolicy.ts:518`). 배치 합 형태로 나란히 적지 않는다 (§4.2, 4차 L-5). ⚠️ **정책 9키 중 `byteLength` 를 먹는 것은 하나도 없다** — `queueMaxBytes`(`:758`)·`creditWindowBytes`(`:701`)·`socketSoftGateBytes`(`:702`)·`smallOutputBypassBytes`(`:703`/`:716`/`:738`)는 전부 **`encodedBytes` 도메인**이다 (5차 H-1). `byteLength` 를 먹는 것은 `WsRouter` 쪽이며 **게이트가 하나가 아니다** (7차 H-1) — `wsSendMode='safe-send-*'` 에서는 `:6098-6099` 백프레셔 게이트, 기본 `'direct'` 에서는 `:6169`·`:6182` 출력 큐 상한이다 |
 | **ACK 정산 값 두 종** | `creditedBytes`(ACK 1회 반환값) = **직전 ACK 이후 델타**, `wsSendPolicy.ts:847-848` → 반환 `:853` / `lane.creditBytes` = **누적 총액**, `:851`. **누적 식으로 `creditedBytes` 를 정의하면 두 번째 ACK 부터 중복 계상**된다 (§4.2, 5차 M-3). 테스트 `FairTerminalDeliveryScheduler.test.ts:478`(델타)·`:479`(누적)는 `lastAcknowledgedSeq === 0` 이라 두 값이 우연히 같다. ⚠️ **줄번호는 2026-08-19 정정본** — 이전 판의 `:839-840`/`:843`/`:845` 는 **+8 어긋나 있었다**(§4.2 정정 주) |
 | 회귀 전수 커맨드 | `05` §5.3 |
 | 마이그레이션 사다리 4단계 | `05` §8.2 |

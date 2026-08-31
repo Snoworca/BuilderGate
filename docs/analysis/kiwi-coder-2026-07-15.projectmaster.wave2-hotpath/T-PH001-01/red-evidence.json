@@ -1,0 +1,40 @@
+{
+  "taskId": "T-PH001-01",
+  "requirementId": "PERF-BGSTAB-009",
+  "revision": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+  "workingTreeDirty": true,
+  "productionFilesChangedByTask": [],
+  "testFile": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+  "baseline": {
+    "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+    "cwd": "frontend",
+    "exitCode": 0,
+    "passed": 16,
+    "failed": 0
+  },
+  "red": {
+    "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+    "cwd": "frontend",
+    "exitCode": 1,
+    "passed": 20,
+    "failed": 4,
+    "expectedFailureSignatures": [
+      "UTF-8 segmented queue RED AC-1: accepted ingress encode must be exactly once and prefix-loop encode must be zero",
+      "UTF-8 segmented queue RED AC-3: scheduler writes must use encoded segments/subarrays instead of string prefix copies",
+      "UTF-8 segmented queue RED AC-4: non-compacting chunk pressure must overflow instead of allocating a full pending join",
+      "UTF-8 segmented queue RED AC-7: scheduler-to-xterm staged writer must accept Uint8Array output"
+    ],
+    "passingNewContracts": [
+      "UTF-8 segmented queue RED 계약 — AC-2",
+      "UTF-8 segmented queue RED 계약 — AC-5",
+      "UTF-8 segmented queue RED 계약 — AC-6",
+      "UTF-8 segmented queue RED 계약 — AC-10"
+    ],
+    "failureCause": "Current scheduler ignores the injected encoder, slices and writes strings, coalesces non-compacting pressure with a full join, and does not expose the staged Uint8Array write path."
+  },
+  "diffCheck": {
+    "command": "git diff --check -- frontend/tests/unit/terminalOutputScheduler.test.ts",
+    "exitCode": 0
+  },
+  "capturedAt": "2026-07-16T02:43:37+09:00"
+}

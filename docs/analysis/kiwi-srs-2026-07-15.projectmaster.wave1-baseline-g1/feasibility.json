@@ -1,0 +1,108 @@
+{
+  "implementability": "high",
+  "product_fit": "core",
+  "rationale": "The four requirements are feasible as additive characterization and governance work within the current repository. The code already exposes the split runtime/test mismatch, explicit viewport-only and oversized-fallback recovery boundaries, deterministic scheduler and fake-WebSocket seams, and telemetry surfaces needed to collect evidence. The main implementation work is to assemble deterministic fixtures, mode-specific runners, machine-readable raw artifacts, and an evidence-linked G1 record. Product retained-row and memory values, checkpoint budgets, authority promotion, a later stable retained-state authority contract, and the G1 branch outcome are deliberately deferred decisions; none is a prerequisite for implementing characterization. Existing 0.5.5 requirements remain read-only dependency baselines.",
+  "code_evidence": [
+    "C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/WsRouter.ts:86-91,165-220",
+    "C:/Work/git/_Snoworca/ProjectMaster/server/src/index.ts:1468-1495",
+    "C:/Work/git/_Snoworca/ProjectMaster/frontend/src/contexts/WebSocketContext.tsx:113-119,141-215,271-310,340-388,545-595",
+    "C:/Work/git/_Snoworca/ProjectMaster/server/src/utils/headlessTerminal.ts:95-145,156-203",
+    "C:/Work/git/_Snoworca/ProjectMaster/server/src/services/SessionManager.ts:100-126,170-202,2482-2604,3008-3065,3486-3494",
+    "C:/Work/git/_Snoworca/ProjectMaster/frontend/src/components/Terminal/TerminalView.tsx:1093-1166,1283-1345,1399-1499",
+    "C:/Work/git/_Snoworca/ProjectMaster/frontend/src/utils/terminalOutputScheduler.ts:5-14,39-75,143-206",
+    "C:/Work/git/_Snoworca/ProjectMaster/server/src/test-runner.ts:614-641,2311-2384,13607-13682,14514-14595",
+    "C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/WsRouterSendPriority.test.ts:7-55,58-99,123-188",
+    "C:/Work/git/_Snoworca/ProjectMaster/server/src/index.ts:797-815"
+  ],
+  "blockers": [],
+  "conditions": [
+    "Use 24, 1000, and 10000 rows plus the legacy 2 MiB boundary only as deterministic characterization corpus; do not encode them as product retention or transport targets.",
+    "Keep product retained rows, aggregate memory, checkpoint chunk size, checkpoint in-flight budget, authority promotion, UI changes, and legacy removal outside this subcycle.",
+    "Treat existing 0.5.5 BGSTAB requirements as immutable regression dependencies and do not modify, move, duplicate, or supersede them.",
+    "Keep characterization artifacts reproducible and machine-readable, with enough execution context and raw samples to distinguish the declared modes without inventing product thresholds.",
+    "Implement the G1 record and activation gate now, but leave its branch pending until the prerequisite characterization evidence is complete; this is an evidence gate, not an implementation blocker."
+  ],
+  "external_module_required": false,
+  "per_requirement": [
+    {
+      "key": "split-drift-characterization",
+      "implementability": "high",
+      "product_fit": "core",
+      "code_evidence": [
+        "C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/WsRouter.ts:86-91,165-220",
+        "C:/Work/git/_Snoworca/ProjectMaster/server/src/index.ts:1468-1495",
+        "C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/wsTransportMode.ts:23-92",
+        "C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/WsRouterSplitHandshake.test.ts:50-98,100-121",
+        "C:/Work/git/_Snoworca/ProjectMaster/server/package.json:5-11",
+        "C:/Work/git/_Snoworca/ProjectMaster/frontend/src/contexts/WebSocketContext.tsx:113-119,141-215,271-310,340-388,545-595",
+        "C:/Work/git/_Snoworca/ProjectMaster/frontend/src/utils/webSocketUrl.ts:35-70"
+      ],
+      "blockers": [],
+      "conditions": [
+        "Characterize production construction and actual upgrade behavior separately from direct connection-event tests and SRS expectations.",
+        "Record the default-test discovery gap as evidence rather than treating compiled standalone suites as executed verification.",
+        "Do not activate split runtime behavior or preselect restore versus supersede; disposition remains a downstream evidence-based decision.",
+        "Use FR-BGSTAB-006 and FR-BGSTAB-007 only as read-only comparison baselines through additive relations."
+      ]
+    },
+    {
+      "key": "refresh-retained-characterization",
+      "implementability": "high",
+      "product_fit": "core",
+      "code_evidence": [
+        "C:/Work/git/_Snoworca/ProjectMaster/server/src/utils/headlessTerminal.ts:95-145,156-203",
+        "C:/Work/git/_Snoworca/ProjectMaster/server/src/services/SessionManager.ts:100-126,170-202,2482-2604,3008-3065,3486-3494",
+        "C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/WsRouter.ts:947-1005,1358-1408,1817-1865,1923-2035,2119-2160",
+        "C:/Work/git/_Snoworca/ProjectMaster/frontend/src/components/Terminal/TerminalView.tsx:1093-1166,1283-1345,1399-1499",
+        "C:/Work/git/_Snoworca/ProjectMaster/frontend/src/components/Terminal/TerminalContainer.tsx:1323-1507,1509-1584",
+        "C:/Work/git/_Snoworca/ProjectMaster/frontend/tests/e2e/terminal-authority.spec.ts:201-262,271-359,394-437"
+      ],
+      "blockers": [],
+      "conditions": [
+        "Exercise valid, absent, and poisoned local-cache states independently across active and hidden views, including Unicode and alternate-buffer cases.",
+        "Use 24, 1000, and 10000 rows and the legacy 2 MiB limit strictly as test corpus and report the observed retained/lost boundary without converting it into a product promise.",
+        "Preserve and expose current viewport-only, oversized-empty, fallback, replay-tail, remount, and repair behavior; do not promote server authority or delete legacy paths.",
+        "Include deterministic cases for geometry compatibility and the repair-during-remount gap so current outcomes are observable even when they demonstrate loss or non-equivalence."
+      ]
+    },
+    {
+      "key": "benchmark-evidence",
+      "implementability": "high",
+      "product_fit": "core",
+      "code_evidence": [
+        "C:/Work/git/_Snoworca/ProjectMaster/frontend/src/utils/terminalOutputScheduler.ts:5-14,39-75,143-206",
+        "C:/Work/git/_Snoworca/ProjectMaster/server/src/test-runner.ts:614-641,2311-2384,13607-13682,14514-14595",
+        "C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/WsRouterSendPriority.test.ts:7-55,58-99,123-188",
+        "C:/Work/git/_Snoworca/ProjectMaster/server/src/services/SessionManager.ts:3008-3065,3486-3494",
+        "C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/WsRouter.ts:2119-2160",
+        "C:/Work/git/_Snoworca/ProjectMaster/server/src/index.ts:797-815"
+      ],
+      "blockers": [],
+      "conditions": [
+        "Add a deterministic characterization runner and machine-readable manifest/raw-sample writer because no such mode contract currently exists.",
+        "Define NO_RENDER, NO_ANALYZER, and NO_NETWORK so each mode isolates the named layer through existing injected or fake-runtime seams and records the selected mode explicitly.",
+        "Make ONE_CLIENT_SLOW compare at least one controlled slow client with a normal client receiving the same session stream; current single-client send-priority tests are primitives, not sufficient evidence.",
+        "Sample or snapshot existing cumulative telemetry in a reproducible way and retain raw observations; do not derive product SLOs, budgets, or confidence thresholds in this subcycle."
+      ]
+    },
+    {
+      "key": "g1-activation-gate",
+      "implementability": "high",
+      "product_fit": "core",
+      "code_evidence": [
+        "C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/WsRouter.ts:86-91,165-220",
+        "C:/Work/git/_Snoworca/ProjectMaster/server/src/utils/headlessTerminal.ts:95-145,156-203",
+        "C:/Work/git/_Snoworca/ProjectMaster/frontend/src/components/Terminal/TerminalView.tsx:1093-1166,1283-1345,1399-1499",
+        "C:/Work/git/_Snoworca/ProjectMaster/frontend/tests/e2e/terminal-authority.spec.ts:201-262,271-359,394-437",
+        "C:/Work/git/_Snoworca/ProjectMaster/server/src/test-runner.ts:614-641,2311-2384,13607-13682,14514-14595"
+      ],
+      "blockers": [],
+      "conditions": [
+        "Create the decision-record structure and activation gate additively, while leaving the branch unresolved until split, refresh, and benchmark evidence is linked and reviewed.",
+        "Treat G1 as evidence-gated, not implementation-blocked: the record and inactive downstream state are implementable before an adjudicator, sufficiency rule, or final branch is selected.",
+        "A confirmed-bug-only outcome may only identify a reproduced defect for separate local-fix authorization and must not itself authorize code changes.",
+        "An architectural-migration outcome may only unlock later work after a separate stable retained-state authority contract is approved; it must not itself promote authority, change UI, delete legacy behavior, or select deferred numeric budgets."
+      ]
+    }
+  ]
+}

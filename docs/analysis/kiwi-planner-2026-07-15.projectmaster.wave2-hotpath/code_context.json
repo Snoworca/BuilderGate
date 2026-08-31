@@ -1,0 +1,37 @@
+{
+  "analyst": "wave2_plan_code_context",
+  "target": "wave-2",
+  "external_paths_detected": [],
+  "implementation_order": ["PERF-BGSTAB-009", "REL-BGSTAB-008", "REL-BGSTAB-009", "FR-BGSTAB-021"],
+  "anchors": {
+    "PERF-BGSTAB-009": {
+      "code": ["frontend/src/utils/terminalOutputScheduler.ts", "frontend/src/utils/terminalOutputHotPath.ts", "frontend/src/components/Terminal/TerminalView.tsx"],
+      "tests": ["frontend/tests/unit/terminalOutputScheduler.test.ts", "frontend/tests/benchmarks/terminalNoRenderFixture.ts"],
+      "reuse": ["TerminalOutputScheduler public contract", "getCachedTerminalOutputResourceLimits", "Wave-1 NO_RENDER fixture"]
+    },
+    "REL-BGSTAB-008": {
+      "code": ["server/src/services/SessionManager.ts", "server/src/ws/WsRouter.ts", "server/src/types/ws-protocol.ts", "frontend/src/types/ws-protocol.ts", "frontend/src/utils/visibleOutputRecovery.ts", "frontend/src/components/Terminal/TerminalContainer.tsx"],
+      "tests": ["server/src/test-runner.ts", "server/src/ws/WsRouterSplitHandshake.test.ts"],
+      "reuse": ["getReplayQueueLimit compatibility cap", "queuedOutputChunks", "refreshReplaySnapshots", "VisibleOutputRecoveryState", "per-client WsClientMeta"]
+    },
+    "REL-BGSTAB-009": {
+      "code": ["frontend/src/components/Terminal/TerminalView.tsx", "frontend/src/components/Terminal/TerminalContainer.tsx", "frontend/src/contexts/WebSocketContext.tsx", "frontend/src/utils/terminalOutputScheduler.ts"],
+      "tests": ["frontend/tests/unit/terminalViewRecoveryContract.test.ts", "frontend/tests/unit/terminalContainerRecoveryContract.test.ts", "frontend/tests/unit/visibleOutputRecovery.test.ts", "frontend/tests/e2e/grid-equal-mode.spec.ts"],
+      "reuse": ["segmented scheduler", "sessionGenerationRef", "pendingSnapshot single-flight loop", "input transport barrier", "WebSocket grace ownership"]
+    },
+    "FR-BGSTAB-021": {
+      "code": ["frontend/src/components/Terminal/TerminalView.tsx", "frontend/src/components/Terminal/TerminalContainer.tsx", "frontend/src/App.tsx", "frontend/src/components/Grid/MosaicContainer.tsx", "frontend/src/components/Terminal/terminalRuntimeRefs.ts"],
+      "tests": ["frontend/tests/e2e/terminal-paste.spec.ts", "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts", "frontend/tests/unit/commandPresetPaste.test.ts"],
+      "reuse": ["TerminalView.pasteInput", "sessionGenerationRef", "programmaticPasteRef", "savedRightClickSelRef", "native Ctrl+V capture guard"]
+    }
+  },
+  "new_file_candidates": [
+    "frontend/src/utils/terminalRestoreCoordinator.ts",
+    "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+    "frontend/src/utils/terminalClipboardCoordinator.ts",
+    "frontend/tests/unit/terminalClipboardCoordinator.test.ts",
+    "frontend/tests/e2e/wave2-terminal-restore.spec.ts",
+    "frontend/tests/e2e/terminal-clipboard.spec.ts"
+  ],
+  "notable_correction": "terminal-paste E2E clipboard permission origin 2002를 AGENTS.md 기준 2222로 교정해야 한다."
+}

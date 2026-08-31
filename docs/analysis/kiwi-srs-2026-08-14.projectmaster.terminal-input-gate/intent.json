@@ -1,0 +1,171 @@
+{
+  "summary": "터미널 입력 게이트가 특정 상태 조합(observe 모드 + transient-blocked)에서 키 입력을 무기록으로 폐기하며, 지오메트리 배리어 미해제·authority fencing 원인 은폐·설정 스키마 무버전·IME permit 경합 등 인접 결함이 이 폐기를 유발하거나 진단을 어렵게 만들고, 이를 검증해야 할 테스트/CI/E2E 인프라 자체도 커버리지 공백이 있다.",
+  "intent_type_hint": "update",
+  "key_entities": [
+    "입력 신뢰성 모드 (inputReliabilityMode: observe/queue/strict)",
+    "캡처 상태 (captureState / captureAllowed / transient-blocked)",
+    "지오메트리 배리어 (geometryReadyRef / barrierReason / transient-blocked)",
+    "터미널 디버그 캡처 (terminalDebugCapture, 프로덕션 no-op)",
+    "SessionManager authority fencing / lease",
+    "InputRejectedReason 프로토콜 enum",
+    "MCP 게이트웨이 retainedIdentity",
+    "설정 스키마 버전/마이그레이션 (configSchema)",
+    "IME/이모지 provenance permit (parser-generated vs 사용자 발생)",
+    "replay guard lease (terminalReplayGuard)",
+    "helper textarea disabled 상태",
+    "pane-keyboard.spec.ts / status-prefix E2E",
+    "CI 파이프라인 (release.yml) 테스트 실행 여부",
+    "Playwright 대상 번들 신선도",
+    "React StrictMode 이중 마운트",
+    "연결 상태 UI (StatusBar / DisconnectedOverlay)",
+    "브라우저 입력 백프레셔 (webSocketBackpressure)",
+    "/api/runtime-config 엔드포인트 인증"
+  ],
+  "ambiguities": [
+    {
+      "id": "A1",
+      "question": "입력 신뢰성 모드의 기본값을 observe에서 queue로 변경할지, 아니면 observe를 유지하되 폐기 시 사용자 가시적 피드백(토스트 등)만 추가할지.",
+      "why_it_matters": "기본값 변경은 큐잉 버퍼/TTL(RECONNECT_INPUT_QUEUE_TTL_MS=3000) 하에서 재전송 시맨틱을 프로덕션 기본 동작으로 승격시키는 더 넓은 영향 범위를 가지며, 피드백만 추가하는 것과는 리스크 프로파일이 다르다.",
+      "has_reasonable_default": true,
+      "proposed_default": "기본 모드는 observe로 유지하되, 무음 폐기를 금지하고 프리셋 붙여넣기와 동일하게 일반 키 입력/단축키에도 사용자 가시적 피드백(토스트/인디케이터)을 의무화한다."
+    },
+    {
+      "id": "A2",
+      "question": "MCP 게이트웨이 경유 mutation 요청에서 retainedIdentity 미전달로 인해 항상 mutation-identity-missing이 되는 현재 동작이 의도된 아키텍처 경계인지, 아니면 결함인지.",
+      "why_it_matters": "의도된 경계라면 문서화만 필요하고, 결함이라면 MCP 게이트웨이에 authority/lease 전달 경로를 새로 설계해야 하여 작업 범위가 크게 달라진다.",
+      "has_reasonable_default": false
+    },
+    {
+      "id": "A3",
+      "question": "설정 스키마 버전/마이그레이션 도입 범위 — 단순 warn-on-missing-known-block 수준인지, 완전한 schemaVersion 기반 마이그레이션 엔진까지 요구하는지.",
+      "why_it_matters": "포터블 config가 stabilityModes/session.processCleanup 누락 시 조용히 안전하지 않은 기본값(direct/observe)으로 롤백되는 실피해가 있어 최소 조치는 필요하나, 마이그레이션 엔진 전체 구축은 범위·일정이 크게 다른 별도 작업이다.",
+      "has_reasonable_default": true,
+      "proposed_default": "최소 조치로 알려진 안전-critical 블록(stabilityModes, session.processCleanup 등)이 누락된 경우 안전한 기본값 대체 대신 명시적 경고 로그를 남기고, 루트 스키마에 schemaVersion 필드를 추가한다. 완전한 마이그레이션 엔진은 범위 밖으로 제안한다."
+      },
+    {
+      "id": "A4",
+      "question": "/api/runtime-config 엔드포인트에 인증을 추가할지, 현재처럼 무인증(비-시크릿 화이트리스트 22개 값)으로 유지할지.",
+      "why_it_matters": "현재 유일한 호출자가 로그인 이후 실행되는 코드라는 사실이 위협 모델을 완화하지만, 엔드포인트 자체는 여전히 무인증으로 외부에서 조회 가능하다.",
+      "has_reasonable_default": true,
+      "proposed_default": "페이로드에 시크릿이 없으므로 현재 무인증 상태를 유지하되, 이 결정을 의도적 설계로 문서화한다."
+    },
+    {
+      "id": "A5",
+      "question": "InputRejectedReason 프로토콜 enum에 추가할 새 값의 정확한 명칭과, 기존 12개 값 중 일부를 폐기/재정의할지 여부.",
+      "why_it_matters": "프로토콜 enum은 프런트엔드·백엔드·MCP 세 소비자가 공유하므로 값 이름 확정은 하위 호환성에 영향을 준다.",
+      "has_reasonable_default": true,
+      "proposed_default": "기존 값을 변경하지 않고 'authority-fencing-failed' 같은 신규 값을 추가하는 방식으로 확장한다."
+    }
+  ],
+  "implied_requirements": [
+    {
+      "id": "IR1",
+      "statement": "시스템은 captureState가 'transient-blocked'이고 입력 신뢰성 모드가 'observe'인 상태에서도, 사용자 키 입력을 무기록·무피드백으로 폐기해서는 안 되며 최소한 사용자에게 시각적 피드백을 제공해야 한다.",
+      "source_finding": "C-1",
+      "evidence": "frontend/src/components/Terminal/TerminalView.tsx:915-932; frontend/src/components/Terminal/TerminalContainer.tsx:757-768"
+    },
+    {
+      "id": "IR2",
+      "statement": "시스템은 입력 신뢰성 모드의 프로덕션 기본값(observe)과 config.json5로 덮어쓸 수 없는 현재 제약을, 배포 환경에서 명시적으로 설정 가능하도록 하거나 그 제약을 문서화해야 한다.",
+      "source_finding": "C-1",
+      "evidence": "server/src/utils/inputReliabilityMode.ts:11-12; frontend/src/utils/inputReliabilityMode.ts:95; server/src/schemas/config.schema.ts (inputReliabilityMode 필드 없음)"
+    },
+    {
+      "id": "IR3",
+      "statement": "시스템은 입력이 폐기된 경우, 디버그 캡처가 비활성화된 프로덕션 기본 상태에서도 최소한의 감사 가능한 기록을 남겨야 한다.",
+      "source_finding": "C-1",
+      "evidence": "frontend/src/utils/terminalDebugCapture.ts:160-161,402-405"
+    },
+    {
+      "id": "IR4",
+      "statement": "시스템은 터미널 지오메트리 fit이 0×0 치수로 실패한 경우 geometryReadyRef를 미해결 상태로 영구 방치하지 않고, 재시도하거나 가시성 회복 시 재계산해야 한다.",
+      "source_finding": "H-3",
+      "evidence": "frontend/src/components/Terminal/TerminalView.tsx:3858-3869,4303-4312,4109-4141"
+    },
+    {
+      "id": "IR5",
+      "statement": "시스템은 명령형 fit() 호출 경로도 geometryReadyRef 상태 갱신에 반영해야 한다.",
+      "source_finding": "H-3",
+      "evidence": "frontend/src/components/Terminal/TerminalView.tsx:2991-2996"
+    },
+    {
+      "id": "IR6",
+      "statement": "시스템은 authority/lease fencing 실패로 인한 입력 거절을, 무관한 사유('server-error' 등)로 보고하지 않고 프로토콜상 구분 가능한 사유로 보고해야 한다.",
+      "source_finding": "H-4",
+      "evidence": "server/src/services/SessionManager.ts:2985-2986,3009-3010; server/src/services/WsRouter.ts:4554; server/src/types/ws-protocol.ts:422-434"
+    },
+    {
+      "id": "IR7",
+      "statement": "시스템은 authority fencing 체크 결과와 무관하게 디버그 캡처가 pty/input, resize 이벤트를 기록할 수 있도록 캡처 지점의 체크 순서를 조정해야 한다.",
+      "source_finding": "H-4",
+      "evidence": "server/src/services/SessionManager.ts:3197,3203-3206,3412"
+    },
+    {
+      "id": "IR8",
+      "statement": "시스템은 MCP 게이트웨이 경유 mutation 요청에서 retainedIdentity를 전달하여, 이 경로가 항상 'mutation-identity-missing'으로 귀결되지 않도록 하거나, 의도된 제약이라면 명시적으로 문서화해야 한다.",
+      "source_finding": "H-4",
+      "evidence": "server/src/mcp/index.ts:294-302,337-345"
+    },
+    {
+      "id": "IR9",
+      "statement": "시스템은 설정 스키마에 버전 필드를 두고, 알려진 안전-critical 블록(stabilityModes, session.processCleanup 등) 누락 시 조용히 기본값으로 대체하는 대신 경고 또는 검증 실패를 발생시켜야 한다.",
+      "source_finding": "H-5",
+      "evidence": "server/src/schemas/config.schema.ts:286-302 (루트 스키마 non-strict, version 필드 부재)"
+    },
+    {
+      "id": "IR10",
+      "statement": "시스템은 keydown 없이 발생하는 insertText(IME 확정, 이모지 등) 입력에 대해서도 유효한 provenance permit을 부여해야 하며, permit 리스너 등록 순서가 xterm 내부 리스너보다 늦어 permit이 발급되지 않는 경합을 제거해야 한다.",
+      "source_finding": "H-1",
+      "evidence": "frontend/src/components/Terminal/TerminalView.tsx:4055,3690-3692,3854; xterm CoreBrowserTerminal.ts:384; xterm CompositionHelper.ts:154"
+    },
+    {
+      "id": "IR11",
+      "statement": "시스템은 captureAllowed=false로 helper textarea가 disabled되는 분기에 대한 자동 테스트를 갖춰야 한다.",
+      "source_finding": "M-1",
+      "evidence": "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts; frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts (helperDisabled 단언 전부 false, closedReason:'none')"
+    },
+    {
+      "id": "IR12",
+      "statement": "시스템은 pane-keyboard.spec.ts의 TC-6601/6602/6606이 겨냥하는 기능(.status-prefix 표시)을 구현하거나, 사장 컴포넌트를 대체할 활성 컴포넌트로 테스트를 재조준하거나, 테스트를 명시적으로 skip 처리해야 한다 — 미구현 상태로 RED 방치는 허용되지 않는다.",
+      "source_finding": "M-2",
+      "evidence": "frontend/tests/e2e/pane-keyboard.spec.ts (TC-6601/6602/6606); frontend/src/components/StatusBar/StatusBar.tsx:20 (import 하는 곳 없음); docs/wiki/08.testing-and-known-gaps.md:57-71"
+    },
+    {
+      "id": "IR13",
+      "statement": "시스템은 /api/runtime-config 엔드포인트의 인증 요구 여부를 명시적으로 결정하고 문서화해야 한다.",
+      "source_finding": "M-3",
+      "evidence": "server/src/index.ts:530"
+    },
+    {
+      "id": "IR14",
+      "statement": "시스템은 브라우저 입력 백프레셔가 입력 경로에만 적용되고 출력 경로는 경유하지 않는 현재 설계를, 의도된 것으로 문서화하거나 출력 경로까지 확장해야 하며, 프로덕션 임계값이 문서화된 기본값의 46%로 낮게 설정된 사유를 명시해야 한다.",
+      "source_finding": "신규-1",
+      "evidence": "frontend/src/utils/webSocketBackpressure.ts:80-81"
+    },
+    {
+      "id": "IR15",
+      "statement": "시스템은 CI 파이프라인에서 유닛 테스트와 Playwright E2E 테스트를 실행해야 한다.",
+      "source_finding": "신규-2",
+      "evidence": ".github/workflows/release.yml (playwright 참조 0건, 유닛 테스트 실행 단계 없음)"
+    },
+    {
+      "id": "IR16",
+      "statement": "시스템은 E2E 테스트가 최신 프로덕션 번들을 대상으로 실행됨을 보장해야 하며, 존재 여부만으로 낡은 배포 산출물을 재사용하지 않아야 한다.",
+      "source_finding": "신규-3",
+      "evidence": "tools/start-runtime.js:242-250 (hasDeploymentArtifacts 존재 여부만 확인); playwright.config.ts:36 (reuseExistingServer:true)"
+    },
+    {
+      "id": "IR17",
+      "statement": "시스템은 React StrictMode 이중 마운트 방어 로직에 대한 자동화된 브라우저 커버리지를 가져야 한다.",
+      "source_finding": "신규-4",
+      "evidence": "frontend/src/main.tsx (무조건 StrictMode); frontend/src/contexts/WebSocketContext.tsx:1233-1237; frontend/src/components/Terminal/TerminalView.tsx:3106; playwright.config.ts:34 (프로덕션 빌드 대상, StrictMode 미검증)"
+    },
+    {
+      "id": "IR18",
+      "statement": "시스템은 연결 끊김 이후 재연결 창(reconnect window) 동안에도 사용자에게 연결 상태를 시각적으로 표시해야 한다.",
+      "source_finding": "신규-5",
+      "evidence": "frontend/src/components/StatusBar/StatusBar.tsx:16-18 (사장 컴포넌트); frontend/src/components/Workspace/DisconnectedOverlay.tsx (세션 오류에만 표시)"
+    }
+  ],
+  "semantic_equivalences": []
+}

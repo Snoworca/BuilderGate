@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "source": "kiwi-srs-feasibility default policy",
+  "customPolicyFile": null,
+  "selection": {
+    "include": "target=wave-3 AND Stability=evolving",
+    "exclude": "Stability=stable|frozen|deprecated"
+  },
+  "mapping": {
+    "highWithoutVerification": "keep evolving",
+    "mediumOrConditional": "keep evolving",
+    "blocked": "keep evolving and report blocker"
+  },
+  "mutationPolicy": "No redundant update_stability calls; user confirmation is required before any stable promotion when policy requires it."
+}

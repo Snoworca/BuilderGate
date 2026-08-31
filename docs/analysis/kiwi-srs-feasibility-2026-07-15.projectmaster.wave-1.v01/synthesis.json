@@ -1,0 +1,107 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-07-15.projectmaster.wave-1.v01",
+  "target": "wave-1",
+  "total_reqs_evaluated": 4,
+  "feasibility_distribution": {
+    "high": 4,
+    "medium": 0,
+    "low": 0,
+    "blocked": 0
+  },
+  "score_summary": {
+    "minimum": 85,
+    "maximum": 94,
+    "average": 90.5
+  },
+  "target_verdict": "conditionally-ready",
+  "target_verdict_rationale": "All four requirements are highly implementable with no feasibility blockers, so the target is ready to enter implementation. It is not release-ready: all four have zero verification evidence, and MIG-BGSTAB-001 cannot produce a valid completed G1 record until the three characterization requirements complete.",
+  "critical_blockers": [],
+  "readiness_constraints": [
+    {
+      "kind": "verification",
+      "req_ids": [
+        "REL-BGSTAB-006",
+        "OBS-BGSTAB-004",
+        "PERF-BGSTAB-008",
+        "MIG-BGSTAB-001"
+      ],
+      "reason": "All evaluated requirements have has_verification=false and zero verification-evidence rows."
+    },
+    {
+      "kind": "dependency_gate",
+      "req_ids": [
+        "MIG-BGSTAB-001"
+      ],
+      "reason": "MIG-BGSTAB-001 is intentionally downstream of three planned/draft evidence-producing prerequisites."
+    }
+  ],
+  "dependency_chains": [
+    {
+      "chain": [
+        "REL-BGSTAB-006",
+        "MIG-BGSTAB-001"
+      ],
+      "weakest_link_score": 85,
+      "state": "acyclic-not-yet-complete",
+      "reason": "G1 requires completed split runtime/test/SRS drift evidence before branch selection."
+    },
+    {
+      "chain": [
+        "OBS-BGSTAB-004",
+        "MIG-BGSTAB-001"
+      ],
+      "weakest_link_score": 85,
+      "state": "acyclic-not-yet-complete",
+      "reason": "G1 requires completed refresh retained-state boundary and loss-cause evidence before branch selection."
+    },
+    {
+      "chain": [
+        "PERF-BGSTAB-008",
+        "MIG-BGSTAB-001"
+      ],
+      "weakest_link_score": 85,
+      "state": "acyclic-not-yet-complete",
+      "reason": "G1 requires reproducible benchmark manifests, raw samples, summaries, and confidence intervals before branch selection."
+    }
+  ],
+  "dependency_cycle_count": 0,
+  "stability_drift_candidates": [
+    {
+      "req_id": "REL-BGSTAB-006",
+      "current": "draft",
+      "feasibility": "high",
+      "score": 94,
+      "has_verification": false,
+      "feasibility_drift_to": "evolving",
+      "reason": "High feasibility with validated production/test trace seams and no hard dependency; verification is absent, so stable is not eligible."
+    },
+    {
+      "req_id": "OBS-BGSTAB-004",
+      "current": "draft",
+      "feasibility": "high",
+      "score": 94,
+      "has_verification": false,
+      "feasibility_drift_to": "evolving",
+      "reason": "High feasibility with complete semantic trace coverage and a healthy hard dependency; verification is absent, so stable is not eligible."
+    },
+    {
+      "req_id": "PERF-BGSTAB-008",
+      "current": "draft",
+      "feasibility": "high",
+      "score": 89,
+      "has_verification": false,
+      "feasibility_drift_to": "evolving",
+      "reason": "High feasibility despite substantial benchmark-runner work; the implemented/evolving telemetry dependency is usable, while verification is absent."
+    },
+    {
+      "req_id": "MIG-BGSTAB-001",
+      "current": "draft",
+      "feasibility": "high",
+      "score": 85,
+      "has_verification": false,
+      "feasibility_drift_to": "evolving",
+      "reason": "The gate schema/evaluator is implementable and the graph is acyclic; incomplete prerequisites constrain execution readiness, not feasibility, and verification is absent."
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+{
+  "evaluator": "verify-pass-3",
+  "iter": 3,
+  "prior_findings_resolved": [
+    {
+      "finding": "OPS-BGSTAB-003 — TC-6602 cause not separated from TC-6601/TC-6606",
+      "resolved": true,
+      "evidence": "frontend/tests/e2e/pane-keyboard.spec.ts read directly. TC-6601 (lines 10-14) and TC-6606 (16-21) both locate '.status-prefix'; TC-6602 (23-28) does NOT reference '.status-prefix' — it calls pressCtrlB, then page.keyboard.press('Shift+5'), then verifyPaneCount(page, 2). helpers.ts verifyPaneCount (494-496) asserts page.locator('.pane-leaf').toHaveCount(N); pressCtrlB (510-514). All four cited line ranges are byte-exact. The Requirement body, Rationale, new AC-5 and renumbered AC-7 now state the two causes separately and explicitly say mounting StatusBar does not satisfy TC-6602."
+    },
+    {
+      "finding": "REL-BGSTAB-017 / REL-BGSTAB-018 — regression-only trace Notes were empty",
+      "resolved": true,
+      "evidence": "REL-BGSTAB-017 trace note (line 4285) cites REL-BGSTAB-009 AC-7/AC-8. Read of REL-BGSTAB-009 (line 3071 block): AC-7 = 'Apply rejection, IME-active cancellation, geometry/buffer mismatch, write throw/callback timeout과 server ACK failure는 ready와 queued-input release를 금지하고 observable reason과 bounded fresh-resync/reconnect로 수렴한다'; AC-8 = 'Retry와 concurrent restore 수는 bounded이고 repeated remount에서 loop/listener/timer 누수가 없다'. Both paraphrases match. REL-BGSTAB-018 trace note (4351) cites REL-BGSTAB-011 AC-6/AC-9. Read of REL-BGSTAB-011 (line 3490 block): AC-6 = 'owner claim, deterministic handoff, stale owner rejection과 disconnect/rebind가 관측 가능해야 한다'; AC-9 = '종료 generation의 late output, input, resize, query reply와 callback을 거부하고 session-terminated를 관측 가능하게 남겨야 한다'. Both match. Exactly one Requirement trace row per parent in each REQ — no duplicate trace rows (get_requirement traceLinks confirms)."
+    },
+    {
+      "finding": "OPS-BGSTAB-002 — trace pointed at a spec that is not a control for the branch",
+      "resolved": true,
+      "evidence": "Trace row replaced with frontend/tests/e2e/terminal-keyboard-regression.spec.ts (750-769). Read of that range: a single expect.poll returns { helperDisabled, helperReadOnly, captureAllowed, transportReady, disableStdin, barrierReason } and .toMatchObject({ helperDisabled: false, helperReadOnly: false, captureAllowed: true, transportReady: false, disableStdin: false, barrierReason: 'repair-server-not-ready' }). The claim that one poll asserts helperDisabled/captureAllowed/disableStdin together is exact, and the line range 750-769 is byte-exact. Change Notes row 4544 records the replacement and the reason."
+    },
+    {
+      "finding": "OBS-BGSTAB-007 — '캐프처' typo in normative AC text; Erratum bullet in Implementation Notes",
+      "resolved": true,
+      "evidence": "grep '캐프처' over docs/spec/ returns exactly one hit, line 4240, which is the Change Notes row documenting the correction. AC-1..AC-5 (lines 4205-4209) now read '캡처'. Implementation Notes (4233) contains no Erratum bullet. Change Notes gained the correction row."
+    },
+    {
+      "finding": "shadow-mode effectivity condition missing on REL-BGSTAB-018 / OBS-BGSTAB-007",
+      "resolved": true,
+      "evidence": "Both REQs gained a '실효성 조건' paragraph in Rationale, a shadow precondition in Verification Method, two verifies trace rows, and a new AC-7 requiring the rejection cases run on retained.mode='shadow'. Code verification: server/src/index.ts:1532 is 'terminalAuthorityIntegration = attachProductionTerminalAuthority({' and it is not inside any conditional in startServer — cite correct. TerminalAuthorityProductionAdapter.ts:981 is 'sessionManager.setRetainedTerminalShadowEnabled(true);' inside attachProductionTerminalAuthorityInternal (declared 972) — cite correct. SessionManager.setRetainedTerminalShadowEnabled (3013) sets retained.mode='shadow' for every session, so the substantive liveness claim holds. NOTE: the SessionManager line numbers themselves are off — see finding L-1."
+    },
+    {
+      "finding": "OPS-BGSTAB-005 AC-7 — global negative plus CI self-reference",
+      "resolved": true,
+      "evidence": "AC-7 (line 4699) now reads: judgement basis is whether verification evidence for OPS-BGSTAB-003 AC-2 (pane-keyboard.spec.ts, 0 failures) is registered, and explicitly '이 CI 워크플로의 실행 결과를 근거로 삼지 않는다'. The global negative is gone and the proposition is decidable from SRS state. A depends_on trace row to OPS-BGSTAB-003 (4712) was added, and Implementation Notes 4721 bounds the claim. NOTE: the narrowing exposes a coverage gap — see finding M-2."
+    }
+  ],
+  "findings": [
+    {
+      "id": "M-1",
+      "severity": "MEDIUM",
+      "axis": "factual-accuracy / implementability",
+      "req_id": "OBS-BGSTAB-007",
+      "description": "The requirement is framed entirely as a call-ordering change ('캡처 호출 지점이 fencing 게이트보다 앞서야 한다'; title 'must be ordered before authority fencing'; Implementation Notes '캡처 호출을 게이트 이전으로 옮기는 국소 순서 변경이다'). That is true for writeInput but false for resize: SessionManager.resize (3401-3446) contains no captureDebugEvent call at all, and captureDebugEvent exists in no other server file. Its only observability is this.wsRouter?.recordReplayEvent({kind:'resize_requested'}) at ~3414, a replay event, not a debug-capture event gated by isDebugCaptureEnabled. Consequences: (a) the Rationale claim '현재 서버 구현은 fencing 실패 시 캡처 이전에 return 하므로' is inaccurate for resize — nothing returns before a capture because there is no capture; (b) AC-2 in fact requires creating a new resize capture path, not reordering one; (c) AC-4 ('캡처 이벤트의 페이로드 필드 집합을 기존 캡처 경로 대비 확대해서는 안 된다') has no baseline for resize and is therefore undecidable for half of the requirement's scope.",
+      "evidence_path": "server/src/services/SessionManager.ts (resize 3401-3446; captureDebugEvent call sites 1309, 1563, 1748, 1764, 1775, 1940, 3205, 3318, 3656, 3692, 3714, 3763, 3796, 3820, 6070+, 8382 — none inside resize); grep -rl captureDebugEvent server/src -> SessionManager.ts only"
+    },
+    {
+      "id": "M-2",
+      "severity": "MEDIUM",
+      "axis": "completeness / goal-reachability",
+      "req_id": "OPS-BGSTAB-005",
+      "description": "AC-7's stated purpose is to prevent the CI E2E gate from immediately blocking the release pipeline ('그렇지 않으면 게이트 도입 즉시 릴리스 파이프라인이 막힌다'). Satisfying AC-7 does not achieve that: seven further E2E tests are structurally unpassable for the same root cause. pane-split.spec.ts TC-6101/TC-6103/TC-6105/TC-6107/TC-6104 all call rightClickPane, which locates '.pane-leaf' (helpers.ts:476), and pane-persistence.spec.ts TC-6401/TC-6403 call rightClickPane or verifyPaneCount. '.pane-leaf', '.pane-resizer' and '.pane-zoom-badge' are absent from frontend/src. So a push/pull_request E2E gate would still block release after OPS-BGSTAB-003 is fully closed. OPS-BGSTAB-003 Implementation Notes explicitly excludes those two specs, and OPS-BGSTAB-005 Implementation Notes defers them to '그 spec 을 다루는 요구' — but no such requirement exists in wave-3 or elsewhere in the SRS. The narrowing of AC-7 (correct for decidability) left a dangling dependency on a nonexistent requirement.",
+      "evidence_path": "frontend/tests/e2e/pane-split.spec.ts; frontend/tests/e2e/pane-persistence.spec.ts; frontend/tests/e2e/helpers.ts:476-496,533-544; grep -rn 'pane-leaf|pane-resizer|pane-zoom-badge' frontend/src -> 0 hits"
+    },
+    {
+      "id": "L-1",
+      "severity": "LOW",
+      "axis": "citation-accuracy",
+      "req_id": "OBS-BGSTAB-007, REL-BGSTAB-018",
+      "description": "Both REQs (Rationale and Trace Links) cite 'SessionManager.ts:2976' as the shadow short-circuit and 'acceptRetainedTerminalMutationIdentity (2975-3011)'. Actual: the method is declared at 2972, its signature closes at 2975, line 2976 is 'const retained = this.ensureRetainedTerminalSessionState(data);', and the short-circuit 'if (retained.mode !== \\'shadow\\') return true;' is at 2977. The phrase 'whose first statement short-circuits' is also wrong — it is the second statement. The substantive claim is correct; only the pointers are off by one and the range excludes the declaration.",
+      "evidence_path": "server/src/services/SessionManager.ts:2972,2976,2977 (grep -n confirmed)"
+    },
+    {
+      "id": "L-2",
+      "severity": "LOW",
+      "axis": "citation-accuracy",
+      "req_id": "OPS-BGSTAB-007",
+      "description": "Trace row cites 'frontend/src/contexts/WebSocketContext.tsx ... StrictMode double-mount stale WebSocket guard already implemented (1233-1237)'. Lines 1233-1237 are the ws.onmessage opening plus four comment lines; the guard statement 'if (wsRef.current !== ws) return;' is at 1238, one line past the cited range.",
+      "evidence_path": "frontend/src/contexts/WebSocketContext.tsx:1233-1238"
+    },
+    {
+      "id": "L-3",
+      "severity": "LOW",
+      "axis": "citation-accuracy",
+      "req_id": "OPS-BGSTAB-005",
+      "description": "Trace row says 'no test execution step anywhere in the 351-line workflow'. release.yml is 350 lines. The substantive claim is correct — all seven case-insensitive 'test' hits are 'ubuntu-latest', 'windows-latest', '.test(content)' regex calls and 'Test-Path'; release.yml is indeed the only file in .github/workflows.",
+      "evidence_path": ".github/workflows/release.yml (350 lines); ls .github/workflows -> release.yml only"
+    },
+    {
+      "id": "L-4",
+      "severity": "LOW",
+      "axis": "citation-accuracy",
+      "req_id": "FR-BGSTAB-023",
+      "description": "Trace row cites 'frontend/src/components/Workspace/DisconnectedOverlay.tsx ... (1-37)'. The file is 36 lines.",
+      "evidence_path": "frontend/src/components/Workspace/DisconnectedOverlay.tsx (36 lines)"
+    },
+    {
+      "id": "L-5",
+      "severity": "LOW",
+      "axis": "citation-accuracy",
+      "req_id": "OPS-BGSTAB-006",
+      "description": "Trace row says hasDeploymentArtifacts 'decides reuse from fs.existsSync alone'. It also calls hasCompleteWebArtifacts (tools/start-runtime.js:252-272), which readFileSync-parses index.html and existence-checks every local asset reference. The substantive claim ('no freshness comparison') is correct; 'fs.existsSync alone' understates the helper. Cited range (242-250) is exact.",
+      "evidence_path": "tools/start-runtime.js:242-250, 252-272"
+    }
+  ],
+  "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 2, "LOW": 5 },
+  "structure_intact": true,
+  "structure_details": {
+    "all_14_parse": true,
+    "parse_evidence": "validate_spec located all 14 requirement IDs at their heading lines (4061, 4120, 4178, 4243, 4302, 4369, 4429, 4486, 4546, 4611, 4668, 4730, 4788, 4850). get_requirement on the two most heavily edited blocks (OBS-BGSTAB-007, OPS-BGSTAB-003) returned complete metadata, acceptanceCriteria, traceLinks, changeNotes and sectionLines with no parse errors.",
+    "metadata_rows_complete": true,
+    "metadata_evidence": "awk extraction of Status/Stability across all 69 blocks in the file produced a value for every block; all 14 new blocks report Status=planned, Stability=draft, plus Type/Target/Priority/Tags/Risk/Verification Method/GitHub Issue/Related Docs rows present in each.",
+    "ac_numbering_contiguous": true,
+    "ac_numbering_evidence": "REL-BGSTAB-016 1-5, OPS-BGSTAB-001 1-5, OBS-BGSTAB-007 1-7, REL-BGSTAB-017 1-6, REL-BGSTAB-018 1-7, MIG-BGSTAB-003 1-7, REL-BGSTAB-019 1-5, OPS-BGSTAB-002 1-5, OPS-BGSTAB-003 1-7, OPS-BGSTAB-004 1-5, OPS-BGSTAB-005 1-7, OPS-BGSTAB-006 1-6, OPS-BGSTAB-007 1-6, FR-BGSTAB-023 1-6. No gaps, no duplicates, no mismatch between position and label.",
+    "tables_wellformed": true,
+    "tables_evidence": "Pipe-count scan over lines 4061-4913: every row is 2-col (metadata, 3 pipes), 3-col (Change Notes, 4 pipes), 4-col (Trace Links, 5 pipes) or 5-col (Verification Evidence, 6 pipes). No malformed or truncated rows; no missing separator rows.",
+    "neighbouring_blocks_intact": true,
+    "neighbour_evidence": "git diff of docs/spec/30.buildergate-stability.srs.md shows 2410 insertions and 0 deletions in a single hunk (@@ -2497,0 +2498,2410 @@) — no committed content was removed or rewritten. Section '## 6. Open Questions' (4908) survives intact with OQ-1 and OQ-2. REL-BGSTAB-015 (4001) immediately preceding REL-BGSTAB-016 and the Change Notes tail at 4056-4058 are undamaged."
+  },
+  "existing_reqs_unchanged": true,
+  "existing_reqs_evidence": "Full Status/Stability extraction of all 69 blocks matches the baseline snapshot exactly. implemented: FR-BGSTAB-022, MIG-BGSTAB-002, OBS-BGSTAB-005, OBS-BGSTAB-006, REL-BGSTAB-010, REL-BGSTAB-011, REL-BGSTAB-014, REL-BGSTAB-015 (all evolving). in_progress: PERF-BGSTAB-010 (evolving). planned: REL-BGSTAB-007 (stable), REL-BGSTAB-012 (evolving). discarded: REL-BGSTAB-013 (evolving) and the pre-existing REL-BGSTAB-002 — no requirement newly flipped to discarded. REL-BGSTAB-009 remains implemented/evolving and its AC-7/AC-8 text is unmodified; REL-BGSTAB-011 remains implemented/evolving and its AC-6/AC-9 text is unmodified.",
+  "pane_leaf_observation": {
+    "confirmed": true,
+    "detail": "grep -rn 'pane-leaf' frontend/src returns zero hits. The selector occurs only in frontend/tests/e2e/helpers.ts, frontend/tests/e2e/pane-split.spec.ts and frontend/tests/e2e/pane-persistence.spec.ts. '.pane-resizer' and '.pane-zoom-badge' are likewise absent from frontend/src (only '.context-menu-item' and '.context-menu' exist in production source).",
+    "affected_specs": [
+      {
+        "spec": "frontend/tests/e2e/pane-split.spec.ts",
+        "unpassable": true,
+        "tests": ["TC-6101", "TC-6103", "TC-6105", "TC-6107", "TC-6104"],
+        "reason": "Every test starts with rightClickPane(page, 0), which does page.locator('.pane-leaf').nth(index).click({button:'right'}) and then waits for '.context-menu' (helpers.ts:476-479). With zero '.pane-leaf' elements the click times out, so all five tests — including TC-6104, which otherwise only inspects '.context-menu-item' — fail before their own assertions. TC-6101/TC-6103 additionally assert verifyPaneCount; TC-6105 dereferences boundingBox() of '.pane-leaf' and drags '.pane-resizer' (absent); TC-6107 asserts '.pane-zoom-badge' (absent)."
+      },
+      {
+        "spec": "frontend/tests/e2e/pane-persistence.spec.ts",
+        "unpassable": true,
+        "tests": ["TC-6401", "TC-6403"],
+        "reason": "TC-6401 calls rightClickPane then verifyPaneCount(page, 2); TC-6403 calls verifyPaneCount(page, 1). Both assert a nonzero '.pane-leaf' count against markup that does not exist in frontend/src."
+      }
+    ],
+    "note": "Not executed — judged structurally from source, as instructed."
+  },
+  "validate": {
+    "new_diagnostics": [],
+    "preexisting_diagnostics": [
+      { "code": "SRS-E002", "count": 1, "detail": "Duplicate requirement ID REL-BGSTAB-015 at docs/spec/steps/2026-07-26.pm.canary-fixture-recovery-public-api/01.public-sessionmanager-fixture.srs.md:3" },
+      { "code": "SRS-W018", "count": 5, "detail": "Step SRS documents not registered in Scope Map (docs/spec/00.index.md)" },
+      { "code": "SRS-W023", "count": 14, "detail": "Draft requirement not ready as implementation contract — one per new REQ; intended product of this authoring run, Stability=draft is correct for all 14" }
+    ],
+    "summary": { "errors": 1, "warnings": 19, "byCode": { "SRS-W018": 5, "SRS-W023": 14, "SRS-E002": 1 } },
+    "verdict": "Identical to the baseline. The improvement round introduced no new diagnostic."
+  }
+}

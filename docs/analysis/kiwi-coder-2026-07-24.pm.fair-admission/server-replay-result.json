@@ -1,0 +1,53 @@
+{
+  "schema_version": "fair-delivery-admission-replay/v1",
+  "requirement_id": "PERF-BGSTAB-010",
+  "plan_task_id": "T-PH002-01",
+  "recorded_at": "2026-07-26T00:00:00.000Z",
+  "outcome": "admission_rejected",
+  "promotion_allowed": false,
+  "reason": "After the Canary fixture liveness repair, the required existing server test bundle completed but failed six tests, so no server acceptance-criterion claim is admissible.",
+  "provenance": {
+    "pre_check": {"passed": true, "inputs": 17, "dependency_closure": 82, "environment_inputs": 12, "unresolved_local_imports": 0, "raw_tree_file_count": 15, "raw_tree_canonical_sha256": "4f6b25ae90d2bdf398ec5655866d7cb84db3d546d917c0bf567e2c246c9c9fb0"},
+    "post_check": {"passed": true, "inputs": 17, "dependency_closure": 82, "environment_inputs": 12, "unresolved_local_imports": 0, "raw_tree_file_count": 15, "raw_tree_canonical_sha256": "4f6b25ae90d2bdf398ec5655866d7cb84db3d546d917c0bf567e2c246c9c9fb0"},
+    "git_head": "08487db85f9618859a68e3c52a4b63af1ba7b1cb",
+    "scoped_artifact_mutated": false
+  },
+  "completed_checks": [
+    {"command": "node tools/wave3/fair-scheduler-decision.test.mjs --verify-existing", "cwd": ".", "exit_code": 0, "result": "pass"}
+  ],
+  "incomplete_check": {
+    "command": "npx tsx --test src/ws/FairTerminalDeliveryScheduler.test.ts src/ws/WsRouterSendPriority.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/TerminalResourcePolicy.test.ts src/services/TerminalResourcePolicyCanary.test.ts",
+    "cwd": "server",
+    "result": "no_completion",
+    "observed_after_ms": 124800,
+    "stdout": "",
+    "process_chain": [102684, 4960, 36396, 77444],
+    "process_policy": "No process was terminated. Every observed process belonged to the ProjectMaster server test command, but is not a verified BuilderGate listener on TCP 2222."
+  },
+  "post_fixture_replay": {
+    "command": "npx tsx --test src/ws/FairTerminalDeliveryScheduler.test.ts src/ws/WsRouterSendPriority.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/TerminalResourcePolicy.test.ts src/services/TerminalResourcePolicyCanary.test.ts",
+    "cwd": "server",
+    "observed_at": "2026-07-26T00:00:00.000Z",
+    "result": "completed_with_failures",
+    "elapsed_ms": 15900,
+    "test_summary": {"total": 97, "passed": 91, "failed": 6, "cancelled": 0, "skipped": 0},
+    "exit_code": null,
+    "exit_code_note": "PowerShell Start-Process returned a null launcher ExitCode after completion; the runner emitted a six-failure summary, so failure is recorded without asserting a numeric process exit code.",
+    "failures": [
+      {"group": "terminal-resource-policy", "count": 5, "error": "TypeError: Cannot mix BigInt and other types", "location": "SessionManager.queueAcceptedHeadlessOutput:4235", "coverage": ["AC-5", "maxChunks", "write-failure", "rollback-close", "rollback-fence"]},
+      {"group": "same-id-finalizer", "count": 1, "error": "TypeError: Cannot read properties of undefined (reading 'comparisonTimer')", "location": "SessionManager.settleRetainedTerminalTermination:6249"}
+    ],
+    "process_policy": "Pre-existing ProjectMaster node chains were observed and left untouched. This replay was executed exactly once; no process was terminated and no retry was run."
+  },
+  "ac_evidence_boundary": {
+    "AC-1": "Scheduler test exists, but deque/order replay is unconfirmed because the server suite did not complete.",
+    "AC-2": "Existing decision artifact matches 1,650 raw samples, registered thresholds, and no unbounded starvation; live server fairness replay is unconfirmed.",
+    "AC-3": "Decision artifact schema, workload, raw paths/digest, and accept verdict validate; independent full semantic/promotion review remains pending.",
+    "AC-4": "Current benchmark source is present; complete policy derivation and Orca-constant exclusion remain unconfirmed by the incomplete suite.",
+    "AC-5": "Scheduler/ACK test target exists; ledger, epoch, and cumulative-ACK replay is unconfirmed.",
+    "AC-6": "Priority/restore test target exists; invalid-ACK credit and observable-error replay is unconfirmed.",
+    "AC-7": "Policy/canary test target exists; bounded fallback and overflow isolation replay is unconfirmed.",
+    "AC-8": "Scheduler/policy test target exists; disconnect and rollback cleanup replay is unconfirmed."
+  },
+  "next_action": "Fail closed on the six completed replay failures. Determine, through a new decision-gated strict TDD or SDD scope, whether the BigInt and same-ID finalizer faults are production defects or pre-existing test-fixture defects. Do not change parent SRS state or claim AC evidence."
+}

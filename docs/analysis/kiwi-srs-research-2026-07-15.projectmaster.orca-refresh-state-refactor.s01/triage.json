@@ -1,0 +1,108 @@
+{
+  "research_question": "BuilderGate의 브라우저 새로고침 후 terminal 화면 또는 scrollback 잘림 현상을 재현 증거로 원인 계층까지 식별하고 보존 계약을 명확히 한 뒤, Orca의 daemon authoritative model 및 disposable view 생명주기를 참고하여 기존 snapshot/replay/local-cache 구조의 전면 교체와 단계적 교체가 browser reconnect, 다중 client, WAN, 기존 protocol 및 SRS 제약에서 각각 성립하는지 조사한다.",
+  "sub_questions": [
+    "잘림은 데이터 손실, scrollback 제한, snapshot 직렬화 손실, replay 누락, 복구 순서 경쟁, resize/fit 또는 view 렌더링 중 어느 계층에서 발생하는가?",
+    "현재 BuilderGate에서 server 보관, WebSocket 재접속, snapshot/replay/local-cache 복원과 최종 view의 상태 소유권은 무엇인가?",
+    "관련 SRS가 요구하는 refresh 보존 범위와 순서·중복·손실 허용 계약은 무엇인가?",
+    "Orca daemon model은 상태를 어떻게 소유하고 renderer view 생성·폐기·재연결과 분리하는가?",
+    "Orca의 Electron 전제와 browser/WAN/multi-client에도 적용 가능한 불변식은 무엇인가?",
+    "전면 교체와 단계적 교체를 정확성, 회귀, 호환성, memory, reconnect 전송량과 rollback 측면에서 어떻게 비교할 것인가?",
+    "GitHub roadmap에는 재현·계측, 계약, model, view, migration과 제거를 어떤 독립 작업으로 나눌 것인가?"
+  ],
+  "packages": {
+    "code_package": {
+      "target_modules": [
+        "frontend/src/components/Terminal",
+        "frontend/src/utils/terminalSnapshot.ts",
+        "frontend/src/hooks/useTerminalRuntimeResidency.ts",
+        "frontend/src/contexts/WebSocketContext.tsx",
+        "server/src/ws/WsRouter.ts",
+        "server/src/services/SessionManager.ts",
+        "server/src/utils/headlessTerminal.ts"
+      ],
+      "relevant_traces": [
+        "FR-BGSTAB-004",
+        "FR-BGSTAB-014",
+        "FR-BGSTAB-017",
+        "FR-BGSTAB-018",
+        "REL-BGSTAB-003",
+        "REL-BGSTAB-004",
+        "output ingress -> retention -> reconnect -> snapshot/replay/local restore -> xterm view"
+      ],
+      "focus_questions": [
+        "producer, owner, retention limit, serialization format와 consumer를 path:line으로 추적한다.",
+        "cap, slice/truncate, scrollback mismatch, buffer kind와 resize 경로를 찾는다.",
+        "snapshot/live output 경계의 누락·중복·역전과 ready/input ordering을 찾는다.",
+        "데이터 손실과 view-only 잘림을 구분할 관측 지점과 최소 재현을 정의한다."
+      ],
+      "scope_boundaries": [
+        "BuilderGate만 조사한다.",
+        "Orca와 다른 researcher 결과를 참조하지 않는다.",
+        "파일, SRS, GitHub와 runtime state를 변경하지 않는다."
+      ]
+    },
+    "external_package": {
+      "search_keywords": [
+        "Orca daemon authoritative terminal model",
+        "Orca disposable terminal view lifecycle",
+        "Orca terminal refresh reconnect attach detach",
+        "Orca snapshot scrollback replay ordering",
+        "Orca output sequence watermark generation epoch",
+        "Electron renderer restart terminal state ownership"
+      ],
+      "candidate_sources": [
+        "filesystem-readonly:C:\\Work\\git-none\\orca\\src",
+        "git-history-readonly:C:\\Work\\git-none\\orca"
+      ],
+      "focus_questions": [
+        "daemon model과 view의 생성·갱신·보존·폐기를 path:line으로 추적한다.",
+        "snapshot 내용과 live output 경계, scrollback, resize, backpressure와 cap을 조사한다.",
+        "Electron 전제와 portable invariant를 분리한다."
+      ],
+      "exclusion_filters": [
+        "Orca와 BuilderGate 수명주기가 같다는 가정",
+        "근거 없는 상수 전용",
+        "Orca 저장소 수정 권고",
+        "BuilderGate 내부 코드 참조"
+      ]
+    },
+    "risk_package": {
+      "implementation_assumptions": [
+        "잘림 원인이 snapshot/replay/local-cache 구조라는 가정",
+        "server authoritative model이 refresh 후 full state 보존을 충족한다는 가정",
+        "Orca model/view 분리를 browser/WebSocket으로 이식할 수 있다는 가정",
+        "bounded retention과 full scrollback 약속이 양립한다는 가정"
+      ],
+      "candidate_failure_modes": [
+        "렌더링 문제를 상태 보존 문제로 오인",
+        "snapshot/live delta 누락·중복·역전",
+        "authoritative model 자체 cap에 의한 truncation",
+        "server memory와 reconnect 전송량 증가",
+        "WAN slow client와 multi-client resize 결합",
+        "local cache 제거 후 server restart recovery 상실",
+        "big-bang rollback 실패와 dual-authority drift"
+      ],
+      "alternative_design_seeds": [
+        "full cutover",
+        "shadow authority then promotion",
+        "model-backed refresh canary",
+        "bounded checkpoint plus delta hybrid",
+        "confirmed-bug-only fix",
+        "model/view 분리와 cache 제거의 별도 migration"
+      ],
+      "focus_questions": [
+        "가정을 반증할 test와 metric을 정의한다.",
+        "전면/단계 교체를 같은 correctness·benchmark·rollback 기준으로 비교한다.",
+        "screen, scrollback, resize, reconnect, multi-client의 최소 invariant를 정의한다."
+      ]
+    }
+  },
+  "external_paths_detected": [
+    {
+      "path": "C:\\Work\\git-none\\orca",
+      "classification": "read_only_reference_repository",
+      "access_mode": "read-only",
+      "mutation_allowed": false
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "wave3-ph003-red-evidence/v1",
+  "capturedAt": "2026-07-16T20:27:32.4896760Z",
+  "taskId": "T-PH003-01",
+  "requirementIds": [
+    "FR-BGSTAB-022",
+    "REL-BGSTAB-007"
+  ],
+  "command": "node --experimental-strip-types --test tests/unit/terminalWriteCoordinator.test.ts tests/unit/terminalOutputScheduler.test.ts tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalViewRecoveryContract.test.ts tests/unit/terminalContainerRecoveryContract.test.ts",
+  "cwd": "frontend",
+  "exitCode": 1,
+  "summary": {
+    "registered": 147,
+    "passed": 133,
+    "failed": 14,
+    "cancelled": 0,
+    "skipped": 0,
+    "existingFocusedFailures": 0,
+    "newCoordinatorContractFailures": 13,
+    "newStaticInventoryFailures": 1
+  },
+  "capturedFailure": "createTerminalWriteCoordinator is undefined for all 13 sidecar-registered contract tests; the independent static inventory also reports seven direct xterm mutation callers (TerminalView 4, TerminalContainer 3).",
+  "expectedFailureSignaturesMatched": [
+    "FR-BGSTAB-022 AC-1 Browser TerminalWriteCoordinator sole writer 계약 부재 때문에 실패",
+    "FR-BGSTAB-022 AC-2 Browser TerminalWriteCoordinator sole writer 계약 부재 때문에 실패",
+    "FR-BGSTAB-022 AC-3 Browser TerminalWriteCoordinator sole writer 계약 부재 때문에 실패",
+    "FR-BGSTAB-022 AC-4 Browser TerminalWriteCoordinator sole writer 계약 부재 때문에 실패",
+    "FR-BGSTAB-022 AC-5 Browser TerminalWriteCoordinator sole writer 계약 부재 때문에 실패",
+    "FR-BGSTAB-022 AC-6 Browser TerminalWriteCoordinator sole writer 계약 부재 때문에 실패",
+    "FR-BGSTAB-022 AC-7 Browser TerminalWriteCoordinator sole writer 계약 부재 때문에 실패",
+    "REL-BGSTAB-007 AC-4 Browser TerminalWriteCoordinator sole writer 계약 부재 때문에 실패",
+    "REL-BGSTAB-007 AC-5 Browser TerminalWriteCoordinator sole writer 계약 부재 때문에 실패",
+    "REL-BGSTAB-007 AC-8 Browser TerminalWriteCoordinator sole writer 계약 부재 때문에 실패",
+    "REL-BGSTAB-007 AC-11 Browser TerminalWriteCoordinator sole writer 계약 부재 때문에 실패",
+    "noncanonical JSON number or out-of-range Ordinal64 was accepted",
+    "epoch rollover at 2^64 did not fail closed and request fresh authority"
+  ],
+  "testFile": "frontend/tests/unit/terminalWriteCoordinator.test.ts",
+  "testFileSha256": "9339729388212816a96c462529c3fd430f0266466a03a92b3a578c1ea3f7fb06",
+  "productionImplementationModifiedByTask": false,
+  "verdict": "EXPECTED_RED"
+}

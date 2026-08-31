@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0.0",
+  "findingId": "FND-PH004-001",
+  "taskIds": ["T-PH004-02", "T-PH004-04"],
+  "requirementId": "MIG-BGSTAB-001",
+  "command": "node --test tools/wave1/g1-decision-gate.test.mjs",
+  "exitCode": 0,
+  "capturedAt": "2026-07-15T16:29:37.1410576Z",
+  "tests": {
+    "total": 7,
+    "passed": 7,
+    "failed": 0
+  },
+  "checks": {
+    "evaluatorNodeCheck": true,
+    "testNodeCheck": true,
+    "decisionRecordEvaluationDeepEqual": true,
+    "evidenceAuditDigestMatch": true,
+    "decisionStageResult": "allow",
+    "decisionStageWave1": "pending-wave1-closure",
+    "decisionStageWave2": "eligible-after-wave1-closure",
+    "decisionStageActivationReady": false,
+    "finalReevaluationRequiresPhaseReview": true,
+    "finalReevaluationRequiresMigrationImplemented": true,
+    "finalReevaluationRequiresWave1Completed": true,
+    "completeFinalReevaluationWave2": "eligible",
+    "productMutationObserved": false
+  },
+  "decisionRecord": {
+    "reference": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/g1-decision-record.json",
+    "fileSha256": "5a3d552a81a5f8ad7baa464ab3c008375b82f13e4496497974c8e44a5e7c0fc0"
+  }
+}

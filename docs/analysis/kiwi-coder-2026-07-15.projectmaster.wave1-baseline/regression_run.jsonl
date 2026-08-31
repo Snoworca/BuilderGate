@@ -1,0 +1,2 @@
+{"task_id":"T-PH001-01","command":"npx eslint tests/e2e/wave1-characterization-artifacts.test.ts","scope":"impacted-only","exit_code":0,"passed":1,"failed":0,"timestamp":"2026-07-15T11:57:00.000Z"}
+{"task_id":"T-PH001-01","command":"node --experimental-strip-types --test tests/unit/*.test.ts","scope":"diagnostic-full-unit","exit_code":1,"passed":240,"failed":1,"regressed_files":[],"known_unrelated_baseline_failure":"tests/unit/terminalContainerRecoveryContract.test.ts","timestamp":"2026-07-15T11:57:20.000Z"}

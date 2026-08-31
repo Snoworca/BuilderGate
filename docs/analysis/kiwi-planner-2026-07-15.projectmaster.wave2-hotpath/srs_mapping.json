@@ -1,0 +1,39 @@
+{
+  "analyst": "wave2_plan_srs_mapping",
+  "schema_version": "kiwi-srs-mapping-1.0",
+  "active_target": "wave-2",
+  "coverage": { "requirements": "4/4", "acceptance_criteria": "40/40", "meaningful_automated_test_absent": false },
+  "safe_order": ["PERF-BGSTAB-009", "REL-BGSTAB-008", "REL-BGSTAB-009", "FR-BGSTAB-021"],
+  "phase_gate": "RED -> GREEN -> focused/full checks -> prickly review -> fix -> No findings",
+  "mapping": [
+    {
+      "requirement": "PERF-BGSTAB-009",
+      "acs": { "AC-1~AC-7": ["T-PH001-01", "T-PH001-02"], "AC-8~AC-10": ["T-PH001-03", "T-PH001-04"] },
+      "evidence": ["terminalOutputScheduler unit", "NO_RENDER parity", "paired bootstrap benchmark", "typecheck/lint"]
+    },
+    {
+      "requirement": "REL-BGSTAB-008",
+      "acs": { "AC-1~AC-7,9~11": ["T-PH002-01", "T-PH002-02"], "AC-2~AC-8,10~11": ["T-PH002-03", "T-PH002-04"] },
+      "evidence": ["server screen-repair filter", "split handshake limitation", "frontend recovery contracts", "multi-client fault matrix"]
+    },
+    {
+      "requirement": "REL-BGSTAB-009",
+      "acs": { "AC-1~AC-8,10": ["T-PH003-01", "T-PH003-02"], "AC-3~AC-10": ["T-PH003-03", "T-PH003-04"] },
+      "evidence": ["pure restore coordinator", "TerminalView/Container contracts", "https://localhost:2222 remount E2E"]
+    },
+    {
+      "requirement": "FR-BGSTAB-021",
+      "acs": { "AC-1~AC-3,5~9": ["T-PH004-01", "T-PH004-02"], "AC-2~AC-9": ["T-PH004-03", "T-PH004-04"] },
+      "evidence": ["pure clipboard coordinator", "native paste regression", "tab/grid/registered HTTPS E2E"]
+    }
+  ],
+  "overlap_guards": [
+    "FR-BGSTAB-003 bounded scheduler semantics 보존",
+    "REL-BGSTAB-007 authority/default boundary 및 retainedHistoryEquivalent=false 유지",
+    "REL-BGSTAB-009만 FR-BGSTAB-017 AC-3 timeout input-release clause를 부분 supersede",
+    "REL-BGSTAB-008은 REL-BGSTAB-003 AC-3/AC-4만 구현하고 AC-5 Settings policy를 미청구",
+    "FR-ARCH-004 exact paste/no command/focus와 FR-ARCH-006 observable failure/no fallback 보존"
+  ],
+  "unresolved_test_anchors": [],
+  "plan_blockers": []
+}

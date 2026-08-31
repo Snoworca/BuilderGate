@@ -1,0 +1,26 @@
+{
+  "task_id": "T-PH004-04",
+  "requirement_id": "FR-BGSTAB-021",
+  "captured_at": "2026-07-16T05:54:48.1892031Z",
+  "implementation": [
+    "keyboard selected Ctrl+C delegates to the generation-safe clipboard coordinator",
+    "unselected Ctrl+C remains owned by xterm SIGINT",
+    "native Ctrl+V remains owned by the xterm textarea paste event",
+    "tab and Grid copy/paste delegate through TerminalHandle",
+    "registered preset and prompt paste delegate through pasteText while preserving the existing input barrier and multiline policy",
+    "clipboard focus occurs only after accepted operations on the current target"
+  ],
+  "verification": {
+    "targeted_unit": "22 passed, 0 failed",
+    "strict_https_e2e": "8 passed, 0 failed",
+    "full_https_e2e": "21 passed, 5 mobile-only skipped, 0 failed",
+    "typecheck": "passed",
+    "production_build": "passed",
+    "scoped_eslint": "0 errors; pre-existing warnings only",
+    "full_eslint": "known repository baseline: 42 errors, 18 warnings outside this task scope",
+    "review": "No findings"
+  },
+  "known_baseline": {
+    "full_lint": "The repository-wide lint gate fails in unrelated FileManager, hooks, and legacy E2E/unit files. No new scoped lint error was introduced."
+  }
+}

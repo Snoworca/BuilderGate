@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "wave3-ph004-green-evidence/v3",
+  "capturedAt": "2026-07-17T14:08:36.9914291+09:00",
+  "taskIds": ["T-PH004-02", "T-PH004-03", "T-PH004-04", "T-PH004-05"],
+  "requirementIds": ["REL-BGSTAB-011", "REL-BGSTAB-007"],
+  "focusedTest": {
+    "command": "node tools/wave3/retained-shadow-parity.test.mjs",
+    "cwd": ".",
+    "exitCode": 0,
+    "registered": 57,
+    "passed": 57,
+    "failed": 0,
+    "coverageAxes": 42,
+    "coveragePassed": 41,
+    "coverageNotProven": 1,
+    "testIdentitySha256": "1e7da1ab816128c69d68e7e9e2922acdc324b65a91038429e9a0c6d8c7ba1a0f",
+    "axisIdentitySha256": "e45cb0525ad44a3b2b22e02439efaefd3eba0744b9fe582206675babec912573",
+    "activationEligible": false,
+    "activationReason": "no-local-cache-retained-authority-unproven",
+    "verdict": "PASS_FAIL_CLOSED"
+  },
+  "fullRegression": {
+    "server": { "command": "npm test", "registered": 517, "passed": 517, "failed": 0 },
+    "frontendUnit": { "command": "node --experimental-strip-types --test tests/unit/*.test.ts", "registered": 485, "passed": 485, "failed": 0 },
+    "frontendBuild": { "command": "npm run build", "exitCode": 0 },
+    "httpsE2e": {
+      "command": "npx playwright test tests/e2e/wave3-terminal-authority-fairness.spec.ts --project \"Desktop Chrome\"",
+      "registered": 5,
+      "passed": 5,
+      "failed": 0,
+      "target": "https://localhost:2222"
+    },
+    "diffCheck": { "command": "git diff --check", "exitCode": 0, "notes": "line-ending conversion warnings only" }
+  },
+  "implementedContracts": [
+    "session-owned sourceSeq and snapshotSeq advance independently and retained state commits before legacy delivery",
+    "full retained checkpoint metadata covers scrollback, active and alternate buffers, cells, cursor, modes, geometry, parser tail and retained range",
+    "stateful split OSC BEL/ST, DSR and record-local semantic facts settle exactly once or with an observable rejection",
+    "operation and fact ledgers are policy-bounded with incremental exact JSON byte accounting and oversized semantic-key hashing",
+    "actual WebSocket input, resize and query mutation paths are fenced by client/view/lease/authority generation",
+    "negotiated observers remain registered but cannot mutate until deterministic driver disconnect and rebind",
+    "natural exit, explicit stop/delete, replacement and router destruction revoke admission/views and retain bounded late-generation rejection evidence",
+    "global-idle low-duty shadow comparison cannot change renderer delivery or runtime authority",
+    "model degradation and policy settler failure preserve PTY and legacy delivery while blocking promotion",
+    "legacy delivery remains authoritative in PH004 and retained no-local-cache recovery is explicitly unproven"
+  ],
+  "compatibility": {
+    "legacyDefaultPreserved": true,
+    "legacyDeliveryAuthorityInShadow": true,
+    "checkpointDeliveryActive": false,
+    "legacyNoCacheHttpsCharacterizationPassed": true,
+    "retainedAuthorityNoCachePromotionBlocked": true,
+    "parentRequirementStatusMustRemainPlanned": true
+  },
+  "review": {
+    "implementationPricklyReview": "No findings",
+    "artifactIntentReview": "No findings",
+    "iterations": 4,
+    "notes": "Every finding was fixed with regression coverage and re-reviewed against the current 57-test/42-axis artifact."
+  },
+  "files": {
+    "server/src/services/RetainedTerminalAuthority.test.ts": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+    "server/src/services/SessionManager.ts": "477cd762c10a37250b83f0ea941ebad8502000fe99d39e89364c0975b25e7dbe",
+    "server/src/utils/headlessTerminal.ts": "bf3ec1fc0c02fc750b042a026d269a42e2099fac17c029d5b38c13a207c8e6a6",
+    "server/src/types/ws-protocol.ts": "a90bf28c65e37bb7cfc0eb98a64d091d4cdcab3e0d2e0b93a027edbb868b03a1",
+    "server/src/ws/WsRouter.ts": "aad79c7551ac177217caf7002c00942ace5797d0c0bbf23dfdc18207e48eaa15",
+    "server/src/ws/WsRouterCheckpointProtocol.test.ts": "4b07d54473fee4b1fd9c7ef8ec361e13ea60291f3a85590ae917a9d68bc7a50c",
+    "frontend/src/types/ws-protocol.ts": "19c562ac5c550eaf8464ebadfcfdfab1deaaf580563d2631a9bdda8ff905ec6c",
+    "frontend/src/contexts/WebSocketContext.tsx": "5f2adc9176c77a8149f5804134694dce59cb73a346e006370ea94e5fe4eb8ca5",
+    "frontend/src/utils/terminalCheckpointRuntime.ts": "362ba768d570452c8dcfaa8b8e1802bb770d86d0c2beabdcd36da9a42c2b8a66",
+    "frontend/tests/unit/wsCheckpointProtocol.test.ts": "b0480f650fb7e054635b3629bf82bd24abfb7c5bb7208d1142b092d88a2d8740",
+    "frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts": "bb5bbf8aba19e2c7b13d110c8f5eac219933f289a4b6c2e7284fc48ed9faad88",
+    "tools/wave3/retained-shadow-parity.test.mjs": "59d856642bcc3e0d92ebea885b589477562859c75bc5287b31b1832a931ffe8d",
+    "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/retained-shadow-parity.json": "9914e22418e315184ef7cdc315b95b57d693efbe6ad6f84da144ac59a248e265",
+    "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-004/red-evidence.json": "c45d67f2b8a827f8f19d63f0b751929846b6fb4362ed03b2b654fc8ab1725aed"
+  },
+  "sidecarSha256": "a4ddeb529693dbfde52fd4dfe7def3df49e70542b8915a4feac4c300e531bb20",
+  "verdict": "GREEN_FAIL_CLOSED"
+}

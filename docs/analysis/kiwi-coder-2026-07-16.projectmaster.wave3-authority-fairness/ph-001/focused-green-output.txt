@@ -1,0 +1,83 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ RuntimeConfigStore builds a redacted editable snapshot (4.6336ms)
+✔ RuntimeConfigStore marks platform-specific capabilities and merges editable patches (2.5701ms)
+✔ RuntimeConfigStore exposes Wave6 resource capabilities without leaking server-only runtime config (1.3655ms)
+✔ RuntimeConfigStore validates Wave 0 resource limit patches after merging (3.6496ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1 (42.5372ms)
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-2 (7.237ms)
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-3 (4.7326ms)
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-4 (1.7241ms)
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-5 (1.1375ms)
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-6 (3202.9602ms)
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-7 (3.3288ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ OBS-BGSTAB-005 review regression — raw provenance survives production loaders and replacements (173.6665ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ OBS-BGSTAB-005 second review regression — explicit non-scrollback keys retain truthful loader provenance (28.1642ms)
+✔ OBS-BGSTAB-005 review regression — ConfigFileRepository previous/next provenance survives settings reload and rollback (7.4066ms)
+[Config] All passwords already encrypted
+[Config] Passwords encryption skipped: ZodError: [
+  {
+    "expected": "number",
+    "code": "invalid_type",
+    "path": [
+      "resourceLimits",
+      "terminal",
+      "scrollbackLines"
+    ],
+    "message": "Invalid input: expected number, received string"
+  }
+]
+    at loadConfigFromPath (C:\Work\git\_Snoworca\ProjectMaster\server\src\utils\config.ts:235:44)
+    at <anonymous> (C:\Work\git\_Snoworca\ProjectMaster\server\src\services\TerminalResourcePolicy.test.ts:731:13)
+    at getActual (node:assert:611:5)
+    at strict.throws (node:assert:759:24)
+    at TestContext.<anonymous> (C:\Work\git\_Snoworca\ProjectMaster\server\src\services\TerminalResourcePolicy.test.ts:730:12)
+    at async Test.run (node:internal/test_runner/test:1313:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:897:7)
+[Config] Configuration validation failed:
+[
+  {
+    "expected": "number",
+    "code": "invalid_type",
+    "path": [
+      "resourceLimits",
+      "terminal",
+      "scrollbackLines"
+    ],
+    "message": "Invalid input: expected number, received string"
+  }
+]
+✔ OBS-BGSTAB-005 review regression — invalid raw provenance is sanitized and never silently falls through (26.0416ms)
+✔ OBS-BGSTAB-005 review regression — compiler owns all 29 typed resources and records real legacy divergence (1.9436ms)
+✔ OBS-BGSTAB-005 review regression — no candidate profile is available without a registered stable contract (0.7846ms)
+✔ OBS-BGSTAB-005 review regression — telemetry is allowlisted, payload-free, bounded, and read-only on snapshot (1.3179ms)
+✔ OBS-BGSTAB-005 review regression — exact repository tuples validate bidirectionally and detect new callsites (1794.6736ms)
+✔ OBS-BGSTAB-005 third review regression — catalog evidence must be executable and remain in the intended symbol scope (6955.6997ms)
+✔ OBS-BGSTAB-005 second review regression — production observe mode seeds bounded decisions on every config generation (2.721ms)
+✔ OBS-BGSTAB-005 second review regression — differential executes actual server and browser consumer helpers (531.548ms)
+✔ OBS-BGSTAB-005 review regression — observer differential preserves actual serialized legacy paths (1.9969ms)
+✔ PERF-BGSTAB-010 AC-4 fair delivery policy projection is derived from typed WS resource limits (0.6526ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13348.3898

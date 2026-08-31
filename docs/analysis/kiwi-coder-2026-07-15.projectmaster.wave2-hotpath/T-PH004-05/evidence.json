@@ -1,0 +1,23 @@
+{
+  "task_id": "T-PH004-05",
+  "phase_id": "PH-004",
+  "requirement_id": "FR-BGSTAB-021",
+  "captured_at": "2026-07-16T05:57:28.1573802Z",
+  "final_checks": {
+    "unit": "22/22 passed",
+    "https_e2e": "21 passed, 5 mobile-only skipped, 0 failed",
+    "typecheck": "passed",
+    "production_build": "passed and assets staged",
+    "scoped_eslint": "0 errors, 5 pre-existing warnings",
+    "full_eslint_baseline": "42 errors, 18 warnings outside clipboard task scope",
+    "review": "No findings"
+  },
+  "ac_conclusion": {
+    "copy": "clear only after successful write on the same target and selection",
+    "keyboard": "selected Ctrl+C copies once; unselected Ctrl+C emits one SIGINT",
+    "programmatic_paste": "one coordinator admission with existing barrier, multiline, outbox and debug behavior",
+    "native_paste": "xterm owner preserved with exactly-once delivery",
+    "generation": "session/view/remount change rejects late async payload",
+    "redaction": "raw clipboard payload absent from complete debug event serialization"
+  }
+}

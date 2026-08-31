@@ -1,0 +1,18 @@
+{
+  "command": {
+    "argv": [
+      "node",
+      "tools/wave3/fair-scheduler-decision.test.mjs",
+      "--verify-existing"
+    ],
+    "cwd": ".",
+    "id": "decision-validator-post"
+  },
+  "exit_code": 0,
+  "observed_only": true,
+  "phase_id": "PH-003",
+  "requirement_id": "PERF-BGSTAB-010",
+  "schema_version": "fair-readmission-decision-validator-observation/v1",
+  "stderr_lf": "",
+  "stdout_lf": "PERF-BGSTAB-010 fair scheduler decision artifact PASS\n"
+}

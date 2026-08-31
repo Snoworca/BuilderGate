@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0.0",
+  "taskId": "T-PH004-01",
+  "requirementId": "MIG-BGSTAB-001",
+  "command": "node --test tools/wave1/g1-decision-gate.test.mjs",
+  "exitCode": 1,
+  "capturedAt": "2026-07-15T16:09:56.8301480Z",
+  "tests": {
+    "total": 6,
+    "passed": 0,
+    "failed": 6
+  },
+  "capturedFailureSignatures": [
+    "MIG-BGSTAB-001 AC-1 contract not implemented",
+    "MIG-BGSTAB-001 AC-2 contract not implemented",
+    "MIG-BGSTAB-001 AC-3 contract not implemented",
+    "MIG-BGSTAB-001 AC-4 contract not implemented",
+    "MIG-BGSTAB-001 AC-5 contract not implemented",
+    "MIG-BGSTAB-001 AC-6 contract not implemented"
+  ],
+  "mutationObserved": false
+}

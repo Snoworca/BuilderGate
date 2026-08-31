@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "kiwi-tdd-red-evidence/v1",
+  "requirementId": "REL-BGSTAB-010",
+  "phaseId": "PH-002",
+  "taskId": "T-PH002-01",
+  "iteration": 6,
+  "stage": "red",
+  "capturedAt": "2026-07-17T00:41:54.0063176+09:00",
+  "productionCodeChanged": false,
+  "commands": [
+    {
+      "id": "server-focused-red",
+      "cwd": "server",
+      "value": "npx tsx --test src/services/TerminalResourcePolicyCanary.test.ts src/ws/WsRouterSendPriority.test.ts",
+      "expectedExitCode": 1,
+      "actualExitCode": 1,
+      "result": { "total": 13, "passed": 5, "failed": 8, "skipped": 0, "cancelled": 0, "todo": 0, "durationMs": 1028.0273 }
+    },
+    {
+      "id": "frontend-focused-red",
+      "cwd": "frontend",
+      "value": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+      "expectedExitCode": 1,
+      "actualExitCode": 1,
+      "result": { "total": 30, "passed": 29, "failed": 1, "skipped": 0, "cancelled": 0, "todo": 0, "durationMs": 945.5055 }
+    },
+    {
+      "id": "server-typecheck",
+      "cwd": "server",
+      "value": "npx tsc --noEmit",
+      "expectedExitCode": 0,
+      "actualExitCode": 0
+    },
+    {
+      "id": "frontend-typecheck",
+      "cwd": "frontend",
+      "value": "npm run typecheck",
+      "expectedExitCode": 0,
+      "actualExitCode": 0
+    }
+  ],
+  "inputs": [
+    { "path": "server/src/services/TerminalResourcePolicyCanary.test.ts", "sha256": "87b71d43d58d697cfd737b9e60d931031fa0e056fd0095de19bf489df121ff42" },
+    { "path": "server/src/ws/WsRouterSendPriority.test.ts", "sha256": "c4c092486d4738eb7437e639fd98f6815dfe3bd163d7c69da404c0353cb4a6a9" },
+    { "path": "frontend/tests/unit/terminalOutputScheduler.test.ts", "sha256": "bbf8e8ca3011b8dc65750d344ab417eb2962b8a622adf048191e61504615ba39" }
+  ],
+  "productionBaseline": {
+    "source": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.json#evidence.sourceHashes",
+    "sourceManifestSha256": "2dfec602f8e22db0569e5ff67f75bceada37d1959af38ecdb52441ebca7b3b57",
+    "terminalResourcePolicyCanaryModule": "absent in both PH-001 baseline and RED",
+    "files": [
+      { "path": "server/src/services/RuntimeConfigStore.ts", "baselineSha256": "5635550b477d73050155bb44f3335829d8328db2543b76f12a10d6c5d6abed6b", "redSha256": "5635550b477d73050155bb44f3335829d8328db2543b76f12a10d6c5d6abed6b", "match": true },
+      { "path": "server/src/services/SessionManager.ts", "baselineSha256": "23e2bbbe27eae82452a7e9ccb3ea076ca517496aff10695129e2c473ac09133c", "redSha256": "23e2bbbe27eae82452a7e9ccb3ea076ca517496aff10695129e2c473ac09133c", "match": true },
+      { "path": "server/src/ws/WsRouter.ts", "baselineSha256": "99d5a8036526f9dea87c6b1066b3d490cffa4356bb8fd8ef4ac410571528ecbf", "redSha256": "99d5a8036526f9dea87c6b1066b3d490cffa4356bb8fd8ef4ac410571528ecbf", "match": true },
+      { "path": "server/src/ws/wsSendPolicy.ts", "baselineSha256": "a446b71de79e3fa50254f05abf32009385e584bf84cdd50f2eff22cc753ac838", "redSha256": "a446b71de79e3fa50254f05abf32009385e584bf84cdd50f2eff22cc753ac838", "match": true },
+      { "path": "frontend/src/utils/terminalOutputScheduler.ts", "baselineSha256": "75716d66fa60885eb90d602c6473fdcd2ceb4d34d30aae113c3ccf04f6452a76", "redSha256": "75716d66fa60885eb90d602c6473fdcd2ceb4d34d30aae113c3ccf04f6452a76", "match": true }
+    ]
+  },
+  "contractStrengthening": {
+    "leaseAuthenticity": "WsRouter consumes only the runtime-unforgeable lease issued by TerminalResourcePolicyCanary; a structurally identical clone is rejected. The frontend issuer requires trusted evidence, stable profile and exact N capability/compiler schema, validates identity, and supplies an explicit scheduler current target; no test-local Symbol is used. Forged/stale rejection is state-preserving.",
+    "actualConsumerLimits": {
+      "wsAuthority": "WsRouter.runtimeSendPolicyConfig.limits.perClientOutputQueueMaxBytes",
+      "wsLegacyBytes": 4096,
+      "runtimeStoreWsDefaultNotAuthoritativeBytes": 2097152,
+      "headlessAuthority": "SessionManager.runtimeHeadlessQueueConfig.limits.pendingOutputMaxBytes",
+      "headlessLegacyBytes": 8388608
+    },
+    "actualHeadlessState": "Tests seed SessionManager.sessions with real headlessOutputQueue instances configured from the authoritative 8MiB/actual chunk limits and pendingHeadlessOutputs; old byteLength/queuedAt/expiresAt/policyGeneration/ready/recoveryGeneration/exactlyOnceKey/order and another session are read directly from SessionManager state.",
+    "forbiddenEffects": "AC-3 seeds non-empty A/B transport queues, actual headless queues, connection identities, restore authority keys and PTY producer counters; independent pre/post hashes, sent frames, close codes and actual RuntimeConfigStore registry objects supplement lifecycle counters.",
+    "atomicFailure": "AC-5 uses a valid lease for a missing actual SessionManager session as the real second-adapter failure; no testFault switch exists. The preceding WS transition returns to its pre-batch legacy state, target B remains candidate, queues/producers/authority hashes remain identical and no missing session is synthesized.",
+    "ledger": "Capacity+K still verifies exact latest-N sequence/drop isolation and now requires exact payload-free key allowlist, all policy/version/previous-next/accepted/reason/rollback fields, transition and requested/draining/closed events, frozen snapshot/entries/nested targets and mutation rejection.",
+    "rollbackGeneration": "Target A records candidate generation, switches immediately to a distinct monotonic legacy generation, retains the old generation on queued output, and uses the new generation for post-rollback admission. Rollback closes immediately after the final pre-rollback candidate entry callback without waiting on later legacy output, preventing endless-output starvation; generation remains absent from wire payloads."
+  },
+  "exactRootFailures": [
+    { "test": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-1", "observedFailure": "TerminalResourcePolicyCanary.ts is absent", "blockedAt": "module-presence assertion", "downstreamMissing": ["runtime-unforgeable issuer", "trust/capability/profile/target matrix"] },
+    { "test": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-2", "observedFailure": "RuntimeConfigStore.issueTerminalResourcePolicyLease is undefined", "blockedAt": "lease API assertion", "downstreamMissing": ["actual-router admission", "counterfeit rejection", "cap transition", "metadata preservation"] },
+    { "test": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-3", "observedFailure": "RuntimeConfigStore.issueTerminalResourcePolicyLease is undefined", "blockedAt": "lease API assertion", "downstreamMissing": ["non-loss effect ports", "actual protected-state parity", "actual cleanup registries"] },
+    { "test": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-4", "observedFailure": "RuntimeConfigStore.issueTerminalResourcePolicyLease is undefined", "blockedAt": "lease API assertion", "downstreamMissing": ["bounded ledger", "exact event/value correlation", "deep immutability", "payload allowlist"] },
+    { "test": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-5", "observedFailure": "RuntimeConfigStore.issueTerminalResourcePolicyLease is undefined", "blockedAt": "lease API assertion", "downstreamMissing": ["actual SessionManager queue transition", "real missing-target adapter failure", "atomic rollback"] },
+    { "test": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-6", "observedFailure": "createWsTransportMessage does not retain internal policy generation", "blockedAt": "generation assertion", "downstreamMissing": ["generation-safe coalescing", "wire-field stripping"] },
+    { "test": "REL-BGSTAB-010 AC-6 RED — policy rollback does not direct-flush queued output past an in-flight callback", "observedFailure": "three frames sent before first deferred callback", "blockedAt": "first callback-stage assertion", "downstreamMissing": ["callback-gated FIFO drain"] },
+    { "test": "REL-BGSTAB-010 AC-6 RED — target rollback isolates client B and drains client A callback-by-callback", "observedFailure": "runtime-unforgeable issuer module is absent", "blockedAt": "issuer import", "downstreamMissing": ["counterfeit rejection", "target-local generation/drain/cleanup"] },
+    { "test": "REL-BGSTAB-010 AC-3 RED — explicit canary transition preserves below/at/above-cap retained FIFO", "observedFailure": "createTerminalOutputPolicyLeaseIssuer is undefined", "blockedAt": "frontend issuer assertion", "downstreamMissing": ["provenance matrix", "counterfeit/stale state-preserving rejection", "below/at/above FIFO"] }
+  ],
+  "redVerdict": "EXPECTED_CONCRETE_FAILURES_CONFIRMED"
+}

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0",
+  "analyst": "/root/wave3_plan_verification",
+  "phaseTemplate": ["RED", "GREEN", "REFACTOR", "VERIFY", "REVIEW", "No findings gate"],
+  "globalCommands": {
+    "server": "npm test",
+    "frontendUnit": "node --experimental-strip-types --test tests/unit/terminalResourcePolicy.test.ts tests/unit/terminalWriteCoordinator.test.ts tests/unit/terminalOutputScheduler.test.ts tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalHiddenOutput.test.ts tests/unit/terminalContainerRecoveryContract.test.ts",
+    "frontendTypecheck": "npm run typecheck",
+    "frontendBuild": "npm run build",
+    "httpsE2e": "npx playwright test tests/e2e/wave3-terminal-authority-fairness.spec.ts --project \"Desktop Chrome\"",
+    "baseUrl": "https://localhost:2222"
+  },
+  "mandatoryEvidence": [
+    "terminal-resource-consumer-manifest.json",
+    "terminal-write-inventory.json",
+    "retained-shadow-parity.json",
+    "authority-promotion-decision.json",
+    "fair-scheduler-decision.json",
+    "hidden-reveal-evidence.json",
+    "ph-001..ph-007 report.md"
+  ],
+  "finalGate": [
+    "7 Phase reviewer exact No findings",
+    "server/front focused and full automated checks",
+    "HTTPS 1/2/8-client recovery/flood",
+    "AI TUI idle regression",
+    "queue/listener/timer/lease/credit cleanup",
+    "SpecKiwi strict 0/0 and per-Requirement evidence"
+  ],
+  "githubIssues": [8, 9, 10, 11, 12, 13, 14],
+  "prohibited": [
+    "UI visual changes",
+    "binary/split default",
+    "xterm/WebGL replacement",
+    "legacy physical deletion",
+    "buffer default number changes",
+    "Wave 4 renderer residency changes",
+    "Orca write",
+    "node.exe or ports 2001/2002 disruption"
+  ]
+}

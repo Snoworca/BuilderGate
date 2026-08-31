@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1.0.0",
+  "requirementId": "OBS-BGSTAB-004",
+  "evidenceKind": "controlled_product_serializer_boundary",
+  "maxSnapshotBytes": 2097152,
+  "source": {
+    "file": "server/src/utils/headlessTerminal.ts",
+    "function": "serializeHeadlessTerminal",
+    "comparison": "Buffer.byteLength(serialized, utf8) > maxSnapshotBytes"
+  },
+  "cases": [
+    {
+      "position": "before",
+      "requestedPayloadBytes": 2097151,
+      "measuredPayloadBytes": 2097151,
+      "payloadSha256": "b068b978f216291f933e003a68b962a3e60e7c17f9667e5ed58813f526f5f80f",
+      "truncated": false,
+      "returnedDataBytes": 2097151,
+      "rawPayloadOmitted": true
+    },
+    {
+      "position": "at",
+      "requestedPayloadBytes": 2097152,
+      "measuredPayloadBytes": 2097152,
+      "payloadSha256": "94e7a8e615e1ee93f0501639b6580183c2e400bf1ae8bd8b2afeb4e181529d38",
+      "truncated": false,
+      "returnedDataBytes": 2097152,
+      "rawPayloadOmitted": true
+    },
+    {
+      "position": "after",
+      "requestedPayloadBytes": 2097153,
+      "measuredPayloadBytes": 2097153,
+      "payloadSha256": "c4c9569854a68e84f2e26d3b58a9af9a2cadfa1f93d604330ff40c4553b57e1b",
+      "truncated": true,
+      "returnedDataBytes": 0,
+      "rawPayloadOmitted": true
+    }
+  ],
+  "contentDigest": {
+    "algorithm": "sha256",
+    "value": "8a2be32e52d546afcb37675be4dd70ec02f8a96cd5c9fd550677bf87048a4e7f"
+  }
+}

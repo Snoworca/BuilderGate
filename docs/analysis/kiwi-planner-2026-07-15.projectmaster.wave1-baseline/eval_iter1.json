@@ -1,0 +1,126 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-15.projectmaster.wave1-baseline",
+  "iteration": 1,
+  "mode": "normal",
+  "verifier_role": "isolated_phase3_srs_satisfaction_verifier",
+  "input_isolation": {
+    "writer_rationale_read": false,
+    "allowed_inputs": [
+      "target goal",
+      "REL-BGSTAB-006 original Requirement block",
+      "OBS-BGSTAB-004 original Requirement block",
+      "PERF-BGSTAB-008 original Requirement block",
+      "MIG-BGSTAB-001 original Requirement block",
+      "docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md",
+      "docs/plans/2026-07-15.projectmaster.wave1-baseline.sidecar.json",
+      "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/inventory.json",
+      "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/code_context.json facts"
+    ]
+  },
+  "target_goal": "split drift와 refresh 절단을 재현하고 retained-state authority 계약·benchmark evidence·G1 분기를 확정하며, bug-only이면 선택된 단일 국소 결함과 회귀 evidence까지 종결한다.",
+  "axes": [
+    {
+      "axis": "A1",
+      "name": "golden_rule",
+      "status": "pass",
+      "evidence": "Sidecar mcp_call_log is empty and the plan explicitly remains a Phase-2 draft; no allowed input shows a SpecKiwi mutation followed by manual SRS editing."
+    },
+    {
+      "axis": "A2",
+      "name": "external_module",
+      "status": "pass",
+      "evidence": "All task paths are workspace-relative, code_context.external_paths_detected is empty, and the plan explicitly excludes C:\\Work\\git-none\\orca and other external paths."
+    },
+    {
+      "axis": "A3",
+      "name": "req_coverage",
+      "status": "pass",
+      "evidence": "The four inventory Requirement IDs each map to at least one task: REL-BGSTAB-006=6, OBS-BGSTAB-004=6, PERF-BGSTAB-008=8, MIG-BGSTAB-001=5."
+    },
+    {
+      "axis": "A4",
+      "name": "ac_coverage",
+      "status": "pass",
+      "evidence": "There are no stable or frozen Requirements; additionally, all 25 evolving ACs are task-mapped with missing_ac_ids empty."
+    },
+    {
+      "axis": "A5",
+      "name": "orphan_task",
+      "status": "pass",
+      "evidence": "All 25 tasks reference exactly one in-scope Requirement and sidecar.orphans is empty."
+    },
+    {
+      "axis": "A6",
+      "name": "type_fit",
+      "status": "pass",
+      "evidence": "Code tasks use shell acceptance tests, perf_test tasks use shell/perf, and review tasks use checklist; every task has a non-empty allowed acceptance kind."
+    },
+    {
+      "axis": "A7",
+      "name": "depends_on_cycle",
+      "status": "pass",
+      "evidence": "Phase DAG is acyclic: PH-001 -> {PH-002, PH-003} -> PH-004, with PH-004 also explicitly depending on PH-001."
+    },
+    {
+      "axis": "A8",
+      "name": "files_grounding",
+      "status": "pass",
+      "evidence": "Every existing-file range used by tasks matches a validated code_context anchor; absent paths are explicitly marked NEW FILE CANDIDATE or future generated evidence artifacts."
+    },
+    {
+      "axis": "A9",
+      "name": "non_coding_completeness",
+      "status": "pass",
+      "evidence": "Each evidence phase includes an execution/perf task and a No-findings review task; G1 includes prerequisite audit, explicit business-decision review, and final downstream-state review."
+    },
+    {
+      "axis": "A10",
+      "name": "dod_specificity",
+      "status": "pass",
+      "evidence": "DoD statements identify concrete artifact, digest, source separation, corpus, recomputation, denial, non-activation, and No-findings outcomes and are paired with task-appropriate checks."
+    },
+    {
+      "axis": "A11",
+      "name": "test_first_ordering",
+      "status": "pass",
+      "evidence": "All 8 GREEN code tasks depend directly on their matching RED task; paired covers_ac sets match and the task dependency graph is acyclic."
+    },
+    {
+      "axis": "A12",
+      "name": "test_ac_coverage",
+      "status": "pass",
+      "evidence": "All 25 ACs have referenced RED and GREEN test cases; all IDs resolve to sidecar test cases with matching req_id and ac_refs."
+    },
+    {
+      "axis": "A13",
+      "name": "tdd_exemption_justification",
+      "status": "pass",
+      "evidence": "Strict TDD is selected and no code task is exempt; non-code tasks do not claim code-task exemptions."
+    }
+  ],
+  "findings": [],
+  "business_decision_gate": {
+    "task_id": "T-PH004-04",
+    "intentional": true,
+    "blocks_execution": true,
+    "severity": "business-decision",
+    "preconditions": [
+      "T-PH004-03 completes after PH-001, PH-002 and PH-003",
+      "all three prerequisite artifacts have Requirement ID, artifact reference, run/build ID and digest",
+      "the user explicitly selects exactly confirmed-bug-only or architectural migration",
+      "the user supplies the separately authorized conditional ID"
+    ],
+    "safety_result": "No implicit fallback, split activation, product buffer/default, UI change, authority promotion or legacy deletion is authorized. Unknown bug-only implementation is intentionally not invented before a separately authorized Requirement or issue ID exists."
+  },
+  "summary": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "axis_pass": 13,
+    "axis_fail": 0,
+    "normal_gate": "pass"
+  },
+  "pass": true
+}

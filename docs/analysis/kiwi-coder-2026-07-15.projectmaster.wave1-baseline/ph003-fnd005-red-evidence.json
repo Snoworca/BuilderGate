@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "requirementId": "PERF-BGSTAB-008",
+  "acceptanceCriterion": "AC-6",
+  "findingId": "FND-PH003-005",
+  "capturedAtUtc": "2026-07-15T15:57:58.6075160Z",
+  "command": "npm run build; node --test dist/benchmarks/terminalCharacterization.test.js",
+  "cwd": "server",
+  "expectedExit": 1,
+  "actualExit": 1,
+  "tests": {
+    "total": 8,
+    "passed": 7,
+    "failed": 1
+  },
+  "failingTest": "PERF-BGSTAB-008 AC-6 GREEN contract",
+  "observed": {
+    "eventLoopDelayMeanSource": "perf_hooks.monitorEventLoopDelay.benchmarkInterval.mean (SessionManager production primitive)",
+    "eventLoopDelayP99Source": "perf_hooks.monitorEventLoopDelay.benchmarkInterval.p99 (SessionManager production primitive)",
+    "valueSemantics": "benchmark-owned-interval-histogram"
+  },
+  "expected": {
+    "eventLoopDelayMeanSource": "SessionManager.getObservabilitySnapshot.eventLoopDelay.mean",
+    "eventLoopDelayP99Source": "SessionManager.getObservabilitySnapshot.eventLoopDelay.p99",
+    "valueSemantics": "session-manager-observability-interval-statistic"
+  },
+  "disposition": "red-confirmed"
+}

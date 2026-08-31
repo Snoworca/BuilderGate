@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "wave3-ph004-red-evidence/v1",
+  "capturedAt": "2026-07-17T02:41:54.5055314Z",
+  "taskId": "T-PH004-01",
+  "requirementIds": [
+    "REL-BGSTAB-011",
+    "REL-BGSTAB-007"
+  ],
+  "command": "npx tsx --test src/services/RetainedTerminalAuthority.test.ts src/services/SessionManagerPartialEscapeTail.test.ts src/ws/WsRouterRestoreMetadata.test.ts",
+  "cwd": "server",
+  "exitCode": 1,
+  "summary": {
+    "registered": 30,
+    "passed": 12,
+    "failed": 18,
+    "cancelled": 0,
+    "skipped": 0,
+    "compatibilityFailures": 0,
+    "newSemanticContractFailures": 18,
+    "compileOrSetupFatal": 0
+  },
+  "baseline": {
+    "command": "npx tsx --test src/services/SessionManagerPartialEscapeTail.test.ts src/types/wsCheckpointProtocol.test.ts src/ws/WsRouterCheckpointProtocol.test.ts src/ws/WsRouterRestoreMetadata.test.ts",
+    "registered": 15,
+    "passed": 15,
+    "failed": 0
+  },
+  "expectedFailureSignaturesMatched": [
+    "REL-BGSTAB-011 AC-1 Retained server model shadow and driver lease 계약 부재 때문에 실패",
+    "REL-BGSTAB-011 AC-2 Retained server model shadow and driver lease 계약 부재 때문에 실패",
+    "REL-BGSTAB-011 AC-3 Retained server model shadow and driver lease 계약 부재 때문에 실패",
+    "REL-BGSTAB-011 AC-4 Retained server model shadow and driver lease 계약 부재 때문에 실패",
+    "REL-BGSTAB-011 AC-5 Retained server model shadow and driver lease 계약 부재 때문에 실패",
+    "REL-BGSTAB-011 AC-6 Retained server model shadow and driver lease 계약 부재 때문에 실패",
+    "REL-BGSTAB-011 AC-7 Retained server model shadow and driver lease 계약 부재 때문에 실패",
+    "REL-BGSTAB-011 AC-8 Retained server model shadow and driver lease 계약 부재 때문에 실패",
+    "REL-BGSTAB-011 AC-9 Retained server model shadow and driver lease 계약 부재 때문에 실패",
+    "REL-BGSTAB-007 AC-1 Retained server model shadow and driver lease 계약 부재 때문에 실패",
+    "REL-BGSTAB-007 AC-2 Retained server model shadow and driver lease 계약 부재 때문에 실패",
+    "REL-BGSTAB-007 AC-3 Retained server model shadow and driver lease 계약 부재 때문에 실패",
+    "REL-BGSTAB-007 AC-6 Retained server model shadow and driver lease 계약 부재 때문에 실패",
+    "REL-BGSTAB-007 AC-7 Retained server model shadow and driver lease 계약 부재 때문에 실패",
+    "REL-BGSTAB-007 AC-9 Retained server model shadow and driver lease 계약 부재 때문에 실패",
+    "REL-BGSTAB-007 AC-10 Retained server model shadow and driver lease 계약 부재 때문에 실패",
+    "server restart was not classified as authority-unavailable",
+    "PTY natural exit was not classified as session-terminated"
+  ],
+  "fourAxisReview": {
+    "S1_requirementIntent": "No findings",
+    "S2_testQuality": "No findings",
+    "S3_orcaArchitectureBoundary": "No findings",
+    "S4_executionIsolation": "No findings"
+  },
+  "testFile": "server/src/services/RetainedTerminalAuthority.test.ts",
+  "testFileSha256": "354a4297fcb5ca854691798762bc676d77c82945b718fd8345a7883ce23397dc",
+  "sidecarSha256BeforeEvidenceLink": "8aea9f82bf2eba299d6a98a0f16544b00b0555135dbfe6c7060f6ad93034f586",
+  "productionImplementationModifiedByTask": false,
+  "verdict": "EXPECTED_RED"
+}

@@ -1,0 +1,143 @@
+{
+  "transportCoverage": {
+    "verifiedLiveModes": [
+      "unified",
+      "split"
+    ],
+    "split": {
+      "fixture": "actual-websocket-named-pipe",
+      "physicalConnectionCount": 2,
+      "controlLaneFrameTypes": [
+        "terminal-authority:query-fixture"
+      ],
+      "outputLaneFrameTypes": [
+        "terminal-checkpoint:start",
+        "terminal-checkpoint:chunk",
+        "terminal-checkpoint:commit"
+      ],
+      "noOutputLaneInterleave": true,
+      "chunkBytes": 20,
+      "chunkSha256": "31d8ddc9567eaf9adda36c8673d17b584a2adf477b2f3607a4adf30739dad229",
+      "verified": true,
+      "activationAllowed": true
+    }
+  },
+  "retryAttemptEvidence": {
+    "positional all-view handoff": {
+      "schemaVersion": "ph005-retry-evidence/v1",
+      "operation": "canary-selection",
+      "maxAttempts": 8,
+      "attempts": [
+        {
+          "attempt": 1,
+          "outcome": "success",
+          "requestId": "ph005-canary-1784789430732-b0e39b392443f8"
+        }
+      ]
+    },
+    "poisoned no-cache reload": {
+      "schemaVersion": "ph005-preparation-operation-ledger/v1",
+      "operations": [
+        {
+          "name": "cache-valid-stale",
+          "attempt": 1,
+          "outcome": "success",
+          "httpStatus": 200
+        },
+        {
+          "name": "cache-malformed",
+          "attempt": 1,
+          "outcome": "success",
+          "httpStatus": 200
+        },
+        {
+          "name": "cache-tombstone",
+          "attempt": 1,
+          "outcome": "success",
+          "httpStatus": 200
+        },
+        {
+          "name": "cache-absent",
+          "attempt": 1,
+          "outcome": "success",
+          "httpStatus": 200
+        },
+        {
+          "name": "configured-range",
+          "attempt": 1,
+          "outcome": "success",
+          "httpStatus": 200
+        },
+        {
+          "name": "partial-escape",
+          "attempt": 1,
+          "outcome": "success",
+          "httpStatus": 200
+        },
+        {
+          "name": "alternate-buffer",
+          "attempt": 1,
+          "outcome": "success",
+          "httpStatus": 200
+        }
+      ]
+    }
+  },
+  "liveRequestAttempts": [
+    {
+      "path": "/health",
+      "attempt": 1,
+      "outcome": "success",
+      "statusCode": 200
+    },
+    {
+      "path": "/",
+      "attempt": 1,
+      "outcome": "success",
+      "statusCode": 200
+    },
+    {
+      "path": "/assets/index-BEOEZci3.css",
+      "attempt": 1,
+      "outcome": "success",
+      "statusCode": 200
+    },
+    {
+      "path": "/assets/index-ByuUIr3U.js",
+      "attempt": 1,
+      "outcome": "success",
+      "statusCode": 200
+    },
+    {
+      "path": "/health",
+      "attempt": 1,
+      "outcome": "retry",
+      "errorCode": "ECONNRESET",
+      "failureReason": "read ECONNRESET"
+    },
+    {
+      "path": "/health",
+      "attempt": 2,
+      "outcome": "success",
+      "statusCode": 200
+    },
+    {
+      "path": "/",
+      "attempt": 1,
+      "outcome": "success",
+      "statusCode": 200
+    },
+    {
+      "path": "/assets/index-BEOEZci3.css",
+      "attempt": 1,
+      "outcome": "success",
+      "statusCode": 200
+    },
+    {
+      "path": "/assets/index-ByuUIr3U.js",
+      "attempt": 1,
+      "outcome": "success",
+      "statusCode": 200
+    }
+  ]
+}

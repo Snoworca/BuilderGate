@@ -1,0 +1,13 @@
+{
+  "reviewer": "wave2_srs_prickly_review",
+  "verdict": "No findings",
+  "strict_validation": { "errors": 0, "warnings": 0 },
+  "links": { "checked": 187, "broken": 0 },
+  "resolved_findings": [
+    "screen-repair current 256KiB compatibility cap을 Settings-backed policy로 오기한 계약 수정",
+    "REL-BGSTAB-003 AC-3/AC-4만 Wave 2가 구현하고 AC-5는 Wave 3로 이관",
+    "native Ctrl+V xterm owner adapter exception과 clipboard statement 정합화",
+    "FR-ARCH-004/006 trace 의미 교정",
+    "GitHub issue #5 선행조건을 compatibility-cap exception에 동기화"
+  ]
+}

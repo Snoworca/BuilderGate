@@ -1,0 +1,130 @@
+{
+  "summary": "Define an additive wave-1 envelope for GitHub #3/#23 that separately characterizes split-contract drift, deterministically reproduces current refresh truncation boundaries, produces machine-readable benchmark evidence, and gates all later action through a G1 decision without changing 0.5.5 requirements or selecting product retention and transport budgets.",
+  "intent_type_hint": "new-feature",
+  "key_entities": [
+    "Target: wave-1",
+    "GitHub #3: contract and benchmark foundation",
+    "GitHub #23: refresh retained-state characterization and G1 decision",
+    "Split runtime/test/SRS drift",
+    "Refresh viewport-only and legacy truncation boundaries",
+    "Characterization corpus: 24, 1000, 10000, and legacy 2MiB",
+    "Local-cache states: valid, absent, poisoned",
+    "View states: active, hidden",
+    "Terminal-state corpus: Unicode and alternate buffer",
+    "Benchmark modes: NO_RENDER, NO_ANALYZER, NO_NETWORK, ONE_CLIENT_SLOW",
+    "G1 branches: confirmed-bug-only or architectural migration",
+    "Existing 0.5.5 requirements as immutable regression references",
+    "Deferred product decisions: retained rows, memory budget, checkpoint chunk budget, checkpoint in-flight budget",
+    "Excluded changes: authority promotion and UI changes"
+  ],
+  "ambiguities": [
+    {
+      "topic": "split-drift disposition",
+      "classification": "[INFERRED:high:user_required]",
+      "question": "After characterization, should the observed split contract be restored in runtime or handled through a later superseding contract?",
+      "timing": "Deferred until drift evidence exists; it must not block additive characterization and must not be preselected."
+    },
+    {
+      "topic": "G1 adjudication",
+      "classification": "[INFERRED:high:user_required]",
+      "question": "What evidence and decision authority are sufficient to select confirmed-bug-only versus architectural migration?",
+      "timing": "Resolved only through the G1 decision record after raw characterization and benchmark evidence is available."
+    },
+    {
+      "topic": "bug-only local-fix selection",
+      "classification": "[INFERRED:high:user_required]",
+      "question": "If G1 selects confirmed-bug-only and multiple defects are reproduced, which single reproduced-defect local-fix issue is authorized for completion in wave-1?",
+      "timing": "Contingent on G1=confirmed-bug-only; no local fix is selected by this envelope."
+    }
+  ],
+  "implied_requirements": [
+    {
+      "aspect": "split-drift-characterization",
+      "issue": "#3",
+      "statement": "Capture the runtime, test, and SRS-observed split behavior and their mismatches as evidence while keeping restore and supersede as unresolved downstream alternatives.",
+      "depends_on": []
+    },
+    {
+      "aspect": "refresh-legacy-characterization",
+      "issue": "#23",
+      "statement": "Provide deterministic, rerunnable characterization of current retained-state truncation using only 24, 1000, 10000, and legacy 2MiB as test corpus, covering valid/absent/poisoned local cache, active/hidden views, Unicode content, and alternate-buffer state.",
+      "depends_on": []
+    },
+    {
+      "aspect": "benchmark-harness-and-evidence",
+      "issue": "#3",
+      "statement": "Define machine-readable NO_RENDER, NO_ANALYZER, NO_NETWORK, and ONE_CLIENT_SLOW modes together with a machine-readable manifest and raw-sample evidence sufficient to reproduce and compare runs without establishing product SLOs or budgets.",
+      "depends_on": []
+    },
+    {
+      "aspect": "g1-decision-record-gate",
+      "issue": "#23",
+      "statement": "Create a decision record that links the characterization and benchmark evidence, records either confirmed-bug-only or architectural migration with rationale, and controls whether later waves remain inactive or may seek a separate stable migration contract.",
+      "depends_on": [
+        "split-drift-characterization",
+        "refresh-legacy-characterization",
+        "benchmark-harness-and-evidence"
+      ]
+    },
+    {
+      "aspect": "wave-1-governance-envelope",
+      "issue": "#3/#23",
+      "statement": "Keep all requirements additive, reference existing 0.5.5 contracts only as regression dependencies, prohibit authority promotion and UI changes, defer all product retention and transport-budget choices, allow at most one evidence-selected local fix after a bug-only G1 decision, and require a later stable contract before migration.",
+      "depends_on": [
+        "g1-decision-record-gate"
+      ]
+    }
+  ],
+  "semantic_equivalences": [
+    {
+      "prompt_term": "wave-1",
+      "document_term": "Epic Wave 0 and research Phase 0/Phase 0-R",
+      "confidence": "high"
+    },
+    {
+      "prompt_term": "additive envelope for #3/#23",
+      "document_term": "#3 contract/benchmark foundation plus #23 refresh characterization and SRS decision, without moving or modifying 0.5.5 requirements",
+      "confidence": "high"
+    },
+    {
+      "prompt_term": "refresh retained-state truncation",
+      "document_term": "viewport-only server/local snapshots and the oversized-empty, replay-tail, remount, and hidden-recovery legacy boundaries",
+      "confidence": "high"
+    },
+    {
+      "prompt_term": "24/1000/10000 and legacy 2MiB",
+      "document_term": "characterization seeds and regression corpus, not retained-history promises or transport-budget defaults",
+      "confidence": "high"
+    },
+    {
+      "prompt_term": "local cache valid",
+      "document_term": "local cache normal",
+      "confidence": "high"
+    },
+    {
+      "prompt_term": "Unicode",
+      "document_term": "the referenced Korean/CJK-wide/combining/emoji terminal corpus",
+      "confidence": "medium"
+    },
+    {
+      "prompt_term": "active/hidden",
+      "document_term": "view lifecycle states, distinct from normal/alternate terminal buffers",
+      "confidence": "high"
+    },
+    {
+      "prompt_term": "G1=bug-only",
+      "document_term": "G1=confirmed-bug-only",
+      "confidence": "high"
+    },
+    {
+      "prompt_term": "migration",
+      "document_term": "G1=architectural migration followed by a separately approved stable authority contract",
+      "confidence": "high"
+    },
+    {
+      "prompt_term": "raw evidence",
+      "document_term": "machine-readable benchmark manifest, raw samples, and recorded execution context",
+      "confidence": "high"
+    }
+  ]
+}

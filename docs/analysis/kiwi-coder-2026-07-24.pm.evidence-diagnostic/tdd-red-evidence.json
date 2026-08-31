@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0.0",
+  "requirement_id": "OBS-BGSTAB-006",
+  "task_id": "T-PH002-01",
+  "phase": "red",
+  "sequence": [
+    "test-only verifier edit",
+    "observed RED",
+    "test-only commit",
+    "this analysis record"
+  ],
+  "test_only_commit": {
+    "sha": "9990e55549be7d9a851282fe388eb4a63dfa1366",
+    "subject": "Characterize authority-promotion diagnostic failures",
+    "paths": [
+      "tools/wave3/authority-promotion-evidence.test.mjs"
+    ],
+    "signature_trailer_present": false
+  },
+  "command": "node tools/wave3/authority-promotion-evidence.test.mjs --self-test",
+  "result": {
+    "exit_code": 1,
+    "signal": null,
+    "stdout_sha256": "bf07f9aa287f090d855b46b04797d14033c2531403a7ec5e93624405eaa7790f",
+    "stderr_sha256": "9f74460d71e40889e0421e2ad6e5c4d81106185086eba1ff30e7e786ee3870ec",
+    "stdout_json": {
+      "schemaVersion": "authority-promotion-evidence/v2",
+      "contractSatisfied": false,
+      "error": "composite diagnostic error must preserve the failed positional body/setup error"
+    },
+    "failing_assertion": "The actual main().catch child result contains the positional record name and retry-attachment validation error but omits fixture positional body/setup failure."
+  },
+  "fixture_contract": {
+    "child_argument": "--self-test-composite-fixture",
+    "child_isolation": "The child returns immediately after argument validation, before artifact invalidation, source/manifest validation, named-pipe fixture, Playwright, HTTPS, numeric TCP, or raw-evidence persistence.",
+    "assertions_already_passing": [
+      "child process starts without error, has signal null, exits 1, and writes stderr",
+      "child stdout contains exactly one JSON line with contractSatisfied=false",
+      "top-level error includes positional all-view handoff and retry evidence attachment count differs"
+    ],
+    "intentionally_failing_assertion": "top-level error includes fixture positional body/setup failure"
+  },
+  "retry_gate_characterization": {
+    "valid": ["base64 JSON body", "JSON path"],
+    "rejected": [
+      "missing selected record",
+      "zero or duplicate matching attachments",
+      "wrong content type",
+      "malformed body JSON",
+      "missing body and path",
+      "missing or malformed JSON path",
+      "schema, operation, or maximum-attempt mismatch",
+      "missing, empty, or out-of-range attempts collection",
+      "noncontiguous ordinal",
+      "invalid outcome",
+      "missing or empty retry failure reason",
+      "missing terminal success"
+    ]
+  },
+  "scope_comparison": {
+    "baseline_tool_sha256": "d0297781d1c7599673781a4a4c1a9217f31993e4a73e3bb56a11af1406b02f1c",
+    "red_test_tool_sha256": "d652d92a83f3af6c1e2f48fdde4a55269fea34b46f33d717d5179ee5d292eb19",
+    "source_manifest_sha256": "f352120fde55a355a89e31a9fc894cd0493f9e49fa37313fed3ee464e9523d43",
+    "e2e_producer_sha256": "732737b8423709e0607996fe34c19645cf0f6d7b69130daba47ea783b9cfd23c",
+    "raw_evidence_tree_sha256": "2c36535a1c87f76870c4a0fe18e09bb25ddffd0ed9f7a681fb51d1649d44a201",
+    "project_decision_artifact_exists": false,
+    "migrated_requirement": "MIG-BGSTAB-002 remains unchanged",
+    "note": "OBS-BGSTAB-006 Status was officially changed to in_progress after the baseline; no acceptance criterion, MIG status, or MIG acceptance criterion changed."
+  },
+  "prohibited_paths": {
+    "playwright": "not invoked",
+    "https_or_tcp_2222": "not invoked",
+    "expect_red_or_expect_green": "not invoked or claimed",
+    "project_artifact_lifecycle": "not invoked",
+    "source_manifest_execution_or_mutation": "not invoked or mutated"
+  }
+}

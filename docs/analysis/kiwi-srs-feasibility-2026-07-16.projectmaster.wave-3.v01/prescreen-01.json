@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0",
+  "analyst": "/root/wave3_feas_prescreen",
+  "quickPass": ["OBS-BGSTAB-005"],
+  "quickBlock": [],
+  "seniorTargets": [
+    "REL-BGSTAB-010",
+    "FR-BGSTAB-022",
+    "REL-BGSTAB-011",
+    "MIG-BGSTAB-002",
+    "PERF-BGSTAB-010",
+    "REL-BGSTAB-012"
+  ],
+  "requirements": [
+    {
+      "id": "OBS-BGSTAB-005",
+      "score": 86,
+      "classification": "quick_pass",
+      "testability": "high",
+      "conditions": ["양방향 static inventory", "observe runtime decision 불변"]
+    },
+    {
+      "id": "REL-BGSTAB-010",
+      "score": 72,
+      "classification": "senior_target",
+      "testability": "high",
+      "blockers": ["stable profile 계약 전 실제 canary activation 금지"],
+      "conditions": ["off-by-default fixture profile", "기존 entry 원래 의미로 drain"]
+    },
+    {
+      "id": "FR-BGSTAB-022",
+      "score": 75,
+      "classification": "senior_target",
+      "testability": "high",
+      "conditions": ["분산 direct write/reset/replay 전수 수렴", "FIFO probe도 coordinator 소유"]
+    },
+    {
+      "id": "REL-BGSTAB-011",
+      "score": 66,
+      "classification": "senior_target",
+      "testability": "medium-high",
+      "blockers": ["viewport-only serializer", "driver lease/fact ledger 부재"],
+      "conditions": ["기존 headless write chain 재사용", "AI TUI idle 회귀"]
+    },
+    {
+      "id": "MIG-BGSTAB-002",
+      "score": 62,
+      "classification": "senior_target",
+      "testability": "medium-high",
+      "blockers": ["sole-writer와 shadow parity 선행"],
+      "conditions": ["epoch state machine", "limited session/kill switch", "no-local-cache HTTPS E2E"]
+    },
+    {
+      "id": "PERF-BGSTAB-010",
+      "score": 64,
+      "classification": "senior_target",
+      "testability": "high",
+      "blockers": ["decision artifact 부재", "delivery ACK/credit protocol 부재"],
+      "conditions": ["per-client/per-session lane service", "wsSendPolicy primitive 재사용", "benchmark-derived threshold"]
+    },
+    {
+      "id": "REL-BGSTAB-012",
+      "score": 61,
+      "classification": "senior_target",
+      "testability": "high",
+      "blockers": ["visibility generation protocol 부재", "authority/fair-ledger 선행"],
+      "conditions": ["browser-only skip을 ordered dataGap으로 이동", "renderer residency 불변", "mismatch/expiry fresh checkpoint"]
+    }
+  ],
+  "externalModuleImpact": null,
+  "hasVerificationEvidence": false,
+  "stabilityMutationRecommendation": "none"
+}

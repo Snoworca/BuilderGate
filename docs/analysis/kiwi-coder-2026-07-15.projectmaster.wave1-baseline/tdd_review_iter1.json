@@ -1,0 +1,17 @@
+{
+  "task_id": "T-PH001-01",
+  "round": 3,
+  "axes": {
+    "intent_alignment": {"findings": [], "verdict": "No findings"},
+    "technical_quality": {"findings": [], "verdict": "No findings"},
+    "req_mapping": {"findings": [], "verdict": "No findings"},
+    "red_verification": {
+      "findings": [],
+      "verdict": "No findings",
+      "exit_code": 1,
+      "failed_tests": 3,
+      "syntax_or_init_error": false
+    }
+  },
+  "severity_summary": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+}

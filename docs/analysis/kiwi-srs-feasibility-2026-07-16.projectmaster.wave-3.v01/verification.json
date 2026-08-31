@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "verifier": "/root/wave3_feas_verifier",
+  "iterations": [
+    {
+      "result": "findings",
+      "items": [
+        "60~79점 네 항목이 표준 medium 대신 conditional label을 사용함",
+        "7개 항목의 6축 점수 breakdown이 최종 artifact에서 생략됨",
+        "FR-BGSTAB-022 evidence 한 줄이 실제 seam이 아니라 requirement 주석을 가리킴"
+      ]
+    },
+    {
+      "result": "No findings",
+      "fixes": [
+        "high/medium 표준 label과 별도 activationConditional 적용",
+        "각 score와 합계가 일치하는 6축 breakdown 복원",
+        "실제 recovery barrier seam visibleOutputRecovery.ts:868로 교체"
+      ]
+    }
+  ],
+  "finalResult": "No findings"
+}

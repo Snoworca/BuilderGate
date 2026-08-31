@@ -1,0 +1,19 @@
+{
+  "req_inventory": [
+    {
+      "req_id": "PERF-BGSTAB-010",
+      "stability": "evolving",
+      "status": "in_progress",
+      "ac_total": 9,
+      "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9"],
+      "files_from_trace": ["docs/spec/30.buildergate-stability.srs.md:3648-3689"],
+      "depends_on": [],
+      "feasibility_hint": "unknown",
+      "lifecycle_rule": "This degraded plan may observe evidence only; it must not check ACs or mutate evidence/status/trace/completed work."
+    }
+  ],
+  "dependency_graph": [
+    {"from":"REL-BGSTAB-012","to":"PERF-BGSTAB-010","relation":"blocked_until_perf_admission"}
+  ],
+  "coverage_interpretation": "Plan coverage means planned observation task coverage, never SRS acceptance completion."
+}

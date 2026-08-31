@@ -1,0 +1,18 @@
+{
+  "run_id": "2026-07-15.projectmaster.wave-1.v01",
+  "successful_analysts": [
+    "code-context(replacement)",
+    "existing-srs",
+    "policy-context"
+  ],
+  "failed_analysts": [
+    {
+      "role": "code-context(initial)",
+      "error_type": "bounded-timeout",
+      "resolution": "interrupted and replaced with a bounded analyst using the prior kiwi-srs code index plus direct trace spot-checks"
+    }
+  ],
+  "missing": [],
+  "degraded": false,
+  "respawn_count": 1
+}

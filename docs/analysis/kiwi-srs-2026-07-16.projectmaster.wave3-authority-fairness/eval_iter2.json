@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "reviewer": "/root/wave3_srs_verifier",
+  "result": "No findings",
+  "reviewScope": [
+    "REL-BGSTAB-007",
+    "OBS-BGSTAB-005",
+    "REL-BGSTAB-010",
+    "FR-BGSTAB-022",
+    "REL-BGSTAB-011",
+    "MIG-BGSTAB-002",
+    "PERF-BGSTAB-010",
+    "REL-BGSTAB-012"
+  ],
+  "validation": {
+    "strict": true,
+    "failOnWarning": true,
+    "errors": 0,
+    "warnings": 0
+  }
+}

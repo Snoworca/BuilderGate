@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "analyst": "/root/wave3_feas_srs",
+  "totalRequirements": 8,
+  "selectedEvolving": 7,
+  "stableParent": "REL-BGSTAB-007",
+  "acceptanceCriteriaTotal": 65,
+  "verificationEvidenceTotal": 1,
+  "internalDependencyCycle": false,
+  "topologicalOrder": [
+    "OBS-BGSTAB-005",
+    "REL-BGSTAB-010",
+    "FR-BGSTAB-022",
+    "REL-BGSTAB-011",
+    "MIG-BGSTAB-002",
+    "PERF-BGSTAB-010",
+    "REL-BGSTAB-012"
+  ],
+  "crossTargetTraceClassification": "regression_dependency",
+  "note": "OBS-BGSTAB-005 trace count는 analyst snapshot 뒤 최종 SRS 검토에서 보강되었으며 최신 SpecKiwi compact snapshot에는 24개 reference가 있다."
+}

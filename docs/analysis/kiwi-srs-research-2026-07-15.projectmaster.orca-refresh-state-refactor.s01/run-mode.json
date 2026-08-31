@@ -1,0 +1,6 @@
+{
+  "mode": "standalone",
+  "channel_used": 4,
+  "channel_evidence": "No explicit mode flag; standalone is the skill default.",
+  "warnings": []
+}

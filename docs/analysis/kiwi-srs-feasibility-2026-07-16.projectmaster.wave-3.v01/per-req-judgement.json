@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "1.0",
+  "reviewer": "/root/wave3_feas_senior",
+  "target": "wave-3",
+  "stableContractInput": "REL-BGSTAB-007",
+  "summary": {
+    "evaluated": 7,
+    "high": 3,
+    "medium": 4,
+    "blocked": 0,
+    "overallVerdict": "medium"
+  },
+  "dependencyOrder": [
+    "OBS-BGSTAB-005",
+    "REL-BGSTAB-010",
+    "FR-BGSTAB-022",
+    "REL-BGSTAB-011",
+    "MIG-BGSTAB-002",
+    "PERF-BGSTAB-010",
+    "REL-BGSTAB-012"
+  ],
+  "judgements": [
+    {
+      "id": "OBS-BGSTAB-005",
+      "score": 90,
+      "verdict": "high",
+      "axes": { "implementability": 27, "evidenceStrength": 18, "dependencyHealth": 13, "acVerifiability": 14, "scopeFit": 9, "productFit": 9 },
+      "conditions": ["고정 manifest schema", "양방향 static inventory", "observe에서는 legacy-only decision", "stable candidate 부재 시 unavailable"],
+      "verification": ["config corpus", "compile 결정성", "manifest/call-site 양방향 검사", "observe on/off byte parity"],
+      "evidence": ["server/src/types/config.types.ts:173", "server/src/services/RuntimeConfigStore.ts:69", "frontend/src/utils/inputReliabilityMode.ts:236"]
+    },
+    {
+      "id": "REL-BGSTAB-010",
+      "score": 77,
+      "verdict": "medium",
+      "activationConditional": true,
+      "axes": { "implementability": 23, "evidenceStrength": 17, "dependencyHealth": 10, "acVerifiability": 12, "scopeFit": 7, "productFit": 8 },
+      "conditions": ["OBS parity 선행", "stable candidate contract", "없으면 infrastructure만 구현", "consumer adapter와 kill switch"],
+      "verification": ["cap transition state machine", "canary/legacy parity", "mismatch 격리", "drop/stale/direct-write 0회"],
+      "evidence": ["server/src/services/RuntimeConfigStore.ts:192", "server/src/services/SessionManager.ts:314", "server/src/ws/WsRouter.ts:2455"]
+    },
+    {
+      "id": "FR-BGSTAB-022",
+      "score": 85,
+      "verdict": "high",
+      "axes": { "implementability": 25, "evidenceStrength": 18, "dependencyHealth": 12, "acVerifiability": 14, "scopeFit": 8, "productFit": 8 },
+      "conditions": ["production mutation inventory", "scheduler/fence 재사용", "epoch/digest 검증", "input/UI ownership 불변"],
+      "verification": ["static sole-writer", "interleaving/fault matrix", "late callback cleanup", "HTTPS refresh/remount"],
+      "evidence": ["frontend/src/utils/terminalOutputScheduler.ts:211", "frontend/src/components/Terminal/TerminalView.tsx:1592", "frontend/src/utils/visibleOutputRecovery.ts:868"]
+    },
+    {
+      "id": "REL-BGSTAB-011",
+      "score": 83,
+      "verdict": "high",
+      "axes": { "implementability": 24, "evidenceStrength": 18, "dependencyHealth": 12, "acVerifiability": 13, "scopeFit": 8, "productFit": 8 },
+      "conditions": ["sole-writer consumer 선행", "기존 headless model 확장", "full retained adapter", "lease/fact ledger epoch 귀속"],
+      "verification": ["Unicode/buffer/reflow hash", "commit-before-delivery", "fact/lease fault matrix", "cleanup", "AI TUI idle"],
+      "evidence": ["server/src/services/SessionManager.ts:3625", "server/src/services/SessionManager.ts:3686", "server/src/utils/headlessTerminal.ts:95"]
+    },
+    {
+      "id": "MIG-BGSTAB-002",
+      "score": 77,
+      "verdict": "medium",
+      "activationConditional": true,
+      "axes": { "implementability": 22, "evidenceStrength": 17, "dependencyHealth": 10, "acVerifiability": 12, "scopeFit": 8, "productFit": 8 },
+      "conditions": ["shadow/no-cache parity", "limited capability session", "non-overlap epoch barrier", "legacy rollback path 보존"],
+      "verification": ["promotion fault injection", "single responder invariant", "absent/poisoned cache E2E", "rollback ordering", "AI TUI idle"],
+      "evidence": ["server/src/ws/WsRouter.ts:474", "server/src/ws/WsRouter.ts:2455", "frontend/src/utils/visibleOutputRecovery.ts:937"]
+    },
+    {
+      "id": "PERF-BGSTAB-010",
+      "score": 75,
+      "verdict": "medium",
+      "activationConditional": true,
+      "axes": { "implementability": 21, "evidenceStrength": 17, "dependencyHealth": 10, "acVerifiability": 11, "scopeFit": 8, "productFit": 8 },
+      "conditions": ["single-authority epoch", "additive ACK capability", "decision artifact gates", "policy/benchmark-derived values"],
+      "verification": ["scheduler candidate comparison", "lane latency/queue/throughput samples", "artifact validator", "ACK fault matrix", "1/2/8-client flood"],
+      "evidence": ["server/src/ws/wsSendPolicy.ts:25", "server/src/ws/wsSendPolicy.ts:312", "server/src/ws/WsRouter.ts:3064"]
+    },
+    {
+      "id": "REL-BGSTAB-012",
+      "score": 75,
+      "verdict": "medium",
+      "activationConditional": true,
+      "axes": { "implementability": 21, "evidenceStrength": 17, "dependencyHealth": 9, "acVerifiability": 12, "scopeFit": 8, "productFit": 8 },
+      "conditions": ["sole writer/authority/fair ledger 선행", "server visibility/continuity ownership", "commit 뒤 생략", "renderer residency 불변"],
+      "verification": ["visibility generation isolation", "7-hidden flood", "gap/checkpoint ordering", "continuity expiry", "no-cache reveal hash", "residency parity"],
+      "evidence": ["frontend/src/utils/terminalHiddenOutput.ts:39", "frontend/src/components/Terminal/TerminalContainer.tsx:2851", "server/src/ws/WsRouter.ts:2455"]
+    }
+  ]
+}

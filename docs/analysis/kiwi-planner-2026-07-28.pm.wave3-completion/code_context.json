@@ -1,0 +1,19 @@
+{
+  "historical_analysis_outputs_read": false,
+  "external_paths_detected": [],
+  "req_anchors": [
+    {"req_id":"PERF-BGSTAB-010","files":["server/src/benchmarks/terminalFairnessCharacterization.ts:301-315","server/src/services/TerminalResourcePolicyCanary.ts:142-268","server/src/ws/WsRouter.ts:1786-1850","server/src/ws/wsSendPolicy.ts:491-940","server/src/ws/FairTerminalDeliveryScheduler.test.ts","server/src/ws/WsRouterSendPriority.test.ts","frontend/tests/e2e/perf-bgstab-010-ac6-server-ack-fault.spec.ts","frontend/tests/e2e/perf-bgstab-010-ac9-isolated.spec.ts"]},
+    {"req_id":"REL-BGSTAB-007","files":["server/src/services/SessionManager.ts:1150-1331,2009-2217,2533-2571,3295-3344","server/src/ws/WsRouter.ts:763-935,1892-2488","frontend/src/utils/terminalWriteCoordinator.ts","frontend/src/utils/terminalCheckpointRuntime.ts","server/src/services/RetainedTerminalAuthority.test.ts","server/src/ws/WsRouterCheckpointProtocol.test.ts","frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts"]},
+    {"req_id":"REL-BGSTAB-012","files":["server/src/ws/WsRouter.ts:1706-1850","server/src/ws/wsSendPolicy.ts:491","server/src/types/ws-protocol.ts:371-405,622-640","frontend/src/contexts/WebSocketContext.tsx:915-927","frontend/src/components/Terminal/TerminalContainer.tsx:3293-3375","frontend/src/utils/terminalHiddenOutput.ts:1-155","frontend/src/types/ws-protocol.ts:441-480,691-715"]}
+  ],
+  "audit_anchors": {
+    "OBS-BGSTAB-005":"server/src/services/TerminalResourcePolicy.ts; server/src/services/TerminalResourcePolicy.test.ts",
+    "REL-BGSTAB-010":"server/src/services/TerminalResourcePolicyCanary.ts; server/src/services/TerminalResourcePolicyCanary.test.ts",
+    "FR-BGSTAB-022":"frontend/src/utils/terminalWriteCoordinator.ts; frontend/tests/unit/terminalWriteCoordinator.test.ts",
+    "REL-BGSTAB-011":"server/src/services/SessionManager.ts; server/src/services/RetainedTerminalAuthority.test.ts",
+    "MIG-BGSTAB-002":"server/src/services/TerminalAuthorityController.ts; server/src/services/TerminalAuthorityProductionRegression.test.ts",
+    "REL-BGSTAB-014":"tools/daemon/process-info.js; tools/daemon/sentinel.js; tools/daemon/sentinel.test.js",
+    "OBS-BGSTAB-006":"tools/wave3/authority-promotion-evidence.test.mjs",
+    "REL-BGSTAB-015":"server/src/services/TerminalResourcePolicyCanaryPublicFixture.fixture.ts; server/src/services/TerminalResourcePolicyCanaryPublicFixture.test.ts"
+  }
+}

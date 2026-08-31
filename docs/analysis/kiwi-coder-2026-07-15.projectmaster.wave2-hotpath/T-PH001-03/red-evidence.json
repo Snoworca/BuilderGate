@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "kiwi-coder-intended-red-evidence",
+  "runId": "2026-07-15.projectmaster.wave2-hotpath",
+  "taskId": "T-PH001-03",
+  "requirementId": "PERF-BGSTAB-009",
+  "recordedAt": "2026-07-16T03:29:37.2038335+09:00",
+  "revision": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+  "worktreeState": "dirty-preserved",
+  "result": "INTENDED_RED",
+  "wave1Baseline": {
+    "randomSeed": 7008,
+    "warmupIterations": 1,
+    "trialCount": 3,
+    "trialDurationMs": 250,
+    "mixed": {
+      "bytes": 110,
+      "digest": "sha256:ac7ded97bf86b799f8668a5e205c8202647012dbe237934232f658c44bf6f7ec",
+      "controlInvocations": 1,
+      "observationInvocations": 1
+    },
+    "boundary": {
+      "bytes": 65542,
+      "digest": "sha256:82c494b45874f6fab554bd63d898daffcafe3529d5bfe8303c4225cbe2f9b187",
+      "controlInvocations": 2,
+      "observationInvocations": 2
+    },
+    "instrumentation": {
+      "acceptedIngressMaxEncodeCount": 1,
+      "encoderResultAllocationCountPerFixtureRun": 1,
+      "prefixLoopEncodeCount": 0,
+      "prefixTemporaryAllocationCount": 0
+    }
+  },
+  "implementationProvenance": {
+    "baseline": {
+      "implementationId": "wave1-string-scheduler-reference-v1",
+      "sourceRevision": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+      "normalizedSourceDigest": "sha256:dc1edf2acaf16f57b6e517fb1499cd67e579508d12238b3a561aaada647ac1c3",
+      "requiredBehavior": "max ingress encode is one; returned allocations minus accepted ingress equals positive prefix-loop encode/allocation count"
+    },
+    "candidate": {
+      "implementationId": "wave2-segmented-byte-deque-v1",
+      "sourceRevision": "T-PH001-02@ca111fef3b5a5a25d3aa488415c929e90ade46fd-worktree",
+      "normalizedSourceDigest": "sha256:a7f2595fda0a6cf0ba89ee2eb793bbd4b7b8e460bd0d3352190c5a35343a0bf0",
+      "requiredBehavior": "accepted ingress encodes at most once; returned allocations equal accepted ingress; prefix-loop encode/allocations are zero"
+    },
+    "sourceDigestVerification": "test independently hashes git-show baseline and current candidate source",
+    "workload": {
+      "bytesPerOperation": 65652,
+      "digest": "sha256:efba03d68d63c7f0c9701ef365eec7ec07417d9b1b4b6776ed1f94744be8439b"
+    }
+  },
+  "pairedBootstrapContract": {
+    "method": "paired-bootstrap-p95-delta",
+    "bootstrapIterations": 512,
+    "confidenceLevel": 0.95,
+    "upperDeltaThreshold": "baseline p95 * 0.05",
+    "toleranceClassification": "measurement-noise-regression-tolerance",
+    "productSlo": false,
+    "calibration": {
+      "implementation": "wave1-string-scheduler-reference-v1",
+      "targetDurationMs": 250,
+      "fixedWorkRule": "all baseline/candidate pairs execute the exact calibrated operationsPerTrial"
+    },
+    "independentOracle": "test recomputes raw-sample p95, seeded paired-bootstrap upper delta, tolerance and pass verdict",
+    "requiredProvenance": [
+      "random-seed",
+      "warmup-and-measurement-phase",
+      "process-pid-and-node-version",
+      "hardware-architecture-cpu-model-logical-cores",
+      "baseline-and-candidate-source-digest-and-behavior-instrumentation",
+      "same-fixed-operation-count-and-workload-digest-per-pair"
+    ]
+  },
+  "acceptanceCommands": [
+    {
+      "cwd": "frontend",
+      "command": "node --experimental-strip-types --test tests/benchmarks/terminalNoRenderFixture.test.ts",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "tests": 2,
+      "failures": 2,
+      "failureSignatures": [
+        "NO_RENDER paired benchmark RED 계약 RED AC-8",
+        "NO_RENDER paired benchmark RED 계약 RED AC-10"
+      ],
+      "failureCause": "runPairedTerminalOutputSchedulerBenchmark is undefined after all exact Wave-1 fixture assertions pass"
+    },
+    {
+      "cwd": "frontend",
+      "command": "node --experimental-strip-types --test tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "tests": 1,
+      "failures": 1,
+      "failureSignatures": [
+        "NO_RENDER paired benchmark RED 계약 RED AC-9"
+      ],
+      "failureCause": "runPairedTerminalOutputSchedulerBenchmark is undefined after the exact Wave-1 manifest assertion passes"
+    }
+  ],
+  "nonRedChecks": [
+    {
+      "cwd": "frontend",
+      "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+      "exit": 0,
+      "testsPassed": 24,
+      "testsFailed": 0
+    },
+    {
+      "cwd": "frontend",
+      "command": "npx eslint tests/benchmarks/terminalNoRenderFixture.ts tests/benchmarks/terminalNoRenderFixtureEvidence.ts tests/benchmarks/terminalNoRenderFixture.test.ts tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+      "exit": 0
+    },
+    {
+      "cwd": "frontend",
+      "command": "node --experimental-strip-types --check <each of the four scoped benchmark TypeScript files>",
+      "exit": 0
+    }
+  ],
+  "existingFixtureEvidence": {
+    "contentDigest": "sha256:c03f1bbd117a0c1a86a83f7945f35428cd9246d76358ecacc9aff0e014dad3b2",
+    "preserved": true
+  },
+  "review": {
+    "reviewer": "tph00102_prickly_review",
+    "verdict": "No findings"
+  }
+}

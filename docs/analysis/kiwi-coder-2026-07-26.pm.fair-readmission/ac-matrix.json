@@ -1,0 +1,118 @@
+{
+  "schema_version": "fair-readmission-ac-matrix/v1",
+  "phase": "PH-005",
+  "observation_only": true,
+  "dirty_baseline_frozen": true,
+  "lifecycle_admission": false,
+  "parent_srs_mutated": false,
+  "protected_input_comparison": {
+    "baseline_manifest": "baseline-provenance-manifest.json",
+    "final_manifest": "final-protected-input-manifest.json",
+    "canonical_json_equal": true,
+    "sha256_equal": true,
+    "sha256": "7badde0669f6e8477d432ad544b51137bbbb84c4319b2bc00191ed8745cf5a12",
+    "canonical_json_utf8_bytes": 69487,
+    "unresolved_specifiers": 0,
+    "note": "This is an observed dirty-worktree comparison, not clean-HEAD or canonical SRS verification."
+  },
+  "rows": [
+    {
+      "ac_id": "AC-1",
+      "state": "observed",
+      "evidence": [
+        "five-file-replay-result.json: fresh 98/98 pass; FairTerminalDeliveryScheduler.test.ts AC-1 ordering contract",
+        "five-file-replay-result.json: fresh 98/98 pass; per-session monotonic identity and recovery-metadata contracts"
+      ],
+      "reason": "The frozen five-file argv was replayed after PH-002 and exercised per-epoch/session ordering for output, dataGap, checkpoint, ready barrier, and control identities.",
+      "no_lifecycle_note": "Observed-only evidence; it does not check the parent SRS AC or change Status, Stability, trace links, or verification evidence."
+    },
+    {
+      "ac_id": "AC-2",
+      "state": "observed",
+      "evidence": [
+        "five-file-replay-result.json: fresh 98/98 pass; FairTerminalDeliveryScheduler.test.ts AC-2 lane/control percentile and bounded-service contract",
+        "decision-validator-pre.json and decision-validator-post.json: both exit 0 after independently regenerating and comparing the fixed 1/2/8-client WAN benchmark contract",
+        "baseline-provenance-manifest.json and final-protected-input-manifest.json: identical protected raw benchmark inputs"
+      ],
+      "reason": "Current replay observed the configured scheduler metric matrix and validated the deterministic 1/2/8-client WAN artifact before and after the replay.",
+      "no_lifecycle_note": "Observed-only evidence on the frozen dirty worktree; not a clean-environment performance certification."
+    },
+    {
+      "ac_id": "AC-3",
+      "state": "observed",
+      "evidence": [
+        "decision-validator-pre.json and decision-validator-post.json: fair scheduler decision artifact PASS",
+        "five-file-replay-result.json: fresh 98/98 pass; FairTerminalDeliveryScheduler.test.ts AC-3 fail-closed artifact-admission contract",
+        "baseline-provenance-manifest.json: frozen decision artifact, publication, raw-evidence, config-hash, and fixture closure"
+      ],
+      "reason": "The fresh validator regenerated the fixed benchmark expectation and required the published decision, raw evidence, digest, thresholds, candidate/baseline, sample data, and starvation gate to match it.",
+      "no_lifecycle_note": "Observed-only; the artifact was not promoted, replaced, or added as canonical SRS evidence."
+    },
+    {
+      "ac_id": "AC-4",
+      "state": "observed",
+      "evidence": [
+        "five-file-replay-result.json: fresh 98/98 pass; TerminalResourcePolicy.test.ts AC-4 typed WS resource-limit projection",
+        "five-file-replay-result.json: fresh 98/98 pass; FairTerminalDeliveryScheduler.test.ts AC-4 source-tagged policy and projected-value behavior"
+      ],
+      "reason": "The replay observed the scheduler's strategy, gate, slice, bypass, weights, and credit window as typed TerminalResourcePolicy/decision-derived values rather than copied IPC constants.",
+      "no_lifecycle_note": "Observed-only; no policy default or runtime setting was changed."
+    },
+    {
+      "ac_id": "AC-5",
+      "state": "observed",
+      "evidence": [
+        "five-file-replay-result.json: fresh 98/98 pass; FairTerminalDeliveryScheduler.test.ts AC-5 ledger and exact encoded-wire identity contracts",
+        "five-file-replay-result.json: fresh 98/98 pass; WsRouterSendPriority.test.ts runtime candidate delivery server-ledger/control-only cumulative-ACK contract",
+        "browser-ack-idle-hidden-boundary.json: frontend protocol contract replay passed 70/70"
+      ],
+      "reason": "Fresh server replay observed server-owned connection epoch, session identity, monotonic delivery sequence, encoded-byte accounting, and identity-only cumulative ACK handling.",
+      "no_lifecycle_note": "Observed-only evidence; no SRS AC is checked."
+    },
+    {
+      "ac_id": "AC-6",
+      "state": "deferred",
+      "evidence": [
+        "five-file-replay-result.json: fresh 98/98 pass; server scheduler invalid-ACK rejection contract",
+        "browser-ack-idle-hidden-boundary.json: frontend unit contract replay passed 70/70, including ACK-rejection checks"
+      ],
+      "reason": "The required browser-specific invalid-ACK E2E was deliberately not run because the available broader E2E has unsafe active/first-workspace and mutation helpers. Per the plan, neither historic evidence nor unit results may replace that missing browser observation.",
+      "no_lifecycle_note": "Deferred observation is not an SRS defer mutation and does not change parent acceptance criteria or lifecycle."
+    },
+    {
+      "ac_id": "AC-7",
+      "state": "observed",
+      "evidence": [
+        "five-file-replay-result.json: fresh 98/98 pass; FairTerminalDeliveryScheduler.test.ts AC-7 legacy, credit-timeout, queue-overflow, dataGap/checkpoint, and producer-isolation contract",
+        "five-file-replay-result.json: fresh 98/98 pass; WsRouterSendPriority.test.ts transport-failure and maintenance recovery contracts"
+      ],
+      "reason": "Fresh replay observed bounded, target-scoped legacy/timeout/overflow fallbacks while a separate fast lane remained serviceable.",
+      "no_lifecycle_note": "Observed-only; no fallback policy was admitted or altered."
+    },
+    {
+      "ac_id": "AC-8",
+      "state": "observed",
+      "evidence": [
+        "five-file-replay-result.json: fresh 98/98 pass; FairTerminalDeliveryScheduler.test.ts AC-8 downgrade, terminate, rollback, and disconnect exactly-once release contract",
+        "five-file-replay-result.json: fresh 98/98 pass; WsRouterSendPriority.test.ts epoch rotation, withdrawal, termination, unsubscribe, and timer/ledger cleanup contracts"
+      ],
+      "reason": "Fresh replay observed exactly-once release of held bytes, queues, ledgers, and timers, plus rejection of old-epoch ACKs after lifecycle changes.",
+      "no_lifecycle_note": "Observed-only; no connection lifecycle behavior was changed."
+    },
+    {
+      "ac_id": "AC-9",
+      "state": "deferred",
+      "committee_vote": {
+        "deferred": 3,
+        "observed": 2,
+        "result": "deferred"
+      },
+      "evidence": [
+        "five-file-replay-result.json: fresh 98/98 pass; FairTerminalDeliveryScheduler.test.ts AC-9 scheduler non-mutation assertion",
+        "browser-ack-idle-hidden-boundary.json: one isolated HTTPS/WSS Playwright test passed with an idle browser session-state observation"
+      ],
+      "reason": "The current scheduler and isolated browser evidence are useful generic boundary observations, but the committee majority concluded that the isolated relay/reusable-session test does not prove the original interactive AI TUI semantic-session scope for echo, prompt redraw, cursor movement, ticker, and waiting-for-input repaint. It therefore cannot elevate AC-9 to observed.",
+      "no_lifecycle_note": "Deferred observation is fail-closed and leaves the parent AC unchecked and lifecycle unchanged."
+    }
+  ]
+}

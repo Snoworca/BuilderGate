@@ -1,0 +1,105 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-15.projectmaster.wave2-hotpath",
+  "task_id": "T-PH003-02",
+  "requirement_id": "REL-BGSTAB-009",
+  "recorded_at": "2026-07-15T23:36:45.3390084Z",
+  "result": "PASS",
+  "implementation": {
+    "authority": "existing createVisibleOutputRecoveryCoordinator",
+    "second_authority_created": false,
+    "production_files": [
+      "frontend/src/utils/visibleOutputRecovery.ts"
+    ],
+    "planned_test_files": [
+      "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+      "frontend/tests/unit/visibleOutputRecovery.test.ts"
+    ],
+    "properties": [
+      "connection/session/view/xterm generation and authority-token fencing",
+      "UTF-8 byte and chunk bounded held output and queued input",
+      "snapshot write after live-lane idle, then held-tail credits",
+      "matching server-ready plus explicit repair ACK before ready/input release",
+      "identity-safe callback, timer, completion-probe and dispose cleanup",
+      "raw-free observable queued-input rejection on supersede/dispose",
+      "replay auto-reply suppression and authoritative parser-tail non-ready state",
+      "retainedHistoryEquivalent remains false"
+    ]
+  },
+  "checks": [
+    {
+      "name": "targeted-unit",
+      "command": "node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts tests/unit/visibleOutputRecovery.test.ts",
+      "cwd": "frontend",
+      "exit_code": 0,
+      "tests": 20,
+      "passed": 20,
+      "failed": 0
+    },
+    {
+      "name": "restore-coordinator-contract",
+      "command": "node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts",
+      "cwd": "frontend",
+      "exit_code": 0,
+      "tests": 9,
+      "passed": 9,
+      "failed": 0
+    },
+    {
+      "name": "legacy-visible-recovery-regression",
+      "command": "node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts",
+      "cwd": "frontend",
+      "exit_code": 0,
+      "tests": 11,
+      "passed": 11,
+      "failed": 0
+    },
+    {
+      "name": "frontend-typecheck",
+      "command": "npm run typecheck",
+      "cwd": "frontend",
+      "exit_code": 0
+    },
+    {
+      "name": "task-scoped-eslint",
+      "command": "npx eslint src/utils/visibleOutputRecovery.ts tests/unit/terminalRestoreCoordinator.test.ts tests/unit/visibleOutputRecovery.test.ts",
+      "cwd": "frontend",
+      "exit_code": 0,
+      "errors": 0,
+      "warnings": 0
+    },
+    {
+      "name": "full-frontend-unit-observation",
+      "command": "node --experimental-strip-types --test tests/unit/*.test.ts",
+      "cwd": "frontend",
+      "exit_code": 1,
+      "tests": 293,
+      "passed": 287,
+      "failed": 6,
+      "classification": "CONCURRENT_PLANNED_RED_ONLY",
+      "notes": "실패 6건은 모두 동시 진행 T-PH003-03의 `Remount adapter RED` 계약이며 T-PH003-02 및 기존 회귀 실패는 0건이다."
+    },
+    {
+      "name": "diff-check",
+      "command": "git diff --check -- frontend/src/utils/visibleOutputRecovery.ts frontend/tests/unit/terminalRestoreCoordinator.test.ts frontend/tests/unit/visibleOutputRecovery.test.ts",
+      "cwd": ".",
+      "exit_code": 0
+    }
+  ],
+  "review": {
+    "reviewer": "/root/g1_authority_contract_draft/tph00204_prickly_review",
+    "first_pass": {
+      "high_findings": 3,
+      "fixed": [
+        "queued input now obeys existing UTF-8 byte and chunk caps",
+        "supersede/dispose now rejects retained input observably without raw data",
+        "write timers are bounded and bound one-to-one to outstanding chunk credits"
+      ]
+    },
+    "final_verdict": "No findings",
+    "reviewer_checks": [
+      "targeted unit 20/20 PASS",
+      "frontend typecheck PASS"
+    ]
+  }
+}

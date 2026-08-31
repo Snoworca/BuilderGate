@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "requirementId": "PERF-BGSTAB-008",
+  "taskScope": [
+    "T-PH003-05",
+    "T-PH003-06",
+    "T-PH003-07",
+    "T-PH003-08-review-fix"
+  ],
+  "recordedAt": "2026-07-16T00:34:44.8923167+09:00",
+  "command": "server: npm run build; node --test dist/benchmarks/benchmarkStatistics.test.js dist/benchmarks/terminalCharacterization.test.js",
+  "expectedExit": 1,
+  "actualExit": 1,
+  "build": "pass",
+  "tests": {
+    "total": 14,
+    "passed": 9,
+    "failed": 5
+  },
+  "failureSignatures": [
+    "Forbidden or unknown field at samples[0].comparator.clientId",
+    "single-mode selection returned all four modes",
+    "NO_RENDER case omitted fixtureEvidence",
+    "actual metric interval omitted workloadExecutionId",
+    "slow/normal comparator summary grouping rejected clientId before it could separate the groups"
+  ],
+  "proves": [
+    "FND-PH003-001 mode selection and unsupported-mode rejection are not implemented",
+    "FND-PH003-002 external NO_RENDER digest and actual analyzer/bypass evidence are not implemented",
+    "FND-PH003-003 actual slow-client pressure and client-identity summary separation are not implemented",
+    "FND-PH003-004 same-manager >=250ms interval provenance is not implemented"
+  ],
+  "productionRuntimeOrDefaultChanged": false
+}

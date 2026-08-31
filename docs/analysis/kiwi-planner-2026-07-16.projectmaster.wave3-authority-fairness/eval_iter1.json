@@ -1,0 +1,8 @@
+{
+  "iteration": 1,
+  "validator": "kiwi-planner 0.6.0",
+  "errors": 1,
+  "warnings": 0,
+  "finding": "C15: sidecar mcp_call_log가 비어 실제 Task trace/evidence 호출과 대조할 수 없음",
+  "resolution": "SpecKiwi MCP로 40개 Task trace와 8개 plan evidence를 영속화하고 sidecar에 48개 성공 호출 로그를 기록"
+}

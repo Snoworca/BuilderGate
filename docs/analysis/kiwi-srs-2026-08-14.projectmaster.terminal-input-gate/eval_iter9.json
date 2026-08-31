@@ -1,0 +1,93 @@
+{
+  "iteration": 9,
+  "scope": "REL-BGSTAB-017 only (narrow final verification)",
+  "target_file": "docs/spec/30.buildergate-stability.srs.md",
+  "verdict": "PASS-WITH-ISSUES",
+  "counts": { "critical": 0, "high": 0, "medium": 5, "low": 4 },
+  "medium_closure": {
+    "M1_trace_links_six_sites_four_behaviours": {
+      "closed": true,
+      "evidence": "Trace row 4307 classifies 3+1+1+1 = 6 sites into 4 behaviours. submitTerminalFit call sites are exactly 1164, 1200, 2995, 3870, 4123, 4315 (grep on TerminalView.tsx). fitAddon.fit has a single sink at frontend/src/utils/terminalRawMutationAdapter.ts:98. Per-claim check of the requestViewportSync sentence: span 1146-1182 correct (1182 = '}, [submitTerminalFit]);'); submitTerminalFit at 1164 correct; condition 'fitFirst && isRenderable' at 1163 correct; scrollToBottom() at 1170 correct; false branch emits no debug event and schedules no retry - correct (retry is only scheduled in the submitTerminalFit onRejected callback 1165-1166 and in the catch 1172-1176); neither reads nor writes geometryReadyRef - correct directly (all writes are 1206/3178/3876/4129/4233/4321, all reads 610/633/1073/2570/3148/4072, none in 1146-1182) and transitively (submitTerminalFit body 1107-1129 never touches it)."
+    },
+    "M2_duty_split_and_AC8": {
+      "closed": "partial",
+      "evidence": "Requirement now splits 5 convergence sites vs 1 observability site and AC-8 exists and parses. But (a) the stated discriminator 'geometryReadyRef를 읽거나 쓰는' is false for the imperative fit() handle (2991-2997 neither reads nor writes it), so the criterion that excludes requestViewportSync would also exclude a site AC-3 assigns the convergence duty; (b) AC-8 is under-determined on the fitFirst axis and its parenthetical contradicts its own control group; (c) AC-8's only observable (debug event) is gated by debug-capture-enabled, an unstated precondition that makes both AC-8 observations silent when disabled."
+    },
+    "M3_call_site_1513": {
+      "closed": "partial",
+      "evidence": "Trace row now lists callers 1229, 1513, 2335, 2517 and that set is exhaustive (grep of requestViewportSync across frontend/src returns only TerminalView.tsx; 1238/1539/2344/2538 are useCallback dependency arrays; no fifth call site, no cross-file use). But the Rationale bullet at line 4283 still enumerates '(호출부 1229 / 2335 / 2517)' - 1513 was not added there."
+    }
+  },
+  "findings": [
+    {
+      "id": "M-A",
+      "severity": "MEDIUM",
+      "title": "Duty-split discriminator is factually false for the imperative fit() handle",
+      "where": "docs/spec/30.buildergate-stability.srs.md:4272 (Requirement)",
+      "detail": "Requirement says the convergence duty applies to 'geometryReadyRef 를 읽거나 쓰는 다섯 지점' including the imperative fit() handle, and excludes requestViewportSync because it 'geometryReadyRef 를 만지지 않으므로'. Code: the imperative fit() handle (TerminalView.tsx:2991-2997) calls submitTerminalFit(term) with no callbacks (2995) and submitTerminalFit (1107-1129) never touches geometryReadyRef; all geometryReadyRef writes are 1206/3178/3876/4129/4233/4321 and reads 610/633/1073/2570/3148/4072 - none inside 2991-2997. Applied consistently, the stated criterion would exclude the imperative fit() handle too, contradicting AC-3."
+    },
+    {
+      "id": "M-B",
+      "severity": "MEDIUM",
+      "title": "M3 half-closed: Rationale caller list still omits 1513",
+      "where": "srs:4283 (Rationale) vs srs:4307 (Trace Links)",
+      "detail": "Rationale: '(호출부 1229 / 2335 / 2517)'. Trace Links: 'its callers are 1229, 1513, 2335 and 2517'. Two enumerations of the same set disagree inside one block; the omitted 1513 (requestViewportSync(term) after a large write, fitFirst defaulting to false) is the call site that makes M-C reachable."
+    },
+    {
+      "id": "M-C",
+      "severity": "MEDIUM",
+      "title": "AC-8 is under-determined on the fitFirst axis and its parenthetical contradicts its own control",
+      "where": "srs:4295 (AC-8)",
+      "detail": "AC-8 defines the case as '렌더 불가로 fit 을 skip 한 경우(TerminalView.tsx:1163 의 fitFirst 및 isRenderable 조건이 거짓)'. Read literally the parenthetical makes the conjunction-false case normative, which includes fitFirst=false with a renderable container - taken on every large write at call site 1513 - and that directly contradicts AC-8's own control ('렌더 가능 상태에서는 남지 않는지'). The prescribed test does not fix the fitFirst argument, so an implementation gating the signal on '!isRenderable' and one gating on 'fitFirst && !isRenderable' both claim conformance while producing different results for the same prescribed observation."
+    },
+    {
+      "id": "M-D",
+      "severity": "MEDIUM",
+      "title": "AC-8's observable is gated by debug capture; the vacuity precondition is unstated",
+      "where": "srs:4295 (AC-8) vs frontend/src/utils/terminalDebugCapture.ts:394-403",
+      "detail": "recordTerminalDebugEvent returns immediately unless store.isEnabled(sessionId). AC-8's only observable is 'other dimension-check sites와 동일한' skip signal, i.e. that gated event. With capture disabled both AC-8 observations (signal present when non-renderable, signal absent when renderable) collapse to 'no event', so a conforming test passes on an unimplemented behaviour. The sibling REL-BGSTAB-018 states exactly this class of premise explicitly (AC-7 shadow-mode / admission-mode guard plus AC-8 boundary controls); REL-BGSTAB-017 states no such premise for AC-4 or AC-8."
+    },
+    {
+      "id": "M-E",
+      "severity": "MEDIUM",
+      "title": "'the only skip site that leaves nothing observable' is contradicted by the same block",
+      "where": "srs:4295 (AC-8) and srs:4307 (Trace Links)",
+      "detail": "Both drop the '0-size' qualifier the Rationale keeps. Rationale bullet 2 (srs:4281) states the imperative fit() handle '비가시면 디버그 이벤트조차 남기지 않고 조용히 반환' (TerminalView.tsx:2992), and AC-3 treats that as a skip. So requestViewportSync is not the only skip site that leaves nothing observable. Same shape as the previously fixed 'Rationale claimed all four sites detect 0-size' defect."
+    },
+    {
+      "id": "L-1",
+      "severity": "LOW",
+      "title": "Verification Method field not updated for AC-8",
+      "where": "srs:4267 (Verification Method)",
+      "detail": "The field gives per-AC recipes for AC-4 and AC-7 but says nothing about AC-8. REL-BGSTAB-018 updated its Verification Method when its AC-7/AC-8 were added. The AC-8 text carries its own recipe so no information is lost."
+    },
+    {
+      "id": "L-2",
+      "severity": "LOW",
+      "title": "requestViewportSync span cited as 1146-1181 in Rationale and 1146-1182 in Trace Links",
+      "where": "srs:4283 vs srs:4307",
+      "detail": "The callback closes at 1182 ('}, [submitTerminalFit]);'). Trace Links is right, Rationale is off by one."
+    },
+    {
+      "id": "L-3",
+      "severity": "LOW",
+      "title": "AC-8 is listed before AC-7",
+      "where": "srs:4295 (AC-8) precedes srs:4296 (AC-7)",
+      "detail": "Parsing is unaffected - get_requirement returns 8 criteria in file order AC-1..AC-6, AC-8, AC-7 and no diagnostic fires. Reading order is confusing only."
+    },
+    {
+      "id": "L-4",
+      "severity": "LOW",
+      "title": "'scrollToBottom() 만 수행하고 종료' overstates what happens",
+      "where": "srs:4283",
+      "detail": "scrollToBottom (1160-1162) itself no-ops when !isRenderable, so on the 0-size path literally nothing happens. Harmless imprecision; the call is made."
+    }
+  ],
+  "structural_integrity": {
+    "diff_numstat": "2462 insertions, 0 deletions (deletions 0 confirmed)",
+    "table_pipes": "Verification Evidence rows 4300-4301: 6 pipes each; Trace Links rows 4305-4308: 5 pipes each (4 columns, no row split); Change Notes rows 4320-4325: 4 pipes each (3 columns, no row split)",
+    "get_requirement": "parses; 8 acceptance criteria, 2 trace links, 4 change notes; blockStartLine 4257, blockEndLine 4326",
+    "validate_json": "errors 1, warnings 19, byCode {SRS-W018:5, SRS-W023:14, SRS-E002:1} - identical to baseline"
+  },
+  "recommendation": "One more targeted round. MEDIUM is not zero (5 residual, 2 of them are incomplete closures of M2/M3 rather than new territory). No CRITICAL/HIGH; structure and validate baseline are clean."
+}

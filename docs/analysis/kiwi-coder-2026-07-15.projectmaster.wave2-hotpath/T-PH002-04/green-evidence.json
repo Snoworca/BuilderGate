@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "kiwi-coder-evidence-v1",
+  "executionId": "2026-07-15.projectmaster.wave2-hotpath",
+  "taskId": "T-PH002-04",
+  "requirementId": "REL-BGSTAB-008",
+  "capturedAt": "2026-07-16T07:19:16.3877511+09:00",
+  "headRevision": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+  "workingTreeDirty": true,
+  "result": "GREEN",
+  "scope": {
+    "productionFiles": [
+      "frontend/src/components/Terminal/TerminalContainer.tsx",
+      "frontend/src/components/Terminal/TerminalView.tsx",
+      "frontend/src/contexts/WebSocketContext.tsx",
+      "frontend/src/types/ws-protocol.ts",
+      "frontend/src/utils/visibleOutputRecovery.ts"
+    ],
+    "testFiles": [
+      "frontend/tests/e2e/wave2-screen-repair-resync.spec.ts",
+      "frontend/tests/helpers/visibleOutputRecoveryContract.ts",
+      "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+      "frontend/tests/unit/visibleOutputRecovery.test.ts"
+    ]
+  },
+  "implementation": {
+    "protocol": "The frontend mirrors additive restore-needed, reconnect-required, replay-token, screen-sequence, and chunk-identity fields without changing the existing unified default or pretending standalone split parity.",
+    "recoveryCoordinator": "A client/session-scoped coordinator holds UTF-8 byte-accounted output, preserves unknown screen sequences, removes only snapshot-covered chunks, and releases ordered tail chunks through one awaitable terminal write at a time.",
+    "readiness": "Current-view ready and input release require both a matching authoritative snapshot and completion of every scheduled tail write. retainedHistoryEquivalent remains false.",
+    "failureFence": "terminalFailed and disposed are externally readable terminal states. Overflow, reconnect, rejection, parser/reset failure, write failure, and close seal the transaction and invalidate speculative mutations.",
+    "terminalMutationFence": "Legacy repair, hidden local restore, and authoritative replacement share a serialized generation fence. Authoritative replacement is checked before admission, after IME wait immediately before xterm reset, after await, and before ACK.",
+    "graceOrdering": "WebSocket grace buffering preserves output message identity and flushes restore/reconnect state before subscribed-ready, so the stale barrier exists before any readiness promotion.",
+    "hiddenAndFallback": "Hidden dirty/skipped state and provisional local viewport state remain stale. Fallback snapshots are deliberately unacknowledged so the server's bounded timeout converges to reconnect-required.",
+    "privacy": "Recovery diagnostics contain token, sequence, mode, byte/chunk counts, reason, and state only; raw terminal payload is not persisted in the new recovery state events."
+  },
+  "tdd": {
+    "redSource": "T-PH002-03 frontend stale/resync RED contracts",
+    "initialRed": {
+      "unit": "14 passed, 6 failed because the frontend coordinator was absent",
+      "e2e": "0 passed, 2 failed because restore-needed did not engage the visible stale/input barrier"
+    },
+    "additionalReds": [
+      "Fault sealing and payload release contracts exposed late callback resurrection and pending-accounting defects.",
+      "The mutation-fence behavioral contract exposed legacy repair and hidden restore racing after server authority.",
+      "The final terminal-failure contract ran 31 tests with 30 passing and 1 failing before Container consumed terminalFailed and TerminalView accepted the currentness predicate.",
+      "AC-8 was extended with restore-needed -> reconnect-required -> late same-token authoritative snapshot and required no terminal marker, no ACK, and a failed-snapshot-ignored event."
+    ],
+    "green": "The final targeted unit suite passes 31/31 and both real routed-WebSocket Playwright contracts pass."
+  },
+  "verification": {
+    "unit": {
+      "command": "npx tsx --test tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts",
+      "cwd": "frontend",
+      "exitCode": 0,
+      "passed": 31,
+      "failed": 0
+    },
+    "typecheck": {
+      "command": "npm run typecheck",
+      "cwd": "frontend",
+      "exitCode": 0
+    },
+    "build": {
+      "command": "npm run build",
+      "cwd": "frontend",
+      "exitCode": 0,
+      "note": "The build also staged frontend assets into server/dist/public."
+    },
+    "e2e": {
+      "command": "npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --project=\"Desktop Chrome\"",
+      "cwd": "frontend",
+      "target": "https://localhost:2222",
+      "exitCode": 0,
+      "passed": 2,
+      "failed": 0
+    },
+    "scopedLint": {
+      "command": "npx eslint src/components/Terminal/TerminalContainer.tsx src/components/Terminal/TerminalView.tsx src/contexts/WebSocketContext.tsx src/types/ws-protocol.ts src/utils/visibleOutputRecovery.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/unit/visibleOutputRecovery.test.ts tests/e2e/wave2-screen-repair-resync.spec.ts tests/helpers/visibleOutputRecoveryContract.ts --rule \"react-hooks/set-state-in-effect: off\" --rule \"react-refresh/only-export-components: off\"",
+      "cwd": "frontend",
+      "exitCode": 0,
+      "errors": 0,
+      "warnings": 5,
+      "note": "The two disabled rules are proven pre-existing HEAD failures. The five exhaustive-deps warnings are also pre-existing in TerminalView and WebSocketContext."
+    },
+    "fullSplitCharacterization": {
+      "command": "npx tsx --test src/ws/WsRouterSplitHandshake.test.ts",
+      "cwd": "server",
+      "exitCode": 0,
+      "total": 21,
+      "passed": 8,
+      "failed": 0,
+      "todo": 13,
+      "note": "The 13 todo cases remain the known standalone split activation limitation; this frontend task does not claim split parity."
+    },
+    "diffCheck": {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  },
+  "review": {
+    "kind": "independent prickly review and repeated re-review",
+    "reviewer": "/root/g1_authority_contract_draft/tph00204_prickly_review",
+    "resolvedFindings": [
+      "late legacy repair/rejection and mismatched reconnect could mutate or finish the active recovery",
+      "duplicate restore-needed and snapshot-sequence mismatches were insufficiently fenced",
+      "provisional fallback could be acknowledged instead of converging through bounded reconnect",
+      "terminal faults could retain payload or be resurrected by late write/snapshot/ready callbacks",
+      "grace flush promoted subscribed-ready before installing the restore barrier",
+      "legacy repair and hidden local restore could overwrite a newer authoritative snapshot",
+      "current replay snapshots could be lost to legacy content deduplication",
+      "drained chunks remained charged against pending caps",
+      "late same-token authoritative snapshots could mutate and ACK after reconnect-required"
+    ],
+    "verdict": "No findings"
+  }
+}

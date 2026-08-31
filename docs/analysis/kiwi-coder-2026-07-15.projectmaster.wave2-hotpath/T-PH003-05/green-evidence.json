@@ -1,0 +1,107 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-15.projectmaster.wave2-hotpath",
+  "task_id": "T-PH003-05",
+  "requirement_id": "REL-BGSTAB-009",
+  "recorded_at": "2026-07-16T13:09:19.2477662+09:00",
+  "result": "PASS_WITH_LIVE_BACKEND_VERSION_EXCEPTION",
+  "checks": [
+    {
+      "name": "server-dedicated-restore-contracts",
+      "command": "npx tsx --test src/ws/WsRouterRestoreMetadata.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/SessionManagerPartialEscapeTail.test.ts",
+      "cwd": "server",
+      "exit_code": 0,
+      "tests": 13,
+      "passed": 13,
+      "failed": 0
+    },
+    {
+      "name": "server-full-regression",
+      "command": "npm test",
+      "cwd": "server",
+      "exit_code": 0,
+      "tests": 517,
+      "passed": 517,
+      "failed": 0
+    },
+    {
+      "name": "frontend-targeted-recovery",
+      "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts tests/unit/terminalRestoreCoordinator.test.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/unit/terminalViewRecoveryContract.test.ts tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalReplayGuard.test.ts",
+      "cwd": "frontend",
+      "exit_code": 0,
+      "tests": 110,
+      "passed": 110,
+      "failed": 0
+    },
+    {
+      "name": "frontend-full-unit",
+      "command": "node --experimental-strip-types --test tests/unit/*.test.ts",
+      "cwd": "frontend",
+      "exit_code": 0,
+      "tests": 325,
+      "passed": 325,
+      "failed": 0
+    },
+    {
+      "name": "frontend-typecheck-build",
+      "command": "npm run typecheck && npm run build",
+      "cwd": "frontend",
+      "exit_code": 0
+    },
+    {
+      "name": "wave2-terminal-restore-https",
+      "command": "npx playwright test tests/e2e/wave2-terminal-restore.spec.ts --project \"Desktop Chrome\"",
+      "cwd": "frontend",
+      "exit_code": 0,
+      "tests": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    {
+      "name": "full-eslint-observation",
+      "command": "npm run lint",
+      "cwd": "frontend",
+      "exit_code": 1,
+      "classification": "PRE_EXISTING_LINT_BASELINE",
+      "errors": 42,
+      "warnings": 18
+    },
+    {
+      "name": "grid-equal-current-server-e2e",
+      "command": "npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"",
+      "cwd": "frontend",
+      "exit_code": 124,
+      "classification": "IMMUTABLE_LIVE_BACKEND_VERSION_MISMATCH",
+      "notes": "https://localhost:2222의 backend는 C:/Work/agent-tools/builder-gate/server/dist 구버전이다. AGENTS 규칙상 실행 중 server/node를 재시작하지 않았고 current source는 named-pipe actual WebSocket/PTY integration 13/13으로 검증했다."
+    },
+    {
+      "name": "scoped-diff-check",
+      "command": "git diff --check -- <T-PH003-05 planned files>",
+      "cwd": ".",
+      "exit_code": 0
+    }
+  ],
+  "review": {
+    "reviewer": "/root/wave2_t4_final_review",
+    "fixed_findings": [
+      "live-lane idle barrier is settled before the captured scheduler is reset",
+      "legacy repair and normal snapshot ACK send failures retain stale/input barriers and converge by bounded reconnect",
+      "degraded pending output updates partial-escape authority and parser overflow remains sticky",
+      "lost scheduler callbacks use a bounded direct xterm FIFO probe",
+      "FIFO proof retires only the captured scheduler owner/generation/write token",
+      "unsubmitted scheduler suffix is preserved and resumed",
+      "completion probe failure dispatches a terminal recovery event",
+      "coordinator probe credit settles only the proven pending chunk",
+      "live-lane advanced settlement re-arms barriers until the scheduler is actually idle"
+    ],
+    "final_verdict": "No findings"
+  },
+  "completion_gate": {
+    "implementation_review": "PASS",
+    "automated_unit_build": "PASS",
+    "https_restore_adapter": "PASS",
+    "current_server_grid_e2e": "ENVIRONMENT_VERSION_EXCEPTION",
+    "lint": "BASELINE_FAIL",
+    "task_status": "COMPLETE"
+  }
+}

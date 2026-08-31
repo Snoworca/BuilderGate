@@ -1,0 +1,14 @@
+{
+  "run_id": "2026-07-15.projectmaster.wave2-hotpath",
+  "phases": 4,
+  "tasks": 20,
+  "requirements": 4,
+  "acceptance_criteria": 40,
+  "tdd_policy": "strict",
+  "red_green_pairs": 8,
+  "mandatory_phase_reviews": 4,
+  "orphans": 0,
+  "unreferenced_requirements": 0,
+  "deferred_acceptance_criteria": 0,
+  "status": "ready-for-independent-plan-verification"
+}

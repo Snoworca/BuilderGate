@@ -1,0 +1,32 @@
+{
+  "iteration": 2,
+  "taskId": "T-PH001-01",
+  "validators": [
+    {
+      "axis": "intent-alignment",
+      "critical": 1,
+      "high": 4,
+      "verdict": "blocked"
+    },
+    {
+      "axis": "technical-quality",
+      "critical": 0,
+      "high": 4,
+      "verdict": "blocked"
+    }
+  ],
+  "closed": [
+    "exact seven symbols/signatures",
+    "AC separation",
+    "canonical raw provenance"
+  ],
+  "gate": "blocked",
+  "requiredFixes": [
+    "independent manifest/inventory discovery",
+    "external exact legacy-vs-observe decisions",
+    "positive registered stable fixture",
+    "legacy fallback boundary corpus",
+    "assertion errors unwrapped",
+    "scanner determinism/path safety"
+  ]
+}

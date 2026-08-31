@@ -1,0 +1,133 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-07-15.projectmaster.wave-1.v01",
+  "target": "wave-1",
+  "policy_source": "builtin-default",
+  "mapping_index_base": 1,
+  "mapping_resolution": "first matching rule in declared policy order",
+  "auto_apply_semantics": "Policy permits apply without user confirmation only after a dry-run transition guard returns ok.",
+  "plan": [
+    {
+      "req_id": "REL-BGSTAB-006",
+      "current_status": "planned",
+      "current_stability": "draft",
+      "feasibility": "high",
+      "score": 94,
+      "has_verification": false,
+      "mapping_checks": [
+        {
+          "rule_index": 1,
+          "matched": false,
+          "reason": "has_verification=false"
+        },
+        {
+          "rule_index": 2,
+          "matched": true,
+          "reason": "feasibility=high"
+        }
+      ],
+      "matched_rule_index": 2,
+      "proposed_stability": "evolving",
+      "requires_user_confirm": false,
+      "status_conflict": false,
+      "reason": "Built-in mapping 2 matched: REL-BGSTAB-006 is high feasibility (94) with no blockers and has_verification=false; propose draft->evolving while production-path characterization evidence remains outstanding. Run: 2026-07-15.projectmaster.wave-1.v01",
+      "dryrun_guard_verdict": "ok",
+      "user_decision": null,
+      "applied": true
+    },
+    {
+      "req_id": "OBS-BGSTAB-004",
+      "current_status": "planned",
+      "current_stability": "draft",
+      "feasibility": "high",
+      "score": 94,
+      "has_verification": false,
+      "mapping_checks": [
+        {
+          "rule_index": 1,
+          "matched": false,
+          "reason": "has_verification=false"
+        },
+        {
+          "rule_index": 2,
+          "matched": true,
+          "reason": "feasibility=high"
+        }
+      ],
+      "matched_rule_index": 2,
+      "proposed_stability": "evolving",
+      "requires_user_confirm": false,
+      "status_conflict": false,
+      "reason": "Built-in mapping 2 matched: OBS-BGSTAB-004 is high feasibility (94) with no blockers and has_verification=false; propose draft->evolving while retained-state characterization evidence remains outstanding. Run: 2026-07-15.projectmaster.wave-1.v01",
+      "dryrun_guard_verdict": "ok",
+      "user_decision": null,
+      "applied": true
+    },
+    {
+      "req_id": "PERF-BGSTAB-008",
+      "current_status": "planned",
+      "current_stability": "draft",
+      "feasibility": "high",
+      "score": 89,
+      "has_verification": false,
+      "mapping_checks": [
+        {
+          "rule_index": 1,
+          "matched": false,
+          "reason": "has_verification=false"
+        },
+        {
+          "rule_index": 2,
+          "matched": true,
+          "reason": "feasibility=high"
+        }
+      ],
+      "matched_rule_index": 2,
+      "proposed_stability": "evolving",
+      "requires_user_confirm": false,
+      "status_conflict": false,
+      "reason": "Built-in mapping 2 matched: PERF-BGSTAB-008 is high feasibility (89) with no blockers and has_verification=false; propose draft->evolving while benchmark raw/summary evidence remains outstanding. Run: 2026-07-15.projectmaster.wave-1.v01",
+      "dryrun_guard_verdict": "ok",
+      "user_decision": null,
+      "applied": true
+    },
+    {
+      "req_id": "MIG-BGSTAB-001",
+      "current_status": "planned",
+      "current_stability": "draft",
+      "feasibility": "high",
+      "score": 85,
+      "has_verification": false,
+      "mapping_checks": [
+        {
+          "rule_index": 1,
+          "matched": false,
+          "reason": "has_verification=false"
+        },
+        {
+          "rule_index": 2,
+          "matched": true,
+          "reason": "feasibility=high"
+        }
+      ],
+      "matched_rule_index": 2,
+      "proposed_stability": "evolving",
+      "requires_user_confirm": false,
+      "status_conflict": false,
+      "reason": "Built-in mapping 2 matched: MIG-BGSTAB-001 is high feasibility (85) with no blockers and has_verification=false; propose draft->evolving, while completed G1 execution remains gated on all three prerequisite evidence sets. Run: 2026-07-15.projectmaster.wave-1.v01",
+      "dryrun_guard_verdict": "ok",
+      "user_decision": null,
+      "applied": true
+    }
+  ],
+  "summary": {
+    "total_evaluated": 4,
+    "total_mutations": 4,
+    "auto_apply": 4,
+    "user_confirm_required": 0,
+    "no_op": 0,
+    "guard_pending": 0,
+    "guard_blocked": 0,
+    "status_conflicts": 0
+  }
+}

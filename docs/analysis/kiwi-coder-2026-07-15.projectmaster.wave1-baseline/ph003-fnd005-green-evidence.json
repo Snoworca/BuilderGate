@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "requirementId": "PERF-BGSTAB-008",
+  "acceptanceCriterion": "AC-6",
+  "findingId": "FND-PH003-005",
+  "verification": {
+    "server": {
+      "command": "npm run build; node --test dist/benchmarks/benchmarkStatistics.test.js dist/benchmarks/terminalCharacterization.test.js",
+      "testsPassed": 14,
+      "testsFailed": 0
+    },
+    "frontend": {
+      "unitCommand": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+      "testsPassed": 16,
+      "testsFailed": 0,
+      "typecheck": "passed",
+      "scopedLint": "passed"
+    },
+    "artifact": {
+      "rawSamples": 1224,
+      "summaryGroups": 408,
+      "reverseRecalculationGroups": 408,
+      "reverseCanonicalMatch": true,
+      "rawDigest": "sha256:d82398218a04418de9a3bbf6b38a124a5f05ceaa7aa2f008dc5dc625dbcdc146",
+      "rawDigestRecomputed": true,
+      "summaryDigest": "sha256:bb63c56be66e04b9ec05a2a72aa736ac4d3baa6b08820003686f23c4eeafa583",
+      "summaryDigestRecomputed": true,
+      "minimumActualIntervalMs": 250.12049999999
+    },
+    "eventLoopDelay": {
+      "rawSamples": 480,
+      "meanSource": "SessionManager.getObservabilitySnapshot.eventLoopDelay.mean",
+      "p99Source": "SessionManager.getObservabilitySnapshot.eventLoopDelay.p99",
+      "unit": "ms",
+      "valueSemantics": "session-manager-observability-interval-statistic",
+      "rawSourceMatchesManifest": true,
+      "benchmarkOwnedHistogramAbsent": true
+    }
+  },
+  "disposition": "green"
+}

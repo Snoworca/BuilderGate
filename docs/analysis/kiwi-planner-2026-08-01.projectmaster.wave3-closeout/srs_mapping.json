@@ -1,0 +1,21 @@
+{
+  "run_id": "2026-08-01.projectmaster.wave3-closeout",
+  "total_requirements": 11,
+  "total_acceptance_criteria": 79,
+  "strict_tdd": [
+    "PERF-BGSTAB-010",
+    "REL-BGSTAB-007",
+    "REL-BGSTAB-012"
+  ],
+  "current_revalidation": [
+    "OBS-BGSTAB-005",
+    "REL-BGSTAB-010",
+    "FR-BGSTAB-022",
+    "REL-BGSTAB-011",
+    "MIG-BGSTAB-002",
+    "OBS-BGSTAB-006",
+    "REL-BGSTAB-014",
+    "REL-BGSTAB-015"
+  ],
+  "old_run_policy": "2026-07-28.pm.wave3-completion is stale and audit-only; do not alter or inherit its state."
+}

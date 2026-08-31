@@ -1,0 +1,6 @@
+[
+  {"id":"REL-BGSTAB-006","stability":"evolving","status":"planned","ac_total":5,"ac_ids":["AC-1","AC-2","AC-3","AC-4","AC-5"]},
+  {"id":"OBS-BGSTAB-004","stability":"evolving","status":"planned","ac_total":7,"ac_ids":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6","AC-7"]},
+  {"id":"PERF-BGSTAB-008","stability":"evolving","status":"planned","ac_total":7,"ac_ids":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6","AC-7"]},
+  {"id":"MIG-BGSTAB-001","stability":"evolving","status":"planned","ac_total":6,"ac_ids":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6"]}
+]

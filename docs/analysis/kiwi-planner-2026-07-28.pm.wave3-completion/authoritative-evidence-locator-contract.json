@@ -1,0 +1,125 @@
+{
+  "schema_version": "1.0.0",
+  "requirement_id": "PERF-BGSTAB-010",
+  "canonical_locator": "docs/analysis/terminal-fairness-authority/current.json",
+  "generation_root": "docs/analysis/terminal-fairness-authority/generations",
+  "generation_dir_template": "docs/analysis/terminal-fairness-authority/generations/<generation-id>/",
+  "generation_id_contract": {
+    "format": "lowercase hexadecimal SHA-256",
+    "algorithm": "SHA-256",
+    "input_encoding": "UTF-8",
+    "canonicalization": "RFC 8785 JSON Canonicalization Scheme (JCS)",
+    "input_fields": [
+      "schema_version",
+      "decision_sha256",
+      "raw_entries_digest",
+      "policy_digest",
+      "trial_inventory"
+    ],
+    "input_values": {
+      "schema_version": "the authority bundle schema_version being published",
+      "decision_sha256": "the SHA-256 of fair-scheduler-decision.json",
+      "raw_entries_digest": "the lowercase hexadecimal SHA-256 of UTF-8 JCS serialization of raw/manifest.json entries only, excluding its generation_id",
+      "policy_digest": "the policy_digest value in provenance.json",
+      "trial_inventory": "the trial_inventory value in provenance.json"
+    },
+    "derivation": "generation_id is the lowercase hexadecimal SHA-256 of UTF-8 JCS serialization of an object containing exactly input_fields with the defined input_values; no pointer, provenance, or raw-manifest self-reference participates in the digest.",
+    "directory_binding": "The immutable generation directory basename must equal the rederived generation_id."
+  },
+  "pointer_schema": {
+    "required_fields": [
+      "schema_version",
+      "generation_id",
+      "publication_generation",
+      "decision_artifact",
+      "decision_sha256",
+      "provenance_artifact",
+      "provenance_sha256",
+      "raw_root",
+      "raw_manifest_sha256"
+    ],
+    "repository_relative_paths_only": true,
+    "generation_id_rule": "generation_id must satisfy generation_id_contract and equal the basename of the resolved immutable generation directory."
+  },
+  "generation_artifacts": {
+    "decision": {
+      "relative_path": "fair-scheduler-decision.json",
+      "sha256_field": "decision_sha256"
+    },
+    "provenance": {
+      "relative_path": "provenance.json",
+      "sha256_field": "provenance_sha256"
+    },
+    "raw": {
+      "relative_path": "raw/",
+      "manifest_relative_path": "raw/manifest.json",
+      "sha256_field": "raw_manifest_sha256",
+      "all_raw_files_require_sha256": true
+    }
+  },
+  "provenance_schema": {
+    "relative_path": "provenance.json",
+    "required_fields": [
+      "schema_version",
+      "generation_id",
+      "canonical_locator",
+      "publication_generation",
+      "decision_path",
+      "decision_sha256",
+      "provenance_path",
+      "raw_root",
+      "raw_manifest_path",
+      "raw_manifest_sha256",
+      "policy_digest",
+      "trial_inventory"
+    ],
+    "resolved_pointer_binding": {
+      "generation_id": "must equal current.json generation_id",
+      "publication_generation": "must equal current.json publication_generation"
+    },
+    "generation_id_rule": "generation_id must satisfy generation_id_contract and rederive from the published decision, raw manifest entries, policy_digest, and trial_inventory.",
+    "path_rules": {
+      "canonical_locator": "must equal the canonical_locator in this contract",
+      "decision_path": "must equal fair-scheduler-decision.json and be repository-relative",
+      "provenance_path": "must equal provenance.json and identify this provenance document",
+      "raw_root": "must equal raw/ and be repository-relative",
+      "raw_manifest_path": "must equal raw/manifest.json and be repository-relative"
+    },
+    "sha256_rules": {
+      "decision_sha256": "must equal the SHA-256 of decision_path and current.json decision_sha256",
+      "raw_manifest_sha256": "must equal the SHA-256 of raw_manifest_path and current.json raw_manifest_sha256",
+      "provenance_self_identity": "current.json provenance_sha256 must equal the SHA-256 of provenance.json; provenance.json does not embed its own digest"
+    },
+    "policy_and_trials_rule": "policy_digest and trial_inventory are required provenance fields and must describe the published decision generation."
+  },
+  "raw_manifest_schema": {
+    "relative_path": "raw/manifest.json",
+    "required_fields": [
+      "schema_version",
+      "generation_id",
+      "entries"
+    ],
+    "resolved_pointer_binding": "generation_id must equal current.json generation_id",
+    "generation_id_rule": "generation_id must satisfy generation_id_contract and rederive from this manifest's entries without using the manifest generation_id as a digest input.",
+    "entry_shape": {
+      "required_fields": [
+        "path",
+        "sha256"
+      ],
+      "path_must_be_contained_under": "raw/",
+      "sha256_format": "lowercase hexadecimal SHA-256"
+    }
+  },
+  "source_dist_resolver_rule": "Source and dist admission must use the same locator parser and validator semantics and enforce the pointer, generation_id_contract, provenance_schema, and raw_manifest_schema rules identically; an invalid or non-rederivable generation_id must fail closed.",
+  "publication_rules": [
+    "Before creating the generation directory, derive generation_id exactly with generation_id_contract; an invalid or non-rederivable generation_id must abort publication fail closed.",
+    "Create a new generation directory named by the derived generation_id for every publication and never mutate a published generation.",
+    "Validate the pointer, decision, provenance, raw manifest, repository-relative containment, and every required SHA-256 before publication.",
+    "Atomically replace current.json only after the complete new generation validates."
+  ],
+  "fail_closed_rules": [
+    "A missing, escaped, tampered, incomplete, or SHA-256-mismatched pointer or generation makes authority unavailable.",
+    "An invalid, non-lowercase, malformed, or non-rederivable generation_id, or a generation directory whose basename does not equal it, makes authority unavailable.",
+    "No historical, rejected, planner-run-specific, or alternate root may be used as a default or fallback."
+  ]
+}

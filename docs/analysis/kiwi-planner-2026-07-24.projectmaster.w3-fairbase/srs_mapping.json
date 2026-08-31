@@ -1,0 +1,4 @@
+{
+  "MIG-BGSTAB-002": {"status":"implemented","stability":"evolving","task":"T-PH001-01","coverage":"AC-1..AC-6 existing evidence reconciliation only"},
+  "PERF-BGSTAB-010": {"status":"in_progress","stability":"evolving","tasks":["T-PH002-01","T-PH003-01","T-PH003-02","T-PH004-01","T-PH005-01"],"coverage":"AC-1..AC-9 external-baseline admission; no historical strict-TDD claim"}
+}

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0",
+  "requirementId": "OBS-BGSTAB-005",
+  "phaseId": "PH-001",
+  "reviewIteration": 5,
+  "reviewFindings": { "high": 2, "medium": 1 },
+  "focusedRed": {
+    "command": "npx tsx --test src/services/TerminalResourcePolicy.test.ts src/services/RuntimeConfigStore.test.ts",
+    "total": 23,
+    "passed": 21,
+    "failed": 2
+  },
+  "failedContracts": [
+    "renamed and assigned resource getter aliases were omitted while a shadowed same-name parameter was falsely accepted",
+    "same-owner evidence copied under a constant-dead branch was accepted after the real guard was removed"
+  ],
+  "expectedRepair": "Resolve trusted getter binding identity through lexical aliases and require reachable, role-bearing AST evidence rather than matching identifier text."
+}

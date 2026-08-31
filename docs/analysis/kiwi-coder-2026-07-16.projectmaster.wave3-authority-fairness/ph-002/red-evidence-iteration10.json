@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "kiwi-tdd-red-evidence/v1",
+  "requirementId": "REL-BGSTAB-010",
+  "phaseId": "PH-002",
+  "taskId": "T-PH002-01",
+  "iteration": 10,
+  "supersedes": "red-evidence-iteration9.json",
+  "stage": "red",
+  "capturedAt": "2026-07-17T01:10:35.1975263+09:00",
+  "productionCodeChanged": false,
+  "commands": [
+    {
+      "id": "server-focused-red",
+      "cwd": "server",
+      "value": "npx tsx --test src/services/TerminalResourcePolicyCanary.test.ts src/ws/WsRouterSendPriority.test.ts",
+      "expectedExitCode": 1,
+      "actualExitCode": 1,
+      "result": { "total": 13, "passed": 5, "failed": 8, "skipped": 0, "cancelled": 0, "todo": 0, "durationMs": 925.5885 }
+    },
+    {
+      "id": "frontend-focused-red",
+      "cwd": "frontend",
+      "value": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+      "expectedExitCode": 1,
+      "actualExitCode": 1,
+      "result": { "total": 30, "passed": 29, "failed": 1, "skipped": 0, "cancelled": 0, "todo": 0, "durationMs": 923.8857 }
+    },
+    { "id": "server-typecheck", "cwd": "server", "value": "npx tsc --noEmit", "expectedExitCode": 0, "actualExitCode": 0 },
+    { "id": "frontend-typecheck", "cwd": "frontend", "value": "npm run typecheck", "expectedExitCode": 0, "actualExitCode": 0 },
+    { "id": "diff-check", "cwd": ".", "value": "git diff --check", "expectedExitCode": 0, "actualExitCode": 0 }
+  ],
+  "inputs": [
+    { "path": "server/src/services/TerminalResourcePolicyCanary.test.ts", "sha256": "71b9ba7f9d579bcecceaa91017d70ad4eb76e3fca121ad3dbbfc39da427cdc56" },
+    { "path": "server/src/ws/WsRouterSendPriority.test.ts", "sha256": "844e38031c7a07f9c046e59e1304e820a620f8c54da3c6297bc6e4b174f43142" },
+    { "path": "frontend/tests/unit/terminalOutputScheduler.test.ts", "sha256": "ece53112705f26c07ba1ceead3ccd59f099549d89e9dc6aa869f42df78cebac5" }
+  ],
+  "productionBaseline": {
+    "source": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.json#evidence.sourceHashes",
+    "sourceManifestSha256": "2dfec602f8e22db0569e5ff67f75bceada37d1959af38ecdb52441ebca7b3b57",
+    "terminalResourcePolicyCanaryModule": "absent in both PH-001 baseline and RED",
+    "hashes": {
+      "server/src/services/RuntimeConfigStore.ts": "5635550b477d73050155bb44f3335829d8328db2543b76f12a10d6c5d6abed6b",
+      "server/src/services/SessionManager.ts": "23e2bbbe27eae82452a7e9ccb3ea076ca517496aff10695129e2c473ac09133c",
+      "server/src/ws/WsRouter.ts": "99d5a8036526f9dea87c6b1066b3d490cffa4356bb8fd8ef4ac410571528ecbf",
+      "server/src/ws/wsSendPolicy.ts": "a446b71de79e3fa50254f05abf32009385e584bf84cdd50f2eff22cc753ac838",
+      "frontend/src/utils/terminalOutputScheduler.ts": "75716d66fa60885eb90d602c6473fdcd2ceb4d34d30aae113c3ccf04f6452a76"
+    },
+    "allHashesMatch": true
+  },
+  "reviewFindingClosures": {
+    "missingHeadlessExactLedger": "The second-adapter missing-headless rejection proves exact +1 total/sequence, generation 0, exact policy/profile identity, exact field allowlist, payload-free decision fields and deep immutability of snapshot, entries, entry and target.",
+    "leaseMetadataNonExposure": "The lease object and JSON serialization have an exact string-key allowlist, explicitly exclude issuanceSequence and targetEpoch, while authority-local immutable metadata exposes both only through getLeaseMetadata.",
+    "priorIteration9Findings": "All invalid contracts use their own contractId; missing adapter owns a separate rejected ledger event; rollback invalidates both used and pre-issued spare leases by target epoch and permits only a newer post-rollback lease."
+  },
+  "exactRootFailureCounts": { "server": 8, "frontend": 1 },
+  "redVerdict": "EXPECTED_CONCRETE_FAILURES_CONFIRMED"
+}

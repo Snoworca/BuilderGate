@@ -1,0 +1,26 @@
+{
+  "taskId": "T-PH003-01",
+  "requirementId": "PERF-BGSTAB-008",
+  "revision": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+  "workingTreeDirty": true,
+  "command": "npm run build; if ($LASTEXITCODE -eq 0) { node --test dist/benchmarks/benchmarkStatistics.test.js }",
+  "cwd": "server",
+  "exitCode": 1,
+  "buildExitCode": 0,
+  "tests": {
+    "passed": 0,
+    "failed": 3,
+    "expectedFailureSignatures": [
+      "PERF-BGSTAB-008 AC-3 contract not implemented",
+      "PERF-BGSTAB-008 AC-5 contract not implemented",
+      "PERF-BGSTAB-008 AC-7 contract not implemented"
+    ],
+    "matchedFailureSignatures": [
+      "PERF-BGSTAB-008 AC-3 contract not implemented",
+      "PERF-BGSTAB-008 AC-5 contract not implemented",
+      "PERF-BGSTAB-008 AC-7 contract not implemented"
+    ],
+    "failureCause": "ERR_MODULE_NOT_FOUND: server/dist/benchmarks/benchmarkStatistics.js"
+  },
+  "capturedAt": "2026-07-15T14:18:00.000Z"
+}

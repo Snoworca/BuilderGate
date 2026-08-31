@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "1.0",
+  "analyst": "/root/wave3_feas_policy",
+  "included": 7,
+  "excludedStableParent": "REL-BGSTAB-007",
+  "statusConflicts": [],
+  "stabilityBlockers": [],
+  "stabilityWarnings": [],
+  "currentEvidence": "신규 7개 Requirement는 planned/evolving이고 아직 verification evidence가 없으므로 feasibility 결과와 무관하게 stable 승격 대상이 아니다.",
+  "recommendedMutation": "none"
+}

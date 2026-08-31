@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "terminal-resource-policy-differential/v2",
+  "requirementId": "OBS-BGSTAB-005",
+  "fixtureId": "observer-disabled-vs-observe-actual-consumer-corpus",
+  "runtimeProjection": {
+    "disabledSha256": "7d740ada140eac71f51d42de98bc74a71fe38ef6cb3cc464e4587bf4764c342e",
+    "observedSha256": "7d740ada140eac71f51d42de98bc74a71fe38ef6cb3cc464e4587bf4764c342e",
+    "byteForByteEqual": true
+  },
+  "actualConsumers": {
+    "disabledSha256": "2fe5453825d00a0a86ba633e0aceef72419170eb855d3a72dee09a0fa05c5287",
+    "observedSha256": "2fe5453825d00a0a86ba633e0aceef72419170eb855d3a72dee09a0fa05c5287",
+    "byteForByteEqual": true,
+    "dimensions": {
+      "server.headless-output-queue": true,
+      "server.ws-send-policy": true,
+      "browser.websocket-backpressure": true,
+      "browser.output-scheduler": true,
+      "browser.hidden-output": true,
+      "browser.visible-output-recovery": true,
+      "browser.snapshot-storage": true,
+      "browser.runtime-residency": true
+    },
+    "harnessIds": [
+      "server.headless-output-queue",
+      "server.ws-send-policy",
+      "browser.websocket-backpressure",
+      "browser.output-scheduler",
+      "browser.hidden-output",
+      "browser.visible-output-recovery",
+      "browser.snapshot-storage",
+      "browser.runtime-residency"
+    ],
+    "coverage": {
+      "admission": true,
+      "cap": true,
+      "drop": true,
+      "reconnect": true,
+      "recovery": true,
+      "bytes": true,
+      "order": true,
+      "generation": true
+    }
+  },
+  "candidate": {
+    "selected": true,
+    "status": "unavailable",
+    "reason": "candidate-policy-not-registered",
+    "appliedPolicyId": "legacy-effective/v1",
+    "legacyPolicyId": "legacy-effective/v1"
+  },
+  "evidenceOwnership": {
+    "owner": "RuntimeConfigStore",
+    "kind": "consumer-input-projection",
+    "runtimeApplicationClaimed": false
+  },
+  "telemetry": {
+    "getterReadOnly": true,
+    "disabledCount": 0,
+    "observedCount": 34,
+    "payloadFree": true
+  }
+}

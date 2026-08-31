@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "ph-001-green-evidence-correction/v1",
+  "requirementId": "OBS-BGSTAB-005",
+  "phaseId": "PH-001",
+  "correctionType": "historical-evidence-reconciliation",
+  "rawGreenEvidence": {
+    "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/green-evidence.json",
+    "sha256": "4c77265d5c26f6db94033e40109d0782d92290d37b10aa5d69e9031c74c5c725",
+    "staleNestedSummary": {
+      "sourceCount": 34,
+      "sourceSetSha256": "e43f57a2bfb7b86f39fc2fa7d6b1d725a5f05b8e6068628541ce2462381b9a46",
+      "evidenceRoles": {
+        "object-option-flow": 38,
+        "reserved-copy": 2,
+        "control-guard": 21,
+        "call-input": 5,
+        "derived-control": 5
+      }
+    }
+  },
+  "historicalAuthoritativeManifest": {
+    "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.json",
+    "sha256": "1d6dcff51115ed5760cf6a9f30a169060d052d46feaf465ec1d205d79f5bd155",
+    "sourceCount": 34,
+    "sourceSetSha256": "84d05c72ed8ca2ba8045c0a66d4f167f471c51cce473b0c84d8294d54dcdc4b3",
+    "exactConsumerTuples": 80,
+    "evidenceRoles": {
+      "object-option-flow": 47,
+      "reserved-copy": 2,
+      "control-guard": 20,
+      "call-input": 6,
+      "derived-control": 5
+    }
+  },
+  "historicalAuthoritativeReport": {
+    "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/report.md",
+    "sha256": "bdb2df484b184d29121c71427329be20d79314e07eb6d57d38e278101f0a2f60"
+  },
+  "currentManifestContext": {
+    "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.current.json",
+    "sourceValidation": "not-claimed-by-historical-reconciliation"
+  },
+  "reconciliation": {
+    "historicalAuthority": "sealed-historical-manifest-and-report",
+    "retrospectiveExecution": "not-performed",
+    "currentSourceValidation": "not-claimed"
+  }
+}

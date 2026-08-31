@@ -1,0 +1,514 @@
+{
+  "failure_modes": [
+    {
+      "mode": "복구 구조가 실제 원인이 아닌데 전체 복구 계층을 교체한다",
+      "trigger_conditions": [
+        "runtime 재현과 계층별 데이터 비교 없이 교체를 시작한다",
+        "서버 보존 상태와 브라우저 렌더링 상태 중 어느 쪽에서 잘림이 발생하는지 확인하지 않는다"
+      ],
+      "severity": "critical",
+      "likelihood": "med",
+      "detection": "refresh 직전 서버 상태, 전송 데이터, refresh 후 수신 상태, 최종 terminal 전체 상태를 같은 세션 식별자로 비교한다.",
+      "mitigation": "먼저 재현·관측 PR을 만들고 원인 계층이 확인되기 전에는 기존 snapshot/replay/local-cache 제거를 금지한다."
+    },
+    {
+      "mode": "snapshot과 delta의 경계에서 데이터가 유실된다",
+      "trigger_conditions": [
+        "snapshot 기준점과 이후 delta 시작점이 원자적으로 연결되지 않는다",
+        "refresh 또는 재접속 중 생성된 출력의 소유 구간이 불명확하다",
+        "retention으로 필요한 delta가 이미 제거된다"
+      ],
+      "severity": "critical",
+      "likelihood": "med",
+      "detection": "단조 증가하는 위치 식별자를 기준으로 snapshot 끝과 첫 delta 사이의 gap을 자동 검증하고 전체 scrollback을 비교한다.",
+      "mitigation": "명시적인 checkpoint 위치, 재개 위치, gap 검출 및 full-resync 경로를 프로토콜 계약으로 정의한다."
+    },
+    {
+      "mode": "snapshot과 delta가 중복 적용된다",
+      "trigger_conditions": [
+        "재접속 재시도에서 동일 delta가 다시 전달된다",
+        "snapshot에 포함된 출력이 delta 큐에도 남아 있다",
+        "클라이언트 적용 확인 전에 연결이 교체된다"
+      ],
+      "severity": "high",
+      "likelihood": "med",
+      "detection": "동일 위치 식별자의 중복 적용과 refresh 전후 전체 상태의 반복 구간을 검사한다.",
+      "mitigation": "delta 적용을 멱등화하고 snapshot 포함 범위를 명시하며 중복 위치를 폐기하거나 full-resync한다."
+    },
+    {
+      "mode": "snapshot과 delta의 순서가 뒤바뀌어 terminal 상태가 손상된다",
+      "trigger_conditions": [
+        "WAN 지연 또는 재접속 경쟁으로 bootstrap 완료 전에 live delta가 적용된다",
+        "여러 전송 경로가 하나의 순서 규칙을 공유하지 않는다"
+      ],
+      "severity": "critical",
+      "likelihood": "med",
+      "detection": "수신 순서를 교란하는 테스트에서 최종 전체 terminal 상태와 기준 상태를 비교하고 순서 위반을 기록한다.",
+      "mitigation": "bootstrap 단계와 live 단계 사이에 명시적 전환 장벽을 두고 순서 위반 시 부분 복구 대신 full-resync한다."
+    },
+    {
+      "mode": "authoritative model의 보존 한도로 오래된 scrollback이 잘린다",
+      "trigger_conditions": [
+        "bounded retention을 적용하면서 full scrollback의 범위를 정의하지 않는다",
+        "checkpoint보다 오래된 상태를 서버와 클라이언트 모두 제거한다"
+      ],
+      "severity": "high",
+      "likelihood": "high",
+      "detection": "보존 한도를 초과하는 장기 세션에서 refresh 전후 전체 scrollback 길이와 최초 보존 위치를 검증한다.",
+      "mitigation": "full scrollback 약속의 정확한 범위와 retention 정책을 먼저 결정하고, 양립하지 않으면 계약 또는 저장 계층을 명시적으로 변경한다."
+    },
+    {
+      "mode": "full scrollback 보존으로 서버 메모리가 무제한 증가한다",
+      "trigger_conditions": [
+        "authoritative model에 세션 전체 출력을 무기한 유지한다",
+        "동시 세션과 multi-client 수가 증가한다",
+        "보존 정책 없이 local cache 책임까지 서버로 이동한다"
+      ],
+      "severity": "critical",
+      "likelihood": "med",
+      "detection": "장기 세션과 다수 세션에서 세션별·전체 메모리 증가율, 보존량, 회수 여부를 측정한다.",
+      "mitigation": "명시적 메모리 예산, bounded retention, checkpoint 또는 별도 지속 계층을 설계하고 한도 도달 동작을 관측 가능하게 만든다."
+    },
+    {
+      "mode": "느린 WAN client가 출력 생산자나 다른 client를 지연시킨다",
+      "trigger_conditions": [
+        "모든 client가 하나의 전송 큐나 확인 흐름을 공유한다",
+        "refresh 시 큰 상태를 전송하는 동안 live 출력도 같은 경로에 누적된다",
+        "slow-client별 buffer 한도와 분리 정책이 없다"
+      ],
+      "severity": "critical",
+      "likelihood": "med",
+      "detection": "빠른 client와 느린 client를 동시에 연결해 출력 지연, 큐 크기, 누락 및 세션 처리량을 각각 측정한다.",
+      "mitigation": "client별 전송 큐와 backpressure 정책을 분리하고, 한도 초과 client는 명시적으로 resync 또는 연결 해제하되 다른 client와 runtime을 막지 않게 한다."
+    },
+    {
+      "mode": "multi-client resize 충돌로 authoritative terminal 상태가 비결정적으로 변한다",
+      "trigger_conditions": [
+        "여러 browser view가 서로 다른 크기를 동시에 주장한다",
+        "resize 권한과 우선순위가 정의되지 않는다",
+        "refresh한 client가 기존 client의 terminal 크기를 덮어쓴다"
+      ],
+      "severity": "high",
+      "likelihood": "med",
+      "detection": "서로 다른 viewport의 복수 client가 resize와 refresh를 교차 수행하는 테스트에서 서버 상태와 각 client 상태를 비교한다.",
+      "mitigation": "resize 소유자, 우선순위, 충돌 처리 및 비소유 client의 표시 정책을 명시적인 계약으로 정의한다."
+    },
+    {
+      "mode": "교체 과정에서 기존 protocol 계약이 깨진다",
+      "trigger_conditions": [
+        "snapshot/replay 메시지를 제거하거나 의미를 변경한다",
+        "신·구 client가 동시에 접속할 수 있다",
+        "FR-BGSTAB-004/014/017/018 또는 REL-BGSTAB-003/004와의 대응을 확인하지 않는다"
+      ],
+      "severity": "critical",
+      "likelihood": "med",
+      "detection": "관련 Requirement ID별 계약 테스트와 신·구 client 호환성 테스트를 실행한다.",
+      "mitigation": "버전 협상 또는 additive protocol을 사용하고 구 경로 제거는 모든 호환성·canary gate 통과 후 별도 단계로 수행한다."
+    },
+    {
+      "mode": "local cache 제거가 offline 또는 server-restart 복구 능력을 낮춘다",
+      "trigger_conditions": [
+        "server authoritative model이 서버 재시작 후에도 유지된다고 검증하지 않는다",
+        "browser가 서버에 연결할 수 없는 상황의 기존 복구 경로를 함께 제거한다",
+        "model/view 전환과 cache 제거를 한 번에 배포한다"
+      ],
+      "severity": "high",
+      "likelihood": "med",
+      "detection": "offline, 연결 단절, 서버 재시작 후 재접속 시나리오에서 기존 방식과 복구 가능 범위를 비교한다.",
+      "mitigation": "model/view 전환과 cache 제거를 분리하고, 대체 지속성 및 복구 증거가 확보될 때까지 cache를 유지한다."
+    },
+    {
+      "mode": "big-bang cutover가 실패해도 안전하게 되돌릴 수 없다",
+      "trigger_conditions": [
+        "기존 경로를 새 경로 검증 전에 삭제한다",
+        "protocol과 상태 형식이 비가역적으로 바뀐다",
+        "배포 중 생성된 상태를 구 경로가 읽을 수 없다"
+      ],
+      "severity": "critical",
+      "likelihood": "med",
+      "detection": "실제 배포 전환과 역전환을 연속 수행하고 양쪽 경로에서 동일 세션을 복구하는 rollback drill을 실행한다.",
+      "mitigation": "기능 플래그, additive state, canary 및 일정 기간의 구 경로 보존으로 단계적 전환한다."
+    },
+    {
+      "mode": "shadow 기간에 두 authority가 서로 다른 상태를 만든다",
+      "trigger_conditions": [
+        "기존 snapshot/cache와 새 server model이 각각 쓰기 권한을 가진다",
+        "비교 결과 불일치가 자동 차단 조건이 아니다",
+        "어느 쪽이 승자인지 정하지 않는다"
+      ],
+      "severity": "high",
+      "likelihood": "med",
+      "detection": "동일 입력에 대한 두 모델의 전체 상태, 위치 및 retention 결과를 지속적으로 비교하고 divergence를 집계한다.",
+      "mitigation": "shadow는 단일 write authority와 read-only 비교자로 제한하고 promotion 기준과 불일치 처리 규칙을 사전에 정의한다."
+    },
+    {
+      "mode": "viewport-only 테스트가 scrollback 손실을 놓친다",
+      "trigger_conditions": [
+        "refresh 직후 보이는 화면만 비교한다",
+        "보이지 않는 이전 scrollback과 retention 경계를 검증하지 않는다",
+        "장기 세션, 재접속, 느린 client를 제외한다"
+      ],
+      "severity": "high",
+      "likelihood": "high",
+      "detection": "화면뿐 아니라 전체 보존 범위의 내용, 순서, 길이 및 경계 위치를 자동 비교한다.",
+      "mitigation": "재현 케이스, 성공 케이스, retention 경계, 장기 scrollback, WAN 재접속, multi-client를 포함한 회귀 행렬을 만든다."
+    },
+    {
+      "mode": "refresh 때 full state 전송량이 커져 오히려 복구 지연과 buffer 압력이 증가한다",
+      "trigger_conditions": [
+        "긴 scrollback을 매 refresh마다 전량 전송한다",
+        "WAN 연결과 다수 client를 고려하지 않는다",
+        "bootstrap 데이터와 live 출력이 같은 buffer 예산을 경쟁한다"
+      ],
+      "severity": "high",
+      "likelihood": "med",
+      "detection": "보존량별 refresh payload, 복구 완료 시간, live 출력 지연 및 client별 buffer 최대치를 측정한다.",
+      "mitigation": "checkpoint, 범위 재개, client별 buffer와 명시적 resync 정책을 사용하고 성능 예산을 promotion gate로 둔다."
+    }
+  ],
+  "anti_patterns_detected": [
+    "재현과 원인 격리보다 목표 아키텍처를 먼저 확정하는 solution-first rewrite",
+    "Electron/daemon의 전제를 browser refresh, WebSocket/WAN, multi-client 환경에 그대로 이식하는 context-blind transplant",
+    "snapshot/replay/local-cache와 protocol을 한 번에 제거하는 big-bang migration",
+    "shadow 검증 중 두 구현에 쓰기 권한을 주는 dual-authority",
+    "disposable browser view와 durable state 보존을 같은 문제로 간주하는 책임 혼합",
+    "bounded retention과 full scrollback을 정의 없이 동시에 약속하는 모순된 계약",
+    "server authoritative라는 명칭만으로 완전성과 지속성을 가정하는 authority-by-label",
+    "보이는 viewport만 통과하면 복구가 정확하다고 판단하는 viewport-only validation",
+    "model/view 전환과 독립적인 recovery path 제거를 하나의 변경으로 결합하는 coupled deprecation",
+    "rollback 절차를 코드 경로 보존이 아니라 단순 배포 되돌리기로만 취급하는 nominal rollback"
+  ],
+  "alternative_designs": [
+    {
+      "name": "Full cutover",
+      "summary": "기존 snapshot/replay/local-cache 경로를 제거하고 server authoritative model과 disposable browser view로 일괄 교체한다.",
+      "trade_offs": {
+        "benefits": [
+          "최종 구조가 단순하고 중간 호환 계층이 적다",
+          "중복 구현 유지 기간이 짧다"
+        ],
+        "costs": [
+          "원인 오판, protocol break, recovery 회귀의 blast radius가 가장 크다",
+          "실패 시 상태 형식과 client 호환성 때문에 rollback이 어려울 수 있다",
+          "WAN, multi-client, retention 문제를 동시에 해결해야 한다"
+        ],
+        "rollback": "구 경로와 구 protocol을 배포 기간 동안 완전히 보존하고 실제 역전환 drill이 통과한 경우에만 가능하다."
+      }
+    },
+    {
+      "name": "Shadow authority then promotion",
+      "summary": "기존 경로를 write authority로 유지하면서 새 server model을 read-only shadow로 구축해 동일 세션 결과를 비교한 뒤 승격한다.",
+      "trade_offs": {
+        "benefits": [
+          "실제 세션에서 전체 상태 divergence를 관측할 수 있다",
+          "사용자 영향 없이 retention과 성능 특성을 측정할 수 있다",
+          "promotion 전 원인 가정과 모델 완전성을 검증할 수 있다"
+        ],
+        "costs": [
+          "두 구현을 일정 기간 유지해야 한다",
+          "shadow까지 write authority가 되면 dual-authority drift가 발생한다",
+          "비교 관측과 불일치 분류에 추가 일정이 필요하다"
+        ],
+        "rollback": "promotion 전에는 shadow를 끄면 되고, promotion 후에는 기능 플래그로 기존 read path로 복귀하되 양쪽 상태 호환성을 유지한다."
+      }
+    },
+    {
+      "name": "Model-backed refresh canary",
+      "summary": "새 model을 전체 terminal 수명주기보다 refresh 복구 경로에만 제한적으로 적용하고 일부 세션 또는 client에서 canary한다.",
+      "trade_offs": {
+        "benefits": [
+          "보고된 refresh 문제에 직접 초점을 맞춘다",
+          "blast radius와 rollback 비용이 full cutover보다 낮다",
+          "기존 runtime 및 cache 복구 경로를 유지한 채 효과를 측정할 수 있다"
+        ],
+        "costs": [
+          "일시적으로 두 refresh 경로를 유지해야 한다",
+          "canary 라우팅과 비교 지표가 필요하다",
+          "문제가 refresh 외 수명주기에 있으면 근본 해결이 아닐 수 있다"
+        ],
+        "rollback": "세션 또는 client 단위 플래그를 끄고 기존 snapshot/replay 경로로 즉시 복귀한다."
+      }
+    },
+    {
+      "name": "Bounded checkpoint plus delta hybrid",
+      "summary": "서버가 bounded checkpoint와 위치가 지정된 delta를 보존하고 client는 checkpoint 이후만 재생한다.",
+      "trade_offs": {
+        "benefits": [
+          "서버 메모리와 refresh 전송량에 상한을 둘 수 있다",
+          "full-state 매번 전송보다 WAN 비용을 줄일 수 있다",
+          "gap 검출과 full-resync 경로를 명시할 수 있다"
+        ],
+        "costs": [
+          "checkpoint와 delta 경계가 새로운 핵심 정확성 위험이 된다",
+          "보존 한도 밖의 full scrollback을 별도 계층 없이 제공할 수 없다",
+          "중복, 유실, 순서 테스트가 필요하다"
+        ],
+        "rollback": "기존 snapshot/replay를 유지하거나 checkpoint 기능을 끄고 검증된 전체 복구 경로로 복귀한다."
+      }
+    },
+    {
+      "name": "Confirmed-bug-only fix",
+      "summary": "먼저 runtime 재현과 계층별 관측으로 잘림 원인을 확인하고 확인된 결함만 최소 수정한다.",
+      "trade_offs": {
+        "benefits": [
+          "불필요한 아키텍처 교체를 피한다",
+          "일정과 회귀 범위가 가장 작을 가능성이 있다",
+          "원인이 복구 구조가 아닐 때 가장 안전하다"
+        ],
+        "costs": [
+          "기존 구조의 장기 복잡성을 그대로 남길 수 있다",
+          "문제가 구조적이면 후속 재설계가 필요하다",
+          "재현 확보가 일정의 선행 블로커가 된다"
+        ],
+        "rollback": "국소 수정과 회귀 테스트를 독립 PR로 유지해 단순 revert한다."
+      }
+    },
+    {
+      "name": "Model/view migration separated from cache removal",
+      "summary": "server model과 disposable view 전환을 먼저 수행하고, offline 및 server-restart 복구가 대체되었음을 검증한 뒤 local cache 제거를 별도 단계로 진행한다.",
+      "trade_offs": {
+        "benefits": [
+          "refresh 정확성과 recovery 내구성의 위험을 분리한다",
+          "cache 제거로 인한 회귀를 독립적으로 판별할 수 있다",
+          "각 단계의 rollback이 단순해진다"
+        ],
+        "costs": [
+          "중간 상태를 유지하는 기간과 전체 일정이 늘어난다",
+          "일시적으로 server model과 local cache의 책임 경계를 관리해야 한다"
+        ],
+        "rollback": "model/view 단계와 cache 제거 단계를 각각 독립 플래그와 PR로 되돌린다."
+      }
+    }
+  ],
+  "decision_gates": [
+    {
+      "gate": "G1 재현 및 원인 계층화",
+      "pass_criteria": [
+        "refresh 잘림이 반복 가능한 시나리오로 재현된다",
+        "서버 보존, 전송, client 적용, 렌더링 중 손실 발생 계층을 구분할 증거가 있다"
+      ],
+      "if_failed": "파괴적 교체를 중단하고 관측과 재현 작업만 진행한다."
+    },
+    {
+      "gate": "G2 요구사항 계약 정합성",
+      "pass_criteria": [
+        "FR-BGSTAB-004/014/017/018과 REL-BGSTAB-003/004에 변경 동작을 매핑한다",
+        "full scrollback, bounded retention, offline, server-restart 복구의 의미와 우선순위가 명시된다"
+      ],
+      "if_failed": "구현 선택을 보류하고 충돌하는 계약을 먼저 해소한다."
+    },
+    {
+      "gate": "G3 상태 완전성",
+      "pass_criteria": [
+        "refresh 전후 전체 보존 범위의 내용, 순서, 길이가 동일하다",
+        "viewport 밖 scrollback과 retention 경계가 포함된다"
+      ],
+      "if_failed": "authoritative model promotion을 금지한다."
+    },
+    {
+      "gate": "G4 snapshot-delta 경계 안전성",
+      "pass_criteria": [
+        "gap, duplicate, reorder를 자동 검출한다",
+        "재접속 경쟁과 bootstrap 중 live 출력에서도 결정적 결과를 낸다",
+        "복구 불가능한 경계에서는 명시적 full-resync가 작동한다"
+      ],
+      "if_failed": "checkpoint/delta 또는 model-backed refresh 배포를 금지한다."
+    },
+    {
+      "gate": "G5 자원 및 retention",
+      "pass_criteria": [
+        "장기·다수 세션에서 서버 메모리 상한과 회수 동작을 충족한다",
+        "retention 한도 도달 시 사용자에게 제공되는 scrollback 범위가 계약과 일치한다"
+      ],
+      "if_failed": "full-authority 보존 정책을 재설계하거나 별도 지속 계층을 유지한다."
+    },
+    {
+      "gate": "G6 WAN 및 backpressure",
+      "pass_criteria": [
+        "느린 client가 빠른 client와 runtime 출력을 지연시키지 않는다",
+        "큰 refresh payload와 live 출력이 함께 발생해도 client별 buffer 한도를 지킨다"
+      ],
+      "if_failed": "client별 큐와 resync 정책이 마련될 때까지 WAN promotion을 금지한다."
+    },
+    {
+      "gate": "G7 multi-client resize",
+      "pass_criteria": [
+        "resize 소유권과 충돌 우선순위가 명시되어 있다",
+        "복수 client의 교차 refresh와 resize 결과가 결정적이다"
+      ],
+      "if_failed": "multi-client 대상 cutover를 금지한다."
+    },
+    {
+      "gate": "G8 protocol 호환성",
+      "pass_criteria": [
+        "신·구 client 조합의 계약 테스트가 통과한다",
+        "fallback 또는 version mismatch가 명시적이고 관측 가능하다"
+      ],
+      "if_failed": "기존 메시지 제거와 protocol 의미 변경을 금지한다."
+    },
+    {
+      "gate": "G9 recovery 동등성",
+      "pass_criteria": [
+        "offline 및 server-restart 후 복구 범위가 local cache 제거 전보다 낮아지지 않는다",
+        "낮아지는 경우 요구사항 변경과 사용자 승인이 명시되어 있다"
+      ],
+      "if_failed": "local cache를 유지하고 제거 작업을 별도 보류한다."
+    },
+    {
+      "gate": "G10 canary와 rollback",
+      "pass_criteria": [
+        "세션 또는 client 단위 canary가 가능하다",
+        "실제 역전환 drill이 데이터 손실 없이 통과한다",
+        "promotion 중지 기준이 수치 또는 불변식으로 정의된다"
+      ],
+      "if_failed": "full cutover를 금지한다."
+    }
+  ],
+  "cost_schedule_risks": [
+    {
+      "risk": "runtime 재현 부재",
+      "impact": "원인 조사 일정이 예측 불가능하며 잘못된 구조 교체로 재작업할 수 있다.",
+      "control": "관측·재현을 첫 독립 작업으로 제한하고 성공 기준을 증거 확보로 둔다."
+    },
+    {
+      "risk": "server model 범위 확대",
+      "impact": "refresh 수정이 runtime 수명주기, retention, memory, protocol까지 확장될 수 있다.",
+      "control": "model-backed refresh canary로 최초 범위를 제한하고 후속 책임은 별도 단계로 분리한다."
+    },
+    {
+      "risk": "WAN과 multi-client 검증 행렬",
+      "impact": "연결 속도, 재접속, client 수, resize 조합 때문에 테스트 비용이 빠르게 증가한다.",
+      "control": "위험 기반 최소 행렬을 먼저 정의하고 각 gate의 필수 조합을 자동화한다."
+    },
+    {
+      "risk": "shadow 시스템 유지 비용",
+      "impact": "비교 관측과 두 구현 유지로 개발 및 운영 복잡성이 일시적으로 증가한다.",
+      "control": "shadow 종료 조건, promotion 기한, 단일 write authority 원칙을 사전에 고정한다."
+    },
+    {
+      "risk": "retention 정책 결정 지연",
+      "impact": "full scrollback과 bounded retention의 충돌이 해결되지 않으면 구현과 성능 예산이 확정되지 않는다.",
+      "control": "코딩 전에 G2 계약 gate에서 보존 범위와 자원 예산을 결정한다."
+    },
+    {
+      "risk": "protocol 호환 기간",
+      "impact": "additive protocol과 구 client 지원이 일정과 테스트 범위를 늘린다.",
+      "control": "호환 종료 조건을 정의하고 protocol 변경을 상태 모델 구현과 별도 PR로 나눈다."
+    },
+    {
+      "risk": "현실적인 장기 세션 검증 비용",
+      "impact": "짧은 테스트로는 cap truncation, memory growth, replay 지연이 드러나지 않는다.",
+      "control": "합성 장기 scrollback과 다중 세션 부하를 자동 생성해 반복 가능한 검증으로 만든다."
+    },
+    {
+      "risk": "cache 제거를 같은 일정에 포함",
+      "impact": "offline 및 server-restart 복구 회귀가 refresh 개선과 뒤섞여 원인 판별과 rollback이 어려워진다.",
+      "control": "cache 제거를 별도 milestone과 별도 promotion gate로 이동한다."
+    }
+  ],
+  "github_work_breakdown_principles": [
+    "첫 issue와 PR은 재현, 계층별 관측, 전체 scrollback 비교 도구만 포함한다.",
+    "모든 구현 issue와 PR은 관련 FR-BGSTAB-004/014/017/018 또는 REL-BGSTAB-003/004를 명시한다.",
+    "회귀 테스트를 구현보다 먼저 추가하고 refresh 전후 전체 보존 범위를 비교한다.",
+    "server model, refresh routing, retention, backpressure, resize, protocol, cache 제거를 독립적인 reversible PR로 분리한다.",
+    "새 model은 먼저 read-only shadow로 도입하고 기존 경로만 write authority로 유지한다.",
+    "shadow comparator와 divergence 지표를 promotion 구현과 분리하지 않는다.",
+    "model-backed refresh는 세션 또는 client 단위 기능 플래그와 canary로 배포한다.",
+    "local cache 제거 PR은 offline 및 server-restart recovery gate 통과 후에만 시작한다.",
+    "각 PR에 명시적인 rollback 절차와 이전 상태 형식의 호환 여부를 기록한다.",
+    "viewport 테스트 외에 장기 scrollback, retention 경계, reconnect, WAN slow-client, multi-client resize를 각각 독립 테스트 작업으로 둔다.",
+    "기존 protocol 제거는 additive protocol의 호환성 증거와 canary 완료 후 마지막 cleanup PR로 수행한다.",
+    "한 PR에서 authority promotion과 기존 경로 삭제를 동시에 수행하지 않는다."
+  ],
+  "findings": [
+    {
+      "id": "C1",
+      "claim": "현재 사실만으로 복구 구조가 refresh 잘림의 원인이라고 확정할 수 없다.",
+      "rationale": "보고된 현상은 있으나 runtime 재현과 계층별 손실 증거가 아직 없다.",
+      "confidence": "high"
+    },
+    {
+      "id": "C2",
+      "claim": "Orca식 모델을 직접 이식하는 것은 환경 차이 때문에 별도 검증이 필요한 설계 변경이다.",
+      "rationale": "BuilderGate에는 browser refresh, WebSocket/WAN, multi-client 조건이 있고 참조 환경은 Electron/daemon이다.",
+      "confidence": "high"
+    },
+    {
+      "id": "C3",
+      "claim": "server authoritative라는 속성만으로 full state 보존이 보장되지는 않는다.",
+      "rationale": "보존 한도, 서버 수명주기, snapshot-delta 경계가 불명확하면 authoritative model도 상태를 잃을 수 있다.",
+      "confidence": "high"
+    },
+    {
+      "id": "C4",
+      "claim": "bounded retention과 무제한으로 해석되는 full scrollback 약속은 추가 정책 없이 양립하지 않는다.",
+      "rationale": "한쪽은 보존 상한을 요구하고 다른 쪽은 오래된 상태까지의 복구를 요구할 수 있다.",
+      "confidence": "high"
+    },
+    {
+      "id": "C5",
+      "claim": "snapshot과 delta의 전환 경계는 새 구조의 가장 중요한 정확성 gate 중 하나다.",
+      "rationale": "refresh와 재접속 중 경계가 어긋나면 유실, 중복 또는 순서 역전이 곧바로 terminal 손상으로 이어진다.",
+      "confidence": "high"
+    },
+    {
+      "id": "C6",
+      "claim": "full state 보존과 WAN refresh 성능 사이에는 서버 메모리, 전송량 및 backpressure의 직접적인 trade-off가 있다.",
+      "rationale": "더 많은 상태를 서버에 유지하고 전송할수록 장기 세션과 느린 client의 자원 비용이 커진다.",
+      "confidence": "high"
+    },
+    {
+      "id": "C7",
+      "claim": "disposable browser view는 multi-client resize 충돌을 스스로 해결하지 않는다.",
+      "rationale": "여러 view가 하나의 terminal 상태에 서로 다른 크기를 요구할 때 별도의 소유권과 우선순위 계약이 필요하다.",
+      "confidence": "high"
+    },
+    {
+      "id": "C8",
+      "claim": "local cache 제거는 model/view 전환과 분리해야 하는 독립적인 recovery 변경이다.",
+      "rationale": "cache는 refresh 외에도 offline 및 server-restart 복구에 기여할 수 있으므로 동시에 제거하면 회귀 원인과 rollback 단위가 섞인다.",
+      "confidence": "high"
+    },
+    {
+      "id": "C9",
+      "claim": "shadow authority 후 canary promotion이 full cutover보다 진단성과 rollback 가능성이 높다.",
+      "rationale": "기존 write authority를 유지한 채 실제 세션의 상태 divergence를 확인하고 제한된 범위부터 전환할 수 있다.",
+      "confidence": "high"
+    },
+    {
+      "id": "C10",
+      "claim": "shadow 설계도 단일 write authority를 지키지 않으면 새로운 drift 위험을 만든다.",
+      "rationale": "기존 cache/snapshot과 새 model이 동시에 상태를 결정하면 어느 결과가 정본인지 불명확해진다.",
+      "confidence": "high"
+    },
+    {
+      "id": "C11",
+      "claim": "viewport-only 성공은 보고된 scrollback 잘림의 충분한 회귀 증거가 아니다.",
+      "rationale": "현재 화면이 같아도 viewport 밖 데이터나 retention 경계가 이미 손실되었을 수 있다.",
+      "confidence": "high"
+    },
+    {
+      "id": "C12",
+      "claim": "권장되는 최초 결정은 아키텍처 선택이 아니라 재현 및 원인 계층화 gate의 통과 여부다.",
+      "rationale": "그 증거가 있어야 confirmed-bug-only fix, model-backed canary 또는 더 큰 교체 중 적절한 범위를 선택할 수 있다.",
+      "confidence": "high"
+    }
+  ],
+  "unknowns": [
+    "잘림을 안정적으로 재현하는 출력량, 세션 길이, refresh 시점 및 client 조건",
+    "손실이 서버 보존, protocol 전송, client 적용, 렌더링 중 어느 계층에서 시작되는지",
+    "관련 Requirement ID가 정의하는 full scrollback과 refresh 복구의 정확한 범위",
+    "bounded retention의 현재 또는 허용 가능한 상한",
+    "server authoritative model이 서버 재시작을 넘어 지속되어야 하는지",
+    "local cache가 현재 제공하는 offline 및 server-restart 복구 범위",
+    "현재 snapshot과 delta의 기준 위치, 순서, 재시도 및 중복 제거 계약",
+    "동시에 지원해야 하는 client protocol 버전과 호환 기간",
+    "세션별 및 전체 서버 메모리 예산",
+    "허용 가능한 refresh payload와 복구 완료 시간",
+    "slow-client buffer 한도와 한도 초과 시 요구되는 동작",
+    "multi-client resize의 현재 소유권 또는 우선순위 규칙",
+    "한 세션에 허용되는 동시 client 수와 실제 WAN 조건",
+    "기존 경로로 실제 rollback할 때 새 상태를 읽을 수 있는지",
+    "viewport 밖 전체 scrollback을 비교하는 자동 테스트가 현재 존재하는지"
+  ]
+}

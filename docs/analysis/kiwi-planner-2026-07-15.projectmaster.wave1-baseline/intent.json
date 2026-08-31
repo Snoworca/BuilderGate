@@ -1,0 +1,279 @@
+{
+  "run_id": "2026-07-15.projectmaster.wave1-baseline",
+  "target": "wave-1",
+  "target_goal": "split drift와 refresh 절단을 재현하고 retained-state authority 계약·benchmark evidence·G1 분기를 확정하며, bug-only이면 선택된 단일 국소 결함과 회귀 evidence까지 종결한다.",
+  "target_intent": "Wave 1은 split runtime·test·SRS drift, refresh retained-state 경계와 terminal 성능 계층 비용을 재현 가능한 raw evidence로 먼저 확정한 뒤 G1에서 confirmed-bug-only 또는 architectural migration 중 하나만 선택하고, 그 결정이 별도로 승인한 최소 범위만 활성화하는 evidence-first baseline wave다.",
+  "source_scope": {
+    "requirements": [
+      "REL-BGSTAB-006",
+      "OBS-BGSTAB-004",
+      "PERF-BGSTAB-008",
+      "MIG-BGSTAB-001"
+    ],
+    "requirement_state": {
+      "status": "planned",
+      "stability": "evolving",
+      "count": 4,
+      "open_in_progress": 0,
+      "open_blocked": 0,
+      "open_implemented": 0,
+      "completed_work": 0
+    },
+    "top_wave_plan": "docs/plans/2026-07-15.projectmaster.orca-terminal-performance.wave-master.plan.md",
+    "srs_index": "docs/spec/00.index.md",
+    "scope_note": "의도 분석은 지정된 4개 Requirement와 상위 wave plan에 한정했다. 다른 analyst 산출물과 다른 Requirement 본문은 읽지 않았다."
+  },
+  "user_priorities": [
+    "분기 결론보다 production-faithful raw evidence를 먼저 확보하고 G1 전에는 bug-only와 migration 어느 쪽도 선결하지 않는다.",
+    "standalone injected test와 실제 WsRouter construction·HTTPS /ws upgrade·browser production URL/socket path를 구분하여 split drift를 입증한다.",
+    "refresh 전후 logical lines, cells와 attributes, cursor/saved cursor, modes, active buffer와 geometry를 비교하여 configured eviction과 unexplained observed loss를 분리한다.",
+    "NO_RENDER, NO_ANALYZER, NO_NETWORK, ONE_CLIENT_SLOW mode를 재현 가능한 manifest·raw samples·percentile와 confidence interval로 남겨 계층별 비용과 slow-client isolation을 측정한다.",
+    "측정값을 product threshold, SLO, retained rows, aggregate memory 또는 checkpoint budget으로 성급하게 승격하지 않는다.",
+    "G1은 exact two-value decision, 완전한 prerequisite evidence provenance와 downstream activation state를 machine-readable하게 남긴다.",
+    "confirmed-bug-only는 별도 식별된 국소 결함 최대 한 건의 회귀 수정으로 wave-1을 닫고, architectural migration만 별도 stable authority contract 이후 후속 wave를 열 수 있다.",
+    "모든 동작 변경은 Requirement ID와 failing regression test를 먼저 확보하고 자동 검증 및 까칠한 reviewer의 No findings 판정까지 완료한다."
+  ],
+  "ambiguities": [
+    {
+      "id": "AMB-01",
+      "severity": "business-decision",
+      "blocks": "architectural-migration activation and the target-level retained-state authority contract outcome",
+      "question": "상위 목표와 wave plan은 retained-state authority 계약의 확정을 완료 gate로 요구하지만, 현재 지정된 4개 Requirement 중 configured retained-state 범위, browser/server authority range, eviction, checkpoint transaction과 compatibility boundary를 정의·승인하는 Requirement는 없다. 어느 exact Requirement ID를 사용할 것인가?",
+      "evidence": [
+        "wave-1 target goal",
+        "top wave plan wave-1 completion gate",
+        "MIG-BGSTAB-001 AC-4"
+      ],
+      "safe_default": "현재 plan은 authority promotion이나 wave-2 activation을 포함하지 않는다. architectural migration이 선택되면 별도 exact Requirement를 생성·승인하고 Stability=stable을 확인하는 사용자/SpecKiwi gate에서 중단한다."
+    },
+    {
+      "id": "AMB-02",
+      "severity": "business-decision",
+      "blocks": "confirmed-bug-only closure",
+      "question": "confirmed-bug-only 분기에서 허용되는 단일 local fix의 별도 issue 또는 Requirement ID와 재현 결함은 아직 지정되지 않았다.",
+      "evidence": [
+        "target goal",
+        "top wave plan execution principle 6",
+        "MIG-BGSTAB-001 AC-3 and AC-6"
+      ],
+      "safe_default": "G1 전에는 fix를 추정하거나 구현하지 않는다. bug-only 선택 후 reproduction evidence에 연결된 별도 ID를 확보하고 최대 한 건만 새 TDD 범위로 활성화한다."
+    },
+    {
+      "id": "AMB-03",
+      "severity": "scope-clarification",
+      "blocks": "automatic split-contract disposition",
+      "question": "G1의 bug-only/migration 선택이 FR-BGSTAB-006/007 split 계약의 restore/supersede disposition까지 자동 결정하는지는 명시되지 않았다.",
+      "evidence": [
+        "REL-BGSTAB-006 Requirement and AC-5",
+        "MIG-BGSTAB-001 AC-2"
+      ],
+      "safe_default": "REL evidence는 disposition=unresolved를 유지하고 FR-BGSTAB-006/007의 Status, Stability와 본문을 변경하지 않는다. 별도 승인 없이 G1 enum을 split 계약 변경으로 해석하지 않는다."
+    },
+    {
+      "id": "AMB-04",
+      "severity": "technical-clarification",
+      "blocks": "final artifact-schema design, not characterization planning",
+      "question": "refresh 비교의 logical-line/cell canonicalization, hash algorithm, attribute normalization, recovery-complete 판정 시점과 legacy 2 MiB 직전·경계·직후 payload 생성 방식이 지정되지 않았다.",
+      "evidence": [
+        "OBS-BGSTAB-004 AC-2, AC-4, AC-5 and AC-6"
+      ],
+      "safe_default": "결정론적 schema와 단위를 명시하고 같은 pre/post canonicalizer를 사용하며, 원인을 확정할 수 없으면 candidate causes와 raw evidence를 보존한다. 숫자를 제품 retention 약속으로 해석하지 않는다."
+    },
+    {
+      "id": "AMB-05",
+      "severity": "technical-clarification",
+      "blocks": "benchmark matrix and summary algorithm finalization",
+      "question": "session/client 값과 mode의 full Cartesian product가 필요한지, confidence level·interval method·resampling count와 percentile estimator를 무엇으로 고정할지는 명시되지 않았다.",
+      "evidence": [
+        "PERF-BGSTAB-008 AC-3, AC-4 and AC-5"
+      ],
+      "safe_default": "각 열거값의 최소 deterministic coverage를 보장하되 full Cartesian product를 임의로 요구하지 않는다. 선택한 통계 방법, confidence level과 계산 seed를 manifest/summary에 기록하고 raw sample로 재계산 가능하게 한다."
+    },
+    {
+      "id": "AMB-06",
+      "severity": "workflow-warning",
+      "blocks": "none for this isolated intent analysis",
+      "question": "상위 wave-master plan에 companion sidecar가 없어 workflow_doctor와 workflow_schema_check가 invalid_artifact를 보고했다.",
+      "evidence": [
+        "SpecKiwi diagnostic SRS-W051 for docs/plans/2026-07-15.projectmaster.orca-terminal-performance.wave-master.plan.md"
+      ],
+      "safe_default": "공식 workflow_resolve_artifact로 확인한 plan body는 의도 근거로만 사용한다. sidecar가 존재한다고 가정하거나 이 analyst가 보정하지 않는다."
+    }
+  ],
+  "non_coding_signals": [
+    "각 evidence family의 machine-readable JSON schema, schema validator와 deterministic fixture/manifest 정의가 필요하다.",
+    "실행 command, case ID, source reference, build/commit ID, effective config, artifact reference와 content digest를 보존하는 provenance 작업이 필요하다.",
+    "관측 raw artifact와 요약 artifact를 분리 보존하고 요약을 raw sample에서 재계산해 일치시키는 evidence 검증 작업이 필요하다.",
+    "GitHub #3, #23과 Requirement evidence를 연결하고 G1 decision record 및 gate-evaluation artifact를 작성하는 비코딩 decision/governance 작업이 필요하다.",
+    "bug-only 선택 시 local-fix issue/Requirement를 별도 등록하고, migration 선택 시 authority-contract Requirement의 exact ID와 stable 승인을 별도 확보해야 한다.",
+    "각 구현 Phase 종료 시 자동 테스트 결과와 reviewer No findings 판정을 evidence로 남겨야 한다.",
+    "SRS Status·Stability·본문 변경이나 trace/evidence mutation은 이 intent analyst 범위가 아니며 SpecKiwi MCP gate를 따라야 한다."
+  ],
+  "performance_signals": [
+    "Benchmark mode IDs는 NO_RENDER, NO_ANALYZER, NO_NETWORK, ONE_CLIENT_SLOW 네 값이며 각 mode가 제거·대체·유지하는 layer와 control comparator를 기록해야 한다.",
+    "Corpus는 session count 1, 8, 32, 54와 client count 1, 2, 8의 각 값을 포함하고 active/hidden view mix를 raw row에 기록해야 한다.",
+    "ONE_CLIENT_SLOW의 1-client case는 pressure baseline일 뿐 isolation evidence가 아니며, isolation에는 2개 이상 client와 최소 한 normal-client comparator가 필요하다.",
+    "Raw sample은 aggregation 전에 sample ID, metric, numeric value, unit, timing phase, trial ID와 manifest reference를 포함해 보존해야 한다.",
+    "Summary는 mode/workload/metric별 p50, p95, p99, confidence interval bounds·level·method·seed와 source sample IDs를 포함해야 한다.",
+    "Server evidence에는 event-loop delay mean/p99, one-core process CPU percent, headless-write cumulative time의 interval delta, unit과 metric source가 필요하다.",
+    "성능 evidence는 baseline characterization이며 product pass/fail threshold, SLO 또는 resource budget을 설정하지 않는다."
+  ],
+  "evidence_signals": [
+    {
+      "req_id": "REL-BGSTAB-006",
+      "required_artifacts": [
+        "srs_expected, production_runtime_observed, test_observed를 독립 식별하는 observation rows",
+        "actual WsRouter construction -> HTTPS /ws upgrade/auth/router dispatch -> browser production URL/socket open 경로 결과",
+        "match|mismatch|not_exercised 판정과 reproducible case/evidence reference를 가진 row-level mismatch matrix"
+      ],
+      "completion_caveat": "direct wss.emit 또는 injected metadata test만으로는 production characterization이 완료되지 않으며 disposition은 unresolved여야 한다."
+    },
+    {
+      "req_id": "OBS-BGSTAB-004",
+      "required_artifacts": [
+        "TC-7004 current viewport-only behavior를 future parity promise와 분리한 result",
+        "24, 1000, 10000 logical lines 및 legacy 2 MiB 직전·경계·직후 deterministic cases",
+        "cache valid|absent|poisoned, view active|hidden, ASCII|CJK-wide|combining|emoji, normal|alternate buffer coverage manifest",
+        "동일 schema의 pre/post state hashes와 equal|changed|missing field verdicts",
+        "effective boundaries, cause signals와 expected_current_eviction|observed_loss 분리 summary"
+      ],
+      "completion_caveat": "원인 단정이 불가능하면 candidate causes와 raw references를 보존해야 한다."
+    },
+    {
+      "req_id": "PERF-BGSTAB-008",
+      "required_artifacts": [
+        "mode-specific runner contract와 execution manifest",
+        "고정 seed workload별 pre-aggregation raw samples",
+        "source sample IDs로 추적되고 재계산 가능한 percentile/confidence-interval summary",
+        "ONE_CLIENT_SLOW normal-client isolation comparison"
+      ],
+      "completion_caveat": "summary 수치를 product contract로 승격하지 않는다."
+    },
+    {
+      "req_id": "MIG-BGSTAB-001",
+      "required_artifacts": [
+        "세 prerequisite Requirement ID, artifact reference, run/build identifier와 digest를 링크한 decision record",
+        "exact two-value decision과 선택 근거 및 반대 분기 기각 evidence",
+        "별도 local-fix ID 또는 stable authority Requirement ID, downstream wave/#4-#22 activation state와 denial reason을 담은 gate evaluation"
+      ],
+      "completion_caveat": "evidence 없는 default, implicit fallback, 제3 decision 값과 prerequisite 미완료 상태의 G1 완료를 허용하지 않는다."
+    }
+  ],
+  "explicit_safety_boundaries": [
+    "G1 전에는 confirmed-bug-only와 architectural migration 중 어느 분기도 선결하거나 암시적 default로 선택하지 않는다.",
+    "REL-BGSTAB-006은 split runtime activation, restore/supersede 선택 또는 FR-BGSTAB-006/007의 Status·Stability·본문 변경을 승인하지 않는다.",
+    "OBS-BGSTAB-004와 PERF-BGSTAB-008의 숫자와 결과는 product retained range, aggregate memory, checkpoint chunk/in-flight budget, recovery/performance SLO 또는 authority-promotion 값이 아니다.",
+    "MIG-BGSTAB-001만으로 server authority promotion, UI visual·label·layout·interaction 변경, local-cache/viewport-replay를 포함한 legacy 삭제를 수행하지 않는다.",
+    "architectural migration 선택 뒤에도 별도 exact retained-state authority Requirement가 Stability=stable이 되기 전에는 wave-2를 활성화하지 않는다.",
+    "confirmed-bug-only 선택 시 별도 ID가 있는 reproduced local fix를 최대 한 건만 수행하고 wave-2~wave-5 및 GitHub #4~#22는 inactive/deferred로 유지한 뒤 중단한다.",
+    "기존 0.5.5 Requirement를 이동·복제·의미 변경하지 않고 회귀 계약으로 참조한다. REL-BGSTAB-005는 이 wave에서 제외한다.",
+    "C:\\Work\\git-none\\orca는 read-only reference이며 별도 승인 없이 수정하지 않는다.",
+    "사용자 승인 없이 기존 UI 시각, iconography, label, layout 또는 interaction style을 변경하지 않는다.",
+    "동작 변경은 failing automated regression test가 먼저이며 각 구현 Phase는 자동 검증과 까칠한 reviewer의 No findings를 통과해야 한다.",
+    "정상 target-scoped SRS mutation은 SpecKiwi MCP만 사용하고 critical gate 또는 G1 결정은 --auto로 우회하지 않는다.",
+    "검증은 https://localhost:2222를 사용하고 node.exe 전체나 TCP 2001/2002 BuilderGate 프로세스를 종료·재시작·방해하지 않는다. 시작과 종료가 필요하면 start.bat --port 2222와 stop.bat만 사용한다."
+  ],
+  "phase_ordering": [
+    {
+      "order": 1,
+      "phase": "Evidence contract and RED tests",
+      "depends_on": [],
+      "intent": "세 characterization track의 schema, deterministic fixtures, manifest/provenance fields, validators와 expected failure cases를 먼저 고정하고 failing tests를 증거로 남긴다.",
+      "gate": "어떤 runtime activation, authority promotion, branch decision 또는 product threshold도 포함하지 않는다."
+    },
+    {
+      "order": 2,
+      "phase": "REL split-drift production-path characterization",
+      "depends_on": [
+        "Evidence contract and RED tests"
+      ],
+      "parallel_group": "prerequisite-evidence",
+      "intent": "SRS, production runtime와 standalone test observations를 독립 수집하고 실제 HTTPS/browser path를 포함한 mismatch evidence를 생성한다.",
+      "gate": "restore/supersede disposition은 unresolved로 유지한다."
+    },
+    {
+      "order": 2,
+      "phase": "OBS refresh retained-state boundary characterization",
+      "depends_on": [
+        "Evidence contract and RED tests"
+      ],
+      "parallel_group": "prerequisite-evidence",
+      "intent": "deterministic browser/server corpus로 pre/post state와 cause signals를 수집하고 expected_current_eviction과 observed_loss를 분리한다.",
+      "gate": "current boundaries를 future retention promise로 해석하지 않는다."
+    },
+    {
+      "order": 2,
+      "phase": "PERF benchmark modes and raw evidence",
+      "depends_on": [
+        "Evidence contract and RED tests"
+      ],
+      "parallel_group": "prerequisite-evidence",
+      "intent": "네 benchmark mode와 workload corpus를 반복 실행하여 manifest, raw samples, percentile/CI summary와 slow-client comparator evidence를 만든다.",
+      "gate": "raw evidence와 summary 재계산 일치 전에는 prerequisite 완료로 간주하지 않는다."
+    },
+    {
+      "order": 3,
+      "phase": "Prerequisite evidence closure",
+      "depends_on": [
+        "REL split-drift production-path characterization",
+        "OBS refresh retained-state boundary characterization",
+        "PERF benchmark modes and raw evidence"
+      ],
+      "intent": "각 Requirement의 AC별 자동 검증, raw/summary provenance, run/build ID와 content digest를 확정하고 reviewer No findings까지 완료한다.",
+      "gate": "세 evidence family 중 하나라도 미완료이면 G1로 진행하지 않는다."
+    },
+    {
+      "order": 4,
+      "phase": "MIG G1 decision and gate evaluation",
+      "depends_on": [
+        "Prerequisite evidence closure"
+      ],
+      "intent": "완료 evidence만 입력으로 exact two-value decision record와 downstream activation/denial artifact를 생성·검증한다.",
+      "gate": "implicit fallback, evidence 없는 default 또는 제3 decision 값을 거절한다."
+    },
+    {
+      "order": 5,
+      "phase": "Conditional branch handoff",
+      "depends_on": [
+        "MIG G1 decision and gate evaluation"
+      ],
+      "intent": "confirmed-bug-only이면 별도 ID의 단일 fix를 새 TDD 범위로 완료하고 STOP한다. architectural migration이면 별도 exact authority Requirement 작성·stable 승인 gate로 넘기고 그 전에는 wave-2를 inactive로 유지한다.",
+      "gate": "현재 4개 Requirement만으로 local fix, authority promotion 또는 후속 migration을 구현하지 않는다."
+    }
+  ],
+  "branch_outcomes": {
+    "confirmed-bug-only": {
+      "allowed": "reproduction evidence에 연결된 별도 issue/Requirement ID의 local fix 최대 1건과 회귀 evidence",
+      "required_end_state": "wave-2~wave-5와 GitHub #4~#22 inactive 또는 deferred, migration roadmap 미시작, wave-1 종료"
+    },
+    "architectural migration": {
+      "allowed": "별도 exact retained-state authority Requirement를 작성·승인하기 위한 handoff",
+      "required_before_wave_2": "configured retained-state range, browser/server authority range, eviction, checkpoint transaction과 compatibility boundary를 정의한 Requirement의 Stability=stable 확인",
+      "not_authorized_here": "server authority promotion, legacy deletion 또는 wave-2 구현"
+    }
+  },
+  "workflow_preflight": {
+    "active_target_confirmed": "wave-1",
+    "counts_by_status": {
+      "planned": 4
+    },
+    "counts_by_stability": {
+      "evolving": 4
+    },
+    "stability_blockers": [],
+    "stability_warnings": [],
+    "new_work_candidates": [
+      "REL-BGSTAB-006",
+      "OBS-BGSTAB-004",
+      "PERF-BGSTAB-008",
+      "MIG-BGSTAB-001"
+    ],
+    "source_diagnostics": [
+      {
+        "code": "SRS-W051",
+        "artifact": "docs/plans/2026-07-15.projectmaster.orca-terminal-performance.wave-master.plan.md",
+        "detail": "companion sidecar missing; workflow doctor/schema check report invalid_artifact"
+      }
+    ]
+  }
+}

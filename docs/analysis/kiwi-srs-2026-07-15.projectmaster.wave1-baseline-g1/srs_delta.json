@@ -1,0 +1,2942 @@
+{
+  "schema_version": "kiwi-srs-delta/1.0",
+  "generated_at": "2026-07-15",
+  "run_id": "2026-07-15.projectmaster.wave1-baseline-g1",
+  "mode": "live",
+  "target": "wave-1",
+  "scope": "BGSTAB",
+  "classification": "new-feature",
+  "spec_paths": [
+    "docs/spec/30.buildergate-stability.srs.md"
+  ],
+  "ssot": "SpecKiwi MCP",
+  "golden_rule": {
+    "compliant": true,
+    "manual_srs_edits": false,
+    "statement": "All docs/spec Requirement and trace-link mutations were performed through SpecKiwi MCP. apply_patch was used only for this non-SRS analysis artifact."
+  },
+  "constraints_observed": {
+    "existing_0_5_5_requirements_modified": false,
+    "existing_0_5_5_requirements_moved": false,
+    "existing_0_5_5_requirements_discarded": false,
+    "existing_0_5_5_requirements_superseded": false,
+    "product_retained_rows_selected": false,
+    "aggregate_memory_selected": false,
+    "checkpoint_chunk_or_inflight_budget_selected": false,
+    "authority_promoted": false,
+    "ui_changed": false,
+    "legacy_deleted": false,
+    "characterization_values_only": [
+      "24 logical lines",
+      "1,000 logical lines",
+      "10,000 logical lines",
+      "legacy 2 MiB serialized-payload boundary"
+    ]
+  },
+  "related_research_docs": [
+    "docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md",
+    "docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md"
+  ],
+  "github_issues": [
+    "https://github.com/Snoworca/BuilderGate/issues/3",
+    "https://github.com/Snoworca/BuilderGate/issues/23"
+  ],
+  "added_ids": [
+    "REL-BGSTAB-006",
+    "OBS-BGSTAB-004",
+    "PERF-BGSTAB-008",
+    "MIG-BGSTAB-001"
+  ],
+  "requirements": [
+    {
+      "order": 1,
+      "id": "REL-BGSTAB-006",
+      "type": "reliability",
+      "status": "planned",
+      "stability": "draft",
+      "github_issue": "https://github.com/Snoworca/BuilderGate/issues/3",
+      "relations": [
+        {
+          "relation": "extends",
+          "reference": "FR-BGSTAB-006"
+        },
+        {
+          "relation": "extends",
+          "reference": "FR-BGSTAB-007"
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "id": "OBS-BGSTAB-004",
+      "type": "observability",
+      "status": "planned",
+      "stability": "draft",
+      "github_issue": "https://github.com/Snoworca/BuilderGate/issues/23",
+      "relations": [
+        {
+          "relation": "depends_on",
+          "reference": "FR-BGSTAB-004"
+        },
+        {
+          "relation": "extends",
+          "reference": "FR-BGSTAB-014"
+        },
+        {
+          "relation": "extends",
+          "reference": "OBS-BGSTAB-002"
+        },
+        {
+          "relation": "extends",
+          "reference": "FR-BGSTAB-018"
+        },
+        {
+          "relation": "extends",
+          "reference": "REL-BGSTAB-004"
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "id": "PERF-BGSTAB-008",
+      "type": "performance",
+      "status": "planned",
+      "stability": "draft",
+      "github_issue": "https://github.com/Snoworca/BuilderGate/issues/3",
+      "relations": [
+        {
+          "relation": "extends",
+          "reference": "OBS-BGSTAB-001"
+        },
+        {
+          "relation": "extends",
+          "reference": "OBS-BGSTAB-002"
+        },
+        {
+          "relation": "depends_on",
+          "reference": "OBS-BGSTAB-003",
+          "justification": "AC-6 consumes OBS-BGSTAB-003 event-loop, one-core CPU, and headless-write metrics."
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "id": "MIG-BGSTAB-001",
+      "type": "migration",
+      "status": "planned",
+      "stability": "draft",
+      "github_issue": "https://github.com/Snoworca/BuilderGate/issues/23",
+      "relations": [
+        {
+          "relation": "depends_on",
+          "reference": "REL-BGSTAB-006"
+        },
+        {
+          "relation": "depends_on",
+          "reference": "OBS-BGSTAB-004"
+        },
+        {
+          "relation": "depends_on",
+          "reference": "PERF-BGSTAB-008"
+        }
+      ]
+    }
+  ],
+  "mcp_calls": [
+    {
+      "seq": 0,
+      "tool": "get_active_target",
+      "args": {},
+      "result_id": null,
+      "result": {
+        "ok": true,
+        "value": {
+          "activeTarget": "wave-1",
+          "summary": {
+            "target": "wave-1",
+            "targetSource": "active-target",
+            "countsByStatus": {},
+            "countsByType": {},
+            "countsByStability": {},
+            "total": 0,
+            "blocked": [],
+            "implementedNotVerified": [],
+            "missingEvidence": [],
+            "draftRequirements": [],
+            "deprecatedRequirements": [],
+            "newWorkCandidates": [],
+            "stabilityBlockers": [],
+            "stabilityWarnings": [],
+            "diagnosticsSummary": {
+              "errors": 0,
+              "warnings": 0,
+              "byCode": {}
+            },
+            "completedWork": [],
+            "completedWorkPage": {
+              "total": 0,
+              "returned": 0,
+              "limit": 20,
+              "hasMore": false,
+              "nextOffset": null
+            },
+            "goal": "split drift와 refresh 절단을 재현하고 retained-state authority 계약·benchmark evidence·G1 분기를 확정하며, bug-only이면 선택된 단일 국소 결함과 회귀 evidence까지 종결한다."
+          },
+          "goal": "split drift와 refresh 절단을 재현하고 retained-state authority 계약·benchmark evidence·G1 분기를 확정하며, bug-only이면 선택된 단일 국소 결함과 회귀 evidence까지 종결한다.",
+          "diagnostics": [],
+          "errors": [],
+          "warnings": [],
+          "diagnosticsSummary": {
+            "errors": 0,
+            "warnings": 0,
+            "byCode": {}
+          }
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      },
+      "phase": "initial active-target verification before canonical Phase 4 call-log initialization"
+    },
+    {
+      "seq": 1,
+      "tool": "get_active_target",
+      "args": {},
+      "result_id": null,
+      "result": {
+        "ok": true,
+        "value": {
+          "activeTarget": "wave-1",
+          "summary": {
+            "target": "wave-1",
+            "targetSource": "active-target",
+            "countsByStatus": {},
+            "countsByType": {},
+            "countsByStability": {},
+            "total": 0,
+            "blocked": [],
+            "implementedNotVerified": [],
+            "missingEvidence": [],
+            "draftRequirements": [],
+            "deprecatedRequirements": [],
+            "newWorkCandidates": [],
+            "stabilityBlockers": [],
+            "stabilityWarnings": [],
+            "diagnosticsSummary": {
+              "errors": 0,
+              "warnings": 0,
+              "byCode": {}
+            },
+            "completedWork": [],
+            "completedWorkPage": {
+              "total": 0,
+              "returned": 0,
+              "limit": 20,
+              "hasMore": false,
+              "nextOffset": null
+            },
+            "goal": "split drift와 refresh 절단을 재현하고 retained-state authority 계약·benchmark evidence·G1 분기를 확정하며, bug-only이면 선택된 단일 국소 결함과 회귀 evidence까지 종결한다."
+          },
+          "goal": "split drift와 refresh 절단을 재현하고 retained-state authority 계약·benchmark evidence·G1 분기를 확정하며, bug-only이면 선택된 단일 국소 결함과 회귀 evidence까지 종결한다.",
+          "diagnostics": [],
+          "errors": [],
+          "warnings": [],
+          "diagnosticsSummary": {
+            "errors": 0,
+            "warnings": 0,
+            "byCode": {}
+          }
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 2,
+      "tool": "add_requirement",
+      "args": {
+        "scope": "BGSTAB",
+        "target": "wave-1",
+        "type": "reliability",
+        "title": "Split runtime·test·SRS drift characterization",
+        "requirement": "시스템은 wave-1에서 split WebSocket 계약의 SRS 기대, 실제 production runtime construction·HTTPS upgrade·browser URL 연결 동작, 실행되는 자동화 test 동작을 서로 독립된 관측으로 수집하고 그 차이를 machine-readable mismatch evidence로 기록해야 한다. 이 characterization은 split 계약의 restore 또는 supersede를 미리 선택하거나 runtime split activation을 승인하지 않는다.",
+        "acceptanceCriteria": [
+          "Characterization artifact는 각 관측을 `srs_expected`, `production_runtime_observed`, `test_observed` 중 하나로 식별하고, Git commit 또는 build 식별자, effective `realtime.wsTransportMode`, case ID, source reference, 실행 명령과 observed result를 machine-readable field로 기록한다.",
+          "Production-runtime characterization은 `server/src/index.ts`의 실제 `WsRouter` construction에서 시작해 HTTPS `/ws` upgrade, 인증과 router dispatch를 통과하고, browser production URL construction과 socket open 경로에서 생성된 URL을 사용한 결과를 포함한다.",
+          "직접 `wss.emit('connection', ...)`를 호출하거나 transport metadata를 주입하는 standalone test는 별도 test observation으로 기록할 수 있으나, AC-2의 실제 production construction·HTTPS upgrade·browser URL 경로 결과 없이 characterization 완료 evidence가 될 수 없다.",
+          "Mismatch evidence는 비교 대상 SRS Requirement 또는 test case, production observation, `match|mismatch|not_exercised` 판정, 재현 case ID와 evidence reference를 행 단위로 기록하여 runtime·test·SRS 간 차이를 기계적으로 집계할 수 있게 한다.",
+          "Characterization 결과와 Change/decision artifact는 restore와 supersede 중 하나를 선택하지 않고 disposition을 unresolved로 남기며, FR-BGSTAB-006/007의 Status·Stability·본문을 변경하거나 split runtime을 활성화하지 않는다."
+        ],
+        "status": "planned",
+        "stability": "draft",
+        "priority": "high",
+        "tags": [
+          "buildergate",
+          "stability",
+          "wave-1",
+          "split-drift",
+          "characterization",
+          "github-issue-3",
+          "feasibility:high"
+        ],
+        "rationale": "FR-BGSTAB-006/007에는 split handshake와 payload routing 계약이 있으나 현재 production construction·upgrade·browser path와 injected standalone test의 관측이 일치하는지 입증하는 하나의 evidence contract가 없다. 기존 0.5.5 Requirement는 그대로 두고 실제 경로와 test/SRS 기대의 차이만 additive하게 측정해야 G1이 후속 처분을 증거로 결정할 수 있다.",
+        "risk": "medium",
+        "verificationMethod": "Actual HTTPS upgrade와 production browser URL/socket path를 포함한 자동화 characterization run을 실행하고, raw machine-readable observation/mismatch artifact를 schema validation과 회귀 test로 검증한다.",
+        "githubIssue": "https://github.com/Snoworca/BuilderGate/issues/3",
+        "relatedDocs": [
+          "docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md",
+          "docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md"
+        ],
+        "trace": [
+          {
+            "type": "Code",
+            "reference": "server/src/index.ts:1468-1495",
+            "relation": "verifies",
+            "trace_intent": "verifies",
+            "notes": "trace_intent=verifies; production WsRouter construction and HTTPS upgrade dispatcher"
+          },
+          {
+            "type": "Code",
+            "reference": "server/src/ws/WsRouter.ts:86-91,165-220",
+            "relation": "verifies",
+            "trace_intent": "verifies",
+            "notes": "trace_intent=verifies; current constructor and upgrade behavior to characterize"
+          },
+          {
+            "type": "Code",
+            "reference": "frontend/src/contexts/WebSocketContext.tsx:113-119,141-215,340-388",
+            "relation": "verifies",
+            "trace_intent": "verifies",
+            "notes": "trace_intent=verifies; production browser URL and socket connection path"
+          },
+          {
+            "type": "Code",
+            "reference": "server/src/ws/WsRouterSplitHandshake.test.ts:50-121",
+            "relation": "verifies",
+            "trace_intent": "verifies",
+            "notes": "trace_intent=verifies; standalone injected connection test path"
+          },
+          {
+            "type": "Code",
+            "reference": "server/src/test-runner.ts:13607-13682,14514-14595",
+            "relation": "addition_site",
+            "trace_intent": "addition_site",
+            "notes": "trace_intent=addition_site; production-path characterization harness extension seam"
+          }
+        ]
+      },
+      "result_id": "REL-BGSTAB-006",
+      "result": {
+        "ok": true,
+        "value": {
+          "requirementId": "REL-BGSTAB-006",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "written": true,
+          "targetSource": "explicit",
+          "record": {
+            "id": "REL-BGSTAB-006",
+            "title": "Split runtime·test·SRS drift characterization",
+            "type": "reliability",
+            "target": "wave-1",
+            "status": "planned",
+            "scope": "BGSTAB",
+            "filePath": "docs/spec/30.buildergate-stability.srs.md",
+            "headingLine": 0,
+            "metadata": {
+              "Type": "reliability",
+              "Target": "wave-1",
+              "Status": "planned",
+              "Priority": "high",
+              "Tags": "buildergate, stability, wave-1, split-drift, characterization, github-issue-3, feasibility:high",
+              "Risk": "medium",
+              "Stability": "draft",
+              "Verification Method": "Actual HTTPS upgrade와 production browser URL/socket path를 포함한 자동화 characterization run을 실행하고, raw machine-readable observation/mismatch artifact를 schema validation과 회귀 test로 검증한다.",
+              "GitHub Issue": "https://github.com/Snoworca/BuilderGate/issues/3",
+              "Related Docs": "docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md, docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md"
+            },
+            "acceptanceCriteria": [
+              {
+                "id": "AC-1",
+                "text": "Characterization artifact는 각 관측을 `srs_expected`, `production_runtime_observed`, `test_observed` 중 하나로 식별하고, Git commit 또는 build 식별자, effective `realtime.wsTransportMode`, case ID, source reference, 실행 명령과 observed result를 machine-readable field로 기록한다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-2",
+                "text": "Production-runtime characterization은 `server/src/index.ts`의 실제 `WsRouter` construction에서 시작해 HTTPS `/ws` upgrade, 인증과 router dispatch를 통과하고, browser production URL construction과 socket open 경로에서 생성된 URL을 사용한 결과를 포함한다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-3",
+                "text": "직접 `wss.emit('connection', ...)`를 호출하거나 transport metadata를 주입하는 standalone test는 별도 test observation으로 기록할 수 있으나, AC-2의 실제 production construction·HTTPS upgrade·browser URL 경로 결과 없이 characterization 완료 evidence가 될 수 없다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-4",
+                "text": "Mismatch evidence는 비교 대상 SRS Requirement 또는 test case, production observation, `match|mismatch|not_exercised` 판정, 재현 case ID와 evidence reference를 행 단위로 기록하여 runtime·test·SRS 간 차이를 기계적으로 집계할 수 있게 한다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-5",
+                "text": "Characterization 결과와 Change/decision artifact는 restore와 supersede 중 하나를 선택하지 않고 disposition을 unresolved로 남기며, FR-BGSTAB-006/007의 Status·Stability·본문을 변경하거나 split runtime을 활성화하지 않는다.",
+                "checked": false,
+                "line": 0
+              }
+            ],
+            "verificationEvidence": [],
+            "traceLinks": [
+              {
+                "type": "Code",
+                "reference": "server/src/index.ts:1468-1495",
+                "relation": "verifies",
+                "notes": "trace_intent=verifies; production WsRouter construction and HTTPS upgrade dispatcher"
+              },
+              {
+                "type": "Code",
+                "reference": "server/src/ws/WsRouter.ts:86-91,165-220",
+                "relation": "verifies",
+                "notes": "trace_intent=verifies; current constructor and upgrade behavior to characterize"
+              },
+              {
+                "type": "Code",
+                "reference": "frontend/src/contexts/WebSocketContext.tsx:113-119,141-215,340-388",
+                "relation": "verifies",
+                "notes": "trace_intent=verifies; production browser URL and socket connection path"
+              },
+              {
+                "type": "Code",
+                "reference": "server/src/ws/WsRouterSplitHandshake.test.ts:50-121",
+                "relation": "verifies",
+                "notes": "trace_intent=verifies; standalone injected connection test path"
+              },
+              {
+                "type": "Code",
+                "reference": "server/src/test-runner.ts:13607-13682,14514-14595",
+                "relation": "addition_site",
+                "notes": "trace_intent=addition_site; production-path characterization harness extension seam"
+              }
+            ],
+            "changeNotes": [
+              {
+                "date": "2026-07-15",
+                "change": "Created",
+                "reason": "add-requirement"
+              }
+            ],
+            "tags": [
+              "buildergate",
+              "stability",
+              "wave-1",
+              "split-drift",
+              "characterization",
+              "github-issue-3",
+              "feasibility:high"
+            ],
+            "requirement": "시스템은 wave-1에서 split WebSocket 계약의 SRS 기대, 실제 production runtime construction·HTTPS upgrade·browser URL 연결 동작, 실행되는 자동화 test 동작을 서로 독립된 관측으로 수집하고 그 차이를 machine-readable mismatch evidence로 기록해야 한다. 이 characterization은 split 계약의 restore 또는 supersede를 미리 선택하거나 runtime split activation을 승인하지 않는다.",
+            "priority": "high",
+            "risk": "medium",
+            "stability": "draft",
+            "rationale": "FR-BGSTAB-006/007에는 split handshake와 payload routing 계약이 있으나 현재 production construction·upgrade·browser path와 injected standalone test의 관측이 일치하는지 입증하는 하나의 evidence contract가 없다. 기존 0.5.5 Requirement는 그대로 두고 실제 경로와 test/SRS 기대의 차이만 additive하게 측정해야 G1이 후속 처분을 증거로 결정할 수 있다."
+          }
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "patch": {
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "operations": 1,
+          "dryRun": false,
+          "preview": [
+            "insertLines"
+          ]
+        },
+        "mutation": {
+          "kind": "add_requirement",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 60,
+              "line": 2498,
+              "lines": [
+                "### REL-BGSTAB-006 — Split runtime·test·SRS drift characterization",
+                "",
+                "| Field | Value |",
+                "| --- | --- |",
+                "| Type | reliability |",
+                "| Target | wave-1 |",
+                "| Status | planned |",
+                "| Priority | high |",
+                "| Tags | buildergate, stability, wave-1, split-drift, characterization, github-issue-3, feasibility:high |",
+                "| Risk | medium |",
+                "| Stability | draft |",
+                "| Verification Method | Actual HTTPS upgrade와 production browser URL/socket path를 포함한 자동화 characterization run을 실행하고, raw machine-readable observation/mismatch artifact를 schema validation과 회귀 test로 검증한다. |",
+                "| GitHub Issue | https://github.com/Snoworca/BuilderGate/issues/3 |",
+                "| Related Docs | docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md, docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md |",
+                "",
+                "#### Requirement",
+                "",
+                "시스템은 wave-1에서 split WebSocket 계약의 SRS 기대, 실제 production runtime construction·HTTPS upgrade·browser URL 연결 동작, 실행되는 자동화 test 동작을 서로 독립된 관측으로 수집하고 그 차이를 machine-readable mismatch evidence로 기록해야 한다. 이 characterization은 split 계약의 restore 또는 supersede를 미리 선택하거나 runtime split activation을 승인하지 않는다.",
+                "",
+                "#### Rationale",
+                "",
+                "FR-BGSTAB-006/007에는 split handshake와 payload routing 계약이 있으나 현재 production construction·upgrade·browser path와 injected standalone test의 관측이 일치하는지 입증하는 하나의 evidence contract가 없다. 기존 0.5.5 Requirement는 그대로 두고 실제 경로와 test/SRS 기대의 차이만 additive하게 측정해야 G1이 후속 처분을 증거로 결정할 수 있다.",
+                "",
+                "#### Acceptance Criteria",
+                "",
+                "- [ ] AC-1: Characterization artifact는 각 관측을 `srs_expected`, `production_runtime_observed`, `test_observed` 중 하나로 식별하고, Git commit 또는 build 식별자, effective `realtime.wsTransportMode`, case ID, source reference, 실행 명령과 observed result를 machine-readable field로 기록한다.",
+                "- [ ] AC-2: Production-runtime characterization은 `server/src/index.ts`의 실제 `WsRouter` construction에서 시작해 HTTPS `/ws` upgrade, 인증과 router dispatch를 통과하고, browser production URL construction과 socket open 경로에서 생성된 URL을 사용한 결과를 포함한다.",
+                "- [ ] AC-3: 직접 `wss.emit('connection', ...)`를 호출하거나 transport metadata를 주입하는 standalone test는 별도 test observation으로 기록할 수 있으나, AC-2의 실제 production construction·HTTPS upgrade·browser URL 경로 결과 없이 characterization 완료 evidence가 될 수 없다.",
+                "- [ ] AC-4: Mismatch evidence는 비교 대상 SRS Requirement 또는 test case, production observation, `match|mismatch|not_exercised` 판정, 재현 case ID와 evidence reference를 행 단위로 기록하여 runtime·test·SRS 간 차이를 기계적으로 집계할 수 있게 한다.",
+                "- [ ] AC-5: Characterization 결과와 Change/decision artifact는 restore와 supersede 중 하나를 선택하지 않고 disposition을 unresolved로 남기며, FR-BGSTAB-006/007의 Status·Stability·본문을 변경하거나 split runtime을 활성화하지 않는다.",
+                "",
+                "#### Verification Evidence",
+                "",
+                "| Evidence ID | Type | Reference | Covers | Notes |",
+                "| --- | --- | --- | --- | --- |",
+                "",
+                "#### Trace Links",
+                "",
+                "| Type | Reference | Relation | Notes |",
+                "| --- | --- | --- | --- |",
+                "| Code | server/src/index.ts:1468-1495 | verifies | trace_intent=verifies; production WsRouter construction and HTTPS upgrade dispatcher |",
+                "| Code | server/src/ws/WsRouter.ts:86-91,165-220 | verifies | trace_intent=verifies; current constructor and upgrade behavior to characterize |",
+                "| Code | frontend/src/contexts/WebSocketContext.tsx:113-119,141-215,340-388 | verifies | trace_intent=verifies; production browser URL and socket connection path |",
+                "| Code | server/src/ws/WsRouterSplitHandshake.test.ts:50-121 | verifies | trace_intent=verifies; standalone injected connection test path |",
+                "| Code | server/src/test-runner.ts:13607-13682,14514-14595 | addition_site | trace_intent=addition_site; production-path characterization harness extension seam |",
+                "",
+                "#### Research / Analysis",
+                "",
+                "- -",
+                "",
+                "#### Implementation Notes",
+                "",
+                "- -",
+                "",
+                "#### Change Notes",
+                "",
+                "| Date | Change | Reason |",
+                "| --- | --- | --- |",
+                "| 2026-07-15 | Created | add-requirement |",
+                ""
+              ],
+              "expectedBefore": "",
+              "expectedAfter": "## 6. Open Questions"
+            }
+          ],
+          "preview": [
+            "### REL-BGSTAB-006 — Split runtime·test·SRS drift characterization",
+            "",
+            "| Field | Value |",
+            "| --- | --- |",
+            "| Type | reliability |",
+            "| Target | wave-1 |",
+            "| Status | planned |",
+            "| Priority | high |",
+            "| Tags | buildergate, stability, wave-1, split-drift, characterization, github-issue-3, feasibility:high |",
+            "| Risk | medium |",
+            "| Stability | draft |",
+            "| Verification Method | Actual HTTPS upgrade와 production browser URL/socket path를 포함한 자동화 characterization run을 실행하고, raw machine-readable observation/mismatch artifact를 schema validation과 회귀 test로 검증한다. |",
+            "| GitHub Issue | https://github.com/Snoworca/BuilderGate/issues/3 |",
+            "| Related Docs | docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md, docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md |",
+            "",
+            "#### Requirement",
+            "",
+            "시스템은 wave-1에서 split WebSocket 계약의 SRS 기대, 실제 production runtime construction·HTTPS upgrade·browser URL 연결 동작, 실행되는 자동화 test 동작을 서로 독립된 관측으로 수집하고 그 차이를 machine-readable mismatch evidence로 기록해야 한다. 이 characterization은 split 계약의 restore 또는 supersede를 미리 선택하거나 runtime split activation을 승인하지 않는다.",
+            "",
+            "#### Rationale",
+            "",
+            "FR-BGSTAB-006/007에는 split handshake와 payload routing 계약이 있으나 현재 production construction·upgrade·browser path와 injected standalone test의 관측이 일치하는지 입증하는 하나의 evidence contract가 없다. 기존 0.5.5 Requirement는 그대로 두고 실제 경로와 test/SRS 기대의 차이만 additive하게 측정해야 G1이 후속 처분을 증거로 결정할 수 있다.",
+            "",
+            "#### Acceptance Criteria",
+            "",
+            "- [ ] AC-1: Characterization artifact는 각 관측을 `srs_expected`, `production_runtime_observed`, `test_observed` 중 하나로 식별하고, Git commit 또는 build 식별자, effective `realtime.wsTransportMode`, case ID, source reference, 실행 명령과 observed result를 machine-readable field로 기록한다.",
+            "- [ ] AC-2: Production-runtime characterization은 `server/src/index.ts`의 실제 `WsRouter` construction에서 시작해 HTTPS `/ws` upgrade, 인증과 router dispatch를 통과하고, browser production URL construction과 socket open 경로에서 생성된 URL을 사용한 결과를 포함한다.",
+            "- [ ] AC-3: 직접 `wss.emit('connection', ...)`를 호출하거나 transport metadata를 주입하는 standalone test는 별도 test observation으로 기록할 수 있으나, AC-2의 실제 production construction·HTTPS upgrade·browser URL 경로 결과 없이 characterization 완료 evidence가 될 수 없다.",
+            "- [ ] AC-4: Mismatch evidence는 비교 대상 SRS Requirement 또는 test case, production observation, `match|mismatch|not_exercised` 판정, 재현 case ID와 evidence reference를 행 단위로 기록하여 runtime·test·SRS 간 차이를 기계적으로 집계할 수 있게 한다.",
+            "- [ ] AC-5: Characterization 결과와 Change/decision artifact는 restore와 supersede 중 하나를 선택하지 않고 disposition을 unresolved로 남기며, FR-BGSTAB-006/007의 Status·Stability·본문을 변경하거나 split runtime을 활성화하지 않는다.",
+            "",
+            "#### Verification Evidence",
+            "",
+            "| Evidence ID | Type | Reference | Covers | Notes |",
+            "| --- | --- | --- | --- | --- |",
+            "",
+            "#### Trace Links",
+            "",
+            "| Type | Reference | Relation | Notes |",
+            "| --- | --- | --- | --- |",
+            "| Code | server/src/index.ts:1468-1495 | verifies | trace_intent=verifies; production WsRouter construction and HTTPS upgrade dispatcher |",
+            "| Code | server/src/ws/WsRouter.ts:86-91,165-220 | verifies | trace_intent=verifies; current constructor and upgrade behavior to characterize |",
+            "| Code | frontend/src/contexts/WebSocketContext.tsx:113-119,141-215,340-388 | verifies | trace_intent=verifies; production browser URL and socket connection path |",
+            "| Code | server/src/ws/WsRouterSplitHandshake.test.ts:50-121 | verifies | trace_intent=verifies; standalone injected connection test path |",
+            "| Code | server/src/test-runner.ts:13607-13682,14514-14595 | addition_site | trace_intent=addition_site; production-path characterization harness extension seam |",
+            "",
+            "#### Research / Analysis",
+            "",
+            "- -",
+            "",
+            "#### Implementation Notes",
+            "",
+            "- -",
+            "",
+            "#### Change Notes",
+            "",
+            "| Date | Change | Reason |",
+            "| --- | --- | --- |",
+            "| 2026-07-15 | Created | add-requirement |",
+            ""
+          ]
+        },
+        "indexSync": {
+          "filePath": "docs/spec/00.index.md",
+          "statusSummaryChanged": false,
+          "typeSummaryChanged": false,
+          "statusCounts": {
+            "planned": 31,
+            "in_progress": 0,
+            "blocked": 0,
+            "implemented": 33,
+            "verified": 0,
+            "discarded": 1
+          },
+          "typeCounts": {
+            "functional": 37,
+            "non_functional": 0,
+            "interface": 5,
+            "data": 0,
+            "security": 4,
+            "performance": 7,
+            "reliability": 8,
+            "observability": 4,
+            "operational": 0,
+            "migration": 0,
+            "constraint": 0
+          },
+          "written": false
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 3,
+      "tool": "add_trace_link",
+      "args": {
+        "id": "REL-BGSTAB-006",
+        "type": "Requirement",
+        "reference": "FR-BGSTAB-006",
+        "relation": "extends",
+        "notes": "Adds production-runtime, test, and SRS drift characterization without changing the 0.5.5 split handshake contract."
+      },
+      "result_id": "REL-BGSTAB-006",
+      "result": {
+        "ok": true,
+        "value": {
+          "id": "REL-BGSTAB-006",
+          "reference": "FR-BGSTAB-006",
+          "written": true
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "mutation": {
+          "kind": "add_trace_link",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 1,
+              "line": 2543,
+              "lines": [
+                "| Requirement | FR-BGSTAB-006 | extends | Adds production-runtime, test, and SRS drift characterization without changing the 0.5.5 split handshake contract. |"
+              ],
+              "expectedBefore": "| Code | server/src/test-runner.ts:13607-13682,14514-14595 | addition_site | trace_intent=addition_site; production-path characterization harness extension seam |",
+              "expectedAfter": ""
+            }
+          ],
+          "preview": [
+            "| Requirement | FR-BGSTAB-006 | extends | Adds production-runtime, test, and SRS drift characterization without changing the 0.5.5 split handshake contract. |"
+          ]
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 4,
+      "tool": "add_trace_link",
+      "args": {
+        "id": "REL-BGSTAB-006",
+        "type": "Requirement",
+        "reference": "FR-BGSTAB-007",
+        "relation": "extends",
+        "notes": "Adds evidence of runtime routing/recovery drift without modifying or superseding the 0.5.5 payload-routing contract."
+      },
+      "result_id": "REL-BGSTAB-006",
+      "result": {
+        "ok": true,
+        "value": {
+          "id": "REL-BGSTAB-006",
+          "reference": "FR-BGSTAB-007",
+          "written": true
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "mutation": {
+          "kind": "add_trace_link",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 1,
+              "line": 2544,
+              "lines": [
+                "| Requirement | FR-BGSTAB-007 | extends | Adds evidence of runtime routing/recovery drift without modifying or superseding the 0.5.5 payload-routing contract. |"
+              ],
+              "expectedBefore": "| Requirement | FR-BGSTAB-006 | extends | Adds production-runtime, test, and SRS drift characterization without changing the 0.5.5 split handshake contract. |",
+              "expectedAfter": ""
+            }
+          ],
+          "preview": [
+            "| Requirement | FR-BGSTAB-007 | extends | Adds evidence of runtime routing/recovery drift without modifying or superseding the 0.5.5 payload-routing contract. |"
+          ]
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 5,
+      "tool": "add_requirement",
+      "args": {
+        "scope": "BGSTAB",
+        "target": "wave-1",
+        "type": "observability",
+        "title": "Refresh retained-state boundary characterization",
+        "requirement": "시스템은 wave-1에서 browser refresh·reconnect·remount 전후의 terminal retained-state를 deterministic하게 비교하고, 현재 viewport-only/local-cache/replay 경로에서 발생하는 eviction·truncation·fallback·replay-tail·remount 경계를 machine-readable evidence로 기록해야 한다. 이 characterization은 현재 configured boundary와 observed loss를 구분하되 향후 제품 retained range 또는 transport budget 값을 약속하지 않는다.",
+        "acceptanceCriteria": [
+          "기존 `TC-7004`는 viewport-only snapshot에서 old marker가 reload 후 부재하고 latest marker가 존재하는 current-behavior characterization으로 별도 실행·기록하며, 그 결과를 target retained-state parity 또는 향후 retention promise로 해석하지 않는다.",
+          "Deterministic corpus는 24, 1,000, 10,000 logical-line case와 legacy 2 MiB serialized-payload boundary의 직전·경계·직후 case를 포함하고, 이 수치들은 현재 동작을 재현하는 characterization seed로만 표시한다.",
+          "Case manifest는 local cache `valid|absent|poisoned`, view `active|hidden`, text `ASCII|CJK-wide|combining|emoji`, terminal buffer `normal|alternate`의 각 값을 적어도 한 deterministic case에 포함하며, 모든 result row에 실행된 축 조합을 기록한다.",
+          "각 case는 refresh 직전과 복구 완료 후의 ordered logical-line hash, cell content·attribute hash, cursor와 saved-cursor state, terminal mode, active buffer, rows·cols geometry를 동일 schema로 기록하고 field별 equal·changed·missing 판정을 산출한다.",
+          "각 result는 effective runtime/config boundary와 함께 snapshot truncation, fallback source/outcome, replay-tail truncation, remount handoff, local-cache decision, visible 또는 hidden overflow/repair 중 관측된 cause signal을 기록하고, 원인을 단정할 수 없으면 candidate cause들을 원시 evidence reference와 함께 보존한다.",
+          "분석기는 현재 effective retention·serialization 경계 밖의 부재를 `expected_current_eviction`으로, refresh 직전 비교 범위 안에 존재하던 line/cell/state가 복구 후 누락·변경되고 expected eviction으로 설명되지 않는 경우를 `observed_loss`로 분리 집계한다.",
+          "본 Requirement의 evidence와 summary는 product retained rows, aggregate memory, checkpoint chunk size, checkpoint in-flight budget, recovery SLO 또는 authority-promotion 값을 설정하지 않는다."
+        ],
+        "status": "planned",
+        "stability": "draft",
+        "priority": "high",
+        "tags": [
+          "buildergate",
+          "stability",
+          "wave-1",
+          "refresh",
+          "retained-state",
+          "boundary-characterization",
+          "github-issue-23",
+          "feasibility:high"
+        ],
+        "rationale": "현재 server와 browser snapshot은 viewport-only이고 oversized snapshot, replay ACK queue, remount handoff와 hidden/visible repair가 서로 다른 절단 경계를 만든다. 기존 0.5.5 Requirement를 변경하지 않은 채 현재 configured eviction과 복구 중 observed loss를 분리하는 evidence가 G1 판단 전에 필요하다. 24/1,000/10,000행과 legacy 2 MiB는 제품 목표가 아니라 재현 corpus다.",
+        "risk": "medium",
+        "verificationMethod": "Deterministic browser/server characterization suite와 TC-7004 current-behavior suite를 분리 실행하고, pre/post retained-state artifact schema, hashes, cause fields와 eviction/loss classification을 자동 검증한다.",
+        "githubIssue": "https://github.com/Snoworca/BuilderGate/issues/23",
+        "relatedDocs": [
+          "docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md",
+          "docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md"
+        ],
+        "trace": [
+          {
+            "type": "Code",
+            "reference": "server/src/utils/headlessTerminal.ts:95-145,156-203",
+            "relation": "verifies",
+            "trace_intent": "verifies",
+            "notes": "trace_intent=verifies; viewport-only serialization and oversized empty truncation behavior"
+          },
+          {
+            "type": "Code",
+            "reference": "server/src/services/SessionManager.ts:100-126,170-202,2482-2604",
+            "relation": "verifies",
+            "trace_intent": "verifies",
+            "notes": "trace_intent=verifies; viewport-only payload scope, replay snapshot, cache, and serialization behavior"
+          },
+          {
+            "type": "Code",
+            "reference": "server/src/ws/WsRouter.ts:947-1005,1358-1408,1817-1865,1923-2035",
+            "relation": "verifies",
+            "trace_intent": "verifies",
+            "notes": "trace_intent=verifies; replay tail, ACK/timeout, snapshot replay, and refresh cause surfaces"
+          },
+          {
+            "type": "Code",
+            "reference": "frontend/src/components/Terminal/TerminalView.tsx:1093-1166,1283-1345,1399-1499",
+            "relation": "verifies",
+            "trace_intent": "verifies",
+            "notes": "trace_intent=verifies; local snapshot restore, replacement, and screen repair behavior"
+          },
+          {
+            "type": "Code",
+            "reference": "frontend/tests/e2e/header-context-menu-regression.spec.ts:439-481",
+            "relation": "verifies",
+            "trace_intent": "verifies",
+            "notes": "trace_intent=verifies; TC-7004 current viewport-only refresh expectation"
+          },
+          {
+            "type": "Code",
+            "reference": "frontend/src/components/Terminal/TerminalContainer.tsx:1323-1584",
+            "relation": "addition_site",
+            "trace_intent": "addition_site",
+            "notes": "trace_intent=addition_site; refresh/remount snapshot and repair handoff characterization seam"
+          }
+        ]
+      },
+      "result_id": "OBS-BGSTAB-004",
+      "result": {
+        "ok": true,
+        "value": {
+          "requirementId": "OBS-BGSTAB-004",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "written": true,
+          "targetSource": "explicit",
+          "record": {
+            "id": "OBS-BGSTAB-004",
+            "title": "Refresh retained-state boundary characterization",
+            "type": "observability",
+            "target": "wave-1",
+            "status": "planned",
+            "scope": "BGSTAB",
+            "filePath": "docs/spec/30.buildergate-stability.srs.md",
+            "headingLine": 0,
+            "metadata": {
+              "Type": "observability",
+              "Target": "wave-1",
+              "Status": "planned",
+              "Priority": "high",
+              "Tags": "buildergate, stability, wave-1, refresh, retained-state, boundary-characterization, github-issue-23, feasibility:high",
+              "Risk": "medium",
+              "Stability": "draft",
+              "Verification Method": "Deterministic browser/server characterization suite와 TC-7004 current-behavior suite를 분리 실행하고, pre/post retained-state artifact schema, hashes, cause fields와 eviction/loss classification을 자동 검증한다.",
+              "GitHub Issue": "https://github.com/Snoworca/BuilderGate/issues/23",
+              "Related Docs": "docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md, docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md"
+            },
+            "acceptanceCriteria": [
+              {
+                "id": "AC-1",
+                "text": "기존 `TC-7004`는 viewport-only snapshot에서 old marker가 reload 후 부재하고 latest marker가 존재하는 current-behavior characterization으로 별도 실행·기록하며, 그 결과를 target retained-state parity 또는 향후 retention promise로 해석하지 않는다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-2",
+                "text": "Deterministic corpus는 24, 1,000, 10,000 logical-line case와 legacy 2 MiB serialized-payload boundary의 직전·경계·직후 case를 포함하고, 이 수치들은 현재 동작을 재현하는 characterization seed로만 표시한다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-3",
+                "text": "Case manifest는 local cache `valid|absent|poisoned`, view `active|hidden`, text `ASCII|CJK-wide|combining|emoji`, terminal buffer `normal|alternate`의 각 값을 적어도 한 deterministic case에 포함하며, 모든 result row에 실행된 축 조합을 기록한다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-4",
+                "text": "각 case는 refresh 직전과 복구 완료 후의 ordered logical-line hash, cell content·attribute hash, cursor와 saved-cursor state, terminal mode, active buffer, rows·cols geometry를 동일 schema로 기록하고 field별 equal·changed·missing 판정을 산출한다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-5",
+                "text": "각 result는 effective runtime/config boundary와 함께 snapshot truncation, fallback source/outcome, replay-tail truncation, remount handoff, local-cache decision, visible 또는 hidden overflow/repair 중 관측된 cause signal을 기록하고, 원인을 단정할 수 없으면 candidate cause들을 원시 evidence reference와 함께 보존한다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-6",
+                "text": "분석기는 현재 effective retention·serialization 경계 밖의 부재를 `expected_current_eviction`으로, refresh 직전 비교 범위 안에 존재하던 line/cell/state가 복구 후 누락·변경되고 expected eviction으로 설명되지 않는 경우를 `observed_loss`로 분리 집계한다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-7",
+                "text": "본 Requirement의 evidence와 summary는 product retained rows, aggregate memory, checkpoint chunk size, checkpoint in-flight budget, recovery SLO 또는 authority-promotion 값을 설정하지 않는다.",
+                "checked": false,
+                "line": 0
+              }
+            ],
+            "verificationEvidence": [],
+            "traceLinks": [
+              {
+                "type": "Code",
+                "reference": "server/src/utils/headlessTerminal.ts:95-145,156-203",
+                "relation": "verifies",
+                "notes": "trace_intent=verifies; viewport-only serialization and oversized empty truncation behavior"
+              },
+              {
+                "type": "Code",
+                "reference": "server/src/services/SessionManager.ts:100-126,170-202,2482-2604",
+                "relation": "verifies",
+                "notes": "trace_intent=verifies; viewport-only payload scope, replay snapshot, cache, and serialization behavior"
+              },
+              {
+                "type": "Code",
+                "reference": "server/src/ws/WsRouter.ts:947-1005,1358-1408,1817-1865,1923-2035",
+                "relation": "verifies",
+                "notes": "trace_intent=verifies; replay tail, ACK/timeout, snapshot replay, and refresh cause surfaces"
+              },
+              {
+                "type": "Code",
+                "reference": "frontend/src/components/Terminal/TerminalView.tsx:1093-1166,1283-1345,1399-1499",
+                "relation": "verifies",
+                "notes": "trace_intent=verifies; local snapshot restore, replacement, and screen repair behavior"
+              },
+              {
+                "type": "Code",
+                "reference": "frontend/tests/e2e/header-context-menu-regression.spec.ts:439-481",
+                "relation": "verifies",
+                "notes": "trace_intent=verifies; TC-7004 current viewport-only refresh expectation"
+              },
+              {
+                "type": "Code",
+                "reference": "frontend/src/components/Terminal/TerminalContainer.tsx:1323-1584",
+                "relation": "addition_site",
+                "notes": "trace_intent=addition_site; refresh/remount snapshot and repair handoff characterization seam"
+              }
+            ],
+            "changeNotes": [
+              {
+                "date": "2026-07-15",
+                "change": "Created",
+                "reason": "add-requirement"
+              }
+            ],
+            "tags": [
+              "buildergate",
+              "stability",
+              "wave-1",
+              "refresh",
+              "retained-state",
+              "boundary-characterization",
+              "github-issue-23",
+              "feasibility:high"
+            ],
+            "requirement": "시스템은 wave-1에서 browser refresh·reconnect·remount 전후의 terminal retained-state를 deterministic하게 비교하고, 현재 viewport-only/local-cache/replay 경로에서 발생하는 eviction·truncation·fallback·replay-tail·remount 경계를 machine-readable evidence로 기록해야 한다. 이 characterization은 현재 configured boundary와 observed loss를 구분하되 향후 제품 retained range 또는 transport budget 값을 약속하지 않는다.",
+            "priority": "high",
+            "risk": "medium",
+            "stability": "draft",
+            "rationale": "현재 server와 browser snapshot은 viewport-only이고 oversized snapshot, replay ACK queue, remount handoff와 hidden/visible repair가 서로 다른 절단 경계를 만든다. 기존 0.5.5 Requirement를 변경하지 않은 채 현재 configured eviction과 복구 중 observed loss를 분리하는 evidence가 G1 판단 전에 필요하다. 24/1,000/10,000행과 legacy 2 MiB는 제품 목표가 아니라 재현 corpus다."
+          }
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "patch": {
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "operations": 1,
+          "dryRun": false,
+          "preview": [
+            "insertLines"
+          ]
+        },
+        "mutation": {
+          "kind": "add_requirement",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 63,
+              "line": 2560,
+              "lines": [
+                "### OBS-BGSTAB-004 — Refresh retained-state boundary characterization",
+                "",
+                "| Field | Value |",
+                "| --- | --- |",
+                "| Type | observability |",
+                "| Target | wave-1 |",
+                "| Status | planned |",
+                "| Priority | high |",
+                "| Tags | buildergate, stability, wave-1, refresh, retained-state, boundary-characterization, github-issue-23, feasibility:high |",
+                "| Risk | medium |",
+                "| Stability | draft |",
+                "| Verification Method | Deterministic browser/server characterization suite와 TC-7004 current-behavior suite를 분리 실행하고, pre/post retained-state artifact schema, hashes, cause fields와 eviction/loss classification을 자동 검증한다. |",
+                "| GitHub Issue | https://github.com/Snoworca/BuilderGate/issues/23 |",
+                "| Related Docs | docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md, docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md |",
+                "",
+                "#### Requirement",
+                "",
+                "시스템은 wave-1에서 browser refresh·reconnect·remount 전후의 terminal retained-state를 deterministic하게 비교하고, 현재 viewport-only/local-cache/replay 경로에서 발생하는 eviction·truncation·fallback·replay-tail·remount 경계를 machine-readable evidence로 기록해야 한다. 이 characterization은 현재 configured boundary와 observed loss를 구분하되 향후 제품 retained range 또는 transport budget 값을 약속하지 않는다.",
+                "",
+                "#### Rationale",
+                "",
+                "현재 server와 browser snapshot은 viewport-only이고 oversized snapshot, replay ACK queue, remount handoff와 hidden/visible repair가 서로 다른 절단 경계를 만든다. 기존 0.5.5 Requirement를 변경하지 않은 채 현재 configured eviction과 복구 중 observed loss를 분리하는 evidence가 G1 판단 전에 필요하다. 24/1,000/10,000행과 legacy 2 MiB는 제품 목표가 아니라 재현 corpus다.",
+                "",
+                "#### Acceptance Criteria",
+                "",
+                "- [ ] AC-1: 기존 `TC-7004`는 viewport-only snapshot에서 old marker가 reload 후 부재하고 latest marker가 존재하는 current-behavior characterization으로 별도 실행·기록하며, 그 결과를 target retained-state parity 또는 향후 retention promise로 해석하지 않는다.",
+                "- [ ] AC-2: Deterministic corpus는 24, 1,000, 10,000 logical-line case와 legacy 2 MiB serialized-payload boundary의 직전·경계·직후 case를 포함하고, 이 수치들은 현재 동작을 재현하는 characterization seed로만 표시한다.",
+                "- [ ] AC-3: Case manifest는 local cache `valid|absent|poisoned`, view `active|hidden`, text `ASCII|CJK-wide|combining|emoji`, terminal buffer `normal|alternate`의 각 값을 적어도 한 deterministic case에 포함하며, 모든 result row에 실행된 축 조합을 기록한다.",
+                "- [ ] AC-4: 각 case는 refresh 직전과 복구 완료 후의 ordered logical-line hash, cell content·attribute hash, cursor와 saved-cursor state, terminal mode, active buffer, rows·cols geometry를 동일 schema로 기록하고 field별 equal·changed·missing 판정을 산출한다.",
+                "- [ ] AC-5: 각 result는 effective runtime/config boundary와 함께 snapshot truncation, fallback source/outcome, replay-tail truncation, remount handoff, local-cache decision, visible 또는 hidden overflow/repair 중 관측된 cause signal을 기록하고, 원인을 단정할 수 없으면 candidate cause들을 원시 evidence reference와 함께 보존한다.",
+                "- [ ] AC-6: 분석기는 현재 effective retention·serialization 경계 밖의 부재를 `expected_current_eviction`으로, refresh 직전 비교 범위 안에 존재하던 line/cell/state가 복구 후 누락·변경되고 expected eviction으로 설명되지 않는 경우를 `observed_loss`로 분리 집계한다.",
+                "- [ ] AC-7: 본 Requirement의 evidence와 summary는 product retained rows, aggregate memory, checkpoint chunk size, checkpoint in-flight budget, recovery SLO 또는 authority-promotion 값을 설정하지 않는다.",
+                "",
+                "#### Verification Evidence",
+                "",
+                "| Evidence ID | Type | Reference | Covers | Notes |",
+                "| --- | --- | --- | --- | --- |",
+                "",
+                "#### Trace Links",
+                "",
+                "| Type | Reference | Relation | Notes |",
+                "| --- | --- | --- | --- |",
+                "| Code | server/src/utils/headlessTerminal.ts:95-145,156-203 | verifies | trace_intent=verifies; viewport-only serialization and oversized empty truncation behavior |",
+                "| Code | server/src/services/SessionManager.ts:100-126,170-202,2482-2604 | verifies | trace_intent=verifies; viewport-only payload scope, replay snapshot, cache, and serialization behavior |",
+                "| Code | server/src/ws/WsRouter.ts:947-1005,1358-1408,1817-1865,1923-2035 | verifies | trace_intent=verifies; replay tail, ACK/timeout, snapshot replay, and refresh cause surfaces |",
+                "| Code | frontend/src/components/Terminal/TerminalView.tsx:1093-1166,1283-1345,1399-1499 | verifies | trace_intent=verifies; local snapshot restore, replacement, and screen repair behavior |",
+                "| Code | frontend/tests/e2e/header-context-menu-regression.spec.ts:439-481 | verifies | trace_intent=verifies; TC-7004 current viewport-only refresh expectation |",
+                "| Code | frontend/src/components/Terminal/TerminalContainer.tsx:1323-1584 | addition_site | trace_intent=addition_site; refresh/remount snapshot and repair handoff characterization seam |",
+                "",
+                "#### Research / Analysis",
+                "",
+                "- -",
+                "",
+                "#### Implementation Notes",
+                "",
+                "- -",
+                "",
+                "#### Change Notes",
+                "",
+                "| Date | Change | Reason |",
+                "| --- | --- | --- |",
+                "| 2026-07-15 | Created | add-requirement |",
+                ""
+              ],
+              "expectedBefore": "",
+              "expectedAfter": "## 6. Open Questions"
+            }
+          ],
+          "preview": [
+            "### OBS-BGSTAB-004 — Refresh retained-state boundary characterization",
+            "",
+            "| Field | Value |",
+            "| --- | --- |",
+            "| Type | observability |",
+            "| Target | wave-1 |",
+            "| Status | planned |",
+            "| Priority | high |",
+            "| Tags | buildergate, stability, wave-1, refresh, retained-state, boundary-characterization, github-issue-23, feasibility:high |",
+            "| Risk | medium |",
+            "| Stability | draft |",
+            "| Verification Method | Deterministic browser/server characterization suite와 TC-7004 current-behavior suite를 분리 실행하고, pre/post retained-state artifact schema, hashes, cause fields와 eviction/loss classification을 자동 검증한다. |",
+            "| GitHub Issue | https://github.com/Snoworca/BuilderGate/issues/23 |",
+            "| Related Docs | docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md, docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md |",
+            "",
+            "#### Requirement",
+            "",
+            "시스템은 wave-1에서 browser refresh·reconnect·remount 전후의 terminal retained-state를 deterministic하게 비교하고, 현재 viewport-only/local-cache/replay 경로에서 발생하는 eviction·truncation·fallback·replay-tail·remount 경계를 machine-readable evidence로 기록해야 한다. 이 characterization은 현재 configured boundary와 observed loss를 구분하되 향후 제품 retained range 또는 transport budget 값을 약속하지 않는다.",
+            "",
+            "#### Rationale",
+            "",
+            "현재 server와 browser snapshot은 viewport-only이고 oversized snapshot, replay ACK queue, remount handoff와 hidden/visible repair가 서로 다른 절단 경계를 만든다. 기존 0.5.5 Requirement를 변경하지 않은 채 현재 configured eviction과 복구 중 observed loss를 분리하는 evidence가 G1 판단 전에 필요하다. 24/1,000/10,000행과 legacy 2 MiB는 제품 목표가 아니라 재현 corpus다.",
+            "",
+            "#### Acceptance Criteria",
+            "",
+            "- [ ] AC-1: 기존 `TC-7004`는 viewport-only snapshot에서 old marker가 reload 후 부재하고 latest marker가 존재하는 current-behavior characterization으로 별도 실행·기록하며, 그 결과를 target retained-state parity 또는 향후 retention promise로 해석하지 않는다.",
+            "- [ ] AC-2: Deterministic corpus는 24, 1,000, 10,000 logical-line case와 legacy 2 MiB serialized-payload boundary의 직전·경계·직후 case를 포함하고, 이 수치들은 현재 동작을 재현하는 characterization seed로만 표시한다.",
+            "- [ ] AC-3: Case manifest는 local cache `valid|absent|poisoned`, view `active|hidden`, text `ASCII|CJK-wide|combining|emoji`, terminal buffer `normal|alternate`의 각 값을 적어도 한 deterministic case에 포함하며, 모든 result row에 실행된 축 조합을 기록한다.",
+            "- [ ] AC-4: 각 case는 refresh 직전과 복구 완료 후의 ordered logical-line hash, cell content·attribute hash, cursor와 saved-cursor state, terminal mode, active buffer, rows·cols geometry를 동일 schema로 기록하고 field별 equal·changed·missing 판정을 산출한다.",
+            "- [ ] AC-5: 각 result는 effective runtime/config boundary와 함께 snapshot truncation, fallback source/outcome, replay-tail truncation, remount handoff, local-cache decision, visible 또는 hidden overflow/repair 중 관측된 cause signal을 기록하고, 원인을 단정할 수 없으면 candidate cause들을 원시 evidence reference와 함께 보존한다.",
+            "- [ ] AC-6: 분석기는 현재 effective retention·serialization 경계 밖의 부재를 `expected_current_eviction`으로, refresh 직전 비교 범위 안에 존재하던 line/cell/state가 복구 후 누락·변경되고 expected eviction으로 설명되지 않는 경우를 `observed_loss`로 분리 집계한다.",
+            "- [ ] AC-7: 본 Requirement의 evidence와 summary는 product retained rows, aggregate memory, checkpoint chunk size, checkpoint in-flight budget, recovery SLO 또는 authority-promotion 값을 설정하지 않는다.",
+            "",
+            "#### Verification Evidence",
+            "",
+            "| Evidence ID | Type | Reference | Covers | Notes |",
+            "| --- | --- | --- | --- | --- |",
+            "",
+            "#### Trace Links",
+            "",
+            "| Type | Reference | Relation | Notes |",
+            "| --- | --- | --- | --- |",
+            "| Code | server/src/utils/headlessTerminal.ts:95-145,156-203 | verifies | trace_intent=verifies; viewport-only serialization and oversized empty truncation behavior |",
+            "| Code | server/src/services/SessionManager.ts:100-126,170-202,2482-2604 | verifies | trace_intent=verifies; viewport-only payload scope, replay snapshot, cache, and serialization behavior |",
+            "| Code | server/src/ws/WsRouter.ts:947-1005,1358-1408,1817-1865,1923-2035 | verifies | trace_intent=verifies; replay tail, ACK/timeout, snapshot replay, and refresh cause surfaces |",
+            "| Code | frontend/src/components/Terminal/TerminalView.tsx:1093-1166,1283-1345,1399-1499 | verifies | trace_intent=verifies; local snapshot restore, replacement, and screen repair behavior |",
+            "| Code | frontend/tests/e2e/header-context-menu-regression.spec.ts:439-481 | verifies | trace_intent=verifies; TC-7004 current viewport-only refresh expectation |",
+            "| Code | frontend/src/components/Terminal/TerminalContainer.tsx:1323-1584 | addition_site | trace_intent=addition_site; refresh/remount snapshot and repair handoff characterization seam |",
+            "",
+            "#### Research / Analysis",
+            "",
+            "- -",
+            "",
+            "#### Implementation Notes",
+            "",
+            "- -",
+            "",
+            "#### Change Notes",
+            "",
+            "| Date | Change | Reason |",
+            "| --- | --- | --- |",
+            "| 2026-07-15 | Created | add-requirement |",
+            ""
+          ]
+        },
+        "indexSync": {
+          "filePath": "docs/spec/00.index.md",
+          "statusSummaryChanged": false,
+          "typeSummaryChanged": false,
+          "statusCounts": {
+            "planned": 32,
+            "in_progress": 0,
+            "blocked": 0,
+            "implemented": 33,
+            "verified": 0,
+            "discarded": 1
+          },
+          "typeCounts": {
+            "functional": 37,
+            "non_functional": 0,
+            "interface": 5,
+            "data": 0,
+            "security": 4,
+            "performance": 7,
+            "reliability": 8,
+            "observability": 5,
+            "operational": 0,
+            "migration": 0,
+            "constraint": 0
+          },
+          "written": false
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 6,
+      "tool": "add_trace_link",
+      "args": {
+        "id": "OBS-BGSTAB-004",
+        "type": "Requirement",
+        "reference": "FR-BGSTAB-004",
+        "relation": "depends_on",
+        "notes": "Uses the existing local snapshot budget/tombstone contract only as a current cache-boundary baseline."
+      },
+      "result_id": "OBS-BGSTAB-004",
+      "result": {
+        "ok": true,
+        "value": {
+          "id": "OBS-BGSTAB-004",
+          "reference": "FR-BGSTAB-004",
+          "written": true
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "mutation": {
+          "kind": "add_trace_link",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 1,
+              "line": 2608,
+              "lines": [
+                "| Requirement | FR-BGSTAB-004 | depends_on | Uses the existing local snapshot budget/tombstone contract only as a current cache-boundary baseline. |"
+              ],
+              "expectedBefore": "| Code | frontend/src/components/Terminal/TerminalContainer.tsx:1323-1584 | addition_site | trace_intent=addition_site; refresh/remount snapshot and repair handoff characterization seam |",
+              "expectedAfter": ""
+            }
+          ],
+          "preview": [
+            "| Requirement | FR-BGSTAB-004 | depends_on | Uses the existing local snapshot budget/tombstone contract only as a current cache-boundary baseline. |"
+          ]
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 7,
+      "tool": "add_trace_link",
+      "args": {
+        "id": "OBS-BGSTAB-004",
+        "type": "Requirement",
+        "reference": "FR-BGSTAB-014",
+        "relation": "extends",
+        "notes": "Adds refresh boundary evidence across active/hidden lifecycle states without changing the existing runtime-resource contract."
+      },
+      "result_id": "OBS-BGSTAB-004",
+      "result": {
+        "ok": true,
+        "value": {
+          "id": "OBS-BGSTAB-004",
+          "reference": "FR-BGSTAB-014",
+          "written": true
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "mutation": {
+          "kind": "add_trace_link",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 1,
+              "line": 2609,
+              "lines": [
+                "| Requirement | FR-BGSTAB-014 | extends | Adds refresh boundary evidence across active/hidden lifecycle states without changing the existing runtime-resource contract. |"
+              ],
+              "expectedBefore": "| Requirement | FR-BGSTAB-004 | depends_on | Uses the existing local snapshot budget/tombstone contract only as a current cache-boundary baseline. |",
+              "expectedAfter": ""
+            }
+          ],
+          "preview": [
+            "| Requirement | FR-BGSTAB-014 | extends | Adds refresh boundary evidence across active/hidden lifecycle states without changing the existing runtime-resource contract. |"
+          ]
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 8,
+      "tool": "add_trace_link",
+      "args": {
+        "id": "OBS-BGSTAB-004",
+        "type": "Requirement",
+        "reference": "OBS-BGSTAB-002",
+        "relation": "extends",
+        "notes": "Adds retained-state hashes and cause-separated boundary evidence to existing empty-fallback diagnostics."
+      },
+      "result_id": "OBS-BGSTAB-004",
+      "result": {
+        "ok": true,
+        "value": {
+          "id": "OBS-BGSTAB-004",
+          "reference": "OBS-BGSTAB-002",
+          "written": true
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "mutation": {
+          "kind": "add_trace_link",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 1,
+              "line": 2610,
+              "lines": [
+                "| Requirement | OBS-BGSTAB-002 | extends | Adds retained-state hashes and cause-separated boundary evidence to existing empty-fallback diagnostics. |"
+              ],
+              "expectedBefore": "| Requirement | FR-BGSTAB-014 | extends | Adds refresh boundary evidence across active/hidden lifecycle states without changing the existing runtime-resource contract. |",
+              "expectedAfter": ""
+            }
+          ],
+          "preview": [
+            "| Requirement | OBS-BGSTAB-002 | extends | Adds retained-state hashes and cause-separated boundary evidence to existing empty-fallback diagnostics. |"
+          ]
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 9,
+      "tool": "add_trace_link",
+      "args": {
+        "id": "OBS-BGSTAB-004",
+        "type": "Requirement",
+        "reference": "FR-BGSTAB-018",
+        "relation": "extends",
+        "notes": "Separates current fallback convergence behavior from retained-state loss characterization without revising the planned contract."
+      },
+      "result_id": "OBS-BGSTAB-004",
+      "result": {
+        "ok": true,
+        "value": {
+          "id": "OBS-BGSTAB-004",
+          "reference": "FR-BGSTAB-018",
+          "written": true
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "mutation": {
+          "kind": "add_trace_link",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 1,
+              "line": 2611,
+              "lines": [
+                "| Requirement | FR-BGSTAB-018 | extends | Separates current fallback convergence behavior from retained-state loss characterization without revising the planned contract. |"
+              ],
+              "expectedBefore": "| Requirement | OBS-BGSTAB-002 | extends | Adds retained-state hashes and cause-separated boundary evidence to existing empty-fallback diagnostics. |",
+              "expectedAfter": ""
+            }
+          ],
+          "preview": [
+            "| Requirement | FR-BGSTAB-018 | extends | Separates current fallback convergence behavior from retained-state loss characterization without revising the planned contract. |"
+          ]
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 10,
+      "tool": "add_trace_link",
+      "args": {
+        "id": "OBS-BGSTAB-004",
+        "type": "Requirement",
+        "reference": "REL-BGSTAB-004",
+        "relation": "extends",
+        "notes": "Adds pre/post retained-state and replay/remount cause evidence while preserving the stable bounded fallback contract."
+      },
+      "result_id": "OBS-BGSTAB-004",
+      "result": {
+        "ok": true,
+        "value": {
+          "id": "OBS-BGSTAB-004",
+          "reference": "REL-BGSTAB-004",
+          "written": true
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "mutation": {
+          "kind": "add_trace_link",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 1,
+              "line": 2612,
+              "lines": [
+                "| Requirement | REL-BGSTAB-004 | extends | Adds pre/post retained-state and replay/remount cause evidence while preserving the stable bounded fallback contract. |"
+              ],
+              "expectedBefore": "| Requirement | FR-BGSTAB-018 | extends | Separates current fallback convergence behavior from retained-state loss characterization without revising the planned contract. |",
+              "expectedAfter": ""
+            }
+          ],
+          "preview": [
+            "| Requirement | REL-BGSTAB-004 | extends | Adds pre/post retained-state and replay/remount cause evidence while preserving the stable bounded fallback contract. |"
+          ]
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 11,
+      "tool": "add_requirement",
+      "args": {
+        "scope": "BGSTAB",
+        "target": "wave-1",
+        "type": "performance",
+        "title": "Benchmark modes and raw evidence contract",
+        "requirement": "시스템은 wave-1 terminal characterization을 위해 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW` benchmark mode와 재현 가능한 execution manifest·raw sample artifact를 제공해야 한다. Evidence는 mode와 workload별 raw observation, p50·p95·p99와 confidence interval을 연결하되 이 Requirement 자체는 product performance threshold, SLO 또는 resource budget을 설정하지 않는다.",
+        "acceptanceCriteria": [
+          "Runner는 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW`를 machine-readable mode ID로 선택할 수 있고, 각 run artifact는 비활성화·대체한 layer, 유지한 layer, control comparator와 mode-specific fixture를 기록한다.",
+          "`NO_RENDER`는 terminal renderer/write 소비를 제외한 upstream 처리를 측정하고, `NO_ANALYZER`는 analyzer 처리를 제외한 동일 ingress workload를 측정하며, `NO_NETWORK`는 network socket 전송을 제외한 in-process 또는 fake-transport delivery를 측정한다. `ONE_CLIENT_SLOW`는 같은 session stream을 받는 한 client의 pressure를 제어하고 client 수가 2 이상인 isolation case에서 적어도 한 normal client와 비교한다.",
+          "Execution manifest는 random seed, payload generator와 payload digest·size/unit, warm-up 횟수 또는 시간, trial 수, trial duration, build/commit identifier, hardware·OS, browser 이름·version, server/frontend config snapshot 또는 digest를 포함한다.",
+          "Workload corpus는 session count `1|8|32|54`와 client count `1|2|8`의 각 값을 포함하고, 각 raw sample은 mode, session/client count, active/hidden view mix, trial ID와 workload manifest reference를 기록한다. `ONE_CLIENT_SLOW`의 1-client case는 pressure baseline으로만 식별하고 isolation 증거로 집계하지 않는다.",
+          "Raw sample은 aggregation 전에 보존되며 sample ID, metric name, numeric value, unit, timing phase와 trial ID를 포함한다. Summary는 mode/workload/metric별 p50, p95, p99와 confidence interval의 lower·upper bound, confidence level, 계산 방법과 계산 seed를 기록하고 원본 sample ID 집합을 참조한다.",
+          "Server-side sample이 event-loop delay, one-core process CPU와 headless-write time을 사용하면 OBS-BGSTAB-003이 노출하는 metric과 unit을 실제로 수집하고 manifest에 그 source를 기록한다.",
+          "본 Requirement의 manifest, raw sample 또는 summary는 측정값을 product threshold·pass/fail SLO·retained rows·aggregate memory·checkpoint chunk/in-flight budget으로 승격하지 않으며, 후속 제품 계약은 별도 Requirement로 승인되어야 한다."
+        ],
+        "status": "planned",
+        "stability": "draft",
+        "priority": "high",
+        "tags": [
+          "buildergate",
+          "stability",
+          "wave-1",
+          "benchmark",
+          "raw-evidence",
+          "characterization",
+          "github-issue-3",
+          "feasibility:high"
+        ],
+        "rationale": "현재 deterministic mode contract, reproducible manifest, raw-sample schema와 multi-session/multi-client 비교 corpus가 없다. Existing scheduler, fake PTY/WebSocket seams와 observability metrics를 additive benchmark에 재사용하면 layer별 비용과 slow-client 영향을 분리할 수 있으나, baseline 이전에 측정값을 제품 SLO나 budget으로 채택해서는 안 된다.",
+        "risk": "medium",
+        "verificationMethod": "각 mode와 workload corpus를 고정 seed로 반복 실행하고 manifest/raw-sample JSON schema, summary 재계산 일치, percentile·confidence-interval provenance와 ONE_CLIENT_SLOW normal-client comparison을 자동 검증한다.",
+        "githubIssue": "https://github.com/Snoworca/BuilderGate/issues/3",
+        "relatedDocs": [
+          "docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md",
+          "docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md"
+        ],
+        "trace": [
+          {
+            "type": "Code",
+            "reference": "frontend/src/utils/terminalOutputScheduler.ts:5-14,39-75,143-206",
+            "relation": "addition_site",
+            "trace_intent": "addition_site",
+            "notes": "trace_intent=addition_site; injected renderer/write seam for NO_RENDER characterization"
+          },
+          {
+            "type": "Code",
+            "reference": "server/src/test-runner.ts:614-641,2311-2384,13607-13682,14514-14595",
+            "relation": "addition_site",
+            "trace_intent": "addition_site",
+            "notes": "trace_intent=addition_site; deterministic fake PTY, headless, and WebSocket harness seams"
+          },
+          {
+            "type": "Code",
+            "reference": "server/src/ws/WsRouterSendPriority.test.ts:7-55,58-99,123-188",
+            "relation": "addition_site",
+            "trace_intent": "addition_site",
+            "notes": "trace_intent=addition_site; controllable bufferedAmount and deferred-send primitives for ONE_CLIENT_SLOW"
+          },
+          {
+            "type": "Code",
+            "reference": "server/src/services/SessionManager.ts:3008-3065,3486-3494",
+            "relation": "verifies",
+            "trace_intent": "verifies",
+            "notes": "trace_intent=verifies; existing cumulative event-loop, CPU, headless-write, and session telemetry surface"
+          },
+          {
+            "type": "Code",
+            "reference": "server/src/ws/WsRouter.ts:2119-2160",
+            "relation": "verifies",
+            "trace_intent": "verifies",
+            "notes": "trace_intent=verifies; replay, buffered amount, slow-client, and queue observability"
+          },
+          {
+            "type": "Code",
+            "reference": "server/src/index.ts:797-815",
+            "relation": "verifies",
+            "trace_intent": "verifies",
+            "notes": "trace_intent=verifies; authenticated telemetry and debug-capture endpoints"
+          }
+        ]
+      },
+      "result_id": "PERF-BGSTAB-008",
+      "result": {
+        "ok": true,
+        "value": {
+          "requirementId": "PERF-BGSTAB-008",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "written": true,
+          "targetSource": "explicit",
+          "record": {
+            "id": "PERF-BGSTAB-008",
+            "title": "Benchmark modes and raw evidence contract",
+            "type": "performance",
+            "target": "wave-1",
+            "status": "planned",
+            "scope": "BGSTAB",
+            "filePath": "docs/spec/30.buildergate-stability.srs.md",
+            "headingLine": 0,
+            "metadata": {
+              "Type": "performance",
+              "Target": "wave-1",
+              "Status": "planned",
+              "Priority": "high",
+              "Tags": "buildergate, stability, wave-1, benchmark, raw-evidence, characterization, github-issue-3, feasibility:high",
+              "Risk": "medium",
+              "Stability": "draft",
+              "Verification Method": "각 mode와 workload corpus를 고정 seed로 반복 실행하고 manifest/raw-sample JSON schema, summary 재계산 일치, percentile·confidence-interval provenance와 ONE_CLIENT_SLOW normal-client comparison을 자동 검증한다.",
+              "GitHub Issue": "https://github.com/Snoworca/BuilderGate/issues/3",
+              "Related Docs": "docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md, docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md"
+            },
+            "acceptanceCriteria": [
+              {
+                "id": "AC-1",
+                "text": "Runner는 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW`를 machine-readable mode ID로 선택할 수 있고, 각 run artifact는 비활성화·대체한 layer, 유지한 layer, control comparator와 mode-specific fixture를 기록한다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-2",
+                "text": "`NO_RENDER`는 terminal renderer/write 소비를 제외한 upstream 처리를 측정하고, `NO_ANALYZER`는 analyzer 처리를 제외한 동일 ingress workload를 측정하며, `NO_NETWORK`는 network socket 전송을 제외한 in-process 또는 fake-transport delivery를 측정한다. `ONE_CLIENT_SLOW`는 같은 session stream을 받는 한 client의 pressure를 제어하고 client 수가 2 이상인 isolation case에서 적어도 한 normal client와 비교한다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-3",
+                "text": "Execution manifest는 random seed, payload generator와 payload digest·size/unit, warm-up 횟수 또는 시간, trial 수, trial duration, build/commit identifier, hardware·OS, browser 이름·version, server/frontend config snapshot 또는 digest를 포함한다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-4",
+                "text": "Workload corpus는 session count `1|8|32|54`와 client count `1|2|8`의 각 값을 포함하고, 각 raw sample은 mode, session/client count, active/hidden view mix, trial ID와 workload manifest reference를 기록한다. `ONE_CLIENT_SLOW`의 1-client case는 pressure baseline으로만 식별하고 isolation 증거로 집계하지 않는다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-5",
+                "text": "Raw sample은 aggregation 전에 보존되며 sample ID, metric name, numeric value, unit, timing phase와 trial ID를 포함한다. Summary는 mode/workload/metric별 p50, p95, p99와 confidence interval의 lower·upper bound, confidence level, 계산 방법과 계산 seed를 기록하고 원본 sample ID 집합을 참조한다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-6",
+                "text": "Server-side sample이 event-loop delay, one-core process CPU와 headless-write time을 사용하면 OBS-BGSTAB-003이 노출하는 metric과 unit을 실제로 수집하고 manifest에 그 source를 기록한다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-7",
+                "text": "본 Requirement의 manifest, raw sample 또는 summary는 측정값을 product threshold·pass/fail SLO·retained rows·aggregate memory·checkpoint chunk/in-flight budget으로 승격하지 않으며, 후속 제품 계약은 별도 Requirement로 승인되어야 한다.",
+                "checked": false,
+                "line": 0
+              }
+            ],
+            "verificationEvidence": [],
+            "traceLinks": [
+              {
+                "type": "Code",
+                "reference": "frontend/src/utils/terminalOutputScheduler.ts:5-14,39-75,143-206",
+                "relation": "addition_site",
+                "notes": "trace_intent=addition_site; injected renderer/write seam for NO_RENDER characterization"
+              },
+              {
+                "type": "Code",
+                "reference": "server/src/test-runner.ts:614-641,2311-2384,13607-13682,14514-14595",
+                "relation": "addition_site",
+                "notes": "trace_intent=addition_site; deterministic fake PTY, headless, and WebSocket harness seams"
+              },
+              {
+                "type": "Code",
+                "reference": "server/src/ws/WsRouterSendPriority.test.ts:7-55,58-99,123-188",
+                "relation": "addition_site",
+                "notes": "trace_intent=addition_site; controllable bufferedAmount and deferred-send primitives for ONE_CLIENT_SLOW"
+              },
+              {
+                "type": "Code",
+                "reference": "server/src/services/SessionManager.ts:3008-3065,3486-3494",
+                "relation": "verifies",
+                "notes": "trace_intent=verifies; existing cumulative event-loop, CPU, headless-write, and session telemetry surface"
+              },
+              {
+                "type": "Code",
+                "reference": "server/src/ws/WsRouter.ts:2119-2160",
+                "relation": "verifies",
+                "notes": "trace_intent=verifies; replay, buffered amount, slow-client, and queue observability"
+              },
+              {
+                "type": "Code",
+                "reference": "server/src/index.ts:797-815",
+                "relation": "verifies",
+                "notes": "trace_intent=verifies; authenticated telemetry and debug-capture endpoints"
+              }
+            ],
+            "changeNotes": [
+              {
+                "date": "2026-07-15",
+                "change": "Created",
+                "reason": "add-requirement"
+              }
+            ],
+            "tags": [
+              "buildergate",
+              "stability",
+              "wave-1",
+              "benchmark",
+              "raw-evidence",
+              "characterization",
+              "github-issue-3",
+              "feasibility:high"
+            ],
+            "requirement": "시스템은 wave-1 terminal characterization을 위해 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW` benchmark mode와 재현 가능한 execution manifest·raw sample artifact를 제공해야 한다. Evidence는 mode와 workload별 raw observation, p50·p95·p99와 confidence interval을 연결하되 이 Requirement 자체는 product performance threshold, SLO 또는 resource budget을 설정하지 않는다.",
+            "priority": "high",
+            "risk": "medium",
+            "stability": "draft",
+            "rationale": "현재 deterministic mode contract, reproducible manifest, raw-sample schema와 multi-session/multi-client 비교 corpus가 없다. Existing scheduler, fake PTY/WebSocket seams와 observability metrics를 additive benchmark에 재사용하면 layer별 비용과 slow-client 영향을 분리할 수 있으나, baseline 이전에 측정값을 제품 SLO나 budget으로 채택해서는 안 된다."
+          }
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "patch": {
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "operations": 1,
+          "dryRun": false,
+          "preview": [
+            "insertLines"
+          ]
+        },
+        "mutation": {
+          "kind": "add_requirement",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 63,
+              "line": 2628,
+              "lines": [
+                "### PERF-BGSTAB-008 — Benchmark modes and raw evidence contract",
+                "",
+                "| Field | Value |",
+                "| --- | --- |",
+                "| Type | performance |",
+                "| Target | wave-1 |",
+                "| Status | planned |",
+                "| Priority | high |",
+                "| Tags | buildergate, stability, wave-1, benchmark, raw-evidence, characterization, github-issue-3, feasibility:high |",
+                "| Risk | medium |",
+                "| Stability | draft |",
+                "| Verification Method | 각 mode와 workload corpus를 고정 seed로 반복 실행하고 manifest/raw-sample JSON schema, summary 재계산 일치, percentile·confidence-interval provenance와 ONE_CLIENT_SLOW normal-client comparison을 자동 검증한다. |",
+                "| GitHub Issue | https://github.com/Snoworca/BuilderGate/issues/3 |",
+                "| Related Docs | docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md, docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md |",
+                "",
+                "#### Requirement",
+                "",
+                "시스템은 wave-1 terminal characterization을 위해 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW` benchmark mode와 재현 가능한 execution manifest·raw sample artifact를 제공해야 한다. Evidence는 mode와 workload별 raw observation, p50·p95·p99와 confidence interval을 연결하되 이 Requirement 자체는 product performance threshold, SLO 또는 resource budget을 설정하지 않는다.",
+                "",
+                "#### Rationale",
+                "",
+                "현재 deterministic mode contract, reproducible manifest, raw-sample schema와 multi-session/multi-client 비교 corpus가 없다. Existing scheduler, fake PTY/WebSocket seams와 observability metrics를 additive benchmark에 재사용하면 layer별 비용과 slow-client 영향을 분리할 수 있으나, baseline 이전에 측정값을 제품 SLO나 budget으로 채택해서는 안 된다.",
+                "",
+                "#### Acceptance Criteria",
+                "",
+                "- [ ] AC-1: Runner는 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW`를 machine-readable mode ID로 선택할 수 있고, 각 run artifact는 비활성화·대체한 layer, 유지한 layer, control comparator와 mode-specific fixture를 기록한다.",
+                "- [ ] AC-2: `NO_RENDER`는 terminal renderer/write 소비를 제외한 upstream 처리를 측정하고, `NO_ANALYZER`는 analyzer 처리를 제외한 동일 ingress workload를 측정하며, `NO_NETWORK`는 network socket 전송을 제외한 in-process 또는 fake-transport delivery를 측정한다. `ONE_CLIENT_SLOW`는 같은 session stream을 받는 한 client의 pressure를 제어하고 client 수가 2 이상인 isolation case에서 적어도 한 normal client와 비교한다.",
+                "- [ ] AC-3: Execution manifest는 random seed, payload generator와 payload digest·size/unit, warm-up 횟수 또는 시간, trial 수, trial duration, build/commit identifier, hardware·OS, browser 이름·version, server/frontend config snapshot 또는 digest를 포함한다.",
+                "- [ ] AC-4: Workload corpus는 session count `1|8|32|54`와 client count `1|2|8`의 각 값을 포함하고, 각 raw sample은 mode, session/client count, active/hidden view mix, trial ID와 workload manifest reference를 기록한다. `ONE_CLIENT_SLOW`의 1-client case는 pressure baseline으로만 식별하고 isolation 증거로 집계하지 않는다.",
+                "- [ ] AC-5: Raw sample은 aggregation 전에 보존되며 sample ID, metric name, numeric value, unit, timing phase와 trial ID를 포함한다. Summary는 mode/workload/metric별 p50, p95, p99와 confidence interval의 lower·upper bound, confidence level, 계산 방법과 계산 seed를 기록하고 원본 sample ID 집합을 참조한다.",
+                "- [ ] AC-6: Server-side sample이 event-loop delay, one-core process CPU와 headless-write time을 사용하면 OBS-BGSTAB-003이 노출하는 metric과 unit을 실제로 수집하고 manifest에 그 source를 기록한다.",
+                "- [ ] AC-7: 본 Requirement의 manifest, raw sample 또는 summary는 측정값을 product threshold·pass/fail SLO·retained rows·aggregate memory·checkpoint chunk/in-flight budget으로 승격하지 않으며, 후속 제품 계약은 별도 Requirement로 승인되어야 한다.",
+                "",
+                "#### Verification Evidence",
+                "",
+                "| Evidence ID | Type | Reference | Covers | Notes |",
+                "| --- | --- | --- | --- | --- |",
+                "",
+                "#### Trace Links",
+                "",
+                "| Type | Reference | Relation | Notes |",
+                "| --- | --- | --- | --- |",
+                "| Code | frontend/src/utils/terminalOutputScheduler.ts:5-14,39-75,143-206 | addition_site | trace_intent=addition_site; injected renderer/write seam for NO_RENDER characterization |",
+                "| Code | server/src/test-runner.ts:614-641,2311-2384,13607-13682,14514-14595 | addition_site | trace_intent=addition_site; deterministic fake PTY, headless, and WebSocket harness seams |",
+                "| Code | server/src/ws/WsRouterSendPriority.test.ts:7-55,58-99,123-188 | addition_site | trace_intent=addition_site; controllable bufferedAmount and deferred-send primitives for ONE_CLIENT_SLOW |",
+                "| Code | server/src/services/SessionManager.ts:3008-3065,3486-3494 | verifies | trace_intent=verifies; existing cumulative event-loop, CPU, headless-write, and session telemetry surface |",
+                "| Code | server/src/ws/WsRouter.ts:2119-2160 | verifies | trace_intent=verifies; replay, buffered amount, slow-client, and queue observability |",
+                "| Code | server/src/index.ts:797-815 | verifies | trace_intent=verifies; authenticated telemetry and debug-capture endpoints |",
+                "",
+                "#### Research / Analysis",
+                "",
+                "- -",
+                "",
+                "#### Implementation Notes",
+                "",
+                "- -",
+                "",
+                "#### Change Notes",
+                "",
+                "| Date | Change | Reason |",
+                "| --- | --- | --- |",
+                "| 2026-07-15 | Created | add-requirement |",
+                ""
+              ],
+              "expectedBefore": "",
+              "expectedAfter": "## 6. Open Questions"
+            }
+          ],
+          "preview": [
+            "### PERF-BGSTAB-008 — Benchmark modes and raw evidence contract",
+            "",
+            "| Field | Value |",
+            "| --- | --- |",
+            "| Type | performance |",
+            "| Target | wave-1 |",
+            "| Status | planned |",
+            "| Priority | high |",
+            "| Tags | buildergate, stability, wave-1, benchmark, raw-evidence, characterization, github-issue-3, feasibility:high |",
+            "| Risk | medium |",
+            "| Stability | draft |",
+            "| Verification Method | 각 mode와 workload corpus를 고정 seed로 반복 실행하고 manifest/raw-sample JSON schema, summary 재계산 일치, percentile·confidence-interval provenance와 ONE_CLIENT_SLOW normal-client comparison을 자동 검증한다. |",
+            "| GitHub Issue | https://github.com/Snoworca/BuilderGate/issues/3 |",
+            "| Related Docs | docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md, docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md |",
+            "",
+            "#### Requirement",
+            "",
+            "시스템은 wave-1 terminal characterization을 위해 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW` benchmark mode와 재현 가능한 execution manifest·raw sample artifact를 제공해야 한다. Evidence는 mode와 workload별 raw observation, p50·p95·p99와 confidence interval을 연결하되 이 Requirement 자체는 product performance threshold, SLO 또는 resource budget을 설정하지 않는다.",
+            "",
+            "#### Rationale",
+            "",
+            "현재 deterministic mode contract, reproducible manifest, raw-sample schema와 multi-session/multi-client 비교 corpus가 없다. Existing scheduler, fake PTY/WebSocket seams와 observability metrics를 additive benchmark에 재사용하면 layer별 비용과 slow-client 영향을 분리할 수 있으나, baseline 이전에 측정값을 제품 SLO나 budget으로 채택해서는 안 된다.",
+            "",
+            "#### Acceptance Criteria",
+            "",
+            "- [ ] AC-1: Runner는 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW`를 machine-readable mode ID로 선택할 수 있고, 각 run artifact는 비활성화·대체한 layer, 유지한 layer, control comparator와 mode-specific fixture를 기록한다.",
+            "- [ ] AC-2: `NO_RENDER`는 terminal renderer/write 소비를 제외한 upstream 처리를 측정하고, `NO_ANALYZER`는 analyzer 처리를 제외한 동일 ingress workload를 측정하며, `NO_NETWORK`는 network socket 전송을 제외한 in-process 또는 fake-transport delivery를 측정한다. `ONE_CLIENT_SLOW`는 같은 session stream을 받는 한 client의 pressure를 제어하고 client 수가 2 이상인 isolation case에서 적어도 한 normal client와 비교한다.",
+            "- [ ] AC-3: Execution manifest는 random seed, payload generator와 payload digest·size/unit, warm-up 횟수 또는 시간, trial 수, trial duration, build/commit identifier, hardware·OS, browser 이름·version, server/frontend config snapshot 또는 digest를 포함한다.",
+            "- [ ] AC-4: Workload corpus는 session count `1|8|32|54`와 client count `1|2|8`의 각 값을 포함하고, 각 raw sample은 mode, session/client count, active/hidden view mix, trial ID와 workload manifest reference를 기록한다. `ONE_CLIENT_SLOW`의 1-client case는 pressure baseline으로만 식별하고 isolation 증거로 집계하지 않는다.",
+            "- [ ] AC-5: Raw sample은 aggregation 전에 보존되며 sample ID, metric name, numeric value, unit, timing phase와 trial ID를 포함한다. Summary는 mode/workload/metric별 p50, p95, p99와 confidence interval의 lower·upper bound, confidence level, 계산 방법과 계산 seed를 기록하고 원본 sample ID 집합을 참조한다.",
+            "- [ ] AC-6: Server-side sample이 event-loop delay, one-core process CPU와 headless-write time을 사용하면 OBS-BGSTAB-003이 노출하는 metric과 unit을 실제로 수집하고 manifest에 그 source를 기록한다.",
+            "- [ ] AC-7: 본 Requirement의 manifest, raw sample 또는 summary는 측정값을 product threshold·pass/fail SLO·retained rows·aggregate memory·checkpoint chunk/in-flight budget으로 승격하지 않으며, 후속 제품 계약은 별도 Requirement로 승인되어야 한다.",
+            "",
+            "#### Verification Evidence",
+            "",
+            "| Evidence ID | Type | Reference | Covers | Notes |",
+            "| --- | --- | --- | --- | --- |",
+            "",
+            "#### Trace Links",
+            "",
+            "| Type | Reference | Relation | Notes |",
+            "| --- | --- | --- | --- |",
+            "| Code | frontend/src/utils/terminalOutputScheduler.ts:5-14,39-75,143-206 | addition_site | trace_intent=addition_site; injected renderer/write seam for NO_RENDER characterization |",
+            "| Code | server/src/test-runner.ts:614-641,2311-2384,13607-13682,14514-14595 | addition_site | trace_intent=addition_site; deterministic fake PTY, headless, and WebSocket harness seams |",
+            "| Code | server/src/ws/WsRouterSendPriority.test.ts:7-55,58-99,123-188 | addition_site | trace_intent=addition_site; controllable bufferedAmount and deferred-send primitives for ONE_CLIENT_SLOW |",
+            "| Code | server/src/services/SessionManager.ts:3008-3065,3486-3494 | verifies | trace_intent=verifies; existing cumulative event-loop, CPU, headless-write, and session telemetry surface |",
+            "| Code | server/src/ws/WsRouter.ts:2119-2160 | verifies | trace_intent=verifies; replay, buffered amount, slow-client, and queue observability |",
+            "| Code | server/src/index.ts:797-815 | verifies | trace_intent=verifies; authenticated telemetry and debug-capture endpoints |",
+            "",
+            "#### Research / Analysis",
+            "",
+            "- -",
+            "",
+            "#### Implementation Notes",
+            "",
+            "- -",
+            "",
+            "#### Change Notes",
+            "",
+            "| Date | Change | Reason |",
+            "| --- | --- | --- |",
+            "| 2026-07-15 | Created | add-requirement |",
+            ""
+          ]
+        },
+        "indexSync": {
+          "filePath": "docs/spec/00.index.md",
+          "statusSummaryChanged": false,
+          "typeSummaryChanged": false,
+          "statusCounts": {
+            "planned": 33,
+            "in_progress": 0,
+            "blocked": 0,
+            "implemented": 33,
+            "verified": 0,
+            "discarded": 1
+          },
+          "typeCounts": {
+            "functional": 37,
+            "non_functional": 0,
+            "interface": 5,
+            "data": 0,
+            "security": 4,
+            "performance": 8,
+            "reliability": 8,
+            "observability": 5,
+            "operational": 0,
+            "migration": 0,
+            "constraint": 0
+          },
+          "written": false
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 12,
+      "tool": "replace_acceptance_criteria",
+      "args": {
+        "id": "PERF-BGSTAB-008",
+        "items": [
+          {
+            "checked": false,
+            "text": "Runner는 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW`를 machine-readable mode ID로 선택할 수 있고, 각 run artifact는 비활성화·대체한 layer, 유지한 layer, control comparator와 mode-specific fixture를 기록한다."
+          },
+          {
+            "checked": false,
+            "text": "`NO_RENDER`는 terminal renderer/write 소비를 제외한 upstream 처리를 측정하고, `NO_ANALYZER`는 analyzer 처리를 제외한 동일 ingress workload를 측정하며, `NO_NETWORK`는 network socket 전송을 제외한 in-process 또는 fake-transport delivery를 측정한다. `ONE_CLIENT_SLOW`는 같은 session stream을 받는 한 client의 pressure를 제어하고 client 수가 2 이상인 isolation case에서 적어도 한 normal client와 비교한다."
+          },
+          {
+            "checked": false,
+            "text": "Execution manifest는 random seed, payload generator와 payload digest·size/unit, warm-up 횟수 또는 시간, trial 수, trial duration, build/commit identifier, hardware·OS, browser 이름·version, server/frontend config snapshot 또는 digest를 포함한다."
+          },
+          {
+            "checked": false,
+            "text": "Workload corpus는 session count `1|8|32|54`와 client count `1|2|8`의 각 값을 포함하고, 각 raw sample은 mode, session/client count, active/hidden view mix, trial ID와 workload manifest reference를 기록한다. `ONE_CLIENT_SLOW`의 1-client case는 pressure baseline으로만 식별하고 isolation 증거로 집계하지 않는다."
+          },
+          {
+            "checked": false,
+            "text": "Raw sample은 aggregation 전에 보존되며 sample ID, metric name, numeric value, unit, timing phase와 trial ID를 포함한다. Summary는 mode/workload/metric별 p50, p95, p99와 confidence interval의 lower·upper bound, confidence level, 계산 방법과 계산 seed를 기록하고 원본 sample ID 집합을 참조한다."
+          },
+          {
+            "checked": false,
+            "text": "Server-side raw evidence는 OBS-BGSTAB-003이 노출하는 event-loop delay mean·p99, one-core process CPU percent와 headless-write cumulative time을 실제로 수집하고, sample interval의 delta·unit과 metric source를 manifest에 기록한다."
+          },
+          {
+            "checked": false,
+            "text": "본 Requirement의 manifest, raw sample 또는 summary는 측정값을 product threshold·pass/fail SLO·retained rows·aggregate memory·checkpoint chunk/in-flight budget으로 승격하지 않으며, 후속 제품 계약은 별도 Requirement로 승인되어야 한다."
+          }
+        ]
+      },
+      "result_id": "PERF-BGSTAB-008",
+      "result": {
+        "ok": true,
+        "value": {
+          "id": "PERF-BGSTAB-008",
+          "written": true,
+          "updatedFields": [
+            "acceptanceCriteria"
+          ],
+          "record": {
+            "id": "PERF-BGSTAB-008",
+            "title": "Benchmark modes and raw evidence contract",
+            "type": "performance",
+            "target": "wave-1",
+            "status": "planned",
+            "scope": "BGSTAB",
+            "filePath": "docs/spec/30.buildergate-stability.srs.md",
+            "headingLine": 2628,
+            "metadata": {
+              "Type": "performance",
+              "Target": "wave-1",
+              "Status": "planned",
+              "Priority": "high",
+              "Tags": "buildergate, stability, wave-1, benchmark, raw-evidence, characterization, github-issue-3, feasibility:high",
+              "Risk": "medium",
+              "Stability": "draft",
+              "Verification Method": "각 mode와 workload corpus를 고정 seed로 반복 실행하고 manifest/raw-sample JSON schema, summary 재계산 일치, percentile·confidence-interval provenance와 ONE_CLIENT_SLOW normal-client comparison을 자동 검증한다.",
+              "GitHub Issue": "https://github.com/Snoworca/BuilderGate/issues/3",
+              "Related Docs": "docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md, docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md"
+            },
+            "acceptanceCriteria": [
+              {
+                "id": "AC-1",
+                "text": "Runner는 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW`를 machine-readable mode ID로 선택할 수 있고, 각 run artifact는 비활성화·대체한 layer, 유지한 layer, control comparator와 mode-specific fixture를 기록한다.",
+                "checked": false,
+                "line": 2653
+              },
+              {
+                "id": "AC-2",
+                "text": "`NO_RENDER`는 terminal renderer/write 소비를 제외한 upstream 처리를 측정하고, `NO_ANALYZER`는 analyzer 처리를 제외한 동일 ingress workload를 측정하며, `NO_NETWORK`는 network socket 전송을 제외한 in-process 또는 fake-transport delivery를 측정한다. `ONE_CLIENT_SLOW`는 같은 session stream을 받는 한 client의 pressure를 제어하고 client 수가 2 이상인 isolation case에서 적어도 한 normal client와 비교한다.",
+                "checked": false,
+                "line": 2654
+              },
+              {
+                "id": "AC-3",
+                "text": "Execution manifest는 random seed, payload generator와 payload digest·size/unit, warm-up 횟수 또는 시간, trial 수, trial duration, build/commit identifier, hardware·OS, browser 이름·version, server/frontend config snapshot 또는 digest를 포함한다.",
+                "checked": false,
+                "line": 2655
+              },
+              {
+                "id": "AC-4",
+                "text": "Workload corpus는 session count `1|8|32|54`와 client count `1|2|8`의 각 값을 포함하고, 각 raw sample은 mode, session/client count, active/hidden view mix, trial ID와 workload manifest reference를 기록한다. `ONE_CLIENT_SLOW`의 1-client case는 pressure baseline으로만 식별하고 isolation 증거로 집계하지 않는다.",
+                "checked": false,
+                "line": 2656
+              },
+              {
+                "id": "AC-5",
+                "text": "Raw sample은 aggregation 전에 보존되며 sample ID, metric name, numeric value, unit, timing phase와 trial ID를 포함한다. Summary는 mode/workload/metric별 p50, p95, p99와 confidence interval의 lower·upper bound, confidence level, 계산 방법과 계산 seed를 기록하고 원본 sample ID 집합을 참조한다.",
+                "checked": false,
+                "line": 2657
+              },
+              {
+                "id": "AC-6",
+                "text": "Server-side raw evidence는 OBS-BGSTAB-003이 노출하는 event-loop delay mean·p99, one-core process CPU percent와 headless-write cumulative time을 실제로 수집하고, sample interval의 delta·unit과 metric source를 manifest에 기록한다.",
+                "checked": false,
+                "line": 2658
+              },
+              {
+                "id": "AC-7",
+                "text": "본 Requirement의 manifest, raw sample 또는 summary는 측정값을 product threshold·pass/fail SLO·retained rows·aggregate memory·checkpoint chunk/in-flight budget으로 승격하지 않으며, 후속 제품 계약은 별도 Requirement로 승인되어야 한다.",
+                "checked": false,
+                "line": 2659
+              }
+            ],
+            "verificationEvidence": [],
+            "traceLinks": [
+              {
+                "type": "Code",
+                "reference": "frontend/src/utils/terminalOutputScheduler.ts:5-14,39-75,143-206",
+                "relation": "addition_site",
+                "notes": "trace_intent=addition_site; injected renderer/write seam for NO_RENDER characterization",
+                "line": 2670
+              },
+              {
+                "type": "Code",
+                "reference": "server/src/test-runner.ts:614-641,2311-2384,13607-13682,14514-14595",
+                "relation": "addition_site",
+                "notes": "trace_intent=addition_site; deterministic fake PTY, headless, and WebSocket harness seams",
+                "line": 2671
+              },
+              {
+                "type": "Code",
+                "reference": "server/src/ws/WsRouterSendPriority.test.ts:7-55,58-99,123-188",
+                "relation": "addition_site",
+                "notes": "trace_intent=addition_site; controllable bufferedAmount and deferred-send primitives for ONE_CLIENT_SLOW",
+                "line": 2672
+              },
+              {
+                "type": "Code",
+                "reference": "server/src/services/SessionManager.ts:3008-3065,3486-3494",
+                "relation": "verifies",
+                "notes": "trace_intent=verifies; existing cumulative event-loop, CPU, headless-write, and session telemetry surface",
+                "line": 2673
+              },
+              {
+                "type": "Code",
+                "reference": "server/src/ws/WsRouter.ts:2119-2160",
+                "relation": "verifies",
+                "notes": "trace_intent=verifies; replay, buffered amount, slow-client, and queue observability",
+                "line": 2674
+              },
+              {
+                "type": "Code",
+                "reference": "server/src/index.ts:797-815",
+                "relation": "verifies",
+                "notes": "trace_intent=verifies; authenticated telemetry and debug-capture endpoints",
+                "line": 2675
+              }
+            ],
+            "changeNotes": [
+              {
+                "date": "2026-07-15",
+                "change": "Created",
+                "reason": "add-requirement",
+                "line": 2689
+              }
+            ],
+            "tags": [
+              "buildergate",
+              "stability",
+              "wave-1",
+              "benchmark",
+              "raw-evidence",
+              "characterization",
+              "github-issue-3",
+              "feasibility:high"
+            ],
+            "relatedDocs": [
+              "docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md",
+              "docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md"
+            ],
+            "evidenceReferences": [],
+            "traceReferences": [
+              "frontend/src/utils/terminalOutputScheduler.ts:5-14,39-75,143-206",
+              "server/src/test-runner.ts:614-641,2311-2384,13607-13682,14514-14595",
+              "server/src/ws/WsRouterSendPriority.test.ts:7-55,58-99,123-188",
+              "server/src/services/SessionManager.ts:3008-3065,3486-3494",
+              "server/src/ws/WsRouter.ts:2119-2160",
+              "server/src/index.ts:797-815"
+            ],
+            "markdown": "### PERF-BGSTAB-008 — Benchmark modes and raw evidence contract\r\n\r\n| Field | Value |\r\n| --- | --- |\r\n| Type | performance |\r\n| Target | wave-1 |\r\n| Status | planned |\r\n| Priority | high |\r\n| Tags | buildergate, stability, wave-1, benchmark, raw-evidence, characterization, github-issue-3, feasibility:high |\r\n| Risk | medium |\r\n| Stability | draft |\r\n| Verification Method | 각 mode와 workload corpus를 고정 seed로 반복 실행하고 manifest/raw-sample JSON schema, summary 재계산 일치, percentile·confidence-interval provenance와 ONE_CLIENT_SLOW normal-client comparison을 자동 검증한다. |\r\n| GitHub Issue | https://github.com/Snoworca/BuilderGate/issues/3 |\r\n| Related Docs | docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md, docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md |\r\n\r\n#### Requirement\r\n\r\n시스템은 wave-1 terminal characterization을 위해 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW` benchmark mode와 재현 가능한 execution manifest·raw sample artifact를 제공해야 한다. Evidence는 mode와 workload별 raw observation, p50·p95·p99와 confidence interval을 연결하되 이 Requirement 자체는 product performance threshold, SLO 또는 resource budget을 설정하지 않는다.\r\n\r\n#### Rationale\r\n\r\n현재 deterministic mode contract, reproducible manifest, raw-sample schema와 multi-session/multi-client 비교 corpus가 없다. Existing scheduler, fake PTY/WebSocket seams와 observability metrics를 additive benchmark에 재사용하면 layer별 비용과 slow-client 영향을 분리할 수 있으나, baseline 이전에 측정값을 제품 SLO나 budget으로 채택해서는 안 된다.\r\n\r\n#### Acceptance Criteria\r\n\r\n- [ ] AC-1: Runner는 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW`를 machine-readable mode ID로 선택할 수 있고, 각 run artifact는 비활성화·대체한 layer, 유지한 layer, control comparator와 mode-specific fixture를 기록한다.\r\n- [ ] AC-2: `NO_RENDER`는 terminal renderer/write 소비를 제외한 upstream 처리를 측정하고, `NO_ANALYZER`는 analyzer 처리를 제외한 동일 ingress workload를 측정하며, `NO_NETWORK`는 network socket 전송을 제외한 in-process 또는 fake-transport delivery를 측정한다. `ONE_CLIENT_SLOW`는 같은 session stream을 받는 한 client의 pressure를 제어하고 client 수가 2 이상인 isolation case에서 적어도 한 normal client와 비교한다.\r\n- [ ] AC-3: Execution manifest는 random seed, payload generator와 payload digest·size/unit, warm-up 횟수 또는 시간, trial 수, trial duration, build/commit identifier, hardware·OS, browser 이름·version, server/frontend config snapshot 또는 digest를 포함한다.\r\n- [ ] AC-4: Workload corpus는 session count `1|8|32|54`와 client count `1|2|8`의 각 값을 포함하고, 각 raw sample은 mode, session/client count, active/hidden view mix, trial ID와 workload manifest reference를 기록한다. `ONE_CLIENT_SLOW`의 1-client case는 pressure baseline으로만 식별하고 isolation 증거로 집계하지 않는다.\r\n- [ ] AC-5: Raw sample은 aggregation 전에 보존되며 sample ID, metric name, numeric value, unit, timing phase와 trial ID를 포함한다. Summary는 mode/workload/metric별 p50, p95, p99와 confidence interval의 lower·upper bound, confidence level, 계산 방법과 계산 seed를 기록하고 원본 sample ID 집합을 참조한다.\r\n- [ ] AC-6: Server-side raw evidence는 OBS-BGSTAB-003이 노출하는 event-loop delay mean·p99, one-core process CPU percent와 headless-write cumulative time을 실제로 수집하고, sample interval의 delta·unit과 metric source를 manifest에 기록한다.\r\n- [ ] AC-7: 본 Requirement의 manifest, raw sample 또는 summary는 측정값을 product threshold·pass/fail SLO·retained rows·aggregate memory·checkpoint chunk/in-flight budget으로 승격하지 않으며, 후속 제품 계약은 별도 Requirement로 승인되어야 한다.\r\n\r\n#### Verification Evidence\r\n\r\n| Evidence ID | Type | Reference | Covers | Notes |\r\n| --- | --- | --- | --- | --- |\r\n\r\n#### Trace Links\r\n\r\n| Type | Reference | Relation | Notes |\r\n| --- | --- | --- | --- |\r\n| Code | frontend/src/utils/terminalOutputScheduler.ts:5-14,39-75,143-206 | addition_site | trace_intent=addition_site; injected renderer/write seam for NO_RENDER characterization |\r\n| Code | server/src/test-runner.ts:614-641,2311-2384,13607-13682,14514-14595 | addition_site | trace_intent=addition_site; deterministic fake PTY, headless, and WebSocket harness seams |\r\n| Code | server/src/ws/WsRouterSendPriority.test.ts:7-55,58-99,123-188 | addition_site | trace_intent=addition_site; controllable bufferedAmount and deferred-send primitives for ONE_CLIENT_SLOW |\r\n| Code | server/src/services/SessionManager.ts:3008-3065,3486-3494 | verifies | trace_intent=verifies; existing cumulative event-loop, CPU, headless-write, and session telemetry surface |\r\n| Code | server/src/ws/WsRouter.ts:2119-2160 | verifies | trace_intent=verifies; replay, buffered amount, slow-client, and queue observability |\r\n| Code | server/src/index.ts:797-815 | verifies | trace_intent=verifies; authenticated telemetry and debug-capture endpoints |\r\n\r\n#### Research / Analysis\r\n\r\n- -\r\n\r\n#### Implementation Notes\r\n\r\n- -\r\n\r\n#### Change Notes\r\n\r\n| Date | Change | Reason |\r\n| --- | --- | --- |\r\n| 2026-07-15 | Created | add-requirement |\r\n",
+            "blockStartLine": 2628,
+            "blockEndLine": 2690,
+            "sectionLines": {
+              "Requirement": 2643,
+              "Rationale": 2647,
+              "Acceptance Criteria": 2651,
+              "Verification Evidence": 2661,
+              "Trace Links": 2666,
+              "Research / Analysis": 2677,
+              "Implementation Notes": 2681,
+              "Change Notes": 2685
+            },
+            "priority": "high",
+            "risk": "medium",
+            "stability": "draft",
+            "newWorkCandidate": false,
+            "requirement": "시스템은 wave-1 terminal characterization을 위해 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW` benchmark mode와 재현 가능한 execution manifest·raw sample artifact를 제공해야 한다. Evidence는 mode와 workload별 raw observation, p50·p95·p99와 confidence interval을 연결하되 이 Requirement 자체는 product performance threshold, SLO 또는 resource budget을 설정하지 않는다.",
+            "rationale": "현재 deterministic mode contract, reproducible manifest, raw-sample schema와 multi-session/multi-client 비교 corpus가 없다. Existing scheduler, fake PTY/WebSocket seams와 observability metrics를 additive benchmark에 재사용하면 layer별 비용과 slow-client 영향을 분리할 수 있으나, baseline 이전에 측정값을 제품 SLO나 budget으로 채택해서는 안 된다.",
+            "research": "- -",
+            "implementationNotes": "- -"
+          }
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "mutation": {
+          "kind": "replace_acceptance_criteria",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "replaceRange",
+              "lineCount": 9,
+              "startLine": 2652,
+              "endLine": 2660,
+              "lines": [
+                "",
+                "- [ ] AC-1: Runner는 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW`를 machine-readable mode ID로 선택할 수 있고, 각 run artifact는 비활성화·대체한 layer, 유지한 layer, control comparator와 mode-specific fixture를 기록한다.",
+                "- [ ] AC-2: `NO_RENDER`는 terminal renderer/write 소비를 제외한 upstream 처리를 측정하고, `NO_ANALYZER`는 analyzer 처리를 제외한 동일 ingress workload를 측정하며, `NO_NETWORK`는 network socket 전송을 제외한 in-process 또는 fake-transport delivery를 측정한다. `ONE_CLIENT_SLOW`는 같은 session stream을 받는 한 client의 pressure를 제어하고 client 수가 2 이상인 isolation case에서 적어도 한 normal client와 비교한다.",
+                "- [ ] AC-3: Execution manifest는 random seed, payload generator와 payload digest·size/unit, warm-up 횟수 또는 시간, trial 수, trial duration, build/commit identifier, hardware·OS, browser 이름·version, server/frontend config snapshot 또는 digest를 포함한다.",
+                "- [ ] AC-4: Workload corpus는 session count `1|8|32|54`와 client count `1|2|8`의 각 값을 포함하고, 각 raw sample은 mode, session/client count, active/hidden view mix, trial ID와 workload manifest reference를 기록한다. `ONE_CLIENT_SLOW`의 1-client case는 pressure baseline으로만 식별하고 isolation 증거로 집계하지 않는다.",
+                "- [ ] AC-5: Raw sample은 aggregation 전에 보존되며 sample ID, metric name, numeric value, unit, timing phase와 trial ID를 포함한다. Summary는 mode/workload/metric별 p50, p95, p99와 confidence interval의 lower·upper bound, confidence level, 계산 방법과 계산 seed를 기록하고 원본 sample ID 집합을 참조한다.",
+                "- [ ] AC-6: Server-side raw evidence는 OBS-BGSTAB-003이 노출하는 event-loop delay mean·p99, one-core process CPU percent와 headless-write cumulative time을 실제로 수집하고, sample interval의 delta·unit과 metric source를 manifest에 기록한다.",
+                "- [ ] AC-7: 본 Requirement의 manifest, raw sample 또는 summary는 측정값을 product threshold·pass/fail SLO·retained rows·aggregate memory·checkpoint chunk/in-flight budget으로 승격하지 않으며, 후속 제품 계약은 별도 Requirement로 승인되어야 한다.",
+                ""
+              ]
+            }
+          ],
+          "preview": [
+            "",
+            "- [ ] AC-1: Runner는 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW`를 machine-readable mode ID로 선택할 수 있고, 각 run artifact는 비활성화·대체한 layer, 유지한 layer, control comparator와 mode-specific fixture를 기록한다.",
+            "- [ ] AC-2: `NO_RENDER`는 terminal renderer/write 소비를 제외한 upstream 처리를 측정하고, `NO_ANALYZER`는 analyzer 처리를 제외한 동일 ingress workload를 측정하며, `NO_NETWORK`는 network socket 전송을 제외한 in-process 또는 fake-transport delivery를 측정한다. `ONE_CLIENT_SLOW`는 같은 session stream을 받는 한 client의 pressure를 제어하고 client 수가 2 이상인 isolation case에서 적어도 한 normal client와 비교한다.",
+            "- [ ] AC-3: Execution manifest는 random seed, payload generator와 payload digest·size/unit, warm-up 횟수 또는 시간, trial 수, trial duration, build/commit identifier, hardware·OS, browser 이름·version, server/frontend config snapshot 또는 digest를 포함한다.",
+            "- [ ] AC-4: Workload corpus는 session count `1|8|32|54`와 client count `1|2|8`의 각 값을 포함하고, 각 raw sample은 mode, session/client count, active/hidden view mix, trial ID와 workload manifest reference를 기록한다. `ONE_CLIENT_SLOW`의 1-client case는 pressure baseline으로만 식별하고 isolation 증거로 집계하지 않는다.",
+            "- [ ] AC-5: Raw sample은 aggregation 전에 보존되며 sample ID, metric name, numeric value, unit, timing phase와 trial ID를 포함한다. Summary는 mode/workload/metric별 p50, p95, p99와 confidence interval의 lower·upper bound, confidence level, 계산 방법과 계산 seed를 기록하고 원본 sample ID 집합을 참조한다.",
+            "- [ ] AC-6: Server-side raw evidence는 OBS-BGSTAB-003이 노출하는 event-loop delay mean·p99, one-core process CPU percent와 headless-write cumulative time을 실제로 수집하고, sample interval의 delta·unit과 metric source를 manifest에 기록한다.",
+            "- [ ] AC-7: 본 Requirement의 manifest, raw sample 또는 summary는 측정값을 product threshold·pass/fail SLO·retained rows·aggregate memory·checkpoint chunk/in-flight budget으로 승격하지 않으며, 후속 제품 계약은 별도 Requirement로 승인되어야 한다.",
+            ""
+          ]
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 13,
+      "tool": "add_trace_link",
+      "args": {
+        "id": "PERF-BGSTAB-008",
+        "type": "Requirement",
+        "reference": "OBS-BGSTAB-001",
+        "relation": "extends",
+        "notes": "Extends the existing queue/recovery soak evidence baseline with explicit benchmark modes, manifests, and raw samples."
+      },
+      "result_id": "PERF-BGSTAB-008",
+      "result": {
+        "ok": true,
+        "value": {
+          "id": "PERF-BGSTAB-008",
+          "reference": "OBS-BGSTAB-001",
+          "written": true
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "mutation": {
+          "kind": "add_trace_link",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 1,
+              "line": 2676,
+              "lines": [
+                "| Requirement | OBS-BGSTAB-001 | extends | Extends the existing queue/recovery soak evidence baseline with explicit benchmark modes, manifests, and raw samples. |"
+              ],
+              "expectedBefore": "| Code | server/src/index.ts:797-815 | verifies | trace_intent=verifies; authenticated telemetry and debug-capture endpoints |",
+              "expectedAfter": ""
+            }
+          ],
+          "preview": [
+            "| Requirement | OBS-BGSTAB-001 | extends | Extends the existing queue/recovery soak evidence baseline with explicit benchmark modes, manifests, and raw samples. |"
+          ]
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 14,
+      "tool": "add_trace_link",
+      "args": {
+        "id": "PERF-BGSTAB-008",
+        "type": "Requirement",
+        "reference": "OBS-BGSTAB-002",
+        "relation": "extends",
+        "notes": "Extends fallback/recovery evidence with reproducible mode and percentile/CI provenance without setting product thresholds."
+      },
+      "result_id": "PERF-BGSTAB-008",
+      "result": {
+        "ok": true,
+        "value": {
+          "id": "PERF-BGSTAB-008",
+          "reference": "OBS-BGSTAB-002",
+          "written": true
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "mutation": {
+          "kind": "add_trace_link",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 1,
+              "line": 2677,
+              "lines": [
+                "| Requirement | OBS-BGSTAB-002 | extends | Extends fallback/recovery evidence with reproducible mode and percentile/CI provenance without setting product thresholds. |"
+              ],
+              "expectedBefore": "| Requirement | OBS-BGSTAB-001 | extends | Extends the existing queue/recovery soak evidence baseline with explicit benchmark modes, manifests, and raw samples. |",
+              "expectedAfter": ""
+            }
+          ],
+          "preview": [
+            "| Requirement | OBS-BGSTAB-002 | extends | Extends fallback/recovery evidence with reproducible mode and percentile/CI provenance without setting product thresholds. |"
+          ]
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 15,
+      "tool": "add_trace_link",
+      "args": {
+        "id": "PERF-BGSTAB-008",
+        "type": "Requirement",
+        "reference": "OBS-BGSTAB-003",
+        "relation": "depends_on",
+        "notes": "AC-6 consumes event-loop delay, one-core CPU, and headless-write metrics exposed by OBS-BGSTAB-003."
+      },
+      "result_id": "PERF-BGSTAB-008",
+      "result": {
+        "ok": true,
+        "value": {
+          "id": "PERF-BGSTAB-008",
+          "reference": "OBS-BGSTAB-003",
+          "written": true
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "mutation": {
+          "kind": "add_trace_link",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 1,
+              "line": 2678,
+              "lines": [
+                "| Requirement | OBS-BGSTAB-003 | depends_on | AC-6 consumes event-loop delay, one-core CPU, and headless-write metrics exposed by OBS-BGSTAB-003. |"
+              ],
+              "expectedBefore": "| Requirement | OBS-BGSTAB-002 | extends | Extends fallback/recovery evidence with reproducible mode and percentile/CI provenance without setting product thresholds. |",
+              "expectedAfter": ""
+            }
+          ],
+          "preview": [
+            "| Requirement | OBS-BGSTAB-003 | depends_on | AC-6 consumes event-loop delay, one-core CPU, and headless-write metrics exposed by OBS-BGSTAB-003. |"
+          ]
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 16,
+      "tool": "add_requirement",
+      "args": {
+        "scope": "BGSTAB",
+        "target": "wave-1",
+        "type": "migration",
+        "title": "G1 evidence decision and activation gate",
+        "requirement": "시스템은 REL-BGSTAB-006, OBS-BGSTAB-004, PERF-BGSTAB-008의 완료 evidence를 참조하는 G1 decision record를 통해 `confirmed-bug-only` 또는 `architectural migration` 중 하나만 선택하고, 선택 결과에 따라 wave-1 local-fix 범위와 후속 wave activation을 gate해야 한다. 이 Requirement 자체는 retained-state authority promotion, UI change 또는 legacy deletion을 승인하지 않는다.",
+        "acceptanceCriteria": [
+          "Completed G1 decision record는 REL-BGSTAB-006 split-drift evidence, OBS-BGSTAB-004 refresh-boundary evidence와 PERF-BGSTAB-008 benchmark raw/summary evidence의 Requirement ID, artifact reference, run/build identifier와 content digest를 모두 링크한 경우에만 유효하다.",
+          "유효한 completed record의 `decision` enum은 정확히 `confirmed-bug-only` 또는 `architectural migration` 중 하나이며, 제3의 값·암시적 fallback·evidence 없는 default를 허용하지 않는다. Record는 선택 근거와 반대 분기를 기각한 evidence reference를 machine-readable field로 기록한다.",
+          "`decision=confirmed-bug-only`이면 wave-1에서 reproduction evidence와 별도 issue 또는 Requirement ID로 식별된 local fix를 최대 한 건만 활성화할 수 있고, wave-2·wave-3·wave-4·wave-5 및 GitHub #4~#22는 inactive 또는 deferred 상태를 유지하며 migration roadmap을 시작하지 않는다.",
+          "`decision=architectural migration`이어도 wave-2 activation 전에는 configured retained-state 범위, browser/server authority range, retention eviction, checkpoint transaction과 compatibility boundary를 정의한 별도의 exact Requirement ID가 존재하고 그 Requirement의 `Stability=stable`이 확인되어야 한다.",
+          "어느 decision도 이 Requirement만으로 server authority promotion, existing UI visual·label·layout·interaction change, local-cache/viewport-replay를 포함한 legacy code deletion, product retained rows, aggregate memory 또는 checkpoint chunk/in-flight budget 결정을 승인하지 않는다.",
+          "Gate evaluation artifact는 selected decision, prerequisite evidence completeness, separately authorized local-fix ID 또는 stable authority Requirement ID, wave-2~wave-5와 GitHub #4~#22의 resulting activation state, denial reason을 machine-readable하게 기록한다."
+        ],
+        "status": "planned",
+        "stability": "draft",
+        "priority": "high",
+        "tags": [
+          "buildergate",
+          "stability",
+          "wave-1",
+          "g1",
+          "decision-gate",
+          "migration-activation",
+          "github-issue-23",
+          "feasibility:high"
+        ],
+        "rationale": "Wave-1 characterization은 branch를 미리 선택하지 않고 evidence가 모인 뒤 G1에서 판정해야 한다. confirmed-bug-only는 한 건의 별도 reproduced-defect fix로 범위를 닫고 후속 migration을 비활성화해야 하며, architectural migration도 곧바로 authority를 승격하는 승인이 아니라 별도의 stable retained-state authority contract를 요구하는 activation gate여야 한다.",
+        "risk": "high",
+        "verificationMethod": "Decision-record JSON schema와 gate evaluator test로 prerequisite evidence completeness, exact two-value enum, bug-only single-fix bound, downstream inactive/deferred state와 migration stable-contract prerequisite를 검증한다.",
+        "githubIssue": "https://github.com/Snoworca/BuilderGate/issues/23",
+        "relatedDocs": [
+          "docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md",
+          "docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md"
+        ]
+      },
+      "result_id": "MIG-BGSTAB-001",
+      "result": {
+        "ok": true,
+        "value": {
+          "requirementId": "MIG-BGSTAB-001",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "written": true,
+          "targetSource": "explicit",
+          "record": {
+            "id": "MIG-BGSTAB-001",
+            "title": "G1 evidence decision and activation gate",
+            "type": "migration",
+            "target": "wave-1",
+            "status": "planned",
+            "scope": "BGSTAB",
+            "filePath": "docs/spec/30.buildergate-stability.srs.md",
+            "headingLine": 0,
+            "metadata": {
+              "Type": "migration",
+              "Target": "wave-1",
+              "Status": "planned",
+              "Priority": "high",
+              "Tags": "buildergate, stability, wave-1, g1, decision-gate, migration-activation, github-issue-23, feasibility:high",
+              "Risk": "high",
+              "Stability": "draft",
+              "Verification Method": "Decision-record JSON schema와 gate evaluator test로 prerequisite evidence completeness, exact two-value enum, bug-only single-fix bound, downstream inactive/deferred state와 migration stable-contract prerequisite를 검증한다.",
+              "GitHub Issue": "https://github.com/Snoworca/BuilderGate/issues/23",
+              "Related Docs": "docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md, docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md"
+            },
+            "acceptanceCriteria": [
+              {
+                "id": "AC-1",
+                "text": "Completed G1 decision record는 REL-BGSTAB-006 split-drift evidence, OBS-BGSTAB-004 refresh-boundary evidence와 PERF-BGSTAB-008 benchmark raw/summary evidence의 Requirement ID, artifact reference, run/build identifier와 content digest를 모두 링크한 경우에만 유효하다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-2",
+                "text": "유효한 completed record의 `decision` enum은 정확히 `confirmed-bug-only` 또는 `architectural migration` 중 하나이며, 제3의 값·암시적 fallback·evidence 없는 default를 허용하지 않는다. Record는 선택 근거와 반대 분기를 기각한 evidence reference를 machine-readable field로 기록한다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-3",
+                "text": "`decision=confirmed-bug-only`이면 wave-1에서 reproduction evidence와 별도 issue 또는 Requirement ID로 식별된 local fix를 최대 한 건만 활성화할 수 있고, wave-2·wave-3·wave-4·wave-5 및 GitHub #4~#22는 inactive 또는 deferred 상태를 유지하며 migration roadmap을 시작하지 않는다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-4",
+                "text": "`decision=architectural migration`이어도 wave-2 activation 전에는 configured retained-state 범위, browser/server authority range, retention eviction, checkpoint transaction과 compatibility boundary를 정의한 별도의 exact Requirement ID가 존재하고 그 Requirement의 `Stability=stable`이 확인되어야 한다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-5",
+                "text": "어느 decision도 이 Requirement만으로 server authority promotion, existing UI visual·label·layout·interaction change, local-cache/viewport-replay를 포함한 legacy code deletion, product retained rows, aggregate memory 또는 checkpoint chunk/in-flight budget 결정을 승인하지 않는다.",
+                "checked": false,
+                "line": 0
+              },
+              {
+                "id": "AC-6",
+                "text": "Gate evaluation artifact는 selected decision, prerequisite evidence completeness, separately authorized local-fix ID 또는 stable authority Requirement ID, wave-2~wave-5와 GitHub #4~#22의 resulting activation state, denial reason을 machine-readable하게 기록한다.",
+                "checked": false,
+                "line": 0
+              }
+            ],
+            "verificationEvidence": [],
+            "traceLinks": [],
+            "changeNotes": [
+              {
+                "date": "2026-07-15",
+                "change": "Created",
+                "reason": "add-requirement"
+              }
+            ],
+            "tags": [
+              "buildergate",
+              "stability",
+              "wave-1",
+              "g1",
+              "decision-gate",
+              "migration-activation",
+              "github-issue-23",
+              "feasibility:high"
+            ],
+            "requirement": "시스템은 REL-BGSTAB-006, OBS-BGSTAB-004, PERF-BGSTAB-008의 완료 evidence를 참조하는 G1 decision record를 통해 `confirmed-bug-only` 또는 `architectural migration` 중 하나만 선택하고, 선택 결과에 따라 wave-1 local-fix 범위와 후속 wave activation을 gate해야 한다. 이 Requirement 자체는 retained-state authority promotion, UI change 또는 legacy deletion을 승인하지 않는다.",
+            "priority": "high",
+            "risk": "high",
+            "stability": "draft",
+            "rationale": "Wave-1 characterization은 branch를 미리 선택하지 않고 evidence가 모인 뒤 G1에서 판정해야 한다. confirmed-bug-only는 한 건의 별도 reproduced-defect fix로 범위를 닫고 후속 migration을 비활성화해야 하며, architectural migration도 곧바로 authority를 승격하는 승인이 아니라 별도의 stable retained-state authority contract를 요구하는 activation gate여야 한다."
+          }
+        },
+        "diagnostics": [
+          {
+            "code": "SRS-W065",
+            "severity": "warning",
+            "message": "SRS status cache ignored: incomplete-counter",
+            "filePath": "kiwi/.status.json",
+            "details": {
+              "reason": "incomplete-counter",
+              "fallback": "full-workspace-parse",
+              "type": "migration",
+              "scopePrefix": "BGSTAB"
+            }
+          }
+        ],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 1,
+          "byCode": {
+            "SRS-W065": 1
+          }
+        },
+        "patch": {
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "operations": 1,
+          "dryRun": false,
+          "preview": [
+            "insertLines"
+          ]
+        },
+        "mutation": {
+          "kind": "add_requirement",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 56,
+              "line": 2694,
+              "lines": [
+                "### MIG-BGSTAB-001 — G1 evidence decision and activation gate",
+                "",
+                "| Field | Value |",
+                "| --- | --- |",
+                "| Type | migration |",
+                "| Target | wave-1 |",
+                "| Status | planned |",
+                "| Priority | high |",
+                "| Tags | buildergate, stability, wave-1, g1, decision-gate, migration-activation, github-issue-23, feasibility:high |",
+                "| Risk | high |",
+                "| Stability | draft |",
+                "| Verification Method | Decision-record JSON schema와 gate evaluator test로 prerequisite evidence completeness, exact two-value enum, bug-only single-fix bound, downstream inactive/deferred state와 migration stable-contract prerequisite를 검증한다. |",
+                "| GitHub Issue | https://github.com/Snoworca/BuilderGate/issues/23 |",
+                "| Related Docs | docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md, docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md |",
+                "",
+                "#### Requirement",
+                "",
+                "시스템은 REL-BGSTAB-006, OBS-BGSTAB-004, PERF-BGSTAB-008의 완료 evidence를 참조하는 G1 decision record를 통해 `confirmed-bug-only` 또는 `architectural migration` 중 하나만 선택하고, 선택 결과에 따라 wave-1 local-fix 범위와 후속 wave activation을 gate해야 한다. 이 Requirement 자체는 retained-state authority promotion, UI change 또는 legacy deletion을 승인하지 않는다.",
+                "",
+                "#### Rationale",
+                "",
+                "Wave-1 characterization은 branch를 미리 선택하지 않고 evidence가 모인 뒤 G1에서 판정해야 한다. confirmed-bug-only는 한 건의 별도 reproduced-defect fix로 범위를 닫고 후속 migration을 비활성화해야 하며, architectural migration도 곧바로 authority를 승격하는 승인이 아니라 별도의 stable retained-state authority contract를 요구하는 activation gate여야 한다.",
+                "",
+                "#### Acceptance Criteria",
+                "",
+                "- [ ] AC-1: Completed G1 decision record는 REL-BGSTAB-006 split-drift evidence, OBS-BGSTAB-004 refresh-boundary evidence와 PERF-BGSTAB-008 benchmark raw/summary evidence의 Requirement ID, artifact reference, run/build identifier와 content digest를 모두 링크한 경우에만 유효하다.",
+                "- [ ] AC-2: 유효한 completed record의 `decision` enum은 정확히 `confirmed-bug-only` 또는 `architectural migration` 중 하나이며, 제3의 값·암시적 fallback·evidence 없는 default를 허용하지 않는다. Record는 선택 근거와 반대 분기를 기각한 evidence reference를 machine-readable field로 기록한다.",
+                "- [ ] AC-3: `decision=confirmed-bug-only`이면 wave-1에서 reproduction evidence와 별도 issue 또는 Requirement ID로 식별된 local fix를 최대 한 건만 활성화할 수 있고, wave-2·wave-3·wave-4·wave-5 및 GitHub #4~#22는 inactive 또는 deferred 상태를 유지하며 migration roadmap을 시작하지 않는다.",
+                "- [ ] AC-4: `decision=architectural migration`이어도 wave-2 activation 전에는 configured retained-state 범위, browser/server authority range, retention eviction, checkpoint transaction과 compatibility boundary를 정의한 별도의 exact Requirement ID가 존재하고 그 Requirement의 `Stability=stable`이 확인되어야 한다.",
+                "- [ ] AC-5: 어느 decision도 이 Requirement만으로 server authority promotion, existing UI visual·label·layout·interaction change, local-cache/viewport-replay를 포함한 legacy code deletion, product retained rows, aggregate memory 또는 checkpoint chunk/in-flight budget 결정을 승인하지 않는다.",
+                "- [ ] AC-6: Gate evaluation artifact는 selected decision, prerequisite evidence completeness, separately authorized local-fix ID 또는 stable authority Requirement ID, wave-2~wave-5와 GitHub #4~#22의 resulting activation state, denial reason을 machine-readable하게 기록한다.",
+                "",
+                "#### Verification Evidence",
+                "",
+                "| Evidence ID | Type | Reference | Covers | Notes |",
+                "| --- | --- | --- | --- | --- |",
+                "",
+                "#### Trace Links",
+                "",
+                "| Type | Reference | Relation | Notes |",
+                "| --- | --- | --- | --- |",
+                "",
+                "#### Research / Analysis",
+                "",
+                "- -",
+                "",
+                "#### Implementation Notes",
+                "",
+                "- -",
+                "",
+                "#### Change Notes",
+                "",
+                "| Date | Change | Reason |",
+                "| --- | --- | --- |",
+                "| 2026-07-15 | Created | add-requirement |",
+                ""
+              ],
+              "expectedBefore": "",
+              "expectedAfter": "## 6. Open Questions"
+            }
+          ],
+          "preview": [
+            "### MIG-BGSTAB-001 — G1 evidence decision and activation gate",
+            "",
+            "| Field | Value |",
+            "| --- | --- |",
+            "| Type | migration |",
+            "| Target | wave-1 |",
+            "| Status | planned |",
+            "| Priority | high |",
+            "| Tags | buildergate, stability, wave-1, g1, decision-gate, migration-activation, github-issue-23, feasibility:high |",
+            "| Risk | high |",
+            "| Stability | draft |",
+            "| Verification Method | Decision-record JSON schema와 gate evaluator test로 prerequisite evidence completeness, exact two-value enum, bug-only single-fix bound, downstream inactive/deferred state와 migration stable-contract prerequisite를 검증한다. |",
+            "| GitHub Issue | https://github.com/Snoworca/BuilderGate/issues/23 |",
+            "| Related Docs | docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md, docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md |",
+            "",
+            "#### Requirement",
+            "",
+            "시스템은 REL-BGSTAB-006, OBS-BGSTAB-004, PERF-BGSTAB-008의 완료 evidence를 참조하는 G1 decision record를 통해 `confirmed-bug-only` 또는 `architectural migration` 중 하나만 선택하고, 선택 결과에 따라 wave-1 local-fix 범위와 후속 wave activation을 gate해야 한다. 이 Requirement 자체는 retained-state authority promotion, UI change 또는 legacy deletion을 승인하지 않는다.",
+            "",
+            "#### Rationale",
+            "",
+            "Wave-1 characterization은 branch를 미리 선택하지 않고 evidence가 모인 뒤 G1에서 판정해야 한다. confirmed-bug-only는 한 건의 별도 reproduced-defect fix로 범위를 닫고 후속 migration을 비활성화해야 하며, architectural migration도 곧바로 authority를 승격하는 승인이 아니라 별도의 stable retained-state authority contract를 요구하는 activation gate여야 한다.",
+            "",
+            "#### Acceptance Criteria",
+            "",
+            "- [ ] AC-1: Completed G1 decision record는 REL-BGSTAB-006 split-drift evidence, OBS-BGSTAB-004 refresh-boundary evidence와 PERF-BGSTAB-008 benchmark raw/summary evidence의 Requirement ID, artifact reference, run/build identifier와 content digest를 모두 링크한 경우에만 유효하다.",
+            "- [ ] AC-2: 유효한 completed record의 `decision` enum은 정확히 `confirmed-bug-only` 또는 `architectural migration` 중 하나이며, 제3의 값·암시적 fallback·evidence 없는 default를 허용하지 않는다. Record는 선택 근거와 반대 분기를 기각한 evidence reference를 machine-readable field로 기록한다.",
+            "- [ ] AC-3: `decision=confirmed-bug-only`이면 wave-1에서 reproduction evidence와 별도 issue 또는 Requirement ID로 식별된 local fix를 최대 한 건만 활성화할 수 있고, wave-2·wave-3·wave-4·wave-5 및 GitHub #4~#22는 inactive 또는 deferred 상태를 유지하며 migration roadmap을 시작하지 않는다.",
+            "- [ ] AC-4: `decision=architectural migration`이어도 wave-2 activation 전에는 configured retained-state 범위, browser/server authority range, retention eviction, checkpoint transaction과 compatibility boundary를 정의한 별도의 exact Requirement ID가 존재하고 그 Requirement의 `Stability=stable`이 확인되어야 한다.",
+            "- [ ] AC-5: 어느 decision도 이 Requirement만으로 server authority promotion, existing UI visual·label·layout·interaction change, local-cache/viewport-replay를 포함한 legacy code deletion, product retained rows, aggregate memory 또는 checkpoint chunk/in-flight budget 결정을 승인하지 않는다.",
+            "- [ ] AC-6: Gate evaluation artifact는 selected decision, prerequisite evidence completeness, separately authorized local-fix ID 또는 stable authority Requirement ID, wave-2~wave-5와 GitHub #4~#22의 resulting activation state, denial reason을 machine-readable하게 기록한다.",
+            "",
+            "#### Verification Evidence",
+            "",
+            "| Evidence ID | Type | Reference | Covers | Notes |",
+            "| --- | --- | --- | --- | --- |",
+            "",
+            "#### Trace Links",
+            "",
+            "| Type | Reference | Relation | Notes |",
+            "| --- | --- | --- | --- |",
+            "",
+            "#### Research / Analysis",
+            "",
+            "- -",
+            "",
+            "#### Implementation Notes",
+            "",
+            "- -",
+            "",
+            "#### Change Notes",
+            "",
+            "| Date | Change | Reason |",
+            "| --- | --- | --- |",
+            "| 2026-07-15 | Created | add-requirement |",
+            ""
+          ]
+        },
+        "indexSync": {
+          "filePath": "docs/spec/00.index.md",
+          "statusSummaryChanged": false,
+          "typeSummaryChanged": false,
+          "statusCounts": {
+            "planned": 34,
+            "in_progress": 0,
+            "blocked": 0,
+            "implemented": 33,
+            "verified": 0,
+            "discarded": 1
+          },
+          "typeCounts": {
+            "functional": 37,
+            "non_functional": 0,
+            "interface": 5,
+            "data": 0,
+            "security": 4,
+            "performance": 8,
+            "reliability": 8,
+            "observability": 5,
+            "operational": 0,
+            "migration": 1,
+            "constraint": 0
+          },
+          "written": false
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 17,
+      "tool": "add_trace_link",
+      "args": {
+        "id": "MIG-BGSTAB-001",
+        "type": "Requirement",
+        "reference": "REL-BGSTAB-006",
+        "relation": "depends_on",
+        "notes": "G1 requires completed split runtime/test/SRS drift evidence before selecting a branch."
+      },
+      "result_id": "MIG-BGSTAB-001",
+      "result": {
+        "ok": true,
+        "value": {
+          "id": "MIG-BGSTAB-001",
+          "reference": "REL-BGSTAB-006",
+          "written": true
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "mutation": {
+          "kind": "add_trace_link",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 1,
+              "line": 2735,
+              "lines": [
+                "| Requirement | REL-BGSTAB-006 | depends_on | G1 requires completed split runtime/test/SRS drift evidence before selecting a branch. |"
+              ],
+              "expectedBefore": "| --- | --- | --- | --- |",
+              "expectedAfter": ""
+            }
+          ],
+          "preview": [
+            "| Requirement | REL-BGSTAB-006 | depends_on | G1 requires completed split runtime/test/SRS drift evidence before selecting a branch. |"
+          ]
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 18,
+      "tool": "add_trace_link",
+      "args": {
+        "id": "MIG-BGSTAB-001",
+        "type": "Requirement",
+        "reference": "OBS-BGSTAB-004",
+        "relation": "depends_on",
+        "notes": "G1 requires completed refresh retained-state boundary and loss-cause evidence before selecting a branch."
+      },
+      "result_id": "MIG-BGSTAB-001",
+      "result": {
+        "ok": true,
+        "value": {
+          "id": "MIG-BGSTAB-001",
+          "reference": "OBS-BGSTAB-004",
+          "written": true
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "mutation": {
+          "kind": "add_trace_link",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 1,
+              "line": 2736,
+              "lines": [
+                "| Requirement | OBS-BGSTAB-004 | depends_on | G1 requires completed refresh retained-state boundary and loss-cause evidence before selecting a branch. |"
+              ],
+              "expectedBefore": "| Requirement | REL-BGSTAB-006 | depends_on | G1 requires completed split runtime/test/SRS drift evidence before selecting a branch. |",
+              "expectedAfter": ""
+            }
+          ],
+          "preview": [
+            "| Requirement | OBS-BGSTAB-004 | depends_on | G1 requires completed refresh retained-state boundary and loss-cause evidence before selecting a branch. |"
+          ]
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 19,
+      "tool": "add_trace_link",
+      "args": {
+        "id": "MIG-BGSTAB-001",
+        "type": "Requirement",
+        "reference": "PERF-BGSTAB-008",
+        "relation": "depends_on",
+        "notes": "G1 requires reproducible benchmark manifest, raw samples, summaries, and confidence intervals before selecting a branch."
+      },
+      "result_id": "MIG-BGSTAB-001",
+      "result": {
+        "ok": true,
+        "value": {
+          "id": "MIG-BGSTAB-001",
+          "reference": "PERF-BGSTAB-008",
+          "written": true
+        },
+        "diagnostics": [],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 0,
+          "byCode": {}
+        },
+        "mutation": {
+          "kind": "add_trace_link",
+          "filePath": "docs/spec/30.buildergate-stability.srs.md",
+          "dryRun": false,
+          "written": true,
+          "operations": [
+            {
+              "type": "insertLines",
+              "lineCount": 1,
+              "line": 2737,
+              "lines": [
+                "| Requirement | PERF-BGSTAB-008 | depends_on | G1 requires reproducible benchmark manifest, raw samples, summaries, and confidence intervals before selecting a branch. |"
+              ],
+              "expectedBefore": "| Requirement | OBS-BGSTAB-004 | depends_on | G1 requires completed refresh retained-state boundary and loss-cause evidence before selecting a branch. |",
+              "expectedAfter": ""
+            }
+          ],
+          "preview": [
+            "| Requirement | PERF-BGSTAB-008 | depends_on | G1 requires reproducible benchmark manifest, raw samples, summaries, and confidence intervals before selecting a branch. |"
+          ]
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    },
+    {
+      "seq": 20,
+      "tool": "validate_spec",
+      "args": {
+        "strict": true,
+        "failOnWarning": false
+      },
+      "result_id": null,
+      "result": {
+        "ok": true,
+        "value": {
+          "diagnostics": [
+            {
+              "code": "SRS-W023",
+              "severity": "warning",
+              "message": "Draft requirement is not ready as an implementation contract: REL-BGSTAB-006",
+              "filePath": "docs/spec/30.buildergate-stability.srs.md",
+              "line": 2498
+            },
+            {
+              "code": "SRS-W023",
+              "severity": "warning",
+              "message": "Draft requirement is not ready as an implementation contract: OBS-BGSTAB-004",
+              "filePath": "docs/spec/30.buildergate-stability.srs.md",
+              "line": 2560
+            },
+            {
+              "code": "SRS-W023",
+              "severity": "warning",
+              "message": "Draft requirement is not ready as an implementation contract: PERF-BGSTAB-008",
+              "filePath": "docs/spec/30.buildergate-stability.srs.md",
+              "line": 2628
+            },
+            {
+              "code": "SRS-W023",
+              "severity": "warning",
+              "message": "Draft requirement is not ready as an implementation contract: MIG-BGSTAB-001",
+              "filePath": "docs/spec/30.buildergate-stability.srs.md",
+              "line": 2694
+            }
+          ],
+          "errors": [],
+          "warnings": [
+            {
+              "code": "SRS-W023",
+              "severity": "warning",
+              "message": "Draft requirement is not ready as an implementation contract: REL-BGSTAB-006",
+              "filePath": "docs/spec/30.buildergate-stability.srs.md",
+              "line": 2498
+            },
+            {
+              "code": "SRS-W023",
+              "severity": "warning",
+              "message": "Draft requirement is not ready as an implementation contract: OBS-BGSTAB-004",
+              "filePath": "docs/spec/30.buildergate-stability.srs.md",
+              "line": 2560
+            },
+            {
+              "code": "SRS-W023",
+              "severity": "warning",
+              "message": "Draft requirement is not ready as an implementation contract: PERF-BGSTAB-008",
+              "filePath": "docs/spec/30.buildergate-stability.srs.md",
+              "line": 2628
+            },
+            {
+              "code": "SRS-W023",
+              "severity": "warning",
+              "message": "Draft requirement is not ready as an implementation contract: MIG-BGSTAB-001",
+              "filePath": "docs/spec/30.buildergate-stability.srs.md",
+              "line": 2694
+            }
+          ],
+          "summary": {
+            "errors": 0,
+            "warnings": 4,
+            "byCode": {
+              "SRS-W023": 4
+            }
+          },
+          "diagnosticsSummary": {
+            "errors": 0,
+            "warnings": 4,
+            "byCode": {
+              "SRS-W023": 4
+            }
+          }
+        },
+        "diagnostics": [
+          {
+            "code": "SRS-W023",
+            "severity": "warning",
+            "message": "Draft requirement is not ready as an implementation contract: REL-BGSTAB-006",
+            "filePath": "docs/spec/30.buildergate-stability.srs.md",
+            "line": 2498
+          },
+          {
+            "code": "SRS-W023",
+            "severity": "warning",
+            "message": "Draft requirement is not ready as an implementation contract: OBS-BGSTAB-004",
+            "filePath": "docs/spec/30.buildergate-stability.srs.md",
+            "line": 2560
+          },
+          {
+            "code": "SRS-W023",
+            "severity": "warning",
+            "message": "Draft requirement is not ready as an implementation contract: PERF-BGSTAB-008",
+            "filePath": "docs/spec/30.buildergate-stability.srs.md",
+            "line": 2628
+          },
+          {
+            "code": "SRS-W023",
+            "severity": "warning",
+            "message": "Draft requirement is not ready as an implementation contract: MIG-BGSTAB-001",
+            "filePath": "docs/spec/30.buildergate-stability.srs.md",
+            "line": 2694
+          }
+        ],
+        "diagnosticsSummary": {
+          "errors": 0,
+          "warnings": 4,
+          "byCode": {
+            "SRS-W023": 4
+          }
+        },
+        "mcpWorkspace": {
+          "workspaceRoot": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+          "rootSource": "server-cwd-discovery",
+          "indexPath": "docs/spec/00.index.md",
+          "packageVersion": "2.3.1"
+        }
+      }
+    }
+  ],
+  "validation_summary": {
+    "ok": true,
+    "strict": true,
+    "fail_on_warning": false,
+    "errors": 0,
+    "warnings": 4,
+    "by_code": {
+      "SRS-W023": 4
+    },
+    "diagnostics": [
+      {
+        "code": "SRS-W023",
+        "severity": "warning",
+        "message": "Draft requirement is not ready as an implementation contract: REL-BGSTAB-006",
+        "filePath": "docs/spec/30.buildergate-stability.srs.md",
+        "line": 2498
+      },
+      {
+        "code": "SRS-W023",
+        "severity": "warning",
+        "message": "Draft requirement is not ready as an implementation contract: OBS-BGSTAB-004",
+        "filePath": "docs/spec/30.buildergate-stability.srs.md",
+        "line": 2560
+      },
+      {
+        "code": "SRS-W023",
+        "severity": "warning",
+        "message": "Draft requirement is not ready as an implementation contract: PERF-BGSTAB-008",
+        "filePath": "docs/spec/30.buildergate-stability.srs.md",
+        "line": 2628
+      },
+      {
+        "code": "SRS-W023",
+        "severity": "warning",
+        "message": "Draft requirement is not ready as an implementation contract: MIG-BGSTAB-001",
+        "filePath": "docs/spec/30.buildergate-stability.srs.md",
+        "line": 2694
+      }
+    ],
+    "interpretation": "PASS with four expected SRS-W023 warnings because all four newly added requirements intentionally start at Stability=draft for kiwi-srs-feasibility promotion."
+  },
+  "non_mcp_execution_notes": [
+    {
+      "kind": "wrapper_parse_recovery",
+      "mcp_mutation_failed": false,
+      "detail": "The first add_requirement MCP mutation succeeded and returned REL-BGSTAB-006 in value.requirementId. A local wrapper initially looked for value.id, raised after the successful write, then recovered from the stored exact MCP result without repeating the add call."
+    },
+    {
+      "kind": "analysis_artifact_patch_retry",
+      "mcp_mutation_failed": false,
+      "detail": "The first apply_patch request for this non-SRS analysis artifact failed patch-format verification before any file write; this retry adds the required final newline."
+    }
+  ],
+  "manual_srs_edits": []
+}

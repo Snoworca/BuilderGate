@@ -1,0 +1,22 @@
+{
+  "run_id": "2026-07-15.projectmaster.orca-refresh-state-refactor.s01",
+  "mode": "standalone",
+  "active_target": "0.5.5-buildergate-stability",
+  "input_kind": "research_question",
+  "workspace": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+  "external_reference": {
+    "path": "C:\\Work\\git-none\\orca",
+    "access": "read-only"
+  },
+  "relevant_requirements": [
+    "FR-BGSTAB-004",
+    "FR-BGSTAB-014",
+    "FR-BGSTAB-017",
+    "FR-BGSTAB-018",
+    "REL-BGSTAB-003",
+    "REL-BGSTAB-004"
+  ],
+  "speckiwi_mcp_available": true,
+  "append_section_note_available": true,
+  "mutation_status": "pending_synthesis_and_user_decision"
+}

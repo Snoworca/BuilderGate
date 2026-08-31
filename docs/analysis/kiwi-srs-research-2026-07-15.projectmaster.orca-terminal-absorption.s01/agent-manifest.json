@@ -1,0 +1,66 @@
+{
+  "run_id": "2026-07-15.projectmaster.orca-terminal-absorption.s01",
+  "topology": "triage 1 + isolated researchers A/B/C + synthesizer 1",
+  "valid_core_role_count": 5,
+  "executed_unique_subagent_count": 7,
+  "core_roles": [
+    {
+      "canonical_task": "/root/research_triage_isolated",
+      "role": "Triage",
+      "model": "current session inherited",
+      "input_scope": "subject + supplied shallow index only",
+      "isolation": "fork_turns=none; no files, network, tools, prior triage, or researcher results",
+      "artifact": "triage.json",
+      "status": "completed"
+    },
+    {
+      "canonical_task": "/root/buildergate_code_research",
+      "role": "Researcher A - BuilderGate code archaeology",
+      "model": "current session inherited",
+      "input_scope": "code_package + BuilderGate cwd",
+      "isolation": "Researcher B/C raw not received; Orca repository not inspected; files_written=0",
+      "artifact": "research-raw/code-research.json",
+      "status": "completed"
+    },
+    {
+      "canonical_task": "/root/orca_external_source_audit",
+      "role": "Researcher B - Orca external source research",
+      "model": "current session inherited",
+      "input_scope": "external_package + C:/Work/git-none/orca read-only",
+      "isolation": "Researcher A/C raw not used; BuilderGate CODE_PATH not investigated; external writes=0. Root plan was only a later fact-audit target.",
+      "artifact": "research-raw/external-research.json",
+      "status": "completed"
+    },
+    {
+      "canonical_task": "/root/transplant_risk_research_isolated",
+      "role": "Researcher C - risk and alternatives",
+      "model": "current session inherited",
+      "input_scope": "triage.json PKG-RISK only",
+      "isolation": "fork_turns=none; no files, network, tools, A/B result, or implementation detail",
+      "artifact": "research-raw/risk-research.json",
+      "status": "completed"
+    },
+    {
+      "canonical_task": "/root/orca_research_synthesizer",
+      "role": "Synthesizer + Tier 2 harsh reviewer",
+      "model": "current session inherited",
+      "synthesis_input_scope": "triage + final Researcher A/B/C raw only",
+      "post_synthesis_review_scope": "plan + source/evidence validation after synthesis was frozen",
+      "isolation": "only Synthesizer may combine researcher outputs; post-synthesis review evidence does not create or expand research-summary claims",
+      "artifact": "research-summary.json",
+      "status": "review_pending"
+    }
+  ],
+  "discarded_or_validation_runs": [
+    {
+      "canonical_task": "/root/research_triage_audit",
+      "reason": "audit-only/inherited-context run was not clean-room generation and is not the canonical Triage artifact",
+      "result_usage": "validation history only"
+    },
+    {
+      "canonical_task": "/root/transplant_risk_research",
+      "reason": "initial Researcher C accessed CODE_PATH and violated the risk_package-only contract",
+      "result_usage": "rejected; no claim or evidence retained in final raw/synthesis"
+    }
+  ]
+}

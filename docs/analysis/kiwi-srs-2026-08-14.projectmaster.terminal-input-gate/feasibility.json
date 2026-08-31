@@ -1,0 +1,275 @@
+{
+  "assessed": [
+    {
+      "ref": "RC1",
+      "implementability": "high",
+      "product_fit": "core",
+      "rationale": "submitCapturedInputDirect(TerminalView.tsx:915-932)와 enqueueTransportInput(TerminalContainer.tsx:757-768)의 mode==='observe' 분기는 debug-event만 기록하고 return하여 무음 폐기가 실측 확인된다. 동일 파일 내에 이미 재사용 가능한 토스트 패턴(FontSizeToast: state+timer+컴포넌트, TerminalView.tsx:382-391,1230-1235,4435)이 존재해 신규 UI 프리미티브 없이 확장만으로 구현 가능.",
+      "code_evidence": [
+        "frontend/src/components/Terminal/TerminalView.tsx:915-932",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:757-768",
+        "frontend/src/components/Terminal/TerminalView.tsx:382-391",
+        "frontend/src/components/Terminal/TerminalView.tsx:1230-1235",
+        "frontend/src/components/Terminal/TerminalView.tsx:4435"
+      ],
+      "blockers": [],
+      "conditions": ["A1 제안 기본값(observe 유지 + 의무적 피드백) 채택 전제"],
+      "external_module_required": false,
+      "regression_risk": "low",
+      "test_strategy": {
+        "suite": "frontend/tests/e2e",
+        "approach": "transient-blocked+observe 상태를 유발(예: 재연결 지연 시뮬레이션) 후 키 입력 시 토스트/인디케이터가 표시되는지 assert하는 신규 spec. 보조로 frontend/tests/unit에서 submitCapturedInputDirect의 mode-observe-only 반환값 소비 로직(피드백 트리거 여부)을 단위 검증."
+      }
+    },
+    {
+      "ref": "RC2",
+      "implementability": "high",
+      "product_fit": "nice-to-have",
+      "rationale": "server/src/utils/inputReliabilityMode.ts:1-24는 ENV_KEY(BUILDERGATE_INPUT_RELIABILITY_MODE)만 읽고 기본값 'observe'를 하드코딩; frontend/src/utils/inputReliabilityMode.ts:95도 runtimeMode 초기값 'observe' 하드코딩. config.schema.ts:286-302 configSchema에 inputReliabilityMode 필드가 없음을 재확인(전체 286-302 라인 실측). 제안된 기본안(A4류: 현행 유지+문서화)은 코드 변경이 전혀 없는 문서 작업이므로 구현 가능성 자체는 자명하게 high.",
+      "code_evidence": [
+        "server/src/utils/inputReliabilityMode.ts:1-24",
+        "frontend/src/utils/inputReliabilityMode.ts:95",
+        "server/src/schemas/config.schema.ts:286-302"
+      ],
+      "blockers": [],
+      "conditions": [],
+      "external_module_required": false,
+      "regression_risk": "low",
+      "test_strategy": {
+        "suite": "none (documentation-only)",
+        "approach": "AC가 '문서화'만 요구하므로 의미 있는 자동 테스트를 쓸 수 없는 예외 케이스 — 구현 전 예외 사유를 명시하고 대체 검증 증거로 문서 diff(예: docs/wiki 또는 config.schema.ts 주석)를 verification evidence로 남긴다. config 필드 추가로 범위가 확장되면 server/src/**/*.test.ts에 configSchema round-trip 테스트 추가."
+      }
+    },
+    {
+      "ref": "RC4",
+      "implementability": "high",
+      "product_fit": "core",
+      "rationale": "SessionManager.ts:writeInput()에서 acceptRetainedTerminalMutationIdentity 게이트(3197)가 debug capture 기록(3203-3206)보다 먼저 실행되어, fencing 실패 시 이벤트 자체가 기록되지 않음을 실측 확인. resize()도 동일하게 3412에서 게이트 후 즉시 return하는 구조(3401-3420 확인, 게이트 직후 캡처 코드는 이 창 밖에 위치할 가능성 있어 정확한 캡처 라인은 미확정). 캡처 호출을 게이트 이전으로 옮기는 것은 로컬 순서 변경이라 구현 난이도가 낮음.",
+      "code_evidence": [
+        "server/src/services/SessionManager.ts:3185-3206",
+        "server/src/services/SessionManager.ts:3401-3420"
+      ],
+      "blockers": [],
+      "conditions": ["RC3(프런트엔드 감사 기록, deferred)과 원칙은 공유하지만 서버 전용 변경으로 독립 구현 가능 — depends_on_refs로 명시된 RC3 완료를 강제로 선행할 필요는 없음"],
+      "external_module_required": false,
+      "regression_risk": "medium",
+      "test_strategy": {
+        "suite": "server/src/**/*.test.ts",
+        "approach": "isDebugCaptureEnabled(id)=true 상태에서 retainedIdentity가 fencing에 실패하는 writeInput/resize 호출을 만들고, 반환값이 false이면서도 captureDebugEvent가 호출됐는지(또는 getDebugCapture 결과에 이벤트가 남는지) 검증하는 케이스 추가. 기존 fencing 회귀 테스트(있다면)가 '실패 시 캡처 없음'을 전제하고 있지 않은지 회귀 확인 필수."
+      }
+    },
+    {
+      "ref": "RC5",
+      "implementability": "high",
+      "product_fit": "core",
+      "rationale": "REL-BGSTAB-009(Status=implemented) AC-7/AC-8 대비 회귀. 초기 마운트 double-rAF(3858-3887), ResizeObserver(4109-4145), visibility 전환(4285-4326) 세 지점 모두 0x0일 때 'fit_skipped_non_renderable' 이벤트만 남기고 재시도 스케줄링 없이 return하는 것을 실측 확인. ResizeObserver는 계속 observe 중이므로 이후 실제 DOM 리사이즈가 발생하면 자연 회복되지만, 리사이즈 이벤트 자체가 다시 발생하지 않는 경로(예: 초기 마운트 후 크기 변화 없이 영구 0x0으로 남는 좁은 창)에서는 barrier가 미해결 상태로 방치될 수 있음 — 코드 구조상 재시도 타이머 추가는 국소적 수정으로 구현 가능성 높음.",
+      "code_evidence": [
+        "frontend/src/components/Terminal/TerminalView.tsx:3858-3887",
+        "frontend/src/components/Terminal/TerminalView.tsx:4109-4145",
+        "frontend/src/components/Terminal/TerminalView.tsx:4285-4326"
+      ],
+      "blockers": [],
+      "conditions": [],
+      "external_module_required": false,
+      "regression_risk": "medium",
+      "test_strategy": {
+        "suite": "frontend/tests/unit + frontend/tests/e2e",
+        "approach": "unit: submitTerminalFit/ResizeObserver 콜백을 모킹해 0x0→비0x0 전이를 실제 리사이즈 이벤트 없이 시뮬레이션하고 geometryReadyRef가 결국 true가 되는지 검증. e2e: 컨테이너를 0 크기로 숨겼다가 리사이즈 이벤트 없이 다시 보이는 시나리오(예: CSS display:none→block, 크기 변화가 ResizeObserver를 트리거하지 않는 경우)를 재현. REL-BGSTAB-009 기존 AC-7/AC-8 테스트 스위트와의 충돌 여부를 먼저 실행해 확인."
+      }
+    },
+    {
+      "ref": "RC6",
+      "implementability": "high",
+      "product_fit": "core",
+      "rationale": "REL-BGSTAB-011 AC-6/AC-9 대비 회귀. acceptRetainedTerminalMutationIdentity가 'mutation-identity-missing'(2985)/'driver-lease-failure'(3009) 블로커를 내부적으로 기록하지만 boolean만 반환(3010-3011)함을 실측 확인. WsRouter.ts:4549-4555에서 accepted:false 시 INPUT_REJECTED_REPLAY_PENDING 외 모든 코드가 'server-error'로 뭉개짐을 실측 확인. ws-protocol.ts:422-434 InputRejectedReason enum에 fencing 전용 값이 없음을 실측 확인. A5 기본값(기존 값 유지+신규 추가)은 enum 확장만으로 하위호환 유지 가능.",
+      "code_evidence": [
+        "server/src/services/SessionManager.ts:2972-3011",
+        "server/src/ws/WsRouter.ts:4537-4556",
+        "server/src/types/ws-protocol.ts:422-434"
+      ],
+      "blockers": [],
+      "conditions": [],
+      "external_module_required": false,
+      "regression_risk": "medium",
+      "test_strategy": {
+        "suite": "server/src/**/*.test.ts",
+        "approach": "acceptRetainedTerminalMutationIdentity가 boolean 대신 reason-carrying 결과를 반환하도록 시그니처를 바꾸는 변경은 사설 메서드이지만 다수 호출부(writeInput/resize)에 영향 — 각 호출부의 기존 테스트가 boolean 반환을 가정하지 않는지 확인 후, WsRouter 레벨에서 새 InputRejectedReason 값이 'server-error' 대신 반환되는 케이스를 신규 테스트로 추가."
+      }
+    },
+    {
+      "ref": "RC8",
+      "implementability": "high",
+      "product_fit": "nice-to-have",
+      "rationale": "config.schema.ts:52-53의 defaultObject 헬퍼가 value===undefined일 때 조용히 {}로 치환 후 zod 기본값을 채우는 구조를 실측 확인 — 어떤 경고 훅도 없음. processCleanup.mode 기본값 'observe'(84-90), stabilityModes.wsSendMode 기본값 'direct'(199-203) 확인. configSchema(286-302) 어디에도 schemaVersion 필드 없음. schemaVersion optional 필드 추가 자체는 자명하게 구현 가능하나, '부재 시 경고 로그'는 zod parse 이후에는 원본 raw 객체의 부재 여부 신호가 사라지므로 raw config 객체를 parse 이전에 별도로 검사하는 코드가 필요 — 정확한 parse() 호출 지점은 이번 세션에서 확인하지 못함(범위 밖).",
+      "code_evidence": [
+        "server/src/schemas/config.schema.ts:52-53",
+        "server/src/schemas/config.schema.ts:84-90",
+        "server/src/schemas/config.schema.ts:199-203",
+        "server/src/schemas/config.schema.ts:286-302"
+      ],
+      "blockers": [],
+      "conditions": ["configSchema.parse()/parseAsync() 실제 호출부(설정 로더) 확인 필요 — 이번 조사에서 미탐색이므로 구현 착수 전 별도 확인 권장"],
+      "external_module_required": false,
+      "regression_risk": "low",
+      "test_strategy": {
+        "suite": "server/src/**/*.test.ts",
+        "approach": "session.processCleanup 또는 stabilityModes 블록이 통째로 빠진 raw config 객체를 로더에 통과시키고, console.warn(또는 로거) 호출과 schemaVersion 필드 파싱을 함께 검증하는 테스트 추가. dist/bin/*/config.json5류 실사례를 fixture로 재사용 가능."
+      }
+    },
+    {
+      "ref": "RC9",
+      "implementability": "medium",
+      "product_fit": "core",
+      "rationale": "pendingUserXtermDataPermits 카운터(3687-3698)와 이를 소비하는 onData 게이트(3889-3896)를 실측 확인. onHelperInput(4024-4036)이 이미 native 'input' 이벤트에서 markUserXtermDataProvenance를 호출하고 있어 IME 커밋/이모지 경로에 대한 permit 발급 로직 자체는 이미 존재함 — RC9가 주장하는 결함은 '리스너 등록 순서 경합'이며, 이는 코드 존재 여부가 아니라 타이밍 문제라 이 세션에서 실제 경합을 재현·계측하지 못했다(unknown 요소 포함). 다만 element-level 리스너 등록 순서에 의존하지 않는 대안(document-level capture-phase 리스너로 전환)은 자체 코드만으로 가능해 external_module_required=false.",
+      "code_evidence": [
+        "frontend/src/components/Terminal/TerminalView.tsx:3687-3698",
+        "frontend/src/components/Terminal/TerminalView.tsx:3889-3896",
+        "frontend/src/components/Terminal/TerminalView.tsx:4024-4036",
+        "frontend/src/utils/terminalReplayGuard.ts:48-50"
+      ],
+      "blockers": [
+        "실제 리스너 등록 순서 경합이 이번 조사에서 직접 재현·계측되지 않음 — xterm term.open() 내부 리스너 등록 시점 대비 onHelperInput 리스너 등록 시점(4055)의 상대 순서를 실측하지 못해 근본 원인의 존재 자체가 code_context 수준에서는 unknown"
+      ],
+      "conditions": [],
+      "external_module_required": false,
+      "regression_risk": "medium",
+      "test_strategy": {
+        "suite": "frontend/tests/unit + frontend/tests/e2e",
+        "approach": "unit: helperTextarea에 keydown 없이 'input'(inputType=insertCompositionText/insertText) 이벤트만 디스패치하고 이어서 term.onData 콜백이 user-input provenance로 분류되는지 검증(현재 로직으로도 통과할 수 있어 우선 실행해 실제 결함 존재를 확인하는 것이 선행 단계). 재현되면 e2e에서 실제 IME 조합/이모지 피커 시나리오로 확장."
+      }
+    },
+    {
+      "ref": "RC10",
+      "implementability": "high",
+      "product_fit": "nice-to-have",
+      "rationale": "captureAllowed=false 분기(TerminalView.tsx:1044-1047, term.options.disableStdin/helperTextarea.disabled 설정)를 실측 확인. 인용된 두 e2e spec 파일(terminal-context-menu-registered-items.spec.ts, wave3-terminal-authority-fairness.spec.ts) 존재를 파일시스템으로 재확인 — 순수 테스트 커버리지 추가 작업이라 구현 가능성 자명.",
+      "code_evidence": [
+        "frontend/src/components/Terminal/TerminalView.tsx:1044-1047",
+        "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts",
+        "frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts"
+      ],
+      "blockers": [],
+      "conditions": [],
+      "external_module_required": false,
+      "regression_risk": "low",
+      "test_strategy": {
+        "suite": "frontend/tests/e2e",
+        "approach": "wave3-terminal-authority-fairness.spec.ts 또는 신규 spec에서 captureAllowed=false를 유발하는 상태(예: authority 상실/세션 종료 전이)를 만들고 helperTextarea.disabled===true, term.options.disableStdin===true(또는 DOM에서 관측 가능한 대리 신호)를 assert."
+      }
+    },
+    {
+      "ref": "RC11",
+      "implementability": "high",
+      "product_fit": "core",
+      "rationale": "pane-keyboard.spec.ts:1-29의 TC-6601/6602/6606이 '.status-prefix'를 대상으로 함을 실측 확인. StatusBar.tsx가 실제로 prefixMode prop에 따라 '.status-prefix' 마크업을 렌더링하는 컴포넌트임을 확인했으나(12-20행), grep으로 StatusBar를 import하는 파일이 자기 자신과 barrel(index.ts) 뿐임을 확인 — 앱 트리 어디에도 실제 렌더 경로로 연결되지 않은 사장 컴포넌트임이 실측으로 확정됨. 세 방향(구현/재조준/skip) 중 어느 쪽이든 국소 변경으로 구현 가능.",
+      "code_evidence": [
+        "frontend/tests/e2e/pane-keyboard.spec.ts:1-29",
+        "frontend/src/components/StatusBar/StatusBar.tsx:1-36",
+        "frontend/src/components/StatusBar/index.ts:1"
+      ],
+      "blockers": [],
+      "conditions": ["구현/재조준/skip 중 정책 결정 필요 — 정책 결정 자체는 implementability를 낮추지 않으나 어느 쪽을 택할지에 따라 test_strategy가 갈림"],
+      "external_module_required": false,
+      "regression_risk": "low",
+      "test_strategy": {
+        "suite": "frontend/tests/e2e",
+        "approach": "정책 A(구현): StatusBar를 실제 워크스페이스 트리에 마운트하고 prefixMode 상태를 연결해 기존 TC-6601/6602/6606을 그대로 GREEN화. 정책 B(재조준): 대체 활성 컴포넌트로 selector 변경. 정책 C(skip): test.skip + 사유 주석 + 이슈 링크로 명시적 방치를 문서화. 어느 경우든 pane-keyboard.spec.ts는 CI에서 더 이상 무방비 RED로 남지 않아야 함."
+      }
+    },
+    {
+      "ref": "RC12",
+      "implementability": "high",
+      "product_fit": "nice-to-have",
+      "rationale": "server/src/index.ts:530-532에서 /api/runtime-config가 noCacheMiddleware만 거치고 별도 인증 미들웨어 없이 등록됨을 실측 확인 — FR-BGSTAB-008 AC-5가 이미 이를 public-by-design으로 규정하므로 Rationale 문구 보강은 동작 변경 없는 순수 문서 작업.",
+      "code_evidence": [
+        "server/src/index.ts:530-532"
+      ],
+      "blockers": [],
+      "conditions": [],
+      "external_module_required": false,
+      "regression_risk": "low",
+      "test_strategy": {
+        "suite": "none (documentation-only)",
+        "approach": "동작 변경이 없어 의미 있는 자동 테스트를 쓸 수 없는 예외 케이스 — SRS Rationale diff를 verification evidence로 남긴다. 이미 AC-5가 무인증 화이트리스트를 검증하는 기존 테스트(있다면)가 존재하면 그것으로 대체 근거 삼는다."
+      }
+    },
+    {
+      "ref": "RC14",
+      "implementability": "high",
+      "product_fit": "core",
+      "rationale": ".github/workflows/release.yml 전체(351라인)를 실측 확인한 결과 npm test/playwright test 실행 스텝이 0건. Glob으로 .github/workflows/ 하위에 release.yml 단 하나뿐임을 확인 — PR/push 트리거로 테스트를 도는 별도 CI 워크플로 자체가 존재하지 않음. GitHub Actions 워크플로 YAML에 스텝 추가는 표준적인 작업으로 구현 가능성 높음.",
+      "code_evidence": [
+        ".github/workflows/release.yml:1-351"
+      ],
+      "blockers": [],
+      "conditions": ["RC11(pane-keyboard.spec.ts RED 방치)을 먼저 정리하지 않으면 CI 테스트 게이트 도입 즉시 release 파이프라인이 막힘 — 실질적 선행 조건"],
+      "external_module_required": false,
+      "regression_risk": "medium",
+      "test_strategy": {
+        "suite": "meta/infra (repo-hygiene test)",
+        "approach": "자기참조 회피: 'CI가 테스트를 실행하는지'는 CI 자체 실행으로 증명할 수 없으므로, .github/workflows/*.yml을 파싱해 build job 이전(또는 release 게이트에 needs로 연결된) job에 npm test류 스텝과 npx playwright test류 스텝이 존재하는지 단언하는 정적 메타 테스트를 tools/daemon/*.test.js 또는 server/src/**/*.test.ts에 추가. 신규 ci.yml(push/PR 트리거)을 별도로 만들어 release.yml과 분리하는 편이 안전."
+      }
+    },
+    {
+      "ref": "RC15",
+      "implementability": "high",
+      "product_fit": "core",
+      "rationale": "tools/start-runtime.js:242-250의 hasDeploymentArtifacts()가 fs.existsSync만으로 산출물 존재를 판단하고 신선도(해시/mtime/버전)를 비교하지 않음을 실측 확인. frontend/playwright.config.ts:36에서 reuseExistingServer:true가 CI 조건 없이 무조건 적용됨을 실측 확인(Playwright 표준 관례인 reuseExistingServer: !process.env.CI 패턴이 아님). 신선도 체크 함수 추가 + config 조건화는 국소적 구현.",
+      "code_evidence": [
+        "tools/start-runtime.js:242-250",
+        "frontend/playwright.config.ts:33-38"
+      ],
+      "blockers": [],
+      "conditions": [],
+      "external_module_required": false,
+      "regression_risk": "low",
+      "test_strategy": {
+        "suite": "tools/daemon/*.test.js",
+        "approach": "hasDeploymentArtifacts류 신선도 체크 함수를 신설/확장해 소스 mtime 또는 package.json 버전 대비 번들 mtime/임베딩 버전을 비교하는 순수 함수로 분리하고, fs를 모킹해 '오래된 번들 재사용 거부' 케이스를 단위 테스트. playwright.config.ts의 reuseExistingServer 조건화는 별도 스모크 테스트보다 코드 리뷰 + 위 유닛 테스트로 검증."
+      }
+    },
+    {
+      "ref": "RC16",
+      "implementability": "medium",
+      "product_fit": "nice-to-have",
+      "rationale": "main.tsx:1-13에서 StrictMode가 무조건 App을 감싸는 것을 확인. WebSocketContext.tsx:1233-1237에 StrictMode 이중 마운트 stale-WS 가드가 이미 구현되어 있다는 코드 주석/로직을 실측 확인(behavior gap 아님, verification evidence gap). TerminalView.tsx:3130에서 term.open(terminalRef.current) 라인 확인(intent.json의 3106 인용은 부정확, code_context.json의 3130이 정확). 다만 frontend/playwright.config.ts의 webServer는 `start.bat`로 프로덕션 빌드를 구동하며, React는 프로덕션 빌드에서 StrictMode의 effect 이중 호출을 제거하므로 기존 E2E 인프라로는 이 요구를 검증할 방법이 없음 — 별도 dev-mode 대상 E2E 트랙이 필요해 medium으로 판정.",
+      "code_evidence": [
+        "frontend/src/main.tsx:1-13",
+        "frontend/src/contexts/WebSocketContext.tsx:1233-1237",
+        "frontend/src/components/Terminal/TerminalView.tsx:3130",
+        "frontend/playwright.config.ts:33-38"
+      ],
+      "blockers": [
+        "프로덕션 빌드는 React가 StrictMode 이중 호출을 제거하므로, 기존 playwright.config.ts의 webServer(프로덕션 번들 대상)로는 StrictMode 이중 마운트를 재현할 수 없다 — dev 서버 구동 경로 또는 별도 개발 빌드 대상 E2E 프로젝트 신설이 선행되어야 함"
+      ],
+      "conditions": ["dev-mode(비프로덕션) E2E 구동 경로 확보"],
+      "external_module_required": false,
+      "regression_risk": "low",
+      "test_strategy": {
+        "suite": "frontend/tests/e2e (신규 dev-mode 프로젝트)",
+        "approach": "기존 프로덕션 webServer와 별도로 vite dev 서버(또는 StrictMode를 강제하는 별도 엔트리)를 대상으로 하는 Playwright project를 추가하고, WebSocketContext.tsx:1233의 stale-WS 가드가 실제로 중복 PTY 쓰기를 막는지(예: 터미널 출력이 두 번 렌더되지 않음) assert하는 spec 작성."
+      }
+    },
+    {
+      "ref": "RC17",
+      "implementability": "high",
+      "product_fit": "core",
+      "rationale": "StatusBar.tsx:12-20이 connected/disconnected 상태를 렌더링하는 정확한 모양의 컴포넌트를 이미 갖추고 있음을 실측 확인했으나 grep으로 앱 트리 어디에도 소비자가 없는 사장 컴포넌트임을 확인. DisconnectedOverlay.tsx(전체 37라인)를 실측한 결과 세션 종료 시에만 전체화면 오버레이로 표시되며 재연결 창(reconnect window) 동안의 경량 인디케이터 용도가 아님을 확인 — 두 요구(RC11의 StatusBar 재활용, RC17의 신규 노출) 사이 시너지가 있어 구현 가능성 높음.",
+      "code_evidence": [
+        "frontend/src/components/StatusBar/StatusBar.tsx:12-20",
+        "frontend/src/components/Workspace/DisconnectedOverlay.tsx:1-37"
+      ],
+      "blockers": [],
+      "conditions": ["RC11에서 StatusBar를 실제로 마운트하기로 결정하면 그 결과물을 재사용 가능(강제 선행조건은 아님, 독립적으로도 새 인디케이터 구현 가능)"],
+      "external_module_required": false,
+      "regression_risk": "low",
+      "test_strategy": {
+        "suite": "frontend/tests/e2e",
+        "approach": "WS 연결을 강제로 끊고(예: 네트워크 오프라인 시뮬레이션) DisconnectedOverlay가 뜨기 전 재연결 창 구간 동안 연결 상태 인디케이터(StatusBar 또는 신규 컴포넌트)가 화면에 보이는지 assert하는 신규 spec."
+      }
+    }
+  ],
+  "deferred": ["RC3", "RC7", "RC13"],
+  "summary": {"high": 12, "medium": 2, "low": 0, "blocked": 0, "unknown": 0},
+  "notes": "14건 전수를 코드 실측 기반으로 판정. blocked 0건 — 이 배치에는 진짜 구조적 장애물이 확인된 항목이 없었다. medium implementability 2건(RC9, RC16)은 각각 '경합이 이번 조사에서 재현·계측되지 않음'과 'production 빌드 대상 E2E 인프라로는 StrictMode를 검증할 수 없어 별도 dev-mode 트랙 필요'라는 구체적 blocker를 갖는다. RC14(core, CI 테스트 실행)는 RC11(pane-keyboard.spec.ts RED 방치) 정리를 사실상의 선행조건으로 갖는다 — CI 게이트를 먼저 걸면 기존 RED 테스트가 release를 막는다. RC2/RC12는 순수 문서화로 분류돼 TDD 예외(의미 있는 자동 테스트 없음)로 처리하고 대체 검증 증거(문서 diff/기존 AC 테스트)를 명시했다. RC10/RC14/RC15/RC16은 '테스트/CI 인프라 자체'에 대한 요구라 자기참조를 피하기 위해 검증 방법을 메타 테스트(워크플로 YAML 정적 단언, fs 모킹 기반 신선도 체크 유닛 테스트, 별도 dev-mode E2E 트랙)로 구체화했다. code_evidence는 모두 이번 세션에서 Read/Grep으로 직접 재확인한 실측값이며, intent.json의 일부 부정확한 라인 인용(RC16의 TerminalView.tsx:3106→3130)은 code_context.json이 이미 정정한 값을 그대로 채택했다."
+}

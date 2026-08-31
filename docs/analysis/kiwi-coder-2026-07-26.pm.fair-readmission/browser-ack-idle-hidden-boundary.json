@@ -1,0 +1,100 @@
+{
+  "schema_version": "fair-readmission-browser-boundary/v1",
+  "phase": "PH-004",
+  "observation_only": true,
+  "dirty_baseline_frozen": true,
+  "preflight": {
+    "base_url": "https://localhost:2222",
+    "https_status": 200,
+    "listener_verified_projectmaster": true,
+    "output_external": true,
+    "output_path": "C:\\Users\\beom\\AppData\\Local\\Temp\\BuilderGateFairReadmission-ad20281b1b0548e49aeed6304ab17fbc",
+    "retries": 0,
+    "workers": 1
+  },
+  "unit": {
+    "cwd": "frontend",
+    "argv": [
+      "node",
+      "--experimental-strip-types",
+      "--test",
+      "tests/unit/terminalContainerRecoveryContract.test.ts",
+      "tests/unit/perfBgstab010Ac9IsolatedE2EContract.test.ts",
+      "tests/unit/webSocketBackpressure.test.ts",
+      "tests/unit/terminalDebugCapture.test.ts"
+    ],
+    "exit_code": 0,
+    "signal": null,
+    "stdout_lf": "✔ PERF-BGSTAB-010 AC-9 isolated E2E has no historical-evidence writer dependency (1.3427ms)\n✔ PERF-BGSTAB-010 AC-9 writer guard recognizes alternate filesystem writers (0.116ms)\n✔ PERF-BGSTAB-010 browser ACK is emitted only after an accepted visible terminal write (2.1212ms)\n✔ PERF-BGSTAB-010 AC-6 browser records ACK rejection without delivery or status mutation (0.5838ms)\n✔ MIG-BGSTAB-002 TerminalView queues checkpoint-authority input until its exact mutation lease arrives (0.2777ms)\n✔ TerminalContainer bounds authority recovery retries and resets them only after matching ready plus ACK (0.2448ms)\n✔ WebSocket grace recovery state is discarded before a replacement socket resubscribes (0.1437ms)\n✔ replacement-socket authoritative ACK plus matching ready resets the recovery budget (0.1586ms)\n✔ replacement authoritative convergence is staged before the snapshot ACK can synchronously return ready (0.1524ms)\n✔ replacement authoritative snapshots bypass checkpoint suppression for retained-state recovery (0.1439ms)\n✔ MIG-BGSTAB-002 snapshot Windows PTY metadata applies only after snapshot authority succeeds (0.2298ms)\n✔ session ready cannot open input until it matches the latest received snapshot lineage (0.2817ms)\n✔ replacement authoritative identity is reapplied even when seq and content are unchanged (0.226ms)\n✔ replacement authoritative convergence is serialized behind in-flight speculative writes (0.2138ms)\n✔ no-active reconnect-required invalidates legacy speculative repair before installing its barrier (0.1752ms)\n✔ restore-needed and reconnect-required terminate the legacy repair in-flight suppression (0.1559ms)\n✔ TerminalContainer maps visible output recovery into the input transport barrier (0.0984ms)\n✔ TerminalContainer routes compatibility authority recovery to a same-socket full snapshot before reconnect (0.1929ms)\n✔ TerminalContainer keeps compatibility input fenced through matching post-ACK tail drain and ready (0.7079ms)\n✔ TerminalContainer bounds and clears compatibility post-ACK convergence timeout (0.7289ms)\n✔ TerminalContainer keeps queued input deferred while visible output recovery is blocking (0.1906ms)\n✔ TerminalContainer retries queued input after visible output recovery finishes (0.1295ms)\n✔ TerminalContainer does not finish visible recovery after fallback snapshot placeholder (0.1868ms)\n✔ TerminalContainer does not suppress authoritative repair while visible recovery is pending (0.1211ms)\n✔ TerminalContainer uses runtime-configured transport outbox limits (0.106ms)\n✔ TerminalContainer does not clear hidden output recovery after fallback placeholder (0.0917ms)\n✔ TerminalContainer only finishes visible recovery after authoritative snapshot or local restore success (0.2053ms)\n✔ TerminalContainer does not suppress recent repair while visible recovery is pending (0.1289ms)\n✔ TerminalContainer uses runtime terminal limits for transport outbox budget and TTL (0.1416ms)\n✔ TerminalContainer preserves absent normal-wire screen sequence as unknown (0.21ms)\n✔ TerminalContainer applies visible resync output admission in the production handler (0.2035ms)\n✔ TerminalContainer fences stale snapshot tokens before terminal replacement (0.1716ms)\n✔ TerminalContainer keeps active resync isolated from late legacy repair callbacks (0.2112ms)\n✔ TerminalContainer production recovery requests a token-fenced fresh snapshot and real reconnect (0.2056ms)\n✔ TerminalContainer makes duplicate restore-needed idempotent and fences snapshot sequence (0.1607ms)\n✔ TerminalContainer leaves provisional fallback unacked for bounded server reconnect (0.1225ms)\n✔ WebSocket grace installs restore barrier before subscribed-ready and preserves duplicate chunks (0.2436ms)\n✔ WebSocket grace fences replay generations and makes reconnect terminal (0.3701ms)\n✔ TerminalContainer forces current replay snapshot past legacy content dedup (0.1721ms)\n✔ TerminalContainer serializes legacy and hidden mutations before server authority (0.2592ms)\n✔ TerminalContainer binds Container and TerminalView adapters to one recovery identity (0.2933ms)\n✔ TerminalContainer settles the live-lane idle fence before resetting visible output (0.1322ms)\n✔ TerminalContainer keeps legacy repair recovery blocked when ready ACK send fails (0.3ms)\n✔ TerminalContainer keeps snapshot recovery blocked when ready ACK send fails (0.2224ms)\n✔ TerminalContainer keeps restore-buffer failure non-ACKable while acknowledging only a checkpoint takeover (0.7837ms)\n✔ TerminalContainer defers a rollback-era authoritative snapshot until legacy authority releases it (0.3302ms)\n✔ TerminalContainer drains an authority-ready deferred snapshot after an in-flight apply settles (0.8375ms)\n✔ TerminalContainer retries an authority-ready deferred snapshot after its terminal ref reattaches (0.1583ms)\n✔ TerminalContainer completion probe writes an empty frame to the same xterm FIFO (0.2155ms)\n✔ TerminalContainer rejects late authoritative snapshots after the active recovery is terminally failed (0.4809ms)\n✔ Remount adapter RED — live/restore non-overlap (2.1918ms)\n✔ Remount adapter RED — fault input barrier (1.6336ms)\n✔ Remount adapter RED — parser and Unicode corpus (0.3177ms)\n✔ Frontend stale/resync barrier RED 계약 — AC-3 (0.2546ms)\n✔ Frontend stale/resync barrier RED 계약 — AC-6 (0.3667ms)\n✔ Frontend stale/resync barrier RED 계약 — AC-11 (0.7531ms)\n✔ PERF-BGSTAB-010 AC-6 ACK rejection debug event records only protocol identifiers (2.7347ms)\n✔ browser backpressure allows non-input control messages even when buffered amount is high (1.656ms)\n✔ browser backpressure allows input below soft threshold (0.1473ms)\n✔ browser backpressure rejects input when queued bytes would cross soft threshold (0.1255ms)\n✔ browser backpressure requests hard reconnect at the hard threshold (0.1365ms)\n✔ browser backpressure treats invalid buffered amount as zero (0.1274ms)\n✔ browser backpressure counts UTF-8 bytes instead of UTF-16 code units (0.1705ms)\n✔ browser backpressure recovery requires buffered amount below low water (0.1448ms)\n✔ browser backpressure recovery can read buffered amount without sending probe frames (0.1739ms)\n✔ browser websocket send gate applies input backpressure before sending (0.2587ms)\n✔ browser websocket send gate lets control messages bypass input backpressure (0.296ms)\n✔ browser websocket send gate reports send-failed when socket.send throws (0.1654ms)\n✔ PERF-BGSTAB-010 AC-5/AC-9 accepted delivery ACK protocol 계약 부재 때문에 실패 (0.2013ms)\n✔ PERF-BGSTAB-010 AC-6 parses only valid rejected delivery ACK identities (0.2302ms)\nℹ tests 70\nℹ suites 0\nℹ pass 70\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 180.4893\n",
+    "stderr_lf": "",
+    "error": null
+  },
+  "isolated_ac9_e2e": {
+    "cwd": "frontend",
+    "argv": [
+      "npx.cmd",
+      "--no-install",
+      "playwright",
+      "test",
+      "tests/e2e/perf-bgstab-010-ac9-isolated.spec.ts",
+      "--project",
+      "Desktop Chrome",
+      "--retries=0",
+      "--workers=1",
+      "--output",
+      "C:\\Users\\beom\\AppData\\Local\\Temp\\BuilderGateFairReadmission-ad20281b1b0548e49aeed6304ab17fbc",
+      "--grep",
+      "PERF-BGSTAB-010 AC-9 isolated browser evidence.*visible fair-delivery ACK preserves idle through the real HTTPS WebSocket"
+    ],
+    "environment": {
+      "PLAYWRIGHT_BASE_URL": "https://localhost:2222"
+    },
+    "execution_count": 1,
+    "direct_powershell_invocation": true,
+    "exit_code": 0,
+    "stdout_lf": "Running 1 test using 1 worker\n\n  ok 1 [Desktop Chrome] ? tests\\e2e\\perf-bgstab-010-ac9-isolated.spec.ts:223:3 ? PERF-BGSTAB-010 AC-9 isolated browser evidence ? visible fair-delivery ACK preserves idle through the real HTTPS WebSocket (1.5s)\n\n  1 passed (2.1s)\n",
+    "stderr_lf": "",
+    "error": null
+  },
+  "ac6": {
+    "state": "deferred",
+    "reason": "unsafe browser E2E excluded by fair-readmission plan; no historical or unit substitute"
+  },
+  "hidden_recovery": {
+    "supportsHiddenDataGapRecovery": false,
+    "source": "frontend unit contract evidence"
+  },
+  "ac9": {
+    "state": "pending_independent_review",
+    "requires": "scheduler plus isolated browser session-state evidence",
+    "launcher_failure_not_counted_as_browser_execution": true
+  },
+  "launcher_failure": {
+    "classification": "zero_browser_execution",
+    "reason": "PowerShell wrapper passed an escaped quoted npx.cmd literal; npx/Playwright did not start",
+    "cwd": "frontend",
+    "argv": [
+      "npx.cmd",
+      "--no-install",
+      "playwright",
+      "test",
+      "tests/e2e/perf-bgstab-010-ac9-isolated.spec.ts",
+      "--project",
+      "Desktop Chrome",
+      "--retries=0",
+      "--workers=1",
+      "--output",
+      "C:\\Users\\beom\\AppData\\Local\\Temp\\BuilderGateFairReadmission-ad20281b1b0548e49aeed6304ab17fbc",
+      "--grep",
+      "PERF-BGSTAB-010 AC-9 isolated browser evidence.*visible fair-delivery ACK preserves idle through the real HTTPS WebSocket"
+    ],
+    "environment": {
+      "PLAYWRIGHT_BASE_URL": "https://localhost:2222"
+    },
+    "exit_code": 1,
+    "signal": null,
+    "stdout_lf": "",
+    "stderr_lf": "'\\\"C:\\Program Files\\nodejs\\npx.cmd\\\"'��(��) ���� �Ǵ� �ܺ� ����, ������ �� �ִ� ���α׷�, �Ǵ�\n��ġ ������ �ƴմϴ�.\n",
+    "error": null
+  }
+}

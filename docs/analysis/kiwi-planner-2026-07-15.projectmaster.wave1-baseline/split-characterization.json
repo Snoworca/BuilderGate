@@ -1,0 +1,113 @@
+{
+  "schemaVersion": "1.0.0",
+  "requirementId": "REL-BGSTAB-006",
+  "gitCommit": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+  "workingTreeDirty": true,
+  "disposition": "unresolved",
+  "splitActivationEnabled": false,
+  "mutatesExistingSrs": false,
+  "observations": [
+    {
+      "observationKind": "srs_expected",
+      "buildId": "git:ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+      "effectiveWsTransportMode": "split",
+      "caseId": "srs-split-contract-expectation",
+      "sourceReference": "docs/spec/30.buildergate-stability.srs.md#FR-BGSTAB-006; docs/spec/30.buildergate-stability.srs.md#FR-BGSTAB-007; docs/spec/30.buildergate-stability.srs.md#REL-BGSTAB-006",
+      "command": "readFile docs/spec/30.buildergate-stability.srs.md (FR-BGSTAB-006/007, REL-BGSTAB-006)",
+      "observedResult": {
+        "expectedControlOutputSeparation": true,
+        "expectedTransportMode": "split",
+        "disposition": "unresolved"
+      }
+    },
+    {
+      "observationKind": "production_runtime_observed",
+      "buildId": "git:ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+      "effectiveWsTransportMode": "unified",
+      "caseId": "production-https-ws-upgrade",
+      "sourceReference": "server/src/index.ts; frontend/src/contexts/WebSocketContext.tsx",
+      "command": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\"",
+      "observedResult": {
+        "browserLocation": "https://localhost:2222",
+        "browserSocketUrl": "wss://localhost:2222/ws",
+        "actualUpgradePath": "/ws",
+        "runtimeConfigWsTransportMode": "unified",
+        "browserSocketTransportMode": "unified",
+        "authenticatedConnectionObserved": true,
+        "routerPongObservedAfterProbe": true
+      }
+    },
+    {
+      "observationKind": "test_observed",
+      "buildId": "git:ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+      "effectiveWsTransportMode": "split",
+      "caseId": "standalone-injected-split-handshake",
+      "sourceReference": "server/src/ws/WsRouterSplitHandshake.test.ts; server/src/ws/wsTransportMode.test.ts; server/src/test-runner.ts",
+      "command": "npm run build; node --test --test-reporter=tap dist/ws/WsRouterSplitHandshake.test.js; node --test --test-reporter=tap dist/ws/wsTransportMode.test.js",
+      "observedResult": {
+        "connectionPath": "wss.emit('connection', ...)",
+        "transportMetadataInjected": true,
+        "build": {
+          "command": "npm run build",
+          "exitCode": 0
+        },
+        "splitHandshake": {
+          "command": "node --test --test-reporter=tap dist/ws/WsRouterSplitHandshake.test.js",
+          "exitCode": 1,
+          "tests": 16,
+          "passed": 3,
+          "failed": 13
+        },
+        "transportMode": {
+          "command": "node --test --test-reporter=tap dist/ws/wsTransportMode.test.js",
+          "exitCode": 0,
+          "tests": 6,
+          "passed": 6,
+          "failed": 0
+        },
+        "authoritativeRunner": {
+          "sourceReference": "server/src/test-runner.ts",
+          "includesSplitHandshake": false,
+          "includesTransportMode": false
+        }
+      }
+    }
+  ],
+  "mismatches": [
+    {
+      "comparisonTarget": "FR-BGSTAB-006",
+      "productionObservation": "production-https-ws-upgrade",
+      "verdict": "not_exercised",
+      "reproductionCaseId": "srs-vs-production-runtime-mode",
+      "evidenceReference": "observations:srs-split-contract-expectation,production-https-ws-upgrade"
+    },
+    {
+      "comparisonTarget": "REL-BGSTAB-006",
+      "productionObservation": "production-https-ws-upgrade",
+      "verdict": "match",
+      "reproductionCaseId": "production-config-vs-browser-wire-mode",
+      "evidenceReference": "observations:production-https-ws-upgrade"
+    },
+    {
+      "comparisonTarget": "server/src/ws/WsRouterSplitHandshake.test.ts#standalone-injected-split-handshake",
+      "productionObservation": "production-https-ws-upgrade",
+      "verdict": "mismatch",
+      "reproductionCaseId": "srs-vs-standalone-split-handshake",
+      "evidenceReference": "observations:srs-split-contract-expectation,production-https-ws-upgrade,standalone-injected-split-handshake"
+    },
+    {
+      "comparisonTarget": "server/src/ws/WsRouterSplitHandshake.test.ts#standalone-injected-split-handshake",
+      "productionObservation": "production-https-ws-upgrade",
+      "verdict": "not_exercised",
+      "reproductionCaseId": "standalone-vs-production-path-authority",
+      "evidenceReference": "observations:production-https-ws-upgrade,standalone-injected-split-handshake; server/src/ws/WsRouterSplitHandshake.test.ts; server/src/index.ts"
+    }
+  ],
+  "verdictSummary": {
+    "match": 1,
+    "mismatch": 1,
+    "not_exercised": 2
+  },
+  "digestAlgorithm": "sha256",
+  "contentDigest": "d54487ef941f53c165dcc0c1878ea62e5cda1f5843fcca3c3e84294cd6999fda"
+}

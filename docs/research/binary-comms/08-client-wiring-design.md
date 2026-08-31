@@ -17,7 +17,7 @@
 
 1. **`onOutput` 은 "재작성" 이 아니라 "IR 도입 + 어댑터 2개" 로 푼다.** `TerminalContainer.tsx:3192-3443` 을 정독한 결과 **책임 6개 중 codec 에 실제로 의존하는 것은 1개**(세그먼트 분할, `:3214`/`:3302`/`:3388`)뿐이다. 나머지 5개는 `data:string` 대신 `{data, byteLength}` 를 받으면 그대로 공유된다. JSON/바이너리 공유율은 코드 라인 기준 **[추정] 90% 이상**이다 (§1).
 
-2. **`authorityEpochIndex ↔ UUID` 매핑의 교차평면 순서 위험(`03:181` `[미확인]`)은 도달 불가다 — 판정 완료.** `authorityEpoch` 는 `server/src/services/SessionManager.ts:1252` 에서 세션 생성 시 `uuidv4()` 로 **딱 한 번** 배정되며 서버 프로덕션 소스 전체에 재배정이 **0건**이다(전수 grep). 매핑은 `channelId` 와 **같은 JSON 메시지**(`01:347-356` `SubscribedSessionInfo`, `01:650-662` `terminal-binary:capability.channels[]`)로 오고, 미지 `channelId` 프레임은 프롤로그를 읽기 **전에** `unknown-channel` 로 scoped 거부된다(`server/src/ws/binaryFrameCodec.ts:640-646`). 따라서 "매핑 없이 인덱스를 쓰는 프레임" 은 구조적으로 존재할 수 없다 (§2.1).
+2. **`authorityEpochIndex ↔ UUID` 매핑의 교차평면 순서 위험(`03:181` `[미확인]`)은 도달 불가다 — 판정 완료.** `authorityEpoch` 는 `server/src/services/SessionManager.ts:1252` 에서 세션 생성 시 `uuidv4()` 로 **딱 한 번** 배정되며 서버 프로덕션 소스 전체에 재배정이 **0건**이다(전수 grep). 매핑은 `channelId` 와 **같은 JSON 메시지**(`01:374-385` `SubscribedSessionInfo`, `01:725-737` `terminal-binary:capability.channels[]`)로 오고, 미지 `channelId` 프레임은 프롤로그를 읽기 **전에** `unknown-channel` 로 scoped 거부된다(`server/src/ws/binaryFrameCodec.ts:956-962`). 따라서 "매핑 없이 인덱스를 쓰는 프레임" 은 구조적으로 존재할 수 없다 (§2.1).
 
 3. **ACK 도메인 전환은 S4 에 넣으면 안 된다 — S4 가 `binary-shadow`(관측 동작 불변)이기 때문이다.** 그리고 전환 자체가 클라이언트 작업이 아니다: `sourceSeq` 는 `server/src/ws/wsSendPolicy.ts` 에 **0회** 등장하고(전수 grep), `TerminalOutputMessage`(`frontend/src/types/ws-protocol.ts:780-801`)에도 **없다**. 서버 원장은 `deliverySeq` 키 전용이다(`wsSendPolicy.ts:838-853`). `01:762` 가 요구한 `WsTransportMessage.sourceSeq` 1급 승격은 **S1 에서 이뤄지지 않았다**(`wsSendPolicy.ts:85-131` 의 승격 필드는 `connectionEpoch`/`deliverySeq`/`deliveryKind` 3개뿐) (§3).
 
@@ -101,9 +101,9 @@ export interface TerminalOutputDelivery {
 1. **검증** — `:417-438`: 세그먼트가 `byteStart=0` 부터 **빈틈없이 연접**하고 마지막이 정확히 `encoded.byteLength` 여야 한다(`:421`, `:434`, `:436`). 위반 시 `null`.
 2. **왕복** — `:415` `new TextEncoder().encode(data)` (호출마다 인코더 신규 할당) → `:443` `decoder.decode(encoded.subarray(...))`.
 
-바이너리에서는 **2가 통째로 사라지고 1만 남는다.** 그리고 1의 일부는 이미 코덱이 했다 — `binaryFrameCodec.ts:626-630` 이 `payloadLength` 대비 `24 + 16*segmentCount` 하한을 강제하고, `parseFrameMessage`(`:697-721`)가 `body` 를 세그먼트 배열 뒤부터 잘라낸다. 남는 검증은 **연접성과 `byteEnd === body.byteLength`** 뿐이다.
+바이너리에서는 **2가 통째로 사라지고 1만 남는다.** 그리고 1의 일부는 이미 코덱이 했다 — `binaryFrameCodec.ts:922-929` 이 `payloadLength` 대비 `24 + 16*segmentCount` 하한을 강제하고, `parseFrameMessage`(`:1000-1037`)가 `body` 를 세그먼트 배열 뒤부터 잘라낸다. 남는 검증은 **연접성과 `byteEnd === body.byteLength`** 뿐이다.
 
-> ⚠️ **연접성 검증을 바이너리에서 생략하면 안 된다.** `binaryFrameCodec.ts:700-709` 의 세그먼트 파싱은 `byteStart`/`byteEnd` 를 **읽기만** 하고 관계를 검사하지 않는다. JSON 경로가 `visibleOutputRecovery.ts:421`/`:434`/`:436` 으로 지키던 불변식이 바이너리에서 조용히 사라진다. **[설계결정] 검증 로직은 두 어댑터가 공유하는 순수 함수로 추출한다** — `assertContiguousSegments(segments, totalBytes): boolean`. 이 함수 하나가 JSON 의 `:417-438` 과 바이너리 어댑터 양쪽에서 호출되어야 §10.2 를 만족한다.
+> ⚠️ **연접성 검증을 바이너리에서 생략하면 안 된다.** `binaryFrameCodec.ts:1013-1025` 의 세그먼트 파싱은 `byteStart`/`byteEnd` 를 **읽기만** 하고 관계를 검사하지 않는다. JSON 경로가 `visibleOutputRecovery.ts:421`/`:434`/`:436` 으로 지키던 불변식이 바이너리에서 조용히 사라진다. **[설계결정] 검증 로직은 두 어댑터가 공유하는 순수 함수로 추출한다** — `assertContiguousSegments(segments, totalBytes): boolean`. 이 함수 하나가 JSON 의 `:417-438` 과 바이너리 어댑터 양쪽에서 호출되어야 §10.2 를 만족한다.
 
 ### 1.4 하류로 내려보내야 하는 시그니처 확장 (`string` → `TerminalOutputWriteData`)
 
@@ -168,8 +168,8 @@ onOutput?: (delivery: TerminalOutputDelivery) => void;
 #### 코드로 확인한 사실 3가지
 
 1. **`authorityEpoch` 는 세션당 1회만 배정된다.** `server/src/services/SessionManager.ts:1252` `authorityEpoch: uuidv4()` 가 유일한 생성 지점이고, `server/src` 프로덕션 소스 전체에서 `.authorityEpoch = ` 재배정이 **0건**이다(전수 grep, `*.test.ts` 제외).
-2. **매핑은 `channelId` 와 동일한 메시지에 실린다.** `01:347-356` 이 `SubscribedSessionInfo` 에 `channelId`·`streamEpoch`·`authorityEpochIndex` 를 **한 객체로** 확장하고(`:354` 가 그 인덱스 줄), `01:650-662` 의 `terminal-binary:capability.channels[]` 도 4개 필드를 **한 객체로** 싣는다(`:656`).
-3. **미지 `channelId` 프레임은 프롤로그를 읽기 전에 걸러진다.** `server/src/ws/binaryFrameCodec.ts:640-646` — `context.channelState(channelId) === undefined` → `scoped('unknown-channel')` 후 `offset = frameEnd; continue`. `parseFrameMessage`(`:684`)는 그 프레임에 **도달하지 않는다**.
+2. **매핑은 `channelId` 와 동일한 메시지에 실린다.** `01:374-385` 이 `SubscribedSessionInfo` 에 `channelId`·`streamEpoch`·`authorityEpochIndex` 를 **한 객체로** 확장하고(`:354` 가 그 인덱스 줄), `01:725-737` 의 `terminal-binary:capability.channels[]` 도 4개 필드를 **한 객체로** 싣는다(`:656`).
+3. **미지 `channelId` 프레임은 프롤로그를 읽기 전에 걸러진다.** `server/src/ws/binaryFrameCodec.ts:956-962` — `context.channelState(channelId) === undefined` → `scoped('unknown-channel')` 후 `offset = frameEnd; continue`. `parseFrameMessage`(`:1000`)는 그 프레임에 **도달하지 않는다**.
 
 #### 판정
 
@@ -423,7 +423,7 @@ write(bytes B)  → _utf8Decoder 가 interim+B 로 코드포인트 완성 → pa
 
 **할 수 없는 이유(기술적):**
 - `frontend/src` 는 Vite 빌드 대상이고 `frontend/tsconfig.app.json:27` 의 `include` 는 `["src"]` 뿐이다. `frontend/src/**` 에서 `../../server/src/...` 를 import 하면 `tsc -b` 대상 밖의 파일이 앱 그래프에 들어온다.
-- `server/src/ws/binaryFrameCodec.ts` 는 `server/src/types/ws-protocol.js` 의 `Ordinal64`/`isCanonicalOrdinal64` 에 의존한다(`binaryFrameCodec.ts:363-366` 의 `assertOrdinal64`). 그 파일은 서버 전용 타입 그래프 전체를 끌고 온다.
+- `server/src/ws/binaryFrameCodec.ts` 는 `server/src/types/ws-protocol.js` 의 `Ordinal64`/`isCanonicalOrdinal64` 에 의존한다(`binaryFrameCodec.ts:468-471` 의 `assertOrdinal64`). 그 파일은 서버 전용 타입 그래프 전체를 끌고 온다.
 - 실제로 `frontend/src` 어디에도 `../../server` 참조가 **0건**이다(전수 grep).
 
 **해서는 안 되는 이유(설계):**
@@ -434,14 +434,17 @@ write(bytes B)  → _utf8Decoder 가 interim+B 로 코드포인트 완성 → pa
 
 ### 5.3 프론트 코덱의 범위 — 디코드 전용
 
+⚠️ **이 표는 줄번호를 싣지 않는다 (2026-08-21 개정).** 원판은 `binaryFrameCodec.ts` 의 줄번호를 병기했는데 **하루 만에 두 번 무효화됐다** — `0x04` 프롤로그 구현이 +203, 그 뒤 도메인 검사 추가가 다시 +5/+42 를 밀었다. 전부 `export` 심볼이라 **이름으로 grep 하면 즉시 찾을 수 있고**, 줄번호는 탐색에 기여하지 않으면서 틀릴 자유만 갖는다. 코덱을 만지는 작업(=C5 자신)이 반드시 이 숫자를 다시 깨뜨린다.
+
 | 서버 export | 프론트에 필요? |
 |---|---|
-| `decodeWsMessage`(`:573`) · `parseFrameMessage`(`:684`) | **필수** |
-| `FRAME_HEADER_BYTES`(`:31`) · `FRAME_VERSION_V1`(`:32`) · `SEGMENT_BYTES`(`:33`) · `FLAG_*`(`:35-37`) · `MANDATORY_FLAGS`(`:40`) · `ACTIVE_FLAG_MASK_V1`(`:44`) · `DATA_PLANE_OPCODE`(`:50`) · `prologueBytes`(`:108`) · `isKnownOpcode`(`:103`) | **필수** (상수는 동일 값을 손으로 재선언 — 골든 벡터 `$rules` 블록이 그 값을 명시하고 있어 벡터가 대조군이 된다) |
-| `rejectionGrade`(`:181`) · `WIRE_REJECTION_CODES`(`:125`) · `DECODER_POLICY_CODES`(`:158`) | **필수** (fail-closed 등급 판정) |
-| `encodeFrame`(`:501`) · `encodeBatch`(`:530`) · `frameByteLength`(`:402`) · `defaultFlagsForOpcode`(`:394`) | **불필요.** v1 의 C→S 는 전부 JSON (`06` §5 S2-d: *"C→S opcode 표는 비어 있다"*). ⚠️ **단 골든 벡터 소비 테스트에는 필요**하다 — hexFrame → 바이트 변환은 순수 hex 파싱이므로 인코더 없이 가능하다 |
-| `SERVER_TO_CLIENT_OPCODE_BY_TYPE`(`:72`) · `CLIENT_TO_SERVER_OPCODE_BY_TYPE`(`:83`) | 불필요 |
-| `deriveMaxBodyBytes`(`:214`) | **재정의 필요** — §5.5 |
+| `decodeWsMessage` · `parseFrameMessage` | **필수** |
+| `FRAME_HEADER_BYTES` · `FRAME_VERSION_V1` · `SEGMENT_BYTES` · `FLAG_*` · `MANDATORY_FLAGS` · `ACTIVE_FLAG_MASK_V1` · `DATA_PLANE_OPCODE` · `prologueBytes` · `isKnownOpcode` | **필수** (상수는 동일 값을 손으로 재선언 — 골든 벡터 `$rules` 블록이 그 값을 명시하고 있어 벡터가 대조군이 된다) |
+| `rejectionGrade` · `WIRE_REJECTION_CODES` · `DECODER_POLICY_CODES` | **필수** (fail-closed 등급 판정) |
+| `encodeFrame` · `encodeBatch` · `frameByteLength` · `defaultFlagsForOpcode` | **불필요.** v1 의 C→S 는 전부 JSON (`06` §5 S2-d: *"C→S opcode 표는 비어 있다"*). ⚠️ **단 골든 벡터 소비 테스트에는 필요**하다 — hexFrame → 바이트 변환은 순수 hex 파싱이므로 인코더 없이 가능하다 |
+| `SERVER_TO_CLIENT_OPCODE_BY_TYPE` · `CLIENT_TO_SERVER_OPCODE_BY_TYPE` | 불필요 |
+| `deriveMaxBodyBytes` | **재정의 필요** — §5.5 |
+| **`FLAGS2_RESPONDER_LEASE_ID_PRESENT`** (2026-08-21 신설) | **필수** — `0x04` 프롤로그의 lease 슬롯 유효성 비트 |
 
 ### 5.4 골든 벡터 소비 — 구체 경로와 방식
 
@@ -461,7 +464,7 @@ const fixture = JSON.parse(readFileSync(FIXTURE_URL, 'utf8'));
 - `frontend/tests/unit/wsCheckpointProtocol.test.ts:427` — `../../../server/src/ws/WsRouter.ts`
 - `frontend/tests/unit/terminalCheckpointRuntime.test.ts:31` — `import { parseTerminalCheckpointClientMessage } from '../../../server/src/types/ws-protocol.ts';` (테스트에서는 **직접 import 까지** 한다)
 
-서버 쪽 대응 지점은 `server/src/ws/binaryFrameCodec.test.ts:45` 의 `new URL('./__fixtures__/binary-frame-vectors.json', import.meta.url)` 이다. **두 테스트가 같은 파일을 서로 다른 상대경로로 읽는 구조가 되고, 파일이 옮겨지면 양쪽이 동시에 red 가 된다** — 이게 원하는 성질이다.
+서버 쪽 대응 지점은 `server/src/ws/binaryFrameCodec.test.ts:47` 의 `new URL('./__fixtures__/binary-frame-vectors.json', import.meta.url)` 이다. **두 테스트가 같은 파일을 서로 다른 상대경로로 읽는 구조가 되고, 파일이 옮겨지면 양쪽이 동시에 red 가 된다** — 이게 원하는 성질이다.
 
 **소비 방식 — 서버 테스트를 베끼지 않는다** [설계결정]:
 
@@ -471,14 +474,14 @@ const fixture = JSON.parse(readFileSync(FIXTURE_URL, 'utf8'));
 | `decode(hex2bytes(hexFrame)) ≡ messages` | **한다.** 이것이 차분 테스트의 본체 — 서버가 손으로 계산한 바이트를 **프론트 구현**이 푼다 |
 | `encode(message) === hex2bytes(hexFrame)` | **하지 않는다.** 프론트에 인코더가 없다 (§5.3) |
 | fault 벡터 (`derivedFrom` 패치) 전건 | **한다.** rejection code 와 **등급(fatal/scoped)** 까지 대조. `06` D13 이 `payload-limit-exceeded` 를 scoped 로 확정했으므로 등급 불일치는 프론트에서 배치 손실로 직결된다 |
-| `defaultContext.channels` (5=retired 등) | **한다.** `binaryFrameCodec.ts:647-657` 의 retired 진단 경로가 프론트에도 있어야 한다 |
+| `defaultContext.channels` (5=retired 등) | **한다.** `binaryFrameCodec.ts:963-973` 의 retired 진단 경로가 프론트에도 있어야 한다 |
 | 수용 케이스의 `expect.decoded` 필드 단정 | **한다.** `06` §S2-g 가 *"4 KiB 초과 payload 를 조용히 잘라내는 디코더가 기존 단정을 전부 통과했다"* 고 기록한 vacuity 를 프론트에서 재발시키지 않는다 |
 
 ⚠️ **픽스처 스키마 드리프트 가드**: 프론트 테스트는 `fixture.vectors.length` 와 `fixture.$rules` 의 9개 값을 **리터럴로** 단정한다. 서버가 벡터를 추가했는데 프론트가 안 읽으면 조용히 커버리지가 줄어든다.
 
 ### 5.5 `maxBodyBytes` — 클라이언트 쪽 파생원 [설계결정]
 
-서버는 `deriveMaxBodyBytes(pty.maxSnapshotBytes)`(`binaryFrameCodec.ts:214-220`, 기본 2 MiB — `server/src/schemas/config.schema.ts:77`)를 쓴다. 클라이언트에는 그 값이 없다.
+서버는 `deriveMaxBodyBytes(pty.maxSnapshotBytes)`(`binaryFrameCodec.ts:271-277`, 기본 2 MiB — `server/src/schemas/config.schema.ts:77`)를 쓴다. 클라이언트에는 그 값이 없다.
 
 `PERF-BGSTAB-010` AC-4(`01:397`, `01:477`)가 **새 정책 상수 도입을 금지**하므로 기존 값에서 파생해야 한다.
 

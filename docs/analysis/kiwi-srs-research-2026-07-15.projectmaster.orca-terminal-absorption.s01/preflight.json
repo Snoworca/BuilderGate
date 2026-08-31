@@ -1,0 +1,36 @@
+{
+  "run_id": "2026-07-15.projectmaster.orca-terminal-absorption.s01",
+  "timestamp": "2026-07-15T03:15:48+09:00",
+  "mode": "standalone",
+  "input_kind": "research_question",
+  "workspace": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+  "external_reference": "C:\\Work\\git-none\\orca",
+  "external_reference_policy": "read-only, explicitly authorized by the user",
+  "buildergate_head": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+  "orca_head": "e0edc8ef76d341f7ab8083a006f785322bcaeb23",
+  "active_target": "0.5.5-buildergate-stability",
+  "target_summary": {
+    "total": 50,
+    "counts_by_status": {
+      "implemented": 25,
+      "planned": 24,
+      "discarded": 1
+    },
+    "counts_by_stability": {
+      "stable": 16,
+      "evolving": 33,
+      "draft": 1
+    },
+    "in_progress": 0,
+    "blocked": 0,
+    "implemented_not_verified": 25,
+    "missing_evidence": 0,
+    "stability_blockers": ["REL-BGSTAB-005"]
+  },
+  "mcp": {
+    "available": true,
+    "package_version": "2.3.1",
+    "normal_mutation_performed": false
+  },
+  "encoding": "UTF-8"
+}

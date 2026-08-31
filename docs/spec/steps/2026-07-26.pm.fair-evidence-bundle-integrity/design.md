@@ -1,0 +1,64 @@
+# SDS: 2026-07-26.pm.fair-evidence-bundle-integrity
+
+| Field | Value |
+|---|---|
+| Document Type | sds |
+| Task | 2026-07-26.pm.fair-evidence-bundle-integrity |
+| Target | wave-3 |
+| Status | agreed |
+| Date | 2026-07-26 |
+
+## 1. Context & Scope
+
+The earlier runtime-policy-profile step is superseded because review found a larger evidence trust-boundary defect: compiled and portable runtimes cannot safely own, locate, and verify the complete fair-scheduler publication.
+This corrective step covers the compiled/portable evidence bundle, platform-independent paths, exact raw/trial completeness, staged read-back, and profile immutability for PERF-BGSTAB-010 AC-2, AC-3, AC-4 and the AC-6 admission prerequisite.
+Existing RED tests committed in `24821f7` remain intact; no existing SDS-AC or test is weakened or deleted.
+All source changes finish before one official writer remeasurement and canonical pointer switch.
+
+## 2. Goals / Non-goals
+
+- Goal: Ship exactly the active verified evidence generation with compiled/portable runtime and fail closed when it is absent, altered, incomplete, or outside its bundle.
+- Goal: Make profile, raw-trial, artifact, publication, and runtime-policy identities exact and immutable.
+- Goal: Preserve docs/analysis as the official immutable audit history while keeping deployment output minimal.
+- Non-goal: Copy the full docs history, fall back from compiled runtime to repository docs, hand-edit artifact JSON, or tune production limits for tests.
+- Non-goal: Change terminal UI, bypass WSS admission, expose config values/secrets, or weaken prior policy-profile tests.
+
+## 3. Architecture Decisions
+
+- **Decision**: Source/tsx resolves the official docs publication; compiled runtime resolves only `dist/benchmarks/fair-scheduler-evidence` / basis: portable already ships dist and must not depend on workspace layout / trade-off: build stages an evidence snapshot / rejected: docs fallback or whole-docs packaging.
+- **Decision**: Build copies only the canonical pointer and the generation it names (artifact, raw, and all 15 sidecars) after verification / basis: preserve audit SSOT while minimizing deployment state / trade-off: bundle build fails if evidence is invalid / rejected: provenance-manifest-only copy.
+- **Decision**: Paths use canonical POSIX-relative grammar and `relative` containment with realpath checks / basis: Windows prefix checks fail on POSIX and allow ambiguous forms / trade-off: legacy malformed paths are rejected / rejected: prefix or separator-specific checks.
+- **Decision**: Validator rederives fixed 1/2/8 × 5 × 30 sample/trial topology, profile and sidecar coverage / basis: self-consistent reduced evidence is still incomplete / trade-off: strict schema rejects partial publications / rejected: digest-only or non-empty checks.
+- **Decision**: Writer validates serialized staging from disk before generation move and pointer switch; profile snapshots deep-freeze every policy leaf / basis: in-memory validation and shallow freezing do not meet the evidence contract / trade-off: extra IO / rejected: pre-write `stagingValidated` or outer-only freeze.
+
+## 4. Interfaces
+
+- `resolveFairSchedulerEvidenceRoot(): string` — returns docs root only for source/tsx and embedded bundle root only for compiled runtime.
+- `stageFairSchedulerEvidenceBundle(input: { outputDirectory: string }): Promise<void>` — byte-copies and validates exactly one canonical publication generation for build output.
+- `validateFairSchedulerEvidenceReference(root: string, declaredPath: string): { accepted: boolean; resolvedPath?: string }` — accepts only canonical, contained evidence paths on every platform.
+- `validateFairSchedulerDecisionArtifact(input: { artifact: unknown; rawArtifacts: unknown; runtimePolicyProfile?: FairSchedulerRuntimePolicyProfile }): FairSchedulerValidation` — rejects profile, workload, matrix, schedule, sidecar, digest, and threshold incompleteness.
+- `writeFairSchedulerDecisionArtifact(input: FairSchedulerBenchmarkRunInput & { outputPath: string }): Promise<PublishedArtifact>` — switches the pointer only after disk read-back validates its staged generation.
+
+## 5. Acceptance Contracts
+
+- SDS-AC-1: WHEN a compiled or portable runtime validates fair delivery evidence THE SYSTEM SHALL read only its staged dist evidence bundle and SHALL reject a missing bundle without repository-doc fallback.
+- SDS-AC-2: WHEN a publication path, raw path, or trial path is absolute, noncanonical, escaped, symlink-escaped, or platform-separator-dependent THE SYSTEM SHALL reject it before reading evidence.
+- SDS-AC-3: WHEN raw evidence, schedules, or sidecars are missing, duplicated, shortened, or self-consistently rehashed THE SYSTEM SHALL reject it unless it exactly covers 1/2/8 clients, five trials, thirty samples, and every client tuple.
+- SDS-AC-4: WHEN the official writer serializes a new generation THE SYSTEM SHALL read it back and validate artifact, raw evidence, all sidecars, and publication pointer before atomically switching the canonical pointer; WHEN read-back fails THE SYSTEM SHALL retain the previous pointer and generation.
+- SDS-AC-5: WHEN RuntimeConfigStore produces a fair policy profile THE SYSTEM SHALL deep-freeze every profile and policy leaf and SHALL bind the exact profile to raw evidence, artifact, compiled admission, and one-field-drift rejection.
+- SDS-AC-6: WHEN a fresh official measurement, compiled bundle, and live 2222 policy match THE SYSTEM SHALL accept capability and SHALL subsequently reject an unknown-lane ACK with `ACK_UNKNOWN_LANE` without changing active-ledger credit.
+
+## 6. Test Plan
+
+| SDS-AC | Test file (planned) | Case summary |
+|---|---|---|
+| SDS-AC-1 | server/src/benchmarks/FairSchedulerEvidenceBundleRuntime.test.ts; tools/daemon/build-portable-runtime.test.js | Compiled bundle accepts; missing bundle and portable layout fail closed. |
+| SDS-AC-2 | server/src/benchmarks/FairSchedulerEvidenceBundleRuntime.test.ts | POSIX/Windows traversal, absolute, mixed-separator, sibling-prefix, and symlink escape reject. |
+| SDS-AC-3 | server/src/benchmarks/FairSchedulerEvidenceIntegrity.test.ts | Rehashed missing/duplicate sample, schedule, and sidecar matrices reject. |
+| SDS-AC-4 | server/src/benchmarks/FairSchedulerEvidenceIntegrity.test.ts | Serialized staging corruption preserves old pointer/generation; valid publication switches it. |
+| SDS-AC-5 | server/src/benchmarks/FairSchedulerRuntimePolicyProfile.test.ts; server/src/benchmarks/FairSchedulerSourceProvenanceRuntime.test.ts | Nested leaves are immutable; non-default profile changes measured contract; compiled drift rejects. |
+| SDS-AC-6 | frontend/tests/e2e/perf-bgstab-010-ac6-server-ack-fault.spec.ts; server/src/ws/WsRouterSendPriority.test.ts | Real accepted capability precedes unknown-lane ACK and unchanged credit. |
+
+## 7. Open Questions
+
+- (none; a five-member automatic decision committee selected this separate step 3:2 because the prior agreed SDS and RED tests must remain unchanged.)

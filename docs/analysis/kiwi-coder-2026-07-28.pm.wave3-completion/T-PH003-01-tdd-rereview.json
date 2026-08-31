@@ -1,0 +1,40 @@
+{
+  "task_id": "T-PH003-01",
+  "req_id": "REL-BGSTAB-007",
+  "recorded_at": "2026-07-30T00:05:49.6706436Z",
+  "scope": "Strict TDD RED re-review after the AC-8 committee decision; no production reapplication.",
+  "reviews": [
+    {
+      "reviewer": "ac8_mapping_rereview",
+      "initial_finding": {
+        "id": "AC8-CTRL-01",
+        "severity": "high",
+        "resolution": "Test strengthened to reject every terminal-checkpoint:* command, while retaining the separate checkpointEpoch exclusion."
+      },
+      "final_result": "No remaining mapping/control finding."
+    },
+    {
+      "reviewer": "red_evidence_rereview",
+      "final_result": "All four exact contracts selected one test and failed with assertion-level RED; sidecar aggregate wrapper exited 0.",
+      "evidence_record_finding": "The prior red-evidence record did not describe the strengthened AC-8 controls; corrected in T-PH003-01-red-evidence.json and sidecar tdd.red_evidence."
+    }
+  ],
+  "ac8_contract": {
+    "sequence": "physical write -> generic repair ACK -> server-ready latch",
+    "prohibited": [
+      "terminal-checkpoint:* runtime control",
+      "checkpointEpoch control identity"
+    ],
+    "required_final_state": {
+      "currentViewTransactionReady": true,
+      "retainedHistoryEquivalent": false,
+      "provisionalLocalState": false,
+      "hiddenDirty": false
+    }
+  },
+  "latest_execution": {
+    "executed_at": "2026-07-30T00:05:49.6706436Z",
+    "individual_contracts": "Each exact command selected one test and exited 1 with ERR_ASSERTION; AC-8 retained the physical write -> generic repair ACK -> server-ready latch sequence and emitted neither terminal-checkpoint:* commands nor a checkpointEpoch control identity.",
+    "aggregate_wrapper_exit_code": 0
+  }
+}

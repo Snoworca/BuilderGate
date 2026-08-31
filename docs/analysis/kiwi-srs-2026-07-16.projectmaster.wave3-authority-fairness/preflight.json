@@ -1,0 +1,21 @@
+{
+  "run_id": "2026-07-16.projectmaster.wave3-authority-fairness",
+  "active_target": "wave-3",
+  "scope": "BGSTAB",
+  "mcp": {
+    "available": true,
+    "workspace": "C:/Work/git/_Snoworca/ProjectMaster",
+    "package_version": "2.3.1"
+  },
+  "inputs": [
+    "docs/spec/00.index.md",
+    "REL-BGSTAB-007",
+    "GitHub #8-#14",
+    "docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md",
+    "docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md",
+    "C:/Work/git-none/orca (read-only)"
+  ],
+  "external_module_impact": null,
+  "halted": false
+}
+

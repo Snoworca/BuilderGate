@@ -1,0 +1,200 @@
+{
+  "researcher": "researcher_a",
+  "role": "BuilderGate code archaeology",
+  "baseline": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+  "normalization_note": "Researcher A의 독립 실행 결과를 kiwi-srs-research 5.1 필수 schema로 정규화했다. 기존 findings 배열의 순서와 문구는 보존했다.",
+  "modules_analyzed": [
+    {
+      "path": "server/src/schemas/config.schema.ts",
+      "summary": "Defines PTY, headless, WebSocket, browser, terminal, snapshot, residency, telemetry, and rollout-mode limits and cross-field invariants.",
+      "complexity": "medium",
+      "coupling": "high"
+    },
+    {
+      "path": "server/src/services/RuntimeConfigStore.ts",
+      "summary": "Maps schema values to public runtime config and Settings capabilities; several rollout and safety fields are not exposed as editable runtime values.",
+      "complexity": "high",
+      "coupling": "high"
+    },
+    {
+      "path": "server/src/services/SettingsService.ts",
+      "summary": "Validates, applies, persists, and rolls back runtime configuration across SessionManager and WsRouter.",
+      "complexity": "high",
+      "coupling": "high"
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "summary": "Owns PTY processing, bounded headless queues, serialized headless writes, snapshots, repairs, degraded replay state, resize, and routing after model commit.",
+      "complexity": "high",
+      "coupling": "high"
+    },
+    {
+      "path": "server/src/ws/WsRouter.ts",
+      "summary": "Owns unified WebSocket authentication, subscriptions, replay/repair barriers, queued input/output, safe-send integration, and session output routing; production split-channel wiring is absent.",
+      "complexity": "high",
+      "coupling": "high"
+    },
+    {
+      "path": "server/src/ws/wsSendPolicy.ts",
+      "summary": "Classifies messages into one control lane and one terminal lane per socket, serializes payloads, and coalesces adjacent same-session output.",
+      "complexity": "medium",
+      "coupling": "high"
+    },
+    {
+      "path": "frontend/src/contexts/WebSocketContext.tsx",
+      "summary": "Maintains one browser WebSocket, dispatches messages, performs remount grace buffering, reconnects, and delegates input-only browser backpressure.",
+      "complexity": "high",
+      "coupling": "high"
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalContainer.tsx",
+      "summary": "Connects protocol events to hidden-output policy, snapshot/repair recovery, input sequencing, and the terminal runtime.",
+      "complexity": "high",
+      "coupling": "high"
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalView.tsx",
+      "summary": "Owns xterm lifecycle, scheduled live output, direct recovery writes, input queue, selection, paste, IME, resize, and snapshot persistence.",
+      "complexity": "high",
+      "coupling": "high"
+    },
+    {
+      "path": "frontend/src/utils/terminalOutputScheduler.ts",
+      "summary": "Implements byte-bounded, frame-budgeted visible output with UTF-8-safe splitting and stale-on-overflow signaling.",
+      "complexity": "medium",
+      "coupling": "medium"
+    },
+    {
+      "path": "frontend/src/hooks/useTerminalRuntimeResidency.ts",
+      "summary": "Computes pinned, TTL-protected, LRU-eligible, workspace-capped terminal residency.",
+      "complexity": "high",
+      "coupling": "high"
+    },
+    {
+      "path": "frontend/src/components/Grid/MosaicContainer.tsx",
+      "summary": "Owns terminal context-menu copy/paste and registered-preset paste dispatch through different paths.",
+      "complexity": "medium",
+      "coupling": "medium"
+    }
+  ],
+  "dependency_graph": {
+    "nodes": ["config.schema", "RuntimeConfigStore", "SettingsService", "SessionManager", "headlessTerminal", "WsRouter", "wsSendPolicy", "WebSocketContext", "TerminalContainer", "terminalHiddenOutput", "TerminalView", "terminalOutputScheduler", "terminalSnapshot", "useTerminalRuntimeResidency", "MosaicContainer"],
+    "edges": [
+      {"from": "config.schema", "to": "RuntimeConfigStore", "relation": "validates and defaults runtime values"},
+      {"from": "SettingsService", "to": "SessionManager", "relation": "applies PTY and headless settings"},
+      {"from": "SettingsService", "to": "WsRouter", "relation": "applies safe-send limits and mode"},
+      {"from": "SessionManager", "to": "headlessTerminal", "relation": "serializes writes, snapshots, repairs, and resize"},
+      {"from": "SessionManager", "to": "WsRouter", "relation": "routes output after headless commit"},
+      {"from": "WsRouter", "to": "wsSendPolicy", "relation": "serializes, classifies, coalesces, and drains messages"},
+      {"from": "WsRouter", "to": "WebSocketContext", "relation": "serves the unified WebSocket protocol"},
+      {"from": "WebSocketContext", "to": "TerminalContainer", "relation": "dispatches snapshot, repair, output, readiness, and rejection"},
+      {"from": "TerminalContainer", "to": "TerminalView", "relation": "writes output and invokes snapshot, repair, and input APIs"},
+      {"from": "TerminalView", "to": "terminalOutputScheduler", "relation": "schedules visible live output"},
+      {"from": "TerminalView", "to": "terminalSnapshot", "relation": "loads and saves local snapshots"},
+      {"from": "useTerminalRuntimeResidency", "to": "TerminalView", "relation": "selects mounted terminal runtimes"},
+      {"from": "MosaicContainer", "to": "TerminalView", "relation": "dispatches copy, ordinary paste, and preset paste"}
+    ]
+  },
+  "test_coverage": [
+    {"module": "server/src/services/SessionManager.ts", "tested_by": ["server/src/test-runner.ts:399-433"], "coverage_estimate": "high"},
+    {"module": "server/src/ws/WsRouter.ts replay/repair/safe-send", "tested_by": ["server/src/test-runner.ts:443-511"], "coverage_estimate": "high"},
+    {"module": "server/src/ws/WsRouter.ts split transport", "tested_by": ["server/src/ws/WsRouterSplitHandshake.test.ts"], "coverage_estimate": "none in default npm test discovery; standalone contract differs from production wiring"},
+    {"module": "frontend/src/utils/terminalOutputScheduler.ts", "tested_by": ["frontend/tests/unit/terminalOutputScheduler.test.ts"], "coverage_estimate": "partial because focused invocation is required"},
+    {"module": "frontend hidden output, snapshot, residency, runtime config, and backpressure", "tested_by": ["frontend/tests/unit/terminalHiddenOutput.test.ts", "frontend/tests/unit/terminalSnapshot.test.ts", "frontend/tests/unit/useTerminalRuntimeResidency.test.ts", "frontend/tests/unit/runtimeConfig.test.ts", "frontend/tests/unit/webSocketBackpressure.test.ts"], "coverage_estimate": "partial because focused invocation is required"},
+    {"module": "grace recovery ordering, rejected repair after local restore, cross-session fairness", "tested_by": [], "coverage_estimate": "none identified"}
+  ],
+  "change_history_signals": [
+    {"ref": "git:f837ddd", "summary": "Introduced bounded headless output and server safe-send.", "relevance": "Foundation for current SessionManager and WsRouter queue topology."},
+    {"ref": "git:21d6df8", "summary": "Added fallback replay output preservation.", "relevance": "Explains replay timeout, fallback snapshot, and degraded convergence paths."},
+    {"ref": "git:3049ebc", "summary": "Added priority-aware WebSocket sending and input yield.", "relevance": "Prioritizes control over one terminal lane without per-session fairness."},
+    {"ref": "git:a5d8438", "summary": "Converted visible output to a frame-time budget.", "relevance": "Source of current scheduler budget and multi-chunk drain."},
+    {"ref": "git:1fff1f1", "summary": "Synchronized runtime resource values after Settings saves.", "relevance": "Connects Settings persistence to frontend runtime subscribers."},
+    {"ref": "git:46832e4", "summary": "Moved registered presets to the paste-safe path.", "relevance": "Highlights the difference between preset and ordinary context-menu paste."},
+    {"ref": "git:ca111fe", "summary": "Added multi-session performance and observability optimizations.", "relevance": "Baseline commit for the examined hot paths."}
+  ],
+  "findings": [
+    {
+      "id": "A1",
+      "claim": "RuntimeConfigStore and the frontend parser preserve the value, but production constructs one WsRouter without realtime options, upgrades only /ws, and the browser creates one hard-coded /ws socket.",
+      "evidence": ["server/src/services/RuntimeConfigStore.ts:129-175", "server/src/index.ts:1468-1489", "server/src/ws/WsRouter.ts:165-220", "frontend/src/contexts/WebSocketContext.tsx:113-139"],
+      "confidence": "high"
+    },
+    {
+      "id": "A2",
+      "claim": "The value is stored per session and printed in the overflow error, but both observe and bounded modes use the same bounded queue and degrade behavior.",
+      "evidence": ["server/src/services/SessionManager.ts:682", "server/src/services/SessionManager.ts:3405-3430"],
+      "confidence": "high"
+    },
+    {
+      "id": "A3",
+      "claim": "Definite allocations occur at server JSON.stringify/Buffer.byteLength, browser JSON.parse, TextEncoder byte counting, coalescing joins, UTF-8 prefix slices, and recovery/grace string concatenation. Whether JavaScript engines materialize every intermediate string immediately is unmeasured.",
+      "evidence": ["server/src/ws/wsSendPolicy.ts:36-70", "frontend/src/contexts/WebSocketContext.tsx:141-184", "frontend/src/utils/terminalOutputScheduler.ts:153-240"],
+      "confidence": "medium"
+    },
+    {
+      "id": "A4",
+      "claim": "The 300ms remount grace buffer concatenates output without a configured cap and flushes session:ready before the buffered snapshot. This can release the input gate before snapshot application and changes original wire ordering.",
+      "evidence": ["frontend/src/contexts/WebSocketContext.tsx:105-215"],
+      "confidence": "high"
+    },
+    {
+      "id": "A5",
+      "claim": "Hidden recovery clears skipped/dirty state immediately after a local snapshot restore, before the requested authoritative server repair succeeds. A later repair rejection only clears visible-recovery state, so a stale local snapshot can remain without hidden recovery being retried.",
+      "evidence": ["frontend/src/components/Terminal/TerminalContainer.tsx:1054-1070", "frontend/src/components/Terminal/TerminalContainer.tsx:1800-1845"],
+      "confidence": "high"
+    },
+    {
+      "id": "A6",
+      "claim": "Snapshot replacement, local restore, repair patch, and recovery tail do not share the bounded visible scheduler. FR-BGSTAB-017 explicitly records this as planned work and requires ACK/input release after recovery drain.",
+      "evidence": ["frontend/src/components/Terminal/TerminalView.tsx:1280-1507", "docs/spec/30.buildergate-stability.srs.md:1447-1497"],
+      "confidence": "high"
+    },
+    {
+      "id": "A7",
+      "claim": "Screen-repair pending overflow aborts the barrier by concatenating/flushing all queued plus current output rather than converting pressure to bounded snapshot refresh. Existing server tests lock in this current behavior, while REL-BGSTAB-003 remains planned.",
+      "evidence": ["server/src/ws/WsRouter.ts:1024-1177", "docs/spec/30.buildergate-stability.srs.md:1380-1409"],
+      "confidence": "high"
+    },
+    {
+      "id": "A8",
+      "claim": "Output received while TerminalView is absent or restorePending is pushed into bufferedOutputRef without byte or chunk limits; later restore joins all chunks.",
+      "evidence": ["frontend/src/components/Terminal/TerminalView.tsx:1239-1267", "frontend/src/components/Terminal/TerminalView.tsx:1517-1531"],
+      "confidence": "high"
+    },
+    {
+      "id": "A9",
+      "claim": "safe-send serializes each message with JSON.stringify, classifies it into control or one global terminal lane per socket, optionally coalesces adjacent same-session output, and performs one callback-serialized ws.send at a time.",
+      "evidence": ["server/src/ws/wsSendPolicy.ts:12-168", "server/src/ws/WsRouter.ts:2245-2366"],
+      "confidence": "high"
+    },
+    {
+      "id": "A10",
+      "claim": "The frontend runtime parser retains the value, but TerminalView constructs xterm with literal scrollback: 10000. Server headless scrollback uses the distinct pty.scrollbackLines field.",
+      "evidence": ["frontend/src/components/Terminal/TerminalView.tsx:1682-1712", "server/src/services/SessionManager.ts:3324-3335"],
+      "confidence": "high"
+    },
+    {
+      "id": "A11",
+      "claim": "BuilderGate has no @xterm/addon-webgl dependency and its active terminal path is the DOM renderer.",
+      "evidence": ["frontend/package.json:23-37", "frontend/src/components/Terminal/TerminalView.tsx:1682-1718"],
+      "confidence": "high"
+    },
+    {
+      "id": "A12",
+      "claim": "Ctrl+C selection copy clears the selection immediately without awaiting or handling navigator.clipboard.writeText, while context-menu paste bypasses TerminalView.pasteInput and calls sendInput directly.",
+      "evidence": ["frontend/src/components/Terminal/TerminalView.tsx:1801-1805", "frontend/src/App.tsx:462-470", "frontend/src/components/Grid/MosaicContainer.tsx:611-650"],
+      "confidence": "high"
+    },
+    {
+      "id": "A13",
+      "claim": "Current requirements cover queue bounds, recovery, split transport, hidden output and registered preset paste, but do not explicitly cover per-session output fairness, bounded remount grace buffering, renderer authority, WebGL lifecycle, or ordinary selection/copy/paste ownership.",
+      "evidence": ["docs/spec/30.buildergate-stability.srs.md:43-220", "docs/spec/30.buildergate-stability.srs.md:1313-1497", "docs/spec/10.product-architecture.srs.md:198-255", "docs/spec/10.product-architecture.srs.md:314-343"],
+      "confidence": "high"
+    }
+  ],
+  "test_coverage_notes": [
+    "Split parser/helper tests exist, but the standalone split handshake test does not describe the current production constructor/upgrade path.",
+    "Visible scheduler, hidden output, residency, WebSocket lifecycle, and paste routes have focused unit tests that are not all collected by one default frontend test script.",
+    "No runtime profile was collected in this research run."
+  ]
+}

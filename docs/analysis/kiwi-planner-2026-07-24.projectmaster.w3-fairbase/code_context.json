@@ -1,0 +1,9 @@
+{
+  "anchors": [
+    {"path":"server/src/ws/wsSendPolicy.ts","symbols":["createFairTerminalDeliveryScheduler"]},
+    {"path":"server/src/ws/WsRouter.ts","symbols":["handleTerminalDeliveryAck","handleTerminalDeliveryCapability","createFairDeliveryScheduler","releaseFairDeliveryConnection"]},
+    {"path":"server/src/benchmarks/terminalFairnessCharacterization.ts","symbols":["validateFairSchedulerDecisionArtifact","writeFairSchedulerDecisionArtifact"]},
+    {"path":"server/src/services/TerminalResourcePolicyCanary.ts","symbols":["validatePublishedFairDeliveryCandidateArtifact"]}
+  ],
+  "boundaries": ["WebSocketContext advertises supportsHiddenDataGapRecovery=false", "PH-007 owns hidden dataGap/reveal", "14 split-mode TODOs are admission gaps"]
+}

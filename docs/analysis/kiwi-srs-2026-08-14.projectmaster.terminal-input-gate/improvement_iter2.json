@@ -1,0 +1,130 @@
+{
+  "iter": 2,
+  "fixed": [
+    {
+      "finding": "HIGH-1",
+      "req_id": "OPS-BGSTAB-003",
+      "method": "edit",
+      "what_changed": "Rewrote the heading, Verification Method, Requirement, Rationale, Acceptance Criteria, Trace Links, Implementation Notes and Change Notes so each of the three tests carries its own failure cause and its own disposition. Removed the claim that all three target .status-prefix and that mounting StatusBar makes all three pass. TC-6601/TC-6606 keep the unmounted-StatusBar cause; TC-6602 now carries its own cause (no Ctrl+B prefix handler, no % (Shift+5) split shortcut, and no .pane-leaf render markup anywhere in frontend/src). New AC-5 states that disposition A for TC-6602 requires a split handler plus .pane-leaf production markup and that mounting StatusBar alone does not satisfy it; the old AC-4 was narrowed to TC-6601/TC-6606 and additionally requires a prefixMode provider outside StatusBar.tsx; the deletion clause moved from AC-6 to AC-7; a new AC-6 covers disposition B. Added a fourth Code trace row for the helper functions TC-6602 actually depends on. Heading title changed from 'Close out the RED pane-keyboard tests targeting the unmounted StatusBar component' to 'Close out the three RED tests in pane-keyboard.spec.ts with a per-test disposition'; the Requirement ID was not touched and no other document mirrors the old title (grep over docs/spec/00.index.md and docs/spec/91.completed-work-log.md returned no hits).",
+      "evidence": "frontend/tests/e2e/pane-keyboard.spec.ts:10-14 (TC-6601 .status-prefix), :16-21 (TC-6606 .status-prefix), :23-28 (TC-6602 pressCtrlB -> Shift+5 -> verifyPaneCount(page,2), no .status-prefix); frontend/src/components/StatusBar/StatusBar.tsx:20 (only .status-prefix producer in the repo, file is 36 lines); frontend/src/components/StatusBar/index.ts:1 (only importer); frontend/tests/e2e/helpers.ts:494-496 (verifyPaneCount counts .pane-leaf), :510-514 (pressCtrlB); grep for 'pane-leaf|paneLeaf' over frontend returns only frontend/tests/e2e/helpers.ts, pane-persistence.spec.ts and pane-split.spec.ts - no hit in frontend/src; grep for 'prefixMode' over frontend/src returns only StatusBar.tsx:6,12,20; grep for Ctrl+B prefix handlers and for '%'/Shift+5/splitVertical over frontend/src returns no hits."
+    },
+    {
+      "finding": "MEDIUM-2a",
+      "req_id": "REL-BGSTAB-017",
+      "method": "edit",
+      "what_changed": "Filled the previously empty ('-') Notes cell of the 'Requirement | REL-BGSTAB-009 | regression-only' trace row with the violated clauses: AC-7 (geometry/buffer mismatch must not permanently withhold ready and queued-input release, and must converge through an observable reason plus a bounded fresh-resync/reconnect) and AC-8 (bounded retry, no loop/listener/timer leak across repeated remounts). Explicitly stated that no AC text of REL-BGSTAB-009 changes. Added a Change Notes row. Used Edit rather than a repeated add_trace_link call so that no duplicate trace row is created.",
+      "evidence": "docs/spec/30.buildergate-stability.srs.md REL-BGSTAB-009 AC-7 and AC-8 read verbatim before citing (AC-7: 'geometry/buffer mismatch ... ready와 queued-input release를 금지하고 observable reason과 bounded fresh-resync/reconnect로 수렴한다'; AC-8: 'Retry와 concurrent restore 수는 bounded이고 repeated remount에서 loop/listener/timer 누수가 없다')."
+    },
+    {
+      "finding": "MEDIUM-2b",
+      "req_id": "REL-BGSTAB-018",
+      "method": "edit",
+      "what_changed": "Filled the previously empty ('-') Notes cell of the 'Requirement | REL-BGSTAB-011 | regression-only' trace row with the violated clauses: AC-6 (owner claim, deterministic handoff, stale-owner rejection and disconnect/rebind must be observable) and AC-9 (late input, resize, query reply and callback of a terminated generation must be rejected observably). Explicitly stated that no AC text of REL-BGSTAB-011 changes. Added a Change Notes row. Used Edit rather than a repeated add_trace_link call so that no duplicate trace row is created.",
+      "evidence": "docs/spec/30.buildergate-stability.srs.md REL-BGSTAB-011 AC-6 and AC-9 read verbatim before citing (AC-6: '... owner claim, deterministic handoff, stale owner rejection과 disconnect/rebind가 관측 가능해야 한다'; AC-9: '... 종료 generation의 late output, input, resize, query reply와 callback을 거부하고 session-terminated를 관측 가능하게 남겨야 한다')."
+    },
+    {
+      "finding": "MEDIUM-3",
+      "req_id": "OPS-BGSTAB-002",
+      "method": "edit",
+      "what_changed": "Replaced the incorrect trace row 'frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts | addition_site | second existing spec that asserts the not-disabled state only' with 'frontend/tests/e2e/terminal-keyboard-regression.spec.ts | verifies', noting that a single poll there asserts helperDisabled false, helperReadOnly false, captureAllowed true and disableStdin false together (750-769) and can therefore serve as the AC-4 control. Also added the concrete line range (1320-1337) to the wave3-terminal-authority-fairness.spec.ts row. Added a Change Notes row recording why the context-menu spec is not a control.",
+      "evidence": "frontend/tests/e2e/terminal-keyboard-regression.spec.ts:750-769 (poll asserting helperDisabled:false at 755/763, captureAllowed:true at 757/765, disableStdin:false at 759/767); frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts:31 (focuses .xterm-helper-textarea only) and :176 (asserts .context-menu-item.disabled tabindex, unrelated to the helper textarea) - grep for 'helperDisabled' over frontend/tests/e2e returns no hit in that file; frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts:1320-1337."
+    },
+    {
+      "finding": "MEDIUM-4",
+      "req_id": "OBS-BGSTAB-007",
+      "method": "edit",
+      "what_changed": "Corrected the '캐프처' typo to '캡처' in the normative text of AC-1 through AC-5. Removed the '[2026-08-14] Erratum' bullet from Implementation Notes and recorded the correction as a Change Notes row instead. Also filled the previously empty ('-') Notes cell of the 'Requirement | OBS-BGSTAB-001 | extends' trace row. The only remaining occurrence of the string '캐프처' in the file is inside the Change Notes row that documents the correction.",
+      "evidence": "docs/spec/30.buildergate-stability.srs.md - grep for '캐프처|Erratum' after the edit returns exactly one line, the Change Notes row at line 4240."
+    },
+    {
+      "finding": "MEDIUM-5a",
+      "req_id": "OBS-BGSTAB-007",
+      "method": "edit",
+      "what_changed": "Added an explicit effectivity condition. Rationale now records that acceptRetainedTerminalMutationIdentity short-circuits to true unless retained.mode is 'shadow', but that the production boot path unconditionally turns shadow mode on, so the missing capture is a live defect rather than a dormant one. Verification Method now requires the test session to be in shadow mode and adds a non-shadow boundary control proving the rejection cases are not vacuous. Added AC-7 requiring the AC-1/AC-2 rejection cases to run on a shadow-mode session. Added two Code trace rows (server/src/index.ts, server/src/services/TerminalAuthorityProductionAdapter.ts) and extended the SessionManager trace note with the short-circuit line.",
+      "evidence": "server/src/services/SessionManager.ts:2976 ('if (retained.mode !== 'shadow') return true;' as the first statement of acceptRetainedTerminalMutationIdentity, which starts at 2971); server/src/index.ts:1532 (unconditional 'terminalAuthorityIntegration = attachProductionTerminalAuthority({'); server/src/services/TerminalAuthorityProductionAdapter.ts:966-969 (attachProductionTerminalAuthority delegates to attachProductionTerminalAuthorityInternal) and :981 ('sessionManager.setRetainedTerminalShadowEnabled(true);'); server/src/services/SessionManager.ts:3012-3018 (setRetainedTerminalShadowEnabled(true) sets retained.mode = 'shadow' for every session) and :7131 (new sessions get mode 'shadow' whenever retainedTerminalShadowEnabled is true)."
+    },
+    {
+      "finding": "MEDIUM-5b",
+      "req_id": "REL-BGSTAB-018",
+      "method": "edit",
+      "what_changed": "Added the same effectivity condition. Rationale now records that the fencing gate does not even record blockers unless retained.mode is 'shadow', and that production always enables shadow mode, so mutation-identity-missing and driver-lease-failure rejections really do occur and really are flattened to 'server-error'. Verification Method now requires a shadow-mode session. Added AC-7 requiring the AC-2/AC-3 rejection cases to run on a shadow-mode session. Added two Code trace rows (server/src/index.ts, server/src/services/TerminalAuthorityProductionAdapter.ts) and extended the SessionManager trace note with the short-circuit line.",
+      "evidence": "server/src/services/SessionManager.ts:2971-3011 (gate body; short-circuit at 2976; retained.blockers.add('mutation-identity-missing') and retained.blockers.add('driver-lease-failure') both sit after the short-circuit); server/src/index.ts:1532; server/src/services/TerminalAuthorityProductionAdapter.ts:981."
+    },
+    {
+      "finding": "MEDIUM-6",
+      "req_id": "OPS-BGSTAB-005",
+      "method": "edit",
+      "what_changed": "Rewrote AC-7. The old text was a global negative ('no test left in an unpassable state must exist') that cannot be judged, and its second half ('the CI test job must not fail right after introduction') reintroduced exactly the CI self-reference the Requirement body excludes. The new AC-7 is decidable and scoped: the change must be merged only after TC-6601, TC-6602 and TC-6606 in pane-keyboard.spec.ts are all disposed of, judged from whether verification evidence for OPS-BGSTAB-003 AC-2 is registered, and explicitly not from this workflow's own CI run. The Requirement body's closing sentence was narrowed from '통과 불가 상태로 방치된 E2E 테스트' to the three OPS-BGSTAB-003 tests. Filled the previously empty ('-') Notes cell of the 'Requirement | OPS-BGSTAB-003 | depends_on' trace row, added an Implementation Note stating the judgment scope is not repository-wide, and added a Change Notes row.",
+      "evidence": "docs/spec/30.buildergate-stability.srs.md OPS-BGSTAB-005 Requirement body ('검증의 자기참조를 피하기 위해, 이 요구는 CI 실행 결과가 아니라 워크플로 YAML 을 파싱하는 정적 메타 테스트로 검증한다'); OPS-BGSTAB-003 AC-2 ('처분 적용 후 pane-keyboard.spec.ts 를 실행하면 실패하는 테스트가 0건이어야 한다')."
+    }
+  ],
+  "not_fixed": [
+    {
+      "finding": "LOW x7",
+      "reason": "Out of scope for this round by explicit instruction. Carried to the next round or left as a report item."
+    },
+    {
+      "finding": "Three items awaiting a user decision (discarded-input audit record / MCP retainedIdentity / input-only backpressure)",
+      "reason": "Explicitly excluded from authoring by instruction; no requirement was created or edited for them."
+    },
+    {
+      "finding": "OPS-BGSTAB-003 disposition selection itself",
+      "reason": "Choosing A, B or C per test is a policy decision for the user, not an SRS defect. The requirement now makes the three options and their per-test consequences explicit instead of pre-selecting one."
+    },
+    {
+      "finding": "pane-split.spec.ts and pane-persistence.spec.ts also target the nonexistent .pane-leaf selector",
+      "reason": "Discovered while verifying HIGH-1 but outside this requirement's scope. Recorded as a scope-boundary note in OPS-BGSTAB-003 Implementation Notes rather than expanded into an AC or a new requirement (creating new REQs was forbidden this round). Recommend triaging in a later round."
+    }
+  ],
+  "edits_to_srs_markdown": [
+    "docs/spec/30.buildergate-stability.srs.md - OPS-BGSTAB-003 heading title (Requirement ID untouched)",
+    "docs/spec/30.buildergate-stability.srs.md - OPS-BGSTAB-003 Verification Method row",
+    "docs/spec/30.buildergate-stability.srs.md - OPS-BGSTAB-003 Requirement, Rationale, Acceptance Criteria (AC-1..AC-7), Trace Links (4 rows), Implementation Notes, Change Notes",
+    "docs/spec/30.buildergate-stability.srs.md - REL-BGSTAB-017 Trace Links REL-BGSTAB-009 regression-only Notes, Change Notes",
+    "docs/spec/30.buildergate-stability.srs.md - REL-BGSTAB-018 Verification Method row, Rationale, new AC-7, Trace Links (SessionManager note extended, 2 rows added, REL-BGSTAB-011 regression-only Notes), Change Notes",
+    "docs/spec/30.buildergate-stability.srs.md - OPS-BGSTAB-002 Trace Links (context-menu row replaced with terminal-keyboard-regression.spec.ts, fairness row line range added), Change Notes",
+    "docs/spec/30.buildergate-stability.srs.md - OBS-BGSTAB-007 Verification Method row, Rationale, AC-1..AC-5 typo correction, new AC-7, Trace Links (SessionManager note extended, 2 rows added, OBS-BGSTAB-001 extends Notes), Implementation Notes (Erratum bullet removed), Change Notes",
+    "docs/spec/30.buildergate-stability.srs.md - OPS-BGSTAB-005 Requirement body closing sentence, AC-7 rewritten, Trace Links OPS-BGSTAB-003 depends_on Notes, Implementation Notes, Change Notes"
+  ],
+  "mcp_calls": [
+    "mcp__speckiwi__get_requirement(id=OPS-BGSTAB-003) - read-only parse check after the edits",
+    "mcp__speckiwi__validate_spec(failOnWarning=true) - read-only validation"
+  ],
+  "existing_reqs_touched": [],
+  "validate_spec_result": {
+    "new_diagnostics": [],
+    "preexisting_diagnostics": [
+      {
+        "code": "SRS-E002",
+        "severity": "error",
+        "count": 1,
+        "message": "Duplicate requirement ID: REL-BGSTAB-015",
+        "filePath": "docs/spec/steps/2026-07-26.pm.canary-fixture-recovery-public-api/01.public-sessionmanager-fixture.srs.md",
+        "line": 3,
+        "why_preexisting": "Lives in a step-local SRS file that this round did not open or modify; unrelated to the 14 wave-3 requirements."
+      },
+      {
+        "code": "SRS-W018",
+        "severity": "warning",
+        "count": 5,
+        "message": "Scope SRS document is not registered in Scope Map (five docs/spec/steps/* files)",
+        "filePath": "docs/spec/00.index.md",
+        "why_preexisting": "Index registration gap for step documents; docs/spec/00.index.md was not edited this round."
+      },
+      {
+        "code": "SRS-W023",
+        "severity": "warning",
+        "count": 14,
+        "message": "Draft requirement is not ready as an implementation contract (the 14 wave-3 requirements)",
+        "filePath": "docs/spec/30.buildergate-stability.srs.md",
+        "why_preexisting": "Every one of the 14 requirements carries Stability=draft from its authoring round. Stability was deliberately not changed this round, so the count is unchanged at 14."
+      }
+    ],
+    "summary": {
+      "errors": 1,
+      "warnings": 19,
+      "byCode": { "SRS-W018": 5, "SRS-W023": 14, "SRS-E002": 1 }
+    },
+    "structural_check": "mcp__speckiwi__get_requirement(OPS-BGSTAB-003) parses the rewritten block cleanly: id unchanged, Type=operational, Target=wave-3, Status=planned, Stability=draft all unchanged, 7 acceptance criteria, 4 trace links, 2 change notes, blockStartLine 4546 / blockEndLine 4610. All 14 requirement IDs still appear in the validate diagnostics, confirming no block was orphaned by the heading edit."
+  }
+}

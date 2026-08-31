@@ -1,0 +1,173 @@
+{
+  "evaluator": "verify-pass-5",
+  "iter": 5,
+  "structure_intact": true,
+  "titles_valid": true,
+  "existing_reqs_unchanged": true,
+  "structure_evidence": {
+    "diff_stat": "docs/spec/30.buildergate-stability.srs.md | 2448 insertions(+), 0 deletions(-) — a pure-insertion diff proves no pre-existing line in HEAD was removed or altered",
+    "all_14_parse": "get_requirement resolved OBS-BGSTAB-007 (headingLine 4178, blockStartLine 4178, blockEndLine 4256) and OPS-BGSTAB-003 (headingLine 4561, blockEndLine 4644); summarize/validate enumerates all 14 new IDs with per-ID line numbers, so all 14 blocks parse",
+    "heading_form": "all 14 headings match '### <REQ-ID> — <Title>' (em dash) per SRS-MD-Rules-v2.5.0 §3 glossary; no link/emoji/emphasis in any heading (§6.3); no duplicate '###' heading anywhere in the file",
+    "ac_numbering": "contiguous from AC-1 with no gaps or duplicates in all 14: REL-016=5, OPS-001=5, OBS-007=8, REL-017=6, REL-018=7, MIG-003=7, REL-019=5, OPS-002=5, OPS-003=9, OPS-004=5, OPS-005=7, OPS-006=6, OPS-007=6, FR-023=6",
+    "metadata_rows": "all 14 blocks carry the full 10 metadata rows (Type/Target/Status/Priority/Tags/Risk/Stability/Verification Method/GitHub Issue/Related Docs)",
+    "table_integrity": "no malformed row in the new region; every metadata row has exactly 3 pipes; every Trace Links header has exactly 5; no row fails to open/close with '|'",
+    "blank_lines": "every new heading is preceded by 1-2 blank lines; no run of 3+ blank lines anywhere in the file (§6.4)"
+  },
+  "existing_reqs_evidence": {
+    "method": "zero deletions in the SRS diff plus a direct dump of every Status/Stability pair in the file",
+    "implemented": ["FR-BGSTAB-022", "MIG-BGSTAB-002", "OBS-BGSTAB-005", "OBS-BGSTAB-006", "REL-BGSTAB-010", "REL-BGSTAB-011", "REL-BGSTAB-014", "REL-BGSTAB-015"],
+    "in_progress": ["PERF-BGSTAB-010"],
+    "planned": ["REL-BGSTAB-007", "REL-BGSTAB-012"],
+    "discarded": ["REL-BGSTAB-013"],
+    "match_baseline": true,
+    "ac_text_unchanged": "guaranteed by the 0-deletion diff — any AC edit would appear as a deletion+insertion pair",
+    "note": "REL-BGSTAB-013 and REL-BGSTAB-002 use the tool-written strikethrough [DISCARDED] heading marker permitted by §6.3/§30; target-scoped discarded count is 1 as expected"
+  },
+  "prior_fixes_accurate": [
+    {
+      "item": "M-1 OBS-BGSTAB-007 writeInput/resize split",
+      "accurate": true,
+      "evidence": "SessionManager.ts: writeInput opens at 3185, fencing gate `if (!this.acceptRetainedTerminalMutationIdentity(data, retainedIdentity)) return false;` at 3197, captureDebugEvent at 3205 — capture is after the gate, so a rejected writeInput returns before capturing. CONFIRMED. resize spans 3401-3447 exactly (3401 `resize(`, 3447 closing brace); the full body contains NO captureDebugEvent call — its only tracing is wsRouter.recordReplayEvent at 3414 (resize_requested) and 3427 (resize_skipped), both AFTER the gate at 3412. CONFIRMED: resize is a capture-path ADDITION site, not a reordering site. AC-8's five fields are exact: the recordReplayEvent details object literal contains exactly currentCols, currentRows, requestedCols, requestedRows (3419-3422 and 3432-3435), plus the AC-3 verdict field = 5. AC-4's baseline is also exact: the writeInput details argument is literally buildInputDebugDetails(input, clientMetadata) spread with optional inputSeqStart/inputSeqEnd (3198-3202); formatSafeInputPreview is a separate positional argument, not a details field, so AC-4's field enumeration is precise. AC-6 confirmed: both paths `return false` on gate rejection."
+    },
+    {
+      "item": "M-2 OPS-BGSTAB-003 widened to ten pane-* tests",
+      "accurate": true,
+      "evidence": "Exactly 10 tests exist across the three files and the IDs match exactly. pane-split.spec.ts: all five tests begin with `rightClickPane(page, 0)` — TC-6101 (10-15) L11, TC-6103 (17-29) L19, TC-6105 (31-44) L32, TC-6107 (46-59) L47, TC-6104 (61-66) L62; all five line ranges exact. TC-6105 drags at L37, TC-6107 asserts .pane-zoom-badge at L57-58 — exact. pane-persistence TC-6403 (27-37) never calls rightClickPane and fails at verifyPaneCount(page, 1) — CONFIRMED verbatim. helpers.ts rightClickPane 476-480, verifyPaneCount 494-496, dragResizer 533-543 — all three exact, and rightClickPane clicks .pane-leaf BEFORE awaiting .context-menu. .pane-leaf/.pane-resizer/.pane-zoom-badge have 0 hits in frontend/src. `.context-menu` IS real production markup (ContextMenu.css:1 and :20 exact) and ContextMenu is genuinely mounted (App.tsx:31, MosaicContainer.tsx:8, Header.tsx:8, SessionItem.tsx:4) — so the SRS is right that the blocker is the missing .pane-leaf right-click target, not the menu. Cause split 2/8 is correct as to which tests need .pane-leaf. See finding VP5-F2 for an incompleteness in the cause-1 description."
+    },
+    {
+      "item": "M-3 OPS-BGSTAB-005 AC-7 realigned to the widened OPS-BGSTAB-003",
+      "accurate": true,
+      "evidence": "AC-7 now names the same ten tests, states the decision basis as 'OPS-BGSTAB-003 AC-2 에 대한 검증 증거(세 spec 파일 실행 시 실패 0건)가 등록되어 있는지 여부', and explicitly excludes the CI workflow's own run. Cross-checked against OPS-BGSTAB-003 AC-2, whose text is exactly '세 파일을 실행하면 실패하는 테스트가 0건' — the two ACs align. The former global negative is gone, the evidence source is single, and the self-reference is removed. Implementation Notes correctly disclaim any repo-wide passability claim. DECIDABLE."
+    },
+    {
+      "item": "M-4a citation SessionManager.ts 2977 / second statement / 2972-3011",
+      "accurate": true,
+      "evidence": "Function opens at 2972 (`private acceptRetainedTerminalMutationIdentity(`) and closes at 3011 — exact. Line 2976 is `const retained = this.ensureRetainedTerminalSessionState(data);` and line 2977 is `if (retained.mode !== 'shadow') return true;` — so 2977 is correct AND it is genuinely the SECOND statement. All three corrections verified."
+    },
+    {
+      "item": "M-4b citation WebSocketContext.tsx:1238",
+      "accurate": true,
+      "evidence": "Line 1233 is `ws.onmessage = (event) => {` (handler opens) and line 1238 is `if (wsRef.current !== ws) return;` — the guard the requirement is about. Both the corrected line and the 'handler opens at 1233' qualifier are exact."
+    },
+    {
+      "item": "M-4c citation release.yml 350 lines",
+      "accurate": true,
+      "evidence": "wc -l .github/workflows/release.yml = 350 — exact. It is also the only file in .github/workflows/, matching the claim 'it is the only workflow file present'."
+    },
+    {
+      "item": "M-4d citation DisconnectedOverlay.tsx 1-36",
+      "accurate": true,
+      "evidence": "wc -l frontend/src/components/Workspace/DisconnectedOverlay.tsx = 36 — the range no longer overruns the file."
+    },
+    {
+      "item": "M-4e hasDeploymentArtifacts -> hasCompleteWebArtifacts characterization",
+      "accurate": true,
+      "evidence": "tools/start-runtime.js: hasDeploymentArtifacts at 242-250 (exact) combines exactly four fs.existsSync checks (SERVER_ENTRY, SERVER_STRICT_CONFIG_LOADER, SERVER_DAEMON_TOTP_PREFLIGHT, shellIntegrationDir/bash-osc133.sh) with a hasCompleteWebArtifacts call at 247. hasCompleteWebArtifacts at 252-272 (exact) regex-extracts every src/href in index.html, resolves each under publicRoot and requires existsSync + statSync().isFile() — genuinely stronger than a bare existsSync. Neither function compares any hash, mtime or version against source, so 'the absent property is freshness, not completeness' is exactly right."
+    },
+    {
+      "item": "M-5 OPS-BGSTAB-006 add-not-replace framing",
+      "accurate": true,
+      "evidence": "Requirement body contains the explicit sentence '기존의 존재·완결성 검사를 신선도 검사로 대체하는 것이 아니라 신선도 검사를 추가하는 것이다.' and AC-1 independently carries the normative guard '기존 검사를 제거해서는 안 된다', naming hasDeploymentArtifacts / hasCompleteWebArtifacts. An implementation that replaced the completeness check would violate AC-1 on its face. Implementation Notes additionally warn that the two compared values must originate from different build stages, which forecloses the vacuous self-comparison failure mode."
+    },
+    {
+      "item": "Supporting code grounding for the other 12 requirements (independently re-verified)",
+      "accurate": true,
+      "evidence": "OPS-BGSTAB-001: ENV_KEY='BUILDERGATE_INPUT_RELIABILITY_MODE' at inputReliabilityMode.ts:3, unset falls back to 'observe' at 11-12; frontend runtimeMode initial 'observe' at :95 and initializeInputReliabilityMode at 107-135; root configSchema at config.schema.ts:286-302 contains no inputReliabilityMode field — all four AC facts confirmed. OPS-BGSTAB-004: /api/runtime-config registered at index.ts:530-532 with noCacheMiddleware only, no auth guard. MIG-BGSTAB-003: defaultObject at 52-53 silently substitutes {}; processCleanup.mode default 'observe' at 85 (block 84-90); stabilityModes.wsSendMode default 'direct' at 201 (block 199-203); root schema has no version field; dist/bin/win-amd64-0.5.bb/config.json5 genuinely lacks BOTH session.processCleanup and stabilityModes (zero grep hits) — the fixture claim holds. Shadow-mode effectivity chain used by OBS-BGSTAB-007 and REL-BGSTAB-018 is airtight: index.ts:1532 calls attachProductionTerminalAuthority with no if/env guard (nearest preceding conditional closes at 1504), and TerminalAuthorityProductionAdapter.ts:981 setRetainedTerminalShadowEnabled(true) is the first executable statement of attachProductionTerminalAuthorityInternal. OPS-BGSTAB-006 AC-5: playwright.config.ts webServer at 33-38 sets reuseExistingServer: true as a bare literal, not !process.env.CI. OPS-BGSTAB-007: main.tsx wraps App in StrictMode unconditionally, 13 lines, no DEV branch. REL-BGSTAB-016 AC-2: TerminalContainer.enqueueTransportInput 752-768 returns void after only a debug-event record — genuinely silent, no feedback surface. OPS-BGSTAB-002: term.options.disableStdin at 1044 and helperTextarea.disabled at 1047 are both driven solely by !gate.captureAllowed. REL-BGSTAB-019: all five cited sites exact — permit counter 3687-3698, onData gate 3889-3896, onHelperInput 4024-4036, listener registration 4055, term.open 3130."
+    },
+    {
+      "item": "REL-BGSTAB-018 AC-4 'existing 12 values'",
+      "accurate": true,
+      "evidence": "server/src/types/ws-protocol.ts InputRejectedReason at 422-434 (exact) enumerates exactly 12 values: timeout, timeout-enter-safety, queue-overflow, context-changed, session-missing, session-closed, server-error, auth-expired, transport-closed, invalid-sequence, invalid-payload, mode-observe-only. None is fencing-specific."
+    }
+  ],
+  "findings": [
+    {
+      "id": "VP5-F1",
+      "severity": "MEDIUM",
+      "req_id": "REL-BGSTAB-018",
+      "description": "AC-7's shadow-mode vacuity guard is insufficient for the mutation-identity-missing half of AC-2, and the Rationale's 'live not dormant' argument never establishes that half. AC-2 requires that a mutation-identity-missing rejection be distinguishable from a driver-lease-failure rejection, so a conforming test must actually reach a mutation-identity-missing REJECTION. But in the !identity branch the function does not return false — it returns `runtime.admission.mode !== 'server'`, i.e. it ACCEPTS (returns true) whenever admission.mode is 'none' or 'legacy', while still recording the blocker. A rejection on that cause therefore needs shadow mode AND admission.mode === 'server'. AC-7 names only `retained.mode === 'shadow'`, so a test built exactly to AC-7 can observe acceptance instead of rejection and leave AC-2 half-vacuous — the very failure mode AC-7 was added to prevent. Correspondingly, the Rationale's effectivity paragraph proves only that shadow mode always holds in production (via attachProductionTerminalAuthority -> setRetainedTerminalShadowEnabled(true)); it offers no evidence that admission.mode reaches 'server' in production, so the claim that BOTH rejection causes are live is unproven for mutation-identity-missing. The driver-lease-failure half is fully live and testable under shadow mode alone, so the requirement remains implementable — hence MEDIUM, not HIGH. Note OBS-BGSTAB-007 AC-7 is NOT affected: its AC-1/AC-2 need only some rejection, reachable via driver-lease-failure in shadow mode.",
+      "evidence_path": "server/src/services/SessionManager.ts:2980-2986 (`if (!identity) { ... retained.blockers.add('mutation-identity-missing'); return runtime.admission.mode !== 'server'; }`); admission.mode initialized to 'none' at 2352 and 2487, promoted to 'legacy' at 2865; driver-lease-failure branch at 2996-3009. SRS: docs/spec/30.buildergate-stability.srs.md AC-7 line 4349, Rationale effectivity paragraph line 4339."
+    },
+    {
+      "id": "VP5-F2",
+      "severity": "MEDIUM",
+      "req_id": "OPS-BGSTAB-003",
+      "description": "The cause-1 attribution is incomplete in the same way the cause-2 attribution was before the last two rounds fixed it. The Requirement body labels cause 1 as '마운트되지 않은 StatusBar' and Implementation Notes contrast cause 2 as '마운트 수준의 국소 수정이 아니라 pane split 기능 전체의 구현' — which implies cause 1 IS a mount-level local fix. It is not. TC-6601 and TC-6606 both begin with pressCtrlB, and frontend/src contains no Ctrl+B key handler at all (no `key === 'b'` anywhere; the built-in shortcut profile defines only Shift+Enter, Ctrl+J and Enter) and nothing ever sets prefixMode — it exists solely as an unused StatusBar prop. TC-6606 further requires a ~1500 ms prefix auto-exit timer (it waits 1600 ms and asserts .status-prefix has disappeared). So disposition A for cause 1 requires mounting StatusBar PLUS a new Ctrl+B prefix-mode state machine PLUS an auto-exit timer. AC-4 demands only that StatusBar be reachable from the app tree and that a prefixMode supplier exist outside StatusBar.tsx; AC-8, which does enumerate extra required elements, is scoped to the cause-2 tests ('처분 A 를 택한 테스트가 `.pane-leaf` 외에 추가 요소를 요구하는 경우'). An implementer can therefore mount StatusBar, wire any prefixMode supplier, satisfy AC-4 in full, and still leave TC-6601 and TC-6606 RED. AC-2 (zero failures) remains an absolute backstop, so this is a scoping/checklist defect rather than an unachievable requirement — hence MEDIUM.",
+      "evidence_path": "frontend/tests/e2e/pane-keyboard.spec.ts:11,17,19-20; frontend/tests/e2e/helpers.ts:510-514 (pressCtrlB); frontend/src/components/StatusBar/StatusBar.tsx:6,12,20 (prefixMode is an unset prop); frontend/src/utils/terminalShortcutBindings.ts:155-195 (no KeyB, no Digit5). SRS: docs/spec/30.buildergate-stability.srs.md Requirement cause-1 bullet line 4586, AC-4 line 4602, AC-8 line 4606, Implementation Notes line 4633."
+    },
+    {
+      "id": "VP5-F3",
+      "severity": "LOW",
+      "req_id": "OBS-BGSTAB-007",
+      "description": "The Trace Links note cites 'writeInput (3185-3206)', but writeInput does not end at 3206 — line 3206 is the closing brace of the `if (shouldCaptureInputDebug)` block, and the function continues through echo tracking, command-buffer update and pty.write until roughly 3331 (the next member, maybeInjectCodexTuiSuppression, opens at 3333). The imprecision is conspicuous because the sibling citation in the same sentence, 'resize (3401-3447)', is exact to the line, so a reader will reasonably take both as function extents. The load-bearing citations in the same note (gate 3197, capture 3205) are exact, so the requirement's normative content is unaffected.",
+      "evidence_path": "server/src/services/SessionManager.ts:3185 (writeInput opens), 3206 (closing brace of the capture if-block), 3333 (next member). SRS: docs/spec/30.buildergate-stability.srs.md line 4233."
+    },
+    {
+      "id": "VP5-F4",
+      "severity": "LOW",
+      "req_id": "OPS-BGSTAB-003",
+      "description": "The Rationale states the pane selectors '이 셀렉터들은 frontend/tests/e2e/helpers.ts 와 pane-split·pane-persistence·pane-keyboard spec 안에서만 등장한다', but pane-keyboard.spec.ts contains none of .pane-leaf, .pane-resizer or .pane-zoom-badge literally — it reaches .pane-leaf only indirectly through the verifyPaneCount helper. The actual literal occurrences are helpers.ts:477,490,495, pane-persistence.spec.ts:22 and pane-split.spec.ts:40 (plus .pane-resizer only at helpers.ts:534 and .pane-zoom-badge only at pane-split.spec.ts:57). The load-bearing half of the claim — zero occurrences anywhere in frontend/src — is fully verified, so this over-states the enumeration without weakening the conclusion.",
+      "evidence_path": "frontend/tests/e2e/helpers.ts:477,490,495,534; frontend/tests/e2e/pane-split.spec.ts:40,57; frontend/tests/e2e/pane-persistence.spec.ts:22; frontend/tests/e2e/pane-keyboard.spec.ts (0 literal hits). SRS: docs/spec/30.buildergate-stability.srs.md Rationale line 4593."
+    },
+    {
+      "id": "VP5-F5",
+      "severity": "LOW",
+      "req_id": "OBS-BGSTAB-007",
+      "description": "After the split, the block carries two subject-scoped acceptance criteria — AC-4 applies only to writeInput and explicitly disclaims resize, while AC-8 applies only to resize — and the Requirement body itself states '두 경로에 필요한 변경은 서로 다르므로 분리해 규정한다' (one is a reordering, the other a new capture path in a different function). SRS-MD-Rules-v2.5.0 §2.3 Single Requirement Principle directs splitting when multiple behaviors are mixed in one block. The unifying policy (fencing-rejected mutations must remain on the capture timeline) is genuine and every AC is decidable as written, so this is a structural refinement rather than a correctness defect; splitting into two requirement blocks would make each AC set unconditional.",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md lines 4195-4198 (Requirement body), 4218 (AC-4 scoping disclaimer), 4222 (AC-8); docs/rule/SRS-MD-Rules-v2.5.0.md §2.3 line 62."
+    },
+    {
+      "id": "VP5-F7",
+      "severity": "MEDIUM",
+      "req_id": "REL-BGSTAB-017",
+      "description": "The enumeration of fit trigger points is both internally inconsistent and incomplete. (a) The Rationale asserts '현재 구현은 네 트리거 지점 모두 0-size 를 감지하면 fit_skipped_non_renderable 이벤트만 남기고 재시도 스케줄 없이 return 한다', but the fourth cited site — the imperative fit() handle — performs NO dimension check whatsoever: it tests only `isVisibleRef.current` and then forwards to submitTerminalFit, which likewise has no dimension guard. So there is no zero-size detection to speak of at that site, and it emits no fit_skipped_non_renderable event. The block's own AC-3 gets this right (it frames the imperative case as '비가시 상태로 인해', i.e. invisibility, not zero size), so the Rationale contradicts its own acceptance criterion. (b) A fifth trigger point with a genuine zero-size skip is omitted from both the Requirement's '네 개의 fit 트리거 지점' enumeration and the Trace Links: performRepairLayout carries the same `container.offsetWidth === 0 || container.offsetHeight === 0` guard emitting fit_skipped_non_renderable, and it is arguably the worst instance because it calls resolve(true) — reporting SUCCESS to its caller — after skipping the fit. Only three of the four cited sites (3863, 4113, 4307) actually match the described pattern; the real fourth is 1191, not the imperative handle. An implementation that converges exactly the four enumerated sites would leave the repair-layout path permanently unconverged, which is the precise defect this requirement exists to close. The generic AC-1/AC-2/AC-4 wording does not name sites, so the barrier could still be fixed centrally — hence MEDIUM, not HIGH.",
+      "evidence_path": "frontend/src/components/Terminal/TerminalView.tsx:2991-2997 (imperative fit handle — only `if (!isVisibleRef.current) return;` at 2992, no dimension guard), 1107-1124 (submitTerminalFit, no dimension guard), 1184-1213 (performRepairLayout) with the omitted zero-size guard at 1190-1198 and `resolve(true)` at 1196; the three cited guards at 3862-3869, 4112-4118, 4306-4313. SRS: docs/spec/30.buildergate-stability.srs.md Requirement line 4274, Rationale line 4278, AC-3 line 4284, Trace Links line 4298."
+    },
+    {
+      "id": "VP5-F8",
+      "severity": "LOW",
+      "req_id": "REL-BGSTAB-016, REL-BGSTAB-017, REL-BGSTAB-018, OPS-BGSTAB-002",
+      "description": "Residual line-citation drift in trace notes that the last round did not sweep (it corrected five citations but these were not among them). None changes a normative claim; all are reader-orientation defects. REL-BGSTAB-016: 'submitCapturedInputDirect observe-mode drop branch (897-940, drop at 915-932)' — the function actually spans 897-957 (the cited end lands mid-statement inside the second rejection path) and the observe drop branch opens at 917 and closes at 933 (915 is the shared `const mode = ...`, 916 the transient-blocked guard, 925-932 the returned literal). Same block: 'reusable toast pattern at 382-391, 1230-1235, 4435' — only 382 and 390 of that range belong to the pattern (383-389 are unrelated refs), and the show/auto-dismiss logic runs 1230-1236 (1236 closes the setTimeout); 4435 is exact. REL-BGSTAB-017: the ResizeObserver callback ends at 4142, not 4145 (4143-4145 are the comment and two .observe() calls), and the imperative fit handle is 2991-2997, not 2991-2996. REL-BGSTAB-018: 'reason mapping flattens every non-replay-pending code to server-error (4537-4556)' — the flattening is a single inline ternary at 4554 inside the method submitWebSocketInputThroughGateway (4511-4556); 4537-4538 are the replay-barrier computation, so the cited range is loose rather than wrong (it does contain 4554), and the behavioral claim is fully verified. OPS-BGSTAB-002: the wave3-terminal-authority-fairness row says the spec 'asserts helperDisabled false only (1320-1337)' but the toEqual at 1324-1328 asserts three fields (terminalSnapshotPresent, helperDisabled, helperReadOnly); and the terminal-keyboard-regression row describes the poll at 750-769 as asserting four fields when it asserts six — it additionally pins transportReady: false and barrierReason: 'repair-server-not-ready', i.e. the control is a transient-blocked state rather than a fully-ready one. AC-4 only requires captureAllowed true with both signals not disabled, all three of which that poll does assert, so it remains a valid control.",
+      "evidence_path": "frontend/src/components/Terminal/TerminalView.tsx:897-957, 915-933, 382, 390, 1230-1236, 4435, 4142, 2991-2997; server/src/ws/WsRouter.ts:4511-4556 (ternary at 4554); frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts:1324-1328; frontend/tests/e2e/terminal-keyboard-regression.spec.ts:750-769. SRS: docs/spec/30.buildergate-stability.srs.md lines 4101, 4298, 4363, 4542, 4543."
+    },
+    {
+      "id": "VP5-F6",
+      "severity": "LOW",
+      "req_id": "REL-BGSTAB-017",
+      "description": "AC-1 reads '컨테이너가 0×0 이어서 fit 이 skip 되면, 추가 ResizeObserver 이벤트 없이도 geometryReadyRef 가 true 로 수렴하는 bounded 재시도 경로가 존재해야 한다'. Taken literally this is unsatisfiable in the sub-case where the container remains 0×0 forever — no retry can make the barrier legitimately ready — and it then sits in tension with AC-4, which requires a bounded retry to terminate with an observable signal. The Verification Method disambiguates the intent ('fit 경로를 0×0 에서 비-0 으로 전이시키되 ResizeObserver 이벤트를 발생시키지 않고'), i.e. the container does regain non-zero size and the retry re-measures without an RO event. Folding that precondition into AC-1 itself would remove the ambiguity. Pre-existing wording, not introduced by the last round.",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md AC-1 line 4282, AC-4 line 4285, Verification Method line 4268."
+    }
+  ],
+  "summary": {
+    "CRITICAL": 0,
+    "HIGH": 0,
+    "MEDIUM": 3,
+    "LOW": 5
+  },
+  "validate": {
+    "command": "mcp__speckiwi__get_active_target / validate (diagnosticsSummary)",
+    "result": {
+      "errors": 1,
+      "warnings": 19,
+      "byCode": {
+        "SRS-E002": 1,
+        "SRS-W018": 5,
+        "SRS-W023": 14
+      }
+    },
+    "new_diagnostics": [],
+    "preexisting_diagnostics": [
+      "SRS-E002 x1 — Duplicate requirement ID REL-BGSTAB-015, originating in docs/spec/steps/2026-07-26.pm.canary-fixture-recovery-public-api/01.public-sessionmanager-fixture.srs.md:3, not in the edited scope file",
+      "SRS-W018 x5 — five step SRS documents not registered in the Scope Map of docs/spec/00.index.md, all pre-existing and unrelated to this round",
+      "SRS-W023 x14 — one per new draft requirement ('Draft requirement is not ready as an implementation contract'); expected and intended while Stability=draft"
+    ],
+    "matches_baseline": true
+  },
+  "gate": {
+    "criterion": "kiwi-srs Normal severity gate = CRITICAL 0 and HIGH 0",
+    "pass": true,
+    "max_mode_criterion": "two consecutive MEDIUM-zero passes",
+    "max_mode_pass": false,
+    "recommendation": "PASS the Normal gate. Optionally run one final targeted round on VP5-F1, VP5-F2 and VP5-F7 only — each is a localized edit within a single requirement: (F1) extend REL-BGSTAB-018 AC-7 and its effectivity paragraph with the admission.mode === 'server' precondition required for a mutation-identity-missing rejection; (F2) extend OPS-BGSTAB-003 cause-1 and AC-4 to name the absent Ctrl+B prefix handler and the ~1500 ms auto-exit timer; (F7) correct REL-BGSTAB-017's Rationale so it no longer claims the imperative fit() detects zero size, and add the omitted performRepairLayout skip site to the enumeration and Trace Links. None requires touching another requirement. The five LOWs are documentation-precision items that do not affect decidability and can be swept in the same pass or deferred."
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0.0",
+  "findingId": "FND-PH004-001",
+  "taskIds": ["T-PH004-02", "T-PH004-04"],
+  "requirementId": "MIG-BGSTAB-001",
+  "command": "node --test tools/wave1/g1-decision-gate.test.mjs",
+  "exitCode": 1,
+  "capturedAt": "2026-07-15T16:27:25.6616640Z",
+  "tests": {
+    "total": 7,
+    "passed": 5,
+    "failed": 2
+  },
+  "capturedFailures": [
+    {
+      "test": "MIG-BGSTAB-001 AC-4 GREEN contract",
+      "expected": "wave-1=pending-wave1-closure",
+      "actual": "wave-1=characterization-complete"
+    },
+    {
+      "test": "FND-PH004-001 separates decision validity from final activation readiness",
+      "expected": "evaluationStage=decision and a separate final activation evaluator",
+      "actual": "evaluationStage absent and evaluateG1Activation absent"
+    }
+  ],
+  "productMutationObserved": false
+}

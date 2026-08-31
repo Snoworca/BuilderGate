@@ -1,0 +1,14 @@
+{
+  "target": "wave-2",
+  "counts_by_status": { "planned": 4 },
+  "counts_by_stability": { "evolving": 4 },
+  "stability_blockers": [],
+  "requirements": [
+    { "id": "PERF-BGSTAB-009", "type": "performance", "stability": "evolving", "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9", "AC-10"] },
+    { "id": "REL-BGSTAB-008", "type": "reliability", "stability": "evolving", "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9", "AC-10", "AC-11"] },
+    { "id": "REL-BGSTAB-009", "type": "reliability", "stability": "evolving", "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9", "AC-10"] },
+    { "id": "FR-BGSTAB-021", "type": "functional", "stability": "evolving", "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9"] }
+  ],
+  "excluded": [],
+  "deferred_ac": []
+}

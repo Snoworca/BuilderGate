@@ -1,0 +1,479 @@
+{
+  "analyst": "code-context",
+  "run_id": "2026-07-15.projectmaster.wave1-baseline",
+  "target": "wave-1",
+  "code_path": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+  "requirements": [
+    "REL-BGSTAB-006",
+    "OBS-BGSTAB-004",
+    "PERF-BGSTAB-008",
+    "MIG-BGSTAB-001"
+  ],
+  "source_basis": {
+    "srs_lookup": "SpecKiwi MCP get_requirement for all four active evolving requirements",
+    "trace_index": "docs/analysis/kiwi-srs-feasibility-2026-07-15.projectmaster.wave-1.v01/code_context.json",
+    "independent_validation": "All proposed implementation and test paths below were checked in the current workspace; listed line ranges and signatures refer to the current UTF-8 source tree.",
+    "production_test_origin": "https://localhost:2222"
+  },
+  "req_anchors": [
+    {
+      "req_id": "REL-BGSTAB-006",
+      "files": [
+        {
+          "path": "server/src/index.ts",
+          "line_range": "1464-1495",
+          "signature": "https.createServer(tlsOptions, app); new WsRouter(authService, sessionManager, { resourceLimits, stabilityModes }); httpsServer.on('upgrade', (req, socket, head) => ... wsRouter.handleUpgrade(req, socket, head))",
+          "role": "Actual production HTTPS construction and /ws upgrade dispatch required by AC-2.",
+          "validated": true
+        },
+        {
+          "path": "server/src/ws/WsRouter.ts",
+          "line_range": "86-91,165-175,202-224",
+          "signature": "interface WsRouterOptions; constructor(authService: AuthService, sessionManager: SessionManager, options: WsRouterOptions = {}); public handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void; private setupConnectionHandler(): void",
+          "role": "Runtime constructor/upgrade behavior; realtime is declared but not consumed, and the connection handler accepts only ws/request.",
+          "validated": true
+        },
+        {
+          "path": "frontend/src/contexts/WebSocketContext.tsx",
+          "line_range": "113-119,340-388",
+          "signature": "function getWsUrl(): string; const connect = useCallback(() => { ... const ws = new WebSocket(url) ... })",
+          "role": "Actual browser production URL construction and socket-open path.",
+          "validated": true
+        },
+        {
+          "path": "server/src/ws/wsTransportMode.ts",
+          "line_range": "1-93",
+          "signature": "export function parseWsTransportRequest(url: URL, configuredMode: WsTransportMode): WsTransportRequest",
+          "role": "Reusable expected split/unified request parser; no production caller currently exists.",
+          "validated": true
+        },
+        {
+          "path": "frontend/src/utils/webSocketUrl.ts",
+          "line_range": "35-70",
+          "signature": "export function buildControlWebSocketUrl(...): string; export function buildSplitOutputWebSocketUrl(...): string | null",
+          "role": "Reusable expected browser URL builders; WebSocketContext does not import them.",
+          "validated": true
+        },
+        {
+          "path": "server/src/ws/WsRouterSplitHandshake.test.ts",
+          "line_range": "50-121",
+          "signature": "function createRouter(...): WsRouter; test('WsRouter split control connection returns group metadata and pair token', ...)",
+          "role": "Standalone injected test observation. It emits connection metadata directly and is not production-path evidence.",
+          "validated": true
+        },
+        {
+          "path": "frontend/tests/e2e/terminal-authority.spec.ts",
+          "line_range": "138-199,224-262",
+          "signature": "async function installWsMessageCapture(page: Page): Promise<void>; async function closeCapturedWebSockets(...); async function sendCapturedWsMessage(...)"
+          ,"role": "Existing live-browser WebSocket capture/reconnect seam that can be extended to capture constructor URLs and frames.",
+          "validated": true
+        }
+      ],
+      "reusable_helpers": [
+        "parseWsTransportRequest for expected request classification without activating split runtime",
+        "buildControlWebSocketUrl/buildSplitOutputWebSocketUrl plus frontend/tests/unit/webSocketUrl.test.ts for expected URL comparators",
+        "terminal-authority.spec.ts installWsMessageCapture for an actual browser-created WebSocket observation"
+      ],
+      "missing_anchors": [
+        "No existing machine-readable srs_expected/production_runtime_observed/test_observed artifact schema or mismatch row writer.",
+        "Production index.ts does not pass runtimeValues.realtime into WsRouter, WsRouter does not call parseWsTransportRequest, and WebSocketContext opens one locally constructed unified URL.",
+        "The standalone split tests are compiled but server/package.json test executes only dist/test-runner.js, so they are not in the default server test command.",
+        "No current E2E test records effective realtime.wsTransportMode, the actual WebSocket constructor URL, build/commit id, command, result, and unresolved disposition in one artifact."
+      ],
+      "new_file_candidates": [
+        {
+          "path": "frontend/tests/e2e/wave1-split-characterization.spec.ts",
+          "purpose": "Traverse the live https://localhost:2222 browser URL and server HTTPS upgrade path while preserving split runtime as inactive."
+        },
+        {
+          "path": "frontend/tests/e2e/wave1-characterization-artifacts.ts",
+          "purpose": "Pure schema/row builders for expected, runtime, test and mismatch observations; reusable by retained-state characterization."
+        }
+      ],
+      "test_seams": [
+        {
+          "path": "frontend/tests/unit/webSocketUrl.test.ts",
+          "line_range": "15-67",
+          "command": "node --experimental-strip-types --test tests/unit/webSocketUrl.test.ts",
+          "working_directory": "frontend",
+          "covers": "Expected unified/split URL comparator only."
+        },
+        {
+          "path": "server/src/ws/WsRouterSplitHandshake.test.ts",
+          "line_range": "100-121",
+          "commands": ["npm run build", "node --test dist/ws/WsRouterSplitHandshake.test.js"],
+          "working_directory": "server",
+          "covers": "Standalone injected test observation only."
+        },
+        {
+          "path": "frontend/tests/e2e/wave1-split-characterization.spec.ts",
+          "line_range": "new file",
+          "command": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\"",
+          "working_directory": "frontend",
+          "covers": "Required production browser URL and HTTPS /ws upgrade observation at https://localhost:2222."
+        }
+      ]
+    },
+    {
+      "req_id": "OBS-BGSTAB-004",
+      "files": [
+        {
+          "path": "server/src/utils/headlessTerminal.ts",
+          "line_range": "95-203",
+          "signature": "VIEWPORT_ONLY_SERIALIZE_OPTIONS; serializeHeadlessTerminal(state, maxSnapshotBytes, options?); serializeHeadlessScreenRepair(state, expected, maxBytes)",
+          "role": "Server viewport-only snapshot, oversized-empty truncation, viewport rows, cursor, active buffer and geometry source.",
+          "validated": true
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "100-126,2482-2604",
+          "signature": "type SnapshotPayloadScope = 'viewport-only'; getReplaySnapshot(sessionId); getScreenSnapshot(sessionId): SessionScreenSnapshot | null",
+          "role": "Snapshot cache, degraded fallback, truncation, serialization timing/bytes, scope and cause-event source.",
+          "validated": true
+        },
+        {
+          "path": "server/src/ws/WsRouter.ts",
+          "line_range": "633-768,947-1015,1923-2044",
+          "signature": "handleRepairReplay(...); handleScreenRepairRequest(...); trimReplayOutputTail(...); refreshReplaySnapshots(sessionId, options = {}): void",
+          "role": "Replay-tail truncation, repair request/ACK, snapshot refresh, queued-output coverage and raw replay-event cause surface.",
+          "validated": true
+        },
+        {
+          "path": "frontend/src/components/Terminal/TerminalView.tsx",
+          "line_range": "164-186,1093-1166,1283-1499,1517-1549",
+          "signature": "export interface TerminalHandle; loadStoredSnapshot; saveSnapshot; restoreStoredSnapshot; replaceWithSnapshot; getScreenRepairReadiness; applyScreenRepair; useImperativeHandle",
+          "role": "Browser local viewport cache and the nearest read-only xterm state capture addition seam.",
+          "validated": true
+        },
+        {
+          "path": "frontend/src/components/Terminal/TerminalContainer.tsx",
+          "line_range": "1323-1584",
+          "signature": "handleScreenSnapshot = useEffectEvent(async ...); handleScreenRepair = useEffectEvent(async ...); handleScreenRepairRejected = useEffectEvent(...)"
+          ,"role": "Refresh/remount snapshot, fallback, ACK and repair cause events. Snapshot has pending handoff; received repair has no equivalent pending payload handoff.",
+          "validated": true
+        },
+        {
+          "path": "frontend/tests/e2e/header-context-menu-regression.spec.ts",
+          "line_range": "439-493",
+          "signature": "test('TC-7004: reload should keep the active session visible and restore its snapshot without xterm runtime errors', ...)"
+          ,"role": "Required separate current-behavior viewport-only characterization.",
+          "validated": true
+        },
+        {
+          "path": "frontend/tests/e2e/terminal-authority.spec.ts",
+          "line_range": "201-262,271-359,394-437",
+          "signature": "findViewportSnapshot; expectViewportOnlySnapshot; TC-7101 hidden refresh/reconnect; TC-7103 rapid workspace handoff",
+          "role": "Existing active/hidden, reconnect, refresh, poisoned-cache and handoff E2E seam.",
+          "validated": true
+        }
+      ],
+      "reusable_helpers": [
+        "serializeHeadlessScreenRepair already exposes canonical viewport row text/ANSI, cursor, buffer type and geometry for server-side observation.",
+        "TerminalView local snapshot load/save/replace paths already expose valid/absent/poisoned and exact-geometry decisions.",
+        "terminal-authority.spec.ts WebSocket capture and TC-7101/TC-7103 lifecycle setup cover hidden, reconnect and remount cases.",
+        "TerminalContainer recordTerminalDebugEvent calls provide cause-separated snapshot/fallback/repair observations."
+      ],
+      "missing_anchors": [
+        "No helper captures and canonicalizes ordered logical lines, per-cell content plus attributes, cursor plus saved cursor, modes, active buffer and geometry into the AC-4 pre/post hash schema.",
+        "No deterministic case-manifest generator covers 24/1000/10000 lines, legacy 2 MiB before/at/after, cache/view/text/buffer axes and result-row provenance.",
+        "No analyzer classifies expected_current_eviction separately from observed_loss.",
+        "TerminalView has no read-only retained-state capture method on TerminalHandle; DOM text alone cannot prove cell attributes, saved cursor or modes.",
+        "TC-7004 asserts current behavior but does not emit the required machine-readable retained-state artifact."
+      ],
+      "new_file_candidates": [
+        {
+          "path": "frontend/src/utils/terminalRetainedState.ts",
+          "purpose": "Pure canonical snapshot/hash and field-diff helpers over an injected xterm Terminal; no UI change."
+        },
+        {
+          "path": "frontend/tests/unit/terminalRetainedState.test.ts",
+          "purpose": "Red/green coverage for ASCII, CJK-wide, combining, emoji, normal/alternate buffer and eviction/loss classification boundaries."
+        },
+        {
+          "path": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts",
+          "purpose": "Deterministic live refresh/reconnect/remount matrix and machine-readable artifact emission at https://localhost:2222."
+        }
+      ],
+      "test_seams": [
+        {
+          "path": "frontend/tests/e2e/header-context-menu-regression.spec.ts",
+          "line_range": "439-493",
+          "command": "npx playwright test tests/e2e/header-context-menu-regression.spec.ts --project \"Desktop Chrome\" --grep \"TC-7004\"",
+          "working_directory": "frontend",
+          "covers": "Separate current viewport-only behavior."
+        },
+        {
+          "path": "frontend/tests/e2e/terminal-authority.spec.ts",
+          "line_range": "264-438",
+          "command": "npx playwright test tests/e2e/terminal-authority.spec.ts --project \"Desktop Chrome\"",
+          "working_directory": "frontend",
+          "covers": "Hidden, reconnect, refresh and handoff lifecycle baselines."
+        },
+        {
+          "path": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts",
+          "line_range": "new file",
+          "command": "npx playwright test tests/e2e/wave1-retained-state-characterization.spec.ts --project \"Desktop Chrome\"",
+          "working_directory": "frontend",
+          "covers": "Full deterministic corpus and pre/post artifact contract."
+        }
+      ]
+    },
+    {
+      "req_id": "PERF-BGSTAB-008",
+      "files": [
+        {
+          "path": "frontend/src/utils/terminalOutputScheduler.ts",
+          "line_range": "5-14,39-95,143-206",
+          "signature": "export interface TerminalOutputSchedulerOptions; export function createTerminalOutputScheduler(options: TerminalOutputSchedulerOptions): TerminalOutputScheduler",
+          "role": "Injected write/schedule/shouldYield/clock seam for deterministic NO_RENDER fixtures.",
+          "validated": true
+        },
+        {
+          "path": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+          "line_range": "1-274",
+          "signature": "node:test coverage for createTerminalOutputScheduler with injected write/schedule/time",
+          "role": "Smallest NO_RENDER control and regression seam.",
+          "validated": true
+        },
+        {
+          "path": "server/src/test-runner.ts",
+          "line_range": "614-641,13607-13682,14444-14595",
+          "signature": "BUILDERGATE_TEST_FILTER selection loop; createManagedSessionHarness(...); createFakeWs(...)"
+          ,"role": "Reusable fake PTY/headless/session/socket primitives for NO_ANALYZER and NO_NETWORK; not a benchmark runner.",
+          "validated": true
+        },
+        {
+          "path": "server/src/ws/WsRouterSendPriority.test.ts",
+          "line_range": "7-99,101-214",
+          "signature": "createFakeWs(...); createRouter(): WsRouter; subscribeForTest(router, ws): void; node:test safe-send cases",
+          "role": "Controllable bufferedAmount/deferred-send seam; subscribeForTest currently hard-codes one client.",
+          "validated": true
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "3012-3065,3474-3494",
+          "signature": "getObservabilitySnapshot(): SessionManagerObservability; sampleEventLoopDelay(); sampleProcessCpuPercentOfOneCore(); applyHeadlessOutput(...)"
+          ,"role": "Required event-loop mean/p99, one-core CPU and cumulative headless-write source; benchmark samples must calculate interval deltas.",
+          "validated": true
+        },
+        {
+          "path": "server/src/ws/WsRouter.ts",
+          "line_range": "2119-2160,2188-2335",
+          "signature": "getObservabilitySnapshot(): WsRouterObservabilitySnapshot; getTransportQueueState; sendTransportMessage; enqueueTransportMessage; flushTransportQueue",
+          "role": "Per-client queue/backpressure/slow-client observability and fake-transport execution seam.",
+          "validated": true
+        },
+        {
+          "path": "server/src/ws/wsSendPolicy.ts",
+          "line_range": "23-140",
+          "signature": "createWsTransportQueueState; createWsTransportMessage; tryCoalesceOutputMessage; pushTransportMessage; dequeueNextTransportMessage; clearTransportMessages",
+          "role": "Pure per-client queue policy reusable by multi-client benchmark fixtures.",
+          "validated": true
+        }
+      ],
+      "reusable_helpers": [
+        "TerminalOutputScheduler dependency injection for NO_RENDER without changing production visuals.",
+        "createManagedSessionHarness/createFakeWs for PTY, headless and fake-network controls.",
+        "wsSendPolicy pure queue primitives plus WsRouterSendPriority bufferedAmount controls for ONE_CLIENT_SLOW.",
+        "SessionManager/WsRouter observability snapshots for raw source metrics; capture before/after to derive deltas."
+      ],
+      "missing_anchors": [
+        "No existing runner selects NO_RENDER, NO_ANALYZER, NO_NETWORK or ONE_CLIENT_SLOW as machine-readable mode IDs.",
+        "No manifest/raw-sample/summary schema, seeded payload generator, digest writer, percentile aggregator or confidence-interval implementation exists.",
+        "No two-or-more-client fixture sends the same session stream while pressuring exactly one client and comparing a normal peer.",
+        "server/package.json test runs dist/test-runner.js only; standalone WsRouterSendPriority.test.js is not included by default.",
+        "Existing event-loop metrics are cumulative since boot and headless-write is cumulative, so raw benchmark evidence needs explicit interval boundaries and units."
+      ],
+      "new_file_candidates": [
+        {
+          "path": "server/src/benchmarks/terminalCharacterization.ts",
+          "purpose": "Deterministic mode/workload runner and manifest/raw-sample writer with reusable injected layer fixtures."
+        },
+        {
+          "path": "server/src/benchmarks/benchmarkStatistics.ts",
+          "purpose": "Pure p50/p95/p99 and seeded confidence-interval aggregation that references original sample IDs."
+        },
+        {
+          "path": "server/src/benchmarks/terminalCharacterization.test.ts",
+          "purpose": "TDD contract tests for all four modes, corpus values, raw-before-summary ordering and two-client isolation."
+        },
+        {
+          "path": "server/src/benchmarks/benchmarkStatistics.test.ts",
+          "purpose": "Deterministic percentile and confidence-interval recalculation tests."
+        }
+      ],
+      "test_seams": [
+        {
+          "path": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+          "line_range": "1-274",
+          "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+          "working_directory": "frontend",
+          "covers": "NO_RENDER fixture primitive."
+        },
+        {
+          "path": "server/src/ws/WsRouterSendPriority.test.ts",
+          "line_range": "7-214",
+          "commands": ["npm run build", "node --test dist/ws/WsRouterSendPriority.test.js"],
+          "working_directory": "server",
+          "covers": "Single-client pressure baseline; extend to two clients for isolation."
+        },
+        {
+          "path": "server/src/test-runner.ts",
+          "line_range": "614-641",
+          "command": "$env:BUILDERGATE_TEST_FILTER='<focused name>'; npm test",
+          "working_directory": "server",
+          "covers": "Existing focused custom-runner regression path, not benchmark statistics."
+        },
+        {
+          "path": "server/src/benchmarks/terminalCharacterization.test.ts",
+          "line_range": "new file",
+          "commands": ["npm run build", "node --test dist/benchmarks/terminalCharacterization.test.js dist/benchmarks/benchmarkStatistics.test.js"],
+          "working_directory": "server",
+          "covers": "New mode, manifest, raw-sample, CI and multi-client contracts."
+        }
+      ]
+    },
+    {
+      "req_id": "MIG-BGSTAB-001",
+      "files": [
+        {
+          "path": "docs/plans/2026-07-15.projectmaster.orca-terminal-performance.wave-master.plan.md",
+          "line_range": "13-23,39-42,67",
+          "signature": "Wave ordering, G1 branch contract and conditional downstream activation statements",
+          "role": "Existing orchestration contract; not an executable gate evaluator.",
+          "validated": true
+        },
+        {
+          "path": "kiwi/waves.jsonl",
+          "line_range": "1-7",
+          "signature": "Append-only wave lifecycle event records",
+          "role": "Existing wave-state sink; contains no G1 evidence validator.",
+          "validated": true
+        },
+        {
+          "path": "kiwi/.status.json",
+          "line_range": "5-45",
+          "signature": "Workflow status and SHA-256 fingerprint metadata",
+          "role": "Reusable digest provenance pattern only; does not satisfy the decision record schema by itself.",
+          "validated": true
+        }
+      ],
+      "reusable_helpers": [
+        "Wave-master G1 semantics for branch and downstream-state expectations.",
+        "Existing SHA-256 fingerprint representation in kiwi/.status.json as a content-digest shape precedent.",
+        "Official SpecKiwi workflow mutations must remain the authority for wave state changes; a gate evaluator should return a decision, not hand-append status."
+      ],
+      "missing_anchors": [
+        "The requirement has dependency traces only and no existing code/test addition_site.",
+        "No G1 decision-record JSON schema, pure gate evaluator, exact two-value decision enum validator or denial-reason contract exists.",
+        "No code validates all three prerequisite Requirement IDs plus artifact reference, run/build identifier and content digest.",
+        "No code enforces bug-only maximum-one local fix, architectural-migration stable authority Requirement prerequisite, or wave-2 through wave-5 plus GitHub #4-#22 resulting states."
+      ],
+      "new_file_candidates": [
+        {
+          "path": "tools/wave1/g1-decision-gate.mjs",
+          "purpose": "Pure read-only decision-record and prerequisite-evidence evaluator; no direct waves.jsonl mutation."
+        },
+        {
+          "path": "tools/wave1/g1-decision-gate.test.mjs",
+          "purpose": "TDD cases for incomplete evidence, invalid enum, bug-only fix count, migration stability prerequisite and denial states."
+        },
+        {
+          "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/g1-decision-record.json",
+          "purpose": "Future machine-readable decision artifact produced only after all three prerequisite evidence sets are complete."
+        }
+      ],
+      "test_seams": [
+        {
+          "path": "tools/wave1/g1-decision-gate.test.mjs",
+          "line_range": "new file",
+          "command": "node --test tools/wave1/g1-decision-gate.test.mjs",
+          "working_directory": ".",
+          "covers": "Pure gate/schema behavior without mutating wave state."
+        }
+      ]
+    }
+  ],
+  "addition_sites": [
+    {
+      "phase_hint": "PH-001 shared evidence contracts",
+      "req_ids": ["REL-BGSTAB-006", "OBS-BGSTAB-004", "PERF-BGSTAB-008"],
+      "sites": [
+        "frontend/tests/e2e/wave1-characterization-artifacts.ts (new pure artifact rows/schema)",
+        "server/src/benchmarks/benchmarkStatistics.ts (new pure raw-sample aggregation)"
+      ],
+      "depends_on": [],
+      "reason": "Define machine-readable contracts and red tests before live characterization or aggregation."
+    },
+    {
+      "phase_hint": "PH-002 split drift characterization",
+      "req_ids": ["REL-BGSTAB-006"],
+      "sites": [
+        "frontend/tests/e2e/terminal-authority.spec.ts:138-199 for reusable live socket interception",
+        "frontend/tests/e2e/wave1-split-characterization.spec.ts (new isolated production-path suite)",
+        "server/src/ws/WsRouterSplitHandshake.test.ts:50-121 for separate injected test observation"
+      ],
+      "depends_on": ["PH-001"],
+      "reason": "Keep SRS, production-runtime and standalone-test observations separate and leave disposition unresolved."
+    },
+    {
+      "phase_hint": "PH-003 retained-state characterization",
+      "req_ids": ["OBS-BGSTAB-004"],
+      "sites": [
+        "frontend/src/components/Terminal/TerminalView.tsx:164-186,1517-1549 for a read-only capture handle",
+        "frontend/src/utils/terminalRetainedState.ts (new canonicalizer)",
+        "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts (new deterministic corpus)",
+        "frontend/tests/e2e/header-context-menu-regression.spec.ts:439-493 kept separate for TC-7004"
+      ],
+      "depends_on": ["PH-001"],
+      "reason": "Capture equal-schema pre/post state without changing runtime authority or UI."
+    },
+    {
+      "phase_hint": "PH-004 benchmark modes and evidence",
+      "req_ids": ["PERF-BGSTAB-008"],
+      "sites": [
+        "frontend/src/utils/terminalOutputScheduler.ts:5-14,39-206 for NO_RENDER injection",
+        "server/src/test-runner.ts:13607-13682,14444-14595 for reusable fake session/socket fixtures",
+        "server/src/ws/WsRouterSendPriority.test.ts:7-99 for a generalized two-client fixture",
+        "server/src/benchmarks/terminalCharacterization.ts (new runner)"
+      ],
+      "depends_on": ["PH-001"],
+      "reason": "Preserve raw samples before summary and keep product thresholds out of the characterization."
+    },
+    {
+      "phase_hint": "PH-005 G1 decision gate",
+      "req_ids": ["MIG-BGSTAB-001"],
+      "sites": [
+        "tools/wave1/g1-decision-gate.mjs (new pure evaluator)",
+        "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/g1-decision-record.json (future output only after prerequisites)"
+      ],
+      "depends_on": ["PH-002", "PH-003", "PH-004"],
+      "reason": "G1 cannot select a branch until all three evidence sets and digests validate."
+    }
+  ],
+  "test_commands": [
+    {
+      "scope": "frontend typecheck",
+      "working_directory": "frontend",
+      "command": "npm run typecheck"
+    },
+    {
+      "scope": "server build",
+      "working_directory": "server",
+      "command": "npm run build"
+    },
+    {
+      "scope": "live Playwright characterization",
+      "working_directory": "frontend",
+      "command": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts tests/e2e/wave1-retained-state-characterization.spec.ts --project \"Desktop Chrome\"",
+      "base_url": "https://localhost:2222",
+      "server_lifecycle": "Use start.bat --port 2222 and stop.bat only; never terminate node.exe or services on ports 2001/2002."
+    }
+  ],
+  "external_paths_detected": [],
+  "notes": [
+    "No proposed task file is outside C:\\Work\\git\\_Snoworca\\ProjectMaster.",
+    "All four requirements are Stability=evolving and Status=planned in active target wave-1.",
+    "This artifact identifies addition seams only; it does not activate split transport, promote server authority, set performance thresholds, choose G1, mutate SRS, or modify runtime code."
+  ]
+}

@@ -1,0 +1,136 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-15.projectmaster.wave2-hotpath",
+  "task_id": "T-PH003-03",
+  "requirement_id": "REL-BGSTAB-009",
+  "recorded_at": "2026-07-16T00:03:35.0828647Z",
+  "result": "PASS_INTENTIONAL_RED",
+  "production_code_changed": false,
+  "summary": {
+    "planned_test_cases": 14,
+    "planned_test_symbols_present": 14,
+    "semantic_red_failures": 14,
+    "infrastructure_failures": 0,
+    "todo": 0,
+    "skipped": 0
+  },
+  "checks": [
+    {
+      "name": "server-dedicated-red",
+      "command": "npx tsx --test src/ws/WsRouterRestoreMetadata.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/SessionManagerPartialEscapeTail.test.ts",
+      "cwd": "server",
+      "expected_exit": 1,
+      "exit_code": 1,
+      "tests": 6,
+      "passed": 0,
+      "failed": 6,
+      "classification": "EXPECTED_SEMANTIC_RED"
+    },
+    {
+      "name": "frontend-unit-red",
+      "command": "node --experimental-strip-types --test tests/unit/terminalViewRecoveryContract.test.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/unit/terminalOutputScheduler.test.ts",
+      "cwd": "frontend",
+      "expected_exit": 1,
+      "exit_code": 1,
+      "tests": 58,
+      "passed": 52,
+      "failed": 6,
+      "classification": "SIX_PLANNED_ADAPTER_RED_ONLY"
+    },
+    {
+      "name": "https-e2e-red",
+      "command": "npx playwright test tests/e2e/wave2-terminal-restore.spec.ts --project=\"Desktop Chrome\" --reporter=line",
+      "cwd": "frontend",
+      "target": "https://localhost:2222",
+      "expected_exit": 1,
+      "exit_code": 1,
+      "tests": 2,
+      "passed": 0,
+      "failed": 2,
+      "classification": "EXPECTED_TOKEN_AND_OWNERSHIP_RED"
+    },
+    {
+      "name": "frontend-existing-recovery-baseline",
+      "command": "node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalOutputScheduler.test.ts",
+      "cwd": "frontend",
+      "exit_code": 0,
+      "tests": 44,
+      "passed": 44,
+      "failed": 0
+    },
+    {
+      "name": "server-build",
+      "command": "npm run build",
+      "cwd": "server",
+      "exit_code": 0
+    },
+    {
+      "name": "server-full-regression",
+      "command": "npm test",
+      "cwd": "server",
+      "exit_code": 0
+    },
+    {
+      "name": "frontend-typecheck",
+      "command": "npm run typecheck",
+      "cwd": "frontend",
+      "exit_code": 0
+    },
+    {
+      "name": "frontend-task-scoped-eslint",
+      "command": "npx eslint tests/unit/terminalViewRecoveryContract.test.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/e2e/wave2-terminal-restore.spec.ts",
+      "cwd": "frontend",
+      "exit_code": 0,
+      "errors": 0,
+      "warnings": 0
+    },
+    {
+      "name": "server-lint",
+      "classification": "N/A",
+      "reason": "configured server lint script/config is absent"
+    },
+    {
+      "name": "scoped-diff-check",
+      "command": "git diff --check -- frontend/tests/e2e/wave2-terminal-restore.spec.ts frontend/tests/unit/terminalContainerRecoveryContract.test.ts frontend/tests/unit/terminalViewRecoveryContract.test.ts server/src/services/SessionManagerPartialEscapeTail.test.ts server/src/ws/WsRouterRestoreMetadata.test.ts server/src/ws/wsSendPolicyRestoreMetadata.test.ts",
+      "cwd": ".",
+      "exit_code": 0
+    },
+    {
+      "name": "live-router-temporary-session-cleanup",
+      "method": "authenticated GET /api/sessions after RED execution",
+      "name_prefix": "Wave2 restore metadata RED",
+      "residue_count": 0,
+      "delete_status_asserted": 204
+    }
+  ],
+  "red_cases": {
+    "frontend_unit": [
+      "Remount adapter RED — grace authority barrier",
+      "Remount adapter RED — live/restore non-overlap",
+      "Remount adapter RED — null-ref dispose ownership",
+      "Remount adapter RED — fault input barrier",
+      "Remount adapter RED — normal path compatibility",
+      "Remount adapter RED — parser and Unicode corpus"
+    ],
+    "frontend_e2e": [
+      "Remount adapter RED — same-session remount fence",
+      "Remount adapter RED — bounded retries and ownership"
+    ],
+    "server": [
+      "server RED — real output sequence and ready authority tokens",
+      "server RED — coalesced snapshot straddle segments",
+      "server RED — atomic authority revision race",
+      "server RED — unstable pending-write authority",
+      "server RED — split terminal escape ingest",
+      "server RED — pending tail sequence attachment"
+    ]
+  },
+  "sha256": {
+    "frontend/tests/e2e/wave2-terminal-restore.spec.ts": "8c5ef3e843c85035711795361f29450d772ec826d1e72caf08f5577de091bf42",
+    "frontend/tests/unit/terminalContainerRecoveryContract.test.ts": "c4ff2053d8731e254329abf4be0b2428e40518e7aa00e0c44d613f03d0b3e559",
+    "frontend/tests/unit/terminalViewRecoveryContract.test.ts": "edb4e3dfe48e49963c4b9b9c281223e79b3fcf6c6bbf83f1b48ae39f91fc9aa1",
+    "server/src/services/SessionManagerPartialEscapeTail.test.ts": "7507483ed2b1888027b539426e39b7a05ec7e0001616ef6063f680e63ad0db37",
+    "server/src/ws/WsRouterRestoreMetadata.test.ts": "44d50fb6b7b5b5d50e99372a354136364cd84ae25d0f7f94b379a6a4466b7eaa",
+    "server/src/ws/wsSendPolicyRestoreMetadata.test.ts": "f8315858a947d24b5a946ff3dd147ad3911c2f030f4d55535272870c4e1b1b8d"
+  }
+}

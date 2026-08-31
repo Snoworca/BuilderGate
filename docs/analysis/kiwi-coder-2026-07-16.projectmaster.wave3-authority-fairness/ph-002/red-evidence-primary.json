@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "kiwi-tdd-red-evidence/v1",
+  "requirementId": "REL-BGSTAB-010",
+  "phaseId": "PH-002",
+  "taskId": "T-PH002-01",
+  "stage": "red",
+  "productionCodeChanged": false,
+  "command": {
+    "cwd": "server",
+    "value": "npx tsx --test src/services/TerminalResourcePolicyCanary.test.ts src/ws/WsRouterSendPriority.test.ts",
+    "expectedExitCode": 1,
+    "actualExitCode": 1
+  },
+  "result": {
+    "total": 15,
+    "passed": 5,
+    "failed": 10,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "durationMs": 363.4194
+  },
+  "baseline": {
+    "existingWsRouterSendPriorityPassed": 5,
+    "existingWsRouterSendPriorityFailed": 0,
+    "interpretation": "The pre-existing focused baseline remains green; exit 1 is caused only by the new REL-BGSTAB-010 contract tests."
+  },
+  "inputs": [
+    {
+      "path": "server/src/services/TerminalResourcePolicyCanary.test.ts",
+      "sha256": "de843923d2cbef59d54a5debb455c1057eeaea6955dda18f76f3c22b159cc155"
+    },
+    {
+      "path": "server/src/ws/WsRouterSendPriority.test.ts",
+      "sha256": "7c6423f289898b3c0d128dc8c712c6316ca651d9d797327cefd669cdb15c7941"
+    }
+  ],
+  "missingProductionContracts": [
+    {
+      "count": 9,
+      "code": "ERR_MODULE_NOT_FOUND",
+      "module": "server/src/services/TerminalResourcePolicyCanary.ts",
+      "proves": [
+        "stable candidate plus exact capability plus explicit client/session target gate is absent",
+        "unavailable, unstable, unsupported and compiler-mismatched fallback is absent",
+        "capability N-1/N/N+1 compatibility decision is absent",
+        "admission cap N-1/N/N+1 boundary is absent",
+        "pre-existing entry lifetime/order/ready/recovery-generation preservation is absent",
+        "per-target isolation is absent",
+        "mid-drain kill switch and FIFO exactly-once rollback is absent",
+        "idempotent rollback/disconnect cleanup is absent",
+        "bounded transition ledger is absent"
+      ]
+    },
+    {
+      "count": 1,
+      "code": "ERR_ASSERTION",
+      "actual": "undefined",
+      "expected": 40,
+      "location": "server/src/services/TerminalResourcePolicyCanary.test.ts:510",
+      "proves": [
+        "wsSendPolicy does not preserve policyGeneration on output transport messages",
+        "wsSendPolicy therefore cannot reject coalescing across policy generations"
+      ]
+    }
+  ],
+  "coverage": {
+    "AC-1": [
+      "stable candidate gate",
+      "exact capability gate",
+      "explicit client/session target gate",
+      "unselected target legacy fallback",
+      "capability N-1/N/N+1"
+    ],
+    "AC-2": [
+      "cap N-1/N/N+1",
+      "lower cap affects new admission only",
+      "old bytes/expiry/generation/order/ready/recovery state preserved"
+    ],
+    "AC-3": [
+      "drop/stale/reconnect/direct-recovery/producer/authority effects remain false"
+    ],
+    "AC-4": [
+      "bounded ledger",
+      "policy/profile/generation/previous-next decision/reason/rollback fields"
+    ],
+    "AC-5": [
+      "unavailable/unstable/profile/schema/capability fallback",
+      "client/session isolation"
+    ],
+    "AC-6": [
+      "new admissions switch to legacy before old drain",
+      "old FIFO exactly once",
+      "idempotent stop and disconnect cleanup",
+      "no cross-generation output coalescing"
+    ]
+  },
+  "redVerdict": "EXPECTED_FAILURE_CONFIRMED"
+}

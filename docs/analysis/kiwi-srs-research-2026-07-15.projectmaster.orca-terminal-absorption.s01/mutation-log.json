@@ -1,0 +1,7 @@
+{
+  "mode": "standalone",
+  "input_kind": "research_question",
+  "mutations": [],
+  "status": "awaiting_user_decision",
+  "reason": "Standalone research has dissent and no user-selected Requirement persistence target. The required append_section_note call is intentionally pending; no SRS Status, Stability, AC, evidence, or research field has been changed."
+}

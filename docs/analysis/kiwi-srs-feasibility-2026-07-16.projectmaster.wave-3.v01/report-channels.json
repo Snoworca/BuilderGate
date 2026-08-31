@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0",
+  "docuLight": {
+    "status": "deferred",
+    "reason": "사용자 지시상 개별 feasibility 완료가 아니라 Wave 완료 또는 중단 시에만 DocuLight로 보고"
+  },
+  "telegram": {
+    "status": "deferred",
+    "reason": "사용자 지시상 전체 작업 완료 시 최종 보고"
+  },
+  "pipeline": {
+    "status": "emitted_via_degraded_apply_patch",
+    "guardedMcpAttempt": "refused_by_preexisting_SRS-W055_x4",
+    "nextHint": "kiwi-planner"
+  }
+}

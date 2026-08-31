@@ -1,0 +1,134 @@
+{
+  "task_id": "T-PH002-05",
+  "requirement_id": "REL-BGSTAB-008",
+  "acceptance_criteria": ["AC-2", "AC-4", "AC-6", "AC-7", "AC-10"],
+  "completed_at": "2026-07-16T07:55:00+09:00",
+  "findings_fixed": [
+    {
+      "severity": "HIGH",
+      "summary": "superseded recovery output could drain into a newer visible resync without replay identity",
+      "red": {
+        "command": "$env:BUILDERGATE_TEST_FILTER='screen repair supersession'; npm test",
+        "exit_code": 1,
+        "captured_failures": [
+          "recovery cancellation predicate was undefined",
+          "old-recovery-tail remained present after the newer restore-needed frame"
+        ]
+      },
+      "green": {
+        "command": "$env:BUILDERGATE_TEST_FILTER='screen repair supersession'; npm test",
+        "exit_code": 0,
+        "passed": 3
+      }
+    },
+    {
+      "severity": "HIGH",
+      "summary": "superseded direct screen-repair suffix could remain in safe-send behind a newer restore",
+      "red": {
+        "command": "$env:BUILDERGATE_TEST_FILTER='screen repair supersession'; npm test",
+        "exit_code": 1,
+        "captured_failures": [
+          "repair cancellation predicate was undefined",
+          "old-direct-repair-tail remained present after the newer restore-needed frame",
+          "old repair session:ready was not classified for exact cancellation"
+        ]
+      },
+      "green": {
+        "command": "$env:BUILDERGATE_TEST_FILTER='screen repair supersession'; npm test",
+        "exit_code": 0,
+        "passed": 3
+      }
+    },
+    {
+      "severity": "MEDIUM",
+      "summary": "snapshot-covered late N+1 output reached cap accounting before coverage removal",
+      "red": {
+        "command": "node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts",
+        "exit_code": 1,
+        "captured_failure": "covered late chunk at the configured cap released the held queue instead of leaving the uncovered chunk intact"
+      },
+      "green": {
+        "command": "node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts",
+        "exit_code": 0,
+        "passed": 34
+      }
+    },
+    {
+      "severity": "MEDIUM",
+      "summary": "router-local session output ordinal state was not released with session state",
+      "red": {
+        "command": "$env:BUILDERGATE_TEST_FILTER='clears replay state'; npm test",
+        "exit_code": 1,
+        "captured_failure": "sessionOutputChunkOrdinals.has(session-1): true !== false"
+      },
+      "green": {
+        "command": "$env:BUILDERGATE_TEST_FILTER='clears replay state'; npm test",
+        "exit_code": 0,
+        "passed": 1
+      }
+    }
+  ],
+  "verification": [
+    {
+      "command": "$env:BUILDERGATE_TEST_FILTER='screen repair'; npm test",
+      "exit_code": 0,
+      "result": "24 passed"
+    },
+    {
+      "command": "node --import tsx --test src/ws/WsRouterSplitHandshake.test.ts",
+      "exit_code": 0,
+      "result": "8 passed, 0 failed, 13 pre-existing TODO characterizations"
+    },
+    {
+      "command": "npm test",
+      "exit_code": 0,
+      "result": "full server regression passed"
+    },
+    {
+      "command": "node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts",
+      "exit_code": 0,
+      "result": "34 passed"
+    },
+    {
+      "command": "$files = @(rg --files tests/unit | Where-Object { $_ -like '*.test.ts' }); node --experimental-strip-types --test $files",
+      "exit_code": 0,
+      "result": "278 passed"
+    },
+    {
+      "command": "npm run typecheck",
+      "exit_code": 0
+    },
+    {
+      "command": "npm run build",
+      "exit_code": 0,
+      "result": "frontend build and server public staging passed"
+    },
+    {
+      "command": "npx eslint src/components/Terminal/TerminalContainer.tsx src/utils/visibleOutputRecovery.ts src/types/ws-protocol.ts tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/e2e/wave2-screen-repair-resync.spec.ts",
+      "exit_code": 0
+    },
+    {
+      "command": "npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --project Desktop Chrome",
+      "exit_code": 0,
+      "result": "2 passed"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0
+    }
+  ],
+  "protocol_policy": {
+    "normal_output": "actual screenSeq when available plus session-local monotonic chunkId; no replayToken",
+    "snapshot_recovery_output": "exact replayToken plus actual screenSeq and stable chunkId",
+    "direct_repair_output": "screenSeq and stable chunkId on wire; repairToken is transport metadata only",
+    "frontend_tokenless_before_ready": "accepted only with finite screenSeq and stable chunkId so snapshot coverage is decidable",
+    "frontend_tokenless_after_ready": "legacy or degraded tokenless output may be admitted after the exact matching replay ready latch",
+    "supersession": "only exact session/replayToken or session/repairToken recovery frames are removed; unrelated and normal live output remains queued",
+    "coalescing": "replay-tagged or different-sequence frames never coalesce; same or unknown-sequence normal output may coalesce while retaining a stable frame identity"
+  },
+  "durable_raw_payload_log_added": false,
+  "review": {
+    "reviewer": "/root/wave2_ph2_prickly_review",
+    "verdict": "No findings"
+  }
+}

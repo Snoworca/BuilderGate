@@ -1,0 +1,27 @@
+{
+  "exact_parent": "REL-BGSTAB-007",
+  "scope": "BGSTAB",
+  "target": "wave-3",
+  "direct_mutation_policy": "stable parent와 cross-target Requirement는 수정하지 않고 child Requirement의 trace로만 연결",
+  "matches": {
+    "#8": ["FR-BGSTAB-001", "FR-BGSTAB-008", "FR-BGSTAB-013", "FR-BGSTAB-015"],
+    "#9": ["FR-BGSTAB-001", "FR-BGSTAB-015", "REL-BGSTAB-007"],
+    "#10": ["REL-BGSTAB-007", "FR-BGSTAB-003", "FR-BGSTAB-017", "REL-BGSTAB-009"],
+    "#11": ["REL-BGSTAB-007", "FR-BGSTAB-012", "FR-BGSTAB-014"],
+    "#12": ["REL-BGSTAB-007", "REL-BGSTAB-004"],
+    "#13": ["FR-BGSTAB-012", "FR-BGSTAB-016", "REL-BGSTAB-003"],
+    "#14": ["REL-BGSTAB-007", "FR-BGSTAB-014", "REL-BGSTAB-003", "FR-BGSTAB-004", "FR-BGSTAB-005"]
+  },
+  "classification": {
+    "#8": "new-feature",
+    "#9": "new-feature",
+    "#10": "stable-parent-child-detail",
+    "#11": "stable-parent-child-detail",
+    "#12": "stable-parent-child-detail",
+    "#13": "new-feature",
+    "#14": "stable-parent-child-detail"
+  },
+  "conflicts": ["FR-BGSTAB-015 raw editable Settings와 향후 profile-only UI는 별도 supersession 없이는 동시 만족 불가", "tail truncation은 dataGap 없이 성공으로 해석되어서는 안 됨"],
+  "constraints": ["split default 금지", "xterm engine 교체 금지", "AI TUI idle invariant 유지", "UI 변경 금지", "Wave 5 전 legacy 물리 삭제 금지"]
+}
+

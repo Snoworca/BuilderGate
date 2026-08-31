@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "requirementId": "OBS-BGSTAB-005",
+  "phaseId": "PH-001",
+  "reviewFindings": { "high": 2, "medium": 0 },
+  "command": "npx tsx --test src/services/TerminalResourcePolicy.test.ts src/services/RuntimeConfigStore.test.ts",
+  "cwd": "server",
+  "exitCode": 1,
+  "tests": { "total": 23, "passed": 20, "failed": 3 },
+  "failureAxes": [
+    "string-based discovery missed getter aliases and could accept comment-only or moved enforcement signatures",
+    "production telemetry reported canonical scrollback and reserved values instead of actual consumer decisions"
+  ],
+  "followupRefactor": "After GREEN, tooling-only catalog/AST/manifest validation was split from the runtime policy module."
+}

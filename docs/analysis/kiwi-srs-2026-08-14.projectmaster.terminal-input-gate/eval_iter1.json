@@ -1,0 +1,182 @@
+{
+  "evaluator": "verify-pass-1",
+  "iter": 1,
+  "findings": [
+    {
+      "id": "ac-1-1",
+      "severity": "HIGH",
+      "axis": "coverage",
+      "req_id": "OPS-BGSTAB-003",
+      "evidence_path": "frontend/tests/e2e/pane-keyboard.spec.ts:23-28; frontend/src/components/StatusBar/StatusBar.tsx:20; docs/spec/30.buildergate-stability.srs.md:4547,4572",
+      "description": "Requirement body and the pane-keyboard trace Notes both assert that TC-6601, TC-6602 and TC-6606 target the .status-prefix markup of the unmounted StatusBar and therefore cannot pass. Verified false for TC-6602: pane-keyboard.spec.ts:23-28 contains no .status-prefix locator at all — it calls pressCtrlB, page.keyboard.press('Shift+5') and verifyPaneCount(page, 2). '.status-prefix' occurs exactly once in frontend/src (StatusBar.tsx:20) and is referenced only by TC-6601 (12) and TC-6606 (18,20). Consequence: disposition A as written ('StatusBar 를 실제 렌더 경로에 마운트하고 prefixMode 상태를 연결해 세 테스트를 그대로 통과시킨다') cannot make TC-6602 pass — 'prefixMode' is referenced nowhere outside StatusBar.tsx, and no Ctrl+B prefix handler or '%'/split-vertical shortcut exists anywhere in frontend/src, so mounting StatusBar leaves TC-6602 red. AC-4 likewise ties disposition A only to StatusBar reachability, which is insufficient for TC-6602.",
+      "suggested_action": "Split the requirement statement: TC-6601/TC-6606 fail because .status-prefix is never rendered; TC-6602 fails for a different, separately stated reason (the Ctrl+B prefix + '%' split shortcut is not implemented). Either scope this requirement to the two .status-prefix tests, or state a per-test cause and make the disposition menu per-test rather than blanket."
+    },
+    {
+      "id": "ac-1-2",
+      "severity": "MEDIUM",
+      "axis": "req_trace",
+      "req_id": "REL-BGSTAB-017, REL-BGSTAB-018",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:4279 (REL-BGSTAB-017 trace row), :4339 (REL-BGSTAB-018 trace row)",
+      "description": "Both regression-only Requirement trace rows are present with the correct relation and correct targets (REL-BGSTAB-017 -> REL-BGSTAB-009, REL-BGSTAB-018 -> REL-BGSTAB-011), and no 'supersedes' relation is used anywhere in the 14 new blocks. However the Notes cell of both rows is '-'. The violated AC identifiers appear only in free prose (REL-BGSTAB-017 Requirement/Rationale/Verification Method cite REL-BGSTAB-009 AC-7/AC-8; REL-BGSTAB-018 Rationale cites REL-BGSTAB-011 AC-6/AC-9), not in the structured field a consumer would read.",
+      "suggested_action": "Fill the Notes cell of each regression-only row with the violated AC ids, e.g. 'Implementation regression against REL-BGSTAB-009 AC-7/AC-8; the contract itself is unchanged.' and 'Implementation regression against REL-BGSTAB-011 AC-6/AC-9.'"
+    },
+    {
+      "id": "ac-1-3",
+      "severity": "MEDIUM",
+      "axis": "trace",
+      "req_id": "OPS-BGSTAB-002",
+      "evidence_path": "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts:31; frontend/tests/e2e/terminal-keyboard-regression.spec.ts:759,767",
+      "description": "Trace Note claims terminal-context-menu-registered-items.spec.ts is a 'second existing spec that asserts the not-disabled state only'. Verified false: that spec never asserts a disabled state for the helper textarea — its only reference is `page.locator('.terminal-view:visible .xterm-helper-textarea').first().focus()` at line 31, and its single 'disabled' match (line 176) is a context-menu item, unrelated to the input gate. Conversely the spec that does assert the gate snapshot (terminal-keyboard-regression.spec.ts, reading `captureAllowed` and asserting `disableStdin: false` at 759/767) is not traced at all. The requirement's core claim is still sound: no test anywhere asserts helperDisabled===true or disableStdin===true.",
+      "suggested_action": "Drop the terminal-context-menu-registered-items.spec.ts trace row (or correct its Note to 'focuses the helper textarea only; asserts nothing about disabled') and add frontend/tests/e2e/terminal-keyboard-regression.spec.ts:759-767 as the real existing not-disabled control."
+    },
+    {
+      "id": "ac-1-4",
+      "severity": "MEDIUM",
+      "axis": "incomplete",
+      "req_id": "OBS-BGSTAB-007",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:4203-4207 (AC-1..AC-5), :4229 (Erratum bullet in Implementation Notes)",
+      "description": "Normative Acceptance Criteria AC-1 through AC-5 all spell the subject as '캐프처' instead of '캡처'. The defect was patched by adding an Erratum bullet inside Implementation Notes ('AC-1~AC-5 의 모든 캐프처 를 캡처 로 읽는다') rather than by correcting the AC text itself, leaving the binding contract text wrong and the correction in a non-normative section. This is the clearest residue of the interrupted authoring run; the Change Notes table still shows only the 'Created' row.",
+      "suggested_action": "Correct '캐프처' to '캡처' in AC-1..AC-5, delete the Erratum bullet from Implementation Notes, and record the correction as a Change Notes row instead."
+    },
+    {
+      "id": "ac-1-5",
+      "severity": "MEDIUM",
+      "axis": "coverage",
+      "req_id": "REL-BGSTAB-018, OBS-BGSTAB-007",
+      "evidence_path": "server/src/services/SessionManager.ts:2976",
+      "description": "Neither requirement records the materiality condition of the original defect — that the fencing gate is live in production. acceptRetainedTerminalMutationIdentity opens with `if (retained.mode !== 'shadow') return true;`, i.e. every rejection path in scope is reachable only while shadow mode is on, and shadow mode is unconditionally active in production. Without that statement a reader (or a future implementer weighing priority) cannot tell whether the 'server-error' flattening and the pre-fencing capture gap are live user-visible behaviour or a dormant branch.",
+      "suggested_action": "Add one sentence to the Rationale of REL-BGSTAB-018 (and cross-reference it from OBS-BGSTAB-007) recording that retained.mode==='shadow' is unconditionally active in production, with the SessionManager.ts:2976 early-return as evidence."
+    },
+    {
+      "id": "ac-1-6",
+      "severity": "MEDIUM",
+      "axis": "ac",
+      "req_id": "OPS-BGSTAB-005",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:4653 (Requirement body), :4678 (AC-7)",
+      "description": "AC-7 reads '게이트 도입 시점에 통과 불가 상태로 방치된 테스트가 없어야 하며, 도입 직후 CI 테스트 job 이 실패하지 않아야 한다.' The first clause is an unbounded global negative over the whole test corpus — no automated check can decide it, and the requirement supplies no bounded scope (e.g. 'the specs named in OPS-BGSTAB-003'). The second clause reintroduces exactly the CI-execution self-reference the Requirement body rules out as the verification basis ('검증의 자기참조를 피하기 위해, 이 요구는 CI 실행 결과가 아니라 워크플로 YAML 을 파싱하는 정적 메타 테스트로 검증한다'), and the Verification Method then admits it back as '보조 증거'.",
+      "suggested_action": "Bound the first clause to the specific tests closed out by OPS-BGSTAB-003 (already a depends_on trace) and either drop the second clause or move it out of the AC into the Verification Method as the supplementary evidence it is described as."
+    },
+    {
+      "id": "ac-1-7",
+      "severity": "LOW",
+      "axis": "trace",
+      "req_id": "REL-BGSTAB-017",
+      "evidence_path": "frontend/src/components/Terminal/TerminalView.tsx:592-647 (computeInputGateSnapshot; 612-613 sets barrierReason='initial-geometry-pending'; 625-629 derives captureState='transient-blocked')",
+      "description": "The four fit sites are traced accurately (initial double-rAF 3858-3887, ResizeObserver 4109-4145, visibility transition 4285-4326, imperative fit() 2991-2996 — all confirmed against the file). The causal bridge is not traced: computeInputGateSnapshot is where `!geometryReadyRef.current` becomes barrierReason='initial-geometry-pending' and then captureState='transient-blocked', which is what links this requirement to the REL-BGSTAB-016 drop path.",
+      "suggested_action": "Add a Code trace row for frontend/src/components/Terminal/TerminalView.tsx computeInputGateSnapshot (592-647) with trace_intent=verifies."
+    },
+    {
+      "id": "ac-1-8",
+      "severity": "LOW",
+      "axis": "trace",
+      "req_id": "REL-BGSTAB-019",
+      "evidence_path": "frontend/src/utils/terminalReplayGuard.ts:47-49 (shouldSuppressXtermData returns provenance === 'parser-generated' && activeLeaseIds.size > 0)",
+      "description": "All five TerminalView traces verify exactly (permit counter 3687-3698, onData permit gate 3889-3896, onHelperInput 4024-4036, listener registration at 4055, term.open at 3130). The suppression decision itself lives in terminalReplayGuard.shouldSuppressXtermData and is referenced only in Implementation Notes prose, with no Trace Links row — so AC-2 and AC-3, which are both statements about suppression, have no traced code anchor.",
+      "suggested_action": "Add a Code trace row for frontend/src/utils/terminalReplayGuard.ts:47-49 with trace_intent=verifies, noting the scope of change stays in TerminalView."
+    },
+    {
+      "id": "ac-1-9",
+      "severity": "LOW",
+      "axis": "trace",
+      "req_id": "REL-BGSTAB-016",
+      "evidence_path": "frontend/src/utils/terminalDebugCapture.ts:402-406; frontend/src/components/Terminal/TerminalContainer.tsx:84",
+      "description": "Both drop sites are traced accurately (TerminalView 897-940 with the observe-mode drop at 915-932, TerminalContainer 752-768 covering the silent return). Two supporting facts are untraced: the Rationale claim '디버그 캡처는 프로덕션 기본 상태에서 비활성' rests on recordTerminalDebugEvent's early return when the store is disabled (terminalDebugCapture.ts:402-406), and the alternative discussed in the Requirement ('재연결 입력 큐 TTL') is the concrete RECONNECT_INPUT_QUEUE_TTL_MS = 3000 at TerminalContainer.tsx:84. Neither number is fabricated, but neither is anchored.",
+      "suggested_action": "Add Code trace rows for terminalDebugCapture.ts:398-406 and TerminalContainer.tsx:84, both trace_intent=verifies."
+    },
+    {
+      "id": "ac-1-10",
+      "severity": "LOW",
+      "axis": "trace",
+      "req_id": "OPS-BGSTAB-005, FR-BGSTAB-023",
+      "evidence_path": ".github/workflows/release.yml (350 lines); frontend/src/components/Workspace/DisconnectedOverlay.tsx (36 lines)",
+      "description": "Two off-by-one factual claims in trace Notes. OPS-BGSTAB-005 describes release.yml as a '351-line workflow'; the file is 350 lines (newline-terminated). FR-BGSTAB-023 cites DisconnectedOverlay.tsx as '(1-37)'; the file is 36 lines. Both surrounding claims are otherwise correct — release.yml is the only file in .github/workflows and contains no test-execution step, and DisconnectedOverlay is a session-termination-only full-screen overlay.",
+      "suggested_action": "Correct '351-line' to '350-line' and '(1-37)' to '(1-36)'."
+    },
+    {
+      "id": "ac-1-11",
+      "severity": "LOW",
+      "axis": "srsmd",
+      "req_id": "all 14",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md, Risk row of each new block",
+      "description": "Every one of the 14 new requirements carries `Risk | medium`, from the documentation-only OPS-BGSTAB-001/OPS-BGSTAB-004 (explicitly no behaviour change) to REL-BGSTAB-016 (silent loss of user keystrokes with zero feedback in the production default state). Priority does discriminate (high/medium), but the Risk field carries no information and cannot be used to order work.",
+      "suggested_action": "Re-rate Risk per requirement, or state in the scope section that Risk is not used as a discriminator in this batch."
+    },
+    {
+      "id": "ac-1-12",
+      "severity": "LOW",
+      "axis": "srsmd",
+      "req_id": "REL-BGSTAB-016, OPS-BGSTAB-001, REL-BGSTAB-018, MIG-BGSTAB-003, OPS-BGSTAB-004",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:4078,4137,4312,4372,4607",
+      "description": "The five new inference markers are written as `[INFERRED:med:advisory]`, while the five pre-existing markers in the same document are `[INFERRED:advisory]`. No marker grammar is defined in docs/rule/SRS-MD-Rules-v2.5.0.md or docs/spec/90.appendix.md, so the added `med:` confidence segment is an undocumented divergence from the only precedent in the file. validate_spec does not flag it.",
+      "suggested_action": "Either normalise to the existing `[INFERRED:advisory]` form or document the three-segment grammar in docs/spec/90.appendix.md."
+    },
+    {
+      "id": "ac-1-13",
+      "severity": "LOW",
+      "axis": "ac",
+      "req_id": "OPS-BGSTAB-003",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:4562 (AC-6)",
+      "description": "AC-6 ('세 테스트를 삭제하는 방식은 이 요구를 충족하지 않는다') is a verbatim restatement of the scope constraint already in the Requirement body, not a decidable proposition about the resulting system state. It duplicates a constraint that AC-1 already binds.",
+      "suggested_action": "Remove AC-6 and keep the deletion prohibition in the Requirement body, or reformulate it as a state proposition (e.g. 'the three test ids remain present in pane-keyboard.spec.ts after the change')."
+    }
+  ],
+  "summary": { "CRITICAL": 0, "HIGH": 1, "MEDIUM": 5, "LOW": 7 },
+  "existing_reqs_unchanged": true,
+  "existing_reqs_unchanged_evidence": {
+    "REL-BGSTAB-009": "docs/spec/30.buildergate-stability.srs.md:3071 — Status=implemented, Stability=evolving, Target=wave-2. Unchanged.",
+    "REL-BGSTAB-011": "docs/spec/30.buildergate-stability.srs.md:3490 — Status=implemented, Stability=evolving, Target=wave-3. Unchanged.",
+    "discarded_scan": "Exactly 2 `| Status | discarded |` rows in the whole document, at lines 950 (REL-BGSTAB-002) and 3813 (REL-BGSTAB-013). Both carry the pre-existing ~~strikethrough~~ [DISCARDED -> ...] heading marker. No requirement was newly discarded.",
+    "supersedes_scan": "Zero occurrences of 'supersede' as a relation in the 14 new blocks. The only match after line 4060 is prose in the OPS-BGSTAB-007 Rationale ('dispose/remount/supersede 가 generation 을 증가시켜'). The two cross-requirement regression links correctly use relation=regression-only.",
+    "status_histogram": "discarded 2 / implemented 41 / in_progress 1 / planned 25 (the 14 new blocks are all planned)."
+  },
+  "deferred_items_check": {
+    "raw_input_audit_record": "not authored; OBS-BGSTAB-007 Requirement explicitly defers it ('프런트엔드 측 동일 원칙 ... 별도 요구로 분리되어 사용자 결정 대기 중'), and REL-BGSTAB-016 AC-5 actively forbids rendering or logging raw dropped input.",
+    "mcp_gateway_retainedIdentity": "not authored; the only 'retainedIdentity' occurrences in the new blocks are in OBS-BGSTAB-007's Verification Method describing a server-side test fixture.",
+    "input_only_backpressure_policy": "not authored; the only backpressure mentions are Rationale references to the existing FR-BGSTAB-002 / FR-BGSTAB-014 contracts."
+  },
+  "completeness_check": {
+    "requirements_found": 14,
+    "all_sections_present": true,
+    "note": "Every one of the 14 blocks has a complete metadata table (Type/Target/Status/Priority/Tags/Risk/Stability/Verification Method/GitHub Issue/Related Docs), a Requirement body, Rationale, 5-7 Acceptance Criteria, an (empty, expected for Status=planned) Verification Evidence table, Trace Links, Research/Analysis placeholder, Implementation Notes, and a Change Notes row dated 2026-08-14. The last-registered block (FR-BGSTAB-023) is fully formed and section '## 6. Open Questions' following it is intact with the pre-existing OQ-1/OQ-2. The only residue of the interrupted run is the OBS-BGSTAB-007 '캐프처' typo (ac-1-4)."
+  },
+  "trace_validity_check": {
+    "vendor_paths_in_traces": 0,
+    "files_referenced": 20,
+    "files_missing": 0,
+    "line_ranges_spot_checked": 24,
+    "line_ranges_wrong": 2,
+    "note": "All 20 traced paths exist in the working tree and none is under node_modules or any other vendor directory. Every spot-checked line range resolves to the described construct, including SessionManager.ts:2975-3011 / 3185-3206 / 3401-3420, WsRouter.ts:4537-4556 (the non-replay-pending -> 'server-error' flattening) and 4596-4635, ws-protocol.ts:422-434 (the 12-value union), config.schema.ts:52-53 / 84-90 / 199-203 / 286-302, index.ts:530-532, start-runtime.js:242-250, playwright.config.ts:33-38, main.tsx:1-13, WebSocketContext.tsx:1233-1237, StatusBar.tsx, and all TerminalView/TerminalContainer ranges. The two wrong ones are the off-by-one line-count claims in ac-1-10."
+  },
+  "validate": {
+    "command": "npx speckiwi validate --json",
+    "new_diagnostics": [
+      {
+        "code": "SRS-W023",
+        "count": 14,
+        "severity": "warning",
+        "message": "Draft requirement is not ready as an implementation contract",
+        "req_ids": ["REL-BGSTAB-016", "OPS-BGSTAB-001", "OBS-BGSTAB-007", "REL-BGSTAB-017", "REL-BGSTAB-018", "MIG-BGSTAB-003", "REL-BGSTAB-019", "OPS-BGSTAB-002", "OPS-BGSTAB-003", "OPS-BGSTAB-004", "OPS-BGSTAB-005", "OPS-BGSTAB-006", "OPS-BGSTAB-007", "FR-BGSTAB-023"],
+        "note": "Direct and expected consequence of Stability=draft on all 14 new requirements. Not a defect in the authoring, but it does mean all 14 are implementation-blocked under the repository CLAUDE.md stability gate until stability is raised."
+      }
+    ],
+    "preexisting_diagnostics": [
+      {
+        "code": "SRS-E002",
+        "count": 1,
+        "severity": "error",
+        "message": "Duplicate requirement ID: REL-BGSTAB-015",
+        "filePath": "docs/spec/steps/2026-07-26.pm.canary-fixture-recovery-public-api/01.public-sessionmanager-fixture.srs.md:3",
+        "note": "Pre-existing. Not touched."
+      },
+      {
+        "code": "SRS-W018",
+        "count": 5,
+        "severity": "warning",
+        "message": "Scope SRS document is not registered in Scope Map",
+        "filePath": "docs/spec/00.index.md",
+        "note": "Pre-existing, all five under docs/spec/steps/. Not touched."
+      }
+    ],
+    "summary_raw": { "errors": 1, "warnings": 19, "byCode": { "SRS-W018": 5, "SRS-W023": 14, "SRS-E002": 1 } }
+  }
+}

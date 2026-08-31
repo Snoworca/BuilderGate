@@ -1,0 +1,43 @@
+{
+  "iteration": 1,
+  "taskId": "T-PH001-01",
+  "validators": [
+    {
+      "axis": "intent-alignment",
+      "critical": 2,
+      "high": 4,
+      "medium": 1,
+      "verdict": "blocked"
+    },
+    {
+      "axis": "technical-quality",
+      "critical": 0,
+      "high": 3,
+      "medium": 0,
+      "verdict": "blocked"
+    },
+    {
+      "axis": "req-mapping",
+      "critical": 0,
+      "high": 5,
+      "medium": 0,
+      "verdict": "blocked"
+    },
+    {
+      "axis": "red-verification",
+      "critical": 0,
+      "high": 2,
+      "medium": 0,
+      "exitCode": 1,
+      "verdict": "blocked"
+    }
+  ],
+  "gate": "blocked",
+  "requiredFixes": [
+    "independent AC symbols/signatures",
+    "repository-backed exhaustive inventory",
+    "trusted stable registry",
+    "N-1/N/N+1 raw provenance corpus",
+    "actual legacy-vs-observe decision parity"
+  ]
+}

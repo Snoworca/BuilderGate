@@ -1,0 +1,24 @@
+{
+  "run_id": "2026-07-15.projectmaster.wave-1.v01",
+  "target": "wave-1",
+  "goal": "split drift와 refresh 절단을 재현하고 retained-state authority 계약·benchmark evidence·G1 분기를 확정하며, bug-only이면 선택된 단일 국소 결함과 회귀 evidence까지 종결한다.",
+  "total": 4,
+  "filtered_total": 4,
+  "filters": {
+    "scope": null,
+    "priority": null,
+    "include_stable": false
+  },
+  "counts_by_status": {"planned": 4},
+  "counts_by_stability": {"draft": 4},
+  "counts_by_scope": {"BGSTAB": 4},
+  "requirements": [
+    {"id":"REL-BGSTAB-006","type":"reliability","status":"planned","stability":"draft","priority":"high","ac_count":5,"trace_count":7,"file":"docs/spec/30.buildergate-stability.srs.md","heading_line":2498},
+    {"id":"OBS-BGSTAB-004","type":"observability","status":"planned","stability":"draft","priority":"high","ac_count":7,"trace_count":11,"file":"docs/spec/30.buildergate-stability.srs.md","heading_line":2560},
+    {"id":"PERF-BGSTAB-008","type":"performance","status":"planned","stability":"draft","priority":"high","ac_count":7,"trace_count":9,"file":"docs/spec/30.buildergate-stability.srs.md","heading_line":2628},
+    {"id":"MIG-BGSTAB-001","type":"migration","status":"planned","stability":"draft","priority":"high","ac_count":6,"trace_count":3,"file":"docs/spec/30.buildergate-stability.srs.md","heading_line":2694}
+  ],
+  "excluded": [],
+  "empty_reason": null,
+  "diagnostics": {"errors":0,"warnings":4,"by_code":{"SRS-W023":4}}
+}

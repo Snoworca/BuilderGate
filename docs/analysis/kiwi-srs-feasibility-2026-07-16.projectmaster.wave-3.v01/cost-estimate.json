@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "runId": "2026-07-16.projectmaster.wave-3.v01",
+  "size": "large",
+  "selectedRequirementCount": 7,
+  "estimatedImplementationPhases": 6,
+  "risk": "high",
+  "drivers": [
+    "server/browser 공통 resource policy",
+    "browser sole-writer transaction",
+    "retained terminal checkpoint protocol",
+    "multi-client authority와 driver lease",
+    "fair delivery 및 ACK credit",
+    "hidden delivery gap/reveal recovery"
+  ],
+  "decision": "사용자가 모든 Wave 비용을 승인했으므로 Normal feasibility를 계속 진행"
+}

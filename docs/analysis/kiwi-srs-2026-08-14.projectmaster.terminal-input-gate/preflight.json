@@ -1,0 +1,11 @@
+{
+  "mcp": true,
+  "cli": true,
+  "halted": false,
+  "mode": "live",
+  "cli_version_note": "installed speckiwi lacks repair/mode/step/scaffold-scope subcommands (older build)",
+  "known_diagnostics": {
+    "SRS-E002": ["duplicate REL-BGSTAB-015"],
+    "SRS-W018": 5
+  }
+}

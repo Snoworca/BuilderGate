@@ -1,0 +1,7 @@
+{
+  "mode": "standalone",
+  "channel_used": 4,
+  "channel_evidence": "No explicit --mode token; standalone is the documented default.",
+  "question_only": true,
+  "warnings": []
+}

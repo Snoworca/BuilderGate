@@ -1,0 +1,35 @@
+{
+  "classification":"new-feature",
+  "mode":"live",
+  "added_ids":["OBS-BGSTAB-006"],
+  "demoted_ids":[],
+  "discarded_ids":[],
+  "mcp_calls":[
+    {"tool":"add_requirement","args":{"type":"observability","scope":"BGSTAB","target":"wave-3","status":"proposed"},"result_id":"OBS-BGSTAB-006","ok":true},
+    {"tool":"add_trace_link","args":{"id":"OBS-BGSTAB-006","type":"Requirement","reference":"MIG-BGSTAB-002","relation":"depends_on"},"result_id":"OBS-BGSTAB-006","ok":true},
+    {"tool":"update_status","args":{"id":"OBS-BGSTAB-006","status":"planned"},"result_id":"OBS-BGSTAB-006","ok":true}
+  ],
+  "scope_doc_edits":[],
+  "status_repair":"SpecKiwi rejected persisted status=proposed with SRS-E005. Official update_status changed only the new requirement to planned; ACs remain unchecked.",
+  "status_policy_resolution":{
+    "decision":"retain Status=planned and Stability=evolving",
+    "committee":"3/3 unanimous",
+    "authoritative_evidence":[
+      "SpecKiwi 2.4.1 accepts only planned, in_progress, blocked, implemented, verified, and discarded as Status values.",
+      "draft is a Stability value, not a Status value; Stability=draft would block implementation under the repository workflow.",
+      "The persisted requirement validates cleanly at Status=planned and Stability=evolving."
+    ],
+    "conflict":"The kiwi-srs addition_site guidance caps Status at proposed, but proposed is not a valid persisted SpecKiwi status.",
+    "disposition":"Treat the official persisted-status grammar as controlling. Record the kiwi-srs and SpecKiwi input-validation repair as follow-up tooling work; do not modify those unrelated tool/skill sources in this requirement."
+  },
+  "validate_spec_result":{"ok":true,"errors":0,"warnings":0},
+  "independent_rereview":{"result":"No findings","record":"docs/analysis/kiwi-srs-2026-07-24.pm.evidence-diagnostic/independent_rereview.json"},
+  "pipeline_emit":{
+    "attempted":true,
+    "written":false,
+    "result":"MUTATION_DENIED",
+    "reason":"The existing kiwi/pipeline.jsonl has four SRS-W055 unsupported-schema records (lines 9-12) and one SRS-W053 duplicate event key (line 43).",
+    "disposition":"No manual JSONL append was made; repair is out of scope for OBS-BGSTAB-006."
+  },
+  "oos_changes":{"removed":[],"added":[]}
+}

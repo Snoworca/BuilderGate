@@ -1,0 +1,63 @@
+{
+  "task_id": "T-PH004-01",
+  "requirement_id": "FR-BGSTAB-021",
+  "phase": "red",
+  "timestamp": "2026-07-16T04:19:02.9925108Z",
+  "test_file": "frontend/tests/unit/terminalClipboardCoordinator.test.ts",
+  "test_file_sha256": "b6ede7b312b9be5440f71a7c06743fea237c2a79506cb9e69b15d49faea6621c",
+  "red": {
+    "command": "node --experimental-strip-types --test tests/unit/terminalClipboardCoordinator.test.ts",
+    "cwd": "frontend",
+    "expected_exit_code": 1,
+    "actual_exit_code": 1,
+    "tests": 8,
+    "pass": 0,
+    "fail": 8,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "semantic_failure_signatures": [
+      "expected copy to clear and focus only after successful write for the same target and selection",
+      "expected copy failure to preserve selection and expose an explicit rejection",
+      "expected a superseded copy completion to preserve the replacement target selection",
+      "expected async clipboard read to reject a disposed or replaced target before admission",
+      "expected one programmatic paste action to enter the existing admission pipeline exactly once",
+      "expected multiline paste to preserve exact text or reject explicitly without fallback",
+      "expected disposed coordinator to reject programmatic paste without admission or focus",
+      "expected clipboard observations and results to exclude raw copy and paste payloads"
+    ],
+    "intended_absence": "Only ERR_MODULE_NOT_FOUND whose error.url exactly equals terminalClipboardCoordinator.ts is converted to the semantic RED signature; transitive import failures remain infrastructure errors."
+  },
+  "contract_checks": {
+    "exact_test_count": true,
+    "exact_failure_count": true,
+    "unique_semantic_signatures": true,
+    "target_only_and_selection_only_races_separate": true,
+    "context_replacement_and_async_dispose_races_separate": true,
+    "copy_payload_and_write_count_exact": true,
+    "paste_admission_exactly_once": true,
+    "multiline_exact_or_explicit_reject": true,
+    "raw_payload_absent_from_results_and_observations": true,
+    "production_code_modified": false
+  },
+  "diff_check": {
+    "command": "git diff --check -- frontend/tests/unit/terminalClipboardCoordinator.test.ts",
+    "exit_code": 0
+  },
+  "lint": {
+    "command": "npx eslint tests/unit/terminalClipboardCoordinator.test.ts",
+    "cwd": "frontend",
+    "exit_code": 0
+  },
+  "independent_review": {
+    "reviewer": "/root/wave2_clipboard_t1_review",
+    "initial_findings": [
+      "selection-only race was coupled to target replacement",
+      "async context replacement was coupled to dispose",
+      "copy exact payload and write count were not asserted",
+      "missing-module detection could mask a transitive import failure"
+    ],
+    "resolution": "All findings fixed and re-reviewed twice.",
+    "final_verdict": "No findings"
+  }
+}

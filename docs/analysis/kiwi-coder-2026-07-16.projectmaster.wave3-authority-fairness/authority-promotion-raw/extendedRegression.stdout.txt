@@ -1,0 +1,401 @@
+TAP version 13
+# [Config] All passwords already encrypted
+# [Config] Configuration loaded successfully
+# Subtest: MIG-BGSTAB-002 screen repair waits for an accepted retained resize before checking geometry
+ok 1 - MIG-BGSTAB-002 screen repair waits for an accepted retained resize before checking geometry
+  ---
+  duration_ms: 132.8148
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 production attachment can activate retained shadow for an existing disabled session
+ok 2 - MIG-BGSTAB-002 production attachment can activate retained shadow for an existing disabled session
+  ---
+  duration_ms: 91.4691
+  type: 'test'
+  ...
+# [SessionManager] Terminal authority runtime degradation cleanup failed: AggregateError: terminal-authority-runtime-degradation-cleanup-failed
+#     at SessionManager.markHeadlessDegraded (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\SessionManager.ts:8136:9)
+#     at TestContext.<anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\SessionManagerTerminalAuthorityRuntimePorts.test.ts:444:12)
+#     at Test.runInAsyncScope (node:async_hooks:227:14)
+#     at Test.run (node:internal/test_runner/test:1306:25)
+#     at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+#     at Test.postRun (node:internal/test_runner/test:1447:19)
+#     at Test.run (node:internal/test_runner/test:1372:12)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+#   [errors]: [
+#     Error: injected-query-responder-detach-failure
+#         at Object.detach (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\SessionManagerTerminalAuthorityRuntimePorts.test.ts:428:15)
+#         at SessionManager.detachTerminalAuthorityRuntime (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\SessionManager.ts:4946:36)
+#         at SessionManager.disposeTerminalAuthorityRuntimeForSession (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\SessionManager.ts:4870:14)
+#         at SessionManager.markHeadlessDegraded (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\SessionManager.ts:8132:40)
+#         at TestContext.<anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\SessionManagerTerminalAuthorityRuntimePorts.test.ts:444:12)
+#         at Test.runInAsyncScope (node:async_hooks:227:14)
+#         at Test.run (node:internal/test_runner/test:1306:25)
+#         at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+#         at Test.postRun (node:internal/test_runner/test:1447:19)
+#         at Test.run (node:internal/test_runner/test:1372:12),
+#     Error: injected-query-responder-detach-failure
+#         at Object.detach (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\SessionManagerTerminalAuthorityRuntimePorts.test.ts:428:15)
+#         at SessionManager.disposeTerminalAuthorityRuntimeForSession (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\SessionManager.ts:4876:30)
+#         at SessionManager.markHeadlessDegraded (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\SessionManager.ts:8132:40)
+#         at TestContext.<anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\SessionManagerTerminalAuthorityRuntimePorts.test.ts:444:12)
+#         at Test.runInAsyncScope (node:async_hooks:227:14)
+#         at Test.run (node:internal/test_runner/test:1306:25)
+#         at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+#         at Test.postRun (node:internal/test_runner/test:1447:19)
+#         at Test.run (node:internal/test_runner/test:1372:12)
+#         at async Test.processPendingSubtests (node:internal/test_runner/test:897:7)
+#   ]
+# }
+# [SessionManager] Headless terminal degraded (write) for session terminal-authority-runtime-ports: injected-headless-degradation
+# Subtest: MIG-BGSTAB-002 runtime factory registration backfills sessions restored before production authority attachment
+ok 3 - MIG-BGSTAB-002 runtime factory registration backfills sessions restored before production authority attachment
+  ---
+  duration_ms: 122.6767
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 runtime factory registration is atomic and rejects a different owner factory
+ok 4 - MIG-BGSTAB-002 runtime factory registration is atomic and rejects a different owner factory
+  ---
+  duration_ms: 39.4976
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 headless recreation disposes the previous authority runtime before replacement
+ok 5 - MIG-BGSTAB-002 headless recreation disposes the previous authority runtime before replacement
+  ---
+  duration_ms: 34.1096
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 headless degradation settles the owned authority runtime without a partial attachment
+ok 6 - MIG-BGSTAB-002 headless degradation settles the owned authority runtime without a partial attachment
+  ---
+  duration_ms: 43.4702
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 session finalization disposes a factory-owned authority runtime
+ok 7 - MIG-BGSTAB-002 session finalization disposes a factory-owned authority runtime
+  ---
+  duration_ms: 35.9569
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 runtime ports close real admission and restore the concrete browser driver only after both compatibility leases bind
+ok 8 - MIG-BGSTAB-002 runtime ports close real admission and restore the concrete browser driver only after both compatibility leases bind
+  ---
+  duration_ms: 39.251
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 unregistering the legacy driver preserves the session responder through replacement rebind
+ok 9 - MIG-BGSTAB-002 unregistering the legacy driver preserves the session responder through replacement rebind
+  ---
+  duration_ms: 33.2068
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 baseline legacy responder without an explicit lease id admits a replacement driver
+ok 10 - MIG-BGSTAB-002 baseline legacy responder without an explicit lease id admits a replacement driver
+  ---
+  duration_ms: 33.3712
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 promotion parity snapshot fails closed for missing lease, no-cache evidence, and comparer mismatch
+ok 11 - MIG-BGSTAB-002 promotion parity snapshot fails closed for missing lease, no-cache evidence, and comparer mismatch
+  ---
+  duration_ms: 179.9951
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 reconnect cleanup revokes runtime leases and invalidates prepared promotion evidence
+ok 12 - MIG-BGSTAB-002 reconnect cleanup revokes runtime leases and invalidates prepared promotion evidence
+  ---
+  duration_ms: 39.3254
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 production inventory exposes bounded authority audit metadata
+ok 13 - MIG-BGSTAB-002 production inventory exposes bounded authority audit metadata
+  ---
+  duration_ms: 2.1914
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 production inventory exposes the exact attached responder view count
+ok 14 - MIG-BGSTAB-002 production inventory exposes the exact attached responder view count
+  ---
+  duration_ms: 0.2212
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 debug evidence failures preserve bounded diagnostic metadata
+ok 15 - MIG-BGSTAB-002 debug evidence failures preserve bounded diagnostic metadata
+  ---
+  duration_ms: 0.3885
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 debug isolation parser accepts the exact basic legacy preparation
+ok 16 - MIG-BGSTAB-002 debug isolation parser accepts the exact basic legacy preparation
+  ---
+  duration_ms: 0.1741
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 configured retained-range preparation yields for fresh responder input after corpus apply
+ok 17 - MIG-BGSTAB-002 configured retained-range preparation yields for fresh responder input after corpus apply
+  ---
+  duration_ms: 6.5382
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 configured retained-range uses one exact refresh result without corpus-budget polling
+ok 18 - MIG-BGSTAB-002 configured retained-range uses one exact refresh result without corpus-budget polling
+  ---
+  duration_ms: 0.7197
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 configured retained-range lets the bounded promotion gate recover after refreshed capability churn
+ok 19 - MIG-BGSTAB-002 configured retained-range lets the bounded promotion gate recover after refreshed capability churn
+  ---
+  duration_ms: 9.4032
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 promotion performs one final bounded attempt after the last poll crosses its deadline
+ok 20 - MIG-BGSTAB-002 promotion performs one final bounded attempt after the last poll crosses its deadline
+  ---
+  duration_ms: 31.7144
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 final promotion waits for production rollback before failed-open cleanup
+ok 21 - MIG-BGSTAB-002 final promotion waits for production rollback before failed-open cleanup
+  ---
+  duration_ms: 31.3303
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 configured retained-range preparation refreshes the current legacy capability after corpus apply
+ok 22 - MIG-BGSTAB-002 configured retained-range preparation refreshes the current legacy capability after corpus apply
+  ---
+  duration_ms: 0.7836
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 configured retained-range preparation refreshes only the runtime recreated by corpus apply
+ok 23 - MIG-BGSTAB-002 configured retained-range preparation refreshes only the runtime recreated by corpus apply
+  ---
+  duration_ms: 0.5762
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 configured retained-range apply failure cleans up without refresh or promotion
+ok 24 - MIG-BGSTAB-002 configured retained-range apply failure cleans up without refresh or promotion
+  ---
+  duration_ms: 0.3129
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 configured retained-range preparation fails closed for rejected current runtime capability refresh
+ok 25 - MIG-BGSTAB-002 configured retained-range preparation fails closed for rejected current runtime capability refresh
+  ---
+  duration_ms: 0.7219
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 configured retained-range preparation fails closed for missing refresh hook with ready reader
+ok 26 - MIG-BGSTAB-002 configured retained-range preparation fails closed for missing refresh hook with ready reader
+  ---
+  duration_ms: 0.2031
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 fresh legacy isolation performs a real promotion and compatibility rollback
+ok 27 - MIG-BGSTAB-002 fresh legacy isolation performs a real promotion and compatibility rollback
+  ---
+  duration_ms: 0.4391
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 debug isolation parser accepts an integrity-bound query continuation
+ok 28 - MIG-BGSTAB-002 debug isolation parser accepts an integrity-bound query continuation
+  ---
+  duration_ms: 0.6168
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 debug isolation parser rejects an integrity mismatch without fallback
+ok 29 - MIG-BGSTAB-002 debug isolation parser rejects an integrity mismatch without fallback
+  ---
+  duration_ms: 0.267
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 debug isolation parser rejects unknown mutation fields
+ok 30 - MIG-BGSTAB-002 debug isolation parser rejects unknown mutation fields
+  ---
+  duration_ms: 0.099
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 debug isolation parser rejects a mode-policy mismatch
+ok 31 - MIG-BGSTAB-002 debug isolation parser rejects a mode-policy mismatch
+  ---
+  duration_ms: 0.0882
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 continuation refuses to mutate after server authority has been lost
+ok 32 - MIG-BGSTAB-002 continuation refuses to mutate after server authority has been lost
+  ---
+  duration_ms: 0.3982
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 rejected continuation preserves the bounded runtime reason
+ok 33 - MIG-BGSTAB-002 rejected continuation preserves the bounded runtime reason
+  ---
+  duration_ms: 0.411
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 failed-open server isolation rolls authority back before resource cleanup
+ok 34 - MIG-BGSTAB-002 failed-open server isolation rolls authority back before resource cleanup
+  ---
+  duration_ms: 0.3185
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 model replacement reacquires recovery ACK inside one isolation lease
+ok 35 - MIG-BGSTAB-002 model replacement reacquires recovery ACK inside one isolation lease
+  ---
+  duration_ms: 1.9598
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 invalidated promotion boundary recovers before retrying isolation promotion
+ok 36 - MIG-BGSTAB-002 invalidated promotion boundary recovers before retrying isolation promotion
+  ---
+  duration_ms: 8.4589
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 invalidated rollback transaction waits for production-owned recovery before legacy isolation settles
+ok 37 - MIG-BGSTAB-002 invalidated rollback transaction waits for production-owned recovery before legacy isolation settles
+  ---
+  duration_ms: 30.5405
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 legacy isolation waits for topology-owned rollback start recovery
+ok 38 - MIG-BGSTAB-002 legacy isolation waits for topology-owned rollback start recovery
+  ---
+  duration_ms: 31.6465
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 configured retained range receives its bounded extended ACK settlement window
+ok 39 - MIG-BGSTAB-002 configured retained range receives its bounded extended ACK settlement window
+  ---
+  duration_ms: 77.9666
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 model replacement waits for the recovery view to reconnect inside one isolation lease
+ok 40 - MIG-BGSTAB-002 model replacement waits for the recovery view to reconnect inside one isolation lease
+  ---
+  duration_ms: 31.9088
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 promotion waits for the replacement legacy lease admission to reopen
+ok 41 - MIG-BGSTAB-002 promotion waits for the replacement legacy lease admission to reopen
+  ---
+  duration_ms: 15.222
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 promotion retry observes authority that converged between state read and command
+ok 42 - MIG-BGSTAB-002 promotion retry observes authority that converged between state read and command
+  ---
+  duration_ms: 0.3063
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 promotion waits for an in-flight compatibility rollback before touching replay state
+ok 43 - MIG-BGSTAB-002 promotion waits for an in-flight compatibility rollback before touching replay state
+  ---
+  duration_ms: 15.8128
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 promotion observes an active production rollback without starting a debug rollback
+ok 44 - MIG-BGSTAB-002 promotion observes an active production rollback without starting a debug rollback
+  ---
+  duration_ms: 15.1118
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 promotion observes aborted topology recovery without starting a debug rollback
+ok 45 - MIG-BGSTAB-002 promotion observes aborted topology recovery without starting a debug rollback
+  ---
+  duration_ms: 47.2134
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 promotion fails closed without overlapping cleanup when promoting recovery stalls
+ok 46 - MIG-BGSTAB-002 promotion fails closed without overlapping cleanup when promoting recovery stalls
+  ---
+  duration_ms: 47.7039
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 promotion fails closed without overlapping cleanup when rolling-back recovery stalls
+ok 47 - MIG-BGSTAB-002 promotion fails closed without overlapping cleanup when rolling-back recovery stalls
+  ---
+  duration_ms: 48.2434
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 promotion fails closed without overlapping cleanup when aborted recovery stalls
+ok 48 - MIG-BGSTAB-002 promotion fails closed without overlapping cleanup when aborted recovery stalls
+  ---
+  duration_ms: 62.6748
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 promotion waits for a stalled production compatibility rollback before retrying
+ok 49 - MIG-BGSTAB-002 promotion waits for a stalled production compatibility rollback before retrying
+  ---
+  duration_ms: 0.6666
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 promotion waits for production topology recovery without resuming rollback
+ok 50 - MIG-BGSTAB-002 promotion waits for production topology recovery without resuming rollback
+  ---
+  duration_ms: 30.2908
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 cleanup waits through the ordered rollback drain before releasing isolation
+ok 51 - MIG-BGSTAB-002 cleanup waits through the ordered rollback drain before releasing isolation
+  ---
+  duration_ms: 16.0164
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 cleanup waits for topology-owned recovery after rollback start admission fails
+ok 52 - MIG-BGSTAB-002 cleanup waits for topology-owned recovery after rollback start admission fails
+  ---
+  duration_ms: 31.2649
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 cleanup retries transient zero-view rollback admission before releasing isolation
+ok 53 - MIG-BGSTAB-002 cleanup retries transient zero-view rollback admission before releasing isolation
+  ---
+  duration_ms: 31.2986
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 cleanup bounds persistent zero-view rollback admission failure
+ok 54 - MIG-BGSTAB-002 cleanup bounds persistent zero-view rollback admission failure
+  ---
+  duration_ms: 62.1661
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 duplicate cleanup for one token and lease joins the active rollback transaction
+ok 55 - MIG-BGSTAB-002 duplicate cleanup for one token and lease joins the active rollback transaction
+  ---
+  duration_ms: 15.6135
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 conflicting cleanup cannot disturb the active rollback transaction
+ok 56 - MIG-BGSTAB-002 conflicting cleanup cannot disturb the active rollback transaction
+  ---
+  duration_ms: 1.0206
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 cleanup observes a stalled production rollback without restarting it
+ok 57 - MIG-BGSTAB-002 cleanup observes a stalled production rollback without restarting it
+  ---
+  duration_ms: 14.8201
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 cleanup waits for a zero-view production rollback to converge before releasing the exact isolation lease
+ok 58 - MIG-BGSTAB-002 cleanup waits for a zero-view production rollback to converge before releasing the exact isolation lease
+  ---
+  duration_ms: 15.4872
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 cleanup fails closed when zero-view rollback recovery never converges
+ok 59 - MIG-BGSTAB-002 cleanup fails closed when zero-view rollback recovery never converges
+  ---
+  duration_ms: 15.2042
+  type: 'test'
+  ...
+1..59
+# tests 59
+# suites 0
+# pass 59
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2042.9595

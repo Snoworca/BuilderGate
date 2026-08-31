@@ -1,0 +1,26 @@
+{
+  "analyst": "wave2_plan_intent",
+  "intent": "기존 UI·wire·authority·default를 보존하면서 Orca의 segmented queue, explicit stale/resync, generation fencing, 단일 clipboard ownership 원칙을 현재 BuilderGate 경계에 이식한다.",
+  "priority_order": [
+    "PERF-BGSTAB-009 scheduler primitive",
+    "REL-BGSTAB-008 explicit repair convergence",
+    "REL-BGSTAB-009 bounded restore and ready barrier",
+    "FR-BGSTAB-021 generation-safe clipboard adapters"
+  ],
+  "non_goals": [
+    "binary WebSocket",
+    "server authority promotion",
+    "split default activation",
+    "native Ctrl+V owner migration",
+    "new Settings or buffer defaults",
+    "UI visual changes"
+  ],
+  "mandatory_evidence": [
+    "UTF-8 byte/digest parity and allocation counters",
+    "overflow/timeout/generation/multi-client fault injection",
+    "snapshot-before-held-tail-before-ready/input ordering",
+    "clipboard success/failure/context-change and no-selection SIGINT",
+    "typecheck, lint, scoped unit/integration and HTTPS Playwright",
+    "Phase reviewer No findings"
+  ]
+}

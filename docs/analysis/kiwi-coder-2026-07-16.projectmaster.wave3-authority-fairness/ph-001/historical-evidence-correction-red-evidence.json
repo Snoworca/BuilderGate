@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "ph-001-historical-evidence-correction-red-evidence/v1",
+  "requirementId": "OBS-BGSTAB-005",
+  "phaseId": "PH-001",
+  "correctionPath": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/green-evidence-correction.json",
+  "originalMissingCorrection": {
+    "command": "node tools/wave3/terminal-resource-consumer-manifest.test.mjs",
+    "cwd": ".",
+    "exitCode": 1,
+    "failureSignature": "historicalAuthoritativeReport"
+  },
+  "inputs": {
+    "rawGreenEvidence": {
+      "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/green-evidence.json",
+      "sha256": "4c77265d5c26f6db94033e40109d0782d92290d37b10aa5d69e9031c74c5c725"
+    },
+    "historicalAuthoritativeManifest": {
+      "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.json",
+      "sha256": "1d6dcff51115ed5760cf6a9f30a169060d052d46feaf465ec1d205d79f5bd155"
+    },
+    "historicalAuthoritativeReport": {
+      "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/report.md",
+      "sha256": "bdb2df484b184d29121c71427329be20d79314e07eb6d57d38e278101f0a2f60"
+    }
+  }
+}

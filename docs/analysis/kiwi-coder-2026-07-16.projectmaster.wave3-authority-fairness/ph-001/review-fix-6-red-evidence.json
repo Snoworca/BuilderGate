@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "requirementId": "OBS-BGSTAB-005",
+  "phaseId": "PH-001",
+  "reviewIteration": 6,
+  "reviewFindings": { "high": 1, "medium": 0 },
+  "focusedRed": {
+    "command": "npx tsx --test src/services/TerminalResourcePolicy.test.ts src/services/RuntimeConfigStore.test.ts",
+    "total": 23,
+    "passed": 22,
+    "failed": 1,
+    "failedMutation": "same-owner-variable-decoy"
+  },
+  "additionalRegressionAxes": [
+    "five explicit evidence roles must be pinned per exact tuple",
+    "reachable void, noop guard/call, wrong callee, wrong return and block/ForOf shadow decoys must fail",
+    "same-role substitutions must change the versioned ASI-safe semantic AST fingerprint",
+    "manifest identity must include evidenceRole and evidenceAstSha256"
+  ],
+  "expectedRepair": "Inline the truthful role in every tuple, use binding-aware role validation, and pin reviewed TS-printer semantic envelopes in the manifest."
+}

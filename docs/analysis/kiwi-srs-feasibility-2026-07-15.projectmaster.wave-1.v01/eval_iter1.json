@@ -1,0 +1,129 @@
+{
+  "evaluator": "verify-pass-1",
+  "iter": 1,
+  "run_id": "2026-07-15.projectmaster.wave-1.v01",
+  "mode": "normal",
+  "verdict": "PASS",
+  "findings": [],
+  "axis_results": [
+    {
+      "axis": "score-label consistency",
+      "result": "PASS",
+      "evidence": "All four scores map to high at the 80+ threshold: REL-BGSTAB-006=94, OBS-BGSTAB-004=94, PERF-BGSTAB-008=89, MIG-BGSTAB-001=85."
+    },
+    {
+      "axis": "evidence existence",
+      "result": "PASS",
+      "evidence": "All 40 unique path:line citations from the rationale-stripped axes projection exist and every cited segment is within the UTF-8 file bounds; semantic samples agree with the cited code/test/spec surface."
+    },
+    {
+      "axis": "AC verifiability ground",
+      "result": "PASS",
+      "evidence": "The four original Requirement blocks define deterministic, machine-readable artifacts and automated schema/regression/evaluator checks; cited harness and test seams ground those verification methods."
+    },
+    {
+      "axis": "dependency cycle",
+      "result": "PASS",
+      "evidence": "The complete wave-1 outbound graph and loaded direct-reference expansion contain no cycles; MIG-BGSTAB-001 is a one-way downstream dependency on the three evidence-producing requirements."
+    },
+    {
+      "axis": "blocker substantiation",
+      "result": "PASS",
+      "evidence": "All four blocker arrays are empty. Implementation prerequisites and completion gates are explicitly represented as conditions and supported by repository evidence."
+    },
+    {
+      "axis": "mapping conformance",
+      "result": "PASS",
+      "evidence": "For each high judgement, built-in rule 1 does not match because has_verification=false; rule 2 is therefore the first match and correctly proposes draft to evolving without user confirmation."
+    },
+    {
+      "axis": "guard verdict honored",
+      "result": "PASS",
+      "evidence": "All four dry-run guard verdicts remain pending and the plan records guard_pending=4, guard_blocked=0. Pending is allowed before Phase 7 and no apply or bypass is represented."
+    },
+    {
+      "axis": "status conflict",
+      "result": "PASS",
+      "evidence": "All four requirements are planned and none is blocked; the blocked plus in_progress/implemented/verified conflict branch does not apply, matching status_conflicts=0."
+    },
+    {
+      "axis": "internal coherence",
+      "result": "PASS",
+      "evidence": "Axis sums exactly equal the recorded totals: 27+18+15+14+10+10=94, 26+20+14+14+10+10=94, 24+18+13+14+10+10=89, and 27+14+9+15+10+10=85. Synthesis distribution high=4/medium=0/low=0/blocked=0 agrees with the judgements."
+    },
+    {
+      "axis": "Golden Rule",
+      "result": "PASS",
+      "evidence": "No stability mutation or SRS manual edit is represented in this run before Phase 7; guard verdicts are pending and this evaluator writes only the analysis artifact, not docs/spec."
+    }
+  ],
+  "requirement_checks": [
+    {
+      "req_id": "REL-BGSTAB-006",
+      "score": 94,
+      "axes_sum": 94,
+      "feasibility": "high",
+      "verification_evidence_count": 0,
+      "has_verification": false,
+      "current_status": "planned",
+      "current_stability": "draft",
+      "proposed_stability": "evolving",
+      "requires_user_confirm": false,
+      "dryrun_guard_verdict": "pending"
+    },
+    {
+      "req_id": "OBS-BGSTAB-004",
+      "score": 94,
+      "axes_sum": 94,
+      "feasibility": "high",
+      "verification_evidence_count": 0,
+      "has_verification": false,
+      "current_status": "planned",
+      "current_stability": "draft",
+      "proposed_stability": "evolving",
+      "requires_user_confirm": false,
+      "dryrun_guard_verdict": "pending"
+    },
+    {
+      "req_id": "PERF-BGSTAB-008",
+      "score": 89,
+      "axes_sum": 89,
+      "feasibility": "high",
+      "verification_evidence_count": 0,
+      "has_verification": false,
+      "current_status": "planned",
+      "current_stability": "draft",
+      "proposed_stability": "evolving",
+      "requires_user_confirm": false,
+      "dryrun_guard_verdict": "pending"
+    },
+    {
+      "req_id": "MIG-BGSTAB-001",
+      "score": 85,
+      "axes_sum": 85,
+      "feasibility": "high",
+      "verification_evidence_count": 0,
+      "has_verification": false,
+      "current_status": "planned",
+      "current_stability": "draft",
+      "proposed_stability": "evolving",
+      "requires_user_confirm": false,
+      "dryrun_guard_verdict": "pending"
+    }
+  ],
+  "evidence_spot_check": {
+    "unique_citations_checked": 40,
+    "existing_and_in_range": 40,
+    "missing_or_out_of_range": 0
+  },
+  "summary": {
+    "CRITICAL": 0,
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 0
+  },
+  "gate": {
+    "rule": "CRITICAL=0 AND HIGH=0",
+    "passed": true
+  }
+}

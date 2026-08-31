@@ -1,0 +1,219 @@
+{
+  "schemaVersion": "1.2.0",
+  "requirementIds": [
+    "FR-BGSTAB-022",
+    "REL-BGSTAB-007",
+    "PERF-BGSTAB-010"
+  ],
+  "generatedAt": "2026-08-18T16:03:40.940Z",
+  "sourceHashes": {
+    "frontend/src/components/Terminal/TerminalView.tsx": "5e0919954954da977d1d0c509bb4360a21847ed93edeeaf6ec3b4ecd99e92903",
+    "frontend/src/components/Terminal/TerminalContainer.tsx": "d59138f79e357781080f93d2b1db49d0445a2b93516a0a8f66cb9826dde3aab9",
+    "frontend/src/contexts/WebSocketContext.tsx": "b53d7a151d5ed99c4b1ab7216a3c6b663282da021eeb67bc4f95c4c4f9202e67",
+    "frontend/src/types/ws-protocol.ts": "becf415470a6eb8548fc7c802ecdcd16a8b60e6c9c7ab3e6bde249aaa1595ca9",
+    "frontend/src/utils/terminalCheckpointRuntime.ts": "98316342eaf1380329fb6cc9e37179118737ab5b555363dbda4876332c3739cc",
+    "frontend/src/utils/terminalWriteCoordinator.ts": "e6f8fb5930ecc6ac6ddf9f6a947049530de9610e184d01107c6e14bc5e01d527",
+    "frontend/src/utils/terminalWriteCoordinatorRuntime.ts": "822e2d4f37f7db9e6bd082ca5ca315865ed4be4aed413d75c3c002e5bcbb55e2",
+    "frontend/src/utils/terminalRawMutationAdapter.ts": "df3e6fa76d13bfe8cfcce2c0f8addf92ea3abf11e1a7b7bee8a867616ca4d3e7",
+    "frontend/src/utils/visibleOutputRecovery.ts": "571c9b725b988317c3134d7d5239ead15717bcb3e48afaf73449e52e29320099",
+    "frontend/tests/support/terminalSoleWriterInventory.ts": "bdd559a8149eb3b76b7964a28f57a643093b0001de913145cb750750ce6c31c6",
+    "frontend/tests/unit/terminalCheckpointRuntime.test.ts": "f80dfa0fcbbff44fed18513d53a913c8e118fd767ee31774ecaf672acade6d34",
+    "frontend/tests/unit/terminalSoleWriterInventory.test.ts": "cf5204e8a36d53aeb337f2fec430a9f2d814ee8c888572a149abe54f94f9ccfb",
+    "frontend/tests/unit/terminalWriteCoordinator.test.ts": "3e0777ea47778c9ac39c51ee48307fbfa98681507e0b995a5d14bab004dba8c1",
+    "frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts": "1ac6aa26c2b70b79ca615d9c40e4216be1b5bef4c3d693ceef0dd7fbd157c2e7",
+    "frontend/playwright.config.ts": "2345668d8dc5ceb359547aa5443299ed7299b6387eb307a754cd527e52510cf7",
+    "server/src/types/ws-protocol.ts": "d9f573dd062442a07af8a4c395603cc84f2315594ee904b524c61ad0fc3a9a4b",
+    "server/src/ws/WsRouter.ts": "5ed202784f6d10eaccdd4bf4ac6fdcbbf1b442fb663baa89c9b437b13c7d46be"
+  },
+  "config": {
+    "origin": "https://localhost:2222",
+    "project": "Desktop Chrome",
+    "exactCommand": "npx playwright test tests/e2e/wave3-terminal-authority-fairness.spec.ts --project \"Desktop Chrome\"",
+    "inputHash": "d6c45d6c73556cc2d029bfd6cd2e0c6007e15bbd08985f89a1a8338d13252a46",
+    "playwrightConfigHash": "2345668d8dc5ceb359547aa5443299ed7299b6387eb307a754cd527e52510cf7"
+  },
+  "soleWriterInventory": {
+    "scannedRoot": "frontend/src",
+    "analysisMode": "typescript-ast-type-checker",
+    "allowedRawMutationAdapter": "frontend/src/utils/terminalRawMutationAdapter.ts",
+    "allowedRawMutationAdapterImporter": "frontend/src/utils/terminalWriteCoordinatorRuntime.ts",
+    "rawMutationFindingsOutsideAdapter": [],
+    "rawMutationFindingCount": 0,
+    "rawAdapterImportFindingsOutsideCoordinator": [],
+    "rawAdapterImportFindingCount": 0,
+    "adapterOperations": [
+      {
+        "operation": "terminal.write",
+        "present": true
+      },
+      {
+        "operation": "terminal.reset",
+        "present": true
+      },
+      {
+        "operation": "terminal.resize",
+        "present": true
+      },
+      {
+        "operation": "terminal.clear",
+        "present": true
+      },
+      {
+        "operation": "fitAddon.fit",
+        "present": true
+      },
+      {
+        "operation": "terminal.options.windowsPty",
+        "present": true
+      }
+    ]
+  },
+  "e2e": {
+    "rawEvidencePath": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-003/sole-writer-https-e2e.raw.json",
+    "rawEvidenceSha256": "81ce888632b03d7596d0c32e2bd3f007623d587357a018cc3aa67582b3e26aae",
+    "expected": 6,
+    "executed": 6,
+    "passed": 3,
+    "failed": 3
+  },
+  "capability": {
+    "terminalCheckpointWire": "unknown-or-active",
+    "observed": null,
+    "browserCoordinatorFaultHarness": "active-production-module",
+    "mockedActiveBrowserIngress": "verified-test-controlled-active-checkpoint-server",
+    "mockedActiveBrowserEvidence": {
+      "verified": true,
+      "legacyServerForwardedControlledFrames": false,
+      "legacyAuthorityRequestsForwardedToServer": false,
+      "capability": "checkpoint-active-test-controlled",
+      "connectionGeneration": 1,
+      "viewGeneration": 1,
+      "bodyApplied": true,
+      "modesApplied": true,
+      "parserTailAndOutputAppliedInOrder": true,
+      "applyAckSnapshotSeq": "9000",
+      "drainAckSourceSeq": "9001",
+      "pendingInputSentBeforeDrain": 0,
+      "pendingInputReleasedAfterDrain": 1,
+      "controlledFrameCount": 4,
+      "blockedLegacyRepairRequestCount": 0,
+      "blockedLegacyCheckpointResponseCount": 111,
+      "blockedLegacyOutputCount": 0,
+      "blockedLegacyReplayCount": 0,
+      "blockedLegacySnapshotCount": 1,
+      "blockedLegacyRepairCount": 0,
+      "legacyAuthorityFramesForwardedToBrowser": false
+    },
+    "checkpointCapabilityRollback": "verified-active-to-passive-clean-legacy-transition",
+    "checkpointCapabilityRollbackEvidence": {
+      "verified": true,
+      "checkpointCompletedBeforeRollback": true,
+      "oldViewGeneration": 1,
+      "expectedCleanLegacyGeneration": 2,
+      "strictlyHigherGenerationContract": "unit-verified-and-https-compatibility-admission-observed",
+      "legacyRecoveryPendingObserved": true,
+      "preSnapshotInputSentToServer": 0,
+      "compatibilitySnapshotGeneration": 1,
+      "compatibilitySnapshotViewGeneration": 2,
+      "compatibilitySnapshotSeq": 1019,
+      "compatibilitySnapshotConnectionUrl": "wss://localhost:2222/ws?token=REDACTED",
+      "replacementWebSocketGenerationUsed": false,
+      "recoveryPendingFalseObservedBy": "fresh-snapshot-ack-held-output-drain-and-terminal-authority-legacy",
+      "rollbackInputSentToServer": 0,
+      "rollbackInputSettlementCount": 1,
+      "rollbackInputSettlementOutcome": "superseded",
+      "rollbackSettlementToken": "d4ff42bd-4d9c-4f27-bc37-64f7f1e6dda8:1:input:1",
+      "rollbackSettlementPayloadFree": true,
+      "staleOldGenerationFenceUnitVerified": true,
+      "freshCompatibilitySnapshotApplied": true,
+      "compatibilityEventBoundary": 22,
+      "compatibilitySnapshotAckEventId": 31,
+      "compatibilitySnapshotAckEventCount": 1,
+      "compatibilityDrainEventId": 26,
+      "compatibilityDrainEventCount": 1,
+      "postAckOutputReceivedEventId": 38,
+      "postAckOutputReceivedEventCount": 1,
+      "compatibilityConvergenceStateEventId": 45,
+      "compatibilityConvergenceStateEventCount": 1,
+      "compatibilityConvergenceEventId": 46,
+      "compatibilityConvergenceEventCount": 1,
+      "legacyInputReadyEventId": 48,
+      "legacyInputReadyEventCount": 1,
+      "compatibilityEventIdentityTuples": {
+        "drain": {
+          "eventId": 26,
+          "sessionHash": "0159bf589b6c342a392d086d093584f707c6b48e10253528fc09ec74cb3a00e7",
+          "viewGeneration": 2
+        },
+        "ack": {
+          "eventId": 31,
+          "sessionHash": "0159bf589b6c342a392d086d093584f707c6b48e10253528fc09ec74cb3a00e7",
+          "debugSessionHash": "0159bf589b6c342a392d086d093584f707c6b48e10253528fc09ec74cb3a00e7",
+          "replayToken": "w3-rollback-legacy-1787068997013",
+          "snapshotSeq": 1019,
+          "connectionGeneration": 1
+        },
+        "postAckOutput": {
+          "eventId": 38,
+          "sessionHash": "0159bf589b6c342a392d086d093584f707c6b48e10253528fc09ec74cb3a00e7",
+          "wireSessionHash": "0159bf589b6c342a392d086d093584f707c6b48e10253528fc09ec74cb3a00e7",
+          "replayToken": "w3-rollback-legacy-1787068997013",
+          "wireReplayToken": "w3-rollback-legacy-1787068997013",
+          "snapshotSeq": 1019,
+          "connectionGeneration": 1,
+          "wireConnectionGeneration": 1,
+          "viewGeneration": 2,
+          "screenSeq": 1020,
+          "wireScreenSeq": 1020
+        },
+        "convergenceState": {
+          "eventId": 45,
+          "sessionHash": "0159bf589b6c342a392d086d093584f707c6b48e10253528fc09ec74cb3a00e7",
+          "replayToken": "w3-rollback-legacy-1787068997013",
+          "snapshotSeq": 1019,
+          "connectionGeneration": 1,
+          "viewGeneration": 2
+        },
+        "convergence": {
+          "eventId": 46,
+          "sessionHash": "0159bf589b6c342a392d086d093584f707c6b48e10253528fc09ec74cb3a00e7",
+          "replayToken": "w3-rollback-legacy-1787068997013",
+          "snapshotSeq": 1019,
+          "connectionGeneration": 1,
+          "viewGeneration": 2
+        },
+        "ready": {
+          "eventId": 48,
+          "sessionHash": "0159bf589b6c342a392d086d093584f707c6b48e10253528fc09ec74cb3a00e7"
+        }
+      },
+      "compatibilityIdentityProofs": {
+        "sameSession": true,
+        "sameReplayToken": true,
+        "sameSnapshotSeq": true,
+        "sameConnectionGeneration": true,
+        "sameViewGeneration": true
+      },
+      "heldLegacyOutputDrainedBeforeInputReady": true,
+      "compatibilitySnapshotReplayToken": "w3-rollback-legacy-1787068997013",
+      "postSnapshotLegacyOutputApplied": true,
+      "postAckOutputScreenSeq": 1020,
+      "preConvergenceInputSentToServer": 0,
+      "legacyInputAdmittedAfterRollback": 1,
+      "oldGenerationMutationAbsent": true,
+      "lateCallbackFenceUnitEvidence": [
+        "FR_BGSTAB_022_AC6_late_pre_rollback_write_callback_cannot_double_settle_or_mutate_legacy",
+        "capability withdrawal atomically rolls recovery into a clean legacy generation"
+      ]
+    },
+    "wireCheckpointImplementationEvidence": "unknown"
+  },
+  "activation": {
+    "eligible": false,
+    "mockedActiveBrowserPathVerified": true,
+    "checkpointRollbackVerified": true,
+    "runtimeServerActivationVerified": false,
+    "verdict": "REJECTED_EVIDENCE_OR_INVENTORY_FAILURE",
+    "reason": "one or more HTTPS E2E cases failed"
+  }
+}

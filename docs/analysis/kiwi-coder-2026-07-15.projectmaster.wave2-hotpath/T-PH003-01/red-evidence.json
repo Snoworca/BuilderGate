@@ -1,0 +1,67 @@
+{
+  "task_id": "T-PH003-01",
+  "requirement_id": "REL-BGSTAB-009",
+  "phase": "red",
+  "timestamp": "2026-07-15T23:14:54.6465765Z",
+  "test_file": "frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+  "test_file_sha256": "1dcb80c62d8b4cca273d3a40586e63633c126411125d246e4101f61310feda7f",
+  "baseline": {
+    "command": "node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts",
+    "cwd": "frontend",
+    "exit_code": 0,
+    "tests": 11,
+    "pass": 11,
+    "fail": 0
+  },
+  "red": {
+    "command": "node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts",
+    "cwd": "frontend",
+    "expected_exit_code": 1,
+    "actual_exit_code": 1,
+    "tests": 9,
+    "pass": 0,
+    "fail": 9,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "module_import_parse_errors": 0,
+    "semantic_failure_signatures": [
+      "expected byte and chunk N-1/N/N+1 admission matrix to overflow once with zero held accounting",
+      "expected overflow to discard current generation and publish exactly one fresh recovery",
+      "expected matching authority ready to wait for ACK and all tail credits in snapshot-tail-ready-input order",
+      "expected restore snapshot writer to wait for the live scheduler idle fence",
+      "expected stale same-session view/xterm callbacks timers IME and ACK results to be ignored",
+      "expected dispose/remount to release bounded grace ownership without queue or timer theft",
+      "expected replay-generated xterm auto-reply and ACK failure to keep user input blocked or observably rejected",
+      "expected lost callback FIFO probe or wedged pipeline to remain stale with zero leaked timers/listeners",
+      "expected production pending escape tail to block ready until authoritative parser completion"
+    ]
+  },
+  "contract_checks": {
+    "exact_test_count": true,
+    "exact_failure_count": true,
+    "unique_semantic_signatures": true,
+    "actual_text_encoder_used": true,
+    "ascii_cjk_emoji_empty_covered": true,
+    "byte_and_chunk_boundaries_covered": true,
+    "no_new_product_default": true,
+    "production_code_modified": false
+  },
+  "diff_check": {
+    "command": "git diff --check -- frontend/tests/unit/terminalRestoreCoordinator.test.ts",
+    "exit_code": 0
+  },
+  "lint": {
+    "command": "npx eslint tests/unit/terminalRestoreCoordinator.test.ts",
+    "cwd": "frontend",
+    "exit_code": 0
+  },
+  "standard_review": {
+    "axes": 4,
+    "slot_policy": "isolated axes executed sequentially by the same child reviewer under the global thread cap",
+    "s1_intent_alignment": "No CRITICAL/HIGH findings after two fix rounds",
+    "s2_technical_quality": "No CRITICAL/HIGH findings",
+    "s3_req_mapping": "No CRITICAL/HIGH findings",
+    "s4_red_verification": "No CRITICAL/HIGH findings; exit 1, tests 9, pass 0, fail 9, signatures 9, infrastructure failures 0"
+  }
+}

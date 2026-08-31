@@ -1,0 +1,7 @@
+{
+  "schemaVersion": "1.0",
+  "target": "wave-3",
+  "mutations": [],
+  "reason": "신규 7개 Requirement는 verification evidence가 없는 planned/evolving 상태이므로 feasibility 점수와 무관하게 stability/status를 변경하지 않는다.",
+  "redundantMutationSuppressed": true
+}

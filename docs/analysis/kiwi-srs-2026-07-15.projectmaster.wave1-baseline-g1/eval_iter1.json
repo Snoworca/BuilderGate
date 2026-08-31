@@ -1,0 +1,96 @@
+{
+  "schema_version": "kiwi-srs-evaluation/1.0",
+  "generated_at": "2026-07-15",
+  "run_id": "2026-07-15.projectmaster.wave1-baseline-g1",
+  "iteration": 1,
+  "mode": "independent-verification",
+  "target": "wave-1",
+  "evaluated_requirement_ids": [
+    "REL-BGSTAB-006",
+    "OBS-BGSTAB-004",
+    "PERF-BGSTAB-008",
+    "MIG-BGSTAB-001"
+  ],
+  "verdict": "PASS",
+  "normal_severity_gate": {
+    "rule": "CRITICAL=0 and HIGH=0",
+    "passed": true
+  },
+  "counts": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "info": 0
+  },
+  "findings": [],
+  "axes": [
+    {
+      "axis": "target_and_scope",
+      "result": "PASS",
+      "evidence": "All four Requirement blocks declare Target=wave-1. The recorded MCP mutation log adds or edits only those four new IDs; it does not mutate an existing 0.5.5 Requirement or another target."
+    },
+    {
+      "axis": "lifecycle_and_type",
+      "result": "PASS",
+      "evidence": "Each Requirement uses Status=planned and Stability=draft. Types are respectively reliability, observability, performance, and migration, and validate_spec reports no errors."
+    },
+    {
+      "axis": "requirement_link_correctness",
+      "result": "PASS",
+      "evidence": "All referenced existing BGSTAB Requirement IDs resolve. MIG-BGSTAB-001 has depends_on links to exactly REL-BGSTAB-006, OBS-BGSTAB-004, and PERF-BGSTAB-008."
+    },
+    {
+      "axis": "trace_path_integrity",
+      "result": "PASS",
+      "evidence": "Every cited local Code and Related Docs path exists, and every cited line-range endpoint is within the UTF-8 file's current line count."
+    },
+    {
+      "axis": "acceptance_testability",
+      "result": "PASS",
+      "evidence": "The characterization requirements define machine-readable manifests/results, deterministic cases, hashes, raw samples, summary provenance, and explicit validation methods; G1 defines a machine-readable decision record and evaluator."
+    },
+    {
+      "axis": "product_budget_neutrality",
+      "result": "PASS",
+      "evidence": "The 24/1,000/10,000 line values, legacy 2 MiB boundary, and benchmark session/client counts are explicitly constrained to characterization corpora. No retained-range, memory, checkpoint, SLO, or transport budget is selected."
+    },
+    {
+      "axis": "g1_branch_exclusivity",
+      "result": "PASS",
+      "evidence": "MIG-BGSTAB-001 permits exactly confirmed-bug-only or architectural migration, rejects implicit/default third outcomes, and requires evidence for both selection and rejection."
+    },
+    {
+      "axis": "g1_safety_prerequisites",
+      "result": "PASS",
+      "evidence": "The confirmed-bug-only branch is bounded to at most one separately identified reproduced-defect fix and keeps waves 2-5/#4-#22 inactive or deferred. Architectural migration requires a separate exact Requirement ID with Stability=stable before wave-2 activation."
+    },
+    {
+      "axis": "authority_and_ui_non_authorization",
+      "result": "PASS",
+      "evidence": "The requirements explicitly do not authorize authority promotion, existing UI changes, legacy deletion, or future retained-state/product policy selection."
+    },
+    {
+      "axis": "golden_rule_and_spec_validation",
+      "result": "PASS",
+      "evidence": "srs_delta records SpecKiwi MCP as the sole docs/spec mutation mechanism and contains add_requirement/add_trace_link/replace_acceptance_criteria calls limited to the four new IDs. validate_spec returned 0 errors; its four SRS-W023 warnings are the expected consequence of intentionally draft contracts and do not violate the normal CRITICAL/HIGH gate."
+    }
+  ],
+  "validation_observations": {
+    "validate_spec_errors": 0,
+    "validate_spec_warnings": 4,
+    "warning_codes": {
+      "SRS-W023": 4
+    },
+    "warning_disposition": "Expected for the four intentionally draft requirements; feasibility/stability promotion is a later guarded phase and implementation remains blocked while draft."
+  },
+  "files_examined": [
+    "docs/spec/30.buildergate-stability.srs.md",
+    "docs/analysis/kiwi-srs-2026-07-15.projectmaster.wave1-baseline-g1/classification.json",
+    "docs/analysis/kiwi-srs-2026-07-15.projectmaster.wave1-baseline-g1/code_context.json",
+    "docs/analysis/kiwi-srs-2026-07-15.projectmaster.wave1-baseline-g1/existing_srs_context.json",
+    "docs/analysis/kiwi-srs-2026-07-15.projectmaster.wave1-baseline-g1/feasibility.json",
+    "docs/analysis/kiwi-srs-2026-07-15.projectmaster.wave1-baseline-g1/intent.json",
+    "docs/analysis/kiwi-srs-2026-07-15.projectmaster.wave1-baseline-g1/srs_delta.json"
+  ]
+}

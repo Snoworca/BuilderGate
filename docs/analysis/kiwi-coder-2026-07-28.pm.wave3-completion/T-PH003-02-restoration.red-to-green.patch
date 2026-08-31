@@ -1,0 +1,152 @@
+diff --git a/frontend/src/utils/visibleOutputRecovery.ts b/frontend/src/utils/visibleOutputRecovery.ts
+--- a/frontend/src/utils/visibleOutputRecovery.ts
++++ b/frontend/src/utils/visibleOutputRecovery.ts
+@@ -1269,9 +1269,19 @@
+   const finishCurrentView = (
+     scope: VisibleOutputRecoveryScope,
+     record: RecoveryTransactionRecord,
+   ): void => {
++    record.state.currentViewTransactionReady = true;
++    record.state.staleTerminal = false;
++    record.state.terminalFailed = false;
++    record.state.restoreNeeded = false;
++    record.state.provisionalLocalState = false;
++    record.state.hiddenDirty = false;
++    record.state.hiddenSkipped = false;
++    record.state.retainedHistoryEquivalent = false;
+     record.sealed = true;
+     clearHeldOutput(record);
+     record.tailDrained = true;
+     cancelTransactionResources(record);
++    options.adapter.setCurrentViewReady({ ...scope, ready: true });
++    releaseQueuedInputs(scope, record);
+   };
+diff --git a/server/src/services/TerminalAuthorityProductionAdapter.ts b/server/src/services/TerminalAuthorityProductionAdapter.ts
+--- a/server/src/services/TerminalAuthorityProductionAdapter.ts
++++ b/server/src/services/TerminalAuthorityProductionAdapter.ts
+@@ -1974,12 +1974,45 @@
+                 onSettled: () => {
+                   if (!isCurrent()) return;
+                   if (!selectedView.clientId) {
+                     runtime.reservedCheckpointsByView.delete(key);
+                     recoverAuthoritySendFailure(input.sessionId, 'checkpoint-delivery-proof-client-missing');
+                     return;
+                   }
+                   const authorityState = runtime.controller.getState();
++                  const proof = manager.recordTerminalAuthorityServerCheckpointDelivery(
++                    input.sessionId,
++                    {
++                      sessionId: input.sessionId,
++                      clientId: selectedView.clientId,
++                      connectionId: input.connectionId,
++                      viewGeneration: input.viewGeneration,
++                      protocolVersion: checkpointIdentity.protocolVersion,
++                      transitionEpoch: checkpointIdentity.transitionEpoch,
++                      authorityEpoch: checkpointIdentity.authorityEpoch,
++                      streamEpoch: checkpointIdentity.streamEpoch,
++                      checkpointEpoch: checkpointIdentity.checkpointEpoch,
++                      sourceSeq: checkpointIdentity.sourceSeq,
++                      snapshotSeq: checkpointIdentity.snapshotSeq,
++                      oldestRetainedSeq: checkpointIdentity.oldestRetainedSeq,
++                      retentionPolicyId: checkpointIdentity.retentionPolicyId,
++                      responderLeaseId: authorityState.activeResponderLeaseId ?? '',
++                      driverLeaseId: authorityState.activeDriverLeaseId ?? '',
++                      retainedStreamEpoch: recovery.retainedStreamEpoch,
++                      retainedSourceSeq: recovery.retainedSourceSeq,
++                      ...(checkpointIdentity.boundarySourceSeq === undefined
++                        ? {}
++                        : { boundarySourceSeq: checkpointIdentity.boundarySourceSeq }),
++                    },
++                  );
++                  if (!proof.ok) {
++                    runtime.reservedCheckpointsByView.delete(key);
++                    recoverAuthoritySendFailure(
++                      input.sessionId,
++                      `checkpoint-delivery-proof-${proof.reason ?? 'rejected'}`,
++                    );
++                    return;
++                  }
+                   runtime.activeCheckpointsByView.set(key, checkpointIdentity);
+                   runtime.checkpointTailSourceSeqByView.set(key, checkpointIdentity.sourceSeq);
+                   runtime.reservedCheckpointsByView.delete(key);
+                 },
+@@ -3633,7 +3666,24 @@
+         const key = checkpointAckKey(connectionId, message);
+         runtime.applyAcks.add(key);
+         const drainedThroughSourceSeq = runtime.drainAcks.get(key);
+         if (drainedThroughSourceSeq) {
++          runtime.physicalDrains.add(compatibilityDrainKey({
++            connectionId,
++            sessionId,
++            viewGeneration: Number(message.viewGeneration),
++            transitionEpoch: expectedCheckpoint.transitionEpoch,
++            authorityEpoch: expectedCheckpoint.authorityEpoch,
++            streamEpoch: String(message.streamEpoch),
++            responderLeaseId: expectedCheckpoint.responderLeaseId ?? '',
++            boundarySourceSeq: expectedCheckpoint.boundarySourceSeq ?? '',
++            checkpointEpoch: String(message.checkpointEpoch),
++            drainedThroughSourceSeq,
++          }));
++          appendTerminalAuthorityAudit(runtime.audit, {
++            type: 'compatibility-tail-physically-drained',
++            lane: options.transportMode === 'split' ? 'output' : 'unified',
++            connectionId,
++          });
+         }
+         return true;
+       }
+@@ -3711,9 +3761,26 @@
+         const key = checkpointAckKey(connectionId, message);
+         const drainedThroughSourceSeq = typeof message.drainedThroughSeq === 'string'
+           ? message.drainedThroughSeq
+           : '';
+         if (drainedThroughSourceSeq) runtime.drainAcks.set(key, drainedThroughSourceSeq);
+         if (runtime.applyAcks.has(key)) {
++          runtime.physicalDrains.add(compatibilityDrainKey({
++            connectionId,
++            sessionId,
++            viewGeneration: Number(message.viewGeneration),
++            transitionEpoch: expectedCheckpoint.transitionEpoch,
++            authorityEpoch: expectedCheckpoint.authorityEpoch,
++            streamEpoch: String(message.streamEpoch),
++            responderLeaseId: expectedCheckpoint.responderLeaseId ?? '',
++            boundarySourceSeq: expectedCheckpoint.boundarySourceSeq ?? '',
++            checkpointEpoch: String(message.checkpointEpoch),
++            drainedThroughSourceSeq,
++          }));
++          appendTerminalAuthorityAudit(runtime.audit, {
++            type: 'compatibility-tail-physically-drained',
++            lane: options.transportMode === 'split' ? 'output' : 'unified',
++            connectionId,
++          });
+         }
+         return true;
+       }
+@@ -3820,4 +3887,27 @@
+       if (message.type === 'terminal-authority:compatibility-drained') {
++        void runtime.controller.acknowledgeCompatibilityDrain(
++          {
++            ...message,
++            connectionId,
++          } as unknown as Parameters<TerminalAuthorityController['acknowledgeCompatibilityDrain']>[0],
++        ).then(result => {
++          router.sendTerminalAuthorityFrameToConnection(connectionId, {
++            ...message,
++            type: 'terminal-authority:compatibility-drain-accepted',
++            connectionId,
++            accepted: result.accepted,
++            completed: result.completed,
++            duplicate: result.duplicate ?? false,
++            ...(result.reason ? { reason: result.reason } : {}),
++          }, 'control');
++        }).catch(error => {
++          appendTerminalAuthorityAudit(runtime.audit, {
++            type: 'compatibility-drain-settlement-failed',
++            kind: error instanceof Error ? error.message : 'unknown-error',
++            sessionId,
++          });
++          recoverAuthoritySendFailure(sessionId, 'compatibility-drain-settlement-failed');
++        });
+         return true;
+       }
+       return false;

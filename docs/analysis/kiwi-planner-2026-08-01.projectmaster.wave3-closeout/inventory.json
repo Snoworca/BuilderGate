@@ -1,0 +1,13 @@
+[
+  {"id":"OBS-BGSTAB-005","stability":"evolving","ac_total":7,"ac_ids":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6","AC-7"]},
+  {"id":"REL-BGSTAB-010","stability":"evolving","ac_total":6,"ac_ids":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6"]},
+  {"id":"FR-BGSTAB-022","stability":"evolving","ac_total":7,"ac_ids":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6","AC-7"]},
+  {"id":"REL-BGSTAB-011","stability":"evolving","ac_total":9,"ac_ids":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6","AC-7","AC-8","AC-9"]},
+  {"id":"MIG-BGSTAB-002","stability":"evolving","ac_total":6,"ac_ids":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6"]},
+  {"id":"OBS-BGSTAB-006","stability":"evolving","ac_total":4,"ac_ids":["AC-1","AC-2","AC-3","AC-4"]},
+  {"id":"REL-BGSTAB-014","stability":"evolving","ac_total":4,"ac_ids":["AC-1","AC-2","AC-3","AC-4"]},
+  {"id":"REL-BGSTAB-015","stability":"evolving","ac_total":6,"ac_ids":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6"]},
+  {"id":"PERF-BGSTAB-010","stability":"evolving","ac_total":9,"ac_ids":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6","AC-7","AC-8","AC-9"]},
+  {"id":"REL-BGSTAB-007","stability":"stable","ac_total":12,"ac_ids":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6","AC-7","AC-8","AC-9","AC-10","AC-11","AC-12"]},
+  {"id":"REL-BGSTAB-012","stability":"evolving","ac_total":9,"ac_ids":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-6","AC-7","AC-8","AC-9"]}
+]

@@ -1,0 +1,8 @@
+{
+  "target_intent": "Re-establish fair-delivery evidence provenance before any scheduler promotion or dependent hidden-recovery work.",
+  "requirement_id": "PERF-BGSTAB-010",
+  "scope": ["AC-1 through AC-9 read-only evidence admission", "MIG-BGSTAB-002 prerequisite confirmation", "decision artifact and policy provenance", "strict-TDD corrective handoff when a real behavior delta is found"],
+  "exclusions": ["runtime or code changes", "UI, protocol, default, or capability activation", "artifact/raw-evidence mutation", "Playwright, HTTPS, TCP 2222, and live benchmark execution", "REL-BGSTAB-007 and REL-BGSTAB-012 changes", "premature requirement promotion"],
+  "ambiguities": ["The historical PH-006 implementation cannot be retrospectively treated as strict TDD.", "A missing or incomplete artifact must reject admission rather than become a regenerated artifact in this scope."],
+  "non_coding_signals": ["provenance manifest", "AC evidence/gap matrix", "verification-only replay report", "independent admission review", "conditional strict-TDD handoff"]
+}

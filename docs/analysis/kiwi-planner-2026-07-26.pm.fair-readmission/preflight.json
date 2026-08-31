@@ -1,0 +1,33 @@
+{
+  "schema_version": "kiwi-planner-preflight/v1",
+  "run_id": "2026-07-26.pm.fair-readmission",
+  "recorded_at": "2026-07-26T10:13:48Z",
+  "target": "wave-3",
+  "requirement_filter": ["PERF-BGSTAB-010"],
+  "work_mode": "sdd",
+  "tdd_policy": "relaxed",
+  "mode": "degraded-docs-only-dry-run",
+  "corrective_status": {
+    "review_finding": "HIGH: closure-only equality did not protect runtime, command, Git, or config/lock inputs.",
+    "state": "corrected-in-plan-v0.1.3",
+    "required_future_gate": "PH-002 and PH-005 must exact-compare canonical protected-input JSON and SHA-256; validator does not execute that comparison."
+  },
+  "official_workflow_tools": {
+    "availability": "healthy-for-read",
+    "old_run_status": "resume-blocked",
+    "old_run_blocker": "SRS-W058",
+    "old_run_mutation": "prohibited"
+  },
+  "fallback_authority": {
+    "committee": "final 5-member decision committee aggregate",
+    "vote": "A 4:B 1",
+    "decision_protocol": "Initial 3-member vote was non-unanimous; expand to five members, then use the majority.",
+    "decision": "create a new isolated docs-only raw fallback plan; do not modify or resume the old fair-admission run"
+  },
+  "prohibitions": [
+    "No SpecKiwi lifecycle, acceptance-criteria, evidence, trace, completed-work, or status mutation.",
+    "No pipeline or raw JSONL mutation.",
+    "No source, test, UI, protocol, capability, default, runtime, or historical artifact mutation.",
+    "REL-BGSTAB-012 remains blocked."
+  ]
+}

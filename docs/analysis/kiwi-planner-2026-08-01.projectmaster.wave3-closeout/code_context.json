@@ -1,0 +1,22 @@
+{
+  "run_id": "2026-08-01.projectmaster.wave3-closeout",
+  "anchors": {
+    "PERF-BGSTAB-010": [
+      "server/src/ws/wsSendPolicy.ts",
+      "server/src/ws/WsRouter.ts"
+    ],
+    "REL-BGSTAB-007": [
+      "server/src/services/SessionManager.ts",
+      "server/src/ws/WsRouter.ts"
+    ],
+    "REL-BGSTAB-012": [
+      "server/src/ws/WsRouter.ts",
+      "frontend/src/utils/terminalHiddenOutput.ts"
+    ]
+  },
+  "constraints": [
+    "Orca is read-only.",
+    "Playwright/manual validation only at https://localhost:2222.",
+    "Do not terminate broad node.exe or ports 2001/2002."
+  ]
+}

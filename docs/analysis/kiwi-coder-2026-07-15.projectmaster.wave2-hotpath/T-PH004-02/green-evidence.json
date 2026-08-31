@@ -1,0 +1,69 @@
+{
+  "task_id": "T-PH004-02",
+  "requirement_id": "FR-BGSTAB-021",
+  "phase": "green",
+  "timestamp": "2026-07-16T04:37:39.3576726Z",
+  "files_sha256": {
+    "frontend/src/utils/terminalClipboardCoordinator.ts": "0250abf0824366f413f728eb35ad53dcbc1500dbab5c6840827a0b73cbae89b2",
+    "frontend/src/components/Terminal/TerminalView.tsx": "c0f326a1dd1b55dbd201e8dc7f0903502eaf3e66168d722b0b7751dcb61f196e",
+    "frontend/src/components/Terminal/TerminalContainer.tsx": "f0a67918eedebcf0d8e3d0b3e66421428fbf59a22c4e8ad3e7e70d60619bab85",
+    "frontend/tests/unit/terminalClipboardAdapterContract.test.ts": "dd2413a91decdef78b7dd29edb0f10152d7ad52c83b26d15f924f92fa79d7c3d"
+  },
+  "targeted_tests": {
+    "command": "node --experimental-strip-types --test tests/unit/terminalClipboardCoordinator.test.ts tests/unit/terminalClipboardAdapterContract.test.ts tests/unit/commandPresetPaste.test.ts",
+    "cwd": "frontend",
+    "exit_code": 0,
+    "tests": 17,
+    "pass": 17,
+    "fail": 0
+  },
+  "full_unit": {
+    "command": "node --experimental-strip-types --test tests/unit/*.test.ts",
+    "cwd": "frontend",
+    "exit_code": 0,
+    "tests": 336,
+    "pass": 336,
+    "fail": 0
+  },
+  "typecheck": {
+    "command": "npm run typecheck",
+    "exit_code": 0
+  },
+  "build": {
+    "command": "npm run build",
+    "exit_code": 0,
+    "warning": "Existing Vite chunk-size warning only."
+  },
+  "scoped_lint": {
+    "command": "npx eslint src/utils/terminalClipboardCoordinator.ts src/components/Terminal/TerminalView.tsx src/components/Terminal/TerminalContainer.tsx tests/unit/terminalClipboardCoordinator.test.ts tests/unit/terminalClipboardAdapterContract.test.ts",
+    "exit_code": 0,
+    "errors": 0,
+    "warnings": 3,
+    "warning_scope": "Pre-existing TerminalView cleanup-ref exhaustive-deps warnings outside clipboard additions."
+  },
+  "contract_checks": {
+    "copy_clear_after_success_and_same_selection_only": true,
+    "async_context_revalidated": true,
+    "programmatic_paste_delegates_existing_pipeline_once": true,
+    "raw_payload_excluded_from_observations": true,
+    "focus_success_and_current_target_only": true,
+    "strict_mode_cleanup_setup_safe": true,
+    "pre_cleanup_async_completion_not_revived": true,
+    "hidden_retained_runtime_fenced_at_layout_commit": true,
+    "saved_selection_xterm_generation_bound": true,
+    "native_ctrl_v_sigint_unchanged": true
+  },
+  "independent_review": {
+    "reviewer": "/root/wave2_clipboard_t2_review",
+    "initial_findings": [
+      "HIGH StrictMode cleanup permanently disposed the memoized coordinator",
+      "HIGH hidden retained runtime was not fenced by active view generation",
+      "MEDIUM saved right-click selection could cross xterm remount"
+    ],
+    "resolution": "Lifecycle epoch plus activate, layout-commit visibility generation fence, and xterm-generation-bound saved selection with mount/dispose reset; three regression tests added.",
+    "final_verdict": "No findings"
+  },
+  "diff_check": {
+    "exit_code": 0
+  }
+}

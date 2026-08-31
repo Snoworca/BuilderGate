@@ -1,0 +1,127 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-15.projectmaster.wave2-hotpath",
+  "task_id": "T-PH003-04",
+  "requirement_id": "REL-BGSTAB-009",
+  "recorded_at": "2026-07-16T12:20:48.7540336+09:00",
+  "result": "PASS_WITH_LIVE_BACKEND_VERSION_EXCEPTION",
+  "official_task_done": true,
+  "implementation": {
+    "authority": "existing visible recovery coordinator plus atomic server restore authority",
+    "properties": [
+      "atomic authorityRevision/snapshotSeq/parserComplete/pendingEscapeTailAnsi/serializedData sampling",
+      "moving headless-write tail quiescence with a bounded quiet window",
+      "token-fenced fresh replay supersession requiring replay and repair ownership",
+      "live-lane idle then snapshot then pending tail then sequence-proven held tail then matching ready and ACK",
+      "generation-safe xterm replay lease with bounded same-FIFO empty write probe",
+      "bounded cross-transaction fresh-snapshot and reconnect budgets reset only after matching convergence",
+      "replacement-socket grace state discard and authoritative identity-aware duplicate bypass",
+      "authoritative mutation fencing behind in-flight speculative terminal writes",
+      "terminal restore outcomes clear legacy screen-repair in-flight suppression",
+      "replay-generated parser reply suppression while keyboard, IME and paste provenance remain live",
+      "identity-bearing output non-coalescing with identity-less coalescing preserved",
+      "code-point exact UTF-8 partial escape accounting including split surrogate pairs"
+    ]
+  },
+  "checks": [
+    {
+      "name": "server-dedicated-restore-contracts",
+      "command": "npx tsx --test src/ws/WsRouterRestoreMetadata.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/SessionManagerPartialEscapeTail.test.ts",
+      "cwd": "server",
+      "exit_code": 0,
+      "tests": 11,
+      "passed": 11,
+      "failed": 0
+    },
+    {
+      "name": "server-full-regression",
+      "command": "npm test",
+      "cwd": "server",
+      "exit_code": 0,
+      "tests": 517,
+      "passed": 517,
+      "failed": 0
+    },
+    {
+      "name": "node-pty-runtime-patcher",
+      "command": "node --test tools/ensure-node-pty-windows-hide.test.cjs",
+      "cwd": "server",
+      "exit_code": 0,
+      "tests": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "name": "frontend-targeted-unit",
+      "command": "node --experimental-strip-types --test tests/unit/terminalRestoreCoordinator.test.ts tests/unit/terminalViewRecoveryContract.test.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalOutputScheduler.test.ts tests/unit/terminalReplayGuard.test.ts",
+      "cwd": "frontend",
+      "exit_code": 0,
+      "tests": 102,
+      "passed": 102,
+      "failed": 0
+    },
+    {
+      "name": "frontend-typecheck-and-build",
+      "command": "npm run typecheck && npm run build",
+      "cwd": "frontend",
+      "exit_code": 0,
+      "notes": "Vite large-chunk warning only; build succeeded and assets were staged."
+    },
+    {
+      "name": "wave2-terminal-restore-https",
+      "command": "npx playwright test tests/e2e/wave2-terminal-restore.spec.ts --project \"Desktop Chrome\"",
+      "cwd": "frontend",
+      "exit_code": 0,
+      "tests": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    {
+      "name": "task-scoped-eslint-observation",
+      "command": "npx eslint src/utils/visibleOutputRecovery.ts src/components/Terminal/TerminalContainer.tsx src/contexts/WebSocketContext.tsx tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts",
+      "cwd": "frontend",
+      "exit_code": 1,
+      "classification": "PRE_EXISTING_LINT_BASELINE",
+      "errors": 4,
+      "warnings": 2,
+      "notes": "WebSocketContext의 기존 4 errors/2 warnings이며 신규 파일 finding은 없다."
+    },
+    {
+      "name": "grid-equal-current-server-e2e",
+      "command": "npx playwright test tests/e2e/grid-equal-mode.spec.ts --project \"Desktop Chrome\"",
+      "cwd": "frontend",
+      "exit_code": 1,
+      "classification": "IMMUTABLE_LIVE_BACKEND_VERSION_MISMATCH",
+      "notes": "https://localhost:2222의 실행 중 backend는 C:/Work/agent-tools/builder-gate/server/dist 구버전이다. AGENTS 규칙상 실행 중 서버/node를 종료·재시작하지 않았다. 현재 server source protocol은 actual named-pipe WebSocket/PTY integration 11/11로 검증했다."
+    },
+    {
+      "name": "scoped-diff-check",
+      "command": "git diff --check -- <T-PH003-04 planned files>",
+      "cwd": ".",
+      "exit_code": 0
+    }
+  ],
+  "review": {
+    "reviewer": "/root/wave2_t4_final_review",
+    "fixed_findings": [
+      "fresh snapshot request now performs token-fenced protocol supersession",
+      "reconnect-required now performs a real but bounded reconnect",
+      "cross-transaction deterministic failures cannot loop forever",
+      "old-socket grace state cannot close a replacement socket",
+      "replacement convergence resets budget only after matching ACK and ready",
+      "identical replacement snapshots bypass content dedup only under a recovery barrier",
+      "replacement authority is serialized after speculative terminal mutations",
+      "no-active reconnect invalidates legacy repair epoch",
+      "restore terminal outcomes release same-geometry request suppression"
+    ],
+    "final_verdict": "No findings"
+  },
+  "completion_gate": {
+    "implementation_review": "PASS",
+    "automated_unit_build": "PASS",
+    "https_restore_adapter": "PASS",
+    "current_server_grid_e2e": "ENVIRONMENT_VERSION_EXCEPTION",
+    "lint": "BASELINE_FAIL",
+    "task_status": "COMPLETE"
+  }
+}

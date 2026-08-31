@@ -1,0 +1,16 @@
+{
+  "target": "wave-3",
+  "verdict": "authorable-and-implementable-with-ordered-gates",
+  "requirements": [
+    {"id":"OBS-BGSTAB-005","issue":8,"feasibility":"high","conditions":["legacy remains applied in observe mode"]},
+    {"id":"REL-BGSTAB-010","issue":9,"feasibility":"high","conditions":["only non-loss transitions","stable registered candidate policy"]},
+    {"id":"FR-BGSTAB-022","issue":10,"feasibility":"high","conditions":["all production writes route through coordinator"]},
+    {"id":"REL-BGSTAB-011","issue":11,"feasibility":"high","conditions":["reuse SessionManager headless model","shadow before promotion"]},
+    {"id":"MIG-BGSTAB-002","issue":12,"feasibility":"high","conditions":["parity gate","single responder per epoch","rollback drill"]},
+    {"id":"PERF-BGSTAB-010","issue":13,"feasibility":"high","conditions":["benchmark selects strategy","server ledger owns encoded bytes"]},
+    {"id":"REL-BGSTAB-012","issue":14,"feasibility":"high","conditions":["model/fact commit before drop","full retained checkpoint on reveal"]}
+  ],
+  "dependency_chain": ["OBS-BGSTAB-005","REL-BGSTAB-010","FR-BGSTAB-022","REL-BGSTAB-011","MIG-BGSTAB-002","PERF-BGSTAB-010","REL-BGSTAB-012"],
+  "deferred": ["profile formulas/defaults","concrete checkpoint/ACK/continuity budgets","scheduler algorithm selection","raw Settings supersession","binary/split default","legacy physical deletion"]
+}
+

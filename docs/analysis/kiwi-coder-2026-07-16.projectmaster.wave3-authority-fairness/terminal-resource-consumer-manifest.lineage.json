@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "terminal-resource-consumer-manifest-lineage/v1",
+  "historical": {
+    "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.json",
+    "sha256": "1d6dcff51115ed5760cf6a9f30a169060d052d46feaf465ec1d205d79f5bd155",
+    "sourceSetSha256": "84d05c72ed8ca2ba8045c0a66d4f167f471c51cce473b0c84d8294d54dcdc4b3"
+  },
+  "current": {
+    "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.current.json",
+    "sha256": "04257cb8e832a864e84754105b30da8d0de5f0b67738a666c22e8d6c0918a11f",
+    "sourceCount": 34,
+    "sourceSetSha256": "432cd190ad7d52e8471ee43930fd367c50d1b5a44d62151da75a4ebeaa205cd2",
+    "exactConsumerTuples": 80,
+    "classifications": 10
+  },
+  "semanticInventory": {
+    "sha256": "3d2a8953604b125c528349188bc5fc9963f774f9792a116e364f4f0afa5a6997",
+    "historicalEqualsCurrent": true
+  },
+  "currentSlice": {
+    "requirementId": "OBS-BGSTAB-005",
+    "scope": "canonical semantic identity seals consumer evidenceAstSha256 and classification accessEvidenceSha256",
+    "red": {
+      "command": "node tools/wave3/terminal-resource-consumer-manifest.test.mjs",
+      "exitCode": 1,
+      "result": "semantic equality must fail when only consumer evidenceAstSha256 changes"
+    },
+    "green": {
+      "guard": {
+        "command": "node tools/wave3/terminal-resource-consumer-manifest.test.mjs",
+        "exitCode": 0,
+        "result": "consumer and classification evidence-hash mutation assertions pass"
+      },
+      "focusedTerminalResourcePolicy": {
+        "command": "npx.cmd tsx --test src/services/TerminalResourcePolicy.test.ts",
+        "exitCode": 0,
+        "result": "all focused TerminalResourcePolicy tests pass"
+      }
+    }
+  },
+  "ph002RuntimeAnchor": {
+    "sha256": "2dfec602f8e22db0569e5ff67f75bceada37d1959af38ecdb52441ebca7b3b57",
+    "sourceStatus": "unavailable",
+    "revalidationStatus": "not-revalidated",
+    "authority": "non-authoritative"
+  },
+  "historicalEvidenceCorrection": {
+    "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/green-evidence-correction.json",
+    "relation": "reconciles-preserved-raw-green-nested-summary-with-sealed-historical-manifest",
+    "redEvidence": {
+      "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/historical-evidence-correction-red-evidence.json",
+      "relation": "records-the-original-missing-historical-report-seal-red-result"
+    }
+  }
+}

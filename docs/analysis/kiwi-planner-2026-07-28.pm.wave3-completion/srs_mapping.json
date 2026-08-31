@@ -1,0 +1,8 @@
+{
+  "target":"wave-3",
+  "excluded_reqs":[{"id":"REL-BGSTAB-013","reason":"discarded"}],
+  "dependency_order":["REL-BGSTAB-007","PERF-BGSTAB-010","REL-BGSTAB-012"],
+  "status_summary":{"implemented":8,"in_progress":1,"planned":2,"discarded":1},
+  "implemented_not_verified":["OBS-BGSTAB-005","REL-BGSTAB-010","FR-BGSTAB-022","REL-BGSTAB-011","MIG-BGSTAB-002","REL-BGSTAB-014","OBS-BGSTAB-006","REL-BGSTAB-015"],
+  "critical_contracts":["PERF-BGSTAB-010 AC-3/AC-4 current authoritative locator","REL-BGSTAB-007 AC-1..AC-12 stable retained-state authority","REL-BGSTAB-012 AC-1..AC-9 hidden dataGap/reveal recovery"]
+}

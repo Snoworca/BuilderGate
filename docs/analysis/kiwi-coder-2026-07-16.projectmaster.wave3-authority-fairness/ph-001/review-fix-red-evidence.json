@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "requirementId": "OBS-BGSTAB-005",
+  "phaseId": "PH-001",
+  "reason": "Independent prickly review found 5 HIGH and 2 MEDIUM findings; regression tests were added before the repair implementation.",
+  "command": "cd server && npx tsx --test src/services/TerminalResourcePolicy.test.ts src/services/RuntimeConfigStore.test.ts",
+  "exitCode": 1,
+  "tests": 18,
+  "passed": 11,
+  "failed": 7,
+  "failedContracts": [
+    "raw provenance survives production loaders and replacements",
+    "invalid raw provenance is sanitized and never silently falls through",
+    "compiler owns all 29 typed resources and records real legacy divergence",
+    "no candidate profile is available without a registered stable contract",
+    "telemetry is allowlisted, payload-free, bounded, and read-only on snapshot",
+    "exact repository tuples validate bidirectionally and detect new callsites",
+    "observer differential preserves actual serialized legacy paths"
+  ],
+  "productionModifiedBeforeRun": false,
+  "skipped": 0,
+  "cancelled": 0
+}

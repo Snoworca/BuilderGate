@@ -1,0 +1,16 @@
+{
+  "target": "wave-3",
+  "goal": "TerminalResourcePolicy, browser sole writer, retained server model, single authority, fair delivery와 hidden authoritative recovery를 구축한다.",
+  "completion_boundary": "폐기된 REL-BGSTAB-013을 제외한 11개 요구사항의 현재 코드·증거·SRS lifecycle을 모두 완료한다.",
+  "priorities": [
+    "historical/rejected analysis root를 runtime authority 또는 fallback으로 사용하지 않는다.",
+    "server retained-state authority, fair ACK ledger, hidden recovery를 fail-closed로 검증한다.",
+    "AI TUI idle invariant과 기존 renderer residency/UI를 보존한다.",
+    "모든 runtime change는 failing test 이후 최소 구현으로 수행한다."
+  ],
+  "constraints": [
+    "Historical analysis output contents are not read.",
+    "C:/Work/git-none/orca is not modified or inspected.",
+    "Browser E2E targets only https://localhost:2222."
+  ]
+}

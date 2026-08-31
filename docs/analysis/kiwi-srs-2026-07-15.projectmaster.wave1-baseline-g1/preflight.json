@@ -1,0 +1,30 @@
+{
+  "run_id": "2026-07-15.projectmaster.wave1-baseline-g1",
+  "skill": "kiwi-srs",
+  "mode": "live",
+  "mode_flags": ["--auto"],
+  "mcp": true,
+  "mcp_workspace": "C:/Work/git/_Snoworca/ProjectMaster",
+  "speckiwi_version": "2.3.1",
+  "target": "wave-1",
+  "scope": "BGSTAB",
+  "classification_expected": "new-feature additive envelope",
+  "research_docs": [
+    "docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md",
+    "docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md"
+  ],
+  "critical_gates": [
+    "external-module-impact",
+    "scope-boundary-impact",
+    "combined-boundary-conflict",
+    "mcp-unavailable",
+    "fact-fabrication-risk"
+  ],
+  "constraints": [
+    "Do not select product retained rows, aggregate memory, or checkpoint chunk/in-flight budgets in the characterization subcycle.",
+    "Do not update, move, duplicate, discard, or supersede existing 0.5.5-buildergate-stability requirements in the characterization subcycle.",
+    "Do not perform authority promotion, UI visual changes, or legacy deletion in wave-1 characterization.",
+    "Treat 1,000 rows, 10,000 rows, and legacy 2MiB only as characterization test corpus."
+  ],
+  "halted": false
+}

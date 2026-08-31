@@ -1,0 +1,19 @@
+{
+  "run_id": "2026-07-15.projectmaster.wave1-baseline",
+  "target": "wave-1",
+  "mode": "live",
+  "flags": ["--auto", "--tdd-policy=strict"],
+  "mcp": true,
+  "active_target_confirmed": true,
+  "target_requirement_count": 4,
+  "stability": {"evolving":4,"stable":0,"frozen":0,"draft":0,"deprecated":0},
+  "draft_gate": "not-triggered",
+  "external_module_impact": [],
+  "workflow_diagnostics": {
+    "selected_artifact": "docs/plans/2026-07-15.projectmaster.orca-terminal-performance.wave-master.plan.md",
+    "outcome": "invalid_artifact",
+    "reason": "The wave-master orchestration plan intentionally has no plan-contract sidecar. This planner run creates the Wave 1 implementation plan and sidecar as the resolution artifact.",
+    "pipeline_append_blocked_by": ["legacy SRS-W055 schema warnings on kiwi/pipeline.jsonl"]
+  },
+  "halted": false
+}

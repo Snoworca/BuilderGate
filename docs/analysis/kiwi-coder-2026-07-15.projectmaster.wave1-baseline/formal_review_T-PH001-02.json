@@ -1,0 +1,11 @@
+{
+  "task_id": "T-PH001-02",
+  "axes": ["intent-alignment", "technical-quality", "req-mapping", "red-to-green"],
+  "findings": [],
+  "verdict": "No findings",
+  "commands": [
+    "node --experimental-strip-types --test tests/e2e/wave1-characterization-artifacts.test.ts",
+    "npx eslint tests/e2e/wave1-characterization-artifacts.ts tests/e2e/wave1-characterization-artifacts.test.ts",
+    "npm run typecheck"
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "schema_version":"1.0.0",
+  "requirement_id":"OBS-BGSTAB-006",
+  "task_id":"T-PH001-01",
+  "captured_at":"2026-07-24",
+  "baseline_commit":"5838a3c859d09d485f14daea5cad9802a64ae582",
+  "permitted_implementation_file":{
+    "path":"tools/wave3/authority-promotion-evidence.test.mjs",
+    "sha256":"d0297781d1c7599673781a4a4c1a9217f31993e4a73e3bb56a11af1406b02f1c",
+    "git_state":"tracked by the content-only baseline commit"
+  },
+  "permitted_analysis_outputs":[
+    "docs/analysis/kiwi-coder-2026-07-24.pm.evidence-diagnostic/scope-baseline.json",
+    "docs/analysis/kiwi-coder-2026-07-24.pm.evidence-diagnostic/tdd-red-evidence.json"
+  ],
+  "source_manifest":{
+    "path":"tools/wave3/authority-promotion-red-test-sources.json",
+    "sha256":"f352120fde55a355a89e31a9fc894cd0493f9e49fa37313fed3ee464e9523d43",
+    "tool_entry_sha256":"a4a36900c3a54098af20daa936f372db05e6d777150d2f3155b4b348840fb8d0",
+    "tool_entry_matches_baseline":false,
+    "disposition":"The manifest already differs from the adopted evidence-tool baseline. It remains byte-for-byte unchanged; --expect-red and --expect-green remain intentionally unexecuted and fail-closed."
+  },
+  "excluded_e2e_producer":{
+    "path":"frontend/tests/e2e/wave3-terminal-authority-promotion.spec.ts",
+    "sha256":"732737b8423709e0607996fe34c19645cf0f6d7b69130daba47ea783b9cfd23c"
+  },
+  "project_decision_artifact":{
+    "path":"docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/authority-promotion-decision.json",
+    "exists":false,
+    "sha256":null
+  },
+  "excluded_raw_evidence_root":{
+    "path":"docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/authority-promotion-raw",
+    "exists":true,
+    "file_count":13,
+    "canonical_algorithm":"SHA-256 of UTF-8 (no BOM) concatenation of entries sorted by ECMAScript UTF-16 code-unit ordinal comparison over paths relative to this raw-evidence root and normalized to POSIX separators; each entry is rootRelativePath + LF + lowercaseSHA256 + LF; no extra separator or content.",
+    "tree_sha256":"2c36535a1c87f76870c4a0fe18e09bb25ddffd0ed9f7a681fb51d1649d44a201"
+  },
+  "srs_blocks":{
+    "canonical_algorithm":"SHA-256 of the exact UTF-8 (no BOM) source bytes represented by inclusive logical lines, retaining each original CRLF/LF terminator; line ranges are 1-based and include the final selected line terminator.",
+    "MIG-BGSTAB-002":{"start_line":3569,"end_line":3644,"sha256":"d5e843663b54bbe21f273746fc69321be7ebe9b8831937dee6b1f8da8ae9e7bc","byte_length":7084},
+    "OBS-BGSTAB-006":{"start_line":3927,"end_line":3987,"sha256":"303040fb5e5af2451de6d3b5f4927ec1462ff15593319433f160a9b8d66222c7","byte_length":4042}
+  },
+  "self_test_environment":{
+    "allowed":"Existing OS-temporary named-pipe split-lane fixture and OS-temporary stale-artifact fixture.",
+    "prohibited":"Playwright, HTTPS, numeric TCP port 2222, project artifact lifecycle, source-manifest execution, --expect-red, and --expect-green."
+  }
+}

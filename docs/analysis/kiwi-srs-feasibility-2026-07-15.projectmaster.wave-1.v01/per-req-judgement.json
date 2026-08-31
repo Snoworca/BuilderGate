@@ -1,0 +1,290 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-07-15.projectmaster.wave-1.v01",
+  "scoring": {
+    "weights": {
+      "implementability": 30,
+      "evidence_strength": 20,
+      "dependency_health": 15,
+      "ac_verifiability": 15,
+      "scope_fit": 10,
+      "product_fit": 10
+    },
+    "thresholds": {
+      "high": 80,
+      "medium": 60,
+      "low": 40,
+      "blocked": 0
+    }
+  },
+  "judgements": [
+    {
+      "req_id": "REL-BGSTAB-006",
+      "feasibility": "high",
+      "score": 94,
+      "axes": {
+        "implementability": {
+          "score": 27,
+          "rationale": "The live bootstrap is monolithic, but the production construction/upgrade path and reusable request/URL comparators make an additive live characterization practical without activating split transport.",
+          "evidence": [
+            "server/src/index.ts:1468-1495",
+            "server/src/index.ts:1597",
+            "server/src/ws/wsTransportMode.ts:23-92",
+            "frontend/src/utils/webSocketUrl.ts:35-70"
+          ]
+        },
+        "evidence_strength": {
+          "score": 18,
+          "rationale": "Every cited path and range exists and exposes the expected runtime/test drift; two ranges are only partial semantic matches, so the score is below full strength.",
+          "evidence": [
+            "server/src/ws/WsRouter.ts:86-91,165-220",
+            "frontend/src/contexts/WebSocketContext.tsx:113-119,340-388",
+            "server/src/ws/WsRouterSplitHandshake.test.ts:50-121"
+          ]
+        },
+        "dependency_health": {
+          "score": 15,
+          "rationale": "There are no hard dependencies; both extended split-contract requirements are implemented and stable.",
+          "evidence": [
+            "docs/spec/30.buildergate-stability.srs.md:353",
+            "docs/spec/30.buildergate-stability.srs.md:419"
+          ]
+        },
+        "ac_verifiability": {
+          "score": 14,
+          "rationale": "The ACs define explicit observation classes, result fields, mismatch enums, and a real HTTPS/browser-path constraint; the only material test work is exposing or driving the production bootstrap.",
+          "evidence": [
+            "docs/spec/30.buildergate-stability.srs.md:2498",
+            "frontend/playwright.config.ts:3-18",
+            "server/src/test-runner.ts:14514-14595"
+          ]
+        },
+        "scope_fit": {
+          "score": 10,
+          "rationale": "The requirement is bounded to characterization evidence and explicitly excludes restore, supersede, and runtime activation.",
+          "evidence": [
+            "docs/spec/30.buildergate-stability.srs.md:2498"
+          ]
+        },
+        "product_fit": {
+          "score": 10,
+          "rationale": "Production-vs-test split drift evidence is a direct prerequisite for the wave-1 G1 decision and protects compatibility decisions from injected-test assumptions.",
+          "evidence": [
+            "server/src/index.ts:1468-1495",
+            "server/src/ws/WsRouterSplitHandshake.test.ts:50-121"
+          ]
+        }
+      },
+      "blockers": [],
+      "conditions": [
+        "The completion run must traverse the actual HTTPS /ws upgrade and production browser URL path; direct connection emission remains test-only evidence.",
+        "Characterization must remain additive and must not activate or supersede split transport."
+      ],
+      "has_verification": false,
+      "current_stability": "draft",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "OBS-BGSTAB-004",
+      "feasibility": "high",
+      "score": 94,
+      "axes": {
+        "implementability": {
+          "score": 26,
+          "rationale": "The characterization crosses server and browser recovery owners, but deterministic snapshot, repair, reconnect, and cache seams already exist; the main new work is a shared observation schema and capture layer.",
+          "evidence": [
+            "server/src/utils/headlessTerminal.ts:95-203",
+            "frontend/src/components/Terminal/TerminalContainer.tsx:1323-1584",
+            "frontend/tests/e2e/terminal-authority.spec.ts:201-262,271-359,394-437"
+          ]
+        },
+        "evidence_strength": {
+          "score": 20,
+          "rationale": "All six code/test traces exist, are range-valid, and semantically match the viewport, replay, cache, remount, and current-behavior boundaries being characterized.",
+          "evidence": [
+            "server/src/services/SessionManager.ts:100-126,170-202,2482-2604",
+            "server/src/ws/WsRouter.ts:947-1005,1358-1408,1817-1865,1923-2035",
+            "frontend/tests/e2e/header-context-menu-regression.spec.ts:439-481"
+          ]
+        },
+        "dependency_health": {
+          "score": 14,
+          "rationale": "The sole hard dependency is implemented/stable; planned/evolving links are contextual extensions rather than implementation blockers.",
+          "evidence": [
+            "docs/spec/30.buildergate-stability.srs.md:230",
+            "docs/spec/30.buildergate-stability.srs.md:1106",
+            "docs/spec/30.buildergate-stability.srs.md:1649"
+          ]
+        },
+        "ac_verifiability": {
+          "score": 14,
+          "rationale": "The corpus axes, pre/post fields, hashes, equality states, cause signals, and loss classification are deterministic and machine-checkable; complete cell/attribute hashing still needs a focused helper.",
+          "evidence": [
+            "docs/spec/30.buildergate-stability.srs.md:2560",
+            "server/src/utils/headlessTerminal.ts:95-145,156-203",
+            "frontend/src/components/Terminal/TerminalView.tsx:1283-1345,1399-1499"
+          ]
+        },
+        "scope_fit": {
+          "score": 10,
+          "rationale": "The requirement cleanly separates observed current eviction/loss from future retained-range and transport-budget product contracts.",
+          "evidence": [
+            "docs/spec/30.buildergate-stability.srs.md:2560"
+          ]
+        },
+        "product_fit": {
+          "score": 10,
+          "rationale": "Refresh retained-state loss characterization directly supports the project goal of authoritative recovery parity before any migration decision.",
+          "evidence": [
+            "frontend/src/components/Terminal/TerminalContainer.tsx:1323-1584",
+            "frontend/tests/e2e/header-context-menu-regression.spec.ts:439-481"
+          ]
+        }
+      },
+      "blockers": [],
+      "conditions": [
+        "Introduce one shared pre/post retained-state artifact schema and deterministic hash helpers rather than duplicating capture logic.",
+        "Keep TC-7004 as a separate current-behavior case and preserve candidate causes when evidence cannot identify one cause."
+      ],
+      "has_verification": false,
+      "current_stability": "draft",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "PERF-BGSTAB-008",
+      "feasibility": "high",
+      "score": 89,
+      "axes": {
+        "implementability": {
+          "score": 24,
+          "rationale": "A new benchmark artifact/statistics layer and broader multi-client fixture are required, but injected scheduler, fake PTY/transport, pressure controls, and telemetry provide concrete reusable seams for every mode.",
+          "evidence": [
+            "frontend/src/utils/terminalOutputScheduler.ts:5-14,39-75,143-206",
+            "server/src/test-runner.ts:2311-2384,13607-13682,14514-14595",
+            "server/src/ws/WsRouterSendPriority.test.ts:7-55,58-99,123-188"
+          ]
+        },
+        "evidence_strength": {
+          "score": 18,
+          "rationale": "All cited paths exist and five of six trace rows semantically match; the test runner trace is partial because mode IDs, raw samples, percentile aggregation, and confidence intervals do not yet exist.",
+          "evidence": [
+            "server/src/services/SessionManager.ts:3008-3065,3486-3494",
+            "server/src/ws/WsRouter.ts:2119-2160",
+            "server/src/index.ts:797-815"
+          ]
+        },
+        "dependency_health": {
+          "score": 13,
+          "rationale": "The only hard dependency, OBS-BGSTAB-003, is implemented and exposes the required metrics, although its stability is evolving rather than stable.",
+          "evidence": [
+            "docs/spec/30.buildergate-stability.srs.md:2181",
+            "server/src/services/SessionManager.ts:3008-3065,3486-3494"
+          ]
+        },
+        "ac_verifiability": {
+          "score": 14,
+          "rationale": "Mode semantics, workload values, manifest provenance, raw-sample schema, percentile/CI outputs, and slow-vs-normal comparison are objectively testable; repeatable CI calculations require a newly seeded statistics implementation.",
+          "evidence": [
+            "docs/spec/30.buildergate-stability.srs.md:2628",
+            "server/src/ws/WsRouterSendPriority.test.ts:89-99,123-188",
+            "server/src/services/SessionManager.ts:3037-3046"
+          ]
+        },
+        "scope_fit": {
+          "score": 10,
+          "rationale": "The contract is limited to reproducible characterization evidence and expressly avoids turning observations into product thresholds or resource budgets.",
+          "evidence": [
+            "docs/spec/30.buildergate-stability.srs.md:2628"
+          ]
+        },
+        "product_fit": {
+          "score": 10,
+          "rationale": "Layer-isolated benchmarks and slow-client evidence directly support BuilderGate terminal performance and backpressure decisions.",
+          "evidence": [
+            "frontend/src/utils/terminalOutputScheduler.ts:143-206",
+            "server/src/ws/WsRouter.ts:2119-2160"
+          ]
+        }
+      },
+      "blockers": [],
+      "conditions": [
+        "Add a separate deterministic benchmark runner/artifact module that writes raw samples before aggregation.",
+        "Generalize the slow-client fixture to at least two subscribers and treat one-client runs only as pressure baselines.",
+        "Sample cumulative server metrics as explicit interval deltas with source and unit metadata."
+      ],
+      "has_verification": false,
+      "current_stability": "draft",
+      "current_status": "planned",
+      "external_module_impact": null
+    },
+    {
+      "req_id": "MIG-BGSTAB-001",
+      "feasibility": "high",
+      "score": 85,
+      "axes": {
+        "implementability": {
+          "score": 27,
+          "rationale": "No gate evaluator exists yet, but the required behavior is a bounded repo-local decision schema plus pure validation logic over an append-only wave-state sink, which is medium-complexity and straightforward to test.",
+          "evidence": [
+            "kiwi/waves.jsonl:1-7",
+            "docs/plans/2026-07-15.projectmaster.orca-terminal-performance.wave-master.plan.md:13-23",
+            "docs/plans/2026-07-15.projectmaster.orca-terminal-performance.wave-master.plan.md:39-42,67"
+          ]
+        },
+        "evidence_strength": {
+          "score": 14,
+          "rationale": "The workflow and append-only state paths exist, but the requirement has no code/test trace or existing decision-record schema/evaluator, so evidence is materially weaker than for the three characterization requirements.",
+          "evidence": [
+            "kiwi/waves.jsonl:1-7",
+            "kiwi/.status.json:5-45",
+            "docs/spec/30.buildergate-stability.srs.md:2694"
+          ]
+        },
+        "dependency_health": {
+          "score": 9,
+          "rationale": "The dependency graph is acyclic and intentional, but all three hard prerequisites are still planned/draft with zero verification evidence; this delays valid execution without making the gate implementation infeasible.",
+          "evidence": [
+            "docs/spec/30.buildergate-stability.srs.md:2498",
+            "docs/spec/30.buildergate-stability.srs.md:2560",
+            "docs/spec/30.buildergate-stability.srs.md:2628"
+          ]
+        },
+        "ac_verifiability": {
+          "score": 15,
+          "rationale": "Exact prerequisite IDs/digests, a two-value enum, one-fix bound, stable-authority prerequisite, downstream activation states, and denial reasons form a fully deterministic gate-test matrix.",
+          "evidence": [
+            "docs/spec/30.buildergate-stability.srs.md:2694",
+            "docs/plans/2026-07-15.projectmaster.orca-terminal-performance.wave-master.plan.md:39-42,67"
+          ]
+        },
+        "scope_fit": {
+          "score": 10,
+          "rationale": "The requirement only authorizes branch selection and activation gating, explicitly excluding authority promotion, UI change, legacy deletion, and budget decisions.",
+          "evidence": [
+            "docs/spec/30.buildergate-stability.srs.md:2694"
+          ]
+        },
+        "product_fit": {
+          "score": 10,
+          "rationale": "An evidence-locked G1 decision prevents both premature migration and unsupported bug-only closure, matching the wave-1 strategy exactly.",
+          "evidence": [
+            "docs/plans/2026-07-15.projectmaster.orca-terminal-performance.wave-master.plan.md:13-23",
+            "docs/spec/30.buildergate-stability.srs.md:2694"
+          ]
+        }
+      },
+      "blockers": [],
+      "conditions": [
+        "Implement and test the decision-record schema and pure gate evaluator before appending activation state.",
+        "A completed G1 record remains invalid until all three prerequisite artifacts and digests exist.",
+        "Architectural migration activation additionally requires a separately identified stable retained-state authority requirement."
+      ],
+      "has_verification": false,
+      "current_stability": "draft",
+      "current_status": "planned",
+      "external_module_impact": null
+    }
+  ]
+}

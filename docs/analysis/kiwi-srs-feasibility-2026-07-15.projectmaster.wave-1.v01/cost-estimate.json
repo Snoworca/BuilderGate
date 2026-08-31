@@ -1,0 +1,15 @@
+{
+  "run_id": "2026-07-15.projectmaster.wave-1.v01",
+  "requirements": 4,
+  "research_enabled": false,
+  "estimated_subagents": {
+    "phase1_standard": 3,
+    "phase2_prescreen": 0,
+    "phase2_senior": 1,
+    "phase5_verifier": 1,
+    "research_subagents": 0,
+    "total": 5
+  },
+  "cost_cap": null,
+  "halted": false
+}

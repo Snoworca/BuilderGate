@@ -1,0 +1,312 @@
+{
+  "run_id": "2026-07-15.projectmaster.wave-1.v01",
+  "target": "wave-1",
+  "analysis_mode": "prospective-policy-context-only",
+  "policy_source": "builtin-default",
+  "mappings_count": 7,
+  "policy_resolution_order": [
+    {
+      "order": 1,
+      "source": "project",
+      "path": "{cwd}/.kiwi/feasibility-policy.yaml",
+      "found": false,
+      "selected": false
+    },
+    {
+      "order": 2,
+      "source": "user",
+      "path": "{home}/.kiwi/feasibility-policy.yaml",
+      "found": false,
+      "selected": false
+    },
+    {
+      "order": 3,
+      "source": "builtin-default",
+      "selected": true
+    }
+  ],
+  "policy_mapping_order": [
+    {
+      "order": 1,
+      "when": {
+        "feasibility": "high",
+        "has_verification": true
+      },
+      "then": {
+        "stability": "stable",
+        "requires_user_confirm": true
+      }
+    },
+    {
+      "order": 2,
+      "when": {
+        "feasibility": "high"
+      },
+      "then": {
+        "stability": "evolving",
+        "requires_user_confirm": false
+      }
+    },
+    {
+      "order": 3,
+      "when": {
+        "feasibility": "medium"
+      },
+      "then": {
+        "stability": "keep",
+        "requires_user_confirm": false
+      }
+    },
+    {
+      "order": 4,
+      "when": {
+        "feasibility": "low"
+      },
+      "then": {
+        "stability": "draft",
+        "requires_user_confirm": "on_demotion"
+      }
+    },
+    {
+      "order": 5,
+      "when": {
+        "feasibility": "blocked",
+        "status": [
+          "in_progress",
+          "implemented",
+          "verified"
+        ]
+      },
+      "then": {
+        "stability": "keep",
+        "status_conflict": true,
+        "requires_user_confirm": false
+      }
+    },
+    {
+      "order": 6,
+      "when": {
+        "feasibility": "blocked"
+      },
+      "then": {
+        "stability": "deprecated",
+        "requires_user_confirm": true
+      }
+    },
+    {
+      "order": 7,
+      "when": {
+        "match": "none"
+      },
+      "then": {
+        "stability": "keep",
+        "requires_user_confirm": true
+      }
+    }
+  ],
+  "lifecycle_snapshot": {
+    "source": "speckiwi-mcp:list_requirements",
+    "fields": [
+      "id",
+      "target",
+      "status",
+      "stability"
+    ],
+    "consistent_with_target_snapshot": true,
+    "requirements": [
+      {
+        "id": "REL-BGSTAB-006",
+        "target": "wave-1",
+        "status": "planned",
+        "stability": "draft"
+      },
+      {
+        "id": "OBS-BGSTAB-004",
+        "target": "wave-1",
+        "status": "planned",
+        "stability": "draft"
+      },
+      {
+        "id": "PERF-BGSTAB-008",
+        "target": "wave-1",
+        "status": "planned",
+        "stability": "draft"
+      },
+      {
+        "id": "MIG-BGSTAB-001",
+        "target": "wave-1",
+        "status": "planned",
+        "stability": "draft"
+      }
+    ]
+  },
+  "predicted_transitions": [
+    {
+      "req_id": "REL-BGSTAB-006",
+      "current_status": "planned",
+      "current_stability": "draft",
+      "predicted_stability_range": [
+        "draft",
+        "evolving",
+        "stable",
+        "deprecated"
+      ],
+      "requires_user_confirm": true,
+      "confirmation_is_conditional": true
+    },
+    {
+      "req_id": "OBS-BGSTAB-004",
+      "current_status": "planned",
+      "current_stability": "draft",
+      "predicted_stability_range": [
+        "draft",
+        "evolving",
+        "stable",
+        "deprecated"
+      ],
+      "requires_user_confirm": true,
+      "confirmation_is_conditional": true
+    },
+    {
+      "req_id": "PERF-BGSTAB-008",
+      "current_status": "planned",
+      "current_stability": "draft",
+      "predicted_stability_range": [
+        "draft",
+        "evolving",
+        "stable",
+        "deprecated"
+      ],
+      "requires_user_confirm": true,
+      "confirmation_is_conditional": true
+    },
+    {
+      "req_id": "MIG-BGSTAB-001",
+      "current_status": "planned",
+      "current_stability": "draft",
+      "predicted_stability_range": [
+        "draft",
+        "evolving",
+        "stable",
+        "deprecated"
+      ],
+      "requires_user_confirm": true,
+      "confirmation_is_conditional": true
+    }
+  ],
+  "prospective_branch_resolution": [
+    {
+      "condition": "feasibility=high and has_verification=true",
+      "resolved_from_draft": "stable",
+      "confirmation": "required",
+      "guard_check": "dryRun required before any apply"
+    },
+    {
+      "condition": "feasibility=high and has_verification is not true",
+      "resolved_from_draft": "evolving",
+      "confirmation": "not required by policy",
+      "guard_check": "dryRun required before any apply"
+    },
+    {
+      "condition": "feasibility=medium",
+      "resolved_from_draft": "draft",
+      "confirmation": "not required",
+      "guard_check": "no-op; no stability mutation"
+    },
+    {
+      "condition": "feasibility=low",
+      "resolved_from_draft": "draft",
+      "confirmation": "not required because this is not a demotion",
+      "guard_check": "no-op; no stability mutation"
+    },
+    {
+      "condition": "feasibility=blocked while status remains planned",
+      "resolved_from_draft": "deprecated",
+      "confirmation": "required",
+      "guard_check": "dryRun required before any apply"
+    },
+    {
+      "condition": "no mapping matches",
+      "resolved_from_draft": "draft",
+      "confirmation": "required by fallback policy",
+      "guard_check": "no-op; no stability mutation"
+    }
+  ],
+  "required_confirmations": [
+    {
+      "candidate_stability": "stable",
+      "condition": "high feasibility with verification",
+      "applies_to": [
+        "REL-BGSTAB-006",
+        "OBS-BGSTAB-004",
+        "PERF-BGSTAB-008",
+        "MIG-BGSTAB-001"
+      ],
+      "reason": "Stable promotion always requires explicit user confirmation."
+    },
+    {
+      "candidate_stability": "deprecated",
+      "condition": "blocked feasibility while current status is planned",
+      "applies_to": [
+        "REL-BGSTAB-006",
+        "OBS-BGSTAB-004",
+        "PERF-BGSTAB-008",
+        "MIG-BGSTAB-001"
+      ],
+      "reason": "The built-in blocked/default mapping requires explicit user confirmation."
+    },
+    {
+      "candidate_stability": "keep",
+      "condition": "no mapping matches",
+      "applies_to": [
+        "REL-BGSTAB-006",
+        "OBS-BGSTAB-004",
+        "PERF-BGSTAB-008",
+        "MIG-BGSTAB-001"
+      ],
+      "reason": "The built-in no-match fallback requires explicit user confirmation."
+    }
+  ],
+  "transition_guard_warnings": [
+    {
+      "candidate_transition": "draft -> stable",
+      "risk": "Direct promotion can be rejected or require a reason by the transition guard.",
+      "required_action": "Run update_stability with dryRun=true, never bypass the guard, and request user confirmation before apply."
+    },
+    {
+      "candidate_transition": "draft -> evolving",
+      "risk": "Acceptance is not known until the transition guard verdict is collected.",
+      "required_action": "Run update_stability with dryRun=true before apply."
+    },
+    {
+      "candidate_transition": "draft -> deprecated",
+      "risk": "Acceptance is not known until the transition guard verdict is collected; this endpoint also requires confirmation.",
+      "required_action": "Obtain user confirmation and run update_stability with dryRun=true before apply."
+    },
+    {
+      "candidate_transition": "any -> frozen",
+      "risk": "Frozen is outside kiwi-srs-feasibility authority.",
+      "required_action": "Reject the mapping in this workflow; use the separate release authority."
+    }
+  ],
+  "status_conflicts": {
+    "policy": "warn",
+    "current": [],
+    "current_assessment": "No current conflict: all four requirements are planned, so the blocked/status-conflict branch does not match.",
+    "prospective_risk": {
+      "trigger_statuses": [
+        "in_progress",
+        "implemented",
+        "verified"
+      ],
+      "effect": "If a requirement has one of these statuses when a blocked result is mapped, keep its current stability, report the conflict, and do not apply the deprecated mapping.",
+      "recheck_timing": "Re-read lifecycle fields immediately before mapping or mutation because status may change after this snapshot."
+    }
+  },
+  "constraints": {
+    "feasibility_conclusions_made": false,
+    "stability_mutations_made": false,
+    "status_mutations_made": false,
+    "frozen_candidate_in_predicted_range": false
+  }
+}

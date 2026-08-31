@@ -1,0 +1,97 @@
+{
+  "iter": 4,
+  "fixed": [
+    {
+      "finding": "M-1",
+      "req_id": "OBS-BGSTAB-007",
+      "method": "edit",
+      "what_changed": "Verified first that SessionManager.resize (3401-3447) contains no captureDebugEvent call at all — its only tracing is wsRouter.recordReplayEvent (3414 resize_requested, 3427 resize_skipped) — while writeInput does hold a captureDebugEvent call (3205) sitting after its fencing gate (3197). The requirement had assumed a single shared defect ('returns before the capture') and a single shared remedy ('capture must be ordered before fencing'), which is false for resize. Split the two paths throughout: (1) retitled from 'must be ordered before authority fencing' to 'must record pty input and resize mutations rejected by authority fencing'; (2) rewrote the Requirement body as two labelled bullets — writeInput = reordering of an existing call, resize = new capture path, no call exists to move; (3) rewrote Rationale into per-path causes (writeInput = ordering problem; resize = omission problem, and even its recordReplayEvent sits behind the gate at 3412 so a rejected resize is recorded on no channel); (4) AC-1 now states writeInput is satisfied by reordering, AC-2 now states resize requires a NEW capture path and that the existing recordReplayEvent does not satisfy it; (5) AC-3 and AC-5 made explicitly applicable to both paths; (6) AC-4 ('no field-set expansion vs the existing capture path') scoped to writeInput only, naming the baseline (buildInputDebugDetails + inputSeqStart/inputSeqEnd + the AC-3 verdict field) and stating it does not apply to resize because no baseline exists there; (7) added AC-8 fixing the resize field set at exactly five keys — currentCols, currentRows, requestedCols, requestedRows, plus the AC-3 verdict field — mirroring the details already emitted by recordReplayEvent, which makes the resize field budget decidable and forbids input-string/preview fields; (8) Verification Method now asserts the writeInput field set is unchanged and the resize key set does not exceed AC-8's five, and requires the two channels be observed separately so 'recordReplayEvent only' is judged a failure; (9) Implementation Notes now warn not to replace or remove the existing recordReplayEvent calls when adding capture, and state that the absence of an AC-4 baseline does not make the resize field set unbounded; (10) corrected the Trace Link note to describe writeInput as a reordering site and resize as a capture-path addition site, with the real line numbers.",
+      "evidence": "docs/spec/30.buildergate-stability.srs.md:4178 (title), 4188 (Verification Method), Requirement/Rationale/AC block 4193-4222 (AC-8 at 4222), 4234 (Trace Link), Implementation Notes and Change Notes following; verified against server/src/services/SessionManager.ts:3197, 3205, 3401-3447, 3412, 3414, 3427 and the captureDebugEvent call-site inventory (no hit inside 3401-3447)"
+    },
+    {
+      "finding": "M-2",
+      "req_id": "OPS-BGSTAB-003",
+      "method": "edit",
+      "what_changed": "Chose option (a) and widened the requirement from the three pane-keyboard tests to all ten RED tests across the three pane-* spec files. Verified first that .pane-leaf, .pane-resizer and .pane-zoom-badge have zero occurrences in frontend/src and exist only in frontend/tests/e2e/helpers.ts and the pane-* specs; that all five pane-split tests open with rightClickPane (helpers.ts:476-480, which clicks .pane-leaf then waits for .context-menu); that pane-persistence TC-6401 fails at rightClickPane while TC-6403 never calls it but fails at verifyPaneCount(page, 1) (helpers.ts:494-496); and that .context-menu itself DOES exist in production (ContextMenu.css:1,20), which isolates the blocker to the missing .pane-leaf right-click target rather than the menu. Changes: (1) retitled to 'Close out the ten RED tests in the pane-* E2E specs with a per-test disposition'; (2) Requirement body now enumerates the ten tests by file and reorganizes the failure analysis into cause 1 (unmounted StatusBar / .status-prefix, 2 tests) and cause 2 (pane UI markup absent from frontend/src, 8 tests), and per-test extras under disposition A; (3) Rationale states that the eight cause-2 tests share one identical cause, that narrowing to pane-keyboard alone leaves seven identically-caused RED tests blocking the same CI gate, and therefore that there is no basis for splitting the disposition along file boundaries; (4) AC-1 and AC-2 now enumerate all ten tests and all three spec files; (5) AC-5 generalized from TC-6602 to all eight cause-2 tests, requiring .pane-leaf production markup reachable from the app tree; (6) AC-7 deletion clause now covers all ten; (7) added AC-8 pinning the per-test extra requirements (TC-6602 the % split handler, TC-6105 .pane-resizer, TC-6107 .pane-zoom-badge, TC-6401 layout persistence) with the 2026-08-14 absence fact; (8) added AC-9 forbidding leaving the seven newly covered tests undispositioned on an 'out of scope' rationale; (9) Verification Method now runs all three files and requires a pre-disposition failing baseline so the disposition judgement is not vacuous; (10) replaced the stale 'out of scope' Implementation Note with guidance for the eight cause-2 tests and shared skip wording; (11) rewrote the helpers.ts trace note around the three shared blocker helpers and added trace links for pane-split.spec.ts, pane-persistence.spec.ts and ContextMenu.css.",
+      "evidence": "docs/spec/30.buildergate-stability.srs.md:4561 (title), 4572 (Verification Method), Requirement/Rationale/AC block 4577-4607 (AC-8 at 4606, AC-9 at 4607), Trace Links / Implementation Notes / Change Notes following; verified against frontend/tests/e2e/helpers.ts:476-480,494-496,533-543, frontend/tests/e2e/pane-split.spec.ts:10-66, frontend/tests/e2e/pane-persistence.spec.ts:5-37, frontend/src/components/ContextMenu/ContextMenu.css:1,20, and a zero-hit grep for .pane-leaf/.pane-resizer/.pane-zoom-badge over frontend/src"
+    },
+    {
+      "finding": "M-2",
+      "req_id": "OPS-BGSTAB-005",
+      "method": "edit",
+      "what_changed": "Made AC-7 reachable by realigning it with the widened OPS-BGSTAB-003 scope. AC-7 previously gated the CI E2E job on the three pane-keyboard tests only, which was unreachable in practice because seven further pane-* tests cannot pass either, so the E2E gate would still block release. AC-7 now enumerates all ten tests and judges from OPS-BGSTAB-003 AC-2 evidence over all three spec files; the Requirement body's precondition sentence, the OPS-BGSTAB-003 depends_on trace note, and the Implementation Note about AC-7's judgement scope were restated to match. No status, stability or CI self-reference change.",
+      "evidence": "docs/spec/30.buildergate-stability.srs.md:4733 (AC-7), plus the Requirement precondition sentence, the OPS-BGSTAB-003 depends_on trace note, the AC-7 Implementation Note and a new Change Note within the OPS-BGSTAB-005 block starting at 4702"
+    },
+    {
+      "finding": "L-1",
+      "req_id": "OBS-BGSTAB-007",
+      "method": "edit",
+      "what_changed": "Corrected the acceptRetainedTerminalMutationIdentity citation in the Rationale effectivity paragraph (2976 to 2977) and in the Trace Link (function range 2975-3011 to 2972-3011; 'first statement' to 'second statement'; short-circuit line 2976 to 2977). Counted the function directly: it opens at 2972, the ensureRetainedTerminalSessionState call is the first statement at 2976, the shadow short-circuit `if (retained.mode !== 'shadow') return true;` is the second statement at 2977, and the closing brace is at 3011.",
+      "evidence": "docs/spec/30.buildergate-stability.srs.md:4206 (Rationale), 4234 (Trace Link); server/src/services/SessionManager.ts:2972-3011, short-circuit at 2977"
+    },
+    {
+      "finding": "L-1",
+      "req_id": "REL-BGSTAB-018",
+      "method": "edit",
+      "what_changed": "Same citation corrected in the second location: Rationale effectivity paragraph (2976 to 2977) and Trace Link (2975-3011 to 2972-3011, 'first statement' to 'second statement', 2976 to 2977). Added a Change Note recording the correction.",
+      "evidence": "docs/spec/30.buildergate-stability.srs.md:4331 (Rationale), 4360 (Trace Link), 4382 (Change Note)"
+    },
+    {
+      "finding": "L-2",
+      "req_id": "OPS-BGSTAB-007",
+      "method": "edit",
+      "what_changed": "Corrected the WebSocketContext.tsx StrictMode stale-socket guard citation from 1233-1237 to 1238, and named the guarded statement so the reference is self-checking. The cited range covered the ws.onmessage handler opening (1233) and its four-line comment but stopped one line short of the actual guard `if (wsRef.current !== ws) return;` at 1238. Added a Change Note.",
+      "evidence": "docs/spec/30.buildergate-stability.srs.md:4866 (Trace Link), 4884 (Change Note); frontend/src/contexts/WebSocketContext.tsx:1233 (handler opens), 1238 (guard)"
+    },
+    {
+      "finding": "L-3",
+      "req_id": "OPS-BGSTAB-005",
+      "method": "edit",
+      "what_changed": "Corrected the release.yml workflow length from 351 lines to 350 in the addition_site trace note. Verified with wc -l: the file is exactly 350 lines.",
+      "evidence": "docs/spec/30.buildergate-stability.srs.md:4743 (Trace Link); .github/workflows/release.yml is 350 lines"
+    },
+    {
+      "finding": "L-4",
+      "req_id": "FR-BGSTAB-023",
+      "method": "edit",
+      "what_changed": "Corrected the DisconnectedOverlay.tsx citation from (1-37) to (1-36, the whole file). The file is 36 lines long, so the previous range overran the end of file by one line. Added a Change Note.",
+      "evidence": "docs/spec/30.buildergate-stability.srs.md:4927 (Trace Link), 4942 (Change Note); frontend/src/components/Workspace/DisconnectedOverlay.tsx is 36 lines"
+    },
+    {
+      "finding": "L-5",
+      "req_id": "OPS-BGSTAB-006",
+      "method": "edit",
+      "what_changed": "Corrected the hasDeploymentArtifacts mischaracterization, located in OPS-BGSTAB-006. The function does not decide from fs.existsSync alone: it ANDs four fs.existsSync checks with a hasCompleteWebArtifacts call (252-272) that parses index.html, resolves every src/href reference under the public root, and statSyncs each one — a stronger check than bare existence. The absent property is freshness comparison (no hash, mtime or version compared against current source), which the requirement had correctly identified but attributed to the wrong baseline. Fixed in four places: (1) Rationale now describes the real check and isolates the missing property to freshness; (2) the Requirement body now says the freshness comparison is ADDED to the existence/completeness check rather than replacing it, closing a real implementation hazard where a fix might have swapped out the completeness check; (3) AC-1 names hasDeploymentArtifacts/hasCompleteWebArtifacts as checks that must be retained; (4) the Trace Link note describes both functions with real line ranges. Added a Change Note.",
+      "evidence": "docs/spec/30.buildergate-stability.srs.md:4780 (Requirement), 4784 (Rationale), 4788 (AC-1), 4802 (Trace Link), 4818 (Change Note); tools/start-runtime.js:242-250 (hasDeploymentArtifacts), 252-272 (hasCompleteWebArtifacts)"
+    }
+  ],
+  "not_fixed": [],
+  "scope_decision": {
+    "choice": "a",
+    "rationale": "Option (a) — widen OPS-BGSTAB-003 to all ten pane-* RED tests — was chosen over (b) creating a separate requirement for pane-split/pane-persistence. Reasons, in order of weight. (1) Single root cause: all seven newly covered tests fail for exactly the same reason as TC-6602, which OPS-BGSTAB-003 already owns — .pane-leaf has zero occurrences in frontend/src and exists only in helpers.ts and the pane-* specs. Splitting one cause across two requirements would put the same responsibility in two places, the failure mode where one side gets fixed and the other silently diverges. (2) The requirement's existing structure already absorbs the widening at zero structural cost: it was built around per-test dispositions (A/B/C) with explicitly different causes per test, so adding seven tests with a shared cause needed enumeration and a cause-2 grouping, not a new mechanism. (3) The pre-existing Implementation Note already acknowledged that pane-split.spec.ts and pane-persistence.spec.ts use the same .pane-leaf selector, and then declared them out of scope — the requirement had already identified the seven tests and chosen not to disposition them. Widening resolves that acknowledged gap in place; option (b) would have preserved it as a cross-requirement seam. (4) Single dependency edge: OPS-BGSTAB-005 AC-7 is judged from one piece of evidence (OPS-BGSTAB-003 AC-2). Option (b) would have made AC-7 depend on two requirements' evidence, and a partial-evidence state (one closed, one open) would make AC-7 undecidable again — reintroducing the exact defect being fixed. (5) Cost of (b) was strictly higher: a new draft requirement adds an SRS-W023 warning and a second Change-Note lineage for a proposition that is textually near-identical to AC-5. No countervailing reason to split was found: the two spec files share the cause, the disposition menu, the verification command, and the single downstream consumer. AC-1 still permits per-test disposition choices, so the widening does not force the seven tests into a single all-or-nothing outcome."
+  },
+  "edits_to_srs_markdown": [
+    {"req_id": "OBS-BGSTAB-007", "location": "docs/spec/30.buildergate-stability.srs.md:4178", "sections": ["Heading title", "Verification Method row", "Requirement", "Rationale", "Acceptance Criteria (AC-1..AC-5, new AC-8)", "Trace Links", "Implementation Notes", "Change Notes"], "findings": ["M-1", "L-1"]},
+    {"req_id": "REL-BGSTAB-018", "location": "docs/spec/30.buildergate-stability.srs.md:4316", "sections": ["Rationale", "Trace Links", "Change Notes"], "findings": ["L-1"]},
+    {"req_id": "OPS-BGSTAB-003", "location": "docs/spec/30.buildergate-stability.srs.md:4561", "sections": ["Heading title", "Verification Method row", "Requirement", "Rationale", "Acceptance Criteria (AC-1, AC-2, AC-5, AC-7, new AC-8, new AC-9)", "Trace Links", "Implementation Notes", "Change Notes"], "findings": ["M-2"]},
+    {"req_id": "OPS-BGSTAB-005", "location": "docs/spec/30.buildergate-stability.srs.md:4702", "sections": ["Requirement", "Acceptance Criteria (AC-7)", "Trace Links", "Implementation Notes", "Change Notes"], "findings": ["M-2", "L-3"]},
+    {"req_id": "OPS-BGSTAB-006", "location": "docs/spec/30.buildergate-stability.srs.md:4765", "sections": ["Requirement", "Rationale", "Acceptance Criteria (AC-1)", "Trace Links", "Change Notes"], "findings": ["L-5"]},
+    {"req_id": "OPS-BGSTAB-007", "location": "docs/spec/30.buildergate-stability.srs.md:4824", "sections": ["Trace Links", "Change Notes"], "findings": ["L-2"]},
+    {"req_id": "FR-BGSTAB-023", "location": "docs/spec/30.buildergate-stability.srs.md:4887", "sections": ["Trace Links", "Change Notes"], "findings": ["L-4"]}
+  ],
+  "mcp_calls": [
+    {"tool": "validate_spec", "args": {}, "purpose": "post-edit diagnostic comparison against the iteration baseline", "result": "errors=1, warnings=19, byCode={SRS-E002:1, SRS-W018:5, SRS-W023:14} — identical to baseline"}
+  ],
+  "existing_reqs_touched": [],
+  "validate_spec_result": {
+    "new_diagnostics": [],
+    "preexisting_diagnostics": [
+      {"code": "SRS-E002", "count": 1, "detail": "Duplicate requirement ID REL-BGSTAB-015 at docs/spec/steps/2026-07-26.pm.canary-fixture-recovery-public-api/01.public-sessionmanager-fixture.srs.md:3 — step-local file, outside this round's edit surface"},
+      {"code": "SRS-W018", "count": 5, "detail": "Five step-local scope SRS documents not registered in the Scope Map of docs/spec/00.index.md — all under docs/spec/steps/, outside this round's edit surface"},
+      {"code": "SRS-W023", "count": 14, "detail": "Fourteen draft requirements not ready as implementation contracts (REL-BGSTAB-016..019, OBS-BGSTAB-007, MIG-BGSTAB-003, OPS-BGSTAB-001..007, FR-BGSTAB-023) — expected for Stability=draft; no requirement was added or removed this round, so the count is unchanged"}
+    ],
+    "baseline_match": true,
+    "baseline": {"SRS-E002": 1, "SRS-W018": 5, "SRS-W023": 14},
+    "observed": {"SRS-E002": 1, "SRS-W018": 5, "SRS-W023": 14}
+  }
+}

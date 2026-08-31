@@ -1,0 +1,25 @@
+{
+  "target": "wave-3",
+  "intent_type_hint": "conflict",
+  "summary": "Wave 3는 #8부터 #14까지 정책 shadow/canary, browser sole writer, server retained-state authority, promotion/rollback, 공정 전송과 hidden authoritative recovery를 순차 도입한다.",
+  "ordered_dependency": ["#8", "#9", "#10", "#11", "#12", "#13", "#14"],
+  "semantic_equivalences": {
+    "full_retained_state": "무제한 로그가 아니라 effective retained-state policy 안에서 server model이 보존하는 normal/alternate buffer, cells, cursor, modes, geometry와 parser tail 전체",
+    "sole_writer": "모든 xterm mutation을 per-terminal ordered coordinator 하나와 단일 in-flight callback이 소유",
+    "dataGap": "PTY/model 손실이 아니라 특정 client/view delivery 생략을 나타내는 ordered marker",
+    "ack_credit": "server ledger의 encodedBytes를 검증된 cumulative deliverySeq ACK로만 반환",
+    "orca_absorption": "model-before-delivery, shallow socket, held application queue, explicit gap, snapshot recovery와 query ownership 불변식의 이식"
+  },
+  "ambiguities": [
+    "profile별 파생식과 구체 값은 승인되지 않았으므로 발명하지 않는다.",
+    "driver lease 중재 세부와 checkpoint/ACK/continuity 수치는 policy field로 두고 TDD·benchmark로 선택한다.",
+    "hold+bypass와 DRR 중 알고리즘은 동일 workload benchmark로 선택한다.",
+    "FR-BGSTAB-015 raw Settings는 Wave 3에서 compatibility facade로 유지한다."
+  ],
+  "safe_auto_resolution": [
+    "observe compiler는 legacy와 후보를 비교하되 legacy만 적용한다.",
+    "canary는 기존 entry를 손실시키지 않는 cap 증가 또는 신규 admission에만 적용한다.",
+    "새 수치·기본값·UI·binary/split 기본화·legacy 삭제는 승인하지 않는다."
+  ]
+}
+

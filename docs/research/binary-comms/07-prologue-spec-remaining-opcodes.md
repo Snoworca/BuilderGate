@@ -68,11 +68,11 @@ export interface ScreenRepairMessage {
 |---|---|---|---|
 | `type` | `'screen-repair'` | **opcode** | `01:534`. `opcode` 로 대체 |
 | `sessionId` | `string` (UUID 아닐 수 있음) | **channelId** | `01:324-334`. 36 B → uint32 |
-| `repairToken` | `string` (uuidv4, `WsRouter.ts:3869`) | **프롤로그 (인덱스)** | UUID 16 B → uint16 별칭. `01:518-520` 의 `replayTokenIndex` 와 동일 기법. 매핑은 JSON control (§7.1) |
-| `seq` | `number` | **프롤로그 uint64** | 값은 세션 `screenSeq` (`SessionManager.ts:6231` `seq: data.screenSeq`). `01:512` 와 같은 이유로 8 B — 세션 수명 동안 리셋되지 않으므로 4 B 는 조용히 wrap 한다 |
-| `cols` | `number` | **프롤로그 uint16** | `0x02` 와 동일 폭 (`01:518`) |
+| `repairToken` | `string` (uuidv4, `WsRouter.ts:3869`) | **프롤로그 (인덱스)** | UUID 16 B → uint16 별칭. `01:550-552` 의 `replayTokenIndex` 와 동일 기법. 매핑은 JSON control (§7.1) |
+| `seq` | `number` | **프롤로그 uint64** | 값은 세션 `screenSeq` (`SessionManager.ts:6231` `seq: data.screenSeq`). `01:546` 와 같은 이유로 8 B — 세션 수명 동안 리셋되지 않으므로 4 B 는 조용히 wrap 한다 |
+| `cols` | `number` | **프롤로그 uint16** | `0x02` 와 동일 폭 (`01:550`) |
 | `rows` | `number` | **프롤로그 uint16** | 같음 |
-| `bufferType` | `'normal' \| 'alternate'` | **프롤로그 uint8** | 2값 enum. `0x02` 의 `mode` u8 (`01:518`)과 같은 슬롯(프롤로그+12) |
+| `bufferType` | `'normal' \| 'alternate'` | **프롤로그 uint8** | 2값 enum. `0x02` 의 `mode` u8 (`01:550`)과 같은 슬롯(프롤로그+12) |
 | `cursor.x` | `number` | **프롤로그 uint16** | `buffer.cursorX` (`headlessTerminal.ts:491`) — 뷰포트 상대값이라 `cols` 범위 |
 | `cursor.y` | `number` | **프롤로그 uint16** | `buffer.cursorY` (`:492`) — `rows` 범위 |
 | `cursor.hidden` | `boolean?` | **프롤로그 uint8** | `state.cursorHidden` (`:493`). 선언은 optional 이므로 3상태(0/1/2=absent) |
@@ -111,7 +111,7 @@ export interface ScreenRepairMessage {
 | 10 | 2 | `rows` | uint16 BE | `:654`. `viewportRows.length` 를 겸한다 (§1.4) |
 | 12 | 1 | `bufferType` | uint8 | `0` = `normal`, `1` = `alternate` (`:655`, `:567`). `0x02` 의 `mode` u8 과 같은 슬롯 |
 | 13 | 1 | `cursorHidden` | uint8 | `0` = `false`, `1` = `true`, `2` = 필드 부재 (`:656` `hidden?`). `0x02` 의 `truncated` u8 과 같은 슬롯 |
-| 14 | 2 | `flags2` | uint16 BE | **전부 예약, 0 고정.** `0x02` 의 `flags2` 와 같은 슬롯·같은 상태(`01:518`) |
+| 14 | 2 | `flags2` | uint16 BE | **전부 예약, 0 고정.** `0x02` 의 `flags2` 와 같은 슬롯·같은 상태(`01:550`) |
 | 16 | 2 | `cursorX` | uint16 BE | `:656` |
 | 18 | 2 | `cursorY` | uint16 BE | `:656` |
 | 20 | 2 | (예약) | uint16 BE | **0 고정.** `0x02` 는 이 슬롯에 `authorityEpochIndex` 를 두지만 `ScreenRepairMessage` 에는 authority 필드가 없다 |
@@ -256,7 +256,7 @@ return digestTerminalBytes(retainedStateEncoder.encode(canonical)) === message.r
 | `type` | 리터럴 | **opcode** | |
 | `protocolVersion` | `1` | **제거 (상수 복원)** | `TERMINAL_CHECKPOINT_PROTOCOL_VERSION = 1 as const` (`:14`). 단일값 |
 | `sessionId` | `string` | **channelId** | `01:324-334` |
-| `viewGeneration` | `number` | **프롤로그 uint32** | `0x05` 프롤로그의 선례(`01:524`)를 그대로 따른다. `channelId` 는 세션 핸들이라 뷰를 구분하지 못한다 |
+| `viewGeneration` | `number` | **프롤로그 uint32** | `0x05` 프롤로그의 선례(`01:556`)를 그대로 따른다. `channelId` 는 세션 핸들이라 뷰를 구분하지 못한다 |
 | `streamEpoch` | Ordinal64 | **프롤로그 uint64** | §2.5 — 헤더의 `streamEpoch` 과 **같은 값이 아니다** |
 | `checkpointEpoch` | Ordinal64 | **프롤로그 uint64** | `01:419` 이 "checkpoint 프롤로그" 로 이미 분류 |
 | `sourceSeq` | Ordinal64 | **프롤로그 uint64** | §2.5 |
@@ -271,7 +271,7 @@ return digestTerminalBytes(retainedStateEncoder.encode(canonical)) === message.r
 | `sourceGeometry.cols/rows` | `number` | **프롤로그 uint16 ×2** | `:1761` |
 | `chunkCount` | `number` | **프롤로그 uint32** | `:1737`(metadata) — 클라이언트가 **양수**를 요구 |
 | `encodedByteTotal` | `number` | **프롤로그 uint32** | `:1763`. 값은 원시 바이트 총합(`:898` `encodedBytes: chunk.byteLength`), base64 길이가 아니다 |
-| `digest` | `{algorithm,hex}` | **프롤로그 32 B raw** | `:1764`. `algorithm` 은 단일값(`digestAlgorithms: readonly ['sha256']`, `:236`)이라 제거. hex 64자 → 32 B (`01:526`) |
+| `digest` | `{algorithm,hex}` | **프롤로그 32 B raw** | `:1764`. `algorithm` 은 단일값(`digestAlgorithms: readonly ['sha256']`, `:236`)이라 제거. hex 64자 → 32 B (`01:558`) |
 | `modes` | `Partial<Record<8종, boolean>>` | **프롤로그 uint8 ×2** | §2.7 |
 | `parserTail` | `{encoding,data,encodedBytes}` | **본문 + 상수/파생** | `encoding` 단일값, `encodedBytes` = 본문 길이. `data` = 본문 원시 바이트 |
 | `contentDigest?` | `string` | **제거 (파생)** | 클라이언트가 `message.contentDigest !== digestWireValue(message.digest)` 이면 거부한다(`terminalCheckpointRuntime.ts:436`). 즉 **항상 `sha256:` + `digest.hex`** 이므로 복원 가능 |
@@ -292,9 +292,29 @@ return digestTerminalBytes(retainedStateEncoder.encode(canonical)) === message.r
 
 ⇒ **`0x04`/`0x06`/`0x07` 프롤로그는 checkpoint 평면 ordinal 을 명시적으로 싣는다.** 헤더 값과 같다고 가정하지 않는다. 이름도 `checkpointSourceSeq`/`checkpointStreamEpoch` 로 구분해 헤더 필드명과 충돌하지 않게 한다 (§8.1).
 
+> ✅ **결론 확정 (2026-08-19) — §9 항목 1 판정: `DIFFERENT`.** 위 `[미확인]` 은 닫혔고 **결론은 옳다.** 다만 근거를 다음으로 대체한다: 두 값은 **별개 저장소이고 advance 트리거 집합이 서로소**다. controller 는 promotion(`TerminalAuthorityController.ts:1077`)·rollback(`:1532`)·rekey(`:606`)에서, retained 는 세션 생성(`SessionManager.ts:7128`)·Ordinal64 rollover(`:7882`/`:8120`)에서 움직인다. 같아지는 시점은 controller 생성(`SessionManager.ts:4952` → `Adapter.ts:2205`) **뿐**이고, controller 가 retained 를 따라가는 것은 `mode === 'server'` 이면서 값이 **커질 때만**이다(`Controller.ts:864-868`). `SessionManager.ts:5747-5761` 의 debug-isolation `max()` 가 존재한다는 사실 자체가 두 값이 다를 수 있다는 인정이다.
+>
+> ⚠️ **`retainedTerminalStreamEpochCounter` 는 세션당 epoch 이 아니다** — 매니저 스코프 **seed 할당기**이고 `:7127-7128` 이 유일한 증감이자 유일한 read 다(세션당 한 번). 이후 값은 `SessionData.retainedTerminal.streamEpoch` 에 산다. `retainedTerminalInitialOrdinal` 이 설정되면(`Adapter.ts:936-937`) 카운터는 프로세스 내내 `0n` 에 머문다.
+>
+> ⚠️ **headless 재초기화에서 controller epoch 이 뒤로 간다.** `SessionManager.ts:7471` 이 세대를 올리면 `:4952` 가 retained 값으로 controller 를 재시드하므로 N+1 로 승격됐던 controller 가 N 으로 교체된다 → **헤더를 controller 에서 뽑으면 단조성이 깨진다.**
+>
+> **인용 3건 정정**: (a) `:1667` 은 `streamEpoch` 를 공급하지 않는다 — `readLastCommittedSourceSeq()` 이고 `sourceSeq`/`snapshotSeq` 로 소비된다(`:1677-1678`). `streamEpoch` 의 실제 사슬은 `:1675` → `:1933`/`:2283`/`:3176` → `controller.getState().streamEpoch` 다. 즉 **와이어의 checkpoint `streamEpoch` 는 controller 값**이다. (b) 정본 지정은 `01:426` 이 아니라 **`01:466`**. (c) 2계층 모델 인용은 `01:311-320` 이 아니라 **`01:344`·`01:346`**. `checkpoint-not-active` 는 `WsRouter.ts:2400`.
+
 `[미확인]` — `retainedTerminalStreamEpochCounter` 와 controller 의 `streamEpoch` 이 같은 저장소인지 확인하지 못했다. **같다면** 프롤로그의 `checkpointStreamEpoch` 8 B 는 중복이며 frameVersion 범프로 제거할 수 있다. 확인 방법: `SessionManager.ts:1076` 의 카운터와 `TerminalAuthorityController` 의 `getState().streamEpoch` 이 같은 값을 읽는지 단위 테스트로 대조.
 
-### 2.6 `responderLeaseId` — 인코더가 거부한다 `[설계결정]`
+### 2.6 `responderLeaseId` — 인코더가 거부한다 `[설계결정]` — 🔴 **폐기 (2026-08-19)**
+
+> **이 절의 전제가 반증됐다. 아래의 채택 결정을 구현하면 안 된다.**
+>
+> `responderLeaseId` 와 `boundarySourceSeq` 는 **와이어에 실린다.** `TerminalAuthorityController.ts:1588-1594` 가 rollback(compatibility-recovery) 경로에서 `recovery.checkpointMessages` **전 원소**에 두 필드를 주입한다 — start 뿐 아니라 chunk·commit 까지. 아래 조사가 검사한 것은 `createCheckpoint` 의 `identity`(`:1670-1685`)이고 **그 관찰 자체는 맞다**; 필드는 controller 가 그 뒤에 주입한다. 대조군으로 promotion 경로(`Controller.ts:761-763`)는 `enqueue(message)` 맨몸이므로, 두 필드는 **promotion 에서 부재 / rollback 에서 항상 존재**다.
+>
+> 귀결: (1) 채택된 loud reject 는 compatibility-recovery 체크포인트마다 throw 한다. (2) `0x05` CHECKPOINT_CHUNK 의 12 B 프롤로그(`binaryFrameCodec.ts:113-114`, **이미 S2 에 구현됨**)에 자리가 없어 `01 §1.8` 까지 재검토 대상이다. (3) 조용히 드롭하면 아래 예측(클라이언트 `checkpoint-identity-mismatch`)과 달리 **서버 ACK 대조**(`Adapter.ts:790-791`, 기대값은 인코딩 이전 record `:1598-1608`)에서 실패해 `terminal-checkpoint:rejected / invalid-message` 로 apply/drain 이 정지한다.
+>
+> `boundarySourceSeq` 는 §2.9 레이아웃(off 56, `flags2` bit2 presence)이 **이미 올바르다** — promotion 에서 실제로 부재하므로 presence bit 설계가 맞다. 단 §3.3/§3.4 의 "commit 은 start 로부터 상속(제거)" 목록에서는 빼야 한다.
+>
+> 후속 설계 후보는 아래에서 기각된 **uint16 인덱스 + control 평면 매핑(§7.1)** 이며, 기각 사유("값이 나가는 경로가 없어 인덱스 수명·회전 규칙의 근거가 없다")는 **이제 성립하지 않는다 — 수명은 rollback 트랜잭션 단위다.**
+>
+> 전문·증거표는 `docs/next/2026-08-19-binary-data-plane-handoff.md` §4. 아래 본문은 판정 이력으로 보존한다.
 
 선언(`:31`)에 있고 `matchesTransactionIdentity:522` 가 비교한다. 그러나 **checkpoint wire 메시지에 이 값을 대입하는 경로를 찾지 못했다** `[미확인]` — `createCheckpoint` 의 `identity` (`:1670-1685`)에 없고, `:1470-1474` 의 주입에도 없다. `TerminalAuthorityProductionAdapter.ts:2009` 의 `responderLeaseId` 는 wire 메시지가 아니라 delivery-proof 호출 인자다.
 
@@ -304,6 +324,40 @@ return digestTerminalBytes(retainedStateEncoder.encode(canonical)) === message.r
 - (기각) uint16 인덱스 추가. 값이 실제로 나가는 경로가 없어 인덱스 테이블의 수명·회전 규칙을 정할 근거가 없다. 근거 없이 필드를 만들지 않는다.
 
 **원칙**: 레이아웃이 표현할 수 없는 것은 인코더가 시끄럽게 거부한다.
+
+### 2.6.1 후속 판정 (2026-08-19) — `responderLeaseId` 는 **고정폭 슬롯으로 싣는다**
+
+§2.6 폐기가 남긴 공백을 닫는다. 전문과 근거는 `docs/next/2026-08-19-binary-data-plane-handoff.md` §4.
+
+**판정: `0x04` 프롤로그를 160 → 200 B 로 넓히고 고정폭 슬롯을 둔다.**
+
+| off | size | 필드 | 도메인 |
+|---:|---:|---|---|
+| 160 | 1 | `responderLeaseIdLength` uint8 | `0..38` (단위 **바이트**) |
+| 161 | 39 | `responderLeaseIdBytes` raw | `[0,length)` UTF-8 원시 / `[length,39)` **0 고정** |
+
+`flags2` **bit4 = `RESPONDER_LEASE_ID_PRESENT`** 신설 → 예약 마스크 `0xFFF0` → **`0xFFE0`**.
+
+- **상한 38 의 유도**: `Adapter.ts:4435` 가 `` `responder-browser-${nextStreamEpoch}` `` 로 만든다 — 접두사 18 B + Ordinal64 십진 최대 20자리. ASCII 이므로 바이트 수 = 문자 수. `nextOrdinal`(`Adapter.ts:918-920`)에 상한 클램프가 없어 `2^64` 를 낼 수 있으나 **그것도 20자리**라 상한이 움직이지 않는다.
+- **§2.6 의 기각 사유가 여기엔 적용되지 않는다**: "가변 길이라 고정폭으로 표현할 수 없다" 는 **상한이 없을 때의 얘기**다. 상한이 38 로 유도되므로 고정폭 슬롯이 성립하고, `prologueBytes(0x04)` 는 **상수 200** 으로 남아 `01:518`·`01:108` 의 순수성 불변식(D14 안전성 논증의 근거)을 지킨다.
+- **부재는 "키 부재" 여야 하며 빈 문자열이면 안 된다.** `''` 로 복원하면 `matchesTransactionIdentity:522` 는 `'' === ''` 로 통과하지만 ACK 에코가 `Adapter.ts:790` 에서 `'' === undefined` → false → `terminal-checkpoint:rejected`. presence bit 이 `bit4=1 && length===0` 모순을 디코드 시점에 거부한다.
+- **uint16 인덱스안 재기각**: 클라이언트가 `wireIdentity:502` 로 **문자열을 에코**해야 하고 서버가 `Adapter.ts:790` 에서 문자열 동일성으로 받는다 → 인덱스만으로는 부족하고, 해석 실패라는 새 실패 모드만 는다.
+- **`streamEpoch` 파생 금지**: 산술적으로 가능하지만 내부 명명 관례를 와이어 계약으로 승격시킨다. 전제도 이미 거짓이다 — `Adapter.ts:2152-2155` 가 같은 접두사에 `-runtime-N` 접미사를 붙인다.
+
+⚠️ **§2.4 표 `:269` 행(`responderLeaseId?` → "인코더가 거부")은 이 판정으로 무효다.**
+⚠️ **§2.4 표 `:270` 행의 `[미확인]`("checkpoint wire 에 `boundarySourceSeq` 를 대입하는 경로를 찾지 못했다")도 반증됐다** — `TerminalAuthorityController.ts:1593` 이 rollback 경로에서 대입한다. §2.9 의 off 56 + bit2 설계는 그대로 옳다.
+
+✅ **§2.9 표에 반영 완료 (2026-08-19).** 구현·손계산 벡터 2개(`checkpoint-start-rollback-228` / `checkpoint-start-promotion-228`)와 함께 확정했다 — 레이아웃 숫자는 벡터가 맞아떨어질 때 비로소 확정되므로 그 순서를 지켰다.
+
+### 2.6.2 `07:313` 의 `boundarySourceSeq` 지시는 **과잉 정정**이다 (2026-08-19 판정)
+
+§2.6 폐기 노트(`:313`)는 *"`boundarySourceSeq` 를 §3.3/§3.4 의 '상속(제거)' 목록에서 빼야 한다"* 고 했다. **따르지 않는다.**
+
+- 문자 그대로 따르면 `0x06` 이 슬롯을 얻어야 하는데 §3.4 의 88 B 레이아웃에 자리가 없어 **96 B** 가 된다.
+- 그러나 `Controller.ts:1592-1593` 이 start·chunk·commit **전 원소에 같은 값**을 주입하므로, 독립 슬롯을 둬도 **두 피연산자의 출처가 여전히 같다** — 검사가 강해지지 않는다.
+- §3.3 은 상속 필드의 비교가 *"구조적 항진식이 되며 이것은 **의도된 것**"* 이라고 이미 규정했다. `boundarySourceSeq` 를 그 목록에 두는 것이 그 규정과 일관된다.
+
+⇒ **`boundarySourceSeq` 는 상속 목록에 유지하고 `0x06` 은 88 B 를 유지한다.**
 
 ### 2.7 `modes` 비트맵 — 2 B `[설계결정]`
 
@@ -331,7 +385,7 @@ return digestTerminalBytes(retainedStateEncoder.encode(canonical)) === message.r
 
 ⇒ uint32 채택. 폭이 opcode 별로 다른 것은 **출처의 증명 수준이 다르기 때문**이며, 이 사실을 표에 남긴다.
 
-### 2.9 프롤로그 바이트 레이아웃 — **160 B**
+### 2.9 프롤로그 바이트 레이아웃 — **200 B** (§2.6.1 로 160 → 200)
 
 | off | size | 필드 | 인코딩 | 비고 |
 |---:|---:|---|---|---|
@@ -359,7 +413,9 @@ return digestTerminalBytes(retainedStateEncoder.encode(canonical)) === message.r
 | 92 | 4 | `retainedSavedCursorY` | uint32 BE | `:93` |
 | 96 | 32 | `digest` | raw 32 B | `digest.hex` 64자를 바이트로 (`:86`). 디코더는 **소문자 hex** 로 복원 (`createHash(...).digest('hex')` 가 소문자, `:1659`) |
 | 128 | 32 | `retainedStateDigest` | raw 32 B | `:90` 의 `sha256:` 접두사 뒤 64 hex. `flags2` bit0 = 1 일 때만 유효 |
-| **합계** | **160** | | | 모든 uint64 가 8정렬, 두 digest 가 32정렬 |
+| **160** | **1** | **`responderLeaseIdLength`** | **uint8** | §2.6.1. 도메인 `0..38`, 단위는 **바이트**이지 문자가 아니다 |
+| **161** | **39** | **`responderLeaseIdBytes`** | **raw 39 B** | §2.6.1. `[0,length)` = UTF-8 원시, `[length,39)` = **0 고정**. `flags2` bit4 = 1 일 때만 유효 |
+| **합계** | **200** | | | 모든 uint64 가 8정렬, 두 digest 가 32정렬, 200 = 8×25. off 199 는 영구 패딩이며 도달 가능한 값이 없다 — 상한은 38 이지 39 가 아니다 |
 
 **`flags2` 비트 정의** (`0x04` 전용):
 
@@ -369,7 +425,8 @@ return digestTerminalBytes(retainedStateEncoder.encode(canonical)) === message.r
 | 1 | `TRANSITION_EPOCH_PRESENT` | off 48 유효 |
 | 2 | `BOUNDARY_SOURCE_SEQ_PRESENT` | off 56 유효 |
 | 3 | `SAVED_CURSOR_NON_NULL` | `0` = `retainedSavedCursor === null`, `1` = 객체. bit0 = 0 이면 무의미하며 0 이어야 한다 |
-| 4-15 | 예약 | 0 고정. 다른 값이면 `prologue-domain-violation` |
+| **4** | **`RESPONDER_LEASE_ID_PRESENT`** | **§2.6.1.** off 160/161 유효. 필드의 **유효성**만 서술하고 프롤로그 **크기**를 서술하지 않는다 — 그것이 `prologueBytes` 순수성의 근거다 |
+| 5-15 | 예약 | 0 고정. 다른 값이면 `prologue-domain-violation`. 예약 마스크는 `0xFFF0` → **`0xFFE0`** 으로 좁아졌다 |
 
 **본문**: `parserTail.data` 를 base64 디코딩한 원시 바이트. 길이 = `payloadLength - 160`. **0 이 정상이다** — `retained.checkpoint.pendingEscapeTailAnsi ?? ''` (`:1657`)이므로 빈 tail 이 통상 경로다.
 
@@ -484,7 +541,8 @@ if (
 |---|---|---|---|
 | `type` | 리터럴 | opcode | |
 | `protocolVersion` / `sessionId` / `retentionPolicyId` / `connectionId` / `authorityEpoch` / `transitionEpoch` / `boundarySourceSeq` / `streamEpoch` / `checkpointEpoch` / `snapshotSeq` / `oldestRetainedSeq` | — | **start 로부터 상속 (제거)** | `matchesTransactionIdentity` (`:507-524`)가 비교하는 필드들이며, 상속하면 비교가 구조적 항진식이 된다 — 이것은 **의도된 것**이다. §6.3 |
-| `viewGeneration` | `number` | **프롤로그 uint32** | 상속 가능하지만 남긴다 — `0x05` 가 이미 싣고 있어(`01:524`) 빼면 형제 opcode 와 어긋난다. 4 B |
+| **`responderLeaseId?`** | `string` | **start 로부터 상속 (제거)** | 🔴 **2026-08-19 추가 — 이 행이 없으면 rollback 이 통째로 깨진다.** §2.6 이 이 필드를 "인코더가 거부" 로 처분하면서 분류 대상에서 빠졌고, §2.6 폐기가 그 공백을 남겼다. `matchesTransactionIdentity:522` 가 이 필드를 **비교**하고 그 게이트(`:1204-1213`)는 `...activeIdentity` 상속(`:1218`)보다 **앞**이다. 따라서 디코더가 chunk·commit 에 대해 열린 트랜잭션에서 이 값을 채워 넣지 않으면, `undefined` 대 rollback start 의 비어있지 않은 문자열이 되어 **모든 rollback chunk 가 `failClosed('checkpoint-identity-mismatch')`** 된다. 값의 독립 출처는 `0x04` 프롤로그(§2.6.1)이고 그 정확성은 ACK 왕복(`Adapter.ts:790`)이 지킨다 |
+| `viewGeneration` | `number` | **프롤로그 uint32** | 상속 가능하지만 남긴다 — `0x05` 가 이미 싣고 있어(`01:556`) 빼면 형제 opcode 와 어긋난다. 4 B |
 | `sourceSeq` | Ordinal64 | **프롤로그 uint64** | `:1207-1210` 이 `activeIdentity.sourceSeq !== message.sourceSeq` 를 별도 검사한다. **독립 출처 필요** |
 | `chunkCount` | `number` | **프롤로그 uint32** | 독립 교차검증 (§3.2) |
 | `encodedByteTotal` | `number` | **프롤로그 uint32** | 같음 |
@@ -602,7 +660,7 @@ dispatchUnknown(currentCoordinator, {
 | `sourceSeq` | Ordinal64 | **프롤로그 uint64** | 프레임마다 바뀐다 (`:1567`). `matchesTransactionIdentity` 대상이 **아니다**(`:507-524` 에 없음) — output 은 이 값을 전진시키는 것이 정상이다 |
 | `viewGeneration` | `number` | **프롤로그 uint32** | `settlementToken` 조립에 필요 (`:1252`) |
 | `encoding` | `'base64'` | **제거 (상수)** | 단일값 (`:76`) |
-| `data` | `string` (base64) | **본문 (원시 바이트)** | base64 디코딩 결과를 그대로 싣는다. 33 % 오버헤드 소멸 (`01:524` 의 `0x05` 와 같은 이득) |
+| `data` | `string` (base64) | **본문 (원시 바이트)** | base64 디코딩 결과를 그대로 싣는다. 33 % 오버헤드 소멸 (`01:556` 의 `0x05` 와 같은 이득) |
 | `encodedBytes` | `number` | **제거 (파생)** | `= payloadLength - 12`. 클라이언트 검증기(`frontend:1026-1027`)가 `decodedBase64ByteLength(data) === encodedBytes` 를 요구하는데, 바이너리에서는 본문 길이가 곧 그 값이므로 **검사가 구조적으로 성립**한다 |
 | 나머지 WireIdentity 12종 | — | **활성 체크포인트로부터 상속** | 서버도 `...activeCheckpoint` 로 복사할 뿐이다 (`:1565`) |
 
@@ -745,7 +803,21 @@ hexFrame (42 B / 84 hex):
 
 **단, 이것은 S4 배선에 대한 전제 조건이다** `[미확인]`. 전송 계층 ordinal 은 아직 존재하지 않는다 — `01:293-305` 가 확인한 대로 현행 live output 은 `streamEpoch`/`sourceSeq` 를 싣지 않는다. **S4 가 프레임마다 세션 ordinal 을 1 증가시키는 배선을 실제로 넣어야** 위 표가 성립한다. 넣지 않으면 헤더의 두 필드는 상수가 되고 갭 검출·롤백이 무력화된다(`01:319` 의 기각 사유와 같은 함정).
 
-### 6.4 남는 위험 — 소켓 경계
+### 6.4 남는 위험 — 소켓 경계 — ✅ **반증 (2026-08-19)**
+
+> **이 절의 폴백은 존재하지 않는다.** `WsRouter.ts:1106-1111` 가드가 `lane === 'terminal'` 이고 `wsTransportMode !== 'unified'` 인데 output 소켓이 OPEN 이 아니면 `onSettled(Error('terminal-authority-output-lane-unavailable'))` 후 `{sent:false}` 를 돌린다 — **거부이고 재라우팅이 아니다.** `: control` 분기(`:1112-1114`, 아래 인용은 1줄 드리프트)는 `unified` 에서만 도달하며 거기서 control 은 유일한 소켓이다. `unified` 연결은 `splitSocketGroups` 에 들어가지 않고(`:1685-1697`) output 채널을 붙일 수도 없다(`:1579-1591` → `close(1008,'invalid-output-pair')`).
+>
+> 아래가 근거로 든 **`01:330-334` 는 오인용**이다 — 그 범위는 live-output 식별자 표이고 lane 폴백을 언급하지 않는다. 즉 상위 근거가 없는 주장이었다.
+>
+> **`non-monotonic-source-seq` 인용도 틀렸다.** `terminalWriteCoordinator.ts:1140-1142` 는 `validateLiveOrder`(`:1744`)에서만 도달하고 `command.type === 'live'|'repair'` 게이트(`:1677`) 뒤이며 트랜잭션이 열려 있으면 조기 반환한다(`:1701-1743`) → **체크포인트 경로에 아예 없다.** 순서가 어긋난 체크포인트 프레임은 오늘도 이미 fail-closed 다: `terminalCheckpointRuntime.ts:1204-1213` `checkpoint-identity-mismatch`, `:1762-1763` `checkpoint-already-open`.
+>
+> 부수 확인: 체크포인트 평면 `sourceSeq` 는 트랜잭션 스코프 상수다(`Adapter.ts:1758-1784` 가 같은 `identity`/`metadata` 를 start·chunk·commit 에 전개) → 소켓 교체와 무관.
+>
+> **실재하는 `?? control` 폴백은 다른 곳이다** — `WsRouter.ts:5862` 의 `createFairDeliveryScheduler`. 그러나 fair-delivery 경로는 `message.type === 'output'` 게이트(`:6394-6399`) 뒤이므로 체크포인트 프레임이 지나가지 않는다. **이 절을 다시 쓴다면 대상은 `0x04`/`0x06`/`0x07` 이 아니라 `0x01`** 이다.
+>
+> 트랜잭션 핀은 batch 경로에만 있다: `pump.transportBindingId`(`Adapter.ts:1279-1283`) 불일치 시 `terminal-authority-transport-binding-replaced`(`WsRouter.ts:1116-1125`). controller 경로(`Controller.ts:761-772`)는 프레임마다 pump 가 비워져 재생성되므로 핀이 유지되지 않는다 — 다만 위의 이유로 실제 위험은 없다.
+>
+> 아래 본문은 판정 이력으로 보존한다.
 
 WS 는 **소켓별로만** 순서를 보장한다. `01:330-334` 이 인용한 폴백(`WsRouter.ts:1111-1113`)은 output 소켓이 닫히거나 백프레셔에 걸리면 terminal payload 를 control 소켓으로 옮긴다. 트랜잭션 도중에 폴백이 발생하면 start 는 output 소켓, commit 은 control 소켓으로 나가고 **두 소켓 사이에는 순서 보장이 없다.**
 
@@ -766,13 +838,13 @@ WS 는 **소켓별로만** 순서를 보장한다. `01:330-334` 이 인용한 �
 
 **인덱스 테이블에 새 정책 상수가 필요 없다** `[설계결정]`. 한 세션에 살아 있는 `repairToken` 은 **동시에 하나뿐**이다 — `markScreenRepairPending` (`WsRouter.ts:3863-3878`)이 `(소켓, 세션)` 당 하나의 `ScreenRepairPendingState` 를 `set` 하고 그때 `uuidv4()` 를 발급한다(`:3869`). 따라서 인덱스는 **채널별 1..65535 순환 카운터**로 충분하고 테이블도 상한도 필요 없다. `PERF-BGSTAB-010` AC-4 위반 없음.
 
-`[미확인]` — `01:520` 이 `replayToken` 에 대해 남긴 회전 속도 실측 항목은 여전히 열려 있다. `repairToken` 은 위 근거로 닫혔으나, `replayToken` 이 매 snapshot 트랜잭션마다 새로 발급된다면(`WsRouter.ts:5269`) 같은 논증이 성립하는지 별도 확인이 필요하다.
+`[미확인]` — `01:552` 이 `replayToken` 에 대해 남긴 회전 속도 실측 항목은 여전히 열려 있다. `repairToken` 은 위 근거로 닫혔으나, `replayToken` 이 매 snapshot 트랜잭션마다 새로 발급된다면(`WsRouter.ts:5269`) 같은 논증이 성립하는지 별도 확인이 필요하다.
 
 ### 7.2 `retentionPolicyId` — 채널 상태로 승격
 
 가변 길이 문자열이며 형식은 `policyId` 또는 `` `${policyId}:debug:${isolationLeaseId}` `` 다 (`SessionManager.ts:5730-5738`). 고정폭 프롤로그에 들어가지 않는다.
 
-**값이 정책 스코프라 체크포인트마다 바뀌지 않는다.** `compiledTerminalResourcePolicy.legacyPolicy.policyId` 에서 파생되며(`:5736`), 디버그 격리가 걸릴 때만 접미사가 붙는다(`:5738`). ⇒ **채널 상태**로 승격하고, `01:534-540` 이 `replayToken`/`repairToken` 을 채널 상태로 올린 것과 같은 취급을 한다. 전달은 채널 개설 시(`subscribed` 확장, `01:344-355`) 또는 변경 시 JSON control.
+**값이 정책 스코프라 체크포인트마다 바뀌지 않는다.** `compiledTerminalResourcePolicy.legacyPolicy.policyId` 에서 파생되며(`:5736`), 디버그 격리가 걸릴 때만 접미사가 붙는다(`:5738`). ⇒ **채널 상태**로 승격하고, `01:612-617` 이 `replayToken`/`repairToken` 을 채널 상태로 올린 것과 같은 취급을 한다. 전달은 채널 개설 시(`subscribed` 확장, `01:374-385`) 또는 변경 시 JSON control.
 
 > ⚠️ 이 승격은 클라이언트의 ACK 에코(`terminalCheckpointRuntime.ts:488-504` `wireIdentity`)에서 `retentionPolicyId` 검증을 **자기비교**로 만든다 — 클라이언트가 서버에서 받은 값을 그대로 돌려주기 때문이다. 다만 JSON 에서도 이미 그러했으므로(클라이언트는 어차피 에코만 한다) **회귀는 아니다.** 이 필드로 무언가를 검증한다고 주장하는 테스트가 있다면 그것은 이미 공허했다.
 
@@ -790,7 +862,7 @@ WS 는 **소켓별로만** 순서를 보장한다. `01:330-334` 이 인용한 �
 
 | 대상 | 평면 | 근거 |
 |---|---|---|
-| `0x03` `ScreenRepairMessage` (S→C) | **바이너리** | 본문이 `maxSnapshotBytes` 까지 가는 ESC 조밀 ANSI. JSON 은 ESC 하나를 6 B 로 만든다(`01:556`). 게다가 `viewportRows[]` 중복 제거(§1.4). **4종 중 이득이 가장 크다** |
+| `0x03` `ScreenRepairMessage` (S→C) | **바이너리** | 본문이 `maxSnapshotBytes` 까지 가는 ESC 조밀 ANSI. JSON 은 ESC 하나를 6 B 로 만든다(`01:628`). 게다가 `viewportRows[]` 중복 제거(§1.4). **4종 중 이득이 가장 크다** |
 | `0x04` `:start` | **바이너리 (이득은 대역폭이 아니다)** | 본문(`parserTail`)은 통상 0 B 다. 이득은 metadata 압축이고 비용은 160 B 프롤로그 + base64 재인코딩(C1) + 채널 상태 의존(§7.2). **4종 중 유일하게 대역폭으로 정당화되지 않는다** — 정당화는 §6.3 의 트랜잭션 단일 인코딩이다 |
 | `0x06` `:commit` | **바이너리 (이득이 있다)** | §8.3 |
 | `0x07` `:output` | **바이너리** | checkpoint authority 하에서의 핫패스. `0x01 output` 의 checkpoint 모드 대응물이다(`:1563` 이 매 output record 마다 만든다). base64 33 % + ESC 이스케이프 제거 |
@@ -808,10 +880,10 @@ WS 는 **소켓별로만** 순서를 보장한다. `01:330-334` 이 인용한 �
 | 관례 | 기존 | 신설 | 상태 |
 |---|---|---|---|
 | 토큰 인덱스는 `<token>Index` | `authorityEpochIndex`, `replayTokenIndex` (`01:496`, `:518`) | `repairTokenIndex` | ✔ |
-| 상대값은 `<field>Delta` | `screenSeqDelta` 등 (`01:500-507`) | 없음 (가변 배열 없음) | ✔ |
-| 예약 확장 슬롯은 `flags2` | `0x02` (`01:518`) | `0x03`/`0x04`/`0x06` | ✔ — 단 §8.5 |
+| 상대값은 `<field>Delta` | `screenSeqDelta` 등 (`01:532-538`) | 없음 (가변 배열 없음) | ✔ |
+| 예약 확장 슬롯은 `flags2` | `0x02` (`01:550`) | `0x03`/`0x04`/`0x06` | ✔ — 단 §8.5 |
 | 헤더 필드명과의 충돌 회피 | — | `checkpointSourceSeq` / `checkpointStreamEpoch` | **신설 관례.** 헤더에 `sourceSeq`/`streamEpoch` 이 이미 있고 값이 다르므로(§2.5) 접두사가 없으면 `parseFrameMessage` 반환 객체에서 두 값이 충돌한다 |
-| `viewGeneration` 은 프롤로그+8 | `0x05` (`01:524`) | `0x04`/`0x06`/`0x07` **전부** | ✔ — **검증 가능한 불변식이 생겼다.** checkpoint 계열 4종에서 프롤로그 오프셋 8..11 은 항상 `viewGeneration` uint32 다 |
+| `viewGeneration` 은 프롤로그+8 | `0x05` (`01:556`) | `0x04`/`0x06`/`0x07` **전부** | ✔ — **검증 가능한 불변식이 생겼다.** checkpoint 계열 4종에서 프롤로그 오프셋 8..11 은 항상 `viewGeneration` uint32 다 |
 | 2값 enum 은 프롤로그+12 의 uint8 | `0x02` `mode` (`01:518`) | `0x03` `bufferType` | ✔ |
 
 ### 8.2 ⚠️ 인덱스 `0` 의 의미가 정의되지 않았다 — 소급 적용 필요
@@ -904,11 +976,11 @@ commit 이 JSON 으로 싣는 것을 세어 보면:
 
 | # | 항목 | 마커 | 확인 방법 |
 |---|---|---|---|
-| 1 | `retainedTerminalStreamEpochCounter` (`SessionManager.ts:1076`)와 controller `getState().streamEpoch` 이 같은 값인가 | `[미확인]` | 같다면 `0x04` 프롤로그의 `checkpointStreamEpoch` 8 B 가 중복 (§2.5) |
+| 1 | `retainedTerminalStreamEpochCounter` (`SessionManager.ts:1076`)와 controller `getState().streamEpoch` 이 같은 값인가 | ✅ **판정: DIFFERENT** (2026-08-19) | 트리거 집합이 서로소. **`0x04` 160 B 유지, 벡터 재계산 불필요.** 근거·발산 시나리오 5건은 `docs/next/2026-08-19-binary-data-plane-handoff.md` §4 |
 | 2 | `retained.checkpoint.cursor` 의 상한 | `[미확인]` | uint16 로 충분하면 `0x04` 프롤로그 160 → 152 B (§2.8) |
-| 3 | `responderLeaseId` / `boundarySourceSeq` 가 실제로 checkpoint wire 에 실리는 경로가 있는가 | `[미확인]` | 있다면 `0x04` 에 인덱스 필드 필요 (§2.6) |
+| 3 | `responderLeaseId` / `boundarySourceSeq` 가 실제로 checkpoint wire 에 실리는 경로가 있는가 | 🔴 **판정: ON-WIRE** (2026-08-19) | **§2.6 폐기.** `TerminalAuthorityController.ts:1588-1594` 가 rollback 경로의 `checkpointMessages` **전 원소**(start·chunk·commit)에 두 필드를 주입한다 → **`0x05` 12 B 도 깨진다.** 전문은 handoff §4 |
 | 4 | split 모드에서 `view.connectionId` 가 어느 소켓의 id 인가 | `[미확인]` | 수신 클라이언트가 자신의 id 로 복원 가능한지가 걸려 있다 (§2.4) |
-| 5 | 체크포인트 트랜잭션 도중 lane 폴백(`WsRouter.ts:1111-1113`)이 발생 가능한가 | `[미확인]` | 가능하면 소켓 경계 순서 역전 (§6.4) |
+| 5 | 체크포인트 트랜잭션 도중 lane 폴백(`WsRouter.ts:1112-1114`, 인용 1줄 드리프트)이 발생 가능한가 | ✅ **판정: 반증 — 폴백이 없다** (2026-08-19) | **§6.4 폐기.** `:1106-1111` 가드가 output 소켓 사망 시 `sent:false` 로 거부한다(재라우팅 아님). 실재하는 `?? control`(`:5862`)은 `type==='output'` 게이트 뒤 → 대상은 `0x01`. 전문은 handoff §4 |
 | 6 | metadata 13종(§2.1)을 프론트엔드 외의 소비자가 읽는가 | `[미확인]` | 읽는다면 제거가 회귀 |
 | 7 | 골든 벡터 `output-minimal-52` 의 `authorityEpochIndex = 0` 이 "부재" 의도였는가 | `[미확인]` | §8.2 의 소급 규칙 적용 가부 |
 | 8 | `replayToken` 회전 속도 (`01:520` 의 열린 항목) | `[미확인]` | 인덱스화 이득 유무. `repairToken` 은 §7.1 에서 닫힘 |
@@ -954,7 +1026,7 @@ commit 이 JSON 으로 싣는 것을 세어 보면:
                                      bit3 SAVED_CURSOR_NON_NULL
                                      bit4-15 예약(0)
 
-  0x05 CHECKPOINT_CHUNK 12B  chunkIndex u32 | chunkCount u32 | viewGeneration u32 [01:524]
+  0x05 CHECKPOINT_CHUNK 12B  chunkIndex u32 | chunkCount u32 | viewGeneration u32 [01:556]
 
   0x06 CHECKPOINT_COMMIT 88B checkpointSourceSeq u64 | viewGeneration u32 |
                              chunkCount u32 | encodedByteTotal u32 | flags2 u16 |

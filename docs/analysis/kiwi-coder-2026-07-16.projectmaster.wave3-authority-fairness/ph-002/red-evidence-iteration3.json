@@ -1,0 +1,170 @@
+{
+  "schemaVersion": "kiwi-tdd-red-evidence/v1",
+  "requirementId": "REL-BGSTAB-010",
+  "phaseId": "PH-002",
+  "taskId": "T-PH002-01",
+  "iteration": 3,
+  "stage": "red",
+  "productionCodeChanged": false,
+  "commands": [
+    {
+      "id": "server-focused-red",
+      "cwd": "server",
+      "value": "npx tsx --test src/services/TerminalResourcePolicyCanary.test.ts src/ws/WsRouterSendPriority.test.ts",
+      "expectedExitCode": 1,
+      "actualExitCode": 1,
+      "result": {
+        "total": 18,
+        "passed": 5,
+        "failed": 7,
+        "skipped": 6,
+        "cancelled": 0,
+        "todo": 0,
+        "durationMs": 951.2688
+      }
+    },
+    {
+      "id": "frontend-focused-red",
+      "cwd": "frontend",
+      "value": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+      "expectedExitCode": 1,
+      "actualExitCode": 1,
+      "result": {
+        "total": 30,
+        "passed": 29,
+        "failed": 1,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0,
+        "durationMs": 886.9665
+      }
+    },
+    {
+      "id": "server-typecheck",
+      "cwd": "server",
+      "value": "npx tsc --noEmit",
+      "expectedExitCode": 0,
+      "actualExitCode": 0
+    },
+    {
+      "id": "frontend-typecheck",
+      "cwd": "frontend",
+      "value": "npm run typecheck",
+      "expectedExitCode": 0,
+      "actualExitCode": 0
+    }
+  ],
+  "inputs": [
+    {
+      "path": "server/src/services/TerminalResourcePolicyCanary.test.ts",
+      "sha256": "3198e994dbb4bc037b77628591af0569f51619c193087c4221d7d7d85df2863b"
+    },
+    {
+      "path": "server/src/ws/WsRouterSendPriority.test.ts",
+      "sha256": "28a9024c7036e07c15a33a201707779d52aed09782645e43d8fa39cc630e2227"
+    },
+    {
+      "path": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+      "sha256": "e65cae2e28ded10cc5f9c51cdab91b36f84ffa403b5e994cd63316a45965c23f"
+    }
+  ],
+  "exactRootFailures": [
+    {
+      "testCaseId": "TC-REQ-REL-BGSTAB-010-AC1-01",
+      "testSymbol": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-1",
+      "signature": "REL-BGSTAB-010 AC-1 Non-loss policy canary infrastructure 계약 부재 때문에 실패",
+      "productionPath": "server/src/services/TerminalResourcePolicyCanary.ts",
+      "actual": "MODULE_PRESENT=false",
+      "expected": "MODULE_PRESENT=true"
+    },
+    {
+      "testCaseId": "TC-REQ-REL-BGSTAB-010-AC2-01",
+      "testSymbol": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-2",
+      "signature": "REL-BGSTAB-010 AC-2 Non-loss policy canary infrastructure 계약 부재 때문에 실패",
+      "productionPath": "RuntimeConfigStore.previewTerminalResourcePolicyCanaryAdmission",
+      "actual": "undefined",
+      "expected": "function"
+    },
+    {
+      "testCaseId": "TC-REQ-REL-BGSTAB-010-AC3-01",
+      "testSymbol": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-3",
+      "signature": "REL-BGSTAB-010 AC-3 Non-loss policy canary infrastructure 계약 부재 때문에 실패",
+      "productionPath": "RuntimeConfigStore.createNonLossTerminalResourceEffectPorts",
+      "actual": "undefined",
+      "expected": "function"
+    },
+    {
+      "testCaseId": "TC-REQ-REL-BGSTAB-010-AC4-01",
+      "testSymbol": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-4",
+      "signature": "REL-BGSTAB-010 AC-4 Non-loss policy canary infrastructure 계약 부재 때문에 실패",
+      "productionPath": "RuntimeConfigStore.getTerminalResourcePolicyCanaryLedger",
+      "actual": "undefined",
+      "expected": "function"
+    },
+    {
+      "testCaseId": "TC-REQ-REL-BGSTAB-010-AC5-01",
+      "testSymbol": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-5",
+      "signature": "REL-BGSTAB-010 AC-5 Non-loss policy canary infrastructure 계약 부재 때문에 실패",
+      "productionPath": "RuntimeConfigStore.applyTerminalResourcePolicyCanaryTarget with live WsRouter and SessionManager",
+      "actual": "undefined",
+      "expected": "function"
+    },
+    {
+      "testCaseId": "TC-REQ-REL-BGSTAB-010-AC6-01",
+      "testSymbol": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-6",
+      "signature": "REL-BGSTAB-010 AC-6 Non-loss policy canary infrastructure 계약 부재 때문에 실패",
+      "productionPath": "wsSendPolicy.createWsTransportMessage internal factory options",
+      "actual": {
+        "internalPolicyGeneration": null,
+        "serializedPolicyGeneration": null
+      },
+      "expected": {
+        "internalPolicyGeneration": 40,
+        "serializedPolicyGeneration": null
+      }
+    },
+    {
+      "testSymbol": "REL-BGSTAB-010 AC-6 RED — policy rollback does not direct-flush queued output past an in-flight callback",
+      "signature": "REL-BGSTAB-010 AC-6 deferred WS rollback drain 계약 부재 때문에 실패",
+      "productionPath": "WsRouter.updateRuntimeConfig -> flushAndClearTransportQueuesForPolicyRollback",
+      "actual": "three frames sent before the first delayed callback",
+      "expected": "only first frame sent before callback; first-second-third FIFO afterward; no close"
+    },
+    {
+      "testSymbol": "REL-BGSTAB-010 AC-3 RED — lowering a live scheduler cap preserves retained output instead of clearing or staling it",
+      "signature": "REL-BGSTAB-010 AC-3 Non-loss frontend policy transition 계약 부재 때문에 실패",
+      "productionPath": "terminalOutputScheduler.configure",
+      "actual": {
+        "stale": true,
+        "pendingBytes": 0,
+        "postTransitionAdmission": {
+          "ok": false,
+          "reason": "visible-output-overflow",
+          "droppedBytes": 4
+        }
+      },
+      "expected": {
+        "stale": false,
+        "pendingBytes": 16,
+        "postTransitionAdmission": { "ok": true },
+        "drainOrder": "old-retainednew!"
+      }
+    }
+  ],
+  "futureSemanticContracts": {
+    "count": 6,
+    "state": "skipped-until-production-module-exists",
+    "syntheticFailureRewriting": false,
+    "covers": [
+      "test-only trusted contractId plus reviewed OBS digest/status and wrong digest/schema rejection",
+      "internal queue accounting from actual WsTransportMessage.byteLength over ASCII/Korean/emoji JSON UTF-8 corpus",
+      "projected N-1/N/N+1, 16-to-32 increase, and 16-to-8 three-entry immutable full-order hash",
+      "WS connection/client/session/control/reconnect scope separated from headless session scope",
+      "atomic multi-consumer validation and adapter rollback with producer/authority effect ports",
+      "bounded ledger eviction and per-target generation",
+      "delayed callback FIFO, idempotent rollback, transport close, stale callback cleanup and zero handles/listeners/timers/entries",
+      "internal-only policyGeneration coalescing metadata"
+    ]
+  },
+  "redVerdict": "EXPECTED_CONCRETE_FAILURES_CONFIRMED"
+}

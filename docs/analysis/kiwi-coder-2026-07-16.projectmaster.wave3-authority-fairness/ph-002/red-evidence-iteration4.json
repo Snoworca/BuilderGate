@@ -1,0 +1,155 @@
+{
+  "schemaVersion": "kiwi-tdd-red-evidence/v1",
+  "requirementId": "REL-BGSTAB-010",
+  "phaseId": "PH-002",
+  "taskId": "T-PH002-01",
+  "iteration": 4,
+  "stage": "red",
+  "productionCodeChanged": false,
+  "commands": [
+    {
+      "id": "server-focused-red",
+      "cwd": "server",
+      "value": "npx tsx --test src/services/TerminalResourcePolicyCanary.test.ts src/ws/WsRouterSendPriority.test.ts",
+      "expectedExitCode": 1,
+      "actualExitCode": 1,
+      "result": {
+        "total": 13,
+        "passed": 5,
+        "failed": 8,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0,
+        "durationMs": 957.3661
+      }
+    },
+    {
+      "id": "frontend-focused-red",
+      "cwd": "frontend",
+      "value": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+      "expectedExitCode": 1,
+      "actualExitCode": 1,
+      "result": {
+        "total": 30,
+        "passed": 29,
+        "failed": 1,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0,
+        "durationMs": 1012.7503
+      }
+    },
+    {
+      "id": "server-typecheck",
+      "cwd": "server",
+      "value": "npx tsc --noEmit",
+      "expectedExitCode": 0,
+      "actualExitCode": 0
+    },
+    {
+      "id": "frontend-typecheck",
+      "cwd": "frontend",
+      "value": "npm run typecheck",
+      "expectedExitCode": 0,
+      "actualExitCode": 0
+    }
+  ],
+  "inputs": [
+    {
+      "path": "server/src/services/TerminalResourcePolicyCanary.test.ts",
+      "sha256": "541b465c366239ff91bb7290e89d44736cd8096938d22e5086ab24da22142552"
+    },
+    {
+      "path": "server/src/ws/WsRouterSendPriority.test.ts",
+      "sha256": "7294d23df744955d48ae697aa706bc9378be591a66482afe51d91a38ae462de8"
+    },
+    {
+      "path": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+      "sha256": "4adca6ded10caa30f8dbd3cc0000cfd5159eb291cdf0cb62fcfc4327d2affbce"
+    }
+  ],
+  "resourceTruth": [
+    {
+      "resource": "resourceLimits.ws.perClientOutputQueueMaxBytes",
+      "consumer": "server.ws.router",
+      "targetDimensions": ["connectionId", "clientId", "output-channel", "reconnectGeneration"],
+      "excludedDimensions": ["sessionId"],
+      "accounting": "aggregate all subscribed sessions from the router-owned client queue using actual JSON UTF-8 transport byteLength"
+    },
+    {
+      "resource": "resourceLimits.headless.pendingOutputMaxBytes",
+      "consumer": "server.pty.headless-model",
+      "targetDimensions": ["sessionId"],
+      "excludedDimensions": ["clientId", "connectionId"],
+      "accounting": "raw PTY UTF-8 bytes"
+    }
+  ],
+  "exactRootFailures": [
+    {
+      "test": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-1",
+      "path": "server/src/services/TerminalResourcePolicyCanary.ts",
+      "actual": "module absent",
+      "expected": "factory exists, defaults unavailable, and wrong OBS digest/status are rejected"
+    },
+    {
+      "test": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-2",
+      "path": "server/src/services/RuntimeConfigStore.ts#previewTerminalResourcePolicyCanaryAdmission",
+      "actual": "undefined after a real three-entry, two-session router queue is established",
+      "expected": "invoke preview and atomic admission against router-owned aggregate; N-1/N/N+1 and tampered byteLength checks"
+    },
+    {
+      "test": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-3",
+      "path": "server/src/services/RuntimeConfigStore.ts#createNonLossTerminalResourceEffectPorts",
+      "actual": "undefined",
+      "expected": "activate/stop/drain/disconnect execute while all destructive effect counters remain zero and cleanup reaches zero"
+    },
+    {
+      "test": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-4",
+      "path": "server/src/services/RuntimeConfigStore.ts#applyTerminalResourcePolicyCanaryTarget",
+      "actual": "undefined",
+      "expected": "actual apply followed by resource/consumer/target/generation-discriminated ledger read"
+    },
+    {
+      "test": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-5",
+      "path": "server/src/services/RuntimeConfigStore.ts#applyTerminalResourcePolicyCanaryTarget",
+      "actual": "undefined with live WsRouter and SessionManager",
+      "expected": "WS-only profile calls headless adapter zero times; headless preview uses session/raw UTF-8; producer and authority unchanged"
+    },
+    {
+      "test": "Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-6",
+      "path": "server/src/ws/wsSendPolicy.ts#createWsTransportMessage",
+      "actual": "third-argument internal policyGeneration is undefined",
+      "expected": "body generation stripped, internal option retained, generation-safe coalescing, no generation on wire"
+    },
+    {
+      "test": "REL-BGSTAB-010 AC-6 RED — policy rollback does not direct-flush queued output past an in-flight callback",
+      "path": "server/src/ws/WsRouter.ts#flushAndClearTransportQueuesForPolicyRollback",
+      "actual": "first, second and third are all sent before the first deferred callback",
+      "expected": "first only, then first+second, then first+second+third; no close"
+    },
+    {
+      "test": "REL-BGSTAB-010 AC-6 RED — target rollback isolates client B and drains client A callback-by-callback",
+      "path": "server/src/ws/WsRouter.ts#activateTerminalResourcePolicyCanary",
+      "actual": "undefined",
+      "expected": "A-only rollback, B candidate queue/generation/ledger hash unchanged, duplicate callback rejected"
+    },
+    {
+      "test": "REL-BGSTAB-010 AC-3 RED — explicit canary transition preserves below/at/above-cap retained FIFO",
+      "path": "frontend/src/utils/terminalOutputScheduler.ts#configureCanaryTransition",
+      "actual": "undefined",
+      "expected": "legacy configure remains unchanged; explicit canary transition preserves old 7/8/9-byte FIFO, falls back under legacy cap, never stale/drops"
+    }
+  ],
+  "behavioralCoverage": {
+    "queueOwnership": "caller supplies no queue scalar or snapshot; RuntimeConfigStore must query WsRouter and recompute every message payload byteLength",
+    "utf8Corpus": ["quote", "backslash", "newline", "CJK", "emoji"],
+    "atomicity": "tampered byteLength rejects without enqueue; accepted admission appends exactly once",
+    "targetIsolation": "same client aggregates session-a1/session-a2; client-b queue remains independent; WS target has no session dimension",
+    "headlessIsolation": "headless resource is session-scoped and WS-only profile invokes headless adapter zero times",
+    "rollback": "global regression plus per-target A/B isolation and callback-stage ordering",
+    "frontend": "explicit API only; pre-existing configure test remains unchanged",
+    "generation": "internal factory option only; body field absent from serialized and coalesced wire; different or defined/undefined generations do not merge",
+    "lifecycle": "forbidden counters cover activate/stop/drain/disconnect and cleanup reaches zero"
+  },
+  "redVerdict": "EXPECTED_CONCRETE_FAILURES_CONFIRMED"
+}

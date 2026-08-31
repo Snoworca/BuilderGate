@@ -1,0 +1,245 @@
+{
+  "candidate_matches": [
+    {
+      "finding": "C-1",
+      "id": "FR-BGSTAB-002",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "title": "Browser WebSocket input backpressure",
+      "matching_ac": ["AC-2", "AC-3", "AC-5", "AC-6"],
+      "ac_text": "AC-2: soft threshold exceeded -> send result is client-backpressure, input enters a bounded retry path. AC-3: hard threshold exceeded -> client-hard-backpressure + reconnect requested. AC-5: retry path clears the input barrier through normal transport state once bufferedAmount is low. AC-6: backpressured/queued/rejected input is not written to debug output (raw content only).",
+      "relation_hint": "potential-conflict",
+      "similarity_score": 0.72,
+      "note": "AC-2/AC-3/AC-5 already require an observable send-result + bounded retry + eventual barrier clearing for WS-buffer backpressure, not a silent drop. C-1's 'observe + transient-blocked, queued 없이 조용히 폐기' scenario looks like a different reliability-mode gate (not the WS bufferedAmount gate this REQ covers) that bypasses these observable-result guarantees -- worth checking whether it is the same code path. AC-6 explicitly forbids raw input in debug logs, which is the intended reason debug capture omits payload content; but AC-6 does not say the capture path itself may be entirely no-op/absent in production default, so the 'no record at all' part of C-1 is not directly authorized here."
+    },
+    {
+      "finding": "C-1",
+      "id": "OBS-BGSTAB-001",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "title": "ConPTY input-lag recovery telemetry and soak evidence",
+      "matching_ac": ["AC-1", "AC-2"],
+      "ac_text": "AC-1: baseline runs must record Settings snapshot, input/recovery timing, queue depths, etc. AC-2: telemetry or debug capture records input/recovery timing with correlation identifiers and timestamps, without durable storage of raw terminal input/output/snapshot/ANSI content.",
+      "relation_hint": "potential-conflict",
+      "similarity_score": 0.55,
+      "note": "This REQ (status=planned) expects input/recovery telemetry and debug-capture correlation to exist and be queryable (minus raw payload). If production-default debug capture is truly no-op with zero record of a dropped keystroke, that looks like it falls short of AC-2's intent even though AC-2 never mandates capture be enabled by default -- flag for planner to confirm default-enablement expectations."
+    },
+    {
+      "finding": "C-1",
+      "id": "FR-BGSTAB-017",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "title": "Frontend recovery write gate and queued input release barrier",
+      "matching_ac": ["AC-3"],
+      "ac_text": "AC-3: queued input is not released to the PTY until the recovery gate drains or a configured recovery release timeout emits an observable release event.",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.35,
+      "note": "Establishes the general pattern that input blocking states must resolve via an observable event, not silently. C-1's 'transient-blocked' input-reliability state is a different named state, but the same observability principle plausibly should extend to it."
+    },
+    {
+      "finding": "H-3",
+      "id": "REL-BGSTAB-009",
+      "scope": "BGSTAB",
+      "target": "wave-2",
+      "title": "Bounded remount restore coordinator and ready barrier",
+      "matching_ac": ["AC-7", "AC-8"],
+      "ac_text": "AC-7: Apply rejection, IME-active cancellation, geometry/buffer mismatch, write throw/callback timeout and server ACK failure must not allow ready/queued-input release; they must converge to an observable reason plus bounded fresh-resync/reconnect (supersedes FR-BGSTAB-017 AC-3's timeout-release clause). AC-8: retry and concurrent restore counts are bounded; repeated remount must not leak loops/listeners/timers.",
+      "relation_hint": "potential-conflict",
+      "similarity_score": 0.8,
+      "note": "This is the closest and strongest match for H-3. AC-7 explicitly names 'geometry/buffer mismatch' as a case that must NOT permanently block ready/input -- it must resolve via bounded fresh-resync/reconnect, i.e. retries are required by contract. H-3's report of a 0x0 fit that gives up without retry and leaves geometryReadyRef stuck false (and an imperative fit() that can't clear the barrier) looks like a direct violation of AC-7/AC-8 as currently implemented, unless the implementation treats the initial 0x0 differently from a 'mismatch after ready' case. Status=implemented, so this would be a regression/gap-in-implementation finding against a stable-ish contract rather than a spec gap."
+    },
+    {
+      "finding": "H-4",
+      "id": "REL-BGSTAB-011",
+      "scope": "BGSTAB",
+      "target": "wave-3",
+      "title": "Retained server model authority shadow and driver lease",
+      "matching_ac": ["AC-6", "AC-9"],
+      "ac_text": "AC-6: each session's input/resize/query-reply change is gated by exactly one explicit driver lease generation at a time, and owner claim, deterministic handoff, stale-owner rejection, and disconnect/rebind must be observable. AC-9: termination paths must reject late output/input/resize/query-reply of the terminated generation and leave session-terminated observable.",
+      "relation_hint": "potential-conflict",
+      "similarity_score": 0.75,
+      "note": "Directly on point: AC-6 requires stale-owner/lease rejections to be observable (with owner/generation context), not opaque. H-4's report that authority fencing failure returns bare `false` with no log/exception, and the client only sees a generic 'server-error' unrelated to the real cause, looks like a violation of this observability requirement. This REQ's Status is implemented, so likely an implementation gap rather than a missing requirement."
+    },
+    {
+      "finding": "H-4",
+      "id": "FR-MCP-002",
+      "scope": "MCP",
+      "target": "0.5.5-buildergate-stability",
+      "title": "Shared input gateway for MCP messages and leader replies",
+      "matching_ac": ["AC-1", "AC-2"],
+      "ac_text": "AC-1: all WebSocket/MCP/webhook/kickoff input funnels through SessionInputGateway before the low-level PTY write. AC-2: when replay/repair state is pending, the gateway queues or rejects per replayPolicy and returns INPUT_REJECTED_REPLAY_PENDING or an equivalent observable status.",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.55,
+      "note": "Confirms an existing pattern of named, observable input-rejection reason codes (INPUT_REJECTED_REPLAY_PENDING) for the MCP path. H-4's ask -- add authority/lease-failure values to the InputRejectedReason enum, and have the MCP gateway pass through retainedIdentity so authority checks can attribute the correct actor -- reads as a natural extension of this same enum/gateway, not something explicitly ruled out. No AC currently mentions retainedIdentity or driver-lease propagation through the MCP gateway, so that part is likely new ground."
+    },
+    {
+      "finding": "H-4",
+      "id": "PERF-BGSTAB-010",
+      "scope": "BGSTAB",
+      "target": "wave-3",
+      "title": "Per-client per-session fair delivery and ACK credit ledger",
+      "matching_ac": ["AC-6"],
+      "ac_text": "AC-6: duplicate, stale, unknown, or out-of-order ACKs must not increase credit and must remain an observable protocol error; the client-reported byte count must not be trusted.",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.3,
+      "note": "Same 'observable protocol error, not silent/opaque' principle applied to ACK/credit handling; useful precedent for how resize/authority rejection reasons (part of H-4) should be classified, but this REQ is about delivery credit, not input/resize authority fencing directly. Status=in_progress."
+    },
+    {
+      "finding": "H-5",
+      "id": "FR-BGSTAB-008",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "title": "Wave 0 baseline config contract recovery",
+      "matching_ac": ["AC-1", "AC-2"],
+      "ac_text": "AC-1: given a legacy config omits resourceLimits/stabilityModes, typed defaults are applied for headless/serverWs/browserWs/terminal/snapshots/workspaceRuntime/telemetry/stabilityMode sections. AC-2: unknown keys, explicit null sections, non-integer/out-of-range values, unsupported enums, or inconsistent threshold relationships must fail validation observably instead of being silently stripped or coerced.",
+      "relation_hint": "potential-conflict",
+      "similarity_score": 0.7,
+      "note": "AC-1 is literally the 'old config -> typed (safe/default) values applied' behavior H-5 flags -- but AC-1 is scoped to a config that OMITS the section entirely (true legacy absence), and is explicitly the intended baseline-recovery default, not a bug. AC-2 separately requires that once a section IS present, invalid/unknown data must fail observably and must not be silently coerced. If H-5's real complaint is that an explicitly-set wsSendMode/processCleanup.mode value gets silently reset to default because there is no schema-version discriminator to distinguish 'absent (legacy)' from 'present but stale-shaped', that is a plausible AC-2 violation and/or a genuine gap (no schemaVersion/migration concept exists anywhere in this REQ or elsewhere in BGSTAB config ACs)."
+    },
+    {
+      "finding": "H-5",
+      "id": "FR-BGSTAB-009",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "title": "Wave 1 server session process observation",
+      "matching_ac": ["AC-1"],
+      "ac_text": "AC-1: given a legacy config omits session.processCleanup, observe-mode defaults are applied with fixed gracefulWaitMs/forceWaitMs/descendantSampleLimit, and invalid mode/null section/non-integer/out-of-range values are rejected observably.",
+      "relation_hint": "potential-conflict",
+      "similarity_score": 0.6,
+      "note": "Same pattern as FR-BGSTAB-008 but specifically for session.processCleanup.mode, one of the two fields H-5 names. Confirms 'observe' (the safe default) is the intended fallback for a truly absent section; whether an explicitly-configured stricter mode can be silently lost due to missing config versioning is not addressed by this AC and looks like a real spec gap (no version/migration field anywhere in the processCleanup config contract)."
+    },
+    {
+      "finding": "H-1",
+      "id": "REL-BGSTAB-009",
+      "scope": "BGSTAB",
+      "target": "wave-2",
+      "title": "Bounded remount restore coordinator and ready barrier",
+      "matching_ac": ["AC-7"],
+      "ac_text": "AC-7: apply rejection, IME-active cancellation, geometry/buffer mismatch, write throw/callback timeout and server ACK failure must not release ready/input and must converge to observable resync/reconnect.",
+      "relation_hint": "potential-conflict",
+      "similarity_score": 0.4,
+      "note": "The only AC in-scope that explicitly names IME. It covers 'IME-active cancellation' (i.e., input during an open composition should be held/cancelled safely) but does not speak to H-1's distinct scenario: committed IME/emoji text being misclassified by provenance tagging (as 'parser-generated') and dropped once a replay lease is active. Related concept, different mechanism -- treat as a loose match, not a direct hit."
+    },
+    {
+      "finding": "H-1",
+      "id": "FR-MCP-002",
+      "scope": "MCP",
+      "target": "0.5.5-buildergate-stability",
+      "title": "Shared input gateway for MCP messages and leader replies",
+      "matching_ac": ["AC-2"],
+      "ac_text": "AC-2: when replay/repair state is pending, gateway input is queued or rejected per replayPolicy with an observable rejection status.",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.4,
+      "note": "Establishes that 'replay pending' is a recognized gating condition for input with a defined, observable outcome. H-1's finding that legitimate user-typed IME/emoji content can be silently discarded (not merely queued/rejected-with-reason) during an active replay lease because of an input-provenance misclassification bug looks like it could violate the spirit of AC-2 (observable status) even though this REQ does not itself define provenance classification (parser-generated vs. user-typed)."
+    },
+    {
+      "finding": "H-1",
+      "id": "FR-BGSTAB-022",
+      "scope": "BGSTAB",
+      "target": "wave-3",
+      "title": "Browser TerminalWriteCoordinator sole-writer transaction",
+      "matching_ac": ["AC-1", "AC-2"],
+      "ac_text": "AC-1: a single TerminalWriteCoordinator accepts live output, provisional cache, replay, checkpoint, repair and recovery mutation as one ordered deque. AC-2: production xterm write/reset/resize/mode-rehydrate/parser-tail-apply only happen through coordinator commands.",
+      "relation_hint": "unrelated",
+      "similarity_score": 0.2,
+      "note": "This REQ classifies terminal *output* mutation sources for xterm write ordering, not keyboard *input* provenance (user-typed vs. IME vs. programmatic paste). Included only because 'parser-generated' terminology overlaps; likely a different subsystem than the one H-1 is describing. Low confidence -- flag as probably unrelated unless the provenance tagging code is shared."
+    },
+    {
+      "finding": "M-1",
+      "id": "FR-BGSTAB-014",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "title": "Wave 7 frontend runtime resource consumers",
+      "matching_ac": ["AC-7"],
+      "ac_text": "AC-7: given browser WebSocket input send is backpressured or socket.send throws, WebSocketContext returns an explicit failure reason, ws_input_sent is emitted only for real send success, and input content stays out of debug logs.",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.4,
+      "note": "Existing verification evidence VE-BGSTAB-014-08 (frontend/tests/e2e/terminal-keyboard-regression.spec.ts, TC-7212/TC-7213) covers stale-socket reconnect and send-failed exception paths, but there is no AC or evidence entry naming the captureAllowed=false / helper-textarea-disabled branch specifically. M-1's '0 tests for that branch' looks like a genuine coverage gap against this REQ's general input-reliability intent rather than a spec conflict."
+    },
+    {
+      "finding": "M-2",
+      "id": "REL-BGSTAB-006",
+      "scope": "BGSTAB",
+      "target": "wave-1",
+      "title": "Split runtime·test·SRS drift characterization",
+      "matching_ac": ["AC-4"],
+      "ac_text": "AC-4: mismatch evidence records SRS-expected vs. production-observed vs. test-observed as match/mismatch/not_exercised per case, so runtime/test/SRS drift can be tallied mechanically.",
+      "relation_hint": "unrelated",
+      "similarity_score": 0.15,
+      "note": "Conceptually adjacent (both are about SRS/test drift) but this REQ is narrowly scoped to the split-WebSocket transport characterization from Wave 1, not a general policy about RED/skip discipline for any spec file. No requirement in any scope document specifically addresses pane-keyboard.spec.ts or a rule that RED tests targeting unimplemented features must be skip-marked. Treat as effectively unmatched; listed only as the nearest thematic neighbor."
+    },
+    {
+      "finding": "M-3",
+      "id": "FR-BGSTAB-008",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "title": "Wave 0 baseline config contract recovery",
+      "matching_ac": ["AC-5"],
+      "ac_text": "AC-5: given a browser requests /api/runtime-config, the response exposes only non-secret public values: inputReliabilityMode, wsTransportMode, browser-needed resourceLimits sections, and frontendRuntimeResidency mode.",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.65,
+      "note": "This is the exact endpoint M-3 names. AC-5's design intent is explicitly 'no secrets exposed, so it's safe to be public' -- the requirement does not currently call for authentication, and the finding does not claim a secret is leaking. So this reads more as a defense-in-depth hardening proposal (add auth anyway) than a violation of AC-5; classify as an update candidate, not a conflict, unless the analyst finds the endpoint now exposes something beyond the AC-5 allowlist."
+    },
+    {
+      "finding": "신규-1",
+      "id": "FR-BGSTAB-002",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "title": "Browser WebSocket input backpressure",
+      "matching_ac": ["Requirement", "Rationale"],
+      "ac_text": "Requirement: 'The browser client shall gate terminal input WebSocket messages ... Control and recovery messages shall continue to bypass input backpressure.' Rationale: 'Input-only gating limits memory growth without blocking snapshot, repair, or subscription recovery traffic.'",
+      "relation_hint": "potential-conflict",
+      "similarity_score": 0.85,
+      "note": "This is a direct hit: FR-BGSTAB-002's Requirement and Rationale text explicitly design backpressure as input-only, on purpose, and this REQ is Stability=stable/Status=implemented. 신규-1's finding that backpressure is 'structurally input-only (does not route through output)' is not a bug relative to this REQ -- it is the REQ. This should be flagged to the SRS analyst as a potential disagreement with an already-stable, approved design decision, worth a conflict/policy discussion (e.g., is there a separate output-side memory-growth concern this REQ never intended to cover?) rather than treated as an implementation defect."
+    },
+    {
+      "finding": "신규-2",
+      "id": "REL-BGSTAB-001",
+      "scope": "BGSTAB",
+      "target": "0.5.5-buildergate-stability",
+      "title": "Stability validation and non-2002 operational verification",
+      "matching_ac": ["AC-1", "AC-2", "AC-3"],
+      "ac_text": "AC-1: full server suite + focused split transport tests pass when server tests run. AC-2: focused frontend unit tests (runtime config, WS lifecycle, backpressure, scheduler, snapshot, residency, visible recovery) pass when run. AC-3: frontend typecheck/build passes with no new blocking error.",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.45,
+      "note": "This REQ requires the listed test suites to pass 'when run' and requires build/typecheck to be clean, but never states these must be wired into CI / run automatically on every change. 신규-2's finding that CI never executes E2E/unit tests is not contradicted by this REQ's text, but it does undercut the REQ's practical guarantee (a suite that 'passes when run' but is never run in CI gives no continuous assurance). Good candidate for an explicit CI-enforcement AC/update."
+    },
+    {
+      "finding": "신규-4",
+      "id": "REL-BGSTAB-009",
+      "scope": "BGSTAB",
+      "target": "wave-2",
+      "title": "Bounded remount restore coordinator and ready barrier",
+      "matching_ac": ["AC-6"],
+      "ac_text": "AC-6: dispose/unmount/sessionId change stops admission and releases timers/scheduled callbacks/queue/accounting; a new mount must not steal or replay a previous handler/buffer; xterm-ref-null-window output is bounded-queued or explicitly resynced with no silent loss.",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.55,
+      "note": "AC-6 (and the TDD requirement AC-10, which lists 'dispose, generation race' among required test axes) is exactly the contract that a React StrictMode double-mount/unmount/remount cycle would exercise. There is TDD coverage required for 'dispose' and 'generation race' in unit/integration form, but nothing in the evidence table names an actual browser-level StrictMode double-mount test. 신규-4's '0 browser coverage of StrictMode double-mount' is a plausible evidence gap against this REQ's already-implemented AC-6/AC-10, not a missing requirement."
+    },
+    {
+      "finding": "신규-4",
+      "id": "FR-BGSTAB-022",
+      "scope": "BGSTAB",
+      "target": "wave-3",
+      "title": "Browser TerminalWriteCoordinator sole-writer transaction",
+      "matching_ac": ["AC-6"],
+      "ac_text": "AC-6: dispose, remount and supersede increase generation so late callbacks become no-ops, and settle queue/byte-credit/ready-waiters exactly once.",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.45,
+      "note": "Same class of guarantee as REL-BGSTAB-009 AC-6 but for the newer sole-writer coordinator; VE-5 (terminalSoleWriterInventory.test.ts) is a static AST inventory, not a StrictMode double-mount browser test, so the same coverage-gap argument applies here too."
+    }
+  ],
+  "relevant_scopes": ["BGSTAB", "MCP"],
+  "findings_with_no_match": [
+    {
+      "finding": "신규-3",
+      "reason": "No requirement in any scope document (ARCH/AITUI/BGSTAB/MCP) addresses Playwright/E2E target-bundle build determinism, `reuseExistingServer`, or stale-dist reuse. REL-BGSTAB-001 AC-4 ('agent-run live validation uses an explicit non-2002 port and stops only the process tree it started') and REL-BGSTAB-006 (production-vs-test-vs-SRS drift characterization, but scoped only to split-WebSocket transport in Wave 1) are the nearest thematic neighbors, but neither speaks to build/bundle freshness or webServer reuse semantics for E2E runs. Treat as a genuine new-feature/test-infra gap."
+    },
+    {
+      "finding": "신규-5",
+      "reason": "No requirement anywhere requires a visible connection-status UI element. FR-BGSTAB-002 AC-3 (hard backpressure triggers a reconnect *path*) and FR-BGSTAB-014 AC-7 (WebSocketContext returns an explicit failure *reason*) establish that connection/backpressure state is computed and available internally, but no AC requires that state be rendered to the user, and no scope document mentions a connection-status component at all. This looks like a genuine new-feature gap (dead/unused component + missing UX requirement), not a conflict with or update to an existing AC."
+    }
+  ],
+  "no_match_reason": "See per-finding reasons above for 신규-3 and 신규-5; all other findings (C-1, H-1, H-3, H-4, H-5, M-1, M-2, M-3, 신규-1, 신규-2, 신규-4) have at least one candidate_matches entry, though several (H-1's FR-BGSTAB-022 pairing, M-2's REL-BGSTAB-006 pairing) are marked low-confidence/likely-unrelated and included only as the nearest available neighbor for the final classifier to rule on.",
+  "notes_on_duplicate_id": "REL-BGSTAB-015 ('Public SessionManager fixture lifecycle') is defined twice: once in the body scope document docs/spec/30.buildergate-stability.srs.md:4001 (Target=wave-3, Status=implemented, most ACs unchecked despite Status=implemented -- AC-1 checked, AC-2..AC-6 all still '[ ]' unchecked boxes even though Status says implemented and VE-1..VE-3 are present) and again verbatim (same title, same field values) in the step-scope file docs/spec/steps/2026-07-26.pm.canary-fixture-recovery-public-api/01.public-sessionmanager-fixture.srs.md:3. This is exactly the known duplicate-ID condition the project's Merge-time duplicate Requirement ID repair workflow exists for (SRS-E002-class); not directly relevant to any of the 13 findings analyzed here, but flagged per task instructions. Read-only observation only -- no repair tooling was invoked."
+}

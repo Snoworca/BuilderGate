@@ -1,0 +1,237 @@
+{
+  "findings": [
+    {
+      "claim": "A fresh browser mount registers the per-session handlers before sending subscribe. The server then registers the socket as a subscriber, obtains the snapshot, sends screen-snapshot, and only afterward sends subscribed with ready=false. The client applies/replaces the terminal and ACKs with replayToken before the server marks the session ready.",
+      "evidence_path": "frontend/src/contexts/WebSocketContext.tsx:545; frontend/src/contexts/WebSocketContext.tsx:552; frontend/src/contexts/WebSocketContext.tsx:560; server/src/ws/WsRouter.ts:378; server/src/ws/WsRouter.ts:404; server/src/ws/WsRouter.ts:415; server/src/ws/WsRouter.ts:425; frontend/src/components/Terminal/TerminalContainer.tsx:1323; frontend/src/components/Terminal/TerminalContainer.tsx:1448; frontend/src/components/Terminal/TerminalContainer.tsx:1481",
+      "confidence": "high",
+      "classification": "confirmed-refresh-ordering"
+    },
+    {
+      "claim": "The authoritative server snapshot intentionally contains only the active viewport: xterm-headless may retain configured scrollback, but serialization defaults to {scrollback: 0}. In the checked config the headless retention is 1,000 logical lines, yet none of that retained history is transferred on refresh.",
+      "evidence_path": "server/src/utils/headlessTerminal.ts:95; server/src/utils/headlessTerminal.ts:103; server/src/utils/headlessTerminal.ts:107; server/src/utils/headlessTerminal.ts:138; server/config.json5:16; server/src/test-runner.ts:14018; server/src/test-runner.ts:14021; server/src/test-runner.ts:14023; frontend/tests/e2e/header-context-menu-regression.spec.ts:439; frontend/tests/e2e/header-context-menu-regression.spec.ts:467; frontend/tests/e2e/header-context-menu-regression.spec.ts:475",
+      "confidence": "high",
+      "classification": "intentional-scrollback-truncation"
+    },
+    {
+      "claim": "The browser fallback cache is also viewport-only. It saves SerializeAddon output with scrollback=0 as schemaVersion=2/payloadKind=viewport-only plus sessionId, content, cols, rows, bufferType, and savedAt. Restore requires exact cols/rows equality; authoritative replacement calls term.reset(), so a refreshed xterm starts with only the restored viewport even though its live in-memory scrollback cap is hard-coded to 10,000 lines.",
+      "evidence_path": "frontend/src/utils/terminalSnapshot.ts:15; frontend/src/utils/terminalSnapshot.ts:24; frontend/src/components/Terminal/TerminalView.tsx:1121; frontend/src/components/Terminal/TerminalView.tsx:1143; frontend/src/components/Terminal/TerminalView.tsx:1152; frontend/src/components/Terminal/TerminalView.tsx:1283; frontend/src/components/Terminal/TerminalView.tsx:1288; frontend/src/components/Terminal/TerminalView.tsx:1321; frontend/src/components/Terminal/TerminalView.tsx:1709",
+      "confidence": "high",
+      "classification": "intentional-local-cache-truncation"
+    },
+    {
+      "claim": "The exact default/current limits form mismatched loss boundaries: server headless scrollback=1,000 (schema range 0..50,000), browser live scrollback=10,000, server snapshot=2,097,152 UTF-8 bytes (schema 1,024..268,435,456), local snapshot=2,000,000 characters, all local snapshots=3,000,000 characters/16 entries, and local parser newlines<=4*rows. PTY geometry defaults to 80x24 and is capped at 500x200.",
+      "evidence_path": "server/config.json5:12; server/config.json5:13; server/config.json5:16; server/config.json5:17; server/src/schemas/config.schema.ts:65; server/src/schemas/config.schema.ts:66; server/src/schemas/config.schema.ts:69; server/src/schemas/config.schema.ts:70; server/src/schemas/config.schema.ts:164; server/src/schemas/config.schema.ts:166; frontend/src/utils/terminalSnapshot.ts:3; frontend/src/utils/terminalSnapshot.ts:6; frontend/src/utils/terminalSnapshot.ts:7; frontend/src/utils/terminalSnapshot.ts:9; frontend/src/utils/terminalSnapshot.ts:148; frontend/src/components/Terminal/TerminalView.tsx:1709",
+      "confidence": "high",
+      "classification": "confirmed-cap-matrix"
+    },
+    {
+      "claim": "When server viewport serialization exceeds maxSnapshotBytes, it rejects the whole payload rather than clipping it: data becomes empty and truncated=true. WsRouter labels this empty healthy snapshot as fallback. The client then tries the local viewport cache; if unavailable it resets to a BuilderGate placeholder. This directly explains a blank/stale/truncated screen after refresh, and multibyte output reaches the byte cap earlier than the browser character cap.",
+      "evidence_path": "server/src/utils/headlessTerminal.ts:138; server/src/utils/headlessTerminal.ts:139; server/src/utils/headlessTerminal.ts:143; server/src/ws/WsRouter.ts:1828; server/src/ws/WsRouter.ts:1841; frontend/src/components/Terminal/TerminalContainer.tsx:1400; frontend/src/components/Terminal/TerminalContainer.tsx:1421; frontend/src/components/Terminal/TerminalContainer.tsx:1423; server/src/test-runner.ts:14026; server/src/test-runner.ts:14030; server/src/test-runner.ts:15147; server/src/test-runner.ts:15151",
+      "confidence": "high",
+      "classification": "confirmed-empty-fallback-failure-mode"
+    },
+    {
+      "claim": "The local fallback can be stale or absent independently of the server: a newly serialized viewport over perSnapshotMaxChars is refused while the previous snapshot is retained; malformed, oversized, wrong-session, empty, wrong-geometry-shape, or >4*rows-newline payloads are rejected and cleared; projected storage over budget fails the save after eviction attempts.",
+      "evidence_path": "frontend/src/components/Terminal/TerminalView.tsx:1093; frontend/src/components/Terminal/TerminalView.tsx:1100; frontend/src/components/Terminal/TerminalView.tsx:1121; frontend/src/components/Terminal/TerminalView.tsx:1123; frontend/src/components/Terminal/TerminalView.tsx:1124; frontend/src/utils/terminalSnapshot.ts:128; frontend/src/utils/terminalSnapshot.ts:142; frontend/src/utils/terminalSnapshot.ts:147; frontend/src/utils/terminalSnapshot.ts:149; frontend/src/utils/terminalSnapshot.ts:358; frontend/src/utils/terminalSnapshot.ts:363",
+      "confidence": "high",
+      "classification": "confirmed-local-fallback-loss-boundary"
+    },
+    {
+      "claim": "The normal subscribe race is fenced correctly. ReplayPendingState is installed before screen-snapshot is sent; live output produced afterward is queued rather than sent; after matching ACK the queued output is emitted before session:ready. This prevents ordinary post-snapshot output from being erased by client term.reset().",
+      "evidence_path": "server/src/ws/WsRouter.ts:861; server/src/ws/WsRouter.ts:876; server/src/ws/WsRouter.ts:881; server/src/ws/WsRouter.ts:1831; server/src/ws/WsRouter.ts:1833; server/src/ws/WsRouter.ts:1880; server/src/ws/WsRouter.ts:1882; server/src/ws/WsRouter.ts:498; server/src/ws/WsRouter.ts:513; server/src/test-runner.ts:14616; server/src/test-runner.ts:14623; server/src/test-runner.ts:14626; server/src/test-runner.ts:14629",
+      "confidence": "high",
+      "classification": "confirmed-race-protection"
+    },
+    {
+      "claim": "That replay fence is lossy under sustained output: its queue limit is min(maxSnapshotBytes, 262,144 bytes), append keeps only a UTF-8-safe tail, and queuedOutputTruncated is observational only. After ACK or the fixed 5-second timeout, only the retained tail is flushed. Losing an ANSI prefix or earlier repaint can leave the reconstructed screen semantically wrong even if the latest plain text is present.",
+      "evidence_path": "server/src/services/SessionManager.ts:3008; server/src/services/SessionManager.ts:3009; server/src/ws/WsRouter.ts:67; server/src/ws/WsRouter.ts:947; server/src/ws/WsRouter.ts:961; server/src/ws/WsRouter.ts:965; server/src/ws/WsRouter.ts:876; server/src/ws/WsRouter.ts:1375; server/src/ws/WsRouter.ts:1378; server/src/ws/WsRouter.ts:1389; server/src/test-runner.ts:15728; server/src/test-runner.ts:15734; server/src/test-runner.ts:15745; server/src/test-runner.ts:15758",
+      "confidence": "high",
+      "classification": "conditional-live-output-data-loss"
+    },
+    {
+      "claim": "During the 300 ms React remount/unsubscribe grace window, WebSocketContext buffers output without a size cap, but receipt of any screen-snapshot replaces the buffered snapshot and unconditionally clears all earlier buffered output. This is safe only when the arriving snapshot covers that output; an empty/oversized fallback does not, so output can be dropped during a handler handoff even though full-refresh subscribe ordering is fenced.",
+      "evidence_path": "frontend/src/contexts/WebSocketContext.tsx:107; frontend/src/contexts/WebSocketContext.tsx:141; frontend/src/contexts/WebSocketContext.tsx:145; frontend/src/contexts/WebSocketContext.tsx:147; frontend/src/contexts/WebSocketContext.tsx:156; frontend/src/contexts/WebSocketContext.tsx:157; frontend/src/contexts/WebSocketContext.tsx:187; frontend/src/contexts/WebSocketContext.tsx:200; frontend/src/contexts/WebSocketContext.tsx:209; frontend/src/contexts/WebSocketContext.tsx:578; frontend/src/contexts/WebSocketContext.tsx:590; server/src/ws/WsRouter.ts:1828",
+      "confidence": "medium-high",
+      "classification": "conditional-handler-handoff-data-loss"
+    },
+    {
+      "claim": "Hidden terminals intentionally skip live writes under the default snapshot-restore policy. On visibility they first restore the stale local viewport and then request a viewport-only screen repair. Output produced while hidden therefore never enters the browser's 10,000-line scrollback, even when the current viewport is eventually repaired.",
+      "evidence_path": "server/src/schemas/config.schema.ts:154; frontend/src/components/Terminal/TerminalContainer.tsx:1664; frontend/src/components/Terminal/TerminalContainer.tsx:1678; frontend/src/components/Terminal/TerminalContainer.tsx:1685; frontend/src/components/Terminal/TerminalContainer.tsx:1800; frontend/src/components/Terminal/TerminalContainer.tsx:1821; frontend/src/components/Terminal/TerminalContainer.tsx:1828; server/src/utils/headlessTerminal.ts:171; server/src/utils/headlessTerminal.ts:172; server/src/utils/headlessTerminal.ts:193; server/src/utils/headlessTerminal.ts:203",
+      "confidence": "high",
+      "classification": "intentional-hidden-scrollback-loss"
+    },
+    {
+      "claim": "Visible browser output also has a bounded loss path: defaults are 4,194,304 queued bytes, 512 chunks, and 262,144 bytes per flush budget. Overflow drops the enqueue, marks the terminal stale, and requests screen repair; repair is viewport-only, so it restores current screen state but cannot restore lost scrollback.",
+      "evidence_path": "server/src/schemas/config.schema.ts:150; server/src/schemas/config.schema.ts:151; server/src/schemas/config.schema.ts:152; server/src/schemas/config.schema.ts:153; frontend/src/components/Terminal/TerminalView.tsx:1201; frontend/src/components/Terminal/TerminalView.tsx:1221; frontend/src/components/Terminal/TerminalView.tsx:1226; frontend/src/components/Terminal/TerminalView.tsx:1231; frontend/src/components/Terminal/TerminalContainer.tsx:1763; frontend/src/components/Terminal/TerminalContainer.tsx:1793; server/src/utils/headlessTerminal.ts:171; server/src/utils/headlessTerminal.ts:203",
+      "confidence": "high",
+      "classification": "conditional-visible-output-loss"
+    },
+    {
+      "claim": "Server-side headless lag has another bounded degradation path. Defaults permit 8,388,608 pending bytes or 1,024 chunks; overflow degrades the headless authority. Its cached viewport plus unsnapshotted and pending output are concatenated and tail-truncated to maxSnapshotBytes, then exposed as fallback raw data. This preserves bounded recent output, not a guaranteed terminal-state-equivalent snapshot.",
+      "evidence_path": "server/src/schemas/config.schema.ts:113; server/src/schemas/config.schema.ts:114; server/src/schemas/config.schema.ts:115; server/src/services/SessionManager.ts:3415; server/src/services/SessionManager.ts:3418; server/src/services/SessionManager.ts:3424; server/src/services/SessionManager.ts:3552; server/src/services/SessionManager.ts:3553; server/src/services/SessionManager.ts:3555; server/src/services/SessionManager.ts:3592; server/src/services/SessionManager.ts:3598; server/src/services/SessionManager.ts:3601",
+      "confidence": "high",
+      "classification": "conditional-server-fallback-truncation"
+    }
+  ],
+  "state_ownership_table": [
+    {
+      "state": "PTY byte stream and process lifetime",
+      "owner": "SessionManager",
+      "retention_or_limit": "Raw output is immediately classified and queued for headless application; it is not itself durable history.",
+      "refresh_role": "Source from which server headless state and live output are derived.",
+      "evidence_path": "server/src/services/SessionManager.ts:752; server/src/services/SessionManager.ts:775; server/src/services/SessionManager.ts:857; server/src/services/SessionManager.ts:866"
+    },
+    {
+      "state": "Canonical server screen emulator",
+      "owner": "SessionManager HeadlessTerminalState",
+      "retention_or_limit": "1,000 configured logical scrollback lines currently; schema allows 0..50,000. Pending writes default to 8 MiB/1,024 chunks.",
+      "refresh_role": "Produces the authoritative active-viewport snapshot and viewport repair.",
+      "evidence_path": "server/config.json5:16; server/src/schemas/config.schema.ts:69; server/src/services/SessionManager.ts:3324; server/src/services/SessionManager.ts:3329; server/src/schemas/config.schema.ts:114; server/src/schemas/config.schema.ts:115"
+    },
+    {
+      "state": "Server snapshot cache",
+      "owner": "SessionManager SessionSnapshotCache",
+      "retention_or_limit": "One viewport-only cache entry per session, keyed by screenSeq and geometry; max 2,097,152 UTF-8 bytes currently.",
+      "refresh_role": "Reused only while clean and seq/cols/rows match; otherwise reserialized.",
+      "evidence_path": "server/src/services/SessionManager.ts:102; server/src/services/SessionManager.ts:104; server/src/services/SessionManager.ts:2535; server/src/services/SessionManager.ts:2542; server/src/services/SessionManager.ts:2559; server/config.json5:17"
+    },
+    {
+      "state": "Per-client replay fence",
+      "owner": "WsRouter ReplayPendingState",
+      "retention_or_limit": "5-second ACK timer; live-output tail <=min(maxSnapshotBytes,262,144 bytes).",
+      "refresh_role": "Orders snapshot -> queued live output -> ready, using replayToken and snapshot seq.",
+      "evidence_path": "server/src/ws/WsRouter.ts:67; server/src/ws/WsRouter.ts:861; server/src/ws/WsRouter.ts:869; server/src/ws/WsRouter.ts:876; server/src/services/SessionManager.ts:3008; server/src/ws/WsRouter.ts:498; server/src/ws/WsRouter.ts:513"
+    },
+    {
+      "state": "Browser subscription routing and remount grace",
+      "owner": "WebSocketContext",
+      "retention_or_limit": "Active subscription set plus 300 ms grace buffer; grace output string has no explicit byte/chunk cap.",
+      "refresh_role": "Registers handlers before subscribe and replays grace state snapshot-first/output-later.",
+      "evidence_path": "frontend/src/contexts/WebSocketContext.tsx:107; frontend/src/contexts/WebSocketContext.tsx:133; frontend/src/contexts/WebSocketContext.tsx:138; frontend/src/contexts/WebSocketContext.tsx:187; frontend/src/contexts/WebSocketContext.tsx:200; frontend/src/contexts/WebSocketContext.tsx:209; frontend/src/contexts/WebSocketContext.tsx:552"
+    },
+    {
+      "state": "Rendered browser terminal",
+      "owner": "TerminalView xterm instance",
+      "retention_or_limit": "Hard-coded live scrollback 10,000 lines; visible scheduler defaults 4 MiB/512 chunks.",
+      "refresh_role": "Reset and rebuilt from server/local viewport snapshot; live output is buffered while restorePending.",
+      "evidence_path": "frontend/src/components/Terminal/TerminalView.tsx:1709; frontend/src/components/Terminal/TerminalView.tsx:1317; frontend/src/components/Terminal/TerminalView.tsx:1321; frontend/src/components/Terminal/TerminalView.tsx:1518; frontend/src/components/Terminal/TerminalView.tsx:1521; server/src/schemas/config.schema.ts:151; server/src/schemas/config.schema.ts:152"
+    },
+    {
+      "state": "Persistent browser fallback",
+      "owner": "localStorage terminal_snapshot_<sessionId>",
+      "retention_or_limit": "Viewport-only schema v2; 2,000,000 chars per snapshot, 3,000,000 chars total, 16 entries, 4*rows newline parser budget, exact geometry restore.",
+      "refresh_role": "Used only when server sends empty fallback or hidden-output recovery asks for local restore.",
+      "evidence_path": "frontend/src/utils/terminalSnapshot.ts:1; frontend/src/utils/terminalSnapshot.ts:3; frontend/src/utils/terminalSnapshot.ts:6; frontend/src/utils/terminalSnapshot.ts:7; frontend/src/utils/terminalSnapshot.ts:9; frontend/src/components/Terminal/TerminalView.tsx:1288; frontend/src/components/Terminal/TerminalContainer.tsx:1421"
+    },
+    {
+      "state": "Hidden-output skip/recovery state",
+      "owner": "TerminalContainer refs",
+      "retention_or_limit": "Default snapshot-restore skips hidden writes; debug tail default is 262,144 bytes but is diagnostic, not replay authority.",
+      "refresh_role": "On visibility, attempts local viewport restore and then server viewport repair.",
+      "evidence_path": "server/src/schemas/config.schema.ts:154; server/src/schemas/config.schema.ts:155; frontend/src/components/Terminal/TerminalContainer.tsx:1664; frontend/src/components/Terminal/TerminalContainer.tsx:1678; frontend/src/components/Terminal/TerminalContainer.tsx:1821; frontend/src/components/Terminal/TerminalContainer.tsx:1830"
+    }
+  ],
+  "test_coverage": [
+    {
+      "area": "Server viewport-only and byte-bound serialization",
+      "coverage": "Behavioral harness proves old scrollback marker is omitted, latest viewport marker remains, and UTF-8 byte overflow returns empty/truncated.",
+      "evidence_path": "server/src/test-runner.ts:14007; server/src/test-runner.ts:14018; server/src/test-runner.ts:14023; server/src/test-runner.ts:14026; server/src/test-runner.ts:14031"
+    },
+    {
+      "area": "Oversized snapshot fallback",
+      "coverage": "SessionManager and WsRouter harnesses assert healthy-but-empty truncated snapshot and fallback wire mode.",
+      "evidence_path": "server/src/test-runner.ts:13314; server/src/test-runner.ts:13336; server/src/test-runner.ts:13343; server/src/test-runner.ts:15112; server/src/test-runner.ts:15147; server/src/test-runner.ts:15151"
+    },
+    {
+      "area": "Subscribe/resubscribe and live-output ordering",
+      "coverage": "Harness asserts screen-snapshot before subscribed, no live send before ACK, then output before ready; another harness asserts viewport-only on subscribe and resubscribe.",
+      "evidence_path": "server/src/test-runner.ts:14613; server/src/test-runner.ts:14617; server/src/test-runner.ts:14623; server/src/test-runner.ts:14629; server/src/test-runner.ts:15179; server/src/test-runner.ts:15218; server/src/test-runner.ts:15231"
+    },
+    {
+      "area": "Bounded replay queue",
+      "coverage": "Harness proves the retained output remains within a UTF-8 byte limit and has no replacement character; it does not assert full terminal-state equivalence after prefix loss.",
+      "evidence_path": "server/src/test-runner.ts:15710; server/src/test-runner.ts:15728; server/src/test-runner.ts:15734; server/src/test-runner.ts:15745; server/src/test-runner.ts:15758; server/src/test-runner.ts:15759"
+    },
+    {
+      "area": "Browser local snapshot schema/budgets",
+      "coverage": "Unit tests validate schema v2, malformed/legacy rejection, character and newline budgets, and projected total-budget refusal.",
+      "evidence_path": "frontend/tests/unit/terminalSnapshot.test.ts:66; frontend/tests/unit/terminalSnapshot.test.ts:73; frontend/tests/unit/terminalSnapshot.test.ts:86; frontend/tests/unit/terminalSnapshot.test.ts:94; frontend/tests/unit/terminalSnapshot.test.ts:180; frontend/tests/unit/terminalSnapshot.test.ts:192"
+    },
+    {
+      "area": "Browser fallback application",
+      "coverage": "Current tests are source-contract regex checks for authoritative/local success versus fallback placeholder; they do not execute xterm, WebSocket timing, reload, or scrollback interaction.",
+      "evidence_path": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts:5; frontend/tests/unit/terminalContainerRecoveryContract.test.ts:37; frontend/tests/unit/terminalContainerRecoveryContract.test.ts:79; frontend/tests/unit/terminalContainerRecoveryContract.test.ts:82; frontend/tests/unit/terminalContainerRecoveryContract.test.ts:106"
+    },
+    {
+      "area": "Browser refresh end-to-end (TC-7004)",
+      "coverage": "Playwright prints 700 lines, requires the local payload to be viewport-only and exclude oldMarker, reloads, then explicitly asserts latestMarker is visible and oldMarker remains absent. Scrollback loss is therefore encoded as the expected behavior, not an uncovered regression.",
+      "evidence_path": "frontend/tests/e2e/header-context-menu-regression.spec.ts:439; frontend/tests/e2e/header-context-menu-regression.spec.ts:456; frontend/tests/e2e/header-context-menu-regression.spec.ts:460; frontend/tests/e2e/header-context-menu-regression.spec.ts:464; frontend/tests/e2e/header-context-menu-regression.spec.ts:467; frontend/tests/e2e/header-context-menu-regression.spec.ts:470; frontend/tests/e2e/header-context-menu-regression.spec.ts:474; frontend/tests/e2e/header-context-menu-regression.spec.ts:475; frontend/tests/e2e/header-context-menu-regression.spec.ts:480"
+    },
+    {
+      "area": "Grace-buffer empty-fallback gap",
+      "coverage": "No inspected test exercises output buffered during the 300 ms handler gap followed by an empty fallback snapshot; the clearing behavior is only visible in production source.",
+      "evidence_path": "frontend/src/contexts/WebSocketContext.tsx:145; frontend/src/contexts/WebSocketContext.tsx:147; frontend/src/contexts/WebSocketContext.tsx:156; frontend/src/contexts/WebSocketContext.tsx:578; frontend/src/contexts/WebSocketContext.tsx:590"
+    }
+  ],
+  "minimal_reproduction": [
+    {
+      "name": "intentional refresh scrollback loss",
+      "steps": [
+        "Open one terminal at a stable geometry and print at least 200 uniquely numbered lines.",
+        "Scroll upward and confirm the first marker exists in the live xterm scrollback.",
+        "Hard-refresh the browser and reopen the same session without resizing.",
+        "Observe that the current viewport is reconstructed but early markers are absent; neither the server snapshot nor local cache contains scrollback."
+      ],
+      "expected_signal": "Latest viewport marker remains; early marker is missing after refresh.",
+      "evidence_path": "server/src/utils/headlessTerminal.ts:95; server/src/utils/headlessTerminal.ts:138; frontend/src/components/Terminal/TerminalView.tsx:1121; server/src/test-runner.ts:14012; server/src/test-runner.ts:14024"
+    },
+    {
+      "name": "oversized empty fallback",
+      "steps": [
+        "In the existing server harness, set pty.maxSnapshotBytes to 8 bytes and write shell/prompt plus alternate-screen content.",
+        "Subscribe through WsRouter.",
+        "Observe screen-snapshot mode=fallback, truncated=true, data='', which makes the browser use its local viewport or placeholder."
+      ],
+      "expected_signal": "Empty fallback rather than a clipped authoritative screen.",
+      "evidence_path": "server/src/test-runner.ts:15112; server/src/test-runner.ts:15120; server/src/test-runner.ts:15143; server/src/test-runner.ts:15149; server/src/test-runner.ts:15151; frontend/src/components/Terminal/TerminalContainer.tsx:1421"
+    },
+    {
+      "name": "ACK-window replay-tail loss",
+      "steps": [
+        "Create a WsRouter harness with replayQueueLimit=16 bytes and subscribe without ACKing.",
+        "Route more than 16 UTF-8 bytes of live output, then ACK or trigger replay timeout.",
+        "Inspect the emitted output and queuedOutputTruncated telemetry."
+      ],
+      "expected_signal": "Only a UTF-8-safe tail <=16 bytes is emitted; earlier output is absent.",
+      "evidence_path": "server/src/test-runner.ts:15720; server/src/test-runner.ts:15728; server/src/test-runner.ts:15734; server/src/test-runner.ts:15745; server/src/test-runner.ts:15753; server/src/test-runner.ts:15758"
+    },
+    {
+      "name": "remount grace plus empty fallback",
+      "steps": [
+        "Remove a session handler while leaving the active subscription inside the 300 ms unsubscribe grace window.",
+        "Deliver an output message, then an empty fallback screen-snapshot before the replacement handler registers.",
+        "Register the replacement handler and flush the grace buffer."
+      ],
+      "expected_signal": "Snapshot callback fires, but the earlier buffered output does not, because screen-snapshot cleared current.output.",
+      "evidence_path": "frontend/src/contexts/WebSocketContext.tsx:141; frontend/src/contexts/WebSocketContext.tsx:145; frontend/src/contexts/WebSocketContext.tsx:147; frontend/src/contexts/WebSocketContext.tsx:156; frontend/src/contexts/WebSocketContext.tsx:200; frontend/src/contexts/WebSocketContext.tsx:209"
+    }
+  ],
+  "unknowns": [
+    {
+      "item": "The code alone cannot identify which boundary caused a reported instance. Correlate snapshot_serialized truncated/byteLength, replay queuedOutputTruncated, fallback mode, and frontend screen_snapshot_* debug events for the affected session.",
+      "evidence_path": "server/src/services/SessionManager.ts:2582; server/src/services/SessionManager.ts:2586; server/src/ws/WsRouter.ts:1380; server/src/ws/WsRouter.ts:1389; frontend/src/components/Terminal/TerminalContainer.tsx:1324; frontend/src/components/Terminal/TerminalContainer.tsx:1411; frontend/src/components/Terminal/TerminalContainer.tsx:1432"
+    },
+    {
+      "item": "It is unverified in a real browser whether snapshot application can exceed the 5-second server ACK timeout under a large ANSI payload, IME wait, or saturated main thread. The timeout releases queued output regardless of client apply completion.",
+      "evidence_path": "server/src/ws/WsRouter.ts:67; server/src/ws/WsRouter.ts:876; server/src/ws/WsRouter.ts:1358; server/src/ws/WsRouter.ts:1373; frontend/src/components/Terminal/TerminalView.tsx:1338; frontend/src/components/Terminal/TerminalView.tsx:1344"
+    },
+    {
+      "item": "Browser-specific localStorage quota and eviction behavior remains environment-dependent; the code retries quota failures and may retain the previous current-session snapshot.",
+      "evidence_path": "frontend/src/utils/terminalSnapshot.ts:347; frontend/src/utils/terminalSnapshot.ts:367; frontend/src/utils/terminalSnapshot.ts:371; frontend/src/utils/terminalSnapshot.ts:375; frontend/src/utils/terminalSnapshot.ts:394; frontend/src/utils/terminalSnapshot.ts:403"
+    },
+    {
+      "item": "The client resource schema exposes terminal.scrollbackLines, but TerminalView instantiation is hard-coded to 10,000 and Settings capability tests mark that setting unavailable; whether dynamic configurability is intended is not established by the focused files.",
+      "evidence_path": "server/src/schemas/config.schema.ts:160; frontend/src/components/Terminal/TerminalView.tsx:1709; server/src/test-runner.ts:1580"
+    }
+  ]
+}

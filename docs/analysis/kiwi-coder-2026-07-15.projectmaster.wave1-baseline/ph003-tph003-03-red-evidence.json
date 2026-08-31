@@ -1,0 +1,23 @@
+{
+  "taskId": "T-PH003-03",
+  "requirementId": "PERF-BGSTAB-008",
+  "revision": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+  "workingTreeDirty": true,
+  "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+  "cwd": "frontend",
+  "exitCode": 1,
+  "tests": {
+    "passed": 12,
+    "failed": 2,
+    "expectedFailureSignatures": [
+      "PERF-BGSTAB-008 AC-1 contract not implemented",
+      "PERF-BGSTAB-008 AC-2 contract not implemented"
+    ],
+    "matchedFailureSignatures": [
+      "PERF-BGSTAB-008 AC-1 contract not implemented",
+      "PERF-BGSTAB-008 AC-2 contract not implemented"
+    ],
+    "failureCause": "ERR_MODULE_NOT_FOUND: frontend/tests/benchmarks/terminalNoRenderFixture.ts"
+  },
+  "capturedAt": "2026-07-15T14:25:00.000Z"
+}

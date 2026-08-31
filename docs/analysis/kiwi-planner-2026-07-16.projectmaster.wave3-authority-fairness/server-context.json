@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "1.0",
+  "analyst": "/root/wave3_plan_server",
+  "dependencyOrder": ["PH-001", "PH-002", "PH-003", "PH-004", "PH-005", "PH-006", "PH-007"],
+  "principles": [
+    "legacy/off-by-default preservation",
+    "additive capability protocol",
+    "SessionManager/WsRouter thin adapter",
+    "existing headless model, wsSendPolicy sourceSegments and recovery fences reuse",
+    "AI TUI idle invariant",
+    "Orca read-only"
+  ],
+  "phaseServices": {
+    "PH-001": ["TerminalResourcePolicy pure compiler", "consumer manifest", "bounded redacted observer"],
+    "PH-002": ["non-loss canary transition", "consumer adapter", "kill switch"],
+    "PH-003": ["additive checkpoint capability", "apply/drain ACK ready barrier"],
+    "PH-004": ["retained headless adapter", "Ordinal64", "fact ledger", "driver lease"],
+    "PH-005": ["authority epoch state machine", "single responder", "ordered rollback"],
+    "PH-006": ["per-client/session scheduler", "server-owned ACK credit", "benchmark decision artifact"],
+    "PH-007": ["visibility continuity", "ordered dataGap", "full checkpoint reveal"]
+  },
+  "testSurfaces": [
+    "server/src/services/RuntimeConfigStore.test.ts",
+    "server/src/services/SessionManagerPartialEscapeTail.test.ts",
+    "server/src/ws/WsRouterRestoreMetadata.test.ts",
+    "server/src/ws/WsRouterSendPriority.test.ts",
+    "server/src/ws/wsSendPolicyRestoreMetadata.test.ts",
+    "server/src/benchmarks/terminalCharacterization.ts"
+  ],
+  "rollback": "각 단계는 새 admission을 닫고 epoch/ledger를 정산한 뒤 fresh compatibility checkpoint 또는 legacy policy/FIFO로 복귀한다."
+}

@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "kiwi-coder-evidence-v1",
+  "executionId": "2026-07-15.projectmaster.wave2-hotpath",
+  "taskId": "T-PH002-02",
+  "requirementId": "REL-BGSTAB-008",
+  "capturedAt": "2026-07-16T05:46:16.7018364+09:00",
+  "headRevision": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+  "workingTreeDirty": true,
+  "result": "GREEN",
+  "scope": {
+    "productionFiles": [
+      "server/src/services/SessionManager.ts",
+      "server/src/types/ws-protocol.ts",
+      "server/src/ws/WsRouter.ts",
+      "server/src/ws/wsSendPolicy.ts"
+    ],
+    "testFiles": [
+      "server/src/test-runner.ts",
+      "server/src/ws/WsRouterSplitHandshake.test.ts"
+    ]
+  },
+  "implementation": {
+    "queuePolicy": "Screen repair output is held as UTF-8 byte-accounted chunks under Math.min(runtimePtyConfig.maxSnapshotBytes, 262144) and resourceLimits.headless.pendingOutputMaxChunks.",
+    "recovery": "Overflow, timeout, write failure, and authority faults abort the old repair token and choose exactly one client-local fresh snapshot or reconnect-required outcome.",
+    "sequence": "Fresh authoritative snapshot coverage drops only chunks with a proven screen sequence at or below snapshot.seq; unknown or newer chunks remain an exactly-once ordered tail.",
+    "safeSend": "Superseded repair, restore, snapshot, and transaction-tagged session:ready frames are removed from the affected session queue while unrelated session order and lane counters are preserved.",
+    "privacy": "Telemetry records byte/chunk/sequence/token/reason/outcome/source metadata only and does not persist raw terminal payload."
+  },
+  "tdd": {
+    "redSource": "T-PH002-01 repair queue and protocol RED contracts",
+    "additionalRaceRed": {
+      "case": "prior session:ready held under safe-send pressure before a later repair overflow",
+      "resultBeforeFix": "AC-10 failed because stale ready drained between restore-needed and the fresh snapshot"
+    },
+    "green": "The same AC-10 race passes after transaction tagging and affected-session cancellation."
+  },
+  "verification": {
+    "build": {
+      "command": "npm run build",
+      "cwd": "server",
+      "exitCode": 0
+    },
+    "screenRepair": {
+      "command": "$env:BUILDERGATE_TEST_FILTER='screen repair'; node dist/test-runner.js",
+      "cwd": "server",
+      "exitCode": 0,
+      "passed": 21,
+      "failed": 0
+    },
+    "strictSplit": {
+      "command": "node --test --test-name-pattern=\"Repair queue·protocol RED 계약\" dist/ws/WsRouterSplitHandshake.test.js",
+      "cwd": "server",
+      "exitCode": 0,
+      "passed": 5,
+      "failed": 0
+    },
+    "fullSplit": {
+      "command": "node --test dist/ws/WsRouterSplitHandshake.test.js",
+      "cwd": "server",
+      "exitCode": 0,
+      "total": 21,
+      "passed": 8,
+      "failed": 0,
+      "todo": 13,
+      "note": "The 13 todo cases are the pre-existing standalone split activation limitation characterization."
+    },
+    "fullServer": {
+      "command": "npm test",
+      "cwd": "server",
+      "exitCode": 0,
+      "passed": 507,
+      "failed": 0
+    },
+    "diffCheck": {
+      "command": "git diff --check -- server/src/services/SessionManager.ts server/src/test-runner.ts server/src/types/ws-protocol.ts server/src/ws/WsRouter.ts server/src/ws/WsRouterSplitHandshake.test.ts server/src/ws/wsSendPolicy.ts",
+      "exitCode": 0
+    }
+  },
+  "review": {
+    "kind": "independent prickly task review and re-review loop",
+    "reviewer": "/root/wave2_plan_code_context/tph00102_prickly_review",
+    "resolvedFindings": [
+      "unproven overflow seed chunks were incorrectly treated as snapshot-covered",
+      "zero-tail fresh ACK omitted session:ready",
+      "parse-failed could start fresh replay and reconnect simultaneously",
+      "safe-send could retain superseded repair, restore, or snapshot frames",
+      "safe-send could retain a prior transaction-tagged session:ready for the affected session"
+    ],
+    "verdict": "No findings"
+  }
+}

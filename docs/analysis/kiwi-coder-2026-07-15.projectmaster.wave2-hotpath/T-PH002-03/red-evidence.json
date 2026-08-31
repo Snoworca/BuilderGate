@@ -1,0 +1,141 @@
+{
+  "taskId": "T-PH002-03",
+  "requirementId": "REL-BGSTAB-008",
+  "revision": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+  "workingTreeDirty": true,
+  "productionFilesChangedByTask": [],
+  "testFiles": [
+    "frontend/tests/helpers/visibleOutputRecoveryContract.ts",
+    "frontend/tests/unit/visibleOutputRecovery.test.ts",
+    "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+    "frontend/tests/e2e/wave2-screen-repair-resync.spec.ts"
+  ],
+  "baselineFixtureAdjustment": {
+    "file": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+    "change": "The existing source-contract inspection window was widened from finishIndex + 900 to finishIndex + 1000.",
+    "reason": "The previous window ended three characters before the existing flushTransportOutbox assertion target. No production contract or assertion was weakened."
+  },
+  "baseline": {
+    "command": "node --experimental-strip-types --test --test-name-pattern=\"^(TerminalContainer|visible output recovery)\" tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts",
+    "cwd": "frontend",
+    "exitCode": 0,
+    "passed": 14,
+    "failed": 0
+  },
+  "unitRed": {
+    "command": "node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts",
+    "cwd": "frontend",
+    "exitCode": 1,
+    "passed": 14,
+    "failed": 6,
+    "failureSignatures": [
+      "Frontend stale/resync barrier RED 계약 RED AC-2: current-view ready/input release occurred before authoritative apply plus held-tail write drain, or tail order/chunk identity changed",
+      "Frontend stale/resync barrier RED 계약 RED AC-3: overflow did not abort the active token into affected-view restore-needed plus fresh server snapshot without pending-output flush",
+      "Frontend stale/resync barrier RED 계약 RED AC-5: failed/timeout/reoverflow/parser-reset failure reported success, released input, or lacked reconnect-required/authority-unavailable",
+      "Frontend stale/resync barrier RED 계약 RED AC-6: stale token/generation/duplicate/late-dispose signal mutated the live transaction or released held output",
+      "Frontend stale/resync barrier RED 계약 RED AC-10: recovery bypassed the bounded scheduler, used direct/giant write, activated split parity, or promoted retained history equivalence",
+      "Frontend stale/resync barrier RED 계약 RED AC-11: real UTF-8 byte/chunk boundary accounting, incomplete-parser non-ready, close/dispose, multi-client isolation, or unified/split limitation failed"
+    ],
+    "failureCause": "The production frontend does not yet export the client/session-scoped visible-output recovery coordinator required by the RED behavior contract."
+  },
+  "e2eCollection": {
+    "command": "npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --project \"Desktop Chrome\" --list",
+    "cwd": "frontend",
+    "exitCode": 0,
+    "collected": 2
+  },
+  "e2eRed": {
+    "command": "npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --project \"Desktop Chrome\"",
+    "cwd": "frontend",
+    "target": "https://localhost:2222",
+    "exitCode": 1,
+    "passed": 0,
+    "failed": 2,
+    "infrastructureErrors": 0,
+    "preconditionsPassed": [
+      "login",
+      "active terminal session",
+      "real routed WebSocket connection",
+      "initial authoritative screen snapshot",
+      "local viewport snapshot persistence",
+      "actual hidden target subscription and hidden_output_skipped with positive skipped bytes"
+    ],
+    "failureSignatures": [
+      "Frontend stale/resync barrier RED 계약 RED AC-4: restore-needed did not engage the stale barrier, or snapshot-covered prefix/tail was lost, duplicated, or reordered",
+      "Frontend stale/resync barrier RED 계약 RED AC-8: restore-needed did not engage the stale barrier, or provisional local restore cleared hidden dirty/skipped/stale or promoted retained equivalence"
+    ],
+    "failureCause": "The current frontend ignores the additive screen-repair:restore-needed message, so the visible-output recovery input barrier is not engaged."
+  },
+  "staticChecks": [
+    {
+      "command": "npx eslint tests/helpers/visibleOutputRecoveryContract.ts tests/unit/visibleOutputRecovery.test.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/e2e/wave2-screen-repair-resync.spec.ts",
+      "cwd": "frontend",
+      "exitCode": 0
+    },
+    {
+      "command": "npx tsc -b --pretty false",
+      "cwd": "frontend",
+      "exitCode": 0
+    }
+  ],
+  "reviewHistory": [
+    {
+      "round": 1,
+      "verdict": "findings",
+      "acceptedAndFixed": [
+        "Playwright fixture collection error",
+        "tautological boundary and multi-client assertions",
+        "brittle source slices",
+        "silent empty failure outcome",
+        "missing hidden dirty/skipped provisional assertion",
+        "missing scheduler-only unified/split limitation behavior"
+      ]
+    },
+    {
+      "round": 2,
+      "verdict": "findings",
+      "acceptedAndFixed": [
+        "stale replay token and duplicate signal idempotency",
+        "success ACK absence on every failure path",
+        "split-shadow and split limitation inputs"
+      ]
+    },
+    {
+      "round": 3,
+      "verdict": "findings",
+      "acceptedAndFixed": [
+        "actual hidden dirty/skipped precondition and preservation",
+        "non-vacuous split-shadow/split limitation event dispatch and explicit outcome"
+      ]
+    },
+    {
+      "round": 4,
+      "verdict": "findings",
+      "acceptedAndFixed": [
+        "temporary-tab rollback after setup response loss",
+        "current WebSocket connection-generation proof after reload",
+        "explicit debug-capture precondition failure",
+        "strict authoritative snapshot qualification",
+        "complete ASCII/CJK/emoji/ANSI covered-prefix and held-tail coverage"
+      ]
+    },
+    {
+      "round": 5,
+      "verdict": "findings",
+      "acceptedAndFixed": [
+        "aggregate cleanup that attempts workspace restore, discovery, known temporary-tab deletion, and final-state verification independently",
+        "all nine covered-prefix and post-snapshot-tail chunks held before the authoritative snapshot"
+      ]
+    },
+    {
+      "round": 6,
+      "reviewer": "tph003_e2e_review",
+      "verdict": "No findings"
+    }
+  ],
+  "review": {
+    "reviewer": "tph003_e2e_review",
+    "verdict": "No findings"
+  },
+  "capturedAt": "2026-07-16T06:04:51+09:00"
+}

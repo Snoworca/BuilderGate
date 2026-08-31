@@ -1,0 +1,86 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-15.projectmaster.wave1-baseline",
+  "iteration": 1,
+  "target": "wave-1",
+  "inputs": [
+    "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/intent.json",
+    "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/code_context.json",
+    "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/srs_mapping.json",
+    "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/inventory.json",
+    "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/preflight.json",
+    "docs/plans/2026-07-15.projectmaster.orca-terminal-performance.wave-master.plan.md"
+  ],
+  "outputs": {
+    "plan": "docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md",
+    "sidecar": "docs/plans/2026-07-15.projectmaster.wave1-baseline.sidecar.json"
+  },
+  "design_summary": {
+    "plan_contract": "1.2.0",
+    "sidecar_schema_version": "1.1.0",
+    "tdd_policy": "strict",
+    "phase_count": 4,
+    "task_count": 25,
+    "code_task_count": 16,
+    "red_task_count": 8,
+    "green_task_count": 8,
+    "non_code_task_count": 9,
+    "req_count": 4,
+    "ac_total": 25,
+    "ac_covered": 25,
+    "test_case_count": 54
+  },
+  "dependency_order": [
+    {
+      "phase_id": "PH-001",
+      "depends_on": []
+    },
+    {
+      "phase_id": "PH-002",
+      "depends_on": [
+        "PH-001"
+      ]
+    },
+    {
+      "phase_id": "PH-003",
+      "depends_on": [
+        "PH-001"
+      ]
+    },
+    {
+      "phase_id": "PH-004",
+      "depends_on": [
+        "PH-001",
+        "PH-002",
+        "PH-003"
+      ]
+    }
+  ],
+  "gates": {
+    "external_paths": [],
+    "orphans": [],
+    "unreferenced_reqs": [],
+    "deferred_ac": [],
+    "business_decision": {
+      "task_id": "T-PH004-04",
+      "slug": "g1-branch-selection",
+      "blocks_task": true
+    },
+    "forbidden_changes": [
+      "split activation",
+      "product buffer/retention defaults",
+      "server authority promotion",
+      "legacy deletion",
+      "UI visual changes"
+    ]
+  },
+  "validation_expectation": {
+    "json_parse": true,
+    "markdown_task_count": 25,
+    "sidecar_task_count": 25,
+    "phase_count_match": true,
+    "coverage_percent": 100,
+    "mcp_call_log_initialized_empty": true
+  }
+}
+

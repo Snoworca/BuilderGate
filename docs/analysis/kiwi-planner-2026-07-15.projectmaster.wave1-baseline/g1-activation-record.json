@@ -1,0 +1,129 @@
+{
+  "schemaVersion": "1.0.0",
+  "artifactType": "g1-activation-reevaluation-record",
+  "decisionRecord": {
+    "reference": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/g1-decision-record.json",
+    "fileSha256": "5a3d552a81a5f8ad7baa464ab3c008375b82f13e4496497974c8e44a5e7c0fc0"
+  },
+  "activationLifecycleEvidence": {
+    "phaseReview": {
+      "taskId": "T-PH004-05",
+      "verdict": "No findings",
+      "evidenceReference": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/ph004-completion-review.ko.md"
+    },
+    "migrationRequirement": {
+      "requirementId": "MIG-BGSTAB-001",
+      "status": "implemented",
+      "evidenceReference": "docs/spec/30.buildergate-stability.srs.md#MIG-BGSTAB-001"
+    },
+    "wave1Closure": {
+      "target": "wave-1",
+      "status": "completed",
+      "completionEventReference": "kiwi/waves.jsonl#event:wave-1-completed-20260715T163546Z"
+    }
+  },
+  "evaluation": {
+    "schemaVersion": "1.0.0",
+    "evaluationStage": "activation-reevaluation",
+    "selectedDecision": "architectural migration",
+    "result": "allow",
+    "prerequisiteEvidenceComplete": true,
+    "prerequisiteEvidence": {
+      "splitDrift": {
+        "requirementId": "REL-BGSTAB-006",
+        "complete": true,
+        "missing": []
+      },
+      "refreshBoundary": {
+        "requirementId": "OBS-BGSTAB-004",
+        "complete": true,
+        "missing": []
+      },
+      "benchmark": {
+        "requirementId": "PERF-BGSTAB-008",
+        "complete": true,
+        "missing": []
+      }
+    },
+    "decisionRationale": {
+      "selectedBranchEvidenceReferences": [
+        "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/g1-evidence-audit.json",
+        "docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md",
+        "conversation://2026-07-15/orca-full-refactor-and-all-waves"
+      ],
+      "rejectedBranchEvidenceReferences": [
+        "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/retained-state-characterization.json",
+        "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/benchmark-summary.json",
+        "conversation://2026-07-15/orca-full-refactor-and-all-waves"
+      ]
+    },
+    "authorizedLocalFixId": null,
+    "stableAuthorityRequirementId": "REL-BGSTAB-007",
+    "activationState": {
+      "waves": {
+        "wave-1": "completed",
+        "wave-2": "eligible",
+        "wave-3": "deferred",
+        "wave-4": "deferred",
+        "wave-5": "deferred"
+      },
+      "githubIssues": {
+        "#4": "deferred",
+        "#5": "deferred",
+        "#6": "deferred",
+        "#7": "deferred",
+        "#8": "deferred",
+        "#9": "deferred",
+        "#10": "deferred",
+        "#11": "deferred",
+        "#12": "deferred",
+        "#13": "deferred",
+        "#14": "deferred",
+        "#15": "deferred",
+        "#16": "deferred",
+        "#17": "deferred",
+        "#18": "deferred",
+        "#19": "deferred",
+        "#20": "deferred",
+        "#21": "deferred",
+        "#22": "deferred"
+      }
+    },
+    "activationReadiness": {
+      "applicable": true,
+      "ready": true,
+      "status": "wave1-closed",
+      "checks": {
+        "phaseReview": {
+          "complete": true,
+          "taskId": "T-PH004-05",
+          "requiredVerdict": "No findings",
+          "evidenceReference": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/ph004-completion-review.ko.md"
+        },
+        "migrationRequirement": {
+          "complete": true,
+          "requirementId": "MIG-BGSTAB-001",
+          "requiredStatus": "implemented",
+          "evidenceReference": "docs/spec/30.buildergate-stability.srs.md#MIG-BGSTAB-001"
+        },
+        "wave1Closure": {
+          "complete": true,
+          "target": "wave-1",
+          "requiredStatus": "completed",
+          "completionEventReference": "kiwi/waves.jsonl#event:wave-1-completed-20260715T163546Z"
+        }
+      },
+      "pendingReasons": []
+    },
+    "authorizations": {
+      "serverAuthorityPromotion": false,
+      "uiVisualChange": false,
+      "legacyCodeDeletion": false,
+      "retainedRowsBudget": false,
+      "aggregateMemoryBudget": false,
+      "checkpointChunkOrInflightBudget": false
+    },
+    "denialReasons": []
+  },
+  "recordedAt": "2026-07-15T16:35:46.0927941Z"
+}

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0",
+  "target": "wave-3",
+  "goal": "TerminalResourcePolicy, browser sole writer, retained server model, single authority, fair delivery와 hidden authoritative recovery를 구축한다.",
+  "countsByStatus": { "planned": 8 },
+  "countsByStability": { "stable": 1, "evolving": 7 },
+  "countsByType": {
+    "reliability": 4,
+    "observability": 1,
+    "functional": 1,
+    "migration": 1,
+    "performance": 1
+  },
+  "stabilityBlockers": [],
+  "stabilityWarnings": [],
+  "missingEvidence": [],
+  "newWorkCandidates": [
+    "REL-BGSTAB-007",
+    "OBS-BGSTAB-005",
+    "REL-BGSTAB-010",
+    "FR-BGSTAB-022",
+    "REL-BGSTAB-011",
+    "MIG-BGSTAB-002",
+    "PERF-BGSTAB-010",
+    "REL-BGSTAB-012"
+  ]
+}

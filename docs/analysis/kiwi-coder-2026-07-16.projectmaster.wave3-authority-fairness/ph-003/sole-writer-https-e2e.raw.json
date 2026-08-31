@@ -1,0 +1,208 @@
+{
+  "schemaVersion": "1.2.0",
+  "requirementIds": [
+    "FR-BGSTAB-022",
+    "REL-BGSTAB-007",
+    "PERF-BGSTAB-010"
+  ],
+  "capturedAt": "2026-08-18T16:03:40.927Z",
+  "command": "npx playwright test tests/e2e/wave3-terminal-authority-fairness.spec.ts --project \"Desktop Chrome\"",
+  "cwd": "frontend",
+  "origin": "https://localhost:2222",
+  "project": "Desktop Chrome",
+  "inputHash": "d6c45d6c73556cc2d029bfd6cd2e0c6007e15bbd08985f89a1a8338d13252a46",
+  "cases": [
+    {
+      "title": "PERF-BGSTAB-010 fair delivery browser ACK follows a visible write and preserves idle",
+      "status": "passed",
+      "expectedStatus": "passed",
+      "durationMs": 5342,
+      "errors": [],
+      "evidence": {
+        "fairDeliveryBrowserAck": {
+          "visibleWriteObserved": true,
+          "ackCount": 1,
+          "deliveryConnectionEpoch": "fair-browser-1787069014402",
+          "deliverySeq": 1,
+          "ackGeneration": 2,
+          "controlConnectionUrl": "wss://localhost:2222/ws?token=REDACTED",
+          "sessionStatusAfterAck": "idle"
+        }
+      }
+    },
+    {
+      "title": "sole writer active checkpoint — mocked server ingress applies and ACKs before one input release",
+      "status": "passed",
+      "expectedStatus": "passed",
+      "durationMs": 2289,
+      "errors": [],
+      "evidence": {
+        "execution": "live-https-test-controlled-active-checkpoint-server",
+        "mockedActiveCheckpointServer": {
+          "verified": true,
+          "legacyServerForwardedControlledFrames": false,
+          "legacyAuthorityRequestsForwardedToServer": false,
+          "capability": "checkpoint-active-test-controlled",
+          "connectionGeneration": 1,
+          "viewGeneration": 1,
+          "bodyApplied": true,
+          "modesApplied": true,
+          "parserTailAndOutputAppliedInOrder": true,
+          "applyAckSnapshotSeq": "9000",
+          "drainAckSourceSeq": "9001",
+          "pendingInputSentBeforeDrain": 0,
+          "pendingInputReleasedAfterDrain": 1,
+          "controlledFrameCount": 4,
+          "blockedLegacyRepairRequestCount": 0,
+          "blockedLegacyCheckpointResponseCount": 111,
+          "blockedLegacyOutputCount": 0,
+          "blockedLegacyReplayCount": 0,
+          "blockedLegacySnapshotCount": 1,
+          "blockedLegacyRepairCount": 0,
+          "legacyAuthorityFramesForwardedToBrowser": false
+        }
+      }
+    },
+    {
+      "title": "sole writer refresh — no-cache hard refresh restores the same live session",
+      "status": "failed",
+      "expectedStatus": "passed",
+      "durationMs": 26615,
+      "errors": [
+        "Error: terminal command did not complete after marker W3-SOLE-WRITER-REFRESH-1787068956422\n\nterminal command did not complete after marker W3-SOLE-WRITER-REFRESH-1787068956422\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m\n\nCall Log:\n- Timeout 20000ms exceeded while waiting on the predicate"
+      ],
+      "evidence": null
+    },
+    {
+      "title": "sole writer refresh remount faults — wire capability and coordinator faults fail closed",
+      "status": "failed",
+      "expectedStatus": "passed",
+      "durationMs": 7053,
+      "errors": [
+        "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoMatchObject\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\n\u001b[32m- Expected  - 2\u001b[39m\n\u001b[31m+ Received  + 2\u001b[39m\n\n\u001b[2m  Object {\u001b[22m\n\u001b[32m-   \"flushed\": 3,\u001b[39m\n\u001b[32m-   \"sent\": 1,\u001b[39m\n\u001b[31m+   \"flushed\": 0,\u001b[39m\n\u001b[31m+   \"sent\": 0,\u001b[39m\n\u001b[2m  }\u001b[22m\n\nCall Log:\n- Timeout 5000ms exceeded while waiting on the predicate"
+      ],
+      "evidence": null
+    },
+    {
+      "title": "sole writer remount — stale snapshot and early-ready frames stay fenced after same-socket runtime eviction",
+      "status": "failed",
+      "expectedStatus": "passed",
+      "durationMs": 4866,
+      "errors": [
+        "Error: page.evaluate: Error: E2E precondition failed: workspace create returned 409\n    at eval (eval at evaluate (:303:30), <anonymous>:17:13)\n    at async <anonymous>:329:30"
+      ],
+      "evidence": null
+    },
+    {
+      "title": "sole writer rollback — passive capability restores a clean legacy snapshot generation",
+      "status": "passed",
+      "expectedStatus": "passed",
+      "durationMs": 3642,
+      "errors": [],
+      "evidence": {
+        "execution": "live-https-active-to-passive-capability-rollback",
+        "checkpointCapabilityRollback": {
+          "verified": true,
+          "checkpointCompletedBeforeRollback": true,
+          "oldViewGeneration": 1,
+          "expectedCleanLegacyGeneration": 2,
+          "strictlyHigherGenerationContract": "unit-verified-and-https-compatibility-admission-observed",
+          "legacyRecoveryPendingObserved": true,
+          "preSnapshotInputSentToServer": 0,
+          "compatibilitySnapshotGeneration": 1,
+          "compatibilitySnapshotViewGeneration": 2,
+          "compatibilitySnapshotSeq": 1019,
+          "compatibilitySnapshotConnectionUrl": "wss://localhost:2222/ws?token=REDACTED",
+          "replacementWebSocketGenerationUsed": false,
+          "recoveryPendingFalseObservedBy": "fresh-snapshot-ack-held-output-drain-and-terminal-authority-legacy",
+          "rollbackInputSentToServer": 0,
+          "rollbackInputSettlementCount": 1,
+          "rollbackInputSettlementOutcome": "superseded",
+          "rollbackSettlementToken": "d4ff42bd-4d9c-4f27-bc37-64f7f1e6dda8:1:input:1",
+          "rollbackSettlementPayloadFree": true,
+          "staleOldGenerationFenceUnitVerified": true,
+          "freshCompatibilitySnapshotApplied": true,
+          "compatibilityEventBoundary": 22,
+          "compatibilitySnapshotAckEventId": 31,
+          "compatibilitySnapshotAckEventCount": 1,
+          "compatibilityDrainEventId": 26,
+          "compatibilityDrainEventCount": 1,
+          "postAckOutputReceivedEventId": 38,
+          "postAckOutputReceivedEventCount": 1,
+          "compatibilityConvergenceStateEventId": 45,
+          "compatibilityConvergenceStateEventCount": 1,
+          "compatibilityConvergenceEventId": 46,
+          "compatibilityConvergenceEventCount": 1,
+          "legacyInputReadyEventId": 48,
+          "legacyInputReadyEventCount": 1,
+          "compatibilityEventIdentityTuples": {
+            "drain": {
+              "eventId": 26,
+              "sessionHash": "0159bf589b6c342a392d086d093584f707c6b48e10253528fc09ec74cb3a00e7",
+              "viewGeneration": 2
+            },
+            "ack": {
+              "eventId": 31,
+              "sessionHash": "0159bf589b6c342a392d086d093584f707c6b48e10253528fc09ec74cb3a00e7",
+              "debugSessionHash": "0159bf589b6c342a392d086d093584f707c6b48e10253528fc09ec74cb3a00e7",
+              "replayToken": "w3-rollback-legacy-1787068997013",
+              "snapshotSeq": 1019,
+              "connectionGeneration": 1
+            },
+            "postAckOutput": {
+              "eventId": 38,
+              "sessionHash": "0159bf589b6c342a392d086d093584f707c6b48e10253528fc09ec74cb3a00e7",
+              "wireSessionHash": "0159bf589b6c342a392d086d093584f707c6b48e10253528fc09ec74cb3a00e7",
+              "replayToken": "w3-rollback-legacy-1787068997013",
+              "wireReplayToken": "w3-rollback-legacy-1787068997013",
+              "snapshotSeq": 1019,
+              "connectionGeneration": 1,
+              "wireConnectionGeneration": 1,
+              "viewGeneration": 2,
+              "screenSeq": 1020,
+              "wireScreenSeq": 1020
+            },
+            "convergenceState": {
+              "eventId": 45,
+              "sessionHash": "0159bf589b6c342a392d086d093584f707c6b48e10253528fc09ec74cb3a00e7",
+              "replayToken": "w3-rollback-legacy-1787068997013",
+              "snapshotSeq": 1019,
+              "connectionGeneration": 1,
+              "viewGeneration": 2
+            },
+            "convergence": {
+              "eventId": 46,
+              "sessionHash": "0159bf589b6c342a392d086d093584f707c6b48e10253528fc09ec74cb3a00e7",
+              "replayToken": "w3-rollback-legacy-1787068997013",
+              "snapshotSeq": 1019,
+              "connectionGeneration": 1,
+              "viewGeneration": 2
+            },
+            "ready": {
+              "eventId": 48,
+              "sessionHash": "0159bf589b6c342a392d086d093584f707c6b48e10253528fc09ec74cb3a00e7"
+            }
+          },
+          "compatibilityIdentityProofs": {
+            "sameSession": true,
+            "sameReplayToken": true,
+            "sameSnapshotSeq": true,
+            "sameConnectionGeneration": true,
+            "sameViewGeneration": true
+          },
+          "heldLegacyOutputDrainedBeforeInputReady": true,
+          "compatibilitySnapshotReplayToken": "w3-rollback-legacy-1787068997013",
+          "postSnapshotLegacyOutputApplied": true,
+          "postAckOutputScreenSeq": 1020,
+          "preConvergenceInputSentToServer": 0,
+          "legacyInputAdmittedAfterRollback": 1,
+          "oldGenerationMutationAbsent": true,
+          "lateCallbackFenceUnitEvidence": [
+            "FR_BGSTAB_022_AC6_late_pre_rollback_write_callback_cannot_double_settle_or_mutate_legacy",
+            "capability withdrawal atomically rolls recovery into a clean legacy generation"
+          ]
+        }
+      }
+    }
+  ]
+}

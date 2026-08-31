@@ -1,0 +1,25 @@
+{
+  "run_id": "2026-07-15.projectmaster.wave-1.v01",
+  "mode": "live",
+  "dry_run_passes": 2,
+  "applied": [
+    {"req_id":"REL-BGSTAB-006","from":"draft","to":"evolving","score":94,"ok":true,"sync":"pass"},
+    {"req_id":"OBS-BGSTAB-004","from":"draft","to":"evolving","score":94,"ok":true,"sync":"pass"},
+    {"req_id":"PERF-BGSTAB-008","from":"draft","to":"evolving","score":89,"ok":true,"sync":"pass"},
+    {"req_id":"MIG-BGSTAB-001","from":"draft","to":"evolving","score":85,"ok":true,"sync":"pass"}
+  ],
+  "skipped": [],
+  "guard_blocked": [],
+  "user_rejected": [],
+  "system_failed": [],
+  "summary": {
+    "applied_count": 4,
+    "skipped_count": 0,
+    "guard_blocked_count": 0,
+    "user_rejected_count": 0,
+    "system_failed_count": 0
+  },
+  "final_validation": {"errors":0,"warnings":0},
+  "final_target_summary": {"planned":4,"evolving":4},
+  "tag_mutation": "unavailable; feasibility tags were already present on newly authored requirements"
+}

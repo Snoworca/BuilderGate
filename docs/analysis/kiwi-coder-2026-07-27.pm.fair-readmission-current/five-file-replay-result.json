@@ -1,0 +1,36 @@
+{
+  "command": {
+    "argv": [
+      "node",
+      "node_modules/tsx/dist/cli.mjs",
+      "--test",
+      "src/ws/FairTerminalDeliveryScheduler.test.ts",
+      "src/ws/WsRouterSendPriority.test.ts",
+      "src/ws/wsSendPolicyRestoreMetadata.test.ts",
+      "src/services/TerminalResourcePolicy.test.ts",
+      "src/services/TerminalResourcePolicyCanary.test.ts"
+    ],
+    "cwd": "server",
+    "id": "five-file-replay"
+  },
+  "exit_code": 0,
+  "expected_tap_summary": {
+    "pass": 98,
+    "tests": 98
+  },
+  "observed_only": true,
+  "phase_id": "PH-003",
+  "requirement_id": "PERF-BGSTAB-010",
+  "schema_version": "fair-readmission-five-file-replay-observation/v1",
+  "status": "unsatisfied",
+  "tap_summary": {
+    "cancelled": 0,
+    "duration_ms": 11585.4859,
+    "fail": 0,
+    "pass": 99,
+    "skipped": 0,
+    "tests": 99,
+    "todo": 0
+  },
+  "unsatisfied_reason": "expected fresh 98/98; observed 99/99 count drift"
+}

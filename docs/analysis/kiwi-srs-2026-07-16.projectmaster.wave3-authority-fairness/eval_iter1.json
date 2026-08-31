@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "reviewer": "/root/wave3_srs_verifier",
+  "result": "findings",
+  "iterations": [
+    {
+      "severity": "high",
+      "finding": "hidden renderer lifecycle 범위가 Wave 4와 섞여 있었다.",
+      "resolution": "REL-BGSTAB-012를 hidden client/view delivery projection으로 한정하고 renderer residency/WebGL/TTL 변경을 명시적으로 제외했다."
+    },
+    {
+      "severity": "high",
+      "finding": "fair scheduler 채택 기준과 증거 형식이 기계 판독 가능하지 않았다.",
+      "resolution": "PERF-BGSTAB-010에 고정 decision artifact 경로, workload/config hash, raw samples, 분위수와 exact threshold/tolerance를 요구했다."
+    },
+    {
+      "severity": "high",
+      "finding": "TerminalResourcePolicy consumer inventory의 전수성이 입증되지 않았다.",
+      "resolution": "OBS-BGSTAB-005에 양방향 static contract test, 고정 manifest artifact와 schema/store/persistence/frontend hot-path trace를 추가했다."
+    },
+    {
+      "severity": "high",
+      "finding": "AI TUI 사용자 입력이 idle을 유지해야 하는 불변식이 모든 관련 단계에 닫히지 않았다.",
+      "resolution": "REL-BGSTAB-011, PERF-BGSTAB-010, REL-BGSTAB-012의 acceptance criteria와 verification에 불변식을 추가했다."
+    },
+    {
+      "severity": "medium",
+      "finding": "retained model lifecycle과 late-message 처리, server restart 기대 결과, sequence wire 정밀도 계약이 불완전했다.",
+      "resolution": "정확히 한 번 cleanup과 late rejection, authority-unavailable/session-terminated, 공통 Ordinal64 wire 및 모든 checkpoint/ACK sequence의 거부·rollover 테스트를 명시했다."
+    },
+    {
+      "severity": "medium",
+      "finding": "consumer trace의 ConfigFileRepository 경로가 실제 파일과 달랐다.",
+      "resolution": "SpecKiwi MCP로 server/src/services/ConfigFileRepository.ts로 교정했다."
+    }
+  ],
+  "validation": {
+    "strict": true,
+    "failOnWarning": true,
+    "errors": 0,
+    "warnings": 0
+  }
+}

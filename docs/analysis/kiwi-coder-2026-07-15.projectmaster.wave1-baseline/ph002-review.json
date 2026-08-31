@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0.0",
+  "phaseId": "PH-002",
+  "requirementId": "OBS-BGSTAB-004",
+  "reviewer": "/root/wave1_ph002/ph002_prickly_review",
+  "finalVerdict": "No findings",
+  "artifact": {
+    "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/retained-state-characterization.json",
+    "digestAlgorithm": "sha256",
+    "contentDigest": "ebdd8e5296cadb047eb8ad2c46a0c91d630fe5ac0a9d0f31baf308530d969e1f",
+    "independentDigestMatch": true,
+    "caseCount": 6,
+    "causeReferenceCount": 36,
+    "serverSerializerBoundaryCaseCount": 3
+  },
+  "checks": {
+    "ac1ThroughAc7Reviewed": true,
+    "liveRefreshMatrix": true,
+    "actualXtermPublicBufferCapture": true,
+    "runtimeConfigEffectiveBoundary": true,
+    "orderedExpectedEvictionVsObservedLoss": true,
+    "serverSerializeHeadlessTerminalBoundary": true,
+    "exactWorkspaceOwnershipGuard": true,
+    "playwrightReportProvenance": true,
+    "exactCauseReferenceResolution": true,
+    "uiAuthorityDefaultsUnchanged": true,
+    "rawTerminalContentOmitted": true
+  }
+}

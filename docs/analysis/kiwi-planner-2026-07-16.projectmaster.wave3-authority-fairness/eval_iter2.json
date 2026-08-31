@@ -1,0 +1,13 @@
+{
+  "iteration": 2,
+  "validator": "kiwi-planner 0.6.0",
+  "checks": 25,
+  "errors": 0,
+  "warnings": 0,
+  "coverage": {
+    "requirements": "8/8",
+    "acceptanceCriteria": "65/65",
+    "traceCalls": 40,
+    "planEvidenceCalls": 8
+  }
+}

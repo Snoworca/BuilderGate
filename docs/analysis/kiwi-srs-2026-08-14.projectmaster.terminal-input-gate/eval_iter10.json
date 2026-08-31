@@ -1,0 +1,166 @@
+{
+  "iteration": 10,
+  "scope": "REL-BGSTAB-017 only (narrow final verification)",
+  "mode": "read-only, independent, falsification-first",
+  "repo": "C:\\Work\\git\\_Snoworca\\ProjectMaster",
+  "file": "docs/spec/30.buildergate-stability.srs.md",
+  "verdict": "PASS-WITH-ISSUES",
+  "severity_counts": { "critical": 0, "high": 0, "medium": 1, "low": 6 },
+
+  "previous_medium_resolution": [
+    {
+      "id": "M-A",
+      "issue": "Duty-partition criterion ('reads or writes geometryReadyRef') contradicted AC-3 because the imperative fit() never touches geometryReadyRef.",
+      "resolved": "partial",
+      "evidence": {
+        "criterion_rewritten_to": "배리어 수명주기 참여 여부",
+        "contradiction_with_AC3": "gone — the Requirement now states the fit() clause normatively ('그 결과가 배리어 갱신 경로에 반영되어야 한다(AC-3)'), which matches the fact that fit() currently does NOT feed the barrier",
+        "code_facts": [
+          "geometryReadyRef writers: TerminalView.tsx:1206 (performRepairLayout), 3876 (initial mount), 4129 (ResizeObserver), 4321 (visibility) — exactly the '앞의 넷'",
+          "imperative fit() 2991-2997 calls submitTerminalFit(term) at 2995 with NO onApplied callback; submitTerminalFit (1107-1124) never touches geometryReadyRef → fit() currently neither reads nor writes the barrier",
+          "requestViewportSync returns void (1146-1182, ends with requestAnimationFrame(syncViewport)); callers 1229, 1513, 2335, 2517 all discard it — 1229 statement-position, 1513 statement-position, 2335/2517 followed by an unrelated `return true` of the enclosing promise",
+          "imperative fit() also returns void; its callers App.tsx:426 (handleFitAllTerminals) and TerminalContainer.tsx:2106 also discard it"
+        ],
+        "residual": "The stated exclusion test for requestViewportSync ('호출부 어디도 반환 결과를 배리어 상태로 해석하지 않는다') is equally true of the imperative fit(), so the stated criterion does not by itself discriminate site 5 from site 6; fit()'s membership rests on AC-3 alone (circular). A genuine discriminator exists in code but is not stated: App.tsx:426 handleFitAllTerminals is the documented ResizeObserver-fallback re-fit path ('ResizeObserver가 신뢰성 있게 발동하지 않는 경우가 있음'), i.e. exactly the scenario the Rationale's closing paragraph names."
+      },
+      "residual_severity": "low"
+    },
+    {
+      "id": "M-B",
+      "issue": "Rationale call-site enumeration omitted 1513.",
+      "resolved": "yes",
+      "evidence": {
+        "rationale_now_lists": "1229 / 1513 / 2335 / 2517 (four sites)",
+        "grep_requestViewportSync_callers": ["1229", "1513", "2335", "2517"],
+        "fitFirst_check": "1229 `requestViewportSync(term, true)`, 2335 `(term, true)`, 2517 `(term, true)`, 1513 `requestViewportSync(term)` inside settleWrite (1508-1519) with fitFirst omitted → default false (signature line 1146 `fitFirst = false`) → the 1163 guard `fitFirst && isRenderable` is false → no fit triggered. The '1513 은 fitFirst 생략' note is TRUE."
+      }
+    },
+    {
+      "id": "M-C",
+      "issue": "AC-8 was undecidable on the fitFirst axis.",
+      "resolved": "yes",
+      "evidence": {
+        "ac8_now_scoped_to": "fitFirst 가 참인 requestViewportSync 호출",
+        "explicit_exclusion": "1513",
+        "decidability": "3 call sites pass fitFirst=true (1229, 2335, 2517), 1 omits it (1513); the partition is fully determined by the source. Implementable as `fitFirst && !isRenderable` at 1163."
+      }
+    },
+    {
+      "id": "M-D",
+      "issue": "AC-8's only observation channel is behind the debug-capture gate → false green.",
+      "resolved": "yes",
+      "evidence": {
+        "cited_gate": "terminalDebugCapture.ts:394-403",
+        "actual_gate": "recordTerminalDebugEvent is declared at 395-401; the gate is `const store = getStore();` (402) + `if (!store || !store.isEnabled(sessionId)) { return; }` (403-405). The cited range starts on the blank line 394 and stops one line before the early `return`, but the substantive claim ('capture 활성일 때만 기록') is TRUE.",
+        "activation_is_possible": "YES — getStore() (152-...) installs window.__buildergateTerminalDebug with enable(sessionId?) (161-167), enabledAll flag, isEnabled(sessionId) (177-179) and async start(sessionId) (180-...). A unit/E2E test can call enable() (enabledAll=true) or enable(sessionId) synchronously with no network; start() additionally POSTs. isTerminalDebugCaptureEnabled(sessionId) (390-393) lets a test assert the precondition.",
+        "guard_soundness": "The fault assertion (렌더 불가 → 신호 있음) fails outright if capture is dead, so it alone defeats the false green; the control (렌더 가능 → 신호 없음) additionally excludes an always-emitting implementation. Both are required to be observed under active capture, and capture-inactive results are declared inadmissible. Sound."
+      }
+    },
+    {
+      "id": "M-E",
+      "issue": "'유일한 지점' was overstated (the imperative fit() also leaves nothing on its invisible path).",
+      "resolved": "yes",
+      "evidence": {
+        "hedged_to": "치수를 검사하는 지점 가운데 skip 시 디버그 이벤트도 재시도도 남기지 않는 유일한 지점",
+        "caveat_added": "명령형 fit() 은 비가시 경로에서 아무것도 남기지 않으나 치수 검사 자체를 하지 않는다",
+        "falsification_attempt": {
+          "all_offsetWidth_offsetHeight_sites_in_TerminalView": ["1157-1158 (requestViewportSync isRenderable)", "1190 (performRepairLayout)", "3862 (initial mount)", "4112 (ResizeObserver)", "4306 (visibility)"],
+          "which_emit_fit_skipped_non_renderable": ["1191", "3863", "4113", "4307"],
+          "which_emit_nothing": ["requestViewportSync"],
+          "retry_check": "none of the four emitting sites schedules a retry either, but they all leave a debug event, so the conjunctive claim ('neither event nor retry') singles out requestViewportSync only",
+          "scrollToBottom_noop_claim": "TRUE — 1160-1162 `if (xtermRef.current === term && isRenderable) term.scrollToBottom();`",
+          "exhaustiveness_of_fit_triggers": "submitTerminalFit call sites = 1164, 1200, 2995, 3870, 4123, 4315 (six, grep-confirmed); coordinator accepts type:'fit' only from TerminalView.tsx:1118; fitAddon.fit() has a single sink at terminalRawMutationAdapter.ts:98 reached via terminalWriteCoordinator.ts:1069. No seventh trigger and no sixth dimension-check site exists.",
+          "result": "claim could not be falsified — TRUE"
+        }
+      }
+    }
+  ],
+
+  "findings": [
+    {
+      "id": "F-1",
+      "severity": "medium",
+      "area": "Change Notes / change control",
+      "title": "This iteration's meaning-changing edits are not recorded in Change Notes",
+      "detail": "The Change Notes table still holds exactly 4 rows (Created; REL-BGSTAB-009 trace note; sixth-site + AC-8; per-site Rationale + AC-7). None of them covers the iteration-10 edits: the duty-partition criterion rewrite in the Requirement, the addition of 1513 to the Rationale enumeration, the narrowing of AC-8 to fitFirst-true calls, the AC-8 vacuity guard, or the '치수를 검사하는 지점 가운데' hedge. Narrowing AC-8's scope and adding a binding evidence-admissibility condition are meaning changes to an Acceptance Criterion, which SRS-MD Rules v2.5.0 §26 rule 2 requires to be recorded ('Record it when the meaning of Target, Status, Acceptance Criteria, or Requirement Statement changes'). §26 rule 1's trivial-wording exemption does not cover them. The sibling requirement REL-BGSTAB-018 recorded its analogous AC-8/vacuity-guard change as a 5th row, so the omission is also inconsistent with the file's own practice.",
+      "evidence": "get_requirement(REL-BGSTAB-017).changeNotes = 4 entries (lines 4322-4325); REL-BGSTAB-018 changeNotes = 5 entries incl. 'Extended the AC-7 vacuity guard ... added AC-8 boundary controls'.",
+      "blocking": false
+    },
+    {
+      "id": "F-2",
+      "severity": "low",
+      "area": "Requirement / Rationale",
+      "title": "The stated duty-partition criterion does not discriminate site 5 from site 6",
+      "detail": "requestViewportSync is excluded because 'no caller interprets its result as barrier state'. That test is equally satisfied by the imperative fit(): it returns void and its callers (App.tsx:426, TerminalContainer.tsx:2106) discard it. fit()'s membership in the convergence set therefore rests only on AC-3 asserting the duty. The real discriminator — App.tsx handleFitAllTerminals is the explicit ResizeObserver-fallback re-fit path, i.e. the very 'resize never fires again' scenario the Rationale closes on — is not stated. No false statement and no AC contradiction results; this is a justification gap.",
+      "blocking": false
+    },
+    {
+      "id": "F-3",
+      "severity": "low",
+      "area": "Acceptance Criteria ordering",
+      "title": "AC-8 is listed before AC-7",
+      "detail": "The AC list order is AC-1..AC-6, AC-8, AC-7 (file lines 4289-4296; get_requirement returns them in that order). SRS-MD Rules §21.2 rule 2 says numbers increase from 1 within a Requirement Block. No validator diagnostic is emitted.",
+      "blocking": false
+    },
+    {
+      "id": "F-4",
+      "severity": "low",
+      "area": "Citation precision",
+      "title": "Three line-range citations are off by one or inconsistent between sections",
+      "detail": "(a) Rationale cites requestViewportSync as 1146-1181 while Trace Links cites 1146-1182; the statement actually closes at 1182 (`}, [submitTerminalFit]);`). (b) AC-8 cites terminalDebugCapture.ts:394-403 — 394 is blank and the gate's early `return` is at 404-405; the precise range is 402-405. (c) The Rationale's 'isRenderable 은 다른 지점과 동일한 isVisibleRef + offsetWidth>0 + offsetHeight>0 술어다' generalizes over two partial exceptions: the visibility handler guard at 4306 omits isVisibleRef (implied by the enclosing branch) and performRepairLayout at 1190 additionally null-checks term and fitAddon. The substantive claims are unaffected in all three cases.",
+      "blocking": false
+    },
+    {
+      "id": "F-5",
+      "severity": "low",
+      "area": "AC-8 vacuity guard",
+      "title": "'유일한 관측 수단인 recordTerminalDebugEvent' presumes the implementation channel",
+      "detail": "AC-8 requires 'an observable skip signal' without fixing the channel, and AC-4 explicitly allows either a debug event or a barrier-reason update. The vacuity guard however declares recordTerminalDebugEvent the sole observation means and makes capture-inactive evidence inadmissible. If an implementer chose a different observable channel, the guard as literally written would reject otherwise valid evidence. Implementation Notes do steer toward reusing fit_skipped_non_renderable, so the presumption is consistent with the intended implementation.",
+      "blocking": false
+    },
+    {
+      "id": "F-6",
+      "severity": "low",
+      "area": "AC-3 vs AC-6",
+      "title": "Latent scope tension between AC-3 and AC-6 (pre-existing, unchanged this iteration)",
+      "detail": "AC-3 requires an invisible imperative fit() call to join the retry path; AC-6 requires that the retry path NOT activate when the container has non-zero dimensions from the start. A container that is non-zero-sized but flagged not-visible (isVisibleRef false without display:none) satisfies both antecedents. AC-6's '정상 경로' qualifier arguably scopes it to the normal mount path, so the tension is likely resolvable by reading; no new defect was introduced this iteration.",
+      "blocking": false
+    },
+    {
+      "id": "F-7",
+      "severity": "low",
+      "area": "Verification Method",
+      "title": "Verification Method describes no method for AC-8",
+      "detail": "The Verification Method row names AC-4 and AC-7 explicitly and describes the unit/E2E fit scenarios, but says nothing about requestViewportSync or the capture-enabled precondition. The binding guard is fully self-contained inside AC-8, so a verifier reading the AC has what is needed; REL-BGSTAB-018 by contrast folded its AC-8 controls into the Verification Method.",
+      "blocking": false
+    }
+  ],
+
+  "block_consistency": {
+    "site_count_consistent": true,
+    "detail": "Six trigger sites, five with the convergence duty, one with the observability duty — the same partition appears in Requirement, Rationale (four behaviour classes), Trace Links (four behaviour classes) and the ACs. Call-site list 1229/1513/2335/2517 appears identically in Requirement, Rationale and Trace Links. No site is classified differently in two places.",
+    "ac_cross_conflicts": "none found. AC-1 (conditional convergence) vs AC-4 (bounded exhaustion) is explicitly reconciled in both texts. AC-3 (imperative fit) and AC-8 (requestViewportSync) address disjoint sites; AC-8 explicitly disclaims the convergence duty that AC-1/AC-2/AC-3 impose. AC-7 (performRepairLayout return value + geometryReadyRef) is disjoint from AC-8. The only tension found is F-6 (AC-3 vs AC-6), pre-existing.",
+    "trace_links_match_code": true,
+    "implementation_notes_consistent": "yes — 'six sites, single retry scheduler, reuse fit_skipped_non_renderable for the termination signal' is consistent with AC-4 and with AC-8's assumed channel."
+  },
+
+  "structural_integrity": {
+    "git_numstat": "2462\t0\tdocs/spec/30.buildergate-stability.srs.md — deletions 0 CONFIRMED (file exists in HEAD; the working-tree change is pure addition, nothing staged)",
+    "get_requirement_parse": "ok",
+    "acceptance_criteria_count": 8,
+    "trace_link_count": 2,
+    "change_note_count": 4,
+    "verification_evidence_count": 0,
+    "table_pipe_uniformity": "uniform per table — metadata 2 cols x 12 rows, verification evidence 5 cols x 2 rows (header+separator), trace links 4 cols x 4 rows, change notes 3 cols x 6 rows",
+    "speckiwi_validate": { "errors": 1, "warnings": 19, "byCode": { "SRS-W018": 5, "SRS-W023": 14, "SRS-E002": 1 }, "matches_baseline": true },
+    "new_diagnostics_from_this_block": "none (only the pre-existing SRS-W023 draft warning at line 4257)"
+  },
+
+  "new_defects_introduced": {
+    "ac8_length": "AC-8 grew to ~4 sentences but every clause is decidable: (1) the normative duty, (2) the fitFirst scoping, (3) a verifiable factual claim (confirmed true), (4) an evidence-admissibility rule. No undecidable element was introduced.",
+    "self_invalidating_prose": "AC-8's uniqueness sentence describes the pre-implementation state and becomes false once the AC is satisfied. The same pattern already exists in AC-3 ('이 지점은 현재 치수 검사 자체가 없으므로') and AC-7 ('현재 구현은 skip 직후 resolve(true) 를 반환하므로'), so it is stylistically consistent within the block rather than a new defect. Covered informationally by F-5.",
+    "regressions_to_previously_closed_findings": "none — the AC-1/AC-4 reconciliation, the per-site Rationale, the AC-7 dual observation and the REL-BGSTAB-009 clause citations all survive intact."
+  },
+
+  "recommendation": "Terminate the loop. All five iteration-9 MEDIUM findings are closed on the code facts; the single remaining MEDIUM (F-1) is a change-control bookkeeping omission that is repaired by appending one Change Notes row and requires no change to the Requirement, Rationale or any AC. The six LOW findings are optional polish."
+}

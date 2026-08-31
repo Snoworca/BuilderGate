@@ -1,0 +1,435 @@
+{
+  "research_question": "BuilderGate의 브라우저 새로고침 후 terminal 화면 또는 scrollback 잘림 현상을 재현 증거로 원인 계층까지 식별하고 보존 계약을 명확히 한 뒤, Orca의 daemon authoritative model 및 disposable view 생명주기를 참고하여 기존 snapshot/replay/local-cache 구조의 전면 교체와 단계적 교체가 browser reconnect, 다중 client, WAN, 기존 protocol 및 SRS 제약에서 각각 성립하는지 조사한다.",
+  "mode": "standalone",
+  "consensus_findings": [
+    {
+      "claim": "현재 BuilderGate의 refresh scrollback 잘림은 server snapshot과 browser fallback cache가 모두 viewport-only이고 기존 E2E가 old marker 부재를 성공으로 판정하도록 만든 의도된 계약/메커니즘이다. 다만 신고된 개별 현상이 viewport-only 계약, oversized empty fallback, replay-tail truncation, handler handoff 또는 다른 경계 중 어디에서 발생했는지는 runtime 상관 증거 없이 확정되지 않았다. 이는 연구자 간 genuine dissent가 아니라 메커니즘의 존재와 개별 사고의 원인 귀속을 구분하면 해소되는 범위 차이다.",
+      "supported_by": [
+        "researcher_a",
+        "researcher_c"
+      ],
+      "evidence": [
+        "server/src/utils/headlessTerminal.ts:95; server/src/utils/headlessTerminal.ts:103; server/src/utils/headlessTerminal.ts:107; server/src/utils/headlessTerminal.ts:138",
+        "frontend/src/components/Terminal/TerminalView.tsx:1121; frontend/src/components/Terminal/TerminalView.tsx:1143; frontend/src/components/Terminal/TerminalView.tsx:1152",
+        "frontend/tests/e2e/header-context-menu-regression.spec.ts:439; frontend/tests/e2e/header-context-menu-regression.spec.ts:467; frontend/tests/e2e/header-context-menu-regression.spec.ts:475",
+        "research-raw/risk-research.json#findings[0]"
+      ],
+      "source_quotes": [
+        {
+          "from": "researcher_a",
+          "quote": "The authoritative server snapshot intentionally contains only the active viewport: xterm-headless may retain configured scrollback, but serialization defaults to {scrollback: 0}. In the checked config the headless retention is 1,000 logical lines, yet none of that retained history is transferred on refresh.",
+          "raw_path": "research-raw/code-research.json#findings[1].claim"
+        },
+        {
+          "from": "researcher_a",
+          "quote": "Playwright prints 700 lines, requires the local payload to be viewport-only and exclude oldMarker, reloads, then explicitly asserts latestMarker is visible and oldMarker remains absent. Scrollback loss is therefore encoded as the expected behavior, not an uncovered regression.",
+          "raw_path": "research-raw/code-research.json#test_coverage[6].coverage"
+        },
+        {
+          "from": "researcher_a",
+          "quote": "The code alone cannot identify which boundary caused a reported instance. Correlate snapshot_serialized truncated/byteLength, replay queuedOutputTruncated, fallback mode, and frontend screen_snapshot_* debug events for the affected session.",
+          "raw_path": "research-raw/code-research.json#unknowns[0].item"
+        },
+        {
+          "from": "researcher_c",
+          "quote": "현재 사실만으로 복구 구조가 refresh 잘림의 원인이라고 확정할 수 없다.",
+          "raw_path": "research-raw/risk-research.json#findings[0].claim"
+        }
+      ],
+      "confidence": "high"
+    },
+    {
+      "claim": "Orca가 실제로 보존하는 것은 local warm refresh/reload에서 daemon model의 현재 screen과 bounded scrollback이며 process도 유지된다. 그 local daemon model의 실효 기본 보존량은 약 5,000행이고 이미 trim된 이전 행은 되살리지 못한다. 반대로 remote desktop의 최초 subscribe와 gap recovery는 scrollbackRows=0 bounded snapshot이 수락될 때 current screen을 복구하면서 renderer scrollback을 clear하려는 경로다. 2MiB 초과 또는 truncated snapshot은 client가 거부하고 live output만 이어질 수 있어 current-screen 복구도 무조건 보장되지는 않는다. Orca 역시 무제한 transcript나 모든 transport에서 동일한 scrollback 보존을 제공하지 않는다.",
+      "supported_by": [
+        "researcher_b",
+        "researcher_c"
+      ],
+      "evidence": [
+        "src/main/daemon/terminal-host.ts:61-81; src/renderer/src/components/terminal-pane/pty-connection.ts:6588-6605",
+        "src/shared/terminal-scrollback-policy.ts:1-4; src/main/daemon/terminal-host-create-contract.ts:5-22; src/main/daemon/headless-emulator.ts:58-101",
+        "src/main/runtime/rpc/methods/terminal.ts:622-631; src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:525-530",
+        "research-raw/risk-research.json#findings[2]"
+      ],
+      "source_quotes": [
+        {
+          "from": "researcher_b",
+          "quote": "Local warm refresh/reload는 process를 유지하고 daemon snapshot 뒤 live bytes를 순서대로 적용해 현재 screen과 bounded scrollback을 복구한다.",
+          "raw_path": "research-raw/external-research.json#findings[1].claim"
+        },
+        {
+          "from": "researcher_b",
+          "quote": "보존되는 scrollback은 무제한이 아니다. Desktop 설정은 최대 50,000행이지만 daemon 모델은 create 경로에서 설정을 받지 않아 기본 5,000행만 유지한다.",
+          "raw_path": "research-raw/external-research.json#findings[2].claim"
+        },
+        {
+          "from": "researcher_b",
+          "quote": "Remote desktop reconnect와 frame-gap recovery는 scrollbackRows=0 snapshot으로 screen을 복구하면서 renderer scrollback을 clear하므로 과거 remote scrollback을 보존하지 않는다.",
+          "raw_path": "research-raw/external-research.json#findings[4].claim"
+        },
+        {
+          "from": "researcher_c",
+          "quote": "server authoritative라는 속성만으로 full state 보존이 보장되지는 않는다.",
+          "raw_path": "research-raw/risk-research.json#findings[2].claim"
+        }
+      ],
+      "confidence": "high"
+    },
+    {
+      "claim": "Retained-state는 무제한 scrollback이 아니라 명시적인 bounded policy여야 한다. 현재 BuilderGate의 server 1,000행, browser 10,000행, snapshot 2,097,152 UTF-8 byte와 Orca local 약 5,000행은 서로 다른 현 구현 경계이자 characterization seed일 뿐 목표값이 아니다. Phase 0-R에서 retained rows, server/browser range 관계, aggregate model memory, checkpoint chunk/in-flight budget과 server-restart/offline persistence 범위를 별도의 유한 계약으로 결정해야 한다. Delivery queue overflow는 silent trim 대신 explicit gap/sentinel과 resync를 사용한다. Bootstrap/snapshot 자체의 cap 초과는 아직 합의되지 않았으므로 range reduction, pagination/chunking 또는 observable terminal failure 중 cap-safe 수렴 방식을 별도로 결정해야 하며 empty success는 허용하지 않는다.",
+      "supported_by": [
+        "researcher_a",
+        "researcher_b",
+        "researcher_c"
+      ],
+      "evidence": [
+        "server/config.json5:16; server/config.json5:17; server/src/schemas/config.schema.ts:69; server/src/schemas/config.schema.ts:70",
+        "src/shared/terminal-scrollback-policy.ts:1-4; src/main/daemon/headless-emulator.ts:58-101",
+        "research-raw/risk-research.json#findings[3]",
+        "research-raw/risk-research.json#decision_gates[4]"
+      ],
+      "source_quotes": [
+        {
+          "from": "researcher_a",
+          "quote": "The exact default/current limits form mismatched loss boundaries: server headless scrollback=1,000 (schema range 0..50,000), browser live scrollback=10,000, server snapshot=2,097,152 UTF-8 bytes (schema 1,024..268,435,456), local snapshot=2,000,000 characters, all local snapshots=3,000,000 characters/16 entries, and local parser newlines<=4*rows. PTY geometry defaults to 80x24 and is capped at 500x200.",
+          "raw_path": "research-raw/code-research.json#findings[3].claim"
+        },
+        {
+          "from": "researcher_b",
+          "quote": "Orca는 무제한 full scrollback을 보존하지 않는다. Desktop 설정 범위는 1,000~50,000행이지만 daemon create contract에는 scrollback 설정이 없고 headless emulator 기본값은 5,000행이므로 warm reload/parking의 authoritative daemon snapshot은 실제로 최대 약 5,000행이다.",
+          "raw_path": "research-raw/external-research.json#retention_and_limits[0].claim"
+        },
+        {
+          "from": "researcher_b",
+          "quote": "Queue를 제한할 때 silent middle trim을 하지 말고 explicit gap/sentinel을 내보낸 뒤 authoritative snapshot으로 복구해야 한다.",
+          "raw_path": "research-raw/external-research.json#portable_invariants[1].claim"
+        },
+        {
+          "from": "researcher_c",
+          "quote": "bounded retention과 무제한으로 해석되는 full scrollback 약속은 추가 정책 없이 양립하지 않는다.",
+          "raw_path": "research-raw/risk-research.json#findings[3].claim"
+        }
+      ],
+      "confidence": "med"
+    },
+    {
+      "claim": "G1 재현과 SRS/제품 결정이 architectural migration을 선택하는 경우의 candidate target은 bounded server-owned terminal model과 disposable per-client view의 분리다. 이 후보에서는 model ingest가 delivery보다 먼저 끝나고, snapshot과 live chunk가 같은 absolute sequence/high-water domain을 사용하며, snapshot 전 listener와 bounded buffer를 설치한 뒤 covered bytes를 제거한다. Client별 queue/backpressure와 explicit gap/resync를 사용하고, resize는 ordered stream 및 명시적인 multi-client owner 계약을 promotion 전에 검증해야 한다. Orca식 직접 이식은 환경 차이를 별도 검증하기 전에는 확정 설계가 아니다.",
+      "supported_by": [
+        "researcher_a",
+        "researcher_b",
+        "researcher_c"
+      ],
+      "evidence": [
+        "server/src/ws/WsRouter.ts:861; server/src/ws/WsRouter.ts:876; server/src/ws/WsRouter.ts:1880; server/src/ws/WsRouter.ts:1882",
+        "src/main/daemon/session.ts:576-587; src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:569-583",
+        "src/main/runtime/rpc/methods/terminal.ts:2067-2077; src/main/runtime/rpc/methods/terminal.ts:2220-2232",
+        "research-raw/risk-research.json#failure_modes[6].mitigation",
+        "research-raw/risk-research.json#failure_modes[7].mitigation"
+      ],
+      "source_quotes": [
+        {
+          "from": "researcher_a",
+          "quote": "The normal subscribe race is fenced correctly. ReplayPendingState is installed before screen-snapshot is sent; live output produced afterward is queued rather than sent; after matching ACK the queued output is emitted before session:ready. This prevents ordinary post-snapshot output from being erased by client term.reset().",
+          "raw_path": "research-raw/code-research.json#findings[6].claim"
+        },
+        {
+          "from": "researcher_b",
+          "quote": "PTY/model ingest는 view delivery보다 먼저 완료되어야 하며, view queue drop은 model loss로 취급하면 안 된다.",
+          "raw_path": "research-raw/external-research.json#portable_invariants[0].claim"
+        },
+        {
+          "from": "researcher_b",
+          "quote": "Snapshot에는 absolute output high-water가 있어야 하며 live chunk도 같은 sequence domain을 사용해야 중복과 누락을 판정할 수 있다.",
+          "raw_path": "research-raw/external-research.json#portable_invariants[2].claim"
+        },
+        {
+          "from": "researcher_c",
+          "quote": "snapshot과 delta의 전환 경계는 새 구조의 가장 중요한 정확성 gate 중 하나다.",
+          "raw_path": "research-raw/risk-research.json#findings[4].claim"
+        },
+        {
+          "from": "researcher_c",
+          "quote": "client별 전송 큐와 backpressure 정책을 분리하고, 한도 초과 client는 명시적으로 resync 또는 연결 해제하되 다른 client와 runtime을 막지 않게 한다.",
+          "raw_path": "research-raw/risk-research.json#failure_modes[6].mitigation"
+        },
+        {
+          "from": "researcher_b",
+          "quote": "Snapshot 획득 전 live listener를 등록하고 bytes를 bounded buffer에 보관한 뒤 snapshot-covered bytes를 제거해야 snapshot/live 경계가 원자적으로 보인다.",
+          "raw_path": "research-raw/external-research.json#portable_invariants[3].claim"
+        },
+        {
+          "from": "researcher_b",
+          "quote": "Resize는 output과 같은 ordered model stream에 들어가야 하며 snapshot은 source dimensions에서 replay한 뒤 live PTY dimensions로 전환해야 한다.",
+          "raw_path": "research-raw/external-research.json#portable_invariants[6].claim"
+        },
+        {
+          "from": "researcher_c",
+          "quote": "Orca식 모델을 직접 이식하는 것은 환경 차이 때문에 별도 검증이 필요한 설계 변경이다.",
+          "raw_path": "research-raw/risk-research.json#findings[1].claim"
+        }
+      ],
+      "confidence": "high"
+    },
+    {
+      "claim": "Target end-state와 rollout method는 분리해야 한다. G1이 구조적 migration을 선택하면 현재 subscribe barrier처럼 보존할 수 있는 부분과 Electron 전용 요소를 구분해 additive contract, read-only shadow, session/client canary, promotion, cleanup 순서로 진행하는 것이 적합하다. Shadow 동안 기존 경로만 write authority여야 하며 promotion과 기존 경로 삭제를 같은 변경으로 묶지 않는다. 반대로 G1이 국소 결함만 확인하고 architecture replacement의 이득을 입증하지 못하면 confirmed-bug-only fix를 독립 대안으로 유지한다.",
+      "supported_by": [
+        "researcher_a",
+        "researcher_b",
+        "researcher_c"
+      ],
+      "evidence": [
+        "server/src/test-runner.ts:14613; server/src/test-runner.ts:14617; server/src/test-runner.ts:14623; server/src/test-runner.ts:14629",
+        "src/main/ipc/pty.ts:1409-1427; src/main/daemon/daemon-init.ts:96-118; src/main/daemon/daemon-init.ts:322-360",
+        "research-raw/risk-research.json#findings[8]",
+        "research-raw/risk-research.json#findings[9]",
+        "research-raw/risk-research.json#findings[11]"
+      ],
+      "source_quotes": [
+        {
+          "from": "researcher_a",
+          "quote": "The normal subscribe race is fenced correctly. ReplayPendingState is installed before screen-snapshot is sent; live output produced afterward is queued rather than sent; after matching ACK the queued output is emitted before session:ready. This prevents ordinary post-snapshot output from being erased by client term.reset().",
+          "raw_path": "research-raw/code-research.json#findings[6].claim"
+        },
+        {
+          "from": "researcher_b",
+          "quote": "Orca의 모델·sequence·bounded queue·snapshot 원칙은 portable하지만 BrowserWindow lifecycle, ipcMain/webContents, app.asar, ELECTRON_RUN_AS_NODE daemon bootstrap은 Electron 전용이다.",
+          "raw_path": "research-raw/external-research.json#findings[12].claim"
+        },
+        {
+          "from": "researcher_c",
+          "quote": "shadow authority 후 canary promotion이 full cutover보다 진단성과 rollback 가능성이 높다.",
+          "raw_path": "research-raw/risk-research.json#findings[8].claim"
+        },
+        {
+          "from": "researcher_c",
+          "quote": "shadow 설계도 단일 write authority를 지키지 않으면 새로운 drift 위험을 만든다.",
+          "raw_path": "research-raw/risk-research.json#findings[9].claim"
+        },
+        {
+          "from": "researcher_c",
+          "quote": "권장되는 최초 결정은 아키텍처 선택이 아니라 재현 및 원인 계층화 gate의 통과 여부다.",
+          "raw_path": "research-raw/risk-research.json#findings[11].claim"
+        },
+        {
+          "from": "researcher_c",
+          "quote": "먼저 runtime 재현과 계층별 관측으로 잘림 원인을 확인하고 확인된 결함만 최소 수정한다.",
+          "raw_path": "research-raw/risk-research.json#alternative_designs[4].summary"
+        }
+      ],
+      "confidence": "high"
+    },
+    {
+      "claim": "Browser local cache는 authoritative state로 남겨서는 안 되지만 즉시 제거해서도 안 된다. 현재도 viewport-only persistent fallback이고 stale 또는 absent할 수 있으므로 migration 동안 명시적으로 provisional, non-authoritative recovery fallback으로만 유지한다. Offline 및 server-restart recovery가 동등하거나 승인된 새 계약을 충족한다는 G9 증거가 생긴 뒤 model/view 전환과 별도 PR에서 제거한다.",
+      "supported_by": [
+        "researcher_a",
+        "researcher_c"
+      ],
+      "evidence": [
+        "frontend/src/utils/terminalSnapshot.ts:1; frontend/src/utils/terminalSnapshot.ts:3; frontend/src/utils/terminalSnapshot.ts:6; frontend/src/utils/terminalSnapshot.ts:7; frontend/src/utils/terminalSnapshot.ts:9",
+        "frontend/src/components/Terminal/TerminalView.tsx:1093; frontend/src/components/Terminal/TerminalView.tsx:1100; frontend/src/components/Terminal/TerminalView.tsx:1121",
+        "research-raw/risk-research.json#findings[7]",
+        "research-raw/risk-research.json#decision_gates[8]"
+      ],
+      "source_quotes": [
+        {
+          "from": "researcher_a",
+          "quote": "The browser fallback cache is also viewport-only. It saves SerializeAddon output with scrollback=0 as schemaVersion=2/payloadKind=viewport-only plus sessionId, content, cols, rows, bufferType, and savedAt. Restore requires exact cols/rows equality; authoritative replacement calls term.reset(), so a refreshed xterm starts with only the restored viewport even though its live in-memory scrollback cap is hard-coded to 10,000 lines.",
+          "raw_path": "research-raw/code-research.json#findings[2].claim"
+        },
+        {
+          "from": "researcher_a",
+          "quote": "The local fallback can be stale or absent independently of the server: a newly serialized viewport over perSnapshotMaxChars is refused while the previous snapshot is retained; malformed, oversized, wrong-session, empty, wrong-geometry-shape, or >4*rows-newline payloads are rejected and cleared; projected storage over budget fails the save after eviction attempts.",
+          "raw_path": "research-raw/code-research.json#findings[5].claim"
+        },
+        {
+          "from": "researcher_c",
+          "quote": "local cache 제거는 model/view 전환과 분리해야 하는 독립적인 recovery 변경이다.",
+          "raw_path": "research-raw/risk-research.json#findings[7].claim"
+        },
+        {
+          "from": "researcher_c",
+          "quote": "offline 및 server-restart 후 복구 범위가 local cache 제거 전보다 낮아지지 않는다",
+          "raw_path": "research-raw/risk-research.json#decision_gates[8].pass_criteria[0]"
+        }
+      ],
+      "confidence": "high"
+    }
+  ],
+  "dissent_findings": [],
+  "suggested_mitigations": [
+    {
+      "for_finding": "Phase 0 / GitHub work item 1 — reproduce and instrument before replacement",
+      "mitigation": "첫 issue와 PR은 deterministic refresh reproduction, server retained state, wire snapshot/delta, client applied state, final xterm retained range를 같은 session/sequence로 비교하는 관측과 회귀 테스트만 포함한다. G1이 실패하면 destructive replacement를 중단한다.",
+      "gates": [
+        "G1 재현 및 원인 계층화"
+      ],
+      "source": [
+        "research-raw/risk-research.json#github_work_breakdown_principles[0]",
+        "research-raw/risk-research.json#decision_gates[0]",
+        "research-raw/code-research.json#minimal_reproduction"
+      ]
+    },
+    {
+      "for_finding": "Phase 1 / GitHub work items 2-3 — retained-state and additive protocol contract",
+      "mitigation": "별도 contract work item에서 bounded retained-state의 R/B/aggregate limits, oldest-retained boundary, offline/server-restart 범위, resize owner를 확정한다. 별도 protocol/test PR에서 absolute high-water, snapshot-covered range, gap/duplicate/reorder detection, explicit full-resync와 version compatibility를 additive하게 정의한다.",
+      "gates": [
+        "G2 요구사항 계약 정합성",
+        "G4 snapshot-delta 경계 안전성",
+        "G8 protocol 호환성"
+      ],
+      "source": [
+        "research-raw/external-research.json#portable_invariants[2]",
+        "research-raw/external-research.json#portable_invariants[3]",
+        "research-raw/risk-research.json#decision_gates[1]",
+        "research-raw/risk-research.json#decision_gates[3]",
+        "research-raw/risk-research.json#decision_gates[7]"
+      ]
+    },
+    {
+      "for_finding": "Phase 2 / GitHub work item 4 — read-only shadow model and comparator",
+      "mitigation": "G1이 architectural migration을 선택한 경우 새 server model은 read-only shadow로 도입하고 기존 경로만 write authority로 둔다. Comparator는 content, sequence, retained range, truncation과 resource divergence를 기록하며 불일치는 promotion 차단 조건이다.",
+      "gates": [
+        "G3 상태 완전성",
+        "G5 자원 및 retention"
+      ],
+      "source": [
+        "research-raw/risk-research.json#github_work_breakdown_principles[4]",
+        "research-raw/risk-research.json#github_work_breakdown_principles[5]",
+        "research-raw/risk-research.json#decision_gates[2]",
+        "research-raw/risk-research.json#decision_gates[4]"
+      ]
+    },
+    {
+      "for_finding": "Phase 3 / GitHub work items 5-7 — model-backed refresh canary, WAN/backpressure, resize",
+      "mitigation": "Session 또는 client 단위 flag로 model-backed refresh를 canary한다. Refresh routing, client별 bounded queue/backpressure, slow-client resync/disconnect, multi-client resize ownership은 서로 독립적인 reversible PR로 둔다. Payload, recovery latency, queue maxima, retained-state equality와 cross-client isolation을 promotion metrics로 사용한다.",
+      "gates": [
+        "G3 상태 완전성",
+        "G4 snapshot-delta 경계 안전성",
+        "G5 자원 및 retention",
+        "G6 WAN 및 backpressure",
+        "G7 multi-client resize",
+        "G10 canary와 rollback"
+      ],
+      "source": [
+        "research-raw/risk-research.json#github_work_breakdown_principles[3]",
+        "research-raw/risk-research.json#github_work_breakdown_principles[6]",
+        "research-raw/risk-research.json#decision_gates[2]",
+        "research-raw/risk-research.json#decision_gates[3]",
+        "research-raw/risk-research.json#decision_gates[4]",
+        "research-raw/risk-research.json#decision_gates[5]",
+        "research-raw/risk-research.json#decision_gates[6]",
+        "research-raw/risk-research.json#decision_gates[9]"
+      ]
+    },
+    {
+      "for_finding": "Phase 4 / GitHub work item 8 — authority promotion without deletion",
+      "mitigation": "모든 correctness, resource, WAN, resize, compatibility와 rollback gate 통과 후 새 model을 read authority로 promotion하되 legacy refresh path와 provisional local cache는 rollback용으로 유지한다. 실제 reverse drill이 통과하지 않으면 promotion하지 않는다.",
+      "gates": [
+        "G3-G8",
+        "G10 canary와 rollback"
+      ],
+      "source": [
+        "research-raw/risk-research.json#alternative_designs[1]",
+        "research-raw/risk-research.json#decision_gates[9]",
+        "research-raw/risk-research.json#github_work_breakdown_principles[11]"
+      ]
+    },
+    {
+      "for_finding": "Phase 5 / GitHub work items 9-10 — cache deprecation then legacy cleanup",
+      "mitigation": "G9 recovery equivalence가 통과한 뒤 local cache 제거를 독립 PR로 수행한다. Additive protocol 호환성과 canary가 끝난 뒤에만 기존 protocol과 legacy path를 마지막 cleanup PR에서 제거한다. 두 PR 모두 독립 rollback을 유지한다.",
+      "gates": [
+        "G9 recovery 동등성",
+        "G8 protocol 호환성",
+        "G10 canary와 rollback"
+      ],
+      "source": [
+        "research-raw/risk-research.json#github_work_breakdown_principles[7]",
+        "research-raw/risk-research.json#github_work_breakdown_principles[10]",
+        "research-raw/risk-research.json#decision_gates[7]",
+        "research-raw/risk-research.json#decision_gates[8]",
+        "research-raw/risk-research.json#decision_gates[9]"
+      ]
+    }
+  ],
+  "open_questions": [
+    {
+      "question": "신고된 실제 refresh 잘림은 viewport-only 계약, oversized empty fallback, ACK-window replay tail, remount grace clearing, hidden/visible output overflow 중 어느 경계에서 시작되는가?",
+      "raw_sources": [
+        "research-raw/code-research.json#unknowns[0]",
+        "research-raw/risk-research.json#unknowns[0]",
+        "research-raw/risk-research.json#unknowns[1]"
+      ]
+    },
+    {
+      "question": "현재 characterization 값인 server 1,000 rows, browser 10,000 rows, snapshot 2,097,152 bytes를 바탕으로 어떤 유한 retained range, aggregate server memory cap과 checkpoint chunk/in-flight budget을 제품 계약으로 채택할 것인가?",
+      "raw_sources": [
+        "research-raw/code-research.json#findings[3]",
+        "research-raw/risk-research.json#unknowns[3]",
+        "research-raw/risk-research.json#unknowns[8]"
+      ]
+    },
+    {
+      "question": "Server restart를 넘어 보존해야 하는 retained-state와 local cache가 현재 제공하는 offline/server-restart recovery 범위는 정확히 무엇인가?",
+      "raw_sources": [
+        "research-raw/code-research.json#unknowns[2]",
+        "research-raw/risk-research.json#unknowns[4]",
+        "research-raw/risk-research.json#unknowns[5]"
+      ]
+    },
+    {
+      "question": "허용 가능한 WAN refresh payload, recovery completion time, slow-client buffer limit과 limit 초과 동작은 무엇인가?",
+      "raw_sources": [
+        "research-raw/risk-research.json#unknowns[9]",
+        "research-raw/risk-research.json#unknowns[10]",
+        "research-raw/external-research.json#unknowns[1]"
+      ]
+    },
+    {
+      "question": "Multi-client resize owner, priority, non-owner rendering policy와 simultaneous client limit은 무엇인가?",
+      "raw_sources": [
+        "research-raw/risk-research.json#unknowns[11]",
+        "research-raw/risk-research.json#unknowns[12]"
+      ]
+    },
+    {
+      "question": "Large ANSI payload, IME wait 또는 saturated main thread에서 browser snapshot apply가 현재 5-second ACK timeout을 넘는가?",
+      "raw_sources": [
+        "research-raw/code-research.json#unknowns[1]"
+      ]
+    }
+  ],
+  "paraphrase_detector_disagreements": [
+    {
+      "detector": "standard",
+      "summary_index": 2,
+      "status": "resolved",
+      "resolution": "server/browser range 관계를 raw consensus에서 제거하고 Phase 0-R의 proposed product contract decision으로 낮췄다."
+    },
+    {
+      "detector": "standard",
+      "summary_index": 3,
+      "status": "resolved",
+      "resolution": "architecture를 G1이 migration을 선택할 때의 candidate target으로 조건화하고 listener/covered bytes, ordered resize와 direct-transplant qualifier의 literal quotes를 추가했다."
+    },
+    {
+      "detector": "adversarial",
+      "summary_index": 1,
+      "status": "resolved",
+      "resolution": "Orca remote current-screen 복구를 bounded snapshot 수락 조건으로 제한하고 2MiB/truncated rejection edge를 포함했다."
+    },
+    {
+      "detector": "adversarial",
+      "summary_index": 2,
+      "status": "resolved",
+      "resolution": "gap/snapshot resync 원칙을 delivery queue overflow로 좁히고 bootstrap/snapshot cap-safe mechanism은 미결 계약으로 남겼다."
+    },
+    {
+      "detector": "adversarial",
+      "summary_index": 4,
+      "status": "resolved",
+      "resolution": "staged migration을 G1 선택에 조건화하고 confirmed-bug-only branch를 보존했다."
+    }
+  ],
+  "raw_outputs_archived_at": "docs/analysis/kiwi-srs-research-2026-07-15.projectmaster.orca-refresh-state-refactor.s01/research-raw/",
+  "verdict_summary": "현재 refresh scrollback 잘림은 viewport-only snapshot/cache와 이를 기대하는 E2E에 의해 의도된 bounded mechanism이지만 특정 신고 건의 손실 경계는 아직 미확정이다. Orca도 local warm reload에서 약 5,000행만 보존하며 remote bounded snapshot은 screen-only를 의도하지만 oversized/truncated rejection edge가 있으므로 무제한 또는 무조건적 복구를 약속하지 않는다. G1이 architectural migration을 선택할 경우 candidate target은 명시적 bounded server-owned model과 disposable view, shared sequence, client별 backpressure 및 cap-safe recovery 계약이며, rollout은 계약 → read-only shadow → canary → promotion → recovery-equivalence 후 cache 제거 → legacy cleanup 순서다. G1이 국소 결함만 입증하면 confirmed-bug-only fix를 별도 대안으로 유지한다. Browser local cache는 migration 동안 non-authoritative provisional fallback으로 유지한다. 연구자 A/B/C의 apparent disagreements는 scope와 rollout timing을 분리하면 해소되며 genuine dissent는 없다.",
+  "input_bias_warnings": []
+}

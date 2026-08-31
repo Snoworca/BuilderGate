@@ -1,0 +1,480 @@
+{
+  "analyst": "code-context",
+  "run_id": "2026-07-15.projectmaster.wave-1.v01",
+  "modules": [
+    {
+      "path": "server/src/index.ts",
+      "exports": [],
+      "loc": 1597,
+      "branch_line_estimate": 79,
+      "complexity_estimate": "high",
+      "note": "Monolithic server bootstrap. It owns authenticated telemetry routes, HTTPS creation, production WsRouter construction, and the /ws upgrade dispatcher; startServer() is private and executes at module load, so an in-process production-upgrade test cannot import a factory directly. Evidence: server/src/index.ts:797-815, server/src/index.ts:888, server/src/index.ts:1464-1495, server/src/index.ts:1597."
+    },
+    {
+      "path": "server/src/ws/WsRouter.ts",
+      "exports": ["WsRouter"],
+      "loc": 2503,
+      "branch_line_estimate": 187,
+      "complexity_estimate": "high",
+      "note": "Central WebSocket, replay, repair, and per-client send-policy module. WsRouterOptions declares realtime, but the constructor does not consume it; handleUpgrade authenticates and emits only the auth payload, while setupConnectionHandler accepts only ws/request. Evidence: server/src/ws/WsRouter.ts:86-91, server/src/ws/WsRouter.ts:165-224, server/src/ws/WsRouter.ts:223-258."
+    },
+    {
+      "path": "frontend/src/contexts/WebSocketContext.tsx",
+      "exports": ["WebSocketProvider", "useWebSocket", "useWebSocketState", "useWebSocketActions"],
+      "loc": 642,
+      "branch_line_estimate": 63,
+      "complexity_estimate": "high",
+      "note": "Browser socket authority. Production currently constructs one unified URL and one WebSocket; the remount grace buffer intentionally skips screen-repair frames. Evidence: frontend/src/contexts/WebSocketContext.tsx:113-119, frontend/src/contexts/WebSocketContext.tsx:141-155, frontend/src/contexts/WebSocketContext.tsx:340-388."
+    },
+    {
+      "path": "server/src/utils/headlessTerminal.ts",
+      "exports": ["VIEWPORT_ONLY_SERIALIZE_OPTIONS", "createHeadlessTerminalState", "writeHeadlessTerminal", "resizeHeadlessTerminal", "serializeHeadlessTerminal", "serializeHeadlessScreenRepair", "disposeHeadlessTerminal"],
+      "loc": 358,
+      "branch_line_estimate": 30,
+      "complexity_estimate": "medium",
+      "note": "Focused retained-state primitive. Snapshot serialization is explicitly viewport-only and returns empty data with truncated=true above maxSnapshotBytes; repair serialization enumerates the active viewport and cursor. Evidence: server/src/utils/headlessTerminal.ts:95-145, server/src/utils/headlessTerminal.ts:156-203."
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "exports": ["SessionManager", "sessionManager"],
+      "loc": 4045,
+      "branch_line_estimate": 348,
+      "complexity_estimate": "high",
+      "note": "Largest stateful module in scope. It owns viewport-only snapshot cache/fallback, headless writes, replay limit, event-loop/CPU sampling, and cumulative headless-write time. Evidence: server/src/services/SessionManager.ts:100-126, server/src/services/SessionManager.ts:2482-2604, server/src/services/SessionManager.ts:3008-3065, server/src/services/SessionManager.ts:3486-3494."
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalView.tsx",
+      "exports": ["TerminalView", "TerminalHandle", "ScreenRepairReadiness", "ScreenRepairApplyResult"],
+      "loc": 2368,
+      "branch_line_estimate": 173,
+      "complexity_estimate": "high",
+      "note": "xterm runtime and local retained-state owner. It saves viewport-only local snapshots, restores only exact geometry, replaces snapshots, and applies viewport repair under readiness checks. Evidence: frontend/src/components/Terminal/TerminalView.tsx:1093-1166, frontend/src/components/Terminal/TerminalView.tsx:1283-1397, frontend/src/components/Terminal/TerminalView.tsx:1399-1499."
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalContainer.tsx",
+      "exports": ["TerminalContainer"],
+      "loc": 1875,
+      "branch_line_estimate": 131,
+      "complexity_estimate": "high",
+      "note": "Frontend recovery orchestrator. Snapshot delivery has a pending ref and retry handoff across terminal absence, while screen repair is applied/ACKed immediately and has no equivalent pending handoff. Evidence: frontend/src/components/Terminal/TerminalContainer.tsx:1323-1507, frontend/src/components/Terminal/TerminalContainer.tsx:1509-1584."
+    },
+    {
+      "path": "frontend/src/utils/terminalOutputScheduler.ts",
+      "exports": ["createTerminalOutputScheduler", "DEFAULT_VISIBLE_FLUSH_FRAME_BUDGET_MS"],
+      "loc": 257,
+      "branch_line_estimate": 22,
+      "complexity_estimate": "low",
+      "note": "Pure injected scheduling seam. write, schedule, shouldYield, and now can be replaced for NO_RENDER and deterministic timing without UI changes. Evidence: frontend/src/utils/terminalOutputScheduler.ts:5-14, frontend/src/utils/terminalOutputScheduler.ts:39-75, frontend/src/utils/terminalOutputScheduler.ts:143-206."
+    },
+    {
+      "path": "server/src/test-runner.ts",
+      "exports": [],
+      "loc": 20803,
+      "branch_line_estimate": 273,
+      "complexity_estimate": "high",
+      "note": "Large custom sequential test runner with a name filter and reusable fake PTY, headless-session, and fake-WebSocket harnesses. It has no benchmark-mode, manifest, raw-sample, or production HTTPS-upgrade runner. Evidence: server/src/test-runner.ts:614-641, server/src/test-runner.ts:2311-2384, server/src/test-runner.ts:13607-13682, server/src/test-runner.ts:14514-14595."
+    },
+    {
+      "path": "server/src/ws/WsRouterSplitHandshake.test.ts",
+      "exports": [],
+      "loc": 891,
+      "branch_line_estimate": 3,
+      "complexity_estimate": "medium",
+      "note": "Standalone node:test split suite. It passes realtime into WsRouter and injects transport metadata by emitting connection directly; it does not traverse HTTPS upgrade or the production browser URL. It is compiled but server/package.json:11 runs only dist/test-runner.js. Evidence: server/src/ws/WsRouterSplitHandshake.test.ts:50-121."
+    },
+    {
+      "path": "server/src/ws/WsRouterSendPriority.test.ts",
+      "exports": [],
+      "loc": 214,
+      "branch_line_estimate": 2,
+      "complexity_estimate": "low",
+      "note": "Reusable bufferedAmount/deferred-send primitive for ONE_CLIENT_SLOW, but subscribeForTest fixes one client and current cases do not compare a normal peer. Evidence: server/src/ws/WsRouterSendPriority.test.ts:7-55, server/src/ws/WsRouterSendPriority.test.ts:58-99, server/src/ws/WsRouterSendPriority.test.ts:123-188."
+    },
+    {
+      "path": "frontend/tests/e2e/header-context-menu-regression.spec.ts",
+      "exports": [],
+      "loc": 620,
+      "branch_line_estimate": 30,
+      "complexity_estimate": "medium",
+      "note": "TC-7004 is an executable current-behavior characterization: after 700 lines, the viewport-only local payload and post-reload screen retain the newest marker and exclude the oldest. Evidence: frontend/tests/e2e/header-context-menu-regression.spec.ts:439-481."
+    },
+    {
+      "path": "server/src/ws/wsTransportMode.ts",
+      "exports": ["parseWsTransportRequest", "WsTransportMode", "WsChannelRole", "WsTransportRequest"],
+      "loc": 93,
+      "branch_line_estimate": 7,
+      "complexity_estimate": "low",
+      "note": "Reusable split query/pairing parser exists but has no production caller. Evidence: server/src/ws/wsTransportMode.ts:23-92 and no parseWsTransportRequest reference outside this module/tests."
+    },
+    {
+      "path": "frontend/src/utils/webSocketUrl.ts",
+      "exports": ["buildControlWebSocketUrl", "buildSplitOutputWebSocketUrl"],
+      "loc": 71,
+      "branch_line_estimate": 2,
+      "complexity_estimate": "low",
+      "note": "Reusable deterministic split URL builders; WebSocketContext currently does not import them. Evidence: frontend/src/utils/webSocketUrl.ts:35-70, frontend/src/contexts/WebSocketContext.tsx:113-119."
+    },
+    {
+      "path": "frontend/src/utils/splitWebSocketLifecycle.ts",
+      "exports": ["shouldFlushControlSubscriptions", "resolveSplitOutputCloseAction"],
+      "loc": 35,
+      "branch_line_estimate": 0,
+      "complexity_estimate": "low",
+      "note": "Reusable pure split subscription/fallback decisions with focused unit tests; no production caller was found. Evidence: frontend/src/utils/splitWebSocketLifecycle.ts:15-34."
+    },
+    {
+      "path": "frontend/src/utils/terminalSnapshot.ts",
+      "exports": ["parseTerminalViewportSnapshot", "setTerminalSnapshotWithQuotaRecovery", "evictTerminalSnapshots", "markTerminalSnapshotForRemoval", "cleanupExpiredTerminalSnapshotTombstones"],
+      "loc": 505,
+      "branch_line_estimate": 47,
+      "complexity_estimate": "medium",
+      "note": "Reusable schema-v2 viewport-only local-cache parser and boundary controls for valid/absent/poisoned characterization cases. Evidence: frontend/src/utils/terminalSnapshot.ts:3-26, frontend/src/utils/terminalSnapshot.ts:109-173, frontend/src/utils/terminalSnapshot.ts:338-497."
+    },
+    {
+      "path": "server/src/ws/wsSendPolicy.ts",
+      "exports": ["createWsTransportQueueState", "createWsTransportMessage", "tryCoalesceOutputMessage", "pushTransportMessage", "dequeueNextTransportMessage", "clearTransportMessages"],
+      "loc": 187,
+      "branch_line_estimate": 11,
+      "complexity_estimate": "low",
+      "note": "Focused per-client transport queue primitive suitable for multi-client slow-peer fixtures. Evidence: server/src/ws/wsSendPolicy.ts:23-140."
+    }
+  ],
+  "trace_validation": [
+    {
+      "req_id": "REL-BGSTAB-006",
+      "trace_paths": [
+        {
+          "reference": "server/src/index.ts:1468-1495",
+          "path_exists": true,
+          "file_lines": 1597,
+          "range_within_file": true,
+          "semantic_match": "match",
+          "finding": "The cited production construction passes resourceLimits/stabilityModes but not runtimeValues.realtime, and every /ws upgrade is dispatched to WsRouter.handleUpgrade."
+        },
+        {
+          "reference": "server/src/ws/WsRouter.ts:86-91,165-220",
+          "path_exists": true,
+          "file_lines": 2503,
+          "range_within_file": true,
+          "semantic_match": "match",
+          "finding": "The option surface declares realtime, but construction ignores it; handleUpgrade validates token and emits auth payload without parseWsTransportRequest."
+        },
+        {
+          "reference": "frontend/src/contexts/WebSocketContext.tsx:113-119,141-215,340-388",
+          "path_exists": true,
+          "file_lines": 642,
+          "range_within_file": true,
+          "semantic_match": "partial",
+          "finding": "113-119 and 340-388 exactly show the production unified URL and single-socket open path. 141-215 is remount-grace buffering rather than URL construction, but is relevant to the same connection lifecycle."
+        },
+        {
+          "reference": "server/src/ws/WsRouterSplitHandshake.test.ts:50-121",
+          "path_exists": true,
+          "file_lines": 891,
+          "range_within_file": true,
+          "semantic_match": "match",
+          "finding": "The test constructs WsRouter with realtime and directly emits connection with injected transport metadata; this is a standalone observation, not an HTTPS-upgrade observation."
+        },
+        {
+          "reference": "server/src/test-runner.ts:13607-13682,14514-14595",
+          "path_exists": true,
+          "file_lines": 20803,
+          "range_within_file": true,
+          "semantic_match": "partial",
+          "finding": "The ranges are valid fake headless/session and WsRouter harness seams, but neither reaches production index.ts HTTPS creation/upgrade. A new production-path integration seam is still required."
+        }
+      ],
+      "all_paths_exist": true,
+      "all_ranges_valid": true,
+      "requirement_links": [
+        { "id": "FR-BGSTAB-006", "exists": true, "evidence": "docs/spec/30.buildergate-stability.srs.md:353" },
+        { "id": "FR-BGSTAB-007", "exists": true, "evidence": "docs/spec/30.buildergate-stability.srs.md:419" }
+      ],
+      "test_seams": [
+        "server/src/ws/WsRouterSplitHandshake.test.ts:50-121 provides the injected standalone comparator.",
+        "frontend/tests/unit/webSocketUrl.test.ts:15-67 validates split URL builders.",
+        "server/src/test-runner.ts:14514-14595 provides fake router/socket state but must be extended or complemented by an actual https://localhost:2222 production-path run."
+      ],
+      "complexity_estimate": "high",
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "OBS-BGSTAB-004",
+      "trace_paths": [
+        {
+          "reference": "server/src/utils/headlessTerminal.ts:95-145,156-203",
+          "path_exists": true,
+          "file_lines": 358,
+          "range_within_file": true,
+          "semantic_match": "match",
+          "finding": "The ranges explicitly establish viewport-only snapshot serialization, empty oversized truncation, viewport-row repair, cursor, buffer, and geometry data."
+        },
+        {
+          "reference": "server/src/services/SessionManager.ts:100-126,170-202,2482-2604",
+          "path_exists": true,
+          "file_lines": 4045,
+          "range_within_file": true,
+          "semantic_match": "match",
+          "finding": "The ranges define viewport-only cache scope, legacy empty/degraded placeholders, snapshot cache/fallback decisions, serialization timing/bytes, and debug cause events."
+        },
+        {
+          "reference": "server/src/ws/WsRouter.ts:947-1005,1358-1408,1817-1865,1923-2035",
+          "path_exists": true,
+          "file_lines": 2503,
+          "range_within_file": true,
+          "semantic_match": "match",
+          "finding": "The ranges cover UTF-8 replay-tail truncation, timeout flush/readiness, authoritative-vs-fallback labeling, replay refresh, queue coverage, and raw replay event details."
+        },
+        {
+          "reference": "frontend/src/components/Terminal/TerminalView.tsx:1093-1166,1283-1345,1399-1499",
+          "path_exists": true,
+          "file_lines": 2368,
+          "range_within_file": true,
+          "semantic_match": "match",
+          "finding": "The ranges cover local-cache parse/save, viewport-only serialization, exact-geometry restore, snapshot replacement, and repair application. Readiness predicates are immediately adjacent at 1347-1397."
+        },
+        {
+          "reference": "frontend/tests/e2e/header-context-menu-regression.spec.ts:439-481",
+          "path_exists": true,
+          "file_lines": 620,
+          "range_within_file": true,
+          "semantic_match": "match",
+          "finding": "TC-7004 explicitly asserts viewport-only current behavior before and after reload: latest marker present, old marker absent."
+        },
+        {
+          "reference": "frontend/src/components/Terminal/TerminalContainer.tsx:1323-1584",
+          "path_exists": true,
+          "file_lines": 1875,
+          "range_within_file": true,
+          "semantic_match": "match",
+          "finding": "This is a valid characterization seam for snapshot deferral, local fallback, repair ACK/failure, and hidden/visible recovery completion; it also exposes the asymmetry that repair lacks pending remount handoff."
+        }
+      ],
+      "all_paths_exist": true,
+      "all_ranges_valid": true,
+      "requirement_links": [
+        { "id": "FR-BGSTAB-004", "exists": true, "evidence": "docs/spec/30.buildergate-stability.srs.md:230" },
+        { "id": "FR-BGSTAB-014", "exists": true, "evidence": "docs/spec/30.buildergate-stability.srs.md:1106" },
+        { "id": "OBS-BGSTAB-002", "exists": true, "evidence": "docs/spec/30.buildergate-stability.srs.md:1721" },
+        { "id": "FR-BGSTAB-018", "exists": true, "evidence": "docs/spec/30.buildergate-stability.srs.md:1586" },
+        { "id": "REL-BGSTAB-004", "exists": true, "evidence": "docs/spec/30.buildergate-stability.srs.md:1649" }
+      ],
+      "test_seams": [
+        "frontend/tests/e2e/header-context-menu-regression.spec.ts:439-481 is the required separate current-behavior TC-7004 seam.",
+        "frontend/tests/e2e/terminal-authority.spec.ts:201-262,271-359,394-437 already captures sockets and exercises unsubscribe/reconnect/refresh viewport-only behavior.",
+        "frontend/tests/unit/terminalSnapshot.test.ts and server/src/test-runner.ts:13607-13682 provide local-cache and headless deterministic primitives; neither currently emits the requested unified pre/post hash artifact schema."
+      ],
+      "complexity_estimate": "high",
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "PERF-BGSTAB-008",
+      "trace_paths": [
+        {
+          "reference": "frontend/src/utils/terminalOutputScheduler.ts:5-14,39-75,143-206",
+          "path_exists": true,
+          "file_lines": 257,
+          "range_within_file": true,
+          "semantic_match": "match",
+          "finding": "Injected write/schedule/shouldYield/now plus observable queue decisions form a deterministic NO_RENDER seam."
+        },
+        {
+          "reference": "server/src/test-runner.ts:614-641,2311-2384,13607-13682,14514-14595",
+          "path_exists": true,
+          "file_lines": 20803,
+          "range_within_file": true,
+          "semantic_match": "partial",
+          "finding": "The filter and fake PTY/headless/WebSocket harnesses are reusable, but the runner is sequential and has no mode IDs, seeded workload manifest, raw sample writer, multi-client matrix, percentile, or confidence-interval aggregation."
+        },
+        {
+          "reference": "server/src/ws/WsRouterSendPriority.test.ts:7-55,58-99,123-188",
+          "path_exists": true,
+          "file_lines": 214,
+          "range_within_file": true,
+          "semantic_match": "match",
+          "finding": "bufferedAmount and deferred callbacks are controllable, but the fixture hard-codes one subscribed client and cannot yet prove slow-client isolation."
+        },
+        {
+          "reference": "server/src/services/SessionManager.ts:3008-3065,3486-3494",
+          "path_exists": true,
+          "file_lines": 4045,
+          "range_within_file": true,
+          "semantic_match": "match",
+          "finding": "The cited surface returns replay cap, session counts, event-loop mean/p99, one-core CPU, and accumulated headless-write time; benchmark sampling must compute explicit interval deltas."
+        },
+        {
+          "reference": "server/src/ws/WsRouter.ts:2119-2160",
+          "path_exists": true,
+          "file_lines": 2503,
+          "range_within_file": true,
+          "semantic_match": "match",
+          "finding": "The snapshot exposes connected/subscribed counts, replay/repair pressure, queued bytes, max buffered amount, slow-client closes, overflows, send errors, and replay events."
+        },
+        {
+          "reference": "server/src/index.ts:797-815",
+          "path_exists": true,
+          "file_lines": 1597,
+          "range_within_file": true,
+          "semantic_match": "match",
+          "finding": "Authenticated telemetry and bounded per-session debug-capture endpoints are available as a live observation surface."
+        }
+      ],
+      "all_paths_exist": true,
+      "all_ranges_valid": true,
+      "requirement_links": [
+        { "id": "OBS-BGSTAB-001", "exists": true, "evidence": "docs/spec/30.buildergate-stability.srs.md:1516" },
+        { "id": "OBS-BGSTAB-002", "exists": true, "evidence": "docs/spec/30.buildergate-stability.srs.md:1721" },
+        { "id": "OBS-BGSTAB-003", "exists": true, "evidence": "docs/spec/30.buildergate-stability.srs.md:2181" }
+      ],
+      "test_seams": [
+        "frontend/tests/unit/terminalOutputScheduler.test.ts exercises injected scheduler/write timing and is the smallest NO_RENDER unit seam.",
+        "server/src/test-runner.ts:2311-2384 and 13607-13682 can drive PTY/detector/headless variants for NO_ANALYZER; server/src/test-runner.ts:14514-14595 can drive NO_NETWORK fake transport.",
+        "server/src/ws/WsRouterSendPriority.test.ts:7-188 supplies pressure controls for ONE_CLIENT_SLOW but requires a two-client subscriber fixture.",
+        "No local source/test implements p50/p95/p99 raw-sample aggregation or confidence intervals; the only percentile calculation found is event-loop p99 sampling at server/src/services/SessionManager.ts:3037-3046."
+      ],
+      "complexity_estimate": "high",
+      "external_paths_detected": []
+    },
+    {
+      "req_id": "MIG-BGSTAB-001",
+      "trace_paths": [],
+      "all_paths_exist": true,
+      "all_ranges_valid": true,
+      "trace_gap": "The requirement has dependency traces only and no code/test addition_site. No existing decision-record schema or G1 gate evaluator was found in server/src, frontend/src, or frontend/tests.",
+      "requirement_links": [
+        { "id": "REL-BGSTAB-006", "exists": true, "evidence": "docs/spec/30.buildergate-stability.srs.md:2498" },
+        { "id": "OBS-BGSTAB-004", "exists": true, "evidence": "docs/spec/30.buildergate-stability.srs.md:2560" },
+        { "id": "PERF-BGSTAB-008", "exists": true, "evidence": "docs/spec/30.buildergate-stability.srs.md:2628" }
+      ],
+      "test_seams": [
+        "docs/plans/2026-07-15.projectmaster.orca-terminal-performance.wave-master.plan.md:13,19-23,39-42,67 defines the current workflow contract and gate semantics.",
+        "kiwi/waves.jsonl:1-7 is the append-only current wave-state sink; it contains pending/in_progress records only and has no evaluator.",
+        "kiwi/.status.json:5-45 demonstrates SHA-256 fingerprint metadata that can inform, but does not satisfy, per-artifact evidence digests."
+      ],
+      "complexity_estimate": "medium",
+      "external_paths_detected": []
+    }
+  ],
+  "code_metrics": {
+    "total_files": 235,
+    "total_files_method": "UTF-8 .ts/.tsx files under server/src and frontend/src on 2026-07-15; generated/dist/node_modules excluded.",
+    "test_coverage_files": 72,
+    "test_coverage_files_method": "71 *.test.ts|*.spec.ts|*.test.tsx|*.spec.tsx files under server/src and frontend/tests plus the custom server/src/test-runner.ts suite.",
+    "validated_trace_rows": 17,
+    "validated_line_segments": 37,
+    "unique_trace_files": 12,
+    "missing_trace_files": 0,
+    "out_of_range_segments": 0,
+    "semantic_partial_rows": 3,
+    "direct_trace_test_files": 4,
+    "direct_trace_test_file_paths": [
+      "server/src/ws/WsRouterSplitHandshake.test.ts",
+      "server/src/test-runner.ts",
+      "frontend/tests/e2e/header-context-menu-regression.spec.ts",
+      "server/src/ws/WsRouterSendPriority.test.ts"
+    ],
+    "notable_test_runner_gap": "server/package.json:11 executes dist/test-runner.js only; standalone node:test files such as WsRouterSplitHandshake.test.ts and WsRouterSendPriority.test.ts are not part of npm test unless invoked separately."
+  },
+  "addition_sites": [
+    {
+      "req_ids": ["REL-BGSTAB-006"],
+      "path": "server/src/index.ts",
+      "line_range": "1468-1495",
+      "reusable_implementation": "Exact production WsRouter construction and HTTPS /ws dispatcher.",
+      "addition": "Characterization must traverse this live path; because index.ts has no exported app/server factory and self-starts at line 1597, prefer a Playwright/live characterization at https://localhost:2222 or first extract a thin reusable bootstrap seam under a separately authorized implementation plan.",
+      "complexity_estimate": "high",
+      "evidence": ["server/src/index.ts:1468-1495", "server/src/index.ts:1597", "frontend/playwright.config.ts:3-18"]
+    },
+    {
+      "req_ids": ["REL-BGSTAB-006"],
+      "path": "server/src/ws/wsTransportMode.ts",
+      "line_range": "23-92",
+      "reusable_implementation": "Existing unified/split request parser and pairing validation.",
+      "addition": "Use as the expected/runtime comparator; current production WsRouter does not call it, so observations must record not_exercised/mismatch rather than silently treating standalone test metadata as runtime behavior.",
+      "complexity_estimate": "low",
+      "evidence": ["server/src/ws/wsTransportMode.ts:23-92", "server/src/ws/WsRouter.ts:202-224"]
+    },
+    {
+      "req_ids": ["REL-BGSTAB-006"],
+      "path": "frontend/src/utils/webSocketUrl.ts",
+      "line_range": "35-70",
+      "reusable_implementation": "Pure control/output split URL builders, already covered by frontend/tests/unit/webSocketUrl.test.ts.",
+      "addition": "Compare builder output with the actual URL captured from WebSocketContext; do not activate split runtime as part of characterization.",
+      "complexity_estimate": "low",
+      "evidence": ["frontend/src/utils/webSocketUrl.ts:35-70", "frontend/src/contexts/WebSocketContext.tsx:113-119", "frontend/tests/unit/webSocketUrl.test.ts:15-67"]
+    },
+    {
+      "req_ids": ["OBS-BGSTAB-004"],
+      "path": "frontend/tests/e2e/terminal-authority.spec.ts",
+      "line_range": "201-262,271-359,394-437",
+      "reusable_implementation": "Socket capture, forced reconnect/refresh, and viewport-only recovery helpers beyond TC-7004.",
+      "addition": "Add deterministic case manifests and pre/post retained-state artifact capture while keeping TC-7004 separate as current behavior.",
+      "complexity_estimate": "high",
+      "evidence": ["frontend/tests/e2e/terminal-authority.spec.ts:159-184", "frontend/tests/e2e/terminal-authority.spec.ts:201-262", "frontend/tests/e2e/header-context-menu-regression.spec.ts:439-481"]
+    },
+    {
+      "req_ids": ["OBS-BGSTAB-004"],
+      "path": "frontend/src/components/Terminal/TerminalContainer.tsx",
+      "line_range": "1323-1584",
+      "reusable_implementation": "Existing snapshot/repair/fallback debug events and snapshot pending handoff.",
+      "addition": "Capture cause-separated remount/local-cache/repair observations here or in a thin observer; screen repair needs explicit characterization across the terminal-absent grace gap because only snapshots currently have pending handoff.",
+      "complexity_estimate": "high",
+      "evidence": ["frontend/src/components/Terminal/TerminalContainer.tsx:1323-1342", "frontend/src/components/Terminal/TerminalContainer.tsx:1509-1565", "frontend/src/contexts/WebSocketContext.tsx:141-155"]
+    },
+    {
+      "req_ids": ["OBS-BGSTAB-004"],
+      "path": "server/src/utils/headlessTerminal.ts",
+      "line_range": "95-203",
+      "reusable_implementation": "Server viewport snapshot and row/cursor/buffer repair state.",
+      "addition": "Build a shared observation schema around these outputs for ordered line/cell/attribute/cursor/mode/geometry hashes; no current helper computes the requested complete hash set.",
+      "complexity_estimate": "medium",
+      "evidence": ["server/src/utils/headlessTerminal.ts:95-145", "server/src/utils/headlessTerminal.ts:156-203"]
+    },
+    {
+      "req_ids": ["PERF-BGSTAB-008"],
+      "path": "frontend/src/utils/terminalOutputScheduler.ts",
+      "line_range": "5-14,39-75,143-206",
+      "reusable_implementation": "Injected write, scheduler, input-yield, and clock seams.",
+      "addition": "Implement NO_RENDER as a benchmark fixture around the scheduler and retain identical ingress/chunking/control inputs; raw samples must be written before aggregation.",
+      "complexity_estimate": "low",
+      "evidence": ["frontend/src/utils/terminalOutputScheduler.ts:5-14", "frontend/tests/unit/terminalOutputScheduler.test.ts:1-274"]
+    },
+    {
+      "req_ids": ["PERF-BGSTAB-008"],
+      "path": "server/src/test-runner.ts",
+      "line_range": "614-641,2311-2384,13607-13682,14514-14595",
+      "reusable_implementation": "Focused-run filter plus fake PTY, detector/headless session, and fake transport harnesses.",
+      "addition": "Add a separate deterministic benchmark runner/fixture layer for NO_ANALYZER and NO_NETWORK rather than embedding statistics into the production SessionManager/WsRouter. A new raw-sample/manifest/summary module is required because no p50/p95/p99+CI aggregator exists.",
+      "complexity_estimate": "high",
+      "evidence": ["server/src/test-runner.ts:614-641", "server/src/test-runner.ts:2311-2384", "server/src/test-runner.ts:13607-13682", "server/src/test-runner.ts:14514-14595"]
+    },
+    {
+      "req_ids": ["PERF-BGSTAB-008"],
+      "path": "server/src/ws/WsRouterSendPriority.test.ts",
+      "line_range": "7-55,58-99,123-188",
+      "reusable_implementation": "Mutable bufferedAmount and deferred callbacks over the existing per-client queue policy.",
+      "addition": "Generalize subscribeForTest to at least two clients receiving the same session output, pressure exactly one client, and record raw normal-vs-slow observations; single-client cases remain pressure baselines only.",
+      "complexity_estimate": "medium",
+      "evidence": ["server/src/ws/WsRouterSendPriority.test.ts:7-55", "server/src/ws/WsRouterSendPriority.test.ts:89-99", "server/src/ws/WsRouterSendPriority.test.ts:123-188", "server/src/ws/wsSendPolicy.ts:23-140"]
+    },
+    {
+      "req_ids": ["PERF-BGSTAB-008"],
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "3008-3065,3486-3494",
+      "reusable_implementation": "Existing event-loop mean/p99, one-core CPU, session counts, and cumulative headless-write telemetry.",
+      "addition": "Sample before/after each interval and persist deltas with source/unit metadata; cumulative snapshots alone are not raw benchmark evidence.",
+      "complexity_estimate": "medium",
+      "evidence": ["server/src/services/SessionManager.ts:3012-3033", "server/src/services/SessionManager.ts:3036-3065", "server/src/services/SessionManager.ts:3486-3494", "server/src/index.ts:797-815"]
+    },
+    {
+      "req_ids": ["MIG-BGSTAB-001"],
+      "path": "kiwi/waves.jsonl",
+      "line_range": "1-7",
+      "reusable_implementation": "Append-only wave status SSOT paired with the gate contract in docs/plans/2026-07-15.projectmaster.orca-terminal-performance.wave-master.plan.md:13-23,39-42,67.",
+      "addition": "Create a new repo-local decision-record schema and pure gate evaluator before appending any activation event. It must verify all three prerequisite IDs/artifact digests, the exact two-value decision enum, one-fix maximum, downstream states, and a separate stable authority Requirement for architectural migration. No existing code module provides this evaluator.",
+      "complexity_estimate": "medium",
+      "evidence": ["kiwi/waves.jsonl:1-7", "docs/plans/2026-07-15.projectmaster.orca-terminal-performance.wave-master.plan.md:13-23", "docs/plans/2026-07-15.projectmaster.orca-terminal-performance.wave-master.plan.md:39-42", "docs/plans/2026-07-15.projectmaster.orca-terminal-performance.wave-master.plan.md:67", "kiwi/.status.json:5-45"]
+    }
+  ],
+  "external_paths_detected": []
+}

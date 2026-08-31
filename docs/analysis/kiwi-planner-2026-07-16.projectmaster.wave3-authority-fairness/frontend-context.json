@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0",
+  "analyst": "/root/wave3_plan_frontend",
+  "directMutationInventory": {
+    "TerminalView": ["write", "FIFO probe", "replay write", "reset", "clear", "fit/options lifecycle"],
+    "TerminalContainer": ["snapshot apply/ACK", "screen repair", "live output write"],
+    "terminalOutputScheduler": ["single in-flight writer"],
+    "terminalReplayGuard": ["injected writer/probe"]
+  },
+  "reuse": [
+    "terminalOutputScheduler segmented UTF-8 queue",
+    "visibleOutputRecovery generation fence",
+    "terminalReplayGuard parser-tail reply guard",
+    "Wave 2 clipboard/input ownership"
+  ],
+  "newBoundaries": [
+    "TerminalWriteCoordinator command deque",
+    "TerminalCheckpointProtocol validation/reassembly",
+    "delivery ACK after actual coordinator drain",
+    "hidden dataGap causes stale until server checkpoint drain"
+  ],
+  "exclusions": [
+    "UI visuals/labels/layout/interaction",
+    "WebGL/Unicode/selection/residency/IME/OSC52 Wave 4 scope",
+    "binary/split default and legacy deletion Wave 5 scope",
+    "xterm engine replacement"
+  ],
+  "testSurfaces": [
+    "frontend/tests/unit/terminalOutputScheduler.test.ts",
+    "frontend/tests/unit/visibleOutputRecovery.test.ts",
+    "frontend/tests/unit/terminalViewRecoveryContract.test.ts",
+    "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+    "frontend/tests/unit/terminalHiddenOutput.test.ts",
+    "frontend/tests/e2e/terminal-authority.spec.ts"
+  ]
+}

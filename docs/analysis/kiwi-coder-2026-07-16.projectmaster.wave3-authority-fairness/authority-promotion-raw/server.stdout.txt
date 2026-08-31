@@ -1,0 +1,1312 @@
+TAP version 13
+# [Config] All passwords already encrypted
+# [Config] Configuration loaded successfully
+# [WS] WebSocket router initialized
+# [WS] Client connected: 59bfadf7-7e29-4c92-b107-437d9997a943
+# [WS] Client disconnected: 59bfadf7-7e29-4c92-b107-437d9997a943
+# [WS] Client disconnected: 59bfadf7-7e29-4c92-b107-437d9997a943
+# [WS] WebSocket router initialized
+# [WS] Client connected: f5e28f85-b73e-4839-b3ca-d5613045f27a
+# Subtest: MIG-BGSTAB-002 checkpoint identity follows the committed authority source across reserved ordinal gaps
+ok 1 - MIG-BGSTAB-002 checkpoint identity follows the committed authority source across reserved ordinal gaps
+  ---
+  duration_ms: 114.1106
+  type: 'test'
+  ...
+# Subtest: Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-1
+ok 2 - Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-1
+  ---
+  duration_ms: 3.5422
+  type: 'test'
+  ...
+# [WS] Client connected: f7e5726f-bb88-4b0a-a378-c425dccf625b
+# [WS] Client connected: 4e7bef20-6e08-42f2-b2d8-333d93e44333
+# [WS] Client disconnected: f5e28f85-b73e-4839-b3ca-d5613045f27a
+# [WS] Client disconnected: f5e28f85-b73e-4839-b3ca-d5613045f27a
+# [WS] Client disconnected: f7e5726f-bb88-4b0a-a378-c425dccf625b
+# [WS] Client disconnected: f7e5726f-bb88-4b0a-a378-c425dccf625b
+# [WS] Client disconnected: 4e7bef20-6e08-42f2-b2d8-333d93e44333
+# [WS] Client disconnected: 4e7bef20-6e08-42f2-b2d8-333d93e44333
+# [WS] WebSocket router initialized
+# [WS] Client connected: e9306bb1-1bd6-498f-821d-75873ead3550
+# [WS] Client connected: d143aa43-a005-4d8f-95e1-0d5b7363a817
+# [WS] Client disconnected: e9306bb1-1bd6-498f-821d-75873ead3550
+# [WS] Client disconnected: e9306bb1-1bd6-498f-821d-75873ead3550
+# [WS] Client disconnected: d143aa43-a005-4d8f-95e1-0d5b7363a817
+# [WS] Client disconnected: d143aa43-a005-4d8f-95e1-0d5b7363a817
+# [WS] WebSocket router initialized
+# [WS] Client connected: 54515fe4-ba83-420b-a66f-46077a6f2b35
+# [WS] Client connected: 9dfe203a-b0ef-4f21-81d2-93570a7c03d2
+# [WS] Client disconnected: 54515fe4-ba83-420b-a66f-46077a6f2b35
+# [WS] Client disconnected: 54515fe4-ba83-420b-a66f-46077a6f2b35
+# [WS] Client disconnected: 9dfe203a-b0ef-4f21-81d2-93570a7c03d2
+# [WS] Client disconnected: 9dfe203a-b0ef-4f21-81d2-93570a7c03d2
+# [WS] WebSocket router initialized
+# [WS] Client connected: 68a8ae35-0589-48a8-b71c-3cf521829f9c
+# [WS] Client connected: e8da9d72-182b-4ecb-a453-b93c75bed1a6
+# [WS] Client disconnected: 68a8ae35-0589-48a8-b71c-3cf521829f9c
+# [WS] Client disconnected: 68a8ae35-0589-48a8-b71c-3cf521829f9c
+# [WS] Client disconnected: e8da9d72-182b-4ecb-a453-b93c75bed1a6
+# [WS] Client disconnected: e8da9d72-182b-4ecb-a453-b93c75bed1a6
+# [WS] WebSocket router initialized
+# [WS] Client connected: 861a1d52-6ab9-45a0-8b4a-eca5bfc5045a
+# Subtest: Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-2
+ok 3 - Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-2
+  ---
+  duration_ms: 243.2605
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 promotion admission fence owns output queued while the legacy prefix is unresolved
+ok 4 - MIG-BGSTAB-002 promotion admission fence owns output queued while the legacy prefix is unresolved
+  ---
+  duration_ms: 1.0701
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 promotion admission fence rejects a concurrent begin transaction
+ok 5 - MIG-BGSTAB-002 promotion admission fence rejects a concurrent begin transaction
+  ---
+  duration_ms: 0.6512
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 promotion revalidates the frozen responder topology after its legacy prefix drains
+ok 6 - MIG-BGSTAB-002 promotion revalidates the frozen responder topology after its legacy prefix drains
+  ---
+  duration_ms: 0.6087
+  type: 'test'
+  ...
+# [WS] Client connected: 71bda3a1-4ffe-444c-bacb-f4783262f8ef
+# [WS] Client disconnected: 861a1d52-6ab9-45a0-8b4a-eca5bfc5045a
+# [WS] Client disconnected: 861a1d52-6ab9-45a0-8b4a-eca5bfc5045a
+# [WS] Client disconnected: 71bda3a1-4ffe-444c-bacb-f4783262f8ef
+# [WS] Client disconnected: 71bda3a1-4ffe-444c-bacb-f4783262f8ef
+# [WS] WebSocket router initialized
+# [WS] Client connected: b74fb699-37a5-4aa7-ba50-a4d49dec91f0
+# Subtest: Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-3
+ok 7 - Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-3
+  ---
+  duration_ms: 87.7645
+  type: 'test'
+  ...
+# [WS] Client disconnected: b74fb699-37a5-4aa7-ba50-a4d49dec91f0
+# [WS] Client disconnected: b74fb699-37a5-4aa7-ba50-a4d49dec91f0
+# [WS] WebSocket router initialized
+# [WS] Client connected: 16c47e42-2635-4ef7-87db-b418f6054c35
+# Subtest: MIG-BGSTAB-002 checkpoint pump waits for each physical send settlement before admitting the next chunk
+ok 8 - MIG-BGSTAB-002 checkpoint pump waits for each physical send settlement before admitting the next chunk
+  ---
+  duration_ms: 47.1874
+  type: 'test'
+  ...
+# [WS] WebSocket send callback failed: Error: terminal-authority-transport-binding-replaced
+#     at <anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:5447:13)
+#     at ExecutableAuthoritySocket.releaseNextSend (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityController.test.ts:599:34)
+#     at TestContext.<anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityController.test.ts:2307:17)
+#     at async Test.run (node:internal/test_runner/test:1313:7)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:897:7)
+# [WS] Client disconnected: 16c47e42-2635-4ef7-87db-b418f6054c35
+# [WS] Client disconnected: 16c47e42-2635-4ef7-87db-b418f6054c35
+# [WS] Client disconnected: 16c47e42-2635-4ef7-87db-b418f6054c35
+# [WS] WebSocket router initialized
+# [WS] Client connected: 72d2ac26-bc01-45d6-af25-c6dd57d019fd
+# Subtest: MIG-BGSTAB-002 checkpoint pump cannot deliver queued stale frames to a successor socket with the same logical connection
+ok 9 - MIG-BGSTAB-002 checkpoint pump cannot deliver queued stale frames to a successor socket with the same logical connection
+  ---
+  duration_ms: 63.9937
+  type: 'test'
+  ...
+# [WS] WebSocket send callback failed: Error: terminal-authority-transport-binding-replaced
+#     at <anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:5447:13)
+#     at ExecutableAuthoritySocket.releaseNextSend (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityController.test.ts:599:34)
+#     at TestContext.<anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityController.test.ts:2391:17)
+#     at async Test.run (node:internal/test_runner/test:1313:7)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:897:7)
+# [WS] Client disconnected: 72d2ac26-bc01-45d6-af25-c6dd57d019fd
+# [WS] Client disconnected: 72d2ac26-bc01-45d6-af25-c6dd57d019fd
+# [WS] Client disconnected: 72d2ac26-bc01-45d6-af25-c6dd57d019fd
+# [WS] Client disconnected: 72d2ac26-bc01-45d6-af25-c6dd57d019fd
+# [WS] WebSocket router initialized
+# [WS] Client connected: 1193ffcf-f947-4e34-8c33-b4b64bcb3b09
+# Subtest: MIG-BGSTAB-002 binding replacement recovers an active checkpoint live-output settlement failure
+ok 10 - MIG-BGSTAB-002 binding replacement recovers an active checkpoint live-output settlement failure
+  ---
+  duration_ms: 87.5925
+  type: 'test'
+  ...
+# [WS] Client disconnected: 1193ffcf-f947-4e34-8c33-b4b64bcb3b09
+# [WS] Client disconnected: 1193ffcf-f947-4e34-8c33-b4b64bcb3b09
+# [WS] WebSocket router initialized
+# [WS] Client connected: f95388b7-c031-4113-b395-2c76718cb1a0
+# Subtest: MIG-BGSTAB-002 promotion begin accepts a boundary ACK that wins the send-callback race
+ok 11 - MIG-BGSTAB-002 promotion begin accepts a boundary ACK that wins the send-callback race
+  ---
+  duration_ms: 52.081
+  type: 'test'
+  ...
+# [WS] WebSocket send callback failed: Error: injected-checkpoint-send-failure
+#     at TestContext.<anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityController.test.ts:2520:33)
+#     at async Test.run (node:internal/test_runner/test:1313:7)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:897:7)
+# [WS] WebSocket send callback failed: Error: injected-persistent-send-failure
+#     at ExecutableAuthoritySocket.send (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityController.test.ts:589:18)
+#     at WsRouter.sendRawTransportMessage (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:5433:10)
+#     at WsRouter.sendTransportMessage (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:5258:12)
+#     at WsRouter.sendTo (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:5955:25)
+#     at WsRouter.sendTerminalAuthorityFrameToConnection (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:985:23)
+#     at drain (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityProductionAdapter.ts:1209:31)
+#     at <anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityProductionAdapter.ts:1244:24)
+#     at new Promise (<anonymous>)
+#     at enqueueSettledViewFrame (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityProductionAdapter.ts:1242:12)
+#     at <anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityProductionAdapter.ts:1511:26)
+# [WS] WebSocket send callback failed: Error: injected-persistent-send-failure
+#     at ExecutableAuthoritySocket.send (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityController.test.ts:589:18)
+#     at WsRouter.sendRawTransportMessage (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:5433:10)
+#     at WsRouter.sendTransportMessage (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:5258:12)
+#     at WsRouter.sendTo (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:5955:25)
+#     at WsRouter.sendTerminalAuthorityFrameToConnection (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:985:23)
+#     at drain (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityProductionAdapter.ts:1209:31)
+#     at <anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityProductionAdapter.ts:1244:24)
+#     at new Promise (<anonymous>)
+#     at enqueueSettledViewFrame (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityProductionAdapter.ts:1242:12)
+#     at <anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityProductionAdapter.ts:1511:26)
+# [WS] Client disconnected: f95388b7-c031-4113-b395-2c76718cb1a0
+# [WS] Client disconnected: f95388b7-c031-4113-b395-2c76718cb1a0
+# [WS] WebSocket router initialized
+# [WS] Client connected: d5bc5431-0c47-482d-b064-32454477e5d4
+# Subtest: MIG-BGSTAB-002 checkpoint send callback failure revokes server authority and starts fresh rollback
+ok 12 - MIG-BGSTAB-002 checkpoint send callback failure revokes server authority and starts fresh rollback
+  ---
+  duration_ms: 230.12
+  type: 'test'
+  ...
+# [WS] WebSocket send callback failed: Error: injected-persistent-send-failure
+#     at ExecutableAuthoritySocket.send (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityController.test.ts:589:18)
+#     at WsRouter.sendRawTransportMessage (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:5433:10)
+#     at WsRouter.sendTransportMessage (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:5258:12)
+#     at WsRouter.sendTo (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:5955:25)
+#     at WsRouter.sendTerminalAuthorityFrameToConnection (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:985:23)
+#     at drain (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityProductionAdapter.ts:1209:31)
+#     at <anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityProductionAdapter.ts:1244:24)
+#     at new Promise (<anonymous>)
+#     at enqueueSettledViewFrame (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityProductionAdapter.ts:1242:12)
+#     at <anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityProductionAdapter.ts:1511:26)
+# [WS] Client disconnected: d5bc5431-0c47-482d-b064-32454477e5d4
+# [WS] Client disconnected: d5bc5431-0c47-482d-b064-32454477e5d4
+# [WS] WebSocket router initialized
+# [WS] Client connected: a6b5bbf1-2809-4731-aca5-772ae6f0a873
+# Subtest: MIG-BGSTAB-002 retries a single failed authority-send rollback without another callback
+ok 13 - MIG-BGSTAB-002 retries a single failed authority-send rollback without another callback
+  ---
+  duration_ms: 108.0884
+  type: 'test'
+  ...
+# [WS] Client disconnected: a6b5bbf1-2809-4731-aca5-772ae6f0a873
+# [WS] Client disconnected: a6b5bbf1-2809-4731-aca5-772ae6f0a873
+# [WS] WebSocket router initialized
+# [WS] Client connected: 2d39f446-8119-409c-a371-cdaaf1b2e565
+# Subtest: MIG-BGSTAB-002 hard reload waits for exact control-lane readiness before its atomic checkpoint batch and PTY tail
+ok 14 - MIG-BGSTAB-002 hard reload waits for exact control-lane readiness before its atomic checkpoint batch and PTY tail
+  ---
+  duration_ms: 53.1033
+  type: 'test'
+  ...
+# [WS] Client disconnected: 2d39f446-8119-409c-a371-cdaaf1b2e565
+# [WS] Client disconnected: 2d39f446-8119-409c-a371-cdaaf1b2e565
+# [WS] WebSocket router initialized
+# [WS] Client connected: 657b8458-e1c1-48f3-9a6a-d681feaa128f
+# Subtest: MIG-BGSTAB-002 unready checkpoint preparation expires without admitting an authoritative checkpoint
+ok 15 - MIG-BGSTAB-002 unready checkpoint preparation expires without admitting an authoritative checkpoint
+  ---
+  duration_ms: 149.736
+  type: 'test'
+  ...
+# [WS] Client disconnected: 657b8458-e1c1-48f3-9a6a-d681feaa128f
+# [WS] Client disconnected: 657b8458-e1c1-48f3-9a6a-d681feaa128f
+# [WS] WebSocket router initialized
+# [WS] Client connected: 6a196e44-4be1-475c-96cc-c9d4190b3bb2
+# Subtest: MIG-BGSTAB-002 exhausted checkpoint-ready retries roll back the unready server authority
+ok 16 - MIG-BGSTAB-002 exhausted checkpoint-ready retries roll back the unready server authority
+  ---
+  duration_ms: 284.04
+  type: 'test'
+  ...
+# [WS] Client disconnected: 6a196e44-4be1-475c-96cc-c9d4190b3bb2
+# [WS] Client disconnected: 6a196e44-4be1-475c-96cc-c9d4190b3bb2
+# [WS] WebSocket router initialized
+# [WS] Client connected: e72c0f5b-67ab-4595-b7ed-0a2f437c81f2
+# Subtest: MIG-BGSTAB-002 rollback cancels a pending checkpoint-ready deadline before it can retry
+ok 17 - MIG-BGSTAB-002 rollback cancels a pending checkpoint-ready deadline before it can retry
+  ---
+  duration_ms: 152.2232
+  type: 'test'
+  ...
+# [WS] Client disconnected: e72c0f5b-67ab-4595-b7ed-0a2f437c81f2
+# [WS] Client disconnected: e72c0f5b-67ab-4595-b7ed-0a2f437c81f2
+# [WS] WebSocket router initialized
+# [WS] Client connected: b6637cbb-074b-4857-b20e-5db1bf4d93d7
+# Subtest: MIG-BGSTAB-002 bounds checkpoint-ready retries for an unresponsive current view
+ok 18 - MIG-BGSTAB-002 bounds checkpoint-ready retries for an unresponsive current view
+  ---
+  duration_ms: 234.94
+  type: 'test'
+  ...
+# [WS] Client disconnected: b6637cbb-074b-4857-b20e-5db1bf4d93d7
+# [WS] Client disconnected: b6637cbb-074b-4857-b20e-5db1bf4d93d7
+# [WS] WebSocket router initialized
+# [WS] Client connected: 4ea30627-af07-4c7e-b3da-adf9dc3c1a54
+# Subtest: MIG-BGSTAB-002 checkpoint-ready deadline begins only after the control preparation settles
+ok 19 - MIG-BGSTAB-002 checkpoint-ready deadline begins only after the control preparation settles
+  ---
+  duration_ms: 234.4282
+  type: 'test'
+  ...
+# [WS] Client connected: d0385f78-799d-4bb5-ab1c-60efcdcbc7b9
+# [WS] Client disconnected: 4ea30627-af07-4c7e-b3da-adf9dc3c1a54
+# [WS] Client disconnected: 4ea30627-af07-4c7e-b3da-adf9dc3c1a54
+# [WS] Client disconnected: d0385f78-799d-4bb5-ab1c-60efcdcbc7b9
+# [WS] Client disconnected: d0385f78-799d-4bb5-ab1c-60efcdcbc7b9
+# [WS] WebSocket router initialized
+# [WS] Client connected: 38db9657-ee17-4e5b-8bf5-efd91ca4b194
+# Subtest: MIG-BGSTAB-002 same-generation hard reload replaces the live server-authority view
+ok 20 - MIG-BGSTAB-002 same-generation hard reload replaces the live server-authority view
+  ---
+  duration_ms: 53.7796
+  type: 'test'
+  ...
+# [WS] Client disconnected: 38db9657-ee17-4e5b-8bf5-efd91ca4b194
+# [WS] Client disconnected: 38db9657-ee17-4e5b-8bf5-efd91ca4b194
+# [WS] WebSocket router initialized
+# [WS] Client connected: 9ee66dce-b05b-42af-8fef-ffd34af21d67
+# Subtest: MIG-BGSTAB-002 authority-ready recovery retries after transient empty router projection
+ok 21 - MIG-BGSTAB-002 authority-ready recovery retries after transient empty router projection
+  ---
+  duration_ms: 1711.8273
+  type: 'test'
+  ...
+# [WS] Client connected: c3e82a1f-5ea6-45a8-8247-49e44820ae91
+# [WS] Client disconnected: 9ee66dce-b05b-42af-8fef-ffd34af21d67
+# [WS] Client disconnected: c3e82a1f-5ea6-45a8-8247-49e44820ae91
+# [WS] Client disconnected: c3e82a1f-5ea6-45a8-8247-49e44820ae91
+# [WS] WebSocket router initialized
+# [WS] Client connected: a3bf8322-9e4b-4b67-b1b0-04d3399fd0f9
+# Subtest: MIG-BGSTAB-002 stale hard-reload checkpoint settlement cannot roll back a live replacement view
+ok 22 - MIG-BGSTAB-002 stale hard-reload checkpoint settlement cannot roll back a live replacement view
+  ---
+  duration_ms: 66.9204
+  type: 'test'
+  ...
+# [WS] Client connected: a9ba59f2-fed6-4be7-8d3d-6fc8b7ea00f6
+# [WS] Client disconnected: a3bf8322-9e4b-4b67-b1b0-04d3399fd0f9
+# [WS] Client disconnected: a3bf8322-9e4b-4b67-b1b0-04d3399fd0f9
+# [WS] Client disconnected: a9ba59f2-fed6-4be7-8d3d-6fc8b7ea00f6
+# [WS] Client disconnected: a9ba59f2-fed6-4be7-8d3d-6fc8b7ea00f6
+# [WS] WebSocket router initialized
+# [WS] Client connected: 32960498-7f1d-4890-8927-04624339e779
+# Subtest: MIG-BGSTAB-002 replacement view supersedes a stale checkpoint-ready preparation before stale disconnect
+ok 23 - MIG-BGSTAB-002 replacement view supersedes a stale checkpoint-ready preparation before stale disconnect
+  ---
+  duration_ms: 61.6788
+  type: 'test'
+  ...
+# [WS] Client connected: c484b5b8-d84f-4d3a-9ede-271edeb4cd4c
+# [WS] WebSocket send callback failed: Error: callback-before-close
+#     at TestContext.<anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityController.test.ts:3280:38)
+#     at async Test.run (node:internal/test_runner/test:1313:7)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:897:7)
+# [WS] Client disconnected: 32960498-7f1d-4890-8927-04624339e779
+# [WS] Client disconnected: c484b5b8-d84f-4d3a-9ede-271edeb4cd4c
+# [WS] Client disconnected: c484b5b8-d84f-4d3a-9ede-271edeb4cd4c
+# [WS] WebSocket router initialized
+# [WS] Client connected: d78dc314-182b-4cc7-b9c9-d2ba8bcd9efa
+# Subtest: MIG-BGSTAB-002 send failure waits for same-turn hard-reload topology settlement
+ok 24 - MIG-BGSTAB-002 send failure waits for same-turn hard-reload topology settlement
+  ---
+  duration_ms: 48.9204
+  type: 'test'
+  ...
+# [WS] Client disconnected: d78dc314-182b-4cc7-b9c9-d2ba8bcd9efa
+# [WS] Client connected: a801eed4-e059-42c0-a202-e5e21af96e3d
+# [WS] Client disconnected: a801eed4-e059-42c0-a202-e5e21af96e3d
+# [WS] Client disconnected: a801eed4-e059-42c0-a202-e5e21af96e3d
+# [WS] WebSocket router initialized
+# [WS] Client connected: 521b32ff-112b-4066-b0d0-6a88c9137d6c
+# Subtest: MIG-BGSTAB-002 zero-view hard reload retains PTY output for the replacement checkpoint
+ok 25 - MIG-BGSTAB-002 zero-view hard reload retains PTY output for the replacement checkpoint
+  ---
+  duration_ms: 89.7456
+  type: 'test'
+  ...
+# [WS] Client disconnected: 521b32ff-112b-4066-b0d0-6a88c9137d6c
+# [WS] Client connected: f021eb16-4092-4ba7-bc57-45faed6df83f
+# [WS] Client disconnected: f021eb16-4092-4ba7-bc57-45faed6df83f
+# [WS] Client disconnected: f021eb16-4092-4ba7-bc57-45faed6df83f
+# [WS] WebSocket router initialized
+# [WS] Client connected: 3bfb6a53-a104-422e-a002-4e8dd5ba4a6b
+# Subtest: MIG-BGSTAB-002 explicit rollback refreshes the authority-ready view after a zero-view reconnect
+ok 26 - MIG-BGSTAB-002 explicit rollback refreshes the authority-ready view after a zero-view reconnect
+  ---
+  duration_ms: 47.6253
+  type: 'test'
+  ...
+# [WS] Client disconnected: 3bfb6a53-a104-422e-a002-4e8dd5ba4a6b
+# [WS] Client disconnected: 3bfb6a53-a104-422e-a002-4e8dd5ba4a6b
+# [WS] WebSocket router initialized
+# [WS] Client connected: b10877e4-0482-4734-a561-63ec0aa84f58
+# Subtest: MIG-BGSTAB-002 rollback cannot interleave or reactivate an in-flight hard-reload checkpoint
+ok 27 - MIG-BGSTAB-002 rollback cannot interleave or reactivate an in-flight hard-reload checkpoint
+  ---
+  duration_ms: 48.624
+  type: 'test'
+  ...
+# [WS] WebSocket send callback failed: Error: injected-persistent-send-failure
+#     at ExecutableAuthoritySocket.send (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityController.test.ts:589:18)
+#     at WsRouter.sendRawTransportMessage (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:5433:10)
+#     at WsRouter.sendTransportMessage (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:5258:12)
+#     at WsRouter.sendTo (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:5955:25)
+#     at WsRouter.sendTerminalAuthorityFrameToConnection (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\ws\\WsRouter.ts:985:23)
+#     at drain (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityProductionAdapter.ts:1209:31)
+#     at <anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityProductionAdapter.ts:1244:24)
+#     at new Promise (<anonymous>)
+#     at enqueueSettledViewFrame (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityProductionAdapter.ts:1242:12)
+#     at <anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityProductionAdapter.ts:1511:26)
+# [WS] Client disconnected: b10877e4-0482-4734-a561-63ec0aa84f58
+# [WS] Client disconnected: b10877e4-0482-4734-a561-63ec0aa84f58
+# [WS] WebSocket router initialized
+# [WS] Client connected: c8152d86-f31e-4e3d-addb-46773680b597
+# Subtest: MIG-BGSTAB-002 production rollback overflow coalesces one fresh compatibility recovery
+ok 28 - MIG-BGSTAB-002 production rollback overflow coalesces one fresh compatibility recovery
+  ---
+  duration_ms: 132.5599
+  type: 'test'
+  ...
+# [WS] Client disconnected: c8152d86-f31e-4e3d-addb-46773680b597-rebound
+# [WS] Client disconnected: c8152d86-f31e-4e3d-addb-46773680b597
+# [WS] WebSocket router initialized
+# [WS] Client connected: f34298df-cbf0-44d4-86ec-3b59ec86e42a
+# Subtest: MIG-BGSTAB-002 topology replacement during rollback does not reset the fresh parser again
+ok 29 - MIG-BGSTAB-002 topology replacement during rollback does not reset the fresh parser again
+  ---
+  duration_ms: 176.4259
+  type: 'test'
+  ...
+# [WS] Client disconnected: f34298df-cbf0-44d4-86ec-3b59ec86e42a
+# [WS] Client connected: e7fcdd2d-0a72-4bf0-a841-2c41c2717f5e
+# [WS] Client disconnected: e7fcdd2d-0a72-4bf0-a841-2c41c2717f5e
+# [WS] Client disconnected: e7fcdd2d-0a72-4bf0-a841-2c41c2717f5e
+# [WS] WebSocket router initialized
+# [WS] Client connected: e322a2ca-c291-48e9-b18b-344de462eaad
+# Subtest: MIG-BGSTAB-002 zero-view rollback recovery wakes when a replacement view becomes authority-ready
+ok 30 - MIG-BGSTAB-002 zero-view rollback recovery wakes when a replacement view becomes authority-ready
+  ---
+  duration_ms: 357.0351
+  type: 'test'
+  ...
+# [WS] Client connected: f26bbbbf-d6c4-4372-bb20-e196f745de11
+# [WS] Client disconnected: e322a2ca-c291-48e9-b18b-344de462eaad
+# [WS] Client disconnected: e322a2ca-c291-48e9-b18b-344de462eaad
+# [WS] Client disconnected: f26bbbbf-d6c4-4372-bb20-e196f745de11
+# [WS] Client disconnected: f26bbbbf-d6c4-4372-bb20-e196f745de11
+# [WS] WebSocket router initialized
+# [WS] Client connected: 56bb1e65-faa1-47e3-baf3-9492fb873412
+# Subtest: MIG-BGSTAB-002 rollback lease renewal on the same responder identity does not restart recovery
+ok 31 - MIG-BGSTAB-002 rollback lease renewal on the same responder identity does not restart recovery
+  ---
+  duration_ms: 139.4419
+  type: 'test'
+  ...
+# [WS] Client disconnected: 56bb1e65-faa1-47e3-baf3-9492fb873412
+# [WS] Client disconnected: 56bb1e65-faa1-47e3-baf3-9492fb873412
+# [WS] WebSocket router initialized
+# [WS] Client connected: 44a8f620-65d3-4df6-8c52-a1f2f24953d3
+# Subtest: MIG-BGSTAB-002 rollback topology rejects a projected generation outside the active stream epoch
+ok 32 - MIG-BGSTAB-002 rollback topology rejects a projected generation outside the active stream epoch
+  ---
+  duration_ms: 107.9497
+  type: 'test'
+  ...
+# [WS] Client connected: f01fa4bb-1912-4b64-9dc3-1472729c0544
+# [WS] Client disconnected: 44a8f620-65d3-4df6-8c52-a1f2f24953d3
+# [WS] Client disconnected: f01fa4bb-1912-4b64-9dc3-1472729c0544
+# [WS] WebSocket router initialized
+# [WS] Client connected: ea6a97f8-65d5-497f-9a70-f26f4a57e07b
+# Subtest: MIG-BGSTAB-002 legacy driver ownership transfers to the remaining capable view after disconnect
+ok 33 - MIG-BGSTAB-002 legacy driver ownership transfers to the remaining capable view after disconnect
+  ---
+  duration_ms: 36.2431
+  type: 'test'
+  ...
+# [WS] Client connected: d523073f-2e14-4c09-83b1-d112b74f772e
+# [WS] Client disconnected: ea6a97f8-65d5-497f-9a70-f26f4a57e07b
+# [WS] Client disconnected: d523073f-2e14-4c09-83b1-d112b74f772e
+# [WS] WebSocket router initialized
+# [WS] Client connected: c2abef60-31e6-4105-9223-549c9500c9fd
+# Subtest: MIG-BGSTAB-002 legacy capability refresh follows the suspended browser driver instead of view order
+ok 34 - MIG-BGSTAB-002 legacy capability refresh follows the suspended browser driver instead of view order
+  ---
+  duration_ms: 36.7195
+  type: 'test'
+  ...
+# [WS] Client disconnected: c2abef60-31e6-4105-9223-549c9500c9fd
+# [WS] Client disconnected: c2abef60-31e6-4105-9223-549c9500c9fd
+# [WS] WebSocket router initialized
+# [WS] Client connected: bd52750a-77cd-4334-8710-6c1a17a6fd0f
+# Subtest: MIG-BGSTAB-002 explicit legacy capability refresh waits for a transient empty responder topology
+ok 35 - MIG-BGSTAB-002 explicit legacy capability refresh waits for a transient empty responder topology
+  ---
+  duration_ms: 60.7106
+  type: 'test'
+  ...
+# [WS] Client disconnected: bd52750a-77cd-4334-8710-6c1a17a6fd0f
+# [WS] WebSocket router initialized
+# [WS] Client connected: 978b50c5-9921-489d-86db-f8b654a09f4d
+# Subtest: MIG-BGSTAB-002 pending view-attributes handshake stays pending without a reply then fails at its deadline
+ok 36 - MIG-BGSTAB-002 pending view-attributes handshake stays pending without a reply then fails at its deadline
+  ---
+  duration_ms: 288.8377
+  type: 'test'
+  ...
+# [WS] Client disconnected: 978b50c5-9921-489d-86db-f8b654a09f4d
+# [WS] WebSocket router initialized
+# [WS] Client connected: 4a7edcee-f42f-44b9-baba-e61ec039d0ef
+# Subtest: MIG-BGSTAB-002 stale driver attributes rotate once and only the fresh exact identity settles true
+ok 37 - MIG-BGSTAB-002 stale driver attributes rotate once and only the fresh exact identity settles true
+  ---
+  duration_ms: 37.7219
+  type: 'test'
+  ...
+# [WS] Client disconnected: 4a7edcee-f42f-44b9-baba-e61ec039d0ef
+# [WS] WebSocket router initialized
+# [WS] Client connected: cc8869d1-a0d4-4037-beb2-21feb0007cd0
+# Subtest: MIG-BGSTAB-002 pending handshake does not amplify a capability into a blind retry queue
+ok 38 - MIG-BGSTAB-002 pending handshake does not amplify a capability into a blind retry queue
+  ---
+  duration_ms: 131.9712
+  type: 'test'
+  ...
+# [WS] Client connected: 570ee755-f53a-47aa-baea-2b879e65447b
+# [WS] Client disconnected: cc8869d1-a0d4-4037-beb2-21feb0007cd0
+# [WS] Client disconnected: 570ee755-f53a-47aa-baea-2b879e65447b
+# [WS] WebSocket router initialized
+# [WS] Client connected: 31d6c8c2-ddd6-42ae-bc79-0ef6271c9d52
+# Subtest: MIG-BGSTAB-002 follower response is reject-only and cannot rotate the owner handshake
+ok 39 - MIG-BGSTAB-002 follower response is reject-only and cannot rotate the owner handshake
+  ---
+  duration_ms: 63.4187
+  type: 'test'
+  ...
+# [WS] WebSocket send callback failed: Error: accepted-ack-send-failed
+#     at TestContext.<anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityController.test.ts:4792:32)
+#     at async Test.run (node:internal/test_runner/test:1313:7)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:897:7)
+# [WS] Client disconnected: 31d6c8c2-ddd6-42ae-bc79-0ef6271c9d52
+# [WS] WebSocket router initialized
+# [WS] Client connected: 1f037de4-9b30-4002-b287-2dd1eddf9522
+# Subtest: MIG-BGSTAB-002 refresh resolves only after manager acceptance and accepted ACK settlement
+ok 40 - MIG-BGSTAB-002 refresh resolves only after manager acceptance and accepted ACK settlement
+  ---
+  duration_ms: 38.1323
+  type: 'test'
+  ...
+# [WS] Client connected: 81849762-0207-4279-bb5d-92825215d4da
+# [WS] Client disconnected: 1f037de4-9b30-4002-b287-2dd1eddf9522
+# [WS] Client disconnected: 81849762-0207-4279-bb5d-92825215d4da
+# [WS] WebSocket router initialized
+# [WS] Client connected: 193a524a-b3df-43da-9822-c5225cad682e
+# Subtest: MIG-BGSTAB-002 accepted ACK retries one fresh owner when manager identity changes before settlement
+ok 41 - MIG-BGSTAB-002 accepted ACK retries one fresh owner when manager identity changes before settlement
+  ---
+  duration_ms: 40.9713
+  type: 'test'
+  ...
+# [WS] Client connected: 9e60b37c-756e-4118-a610-0e46c4817cee
+# [WS] Client disconnected: 193a524a-b3df-43da-9822-c5225cad682e
+# [WS] Client disconnected: 9e60b37c-756e-4118-a610-0e46c4817cee
+# [WS] WebSocket router initialized
+# [WS] Client connected: 4337bb9e-10f2-447c-bc76-3bc89541bae2
+# Subtest: MIG-BGSTAB-002 generation retarget does not consume the later manager-identity recovery
+ok 42 - MIG-BGSTAB-002 generation retarget does not consume the later manager-identity recovery
+  ---
+  duration_ms: 38.8783
+  type: 'test'
+  ...
+# [WS] Client connected: ee43ad20-3d09-47c9-818d-f8238fc1fe0c
+# [WS] Client disconnected: 4337bb9e-10f2-447c-bc76-3bc89541bae2
+# [WS] Client disconnected: ee43ad20-3d09-47c9-818d-f8238fc1fe0c
+# [WS] WebSocket router initialized
+# [WS] Client connected: 90570c73-c6f4-4ac0-86f7-1d2929bcc778
+# Subtest: MIG-BGSTAB-002 replacement challenge reply after the original deadline cannot revive readiness
+ok 43 - MIG-BGSTAB-002 replacement challenge reply after the original deadline cannot revive readiness
+  ---
+  duration_ms: 193.2062
+  type: 'test'
+  ...
+# [WS] WebSocket send callback failed: Error: rejected-ack-settlement
+#     at TestContext.<anonymous> (C:\\Work\\git\\_Snoworca\\ProjectMaster\\server\\src\\services\\TerminalAuthorityController.test.ts:5183:34)
+#     at async Test.run (node:internal/test_runner/test:1313:7)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:897:7)
+# [WS] Client disconnected: 90570c73-c6f4-4ac0-86f7-1d2929bcc778
+# [WS] WebSocket router initialized
+# [WS] Client connected: 922b3cd7-4620-4c8d-8b2f-8e58793f6850
+# Subtest: MIG-BGSTAB-002 rejected ACK settlement invalidates its challenge before a late duplicate
+ok 44 - MIG-BGSTAB-002 rejected ACK settlement invalidates its challenge before a late duplicate
+  ---
+  duration_ms: 39.4406
+  type: 'test'
+  ...
+# [WS] Client disconnected: 922b3cd7-4620-4c8d-8b2f-8e58793f6850-replacement
+# [WS] WebSocket router initialized
+# [WS] Client connected: fdba1e13-5ae1-4db8-a2f0-3ff74b866ffc
+# Subtest: MIG-BGSTAB-002 pending challenge rejects a same-view client identity replacement
+ok 45 - MIG-BGSTAB-002 pending challenge rejects a same-view client identity replacement
+  ---
+  duration_ms: 35.6108
+  type: 'test'
+  ...
+# [WS] Client disconnected: fdba1e13-5ae1-4db8-a2f0-3ff74b866ffc
+# [WS] WebSocket router initialized
+# [WS] Client connected: eef9d041-a4f7-4223-88c8-04ce5bd75288
+# Subtest: MIG-BGSTAB-002 pending challenge rejects a same-view driver lease identity replacement
+ok 46 - MIG-BGSTAB-002 pending challenge rejects a same-view driver lease identity replacement
+  ---
+  duration_ms: 36.3862
+  type: 'test'
+  ...
+# [WS] Client disconnected: eef9d041-a4f7-4223-88c8-04ce5bd75288
+# [WS] WebSocket router initialized
+# [WS] Client connected: b34e7b25-c661-49e6-ae7b-59d90a687f7b
+# Subtest: MIG-BGSTAB-002 ACK success released after deadline cannot revive accepted readiness
+ok 47 - MIG-BGSTAB-002 ACK success released after deadline cannot revive accepted readiness
+  ---
+  duration_ms: 76.3271
+  type: 'test'
+  ...
+# [WS] Client disconnected: b34e7b25-c661-49e6-ae7b-59d90a687f7b
+# [WS] Client disconnected: b34e7b25-c661-49e6-ae7b-59d90a687f7b
+# [WS] WebSocket router initialized
+# [WS] Client connected: 105a0bf1-cd96-4db2-a728-0b4af7e6586d
+# Subtest: MIG-BGSTAB-002 split output close invalidates pending handshake and re-pair requires a fresh exact identity
+ok 48 - MIG-BGSTAB-002 split output close invalidates pending handshake and re-pair requires a fresh exact identity
+  ---
+  duration_ms: 36.4761
+  type: 'test'
+  ...
+# [WS] Client connected: 19c5af3d-91e0-4578-b261-537c7dd71ca3
+# [WS] Client disconnected: 105a0bf1-cd96-4db2-a728-0b4af7e6586d
+# [WS] Client disconnected: 105a0bf1-cd96-4db2-a728-0b4af7e6586d
+# [WS] Client disconnected: 19c5af3d-91e0-4578-b261-537c7dd71ca3
+# [WS] Client disconnected: 19c5af3d-91e0-4578-b261-537c7dd71ca3
+# [WS] WebSocket router initialized
+# [WS] Client connected: dcce0347-20ef-45d8-b4cc-2a9af72241d5
+# Subtest: MIG-BGSTAB-002 follower split lane replacement and unpair preserve the exact owner handshake
+ok 49 - MIG-BGSTAB-002 follower split lane replacement and unpair preserve the exact owner handshake
+  ---
+  duration_ms: 38.3045
+  type: 'test'
+  ...
+# [WS] Client disconnected: dcce0347-20ef-45d8-b4cc-2a9af72241d5
+# [WS] WebSocket router initialized
+# [WS] Client connected: 57bd4140-e605-44a2-9ac9-30f081ec7594
+# Subtest: MIG-BGSTAB-002 same-view runtime recreation rejects the old challenge before accepting the replacement
+ok 50 - MIG-BGSTAB-002 same-view runtime recreation rejects the old challenge before accepting the replacement
+  ---
+  duration_ms: 81.2144
+  type: 'test'
+  ...
+# [WS] Client disconnected: 57bd4140-e605-44a2-9ac9-30f081ec7594
+# [WS] Client disconnected: 57bd4140-e605-44a2-9ac9-30f081ec7594
+# [WS] WebSocket router initialized
+# [WS] Client connected: b6bb95ff-72dd-4c32-bbf7-0a768b6a69b2
+# Subtest: MIG-BGSTAB-002 overlapping legacy capability refreshes do not piggyback an older challenge
+ok 51 - MIG-BGSTAB-002 overlapping legacy capability refreshes do not piggyback an older challenge
+  ---
+  duration_ms: 40.9375
+  type: 'test'
+  ...
+# [WS] Client disconnected: b6bb95ff-72dd-4c32-bbf7-0a768b6a69b2
+# [WS] Client disconnected: b6bb95ff-72dd-4c32-bbf7-0a768b6a69b2
+# [WS] WebSocket router initialized
+# [WS] Client connected: fae75a73-a410-4ee4-9ab8-116a90c5d300
+# Subtest: MIG-BGSTAB-002 explicit refresh retargets one successor challenge across view-generation churn
+ok 52 - MIG-BGSTAB-002 explicit refresh retargets one successor challenge across view-generation churn
+  ---
+  duration_ms: 36.2956
+  type: 'test'
+  ...
+# [WS] Client connected: 0d3e1ea5-7567-45ed-8266-f721438adad3
+# [WS] Client disconnected: fae75a73-a410-4ee4-9ab8-116a90c5d300
+# [WS] Client disconnected: fae75a73-a410-4ee4-9ab8-116a90c5d300
+# [WS] Client disconnected: 0d3e1ea5-7567-45ed-8266-f721438adad3
+# [WS] Client disconnected: 0d3e1ea5-7567-45ed-8266-f721438adad3
+# [WS] WebSocket router initialized
+# [WS] Client connected: c6f648a4-32da-479e-8934-2e9abbe2715c
+# Subtest: MIG-BGSTAB-002 generation retarget preserves the immutable driver client anchor
+ok 53 - MIG-BGSTAB-002 generation retarget preserves the immutable driver client anchor
+  ---
+  duration_ms: 38.7878
+  type: 'test'
+  ...
+# [WS] Client disconnected: c6f648a4-32da-479e-8934-2e9abbe2715c
+# [WS] Client disconnected: c6f648a4-32da-479e-8934-2e9abbe2715c
+# [WS] WebSocket router initialized
+# [WS] Client connected: c1d30a2e-5f70-479b-a02f-760f5abe6af1
+# [WS] Client disconnected: c1d30a2e-5f70-479b-a02f-760f5abe6af1
+# [WS] Client disconnected: c1d30a2e-5f70-479b-a02f-760f5abe6af1
+# [WS] WebSocket router initialized
+# [WS] Client connected: 985adf8e-0fea-495c-a038-6ca75b15bd37
+# Subtest: MIG-BGSTAB-002 destructive split output change fences a generation-retargeted refresh
+ok 54 - MIG-BGSTAB-002 destructive split output change fences a generation-retargeted refresh
+  ---
+  duration_ms: 80.4628
+  type: 'test'
+  ...
+# [WS] Client connected: dd9d991b-7aee-4202-ac56-81de9ee3e11b
+# [WS] Client disconnected: 985adf8e-0fea-495c-a038-6ca75b15bd37
+# [WS] Client disconnected: 985adf8e-0fea-495c-a038-6ca75b15bd37
+# [WS] Client disconnected: dd9d991b-7aee-4202-ac56-81de9ee3e11b
+# [WS] Client disconnected: dd9d991b-7aee-4202-ac56-81de9ee3e11b
+# [WS] WebSocket router initialized
+# [WS] Client connected: 1a4181ac-433a-4121-88b0-8adba11aab80
+# Subtest: MIG-BGSTAB-002 output-unpaired fences the initially selected owner during a held legacy rebind
+ok 55 - MIG-BGSTAB-002 output-unpaired fences the initially selected owner during a held legacy rebind
+  ---
+  duration_ms: 365.4588
+  type: 'test'
+  ...
+# [WS] Client connected: c8487199-a921-4c07-b321-65c093fbb6dc
+# [WS] Client disconnected: 1a4181ac-433a-4121-88b0-8adba11aab80
+# [WS] Client disconnected: 1a4181ac-433a-4121-88b0-8adba11aab80
+# [WS] Client disconnected: c8487199-a921-4c07-b321-65c093fbb6dc
+# [WS] Client disconnected: c8487199-a921-4c07-b321-65c093fbb6dc
+# [WS] WebSocket router initialized
+# [WS] Client connected: c73a6844-ca18-4489-9ffa-5a03ab02f36b
+# Subtest: MIG-BGSTAB-002 output-replaced fences the initially selected owner during a held legacy rebind
+ok 56 - MIG-BGSTAB-002 output-replaced fences the initially selected owner during a held legacy rebind
+  ---
+  duration_ms: 389.4522
+  type: 'test'
+  ...
+# [WS] Client disconnected: c73a6844-ca18-4489-9ffa-5a03ab02f36b
+# [WS] WebSocket router initialized
+# [WS] Client connected: 46aa6171-a85c-4cc5-86ba-0fe0eb69c9c7
+# Subtest: MIG-BGSTAB-002 held successor rebind resumes the latest generation with one bounded wake
+ok 57 - MIG-BGSTAB-002 held successor rebind resumes the latest generation with one bounded wake
+  ---
+  duration_ms: 62.3337
+  type: 'test'
+  ...
+# [WS] Client connected: fd57b2f1-9c04-46c4-81bd-e713dc51a56e
+# [WS] Client disconnected: 46aa6171-a85c-4cc5-86ba-0fe0eb69c9c7
+# [WS] Client disconnected: fd57b2f1-9c04-46c4-81bd-e713dc51a56e
+# [WS] WebSocket router initialized
+# [WS] Client connected: 97b4a4bc-9238-457a-ba18-9c01076f82e7
+# Subtest: MIG-BGSTAB-002 explicit refresh waits for a held identity-changed rebind before fresh capability enqueue
+ok 58 - MIG-BGSTAB-002 explicit refresh waits for a held identity-changed rebind before fresh capability enqueue
+  ---
+  duration_ms: 140.7773
+  type: 'test'
+  ...
+# [WS] Client disconnected: 97b4a4bc-9238-457a-ba18-9c01076f82e7
+# [WS] Client disconnected: 97b4a4bc-9238-457a-ba18-9c01076f82e7
+# [WS] WebSocket router initialized
+# [WS] Client connected: 5ab4efc9-71a7-4c75-b3c4-c90d21d0f447
+# Subtest: MIG-BGSTAB-002 explicit legacy capability refresh fails closed after a bounded permanent topology gap
+ok 59 - MIG-BGSTAB-002 explicit legacy capability refresh fails closed after a bounded permanent topology gap
+  ---
+  duration_ms: 109.1915
+  type: 'test'
+  ...
+# [WS] Client disconnected: 5ab4efc9-71a7-4c75-b3c4-c90d21d0f447
+# [WS] Client disconnected: 5ab4efc9-71a7-4c75-b3c4-c90d21d0f447
+# [WS] WebSocket router initialized
+# [WS] Client connected: f0a5ab66-4d94-41c8-bd82-96bdca099f8a
+# [WS] Client disconnected: f0a5ab66-4d94-41c8-bd82-96bdca099f8a
+# [WS] WebSocket router initialized
+# [WS] Client connected: 0d913281-bafe-4fb5-ab84-d5266305ebe1
+# Subtest: MIG-BGSTAB-002 runtime recreation invalidates an old pending refresh before a new runtime refresh succeeds
+ok 60 - MIG-BGSTAB-002 runtime recreation invalidates an old pending refresh before a new runtime refresh succeeds
+  ---
+  duration_ms: 41.4646
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 split control advertises view attributes only after its output lane pairs
+ok 61 - MIG-BGSTAB-002 split control advertises view attributes only after its output lane pairs
+  ---
+  duration_ms: 36.0795
+  type: 'test'
+  ...
+# [WS] Client disconnected: 0d913281-bafe-4fb5-ab84-d5266305ebe1
+# [WS] WebSocket router initialized
+# [WS] Client connected: b3a3c690-01df-4916-8560-ce57b2bda108
+# Subtest: MIG-BGSTAB-002 headless runtime recreation restores a fresh legacy browser mutation lease
+ok 62 - MIG-BGSTAB-002 headless runtime recreation restores a fresh legacy browser mutation lease
+  ---
+  duration_ms: 251.0814
+  type: 'test'
+  ...
+# [WS] Client disconnected: b3a3c690-01df-4916-8560-ce57b2bda108
+# [WS] Client disconnected: b3a3c690-01df-4916-8560-ce57b2bda108
+# [WS] WebSocket router initialized
+# [WS] Client connected: 638c8308-2e27-446a-aaff-5fd4559c4e28
+# Subtest: MIG-BGSTAB-002 configured corpus recreation refreshes the replacement runtime before promotion
+ok 63 - MIG-BGSTAB-002 configured corpus recreation refreshes the replacement runtime before promotion
+  ---
+  duration_ms: 110.1203
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 stale promotion deadline cannot roll back a replacement authority runtime
+ok 64 - MIG-BGSTAB-002 stale promotion deadline cannot roll back a replacement authority runtime
+  ---
+  duration_ms: 0.6635
+  type: 'test'
+  ...
+# [WS] Client disconnected: 638c8308-2e27-446a-aaff-5fd4559c4e28
+# [WS] Client disconnected: 638c8308-2e27-446a-aaff-5fd4559c4e28
+# [WS] WebSocket router initialized
+# [WS] Client connected: bd9c506d-7a57-4b6b-bab3-45a3aeb78ef1
+# Subtest: MIG-BGSTAB-002 explicit recovery resumes an existing rollback with the current compatibility view
+ok 65 - MIG-BGSTAB-002 explicit recovery resumes an existing rollback with the current compatibility view
+  ---
+  duration_ms: 138.4461
+  type: 'test'
+  ...
+# [WS] Client disconnected: bd9c506d-7a57-4b6b-bab3-45a3aeb78ef1
+# [WS] Client disconnected: bd9c506d-7a57-4b6b-bab3-45a3aeb78ef1
+# [WS] WebSocket router initialized
+# [WS] Client connected: ef804bcf-91aa-4f1d-91f5-7c18e84e8dd5
+# Subtest: MIG-BGSTAB-002 session finalization disposes authority timer and settles queued delivery exactly once
+ok 66 - MIG-BGSTAB-002 session finalization disposes authority timer and settles queued delivery exactly once
+  ---
+  duration_ms: 1104.7772
+  type: 'test'
+  ...
+# [WS] Client disconnected: ef804bcf-91aa-4f1d-91f5-7c18e84e8dd5
+# [WS] Client disconnected: ef804bcf-91aa-4f1d-91f5-7c18e84e8dd5
+# [WS] WebSocket router initialized
+# [WS] Client connected: 049b1032-e0b6-4ec1-bdab-6363710ba808
+# Subtest: MIG-BGSTAB-002 production promotion deadline follows the configured browser ACK contract exactly once
+ok 67 - MIG-BGSTAB-002 production promotion deadline follows the configured browser ACK contract exactly once
+  ---
+  duration_ms: 471.5649
+  type: 'test'
+  ...
+# [WS] Client disconnected: 049b1032-e0b6-4ec1-bdab-6363710ba808
+# [WS] Client disconnected: 049b1032-e0b6-4ec1-bdab-6363710ba808
+# [WS] WebSocket router initialized
+# [WS] Client connected: 09c9e7a8-d1c1-466f-9b13-e883b68a5858
+# Subtest: MIG-BGSTAB-002 recovery ACK miss preserves bootstrap replay until the refreshed model is acknowledged
+ok 68 - MIG-BGSTAB-002 recovery ACK miss preserves bootstrap replay until the refreshed model is acknowledged
+  ---
+  duration_ms: 48.3868
+  type: 'test'
+  ...
+# [WS] Client disconnected: 09c9e7a8-d1c1-466f-9b13-e883b68a5858
+# [WS] Client disconnected: 09c9e7a8-d1c1-466f-9b13-e883b68a5858
+# [WS] WebSocket router initialized
+# [WS] WebSocket router initialized
+# [WS] Client connected: 59f31b38-5b65-4aec-b608-cbc500b38c83
+# Subtest: MIG-BGSTAB-002 attachment destroy detaches active authority runtime and clears its owned factory
+ok 69 - MIG-BGSTAB-002 attachment destroy detaches active authority runtime and clears its owned factory
+  ---
+  duration_ms: 62.9055
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 production destroy all-settles runtime map and factory ownership after responder detach failure
+ok 70 - MIG-BGSTAB-002 production destroy all-settles runtime map and factory ownership after responder detach failure
+  ---
+  duration_ms: 38.6127
+  type: 'test'
+  ...
+# Subtest: Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-4
+ok 71 - Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-4
+  ---
+  duration_ms: 0.8927
+  type: 'test'
+  ...
+# [WS] Client connected: 1ca52a29-4ce4-4b08-ac39-c3a0fac1e344
+# [WS] Client disconnected: 59f31b38-5b65-4aec-b608-cbc500b38c83
+# [WS] Client disconnected: 59f31b38-5b65-4aec-b608-cbc500b38c83
+# [WS] Client disconnected: 1ca52a29-4ce4-4b08-ac39-c3a0fac1e344
+# [WS] Client disconnected: 1ca52a29-4ce4-4b08-ac39-c3a0fac1e344
+# [WS] WebSocket router initialized
+# [WS] Client connected: 85994add-94d6-4e6c-9457-e2189f706a72
+# [WS] Client connected: 54739faa-e2c4-4403-b18c-bb61c84c038e
+# [WS] Client disconnected: 85994add-94d6-4e6c-9457-e2189f706a72
+# [WS] Client disconnected: 54739faa-e2c4-4403-b18c-bb61c84c038e
+# [WS] WebSocket router initialized
+# [WS] Client connected: 0cd91bcd-96d2-4ebc-9e5b-bb1bd95c6dd9
+# [WS] Client disconnected: 0cd91bcd-96d2-4ebc-9e5b-bb1bd95c6dd9
+# [WS] WebSocket router initialized
+# Subtest: Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-5
+ok 72 - Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-5
+  ---
+  duration_ms: 249.038
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 rollback query hold ledger fails closed at the configured chunk bound
+ok 73 - MIG-BGSTAB-002 rollback query hold ledger fails closed at the configured chunk bound
+  ---
+  duration_ms: 1.0285
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 failed compatibility query transfer keeps rollback retryable and uncommitted
+ok 74 - MIG-BGSTAB-002 failed compatibility query transfer keeps rollback retryable and uncommitted
+  ---
+  duration_ms: 0.7279
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 AC-5 locks the first proven compatibility drain target while PTY output continues
+ok 75 - MIG-BGSTAB-002 AC-5 locks the first proven compatibility drain target while PTY output continues
+  ---
+  duration_ms: 0.6325
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 legacy compatibility responder identity rebinds to a replacement view
+ok 76 - MIG-BGSTAB-002 legacy compatibility responder identity rebinds to a replacement view
+  ---
+  duration_ms: 0.6718
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 legacy output with no authority-capable view does not enter an epochless rollback
+ok 77 - MIG-BGSTAB-002 legacy output with no authority-capable view does not enter an epochless rollback
+  ---
+  duration_ms: 37.3069
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 delayed Ctrl+C clear-line › prompt repaint stays idle when foreground detection is stale
+ok 78 - MIG-BGSTAB-002 delayed Ctrl+C clear-line › prompt repaint stays idle when foreground detection is stale
+  ---
+  duration_ms: 456.9473
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 delayed Ctrl+C semantic output remains running when foreground detection is stale
+ok 79 - MIG-BGSTAB-002 delayed Ctrl+C semantic output remains running when foreground detection is stale
+  ---
+  duration_ms: 454.0068
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 delayed local-input cursor visibility repaint stays idle when foreground detection is stale
+ok 80 - MIG-BGSTAB-002 delayed local-input cursor visibility repaint stays idle when foreground detection is stale
+  ---
+  duration_ms: 452.3409
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 delayed local-input semantic output remains running when foreground detection is stale
+ok 81 - MIG-BGSTAB-002 delayed local-input semantic output remains running when foreground detection is stale
+  ---
+  duration_ms: 450.5171
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 delayed ANSI-colored local echo stays idle after the pending input buffer is cleared
+ok 82 - MIG-BGSTAB-002 delayed ANSI-colored local echo stays idle after the pending input buffer is cleared
+  ---
+  duration_ms: 456.3268
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 delayed ANSI-colored local echo stays idle after the debug correlation window expires
+ok 83 - MIG-BGSTAB-002 delayed ANSI-colored local echo stays idle after the debug correlation window expires
+  ---
+  duration_ms: 556.9035
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 semantic output clears delayed local-echo correlation
+ok 84 - MIG-BGSTAB-002 semantic output clears delayed local-echo correlation
+  ---
+  duration_ms: 487.4021
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 replacement local input invalidates the prior delayed local-echo correlation
+ok 85 - MIG-BGSTAB-002 replacement local input invalidates the prior delayed local-echo correlation
+  ---
+  duration_ms: 108.125
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 Ctrl+C settles one already-pending delayed local echo before later semantic output
+ok 86 - MIG-BGSTAB-002 Ctrl+C settles one already-pending delayed local echo before later semantic output
+  ---
+  duration_ms: 94.2678
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 Enter clears delayed local-echo correlation
+ok 87 - MIG-BGSTAB-002 Enter clears delayed local-echo correlation
+  ---
+  duration_ms: 36.2907
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 delayed ANSI echo of a backspace-edited local draft stays idle after a prompt redraw
+ok 88 - MIG-BGSTAB-002 delayed ANSI echo of a backspace-edited local draft stays idle after a prompt redraw
+  ---
+  duration_ms: 554.4121
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 delayed ANSI echo of a superseded pre-edit draft remains running
+ok 89 - MIG-BGSTAB-002 delayed ANSI echo of a superseded pre-edit draft remains running
+  ---
+  duration_ms: 547.2742
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 semantic output before a prompt-prefixed local draft remains running
+ok 90 - MIG-BGSTAB-002 semantic output before a prompt-prefixed local draft remains running
+  ---
+  duration_ms: 109.0413
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 Ctrl+C prompt-return suppression is consumed before later semantic prompt output
+ok 91 - MIG-BGSTAB-002 Ctrl+C prompt-return suppression is consumed before later semantic prompt output
+  ---
+  duration_ms: 454.7381
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 delayed Ctrl+C clear-line and cursor repaint stays idle when foreground detection is stale
+ok 92 - MIG-BGSTAB-002 delayed Ctrl+C clear-line and cursor repaint stays idle when foreground detection is stale
+  ---
+  duration_ms: 451.1319
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 PowerShell redraw retains the unsubmitted draft for later Codex detection
+ok 93 - MIG-BGSTAB-002 PowerShell redraw retains the unsubmitted draft for later Codex detection
+  ---
+  duration_ms: 333.3618
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 stale bare PowerShell prompt preserves an unsent draft through a split PSReadLine redraw
+ok 94 - MIG-BGSTAB-002 stale bare PowerShell prompt preserves an unsent draft through a split PSReadLine redraw
+  ---
+  duration_ms: 340.158
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 bare PowerShell prompt without an active draft does not mask later substantive output
+ok 95 - MIG-BGSTAB-002 bare PowerShell prompt without an active draft does not mask later substantive output
+  ---
+  duration_ms: 278.3586
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 CWD prompt refresh preserves an active unsubmitted draft until its delayed echo settles
+ok 96 - MIG-BGSTAB-002 CWD prompt refresh preserves an active unsubmitted draft until its delayed echo settles
+  ---
+  duration_ms: 344.1327
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 CWD prompt refresh without an active draft keeps normal prompt reset behavior
+ok 97 - MIG-BGSTAB-002 CWD prompt refresh without an active draft keeps normal prompt reset behavior
+  ---
+  duration_ms: 275.978
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 PSReadLine rewrite replaces an earlier partial local-echo prefix with a longer current draft prefix
+ok 98 - MIG-BGSTAB-002 PSReadLine rewrite replaces an earlier partial local-echo prefix with a longer current draft prefix
+  ---
+  duration_ms: 350.2742
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 a PSReadLine partial echo prefix does not suppress nonmatching semantic output
+ok 99 - MIG-BGSTAB-002 a PSReadLine partial echo prefix does not suppress nonmatching semantic output
+  ---
+  duration_ms: 359.4495
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 ANSI-only PowerShell repaint does not demote an active Codex foreground session
+ok 100 - MIG-BGSTAB-002 ANSI-only PowerShell repaint does not demote an active Codex foreground session
+  ---
+  duration_ms: 326.0704
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 PowerShell-shaped semantic output does not demote an active Codex foreground session
+ok 101 - MIG-BGSTAB-002 PowerShell-shaped semantic output does not demote an active Codex foreground session
+  ---
+  duration_ms: 389.4
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 delayed active-draft echo prefix survives an intervening control-only repaint
+ok 102 - MIG-BGSTAB-002 delayed active-draft echo prefix survives an intervening control-only repaint
+  ---
+  duration_ms: 110.0541
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 interrupted-draft echo prefix survives an intervening control-only repaint
+ok 103 - MIG-BGSTAB-002 interrupted-draft echo prefix survives an intervening control-only repaint
+  ---
+  duration_ms: 58.6629
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 unadorned substantive draft prefix remains observable as running output
+ok 104 - MIG-BGSTAB-002 unadorned substantive draft prefix remains observable as running output
+  ---
+  duration_ms: 253.9421
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 bare split local echo remains idle when its matching suffix arrives
+ok 105 - MIG-BGSTAB-002 bare split local echo remains idle when its matching suffix arrives
+  ---
+  duration_ms: 126.7628
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 a replacement draft cancels a deferred bare echo candidate
+ok 106 - MIG-BGSTAB-002 a replacement draft cancels a deferred bare echo candidate
+  ---
+  duration_ms: 234.1077
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 Ctrl+C cancels a deferred bare echo candidate
+ok 107 - MIG-BGSTAB-002 Ctrl+C cancels a deferred bare echo candidate
+  ---
+  duration_ms: 248.2049
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 session teardown safely discards a deferred bare echo candidate
+ok 108 - MIG-BGSTAB-002 session teardown safely discards a deferred bare echo candidate
+  ---
+  duration_ms: 230.8207
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 session teardown cancels the deferred bare echo timer
+ok 109 - MIG-BGSTAB-002 session teardown cancels the deferred bare echo timer
+  ---
+  duration_ms: 126.2724
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 a control-only repaint does not cancel the bounded bare echo deadline
+ok 110 - MIG-BGSTAB-002 a control-only repaint does not cancel the bounded bare echo deadline
+  ---
+  duration_ms: 233.6266
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 a shell prompt redraw cancels an in-flight bare echo candidate
+ok 111 - MIG-BGSTAB-002 a shell prompt redraw cancels an in-flight bare echo candidate
+  ---
+  duration_ms: 466.3329
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 Ctrl+C retains an already-observed bare echo prefix for its matching suffix
+ok 112 - MIG-BGSTAB-002 Ctrl+C retains an already-observed bare echo prefix for its matching suffix
+  ---
+  duration_ms: 109.3796
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 repeated ambiguous bare chunks do not rearm the deferred echo deadline
+ok 113 - MIG-BGSTAB-002 repeated ambiguous bare chunks do not rearm the deferred echo deadline
+  ---
+  duration_ms: 108.6073
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 SGR-only split local echo remains idle when its matching suffix arrives
+ok 114 - MIG-BGSTAB-002 SGR-only split local echo remains idle when its matching suffix arrives
+  ---
+  duration_ms: 109.4803
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 a CSI-split SGR local echo remains idle across PTY chunks
+ok 115 - MIG-BGSTAB-002 a CSI-split SGR local echo remains idle across PTY chunks
+  ---
+  duration_ms: 108.6285
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 an active Codex CSI-split local echo stays idle across PTY chunks
+ok 116 - MIG-BGSTAB-002 an active Codex CSI-split local echo stays idle across PTY chunks
+  ---
+  duration_ms: 139.1871
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 an active Codex bare draft prefix times out to running without a suffix
+ok 117 - MIG-BGSTAB-002 an active Codex bare draft prefix times out to running without a suffix
+  ---
+  duration_ms: 249.3623
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 an active Codex bare prefix with a nonmatching suffix runs immediately
+ok 118 - MIG-BGSTAB-002 an active Codex bare prefix with a nonmatching suffix runs immediately
+  ---
+  duration_ms: 155.9964
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 an OSC-133 active Codex delayed exact echo stays idle
+ok 119 - MIG-BGSTAB-002 an OSC-133 active Codex delayed exact echo stays idle
+  ---
+  duration_ms: 140.2203
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 an OSC-133 active Codex bare prefix with a nonmatching suffix runs and clears its candidate
+ok 120 - MIG-BGSTAB-002 an OSC-133 active Codex bare prefix with a nonmatching suffix runs and clears its candidate
+  ---
+  duration_ms: 172.1287
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 an OSC-133 active Codex bare prefix deadline runs and clears its candidate
+ok 121 - MIG-BGSTAB-002 an OSC-133 active Codex bare prefix deadline runs and clears its candidate
+  ---
+  duration_ms: 248.5231
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 a bare draft prefix with a nonmatching suffix runs immediately
+ok 122 - MIG-BGSTAB-002 a bare draft prefix with a nonmatching suffix runs immediately
+  ---
+  duration_ms: 93.3055
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 CRLF-terminated substantive draft prefix remains observable as running output
+ok 123 - MIG-BGSTAB-002 CRLF-terminated substantive draft prefix remains observable as running output
+  ---
+  duration_ms: 108.1287
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 ANSI-colored substantive draft prefix remains observable as running output
+ok 124 - MIG-BGSTAB-002 ANSI-colored substantive draft prefix remains observable as running output
+  ---
+  duration_ms: 263.7585
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 unadorned exact delayed draft echo remains idle
+ok 125 - MIG-BGSTAB-002 unadorned exact delayed draft echo remains idle
+  ---
+  duration_ms: 108.4314
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 an observed exact local echo is not revived as an interrupted draft
+ok 126 - MIG-BGSTAB-002 an observed exact local echo is not revived as an interrupted draft
+  ---
+  duration_ms: 108.1703
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 Ctrl+C prompt return expires an unmatched interrupted draft correlation
+ok 127 - MIG-BGSTAB-002 Ctrl+C prompt return expires an unmatched interrupted draft correlation
+  ---
+  duration_ms: 35.2267
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 immediate semantic output after unsent printable input remains running
+ok 128 - MIG-BGSTAB-002 immediate semantic output after unsent printable input remains running
+  ---
+  duration_ms: 39.4688
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 immediate semantic output after Ctrl+C remains running
+ok 129 - MIG-BGSTAB-002 immediate semantic output after Ctrl+C remains running
+  ---
+  duration_ms: 34.7271
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 immediate Ctrl+C SGR-reset and cursor-hide repaint stays idle
+ok 130 - MIG-BGSTAB-002 immediate Ctrl+C SGR-reset and cursor-hide repaint stays idle
+  ---
+  duration_ms: 35.3602
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 Ctrl+C cursor-only repaint does not suppress later semantic shell output
+ok 131 - MIG-BGSTAB-002 Ctrl+C cursor-only repaint does not suppress later semantic shell output
+  ---
+  duration_ms: 36.1824
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 Ctrl+C cursor-positioned echo and PowerShell prompt redraw stays idle
+ok 132 - MIG-BGSTAB-002 Ctrl+C cursor-positioned echo and PowerShell prompt redraw stays idle
+  ---
+  duration_ms: 320.2912
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 Ctrl+C prompt-only shell return remains idle
+ok 133 - MIG-BGSTAB-002 Ctrl+C prompt-only shell return remains idle
+  ---
+  duration_ms: 37.2622
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 immediate Ctrl+C prompt repaint consumes its allowance before later semantic prompt output
+ok 134 - MIG-BGSTAB-002 immediate Ctrl+C prompt repaint consumes its allowance before later semantic prompt output
+  ---
+  duration_ms: 103.1949
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 delayed ANSI local echo split across PTY chunks stays idle until its matching suffix arrives
+ok 135 - MIG-BGSTAB-002 delayed ANSI local echo split across PTY chunks stays idle until its matching suffix arrives
+  ---
+  duration_ms: 544.7297
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 delayed ANSI-colored nonmatching output remains running after the pending input buffer is cleared
+ok 136 - MIG-BGSTAB-002 delayed ANSI-colored nonmatching output remains running after the pending input buffer is cleared
+  ---
+  duration_ms: 469.6822
+  type: 'test'
+  ...
+# Subtest: Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-6
+ok 137 - Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-6
+  ---
+  duration_ms: 3.8565
+  type: 'test'
+  ...
+# Subtest: Single-authority promotion and rollback epoch RED contract — REL-BGSTAB-007 AC-12
+ok 138 - Single-authority promotion and rollback epoch RED contract — REL-BGSTAB-007 AC-12
+  ---
+  duration_ms: 0.7664
+  type: 'test'
+  ...
+# Subtest: checkpoint client contract accepts negotiate and apply/drain/failure ACK frames
+ok 139 - checkpoint client contract accepts negotiate and apply/drain/failure ACK frames
+  ---
+  duration_ms: 1.1437
+  type: 'test'
+  ...
+# Subtest: MIG-BGSTAB-002 checkpoint delivery ready accepts only the prepared canonical control identity
+ok 140 - MIG-BGSTAB-002 checkpoint delivery ready accepts only the prepared canonical control identity
+  ---
+  duration_ms: 0.17
+  type: 'test'
+  ...
+# Subtest: checkpoint ACK contract rejects number, noncanonical, out-of-range and inconsistent ordinals
+ok 141 - checkpoint ACK contract rejects number, noncanonical, out-of-range and inconsistent ordinals
+  ---
+  duration_ms: 0.2347
+  type: 'test'
+  ...
+# Subtest: terminal query responder matches Orca static and model-state replies with ConPTY override and seed silence
+ok 142 - terminal query responder matches Orca static and model-state replies with ConPTY override and seed silence
+  ---
+  duration_ms: 2060.6801
+  type: 'test'
+  ...
+# [Config] All passwords already encrypted
+# [Config] Configuration loaded successfully
+# [Auth] AuthService initialized
+# [WS] WebSocket router initialized
+# [Auth] Token issued: jti=a7a1c2d4-84ab-4e00-bace-cea29fe4a00e
+# [WS] Client connected: 8e529ae1-ad03-4ef1-a87a-f6ede18775aa
+# [WS] Client connected: a6b3caea-227c-4ab7-b6ca-88d59d50e686
+# [WS] Client disconnected: a6b3caea-227c-4ab7-b6ca-88d59d50e686
+# [WS] Client disconnected: 8e529ae1-ad03-4ef1-a87a-f6ede18775aa
+# [SessionManager] All CWD watchers stopped
+# [Auth] AuthService initialized
+# [WS] WebSocket router initialized
+# [Auth] Token issued: jti=69cc40c7-301c-4326-bc09-97f6dd0f36ed
+# Subtest: server RED — real output sequence and ready authority tokens
+ok 143 - server RED — real output sequence and ready authority tokens
+  ---
+  duration_ms: 2415.1154
+  type: 'test'
+  ...
+# [WS] Client connected: 6aeec547-e6e9-4ad0-850c-2ba6e03ca7e0
+# [WS] Client disconnected: 6aeec547-e6e9-4ad0-850c-2ba6e03ca7e0
+# [SessionManager] All CWD watchers stopped
+# [Auth] AuthService initialized
+# [WS] WebSocket router initialized
+# [Auth] Token issued: jti=8c1193f8-12dd-4437-9d44-cc5b52bd9148
+# Subtest: server fresh replay request is token-fenced and supersedes the pending snapshot
+ok 144 - server fresh replay request is token-fenced and supersedes the pending snapshot
+  ---
+  duration_ms: 851.1129
+  type: 'test'
+  ...
+# [WS] Client connected: 7d62b6a2-4f67-4506-942e-d53775cb10bf
+# [WS] Client disconnected: 7d62b6a2-4f67-4506-942e-d53775cb10bf
+# [SessionManager] All CWD watchers stopped
+# Subtest: server recovery refresh requires both replay and repair ownership tokens
+ok 145 - server recovery refresh requires both replay and repair ownership tokens
+  ---
+  duration_ms: 872.2521
+  type: 'test'
+  ...
+1..145
+# tests 145
+# suites 0
+# pass 145
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 25947.9919

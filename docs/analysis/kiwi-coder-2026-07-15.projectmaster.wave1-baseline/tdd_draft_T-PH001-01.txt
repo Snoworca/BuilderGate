@@ -1,0 +1,7 @@
+T-PH001-01 RED contract draft
+
+- Test file: frontend/tests/e2e/wave1-characterization-artifacts.test.ts
+- AC-1: observation kind/provenance preservation and invalid input rejection
+- AC-4: mismatch row preservation, required provenance rejection, deterministic verdict aggregation
+- AC-5: unresolved-only disposition, split activation disabled, existing SRS mutation forbidden
+- GREEN helper intentionally absent until T-PH001-02

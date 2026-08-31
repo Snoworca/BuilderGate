@@ -1,0 +1,17 @@
+{
+  "req_inventory": [{
+    "req_id": "PERF-BGSTAB-010",
+    "status": "in_progress",
+    "stability": "evolving",
+    "ac_total": 9,
+    "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9"],
+    "feasibility_hint": "high"
+  }],
+  "dependency_graph": [
+    {"from": "PERF-BGSTAB-010", "to": "MIG-BGSTAB-002", "relation": "depends_on", "state": "implemented"},
+    {"from": "REL-BGSTAB-012", "to": "PERF-BGSTAB-010", "relation": "depends_on", "state": "planned"},
+    {"from": "PERF-BGSTAB-010", "to": "FR-BGSTAB-016", "relation": "extends", "state": "planned"},
+    {"from": "PERF-BGSTAB-010", "to": "REL-BGSTAB-003", "relation": "extends", "state": "planned"}
+  ],
+  "boundary": "The admission plan may record unsatisfied evidence but cannot claim implementation, status promotion, or dependent hidden-delivery readiness."
+}

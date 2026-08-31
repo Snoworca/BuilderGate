@@ -1,0 +1,8 @@
+{
+  "run_id":"2026-07-24.pm.evidence-diagnostic",
+  "committee_size":3,
+  "unanimous":true,
+  "decision":"Put the already-green AC-2 characterization fixtures in the same initial RED task as the new AC-1/AC-3 composite diagnostic fixture.",
+  "reason":"The composite diagnostic assertion makes the pre-implementation self-test fail; the AC-2 fixtures lock the existing fail-closed gates before the diagnostic implementation can weaken them.",
+  "scope":"tools/wave3/authority-promotion-evidence.test.mjs only; no live E2E, producer, runtime, manifest, artifact, UI, or MIG change."
+}

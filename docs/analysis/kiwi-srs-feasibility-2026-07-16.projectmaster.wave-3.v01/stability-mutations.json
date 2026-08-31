@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "performed": false,
+  "calls": [],
+  "finalStability": {
+    "REL-BGSTAB-007": "stable",
+    "OBS-BGSTAB-005": "evolving",
+    "REL-BGSTAB-010": "evolving",
+    "FR-BGSTAB-022": "evolving",
+    "REL-BGSTAB-011": "evolving",
+    "MIG-BGSTAB-002": "evolving",
+    "PERF-BGSTAB-010": "evolving",
+    "REL-BGSTAB-012": "evolving"
+  }
+}

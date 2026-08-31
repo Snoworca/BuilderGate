@@ -1,0 +1,7 @@
+{
+  "target": "wave-3",
+  "work_mode": "sdd",
+  "requirement_ids": ["MIG-BGSTAB-002", "PERF-BGSTAB-010"],
+  "decision": "3-person unanimous external-baseline admission; preserve shared code and do not manufacture historical RED.",
+  "non_negotiables": ["PERF-BGSTAB-010 remains in_progress until complete independent AC evidence", "candidate admission remains fail-closed", "new behavior delta must be genuine test-first"]
+}

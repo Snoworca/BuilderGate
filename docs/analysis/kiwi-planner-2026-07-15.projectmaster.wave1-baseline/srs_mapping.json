@@ -1,0 +1,364 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-15.projectmaster.wave1-baseline",
+  "target": "wave-1",
+  "source": "speckiwi-mcp:get_active_target+get_requirement",
+  "target_goal": "split drift와 refresh 절단을 재현하고 retained-state authority 계약·benchmark evidence·G1 분기를 확정하며, bug-only이면 선택된 단일 국소 결함과 회귀 evidence까지 종결한다.",
+  "inventory_count": 4,
+  "req_inventory": [
+    {
+      "req_id": "REL-BGSTAB-006",
+      "title": "Split runtime·test·SRS drift characterization",
+      "type": "reliability",
+      "target": "wave-1",
+      "status": "planned",
+      "stability": "evolving",
+      "priority": "high",
+      "risk": "medium",
+      "feasibility_hint": {
+        "label": "high",
+        "score": 94,
+        "blockers": [],
+        "verification_evidence_present": false,
+        "source": "2026-07-15.projectmaster.wave-1.v01"
+      },
+      "ac_total": 5,
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "text": "Characterization artifact는 각 관측을 `srs_expected`, `production_runtime_observed`, `test_observed` 중 하나로 식별하고, Git commit 또는 build 식별자, effective `realtime.wsTransportMode`, case ID, source reference, 실행 명령과 observed result를 machine-readable field로 기록한다."
+        },
+        {
+          "id": "AC-2",
+          "text": "Production-runtime characterization은 `server/src/index.ts`의 실제 `WsRouter` construction에서 시작해 HTTPS `/ws` upgrade, 인증과 router dispatch를 통과하고, browser production URL construction과 socket open 경로에서 생성된 URL을 사용한 결과를 포함한다."
+        },
+        {
+          "id": "AC-3",
+          "text": "직접 `wss.emit('connection', ...)`를 호출하거나 transport metadata를 주입하는 standalone test는 별도 test observation으로 기록할 수 있으나, AC-2의 실제 production construction·HTTPS upgrade·browser URL 경로 결과 없이 characterization 완료 evidence가 될 수 없다."
+        },
+        {
+          "id": "AC-4",
+          "text": "Mismatch evidence는 비교 대상 SRS Requirement 또는 test case, production observation, `match|mismatch|not_exercised` 판정, 재현 case ID와 evidence reference를 행 단위로 기록하여 runtime·test·SRS 간 차이를 기계적으로 집계할 수 있게 한다."
+        },
+        {
+          "id": "AC-5",
+          "text": "Characterization 결과와 Change/decision artifact는 restore와 supersede 중 하나를 선택하지 않고 disposition을 unresolved로 남기며, FR-BGSTAB-006/007의 Status·Stability·본문을 변경하거나 split runtime을 활성화하지 않는다."
+        }
+      ],
+      "files_from_trace": [
+        "server/src/index.ts:1468-1495",
+        "server/src/ws/WsRouter.ts:86-91,165-220",
+        "frontend/src/contexts/WebSocketContext.tsx:113-119,141-215,340-388",
+        "server/src/ws/WsRouterSplitHandshake.test.ts:50-121",
+        "server/src/test-runner.ts:13607-13682,14514-14595"
+      ],
+      "depends_on": [],
+      "extends": [
+        "FR-BGSTAB-006",
+        "FR-BGSTAB-007"
+      ],
+      "tdd_cluster_recommendations": [
+        {
+          "cluster_id": "REL-SCHEMA-COMPARATOR",
+          "ac_ids": ["AC-1", "AC-4"],
+          "logic": "관측 행 schema와 mismatch 집계 규칙을 같은 순수 계약으로 먼저 검증할 수 있다."
+        },
+        {
+          "cluster_id": "REL-PRODUCTION-VS-STANDALONE",
+          "ac_ids": ["AC-2", "AC-3"],
+          "logic": "실제 HTTPS/browser 경로와 injected standalone 경로의 증거 자격 차이를 한 회귀 묶음으로 검증할 수 있다."
+        },
+        {
+          "cluster_id": "REL-NON-ACTIVATION-GUARD",
+          "ac_ids": ["AC-5"],
+          "logic": "characterization이 split 활성화나 기존 SRS 변경을 유발하지 않는 음성 계약이다."
+        }
+      ]
+    },
+    {
+      "req_id": "OBS-BGSTAB-004",
+      "title": "Refresh retained-state boundary characterization",
+      "type": "observability",
+      "target": "wave-1",
+      "status": "planned",
+      "stability": "evolving",
+      "priority": "high",
+      "risk": "medium",
+      "feasibility_hint": {
+        "label": "high",
+        "score": 94,
+        "blockers": [],
+        "verification_evidence_present": false,
+        "source": "2026-07-15.projectmaster.wave-1.v01"
+      },
+      "ac_total": 7,
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "text": "기존 `TC-7004`는 viewport-only snapshot에서 old marker가 reload 후 부재하고 latest marker가 존재하는 current-behavior characterization으로 별도 실행·기록하며, 그 결과를 target retained-state parity 또는 향후 retention promise로 해석하지 않는다."
+        },
+        {
+          "id": "AC-2",
+          "text": "Deterministic corpus는 24, 1,000, 10,000 logical-line case와 legacy 2 MiB serialized-payload boundary의 직전·경계·직후 case를 포함하고, 이 수치들은 현재 동작을 재현하는 characterization seed로만 표시한다."
+        },
+        {
+          "id": "AC-3",
+          "text": "Case manifest는 local cache `valid|absent|poisoned`, view `active|hidden`, text `ASCII|CJK-wide|combining|emoji`, terminal buffer `normal|alternate`의 각 값을 적어도 한 deterministic case에 포함하며, 모든 result row에 실행된 축 조합을 기록한다."
+        },
+        {
+          "id": "AC-4",
+          "text": "각 case는 refresh 직전과 복구 완료 후의 ordered logical-line hash, cell content·attribute hash, cursor와 saved-cursor state, terminal mode, active buffer, rows·cols geometry를 동일 schema로 기록하고 field별 equal·changed·missing 판정을 산출한다."
+        },
+        {
+          "id": "AC-5",
+          "text": "각 result는 effective runtime/config boundary와 함께 snapshot truncation, fallback source/outcome, replay-tail truncation, remount handoff, local-cache decision, visible 또는 hidden overflow/repair 중 관측된 cause signal을 기록하고, 원인을 단정할 수 없으면 candidate cause들을 원시 evidence reference와 함께 보존한다."
+        },
+        {
+          "id": "AC-6",
+          "text": "분석기는 현재 effective retention·serialization 경계 밖의 부재를 `expected_current_eviction`으로, refresh 직전 비교 범위 안에 존재하던 line/cell/state가 복구 후 누락·변경되고 expected eviction으로 설명되지 않는 경우를 `observed_loss`로 분리 집계한다."
+        },
+        {
+          "id": "AC-7",
+          "text": "본 Requirement의 evidence와 summary는 product retained rows, aggregate memory, checkpoint chunk size, checkpoint in-flight budget, recovery SLO 또는 authority-promotion 값을 설정하지 않는다."
+        }
+      ],
+      "files_from_trace": [
+        "server/src/utils/headlessTerminal.ts:95-145,156-203",
+        "server/src/services/SessionManager.ts:100-126,170-202,2482-2604",
+        "server/src/ws/WsRouter.ts:947-1005,1358-1408,1817-1865,1923-2035",
+        "frontend/src/components/Terminal/TerminalView.tsx:1093-1166,1283-1345,1399-1499",
+        "frontend/tests/e2e/header-context-menu-regression.spec.ts:439-481",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:1323-1584"
+      ],
+      "depends_on": ["FR-BGSTAB-004"],
+      "extends": [
+        "FR-BGSTAB-014",
+        "OBS-BGSTAB-002",
+        "FR-BGSTAB-018",
+        "REL-BGSTAB-004"
+      ],
+      "tdd_cluster_recommendations": [
+        {
+          "cluster_id": "OBS-CURRENT-BOUNDARY-CORPUS",
+          "ac_ids": ["AC-1", "AC-2", "AC-3"],
+          "logic": "기존 viewport-only 기준선과 deterministic corpus/manifest 축을 분리 가능하지만 같은 fixture 계층에서 검증할 수 있다."
+        },
+        {
+          "cluster_id": "OBS-STATE-HASH-AND-CAUSE",
+          "ac_ids": ["AC-4", "AC-5", "AC-6"],
+          "logic": "동일 pre/post schema, cause signal, eviction-vs-loss 분류가 하나의 분석 파이프라인을 이룬다."
+        },
+        {
+          "cluster_id": "OBS-NO-PRODUCT-PROMISE",
+          "ac_ids": ["AC-7"],
+          "logic": "characterization 수치가 제품 budget/SLO로 승격되지 않는 음성 계약이다."
+        }
+      ]
+    },
+    {
+      "req_id": "PERF-BGSTAB-008",
+      "title": "Benchmark modes and raw evidence contract",
+      "type": "performance",
+      "target": "wave-1",
+      "status": "planned",
+      "stability": "evolving",
+      "priority": "high",
+      "risk": "medium",
+      "feasibility_hint": {
+        "label": "high",
+        "score": 89,
+        "blockers": [],
+        "verification_evidence_present": false,
+        "source": "2026-07-15.projectmaster.wave-1.v01"
+      },
+      "ac_total": 7,
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "text": "Runner는 `NO_RENDER`, `NO_ANALYZER`, `NO_NETWORK`, `ONE_CLIENT_SLOW`를 machine-readable mode ID로 선택할 수 있고, 각 run artifact는 비활성화·대체한 layer, 유지한 layer, control comparator와 mode-specific fixture를 기록한다."
+        },
+        {
+          "id": "AC-2",
+          "text": "`NO_RENDER`는 terminal renderer/write 소비를 제외한 upstream 처리를 측정하고, `NO_ANALYZER`는 analyzer 처리를 제외한 동일 ingress workload를 측정하며, `NO_NETWORK`는 network socket 전송을 제외한 in-process 또는 fake-transport delivery를 측정한다. `ONE_CLIENT_SLOW`는 같은 session stream을 받는 한 client의 pressure를 제어하고 client 수가 2 이상인 isolation case에서 적어도 한 normal client와 비교한다."
+        },
+        {
+          "id": "AC-3",
+          "text": "Execution manifest는 random seed, payload generator와 payload digest·size/unit, warm-up 횟수 또는 시간, trial 수, trial duration, build/commit identifier, hardware·OS, browser 이름·version, server/frontend config snapshot 또는 digest를 포함한다."
+        },
+        {
+          "id": "AC-4",
+          "text": "Workload corpus는 session count `1|8|32|54`와 client count `1|2|8`의 각 값을 포함하고, 각 raw sample은 mode, session/client count, active/hidden view mix, trial ID와 workload manifest reference를 기록한다. `ONE_CLIENT_SLOW`의 1-client case는 pressure baseline으로만 식별하고 isolation 증거로 집계하지 않는다."
+        },
+        {
+          "id": "AC-5",
+          "text": "Raw sample은 aggregation 전에 보존되며 sample ID, metric name, numeric value, unit, timing phase와 trial ID를 포함한다. Summary는 mode/workload/metric별 p50, p95, p99와 confidence interval의 lower·upper bound, confidence level, 계산 방법과 계산 seed를 기록하고 원본 sample ID 집합을 참조한다."
+        },
+        {
+          "id": "AC-6",
+          "text": "Server-side raw evidence는 OBS-BGSTAB-003이 노출하는 event-loop delay mean·p99, one-core process CPU percent와 headless-write cumulative time을 실제로 수집하고, sample interval의 delta·unit과 metric source를 manifest에 기록한다."
+        },
+        {
+          "id": "AC-7",
+          "text": "본 Requirement의 manifest, raw sample 또는 summary는 측정값을 product threshold·pass/fail SLO·retained rows·aggregate memory·checkpoint chunk/in-flight budget으로 승격하지 않으며, 후속 제품 계약은 별도 Requirement로 승인되어야 한다."
+        }
+      ],
+      "files_from_trace": [
+        "frontend/src/utils/terminalOutputScheduler.ts:5-14,39-75,143-206",
+        "server/src/test-runner.ts:614-641,2311-2384,13607-13682,14514-14595",
+        "server/src/ws/WsRouterSendPriority.test.ts:7-55,58-99,123-188",
+        "server/src/services/SessionManager.ts:3008-3065,3486-3494",
+        "server/src/ws/WsRouter.ts:2119-2160",
+        "server/src/index.ts:797-815"
+      ],
+      "depends_on": ["OBS-BGSTAB-003"],
+      "extends": ["OBS-BGSTAB-001", "OBS-BGSTAB-002"],
+      "tdd_cluster_recommendations": [
+        {
+          "cluster_id": "PERF-MODE-CONTRACT",
+          "ac_ids": ["AC-1", "AC-2"],
+          "logic": "mode ID, disabled/retained layer와 comparator 의미를 같은 fixture contract로 검증할 수 있다."
+        },
+        {
+          "cluster_id": "PERF-MANIFEST-AND-CORPUS",
+          "ac_ids": ["AC-3", "AC-4"],
+          "logic": "실행 provenance와 workload 축 조합은 raw sample 생성 전에 함께 검증해야 한다."
+        },
+        {
+          "cluster_id": "PERF-SAMPLE-SUMMARY-TELEMETRY",
+          "ac_ids": ["AC-5", "AC-6"],
+          "logic": "raw sample 보존·집계 재현성과 server metric delta provenance가 같은 evidence pipeline을 이룬다."
+        },
+        {
+          "cluster_id": "PERF-NO-SLO-PROMOTION",
+          "ac_ids": ["AC-7"],
+          "logic": "baseline 측정값이 제품 threshold로 승격되지 않는 음성 계약이다."
+        }
+      ]
+    },
+    {
+      "req_id": "MIG-BGSTAB-001",
+      "title": "G1 evidence decision and activation gate",
+      "type": "migration",
+      "target": "wave-1",
+      "status": "planned",
+      "stability": "evolving",
+      "priority": "high",
+      "risk": "high",
+      "feasibility_hint": {
+        "label": "high",
+        "score": 85,
+        "blockers": [],
+        "verification_evidence_present": false,
+        "source": "2026-07-15.projectmaster.wave-1.v01",
+        "condition": "Completed G1 remains prerequisite-gated."
+      },
+      "ac_total": 6,
+      "acceptance_criteria": [
+        {
+          "id": "AC-1",
+          "text": "Completed G1 decision record는 REL-BGSTAB-006 split-drift evidence, OBS-BGSTAB-004 refresh-boundary evidence와 PERF-BGSTAB-008 benchmark raw/summary evidence의 Requirement ID, artifact reference, run/build identifier와 content digest를 모두 링크한 경우에만 유효하다."
+        },
+        {
+          "id": "AC-2",
+          "text": "유효한 completed record의 `decision` enum은 정확히 `confirmed-bug-only` 또는 `architectural migration` 중 하나이며, 제3의 값·암시적 fallback·evidence 없는 default를 허용하지 않는다. Record는 선택 근거와 반대 분기를 기각한 evidence reference를 machine-readable field로 기록한다."
+        },
+        {
+          "id": "AC-3",
+          "text": "`decision=confirmed-bug-only`이면 wave-1에서 reproduction evidence와 별도 issue 또는 Requirement ID로 식별된 local fix를 최대 한 건만 활성화할 수 있고, wave-2·wave-3·wave-4·wave-5 및 GitHub #4~#22는 inactive 또는 deferred 상태를 유지하며 migration roadmap을 시작하지 않는다."
+        },
+        {
+          "id": "AC-4",
+          "text": "`decision=architectural migration`이어도 wave-2 activation 전에는 configured retained-state 범위, browser/server authority range, retention eviction, checkpoint transaction과 compatibility boundary를 정의한 별도의 exact Requirement ID가 존재하고 그 Requirement의 `Stability=stable`이 확인되어야 한다."
+        },
+        {
+          "id": "AC-5",
+          "text": "어느 decision도 이 Requirement만으로 server authority promotion, existing UI visual·label·layout·interaction change, local-cache/viewport-replay를 포함한 legacy code deletion, product retained rows, aggregate memory 또는 checkpoint chunk/in-flight budget 결정을 승인하지 않는다."
+        },
+        {
+          "id": "AC-6",
+          "text": "Gate evaluation artifact는 selected decision, prerequisite evidence completeness, separately authorized local-fix ID 또는 stable authority Requirement ID, wave-2~wave-5와 GitHub #4~#22의 resulting activation state, denial reason을 machine-readable하게 기록한다."
+        }
+      ],
+      "files_from_trace": [],
+      "depends_on": [
+        "REL-BGSTAB-006",
+        "OBS-BGSTAB-004",
+        "PERF-BGSTAB-008"
+      ],
+      "extends": [],
+      "tdd_cluster_recommendations": [
+        {
+          "cluster_id": "MIG-PREREQUISITE-AND-ENUM",
+          "ac_ids": ["AC-1", "AC-2"],
+          "logic": "decision record의 완전성·digest와 정확한 두 값 enum을 하나의 schema/evaluator 계약으로 검증할 수 있다."
+        },
+        {
+          "cluster_id": "MIG-BRANCH-ACTIVATION",
+          "ac_ids": ["AC-3", "AC-4", "AC-6"],
+          "logic": "두 branch의 허용 activation과 denial artifact를 같은 gate evaluator의 분기 테스트로 검증할 수 있다."
+        },
+        {
+          "cluster_id": "MIG-NON-AUTHORIZATION-GUARD",
+          "ac_ids": ["AC-5"],
+          "logic": "G1 자체가 authority/UI/deletion/budget을 승인하지 않는 음성 계약이다."
+        }
+      ]
+    }
+  ],
+  "requirement_edges": [
+    {"from": "REL-BGSTAB-006", "to": "FR-BGSTAB-006", "relation": "extends", "cross_target": true},
+    {"from": "REL-BGSTAB-006", "to": "FR-BGSTAB-007", "relation": "extends", "cross_target": true},
+    {"from": "OBS-BGSTAB-004", "to": "FR-BGSTAB-004", "relation": "depends_on", "cross_target": true},
+    {"from": "OBS-BGSTAB-004", "to": "FR-BGSTAB-014", "relation": "extends", "cross_target": true},
+    {"from": "OBS-BGSTAB-004", "to": "OBS-BGSTAB-002", "relation": "extends", "cross_target": true},
+    {"from": "OBS-BGSTAB-004", "to": "FR-BGSTAB-018", "relation": "extends", "cross_target": true},
+    {"from": "OBS-BGSTAB-004", "to": "REL-BGSTAB-004", "relation": "extends", "cross_target": true},
+    {"from": "PERF-BGSTAB-008", "to": "OBS-BGSTAB-001", "relation": "extends", "cross_target": true},
+    {"from": "PERF-BGSTAB-008", "to": "OBS-BGSTAB-002", "relation": "extends", "cross_target": true},
+    {"from": "PERF-BGSTAB-008", "to": "OBS-BGSTAB-003", "relation": "depends_on", "cross_target": true},
+    {"from": "MIG-BGSTAB-001", "to": "REL-BGSTAB-006", "relation": "depends_on", "cross_target": false},
+    {"from": "MIG-BGSTAB-001", "to": "OBS-BGSTAB-004", "relation": "depends_on", "cross_target": false},
+    {"from": "MIG-BGSTAB-001", "to": "PERF-BGSTAB-008", "relation": "depends_on", "cross_target": false}
+  ],
+  "dag": {
+    "acyclic": true,
+    "target_internal_layers": [
+      ["REL-BGSTAB-006", "OBS-BGSTAB-004", "PERF-BGSTAB-008"],
+      ["MIG-BGSTAB-001"]
+    ],
+    "edges": [
+      {"prerequisite": "REL-BGSTAB-006", "dependent": "MIG-BGSTAB-001"},
+      {"prerequisite": "OBS-BGSTAB-004", "dependent": "MIG-BGSTAB-001"},
+      {"prerequisite": "PERF-BGSTAB-008", "dependent": "MIG-BGSTAB-001"}
+    ],
+    "cross_target_prerequisites": [
+      {"prerequisite": "FR-BGSTAB-004", "dependent": "OBS-BGSTAB-004"},
+      {"prerequisite": "OBS-BGSTAB-003", "dependent": "PERF-BGSTAB-008"}
+    ],
+    "note": "extends edges are contextual and do not impose execution order; the three wave-1 characterization/evidence requirements may proceed independently, while completed G1 evaluation is downstream of all three."
+  },
+  "coverage_summary": {
+    "requirements": 4,
+    "acceptance_criteria": 25,
+    "acceptance_criteria_by_requirement": {
+      "REL-BGSTAB-006": 5,
+      "OBS-BGSTAB-004": 7,
+      "PERF-BGSTAB-008": 7,
+      "MIG-BGSTAB-001": 6
+    },
+    "all_evolving": true,
+    "all_planned": true,
+    "all_ac_unchecked": true,
+    "verification_evidence_rows": 0
+  },
+  "planning_boundary": {
+    "final_plan_designed": false,
+    "srs_mutations": 0,
+    "code_mutations": 0,
+    "notes": [
+      "TDD cluster recommendations are logical AC groupings only; Phase/Task IDs, files to modify, commands, and final ordering remain the senior plan writer's responsibility.",
+      "MIG-BGSTAB-001 may have its evaluator contract prepared, but a completed G1 decision remains invalid until all three prerequisite evidence requirements are complete.",
+      "No cluster authorizes split activation, product budget/SLO selection, authority promotion, UI change, or legacy deletion."
+    ]
+  }
+}

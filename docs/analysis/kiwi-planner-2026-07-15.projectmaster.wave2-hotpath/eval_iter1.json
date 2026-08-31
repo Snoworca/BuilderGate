@@ -1,0 +1,12 @@
+{
+  "iteration": 1,
+  "verdict": "blocked",
+  "reviewer": "/root/wave2_srs_prickly_review",
+  "findings": [
+    "sidecar placeholder verification/action/rollback and zero md_sha256",
+    "eight RED tasks had empty files/test_files",
+    "REL-BGSTAB-008 AC-4/5/11 fault matrix and HTTPS resync E2E were incomplete",
+    "REL-BGSTAB-009 AC-7/9/10 fault matrix was incomplete",
+    "cross-directory and RED fail-fast commands were unreliable"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "run_id": "2026-08-01.projectmaster.wave3-closeout",
+  "target": "wave-3",
+  "goal": "Close every non-discarded WAVE3 requirement from current source and evidence.",
+  "included": [
+    "OBS-BGSTAB-005",
+    "REL-BGSTAB-010",
+    "FR-BGSTAB-022",
+    "REL-BGSTAB-011",
+    "MIG-BGSTAB-002",
+    "OBS-BGSTAB-006",
+    "REL-BGSTAB-014",
+    "REL-BGSTAB-015",
+    "PERF-BGSTAB-010",
+    "REL-BGSTAB-007",
+    "REL-BGSTAB-012"
+  ],
+  "excluded": [
+    {
+      "id": "REL-BGSTAB-013",
+      "reason": "status=discarded"
+    }
+  ],
+  "old_run_policy": "2026-07-28.pm.wave3-completion is stale and audit-only; do not alter or inherit its state."
+}

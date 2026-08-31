@@ -1,0 +1,14 @@
+{
+  "target": "wave-3",
+  "work_mode": "sdd",
+  "source": "SpecKiwi MCP workflow queries",
+  "workflow_diagnostics": [
+    {
+      "code": "invalid_artifact",
+      "path": "docs/plans/2026-07-26.pm.fair-readmission.plan.md",
+      "effect": "A new Wave 3 completion plan is required; the old docs-only replay plan remains immutable."
+    }
+  ],
+  "historical_analysis_outputs_read": false,
+  "external_module_impact": []
+}

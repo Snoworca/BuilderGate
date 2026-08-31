@@ -1,0 +1,619 @@
+{
+  "schemaVersion": "retained-shadow-parity-evidence/v1",
+  "requirementIds": [
+    "REL-BGSTAB-011",
+    "REL-BGSTAB-007"
+  ],
+  "phaseId": "PH-004",
+  "taskIds": [
+    "T-PH004-03",
+    "T-PH004-04"
+  ],
+  "capturedAt": "2026-07-17T05:19:19.043Z",
+  "invocation": "node tools/wave3/retained-shadow-parity.test.mjs",
+  "focusedRun": {
+    "cwd": "server",
+    "command": "npx tsx --test src/services/RetainedTerminalAuthority.test.ts src/services/SessionManagerPartialEscapeTail.test.ts src/ws/WsRouterRestoreMetadata.test.ts src/ws/WsRouterCheckpointProtocol.test.ts",
+    "exitCode": 0,
+    "total": 57,
+    "passed": 57,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "stdoutSha256": "e966422671d9df66a00a369cd16f3bf93bfd62077ec22b33fec1b123aac17aee",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "passedTestNames": [
+      "RED reviewer — actual headless write degradation is typed and blocks authority canary",
+      "RED reviewer — actual input path rejects every stale lease identity with eight clients",
+      "RED reviewer — actual input, resize, and query paths reject stale lease identity for two clients",
+      "RED reviewer — degraded, overflow, and commit-failure OSC status records reject facts without empty delivery",
+      "RED reviewer — failed competing mutation lease rolls back only its newly registered view",
+      "RED reviewer — headless write failure settles failed and later queued semantic records exactly once",
+      "RED reviewer — missing actual mutation identity stays legacy-compatible but blocks shadow canary",
+      "RED reviewer — negotiated observer stays registered, cannot mutate, and rebinds after driver disconnect",
+      "RED reviewer — negotiated retained lease fences actual websocket input and resize mutations",
+      "RED reviewer — newline-free soft-wrap and reflow eviction advance exact oldest retained source",
+      "RED reviewer — old authority identity cannot mutate replacement PTY through actual paths",
+      "RED reviewer — parser-tail and eviction comparer axes fail closed without an independent baseline",
+      "RED reviewer — populated Ordinal64 rollover keeps oldest retained marker epoch-qualified",
+      "RED reviewer — production comparer requires an independent roundtrip baseline before principal-axis match",
+      "RED reviewer — pure OSC 133 status is retained as a semantic-only source record",
+      "RED reviewer — queue overflow settles every previously accepted semantic record in ingest order",
+      "RED reviewer — resize advances snapshot identity without consuming PTY source sequence",
+      "RED reviewer — retained ledger byte accounting never rescans the full evidence arrays on commit",
+      "RED reviewer — retained operation and fact evidence ledgers stay policy-bounded",
+      "RED reviewer — router destroy unregisters retained views before terminating sockets",
+      "RED reviewer — sampled shadow comparer never blocks legacy delivery or mutates a replacement generation",
+      "RED reviewer — shadow comparer samples only at global headless idle and enforces a low-duty interval",
+      "RED reviewer — split semantic facts preserve record-local OSC BEL/ST, DSR, and repeated BEL occurrences",
+      "RED reviewer — throwing policy settler cannot abort degradation settlement or current legacy delivery",
+      "RED reviewer — view removal renegotiates release and resize lease rejection is observable",
+      "REL_BGSTAB_007_AC10_pty_exit_is_session_terminated",
+      "REL_BGSTAB_007_AC10_server_restart_is_authority_unavailable",
+      "Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-1",
+      "Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-10",
+      "Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-2",
+      "Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-3",
+      "Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-6",
+      "Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-7",
+      "Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-9",
+      "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-1",
+      "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-2",
+      "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-3",
+      "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-4",
+      "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-5",
+      "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-6",
+      "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-7",
+      "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-8",
+      "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-9",
+      "checkpoint negotiation is request-only and keeps legacy authority inactive",
+      "lazy test-created SessionData keeps legacy resize compatibility without retained state",
+      "server RED — atomic authority revision race",
+      "server RED — degraded pending output preserves partial-escape authority",
+      "server RED — incomplete OSC emoji cap uses UTF-8 code point bytes at N-1/N/N+1",
+      "server RED — parser-tail overflow remains sticky across degraded output",
+      "server RED — pending tail sequence attachment",
+      "server RED — real output sequence and ready authority tokens",
+      "server RED — split C1 CSI OSC and DCS stay incomplete until final ST CAN or SUB",
+      "server RED — split surrogate remains lossless and conservatively incomplete until OSC terminator",
+      "server RED — split terminal escape ingest",
+      "server RED — unstable pending-write authority",
+      "server fresh replay request is token-fenced and supersedes the pending snapshot",
+      "server recovery refresh requires both replay and repair ownership tokens"
+    ],
+    "passedTestNamesSha256": "1e7da1ab816128c69d68e7e9e2922acdc324b65a91038429e9a0c6d8c7ba1a0f",
+    "expectedTestNamesSha256": "1e7da1ab816128c69d68e7e9e2922acdc324b65a91038429e9a0c6d8c7ba1a0f"
+  },
+  "rawEvidencePaths": [
+    "docs/plans/2026-07-16.projectmaster.wave3-authority.plan.md",
+    "docs/spec/00.index.md",
+    "docs/spec/30.buildergate-stability.srs.md",
+    "frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts",
+    "server/config.json5.example",
+    "server/src/schemas/config.schema.ts",
+    "server/src/services/RetainedTerminalAuthority.test.ts",
+    "server/src/services/SessionManager.ts",
+    "server/src/services/SessionManagerPartialEscapeTail.test.ts",
+    "server/src/types/config.types.ts",
+    "server/src/types/ws-protocol.ts",
+    "server/src/utils/config.ts",
+    "server/src/utils/headlessTerminal.ts",
+    "server/src/ws/WsRouter.ts",
+    "server/src/ws/WsRouterCheckpointProtocol.test.ts",
+    "server/src/ws/WsRouterRestoreMetadata.test.ts"
+  ],
+  "inputHashes": {
+    "files": {
+      "docs/plans/2026-07-16.projectmaster.wave3-authority.plan.md": "bfeba4034eb4aa0c05d090e6e70caa0d194ae2d57d88ee0698d68337394f19ed",
+      "docs/spec/00.index.md": "5dacb02bb50289d16f4c2b0a4a67e24208d9f0d14f699086ed606f8659f42732",
+      "docs/spec/30.buildergate-stability.srs.md": "355b504795e0dcf6371290e8227259829e75416333c70534c1b14c68b4235f36",
+      "frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts": "bb5bbf8aba19e2c7b13d110c8f5eac219933f289a4b6c2e7284fc48ed9faad88",
+      "server/src/services/RetainedTerminalAuthority.test.ts": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "server/src/services/SessionManagerPartialEscapeTail.test.ts": "046163742e6718778c68d23710df00ae2af70de9fe5d51de628c16f4281a0306",
+      "server/src/ws/WsRouterCheckpointProtocol.test.ts": "4b07d54473fee4b1fd9c7ef8ec361e13ea60291f3a85590ae917a9d68bc7a50c",
+      "server/src/ws/WsRouterRestoreMetadata.test.ts": "593dd4959a447de2f4b68e97461fe42a0c4c0e65d346805ef8ec0396419c0be4"
+    },
+    "sourceSetSha256": "9bfd1163f6243cfbd3a9e675f7eafa580f115489fbc2b4d212a5f21fb16c463d",
+    "missing": 0,
+    "mismatches": 0
+  },
+  "configHashes": {
+    "files": {
+      "server/config.json5.example": "863ddb4a53857caea754f66835d7c761c405bfe72d83f95ea6c1aeb0d632c365",
+      "server/src/schemas/config.schema.ts": "6504d3df6d001040e9962bc42ed0bc5b7b7d88b5a3aeab6c9a91dd65bb66cd77",
+      "server/src/types/config.types.ts": "70d4cb27ad021b19ee2a74de96ada2348fd63ecff17c98bb4a8f7fa5be63652e",
+      "server/src/utils/config.ts": "ad3a4489d6d05cb5fd8c6cf3d2e8ffa29f1dc3c423c85f5de9446361417fda3a"
+    },
+    "sourceSetSha256": "9ddf2c0fa977c95c631463f7d97842a7656fb76bdc55ae22c3de04b54bd7dc4b",
+    "missing": 0,
+    "mismatches": 0
+  },
+  "productionSourceHashes": {
+    "files": {
+      "server/src/services/SessionManager.ts": "477cd762c10a37250b83f0ea941ebad8502000fe99d39e89364c0975b25e7dbe",
+      "server/src/types/ws-protocol.ts": "a90bf28c65e37bb7cfc0eb98a64d091d4cdcab3e0d2e0b93a027edbb868b03a1",
+      "server/src/utils/headlessTerminal.ts": "bf3ec1fc0c02fc750b042a026d269a42e2099fac17c029d5b38c13a207c8e6a6",
+      "server/src/ws/WsRouter.ts": "aad79c7551ac177217caf7002c00942ace5797d0c0bbf23dfdc18207e48eaa15"
+    },
+    "sourceSetSha256": "72b69eef6a22ff21f42cd72381ca092578a3349961a98cab9eb8de4193e9c69e",
+    "missing": 0,
+    "mismatches": 0
+  },
+  "evidenceTool": {
+    "path": "tools/wave3/retained-shadow-parity.test.mjs",
+    "sha256": "59d856642bcc3e0d92ebea885b589477562859c75bc5287b31b1832a931ffe8d"
+  },
+  "coverageIdentity": {
+    "axisIds": [
+      "actual-eight-client-mutation-fence",
+      "actual-two-client-mutation-fence",
+      "ai-tui-idle-invariant",
+      "alternate-buffer",
+      "ascii",
+      "cjk",
+      "combining",
+      "commit-before-delivery",
+      "degraded-semantic-fallback-settlement",
+      "driver-lease",
+      "eight-client",
+      "emoji",
+      "fact-dedup",
+      "failed-contender-view-rollback",
+      "global-idle-low-duty-comparer",
+      "incremental-ledger-byte-accounting",
+      "independent-roundtrip-comparer",
+      "lifecycle-cleanup",
+      "missing-identity-fail-closed",
+      "negotiated-observer-fencing-rebind",
+      "newline-free-soft-wrap-reflow",
+      "no-local-cache-retained-authority-reload",
+      "one-client",
+      "oversized-semantic-key-bounded",
+      "pending-overflow-semantic-settlement",
+      "populated-ordinal64-rollover",
+      "pty-exit-terminated",
+      "queued-write-failure-semantic-settlement",
+      "replacement-authority-fence",
+      "resize-reflow",
+      "resize-snapshot-identity",
+      "router-destroy-view-cleanup",
+      "server-restart-unavailable",
+      "shadow-fault-isolation",
+      "slow-client-eviction-gap",
+      "split-ansi",
+      "stateful-split-semantic-facts",
+      "throwing-settler-isolation",
+      "two-client",
+      "typed-budget-separation",
+      "typed-model-degradation",
+      "websocket-mutation-lease"
+    ],
+    "axisIdsSha256": "e45cb0525ad44a3b2b22e02439efaefd3eba0744b9fe582206675babec912573",
+    "expectedAxisIdsSha256": "e45cb0525ad44a3b2b22e02439efaefd3eba0744b9fe582206675babec912573"
+  },
+  "coverage": [
+    {
+      "axis": "ascii",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-2",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "12247ea470176d47264ddacf012b5b5678693bbbb0503c1ea6c1a54b578e4932",
+      "assertionAnchorsSha256": "39e88f6e94ac1289b9a0d6a75e63a23b5d641c7dfe952812c8f3574334e2ac7e"
+    },
+    {
+      "axis": "cjk",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-2",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "12247ea470176d47264ddacf012b5b5678693bbbb0503c1ea6c1a54b578e4932",
+      "assertionAnchorsSha256": "4fefd8bda9b84d4f1ad6c05027cf8dbca2c2e078d414b074b31a19f0c0c99ad3"
+    },
+    {
+      "axis": "combining",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-2",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "12247ea470176d47264ddacf012b5b5678693bbbb0503c1ea6c1a54b578e4932",
+      "assertionAnchorsSha256": "191d5fdabf086cf712d25ccf4804f327ade03acb079aed099545bd1d954cfa99"
+    },
+    {
+      "axis": "emoji",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-2",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "12247ea470176d47264ddacf012b5b5678693bbbb0503c1ea6c1a54b578e4932",
+      "assertionAnchorsSha256": "82dc3fa1b189eb28d9e6246442dcd1c325616a014828a08dc96eb7a303db86a8"
+    },
+    {
+      "axis": "split-ansi",
+      "status": "pass",
+      "testName": "server RED — split terminal escape ingest",
+      "rawEvidencePath": "server/src/services/SessionManagerPartialEscapeTail.test.ts",
+      "rawEvidenceSha256": "046163742e6718778c68d23710df00ae2af70de9fe5d51de628c16f4281a0306",
+      "namedTestBodySha256": "f7fc92226758e51ee3363f86c276194ac4b214f03cac458d2bb2726864fd3bdd",
+      "assertionAnchorsSha256": "54ae7a9629d2442b4436da21832ad35f15f1dbbd1418e1fdbbe1c3b8bbb997f5"
+    },
+    {
+      "axis": "alternate-buffer",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-2",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "12247ea470176d47264ddacf012b5b5678693bbbb0503c1ea6c1a54b578e4932",
+      "assertionAnchorsSha256": "e9b91e06df8a3c06ba626a2099fcb29b16fb0e4400470111c0a16939fd85f72d"
+    },
+    {
+      "axis": "resize-reflow",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-2",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "12247ea470176d47264ddacf012b5b5678693bbbb0503c1ea6c1a54b578e4932",
+      "assertionAnchorsSha256": "88b6ae3a12fb94a847d2a6b209e7836aa2b8710432fc821b03de7f73e2cd40c9"
+    },
+    {
+      "axis": "commit-before-delivery",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-1",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "add8d2961fca04a3e0d0ed69a6b56644bdd664c9d53a8b85b6cd2a18b958367e",
+      "assertionAnchorsSha256": "090a44065ac4742bd2b3dcc5cdc9c50d6dd54876b7b34ce2d5b57b569d929cb9"
+    },
+    {
+      "axis": "fact-dedup",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-5",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "e4895c39df728788ad74d9dfd912bc90c0ed6feecfd67568b5cfe02b9779d1db",
+      "assertionAnchorsSha256": "2fb7d659eb312a8552e4160d4b53b8d8bb8b89faea1cfbe4867d0a98ed09e0ef"
+    },
+    {
+      "axis": "driver-lease",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-6",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "c43d249bdd5dd1f95a235aacc963c2f7ee24c7cea3d2168975240b5c484e99f8",
+      "assertionAnchorsSha256": "f84382235bc9a5d2d636a28f801eee8c6cbfc35b0f5fe8d972432ffefa3670f2"
+    },
+    {
+      "axis": "shadow-fault-isolation",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-7",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "ae23b3f825007e321d54673de92e91c04c73be8046c7b2d0b42781c06aab2317",
+      "assertionAnchorsSha256": "543e0891ffafbae288051eab47a52267a3b4493dffb26c6a51f3ef14a1a47493"
+    },
+    {
+      "axis": "ai-tui-idle-invariant",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-8",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "29660526322491eea279ecf8afb0899754e7474c66b6b7c1bb16e600e94d218c",
+      "assertionAnchorsSha256": "d2c98400dd004728220388cb3d3a3c19d5a4ca524d1bf9daa5f6e9c52f2bd754"
+    },
+    {
+      "axis": "typed-budget-separation",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-6",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "8d53b01fb788349f3f9ce77f30cfa7f84cbd74eaa16130ed019a2766fbc77ef6",
+      "assertionAnchorsSha256": "d0f247b811b7762dc757c319e604d2095ff7f4133bed1f02f0d03df750301c34"
+    },
+    {
+      "axis": "slow-client-eviction-gap",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-7",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "90e87b50f81cc240f424f27232658587227ce43fa209a8882db557e241f962cb",
+      "assertionAnchorsSha256": "144563f26427ffa5a4f168bf3a5a13d082e81fcdb133884de750a2f51f9a4223"
+    },
+    {
+      "axis": "one-client",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-10",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "7934e56570f21d063dbe2f2f169cc71e089a2f184be023630965d36a0bff1914",
+      "assertionAnchorsSha256": "5810dd306b689b990fb27a202e146f8968664cd94fe835dc10bc0f2b352fed51"
+    },
+    {
+      "axis": "two-client",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-6",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "c43d249bdd5dd1f95a235aacc963c2f7ee24c7cea3d2168975240b5c484e99f8",
+      "assertionAnchorsSha256": "0fdb111a82eed8f86444be9c8921b162db0e2d5fff6623c134711f8e2a925765"
+    },
+    {
+      "axis": "eight-client",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-9",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "07784fc16f4dce09a78ae2f9cd028428b2687bab0340edb8556c91d28d72755f",
+      "assertionAnchorsSha256": "f8ec7891a372a37209b19a792a1e8edf9015d31d743ef1592edced209efc1f00"
+    },
+    {
+      "axis": "no-local-cache-retained-authority-reload",
+      "status": "not-proven",
+      "reason": "legacy hard-refresh characterization exists, but retained checkpoint delivery is inactive until PH005",
+      "rawEvidencePath": "frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts",
+      "rawEvidenceSha256": "bb5bbf8aba19e2c7b13d110c8f5eac219933f289a4b6c2e7284fc48ed9faad88"
+    },
+    {
+      "axis": "server-restart-unavailable",
+      "status": "pass",
+      "testName": "REL_BGSTAB_007_AC10_server_restart_is_authority_unavailable",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "a6989b216e1f530841ba791ff8ab5371a4a01392f5a66b79ef106843c11c1049",
+      "assertionAnchorsSha256": "701e3b360a38c7eac0e14a56c9ffff8d49e47e506573d23ac1aac0520822e9a9"
+    },
+    {
+      "axis": "pty-exit-terminated",
+      "status": "pass",
+      "testName": "REL_BGSTAB_007_AC10_pty_exit_is_session_terminated",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "ee5d6d653f4076f5a9ae77c1313a0a37c0d2494ffa9b4074e22c071c39ae9dfb",
+      "assertionAnchorsSha256": "3841e3355ec2dc923b8737148ff9a4d2fdd942877763c9da7b789177ff628f5e"
+    },
+    {
+      "axis": "lifecycle-cleanup",
+      "status": "pass",
+      "testName": "Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-9",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "d7bb4d9b8da716a834c18068952427c088cbfca01b83e6dcbe1a491cbcbd6a6c",
+      "assertionAnchorsSha256": "472641c202c3ad9a4395a1308c6a774917389030ce3c003ad3449d9c3b8752df"
+    },
+    {
+      "axis": "independent-roundtrip-comparer",
+      "status": "pass",
+      "testName": "RED reviewer — production comparer requires an independent roundtrip baseline before principal-axis match",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "1086fd0497e11d1e398e7ca222fae6630b8c0cf92b78527f10e061390a577eea",
+      "assertionAnchorsSha256": "db69188ad607d899ad14e19a9487038e9a5de144f1512a0ee92237c0fce1293c"
+    },
+    {
+      "axis": "stateful-split-semantic-facts",
+      "status": "pass",
+      "testName": "RED reviewer — split semantic facts preserve record-local OSC BEL/ST, DSR, and repeated BEL occurrences",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "fd74a4076948dc3eab7811c6ca828c9cfd25367eea3bcf51ec5465683fe4d562",
+      "assertionAnchorsSha256": "6abef50d59bb63131ca5c6b28b80b6689efa07e18e34eec204700bafb6075fc1"
+    },
+    {
+      "axis": "newline-free-soft-wrap-reflow",
+      "status": "pass",
+      "testName": "RED reviewer — newline-free soft-wrap and reflow eviction advance exact oldest retained source",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "15da6a0df1350b1e54230c4f33a72367bd571eb93b6afd8d49238cec4f7bc006",
+      "assertionAnchorsSha256": "6a3cda924b0a510dd336c7b8d4833980d232402b7a089b3db56c7e921056a444"
+    },
+    {
+      "axis": "actual-two-client-mutation-fence",
+      "status": "pass",
+      "testName": "RED reviewer — actual input, resize, and query paths reject stale lease identity for two clients",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "3f0a316ddbc4c3db845a2c178ba53fb11f778afe986bddf529c885b1ddb0e9f7",
+      "assertionAnchorsSha256": "ddcda3c49b979f241950e2caa309064c34873fdeb0cc87a61c88dcdb3334fb95"
+    },
+    {
+      "axis": "actual-eight-client-mutation-fence",
+      "status": "pass",
+      "testName": "RED reviewer — actual input path rejects every stale lease identity with eight clients",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "bf82c7cba3e88e9257bdfd64ed3067a8aaed174b6fc36d120ec3d6a6e7e50a36",
+      "assertionAnchorsSha256": "e44b254c4a82762be87a1a7ec4ed039131a4029eb3b1c9466e9fda6677004ab3"
+    },
+    {
+      "axis": "missing-identity-fail-closed",
+      "status": "pass",
+      "testName": "RED reviewer — missing actual mutation identity stays legacy-compatible but blocks shadow canary",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "0e00da9567eab5368928f4f001b2a27456d047874dd17262c89829118618c609",
+      "assertionAnchorsSha256": "6c690a91ca0e1a32b2a60ab016ebb212ba7f68b19b5acd98cf1436037271f105"
+    },
+    {
+      "axis": "replacement-authority-fence",
+      "status": "pass",
+      "testName": "RED reviewer — old authority identity cannot mutate replacement PTY through actual paths",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "2afe28df552147697a0e20fa784db139bee12d2bc774ed16d8ba9676a389ec94",
+      "assertionAnchorsSha256": "51c8da5ab88113c725662a6635113ee0a08846894ebb525a6cfe37ea7d532b07"
+    },
+    {
+      "axis": "resize-snapshot-identity",
+      "status": "pass",
+      "testName": "RED reviewer — resize advances snapshot identity without consuming PTY source sequence",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "ba66696209ef0981d632a9e1ea3d41294c61165796bb8aad77228807e47b0218",
+      "assertionAnchorsSha256": "929942e841ae950b6dabc4baff7eac73cb58a07f0c1cb3b2f3dd334ce2cc3803"
+    },
+    {
+      "axis": "typed-model-degradation",
+      "status": "pass",
+      "testName": "RED reviewer — actual headless write degradation is typed and blocks authority canary",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "a3bb972fb04d00a5ab107609a6c58b85e0f9fdb770f4b650774dc628d1812ea7",
+      "assertionAnchorsSha256": "1d5e988d1ab50ef1d6fc584ea960339a745aa5d7e60b4756e41357b96fe4a715"
+    },
+    {
+      "axis": "websocket-mutation-lease",
+      "status": "pass",
+      "testName": "RED reviewer — negotiated retained lease fences actual websocket input and resize mutations",
+      "rawEvidencePath": "server/src/ws/WsRouterCheckpointProtocol.test.ts",
+      "rawEvidenceSha256": "4b07d54473fee4b1fd9c7ef8ec361e13ea60291f3a85590ae917a9d68bc7a50c",
+      "namedTestBodySha256": "bf07fb53f736199da0656ef2e78381f41a6bf6303bbfab48b170d8e1a7ceff32",
+      "assertionAnchorsSha256": "bc81742bc955ac9ab0d9a0677f1661089de7827b56618210a91fb16c4b18ea3a"
+    },
+    {
+      "axis": "populated-ordinal64-rollover",
+      "status": "pass",
+      "testName": "RED reviewer — populated Ordinal64 rollover keeps oldest retained marker epoch-qualified",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "83e757e3cd2e3c1fd5fbd8e179953c9127fa7d60e9b556cd4498be9a4585c257",
+      "assertionAnchorsSha256": "fc7072f481ac7b07ec5d43ebaee3e9cde6ba329de6712d4aed0a1ea0818b9f2e"
+    },
+    {
+      "axis": "failed-contender-view-rollback",
+      "status": "pass",
+      "testName": "RED reviewer — failed competing mutation lease rolls back only its newly registered view",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "bd1e501e96bc8dd023cb59298b79f7a8ac16e1d2ca15bab0ae09bdb5119da60f",
+      "assertionAnchorsSha256": "e83ba9151eae8bfa2bf102408cd49c201f62159eec199a3a09c3ff0e34f84ead"
+    },
+    {
+      "axis": "global-idle-low-duty-comparer",
+      "status": "pass",
+      "testName": "RED reviewer — shadow comparer samples only at global headless idle and enforces a low-duty interval",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "0cb22d60f856b847ee5dc1994a4963dc4ea5442db098cb26df43a701d56e532e",
+      "assertionAnchorsSha256": "2c19135475fdccd08a4bd9bb1b185def6dc12e6ba1745af593b24a27b949e621"
+    },
+    {
+      "axis": "oversized-semantic-key-bounded",
+      "status": "pass",
+      "testName": "RED reviewer — retained operation and fact evidence ledgers stay policy-bounded",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "2b000049830a70a8b193a47dd502abfd375d0d98cbf637471fc0e63df3f5f41e",
+      "assertionAnchorsSha256": "d7b4b4cc2f9d6c0fb9667c4b710616d6e338583199195741ee9eeb1909c86c67"
+    },
+    {
+      "axis": "degraded-semantic-fallback-settlement",
+      "status": "pass",
+      "testName": "RED reviewer — degraded, overflow, and commit-failure OSC status records reject facts without empty delivery",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "57f14d29eeaad67f665240c5bb84a587e87dc546487a18fb415df14fc6bf5406",
+      "assertionAnchorsSha256": "b3c1027f9f6438dfdaf55a2fab2d4b9d33819c06a98d2059d4ef0d4398b03acd"
+    },
+    {
+      "axis": "pending-overflow-semantic-settlement",
+      "status": "pass",
+      "testName": "RED reviewer — queue overflow settles every previously accepted semantic record in ingest order",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "20412355a5f34745a2d425513896996e7aa4a830535adb343854f261e311c174",
+      "assertionAnchorsSha256": "c789b38fed6bccec901a7a224b470a7286b24936be167508c622844af367f34c"
+    },
+    {
+      "axis": "queued-write-failure-semantic-settlement",
+      "status": "pass",
+      "testName": "RED reviewer — headless write failure settles failed and later queued semantic records exactly once",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "83446612afd69f2a48963bcf65cf0811f3e9277de5f1e5fd8270e925dc6c16f3",
+      "assertionAnchorsSha256": "acedf94409e93e0b862fabad9b3ef52014039083295d9489e62de8a2475fe13d"
+    },
+    {
+      "axis": "router-destroy-view-cleanup",
+      "status": "pass",
+      "testName": "RED reviewer — router destroy unregisters retained views before terminating sockets",
+      "rawEvidencePath": "server/src/ws/WsRouterCheckpointProtocol.test.ts",
+      "rawEvidenceSha256": "4b07d54473fee4b1fd9c7ef8ec361e13ea60291f3a85590ae917a9d68bc7a50c",
+      "namedTestBodySha256": "1667f40fda123af1bfde827dafd24d4d49078a3c1c071c5cc39ffcafb593778a",
+      "assertionAnchorsSha256": "e9495cb9b0845c24908da6dacc132a428060519416fc0102bed73d97ef7bea19"
+    },
+    {
+      "axis": "incremental-ledger-byte-accounting",
+      "status": "pass",
+      "testName": "RED reviewer — retained ledger byte accounting never rescans the full evidence arrays on commit",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "59c97f88cf1cb27e8415237698e7fb21bb88e0ef62da5c5f17efc84931896529",
+      "assertionAnchorsSha256": "42b782bcec3ceda48b5f2a446d9170d0ea4018746947af7f4a37a1dd0ce898fe"
+    },
+    {
+      "axis": "throwing-settler-isolation",
+      "status": "pass",
+      "testName": "RED reviewer — throwing policy settler cannot abort degradation settlement or current legacy delivery",
+      "rawEvidencePath": "server/src/services/RetainedTerminalAuthority.test.ts",
+      "rawEvidenceSha256": "00b6d2e3e390f03e8c9e5f6e7282e46361a4868f2384b03aaa3fed75b8b6974c",
+      "namedTestBodySha256": "dd8dac2cb3ea238018826f72d79194357864ec63d626f0448f987f6949746e64",
+      "assertionAnchorsSha256": "b63a3eb109c6f54764cf9d54a56516fc3f2b332961f48754718b424d3d780796"
+    },
+    {
+      "axis": "negotiated-observer-fencing-rebind",
+      "status": "pass",
+      "testName": "RED reviewer — negotiated observer stays registered, cannot mutate, and rebinds after driver disconnect",
+      "rawEvidencePath": "server/src/ws/WsRouterCheckpointProtocol.test.ts",
+      "rawEvidenceSha256": "4b07d54473fee4b1fd9c7ef8ec361e13ea60291f3a85590ae917a9d68bc7a50c",
+      "namedTestBodySha256": "3c0705a8de094b789dbf2d6ebdcb9dcefaf4e6b0054538b96c899a48f1afda38",
+      "assertionAnchorsSha256": "c40277a5512af608f2ff9083bcad4dd2f6426e1f5d1e7e8309915b98453f554f"
+    }
+  ],
+  "activationGate": {
+    "thresholds": {
+      "focused": {
+        "exactTests": 57,
+        "maximumFailures": 0,
+        "maximumSkipped": 0
+      },
+      "coverage": {
+        "exactAxes": 42,
+        "axisIdsSha256": "e45cb0525ad44a3b2b22e02439efaefd3eba0744b9fe582206675babec912573",
+        "maximumFailed": 0,
+        "maximumMissing": 0
+      },
+      "inputHashes": {
+        "maximumMissing": 0,
+        "maximumMismatches": 0
+      }
+    },
+    "actual": {
+      "eligible": false,
+      "reason": "no-local-cache-retained-authority-unproven"
+    },
+    "failClosedProofs": {
+      "missingThreshold": {
+        "eligible": false,
+        "reason": "threshold-missing"
+      },
+      "failedFocusedTest": {
+        "eligible": false,
+        "reason": "focused-test-threshold-failed"
+      },
+      "missingCoverageAxis": {
+        "eligible": false,
+        "reason": "coverage-threshold-failed"
+      },
+      "replacedCoverageAxisId": {
+        "eligible": false,
+        "reason": "coverage-threshold-failed"
+      },
+      "inputHashMismatch": {
+        "eligible": false,
+        "reason": "input-hash-threshold-failed"
+      }
+    }
+  },
+  "verdict": "PASS_FAIL_CLOSED"
+}

@@ -1,0 +1,804 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-15.projectmaster.wave1-baseline",
+  "coverage_pass": 2,
+  "mode": "normal",
+  "generated_at": "2026-07-15T06:39:58.747Z",
+  "independence": {
+    "role": "independent sequential coverage verifier",
+    "pass1_fields_used": [
+      "requirements[].req_id",
+      "requirements[].pass1_confirmed",
+      "summary.pass1"
+    ],
+    "pass1_fit_conclusions_used": false,
+    "method": "Original Requirement statements and 25 ACs were re-read, then each was cross-checked from scratch against the latest plan task actions/DoD and sidecar covers_ac/test-case mappings."
+  },
+  "source_snapshot": {
+    "inventory_file": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/inventory.json",
+    "pass1_file": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/coverage_pass1.json",
+    "plan_file": "docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md",
+    "plan_sha256": "a86a0dc989b81d2a33d847b0d541cc1cd52bd15b0d23861c34df4e4b01339e19",
+    "sidecar_file": "docs/plans/2026-07-15.projectmaster.wave1-baseline.sidecar.json",
+    "sidecar_sha256": "3cc4d0ee66edd371c7d83149c3fa40f30c981078c77c23e3d5bad3fe32777eaf",
+    "sidecar_json_parse": true
+  },
+  "reconciliation": {
+    "inventory_requirement_count": 4,
+    "plan_coverage_requirement_count": 4,
+    "requirement_ids_match": true,
+    "inventory_ac_count": 25,
+    "plan_task_mapped_ac_count": 25,
+    "test_case_mapped_ac_count": 25,
+    "missing_requirement_ids": [],
+    "extra_requirement_ids": [],
+    "missing_ac_refs": [],
+    "extra_ac_refs": [],
+    "total_plan_tasks": 25,
+    "tasks_with_only_in_scope_req_ids": 25,
+    "orphan_task_count": 0,
+    "unreferenced_requirement_count": 0
+  },
+  "tdd_task_accounting": {
+    "code_task_count": 16,
+    "red_code_task_count": 8,
+    "green_code_task_count": 8,
+    "red_code_task_ids": [
+      "T-PH001-01",
+      "T-PH001-03",
+      "T-PH002-01",
+      "T-PH002-03",
+      "T-PH003-01",
+      "T-PH003-03",
+      "T-PH003-05",
+      "T-PH004-01"
+    ],
+    "green_code_task_ids": [
+      "T-PH001-02",
+      "T-PH001-04",
+      "T-PH002-02",
+      "T-PH002-04",
+      "T-PH003-02",
+      "T-PH003-04",
+      "T-PH003-06",
+      "T-PH004-02"
+    ],
+    "red_test_case_count": 27,
+    "green_test_case_count": 27,
+    "red_green_pairs": [
+      {
+        "red_task_id": "T-PH001-01",
+        "green_task_id": "T-PH001-02",
+        "dependency_confirmed": true,
+        "covers_ac_match": true
+      },
+      {
+        "red_task_id": "T-PH001-03",
+        "green_task_id": "T-PH001-04",
+        "dependency_confirmed": true,
+        "covers_ac_match": true
+      },
+      {
+        "red_task_id": "T-PH002-01",
+        "green_task_id": "T-PH002-02",
+        "dependency_confirmed": true,
+        "covers_ac_match": true
+      },
+      {
+        "red_task_id": "T-PH002-03",
+        "green_task_id": "T-PH002-04",
+        "dependency_confirmed": true,
+        "covers_ac_match": true
+      },
+      {
+        "red_task_id": "T-PH003-01",
+        "green_task_id": "T-PH003-02",
+        "dependency_confirmed": true,
+        "covers_ac_match": true
+      },
+      {
+        "red_task_id": "T-PH003-03",
+        "green_task_id": "T-PH003-04",
+        "dependency_confirmed": true,
+        "covers_ac_match": true
+      },
+      {
+        "red_task_id": "T-PH003-05",
+        "green_task_id": "T-PH003-06",
+        "dependency_confirmed": true,
+        "covers_ac_match": true
+      },
+      {
+        "red_task_id": "T-PH004-01",
+        "green_task_id": "T-PH004-02",
+        "dependency_confirmed": true,
+        "covers_ac_match": true
+      }
+    ],
+    "result": "pass"
+  },
+  "c08_correction_confirmation": {
+    "task_id": "T-PH002-04",
+    "canonical_match": true,
+    "plan_files": [
+      "frontend/src/components/Terminal/TerminalView.tsx:164-186",
+      "frontend/src/components/Terminal/TerminalView.tsx:1517-1549",
+      "frontend/tests/e2e/wave1-characterization-artifacts.ts"
+    ],
+    "sidecar_files": [
+      "frontend/src/components/Terminal/TerminalView.tsx:164-186",
+      "frontend/src/components/Terminal/TerminalView.tsx:1517-1549",
+      "frontend/tests/e2e/wave1-characterization-artifacts.ts"
+    ],
+    "all_task_c08_mismatch_ids": [],
+    "note": "The corrected two TerminalView.tsx line ranges and artifact helper path match between the latest plan.md and sidecar.json canonical file sets."
+  },
+  "requirements": [
+    {
+      "req_id": "REL-BGSTAB-006",
+      "stability": "evolving",
+      "ac_total": 5,
+      "pass1_item_seen_as_passed": true,
+      "pass2_reconfirmed": true,
+      "verification_complete": true,
+      "acceptance_criteria": [
+        {
+          "ac_id": "AC-1",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH001-01",
+            "T-PH001-02",
+            "T-PH001-05",
+            "T-PH001-06"
+          ],
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC1-01",
+            "TC-REQ-REL-BGSTAB-006-AC1-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC1-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC1-02"
+          ],
+          "independent_fit": "관측 artifact RED/GREEN pair가 observation schema와 build·effective-config·case·source·command·result provenance를 계약하고, 실행·review Task가 SRS/production/test 원시 행과 digest를 고정한다."
+        },
+        {
+          "ac_id": "AC-2",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH001-03",
+            "T-PH001-04",
+            "T-PH001-05",
+            "T-PH001-06"
+          ],
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC2-01",
+            "TC-REQ-REL-BGSTAB-006-AC2-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC2-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC2-02"
+          ],
+          "independent_fit": "별도 Playwright RED/GREEN pair가 실제 https://localhost:2222 browser URL/socket 경로와 production construction→HTTPS /ws upgrade/auth/router dispatch를 completion 조건으로 검증한다."
+        },
+        {
+          "ac_id": "AC-3",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH001-03",
+            "T-PH001-04",
+            "T-PH001-05",
+            "T-PH001-06"
+          ],
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC3-01",
+            "TC-REQ-REL-BGSTAB-006-AC3-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC3-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC3-02"
+          ],
+          "independent_fit": "같은 production-path pair가 standalone injection을 별도 source로 기록하고 production evidence가 없으면 completion을 거부하며, 실행·review Task도 이를 재확인한다."
+        },
+        {
+          "ac_id": "AC-4",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH001-01",
+            "T-PH001-02",
+            "T-PH001-05",
+            "T-PH001-06"
+          ],
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC4-01",
+            "TC-REQ-REL-BGSTAB-006-AC4-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC4-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC4-02"
+          ],
+          "independent_fit": "artifact pair가 row-level match|mismatch|not_exercised matrix와 case/source/evidence provenance를 구현·검증하고 raw execution/review가 기계 집계를 확인한다."
+        },
+        {
+          "ac_id": "AC-5",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH001-01",
+            "T-PH001-02",
+            "T-PH001-05",
+            "T-PH001-06"
+          ],
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC5-01",
+            "TC-REQ-REL-BGSTAB-006-AC5-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC5-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-REL-BGSTAB-006-AC5-02"
+          ],
+          "independent_fit": "RED/GREEN pair, raw execution과 review 모두 disposition=unresolved, split non-activation과 기존 SRS non-mutation을 명시한다."
+        }
+      ]
+    },
+    {
+      "req_id": "OBS-BGSTAB-004",
+      "stability": "evolving",
+      "ac_total": 7,
+      "pass1_item_seen_as_passed": true,
+      "pass2_reconfirmed": true,
+      "verification_complete": true,
+      "acceptance_criteria": [
+        {
+          "ac_id": "AC-1",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH002-03",
+            "T-PH002-04",
+            "T-PH002-05",
+            "T-PH002-06"
+          ],
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC1-01",
+            "TC-REQ-OBS-BGSTAB-004-AC1-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC1-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC1-02"
+          ],
+          "independent_fit": "refresh E2E pair가 TC-7004를 별도 current-behavior artifact로 요구하고, matrix 실행·review가 future retained-state parity 약속으로의 승격을 금지한다."
+        },
+        {
+          "ac_id": "AC-2",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH002-03",
+            "T-PH002-04",
+            "T-PH002-05",
+            "T-PH002-06"
+          ],
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC2-01",
+            "TC-REQ-OBS-BGSTAB-004-AC2-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC2-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC2-02"
+          ],
+          "independent_fit": "refresh E2E pair와 matrix Task가 24/1000/10000 logical lines 및 legacy 2 MiB before/at/after를 deterministic characterization seed로 실행·검증한다."
+        },
+        {
+          "ac_id": "AC-3",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH002-03",
+            "T-PH002-04",
+            "T-PH002-05",
+            "T-PH002-06"
+          ],
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC3-01",
+            "TC-REQ-OBS-BGSTAB-004-AC3-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC3-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC3-02"
+          ],
+          "independent_fit": "E2E pair가 cache/view/text/buffer 열거축과 result-row 축 조합을 계약하고, GREEN DoD와 matrix acceptance가 모든 열거값의 최소 deterministic coverage를 요구한다."
+        },
+        {
+          "ac_id": "AC-4",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH002-01",
+            "T-PH002-02",
+            "T-PH002-05",
+            "T-PH002-06"
+          ],
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC4-01",
+            "TC-REQ-OBS-BGSTAB-004-AC4-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC4-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC4-02"
+          ],
+          "independent_fit": "canonicalizer RED/GREEN pair가 ordered lines, cells/attributes, cursor/saved cursor, modes, active buffer와 geometry의 동일-schema hash/diff 및 equal|changed|missing verdict를 검증한다."
+        },
+        {
+          "ac_id": "AC-5",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH002-03",
+            "T-PH002-04",
+            "T-PH002-05",
+            "T-PH002-06"
+          ],
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC5-01",
+            "TC-REQ-OBS-BGSTAB-004-AC5-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC5-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC5-02"
+          ],
+          "independent_fit": "refresh E2E pair가 effective boundary와 cause provenance를 계약하고, read-only capture·matrix·review가 cause signals, candidate provenance와 raw references를 보존한다."
+        },
+        {
+          "ac_id": "AC-6",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH002-01",
+            "T-PH002-02",
+            "T-PH002-05",
+            "T-PH002-06"
+          ],
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC6-01",
+            "TC-REQ-OBS-BGSTAB-004-AC6-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC6-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC6-02"
+          ],
+          "independent_fit": "canonicalizer/analyzer pair가 expected_current_eviction과 observed_loss 분리 집계를 직접 검증하고 matrix/review가 결과와 digest를 재확인한다."
+        },
+        {
+          "ac_id": "AC-7",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH002-03",
+            "T-PH002-04",
+            "T-PH002-05",
+            "T-PH002-06"
+          ],
+          "test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC7-01",
+            "TC-REQ-OBS-BGSTAB-004-AC7-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC7-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-OBS-BGSTAB-004-AC7-02"
+          ],
+          "independent_fit": "refresh E2E pair의 negative contract, read-only GREEN 경계, matrix threshold 문구와 reviewer checklist가 product retained range·budget·SLO·authority 승격을 금지한다."
+        }
+      ]
+    },
+    {
+      "req_id": "PERF-BGSTAB-008",
+      "stability": "evolving",
+      "ac_total": 7,
+      "pass1_item_seen_as_passed": true,
+      "pass2_reconfirmed": true,
+      "verification_complete": true,
+      "acceptance_criteria": [
+        {
+          "ac_id": "AC-1",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH003-03",
+            "T-PH003-04",
+            "T-PH003-05",
+            "T-PH003-06",
+            "T-PH003-07",
+            "T-PH003-08"
+          ],
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC1-03",
+            "TC-REQ-PERF-BGSTAB-008-AC1-04",
+            "TC-REQ-PERF-BGSTAB-008-AC1-05",
+            "TC-REQ-PERF-BGSTAB-008-AC1-06"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC1-03",
+            "TC-REQ-PERF-BGSTAB-008-AC1-05"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC1-04",
+            "TC-REQ-PERF-BGSTAB-008-AC1-06"
+          ],
+          "independent_fit": "NO_RENDER pair와 server-mode pair가 합쳐 네 machine-readable mode ID를 모두 다루고, 실행·review Task가 disabled/replaced/retained layer, comparator와 fixture provenance를 확인한다."
+        },
+        {
+          "ac_id": "AC-2",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH003-03",
+            "T-PH003-04",
+            "T-PH003-05",
+            "T-PH003-06",
+            "T-PH003-07",
+            "T-PH003-08"
+          ],
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC2-03",
+            "TC-REQ-PERF-BGSTAB-008-AC2-04",
+            "TC-REQ-PERF-BGSTAB-008-AC2-05",
+            "TC-REQ-PERF-BGSTAB-008-AC2-06"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC2-03",
+            "TC-REQ-PERF-BGSTAB-008-AC2-05"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC2-04",
+            "TC-REQ-PERF-BGSTAB-008-AC2-06"
+          ],
+          "independent_fit": "NO_RENDER pair는 동일 ingress에서 renderer consumer만 제외하고, server pair는 NO_ANALYZER·NO_NETWORK·ONE_CLIENT_SLOW semantics와 2+ client normal-peer 비교를 AC-2 test cases로 검증한다."
+        },
+        {
+          "ac_id": "AC-3",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH003-01",
+            "T-PH003-02",
+            "T-PH003-07",
+            "T-PH003-08"
+          ],
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC3-01",
+            "TC-REQ-PERF-BGSTAB-008-AC3-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC3-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC3-02"
+          ],
+          "independent_fit": "manifest/statistics RED/GREEN pair가 AC-3의 seed, payload, warm-up/trial, build/environment/browser/config provenance를 validator contract로 묶고 fixed-manifest 실행·review가 이를 확인한다."
+        },
+        {
+          "ac_id": "AC-4",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH003-05",
+            "T-PH003-06",
+            "T-PH003-07",
+            "T-PH003-08"
+          ],
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC4-05",
+            "TC-REQ-PERF-BGSTAB-008-AC4-06"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC4-05"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC4-06"
+          ],
+          "independent_fit": "server runner pair가 session 1|8|32|54, client 1|2|8, view mix·trial/manifest provenance와 ONE_CLIENT_SLOW 1-client baseline 비격리를 검증하고 matrix/review가 재확인한다."
+        },
+        {
+          "ac_id": "AC-5",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH003-01",
+            "T-PH003-02",
+            "T-PH003-07",
+            "T-PH003-08"
+          ],
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC5-01",
+            "TC-REQ-PERF-BGSTAB-008-AC5-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC5-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC5-02"
+          ],
+          "independent_fit": "statistics pair가 aggregation 전 raw preservation, sample identity/metric/value/unit/timing/trial 필드와 source-ID 기반 p50/p95/p99·seeded CI 재계산을 계약하고 matrix가 독립 재계산한다."
+        },
+        {
+          "ac_id": "AC-6",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH003-05",
+            "T-PH003-06",
+            "T-PH003-07",
+            "T-PH003-08"
+          ],
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC6-05",
+            "TC-REQ-PERF-BGSTAB-008-AC6-06"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC6-05"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC6-06"
+          ],
+          "independent_fit": "server runner pair가 existing observability snapshots에서 event-loop, one-core CPU와 headless-write evidence를 수집하고 interval delta·unit·source를 AC-6 test cases와 DoD로 검증한다."
+        },
+        {
+          "ac_id": "AC-7",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH003-01",
+            "T-PH003-02",
+            "T-PH003-07",
+            "T-PH003-08"
+          ],
+          "test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC7-01",
+            "TC-REQ-PERF-BGSTAB-008-AC7-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC7-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-PERF-BGSTAB-008-AC7-02"
+          ],
+          "independent_fit": "statistics pair의 negative contract와 matrix/review가 product threshold, pass/fail SLO, retained rows, memory/checkpoint budget 또는 default 승격을 명시적으로 거부한다."
+        }
+      ]
+    },
+    {
+      "req_id": "MIG-BGSTAB-001",
+      "stability": "evolving",
+      "ac_total": 6,
+      "pass1_item_seen_as_passed": true,
+      "pass2_reconfirmed": true,
+      "verification_complete": true,
+      "acceptance_criteria": [
+        {
+          "ac_id": "AC-1",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH004-01",
+            "T-PH004-02",
+            "T-PH004-03",
+            "T-PH004-05"
+          ],
+          "test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC1-01",
+            "TC-REQ-MIG-BGSTAB-001-AC1-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC1-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC1-02"
+          ],
+          "independent_fit": "G1 RED/GREEN pair와 prerequisite audit가 세 Requirement ID, artifact reference, run/build ID와 digest 전부가 없으면 입력을 거부하고 최종 review가 재검증한다."
+        },
+        {
+          "ac_id": "AC-2",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH004-01",
+            "T-PH004-02",
+            "T-PH004-04",
+            "T-PH004-05"
+          ],
+          "test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC2-01",
+            "TC-REQ-MIG-BGSTAB-001-AC2-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC2-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC2-02"
+          ],
+          "independent_fit": "gate pair가 exact two-value enum, missing/default/third-value denial을 검증하고 decision Task가 선택 근거와 반대 branch 기각 evidence를 기록한다."
+        },
+        {
+          "ac_id": "AC-3",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH004-01",
+            "T-PH004-02",
+            "T-PH004-04",
+            "T-PH004-05"
+          ],
+          "test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC3-01",
+            "TC-REQ-MIG-BGSTAB-001-AC3-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC3-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC3-02"
+          ],
+          "independent_fit": "gate pair가 max-one local fix와 downstream non-activation을 검증하고 decision/review Task가 별도 local-fix ID 및 wave-2~5/#4~#22 inactive/deferred 상태를 확인한다."
+        },
+        {
+          "ac_id": "AC-4",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH004-01",
+            "T-PH004-02",
+            "T-PH004-04",
+            "T-PH004-05"
+          ],
+          "test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC4-01",
+            "TC-REQ-MIG-BGSTAB-001-AC4-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC4-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC4-02"
+          ],
+          "independent_fit": "gate pair가 separate exact stable authority Requirement 없이는 migration activation을 거부하고 decision/review Task가 wave-2 denial을 명시한다."
+        },
+        {
+          "ac_id": "AC-5",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH004-01",
+            "T-PH004-02",
+            "T-PH004-03",
+            "T-PH004-04",
+            "T-PH004-05"
+          ],
+          "test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC5-01",
+            "TC-REQ-MIG-BGSTAB-001-AC5-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC5-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC5-02"
+          ],
+          "independent_fit": "gate pair, audit, decision과 final review 전부가 authority promotion, UI change, legacy deletion과 product budget/default 비승인을 유지한다."
+        },
+        {
+          "ac_id": "AC-6",
+          "status": "covered",
+          "pass2_reconfirmed": true,
+          "task_ids": [
+            "T-PH004-01",
+            "T-PH004-02",
+            "T-PH004-04",
+            "T-PH004-05"
+          ],
+          "test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC6-01",
+            "TC-REQ-MIG-BGSTAB-001-AC6-02"
+          ],
+          "red_test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC6-01"
+          ],
+          "green_test_case_ids": [
+            "TC-REQ-MIG-BGSTAB-001-AC6-02"
+          ],
+          "independent_fit": "gate pair가 selected decision, prerequisite completeness, conditional ID, downstream state와 denial reason schema를 검증하고 decision/final review가 artifact를 재확인한다."
+        }
+      ]
+    }
+  ],
+  "omissions": [],
+  "out_of_scope_tasks": [],
+  "intentional_conditional_boundary": {
+    "task_id": "T-PH004-04",
+    "classification": "in-scope MIG-BGSTAB-001 business-decision gate, not outside-SRS implementation",
+    "reason": "It records the explicit G1 branch and separately authorized conditional ID after prerequisite evidence; it does not invent or implement a local fix, authority promotion, UI change or later-wave migration."
+  },
+  "pass1_reconfirmation": {
+    "pass1_passed_requirement_ids": [
+      "REL-BGSTAB-006",
+      "OBS-BGSTAB-004",
+      "PERF-BGSTAB-008",
+      "MIG-BGSTAB-001"
+    ],
+    "independently_reconfirmed_requirement_ids": [
+      "REL-BGSTAB-006",
+      "OBS-BGSTAB-004",
+      "PERF-BGSTAB-008",
+      "MIG-BGSTAB-001"
+    ],
+    "refuted_requirement_ids": [],
+    "result": "reconfirmed"
+  },
+  "verification_complete_ids": [
+    "REL-BGSTAB-006",
+    "OBS-BGSTAB-004",
+    "PERF-BGSTAB-008",
+    "MIG-BGSTAB-001"
+  ],
+  "persistent_verification_complete_marks": [
+    {
+      "req_id": "REL-BGSTAB-006",
+      "verification_complete": true,
+      "completed_by_pass": 2
+    },
+    {
+      "req_id": "OBS-BGSTAB-004",
+      "verification_complete": true,
+      "completed_by_pass": 2
+    },
+    {
+      "req_id": "PERF-BGSTAB-008",
+      "verification_complete": true,
+      "completed_by_pass": 2
+    },
+    {
+      "req_id": "MIG-BGSTAB-001",
+      "verification_complete": true,
+      "completed_by_pass": 2
+    }
+  ],
+  "summary": {
+    "requirements_reconciled": 4,
+    "acceptance_criteria_reconciled": 25,
+    "covered_acceptance_criteria": 25,
+    "missing_acceptance_criteria": 0,
+    "out_of_scope_task_count": 0,
+    "red_code_tasks": 8,
+    "green_code_tasks": 8,
+    "pass2": "pass",
+    "pass1_reconfirmation": "all four independently reconfirmed",
+    "persistent_verification_complete_mark_count": 4
+  }
+}

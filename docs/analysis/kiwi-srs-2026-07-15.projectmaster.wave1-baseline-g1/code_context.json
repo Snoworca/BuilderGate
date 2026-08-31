@@ -1,0 +1,128 @@
+{
+  "relevant_files": [
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/WsRouter.ts",
+      "line_range": "86-91, 165-220",
+      "signature": "WsRouterOptions; WsRouter.constructor(); handleUpgrade()",
+      "relevance": "trace_intent=negative; options declare realtime configuration, but the constructor never consumes options.realtime, creates a noServer WebSocketServer directly, and handleUpgrade authenticates without parseWsTransportRequest. This is the central split constructor/upgrade wiring gap."
+    },
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/server/src/index.ts",
+      "line_range": "1468-1495",
+      "signature": "runtime WsRouter construction and HTTPS upgrade dispatcher",
+      "relevance": "trace_intent=negative; production passes resourceLimits and stabilityModes but not runtimeValues.realtime, then delegates every /ws upgrade directly to WsRouter. This confirms runtime construction differs from split test assumptions."
+    },
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/wsTransportMode.ts",
+      "line_range": "23-92",
+      "signature": "parseWsTransportRequest(url, configuredMode)",
+      "relevance": "trace_intent=addition_site; a complete unified/split control/output query parser exists, including pairing validation, but no runtime caller was found."
+    },
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/WsRouterSplitHandshake.test.ts",
+      "line_range": "50-98, 100-121",
+      "signature": "createRouter(); direct wss.emit('connection', ..., transportRequest)",
+      "relevance": "trace_intent=negative; tests pass realtime.wsTransportMode and inject transport metadata as extra connection-event arguments, while the production constructor ignores realtime and its connection handler accepts only ws/request. These tests do not exercise an actual HTTPS upgrade."
+    },
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/server/package.json",
+      "line_range": "5-11",
+      "signature": "scripts.test",
+      "relevance": "trace_intent=negative; the default server test runs only dist/test-runner.js, so standalone node:test suites such as WsRouterSplitHandshake.test.ts and wsTransportMode.test.ts are compiled but not executed by npm test."
+    },
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/frontend/src/contexts/WebSocketContext.tsx",
+      "line_range": "113-119, 141-215, 271-310, 340-388, 545-595",
+      "signature": "getWsUrl(); bufferGraceMessage(); handleMessage(); connect(); subscribeSession()",
+      "relevance": "trace_intent=negative; browser runtime always opens one unified URL and never consumes getWsTransportMode, webSocketUrl, or split lifecycle helpers. The 300 ms remount grace buffers snapshots/output, but explicitly skips screen-repair messages and drops repairs when handlers are absent."
+    },
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/frontend/src/utils/webSocketUrl.ts",
+      "line_range": "35-70",
+      "signature": "buildControlWebSocketUrl(); buildSplitOutputWebSocketUrl()",
+      "relevance": "trace_intent=addition_site; deterministic URL builders already encode split control and paired output connections, but WebSocketContext does not import or call them."
+    },
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/server/src/utils/headlessTerminal.ts",
+      "line_range": "95-145, 156-203",
+      "signature": "VIEWPORT_ONLY_SERIALIZE_OPTIONS; serializeHeadlessTerminal(); serializeHeadlessScreenRepair()",
+      "relevance": "trace_intent=verifies; server snapshots hard-code scrollback:0. Oversized serialization returns data:\"\" with truncated:true, while repair payloads enumerate only current viewport rows."
+    },
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/server/src/services/SessionManager.ts",
+      "line_range": "100-126, 170-202, 2482-2604, 3008-3065, 3486-3494",
+      "signature": "SNAPSHOT_PAYLOAD_SCOPE; getReplaySnapshot(); getScreenSnapshot(); getReplayQueueLimit(); getObservabilitySnapshot()",
+      "relevance": "trace_intent=verifies; snapshot authority is explicitly viewport-only, oversized empty snapshots map to a legacy placeholder only through getReplaySnapshot, and the live path exposes snapshot/cache/serialization, event-loop, CPU, and cumulative headless-write measurements. The 262144 replay cap is an existing characterization seed."
+    },
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/WsRouter.ts",
+      "line_range": "947-1005, 1358-1408, 1817-1865, 1923-2035, 2119-2160",
+      "signature": "trimReplayOutputTail(); appendQueuedOutput(); handleReplayAckTimeout(); sendSnapshotReplay(); refreshReplaySnapshots(); getObservabilitySnapshot()",
+      "relevance": "trace_intent=verifies; replay-pending output is UTF-8 tail-trimmed, flushed on ACK/timeout, and oversized empty snapshots are labeled fallback. Existing telemetry covers replay queues, ACK timeouts, refreshes, buffered amounts, slow-client closes, and queue overflows."
+    },
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/frontend/src/components/Terminal/TerminalView.tsx",
+      "line_range": "1093-1166, 1283-1345, 1399-1499",
+      "signature": "loadStoredSnapshot(); saveSnapshot(); restoreStoredSnapshot(); replaceWithSnapshot(); applyScreenRepair()",
+      "relevance": "trace_intent=verifies; browser local snapshots also serialize with scrollback:0, retain the previous snapshot when a new payload is oversized, require exact geometry for restore, and apply viewport repairs only when visible, geometry-compatible, idle, and at the bottom."
+    },
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/frontend/src/components/Terminal/TerminalContainer.tsx",
+      "line_range": "1323-1507, 1509-1584",
+      "signature": "handleScreenSnapshot(); handleScreenRepair()",
+      "relevance": "trace_intent=addition_site; snapshots have an explicit pending ref and retry handoff when the terminal is temporarily absent. Repairs are applied and ACKed directly without an equivalent pending handoff, making this the safest local site for repair-remount characterization."
+    },
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/frontend/tests/e2e/terminal-authority.spec.ts",
+      "line_range": "201-262, 271-359, 394-437",
+      "signature": "expectViewportOnlySnapshot(); TC-7101; TC-7103",
+      "relevance": "trace_intent=verifies; Playwright proves server replay excludes an old scrollback marker, survives unsubscribe/reconnect/refresh, and preserves short workspace-handoff output. It characterizes viewport-only recovery rather than full retained-state equivalence."
+    },
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/frontend/src/utils/terminalOutputScheduler.ts",
+      "line_range": "5-14, 39-75, 143-206",
+      "signature": "TerminalOutputSchedulerOptions; createTerminalOutputScheduler()",
+      "relevance": "trace_intent=addition_site; injected write, schedule, shouldYield, and now functions provide a deterministic DOM-free seam suitable for NO_RENDER characterization without changing UI."
+    },
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/server/src/test-runner.ts",
+      "line_range": "614-641, 2311-2384, 13607-13682, 14514-14595",
+      "signature": "BUILDERGATE_TEST_FILTER; createForegroundSessionHarness(); createManagedSessionHarness(); createWsRouterHarness()",
+      "relevance": "trace_intent=addition_site; existing fake PTY callback, headless-state, and fake WebSocket harnesses can host deterministic NO_ANALYZER, NO_RENDER/headless, and NO_NETWORK comparisons. The filter supports focused runs, but no characterization-mode runner exists."
+    },
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/server/src/ws/WsRouterSendPriority.test.ts",
+      "line_range": "7-55, 58-99, 123-188",
+      "signature": "createFakeWs(); createRouter(); buffered/deferred-send tests",
+      "relevance": "trace_intent=addition_site; controllable bufferedAmount and deferred callbacks are suitable primitives for ONE_CLIENT_SLOW, but current cases use one subscribed client and do not prove isolation from normal clients."
+    },
+    {
+      "path": "C:/Work/git/_Snoworca/ProjectMaster/server/src/index.ts",
+      "line_range": "797-815",
+      "signature": "GET /api/sessions/telemetry; GET /api/sessions/debug-capture/:id",
+      "relevance": "trace_intent=verifies; authenticated endpoints already expose SessionManager/WsRouter aggregate telemetry and per-session replay/debug traces, providing an observation surface for additive characterization."
+    }
+  ],
+  "related_modules": [
+    "server/src/types/ws-protocol.ts and frontend/src/types/ws-protocol.ts: duplicated protocol definitions still type connected messages as clientId-only and do not describe split pairing metadata.",
+    "frontend/src/utils/splitWebSocketLifecycle.ts: pure control-subscription/output-close decisions exist but have no browser runtime caller.",
+    "server/src/utils/terminalPayload.ts: escape-safe UTF-8 tail truncation used by replay queues and degraded recovery.",
+    "frontend/src/utils/terminalSnapshot.ts: schema-v2 viewport-only local snapshot validation, quota eviction, and tombstone handling.",
+    "frontend/src/components/Terminal/TerminalRuntimeLayer.tsx: parks resident terminal runtimes offscreen and keys entries by tab/session, reducing ordinary remounts.",
+    "server/src/ws/wsSendPolicy.ts: per-client control/output transport queues and coalescing used by slow-client enforcement.",
+    "server/src/schemas/config.schema.ts and server/config.json5.example: current queue, snapshot, transport, and telemetry numbers are configuration defaults/seeds, not measured product targets."
+  ],
+  "missing_evidence": [
+    "No production server path consumes realtime.wsTransportMode or parseWsTransportRequest, and no production browser path opens or manages split control/output sockets.",
+    "No default test command executes the standalone split server suites; frontend/package.json also has no general unit-test command covering all tests.",
+    "No deterministic characterization contract or runner defines NO_RENDER, NO_ANALYZER, NO_NETWORK, or ONE_CLIENT_SLOW workloads, warm-up, iterations, raw samples, output schema, or repeatability tolerance.",
+    "No multi-client test proves that one slow client cannot delay, reorder, duplicate, or disconnect a normal client receiving the same session stream.",
+    "No actual-upgrade integration test traverses HTTPS upgrade parsing, authentication, split pairing, browser URL construction, fallback, and reconnection together.",
+    "No regression injects a screen-repair frame during the WebSocketContext remount grace gap; current code skips that frame, while server timeout only releases queued output and does not reissue the lost repair.",
+    "No full retained-state equivalence evidence exists: server and browser recovery are explicitly viewport-only, and the authority E2E positively verifies that older scrollback is absent.",
+    "No deterministic evidence quantifies the data-loss boundary of oversized empty fallback when the browser has no valid local viewport snapshot and displays only the fallback placeholder.",
+    "Telemetry configuration fields sampleIntervalMs and recentEventLimit are not wired into a characterization sampler/artifact writer; existing observations are cumulative snapshots and fixed in-memory limits.",
+    "Existing numeric caps and timing constants lack workload-derived confidence intervals or threshold justification and therefore cannot be promoted from characterization seeds to product targets."
+  ],
+  "external_paths_detected": []
+}

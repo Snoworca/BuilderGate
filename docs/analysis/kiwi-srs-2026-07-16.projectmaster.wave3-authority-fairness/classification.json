@@ -1,0 +1,16 @@
+{
+  "target": "wave-3",
+  "classification": "multi-aspect-additive",
+  "rationale": "#8, #9, #13은 exact 기존 Requirement가 없고 #10, #11, #12, #14는 stable REL-BGSTAB-007의 issue별 상세 계약이다. stable/cross-target 본문 변경 대신 7개 child Requirement를 추가한다.",
+  "proposed_scope": "BGSTAB",
+  "proposed_requirements": [
+    {"draftKey":"policy-observe","issue":8,"type":"observability"},
+    {"draftKey":"policy-canary","issue":9,"type":"reliability","dependsOn":["policy-observe"]},
+    {"draftKey":"browser-sole-writer","issue":10,"type":"functional","dependsOn":["policy-canary"]},
+    {"draftKey":"retained-model-shadow","issue":11,"type":"reliability","dependsOn":["browser-sole-writer"]},
+    {"draftKey":"authority-promotion","issue":12,"type":"migration","dependsOn":["retained-model-shadow"]},
+    {"draftKey":"fair-delivery","issue":13,"type":"performance","dependsOn":["authority-promotion"]},
+    {"draftKey":"hidden-authoritative-recovery","issue":14,"type":"reliability","dependsOn":["fair-delivery", "browser-sole-writer"]}
+  ],
+  "confidence": "high"
+}

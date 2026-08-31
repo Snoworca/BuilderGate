@@ -1,0 +1,43 @@
+{
+  "task_id": "T-PH004-03",
+  "requirement_id": "FR-BGSTAB-021",
+  "captured_at": "2026-07-16T05:49:36.5590043Z",
+  "origin": "https://localhost:2222",
+  "strict_red": {
+    "command": "npx playwright test tests/e2e/terminal-paste.spec.ts tests/e2e/terminal-clipboard.spec.ts tests/e2e/terminal-context-menu-registered-items.spec.ts --project=\"Desktop Chrome\" --workers=1 --retries=0 --grep \"unselected Ctrl\\+C|selected Ctrl\\+C|tab context copy|Grid context copy|late clipboard read|routes a registered command through|TC-PASTE-01|TC-PASTE-02\"",
+    "exit_code": 1,
+    "selected_tests": 8,
+    "passed": 3,
+    "planned_failures": 5,
+    "infrastructure_failures": 0,
+    "planned_signatures": [
+      "selected copy did not retain the same snapshot across rejected writes",
+      "tab context clipboard action bypassed the coordinator",
+      "Grid context clipboard action bypassed the coordinator",
+      "late clipboard read reached a replaced terminal target",
+      "registered preset bypassed the coordinator"
+    ]
+  },
+  "full_red_diagnostic": {
+    "selected_tests": 26,
+    "passed": 12,
+    "skipped": 5,
+    "failed": 9,
+    "classification": "5 integration-contract failures plus 4 pre-existing narrow PowerShell prompt parser failures; no shared test-owned workspace residue"
+  },
+  "green_confirmation": {
+    "strict": "8 passed, 0 failed",
+    "full": "21 passed, 5 mobile-only skipped, 0 failed",
+    "note": "T-PH004-04 implementation confirmation is recorded here only to prove the RED cases were discriminating."
+  },
+  "verification": {
+    "scoped_eslint": "passed with zero errors",
+    "git_diff_check": "passed",
+    "review": "No findings"
+  },
+  "files": {
+    "frontend/tests/e2e/terminal-paste.spec.ts": "6ff90d4e7fe442cb851e9c40efac032c1e687259983b311a015aae1267aa23a2",
+    "frontend/tests/e2e/terminal-clipboard.spec.ts": "e02b71c4c65194cc866e2f7e617959c26171d7903adeb4e46c6897a81e101743",
+    "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts": "950f88a3f503db902f4b3d2dd8afa38f3769163182c96e79b57d511d89c966c8"
+  }
+}

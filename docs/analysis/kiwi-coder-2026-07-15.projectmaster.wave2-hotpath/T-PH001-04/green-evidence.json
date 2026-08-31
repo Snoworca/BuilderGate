@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "kiwi-coder-green-evidence",
+  "runId": "2026-07-15.projectmaster.wave2-hotpath",
+  "taskId": "T-PH001-04",
+  "requirementId": "PERF-BGSTAB-009",
+  "recordedAt": "2026-07-16T04:15:52.0031035+09:00",
+  "revision": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+  "result": "GREEN",
+  "benchmarkArtifact": {
+    "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave2-hotpath/scheduler-benchmark.json",
+    "contentDigest": "sha256:1af45c5ae4ccc7fae82680db4ef263b23d4988f2a6870579806632cb7d36899d",
+    "fileSha256": "ceef7e8b40415c55e3095f0fe9b7e5280c1f08a82f0480c62a3bc799f44795c8",
+    "runId": "terminal-output-scheduler-154200-7008-13",
+    "operationsPerTrial": 13,
+    "calibrationMs": 259.02810000000005,
+    "baselineP95Ms": 249.3994,
+    "candidateP95Ms": 3.2250000000001364,
+    "pairedBootstrapUpperDeltaMs": -239.47800000000007,
+    "toleranceMs": 12.469970000000002,
+    "passes": true
+  },
+  "provenance": {
+    "historicalSourceDigest": "sha256:dc1edf2acaf16f57b6e517fb1499cd67e579508d12238b3a561aaada647ac1c3",
+    "frozenExecutableDigest": "sha256:687001c2a5bef4571cc84f8df8a69809f617eff7379478b68fbc4d03bda995ee",
+    "candidateSourceDigest": "sha256:a7f2595fda0a6cf0ba89ee2eb793bbd4b7b8e460bd0d3352190c5a35343a0bf0",
+    "timingMode": "native-encoder-no-probe",
+    "instrumentationMode": "untimed-companion-counter-pass",
+    "timingOrder": [
+      "baseline-first",
+      "candidate-first",
+      "baseline-first",
+      "candidate-first"
+    ]
+  },
+  "exactGates": {
+    "mixedBytes": 110,
+    "mixedInvocations": "1/1",
+    "boundaryBytes": 65542,
+    "boundaryInvocations": "2/2",
+    "outputDigestParity": true,
+    "fixedIdenticalOperationsPerPair": true,
+    "baselinePrefixBehaviorObserved": true,
+    "candidatePrefixEncodeCount": 0,
+    "candidatePrefixAllocationCount": 0,
+    "candidateAcceptedIngressMaxEncodeCount": 1
+  },
+  "verification": [
+    {
+      "command": "node --experimental-strip-types --test tests/benchmarks/terminalNoRenderFixture.test.ts tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+      "cwd": "frontend",
+      "exit": 0,
+      "passed": 3,
+      "failed": 0
+    },
+    {
+      "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+      "cwd": "frontend",
+      "exit": 0,
+      "passed": 24,
+      "failed": 0
+    },
+    {
+      "command": "npm run typecheck",
+      "cwd": "frontend",
+      "exit": 0
+    },
+    {
+      "command": "npx eslint tests/benchmarks/terminalNoRenderFixture.ts tests/benchmarks/terminalNoRenderFixtureEvidence.ts tests/benchmarks/terminalNoRenderFixture.test.ts tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+      "cwd": "frontend",
+      "exit": 0
+    },
+    {
+      "command": "npm run lint",
+      "cwd": "frontend",
+      "exit": 1,
+      "classification": "pre-existing-unrelated-debt",
+      "summary": "42 errors and 18 warnings in out-of-scope files; all scoped benchmark files pass ESLint"
+    },
+    {
+      "command": "independent canonical artifact digest and provenance assertion",
+      "cwd": ".",
+      "exit": 0
+    },
+    {
+      "command": "$env:BUILDERGATE_RECORD_SCHEDULER_BENCHMARK='1'; node --experimental-strip-types --test tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+      "cwd": "frontend",
+      "exit": 0,
+      "classification": "explicit-record-mode-atomic-temp-rename"
+    },
+    {
+      "command": "default combined 27-test execution with artifact SHA-256 before/after comparison",
+      "cwd": "frontend",
+      "exit": 0,
+      "artifactSha256Before": "ceef7e8b40415c55e3095f0fe9b7e5280c1f08a82f0480c62a3bc799f44795c8",
+      "artifactSha256After": "ceef7e8b40415c55e3095f0fe9b7e5280c1f08a82f0480c62a3bc799f44795c8",
+      "artifactUnchanged": true
+    },
+    {
+      "command": "git diff --check -- scoped task files",
+      "cwd": ".",
+      "exit": 0
+    }
+  ],
+  "review": {
+    "reviewer": "tph00102_prickly_review",
+    "resolvedFindings": [
+      "historical source digest was not connected to the executed baseline",
+      "per-codepoint counter probe distorted the timed baseline beyond the 5 percent tolerance"
+    ],
+    "verdict": "No findings"
+  }
+}

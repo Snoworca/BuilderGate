@@ -1,0 +1,116 @@
+{
+  "schemaVersion": "1.1",
+  "requirementId": "OBS-BGSTAB-005",
+  "phaseId": "PH-001",
+  "taskId": "T-PH001-01",
+  "iteration": 4,
+  "recordedAt": "2026-07-16T09:33:12.4270512Z",
+  "command": "npx tsx --test src/services/TerminalResourcePolicy.test.ts src/services/RuntimeConfigStore.test.ts",
+  "cwd": "server",
+  "exitCode": 1,
+  "summary": {
+    "testsReported": 11,
+    "existingTestsPassed": 4,
+    "contractTestsPassed": 0,
+    "contractTestsFailed": 7,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "expectedFailureSignatures": [
+    {
+      "testSymbol": "Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1",
+      "signature": "OBS-BGSTAB-005 AC-1 Observe-only TerminalResourcePolicy 계약 부재 때문에 실패",
+      "observed": true
+    },
+    {
+      "testSymbol": "Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-2",
+      "signature": "OBS-BGSTAB-005 AC-2 Observe-only TerminalResourcePolicy 계약 부재 때문에 실패",
+      "observed": true
+    },
+    {
+      "testSymbol": "Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-3",
+      "signature": "OBS-BGSTAB-005 AC-3 Observe-only TerminalResourcePolicy 계약 부재 때문에 실패",
+      "observed": true
+    },
+    {
+      "testSymbol": "Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-4",
+      "signature": "OBS-BGSTAB-005 AC-4 Observe-only TerminalResourcePolicy 계약 부재 때문에 실패",
+      "observed": true
+    },
+    {
+      "testSymbol": "Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-5",
+      "signature": "OBS-BGSTAB-005 AC-5 Observe-only TerminalResourcePolicy 계약 부재 때문에 실패",
+      "observed": true
+    },
+    {
+      "testSymbol": "Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-6",
+      "signature": "OBS-BGSTAB-005 AC-6 Observe-only TerminalResourcePolicy 계약 부재 때문에 실패",
+      "observed": true
+    },
+    {
+      "testSymbol": "Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-7",
+      "signature": "OBS-BGSTAB-005 AC-7 Observe-only TerminalResourcePolicy 계약 부재 때문에 실패",
+      "observed": true
+    }
+  ],
+  "contractCoverage": {
+    "AC-1": [
+      "independently loaded manifest declaration",
+      "all seven SRS consumer categories",
+      "key/unit/source/schemaVersion/profileVersion/legacyAliases/applyBoundary/consumerPath completeness",
+      "repository-relative forward-slash existing paths inside repository root"
+    ],
+    "AC-2": [
+      "deterministic compile",
+      "external expected decisions derived from RuntimeConfigStore editable/public values",
+      "exact admission/cap/expiry/drop/reconnect/recovery/bytes/order/generation map",
+      "serialized SHA-256 decision parity",
+      "consumer-level legacy policy ID and public runtime parity"
+    ],
+    "AC-3": [
+      "raw canonical present/absent provenance and conflict diagnostics",
+      "canonical and legacy sources each cover lower/upper N-1/N/N+1 boundaries",
+      "canonical and legacy non-integer, NaN and Infinity rejection without clamping"
+    ],
+    "AC-4": [
+      "non-empty trusted registry with known stable REL-BGSTAB-007 profile and known non-stable profile",
+      "known stable comparison calculation",
+      "wrong version, unknown, self-declared stable and non-stable candidate rejection",
+      "observe mode legacy-only application"
+    ],
+    "AC-5": [
+      "bounded allow-listed observation records",
+      "terminal payload and secret exclusion"
+    ],
+    "AC-6": [
+      "repository discovery independent from manifest loading",
+      "two-scan deep/hash determinism and sorted unique output",
+      "known SRS anchor resource keys/getters/call-sites/consumer paths",
+      "Windows path normalization, root containment and existence",
+      "normal scan acceptance",
+      "remove fault missing-consumer rejection",
+      "unit mutation, orphan path and duplicate-source rejection",
+      "empty and partial temporary repository required-source rejection"
+    ],
+    "AC-7": [
+      "external byte-for-byte Settings snapshot/editable/public/storage-shape parity",
+      "config schema default serialization parity",
+      "actual applied consumer map and consumer-level legacy policy IDs",
+      "no added public policy field"
+    ]
+  },
+  "reviewFindingsAddressed": [
+    "No top-level missing implementation import; all seven tests execute independently.",
+    "Test symbols and expected failure signatures exactly match the plan sidecar.",
+    "RuntimeConfigStore assertions are owned by AC-2 and AC-7 main test symbols.",
+    "AC-6 uses scanner-generated inventory rather than manually supplied repository keys or paths.",
+    "Candidate stability is resolved through the trusted registry rather than caller declaration."
+    ,"Only implementation-module import failure is translated to the sidecar RED signature; body assertion and I/O failures remain unwrapped."
+    ,"Manifest declaration and repository inventory discovery use independent APIs and inputs, with hard-coded known anchors preventing self-consistent scanner shortcuts."
+    ,"AC-2 and AC-7 derive expected decisions and byte snapshots outside the observation result instead of trusting self-reported parity booleans."
+    ,"AC-2 and AC-7 deep-compare the exact eleven planned consumer IDs to legacy policy IDs, rejecting empty, missing, or additional keys."
+    ,"The RED signature wrapper accepts only ERR_MODULE_NOT_FOUND whose URL exactly equals TerminalResourcePolicy.js; dependency, syntax, evaluation, assertion, and I/O errors remain unchanged."
+  ],
+  "productionFilesChanged": false,
+  "gate": "GREEN implementation remains blocked pending independent TDD re-review."
+}

@@ -1,0 +1,18 @@
+{
+  "target": "wave-3",
+  "counts_by_status": { "planned": 8 },
+  "counts_by_stability": { "stable": 1, "evolving": 7 },
+  "stability_blockers": [],
+  "requirements": [
+    { "id": "REL-BGSTAB-007", "type": "reliability", "stability": "stable", "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9", "AC-10", "AC-11", "AC-12"] },
+    { "id": "OBS-BGSTAB-005", "type": "observability", "stability": "evolving", "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"] },
+    { "id": "REL-BGSTAB-010", "type": "reliability", "stability": "evolving", "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6"] },
+    { "id": "FR-BGSTAB-022", "type": "functional", "stability": "evolving", "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"] },
+    { "id": "REL-BGSTAB-011", "type": "reliability", "stability": "evolving", "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9"] },
+    { "id": "MIG-BGSTAB-002", "type": "migration", "stability": "evolving", "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6"] },
+    { "id": "PERF-BGSTAB-010", "type": "performance", "stability": "evolving", "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9"] },
+    { "id": "REL-BGSTAB-012", "type": "reliability", "stability": "evolving", "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9"] }
+  ],
+  "excluded": [],
+  "deferred_ac": []
+}

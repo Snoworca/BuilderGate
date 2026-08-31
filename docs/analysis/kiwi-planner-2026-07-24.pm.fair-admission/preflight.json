@@ -1,0 +1,10 @@
+{
+  "run_id": "2026-07-24.pm.fair-admission",
+  "target": "wave-3",
+  "requirement_filter": ["PERF-BGSTAB-010"],
+  "mcp": "available",
+  "work_mode": "sdd",
+  "derived_tdd_policy": "relaxed",
+  "workflow_doctor": "blocked by pre-existing workflow artifact/schema diagnostics",
+  "degraded_mode": "Official workflow diagnostics were captured before raw plan inspection. No pipeline JSONL mutation is permitted."
+}

@@ -1,0 +1,17 @@
+{
+  "target": "wave-3",
+  "scope": "BGSTAB",
+  "added": [
+    {"id":"OBS-BGSTAB-005","github_issue":8,"type":"observability","status":"planned","stability":"evolving"},
+    {"id":"REL-BGSTAB-010","github_issue":9,"type":"reliability","status":"planned","stability":"evolving"},
+    {"id":"FR-BGSTAB-022","github_issue":10,"type":"functional","status":"planned","stability":"evolving"},
+    {"id":"REL-BGSTAB-011","github_issue":11,"type":"reliability","status":"planned","stability":"evolving"},
+    {"id":"MIG-BGSTAB-002","github_issue":12,"type":"migration","status":"planned","stability":"evolving"},
+    {"id":"PERF-BGSTAB-010","github_issue":13,"type":"performance","status":"planned","stability":"evolving"},
+    {"id":"REL-BGSTAB-012","github_issue":14,"type":"reliability","status":"planned","stability":"evolving"}
+  ],
+  "updated_existing_requirements": [],
+  "stable_parent": "REL-BGSTAB-007",
+  "validation": {"errors":0,"warnings":0},
+  "mutation_method": "SpecKiwi MCP only"
+}

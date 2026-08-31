@@ -1,0 +1,61 @@
+{
+  "taskId": "T-PH001-02",
+  "requirementId": "PERF-BGSTAB-009",
+  "revision": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+  "workingTreeDirty": true,
+  "redConfirmation": {
+    "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+    "cwd": "frontend",
+    "exitCode": 1,
+    "passed": 20,
+    "failed": 4
+  },
+  "green": {
+    "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+    "cwd": "frontend",
+    "exitCode": 0,
+    "passed": 24,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "command": "npm run typecheck",
+      "cwd": "frontend",
+      "exitCode": 0
+    },
+    {
+      "command": "npx eslint src/utils/terminalOutputScheduler.ts src/components/Terminal/TerminalView.tsx tests/unit/terminalOutputScheduler.test.ts tests/benchmarks/terminalNoRenderFixture.ts",
+      "cwd": "frontend",
+      "exitCode": 0,
+      "warnings": 3,
+      "notes": "Pre-existing TerminalView react-hooks cleanup warnings at lines 2154, 2176, and 2180; no lint errors."
+    },
+    {
+      "command": "inline Node edge-contract probe",
+      "cwd": "frontend",
+      "exitCode": 0,
+      "covers": [
+        "empty ingress performs zero encode and completes callback",
+        "isolated surrogate encodes to U+FFFD",
+        "single code point larger than flush budget still progresses",
+        "reset waits for old async write callback before current generation write"
+      ]
+    },
+    {
+      "command": "git diff --check -- frontend/src/utils/terminalOutputScheduler.ts frontend/src/components/Terminal/TerminalView.tsx frontend/tests/unit/terminalOutputScheduler.test.ts frontend/tests/benchmarks/terminalNoRenderFixture.ts",
+      "cwd": ".",
+      "exitCode": 0
+    }
+  ],
+  "review": {
+    "kind": "independent prickly task review",
+    "verdict": "No findings",
+    "reviewer": "/root/wave2_plan_code_context/tph00102_prickly_review"
+  },
+  "workflowDiagnostics": {
+    "planValidation": "ok",
+    "nextTask": "T-PH001-02 running",
+    "warnings": "Official workflow schema check reported four legacy kiwi/pipeline.jsonl SRS-W055 warnings unrelated to this task."
+  },
+  "capturedAt": "2026-07-16T03:04:40+09:00"
+}

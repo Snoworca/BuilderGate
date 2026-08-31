@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "requirementId": "OBS-BGSTAB-005",
+  "phaseId": "PH-001",
+  "reviewIteration": 4,
+  "reviewFindings": { "high": 3, "medium": 0 },
+  "focusedRed": {
+    "command": "npx tsx --test src/services/TerminalResourcePolicy.test.ts src/services/RuntimeConfigStore.test.ts",
+    "total": 23,
+    "passed": 21,
+    "failed": 2
+  },
+  "failedContracts": [
+    "same-name symbol in an unrelated owner was accepted as catalog evidence",
+    "nested config.resourceLimits aliases were omitted by the repository inventory"
+  ],
+  "additionalRegressionAxes": [
+    "pure and hybrid classification files must detect newly appended accesses",
+    "parameter/local/destructured/catch shadowing must not inherit an outer resource alias",
+    "anonymous nested callbacks must not satisfy their parent owner evidence",
+    "split owners must not share one surviving occurrence",
+    "classification access hashes and reasons must participate in bidirectional manifest identity"
+  ],
+  "expectedRepair": "Canonical full-owner identity, scoped alias tombstones, nested root dataflow, and occurrence-aware classification evidence are required before GREEN."
+}

@@ -1,0 +1,134 @@
+{
+  "schemaVersion": "kiwi-coder-evidence-v1",
+  "executionId": "2026-07-15.projectmaster.wave2-hotpath",
+  "taskId": "T-PH001-05",
+  "requirementId": "PERF-BGSTAB-009",
+  "capturedAt": "2026-07-16T04:15:52.0031035+09:00",
+  "headRevision": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+  "result": "PASS",
+  "scope": {
+    "productionChangedByReviewFix": false,
+    "testChanged": "frontend/tests/unit/terminalOutputScheduler.test.ts",
+    "planSidecarPmSrsChangedByReviewFix": false
+  },
+  "findings": {
+    "ac2XtermParserParity": {
+      "status": "PASS",
+      "ingress": "ANSI SGR, CSI, OSC, CR/LF, Hangul, combining character, emoji split across enqueue calls and 3-byte scheduler slices",
+      "oracle": "@xterm/xterm Terminal parser without DOM open",
+      "comparison": [
+        "all buffer lines and wrapped state",
+        "each cell chars, width, and code",
+        "each cell foreground/background color mode and value",
+        "each cell bold, italic, dim, underline, blink, inverse, invisible, strikethrough, and overline flags",
+        "cursorX",
+        "cursorY",
+        "baseY",
+        "viewportY",
+        "buffer length",
+        "onTitleChange event sequence and final title"
+      ],
+      "control": "one unsplit write",
+      "observation": "all scheduler Uint8Array writes in order"
+    },
+    "ac4SuccessfulBoundedCompaction": {
+      "status": "PASS",
+      "scenario": "2B + 2B + 1B with maxChunks=2, flushBudget=4B, queueBudget=8B",
+      "assertions": [
+        "first two leaves compact to one 4-byte allocation",
+        "write and backing allocation do not exceed 4-byte flush budget",
+        "pending bytes remain at or below 8-byte queue budget",
+        "merged callbacks fire exactly once in ingress order only after merged write completion",
+        "remaining callback fires exactly once after its own write completion",
+        "scheduler drains to idle with zero pending bytes"
+      ]
+    },
+    "productionDefect": {
+      "status": "NOT_REPRODUCED",
+      "reason": "Both strengthened tests pass against the current implementation; no production edit was justified."
+    },
+    "canonicalArtifactPersistence": {
+      "status": "PASS",
+      "recordMode": "BUILDERGATE_RECORD_SCHEDULER_BENCHMARK=1",
+      "writeStrategy": "PID-scoped temporary file followed by atomic rename",
+      "defaultMode": "ephemeral benchmark validation plus byte-for-byte persisted artifact invariance assertion",
+      "contentDigest": "sha256:1af45c5ae4ccc7fae82680db4ef263b23d4988f2a6870579806632cb7d36899d",
+      "fileSha256": "ceef7e8b40415c55e3095f0fe9b7e5280c1f08a82f0480c62a3bc799f44795c8",
+      "runId": "terminal-output-scheduler-154200-7008-13"
+    }
+  },
+  "traceCorrectionsReportedToRoot": {
+    "symbolPolicy": "Keep current RED contract test symbols; root owns sidecar trace amendments.",
+    "t3Ac8Actual": {
+      "testFile": "frontend/tests/benchmarks/terminalNoRenderFixture.test.ts",
+      "testSymbol": "NO_RENDER paired benchmark RED 계약 — AC-8"
+    },
+    "t3Ac9Actual": {
+      "testFile": "frontend/tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+      "testSymbol": "NO_RENDER paired benchmark RED 계약 — AC-9"
+    },
+    "fullLintGate": "The plan's full-lint DoD conflicts with the pre-existing 42-error/18-warning repository baseline; root owns any plan amendment."
+  },
+  "verification": {
+    "focusedUnit": {
+      "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+      "exitCode": 0,
+      "passed": 24,
+      "failed": 0
+    },
+    "combinedUnitAndBenchmark": {
+      "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts tests/benchmarks/terminalNoRenderFixture.test.ts tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+      "exitCode": 0,
+      "passed": 27,
+      "failed": 0
+    },
+    "explicitCanonicalRecord": {
+      "command": "$env:BUILDERGATE_RECORD_SCHEDULER_BENCHMARK='1'; node --experimental-strip-types --test tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+      "exitCode": 0,
+      "passed": 1,
+      "failed": 0,
+      "atomicTempRename": true
+    },
+    "defaultArtifactInvariance": {
+      "command": "default combined 27-test execution with artifact SHA-256 before/after comparison",
+      "exitCode": 0,
+      "artifactSha256Before": "ceef7e8b40415c55e3095f0fe9b7e5280c1f08a82f0480c62a3bc799f44795c8",
+      "artifactSha256After": "ceef7e8b40415c55e3095f0fe9b7e5280c1f08a82f0480c62a3bc799f44795c8",
+      "artifactUnchanged": true
+    },
+    "typecheck": {
+      "command": "npm run typecheck",
+      "exitCode": 0
+    },
+    "scopedLint": {
+      "command": "npx eslint src/utils/terminalOutputScheduler.ts tests/unit/terminalOutputScheduler.test.ts tests/benchmarks/terminalNoRenderFixture.ts tests/benchmarks/terminalNoRenderFixtureEvidence.ts tests/benchmarks/terminalNoRenderFixture.test.ts tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+      "exitCode": 0
+    },
+    "fullLintBaseline": {
+      "command": "npm run lint",
+      "exitCode": 1,
+      "errors": 42,
+      "warnings": 18,
+      "classification": "PRE_EXISTING_OUT_OF_SCOPE_BASELINE"
+    },
+    "diffCheck": {
+      "command": "git diff --check -- scoped T-PH001-04/T-PH001-05 files",
+      "exitCode": 0
+    }
+  },
+  "harnessCorrection": {
+    "firstRun": "23/24; TypeError: Terminal is not a constructor",
+    "classification": "TEST_HARNESS_ONLY",
+    "cause": "Node ESM import exposed the CommonJS package under default",
+    "fix": "Resolve either named export or CommonJS default wrapper",
+    "rerun": "24/24 PASS"
+  },
+  "review": {
+    "reviewer": "PH1 same reviewer",
+    "resolvedFindings": [
+      "xterm final-state snapshot did not include cell attributes or OSC title events",
+      "default benchmark execution rewrote timestamp/PID-bearing canonical artifact"
+    ],
+    "verdict": "No findings"
+  }
+}

@@ -1,0 +1,40 @@
+TAP version 13
+# Subtest: terminal authority debug routes register the exact three mutation paths with one fixed guard chain
+ok 1 - terminal authority debug routes register the exact three mutation paths with one fixed guard chain
+  ---
+  duration_ms: 1.2743
+  type: 'test'
+  ...
+# Subtest: terminal authority debug route authentication rejection short-circuits locality session and handler
+ok 2 - terminal authority debug route authentication rejection short-circuits locality session and handler
+  ---
+  duration_ms: 0.2494
+  type: 'test'
+  ...
+# Subtest: terminal authority debug route remote rejection short-circuits session lookup and handler
+ok 3 - terminal authority debug route remote rejection short-circuits session lookup and handler
+  ---
+  duration_ms: 1.2257
+  type: 'test'
+  ...
+# Subtest: terminal authority debug route runs session guard before handler and rejects a missing session
+ok 4 - terminal authority debug route runs session guard before handler and rejects a missing session
+  ---
+  duration_ms: 0.2231
+  type: 'test'
+  ...
+# Subtest: terminal authority debug route invokes the handler only after auth locality and existing-session guards
+ok 5 - terminal authority debug route invokes the handler only after auth locality and existing-session guards
+  ---
+  duration_ms: 0.1825
+  type: 'test'
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 194.659

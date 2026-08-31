@@ -1,0 +1,438 @@
+{
+  "target": "wave-3",
+  "req_candidates": [
+    {
+      "ref": "RC1",
+      "source_irs": ["IR1"],
+      "source_findings": ["C-1"],
+      "proposed_title": "User-visible feedback on observe-mode transient-blocked input drop",
+      "proposed_statement": "시스템은 captureState가 'transient-blocked'이고 inputReliabilityMode가 'observe'인 상태에서 사용자 키 입력/단축키를 폐기할 때, 무음 폐기 대신 사용자에게 시각적 피드백(토스트/인디케이터)을 제공해야 한다.",
+      "classification": "new-feature",
+      "rationale": "FR-BGSTAB-002(stable)는 WS bufferedAmount 기반 백프레셔 게이트(AC-2/AC-3/AC-5)를 규정하지만, C-1이 지적한 경로는 TerminalView.tsx:915-932(submitCapturedInputDirect)와 TerminalContainer.tsx:757-768(enqueueTransportInput)에 있는 별개의 inputReliabilityMode='observe' 게이트다 — 코드 경로와 트리거 조건이 다르므로 FR-BGSTAB-002 AC를 그대로 적용할 수 없다(potential-conflict로 매칭됐으나 실제로는 다른 메커니즘). FR-BGSTAB-017 AC-3은 '입력 차단 상태는 관찰 가능한 이벤트로 해소되어야 한다'는 일반 원칙을 세우므로, 이 원칙을 observe-mode 게이트까지 확장하는 신규 요구로 분류한다. A1(기본값 유지 + 의무적 시각 피드백)의 제안 기본값을 그대로 채택.",
+      "regression_against": null,
+      "affected_existing_reqs": [
+        {"id": "FR-BGSTAB-017", "relation": "extends", "diff_summary": "AC-3의 '차단 상태는 관찰 가능한 이벤트로 해소' 원칙을 inputReliabilityMode=observe 게이트에도 적용하는 신규 AC 추가"},
+        {"id": "FR-BGSTAB-002", "relation": "depends_on", "diff_summary": "동일 서브시스템(브라우저 입력 신뢰성)이지만 별도 게이트 메커니즘 — 충돌 아님, 인접 참고용"}
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_prefix": "REL",
+      "proposed_type": "reliability",
+      "evidence_paths": [
+        "frontend/src/components/Terminal/TerminalView.tsx:897-940 (특히 915-932)",
+        "frontend/src/components/Terminal/TerminalContainer.tsx:752-768"
+      ],
+      "linked_ambiguities": ["A1"],
+      "user_decision_required": false,
+      "confidence": "high",
+      "depends_on_refs": []
+    },
+    {
+      "ref": "RC2",
+      "source_irs": ["IR2"],
+      "source_findings": ["C-1"],
+      "proposed_title": "Document or expose the observe-mode production default constraint",
+      "proposed_statement": "시스템은 inputReliabilityMode의 프로덕션 기본값(observe)이 config.json5로 재정의될 수 없는 현재 제약을 명시적으로 문서화하거나, 설정 스키마에 필드를 추가하여 배포 환경에서 재정의 가능하도록 해야 한다.",
+      "classification": "new-feature",
+      "rationale": "server/src/schemas/config.schema.ts:286-302에는 inputReliabilityMode 필드가 없고, server/src/utils/inputReliabilityMode.ts:11-12 / frontend/src/utils/inputReliabilityMode.ts:95 모두 하드코딩된 'observe' 기본값을 사용한다. 이 제약을 다루는 기존 REQ가 없다. 최소 조치(문서화)와 최대 조치(config 필드 추가) 사이 선택은 필요하나, A4의 선례(비-시크릿 값은 현행 유지+문서화가 안전한 기본값)를 따라 문서화를 최소 기본안으로 제안한다 — 별도 사용자 확인 없이 진행 가능.",
+      "regression_against": null,
+      "affected_existing_reqs": [],
+      "proposed_scope": "BGSTAB",
+      "proposed_prefix": "OPS",
+      "proposed_type": "operational",
+      "evidence_paths": [
+        "server/src/utils/inputReliabilityMode.ts:11-12",
+        "frontend/src/utils/inputReliabilityMode.ts:95",
+        "server/src/schemas/config.schema.ts:286-302"
+      ],
+      "linked_ambiguities": [],
+      "user_decision_required": false,
+      "confidence": "medium",
+      "depends_on_refs": []
+    },
+    {
+      "ref": "RC3",
+      "source_irs": ["IR3"],
+      "source_findings": ["C-1"],
+      "proposed_title": "Minimal audit record for dropped input when debug capture is disabled",
+      "proposed_statement": "시스템은 프로덕션 기본 상태(디버그 캡처 비활성)에서도 입력이 폐기된 경우 최소한의 감사 가능한 기록(원인/타임스탬프/상관관계 식별자)을 남겨야 하며, 원문(raw) 입력 내용은 기록하지 않아야 한다.",
+      "classification": "update",
+      "rationale": "OBS-BGSTAB-001(Status=planned) AC-2는 '텔레메트리/디버그 캡처가 입력/복구 타이밍을 상관관계 식별자·타임스탬프와 함께 기록하되 원문 콘텐츠는 영속 저장하지 않는다'를 이미 요구한다. terminalDebugCapture.ts:157-161(enabledAll:false 기본)과 402-405(store 없으면 조용히 no-op)는 이 AC의 '항상 최소 기록은 남아야 한다'는 취지를 구현이 아직 만족하지 못하는 gap이다. 신규 REQ 대신 OBS-BGSTAB-001을 확장하는 update로 분류.",
+      "regression_against": null,
+      "affected_existing_reqs": [
+        {"id": "OBS-BGSTAB-001", "relation": "extends", "diff_summary": "AC-2에 '디버그 캡처가 비활성인 프로덕션 기본 상태에서도 폐기된 입력에 대한 최소 감사 기록은 남아야 한다'는 취지를 명시적으로 추가"}
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_prefix": null,
+      "proposed_type": null,
+      "evidence_paths": [
+        "frontend/src/utils/terminalDebugCapture.ts:157-161",
+        "frontend/src/utils/terminalDebugCapture.ts:402-405"
+      ],
+      "linked_ambiguities": [],
+      "user_decision_required": false,
+      "confidence": "medium",
+      "depends_on_refs": [],
+      "scope_boundary_note": "BGSTAB §3 Assumptions: 'Raw terminal input must not be written to debug logs when backpressure or reconnect handling occurs' — 이 AC는 메타데이터만 기록해야 하며 원문 키 입력을 기록해서는 안 됨."
+    },
+    {
+      "ref": "RC4",
+      "source_irs": ["IR7"],
+      "source_findings": ["H-4"],
+      "proposed_title": "Server-side debug capture ordering independent of authority fencing outcome",
+      "proposed_statement": "시스템은 서버 측 디버그 캡처가 authority/lease fencing 체크 결과와 무관하게 pty/input, resize 이벤트를 기록할 수 있도록 캡처 지점의 체크 순서를 조정해야 한다.",
+      "classification": "update",
+      "rationale": "SessionManager.ts:3190-3206(writeInput), 3405-3412(resize)에서 캡처 이벤트 기록이 acceptRetainedTerminalMutationIdentity 게이트 이후에 위치하여, fencing 실패 시 이벤트 자체가 기록되지 않는다. 이는 OBS-BGSTAB-001이 요구하는 '입력/복구 타이밍 상관관계 기록' 완전성을 서버 측에서 약화시키는 gap이며, IR3(프런트엔드 감사 기록)과 같은 원칙(게이팅 결과와 무관하게 최소 기록은 남아야 한다)을 서버 측 별도 코드 표면(SessionManager.ts)에 적용한다. §0.11에 따라 IR3과 별도 REQ 후보로 분리했다(merged because: 결합 시 프런트/서버 두 코드 표면이 하나의 AC에 뒤섞여 검증 불가능해짐 — 대신 별도로 분리).",
+      "regression_against": null,
+      "affected_existing_reqs": [
+        {"id": "OBS-BGSTAB-001", "relation": "extends", "diff_summary": "서버 측 캡처 지점이 fencing 체크 이전에 위치하도록 순서 조정을 요구하는 AC 보강"}
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_prefix": null,
+      "proposed_type": null,
+      "evidence_paths": [
+        "server/src/services/SessionManager.ts:3190-3206",
+        "server/src/services/SessionManager.ts:3405-3412"
+      ],
+      "linked_ambiguities": [],
+      "user_decision_required": false,
+      "confidence": "medium",
+      "depends_on_refs": ["RC3"]
+    },
+    {
+      "ref": "RC5",
+      "source_irs": ["IR4", "IR5"],
+      "source_findings": ["H-3"],
+      "proposed_title": "Geometry-ready barrier must resolve after 0x0 fit failure (regression)",
+      "proposed_statement": "시스템은 터미널 지오메트리 fit이 0×0 치수로 실패한 경우 geometryReadyRef를 미해결 상태로 영구 방치하지 않고 재시도 또는 가시성 회복 시 재계산해야 하며, 명령형 fit() 호출 경로도 동일하게 geometryReadyRef 상태 갱신에 반영해야 한다.",
+      "classification": "update",
+      "rationale": "REL-BGSTAB-009(Status=implemented) AC-7은 'geometry/buffer mismatch'를 포함한 실패 케이스가 ready/입력 해제를 영구 차단해서는 안 되며 bounded fresh-resync/reconnect로 수렴해야 한다고 명시적으로 규정한다. TerminalView.tsx의 double-rAF 초기 마운트(3858-3869), 가시성 전환 핸들러의 0-size skip(4303-4312), ResizeObserver(4109-4141), 명령형 fit() 핸들(2991-2996)이 이 계약을 만족하지 못하는 것으로 보이며, 이는 스펙 공백이 아니라 이미 구현된 AC-7/AC-8 대비 구현 회귀(gap-in-implementation)다. IR4(자동 fit 경로)와 IR5(명령형 fit 경로)는 동일한 AC-7 barrier-resolution 계약 위반이므로 하나의 REQ 후보로 합쳤다(merged because: 두 코드 경로 모두 같은 AC-7/AC-8 계약의 서로 다른 트리거 지점일 뿐, 계약 자체는 하나).",
+      "regression_against": {"id": "REL-BGSTAB-009", "acs": ["AC-7", "AC-8"]},
+      "affected_existing_reqs": [
+        {"id": "REL-BGSTAB-009", "relation": "conflicts_with", "diff_summary": "AC-7(geometry/buffer mismatch는 bounded resync로 수렴해야 함)과 AC-8(반복 remount가 loop/listener/timer를 leak하지 않아야 함) 대비 0x0 fit 실패 시 재시도 없이 barrier가 영구 미해결로 남는 구현 gap"}
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_prefix": null,
+      "proposed_type": null,
+      "evidence_paths": [
+        "frontend/src/components/Terminal/TerminalView.tsx:3858-3869",
+        "frontend/src/components/Terminal/TerminalView.tsx:4303-4312",
+        "frontend/src/components/Terminal/TerminalView.tsx:4109-4141",
+        "frontend/src/components/Terminal/TerminalView.tsx:2991-2996"
+      ],
+      "linked_ambiguities": [],
+      "user_decision_required": false,
+      "confidence": "high",
+      "depends_on_refs": []
+    },
+    {
+      "ref": "RC6",
+      "source_irs": ["IR6"],
+      "source_findings": ["H-4"],
+      "proposed_title": "Distinguishable rejection reason for authority/lease fencing failure (regression)",
+      "proposed_statement": "시스템은 authority/lease fencing 실패로 인한 입력 거절을 무관한 사유('server-error' 등)로 뭉뚱그리지 않고, InputRejectedReason 프로토콜상 구분 가능한 사유로 보고해야 한다.",
+      "classification": "update",
+      "rationale": "REL-BGSTAB-011(관련 AC 대상, target=wave-3) AC-6/AC-9는 stale-owner/lease 거절 및 종료 경로의 late input/resize 거절이 owner/generation 맥락과 함께 관찰 가능해야 한다고 요구한다. 그러나 SessionManager.ts:2985-2986,3009-3010에서 acceptRetainedTerminalMutationIdentity가 blockers.add 후 bare false만 반환하고, WsRouter.ts:4549-4555는 replay-pending을 제외한 모든 거절 코드를 'server-error'로 뭉갠다 — 클라이언트가 실제 원인(fencing 실패)을 구분할 수 없다. AC-6/AC-9 대비 구현 gap(회귀)으로 분류. A5(기존 enum 값 유지 + 신규 값 추가)의 제안 기본값을 채택.",
+      "regression_against": {"id": "REL-BGSTAB-011", "acs": ["AC-6", "AC-9"]},
+      "affected_existing_reqs": [
+        {"id": "REL-BGSTAB-011", "relation": "conflicts_with", "diff_summary": "AC-6/AC-9의 '거절은 owner/generation 맥락과 함께 관찰 가능해야 함' 대비 authority fencing 실패가 원인 불명 'server-error'로 뭉뚱그려지는 구현 gap"}
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_prefix": null,
+      "proposed_type": null,
+      "evidence_paths": [
+        "server/src/services/SessionManager.ts:2975-3011",
+        "server/src/ws/WsRouter.ts:4549-4555",
+        "server/src/types/ws-protocol.ts:422-434"
+      ],
+      "linked_ambiguities": ["A5"],
+      "user_decision_required": false,
+      "confidence": "high",
+      "depends_on_refs": []
+    },
+    {
+      "ref": "RC7",
+      "source_irs": ["IR8"],
+      "source_findings": ["H-4"],
+      "proposed_title": "MCP gateway retainedIdentity propagation for authority-fenced mutation",
+      "proposed_statement": "시스템은 MCP 게이트웨이 경유 mutation 요청에서 retainedIdentity를 전달하여 이 경로가 항상 'mutation-identity-missing'으로 귀결되지 않도록 해야 하며, 이것이 의도된 아키텍처 경계라면 그 사실을 명시적으로 문서화해야 한다.",
+      "classification": "new-feature",
+      "rationale": "A2가 정확히 이 질문(retainedIdentity 미전달이 의도된 경계인지 결함인지)을 제기하며 has_reasonable_default=false로 명시했다 — Phase1이 합리적 기본값을 제시하지 못했으므로 이 REQ 후보는 반드시 사용자 결정을 거쳐야 한다. FR-MCP-002 AC-1/AC-2는 MCP 경로에 관찰 가능한 명명된 거절 사유(INPUT_REJECTED_REPLAY_PENDING) 패턴을 이미 확립했지만, retainedIdentity/driver-lease 전파를 다루는 AC는 없어(existing_srs_context.json 확인) 새 영역이다. MCP scope §3 Assumption('MCP input, WebSocket input, restore input은 공유 입력 정책으로 수렴해야 함')이 이 REQ의 자연스러운 근거를 제공한다. 참고: intent.json의 IR8 증거 경로 'server/src/mcp/index.ts'는 실재하지 않는 파일(Glob 확인 결과 0건) — code_context.json이 검증한 'server/src/index.ts:293-308,336-347'로 정정했다.",
+      "regression_against": null,
+      "affected_existing_reqs": [
+        {"id": "FR-MCP-002", "relation": "extends", "diff_summary": "AC-1/AC-2의 관찰 가능한 거절 사유 패턴을 retainedIdentity/driver-lease 전파까지 확장하는 신규 AC — 단, 확장 여부 자체가 A2로 인해 사용자 결정 대기"}
+      ],
+      "proposed_scope": "MCP",
+      "proposed_prefix": "FR",
+      "proposed_type": "functional",
+      "evidence_paths": [
+        "server/src/index.ts:293-308",
+        "server/src/index.ts:336-347"
+      ],
+      "linked_ambiguities": ["A2"],
+      "user_decision_required": true,
+      "confidence": "medium",
+      "depends_on_refs": []
+    },
+    {
+      "ref": "RC8",
+      "source_irs": ["IR9"],
+      "source_findings": ["H-5"],
+      "proposed_title": "Config schema version field and explicit warning on missing safety-critical blocks",
+      "proposed_statement": "시스템은 설정 스키마에 schemaVersion 필드를 두고, 알려진 안전-critical 블록(stabilityModes, session.processCleanup 등)이 누락된 경우 조용히 안전 기본값으로 대체하는 대신 명시적 경고 로그를 남겨야 한다.",
+      "classification": "new-feature",
+      "rationale": "config.schema.ts:286-302 루트 스키마는 non-strict이며 version/migrat 키워드가 0건(code_context.json missing_evidence 확인)이다. dist/bin/win-amd64-0.5.bb/config.json5는 processCleanup/stabilityModes 블록이 통째로 없어 84-90(processCleanup.mode 기본값 'observe')과 201(wsSendMode 기본값 'direct', 가장 안전하지 않은 값)로 조용히 폴백되는 실제 사례다. FR-BGSTAB-008 AC-1(진짜 legacy-absent 케이스의 타입드 기본값 적용)은 의도된 baseline-recovery 동작이므로 유지하되, AC-2(present-but-invalid는 관찰 가능하게 실패)와 FR-BGSTAB-009 AC-1(동일 패턴, processCleanup) 사이에 '진짜 부재'와 '있지만 낡은 shape'를 구분할 버전 필드가 없다는 것이 갭이다. A3(완전 마이그레이션 엔진 대신 schemaVersion + 경고 로그의 최소 조치)의 제안 기본값을 채택하여 범위를 한정했다.",
+      "regression_against": null,
+      "affected_existing_reqs": [
+        {"id": "FR-BGSTAB-008", "relation": "extends", "diff_summary": "루트 config에 schemaVersion 필드 추가 + 안전-critical 블록 부재를 '진짜 legacy absent'와 구분하는 근거 마련"},
+        {"id": "FR-BGSTAB-009", "relation": "extends", "diff_summary": "session.processCleanup 블록 부재 시 동일한 schemaVersion 기반 구분/경고 적용"}
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_prefix": "MIG",
+      "proposed_type": "migration",
+      "evidence_paths": [
+        "server/src/schemas/config.schema.ts:286-302",
+        "server/src/schemas/config.schema.ts:84-90",
+        "server/src/schemas/config.schema.ts:201",
+        "dist/bin/win-amd64-0.5.bb/config.json5:21-24 (session block, processCleanup/stabilityModes 키 부재)"
+      ],
+      "linked_ambiguities": ["A3"],
+      "user_decision_required": false,
+      "confidence": "high",
+      "depends_on_refs": []
+    },
+    {
+      "ref": "RC9",
+      "source_irs": ["IR10"],
+      "source_findings": ["H-1"],
+      "proposed_title": "Provenance permit for keydown-less input (IME commit, emoji) races with xterm internal listeners",
+      "proposed_statement": "시스템은 keydown 없이 발생하는 insertText(IME 확정, 이모지 등) 입력에 대해서도 유효한 provenance permit을 부여해야 하며, permit 리스너 등록 순서가 xterm 내부 리스너보다 늦어 permit이 발급되지 않는 경합을 제거해야 한다.",
+      "classification": "new-feature",
+      "rationale": "REL-BGSTAB-009 AC-7의 IME 관련 조항은 '활성 composition 중 취소'를 다루며, H-1이 지적한 '커밋된 IME/이모지 텍스트가 provenance 오분류로 폐기되는' 시나리오와는 다른 메커니즘이다(느슨한 매치, potential-conflict 아님). FR-MCP-002 AC-2도 원칙만 유사할 뿐 provenance 분류 자체는 다루지 않는다. 기존 REQ가 실제로 다루지 않는 영역이므로 new-feature로 분류. 외부 vendor 모듈(xterm CoreBrowserTerminal.ts:384, CompositionHelper.ts:154) 내부 리스너 순서에 의존하는 수정이므로 external_module_impact 참고.",
+      "regression_against": null,
+      "affected_existing_reqs": [
+        {"id": "REL-BGSTAB-009", "relation": "extends", "diff_summary": "AC-7의 IME-active cancellation과는 별개로, committed IME/emoji 텍스트에 대한 provenance permit 발급 보장을 추가하는 인접 AC"}
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_prefix": "REL",
+      "proposed_type": "reliability",
+      "evidence_paths": [
+        "frontend/src/components/Terminal/TerminalView.tsx:3687-3698",
+        "frontend/src/components/Terminal/TerminalView.tsx:3889-3896",
+        "frontend/src/components/Terminal/TerminalView.tsx:4055",
+        "frontend/src/utils/terminalReplayGuard.ts:48-50"
+      ],
+      "linked_ambiguities": [],
+      "user_decision_required": false,
+      "confidence": "medium",
+      "depends_on_refs": []
+    },
+    {
+      "ref": "RC10",
+      "source_irs": ["IR11"],
+      "source_findings": ["M-1"],
+      "proposed_title": "Test coverage for captureAllowed=false / helper-textarea-disabled branch",
+      "proposed_statement": "시스템은 captureAllowed=false로 helper textarea가 disabled되는 분기에 대한 자동 테스트를 갖춰야 한다.",
+      "classification": "update",
+      "rationale": "FR-BGSTAB-014 AC-7은 backpressure/send-failure 시 명시적 실패 사유 반환과 입력 미기록을 요구하고, VE-BGSTAB-014-08(TC-7212/TC-7213)이 stale-socket/send-failed 경로를 커버하지만 captureAllowed=false 분기(TerminalView.tsx:1044-1047) 자체에 대한 검증 증거가 0건이다. 이는 새 기능이 아니라 기존 REQ의 검증 완전성 gap이므로 update로 분류 — FR-BGSTAB-014에 이 분기를 명시하는 검증 증거 요구를 보강한다.",
+      "regression_against": null,
+      "affected_existing_reqs": [
+        {"id": "FR-BGSTAB-014", "relation": "extends", "diff_summary": "AC-7 검증 범위에 captureAllowed=false/helper-textarea-disabled 분기의 자동 테스트 커버리지를 명시적으로 추가"}
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_prefix": null,
+      "proposed_type": null,
+      "evidence_paths": [
+        "frontend/src/components/Terminal/TerminalView.tsx:1044-1047",
+        "frontend/tests/e2e/terminal-context-menu-registered-items.spec.ts (intent.json 인용, code_context 미재검증)",
+        "frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts (intent.json 인용, code_context 미재검증)"
+      ],
+      "linked_ambiguities": [],
+      "user_decision_required": false,
+      "confidence": "medium",
+      "depends_on_refs": []
+    },
+    {
+      "ref": "RC11",
+      "source_irs": ["IR12"],
+      "source_findings": ["M-2"],
+      "proposed_title": "Disposition policy for RED tests targeting unimplemented/dead components",
+      "proposed_statement": "시스템은 pane-keyboard.spec.ts의 TC-6601/6602/6606이 겨냥하는 기능(.status-prefix 표시)을 구현하거나, 사장된 컴포넌트를 대체할 활성 컴포넌트로 테스트를 재조준하거나, 테스트를 명시적으로 skip 처리해야 한다.",
+      "classification": "new-feature",
+      "rationale": "existing_srs_context.json이 확인한 가장 가까운 이웃(REL-BGSTAB-006, 스플릿 WebSocket 전송에 국한된 drift 특성화)조차 명시적으로 unrelated로 표기됐다. RED 테스트가 사장 컴포넌트(StatusBar.tsx:20 — import하는 곳 없음)를 겨냥한 채 방치되는 것을 다루는 REQ가 어디에도 없어 신규 REQ로 분류. BGSTAB이 이미 REL-BGSTAB-001(CI 테스트 통과)과 REL-BGSTAB-006(drift 특성화) 등 테스트 인프라 도메인을 보유하므로 new-scope 대신 BGSTAB 내 new-feature로 자연 귀속.",
+      "regression_against": null,
+      "affected_existing_reqs": [],
+      "proposed_scope": "BGSTAB",
+      "proposed_prefix": "OPS",
+      "proposed_type": "operational",
+      "evidence_paths": [
+        "frontend/tests/e2e/pane-keyboard.spec.ts:1-29",
+        "frontend/src/components/StatusBar/StatusBar.tsx:20 (intent.json 인용, code_context 미재검증)"
+      ],
+      "linked_ambiguities": [],
+      "user_decision_required": false,
+      "confidence": "medium",
+      "depends_on_refs": []
+    },
+    {
+      "ref": "RC12",
+      "source_irs": ["IR13"],
+      "source_findings": ["M-3"],
+      "proposed_title": "Document /api/runtime-config as intentionally unauthenticated",
+      "proposed_statement": "시스템은 /api/runtime-config 엔드포인트가 시크릿 없는 화이트리스트 값만 노출하도록 설계된 무인증 엔드포인트임을 FR-BGSTAB-008의 Rationale에 명시적으로 문서화해야 한다.",
+      "classification": "update",
+      "rationale": "FR-BGSTAB-008 AC-5는 이미 이 엔드포인트가 non-secret public 값(inputReliabilityMode, wsTransportMode 등)만 노출하도록 명시적으로 규정한다 — public-by-design이 이미 AC로 존재하며, M-3의 finding은 시크릿 유출을 주장하지 않는다. 신규 REQ 대신 기존 AC-5의 의도를 Rationale 수준에서 명시적으로 재확인하는 문서 보강(update)으로 충분하다. A4(무인증 유지 + 문서화)의 제안 기본값과 일치.",
+      "regression_against": null,
+      "affected_existing_reqs": [
+        {"id": "FR-BGSTAB-008", "relation": "extends", "diff_summary": "AC-5의 public-by-design 의도를 Rationale에 명시적으로 재확인 — 새 AC나 동작 변경 없음"}
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_prefix": null,
+      "proposed_type": null,
+      "evidence_paths": [
+        "server/src/index.ts:530-532"
+      ],
+      "linked_ambiguities": ["A4"],
+      "user_decision_required": false,
+      "confidence": "high",
+      "depends_on_refs": []
+    },
+    {
+      "ref": "RC13",
+      "source_irs": ["IR14"],
+      "source_findings": ["신규-1"],
+      "proposed_title": "Input-only backpressure scope vs. output-path memory growth — policy question (not a defect)",
+      "proposed_statement": "(REQ 초안 아님 — 정책 결정 필요) 브라우저 입력 백프레셔가 입력 경로에만 적용되고 출력 경로는 경유하지 않는 현재 설계를 유지할지, 출력 경로까지 확장할지, 그리고 프로덕션 임계값이 문서화된 기본값의 46%로 설정된 사유를 별도로 문서화할지 결정 필요.",
+      "classification": "conflict",
+      "rationale": "FR-BGSTAB-002(Stability=stable, Status=implemented)의 Requirement/Rationale 원문이 'Control and recovery messages shall continue to bypass input backpressure' / 'Input-only gating limits memory growth without blocking snapshot, repair, or subscription recovery traffic'로 명시하여, 입력 전용 게이팅은 결함이 아니라 승인된 설계 의도다(similarity 0.85). 이는 신규 REQ를 만들 사안이 아니라 이미 stable한 요구의 의도된 설계와 충돌하는 정책 질문이므로 지시사항에 따라 conflict + user_decision_required=true로 두고 REQ 신설을 제안하지 않는다. 임계값(46%) 사유 문서화는 정책 결정과 무관하게 별도로 진행 가능한 경량 문서 보강이나, 이 역시 결정 전 범위 확정이 필요해 같은 IR로 유지.",
+      "regression_against": null,
+      "affected_existing_reqs": [
+        {"id": "FR-BGSTAB-002", "relation": "conflicts_with", "diff_summary": "신규-1의 '출력 경로까지 확장해야 한다'는 제안이 FR-BGSTAB-002의 명시적 input-only 설계 의도와 정면 충돌 — 결함이 아니라 스코프 정책 결정 사안"}
+      ],
+      "proposed_scope": null,
+      "proposed_prefix": null,
+      "proposed_type": null,
+      "evidence_paths": [
+        "frontend/src/utils/webSocketBackpressure.ts:79-82"
+      ],
+      "linked_ambiguities": [],
+      "user_decision_required": true,
+      "confidence": "high",
+      "depends_on_refs": []
+    },
+    {
+      "ref": "RC14",
+      "source_irs": ["IR15"],
+      "source_findings": ["신규-2"],
+      "proposed_title": "CI must execute unit and Playwright E2E tests",
+      "proposed_statement": "시스템은 CI 파이프라인(.github/workflows/release.yml)에서 유닛 테스트와 Playwright E2E 테스트를 실행해야 한다.",
+      "classification": "update",
+      "rationale": "REL-BGSTAB-001 AC-1/AC-2/AC-3은 서버/프런트엔드 테스트 스위트가 '실행되면(when run)' 통과해야 한다고 요구하지만 CI에서 자동 실행되어야 한다고는 명시하지 않는다. release.yml 전체(1-351)에 npm test/playwright 실행 스텝이 0건 확인되어, 'when run' 보장이 실질적으로 지속적 신뢰를 주지 못하는 gap이다. 신규 REQ 대신 REL-BGSTAB-001에 CI 실행 강제 AC를 추가하는 update로 분류.",
+      "regression_against": null,
+      "affected_existing_reqs": [
+        {"id": "REL-BGSTAB-001", "relation": "extends", "diff_summary": "AC-1/AC-2/AC-3이 요구하는 테스트 스위트가 CI 파이프라인에서 자동 실행되어야 한다는 명시적 AC 추가"}
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_prefix": null,
+      "proposed_type": null,
+      "evidence_paths": [
+        ".github/workflows/release.yml:1-351"
+      ],
+      "linked_ambiguities": [],
+      "user_decision_required": false,
+      "confidence": "high",
+      "depends_on_refs": []
+    },
+    {
+      "ref": "RC15",
+      "source_irs": ["IR16"],
+      "source_findings": ["신규-3"],
+      "proposed_title": "E2E tests must target a fresh production bundle, not stale reused artifacts",
+      "proposed_statement": "시스템은 E2E 테스트가 최신 프로덕션 번들을 대상으로 실행됨을 보장해야 하며, 존재 여부만으로 낡은 배포 산출물을 재사용하지 않아야 한다.",
+      "classification": "new-feature",
+      "rationale": "existing_srs_context.json의 findings_with_no_match가 명시적으로 '어떤 scope 문서도 Playwright/E2E 대상 번들 신선도, reuseExistingServer, stale-dist 재사용을 다루지 않는다'고 확인했다 — 진짜 신규 gap. tools/start-runtime.js:242-250(hasDeploymentArtifacts, 존재 여부만 확인)와 playwright.config.ts:33-38(reuseExistingServer:true가 CI 조건 없이 무조건 적용)이 근거. BGSTAB이 이미 테스트 인프라 도메인(REL-BGSTAB-001)을 보유하므로 new-scope 대신 BGSTAB 내 new-feature로 분류.",
+      "regression_against": null,
+      "affected_existing_reqs": [],
+      "proposed_scope": "BGSTAB",
+      "proposed_prefix": "OPS",
+      "proposed_type": "operational",
+      "evidence_paths": [
+        "tools/start-runtime.js:242-250",
+        "frontend/playwright.config.ts:33-38"
+      ],
+      "linked_ambiguities": [],
+      "user_decision_required": false,
+      "confidence": "medium",
+      "depends_on_refs": []
+    },
+    {
+      "ref": "RC16",
+      "source_irs": ["IR17"],
+      "source_findings": ["신규-4"],
+      "proposed_title": "Browser-level automated coverage for React StrictMode double-mount",
+      "proposed_statement": "시스템은 React StrictMode 이중 마운트 방어 로직(dispose/remount/generation race)에 대한 자동화된 브라우저 커버리지를 가져야 한다.",
+      "classification": "update",
+      "rationale": "REL-BGSTAB-009 AC-6(및 AC-10의 TDD 요구가 명시하는 'dispose, generation race' 테스트 축)과 FR-BGSTAB-022 AC-6(dispose/remount/supersede가 generation을 증가시켜 late callback을 no-op화)이 이미 이 계약을 규정하지만, 검증 증거는 static AST inventory(terminalSoleWriterInventory.test.ts) 등 유닛/정적 수준에 그치고 브라우저 수준 StrictMode 이중 마운트 테스트는 0건이다. 신규 요구가 아니라 기존 REQ 두 건의 검증 증거 gap이므로 update로 분류.",
+      "regression_against": null,
+      "affected_existing_reqs": [
+        {"id": "REL-BGSTAB-009", "relation": "extends", "diff_summary": "AC-6/AC-10 검증 증거에 브라우저 수준 StrictMode 이중 마운트 테스트를 명시적으로 추가"},
+        {"id": "FR-BGSTAB-022", "relation": "extends", "diff_summary": "AC-6 검증 증거에 동일한 브라우저 수준 StrictMode 테스트를 추가"}
+      ],
+      "proposed_scope": "BGSTAB",
+      "proposed_prefix": null,
+      "proposed_type": null,
+      "evidence_paths": [
+        "frontend/src/main.tsx (intent.json 인용, code_context 미재검증)",
+        "frontend/src/contexts/WebSocketContext.tsx:1233-1237 (intent.json 인용, code_context 미재검증)",
+        "frontend/src/components/Terminal/TerminalView.tsx:3130 (term.open — intent.json은 3106으로 인용했으나 code_context.json 검증값 3130 사용)"
+      ],
+      "linked_ambiguities": [],
+      "user_decision_required": false,
+      "confidence": "medium",
+      "depends_on_refs": []
+    },
+    {
+      "ref": "RC17",
+      "source_irs": ["IR18"],
+      "source_findings": ["신규-5"],
+      "proposed_title": "Visible connection status during the reconnect window",
+      "proposed_statement": "시스템은 연결 끊김 이후 재연결 창(reconnect window) 동안에도 사용자에게 연결 상태를 시각적으로 표시해야 한다.",
+      "classification": "new-feature",
+      "rationale": "existing_srs_context.json의 findings_with_no_match가 명시적으로 확인: FR-BGSTAB-002 AC-3(hard backpressure 시 reconnect 경로 트리거)과 FR-BGSTAB-014 AC-7(WebSocketContext의 명시적 실패 사유 반환)은 연결/백프레셔 상태가 내부적으로 계산·보유됨을 규정하지만 어떤 AC도 이를 사용자에게 렌더링하도록 요구하지 않는다. StatusBar.tsx는 사장 컴포넌트(import하는 곳 없음), DisconnectedOverlay.tsx는 세션 오류에만 표시 — 진짜 신규 UX gap.",
+      "regression_against": null,
+      "affected_existing_reqs": [],
+      "proposed_scope": "BGSTAB",
+      "proposed_prefix": "FR",
+      "proposed_type": "functional",
+      "evidence_paths": [
+        "frontend/src/components/StatusBar/StatusBar.tsx:16-18 (intent.json 인용, code_context 미재검증)",
+        "frontend/src/components/Workspace/DisconnectedOverlay.tsx (intent.json 인용, code_context 미재검증)"
+      ],
+      "linked_ambiguities": [],
+      "user_decision_required": false,
+      "confidence": "medium",
+      "depends_on_refs": []
+    }
+  ],
+  "scope_boundary_impact": [
+    {
+      "rc": "RC3",
+      "boundary": "BGSTAB §3 Assumptions: 'Raw terminal input must not be written to debug logs when backpressure or reconnect handling occurs.'",
+      "impact": "최소 감사 기록 AC는 원문 키 입력이 아닌 메타데이터(원인/타임스탬프/상관관계 ID)만 기록해야 함 — OBS-BGSTAB-001 AC-2와 동일 제약."
+    },
+    {
+      "rc": "RC13",
+      "boundary": "BGSTAB §3 Assumptions에는 명시적 문구 없음 — FR-BGSTAB-002 Requirement 원문(Stability=stable)이 사실상의 스코프 경계로 기능.",
+      "impact": "신규-1의 '출력 경로까지 확장' 요청은 FR-BGSTAB-002가 정의한 in-scope 경계(입력 전용 게이팅)를 넘어서는 확장 제안 — 결함 보고가 아니라 스코프 확장 여부에 대한 정책 결정."
+    }
+  ],
+  "external_module_impact": [
+    {
+      "rc": "RC9",
+      "module": "xterm.js (vendor, out-of-repo) — CoreBrowserTerminal.ts:384, CompositionHelper.ts:154",
+      "impact": "BGSTAB Out-of-Scope는 'xterm.js 교체'만 금지하며 내부 리스너 순서 의존 자체는 금지하지 않는다. 다만 permit 리스너 등록 순서를 xterm 내부 리스너보다 앞세우는 수정은 xterm 내부 구현(vendor 코드, 이 리포의 SRS 통제 밖)에 의존하게 되어 xterm 버전 업그레이드 시 재발 위험이 있음 — 구현 단계에서 별도 회귀 가드 필요. 이 두 vendor 파일 인용은 code_context.json의 재검증 대상에 포함되지 않았음(intent.json 원문 인용만 확인됨)."
+    }
+  ],
+  "conflicts_requiring_user_decision": ["RC7", "RC13"],
+  "no_action_items": [],
+  "notes": "IR1~IR18을 17개 REQ 후보(RC1~RC17)로 정리했다(IR4+IR5를 REL-BGSTAB-009 AC-7/AC-8 동일 계약 위반으로 병합, 나머지는 1:1). 분류 결과: new-feature 8건(RC1,RC2,RC7,RC8,RC9,RC11,RC15,RC17), update 8건(RC3,RC4,RC5,RC6,RC10,RC12,RC14,RC16), conflict 1건(RC13), no_action 0건 — 합계 17건. update 중 RC5/RC6은 명시적 회귀(regression_against)로 status=implemented인 REL-BGSTAB-009/REL-BGSTAB-011 대비 구현 gap이며 신규 REQ가 아니다. RC12(M-3)는 FR-BGSTAB-008 AC-5가 이미 public-by-design을 규정하므로 문서 보강 update로 최소화했다. RC13(IR14, 신규-1)은 지시사항에 따라 FR-BGSTAB-002(stable)의 의도된 설계와의 정책 충돌로만 남기고 신규 REQ를 제안하지 않았다. 사용자 결정이 필요한 항목은 RC7(A2, has_reasonable_default=false)과 RC13(stable REQ와의 정책 충돌) 2건뿐 — 나머지 ambiguity 연결(A1/A3/A4/A5)은 모두 has_reasonable_default=true이므로 제안된 기본값을 그대로 채택해 사용자 결정 없이 진행 가능하도록 분류했다. 증거 정확성 관련: RC7의 intent.json 원 인용 파일 'server/src/mcp/index.ts'는 실재하지 않아(Glob 0건) code_context.json이 검증한 'server/src/index.ts'로 정정했고, RC16의 term.open() 라인 인용도 intent.json(3106)과 code_context.json 검증값(3130)이 달라 검증값을 채택했다. RC10/RC11/RC16/RC17은 일부 증거 경로가 code_context.json의 명시적 재검증 목록에 없어(intent.json/existing_srs_context.json 인용만 확인) 각 항목에 '미재검증' 주석을 남겼다 — 파일 경로 자체를 지어내지는 않았다."
+}

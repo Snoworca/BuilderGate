@@ -1,0 +1,23 @@
+{
+  "run_id": "2026-07-15.projectmaster.wave-1.v01",
+  "mode": "live",
+  "flags": ["--auto"],
+  "target": "wave-1",
+  "mcp": true,
+  "cli": "diagnostic-only-not-used",
+  "halted": false,
+  "workspace_root": "C:/Work/git/_Snoworca/ProjectMaster",
+  "speckiwi_package_version": "2.3.1",
+  "tools_detected": {
+    "get_active_target": true,
+    "list_requirements": true,
+    "get_requirement": true,
+    "update_stability": true,
+    "validate_spec": true,
+    "summarize_target": true,
+    "tag_mutation": false
+  },
+  "active_target_confirmed": true,
+  "external_module_scope": false,
+  "research_enabled": false
+}

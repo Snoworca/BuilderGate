@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0",
+  "requirementId": "OBS-BGSTAB-005",
+  "phaseId": "PH-001",
+  "reviewIteration": 7,
+  "reviewFindings": { "high": 1, "medium": 0 },
+  "targetedRed": {
+    "command": "npx tsx --test --test-name-pattern \"catalog evidence\" src/services/TerminalResourcePolicy.test.ts",
+    "total": 1,
+    "passed": 0,
+    "failed": 1,
+    "failedMutation": "unchanged-guard-after-constant-return"
+  },
+  "failedContracts": [
+    "an unchanged guard after `if (true) return` or `try { return } finally {}` retained the same local AST envelope"
+  ],
+  "expectedRepair": "Validate the reviewed canonical source hash and source-set hash in addition to granular AST role/fingerprint evidence; rebaseline only through an explicit reviewed manifest change."
+}

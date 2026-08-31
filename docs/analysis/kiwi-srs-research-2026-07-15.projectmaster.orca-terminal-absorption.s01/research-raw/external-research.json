@@ -1,0 +1,167 @@
+{
+  "researcher": "researcher_b",
+  "role": "Orca read-only source research",
+  "baseline": "e0edc8ef76d341f7ab8083a006f785322bcaeb23",
+  "normalization_note": "Researcher B의 독립 실행과 원본 재감사 결과를 kiwi-srs-research 5.2 필수 schema로 정규화했다. Orca 저장소는 읽기 전용으로 유지했다.",
+  "sources_consulted": [
+    {
+      "type": "local-read-only-repository",
+      "ref": "C:/Work/git-none/orca@e0edc8ef76d341f7ab8083a006f785322bcaeb23",
+      "summary": "daemon batching/backpressure, headless snapshot, remote ACK recovery, hidden delivery, WebGL lifecycle, copy/paste/IME/OSC52 구현을 소스 수준에서 감사했다."
+    }
+  ],
+  "best_practices": [
+    {
+      "claim": "socket queue를 얕게 유지하고 session별 application queue에서 작은 interactive output이 bulk output을 추월하도록 한다.",
+      "source": "C:/Work/git-none/orca/src/main/daemon/daemon-stream-data-batcher.ts",
+      "confidence": "high"
+    },
+    {
+      "claim": "model ingestion을 먼저 등록한 뒤 hidden delivery를 제한하고, 손실 구간은 dataGap과 snapshot으로 명시적으로 복구한다.",
+      "source": "C:/Work/git-none/orca/src/main/ipc/pty-hidden-delivery-gate.ts",
+      "confidence": "high"
+    },
+    {
+      "claim": "WebGL은 자동 정책과 DOM fallback을 함께 사용하고 suspend 시 context를 명시적으로 해제한다.",
+      "source": "C:/Work/git-none/orca/src/renderer/src/lib/pane-manager/pane-webgl-renderer.ts",
+      "confidence": "high"
+    },
+    {
+      "claim": "paste, IME, OSC52는 별도 경계와 상태 머신을 두고 clipboard write는 사용자 opt-in으로 제한한다.",
+      "source": "C:/Work/git-none/orca/src/renderer/src/components/terminal-pane",
+      "confidence": "high"
+    }
+  ],
+  "library_recommendations": [
+    {
+      "library": "@xterm/addon-webgl",
+      "recommendation": "visible terminal에 조건부 활성화하고 context loss 시 DOM renderer로 즉시 fallback한다. Orca의 beta private patch는 그대로 복사하지 않는다."
+    },
+    {
+      "library": "@xterm/addon-unicode11",
+      "recommendation": "서버 headless와 브라우저 renderer에 동일하게 활성화하고 필요한 custom width provider도 양쪽에 동일 적용한다."
+    }
+  ],
+  "standards_references": [],
+  "findings": [
+    {
+      "id": "B1",
+      "claim": "daemon은 RPC용 control socket과 출력용 stream socket을 분리한다. client는 control을 먼저 연결한 뒤 stream을 연결하며, protocol version·token·clientId·role로 handshake한다.",
+      "evidence": ["C:/Work/git-none/orca/src/main/daemon/types.ts:81-87", "C:/Work/git-none/orca/src/main/daemon/client.ts:88-93", "C:/Work/git-none/orca/src/main/daemon/daemon-server.ts:204-240"],
+      "confidence": "high"
+    },
+    {
+      "id": "B2",
+      "claim": "shallow socket gate는 writableLength 기준 128KiB, 즉 bytes 단위다. bulk slice는 64Ki UTF-16 code units, small-session bypass는 4Ki code units, held-memory safety valve는 총 32Mi code units다.",
+      "evidence": ["C:/Work/git-none/orca/src/main/daemon/daemon-stream-data-batcher.ts:35-60", "C:/Work/git-none/orca/src/main/daemon/daemon-stream-data-batcher.ts:236-258"],
+      "confidence": "high"
+    },
+    {
+      "id": "B3",
+      "claim": "gate가 막힌 session의 후속 entry도 같은 flush pass에서 모두 hold해 session 내부 순서를 보존한다. 다른 session의 작은 echo/control은 우회할 수 있으므로 session 간 공정성을 위해 전역 FIFO를 의도적으로 완화한다.",
+      "evidence": ["C:/Work/git-none/orca/src/main/daemon/daemon-stream-data-batcher.ts:216-244"],
+      "confidence": "high"
+    },
+    {
+      "id": "B4",
+      "claim": "배경 stream thinning은 model에 들어간 데이터가 아니라 renderer monitoring queue의 가장 오래된 데이터만 버린다. session tail은 최대 512Ki chars, 최소 64Ki chars, 전역 약 2Mi chars이며 cap은 keep-tail의 2배다.",
+      "evidence": ["C:/Work/git-none/orca/src/main/daemon/daemon-stream-keep-tail-drop.ts:40-72"],
+      "confidence": "high"
+    },
+    {
+      "id": "B5",
+      "claim": "drop 위치에는 dataGap control event가 남고 control entry는 drop 대상이 아니다. 전달 문자열 길이와 원본 sequence 진행량을 분리하기 위해 sequenceChars가 존재하며, salvage query는 sequence 진행량 0이다.",
+      "evidence": ["C:/Work/git-none/orca/src/main/daemon/daemon-stream-keep-tail-drop.ts:14-24", "C:/Work/git-none/orca/src/main/daemon/daemon-stream-keep-tail-drop.ts:148-175"],
+      "confidence": "high"
+    },
+    {
+      "id": "B6",
+      "claim": "producer flow control은 pending이 256Ki chars를 초과할 때 pause하고 32Ki chars 미만일 때 resume한다. 5초 후에도 high 이상이면 pause를 재요청하며 daemon도 lost-resume 방지를 위해 5초 failsafe resume를 둔다.",
+      "evidence": ["C:/Work/git-none/orca/src/main/ipc/pty-producer-flow-control.ts:8-63", "C:/Work/git-none/orca/src/main/daemon/session.ts:35-39", "C:/Work/git-none/orca/src/main/daemon/session.ts:224-240"],
+      "confidence": "high"
+    },
+    {
+      "id": "B7",
+      "claim": "ACK-pending overflow 시 server는 headless snapshot을 우선하고 renderer fallback을 허용해 snapshot frame을 전송한 뒤, snapshot seq 이하의 queued chunks를 제거하고 live output을 재개한다. 이는 ‘손실을 숨기는 tail replay’가 아니라 명시적인 state replacement지만 explicit epoch나 snapshot-apply ACK는 없다.",
+      "evidence": ["C:/Work/git-none/orca/src/main/runtime/rpc/methods/terminal.ts:1553-1618", "C:/Work/git-none/orca/src/main/runtime/orca-runtime.ts:7097-7118", "C:/Work/git-none/orca/src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:440-550", "C:/Work/git-none/orca/src/shared/terminal-stream-protocol.ts:1-45"],
+      "confidence": "high"
+    },
+    {
+      "id": "B8",
+      "claim": "headless model ingestion 또는 parse scheduling은 renderer delivery gate보다 먼저 등록되고 snapshot은 model write chain을 기다린다. daemon은 private writeSync를 우선하지만 async fallback도 있으므로 모든 byte의 동기 parse 완료가 delivery보다 앞선다고 단정할 수 없다. Unicode 11과 ZWJ-aware custom provider는 model과 renderer 양쪽에 활성화된다.",
+      "evidence": ["C:/Work/git-none/orca/src/main/daemon/session.ts:553-587", "C:/Work/git-none/orca/src/main/daemon/headless-emulator.ts:223-290", "C:/Work/git-none/orca/src/main/runtime/orca-runtime.ts:5679-5714", "C:/Work/git-none/orca/src/main/runtime/orca-runtime.ts:6978-6995", "C:/Work/git-none/orca/src/shared/terminal-unicode-provider.ts:12-70", "C:/Work/git-none/orca/src/renderer/src/lib/pane-manager/pane-dom-creation.ts:60", "C:/Work/git-none/orca/src/renderer/src/lib/pane-manager/pane-lifecycle.ts:68"],
+      "confidence": "high"
+    },
+    {
+      "id": "B9",
+      "claim": "일반 snapshot model은 normal/alternate buffer, modes, dimensions, OSC links, pending escape tail을 분리하고 alt transition은 rehydrate sequence가 소유한다. 다만 remote ACK-overflow payload는 oscLinks와 pendingEscapeTailAnsi를 전달하지 않으므로 두 snapshot 경로가 완전히 동등하다고 볼 수 없다.",
+      "evidence": ["C:/Work/git-none/orca/src/main/daemon/terminal-snapshot-ansi-buffers.ts:7-18", "C:/Work/git-none/orca/src/main/daemon/terminal-mode-rehydrate-sequences.ts:3-41", "C:/Work/git-none/orca/src/main/daemon/headless-emulator.ts:309-352", "C:/Work/git-none/orca/src/main/daemon/types.ts:30-50", "C:/Work/git-none/orca/src/main/runtime/rpc/methods/terminal.ts:1584-1595", "C:/Work/git-none/orca/src/main/runtime/rpc/methods/terminal.ts:2201-2215"],
+      "confidence": "high"
+    },
+    {
+      "id": "B10",
+      "claim": "hidden delivery는 model ingestion 후 renderer-bound bytes만 drop한다. sidecar consumer가 delivery interest를 잡으면 gate가 억제된다. 최초 drop latch를 renderer crash/reload 동안 보존하고 reveal 때 restore marker를 재방출한다.",
+      "evidence": ["C:/Work/git-none/orca/src/main/ipc/pty-hidden-delivery-gate.ts:5-114", "C:/Work/git-none/orca/src/main/ipc/pty.ts:2612-2656", "C:/Work/git-none/orca/src/main/ipc/pty.ts:4900-4910"],
+      "confidence": "high"
+    },
+    {
+      "id": "B11",
+      "claim": "WebGL context loss 시 즉시 DOM renderer로 fallback하고 resume/wake를 bounded retry boundary로 삼는다. hide/suspend는 addon을 dispose하며 Windows/ANGLE context budget을 위해 WEBGL_lose_context도 호출한다.",
+      "evidence": ["C:/Work/git-none/orca/src/renderer/src/lib/pane-manager/pane-webgl-renderer.ts:102-189", "C:/Work/git-none/orca/src/renderer/src/lib/pane-manager/pane-rendering-control.ts:45-59"],
+      "confidence": "high"
+    },
+    {
+      "id": "B12",
+      "claim": "Windows/Linux Ctrl+C는 selection이 있을 때만 copy pipeline으로 우회하고, selection이 없으면 SIGINT로 PTY에 전달한다.",
+      "evidence": ["C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/xterm-bypass-policy.ts:258-263"],
+      "confidence": "high"
+    },
+    {
+      "id": "B13",
+      "claim": "terminal paste는 UTF-8 기준 direct 64KiB, chunk 16KiB, total 16MiB, local timeout 30초, remote 120초다. chunk write는 가능하면 sendInputAccepted를 사용해 PTY acceptance/backpressure를 기다린다.",
+      "evidence": ["C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/terminal-paste-limits.ts:1-5", "C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/terminal-paste-executor.ts:109-115", "C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/terminal-pty-paste-writer.ts:5-14", "C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/terminal-paste-chunks.ts:13-71"],
+      "confidence": "high"
+    },
+    {
+      "id": "B14",
+      "claim": "128KiB gate는 Node socket의 약 16KiB highWaterMark와 Orca 측정 환경에 맞춘 값이다.",
+      "evidence": ["C:/Work/git-none/orca/src/main/daemon/daemon-stream-data-batcher.ts:31-40"],
+      "confidence": "high"
+    },
+    {
+      "id": "B15",
+      "claim": "xterm private _core.writeSync, saved cursor fields, WebGL addon internals 및 beta patch는 버전 결합도가 높다.",
+      "evidence": ["C:/Work/git-none/orca/src/main/daemon/headless-emulator.ts:269-282", "C:/Work/git-none/orca/src/shared/terminal-serialize-absolute-cursor.ts:24-50", "C:/Work/git-none/orca/src/renderer/src/lib/pane-manager/pane-webgl-renderer.ts:19-27", "C:/Work/git-none/orca/src/renderer/src/lib/pane-manager/pane-webgl-renderer.ts:102-115", "C:/Work/git-none/orca/package.json:168", "C:/Work/git-none/orca/package.json:268-272", "C:/Work/git-none/orca/config/patches/@xterm__addon-webgl@0.20.0-beta.286.patch:44-107"],
+      "confidence": "high"
+    },
+    {
+      "id": "B16",
+      "claim": "daemon stream batcher는 일반 output을 2ms window로 모으고, shallow gate에 hold가 남으면 client별 latch로 하나의 실제 empty-data protocol no-op frame을 기록한다. 그 socket write callback이 drain을 기다리지 않고 flush를 재호출하며 drain은 backstop으로 남는다.",
+      "evidence": ["C:/Work/git-none/orca/src/main/daemon/daemon-stream-data-batcher.ts:21-26", "C:/Work/git-none/orca/src/main/daemon/daemon-stream-data-batcher.ts:154-156", "C:/Work/git-none/orca/src/main/daemon/daemon-stream-data-batcher.ts:284-312", "C:/Work/git-none/orca/src/main/daemon/daemon-stream-data-batcher.test.ts:540-565"],
+      "confidence": "high"
+    },
+    {
+      "id": "B17",
+      "claim": "paste coordinator는 UTF-8 기준 direct 64KiB·chunk 16KiB·total 16MiB와 local 30초/remote 120초 timeout을 적용하고 가능하면 PTY acceptance를 기다리며, bracketed paste의 ESC를 U+241B로 inert 처리한다. IME는 composition·candidate-key·post-composition 상태를 분리해 추적한다. OSC52는 사용자 opt-in write만 허용하고 query는 무응답이며 selection/base64 형식과 encoded payload 128Ki code-unit 상한을 검사한다.",
+      "evidence": ["C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/terminal-paste-limits.ts:1-5", "C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/terminal-paste-executor.ts:109-115", "C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/terminal-pty-paste-writer.ts:5-14", "C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/terminal-paste-chunks.ts:13-71", "C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/terminal-ime-composition-tracker.ts:3-18", "C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/terminal-ime-candidate-key-release-guard.ts:9-24", "C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/terminal-ime-linux-candidate-state.ts:118-202", "C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/osc52-clipboard.ts:11-18", "C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/osc52-clipboard.ts:31-105", "C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/use-terminal-pane-lifecycle.ts:819-836"],
+      "confidence": "high"
+    },
+    {
+      "id": "B18",
+      "claim": "Orca의 terminal query reply 권한은 model 또는 view에 고정되지 않고 live PTY chunk의 delivery 결과로 결정된다. 정상적으로 live view에 전달된 chunk는 해당 renderer/remote xterm이 답하고, hidden-delivery gate가 renderer 전달을 버린 live chunk만 main runtime model responder가 답한다. 이 결정은 ingestion 시점에 chunk별로 캡처되며, remote view subscriber가 있으면 main은 침묵한다. 여러 mobile view에서는 mobile driver 상태에서 가장 먼저 등록된 phone-fitted subscriber 하나의 query-reply만 서버가 수락한다. Seed·hydration·snapshot byte는 main의 forwarding flag를 켜지 않고, renderer replay는 replay guard가 xterm onData를 차단하므로 과거 query가 재응답되지 않는다. Daemon emulator도 reply sink 없이 생성되어 답하지 않는다. 따라서 안정 상태에서는 delivered 또는 dropped 중 한 소유자만 답하며 hidden restore/replay에서도 중복 응답을 막는다. 다만 visibility 전환 race나 query sequence가 drop/deliver 경계에서 분할되면 응답이 누락될 수 있으므로 전체 전환 구간의 보장은 always-exactly-once가 아니라 at-most-once이다.",
+      "evidence": ["C:/Work/git-none/orca/docs/reference/terminal-model-view-contract.md:48-53", "C:/Work/git-none/orca/docs/reference/terminal-model-view-contract.md:139-140", "C:/Work/git-none/orca/docs/reference/terminal-query-authority.md:30-49", "C:/Work/git-none/orca/docs/reference/terminal-query-authority.md:76-117", "C:/Work/git-none/orca/docs/reference/terminal-query-authority.md:195-227", "C:/Work/git-none/orca/docs/reference/terminal-query-authority.md:243-272", "C:/Work/git-none/orca/src/main/runtime/terminal-model-query-authority.ts:23-46", "C:/Work/git-none/orca/src/main/runtime/orca-runtime.ts:5679-5714", "C:/Work/git-none/orca/src/main/runtime/orca-runtime.ts:6617-6672", "C:/Work/git-none/orca/src/main/runtime/orca-runtime.ts:6827-6845", "C:/Work/git-none/orca/src/main/runtime/orca-runtime.ts:6877-6890", "C:/Work/git-none/orca/src/main/runtime/orca-runtime.ts:6968-7036", "C:/Work/git-none/orca/src/main/ipc/pty.ts:2612-2656", "C:/Work/git-none/orca/src/main/runtime/rpc/methods/terminal.ts:1085-1119", "C:/Work/git-none/orca/src/main/runtime/rpc/methods/terminal.ts:2068-2086", "C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/replay-guard.ts:10-32", "C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/replay-guard.ts:138-172", "C:/Work/git-none/orca/src/renderer/src/components/terminal-pane/pty-connection.ts:3398-3445", "C:/Work/git-none/orca/src/main/daemon/session.ts:128-144", "C:/Work/git-none/orca/src/main/daemon/headless-emulator.ts:122-136"],
+      "confidence": "high"
+    },
+    {
+      "id": "B19",
+      "claim": "Orca remote terminal의 ACK window와 output sequence는 서로 다른 단위를 사용한다. ACK credit은 UTF-8로 인코딩된 Output frame payload의 `byteLength` 기준이며 16-byte protocol header를 포함한 wire-frame 전체 크기나 JavaScript 문자열 길이가 아니다. 서버는 이 payload byte 기준으로 stream별 512KiB, 전체 2MiB의 in-flight window를 관리하고, client도 수신한 `frame.payload.byteLength`만큼 ACK한다. 반면 Output frame의 `seq`는 원본 JavaScript 문자열에 대한 UTF-16 source high-water, 즉 code-unit offset이다. `rawLength`도 같은 code-unit 단위이므로 client는 `startSeq = seq - rawLength`로 누락 구간을 감지한다. 따라서 multibyte UTF-8 문자에서는 ACK bytes와 sequence 증가량이 다를 수 있으며, Output `seq`를 UTF-8 byte offset이나 Unicode code-point count로 해석하면 안 된다. Protocol header의 `seq` 필드는 공용 64-bit 숫자 필드지만 이 UTF-16 의미는 Output opcode에 적용된다.",
+      "evidence": ["C:/Work/git-none/orca/src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:84-86", "C:/Work/git-none/orca/src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:459-463", "C:/Work/git-none/orca/src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:569-581", "C:/Work/git-none/orca/src/renderer/src/runtime/remote-runtime-terminal-multiplexer.ts:678-699", "C:/Work/git-none/orca/src/shared/terminal-stream-protocol.ts:26-45", "C:/Work/git-none/orca/src/shared/terminal-stream-protocol.ts:60-67", "C:/Work/git-none/orca/src/shared/terminal-stream-protocol.ts:82-87", "C:/Work/git-none/orca/src/main/runtime/rpc/methods/terminal.ts:41-51", "C:/Work/git-none/orca/src/main/runtime/rpc/methods/terminal.ts:139-143", "C:/Work/git-none/orca/src/main/runtime/rpc/methods/terminal.ts:170-175", "C:/Work/git-none/orca/src/main/runtime/rpc/methods/terminal.ts:225-290", "C:/Work/git-none/orca/src/main/runtime/rpc/methods/terminal.ts:1495-1503", "C:/Work/git-none/orca/src/main/runtime/rpc/methods/terminal.ts:1527-1544", "C:/Work/git-none/orca/src/main/runtime/rpc/methods/terminal.ts:1648-1655", "C:/Work/git-none/orca/src/main/runtime/rpc/methods/terminal.ts:1734-1740", "C:/Work/git-none/orca/src/main/runtime/orca-runtime.ts:5679-5681"],
+      "confidence": "high"
+    }
+  ],
+  "limits": [
+    "Static read-only analysis only; Orca tests and benchmarks were not executed.",
+    "Committed performance numbers are environment-dependent and do not prove BuilderGate defaults.",
+    "Electron/local-socket constants are not directly portable to WebSocket/WAN."
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "runId": "2026-07-16.projectmaster.wave-3.v01",
+  "target": "wave-3",
+  "activeTargetConfirmed": true,
+  "strictValidation": { "errors": 0, "warnings": 0 },
+  "selectedRequirements": [
+    "OBS-BGSTAB-005",
+    "REL-BGSTAB-010",
+    "FR-BGSTAB-022",
+    "REL-BGSTAB-011",
+    "MIG-BGSTAB-002",
+    "PERF-BGSTAB-010",
+    "REL-BGSTAB-012"
+  ],
+  "excludedRequirements": [
+    {
+      "id": "REL-BGSTAB-007",
+      "reason": "이미 stable인 상위 계약으로 구현 가능성 판정 입력에는 사용하되 stability 재판정 대상에서는 제외"
+    }
+  ],
+  "policyFile": null,
+  "externalWriteRequired": false,
+  "orcaReadOnly": true
+}

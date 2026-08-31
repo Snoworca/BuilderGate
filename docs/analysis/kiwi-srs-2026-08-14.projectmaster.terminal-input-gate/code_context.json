@@ -1,0 +1,354 @@
+{
+  "relevant_files": [
+    {
+      "path": "frontend/src/components/Terminal/TerminalView.tsx",
+      "line_range": "897-940",
+      "signature": "submitCapturedInputDirect(data: string, debugInput, source: string): TerminalInputSubmitResult",
+      "relevance": "observe 모드에서 transient-blocked 상태일 때 사용자 피드백 없이 입력을 폐기하는 분기(915-932)를 포함하는 함수 전체",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalView.tsx",
+      "line_range": "592-647",
+      "signature": "computeInputGateSnapshot()",
+      "relevance": "closedReason/barrierReason/captureState/transportReady 산출 — 입력 게이트 스냅샷 계산 지점",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalView.tsx",
+      "line_range": "3858-3869",
+      "signature": "requestAnimationFrame(() => requestAnimationFrame(() => { ... submitTerminalFit(term, ...) }))",
+      "relevance": "초기 마운트 시 double-rAF 로 레이아웃 안정화를 기다린 뒤 fit 수행 — geometryReadyRef 세팅 지연 지점",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalView.tsx",
+      "line_range": "4303-4312",
+      "signature": "requestAnimationFrame(() => { ... submitTerminalFit(term, ...) }) (visibility 전환 핸들러 내부)",
+      "relevance": "가시성 전환(hidden->visible) 시 단일 rAF 로 fit 수행, 0-size 시 fit_skipped_non_renderable 후 조용히 return",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalView.tsx",
+      "line_range": "4109-4141",
+      "signature": "new ResizeObserver(() => { ... rAF throttle ... submitTerminalFit ... })",
+      "relevance": "리사이즈 시 0-size 가드 후 rAF 스로틀로 fit, geometryReadyRef=true 설정 및 syncInputReadiness 호출",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalView.tsx",
+      "line_range": "2991-2996",
+      "signature": "fit: () => { if (!isVisibleRef.current) return; requestAnimationFrame(() => { ... submitTerminalFit(term); }); }",
+      "relevance": "명령형 fit() imperative handle — 비가시 상태면 조용히 no-op",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalView.tsx",
+      "line_range": "3687-3698",
+      "signature": "markUserXtermDataProvenance() / consumeUserXtermDataProvenance()",
+      "relevance": "permit(pendingUserXtermDataPermits) 부여(microtask 로 자동 소멸)와 소비 헬퍼 정의부",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalView.tsx",
+      "line_range": "3889-3896",
+      "signature": "term.onData((data) => { ... hasUserInputProvenance = programmaticPaste !== null || consumeUserXtermDataProvenance(); ... })",
+      "relevance": "onData 핸들러 진입부에서 permit 소비 — programmaticPaste 없고 permit 도 소진되면 parser-generated 로 판정되어 replay guard 대상이 됨",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalView.tsx",
+      "line_range": "4055",
+      "signature": "helperTextarea.addEventListener('input', onHelperInput, { capture: true });",
+      "relevance": "helper textarea 의 input 리스너 등록 지점(다른 리스너들과 함께 4052-4058)",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalView.tsx",
+      "line_range": "3130",
+      "signature": "term.open(terminalRef.current);",
+      "relevance": "xterm 인스턴스를 DOM 에 연결하는 지점",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalView.tsx",
+      "line_range": "1044-1047",
+      "signature": "term.options.disableStdin = !gate.captureAllowed; ... helperTextarea.disabled = !gate.captureAllowed;",
+      "relevance": "게이트 스냅샷 기반으로 xterm/helper textarea 의 stdin 비활성화 여부를 매 프레임 반영",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalContainer.tsx",
+      "line_range": "752-768",
+      "signature": "enqueueTransportInput(input: SequencedTerminalInput, decision: TransportQueueDecision, source: string)",
+      "relevance": "observe 모드에서 transport_input_would_queue 이벤트만 남기고 실제 큐잉/전송 없이 조용히 return",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalContainer.tsx",
+      "line_range": "954-960",
+      "signature": "retryDecision.action === 'queue' && getInputReliabilityMode() !== 'observe'",
+      "relevance": "flush 재시도 시 observe 모드면 재큐잉을 막는 조건 (claimed line 957이 정확히 이 조건문)",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/components/Terminal/TerminalContainer.tsx",
+      "line_range": "84",
+      "signature": "const RECONNECT_INPUT_QUEUE_TTL_MS = 3000;",
+      "relevance": "재연결 시 입력 큐 TTL 상수",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/utils/inputReliabilityMode.ts",
+      "line_range": "95",
+      "signature": "let runtimeMode: InputReliabilityMode = 'observe';",
+      "relevance": "프론트 기본 입력 신뢰성 모드 = observe (서버 runtime-config 로딩 전까지 적용)",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/utils/inputReliabilityMode.ts",
+      "line_range": "107-135",
+      "signature": "initializeInputReliabilityMode(): Promise<InputReliabilityMode>",
+      "relevance": "/api/runtime-config fetch (line 109) 및 실패 시 observe 로 폴백",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/utils/inputReliabilityMode.ts",
+      "line_range": "179-193",
+      "signature": "getClientWsResourceLimits() / getTerminalResourceLimits() / getSnapshotResourceLimits() / getWorkspaceRuntimeResourceLimits()",
+      "relevance": "clientWs 등 리소스 한도 getter 그룹",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/utils/terminalDebugCapture.ts",
+      "line_range": "402-405",
+      "signature": "recordTerminalDebugEvent(...): void { const store = getStore(); if (!store || !store.isEnabled(sessionId)) { return; } ... }",
+      "relevance": "디버그 캡처 미활성 시 이벤트 기록을 조용히 no-op 처리하는 가드",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/utils/terminalDebugCapture.ts",
+      "line_range": "157-161",
+      "signature": "window.__buildergateTerminalDebug = { events: [], enabledAll: false, enabledSessions: new Set<string>(), ... }",
+      "relevance": "디버그 캡처 전역 상태 기본값 — enabledAll:false 로 기본 비활성 (claimed 160-161 은 이 초기화 블록 내부 정확히 해당 라인)",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/utils/terminalReplayGuard.ts",
+      "line_range": "48-50",
+      "signature": "shouldSuppressXtermData(provenance = 'parser-generated') { return provenance === 'parser-generated' && activeLeaseIds.size > 0; }",
+      "relevance": "parser-generated (permit 미소지) 데이터이면서 활성 리스가 있을 때만 억제하는 조건",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/src/utils/webSocketBackpressure.ts",
+      "line_range": "79-82",
+      "signature": "evaluateBrowserInputBackpressure(input: BrowserBackpressureInput): BrowserBackpressureDecision { if (input.messageType !== 'input') { return { action: 'send' }; } ... }",
+      "relevance": "input 이 아닌 메시지 타입은 backpressure 평가 없이 즉시 send 처리 (input-only 분기, claimed 80-81 은 if문 본문)",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "2975-3011",
+      "signature": "acceptRetainedTerminalMutationIdentity(...): boolean",
+      "relevance": "fencing 실패 시 blockers.add 후 return false 두 지점(2985-2986 identity 누락 시, 3009-3010 driver-lease-failure 시) 포함하는 함수 전체",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "3190-3206",
+      "signature": "writeInput(id, input, ...): boolean",
+      "relevance": "session 미존재/식별자 불일치 시 조용히 false 반환(3192-3197), debug-capture 여부에 따라 캡처 이벤트 기록(3203-3206)",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "3405-3412",
+      "signature": "resize(id, ...): boolean",
+      "relevance": "resize 도 writeInput 과 동일한 acceptRetainedTerminalMutationIdentity 게이트를 거침 (3412)",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/src/ws/WsRouter.ts",
+      "line_range": "4549-4555",
+      "signature": "return { accepted: false, reason: result.code === INPUT_REJECTED_REPLAY_PENDING ? 'context-changed' : 'server-error' };",
+      "relevance": "replay-pending 을 제외한 모든 거절 코드를 원인 불문 'server-error' 로 뭉뚱그리는 reason 매핑 — '거절 사유가 원인과 무관하게 보고'되는 핵심 지점",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/src/ws/WsRouter.ts",
+      "line_range": "4596-4635",
+      "signature": "private rejectInput(ws: WebSocket, input: { sessionId?, data?, metadata?, inputSeqStart?, inputSeqEnd?, reason: InputRejectedReason, replayToken?, snapshotSeq? }): void",
+      "relevance": "input:rejected 메시지 전송(4613-4619) + recordReplayEvent 기록(4622-4634). 함수 선언은 4596, claimed 4614-4634 는 본문 대부분에 해당",
+      "cited_line_accurate": false
+    },
+    {
+      "path": "server/src/ws/WsRouter.ts",
+      "line_range": "4647-4758",
+      "signature": "private validateInputMessage(message: unknown): InputValidationResult",
+      "relevance": "입력 payload 검증 — invalid-payload/invalid-sequence 등 reason 산출 로직 전체",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/src/types/ws-protocol.ts",
+      "line_range": "422-434",
+      "signature": "export type InputRejectedReason = 'timeout' | 'timeout-enter-safety' | 'queue-overflow' | 'context-changed' | 'session-missing' | 'session-closed' | 'server-error' | 'auth-expired' | 'transport-closed' | 'invalid-sequence' | 'invalid-payload' | 'mode-observe-only';",
+      "relevance": "InputRejectedReason enum 12개 값 전체",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/src/utils/inputReliabilityMode.ts",
+      "line_range": "11-12",
+      "signature": "if (!normalized) { return 'observe'; }",
+      "relevance": "서버 기본 입력 신뢰성 모드 = observe",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/src/utils/inputReliabilityMode.ts",
+      "line_range": "3",
+      "signature": "const ENV_KEY = 'BUILDERGATE_INPUT_RELIABILITY_MODE';",
+      "relevance": "환경변수 키 상수",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/src/index.ts",
+      "line_range": "530-532",
+      "signature": "app.get('/api/runtime-config', noCacheMiddleware, (_req, res) => { res.json(runtimeConfigStore.getPublicRuntimeConfig(inputReliabilityMode)); });",
+      "relevance": "프론트가 fetch 하는 /api/runtime-config 엔드포인트 정의",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/src/index.ts",
+      "line_range": "1532-1536",
+      "signature": "terminalAuthorityIntegration = attachProductionTerminalAuthority({ sessionManager, wsRouter, transportMode: ... });",
+      "relevance": "terminal authority production adapter attach 지점",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/src/index.ts",
+      "line_range": "293-308",
+      "signature": "const gateway = createSessionInputGateway({ writeInput: (write) => sessionManager.writeInput(...), auditInput, resolveTarget, readReplayState, evaluateInputPolicy, resolveLeader });",
+      "relevance": "MCP reply-to-leader 델리버리 경로용 input gateway 생성 (mcp-reply-to-leader / submitMcpMessageInput 분기)",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/src/index.ts",
+      "line_range": "336-347",
+      "signature": "function createMcpAgentInputGateway(): { submitInput }: const gateway = createSessionInputGateway({ writeInput: (write) => sessionManager.writeInput(...), auditInput, resolveTarget, ... });",
+      "relevance": "MCP agent input gateway 생성 (claimed 337-345 는 이 블록 내부, 함수 선언은 328, gateway 생성문은 336부터)",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/src/services/TerminalAuthorityProductionAdapter.ts",
+      "line_range": "981",
+      "signature": "sessionManager.setRetainedTerminalShadowEnabled(true);",
+      "relevance": "adapter 생성 시 shadow 수집을 무조건 활성화하는 지점 (승격은 별도 canary 게이트)",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/src/schemas/config.schema.ts",
+      "line_range": "286-302",
+      "signature": "export const configSchema = z.object({ server, pty, session, realtime, resourceLimits, stabilityModes, ssl?, security?, logging?, twoFactor?, bootstrap?, auth?, bruteForce?, fileManager?, workspace? });",
+      "relevance": "루트 config 스키마 — 하위 스키마 다수(57,90,119,127,140,161,168,182,187,197,203 라인)는 .strict() 인데 루트 자체는 .strict() 아님(passthrough 가능), 버전/마이그레이션 필드 전무(version/migrat 키워드 0건)",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/src/schemas/config.schema.ts",
+      "line_range": "84-90",
+      "signature": "export const sessionProcessCleanupSchema = defaultObject(z.object({ mode: z.enum(['legacy','observe','enforce']).default('observe'), ... }).strict());",
+      "relevance": "session.processCleanup.mode 기본값 'observe' — 필드 누락 시 이 기본값으로 조용히 폴백",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/src/schemas/config.schema.ts",
+      "line_range": "201",
+      "signature": "wsSendMode: z.enum(['direct', 'safe-send-observe', 'safe-send-enforce']).default('direct'),",
+      "relevance": "stabilityModes.wsSendMode 기본값 'direct' — 필드 누락 시 가장 안전하지 않은 값으로 조용히 폴백",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "server/config.json5",
+      "line_range": "21-31, 90-92",
+      "signature": "session.processCleanup: { mode: \"enforce\", ... }, stabilityModes: { wsSendMode: \"safe-send-enforce\" }",
+      "relevance": "메인테인 중인 config 는 두 안전 모드를 명시적으로 enforce 로 설정",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "dist/bin/win-amd64-0.5.bb/config.json5",
+      "line_range": "21-24 (session block), 전체 130줄",
+      "signature": "session: { idleDelayMs: 200, runningDelayMs: 250 } — processCleanup 및 stabilityModes 키 자체가 존재하지 않음",
+      "relevance": "낡은 배포 config 는 session.processCleanup 과 stabilityModes 블록이 통째로 없어 스키마 기본값(observe/direct)으로 조용히 롤백됨 — 버전/마이그레이션 부재의 실제 증거",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/tests/e2e/pane-keyboard.spec.ts",
+      "line_range": "1-29",
+      "signature": "test.describe('Keyboard Shortcuts', ...) — TC-6601 (10-14), TC-6606 (16-21), TC-6602 (23-28)",
+      "relevance": "전체 3개 테스트: Ctrl+B prefix 진입, prefix 1500ms 자동 해제, Ctrl+B % 수직분할. 입력 게이트/permit/observe-drop 관련 시나리오는 커버하지 않음",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/tests/e2e/terminal-keyboard-regression.spec.ts",
+      "line_range": "382",
+      "signature": "test('TC-7204: clicking the terminal surface should focus the xterm helper textarea', async ({ page }) => { ... })",
+      "relevance": "TC-7204 정확한 위치 (총 913라인 파일)",
+      "cited_line_accurate": true
+    },
+    {
+      "path": "frontend/playwright.config.ts",
+      "line_range": "33-38",
+      "signature": "webServer: { command: 'cd .. && start.bat --port 2222', port: webServerPort, reuseExistingServer: true, timeout: 30000 }",
+      "relevance": "reuseExistingServer 가 CI 여부와 무관하게 항상 true — 기존에 떠있는(낡은) 서버를 재사용할 수 있어 CI 에서도 최신 빌드 검증을 건너뛸 여지가 있음",
+      "cited_line_accurate": false
+    },
+    {
+      "path": "tools/start-runtime.js",
+      "line_range": "242-250",
+      "signature": "function hasDeploymentArtifacts() { return fs.existsSync(SERVER_ENTRY) && ... && fs.existsSync(path.join(RUNTIME_PATHS.shellIntegrationDir, 'bash-osc133.sh')); }",
+      "relevance": "배포 아티팩트 존재 여부 판정 — config.json5 버전/스키마 정합성은 검사하지 않음(파일 존재만 확인)",
+      "cited_line_accurate": true
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "line_range": "1-351 (전체)",
+      "signature": "jobs: prepare / build / release — build 잡은 npm ci + npm run build:* + 'Verify bootstrap-safe release config' 스크립트만 실행",
+      "relevance": "테스트(npm test, playwright 등) 실행 스텝이 워크플로 전체에 전무함. config 검증도 auth.password/jwtSecret 이 비어있는지, 필수 파일이 존재하는지만 확인하고 입력 게이트/stabilityModes/processCleanup 관련 회귀 테스트는 실행하지 않음",
+      "cited_line_accurate": true
+    }
+  ],
+  "related_modules": [
+    "server/src/services/TerminalResourcePolicyRuntimeAuthority (runtimeValues.resourceLimits/stabilityModes 소스로 index.ts:1524-1526 에서 참조됨)",
+    "server/src/routes (createInternalShutdownRoutes, createAuthRoutes 등 — index.ts 530 인근에서 라우트 조립)"
+  ],
+  "missing_evidence": [
+    "config.schema.ts 에 버전 필드(version/schemaVersion 등)와 마이그레이션 로직이 존재하는지 전체 파일 기준으로 재확인함 — 'version'/'migrat' 키워드 0건 확인, 즉 버전·마이그레이션 부재가 코드로 확인됨(추정 아님)",
+    "dist/bin/win-amd64-0.5.bb/config.json5 가 실제로 로드되어 서비스에 사용되는지(빌드 산출물 예시 vs 실사용 배포본)는 이번 조사 범위에서 확인하지 못함 — repo 내 dist/ 산출물이 최신 빌드인지 여부는 git 이력/빌드 스크립트 추적이 별도로 필요"
+  ],
+  "external_paths_detected": [],
+  "input_rejected_reason_enum": [
+    "timeout",
+    "timeout-enter-safety",
+    "queue-overflow",
+    "context-changed",
+    "session-missing",
+    "session-closed",
+    "server-error",
+    "auth-expired",
+    "transport-closed",
+    "invalid-sequence",
+    "invalid-payload",
+    "mode-observe-only"
+  ],
+  "line_citation_corrections": [
+    {
+      "claimed": "WsRouter.ts rejectInput ≈4614-4634",
+      "actual": "private rejectInput(...) 함수 선언은 4596, 함수 종료 4635. 4614-4634 는 함수 본문(sendTo + recordReplayEvent) 구간으로 실질적으로 일치하나 함수 시작 라인(4596)은 범위 밖",
+      "note": "citation 은 본문 핵심 로직 위치로는 정확함. 함수 전체 경계만 4596-4635 로 넓혀 참고할 것"
+    },
+    {
+      "claimed": "playwright.config.ts webServer.reuseExistingServer",
+      "actual": "실제 값은 33-38 라인에 위치하며 reuseExistingServer: true 로 무조건(process.env.CI 조건 없이) 설정되어 있음",
+      "note": "일반적인 playwright 템플릿은 `!process.env.CI` 조건부인데 이 config 는 조건 없이 true — CI 에서도 기존 서버 재사용 가능성 있음(잠재 이슈로 기록, 정확성 자체는 문제 없으나 '조건부'라는 암묵적 가정이 있었다면 그 가정은 틀림)"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "req_anchors": [{
+    "req_id": "PERF-BGSTAB-010",
+    "files": [
+      {"path": "server/src/ws/wsSendPolicy.ts", "line_range": "491-828", "signature": "FairTerminalDelivery scheduler and ACK ledger"},
+      {"path": "server/src/ws/WsRouter.ts", "line_range": "1770-1819", "signature": "ACK validation and policy/artifact gate"},
+      {"path": "server/src/ws/WsRouter.ts", "line_range": "5326-5334", "signature": "fair scheduler creation"},
+      {"path": "server/src/services/TerminalResourcePolicy.ts", "line_range": "9-26", "signature": "fair-delivery policy projection"},
+      {"path": "server/src/ws/FairTerminalDeliveryScheduler.test.ts", "line_range": "120-716", "signature": "scheduler ordering, ledger, fallback tests"},
+      {"path": "server/src/ws/WsRouterSendPriority.test.ts", "line_range": "200-502", "signature": "candidate ACK and cleanup tests"},
+      {"path": "frontend/src/components/Terminal/TerminalContainer.tsx", "line_range": "3342-3383", "signature": "delivery ACK issuance"},
+      {"path": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts", "line_range": "15-34", "signature": "ACK and hidden-recovery capability boundary"},
+      {"path": "tools/wave3/fair-scheduler-decision.test.mjs", "signature": "existing decision-artifact verification"}
+    ]
+  }],
+  "verification_commands": [
+    "node tools/wave3/fair-scheduler-decision.test.mjs --verify-existing",
+    "npx tsx --test src/ws/FairTerminalDeliveryScheduler.test.ts src/ws/WsRouterSendPriority.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts src/services/TerminalResourcePolicy.test.ts src/services/TerminalResourcePolicyCanary.test.ts",
+    "pnpm exec vitest run tests/unit/terminalContainerRecoveryContract.test.ts"
+  ],
+  "external_paths_detected": [],
+  "live_paths_excluded": ["Playwright", "https://localhost:2222", "TCP 2222"]
+}

@@ -1,0 +1,27 @@
+{
+  "primary_contract": "REL-BGSTAB-007",
+  "buildergate_surfaces": [
+    {"path":"server/src/services/SessionManager.ts","role":"headless model, PTY ingest, model-before-delivery commit chain, resize ordering"},
+    {"path":"server/src/utils/headlessTerminal.ts","role":"viewport-only serializer; retained checkpoint adapter 필요"},
+    {"path":"server/src/ws/WsRouter.ts","role":"subscribe/replay/input/resize/recovery 진입점; 신규 정책은 별도 서비스로 위임"},
+    {"path":"server/src/ws/wsSendPolicy.ts","role":"socket control/terminal FIFO와 sourceSegments; fair scheduler의 최종 send primitive로 재사용"},
+    {"path":"server/src/types/ws-protocol.ts","role":"checkpoint, delivery ACK, dataGap, lease capability 확장 표면"},
+    {"path":"frontend/src/components/Terminal/TerminalView.tsx","role":"분산된 live/replay/snapshot/repair write를 sole writer로 통합"},
+    {"path":"frontend/src/components/Terminal/TerminalContainer.tsx","role":"visible/hidden dispatch와 visibility interest 연결"},
+    {"path":"frontend/src/utils/visibleOutputRecovery.ts","role":"generation-safe recovery/FIFO 재사용"},
+    {"path":"frontend/src/utils/terminalOutputScheduler.ts","role":"단일 in-flight write scheduler 재사용"},
+    {"path":"server/src/types/config.types.ts","role":"중복 scrollback/resource limit policy 입력"},
+    {"path":"frontend/src/utils/inputReliabilityMode.ts","role":"frontend default/parser를 compiled policy consumer로 축소"}
+  ],
+  "orca_surfaces": [
+    {"path":"C:/Work/git-none/orca/src/main/daemon/session.ts","lesson":"single model, outputSequence, commit-before-fanout"},
+    {"path":"C:/Work/git-none/orca/src/main/daemon/daemon-stream-data-batcher.ts","lesson":"shallow gate, per-session held queue, small bypass/slice"},
+    {"path":"C:/Work/git-none/orca/src/main/daemon/daemon-stream-keep-tail-drop.ts","lesson":"authority 유지 + ordered dataGap"},
+    {"path":"C:/Work/git-none/orca/src/renderer/src/lib/pane-manager/pane-terminal-output-scheduler.ts","lesson":"central write scheduler and callback ACK credit"},
+    {"path":"C:/Work/git-none/orca/src/renderer/src/lib/remote-runtime-terminal-multiplexer.ts","lesson":"gap detection, chunk snapshot, ordered ACK"}
+  ],
+  "reuse_first": ["SessionManager headless xterm/commit chain", "terminalOutputScheduler", "visibleOutputRecovery", "wsSendPolicy encoding/sourceSegments", "runtime config schema/store"],
+  "known_gaps": ["viewport-only snapshot", "screenSeq is not ingest sourceSeq", "no visibility interest", "no delivery ACK/credit", "no explicit driver lease", "no capability promotion protocol"],
+  "test_surfaces": ["policy precedence", "model-before-delivery", "retained checkpoint integrity", "sole-writer static contract", "driver lease fencing", "1/2/8-client fairness", "hidden dataGap/reveal", "mid-checkpoint rollback", "AI TUI idle invariant"]
+}
+

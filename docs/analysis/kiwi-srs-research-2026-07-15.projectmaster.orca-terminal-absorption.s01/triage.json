@@ -1,0 +1,63 @@
+{
+  "canonical_task": "/root/research_triage_isolated",
+  "role": "clean-room triage",
+  "normalization_note": "초기 root 작성본과 audit-only 실행은 고정 Triage 역할 증거로 사용하지 않고, fork_turns=none 대체 실행의 결과를 package schema에 맞춰 보존했다.",
+  "isolation_attestation": {
+    "clean_room": true,
+    "used_only_supplied_input": true,
+    "local_files_opened": false,
+    "internet_used": false,
+    "external_tools_used": false,
+    "researcher_results_assumed": false,
+    "existing_triage_assumed": false
+  },
+  "research_question": "C:\\Work\\git-none\\orca의 terminal stack을 BuilderGate에 흡수하여 복잡한 사용자 buffer 설정을 단순화하고 성능·터미널 깨짐·렌더링·선택/복사/붙여넣기 문제를 해결하는 안전한 구현 계획은 무엇인가?",
+  "sub_questions": [
+    "BuilderGate 후보 모듈은 buffer, backpressure, 전송, 렌더링, clipboard와 설정 책임을 어떻게 분담하는가?",
+    "Orca는 model/view, snapshot/replay, 렌더링, buffer/backpressure, clipboard·IME·OSC52를 어떤 불변식으로 처리하는가?",
+    "Orca 원칙 중 WebSocket/WAN·multi-client에 그대로 적용할 것과 별도 adaptation할 것은 무엇인가?",
+    "사용자 buffer 설정 단순화 시 보존할 호환성, 관측 가능성, 안전 기본값과 오류 계약은 무엇인가?",
+    "성능, 터미널 깨짐, 복구 순서, 렌더링, 입력·clipboard 회귀를 검출할 측정과 test는 무엇인가?",
+    "단계적 이식, benchmark, feature gate와 rollback을 포함한 migration 순서는 무엇인가?"
+  ],
+  "packages": {
+    "code_package": {
+      "package_id": "PKG-CODE",
+      "scope": "BuilderGate 현재 구현과 계약의 독립 조사",
+      "target_modules": [
+        "server/src/services/SessionManager.ts",
+        "server/src/ws/WsRouter.ts",
+        "server/src/ws/wsSendPolicy.ts",
+        "server/src/schemas/config.schema.ts",
+        "frontend/src/contexts/WebSocketContext.tsx",
+        "frontend/src/utils/terminalOutputScheduler.ts",
+        "frontend/src/components/Terminal/TerminalView.tsx",
+        "frontend/src/components/Terminal/TerminalContainer.tsx"
+      ],
+      "focus_questions": ["runtime consumer와 inert 설정", "queue·ordering·allocation 경계", "snapshot/replay/live authority", "hidden/remount boundedness", "renderer·clipboard·IME ownership", "SRS와 test trace"],
+      "scope_boundaries": ["BuilderGate cwd만 쓰기 가능", "관련 SRS Requirement가 선행돼야 함", "Orca 결과를 가정하지 않음"]
+    },
+    "external_package": {
+      "package_id": "PKG-EXTERNAL",
+      "scope": "읽기 전용 Orca terminal stack의 독립 조사",
+      "candidate_sources": ["C:\\Work\\git-none\\orca"],
+      "focus_questions": ["socket gate와 공정성", "model/view와 snapshot/gap", "hidden delivery와 residency", "WebGL/DOM lifecycle", "copy/paste/IME/OSC52", "test와 environment-specific assumptions"],
+      "exclusion_filters": ["Orca 저장소 수정 금지", "Electron/local IPC 상수의 WAN 무검증 복사 금지", "BuilderGate나 A/C raw를 조사 입력으로 사용 금지"]
+    },
+    "risk_package": {
+      "package_id": "PKG-RISK",
+      "scope": "이식 위험, 검증 기준 및 단계적 migration 설계의 독립 조사",
+      "isolated_inputs": {
+        "intent": ["comparison", "fact audit", "migration plan"],
+        "constraints": ["BuilderGate cwd만 쓰기 가능", "외부 Orca 저장소는 읽기 전용", "SRS 요구사항이 필요함", "WebSocket/WAN 및 multi-client 지원을 유지해야 함"],
+        "quality_targets": ["사용자 buffer 설정 단순화", "성능", "터미널 깨짐 방지", "렌더링", "선택·복사·붙여넣기", "IME", "OSC52"]
+      },
+      "assigned_sub_questions": ["Orca 원칙의 WAN/multi-client adaptation", "설정 단순화의 호환성·관측성·안전 기본값", "성능·정확성·입력·보안 회귀 기준", "단계적 이식·benchmark·rollback"],
+      "requested_evidence": ["WAN backpressure 위험 모델", "느린 client 격리", "순서 역전·중복·누락·stale snapshot·reconnect 위험", "memory/queue/drop 관측성", "clipboard·OSC52 보안 경계", "IME/Unicode 회귀", "protocol·Settings 호환성", "TDD·benchmark·rollout·rollback"],
+      "prohibited_assumptions": ["A/B 결과 사전 가정 금지", "single-client/low-latency 전제 금지", "오류/fallback 숨김 금지", "SRS 없이 범위 확정 금지"]
+    }
+  },
+  "external_paths_detected": [
+    {"path": "C:\\Work\\git-none\\orca", "classification": "external_reference_repository", "authorization": "explicit user reference", "write_policy": "read-only"}
+  ]
+}

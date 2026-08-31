@@ -1,0 +1,32 @@
+{
+  "schema_version": "kiwi-planner-degraded-workflow-diagnostic/v1",
+  "run_id": "2026-07-26.pm.fair-readmission",
+  "target": "wave-3",
+  "requirement_filter": ["PERF-BGSTAB-010"],
+  "official_path": {
+    "tool_health": "healthy-for-read",
+    "old_run": "2026-07-24.pm.fair-admission",
+    "old_status": "resume-blocked / NEEDS_USER",
+    "diagnostic": "SRS-W058",
+    "why_not_reused": "The new plan must not edit old plans, sidecars, pipeline, workflow history, or lifecycle state."
+  },
+  "authorized_fallback": {
+    "authority": "final 5-member decision committee aggregate",
+    "vote": {"new_degraded_docs_only_plan": 4, "do_not_create": 1},
+    "decision_protocol": "Initial 3-member vote was non-unanimous; the user-defined rule expanded it to five members and selected the A 4:B 1 majority.",
+    "scope": "new raw plan and analysis files only",
+    "not_canonical": true
+  },
+  "simulated_validator_graph": {
+    "required_by": ["validator C15", "validator C19"],
+    "mcp_call_log": "dry_run true, ok null, response_hash null",
+    "meaning": "schema-only simulation; no MCP call, trace link, or verification evidence was created"
+  },
+  "forbidden_mutations": [
+    "docs/spec lifecycle/evidence/trace/AC/status edits",
+    "workflow pipeline or raw JSONL edits",
+    "old fair-admission artifacts or sidecars",
+    "production, test, UI, protocol, capability, default, or runtime edits"
+  ],
+  "follow_up_rule": "Any observed behavior delta requires a separate strict TDD/SDS scope and leaves PERF-BGSTAB-010 in_progress and REL-BGSTAB-012 blocked."
+}

@@ -1,0 +1,346 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "terminal-output-scheduler-paired-benchmark",
+  "requirementId": "PERF-BGSTAB-009",
+  "taskId": "T-PH001-04",
+  "recordedAt": "2026-08-19T09:17:23.407Z",
+  "result": {
+    "manifest": {
+      "randomSeed": 7008,
+      "warmupIterations": 1,
+      "trialCount": 3,
+      "trialDurationMs": 250,
+      "bootstrapIterations": 512,
+      "confidenceLevel": 0.95,
+      "regressionToleranceRatio": 0.05,
+      "toleranceClassification": "measurement-noise-regression-tolerance",
+      "productSlo": false
+    },
+    "provenance": {
+      "runId": "terminal-output-scheduler-103436-7008-11",
+      "baseline": {
+        "role": "baseline",
+        "implementationId": "wave1-string-scheduler-reference-v1",
+        "sourcePath": "frontend/src/utils/terminalOutputScheduler.ts",
+        "sourceRevision": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+        "sourceDigest": "sha256:dc1edf2acaf16f57b6e517fb1499cd67e579508d12238b3a561aaada647ac1c3",
+        "frozen": true
+      },
+      "candidate": {
+        "role": "candidate",
+        "implementationId": "wave2-integrated-segmented-byte-deque-v2",
+        "sourcePath": "frontend/src/utils/terminalOutputScheduler.ts",
+        "sourceRevision": "S4-C4@dfca40cf506dcbc60a170a7f3ca4fbe9f426b9d9-worktree",
+        "sourceDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+        "frozen": true
+      },
+      "calibration": {
+        "implementationId": "wave1-string-scheduler-reference-v1",
+        "targetDurationMs": 250,
+        "elapsedMs": 266.52729999999997,
+        "operationsPerTrial": 11
+      },
+      "execution": {
+        "baseline": {
+          "loader": "git-show-typescript-data-url",
+          "derivedFromSourceDigest": "sha256:dc1edf2acaf16f57b6e517fb1499cd67e579508d12238b3a561aaada647ac1c3",
+          "executableDigest": "sha256:687001c2a5bef4571cc84f8df8a69809f617eff7379478b68fbc4d03bda995ee",
+          "timingModule": "native-text-encoder",
+          "instrumentationModule": "probed-text-encoder"
+        },
+        "candidate": {
+          "loader": "node-strip-types-module-import",
+          "derivedFromSourceDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+          "executableDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+          "timingModule": "production-default-text-encoder",
+          "instrumentationModule": "injected-probed-text-encoder"
+        }
+      }
+    },
+    "exactGates": {
+      "outputDigestParity": true,
+      "mixedByteLength": 110,
+      "mixedControlInvocations": 1,
+      "mixedObservationInvocations": 1,
+      "boundaryByteLength": 65542,
+      "boundaryControlInvocations": 2,
+      "boundaryObservationInvocations": 2,
+      "baselineAcceptedIngressCount": 2,
+      "baselineEncoderResultAllocationCount": 65640,
+      "baselinePrefixLoopEncodeCount": 65638,
+      "baselinePrefixTemporaryAllocationCount": 65638,
+      "candidateAcceptedIngressCount": 2,
+      "candidateEncoderResultAllocationCount": 2,
+      "candidateAcceptedIngressMaxEncodeCount": 1,
+      "candidatePrefixLoopEncodeCount": 0,
+      "candidatePrefixTemporaryAllocationCount": 0
+    },
+    "rawSamples": [
+      {
+        "runId": "terminal-output-scheduler-103436-7008-11",
+        "pairIndex": 0,
+        "phase": "warmup",
+        "randomSeed": 7008,
+        "calibrationTargetDurationMs": 250,
+        "baselineElapsedMs": 269.66179999999997,
+        "candidateElapsedMs": 2.4262999999998556,
+        "baselineOperations": 11,
+        "candidateOperations": 11,
+        "baselineImplementationId": "wave1-string-scheduler-reference-v1",
+        "baselineSourceDigest": "sha256:dc1edf2acaf16f57b6e517fb1499cd67e579508d12238b3a561aaada647ac1c3",
+        "baselineExecutableDigest": "sha256:687001c2a5bef4571cc84f8df8a69809f617eff7379478b68fbc4d03bda995ee",
+        "candidateImplementationId": "wave2-integrated-segmented-byte-deque-v2",
+        "candidateSourceDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+        "candidateExecutableDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+        "timingMode": "native-encoder-no-probe",
+        "timingOrder": "baseline-first",
+        "baselineTimedOutputDigestParity": true,
+        "candidateTimedOutputDigestParity": true,
+        "baselineInstrumentation": {
+          "implementationId": "wave1-string-scheduler-reference-v1",
+          "sourceDigest": "sha256:dc1edf2acaf16f57b6e517fb1499cd67e579508d12238b3a561aaada647ac1c3",
+          "executableDigest": "sha256:687001c2a5bef4571cc84f8df8a69809f617eff7379478b68fbc4d03bda995ee",
+          "workloadDigest": "sha256:efba03d68d63c7f0c9701ef365eec7ec07417d9b1b4b6776ed1f94744be8439b",
+          "workloadBytesPerOperation": 65652,
+          "outputDigestParity": true,
+          "acceptedIngressCount": 22,
+          "encoderResultAllocationCount": 722040,
+          "maxEncodeCallsPerAcceptedIngress": 1,
+          "prefixLoopEncodeCallCount": 722018,
+          "prefixTemporaryAllocationCount": 722018,
+          "collectionMode": "untimed-companion-counter-pass",
+          "linkedPairIndex": 0,
+          "operations": 11
+        },
+        "candidateInstrumentation": {
+          "implementationId": "wave2-integrated-segmented-byte-deque-v2",
+          "sourceDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+          "executableDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+          "workloadDigest": "sha256:efba03d68d63c7f0c9701ef365eec7ec07417d9b1b4b6776ed1f94744be8439b",
+          "workloadBytesPerOperation": 65652,
+          "outputDigestParity": true,
+          "acceptedIngressCount": 22,
+          "encoderResultAllocationCount": 22,
+          "maxEncodeCallsPerAcceptedIngress": 1,
+          "prefixLoopEncodeCallCount": 0,
+          "prefixTemporaryAllocationCount": 0,
+          "collectionMode": "untimed-companion-counter-pass",
+          "linkedPairIndex": 0,
+          "operations": 11
+        },
+        "process": {
+          "pid": 103436,
+          "nodeVersion": "v24.16.0"
+        },
+        "hardware": {
+          "architecture": "x64",
+          "cpuModel": "AMD Ryzen 9 5950X 16-Core Processor            ",
+          "logicalCores": 32
+        }
+      },
+      {
+        "runId": "terminal-output-scheduler-103436-7008-11",
+        "pairIndex": 1,
+        "phase": "measurement",
+        "randomSeed": 7008,
+        "calibrationTargetDurationMs": 250,
+        "baselineElapsedMs": 274.3137999999999,
+        "candidateElapsedMs": 2.149599999999964,
+        "baselineOperations": 11,
+        "candidateOperations": 11,
+        "baselineImplementationId": "wave1-string-scheduler-reference-v1",
+        "baselineSourceDigest": "sha256:dc1edf2acaf16f57b6e517fb1499cd67e579508d12238b3a561aaada647ac1c3",
+        "baselineExecutableDigest": "sha256:687001c2a5bef4571cc84f8df8a69809f617eff7379478b68fbc4d03bda995ee",
+        "candidateImplementationId": "wave2-integrated-segmented-byte-deque-v2",
+        "candidateSourceDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+        "candidateExecutableDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+        "timingMode": "native-encoder-no-probe",
+        "timingOrder": "candidate-first",
+        "baselineTimedOutputDigestParity": true,
+        "candidateTimedOutputDigestParity": true,
+        "baselineInstrumentation": {
+          "implementationId": "wave1-string-scheduler-reference-v1",
+          "sourceDigest": "sha256:dc1edf2acaf16f57b6e517fb1499cd67e579508d12238b3a561aaada647ac1c3",
+          "executableDigest": "sha256:687001c2a5bef4571cc84f8df8a69809f617eff7379478b68fbc4d03bda995ee",
+          "workloadDigest": "sha256:efba03d68d63c7f0c9701ef365eec7ec07417d9b1b4b6776ed1f94744be8439b",
+          "workloadBytesPerOperation": 65652,
+          "outputDigestParity": true,
+          "acceptedIngressCount": 22,
+          "encoderResultAllocationCount": 722040,
+          "maxEncodeCallsPerAcceptedIngress": 1,
+          "prefixLoopEncodeCallCount": 722018,
+          "prefixTemporaryAllocationCount": 722018,
+          "collectionMode": "untimed-companion-counter-pass",
+          "linkedPairIndex": 1,
+          "operations": 11
+        },
+        "candidateInstrumentation": {
+          "implementationId": "wave2-integrated-segmented-byte-deque-v2",
+          "sourceDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+          "executableDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+          "workloadDigest": "sha256:efba03d68d63c7f0c9701ef365eec7ec07417d9b1b4b6776ed1f94744be8439b",
+          "workloadBytesPerOperation": 65652,
+          "outputDigestParity": true,
+          "acceptedIngressCount": 22,
+          "encoderResultAllocationCount": 22,
+          "maxEncodeCallsPerAcceptedIngress": 1,
+          "prefixLoopEncodeCallCount": 0,
+          "prefixTemporaryAllocationCount": 0,
+          "collectionMode": "untimed-companion-counter-pass",
+          "linkedPairIndex": 1,
+          "operations": 11
+        },
+        "process": {
+          "pid": 103436,
+          "nodeVersion": "v24.16.0"
+        },
+        "hardware": {
+          "architecture": "x64",
+          "cpuModel": "AMD Ryzen 9 5950X 16-Core Processor            ",
+          "logicalCores": 32
+        }
+      },
+      {
+        "runId": "terminal-output-scheduler-103436-7008-11",
+        "pairIndex": 2,
+        "phase": "measurement",
+        "randomSeed": 7008,
+        "calibrationTargetDurationMs": 250,
+        "baselineElapsedMs": 277.29229999999984,
+        "candidateElapsedMs": 2.286200000000008,
+        "baselineOperations": 11,
+        "candidateOperations": 11,
+        "baselineImplementationId": "wave1-string-scheduler-reference-v1",
+        "baselineSourceDigest": "sha256:dc1edf2acaf16f57b6e517fb1499cd67e579508d12238b3a561aaada647ac1c3",
+        "baselineExecutableDigest": "sha256:687001c2a5bef4571cc84f8df8a69809f617eff7379478b68fbc4d03bda995ee",
+        "candidateImplementationId": "wave2-integrated-segmented-byte-deque-v2",
+        "candidateSourceDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+        "candidateExecutableDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+        "timingMode": "native-encoder-no-probe",
+        "timingOrder": "baseline-first",
+        "baselineTimedOutputDigestParity": true,
+        "candidateTimedOutputDigestParity": true,
+        "baselineInstrumentation": {
+          "implementationId": "wave1-string-scheduler-reference-v1",
+          "sourceDigest": "sha256:dc1edf2acaf16f57b6e517fb1499cd67e579508d12238b3a561aaada647ac1c3",
+          "executableDigest": "sha256:687001c2a5bef4571cc84f8df8a69809f617eff7379478b68fbc4d03bda995ee",
+          "workloadDigest": "sha256:efba03d68d63c7f0c9701ef365eec7ec07417d9b1b4b6776ed1f94744be8439b",
+          "workloadBytesPerOperation": 65652,
+          "outputDigestParity": true,
+          "acceptedIngressCount": 22,
+          "encoderResultAllocationCount": 722040,
+          "maxEncodeCallsPerAcceptedIngress": 1,
+          "prefixLoopEncodeCallCount": 722018,
+          "prefixTemporaryAllocationCount": 722018,
+          "collectionMode": "untimed-companion-counter-pass",
+          "linkedPairIndex": 2,
+          "operations": 11
+        },
+        "candidateInstrumentation": {
+          "implementationId": "wave2-integrated-segmented-byte-deque-v2",
+          "sourceDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+          "executableDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+          "workloadDigest": "sha256:efba03d68d63c7f0c9701ef365eec7ec07417d9b1b4b6776ed1f94744be8439b",
+          "workloadBytesPerOperation": 65652,
+          "outputDigestParity": true,
+          "acceptedIngressCount": 22,
+          "encoderResultAllocationCount": 22,
+          "maxEncodeCallsPerAcceptedIngress": 1,
+          "prefixLoopEncodeCallCount": 0,
+          "prefixTemporaryAllocationCount": 0,
+          "collectionMode": "untimed-companion-counter-pass",
+          "linkedPairIndex": 2,
+          "operations": 11
+        },
+        "process": {
+          "pid": 103436,
+          "nodeVersion": "v24.16.0"
+        },
+        "hardware": {
+          "architecture": "x64",
+          "cpuModel": "AMD Ryzen 9 5950X 16-Core Processor            ",
+          "logicalCores": 32
+        }
+      },
+      {
+        "runId": "terminal-output-scheduler-103436-7008-11",
+        "pairIndex": 3,
+        "phase": "measurement",
+        "randomSeed": 7008,
+        "calibrationTargetDurationMs": 250,
+        "baselineElapsedMs": 268.62480000000005,
+        "candidateElapsedMs": 2.2733000000002903,
+        "baselineOperations": 11,
+        "candidateOperations": 11,
+        "baselineImplementationId": "wave1-string-scheduler-reference-v1",
+        "baselineSourceDigest": "sha256:dc1edf2acaf16f57b6e517fb1499cd67e579508d12238b3a561aaada647ac1c3",
+        "baselineExecutableDigest": "sha256:687001c2a5bef4571cc84f8df8a69809f617eff7379478b68fbc4d03bda995ee",
+        "candidateImplementationId": "wave2-integrated-segmented-byte-deque-v2",
+        "candidateSourceDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+        "candidateExecutableDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+        "timingMode": "native-encoder-no-probe",
+        "timingOrder": "candidate-first",
+        "baselineTimedOutputDigestParity": true,
+        "candidateTimedOutputDigestParity": true,
+        "baselineInstrumentation": {
+          "implementationId": "wave1-string-scheduler-reference-v1",
+          "sourceDigest": "sha256:dc1edf2acaf16f57b6e517fb1499cd67e579508d12238b3a561aaada647ac1c3",
+          "executableDigest": "sha256:687001c2a5bef4571cc84f8df8a69809f617eff7379478b68fbc4d03bda995ee",
+          "workloadDigest": "sha256:efba03d68d63c7f0c9701ef365eec7ec07417d9b1b4b6776ed1f94744be8439b",
+          "workloadBytesPerOperation": 65652,
+          "outputDigestParity": true,
+          "acceptedIngressCount": 22,
+          "encoderResultAllocationCount": 722040,
+          "maxEncodeCallsPerAcceptedIngress": 1,
+          "prefixLoopEncodeCallCount": 722018,
+          "prefixTemporaryAllocationCount": 722018,
+          "collectionMode": "untimed-companion-counter-pass",
+          "linkedPairIndex": 3,
+          "operations": 11
+        },
+        "candidateInstrumentation": {
+          "implementationId": "wave2-integrated-segmented-byte-deque-v2",
+          "sourceDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+          "executableDigest": "sha256:a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
+          "workloadDigest": "sha256:efba03d68d63c7f0c9701ef365eec7ec07417d9b1b4b6776ed1f94744be8439b",
+          "workloadBytesPerOperation": 65652,
+          "outputDigestParity": true,
+          "acceptedIngressCount": 22,
+          "encoderResultAllocationCount": 22,
+          "maxEncodeCallsPerAcceptedIngress": 1,
+          "prefixLoopEncodeCallCount": 0,
+          "prefixTemporaryAllocationCount": 0,
+          "collectionMode": "untimed-companion-counter-pass",
+          "linkedPairIndex": 3,
+          "operations": 11
+        },
+        "process": {
+          "pid": 103436,
+          "nodeVersion": "v24.16.0"
+        },
+        "hardware": {
+          "architecture": "x64",
+          "cpuModel": "AMD Ryzen 9 5950X 16-Core Processor            ",
+          "logicalCores": 32
+        }
+      }
+    ],
+    "summary": {
+      "baselineP95Ms": 277.29229999999984,
+      "candidateP95Ms": 2.286200000000008,
+      "pairedP95UpperDeltaMs": -272.0404999999996,
+      "toleranceMs": 13.864614999999993,
+      "toleranceRatio": 0.05,
+      "toleranceClassification": "measurement-noise-regression-tolerance",
+      "productSlo": false,
+      "passes": true,
+      "bootstrap": {
+        "method": "paired-bootstrap-p95-delta",
+        "confidenceLevel": 0.95,
+        "iterations": 512,
+        "randomSeed": 7008
+      }
+    }
+  },
+  "contentDigest": "sha256:f6bf43770e605fd34f8aae07df30a4e77ec82bdd9a624d302cbcdc8e03583f5b"
+}

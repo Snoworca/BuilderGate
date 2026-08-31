@@ -1,0 +1,22 @@
+{
+  "research_question": "BuilderGate에서 브라우저 새로고침 후 terminal 화면 또는 scrollback이 잘리는 현상의 실제 원인과 보존 계약을 확인하고, Orca의 daemon model/view refresh·reconnect·snapshot 방식을 참고해 기존 BuilderGate snapshot/replay/local-cache 구현을 전부 제거하고 Orca식 authoritative model + disposable view 구조로 대체하는 것이 타당한지 연구한다.",
+  "intent": [
+    "refresh truncation의 코드 경로와 재현 가능한 원인을 구분한다.",
+    "Orca가 renderer refresh 또는 reconnect에서 실제로 보존하는 상태와 버리는 상태를 소스로 확인한다.",
+    "BuilderGate의 browser/WAN/multi-client 조건에서 이식 가능한 불변식과 이식 불가능한 Electron 전제를 분리한다.",
+    "전면 교체와 단계적 authority 전환의 위험·rollback·검증 계약을 비교한다.",
+    "기존 GitHub roadmap에 추가하거나 수정할 독립 작업을 도출한다."
+  ],
+  "facts": [
+    "사용자는 성능 최적화 이후 새로고침 시 화면이 잘린다고 보고했다.",
+    "아직 이 새 연구 run에서 runtime 재현과 profile은 수행되지 않았다.",
+    "BuilderGate active target은 0.5.5-buildergate-stability다.",
+    "C:\\Work\\git-none\\orca는 읽기 전용 참조 저장소다."
+  ],
+  "scope_boundaries": [
+    "연구와 계획만 수행하고 runtime 코드는 변경하지 않는다.",
+    "UI visual, label, layout을 변경하지 않는다.",
+    "Orca 저장소를 수정하지 않는다.",
+    "Electron renderer refresh와 browser refresh를 동일하다고 가정하지 않는다."
+  ]
+}
