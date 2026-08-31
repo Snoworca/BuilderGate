@@ -1,0 +1,69 @@
+{
+  "task_id": "T-PH005-01",
+  "phase_id": "PH-005",
+  "status": "done",
+  "started_at": "2026-07-17T15:07:32+09:00",
+  "completed_at": "2026-07-17T21:20:58+09:00",
+  "trace_req_ids": [
+    "MIG-BGSTAB-002",
+    "REL-BGSTAB-007"
+  ],
+  "phase1": {
+    "tdd_draft_iters": [
+      {
+        "iter": 1,
+        "summary": "13개 promotion 계약과 6개 HTTPS E2E를 compatibility baseline과 분리한 strict RED harness로 봉인했다.",
+        "manifest": "tools/wave3/authority-promotion-red-test-sources.json"
+      }
+    ],
+    "standard4_reviews": [
+      {"scope": "server controller/query contracts", "verdict": "No findings"},
+      {"scope": "frontend unit/protocol contracts", "verdict": "No findings"},
+      {"scope": "HTTPS E2E contracts", "verdict": "No findings"},
+      {"scope": "whole strict RED evidence and plan alignment", "verdict": "No findings"}
+    ],
+    "red_evidence": {
+      "command": "node tools/wave3/authority-promotion-evidence.test.mjs --expect-red",
+      "exit_code": 1,
+      "intended": true,
+      "contractSatisfied": true,
+      "compatibility": {"passed": 37, "total": 37},
+      "targetUnit": {"failed": 12, "total": 12},
+      "e2e": {"failed": 6, "total": 6, "setupFatal": 0},
+      "registeredAssertions": {"failed": 13, "total": 13},
+      "productionUnchanged": true,
+      "decisionArtifactAbsent": true,
+      "nodeSha256": "7b1ad8be839454ef30767cb07500fcfafae84af424088965b0c964c051da859e",
+      "e2eSha256": "326777d0f787e6bd75efa8634ed92ede35ab7706ef042a552681f7429a9271fb",
+      "sourceSha256": "077a2df8a7eca8ccbfa0c850cae33e5fdeb9c2dc2a7a4572bf8f2e31c28be98f",
+      "redTestSourceSha256": "90292eb0bab5770e5a37a767d2387160301a7a5aeeae936e552895099e905b35",
+      "sidecarRegistrationSha256": "c860c8fd9408fff650264d9cba3e3172f3cf19a527b0812512149d21256cb218"
+    }
+  },
+  "phase2": {
+    "impl_iters": [],
+    "formal_reviews": [],
+    "prickly_reviews": [{"verdict": "No findings"}],
+    "green_evidence": null,
+    "dod_check": [
+      {"item": "13개 신규 promotion 계약과 6개 전용 E2E가 기존 compatibility baseline을 보존한 채 예상 RED로 실패한다.", "satisfied": true},
+      {"item": "import/module fatal 없이 신규 계약 부재만 RED 원인으로 증명된다.", "satisfied": true},
+      {"item": "production 구현은 변경하지 않는다.", "satisfied": true}
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "frontendTypecheck": "passed",
+      "serverTypecheck": "passed",
+      "eslint": "passed",
+      "planValidator": "25/25 passed",
+      "evidenceSelfTest": "passed",
+      "strictRed": "contractSatisfied with intended exit 1"
+    },
+    "mcp_calls": [
+      {"tool": "update_status", "requirement_id": "MIG-BGSTAB-002", "status": "in_progress", "ok": true},
+      {"tool": "workflow_task_status_set", "status": "running", "journal_key": "c872a950f84131b8af30c8befb6a39e457685c5a99e409339578caca67979485", "ok": true},
+      {"tool": "workflow_task_status_set", "status": "done", "journal_key": "9aa26efb969713c93ff4d75096bfe86fd58c078a7c7bb09c8f35af395706860c", "ok": true}
+    ]
+  }
+}

@@ -1,0 +1,382 @@
+{
+  "run_id": "2026-07-15.projectmaster.wave2-hotpath",
+  "plan_path": "docs/plans/2026-07-15.projectmaster.wave2-hotpath.plan.md",
+  "sidecar_path": "docs/plans/2026-07-15.projectmaster.wave2-hotpath.sidecar.json",
+  "plan_sha256": "50748afcda4efe127ad4e89913ad1073797d5c9b833a8f8616f8f9fe2ef271d4",
+  "sidecar_sha256": "054628e878b577a3a7d2161a607ad4ee25e6a4c80dad83116870d0571b8519f8",
+  "target_slug": "wave-2",
+  "started_at": "2026-07-15T17:36:24.1860352Z",
+  "last_updated_at": "2026-07-16T16:37:04.0788051+09:00",
+  "pm_version": "0.1",
+  "mode_flags": [
+    "--auto",
+    "--auto-cost-warning"
+  ],
+  "tasks": [
+    {
+      "task_id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T17:37:00.0000000Z",
+      "ended_at": "2026-07-15T17:43:37.0000000Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH001-01",
+      "result_summary": "baseline 16/16 PASS; 20 PASS + AC-1/3/4/7 exact RED 4 failures, exit 1; production unchanged",
+      "trace_req_ids": [
+        "PERF-BGSTAB-009"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH001-02",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T17:47:00.0000000Z",
+      "ended_at": "2026-07-15T18:04:40.0000000Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH001-02",
+      "result_summary": "segmented UTF-8 byte deque and Uint8Array writer GREEN; unit 24/24, typecheck PASS, scoped ESLint errors 0, independent review No findings",
+      "trace_req_ids": [
+        "PERF-BGSTAB-009"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH001-03",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T18:11:04.3693785Z",
+      "ended_at": "2026-07-15T18:29:37.2038335Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH001-03",
+      "result_summary": "intended RED paired benchmark contract: fixture and benchmark commands each exit 1 with exact AC-8/9/10 signatures; unit 24/24; three review loops ended No findings",
+      "trace_req_ids": [
+        "PERF-BGSTAB-009"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH001-04",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T18:32:10.0897599Z",
+      "ended_at": "2026-07-15T18:58:27.9534997Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH001-04",
+      "result_summary": "paired benchmark GREEN 3/3; PH-003 integrated candidate provenance re-frozen; canonical artifact digest 5f240e44 and default test byte-invariant; unit 24/24, typecheck/scoped ESLint PASS; independent review No findings; full lint retains unrelated baseline debt",
+      "trace_req_ids": [
+        "PERF-BGSTAB-009"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH001-05",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T19:02:10.0000000Z",
+      "ended_at": "2026-07-15T19:15:52.0031035Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH001-05",
+      "result_summary": "PH-001 review-fix complete: actual xterm cell attributes/title parity, successful bounded compaction, canonical artifact persistence; combined 27/27, typecheck/task-scoped ESLint PASS; same reviewer exact No findings",
+      "trace_req_ids": [
+        "PERF-BGSTAB-009"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T19:22:30.0000000Z",
+      "ended_at": "2026-07-15T19:46:41.6835771Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH002-01",
+      "result_summary": "server build PASS; 14 legacy screen-repair PASS; 5 server and 4 split intended RED; AC-6 characterization PASS; obsolete giant full-flush expectations removed; reviewer exact No findings",
+      "trace_req_ids": [
+        "REL-BGSTAB-008"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-02",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T19:58:00.0000000Z",
+      "ended_at": "2026-07-15T20:46:16.7018364Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH002-02",
+      "result_summary": "client-local bounded repair queue and authoritative fresh snapshot GREEN; screen-repair 21/21, strict split 5/5, full split 8 PASS/13 pre-existing TODO, full server 507/507; independent review exact No findings",
+      "trace_req_ids": [
+        "REL-BGSTAB-008"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-03",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T19:59:00.0000000Z",
+      "ended_at": "2026-07-15T21:04:51.0000000Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH002-03",
+      "result_summary": "frontend stale/resync strict RED complete; baseline 14/14, six exact unit RED and two exact HTTPS E2E RED with infrastructure errors 0; scoped lint/typecheck PASS; six review rounds ended exact No findings",
+      "trace_req_ids": [
+        "REL-BGSTAB-008"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-04",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T21:07:45.0000000Z",
+      "ended_at": "2026-07-15T22:22:27.1056240Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH002-04",
+      "result_summary": "frontend explicit stale/resync GREEN with terminal mutation fence and failed-transaction sealing; unit 31/31, typecheck/build PASS, HTTPS E2E 2/2, split 8 PASS/13 known TODO, scoped lint errors 0, same reviewer exact No findings",
+      "trace_req_ids": [
+        "REL-BGSTAB-008"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-05",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T22:23:04.2416491Z",
+      "ended_at": "2026-07-15T22:54:28.2237370Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH002-05",
+      "result_summary": "Phase 2 fault matrix and supersession hardening complete: server full PASS, screen repair 24/24, supersession 3/3, frontend full unit 278/278, HTTPS E2E 2/2, typecheck/build/scoped lint PASS; same prickly reviewer exact No findings",
+      "trace_req_ids": [
+        "REL-BGSTAB-008"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T22:56:30.3789138Z",
+      "ended_at": "2026-07-15T23:17:27.8895257Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH003-01",
+      "result_summary": "Strict restore coordinator RED contract complete: baseline 11/11 PASS; exact tests 9/fail 9 with nine planned semantic signatures and infrastructure errors 0; scoped lint PASS; independent S1-S4 validation No CRITICAL/HIGH findings",
+      "trace_req_ids": [
+        "REL-BGSTAB-009"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-02",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T23:18:07.7651923Z",
+      "ended_at": "2026-07-15T23:39:09.1166208Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH003-02",
+      "result_summary": "Existing recovery authority extended to bounded generation-safe restore state machine; targeted 20/20, typecheck and scoped lint PASS; concurrent T-PH003-03 planned RED only in full unit; three HIGH findings fixed and same reviewer exact No findings",
+      "trace_req_ids": [
+        "REL-BGSTAB-009"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-03",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T23:19:05.1219988Z",
+      "ended_at": "2026-07-16T00:06:13.3873143Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH003-03",
+      "result_summary": "14/14 semantic RED certified: server 6/6, frontend unit 6 planned failures with 52 baseline pass, HTTPS E2E 2/2; real HTTPS/WebSocket/PTY path, cleanup residue 0, independent final review No findings",
+      "trace_req_ids": [
+        "REL-BGSTAB-009"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-04",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-16T00:08:00.0000000Z",
+      "ended_at": "2026-07-16T03:20:48.7540336Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH003-04",
+      "result_summary": "atomic generation-safe restore GREEN; server dedicated 11/11 and full 517/517, frontend targeted 102/102, typecheck/build and HTTPS restore 2/2; bounded reconnect/fresh convergence and replacement authority hardening; same reviewer exact No findings; immutable live-backend version exception documented",
+      "trace_req_ids": [
+        "REL-BGSTAB-009"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-05",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-16T03:20:48.7540336Z",
+      "ended_at": "2026-07-16T04:11:44.2025704Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH003-05",
+      "result_summary": "PH-003 final fault review complete: server dedicated 13/13 and full 517/517, frontend targeted 110/110 and full 325/325, typecheck/build, HTTPS restore 2/2; repeated reviewer loop exact No findings; live backend version exception documented",
+      "trace_req_ids": [
+        "REL-BGSTAB-009"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH004-01",
+      "phase_id": "PH-004",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-16T04:12:31.2950378Z",
+      "ended_at": "2026-07-16T04:20:05.2824521Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH004-01",
+      "result_summary": "Strict clipboard coordinator RED contract: exact 8/8 planned semantic failures, selection/target and context/dispose races separated, payload redaction, scoped lint/diff PASS; repeated same-reviewer loop exact No findings",
+      "trace_req_ids": [
+        "FR-BGSTAB-021"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH004-02",
+      "phase_id": "PH-004",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-16T04:20:23.0135307Z",
+      "ended_at": "2026-07-16T04:38:27.9585798Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH004-02",
+      "result_summary": "Generation-safe clipboard coordinator and handle GREEN: targeted 17/17, full unit 336/336, typecheck/build PASS, scoped lint errors 0; StrictMode, hidden view and saved-selection findings fixed; same reviewer exact No findings",
+      "trace_req_ids": [
+        "FR-BGSTAB-021"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH004-03",
+      "phase_id": "PH-004",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-16T04:38:44.8474939Z",
+      "ended_at": "2026-07-16T05:49:36.5590043Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH004-03",
+      "result_summary": "Strict 8-case browser adapter RED certified as 3 pass/5 planned semantic failures; full 26-case diagnostic separated integration failures from prompt parser debt; test-owned workspace isolation, exact session payload reconstruction, full-event redaction and zero-input remount race; repeated reviewer loop exact No findings",
+      "trace_req_ids": [
+        "FR-BGSTAB-021"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH004-04",
+      "phase_id": "PH-004",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-16T05:49:36.5590043Z",
+      "ended_at": "2026-07-16T05:54:48.1892031Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH004-04",
+      "result_summary": "Single-owner clipboard GREEN across keyboard/tab/Grid/preset; native Ctrl+V and no-selection SIGINT preserved; targeted unit 22/22, strict HTTPS 8/8, full HTTPS 21 pass/5 mobile skip/0 fail, typecheck/build and scoped lint PASS; independent prickly review exact No findings; full lint baseline debt isolated",
+      "trace_req_ids": [
+        "FR-BGSTAB-021"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH004-05",
+      "phase_id": "PH-004",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-16T05:54:48.1892031Z",
+      "ended_at": "2026-07-16T05:57:28.1573802Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave2-hotpath/T-PH004-05",
+      "result_summary": "PH-004 plus final integrated fixes complete: clipboard unit contracts and frontend full unit 339/339, strict HTTPS 9/9, full HTTPS 22 pass/5 mobile skip/0 fail, registered preset 14 pass/5 skip/0 fail; Grid active-pane deferred paste fenced, dormant bypass removed, typecheck/build/scoped ESLint PASS; final integrated reviewer exact No findings",
+      "trace_req_ids": [
+        "FR-BGSTAB-021"
+      ],
+      "questions": [],
+      "attempts": 1
+    }
+  ],
+  "stats": {
+    "total": 20,
+    "done": 20,
+    "running": 0,
+    "pending": 0,
+    "failed": 0,
+    "blocked": 0,
+    "skipped": 0
+  },
+  "last_question": null,
+  "cost_approval": {
+    "approved_at": "2026-07-15T11:45:29.000Z",
+    "scope": "all-waves",
+    "source": "user: 비용을 충전하였습니다. 계속 진행하시오."
+  },
+  "last_error": null,
+  "lifecycle_gate_state": {
+    "evaluated_at": "2026-07-15T17:36:24.1860352Z",
+    "blocked_req_ids": [],
+    "stability_snapshot": {
+      "PERF-BGSTAB-009": "evolving",
+      "REL-BGSTAB-008": "evolving",
+      "REL-BGSTAB-009": "evolving",
+      "FR-BGSTAB-021": "evolving"
+    },
+    "status_snapshot": {
+      "PERF-BGSTAB-009": "planned",
+      "REL-BGSTAB-008": "planned",
+      "REL-BGSTAB-009": "planned",
+      "FR-BGSTAB-021": "planned"
+    }
+  },
+  "req_coverage": {
+    "PERF-BGSTAB-009": "implemented",
+    "REL-BGSTAB-008": "implemented",
+    "REL-BGSTAB-009": "implemented",
+    "FR-BGSTAB-021": "implemented"
+  },
+  "final_mutations": [
+    "PERF-BGSTAB-009 final integrated benchmark provenance and evidence reconciled",
+    "REL-BGSTAB-008 covered-prefix cap accounting, single snapshot wire payload, and final HTTPS generation-fence evidence added",
+    "REL-BGSTAB-009 C1 parser-tail parity, sourceSegments identity, and atomic batch admission evidence added",
+    "FR-BGSTAB-021 active Grid target generation fence and legacy paste bypass removal evidence added",
+    "SpecKiwi validate/summary/links checks completed with zero diagnostics and plan-summary completed work logged"
+  ],
+  "pending_mutations": [],
+  "report_path": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave2-hotpath/wave-report.ko.md",
+  "doculight_viewer_id": "09f52780-6214-47aa-943f-620fb857aa67",
+  "checklist_path": "docs/plans/2026-07-15.projectmaster.wave2-hotpath.checklist.md",
+  "degraded_workflow": {
+    "enabled": false,
+    "reason": "official workflow repair/read projections and SRS/completed-work mutations succeeded; four unrelated 2026-05-22 legacy SRS-W055 rows remain as non-current warnings",
+    "diagnostics": [
+      "kiwi/pipeline.jsonl:1 SRS-W055",
+      "kiwi/pipeline.jsonl:2 SRS-W055",
+      "kiwi/pipeline.jsonl:3 SRS-W055",
+      "kiwi/pipeline.jsonl:4 SRS-W055"
+    ],
+    "affected_artifacts": [
+      "kiwi/pipeline.jsonl",
+      ".kiwi/sessions/2026-07-15.projectmaster.wave2-hotpath/worklog.jsonl"
+    ],
+    "active_target": "wave-2",
+    "follow_up_requirement_id": "PERF-BGSTAB-009"
+  }
+}

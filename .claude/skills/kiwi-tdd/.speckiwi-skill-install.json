@@ -1,0 +1,23 @@
+{
+  "name": "kiwi-tdd",
+  "agent": "claude",
+  "installedAt": "2026-08-06T16:13:48.668Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "claude",
+  "sourceRoot": "skills/claude",
+  "sourcePath": "skills/claude/kiwi-tdd",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-tdd",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:285b4f16b69651bf642649ae372882a42b9259692943cc5cb92095f1637d595a",
+  "installedChecksum": "sha256:285b4f16b69651bf642649ae372882a42b9259692943cc5cb92095f1637d595a",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md"
+  ],
+  "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-tdd --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
+  "noManualEdit": true
+}

@@ -1,0 +1,43 @@
+{
+  "task_id": "T-PH004-04",
+  "requirement_id": "MIG-BGSTAB-001",
+  "started_at": "2026-07-15T16:16:54.5800634Z",
+  "completed_at": "2026-07-15T16:18:44.3893808Z",
+  "decision": {
+    "value": "architectural migration",
+    "explicit_user_selection": true,
+    "business_decision_id": "G1-2026-07-15-ORCA-ARCHITECTURAL-MIGRATION",
+    "opposite_branch": "confirmed-bug-only",
+    "opposite_branch_rejected": true
+  },
+  "artifacts": {
+    "decision_record": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/g1-decision-record.json",
+    "decision_record_file_sha256": "5a3d552a81a5f8ad7baa464ab3c008375b82f13e4496497974c8e44a5e7c0fc0",
+    "evidence_audit": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/g1-evidence-audit.json",
+    "stable_authority_requirement_id": "REL-BGSTAB-007"
+  },
+  "verification": {
+    "evaluator_result": "allow",
+    "evaluator_output_exact_match": true,
+    "gate_tests": "7/7 passed",
+    "audit_digest_match": true,
+    "stable_authority_requirement": true,
+    "evaluation_stage": "decision",
+    "decision_validity": "allow",
+    "activation_readiness": "pending-wave1-closure",
+    "wave1_state": "pending-wave1-closure",
+    "wave2_state": "eligible-after-wave1-closure",
+    "final_activation_evaluator": "evaluateG1Activation",
+    "implicit_authorizations": false,
+    "product_mutation": false
+  },
+  "review_fix": {
+    "finding_id": "FND-PH004-001",
+    "red_evidence": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/ph004-fnd001-red-evidence.json",
+    "green_evidence": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/ph004-fnd001-green-evidence.json",
+    "decision_record_evaluation_deep_equal": true,
+    "evidence_audit_digest_match": true,
+    "resolution": "T4 decision record now seals only conditional states; actual eligible requires a separate external post-closure re-evaluation."
+  },
+  "review_status": "pending PH-004 re-review after FND-PH004-001 fix"
+}

@@ -1,0 +1,97 @@
+{
+  "task_id": "T-PH003-01",
+  "started_at": "2026-07-30T03:56:47.3168382+09:00",
+  "completed_at": "2026-07-30T09:25:00.000+09:00",
+  "phase1": {
+    "tdd_draft_iters": [
+      {
+        "iter": 1,
+        "file_paths": [
+          "server/src/services/TerminalAuthorityController.test.ts",
+          "frontend/tests/unit/terminalContainerRecoveryContract.test.ts"
+        ],
+        "note": "Existing exact tests were preserved; strict-TDD recovery removed only attributed production consequences to establish an actual RED baseline."
+      }
+    ],
+    "standard4_reviews": [
+      {
+        "reviewer": "ac8_mapping_rereview",
+        "outcome": "Initial HIGH control-scope finding was fixed by excluding every terminal-checkpoint:* command and checkpointEpoch; follow-up found no remaining mapping/control finding.",
+        "artifact": "docs/analysis/kiwi-coder-2026-07-28.pm.wave3-completion/T-PH003-01-tdd-rereview.json"
+      },
+      {
+        "reviewer": "red_evidence_rereview",
+        "outcome": "Four exact selected contracts independently produced assertion-level RED and the aggregate wrapper exited 0; evidence-record staleness was repaired.",
+        "artifact": "docs/analysis/kiwi-coder-2026-07-28.pm.wave3-completion/T-PH003-01-tdd-rereview.json"
+      }
+    ],
+    "red_evidence": {
+      "command": "See docs/analysis/kiwi-coder-2026-07-28.pm.wave3-completion/T-PH003-01-red-evidence.json#aggregate_wrapper",
+      "exit_code": 0,
+      "captured_failure": "Four individual named contracts failed for their removed production behavior; aggregate wrapper accepted all four RED outcomes.",
+      "timestamp": "2026-07-30T00:05:49.6706436Z"
+    },
+    "red_evidence_meta": {
+      "test_case_ids": [
+        "TC-REQ-REL-BGSTAB-007-AC2-01",
+        "TC-REQ-REL-BGSTAB-007-AC8-02",
+        "TC-REQ-REL-BGSTAB-007-AC4-03",
+        "TC-REQ-REL-BGSTAB-007-AC9-04"
+      ],
+      "preservation_patch": "docs/analysis/kiwi-coder-2026-07-28.pm.wave3-completion/T-PH003-01-attributed-production.removal.patch",
+      "next_resume_hint": "RED evidence and independent re-reviews are current; do not reapply production or transition task status without parent orchestration.",
+      "latest_command_execution": {
+        "executed_at": "2026-07-30T00:05:49.6706436Z",
+        "individual_results": [
+          {
+            "test_case_id": "TC-REQ-REL-BGSTAB-007-AC2-01",
+            "test_path": "server/src/services/TerminalAuthorityController.test.ts",
+            "selected_test_count": 1,
+            "exit_code": 1,
+            "failure_classification": "assertion-level (ERR_ASSERTION)"
+          },
+          {
+            "test_case_id": "TC-REQ-REL-BGSTAB-007-AC8-02",
+            "test_path": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+            "selected_test_count": 1,
+            "exit_code": 1,
+            "failure_classification": "assertion-level (ERR_ASSERTION)",
+            "control_facts": "physical write -> generic repair ACK -> server-ready latch; no terminal-checkpoint:* command; no checkpointEpoch control"
+          },
+          {
+            "test_case_id": "TC-REQ-REL-BGSTAB-007-AC4-03",
+            "test_path": "server/src/services/TerminalAuthorityController.test.ts",
+            "selected_test_count": 1,
+            "exit_code": 1,
+            "failure_classification": "assertion-level (ERR_ASSERTION)"
+          },
+          {
+            "test_case_id": "TC-REQ-REL-BGSTAB-007-AC9-04",
+            "test_path": "server/src/services/TerminalAuthorityController.test.ts",
+            "selected_test_count": 1,
+            "exit_code": 1,
+            "failure_classification": "assertion-level (ERR_ASSERTION)"
+          }
+        ],
+        "aggregate_wrapper_exit_code": 0
+      }
+    }
+  },
+  "phase2": {
+    "impl_iters": [],
+    "formal_reviews": [],
+    "prickly_reviews": [],
+    "green_evidence": null,
+    "dod_check": []
+  },
+  "phase3": {
+    "regression": null,
+    "mcp_calls": [
+      {
+        "tool": "workflow_worklog_emit",
+        "ok": false,
+        "diagnostic": "SRS-E072 idempotency key incompatible with canonical journal identity"
+      }
+    ]
+  }
+}

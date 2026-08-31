@@ -1,0 +1,473 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-16.projectmaster.wave3-authority",
+  "plan_run_id": "2026-07-16.projectmaster.wave3-authority",
+  "plan_path": "docs/plans/2026-07-16.projectmaster.wave3-authority.plan.md",
+  "sidecar_path": "docs/plans/2026-07-16.projectmaster.wave3-authority.sidecar.json",
+  "target": "wave-3",
+  "mode": "normal",
+  "flags": [
+    "--auto"
+  ],
+  "started_at": "2026-07-16T20:05:00+09:00",
+  "updated_at": "2026-07-23T12:32:45.430Z",
+  "frozen_at": null,
+  "current_phase_id": "PH-006",
+  "current_task_id": "T-PH006-01",
+  "next_resume_hint": "user-decision: strict RED baseline conflicts with pre-existing PH-006 implementation",
+  "blocked_reason": "T-PH006-01 cannot truthfully recreate the mandatory RED state without destructive rollback of shared worktree changes or artificial test failures.",
+  "plan_revision": {
+    "reason": "PH-006 independent plan review reconciled runnable frontend commands, protocol/browser TDD contracts, measured artifact admission, lifecycle cleanup, and guarded SRS trace links before RED admission.",
+    "plan_sha256": "c3987645be9a9c8f32642a5d8bdedd2695bf9f990466ce8514ab63d4e119f385",
+    "sidecar_sha256": "35760e7af1bfcc9ee50d74f2a261fd4a2beb85deed9aadc7b42ceaf417aba9f1",
+    "validator_sha256": "9dd413223bd66e174895230fbf98f5c24ab05b94c5d92bf3ef0af4408b52e8ea",
+    "validator": "25/25; errors 0; warnings 0",
+    "review": "No findings"
+  },
+  "task_queue": [
+    "T-PH001-01",
+    "T-PH001-02",
+    "T-PH001-03",
+    "T-PH001-04",
+    "T-PH001-05",
+    "T-PH001-06",
+    "T-PH001-07",
+    "T-PH002-01",
+    "T-PH002-02",
+    "T-PH002-03",
+    "T-PH002-04",
+    "T-PH002-05",
+    "T-PH002-06",
+    "T-PH002-07",
+    "T-PH003-01",
+    "T-PH003-02",
+    "T-PH003-03",
+    "T-PH003-04",
+    "T-PH003-05",
+    "T-PH003-06",
+    "T-PH003-07",
+    "T-PH004-01",
+    "T-PH004-02",
+    "T-PH004-03",
+    "T-PH004-04",
+    "T-PH004-05",
+    "T-PH004-06",
+    "T-PH004-07",
+    "T-PH005-01",
+    "T-PH005-02",
+    "T-PH005-03",
+    "T-PH005-04",
+    "T-PH005-05",
+    "T-PH005-06",
+    "T-PH005-07",
+    "T-PH006-01",
+    "T-PH006-02",
+    "T-PH006-03",
+    "T-PH006-04",
+    "T-PH006-05",
+    "T-PH006-06",
+    "T-PH006-07",
+    "T-PH007-01",
+    "T-PH007-02",
+    "T-PH007-03",
+    "T-PH007-04",
+    "T-PH007-05",
+    "T-PH007-06",
+    "T-PH007-07"
+  ],
+  "completed_task_ids": [
+    "T-PH001-01",
+    "T-PH001-02",
+    "T-PH001-03",
+    "T-PH001-04",
+    "T-PH001-05",
+    "T-PH001-06",
+    "T-PH001-07",
+    "T-PH002-01",
+    "T-PH002-02",
+    "T-PH002-03",
+    "T-PH002-04",
+    "T-PH002-05",
+    "T-PH002-06",
+    "T-PH002-07",
+    "T-PH003-01",
+    "T-PH003-02",
+    "T-PH003-03",
+    "T-PH003-04",
+    "T-PH003-05",
+    "T-PH003-06",
+    "T-PH003-07",
+    "T-PH004-01",
+    "T-PH004-02",
+    "T-PH004-03",
+    "T-PH004-04",
+    "T-PH004-05",
+    "T-PH004-06",
+    "T-PH004-07",
+    "T-PH005-01",
+    "T-PH005-02",
+    "T-PH005-03",
+    "T-PH005-04",
+    "T-PH005-05",
+    "T-PH005-06",
+    "T-PH005-07"
+  ],
+  "skipped_task_ids": [],
+  "failed_task_ids": [],
+  "tdd_exempted_task_ids": [
+    "T-PH004-04",
+    "T-PH004-05",
+    "T-PH004-06",
+    "T-PH004-07",
+    "T-PH005-04",
+    "T-PH005-05",
+    "T-PH005-06",
+    "T-PH005-07"
+  ],
+  "tdd_pending_task_ids": [
+    "T-PH006-01",
+    "T-PH006-02",
+    "T-PH006-03",
+    "T-PH007-01",
+    "T-PH007-02",
+    "T-PH007-03"
+  ],
+  "severity_counters": {},
+  "regression_summary": {
+    "phase": "PH-005",
+    "baseline": "15/15 authority/checkpoint compatibility tests",
+    "plan_validator": "25/25; errors 0; warnings 0",
+    "plan_review": "No findings",
+    "red": "30 total / 12 compatibility pass / 18 expected semantic fail; S1-S4 exact No findings",
+    "green": "57/57 exact focused; literal 42 axes (41 pass, retained no-local-cache not-proven); PASS_FAIL_CLOSED",
+    "full": "server 517/517; frontend unit 485/485; frontend build PASS; HTTPS Desktop Chrome 5/5",
+    "implementation_review": "two independent final verdicts exact No findings",
+    "closure_review": "all artifact/checklist/task/PM/state/worklog/pipeline/GitHub projection findings corrected; independent final re-audit exact No findings",
+    "spec_github_sync": "MIG-BGSTAB-002 implemented with VE-1..VE-3 and AC-1..AC-6 checked; REL-BGSTAB-007 remains planned; GitHub #12 report projection issuecomment-5055536032",
+    "ph005": "final ACCEPT: compatibility 39/39, focused 12/12, route guards 5/5, extended regression 59/59, HTTPS E2E 6/6, assertions 13/13; two independent final reviews No findings"
+  },
+  "mcp_call_log": [
+    {
+      "called_at": "2026-07-16T20:02:00+09:00",
+      "tool": "update_status",
+      "args": {
+        "id": "OBS-BGSTAB-005",
+        "status": "in_progress",
+        "reason": "Wave 3 PH-001 implementation started after plan v0.2.0 validator 25/25 and independent No findings review."
+      },
+      "args_hash": "wave3-ph001-status-in-progress",
+      "ok": true,
+      "response_hash": "written",
+      "dry_run": false,
+      "task_id": "T-PH001-01"
+    },
+    {
+      "called_at": "2026-07-16T22:34:00+09:00",
+      "tool": "add_verification_evidence/check_acceptance_criteria/update_status/add_completed_work",
+      "args": {
+        "id": "OBS-BGSTAB-005",
+        "status": "implemented",
+        "acIds": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"],
+        "evidenceIds": ["VE-2", "VE-3", "VE-4", "VE-5"]
+      },
+      "args_hash": "wave3-ph001-reviewed-evidence-status-completed-work",
+      "ok": true,
+      "response_hash": "written",
+      "dry_run": false,
+      "task_id": "T-PH001-06"
+    },
+    {
+      "called_at": "2026-07-16T22:35:00+09:00",
+      "tool": "gh issue comment",
+      "args": {
+        "issue": 8,
+        "bodyFile": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/report.md"
+      },
+      "args_hash": "wave3-ph001-github-issue-8-comment",
+      "ok": true,
+      "response_hash": "issuecomment-4992524910",
+      "dry_run": false,
+      "task_id": "T-PH001-06"
+    },
+    {
+      "called_at": "2026-07-16T22:43:18.9574907+09:00",
+      "tool": "update_status",
+      "args": {
+        "id": "REL-BGSTAB-010",
+        "status": "in_progress",
+        "reason": "Wave 3 PH-002 implementation started after PH-001 closure audit exact No findings; strict TDD RED contract begins."
+      },
+      "args_hash": "wave3-ph002-status-in-progress",
+      "ok": true,
+      "response_hash": "written",
+      "dry_run": false,
+      "task_id": "T-PH002-01"
+    },
+    {
+      "called_at": "2026-07-17T05:09:00+09:00",
+      "tool": "add_verification_evidence/check_acceptance_criteria/update_status/add_completed_work",
+      "args": {
+        "id": "REL-BGSTAB-010",
+        "status": "implemented",
+        "acIds": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6"],
+        "evidenceIds": ["VE-2", "VE-3", "VE-4"]
+      },
+      "args_hash": "wave3-ph002-reviewed-evidence-status-completed-work",
+      "ok": true,
+      "response_hash": "written",
+      "dry_run": false,
+      "task_id": "T-PH002-06"
+    },
+    {
+      "called_at": "2026-07-17T05:10:00+09:00",
+      "tool": "gh issue comment",
+      "args": {
+        "issue": 9,
+        "bodyFile": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/report.md"
+      },
+      "args_hash": "wave3-ph002-github-issue-9-comment",
+      "ok": true,
+      "response_hash": "issuecomment-4996140144",
+      "dry_run": false,
+      "task_id": "T-PH002-06"
+    },
+    {
+      "called_at": "2026-07-17T05:22:00+09:00",
+      "tool": "gh issue comment",
+      "args": {
+        "issue": 9,
+        "supersedesComment": "issuecomment-4996140144",
+        "purpose": "deterministic artifact hash and evidence-attribution correction"
+      },
+      "args_hash": "wave3-ph002-github-issue-9-closure-correction",
+      "ok": true,
+      "response_hash": "issuecomment-4996212773",
+      "dry_run": false,
+      "task_id": "T-PH002-07"
+    },
+    {
+      "called_at": "2026-07-17T05:23:00+09:00",
+      "tool": "update_status",
+      "args": {
+        "id": "FR-BGSTAB-022",
+        "status": "in_progress",
+        "reason": "PH-003 strict TDD RED starts after PH-002 closure exact No findings"
+      },
+      "args_hash": "wave3-ph003-status-in-progress",
+      "ok": true,
+      "response_hash": "written",
+      "dry_run": false,
+      "task_id": "T-PH003-01"
+    },
+    {
+      "called_at": "2026-07-17T10:14:00+09:00",
+      "tool": "add_verification_evidence/check_acceptance_criteria/update_status/add_completed_work",
+      "args": {
+        "id": "FR-BGSTAB-022",
+        "status": "implemented",
+        "acIds": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"],
+        "evidenceIds": ["VE-2", "VE-3", "VE-4", "VE-5", "VE-6", "VE-7"],
+        "parentPartialEvidence": {
+          "id": "REL-BGSTAB-007",
+          "evidenceIds": ["VE-3", "VE-4"],
+          "coveredAcIds": ["AC-4", "AC-5", "AC-12"],
+          "status": "planned"
+        }
+      },
+      "args_hash": "wave3-ph003-reviewed-evidence-status-completed-work",
+      "ok": true,
+      "response_hash": "written",
+      "dry_run": false,
+      "task_id": "T-PH003-06"
+    },
+    {
+      "called_at": "2026-07-17T10:14:16+09:00",
+      "tool": "gh issue comment",
+      "args": {
+        "issue": 10,
+        "bodyFile": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-003/report.md"
+      },
+      "args_hash": "wave3-ph003-github-issue-10-comment",
+      "ok": true,
+      "response_hash": "issuecomment-4998030181",
+      "dry_run": false,
+      "task_id": "T-PH003-06"
+    },
+    {
+      "called_at": "2026-07-17T10:26:11+09:00",
+      "tool": "gh issue comment",
+      "args": {
+        "issue": 10,
+        "supersedesComment": "issuecomment-4998030181",
+        "bodyFile": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-003/report.md",
+        "purpose": "post-Spec synchronization and recovered PM state correction"
+      },
+      "args_hash": "wave3-ph003-github-issue-10-closure-correction",
+      "ok": true,
+      "response_hash": "issuecomment-4998087819",
+      "dry_run": false,
+      "task_id": "T-PH003-07"
+    },
+    {
+      "called_at": "2026-07-17T10:28:30+09:00",
+      "tool": "gh issue comment",
+      "args": {
+        "issue": 10,
+        "supersedesComments": ["issuecomment-4998030181", "issuecomment-4998087819"],
+        "bodyFile": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-003/report.md",
+        "purpose": "UTF-8 post-Spec synchronization correction after rejecting encoding-corrupted comment"
+      },
+      "args_hash": "wave3-ph003-github-issue-10-utf8-closure-correction",
+      "ok": true,
+      "response_hash": "issuecomment-4998097292",
+      "dry_run": false,
+      "task_id": "T-PH003-07"
+    },
+    {
+      "called_at": "2026-07-17T14:10:00+09:00",
+      "tool": "add_verification_evidence/check_acceptance_criteria/update_status/add_completed_work",
+      "args": {
+        "id": "REL-BGSTAB-011",
+        "status": "implemented",
+        "acIds": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9"],
+        "evidenceIds": ["VE-2", "VE-3", "VE-4", "VE-5", "VE-6"],
+        "parentPartialEvidence": {
+          "id": "REL-BGSTAB-007",
+          "evidenceIds": ["VE-5", "VE-6"],
+          "status": "planned"
+        }
+      },
+      "args_hash": "wave3-ph004-reviewed-evidence-status-completed-work",
+      "ok": true,
+      "response_hash": "written",
+      "dry_run": false,
+      "task_id": "T-PH004-06"
+    },
+    {
+      "called_at": "2026-07-17T14:11:51+09:00",
+      "tool": "gh issue comment",
+      "args": {
+        "issue": 11,
+        "bodyFile": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-004/report.md"
+      },
+      "args_hash": "wave3-ph004-github-issue-11-comment",
+      "ok": true,
+      "response_hash": "issuecomment-4999195944",
+      "dry_run": false,
+      "task_id": "T-PH004-06"
+    },
+    {
+      "called_at": "2026-07-17T14:20:00+09:00",
+      "tool": "workflow_pipeline_emit",
+      "args": {
+        "runId": "2026-07-16.projectmaster.wave3-authority.ph-004",
+        "status": "TASK_DONE"
+      },
+      "args_hash": "wave3-ph004-official-pipeline-emit-attempt",
+      "ok": false,
+      "response_hash": "MUTATION_DENIED:SRS-W055,SRS-W053",
+      "dry_run": false,
+      "task_id": "T-PH004-06"
+    },
+    {
+      "called_at": "2026-07-17T14:24:00+09:00",
+      "tool": "gh issue comment",
+      "args": {
+        "issue": 11,
+        "supersedesComment": "issuecomment-4999195944",
+        "bodyFile": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-004/report.md",
+        "purpose": "post-Spec artifact hash and workflow projection closure correction"
+      },
+      "args_hash": "wave3-ph004-github-issue-11-closure-correction",
+      "ok": true,
+      "response_hash": "issuecomment-4999298118",
+      "dry_run": false,
+      "task_id": "T-PH004-06"
+    },
+    {
+      "called_at": "2026-07-17T14:28:00+09:00",
+      "tool": "gh issue comment",
+      "args": {
+        "issue": 11,
+        "bodyFile": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-004/report.md",
+        "purpose": "exact UTF-8 projection of current local report after closure self-reference correction"
+      },
+      "args_hash": "wave3-ph004-github-issue-11-exact-report-projection",
+      "ok": true,
+      "response_hash": "issuecomment-4999321740",
+      "dry_run": false,
+      "task_id": "T-PH004-06"
+    },
+    {
+      "called_at": "2026-07-17T14:37:00+09:00",
+      "tool": "workflow_task_status_set",
+      "args": {
+        "runId": "2026-07-16.projectmaster.wave3-authority.ph-004",
+        "taskId": "T-PH004-07",
+        "status": "done"
+      },
+      "args_hash": "wave3-ph004-tph00407-done-noncanonical-attempt",
+      "ok": false,
+      "response_hash": "SRS-E072:canonical-idempotency-key-required",
+      "dry_run": false,
+      "task_id": "T-PH004-07"
+    },
+    {
+      "called_at": "2026-07-17T14:38:00+09:00",
+      "tool": "workflow_task_status_set",
+      "args": {
+        "runId": "2026-07-16.projectmaster.wave3-authority.ph-004",
+        "taskId": "T-PH004-07",
+        "status": "done",
+        "idempotencyKey": "29dee82a5235971d5a2e2cec6373bcb02b9fd6fc32a0d1a7c511e9648c15bee7"
+      },
+      "args_hash": "wave3-ph004-tph00407-done-canonical-retry",
+      "ok": true,
+      "response_hash": "written-confirmed",
+      "dry_run": false,
+      "task_id": "T-PH004-07"
+    },
+    {
+      "called_at": "2026-07-17T14:40:00+09:00",
+      "tool": "gh issue comment",
+      "args": {
+        "issue": 11,
+        "bodyFile": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-004/report.md",
+        "purpose": "exact UTF-8 projection of the final No findings closure report"
+      },
+      "args_hash": "wave3-ph004-github-issue-11-final-closure-projection",
+      "ok": true,
+      "response_hash": "issuecomment-4999369190",
+      "dry_run": false,
+      "task_id": "T-PH004-07"
+    }
+  ],
+  "pending_mutations": [],
+  "degraded_workflow": {
+    "enabled": true,
+    "reason": "official workflow worklog/pipeline append is blocked by legacy SRS-W055/SRS-W053 rows; PM task status uses official mutations while fallback checklist, task checkpoints and JSONL projections are maintained as documented degraded artifacts",
+    "diagnostics": [
+      "workflow_worklog_emit: MUTATION_DENIED with SRS-W055/SRS-W053 on worklog lines 1-34",
+      "workflow_task_status_set: pm-state.json ENOENT after allowed owner retry; recovered state then synchronized successfully through T-PH003-07",
+      "workflow_task_status_set: owner kiwi-wave-master denied by SRS-E070 before kiwi-pm retry",
+      "workflow_pipeline_emit: PH-004 event MUTATION_DENIED with SRS-W055 lines 5-8 and SRS-W053 line 39; UTF-8 apply_patch fallback recorded"
+    ],
+    "affected_artifacts": [
+      "docs/plans/2026-07-16.projectmaster.wave3-authority.plan.md",
+      "docs/plans/2026-07-16.projectmaster.wave3-authority.sidecar.json",
+      "docs/plans/2026-07-16.projectmaster.wave3-authority.checklist.md",
+      ".kiwi/sessions/2026-07-16.projectmaster.wave3-authority/state.json",
+      ".kiwi/sessions/2026-07-16.projectmaster.wave3-authority/pm-state.json",
+      ".kiwi/sessions/2026-07-16.projectmaster.wave3-authority/tasks/T-PH004-*.json",
+      ".kiwi/sessions/2026-07-16.projectmaster.wave3-authority/worklog.jsonl",
+      "kiwi/pipeline.jsonl"
+    ],
+    "active_target": "wave-3",
+    "follow_up_requirement_id": "REL-BGSTAB-011"
+  },
+  "tool_versions": {
+    "kiwi_planner": "0.6.0",
+    "kiwi_coder": "0.1.9",
+    "speckiwi": "2.3.1"
+  }
+}

@@ -1,0 +1,8 @@
+{"event":"phase_start","ts":"2026-07-15T11:47:50.000Z","run_id":"2026-07-15.projectmaster.wave1-baseline","plan_path":"docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md","target":"wave-1","mode":"normal","flags":["--auto","--auto-cost-warning"],"degraded_fallback":"workflow_worklog_emit rejected SRS-W055"}
+{"event":"task_start","ts":"2026-07-15T11:47:51.000Z","task_id":"T-PH001-01","phase_id":"PH-001"}
+{"event":"tdd_draft_done","ts":"2026-07-15T11:50:00.000Z","task_id":"T-PH001-01","iter":1,"file_paths":["frontend/tests/e2e/wave1-characterization-artifacts.test.ts"]}
+{"event":"tdd_review_done","ts":"2026-07-15T11:57:30.000Z","task_id":"T-PH001-01","iter":3,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":0}}
+{"event":"tdd_red_confirmed","ts":"2026-07-15T11:58:00.6463929Z","task_id":"T-PH001-01","exit_code":1,"test_case_ids":["TC-REQ-REL-BGSTAB-006-AC1-01","TC-REQ-REL-BGSTAB-006-AC4-01","TC-REQ-REL-BGSTAB-006-AC5-01"]}
+{"event":"regression_done","ts":"2026-07-15T11:58:15.000Z","task_id":"T-PH001-01","scope":"impacted-only","passed":1,"failed":0}
+{"event":"mcp_call","ts":"2026-07-15T11:58:30.000Z","task_id":"T-PH001-01","tool":"update_status","ok":true}
+{"event":"task_done","ts":"2026-07-15T11:59:00.000Z","task_id":"T-PH001-01","duration_ms":670000,"green":false,"red_contract_complete":true,"regression":"partial"}

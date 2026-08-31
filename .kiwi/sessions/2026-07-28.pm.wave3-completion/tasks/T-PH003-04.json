@@ -1,0 +1,100 @@
+{
+  "task_id": "T-PH003-04",
+  "started_at": "2026-07-30T13:18:58.468+09:00",
+  "completed_at": "2026-07-30T13:32:03.583+09:00",
+  "scope": {
+    "requirement_id": "REL-BGSTAB-007",
+    "review_goal": "Independently classify current evidence boundaries and check AC-11 for UI/default/residency/deletion scope expansion.",
+    "must_remain_blocked": [
+      "AC-1 effective browser xterm policy and production adapter-to-browser HTTPS authority",
+      "AC-6 aggregate retained policy and eviction/dataGap",
+      "AC-7",
+      "AC-10 server-restart and PTY-termination faults",
+      "REL-BGSTAB-007 completion or verified promotion"
+    ]
+  },
+  "scope_attribution": {
+    "tph00302_reverse_checkable_owned_runtime_anchors": {
+      "AC-8": "frontend/src/utils/visibleOutputRecovery.ts:1273-1280 finishCurrentView ready-state reset",
+      "AC-2": "server/src/services/TerminalAuthorityProductionAdapter.ts:1974-2018 onSettled delivery proof",
+      "AC-4_AC-5": "server/src/services/TerminalAuthorityProductionAdapter.ts:3587-3653 apply ACK and physical-drain ledger, with 3657-3733 drain ACK counterpart",
+      "AC-9_AC-12": "server/src/services/TerminalAuthorityProductionAdapter.ts:3820-3850 acknowledgeCompatibilityDrain"
+    },
+    "tph00302_test_only_anchor": "The TerminalAuthorityController parity helper calls existing SessionManager settlement and parity-snapshot primitives; it is test-only and owns no runtime behavior.",
+    "tph00303_attribution": "T-PH003-03 is evidence-only integration work and owns no runtime or UI change.",
+    "terminal_container_view_dirty_diff": "The current large TerminalContainer/TerminalView clipboard and UI dirty diff is pre-existing and unattributed to T-PH003. It is excluded from this review, not approved, and not judged compliant.",
+    "ac11_conclusion_boundary": "A scoped AC-11 conclusion may cover only the T-PH003 owned delta. It cannot assert global worktree or UI compliance."
+  },
+  "review_resolution": {
+    "finding": "Prickly HIGH: an unbounded current TerminalContainer/TerminalView dirty diff could be misread as T-PH003 UI or clipboard scope expansion.",
+    "committee_decision": "3:0 for the attribution boundary: review only verifiable T-PH003 owned delta; retain the unrelated clipboard/UI diff as pre-existing and out of scope.",
+    "resolution": "Resolved for the scoped review by the recorded attribution boundary; no source, test, SRS, lifecycle, workflow, state, or UI change was made.",
+    "blocked": [
+      "AC-1 effective browser xterm policy and production adapter-to-browser HTTPS authority",
+      "AC-6 aggregate retained policy and eviction/dataGap",
+      "AC-7",
+      "AC-10 server-restart and PTY-termination faults",
+      "REL-BGSTAB-007 lifecycle completion or verified promotion"
+    ],
+    "rereview": "pending independent scoped re-review"
+  },
+  "final_scoped_prickly_rereview": {
+    "recorded_at": "2026-07-30T13:31:16.9026570+09:00",
+    "result": "No findings",
+    "severity_counts": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    },
+    "review_boundary": "This is an independent re-review of only the verifiable T-PH003 owned anchors recorded in scope_attribution. It is not a conclusion about the entire dirty worktree, including the unrelated TerminalContainer/TerminalView clipboard and UI diff.",
+    "ac11_owned_anchor_checks": {
+      "result": "passed",
+      "owned_runtime_anchors": [
+        "frontend/src/utils/visibleOutputRecovery.ts:1273-1280 finishCurrentView ready-state reset",
+        "server/src/services/TerminalAuthorityProductionAdapter.ts:1974-2018 onSettled delivery proof",
+        "server/src/services/TerminalAuthorityProductionAdapter.ts:3587-3733 apply/drain physical-drain ledger",
+        "server/src/services/TerminalAuthorityProductionAdapter.ts:3820-3850 acknowledgeCompatibilityDrain"
+      ],
+      "clipboard_or_ui_interaction_expansion": "none in the owned anchors",
+      "webgl_expansion": "none in the owned anchors",
+      "renderer_residency_expansion": "none in the owned anchors",
+      "split_default_expansion": "none in the owned anchors",
+      "resource_profile_or_default_expansion": "none in the owned anchors",
+      "legacy_deletion_guard": "preserved: ownsInstances=false; no legacy-code physical deletion is owned or approved by T-PH003"
+    },
+    "tph00303_final_evidence": {
+      "source_task": "T-PH003-03",
+      "exact_command_exit_code": 0,
+      "focused_contracts_passed": 4,
+      "focused_contracts": [
+        "REL-BGSTAB-007 applies configured retained policy before delivery",
+        "REL-BGSTAB-007 keeps generic screen repair independent of checkpoint ACK evidence",
+        "REL-BGSTAB-007 validates Ordinal64 checkpoint apply and drain",
+        "REL-BGSTAB-007 isolates driver lease ledger and rollback epoch"
+      ],
+      "https_e2e": {
+        "project": "Desktop Chrome",
+        "passed": 6,
+        "failed": 0
+      },
+      "classification": "The HTTPS cases are bounded RoutedWebSocketHarness checkpoint-ingress evidence only. They do not establish production TerminalAuthorityProductionAdapter-to-browser authority, effective xterm policy, aggregate retained-state recovery, or a lifecycle/verified claim."
+    },
+    "must_remain_blocked": [
+      "AC-1 effective browser xterm policy and production adapter-to-browser HTTPS authority",
+      "AC-6 aggregate retained policy and eviction/dataGap",
+      "AC-7",
+      "AC-10 server-restart and PTY-termination faults",
+      "REL-BGSTAB-007 lifecycle completion or verified promotion"
+    ],
+    "scope_limit": "No source, test, SRS, PM, workflow, state, or lifecycle field was changed. completed_at remains null. The prior pending rereview text is historical; this appended record is the final scoped rereview result."
+  },
+  "workflow": {
+    "pm_status": "running confirmed",
+    "pm_status_idempotency_key": "c788412db65fe7da33efc50de360155ffc787152632b371df15a026d0e224e4f",
+    "worklog_emit": "written",
+    "worklog_emit_idempotency_key": "e59bd8e09d1f6007a6f092db616828c93d09e6c7d1bbed97835ddbc1c3af54e8",
+    "pm_completion": "done confirmed after scoped prickly rereview; no REL-BGSTAB-007 lifecycle mutation",
+    "pm_completion_idempotency_key": "f32d847c6ad39e0d5cee265d0f6f152150febc7d630a147c32ef14a3b5cf8ddb"
+  }
+}

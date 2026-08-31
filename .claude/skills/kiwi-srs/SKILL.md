@@ -19,7 +19,7 @@ description: "신규 요구사항을 받아 기존 코드 + speckiwi MCP SRS 데
 | §0.2 | **검증자 입력 격리**. Phase 4 작성자의 결론 JSON·정당화 전달 금지. 원본 REQ + 코드 + 생성된 SRS 파일 + 필터링된 컨텍스트만 |
 | §0.3 | **코드 증거 우선**. 신규/갱신 REQ는 `add_requirement` 시 `trace` 배열에 source 첨부 (NFR/PERF 예외) |
 | §0.4 | **할루시네이션 금지**. 코드/요구사항 텍스트에 증거 없는 기능 작성 금지. 추정은 `stability=draft` + `[INFERRED:high\|med\|low]` |
-| §0.5 | **SRS-MD Authoring Rules v3.0.0 준수**. heading / ID 정규식 / prefix-type 매핑 위반 금지. `checked_compatible` 호환성 캐시 필드(§23.5, `semanticSha`/`checked-at`)는 허용 필드 allowlist 에 포함 |
+| §0.5 | **SRS-MD Authoring Rules v2.5.0 준수**. heading / ID 정규식 / prefix-type 매핑 위반 금지. `checked_compatible` 호환성 캐시 필드(§23.5, `semanticSha`/`checked-at`)는 허용 필드 allowlist 에 포함 |
 | §0.6 | **speckiwi MCP 우선 + 황금률**. CLI 직접 호출은 MCP 부재 시에만. **황금률**: speckiwi MCP mutation 도구 (`add_requirement` / `update_status` / `add_trace_link` / `add_verification_evidence` / `check_acceptance_criteria` / `add_completed_work` / `set_active_target`) 호출 1회 = Markdown line-patch 1회 (`apply-patch.ts` atomic write). **mutation 호출 후 동일 SRS 파일에 `Edit` 도구 사용 절대 금지** (예외는 §9.4) |
 | §0.7 | **scope/target 결정은 사용자 확인**. AskUserQuestion 단일 호출 분해 |
 | §0.8 | **/snoworca-\* 스킬 호출 절대 금지**. 로직만 차용, 실행은 본 스킬 내부 |
@@ -80,6 +80,7 @@ AskUserQuestion 3옵션: `(1) 진행 승인` / `(2) 외부 변경 제외하고 c
 | 응답 `yes` | Phase 4 진행; Markdown sync 단계에서 §2 갱신 |
 | 응답 `no` | 사용자 결정 대기; `add_requirement` 호출 금지 |
 | 응답 `new-scope 분리` | classification 갱신 → Phase 2.5 진입 |
+| `--auto` 활성 (질의 경로 없음) | 그 REQ 만 보류 + `deferred_reqs[]` 기록; 나머지 REQ 저작 계속 (§6.4) |
 | boundary 영향을 Open Questions 에만 기록하고 진행 | §0.7 위반 (차단) |
 
 #### §0.G5 — Combined gate (boundary + conflict 동시)
@@ -101,12 +102,12 @@ AskUserQuestion 3옵션: `(1) 진행 승인` / `(2) 외부 변경 제외하고 c
 | gate_id | reason | 발생 위치 |
 |---|---|---|
 | `external-module-impact` | trace 후보 / conflict / feasibility / code-context 가 cwd 외부 path 진입 (§0.G2) | §0.G2 |
-| `scope-boundary-impact` | 신규 REQ 가 §2 Out of Scope 또는 §3 Constraints 와 충돌 (§0.G4) | §0.G4 / §6.4 |
+| `scope-boundary-impact` | 신규 REQ 가 §2 Out of Scope 또는 §3 Constraints 와 충돌 (§0.G4) — 차단 단위는 **그 REQ**. `--auto` 에서는 그 REQ 만 보류·기록하고 나머지 저작은 계속하며, 전체 중단은 사용자가 명시적으로 거부한 경우만 (§6.4) | §0.G4 / §6.4 |
 | `combined-boundary-conflict` | §0.G5 단일 트랜잭션 4옵션 (boundary + conflict 동시) | §0.G5 |
 | `auto-qna-mutual-exclusion` | `--auto` + `--qna` 동시 명시 ERROR (§1.2 옵션 의미) | §1.2 |
 | `implementability-blocked` | Phase 3 feasibility 결과 `implementability=blocked` — 진행 불가 사용자 결정 필요 | §10.2 axis (feasibility) |
 | `mcp-cli-both-unavailable` | preflight MCP + CLI 모두 부재 (§3.0 case 3) — HALT 강제 | §3.0 |
-| `fact-fabrication-rejection` | 존재하지 않는 함수/CVE/파일 추가 요구 거절 (§0.9) — 사실 위조 시도 | §0.9 |
+| `fact-fabrication-risk` | 존재하지 않는 함수/CVE/파일 추가 요구 거절 (§0.9) + 코드/요구사항 텍스트에 증거 없는 기능·AC 작성 (§0.4 / §0.15) — 사실 위조 | §0.9 / §0.4 / §0.15 |
 
 **기존 시맨틱 보존**: §1.2 의 "`--auto` 명시 → ... 외부/scope-boundary 게이트 (§0.G2/§0.G4/§0.G5) 도 *AskUserQuestion 발동 대신 차단* 으로 동작" 는 본 §0.G6 의 `critical_gates[]` 인라인 선언으로 보존된다 — 차단 동작은 SSOT §4 의 `critical` severity 처리 (HALT, --auto 무관) 와 동일.
 
@@ -131,13 +132,14 @@ AskUserQuestion 3옵션: `(1) 진행 승인` / `(2) 외부 변경 제외하고 c
 | "--max", "정밀 검증" | `--max` | off |
 | "--model <name>", "검증 모델 지정" | `--model <name>` | 현재 세션 모델 (단일 검증 서브에이전트) |
 | "리서치 문서 X", "--research-doc <path>", "연구 문서로 SRS 검증" | `--research-doc <path>` (반복 가능; §9.6 A/B 루프 인자) | omit → 단발 패스 |
+| "제약 문서 X", "--constraints-doc <path>", "선언된 제약 반영" | `--constraints-doc <path>` (선언된 사용자 제약 아티팩트; §9.1 저작 입력에 포함) | omit |
 | "미니 모드", "빠른 모드", "3라운드" | `--mini` | off (스킬 기본 상한) |
 | "루프 N회", "N라운드", "N번 돌려" | `--loops N` | off (스킬 기본 상한) |
 
 **옵션 의미 (v0.11 이후 SSOT)**:
 - `--auto` 와 `--qna` 동시 명시 → ERROR ("두 옵션은 상호 배타. --auto 만 사용하십시오.").
 - `--auto` 부재 (기본) → Phase 1.5 QnA loop 활성 (단, Phase 1 `intent.json.ambiguities` 가 빈 배열이면 자동 skip).
-- `--auto` 명시 → Phase 1.5 QnA loop skip + 외부/scope-boundary 게이트 (§0.G2/§0.G4/§0.G5) 도 *AskUserQuestion 발동 대신 차단* 으로 동작 (사용자 결정 보류, 자동 우회 아님).
+- `--auto` 명시 → Phase 1.5 QnA loop skip + 외부/scope-boundary 게이트 (§0.G2/§0.G4/§0.G5) 도 *AskUserQuestion 발동 대신 차단* 으로 동작 (사용자 결정 보류, 자동 우회 아님). scope-boundary 게이트 (§0.G4) 의 차단 단위는 **그 REQ** 이며, 나머지 요구사항의 저작은 계속한다 (§6.4).
 - `--qna` 명시 → `--auto` 의 역으로 동작 (기본과 등가). stderr 에 DEPRECATED 경고 1줄.
 - **`--qna-force` (강제) ≠ `--qna` (deprecated alias)**: `--qna-force` 는 모호성이 없어 보여도 무제한 qna 루프를 **강제 진입**시키는 플래그(§5.2)이고, `--qna` 는 v0.11 까지의 deprecated alias(기본 동작 + stderr DEPRECATED 경고)다. `--qna-force` 는 `--qna` 를 **접두 부분문자열**로 포함하므로 파싱을 **fail-closed 앵커 규칙**으로 고정한다: `--qna-force`(강제)는 정확히 `--qna-force` 토큰일 때만 매칭 — 정규식 `(?<![-\w])--qna-force\b`. `--qna`(deprecated)는 뒤에 `-force` 가 붙지 않은 정확한 `--qna` 토큰일 때만 매칭 — 정규식 `(?<![-\w])--qna(?![-\w])` (즉 `--qna-force` 를 `--qna` 로 오탐하지 않는다). **substring/prefix 매칭 금지.** **fail-closed 규약**: 위 두 정규식 중 어느 것과도 정확히 일치하지 않는 토큰 — 미인식 플래그, 단일 대시 변형(`-qna`·`-qna-force` 등), 오탈자 — 은 silent no-op 도 silent 반대 동작도 아닌 **hard-error 로 거부**하고 사용자에게 오류를 보고한 뒤 중단한다(관례 역전으로 인한 무성 오동작 원천 차단). (플래그 이름은 SRS FR-FLOW-024 가 고정하므로 변경하지 않는다.)
 
@@ -250,6 +252,9 @@ dry-run 모드(`--dry-run`)에서도 동일 점검 적용.
 3. **CLI `speckiwi targets --json`** — 활성 없으면 등록 목록 확인. 단일 target만 있으면 자동 채택 + 사용자에게 안내 (질의 없음).
 4. **AskUserQuestion (single)** — 위 모두 실패 시 "어느 target에 등록하시겠습니까?".
 5. 최종 선택한 TARGET이 활성과 다르면 `set_active_target` 호출. `classification.json.target` 에 기록.
+6. **미등록 target 등록** — 선택한 TARGET 이 Target Map 에 없으면 `set_active_target` 을 **생성**(`create`) 옵션과 함께 호출해 등록한 뒤 진행한다. 미등록은 그 자체로 중단 사유가 아니다 — 새 wave·새 릴리스의 첫 저작은 언제나 미등록 target 에서 시작한다.
+
+중단은 **등록 자체가 실패한 경우에만** 한다. 이때 도구가 반환한 오류를 그대로 보고한다 — 등록되지 않은 target 으로 `add_requirement` 를 진행하면 그 REQ 는 어느 Target Map 행에도 걸리지 않는다.
 
 ### 3.2 SRS 컨텍스트 로드
 
@@ -406,6 +411,12 @@ Agent Dropout 패턴 (snoworca-srs-qna 로직 차용, 직접 구현 — §0.8).
 
 scope-boundary 변경을 Open Questions 에만 기록하고 진행 = §0.7 위반 (차단).
 
+`--auto` 에서는 경계와 충돌하는 그 REQ 만 **보류하고 기록한다** — 나머지 요구사항의 저작은 그대로 **계속**한다. 한 REQ 의 경계 충돌로 저작 전체를 버리면 충돌과 무관한 요구까지 같이 밀리고, 다음 실행은 같은 지점에서 다시 막힌다.
+
+전체 중단은 사용자가 명시적으로 **거부**한 경우로 한정한다.
+
+보류한 REQ 는 `classification.json.scope_boundary_impact.deferred_reqs[]` 에 `{ req_ref, section, rationale, reason_class: "scope-boundary-deferred" }` 로 남기고 완료 보고에 그대로 싣는다 — 기록되지 않은 보류는 조용한 누락과 구분되지 않는다.
+
 ### 6.5 Multi-aspect 요구사항 분리
 
 §0.11 적용. 1 사용자 문장이 ≥2 코드 표면을 다루면:
@@ -422,12 +433,10 @@ scope-boundary 변경을 Open Questions 에만 기록하고 진행 = §0.7 위�
 1. AskUserQuestion 분해 (단일 호출):
    - Q1: "새 scope 이름은? (제안: {proposed_scope})"
    - Q2: "prefix는? (제안: {proposed_prefix})"
-   - Q3: "ordering NN? (인덱스 분석 후 제안)"
    - Q4 (§0.10 위반 시): type prefix 충돌 → 대안 선택
-2. Write `docs/spec/{NN}.{slug}.srs.md` — kiwi-srs-from-code §6.2 템플릿
-3. Edit `docs/spec/00.index.md` §2 SRS Documents + §4 Scope Map
-4. `set_active_target(TARGET)` — 활성이 다를 때
-5. `validate_spec` — 구조 검증
+2. `speckiwi scaffold-scope {name}:{PREFIX} --apply` — 문서 번호를 배정(기존 최고 번호 + 1, 첫 문서는 `01`)하고 파일 생성과 §2 SRS Documents·§4 Scope Map 등록을 한 번에 수행한다. 번호를 직접 고르지 않는다.
+3. `set_active_target(TARGET)` — 활성이 다를 때
+4. `validate_spec` — 구조 검증
 
 ---
 
@@ -470,6 +479,7 @@ scope-boundary 변경을 Open Questions 에만 기록하고 진행 = §0.7 위�
 - 신규 REQ 초안 (Phase 2의 proposed_*)
 - 분류별 MCP 시퀀스 (§9.2)
 - §0.G 결정표
+- 선언된 사용자 제약 아티팩트 — `--constraints-doc <path>` 로 받은 경로 (미지정 시 없음). 저작 입력에 없는 제약은 검증에서 잡혀도 반영할 근거가 없다
 
 신규 REQ 기본 status: **`proposed`** (사용자 미승인).
 
@@ -547,7 +557,7 @@ speckiwi 보장 사항:
     { "tool": "add_requirement", "args": {...}, "result_id": "FR-TODO-004", "ok": true }
   ],
   "scope_doc_edits": [
-    { "file": "docs/spec/10.todo-core.srs.md", "section": "§4 Requirements", "op": "append" }
+    { "file": "docs/spec/01.todo-core.srs.md", "section": "§4 Requirements", "op": "append" }
   ],
   "validate_spec_result": { "ok": true, "diagnostics": [] },
   "change_notes_diff": "- 2026-05-13 update: FR-TODO-004 supersedes FR-TODO-001 ...",
@@ -564,7 +574,7 @@ speckiwi 보장 사항:
 
 이 루프는 두 개의 독립 서브에이전트 — **프로세스 A**(검증)와 **프로세스 B**(적용) — 가 번갈아 도는 A/B 구조다.
 
-**프로세스 A — 검증.** 프로세스 A 는 리서치 문서를 이미 작성된 SRS 와 대조하여 다음을 보고한다: (i) 리서치에는 있으나 SRS 에 **누락된 요구**사항, (ii) **잘못 작성**된(요구 의도와 어긋나게 기술된) 부정확 요구사항, (iii) 각 요구사항의 현재 아키텍처상 **구현 가능성**(feasibility) — feasibility-policy-schema-v1 의 인라인 feasibility 휴리스틱을 재사용한다(새 dual-mode 인터페이스 없음). 또한 프로세스 A 는 제안된 SRS 변경이 **기존 제품 기능**을 **회귀**(손상)시키는지 플래그한다. 프로세스 A 는 **개선사항 문서**를 run-scoped **임시 디렉터리**(실행 단위 임시 경로, run-id 로 키된 OS temp 경로)에 기록한다. 프로세스 A 가 개선사항이 없다고 판단하면 루프를 **종료**한다(개선사항이 없으면 종료; 0건이면 exit).
+**프로세스 A — 검증.** 프로세스 A 는 리서치 문서를 이미 작성된 SRS 와 대조하여 다음을 보고한다: (i) 리서치에는 있으나 SRS 에 **누락된 요구**사항, (ii) **잘못 작성**된(요구 의도와 어긋나게 기술된) 부정확 요구사항, (iii) 각 요구사항의 현재 아키텍처상 **구현 가능성**(feasibility) — `_shared/kiwi/feasibility-policy-schema-v1.md` 의 인라인 feasibility 휴리스틱을 재사용한다(새 dual-mode 인터페이스 없음). 또한 프로세스 A 는 제안된 SRS 변경이 **기존 제품 기능**을 **회귀**(손상)시키는지 플래그한다. 프로세스 A 는 **개선사항 문서**를 run-scoped **임시 디렉터리**(실행 단위 임시 경로, run-id 로 키된 OS temp 경로)에 기록한다. 프로세스 A 가 개선사항이 없다고 판단하면 루프를 **종료**한다(개선사항이 없으면 종료; 0건이면 exit).
 
 **프로세스 B — 적용.** 프로세스 B 는 개선사항 문서를 읽어 개선 내용을 Phase 4 speckiwi MCP mutation 시퀀스(§9.2)로 SRS 에 **반영/적용**한 뒤, 재검증을 위해 **제어권을 프로세스 A 로 반환**한다.
 
@@ -808,7 +818,7 @@ emit 실패는 best-effort — 본 작업 (SRS 갱신·사용자 보고) 의 성
 |---|---|---|
 | Active target | `get_active_target` | `speckiwi active-target --json` |
 | Target Map 전체 | (미노출) | `speckiwi targets --json` |
-| Target 활성화 | `set_active_target` | `speckiwi set-active-target <t>` |
+| Target 활성화 | `set_active_target` (미등록이면 `create`) | `speckiwi set-active-target <t> --create` |
 | REQ 조회 | `get_requirement` | `speckiwi show <id> --json` |
 | REQ 추가 | `add_requirement` | `speckiwi add-requirement --type ... --scope ... --target ... --title ... --requirement ... --ac ... --trace 'type\|reference\|relation\|notes'` |
 | Status 변경 | `update_status` | `speckiwi update-status <id> <status>` |

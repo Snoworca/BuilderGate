@@ -1,20 +1,25 @@
 {
   "name": "kiwi-pm",
   "agent": "claude",
-  "installedAt": "2026-07-13T15:01:57.783Z",
+  "installedAt": "2026-08-12T05:36:56.397Z",
   "installMode": "generated-runtime-mirror",
   "sourceAgent": "claude",
   "sourceRoot": "skills/claude",
   "sourcePath": "skills/claude/kiwi-pm",
   "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-pm",
   "sourceRevision": "unknown",
-  "sourceChecksum": "sha256:7a3948f43bd40c346012d8e95a1196829db0d3b9a180b0d6d4f2599351c42c0e",
-  "installedChecksum": "sha256:7a3948f43bd40c346012d8e95a1196829db0d3b9a180b0d6d4f2599351c42c0e",
+  "sourceChecksum": "sha256:185530ca86dba0e3c7d72d2a5c7c223b7016292f0cfc5033de34c8b1496b607b",
+  "installedChecksum": "sha256:185530ca86dba0e3c7d72d2a5c7c223b7016292f0cfc5033de34c8b1496b607b",
   "sourceFileCount": 1,
   "installedFileCount": 1,
   "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
-  "sharedResourceValidation": "not-required",
-  "sharedResourceReferences": [],
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md",
+    "_shared/kiwi/pipeline-event.md",
+    "_shared/kiwi/workmode-policy.md"
+  ],
   "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-pm --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
   "noManualEdit": true
 }

@@ -1,0 +1,47 @@
+{
+  "task_id": "T-PH003-07",
+  "started_at": "2026-07-15T15:12:20.8943562Z",
+  "completed_at": "2026-07-15T15:48:03.2608377Z",
+  "requirement_id": "PERF-BGSTAB-008",
+  "artifacts": {
+    "raw": {
+      "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/benchmark-raw-samples.json",
+      "digest": "sha256:7c4fa9b2a120279829eca2febd8af0676b437df64a65dbce933fadd1cb3afa45",
+      "independent_digest_match": true,
+      "cases": 48,
+      "samples": 1224,
+      "fixture_evidence_path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/no-render-ac7ded97bf86b799.json",
+      "fixture_evidence_digest": "sha256:c03f1bbd117a0c1a86a83f7945f35428cd9246d76358ecacc9aff0e014dad3b2",
+      "minimum_actual_interval_ms": 250.00380000000223
+    },
+    "summary": {
+      "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/benchmark-summary.json",
+      "digest": "sha256:e711b425ac4de391a4894d1f60af900b07c30f473f2bc5711101a35abeeac65e",
+      "independent_digest_match": true,
+      "raw_reference_match": true,
+      "independent_values_match": true,
+      "groups": 408,
+      "separate_comparator_groups": 264,
+      "fixture_digest_link_match": true
+    }
+  },
+  "evidence": {
+    "execution_order": [
+      "manifest",
+      "raw-samples"
+    ],
+    "one_client_slow_case_client_observations": 44,
+    "actual_session_manager_semantic_evidence_all": true,
+    "actual_ws_pressure_evidence_all": true,
+    "external_no_render_digest_linked": true,
+    "product_pass_fail_threshold": false,
+    "product_default_changed": false
+  },
+  "verification": {
+    "server_build_and_focused_tests": "pass 14/14",
+    "frontend_no_render_focused_tests": "pass 16/16",
+    "frontend_typecheck": "pass",
+    "frontend_scoped_lint": "pass",
+    "independent_digest_and_reverse_summary_recalculation": "pass"
+  }
+}

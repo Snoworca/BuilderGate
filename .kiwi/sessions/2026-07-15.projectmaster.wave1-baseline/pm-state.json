@@ -1,0 +1,448 @@
+{
+  "run_id": "2026-07-15.projectmaster.wave1-baseline",
+  "plan_path": "docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md",
+  "sidecar_path": "docs/plans/2026-07-15.projectmaster.wave1-baseline.sidecar.json",
+  "plan_sha256": "a86a0dc989b81d2a33d847b0d541cc1cd52bd15b0d23861c34df4e4b01339e19",
+  "sidecar_sha256": "adbb3d3e10fbb69116b1cc94806299fe35271a0329496efa82f4d0d4db98290d",
+  "target_slug": "wave-1",
+  "started_at": "2026-07-15T06:52:28.000Z",
+  "last_updated_at": "2026-07-15T16:34:28.5561631Z",
+  "pm_version": "0.1",
+  "mode_flags": [
+    "--auto",
+    "--auto-cost-warning"
+  ],
+  "tasks": [
+    {
+      "task_id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T11:45:29.000Z",
+      "ended_at": "2026-07-15T11:59:00.000Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "3/3 의도된 RED signature, ESLint PASS, 독립 리뷰 No findings",
+      "trace_req_ids": [
+        "REL-BGSTAB-006"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH001-02",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T12:00:00.000Z",
+      "ended_at": "2026-07-15T12:23:59.2725221Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "GREEN 3/3, ESLint/typecheck PASS, strict-TDD finding 수정 후 기술·까칠 재리뷰 No findings",
+      "trace_req_ids": [
+        "REL-BGSTAB-006"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH001-03",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T12:27:30.000Z",
+      "ended_at": "2026-07-15T12:50:02.1472255Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "Playwright 의도 RED 2/2 exact signatures, ESLint/typecheck PASS, 두 독립 재리뷰 No findings",
+      "trace_req_ids": [
+        "REL-BGSTAB-006"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH001-04",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T12:53:20.000Z",
+      "ended_at": "2026-07-15T13:12:34.6735559Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "Playwright 2/2, artifact 3/3, review-fix strict TDD로 config/wire provenance 독립 보존, 최종 리뷰 No findings",
+      "trace_req_ids": [
+        "REL-BGSTAB-006"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH001-05",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T13:17:30.000Z",
+      "ended_at": "2026-07-15T13:38:04.2337490Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "raw artifact digest d54487ef…, verdict 1/1/2, independent recalculation match, 두 리뷰 No findings",
+      "trace_req_ids": [
+        "REL-BGSTAB-006"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH001-06",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T13:44:42.9147538Z",
+      "ended_at": "2026-07-15T13:52:55.4323555Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "PH-001 계획·SRS·실행 증거 강제 검토, 전체 관련 검증 PASS, 최종 까칠 리뷰 No findings",
+      "trace_req_ids": [
+        "REL-BGSTAB-006"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T14:23:28.6564302Z",
+      "ended_at": "2026-07-15T14:30:27.9295221Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "RED exit 1, 2/2 exact OBS-BGSTAB-004 AC-4/AC-6 missing-contract signatures",
+      "trace_req_ids": [
+        "OBS-BGSTAB-004"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-02",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T14:30:27.9295221Z",
+      "ended_at": "2026-07-15T14:35:27.6808868Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "retained-state canonicalizer/hash/diff/analyzer GREEN 2/2, scoped ESLint/typecheck PASS",
+      "trace_req_ids": [
+        "OBS-BGSTAB-004"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-03",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T14:35:27.6808868Z",
+      "ended_at": "2026-07-15T14:37:59.5347381Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "RED rerun exit 1, exact 5/5 AC signatures; initial 184s no-output harness timeout recorded separately",
+      "trace_req_ids": [
+        "OBS-BGSTAB-004"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-04",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T14:37:59.5347381Z",
+      "ended_at": "2026-07-15T14:40:38.1742225Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "GREEN Playwright 5/5, retained unit 3/3 with read-only TerminalHandle capture repair, ESLint/typecheck PASS",
+      "trace_req_ids": [
+        "OBS-BGSTAB-004"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-05",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T14:40:38.1742225Z",
+      "ended_at": "2026-07-15T14:47:13.0444343Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "actual refresh 6-case matrix, TC-7004 ownership guard, server 2MiB serializer boundaries; artifact digest ebdd8e52…e1f",
+      "trace_req_ids": [
+        "OBS-BGSTAB-004"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-06",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T14:47:13.0444343Z",
+      "ended_at": "2026-07-15T15:55:04.3431606Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "five-iteration mandatory prickly review; final exact No findings; unit/live/synthetic/ownership/server-boundary checks PASS",
+      "trace_req_ids": [
+        "OBS-BGSTAB-004"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T14:23:28.6564302Z",
+      "ended_at": "2026-07-15T14:30:27.9295221Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "RED exit 1, 3/3 exact PERF-BGSTAB-008 AC-3/AC-5/AC-7 missing-contract signatures",
+      "trace_req_ids": [
+        "PERF-BGSTAB-008"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-02",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T14:30:27.9295221Z",
+      "ended_at": "2026-07-15T14:49:32.2083566Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "deterministic benchmark statistics GREEN 6/6; HIGH/MEDIUM findings fixed; same reviewer No findings",
+      "trace_req_ids": [
+        "PERF-BGSTAB-008"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-03",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T14:49:32.2083566Z",
+      "ended_at": "2026-07-15T14:49:32.2083566Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "NO_RENDER RED durable evidence: existing tests pass plus 2 exact planned contract failures",
+      "trace_req_ids": [
+        "PERF-BGSTAB-008"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-04",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T14:49:32.2083566Z",
+      "ended_at": "2026-07-15T15:06:03.9803173Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "NO_RENDER adapter GREEN 16/16; all review findings fixed; independent rereviewer No findings; production scheduler unchanged",
+      "trace_req_ids": [
+        "PERF-BGSTAB-008"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-05",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T15:06:03.9803173Z",
+      "ended_at": "2026-07-15T15:11:05.0821741Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "durable RED: server build PASS, 4/4 exact AC-1/2/4/6 missing-contract signatures",
+      "trace_req_ids": [
+        "PERF-BGSTAB-008"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-06",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T15:11:05.0821741Z",
+      "ended_at": "2026-07-15T15:12:20.8943562Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "terminal characterization runner GREEN 8/8 including actual SessionManager metric sampler; product seams unchanged",
+      "trace_req_ids": [
+        "PERF-BGSTAB-008"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-07",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T15:12:20.8943562Z",
+      "ended_at": "2026-07-15T15:48:03.2608377Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "actual seams raw d8239821…c146 (1,224) / summary bb63c56b…a583 (408); exact SessionManager event-loop source; reverse/digests PASS",
+      "trace_req_ids": [
+        "PERF-BGSTAB-008"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-08",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T15:13:52.1026627Z",
+      "ended_at": "2026-07-15T16:05:01.0642967Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "mandatory re-review after exact metric-source regression fix; final No findings; server 14/14, frontend 16/16, reverse summary 408/408",
+      "trace_req_ids": [
+        "PERF-BGSTAB-008"
+      ],
+      "questions": [],
+      "attempts": 2
+    },
+    {
+      "task_id": "T-PH004-01",
+      "phase_id": "PH-004",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T16:07:02.043Z",
+      "ended_at": "2026-07-15T16:09:56.8301480Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "strict TDD RED exit 1 with exact MIG-BGSTAB-001 AC-1~AC-6 planned signatures 6/6; no mutation",
+      "trace_req_ids": [
+        "MIG-BGSTAB-001"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH004-02",
+      "phase_id": "PH-004",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T16:09:56.8301480Z",
+      "ended_at": "2026-07-15T16:13:35.1901877Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "pure exact-enum G1 evaluator GREEN 6/6; stable-authority and non-authorization gates; node check PASS",
+      "trace_req_ids": [
+        "MIG-BGSTAB-001"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH004-03",
+      "phase_id": "PH-004",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T16:15:52.2066011Z",
+      "ended_at": "2026-07-15T16:16:54.5800634Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "three prerequisite families sealed; 4 artifact content/file digests matched; 3/3 Phase reviews No findings",
+      "trace_req_ids": [
+        "MIG-BGSTAB-001"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH004-04",
+      "phase_id": "PH-004",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T16:16:54.5800634Z",
+      "ended_at": "2026-07-15T16:18:44.3893808Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "explicit architectural migration decision; conditional activation states; record SHA 5a3d552a…c0fc0; stable REL-BGSTAB-007",
+      "trace_req_ids": [
+        "MIG-BGSTAB-001"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH004-05",
+      "phase_id": "PH-004",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-15T16:18:44.3893808Z",
+      "ended_at": "2026-07-15T16:34:28.5561631Z",
+      "coder_run_id": "2026-07-15.projectmaster.wave1-baseline",
+      "result_summary": "two-iteration prickly review; early activation finding fixed strict TDD; final exact No findings; SpecKiwi/links PASS",
+      "trace_req_ids": [
+        "MIG-BGSTAB-001"
+      ],
+      "questions": [],
+      "attempts": 2
+    }
+  ],
+  "stats": {
+    "total": 25,
+    "done": 25,
+    "running": 0,
+    "pending": 0,
+    "failed": 0,
+    "blocked": 0,
+    "skipped": 0
+  },
+  "last_question": null,
+  "cost_approval": {
+    "approved_at": "2026-07-15T11:45:29.000Z",
+    "scope": "all-waves",
+    "source": "user: 비용을 충전하였습니다. 계속 진행하시오."
+  },
+  "last_error": null,
+  "lifecycle_gate_state": {
+    "evaluated_at": "2026-07-15T06:52:28.000Z",
+    "blocked_req_ids": [],
+    "stability_snapshot": {
+      "REL-BGSTAB-006": "evolving",
+      "OBS-BGSTAB-004": "evolving",
+      "PERF-BGSTAB-008": "evolving",
+      "MIG-BGSTAB-001": "evolving"
+    },
+    "status_snapshot": {
+      "REL-BGSTAB-006": "planned",
+      "OBS-BGSTAB-004": "planned",
+      "PERF-BGSTAB-008": "planned",
+      "MIG-BGSTAB-001": "planned"
+    }
+  },
+  "req_coverage": {},
+  "final_mutations": [],
+  "pending_mutations": [],
+  "report_path": "docs/analysis/kiwi-wave-master-2026-07-15.projectmaster.orca-terminal-performance/wave-1-completion-report.ko.md",
+  "doculight_viewer_id": "d88aa146-6b0a-45c5-bc75-4af0b98f5e23",
+  "checklist_path": "docs/plans/2026-07-15.projectmaster.wave1-baseline.checklist.md",
+  "degraded_workflow": {
+    "enabled": true,
+    "reason": "official workflow doctor/schema and JSONL mutations are blocked by legacy SRS-W055 rows",
+    "diagnostics": [
+      "kiwi/pipeline.jsonl:1 SRS-W055",
+      "kiwi/pipeline.jsonl:2 SRS-W055",
+      "kiwi/pipeline.jsonl:3 SRS-W055",
+      "kiwi/pipeline.jsonl:4 SRS-W055"
+    ],
+    "affected_artifacts": [
+      "docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md",
+      "docs/plans/2026-07-15.projectmaster.wave1-baseline.sidecar.json",
+      "kiwi/pipeline.jsonl",
+      ".kiwi/sessions/2026-07-15.projectmaster.wave1-baseline/worklog.jsonl"
+    ],
+    "active_target": "wave-1",
+    "follow_up_requirement_id": "REL-BGSTAB-006"
+  }
+}

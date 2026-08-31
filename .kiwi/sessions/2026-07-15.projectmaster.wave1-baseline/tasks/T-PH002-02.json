@@ -1,0 +1,19 @@
+{
+  "task_id": "T-PH002-02",
+  "requirement_id": "OBS-BGSTAB-004",
+  "completed_at": "2026-07-15T14:28:00Z",
+  "tdd": {
+    "phase": "green",
+    "command": "node --experimental-strip-types --test tests/unit/terminalRetainedState.test.ts",
+    "exit_code": 0,
+    "passed": 2,
+    "failed": 0
+  },
+  "implementation": {
+    "files": ["frontend/src/utils/terminalRetainedState.ts"],
+    "scope": "pure canonicalizer, FNV-1a state hashes, field diff and expected-current-eviction/observed-loss analyzer",
+    "ui_changed": false,
+    "authority_changed": false,
+    "runtime_defaults_changed": false
+  }
+}

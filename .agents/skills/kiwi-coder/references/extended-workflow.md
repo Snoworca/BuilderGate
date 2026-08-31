@@ -38,9 +38,12 @@ This file was split from `SKILL.md` for progressive disclosure. Read it only whe
 - 실행 시간 추정 ≥10분 시 사용자 동의 게이트 (`--yes-all`/`--auto-cost-warning` skip)
 - 결과를 `docs/analysis/kiwi-coder-{run-id}/regression_run.jsonl` 에 append
 
-**6.1.3 회귀 발견 시 처리**:
-- 해당 task 가 만든 변경이 기존 test 를 깬 경우 → CRITICAL + (Phase 2.c) 재진입
-- 2회 연속 동일 파일 회귀 → §0.G4 발동 + state.failed_task_ids[] 등재
+**6.1.3 회귀 발견 시 처리** — 판정 규칙의 SSOT 는 `SKILL.md` §6.1.0 / §6.1.3 이며, 본 절은 그와 다른 판정 규칙을 말하지 않는다. 회귀는 `state.regression_baseline` (SKILL.md §3.5 에서 첫 Task 진입 전 고정) 대비 **델타로 판정**한다:
+- 기준선에서 pass 였는데 이번 실행에서 fail 한 test = **신규 실패**. 이 Task 가 만든 회귀이므로 CRITICAL + (Phase 2.c) 재진입
+- 기준선에 이미 있던 **기존 실패**는 그대로 보고하고, 현재 Task 의 것으로 **귀속하지 않는다**
+- 기준선에서 fail 이었는데 이번에 pass 한 test 는 회귀가 아니다 (보고만)
+- `state.regression_baseline` 이 null (SKILL.md §3.5 캡처 실패) 이면 델타를 계산하지 않고 실패 전량을 보고하며, 판정이 격하되었음을 함께 적는다
+- 2회 연속 동일 파일 **신규 실패** → §0.G4 발동 + state.failed_task_ids[] 등재
 - 외부 모듈 (cwd 외부) 실패 → WARN 만, 차단 안 함
 
 ### 6.2 MCP mutation 4종 batch
@@ -111,6 +114,20 @@ sidecar.tasks[].trace_links[i]            →  MCP add_trace_link args (flat)
 각 호출은 state.json `mcp_call_log[]` 에 `{tool, args, args_hash: sha1(canonicalJson(args)), ok, response_hash, dry_run, called_at}` append. 동일 args_hash 중복 호출 skip (멱등).
 
 `--dry-run` 시 mutation 4종 모두 호출 skip + `mcp_call_log[]` 에 `dry_run: true` 만 기록. `add_completed_work` 는 schema 가 `dryRun` 옵션을 직접 지원하므로 호출 자체는 시도하고 `dryRun:true` 인자 전달 (실 적용 없음). 다른 3종 (`add_trace_link` / `add_verification_evidence` / `update_status`) 은 dryRun 옵션이 없으므로 호출 자체를 skip.
+
+#### `--defer-srs-mutation <path>` — 호출하지 않고 큐에 기록 (FR-FLOW-121)
+
+이 플래그가 있으면 위 mutation 4종을 **호출하지 않고** 인자가 가리킨 큐 파일에 **기록만 한다**. 기록 형식은 이미 쓰는 `mcp_call_log[]` entry 그대로이고 `args_hash` 멱등 dedupe 도 그대로다 — 새 형식을 만들지 않는다.
+
+**기록은 skip 이 아니다.** 네 mutation 은 그대로 회계되며, 오케스트레이터가 host root 에서 **재생(replay)** 한다. 건너뛰면 traceability 가 끊기고, 레인 안에서 호출하면 차터 C1 이 깨진다 — 레인의 MCP 쓰기는 자기 워크트리가 아니라 host root 에 착지하기 때문이다. 이 플래그가 그 둘 사이의 유일한 경로다.
+
+도달 경로는 `kiwi-pm` 의 spawn 프롬프트 하나뿐이다 (`kiwi-pm --defer-srs-mutation <path>` 가 그대로 전달한다). 직접 호출은 지원 경로가 아니다.
+
+**적용하는 소비자는 아직 없다.** 큐를 읽어 재생 계획을 세우는 쪽(`speckiwi orchestrate replay plan`)은 이 타깃에서 착지했지만, 그 계획을 host root 에서 실제 호출로 **적용하는 쪽은 아직 저장소에 없다** — 그래서 큐를 **수확해 적용하는 오케스트레이터 run 밖에서 이 플래그를 쓰면 네 mutation 은 그대로 소실된다**. 수확 경로가 없는 맥락에서는 쓰지 않는다.
+
+**`--dry-run` 과 상호 배타다.** 둘을 함께 주면 거부하고 사유를 기록한다. dry-run 은 `dry_run: true` entry 만 남기는데 그 entry 를 host 에서 실제 호출로 재생할지가 정의돼 있지 않다 — 정의되지 않은 것을 조용히 한쪽으로 고르는 대신 거부한다.
+
+큐 경로는 **인자로 받는다 — 기본값을 만들지 않는다.** 레인마다 다른 파일이어야 하고, 기본값은 두 레인을 한 큐에 몰아넣는다.
 
 ### 6.3 .kiwi 상태 갱신
 
@@ -281,6 +298,8 @@ state.json 쓰기는 atomic (tmp → rename). 쓰기 실패 시 `.kiwi/logs/appe
 - `--skip-integration` 부재
 - 사용자 동의 (`--auto-integration`/`--yes-all` skip)
 
+진입 게이트 판정의 SSOT 는 `SKILL.md` §8.1 이다. `state.spawn_context == "pm-child"` (SKILL.md §3.0) 인 경우 본 동의 게이트를 발동하지 않는다 — 단일 Task 자식이 Task 마다 동의를 요구하면 부모의 무인 진행이 Task 수만큼 멈춘다. 자식 컨텍스트에서 통합 테스트 실행 여부는 모든 Task 를 본 부모 `kiwi-pm` 가 결정한다.
+
 skip 시(`--skip-integration` 명시 또는 사용자 거부)에도 **§8.3 최종 보고서는 항상 생성**. 보고서 §8 (통합 테스트 보고서) 섹션은 "skipped: {reason}" 으로 채움.
 
 ### 8.2 플로우 (snoworca-coder §5 차용)
@@ -409,5 +428,6 @@ CLI `speckiwi workflow pipeline-emit --json` 은 MCP 미가용 진단/복구 중
 - `req_ids`: 본 Task 가 영향을 미친 REQ-ID 배열
 - `artifacts.analysis_dir`: `docs/analysis/kiwi-coder-{run-id}/` 또는 `.kiwi/sessions/{run-id}/`
 - `status`: TDD green + 회귀 PASS = `TASK_DONE`; business-decision = `NEEDS_USER`; 회귀 실패 = `FAILED`
+- `gate_id`: `NEEDS_USER` 로 종료한 경우 그 중단을 일으킨 §0.G6 게이트의 id. 부모(`kiwi-pm`)는 이 값을 동명 게이트로 매핑한다 — 이 채널이 없으면 어느 게이트가 멈췄는지가 부모에게 전달되지 않는다
 
 emit 실패는 best-effort.

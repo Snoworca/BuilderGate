@@ -1,0 +1,65 @@
+{
+  "task_id": "T-PH002-05",
+  "requirement_id": "OBS-BGSTAB-004",
+  "completed_at": "2026-07-15T15:55:04.3431606Z",
+  "execution": {
+    "live_matrix": {
+      "command": "npx playwright test tests/e2e/wave1-retained-state-characterization.spec.ts --project \"Desktop Chrome\" --grep \"AC-1~7 executes\" --reporter=json",
+      "report": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/playwright-reports/retained-state-live-matrix.json",
+      "report_sha256": "d5654ee742c836bb94d3fa9b358c0e7fea97a87505fb426e0e79d8af5d8a7def",
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "retry": 0,
+      "case_count": 6
+    },
+    "tc7004": {
+      "command": "npx playwright test tests/e2e/header-context-menu-regression.spec.ts --grep \"TC-7004\" --project \"Desktop Chrome\" --reporter=json",
+      "report": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/playwright-reports/tc7004.json",
+      "report_sha256": "57f290d783257a68acc31d9ffab1b11c63d37c1956953ed1c68a2f006acec0d8",
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "retry": 0
+    },
+    "tc7004_ownership_guard": {
+      "command": "npx playwright test tests/e2e/header-context-menu-regression.spec.ts --grep \"TC-OWNERSHIP-7004\" --project \"Desktop Chrome\" --reporter=json",
+      "report": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/playwright-reports/tc7004-ownership.json",
+      "report_sha256": "5a852dc6ff65b0a0fc47d3d641c1f179b20c09ea4bb3fc2862762bde1ffca84a",
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "retry": 0,
+      "deletion_policy": "exact created workspace ID plus stored ownerToken and exact workspaceName proof; mismatch/missing refuses deletion"
+    },
+    "server_serializer_boundary": {
+      "command": "npx tsx --test src/benchmarks/retainedStateLegacyBoundary.test.ts",
+      "cwd": "server",
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "artifact": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/legacy-server-snapshot-boundary.json",
+      "artifact_content_digest": "8a2be32e52d546afcb37675be4dd70ec02f8a96cd5c9fd550677bf87048a4e7f",
+      "measured_bytes": [2097151, 2097152, 2097153],
+      "truncated": [false, false, true]
+    }
+  },
+  "artifact": {
+    "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/retained-state-characterization.json",
+    "digest_algorithm": "sha256",
+    "content_digest": "ebdd8e5296cadb047eb8ad2c46a0c91d630fe5ac0a9d0f31baf308530d969e1f",
+    "independent_digest_match": true,
+    "cause_reference_count": 36,
+    "all_cause_references_resolve": true,
+    "case_count": 6,
+    "server_boundary_case_count": 3,
+    "matrix_executes_live_refresh": true,
+    "stores_terminal_text": false
+  },
+  "non_promotion": {
+    "product_budget_set": false,
+    "recovery_slo_set": false,
+    "authority_promoted": false,
+    "ui_changed": false
+  }
+}

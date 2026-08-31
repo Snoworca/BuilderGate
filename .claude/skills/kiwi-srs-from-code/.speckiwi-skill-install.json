@@ -1,20 +1,24 @@
 {
   "name": "kiwi-srs-from-code",
   "agent": "claude",
-  "installedAt": "2026-07-13T15:01:58.003Z",
+  "installedAt": "2026-08-06T16:13:48.126Z",
   "installMode": "generated-runtime-mirror",
   "sourceAgent": "claude",
   "sourceRoot": "skills/claude",
   "sourcePath": "skills/claude/kiwi-srs-from-code",
   "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-srs-from-code",
   "sourceRevision": "unknown",
-  "sourceChecksum": "sha256:d33bc1cc1b0a6fa7beeeca55cfa0e42ebaae1c33a9f8f9c281fafe28dccda6a2",
-  "installedChecksum": "sha256:d33bc1cc1b0a6fa7beeeca55cfa0e42ebaae1c33a9f8f9c281fafe28dccda6a2",
+  "sourceChecksum": "sha256:51330a2ecc8407c6190e21d59efb6d7d3cde1d863ee99a8388ac3a2d289efedd",
+  "installedChecksum": "sha256:51330a2ecc8407c6190e21d59efb6d7d3cde1d863ee99a8388ac3a2d289efedd",
   "sourceFileCount": 1,
   "installedFileCount": 1,
   "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
-  "sharedResourceValidation": "not-required",
-  "sharedResourceReferences": [],
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md",
+    "_shared/kiwi/pipeline-event.md"
+  ],
   "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-srs-from-code --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
   "noManualEdit": true
 }

@@ -1,0 +1,223 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-24.pm.fair-admission",
+  "plan_run_id": "2026-07-24.pm.fair-admission",
+  "plan_path": "docs/plans/2026-07-24.pm.fair-admission.plan.md",
+  "sidecar_path": "docs/plans/2026-07-24.pm.fair-admission.sidecar.json",
+  "target": "wave-3",
+  "mode": "normal",
+  "flags": [],
+  "started_at": "2026-07-24T02:50:00.000Z",
+  "updated_at": "2026-07-26T00:00:00.000Z",
+  "frozen_at": null,
+  "current_phase_id": "PH-002",
+  "current_task_id": "T-PH002-01",
+  "next_resume_hint": "phase-2.c",
+  "task_queue": ["T-PH002-01", "T-PH002-02", "T-PH003-01", "T-PH004-01"],
+  "completed_task_ids": ["T-PH001-01"],
+  "skipped_task_ids": [],
+  "failed_task_ids": [],
+  "tdd_exempted_task_ids": ["T-PH001-01"],
+  "tdd_pending_task_ids": [],
+  "severity_counters": {
+    "T-PH001-01": {
+      "phase1": {"CRITICAL": 0, "HIGH": 2, "MEDIUM": 0, "LOW": 0, "rounds": 3},
+      "phase2": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "rounds": 1}
+    }
+  },
+  "regression_summary": {
+    "last_run_at": "2026-07-24T03:35:00.000Z",
+    "scope": "impacted-only",
+    "passed": 1,
+    "failed": 0,
+    "regressed_files": []
+  },
+  "mcp_call_log": [
+    {
+      "called_at": "2026-07-24T03:10:00.000Z",
+      "tool": "workflow_pipeline_emit",
+      "args": {"runId": "2026-07-24.pm.fair-admission", "reqId": "PERF-BGSTAB-010"},
+      "args_hash": "a323568611c1dd8849ecbb118c397629c4013bec3264b3d6105428748957d58a",
+      "ok": false,
+      "response_hash": "SRS-W055,SRS-W053",
+      "dry_run": false,
+      "task_id": "T-PH001-01"
+    },
+    {
+      "called_at": "2026-07-24T03:40:00.000Z",
+      "tool": "workflow_worklog_emit",
+      "args": {"runId": "2026-07-24.pm.fair-admission", "taskId": "T-PH001-01", "reqId": "PERF-BGSTAB-010"},
+      "args_hash": "e4163523265334e9430b8dde1493eec2a44a152766c2b8a27bcc99d3f3ae0cf4",
+      "ok": false,
+      "response_hash": "SRS-W055",
+      "dry_run": false,
+      "task_id": "T-PH001-01"
+    }
+  ],
+  "pending_mutations": [
+    {
+      "kind": "pipeline_event_append",
+      "affected_path": "kiwi/pipeline.jsonl",
+      "target": "wave-3",
+      "follow_up_requirement_id": "PERF-BGSTAB-010",
+      "diagnostics": ["SRS-W055 unsupported legacy schema at lines 9-12", "SRS-W053 duplicate workflow event key at line 43"],
+      "retry": "Repair legacy workflow diagnostics through official tooling before retrying workflow_pipeline_emit."
+    },
+    {
+      "kind": "worklog_event_append",
+      "affected_path": ".kiwi/sessions/2026-07-24.pm.fair-admission/worklog.jsonl",
+      "target": "wave-3",
+      "follow_up_requirement_id": "PERF-BGSTAB-010",
+      "diagnostics": ["SRS-W055 unsupported workflow schema during official worklog append"],
+      "retry": "Repair workflow schema through official tooling before retrying workflow_worklog_emit."
+    }
+  ],
+  "decision_record": {
+    "topic": "PH-002 server test liveness response",
+    "trigger": "Required five-file server test bundle remained outputless after 124.8 seconds with its ProjectMaster node process chain still waiting.",
+    "committee_size": 3,
+    "votes": [
+      {"member": "replay_process_research", "choice": "read_only_diagnosis"},
+      {"member": "replay_test_research", "choice": "read_only_diagnosis"},
+      {"member": "replay_evidence_research", "choice": "read_only_diagnosis"}
+    ],
+    "result": "unanimous: read_only_diagnosis",
+    "alternatives_rejected": ["indefinite natural wait", "new composite or isolated rerun", "node process termination", "strict-TDD handoff without a concrete behavior delta"],
+    "recorded_at": "2026-07-24T04:15:00.000Z"
+  },
+  "fixture_corrective_scope_decision": {
+    "topic": "Canary test-fixture corrective readiness",
+    "confirmed_scope": "fixture_only; production behavior remains unchanged",
+    "initial_votes": [
+      {"member": "fix_scope_research", "choice": "start_fixture_only_strict_tdd"},
+      {"member": "fix_tdd_research", "choice": "diagnose_resource_ledger_first"},
+      {"member": "fix_safety_research", "choice": "start_fixture_only_strict_tdd"}
+    ],
+    "extended_votes": [
+      {"member": "fix_readiness4", "choice": "diagnose_resource_ledger_first"},
+      {"member": "fix_readiness5", "choice": "diagnose_resource_ledger_first"}
+    ],
+    "result": "5-member majority 3:2: diagnose_resource_ledger_first",
+    "reason": "Do not fabricate a RED by removing cleanup. Establish an observed fixture-owned resource or pending-promise chain before creating strict SDS/TDD scope.",
+    "recorded_at": "2026-07-24T04:35:00.000Z"
+  },
+  "red_isolation_decision": {
+    "topic": "Fixture-only RED session setup",
+    "initial_votes": [
+      {"member": "red_isolation_scope", "choice": "manual_session_initializer"},
+      {"member": "red_isolation_tdd", "choice": "real_session_fake_pty"},
+      {"member": "red_isolation_safety", "choice": "real_session_fake_pty"}
+    ],
+    "extended_votes": [
+      {"member": "red_isolation4", "choice": "manual_session_initializer"},
+      {"member": "red_isolation5", "choice": "real_session_fake_pty"}
+    ],
+    "result": "5-member majority 3:2: real_session_fake_pty",
+    "reason": "Use the production session creation contract without native PTY processes; restore the captured complete headless state in finally if the expected RED leaves the session live.",
+    "recorded_at": "2026-07-26T00:00:00.000Z"
+  },
+  "red_teardown_decision": {
+    "topic": "Public-finalizer RED cleanup after expected partial-fixture failure",
+    "members": [
+      "new_red_process_research",
+      "new_red_static_research",
+      "new_red_tdd_research",
+      "red_recovery4",
+      "red_recovery5"
+    ],
+    "result": "unanimous: assert the public finalizer RED first, then deterministically release only fixture-owned watcher, temporary file, terminal, and session-map state in finally",
+    "reason": "The existing finalizer sets finalized before the expected partial-fixture disposal error, so retrying deleteSession cannot clean the test-owned watcher. Teardown must not alter the assertion outcome.",
+    "recorded_at": "2026-07-26T00:00:00.000Z"
+  },
+  "fixture_ledger_decision": {
+    "topic": "Canary fixture liveness review correction",
+    "members": [
+      "fixture_ledger_committee_a",
+      "fixture_ledger_committee_b",
+      "fixture_ledger_committee_c"
+    ],
+    "result": "unanimous: add a small test-only FixtureResourceLedger and prove both normal and assertion-failure cleanup",
+    "reason": "The agreed SDS explicitly requires observable session, CWD-watch/file, and held-callback release. Shrinking it to dispersed assertions would hide the high-severity review gap.",
+    "constraints": [
+      "no production source or protocol changes",
+      "no Node internal active-handle inspection",
+      "emergency cleanup may prevent a runner hang but must be recorded so it cannot make the ledger pass"
+    ],
+    "recorded_at": "2026-07-26T00:00:00.000Z"
+  },
+  "fixture_tdd_step_result": {
+    "task": "2026-07-24.pm.canary-fixture-liveness",
+    "scope": "test_fixture_only",
+    "red_evidence": [
+      "partial fixture sourceMarkers failure on actual fake-PTY overflow",
+      "missing gate dispose on real-session cleanup",
+      "emergency cleanup left one held callback before the fail-closed repair"
+    ],
+    "green_evidence": "Independent targeted suite selected 6/6 PASS in 14.419 seconds; no hang. Step SDS validation reported 0 errors and 0 warnings. Final prickly review: No findings.",
+    "parent_requirement_effect": "PERF-BGSTAB-010 lifecycle, ACs, and evidence unchanged; fixture repair is prerequisite infrastructure only.",
+    "recorded_at": "2026-07-26T00:00:00.000Z"
+  },
+  "fixture_real_session_migration": {
+    "scope": "test_fixture_only",
+    "trigger": "Post-fixture PH-002 replay exposed five nextTerminalAuthoritySourceSeq BigInt failures and one retainedTerminal.comparisonTimer failure in manually injected SessionData.",
+    "strategy_votes": [
+      {"member": "strategy_committee_a", "choice": "real_createSession_fake_pty"},
+      {"member": "strategy_committee_b", "choice": "real_createSession_fake_pty"},
+      {"member": "strategy_committee_c", "choice": "real_createSession_fake_pty"},
+      {"member": "strategy_committee_d", "choice": "manual_builder_completion"},
+      {"member": "strategy_committee_e", "choice": "real_createSession_fake_pty"}
+    ],
+    "strategy_result": "5-member majority 4:1: real_createSession_fake_pty",
+    "max_chunks_decision": {
+      "votes": [
+        {"member": "maxchunks_committee_a", "choice": "gate_actual_headless_write"},
+        {"member": "maxchunks_committee_b", "choice": "gate_actual_headless_write"},
+        {"member": "maxchunks_committee_c", "choice": "gate_actual_headless_write"}
+      ],
+      "result": "unanimous: hold the actual terminal write while asserting N pending entries and N+1 rejection, then release and assert rollback close"
+    },
+    "red_evidence": "The new SDS-AC-5 fixture contract failed with ReferenceError: initializeActualHeadlessSession is not defined.",
+    "green_evidence": "Independent seven-test verification passed 7/7 in 4.673 seconds; exact five-file PH-002 replay passed 98/98 in 20.027 seconds; speckiwi vibe-gate check passed with zero diagnostics.",
+    "review": "Independent strict review: No findings at Critical, High, Medium, or Low.",
+    "parent_requirement_effect": "No production source, protocol, parent Requirement status, parent AC, or parent evidence was changed.",
+    "recorded_at": "2026-07-26T00:00:00.000Z"
+  },
+  "workflow_reconciliation_decision": {
+    "topic": "Historical pipeline NEEDS_USER SHA gate versus current fair-admission session",
+    "votes": [
+      {"member": "sha_adoption_committee_a", "choice": "continue_current_session_without_historical_sha_adoption"},
+      {"member": "sha_adoption_committee_b", "choice": "continue_current_session_without_historical_sha_adoption"},
+      {"member": "sha_adoption_committee_c", "choice": "halt_pending_pm_reconciliation"},
+      {"member": "sha_adoption_committee_d", "choice": "halt_pending_pm_reconciliation"},
+      {"member": "sha_adoption_committee_e", "choice": "continue_current_session_without_historical_sha_adoption"}
+    ],
+    "result": "5-member majority 3:2: continue only non-mutating current-session review work; do not overwrite or adopt the historical 2026-07-16 PM SHA checkpoint.",
+    "current_artifacts": {
+      "plan_sha256": "b4d71a809d20b0f7047e4cf217d16826d3f8eb0e58796afbd33a490f9d759033",
+      "sidecar_sha256": "978ca20e171c855e7999cf6cef58446e8ae16808797acda7163d5df3ad409440"
+    },
+    "official_tool_outcome": "workflow_repair_record dry-run and mutation both returned written=false, journalState=confirmed, because existing worklog schema and duplicate-key diagnostics remain. No workflow, PM, SRS, or parent lifecycle mutation was made.",
+    "constraint": "Do not represent the historical pipeline NEEDS_USER gate as resolved and do not promote or lifecycle-mutate PERF-BGSTAB-010 while official resume remains blocked.",
+    "recorded_at": "2026-07-26T00:00:00.000Z"
+  },
+  "fixture_step_promotion_decision": {
+    "topic": "Fixture-only TDD step promotion without a new body requirement",
+    "votes": [
+      {"member": "fixture_promotion_committee_a", "choice": "no_promote_keep_active"},
+      {"member": "fixture_promotion_committee_b", "choice": "no_promote_mark_merging"},
+      {"member": "fixture_promotion_committee_c", "choice": "no_promote_keep_active"}
+    ],
+    "result": "3/3 no promotion; terminal-state majority 2:1 keep active",
+    "reason": "synthesize produced only the fixture step SRS and no pre-minted step Requirement ID. Promoting existing PERF-BGSTAB-010 would mutate a body requirement contrary to SDS-AC-4; creating a new body requirement would be artificial.",
+    "tool_gap": "No official evidence-only closure or parent-evidence attachment path exists for a test-infrastructure TDD step without a new body requirement.",
+    "revisit_when": "SpecKiwi provides an official evidence-only step closure or parent-evidence attachment mechanism.",
+    "recorded_at": "2026-07-26T00:00:00.000Z"
+  },
+  "tdd_commit_exception": {
+    "task": "2026-07-24.pm.canary-fixture-liveness",
+    "reason": "The required test file was already untracked in the user-owned dirty worktree. Committing it would capture pre-existing user content outside this task's surgical scope.",
+    "evidence": "git status --short and git ls-files --stage both reported server/src/services/TerminalResourcePolicyCanary.test.ts as untracked before implementation.",
+    "recorded_at": "2026-07-26T00:00:00.000Z"
+  },
+  "tool_versions": {"kiwi_planner": "0.6.0", "kiwi_coder": "0.1.0", "speckiwi": "2.4.1"}
+}

@@ -1,0 +1,62 @@
+{
+  "task_id": "T-PH004-01",
+  "started_at": "2026-07-15T16:07:02.043Z",
+  "completed_at": "2026-07-15T16:09:56.8301480Z",
+  "phase1": {
+    "tdd_draft_iters": [
+      {
+        "iter": 1,
+        "file_paths": ["tools/wave1/g1-decision-gate.test.mjs"]
+      }
+    ],
+    "red_evidence": {
+      "command": "node --test tools/wave1/g1-decision-gate.test.mjs",
+      "exit_code": 1,
+      "captured_failure": "6/6 exact MIG-BGSTAB-001 AC-1 through AC-6 contract-not-implemented signatures observed",
+      "timestamp": "2026-07-15T16:09:56.8301480Z"
+    },
+    "red_evidence_meta": {
+      "failed_tests": 6,
+      "test_case_ids": [
+        "TC-REQ-MIG-BGSTAB-001-AC1-01",
+        "TC-REQ-MIG-BGSTAB-001-AC2-01",
+        "TC-REQ-MIG-BGSTAB-001-AC3-01",
+        "TC-REQ-MIG-BGSTAB-001-AC4-01",
+        "TC-REQ-MIG-BGSTAB-001-AC5-01",
+        "TC-REQ-MIG-BGSTAB-001-AC6-01"
+      ],
+      "matched_signatures": [
+        "MIG-BGSTAB-001 AC-1 contract not implemented",
+        "MIG-BGSTAB-001 AC-2 contract not implemented",
+        "MIG-BGSTAB-001 AC-3 contract not implemented",
+        "MIG-BGSTAB-001 AC-4 contract not implemented",
+        "MIG-BGSTAB-001 AC-5 contract not implemented",
+        "MIG-BGSTAB-001 AC-6 contract not implemented"
+      ],
+      "durable_reference": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/ph004-g1-gate-red-evidence.json"
+    }
+  },
+  "phase2": {
+    "red_only_task": true,
+    "implementation_deferred_to": "T-PH004-02",
+    "dod_check": [
+      {
+        "item": "불완전 evidence, 제3 enum, 2개 fix, unstable authority와 implicit activation이 각각 실패한다.",
+        "satisfied": true
+      },
+      {
+        "item": "어떤 wave state도 테스트가 직접 변경하지 않는다.",
+        "satisfied": true
+      }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "scope": "impacted-only",
+      "red_contract": "expected-fail 6/6",
+      "mutation_observed": false
+    },
+    "mcp_calls": [],
+    "review_status": "pending PH-004 completion review"
+  }
+}

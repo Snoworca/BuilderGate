@@ -1,0 +1,21 @@
+{
+  "task_id": "T-PH004-03",
+  "requirement_id": "MIG-BGSTAB-001",
+  "started_at": "2026-07-15T16:15:52.2066011Z",
+  "completed_at": "2026-07-15T16:16:54.5800634Z",
+  "artifact": {
+    "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/g1-evidence-audit.json",
+    "file_sha256": "2925a676b25c2ebaed39b06f4cc1f2d399b6512a6f8d6490cf9e43eea979bdf9",
+    "prerequisite_families": 3,
+    "artifacts": 4
+  },
+  "verification": {
+    "requirement_ids_exact": true,
+    "statuses_implemented": true,
+    "content_and_file_digests_match": true,
+    "run_and_build_ids_complete": true,
+    "review_verdicts": "3/3 No findings",
+    "missing_evidence_denial_covered_by": "tools/wave1/g1-decision-gate.test.mjs"
+  },
+  "review_status": "pending PH-004 completion review"
+}

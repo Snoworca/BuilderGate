@@ -1,0 +1,34 @@
+{
+  "task_id": "T-PH001-01",
+  "started_at": "2026-07-23T16:10:08.368Z",
+  "completed_at": null,
+  "phase1": {
+    "tdd_exempted": true,
+    "reason": "auto-exempt by type: review"
+  },
+  "phase2": {
+    "official_repair_attempt": {
+      "tool": "workflow_repair_record",
+      "dry_run": true,
+      "ok": false,
+      "result": "MUTATION_DENIED: Workflow JSONL append halted by diagnostics",
+      "pipeline_sha256": "05304ddd2af58123879b795df39268bf96d9e02ef9572feb4e861c9c2afc1bc5",
+      "diagnostics": [
+        {"code": "SRS-W055", "lines": [9, 10, 11, 12]},
+        {"code": "SRS-W053", "lines": [43]}
+      ]
+    }
+  },
+  "phase3": {
+    "verification": {
+      "command": "node tools/wave3/authority-promotion-evidence.test.mjs",
+      "status": "failed",
+      "user_consent_at": "2026-07-24T00:11:03.8775929Z",
+      "completed_at": "2026-07-24T00:12:30.2643887Z",
+      "exit_code": 1,
+      "failure": "retry evidence attachment count differs: positional all-view handoff (0 !== 1)",
+      "authority_artifact_exists_after_run": false,
+      "raw_evidence_exists_after_run": true
+    }
+  }
+}

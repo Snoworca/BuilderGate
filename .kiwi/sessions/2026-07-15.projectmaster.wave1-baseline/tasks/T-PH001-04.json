@@ -1,0 +1,181 @@
+{
+  "task_id": "T-PH001-04",
+  "started_at": "2026-07-15T12:53:20.000Z",
+  "completed_at": "2026-07-15T13:12:34.6735559Z",
+  "phase1": {
+    "paired_red_task_id": "T-PH001-03",
+    "red_evidence": {
+      "command": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\" --reporter=line",
+      "exit_code": 1,
+      "captured_failure": "REL-BGSTAB-006 AC-2 contract not implemented; REL-BGSTAB-006 AC-3 contract not implemented"
+    },
+    "repair_red_evidence": [
+      {
+        "status": "superseded_by_review",
+        "reason": "Reviewer confirmed config-to-wire drift must be preserved for T-PH001-05 mismatch classification rather than rejected at completion.",
+        "command": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\" --reporter=line",
+        "exit_code": 1,
+        "passed": 1,
+        "failed": 1,
+        "captured_failure": "production runtime config mode must match observation and browser socket URL; standalone injected observation evidence is required"
+      },
+      {
+        "status": "active_contract",
+        "command": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\" --reporter=line",
+        "exit_code": 1,
+        "passed": 1,
+        "failed": 1,
+        "captured_failure": "runtime config and browser wire mode must remain independent; production runtime config mode provenance is required"
+      }
+    ],
+    "scope_repair": {
+      "approved_by_pm": true,
+      "added_file": "frontend/tests/e2e/wave1-split-characterization.spec.ts",
+      "reason": "Independent runtime-config provenance and unrelated standalone negative coverage were required by reviewer findings."
+    }
+  },
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "frontend/tests/e2e/wave1-characterization-artifacts.ts"
+        ],
+        "notes": "Production HTTPS /ws completion guard and standalone source-kind separation."
+      },
+      {
+        "iter": 2,
+        "files_changed": [
+          "frontend/tests/e2e/wave1-split-characterization.spec.ts",
+          "frontend/tests/e2e/wave1-characterization-artifacts.ts"
+        ],
+        "notes": "Independent runtime-config provenance and standalone injected evidence repair; later superseded only for equality policy."
+      },
+      {
+        "iter": 3,
+        "files_changed": [
+          "frontend/tests/e2e/wave1-split-characterization.spec.ts",
+          "frontend/tests/e2e/wave1-characterization-artifacts.ts"
+        ],
+        "notes": "Runtime config and browser wire mode remain independently preserved; drift is left for mismatch classification."
+      }
+    ],
+    "formal_reviews": [
+      {
+        "iter": 1,
+        "findings_resolved": [
+          "sidecar test_symbol did not match the reused RED test title"
+        ],
+        "verdict": "findings"
+      },
+      {
+        "iter": 2,
+        "findings": [],
+        "verdict": "No findings"
+      },
+      {
+        "iter": 3,
+        "findings_resolved": [
+          "completion incorrectly rejected config-to-wire drift needed by T-PH001-05"
+        ],
+        "verdict": "findings"
+      },
+      {
+        "iter": 4,
+        "findings": [],
+        "verdict": "No findings"
+      }
+    ],
+    "prickly_reviews": [
+      {
+        "iter": 1,
+        "findings_resolved": [
+          "effective transport mode was inferred from its own socket URL",
+          "unrelated test_observed rows could satisfy standalone completion"
+        ],
+        "verdict": "findings"
+      },
+      {
+        "iter": 2,
+        "findings": [],
+        "verdict": "No findings"
+      },
+      {
+        "iter": 3,
+        "findings": [],
+        "verdict": "No findings"
+      }
+    ],
+    "green_evidence": {
+      "command": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\" --reporter=line",
+      "exit_code": 0,
+      "passed": 2,
+      "failed": 0,
+      "timestamp": "2026-07-15T13:12:34.6735559Z"
+    },
+    "dod_check": [
+      {
+        "item": "production 및 standalone observation이 서로 다른 source kind로 기록된다.",
+        "satisfied": true
+      },
+      {
+        "item": "https://localhost:2222 actual path evidence가 completion에 필수다.",
+        "satisfied": true
+      },
+      {
+        "item": "기존 unified runtime 동작은 변경되지 않는다.",
+        "satisfied": true
+      },
+      {
+        "item": "runtime config와 browser wire mode drift는 독립 보존되어 후속 mismatch 분류가 가능하다.",
+        "satisfied": true
+      }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "impacted": {
+        "playwright_passed": 2,
+        "artifact_contract_passed": 3,
+        "eslint": "pass",
+        "typecheck": "pass"
+      },
+      "full_unit": {
+        "passed": 240,
+        "failed": 1
+      },
+      "regressed_files": [],
+      "known_unrelated_baseline_failure": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts: TerminalContainer retries queued input after visible output recovery finishes"
+    },
+    "mcp_calls": [
+      {
+        "tool": "add_verification_evidence",
+        "args_hash": "e3645296983fc7aa9e14de016579470b05e21637",
+        "response_hash": "93a48dd7751e3f57ee0542099f2fe1f7e2ba14e5",
+        "ok": true,
+        "result": "VE-5"
+      },
+      {
+        "tool": "add_verification_evidence",
+        "args_hash": "1939f58baa04670dd5feaaeab8cad416431d50f5",
+        "response_hash": "52f007dda162817de12a272597ab1f49db0f1692",
+        "ok": true,
+        "result": "VE-6"
+      },
+      {
+        "tool": "add_completed_work",
+        "args_hash": "40e3cd1f8230ba2587b9ab08cf05fcbd5a55d1c8",
+        "response_hash": "40e3cd1f8230ba2587b9ab08cf05fcbd5a55d1c8",
+        "ok": true
+      }
+    ],
+    "srs_mutation": "AC-2/AC-3 verification evidence only; Status/Stability unchanged until Phase completion",
+    "workflow_journal": {
+      "official_result": "SRS-E072 idempotency-key denial; existing degraded workflow remains active",
+      "degraded_fallback_recorded": true,
+      "diagnostics": [
+        "kiwi/pipeline.jsonl:1-4 SRS-W055"
+      ]
+    }
+  }
+}

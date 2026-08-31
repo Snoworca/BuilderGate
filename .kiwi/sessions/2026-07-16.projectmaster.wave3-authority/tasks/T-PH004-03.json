@@ -1,0 +1,10 @@
+{
+  "task_id": "T-PH004-03",
+  "phase_id": "PH-004",
+  "status": "done",
+  "started_at": "2026-07-17T13:45:00+09:00",
+  "completed_at": "2026-07-17T14:05:00+09:00",
+  "phase1": {"tdd_draft_iters": [{"iter": 1, "file_paths": ["server/src/services/RetainedTerminalAuthority.test.ts", "server/src/ws/WsRouterCheckpointProtocol.test.ts"]}], "standard4_reviews": [], "red_evidence": {"path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-004/red-evidence.json", "exit_code": 1}},
+  "phase2": {"impl_iters": [{"iter": 4, "files_changed": ["server/src/services/SessionManager.ts", "server/src/ws/WsRouter.ts", "server/src/services/RetainedTerminalAuthority.test.ts", "server/src/ws/WsRouterCheckpointProtocol.test.ts"]}], "formal_reviews": [{"iter": 1, "findings": []}], "prickly_reviews": [{"iter": 4, "verdict": "No findings"}], "green_evidence": {"path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-004/green-evidence.json", "exit_code": 0, "passed": 57, "failed": 0}, "dod_check": [{"item": "통합·fault·cleanup evidence가 생성된다.", "satisfied": true}, {"item": "다음 Phase activation gate가 기계 판독 가능하다.", "satisfied": true}]},
+  "phase3": {"regression": {"scope": "full", "server_passed": 517, "frontend_passed": 485, "https_passed": 5, "failed": 0}, "mcp_calls": []}
+}

@@ -1,0 +1,44 @@
+{
+  "task_id": "T-PH004-02",
+  "started_at": "2026-07-30T16:58:00+09:00",
+  "completed_at": null,
+  "scope": {
+    "requirement_id": "REL-BGSTAB-012",
+    "tdd_stage": "GREEN",
+    "canonical_execution_source": "docs/plans/2026-07-28.pm.wave3-completion.sidecar.json:T-PH004-02.replan_runner_matrix",
+    "preserved_contracts": "The ten T-PH004-01 declarations remain unchanged.",
+    "no_authorized_claims": [
+      "SRS lifecycle promotion",
+      "UI redesign",
+      "WebGL or renderer suspend/dispose behavior"
+    ]
+  },
+  "implementation": {
+    "status": "in_progress",
+    "production_files": [
+      "frontend/src/components/Terminal/TerminalContainer.tsx",
+      "frontend/src/contexts/WebSocketContext.tsx",
+      "frontend/src/types/ws-protocol.ts",
+      "frontend/src/utils/terminalCheckpointRuntime.ts",
+      "frontend/src/hooks/useTerminalRuntimeResidency.ts",
+      "server/src/types/ws-protocol.ts",
+      "server/src/ws/WsRouter.ts",
+      "server/src/ws/wsSendPolicy.ts",
+      "server/src/services/TerminalAuthorityController.ts",
+      "server/src/services/TerminalAuthorityProductionAdapter.ts"
+    ],
+    "green_evidence": null
+  },
+  "workflow": {
+    "pm_status": "root-owned; not modified by this task executor",
+    "degraded_workflow": {
+      "diagnostic": "SRS-W058 workflow PM and coder state conflict",
+      "affected_artifacts": [
+        ".kiwi/sessions/2026-07-28.pm.wave3-completion/pm-state.json",
+        ".kiwi/sessions/2026-07-28.pm.wave3-completion/state.json"
+      ],
+      "active_target": "wave-3",
+      "follow_up_requirement_id": "REL-BGSTAB-012"
+    }
+  }
+}

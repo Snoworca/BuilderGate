@@ -1,0 +1,66 @@
+{
+  "task_id": "T-PH001-01",
+  "started_at": "2026-07-15T11:47:50.000Z",
+  "completed_at": "2026-07-15T11:59:00.000Z",
+  "phase1": {
+    "tdd_draft_iters": [
+      {
+        "iter": 1,
+        "file_paths": ["frontend/tests/e2e/wave1-characterization-artifacts.test.ts"]
+      }
+    ],
+    "standard4_reviews": [
+      {
+        "iter": 3,
+        "intent_alignment": {"findings": [], "verdict": "No findings"},
+        "tech_quality": {"findings": [], "verdict": "No findings"},
+        "req_mapping": {"findings": [], "verdict": "No findings"},
+        "red_verification": {
+          "findings": [],
+          "verdict": "No findings",
+          "exit_code": 1,
+          "failed_tests": 3,
+          "matched_signatures": [
+            "REL-BGSTAB-006 AC-1 contract not implemented",
+            "REL-BGSTAB-006 AC-4 contract not implemented",
+            "REL-BGSTAB-006 AC-5 contract not implemented"
+          ],
+          "cause": "ERR_MODULE_NOT_FOUND: frontend/tests/e2e/wave1-characterization-artifacts.ts",
+          "syntax_or_init_error": false
+        }
+      }
+    ],
+    "red_evidence": {
+      "command": "node --experimental-strip-types --test tests/e2e/wave1-characterization-artifacts.test.ts",
+      "exit_code": 1,
+      "captured_failure": "3/3 expected AC signatures observed",
+      "timestamp": "2026-07-15T11:58:00.6463929Z"
+    },
+    "red_evidence_meta": {
+      "test_case_ids": [
+        "TC-REQ-REL-BGSTAB-006-AC1-01",
+        "TC-REQ-REL-BGSTAB-006-AC4-01",
+        "TC-REQ-REL-BGSTAB-006-AC5-01"
+      ]
+    }
+  },
+  "phase2": {
+    "red_only_task": true,
+    "implementation_deferred_to": "T-PH001-02",
+    "dod_check": [
+      {"item": "세 AC의 기대 실패 signature가 각각 관측된다.", "satisfied": true},
+      {"item": "split activation 또는 기존 SRS mutation을 테스트 fixture가 수행하지 않는다.", "satisfied": true}
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "scope": "impacted-only",
+      "lint": "pass",
+      "red_contract": "expected-fail 3/3",
+      "known_unrelated_baseline_failure": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts: TerminalContainer retries queued input after visible output recovery finishes"
+    },
+    "mcp_calls": [
+      {"tool": "update_status", "ok": true, "result": "REL-BGSTAB-006 -> in_progress"}
+    ]
+  }
+}

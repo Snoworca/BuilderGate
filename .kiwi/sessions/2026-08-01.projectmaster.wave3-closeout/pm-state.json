@@ -1,0 +1,813 @@
+{
+  "run_id": "2026-08-01.projectmaster.wave3-closeout",
+  "plan_path": "docs/plans/2026-08-01.projectmaster.wave3-closeout.plan.md",
+  "sidecar_path": "docs/plans/2026-08-01.projectmaster.wave3-closeout.sidecar.json",
+  "plan_sha256": "0930624dfde38f102543fbf143fcce4c3a13b3949a6722944ad481aaeb9919de",
+  "sidecar_sha256": "21c7672a670391d23be8ff5209eae9ac62721a1efe51c2743b73650fc25ee628",
+  "target_slug": "wave-3",
+  "started_at": "2026-08-01T10:48:27.000Z",
+  "last_updated_at": "2026-08-02T06:57:46+09:00",
+  "pm_version": "0.1",
+  "tasks": [
+    {
+      "task_id": "T-PH090-01",
+      "phase_id": "PH-090",
+      "status": "done",
+      "tdd_exempted": true,
+      "started_at": "2026-08-01T11:13:01.732Z",
+      "ended_at": "2026-08-01T11:13:01.732Z",
+      "coder_run_id": null,
+      "result_summary": "External intake reconciliation record: docs/memory/2026-08-01-wave3-reentry-baseline.md. Its v0.5.2 artifact hashes are not evidence of current v0.5.5 artifact hashes.",
+      "provenance": "Current PM external-record reconciliation at 2026-08-01T11:13:01.732Z; this timestamp does not claim a past test execution time.",
+      "trace_req_ids": [
+        "OBS-BGSTAB-005",
+        "REL-BGSTAB-010",
+        "FR-BGSTAB-022",
+        "REL-BGSTAB-011",
+        "MIG-BGSTAB-002",
+        "OBS-BGSTAB-006",
+        "REL-BGSTAB-014",
+        "REL-BGSTAB-015",
+        "PERF-BGSTAB-010",
+        "REL-BGSTAB-007",
+        "REL-BGSTAB-012"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH090-02",
+      "phase_id": "PH-090",
+      "status": "done",
+      "tdd_exempted": true,
+      "started_at": "2026-08-01T11:13:01.732Z",
+      "ended_at": "2026-08-01T11:13:01.732Z",
+      "coder_run_id": null,
+      "result_summary": "External intake reconciliation record: docs/memory/2026-08-01-wave3-reentry-baseline.md. PH100 failure matrix: docs/memory/2026-08-01-wave3-ph100-revalidation.md. Its v0.5.2 artifact hashes are not evidence of current v0.5.5 artifact hashes.",
+      "provenance": "Current PM external-record reconciliation at 2026-08-01T11:13:01.732Z; this timestamp does not claim a past test execution time.",
+      "trace_req_ids": [
+        "OBS-BGSTAB-005",
+        "REL-BGSTAB-010",
+        "FR-BGSTAB-022",
+        "REL-BGSTAB-011",
+        "MIG-BGSTAB-002",
+        "OBS-BGSTAB-006",
+        "REL-BGSTAB-014",
+        "REL-BGSTAB-015"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH100-01",
+      "phase_id": "PH-100",
+      "status": "done",
+      "tdd_exempted": true,
+      "started_at": "2026-08-01T11:13:01.732Z",
+      "ended_at": "2026-08-01T11:13:01.732Z",
+      "coder_run_id": null,
+      "result_summary": "External read-only revalidation record: docs/memory/2026-08-01-wave3-ph100-revalidation.md. The v0.5.2 baseline result is transferred to this equivalent v0.5.5 observation task; unresolved PH100 failures remain findings, not success or closure.",
+      "provenance": "Current PM external-record reconciliation at 2026-08-01T11:13:01.732Z; this timestamp does not claim a past test execution time.",
+      "trace_req_ids": [
+        "OBS-BGSTAB-005"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH100-02",
+      "phase_id": "PH-100",
+      "status": "done",
+      "tdd_exempted": true,
+      "started_at": "2026-08-01T11:13:01.732Z",
+      "ended_at": "2026-08-01T11:13:01.732Z",
+      "coder_run_id": null,
+      "result_summary": "External read-only revalidation record: docs/memory/2026-08-01-wave3-ph100-revalidation.md. The v0.5.2 baseline result is transferred to this equivalent v0.5.5 observation task; unresolved PH100 failures remain findings, not success or closure.",
+      "provenance": "Current PM external-record reconciliation at 2026-08-01T11:13:01.732Z; this timestamp does not claim a past test execution time.",
+      "trace_req_ids": [
+        "REL-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH100-03",
+      "phase_id": "PH-100",
+      "status": "done",
+      "tdd_exempted": true,
+      "started_at": "2026-08-01T11:13:01.732Z",
+      "ended_at": "2026-08-01T11:13:01.732Z",
+      "coder_run_id": null,
+      "result_summary": "External read-only revalidation record: docs/memory/2026-08-01-wave3-ph100-revalidation.md. The v0.5.2 baseline result is transferred to this equivalent v0.5.5 observation task; unresolved PH100 failures remain findings, not success or closure.",
+      "provenance": "Current PM external-record reconciliation at 2026-08-01T11:13:01.732Z; this timestamp does not claim a past test execution time.",
+      "trace_req_ids": [
+        "FR-BGSTAB-022"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH100-04",
+      "phase_id": "PH-100",
+      "status": "done",
+      "tdd_exempted": true,
+      "started_at": "2026-08-01T11:13:01.732Z",
+      "ended_at": "2026-08-01T11:13:01.732Z",
+      "coder_run_id": null,
+      "result_summary": "External read-only revalidation record: docs/memory/2026-08-01-wave3-ph100-revalidation.md. The v0.5.2 baseline result is transferred to this equivalent v0.5.5 observation task; unresolved PH100 failures remain findings, not success or closure.",
+      "provenance": "Current PM external-record reconciliation at 2026-08-01T11:13:01.732Z; this timestamp does not claim a past test execution time.",
+      "trace_req_ids": [
+        "REL-BGSTAB-011"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH100-05",
+      "phase_id": "PH-100",
+      "status": "done",
+      "tdd_exempted": true,
+      "started_at": "2026-08-01T11:13:01.732Z",
+      "ended_at": "2026-08-01T11:13:01.732Z",
+      "coder_run_id": null,
+      "result_summary": "External read-only revalidation record: docs/memory/2026-08-01-wave3-ph100-revalidation.md. The v0.5.2 baseline result is transferred to this equivalent v0.5.5 observation task; unresolved PH100 failures remain findings, not success or closure.",
+      "provenance": "Current PM external-record reconciliation at 2026-08-01T11:13:01.732Z; this timestamp does not claim a past test execution time.",
+      "trace_req_ids": [
+        "MIG-BGSTAB-002"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH100-06",
+      "phase_id": "PH-100",
+      "status": "done",
+      "tdd_exempted": true,
+      "started_at": "2026-08-01T11:13:01.732Z",
+      "ended_at": "2026-08-01T11:13:01.732Z",
+      "coder_run_id": null,
+      "result_summary": "External read-only revalidation record: docs/memory/2026-08-01-wave3-ph100-revalidation.md. The v0.5.2 baseline result is transferred to this equivalent v0.5.5 observation task; unresolved PH100 failures remain findings, not success or closure.",
+      "provenance": "Current PM external-record reconciliation at 2026-08-01T11:13:01.732Z; this timestamp does not claim a past test execution time.",
+      "trace_req_ids": [
+        "OBS-BGSTAB-006"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH100-07",
+      "phase_id": "PH-100",
+      "status": "done",
+      "tdd_exempted": true,
+      "started_at": "2026-08-01T11:13:01.732Z",
+      "ended_at": "2026-08-01T11:13:01.732Z",
+      "coder_run_id": null,
+      "result_summary": "External read-only revalidation record: docs/memory/2026-08-01-wave3-ph100-revalidation.md. The v0.5.2 baseline result is transferred to this equivalent v0.5.5 observation task; unresolved PH100 failures remain findings, not success or closure.",
+      "provenance": "Current PM external-record reconciliation at 2026-08-01T11:13:01.732Z; this timestamp does not claim a past test execution time.",
+      "trace_req_ids": [
+        "REL-BGSTAB-014"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH100-08",
+      "phase_id": "PH-100",
+      "status": "done",
+      "tdd_exempted": true,
+      "started_at": "2026-08-01T11:13:01.732Z",
+      "ended_at": "2026-08-01T11:13:01.732Z",
+      "coder_run_id": null,
+      "result_summary": "External read-only revalidation record: docs/memory/2026-08-01-wave3-ph100-revalidation.md. The v0.5.2 baseline result is transferred to this equivalent v0.5.5 observation task; unresolved PH100 failures remain findings, not success or closure.",
+      "provenance": "Current PM external-record reconciliation at 2026-08-01T11:13:01.732Z; this timestamp does not claim a past test execution time.",
+      "trace_req_ids": [
+        "REL-BGSTAB-015"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH110-01",
+      "phase_id": "PH-110",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-08-02T01:31:18.4568499+09:00",
+      "ended_at": "2026-08-02T06:05:00+09:00",
+      "coder_run_id": null,
+      "result_summary": "Strict test-only provenance: 4976607 and 64b2102 retained exactly two selected cases, both independently approved RED; selected RED exposed the listener-order gaps while AC-5 passed.",
+      "trace_req_ids": [
+        "REL-BGSTAB-007"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH110-02",
+      "phase_id": "PH-110",
+      "status": "blocked",
+      "tdd_exempted": false,
+      "started_at": "2026-08-02T05:13:34+09:00",
+      "ended_at": "2026-08-02T06:05:00+09:00",
+      "coder_run_id": null,
+      "result_summary": "Implementation evidence is complete (7450772, 3529bb6, 2835adc; selected AC-5/AC-9 2/2 PASS; local compiler PASS), but task closure is blocked because workflow_worklog_emit returns confirmed without appending the required worklog entry.",
+      "trace_req_ids": [
+        "REL-BGSTAB-007"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH110-03",
+      "phase_id": "PH-110",
+      "status": "blocked",
+      "tdd_exempted": true,
+      "started_at": "2026-08-02T05:20:00+09:00",
+      "ended_at": "2026-08-02T06:05:00+09:00",
+      "coder_run_id": null,
+      "result_summary": "Independent review evidence is complete (two final No findings; broader 62/65 with three triaged known baseline/other-task failures), but task closure is blocked because workflow_worklog_emit returns confirmed without appending the required worklog entry.",
+      "trace_req_ids": [
+        "REL-BGSTAB-007"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH110-04",
+      "phase_id": "PH-110",
+      "status": "blocked",
+      "tdd_exempted": false,
+      "started_at": "2026-08-02T06:06:00+09:00",
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": "Blocked without modifying user work: every planned test, inventory, manifest, and guard file is absent from the isolated rebuild but untracked in the original user worktree, so a test-only commit would absorb user-owned implementation. A separate user-approved adoption/import boundary is required.",
+      "trace_req_ids": [
+        "OBS-BGSTAB-005"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH110-05",
+      "phase_id": "PH-110",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "OBS-BGSTAB-005"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH110-06",
+      "phase_id": "PH-110",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "OBS-BGSTAB-005"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH110-07",
+      "phase_id": "PH-110",
+      "status": "blocked",
+      "tdd_exempted": false,
+      "started_at": "2026-08-02T06:08:00+09:00",
+      "ended_at": "2026-08-02T06:25:00+09:00",
+      "coder_run_id": null,
+      "result_summary": "Strict test-only isolated-selector RED complete: 50c97c8, independently reviewed No findings, named test failed only for unknown --self-test-obs006. Closure audit is blocked because workflow_worklog_emit returns confirmed without appending its worklog record.",
+      "trace_req_ids": [
+        "OBS-BGSTAB-006"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH110-08",
+      "phase_id": "PH-110",
+      "status": "blocked",
+      "tdd_exempted": false,
+      "started_at": "2026-08-02T06:22:00+09:00",
+      "ended_at": "2026-08-02T06:25:00+09:00",
+      "coder_run_id": null,
+      "result_summary": "Tool-only selector GREEN complete: 9ec27a9; named contract 1/1 and node --check passed. Closure audit is blocked because workflow_worklog_emit returns confirmed without appending its worklog record.",
+      "trace_req_ids": [
+        "OBS-BGSTAB-006"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH110-09",
+      "phase_id": "PH-110",
+      "status": "blocked",
+      "tdd_exempted": true,
+      "started_at": "2026-08-02T06:24:00+09:00",
+      "ended_at": "2026-08-02T06:25:00+09:00",
+      "coder_run_id": null,
+      "result_summary": "Two independent reviews returned No findings; isolated selector direct output and named contract verified. Closure audit is blocked because workflow_worklog_emit returns confirmed without appending its worklog record.",
+      "trace_req_ids": [
+        "OBS-BGSTAB-006"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH110-10",
+      "phase_id": "PH-110",
+      "status": "blocked",
+      "tdd_exempted": true,
+      "started_at": "2026-08-02T06:27:00+09:00",
+      "ended_at": "2026-08-02T06:45:18+09:00",
+      "coder_run_id": null,
+      "result_summary": "Independent review completed: the current specified daemon suite is 61/61, while liveness-confirmed probe exit 2 or empty output is classified running:false and restarted, violating AC-1/AC-4. This read-only task is blocked; fresh strict-TDD repair starts at T-PH110-11.",
+      "trace_req_ids": [
+        "REL-BGSTAB-014"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH110-11",
+      "phase_id": "PH-110",
+      "status": "blocked",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": "Strict RED evidence complete: test-only commit 57a4f35, selected two-contract exit 1, and independent RED review No findings. Closure audit is blocked because the workflow worklog remains unavailable.",
+      "trace_req_ids": [
+        "REL-BGSTAB-014"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH110-12",
+      "phase_id": "PH-110",
+      "status": "blocked",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": "Strict GREEN evidence complete: source-only commit c1157ab, selected two-contract exit 0, and independent correctness review No findings. Closure audit is blocked because the workflow worklog remains unavailable.",
+      "trace_req_ids": [
+        "REL-BGSTAB-014"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH110-13",
+      "phase_id": "PH-110",
+      "status": "blocked",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": "Independent lifecycle review completed with No findings: current daemon suite 61/61 and fresh VE-3 recorded. Closure audit is blocked because the workflow worklog remains unavailable.",
+      "trace_req_ids": [
+        "REL-BGSTAB-014"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH120-01",
+      "phase_id": "PH-120",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH120-02",
+      "phase_id": "PH-120",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH120-03",
+      "phase_id": "PH-120",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH120-04",
+      "phase_id": "PH-120",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-BGSTAB-022"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH120-05",
+      "phase_id": "PH-120",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-BGSTAB-022"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH120-06",
+      "phase_id": "PH-120",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-BGSTAB-022"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH120-07",
+      "phase_id": "PH-120",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-BGSTAB-022"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH120-08",
+      "phase_id": "PH-120",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-007"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH120-09",
+      "phase_id": "PH-120",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-007"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH120-10",
+      "phase_id": "PH-120",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-007"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH130-01",
+      "phase_id": "PH-130",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "MIG-BGSTAB-002"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH130-02",
+      "phase_id": "PH-130",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "MIG-BGSTAB-002"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH130-03",
+      "phase_id": "PH-130",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "MIG-BGSTAB-002"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH130-04",
+      "phase_id": "PH-130",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "OBS-BGSTAB-006",
+        "REL-BGSTAB-014"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH140-01",
+      "phase_id": "PH-140",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "PERF-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH140-02",
+      "phase_id": "PH-140",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "PERF-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH140-03",
+      "phase_id": "PH-140",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "PERF-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH150-01",
+      "phase_id": "PH-150",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-012"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH150-02",
+      "phase_id": "PH-150",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-012"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH150-03",
+      "phase_id": "PH-150",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-012"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH160-01",
+      "phase_id": "PH-160",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-015"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH160-02",
+      "phase_id": "PH-160",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "OBS-BGSTAB-005",
+        "REL-BGSTAB-010",
+        "FR-BGSTAB-022",
+        "REL-BGSTAB-011",
+        "MIG-BGSTAB-002",
+        "OBS-BGSTAB-006",
+        "REL-BGSTAB-014",
+        "REL-BGSTAB-015",
+        "PERF-BGSTAB-010",
+        "REL-BGSTAB-007",
+        "REL-BGSTAB-012"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH160-03",
+      "phase_id": "PH-160",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "OBS-BGSTAB-005",
+        "REL-BGSTAB-010",
+        "FR-BGSTAB-022",
+        "REL-BGSTAB-011",
+        "MIG-BGSTAB-002",
+        "OBS-BGSTAB-006",
+        "REL-BGSTAB-014",
+        "REL-BGSTAB-015",
+        "PERF-BGSTAB-010",
+        "REL-BGSTAB-007",
+        "REL-BGSTAB-012"
+      ],
+      "questions": [],
+      "attempts": 0
+    }
+  ],
+  "stats": {
+    "total": 46,
+    "done": 11,
+    "running": 0,
+    "pending": 25,
+    "failed": 0,
+    "blocked": 10,
+    "skipped": 0
+  },
+  "last_question": null,
+  "last_error": null,
+  "lifecycle_gate_state": {
+    "evaluated_at": "2026-08-01T10:48:27.000Z",
+    "blocked_req_ids": [],
+    "stability_snapshot": {
+      "OBS-BGSTAB-005": "evolving",
+      "REL-BGSTAB-010": "evolving",
+      "FR-BGSTAB-022": "evolving",
+      "REL-BGSTAB-011": "evolving",
+      "MIG-BGSTAB-002": "evolving",
+      "OBS-BGSTAB-006": "evolving",
+      "REL-BGSTAB-014": "evolving",
+      "REL-BGSTAB-015": "evolving",
+      "PERF-BGSTAB-010": "evolving",
+      "REL-BGSTAB-007": "stable",
+      "REL-BGSTAB-012": "evolving"
+    },
+    "status_snapshot": {
+      "OBS-BGSTAB-005": "implemented",
+      "REL-BGSTAB-010": "implemented",
+      "FR-BGSTAB-022": "implemented",
+      "REL-BGSTAB-011": "implemented",
+      "MIG-BGSTAB-002": "implemented",
+      "OBS-BGSTAB-006": "implemented",
+      "REL-BGSTAB-014": "implemented",
+      "REL-BGSTAB-015": "implemented",
+      "PERF-BGSTAB-010": "planned",
+      "REL-BGSTAB-007": "in_progress",
+      "REL-BGSTAB-012": "planned"
+    }
+  },
+  "req_coverage": {},
+  "final_mutations": [],
+  "pending_mutations": [],
+  "report_path": null,
+  "doculight_viewer_id": null,
+  "bootstrap": {
+    "mode": "degraded-direct-state-init",
+    "active_target": "wave-3",
+    "affected_artifacts": [
+      ".kiwi/sessions/2026-08-01.projectmaster.wave3-closeout/pm-state.json",
+      ".kiwi/sessions/2026-08-01.projectmaster.wave3-closeout/worklog.jsonl"
+    ],
+    "captured_diagnostics": [
+      "workflow_session_status returned no state for this run.",
+      "workflow_task_status_set canonical dry-run returned ENOENT because pm-state.json did not exist.",
+      "workflow_worklog_emit dry-run was rejected with SRS-W055 because the supplied diagnostic event did not conform to the workflow JSONL schema.",
+      "workflow_task_status_set dry-run showed that its mutation changes task status only and does not preserve or update completion summaries, timestamps, attempts, or aggregate stats; those PM-state fields require this narrowly scoped reconciliation patch."
+    ],
+    "follow_up_requirement": "REL-BGSTAB-007",
+    "note": "Initialize only the PM-owned state; task completions are recorded through guarded workflow mutations after independent review."
+  }
+}

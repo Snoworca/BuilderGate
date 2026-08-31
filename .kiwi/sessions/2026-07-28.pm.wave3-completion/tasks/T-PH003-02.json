@@ -1,0 +1,230 @@
+{
+  "task_id": "T-PH003-02",
+  "started_at": "2026-07-30T00:40:00.000Z",
+  "completed_at": "2026-07-30T11:48:43.055+09:00",
+  "phase1": {
+    "tdd_draft_iters": [
+      {
+        "iter": 1,
+        "file_paths": [
+          "frontend/tests/unit/terminalContainerRecoveryContract.test.ts"
+        ],
+        "change": "Strengthened AC-8 ordering: the physical snapshot onWritten callback alone remains non-ready; generic repair ACK and then server-ready latch are required before readiness."
+      },
+      {
+        "iter": 2,
+        "file_paths": [
+          "frontend/tests/unit/terminalContainerRecoveryContract.test.ts"
+        ],
+        "change": "Added sequential controls: physical write without ACK remains non-ready; generic ACK without server-ready latch remains non-ready; only then does server-ready latch permit readiness."
+      },
+      {
+        "iter": 3,
+        "file_paths": [
+          "frontend/tests/unit/terminalContainerRecoveryContract.test.ts"
+        ],
+        "change": "Reasserted no terminal-checkpoint command and no checkpointEpoch identity after the final server-ready latch."
+      },
+      {
+        "iter": 4,
+        "file_paths": [
+          "server/src/services/TerminalAuthorityController.test.ts"
+        ],
+        "change": "Added a maximum legal Ordinal64 checkpoint apply/drain transaction before rollover, preserving the existing rollover and max-plus-one rejection coverage."
+      }
+    ],
+    "standard4_reviews": [
+      {
+        "iter": 1,
+        "intent_alignment": {
+          "result": "no findings"
+        },
+        "technical_quality": {
+          "findings": [
+            {
+              "severity": "high",
+              "title": "Generic-repair contract did not prove physical write was a readiness prerequisite",
+              "disposition": "fixed before production edit by proving the physical onWritten callback alone remains non-ready, then requiring generic ACK and server-ready latch in that order before readiness"
+            },
+            {
+              "severity": "medium",
+              "title": "Server contracts use fixed event-loop-turn polling",
+              "disposition": "resolved after a unanimous three-member decision: removed only post-second-ACK physical-drain polling, retained genuinely asynchronous tail delivery waits, and independently rereviewed the existing synchronous audit assertion as deterministic"
+            }
+          ]
+        },
+        "req_mapping": {
+          "result": "no findings"
+        },
+        "red_verification": {
+          "result": "four task-gated contracts were intended assertion-level RED; AC-1 resolver-output partial evidence was GREEN and is not part of the four-contract RED gate",
+          "scope_mismatch_finding": {
+            "severity": "high",
+            "title": "AC-1 partial resolver-output contract cannot supply S4 RED evidence",
+            "disposition": "rejected as outside the task's explicit four-contract RED gate; preserve as partial GREEN evidence only"
+          }
+        }
+      }
+    ],
+    "red_evidence": {
+      "source_task": "T-PH003-01",
+      "scope": "four unchanged exact contracts independently confirmed RED before this GREEN task"
+    },
+    "red_evidence_meta": {
+      "rechecked_at": "2026-07-30T00:45:00.000Z",
+      "ac2": "legacy-local provisional recovery assertion failure",
+      "ac8": "after physical onWritten, generic ACK, and server-ready latch in that canonical order: ready=false/provisional=true/hiddenDirty=true assertion failure",
+      "ac4_ac5": "canonical apply/drain ACK rejected as invalid-message assertion failure",
+      "ac9_ac12": "rollback remains rolling-back assertion failure",
+      "ac1_partial": "GREEN; resolver-output-only partial evidence and excluded from the four-contract RED gate"
+    },
+    "blocked_revalidation": {
+      "required": ["intent_alignment", "technical_quality"],
+      "reason": "collaboration agent-thread limit reached when attempting revalidation after each AC-8 test fix",
+      "latest_red": "2026-07-30T01:05:00.000Z: exact AC-4/5 selected test exited 1 because a maximum legal checkpoint wire identity had streamEpoch=10 with sourceSeq/snapshotSeq=18446744073709551615 instead of preserving streamEpoch=9 before rollover",
+      "next_action": "resolved: S1-S4 independently rechecked the four exact RED contracts before the bounded restoration reapply; later Phase 2 reviews must use the scoped-attribution record."
+    }
+  },
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "kind": "bounded-restoration-reapply",
+        "historical_provenance_map": "docs/analysis/kiwi-coder-2026-07-28.pm.wave3-completion/T-PH003-01-attributed-production.removal.patch (semantic map only; invalid @@ placeholders make it non-applicable as a unified patch)",
+        "mechanical_reproduction_evidence": {
+          "path": "docs/analysis/kiwi-coder-2026-07-28.pm.wave3-completion/T-PH003-02-restoration.red-to-green.patch",
+          "direction": "red-to-green",
+          "reverse_check_command": "git apply --reverse --check --verbose docs/analysis/kiwi-coder-2026-07-28.pm.wave3-completion/T-PH003-02-restoration.red-to-green.patch",
+          "reverse_check_exit_code": 0,
+          "reverse_check_result": "passed against the current green tree; check only, patch not applied",
+          "covered_production_anchors": [
+            "AC-2 onSettled delivery proof",
+            "AC-8 finishCurrentView ready-state reset",
+            "AC-4/AC-5 apply/drain physical-drain ledger",
+            "AC-9/AC-12 compatibility-drained settlement"
+          ],
+          "exclusions": "Does not include the test-only parity helper, any whole file, or any source/test/SRS/PM/lifecycle mutation."
+        },
+        "anchors": [
+          "REL-BGSTAB-007 AC-2: server/src/services/TerminalAuthorityProductionAdapter.ts onSettled delivery proof near line 1982",
+          "REL-BGSTAB-007 AC-8: frontend/src/utils/visibleOutputRecovery.ts finishCurrentView ready-state reset lines 1273-1280 only",
+          "REL-BGSTAB-007 AC-4/AC-5: server/src/services/TerminalAuthorityProductionAdapter.ts apply/drain physical-drain ledger near lines 3587-3733",
+          "REL-BGSTAB-007 AC-9/AC-12: server/src/services/TerminalAuthorityProductionAdapter.ts compatibility-drained settlement near lines 3820-3850"
+        ],
+        "ownership_limit": "Records a bounded restoration reapply with preservation provenance; it claims neither original authorship nor whole-file, untracked-file, or dirty-worktree ownership."
+      },
+      {
+        "iter": 2,
+        "kind": "test-only-parity-convergence",
+        "file": "server/src/services/TerminalAuthorityController.test.ts",
+        "anchor": "promoteProductionViews",
+        "change": "Before successful production promotion, call the existing SessionManager settlement primitive and boundedly observe retainedStateParity; retain fail-fast retained-state-parity-mismatch diagnostics and make no production change.",
+        "cause_evidence": "Pre-fix exact sidecar repetition reproduced retainedStateParity-gate-failed once in five attempts before checkpoint ACK handling.",
+        "committee": "three-member unanimous decision to prefer explicit settlement plus observable parity convergence over retrying promotion rejection, sleeping, fixture mutation, or production changes"
+      }
+    ],
+    "scope_attribution": {
+      "recorded_on": "2026-07-30",
+      "manifest_path": "docs/analysis/kiwi-coder-2026-07-28.pm.wave3-completion/T-PH003-02-attribution.md",
+      "purpose": "Scoped restoration provenance for review. It does not claim ownership of the complete dirty worktree or of any untracked production file.",
+      "recorded_test_hunks": [
+        "frontend/tests/unit/terminalContainerRecoveryContract.test.ts:389-478 (AC-8; Phase 1 iterations 1-3)",
+        "server/src/services/TerminalAuthorityController.test.ts:11437-11531 (AC-4/AC-5 maximum legal Ordinal64 transaction; Phase 1 iteration 4)",
+        "server/src/services/TerminalAuthorityController.test.ts:846-870 (Phase 2 test-only parity convergence: existing settlement primitive plus bounded retainedStateParity observation; retained-state-parity-mismatch remains fail-closed)"
+      ],
+      "acceptance_only_anchors": [
+        "server/src/services/TerminalAuthorityController.test.ts:10868-11021 (AC-2)",
+        "server/src/services/TerminalAuthorityController.test.ts:11724-11950 (AC-9/AC-12)"
+      ],
+      "production_anchor_limit": "T-PH003-01-attributed-production.removal.patch is a non-applicable semantic map for the four named bounded restoration anchors. T-PH003-02-restoration.red-to-green.patch is the reverse-checkable mechanical reproduction for only those anchors; neither claims original authorship, whole-file, untracked-file, or dirty-worktree ownership.",
+      "excluded_adjacent_scope": [
+        "REL-BGSTAB-009 recovery hunks in frontend/src/utils/visibleOutputRecovery.ts, including createTerminalContainerRestoreAdapter and all of finishCurrentView except its exact AC-8 ready-state reset lines 1273-1280",
+        "MIG-BGSTAB-002 and all other terminalContainerRecoveryContract.test.ts cases outside lines 389-478",
+        "all non-anchor hunks in TerminalAuthorityController.test.ts, TerminalAuthorityProductionAdapter.ts, and SessionManager.ts"
+      ]
+    },
+    "formal_reviews": [
+      {
+        "result": "initial scope-attribution Medium; no Critical/High code-level finding",
+        "resolution": "independent rereview retracted the Medium after T-PH003-02-attribution.md and scope_attribution established the bounded review boundary"
+      },
+      {
+        "result": "No findings after final parity-helper diff",
+        "evidence": "final formal review confirmed AC-2/AC-4/AC-5/AC-8/AC-9/AC-12 behavior, selected sidecar contracts, typechecks, AC-1 partial-only limit, and exclusions"
+      }
+    ],
+    "prickly_reviews": [
+      {
+        "result": "no Critical runtime defect; scope limits passed",
+        "open_findings": [
+          "final evidence fields incomplete",
+          "fixed-turn polling Medium requires a separate minimal decision and follow-up"
+        ],
+        "resolved_before_record": "AC-8 Phase 1 ordering description corrected to physical onWritten, generic ACK, then server-ready latch"
+      },
+      {
+        "result": "No findings after polling and parity stabilization",
+        "evidence": "independent review confirmed direct physical-drain audit assertions are synchronous while tail-frame waits remain asynchronous; parity review confirmed a true comparer mismatch still fails before promotion"
+      },
+      {
+        "result": "No findings after final scope-attribution rereview",
+        "evidence": "promoteProductionViews test-only parity helper is an explicit Test stability matrix anchor; referenced SessionManager primitives remain non-owned and retained-state-parity-mismatch remains fail-closed"
+      }
+    ],
+    "green_evidence": {
+      "selected_contracts": [
+        "REL-BGSTAB-007 applies configured retained policy before delivery",
+        "REL-BGSTAB-007 keeps generic screen repair independent of checkpoint ACK evidence",
+        "REL-BGSTAB-007 validates Ordinal64 checkpoint apply and drain",
+        "REL-BGSTAB-007 isolates driver lease ledger and rollback epoch"
+      ],
+      "sidecar_command": "docs/plans/2026-07-28.pm.wave3-completion.sidecar.json T-PH003-02 verification_cmd.windows",
+      "direct_sidecar_result": "pass",
+      "cmd_c_repetition": "pre-fix 4/5 pass with one retainedStateParity-gate-failed setup race; post-fix five consecutive exact-sidecar passes after test-only parity convergence",
+      "typechecks": [
+        "server: node node_modules/typescript/bin/tsc --noEmit (pass)",
+        "frontend: node node_modules/typescript/bin/tsc --noEmit (pass)"
+      ],
+      "ac1_partial": "REL-BGSTAB-007 AC-1 browser xterm options use the configured terminal scrollback policy passed; it remains resolver-output-only partial evidence and is excluded from the four-contract GREEN gate.",
+      "not_completion_claim": "AC-3/AC-6/AC-7/AC-10/AC-11 and full AC-1 remain outside T-PH003-02."
+    },
+    "dod_check": [
+      "Four exact T-PH003-02 sidecar contracts passed five consecutive cmd /c executions after test-only stabilization.",
+      "Independent final formal and prickly reviews returned No findings after all evidence-only corrections.",
+      "AC-1 remains partial resolver-output evidence only; excluded REL-BGSTAB-007 acceptance criteria remain unclaimed.",
+      "This record supplied evidence before task closure; PM task status is now done, while REL-BGSTAB-007 SRS lifecycle state remains unchanged."
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "exact_sidecar": "T-PH003-02 verification_cmd.windows passed five consecutive cmd /c executions after the polling and parity test-only fixes",
+      "focused_ordinal64": "REL-BGSTAB-007 validates Ordinal64 checkpoint apply and drain passed five consecutive direct executions after the polling fix",
+      "full_controller": "independent parity review reports server/src/services/TerminalAuthorityController.test.ts passed 146/146",
+      "typecheck": [
+        "server node node_modules/typescript/bin/tsc --noEmit passed",
+        "frontend node node_modules/typescript/bin/tsc --noEmit passed"
+      ],
+      "task_state": "official PM task status is done and local completed_at closure is recorded; no SRS lifecycle status was changed"
+    },
+    "mcp_calls": [
+      {
+        "tool": "workflow_task_status_set",
+        "owner": "kiwi-pm",
+        "result": "running confirmed",
+        "idempotency_key": "4b088e5c98da8bea71fbc6347cd5155c2763ca6cd933337f787f74b1c109c777"
+      },
+      {
+        "tool": "workflow_worklog_emit",
+        "result": "confirmed without write",
+        "idempotency_key": "1b7bacfd8505c103e92376c60ca928ab4c5985275ad1ebf62e3d212a58b1011b",
+        "fallback": "local task_start entry appended after official no-write result"
+      },
+      {
+        "tool": "workflow_task_status_set",
+        "owner": "kiwi-pm",
+        "result": "done confirmed",
+        "idempotency_key": "7139e5ba79259a7567c72dd5f4a612b7709a742518a44f0f419e5f93067bc29d"
+      }
+    ]
+  }
+}

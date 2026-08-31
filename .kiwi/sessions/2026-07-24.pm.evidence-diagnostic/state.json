@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-24.pm.evidence-diagnostic",
+  "plan_run_id": "2026-07-24.pm.evidence-diagnostic",
+  "plan_path": "docs/plans/2026-07-24.pm.evidence-diagnostic.plan.md",
+  "sidecar_path": "docs/plans/2026-07-24.pm.evidence-diagnostic.sidecar.json",
+  "target": "wave-3",
+  "mode": "normal",
+  "flags": [],
+  "started_at": "2026-07-24T00:00:00.000Z",
+  "updated_at": "2026-07-24T00:00:00.000Z",
+  "frozen_at": null,
+  "current_phase_id": "PH-003",
+  "current_task_id": null,
+  "next_resume_hint": "OBS-BGSTAB-006 is complete; select the next Wave 3 requirement through the standing decision committee.",
+  "task_queue": [
+    "T-PH001-01",
+    "T-PH002-01",
+    "T-PH002-02",
+    "T-PH003-01"
+  ],
+  "completed_task_ids": ["T-PH001-01", "T-PH002-01", "T-PH002-02", "T-PH003-01"],
+  "skipped_task_ids": [],
+  "failed_task_ids": [],
+  "tdd_exempted_task_ids": ["T-PH001-01"],
+  "tdd_pending_task_ids": [],
+  "severity_counters": {
+    "T-PH001-01": {
+      "review": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "rounds": 2}
+    },
+    "T-PH003-01": {
+      "review": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "rounds": 1}
+    }
+  },
+  "mcp_call_log": [
+    {
+      "tool": "workflow_session_status",
+      "ok": true,
+      "result": "No persisted session state was available."
+    },
+    {
+      "tool": "workflow_worklog_emit",
+      "ok": false,
+      "result": "MUTATION_DENIED: Workflow JSONL append halted by diagnostics (SRS-W055 and SRS-W053)."
+    },
+    {
+      "tool": "workflow_task_status_set",
+      "ok": false,
+      "result": "MUTATION_DENIED: PM task was not found after the canonical idempotency key retry; local session fallback retained."
+    }
+  ],
+  "pending_mutations": [
+    {
+      "kind": "workflow_jsonl_append",
+      "message": "Official workflow worklog mutation is blocked by pre-existing pipeline diagnostics.",
+      "affected_path": "kiwi/pipeline.jsonl",
+      "diagnostics": {"SRS-W055": [9, 10, 11, 12], "SRS-W053": [43]},
+      "disposition": "Do not mutate the pipeline manually; retain local session fallback only."
+    }
+  ],
+  "decision_record": {
+    "question": "Select the next Wave 3 requirement after OBS-BGSTAB-006.",
+    "committee_size": 5,
+    "votes": {"PERF-BGSTAB-010": 4, "REL-BGSTAB-007": 1, "REL-BGSTAB-012": 0},
+    "decision": "PERF-BGSTAB-010",
+    "rationale": "It is the active prerequisite for REL-BGSTAB-012; the approved next action is a non-mutating external-baseline admission/corrective replan because prior fairbase evidence has workflow and provenance gaps.",
+    "new_user_authority_required": false
+  },
+  "tool_versions": {"kiwi_coder": "0.1.9", "speckiwi": "2.4.1"}
+}

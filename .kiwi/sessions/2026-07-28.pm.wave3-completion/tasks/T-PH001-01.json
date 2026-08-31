@@ -1,0 +1,8 @@
+{
+  "task_id": "T-PH001-01",
+  "started_at": "2026-07-28T04:42:50.9682131+09:00",
+  "completed_at": "2026-07-28T04:58:17.7466560+09:00",
+  "phase1": {"tdd_draft_iters": [], "standard4_reviews": [], "red_evidence": null},
+  "phase2": {"impl_iters": [{"kind":"contract-remediation","finding":"provenance and raw-manifest schemas were initially under-specified","resolution":"added resolved generation bindings, required provenance fields, and per-raw-entry path/SHA-256 schema"}], "formal_reviews": [{"reviewer":"ph001_contract_reviewer","result":"No findings","at":"2026-07-28T04:58:17.7466560+09:00"}], "prickly_reviews": [{"reviewer":"ph001_contract_reviewer","initial_findings":["High: provenance and raw-manifest schema gap"],"rereview":"No findings"}], "green_evidence": {"contract_json_verification":"passed","plan_validator":"27 checks, 0 errors, 0 warnings"}, "dod_check":["canonical locator and immutable generations fixed","provenance/raw schema bindings mechanically checked","independent re-review returned No findings"]},
+  "phase3": {"regression": {"scope":"document-contract","passed":2,"failed":0,"at":"2026-07-28T04:58:17.7466560+09:00"}, "mcp_calls": [{"tool":"workflow_task_status_set","dry_run":true,"ok":false,"diagnostic":"SRS-E072; local degraded state recorded"}]}
+}

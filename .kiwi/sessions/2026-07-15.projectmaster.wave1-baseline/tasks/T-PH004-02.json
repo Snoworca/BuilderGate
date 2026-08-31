@@ -1,0 +1,102 @@
+{
+  "task_id": "T-PH004-02",
+  "started_at": "2026-07-15T16:09:56.8301480Z",
+  "completed_at": "2026-07-15T16:13:35.1901877Z",
+  "phase1": {
+    "paired_red_task_id": "T-PH004-01",
+    "red_evidence": {
+      "source_task_id": "T-PH004-01",
+      "command": "node --test tools/wave1/g1-decision-gate.test.mjs",
+      "exit_code": 1,
+      "captured_failure": "6/6 exact MIG-BGSTAB-001 AC-1 through AC-6 contract-not-implemented signatures",
+      "timestamp": "2026-07-15T16:09:56.8301480Z"
+    },
+    "red_evidence_meta": {
+      "durable_reference": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/ph004-g1-gate-red-evidence.json"
+    }
+  },
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": ["tools/wave1/g1-decision-gate.mjs"],
+        "notes": "Pure exact-enum, prerequisite evidence, branch authorization, non-authorization and activation-state evaluator"
+      },
+      {
+        "iter": 2,
+        "files_changed": [
+          "tools/wave1/g1-decision-gate.mjs",
+          "tools/wave1/g1-decision-gate.test.mjs"
+        ],
+        "notes": "Strict TDD hardening: the stable authority Requirement must be separate from G1 and all three prerequisites"
+      },
+      {
+        "iter": 3,
+        "files_changed": [
+          "tools/wave1/g1-decision-gate.mjs",
+          "tools/wave1/g1-decision-gate.test.mjs"
+        ],
+        "notes": "FND-PH004-001 strict TDD fix: decision-stage conditional activation and separate external post-closure activation re-evaluation"
+      }
+    ],
+    "green_evidence": {
+      "command": "node --test tools/wave1/g1-decision-gate.test.mjs",
+      "exit_code": 0,
+      "timestamp": "2026-07-15T16:13:35.1901877Z"
+    },
+    "green_evidence_meta": {
+      "passed_test_case_ids": [
+        "TC-REQ-MIG-BGSTAB-001-AC1-02",
+        "TC-REQ-MIG-BGSTAB-001-AC2-02",
+        "TC-REQ-MIG-BGSTAB-001-AC3-02",
+        "TC-REQ-MIG-BGSTAB-001-AC4-02",
+        "TC-REQ-MIG-BGSTAB-001-AC5-02",
+        "TC-REQ-MIG-BGSTAB-001-AC6-02"
+      ],
+      "passed": 6,
+      "failed": 0
+    },
+    "review_fix_evidence": {
+      "finding_id": "FND-PH004-001",
+      "red": {
+        "reference": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/ph004-fnd001-red-evidence.json",
+        "tests": "5 passed, 2 intended failures",
+        "exit_code": 1
+      },
+      "green": {
+        "reference": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/ph004-fnd001-green-evidence.json",
+        "tests": "7 passed, 0 failed",
+        "exit_code": 0
+      },
+      "resolution": "evaluateG1Decision cannot claim closure; evaluateG1Activation requires external T-PH004-05, MIG-BGSTAB-001 and Wave 1 closure evidence."
+    },
+    "dod_check": [
+      {
+        "item": "모든 denial/allow 테스트가 통과한다.",
+        "satisfied": true
+      },
+      {
+        "item": "evaluator가 waves.jsonl, SRS 또는 runtime을 mutate하지 않는다.",
+        "satisfied": true
+      },
+      {
+        "item": "decision 누락은 명시적 denial이다.",
+        "satisfied": true
+      }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "scope": "impacted-only",
+      "focused": {
+        "passed": 7,
+        "failed": 0
+      },
+      "node_check": "pass for evaluator and contract test",
+      "mutation_observed": false,
+      "regressed_files": []
+    },
+    "mcp_calls": [],
+    "review_status": "pending PH-004 re-review after FND-PH004-001 fix"
+  }
+}

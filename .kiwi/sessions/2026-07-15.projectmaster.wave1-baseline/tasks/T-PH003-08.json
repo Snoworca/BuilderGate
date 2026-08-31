@@ -1,0 +1,28 @@
+{
+  "task_id": "T-PH003-08",
+  "requirement_id": "PERF-BGSTAB-008",
+  "completed_at": "2026-07-15T16:05:01.0642967Z",
+  "review": {
+    "reviewer": "/root/wave1_ph003_review",
+    "iterations": 2,
+    "resolved_findings": [
+      "mode selector and actual NO_RENDER fixture evidence",
+      "actual SessionManager onData analyzer and bypass seams",
+      "actual WsRouter slow-client pressure and comparator separation",
+      "same-manager 250ms metric interval",
+      "exact SessionManager.getObservabilitySnapshot event-loop mean and p99 source"
+    ],
+    "final_verdict": "No findings"
+  },
+  "verification": {
+    "server_build_and_tests": "14/14 passed",
+    "frontend_tests": "16/16 passed",
+    "frontend_typecheck_and_lint": "passed",
+    "raw_digest": "sha256:d82398218a04418de9a3bbf6b38a124a5f05ceaa7aa2f008dc5dc625dbcdc146",
+    "summary_digest": "sha256:bb63c56be66e04b9ec05a2a72aa736ac4d3baa6b08820003686f23c4eeafa583",
+    "raw_samples": 1224,
+    "summary_groups": 408,
+    "reverse_recalculation": "408/408 canonical exact",
+    "event_loop_samples": "480/480 exact SessionManager source; benchmark-owned source 0"
+  }
+}

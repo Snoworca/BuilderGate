@@ -1,0 +1,31 @@
+{
+  "name": "kiwi-orchestrator",
+  "agent": "claude",
+  "installedAt": "2026-08-12T05:36:56.075Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "claude",
+  "sourceRoot": "skills/claude",
+  "sourcePath": "skills/claude/kiwi-orchestrator",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-orchestrator",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:2300458860d61b4e79554dd3d128aaeb8552da38bd2cdf11d281175f617a51c8",
+  "installedChecksum": "sha256:2300458860d61b4e79554dd3d128aaeb8552da38bd2cdf11d281175f617a51c8",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md",
+    "_shared/kiwi/pipeline-event.md",
+    "_shared/kiwi/run-ledger.md",
+    "_shared/kiwi/verify-loop.md",
+    "_shared/kiwi/wave-decomposition.md",
+    "_shared/kiwi/wave-srs-registration.md",
+    "_shared/kiwi/waves-event.md",
+    "_shared/kiwi/workmode-policy.md",
+    "_shared/kiwi/worktree-lane.md"
+  ],
+  "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-orchestrator --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
+  "noManualEdit": true
+}

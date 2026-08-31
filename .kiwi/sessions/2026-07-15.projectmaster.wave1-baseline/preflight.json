@@ -1,0 +1,20 @@
+{
+  "mcp": {
+    "available": true,
+    "active_target": "wave-1",
+    "requirement": "REL-BGSTAB-006",
+    "stability": "evolving"
+  },
+  "workflow_diagnostics": {
+    "degraded": true,
+    "code": "SRS-W055",
+    "affected_paths": [
+      "kiwi/pipeline.jsonl",
+      ".kiwi/sessions/2026-07-15.projectmaster.wave1-baseline/worklog.jsonl"
+    ],
+    "follow_up_candidate": "MIG-BGSTAB-001",
+    "note": "Official workflow journal mutation rejected legacy/unsupported JSONL schema; SRS MCP reads and update_status remained available."
+  },
+  "halted": false,
+  "git_repo": true
+}

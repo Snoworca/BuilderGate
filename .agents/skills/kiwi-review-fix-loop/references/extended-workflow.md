@@ -44,7 +44,7 @@ Normalize findings to:
 ```json
 {
   "id": "FND-001",
-  "axis": "intent|security|edge|concurrency|refactor|error-handling|test-quality",
+  "axis": "intent|security|edge|concurrency|refactor|error-handling|test-quality|comment-claim",
   "severity": "CRITICAL|HIGH|MEDIUM|LOW",
   "title": "short",
   "location": { "file": "src/x.ts", "line_range": "45-67" },
@@ -76,7 +76,11 @@ Exit criteria:
 
 - CRITICAL=0
 - HIGH=0
-- regression tests pass
+- the preservation scan over the fixer diff found no violation (SKILL.md
+  보존 스캔 section); a detection is CRITICAL and halts through its gate
+- regression has no new failures against the captured baseline (SKILL.md
+  regression baseline section); pre-existing failures are reported, not
+  attributed to this fix
 - in `--max`, two consecutive MEDIUM-zero rechecks when practical
 
 Repeated failure gates:

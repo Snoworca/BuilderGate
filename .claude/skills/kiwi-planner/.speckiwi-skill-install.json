@@ -1,20 +1,25 @@
 {
   "name": "kiwi-planner",
   "agent": "claude",
-  "installedAt": "2026-07-13T15:01:57.729Z",
+  "installedAt": "2026-08-06T16:13:46.849Z",
   "installMode": "generated-runtime-mirror",
   "sourceAgent": "claude",
   "sourceRoot": "skills/claude",
   "sourcePath": "skills/claude/kiwi-planner",
   "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-planner",
   "sourceRevision": "unknown",
-  "sourceChecksum": "sha256:2723c163bf6367b07d7d99bbf613db86ef1e18926702561758e88f1ac05174ea",
-  "installedChecksum": "sha256:2723c163bf6367b07d7d99bbf613db86ef1e18926702561758e88f1ac05174ea",
+  "sourceChecksum": "sha256:65ad38d9c230c43742d4e6e9206e22d6a786535e864823c9e670f913b74a73ee",
+  "installedChecksum": "sha256:65ad38d9c230c43742d4e6e9206e22d6a786535e864823c9e670f913b74a73ee",
   "sourceFileCount": 2,
   "installedFileCount": 2,
   "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
-  "sharedResourceValidation": "not-required",
-  "sharedResourceReferences": [],
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md",
+    "_shared/kiwi/pipeline-event.md",
+    "_shared/kiwi/workmode-policy.md"
+  ],
   "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-planner --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
   "noManualEdit": true
 }

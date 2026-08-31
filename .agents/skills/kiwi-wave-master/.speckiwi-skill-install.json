@@ -1,23 +1,28 @@
 {
   "name": "kiwi-wave-master",
   "agent": "codex",
-  "installedAt": "2026-07-13T15:01:59.283Z",
+  "installedAt": "2026-08-12T05:36:58.727Z",
   "installMode": "generated-runtime-mirror",
   "sourceAgent": "codex",
   "sourceRoot": "skills/codex",
   "sourcePath": "skills/codex/kiwi-wave-master",
   "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/kiwi-wave-master",
   "sourceRevision": "unknown",
-  "sourceChecksum": "sha256:46e4581b673c4e2595729b0099d77a220f4c6695206eba0b152ea88ef8b1265a",
-  "installedChecksum": "sha256:46e4581b673c4e2595729b0099d77a220f4c6695206eba0b152ea88ef8b1265a",
+  "sourceChecksum": "sha256:c07c51afea1525dfb05b823432ff5f99435e8c6ee243869e4053b042782de854",
+  "installedChecksum": "sha256:c07c51afea1525dfb05b823432ff5f99435e8c6ee243869e4053b042782de854",
   "sourceFileCount": 1,
   "installedFileCount": 1,
   "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/_shared/kiwi",
   "sharedResourceValidation": "source-references-validated",
   "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
     "_shared/kiwi/loop-option.md",
     "_shared/kiwi/pipeline-event.md",
-    "_shared/kiwi/waves-event.md"
+    "_shared/kiwi/verify-loop.md",
+    "_shared/kiwi/wave-decomposition.md",
+    "_shared/kiwi/wave-srs-registration.md",
+    "_shared/kiwi/waves-event.md",
+    "_shared/kiwi/worktree-lane.md"
   ],
   "refreshCommand": "node bin/speckiwi --root . skills install codex kiwi-wave-master --dest C:/Work/git/_Snoworca/ProjectMaster/.agents/skills --json",
   "noManualEdit": true

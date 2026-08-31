@@ -1,0 +1,90 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-24.projectmaster.w3-fairbase",
+  "plan_run_id": "2026-07-24.projectmaster.w3-fairbase",
+  "plan_path": "docs/plans/2026-07-24.projectmaster.w3-fairbase.plan.md",
+  "sidecar_path": "docs/plans/2026-07-24.projectmaster.w3-fairbase.sidecar.json",
+  "target": "wave-3",
+  "mode": "normal",
+  "flags": [],
+  "started_at": "2026-07-23T16:10:08.368Z",
+  "updated_at": "2026-07-24T00:12:30.2643887Z",
+  "frozen_at": null,
+  "current_phase_id": "PH-001",
+  "current_task_id": null,
+  "next_resume_hint": "replan strict TDD corrective scope for evidence collection",
+  "task_queue": [
+    "T-PH001-01",
+    "T-PH002-01",
+    "T-PH003-01",
+    "T-PH003-02",
+    "T-PH004-01",
+    "T-PH005-01"
+  ],
+  "completed_task_ids": [],
+  "skipped_task_ids": [],
+  "failed_task_ids": ["T-PH001-01"],
+  "tdd_exempted_task_ids": ["T-PH001-01"],
+  "tdd_pending_task_ids": [],
+  "severity_counters": {
+    "T-PH001-01": {
+      "phase3": {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 0, "LOW": 0, "rounds": 1}
+    }
+  },
+  "regression_summary": {
+    "command": "node tools/wave3/authority-promotion-evidence.test.mjs",
+    "status": "failed",
+    "user_consent_at": "2026-07-24T00:11:03.8775929Z",
+    "completed_at": "2026-07-24T00:12:30.2643887Z",
+    "exit_code": 1,
+    "failure": "retry evidence attachment count differs: positional all-view handoff (0 !== 1)"
+  },
+  "mcp_call_log": [
+    {
+      "called_at": "2026-07-23T16:09:26.7911943Z",
+      "tool": "workflow_repair_record",
+      "args": {
+        "runId": "2026-07-24.projectmaster.w3-fairbase",
+        "taskId": "T-PH001-01",
+        "reqId": "MIG-BGSTAB-002",
+        "path": "kiwi/pipeline.jsonl",
+        "dryRun": true
+      },
+      "ok": false,
+      "dry_run": true,
+      "task_id": "T-PH001-01",
+      "result": "MUTATION_DENIED: Workflow JSONL append halted by diagnostics"
+    }
+  ],
+  "pending_mutations": [
+    {
+      "kind": "repair_jsonl_append",
+      "message": "Workflow JSONL append halted by diagnostics",
+      "retry": "Repair workflow JSONL diagnostics through a separately authorized, auditable migration and retry the official mutation.",
+      "affected_paths": ["kiwi/pipeline.jsonl"],
+      "pipeline_sha256": "05304ddd2af58123879b795df39268bf96d9e02ef9572feb4e861c9c2afc1bc5",
+      "active_target": "wave-3",
+      "follow_up_task": "T-PH001-01",
+      "follow_up_requirement": "MIG-BGSTAB-002",
+      "diagnostics": {
+        "SRS-W055": [9, 10, 11, 12],
+        "SRS-W053": [43]
+      }
+    }
+  ],
+  "decision_record": {
+    "decision": "Create a separate strict RED-to-GREEN corrective plan before changing evidence collection, test behavior, or product behavior.",
+    "committee_size": 5,
+    "votes": {
+      "strict_tdd_corrective_plan": 2,
+      "scoped_environment_recovery_and_rerun": 2,
+      "block_without_current_plan_change": 1
+    },
+    "majority_interpretation": "Three members rejected a current-PH-001 rerun; the blocking member's continuation fallback was a strict-TDD corrective plan.",
+    "evidence_failure": "retry evidence attachment count differs: positional all-view handoff (0 !== 1)"
+  },
+  "tool_versions": {
+    "kiwi_coder": "0.1.9",
+    "speckiwi": "2.4.1"
+  }
+}

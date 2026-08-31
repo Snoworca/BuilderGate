@@ -1,0 +1,19 @@
+{
+  "task_id": "T-PH002-01",
+  "requirement_id": "OBS-BGSTAB-006",
+  "status": "completed",
+  "tdd_phase": "red",
+  "test_only_commit": "9990e55549be7d9a851282fe388eb4a63dfa1366",
+  "evidence": "docs/analysis/kiwi-coder-2026-07-24.pm.evidence-diagnostic/tdd-red-evidence.json",
+  "red_result": {
+    "command": "node tools/wave3/authority-promotion-evidence.test.mjs --self-test",
+    "exit_code": 1,
+    "failing_assertion": "composite diagnostic error must preserve the failed positional body/setup error"
+  },
+  "independent_reviews": [
+    {"axis": "scope", "result": "No findings"},
+    {"axis": "SRS contract", "result": "No findings"},
+    {"axis": "retry gate coverage", "result": "MEDIUM fixed: empty failureReason fixture added"},
+    {"axis": "serial retry gate re-review", "result": "No findings"}
+  ]
+}

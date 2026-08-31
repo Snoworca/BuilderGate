@@ -1,0 +1,12 @@
+{
+  "task_id": "T-PH004-07",
+  "phase_id": "PH-004",
+  "status": "done",
+  "tdd_exempted": true,
+  "tdd_exempt_reason": "auto-exempt by type=review",
+  "started_at": "2026-07-17T14:15:00+09:00",
+  "completed_at": "2026-07-17T14:38:17+09:00",
+  "phase1": null,
+  "phase2": {"impl_iters": [], "formal_reviews": [], "prickly_reviews": [{"iter": 1, "findings": ["stale artifact input hash", "missing fallback checklist", "missing task checkpoints and stale PM projections", "missing PH-004 pipeline event"]}, {"iter": 2, "findings": ["latest GitHub projection differed from the local report", "PM degraded-workflow projection was stale", "PH-004 PM task requirement traces were empty"]}, {"iter": 3, "findings": [], "verdict": "No findings"}], "green_evidence": {"artifact_sha256": "9914e22418e315184ef7cdc315b95b57d693efbe6ad6f84da144ac59a248e265", "input_hash_missing": 0, "input_hash_mismatches": 0, "github_report_projection": "exact"}, "dod_check": [{"item": "Final phase closure review has exact No findings.", "satisfied": true}, {"item": "Phase may now be marked complete.", "satisfied": true}]},
+  "phase3": {"regression": {"scope": "closure-audit", "passed": 7, "failed": 0}, "mcp_calls": [{"tool": "workflow_task_status_set", "ok": false, "diagnostic": "SRS-E072 canonical idempotency key required"}, {"tool": "workflow_task_status_set", "ok": true, "journal_key": "29dee82a5235971d5a2e2cec6373bcb02b9fd6fc32a0d1a7c511e9648c15bee7"}]}
+}

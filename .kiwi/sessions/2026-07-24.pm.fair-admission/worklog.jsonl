@@ -1,0 +1,8 @@
+{"ts":"2026-07-24T03:15:00.000Z","event":"phase_start","run_id":"2026-07-24.pm.fair-admission","plan_path":"docs/plans/2026-07-24.pm.fair-admission.plan.md","target":"wave-3","mode":"normal","flags":[]}
+{"ts":"2026-07-24T03:15:00.000Z","event":"task_start","task_id":"T-PH001-01","phase_id":"PH-001"}
+{"ts":"2026-07-24T03:15:00.000Z","event":"tdd_exempted","task_id":"T-PH001-01","reason":"Documentation-only immutable provenance capture; no behavior or test semantics changed."}
+{"ts":"2026-07-24T03:35:00.000Z","event":"test_green","task_id":"T-PH001-01","exit_code":0}
+{"ts":"2026-07-24T03:35:00.000Z","event":"regression_done","task_id":"T-PH001-01","scope":"impacted-only","passed":1,"failed":0}
+{"ts":"2026-07-24T03:45:00.000Z","event":"task_done","task_id":"T-PH001-01","duration_ms":1800000}
+{"ts":"2026-07-24T04:15:00.000Z","event":"checkpoint","task_id":"T-PH002-01","resume_hint":"phase-2.c","decision":"unanimous_read_only_liveness_diagnosis","result":"admission_rejected_no_ac_claim"}
+{"ts":"2026-07-24T04:35:00.000Z","event":"checkpoint","task_id":"T-PH002-01","resume_hint":"phase-2.c","decision":"five_member_majority_resource_ledger_diagnosis_first","result":"fixture_only_scope_confirmed"}

@@ -1,20 +1,25 @@
 {
   "name": "kiwi-pipeline",
   "agent": "claude",
-  "installedAt": "2026-07-13T15:01:57.673Z",
+  "installedAt": "2026-08-12T05:36:56.146Z",
   "installMode": "generated-runtime-mirror",
   "sourceAgent": "claude",
   "sourceRoot": "skills/claude",
   "sourcePath": "skills/claude/kiwi-pipeline",
   "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-pipeline",
   "sourceRevision": "unknown",
-  "sourceChecksum": "sha256:25d638cb3af3406786bfd2d4678ed3baf6793a34461a3392d553f122bbcac1e7",
-  "installedChecksum": "sha256:25d638cb3af3406786bfd2d4678ed3baf6793a34461a3392d553f122bbcac1e7",
+  "sourceChecksum": "sha256:142af210fcda97c848a702781d142e536ab51c52eb758bbd4750634d31d59749",
+  "installedChecksum": "sha256:142af210fcda97c848a702781d142e536ab51c52eb758bbd4750634d31d59749",
   "sourceFileCount": 1,
   "installedFileCount": 1,
   "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
-  "sharedResourceValidation": "not-required",
-  "sharedResourceReferences": [],
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md",
+    "_shared/kiwi/pipeline-event.md",
+    "_shared/kiwi/pipeline-v1.md"
+  ],
   "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-pipeline --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
   "noManualEdit": true
 }

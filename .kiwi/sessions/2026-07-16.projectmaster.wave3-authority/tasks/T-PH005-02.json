@@ -1,0 +1,33 @@
+{
+  "task_id": "T-PH005-02",
+  "phase_id": "PH-005",
+  "status": "pending",
+  "started_at": "2026-07-17T21:20:58+09:00",
+  "completed_at": null,
+  "trace_req_ids": [
+    "MIG-BGSTAB-002",
+    "REL-BGSTAB-007"
+  ],
+  "phase1": {
+    "tdd_draft_iters": [{"iter": 1, "source_task": "T-PH005-01", "strict_red": true}],
+    "standard4_reviews": [],
+    "red_evidence": {"source_task": "T-PH005-01", "contractSatisfied": true}
+  },
+  "phase2": {
+    "impl_iters": [],
+    "formal_reviews": [],
+    "prickly_reviews": [],
+    "green_evidence": null,
+    "dod_check": [
+      {"item": "single-authority promotion과 selected rollback 계약이 GREEN이다.", "satisfied": false},
+      {"item": "PTY query reply는 authoritative model commit 뒤 정확히 한 번 전송된다.", "satisfied": false},
+      {"item": "unified/split transport와 AI idle invariant가 보존된다.", "satisfied": false}
+    ]
+  },
+  "phase3": {
+    "regression": null,
+    "mcp_calls": [
+      {"tool": "workflow_task_status_set", "status": "running", "journal_key": "d039037289a5130b4beae388da5e7772f1aad868635b866a199a7e748ae56b15", "ok": true}
+    ]
+  }
+}

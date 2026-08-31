@@ -1,0 +1,28 @@
+{
+  "task_id": "T-PH003-03",
+  "started_at": "2026-07-15T14:23:00.000Z",
+  "completed_at": "2026-07-15T14:25:00.000Z",
+  "phase1": {
+    "red_evidence": {
+      "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+      "exit_code": 1,
+      "captured_failure": "12 existing tests passed and 2/2 exact AC-1/AC-2 contract-not-implemented signatures observed",
+      "timestamp": "2026-07-15T14:25:00.000Z"
+    },
+    "red_evidence_meta": {
+      "test_case_ids": [
+        "TC-REQ-PERF-BGSTAB-008-AC1-03",
+        "TC-REQ-PERF-BGSTAB-008-AC2-03"
+      ],
+      "durable_reference": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/ph003-tph003-03-red-evidence.json"
+    }
+  },
+  "phase2": {
+    "red_only_task": true,
+    "implementation_deferred_to": "T-PH003-04",
+    "dod_check": [
+      {"item": "mode ID와 disabled/retained layer 누락이 실패한다.", "satisfied": true},
+      {"item": "동일 ingress digest가 아니면 실패한다.", "satisfied": true}
+    ]
+  }
+}

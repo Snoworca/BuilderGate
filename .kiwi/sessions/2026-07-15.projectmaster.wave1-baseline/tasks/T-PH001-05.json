@@ -1,0 +1,146 @@
+{
+  "task_id": "T-PH001-05",
+  "started_at": "2026-07-15T13:17:30.000Z",
+  "completed_at": "2026-07-15T13:38:04.2337490Z",
+  "phase1": {
+    "evidence_task": true,
+    "tdd": null,
+    "paired_green_task_ids": [
+      "T-PH001-02",
+      "T-PH001-04"
+    ],
+    "notes": "The validated sidecar defines this perf_test as an evidence execution task without a TDD slot; it consumes the already GREEN observation and production-path contracts."
+  },
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "frontend/tests/e2e/wave1-split-characterization.spec.ts",
+          "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/split-characterization.json"
+        ],
+        "notes": "Added test-only canonical exporter, atomic artifact write, actual production observation, and focused standalone command summaries."
+      },
+      {
+        "iter": 2,
+        "files_changed": [
+          "frontend/tests/e2e/wave1-split-characterization.spec.ts",
+          "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/split-characterization.json"
+        ],
+        "notes": "Corrected mismatch semantics: unexercised production split remains not_exercised; every row has exact Requirement/test target and a referentially valid production observation."
+      }
+    ],
+    "execution_repairs": [
+      "Windows npm.cmd spawn EINVAL replaced with process.execPath plus npm_execpath.",
+      "Focused node tests use TAP reporter and callback-captured nonzero output so expected standalone failures remain evidence rather than Playwright failures."
+    ],
+    "formal_reviews": [
+      {
+        "review_file": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/formal_review_T-PH001-05.json",
+        "final_verdict": "No findings"
+      }
+    ],
+    "prickly_reviews": [
+      {
+        "review_file": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/prickly_review_T-PH001-05.json",
+        "final_verdict": "No findings"
+      }
+    ],
+    "green_evidence": {
+      "command": "npx playwright test tests/e2e/wave1-split-characterization.spec.ts --project \"Desktop Chrome\"",
+      "exit_code": 0,
+      "passed": 2,
+      "failed": 0,
+      "timestamp": "2026-07-15T13:38:04.2337490Z"
+    },
+    "artifact_evidence": {
+      "path": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/split-characterization.json",
+      "digest_algorithm": "sha256",
+      "content_digest": "d54487ef941f53c165dcc0c1878ea62e5cda1f5843fcca3c3e84294cd6999fda",
+      "independent_recalculation": {
+        "tool": "Python hashlib + json.dumps(sort_keys=True,separators=(',',':'),ensure_ascii=False)",
+        "match": true
+      },
+      "verdict_summary": {
+        "match": 1,
+        "mismatch": 1,
+        "not_exercised": 2
+      },
+      "sensitive_data_check": {
+        "raw_token": false,
+        "raw_client_id": false,
+        "password": false,
+        "terminal_raw_content": false
+      }
+    },
+    "dod_check": [
+      {
+        "item": "raw artifact와 digest가 생성된다.",
+        "satisfied": true
+      },
+      {
+        "item": "SRS/production/test 세 source가 독립 행으로 존재한다.",
+        "satisfied": true
+      },
+      {
+        "item": "restore/supersede 선택은 없다.",
+        "satisfied": true
+      }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "impacted": {
+        "playwright": {
+          "passed": 2,
+          "failed": 0
+        },
+        "artifact_contract": {
+          "passed": 3,
+          "failed": 0
+        },
+        "eslint": "pass",
+        "typecheck": "pass",
+        "server_build": "pass"
+      },
+      "standalone_characterization": {
+        "wsTransportMode": {
+          "exit_code": 0,
+          "passed": 6,
+          "failed": 0
+        },
+        "WsRouterSplitHandshake": {
+          "exit_code": 1,
+          "passed": 3,
+          "failed": 13,
+          "classification": "raw mismatch evidence; not a Playwright completion failure"
+        },
+        "authoritative_test_runner_includes_focused_files": false
+      },
+      "full_unit": {
+        "passed": 240,
+        "failed": 1
+      },
+      "regressed_files": [],
+      "known_unrelated_baseline_failure": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts: TerminalContainer retries queued input after visible output recovery finishes"
+    },
+    "mcp_calls": [
+      {
+        "tool": "add_verification_evidence",
+        "result": "VE-7",
+        "ok": true
+      },
+      {
+        "tool": "add_completed_work",
+        "ok": true
+      }
+    ],
+    "srs_mutation": "Added VE-7 only; REL-BGSTAB-006 and FR-BGSTAB-006/007 Status, Stability, and requirement text remain unchanged.",
+    "workflow_journal": {
+      "degraded_fallback_recorded": true,
+      "diagnostics": [
+        "kiwi/pipeline.jsonl legacy SRS-W055"
+      ]
+    }
+  }
+}

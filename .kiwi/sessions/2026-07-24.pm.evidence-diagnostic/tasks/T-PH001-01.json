@@ -1,0 +1,14 @@
+{
+  "task_id": "T-PH001-01",
+  "requirement_id": "OBS-BGSTAB-006",
+  "status": "completed",
+  "tdd": {"applicable": false, "reason": "Boundary review changed no behavior."},
+  "baseline_commit": "5838a3c859d09d485f14daea5cad9802a64ae582",
+  "validator": {"command": "node .agents/skills/kiwi-planner/scripts/validator.mjs docs/plans/2026-07-24.pm.evidence-diagnostic.plan.md docs/plans/2026-07-24.pm.evidence-diagnostic.sidecar.json --target wave-3 --inventory-file docs/analysis/kiwi-planner-2026-07-24.pm.evidence-diagnostic/inventory.json --out docs/plans/2026-07-24.pm.evidence-diagnostic.validator.json --check-files", "exit_code": 0, "checks_passed": 26},
+  "independent_reviews": [
+    {"axis": "scope", "result": "No findings"},
+    {"axis": "SRS", "result": "No findings"},
+    {"axis": "self-test isolation", "result": "No findings"}
+  ],
+  "scope_baseline": "docs/analysis/kiwi-coder-2026-07-24.pm.evidence-diagnostic/scope-baseline.json"
+}

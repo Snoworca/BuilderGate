@@ -1,0 +1,507 @@
+{
+  "run_id": "2026-07-28.pm.wave3-completion",
+  "plan_path": "docs/plans/2026-07-28.pm.wave3-completion.plan.md",
+  "sidecar_path": "docs/plans/2026-07-28.pm.wave3-completion.sidecar.json",
+  "plan_sha256": "918356055d510e849420420801f112d91ca4737e82521a6a8d95196d76857831",
+  "sidecar_sha256": "c910fb606ca1d4efa39a9198b77fde9c86d953ba466f68191c9c1912710ee300",
+  "target_slug": "wave-3",
+  "started_at": "2026-07-28T04:10:26.2904004Z",
+  "last_updated_at": "2026-07-30T17:33:22.2562646+09:00",
+  "pm_version": "0.1",
+  "mode_flags": [
+    "--degraded-workflow-recovery"
+  ],
+  "tasks": [
+    {
+      "task_id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "PERF-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH001-02",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "PERF-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH001-03",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "PERF-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH001-04",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "PERF-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH001-05",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "PERF-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH001-06",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "PERF-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "PERF-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH002-05",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH002-06",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH002-02",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "PERF-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH002-07",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "PERF-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH002-08",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "PERF-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH002-03",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-07-30T02:39:33.8591114+09:00",
+      "coder_run_id": null,
+      "result_summary": "Final fixed-sequence preflight passed with fresh owned outputs: build, writer 1/1, five server files 63/63, Playwright AC-6 1/1, and AC-9 2/2 at https://localhost:2222.",
+      "trace_req_ids": [
+        "PERF-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH002-04",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": true,
+      "started_at": "2026-07-30T02:39:33.8591114+09:00",
+      "ended_at": "2026-07-30T03:56:47.3168382+09:00",
+      "coder_run_id": null,
+      "result_summary": "Independent final PH-002 audit rechecked AC-3 admission layering and returned No findings after the fresh fixed-sequence evidence run.",
+      "trace_req_ids": [
+        "PERF-BGSTAB-010"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": "2026-07-30T03:56:47.3168382+09:00",
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-007"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH003-02",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-007"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH003-03",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-007"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH003-04",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-007"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH004-01",
+      "phase_id": "PH-004",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-012"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH004-02",
+      "phase_id": "PH-004",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-012"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH004-03",
+      "phase_id": "PH-004",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-012"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH004-04",
+      "phase_id": "PH-004",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "REL-BGSTAB-012"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH005-01",
+      "phase_id": "PH-005",
+      "status": "pending",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-BGSTAB-022",
+        "MIG-BGSTAB-002",
+        "OBS-BGSTAB-005",
+        "OBS-BGSTAB-006",
+        "REL-BGSTAB-010",
+        "REL-BGSTAB-011",
+        "REL-BGSTAB-014",
+        "REL-BGSTAB-015"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH005-02",
+      "phase_id": "PH-005",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-BGSTAB-022",
+        "MIG-BGSTAB-002",
+        "OBS-BGSTAB-005",
+        "OBS-BGSTAB-006",
+        "REL-BGSTAB-010",
+        "REL-BGSTAB-011",
+        "REL-BGSTAB-014",
+        "REL-BGSTAB-015"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH006-01",
+      "phase_id": "PH-006",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-BGSTAB-022",
+        "MIG-BGSTAB-002",
+        "OBS-BGSTAB-005",
+        "OBS-BGSTAB-006",
+        "PERF-BGSTAB-010",
+        "REL-BGSTAB-007",
+        "REL-BGSTAB-010",
+        "REL-BGSTAB-011",
+        "REL-BGSTAB-012",
+        "REL-BGSTAB-014",
+        "REL-BGSTAB-015"
+      ],
+      "questions": [],
+      "attempts": 0
+    },
+    {
+      "task_id": "T-PH006-02",
+      "phase_id": "PH-006",
+      "status": "pending",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": null,
+      "coder_run_id": null,
+      "result_summary": null,
+      "trace_req_ids": [
+        "FR-BGSTAB-022",
+        "MIG-BGSTAB-002",
+        "OBS-BGSTAB-005",
+        "OBS-BGSTAB-006",
+        "PERF-BGSTAB-010",
+        "REL-BGSTAB-007",
+        "REL-BGSTAB-010",
+        "REL-BGSTAB-011",
+        "REL-BGSTAB-012",
+        "REL-BGSTAB-014",
+        "REL-BGSTAB-015"
+      ],
+      "questions": [],
+      "attempts": 0
+    }
+  ],
+  "stats": {
+    "total": 26,
+    "done": 12,
+    "running": 0,
+    "pending": 14,
+    "failed": 0,
+    "blocked": 0,
+    "skipped": 0
+  },
+  "last_question": null,
+  "last_error": null,
+  "lifecycle_gate_state": {
+    "evaluated_at": "2026-07-28T04:10:26.2904004Z",
+    "blocked_req_ids": [],
+    "stability_snapshot": {
+      "FR-BGSTAB-022": "evolving",
+      "MIG-BGSTAB-002": "evolving",
+      "OBS-BGSTAB-005": "evolving",
+      "OBS-BGSTAB-006": "evolving",
+      "PERF-BGSTAB-010": "evolving",
+      "REL-BGSTAB-007": "stable",
+      "REL-BGSTAB-010": "evolving",
+      "REL-BGSTAB-011": "evolving",
+      "REL-BGSTAB-012": "evolving",
+      "REL-BGSTAB-014": "evolving",
+      "REL-BGSTAB-015": "evolving"
+    },
+    "status_snapshot": {
+      "FR-BGSTAB-022": "implemented",
+      "MIG-BGSTAB-002": "implemented",
+      "OBS-BGSTAB-005": "implemented",
+      "OBS-BGSTAB-006": "implemented",
+      "PERF-BGSTAB-010": "in_progress",
+      "REL-BGSTAB-007": "planned",
+      "REL-BGSTAB-010": "implemented",
+      "REL-BGSTAB-011": "implemented",
+      "REL-BGSTAB-012": "planned",
+      "REL-BGSTAB-014": "implemented",
+      "REL-BGSTAB-015": "implemented"
+    }
+  },
+  "req_coverage": {},
+  "final_mutations": [],
+  "pending_mutations": [],
+  "report_path": null,
+  "checklist_path": null,
+  "degraded_workflow": {
+    "enabled": true,
+    "reason": "Official workflow diagnostics reported no pm-state plus SRS-W058/SRS-W055/SRS-W053. Five-member decision committee selected minimal recovery; an approved plan rebase later inserted T-PH002-07/08 before full evidence and refreshed plan/sidecar hashes.",
+    "diagnostics": [
+      "workflow_next_plan_task: resume-blocked; nextTask=null",
+      "workflow_schema_check: unsupported_schema_version blocking",
+      "workflow_task_status_set requires an existing pm-state"
+    ],
+    "affected_artifacts": [
+      ".kiwi/sessions/2026-07-28.pm.wave3-completion/pm-state.json",
+      ".kiwi/sessions/2026-07-28.pm.wave3-completion/worklog.jsonl"
+    ],
+    "active_target": "wave-3",
+    "follow_up_requirement_id": "PERF-BGSTAB-010",
+    "recovery_source_hashes": {
+      "plan": "c0d76ab77d7917e27c261d581c007a37471b9e40aae38043bd899b02f35def08",
+      "sidecar": "26882021b255219ff98ed480a172017702e80f732c5d53dcd0b68f01e2db5a0d",
+      "coder_state": "d75432e04bf49048ffc2adb186ec5b6f4bb5477b62e1ef461e59a9ae64e5fa53",
+      "invalid_worklog": "268f47bca42ca7fd2d6bf6df2c078a4246b72e2a20a0a72f1fb9a4b5832f7a19"
+    }
+  }
+}

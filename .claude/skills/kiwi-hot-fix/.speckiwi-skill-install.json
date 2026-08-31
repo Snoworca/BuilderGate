@@ -1,20 +1,24 @@
 {
   "name": "kiwi-hot-fix",
   "agent": "claude",
-  "installedAt": "2026-07-13T15:01:57.613Z",
+  "installedAt": "2026-08-06T16:13:46.634Z",
   "installMode": "generated-runtime-mirror",
   "sourceAgent": "claude",
   "sourceRoot": "skills/claude",
   "sourcePath": "skills/claude/kiwi-hot-fix",
   "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-hot-fix",
   "sourceRevision": "unknown",
-  "sourceChecksum": "sha256:aa52347a82c2ae24f11fcd7ba9795b669d237df098f06e71ca76d6b2a237a00d",
-  "installedChecksum": "sha256:aa52347a82c2ae24f11fcd7ba9795b669d237df098f06e71ca76d6b2a237a00d",
+  "sourceChecksum": "sha256:5618cfdb985934cf95fd5c8b748e8625e82ab0f98a4df3755b9a8fc200739df7",
+  "installedChecksum": "sha256:5618cfdb985934cf95fd5c8b748e8625e82ab0f98a4df3755b9a8fc200739df7",
   "sourceFileCount": 1,
   "installedFileCount": 1,
   "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
-  "sharedResourceValidation": "not-required",
-  "sharedResourceReferences": [],
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md",
+    "_shared/kiwi/pipeline-event.md"
+  ],
   "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-hot-fix --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
   "noManualEdit": true
 }

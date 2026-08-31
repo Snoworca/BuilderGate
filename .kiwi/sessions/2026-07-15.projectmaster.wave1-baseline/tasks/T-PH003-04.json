@@ -1,0 +1,44 @@
+{
+  "task_id": "T-PH003-04",
+  "started_at": "2026-07-15T14:25:00.000Z",
+  "completed_at": "2026-07-15T15:08:00.000Z",
+  "phase1": {
+    "paired_red_task_id": "T-PH003-03",
+    "red_evidence": {
+      "source_task_id": "T-PH003-03",
+      "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+      "exit_code": 1,
+      "captured_failure": "2/2 exact AC-1 and AC-2 contract-not-implemented signatures",
+      "timestamp": "2026-07-15T14:25:00.000Z"
+    }
+  },
+  "phase2": {
+    "impl_iters": [
+      {"iter": 1, "notes": "Injected scheduler control and NO_RENDER accounting sink adapter"},
+      {"iter": 2, "notes": "Explicit replacement provenance and consumer-internal stream observations"},
+      {"iter": 3, "notes": "Actual renderer count, zero-byte rejection and single-chunk 64KiB Unicode split regression"}
+    ],
+    "prickly_reviews": [
+      {"iter": 1, "findings": {"high": 2, "medium": 1}, "resolution": "replacement and actual consumer evidence plus empty/boundary coverage"},
+      {"iter": 2, "findings": {"high": 0, "medium": 2}, "resolution": "actual single-chunk split and mixed zero-byte cases"},
+      {"iter": 3, "findings": [], "verdict": "No findings"}
+    ],
+    "green_evidence": {
+      "command": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts",
+      "exit_code": 0,
+      "timestamp": "2026-07-15T15:08:00.000Z"
+    },
+    "green_evidence_meta": {
+      "passed_test_case_ids": [
+        "TC-REQ-PERF-BGSTAB-008-AC1-04",
+        "TC-REQ-PERF-BGSTAB-008-AC2-04"
+      ],
+      "passed": 16,
+      "failed": 0
+    },
+    "dod_check": [
+      {"item": "NO_RENDER fixture가 control comparator와 동일 ingress digest를 기록한다.", "satisfied": true},
+      {"item": "UI visual 또는 scheduler default를 변경하지 않는다.", "satisfied": true}
+    ]
+  }
+}

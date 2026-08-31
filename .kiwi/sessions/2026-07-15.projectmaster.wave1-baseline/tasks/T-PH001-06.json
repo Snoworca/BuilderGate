@@ -1,0 +1,29 @@
+{
+  "task_id": "T-PH001-06",
+  "started_at": "2026-07-15T13:44:42.9147538Z",
+  "completed_at": "2026-07-15T13:52:55.4323555Z",
+  "requirement_id": "REL-BGSTAB-006",
+  "plan_path": "docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md",
+  "review": {
+    "artifact": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/ph001-completion-review.ko.md",
+    "reviewer": "/root/wave1_ph001_review",
+    "verdict": "No findings"
+  },
+  "verification": {
+    "playwright_actual_https_ws": "pass 2/2",
+    "artifact_contract": "pass 3/3",
+    "changed_files_eslint": "pass",
+    "frontend_typecheck": "pass",
+    "server_build": "pass",
+    "focused_ws_transport_mode": "pass 6/6",
+    "focused_split_handshake": "observed mismatch 3/16 pass, 13/16 fail; artifact-consistent",
+    "artifact_digest": "d54487ef941f53c165dcc0c1878ea62e5cda1f5843fcca3c3e84294cd6999fda",
+    "independent_digest_match": true,
+    "unrelated_full_lint_baseline_errors": 42
+  },
+  "scope_guard": {
+    "product_runtime_default_ui_changed": false,
+    "fr_bgstab_006_007_text_changed": false,
+    "secret_or_terminal_raw_content_stored": false
+  }
+}

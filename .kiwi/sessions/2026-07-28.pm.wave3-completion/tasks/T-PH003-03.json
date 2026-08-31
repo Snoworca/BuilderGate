@@ -1,0 +1,293 @@
+{
+  "task_id": "T-PH003-03",
+  "started_at": "2026-07-30T11:51:24.702+09:00",
+  "completed_at": "2026-07-30T13:17:59.075+09:00",
+  "scope": {
+    "requirement_id": "REL-BGSTAB-007",
+    "approved_evidence": "Bounded RoutedWebSocketHarness HTTPS checkpoint-ingress characterization and the four pre-existing server/frontend contracts.",
+    "excluded_claims": [
+      "production TerminalAuthorityProductionAdapter-to-browser HTTPS authority",
+      "effective browser xterm policy",
+      "aggregate-policy or eviction/dataGap",
+      "server-restart or PTY-termination faults",
+      "PH-003 or REL-BGSTAB-007 completion or verified promotion"
+    ],
+    "committee_decision": "Three-member unanimous A: execute the bounded harness-scoped evidence only; defer the excluded production evidence to a separately explicit stable Requirement and Task."
+  },
+  "phase1": {
+    "preflight": {
+      "checked_at": "2026-07-30T11:54:12.9538302+09:00",
+      "run_root": "C:/Work/kiwi-run-output/2026-07-28.pm.wave3-completion",
+      "output_directory": "C:/Work/kiwi-run-output/2026-07-28.pm.wave3-completion/retained-authority",
+      "resolves_strictly_below_run_root": true,
+      "output_directory_absent_before_run": true,
+      "https_root_status": 200,
+      "output_directory_absent_after_precheck_failure": true
+    },
+    "output_directory": "C:/Work/kiwi-run-output/2026-07-28.pm.wave3-completion/retained-authority",
+    "output_directory_rule": "Must be absent before Playwright and resolve strictly below the Wave3 run root.",
+    "verification_failure": {
+      "recorded_at": "2026-07-30T11:54:12.9538302+09:00",
+      "command_source": "docs/plans/2026-07-28.pm.wave3-completion.sidecar.json T-PH003-03 verification_cmd.windows",
+      "exit_code": 2,
+      "stage": "exact-declaration-precheck",
+      "failure": "missing-exact-declaration:server/src/services/TerminalAuthority:REL-BGSTAB-007 validates Ordinal64 checkpoint apply and drain",
+      "diagnosis": "The encoded selected-test list names server/src/services/TerminalAuthority, but the declared contract is in server/src/services/TerminalAuthorityController.test.ts.",
+      "effects": [
+        "The four focused GREEN contracts were not executed.",
+        "Playwright was not started.",
+        "The task-owned retained-authority output directory was not created."
+      ],
+      "next_action": "Correct only the T-PH003-03 selected-test path through the approved planning workflow, then rerun the unchanged exact command after confirming the output directory remains absent."
+    },
+    "selector_correction": {
+      "corrected_at": "2026-07-30T12:00:23.388+09:00",
+      "change": "The Windows selected-test path was corrected from server/src/services/TerminalAuthority to server/src/services/TerminalAuthorityController.test.ts in the paired plan and sidecar command definitions.",
+      "scope": "Three-member unanimous minimum planning correction; no code, test, SRS lifecycle, AC claim, or task scope change.",
+      "rebase_journal_key": "ec5dca98a0038ee4eecbc9ef1be0b6f1bab52e5bf7cbc7cb2da04f598d9e36bb"
+    },
+    "post_correction_verification_failure": {
+      "command_source": "docs/plans/2026-07-28.pm.wave3-completion.sidecar.json T-PH003-03 verification_cmd.windows",
+      "exit_code": 2,
+      "stage": "exact-declaration-precheck",
+      "failure": "missing-exact-declaration:server/src/services/TerminalAuthorityController.test:REL-BGSTAB-007 validates Ordinal64 checkpoint apply and drain",
+      "result": "The selected server test path still omits the .ts extension; focused contracts and Playwright did not run.",
+      "preflight": {
+        "run_root": "C:/Work/kiwi-run-output/2026-07-28.pm.wave3-completion",
+        "output_directory": "C:/Work/kiwi-run-output/2026-07-28.pm.wave3-completion/retained-authority",
+        "resolves_strictly_below_run_root": true,
+        "output_directory_absent_before_command": true,
+        "target_url": "https://localhost:2222"
+      },
+      "scope_limit": "No production adapter-to-browser authority claim and no SRS lifecycle, completion, or verified promotion is made.",
+      "next_action": "Stop without implementation or rerun; await a corrected exact selector."
+    },
+    "final_selector_correction": {
+      "corrected_at": "2026-07-30T12:18:12.320+09:00",
+      "change": "The Windows selected-test list's third path was corrected from server/src/services/TerminalAuthorityController.test to server/src/services/TerminalAuthorityController.test.ts by replacing the full list with the already-correct POSIX list in the paired plan and sidecar command definitions.",
+      "scope": "Planning-artifact correction only; no code, test, SRS lifecycle, AC claim, task status, state queue, or worklog change.",
+      "execution_status": "The focused GREEN contracts and Playwright remain unexecuted by this correction."
+    },
+    "corrected_evidence_execution": {
+      "recorded_at": "2026-07-30T12:26:57.2157260+09:00",
+      "command_source": "docs/plans/2026-07-28.pm.wave3-completion.sidecar.json T-PH003-03 verification_cmd.windows",
+      "preflight": {
+        "run_root": "C:/Work/kiwi-run-output/2026-07-28.pm.wave3-completion",
+        "output_directory": "C:/Work/kiwi-run-output/2026-07-28.pm.wave3-completion/retained-authority",
+        "resolves_strictly_below_run_root": true,
+        "output_directory_absent_before_command": true,
+        "https_root_status": 200,
+        "target_url": "https://localhost:2222"
+      },
+      "focused_green_contracts": {
+        "result": "passed",
+        "result_basis": "The exact selected-contract wrapper completed successfully before its Playwright clause ran.",
+        "selected_contracts": [
+          "server/src/services/TerminalAuthorityController.test.ts: REL-BGSTAB-007 applies configured retained policy before delivery",
+          "frontend/tests/unit/terminalContainerRecoveryContract.test.ts: REL-BGSTAB-007 keeps generic screen repair independent of checkpoint ACK evidence",
+          "server/src/services/TerminalAuthorityController.test.ts: REL-BGSTAB-007 validates Ordinal64 checkpoint apply and drain",
+          "server/src/services/TerminalAuthorityController.test.ts: REL-BGSTAB-007 isolates driver lease ledger and rollback epoch"
+        ]
+      },
+      "playwright": {
+        "spec": "frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts",
+        "project": "Desktop Chrome",
+        "result": "failed",
+        "exit_code": 1,
+        "total": 6,
+        "passed": 3,
+        "failed": 3,
+        "failure": "Three cases stopped at the E2E precondition because workspace creation returned HTTP 409; their afterEach evidence guard consequently rejected incomplete evidence.",
+        "failed_cases": [
+          "sole writer refresh — no-cache hard refresh restores the same live session",
+          "sole writer remount — stale snapshot and early-ready frames stay fenced after same-socket runtime eviction",
+          "fair delivery browser ACK follows a visible write and preserves idle"
+        ],
+        "passed_cases": [
+          "sole writer active checkpoint — mocked server ingress applies and ACKs before one input release",
+          "sole writer rollback — passive capability restores a clean legacy snapshot generation",
+          "sole writer refresh remount faults — wire capability and coordinator faults fail closed"
+        ]
+      },
+      "output_provenance": {
+        "command_owned_output_directory": "C:/Work/kiwi-run-output/2026-07-28.pm.wave3-completion/retained-authority",
+        "resolves_strictly_below_run_root": true,
+        "absent_before_command": true,
+        "exists_after_command": true,
+        "preserved_without_deletion": true,
+        "last_run_json_present": true,
+        "failure_screenshot_count": 3,
+        "error_context_count": 3
+      },
+      "scope_limit": "This is bounded RoutedWebSocketHarness HTTPS checkpoint-ingress evidence only. It makes no production TerminalAuthorityProductionAdapter-to-browser authority, effective xterm policy, aggregate-policy, eviction/dataGap, restart/PTY-fault, SRS lifecycle, completion, or verified-promotion claim.",
+      "next_action": "Stop after the failed exact command; do not rerun or mutate code/SRS/PM/worklog/status without separate direction."
+    },
+    "bounded_cleanup": {
+      "recorded_at": "2026-07-30T12:49:05.2824464+09:00",
+      "authorization": "Five-member committee majority B; bounded test-fixture cleanup only.",
+      "api_precheck": {
+        "authenticated_existing_local_api": true,
+        "workspace_count": 10,
+        "exact_fixtures": [
+          { "id": "8b45548a-4f16-4ddf-9037-ef4eaf3025b7", "name": "W3-SOLE-WRITER-1784807958182" },
+          { "id": "9e8eb964-4453-46e6-9ddd-9b631431d94e", "name": "W3-SOLE-WRITER-1784808027874" },
+          { "id": "a77f3f26-f1ec-40f3-9739-3bacf9d367f4", "name": "W3-SOLE-WRITER-1784809225435" },
+          { "id": "0f5ffae1-9243-4fa1-a9ea-318247c07c34", "name": "W3-SOLE-WRITER-1784811555672" },
+          { "id": "deb69fb8-f3bd-4789-a595-ff62479de8e9", "name": "W3-SOLE-WRITER-1784811601677" },
+          { "id": "043e96c9-2291-4077-9709-5e75a8d3b88a", "name": "W3-SOLE-WRITER-1784811939727" },
+          { "id": "10d57675-13c9-4bca-b9d2-7a66814a14f1", "name": "W3-SOLE-WRITER-1784812430553" }
+        ],
+        "preserved_nonfixtures": [
+          { "id": "d5cdb7c4-f2d4-4116-a31b-fdf42536df0b", "name": "Codexp-Recovery-1779495869600" },
+          { "id": "9961805f-cb1d-4089-aae5-bf6f20f4426e", "name": "E2E Equal Reorder 1784182839242" },
+          { "id": "6ebac7d5-e306-4347-8ee3-2f6b9a9a452a", "name": "PH5A-mrwzjthr-1784779376171" }
+        ]
+      },
+      "failure_output_preservation": {
+        "source": "C:/Work/kiwi-run-output/2026-07-28.pm.wave3-completion/retained-authority",
+        "target": "C:/Work/kiwi-run-output/2026-07-28.pm.wave3-completion/retained-authority.failed-20260730T032613Z-workspace-cap-409",
+        "same_run_root_siblings": true,
+        "source_was_ordinary_directory": true,
+        "target_was_absent_before_move": true,
+        "source_absent_after_move": true,
+        "target_manifest_equal_after_move": true,
+        "manifest": {
+          "file_count": 7,
+          "directory_count": 6,
+          "files": [
+            { "path": ".last-run.json", "bytes": 194, "sha256": "7763380410e17fb2d78149f5cfadc83a722bb6b649470bccd57d9aa1cf1358d8" },
+            { "path": "wave3-terminal-authority-f-119d9-tores-the-same-live-session-Desktop-Chrome/error-context.md", "bytes": 12305, "sha256": "d94df59e6d1d141cf3ca0e353ef69703719e3a4a96f20dd13b5fd651e4a69709" },
+            { "path": "wave3-terminal-authority-f-119d9-tores-the-same-live-session-Desktop-Chrome/test-failed-1.png", "bytes": 42334, "sha256": "8828955b458471d64b1bfda0262e23f518abdc43154f270df385d306b08a2c8a" },
+            { "path": "wave3-terminal-authority-f-218a1-le-write-and-preserves-idle-Desktop-Chrome/error-context.md", "bytes": 647, "sha256": "504cc96f9c94930bacd8e888e4f5de3b900e835fd1d1fa4ff2b7f99c4d5c0611" },
+            { "path": "wave3-terminal-authority-f-218a1-le-write-and-preserves-idle-Desktop-Chrome/test-failed-1.png", "bytes": 42183, "sha256": "27b7aca1f2395975da2170511b16166d81512b662b90e01bdfecf6cd7bcf1a24" },
+            { "path": "wave3-terminal-authority-f-a912e-ame-socket-runtime-eviction-Desktop-Chrome/error-context.md", "bytes": 12337, "sha256": "7faf7df9de6177fa0863d34171b86350c776df3c9510a56624a728fc93e9c1f7" },
+            { "path": "wave3-terminal-authority-f-a912e-ame-socket-runtime-eviction-Desktop-Chrome/test-failed-1.png", "bytes": 42129, "sha256": "18d6c73d5870c0e670b1982082193d3fddc8ba2d757e55b16065889126dc8707" }
+          ]
+        }
+      },
+      "api_delete_results": [
+        { "id": "8b45548a-4f16-4ddf-9037-ef4eaf3025b7", "status": 200, "result": "success:true" },
+        { "id": "9e8eb964-4453-46e6-9ddd-9b631431d94e", "status": 200, "result": "success:true" },
+        { "id": "a77f3f26-f1ec-40f3-9739-3bacf9d367f4", "status": 200, "result": "success:true" },
+        { "id": "0f5ffae1-9243-4fa1-a9ea-318247c07c34", "status": 200, "result": "success:true" },
+        { "id": "deb69fb8-f3bd-4789-a595-ff62479de8e9", "status": 200, "result": "success:true" },
+        { "id": "043e96c9-2291-4077-9709-5e75a8d3b88a", "status": 200, "result": "success:true" },
+        { "id": "10d57675-13c9-4bca-b9d2-7a66814a14f1", "status": 200, "result": "success:true" }
+      ],
+      "postcheck": {
+        "workspace_count": 3,
+        "exact_fixture_ids_absent": true,
+        "w3_sole_writer_prefix_absent": true,
+        "nonfixtures_intact": true
+      },
+      "scope_limit": "No code, SRS, PM, workflow, lifecycle/status, or server-process change; no fresh Playwright rerun was performed."
+    },
+    "fresh_rerun_preflight_failure": {
+      "recorded_at": "2026-07-30T04:05:16.1587388Z",
+      "command_source": "docs/plans/2026-07-28.pm.wave3-completion.sidecar.json T-PH003-03 verification_cmd.windows",
+      "stage": "UI-compatible authenticated workspace-state preflight",
+      "health": {
+        "target_url": "https://localhost:2222",
+        "status": 200
+      },
+      "login_request": {
+        "method": "POST",
+        "path": "/api/auth/login",
+        "content_type": "application/json",
+        "body_shape": "{password:string}",
+        "result_status": 500,
+        "response_body": {
+          "error": "Internal server error"
+        }
+      },
+      "workspace_state_recheck": "not reached because the UI-compatible login returned HTTP 500; workspace_count=3 and W3-SOLE-WRITER prefix absence were not newly established by this preflight.",
+      "output_provenance_recheck": "not reached because the UI-compatible login returned HTTP 500; no command-owned output action was started.",
+      "execution": "The exact Windows verification command was not invoked. No retry, delete, move, code, SRS, PM, workflow, status, or server mutation was performed.",
+      "scope_limit": "The prior failed output remains outside this unstarted attempt; no production authority or lifecycle claim is made.",
+      "next_action": "Stop and diagnose the HTTP 500 authentication failure before any fresh T-PH003-03 rerun."
+    },
+    "fresh_exact_evidence_execution": {
+      "recorded_at": "2026-07-30T13:12:34.9127035+09:00",
+      "command_source": "docs/plans/2026-07-28.pm.wave3-completion.sidecar.json T-PH003-03 verification_cmd.windows",
+      "command_sha256": "e66821fe3320d21c9ff6ac49b3f31a0e71d8b20e5b5cd237659cf5a297acb102",
+      "preflight": {
+        "run_root": "C:/Work/kiwi-run-output/2026-07-28.pm.wave3-completion",
+        "output_directory": "C:/Work/kiwi-run-output/2026-07-28.pm.wave3-completion/retained-authority",
+        "resolves_strictly_below_run_root": true,
+        "output_directory_absent_before_command": true,
+        "target_url": "https://localhost:2222",
+        "https_root_status": 200
+      },
+      "execution": {
+        "exact_command_exit_code": 0,
+        "browser_ui_login_path_used_by_exact_command": true,
+        "separate_curl_or_powershell_auth_probe_added": false,
+        "focused_green_contracts": {
+          "result": "passed",
+          "cases": [
+            "REL-BGSTAB-007 applies configured retained policy before delivery",
+            "REL-BGSTAB-007 keeps generic screen repair independent of checkpoint ACK evidence",
+            "REL-BGSTAB-007 validates Ordinal64 checkpoint apply and drain",
+            "REL-BGSTAB-007 isolates driver lease ledger and rollback epoch"
+          ]
+        },
+        "playwright": {
+          "spec": "frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts",
+          "project": "Desktop Chrome",
+          "result": "passed",
+          "total": 6,
+          "passed": 6,
+          "failed": 0,
+          "cases": [
+            "refresh — no-cache hard refresh restores same live session",
+            "remount — stale snapshot/early ready fenced",
+            "active checkpoint mocked ingress",
+            "rollback passive clean legacy",
+            "refresh/remount faults fail closed",
+            "fair delivery ACK follows visible write/preserves idle"
+          ]
+        }
+      },
+      "output_provenance": {
+        "command_owned_output_directory": "C:/Work/kiwi-run-output/2026-07-28.pm.wave3-completion/retained-authority",
+        "resolves_strictly_below_run_root": true,
+        "created_by_successful_exact_command": true,
+        "last_run": {
+          "status": "passed",
+          "failed_tests": []
+        },
+        "file_count": 1,
+        "directory_count": 6,
+        "files": [
+          {
+            "path": ".last-run.json",
+            "bytes": 45,
+            "sha256": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903"
+          }
+        ],
+        "prior_failure_output_preserved_at": "C:/Work/kiwi-run-output/2026-07-28.pm.wave3-completion/retained-authority.failed-20260730T032613Z-workspace-cap-409"
+      },
+      "generated_evidence_artifacts": {
+        "sole_writer_https_e2e": {
+          "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-003/sole-writer-https-e2e.raw.json",
+          "sha256": "0531469aeda2f03fa4f59cfa9ddf453019b48a197f8fd623b0f537891232b946"
+        },
+        "terminal_write_inventory": {
+          "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-write-inventory.json",
+          "sha256": "3d7ecce22b90ebdc8dff510cb36cda4d2272db7db62c17b2650fb4a6fb3954d3"
+        }
+      },
+      "scope_limit": "This is bounded RoutedWebSocketHarness HTTPS checkpoint-ingress evidence only. It does not establish production TerminalAuthorityProductionAdapter-to-browser authority, effective xterm policy, aggregate retained-state recovery, lifecycle completion, or a verified requirement claim.",
+      "next_action": "The exact harness-scoped evidence passed. Do not infer completion or a verified promotion from this task artifact."
+    }
+  },
+  "workflow": {
+    "pm_status": "running confirmed",
+    "pm_status_idempotency_key": "e0d86a1612f1d6394f2cd667445b011aa115d35d9e45b7a5ca6a8c9082ee716a",
+    "worklog_emit": "confirmed with written=true; official journal record retained after duplicate fallback removal",
+    "worklog_emit_idempotency_key": "c1d6298b9da98d5d925b7cd0e65e7bc7e04039b19154e9bd1d6d85f2e9071c09",
+    "fallback": "not used; the official journal event is the sole TASK_START record and no SRS lifecycle mutation occurred",
+    "pm_completion": "done confirmed after fresh exact evidence and independent completion review; REL-BGSTAB-007 SRS lifecycle remains unchanged",
+    "pm_completion_idempotency_key": "65e27a0baa4cbd7fcd2f249b2f067d658f5276de104b56ec1bde6a9e1a28cf42"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "task_id": "T-PH003-05",
+  "started_at": "2026-07-15T15:05:00.000Z",
+  "completed_at": "2026-07-15T15:11:05.0821741Z",
+  "phase1": {
+    "red_evidence": {
+      "command": "npm run build && node --test dist/benchmarks/terminalCharacterization.test.js",
+      "exit_code": 1,
+      "captured_failure": "4/4 exact AC-1/AC-2/AC-4/AC-6 contract-not-implemented signatures observed",
+      "timestamp": "2026-07-15T15:05:00.000Z"
+    },
+    "red_evidence_meta": {
+      "test_case_ids": [
+        "TC-REQ-PERF-BGSTAB-008-AC1-05",
+        "TC-REQ-PERF-BGSTAB-008-AC2-05",
+        "TC-REQ-PERF-BGSTAB-008-AC4-05",
+        "TC-REQ-PERF-BGSTAB-008-AC6-05"
+      ],
+      "durable_reference": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/ph003-tph003-05-red-evidence.json"
+    }
+  },
+  "phase2": {
+    "red_only_task": true,
+    "implementation_deferred_to": "T-PH003-06",
+    "dod_check": [
+      {
+        "item": "각 mode/corpus/metric 누락이 독립 RED로 관측된다.",
+        "satisfied": true
+      },
+      {
+        "item": "ONE_CLIENT_SLOW 1-client case는 isolation으로 인정되지 않는다.",
+        "satisfied": true
+      }
+    ]
+  }
+}

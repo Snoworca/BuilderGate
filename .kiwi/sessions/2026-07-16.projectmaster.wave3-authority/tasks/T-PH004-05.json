@@ -1,0 +1,12 @@
+{
+  "task_id": "T-PH004-05",
+  "phase_id": "PH-004",
+  "status": "done",
+  "tdd_exempted": true,
+  "tdd_exempt_reason": "auto-exempt by type=review",
+  "started_at": "2026-07-17T14:08:38+09:00",
+  "completed_at": "2026-07-17T14:09:00+09:00",
+  "phase1": null,
+  "phase2": {"impl_iters": [], "formal_reviews": [{"iter": 1, "verdict": "No findings"}], "prickly_reviews": [{"iter": 4, "verdict": "No findings"}, {"iter": 1, "role": "artifact-intent", "verdict": "No findings"}], "green_evidence": {"path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-004/green-evidence.json", "exit_code": 0}, "dod_check": [{"item": "review finding 0건이다.", "satisfied": true}, {"item": "집중 및 관련 full checks를 재실행한다.", "satisfied": true}]},
+  "phase3": {"regression": {"scope": "full", "server_passed": 517, "frontend_passed": 485, "https_passed": 5, "failed": 0}, "mcp_calls": []}
+}

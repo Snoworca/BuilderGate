@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-28.pm.wave3-completion",
+  "plan_run_id": "2026-07-28.pm.wave3-completion",
+  "plan_path": "docs/plans/2026-07-28.pm.wave3-completion.plan.md",
+  "sidecar_path": "docs/plans/2026-07-28.pm.wave3-completion.sidecar.json",
+  "target": "wave-3",
+  "mode": "normal",
+  "flags": ["--degraded-no-pipeline-event"],
+  "started_at": "2026-07-28T04:42:50.9682131+09:00",
+  "updated_at": "2026-07-30T13:33:18.467+09:00",
+  "frozen_at": null,
+  "current_phase_id": "PH-003",
+  "current_task_id": "T-PH004-01",
+  "next_resume_hint": "phase-1.1",
+  "task_queue": ["T-PH004-02", "T-PH004-03", "T-PH004-04", "T-PH005-01", "T-PH005-02", "T-PH006-01", "T-PH006-02"],
+  "completed_task_ids": ["T-PH001-01", "T-PH001-02", "T-PH001-03", "T-PH001-04", "T-PH001-05", "T-PH001-06", "T-PH002-01", "T-PH002-05", "T-PH002-06", "T-PH002-02", "T-PH002-07", "T-PH002-08", "T-PH002-03", "T-PH002-04", "T-PH003-01", "T-PH003-02", "T-PH003-03", "T-PH003-04"],
+  "skipped_task_ids": [],
+  "failed_task_ids": [],
+  "tdd_exempted_task_ids": ["T-PH001-01"],
+  "tdd_pending_task_ids": [],
+  "severity_counters": {},
+  "regression_summary": {"last_run_at": "2026-07-28T04:58:17.7466560+09:00", "scope": "document-contract", "passed": 2, "failed": 0, "regressed_files": []},
+  "mcp_call_log": [
+    {"called_at": "2026-07-28T04:42:50.9682131+09:00", "tool": "workflow_pipeline_emit", "args": {"run_id": "2026-07-28.pm.wave3-completion", "dry_run": true}, "args_hash": "pipeline-emit-denied-unsupported-schema", "ok": false, "response_hash": "SRS-W055", "dry_run": true, "task_id": "T-PH001-01"},
+    {"called_at": "2026-07-28T04:58:17.7466560+09:00", "tool": "workflow_task_status_set", "args": {"run_id": "2026-07-28.pm.wave3-completion", "task_id": "T-PH001-01", "status": "completed", "dry_run": true}, "args_hash": "workflow-task-status-denied-e072", "ok": false, "response_hash": "SRS-E072", "dry_run": true, "task_id": "T-PH001-01"}
+  ],
+  "pending_mutations": [
+    {"kind": "workflow_pipeline_emit", "reason": "degraded/no-pipeline-event; existing kiwi/pipeline.jsonl reports unsupported workflow schema (SRS-W055)", "affected_paths": ["kiwi/pipeline.jsonl", "docs/plans/2026-07-28.pm.wave3-completion.plan.md", "docs/plans/2026-07-28.pm.wave3-completion.sidecar.json"], "active_target": "wave-3", "follow_up_requirement": "PERF-BGSTAB-010"},
+    {"kind": "workflow_task_status_set", "reason": "degraded/local-state fallback; dry-run mutation denied with unstable canonical idempotency identity (SRS-E072)", "affected_paths": [".kiwi/sessions/2026-07-28.pm.wave3-completion/state.json", ".kiwi/sessions/2026-07-28.pm.wave3-completion/tasks/T-PH001-01.json", ".kiwi/sessions/2026-07-28.pm.wave3-completion/worklog.jsonl"], "active_target": "wave-3", "follow_up_requirement": "PERF-BGSTAB-010"}
+  ],
+  "tool_versions": {"kiwi_planner": "0.6.0", "kiwi_coder": "0.1.9", "speckiwi": "2.4.1"}
+}

@@ -1,0 +1,14 @@
+{
+  "task_id": "T-PH004-01",
+  "phase_id": "PH-004",
+  "status": "done",
+  "started_at": "2026-07-17T10:43:00+09:00",
+  "completed_at": "2026-07-17T11:47:00+09:00",
+  "phase1": {
+    "tdd_draft_iters": [{"iter": 1, "file_paths": ["server/src/services/RetainedTerminalAuthority.test.ts"]}],
+    "standard4_reviews": [{"iter": 1, "verdicts": {"intent_alignment": "No findings", "tech_quality": "No findings", "orca_boundary": "No findings", "red_verification": "No findings"}}],
+    "red_evidence": {"path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-004/red-evidence.json", "registered": 30, "passed": 12, "expected_failed": 18, "exit_code": 1}
+  },
+  "phase2": {"impl_iters": [], "formal_reviews": [], "prickly_reviews": [], "green_evidence": null, "dod_check": [{"item": "새 계약 때문에만 RED가 재현된다.", "satisfied": true}, {"item": "production 구현은 변경하지 않는다.", "satisfied": true}]},
+  "phase3": {"regression": {"scope": "compatibility-baseline", "passed": 15, "failed": 0}, "mcp_calls": []}
+}

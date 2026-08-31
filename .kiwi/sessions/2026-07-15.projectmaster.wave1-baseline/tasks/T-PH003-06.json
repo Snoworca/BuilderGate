@@ -1,0 +1,48 @@
+{
+  "task_id": "T-PH003-06",
+  "started_at": "2026-07-15T15:05:00.000Z",
+  "completed_at": "2026-07-15T15:12:20.8943562Z",
+  "phase1": {
+    "paired_red_task_id": "T-PH003-05",
+    "red_evidence_reference": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/ph003-tph003-05-red-evidence.json"
+  },
+  "phase2": {
+    "implementation": {
+      "files_changed": [
+        "server/src/benchmarks/terminalCharacterization.ts",
+        "server/src/benchmarks/terminalCharacterization.test.ts"
+      ],
+      "reused_production_seams": [
+        "server/src/ws/wsSendPolicy.ts",
+        "server/src/services/SessionManager.ts#getObservabilitySnapshot"
+      ],
+      "product_seam_modified": false
+    },
+    "green_evidence": {
+      "command": "npm run build; node --test dist/benchmarks/terminalCharacterization.test.js",
+      "exit_code": 0,
+      "passed": 8,
+      "failed": 0,
+      "includes_actual_session_manager_metric_sampler": true,
+      "timestamp": "2026-07-15T15:11:05.0821741Z"
+    },
+    "dod_check": [
+      {
+        "item": "네 mode가 machine-readable ID로 실행된다.",
+        "satisfied": true
+      },
+      {
+        "item": "각 enumerated session/client 값이 corpus에 존재한다.",
+        "satisfied": true
+      },
+      {
+        "item": "raw sample이 summary보다 먼저 보존된다.",
+        "satisfied": true
+      },
+      {
+        "item": "서버 metric delta와 unit/source가 기록된다.",
+        "satisfied": true
+      }
+    ]
+  }
+}

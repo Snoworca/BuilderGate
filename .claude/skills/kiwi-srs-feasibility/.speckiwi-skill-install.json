@@ -1,20 +1,24 @@
 {
   "name": "kiwi-srs-feasibility",
   "agent": "claude",
-  "installedAt": "2026-07-13T15:01:57.944Z",
+  "installedAt": "2026-08-06T16:13:48.043Z",
   "installMode": "generated-runtime-mirror",
   "sourceAgent": "claude",
   "sourceRoot": "skills/claude",
   "sourcePath": "skills/claude/kiwi-srs-feasibility",
   "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-srs-feasibility",
   "sourceRevision": "unknown",
-  "sourceChecksum": "sha256:9aff0e12c61f51d222c360abdbd0cd4b1f22c1de2a600fd709f05508f5640c1f",
-  "installedChecksum": "sha256:9aff0e12c61f51d222c360abdbd0cd4b1f22c1de2a600fd709f05508f5640c1f",
+  "sourceChecksum": "sha256:221c6c95e2651f30c18e05d1b981174729092f98c00e273f86808e15373ee805",
+  "installedChecksum": "sha256:221c6c95e2651f30c18e05d1b981174729092f98c00e273f86808e15373ee805",
   "sourceFileCount": 1,
   "installedFileCount": 1,
   "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
-  "sharedResourceValidation": "not-required",
-  "sharedResourceReferences": [],
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md",
+    "_shared/kiwi/pipeline-event.md"
+  ],
   "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-srs-feasibility --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
   "noManualEdit": true
 }

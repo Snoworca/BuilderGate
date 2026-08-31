@@ -1,0 +1,47 @@
+{
+  "task_id": "T-PH002-04",
+  "requirement_id": "OBS-BGSTAB-004",
+  "completed_at": "2026-07-15T15:55:04.3431606Z",
+  "tdd": {
+    "phase": "green",
+    "unit": {
+      "command": "node --experimental-strip-types --test tests/unit/terminalRetainedState.test.ts",
+      "exit_code": 0,
+      "passed": 5,
+      "failed": 0,
+      "repairs": [
+        "read-only xterm public-buffer capture",
+        "index-independent line fingerprints",
+        "whole-sequence ordered alignment before effective-boundary classification",
+        "outside-preserved, duplicate, reorder, inside-change and state-field edges"
+      ]
+    },
+    "live_matrix": {
+      "command": "npx playwright test tests/e2e/wave1-retained-state-characterization.spec.ts --project \"Desktop Chrome\" --grep \"AC-1~7 executes\" --reporter=json",
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "retry": 0
+    },
+    "synthetic_contracts": {
+      "command": "npx playwright test tests/e2e/wave1-retained-state-characterization.spec.ts --project \"Desktop Chrome\" --grep-invert \"AC-1~7 executes\" --reporter=line",
+      "exit_code": 0,
+      "passed": 5,
+      "failed": 0
+    }
+  },
+  "implementation": {
+    "files": [
+      "frontend/tests/e2e/wave1-retained-state-characterization.ts",
+      "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts",
+      "frontend/src/utils/terminalRetainedState.ts",
+      "frontend/src/utils/terminalDebugCapture.ts",
+      "frontend/src/components/Terminal/TerminalView.tsx",
+      "frontend/src/components/Terminal/TerminalContainer.tsx"
+    ],
+    "scope": "six-case live browser refresh matrix with compact read-only xterm capture, runtime-config effective boundaries and ordered evidence analyzer; deterministic fixture retained only as an oracle",
+    "ui_changed": false,
+    "authority_changed": false,
+    "runtime_defaults_changed": false
+  }
+}

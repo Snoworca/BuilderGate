@@ -1,0 +1,238 @@
+{
+  "task_id": "T-PH004-01",
+  "started_at": "2026-07-30T13:33:18.467+09:00",
+  "completed_at": null,
+  "scope": {
+    "requirement_id": "REL-BGSTAB-012",
+    "tdd_stage": "RED",
+    "exact_contracts": [
+      "REL-BGSTAB-012 latches one ordered dataGap after authoritative hidden delivery",
+      "REL-BGSTAB-012 settles revoked delivery interest exactly once without pausing producer",
+      "REL-BGSTAB-012 rebinds bounded continuity or requires an authoritative fresh checkpoint",
+      "REL-BGSTAB-012 blocks ready and input until matching checkpoint drain ACK",
+      "REL-BGSTAB-012 isolates affected hidden recovery to its browser view",
+      "REL-BGSTAB-012 preserves retained authority across peer disconnect and recovery rollback",
+      "REL-BGSTAB-012 keeps PTY ingest and model continuity through authority rollback",
+      "REL-BGSTAB-012 preserves local terminal snapshot cache through authority recovery",
+      "REL-BGSTAB-012 preserves the existing renderer residency policy during hidden recovery",
+      "REL-BGSTAB-012 preserves AI idle and mounted renderer residency during hidden recovery",
+      "REL-BGSTAB-012 binds dataGap to issued continuity and current hidden view",
+      "REL-BGSTAB-012 routes hidden dataGap to only its browser view"
+    ],
+    "no_authorized_claims": [
+      "production implementation",
+      "SRS lifecycle promotion",
+      "renderer residency or UI changes"
+    ]
+  },
+  "replan": {
+    "decision": {
+      "method": "five-member research committee majority",
+      "vote": "3:2",
+      "outcome": "Replace the insufficient four-contract RED plan with the canonical ten-row recovery matrix."
+    },
+    "canonical_execution_source": "docs/plans/2026-07-28.pm.wave3-completion.sidecar.json:T-PH004-01.replan_runner_matrix",
+    "legacy_verification_cmd": null,
+    "test_files": [
+      "server/src/ws/WsRouterSendPriority.test.ts",
+      "server/src/ws/WsRouterCheckpointProtocol.test.ts",
+      "frontend/tests/unit/terminalCheckpointRuntime.test.ts",
+      "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+      "server/src/services/TerminalAuthorityController.test.ts",
+      "server/src/services/TerminalAuthorityProductionRegression.test.ts",
+      "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts",
+      "frontend/tests/unit/useTerminalRuntimeResidency.test.ts",
+      "frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts"
+    ],
+    "task_owned_test_additions": {
+      "ownership_rule": "Only these exact top-level symbols are task-owned RED additions for T-PH004-01.",
+      "test_file_symbols": [
+        {
+          "test_file": "server/src/ws/WsRouterSendPriority.test.ts",
+          "symbols": [
+            "REL-BGSTAB-012 latches one ordered dataGap after authoritative hidden delivery",
+            "REL-BGSTAB-012 settles revoked delivery interest exactly once without pausing producer",
+            "REL-BGSTAB-012 binds dataGap to issued continuity and current hidden view"
+          ]
+        },
+        {
+          "test_file": "server/src/ws/WsRouterCheckpointProtocol.test.ts",
+          "symbols": [
+            "REL-BGSTAB-012 rebinds bounded continuity or requires an authoritative fresh checkpoint"
+          ]
+        },
+        {
+          "test_file": "frontend/tests/unit/terminalCheckpointRuntime.test.ts",
+          "symbols": [
+            "REL-BGSTAB-012 blocks ready and input until matching checkpoint drain ACK"
+          ]
+        },
+        {
+          "test_file": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+          "symbols": [
+            "REL-BGSTAB-012 isolates affected hidden recovery to its browser view"
+          ]
+        },
+        {
+          "test_file": "server/src/services/TerminalAuthorityController.test.ts",
+          "symbols": [
+            "REL-BGSTAB-012 preserves retained authority across peer disconnect and recovery rollback"
+          ]
+        },
+        {
+          "test_file": "server/src/services/TerminalAuthorityProductionRegression.test.ts",
+          "symbols": [
+            "REL-BGSTAB-012 keeps PTY ingest and model continuity through authority rollback"
+          ]
+        },
+        {
+          "test_file": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts",
+          "symbols": [
+            "REL-BGSTAB-012 preserves local terminal snapshot cache through authority recovery"
+          ]
+        },
+        {
+          "test_file": "frontend/tests/unit/useTerminalRuntimeResidency.test.ts",
+          "symbols": [
+            "REL-BGSTAB-012 preserves the existing renderer residency policy during hidden recovery"
+          ]
+        },
+        {
+          "test_file": "frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts",
+          "symbols": [
+            "REL-BGSTAB-012 preserves AI idle and mounted renderer residency during hidden recovery",
+            "REL-BGSTAB-012 routes hidden dataGap to only its browser view"
+          ]
+        }
+      ]
+    },
+    "dirty_worktree_provenance_boundary": {
+      "historic_whole_file_baseline": "unknown and not claimed",
+      "claimed_scope": "Only exact symbols listed in task_owned_test_additions are task-owned additions.",
+      "unclaimed_scope": "All other prior, concurrent, or unknown dirty hunks remain unclaimed and unmodified by this task.",
+      "evidence_scope": "No historic whole-file baseline is asserted or used as evidence."
+    },
+    "test_case_ids": [
+      "TC-REQ-REL-BGSTAB-012-AC1-02",
+      "TC-REQ-REL-BGSTAB-012-AC5-07-LEDGER",
+      "TC-REQ-REL-BGSTAB-012-AC3-04",
+      "TC-REQ-REL-BGSTAB-012-AC6",
+      "TC-REQ-REL-BGSTAB-012-AC7-VIEW",
+      "TC-REQ-REL-BGSTAB-012-AC7-AUTHORITY",
+      "TC-REQ-REL-BGSTAB-012-AC7-PTY",
+      "TC-REQ-REL-BGSTAB-012-AC7-CACHE",
+      "TC-REQ-REL-BGSTAB-012-AC9-POLICY",
+      "TC-REQ-REL-BGSTAB-012-AC8-09-E2E",
+      "TC-REQ-REL-BGSTAB-012-AC3-06-CONTINUITY-BINDING",
+      "TC-REQ-REL-BGSTAB-012-AC7-VIEW-02-LIVE-ROUTE"
+    ],
+    "evidence": {
+      "red": {
+        "recorded_at": "2026-07-30T14:15:00+09:00",
+        "runner": "independent",
+        "output_root": "C:/Work/kiwi-run-output/2026-07-28.pm.wave3-completion/tph00401-red-verify",
+        "contracts": [
+          { "id": "TC-REQ-REL-BGSTAB-012-AC1-03", "selected": 1, "exit_code": 1, "failure_kind": "assertion" },
+          { "id": "TC-REQ-REL-BGSTAB-012-AC5-01", "selected": 1, "exit_code": 1, "failure_kind": "assertion" },
+          { "id": "TC-REQ-REL-BGSTAB-012-AC3-05", "selected": 1, "exit_code": 1, "failure_kind": "assertion" },
+          { "id": "TC-REQ-REL-BGSTAB-012-AC6-01", "selected": 1, "exit_code": 1, "failure_kind": "assertion" },
+          { "id": "TC-REQ-REL-BGSTAB-012-AC7-01", "selected": 1, "exit_code": 1, "failure_kind": "assertion" },
+          { "id": "TC-REQ-REL-BGSTAB-012-AC7-02", "selected": 1, "exit_code": 1, "failure_kind": "assertion" },
+          { "id": "TC-REQ-REL-BGSTAB-012-AC7-03", "selected": 1, "exit_code": 1, "failure_kind": "assertion" },
+          { "id": "TC-REQ-REL-BGSTAB-012-AC7-04", "selected": 1, "exit_code": 1, "failure_kind": "assertion" },
+          { "id": "TC-REQ-REL-BGSTAB-012-AC9-01", "selected": 1, "exit_code": 1, "failure_kind": "assertion" },
+          { "id": "TC-REQ-REL-BGSTAB-012-AC8-01", "selected": 1, "exit_code": 1, "failure_kind": "assertion" }
+        ],
+        "non_assertion_failures": {
+          "compile": 0,
+          "import": 0,
+          "zero_test": 0,
+          "setup": 0
+        }
+      },
+      "expanded_matrix_red": {
+        "recorded_at": "2026-07-30T17:42:28.381+09:00",
+        "runner": "independent",
+        "contract_count": 12,
+        "contracts": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-012-AC3-06-CONTINUITY-BINDING",
+            "title": "REL-BGSTAB-012 binds dataGap to issued continuity and current hidden view",
+            "test_file": "server/src/ws/WsRouterSendPriority.test.ts",
+            "selector": "^REL-BGSTAB-012 binds dataGap to issued continuity and current hidden view$",
+            "command": "npx --prefix server tsx --test --test-name-pattern \\\"^REL-BGSTAB-012 binds dataGap to issued continuity and current hidden view$\\\" src/ws/WsRouterSendPriority.test.ts",
+            "workdir": "C:/Work/git/_Snoworca/ProjectMaster/server",
+            "output_location": "transient independent-runner stdout; no file artifact generated",
+            "exit_code": 1,
+            "failure_kind": "assertion",
+            "assertion": "dataGap omitted server-issued connection, view, delivered-sequence, stream, checkpoint, and authority binding fields"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-012-AC7-VIEW-02-LIVE-ROUTE",
+            "title": "REL-BGSTAB-012 routes hidden dataGap to only its browser view",
+            "test_file": "frontend/tests/e2e/wave3-terminal-authority-fairness.spec.ts",
+            "selector": "routes hidden dataGap",
+            "command": "npx playwright test wave3-terminal-authority-fairness.spec.ts --grep \\\"routes hidden dataGap\\\" --project \\\"Desktop Chrome\\\"",
+            "workdir": "C:/Work/git/_Snoworca/ProjectMaster/frontend",
+            "output_location": "C:/Work/git/_Snoworca/ProjectMaster/frontend/test-results/wave3-terminal-authority-f-296d9-ap-to-only-its-browser-view-Desktop-Chrome and -retry1",
+            "exit_code": 1,
+            "failure_kind": "assertion",
+            "assertion": "source hidden browser view received two marker occurrences; expected one local input echo without direct output write"
+          }
+        ],
+        "non_assertion_failures": {
+          "compile": 0,
+          "import": 0,
+          "zero_test": 0,
+          "setup": 0,
+          "runner_timeout": 0
+        }
+      },
+      "ac7_11_red": {
+        "recorded_at": "2026-07-31T04:08:22.0285034+09:00",
+        "test_case_id": "TC-REQ-REL-BGSTAB-012-AC7-11",
+        "title": "REL-BGSTAB-012 preserves local terminal snapshot cache through authority recovery",
+        "test_file": "frontend/tests/e2e/wave1-retained-state-characterization.spec.ts",
+        "url": "https://localhost:2222",
+        "output_root": "C:/Work/kiwi-run-output/2026-07-31.tph00401-ac7-11-red-rerun13",
+        "selected": 1,
+        "exit_code": 1,
+        "failure_kind": "assertion",
+        "assertion": "valid hidden cache has zero incoming terminal-checkpoint:start frames before reveal",
+        "non_assertion_failures": {
+          "compile": 0,
+          "import": 0,
+          "setup": 0,
+          "runner_timeout": 0,
+          "zero_test": 0
+        },
+        "independent_reviews": {
+          "S1_intent": "No findings",
+          "S2_technical": "No findings",
+          "S3_mapping": "No findings",
+          "S4_red_evidence": "No findings"
+        },
+        "scope": {
+          "production_changed": false,
+          "srs_changed": false,
+          "plan_changed": false,
+          "pm_changed_by_test_task": false
+        },
+        "workflow_integrity": {
+          "mode": "degraded-test-only",
+          "record_append": "workflow_repair_record blocked by existing SRS-W055 unsupported JSONL schema",
+          "green_gate": "Do not begin T-PH004-02 until an official plan/sidecar hash-adoption mutation reconciles the stale PM hashes."
+        }
+      },
+      "green": null,
+      "admitted": false,
+      "note": "This replan records no test execution, implementation, lifecycle, renderer policy, UI, or WebGL/suspend evidence."
+    }
+  },
+  "workflow": {
+    "pm_status": "done confirmed",
+    "pm_status_idempotency_key": "f380693c5f658968ef9eb170d868320603fae90516fefdab1e01b260d50c3542",
+    "worklog_emit": "written",
+    "worklog_emit_idempotency_key": "9ff1b94d0da8301486e57594986718cabaf1e80ba954e1f75a70d61bda9634a6"
+  }
+}

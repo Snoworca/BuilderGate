@@ -1,0 +1,31 @@
+{
+  "name": "kiwi-orchestrator",
+  "agent": "codex",
+  "installedAt": "2026-08-12T05:36:58.439Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "codex",
+  "sourceRoot": "skills/codex",
+  "sourcePath": "skills/codex/kiwi-orchestrator",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/kiwi-orchestrator",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:9d9ea969c4e071ddf23d289fcc1793a5f792b3a1fec3ea479647a9dea880e7b0",
+  "installedChecksum": "sha256:9d9ea969c4e071ddf23d289fcc1793a5f792b3a1fec3ea479647a9dea880e7b0",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/_shared/kiwi",
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md",
+    "_shared/kiwi/pipeline-event.md",
+    "_shared/kiwi/run-ledger.md",
+    "_shared/kiwi/verify-loop.md",
+    "_shared/kiwi/wave-decomposition.md",
+    "_shared/kiwi/wave-srs-registration.md",
+    "_shared/kiwi/waves-event.md",
+    "_shared/kiwi/workmode-policy.md",
+    "_shared/kiwi/worktree-lane.md"
+  ],
+  "refreshCommand": "node bin/speckiwi --root . skills install codex kiwi-orchestrator --dest C:/Work/git/_Snoworca/ProjectMaster/.agents/skills --json",
+  "noManualEdit": true
+}

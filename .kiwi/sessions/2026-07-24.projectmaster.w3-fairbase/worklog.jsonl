@@ -1,0 +1,6 @@
+{"event":"phase_start","ts":"2026-07-23T16:10:08.368Z","run_id":"2026-07-24.projectmaster.w3-fairbase","plan_path":"docs/plans/2026-07-24.projectmaster.w3-fairbase.plan.md","target":"wave-3","mode":"normal","flags":[],"workflow_degraded":{"path":"kiwi/pipeline.jsonl","sha256":"05304ddd2af58123879b795df39268bf96d9e02ef9572feb4e861c9c2afc1bc5","diagnostics":{"SRS-W055":[9,10,11,12],"SRS-W053":[43]},"follow_up_requirement":"MIG-BGSTAB-002"}}
+{"event":"task_start","ts":"2026-07-23T16:10:08.368Z","task_id":"T-PH001-01","phase_id":"PH-001"}
+{"event":"tdd_exempted","ts":"2026-07-23T16:10:08.368Z","task_id":"T-PH001-01","reason":"auto-exempt by type: review"}
+{"event":"checkpoint","ts":"2026-07-24T00:11:03.8775929Z","task_id":"T-PH001-01","resume_hint":"phase-3.1","user_consent":"approved integration verification"}
+{"event":"regression_done","ts":"2026-07-24T00:12:30.2643887Z","task_id":"T-PH001-01","scope":"integration","passed":0,"failed":1,"command":"node tools/wave3/authority-promotion-evidence.test.mjs","failure":"retry evidence attachment count differs: positional all-view handoff (0 !== 1)"}
+{"event":"task_failed","ts":"2026-07-24T00:12:30.2643887Z","task_id":"T-PH001-01","cause":"integration evidence contract mismatch; no product regression conclusion","severity":"HIGH","next_action":"create a separately scoped strict RED-to-GREEN corrective plan"}

@@ -1,0 +1,12 @@
+{
+  "task_id": "T-PH004-04",
+  "phase_id": "PH-004",
+  "status": "done",
+  "tdd_exempted": true,
+  "tdd_exempt_reason": "auto-exempt by type=review",
+  "started_at": "2026-07-17T14:05:00+09:00",
+  "completed_at": "2026-07-17T14:08:37+09:00",
+  "phase1": null,
+  "phase2": {"impl_iters": [], "formal_reviews": [], "prickly_reviews": [], "green_evidence": {"path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/retained-shadow-parity.json", "command": "node tools/wave3/retained-shadow-parity.test.mjs", "exit_code": 0, "passed": 57, "failed": 0, "coverage_axes": 42, "activation": "PASS_FAIL_CLOSED"}, "dod_check": [{"item": "retained-shadow-parity.json is machine-readable and validator passes.", "satisfied": true}, {"item": "All registered fault/cleanup cases are evidenced.", "satisfied": true}]},
+  "phase3": {"regression": {"scope": "artifact-self-test", "passed": 1, "failed": 0}, "mcp_calls": []}
+}

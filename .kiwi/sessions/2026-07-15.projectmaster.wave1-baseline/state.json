@@ -1,0 +1,196 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-07-15.projectmaster.wave1-baseline",
+  "plan_run_id": "2026-07-15.projectmaster.wave1-baseline",
+  "plan_path": "docs/plans/2026-07-15.projectmaster.wave1-baseline.plan.md",
+  "sidecar_path": "docs/plans/2026-07-15.projectmaster.wave1-baseline.sidecar.json",
+  "target": "wave-1",
+  "mode": "normal",
+  "flags": ["--auto", "--auto-cost-warning"],
+  "started_at": "2026-07-15T11:47:50.000Z",
+  "updated_at": "2026-07-15T13:38:04.2337490Z",
+  "frozen_at": null,
+  "current_phase_id": "PH-001",
+  "current_task_id": null,
+  "next_resume_hint": null,
+  "task_queue": [],
+  "completed_task_ids": ["T-PH001-01", "T-PH001-02", "T-PH001-03", "T-PH001-04", "T-PH001-05"],
+  "skipped_task_ids": [],
+  "failed_task_ids": [],
+  "tdd_exempted_task_ids": [],
+  "tdd_pending_task_ids": [],
+  "severity_counters": {
+    "T-PH001-01": {
+      "phase1": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "rounds": 3},
+      "phase2": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "rounds": 0}
+    },
+    "T-PH001-02": {
+      "phase1": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "rounds": 2},
+      "phase2": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "rounds": 2}
+    },
+    "T-PH001-03": {
+      "phase1": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "rounds": 3},
+      "phase2": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "rounds": 2}
+    },
+    "T-PH001-04": {
+      "phase1": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "rounds": 2},
+      "phase2": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "rounds": 4}
+    },
+    "T-PH001-05": {
+      "phase1": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "rounds": 0},
+      "phase2": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 2, "LOW": 0, "rounds": 3}
+    }
+  },
+  "regression_summary": {
+    "last_run_at": "2026-07-15T13:38:04.2337490Z",
+    "scope": "full",
+    "passed": 240,
+    "failed": 1,
+    "regressed_files": [],
+    "known_unrelated_failures": [
+      "frontend/tests/unit/terminalContainerRecoveryContract.test.ts: TerminalContainer retries queued input after visible output recovery finishes"
+    ]
+  },
+  "mcp_call_log": [
+    {
+      "called_at": "2026-07-15T11:58:30.000Z",
+      "tool": "update_status",
+      "args": {
+        "id": "REL-BGSTAB-006",
+        "status": "in_progress",
+        "reason": "T-PH001-01 completed the planned RED contract with three independently verified expected failure signatures; GREEN implementation remains T-PH001-02."
+      },
+      "args_hash": "e1c93c896de608b0c16946c3e85c89b7941ca534",
+      "ok": true,
+      "response_hash": "0e79b39c8adb54fef4bc1b514dea9cc52b711e5f",
+      "dry_run": false,
+      "task_id": "T-PH001-01"
+    },
+    {
+      "called_at": "2026-07-15T12:22:00.000Z",
+      "tool": "add_verification_evidence",
+      "args": {
+        "id": "REL-BGSTAB-006",
+        "type": "test",
+        "reference": "frontend/tests/e2e/wave1-characterization-artifacts.test.ts#TC-REQ-REL-BGSTAB-006-AC1-02",
+        "covers": "AC-1",
+        "notes": "T-PH001-02 GREEN: observation provenance contract passed"
+      },
+      "args_hash": "bd888e0c0d78a7714dd405d1ef09a06e565d8aa3",
+      "ok": true,
+      "response_hash": "2493d45efdee3b94de96b72763376ebc16cf35f4",
+      "dry_run": false,
+      "task_id": "T-PH001-02"
+    },
+    {
+      "called_at": "2026-07-15T12:22:01.000Z",
+      "tool": "add_verification_evidence",
+      "args": {
+        "id": "REL-BGSTAB-006",
+        "type": "test",
+        "reference": "frontend/tests/e2e/wave1-characterization-artifacts.test.ts#TC-REQ-REL-BGSTAB-006-AC4-02",
+        "covers": "AC-4",
+        "notes": "T-PH001-02 GREEN: mismatch row validation and verdict summary contract passed"
+      },
+      "args_hash": "b42c3dd5246c30b37ee545c52b0ea116c0e46941",
+      "ok": true,
+      "response_hash": "aa9f23ed13dfa869f8fb56b9e077906cdf42f377",
+      "dry_run": false,
+      "task_id": "T-PH001-02"
+    },
+    {
+      "called_at": "2026-07-15T12:22:02.000Z",
+      "tool": "add_verification_evidence",
+      "args": {
+        "id": "REL-BGSTAB-006",
+        "type": "test",
+        "reference": "frontend/tests/e2e/wave1-characterization-artifacts.test.ts#TC-REQ-REL-BGSTAB-006-AC5-02",
+        "covers": "AC-5",
+        "notes": "T-PH001-02 GREEN: unresolved/non-activation/non-mutation guard contract passed"
+      },
+      "args_hash": "431da7e9ee8e54a233523c9b7dce595b59ae13ab",
+      "ok": true,
+      "response_hash": "b011f45b8f14dd722c73b1c94f307dfcedfcf204",
+      "dry_run": false,
+      "task_id": "T-PH001-02"
+    },
+    {
+      "called_at": "2026-07-15T12:22:03.000Z",
+      "tool": "add_completed_work",
+      "args": {
+        "date": "2026-07-15",
+        "summary": "[task] T-PH001-02 — Split observation artifact helper GREEN 구현. green=PASS (3/3). files: frontend/tests/e2e/wave1-characterization-artifacts.ts. dod: RED 테스트 모두 통과; build/config/case/source/command/result provenance 보존; disposition unresolved 유지. REL-BGSTAB-006 AC-1/AC-4/AC-5 evidence만 완료하며 AC-2/AC-3은 후속 Task 대상.",
+        "requirementIds": ["REL-BGSTAB-006"],
+        "target": "wave-1",
+        "scope": "BGSTAB",
+        "reportPaths": [".kiwi/sessions/2026-07-15.projectmaster.wave1-baseline/tasks/T-PH001-02.json"],
+        "allowIncomplete": true
+      },
+      "args_hash": "b63fac348193629f27f1fd842450cd522f7adcab",
+      "ok": true,
+      "response_hash": "373b09296f03d4b852aa079ea18f4d986991a7be",
+      "dry_run": false,
+      "task_id": "T-PH001-02"
+    },
+    {
+      "called_at": "2026-07-15T13:12:34.6735559Z",
+      "tool": "add_verification_evidence",
+      "args": {
+        "id": "REL-BGSTAB-006",
+        "type": "test",
+        "reference": "frontend/tests/e2e/wave1-split-characterization.spec.ts#TC-REQ-REL-BGSTAB-006-AC2-02",
+        "covers": "AC-2"
+      },
+      "args_hash": "e3645296983fc7aa9e14de016579470b05e21637",
+      "ok": true,
+      "response_hash": "93a48dd7751e3f57ee0542099f2fe1f7e2ba14e5",
+      "dry_run": false,
+      "task_id": "T-PH001-04"
+    },
+    {
+      "called_at": "2026-07-15T13:12:34.6735559Z",
+      "tool": "add_verification_evidence",
+      "args": {
+        "id": "REL-BGSTAB-006",
+        "type": "test",
+        "reference": "frontend/tests/e2e/wave1-split-characterization.spec.ts#TC-REQ-REL-BGSTAB-006-AC3-02",
+        "covers": "AC-3"
+      },
+      "args_hash": "1939f58baa04670dd5feaaeab8cad416431d50f5",
+      "ok": true,
+      "response_hash": "52f007dda162817de12a272597ab1f49db0f1692",
+      "dry_run": false,
+      "task_id": "T-PH001-04"
+    },
+    {
+      "called_at": "2026-07-15T13:12:34.6735559Z",
+      "tool": "add_completed_work",
+      "args": {
+        "date": "2026-07-15",
+        "requirementIds": ["REL-BGSTAB-006"],
+        "target": "wave-1",
+        "scope": "BGSTAB",
+        "reportPaths": [".kiwi/sessions/2026-07-15.projectmaster.wave1-baseline/tasks/T-PH001-04.json"],
+        "allowIncomplete": true
+      },
+      "args_hash": "40e3cd1f8230ba2587b9ab08cf05fcbd5a55d1c8",
+      "ok": true,
+      "response_hash": "40e3cd1f8230ba2587b9ab08cf05fcbd5a55d1c8",
+      "dry_run": false,
+      "task_id": "T-PH001-04"
+    }
+  ],
+  "pending_mutations": [
+    {
+      "tool": "workflow_worklog_emit",
+      "reason": "SRS-W055 unsupported workflow JSONL schema",
+      "affected_path": ".kiwi/sessions/2026-07-15.projectmaster.wave1-baseline/worklog.jsonl",
+      "follow_up_candidate": "MIG-BGSTAB-001"
+    }
+  ],
+  "tool_versions": {
+    "kiwi_planner": "0.6.0",
+    "kiwi_coder": "0.1.9",
+    "speckiwi": "2.3.1"
+  }
+}

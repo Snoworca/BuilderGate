@@ -1,0 +1,17 @@
+{
+  "task_id": "T-PH002-01",
+  "requirement_id": "OBS-BGSTAB-004",
+  "completed_at": "2026-07-15T14:24:00Z",
+  "tdd": {
+    "phase": "red",
+    "command": "node --experimental-strip-types --test tests/unit/terminalRetainedState.test.ts",
+    "exit_code": 1,
+    "passed": 0,
+    "failed": 2,
+    "failure_signatures": [
+      "OBS-BGSTAB-004 AC-4 contract not implemented",
+      "OBS-BGSTAB-004 AC-6 contract not implemented"
+    ]
+  },
+  "files": ["frontend/tests/unit/terminalRetainedState.test.ts"]
+}

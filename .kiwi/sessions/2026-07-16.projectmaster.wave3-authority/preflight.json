@@ -1,0 +1,19 @@
+{
+  "mcp": true,
+  "cli": "not-used-for-mutation",
+  "halted": false,
+  "node_version": null,
+  "git_repo": true,
+  "active_target": "wave-3",
+  "next_work_order": "T-PH001-01",
+  "workflow_diagnostics": [
+    "SRS-W055",
+    "SRS-W053",
+    "SRS-W051"
+  ],
+  "plan_validator": {
+    "checks": 25,
+    "errors": 0,
+    "warnings": 0
+  }
+}

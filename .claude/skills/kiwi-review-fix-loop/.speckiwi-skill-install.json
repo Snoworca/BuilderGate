@@ -1,20 +1,24 @@
 {
   "name": "kiwi-review-fix-loop",
   "agent": "claude",
-  "installedAt": "2026-07-13T15:01:57.836Z",
+  "installedAt": "2026-08-06T16:13:47.191Z",
   "installMode": "generated-runtime-mirror",
   "sourceAgent": "claude",
   "sourceRoot": "skills/claude",
   "sourcePath": "skills/claude/kiwi-review-fix-loop",
   "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/kiwi-review-fix-loop",
   "sourceRevision": "unknown",
-  "sourceChecksum": "sha256:573fb9b438074a8c9d5f771a03e016226f0a1151f997e19360ebc3b0c6cfbc69",
-  "installedChecksum": "sha256:573fb9b438074a8c9d5f771a03e016226f0a1151f997e19360ebc3b0c6cfbc69",
+  "sourceChecksum": "sha256:4f6684fb8788bcd172fae97b9d42da10fa16ec8dfdcb155ed1df82ce0ec2e346",
+  "installedChecksum": "sha256:4f6684fb8788bcd172fae97b9d42da10fa16ec8dfdcb155ed1df82ce0ec2e346",
   "sourceFileCount": 1,
   "installedFileCount": 1,
   "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.claude/skills/_shared/kiwi",
-  "sharedResourceValidation": "not-required",
-  "sharedResourceReferences": [],
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md",
+    "_shared/kiwi/pipeline-event.md"
+  ],
   "refreshCommand": "node bin/speckiwi --root . skills install claude kiwi-review-fix-loop --dest C:/Work/git/_Snoworca/ProjectMaster/.claude/skills --json",
   "noManualEdit": true
 }

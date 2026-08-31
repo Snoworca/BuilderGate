@@ -1,0 +1,45 @@
+{
+  "task_id": "T-PH003-01",
+  "started_at": "2026-07-15T14:14:00.000Z",
+  "completed_at": "2026-07-15T14:18:00.000Z",
+  "phase1": {
+    "tdd_draft_iters": [
+      {
+        "iter": 1,
+        "file_paths": ["server/src/benchmarks/benchmarkStatistics.test.ts"]
+      }
+    ],
+    "red_evidence": {
+      "command": "npm run build; if ($LASTEXITCODE -eq 0) { node --test dist/benchmarks/benchmarkStatistics.test.js }",
+      "exit_code": 1,
+      "captured_failure": "3/3 exact AC-3, AC-5, AC-7 contract-not-implemented signatures observed after a successful build",
+      "timestamp": "2026-07-15T14:18:00.000Z"
+    },
+    "red_evidence_meta": {
+      "revision": "ca111fef3b5a5a25d3aa488415c929e90ade46fd",
+      "working_tree_dirty": true,
+      "build_exit_code": 0,
+      "failed_tests": 3,
+      "test_case_ids": [
+        "TC-REQ-PERF-BGSTAB-008-AC3-01",
+        "TC-REQ-PERF-BGSTAB-008-AC5-01",
+        "TC-REQ-PERF-BGSTAB-008-AC7-01"
+      ],
+      "matched_signatures": [
+        "PERF-BGSTAB-008 AC-3 contract not implemented",
+        "PERF-BGSTAB-008 AC-5 contract not implemented",
+        "PERF-BGSTAB-008 AC-7 contract not implemented"
+      ],
+      "durable_reference": "docs/analysis/kiwi-coder-2026-07-15.projectmaster.wave1-baseline/ph003-tph003-01-red-evidence.json"
+    }
+  },
+  "phase2": {
+    "red_only_task": true,
+    "implementation_deferred_to": "T-PH003-02",
+    "dod_check": [
+      {"item": "manifest/summary 필드별 RED가 관측된다.", "satisfied": true},
+      {"item": "raw sample 없이 summary를 만들면 실패한다.", "satisfied": true},
+      {"item": "제품 threshold 필드가 있으면 실패한다.", "satisfied": true}
+    ]
+  }
+}

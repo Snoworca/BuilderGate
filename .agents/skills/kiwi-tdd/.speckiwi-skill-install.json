@@ -1,0 +1,23 @@
+{
+  "name": "kiwi-tdd",
+  "agent": "codex",
+  "installedAt": "2026-08-06T16:13:51.648Z",
+  "installMode": "generated-runtime-mirror",
+  "sourceAgent": "codex",
+  "sourceRoot": "skills/codex",
+  "sourcePath": "skills/codex/kiwi-tdd",
+  "installedPath": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/kiwi-tdd",
+  "sourceRevision": "unknown",
+  "sourceChecksum": "sha256:84f1200278484ae6f597520488059249c2a1237594e54ebc37600505a1592a42",
+  "installedChecksum": "sha256:84f1200278484ae6f597520488059249c2a1237594e54ebc37600505a1592a42",
+  "sourceFileCount": 1,
+  "installedFileCount": 1,
+  "sharedResourceRoot": "C:/Work/git/_Snoworca/ProjectMaster/.agents/skills/_shared/kiwi",
+  "sharedResourceValidation": "source-references-validated",
+  "sharedResourceReferences": [
+    "_shared/kiwi/auto-option.md",
+    "_shared/kiwi/loop-option.md"
+  ],
+  "refreshCommand": "node bin/speckiwi --root . skills install codex kiwi-tdd --dest C:/Work/git/_Snoworca/ProjectMaster/.agents/skills --json",
+  "noManualEdit": true
+}

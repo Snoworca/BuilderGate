@@ -1,0 +1,12 @@
+{
+  "task_id": "T-PH004-06",
+  "phase_id": "PH-004",
+  "status": "done",
+  "tdd_exempted": true,
+  "tdd_exempt_reason": "auto-exempt by type=review",
+  "started_at": "2026-07-17T14:09:01+09:00",
+  "completed_at": "2026-07-17T14:11:51+09:00",
+  "phase1": null,
+  "phase2": {"impl_iters": [], "formal_reviews": [], "prickly_reviews": [], "green_evidence": {"path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-004/report.md", "exit_code": 0}, "dod_check": [{"item": "SpecKiwi and GitHub report the same reviewed evidence.", "satisfied": true}, {"item": "No requirement is marked verified before integrated Wave evidence.", "satisfied": true}]},
+  "phase3": {"regression": {"scope": "spec-github-sync", "passed": 2, "failed": 0}, "mcp_calls": [{"tool": "add_verification_evidence/check_acceptance_criteria/update_status/add_completed_work", "ok": true}, {"tool": "gh issue comment 11", "ok": true, "reference": "issuecomment-4999195944"}, {"tool": "gh issue comment 11 closure correction", "ok": true, "reference": "issuecomment-4999298118"}, {"tool": "gh issue comment 11 exact report projection", "ok": true, "reference": "issuecomment-4999321740"}, {"tool": "workflow_pipeline_emit", "ok": false, "fallback": "UTF-8 apply_patch after SRS-W055/SRS-W053"}]}
+}

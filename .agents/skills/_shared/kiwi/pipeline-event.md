@@ -18,6 +18,8 @@
 
 디렉토리 부재 시 현재 OS에 맞는 디렉토리 생성 명령으로 생성한다.
 
+**Run-root pin**: 위 순서는 run 시작 시 한 번만 평가해 root 를 pin 하고, 그 run 의 이후 emit 마다 재해석하지 않는다 — 실행 도중 cwd 나 git root 가 바뀌어도 한 run 의 저널이 두 저장소로 갈라지지 않게 한다.
+
 ---
 
 ## 2. 이벤트 JSON schema (IR-PIPE-001)
@@ -79,6 +81,9 @@ kiwi-commit-auto-pr
 kiwi-hot-fix
 kiwi-review-fix-loop
 kiwi-pipeline
+kiwi-wave-master
+kiwi-orchestrator
+kiwi-tdd
 ```
 
 위 외 값은 invalid (메타 스킬이 WARN + skip).
@@ -100,6 +105,9 @@ kiwi-pipeline
 | kiwi-hot-fix | TASK_DONE | `kiwi-commit-auto-push` 또는 `kiwi-pipeline` (sync 후속 검토 필요 시) |
 | kiwi-commit-auto-push | TASK_DONE | `kiwi-pipeline` (다음 plan or 종료) |
 | kiwi-commit-auto-pr | TASK_DONE | `kiwi-pipeline` (다음 plan or 종료) |
+| kiwi-tdd | TASK_DONE | `kiwi-review-fix-loop` (step 승격 후 셀프 리뷰 게이트) |
+| kiwi-wave-master | TASK_DONE | `null` (종료) |
+| kiwi-orchestrator | TASK_DONE | `null` (종료) — run 은 **자기 통합 브랜치** 위에서 검증까지 마치고 끝난다. base 브랜치로의 commit·push 와 PR 생성은 **의도적으로** 자동 연결하지 않는다 |
 | any | NEEDS_USER | `null` |
 | any | FAILED | `null` |
 | any | DRY_RUN | (직전 동일 skill 의 실제 실행) |
@@ -127,9 +135,10 @@ Add-Content -LiteralPath (Join-Path $pipeDir "pipeline.jsonl") -Value $event -En
 POSIX shell 예시:
 
 ```bash
-PIPE_DIR=$(git rev-parse --show-toplevel 2>/dev/null)/kiwi
-[ -z "$PIPE_DIR" ] && [ -d "./kiwi" ] && PIPE_DIR="./kiwi"
-[ -z "$PIPE_DIR" ] && PIPE_DIR="$HOME/.kiwi"
+PIPE_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -n "$PIPE_ROOT" ]; then PIPE_DIR="$PIPE_ROOT/kiwi"
+elif [ -d "./kiwi" ]; then PIPE_DIR="./kiwi"
+else PIPE_DIR="$HOME/.kiwi"; fi
 mkdir -p "$PIPE_DIR"
 EVENT=$(cat <<'EOF'
 {"ts":"<ISO-8601>","schema_version":"1.0.0","skill":"kiwi-<name>","run_id":"<rid>","target":"<t>","status":"TASK_DONE","summary":"<one-liner>","next_hint":"kiwi-<next>","artifacts":{"spec_files":[],"plan_file":null,"sidecar_file":null,"analysis_dir":null},"dry_run":false}
@@ -152,9 +161,28 @@ Before appending, read pipeline.jsonl if it exists and skip append when any line
 
 `--dry-run` 또는 `KIWI_DRY_RUN=1` 시 이벤트 필드 `dry_run: true` + `status: "DRY_RUN"` (FR-PIPE-001 AC-3). 실제 mutation 없이 추적 가능.
 
-### 5.4 실패 시
+### 5.4 재진입 멱등 키
+
+부모 오케스트레이터(`kiwi-wave-master`)의 개선 위임이 같은 run 을 다시 돌리는 **재진입** 실행은 emit 키에 회차 접미사를 붙인다: `{run_id}#r{n}` (`n` = 그 run 의 재진입 회차, 1-based).
+
+§5.2 의 멱등 skip 은 **같은 키**에만 적용한다 — bare `run_id` 를 재사용하면 재진입이 skip 되어 체인이 볼 새 `TASK_DONE` 이 생기지 않는다.
+
+본 규약은 `kiwi-pipeline` · `kiwi-planner` · `kiwi-pm` 이 함께 따른다 — 세 스킬 모두 run 을 재사용해 다시 실행될 수 있고, 한 곳만 접미사를 쓰면 나머지가 이벤트를 남기지 못한다.
+
+emit 키는 계획 산출물의 `run_id` 와 **다른 id 공간**이다 — 사이드카 id 정규식 `[a-z0-9.-]{4,40}` 은 emit 키에 **적용하지 않는다**. 그 정규식은 계획 산출물의 식별자를 검사하는 규칙이고, emit 키는 저널의 중복 판정에만 쓰인다.
+
+### 5.5 실패 시
 
 emit 실패가 스킬 본 작업의 실패로 이어지면 안 됨 — emit 은 best-effort. 실패 시 stderr WARN + 본 작업 보고는 정상 출력.
+
+
+### 5.6 kiwi-orchestrator emit 경로 (v1.4.0 등록)
+
+`kiwi-orchestrator` 는 §5.1 의 손으로 짠 append 블록을 쓰지 않고 **MCP `workflow_pipeline_emit` 도구**로 emit 한다 — 같은 append 로직을 스킬 본문에 한 번 더 복제하지 않기 위해서다. 다른 모든 스킬은 §5.1 을 그대로 쓴다.
+
+MCP 서버가 부재하면 §5.1 의 shell **fallback** 을 그대로 쓴다. emit 은 §5.5 대로 **best-effort** 이므로, 도구 부재가 run 의 실패가 되어서는 안 된다.
+
+**run 수준(run-level) 이벤트의 emit 키**: bare `{run_id}` 를 쓰고, 재개된 run 은 §5.4 의 `{run_id}#r{n}` 형태를 쓴다. 다른 어떤 emit 키도 이 키와 **충돌하지 않는다** — 하위 unit·lane 은 자기 emit 을 `--no-pipeline-emit` 으로 억제하거나 접미사가 붙은 별도 키를 쓰기 때문이다.
 
 ---
 
