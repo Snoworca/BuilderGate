@@ -15214,12 +15214,16 @@ async function testWsRouterFailsClosedWhenAtomicRestoreAuthorityStaysUnavailable
     });
     router.routeSessionOutput('session-1', 'must-not-leak', 2);
 
+    // The property is that the fence eventually reports, not that it reports
+    // within any particular window. The restore-authority sampling ramp runs to
+    // about a second before it gives up, so a 150ms poll would time out on a
+    // budget that is working as intended.
     for (
       let attempt = 0;
-      attempt < 30 && !sent.some((message) => message.type === 'screen-repair:reconnect-required');
+      attempt < 400 && !sent.some((message) => message.type === 'screen-repair:reconnect-required');
       attempt += 1
     ) {
-      await delay(5);
+      await delay(10);
     }
 
     assert.equal(calls.writeInput.length, 0);

@@ -16,14 +16,14 @@ import { login, sendVisibleTerminalCommand, waitForTerminal } from './helpers';
  * arrived at the client as a `session:error` it could not tell apart from an
  * exited shell.
  *
- * ⚠️ This spec did NOT discriminate when it was written (2026-08-29): it passes
- * with the SessionManager guards reverted as well as with them in place, so its
- * green is not evidence that the guards work. Reverting them by hand and
- * watching this stay green is the measurement, not a hypothetical. It is kept as
- * a guard on the user-visible properties — no overlay, no refusal frames — not
- * as proof of the fix. The discriminating coverage is the unit level:
- * `server/src/services/SessionManagerBusySnapshot.test.ts` and
- * `frontend/tests/unit/sessionCloseClassification.test.ts`.
+ * Discrimination measured 2026-08-31: with the server-side fixes reverted this
+ * spec reports `session:error` in roughly one run in three, and with them in
+ * place ten consecutive runs produced none. It is still a sampling test — a
+ * green run is weaker evidence than the unit coverage in
+ * `server/src/services/SessionManagerBusySnapshot.test.ts`,
+ * `server/src/services/SessionManagerBusyResize.test.ts` and
+ * `server/src/ws/WsRouterRestoreAuthorityBudget.test.ts` — so read a single
+ * failure here as a signal to repeat, not as proof either way.
  */
 
 const SESSION_ENDED = '세션이 종료되었습니다';
@@ -81,7 +81,7 @@ async function readVisibleTerminalText(page: Page) {
 }
 
 
-interface CapturedFrame { type?: string; reason?: string }
+interface CapturedFrame { type?: string; reason?: string; message?: string }
 
 declare global {
   interface Window {
@@ -230,14 +230,13 @@ test.describe('Busy agent survives workspace bounce', () => {
       rejections.filter(frame => frame.reason === 'headless-busy'),
       'the server refused a screen repair for a session that was merely busy',
     ).toEqual([]);
-    // Not asserted: `session:error` is still reachable here. Measured 2026-08-30
-    // over six runs, it appeared in roughly one in three both with and without
-    // the SessionManager guards, so the server side of this is not closed and an
-    // assertion on it would only flap. What must hold regardless is above: the
-    // client no longer turns such an error into a terminated session.
-    const sessionErrors = frames.filter(frame => frame.type === 'session:error');
-    if (sessionErrors.length > 0) {
-      console.log(`session:error still reachable during bounce (${sessionErrors.length})`);
-    }
+    // Asserted again. It was demoted to an observation while the server side was
+    // open: measured 2026-08-30 it appeared in roughly one run in three. After
+    // the restore-authority sampling ramp replaced the 32ms budget, ten
+    // consecutive runs produced none. A running session is not an error.
+    expect(
+      frames.filter(frame => frame.type === 'session:error').map(frame => frame.message),
+      'the server reported a session error for a running session',
+    ).toEqual([]);
   });
 });

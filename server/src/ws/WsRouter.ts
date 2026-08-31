@@ -103,8 +103,23 @@ import { resolveFairTerminalDeliveryPolicy } from '../services/TerminalResourceP
 
 const HEARTBEAT_INTERVAL = 30_000;
 const REPLAY_ACK_TIMEOUT_MS = 5_000;
-const RESTORE_AUTHORITY_RETRY_DELAY_MS = 16;
-const RESTORE_AUTHORITY_MAX_RETRIES = 2;
+/**
+ * Sampling schedule for a restore snapshot that is momentarily unavailable.
+ *
+ * The refusal is momentary — a write is mid-apply — so the answer is to sample
+ * again. The early steps stay short so a settled session is not delayed; the
+ * tail has to outlast a headless write, which three samples over 32ms did not:
+ * a session driven by a redrawing TUI could miss all three and be reported to
+ * the client as an error it reads as an exited shell. The ramp is bounded, so a
+ * session that never settles is still reported.
+ */
+const RESTORE_AUTHORITY_RETRY_BACKOFFS_MS = [16, 16, 32, 64, 128, 256, 512] as const;
+const RESTORE_AUTHORITY_MAX_RETRIES = RESTORE_AUTHORITY_RETRY_BACKOFFS_MS.length;
+
+function restoreAuthorityRetryDelayMs(attempt: number): number {
+  const index = Math.max(0, Math.min(attempt - 1, RESTORE_AUTHORITY_RETRY_BACKOFFS_MS.length - 1));
+  return RESTORE_AUTHORITY_RETRY_BACKOFFS_MS[index]!;
+}
 const SCREEN_REPAIR_ACK_TIMEOUT_MS = 5_000;
 const MAX_RECENT_REPLAY_EVENTS = 256;
 const MAX_REPLAY_QUEUED_INPUT_BYTES = 64 * 1024;
@@ -5567,7 +5582,7 @@ export class WsRouter {
         message: 'Authoritative terminal restore unavailable',
       });
       this.failRestoreAuthorityPending(ws, sessionId);
-    }, RESTORE_AUTHORITY_RETRY_DELAY_MS);
+    }, restoreAuthorityRetryDelayMs(attempt));
     timer.unref();
   }
 
@@ -5601,7 +5616,7 @@ export class WsRouter {
           attempt,
         },
       });
-    }, RESTORE_AUTHORITY_RETRY_DELAY_MS);
+    }, restoreAuthorityRetryDelayMs(attempt));
     timer.unref();
   }
 

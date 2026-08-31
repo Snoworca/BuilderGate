@@ -817,6 +817,11 @@ interface SessionData {
    * disagree; a write still queued behind the chain does not.
    */
   headlessApplyInFlight: number;
+  /**
+   * Retained resizes waiting on the write chain. A later resize must stay
+   * behind them or it would be undone when the earlier one finally applies.
+   */
+  pendingRetainedResizes: number;
   cols: number;
   rows: number;
   screenSeq: number;
@@ -1264,6 +1269,7 @@ export class SessionManager {
       headlessCloseSignal: createDeferredSignal<void>(),
       pendingHeadlessWrites: 0,
       headlessApplyInFlight: 0,
+      pendingRetainedResizes: 0,
       cols,
       rows,
       screenSeq: 0,
@@ -3465,11 +3471,17 @@ export class SessionManager {
   }
 
   private queueRetainedTerminalResize(id: string, data: SessionData, cols: number, rows: number): void {
-    if (data.pendingHeadlessWrites === 0) {
+    // Queued output is not a reason to wait. Resizing between writes is what
+    // would have happened had the resize arrived a moment earlier, and a session
+    // producing output continuously never empties the chain — the geometry would
+    // land late, and until it did every screen repair would answer
+    // `geometry-mismatch` and push the browser toward a reconnect.
+    if (data.headlessApplyInFlight === 0 && data.pendingRetainedResizes === 0) {
       this.applyRetainedTerminalResize(id, data, cols, rows);
       return;
     }
     data.pendingHeadlessWrites += 1;
+    data.pendingRetainedResizes += 1;
     data.headlessWriteChain = data.headlessWriteChain
       .then(() => {
         if (this.isActiveSession(id, data)) this.applyRetainedTerminalResize(id, data, cols, rows);
@@ -3481,6 +3493,7 @@ export class SessionManager {
       })
       .finally(() => {
         data.pendingHeadlessWrites = Math.max(0, data.pendingHeadlessWrites - 1);
+        data.pendingRetainedResizes = Math.max(0, data.pendingRetainedResizes - 1);
       });
   }
 
