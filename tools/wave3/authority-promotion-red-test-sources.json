@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "authority-promotion-red-test-sources/v1",
+  "phaseId": "PH-005",
+  "taskId": "T-PH005-01",
+  "files": {
+    "frontend/tests/e2e/wave3-terminal-authority-promotion.spec.ts": "ac62d65300c73d1197078bb94b904a294b2315a60f9cb6df4e29dbdf50392d6f",
+    "frontend/tests/unit/terminalCheckpointRuntime.test.ts": "1eb7c0f3a3af1c61725070383fbd5b4362bce313d1edaf26de7de67aa2025cb2",
+    "frontend/tests/unit/terminalInputSequencer.test.ts": "d38e08412cba8363d337d3fb65e85d24e98bb138831d9618fc613947722e1078",
+    "frontend/tests/unit/terminalQueryReply.test.ts": "af7cdeba62dc3ea899a1e7926d7413b25f559ece7128f3e9c711140f2162a37e",
+    "server/src/services/TerminalAuthorityController.test.ts": "4d505434db1ba99dbd403f02ac124a7f8fd21b96ce3be103d3da6bbabaf181a2",
+    "server/src/utils/terminalQueryResponder.test.ts": "81ac127c66ba1b3ac86c83a0e933d33d66b5a5b704a3c7bb6ddc283581f817ff",
+    "server/src/ws/WsRouterRestoreMetadata.test.ts": "593dd4959a447de2f4b68e97461fe42a0c4c0e65d346805ef8ec0396419c0be4",
+    "tools/wave3/authority-promotion-evidence.test.mjs": "a4a36900c3a54098af20daa936f372db05e6d777150d2f3155b4b348840fb8d0"
+  }
+}

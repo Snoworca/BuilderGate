@@ -304,7 +304,7 @@ test('queryProcessInfo bounds Windows process probe and preserves running state 
   });
 });
 
-test('queryProcessInfo treats a missing Windows process probe result as not running', () => {
+test('queryProcessInfo keeps a live Windows PID when the identity probe returns a nonzero status', () => {
   const pid = process.pid;
   const result = queryProcessInfo(pid, {
     platform: 'win32',
@@ -314,7 +314,54 @@ test('queryProcessInfo treats a missing Windows process probe result as not runn
     }),
   });
 
-  assert.deepEqual(result, { pid, running: false });
+  assert.deepEqual(result, {
+    pid,
+    running: true,
+    executablePath: null,
+    commandLine: null,
+    cwd: null,
+    startTime: null,
+  });
+});
+
+test('queryProcessInfo keeps a live Windows PID when the identity probe returns empty output', () => {
+  const pid = process.pid;
+  const result = queryProcessInfo(pid, {
+    platform: 'win32',
+    spawnSyncFn: () => ({
+      status: 0,
+      stdout: '',
+    }),
+  });
+
+  assert.deepEqual(result, {
+    pid,
+    running: true,
+    executablePath: null,
+    commandLine: null,
+    cwd: null,
+    startTime: null,
+  });
+});
+
+test('queryProcessInfo keeps a live Windows PID when the identity probe returns malformed output', () => {
+  const pid = process.pid;
+  const result = queryProcessInfo(pid, {
+    platform: 'win32',
+    spawnSyncFn: () => ({
+      status: 0,
+      stdout: '{not-json',
+    }),
+  });
+
+  assert.deepEqual(result, {
+    pid,
+    running: true,
+    executablePath: null,
+    commandLine: null,
+    cwd: null,
+    startTime: null,
+  });
 });
 
 test('validateDaemonSentinelProcess requires state path and start attempt markers when expected', async () => {

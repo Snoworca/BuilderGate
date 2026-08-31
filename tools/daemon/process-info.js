@@ -150,12 +150,9 @@ function queryWindowsProcessInfo(pid, options = {}) {
     windowsHide: true,
   });
 
-  if (result.error?.code === 'ETIMEDOUT') {
+  // A failed identity probe after liveness succeeds is not evidence that the PID exited.
+  if (result.error?.code === 'ETIMEDOUT' || result.status !== 0 || !result.stdout.trim()) {
     return { pid, running: true, executablePath: null, commandLine: null, cwd: null, startTime: null };
-  }
-
-  if (result.status !== 0 || !result.stdout.trim()) {
-    return { pid, running: false };
   }
 
   const parsed = JSON.parse(result.stdout);

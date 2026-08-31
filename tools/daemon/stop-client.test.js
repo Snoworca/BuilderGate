@@ -212,6 +212,44 @@ test('stopDaemon refuses fatal-state port owner cleanup when process identity do
   assert.equal(nextState.status, 'fatal');
 });
 
+test('stopDaemon refuses fatal-state port owner cleanup when identity is unknown', async () => {
+  const paths = createFixturePaths('buildergate-stop-fatal-port-owner-unknown-');
+  const state = createRunningState(paths, {
+    status: 'fatal',
+    appPid: 53501,
+    sentinelPid: 53502,
+    fatalStage: 'app-startup',
+    fatalReason: 'readiness identity mismatch',
+  });
+  writeStateAtomic(paths.statePath, state);
+  const killed = [];
+
+  const result = await stopDaemon(paths, {
+    now: new Date('2026-04-27T00:00:15.000Z'),
+    findPortOwnerProcess: async () => 63501,
+    processExists: (pid) => pid === 63501,
+    processInfoProvider: async (pid) => ({
+      pid,
+      running: true,
+      executablePath: null,
+      commandLine: null,
+      cwd: null,
+      startTime: null,
+    }),
+    killProcess: (pid) => {
+      killed.push(pid);
+      return true;
+    },
+  });
+  const nextState = readState(paths.statePath);
+
+  assert.equal(result.exitCode, 2);
+  assert.equal(result.status, 'validation-failed');
+  assert.match(result.message, /port owner/i);
+  assert.deepEqual(killed, []);
+  assert.equal(nextState.status, 'fatal');
+});
+
 test('stopDaemon recovers fatal app-startup state regardless of fatal reason when port owner validates', async () => {
   const paths = createFixturePaths('buildergate-stop-fatal-port-owner-timeout-');
   const state = createRunningState(paths, {

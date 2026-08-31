@@ -70,7 +70,7 @@ test('runSentinelTick refreshes heartbeat while daemon state is running', async 
   assert.notEqual(nextState.updatedAt, running.updatedAt);
 });
 
-test('runSentinelTick refreshes heartbeat when app process metadata is unavailable but PID is running', async () => {
+test('runSentinelTick preserves the live unknown identity epoch while refreshing heartbeat', async () => {
   const { paths, running } = createFixture({ appPid: 49001, sentinelPid: 49002 });
   const fixedNow = new Date('2026-04-27T00:00:20.000Z');
   const spawns = [];
@@ -99,6 +99,9 @@ test('runSentinelTick refreshes heartbeat when app process metadata is unavailab
   assert.deepEqual(spawns, []);
   assert.equal(nextState.status, 'running');
   assert.equal(nextState.appPid, running.appPid);
+  assert.equal(nextState.startAttemptId, running.startAttemptId);
+  assert.equal(nextState.stateGeneration, running.stateGeneration);
+  assert.equal(nextState.restartCount, running.restartCount);
   assert.equal(nextState.heartbeatAt, fixedNow.toISOString());
 });
 
@@ -181,6 +184,35 @@ test('runSentinelTick restarts an abnormally exited app with backoff and restart
   assert.equal(nextState.lastExitCode, 9);
   assert.equal(nextState.heartbeatAt, fixedNow.toISOString());
   assert.equal(spawns[0].paths.logPath, paths.logPath);
+});
+
+test('runSentinelTick restarts when the process-info provider confirms app PID liveness failure', async () => {
+  const fixedNow = new Date('2026-04-27T00:00:00.000Z');
+  const { paths, running } = createFixture({ appPid: 41101, sentinelPid: 41102 });
+  const spawns = [];
+
+  const result = await runSentinelTick({
+    statePath: paths.statePath,
+    startAttemptId: running.startAttemptId,
+    logPath: paths.sentinelLogPath,
+    now: () => fixedNow,
+    processInfoProvider: async (pid) => ({ pid, running: false }),
+    sleep: async () => {},
+    restartPreflight: async () => {},
+    spawnApp: async () => {
+      spawns.push('spawned');
+      return { pid: 42101 };
+    },
+    waitForReadiness: async ({ state }) => ({ ok: true, identity: state }),
+  });
+  const nextState = readState(paths.statePath);
+
+  assert.equal(result, 'restart');
+  assert.deepEqual(spawns, ['spawned']);
+  assert.equal(nextState.appPid, 42101);
+  assert.equal(nextState.restartCount, running.restartCount + 1);
+  assert.equal(nextState.stateGeneration, running.stateGeneration + 1);
+  assert.match(nextState.lastExitCode, /app PID 41101 is not running/);
 });
 
 test('runSentinelTick treats app PID identity mismatch as exited instead of refreshing heartbeat', async () => {
