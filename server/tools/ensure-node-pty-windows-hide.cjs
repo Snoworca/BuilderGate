@@ -11,6 +11,18 @@ const patches = [
     before: "child_process_1.fork(path.join(__dirname, 'conpty_console_list_agent'), [_this._innerPid.toString()])",
     after: "child_process_1.fork(path.join(__dirname, 'conpty_console_list_agent'), [_this._innerPid.toString()], { windowsHide: true })",
   },
+  {
+    label: 'node-pty ConPTY console-list attach fallback',
+    file: path.join(NODE_PTY_DIR, 'lib', 'conpty_console_list_agent.js'),
+    before: 'var consoleProcessList = getConsoleProcessList(shellPid);\nprocess.send({ consoleProcessList: consoleProcessList });',
+    after: 'var consoleProcessList;\ntry {\n    consoleProcessList = getConsoleProcessList(shellPid);\n}\ncatch (_a) {\n    consoleProcessList = [shellPid];\n}\nprocess.send({ consoleProcessList: consoleProcessList });',
+  },
+  {
+    label: 'node-pty ConPTY natural-exit input pipe cleanup',
+    file: path.join(NODE_PTY_DIR, 'lib', 'windowsPtyAgent.js'),
+    before: 'this._inSocket.readable = false;\n        this._outSocket.readable = false;\n        this._outSocket.destroy();',
+    after: "this._inSocket.readable = false;\n        this._outSocket.readable = false;\n        this._inSocket.on('error', function () { });\n        this._inSocket.destroy();\n        this._outSocket.destroy();",
+  },
 ];
 
 function ensurePatch(options = {}) {
@@ -36,8 +48,8 @@ function ensurePatch(options = {}) {
   }
 
   log(changed
-    ? '[prebuild] node-pty Windows hidden-console patch applied.'
-    : '[prebuild] node-pty Windows hidden-console patch already applied.');
+    ? '[prebuild] node-pty Windows runtime patches applied.'
+    : '[prebuild] node-pty Windows runtime patches already applied.');
   return changed;
 }
 

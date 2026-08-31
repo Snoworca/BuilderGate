@@ -14,6 +14,7 @@ import {
 import { getConfigPath } from '../utils/config.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import { normalizeRawConfigForPlatform } from '../utils/ptyPlatformPolicy.js';
+import { registerTerminalResourceConfigProvenance } from './TerminalResourcePolicy.js';
 
 interface SecretPatch {
   authPassword?: string;
@@ -570,7 +571,8 @@ function findCommentStart(rawValue: string): number {
 }
 
 function parseConfigForPlatform(rawConfig: Record<string, unknown>, platform: NodeJS.Platform): Config {
-  return configSchema.parse(normalizeRawConfigForPlatform(rawConfig, platform)) as Config;
+  const parsed = configSchema.parse(normalizeRawConfigForPlatform(rawConfig, platform)) as Config;
+  return registerTerminalResourceConfigProvenance(parsed, rawConfig, 'config-repository');
 }
 
 function insertNestedSection(renderedLines: string[], parentPath: string, sectionName: string, bodyLines: string[]): boolean {

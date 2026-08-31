@@ -31,8 +31,10 @@ import {
   parseFrameMessage,
   prologueBytes,
   rejectionGrade,
+  RESPONDER_LEASE_ID_MAX_BYTES,
   type BinaryDecodeContext,
   type BinaryWireMessage,
+  type CheckpointStartPrologue,
   type ChannelState,
   type DecodedFrame,
 } from './binaryFrameCodec.js';
@@ -218,6 +220,21 @@ function toWireMessage(raw: Record<string, any>): BinaryWireMessage {
   }
   if (raw.opcode === DATA_PLANE_OPCODE.SCREEN_SNAPSHOT) {
     return { opcode: DATA_PLANE_OPCODE.SCREEN_SNAPSHOT, ...head, prologue: raw.prologue, body };
+  }
+  if (raw.opcode === DATA_PLANE_OPCODE.CHECKPOINT_START) {
+    // The two 32-byte digests live in the fixture as hex so the file stays
+    // reviewable byte-for-byte against its own `layout` rows.
+    const { digestHex, retainedStateDigestHex, ...rest } = raw.prologue as Record<string, any>;
+    return {
+      opcode: DATA_PLANE_OPCODE.CHECKPOINT_START,
+      ...head,
+      prologue: {
+        ...rest,
+        digest: hexToBytes(String(digestHex)),
+        retainedStateDigest: hexToBytes(String(retainedStateDigestHex)),
+      } as CheckpointStartPrologue,
+      body,
+    };
   }
   if (raw.opcode === DATA_PLANE_OPCODE.CHECKPOINT_CHUNK) {
     return { opcode: DATA_PLANE_OPCODE.CHECKPOINT_CHUNK, ...head, prologue: raw.prologue, body };
@@ -687,7 +704,7 @@ test('the rejection code inventory matches 01:934-943 exactly and grades them', 
   // differ on exactly that.
   assert.deepEqual(
     [...DECODER_POLICY_CODES].sort(),
-    ['mandatory-flag-cleared', 'payload-limit-exceeded', 'payload-underrun'],
+    ['mandatory-flag-cleared', 'payload-limit-exceeded', 'payload-underrun', 'prologue-domain-violation'],
   );
   for (const code of DECODER_POLICY_CODES) {
     assert.ok(!(WIRE_REJECTION_CODES as readonly string[]).includes(code), `${code} must not shadow a wire code`);
@@ -698,6 +715,10 @@ test('the rejection code inventory matches 01:934-943 exactly and grades them', 
   // layout). What is in doubt is the peer's encoder, and the remedy is connection
   // -level renegotiation — not skipping one frame.
   assert.equal(rejectionGrade('mandatory-flag-cleared'), 'fatal');
+  // Scoped for the same reason as payload-limit-exceeded: payloadLength agrees
+  // with the buffer, so frameEnd is trustworthy and only this frame is in doubt.
+  // What is wrong is the prologue's content, not the framing.
+  assert.equal(rejectionGrade('prologue-domain-violation'), 'scoped');
 });
 
 // ---------------------------------------------------------------------------
@@ -743,8 +764,11 @@ test('prologue sizes match 01 section 1.8', () => {
   assert.equal(prologueBytes(DATA_PLANE_OPCODE.OUTPUT), 24);
   assert.equal(prologueBytes(DATA_PLANE_OPCODE.SCREEN_SNAPSHOT), 24);
   assert.equal(prologueBytes(DATA_PLANE_OPCODE.CHECKPOINT_CHUNK), 12);
-  // 01 section 1.8 defines no prologue layout for 0x03/0x04/0x06/0x07.
-  for (const op of [0x03, 0x04, 0x06, 0x07]) assert.equal(prologueBytes(op), 0, String(op));
+  // 07 section 2.6.1 gave 0x04 a layout: 160 bytes of section 2.9 plus the
+  // 40-byte responderLeaseId slot.
+  assert.equal(prologueBytes(DATA_PLANE_OPCODE.CHECKPOINT_START), 200);
+  // 01 section 1.8 still defines none for 0x03/0x06/0x07.
+  for (const op of [0x03, 0x06, 0x07]) assert.equal(prologueBytes(op), 0, String(op));
 });
 
 test('frames whose opcode has no v1 prologue schema decode as opaque, not as a rejection', () => {
@@ -879,4 +903,324 @@ test('a group whose codec is JSON never yields frames, whatever the bytes are', 
 
   assert.deepEqual(result.frames, []);
   assert.equal(result.fatal?.code, 'binary-frame-on-json-group');
+});
+
+// ---------------------------------------------------------------------------
+// 8. 0x04 CHECKPOINT_START prologue — 07 section 2.6.1 / 2.9.
+//
+// The 40 bytes at off 160 exist because `responderLeaseId` is on the wire
+// (Controller.ts:1592 injects it into every rollback checkpoint message) and the
+// client compares it (terminalCheckpointRuntime.ts:522) before it inherits
+// anything. A fixed-width slot keeps `prologueBytes` a pure function of opcode,
+// which is what 01:108 and 01:518 rest the D14 safety argument on.
+// ---------------------------------------------------------------------------
+
+const CHECKPOINT_START_PROLOGUE_BYTES = 200;
+const LEASE_PRESENT = 0x0010;
+const ROLLBACK_LEASE = 'responder-browser-9';
+
+function checkpointStartMessage(
+  overrides: Partial<CheckpointStartPrologue> = {},
+  body = new Uint8Array(0),
+): BinaryWireMessage {
+  return {
+    opcode: DATA_PLANE_OPCODE.CHECKPOINT_START,
+    flags: defaultFlagsForOpcode(DATA_PLANE_OPCODE.CHECKPOINT_START, { endOfBatch: true }),
+    channelId: 1,
+    streamEpoch: '7',
+    sourceSeq: '41',
+    prologue: {
+      checkpointSourceSeq: '41',
+      viewGeneration: 3,
+      chunkCount: 2,
+      checkpointStreamEpoch: '7',
+      checkpointEpoch: '11',
+      snapshotSeq: '12',
+      oldestRetainedSeq: '5',
+      transitionEpoch: '0',
+      boundarySourceSeq: '0',
+      encodedByteTotal: 64,
+      cols: 80,
+      rows: 24,
+      authorityEpochIndex: 0,
+      flags2: 0,
+      modesPresentMask: 0,
+      modesValueMask: 0,
+      retainedActiveBuffer: 0,
+      retainedCursorX: 0,
+      retainedCursorY: 0,
+      retainedSavedCursorX: 0,
+      retainedSavedCursorY: 0,
+      digest: new Uint8Array(32),
+      retainedStateDigest: new Uint8Array(32),
+      ...overrides,
+    },
+    body,
+  };
+}
+
+test('0x04 has a 200-byte prologue and it is a pure function of the opcode', () => {
+  assert.equal(prologueBytes(DATA_PLANE_OPCODE.CHECKPOINT_START), CHECKPOINT_START_PROLOGUE_BYTES);
+  // The size must not depend on whether the lease slot is populated — that is the
+  // property 01:108 names, and the only reason bit3 can be graded fatal without
+  // claiming the decoder would misread the layout.
+  const withLease = checkpointStartMessage({ flags2: LEASE_PRESENT, responderLeaseId: ROLLBACK_LEASE });
+  const withoutLease = checkpointStartMessage();
+  assert.equal(frameByteLength(withLease), frameByteLength(withoutLease));
+  assert.equal(frameByteLength(withoutLease), FRAME_HEADER_BYTES + CHECKPOINT_START_PROLOGUE_BYTES);
+});
+
+test('0x04 round-trips a rollback lease and a promotion absence distinctly', () => {
+  const rollback = checkpointStartMessage({ flags2: LEASE_PRESENT, responderLeaseId: ROLLBACK_LEASE });
+  const decodedRollback = parseFrameMessage(
+    decodeWsMessage(encodeFrame(rollback), buildContext()).frames[0]!,
+  );
+  assert.equal(decodedRollback?.opcode, DATA_PLANE_OPCODE.CHECKPOINT_START);
+  assert.deepEqual(decodedRollback, rollback);
+
+  const promotion = checkpointStartMessage();
+  const decodedPromotion = parseFrameMessage(
+    decodeWsMessage(encodeFrame(promotion), buildContext()).frames[0]!,
+  ) as { prologue: CheckpointStartPrologue } | undefined;
+  assert.deepEqual(decodedPromotion, promotion);
+  // Absence must be a MISSING KEY, never ''. An empty string passes the client's
+  // own `matchesTransactionIdentity` ('' === '') and then dies server-side on the
+  // ACK echo at Adapter.ts:790 — the worst diagnostic path there is.
+  assert.equal('responderLeaseId' in (decodedPromotion!.prologue as object), false);
+});
+
+test('the 38-byte lease bound still equals what it was derived from', () => {
+  // 38 is derived, not chosen: the prefix plus the widest Ordinal64. Lowering the
+  // constant without changing the template would start rejecting real leases at
+  // the top of the epoch range, where nothing else would notice until it happened.
+  const prefixBytes = Buffer.byteLength('responder-browser-', 'utf8');
+  const widestOrdinal64 = String(2n ** 64n - 1n).length;
+  assert.equal(prefixBytes, 18);
+  assert.equal(widestOrdinal64, 20);
+  assert.equal(RESPONDER_LEASE_ID_MAX_BYTES, prefixBytes + widestOrdinal64);
+
+  // The compatibility-recovery generator appends `-runtime-N`, so at the top of
+  // the epoch range it is past the bound and this encoder would throw. It reaches
+  // `terminal-checkpoint:start` through exactly one producer
+  // (TerminalAuthorityProductionAdapter.ts:4442) which uses the unsuffixed form.
+  // Pin the overflow so a future widening of the bound has to confront it.
+  const widestSuffixed = `responder-browser-${'9'.repeat(widestOrdinal64)}-runtime-9`;
+  assert.ok(
+    Buffer.byteLength(widestSuffixed, 'utf8') > RESPONDER_LEASE_ID_MAX_BYTES,
+    'the suffixed form must remain out of bounds; only the unsuffixed one may reach this encoder',
+  );
+  assert.throws(
+    () => encodeFrame(checkpointStartMessage({
+      flags2: LEASE_PRESENT,
+      responderLeaseId: widestSuffixed,
+    })),
+    /responderLeaseId/u,
+  );
+});
+
+test('0x04 carries a lease at the derived 38-byte bound', () => {
+  // 'responder-browser-' is 18 bytes; an Ordinal64 is at most 20 decimal digits.
+  const maxLease = 'responder-browser-' + '1'.repeat(20);
+  assert.equal(Buffer.byteLength(maxLease, 'utf8'), 38);
+
+  const message = checkpointStartMessage({ flags2: LEASE_PRESENT, responderLeaseId: maxLease });
+  const decoded = parseFrameMessage(decodeWsMessage(encodeFrame(message), buildContext()).frames[0]!);
+  assert.deepEqual(decoded, message);
+});
+
+test('0x04 encoder rejects a lease past the bound and a flags2 that disagrees with it', () => {
+  assert.throws(
+    () => encodeFrame(checkpointStartMessage({
+      flags2: LEASE_PRESENT,
+      responderLeaseId: 'responder-browser-' + '1'.repeat(21),
+    })),
+    /responderLeaseId/u,
+  );
+  // The presence bit and the field are two representations of one fact; letting
+  // them disagree is how '' and undefined start to blur.
+  assert.throws(
+    () => encodeFrame(checkpointStartMessage({ flags2: 0, responderLeaseId: ROLLBACK_LEASE })),
+    /RESPONDER_LEASE_ID_PRESENT/u,
+  );
+  assert.throws(
+    () => encodeFrame(checkpointStartMessage({ flags2: LEASE_PRESENT })),
+    /RESPONDER_LEASE_ID_PRESENT/u,
+  );
+});
+
+test('0x04 decoder rejects every prologue domain violation, scoped not fatal', () => {
+  const base = encodeFrame(checkpointStartMessage({
+    flags2: LEASE_PRESENT,
+    responderLeaseId: ROLLBACK_LEASE,
+  }));
+  const at = (offset: number) => FRAME_HEADER_BYTES + offset;
+
+  const mutate = (edit: (bytes: Uint8Array) => void) => {
+    const bytes = base.slice();
+    edit(bytes);
+    return decodeWsMessage(bytes, buildContext());
+  };
+
+  // Control: the unmutated frame decodes cleanly. Without it every case below
+  // could pass because the fixture never decoded at all.
+  assert.deepEqual(decodeWsMessage(base.slice(), buildContext()).scoped, []);
+
+  const lengthPastBound = mutate(bytes => { bytes[at(160)] = 39; });
+  assert.equal(lengthPastBound.scoped[0]?.code, 'prologue-domain-violation');
+  assert.equal(rejectionGrade('prologue-domain-violation'), 'scoped');
+  assert.equal(lengthPastBound.fatal, undefined, 'a bad prologue must not discard the rest of the batch');
+
+  // The slot has to be cleared as well. Zeroing only the length byte leaves the
+  // old lease bytes in place, so the padding clause fires and this case passes
+  // even with the zero-length clause deleted -- it pinned nothing.
+  const presentButEmpty = mutate(bytes => {
+    bytes[at(160)] = 0;
+    bytes.fill(0, at(161), at(200));
+  });
+  assert.equal(presentButEmpty.scoped[0]?.code, 'prologue-domain-violation');
+
+  const absentButPopulated = mutate(bytes => { bytes[at(75)] &= ~LEASE_PRESENT; });
+  assert.equal(absentButPopulated.scoped[0]?.code, 'prologue-domain-violation');
+
+  const dirtyPadding = mutate(bytes => { bytes[at(199)] = 1; });
+  assert.equal(dirtyPadding.scoped[0]?.code, 'prologue-domain-violation');
+
+  const reservedFlags2 = mutate(bytes => { bytes[at(74)] |= 0x01; });
+  assert.equal(reservedFlags2.scoped[0]?.code, 'prologue-domain-violation');
+
+  const dirtyReservedByte = mutate(bytes => { bytes[at(79)] = 1; });
+  assert.equal(dirtyReservedByte.scoped[0]?.code, 'prologue-domain-violation');
+
+  const invalidUtf8 = mutate(bytes => { bytes[at(161)] = 0xff; });
+  assert.equal(invalidUtf8.scoped[0]?.code, 'prologue-domain-violation');
+});
+
+const RETAINED_STATE_PRESENT = 0x0001;
+const TRANSITION_EPOCH_PRESENT = 0x0002;
+const BOUNDARY_SOURCE_SEQ_PRESENT = 0x0004;
+const SAVED_CURSOR_NON_NULL = 0x0008;
+
+/**
+ * Every case below mutates exactly one thing away from a prologue that decodes
+ * cleanly, so a rejection cannot be credited to the wrong clause. The shared
+ * control asserts the unmutated frame is accepted -- without it each case could
+ * pass because the fixture never decoded at all.
+ */
+function assertEachCaseRejected(
+  base: Uint8Array,
+  cases: ReadonlyArray<readonly [string, (bytes: Uint8Array, view: DataView) => void]>,
+): void {
+  assert.deepEqual(
+    decodeWsMessage(base.slice(), buildContext()).scoped,
+    [],
+    'control: the unmutated frame must decode cleanly',
+  );
+  for (const [label, edit] of cases) {
+    const bytes = base.slice();
+    edit(bytes, new DataView(bytes.buffer, bytes.byteOffset));
+    const result = decodeWsMessage(bytes, buildContext());
+    assert.equal(result.scoped[0]?.code, 'prologue-domain-violation', label);
+    assert.equal(result.fatal, undefined, `${label} must stay scoped, not fatal`);
+  }
+}
+
+test('0x04 decoder rejects the 07 section 2.11 value-domain violations', () => {
+  // bit0 set so the retained-state fields are legitimately in play; otherwise a
+  // mutation to off 78 would trip the presence clause instead of the range one.
+  const base = encodeFrame(checkpointStartMessage({
+    flags2: RETAINED_STATE_PRESENT,
+    retainedActiveBuffer: 1,
+    retainedStateDigest: new Uint8Array(32).fill(0x22),
+  }));
+  const at = (offset: number) => FRAME_HEADER_BYTES + offset;
+
+  assertEachCaseRejected(base, [
+    ['chunkCount 0 (07:394 requires positive)', (_b, v) => v.setUint32(at(12), 0)],
+    ['cols 0 (07:492)', (_b, v) => v.setUint16(at(68), 0)],
+    ['rows 0 (07:492)', (_b, v) => v.setUint16(at(70), 0)],
+    ['retainedActiveBuffer 2 (07:493)', b => { b[at(78)] = 2; }],
+    ['modesValueMask outside modesPresentMask (07:494)', b => { b[at(76)] = 0x01; b[at(77)] = 0x02; }],
+  ]);
+});
+
+test('0x04 decoder rejects a cleared presence bit whose field carries a value', () => {
+  // 07 section 2.9 spells each of these as "valid only when bit N = 1". A decoder
+  // that returns the bytes anyway fabricates a value the server never asserted --
+  // and the client compares boundarySourceSeq as strictly as the lease
+  // (terminalCheckpointRuntime.ts:522 vs :523), so a fabricated '0' there
+  // mismatches every subsequent chunk instead of failing once, loudly.
+  const base = encodeFrame(checkpointStartMessage());
+  const at = (offset: number) => FRAME_HEADER_BYTES + offset;
+
+  assertEachCaseRejected(base, [
+    ['transitionEpoch set with bit1 clear (07:399)', (_b, v) => v.setUint32(at(52), 99)],
+    ['boundarySourceSeq set with bit2 clear (07:400)', (_b, v) => v.setUint32(at(60), 41)],
+    ['retainedActiveBuffer set with bit0 clear (07:408)', b => { b[at(78)] = 1; }],
+    ['retainedStateDigest set with bit0 clear (07:415)', b => { b[at(128)] = 0xab; }],
+    ['retainedSavedCursorX set with bit3 clear (07:412)', (_b, v) => v.setUint32(at(88), 7)],
+    ['retainedSavedCursorY set with bit3 clear (07:412)', (_b, v) => v.setUint32(at(92), 7)],
+    ['SAVED_CURSOR_NON_NULL set with bit0 clear (07:496)', b => { b[at(75)] |= SAVED_CURSOR_NON_NULL; }],
+  ]);
+});
+
+test('0x04 round-trips every prologue field at a distinct non-zero value', () => {
+  // Nine fields were only ever encoded as 0, so their offsets, widths and
+  // endianness were unpinned: an encoder that wrote constant 0 for all of them
+  // passed the whole suite. Distinct values make a swapped pair fail too.
+  const message = checkpointStartMessage({
+    flags2: RETAINED_STATE_PRESENT | TRANSITION_EPOCH_PRESENT
+      | BOUNDARY_SOURCE_SEQ_PRESENT | SAVED_CURSOR_NON_NULL,
+    transitionEpoch: '4294967297',
+    boundarySourceSeq: '4294967298',
+    authorityEpochIndex: 0x1234,
+    modesPresentMask: 0xff,
+    modesValueMask: 0xa5,
+    retainedActiveBuffer: 1,
+    retainedCursorX: 0x11223344,
+    retainedCursorY: 0x55667788,
+    retainedSavedCursorX: 0x99aabbcc,
+    retainedSavedCursorY: 0xddeeff00,
+    retainedStateDigest: new Uint8Array(32).fill(0x22),
+  });
+  const decoded = parseFrameMessage(
+    decodeWsMessage(encodeFrame(message), buildContext()).frames[0]!,
+  );
+  assert.deepEqual(decoded, message);
+});
+
+test('0x04 encoder refuses a prologue it would have to encode inconsistently', () => {
+  // Each of these guards exists but nothing pinned it, so deleting any one of
+  // them left the suite green while the server emitted a frame its own decoder
+  // rejects.
+  assert.throws(
+    () => encodeFrame(checkpointStartMessage({ flags2: 0x0020 })),
+    /flags2/u,
+    'a reserved flags2 bit must not reach the wire',
+  );
+  assert.throws(
+    () => encodeFrame(checkpointStartMessage({ digest: new Uint8Array(31) })),
+    /32 bytes/u,
+    'a short digest must not be padded silently',
+  );
+  assert.throws(
+    () => encodeFrame(checkpointStartMessage({
+      flags2: LEASE_PRESENT,
+      responderLeaseId: '',
+    })),
+    /empty/u,
+    'an empty lease declared present would decode as a missing key',
+  );
+});
+
+test('0x04 declaring less than its prologue underruns fatally', () => {
+  // The buffer has to shrink with the declared length, otherwise frameEnd lands
+  // short of the end and `batch-terminated-early` fires first -- which would make
+  // this test pass for the wrong reason.
+  const full = encodeFrame(checkpointStartMessage());
+  const short = full.slice(0, FRAME_HEADER_BYTES + CHECKPOINT_START_PROLOGUE_BYTES - 1);
+  new DataView(short.buffer, short.byteOffset).setUint32(24, CHECKPOINT_START_PROLOGUE_BYTES - 1);
+
+  const result = decodeWsMessage(short, buildContext());
+  assert.equal(result.fatal?.code, 'payload-underrun');
+  assert.equal(rejectionGrade('payload-underrun'), 'fatal');
 });

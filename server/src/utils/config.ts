@@ -15,6 +15,7 @@ import os from 'os';
 import { configSchema, type ConfigSchema } from '../schemas/config.schema.js';
 import type { Config } from '../types/config.types.js';
 import { CryptoService } from '../services/CryptoService.js';
+import { registerTerminalResourceConfigProvenance } from '../services/TerminalResourcePolicy.js';
 import {
   normalizeRawConfigForPlatform,
 } from './ptyPlatformPolicy.js';
@@ -233,7 +234,11 @@ export function loadConfigFromPath(configPath: string, platform: NodeJS.Platform
       // Validate and apply defaults using Zod schema
       const validatedConfig = configSchema.parse(updatedRawConfig);
       console.log('[Config] Configuration loaded successfully');
-      return validatedConfig as Config;
+      return registerTerminalResourceConfigProvenance(
+        validatedConfig as Config,
+        updatedRawConfig,
+        'raw-loader',
+      );
     } catch (encryptError) {
       console.warn('[Config] Passwords encryption skipped:', encryptError);
     }
@@ -243,7 +248,11 @@ export function loadConfigFromPath(configPath: string, platform: NodeJS.Platform
 
     console.log('[Config] Configuration loaded successfully');
 
-    return validatedConfig as Config;
+    return registerTerminalResourceConfigProvenance(
+      validatedConfig as Config,
+      rawConfig,
+      'raw-loader',
+    );
   } catch (error) {
     if (error instanceof Error) {
       // Check if it's a Zod validation error
@@ -259,7 +268,8 @@ export function loadConfigFromPath(configPath: string, platform: NodeJS.Platform
     }
 
     // Return validated defaults
-    return configSchema.parse({}) as Config;
+    const fallbackConfig = configSchema.parse({}) as Config;
+    return registerTerminalResourceConfigProvenance(fallbackConfig, {}, 'fallback-defaults');
   }
 }
 

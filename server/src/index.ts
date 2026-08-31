@@ -28,12 +28,22 @@ import { config, getServerRoot } from './utils/config.js';
 import { inputReliabilityMode } from './utils/inputReliabilityMode.js';
 import { FileService } from './services/FileService.js';
 import { RuntimeConfigStore } from './services/RuntimeConfigStore.js';
+import { terminalResourcePolicyRuntimeAuthority } from './services/TerminalResourcePolicyRuntime.js';
 import { ConfigFileRepository } from './services/ConfigFileRepository.js';
 import { SettingsService } from './services/SettingsService.js';
 import { CommandPresetService } from './services/CommandPresetService.js';
 import { TerminalShortcutService } from './services/TerminalShortcutService.js';
 import { RecoveryOptionService } from './services/RecoveryOptionService.js';
 import { SessionManager, sessionManager } from './services/SessionManager.js';
+import {
+  attachProductionTerminalAuthority,
+  type ProductionTerminalAuthorityIntegration,
+} from './services/TerminalAuthorityProductionAdapter.js';
+import {
+  createProductionTerminalAuthorityDebugRuntime,
+  createTerminalAuthorityDebugHandlers,
+  createTerminalAuthorityDebugService,
+} from './services/TerminalAuthorityDebugService.js';
 import { SSLService } from './services/SSLService.js';
 import { CryptoService } from './services/CryptoService.js';
 import { AuthService } from './services/AuthService.js';
@@ -50,6 +60,7 @@ import {
   createAuthMiddleware
 } from './middleware/index.js';
 import { ensureDebugCaptureSessionExists, requireLocalDebugCapture } from './middleware/debugCaptureGuards.js';
+import { registerTerminalAuthorityDebugRoutes } from './routes/terminalAuthorityDebugRoutes.js';
 import { WsRouter } from './ws/WsRouter.js';
 import {
   createMcpHttpHandler,
@@ -107,6 +118,11 @@ type McpHttpHandler = {
 
 type StringRecord = Record<string, unknown>;
 
+type TerminalAuthorityDebugHandlerName =
+  | 'handleTestIsolation'
+  | 'handleRollback'
+  | 'handleFault';
+
 const app = express();
 const PORT = process.env.PORT || config.server.port;
 const HTTP_PORT = Number(PORT) - 1; // HTTP redirect port
@@ -141,6 +157,7 @@ let mcpToolServiceForStatus: StringRecord | null = null;
 let agentCommandProfileService: StringRecord | null = null;
 let cwdSnapshotTimer: ReturnType<typeof setInterval> | null = null;
 let terminalObservabilityTimer: ReturnType<typeof setInterval> | null = null;
+let terminalAuthorityIntegration: ProductionTerminalAuthorityIntegration | null = null;
 
 const PRODUCTION_PUBLIC_DIR = process.env[WEB_ROOT_ENV_KEY]?.trim()
   ? path.resolve(process.env[WEB_ROOT_ENV_KEY]!)
@@ -802,6 +819,37 @@ function setupRoutes(): void {
     });
   });
   const requireExistingDebugSession = ensureDebugCaptureSessionExists(sessionManager);
+  const invokeTerminalAuthorityDebugHandler = (
+    handlerName: TerminalAuthorityDebugHandlerName,
+  ): express.RequestHandler => (req, res, next) => {
+    const service = app.get('terminalAuthorityDebugService') as
+      | Partial<Record<TerminalAuthorityDebugHandlerName, express.RequestHandler>>
+      | undefined;
+    const handler = service?.[handlerName];
+    if (!handler) {
+      res.status(503).json({
+        error: {
+          code: 'TERMINAL_AUTHORITY_DEBUG_UNAVAILABLE',
+          message: 'Terminal authority debug service is not initialized',
+        },
+      });
+      return;
+    }
+    try {
+      Promise.resolve(handler(req, res, next)).catch(next);
+    } catch (error) {
+      next(error);
+    }
+  };
+  registerTerminalAuthorityDebugRoutes({
+    registrar: app as unknown as Parameters<typeof registerTerminalAuthorityDebugRoutes>[0]['registrar'],
+    authMiddleware: authMiddleware as unknown as Parameters<typeof registerTerminalAuthorityDebugRoutes>[0]['authMiddleware'],
+    requireLocalDebugCapture: requireLocalDebugCapture as unknown as Parameters<typeof registerTerminalAuthorityDebugRoutes>[0]['requireLocalDebugCapture'],
+    requireExistingDebugSession: requireExistingDebugSession as unknown as Parameters<typeof registerTerminalAuthorityDebugRoutes>[0]['requireExistingDebugSession'],
+    handleTestIsolation: invokeTerminalAuthorityDebugHandler('handleTestIsolation') as unknown as Parameters<typeof registerTerminalAuthorityDebugRoutes>[0]['handleTestIsolation'],
+    handleRollback: invokeTerminalAuthorityDebugHandler('handleRollback') as unknown as Parameters<typeof registerTerminalAuthorityDebugRoutes>[0]['handleRollback'],
+    handleFault: invokeTerminalAuthorityDebugHandler('handleFault') as unknown as Parameters<typeof registerTerminalAuthorityDebugRoutes>[0]['handleFault'],
+  });
   app.get('/api/sessions/debug-capture/:id', authMiddleware, requireLocalDebugCapture, requireExistingDebugSession, (req, res) => {
     const wsRouter = app.get('wsRouter') as WsRouter | undefined;
     const sessionId = req.params.id;
@@ -898,7 +946,12 @@ async function startServer(): Promise<void> {
     // ========================================================================
     // Initialize Runtime Settings Services (Step 5)
     // ========================================================================
-    runtimeConfigStore = new RuntimeConfigStore(config);
+    runtimeConfigStore = new RuntimeConfigStore(config, process.platform, {
+      terminalResourcePolicy: {
+        observation: 'observe',
+        authority: terminalResourcePolicyRuntimeAuthority,
+      },
+    });
     const configRepository = new ConfigFileRepository();
     sessionManager.assertRuntimePtyCapabilities();
     await sessionManager.warmPowerShellWinptyCapability();
@@ -1470,8 +1523,32 @@ async function startServer(): Promise<void> {
     const wsRouter = new WsRouter(authService, sessionManager, {
       resourceLimits: runtimeValues.resourceLimits,
       stabilityModes: runtimeValues.stabilityModes,
+      terminalResourcePolicyAuthority: terminalResourcePolicyRuntimeAuthority,
     });
     sessionManager.setWsRouter(wsRouter);
+    const configuredWsTransportMode = runtimeConfigStore
+      .getPublicRuntimeConfig(inputReliabilityMode)
+      .wsTransportMode;
+    terminalAuthorityIntegration = attachProductionTerminalAuthority({
+      sessionManager,
+      wsRouter,
+      transportMode: configuredWsTransportMode === 'split' ? 'split' : 'unified',
+    });
+    app.set('terminalAuthorityIntegration', terminalAuthorityIntegration);
+    const terminalAuthorityDebugRuntime = createProductionTerminalAuthorityDebugRuntime({
+      sessionManager,
+      authority: terminalAuthorityIntegration,
+      router: wsRouter,
+    });
+    const terminalAuthorityDebugService = createTerminalAuthorityDebugService({
+      authority: terminalAuthorityIntegration,
+      router: wsRouter,
+      runtime: terminalAuthorityDebugRuntime,
+    });
+    app.set(
+      'terminalAuthorityDebugService',
+      createTerminalAuthorityDebugHandlers(terminalAuthorityDebugService),
+    );
     workspaceService.onTabUpdated((event) => {
       wsRouter.broadcastAll('tab:updated', {
         id: event.tab.id,

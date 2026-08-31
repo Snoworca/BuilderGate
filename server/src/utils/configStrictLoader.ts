@@ -4,6 +4,7 @@ import { configSchema } from '../schemas/config.schema.js';
 import type { Config } from '../types/config.types.js';
 import { normalizeRawConfigForPlatform } from './ptyPlatformPolicy.js';
 import { renderBootstrapConfigTemplate } from './configTemplate.js';
+import { registerTerminalResourceConfigProvenance } from '../services/TerminalResourcePolicy.js';
 
 function normalizeAuthPasswordState(rawConfig: Record<string, unknown>): Record<string, unknown> {
   const normalized = structuredClone(rawConfig);
@@ -46,5 +47,9 @@ export function loadConfigFromPathStrict(configPath: string, platform: NodeJS.Pl
   const rawConfig = readNormalizedRawConfig(configPath);
   const normalizedConfig = normalizeRawConfigForPlatform(rawConfig, platform);
   const validatedConfig = configSchema.parse(normalizedConfig);
-  return validatedConfig as Config;
+  return registerTerminalResourceConfigProvenance(
+    validatedConfig as Config,
+    rawConfig,
+    'strict-loader',
+  );
 }

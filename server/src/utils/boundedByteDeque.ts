@@ -23,8 +23,13 @@ export interface BoundedByteDequeOptions<T> {
   getByteLength: (item: T) => number;
 }
 
+export interface BoundedByteDequeEnqueueOptions {
+  maxBytesOverride?: number;
+  maxChunksOverride?: number;
+}
+
 export interface BoundedByteDeque<T> {
-  enqueue(item: T): BoundedByteDequeEnqueueResult;
+  enqueue(item: T, options?: BoundedByteDequeEnqueueOptions): BoundedByteDequeEnqueueResult;
   peek(): T | undefined;
   dequeue(): T | undefined;
   clear(): void;
@@ -56,11 +61,15 @@ class RingLikeBoundedByteDeque<T> implements BoundedByteDeque<T> {
     this.itemBytes = new Array<number>(this.maxChunks);
   }
 
-  enqueue(item: T): BoundedByteDequeEnqueueResult {
+  enqueue(item: T, options: BoundedByteDequeEnqueueOptions = {}): BoundedByteDequeEnqueueResult {
     const nextItemBytes = this.getByteLength(item);
     assertNonNegativeSafeInteger(nextItemBytes, 'item byte length');
+    const effectiveMaxBytes = options.maxBytesOverride ?? this.maxBytes;
+    const effectiveMaxChunks = options.maxChunksOverride ?? this.maxChunks;
+    assertNonNegativeSafeInteger(effectiveMaxBytes, 'maxBytesOverride');
+    assertPositiveSafeInteger(effectiveMaxChunks, 'maxChunksOverride');
 
-    if (this.pendingChunks >= this.maxChunks) {
+    if (this.pendingChunks >= effectiveMaxChunks) {
       this.rejectedChunks += 1;
       return {
         ok: false,
@@ -71,7 +80,7 @@ class RingLikeBoundedByteDeque<T> implements BoundedByteDeque<T> {
       };
     }
 
-    if (this.pendingBytes + nextItemBytes > this.maxBytes) {
+    if (this.pendingBytes + nextItemBytes > effectiveMaxBytes) {
       this.rejectedBytes += nextItemBytes;
       return {
         ok: false,
@@ -80,6 +89,10 @@ class RingLikeBoundedByteDeque<T> implements BoundedByteDeque<T> {
         pendingChunks: this.pendingChunks,
         itemBytes: nextItemBytes,
       };
+    }
+
+    if (this.items.length < effectiveMaxChunks) {
+      this.growCapacity(effectiveMaxChunks);
     }
 
     this.items[this.tail] = item;
@@ -96,6 +109,20 @@ class RingLikeBoundedByteDeque<T> implements BoundedByteDeque<T> {
       pendingChunks: this.pendingChunks,
       itemBytes: nextItemBytes,
     };
+  }
+
+  private growCapacity(capacity: number): void {
+    const nextItems = new Array<T | undefined>(capacity);
+    const nextItemBytes = new Array<number>(capacity);
+    for (let index = 0; index < this.pendingChunks; index += 1) {
+      const sourceIndex = (this.head + index) % this.items.length;
+      nextItems[index] = this.items[sourceIndex];
+      nextItemBytes[index] = this.itemBytes[sourceIndex] ?? 0;
+    }
+    this.items = nextItems;
+    this.itemBytes = nextItemBytes;
+    this.head = 0;
+    this.tail = this.pendingChunks;
   }
 
   dequeue(): T | undefined {

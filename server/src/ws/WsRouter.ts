@@ -79,6 +79,14 @@ import {
   type WsTransportQueueState,
 } from './wsSendPolicy.js';
 import { createFairTerminalDeliveryScheduler } from './wsSendPolicy.js';
+import { wirePayloadByteLength } from './wirePayload.js';
+import {
+  createTerminalBinaryGroupSession,
+  type SubscribedChannelFields,
+  type TerminalBinaryGroupSession,
+} from './terminalBinaryGroupSession.js';
+import type { TerminalBinaryCapabilityOffer } from './terminalBinaryNegotiation.js';
+import type { TerminalWireFormat } from './terminalWireFormat.js';
 import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 import {
   createSessionInputGateway,
@@ -536,6 +544,12 @@ export class WsRouter {
   private transportSlowClientCloseCount = 0;
   private transportQueueOverflowCount = 0;
   private transportSendErrorCount = 0;
+  /**
+   * Frames the server could not decode (`06 §S3`). A warning alone is still a
+   * silent drop as far as the system is concerned — nothing can gate on it —
+   * and `05:176` makes reaching zero a condition for opening the shadow rung.
+   */
+  private undecodableFrameCount = 0;
   private transportOutputCoalesceCount = 0;
   private restoreAuthorityRetryKeys = new Set<string>();
   private readonly terminalResourcePolicyAuthority?: TerminalResourcePolicyLeaseAuthority;
@@ -557,6 +571,9 @@ export class WsRouter {
   private readonly terminalResourcePolicyAdmissionDrainSockets = new Set<WebSocket>();
   private transportPolicyGeneration = 0;
   private readonly wsTransportMode: 'unified' | 'split-shadow' | 'split';
+  private readonly terminalWireFormat: TerminalWireFormat;
+  /** One binary session per connection group (`01 §3.2` — the group agrees as a whole). */
+  private readonly terminalBinaryGroups = new Map<string, TerminalBinaryGroupSession>();
   private readonly splitClientGroups = new Map<string, SplitClientGroup>();
   private readonly splitSocketGroups = new Map<WebSocket, SplitClientGroup>();
   private terminalAuthorityQueryReplyIngress: TerminalAuthorityQueryReplyIngress | null = null;
@@ -605,6 +622,7 @@ export class WsRouter {
     this.sessionManager = sessionManager;
     this.inputReliabilityMode = options.inputReliabilityMode ?? configuredInputReliabilityMode;
     this.wsTransportMode = options.realtime?.wsTransportMode ?? 'unified';
+    this.terminalWireFormat = options.realtime?.terminalWireFormat ?? 'json';
     this.terminalResourcePolicyAuthority = options.terminalResourcePolicyAuthority;
     this.runtimeSendPolicyConfig = {
       mode: stabilityModesSchema.parse(options.stabilityModes).wsSendMode,
@@ -1381,7 +1399,7 @@ export class WsRouter {
       queueOwner: 'ws-router' as const,
       queuedSessionIds: [] as string[],
       queuedBytes: 0,
-      computedIncomingBytes: Buffer.byteLength(input.incomingMessage.payload, 'utf8'),
+      computedIncomingBytes: wirePayloadByteLength(input.incomingMessage.payload),
       projectedBytes: 0,
       policyGeneration: existingState?.policyGeneration ?? 0,
     };
@@ -1403,7 +1421,7 @@ export class WsRouter {
       message.kind === 'output' && message.sessionId ? [message.sessionId] : []
     )))];
     for (const message of messages) {
-      if (Buffer.byteLength(message.payload, 'utf8') !== message.byteLength) {
+      if (wirePayloadByteLength(message.payload) !== message.byteLength) {
         return {
           ...base, queuedSessionIds: sessions,
           queuedBytes: messages.reduce((sum, entry) => sum + entry.byteLength, 0),
@@ -1411,7 +1429,7 @@ export class WsRouter {
         };
       }
     }
-    const incomingBytes = Buffer.byteLength(input.incomingMessage.payload, 'utf8');
+    const incomingBytes = wirePayloadByteLength(input.incomingMessage.payload);
     const queuedBytes = messages.reduce((sum, message) => sum + message.byteLength, 0);
     const projectedBytes = queuedBytes + incomingBytes;
     const state = existingState;
@@ -1586,7 +1604,7 @@ export class WsRouter {
         ) {
           ws.close(1008, 'invalid-output-pair');
           if (group && group.pairTokenExpiresAt < Date.now()) {
-            this.splitClientGroups.delete(group.clientGroupId);
+            this.forgetSplitClientGroup(group.clientGroupId);
           }
           return;
         }
@@ -1729,7 +1747,7 @@ export class WsRouter {
         const group = this.splitSocketGroups.get(ws);
         if (group?.control === ws) {
           group.output?.close(1001, 'control-closed');
-          this.splitClientGroups.delete(group.clientGroupId);
+          this.forgetSplitClientGroup(group.clientGroupId);
         }
         this.splitSocketGroups.delete(ws);
       });
@@ -1745,6 +1763,7 @@ export class WsRouter {
     try {
       msg = JSON.parse(typeof raw === 'string' ? raw : raw.toString());
     } catch {
+      this.undecodableFrameCount += 1;
       console.warn('[WS] Invalid JSON received');
       return;
     }
@@ -1833,6 +1852,12 @@ export class WsRouter {
       case 'terminal-checkpoint:failure-ack':
         this.handleTerminalCheckpointClientMessage(ws, msg);
         break;
+      case 'terminal-binary:capability':
+        this.handleTerminalBinaryCapability(ws, msg);
+        break;
+      case 'terminal-binary:unknown-channel':
+        this.handleTerminalBinaryUnknownChannel(ws, msg);
+        break;
       case 'terminal-delivery:ack':
         this.handleTerminalDeliveryAck(ws, msg);
         break;
@@ -1858,6 +1883,110 @@ export class WsRouter {
           console.warn(`[WS] Unknown message type: ${(msg as { type: string }).type}`);
         }
     }
+  }
+
+  /**
+   * The group's binary session, created on first use. Keyed by group rather
+   * than by socket because terminal payload can fall back from the output
+   * socket to the control socket (`FR-BGSTAB-007` AC-3/AC-4), and a per-socket
+   * codec would make that fallback undecodable.
+   */
+  /**
+   * Drops everything keyed by a connection group when that group is torn down.
+   * The two stores are removed together on purpose: a surviving binary session
+   * would keep handing out channel ids for a group that no longer exists.
+   */
+  private forgetSplitClientGroup(clientGroupId: string): void {
+    this.splitClientGroups.delete(clientGroupId);
+    this.terminalBinaryGroups.delete(clientGroupId);
+  }
+
+  private terminalBinaryGroupKey(ws: WebSocket): string | undefined {
+    const meta = this.clients.get(ws);
+    return meta ? meta.clientGroupId ?? meta.clientId : undefined;
+  }
+
+  /** The group's session if one exists. Never creates: see `ensureTerminalBinaryGroup`. */
+  private terminalBinaryGroupFor(ws: WebSocket): TerminalBinaryGroupSession | undefined {
+    const key = this.terminalBinaryGroupKey(ws);
+    return key === undefined ? undefined : this.terminalBinaryGroups.get(key);
+  }
+
+  /**
+   * Creates the group's session. Only the offer handler calls this, so a client
+   * that never speaks binary never allocates one — which is every client on the
+   * default rung.
+   */
+  private ensureTerminalBinaryGroup(ws: WebSocket): TerminalBinaryGroupSession | undefined {
+    const meta = this.clients.get(ws);
+    if (!meta) return undefined;
+    const key = meta.clientGroupId ?? meta.clientId;
+    const existing = this.terminalBinaryGroups.get(key);
+    if (existing) return existing;
+    const created = createTerminalBinaryGroupSession({
+      now: () => Date.now(),
+      wireFormat: this.terminalWireFormat,
+      transportMode: meta.wsTransportMode ?? this.wsTransportMode,
+    });
+    this.terminalBinaryGroups.set(key, created);
+    return created;
+  }
+
+  /** The channel fields a `subscribed` row carries once the group speaks binary. */
+  private terminalBinaryChannelFor(ws: WebSocket, sessionId: string): SubscribedChannelFields {
+    const group = this.terminalBinaryGroupFor(ws);
+    if (!group?.isNegotiated) return {};
+    // Both epochs come from the same authority state so the row cannot pair a
+    // stream with an authority that never carried it.
+    const authority = this.sessionManager.getTerminalAuthorityState?.(sessionId);
+    if (!authority) return {};
+    return group.openChannel({
+      sessionId,
+      streamEpoch: authority.streamEpoch,
+      authorityEpoch: authority.authorityEpoch,
+    });
+  }
+
+  /**
+   * Tells the client a channel is gone (`01 §1.5`). Sent before the id can be
+   * reissued so a late frame is refused rather than delivered to whoever holds
+   * the number next.
+   */
+  private retireTerminalBinaryChannels(
+    ws: WebSocket,
+    sessionId: string,
+    reason: 'unsubscribed' | 'session-exited' | 'session-deleted',
+  ): void {
+    const group = this.terminalBinaryGroupFor(ws);
+    if (!group) return;
+    const channelIds = group.closeSession(sessionId);
+    if (channelIds.length === 0) return;
+    this.sendTo(ws, { type: 'terminal-binary:channel-retired', channelIds, reason });
+  }
+
+  /**
+   * A client reporting a channel it cannot route (`01:433`). Answered with the
+   * authoritative table rather than a renegotiation: the client applies an
+   * acceptance as the table for its epoch, so re-sending one fills the missing
+   * row, and the codec epoch is deliberately unchanged so frames already in
+   * flight stay deliverable.
+   */
+  private handleTerminalBinaryUnknownChannel(ws: WebSocket, rawMessage: unknown): void {
+    const record = rawMessage as { channelIds?: unknown };
+    if (!Array.isArray(record?.channelIds)) {
+      console.warn('[WS] terminal-binary unknown-channel report rejected: no channel list');
+      return;
+    }
+    const table = this.terminalBinaryGroupFor(ws)?.reannounce();
+    if (!table) return;
+    this.sendTo(ws, table);
+  }
+
+  // `01 §2.2`
+  private handleTerminalBinaryCapability(ws: WebSocket, rawMessage: unknown): void {
+    const group = this.ensureTerminalBinaryGroup(ws);
+    if (!group) return;
+    this.sendTo(ws, group.negotiate(rawMessage as TerminalBinaryCapabilityOffer));
   }
 
   // @req PERF-BGSTAB-010 AC-5 AC-6
@@ -2558,7 +2687,9 @@ export class WsRouter {
   }
 
   private handleSubscribe(ws: WebSocket, sessionIds: string[]): void {
-    const results: Array<{ sessionId: string; status: string; cwd?: string; ready: boolean }> = [];
+    const results: Array<
+      { sessionId: string; status: string; cwd?: string; ready: boolean } & SubscribedChannelFields
+    > = [];
     const meta = this.clients.get(ws);
     if (!meta) return;
 
@@ -2604,6 +2735,7 @@ export class WsRouter {
           status: session.status,
           cwd,
           ready: !meta.replayPendingSessions.has(sessionId) && this.sessionManager.isSessionReady(sessionId),
+          ...this.terminalBinaryChannelFor(ws, sessionId),
         });
         continue;
       }
@@ -2616,6 +2748,7 @@ export class WsRouter {
           status: session.status,
           cwd,
           ready: false,
+          ...this.terminalBinaryChannelFor(ws, sessionId),
         });
         this.scheduleRestoreAuthorityRetry(ws, sessionId, 'subscribe');
         continue;
@@ -2627,6 +2760,7 @@ export class WsRouter {
         status: session.status,
         cwd,
         ready: false,
+        ...this.terminalBinaryChannelFor(ws, sessionId),
       });
       void replayState;
     }
@@ -2656,6 +2790,7 @@ export class WsRouter {
       }
 
       meta.subscribedSessions.delete(sessionId);
+      this.retireTerminalBinaryChannels(ws, sessionId, 'unsubscribed');
       meta.terminalAuthorityRecoveryEvidence?.delete(sessionId);
       if (viewGeneration !== undefined) {
         this.sessionManager.unregisterRetainedTerminalClientView(
@@ -5633,6 +5768,7 @@ export class WsRouter {
       transportSlowClientCloseCount: this.transportSlowClientCloseCount,
       transportQueueOverflowCount: this.transportQueueOverflowCount,
       transportSendErrorCount: this.transportSendErrorCount,
+      undecodableFrameCount: this.undecodableFrameCount,
       transportOutputCoalesceCount: this.transportOutputCoalesceCount,
       recentReplayEvents: [...this.recentReplayEvents],
     };
@@ -6246,6 +6382,16 @@ export class WsRouter {
       return;
     }
 
+    // `01:1193` — a frame built under a codec the group has left is dropped and
+    // accounted for, never re-encoded: re-encoding would renumber a channel the
+    // client still holds under the old table.
+    if (message.payload.codec === 'binary'
+      && message.payload.codecEpoch !== this.terminalBinaryGroupFor(ws)?.codecEpoch) {
+      this.settleTransportMessage(message, new Error('codec-epoch-retired'));
+      if (state) this.flushTransportQueue(ws);
+      return;
+    }
+
     if (message.terminalAuthorityTransportBinding
       && !this.isCurrentTerminalAuthorityTransportBinding(ws, message.terminalAuthorityTransportBinding)) {
       this.notifyTerminalAuthorityTransportBindingReplaced(ws);
@@ -6265,7 +6411,7 @@ export class WsRouter {
     if (tracksSettlement) this.inFlightTransportMessages.set(ws, message);
 
     try {
-      ws.send(message.payload, (error?: Error) => {
+      const onSent = (error?: Error) => {
         if (tracksSettlement && this.inFlightTransportMessages.get(ws) !== message) {
           return;
         }
@@ -6326,7 +6472,14 @@ export class WsRouter {
           return;
         }
         this.flushTransportQueue(ws);
-      });
+      };
+      // `01 §3.1` — the union forces this site to name its branch, which is
+      // what makes "binary frame on a JSON-only socket" unrepresentable.
+      if (message.payload.codec === 'binary') {
+        ws.send(message.payload.bytes, { binary: true }, onSent);
+      } else {
+        ws.send(message.payload.text, onSent);
+      }
     } catch (error) {
       this.settleTransportMessage(
         message,

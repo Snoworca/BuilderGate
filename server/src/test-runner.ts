@@ -69,6 +69,14 @@ import {
 import { createHeadlessOutputQueue as createHeadlessOutputQueueForHarness } from './utils/headlessOutputQueue.js';
 import { truncateTerminalPayloadTail } from './utils/terminalPayload.js';
 import { WsRouter } from './ws/WsRouter.js';
+import {
+  createWsTransportMessage,
+  createWsTransportQueueState,
+  getTransportMessagesInPriorityOrder,
+  pushTransportMessage,
+  removeTransportMessages,
+} from './ws/wsSendPolicy.js';
+import * as wsSendPolicyModule from './ws/wsSendPolicy.js';
 import { AppError, ErrorCode } from './utils/errors.js';
 import type { CreateTerminalShortcutBindingInput } from './types/terminalShortcut.types.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
@@ -101,7 +109,7 @@ import express from 'express';
 import type { Request } from 'express';
 
 async function main(): Promise<void> {
-  const tests: Array<{ name: string; run: () => Promise<void> | void }> = [
+  const tests: Array<{ name: string; tags?: string[]; run: () => Promise<void> | void }> = [
     { name: 'Config bootstrap applies OS-aware PTY defaults when creating config text', run: testConfigBootstrapAppliesPlatformPtyDefaults },
     { name: 'Config normalization neutralizes stale Windows PTY fields on non-Windows', run: testNormalizeRawConfigForPlatformNonWindows },
     { name: 'Config normalization preserves invalid PTY shapes for schema validation', run: testNormalizeRawConfigForPlatformPreservesInvalidPtyShapes },
@@ -199,6 +207,17 @@ async function main(): Promise<void> {
     { name: 'SessionManager positions Codex tui suppression flags and guards partial keystrokes (FR-BGSTAB-020)', run: testSessionManagerCodexTuiSuppressionInjectionShapeGuards },
     { name: 'SessionManager keeps Claude submit idle in bash heuristic mode', run: testSessionManagerClaudeBashSubmitStaysIdle },
     { name: 'SessionManager keeps Codex typing idle after a prior running misclassification', run: testSessionManagerCodexTypingRestoresIdleAfterRunning },
+    { name: 'SessionManager keeps delayed Codex draft redraw idle when prompt prefixes the local echo', run: testSessionManagerCodexPendingDraftPromptRedrawStaysIdle },
+    { name: 'SessionManager marks substantive Codex output running while draft input is pending', run: testSessionManagerCodexPendingDraftSemanticOutputRuns },
+    { name: 'SessionManager keeps a delayed Codex draft echo idle', run: testSessionManagerCodexDelayedMatchingDraftEchoStaysIdle },
+    { name: 'SessionManager marks delayed short Codex output running after a stale Ctrl+C repaint window', run: testSessionManagerCodexControlInterruptShortSemanticOutputRuns },
+    { name: 'SessionManager marks substantive shell output running while draft input is pending', run: testSessionManagerNonAiPendingDraftSemanticOutputRuns },
+    { name: 'SessionManager marks delayed short shell output running while draft input is pending', run: testSessionManagerNonAiPendingDraftShortSemanticOutputRuns },
+    { name: 'SessionManager keeps delayed prompt-prefixed shell draft echo idle', run: testSessionManagerNonAiPendingDraftPromptRedrawStaysIdle },
+    { name: 'SessionManager keeps immediate shell Ctrl+C repaint idle', run: testSessionManagerNonAiImmediateControlInterruptRepaintStaysIdle },
+    { name: 'SessionManager keeps delayed shell Ctrl+C prompt return idle', run: testSessionManagerNonAiDelayedControlInterruptPromptReturnStaysIdle },
+    { name: 'SessionManager keeps delayed PowerShell-shaped Ctrl+C prompt return idle when shell metadata is stale', run: testSessionManagerNonAiDelayedControlInterruptPowerShellPromptReturnStaysIdle },
+    { name: 'SessionManager marks substantive shell output running after a stale Ctrl+C repaint window', run: testSessionManagerNonAiControlInterruptSemanticOutputRuns },
     { name: 'SessionManager keeps Codex foreground when internal submit resembles AI command', run: testSessionManagerCodexInternalAiCommandSubmitDoesNotStartLaunchAttempt },
     { name: 'SessionManager keeps custom recovery foreground input idle', run: testSessionManagerCustomRecoveryForegroundInputStaysIdle },
     { name: 'SessionManager does not emit submitted command callback when PTY input write fails', run: testSessionManagerCommandSubmittedCallbackRequiresSuccessfulWrite },
@@ -423,6 +442,11 @@ async function main(): Promise<void> {
     { name: 'Headless screen repair preserves SGR and cursor metadata', run: testHeadlessScreenRepairSgrAndCursor },
     { name: 'Headless screen repair preserves hidden cursor state', run: testHeadlessScreenRepairHiddenCursor },
     { name: 'SessionManager screen repair debug byteLength uses UTF-8 bytes', run: testSessionManagerScreenRepairDebugByteLengthUsesUtf8Bytes },
+    { name: 'SessionManager screen repair follows a moving headless write tail until quiescent', run: testSessionManagerScreenRepairFollowsMovingWriteTail },
+    { name: 'SessionManager screen repair bounds a permanently stuck headless tail', run: testSessionManagerScreenRepairBoundsStuckWriteTail },
+    { name: 'SessionManager screen repair allows a queued headless write tail', run: testSessionManagerScreenRepairAllowsQueuedWriteTail },
+    { name: 'WsRouter keeps a transiently busy screen repair on the current connection', run: testWsRouterKeepsBusyScreenRepairConnection },
+    { name: 'SessionManager screen repair reports degradation while draining', run: testSessionManagerScreenRepairReportsDrainDegradation },
     { name: 'SessionManager screen repair rejects alternate buffer mismatch', run: testSessionManagerScreenRepairBufferMismatch },
     { name: 'SessionManager screen repair rejects degraded headless', run: testSessionManagerScreenRepairRejectsDegraded },
     { name: 'Terminal payload truncation skips partial CSI sequences', run: testTerminalPayloadTruncationCsi },
@@ -442,13 +466,17 @@ async function main(): Promise<void> {
     { name: 'SessionManager detects terminal titles from raw OSC133-mode output', run: testSessionManagerTerminalTitleRawOsc133Mode },
     { name: 'WsRouter sends screen snapshot before flushing queued live output', run: testWsRouterScreenSnapshotOrdering },
     { name: 'WsRouter queues input while replay is pending and flushes after ACK', run: testWsRouterQueuesInputWhileReplayPendingAndFlushesAfterAck },
+    { name: 'WsRouter observe mode queues replay-pending input and flushes after ACK', run: testWsRouterObserveModeQueuesReplayPendingInput },
+    { name: 'WsRouter fences input and output while atomic restore authority retries', run: testWsRouterFencesIoWhileAtomicRestoreAuthorityRetries },
+    { name: 'WsRouter rejects fenced input and reconnects when restore authority stays unavailable', run: testWsRouterFailsClosedWhenAtomicRestoreAuthorityStaysUnavailable },
+    { name: 'WsRouter does not revive provisional restore after queue overflow reconnect', run: testWsRouterDoesNotReviveProvisionalRestoreAfterOverflow },
     { name: 'WsRouter routes screen-repair input barriers through SessionInputGateway', run: testWsRouterRejectsInputDuringScreenRepairThroughGateway },
     { name: 'WsRouter preserves queued input across replay refresh', run: testWsRouterPreservesInputQueueAcrossReplayRefresh },
     { name: 'WsRouter does not flush queued input for stale ACK', run: testWsRouterDoesNotFlushInputForStaleAck },
     { name: 'WsRouter rejects expired replay input on ACK', run: testWsRouterRejectsExpiredReplayInputOnAck },
     { name: 'WsRouter rejects expired replay input on timeout', run: testWsRouterRejectsExpiredReplayInputOnTimeout },
     { name: 'WsRouter rejects Enter input on replay timeout', run: testWsRouterRejectsEnterInputOnReplayTimeout },
-    { name: 'WsRouter flushes safe input on replay timeout before ready', run: testWsRouterFlushesSafeInputOnReplayTimeout },
+    { name: 'WsRouter rejects safe input on replay timeout without ready', run: testWsRouterRejectsSafeInputOnReplayTimeout },
     { name: 'WsRouter exposes replay input queue overflow', run: testWsRouterQueuedInputOverflowIsObservable },
     { name: 'WsRouter rejects invalid input payload', run: testWsRouterRejectsInvalidInputPayload },
     { name: 'WsRouter rejects invalid input sequence range', run: testWsRouterRejectsInvalidInputSequenceRange },
@@ -464,19 +492,23 @@ async function main(): Promise<void> {
     { name: 'WsRouter ignores stale replay tokens', run: testWsRouterIgnoresStaleReplayTokens },
     { name: 'WsRouter refreshes replay snapshots on resize while pending', run: testWsRouterRefreshesReplaySnapshotsOnResize },
     { name: 'WsRouter preserves queued output across fallback replay refresh', run: testWsRouterPreservesQueuedOutputAcrossFallbackReplayRefresh },
-    { name: 'WsRouter flushes queued output on replay ACK timeout', run: testWsRouterFlushesQueuedOutputOnReplayTimeout },
-    { name: 'WsRouter flushes snapshot-covered output on refresh timeout', run: testWsRouterFlushesSnapshotCoveredOutputOnRefreshTimeout },
+    { name: 'WsRouter discards queued output and reconnects on replay ACK timeout', run: testWsRouterFlushesQueuedOutputOnReplayTimeout },
+    { name: 'WsRouter discards snapshot-covered output on refresh timeout', run: testWsRouterFlushesSnapshotCoveredOutputOnRefreshTimeout },
     { name: 'WsRouter does not treat fallback substring matches as covered output', run: testWsRouterDoesNotTreatFallbackSubstringAsCoveredOutput },
     { name: 'WsRouter does not duplicate fallback-covered output on ACK', run: testWsRouterDoesNotDuplicateFallbackCoveredOutputOnAck },
     { name: 'WsRouter preserves fallback-covered output across repeated refresh ACK', run: testWsRouterPreservesFallbackCoveredOutputAcrossRepeatedRefreshAck },
-    { name: 'WsRouter flushes fallback-covered output on refresh timeout', run: testWsRouterFlushesFallbackCoveredOutputOnRefreshTimeout },
-    { name: 'WsRouter replay timeout uses UTF-8 byte-bounded tail through router queue', run: testWsRouterReplayTimeoutUsesUtf8ByteBoundedTail },
+    { name: 'WsRouter discards fallback-covered output on refresh timeout', run: testWsRouterFlushesFallbackCoveredOutputOnRefreshTimeout },
+    { name: 'WsRouter replay timeout fails closed after UTF-8 bounded queue accounting', run: testWsRouterReplayTimeoutUsesUtf8ByteBoundedTail },
     { name: 'WsRouter suppresses unchanged empty fallback replay refresh', run: testWsRouterSuppressesUnchangedEmptyFallbackReplayRefresh },
     { name: 'WsRouter safe-send enforce queues output over high-water', run: testWsRouterSafeSendQueuesOutputOverHighWater },
     { name: 'WsRouter safe-send retry timer drains queued output', run: testWsRouterSafeSendRetryTimerDrainsQueuedOutput },
     { name: 'WsRouter safe-send enforce closes hard-limit slow clients', run: testWsRouterSafeSendClosesHardLimitSlowClient },
     { name: 'WsRouter safe-send closes on send callback errors', run: testWsRouterSafeSendClosesOnSendCallbackErrors },
     { name: 'WsRouter safe-send prioritizes independent control over output backlog', run: testWsRouterSafeSendPrioritizesIndependentControlOverOutputBacklog },
+    { name: 'WsRouter screen repair transport cancellation preserves unrelated order and byte counters', tags: ['screen repair'], run: testWsTransportCancellationPreservesUnrelatedOrderAndCounters },
+    { name: 'WsRouter recovery transport cancellation matches the exact replay token', tags: ['screen repair supersession'], run: testWsTransportRecoveryCancellationPredicateIsTokenExact },
+    { name: 'WsRouter safe-send drops a superseded replay tail without losing normal live output', tags: ['screen repair supersession'], run: testWsRouterSafeSendDropsSupersededReplayTailOnly },
+    { name: 'WsRouter safe-send drops a superseded direct repair tail by exact repair token', tags: ['screen repair supersession'], run: testWsRouterSafeSendDropsSupersededDirectRepairTailOnly },
     { name: 'WsRouter safe-send queues output on projected high-water pressure', run: testWsRouterSafeSendQueuesProjectedHighWaterOutput },
     { name: 'WsRouter safe-send closes clients on projected hard-limit pressure', run: testWsRouterSafeSendClosesProjectedHardLimitClient },
     { name: 'WsRouter safe-send preserves output queued during in-flight send', run: testWsRouterSafeSendPreservesOutputQueuedDuringInflightSend },
@@ -485,6 +517,7 @@ async function main(): Promise<void> {
     { name: 'WsRouter observe send callback errors do not enforce close', run: testWsRouterObserveSendCallbackErrorDoesNotClose },
     { name: 'WsRouter safe-send rollback flushes queued output without enforce close', run: testWsRouterSafeSendRollbackFlushesQueuedOutputWithoutClose },
     { name: 'WsRouter safe-send coalesces queued output', run: testWsRouterSafeSendCoalescesQueuedOutput },
+    { name: 'WsRouter safe-send preserves exact-once output identity boundaries', run: testWsRouterSafeSendPreservesIdentifiedOutputBoundaries },
     { name: 'WsRouter safe-send respects output coalesce window', run: testWsRouterSafeSendRespectsOutputCoalesceWindow },
     { name: 'WsRouter safe-send closes instead of dropping control messages', run: testWsRouterSafeSendClosesOnControlQueueOverflow },
     { name: 'WsRouter safe-send observe records pressure without queueing', run: testWsRouterSafeSendObserveDoesNotQueue },
@@ -495,16 +528,16 @@ async function main(): Promise<void> {
     { name: 'WsRouter sends screen repair and queues output until ACK', run: testWsRouterSendsScreenRepairAndQueuesOutputUntilAck },
     { name: 'WsRouter screen repair sent telemetry byteLength uses UTF-8 bytes', run: testWsRouterScreenRepairSentTelemetryByteLengthUsesUtf8Bytes },
     { name: 'WsRouter queues output while screen repair is generating', run: testWsRouterQueuesOutputDuringScreenRepairGeneration },
+    { name: 'WsRouter ignores stale screen repair generation after unsubscribe', run: testWsRouterIgnoresStaleScreenRepairGenerationAfterUnsubscribe },
     { name: 'WsRouter flushes output newer than screen repair snapshot seq', run: testWsRouterFlushesOutputAfterScreenRepairSnapshotSeq },
-    { name: 'WsRouter flushes output on screen-repair ACK timeout', run: testWsRouterFlushesScreenRepairOutputOnAckTimeout },
-    { name: 'WsRouter flushes covered screen repair output on client failure', run: testWsRouterFlushesCoveredScreenRepairOutputOnFailure },
-    { name: 'WsRouter flushes covered screen repair output on ACK timeout', run: testWsRouterFlushesCoveredScreenRepairOutputOnTimeout },
-    { name: 'WsRouter flushes output on screen-repair:failed', run: testWsRouterFlushesOutputOnScreenRepairFailed },
     { name: 'WsRouter ignores stale screen repair token', run: testWsRouterIgnoresStaleScreenRepairToken },
     { name: 'WsRouter rejects screen repair during replay pending', run: testWsRouterRejectsScreenRepairDuringReplayPending },
-    { name: 'WsRouter aborts screen repair queue overflow without tail trimming', run: testWsRouterScreenRepairQueueOverflowFlushesAllOutput },
-    { name: 'WsRouter applies screen repair queue cap using UTF-8 bytes', run: testWsRouterScreenRepairQueueOverflowUsesUtf8Bytes },
     { name: 'WsRouter allows multibyte screen repair output within byte cap', run: testWsRouterScreenRepairQueueAllowsUtf8WithinCap },
+    { name: 'Repair queue·protocol RED 계약 — AC-1', tags: ['screen repair'], run: testRepairQueueProtocolRedAc1 },
+    { name: 'Repair queue·protocol RED 계약 — AC-3', tags: ['screen repair'], run: testRepairQueueProtocolRedAc3 },
+    { name: 'Repair queue·protocol RED 계약 — AC-5', tags: ['screen repair'], run: testRepairQueueProtocolRedAc5 },
+    { name: 'Repair queue·protocol RED 계약 — AC-7', tags: ['screen repair'], run: testRepairQueueProtocolRedAc7 },
+    { name: 'Repair queue·protocol RED 계약 — AC-10', tags: ['screen repair'], run: testRepairQueueProtocolRedAc10 },
     { name: 'WsRouter starts repair replay without geometry change', run: testWsRouterStartsRepairReplayWithoutResize },
     { name: 'WsRouter queues output during repair replay until ACK', run: testWsRouterQueuesOutputDuringRepairReplayUntilAck },
     { name: 'WsRouter does not duplicate deferred degraded payload after fallback snapshot ack', run: testWsRouterNoDuplicateDeferredFallbackPayload },
@@ -613,7 +646,10 @@ async function main(): Promise<void> {
 
   const testFilter = process.env.BUILDERGATE_TEST_FILTER?.trim().toLowerCase();
   const selectedTests = testFilter
-    ? tests.filter(testCase => testCase.name.toLowerCase().includes(testFilter))
+    ? tests.filter(testCase => (
+        testCase.name.toLowerCase().includes(testFilter)
+        || testCase.tags?.some(tag => tag.toLowerCase().includes(testFilter))
+      ))
     : tests;
   if (testFilter && selectedTests.length === 0) {
     throw new Error(`No tests matched BUILDERGATE_TEST_FILTER=${testFilter}`);
@@ -2192,9 +2228,14 @@ async function testSessionManagerRuntimeConfig(): Promise<void> {
     headlessWriteChain: Promise.resolve(),
     headlessCloseSignal: createTestDeferredSignal<void>(),
     pendingHeadlessWrites: 0,
+    headlessApplyInFlight: 0,
     cols: 80,
     rows: 24,
     screenSeq: 1,
+    authorityRevision: 0,
+    parserComplete: true,
+    pendingEscapeTailAnsi: '',
+    parserTailOverflow: false,
     snapshotCache: {
       seq: 1,
       cols: 80,
@@ -3379,17 +3420,29 @@ async function testSessionManagerIgnoresRejectedAsyncStartIdentityCapture(): Pro
     assert.equal(captureCalls, 1);
     assert.ok(harness.manager.getSession(harness.session.id));
 
-    // Rejections trigger bounded retries; wait for the retry budget (200ms + 400ms) to drain.
+    // Retries continue for as long as the session lives. Giving up early is what
+    // leaves `osStartIdentity` null, and an unidentified root makes the terminator
+    // refuse to kill the tree — the session record goes away and its process
+    // survives. The identity is a fixed fact about a process that outlives the
+    // probe, so a failed probe is a reason to try again, not to stop.
     await delay(900);
 
     assert.ok(harness.manager.getSession(harness.session.id));
+    // Attempts at 0ms, +200ms and +600ms; the next is scheduled for +1400ms.
     assert.equal(captureCalls, 3);
     assert.equal(harness.sessionData?.processMetadata.osStartIdentity, null);
 
     const cleanup = readCleanupTelemetry(harness.manager);
-    assert.equal(cleanup.identityCaptureRetried, 2);
-    assert.equal(cleanup.identityCaptureFailed, 1);
+    assert.equal(cleanup.identityCaptureFailed, 3, 'every failed probe should be counted');
+    assert.equal(cleanup.identityCaptureRetried, 3, 'every failure should schedule another attempt');
     assert.equal(cleanup.identityCaptureSucceeded, 0);
+
+    // The decisive property: the schedule has not been exhausted.
+    await delay(900);
+    assert.ok(
+      captureCalls > 3,
+      `identity capture gave up while the session was still alive (calls=${captureCalls})`,
+    );
   } finally {
     harness.cleanupIfActive();
   }
@@ -3419,7 +3472,7 @@ async function testSessionManagerRetriesAsyncStartIdentityCaptureAfterTransientF
     const cleanup = readCleanupTelemetry(harness.manager);
     assert.equal(cleanup.identityCaptureSucceeded, 1);
     assert.equal(cleanup.identityCaptureRetried, 1);
-    assert.equal(cleanup.identityCaptureFailed, 0);
+    assert.equal(cleanup.identityCaptureFailed, 1, 'the transient failure is still counted');
   } finally {
     harness.cleanupIfActive();
   }
@@ -3868,6 +3921,219 @@ async function testSessionManagerCodexTypingRestoresIdleAfterRunning(): Promise<
     await delay(60);
     assert.equal(harness.manager.getSession(harness.session.id)?.status, 'idle');
     assert.equal(harness.sessionData?.derivedState?.foregroundAppId, 'codex');
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerCodexPendingDraftSemanticOutputRuns(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, 'codex\r');
+    harness.manager.writeInput(harness.session.id, 'draft response');
+    await delay(150);
+    handler('Running shell command npm test\r\nCollecting test output\r\n');
+    await delay(60);
+    assert.equal(
+      harness.manager.getSession(harness.session.id)?.status,
+      'running',
+      'a substantive Codex stream cannot be hidden by an unsent local draft',
+    );
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerCodexDelayedMatchingDraftEchoStaysIdle(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    const draft = 'delayed local echo';
+    harness.manager.writeInput(harness.session.id, 'codex\r');
+    harness.manager.writeInput(harness.session.id, draft);
+    await delay(70);
+    handler(draft);
+    await delay(60);
+    assert.equal(
+      harness.manager.getSession(harness.session.id)?.status,
+      'idle',
+      'a delayed Codex echo matching the pending draft must remain idle',
+    );
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerCodexControlInterruptShortSemanticOutputRuns(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, 'codex\r');
+    harness.manager.writeInput(harness.session.id, '\x03');
+    await delay(70);
+    handler('Running command');
+    await delay(60);
+    assert.equal(
+      harness.manager.getSession(harness.session.id)?.status,
+      'running',
+      'a stale Ctrl+C repaint marker cannot hide later short Codex semantic output',
+    );
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerCodexPendingDraftPromptRedrawStaysIdle(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, 'codex\r');
+    harness.manager.writeInput(harness.session.id, 'draft response');
+    await delay(70);
+    handler('› draft response');
+    await delay(60);
+    assert.equal(
+      harness.manager.getSession(harness.session.id)?.status,
+      'idle',
+      'a delayed Codex prompt redraw that ends in the local draft is not semantic agent output',
+    );
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerNonAiPendingDraftSemanticOutputRuns(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, 'draft shell command');
+    handler('background worker completed\r\nfinalizing artifacts\r\n');
+    await delay(20);
+    assert.equal(
+      harness.manager.getSession(harness.session.id)?.status,
+      'running',
+      'substantive shell output cannot be treated as local echo merely because Enter was not pressed',
+    );
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerNonAiPendingDraftShortSemanticOutputRuns(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, 'draft shell command');
+    await delay(70);
+    handler('Done');
+    await delay(20);
+    assert.equal(
+      harness.manager.getSession(harness.session.id)?.status,
+      'running',
+      'a delayed short shell result cannot be treated as local echo merely because Enter was not pressed',
+    );
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerNonAiPendingDraftPromptRedrawStaysIdle(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    const draft = 'draft shell command';
+    harness.manager.writeInput(harness.session.id, draft);
+    await delay(70);
+    handler(`builder@host:~$ ${draft}`);
+    await delay(20);
+    assert.equal(
+      harness.manager.getSession(harness.session.id)?.status,
+      'idle',
+      'a delayed shell prompt redraw ending in the pending draft must remain idle',
+    );
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerNonAiImmediateControlInterruptRepaintStaysIdle(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, '\x03');
+    handler('^C\r\n$ ');
+    await delay(20);
+    assert.equal(
+      harness.manager.getSession(harness.session.id)?.status,
+      'idle',
+      'an immediate Ctrl+C prompt repaint must not become semantic shell activity',
+    );
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerNonAiDelayedControlInterruptPromptReturnStaysIdle(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, '\x03');
+    await delay(70);
+    handler('^C\r\n$ ');
+    await delay(20);
+    assert.equal(
+      harness.manager.getSession(harness.session.id)?.status,
+      'idle',
+      'a delayed Ctrl+C shell prompt return must not become semantic activity',
+    );
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerNonAiDelayedControlInterruptPowerShellPromptReturnStaysIdle(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, '\x03');
+    await delay(70);
+    handler('^C\r\nPS C:\\Users\\beom>');
+    await delay(20);
+    assert.equal(
+      harness.manager.getSession(harness.session.id)?.status,
+      'idle',
+      'a Ctrl+C PowerShell prompt return must remain idle even when shell metadata is stale',
+    );
+  } finally {
+    harness.cleanup();
+  }
+}
+
+async function testSessionManagerNonAiControlInterruptSemanticOutputRuns(): Promise<void> {
+  const harness = createForegroundSessionHarness('bash', { idleDelayMs: 200, runningDelayMs: 30 });
+
+  try {
+    const handler = harness.getHandler();
+    harness.manager.writeInput(harness.session.id, '\x03');
+    await delay(70);
+    handler('background worker completed\r\nfinalizing artifacts\r\n');
+    await delay(20);
+    assert.equal(
+      harness.manager.getSession(harness.session.id)?.status,
+      'running',
+      'a stale Ctrl+C repaint marker cannot hide later substantive shell output',
+    );
   } finally {
     harness.cleanup();
   }
@@ -4331,6 +4597,12 @@ async function testSessionManagerPowerShellPromptRedrawStaysIdle(): Promise<void
   });
 
   const session = manager.createSession('Prompt Redraw', 'powershell', 'C:\\Users\\beom');
+  const statusTransitions: string[] = [];
+  const originalUpdateStatus = (manager as any).updateStatus.bind(manager);
+  (manager as any).updateStatus = (id: string, status: string) => {
+    statusTransitions.push(status);
+    return originalUpdateStatus(id, status);
+  };
 
   try {
     const handler = onDataHandler as ((data: string) => void) | null;
@@ -4341,6 +4613,30 @@ async function testSessionManagerPowerShellPromptRedrawStaysIdle(): Promise<void
     await delay(20);
 
     assert.equal(manager.getSession(session.id)?.status, 'idle');
+    assert.equal(manager.writeInput(session.id, 'PH005-delayed-redraw'), true);
+    await delay(70);
+    handler('\x1b[2K\rPS C:\\Users\\beom>PH005-delayed-redraw\x1b[K');
+    await delay(20);
+
+    assert.equal(manager.getSession(session.id)?.status, 'idle');
+    assert.equal(statusTransitions.includes('running'), false);
+
+    statusTransitions.length = 0;
+    assert.equal(manager.writeInput(session.id, 'PH005-delayed-redraw'), true);
+    await delay(70);
+    handler('\x1b[2K\rPS C:\\Work\\git\\_Snoworca\\ProjectMaster>PH005-delayed-redraw\x1b[K');
+    await delay(20);
+    assert.equal(manager.getSession(session.id)?.status, 'idle');
+    assert.equal(statusTransitions.includes('running'), false);
+
+    statusTransitions.length = 0;
+    assert.equal(manager.writeInput(session.id, 'PH005-cancelled-input'), true);
+    assert.equal(manager.writeInput(session.id, '\x03'), true);
+    await delay(70);
+    handler('\x1b[2K\rPS C:\\Users\\beom>\x1b[K');
+    await delay(20);
+    assert.equal(manager.getSession(session.id)?.status, 'idle');
+    assert.equal(statusTransitions.includes('running'), false);
   } finally {
     assert.equal(manager.deleteSession(session.id), true);
     assert.equal(killCalled, true);
@@ -4969,9 +5265,14 @@ function testSessionManagerNoopResizeSkipsRefresh(): void {
     headlessWriteChain: Promise.resolve(),
     headlessCloseSignal: createTestDeferredSignal<void>(),
     pendingHeadlessWrites: 0,
+    headlessApplyInFlight: 0,
     cols: 80,
     rows: 24,
     screenSeq: 7,
+    authorityRevision: 0,
+    parserComplete: true,
+    pendingEscapeTailAnsi: '',
+    parserTailOverflow: false,
     snapshotCache: {
       seq: 7,
       cols: 80,
@@ -13639,9 +13940,14 @@ function createManagedSessionHarness(
     headlessWriteChain: Promise.resolve(),
     headlessCloseSignal: createTestDeferredSignal<void>(),
     pendingHeadlessWrites: 0,
+    headlessApplyInFlight: 0,
     cols: options.cols ?? 10,
     rows: options.rows ?? 4,
     screenSeq: 0,
+    authorityRevision: 0,
+    parserComplete: true,
+    pendingEscapeTailAnsi: '',
+    parserTailOverflow: false,
     snapshotCache: null,
     degradedReplayBuffer: '',
     degradedReplayTruncated: false,
@@ -14517,15 +14823,20 @@ function createWsRouterHarness(options?: {
   snapshotMode?: 'authoritative' | 'fallback';
   snapshotSeq?: number;
   writeInputThrows?: boolean;
+  replayQueueLimit?: number;
+  pendingOutputMaxChunks?: number;
   routerOptions?: ConstructorParameters<typeof WsRouter>[2];
   fakeWsOptions?: Parameters<typeof createFakeWs>[0];
   getScreenRepair?: (
     id: string,
     expected: { cols: number; rows: number; bufferType: 'normal' | 'alternate' },
   ) => Promise<unknown> | unknown;
+  getAtomicRestoreSnapshot?: (id: string) => unknown;
 }) {
   const calls = {
     writeInput: [] as Array<{ sessionId: string; data: string; metadata?: unknown }>,
+    getScreenSnapshot: 0,
+    getScreenRepair: 0,
   };
   const session = {
     id: 'session-1',
@@ -14540,29 +14851,46 @@ function createWsRouterHarness(options?: {
     getSession: (id: string) => id === session.id ? session : null,
     getLastCwd: (id: string) => id === session.id ? 'C:\\repo' : null,
     isSessionReady: (id: string) => id === session.id,
-    getScreenSnapshot: (id: string) => id === session.id ? {
-      seq: options?.snapshotSeq ?? 1,
-      cols: 80,
-      rows: 24,
-      data: options?.snapshotData ?? 'history-seed',
-      truncated: options?.snapshotTruncated ?? false,
-      generatedAt: Date.now(),
-      health: options?.snapshotMode === 'fallback' ? 'degraded' : 'healthy',
-      windowsPty: { backend: 'conpty', buildNumber: 22631 },
-    } : null,
-    getScreenRepair: options?.getScreenRepair ?? (async (id: string, expected: { cols: number; rows: number; bufferType: 'normal' | 'alternate' }) => id === session.id ? {
-      ok: true as const,
-      payload: {
+    getScreenSnapshot: (id: string) => {
+      calls.getScreenSnapshot += 1;
+      return id === session.id ? {
         seq: options?.snapshotSeq ?? 1,
-        cols: expected.cols,
-        rows: expected.rows,
-        bufferType: expected.bufferType,
-        cursor: { x: 0, y: 0 },
-        viewportRows: [{ y: 0, ansi: 'repair-row', text: 'repair-row', wrapped: false }],
-        ansiPatch: '\x1b[1;1Hrepair-row',
-      },
-    } : { ok: false as const, reason: 'headless-degraded' as const }),
-    getReplayQueueLimit: () => 64,
+        cols: 80,
+        rows: 24,
+        data: options?.snapshotData ?? 'history-seed',
+        truncated: options?.snapshotTruncated ?? false,
+        generatedAt: Date.now(),
+        health: options?.snapshotMode === 'fallback' ? 'degraded' : 'healthy',
+        windowsPty: { backend: 'conpty', buildNumber: 22631 },
+      } : null;
+    },
+    getScreenRepair: async (
+      id: string,
+      expected: { cols: number; rows: number; bufferType: 'normal' | 'alternate' },
+    ) => {
+      calls.getScreenRepair += 1;
+      if (options?.getScreenRepair) {
+        return options.getScreenRepair(id, expected);
+      }
+      return id === session.id ? {
+        ok: true as const,
+        payload: {
+          seq: options?.snapshotSeq ?? 1,
+          cols: expected.cols,
+          rows: expected.rows,
+          bufferType: expected.bufferType,
+          cursor: { x: 0, y: 0 },
+          viewportRows: [{ y: 0, ansi: 'repair-row', text: 'repair-row', wrapped: false }],
+          ansiPatch: '\x1b[1;1Hrepair-row',
+        },
+      } : { ok: false as const, reason: 'headless-degraded' as const };
+    },
+    getReplayQueueLimit: () => options?.replayQueueLimit ?? 64,
+    getScreenRepairQueuePolicy: () => ({
+      maxBytes: options?.replayQueueLimit ?? 64,
+      maxChunks: options?.pendingOutputMaxChunks ?? 8,
+      source: 'compatibility-cap' as const,
+    }),
     writeInput: (sessionId: string, data: string, metadata?: unknown) => {
       if (options?.writeInputThrows) {
         throw new Error('simulated write failure');
@@ -14571,6 +14899,9 @@ function createWsRouterHarness(options?: {
       return true;
     },
     resize: () => true,
+    ...(options?.getAtomicRestoreSnapshot
+      ? { getAtomicRestoreSnapshot: options.getAtomicRestoreSnapshot }
+      : {}),
   } as unknown as SessionManager;
 
   const authServiceStub = {
@@ -14595,6 +14926,365 @@ function createWsRouterHarness(options?: {
   return { router, ws, sent, calls, fake };
 }
 
+async function testSessionManagerScreenRepairFollowsMovingWriteTail(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 12,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 4096,
+      shell: 'auto',
+    },
+    session: {
+      idleDelayMs: 200,
+    },
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 12, rows: 4, scrollbackLines: 1000 });
+  const firstWrite = createTestDeferredSignal<void>();
+  const appendedWrite = createTestDeferredSignal<void>();
+
+  try {
+    harness.sessionData.pendingHeadlessWrites = 1;
+    harness.sessionData.headlessWriteChain = firstWrite.promise.then(() => {
+      harness.sessionData.pendingHeadlessWrites = 0;
+      setTimeout(() => {
+        harness.sessionData.pendingHeadlessWrites = 1;
+        harness.sessionData.headlessWriteChain = appendedWrite.promise.then(async () => {
+          await writeHeadlessTerminal(harness.sessionData.headless!, 'MOVING-TAIL-MARKER');
+          harness.sessionData.authorityRevision += 1;
+          harness.sessionData.pendingHeadlessWrites = 0;
+        });
+      }, 10);
+    });
+
+    let repairSettled = false;
+    const repairPromise = manager.getScreenRepair(harness.sessionId, {
+      cols: 12,
+      rows: 4,
+      bufferType: 'normal',
+    }).then((result) => {
+      repairSettled = true;
+      return result;
+    });
+
+    firstWrite.resolve();
+    await new Promise<void>(resolve => setImmediate(resolve));
+    const settledBeforeAppendedTail = repairSettled;
+    appendedWrite.resolve();
+    const repair = await repairPromise;
+
+    assert.equal(settledBeforeAppendedTail, false);
+    assert.equal(repair.ok, true);
+    if (repair.ok) {
+      assert.match(repair.payload.viewportRows.map(row => row.text).join(''), /MOVING-TAIL-MARKER/);
+    }
+  } finally {
+    firstWrite.resolve();
+    appendedWrite.resolve();
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerScreenRepairBoundsStuckWriteTail(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 12,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 4096,
+      shell: 'auto',
+    },
+    session: { idleDelayMs: 200 },
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 12, rows: 4 });
+
+  try {
+    // A write that is stuck *mid-apply* is what makes the buffer disagree with
+    // `screenSeq`; a write merely queued behind the chain does not, and refusing
+    // on that would refuse every session that keeps producing output.
+    harness.sessionData.pendingHeadlessWrites = 1;
+    harness.sessionData.headlessApplyInFlight = 1;
+    harness.sessionData.headlessWriteChain = new Promise<void>(() => {});
+    const startedAt = Date.now();
+    const repair = await manager.getScreenRepair(harness.sessionId, {
+      cols: 12,
+      rows: 4,
+      bufferType: 'normal',
+    });
+    const elapsedMs = Date.now() - startedAt;
+
+    assert.deepEqual(repair, { ok: false, reason: 'headless-busy' });
+    assert.equal(elapsedMs >= 200, true);
+    assert.equal(elapsedMs < 1000, true);
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testSessionManagerScreenRepairAllowsQueuedWriteTail(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 12,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 4096,
+      shell: 'auto',
+    },
+    session: { idleDelayMs: 200 },
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 12, rows: 4 });
+
+  try {
+    // Queued but not applying: the buffer and `screenSeq` agree, so the repair
+    // is safe to produce. This is the state a session with continuous output
+    // holds almost always, and refusing it left such sessions unrepairable.
+    harness.sessionData.pendingHeadlessWrites = 1;
+    harness.sessionData.headlessApplyInFlight = 0;
+    harness.sessionData.headlessWriteChain = new Promise<void>(() => {});
+    const repair = await manager.getScreenRepair(harness.sessionId, {
+      cols: 12,
+      rows: 4,
+      bufferType: 'normal',
+    });
+
+    assert.notEqual(
+      (repair as { reason?: string }).reason,
+      'headless-busy',
+      'a queued write tail was refused as busy',
+    );
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testWsRouterKeepsBusyScreenRepairConnection(): Promise<void> {
+  const { router, ws, sent } = createWsRouterHarness({
+    getScreenRepair: () => ({ ok: false as const, reason: 'headless-busy' as const }),
+  });
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    const snapshot = sent.find(message => message.type === 'screen-snapshot');
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(snapshot?.replayToken));
+
+    await (router as any).handleScreenRepairRequest(ws, {
+      type: 'screen-repair',
+      sessionId: 'session-1',
+      cols: 80,
+      rows: 24,
+      reason: 'workspace',
+      clientAtBottom: true,
+      clientBufferType: 'normal',
+    });
+
+    const rejection = sent.find(message => message.type === 'screen-repair:rejected');
+    assert.equal(rejection?.reason, 'pending', 'the transient request must settle observably');
+    assert.equal(
+      sent.some(message => message.type === 'screen-repair:reconnect-required'),
+      false,
+      'a moving headless write tail must not start a reconnect loop',
+    );
+    const meta = (router as any).clients.get(ws);
+    assert.equal(meta.screenRepairPendingSessions.size, 0);
+    assert.equal(meta.replayPendingSessions.get('session-1')?.authorityPending, true);
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testSessionManagerScreenRepairReportsDrainDegradation(): Promise<void> {
+  const manager = new SessionManager({
+    pty: {
+      termName: 'xterm-256color',
+      defaultCols: 12,
+      defaultRows: 4,
+      useConpty: false,
+      scrollbackLines: 1000,
+      maxSnapshotBytes: 4096,
+      shell: 'auto',
+    },
+    session: { idleDelayMs: 200 },
+  });
+  const harness = createManagedSessionHarness(manager, { cols: 12, rows: 4 });
+
+  try {
+    harness.sessionData.pendingHeadlessWrites = 1;
+    harness.sessionData.headlessWriteChain = new Promise<void>(() => {});
+    setTimeout(() => {
+      harness.sessionData.headlessHealth = 'degraded';
+    }, 10);
+
+    const repair = await manager.getScreenRepair(harness.sessionId, {
+      cols: 12,
+      rows: 4,
+      bufferType: 'normal',
+    });
+    assert.deepEqual(repair, { ok: false, reason: 'headless-degraded' });
+  } finally {
+    harness.dispose();
+  }
+}
+
+async function testWsRouterFencesIoWhileAtomicRestoreAuthorityRetries(): Promise<void> {
+  let authorityReads = 0;
+  const { router, ws, sent, calls } = createWsRouterHarness({
+    getAtomicRestoreSnapshot: (sessionId) => {
+      authorityReads += 1;
+      if (authorityReads === 1) {
+        return { ok: false as const, reason: 'generation-failed' as const };
+      }
+      return {
+        ok: true as const,
+        payload: {
+          authorityRevision: 7,
+          snapshotSeq: 1,
+          cols: 80,
+          rows: 24,
+          serializedData: 'authoritative-snapshot',
+          truncated: false,
+          generatedAt: Date.now(),
+          health: 'healthy' as const,
+          windowsPty: { backend: 'conpty' as const, buildNumber: 22631 },
+          parserComplete: true,
+          pendingEscapeTailAnsi: '',
+        },
+      };
+    },
+  });
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    const provisional = (router as any).clients.get(ws).replayPendingSessions.get('session-1');
+    assert.equal(provisional?.authorityPending, true);
+
+    (router as any).handleInput(ws, {
+      type: 'input',
+      sessionId: 'session-1',
+      data: 'fenced-input',
+      inputSeqStart: 1,
+      inputSeqEnd: 1,
+    });
+    router.routeSessionOutput('session-1', 'fenced-output', 2);
+    assert.equal(calls.writeInput.length, 0);
+    assert.equal(sent.some((message) => message.type === 'output'), false);
+
+    for (let attempt = 0; attempt < 20 && !sent.some((message) => message.type === 'screen-snapshot'); attempt += 1) {
+      await delay(5);
+    }
+    const snapshot = sent.find((message) => message.type === 'screen-snapshot');
+    assert.equal(snapshot?.type, 'screen-snapshot');
+    assert.equal(snapshot?.data, 'authoritative-snapshot');
+    assert.equal(calls.writeInput.length, 0);
+    assert.equal(sent.some((message) => message.type === 'output'), false);
+
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(snapshot?.replayToken));
+    assert.deepEqual(calls.writeInput.map((call) => call.data), ['fenced-input']);
+    const output = sent.find((message) => message.type === 'output');
+    assert.equal(output?.data, 'fenced-output');
+    assert.equal(output?.screenSeq, 2);
+    assert.equal(typeof output?.chunkId, 'string');
+    assert.equal(sent.at(-1)?.type, 'session:ready');
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterFailsClosedWhenAtomicRestoreAuthorityStaysUnavailable(): Promise<void> {
+  const { router, ws, sent, calls } = createWsRouterHarness({
+    getAtomicRestoreSnapshot: () => ({
+      ok: false as const,
+      reason: 'generation-failed' as const,
+    }),
+  });
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    (router as any).handleInput(ws, {
+      type: 'input',
+      sessionId: 'session-1',
+      data: 'must-not-cross-failed-authority',
+      inputSeqStart: 1,
+      inputSeqEnd: 1,
+    });
+    router.routeSessionOutput('session-1', 'must-not-leak', 2);
+
+    for (
+      let attempt = 0;
+      attempt < 30 && !sent.some((message) => message.type === 'screen-repair:reconnect-required');
+      attempt += 1
+    ) {
+      await delay(5);
+    }
+
+    assert.equal(calls.writeInput.length, 0);
+    assert.equal(sent.some((message) => message.type === 'output'), false);
+    assert.equal(sent.some((message) => message.type === 'session:ready'), false);
+    assert.equal(sent.some((message) => message.type === 'screen-snapshot'), false);
+    const rejected = sent.find((message) => message.type === 'input:rejected');
+    assert.equal(rejected?.reason, 'timeout');
+    const reconnect = sent.find((message) => message.type === 'screen-repair:reconnect-required');
+    assert.equal(reconnect?.reason, 'authority-unavailable');
+    assert.equal(reconnect?.outcome, 'authority-unavailable');
+    assert.equal((router as any).clients.get(ws).replayPendingSessions.has('session-1'), false);
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterDoesNotReviveProvisionalRestoreAfterOverflow(): Promise<void> {
+  let authorityReads = 0;
+  const { router, ws, sent } = createWsRouterHarness({
+    replayQueueLimit: 4,
+    getAtomicRestoreSnapshot: () => {
+      authorityReads += 1;
+      if (authorityReads === 1) {
+        return { ok: false as const, reason: 'generation-failed' as const };
+      }
+      return {
+        ok: true as const,
+        payload: {
+          authorityRevision: 9,
+          snapshotSeq: 1,
+          cols: 80,
+          rows: 24,
+          serializedData: 'must-not-revive',
+          truncated: false,
+          generatedAt: Date.now(),
+          health: 'healthy' as const,
+          windowsPty: { backend: 'conpty' as const, buildNumber: 22631 },
+          parserComplete: true,
+          pendingEscapeTailAnsi: '',
+        },
+      };
+    },
+  });
+
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    router.routeSessionOutput('session-1', 'overflow-provisional-output', 2);
+    assert.equal(sent.some((message) => message.type === 'screen-repair:reconnect-required'), true);
+
+    await delay(60);
+
+    assert.equal(authorityReads, 1, 'cancelled provisional generation must not perform a retry read');
+    assert.equal(sent.some((message) => message.type === 'screen-snapshot'), false);
+    assert.equal(sent.some((message) => message.type === 'output'), false);
+    assert.equal(sent.some((message) => message.type === 'session:ready'), false);
+    assert.equal(
+      sent.filter((message) => message.type === 'screen-repair:reconnect-required').length,
+      1,
+    );
+  } finally {
+    router.destroy();
+  }
+}
+
 function testWsRouterExposesPerSessionReplayState(): void {
   const { router, ws } = createWsRouterHarness();
   const initial = router.readInputReplayState('session-1');
@@ -14611,10 +15301,13 @@ function testWsRouterExposesPerSessionReplayState(): void {
 }
 
 function testWsRouterScreenSnapshotOrdering(): void {
-  const { router, ws, sent } = createWsRouterHarness();
+  const snapshotMarker = 'SNAPSHOT-WIRE-MARKER-INITIAL';
+  const { router, ws, sent } = createWsRouterHarness({ snapshotData: snapshotMarker });
 
   (router as any).handleSubscribe(ws, ['session-1']);
   assert.equal(sent[0].type, 'screen-snapshot');
+  assert.equal(Object.hasOwn(sent[0], 'serializedData'), false);
+  assert.equal(JSON.stringify(sent[0]).split(snapshotMarker).length - 1, 1);
   assert.equal((sent[0] as any).windowsPty?.backend, 'conpty');
   assert.equal(sent[1].type, 'subscribed');
   assert.equal(((sent[1] as any).sessions?.[0] as any)?.ready, false);
@@ -14674,6 +15367,34 @@ function testWsRouterQueuesInputWhileReplayPendingAndFlushesAfterAck(): void {
   assert.equal(flushedEvent?.details?.inputSeqStart, 5);
   assert.equal(sent[sent.length - 1].type, 'session:ready');
 
+  router.destroy();
+}
+
+function testWsRouterObserveModeQueuesReplayPendingInput(): void {
+  const { router, ws, sent, calls } = createWsRouterHarness({
+    routerOptions: { inputReliabilityMode: 'observe' },
+  });
+
+  (router as any).handleSubscribe(ws, ['session-1']);
+  const replayToken = String(sent[0].replayToken);
+  (router as any).handleInput(ws, {
+    type: 'input',
+    sessionId: 'session-1',
+    data: 'must-not-disappear\r',
+    inputSeqStart: 91,
+    inputSeqEnd: 91,
+  });
+
+  assert.equal(calls.writeInput.length, 0, 'input remains fenced until the snapshot ACK');
+  assert.equal(
+    router.getObservabilitySnapshot().recentReplayEvents.some(event => event.kind === 'input_queued'),
+    true,
+    'observe mode must retain replay-pending input instead of silently dropping it',
+  );
+
+  (router as any).handleScreenSnapshotReady(ws, 'session-1', replayToken);
+
+  assert.deepEqual(calls.writeInput.map(call => call.data), ['must-not-disappear\r']);
   router.destroy();
 }
 
@@ -14759,10 +15480,12 @@ function testWsRouterPreservesInputQueueAcrossReplayRefresh(): void {
     });
 
     snapshotState.seq = 2;
-    snapshotState.data = 'AB';
+    snapshotState.data = 'SNAPSHOT-WIRE-MARKER-REFRESH';
     router.refreshReplaySnapshots('session-1');
     const refreshed = sent.find((message) => message.type === 'screen-snapshot' && message.replayToken !== firstToken);
     assert.equal(refreshed?.type, 'screen-snapshot');
+    assert.equal(Object.hasOwn(refreshed ?? {}, 'serializedData'), false);
+    assert.equal(JSON.stringify(refreshed).split(snapshotState.data).length - 1, 1);
     const secondToken = String(refreshed?.replayToken);
 
     (router as any).handleScreenSnapshotReady(ws, 'session-1', secondToken);
@@ -14853,7 +15576,8 @@ function testWsRouterRejectsExpiredReplayInputOnTimeout(): void {
   assert.equal(calls.writeInput.length, 0);
   const rejected = sent.find((message) => message.type === 'input:rejected');
   assert.equal(rejected?.reason, 'timeout');
-  assert.equal(sent[sent.length - 1].type, 'session:ready');
+  assert.equal(sent.some((message) => message.type === 'session:ready'), false);
+  assert.equal(sent.at(-1)?.type, 'screen-repair:reconnect-required');
 
   router.destroy();
 }
@@ -14876,12 +15600,13 @@ function testWsRouterRejectsEnterInputOnReplayTimeout(): void {
   assert.equal(calls.writeInput.length, 0);
   const rejected = sent.find((message) => message.type === 'input:rejected');
   assert.equal(rejected?.reason, 'timeout-enter-safety');
-  assert.equal(sent[sent.length - 1].type, 'session:ready');
+  assert.equal(sent.some((message) => message.type === 'session:ready'), false);
+  assert.equal(sent.at(-1)?.type, 'screen-repair:reconnect-required');
 
   router.destroy();
 }
 
-function testWsRouterFlushesSafeInputOnReplayTimeout(): void {
+function testWsRouterRejectsSafeInputOnReplayTimeout(): void {
   const { router, ws, sent, calls } = createWsRouterHarness();
 
   (router as any).handleSubscribe(ws, ['session-1']);
@@ -14896,10 +15621,13 @@ function testWsRouterFlushesSafeInputOnReplayTimeout(): void {
 
   (router as any).handleReplayAckTimeout(ws, 'session-1', replayToken, 1, 'timeout');
 
-  assert.deepEqual(calls.writeInput.map((call) => call.data), ['safe']);
+  assert.equal(calls.writeInput.length, 0);
+  const rejected = sent.find((message) => message.type === 'input:rejected');
+  assert.equal(rejected?.reason, 'timeout');
   const flushed = router.getObservabilitySnapshot().recentReplayEvents.find((event) => event.kind === 'input_flushed_timeout');
-  assert.equal(flushed?.details?.phase, 'timeout');
-  assert.equal(sent[sent.length - 1].type, 'session:ready');
+  assert.equal(flushed, undefined);
+  assert.equal(sent.some((message) => message.type === 'session:ready'), false);
+  assert.equal(sent.at(-1)?.type, 'screen-repair:reconnect-required');
 
   router.destroy();
 }
@@ -15423,13 +16151,12 @@ function testWsRouterFlushesQueuedOutputOnReplayTimeout(): void {
     (router as any).handleReplayAckTimeout(ws, 'session-1', replayToken, 1, 'timeout');
 
     const outputMessages = sent.filter((message) => message.type === 'output');
-    assert.equal(outputMessages.length, 1);
-    assert.equal(outputMessages[0].data, 'timeout-preserved-output');
-    assert.equal(sent.at(-2)?.type, 'output');
-    assert.equal(sent.at(-1)?.type, 'session:ready');
+    assert.equal(outputMessages.length, 0);
+    assert.equal(sent.some((message) => message.type === 'session:ready'), false);
+    assert.equal(sent.at(-1)?.type, 'screen-repair:reconnect-required');
 
     const flushed = router.getObservabilitySnapshot().recentReplayEvents.find((event) => event.kind === 'output_flushed');
-    assert.equal(flushed?.details?.phase, 'timeout');
+    assert.equal(flushed, undefined);
   } finally {
     router.destroy();
   }
@@ -15491,15 +16218,14 @@ function testWsRouterFlushesSnapshotCoveredOutputOnRefreshTimeout(): void {
     (router as any).handleReplayAckTimeout(ws, 'session-1', secondToken, 2, 'refresh-timeout');
 
     const outputMessages = sent.filter((message) => message.type === 'output');
-    assert.equal(outputMessages.length, 1);
-    assert.equal(outputMessages[0].data, 'B');
-    assert.equal(sent.at(-2)?.type, 'output');
-    assert.equal(sent.at(-1)?.type, 'session:ready');
+    assert.equal(outputMessages.length, 0);
+    assert.equal(sent.some((message) => message.type === 'session:ready'), false);
+    assert.equal(sent.at(-1)?.type, 'screen-repair:reconnect-required');
 
     const flushed = router.getObservabilitySnapshot().recentReplayEvents.find((event) => (
       event.kind === 'output_flushed' && event.details?.phase === 'refresh-timeout'
     ));
-    assert.equal(flushed?.details?.coveredQueuedBytes, 1);
+    assert.equal(flushed, undefined);
   } finally {
     router.destroy();
   }
@@ -15698,10 +16424,9 @@ function testWsRouterFlushesFallbackCoveredOutputOnRefreshTimeout(): void {
     (router as any).handleReplayAckTimeout(ws, 'session-1', String(refreshed?.replayToken), 2, 'refresh-timeout');
 
     const outputMessages = sent.filter((message) => message.type === 'output');
-    assert.equal(outputMessages.length, 1);
-    assert.equal(outputMessages[0].data, 'B');
-    assert.equal(sent.at(-2)?.type, 'output');
-    assert.equal(sent.at(-1)?.type, 'session:ready');
+    assert.equal(outputMessages.length, 0);
+    assert.equal(sent.some((message) => message.type === 'session:ready'), false);
+    assert.equal(sent.at(-1)?.type, 'screen-repair:reconnect-required');
   } finally {
     router.destroy();
   }
@@ -15725,7 +16450,7 @@ function testWsRouterReplayTimeoutUsesUtf8ByteBoundedTail(): void {
     (router as any).handleSubscribe(ws, ['session-1']);
     const firstToken = String(sent[0].replayToken);
 
-    const coveredChunk = '가'.repeat(8);
+    const coveredChunk = '가'.repeat(4);
     router.routeSessionOutput('session-1', coveredChunk, 2);
     const firstQueued = router.getObservabilitySnapshot().recentReplayEvents.find((event) => (
       event.kind === 'output_queued' && event.details?.outputScreenSeq === 2
@@ -15742,7 +16467,7 @@ function testWsRouterReplayTimeoutUsesUtf8ByteBoundedTail(): void {
     assert.equal(refreshed?.type, 'screen-snapshot');
     const secondToken = String(refreshed?.replayToken);
 
-    const queuedChunk = '🙂'.repeat(5);
+    const queuedChunk = '🙂';
     router.routeSessionOutput('session-1', queuedChunk, 3);
     const secondQueued = router.getObservabilitySnapshot().recentReplayEvents.find((event) => (
       event.kind === 'output_queued' && event.details?.outputScreenSeq === 3
@@ -15753,20 +16478,16 @@ function testWsRouterReplayTimeoutUsesUtf8ByteBoundedTail(): void {
     (router as any).handleReplayAckTimeout(ws, 'session-1', secondToken, 2, 'refresh-timeout');
 
     const outputMessages = sent.filter((message) => message.type === 'output');
-    assert.equal(outputMessages.length, 1);
-    const outputData = String(outputMessages[0].data);
-    assert.equal(Buffer.byteLength(outputData, 'utf8') <= 16, true);
-    assert.equal(outputData.includes('\uFFFD'), false);
-    assert.equal(sent.at(-2)?.type, 'output');
-    assert.equal(sent.at(-1)?.type, 'session:ready');
+    assert.equal(outputMessages.length, 0);
+    assert.equal(sent.some((message) => message.type === 'session:ready'), false);
+    assert.equal(sent.at(-1)?.type, 'screen-repair:reconnect-required');
 
     const flushed = router.getObservabilitySnapshot().recentReplayEvents.find((event) => (
       event.kind === 'output_flushed' && event.details?.phase === 'refresh-timeout'
     ));
-    assert.equal(Number(flushed?.details?.coveredQueuedBytes) > 0, true);
-    assert.equal(Number(flushed?.details?.queuedBytes) > 0, true);
-    assert.equal(flushed?.details?.outputBytes, Buffer.byteLength(outputData, 'utf8'));
-    assert.equal(Number(flushed?.details?.outputBytes) <= 16, true);
+    assert.equal(flushed, undefined);
+    const reconnect = sent.at(-1);
+    assert.equal(reconnect?.reason, 'ack-timeout');
   } finally {
     router.destroy();
   }
@@ -15856,6 +16577,352 @@ function safeSendRouterOptions(
       wsSendMode: mode,
     },
   };
+}
+
+function testWsTransportCancellationPreservesUnrelatedOrderAndCounters(): void {
+  const state = createWsTransportQueueState();
+  const messages = [
+    createWsTransportMessage({ type: 'pong' }, 1),
+    createWsTransportMessage({
+      type: 'screen-repair',
+      sessionId: 'session-a',
+      repairToken: 'repair-a',
+    }, 2),
+    createWsTransportMessage({ type: 'output', sessionId: 'session-b', data: 'other-output' }, 3),
+    createWsTransportMessage({ type: 'output', sessionId: 'session-a', data: 'superseded-output' }, 4),
+    createWsTransportMessage({
+      type: 'screen-snapshot',
+      sessionId: 'session-a',
+      replayToken: 'replay-a',
+    }, 5),
+    createWsTransportMessage({ type: 'session:ready', sessionId: 'session-b' }, 6),
+    createWsTransportMessage({
+      type: 'session:ready',
+      sessionId: 'session-a',
+      replayToken: 'superseded-replay',
+    }, 7),
+  ];
+  const restoreNeeded = createWsTransportMessage({
+    type: 'screen-repair:restore-needed',
+    sessionId: 'session-a',
+    repairToken: 'repair-a',
+    replayToken: 'replay-a',
+  }, 8);
+  restoreNeeded.kind = 'control';
+  messages.push(restoreNeeded);
+
+  for (const message of messages) {
+    pushTransportMessage(state, message);
+    if (message.kind === 'output') {
+      state.outputBytes += message.byteLength;
+    } else {
+      state.controlBytes += message.byteLength;
+    }
+  }
+  const expectedRetained = messages.filter(message => (
+    message.type === 'pong'
+    || (message.sessionId === 'session-b' && message.type === 'output')
+    || (message.sessionId === 'session-b' && message.type === 'session:ready')
+  ));
+  const expectedOutputBytes = expectedRetained
+    .filter(message => message.kind === 'output')
+    .reduce((total, message) => total + message.byteLength, 0);
+  const expectedControlBytes = expectedRetained
+    .filter(message => message.kind !== 'output')
+    .reduce((total, message) => total + message.byteLength, 0);
+
+  const removed = removeTransportMessages(state, message => (
+    message.sessionId === 'session-a'
+    && (
+      message.type === 'screen-repair'
+      || message.type === 'screen-repair:restore-needed'
+      || message.type === 'screen-snapshot'
+      || (
+        message.type === 'session:ready'
+        && (typeof message.replayToken === 'string' || typeof message.repairToken === 'string')
+      )
+      || message.type === 'output'
+    )
+  ));
+
+  assert.deepEqual(
+    getTransportMessagesInPriorityOrder(state).map(message => [message.type, message.sessionId ?? null]),
+    [
+      ['pong', null],
+      ['output', 'session-b'],
+      ['session:ready', 'session-b'],
+    ],
+  );
+  assert.deepEqual(removed, {
+    removedCount: 5,
+    removedOutputBytes: messages.find(message => (
+      message.type === 'output' && message.sessionId === 'session-a'
+    ))?.byteLength ?? 0,
+    removedControlBytes: messages
+      .filter(message => message.sessionId === 'session-a' && message.kind !== 'output')
+      .reduce((total, message) => total + message.byteLength, 0),
+  });
+  assert.equal(state.outputBytes, expectedOutputBytes);
+  assert.equal(state.controlBytes, expectedControlBytes);
+}
+
+function testWsTransportRecoveryCancellationPredicateIsTokenExact(): void {
+  const signature = 'safe-send recovery cancellation must match only the superseded replay token';
+  const predicateFactory = (wsSendPolicyModule as Record<string, unknown>)
+    .isSupersededRecoveryTransportMessage;
+  assert.equal(typeof predicateFactory, 'function', signature);
+  const isSuperseded = predicateFactory as (
+    message: ReturnType<typeof createWsTransportMessage>,
+    scope: { sessionId: string; replayToken: string },
+  ) => boolean;
+  const scope = { sessionId: 'session-a', replayToken: 'replay-old' };
+  const cases = [
+    {
+      label: 'old recovery output',
+      message: createWsTransportMessage({
+        type: 'output',
+        sessionId: 'session-a',
+        data: 'old-tail',
+        replayToken: 'replay-old',
+        screenSeq: 11,
+        chunkId: '11:1',
+      }),
+      expected: true,
+    },
+    {
+      label: 'current recovery output',
+      message: createWsTransportMessage({
+        type: 'output',
+        sessionId: 'session-a',
+        data: 'current-tail',
+        replayToken: 'replay-current',
+        screenSeq: 12,
+        chunkId: '12:2',
+      }),
+      expected: false,
+    },
+    {
+      label: 'normal live output',
+      message: createWsTransportMessage({
+        type: 'output',
+        sessionId: 'session-a',
+        data: 'normal-live',
+        screenSeq: 13,
+        chunkId: '13:3',
+      }),
+      expected: false,
+    },
+    {
+      label: 'other session old token',
+      message: createWsTransportMessage({
+        type: 'output',
+        sessionId: 'session-b',
+        data: 'other-session',
+        replayToken: 'replay-old',
+        screenSeq: 14,
+        chunkId: '14:4',
+      }),
+      expected: false,
+    },
+    {
+      label: 'old recovery ready',
+      message: createWsTransportMessage({
+        type: 'session:ready',
+        sessionId: 'session-a',
+        replayToken: 'replay-old',
+      }),
+      expected: true,
+    },
+  ];
+
+  assert.deepEqual(
+    cases.map(({ label, message }) => [label, isSuperseded(message, scope)]),
+    cases.map(({ label, expected }) => [label, expected]),
+    signature,
+  );
+
+  const repairPredicateFactory = (wsSendPolicyModule as Record<string, unknown>)
+    .isSupersededRepairTransportMessage;
+  assert.equal(typeof repairPredicateFactory, 'function', signature);
+  const isSupersededRepair = repairPredicateFactory as (
+    message: ReturnType<typeof createWsTransportMessage>,
+    repairScope: { sessionId: string; repairToken: string },
+  ) => boolean;
+  const oldRepairOutput = createWsTransportMessage({
+    type: 'output',
+    sessionId: 'session-a',
+    data: 'old-direct-tail',
+    screenSeq: 15,
+    chunkId: '15:5',
+  });
+  oldRepairOutput.repairToken = 'repair-old';
+  const normalLiveOutput = createWsTransportMessage({
+    type: 'output',
+    sessionId: 'session-a',
+    data: 'normal-live',
+    screenSeq: 16,
+    chunkId: '16:6',
+  });
+  const oldRepairReady = createWsTransportMessage({
+    type: 'session:ready',
+    sessionId: 'session-a',
+    repairToken: 'repair-old',
+  });
+  assert.deepEqual([
+    isSupersededRepair(oldRepairOutput, { sessionId: 'session-a', repairToken: 'repair-old' }),
+    isSupersededRepair(oldRepairReady, { sessionId: 'session-a', repairToken: 'repair-old' }),
+    isSupersededRepair(normalLiveOutput, { sessionId: 'session-a', repairToken: 'repair-old' }),
+    isSupersededRepair(oldRepairOutput, { sessionId: 'session-a', repairToken: 'repair-current' }),
+  ], [true, true, false, false], signature);
+}
+
+async function testWsRouterSafeSendDropsSupersededReplayTailOnly(): Promise<void> {
+  const signature = 'safe-send must cancel old replay tail metadata exactly and preserve normal live output';
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    snapshotSeq: 10,
+    replayQueueLimit: 1024,
+    pendingOutputMaxChunks: 16,
+    routerOptions: safeSendRouterOptions(),
+  });
+
+  try {
+    completeHarnessInitialReplay(router, ws, sent);
+    const initialReplayToken = String(sent.find(message => message.type === 'screen-snapshot')?.replayToken);
+    fake.setBufferedAmount(1500);
+    const oldStarted = (router as any).startScreenRepairSnapshotRecovery(
+      ws,
+      'session-1',
+      'repair-old',
+      'ack-timeout',
+      [{ data: 'old-recovery-tail', byteLength: 17, screenSeq: 11 }],
+    );
+    assert.equal(oldStarted, true, signature);
+
+    fake.setBufferedAmount(0);
+    for (let index = 0; index < 4; index += 1) {
+      (router as any).flushTransportQueue(ws);
+    }
+    const oldSnapshot = [...sent].reverse().find(message => (
+      message.type === 'screen-snapshot'
+      && message.replayToken !== initialReplayToken
+    ));
+    assert.equal(oldSnapshot?.type, 'screen-snapshot', signature);
+
+    fake.setBufferedAmount(1500);
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(oldSnapshot?.replayToken));
+    router.routeSessionOutput('session-1', 'normal-live-after-old-ready', 12);
+    const newStarted = (router as any).startScreenRepairSnapshotRecovery(
+      ws,
+      'session-1',
+      'repair-current',
+      'ack-timeout',
+      [],
+    );
+    assert.equal(newStarted, true, signature);
+
+    const beforeDrain = sent.length;
+    fake.setBufferedAmount(0);
+    for (let index = 0; index < 8; index += 1) {
+      (router as any).flushTransportQueue(ws);
+    }
+    const firstDrain = sent.slice(beforeDrain);
+    assert.equal(
+      firstDrain.some(message => message.type === 'output' && message.data === 'old-recovery-tail'),
+      false,
+      signature,
+    );
+    assert.equal(
+      firstDrain.some(message => message.type === 'output' && message.data === 'normal-live-after-old-ready'),
+      true,
+      signature,
+    );
+
+    const currentSnapshot = [...sent].reverse().find(message => (
+      message.type === 'screen-snapshot'
+      && message.replayToken !== oldSnapshot?.replayToken
+      && message.replayToken !== initialReplayToken
+    ));
+    assert.equal(currentSnapshot?.type, 'screen-snapshot', signature);
+    fake.setBufferedAmount(1500);
+    router.routeSessionOutput('session-1', 'current-recovery-tail', 13);
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(currentSnapshot?.replayToken));
+    const beforeCurrentDrain = sent.length;
+    fake.setBufferedAmount(0);
+    for (let index = 0; index < 6; index += 1) {
+      (router as any).flushTransportQueue(ws);
+    }
+    const currentOutput = sent.slice(beforeCurrentDrain).find(message => (
+      message.type === 'output' && message.data === 'current-recovery-tail'
+    ));
+    assert.equal(currentOutput?.replayToken, currentSnapshot?.replayToken, signature);
+    assert.equal(currentOutput?.screenSeq, 13, signature);
+    assert.equal(typeof currentOutput?.chunkId, 'string', signature);
+    assert.equal((currentOutput?.chunkId as string | undefined)?.length ? true : false, true, signature);
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testWsRouterSafeSendDropsSupersededDirectRepairTailOnly(): Promise<void> {
+  const signature = 'safe-send must cancel the exact old direct-repair tail before a fresh resync';
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    snapshotSeq: 20,
+    replayQueueLimit: 1024,
+    pendingOutputMaxChunks: 16,
+    routerOptions: safeSendRouterOptions(),
+  });
+
+  try {
+    completeHarnessInitialReplay(router, ws, sent);
+    await (router as any).handleScreenRepairRequest(ws, {
+      type: 'screen-repair',
+      sessionId: 'session-1',
+      cols: 80,
+      rows: 24,
+      reason: 'manual',
+      clientAtBottom: true,
+      clientBufferType: 'normal',
+    });
+    const repair = [...sent].reverse().find(message => message.type === 'screen-repair');
+    assert.equal(repair?.type, 'screen-repair', signature);
+
+    fake.setBufferedAmount(1500);
+    router.routeSessionOutput('session-1', 'old-direct-repair-tail', 21);
+    (router as any).handleScreenRepairReady(ws, 'session-1', String(repair?.repairToken));
+    router.routeSessionOutput('session-1', 'normal-live-after-direct-repair', 22);
+    const freshStarted = (router as any).startScreenRepairSnapshotRecovery(
+      ws,
+      'session-1',
+      'repair-fresh',
+      'ack-timeout',
+      [],
+    );
+    assert.equal(freshStarted, true, signature);
+
+    const beforeDrain = sent.length;
+    fake.setBufferedAmount(0);
+    for (let index = 0; index < 8; index += 1) {
+      (router as any).flushTransportQueue(ws);
+    }
+    const drained = sent.slice(beforeDrain);
+    assert.equal(
+      drained.some(message => message.type === 'output' && message.data === 'old-direct-repair-tail'),
+      false,
+      signature,
+    );
+    assert.equal(
+      drained.some(message => message.type === 'output' && message.data === 'normal-live-after-direct-repair'),
+      true,
+      signature,
+    );
+    assert.equal(
+      drained.some(message => message.type === 'screen-repair:restore-needed'),
+      true,
+      signature,
+    );
+  } finally {
+    router.destroy();
+  }
 }
 
 function testWsRouterSafeSendQueuesOutputOverHighWater(): void {
@@ -16136,9 +17203,8 @@ function testWsRouterSafeSendCoalescesQueuedOutput(): void {
   });
 
   try {
-    (router as any).sessionSubscribers.set('session-1', new Set([ws]));
-    router.routeSessionOutput('session-1', 'A');
-    router.routeSessionOutput('session-1', 'B');
+    router.sendTo(ws, { type: 'output', sessionId: 'session-1', data: 'A' });
+    router.sendTo(ws, { type: 'output', sessionId: 'session-1', data: 'B' });
     assert.equal(sent.length, 0);
 
     fake.setBufferedAmount(0);
@@ -16501,74 +17567,6 @@ async function testWsRouterQueuesOutputDuringScreenRepairGeneration(): Promise<v
   }
 }
 
-async function createCoveredScreenRepairHarness(output: string) {
-  const manager = new SessionManager({
-    pty: {
-      termName: 'xterm-256color',
-      defaultCols: 10,
-      defaultRows: 4,
-      useConpty: false,
-      scrollbackLines: 1000,
-      maxSnapshotBytes: 4096,
-      shell: 'auto',
-    },
-    session: {
-      idleDelayMs: 200,
-    },
-  });
-  const harness = createManagedSessionHarness(manager, { cols: 10, rows: 4, scrollbackLines: 1000 });
-  const authServiceStub = {
-    verifyToken: () => ({ valid: true, payload: { sub: 'test-user' } }),
-  } as unknown as AuthService;
-  const router = new WsRouter(authServiceStub, manager);
-  manager.setWsRouter(router);
-  const { ws, sent } = createFakeWs();
-  const pendingCallbacks: Array<() => void> = [];
-
-  (router as any).clients.set(ws, {
-    clientId: 'client-1',
-    isAlive: true,
-    subscribedSessions: new Set<string>(),
-    replayPendingSessions: new Map(),
-    screenRepairPendingSessions: new Map(),
-  });
-
-  (router as any).handleSubscribe(ws, [harness.sessionId]);
-  (router as any).handleScreenSnapshotReady(ws, harness.sessionId, String(sent[0].replayToken));
-
-  const originalWrite = harness.sessionData.headless!.terminal.write.bind(harness.sessionData.headless!.terminal);
-  harness.sessionData.headless!.terminal.write = ((data: string | Uint8Array, callback?: () => void) => {
-    originalWrite(data, () => {
-      pendingCallbacks.push(() => callback?.());
-    });
-  }) as typeof harness.sessionData.headless.terminal.write;
-
-  (manager as any).queueHeadlessOutput(harness.sessionId, harness.sessionData, output);
-
-  const requestPromise = (router as any).handleScreenRepairRequest(ws, {
-    type: 'screen-repair',
-    sessionId: harness.sessionId,
-    cols: 10,
-    rows: 4,
-    reason: 'resize',
-    clientAtBottom: true,
-    clientBufferType: 'normal',
-  });
-
-  for (let attempt = 0; pendingCallbacks.length === 0 && attempt < 20; attempt += 1) {
-    await delay(1);
-  }
-  assert.equal(pendingCallbacks.length, 1);
-  pendingCallbacks.shift()?.();
-
-  await requestPromise;
-  const repair = sent.find((message) => message.type === 'screen-repair');
-  assert.equal(repair?.type, 'screen-repair');
-  assert.equal(sent.filter((message) => message.type === 'output').length, 0);
-
-  return { router, ws, sent, harness, repair };
-}
-
 async function testWsRouterFlushesOutputAfterScreenRepairSnapshotSeq(): Promise<void> {
   const repairSignal = createTestDeferredSignal<unknown>();
   const { router, ws, sent } = createWsRouterHarness({
@@ -16619,14 +17617,27 @@ async function testWsRouterFlushesOutputAfterScreenRepairSnapshotSeq(): Promise<
   }
 }
 
-async function testWsRouterFlushesScreenRepairOutputOnAckTimeout(): Promise<void> {
-  const { router, ws, sent } = createWsRouterHarness();
+async function testWsRouterIgnoresStaleScreenRepairGenerationAfterUnsubscribe(): Promise<void> {
+  const repairSignal = createTestDeferredSignal<unknown>();
+  const { router, ws, sent } = createWsRouterHarness({
+    getScreenRepair: (_id, expected) => repairSignal.promise.then(() => ({
+      ok: true as const,
+      payload: {
+        seq: 11,
+        cols: expected.cols,
+        rows: expected.rows,
+        bufferType: expected.bufferType,
+        cursor: { x: 0, y: 0 },
+        viewportRows: [{ y: 0, ansi: 'stale-row', text: 'stale-row', wrapped: false }],
+        ansiPatch: '\x1b[1;1Hstale-row',
+      },
+    })),
+  });
 
   try {
-    (router as any).handleSubscribe(ws, ['session-1']);
-    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(sent[0].replayToken));
-
-    await (router as any).handleScreenRepairRequest(ws, {
+    completeHarnessInitialReplay(router, ws, sent);
+    const before = sent.length;
+    const requestPromise = (router as any).handleScreenRepairRequest(ws, {
       type: 'screen-repair',
       sessionId: 'session-1',
       cols: 80,
@@ -16635,80 +17646,51 @@ async function testWsRouterFlushesScreenRepairOutputOnAckTimeout(): Promise<void
       clientAtBottom: true,
       clientBufferType: 'normal',
     });
+    (router as any).handleUnsubscribe(ws, ['session-1']);
+    repairSignal.resolve(undefined);
+    await requestPromise;
 
-    const repair = sent.find((message) => message.type === 'screen-repair');
-    assert.equal(repair?.type, 'screen-repair');
-    router.routeSessionOutput('session-1', 'timeout-flushed-output');
-    assert.equal(sent.filter((message) => message.type === 'output').length, 0);
-
-    (router as any).handleScreenRepairAckTimeout(ws, 'session-1', String(repair?.repairToken), Number(repair?.seq));
-
-    const outputs = sent.filter((message) => message.type === 'output');
-    assert.equal(outputs.length, 1);
-    assert.equal(outputs[0].data, 'timeout-flushed-output');
-    assert.equal(sent[sent.length - 1].type, 'session:ready');
-    const timeoutEvent = router.getObservabilitySnapshot().recentReplayEvents.find((event) => event.kind === 'screen_repair_ack_timeout');
-    assert.ok(timeoutEvent);
+    const staleMessages = sent.slice(before);
+    assert.equal(staleMessages.some(message => (
+      message.type === 'screen-repair'
+      || message.type === 'screen-repair:rejected'
+      || message.type === 'screen-repair:restore-needed'
+      || message.type === 'screen-repair:reconnect-required'
+      || message.type === 'output'
+      || message.type === 'session:ready'
+    )), false);
+    const meta = (router as any).clients.get(ws);
+    assert.equal(meta?.screenRepairPendingSessions?.has('session-1'), false);
   } finally {
     router.destroy();
   }
 }
 
-async function testWsRouterFlushesCoveredScreenRepairOutputOnFailure(): Promise<void> {
-  const { router, ws, sent, harness, repair } = await createCoveredScreenRepairHarness('COVERED-FAILURE');
+function testWsRouterSafeSendPreservesIdentifiedOutputBoundaries(): void {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    routerOptions: safeSendRouterOptions(),
+    fakeWsOptions: { bufferedAmount: 1500 },
+  });
 
   try {
-    (router as any).handleScreenRepairFailed(ws, harness.sessionId, String(repair?.repairToken), 'write-failed');
+    (router as any).sessionSubscribers.set('session-1', new Set([ws]));
+    router.routeSessionOutput('session-1', 'A', 1);
+    router.routeSessionOutput('session-1', 'B', 2);
+    assert.equal(sent.length, 0);
 
-    const outputs = sent.filter((message) => message.type === 'output');
-    assert.equal(outputs.length, 1);
-    assert.equal(outputs[0].data, 'COVERED-FAILURE');
-  } finally {
-    router.destroy();
-    harness.dispose();
-  }
-}
-
-async function testWsRouterFlushesCoveredScreenRepairOutputOnTimeout(): Promise<void> {
-  const { router, ws, sent, harness, repair } = await createCoveredScreenRepairHarness('COVERED-TIMEOUT');
-
-  try {
-    (router as any).handleScreenRepairAckTimeout(ws, harness.sessionId, String(repair?.repairToken), Number(repair?.seq));
-
-    const outputs = sent.filter((message) => message.type === 'output');
-    assert.equal(outputs.length, 1);
-    assert.equal(outputs[0].data, 'COVERED-TIMEOUT');
-    assert.equal(sent[sent.length - 1].type, 'session:ready');
-  } finally {
-    router.destroy();
-    harness.dispose();
-  }
-}
-
-async function testWsRouterFlushesOutputOnScreenRepairFailed(): Promise<void> {
-  const { router, ws, sent } = createWsRouterHarness();
-
-  try {
-    (router as any).handleSubscribe(ws, ['session-1']);
-    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(sent[0].replayToken));
-
-    await (router as any).handleScreenRepairRequest(ws, {
-      type: 'screen-repair',
-      sessionId: 'session-1',
-      cols: 80,
-      rows: 24,
-      reason: 'workspace',
-      clientAtBottom: true,
-      clientBufferType: 'normal',
-    });
-    const repair = sent.find((message) => message.type === 'screen-repair');
-
-    router.routeSessionOutput('session-1', 'queued-before-failed');
-    (router as any).handleScreenRepairFailed(ws, 'session-1', String(repair?.repairToken), 'write-failed');
-
-    const outputs = sent.filter((message) => message.type === 'output');
-    assert.equal(outputs.length, 1);
-    assert.equal(outputs[0].data, 'queued-before-failed');
+    fake.setBufferedAmount(0);
+    (router as any).flushTransportQueue(ws);
+    assert.equal(sent.length, 2);
+    assert.deepEqual(sent.map(message => ({
+      data: message.data,
+      screenSeq: message.screenSeq,
+      chunkId: message.chunkId,
+      sourceSegments: message.sourceSegments,
+    })), [
+      { data: 'A', screenSeq: 1, chunkId: '1', sourceSegments: undefined },
+      { data: 'B', screenSeq: 2, chunkId: '2', sourceSegments: undefined },
+    ]);
+    assert.equal((router.getObservabilitySnapshot() as any).transportOutputCoalesceCount, 0);
   } finally {
     router.destroy();
   }
@@ -16769,69 +17751,6 @@ async function testWsRouterRejectsScreenRepairDuringReplayPending(): Promise<voi
   }
 }
 
-async function testWsRouterScreenRepairQueueOverflowFlushesAllOutput(): Promise<void> {
-  const { router, ws, sent } = createWsRouterHarness();
-
-  try {
-    (router as any).handleSubscribe(ws, ['session-1']);
-    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(sent[0].replayToken));
-
-    await (router as any).handleScreenRepairRequest(ws, {
-      type: 'screen-repair',
-      sessionId: 'session-1',
-      cols: 80,
-      rows: 24,
-      reason: 'resize',
-      clientAtBottom: true,
-      clientBufferType: 'normal',
-    });
-
-    router.routeSessionOutput('session-1', 'a'.repeat(60));
-    router.routeSessionOutput('session-1', 'b'.repeat(10));
-
-    const outputs = sent.filter((message) => message.type === 'output');
-    assert.equal(outputs.length, 1);
-    assert.equal(outputs[0].data, `${'a'.repeat(60)}${'b'.repeat(10)}`);
-    const overflow = router.getObservabilitySnapshot().recentReplayEvents.find((event) => event.kind === 'screen_repair_queue_overflow');
-    assert.ok(overflow);
-  } finally {
-    router.destroy();
-  }
-}
-
-async function testWsRouterScreenRepairQueueOverflowUsesUtf8Bytes(): Promise<void> {
-  const { router, ws, sent } = createWsRouterHarness();
-
-  try {
-    (router as any).handleSubscribe(ws, ['session-1']);
-    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(sent[0].replayToken));
-
-    await (router as any).handleScreenRepairRequest(ws, {
-      type: 'screen-repair',
-      sessionId: 'session-1',
-      cols: 80,
-      rows: 24,
-      reason: 'resize',
-      clientAtBottom: true,
-      clientBufferType: 'normal',
-    });
-
-    const multibyteOutput = '가'.repeat(22);
-    assert.equal(multibyteOutput.length < 64, true);
-    assert.equal(Buffer.byteLength(multibyteOutput, 'utf8') > 64, true);
-    router.routeSessionOutput('session-1', multibyteOutput);
-
-    const outputs = sent.filter((message) => message.type === 'output');
-    assert.equal(outputs.length, 1);
-    assert.equal(outputs[0].data, multibyteOutput);
-    const overflow = router.getObservabilitySnapshot().recentReplayEvents.find((event) => event.kind === 'screen_repair_queue_overflow');
-    assert.ok(overflow);
-    assert.equal(overflow.details?.outputBytes, Buffer.byteLength(multibyteOutput, 'utf8'));
-  } finally {
-    router.destroy();
-  }
-}
-
 async function testWsRouterScreenRepairQueueAllowsUtf8WithinCap(): Promise<void> {
   const { router, ws, sent } = createWsRouterHarness();
 
@@ -16860,6 +17779,513 @@ async function testWsRouterScreenRepairQueueAllowsUtf8WithinCap(): Promise<void>
     const outputs = sent.filter((message) => message.type === 'output');
     assert.equal(outputs.length, 1);
     assert.equal(outputs[0].data, multibyteOutput);
+  } finally {
+    router.destroy();
+  }
+}
+
+function repairQueueProtocolRedSignature(ac: '1' | '3' | '5' | '7' | '10'): string {
+  return (`Repair queue·protocol RED 계약 RED AC-${ac}: 기존 full-flush 기대를 overflow/timeout/failure stale-resync RED로 전환한다. Byte cap은 \`Math.min(runtimePtyConfig.maxSnapshotBytes, 262_144)\`와 \`source=compatibility-cap\`, chunk cap은 \`resourceLimits.headless.pendingOutputMaxChunks\`를 정확히 사용한다. Byte/chunk N-1·N·N+1, snapshot coverage prefix 제거`).slice(0, 320);
+}
+
+function exactUtf8RepairPayload(byteLength: number): string {
+  assert.equal(byteLength >= 3, true);
+  const value = `${'a'.repeat(byteLength - 3)}한`;
+  assert.equal(Buffer.byteLength(value, 'utf8'), byteLength);
+  return value;
+}
+
+function completeHarnessInitialReplay(
+  router: WsRouter,
+  ws: import('ws').WebSocket,
+  sent: Array<Record<string, unknown>>,
+): void {
+  (router as any).handleSubscribe(ws, ['session-1']);
+  const snapshot = sent.find(message => message.type === 'screen-snapshot');
+  assert.equal(snapshot?.type, 'screen-snapshot');
+  (router as any).handleScreenSnapshotReady(ws, 'session-1', String(snapshot?.replayToken));
+}
+
+async function beginHarnessScreenRepair(
+  router: WsRouter,
+  ws: import('ws').WebSocket,
+  sent: Array<Record<string, unknown>>,
+): Promise<Record<string, unknown>> {
+  const beforeCount = sent.length;
+  await (router as any).handleScreenRepairRequest(ws, {
+    type: 'screen-repair',
+    sessionId: 'session-1',
+    cols: 80,
+    rows: 24,
+    reason: 'manual',
+    clientAtBottom: true,
+    clientBufferType: 'normal',
+  });
+  const repair = sent.slice(beforeCount).find(message => message.type === 'screen-repair');
+  assert.equal(repair?.type, 'screen-repair');
+  return repair;
+}
+
+function hasRestoreNeededSignal(messages: Array<Record<string, unknown>>): boolean {
+  return messages.some(message => (
+    message.type === 'screen-repair:restore-needed'
+    || message.type === 'restore-needed'
+    || message.state === 'stale'
+    || message.outcome === 'restore-needed'
+  ));
+}
+
+async function observeRepairBoundary(options: {
+  maxBytes: number;
+  maxChunks: number;
+  chunks: string[];
+}): Promise<{
+  outcome: 'pending' | 'giant-output' | 'restore-needed';
+  queuedBytes: number | null;
+  queuedChunks: number | null;
+  emptyIgnored: boolean;
+  limitSource: unknown;
+  maxQueuedBytes: unknown;
+  maxQueuedChunks: unknown;
+}> {
+  const { router, ws, sent } = createWsRouterHarness({
+    replayQueueLimit: options.maxBytes,
+    pendingOutputMaxChunks: options.maxChunks,
+  });
+  try {
+    completeHarnessInitialReplay(router, ws, sent);
+    await beginHarnessScreenRepair(router, ws, sent);
+    const beforeMessages = sent.length;
+    for (const chunk of options.chunks) {
+      router.routeSessionOutput('session-1', chunk, 1);
+    }
+    const messages = sent.slice(beforeMessages);
+    const pending = (router as any).clients
+      .get(ws)
+      ?.screenRepairPendingSessions
+      ?.get('session-1');
+    const overflowEvent = [...router.getObservabilitySnapshot().recentReplayEvents]
+      .reverse()
+      .find(event => event.kind === 'screen_repair_queue_overflow');
+    const outcome = hasRestoreNeededSignal(messages)
+      ? 'restore-needed'
+      : messages.some(message => message.type === 'output')
+        ? 'giant-output'
+        : 'pending';
+    return {
+      outcome,
+      queuedBytes: typeof pending?.queuedOutputBytes === 'number' ? pending.queuedOutputBytes : null,
+      queuedChunks: Array.isArray(pending?.queuedOutputChunks) ? pending.queuedOutputChunks.length : null,
+      emptyIgnored: pending?.queuedOutputChunks?.every((chunk: { data?: string }) => chunk.data !== '') ?? true,
+      limitSource: overflowEvent?.details?.source,
+      maxQueuedBytes: overflowEvent?.details?.maxQueuedBytes,
+      maxQueuedChunks: overflowEvent?.details?.maxQueuedChunks,
+    };
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testRepairQueueProtocolRedAc1(): Promise<void> {
+  const maxBytes = 64;
+  const maxChunks = 2;
+  const byteNMinusOne = await observeRepairBoundary({
+    maxBytes,
+    maxChunks,
+    chunks: [exactUtf8RepairPayload(maxBytes - 1)],
+  });
+  const byteN = await observeRepairBoundary({
+    maxBytes,
+    maxChunks,
+    chunks: [exactUtf8RepairPayload(maxBytes)],
+  });
+  const byteNPlusOne = await observeRepairBoundary({
+    maxBytes,
+    maxChunks,
+    chunks: [exactUtf8RepairPayload(maxBytes + 1)],
+  });
+  const chunkOne = await observeRepairBoundary({ maxBytes, maxChunks, chunks: ['a'] });
+  const chunkTwo = await observeRepairBoundary({ maxBytes, maxChunks, chunks: ['a', 'b'] });
+  const chunkThree = await observeRepairBoundary({ maxBytes, maxChunks, chunks: ['a', 'b', 'c'] });
+  const empty = await observeRepairBoundary({ maxBytes, maxChunks, chunks: [''] });
+
+  assert.deepEqual({
+    byteBoundaries: [byteNMinusOne.outcome, byteN.outcome, byteNPlusOne.outcome],
+    byteAccounting: [byteNMinusOne.queuedBytes, byteN.queuedBytes],
+    chunkBoundaries: [chunkOne.outcome, chunkTwo.outcome, chunkThree.outcome],
+    chunkAccounting: [chunkOne.queuedChunks, chunkTwo.queuedChunks],
+    emptyIgnored: empty.emptyIgnored && empty.queuedBytes === 0 && empty.queuedChunks === 0,
+    overflowPolicy: {
+      source: byteNPlusOne.limitSource,
+      maxBytes: byteNPlusOne.maxQueuedBytes,
+      maxChunks: chunkThree.maxQueuedChunks,
+    },
+  }, {
+    byteBoundaries: ['pending', 'pending', 'restore-needed'],
+    byteAccounting: [63, 64],
+    chunkBoundaries: ['pending', 'pending', 'restore-needed'],
+    chunkAccounting: [1, 2],
+    emptyIgnored: true,
+    overflowPolicy: {
+      source: 'compatibility-cap',
+      maxBytes,
+      maxChunks,
+    },
+  }, repairQueueProtocolRedSignature('1'));
+}
+
+async function testRepairQueueProtocolRedAc3(): Promise<void> {
+  const { router, ws, sent } = createWsRouterHarness({
+    snapshotSeq: 4,
+    replayQueueLimit: 64,
+    pendingOutputMaxChunks: 8,
+  });
+  try {
+    completeHarnessInitialReplay(router, ws, sent);
+    const repair = await beginHarnessScreenRepair(router, ws, sent);
+    const snapshotCountBeforeOverflow = sent.filter(message => message.type === 'screen-snapshot').length;
+    const beforeOverflow = sent.length;
+    router.routeSessionOutput('session-1', 'a'.repeat(60), 3);
+    router.routeSessionOutput('session-1', 'b'.repeat(10), 4);
+    const overflowMessages = sent.slice(beforeOverflow);
+    const pending = (router as any).clients.get(ws)?.screenRepairPendingSessions?.get('session-1');
+
+    assert.deepEqual({
+      oldTokenAborted: pending?.repairToken !== repair.repairToken,
+      giantOutputCount: overflowMessages.filter(message => message.type === 'output').length,
+      readyCount: overflowMessages.filter(message => message.type === 'session:ready').length,
+      restoreNeeded: hasRestoreNeededSignal(overflowMessages),
+      freshSnapshotStarted: sent.filter(message => message.type === 'screen-snapshot').length > snapshotCountBeforeOverflow,
+    }, {
+      oldTokenAborted: true,
+      giantOutputCount: 0,
+      readyCount: 0,
+      restoreNeeded: true,
+      freshSnapshotStarted: true,
+    }, repairQueueProtocolRedSignature('3'));
+  } finally {
+    router.destroy();
+  }
+}
+
+async function observeRepairFault(
+  fault: 'timeout' | 'write-failed' | 'parser-reset-failed' | 'reoverflow' | 'fresh-barrier-reoverflow' | 'authority-unavailable',
+): Promise<{
+  outputCount: number;
+  readyCount: number;
+  restoreNeeded: boolean;
+  reconnectRequired: boolean;
+  overflowCount: number;
+}> {
+  const unavailable = fault === 'authority-unavailable';
+  const { router, ws, sent } = createWsRouterHarness({
+    snapshotSeq: fault === 'reoverflow' || fault === 'fresh-barrier-reoverflow' ? 4 : 1,
+    replayQueueLimit: 64,
+    pendingOutputMaxChunks: 2,
+    getScreenRepair: unavailable
+      ? async () => ({ ok: false as const, reason: 'headless-degraded' as const })
+      : undefined,
+  });
+  try {
+    completeHarnessInitialReplay(router, ws, sent);
+    const overflowEventsBefore = router.getObservabilitySnapshot().recentReplayEvents
+      .filter(event => event.kind === 'screen_repair_queue_overflow').length;
+    const beforeFault = sent.length;
+    const repair = await beginHarnessScreenRepair(router, ws, sent).catch(() => null);
+    if (repair) {
+      router.routeSessionOutput(
+        'session-1',
+        fault === 'reoverflow' || fault === 'fresh-barrier-reoverflow' ? 'a'.repeat(60) : 'held-output',
+        3,
+      );
+      if (fault === 'timeout') {
+        (router as any).handleScreenRepairAckTimeout(ws, 'session-1', String(repair.repairToken), Number(repair.seq));
+      } else if (fault === 'write-failed') {
+        (router as any).handleScreenRepairFailed(ws, 'session-1', String(repair.repairToken), 'write-failed');
+      } else if (fault === 'parser-reset-failed') {
+        (router as any).handleScreenRepairFailed(ws, 'session-1', String(repair.repairToken), 'parse-failed');
+      } else if (fault === 'reoverflow' || fault === 'fresh-barrier-reoverflow') {
+        router.routeSessionOutput('session-1', 'b'.repeat(10), 4);
+        const firstFreshSnapshot = [...sent]
+          .reverse()
+          .find(message => message.type === 'screen-snapshot' && message !== sent[0]);
+        if (firstFreshSnapshot && fault === 'fresh-barrier-reoverflow') {
+          router.routeSessionOutput('session-1', 'e'.repeat(60), 5);
+          router.routeSessionOutput('session-1', 'f'.repeat(10), 6);
+        } else if (firstFreshSnapshot) {
+          (router as any).handleScreenSnapshotReady(
+            ws,
+            'session-1',
+            String(firstFreshSnapshot.replayToken),
+          );
+        }
+        const secondRepair = fault === 'reoverflow'
+          ? await beginHarnessScreenRepair(router, ws, sent).catch(() => null)
+          : null;
+        if (secondRepair) {
+          router.routeSessionOutput('session-1', 'c'.repeat(60), 5);
+          router.routeSessionOutput('session-1', 'd'.repeat(10), 6);
+        }
+      }
+    }
+    const messages = sent.slice(beforeFault);
+    const overflowCount = router.getObservabilitySnapshot().recentReplayEvents
+      .filter(event => event.kind === 'screen_repair_queue_overflow').length - overflowEventsBefore;
+    return {
+      outputCount: messages.filter(message => message.type === 'output').length,
+      readyCount: messages.filter(message => message.type === 'session:ready').length,
+      restoreNeeded: hasRestoreNeededSignal(messages),
+      reconnectRequired: messages.some(message => (
+        message.type === 'screen-repair:reconnect-required'
+        || message.outcome === 'authority-unavailable'
+      )),
+      overflowCount,
+    };
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testRepairQueueProtocolRedAc5(): Promise<void> {
+  const faults = [
+    'timeout',
+    'write-failed',
+    'parser-reset-failed',
+    'reoverflow',
+    'fresh-barrier-reoverflow',
+    'authority-unavailable',
+  ] as const;
+  const observed = Object.fromEntries(await Promise.all(faults.map(async fault => [fault, await observeRepairFault(fault)])));
+  const expected = Object.fromEntries(faults.map(fault => [fault, {
+    outputCount: 0,
+    readyCount: fault === 'reoverflow' ? 1 : 0,
+    restoreNeeded: fault !== 'authority-unavailable' && fault !== 'parser-reset-failed',
+    reconnectRequired: fault === 'authority-unavailable'
+      || fault === 'parser-reset-failed'
+      || fault === 'reoverflow'
+      || fault === 'fresh-barrier-reoverflow',
+    overflowCount: fault === 'reoverflow' || fault === 'fresh-barrier-reoverflow' ? 2 : 0,
+  }]));
+
+  assert.deepEqual(observed, expected, repairQueueProtocolRedSignature('5'));
+}
+
+async function testRepairQueueProtocolRedAc7(): Promise<void> {
+  const { router, ws: affectedWs, sent: affectedSent, calls } = createWsRouterHarness({
+    snapshotSeq: 4,
+    replayQueueLimit: 64,
+    pendingOutputMaxChunks: 8,
+  });
+  const other = createFakeWs();
+  try {
+    completeHarnessInitialReplay(router, affectedWs, affectedSent);
+    (router as any).clients.set(other.ws, {
+      clientId: 'client-2',
+      isAlive: true,
+      subscribedSessions: new Set<string>(),
+      replayPendingSessions: new Map(),
+      screenRepairPendingSessions: new Map(),
+    });
+    completeHarnessInitialReplay(router, other.ws, other.sent);
+    await beginHarnessScreenRepair(router, affectedWs, affectedSent);
+    const affectedBefore = affectedSent.length;
+    const otherBefore = other.sent.length;
+
+    router.routeSessionOutput('session-1', 'a'.repeat(60), 3);
+    router.routeSessionOutput('session-1', 'b'.repeat(10), 4);
+    (router as any).handleInput(other.ws, { type: 'input', sessionId: 'session-1', data: 'x' });
+    router.broadcastAll('session:status', { sessionId: 'session-1', status: 'idle' });
+    const authorityRequestsBefore = calls.getScreenRepair;
+    const otherRepair = await beginHarnessScreenRepair(router, other.ws, other.sent);
+    const otherOutputCountBeforeContinuation = other.sent.filter(message => message.type === 'output').length;
+    router.routeSessionOutput('session-1', 'producer-continues-after-overflow', 5);
+    const continuationHeldUntilRepairAck = other.sent.filter(message => message.type === 'output').length
+      === otherOutputCountBeforeContinuation;
+    (router as any).handleScreenRepairReady(
+      other.ws,
+      'session-1',
+      String(otherRepair.repairToken),
+    );
+
+    const affectedMessages = affectedSent.slice(affectedBefore);
+    const otherMessages = other.sent.slice(otherBefore);
+    assert.deepEqual({
+      affectedOutputCount: affectedMessages.filter(message => message.type === 'output').length,
+      affectedRestoreNeeded: hasRestoreNeededSignal(affectedMessages),
+      otherOutputChunks: otherMessages.filter(message => message.type === 'output').map(message => message.data),
+      otherInputAccepted: calls.writeInput.length === 1,
+      otherControlDelivered: otherMessages.some(message => message.type === 'session:status'),
+      authoritativeRepairDelivered: otherRepair.type === 'screen-repair'
+        && otherRepair.source === 'headless'
+        && calls.getScreenRepair === authorityRequestsBefore + 1,
+      continuationHeldUntilRepairAck,
+      producerContinuedAfterOverflow: otherMessages.some(message => (
+        message.type === 'output' && message.data === 'producer-continues-after-overflow'
+      )),
+      otherClientRemainsCurrent: !hasRestoreNeededSignal(otherMessages),
+    }, {
+      affectedOutputCount: 0,
+      affectedRestoreNeeded: true,
+      otherOutputChunks: ['a'.repeat(60), 'b'.repeat(10), 'producer-continues-after-overflow'],
+      otherInputAccepted: true,
+      otherControlDelivered: true,
+      authoritativeRepairDelivered: true,
+      continuationHeldUntilRepairAck: true,
+      producerContinuedAfterOverflow: true,
+      otherClientRemainsCurrent: true,
+    }, repairQueueProtocolRedSignature('7'));
+  } finally {
+    router.destroy();
+  }
+}
+
+async function observeSafeSendRecoveryCancellation(reoverflowFreshBarrier: boolean): Promise<string[]> {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    snapshotSeq: 4,
+    replayQueueLimit: 64,
+    pendingOutputMaxChunks: 8,
+    routerOptions: safeSendRouterOptions(),
+  });
+  try {
+    completeHarnessInitialReplay(router, ws, sent);
+    const before = sent.length;
+    fake.setBufferedAmount(1024);
+    await (router as any).handleScreenRepairRequest(ws, {
+      type: 'screen-repair',
+      sessionId: 'session-1',
+      cols: 80,
+      rows: 24,
+      reason: 'manual',
+      clientAtBottom: true,
+      clientBufferType: 'normal',
+    });
+    router.routeSessionOutput('session-1', 'a'.repeat(60), 3);
+    router.routeSessionOutput('session-1', 'b'.repeat(10), 4);
+    if (reoverflowFreshBarrier) {
+      router.routeSessionOutput('session-1', 'c'.repeat(60), 5);
+      router.routeSessionOutput('session-1', 'd'.repeat(10), 6);
+    }
+    fake.setBufferedAmount(0);
+    (router as any).flushTransportQueue(ws);
+    (router as any).flushTransportQueue(ws);
+    return sent.slice(before).map(message => String(message.type));
+  } finally {
+    router.destroy();
+  }
+}
+
+async function observeSafeSendPriorReadyCancellation(): Promise<string[]> {
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    snapshotSeq: 4,
+    replayQueueLimit: 64,
+    pendingOutputMaxChunks: 8,
+    routerOptions: safeSendRouterOptions(),
+  });
+  try {
+    (router as any).handleSubscribe(ws, ['session-1']);
+    const snapshot = sent.find(message => message.type === 'screen-snapshot');
+    assert.equal(snapshot?.type, 'screen-snapshot');
+
+    fake.setBufferedAmount(1024);
+    (router as any).handleScreenSnapshotReady(ws, 'session-1', String(snapshot?.replayToken));
+    const before = sent.length;
+    await (router as any).handleScreenRepairRequest(ws, {
+      type: 'screen-repair',
+      sessionId: 'session-1',
+      cols: 80,
+      rows: 24,
+      reason: 'manual',
+      clientAtBottom: true,
+      clientBufferType: 'normal',
+    });
+    router.routeSessionOutput('session-1', 'a'.repeat(60), 3);
+    router.routeSessionOutput('session-1', 'b'.repeat(10), 4);
+
+    fake.setBufferedAmount(0);
+    (router as any).flushTransportQueue(ws);
+    (router as any).flushTransportQueue(ws);
+    return sent.slice(before).map(message => String(message.type));
+  } finally {
+    router.destroy();
+  }
+}
+
+async function testRepairQueueProtocolRedAc10(): Promise<void> {
+  const supersededRepairTypes = await observeSafeSendRecoveryCancellation(false);
+  const supersededSnapshotTypes = await observeSafeSendRecoveryCancellation(true);
+  const priorReadyRaceTypes = await observeSafeSendPriorReadyCancellation();
+  const { router, ws, sent, fake } = createWsRouterHarness({
+    snapshotSeq: 4,
+    replayQueueLimit: 64,
+    pendingOutputMaxChunks: 8,
+    routerOptions: {
+      realtime: { wsTransportMode: 'split' },
+      ...safeSendRouterOptions(),
+    },
+  });
+  const transportProbe = createFakeWs();
+  try {
+    (router as any).wss.emit(
+      'connection',
+      transportProbe.ws,
+      {},
+      { sub: 'test-user' },
+      { ok: true, requestedMode: 'split', channelRole: 'control' },
+    );
+    const connected = transportProbe.sent.find(message => message.type === 'connected');
+    const requestedSplitRemainsUnified = connected?.wsTransportMode !== 'split';
+
+    completeHarnessInitialReplay(router, ws, sent);
+    await beginHarnessScreenRepair(router, ws, sent);
+    const beforeOverflow = sent.length;
+    fake.setBufferedAmount(1024);
+    router.sendTo(ws, {
+      type: 'output',
+      sessionId: 'competing-session',
+      data: 'safe-send-competing-output',
+    });
+    router.routeSessionOutput('session-1', 'a'.repeat(60), 3);
+    router.routeSessionOutput('session-1', 'b'.repeat(10), 4);
+    const pressureHeldBeforeDrain = sent.length === beforeOverflow;
+    fake.setBufferedAmount(0);
+    (router as any).flushTransportQueue(ws);
+    (router as any).flushTransportQueue(ws);
+    const recoveryMessages = sent.slice(beforeOverflow);
+    const recoveryIndex = recoveryMessages.findIndex(message => hasRestoreNeededSignal([message]));
+    const competingOutputIndex = recoveryMessages.findIndex(message => (
+      message.type === 'output' && message.sessionId === 'competing-session'
+    ));
+    const prohibitedRepairOutputIndex = recoveryMessages.findIndex(message => (
+      message.type === 'output' && message.sessionId === 'session-1'
+    ));
+
+    assert.deepEqual({
+      requestedSplitRemainsUnified,
+      pressureHeldBeforeDrain,
+      recoveryControlPresent: recoveryIndex >= 0,
+      competingOutputPresent: competingOutputIndex >= 0,
+      recoveryControlPrecedesCompetingOutput: recoveryIndex >= 0
+        && competingOutputIndex >= 0
+        && recoveryIndex < competingOutputIndex,
+      prohibitedRepairOutputIndex,
+      supersededRepairCancelled: !supersededRepairTypes.includes('screen-repair')
+        && supersededRepairTypes.join(',') === 'screen-repair:restore-needed,screen-snapshot',
+      supersededSnapshotCancelled: supersededSnapshotTypes.join(',') === 'screen-repair:reconnect-required',
+      priorReadyCancelledBeforeFreshSnapshotAck: priorReadyRaceTypes.join(',')
+        === 'screen-repair:restore-needed,screen-snapshot',
+    }, {
+      // MIG-BGSTAB-002 GREEN promotes the already-negotiated split transport;
+      // the Wave2 RED characterization must no longer require unified fallback.
+      requestedSplitRemainsUnified: false,
+      pressureHeldBeforeDrain: true,
+      recoveryControlPresent: true,
+      competingOutputPresent: true,
+      recoveryControlPrecedesCompetingOutput: true,
+      prohibitedRepairOutputIndex: -1,
+      supersededRepairCancelled: true,
+      supersededSnapshotCancelled: true,
+      priorReadyCancelledBeforeFreshSnapshotAck: true,
+    }, repairQueueProtocolRedSignature('10'));
   } finally {
     router.destroy();
   }
@@ -16987,6 +18413,7 @@ function testWsRouterClearSessionState(): void {
   const outputMessages = sent.filter((message) => message.type === 'output');
   assert.equal(outputMessages.length, 0);
   assert.equal((router as any).sessionSubscribers.has('session-1'), false);
+  assert.equal((router as any).sessionOutputChunkOrdinals.has('session-1'), false);
 
   router.destroy();
 }

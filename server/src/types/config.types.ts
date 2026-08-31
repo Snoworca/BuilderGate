@@ -72,8 +72,14 @@ export interface ServerConfig {
 
 export type WsTransportMode = 'unified' | 'split-shadow' | 'split';
 
+/** The binary data-plane rollout ladder (05 §8.2). Owned here because it is a
+ *  configuration value; `ws/terminalWireFormat.ts` re-exports it so the two can
+ *  never drift apart. */
+export type TerminalWireFormat = 'json' | 'binary-shadow' | 'binary-optin' | 'binary';
+
 export interface RealtimeConfig {
   wsTransportMode: WsTransportMode;
+  terminalWireFormat: TerminalWireFormat;
 }
 
 // ============================================================================

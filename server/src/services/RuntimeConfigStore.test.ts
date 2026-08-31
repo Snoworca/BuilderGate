@@ -92,6 +92,7 @@ test('RuntimeConfigStore exposes Wave6 resource capabilities without leaking ser
     ...createConfigFixture(),
     realtime: {
       wsTransportMode: 'split-shadow',
+      terminalWireFormat: 'json',
     },
     stabilityModes: {
       headlessQueueMode: 'observe',

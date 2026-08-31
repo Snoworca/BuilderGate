@@ -43,7 +43,7 @@ export interface HeadlessOutputQueueSnapshot {
 }
 
 export interface HeadlessOutputQueue {
-  enqueue(data: string): HeadlessOutputQueueEnqueueResult;
+  enqueue(data: string, maxBytesOverride?: number, maxChunksOverride?: number): HeadlessOutputQueueEnqueueResult;
   dequeue(): HeadlessOutputQueueEntry | undefined;
   drain(): HeadlessOutputQueueEntry[];
   clear(): void;
@@ -69,13 +69,13 @@ class DefaultHeadlessOutputQueue implements HeadlessOutputQueue {
     });
   }
 
-  enqueue(data: string): HeadlessOutputQueueEnqueueResult {
+  enqueue(data: string, maxBytesOverride?: number, maxChunksOverride?: number): HeadlessOutputQueueEnqueueResult {
     const entry = {
       data,
       byteLength: Buffer.byteLength(data, 'utf8'),
       queuedAt: this.now(),
     };
-    const result = this.queue.enqueue(entry);
+    const result = this.queue.enqueue(entry, { maxBytesOverride, maxChunksOverride });
     if (result.ok) {
       return result;
     }

@@ -271,3 +271,40 @@ test('configSchema validates stabilityModes strictly', () => {
     /unknownSwitch|unrecognized/i,
   );
 });
+
+test('realtime.terminalWireFormat defaults to json', () => {
+  const parsed = configSchema.parse(minimalConfig());
+
+  // The default is what keeps an untouched deployment on exactly today's wire
+  // no matter how much binary machinery exists behind it (05 §8.2).
+  assert.equal(parsed.realtime.terminalWireFormat, 'json');
+});
+
+test('realtime.terminalWireFormat accepts every rung of the ladder', () => {
+  for (const terminalWireFormat of ['json', 'binary-shadow', 'binary-optin', 'binary']) {
+    const parsed = configSchema.parse({
+      ...minimalConfig(),
+      realtime: { terminalWireFormat },
+    });
+
+    assert.equal(parsed.realtime.terminalWireFormat, terminalWireFormat);
+  }
+});
+
+test('realtime.terminalWireFormat rejects a value outside the ladder', () => {
+  assert.throws(() => configSchema.parse({
+    ...minimalConfig(),
+    realtime: { terminalWireFormat: 'binary-everywhere' },
+  }));
+});
+
+test('realtime.terminalWireFormat is independent of wsTransportMode', () => {
+  // The two are orthogonal knobs (D12); setting one must not disturb the other.
+  const parsed = configSchema.parse({
+    ...minimalConfig(),
+    realtime: { wsTransportMode: 'split', terminalWireFormat: 'binary-shadow' },
+  });
+
+  assert.equal(parsed.realtime.wsTransportMode, 'split');
+  assert.equal(parsed.realtime.terminalWireFormat, 'binary-shadow');
+});

@@ -1,4 +1,11 @@
 import { FAIR_SCHEDULER_AUTHORITY_LOGICAL_LOCATOR } from '../benchmarks/fairSchedulerAuthorityLocator.js';
+import {
+  encodeFor,
+  jsonWirePayload,
+  wirePayloadByteLength,
+  type SocketCodecBinding,
+  type WirePayload,
+} from './wirePayload.js';
 
 export type WsTransportMessageKind = 'output' | 'terminal-bulk' | 'control' | 'terminal-control';
 
@@ -13,7 +20,7 @@ export interface WsOutputSourceSegment {
 
 export interface WsTransportMessage {
   kind: WsTransportMessageKind;
-  payload: string;
+  payload: WirePayload;
   byteLength: number;
   queuedAt: number;
   type?: string;
@@ -81,11 +88,22 @@ export interface WsTransportMessageMetadata {
   policyAdmissionMode?: 'candidate' | 'legacy';
 }
 
+/**
+ * How this socket encodes. Absent means JSON, which is what every caller on the
+ * default rung passes — the queue entry is then byte-for-byte what it was
+ * before the codec existed.
+ */
+export interface WsTransportCodec {
+  binding: SocketCodecBinding | undefined;
+  encodeBinary: (message: object, opcode: number) => Uint8Array | undefined;
+}
+
 // @req REL-BGSTAB-010
 export function createWsTransportMessage(
   message: object,
   now = Date.now(),
   metadata: WsTransportMessageMetadata = {},
+  codec?: WsTransportCodec,
 ): WsTransportMessage {
   const record = message as Record<string, unknown>;
   const output = isOutputMessage(message) ? message : null;
@@ -93,11 +111,18 @@ export function createWsTransportMessage(
   const kind = output ? 'output' : getControlMessageKind(message);
   const wireMessage = { ...record };
   delete wireMessage.policyGeneration;
-  const payload = JSON.stringify(wireMessage);
+  const payload = codec === undefined
+    ? jsonWirePayload(JSON.stringify(wireMessage))
+    : encodeFor({
+        binding: codec.binding,
+        message: wireMessage,
+        encodeJson: value => JSON.stringify(value),
+        encodeBinary: codec.encodeBinary,
+      });
   return {
     kind,
     payload,
-    byteLength: Buffer.byteLength(payload, 'utf8'),
+    byteLength: wirePayloadByteLength(payload),
     queuedAt: now,
     ...(typeof record.type === 'string' ? { type: record.type } : {}),
     ...(typeof record.sessionId === 'string' ? { sessionId: record.sessionId } : {}),

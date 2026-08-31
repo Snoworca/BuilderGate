@@ -104,6 +104,31 @@ export function isKnownOpcode(opcode: number): boolean {
   return opcodeSpace(opcode) === 'assigned';
 }
 
+/**
+ * 0x04's lease slot (07 §2.6.1). Fixed width so `prologueBytes` stays a pure
+ * function of opcode — 01:108 and 01:518 rest the D14 safety argument on exactly
+ * that, and a length-prefixed encoding would have to read payload bytes to size
+ * the prologue.
+ *
+ * 38 is derived, not chosen: `responder-browser-` is 18 bytes
+ * (TerminalAuthorityProductionAdapter.ts:4435) and an Ordinal64 is at most 20
+ * decimal digits. The bound survives `nextOrdinal` having no upper clamp
+ * (Adapter.ts:918-920) because 2^64 is still 20 digits.
+ */
+export const RESPONDER_LEASE_ID_MAX_BYTES = 38;
+const RESPONDER_LEASE_ID_SLOT_BYTES = 39;
+const CHECKPOINT_START_PROLOGUE_BYTES = 200;
+
+/** 07 §2.9 flags2 bit table. Each declares which prologue offsets carry a value. */
+const FLAGS2_RETAINED_STATE_PRESENT = 0x0001;
+const FLAGS2_TRANSITION_EPOCH_PRESENT = 0x0002;
+const FLAGS2_BOUNDARY_SOURCE_SEQ_PRESENT = 0x0004;
+const FLAGS2_SAVED_CURSOR_NON_NULL = 0x0008;
+/** 07 §2.6.1. Declares off 160/161 valid; it never changes the prologue's size. */
+export const FLAGS2_RESPONDER_LEASE_ID_PRESENT = 0x0010;
+/** bits 5-15 stay reserved; bit4 was the last free one 07 had set aside. */
+const CHECKPOINT_START_FLAGS2_RESERVED_MASK = 0xffe0;
+
 /** Prologue size in bytes. 0 means "no v1 prologue schema" (01 §1.8 defines 0x01/0x02/0x05 only). */
 export function prologueBytes(opcode: number): number {
   switch (opcode) {
@@ -112,6 +137,8 @@ export function prologueBytes(opcode: number): number {
       return 24;
     case DATA_PLANE_OPCODE.CHECKPOINT_CHUNK:
       return 12;
+    case DATA_PLANE_OPCODE.CHECKPOINT_START:
+      return CHECKPOINT_START_PROLOGUE_BYTES;
     default:
       return 0;
   }
@@ -169,6 +196,7 @@ export const DECODER_POLICY_CODES = Object.freeze([
   'payload-underrun',
   'payload-limit-exceeded',
   'mandatory-flag-cleared',
+  'prologue-domain-violation',
 ] as const);
 
 export type DecoderPolicyCode = (typeof DECODER_POLICY_CODES)[number];
@@ -199,7 +227,16 @@ export type RejectionGrade = 'fatal' | 'scoped';
  * is nothing to be gained by resuming the batch (06 §5 S2-g, D14).
  */
 export function rejectionGrade(code: DecodeRejectionCode): RejectionGrade {
-  if (code === 'unknown-channel' || code === 'payload-limit-exceeded') return 'scoped';
+  if (
+    code === 'unknown-channel'
+    || code === 'payload-limit-exceeded'
+    || code === 'prologue-domain-violation'
+  ) {
+    // Scoped for the same reason as payload-limit-exceeded: `payloadLength`
+    // agrees with the buffer, so `frameEnd` is trustworthy and only this frame is
+    // in doubt. The prologue's CONTENT is wrong, not the framing.
+    return 'scoped';
+  }
   if ((WIRE_REJECTION_CODES as readonly string[]).includes(code)) return 'fatal';
   if ((DECODER_POLICY_CODES as readonly string[]).includes(code)) return 'fatal';
   throw new RangeError(`unknown rejection code: ${String(code)}`);
@@ -330,6 +367,44 @@ export interface SnapshotPrologue {
   replayTokenIndex: number;
 }
 
+/**
+ * 07 §2.9 plus the lease slot of §2.6.1. Offsets 0..159 are §2.9 verbatim.
+ *
+ * `responderLeaseId` is optional here and the ABSENCE MUST BE A MISSING KEY, not
+ * an empty string. `''` would satisfy the client's own comparison
+ * (terminalCheckpointRuntime.ts:522, `'' === ''`) and then be echoed back and
+ * rejected server-side at TerminalAuthorityProductionAdapter.ts:790 against an
+ * `undefined` record -- failing after the local check passed, which is the worst
+ * diagnostic path available. `flags2` bit4 and this field are cross-checked on
+ * both encode and decode so they can never disagree.
+ */
+export interface CheckpointStartPrologue {
+  checkpointSourceSeq: Ordinal64;
+  viewGeneration: number;
+  chunkCount: number;
+  checkpointStreamEpoch: Ordinal64;
+  checkpointEpoch: Ordinal64;
+  snapshotSeq: Ordinal64;
+  oldestRetainedSeq: Ordinal64;
+  transitionEpoch: Ordinal64;
+  boundarySourceSeq: Ordinal64;
+  encodedByteTotal: number;
+  cols: number;
+  rows: number;
+  authorityEpochIndex: number;
+  flags2: number;
+  modesPresentMask: number;
+  modesValueMask: number;
+  retainedActiveBuffer: number;
+  retainedCursorX: number;
+  retainedCursorY: number;
+  retainedSavedCursorX: number;
+  retainedSavedCursorY: number;
+  digest: Uint8Array;
+  retainedStateDigest: Uint8Array;
+  responderLeaseId?: string;
+}
+
 export interface CheckpointChunkPrologue {
   chunkIndex: number;
   chunkCount: number;
@@ -362,7 +437,17 @@ export interface CheckpointChunkWireMessage extends FrameHead {
   body: Uint8Array;
 }
 
-export type BinaryWireMessage = OutputWireMessage | SnapshotWireMessage | CheckpointChunkWireMessage;
+export interface CheckpointStartWireMessage extends FrameHead {
+  opcode: typeof DATA_PLANE_OPCODE.CHECKPOINT_START;
+  prologue: CheckpointStartPrologue;
+  body: Uint8Array;
+}
+
+export type BinaryWireMessage =
+  | OutputWireMessage
+  | SnapshotWireMessage
+  | CheckpointStartWireMessage
+  | CheckpointChunkWireMessage;
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -454,6 +539,44 @@ function assertEncodableHead(message: BinaryWireMessage): void {
   assertOrdinal64(message.sourceSeq, 'sourceSeq');
 }
 
+const utf8Encoder = new TextEncoder();
+/** fatal, not lenient: a replacement char would silently change the echoed
+ * string and be rejected far away at Adapter.ts:790 instead of here. */
+const utf8StrictDecoder = new TextDecoder('utf-8', { fatal: true });
+
+function assertDigest32(value: Uint8Array, label: string): void {
+  if (!(value instanceof Uint8Array) || value.byteLength !== 32) {
+    throw new RangeError(`${label} must be exactly 32 bytes`);
+  }
+}
+
+/**
+ * The presence bit and the field are two spellings of one fact. Letting them
+ * disagree is how `undefined` and `''` start to blur, so this refuses both
+ * directions rather than trusting either as authoritative.
+ */
+function encodeResponderLeaseId(prologue: CheckpointStartPrologue): Uint8Array {
+  const declared = (prologue.flags2 & FLAGS2_RESPONDER_LEASE_ID_PRESENT) !== 0;
+  const present = prologue.responderLeaseId !== undefined;
+  if (declared !== present) {
+    throw new RangeError(
+      'flags2 RESPONDER_LEASE_ID_PRESENT must agree with prologue.responderLeaseId',
+    );
+  }
+  if (!present) return new Uint8Array(0);
+
+  const bytes = utf8Encoder.encode(prologue.responderLeaseId);
+  if (bytes.byteLength === 0) {
+    throw new RangeError('prologue.responderLeaseId must not be empty when present');
+  }
+  if (bytes.byteLength > RESPONDER_LEASE_ID_MAX_BYTES) {
+    throw new RangeError(
+      `prologue.responderLeaseId is ${bytes.byteLength} bytes, over the ${RESPONDER_LEASE_ID_MAX_BYTES}-byte bound`,
+    );
+  }
+  return bytes;
+}
+
 function writePrologue(view: DataView, at: number, message: BinaryWireMessage): void {
   if (message.opcode === DATA_PLANE_OPCODE.OUTPUT) {
     const { prologue, segments } = message;
@@ -506,6 +629,71 @@ function writePrologue(view: DataView, at: number, message: BinaryWireMessage): 
     view.setUint32(at + 16, p.authorityRevision);
     view.setUint16(at + 20, p.authorityEpochIndex);
     view.setUint16(at + 22, p.replayTokenIndex);
+    return;
+  }
+
+  if (message.opcode === DATA_PLANE_OPCODE.CHECKPOINT_START) {
+    const p = message.prologue;
+    const lease = encodeResponderLeaseId(p);
+
+    assertOrdinal64(p.checkpointSourceSeq, 'prologue.checkpointSourceSeq');
+    assertOrdinal64(p.checkpointStreamEpoch, 'prologue.checkpointStreamEpoch');
+    assertOrdinal64(p.checkpointEpoch, 'prologue.checkpointEpoch');
+    assertOrdinal64(p.snapshotSeq, 'prologue.snapshotSeq');
+    assertOrdinal64(p.oldestRetainedSeq, 'prologue.oldestRetainedSeq');
+    assertOrdinal64(p.transitionEpoch, 'prologue.transitionEpoch');
+    assertOrdinal64(p.boundarySourceSeq, 'prologue.boundarySourceSeq');
+    assertUint(p.viewGeneration, 32, 'prologue.viewGeneration');
+    assertUint(p.chunkCount, 32, 'prologue.chunkCount');
+    assertUint(p.encodedByteTotal, 32, 'prologue.encodedByteTotal');
+    assertUint(p.cols, 16, 'prologue.cols');
+    assertUint(p.rows, 16, 'prologue.rows');
+    assertUint(p.authorityEpochIndex, 16, 'prologue.authorityEpochIndex');
+    assertUint(p.flags2, 16, 'prologue.flags2');
+    assertUint(p.modesPresentMask, 8, 'prologue.modesPresentMask');
+    assertUint(p.modesValueMask, 8, 'prologue.modesValueMask');
+    assertUint(p.retainedActiveBuffer, 8, 'prologue.retainedActiveBuffer');
+    assertUint(p.retainedCursorX, 32, 'prologue.retainedCursorX');
+    assertUint(p.retainedCursorY, 32, 'prologue.retainedCursorY');
+    assertUint(p.retainedSavedCursorX, 32, 'prologue.retainedSavedCursorX');
+    assertUint(p.retainedSavedCursorY, 32, 'prologue.retainedSavedCursorY');
+    assertDigest32(p.digest, 'prologue.digest');
+    assertDigest32(p.retainedStateDigest, 'prologue.retainedStateDigest');
+    if ((p.flags2 & CHECKPOINT_START_FLAGS2_RESERVED_MASK) !== 0) {
+      throw new RangeError(
+        `prologue.flags2 0x${p.flags2.toString(16)} sets bits outside the v1 mask`,
+      );
+    }
+
+    writeOrdinal64(view, at + 0, p.checkpointSourceSeq);
+    view.setUint32(at + 8, p.viewGeneration);
+    view.setUint32(at + 12, p.chunkCount);
+    writeOrdinal64(view, at + 16, p.checkpointStreamEpoch);
+    writeOrdinal64(view, at + 24, p.checkpointEpoch);
+    writeOrdinal64(view, at + 32, p.snapshotSeq);
+    writeOrdinal64(view, at + 40, p.oldestRetainedSeq);
+    writeOrdinal64(view, at + 48, p.transitionEpoch);
+    writeOrdinal64(view, at + 56, p.boundarySourceSeq);
+    view.setUint32(at + 64, p.encodedByteTotal);
+    view.setUint16(at + 68, p.cols);
+    view.setUint16(at + 70, p.rows);
+    view.setUint16(at + 72, p.authorityEpochIndex);
+    view.setUint16(at + 74, p.flags2);
+    view.setUint8(at + 76, p.modesPresentMask);
+    view.setUint8(at + 77, p.modesValueMask);
+    view.setUint8(at + 78, p.retainedActiveBuffer);
+    view.setUint8(at + 79, 0);
+
+    const bytes = new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+    view.setUint32(at + 80, p.retainedCursorX);
+    view.setUint32(at + 84, p.retainedCursorY);
+    view.setUint32(at + 88, p.retainedSavedCursorX);
+    view.setUint32(at + 92, p.retainedSavedCursorY);
+    bytes.set(p.digest, at + 96);
+    bytes.set(p.retainedStateDigest, at + 128);
+    view.setUint8(at + 160, lease.byteLength);
+    bytes.set(lease, at + 161);
+    bytes.fill(0, at + 161 + lease.byteLength, at + 161 + RESPONDER_LEASE_ID_SLOT_BYTES);
     return;
   }
 
@@ -590,6 +778,80 @@ function reservedVersionDetail(version: number): string | undefined {
  * output from unrelated channels — the silent drop the issue AC forbids
  * (01:949-960). The caller dispatches `frames` first, then handles `fatal`.
  */
+/**
+ * Returns a reason when the 0x04 prologue is self-inconsistent, `undefined` when
+ * it is sound. Every clause guards a way the lease slot could otherwise reach the
+ * client as something other than what the server recorded.
+ *
+ * The reason is not surfaced today -- `DecodeDiagnostic` is a single-event type
+ * and widening it for this would be a spec change. It stays as the clause's own
+ * label so the call site reads as a decision rather than a boolean.
+ */
+function checkpointStartPrologueViolation(
+  view: DataView,
+  bytes: Uint8Array,
+  at: number,
+): string | undefined {
+  const flags2 = view.getUint16(at + 74);
+  if ((flags2 & CHECKPOINT_START_FLAGS2_RESERVED_MASK) !== 0) return 'flags2 reserved bit set';
+  if (view.getUint8(at + 79) !== 0) return 'reserved byte at off 79 is not zero';
+
+  // Value domains (07 section 2.11). These are the values the client's own
+  // validator would reject one layer up: letting them through here turns a
+  // framing fault into a whole-message `invalid-message` drop.
+  if (view.getUint32(at + 12) === 0) return 'chunkCount must be positive';
+  if (view.getUint16(at + 68) === 0 || view.getUint16(at + 70) === 0) {
+    return 'cols and rows must be positive';
+  }
+  if (view.getUint8(at + 78) > 1) return 'retainedActiveBuffer is neither normal nor alternate';
+  const modesPresentMask = view.getUint8(at + 76);
+  if ((view.getUint8(at + 77) & ~modesPresentMask) !== 0) {
+    return 'modesValueMask asserts a mode outside modesPresentMask';
+  }
+
+  // Presence bits (07 section 2.9). Each field is "valid only when bit N = 1";
+  // returning its bytes anyway would fabricate a value the server never
+  // asserted, and the client compares these as strictly as the lease.
+  const retainedState = (flags2 & FLAGS2_RETAINED_STATE_PRESENT) !== 0;
+  const savedCursor = (flags2 & FLAGS2_SAVED_CURSOR_NON_NULL) !== 0;
+  if ((flags2 & FLAGS2_TRANSITION_EPOCH_PRESENT) === 0 && view.getBigUint64(at + 48) !== 0n) {
+    return 'transitionEpoch is set without TRANSITION_EPOCH_PRESENT';
+  }
+  if ((flags2 & FLAGS2_BOUNDARY_SOURCE_SEQ_PRESENT) === 0 && view.getBigUint64(at + 56) !== 0n) {
+    return 'boundarySourceSeq is set without BOUNDARY_SOURCE_SEQ_PRESENT';
+  }
+  if (!retainedState) {
+    if (savedCursor) return 'SAVED_CURSOR_NON_NULL is set without RETAINED_STATE_PRESENT';
+    if (view.getUint8(at + 78) !== 0) {
+      return 'retainedActiveBuffer is set without RETAINED_STATE_PRESENT';
+    }
+    for (let index = at + 128; index < at + 160; index += 1) {
+      if (bytes[index] !== 0) return 'retainedStateDigest is set without RETAINED_STATE_PRESENT';
+    }
+  }
+  if (!savedCursor && (view.getUint32(at + 88) !== 0 || view.getUint32(at + 92) !== 0)) {
+    return 'retainedSavedCursor is set without SAVED_CURSOR_NON_NULL';
+  }
+
+  const declared = (flags2 & FLAGS2_RESPONDER_LEASE_ID_PRESENT) !== 0;
+  const length = view.getUint8(at + 160);
+  if (declared && length === 0) return 'RESPONDER_LEASE_ID_PRESENT set with zero length';
+  if (!declared && length !== 0) return 'lease length set without RESPONDER_LEASE_ID_PRESENT';
+  if (length > RESPONDER_LEASE_ID_MAX_BYTES) return 'lease length past the 38-byte bound';
+
+  for (let index = at + 161 + length; index < at + 161 + RESPONDER_LEASE_ID_SLOT_BYTES; index += 1) {
+    if (bytes[index] !== 0) return 'lease padding is not zero-filled';
+  }
+  if (length > 0) {
+    try {
+      utf8StrictDecoder.decode(bytes.subarray(at + 161, at + 161 + length));
+    } catch {
+      return 'lease bytes are not valid UTF-8';
+    }
+  }
+  return undefined;
+}
+
 export function decodeWsMessage(buffer: Uint8Array | ArrayBuffer, context: BinaryDecodeContext): DecodeResult {
   const result: DecodeResult = { frames: [], scoped: [], diagnostics: [] };
 
@@ -665,6 +927,23 @@ export function decodeWsMessage(buffer: Uint8Array | ArrayBuffer, context: Binar
       overhead += SEGMENT_BYTES * segmentCount;
       if (payloadLength < overhead) return fatal('payload-underrun', offset);
     }
+    // 0x04 prologue domain checks. They live here, not in `parseFrameMessage`,
+    // because that function is contractually infallible on a frame this decoder
+    // accepted. Scoped: `frameEnd` is already known good, so the rest of the
+    // batch survives a frame whose prologue content is wrong.
+    if (opcode === DATA_PLANE_OPCODE.CHECKPOINT_START) {
+      const violation = checkpointStartPrologueViolation(
+        view,
+        bytes,
+        offset + FRAME_HEADER_BYTES,
+      );
+      if (violation !== undefined) {
+        scoped('prologue-domain-violation', offset, channelId);
+        offset = frameEnd;
+        continue;
+      }
+    }
+
     if (payloadLength - overhead > context.maxBodyBytes) {
       // Scoped, not fatal: the declared length agrees with the buffer, so
       // frameEnd is trustworthy and only this frame is dropped (see
@@ -755,6 +1034,46 @@ export function parseFrameMessage(frame: DecodedFrame): BinaryWireMessage | unde
       },
       segments,
       body: payload.subarray(24 + segmentCount * SEGMENT_BYTES),
+    };
+  }
+
+  if (frame.opcode === DATA_PLANE_OPCODE.CHECKPOINT_START) {
+    const flags2 = view.getUint16(74);
+    const leaseLength = view.getUint8(160);
+    const lease = leaseLength === 0
+      ? undefined
+      : utf8StrictDecoder.decode(payload.subarray(161, 161 + leaseLength));
+    return {
+      opcode: DATA_PLANE_OPCODE.CHECKPOINT_START,
+      ...head,
+      prologue: {
+        checkpointSourceSeq: readOrdinal64(view, 0),
+        viewGeneration: view.getUint32(8),
+        chunkCount: view.getUint32(12),
+        checkpointStreamEpoch: readOrdinal64(view, 16),
+        checkpointEpoch: readOrdinal64(view, 24),
+        snapshotSeq: readOrdinal64(view, 32),
+        oldestRetainedSeq: readOrdinal64(view, 40),
+        transitionEpoch: readOrdinal64(view, 48),
+        boundarySourceSeq: readOrdinal64(view, 56),
+        encodedByteTotal: view.getUint32(64),
+        cols: view.getUint16(68),
+        rows: view.getUint16(70),
+        authorityEpochIndex: view.getUint16(72),
+        flags2,
+        modesPresentMask: view.getUint8(76),
+        modesValueMask: view.getUint8(77),
+        retainedActiveBuffer: view.getUint8(78),
+        retainedCursorX: view.getUint32(80),
+        retainedCursorY: view.getUint32(84),
+        retainedSavedCursorX: view.getUint32(88),
+        retainedSavedCursorY: view.getUint32(92),
+        digest: payload.slice(96, 128),
+        retainedStateDigest: payload.slice(128, 160),
+        // Spread, not `lease`: absence has to leave the key off entirely.
+        ...(lease === undefined ? {} : { responderLeaseId: lease }),
+      },
+      body: payload.subarray(200),
     };
   }
 

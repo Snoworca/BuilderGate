@@ -54,6 +54,10 @@ const defaultObject = <T extends z.ZodType>(schema: T) =>
 
 export const realtimeSchema = defaultObject(z.object({
   wsTransportMode: z.enum(['unified', 'split-shadow', 'split']).default('unified'),
+  // The binary data-plane rollout ladder (05 §8.2), orthogonal to the transport
+  // mode above. `json` keeps the wire exactly as it is today, so a deployment
+  // that never sets this behaves as it always has.
+  terminalWireFormat: z.enum(['json', 'binary-shadow', 'binary-optin', 'binary']).default('json'),
 }).strict());
 
 // ============================================================================
