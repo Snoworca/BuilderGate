@@ -3126,7 +3126,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       });
     }, [rejectPendingInputQueue, sessionId]);
 
-    useEffect(() => {
+    useEffect(function mountTerminalRuntime() {
       if (!terminalRef.current) return;
       void terminalRuntimeRevision;
 
@@ -4171,7 +4171,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       resizeObserver.observe(containerRef.current!);
       resizeObserver.observe(terminalRef.current!);
 
-      return () => {
+      const disposeTerminalRuntime = () => {
         containerRef.current?.removeEventListener('mousedown', onMouseDownCapture, true);
         termEl.removeEventListener('paste', onPasteCapture, { capture: true });
         unregisterInputTransportOverride();
@@ -4273,6 +4273,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         recordTerminalDebugEvent(sessionId, 'terminal_disposed');
         term.dispose();
       };
+      return disposeTerminalRuntime;
     }, [
       sessionId,
       beginRestoreAttempt,

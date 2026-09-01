@@ -7,15 +7,102 @@
   },
   "current": {
     "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.current.json",
-    "sha256": "04257cb8e832a864e84754105b30da8d0de5f0b67738a666c22e8d6c0918a11f",
-    "sourceCount": 34,
-    "sourceSetSha256": "432cd190ad7d52e8471ee43930fd367c50d1b5a44d62151da75a4ebeaa205cd2",
+    "sha256": "b00af72bae72e8b4ca717670df3f8a5f513a998fcc6d9870ae30bfd9738a5ad7",
+    "sourceCount": 35,
+    "sourceSetSha256": "21e0e14bc541b9995a925f39b5002a64ba710d157d5e55642802d1e093b613ad",
     "exactConsumerTuples": 80,
     "classifications": 10
   },
   "semanticInventory": {
-    "sha256": "3d2a8953604b125c528349188bc5fc9963f774f9792a116e364f4f0afa5a6997",
-    "historicalEqualsCurrent": true
+    "sha256": "0037b28c62c742949ed56501a73a79553949123497df4b818b860ac137dd6281",
+    "historicalEqualsCurrent": false,
+    "divergence": {
+      "reason": "terminal runtime evidence moved: xterm option assembly extracted to terminalViewAttributes, the scheduler byte enqueue was renamed, and the terminal runtime callbacks were named so the catalog can pin symbols instead of useEffect source offsets",
+      "relocatedEvidence": [
+        {
+          "decision": "browser.hidden-output|resourceLimits.terminal.hiddenOutputPolicy|visibility-decision|consumed",
+          "retired": [
+            "frontend/src/components/Terminal/TerminalContainer.tsx#TerminalContainer#$callback:useEffect:0@127825#onOutput :: hiddenOutputPolicy: terminalLimits.hiddenOutputPolicy :: object-option-flow"
+          ],
+          "introduced": [
+            "frontend/src/components/Terminal/TerminalContainer.tsx#TerminalContainer#subscribeSessionRuntime#onOutput :: hiddenOutputPolicy: terminalLimits.hiddenOutputPolicy :: object-option-flow"
+          ]
+        },
+        {
+          "decision": "browser.hidden-output|resourceLimits.terminal.hiddenOutputTailBytes|visibility-decision|consumed",
+          "retired": [
+            "frontend/src/components/Terminal/TerminalContainer.tsx#TerminalContainer#$callback:useEffect:0@127825#onOutput :: hiddenOutputTailBytes: terminalLimits.hiddenOutputTailBytes :: object-option-flow"
+          ],
+          "introduced": [
+            "frontend/src/components/Terminal/TerminalContainer.tsx#TerminalContainer#subscribeSessionRuntime#onOutput :: hiddenOutputTailBytes: terminalLimits.hiddenOutputTailBytes :: object-option-flow"
+          ]
+        },
+        {
+          "decision": "browser.snapshot.persisted-storage|resourceLimits.snapshots.tombstoneTtlMs|terminal-dispose-tombstone-check|consumed",
+          "retired": [
+            "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057#$anonymous@169494 :: tombstoneTtlMs: snapshotLimits.tombstoneTtlMs :: object-option-flow"
+          ],
+          "introduced": [
+            "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime#disposeTerminalRuntime :: tombstoneTtlMs: snapshotLimits.tombstoneTtlMs :: object-option-flow"
+          ]
+        },
+        {
+          "decision": "browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-input-count-cap|consumed",
+          "retired": [
+            "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: pendingInputMaxCount: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow"
+          ],
+          "introduced": [
+            "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime :: pendingInputMaxCount: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow"
+          ]
+        },
+        {
+          "decision": "browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-settlement-ledger-cap|consumed",
+          "retired": [
+            "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: settlementLedgerMaxEntries: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow"
+          ],
+          "introduced": [
+            "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime :: settlementLedgerMaxEntries: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow"
+          ]
+        },
+        {
+          "decision": "browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-write-coordinator|consumed",
+          "retired": [
+            "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: postCheckpointMaxChunks: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow"
+          ],
+          "introduced": [
+            "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime :: postCheckpointMaxChunks: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow"
+          ]
+        },
+        {
+          "decision": "browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|checkpoint-write-coordinator|consumed",
+          "retired": [
+            "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: postCheckpointMaxBytes: coordinatorLimits.visibleOutputQueueMaxBytes :: object-option-flow"
+          ],
+          "introduced": [
+            "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime :: postCheckpointMaxBytes: coordinatorLimits.visibleOutputQueueMaxBytes :: object-option-flow"
+          ]
+        },
+        {
+          "decision": "browser.terminal.write-scheduler|resourceLimits.terminal.scrollbackLines|terminal-runtime-construction|divergent-legacy",
+          "retired": [
+            "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: scrollback: 10000 :: object-option-flow"
+          ],
+          "introduced": [
+            "frontend/src/utils/terminalViewAttributes.ts#resolveTerminalXtermOptions :: scrollback: limits.scrollbackLines :: object-option-flow"
+          ]
+        },
+        {
+          "decision": "browser.terminal.write-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|browser-output-admission|consumed",
+          "retired": [
+            "frontend/src/utils/terminalOutputScheduler.ts#createTerminalOutputScheduler#enqueueLegacy :: queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes :: control-guard"
+          ],
+          "introduced": [
+            "frontend/src/utils/terminalOutputScheduler.ts#createTerminalOutputScheduler#enqueueBytesLegacy :: queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes :: control-guard"
+          ]
+        }
+      ],
+      "evidenceHashOnlyChangedTuples": 6
+    }
   },
   "currentSlice": {
     "requirementId": "OBS-BGSTAB-005",

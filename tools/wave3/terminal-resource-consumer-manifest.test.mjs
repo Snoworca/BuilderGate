@@ -151,6 +151,82 @@ function semanticInventory(value) {
   };
 }
 
+function decisionIdentity(entry) {
+  return JSON.stringify({
+    consumerId: entry.consumerId,
+    category: entry.category,
+    resourceKey: entry.resourceKey,
+    unit: entry.unit,
+    source: entry.source,
+    schemaVersion: entry.schemaVersion,
+    profileVersion: entry.profileVersion,
+    legacyAliases: [...entry.legacyAliases].sort((left, right) => left.localeCompare(right)),
+    applyBoundary: entry.applyBoundary,
+    state: entry.state,
+  });
+}
+
+function decisionLabel(entry) {
+  return `${entry.consumerId}|${entry.resourceKey}|${entry.applyBoundary}|${entry.state}`;
+}
+
+function evidenceLocator(entry) {
+  return `${entry.consumerPath}#${entry.consumerSymbol} :: ${entry.evidenceSignature} :: ${entry.evidenceRole}`;
+}
+
+function multisetDrift(before, after, identity) {
+  const tally = (entries) => entries.reduce(
+    (counts, entry) => counts.set(identity(entry), (counts.get(identity(entry)) ?? 0) + 1),
+    new Map(),
+  );
+  const beforeCounts = tally([...before]);
+  const afterCounts = tally([...after]);
+  const retired = [];
+  const introduced = [];
+  for (const [id, total] of beforeCounts) {
+    for (let missing = total - (afterCounts.get(id) ?? 0); missing > 0; missing -= 1) retired.push(id);
+  }
+  for (const [id, total] of afterCounts) {
+    for (let extra = total - (beforeCounts.get(id) ?? 0); extra > 0; extra -= 1) introduced.push(id);
+  }
+  return {
+    retired: retired.sort((left, right) => left.localeCompare(right)),
+    introduced: introduced.sort((left, right) => left.localeCompare(right)),
+  };
+}
+
+function relocatedEvidence(historicalConsumers, currentConsumers) {
+  const relocations = [];
+  for (const decision of new Set([...historicalConsumers, ...currentConsumers].map(decisionIdentity))) {
+    const historicalGroup = historicalConsumers.filter((entry) => decisionIdentity(entry) === decision);
+    const currentGroup = currentConsumers.filter((entry) => decisionIdentity(entry) === decision);
+    const drift = multisetDrift(historicalGroup, currentGroup, evidenceLocator);
+    if (drift.retired.length === 0 && drift.introduced.length === 0) continue;
+    relocations.push({
+      decision: decisionLabel(currentGroup[0] ?? historicalGroup[0]),
+      retired: drift.retired,
+      introduced: drift.introduced,
+    });
+  }
+  return relocations.sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+}
+
+function evidenceHashOnlyChangedTuples(historicalConsumers, currentConsumers) {
+  const groupHashes = (entries) => entries.reduce((grouped, entry) => {
+    const place = `${decisionIdentity(entry)} ${evidenceLocator(entry)}`;
+    return grouped.set(place, [...(grouped.get(place) ?? []), entry.evidenceAstSha256]);
+  }, new Map());
+  const historicalHashes = groupHashes(historicalConsumers);
+  let changed = 0;
+  for (const [place, hashes] of groupHashes(currentConsumers)) {
+    const before = [...(historicalHashes.get(place) ?? [])].sort((left, right) => left.localeCompare(right));
+    const after = [...hashes].sort((left, right) => left.localeCompare(right));
+    if (before.length !== after.length) continue;
+    changed += after.filter((hash, index) => hash !== before[index]).length;
+  }
+  return changed;
+}
+
 function evidenceRoleDistribution(consumers) {
   return Object.fromEntries(
     [...consumers]
@@ -381,7 +457,25 @@ assert.notDeepEqual(
   semanticInventory(classificationAccessEvidenceMutation),
   'semantic equality must fail when only classification accessEvidenceSha256 changes',
 );
-assert.deepEqual(semanticInventory(manifest), semanticInventory(legacyManifest));
+assert.equal(manifest.schemaVersion, legacyManifest.schemaVersion);
+assert.equal(manifest.profileVersion, legacyManifest.profileVersion);
+assert.deepEqual(
+  semanticInventory(manifest).classificationIdentities,
+  semanticInventory(legacyManifest).classificationIdentities,
+  'classification identity must not drift from the sealed historical inventory',
+);
+assert.deepEqual(
+  multisetDrift(legacyManifest.consumers, manifest.consumers, decisionIdentity),
+  { retired: [], introduced: [] },
+  'the current inventory must reach exactly the resource decisions the sealed historical inventory reached',
+);
+const currentSemanticDivergence = {
+  reason: lineage.semanticInventory?.divergence?.reason,
+  relocatedEvidence: relocatedEvidence(legacyManifest.consumers, manifest.consumers),
+  evidenceHashOnlyChangedTuples: evidenceHashOnlyChangedTuples(legacyManifest.consumers, manifest.consumers),
+};
+assert.equal(typeof currentSemanticDivergence.reason, 'string');
+assert.ok(currentSemanticDivergence.reason.length > 0, 'recorded evidence relocation must carry a reason');
 const semanticInventorySha256 = sha256(JSON.stringify(semanticInventory(manifest)));
 assert.deepEqual(lineage, {
   schemaVersion: 'terminal-resource-consumer-manifest-lineage/v1',
@@ -400,7 +494,8 @@ assert.deepEqual(lineage, {
   },
   semanticInventory: {
     sha256: semanticInventorySha256,
-    historicalEqualsCurrent: true,
+    historicalEqualsCurrent: semanticInventorySha256 === sha256(JSON.stringify(semanticInventory(legacyManifest))),
+    divergence: currentSemanticDivergence,
   },
   currentSlice: {
     requirementId: 'OBS-BGSTAB-005',
@@ -441,7 +536,7 @@ assert.deepEqual(lineage, {
 assert.equal(Object.hasOwn(lineage.ph002RuntimeAnchor, 'sourcePath'), false);
 assert.notEqual(manifestSha256, lineage.ph002RuntimeAnchor.sha256);
 assert.notEqual(legacyManifestSha256, lineage.ph002RuntimeAnchor.sha256);
-assert.equal(Object.keys(manifest.evidence.sourceHashes).length, 34);
+assert.equal(Object.keys(manifest.evidence.sourceHashes).length, 35);
 assert.ok(Array.isArray(manifest.consumers));
 assert.ok(Array.isArray(manifest.classifications));
 assert.deepEqual(sortedUnique(manifest.consumers.map((entry) => entry.category)), sortedUnique(expectedCategories));

@@ -488,7 +488,7 @@ test('TerminalView resets scheduler and ingress retry ownership on terminal iden
   const schedulerIndex = source.indexOf('const getOutputScheduler = useCallback');
   const writeIndex = source.indexOf('const writeOutput = useCallback', schedulerIndex);
   const schedulerChunk = source.slice(schedulerIndex, writeIndex);
-  const cleanupIndex = source.indexOf('return () => {', source.indexOf('const resizeObserver = new ResizeObserver'));
+  const cleanupIndex = source.indexOf('const disposeTerminalRuntime = () => {', source.indexOf('const resizeObserver = new ResizeObserver'));
   const cleanupEnd = source.indexOf('term.dispose();', cleanupIndex);
   const cleanupChunk = source.slice(cleanupIndex, cleanupEnd);
 

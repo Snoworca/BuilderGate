@@ -3245,7 +3245,7 @@ export const TerminalContainer = memo(
       wsStatus,
     ]);
 
-    useEffect(() => {
+    useEffect(function subscribeSessionRuntime() {
       const unsubscribe = subscribeSession(sessionId, {
         onSubscribed: handleSubscribed,
         onSessionReady: handleSessionReady,
