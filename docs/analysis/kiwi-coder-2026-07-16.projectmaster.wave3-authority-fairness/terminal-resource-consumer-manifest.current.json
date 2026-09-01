@@ -24,41 +24,42 @@
     },
     "sourceHashes": {
       "frontend/src/components/Settings/settingsDraftHelpers.ts": "e4ef966e1731f468f3bba1a6bcfa443bc0b991d65178a81413836da0f5c3e8a7",
-    "frontend/src/components/Terminal/TerminalContainer.tsx": "a6b6337c9aa1c0ab99ab91c9316661e178001917327fbecb00fc8618a997f15e",
-    "frontend/src/components/Terminal/TerminalView.tsx": "21475c1fef657cab781fdd56771c01e5b8105f5a872938ad6b9be53c926cce2c",
-    "frontend/src/contexts/WebSocketContext.tsx": "3262afefe473b07b2422a8c3af8c262b544a001b243fefb98aa02d008a089be0",
-      "frontend/src/hooks/useTerminalRuntimeResidency.ts": "69035d8f3edafc7c587211a1d6208e8565ca9b176bee25134bcbfaf7148dc448",
+      "frontend/src/components/Terminal/TerminalContainer.tsx": "53ed519302eef567eb545deb4eedd781ffbe12b217c2010161d1482e4db653d2",
+      "frontend/src/components/Terminal/TerminalView.tsx": "de9b94f95f464fd55ede0d3acc5eaf9b664a4b5ed0efbcf71415c72d40ca173c",
+      "frontend/src/contexts/WebSocketContext.tsx": "e7ab161fb0ce576ccc183d87da3eecd32db403537eb559b1fccf89f0133fdf1c",
+      "frontend/src/hooks/useTerminalRuntimeResidency.ts": "839519d4c6fb58e3069aa5a2aff4f94e44e58675cb0aa4d47ad13913f0e8c415",
       "frontend/src/services/tokenStorage.ts": "cded9fb62ddfb171b3ebfce45a1bb9c32ae6967b4df46e62a8c62c36e1be748f",
       "frontend/src/types/settings.ts": "a1ff49721d967e18dec41eeba53102e2ea4d19c7e883703eb750b32e0eacda97",
       "frontend/src/utils/inputReliabilityMode.ts": "bb34d9afffd0cfd875860b289b8ccccac80861fc2fe54410118786c586c54fd1",
-      "frontend/src/utils/terminalHiddenOutput.ts": "f49cd5e7dc2c13890058de850533dd7ceabcd9926e11f00e68ce58a7d422fdd4",
-      "frontend/src/utils/terminalOutputHotPath.ts": "ed2a5fff8db19558f07c8cc8f7af3f0e6ddf406cea76226dd02692d814701999",
-    "frontend/src/utils/terminalOutputScheduler.ts": "eb5a13be6fc3e16d371ee652be622643f19688b16b4402c776b110973d225ebd",
+      "frontend/src/utils/terminalHiddenOutput.ts": "1f0c3572f15df27e43bf736d93c5718a51ee6d366687a054b3b5f4ca35b31a6a",
+      "frontend/src/utils/terminalOutputHotPath.ts": "76738388df0731eeff1dda394bef945d93fe4e0ac5b4a4c467dccaf45561b46a",
+      "frontend/src/utils/terminalOutputScheduler.ts": "a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
       "frontend/src/utils/terminalSnapshot.ts": "75f7d8e1aebfcdbf41692780bce1d9acd1ca893c2b3b34eaa73c1ec4f27b98ca",
-      "frontend/src/utils/visibleOutputRecovery.ts": "956a73199f300457fd5e9e8de44cf1f8e2ffdd276a1ffae4f254bffe57bb5f45",
+      "frontend/src/utils/terminalViewAttributes.ts": "125a6a9a1cad779aa11768e8948c6921bb1b1ef87466a060fb3d0dc78e82b304",
+      "frontend/src/utils/visibleOutputRecovery.ts": "4c6daab3b711619b0641b2179eeaf1f2b30e0a96e8ad8d19a2fa410cb3d9b855",
       "frontend/src/utils/webSocketBackpressure.ts": "6b1267425a009da86ed03cccfe8caa80520dcd65b82fff63ffe5e6886e132f29",
-      "server/src/schemas/config.schema.ts": "6504d3df6d001040e9962bc42ed0bc5b7b7d88b5a3aeab6c9a91dd65bb66cd77",
+      "server/src/schemas/config.schema.ts": "47e507ed901ed0beccc8571fef348c76162f5656f279c554f85e53dc5df82b72",
       "server/src/services/ConfigFileRepository.ts": "2091c12a9f27f5b40ba12661fa9544af9fa8ecf71d1ff99f0a9c9aafe2c55d65",
-      "server/src/services/RuntimeConfigStore.test.ts": "24080ea01d639ff4433cd8bb170ee2f6d6dd10de23c58e6480caf7158b1a6674",
+      "server/src/services/RuntimeConfigStore.test.ts": "b4008553c828870a22c0cadfdfa5b6c8c15248f8c915e352eae8b29ed9ec1800",
       "server/src/services/RuntimeConfigStore.ts": "466442cdde123f3d162b1c8e966085d9542cb59ad66ea7215782802ea7ff6530",
-      "server/src/services/SessionManager.ts": "b47f04da64675e422d16001d0eacf2c7c6537f557bc35cf374983e216988d12a",
+      "server/src/services/SessionManager.ts": "2d02bb18753730af65bd124a13ca806c36531cf9011b1995a7d5fbefb1e47818",
       "server/src/services/SettingsService.ts": "52b2775a8b3ebe5fb9f9e6beb174b29c14cdca4694e7cfa461f4f57028079b5c",
       "server/src/services/TerminalResourcePolicy.test.ts": "c346d218767b52635b5e18ebecb72470be550f42791a8b3a8ef5b53be838c255",
       "server/src/services/TerminalResourcePolicy.ts": "110ce608ab9a0f73347f0d164960142a104169e9177dd9160302080a1851d425",
-      "server/src/services/TerminalResourcePolicyInventory.ts": "5a14b19d0bba43737fdd3408bd5b7efaa4bdfc9fd9cbd69b86c957eded87bb09",
+      "server/src/services/TerminalResourcePolicyInventory.ts": "556f7a687d0a1ec789f4dc0cad70094aed009e637d33cccc459b67cf2e16c54c",
       "server/src/services/TerminalResourcePolicyObservations.ts": "f7745b16bce3e5b67f9fd3f3dabebe6f51adff46d4461cb4be9a6d38d5c0ae7d",
-      "server/src/types/config.types.ts": "70d4cb27ad021b19ee2a74de96ada2348fd63ecff17c98bb4a8f7fa5be63652e",
+      "server/src/types/config.types.ts": "d9b5bb80286776170253c8592f94dcddf4abc1dcfa69c717af77c0ce4ff180c2",
       "server/src/types/settings.types.ts": "22a65cd686ca2aca4bff22366bd9bea440dc32b53ba0e7878aeaa1c414524eec",
       "server/src/utils/config.ts": "ad3a4489d6d05cb5fd8c6cf3d2e8ffa29f1dc3c423c85f5de9446361417fda3a",
       "server/src/utils/configStrictLoader.ts": "72c500c9ff2ee80b5a128d7b2e3fcf0635c04993dbe1f716dce22f0006f9614f",
       "server/src/utils/headlessOutputQueue.ts": "ed47eceab0b9e749fac589f59bfe7b9bf357da9749ea0aa2b08cc68a56e33ee8",
       "server/src/utils/headlessTerminal.ts": "264a73dfc5140abcf68a86541961b2a5fb4e0a18a705d8d1f4b83f02d0d392ae",
-      "server/src/ws/WsRouter.ts": "afbf30b35055514a28322faff0e8950819a1c08716c45f71a9ad7314e3067898",
-      "server/src/ws/wsSendPolicy.ts": "748e06e1bd395774ac12d98edc6faccf9ccfc7e3503dbad5b3c91b642bf681a9",
+      "server/src/ws/WsRouter.ts": "81c7fa240a04ca98dbbdb3a6d03a3ac122d940897e75087799569dc66863f09d",
+      "server/src/ws/wsSendPolicy.ts": "b39d57caf3abc34d477207d8f8a948a548c85cace9e353107d7ae926f8ab62dc",
       "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "19269f9a6ec9bd70cc8c12629a5c1dbef13e678296f1d94bb8100a78fa41d3e4",
-      "tools/wave3/terminal-resource-policy-differential.ts": "a0277740996f2c2a474abf00289300e181a85053fce82a8283ae34c779a14de8"
+      "tools/wave3/terminal-resource-policy-differential.ts": "4e3037ede53b126b5c5dd117ba7d87426d9a8b81768492becf3c3f7b64d84f92"
     },
-    "sourceSetSha256": "432cd190ad7d52e8471ee43930fd367c50d1b5a44d62151da75a4ebeaa205cd2",
+    "sourceSetSha256": "a8365de1531796ae359150f66ed11ce1480ffe6784a98087d75f65d7a0e268f1",
     "rawGreenEvidence": {
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "93627577602e0df1275aec708b43cd51589a4ff76ffafad40294304d336822c6",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/focused-green-output.txt": "c10f00e503ac73eaf5296b02ecd224f81968697192991bfe5dd62bd2ebd5a23f"
@@ -458,7 +459,7 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "7126481289ed19fde578f673f8b2c88648443438b5bab2f5f4e5e78708e9f5db"
+      "evidenceAstSha256": "ad34766de170cdf6ae7336f13198750da06bd7d1b3ac4e250a7523f9ec4a9ec4"
     },
     {
       "evidenceRole": "object-option-flow",
@@ -475,7 +476,7 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "7126481289ed19fde578f673f8b2c88648443438b5bab2f5f4e5e78708e9f5db"
+      "evidenceAstSha256": "ad34766de170cdf6ae7336f13198750da06bd7d1b3ac4e250a7523f9ec4a9ec4"
     },
     {
       "evidenceRole": "control-guard",
@@ -537,7 +538,7 @@
       "source": "resourceLimits.terminal.visibleOutputQueueMaxBytes",
       "applyBoundary": "browser-output-admission",
       "consumerPath": "frontend/src/utils/terminalOutputScheduler.ts",
-      "consumerSymbol": "createTerminalOutputScheduler#enqueueLegacy",
+      "consumerSymbol": "createTerminalOutputScheduler#enqueueBytesLegacy",
       "evidenceSignature": "queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes",
       "state": "consumed",
       "schemaVersion": "terminal-resource-policy/v1",
@@ -577,7 +578,7 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "7126481289ed19fde578f673f8b2c88648443438b5bab2f5f4e5e78708e9f5db"
+      "evidenceAstSha256": "ad34766de170cdf6ae7336f13198750da06bd7d1b3ac4e250a7523f9ec4a9ec4"
     },
     {
       "evidenceRole": "control-guard",
@@ -645,7 +646,7 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "3cfac84b6fe04430a7f74129a47c706260db25e7849386c47978773a73aaf1cf"
+      "evidenceAstSha256": "de5cd87dd2534acb908aed74d0219d986169271791f03dfcb2fbdf3e8e32aaff"
     },
     {
       "evidenceRole": "object-option-flow",
@@ -662,7 +663,7 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "3cfac84b6fe04430a7f74129a47c706260db25e7849386c47978773a73aaf1cf"
+      "evidenceAstSha256": "de5cd87dd2534acb908aed74d0219d986169271791f03dfcb2fbdf3e8e32aaff"
     },
     {
       "evidenceRole": "object-option-flow",
@@ -809,13 +810,13 @@
       "source": "resourceLimits.terminal.hiddenOutputPolicy",
       "applyBoundary": "visibility-decision",
       "consumerPath": "frontend/src/components/Terminal/TerminalContainer.tsx",
-      "consumerSymbol": "TerminalContainer#$callback:useEffect:0@127825#onOutput",
+      "consumerSymbol": "TerminalContainer#$callback:useEffect:0@135025#onOutput",
       "evidenceSignature": "hiddenOutputPolicy: terminalLimits.hiddenOutputPolicy",
       "state": "consumed",
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "d414fb15f80ecdd24f27f7024156670dcdf31b5ff3847823a693b0412f92d569"
+      "evidenceAstSha256": "778f5816c6278126765d778f42cc1a00ef8da6a975935f881e3720af681145a6"
     },
     {
       "evidenceRole": "control-guard",
@@ -843,13 +844,13 @@
       "source": "resourceLimits.terminal.hiddenOutputTailBytes",
       "applyBoundary": "visibility-decision",
       "consumerPath": "frontend/src/components/Terminal/TerminalContainer.tsx",
-      "consumerSymbol": "TerminalContainer#$callback:useEffect:0@127825#onOutput",
+      "consumerSymbol": "TerminalContainer#$callback:useEffect:0@135025#onOutput",
       "evidenceSignature": "hiddenOutputTailBytes: terminalLimits.hiddenOutputTailBytes",
       "state": "consumed",
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "bd0a9e981af0a7dc8c8aa051019f2db36669343abc1ecfcb6a0132b605ef38f3"
+      "evidenceAstSha256": "a0f5f4f58998ab71bc6722742815c1c485e115900a5b8bd534b2365ebe6c54b0"
     },
     {
       "evidenceRole": "call-input",
@@ -866,7 +867,7 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "acc26caede0f18c4fc47b2b2341072de17956c3db30f5290115103765f1f9c74"
+      "evidenceAstSha256": "bcc165f8d1d20dd2a2529645ec414280f7409a9f404dc1b18e910d17e0375db7"
     },
     {
       "evidenceRole": "control-guard",
@@ -945,7 +946,7 @@
       "source": "resourceLimits.terminal.visibleOutputQueueMaxBytes",
       "applyBoundary": "checkpoint-write-coordinator",
       "consumerPath": "frontend/src/components/Terminal/TerminalView.tsx",
-      "consumerSymbol": "TerminalView#$callback:useEffect:0@121057",
+      "consumerSymbol": "TerminalView#$callback:useEffect:0@121472",
       "evidenceSignature": "postCheckpointMaxBytes: coordinatorLimits.visibleOutputQueueMaxBytes",
       "state": "consumed",
       "schemaVersion": "terminal-resource-policy/v1",
@@ -962,7 +963,7 @@
       "source": "resourceLimits.terminal.visibleOutputMaxChunks",
       "applyBoundary": "checkpoint-write-coordinator",
       "consumerPath": "frontend/src/components/Terminal/TerminalView.tsx",
-      "consumerSymbol": "TerminalView#$callback:useEffect:0@121057",
+      "consumerSymbol": "TerminalView#$callback:useEffect:0@121472",
       "evidenceSignature": "postCheckpointMaxChunks: coordinatorLimits.visibleOutputMaxChunks",
       "state": "consumed",
       "schemaVersion": "terminal-resource-policy/v1",
@@ -979,7 +980,7 @@
       "source": "resourceLimits.terminal.visibleOutputMaxChunks",
       "applyBoundary": "checkpoint-input-count-cap",
       "consumerPath": "frontend/src/components/Terminal/TerminalView.tsx",
-      "consumerSymbol": "TerminalView#$callback:useEffect:0@121057",
+      "consumerSymbol": "TerminalView#$callback:useEffect:0@121472",
       "evidenceSignature": "pendingInputMaxCount: coordinatorLimits.visibleOutputMaxChunks",
       "state": "consumed",
       "schemaVersion": "terminal-resource-policy/v1",
@@ -996,7 +997,7 @@
       "source": "resourceLimits.terminal.visibleOutputMaxChunks",
       "applyBoundary": "checkpoint-settlement-ledger-cap",
       "consumerPath": "frontend/src/components/Terminal/TerminalView.tsx",
-      "consumerSymbol": "TerminalView#$callback:useEffect:0@121057",
+      "consumerSymbol": "TerminalView#$callback:useEffect:0@121472",
       "evidenceSignature": "settlementLedgerMaxEntries: coordinatorLimits.visibleOutputMaxChunks",
       "state": "consumed",
       "schemaVersion": "terminal-resource-policy/v1",
@@ -1084,14 +1085,14 @@
       "unit": "lines",
       "source": "TerminalView:xterm-constructor-hardcoded",
       "applyBoundary": "terminal-runtime-construction",
-      "consumerPath": "frontend/src/components/Terminal/TerminalView.tsx",
-      "consumerSymbol": "TerminalView#$callback:useEffect:0@121057",
-      "evidenceSignature": "scrollback: 10000",
+      "consumerPath": "frontend/src/utils/terminalViewAttributes.ts",
+      "consumerSymbol": "resolveTerminalXtermOptions",
+      "evidenceSignature": "scrollback: limits.scrollbackLines",
       "state": "divergent-legacy",
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "04f86d3b849031fa1bfbaa37f7fb4bcbc5ac3089248c32f8004429a2fc4aaa44"
+      "evidenceAstSha256": "5142de6e22483c06063e1436101b35f1637a2c91b06012a3603be3931f9b2fdd"
     },
     {
       "evidenceRole": "object-option-flow",
@@ -1323,7 +1324,7 @@
       "source": "resourceLimits.snapshots.tombstoneTtlMs",
       "applyBoundary": "terminal-dispose-tombstone-check",
       "consumerPath": "frontend/src/components/Terminal/TerminalView.tsx",
-      "consumerSymbol": "TerminalView#$callback:useEffect:0@121057#$anonymous@169494",
+      "consumerSymbol": "TerminalView#$callback:useEffect:0@121472#$anonymous@169598",
       "evidenceSignature": "tombstoneTtlMs: snapshotLimits.tombstoneTtlMs",
       "state": "consumed",
       "schemaVersion": "terminal-resource-policy/v1",
