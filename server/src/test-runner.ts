@@ -4626,10 +4626,37 @@ async function testSessionManagerPowerShellPromptRedrawStaysIdle(): Promise<void
     assert.equal(manager.getSession(session.id)?.status, 'idle');
     assert.equal(statusTransitions.includes('running'), false);
 
+    // Boundary control for the block below. Same shape, but the cwd matches
+    // the one being tracked, so plain prompt-line equality suppresses it and
+    // the session stays idle even without the cwd-tolerant branch.
     statusTransitions.length = 0;
-    assert.equal(manager.writeInput(session.id, 'PH005-delayed-redraw'), true);
+    assert.equal(manager.writeInput(session.id, '\u0015'), true);
+    assert.equal(manager.writeInput(session.id, 'PH005-multiline-redraw'), true);
     await delay(70);
-    handler('\x1b[2K\rPS C:\\Work\\git\\_Snoworca\\ProjectMaster>PH005-delayed-redraw\x1b[K');
+    handler(
+      '\x1b[2K\rPS C:\\Users\\beom>PH005-multiline-redraw\x1b[K'
+      + '\r\nPS C:\\Users\\beom>PH005-multiline-redraw\x1b[K',
+    );
+    await delay(20);
+    assert.equal(manager.getSession(session.id)?.status, 'idle');
+    assert.equal(statusTransitions.includes('running'), false);
+
+    // A single redrawn line is already suppressed as a draft echo, so it
+    // cannot tell whether the redraw predicate tolerates a changed cwd. Two
+    // printable lines can: both echo suppressors require exactly one, which
+    // leaves the cwd-tolerant branch of isPowerShellPromptRedrawOutput as the
+    // only thing holding the session idle here. The preceding redraw kept
+    // the draft on purpose, so clear the line before retyping, as Ctrl+U
+    // does, or the session would hold two copies of what the shell echoes
+    // once.
+    statusTransitions.length = 0;
+    assert.equal(manager.writeInput(session.id, '\u0015'), true);
+    assert.equal(manager.writeInput(session.id, 'PH005-multiline-redraw'), true);
+    await delay(70);
+    handler(
+      '\x1b[2K\rPS C:\\Work\\git\\_Snoworca\\ProjectMaster>PH005-multiline-redraw\x1b[K'
+      + '\r\nPS C:\\Work\\git\\_Snoworca\\ProjectMaster>PH005-multiline-redraw\x1b[K',
+    );
     await delay(20);
     assert.equal(manager.getSession(session.id)?.status, 'idle');
     assert.equal(statusTransitions.includes('running'), false);
