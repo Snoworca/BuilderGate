@@ -2319,6 +2319,15 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       term: Terminal,
       attempt: TerminalRestoreAttemptIdentity,
     ): Promise<boolean> => {
+      // While the checkpoint runtime owns the terminal — active, recovering, or
+      // in a passive ordered rollback — the local snapshot is not this path's to
+      // read or write. applySnapshotReplacement already refuses on the same
+      // predicate; this entry had no fence at all, so a rollback in progress
+      // could still be overwritten from the IME restore path.
+      const checkpointState = terminalCheckpointRuntimeRef.current?.getState();
+      if (checkpointState?.active || checkpointState?.recoveryPending || checkpointState?.orderedRollbackPending) {
+        return Promise.resolve(false);
+      }
       const snapshot = loadStoredSnapshot();
       if (!snapshot) {
         return Promise.resolve(false);
@@ -2336,6 +2345,17 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           if (isCurrentRestoreAttempt(attempt)) {
             clearStoredSnapshot();
           }
+          return false;
+        }
+        // The write was asynchronous, so authority can have been acquired while
+        // it ran. Releasing restorePending here would hand a stale local
+        // snapshot to a session the checkpoint runtime now owns.
+        const currentCheckpointState = terminalCheckpointRuntimeRef.current?.getState();
+        if (
+          currentCheckpointState?.active
+          || currentCheckpointState?.recoveryPending
+          || currentCheckpointState?.orderedRollbackPending
+        ) {
           return false;
         }
         return releaseRestorePending(attempt).then((released) => {

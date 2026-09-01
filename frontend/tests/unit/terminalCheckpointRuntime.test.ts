@@ -1263,6 +1263,7 @@ test('capability withdrawal atomically rolls recovery into a clean legacy genera
   });
   assert.deepEqual(runtime.getState(), {
     active: false,
+    ready: false,
     disposed: false,
     recoveryPending: false,
     legacyRecoveryPending: true,
@@ -1787,6 +1788,7 @@ test('MIG-BGSTAB-002 drained ordered rollback consumes passive capability withou
   }), { accepted: true });
   assert.deepEqual(runtime.getState(), {
     active: false,
+    ready: false,
     disposed: false,
     recoveryPending: false,
     legacyRecoveryPending: true,

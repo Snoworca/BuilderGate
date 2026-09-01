@@ -62,6 +62,7 @@ import {
 import { ensureDebugCaptureSessionExists, requireLocalDebugCapture } from './middleware/debugCaptureGuards.js';
 import { registerTerminalAuthorityDebugRoutes } from './routes/terminalAuthorityDebugRoutes.js';
 import { WsRouter } from './ws/WsRouter.js';
+import { isPeerDisconnectError } from './utils/fatalErrorPolicy.js';
 import {
   createMcpHttpHandler,
   createMcpListenerController,
@@ -170,6 +171,13 @@ function setupFatalErrorLogging(): void {
   }
 
   process.on('uncaughtException', (error) => {
+    // A peer closing its end of a pipe is not a reason to take down every
+    // other session. A PTY teardown routinely raises EPIPE from inside the
+    // child's socket pipe, and exiting there killed the whole server.
+    if (isPeerDisconnectError(error)) {
+      console.warn('[Runtime] Ignoring peer disconnect:', error);
+      return;
+    }
     console.error('[Fatal] Uncaught exception:', error);
     process.exit(1);
   });

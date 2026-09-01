@@ -3494,7 +3494,11 @@ async function testReadProcessStartIdentityWindowsTimeoutReturnsNull(): Promise<
   const identity = await readProcessStartIdentity(process.pid, 'win32', fakeExecFile);
 
   assert.equal(identity, null);
-  assert.equal(observedTimeout, 3000);
+  // Both halves of the identity check share one default. The capture query cost
+  // 2.4-2.9s on a loaded machine against the old 3000ms budget, so it failed
+  // exactly when cleanup mattered most; the verification query, which walks
+  // every process, cost more still.
+  assert.equal(observedTimeout, 10_000);
 }
 
 async function testSessionManagerStoresAsyncStartIdentity(): Promise<void> {

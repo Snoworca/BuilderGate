@@ -173,9 +173,8 @@ export interface TerminalCheckpointReadyMessage {
 }
 
 /**
- * Client continuity is only a claim. WsRouter compares it with the
- * server-issued record supplied by terminal authority before it can rebind a
- * delivery stream.
+ * Client continuity is only a claim. The server compares it with its issued
+ * retained-state record before permitting a stream rebind.
  */
 export interface TerminalCheckpointContinuityRecord {
   sessionId?: string;

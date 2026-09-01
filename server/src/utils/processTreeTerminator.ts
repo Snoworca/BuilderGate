@@ -274,7 +274,9 @@ function buildWindowsProcessQueryScript(pid: number): string {
     // One enumeration, then the walk happens in memory. Asking CIM once per
     // node cost 5.8s on a machine with a few hundred processes, which no
     // reasonable timeout would have absorbed.
-    '$all = Get-CimInstance Win32_Process -Property ProcessId,ParentProcessId,CreationDate,ExecutablePath,CommandLine',
+    // CommandLine is the expensive column to materialise and nothing reads it;
+    // the snapshot's consumers use running, startIdentity and childPids only.
+    '$all = Get-CimInstance Win32_Process -Property ProcessId,ParentProcessId,CreationDate,ExecutablePath',
     `$root = $all | Where-Object { $_.ProcessId -eq ${pid} } | Select-Object -First 1`,
     'if ($null -eq $root) { Write-Output "{}"; exit 0 }',
     '$byParent = @{}',
@@ -305,7 +307,6 @@ function buildWindowsProcessQueryScript(pid: number): string {
     '  ProcessId = [int]$root.ProcessId;',
     '  CreationDate = $creation;',
     '  ExecutablePath = $root.ExecutablePath;',
-    '  CommandLine = $root.CommandLine;',
     '  Children = @($children.ToArray())',
     '} | ConvertTo-Json -Compress',
     // Newline, not ";": a semicolon after `[pscustomobject]@{` breaks the hash
@@ -320,7 +321,7 @@ function buildWindowsProcessQueryScript(pid: number): string {
  * seconds the capture succeeded and the verification always timed out — the
  * identities then disagreed and the process tree was never terminated.
  */
-const DEFAULT_PROCESS_INFO_TIMEOUT_MS = 3000;
+const DEFAULT_PROCESS_INFO_TIMEOUT_MS = 10_000;
 
 function queryWindowsProcessInfo(
   pid: number,
@@ -363,7 +364,7 @@ export async function readProcessStartIdentity(
   pid: number | null,
   platform: NodeJS.Platform = process.platform,
   execFileFn: typeof execFile = execFile,
-  timeoutMs = 3000,
+  timeoutMs = DEFAULT_PROCESS_INFO_TIMEOUT_MS,
 ): Promise<string | null> {
   const normalizedPid = normalizePid(pid);
   if (normalizedPid === null || !isProcessRunning(normalizedPid)) {

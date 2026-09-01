@@ -287,7 +287,7 @@ const DEFAULT_SESSION_PROCESS_CLEANUP: SessionProcessCleanupConfig = {
   gracefulWaitMs: 750,
   forceWaitMs: 1500,
   descendantSampleLimit: 64,
-  identityProbeTimeoutMs: 3000,
+  identityProbeTimeoutMs: 10000,
 };
 
 // OBS-BGSTAB-003: a single shared event-loop delay histogram, created and enabled
@@ -7176,9 +7176,12 @@ export class SessionManager {
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean);
+    // No cursor-motion escape is required here. A shell answering Ctrl+C emits
+    // a plain ^C line followed by its prompt, and demanding an escape classified
+    // that as semantic activity. The remaining shape is narrow enough on its own:
+    // exactly two printable lines, the first ending in ^C, the second a prompt.
     if (printableLines.length === 2
-      && printableLines[0].endsWith('^C')
-      && /\x1b\[[0-9;]*[Hf]/u.test(output)) {
+      && printableLines[0].endsWith('^C')) {
       const prompt = printableLines[1];
       return this.isShellPromptReturnOutput(sData, prompt, prompt)
         || /^PS [^>\r\n]+>$/.test(prompt);

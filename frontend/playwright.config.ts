@@ -12,6 +12,14 @@ export default defineConfig({
   timeout: 60000,
   retries: 1,
   fullyParallel: false,
+  // One worker, not one-per-file. These specs assert on state the server holds
+  // globally — the workspace list, live session counts, the terminal authority
+  // singleton — so two files running at once read each other's writes.
+  // `fullyParallel: false` only serialises tests inside a file; without this
+  // Playwright still ran three files on three workers. Measured 2026-09-01:
+  // the same three specs went from 7 failures to 2 when serialised, and the
+  // five that recovered pass individually.
+  workers: 1,
   use: {
     baseURL,
     headless: true,
