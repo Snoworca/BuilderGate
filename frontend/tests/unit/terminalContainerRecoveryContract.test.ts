@@ -60,7 +60,7 @@ test('PERF-BGSTAB-010 browser ACK is emitted only after an accepted visible term
   assert.match(source, /remainingAcceptedChunks -= 1;[\s\S]*?remainingAcceptedChunks === 0/, signature);
   assert.match(
     webSocketContextSource,
-    /type: 'terminal-delivery:capability',[\s\S]*?supportsHiddenDataGapRecovery: false/,
+    /type: 'terminal-delivery:capability',[\s\S]*?supportsHiddenDataGapRecovery: true/,
     signature,
   );
   assert.match(
