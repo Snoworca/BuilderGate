@@ -15223,7 +15223,16 @@ async function testWsRouterFencesIoWhileAtomicRestoreAuthorityRetries(): Promise
     assert.equal(output?.data, 'fenced-output');
     assert.equal(output?.screenSeq, 2);
     assert.equal(typeof output?.chunkId, 'string');
-    assert.equal(sent.at(-1)?.type, 'session:ready');
+    // The ACK flushed a tail that the snapshot could not have covered, so it
+    // cannot serve as recovery evidence. The router says the session is ready
+    // and then re-acquires an authoritative snapshot to get a zero-tail ACK,
+    // superseding the token just consumed.
+    const readyIndex = sent.map((message) => message.type).lastIndexOf('session:ready');
+    assert.equal(readyIndex >= 0, true);
+    assert.equal(readyIndex > sent.indexOf(output as (typeof sent)[number]), true);
+    const reacquired = sent.at(-1);
+    assert.equal(reacquired?.type, 'screen-snapshot');
+    assert.equal(reacquired?.supersedesReplayToken, String(snapshot?.replayToken));
   } finally {
     router.destroy();
   }
@@ -15869,7 +15878,13 @@ function testWsRouterObservabilityCounters(): void {
 
   assert.equal(stats.connectedClients, 1);
   assert.equal(stats.subscribedSessionCount, 1);
-  assert.equal(stats.replayPendingCount, 0);
+  // The ACK consumed its own token, but flushing the queued tail made the
+  // router re-acquire an authoritative snapshot, which installs a pending
+  // entry under a new token. The count is that entry, not the acknowledged one.
+  assert.equal(stats.replayPendingCount, 1);
+  const reacquiredToken = (router as any).clients.get(ws)
+    .replayPendingSessions.get('session-1').replayToken;
+  assert.notEqual(reacquiredToken, token);
   assert.equal(stats.maxReplayQueueLengthObserved >= 'queued'.length, true);
 
   router.destroy();
@@ -18370,7 +18385,14 @@ function testWsRouterQueuesOutputDuringRepairReplayUntilAck(): void {
   const outputsAfterAck = sent.filter((message) => message.type === 'output');
   assert.equal(outputsAfterAck.length, 1);
   assert.equal(outputsAfterAck[0].data, 'repair-pending-output');
-  assert.equal(sent[sent.length - 1].type, 'session:ready');
+  // Same re-acquisition as above: the ACK that released the queued tail cannot
+  // prove recovery, so a fresh authoritative snapshot follows session:ready.
+  const readyIndex = sent.map((message) => message.type).lastIndexOf('session:ready');
+  assert.equal(readyIndex >= 0, true);
+  assert.equal(readyIndex > sent.indexOf(outputsAfterAck[0]), true);
+  const reacquired = sent[sent.length - 1];
+  assert.equal(reacquired.type, 'screen-snapshot');
+  assert.equal(reacquired.supersedesReplayToken, repairToken);
 
   router.destroy();
 }
