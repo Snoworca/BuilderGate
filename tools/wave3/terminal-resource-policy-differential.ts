@@ -11,6 +11,7 @@ import {
   pushTransportMessage,
   tryCoalesceOutputMessage,
 } from '../../server/src/ws/wsSendPolicy.js';
+import { wirePayloadHex } from '../../server/src/ws/wirePayload.js';
 import { evaluateBrowserInputBackpressure } from '../../frontend/src/utils/webSocketBackpressure.ts';
 import { createTerminalOutputScheduler, type TerminalOutputWriteData } from '../../frontend/src/utils/terminalOutputScheduler.ts';
 import {
@@ -117,7 +118,7 @@ function runConsumerCorpus(store: RuntimeConfigStore): Record<string, unknown> {
   const wsPriority = getTransportMessagesInPriorityOrder(wsQueue).map(message => message.kind);
   const wsDrain = [dequeueNextTransportMessage(wsQueue), dequeueNextTransportMessage(wsQueue)]
     .filter((entry) => entry !== undefined)
-    .map(message => ({ kind: message.kind, payloadHex: Buffer.from(message.payload).toString('hex'), byteLength: message.byteLength, sourceSegments: message.sourceSegments ?? [] }));
+    .map(message => ({ kind: message.kind, payloadHex: wirePayloadHex(message.payload), byteLength: message.byteLength, sourceSegments: message.sourceSegments ?? [] }));
 
   const backpressurePayload = JSON.stringify({ type: 'input', data: 'A한🙂' });
   const backpressure = [0, 1_024, 2_048].map(bufferedAmount => evaluateBrowserInputBackpressure({
@@ -208,7 +209,7 @@ function runConsumerCorpus(store: RuntimeConfigStore): Record<string, unknown> {
 
   return {
     'server.headless-output-queue': { admission: headlessEnqueue, beforeDrain: headlessBeforeDrain, drain: headlessDrain },
-    'server.ws-send-policy': { coalesced: { payloadHex: Buffer.from(coalesced.payload).toString('hex'), byteLength: coalesced.byteLength, sourceSegments: coalesced.sourceSegments }, priority: wsPriority, drain: wsDrain },
+    'server.ws-send-policy': { coalesced: { payloadHex: wirePayloadHex(coalesced.payload), byteLength: coalesced.byteLength, sourceSegments: coalesced.sourceSegments }, priority: wsPriority, drain: wsDrain },
     'browser.websocket-backpressure': backpressure,
     'browser.output-scheduler': { admission: schedulerAdmission, barrier: schedulerBarrier, writes: schedulerWrites, callbacks: schedulerCallbacks, probe: probe ? { generation: probe.generation, writeToken: probe.writeToken } : null, cap: schedulerCap, idle: scheduler.isIdle(), stale: scheduler.isStale() },
     'browser.hidden-output': { visible: hiddenVisible, hidden, replayBegin, replayFinish },

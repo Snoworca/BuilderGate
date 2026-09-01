@@ -59,6 +59,17 @@ export function jsonWirePayloadText(payload: WirePayload): string {
   return payload.text;
 }
 
+/**
+ * The payload's bytes as hex, whichever branch it is on. Evidence tooling
+ * compares payloads across the two codecs, so it needs one reading that does
+ * not depend on which branch produced the message.
+ */
+export function wirePayloadHex(payload: WirePayload): string {
+  return payload.codec === 'json'
+    ? Buffer.from(payload.text, 'utf8').toString('hex')
+    : Buffer.from(payload.bytes).toString('hex');
+}
+
 /** The data-plane opcode of a message, or `undefined` for the control plane. */
 export function wireOpcodeOf(message: object): number | undefined {
   if (!Object.prototype.hasOwnProperty.call(message, 'type')) return undefined;
