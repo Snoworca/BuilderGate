@@ -70,6 +70,8 @@ function createHarness() {
     headlessWriteChain: Promise.resolve(),
     headlessCloseSignal: { promise: closePromise, resolve: closeResolve },
     pendingHeadlessWrites: 0,
+    headlessApplyInFlight: 0,
+    nextTerminalAuthoritySourceSeq: 0n,
     cols: 24,
     rows: 4,
     screenSeq: 0,
@@ -171,32 +173,82 @@ test('server RED — atomic authority revision race', async () => {
   }
 });
 
-test('server RED — unstable pending-write authority', { timeout: 1_500 }, async () => {
+/**
+ * The guard that rejects a mid-apply session sits before serialization, and an
+ * identical condition sits in the post-serialize fence. Both answer
+ * generation-failed, so a test that only reads the result cannot tell them
+ * apart and keeps passing with the first one deleted.
+ *
+ * Counting serialize calls separates them, and clearing the counter from
+ * inside the hook makes the difference reach the result: without the early
+ * guard the fence sees a settled session and publishes the mid-apply screen as
+ * authoritative.
+ */
+function hookSerializeClearingApplyInFlight(
+  harness: ReturnType<typeof createHarness>,
+  clearOnSerialize: boolean,
+): { calls: number } {
+  const serializeAddon = harness.sessionData.headless.serializeAddon;
+  const originalSerialize = serializeAddon.serialize.bind(serializeAddon);
+  const state = { calls: 0 };
+  serializeAddon.serialize = ((options?: unknown) => {
+    state.calls += 1;
+    if (clearOnSerialize) {
+      harness.sessionData.headlessApplyInFlight = 0;
+    }
+    return originalSerialize(options as never);
+  }) as typeof serializeAddon.serialize;
+  return state;
+}
+
+test('server RED — unstable pending-write authority', async () => {
   const harness = createHarness();
   try {
     await harness.ingest('stable-before-pending');
-    harness.sessionData.pendingHeadlessWrites = 1;
-    harness.sessionData.headlessWriteChain = new Promise<void>(() => {});
     harness.sessionData.snapshotCache = null;
+    harness.sessionData.headlessApplyInFlight = 1;
+    const serialize = hookSerializeClearingApplyInFlight(harness, true);
 
-    let timeoutHandle: NodeJS.Timeout | undefined;
-    const boundedTimeout = new Promise<RestoreAuthorityObservation>((resolve) => {
-      timeoutHandle = setTimeout(() => resolve({ ok: false, reason: 'unbounded-timeout' }), 750);
-    });
-    const authority = await Promise.race([
-      readAuthority(harness.manager, harness.sessionId),
-      boundedTimeout,
-    ]);
-    if (timeoutHandle) clearTimeout(timeoutHandle);
+    const authority = await readAuthority(harness.manager, harness.sessionId);
 
     assert.deepEqual({
       ok: authority.ok,
       reason: authority.reason,
       serializedData: authority.serializedData,
+      serializeCalls: serialize.calls,
     }, {
       ok: false,
       reason: 'generation-failed',
       serializedData: undefined,
+      serializeCalls: 0,
+    }, SIGNATURES.pendingWrite);
+  } finally {
+    harness.dispose();
+  }
+});
+
+// Boundary control for the test above: the same hook and the same harness,
+// differing only in that no write is mid-apply. It stays green with the early
+// guard removed, so that test's red comes from the guard rather than from the
+// hook or the cleared snapshot cache.
+test('server — a settled session still serializes its authority', async () => {
+  const harness = createHarness();
+  try {
+    await harness.ingest('stable-before-pending');
+    harness.sessionData.snapshotCache = null;
+    harness.sessionData.headlessApplyInFlight = 0;
+    const serialize = hookSerializeClearingApplyInFlight(harness, true);
+
+    const authority = await readAuthority(harness.manager, harness.sessionId);
+
+    assert.deepEqual({
+      ok: authority.ok,
+      serializeCalls: serialize.calls,
+      hasData: typeof authority.serializedData === 'string' && authority.serializedData.length > 0,
+    }, {
+      ok: true,
+      serializeCalls: 1,
+      hasData: true,
     }, SIGNATURES.pendingWrite);
   } finally {
     harness.dispose();
