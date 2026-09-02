@@ -78,7 +78,7 @@ frontend/src/
 | 스위트 | 위치 | 실행 |
 |---|---|---|
 | 모놀리식 러너 | `server/src/test-runner.ts` (자기완결형, `*.test.ts` 를 디스커버리하지 않음) | **cwd=`server/`** 에서 `npx tsx src/test-runner.ts` |
-| node:test (server) | `server/src/**/*.test.ts` (37개) | **cwd=`server/`** 에서 `npx tsx --test src/<경로>.test.ts` — 파일별. **단 `TerminalAuthorityProductionRegression.test.ts` 는 이 커맨드로 green 이 될 수 없다** (아래 주의) |
+| node:test (server) | `server/src/**/*.test.ts` (37개) | **cwd=`server/`** 에서 `npx tsx --test src/<경로>.test.ts` — 파일별 |
 | daemon | `tools/daemon/*.test.js` (19개) | 루트 `npm run test:daemon` (server 빌드 선행) |
 | wave3 closure | `tools/wave3/fair-readmission-closure-v3*.test.mjs` (22개, node:test — 그중 게이트는 `admission-gate`·`boundary-gate` 2개) | `node --test tools/wave3/<파일>` — npm 스크립트 없음. **게이트 2개는 형제를 재실행하니 아래 주의 참조** |
 | wave3 증거 스크립트 | `tools/wave3/{authority-promotion-evidence, canary-admission-evidence, fair-scheduler-decision, retained-shadow-parity, terminal-resource-consumer-manifest}.test.mjs` (5개, **node:test 아님**) | `node tools/wave3/<파일>` (일부는 `--regenerate-green` 등 플래그를 받음) |
@@ -88,7 +88,7 @@ frontend/src/
 주의할 것:
 
 - **exit code 를 회귀 신호로 믿을 수 없는 파일이 있다.** `server/src/ws/WsRouterSplitHandshake.test.ts` 는 `tests 28 / pass 14 / fail 0 / todo 14` 로 **exit 0** 을 반환하지만, 그 todo 14개는 실제로 assertion 이 깨진 채 `✖ failing tests:` 에 찍힌다(`3 !== 1` 등, 전부 "Wave-1 production unified limitation characterization"). 나중에 진짜로 green 이 되어도 exit code 는 그대로 0 이다 → **todo 카운트와 `✖` 목록을 대조**해야 한다 (2026-08-19 실측).
-- **`server/src/services/TerminalAuthorityProductionRegression.test.ts` 는 위 표의 커맨드로 green 이 될 수 없다** (2026-08-19 실측, 13건 실패). `readFileSync(new URL('./TerminalAuthorityProductionAdapter.js', import.meta.url))` 로 **소스 텍스트를 읽는데**, `npx tsx --test src/…` 로 돌리면 `import.meta.url` 이 `src/` 를 가리켜 `.js` 가 없다(`.ts` 만 있다). import 는 tsx 가 해석하지만 `readFileSync` 는 못 한다. 이 파일은 **컴파일된 `dist/` 를 대상으로만 성립**한다.
+- **소스 텍스트를 읽어 계약을 단언하는 테스트는 `src/` 전용이다. `dist/` 로 돌리면 깨진다.** `new URL('./X.ts', import.meta.url)` 로 형제 원본을 읽는데 `dist/` 에는 `.d.ts` 만 있고 `.ts` 소스가 복사되지 않기 때문이다. 해당 파일은 넷이다: `TerminalAuthorityController.test.ts`, `TerminalResourcePolicyCanary.test.ts`, `benchmarks/terminalFairnessCharacterization.test.ts`, `TerminalAuthorityProductionRegression.test.ts`. 전부 위 표의 커맨드(`npx tsx --test src/…`)로 돌려야 한다. 오늘 빌드본으로 실측하면 `node --test dist/services/TerminalAuthorityController.test.js` 는 4건, `…/TerminalResourcePolicyCanary.test.js` 는 10건이 `ENOENT` 로 실패한다 (2026-09-02). `TerminalResourcePolicyCanary.test.ts:29` 는 아예 `.ts` 원본의 실재를 `assert.equal(MODULE_PRESENT, true, …)` 로 단언하므로 설계상 `src/` 를 전제한다.
 - **스위트가 서로를 spawn 한다. 격리돼 있지 않다.** (아래는 확인된 것이며 닫힌 목록이 아니다)
   - `tools/wave3` 증거 스크립트들이 `server/src` 테스트, `frontend/tests/unit` 테스트, 다른 wave3 파일을 직접 실행한다.
   - **재귀 게이트**: `fair-readmission-closure-v3.admission-gate.test.mjs` 가 형제 closure 스위트 **21개 전부**를 `node --test` 로 재실행한다(약 113초). 이것과 형제 20개를 함께 파일별로 돌리면 **중첩 2단계로 중복 실행**된다.
