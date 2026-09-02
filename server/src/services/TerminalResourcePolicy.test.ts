@@ -299,8 +299,12 @@ test('Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-2',
   assert.equal(Object.keys(compiledFirst.legacyPolicy.resources).length, 29);
   assert.equal(observation.decisionEvidence.runtimeApplicationClaimed, false);
   assert.equal(observation.decisionStackHash, stableHash(observation.decisionStack));
-  assert.equal(observation.decisionStack.scrollback.serverHeadless.source, 'pty.scrollbackLines');
-  assert.equal(observation.decisionStack.scrollback.browserXterm.value, 10_000);
+  assert.equal(observation.decisionStack.scrollback.serverHeadless.source, 'resourceLimits.terminal.scrollbackLines');
+  assert.equal(
+    observation.decisionStack.scrollback.browserXterm.value,
+    observation.decisionStack.scrollback.serverHeadless.value,
+    'both consumers must apply one decision',
+  );
   assert.deepEqual(observeStore.getPublicRuntimeConfig('queue'), baselinePublic);
 });
 
@@ -772,14 +776,16 @@ test('OBS-BGSTAB-005 review regression — compiler owns all 29 typed resources 
   const observation = store.getTerminalResourcePolicyObservation();
   assert.equal(observation.candidate.reason, 'candidate-policy-not-registered');
   assert.equal(observation.decisionEvidence.runtimeApplicationClaimed, false);
-  assert.equal(observation.decisionStack.scrollback.serverHeadless.source, 'pty.scrollbackLines');
-  assert.equal(observation.decisionStack.scrollback.browserXterm.source, 'TerminalView:xterm-constructor-hardcoded');
-  assert.equal(observation.decisionStack.scrollback.browserXterm.value, 10_000);
-  assert.equal(observation.decisionStack.scrollback.canonical.appliedByKnownRuntimeConsumer, false);
+  assert.equal(observation.decisionStack.scrollback.serverHeadless.source, 'resourceLimits.terminal.scrollbackLines');
+  assert.equal(observation.decisionStack.scrollback.browserXterm.source, 'resourceLimits.terminal.scrollbackLines');
+  assert.equal(
+    observation.decisionStack.scrollback.browserXterm.value,
+    observation.decisionStack.scrollback.canonical.value,
+  );
+  assert.equal(observation.decisionStack.scrollback.canonical.appliedByKnownRuntimeConsumer, true);
   assert.deepEqual(observation.decisionStack.reservedUnapplied, [
     'resourceLimits.headless.writeBatchMaxBytes',
     'resourceLimits.headless.writeLagWarnMs',
-    'resourceLimits.terminal.scrollbackLines',
   ]);
 });
 
@@ -1418,13 +1424,15 @@ test('OBS-BGSTAB-005 second review regression — production observe mode seeds 
     && entry.resource === 'resourceLimits.terminal.scrollbackLines');
   const browserScrollback = initialObservations.find((entry) => entry.consumer === 'browser.terminal.write-scheduler'
     && entry.resource === 'resourceLimits.terminal.scrollbackLines');
+  const decided = { value: 12_345, source: 'resourceLimits.terminal.scrollbackLines', reason: 'legacy-only' };
   assert.deepEqual(
     { value: serverScrollback?.legacyDecision, source: serverScrollback?.source, reason: serverScrollback?.differenceReason },
-    { value: 1_000, source: 'pty.scrollbackLines', reason: 'runtime-divergence' },
+    decided,
   );
   assert.deepEqual(
     { value: browserScrollback?.legacyDecision, source: browserScrollback?.source, reason: browserScrollback?.differenceReason },
-    { value: 10_000, source: 'TerminalView:xterm-constructor-hardcoded', reason: 'runtime-divergence' },
+    decided,
+    'the browser must observe the same decision as the server model',
   );
   for (const resource of [
     'resourceLimits.headless.writeBatchMaxBytes',
@@ -1445,7 +1453,7 @@ test('OBS-BGSTAB-005 second review regression — production observe mode seeds 
     (entry) => entry.consumer === 'server.pty.headless-model'
       && entry.resource === 'resourceLimits.terminal.scrollbackLines',
   );
-  assert.equal(replacedServer?.legacyDecision, 1_000, 'runtime replacement must not rewrite the legacy PTY consumer');
+  assert.equal(replacedServer?.legacyDecision, 22_222, 'the headless model follows a runtime replacement of the canonical key');
   const replacedWs = observed.getTerminalResourcePolicyObservation().recentObservations.find(
     (entry) => entry.consumer === 'server.ws.router'
       && entry.resource === 'resourceLimits.ws.serverBufferedHighWaterBytes',
@@ -1459,7 +1467,7 @@ test('OBS-BGSTAB-005 second review regression — production observe mode seeds 
     (entry) => entry.consumer === 'server.pty.headless-model'
       && entry.resource === 'resourceLimits.terminal.scrollbackLines',
   );
-  assert.equal(reloadedServer?.legacyDecision, 3_456);
+  assert.equal(reloadedServer?.legacyDecision, 12_346, 'a canonical key outranks the legacy pty alias on reload');
   assert.doesNotMatch(JSON.stringify(observed.getTerminalResourcePolicyObservation().recentObservations), /password|secret|token|rawTerminalPayload/i);
 });
 

@@ -7,17 +7,29 @@
   },
   "current": {
     "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.current.json",
-    "sha256": "b00af72bae72e8b4ca717670df3f8a5f513a998fcc6d9870ae30bfd9738a5ad7",
+    "sha256": "6a68b5cd4e18680ca06442723e820f15a2f26ef38c6c4464fb9d24526bdcd7da",
     "sourceCount": 35,
-    "sourceSetSha256": "21e0e14bc541b9995a925f39b5002a64ba710d157d5e55642802d1e093b613ad",
+    "sourceSetSha256": "a8a4cd1b326699951ccd5cde2252fe3218f06d96b86bb0529319ffa6cd981bdb",
     "exactConsumerTuples": 80,
     "classifications": 10
   },
   "semanticInventory": {
-    "sha256": "0037b28c62c742949ed56501a73a79553949123497df4b818b860ac137dd6281",
+    "sha256": "f0e119fbc30adef1091084adc82028870f8c8bf3578fdf72c864d1b54601c023",
     "historicalEqualsCurrent": false,
     "divergence": {
-      "reason": "terminal runtime evidence moved: xterm option assembly extracted to terminalViewAttributes, the scheduler byte enqueue was renamed, and the terminal runtime callbacks were named so the catalog can pin symbols instead of useEffect source offsets",
+      "reason": "evidence moved: xterm option assembly extracted to terminalViewAttributes, the scheduler byte enqueue was renamed, and the terminal runtime callbacks were named so the catalog can pin symbols instead of useEffect source offsets. decisions changed: REL-BGSTAB-007 AC-1 retired the scrollbackLines divergence, so all three scrollback consumers now read the canonical resourceLimits.terminal.scrollbackLines decision instead of a legacy source",
+      "decisionDrift": {
+        "retired": [
+          "{\"consumerId\":\"browser.terminal.write-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"TerminalView:xterm-constructor-hardcoded\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"terminal-runtime-construction\",\"state\":\"divergent-legacy\"}",
+          "{\"consumerId\":\"server.pty.headless-model\",\"category\":\"pty-headless-model\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"pty.scrollbackLines\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[\"pty.scrollbackLines\"],\"applyBoundary\":\"headless-terminal-construction\",\"state\":\"divergent-legacy\"}",
+          "{\"consumerId\":\"server.pty.headless-model\",\"category\":\"pty-headless-model\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"pty.scrollbackLines\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[\"pty.scrollbackLines\"],\"applyBoundary\":\"session-generation\",\"state\":\"divergent-legacy\"}"
+        ],
+        "introduced": [
+          "{\"consumerId\":\"browser.terminal.write-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"resourceLimits.terminal.scrollbackLines\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[\"pty.scrollbackLines\"],\"applyBoundary\":\"terminal-runtime-construction\",\"state\":\"consumed\"}",
+          "{\"consumerId\":\"server.pty.headless-model\",\"category\":\"pty-headless-model\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"resourceLimits.terminal.scrollbackLines\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[\"pty.scrollbackLines\"],\"applyBoundary\":\"headless-terminal-construction\",\"state\":\"consumed\"}",
+          "{\"consumerId\":\"server.pty.headless-model\",\"category\":\"pty-headless-model\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"resourceLimits.terminal.scrollbackLines\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[\"pty.scrollbackLines\"],\"applyBoundary\":\"session-generation\",\"state\":\"consumed\"}"
+        ]
+      },
       "relocatedEvidence": [
         {
           "decision": "browser.hidden-output|resourceLimits.terminal.hiddenOutputPolicy|visibility-decision|consumed",
@@ -80,15 +92,6 @@
           ],
           "introduced": [
             "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime :: postCheckpointMaxBytes: coordinatorLimits.visibleOutputQueueMaxBytes :: object-option-flow"
-          ]
-        },
-        {
-          "decision": "browser.terminal.write-scheduler|resourceLimits.terminal.scrollbackLines|terminal-runtime-construction|divergent-legacy",
-          "retired": [
-            "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: scrollback: 10000 :: object-option-flow"
-          ],
-          "introduced": [
-            "frontend/src/utils/terminalViewAttributes.ts#resolveTerminalXtermOptions :: scrollback: limits.scrollbackLines :: object-option-flow"
           ]
         },
         {

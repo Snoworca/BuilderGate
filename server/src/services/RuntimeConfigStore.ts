@@ -280,11 +280,27 @@ export class RuntimeConfigStore {
       },
       resourceLimits: {
         clientWs: structuredClone(this.values.resourceLimits.clientWs),
-        terminal: structuredClone(this.values.resourceLimits.terminal),
+        terminal: this.publicTerminalResourceLimits(),
         snapshots: structuredClone(this.values.resourceLimits.snapshots),
         workspaceRuntime: structuredClone(this.values.resourceLimits.workspaceRuntime),
       },
     };
+  }
+
+  /**
+   * What the browser is told about terminal limits.
+   *
+   * Scrollback is republished from the compiled policy rather than from the
+   * parsed config: zod defaults the canonical key, so a deployment carrying
+   * only pty.scrollbackLines would otherwise be handed 10000 while the
+   * server model retained its own 1000 -- the browser offering history the
+   * server cannot recover, which REL-BGSTAB-007 AC-2 forbids.
+   */
+  private publicTerminalResourceLimits() {
+    const terminal = structuredClone(this.values.resourceLimits.terminal);
+    terminal.scrollbackLines = this.compileTerminalResourcePolicy()
+      .legacyPolicy.terminal.scrollbackLines.value;
+    return terminal;
   }
 
   getTerminalResourcePolicyObservation() {
@@ -299,23 +315,22 @@ export class RuntimeConfigStore {
         canonical: {
           value: canonicalScrollback.value,
           source: canonicalScrollback.source,
-          appliedByKnownRuntimeConsumer: false,
+          appliedByKnownRuntimeConsumer: true,
         },
         serverHeadless: {
-          value: this.sourceConfig.pty.scrollbackLines,
-          source: 'pty.scrollbackLines',
+          value: canonicalScrollback.value,
+          source: canonicalScrollback.source,
           owner: 'SessionManager.initializeHeadlessState',
         },
         browserXterm: {
-          value: 10_000,
-          source: 'TerminalView:xterm-constructor-hardcoded',
+          value: canonicalScrollback.value,
+          source: canonicalScrollback.source,
           owner: 'TerminalView.Terminal-constructor',
         },
       },
       reservedUnapplied: [
         'resourceLimits.headless.writeBatchMaxBytes',
         'resourceLimits.headless.writeLagWarnMs',
-        'resourceLimits.terminal.scrollbackLines',
       ],
       order: 'legacy-fifo',
       generation: 'runtime-config-snapshot',
@@ -369,22 +384,10 @@ export class RuntimeConfigStore {
             legacyDecision: null,
             source: decision.source,
           }
-        : decision.resource === 'resourceLimits.terminal.scrollbackLines'
-          && decision.consumer === 'server.pty.headless-model'
-          ? {
-              legacyDecision: this.sourceConfig.pty.scrollbackLines,
-              source: 'pty.scrollbackLines',
-            }
-          : decision.resource === 'resourceLimits.terminal.scrollbackLines'
-            && decision.consumer === 'browser.terminal.write-scheduler'
-            ? {
-                legacyDecision: 10_000,
-                source: 'TerminalView:xterm-constructor-hardcoded',
-              }
-            : {
-                legacyDecision: compiledDecision.value,
-                source: compiledDecision.source,
-              };
+        : {
+            legacyDecision: compiledDecision.value,
+            source: compiledDecision.source,
+          };
       this.terminalPolicyObserver.record({
         consumer: decision.consumer,
         resource: decision.resource,

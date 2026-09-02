@@ -200,6 +200,7 @@ function relocatedEvidence(historicalConsumers, currentConsumers) {
   for (const decision of new Set([...historicalConsumers, ...currentConsumers].map(decisionIdentity))) {
     const historicalGroup = historicalConsumers.filter((entry) => decisionIdentity(entry) === decision);
     const currentGroup = currentConsumers.filter((entry) => decisionIdentity(entry) === decision);
+    if (historicalGroup.length === 0 || currentGroup.length === 0) continue;
     const drift = multisetDrift(historicalGroup, currentGroup, evidenceLocator);
     if (drift.retired.length === 0 && drift.introduced.length === 0) continue;
     relocations.push({
@@ -464,18 +465,20 @@ assert.deepEqual(
   semanticInventory(legacyManifest).classificationIdentities,
   'classification identity must not drift from the sealed historical inventory',
 );
+const decisionDrift = multisetDrift(legacyManifest.consumers, manifest.consumers, decisionIdentity);
 assert.deepEqual(
-  multisetDrift(legacyManifest.consumers, manifest.consumers, decisionIdentity),
-  { retired: [], introduced: [] },
-  'the current inventory must reach exactly the resource decisions the sealed historical inventory reached',
+  decisionDrift,
+  lineage.semanticInventory?.divergence?.decisionDrift,
+  'every retired or introduced resource decision must be enumerated in the sealed lineage record',
 );
 const currentSemanticDivergence = {
   reason: lineage.semanticInventory?.divergence?.reason,
+  decisionDrift,
   relocatedEvidence: relocatedEvidence(legacyManifest.consumers, manifest.consumers),
   evidenceHashOnlyChangedTuples: evidenceHashOnlyChangedTuples(legacyManifest.consumers, manifest.consumers),
 };
 assert.equal(typeof currentSemanticDivergence.reason, 'string');
-assert.ok(currentSemanticDivergence.reason.length > 0, 'recorded evidence relocation must carry a reason');
+assert.ok(currentSemanticDivergence.reason.length > 0, 'recorded semantic divergence must carry a reason');
 const semanticInventorySha256 = sha256(JSON.stringify(semanticInventory(manifest)));
 assert.deepEqual(lineage, {
   schemaVersion: 'terminal-resource-consumer-manifest-lineage/v1',
@@ -598,11 +601,20 @@ assert.deepEqual(reserved, [
   'resourceLimits.headless.writeLagWarnMs',
 ]);
 const scrollbackEntries = manifest.consumers.filter((entry) => entry.resourceKey === 'resourceLimits.terminal.scrollbackLines');
-assert.deepEqual(sortedUnique(scrollbackEntries.map((entry) => entry.source)), sortedUnique([
-  'TerminalView:xterm-constructor-hardcoded',
-  'pty.scrollbackLines',
-]));
-assert.ok(scrollbackEntries.every((entry) => entry.state === 'divergent-legacy'));
+assert.equal(scrollbackEntries.length, 3);
+assert.deepEqual(sortedUnique(scrollbackEntries.map((entry) => entry.source)), [
+  'resourceLimits.terminal.scrollbackLines',
+]);
+assert.ok(scrollbackEntries.every((entry) => entry.state === 'consumed'));
+assert.ok(
+  scrollbackEntries.every((entry) => entry.legacyAliases.includes('pty.scrollbackLines')),
+  'retiring the scrollback divergence must keep the legacy key reachable as an alias',
+);
+assert.deepEqual(sortedUnique(scrollbackEntries.map((entry) => entry.applyBoundary)), [
+  'headless-terminal-construction',
+  'session-generation',
+  'terminal-runtime-construction',
+]);
 
 assert.equal(manifest.evidence.activation.eligible, false);
 assert.match(manifest.evidence.activation.reason, /no stable candidate contract/i);

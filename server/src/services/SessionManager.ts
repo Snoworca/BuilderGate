@@ -54,10 +54,12 @@ import type { TerminalResourcePolicyLeaseAuthority } from './TerminalResourcePol
 import { terminalResourcePolicyRuntimeAuthority } from './TerminalResourcePolicyRuntime.js';
 import {
   compileTerminalResourcePolicy,
+  getTerminalResourceConfigProvenance,
   LEGACY_TERMINAL_RESOURCE_POLICY_ID,
   TERMINAL_RESOURCE_POLICY_PROFILE_VERSION,
   TERMINAL_RESOURCE_POLICY_SCHEMA_VERSION,
   type CompiledTerminalResourcePolicy,
+  type TerminalResourceConfigProvenance,
 } from './TerminalResourcePolicy.js';
 import { OscDetector } from './OscDetector.js';
 import {
@@ -381,6 +383,12 @@ interface SessionManagerInitialConfig {
   session: SessionConfig;
   resourceLimits?: ResourceLimitsConfig;
   stabilityModes?: StabilityModesConfig;
+  /**
+   * What the config file actually said, as opposed to what zod filled in.
+   * The policy needs it to tell an absent canonical key from one that was
+   * written: only the former may migrate from pty.scrollbackLines.
+   */
+  provenance?: TerminalResourceConfigProvenance;
 }
 
 interface RuntimeHeadlessQueueConfig {
@@ -1165,12 +1173,14 @@ export class SessionManager {
       session: config.session,
       resourceLimits: config.resourceLimits,
       stabilityModes: config.stabilityModes,
+      provenance: getTerminalResourceConfigProvenance(config),
     },
     deps: SessionManagerDeps = {},
   ) {
     this.platform = deps.platform ?? process.platform;
     this.effectiveResourceLimits = structuredClone(initialConfig.resourceLimits ?? config.resourceLimits!);
     this.compiledTerminalResourcePolicy = compileTerminalResourcePolicy({
+      ...(initialConfig.provenance ? { provenance: initialConfig.provenance } : {}),
       rawConfig: {
         ...(initialConfig.resourceLimits ? { resourceLimits: initialConfig.resourceLimits } : {}),
         pty: initialConfig.pty,
@@ -7576,9 +7586,7 @@ export class SessionManager {
       sessionData.headless = this.createHeadlessTerminalStateFn({
         cols: sessionData.cols,
         rows: sessionData.rows,
-        scrollbackLines: this.ensureRetainedTerminalSessionState(sessionData).mode === 'shadow'
-          ? this.compiledTerminalResourcePolicy.legacyPolicy.terminal.scrollbackLines.value
-          : this.runtimePtyConfig.scrollbackLines,
+      scrollbackLines: this.compiledTerminalResourcePolicy.legacyPolicy.terminal.scrollbackLines.value,
         windowsPty: sessionData.windowsPty,
       });
       sessionData.headlessInstanceGeneration += 1;
