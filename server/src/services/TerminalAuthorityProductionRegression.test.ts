@@ -125,7 +125,7 @@ test('MIG-BGSTAB-002 a mixed-lane frame batch defers only within its own lane FI
 
 test('MIG-BGSTAB-002 rollback held query transfer invokes the exact compatibility responder port', async () => {
   const source = await readFile(
-    new URL('./TerminalAuthorityProductionAdapter.js', import.meta.url),
+    new URL('./TerminalAuthorityProductionAdapter.ts', import.meta.url),
     'utf8',
   );
   const callbackStart = source.indexOf('transferHeldQueryToLegacyResponder: effect =>');
@@ -1076,7 +1076,7 @@ test('MIG-BGSTAB-002 compatibility snapshot releases aborted promotion held outp
 
 test('MIG-BGSTAB-002 production adapter hard reload rebinds the live view and sends fresh recovery', async () => {
   const source = await readFile(
-    new URL('./TerminalAuthorityProductionAdapter.js', import.meta.url),
+    new URL('./TerminalAuthorityProductionAdapter.ts', import.meta.url),
     'utf8',
   );
   const hookStart = source.indexOf('onViewAuthorityReady: registration =>');
@@ -1116,7 +1116,7 @@ test('MIG-BGSTAB-002 production adapter hard reload rebinds the live view and se
 
 test('MIG-BGSTAB-002 promotion defers an acknowledged view until server authority is committed', async () => {
   const source = await readFile(
-    new URL('./TerminalAuthorityProductionAdapter.js', import.meta.url),
+    new URL('./TerminalAuthorityProductionAdapter.ts', import.meta.url),
     'utf8',
   );
   const hookStart = source.indexOf('onViewAuthorityReady: registration =>');
@@ -1139,7 +1139,7 @@ test('MIG-BGSTAB-002 promotion defers an acknowledged view until server authorit
 
 test('MIG-BGSTAB-002 rollback start stays on terminal delivery while legacy enable gates control replay', async () => {
   const source = await readFile(
-    new URL('./TerminalAuthorityProductionAdapter.js', import.meta.url),
+    new URL('./TerminalAuthorityProductionAdapter.ts', import.meta.url),
     'utf8',
   );
   const sendStart = source.indexOf('const sendTerminalFrame = async');
@@ -1154,7 +1154,7 @@ test('MIG-BGSTAB-002 rollback start stays on terminal delivery while legacy enab
   assert.notEqual(refreshStart, -1);
   assert.match(
     sendTerminalFrame.slice(legacyStart, deliveriesStart),
-    /buildCheckpointCapability\(sessionId, view, 'legacy', record,[\s\S]*?\),\s*'control'/u,
+    /buildCheckpointCapability\(\s*sessionId,\s*view,\s*'legacy',\s*record,[\s\S]*?\),\s*'control'/u,
     'legacy capability must use the subscriber control socket',
   );
   assert.match(
@@ -1175,7 +1175,7 @@ test('MIG-BGSTAB-002 rollback start stays on terminal delivery while legacy enab
 
 test('MIG-BGSTAB-002 rollback selects the suspended driver and withholds attributes challenges from passive peers', async () => {
   const source = await readFile(
-    new URL('./TerminalAuthorityProductionAdapter.js', import.meta.url),
+    new URL('./TerminalAuthorityProductionAdapter.ts', import.meta.url),
     'utf8',
   );
   const capabilityStart = source.indexOf('const buildCheckpointCapability =');
@@ -1197,7 +1197,7 @@ test('MIG-BGSTAB-002 rollback selects the suspended driver and withholds attribu
 
 test('MIG-BGSTAB-002 accepted owner keeps its attributes challenge for recovery capability refresh', async () => {
   const source = await readFile(
-    new URL('./TerminalAuthorityProductionAdapter.js', import.meta.url),
+    new URL('./TerminalAuthorityProductionAdapter.ts', import.meta.url),
     'utf8',
   );
   const readerStart = source.indexOf('readViewAttributesChallengeId: registration =>');
@@ -1214,7 +1214,7 @@ test('MIG-BGSTAB-002 accepted owner keeps its attributes challenge for recovery 
 
 test('MIG-BGSTAB-002 a stale precommit driver identity cannot reject a replacement view attributes push', async () => {
   const source = await readFile(
-    new URL('./TerminalAuthorityProductionAdapter.js', import.meta.url),
+    new URL('./TerminalAuthorityProductionAdapter.ts', import.meta.url),
     'utf8',
   );
   const ingressStart = source.indexOf("if (message.type === 'terminal-authority:view-attributes')");
@@ -1236,10 +1236,10 @@ test('MIG-BGSTAB-002 a stale precommit driver identity cannot reject a replaceme
 
 test('MIG-BGSTAB-002 a replacement attributes handshake takes precedence over a stale precommit driver', async () => {
   const source = await readFile(
-    new URL('./TerminalAuthorityProductionAdapter.js', import.meta.url),
+    new URL('./TerminalAuthorityProductionAdapter.ts', import.meta.url),
     'utf8',
   );
-  const queryResponderStart = source.indexOf('readDriverViewIdentity: () =>');
+  const queryResponderStart = source.indexOf('readDriverViewIdentity: ()');
   const runtimeStart = source.indexOf('const runtime = {', queryResponderStart);
   const queryResponder = source.slice(queryResponderStart, runtimeStart);
 
@@ -1258,10 +1258,10 @@ test('MIG-BGSTAB-002 a replacement attributes handshake takes precedence over a 
 
 test('MIG-BGSTAB-002 an unrelated precommit lease cannot become the responder identity fallback', async () => {
   const source = await readFile(
-    new URL('./TerminalAuthorityProductionAdapter.js', import.meta.url),
+    new URL('./TerminalAuthorityProductionAdapter.ts', import.meta.url),
     'utf8',
   );
-  const queryResponderStart = source.indexOf('readDriverViewIdentity: () =>');
+  const queryResponderStart = source.indexOf('readDriverViewIdentity: ()');
   const runtimeStart = source.indexOf('const runtime = {', queryResponderStart);
   const queryResponder = source.slice(queryResponderStart, runtimeStart);
 
@@ -1280,10 +1280,10 @@ test('MIG-BGSTAB-002 an unrelated precommit lease cannot become the responder id
 
 test('MIG-BGSTAB-002 exact precommit and pending identities retain their full generation tuples', async () => {
   const source = await readFile(
-    new URL('./TerminalAuthorityProductionAdapter.js', import.meta.url),
+    new URL('./TerminalAuthorityProductionAdapter.ts', import.meta.url),
     'utf8',
   );
-  const queryResponderStart = source.indexOf('readDriverViewIdentity: () =>');
+  const queryResponderStart = source.indexOf('readDriverViewIdentity: ()');
   const runtimeStart = source.indexOf('const runtime = {', queryResponderStart);
   const queryResponder = source.slice(queryResponderStart, runtimeStart);
   const ingressStart = source.indexOf("if (message.type === 'terminal-authority:view-attributes')");
@@ -1316,7 +1316,7 @@ test('MIG-BGSTAB-002 exact precommit and pending identities retain their full ge
 
 test('MIG-BGSTAB-002 rollback topology churn coalesces to one leading-edge recovery window', async () => {
   const source = await readFile(
-    new URL('./TerminalAuthorityProductionAdapter.js', import.meta.url),
+    new URL('./TerminalAuthorityProductionAdapter.ts', import.meta.url),
     'utf8',
   );
   const scheduleStart = source.indexOf('const scheduleCompatibilityTopologyRecovery =');
@@ -1333,7 +1333,7 @@ test('MIG-BGSTAB-002 rollback topology churn coalesces to one leading-edge recov
   );
   assert.match(
     schedule,
-    /restartCompatibilityRecovery\(\s*'responder-topology-changed-during-recovery'\s*\)/u,
+    /restartCompatibilityRecovery\(\s*'responder-topology-changed-during-recovery',?\s*\)/u,
     'only the quiet-window callback may invalidate the active rollback transaction',
   );
   assert.doesNotMatch(
@@ -1350,7 +1350,7 @@ test('MIG-BGSTAB-002 rollback topology churn coalesces to one leading-edge recov
 
 test('MIG-BGSTAB-002 a subscription-ready observer cannot rotate a still-open browser mutation owner', async () => {
   const source = await readFile(
-    new URL('./TerminalAuthorityProductionAdapter.js', import.meta.url),
+    new URL('./TerminalAuthorityProductionAdapter.ts', import.meta.url),
     'utf8',
   );
   const serverModeStart = source.indexOf("if (state.mode === 'server')");
@@ -1370,7 +1370,7 @@ test('MIG-BGSTAB-002 a subscription-ready observer cannot rotate a still-open br
 
 test('MIG-BGSTAB-002 an already reserved view recovery cannot create a second checkpoint lifecycle', async () => {
   const source = await readFile(
-    new URL('./TerminalAuthorityProductionAdapter.js', import.meta.url),
+    new URL('./TerminalAuthorityProductionAdapter.ts', import.meta.url),
     'utf8',
   );
   const recoveryStart = source.indexOf('const enqueueFreshAuthoritativeRecovery = async');
