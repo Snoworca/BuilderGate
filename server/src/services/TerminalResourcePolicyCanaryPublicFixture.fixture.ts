@@ -1,3 +1,4 @@
+import type { execFileSync } from 'node:child_process';
 import { resourceLimitsSchema } from '../schemas/config.schema.js';
 import type { Config } from '../types/config.types.js';
 import { SessionManager } from './SessionManager.js';
@@ -49,6 +50,11 @@ export function createPublicObservedSessionFixture(input: {
     stabilityModes: config.stabilityModes,
   }, {
     platform: 'win32',
+    // The fixture models no real shell, so it must not depend on one starting.
+    // The winpty probe spawns PowerShell under a 1500ms budget, which this
+    // machine exceeds whenever it is busy -- measured 1293ms to 2716ms across
+    // six runs. Stubbing the probe keeps the test about what it names.
+    execFileSyncFn: (() => Buffer.alloc(0)) as unknown as typeof execFileSync,
     spawnPty: (command: string, args: string[]) => {
       spawnCount += 1;
       spawnCommand = command;

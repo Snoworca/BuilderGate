@@ -1374,15 +1374,49 @@ test('MIG-BGSTAB-002 an already reserved view recovery cannot create a second ch
     'utf8',
   );
   const recoveryStart = source.indexOf('const enqueueFreshAuthoritativeRecovery = async');
-  const recoveryEnd = source.indexOf('\n  const scheduleFreshAuthoritativeViewRecovery', recoveryStart);
+  assert.notEqual(recoveryStart, -1, 'enqueueFreshAuthoritativeRecovery anchor is missing');
+  // Without the keyword this also matches the call sites inside the function,
+  // and without the guard a missing anchor silently slices to the end of file.
+  const recoveryEnd = source.indexOf('const scheduleFreshAuthoritativeViewRecovery', recoveryStart);
+  assert.notEqual(recoveryEnd, -1, 'scheduleFreshAuthoritativeViewRecovery anchor is missing');
   const recovery = source.slice(recoveryStart, recoveryEnd);
   const keyIndex = recovery.indexOf('const key = viewKey(input)');
   const checkpointIndex = recovery.indexOf('const recovery = createCheckpoint(');
   assert.ok(keyIndex >= 0 && checkpointIndex > keyIndex);
+  const guard = recovery.slice(keyIndex, checkpointIndex);
+
+  const guarded = /if \(([\s\S]{0,400}?)\)\s*return;/u.exec(guard);
+  assert.ok(guarded, 'a guarded return must precede checkpoint creation');
+  const condition = guarded[1];
+  // Both ownership predicates must govern the return, in either order: the
+  // operand order carries no contract and pinning it made this test fail on a
+  // refactor that changed nothing about the guard.
+  assert.equal(
+    condition.includes('runtime.reservedCheckpointsByView.has(key)')
+      && condition.includes('runtime.activeCheckpointsByView.has(key)'),
+    true,
+    'both reserved and active view-ownership predicates must govern that return',
+  );
+  assert.equal(
+    /runtime\.reservedCheckpointsByView\.has\(key\)\s*&&/u.test(condition),
+    false,
+    'the reserved-checkpoint predicate must not be weakened by a further condition',
+  );
+  // A retained-stream rollover has to rebuild the view, so an active checkpoint
+  // may be replaced -- but only along that explicit path.
   assert.match(
-    recovery.slice(keyIndex, checkpointIndex),
-    /runtime\.activeCheckpointsByView\.has\(key\)[\s\S]*?runtime\.reservedCheckpointsByView\.has\(key\)[\s\S]*?return;/u,
-    'a second recovery trigger for the exact view must not emit a second checkpoint before the first settles',
+    condition,
+    /runtime\.activeCheckpointsByView\.has\(key\) && !input\.replaceActiveCheckpoint/u,
+    'an active checkpoint may only be bypassed by the explicit replacement path',
+  );
+
+  const teardownIndex = recovery.indexOf('runtime.activeCheckpointsByView.delete(key)');
+  const reserveIndex = recovery.indexOf('runtime.reservedCheckpointsByView.set(key,');
+  assert.ok(teardownIndex >= 0, 'the replacement path must delete the active checkpoint');
+  assert.ok(reserveIndex >= 0, 'the recovery must reserve the new checkpoint');
+  assert.ok(
+    reserveIndex > teardownIndex,
+    'the replaced active checkpoint must be torn down before the next one is reserved',
   );
 });
 

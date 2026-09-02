@@ -534,6 +534,7 @@ interface SessionManagerAuthorityApi {
     sourceSeq: string;
     snapshotSeq: string;
     oldestRetainedSeq: string;
+    oldestRetainedStreamEpoch: string;
     retentionPolicy: {
       retentionPolicyId: string;
       source: string;
@@ -1676,7 +1677,14 @@ function attachProductionTerminalAuthorityInternal(
       checkpointEpoch: input.checkpointEpoch,
       sourceSeq: snapshotSeq,
       snapshotSeq,
-      oldestRetainedSeq: retained.oldestRetainedSeq,
+      // An Ordinal64 is scoped to a streamEpoch. While retention still starts in
+      // a previous epoch the ledger marker cannot be expressed here -- emitting
+      // it would advertise a range beginning after it ends -- so the fresh stream
+      // reports its own origin. cross-epoch-retention-unavailable keeps the view
+      // fail-closed until that resolves.
+      oldestRetainedSeq: retained.oldestRetainedStreamEpoch === retained.streamEpoch
+        ? retained.oldestRetainedSeq
+        : '0',
       retentionPolicyId: retained.retentionPolicy.retentionPolicyId,
       mode: input.mode,
       source: 'server-retained-authority',

@@ -8292,6 +8292,11 @@ export class SessionManager {
       && metrics.oldestRetainedStreamEpoch !== null
       && metrics.oldestRetainedStreamEpoch !== retained.streamEpoch
     ) {
+      // A rollover clears the ledger but not the headless scrollback, so the
+      // buffer still starts in the previous epoch. Report where it actually
+      // starts; the blocker below is what keeps the view fail-closed.
+      retained.oldestRetainedSeq = metrics.oldestRetainedSeq;
+      retained.oldestRetainedStreamEpoch = metrics.oldestRetainedStreamEpoch;
       retained.blockers.add('cross-epoch-retention-unavailable');
     }
     if (!evictionAdvanced) return;

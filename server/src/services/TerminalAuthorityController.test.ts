@@ -11561,6 +11561,7 @@ test('REL-BGSTAB-007 validates Ordinal64 checkpoint apply and drain', async () =
       streamEpoch: string;
       sourceSeq: string;
       snapshotSeq: string;
+      oldestRetainedStreamEpoch: string;
       oldestRetainedSeq: string;
     } | undefined;
     assert.ok(rolledOverRetained);
@@ -11569,10 +11570,20 @@ test('REL-BGSTAB-007 validates Ordinal64 checkpoint apply and drain', async () =
         streamEpoch: rolledOverRetained.streamEpoch,
         sourceSeq: rolledOverRetained.sourceSeq,
         snapshotSeq: rolledOverRetained.snapshotSeq,
+        oldestRetainedStreamEpoch: rolledOverRetained.oldestRetainedStreamEpoch,
         oldestRetainedSeq: rolledOverRetained.oldestRetainedSeq,
       },
-      { streamEpoch: '10', sourceSeq: '0', snapshotSeq: '0', oldestRetainedSeq: '0' },
-      'the committed retained ledger must roll into a fresh canonical Ordinal64 stream before checkpoint admission',
+      // Reading the marker without its epoch compares an epoch-scoped ordinal
+      // out of scope. The ledger keeps pointing at the rows it still holds;
+      // the wire frame below is where the fresh stream reports its own origin.
+      {
+        streamEpoch: '10',
+        sourceSeq: '0',
+        snapshotSeq: '0',
+        oldestRetainedStreamEpoch: '9',
+        oldestRetainedSeq: '18446744073709551615',
+      },
+      'the committed retained ledger must roll into a fresh canonical Ordinal64 stream while the retained marker stays epoch-qualified to the rows it still holds',
     );
     const router = integration.wsRouter as unknown as ExecutableWsRouterApi;
     const view = await connectProductionView(router, 'split', 702);

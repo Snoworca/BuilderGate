@@ -3557,7 +3557,6 @@ test('PERF-BGSTAB-010 source canonical resolver rejects noncanonical authority',
   const canonicalLocator = 'docs/analysis/terminal-fairness-authority/current.json';
   const repositoryRoot = mkdtempSync(join(tmpdir(), 'buildergate-fair-repository-'));
   const authorityRoot = join(repositoryRoot, 'docs', 'analysis', 'terminal-fairness-authority');
-  const publicationGeneration = 'test-publication';
   const expectedPolicyDigest = 'b'.repeat(64);
   const decision = '{"evidence":"structural"}';
   const rawSample = '{"sample":1}';
@@ -3596,6 +3595,7 @@ test('PERF-BGSTAB-010 source canonical resolver rejects noncanonical authority',
   const expectedGenerationId = '94f050d02e6eac485b37a5bf72b2262cf4a48ef819437c206e3447d10d7b6eb4';
   const rawEntriesDigest = hash(rawEntriesCanonical);
   const generationId = expectedGenerationId;
+  const publicationGeneration = generationId;
   assert.equal(hash(decision), decisionSha256,
     `${failure}: the independent decision SHA-256 golden value must remain stable`);
   assert.equal(hash(rawSample), rawSampleSha256,
@@ -3905,16 +3905,14 @@ test('PERF-BGSTAB-010 source canonical resolver rejects noncanonical authority',
       reason: 'authority-pointer-missing',
     }, `${failure}: an available historical decoy must not become a fallback`);
     for (const rootField of ['authorityRoot', 'artifactRoot', 'evidenceRoot'] as const) {
-      const rootInjectedResolver = createResolver!({
-        repositoryRoot,
-        [rootField]: historicalDecoyRoot,
-      } as unknown as { repositoryRoot?: string });
-      assert.equal(rootInjectedResolver.getLocator().authorityRoot, authorityRoot,
-        `${failure}: resolver factory must not honor a caller-selected ${rootField}`);
-      assert.deepEqual(rootInjectedResolver.validate({ expectedPolicyDigest }), {
-        accepted: false,
-        reason: 'authority-pointer-missing',
-      }, `${failure}: ${rootField} must not redirect the resolver to a historical decoy`);
+      assert.throws(
+        () => createResolver!({
+          repositoryRoot,
+          [rootField]: historicalDecoyRoot,
+        } as unknown as { repositoryRoot?: string }),
+        /authority resolver root option is unsupported/u,
+        `${failure}: resolver factory must reject a caller-selected ${rootField} instead of silently ignoring it`,
+      );
     }
 
     const assertRejected = (scenario: string, reason: string) => {
@@ -4143,6 +4141,10 @@ test('PERF-BGSTAB-010 source canonical resolver rejects noncanonical authority',
     assertRejected('malformed generation id', 'authority-generation-id-invalid');
 
     writeStructuralAuthority();
+    writeJson(locatorPath, { ...readJson(locatorPath), publication_generation: 'other-publication' });
+    assertRejected('pointer publication generation binding mismatch', 'authority-publication-generation-mismatch');
+
+    writeStructuralAuthority();
     renameSync(generationRoot, join(authorityRoot, 'generations', 'a'.repeat(64)));
     assertRejected('generation directory basename mismatch', 'authority-generation-directory-mismatch');
 
@@ -4245,9 +4247,14 @@ test('PERF-BGSTAB-010 source canonical resolver rejects noncanonical authority',
     rewriteProvenance(value => ({
       ...value,
       generation_id: outsideRawGenerationId,
+      publication_generation: outsideRawGenerationId,
       trial_inventory: outsideRawManifestEntries,
     }));
-    writeJson(locatorPath, { ...readJson(locatorPath), generation_id: outsideRawGenerationId });
+    writeJson(locatorPath, {
+      ...readJson(locatorPath),
+      generation_id: outsideRawGenerationId,
+      publication_generation: outsideRawGenerationId,
+    });
     renameSync(generationRoot, join(generationsRoot, outsideRawGenerationId));
     assertRejected('safe generation-contained raw entry outside raw root', 'authority-raw-entry-reference-invalid');
 
@@ -4438,7 +4445,7 @@ test('PERF-BGSTAB-010 source canonical resolver rejects noncanonical authority',
         schema_version: 'fair-scheduler-source-provenance/v1',
         generation_id: metadataGeneration.generationId,
         canonical_locator: canonicalLocator,
-        publication_generation: publicationGeneration,
+        publication_generation: metadataGeneration.generationId,
         decision_path: 'fair-scheduler-decision.json',
         decision_sha256: decisionSha256,
         provenance_path: 'provenance.json',
@@ -4451,7 +4458,7 @@ test('PERF-BGSTAB-010 source canonical resolver rejects noncanonical authority',
       const metadataLocator = JSON.stringify({
         schema_version: 'fair-scheduler-current-authority/v1',
         generation_id: metadataGeneration.generationId,
-        publication_generation: publicationGeneration,
+        publication_generation: metadataGeneration.generationId,
         decision_artifact: 'fair-scheduler-decision.json',
         decision_sha256: decisionSha256,
         provenance_artifact: 'provenance.json',
@@ -4472,7 +4479,7 @@ test('PERF-BGSTAB-010 source canonical resolver rejects noncanonical authority',
         generationId: metadataGeneration.generationId,
         locatorPath: metadataLocatorPath,
         logicalLocator: canonicalLocator,
-        publicationGeneration,
+        publicationGeneration: metadataGeneration.generationId,
         reason: 'authority-locator-verified',
       }, `${failure}: a full-object JCS generation id must accept its valid canonical authority`);
 
