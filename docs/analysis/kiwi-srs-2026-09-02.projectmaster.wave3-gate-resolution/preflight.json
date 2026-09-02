@@ -1,0 +1,16 @@
+{
+  "mcp": true,
+  "cli": true,
+  "halted": false,
+  "mode": "live",
+  "mcp_package_version": "2.13.1",
+  "workspace_root": "C:\Work\git\_Snoworca\ProjectMaster-markdown-editor",
+  "root_source": "server-cwd-discovery",
+  "target": "wave-3",
+  "target_source": "user-specified",
+  "target_registered": true,
+  "active_target_before": "wave-5",
+  "validate_spec_before": { "errors": 0, "warnings": 0 },
+  "duplicate_id_groups_before": 0,
+  "notes": "Target wave-3 is user-specified and takes precedence over the active target wave-5. The MCP workspace root was verified to resolve to this worktree rather than the main checkout before any mutation."
+}

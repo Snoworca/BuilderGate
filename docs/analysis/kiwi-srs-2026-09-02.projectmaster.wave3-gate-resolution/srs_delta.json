@@ -1,0 +1,46 @@
+{
+  "classification": "new-feature + in-place refinement",
+  "mode": "live",
+  "target": "wave-3",
+  "added_ids": ["OBS-BGSTAB-008", "CON-BGSTAB-001"],
+  "refined_in_place_ids": ["REL-BGSTAB-016", "REL-BGSTAB-018", "MIG-BGSTAB-003", "FR-BGSTAB-023"],
+  "demoted_ids": [],
+  "discarded_ids": [],
+  "mcp_calls": [
+    { "tool": "add_requirement", "result_id": "OBS-BGSTAB-008", "ok": true, "note": "AC 8, trace 5" },
+    { "tool": "add_trace_link", "result_id": "OBS-BGSTAB-008 -> OBS-BGSTAB-001 (extends)", "ok": true },
+    { "tool": "add_requirement", "result_id": "CON-BGSTAB-001", "ok": true, "note": "AC 7, trace 6" },
+    { "tool": "add_trace_link", "result_id": "CON-BGSTAB-001 -> REL-BGSTAB-018 (depends_on)", "ok": true },
+    { "tool": "edit_requirement_fields", "result_id": "REL-BGSTAB-016", "ok": true, "note": "statement: Open Question replaced with the decision" },
+    { "tool": "replace_acceptance_criteria", "result_id": "REL-BGSTAB-016", "ok": true, "note": "5 -> 7" },
+    { "tool": "edit_requirement_fields", "result_id": "REL-BGSTAB-018", "ok": true },
+    { "tool": "replace_acceptance_criteria", "result_id": "REL-BGSTAB-018", "ok": true, "note": "8 -> 9" },
+    { "tool": "edit_requirement_fields", "result_id": "MIG-BGSTAB-003", "ok": true },
+    { "tool": "replace_acceptance_criteria", "result_id": "MIG-BGSTAB-003", "ok": true, "note": "7 -> 9" },
+    { "tool": "edit_requirement_fields", "result_id": "FR-BGSTAB-023", "ok": true },
+    { "tool": "replace_acceptance_criteria", "result_id": "FR-BGSTAB-023", "ok": false, "note": "an escape error corrupted the existing AC-3 wording" },
+    { "tool": "replace_acceptance_criteria", "result_id": "FR-BGSTAB-023", "ok": true, "note": "6 -> 8, AC-3 original wording restored and re-read from the file" },
+    { "tool": "update_status", "result_id": "OBS-BGSTAB-008 -> planned", "ok": true },
+    { "tool": "update_status", "result_id": "CON-BGSTAB-001 -> planned", "ok": true }
+  ],
+  "validate_spec_result": { "ok": true, "errors": 0, "warnings": 0 },
+  "known_deviations": [
+    {
+      "what": "The five Code trace rows on OBS-BGSTAB-008 and the six on CON-BGSTAB-001 carry relation=related_to with an empty Notes cell, where every other requirement in this file writes the intent into the relation column and repeats it in Notes as trace_intent=<value>.",
+      "cause": "add_requirement ignores the trace_intent key inside its trace array. The call returned ok:true and validate_spec passes, so nothing surfaced the difference until the rows were read back.",
+      "decision": "left as written",
+      "why": "add_trace_link inserts rather than overwrites, so correcting the shape would leave the same path on two rows, and the golden rule forbids deleting the wrong row with Edit. The only rule that consumes addition_site caps status at proposed, and this repository does not accept proposed at all - that is why both new requirements had to be moved to planned. So the lost intent gates nothing here.",
+      "reopen_condition": "Revisit if add_trace_link gains replace semantics, or if a tool starts reading the relation column for these two requirements."
+    },
+    {
+      "what": "FR-BGSTAB-023 AC-3 was briefly written with a corrupted word before being restored.",
+      "cause": "an escape error in the authoring call",
+      "resolution": "the original wording was restored in a follow-up call and verified by reading the file back"
+    }
+  ],
+  "skill_rule_conflict": {
+    "what": "The kiwi-srs skill sets new requirements to status=proposed by default.",
+    "conflict": "SRS-MD-Rules-v2.5.0 section 14.1 does not list proposed among the allowed values, and validate_spec rejects it as SRS-E005.",
+    "resolution": "Both new requirements were moved to planned, matching every other wave-3 requirement. The reason is recorded in each requirement's Change Notes."
+  }
+}

@@ -1,46 +1,52 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-08-18T10:36:41.593Z",
+  "generatedAt": "2026-09-02T04:58:39.531Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "64eccdeb6ada1b58292755f2099c1518327174cf06bb3b10410cd5c704b3c57f",
+    "value": "39b0a942b21be6b2918ca6bb20c898ad10a706a78486aeef71d37039f554c78b",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "4563dfe273d21a51f5ec34fed3f50390f1f5303d4fd47ef587091f2eecc22162",
-        "size": 5501,
-        "mtimeMs": 1787046649696.615
+        "sha256": "244e9790d5e6ed6a5c3f7f16ef635fd67fa2c2ff2d36e564c296a039f44fc69a",
+        "size": 5953,
+        "mtimeMs": 1788314791433.7175
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "7f7ff64ab632c468d3b8cb6877f3ed3b4905ba3955aef141703eca882e5b4b65",
-        "size": 18460,
-        "mtimeMs": 1779081464397.9382
+        "sha256": "c3da541785a208b72fd5e1ef206a8dcb91b37bf752b541174f2dff44a1b2a743",
+        "size": 18828,
+        "mtimeMs": 1788235087604.7268
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
-        "sha256": "a31260945530e98f6233751268275799802ce1cdec501ec6760eefd710407bb9",
-        "size": 37268,
-        "mtimeMs": 1779443443342.6135
+        "sha256": "f9221913620bea2516c6f5f6f796920992f79a3f5bdd85ba5c6b14bd2b0ede15",
+        "size": 37847,
+        "mtimeMs": 1788235087606.2537
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "abbc0aea4d55d3f89788d4683c851aed39a4cf8c09b0d6fa11198879b974b188",
-        "size": 505739,
-        "mtimeMs": 1787049401545.5703
+        "sha256": "5e77740302252df35620325800fff1ad475e9eb8ebf4c2765139bc82f74f9594",
+        "size": 529534,
+        "mtimeMs": 1788314656983.4575
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
-        "sha256": "b413c2e31a9259adbbbfb981fc5a55af787e585f39dbe6ae73adeaf07e363a71",
-        "size": 95041,
-        "mtimeMs": 1787048047488.9062
+        "sha256": "997cc19ddd909daff6a7a915523f4fb0b5ed29c70958a51fd86f7776bc057b85",
+        "size": 96194,
+        "mtimeMs": 1788235087610.274
+      },
+      {
+        "path": "docs/spec/41.markdown-editor.srs.md",
+        "sha256": "9210789a32479176d1b5895b7cefe3b9ea545ac75e7f7a884489bda0d54e877c",
+        "size": 160536,
+        "mtimeMs": 1788325119367.7197
       },
       {
         "path": "docs/spec/90.appendix.md",
-        "sha256": "f212b5924f51cffb3d4ecc714282a4e0c4a5c4ab25d3f154864ef1b333125c5c",
-        "size": 121,
-        "mtimeMs": 1778345537159.6023
+        "sha256": "feaa2ea621cc7f9585b3f6e2a258d70a49bae19271a81384f88af71d7f041693",
+        "size": 126,
+        "mtimeMs": 1788235087611.2732
       }
     ]
   },
@@ -49,7 +55,8 @@
       "ARCH": 6,
       "AITUI": 5,
       "BGSTAB": 24,
-      "MCP": 6
+      "MCP": 6,
+      "MDE": 9
     },
     "security": {
       "AITUI": 2,
@@ -61,7 +68,7 @@
       "MCP": 1
     },
     "observability": {
-      "BGSTAB": 7,
+      "BGSTAB": 8,
       "MCP": 1
     },
     "performance": {
@@ -75,7 +82,12 @@
     },
     "interface": {
       "BGSTAB": 1,
-      "MCP": 5
+      "MCP": 5,
+      "MDE": 1
+    },
+    "constraint": {
+      "BGSTAB": 1,
+      "MDE": 2
     }
   },
   "lock": {

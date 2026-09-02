@@ -1,0 +1,30 @@
+{
+  "target": "wave-3",
+  "classification": "new-feature",
+  "rationale": "Two decisions become new requirements in the existing BGSTAB scope, and four existing requirements are refined in place. The new pair has no conflicting counterpart: the dropped-input audit records metadata the codebase does not record today, and the MCP promotion exclusion states a contract the code already honours. Neither redefines an existing requirement, so neither is an update. The four refinements close Open Questions rather than restate the requirement, so they keep their IDs; this file already treats that as in-place revision, as REL-BGSTAB-018 shows with four same-day revisions in its Change Notes.",
+  "evidence_paths": [
+    "frontend/src/utils/terminalDebugCapture.ts",
+    "server/src/services/SessionManager.ts:3020-3036",
+    "server/src/index.ts:302-310"
+  ],
+  "affected_existing_reqs": [
+    { "id": "REL-BGSTAB-016", "relation": "refine_in_place", "diff_summary": "Close the Open Question on feedback surface duration, wording and debounce: reuse the existing toast pattern, and coalesce consecutive drops into a single surface carrying a count." },
+    { "id": "REL-BGSTAB-018", "relation": "refine_in_place", "diff_summary": "Close the Open Question on enum shape: authority fencing and lease fencing map to two distinct InputRejectedReason values, not one merged value." },
+    { "id": "MIG-BGSTAB-003", "relation": "refine_in_place", "diff_summary": "Close the Open Question on schemaVersion: initial value is 1, and a mismatch warns without failing the parse." },
+    { "id": "FR-BGSTAB-023", "relation": "refine_in_place", "diff_summary": "Close the Open Question on placement: extend the existing DisconnectedOverlay, and do not expose retry count or elapsed time." }
+  ],
+  "proposed_scope": "BGSTAB (existing)",
+  "proposed_prefix": "BGSTAB",
+  "proposed_type": "observability (dropped-input audit) / constraint (MCP promotion exclusion)",
+  "confidence": "high",
+  "scope_boundary_impact": null,
+  "external_module_impact": null,
+  "rejected_candidate": {
+    "id": "RC13",
+    "summary": "Extending input-only backpressure to the output path.",
+    "decision": "rejected",
+    "rationale": "FR-BGSTAB-002 states that control and recovery messages continue to bypass input backpressure, its Rationale gives the reason, and frontend/src/utils/webSocketBackpressure.ts:79-82 implements exactly that. The proposal contradicts AC-4 of a stable, implemented, Risk=high requirement, so it is a policy reversal rather than a defect report.",
+    "reopen_condition": "Reopen if output-queue memory growth is measured as an actual failure in production, with the measurement recorded alongside the reopening."
+  },
+  "notes_on_constraint_line_41": "The constraint at docs/spec/30.buildergate-stability.srs.md:41 scopes raw-input suppression to backpressure and reconnect handling only. Drops from authority fencing fall outside that wording, so the new audit requirement must carry its own acceptance criterion forbidding raw content rather than lean on that constraint. REL-BGSTAB-016 AC-5 is the precedent."
+}

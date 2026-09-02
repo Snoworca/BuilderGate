@@ -1,0 +1,41 @@
+{
+  "implementability": "high",
+  "product_fit": "core",
+  "rationale": "Both new requirements sit on existing machinery. The audit requirement needs a record path that survives debug capture being off, and the shape of that record already exists: rejectQueuedInput already assembles reason, detailReason, barrierReason, queuedMs and generation values. The contract requirement needs no code at all, because it states behaviour the code already has.",
+  "code_evidence": [
+    "frontend/src/utils/terminalDebugCapture.ts:395-425",
+    "frontend/src/utils/terminalDebugCapture.ts:405-407",
+    "frontend/src/utils/terminalDebugCapture.ts:159-160",
+    "frontend/src/components/Terminal/TerminalView.tsx:724-741",
+    "server/src/services/SessionManager.ts:3020-3059",
+    "server/src/services/SessionManager.ts:3245",
+    "server/src/services/SessionManager.ts:3251-3253",
+    "server/src/services/SessionManager.ts:7313-7317",
+    "server/src/services/SessionManager.ts:7565-7566",
+    "server/src/index.ts:294-334",
+    "server/src/ws/WsRouter.ts:4747-4785",
+    "server/src/ws/WsRouter.ts:5792-5814",
+    "server/tools/../src/services/TerminalAuthorityProductionAdapter.ts:2626-2664"
+  ],
+  "blockers": [],
+  "conditions": [
+    "The audit requirement must carry its own no-raw-content criterion. The constraint at line 41 of the SRS scopes raw-input suppression to backpressure and reconnect handling, so authority-fencing drops fall outside it.",
+    "The audit requirement must name inputSeqStart and inputSeqEnd rather than a single inputSeq. WsRouter.ts:4847-4856 rejects a lone inputSeq explicitly.",
+    "The contract requirement must state that the blocker does not gate promotion. promoteSession never reads retained.blockers."
+  ],
+  "external_module_required": false,
+  "corrected_premise": {
+    "what_was_assumed": "A session carrying mutation-identity-missing cannot be promoted to authority.",
+    "what_the_code_shows": "TerminalAuthorityProductionAdapter.promoteSession:2626-2664 gates on responder capability, checkpoint presence, prepareTerminalAuthorityPromotionCandidate and bootstrap replay supersession. None of those reads retained.blockers, and prepareTerminalAuthorityPromotionCandidate:2775-2814 inspects only transitionEpoch, limitedSessionSelected, admission.mode and serverRecoveryAcks.",
+    "actual_effect": "canary.eligible drops to false at SessionManager.ts:7565-7566 and the session appears in diagnosticBlockers at :2895. The only consumer of canary.eligible is test code.",
+    "why_it_matters": "Writing the assumed contract would have pinned a guarantee the runtime does not provide, and the next reader would have trusted it."
+  },
+  "existing_tests": {
+    "accept_retained_identity": [
+      "server/src/services/RetainedTerminalAuthority.test.ts:2239-2262",
+      "server/src/services/RetainedTerminalAuthority.test.ts:2264-2302",
+      "server/src/services/RetainedTerminalAuthority.test.ts:1207-1210"
+    ],
+    "mcp_gateway_identity": "none — no test covers the MCP gateway passing input without retainedIdentity"
+  }
+}
