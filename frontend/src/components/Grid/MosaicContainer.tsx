@@ -79,6 +79,8 @@ interface MosaicContainerProps {
   focusTerminal?: (tabId: string) => void;
   onLayoutChange?: () => void;
   onRequestMoveTab?: (tabId: string) => void;
+  /** Forwarded to each tile's metadata row. @req FR-MDE-007 */
+  onPathContextMenu?: (x: number, y: number, tabId: string) => void;
 }
 
 function buildMissingTerminalClipboardResult(): TerminalClipboardActionResult {
@@ -116,6 +118,7 @@ export function MosaicContainer({
   focusTerminal,
   onLayoutChange,
   onRequestMoveTab,
+  onPathContextMenu,
 }: MosaicContainerProps) {
   const currentTabIds = tabs.map(t => t.id);
   const currentTabIdsKey = currentTabIds.join(',');
@@ -822,6 +825,7 @@ export function MosaicContainer({
             tabId={tabId}
             tab={tab}
             onContextMenu={openContextMenu}
+            onPathContextMenu={onPathContextMenu}
             onRestart={() => onRestartTab(tabId)}
             onFocus={() => handleTileFocus(tabId)}
             onRegisterRef={(el) => registerTileRef(tabId, el)}
@@ -846,6 +850,7 @@ export function MosaicContainer({
       layoutMode,
       equalPreset,
       openContextMenu,
+      onPathContextMenu,
       handleLayoutModeChange,
       handleColumnsLayout,
       handleTileDragEnd,

@@ -1,0 +1,395 @@
+{
+  "task_id": "T-PH002-04",
+  "completed_at": "2026-09-02T10:30:43.424Z",
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "frontend/tsconfig.app.json"
+        ],
+        "loc_added": 3,
+        "loc_removed": 1,
+        "note": "배럴(frontend/src/editor/index.ts)과 frontend/package.json 은 손대지 않았다. 배럴은 원본이 이미 doculightExtensions 와 AtomicCodeMirrorEditor 를 내보내고 있었고, package.json 은 T-PH002-02 가 이미 끝냈다"
+      }
+    ],
+    "root_cause": "호스트 tsconfig.app.json 의 erasableSyntaxOnly 가 vendored 편집기의 생성자 파라미터 프로퍼티 21곳과 충돌해 tsc -b 가 TS1294 로 21건 실패했다. TypeScript 5.9.3 자체는 이식 트리를 문제없이 컴파일한다 — 그 옵션 하나만 끄면 오류가 0건이 되는 것으로 확인했다",
+    "formal_review": {
+      "mock_regex": "해당 없음",
+      "build": "npm run build exit 0",
+      "plan_code_match": "위반 — zero_tolerance_finding 참조",
+      "test_coverage": "test_cases 3건이 실제 실행된 테스트 3건에 1:1 대응하며 전부 pass"
+    },
+    "zero_tolerance_finding": {
+      "gate_id": "zero-tolerance-plan-code-mismatch",
+      "detail": "sidecar.files[] 는 [frontend/package.json, frontend/src/editor/index.ts] 인데 이 Task 의 실제 delta 는 frontend/tsconfig.app.json 하나다. 선언한 두 파일은 변경이 필요 없었고(배럴은 이미 계약을 만족, package.json 은 T-PH002-02 소관), 정작 tsc 를 통과시키는 데 필요한 파일은 선언에 없었다",
+      "resolution": "상위 러너에 보고. 이 레인이 임의로 plan 을 고치지 않는다"
+    },
+    "prickly_reviews": [
+      {
+        "iter": 1,
+        "findings": {
+          "CRITICAL": 1,
+          "HIGH": 2,
+          "MEDIUM": 3,
+          "LOW": 3
+        }
+      }
+    ],
+    "review_findings": [
+      {
+        "sev": "CRITICAL",
+        "id": "C-1",
+        "title": "dod 가 지정한 npx tsc --noEmit 은 0개 파일을 검사한다",
+        "detail": "frontend/tsconfig.json 이 files 빈 배열 + references 인 solution 파일이라 tsc 가 references 를 따라가지 않는다(-b 만 따라간다). npx tsc --noEmit --listFiles 의 출력이 0줄이다. 이식 트리를 통째로 지워도 exit 0 이다",
+        "status": "실제 상태는 통과로 확인했다 — npx tsc -p tsconfig.app.json --noEmit exit 0 (error 0, --listFiles 에 src/editor 25개 포함), npx tsc -b exit 0, npm run build exit 0. dod 의 명령 자체가 공허하다는 사실을 보고한다"
+      },
+      {
+        "sev": "HIGH",
+        "id": "H-1",
+        "title": "erasableSyntaxOnly 를 전역에서 꺼 160개 호스트 파일의 기계 검사가 사라졌다",
+        "detail": "tests/unit 79개 중 70개가 node --experimental-strip-types 로 src/ 를 직접 import 한다. 그 실행 방식이 성립하는지를 컴파일 시점에 강제하던 유일한 검사가 이 옵션이었다. tsconfig.test.json 이 tsconfig.app.json 을 extends 하므로 그쪽 가드도 함께 사라졌다. 지금 깨지는 것은 없다(node 는 tsconfig 를 읽지 않는다) — 손실은 미래 방향이다",
+        "proposed_fix": "리뷰어가 최소 재현으로 검증한 대안: tsconfig.editor.json 을 composite + emitDeclarationOnly 로 신규 작성해 solution references 에 넣고, tsconfig.app.json 은 erasableSyntaxOnly 를 되살리며 exclude 에 src/editor 를 넣는다. tsconfig.test.json 에도 references 를 더해야 한다(extends 는 references 를 상속하지 않는다). exclude 단독은 성립하지 않는다 — import 로 끌려온 파일은 excluded 여도 프로그램에 들어와 TS1294 가 그대로 난다",
+        "status": "이 Task 의 files[] 를 크게 벗어나고 후속 Phase 의 tsconfig 구조에 영향을 주므로 임의로 착수하지 않았다. 상위 러너 결정 사항"
+      },
+      {
+        "sev": "HIGH",
+        "id": "H-2",
+        "title": "배럴이 EditorWindow 가 실제로 필요로 할 타입을 내보내지 않는다",
+        "detail": "src/editor/index.ts 는 vendor 에서 값 AtomicCodeMirrorEditor 하나만 재수출한다. AtomicCodeMirrorEditorHandle(getMarkdown/setReadOnly/focus 를 담아 저장 경로에 쓰인다) 과 AtomicCodeMirrorEditorProps 는 vendor 배럴에는 있으나 상위 배럴이 통과시키지 않고, ATOMIC_CODE_LANGUAGES 는 어느 배럴에서도 도달 불가하다",
+        "conflict": "action 은 EditorWindow 가 배럴 하나만 경유하게 만들라고 요구하고 index.ts 를 files[] 에 두었다. 그러나 AC-1 이 27파일 합계 7333줄을 고정하고 index.ts 가 그 집계에 포함되므로, 배럴에 재수출 한 줄을 더하면 7334 가 되어 AC-1 이 즉시 깨진다. 같은 요구의 두 부분이 서로 다른 답을 낸다",
+        "status": "dod 가 AC-1 green 을 요구하므로 배럴을 건드리지 않았다. 우회 구현 대신 충돌을 보고한다"
+      },
+      {
+        "sev": "MEDIUM",
+        "id": "M-1",
+        "title": "계약 테스트의 배럴-우회 단언이 현재 공허하다",
+        "detail": "src/components/editor/EditorWindow.tsx 가 아직 없어 existsSync 가드 안쪽이 실행되지 않는다. 후속 컴포넌트가 다른 경로나 이름으로 생기면 조용히 죽은 채로 남는다"
+      },
+      {
+        "sev": "MEDIUM",
+        "id": "M-2",
+        "title": "이식 트리는 node --test 로 import 할 수 없다 — 원인이 셋이다",
+        "detail": "(1) 생성자 파라미터 프로퍼티가 strip-only 모드에서 거부된다 (2) .js 지정자가 .ts 파일을 가리켜 node 가 재작성하지 않는다 (3) 배럴의 확장자 없는 상대 지정자를 node ESM 이 해석하지 않는다. --experimental-transform-types 로 (1)을 우회해도 (2)에서 죽는다. Vite 는 셋 다 해석하므로 제품에는 영향이 없다. 편집기 관련 판정은 전부 Playwright 로 가야 한다"
+      },
+      {
+        "sev": "MEDIUM",
+        "id": "M-3",
+        "title": "shiki 와 katex 는 정적 import 라 배럴에 닿는 순간 메인 청크로 들어온다",
+        "detail": "core/code-highlight.ts 의 shiki 와 core/math-blocks.ts 의 katex 가 정적이고 배럴이 둘 다 재수출한다. mermaid 는 동적(core/mermaid-render.ts)이라 안전하다. CSS 배선 주의: TS 파일 중 CSS 를 import 하는 곳이 없고 styles/editor.css 가 유일한 진입점이며 그 안에서 inline-preview.css 와 katex.min.css 를 가져온다 — 호스트가 그 CSS 를 명시적으로 import 하지 않으면 수식이 겹쳐 보인다"
+      },
+      {
+        "sev": "LOW",
+        "id": "L-1",
+        "title": "계약 테스트에 산술적으로 실패 불가능한 단언이 하나 있다",
+        "detail": "countedFiles.length 27 단언은 앞의 25 단언과 2개 배열 단언이 통과하면 항상 참이다. 나머지 단언은 전부 실질적이며 약화 흔적은 없다"
+      },
+      {
+        "sev": "LOW",
+        "id": "L-2",
+        "title": "ESLint 에 새 오류 5건 (vendored 코드)",
+        "detail": "no-useless-escape 2, no-unused-vars 1, prefer-const 1 등. 베이스라인이 이미 red(69건)이고 CI 에 lint 가 없어 새로 깨지는 게이트는 없다"
+      },
+      {
+        "sev": "LOW",
+        "id": "L-3",
+        "title": "선언한 files 를 하나도 바꾸지 않고 선언에 없는 파일을 바꿨다",
+        "detail": "zero_tolerance_finding 과 같은 사안"
+      }
+    ],
+    "green_evidence": {
+      "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorPortContract.test.ts",
+      "exit_code": 0,
+      "timestamp": "2026-09-02T10:30:43.424Z"
+    },
+    "green_evidence_meta": {
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "passed_test_case_ids": [
+        "TC-REQ-FR-MDE-005-AC1-02",
+        "TC-REQ-FR-MDE-005-AC6-02",
+        "TC-REQ-FR-MDE-005-AC7-02"
+      ],
+      "type_check": "npx tsc -p tsconfig.app.json --noEmit exit 0 (error 0, src/editor 25파일이 --listFiles 에 포함) · npx tsc -b exit 0 · npm run build exit 0"
+    },
+    "dod_check": [
+      {
+        "item": "AC-1 · AC-6 · AC-7 이 green 이다",
+        "satisfied": true
+      },
+      {
+        "item": "cd frontend && npx tsc --noEmit 이 exit 0 이다",
+        "satisfied": true,
+        "caveat": "그 명령은 0개 파일을 검사하므로 증거로서 공허하다(C-1). 실제 검사인 npx tsc -p tsconfig.app.json --noEmit 과 npx tsc -b 로 대체 확인했고 둘 다 exit 0 이다"
+      }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "scope": "frontend build + tsc -b + typecheck:tests + frontend/tests/unit 전수",
+      "build": "exit 0",
+      "tsc -b": "exit 0",
+      "typecheck:tests": "exit 0",
+      "tests": 917,
+      "passed": 915,
+      "failed": 2,
+      "new_failures": 0,
+      "failed_ids": [
+        "PERF-BGSTAB-010 browser ACK is emitted only after an accepted visible terminal write",
+        "REL-BGSTAB-012 settles ledger and holds stale view through drain"
+      ],
+      "note": "두 실패는 T-PH003-02 가 기준선의 기존 실패로 확인해 둔 것과 같다. 두 테스트가 읽는 WebSocketContext.tsx 와 두 테스트 파일 모두 HEAD 와 동일하다"
+    },
+    "mcp_calls": [],
+    "mcp_mutation_skip_reason": "계획 §1.3 이 SRS 편집과 requirement status 승급을 이 plan 의 범위 밖으로 두었다"
+  },
+  "followup_erasable_syntax_only_restore": {
+    "requested_by": "상위 러너 (H-1 후속 지시)",
+    "requested_at": "2026-09-02T10:41:07.236Z",
+    "request": "tsconfig.app.json 의 erasableSyntaxOnly 를 되살릴 것. 상위 러너는 위반이 vendor 5곳뿐이라고 전달했다",
+    "correction": {
+      "actual_violations": "21건 / 클래스 11개 / 파일 9개다. 상위 러너가 전달한 5곳은 vendor 안의 것들이고, core/code-blocks.ts · core/math-decoration.ts · core/mermaid-blocks.ts · core/tag-decoration.ts 네 파일과 wiki-links.ts 의 여러 줄 constructor 두 개가 빠져 있었다",
+      "ac1_conflict": "SRS 41.markdown-editor 가 \"The copied tree is 27 files / 7,333 lines\" 를 기록하고 \"completeness is verified against them ... the ported tree's own file count, its line count\" 라고 판정 기준으로 명시한다. 생성자 파라미터 프로퍼티를 필드 선언과 대입으로 푸는 변환은 클래스마다 줄을 늘리므로 그 값이 깨진다. 줄 수를 억지로 맞추는 변환은 §0.22 가 금지하는 우회 구현이다",
+      "strip_types_reality": "소스를 고쳐도 편집기는 node --experimental-strip-types 로 로드되지 않는다. 직접 확인했다 — 배럴은 확장자 없는 상대 지정자 때문에 ERR_MODULE_NOT_FOUND 로 죽고(파라미터 프로퍼티와 무관), 개별 파일은 파라미터 프로퍼티에서 죽는다. 파라미터 프로퍼티를 전부 고쳐도 첫 번째 이유가 남는다"
+    },
+    "chosen_approach": "소스를 건드리지 않고 컴파일러 경계로 해결했다. tsconfig.editor.json 을 composite + emitDeclarationOnly 로 신규 작성해 solution references 에 넣고, tsconfig.app.json 은 erasableSyntaxOnly 를 되살리며 exclude 에 src/editor 를 넣었다. 상위 러너가 요구한 목적(편집기 밖 코드에 대한 컴파일러 측 가드)은 그대로 달성되고 AC-1 의 7333 도 유지된다",
+    "evidence": {
+      "guard_positive_control": "src/__strip_guard_probe.ts 에 constructor(readonly leaked: string) 을 넣자 npx tsc -b 가 TS1294 로 exit 2. 프로브 제거 후 exit 0, 오류 0. 가드가 공허하지 않다",
+      "barrel_import_probe": "src/components/__probe/importProbe.ts 가 ../../editor 에서 doculightExtensions 와 AtomicCodeMirrorEditor 를 import 하자 npx tsc -b exit 0. app 프로그램의 --listFiles 가 원본 .ts 가 아니라 node_modules/.tmp/editor-types/**/*.d.ts 를 소비한다. 후속 Phase 의 EditorWindow 배선이 성립한다",
+      "build": "npm run build exit 0 · npx tsc -b exit 0 · npm run typecheck:tests exit 0",
+      "contract": "editorPortContract.test.ts 3/3 green (7333 유지)",
+      "artifacts": ".d.ts 는 node_modules/.tmp/editor-types 로 나가고 gitignore 되어 git status 에 보이지 않는다",
+      "guard_injection_matrix": {
+        "method": "호스트 코드(편집기 트리 밖)에 위반 구문을 넣고 검사가 잡는지 본 뒤 제거하고 원복을 확인했다",
+        "cases": [
+          {
+            "probe": "src/__strip_guard_probe.ts — constructor(readonly leaked: string)",
+            "npx tsc -b": "exit 2 · src/__strip_guard_probe.ts(2,15): error TS1294",
+            "removed_after": "npx tsc -b exit 0, 오류 0"
+          },
+          {
+            "probe": "src/__enum_probe.ts — export enum StripGuardEnum { A = 1 }",
+            "npx tsc -b": "exit 2 · src/__enum_probe.ts(1,13): error TS1294",
+            "npm run typecheck:tests": "exit 2 · 같은 오류 (test 프로젝트가 app 을 extends 하므로 같은 가드를 상속한다)",
+            "removed_after": "두 명령 모두 exit 0"
+          }
+        ],
+        "negative_side": "같은 tsc -b 실행에서 편집기 트리의 파라미터 프로퍼티 21건은 오류를 내지 않는다. 예외가 src/editor 로만 한정되어 있다는 뜻이다",
+        "cleanup_verified": "두 프로브 파일 모두 삭제됨 (ls 로 부재 확인)",
+        "negative_control_direct": {
+          "method": "같은 파일 내용을 위치만 바꿔 두 번 컴파일했다. 유일한 변수가 경로이므로 예외가 어디에 걸렸는지가 직접 드러난다",
+          "probe_content": "export enum InsideEnum { A = 1 } 과 export class InsideParamProp { constructor(readonly kept: string) {} }",
+          "inside": "src/editor/__inside_probe.ts → npx tsc -b exit 0, 오류 0 (예외가 걸림)",
+          "outside": "src/__outside_probe.ts → npx tsc -b exit 2 · (1,13) 과 (6,15) 두 곳에서 TS1294 (가드가 잡음)",
+          "conclusion": "경계가 정확히 src/editor 에 그어져 있다. enum 과 파라미터 프로퍼티 둘 다 같은 결과다",
+          "cleanup_verified": "두 프로브 모두 삭제 확인. 정리 후 npx tsc -b exit 0"
+        }
+      }
+    },
+    "files_changed": [
+      "frontend/tsconfig.editor.json (신규)",
+      "frontend/tsconfig.app.json",
+      "frontend/tsconfig.json"
+    ]
+  },
+  "followup_reported_gaps": {
+    "requested_at": "2026-09-02T10:41:07.236Z",
+    "gap_1": {
+      "item": "windowDialogZBand.test.ts 가 lint:command-management 와 test:unit:command-management 어디에도 없었다",
+      "action": "두 스크립트 모두에 windowDialogContract.test.ts 다음 자리로 등재했다",
+      "evidence": "npm run test:unit:command-management → tests 53 / pass 53 / fail 0 (등재 전 50건)"
+    },
+    "gap_2": {
+      "item": "tsconfig.test.json 의 files 허용목록에 dialogStack · windowDialogContract · windowDialogZBand 가 빠져 있어 그 파일들의 초과 속성과 시그니처 불일치가 tsc 로 잡히지 않았다",
+      "decision": "지금 닫았다",
+      "rationale": "임시 프로브 tsconfig 로 세 파일을 넣고 돌려 보니 타입 오류가 0건이라 닫는 비용이 없었다. 그 파일의 주석이 \"an allowlist that grows one file at a time\" 으로 점진 확대를 설계 의도로 명시하므로 추가는 그 설계를 따르는 것이다. 열어 두면 세 파일의 타입 결함이 계속 보이지 않는다",
+      "side_effect": "이제 그 세 파일에 타입 오류가 생기면 npm run typecheck:tests 가 빨개진다. 세 파일 중 둘을 다른 레인이 작업 중이므로 그 레인에 알릴 필요가 있다 — 가드가 의도대로 작동하는 것이지 결함이 아니다",
+      "evidence": "npm run typecheck:tests exit 0, 오류 0"
+    },
+    "ownership_conflict": {
+      "noticed_at": "2026-09-02T10:44:15.284Z",
+      "detail": "상위 러너가 분담을 확정하며 package.json 과 tsconfig.test.json 을 다른 에이전트에 배정했으나, 이 레인이 그 통지 이전에 두 파일을 이미 수정하고 검증까지 마친 상태였다",
+      "current_state": "frontend/package.json 은 windowDialogZBand.test.ts 가 lint:command-management 와 test:unit:command-management 두 스크립트에 등재된 상태다. frontend/tsconfig.test.json 은 dialogStack · windowDialogContract · windowDialogZBand 세 파일이 files 허용목록에 추가되고 범위 주석이 갱신된 상태다",
+      "action": "되돌리지 않고 그대로 두었다. 되돌림 자체가 파괴적이고, 그 사이 다른 에이전트가 같은 작업을 하면 충돌한다. 상위 러너에 현재 상태를 보고하여 다른 에이전트가 중복 작업하지 않도록 한다"
+    }
+  },
+  "followup_ac1_revision_observation": {
+    "noticed_at": "2026-09-02T10:44:15.284Z",
+    "reported_by_runner": "AC-1 의 줄 수 기준을 7,333 에서 7,296 으로 낮추고 배럴을 집계에서 제외했다",
+    "verification": "src/editor/index.ts 의 개행 수가 정확히 37 이고 7333 - 37 = 7296 이다. 상위 러너의 실측과 일치한다",
+    "caveat": "현재 editorPortContract.test.ts 는 여전히 green 이다 (3/3). 그 파일이 아직 옛 기대값 7333 을 담고 있고 실측도 7333 이기 때문이다. 계약 테스트를 새 AC 로 옮기는 쪽은 \"빨간 테스트를 고치는\" 것이 아니라 \"green 인 테스트의 기준을 옮기고 배럴 제외 로직을 넣는\" 작업을 하게 된다"
+  },
+  "followup_ac1_alignment": {
+    "done_at": "2026-09-02T10:50:30.467Z",
+    "request": "상위 러너가 AC-1 의 줄 수 기준을 7,333 에서 7,296 으로 낮추고 배럴을 집계에서 제외했다. editorPortContract.test.ts 를 그에 맞췄다",
+    "srs_confirmed": "docs/spec/41.markdown-editor.srs.md 의 AC-1 이 갱신되어 있다 — \"those 27 files excluding the entry barrel total exactly 7,296 lines\", \"Its ported form is 37 lines, and only re-exports may be added to it\"",
+    "change": "EXPECTED_TOTAL_LINES 를 7296 으로 낮추고, 줄 수 집계 대상을 countedFiles 에서 배럴을 뺀 lineCountedFiles 로 바꿨다. 파일 수 27 은 그대로다. 집계에서 빠지는 것이 배럴 하나뿐임을 단언 한 줄로 고정했다 — 필터가 조용히 넓어지면 그 단언이 먼저 깨진다",
+    "mutation_evidence": {
+      "mutant_barrel": {
+        "change": "src/editor/index.ts 에 export type { AtomicCodeMirrorEditorHandle } from './vendor/atomic-editor/index'; 한 줄 추가 (37 → 38줄)",
+        "contract": "exit 0 · tests 3 / pass 3 / fail 0",
+        "tsc": "npx tsc -b exit 0",
+        "meaning": "PH-006 이 배럴에 재수출을 더해도 줄 수 케이스가 깨지지 않는다. AC 수정의 목적이 달성된다"
+      },
+      "control_non_barrel": {
+        "change": "src/editor/core/tags.ts 에 주석 한 줄 추가",
+        "contract": "exit 1 · pass 2 / fail 1 · \"줄 수 합계가 7296 여야 하는데 7297 다\"",
+        "meaning": "배럴 제외가 검사를 무력화하지 않았다. 배럴 밖 한 줄은 여전히 잡힌다 — 이 대조가 없으면 위의 green 은 아무것도 검사하지 않는 것과 구별되지 않는다"
+      },
+      "restored": "두 뮤턴트 모두 원복. diff -r 로 이식 트리가 원본과 바이트 동일함을 재확인했다(__tests__ 만 원본에 있음). 계약 테스트 3/3 green 복귀"
+    }
+  },
+  "followup_contract_test_hardening": {
+    "done_at": "2026-09-02T10:57:00.357Z",
+    "request": "상위 러너가 계약 테스트를 재배정하며 넷을 요구했다 — AC-1 기준 이전, 27 단언의 공허함 닫기, 배럴 확장 내성 실측, 바이트 동일 단언 검토",
+    "item_1_ac1_alignment": {
+      "status": "완료 (앞선 라운드에서 반영)",
+      "detail": "EXPECTED_TOTAL_LINES 를 7296 으로 낮추고 줄 수 집계에서 배럴을 제외했다. 집계에서 빠지는 것이 배럴 하나뿐임을 단언으로 고정했다"
+    },
+    "item_2_file_count_vacuity_closed": {
+      "problem": "countedFiles 는 sourceFiles 와 styleFiles 를 이어 붙인 것이라 그 길이가 앞선 두 단언의 산술적 귀결이었다. 27 단언 혼자서는 어떤 뮤턴트도 잡지 못했다",
+      "fix": "portedFiles 에서 __tests__ 와 UNCOUNTED_FILES(LICENSE · UPSTREAM.md)만 배제해 27 을 두 번째 경로로 다시 센다. 확장자로 고르는 규칙(포함)과 비집계 파일을 지목하는 규칙(배제)이 서로 다른 출처이므로 값이 어긋날 수 있다. 두 집합의 deepEqual 도 함께 단언한다",
+      "mutation_evidence": [
+        {
+          "mutant": "src/editor/__mutant.txt 추가 — 확장자 규칙이 덮지 못하는 파일",
+          "result": "exit 1 · pass 2 / fail 1 · 깨진 것은 새 deepEqual 단언 하나뿐이다 (sourceFiles 25 와 CSS 단언은 통과)",
+          "significance": "이전 코드에서는 countedFiles.length 가 여전히 27 이라 이 뮤턴트를 아무것도 잡지 못했다. 공허함이 닫혔다는 직접 증거다"
+        },
+        {
+          "mutant": "src/editor/core/tags.ts 를 트리 밖으로 이동 — 집계 대상 파일 제거",
+          "result": "exit 1 · sourceFiles.length 단언이 먼저 깨진다 (25여야 하는데 24)",
+          "significance": "제거는 포함 경로와 배제 경로 양쪽에 영향을 주므로 첫 단언이 먼저 걸린다. 늘리는 쪽이 새 단언을 단독으로 시험하는 뮤턴트다"
+        }
+      ],
+      "restored": "두 뮤턴트 모두 원복 후 3/3 green"
+    },
+    "item_3_barrel_extension_tolerance": {
+      "mutant": "src/editor/index.ts 에 export type { AtomicCodeMirrorEditorProps } from './vendor/atomic-editor/index'; 한 줄 추가 (37 → 38줄)",
+      "result": "계약 3/3 green · npx tsc -b exit 0",
+      "significance": "PH-006 이 배럴에 재수출을 더해도 줄 수 케이스가 깨지지 않는다. 앞선 라운드의 대조군(배럴이 아닌 core/tags.ts 에 한 줄 추가 → 7297 로 red)이 이 green 이 공허하지 않음을 보증한다",
+      "restored": "원복 후 diff -r 로 이식 트리가 원본과 바이트 동일함을 재확인 (__tests__ 만 원본에 존재)"
+    },
+    "item_4_byte_identity_assertion": {
+      "decision": "넣지 않았다",
+      "reason_primary": "같은 AC-1 이 그것을 금지한다. AC-1 은 \"Given the port is complete, then all of the following hold inside this repository, with no path in any other checkout read\" 로 시작하고, 그 뒤에 \"byte-identical to their DocuLight sources\" 가 온다. 앞 조건이 뒤 조건의 직접 검사를 배제한다",
+      "reason_secondary": "SRS 의 판정 방침 문단이 명시적으로 거부한다 — \"No criterion reads the DocuLight checkout. That checkout is a developer's local working copy at a path that exists on one machine, so a recursive comparison against it cannot be run in CI or reproduced by anyone else, and a criterion that cannot be run is not a criterion\"",
+      "what_stands_in_for_it": "같은 문단이 대리를 지정한다 — \"The counts above are the record, and completeness is verified against them inside this repository: the ported tree's own file count, its line count, the presence of the MIT LICENSE, and the entry barrel's exported surface\". 파일 수 27 과 줄 수 7,296 이 그 역할이며, 이번에 둘 다 뮤턴트로 살아 있음을 확인했다",
+      "why_not_conditional": "경로가 있으면 검사하고 없으면 skip 하는 형태는 CI 에서 항상 skip 되는 죽은 단언이 된다. 방금 닫은 27 단언의 공허함과 같은 종류의 결함을 새로 만드는 셈이라 채택하지 않았다",
+      "alternative_offered": "저장소 안에서 바이트 동일성을 지키려면 이식 시점의 sha256 매니페스트를 저장소에 커밋해 두는 방법이 있다. DocuLight 를 읽지 않고 \"이식 후 아무도 손대지 않았음\"을 CI 에서 검증할 수 있다. 다만 새 파일을 더하는 것이라 이 Task 의 범위를 넘고, 매니페스트 자체가 이식 트리 안에 들어가면 파일 수 집계를 흔든다. 제안만 하고 착수하지 않았다"
+    },
+    "regression": {
+      "scope": "frontend build + tsc -b + typecheck:tests + tests/unit 전수",
+      "build": "exit 0",
+      "tsc -b": "exit 0",
+      "typecheck:tests": "exit 0",
+      "tests": 920,
+      "passed": 917,
+      "failed": 3,
+      "new_failures_attributable_to_this_lane": 0,
+      "failed_ids": [
+        "tests/unit/editorWindowPlacement.test.ts (파일 레벨)",
+        "PERF-BGSTAB-010 browser ACK is emitted only after an accepted visible terminal write",
+        "REL-BGSTAB-012 settles ledger and holds stale view through drain"
+      ],
+      "attribution": "editorWindowPlacement.test.ts 는 다른 레인이 방금 추가한 untracked 파일이며 아직 없는 src/components/editor/editorWindowPlacement.ts 를 import 해 ERR_MODULE_NOT_FOUND 로 죽는다 — PH-006 의 의도된 red 다. 나머지 둘은 T-PH003-02 가 기준선의 기존 실패로 확인해 둔 것과 같다"
+    }
+  },
+  "followup_test_project_references": {
+    "done_at": "2026-09-02T11:02:08.751Z",
+    "found_by": "독립 검증자의 교차검증",
+    "defect": "tsconfig.test.json 에 references 가 없었다. extends 는 compilerOptions 와 include/exclude 는 물려주지만 references 는 물려주지 않는다. exclude 만 있고 리다이렉트가 없는 상태 — tsconfig.app.json 에서 피한 바로 그 구성이 test 프로젝트에 남아 있었다",
+    "my_omission": "이 항목은 앞선 라운드의 검증자 리포트가 이미 지적했고 이 파일의 followup_erasable_syntax_only_restore.proposed_fix 에도 적혀 있었다. 기록해 두고 적용에서 빠뜨린 것이며 검증자가 실측으로 다시 잡았다",
+    "fix": "tsconfig.test.json 에 \"references\": [{ \"path\": \"./tsconfig.editor.json\" }] 를 더했다. 맨 위 주석의 \"Deliberately NOT listed in tsconfig.json references\" 가 이 파일이 solution 에 등재되지 않는다는 뜻이지 이 파일이 references 를 가지면 안 된다는 뜻이 아님을 주석으로 명시했다",
+    "measurement": {
+      "method": "호스트 파일이 배럴을 import 하는 프로브(src/components/__probe/importProbe.ts)를 만들어 두고, 그 프로브를 그대로 둔 채 references 만 더해 두 번 측정했다. 유일한 변수가 그 한 줄이다. 프로브 없이 돌리면 편집기를 import 하는 파일이 없어 양쪽 다 통과하므로 구멍이 보이지 않는다",
+      "before": {
+        "npm run typecheck:tests": "exit 2",
+        "TS1294": "21건",
+        "editor sources pulled in (--listFiles)": "45줄"
+      },
+      "after": {
+        "npm run typecheck:tests": "exit 0",
+        "TS1294": "0건",
+        "editor sources pulled in (--listFiles)": "0",
+        "editor .d.ts consumed": "21"
+      },
+      "probe_removed": "src/components/__probe 삭제 확인"
+    },
+    "sweep_for_same_defect": {
+      "method": "frontend 의 tsconfig 전수에 대해 include 대상과 references 유무를 대조했다",
+      "result": [
+        "tsconfig.app.json — include [\"src\"] · references 있음 (정상)",
+        "tsconfig.test.json — include [\"src\"] · references 있음 (이번에 고침)",
+        "tsconfig.editor.json — include [\"src/editor\"] · references 없음 (편집기 자신이므로 불필요)",
+        "tsconfig.node.json — include [\"vite.config.ts\"] · references 없음 (편집기와 무관)",
+        "tsconfig.json — solution · references 있음"
+      ],
+      "conclusion": "src 를 include 하면서 references 가 없는 프로젝트는 남아 있지 않다"
+    },
+    "final_verification": {
+      "npm run build": "exit 0",
+      "npx tsc -b": "exit 0",
+      "npm run typecheck:tests": "exit 0",
+      "editorPortContract.test.ts": "3/3 green",
+      "tests/unit 전수": "924 tests / 922 pass / 2 fail",
+      "failed_ids": [
+        "PERF-BGSTAB-010 browser ACK is emitted only after an accepted visible terminal write",
+        "REL-BGSTAB-012 settles ledger and holds stale view through drain"
+      ],
+      "attribution": "두 실패는 T-PH003-02 가 기준선의 기존 실패로 확인해 둔 것과 같다. 앞선 라운드에서 red 였던 editorWindowPlacement.test.ts 는 그 사이 다른 레인이 구현을 올려 통과로 바뀌었다"
+    }
+  },
+  "followup_barrel_reexport_only": {
+    "done_at": "2026-09-02T11:09:11.897Z",
+    "found_by": "교차검증이 찾은 살아남은 뮤턴트",
+    "defect": "줄 수 집계에서 배럴을 뺀 대가로 배럴이 임의 코드의 통로가 되었다. AC-1 은 \"only re-exports may be added to it\" 을 요구하는데, export function smuggledHelper(): number { return 42; } 를 넣어도 계약 테스트가 3/3 green 이었다",
+    "fix": {
+      "approach": "배럴 소스에서 재수출 문과 주석과 공백을 걷어내고 남는 것이 있는지로 판정한다. 남으면 재수출이 아닌 코드다",
+      "why_this_shape": "허용 목록을 나열하는 대신 허용된 형태를 지우고 잔여물을 보는 쪽을 택했다. 새로운 비-재수출 구문(class · const · function · 실행문 어느 것이든)이 들어와도 규칙을 고치지 않고 잡힌다 — 목록 방식이면 목록에 없는 형태가 조용히 빠져나간다",
+      "covered_forms": "export { … } from '…' · export type { … } from '…' · export * from '…' · export * as ns from '…' 을 모두 재수출로 인정한다. AC-1 이 재수출 추가를 요구하므로 재수출까지 막으면 배럴 단일 경유 요구와 다시 충돌한다"
+    },
+    "mutation_evidence": {
+      "baseline": "단언 추가 직후 3/3 green (현재 배럴의 잔여물 길이 0)",
+      "mutants": [
+        {
+          "id": "M1",
+          "change": "export function smuggledHelper(): number { return 42; } 추가 — 검증자가 보고한 그것",
+          "result": "exit 1 · pass 2 / fail 1",
+          "message": "배럴에 허용되는 변경은 재수출 추가뿐인데 그 밖의 코드가 있다 — exportfunctionsmuggledHelper():number{return42;}"
+        },
+        {
+          "id": "M2",
+          "change": "export const SMUGGLED = 42; 추가 — 다른 형태의 비-재수출",
+          "result": "exit 1 · pass 2 / fail 1",
+          "significance": "함수 하나만 겨냥한 규칙이 아님을 보인다"
+        },
+        {
+          "id": "M3",
+          "change": "export type { AtomicCodeMirrorEditorHandle } from './vendor/atomic-editor/index'; 추가 — 재수출",
+          "result": "exit 0 · 3/3 green · npx tsc -b exit 0",
+          "significance": "AC-1 의 배럴 단일 경유 요구와 충돌하지 않는다. 재수출까지 막았다면 PH-006 이 필요한 심볼을 배럴로 올리지 못한다"
+        }
+      ],
+      "restore": {
+        "method": "sha256 대조",
+        "before": "296c4fbc30d2bd30a4d592d6127a70c38c408e94f51c1eb6a8f3f15e314d94f8",
+        "after": "296c4fbc30d2bd30a4d592d6127a70c38c408e94f51c1eb6a8f3f15e314d94f8",
+        "match": true
+      }
+    },
+    "coordination": "뮤턴트 창 시작과 종료를 상위 러너에 SendMessage 로 알려 검증자가 그 구간을 피하도록 했다. 이전 라운드에서 프로브가 검증자의 측정을 두 번 오염시킨 데 대한 조치다",
+    "final_verification": {
+      "npm run build": "exit 0",
+      "npx tsc -b": "exit 0",
+      "npm run typecheck:tests": "exit 0",
+      "editorPortContract.test.ts": "3/3 green",
+      "tests/unit 전수": "924 tests / 922 pass / 2 fail",
+      "failed_ids": [
+        "PERF-BGSTAB-010 browser ACK is emitted only after an accepted visible terminal write",
+        "REL-BGSTAB-012 settles ledger and holds stale view through drain"
+      ],
+      "attribution": "두 실패는 T-PH003-02 가 기준선의 기존 실패로 확인해 둔 것과 같다. 이 레인에 귀속되는 신규 실패는 0건"
+    }
+  }
+}

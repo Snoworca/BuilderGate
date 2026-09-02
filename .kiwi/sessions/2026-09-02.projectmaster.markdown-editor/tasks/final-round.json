@@ -1,0 +1,119 @@
+{
+  "round": "final",
+  "at": "2026-09-02T19:19:10Z",
+  "e2e": {
+    "markdown-editor-entry": {
+      "passed": 7,
+      "failed": 0
+    },
+    "markdown-editor-placement": {
+      "passed": 10,
+      "failed": 1,
+      "failing": "the neighbour overlap assertion, awaiting approval"
+    },
+    "markdown-editor-lifecycle": {
+      "passed": 8,
+      "failed": 0
+    },
+    "markdown-editor-save": {
+      "passed": 12,
+      "failed": 0
+    },
+    "command-management-dialog": {
+      "passed": 2,
+      "failed": 1,
+      "failing": "the error wording for a rejected delete; no file on that path was touched in this run",
+      "precondition": "this spec dies at waitForTerminal when the workspace has no tab"
+    }
+  },
+  "regression": {
+    "tests": 975,
+    "passed": 973,
+    "failed": 2,
+    "failed_test_ids": [
+      "PERF-BGSTAB-010",
+      "REL-BGSTAB-012"
+    ],
+    "new_failures": 0,
+    "note": "975 rather than 972 because three unit tests were added"
+  },
+  "final_round_fixes": [
+    {
+      "id": "HIGH-1",
+      "what": "the orphan report fired on every commit while the tab was gone, so any transition out of floating was undone - 최대화 and 터미널 채움 were inert on an orphaned window, against FR-MDE-001 AC-1/AC-2/AC-3. It now reports once per window and the set is pruned with the windows"
+    },
+    {
+      "id": "HIGH-2",
+      "what": "a tray revival of an orphaned window set the workspace's activeTabId to a deleted tab, blanking the terminal and hiding every other window in that workspace. The revival now selects only a tab that still exists"
+    },
+    {
+      "id": "MEDIUM-1",
+      "what": "raiseDialogById took a DialogMode, so raising a modal type-checked and would have moved the focus trap. The parameter is 'modeless'"
+    },
+    {
+      "id": "MEDIUM-3",
+      "what": "the id search took the first match, which is the backmost dialog. It runs from the front"
+    },
+    {
+      "id": "HIGH-3",
+      "what": "three unit tests added for the two new pure rules - raiseDialogById and term 4's orphan escape"
+    }
+  ],
+  "programmatic_raise": {
+    "what": "reopening an open file and reviving from the tray both raise the window; both were placeholders reading 'raising is T-PH007-08's'",
+    "how": "raiseDialogById names the dialog by the id its host already knows, so the token never leaves useDialogStack",
+    "closed": "markdown-editor-entry.spec.ts FR-MDE-007 reopen, which had been red"
+  },
+  "mutants": [
+    {
+      "mutation": "raiseDialogById finds the entry but does not raise",
+      "target": "entry reopen",
+      "went_red": true
+    },
+    {
+      "mutation": "the orphan report guarded by placement rather than by having reported",
+      "target": "save tab bar close",
+      "went_red": true
+    }
+  ],
+  "restore_verified_sha256": {
+    "dialogStack.ts": "d49c392abeca71e298dbfed2f533d6c0d68684d9dd1e3fb9aff69fc0a8721de2",
+    "EditorWindowLayer.tsx": "9497269cacbfba19f09d04eaa1f5c450e0d040061aba344a64e108d76c03c7e3"
+  },
+  "reported_not_fixed": [
+    {
+      "id": "MEDIUM-5",
+      "what": "tabClosed on the visibility predicate is optional and defaults to the answer that loses a window. The only thing optionality buys is not editing an existing test factory; there is exactly one caller and it passes the flag"
+    },
+    {
+      "id": "MEDIUM-6",
+      "what": "resolveTabSession(...) === undefined is now spelled out in three places across two files. EditorWindowRenderContext could carry tabClosed and the two recomputations could go"
+    },
+    {
+      "id": "MEDIUM-7",
+      "what": "editorWindowDialogId sits in the component module, which the unit suite cannot import, so the id rule has no unit test"
+    },
+    {
+      "id": "LOW-2",
+      "what": "two windows orphaned before either was drawn both fall back to the stage rect and overlap exactly"
+    },
+    {
+      "id": "LOW-3",
+      "what": "deleting a workspace removes its tabs, so every window in it is rewritten to floating while off screen"
+    },
+    {
+      "id": "LOW-4",
+      "what": "a layer remount before the orphan applies loses the inherited rect and falls back to the stage"
+    },
+    {
+      "id": "LOW-5",
+      "what": "revive uses a non-functional setWindows built from a captured value"
+    }
+  ],
+  "open": [
+    {
+      "what": "markdown-editor-placement.spec.ts neighbour overlap assertion",
+      "status": "awaiting approval"
+    }
+  ]
+}

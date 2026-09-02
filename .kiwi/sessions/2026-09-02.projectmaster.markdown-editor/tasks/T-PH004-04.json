@@ -1,0 +1,99 @@
+{
+  "task_id": "T-PH004-04",
+  "phase_id": "PH-004",
+  "lane": "E",
+  "started_at": "2026-09-02T12:52:00Z",
+  "completed_at": "2026-09-02T13:40:00Z",
+  "phase2": {
+    "impl_iters": [
+      { "iter": 1, "files_changed": ["frontend/src/components/editor/editorWindowRect.ts"] },
+      {
+        "iter": 2,
+        "files_changed": [
+          "frontend/tests/unit/editorWindowRect.test.ts",
+          "frontend/src/components/editor/editorWindowRect.ts"
+        ],
+        "change": "까칠 리뷰 반영. clampToStage 의 경계 인자를 ViewportRect 에서 DialogRect 로 바꿔 레지스트리 rect 를 경계로 넘기는 혼동을 컴파일 오류로 만들었다. 테스트를 먼저 고쳐 red(actual NaN, expected -137)를 확인한 뒤 구현을 바꿨다"
+      }
+    ],
+    "formal_reviews": [
+      {
+        "iter": 1,
+        "mock_regex_scan": { "matches": 0 },
+        "typecheck": [
+          { "command": "npx tsc -b (cwd=frontend)", "exit_code": 0 },
+          { "command": "npx tsc -p tsconfig.test.json --noEmit (cwd=frontend)", "exit_code": 0 },
+          { "command": "임시 tsconfig 로 tests/unit/editorWindowRect.test.ts 검사 후 삭제", "exit_code": 0 }
+        ],
+        "test_case_coverage": { "declared": 3, "executed": 3 }
+      }
+    ],
+    "prickly_reviews": [
+      {
+        "iter": 1,
+        "verdict": "PASS",
+        "severity_summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 3, "LOW": 2 },
+        "accepted": [
+          "픽셀 상수 스캐너가 220.0 / 0xDC / 2.2e2 를 놓친다 (리뷰어가 실증) - 숫자 리터럴을 뽑아 Number() 로 평가하도록 교체",
+          "스캔이 한 파일 깊이라 상수를 형제 모듈로 옮기면 빠져나간다 (리뷰어가 실증) - 상대 import 를 따라가는 전이 스캔으로 교체, 순회가 진입 파일을 벗어났음을 양성 대조로 확인",
+          "OverlayRelativeRect 와 ViewportRect 가 구조적으로 같아 clampToStage(rect, hostRect) 가 컴파일된다 (리뷰어가 tsc 프로브로 실증) - 경계 인자를 DialogRect 로 바꿔 컴파일 오류가 되게 함. 프로브 재실행 결과 TS2345 정확히 1건, 정상 사용 2건은 무오류",
+          "경로 표시줄 단언이 직전 deepEqual 에 지배되어 어떤 뮤테이션도 도달할 수 없다 - 제거하고 그 절이 상류(TerminalHostSlot)에서 성립함과 E2E 소관임을 주석으로 명시"
+        ],
+        "rejected": [
+          {
+            "finding": "스테이지가 0x0 일 때 minSize 로 떨어지지 않고 창이 0 으로 붕괴한다. dialogGeometry.ts 의 clampDialogRect 와 어긋난다",
+            "reason": "minSize(320x240)는 계단식 모듈(T-PH004-06)의 소관이며, 이곳에 들이면 한 규칙이 두 모듈로 쪼개진다. 면적이 0 인 대상에는 배치를 보류하는 것이 AC-9 의 가시성 판정(다른 레인)이 할 일이다. 결정과 사유를 모듈 주석에 남겼다"
+          },
+          {
+            "finding": "NaN 입력이 걸러지지 않는다",
+            "reason": "리뷰어 스스로 실제 호출자에서 재현하지 못했다고 적었다. 입력은 getBoundingClientRect 와 Rnd 델타이며 둘 다 유한하다. 불가능한 상황의 오류 처리는 만들지 않는다"
+          }
+        ]
+      }
+    ],
+    "green_evidence": {
+      "command": "node --experimental-strip-types --test tests/unit/editorWindowRect.test.ts (cwd=frontend)",
+      "exit_code": 0,
+      "timestamp": "2026-09-02T13:40:00Z"
+    },
+    "green_evidence_meta": {
+      "passed_test_case_ids": [
+        "TC-REQ-FR-MDE-001-AC5-02",
+        "TC-REQ-FR-MDE-001-AC6-02",
+        "TC-REQ-FR-MDE-001-AC7-02"
+      ],
+      "mutants": [
+        { "mutation": "docked x 에서 오버레이 원점을 뺀다", "went_red": true },
+        { "mutation": "오버레이 원점을 위치가 아니라 width 에 더한다", "went_red": true },
+        { "mutation": "클램프 기준을 스테이지가 아니라 뷰포트(0)로 쓴다", "went_red": true },
+        { "mutation": "클램프가 최솟값만 강제한다", "went_red": true },
+        { "mutation": "사이드바 상수 220 을 계산식에 복제한다", "went_red": true },
+        { "mutation": "레이아웃 상수를 220.0 / 58.0 / 36.0 으로 다시 적는다", "went_red": true },
+        { "mutation": "레이아웃 상수를 0xDC / 2.2e2 로 다시 적는다", "went_red": true },
+        { "mutation": "레이아웃 상수를 형제 모듈로 옮겨 import 한다", "went_red": true },
+        { "mutation": "toStageRect 가 첫 측정을 캐시한다", "went_red": true },
+        { "mutation": "clampToStage 가 경계 안이면 호출자 객체를 그대로 돌려준다", "went_red": true },
+        { "mutation": "크기 클램프를 제거해 위치만으로 포함을 시도한다", "went_red": true }
+      ],
+      "restore_hash_match": true,
+      "control_unmutated_exit": 0
+    },
+    "dod_check": [
+      { "item": "AC-5 · AC-6 · AC-7 이 green 이다", "satisfied": true },
+      { "item": "레이아웃 상수를 새로 복제하지 않는다", "satisfied": true, "how": "모듈과 그 상대 import 전이 전체에서 숫자 리터럴을 평가해 220/58/36 부재를 단언하고, 탐지기 자체를 합성 입력 8종으로 양방향 대조" }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "command": "node --experimental-strip-types --test \"tests/unit/*.test.ts\" (cwd=frontend)",
+      "scope": "frontend tests/unit 전수",
+      "tests": 934, "passed": 932, "failed": 2,
+      "failed_test_ids": [
+        "PERF-BGSTAB-010 browser ACK is emitted only after an accepted visible terminal write",
+        "REL-BGSTAB-012 settles ledger and holds stale view through drain"
+      ],
+      "new_failures": 0,
+      "note": "두 실패는 상위가 알린 기준선(924/922/2)의 기존 실패와 동일하다"
+    }
+  }
+}

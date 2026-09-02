@@ -1,0 +1,35 @@
+{
+  "task_id": "T-PH007-09",
+  "iter": 1,
+  "pass": "tdd-review",
+  "target_file": "frontend/tests/e2e/markdown-editor-lifecycle.spec.ts",
+  "axes": {
+    "intent-alignment": {
+      "model": "sonnet",
+      "findings": [
+        { "severity": "CRITICAL", "ac": "FR-MDE-005 AC-2", "problem": "Both clauses were unreachable and the substitute was vacuous. The render site keys each window by its file path, so two files are two component trees from the first render and the editor's own identity rule is never consulted; and no product path hands a mounted editor a new markdownSource under a fixed documentId. A regression breaking the editor's identity effect would have passed.", "resolution": "The test now asserts the discriminator the failure signature actually names -- that the window passes documentId and that it is the resolved path rather than the body -- and states in the file that the component-level half has no application path. Reported rather than simulated." },
+        { "severity": "HIGH", "ac": "FR-MDE-005 AC-4", "problem": "The readOnly toggle drives the imperative handle, not the reactive prop effect, so a regression that added readOnly to the mount effect's dependencies would ship green.", "resolution": "Kept, because the window passes no readOnly prop and the handle is the only mechanism this application has. The distinction is stated in the file and reported." },
+        { "severity": "MEDIUM", "ac": "FR-MDE-005 AC-3", "problem": "data-dirty flips on any callback invocation, so it could not show the call carried the typed text.", "resolution": "The window is saved and the file read back off disk; the controller can only write text the callback handed it." },
+        { "severity": "LOW", "ac": "FR-MDE-002 AC-1", "problem": "A substring check cannot say the body differs from disk in exactly the same way.", "resolution": "The whole body is captured before minimizing and compared exactly afterwards." },
+        { "severity": "LOW", "problem": "A second extensionsToken read after the readOnly toggle could not differ from the first.", "resolution": "Dropped." }
+      ],
+      "confirmed_sound": "The DOM stamp does establish EditorView identity: the mount effect recreates the view only when documentId (or, absent it, the body) changes, and its cleanup destroys the previous content element. Nothing else replaces it."
+    },
+    "tech-quality": {
+      "model": "sonnet",
+      "findings": [
+        { "severity": "MEDIUM", "problem": "The restart was judged by 'any id other than the old one', which accepts an intermediate value the server may still roll back.", "resolution": "The restart response's session id is captured and polled for by equality." },
+        { "severity": "MEDIUM", "problem": "Nothing confirmed the page itself learned of the restart; every later assertion keyed off the file path alone.", "resolution": "A live terminal is asserted back on screen after the restart." },
+        { "severity": "MEDIUM", "problem": "Teardown swallowed every error, so a leaked tab and its pty had no paper trail.", "resolution": "The swallowed error is logged." },
+        { "severity": "LOW", "problem": "Typing relied on the click landing below the last line to put the caret at the end.", "resolution": "The caret is driven to the end explicitly." }
+      ],
+      "confirmed_sound": "No stub replaces anything under test; the header tray button's render condition holds in every scenario this file sets up; the hidden surface is styled rather than detached, so the CSS assertions are safe."
+    },
+    "req-mapping": { "runner": "script", "result": "eight test titles equal the eight test_symbol values; req_id and ac_refs match the sidecar task" }
+  },
+  "gate": { "critical": 0, "high": 0, "note": "CRITICAL resolved by replacing the vacuous substitute with the reachable discriminator; HIGH resolved by keeping the only mechanism the application has and reporting the gap (skill 0.22)" },
+  "requirement_conflicts_reported": [
+    "FR-MDE-005 AC-2: both clauses describe transitions on a mounted editor that this application never drives. The SRS Verification Method assigns the criterion to Playwright E2E.",
+    "FR-MDE-005 AC-4: the readOnly prop is never passed by EditorWindow, so only the imperative handle is drivable."
+  ]
+}

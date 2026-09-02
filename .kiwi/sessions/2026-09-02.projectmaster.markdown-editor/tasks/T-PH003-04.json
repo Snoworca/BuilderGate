@@ -1,0 +1,177 @@
+{
+  "task_id": "T-PH003-04",
+  "started_at": "2026-09-02T09:40:00.000Z",
+  "completed_at": "2026-09-02T10:30:00.000Z",
+  "tdd_phase": "green",
+  "phase1": {
+    "note": "red 는 선행 Task T-PH003-03 이 확정했다 (exit 1, tests 4 / pass 2 / fail 2). 이 Task 는 green 단계다"
+  },
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "frontend/src/components/dialog/windowDialogModel.ts",
+          "frontend/src/components/dialog/WindowDialog.tsx"
+        ],
+        "note": "입력 타입에 mode?: DialogMode 를 더하고 기본값을 'modal' 로 두었다. 층 공식에 대역 분기를 넣어 모달리스는 3000 에서 시작해 3980 에서 포화하고, 모달은 5000 대역을 그대로 쓴다. 호출부가 mode 를 모델에 넘긴다"
+      },
+      {
+        "iter": 2,
+        "files_changed": [
+          "frontend/src/components/dialog/windowDialogModel.ts",
+          "frontend/tests/unit/windowDialogZBand.test.ts"
+        ],
+        "note": "까칠 리뷰의 MED-1 과 LOW-3 · LOW-1 을 닫았다. 삼항 분기를 Record<DialogMode, {base, cap}> 테이블로 바꿔 유니온에 값이 늘면 컴파일이 깨지게 했고, 모달 대역의 상한 부재를 cap: Infinity 로 명시했다. 그리고 호출부 배선을 고정하는 소스 텍스트 계약 테스트를 더했다"
+      }
+    ],
+    "formal_reviews": [
+      {
+        "iter": 1,
+        "mock_regex": "0건",
+        "type_build": "PASS — npx tsc -p tsconfig.app.json --noEmit exit 0 (3회 반복 확인)",
+        "lint": "PASS — npx eslint src/components/dialog tests/unit/windowDialogZBand.test.ts tests/unit/dialogStack.test.ts exit 0",
+        "plan_code_match": "PASS — 변경 파일이 sidecar.files[] 두 개와 test_files[] 안에 있다",
+        "test_coverage": "PASS — tdd.test_cases 의 AC1-02 · AC2-02 · AC3-02 · AC4-02 네 건이 모두 실행되어 pass"
+      }
+    ],
+    "prickly_reviews": [
+      {
+        "iter": 1,
+        "reviewer": "독립 서브에이전트 (Opus). 자체적으로 스크래치패드 복사본에 뮤턴트 9종을 돌려 9/9 KILLED 를 확인했다",
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 1,
+        "LOW": 7,
+        "accepted": ["MED-1", "LOW-1(명시화)", "LOW-3"],
+        "rejected": ["LOW-2", "LOW-4", "LOW-5", "LOW-6", "LOW-7"]
+      }
+    ],
+    "green_evidence": {
+      "command": "cd frontend && node --experimental-strip-types --test tests/unit/windowDialogZBand.test.ts",
+      "exit_code": 0,
+      "timestamp": "2026-09-02T10:30:00.000Z"
+    },
+    "green_evidence_meta": {
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "passed_test_case_ids": [
+        "TC-REQ-CON-MDE-001-AC1-02",
+        "TC-REQ-CON-MDE-001-AC2-02",
+        "TC-REQ-CON-MDE-001-AC3-02",
+        "TC-REQ-CON-MDE-001-AC4-02"
+      ],
+      "fifth_case": "사이드카에 없는 다섯 번째 케이스를 추가했다 — 'CON-MDE-001 WindowDialog hands its mode to the behavior model'. 까칠 리뷰 MED-1 을 닫기 위한 것이며 아래 wiring_pin 에 근거를 적었다",
+      "modal_contract_intact": "cd frontend && node --experimental-strip-types --test tests/unit/windowDialogContract.test.ts → tests 3 / pass 3 / fail 0, exit 0. git diff 52bb643 기준 파일 무수정 (0 바이트)",
+      "existing_dialog_suite": "npm run test:unit:command-management → exit 0 (기존 다이얼로그 단위 48건)"
+    },
+    "wiring_pin": {
+      "why": "mode 가 optional 이라 호출부에서 그 인자를 지워도 tsc 가 통과하고 값 단언 네 건도 전부 green 을 유지한다 — 그 단언들은 저마다 mode 를 스스로 넘기기 때문이다. 그 상태에서 모든 편집기 창이 모달 대역으로 돌아가 AC-3 이 무증상으로 깨진다. 이 스위트에는 컴포넌트를 렌더할 DOM 이 없으므로 호출부를 소스 텍스트로 고정했다",
+      "fragility_guards": [
+        "CRLF 를 LF 로 정규화한 뒤 매칭한다 — 이 저장소의 소스는 전부 CRLF 라 \\n 리터럴은 영구 불일치한다",
+        "고정 줄 창을 쓰지 않고 심볼 이름으로 앵커를 잡는다",
+        "앵커 두 개 모두 -1 가드를 붙였다. 함수명이 바뀌거나 호출이 사라지면 공허 통과 대신 그 사유가 적힌 실패가 난다"
+      ],
+      "mutant_proof": "W1(호출부에서 mode 인자만 제거)에서 이 케이스만 빨개지고 나머지 네 케이스는 전부 green 을 유지했다. 이 배선을 관측하는 단언이 이것 하나뿐임을 실측으로 보인 것이다"
+    },
+    "mutation_controls": [
+      { "mutant": "W1 — 호출부에서 mode 인자 제거", "killed_by": ["wiring pin"], "survived_in": ["AC-1", "AC-2", "AC-3", "AC-4"], "exit": 1 },
+      { "mutant": "M1 — 모달리스 base 를 5000 으로", "killed_by": ["AC-1"], "exit": 1 },
+      { "mutant": "M2 — 모달리스 상한 제거", "killed_by": ["AC-1", "AC-3"], "exit": 1 },
+      { "mutant": "M3 — 기본값을 modeless 로", "killed_by": ["AC-2", "AC-3"], "exit": 1 },
+      { "mutant": "M4 — dialogZ 를 layerZ 와 같게", "killed_by": ["AC-1", "AC-2"], "exit": 1 },
+      { "mutant": "M5 — layerIndex 무시", "killed_by": ["AC-1", "AC-2"], "exit": 1 },
+      { "mutant": "M6 — 모달 대역에 3980 상한 부여", "killed_by": ["AC-2", "AC-3"], "exit": 1 },
+      { "mutant": "M7 — 모달리스 base 를 500 으로 (AC-4 판별력 측정용)", "killed_by": ["AC-1", "AC-4"], "exit": 1, "note": "분기 구현 시점에 측정했다" }
+    ],
+    "mutation_control_integrity": {
+      "windowDialogModel_hash_before": "6fb88d9924a8fca2f5a4cc6af89a7b5102613c0449005e6794866fea0259341f",
+      "windowDialogModel_hash_after_restore": "6fb88d9924a8fca2f5a4cc6af89a7b5102613c0449005e6794866fea0259341f",
+      "WindowDialog_hash_before": "af40f4c3d9d00d2c40b3375b51ec1bf52ca370806ccef1758e0078838b62e228",
+      "WindowDialog_hash_after_restore": "af40f4c3d9d00d2c40b3375b51ec1bf52ca370806ccef1758e0078838b62e228",
+      "restored_identical": true,
+      "false_run_discarded": "중간에 mut() 헬퍼가 인자를 잃은 채 실행된 라운드가 있었다. 뮤턴트가 적용되지 않아 전부 green 이 나왔고 그 라운드는 증거에서 폐기한 뒤 재실행했다"
+    }
+  },
+  "phase3": {
+    "regression": {
+      "scope": "frontend/tests/unit 전수",
+      "command": "cd frontend && node --experimental-strip-types --test tests/unit/*.test.ts",
+      "tests": 917,
+      "passed": 915,
+      "failed": 2,
+      "regressed_files": [],
+      "detail": "실패 2건은 terminalContainerRecoveryContract.test.ts 와 terminalHiddenOutput.test.ts 로 기준선의 기존 실패다. 둘 다 dialogStack 이나 WindowDialog 를 import 하지 않는다. 이 Task 에 귀속되는 신규 실패는 0건이다"
+    },
+    "mcp_calls": [],
+    "mcp_mutation_skip_reason": "계획 §1.3 이 이 plan 의 모든 Task 에 대해 requirement status 승급과 docs/spec 편집을 범위 밖으로 두었고, 상위 kiwi-pm 이 종료 시 일괄 승급한다"
+  },
+  "dod_check": [
+    {
+      "item": "AC-1 ~ AC-4 가 green 이다.",
+      "satisfied": true,
+      "detail": "tests 5 / pass 5 / fail 0, exit 0. 네 AC 케이스 모두 통과하며 뮤턴트 8종이 전부 KILLED 라 공허 통과가 아니다"
+    },
+    {
+      "item": "`windowDialogContract.test.ts` 가 수정 없이 통과한다.",
+      "satisfied": true,
+      "detail": "git diff 52bb643 기준 이 파일의 diff 는 0 바이트다. tests 3 / pass 3 / fail 0, exit 0. 반환 필드 집합이 늘지 않았음을 새 테스트도 키 집합 비교로 따로 단언한다"
+    }
+  ],
+  "review_dispositions": [
+    {
+      "id": "MED-1",
+      "finding": "호출부의 mode 배선을 고정하는 테스트가 없고, mode 가 optional 이라 지워도 타입 오류가 나지 않는다",
+      "disposition": "accepted — 리뷰어의 권고(다음 Task 로 이월)보다 강하게 처리해 이 Task 안에서 닫았다",
+      "reason": "이 Task 의 action 세 번째 항목이 바로 그 호출부 배선이고, windowDialogZBand.test.ts 는 이 Task 의 test_files[] 안에 있다. 소스 텍스트 핀의 알려진 취약점 셋(CRLF · 고정 줄 창 · 앵커 부재 시 공허 통과)을 모두 막았고, W1 뮤턴트로 판별력을 실측했다"
+    },
+    {
+      "id": "LOW-1",
+      "finding": "모달 대역만 상한이 없어 layerIndex 5 에서 .command-preset-toast(5100)를 넘는다",
+      "disposition": "동작은 그대로 두고 사실만 명시했다",
+      "reason": "요구사항이 모달 대역 불변을 요구하므로 값을 바꾸지 않는다. 다만 상한 부재가 분기에 숨어 있던 것을 테이블의 cap: Number.POSITIVE_INFINITY 로 드러냈다. 리뷰어 실측으로 UI 상 도달 가능한 최대 중첩은 2 (layerIndex 1 → 5020/5021) 이며, 모달 마운트가 body 형제를 inert 로 만들어 두 번째 매니저 다이얼로그를 열 수 없기 때문이다. CON-MDE-001 의 'Known constraints accepted here' 에 한 줄 추가할 후보로 남긴다"
+    },
+    {
+      "id": "LOW-3",
+      "finding": "mode 분기가 소진성 검사를 받지 않아 DialogMode 에 세 번째 값이 생기면 조용히 모달 대역으로 간다",
+      "disposition": "accepted — 고쳤다",
+      "reason": "Record<DialogMode, {base, cap}> 로 바꿨다. 같은 디렉터리의 dialogStack.ts 가 이미 Record<DialogMode, ...> 로 같은 보호를 받고 있어 두 파일의 안전망 수준이 어긋나 있었다. 줄 수도 줄었다"
+    },
+    {
+      "id": "LOW-2",
+      "finding": "음수·NaN layerIndex 에 하한이 없다",
+      "disposition": "rejected — 관측만 기록",
+      "reason": "유일한 호출부가 createDialogStackState 의 layerIndex < 0 ? 0 : layerIndex 를 거치므로 도달 불가다. 불가능한 상황을 위한 방어 코드를 넣지 않는다"
+    },
+    {
+      "id": "LOW-4",
+      "finding": "상한 3980 이 base·step 에서 유도되지 않은 절대 리터럴이다",
+      "disposition": "rejected",
+      "reason": "요구사항이 3980 을 리터럴로 못 박았다. 유도식으로 바꾸면 요구가 지정한 값이 상수들의 부산물이 되어, 상수가 바뀔 때 요구와 조용히 어긋난다"
+    },
+    {
+      "id": "LOW-5",
+      "finding": "테스트의 모달·하위 표면 z-index 가 CSS 에서 읽히지 않고 하드코딩되어 있다",
+      "disposition": "rejected — 관측만 기록",
+      "reason": "단위 테스트가 CSS 를 읽으면 결합이 과해진다. 리뷰어가 오늘의 리터럴이 실제 값과 전부 일치함을 grep 히스토그램으로 확인했고, 실측 담당은 AC-5 E2E(T-PH007-08)다"
+    },
+    {
+      "id": "LOW-6",
+      "finding": "새 테스트가 lint:command-management · test:unit:command-management 목록에 없다",
+      "disposition": "rejected — 이월",
+      "reason": "frontend/package.json 은 이 Task 의 files[] 밖이고 다른 레인이 동시에 편집하는 파일이다. 상위에 보고한다"
+    },
+    {
+      "id": "LOW-7",
+      "finding": "frontend/tsconfig.app.json 의 erasableSyntaxOnly 가 꺼졌다",
+      "disposition": "rejected — 이 레인의 변경이 아니다. 상위에 보고",
+      "reason": "git diff 로 확인한 결과 편집기 레인(lane-C)이 vendored 트리의 생성자 파라미터 프로퍼티 때문에 껐다. 이 옵션은 node --experimental-strip-types 가 src 를 import 할 수 있음을 보장하던 가드이고, 이 Task 의 verification_cmd 가 정확히 그 경로로 돈다. 되돌리지 않되 위험은 보고한다"
+    }
+  ],
+  "observations": [
+    "AC-4 케이스는 이 Task 가 고친 결함에 대해 판별력이 없다. W1 · M1 · M2 · M3 · M4 · M5 · M6 일곱 뮤턴트에서 모두 살아남았다. 다만 완전한 사문은 아니다 — 대역을 500 으로 낮춘 M7 은 죽였다. 즉 하한 가드로서는 작동하고, 3000 과 5000 을 구분하지 못할 뿐이다. AC-4 의 하한이 최대 1000 이라 두 대역이 모두 그 위에 있는 것이 원인이며 요구사항 자체의 성질이다",
+    "npx tsc -p tsconfig.app.json --noEmit 이 한 번 exit 2 를 냈다가 이후 3회 연속 exit 0 이 되었다. 다른 레인이 같은 순간에 src 를 쓰고 있었거나 두 tsc 가 tsbuildinfo 를 두고 경합한 것으로 보인다. 재현되지 않아 실제 타입 오류로 보고하지 않는다",
+    "모달 6곳의 z-index 는 숫자까지 기준선과 동일하다. 공식(5000 + n * 20)도 layerIndex 의 의미도 바뀌지 않았다 — 기준선에서는 모달만 등록되었고 지금은 modal 스택에 모달만 들어가므로 인덱스 결과가 같다"
+  ]
+}

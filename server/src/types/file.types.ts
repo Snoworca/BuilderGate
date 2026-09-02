@@ -66,3 +66,8 @@ export interface MkdirRequest {
   path: string;
   name: string;
 }
+
+export interface WriteRequest {
+  path: string;
+  content: string;
+}

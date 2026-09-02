@@ -3,7 +3,7 @@
  * Phase 7: Frontend Security - Auth API added
  */
 
-import { tokenStorage } from './tokenStorage';
+import { tokenStorage } from './tokenStorage.ts';
 import { parseApiErrorPayload } from './apiError.ts';
 export { parseApiErrorPayload } from './apiError.ts';
 
@@ -292,6 +292,17 @@ export const fileApi = {
   readFile: async (sessionId: string, path: string): Promise<FileContent> => {
     const res = await authFetch(`${API_BASE}/sessions/${sessionId}/files/read?path=${encodeURIComponent(path)}`, {
       headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  // @req IR-MDE-001
+  writeFile: async (sessionId: string, path: string, content: string): Promise<{ success: boolean }> => {
+    const res = await authFetch(`${API_BASE}/sessions/${sessionId}/files/write`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ path, content }),
     });
     if (!res.ok) throw await parseError(res);
     return res.json();

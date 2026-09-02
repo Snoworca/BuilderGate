@@ -1,0 +1,136 @@
+{
+  "task_id": "T-PH004-02",
+  "phase_id": "PH-004",
+  "lane": "E",
+  "started_at": "2026-09-02T11:25:00Z",
+  "completed_at": "2026-09-02T11:58:00Z",
+  "phase2": {
+    "impl_iters": [
+      { "iter": 1, "files_changed": ["frontend/src/components/editor/editorWindowPlacement.ts"] },
+      {
+        "iter": 2,
+        "files_changed": [
+          "frontend/src/components/editor/editorWindowPlacement.ts",
+          "frontend/tests/unit/editorWindowPlacement.test.ts"
+        ],
+        "change": "까칠 리뷰 findings 반영. fillTerminal 과 isTerminalFillDisabled 는 구현을 제거하고 test-first 로 다시 진행했다(CLAUDE.md 의 test-after 금지)"
+      }
+    ],
+    "formal_reviews": [
+      {
+        "iter": 1,
+        "mock_regex_scan": { "matches": 0 },
+        "typecheck": {
+          "command": "npx tsc --noEmit <tsconfig.app 플래그 동등> src/components/editor/editorWindowPlacement.ts src/components/editor/editorWindowRecord.ts tests/unit/editorWindowPlacement.test.ts",
+          "exit_code": 0
+        },
+        "test_case_coverage": { "declared": 3, "executed": 3, "extra_executed": 2 }
+      }
+    ],
+    "prickly_reviews": [
+      {
+        "iter": 1,
+        "findings": [
+          {
+            "severity": "HIGH",
+            "axis": 5,
+            "claim": "EditorWindowPlacement 유니온이 editorWindowRecord.ts 에 중복 선언되어 있다",
+            "resolution": "rejected — 사실이 아니다. editorWindowRecord.ts 는 그 유니온을 이 모듈에서 import 한다. 다만 같은 값을 두 이름(recordedPlacement / placementBeforeStage)으로 부르던 것은 실재하는 어긋남이라, 더 설명적인 placementBeforeStage 로 이 레인의 필드명을 맞췄다"
+          },
+          {
+            "severity": "HIGH",
+            "axis": 7,
+            "claim": "fillTerminal 과 isTerminalFillDisabled 를 아무 테스트도 구속하지 않는다. 두 함수를 망가뜨린 뮤턴트가 살아남는다",
+            "resolution": "accepted — 두 함수를 모듈에서 제거하고, 테스트를 먼저 써서 red(does not provide an export named 'fillTerminal')를 확인한 뒤 다시 구현했다"
+          },
+          {
+            "severity": "MEDIUM",
+            "axis": 7,
+            "claim": "제자리 변경(in-place mutation) 구현이 통과한다",
+            "resolution": "accepted — 원본 상태 불변과 반환 객체의 동일성 변화를 단언에 추가했다"
+          },
+          {
+            "severity": "MEDIUM",
+            "axis": 3,
+            "claim": "createEditorWindowPlacementState('floating') 이 rect 없는 floating 상태를 만든다",
+            "resolution": "accepted — 팩터리 인자를 Exclude<EditorWindowPlacement, 'floating'> 로 좁혀 그 상태를 구성 불가로 만들었다. rect 를 받는 enterFloating 이 유일한 진입점이다"
+          },
+          {
+            "severity": "MEDIUM",
+            "axis": 1,
+            "claim": "fillTerminal 이 floatingRect 를 소거하는 것은 어떤 기준도 요구하지 않은 제품 결정이다",
+            "resolution": "accepted — 소거를 제거했다. 이 함수는 명세된 것(배치 상태와 stage 기록)만 바꾼다"
+          },
+          {
+            "severity": "MEDIUM",
+            "axis": 8,
+            "claim": "DOM 부재 테스트의 주석이 '모듈'을 검사한다고 단언하지만 5개 export 중 3개만 호출한다",
+            "resolution": "accepted — 그 테스트가 모든 export 를 호출하도록 고쳐 주장을 참으로 만들었다"
+          },
+          {
+            "severity": "LOW",
+            "axis": 7,
+            "claim": "방어적 복사 { ...rect } 를 별칭으로 바꾼 뮤턴트가 살아남는다",
+            "resolution": "accepted — notEqual 단언을 추가했다"
+          },
+          {
+            "severity": "LOW",
+            "axis": 5,
+            "claim": "DialogRect(이 모듈)와 EditorWindowRect(editorWindowRecord.ts)가 같은 개념의 두 타입이다",
+            "resolution": "reported — 통합하려면 레인 F 의 파일을 고쳐야 해 이 레인의 영역 밖이다. 두 타입은 구조적으로 동일해 TypeScript 에서 어댑터 없이 상호 대입되므로 지금 깨지는 것은 없다. team-lead 에게 보고한다"
+          }
+        ]
+      }
+    ],
+    "green_evidence": {
+      "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowPlacement.test.ts",
+      "exit_code": 0,
+      "timestamp": "2026-09-02T11:56:00Z"
+    },
+    "green_evidence_meta": {
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "passed_test_case_ids": [
+        "TC-REQ-FR-MDE-001-AC1-02",
+        "TC-REQ-FR-MDE-001-AC2-02",
+        "TC-REQ-FR-MDE-001-AC4-02"
+      ]
+    },
+    "mutant_checks": [
+      { "mutation": "toggleMaximize 가 직전 배치를 기록하지 않는다", "went_red": true },
+      { "mutation": "isTerminalFillDisabled 의 판정을 뒤집는다", "went_red": true },
+      { "mutation": "fillTerminal 이 stage 로 보낸다", "went_red": true },
+      { "mutation": "enterFloating 이 호출자의 rect 객체를 그대로 저장한다", "went_red": true },
+      { "mutation": "toggleMaximize 가 입력 상태를 제자리에서 고친다", "went_red": true }
+    ],
+    "dod_check": [
+      { "item": "AC-1 · AC-2 · AC-4 가 green 이다", "satisfied": true },
+      {
+        "item": "모듈이 React 에 의존하지 않는다",
+        "satisfied": true,
+        "evidence": "런타임 import 0건. DialogRect 는 import type 이라 타입 소거 시 사라지며, node:test 가 DOM·React 없이 5개 테스트를 통과시킨다"
+      }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "scope": "impacted-only",
+      "command": "node --experimental-strip-types --test tests/unit/{editorWindowPlacement,dialogGeometry,dialogStack,windowDialogContract,windowDialogZBand}.test.ts",
+      "passed": 23,
+      "failed": 0,
+      "note": "전체 frontend/tests/unit 스위트는 레인 넷이 동시에 트리를 바꾸고 있어 Task 마다 돌리지 않고 이 레인의 마지막 Task 뒤에 한 번 돌린다"
+    },
+    "mcp_calls": []
+  },
+  "deviations": [
+    {
+      "kind": "mcp-mutation-deferred",
+      "detail": "MCP mutation 4종을 호출하지 않았다. speckiwi 는 이 워크트리에 정상 바인딩되어 있으나(mcp_workspace_info 확인) 그 mutation 은 docs/spec/41.markdown-editor.srs.md 를 쓴다. team-lead 가 docs/spec/* 수정을 금지했고 네 레인이 동시에 그 파일을 건드리면 충돌한다. 증거는 이 파일에 남기고 상위가 재생하도록 보고한다"
+    },
+    {
+      "kind": "sidecar-and-state-not-written",
+      "detail": "공유 파일이라 쓰지 않았다. T-PH004-01.json 의 같은 항목과 같은 사유다"
+    }
+  ]
+}

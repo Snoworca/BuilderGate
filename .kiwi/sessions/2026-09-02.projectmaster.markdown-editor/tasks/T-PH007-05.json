@@ -1,0 +1,34 @@
+{
+  "task_id": "T-PH007-05",
+  "lane": "J",
+  "started_at": "2026-09-02T13:05:00Z",
+  "completed_at": "2026-09-02T14:05:00Z",
+  "phase1": {
+    "tdd_draft_iters": [
+      { "iter": 1, "file_paths": ["frontend/tests/e2e/markdown-editor-entry.spec.ts"] },
+      { "iter": 2, "file_paths": ["frontend/tests/e2e/markdown-editor-entry.spec.ts"], "note": "revised for the two HIGH findings on each review axis" }
+    ],
+    "sonnet_reviews": [
+      { "iter": 1, "intent_alignment": { "CRITICAL": 0, "HIGH": 1, "MEDIUM": 1, "LOW": 1 }, "tech_quality": { "CRITICAL": 0, "HIGH": 2, "MEDIUM": 3, "LOW": 0 } }
+    ],
+    "gate_after_revision": { "CRITICAL": 0, "HIGH": 0 },
+    "red_evidence": {
+      "command": "npx playwright test tests/e2e/markdown-editor-entry.spec.ts --project \"Desktop Chrome\" --retries=0 (cwd=frontend)",
+      "exit_code": 1,
+      "captured_failure": "5 failed, 2 passed. AC-3/AC-6/AC-7: expect(locator('.window-dialog-surface.editor-window-surface').filter({has: .window-dialog-title CLAUDE.md})).toBeVisible() failed. AC-4: expect(locator('.modal-overlay .modal-content')).toBeVisible() failed. AC-5: expect(locator('.message-box-dialog')).toBeVisible() failed.",
+      "timestamp": "2026-09-02T14:04:00Z"
+    },
+    "red_evidence_meta": {
+      "passing_cases": ["TC-REQ-FR-MDE-007-AC1-03", "TC-REQ-FR-MDE-007-AC2-01"],
+      "passing_reason": "T-PH007-02 already landed in the worktree, so the path bar carries onContextMenu at both render sites and the three items open in tab and grid mode. Their sidecar expected_failure_signature describes a state the tree has moved past.",
+      "failing_cases": ["TC-REQ-FR-MDE-007-AC3-01", "TC-REQ-FR-MDE-007-AC4-01", "TC-REQ-FR-MDE-007-AC5-01", "TC-REQ-FR-MDE-007-AC6-03", "TC-REQ-FR-MDE-007-AC7-03"],
+      "signature_correspondence": "The sidecar signatures are prose intents, not literal runner output, so equality comparison is not available. AC-3 'the window does not open' matches exactly. AC-4 '404 branch is absent' matches exactly. AC-5, AC-6 and AC-7 anticipated a wrong-behaviour failure (an error path that opens a window, a second window, one window per tab); the observed failure is upstream of all three -- choosing an item does nothing at all, because useEditorWindows.handleSelect has no open branch and App.tsx renders the layer with renderWindow={() => null}.",
+      "environment": "dev bundle. node dev.js --port 2222 started with every BUILDERGATE_* variable and NODE_ENV removed from the environment; the server log confirms '[ViteProxy] Development proxy to http://localhost:2223 enabled' and '2FA: Disabled'. server/config.json5 was copied from the main checkout because this worktree had none; that file is untracked."
+    }
+  },
+  "phase2": { "note": "T-PH007-05 is a red-only task; its files list contains the spec alone and no product code was changed." },
+  "phase3": {
+    "regression": { "scope": "none-required", "reason": "no product code changed; the only new file is a spec that no other suite discovers" }
+  },
+  "sidecar_not_updated": "docs/plans/* is write-forbidden for this lane by the coordinating agent, so tdd.red_evidence was not written into the sidecar. The evidence above is the record."
+}

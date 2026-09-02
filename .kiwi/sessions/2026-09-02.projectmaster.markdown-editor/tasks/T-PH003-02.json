@@ -1,0 +1,203 @@
+{
+  "task_id": "T-PH003-02",
+  "started_at": "2026-09-02T08:25:00.000Z",
+  "completed_at": "2026-09-02T09:05:00.000Z",
+  "tdd_phase": "green",
+  "phase1": {
+    "note": "red 는 선행 Task T-PH003-01 이 확정했다 (exit 1, 모듈 로드 실패). 이 Task 는 green 단계다"
+  },
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "frontend/src/components/dialog/dialogStack.ts",
+          "frontend/src/components/dialog/WindowDialog.tsx"
+        ],
+        "note": "모듈 전역 배열 하나를 stacks: Record<DialogMode, DialogStackEntry[]> 두 개로 나누고, getDialogStackEntries / registerDialogStackEntry / raise / subscribeDialogStack 를 내보냈다. useDialogStack 의 두 번째 인자를 active: boolean 에서 mode: DialogMode 로 바꾸고 호출부를 useDialogStack(dialogId, mode) 로 고쳐 모달리스를 등록시켰다"
+      },
+      {
+        "iter": 2,
+        "files_changed": [
+          "frontend/src/components/dialog/dialogStack.ts",
+          "frontend/tests/unit/dialogStack.test.ts"
+        ],
+        "note": "까칠 리뷰의 M-1 · M-2 · M-3(순회 부분) · M-4 를 test-first 로 닫았다. 해제 함수를 토큰 검색에서 항등 비교(indexOf)로 바꾸고, findStackContaining 의 하드코딩 모드 배열을 stacks 에서 파생시키고(findStackEntry 로 통합, 스캔 3회 → 1회), 구독자 통지를 복사본 순회로 바꿨다"
+      }
+    ],
+    "formal_reviews": [
+      {
+        "iter": 1,
+        "mock_regex": "0건 — 변경 두 파일에 mock/stub/fake 없음",
+        "type_build": "PASS — npx tsc -p tsconfig.app.json --noEmit exit 0, npx tsc -p tsconfig.test.json --noEmit exit 0",
+        "lint": "PASS — npx eslint src/components/dialog tests/unit/dialogStack.test.ts exit 0",
+        "plan_code_match": "PASS — 변경 파일 집합이 sidecar.files[] ∪ test_files[] 와 정확히 일치",
+        "test_coverage": "PASS — tdd.test_cases 의 TC-REQ-FR-MDE-003-AC5-02 (test_symbol 'FR-MDE-003 raise is a no-op for the front-most token and moves the one behind it') 가 실제로 실행되어 pass"
+      }
+    ],
+    "prickly_reviews": [
+      {
+        "iter": 1,
+        "reviewer": "독립 서브에이전트 (Opus), 편향 없는 입력만 제공 — diff · Task action · REQ 본문",
+        "CRITICAL": 0,
+        "HIGH": 1,
+        "MEDIUM": 4,
+        "LOW": 7,
+        "accepted": ["M-1", "M-2", "M-3(순회 스냅샷)", "M-4"],
+        "rejected": ["H-1", "M-3(예외 삼킴)", "L-1", "L-2", "L-3", "L-5", "L-6", "L-7"]
+      }
+    ],
+    "green_evidence": {
+      "command": "cd frontend && node --experimental-strip-types --test tests/unit/dialogStack.test.ts",
+      "exit_code": 0,
+      "timestamp": "2026-09-02T09:05:00.000Z"
+    },
+    "green_evidence_meta": {
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "passed_test_case_ids": ["TC-REQ-FR-MDE-003-AC5-02"],
+      "load_failure_recovered": "T-PH003-01 시점에는 모듈 로드가 실패해 tests 1 / pass 0 으로 집계되었다. 이제 tests 5 로 회복되었으므로 기존 3건이 되살아난 것이 수치로 확인된다",
+      "modal_contract_intact": "cd frontend && node --experimental-strip-types --test tests/unit/windowDialogContract.test.ts → tests 3 / pass 3 / fail 0, exit 0. 파일 무수정"
+    },
+    "mutation_controls": [
+      {
+        "mutant": "raise 를 전체 no-op 으로 만든다",
+        "result": "KILLED (exit 1) — AC-5 의 대조군 raise('middle') 이 걸린다"
+      },
+      {
+        "mutant": "getDialogStackEntries 가 .slice() 없이 라이브 배열을 돌려준다",
+        "result": "KILLED (exit 1) — 스냅샷 계약 단언이 걸린다"
+      },
+      {
+        "mutant": "modal 과 modeless 가 배열 하나를 공유한다 (스택 분리 취소)",
+        "result": "KILLED (exit 1) — modeless 스냅샷에 modal 항목이 섞여 첫 단언이 걸린다"
+      },
+      {
+        "mutant": "해제 함수가 항등 비교 대신 토큰 검색으로 되돌아간다",
+        "result": "KILLED (exit 1) — 중복 토큰 테스트가 걸린다"
+      }
+    ],
+    "mutation_control_integrity": {
+      "hash_before": "0b117cf71fd7f38a4e866cc0e10388df2ca5fc5c32d6d853220c3bc1cd55507e",
+      "hash_after_restore": "0b117cf71fd7f38a4e866cc0e10388df2ca5fc5c32d6d853220c3bc1cd55507e",
+      "restored_identical": true
+    }
+  },
+  "phase3": {
+    "regression": {
+      "scope": "frontend/tests/unit 전수",
+      "command": "cd frontend && node --experimental-strip-types --test tests/unit/*.test.ts",
+      "tests": 912,
+      "passed": 908,
+      "failed": 4,
+      "regressed_files": [],
+      "detail": "실패 4건 중 2건은 editorPortContract.test.ts (레인 C 의 미추적 red 파일, 기준선에 없음), 2건은 terminalContainerRecoveryContract.test.ts 와 terminalHiddenOutput.test.ts 로 기준선의 기존 실패다. 셋 중 어느 파일도 dialogStack 이나 WindowDialog 를 import 하지 않는다 (grep 전수 확인). 이 Task 에 귀속되는 신규 실패는 0건이다"
+    },
+    "mcp_calls": [],
+    "mcp_mutation_skip_reason": "계획 §1.3 이 이 plan 의 모든 Task 에 대해 requirement status 승급과 docs/spec 편집을 범위 밖으로 두었고, 상위 kiwi-pm 이 종료 시 일괄 승급한다"
+  },
+  "dod_check": [
+    {
+      "item": "AC-5 가 green 이다.",
+      "satisfied": true,
+      "detail": "tests 5 / pass 5 / fail 0, exit 0. 대조군을 포함한 AC-5 케이스가 통과하며 뮤턴트 4종이 모두 KILLED 라 공허 통과가 아니다"
+    },
+    {
+      "item": "`createDialogStackState` 의 순수성을 유지한다.",
+      "satisfied": true,
+      "detail": "기준선 52bb643 의 함수 본문과 바이트 단위로 동일하다 (diff 0줄). 인자로 받은 배열만 읽고 모듈 전역에 접근하지 않는다"
+    }
+  ],
+  "review_dispositions": [
+    {
+      "id": "H-1",
+      "severity": "HIGH",
+      "finding": "허가 파일 2개 밖에 13개 파일이 워킹트리에 변경되어 있다",
+      "disposition": "rejected — 이 Task 의 산출물이 아니다",
+      "reason": "네 레인이 같은 워크트리에서 동시에 작업하는 구조이며, 그 파일들은 레인 A·B·C 의 것이다. 이 레인은 커밋 권한이 없어 인덱스를 오염시킬 경로 자체가 없다. 리뷰어가 지적한 pathspec 커밋 규약은 커밋을 수행하는 주체에게 전달할 사항이다"
+    },
+    {
+      "id": "M-1",
+      "severity": "MEDIUM",
+      "finding": "해제 함수가 토큰 문자열로 항목을 찾아, 같은 토큰이 둘이면 남의 항목을 지운다",
+      "disposition": "accepted — 실패 테스트를 먼저 쓰고 고쳤다",
+      "reason": "이번에 새로 내보내는 공개 API 이고 토큰을 호출자가 정한다. 항등 비교가 토큰 검색보다 짧기도 하다"
+    },
+    {
+      "id": "M-2",
+      "severity": "MEDIUM",
+      "finding": "findStackContaining 의 모드 목록이 DialogMode 를 이중 관리한다",
+      "disposition": "accepted",
+      "reason": "stacks 에서 파생시키면 유니온이 늘어날 때 정의상 함께 늘어난다. 줄 수가 늘지 않는다"
+    },
+    {
+      "id": "M-3",
+      "severity": "MEDIUM",
+      "finding": "구독자 통지 중 예외·집합 변형",
+      "disposition": "partially accepted",
+      "reason": "순회 중 변형은 오늘 도달 가능하므로 복사본 순회로 막았다. 예외를 try/catch 로 삼키는 쪽은 거절한다 — 구독자의 예외는 드러나야 하고, 삼키면 부분 갱신 상태가 조용히 남는다"
+    },
+    {
+      "id": "M-4",
+      "severity": "MEDIUM",
+      "finding": "해제 함수의 계약이 단언되지 않아 no-op 이어도 green 이다",
+      "disposition": "accepted",
+      "reason": "추가한 테스트가 해제 뒤 두 스택이 비었음을 단언한다. 이것이 M-1 의 red 를 만든 단언이기도 하다"
+    },
+    {
+      "id": "L-1",
+      "severity": "LOW",
+      "finding": "assert.notStrictEqual(after, before) 는 실패할 수 없는 단언이다",
+      "disposition": "rejected",
+      "reason": "단언 삭제는 §0.20.3 의 약화에 해당한다. 무해한 중복이므로 그대로 둔다"
+    },
+    {
+      "id": "L-2",
+      "severity": "LOW",
+      "finding": "스냅샷이 배열만 복사하고 항목 객체는 공유한다",
+      "disposition": "rejected — 관측만 기록",
+      "reason": "항목까지 복사하면 구독자 통지마다 배열 길이만큼 객체를 새로 만든다. 항목을 밖에서 변형하는 호출자가 없고, 테스트가 고정한 스냅샷 계약은 배열에 대한 것이다"
+    },
+    {
+      "id": "L-3",
+      "severity": "LOW",
+      "finding": "유니온 밖 mode 가 런타임에 들어오면 원시 TypeError 로 죽는다",
+      "disposition": "rejected",
+      "reason": "TypeScript 가 막는 경로다. 불가능한 상황을 위한 방어 코드를 넣지 않는다"
+    },
+    {
+      "id": "L-5",
+      "severity": "LOW",
+      "finding": "DialogStackEntry.active 가 사문이 되었다",
+      "disposition": "rejected — 관측만 기록",
+      "reason": "리뷰어도 제거하지 말라고 했다. DoD 가 createDialogStackState 의 순수성 유지를 요구하고 기존 테스트가 이 필터를 고정하고 있다"
+    },
+    {
+      "id": "L-6",
+      "severity": "LOW",
+      "finding": "raise 만 형제 export 의 명명 규약에서 벗어나 있다",
+      "disposition": "rejected",
+      "reason": "FR-MDE-003 본문이 raise(token) 으로 이름을 지정했고 테스트가 그 이름으로 import 한다"
+    },
+    {
+      "id": "L-7",
+      "severity": "LOW",
+      "finding": "테스트의 새 import 블록이 파일 중간에 있다",
+      "disposition": "rejected",
+      "reason": "선행 Task T-PH003-01 의 산출물이고 eslint 가 통과한다. 완료된 Task 의 산출물을 미관 목적으로 건드리지 않는다"
+    }
+  ],
+  "contract_change_disposition": {
+    "symbol": "useDialogStack(dialogId: string, active: boolean) → useDialogStack(dialogId: string, mode: DialogMode)",
+    "classification": "intended-improvement",
+    "evidence": "sidecar T-PH003-02 의 action 이 'WindowDialog.tsx:40 의 useDialogStack(dialogId, mode === \\'modal\\') 도 함께 고쳐 모달리스를 등록해야 한다' 로 명시한다. FR-MDE-003 본문도 'Changing useDialogStack is a modification of behaviour that six live modals depend on' 이라고 적어 이 변경을 전제한다",
+    "blast_radius": "호출부는 WindowDialog.tsx 한 곳뿐이다 (grep 전수). index.ts 는 useDialogStack 을 재수출하지 않는다. 삭제된 export 는 없다"
+  },
+  "observations": [
+    "모달 6곳이 전부 리터럴 mode=\"modal\" 을 넘긴다 (CommandPresetDialog · dialog/MessageBox · McpControlDialog · RecoveryOptionDialog · TerminalShortcutDialog · WorkspaceMoveDialog). 따라서 modeless 스택은 아직 런타임에서 항상 비어 있고, 모달의 layerIndex 와 isTopmost 는 기준선과 산술적으로 동일하다 — AC-6 · AC-7 이 현시점에는 자명하게 보존된다",
+    "raise 는 아직 src/ 어디에서도 호출되지 않는다. pointerdown 캡처 배선은 T-PH007-07 · T-PH007-08 의 몫이므로, 지금은 단위 테스트가 raise 에 대한 유일한 증거다",
+    "T-PH003-04 가 반드시 다뤄야 할 귀결이 하나 생겼다. windowDialogModel 의 층 공식이 아직 모달·모달리스 양쪽에 5000 대역을 쓰므로, 스택을 나눈 지금 modeless[0] 과 modal[0] 이 둘 다 layerZ 5000 이 되고 modeless[3](5060)이 modal[0](5000) 위로 그려진다. 대역 분기가 이 상태를 닫는다",
+    "useDialogStack 이 이제 모드와 무관하게 항상 등록하므로, 반환값의 active 분기(active ? state : 고정값)가 사라졌다. 첫 렌더의 초기 상태는 여전히 { layerIndex: 0, isTopmost: false } 라 기준선과 같다"
+  ]
+}

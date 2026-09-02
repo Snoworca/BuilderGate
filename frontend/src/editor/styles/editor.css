@@ -1,0 +1,129 @@
+/* 편집기 화면의 **하나뿐인 스타일 진입점** (`IR-EDITOR-001`).
+ *
+ * 이 파일을 얹으면 편집기 화면에 필요한 스타일이 전부 선다. 진입점을 하나로
+ * 두는 이유는 데모와 제품이 각자 목록을 갖고 있으면 한쪽에만 얹힌 시트가
+ * 생기고, 그러면 데모를 재는 검사가 초록인 채로 제품 화면만 조용히 어긋나기
+ * 때문이다 — 실제로 그 상태였다.
+ *
+ * `@import` 는 CSS 규칙상 다른 규칙보다 앞에 와야 하므로 파일 맨 위에 둔다. */
+
+/* 인라인 라이브 프리뷰 (vendor). 데코레이션의 숨김과 드러남이 여기 있다. */
+@import '../vendor/atomic-editor/styles/inline-preview.css';
+
+/* 수식 엔진의 스타일시트 (`FR-EDITOR-010`). KaTeX 는 글꼴 · 수직 정렬 ·
+ * 분수와 근호의 배치를 전부 CSS 로 세우고, MathML 사본을 1px 로 접어 화면에서
+ * 감추는 것도 이 시트가 한다. 없으면 같은 수식이 두 벌 겹쳐 보인다. */
+@import 'katex/dist/katex.min.css';
+
+/* 블록 수식의 세로 여백은 **바깥 컨테이너가 padding 으로** 갖는다.
+ *
+ * KaTeX 는 `.katex-display` 에 `margin: 1em 0` 을 준다. 그 margin 은 CM6 가
+ * 블록 위젯 높이를 재는 `getBoundingClientRect` 에 들어가지 않으므로 heightmap
+ * 이 그만큼 짧아지고, 그 아래 줄들의 클릭이 한 줄씩 밀린다 — mermaid 위젯에서
+ * 이미 한 번 겪어 같은 방식으로 고친 결함이다(`.dl-mermaid-block` 아래 주석).
+ * 실제로 이 시트를 들이자 표 클릭 판정이 그 자리에서 깨졌다. */
+.dl-math-block .katex-display {
+  margin: 0;
+}
+
+.dl-math-block {
+  padding: 1em 0;
+}
+
+/* Mermaid 블록 위젯.
+ *
+ * 색은 vendor 테마의 CSS 변수를 그대로 물려받는다 — 우리 값을 새로 정의하면
+ * 테마 전환 시 이 블록만 어긋난다. (docs/research/editor/02 §10) */
+
+/* 세로 여백은 이 바깥 컨테이너가 padding 으로 갖는다 — 시각 상자에 margin 을
+ * 두면 CM6 heightmap 이 그만큼 짧아져 아래 줄들의 클릭이 밀린다. 자세한 이유는
+ * `MermaidWidget.toDOM` 의 주석에 있다. */
+.dl-mermaid-block {
+  padding: 0.6em 0;
+}
+
+.dl-mermaid {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1em;
+  border: 1px solid var(--atomic-editor-border, #d0d7de);
+  border-radius: var(--atomic-editor-radius, 6px);
+  background: var(--atomic-editor-bg-panel, #f6f8fa);
+  overflow-x: auto;
+}
+
+.dl-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 코드블록 위젯 (`core/code-blocks.ts` 의 `CodeWidget`).
+ *
+ * `<pre>` 의 UA 기본값은 `margin: 1em 0` 인데, 그 여백은 블록 위젯의
+ * `getBoundingClientRect` 에 들어가지 않는다 — heightmap 이 DOM 보다 그만큼
+ * 짧아지고 이 블록 아래의 모든 줄에서 클릭이 눌린 줄보다 아래로 라우팅된다.
+ * mermaid 가 `.dl-mermaid-block` 으로 고친 것과 같은 결함이고 같은 처방이다.
+ *
+ * 여기서는 컨테이너를 덧대지 않는다. 이 상자에는 테두리도 배경도 없으므로
+ * `padding` 이 `margin` 과 겉보기가 같고, 위젯의 바깥 상자가 곧 이 `<pre>` 다.
+ *
+ * 다만 바깥 `padding` 만으로는 겉보기가 종전과 같아지지 않는다. `CodeWidget`
+ * 이 `highlightCode` 의 결과를 넣으면 그 안에 shiki 가 낸 또 하나의 `<pre>` 가
+ * 서고 그것도 UA `margin: 1em 0` 을 갖는데, 바깥이 `margin` 만 쓰던 동안은 둘이
+ * collapse 해 여백이 1em 하나였지만 바깥에 `padding` 이 생기는 순간 collapse 가
+ * 끊겨 1em + 1em 이 된다. 그래서 안쪽 여백을 함께 죽인다.
+ *
+ * 실측(데모 1280×900, 이 상자의 `1em` = 17px): 앞뒤 줄과의 세로 간격이 UA
+ * 기본만 있던 종전 17px → 바깥 `padding` 만 세웠을 때 34px → 안쪽 `margin` 까지
+ * 죽인 지금 다시 17px. 하이라이팅이 비동기라 나던 레이아웃 튐도 함께 사라진다
+ * — 이 위젯의 바깥 상자 높이가 원문 텍스트만 있는 첫 프레임과 shiki 가 돌아온
+ * 뒤 모두 63px 로 같다(안쪽 `margin` 이 살아 있을 때는 63px → 97px 이었다).
+ * 이 값은 `test/heightmap-drift-check.mjs` 의 ④ 가 지킨다. */
+.dl-code {
+  margin: 0;
+  padding: 1em 0;
+}
+
+.dl-code > pre {
+  margin: 0;
+}
+
+/* 본문 태그 칩 (`core/tag-decoration.ts` 의 `TagWidget`).
+ *
+ * 이 규칙이 없으면 칩은 스타일 없는 `span` 이라 평범한 글자와 구별되지 않는다.
+ * `FR-EDITOR-007` AC-10 이 요구하는 「칩으로 렌더된다」는 클래스가 붙는 것이
+ * 아니라 그렇게 **보이는** 것이므로, 규칙이 없는 동안은 그 조항이 제품에서
+ * 서지 않는다. 겉모습을 재는 자리는 `test/tag-chip-check.mjs` 의 ① 이다.
+ *
+ * 색은 다른 위젯과 같이 vendor 테마 변수를 물려받는다 — 우리 값을 새로
+ * 정의하면 테마 전환 시 이 칩만 어긋난다. 인라인 fallback 은 이 파일의 나머지
+ * 규칙과 같은 light 조율값이다. vendor 쪽 fallback 은 dark 조율값이라 두 값이
+ * 서로 다른데, 그 어긋남은 이 규칙이 만든 것이 아니라 이 파일 전체와 vendor
+ * 사이에 이미 있던 것이다 (`.dl-mermaid` 의 border·bg 도 같다). 변수가 실제로
+ * 정의되는 경로에서는 fallback 이 쓰이지 않으므로 겉보기는 갈리지 않는다.
+ *
+ * 세로 여백은 인라인 코드(`.cm-atomic-inline-code`)와 같은 0.08em 으로 맞춘다.
+ * 겉보기를 그 선례와 같게 두려는 것이고, heightmap 때문은 아니다 — 이 칩은
+ * `Decoration.replace` 가 그리는 **인라인** 위젯이고, 비치환 인라인 박스의
+ * 세로 padding 은 line box 높이에 기여하지 않는다(CSS 2.1 §10.6.1). 그러니
+ * `.dl-mermaid-block` · `.dl-code` 가 겪은 부류의 어긋남은 이 자리에서는 값과
+ * 무관하게 일어나지 않는다. 실측(데모 1280×900): 칩이 선 줄의 heightmap 높이와
+ * DOM 높이가 둘 다 28.89px 로 같고, 칩이 없는 이웃 문단과도 같다. */
+.dl-tag {
+  color: var(--atomic-editor-accent-bright, #8250df);
+  background: color-mix(in srgb, var(--atomic-editor-accent, #6639ba) 12%, transparent);
+  border-radius: 0.75em;
+  padding: 0.08em 0.5em;
+  font-size: 0.9em;
+}
+
+.dl-mermaid-error {
+  display: block;
+  justify-content: unset;
+  white-space: pre-wrap;
+  font-family: var(--atomic-editor-font-mono, ui-monospace, monospace);
+  font-size: 0.85em;
+  color: var(--atomic-editor-hl-invalid, #82071e);
+  border-color: var(--atomic-editor-hl-invalid, #82071e);
+}

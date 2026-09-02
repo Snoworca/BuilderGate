@@ -1,0 +1,18 @@
+{
+  "task_id": "T-PH006-07",
+  "started_at": "2026-09-02T13:23:48.505Z",
+  "completed_at": "2026-09-02T13:23:48.505Z",
+  "lane": "H",
+  "tdd": {
+    "applicable": false,
+    "exempt_reason": "컴포넌트를 마운트해야 관측되는 조립이며 프론트엔드 단위 스위트에 DOM 이 없다. 판정은 PH-007 의 E2E."
+  },
+  "phase2": {
+    "green_evidence": {
+      "command": "cd frontend && npx tsc -p tsconfig.app.json --noEmit",
+      "exit_code": 0,
+      "timestamp": "2026-09-02T13:23:48.505Z"
+    },
+    "note": "npx tsc --noEmit 은 solution 파일이라 0개를 검사한다. -p tsconfig.app.json 을 썼다. src/editor 는 참조 프로젝트라 npx tsc -b tsconfig.editor.json 으로 .d.ts 를 먼저 갱신해야 배럴의 새 재수출이 보인다."
+  }
+}

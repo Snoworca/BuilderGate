@@ -1,0 +1,98 @@
+{
+  "task_id": "T-PH007-12",
+  "started_at": "2026-09-02T18:32:15Z",
+  "completed_at": null,
+  "phase1": {
+    "note": "sidecar tdd.phase=green; spec authored by an earlier lane",
+    "red_evidence": {
+      "command": "npx playwright test tests/e2e/markdown-editor-save.spec.ts --project \"Desktop Chrome\"",
+      "exit_code": 1,
+      "captured_failure": "5 failed / 6 passed",
+      "timestamp": "2026-09-02T18:32:15Z"
+    }
+  },
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "frontend/src/components/editor/EditorWindowLayer.tsx"
+        ]
+      }
+    ],
+    "green_evidence": {
+      "command": "npx playwright test tests/e2e/markdown-editor-save.spec.ts --project \"Desktop Chrome\"",
+      "exit_code": 1,
+      "passed": 8,
+      "failed": 3,
+      "timestamp": "2026-09-02T18:32:15Z"
+    },
+    "closed": [
+      "CON-MDE-002 AC-4 tab close drops the window to floating with the clamp",
+      "CON-MDE-002 AC-5 cannot-save prompt on an orphaned window"
+    ],
+    "already_satisfied": [
+      "FR-MDE-008 AC-3 tray icon adjacency (Header.tsx unchanged)",
+      "FR-MDE-008 AC-8 deferral predicate already hasUsableTerminalArea with no {0,0,0,0} comparison",
+      "editorWindowSave.ts never feeds the write response body back to the editor"
+    ],
+    "blocked_cases": [
+      {
+        "case": ":353 FR-MDE-006 AC-2",
+        "cause": "typeInto clicks the back window's .cm-content, which is fully covered by the front window; same geometry as the placement :574 defect"
+      },
+      {
+        "case": ":418 FR-MDE-006 AC-4",
+        "cause": "the observer listener uses { once: true } and is consumed by the Control keydown that press('Control+s') sends first, so it never sees the s keydown; the flag stays undefined rather than false. preventDefault is genuinely called - editorWindowSaveShortcut.test.ts counts it and is green"
+      },
+      {
+        "case": ":715 FR-MDE-008 AC-8",
+        "cause": "the registry is read immediately after selectTab with nothing to synchronise on, because the surface is already hidden; the placement spec asserts the same transition and passes because it waits for the surface to hide first"
+      }
+    ],
+    "mutant_checks": [
+      {
+        "mutation": "EditorWindowLayer: placement override -> editorWindow.placement",
+        "went_red": true,
+        "killed": [
+          "CON-MDE-002 :530",
+          ":599"
+        ],
+        "restore_verified_sha256": "dc10124defbb0b72e637540b0b08eb2614ed522d81972ea1bfd38ed8c8a9bcbe"
+      }
+    ],
+    "review": {
+      "critical": 0,
+      "high": 3,
+      "medium": 3,
+      "low": 3,
+      "high_applied": [
+        "inheritance precedence: a record that is not already floating inherits the rect it was last drawn at, not a stale floatingRect left by an earlier drag"
+      ],
+      "high_reported": [
+        {
+          "id": "placement override lives only in the layer",
+          "detail": "App.tsx reads editorWindow.placement for terminalFillDisabled and boundsElement, so an orphan disagrees with itself; AC-4 words it as a state transition. Fixing it needs useEditorWindows.ts and App.tsx, both outside this task's files"
+        },
+        {
+          "id": "visibility term 4 still hides an in-app orphan",
+          "detail": "closeTab moves activeTabId to a sibling, so windowTabId === activeTabId fails and the orphan hides in tab mode. The E2E uses the server DELETE path, which leaves activeTabId dangling, so it passes without exercising the user path. Fixing it needs editorWindowVisibility.ts, outside this task's files"
+        }
+      ]
+    }
+  },
+  "phase3": {
+    "regression": {
+      "scope": "frontend unit suite",
+      "tests": 972,
+      "passed": 970,
+      "failed": 2,
+      "failed_test_ids": [
+        "PERF-BGSTAB-010",
+        "REL-BGSTAB-012"
+      ],
+      "new_failures": 0
+    },
+    "typecheck": "npx tsc -p tsconfig.app.json --noEmit -> exit 0"
+  }
+}

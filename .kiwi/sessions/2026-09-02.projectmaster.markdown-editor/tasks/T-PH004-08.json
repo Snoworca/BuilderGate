@@ -1,0 +1,71 @@
+{
+  "task_id": "T-PH004-08",
+  "lane": "F",
+  "started_at": "2026-09-02T12:20:00.000Z",
+  "completed_at": "2026-09-02T12:20:00.000Z",
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "frontend/src/components/editor/editorWindowRecord.ts"
+        ]
+      }
+    ],
+    "green_evidence": {
+      "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowRecord.test.ts",
+      "exit_code": 0,
+      "timestamp": "2026-09-02T12:20:00.000Z"
+    },
+    "green_evidence_meta": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "passed_test_case_ids": [
+        "TC-REQ-CON-MDE-002-AC2-02",
+        "TC-REQ-CON-MDE-002-AC6-02"
+      ],
+      "mutants": [
+        {
+          "id": "A",
+          "mutation": "toEditorWindowRecord 를 필드별 투영 대신 { ...window } 스프레드로 교체",
+          "went_red": true
+        },
+        {
+          "id": "B",
+          "mutation": "restoreEditorWindowRecords 에서 탭 존재 필터 제거",
+          "went_red": true
+        },
+        {
+          "id": "F",
+          "mutation": "isPlacement 에서 허용 목록 대조 제거",
+          "went_red": true
+        }
+      ]
+    },
+    "dod_check": [
+      {
+        "item": "AC-2 · AC-6 이 green 이다.",
+        "satisfied": true
+      },
+      {
+        "item": "새 React context 를 도입하지 않는다.",
+        "satisfied": true
+      }
+    ],
+    "deferred": "App.tsx 의 조회 함수 prop 배선은 소비자(창 관리자)가 아직 없어 보류. noUnusedLocals=true 라 미사용 상수는 tsc 를 깬다."
+  },
+  "phase3": {
+    "regression": {
+      "scope": "frontend tests/unit 전수",
+      "tests": 924,
+      "passed": 922,
+      "failed": 2,
+      "new_failures": 0,
+      "pre_existing_failures": [
+        "tests/unit/terminalContainerRecoveryContract.test.ts",
+        "tests/unit/terminalHiddenOutput.test.ts"
+      ]
+    }
+  }
+}

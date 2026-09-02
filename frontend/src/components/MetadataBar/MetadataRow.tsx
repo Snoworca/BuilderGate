@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import { getRecoveryIconLabel } from '../../types/recoveryOption';
@@ -7,6 +8,8 @@ import { useInlineRename } from '../../hooks/useInlineRename';
 interface Props {
   tab: WorkspaceTabRuntime;
   onRename?: (name: string) => void;
+  /** Right click on the cwd path. Both render sites pass it. @req FR-MDE-007 */
+  onPathContextMenu?: (x: number, y: number) => void;
 }
 
 function formatElapsed(createdAt: string): string {
@@ -49,7 +52,7 @@ function getSafeRecoveryIconLabel(recoveryIcon: WorkspaceTabRuntime['recoveryIco
   return null;
 }
 
-export function MetadataRow({ tab, onRename }: Props) {
+export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
   const [elapsed, setElapsed] = useState(() => formatElapsed(tab.createdAt));
   const [copied, setCopied] = useState(false);
 
@@ -68,6 +71,16 @@ export function MetadataRow({ tab, onRename }: Props) {
       setTimeout(() => setCopied(false), 1500);
     } catch { /* clipboard API failure */ }
   }, [tab.cwd]);
+
+  // The tile root and the tab wrapper both open the terminal menu on a right
+  // click, so the press is stopped here or two menus answer it.
+  // @req FR-MDE-007
+  const handlePathContextMenu = useCallback((event: ReactMouseEvent) => {
+    if (!onPathContextMenu) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onPathContextMenu(event.clientX, event.clientY);
+  }, [onPathContextMenu]);
 
   const displayPath = useMemo(() => {
     if (!tab.cwd) return '';
@@ -152,6 +165,7 @@ export function MetadataRow({ tab, onRename }: Props) {
         <span
           className="metadata-cwd-path"
           onClick={handleCopy}
+          onContextMenu={handlePathContextMenu}
           title={copied ? 'Copied!' : (tab.cwd || '')}
           style={{
             color: copied ? '#22c55e' : '#e0e0e0',

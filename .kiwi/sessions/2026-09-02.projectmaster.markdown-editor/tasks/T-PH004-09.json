@@ -1,0 +1,28 @@
+{
+  "task_id": "T-PH004-09",
+  "lane": "F",
+  "started_at": "2026-09-02T12:20:00.000Z",
+  "completed_at": "2026-09-02T12:20:00.000Z",
+  "phase1": {
+    "tdd_draft_iters": [
+      {
+        "iter": 1,
+        "file_paths": [
+          "frontend/tests/unit/windowDialogControlledRect.test.ts"
+        ]
+      }
+    ],
+    "red_evidence": {
+      "command": "cd frontend && node --experimental-strip-types --test tests/unit/windowDialogControlledRect.test.ts",
+      "exit_code": 1,
+      "captured_failure": "AssertionError: WindowDialog does not accept the rect prop",
+      "timestamp": "2026-09-02T12:20:00.000Z"
+    },
+    "red_evidence_meta": {
+      "test_case_ids": [
+        "TC-REQ-FR-MDE-001-AC8-01"
+      ],
+      "matched_signature": "controlled rect 경로가 없어 기존 clamp 가 그대로 적용된다"
+    }
+  }
+}

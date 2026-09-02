@@ -1,0 +1,32 @@
+{
+  "task_id": "T-PH007-09",
+  "lane": "J",
+  "phase1": {
+    "tdd_draft_iters": [
+      { "iter": 1, "file_paths": ["frontend/tests/e2e/markdown-editor-lifecycle.spec.ts"] },
+      { "iter": 2, "note": "resolved 1 CRITICAL, 1 HIGH, 4 MEDIUM and 2 LOW across the two review axes" }
+    ],
+    "sonnet_reviews": [
+      { "iter": 1, "intent_alignment": { "CRITICAL": 1, "HIGH": 1, "MEDIUM": 1, "LOW": 2 }, "tech_quality": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 3, "LOW": 1 } }
+    ],
+    "gate_after_revision": { "CRITICAL": 0, "HIGH": 0 },
+    "red_evidence": {
+      "command": "npx playwright test tests/e2e/markdown-editor-lifecycle.spec.ts --project \"Desktop Chrome\" --retries=0 (cwd=frontend)",
+      "exit_code": 1,
+      "captured_failure": "8 failed. Every failure is expect(locator).toBeVisible() on the editor window surface: no editor mounts, so neither mount contract has anything to observe.",
+      "timestamp": "2026-09-03T01:05:00Z"
+    },
+    "red_evidence_meta": {
+      "failing_cases": ["TC-REQ-FR-MDE-002-AC1-01", "TC-REQ-FR-MDE-002-AC2-01", "TC-REQ-FR-MDE-002-AC6-01", "TC-REQ-FR-MDE-002-AC7-01", "TC-REQ-FR-MDE-005-AC2-01", "TC-REQ-FR-MDE-005-AC3-01", "TC-REQ-FR-MDE-005-AC4-01", "TC-REQ-FR-MDE-005-AC5-01"],
+      "identity_technique": "Instance identity is judged by a DOM stamp the test writes on the element the EditorView owns. A review pass confirmed against the ported component that the mount effect recreates the view only when its identity input changes and that its cleanup destroys the previous content element, so a surviving stamp is the surviving object rather than a proxy for it. That satisfies the task DoD without any product change.",
+      "hook_contract": "Extends the namespace the placement spec declared. readEditorProbe(filePath) returns { documentId, markdownSource, extensionsToken }; setEditorReadOnly(filePath, readOnly) drives the editor handle the window already holds. Install site is EditorWindow.tsx, which is in T-PH007-10's file list.",
+      "environment": "dev bundle, Vite proxy confirmed, 2FA disabled."
+    }
+  },
+  "requirement_conflicts_reported": [
+    "FR-MDE-005 AC-2 describes two transitions on an already-mounted editor -- a new markdownSource under a fixed documentId, and a changed documentId under an unchanged mount. Neither has a path through this application: the body is read once, and the render site keys each window by its file path, so a different document is always a different component before the editor's own identity rule is consulted. The SRS Verification Method assigns the criterion to Playwright E2E. The spec judges the reachable discriminator -- that the window passes documentId and that it is the resolved path rather than the body -- and states the gap in the file.",
+    "FR-MDE-005 AC-4's readOnly clause is driven through the editor handle because EditorWindow passes no readOnly prop and offers no control for it. The reactive prop effect is therefore not exercised by any application path."
+  ],
+  "phase2": { "note": "red-only task; the file list is the spec alone and no product code changed." },
+  "sidecar_not_updated": "docs/plans/* is write-forbidden for this lane; the evidence above is the record."
+}

@@ -1,0 +1,79 @@
+{
+  "task_id": "T-PH004-10",
+  "lane": "F",
+  "started_at": "2026-09-02T12:20:00.000Z",
+  "completed_at": "2026-09-02T12:20:00.000Z",
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "frontend/src/components/dialog/WindowDialog.tsx",
+          "frontend/src/App.tsx"
+        ]
+      }
+    ],
+    "green_evidence": {
+      "command": "cd frontend && node --experimental-strip-types --test tests/unit/windowDialogControlledRect.test.ts",
+      "exit_code": 0,
+      "timestamp": "2026-09-02T12:20:00.000Z"
+    },
+    "green_evidence_meta": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "passed_test_case_ids": [
+        "TC-REQ-FR-MDE-001-AC8-02"
+      ],
+      "mutants": [
+        {
+          "id": "C",
+          "mutation": "bounds 를 다시 \"window\" 리터럴로 되돌림",
+          "went_red": true
+        },
+        {
+          "id": "D",
+          "mutation": "applyRect 가 controlled 여부와 무관하게 항상 clamp",
+          "went_red": true
+        },
+        {
+          "id": "E",
+          "mutation": "제목표시줄에서 {titlebarActions} 제거",
+          "went_red": true
+        },
+        {
+          "id": "G",
+          "mutation": "App.tsx 스테이지 컨테이너의 className 제거 (핀 도입 전 red 확인)",
+          "went_red": true
+        }
+      ]
+    },
+    "dod_check": [
+      {
+        "item": "AC-8 의 저장소 절반이 green 이다.",
+        "satisfied": true
+      },
+      {
+        "item": "windowDialogContract.test.ts 가 수정 없이 통과한다.",
+        "satisfied": true
+      },
+      {
+        "item": "기존 모달 6곳의 호출부를 수정하지 않는다.",
+        "satisfied": true
+      }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "scope": "frontend tests/unit 전수",
+      "tests": 924,
+      "passed": 922,
+      "failed": 2,
+      "new_failures": 0,
+      "pre_existing_failures": [
+        "tests/unit/terminalContainerRecoveryContract.test.ts",
+        "tests/unit/terminalHiddenOutput.test.ts"
+      ]
+    }
+  }
+}

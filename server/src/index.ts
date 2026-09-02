@@ -57,7 +57,9 @@ import {
   createSecurityHeadersMiddleware,
   createNoCacheMiddleware,
   createPermissionsPolicyMiddleware,
-  createAuthMiddleware
+  createAuthMiddleware,
+  createJsonBodyParser,
+  respondIfRequestEntityTooLarge
 } from './middleware/index.js';
 import { ensureDebugCaptureSessionExists, requireLocalDebugCapture } from './middleware/debugCaptureGuards.js';
 import { registerTerminalAuthorityDebugRoutes } from './routes/terminalAuthorityDebugRoutes.js';
@@ -500,7 +502,21 @@ app.all('/mcp', noCacheMiddleware, (_req, res) => {
 // Body Parser & General Middleware
 // ============================================================================
 
-app.use(express.json());
+const fileManagerConfig = config.fileManager || {
+  maxFileSize: 1048576,
+  maxCodeFileSize: 524288,
+  maxDirectoryEntries: 10000,
+  blockedExtensions: ['.exe', '.dll', '.so', '.bin'],
+  blockedPaths: ['.ssh', '.gnupg', '.aws'],
+  cwdCacheTtlMs: 1000,
+};
+
+// The session file write carries a whole document, so a parser left at the
+// body-parser default of 100KB would refuse to save documents the read path
+// serves. This bound is the transport allowance around the live maxFileSize;
+// the file size itself is bounded by FileService, on the decoded content.
+// @req IR-MDE-001
+app.use(createJsonBodyParser(() => fileService?.maxFileSize ?? fileManagerConfig.maxFileSize));
 
 // Keep-alive header for all responses
 app.use((_req, res, next) => {
@@ -934,6 +950,10 @@ app.use((err: Error, req: express.Request, res: express.Response, _next: express
     });
     return;
   }
+  // @req IR-MDE-001
+  if (respondIfRequestEntityTooLarge(err, res)) {
+    return;
+  }
   res.status(500).json({ error: 'Internal server error' });
 });
 
@@ -996,14 +1016,6 @@ async function startServer(): Promise<void> {
       console.log('[TOTP] TOTP is disabled');
     }
 
-    const fileManagerConfig = config.fileManager || {
-      maxFileSize: 1048576,
-      maxCodeFileSize: 524288,
-      maxDirectoryEntries: 10000,
-      blockedExtensions: ['.exe', '.dll', '.so', '.bin'],
-      blockedPaths: ['.ssh', '.gnupg', '.aws'],
-      cwdCacheTtlMs: 1000,
-    };
     fileService = new FileService(sessionManager, fileManagerConfig);
     settingsService = new SettingsService({
       runtimeConfigStore,

@@ -1,0 +1,39 @@
+{
+  // src/editor 는 vendored 편집기다. 그 트리만 erasableSyntaxOnly 의 예외로
+  // 두려고 별도 프로젝트로 분리한다. 이식본은 원본과 바이트 단위로 같아야
+  // 하므로(FR-MDE-005 AC-1 이 파일 수와 줄 수를 판정 기준으로 삼는다) 생성자
+  // 파라미터 프로퍼티를 고쳐 옵션을 맞추는 대신 컴파일러 경계를 긋는다.
+  //
+  // 산출물은 .d.ts 뿐이며 gitignore 되는 node_modules 아래로 나간다. composite
+  // 프로젝트는 noEmit 과 공존할 수 없어 emitDeclarationOnly 를 쓴다.
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.editor.tsbuildinfo",
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "types": ["vite/client"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+
+    /* Declaration-only output so tsconfig.app.json can reference this project */
+    "composite": true,
+    "emitDeclarationOnly": true,
+    "declarationDir": "./node_modules/.tmp/editor-types",
+    "rootDir": "./src/editor",
+
+    /* Linting — erasableSyntaxOnly 만 빠져 있고 나머지는 tsconfig.app.json 과 같다 */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["src/editor"]
+}

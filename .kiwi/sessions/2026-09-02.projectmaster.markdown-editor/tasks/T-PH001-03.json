@@ -1,0 +1,49 @@
+{
+  "task_id": "T-PH001-03",
+  "started_at": "2026-09-02T08:04:45.789Z",
+  "completed_at": "2026-09-02T08:04:45.789Z",
+  "tdd_phase": "red",
+  "phase1": {
+    "tdd_draft_iters": [
+      { "iter": 1, "file_paths": ["server/src/services/FileServiceWrite.test.ts"], "note": "createWriteHarness 를 설정 override 를 받도록 확장하고, 본문 파서를 스스로 등록하지 않는 두 번째 하네스를 AC-10 용으로 추가했다" }
+    ],
+    "sonnet_reviews": [
+      { "iter": 1, "intent_alignment": "PASS", "tech_quality": "PASS", "req_mapping": "PASS (test_case.req_id ∈ task.req_ids, ac_refs ⊆ IR-MDE-001 AC-3/4/5/9/10)", "red_verification": "PASS (AC-3/4/5/10), AC-9 는 뮤턴트 대조로 대체" }
+    ],
+    "red_evidence": {
+      "command": "Push-Location server; npx tsx --test src/services/FileServiceWrite.test.ts; $mdeExit=$LASTEXITCODE; Pop-Location; exit $mdeExit",
+      "exit_code": 1,
+      "timestamp": "2026-09-02T08:04:45.789Z"
+    },
+    "red_evidence_meta": {
+      "test_case_ids": ["TC-REQ-IR-MDE-001-AC3-01", "TC-REQ-IR-MDE-001-AC4-01", "TC-REQ-IR-MDE-001-AC5-01", "TC-REQ-IR-MDE-001-AC9-01", "TC-REQ-IR-MDE-001-AC10-01"],
+      "tests": 8, "pass": 4, "fail": 4,
+      "red_case_ids": ["TC-REQ-IR-MDE-001-AC3-01", "TC-REQ-IR-MDE-001-AC4-01", "TC-REQ-IR-MDE-001-AC5-01", "TC-REQ-IR-MDE-001-AC10-01"],
+      "green_on_arrival_case_ids": ["TC-REQ-IR-MDE-001-AC9-01"],
+      "failure_cause": "writeFile 이 path.resolve 만 하고 resolveAndValidate 도 isBlockedExtension 도 부르지 않아 탈출 경로·차단 경로·차단 확장자가 모두 200 으로 기록된다. AC-10 은 index.ts 의 bare express.json() 과, 라우트가 쓰기 본문을 스스로 파싱하지 않아 한도를 강제할 자리가 없다는 두 가지로 실패한다",
+      "matched_expected_failure_signature": "AC-3/4/5 일치. AC-10 은 불일치 — 사이드카의 signature 는 100KB 초과가 500 으로 나간다고 적었으나 실측은 413 이다 (아래 observations 참조)",
+      "ac9_mutant_proof": {
+        "hash_before": "cb546427c4544eb12fb6a6c43db1b7e8bd165517160c4f5b72997a91914f2fae",
+        "mutation": "server/src/services/FileService.ts 의 getCwd 첫 문장 this.assertSessionExists(sessionId) 한 줄만 주석 처리 (나머지 6개 호출 지점은 그대로)",
+        "test_result_under_mutation": "FAIL — the unknown session was answered with 200 rather than the 404 the session check produces (200 !== 404)",
+        "hash_after_restore": "cb546427c4544eb12fb6a6c43db1b7e8bd165517160c4f5b72997a91914f2fae",
+        "restored_identical": true
+      }
+    }
+  },
+  "phase2": null,
+  "phase3": {
+    "regression": { "scope": "impacted-only", "detail": "프로덕션 코드를 바꾸지 않았다. 인접 스위트 server/src/services/FileService.test.ts 는 1 pass / 0 fail 이고, 기존 쓰기 테스트 3건도 그대로 green 이다", "passed": 4, "failed": 0 },
+    "mcp_calls": []
+  },
+  "dod_check": [
+    { "item": "RED 의 exit code 1 과 실패 목록을 기록한다", "satisfied": true, "detail": "exit 1, tests 8 / pass 4 / fail 4. 실패 4건은 AC-3·AC-4·AC-5·AC-10" },
+    { "item": "거절 케이스 4건 각각이 대조군 1건을 동반한다", "satisfied": true, "detail": "AC-3 은 탈출 2종에 inside.md 대조군, AC-4 는 payload.exe 에 동일 내용 payload.md 대조군, AC-5 는 .ssh/notes.md 에 notes.md 대조군, AC-9 는 미지 세션에 known-session.md 대조군, AC-10 은 한도 초과 본문에 한도 바로 아래 본문 대조군" }
+  ],
+  "observations": [
+    "사이드카 AC-10 의 expected_failure_signature 와 SRS 의 서술이 실측과 어긋난다. bare express.json() 이 한도를 넘는 본문을 거절할 때 상태 코드는 500 이 아니라 413 이다 (body-parser 가 err.status=413 을 붙이고 express 기본 오류 처리기가 그 값을 쓴다). 본문은 JSON 이 아니라 HTML 이다. 따라서 AC-10 의 '413 이 아니라 500' 대목은 오늘 이미 성립하지 않으며, 실제로 red 인 것은 한도 값 자체다",
+    "AC-10 의 '두 한도가 같은 값' 을 글자 그대로 구현하면 요청 본문에 JSON 봉투가 얹히므로 정확히 maxFileSize 바이트인 파일은 저장할 수 없다. 테스트는 AC 가 대조군을 본문 크기로 서술한 대로 본문 크기 기준으로 브래킷했다",
+    "AC-10 테스트는 본문 파서를 스스로 등록하지 않는 별도 하네스를 쓴다. 공용 하네스는 자체 express.json() 을 갖고 있어, 그 파서가 먼저 본문을 소비하면 T-PH001-04 가 무엇을 고치든 이 케이스는 green 이 될 수 없다. 또한 파서를 테스트가 등록하면 한도를 테스트가 정하게 되어 계측 대상이 라우트가 아니라 하네스가 된다",
+    "T-PH001-04 는 index.ts 만 고쳐서는 이 케이스를 green 으로 만들 수 없다. 쓰기 라우트가 maxFileSize 에서 파생된 한도로 자기 본문을 파싱해야 하고, 동시에 index.ts 의 bare express.json() 도 없어져야 한다 — 그 전역 파서가 먼저 돌면 라우트 한도는 실제 배포에서 무효가 된다"
+  ]
+}

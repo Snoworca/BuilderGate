@@ -7,7 +7,7 @@
   "mode": "live",
   "summary": {
     "errors": 0,
-    "warnings": 0,
+    "warnings": 1,
     "checks_total": 25
   },
   "results": [
@@ -182,9 +182,100 @@
     {
       "id": "C25",
       "title": "green_evidence present → red_evidence present + red.exit_code ≠ 0",
-      "status": "pass",
-      "severity": null,
-      "detail": null
+      "status": "warn",
+      "severity": "warn",
+      "detail": {
+        "bad": [
+          {
+            "task_id": "T-PH001-02",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH001-04",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH001-06",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH002-04",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH003-02",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH003-04",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH004-02",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH004-04",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH004-06",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH004-08",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH004-10",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH005-02",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH006-02",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH006-04",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH006-06",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH007-02",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH007-04",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH007-06",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH007-08",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH007-10",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH007-12",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH008-02",
+            "reason": "green present but red absent"
+          }
+        ]
+      }
     }
   ]
 }

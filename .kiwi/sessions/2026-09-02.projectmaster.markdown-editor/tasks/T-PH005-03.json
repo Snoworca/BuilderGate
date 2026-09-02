@@ -1,0 +1,141 @@
+{
+  "task_id": "T-PH005-03",
+  "lane": "G",
+  "started_at": "2026-09-02T12:44:22.342Z",
+  "completed_at": "2026-09-02T12:44:22.342Z",
+  "tdd": {
+    "applicable": false,
+    "exempt_reason": "컴포넌트를 마운트해 언마운트 부재를 관측해야 하는 배선이며 단위 스위트에 DOM 이 없다. 판정은 T-PH007-09 의 E2E.",
+    "note": "면제 범위 안에서 관측 가능한 두 사실(마운트 지점, 술어 전달 경로)은 소스 텍스트 계약으로 고정했다."
+  },
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "frontend/src/components/editor/EditorWindowLayer.tsx",
+          "frontend/src/App.tsx"
+        ],
+        "note": "래퍼 div 에 display:none 을 거는 최초 구현"
+      },
+      {
+        "iter": 2,
+        "files_changed": [
+          "frontend/src/components/editor/EditorWindowLayer.tsx",
+          "frontend/tests/unit/editorWindowVisibility.test.ts"
+        ],
+        "note": "까칠 리뷰 CRITICAL/HIGH 반영 — portal 때문에 래퍼가 무력이라 hidden 을 창에 전달하도록 바꾸고, 키를 tabId 에서 filePath 로 교정. 병렬 타입을 EditorWindowRecord 유도로 대체. 소스 텍스트 핀 재작성"
+      }
+    ],
+    "formal_reviews": [
+      {
+        "iter": 1,
+        "findings": [],
+        "detail": {
+          "mock_regex": "0건",
+          "typecheck": "npx tsc -p tsconfig.app.json --noEmit exit 0",
+          "eslint": "exit 0",
+          "plan_code_mapping": "변경 파일 = App.tsx + EditorWindowLayer.tsx (+ 선언된 test_files)"
+        }
+      }
+    ],
+    "prickly_reviews": [
+      {
+        "iter": 1,
+        "findings_summary": {
+          "CRITICAL": 1,
+          "HIGH": 1,
+          "MEDIUM": 5,
+          "LOW": 2
+        },
+        "actioned": [
+          "CRITICAL — WindowDialog 가 createPortal(document.body) 이라 래퍼의 display:none 이 창 표면에 닿지 않음. 술어 결과를 renderWindow 의 hidden 으로 전달하도록 변경",
+          "HIGH — key 를 tabId 에서 filePath 로 교정 (SRS: the window layer keys duplicates by resolved absolute path rather than by tab)",
+          "MEDIUM ×2 — 소스 텍스트 핀이 삼항 언마운트와 stage-children 이동을 놓침. 구조 기반 판정으로 재작성",
+          "MEDIUM — EditorWindowLayerWindow 가 EditorWindowRecord 의 병렬 선언. Pick 유도로 대체",
+          "MEDIUM — provider 언마운트 제약이 삭제보다 넓다는 사실을 주석에 반영",
+          "LOW — 식별자 리네임에 대한 false red 축소 (provider 여는 태그를 닫는 괄호 없이 매칭)"
+        ],
+        "deferred": [
+          "MEDIUM — resolveTabSession 이 레이어를 통과만 하는 prop. 팀 리드가 T-PH004-08 dod 를 근거로 창 관리자에 prop 으로 내려보내라고 명시 지시하여 유지",
+          "LOW — context 구독으로 인한 재렌더 팬아웃. 창이 실제로 붙는 T-PH007 배선 때 다룰 사안"
+        ]
+      }
+    ],
+    "dod_check": [
+      {
+        "item": "레이어가 provider 안에 렌더된다.",
+        "satisfied": true,
+        "evidence": "소스 텍스트 계약 — providerOpen < stageClose < layerMount < providerClose, 각 앵커 -1 가드 포함"
+      },
+      {
+        "item": "감춤 경로에 조건부 언마운트가 없다.",
+        "satisfied": true,
+        "evidence": "Fragment 의 유일 자식이 renderWindow 호출임을 고정. 삼항·&& 두 형태 모두 red"
+      }
+    ],
+    "mutants": [
+      {
+        "mutation": "삼항 언마운트 {visible ? <span>…</span> : null}",
+        "went_red": true
+      },
+      {
+        "mutation": "&& 언마운트 {visible && renderWindow(…)}",
+        "went_red": true
+      },
+      {
+        "mutation": "hidden 을 항상 false 로 (술어가 표면에 닿지 않음)",
+        "went_red": true
+      },
+      {
+        "mutation": "key 를 filePath 에서 tabId 로 되돌림",
+        "went_red": true
+      },
+      {
+        "mutation": "useTerminalRuntimeContext 조회 제거",
+        "went_red": true
+      },
+      {
+        "mutation": "App.tsx — 레이어를 stage children 콜백 안으로 이동",
+        "went_red": true,
+        "method": "메모리 사본 (공유 파일 미변형)"
+      },
+      {
+        "mutation": "App.tsx — 탭 개수 가드로 감쌈",
+        "went_red": true,
+        "method": "메모리 사본"
+      },
+      {
+        "mutation": "App.tsx — provider 밖으로 이동",
+        "went_red": true,
+        "method": "메모리 사본"
+      },
+      {
+        "mutation": "App.tsx — 레이어 렌더 삭제",
+        "went_red": true,
+        "method": "메모리 사본"
+      },
+      {
+        "mutation": "App.tsx — provider 에 prop 추가 (동작 불변, false red 대조군)",
+        "went_red": false,
+        "method": "메모리 사본"
+      }
+    ],
+    "restore_verified": "EditorWindowLayer.tsx sha256 원복 일치 + 원복 후 baseline exit 0. App.tsx 는 디스크 변형 없음 (git diff 불변)"
+  },
+  "phase3": {
+    "regression": {
+      "scope": "frontend tests/unit 전수",
+      "command": "node --experimental-strip-types --test tests/unit/*.test.ts",
+      "tests": 943,
+      "passed": 941,
+      "failed": 2,
+      "new_failures": 0,
+      "pre_existing_failures": [
+        "PERF-BGSTAB-010 (terminalContainerRecoveryContract.test.ts)",
+        "REL-BGSTAB-012 (terminalHiddenOutput.test.ts)"
+      ],
+      "modal_contract": "windowDialogContract.test.ts 3/3"
+    }
+  }
+}

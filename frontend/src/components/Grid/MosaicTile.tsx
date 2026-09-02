@@ -9,6 +9,8 @@ interface MosaicTileProps {
   tabId: string;
   tab: WorkspaceTabRuntime | undefined;
   onContextMenu: (x: number, y: number, tabId: string) => void;
+  /** Right click on this tile's cwd path. @req FR-MDE-007 */
+  onPathContextMenu?: (x: number, y: number, tabId: string) => void;
   onRestart: () => void;
   /** Called when the user presses down on this tile (focus tracking) */
   onFocus?: () => void;
@@ -22,6 +24,7 @@ export function MosaicTile({
   tabId,
   tab,
   onContextMenu,
+  onPathContextMenu,
   onRestart,
   onFocus,
   onRegisterRef,
@@ -116,6 +119,7 @@ export function MosaicTile({
       <MetadataRow
         tab={tab}
         onRename={onRenameTab ? (name) => onRenameTab(tabId, name) : undefined}
+        onPathContextMenu={onPathContextMenu ? (x, y) => onPathContextMenu(x, y, tabId) : undefined}
       />
 
       {/* Disconnected overlay */}

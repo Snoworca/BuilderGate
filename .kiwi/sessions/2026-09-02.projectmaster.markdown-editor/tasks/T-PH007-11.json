@@ -1,0 +1,30 @@
+{
+  "task_id": "T-PH007-11",
+  "lane": "J",
+  "phase1": {
+    "tdd_draft_iters": [
+      { "iter": 1, "file_paths": ["frontend/tests/e2e/markdown-editor-save.spec.ts"] },
+      { "iter": 2, "note": "resolved 2 CRITICAL, 2 HIGH, 3 MEDIUM and 2 LOW across the two review axes" }
+    ],
+    "sonnet_reviews": [
+      { "iter": 1, "intent_alignment": { "CRITICAL": 2, "HIGH": 1, "MEDIUM": 1, "LOW": 1 }, "tech_quality": { "CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 1 } }
+    ],
+    "gate_after_revision": { "CRITICAL": 0, "HIGH": 0 },
+    "red_evidence": {
+      "command": "npx playwright test tests/e2e/markdown-editor-save.spec.ts --project \"Desktop Chrome\" --retries=0 (cwd=frontend)",
+      "exit_code": 1,
+      "captured_failure": "11 failed. Every failure is expect(locator).toBeVisible() on the editor window surface or on the header tray button: no editor window mounts and the tray never renders, so no save flow and no tab binding has anything to observe.",
+      "timestamp": "2026-09-03T02:05:00Z"
+    },
+    "red_evidence_meta": {
+      "failing_cases": ["TC-REQ-FR-MDE-006-AC2-03", "TC-REQ-FR-MDE-006-AC3-03", "TC-REQ-FR-MDE-006-AC4-01", "TC-REQ-FR-MDE-006-AC6-01", "TC-REQ-CON-MDE-002-AC1-01", "TC-REQ-CON-MDE-002-AC3-01", "TC-REQ-CON-MDE-002-AC4-01", "TC-REQ-CON-MDE-002-AC5-01", "TC-REQ-CON-MDE-002-AC7-01", "TC-REQ-FR-MDE-008-AC3-01", "TC-REQ-FR-MDE-008-AC8-01"],
+      "environment": "dev bundle, Vite proxy confirmed, 2FA disabled."
+    }
+  },
+  "requirement_conflicts_reported": [
+    "CON-MDE-002 AC-4's last-tab clamping branch appears unreachable: the tab bar sits above the stage, so removing it makes the stage taller rather than smaller, the stage renders with zero tabs, and a floating window's drag boundary is the viewport, which a tab close does not move. The spec implements the criterion's own conditional and logs which branch ran.",
+    "FR-MDE-008 AC-3's toggle-absent clause has no reachable desktop state."
+  ],
+  "phase2": { "note": "red-only task; the file list is the spec alone and no product code changed." },
+  "sidecar_not_updated": "docs/plans/* is write-forbidden for this lane; the evidence above is the record."
+}

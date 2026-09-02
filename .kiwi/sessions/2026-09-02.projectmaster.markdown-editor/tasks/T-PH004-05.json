@@ -1,0 +1,63 @@
+{
+  "task_id": "T-PH004-05",
+  "phase_id": "PH-004",
+  "lane": "E",
+  "started_at": "2026-09-02T13:40:00Z",
+  "completed_at": "2026-09-02T14:05:00Z",
+  "phase1": {
+    "tdd_draft_iters": [
+      { "iter": 1, "file_paths": ["frontend/tests/unit/editorWindowCascade.test.ts"] },
+      {
+        "iter": 2,
+        "file_paths": ["frontend/tests/unit/editorWindowCascade.test.ts"],
+        "change": "Sonnet 2축 findings 반영. fixture 무결성 단언 추가, k=0 반환값의 별칭 금지 단언 추가, 축소 후 크기가 minSize 와 정확히 같은 경계 사례 추가(< 와 <= 를 구별한다)"
+      }
+    ],
+    "sonnet_reviews": [
+      {
+        "iter": 1,
+        "intent_alignment": {
+          "verdict": "PASS",
+          "critical": 0,
+          "high": 0,
+          "medium": 1,
+          "low": 3,
+          "mutant_survival": "7종 전부 survives=false",
+          "key_judgement": "요구사항 본문의 계수 규칙과 AC-7 이 같은 상황에 서로 다른 답을 낸다고 독립적으로 판정했다(본문 규칙 k=2, AC-7 k=1). 일곱 기준을 동시에 만족시키는 규칙은 아무도 차지하지 않은 가장 낮은 단계 하나뿐이라고 결론지었고, 테스트가 그쪽을 요구한다고 확인했다"
+        },
+        "technical_quality": {
+          "verdict": "FAIL",
+          "critical": 0,
+          "high": 1,
+          "medium": 2,
+          "low": 0,
+          "mock_detected": false,
+          "accepted": [
+            "HIGH: 공유 fixture 를 참조로 넘기면서 제자리 변경을 잡을 단언이 하나도 없다 - 무결성 단언 함수 추가",
+            "MEDIUM: k=0 반환이 target 객체 자체일 수 있는데 참조 동일성 단언이 없다 - notEqual 추가",
+            "MEDIUM: 축소 후 크기가 minSize 와 정확히 같은 경계가 없어 < 와 <= 를 구별하지 못한다 - 348x268 사례 추가"
+          ]
+        }
+      }
+    ],
+    "red_evidence": {
+      "command": "node --experimental-strip-types --test tests/unit/editorWindowCascade.test.ts (cwd=frontend)",
+      "exit_code": 1,
+      "captured_failure": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module frontend/src/components/editor/editorWindowCascade.ts imported from frontend/tests/unit/editorWindowCascade.test.ts",
+      "timestamp": "2026-09-02T14:05:00Z"
+    },
+    "red_evidence_meta": {
+      "expected_failure_signature_match": true,
+      "test_case_ids": [
+        "TC-REQ-FR-MDE-004-AC1-01",
+        "TC-REQ-FR-MDE-004-AC2-01",
+        "TC-REQ-FR-MDE-004-AC3-01",
+        "TC-REQ-FR-MDE-004-AC4-01",
+        "TC-REQ-FR-MDE-004-AC5-01",
+        "TC-REQ-FR-MDE-004-AC6-01",
+        "TC-REQ-FR-MDE-004-AC7-01"
+      ],
+      "note": "sidecar 의 red_evidence 슬롯은 채우지 않았다. 상위가 docs/plans 수정을 금지했고, 여러 레인이 같은 JSON 을 동시에 편집하면 파일이 깨진다"
+    }
+  }
+}

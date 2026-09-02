@@ -1,0 +1,77 @@
+{
+  "round": "handoff",
+  "at": "2026-09-02T19:31:11Z",
+  "e2e": {
+    "markdown-editor-entry": {
+      "passed": 7,
+      "failed": 0
+    },
+    "markdown-editor-placement": {
+      "passed": 11,
+      "failed": 0
+    },
+    "markdown-editor-lifecycle": {
+      "passed": 8,
+      "failed": 0
+    },
+    "markdown-editor-save": {
+      "passed": 12,
+      "failed": 0
+    },
+    "total": {
+      "passed": 38,
+      "failed": 0
+    }
+  },
+  "regression": {
+    "tests": 975,
+    "passed": 973,
+    "failed": 2,
+    "failed_test_ids": [
+      "PERF-BGSTAB-010",
+      "REL-BGSTAB-012"
+    ],
+    "new_failures": 0
+  },
+  "approvals_item_10": {
+    "step_1_tried": true,
+    "step_1_result": "the containment assertions pass with no slack at all, so they were left at zero - stricter than they were",
+    "step_2_taken": true,
+    "why": "the overlap judgement could not go to zero. Measured with a temporary probe: the window sits exactly inside its own tile, and the neighbouring tile's own box overruns that edge by 0.015625px - the mosaic lays tiles out at fractional widths, so the seam itself overlaps. A judgement of 'any overlap at all' is a judgement about that rounding",
+    "what": "the overlap is judged by amount now - the smaller of the two axis overlaps must not exceed 1px. A real encroachment is the cascade step (28px) or the inflated minimum (tens of px)",
+    "note": "the Rnd-minimum mutant is killed earlier, by the size assertion and the exact containment. The overlap check is a backstop against a layout in which tiles genuinely overlap, which no window-side mutant can produce"
+  },
+  "approvals_item_11": {
+    "what": "tabClosed is required on EditorWindowVisibilityInput; visibleInput() in editorWindowVisibility.test.ts gained one line",
+    "why": "a default would have to be false, which is the answer that loses the window"
+  },
+  "rect_assertion": {
+    "what": "the orphan case opens two windows on the bound tab so the cascade gives the measured one a rect a step smaller than the stage, asserts before the close that the two differ, and after it that the settled rect equals the inherited one exactly and is not the stage's",
+    "why": "AC-4 names floating and not stage, and the rect is the only witness - isTerminalFillDisabled answers false for both and boundsElement never reaches the DOM",
+    "mutant": "sending the orphan to stage instead of floating - went red at the rect comparison"
+  },
+  "mutants_total": 11,
+  "final_hashes": {
+    "dialogStack.ts": "ce04ad5c35bc4d265d06ae2ee5bfc15e1513604677b714d5b905a460e42ca171",
+    "WindowDialog.tsx": "d7b25bca41d167c4ac2d9c0b4919c7272bb777ed9c6f39c709f97c87a34899ef",
+    "EditorWindow.tsx": "153d9dbf370668f8c08b8880084f5e6ee20f16a4eefbbfc008bb69ff8f804bcb",
+    "EditorWindowLayer.tsx": "9497269cacbfba19f09d04eaa1f5c450e0d040061aba344a64e108d76c03c7e3",
+    "editorWindowVisibility.ts": "94e888d38dd9354593a3fa090d4cc70088922edaf5cf531f69500d07c2e12a92",
+    "useEditorWindows.ts": "9c1e32a16e46222361425e0f108b4f911bf5686ee4c0f621ee9a06bb7a8a89f8",
+    "App.tsx": "28cd366e1f6d0fe3c1985cfb153b333e91a2aa29b7580408e20a7abda2334ee1"
+  },
+  "server": {
+    "url": "https://localhost:2242",
+    "health": 200,
+    "trust_lines_confirmed": true,
+    "runs_on_this_instance": 29,
+    "tabs_left": 0,
+    "note": "the earlier instance on 2232 is still up; kill is forbidden"
+  },
+  "deferred": [
+    "PH-009: the resolveTabSession judgement spelled out in three places",
+    "PH-009: editorWindowDialogId sits where the unit suite cannot import it",
+    "PH-008: stackOrder is not updated by a raise",
+    "the probe's independent witness needs a documentId readback in src/editor"
+  ]
+}

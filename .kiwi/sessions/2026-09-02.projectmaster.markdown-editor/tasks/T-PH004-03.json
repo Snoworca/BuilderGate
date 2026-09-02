@@ -1,0 +1,62 @@
+{
+  "task_id": "T-PH004-03",
+  "phase_id": "PH-004",
+  "lane": "E",
+  "started_at": "2026-09-02T12:30:00Z",
+  "completed_at": "2026-09-02T12:52:00Z",
+  "phase1": {
+    "tdd_draft_iters": [
+      { "iter": 1, "file_paths": ["frontend/tests/unit/editorWindowRect.test.ts"] },
+      {
+        "iter": 2,
+        "file_paths": ["frontend/tests/unit/editorWindowRect.test.ts"],
+        "change": "Sonnet x2 findings 반영. (1) 픽셀 상수 탐지 정규식을 식별자 인접 차단으로 좁히고 대조 입력 3종 추가 (2) 경로 표시줄 위 끝을 host rect 가 아니라 스테이지와 표시줄 높이에서 유도해 두 피연산자의 출처를 분리 (3) STAGE 원본 불변을 리터럴로 단언"
+      }
+    ],
+    "sonnet_reviews": [
+      {
+        "iter": 1,
+        "intent_alignment": {
+          "verdict": "PASS",
+          "critical": 0, "high": 0, "medium": 0, "low": 3,
+          "mutant_survival": "7종 전부 survives=false",
+          "rejected": [
+            {
+              "finding": "픽셀 상수 스캔 범위가 모듈 전체라 AC-6 보다 엄격하다. toStageRect 본문만 잘라서 스캔하라",
+              "reason": "함수 본문을 정규식으로 잘라내는 것이 곧 소스 텍스트 앵커링이며, 이름이나 시그니처만 바뀌어도 스캔 범위가 조용히 비어 공허 통과로 바뀐다. 세 함수 어디에도 220/58/36 이 등장할 이유가 없으므로 모듈 전체 스캔이 더 안전하다"
+            },
+            {
+              "finding": "clampToStage 의 무-별칭(non-alias) 단언은 AC-7 이 요구하지 않는다",
+              "reason": "같은 저장소의 editorWindowPlacement.test.ts 가 floatingRect 에 대해 이미 같은 규약을 고정하고 있다. 입력 객체를 그대로 돌려주면 창 상태와 클램프 결과가 같은 객체를 가리켜 한쪽 수정이 다른 쪽에 새어 나간다"
+            }
+          ]
+        },
+        "technical_quality": {
+          "verdict": "PASS",
+          "critical": 0, "high": 0, "medium": 2, "low": 1,
+          "mock_detected": false,
+          "accepted": [
+            "정규식이 식별자 안의 숫자(tabBar36px)를 오탐할 수 있다 - 룩어라운드를 [\\w.$] 로 넓히고 대조 입력 추가",
+            "STAGE 를 clampToStage 에 그대로 넘기면서 기대값도 STAGE 에서 읽어, 스테이지를 제자리 변경하는 구현이 통과한다 - 리터럴 단언 추가",
+            "경로 표시줄 단언이 직전 deepEqual 과 같은 항으로 환원되어 독립 판별력이 없다 - 스테이지에서 유도하도록 변경"
+          ]
+        }
+      }
+    ],
+    "red_evidence": {
+      "command": "node --experimental-strip-types --test tests/unit/editorWindowRect.test.ts (cwd=frontend)",
+      "exit_code": 1,
+      "captured_failure": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../frontend/src/components/editor/editorWindowRect.ts' imported from .../frontend/tests/unit/editorWindowRect.test.ts",
+      "timestamp": "2026-09-02T12:52:00Z"
+    },
+    "red_evidence_meta": {
+      "expected_failure_signature_match": true,
+      "test_case_ids": [
+        "TC-REQ-FR-MDE-001-AC5-01",
+        "TC-REQ-FR-MDE-001-AC6-01",
+        "TC-REQ-FR-MDE-001-AC7-01"
+      ],
+      "note": "sidecar 의 red_evidence 슬롯은 채우지 않았다. 여러 레인이 같은 sidecar JSON 을 동시에 편집하면 파일이 깨지며, 상위가 docs/plans/* 수정을 금지했다"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "task_id": "T-PH007-05",
+  "iter": 1,
+  "pass": "tdd-review",
+  "target_file": "frontend/tests/e2e/markdown-editor-entry.spec.ts",
+  "axes": {
+    "intent-alignment": {
+      "model": "sonnet",
+      "findings": [
+        { "severity": "HIGH", "problem": "AC-6 requires the reopened window to be raised to the front, but the test opened only one window, so the raise clause was unfalsifiable.", "resolution": "Second window opened first; the assertion now compares the two modeless layers' computed z-index before and after the reopen." },
+        { "severity": "MEDIUM", "problem": "AC-3 asserted the read's sessionId and the docked geometry but never the window's tab binding, which a bug binding to activeTabId would survive.", "resolution": "A second tab is created; the window is asserted to hide when that tab is active and to return on switching back, with the mounted count held at one." },
+        { "severity": "LOW", "problem": "AC-1 and AC-2 pinned the item order, which the AC states as a set.", "resolution": "Membership compared as a sorted set; the count is asserted separately." }
+      ]
+    },
+    "tech-quality": {
+      "model": "sonnet",
+      "findings": [
+        { "severity": "HIGH", "problem": "afterEach had no project guard, so on Mobile Safari and Tablet it would touch a page that never navigated and time out for 15s per test.", "resolution": "Guarded with the same project check as beforeEach." },
+        { "severity": "HIGH", "problem": "Cleanup had no error containment, so one teardown failure would leak a tab and a window into the next test's counts.", "resolution": "Teardown wrapped; routes are also unrouted." },
+        { "severity": "MEDIUM", "problem": "removeOwnTabs matched by name prefix only while deleting against one workspace id.", "resolution": "Filter scoped by workspace id as well." },
+        { "severity": "MEDIUM", "problem": "Absence-of-request assertions read a snapshot taken the instant a DOM assertion resolved.", "resolution": "A settle delay precedes each absence claim, and the traffic filters now match on the resolved path rather than on totals." },
+        { "severity": "MEDIUM", "problem": "AC-7 read the server-persisted activeTabId once, racing the persistence.", "resolution": "Replaced with expect.poll." }
+      ]
+    },
+    "req-mapping": {
+      "runner": "script",
+      "result": "test_case ids, req_id and ac_refs match the sidecar task; the seven test titles equal the seven test_symbol values"
+    },
+    "red-verification": { "runner": "playwright", "result": "recorded in red_evidence" }
+  },
+  "gate": { "critical": 0, "high": 0, "note": "both HIGH findings from each axis resolved in iteration 2 of the draft" }
+}

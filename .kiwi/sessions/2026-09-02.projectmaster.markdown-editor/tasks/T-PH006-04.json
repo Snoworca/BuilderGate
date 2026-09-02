@@ -1,0 +1,19 @@
+{
+  "task_id": "T-PH006-04",
+  "started_at": "2026-09-02T13:23:48.505Z",
+  "completed_at": "2026-09-02T13:23:48.505Z",
+  "lane": "H",
+  "phase2": {
+    "green_evidence": {
+      "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowClose.test.ts",
+      "exit_code": 0,
+      "timestamp": "2026-09-02T13:23:48.505Z"
+    },
+    "mutants": [
+      {
+        "mutation": "tabClosed 분기를 없애 한 확인만 남김",
+        "went_red": true
+      }
+    ]
+  }
+}

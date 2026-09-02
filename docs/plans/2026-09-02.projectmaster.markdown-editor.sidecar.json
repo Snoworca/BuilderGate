@@ -12,7 +12,7 @@
   },
   "tdd_policy": "relaxed",
   "md_path": "./2026-09-02.projectmaster.markdown-editor.plan.md",
-  "md_sha256": "8deae728d2d400cb28b05af4b765d42323fa486b220ec4797d9d483b3f6a4c00",
+  "md_sha256": "d0141664a6704d9ec41fdab4dd1e1c102c9dd8b4481d762566b719c1c94911c8",
   "phases": [
     {
       "id": "PH-001",
@@ -239,7 +239,12 @@
             "expected_failure_signature": "파일이 생성되지 않거나 덮어쓴 뒤 이전 본문의 꼬리가 남는다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "Push-Location server; npx tsx --test src/services/FileServiceWrite.test.ts; $mdeExit=$LASTEXITCODE; Pop-Location; exit $mdeExit",
+          "exit_code": 1,
+          "captured_failure": "tests 3 / pass 0 / fail 3\n✖ IR-MDE-001 write path encodes UTF-8 without a BOM\n  AssertionError [ERR_ASSERTION]: write was not answered with a success: Cannot POST /api/sessions/session-write-1/files/write\n  404 !== 200\n✖ IR-MDE-001 write path preserves mixed CRLF and LF bytes\n  AssertionError [ERR_ASSERTION]: write was not answered with a success: Cannot POST /api/sessions/session-write-1/files/write\n  404 !== 200\n✖ IR-MDE-001 write path creates a new file and truncates on overwrite\n  AssertionError [ERR_ASSERTION]: create was not answered with a success: Cannot POST /api/sessions/session-write-1/files/write\n  404 !== 200",
+          "timestamp": "2026-09-02T06:05:53.142Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -344,7 +349,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd server && npx tsx --test src/services/FileServiceWrite.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T06:45:50.897Z"
+        }
       },
       "trace_links": [
         {
@@ -380,7 +389,7 @@
           "path": "server/src/services/FileServiceWrite.test.ts"
         }
       ],
-      "action": "읽기 경로가 이미 밟는 순서 그대로 세 단계를 요구하는 실패 테스트를 작성한다. `assertSessionExists`(AC-9) → `resolveAndValidate`(AC-3 · AC-5) → `isBlockedExtension`(AC-4) 이며, 읽기 경로의 선례는 `FileService.ts:213` · `:215` · `:216` · `:219` 다. **거절 케이스마다 같은 테스트 안에 성공하는 대조군을 함께 둔다** — 대조군이 없으면 모든 쓰기를 거절하는 망가진 라우트와 올바르게 검증하는 라우트를 구분할 수 없고, 스위트는 망가진 쪽에서 green 이 된다. `resolveAndValidate` 는 확장자를 보지 않으므로(`pathValidator.ts:49-75`) 확장자 검사를 빠뜨리면 쓰기 경로만 조용히 모든 차단 확장자를 허용하게 된다는 사실을 케이스로 고정한다.",
+      "action": "읽기 경로가 이미 밟는 순서 그대로 세 단계를 요구하는 실패 테스트를 작성한다. `assertSessionExists`(AC-9) → `resolveAndValidate`(AC-3 · AC-5) → `isBlockedExtension`(AC-4) 이며, 읽기 경로의 선례는 `FileService.ts:213` · `:215` · `:216` · `:219` 다. **거절 케이스마다 같은 테스트 안에 성공하는 대조군을 함께 둔다** — 대조군이 없으면 모든 쓰기를 거절하는 망가진 라우트와 올바르게 검증하는 라우트를 구분할 수 없고, 스위트는 망가진 쪽에서 green 이 된다. `resolveAndValidate` 는 확장자를 보지 않으므로(`pathValidator.ts:49-75`) 확장자 검사를 빠뜨리면 쓰기 경로만 조용히 모든 차단 확장자를 허용하게 된다는 사실을 케이스로 고정한다. 본문 크기 한도도 같은 방식으로 고정한다(AC-10). `server/src/index.ts:503` 의 `express.json()` 이 `limit` 없이 등록되어 요청 본문이 body-parser 기본값인 100KB 로 제한되는 반면 `server/src/schemas/config.schema.ts:266` 의 `maxFileSize` 기본값은 1MB 이므로, 100KB 를 넘고 1MB 이하인 파일은 읽기 경로로 열리지만 저장할 수 없고 그 실패가 413 이 아니라 500 으로 나간다. 한도를 넘는 본문이 크기 초과를 알리는 응답으로 거절되기를 요구하는 실패 케이스를 두고, 같은 테스트 안에 한도 바로 아래 크기의 본문이 성공하는 대조군을 함께 둔다.",
       "acceptance_tests": [
         {
           "kind": "shell",
@@ -405,7 +414,8 @@
         "AC-3",
         "AC-4",
         "AC-5",
-        "AC-9"
+        "AC-9",
+        "AC-10"
       ],
       "tdd": {
         "applicable": true,
@@ -454,9 +464,25 @@
             "test_symbol": "IR-MDE-001 write path rejects an unknown session ahead of any path resolution",
             "kind": "contract",
             "expected_failure_signature": "세션 존재 검사가 없어 경로 해석이 먼저 수행된다"
+          },
+          {
+            "id": "TC-REQ-IR-MDE-001-AC10-01",
+            "req_id": "IR-MDE-001",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "server/src/services/FileServiceWrite.test.ts",
+            "test_symbol": "IR-MDE-001 write path accepts a body just under maxFileSize and rejects a larger one as too large",
+            "kind": "contract",
+            "expected_failure_signature": "본문이 100KB 로 제한되어 한도 바로 아래 크기의 쓰기가 413 이 아닌 500 으로 실패한다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "Push-Location server; npx tsx --test src/services/FileServiceWrite.test.ts; $mdeExit=$LASTEXITCODE; Pop-Location; exit $mdeExit",
+          "exit_code": 1,
+          "captured_failure": "tests 8 / pass 4 / fail 4\n✖ IR-MDE-001 write path rejects a directory escape and still accepts a legal control write\n  AssertionError [ERR_ASSERTION]: the parent-directory traversal was answered with 200 rather than an error: {\"success\":true}\n✖ IR-MDE-001 write path rejects a blocked extension and still accepts the same content on a .md path\n  AssertionError [ERR_ASSERTION]: a write to a blocked extension was answered with 200 rather than an error: {\"success\":true}\n✖ IR-MDE-001 write path rejects a blocked path and still accepts a legal control write\n  AssertionError [ERR_ASSERTION]: a write inside a blocked path was answered with 200 rather than an error: {\"success\":true}\n✖ IR-MDE-001 write path accepts a body just under maxFileSize and rejects a larger one as too large\n  AssertionError [ERR_ASSERTION]: server/src/index.ts registers express.json() with no limit, so every deployed request body is bounded at the body-parser default rather than at maxFileSize\n  true !== false\n  (the behavioural half was measured separately against the same routes: a body of 262143 bytes was answered with 500 rather than 200, and a body of 262145 bytes with 500 rather than 413)\nTC-REQ-IR-MDE-001-AC9-01 passes as written because getCwd already calls assertSessionExists. It was shown non-vacuous by commenting out that call, under which the case fails with 200 !== 404; FileService.ts was then restored to sha256 cb546427c4544eb12fb6a6c43db1b7e8bd165517160c4f5b72997a91914f2fae.",
+          "timestamp": "2026-09-02T07:59:57.824Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -485,6 +511,9 @@
       ],
       "files": [
         {
+          "path": "server/src/index.ts"
+        },
+        {
           "path": "server/src/routes/fileRoutes.ts"
         },
         {
@@ -496,7 +525,7 @@
           "path": "server/src/services/FileServiceWrite.test.ts"
         }
       ],
-      "action": "`FileService.writeFile` 의 첫 문장으로 `assertSessionExists(sessionId)` 를 두고, `getCwd` 로 얻은 cwd 를 기준으로 `resolveAndValidate(cwd, filePath, blockedPaths)` 를 부른 뒤 `isBlockedExtension` 을 부른다. 네 번째 검사를 새로 만들지 않는다. `resolveAndValidate` 는 대상이 없을 때(ENOENT) 해석된 경로를 그대로 반환하므로(`pathValidator.ts:70-71`) 그 앞에 존재 여부 선행 조건을 붙이면 신규 파일 생성이 막힌다. 검증 실패 시에는 어떤 바이트도 기록하지 않고 오류 응답만 돌려준다.",
+      "action": "`FileService.writeFile` 의 첫 문장으로 `assertSessionExists(sessionId)` 를 두고, `getCwd` 로 얻은 cwd 를 기준으로 `resolveAndValidate(cwd, filePath, blockedPaths)` 를 부른 뒤 `isBlockedExtension` 을 부른다. 네 번째 검사를 새로 만들지 않는다. `resolveAndValidate` 는 대상이 없을 때(ENOENT) 해석된 경로를 그대로 반환하므로(`pathValidator.ts:70-71`) 그 앞에 존재 여부 선행 조건을 붙이면 신규 파일 생성이 막힌다. 검증 실패 시에는 어떤 바이트도 기록하지 않고 오류 응답만 돌려준다. 쓰기 요청 본문의 크기 한도를 읽기 경로가 쓰는 `maxFileSize` 와 같은 값으로 맞춘다(AC-10). `server/src/index.ts:503` 의 `express.json()` 이 `limit` 없이 등록되어 본문이 body-parser 기본값인 100KB 로 제한되는데 `server/src/schemas/config.schema.ts:266` 의 `maxFileSize` 기본값은 1MB 이므로, 두 한도를 맞추지 않으면 100KB 를 넘고 1MB 이하인 파일은 열리기는 하지만 저장할 수 없고 그 실패가 413 이 아니라 500 으로 나간다. 한도를 넘는 요청은 크기 초과임을 알리는 413 응답으로 거절하고, 한도 바로 아래 크기의 본문은 그대로 저장되어야 한다.",
       "acceptance_tests": [
         {
           "kind": "shell",
@@ -521,7 +550,8 @@
         "AC-3",
         "AC-4",
         "AC-5",
-        "AC-9"
+        "AC-9",
+        "AC-10"
       ],
       "tdd": {
         "applicable": true,
@@ -570,10 +600,25 @@
             "test_symbol": "IR-MDE-001 write path rejects an unknown session ahead of any path resolution",
             "kind": "contract",
             "expected_failure_signature": null
+          },
+          {
+            "id": "TC-REQ-IR-MDE-001-AC10-02",
+            "req_id": "IR-MDE-001",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "server/src/services/FileServiceWrite.test.ts",
+            "test_symbol": "IR-MDE-001 write path accepts a body just under maxFileSize and rejects a larger one as too large",
+            "kind": "contract",
+            "expected_failure_signature": null
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd server && npx tsx --test src/services/FileServiceWrite.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T20:52:24.959Z"
+        }
       },
       "trace_links": [
         {
@@ -749,7 +794,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/fileApiWrite.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T20:52:33.562Z"
+        }
       },
       "trace_links": [
         {
@@ -847,7 +896,12 @@
             "expected_failure_signature": "스캔 대상 디렉터리가 없어 실패한다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorPortContract.test.ts",
+          "exit_code": 1,
+          "captured_failure": "tests 3 / pass 0 / fail 3\n✖ FR-MDE-005 ported tree holds 27 files, the MIT LICENSE and the entry barrel\n✖ FR-MDE-005 frontend package.json declares mermaid ^11.4.1, katex, shiki and the CodeMirror/Lezer packages\n✖ FR-MDE-005 ported tree has zero coupling hits and a nonzero callback surface",
+          "timestamp": "2026-09-02T09:54:51.281Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -1082,7 +1136,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorPortContract.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T10:26:58.581Z"
+        }
       },
       "trace_links": [
         {
@@ -1156,7 +1214,12 @@
             "expected_failure_signature": "raise 가 존재하지 않아 import 가 실패한다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/dialogStack.test.ts",
+          "exit_code": 1,
+          "captured_failure": "tests 1 / pass 0 / fail 1\nSyntaxError: The requested module '../../src/components/dialog/dialogStack.ts' does not provide an export named 'getDialogStackEntries'. 오늘의 dialogStack.ts 는 createDialogStackState 와 useDialogStack 만 내보낸다",
+          "timestamp": "2026-09-02T08:20:00.000Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -1237,7 +1300,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/dialogStack.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T09:05:00.000Z"
+        }
       },
       "trace_links": [
         {
@@ -1350,7 +1417,12 @@
             "expected_failure_signature": "대역 분기가 없어 값이 정의되지 않는다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/windowDialogZBand.test.ts",
+          "exit_code": 1,
+          "captured_failure": "✖ CON-MDE-001 modeless layer is 3000 + n * 20 capped at 3980 and the surface is one greater — AssertionError: modeless layer value at stack index 0, actual 5000, expected 3000. ✖ CON-MDE-001 editor window z-index is below every modal surface — AssertionError: saturated editor window (9001) must render below WindowDialog modal layer (5000)",
+          "timestamp": "2026-09-02T09:35:00.000Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -1471,7 +1543,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/windowDialogZBand.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T10:30:00.000Z"
+        }
       },
       "trace_links": [
         {
@@ -1569,7 +1645,12 @@
             "expected_failure_signature": "floating 진입 전이가 없다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowPlacement.test.ts",
+          "exit_code": 1,
+          "captured_failure": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'frontend\\src\\components\\editor\\editorWindowPlacement.ts' imported from 'frontend\\tests\\unit\\editorWindowPlacement.test.ts' — tests 1 / pass 0 / fail 1",
+          "timestamp": "2026-09-02T11:22:00Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -1671,7 +1752,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowPlacement.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T11:56:00Z"
+        }
       },
       "trace_links": [
         {
@@ -1769,7 +1854,12 @@
             "expected_failure_signature": "클램프 기준이 뷰포트라 사이드바 위로 나간다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "node --experimental-strip-types --test tests/unit/editorWindowRect.test.ts (cwd=frontend)",
+          "exit_code": 1,
+          "captured_failure": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../frontend/src/components/editor/editorWindowRect.ts' imported from .../frontend/tests/unit/editorWindowRect.test.ts",
+          "timestamp": "2026-09-02T12:52:00Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -1871,7 +1961,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "node --experimental-strip-types --test tests/unit/editorWindowRect.test.ts (cwd=frontend)",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T13:40:00Z"
+        }
       },
       "trace_links": [
         {
@@ -2017,7 +2111,12 @@
             "expected_failure_signature": "남은 창의 rect 가 재배치된다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "node --experimental-strip-types --test tests/unit/editorWindowCascade.test.ts (cwd=frontend)",
+          "exit_code": 1,
+          "captured_failure": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module frontend/src/components/editor/editorWindowCascade.ts imported from frontend/tests/unit/editorWindowCascade.test.ts",
+          "timestamp": "2026-09-02T14:05:00Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -2167,7 +2266,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "node --experimental-strip-types --test tests/unit/editorWindowCascade.test.ts (cwd=frontend)",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T14:55:00Z"
+        }
       },
       "trace_links": [
         {
@@ -2253,7 +2356,12 @@
             "expected_failure_signature": "복원 필터가 없어 없는 탭의 창도 만들어진다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowRecord.test.ts",
+          "exit_code": 1,
+          "captured_failure": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module .../src/components/editor/editorWindowRecord.ts",
+          "timestamp": "2026-09-02T12:20:00.000Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -2346,7 +2454,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowRecord.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T12:20:00.000Z"
+        }
       },
       "trace_links": [
         {
@@ -2420,7 +2532,12 @@
             "expected_failure_signature": "controlled rect 경로가 없어 기존 clamp 가 그대로 적용된다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/windowDialogControlledRect.test.ts",
+          "exit_code": 1,
+          "captured_failure": "AssertionError: WindowDialog does not accept the rect prop",
+          "timestamp": "2026-09-02T12:20:00.000Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -2506,7 +2623,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/windowDialogControlledRect.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T12:20:00.000Z"
+        }
       },
       "trace_links": [
         {
@@ -2604,7 +2725,12 @@
             "expected_failure_signature": "stage 와 floating 창까지 터미널 rect 판정에 걸린다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowVisibility.test.ts",
+          "exit_code": 1,
+          "captured_failure": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../frontend/src/components/editor/editorWindowVisibility.ts'",
+          "timestamp": "2026-09-02T12:13:07.561Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -2706,7 +2832,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowVisibility.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T12:23:09.703Z"
+        }
       },
       "trace_links": [
         {
@@ -2870,7 +3000,12 @@
             "expected_failure_signature": "세션 ID 가 저장된 값에서 나온다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowSave.test.ts",
+          "exit_code": 1,
+          "captured_failure": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module .../editorWindowSave.ts",
+          "timestamp": "2026-09-02T13:23:48.505Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -2973,7 +3108,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowSave.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T13:23:48.505Z"
+        }
       },
       "trace_links": [
         {
@@ -3071,7 +3210,12 @@
             "expected_failure_signature": "dirty 가 아닌 창에도 확인이 뜬다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowClose.test.ts",
+          "exit_code": 1,
+          "captured_failure": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module .../editorWindowClose.ts",
+          "timestamp": "2026-09-02T13:23:48.505Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -3173,7 +3317,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowClose.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T13:23:48.505Z"
+        }
       },
       "trace_links": [
         {
@@ -3259,7 +3407,12 @@
             "expected_failure_signature": "포커스 범위 판정이 없어 항상 쓰기가 나간다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowSaveShortcut.test.ts",
+          "exit_code": 1,
+          "captured_failure": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module .../editorWindowSaveShortcut.ts",
+          "timestamp": "2026-09-02T13:23:48.505Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -3350,7 +3503,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowSaveShortcut.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T13:23:48.505Z"
+        }
       },
       "trace_links": [
         {
@@ -3682,7 +3839,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileMenu.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T20:57:06.390Z"
+        }
       },
       "trace_links": [
         {
@@ -3959,7 +4120,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorTrayModel.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T20:57:12.128Z"
+        }
       },
       "trace_links": [
         {
@@ -4110,7 +4275,12 @@
             "expected_failure_signature": "탭마다 창이 생긴다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "npx playwright test tests/e2e/markdown-editor-entry.spec.ts --project \"Desktop Chrome\" --retries=0 (cwd=frontend)",
+          "exit_code": 1,
+          "captured_failure": "5 failed, 2 passed. AC-3/AC-6/AC-7: expect(locator('.window-dialog-surface.editor-window-surface').filter({has: .window-dialog-title CLAUDE.md})).toBeVisible() failed. AC-4: expect(locator('.modal-overlay .modal-content')).toBeVisible() failed. AC-5: expect(locator('.message-box-dialog')).toBeVisible() failed.",
+          "timestamp": "2026-09-02T14:04:00Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -4139,7 +4309,13 @@
       ],
       "files": [
         {
+          "path": "frontend/src/App.tsx"
+        },
+        {
           "path": "frontend/src/components/editor/EditorWindowLayer.tsx"
+        },
+        {
+          "path": "frontend/src/hooks/useEditorWindows.ts"
         },
         {
           "path": "frontend/src/utils/editorFileMenu.ts"
@@ -4150,7 +4326,7 @@
           "path": "frontend/tests/e2e/markdown-editor-entry.spec.ts"
         }
       ],
-      "action": "T-PH007-05 가 남긴 실패를 최소 변경으로 해소한다. 읽기는 `fileApi.readFile(tab.sessionId, path)` 로 나가고, 404 는 기존 `ConfirmModal` 로 생성 여부를 물은 뒤 승인 시 빈 파일을 쓰고 창을 연다. 그 밖의 실패는 `MessageBox` 로 알리고 창을 열지 않는다. 이미 열린 절대 경로면 읽기도 쓰기도 내지 않고 그 창을 되살려 앞으로 올린다.",
+      "action": "T-PH007-05 가 남긴 실패를 최소 변경으로 해소한다. 읽기는 `fileApi.readFile(tab.sessionId, path)` 로 나가고, 404 는 기존 `ConfirmModal` 로 생성 여부를 물은 뒤 승인 시 빈 파일을 쓰고 창을 연다. 그 밖의 실패는 `MessageBox` 로 알리고 창을 열지 않는다. 이미 열린 절대 경로면 읽기도 쓰기도 내지 않고 그 창을 되살려 앞으로 올린다. 창 생성 흐름(AC-3~AC-5)은 `useEditorWindows.ts` 의 `open` 분기에 산다 — 지금 그 분기는 `setWindows` 를 부르지 않는 빈 껍데기라 `editor.windows` 가 영구히 빈 배열이고, 그래서 레이어의 `renderWindow` 는 호출조차 되지 않는다. `App.tsx` 변경은 `renderWindow={() => null}` 자리표를 실제 함수로 바꾸는 한 줄로 제한한다 — 그 prop 이 명시적으로 넘어오므로 레이어에 기본값을 두어도 이기지 못하고, seam 자체를 없애면 App.tsx 가 넘기는 prop 이 타입에서 사라져 `tsc -p tsconfig.app.json` 이 깨진다. 레이어는 `:116` 에서 `hosts.get(tabId)` 를 이미 구하지만 가시성 판정에만 쓰고 `renderWindow` 로 넘기지 않는다 — 도킹된 창이 host 를 필요로 하므로 `EditorWindowRenderContext`(선언 `:57`, 사용 `:82`)에 그것을 얹는다. rect 는 레이어 안에서 한 번에 계산한다: `computeCascadeRect` 가 같은 탭의 다른 docked 창들의 실제 rect 를 요구하고 `minSize` 는 `EditorWindow.tsx:52` 의 비공개 상수 `EDITOR_WINDOW_MIN_SIZE` 라, 창별로 흩으면 두 값이 복제된다. 컬렉션 전체를 아는 것은 레이어뿐이다.",
       "acceptance_tests": [
         {
           "kind": "shell",
@@ -4263,7 +4439,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && PLAYWRIGHT_BASE_URL=https://localhost:2282 npx playwright test tests/e2e/markdown-editor-entry.spec.ts --project \"Desktop Chrome\"",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T21:14:08.583Z"
+        }
       },
       "trace_links": [
         {
@@ -4462,7 +4642,12 @@
             "expected_failure_signature": "편집기 창이 모달 위에 남는다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "npx playwright test tests/e2e/markdown-editor-placement.spec.ts --project \"Desktop Chrome\" --retries=0 (cwd=frontend)",
+          "exit_code": 1,
+          "captured_failure": "10 failed, 1 passed (3.4m). Every failure is expect(locator).toBeVisible() on the editor window surface: no editor window can mount, so none of the placement, stacking or inert criteria has anything to observe.",
+          "timestamp": "2026-09-03T00:20:00Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -4533,6 +4718,12 @@
       ],
       "files": [
         {
+          "path": "frontend/src/App.tsx"
+        },
+        {
+          "path": "frontend/src/components/dialog/dialogStack.ts"
+        },
+        {
           "path": "frontend/src/components/dialog/WindowDialog.tsx"
         },
         {
@@ -4547,7 +4738,7 @@
           "path": "frontend/tests/e2e/markdown-editor-placement.spec.ts"
         }
       ],
-      "action": "T-PH007-07 이 남긴 실패를 최소 변경으로 해소한다. 대상 영역이 `minSize` 보다 작을 때는 그 창에 한해 `Rnd` 로 넘기는 최솟값을 낮추거나 동등한 수단으로 계산 rect 와 렌더 상자를 일치시킨다 — 대상 안에 머무는 것이 `minSize` 보다 우선한다. `raise` 는 z-index 만 바꾸고 마운트 순서는 생성 순서로 고정한다 — `pointerdown` 직후 DOM 노드를 재삽입하면 막 시작한 텍스트 선택 드래그가 끊긴다. 모달의 `inert` 는 `document.body.children` 스냅샷을 쓰는데 `WindowDialog` 가 모든 표면을 `createPortal(…, document.body)` 로 붙이므로(`:203`) 이미 열린 편집기 창은 추가 배선 없이 스냅샷에 포함된다.",
+      "action": "T-PH007-07 이 남긴 실패를 최소 변경으로 해소한다. `useDialogStack` 이 `useId()` 로 만든 토큰을 반환하지 않아 `WindowDialog` 가 자기 토큰을 모르고, 그래서 `raise` 호출자가 제품 코드에 0건이다 — 훅이 자기 토큰에 묶인 `raise` 를 함께 돌려주게 하고 `WindowDialog` 가 그것을 부른다. 토큰을 호스트로 흘려 호출하게 하면 창 호스트마다 같은 배선이 되풀이되고 기존 모달 여섯 곳과 갈라진다. 대상 영역이 `minSize` 보다 작을 때는 그 창에 한해 `Rnd` 로 넘기는 최솟값을 낮추거나 동등한 수단으로 계산 rect 와 렌더 상자를 일치시킨다 — 대상 안에 머무는 것이 `minSize` 보다 우선한다. `raise` 는 z-index 만 바꾸고 마운트 순서는 생성 순서로 고정한다 — `pointerdown` 직후 DOM 노드를 재삽입하면 막 시작한 텍스트 선택 드래그가 끊긴다. 모달의 `inert` 는 `document.body.children` 스냅샷을 쓰는데 `WindowDialog` 가 모든 표면을 `createPortal(…, document.body)` 로 붙이므로(`:203`) 이미 열린 편집기 창은 추가 배선 없이 스냅샷에 포함된다. `raise` 를 `WindowDialog` 안에서 부르면 `EditorWindow` 의 `onRaise` prop 과 `App.tsx` 의 `onRaise={() => {}}` 자리표가 둘 다 죽은 코드가 된다 — 둘을 함께 지운다. prop 만 지우면 App.tsx 가 넘기는 값이 초과 속성이 되어 `tsc -p tsconfig.app.json` 이 깨지고, 선택 prop 으로 낮춰 두면 아무도 읽지 않는 한 줄이 남아 그것을 지우는 일이 그 사실을 모르는 다음 Task 로 넘어간다. App.tsx 변경은 그 한 줄로 제한한다. 그리고 `raise` 는 순수 함수 `createDialogStackState` 의 반환이 아니라 훅 `useDialogStack` 이 돌려주는 타입에 얹는다 — `dialogStack.test.ts` 가 그 순수 함수의 반환을 `{layerIndex, isTopmost}` 로 `assert.deepEqual` 로 다섯 군데에서 못박고 있어, 순수 함수 쪽에 더하면 그 다섯이 깨진다.",
       "acceptance_tests": [
         {
           "kind": "shell",
@@ -4705,7 +4896,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && PLAYWRIGHT_BASE_URL=https://localhost:2282 npx playwright test tests/e2e/markdown-editor-placement.spec.ts --project \"Desktop Chrome\"",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T21:09:26.602Z"
+        }
       },
       "trace_links": [
         {
@@ -4907,7 +5102,12 @@
             "expected_failure_signature": "documentId 가 재시작으로 바뀐다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "npx playwright test tests/e2e/markdown-editor-lifecycle.spec.ts --project \"Desktop Chrome\" --retries=0 (cwd=frontend)",
+          "exit_code": 1,
+          "captured_failure": "8 failed. Every failure is expect(locator).toBeVisible() on the editor window surface: no editor mounts, so neither mount contract has anything to observe.",
+          "timestamp": "2026-09-03T01:05:00Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -5085,7 +5285,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && PLAYWRIGHT_BASE_URL=https://localhost:2302 npx playwright test tests/e2e/markdown-editor-lifecycle.spec.ts --project \"Desktop Chrome\"",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T21:46:07Z"
+        }
       },
       "trace_links": [
         {
@@ -5297,7 +5501,12 @@
             "expected_failure_signature": "0 크기 영역에 창이 배치된다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "npx playwright test tests/e2e/markdown-editor-save.spec.ts --project \"Desktop Chrome\" --retries=0 (cwd=frontend)",
+          "exit_code": 1,
+          "captured_failure": "11 failed. Every failure is expect(locator).toBeVisible() on the editor window surface or on the header tray button: no editor window mounts and the tray never renders, so no save flow and no tab binding has anything to observe.",
+          "timestamp": "2026-09-03T02:05:00Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -5354,7 +5563,7 @@
       ],
       "files": [
         {
-          "path": "frontend/src/components/Header/Header.tsx"
+          "path": "frontend/src/App.tsx"
         },
         {
           "path": "frontend/src/components/editor/EditorWindow.tsx"
@@ -5364,6 +5573,15 @@
         },
         {
           "path": "frontend/src/components/editor/editorWindowSave.ts"
+        },
+        {
+          "path": "frontend/src/components/editor/editorWindowVisibility.ts"
+        },
+        {
+          "path": "frontend/src/components/Header/Header.tsx"
+        },
+        {
+          "path": "frontend/src/hooks/useEditorWindows.ts"
         }
       ],
       "test_files": [
@@ -5371,7 +5589,7 @@
           "path": "frontend/tests/e2e/markdown-editor-save.spec.ts"
         }
       ],
-      "action": "T-PH007-11 이 남긴 실패를 최소 변경으로 해소한다. 탭이 닫히면 창을 `floating` 으로 떨어뜨리고 저장 버튼과 `Ctrl+S` 를 비활성화하며 제목표시줄의 파일명 옆 배지로 그 사실을 알린다. 계승한 rect 에도 `floating` 클램프를 적용하고 충돌 시 클램프를 따른다. `docked` rect 측정은 `Boolean(host?.isVisible && host.rect.width > 0 && host.rect.height > 0)` 이 참이 될 때까지 미루고 그때까지 창을 감춘 채 둔다 — 0 크기 영역에 배치하면 창이 0 크기가 된다. 트레이 아이콘을 뷰 모드 토글의 바로 앞 형제로 배치한다.",
+      "action": "T-PH007-11 이 남긴 실패를 최소 변경으로 해소한다. 탭이 닫히면 창을 `floating` 으로 떨어뜨리고 저장 버튼과 `Ctrl+S` 를 비활성화하며 제목표시줄의 파일명 옆 배지로 그 사실을 알린다. 계승한 rect 에도 `floating` 클램프를 적용하고 충돌 시 클램프를 따른다. `docked` rect 측정은 `Boolean(host?.isVisible && host.rect.width > 0 && host.rect.height > 0)` 이 참이 될 때까지 미루고 그때까지 창을 감춘 채 둔다 — 0 크기 영역에 배치하면 창이 0 크기가 된다. 트레이 아이콘을 뷰 모드 토글의 바로 앞 형제로 배치한다. 탭이 닫힌 창의 배치 전이는 레이어에서 그리는 것만으로 부족하다 — AC-4 가 `placement state` 자체를 floating 으로 요구하고, `App.tsx` 가 `editorWindow.placement` 를 그대로 읽어 `terminalFillDisabled` 와 `boundsElement` 를 정하므로 고아 창이 서로 다른 두 배치를 갖게 된다. 그리고 가시성 술어의 `viewMode === grid || windowTabId === activeTabId` 항이 여전히 고아 창을 감춘다 — 앱의 `closeTab` 이 `activeTabId` 를 형제 탭으로 옮기므로 탭 모드에서 저장되지 않은 본문을 든 창이 사라진다. E2E 가 서버 DELETE 를 직접 호출해 `activeTabId` 가 죽은 탭을 계속 가리키는 경로로만 검증하기 때문에 그 green 은 사용자 경로를 보증하지 않는다.",
       "acceptance_tests": [
         {
           "kind": "shell",
@@ -5529,7 +5747,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && PLAYWRIGHT_BASE_URL=https://localhost:2282 npx playwright test tests/e2e/markdown-editor-save.spec.ts --project \"Desktop Chrome\"",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T21:12:49.037Z"
+        }
       },
       "trace_links": [
         {
@@ -5677,7 +5899,12 @@
             "expected_failure_signature": "파싱 실패가 사용자에게 노출된다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/windowStateStorage.test.ts",
+          "exit_code": 1,
+          "captured_failure": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'frontend/src/hooks/windowStateStorage.ts'",
+          "timestamp": "2026-09-02T19:52:28.151Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -5806,7 +6033,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/windowStateStorage.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T20:09:20.585Z"
+        }
       },
       "trace_links": [
         {
@@ -5892,7 +6123,12 @@
             "expected_failure_signature": "writeDialogGeometry 가 두 번째 정본을 만든다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowRestore.test.ts",
+          "exit_code": 1,
+          "captured_failure": "SyntaxError: does not provide an export named 'restoreEditorWindowStackOrder'",
+          "timestamp": "2026-09-02T20:26:14.772Z"
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -5921,7 +6157,16 @@
       ],
       "files": [
         {
+          "path": "frontend/src/App.tsx"
+        },
+        {
           "path": "frontend/src/components/editor/EditorWindowLayer.tsx"
+        },
+        {
+          "path": "frontend/src/hooks/useEditorWindows.ts"
+        },
+        {
+          "path": "frontend/src/hooks/useWindowState.ts"
         },
         {
           "path": "frontend/src/hooks/windowStateStorage.ts"
@@ -5932,7 +6177,7 @@
           "path": "frontend/tests/unit/editorWindowRestore.test.ts"
         }
       ],
-      "action": "저장된 스택 순서대로 창을 만들고 `docked` 진입 규칙이 `k` 를 다시 계산하게 한다. 계단식 단계를 저장해 두었다가 복원하면 재계산 규칙이 무력화되어, 한쪽이 움직였다 돌아온 뒤에는 새로고침 전에 어긋나 있던 두 창이 정확히 겹쳐 돌아온다. `floating` 좌표의 정본은 이 저장소 하나이며 `persistGeometry={false}` 로 `WindowDialog` 의 자체 저장 경로를 끈다. 다만 그 prop 은 쓰기만 막고 읽기는 막지 못하므로(`WindowDialog.tsx:37-39` 의 `readDialogGeometry` 가 마운트마다 실행된다) 첫 렌더부터 controlled `rect` 를 넘겨야 남아 있던 값이 화면에 나오지 않는다.",
+      "action": "저장된 스택 순서대로 창을 만들고 `docked` 진입 규칙이 `k` 를 다시 계산하게 한다. 계단식 단계를 저장해 두었다가 복원하면 재계산 규칙이 무력화되어, 한쪽이 움직였다 돌아온 뒤에는 새로고침 전에 어긋나 있던 두 창이 정확히 겹쳐 돌아온다. `floating` 좌표의 정본은 이 저장소 하나이며 `persistGeometry={false}` 로 `WindowDialog` 의 자체 저장 경로를 끈다. 다만 그 prop 은 쓰기만 막고 읽기는 막지 못하므로(`WindowDialog.tsx:37-39` 의 `readDialogGeometry` 가 마운트마다 실행된다) 첫 렌더부터 controlled `rect` 를 넘겨야 남아 있던 값이 화면에 나오지 않는다. 복원 진입점이 `EditorWindowLayer` 에 없다 — 그 컴포넌트는 `windows` 를 prop 으로 받을 뿐 창을 만들 수단이 없고, `useEditorWindows` 가 `useState([])` 로 시작하며 저장소에서 읽는 경로가 전혀 없다(그 자리 주석이 \"restoring a stored layout is specified separately, by FR-MDE-009\" 라고 적고 있다). 복원은 `useEditorWindows` 에 넣고 `useWindowState(workspaceId)` 를 `App.tsx` 가 내려보낸다. 끌어 놓은 rect 를 저장하는 배선도 아직 없다 — `saveWindowStateForWorkspace` 를 부르는 곳이 하나도 없으며 같은 자리에서 잇는다. RED 가 요구하는 함수는 `restoreEditorWindowStackOrder(records, toDialogId)` 하나이며, `stackOrder` 오름차순으로 정렬해 `raiseDialogById(toDialogId(filePath), 'modeless')` 를 차례로 부른다. 정렬 비교자는 `restoreWindowStateForWorkspace` 와 공용화한다. **AC-7 의 절반은 이미 프로덕션에서 성립한다** — `persistGeometry={false}` 와 `App.tsx:769` 의 `rect={context.rect ?? EDITOR_WINDOW_WAITING_RECT}` 가 이미 있어 `readDialogGeometry` 의 잔여값이 화면에 도달하지 못한다. 그 절반을 red 로 만들려고 존재 이유 없는 함수를 발명하지 말 것.",
       "acceptance_tests": [
         {
           "kind": "shell",
@@ -6049,7 +6294,8 @@
       ],
       "covers_ac": [
         "AC-4",
-        "AC-6"
+        "AC-6",
+        "AC-10"
       ],
       "tdd": {
         "applicable": true,
@@ -6076,6 +6322,17 @@
             "test_symbol": "FR-MDE-009 a workspace round trip keeps the editor instance and reads no stored value",
             "kind": "e2e",
             "expected_failure_signature": "워크스페이스 전환이 창을 언마운트해 본문이 사라진다"
+          },
+          {
+            "id": "TC-REQ-FR-MDE-009-AC10-01",
+            "req_id": "FR-MDE-009",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "frontend/tests/e2e/markdown-editor-persistence.spec.ts",
+            "test_symbol": "FR-MDE-009 a stored entry whose file is gone drops that window alone and restores the rest",
+            "kind": "e2e",
+            "expected_failure_signature": "읽기 실패가 복원 전체를 중단시켜 파일이 남아 있는 창까지 복원되지 않는다"
           }
         ],
         "red_evidence": null,
@@ -6108,6 +6365,9 @@
       "files": [
         {
           "path": "frontend/src/components/editor/EditorWindowLayer.tsx"
+        },
+        {
+          "path": "frontend/src/hooks/useEditorWindows.ts"
         }
       ],
       "test_files": [
@@ -6138,7 +6398,8 @@
       ],
       "covers_ac": [
         "AC-4",
-        "AC-6"
+        "AC-6",
+        "AC-10"
       ],
       "tdd": {
         "applicable": true,
@@ -6163,6 +6424,17 @@
             ],
             "test_file": "frontend/tests/e2e/markdown-editor-persistence.spec.ts",
             "test_symbol": "FR-MDE-009 a workspace round trip keeps the editor instance and reads no stored value",
+            "kind": "e2e",
+            "expected_failure_signature": null
+          },
+          {
+            "id": "TC-REQ-FR-MDE-009-AC10-02",
+            "req_id": "FR-MDE-009",
+            "ac_refs": [
+              "AC-10"
+            ],
+            "test_file": "frontend/tests/e2e/markdown-editor-persistence.spec.ts",
+            "test_symbol": "FR-MDE-009 a stored entry whose file is gone drops that window alone and restores the rest",
             "kind": "e2e",
             "expected_failure_signature": null
           }
@@ -7101,8 +7373,8 @@
     {
       "req_id": "IR-MDE-001",
       "stability": "evolving",
-      "ac_total": 9,
-      "ac_covered": 9,
+      "ac_total": 10,
+      "ac_covered": 10,
       "missing_ac_ids": [],
       "covered_tasks": [
         "T-PH001-01",
@@ -7176,6 +7448,13 @@
           "test_case_ids": [
             "TC-REQ-IR-MDE-001-AC9-01",
             "TC-REQ-IR-MDE-001-AC9-02"
+          ]
+        },
+        {
+          "ac_id": "AC-10",
+          "test_case_ids": [
+            "TC-REQ-IR-MDE-001-AC10-01",
+            "TC-REQ-IR-MDE-001-AC10-02"
           ]
         }
       ]
@@ -7429,8 +7708,8 @@
     {
       "req_id": "FR-MDE-009",
       "stability": "evolving",
-      "ac_total": 9,
-      "ac_covered": 9,
+      "ac_total": 10,
+      "ac_covered": 10,
       "missing_ac_ids": [],
       "covered_tasks": [
         "T-PH008-01",
@@ -7503,6 +7782,13 @@
           "test_case_ids": [
             "TC-REQ-FR-MDE-009-AC9-01",
             "TC-REQ-FR-MDE-009-AC9-02"
+          ]
+        },
+        {
+          "ac_id": "AC-10",
+          "test_case_ids": [
+            "TC-REQ-FR-MDE-009-AC10-01",
+            "TC-REQ-FR-MDE-009-AC10-02"
           ]
         }
       ]

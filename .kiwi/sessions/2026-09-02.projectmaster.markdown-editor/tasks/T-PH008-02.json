@@ -1,0 +1,96 @@
+{
+ "task_id": "T-PH008-02",
+ "lane": "lane-N-persistence",
+ "started_at": "2026-09-02T20:09:20.585Z",
+ "completed_at": "2026-09-02T20:09:20.585Z",
+ "phase2": {
+  "impl_iters": [
+   {
+    "iter": 1,
+    "files_changed": [
+     "frontend/src/hooks/windowStateStorage.ts",
+     "frontend/src/hooks/useWindowState.ts"
+    ]
+   }
+  ],
+  "green_evidence": {
+   "command": "cd frontend && node --experimental-strip-types --test tests/unit/windowStateStorage.test.ts",
+   "exit_code": 0,
+   "timestamp": "2026-09-02T20:09:20.585Z"
+  },
+  "green_evidence_meta": {
+   "tests": 7,
+   "passed_test_case_ids": [
+    "TC-REQ-FR-MDE-009-AC1-02",
+    "TC-REQ-FR-MDE-009-AC2-02",
+    "TC-REQ-FR-MDE-009-AC3-02",
+    "TC-REQ-FR-MDE-009-AC8-02",
+    "TC-REQ-FR-MDE-009-AC9-02"
+   ]
+  },
+  "mutant_checks": [
+   {
+    "id": "M1",
+    "mutation": "restoreWindowStateForWorkspace 의 stackOrder 정렬 제거",
+    "killed_assertion": "복원이 스택 순서를 따르지 않았다",
+    "went_red": true
+   },
+   {
+    "id": "M2",
+    "mutation": "toEditorWindowRecord 투영 대신 spread",
+    "killed_assertion": "U1 이 직렬화 값에 나타난다 / 세션 ID 가 저장되었다",
+    "went_red": true
+   },
+   {
+    "id": "M3",
+    "mutation": "항목에 dockedRect 주입",
+    "killed_assertion": "항목이 허용된 필드 집합과 다르다 / 측정 rect 필드 x 가 저장되었다",
+    "went_red": true
+   },
+   {
+    "id": "M4",
+    "mutation": "탭 필터 생략",
+    "killed_assertion": "AC-3 deepEqual",
+    "went_red": true
+   },
+   {
+    "id": "M5",
+    "mutation": "JSON 파싱 실패 재throw",
+    "killed_assertion": "AC-9 케이스에서 SyntaxError 전파",
+    "went_red": true
+   },
+   {
+    "id": "M6",
+    "mutation": "schemaVersion 게이트 제거",
+    "killed_assertion": "깨진 저장값이 거부되지 않았다 / 다른 스키마 버전의 저장값이 읽혔다",
+    "went_red": true
+   },
+   {
+    "id": "M7",
+    "mutation": "키 접두사를 훅 계층으로 누출",
+    "killed_assertion": "훅 계층이 키를 알고 있어 두 계층이 분리되지 않았다",
+    "went_red": true
+   }
+  ],
+  "dod_check": [
+   {
+    "item": "AC-1·2·3·8·9 green",
+    "satisfied": true
+   },
+   {
+    "item": "저장·훅 두 계층 분리",
+    "satisfied": true,
+    "evidence": "키 소유 판정 테스트"
+   }
+  ]
+ },
+ "phase3": {
+  "regression": {
+   "scope": "frontend unit full",
+   "tests": 982,
+   "passed": 980,
+   "failed": 2,
+   "new_failures": 0
+  }
+ }
+}

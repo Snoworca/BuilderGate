@@ -1,0 +1,33 @@
+{
+  "task_id": "T-PH007-11",
+  "iter": 1,
+  "pass": "tdd-review",
+  "target_file": "frontend/tests/e2e/markdown-editor-save.spec.ts",
+  "axes": {
+    "intent-alignment": {
+      "model": "sonnet",
+      "findings": [
+        { "severity": "CRITICAL", "ac": "FR-MDE-008 AC-8", "problem": "Only the end state was asserted, so an implementation with no deferral at all would have passed -- by the time any assertion ran the layout had settled.", "resolution": "Every frame of the revival is now sampled through requestAnimationFrame, and the samples are asserted to contain no frame where the surface was on screen carrying a rect no usable area could produce." },
+        { "severity": "CRITICAL", "ac": "CON-MDE-002 AC-4", "problem": "The inherited rect was captured and never compared, so an implementation that discarded it entirely passed as readily as one that inherited then clamped.", "resolution": "The criterion's own conditional is implemented: an inherited rect that already fits must come through unchanged, one that does not must move and end up contained. The branch taken is logged so a conditional assertion cannot become no assertion." },
+        { "severity": "HIGH", "ac": "CON-MDE-002 AC-3", "problem": "Containment inside the stage cannot separate 'stayed docked' from 'dropped to floating and clamped', since both land inside it.", "resolution": "The rect is compared with the one held before the session died; a window that stayed docked has not moved." },
+        { "severity": "MEDIUM", "ac": "FR-MDE-008 AC-3", "problem": "Only the toggle-present branch is exercised.", "resolution": "Not resolved: the view mode toggle is hidden only on mobile, and this spec is desktop-only, so the toggle-absent branch has no reachable state here. Reported." },
+        { "severity": "LOW", "ac": "CON-MDE-002 AC-5", "problem": "The prompt was identified by its button count alone.", "resolution": "The message text is asserted as well." }
+      ]
+    },
+    "tech-quality": {
+      "model": "sonnet",
+      "findings": [
+        { "severity": "HIGH", "problem": "One test deleted every tab in the shared workspace with no snapshot and no restoration, destroying whatever another spec had left there.", "resolution": "That scenario now creates a workspace of its own and empties that. The run teardown removes workspaces created during the run." },
+        { "severity": "MEDIUM", "problem": "Window lookup matched titles by substring while the sibling context-menu lookup used exact matching.", "resolution": "Titles are matched whole, allowing only the dirty marker in front." },
+        { "severity": "MEDIUM", "problem": "Absence assertions read a whole-test accumulator rather than a delta from just before the action.", "resolution": "Each absence assertion snapshots the count immediately before its action." },
+        { "severity": "LOW", "problem": "unrouteAll in teardown guards nothing, since each test gets a fresh page.", "resolution": "Kept as a cheap safety net." }
+      ]
+    },
+    "req-mapping": { "runner": "script", "result": "eleven test titles equal the eleven test_symbol values; req_id and ac_refs match the sidecar task" }
+  },
+  "gate": { "critical": 0, "high": 0 },
+  "requirement_conflicts_reported": [
+    "CON-MDE-002 AC-4's third clause says closing the last tab removes the tab bar so the inherited rectangle 'would now extend outside the stage'. In this layout the tab bar sits above the stage, so removing it makes the stage taller and starts it higher -- an inherited rect stays inside it. The stage also renders with zero tabs. On top of that, FR-MDE-001 makes the viewport the drag boundary while floating, and the viewport does not change when a tab closes. The branch therefore appears unreachable as written.",
+    "FR-MDE-008 AC-3's second clause (no view mode toggle, tray icon first child of header-right) has no reachable desktop state: the toggle is hidden only on mobile, where the tray is judged separately."
+  ]
+}

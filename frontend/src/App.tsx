@@ -28,6 +28,12 @@ import {
 } from './components/Workspace';
 import { MosaicContainer } from './components/Grid';
 import { MetadataRow } from './components/MetadataBar/MetadataRow';
+import { EditorWindowLayer, EDITOR_WINDOW_WAITING_RECT } from './components/editor/EditorWindowLayer';
+import { EditorWindow } from './components/editor/EditorWindow';
+import { isTerminalFillDisabled } from './components/editor/editorWindowPlacement';
+import { createTabSessionLookup } from './components/editor/editorWindowRecord';
+import { useEditorWindows } from './hooks/useEditorWindows';
+import { useWindowState } from './hooks/useWindowState';
 import { ContextMenu } from './components/ContextMenu';
 import { CommandPresetDialog } from './components/CommandPresetManager';
 import { RecoveryOptionDialog } from './components/RecoveryOptionManager';
@@ -100,7 +106,10 @@ function TerminalWorkspaceStage({
   }, [invalidateHostLayouts, onFitAll]);
 
   return (
-    <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+    <div
+      className="terminal-workspace-stage"
+      style={{ flex: 1, overflow: 'hidden', position: 'relative' }}
+    >
       {children(handleLayoutChange as never)}
       <TerminalRuntimeLayer
         tabs={tabs}
@@ -464,6 +473,7 @@ function AppContent() {
     () => wm.tabs.filter(tab => residentTabIds.has(tab.id) || tab.status === 'disconnected'),
     [residentTabIds, wm.tabs],
   );
+  const resolveTabSession = useMemo(() => createTabSessionLookup(wm.tabs), [wm.tabs]);
 
   const tabContextMenuItems = useMemo(() => {
     if (!tabContextMenu.targetId) return [];
@@ -552,6 +562,41 @@ function AppContent() {
   // Render
   // ============================================================================
   const viewMode = wm.activeWorkspace?.viewMode || 'tab';
+  // The mode the workspace is actually rendered in, which the mobile layout
+  // overrides. One value, because the tray's visibility rules and the window
+  // layer's must agree: computed twice, a change to one leaves a window on
+  // screen that the tray says is not there.
+  const renderedViewMode = isMobile ? 'tab' : viewMode;
+
+  // FR-MDE-007 and FR-MDE-008 in one place: the open windows, the path menu
+  // that creates them and the tray that lists them. Every rule it applies
+  // lives in editorFileMenu and editorTrayModel, which the unit suite judges.
+  // The window store, bound to the workspace whose windows it holds. A
+  // workspace-less moment binds null, which the store answers with an empty
+  // restore and a refused save -- so there is no placeholder id that could
+  // become a storage key.
+  // @req FR-MDE-009
+  const windowState = useWindowState(wm.activeWorkspaceId);
+  // The restore filters its stored records against these rather than `wm.tabs`,
+  // which spans every workspace.
+  // @req FR-MDE-009
+  const activeWorkspaceTabIds = useMemo(
+    () => wm.activeWorkspaceTabs.map(tab => tab.id),
+    [wm.activeWorkspaceTabs],
+  );
+
+  const editor = useEditorWindows({
+    screen,
+    setScreen,
+    viewMode: renderedViewMode,
+    activeWorkspaceId: wm.activeWorkspaceId,
+    activeTabId: wm.activeWorkspace?.activeTabId ?? null,
+    tabs: wm.tabs,
+    onSelectTab: handleSelectTab,
+    resolveTabSession,
+    activeWorkspaceTabIds,
+    windowState,
+  });
 
   const sidebarContent = (
     <WorkspaceSidebar
@@ -585,6 +630,8 @@ function AppContent() {
         onOpenTerminalShortcutManager={() => setShowTerminalShortcutDialog(true)}
         onOpenRecoveryOptionManager={() => setShowRecoveryOptionDialog(true)}
         onOpenMcpControlManager={() => setShowMcpControlDialog(true)}
+        hasEditorWindows={editor.hasWindows}
+        editorTrayItems={editor.trayItems}
       />
       <div className="main">
         {/* Desktop sidebar */}
@@ -652,6 +699,7 @@ function AppContent() {
                       focusTerminal={focusTerminal}
                       onLayoutChange={handleLayoutChange}
                       onRequestMoveTab={handleRequestWorkspaceMove}
+                      onPathContextMenu={editor.openPathMenu}
                     />
                   ) : null}
 
@@ -701,6 +749,7 @@ function AppContent() {
                             <MetadataRow
                               tab={tab}
                               onRename={(name) => handleRenameTab(tab.id, name)}
+                              onPathContextMenu={(x, y) => editor.openPathMenu(x, y, tab.id)}
                             />
                           )}
                         </div>
@@ -713,6 +762,45 @@ function AppContent() {
                       <EmptyState onAddTab={(shell) => handleAddTab(undefined, shell)} availableShells={availableShells} />
                     )}
                   </TerminalWorkspaceStage>
+                  {/* Inside the provider because term 5 reads its host registry, and
+                      outside the stage's children so no-tabs does not unmount a window.
+                      The list and the window surface arrive with the entry point. */}
+                  <EditorWindowLayer
+                    windows={editor.windows}
+                    screen={screen}
+                    activeWorkspaceId={wm.activeWorkspaceId}
+                    activeTabId={wm.activeWorkspace.activeTabId}
+                    viewMode={renderedViewMode}
+                    resolveTabSession={resolveTabSession}
+                    createPrompt={editor.createPrompt}
+                    onConfirmCreate={editor.confirmCreate}
+                    onCancelCreate={editor.cancelCreate}
+                    openError={editor.openError}
+                    onDismissOpenError={editor.dismissOpenError}
+                    onOrphan={editor.orphanWindow}
+                    pendingStackRestore={editor.pendingStackRestore}
+                    onStackRestored={editor.clearPendingStackRestore}
+                    renderWindow={(editorWindow, context) => (
+                      <EditorWindow
+                        filePath={editorWindow.filePath}
+                        tabId={editorWindow.tabId}
+                        bodyAtOpen={editorWindow.bodyAtOpen}
+                        rect={context.rect ?? EDITOR_WINDOW_WAITING_RECT}
+                        onRectChange={(rect) => editor.updateWindowRect(editorWindow.filePath, rect)}
+                        boundsElement={editorWindow.placement === 'floating' ? undefined : '.terminal-workspace-stage'}
+                        hidden={context.hidden}
+                        stackOrder={editorWindow.stackOrder}
+                        resolveTabSession={context.resolveTabSession}
+                        writeFile={editor.writeFile}
+                        terminalFillDisabled={isTerminalFillDisabled(editorWindow)}
+                        onFillTerminal={() => editor.fillTerminalWindow(editorWindow.filePath)}
+                        onToggleMaximize={() => editor.toggleMaximizeWindow(editorWindow.filePath)}
+                        onMinimize={() => editor.minimizeWindow(editorWindow.filePath)}
+                        onClose={() => editor.closeWindow(editorWindow.filePath)}
+                        onDirtyChange={(dirty) => editor.setWindowDirty(editorWindow.filePath, dirty)}
+                      />
+                    )}
+                  />
                 </TerminalRuntimeProvider>
               </>
             ) : (
@@ -734,6 +822,14 @@ function AppContent() {
           items={tabContextMenuItems}
           onClose={closeTabContextMenu}
           restoreFocusElement={tabContextMenuRestoreFocusElementRef.current}
+        />
+      )}
+
+      {editor.pathMenu && editor.pathMenuItems.length > 0 && (
+        <ContextMenu
+          position={{ x: editor.pathMenu.x, y: editor.pathMenu.y }}
+          items={editor.pathMenuItems}
+          onClose={editor.closePathMenu}
         />
       )}
 

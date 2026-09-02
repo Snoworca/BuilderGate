@@ -73,6 +73,18 @@ export class FileService {
   }
 
   /**
+   * The largest file either path will handle, as it stands right now. The body
+   * parser derives its own bound from this so that a request can always carry
+   * a file of this size, which is what makes a document that can be opened a
+   * document that can also be saved.
+   *
+   * @req IR-MDE-001
+   */
+  get maxFileSize(): number {
+    return this.config.maxFileSize;
+  }
+
+  /**
    * Get the current working directory for a session's PTY process.
    * Uses OS-specific methods with caching (ADR-008).
    */
@@ -248,6 +260,51 @@ export class FileService {
       extension: ext,
       mimeType,
     };
+  }
+
+  /**
+   * Write file contents, creating the file when it does not exist and
+   * replacing it in full when it does.
+   *
+   * The validation stages run in the order the read path uses them: the
+   * session first, then path resolution, then the extension, then the size.
+   * Nothing is written until all four have passed.
+   *
+   * @req IR-MDE-001
+   */
+  async writeFile(sessionId: string, filePath: string, content: string): Promise<void> {
+    // Called here rather than left to getCwd: the ordering this method promises
+    // would otherwise rest on an implementation detail of that method.
+    this.assertSessionExists(sessionId);
+
+    const cwd = await this.getCwd(sessionId);
+    const resolved = await resolveAndValidate(cwd, filePath, this.config.blockedPaths);
+    const ext = path.extname(resolved).toLowerCase();
+
+    // resolveAndValidate never inspects the extension, so a blocked type
+    // reaches disk unless this stage runs.
+    if (isBlockedExtension(ext, this.config.blockedExtensions)) {
+      throw new AppError(ErrorCode.PATH_BLOCKED, 'File type is blocked');
+    }
+
+    // The bytes that will land on disk, compared against the same bound and
+    // with the same boundary the read path applies to the bytes already there.
+    // Measuring the request instead would move the ceiling every time the
+    // content needed more JSON escaping.
+    if (Buffer.byteLength(content, 'utf-8') > this.config.maxFileSize) {
+      throw new AppError(ErrorCode.FILE_TOO_LARGE);
+    }
+
+    try {
+      // 'w' truncates. Without it the tail of a longer previous body survives
+      // the write, which looks like a save that partly failed.
+      await fs.writeFile(resolved, content, { encoding: 'utf-8', flag: 'w' });
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'EACCES') {
+        throw new AppError(ErrorCode.PERMISSION_DENIED);
+      }
+      throw new AppError(ErrorCode.FILE_OPERATION_FAILED, `Write failed: ${(err as Error).message}`);
+    }
   }
 
   /**
