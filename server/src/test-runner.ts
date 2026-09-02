@@ -130,6 +130,7 @@ async function main(): Promise<void> {
     { name: 'RuntimeConfigStore normalizes platform-specific PTY values in editable snapshots', run: testRuntimeConfigPlatformNormalization },
     { name: 'RuntimeConfigStore marks selected Wave6 resource limits as settings-applied', run: testRuntimeConfigWave6SelectedResourceCapabilities },
     { name: 'server startup wires Wave4 limits into WsRouter construction', run: testServerStartupWiresWave4LimitsIntoWsRouter },
+    { name: 'server startup passes the configured terminal wire format into WsRouter construction', run: testServerStartupWiresTerminalWireFormatIntoWsRouter },
     { name: 'BoundedByteDeque enforces UTF-8 byte caps', run: testBoundedByteDequeUtf8ByteCap },
     { name: 'BoundedByteDeque enforces chunk caps', run: testBoundedByteDequeChunkCap },
     { name: 'BoundedByteDeque preserves FIFO dequeue without hot-path array copying', run: testBoundedByteDequeFifoWithoutShiftHotPath },
@@ -1620,6 +1621,47 @@ function testRuntimeConfigWave6SelectedResourceCapabilities(): void {
   assert.match(capabilities['stabilityModes.wsSendMode'].reason ?? '', /selected Wave6 Settings field set/);
   assert.equal(capabilities['resourceLimits.telemetry.sampleIntervalMs'].available, false);
   assert.equal(capabilities['resourceLimits.telemetry.recentEventLimit'].available, false);
+}
+
+async function testServerStartupWiresTerminalWireFormatIntoWsRouter(): Promise<void> {
+  const sourcePath = path.join(process.cwd(), 'src', 'index.ts');
+  const source = await fs.readFile(sourcePath, 'utf-8');
+
+  const constructionStart = source.indexOf('new WsRouter(authService, sessionManager, {');
+  assert.notEqual(constructionStart, -1, 'the production WsRouter construction site must exist');
+  const constructionEnd = source.indexOf('});', constructionStart);
+  assert.notEqual(constructionEnd, -1, 'the construction site must close');
+  const construction = source.slice(constructionStart, constructionEnd);
+
+  // A nested call inside the option list would end the slice early at its own
+  // '});', and a slice that stops short makes the negative assertion below pass
+  // on text it never read. The -1 guards do not catch that: the index is not -1,
+  // just too early. Requiring the last option proves the slice reached the end.
+  assert.match(
+    construction,
+    /terminalResourcePolicyAuthority:/u,
+    'the slice must span the whole option object, or the checks below go vacuous',
+  );
+
+  // IR-BGSTAB-001 AC-7 makes realtime.terminalWireFormat the kill switch that
+  // decides whether the server answers a binary negotiation at all. WsRouter
+  // already reads it, so the construction site is the only place the setting
+  // can be stranded.
+  //
+  // The read itself is pinned, not just the key: passing a literal, or reading
+  // it off runtimeValues (which carries no realtime at all), leaves the switch
+  // dead while the key is still spelled out here. Extracting the read into a
+  // local would fail this without breaking the contract.
+  assert.match(
+    construction,
+    /realtime:\s*\{[^}]*terminalWireFormat:\s*config\.realtime\?\.terminalWireFormat/u,
+    'the wire format setting must reach the router the operator is configuring',
+  );
+
+  // Handing over config.realtime wholesale would revive the hardcoded
+  // wsTransportMode as well. AC-7 requires the two keys to stay orthogonal, and
+  // Wave-1 characterized the transport side separately.
+  assert.doesNotMatch(construction, /wsTransportMode/u);
 }
 
 async function testServerStartupWiresWave4LimitsIntoWsRouter(): Promise<void> {

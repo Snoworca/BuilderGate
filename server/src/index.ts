@@ -1531,6 +1531,7 @@ async function startServer(): Promise<void> {
     const wsRouter = new WsRouter(authService, sessionManager, {
       resourceLimits: runtimeValues.resourceLimits,
       stabilityModes: runtimeValues.stabilityModes,
+      realtime: { terminalWireFormat: config.realtime?.terminalWireFormat },
       terminalResourcePolicyAuthority: terminalResourcePolicyRuntimeAuthority,
     });
     sessionManager.setWsRouter(wsRouter);
