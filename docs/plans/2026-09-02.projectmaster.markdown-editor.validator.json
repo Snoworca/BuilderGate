@@ -273,6 +273,18 @@
           {
             "task_id": "T-PH008-02",
             "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH008-04",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH008-06",
+            "reason": "green present but red absent"
+          },
+          {
+            "task_id": "T-PH009-01",
+            "reason": "green present but red absent"
           }
         ]
       }

@@ -6231,7 +6231,11 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowRestore.test.ts",
+          "exit_code": 0,
+          "timestamp": "2026-09-02T21:20:23.159Z"
+        }
       },
       "trace_links": [
         {
@@ -6335,7 +6339,11 @@
             "expected_failure_signature": "읽기 실패가 복원 전체를 중단시켜 파일이 남아 있는 창까지 복원되지 않는다"
           }
         ],
-        "red_evidence": null,
+        "red_evidence": {
+          "command": "cd frontend && PLAYWRIGHT_BASE_URL=https://localhost:2292 npx playwright test tests/e2e/markdown-editor-persistence.spec.ts --project \"Desktop Chrome\"",
+          "exit_code": 1,
+          "captured_failure": "✖ FR-MDE-009 a workspace round trip keeps the editor instance and never reads the store\n✖ FR-MDE-009 a stored entry whose file is gone drops that window alone and restores the rest\n\n세 AC 어느 것도 프로덕션 동작 때문에 빨개지지 않았다. 두 실패는 spec 하네스 결함이었다 — AC-6 은 존재하지 않는 probe 의미(`markdownSource` 는 마운트 시점의 `bodyAtOpen` 이라 키 입력에 불변)를, AC-10 은 경로 메뉴에 없는 파일(`README.md`)을 각각 관찰했다. AC-4 는 처음부터 통과했다. 계획이 예상한 실패 문구와 일치하지 않는다."
+        },
         "green_evidence": null
       },
       "trace_links": [
@@ -6440,7 +6448,10 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && PLAYWRIGHT_BASE_URL=https://localhost:2292 npx playwright test tests/e2e/markdown-editor-persistence.spec.ts --project \"Desktop Chrome\"",
+          "exit_code": 0
+        }
       },
       "trace_links": [
         {
@@ -6523,7 +6534,10 @@
           }
         ],
         "red_evidence": null,
-        "green_evidence": null
+        "green_evidence": {
+          "command": "cd frontend && PLAYWRIGHT_BASE_URL=https://localhost:2272 npx playwright test tests/e2e/markdown-editor-modal-regression.spec.ts --project \"Desktop Chrome\"",
+          "exit_code": 0
+        }
       },
       "trace_links": [
         {
