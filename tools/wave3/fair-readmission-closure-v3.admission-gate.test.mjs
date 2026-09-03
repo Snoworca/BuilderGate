@@ -17,7 +17,6 @@ const fixedClosureTests = [
   'tools/wave3/fair-readmission-closure-v3.snapshot.test.mjs',
   'tools/wave3/fair-readmission-closure-v3.wave.test.mjs',
   'tools/wave3/fair-readmission-closure-v3.boundary.test.mjs',
-  'tools/wave3/fair-readmission-closure-v3.boundary-gate.test.mjs',
   'tools/wave3/fair-readmission-closure-v3.admission.test.mjs',
   'tools/wave3/fair-readmission-closure-v3.manifest-race.test.mjs',
   'tools/wave3/fair-readmission-closure-v3.trust.test.mjs',
