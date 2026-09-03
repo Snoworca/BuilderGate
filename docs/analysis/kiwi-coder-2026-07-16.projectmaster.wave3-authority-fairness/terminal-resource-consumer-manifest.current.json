@@ -54,12 +54,12 @@
       "server/src/utils/configStrictLoader.ts": "72c500c9ff2ee80b5a128d7b2e3fcf0635c04993dbe1f716dce22f0006f9614f",
       "server/src/utils/headlessOutputQueue.ts": "ed47eceab0b9e749fac589f59bfe7b9bf357da9749ea0aa2b08cc68a56e33ee8",
       "server/src/utils/headlessTerminal.ts": "264a73dfc5140abcf68a86541961b2a5fb4e0a18a705d8d1f4b83f02d0d392ae",
-      "server/src/ws/WsRouter.ts": "81c7fa240a04ca98dbbdb3a6d03a3ac122d940897e75087799569dc66863f09d",
+      "server/src/ws/WsRouter.ts": "3e950dc901d0cdec1261c0f0178de56912a1b202792aedc747baba39993703e6",
       "server/src/ws/wsSendPolicy.ts": "b39d57caf3abc34d477207d8f8a948a548c85cace9e353107d7ae926f8ab62dc",
       "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "7621a908cf3dae8e2bc6e2551abb8bc6b530b4e807e1d769a2cfbb1289ac136d",
       "tools/wave3/terminal-resource-policy-differential.ts": "4e3037ede53b126b5c5dd117ba7d87426d9a8b81768492becf3c3f7b64d84f92"
     },
-    "sourceSetSha256": "411ddb99d92df4d21fe93ec7e0641afa58a6b1792ae8e7ef8b0097d0c6030eb4",
+    "sourceSetSha256": "943641903d57bed5361fcefd7416d040cbdff680eefc5438fae360ce39844441",
     "rawGreenEvidence": {
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "a21374764b6cdafdc8d483df5b6c1c5b4bd274f415b3f282c970d0ffaffb5d10",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/focused-green-output.txt": "c10f00e503ac73eaf5296b02ecd224f81968697192991bfe5dd62bd2ebd5a23f"

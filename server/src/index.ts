@@ -1528,16 +1528,17 @@ async function startServer(): Promise<void> {
 
     // Initialize WebSocket Router (Step 8)
     const runtimeValues = runtimeConfigStore.getEditableValues();
+    const configuredWsTransportMode = runtimeConfigStore
+      .getPublicRuntimeConfig(inputReliabilityMode)
+      .wsTransportMode;
     const wsRouter = new WsRouter(authService, sessionManager, {
       resourceLimits: runtimeValues.resourceLimits,
       stabilityModes: runtimeValues.stabilityModes,
       realtime: { terminalWireFormat: config.realtime?.terminalWireFormat },
+      binaryNegotiationTransportMode: configuredWsTransportMode,
       terminalResourcePolicyAuthority: terminalResourcePolicyRuntimeAuthority,
     });
     sessionManager.setWsRouter(wsRouter);
-    const configuredWsTransportMode = runtimeConfigStore
-      .getPublicRuntimeConfig(inputReliabilityMode)
-      .wsTransportMode;
     terminalAuthorityIntegration = attachProductionTerminalAuthority({
       sessionManager,
       wsRouter,

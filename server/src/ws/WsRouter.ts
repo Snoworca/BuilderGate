@@ -144,6 +144,13 @@ interface WsRouterOptions {
   resourceLimits?: PartialResourceLimits;
   stabilityModes?: Partial<StabilityModesConfig>;
   terminalResourcePolicyAuthority?: TerminalResourcePolicyLeaseAuthority;
+  /**
+   * The transport mode the operator configured. It answers only AC-7's
+   * question of whether binary negotiation may open, and deliberately does not
+   * feed `wsTransportMode` below: REL-BGSTAB-006 AC-5 leaves split runtime
+   * inactive, so routing stays unified whatever this says.
+   */
+  binaryNegotiationTransportMode?: 'unified' | 'split-shadow' | 'split';
 }
 
 interface RuntimeSendPolicyConfig {
@@ -586,6 +593,7 @@ export class WsRouter {
   private readonly terminalResourcePolicyAdmissionDrainSockets = new Set<WebSocket>();
   private transportPolicyGeneration = 0;
   private readonly wsTransportMode: 'unified' | 'split-shadow' | 'split';
+  private readonly binaryNegotiationTransportMode: 'unified' | 'split-shadow' | 'split';
   private readonly terminalWireFormat: TerminalWireFormat;
   /** One binary session per connection group (`01 §3.2` — the group agrees as a whole). */
   private readonly terminalBinaryGroups = new Map<string, TerminalBinaryGroupSession>();
@@ -637,6 +645,7 @@ export class WsRouter {
     this.sessionManager = sessionManager;
     this.inputReliabilityMode = options.inputReliabilityMode ?? configuredInputReliabilityMode;
     this.wsTransportMode = options.realtime?.wsTransportMode ?? 'unified';
+    this.binaryNegotiationTransportMode = options.binaryNegotiationTransportMode ?? 'unified';
     this.terminalWireFormat = options.realtime?.terminalWireFormat ?? 'json';
     this.terminalResourcePolicyAuthority = options.terminalResourcePolicyAuthority;
     this.runtimeSendPolicyConfig = {
@@ -1938,10 +1947,15 @@ export class WsRouter {
     const key = meta.clientGroupId ?? meta.clientId;
     const existing = this.terminalBinaryGroups.get(key);
     if (existing) return existing;
+    // AC-7 allows binary only on `unified` and calls the setting a kill switch.
+    // The query parameter is the client speaking, so a client that omits it must
+    // not reach a wider eligibility than the operator configured; both the
+    // configured mode and the connection's own have to be unified.
+    const configured = this.binaryNegotiationTransportMode;
     const created = createTerminalBinaryGroupSession({
       now: () => Date.now(),
       wireFormat: this.terminalWireFormat,
-      transportMode: meta.wsTransportMode ?? this.wsTransportMode,
+      transportMode: configured === 'unified' ? (meta.wsTransportMode ?? this.wsTransportMode) : configured,
     });
     this.terminalBinaryGroups.set(key, created);
     return created;

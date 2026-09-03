@@ -180,7 +180,15 @@ interface NegotiationOutcome {
  * Boots the server against a throwaway config and asks it to negotiate binary.
  * The answer is the observable the kill switch controls.
  */
-async function negotiateWithServerConfigured(realtimeBlock: string): Promise<NegotiationOutcome> {
+/**
+ * Boots a server on the given realtime block and reads back its answer to a
+ * capability offer. `clientQuery` is appended to the socket URL so a case can
+ * ask as the client does; it defaults to empty, which is what a browser sends.
+ */
+async function negotiateWithServerConfigured(
+  realtimeBlock: string,
+  clientQuery = '',
+): Promise<NegotiationOutcome> {
   const port = await reserveAdjacentPortPair();
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bg-wire-format-'));
   const configPath = path.join(root, 'config.json5');
@@ -243,7 +251,7 @@ ${realtimeBlock}}
 
     return await new Promise<NegotiationOutcome>((resolve, reject) => {
       const ws = new WebSocket(
-        `wss://127.0.0.1:${port}/ws?token=${encodeURIComponent(token)}`,
+        `wss://127.0.0.1:${port}/ws?token=${encodeURIComponent(token)}${clientQuery}`,
         { rejectUnauthorized: false },
       );
       const timer = setTimeout(() => {
@@ -323,4 +331,43 @@ test('IR-BGSTAB-001 a config with no realtime block still negotiates to an answe
     answer.type === 'terminal-binary:capability' || answer.type === 'terminal-binary:rejected',
     `expected a negotiation answer, got ${JSON.stringify(answer)}`,
   );
+});
+
+test('IR-BGSTAB-001 a split transport mode refuses binary negotiation without a query parameter', async () => {
+  // AC-7 allows binary only while wsTransportMode is unified, and calls the
+  // setting a kill switch. The query parameter is the client speaking, so a
+  // client that omits it must not reach a wider eligibility than the operator
+  // configured. The wire format is spelled binary-optin so the refusal can only
+  // come from the transport gate.
+  const answer = await negotiateWithServerConfigured(
+    '  realtime: { wsTransportMode: "split", terminalWireFormat: "binary-optin" },\n',
+  );
+
+  assert.equal(answer.type, 'terminal-binary:rejected');
+  assert.notEqual(answer.accepted, true);
+});
+
+test('IR-BGSTAB-001 a split-shadow transport mode also refuses binary negotiation', async () => {
+  // AC-7 admits only `unified` out of a closed three-value enum. Checking
+  // `split` alone leaves a gate written as `!== 'split'` alive, and that gate
+  // answers a split-shadow server with accepted: true.
+  const answer = await negotiateWithServerConfigured(
+    '  realtime: { wsTransportMode: "split-shadow", terminalWireFormat: "binary-optin" },\n',
+  );
+
+  assert.equal(answer.type, 'terminal-binary:rejected');
+  assert.notEqual(answer.accepted, true);
+});
+
+test('IR-BGSTAB-001 a client asking for split cannot negotiate binary on a unified server', async () => {
+  // The other half of the gate. The cases above pin the configured side; this
+  // one pins the connection side, so a gate that drops the connection term and
+  // reads the setting alone no longer goes unobserved.
+  const answer = await negotiateWithServerConfigured(
+    '  realtime: { wsTransportMode: "unified", terminalWireFormat: "binary-optin" },\n',
+    '&wsTransportMode=split',
+  );
+
+  assert.equal(answer.type, 'terminal-binary:rejected');
+  assert.notEqual(answer.accepted, true);
 });
