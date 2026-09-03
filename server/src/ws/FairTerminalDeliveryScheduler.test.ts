@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  createWsTransportMessage,
   type FairTerminalDelivery,
   type FairTerminalDeliveryInput,
 } from './wsSendPolicy.js';
@@ -198,22 +197,6 @@ function assertPercentileMatrix(
   assert.equal(value.p99 <= value.max, true, signature);
 }
 
-function encodedOutputBytes(
-  connectionEpoch: string,
-  sessionId: string,
-  deliverySeq: number,
-  payload: string,
-): number {
-  return createWsTransportMessage({
-    type: 'output',
-    sessionId,
-    data: payload,
-    connectionEpoch,
-    deliverySeq,
-    deliveryKind: 'output',
-  }).byteLength;
-}
-
 test('Fair delivery scheduler and ACK credit RED contract — PERF-BGSTAB-010 AC-1', async () => {
   const signature = 'PERF-BGSTAB-010 AC-1 Fair delivery scheduler and ACK credit 계약 부재 때문에 실패';
   const { scheduler, sent } = await createHarness(signature);
@@ -399,7 +382,7 @@ test('PERF-BGSTAB-010 scheduler applies the projected slice, class weights, sock
       visibilityWeight: { value: 3, source: policySource },
       driverWeight: { value: 1, source: policySource },
       socketSoftGateBytes: { value: 250, source: policySource },
-      smallOutputBypassBytes: { value: 200, source: policySource },
+      smallOutputBypassBytes: { value: 128, source: policySource },
       creditWindowBytes: { value: 2_048, source: policySource },
     },
   });
@@ -452,20 +435,15 @@ test('Fair delivery scheduler and ACK credit RED contract — PERF-BGSTAB-010 AC
   const sent2 = sent.find(item => item.deliverySeq === seq2);
   assert.ok(sent1, signature);
   assert.ok(sent2, signature);
-  // 독립 출처: 기대 와이어 봉투를 손으로 적는다. encodedOutputBytes() 로 기대값을 뽑으면
-  // 구현과 기대가 같은 함수에서 나와 인코딩을 바꿔도 초록이 된다.
-  // 도메인은 JSON 봉투 전체 바이트다 (wsSendPolicy.ts fairDeliveryBytes → createWsTransportMessage().byteLength).
-  const expectedWire1 = '{"type":"output","sessionId":"session-a","data":"한글-alpha"'
-    + `,"connectionEpoch":"epoch-a","deliverySeq":${seq1},"deliveryKind":"output"}`;
-  const expectedWire2 = '{"type":"output","sessionId":"session-a","data":"🙂-beta"'
-    + `,"connectionEpoch":"epoch-a","deliverySeq":${seq2},"deliveryKind":"output"}`;
-  // seq1 === 1 일 때 ASCII 125자 + '한'·'글' 3B×2 = 131
-  const firstWireBytes = Buffer.byteLength(expectedWire1, 'utf8');
-  // seq2 === 2 일 때 ASCII 124자 + '🙂' 4B = 128
-  const secondWireBytes = Buffer.byteLength(expectedWire2, 'utf8');
-  const expectedBytes = firstWireBytes + secondWireBytes;
-  assert.equal(sent1.encodedBytes, firstWireBytes, signature);
-  assert.equal(sent2.encodedBytes, secondWireBytes, signature);
+  // 독립 출처: 기대 본문 바이트를 맨 숫자로 적는다. Buffer.byteLength() 로 기대값을 뽑으면
+  // 구현과 기대가 같은 함수에서 나와 도메인을 바꿔도 초록이 된다.
+  // PERF-BGSTAB-011 AC-1: 도메인은 codec 무관 본문(body) 바이트다. 봉투 길이도 프레임 전체
+  // 길이도 아니므로 deliverySeq 자릿수에 의존하지 않는다.
+  const firstBodyBytes = 12; // '한글-alpha' = '한'·'글' 3B×2 + '-alpha' 6B
+  const secondBodyBytes = 9; // '🙂-beta' = '🙂' 4B + '-beta' 5B
+  const expectedBytes = firstBodyBytes + secondBodyBytes; // 21
+  assert.equal(sent1.encodedBytes, firstBodyBytes, signature);
+  assert.equal(sent2.encodedBytes, secondBodyBytes, signature);
   const ack = scheduler.acknowledge({
     connectionEpoch: 'epoch-a',
     sessionId: 'session-a',
@@ -474,6 +452,26 @@ test('Fair delivery scheduler and ACK credit RED contract — PERF-BGSTAB-010 AC
   });
   assert.deepEqual(ack, { accepted: true, creditedBytes: expectedBytes }, signature);
   assert.equal(scheduler.snapshot().lanes['epoch-a/session-a'].creditBytes, expectedBytes, signature);
+
+  const seq3 = requireAccepted(
+    scheduler.enqueue({ connectionEpoch: 'epoch-a', sessionId: 'session-a', kind: 'output', payload: 'gamma' }),
+    signature,
+  );
+  scheduler.drain();
+  const thirdBodyBytes = 5; // 'gamma' = ASCII 5B
+  const secondAck = scheduler.acknowledge({
+    connectionEpoch: 'epoch-a',
+    sessionId: 'session-a',
+    deliverySeq: seq3,
+    clientBytes: 1,
+  });
+  // creditedBytes 는 이번 ACK 가 정산한 델타이고, lane.creditBytes 는 누적이다.
+  assert.deepEqual(secondAck, { accepted: true, creditedBytes: thirdBodyBytes }, signature);
+  assert.equal(
+    scheduler.snapshot().lanes['epoch-a/session-a'].creditBytes,
+    expectedBytes + thirdBodyBytes,
+    signature,
+  );
 });
 
 test('PERF-BGSTAB-010 ledger measures the exact delivery identity envelope placed on the wire', async () => {
@@ -489,22 +487,16 @@ test('PERF-BGSTAB-010 ledger measures the exact delivery identity envelope place
   scheduler.drain();
   const delivery = sent.find(item => item.deliverySeq === deliverySeq);
   assert.ok(delivery, signature);
-  const exactWireBytes = createWsTransportMessage({
-    type: 'output',
-    sessionId: 'session-wire',
-    data: '🙂 exact wire bytes',
-    connectionEpoch: 'epoch-wire',
-    deliverySeq,
-    deliveryKind: 'output',
-  }).byteLength;
-  assert.equal(delivery.encodedBytes, exactWireBytes, signature);
+  // PERF-BGSTAB-011 AC-1: 원장은 본문 바이트만 센다.
+  const exactBodyBytes = 21; // '🙂 exact wire bytes' = '🙂' 4B + ' exact wire bytes' 17B
+  assert.equal(delivery.encodedBytes, exactBodyBytes, signature);
   assert.equal(
     scheduler.acknowledge({
       connectionEpoch: 'epoch-wire',
       sessionId: 'session-wire',
       deliverySeq,
     }).creditedBytes,
-    exactWireBytes,
+    exactBodyBytes,
     signature,
   );
 });
@@ -537,26 +529,16 @@ test('PERF-BGSTAB-010 ledger retains recovery ordering metadata in the fair wire
     authorityRevision: 9,
     chunkId: 'chunk-42',
   }, signature);
-  const exactWireBytes = createWsTransportMessage({
-    type: 'output',
-    sessionId: 'session-recovery-metadata',
-    data: 'authoritative output',
-    connectionEpoch: 'epoch-recovery-metadata',
-    deliverySeq,
-    deliveryKind: 'output',
-    screenSeq: 42,
-    authorityEpoch: 'authority-42',
-    authorityRevision: 9,
-    chunkId: 'chunk-42',
-  }).byteLength;
-  assert.equal(delivery.encodedBytes, exactWireBytes, signature);
+  // PERF-BGSTAB-011 AC-1: 위 네 개의 복구 메타데이터는 봉투에 실려도 크레딧을 소모하지 않는다.
+  const exactBodyBytes = 20; // 'authoritative output' = ASCII 20B
+  assert.equal(delivery.encodedBytes, exactBodyBytes, signature);
   assert.equal(
     scheduler.acknowledge({
       connectionEpoch: 'epoch-recovery-metadata',
       sessionId: 'session-recovery-metadata',
       deliverySeq,
     }).creditedBytes,
-    exactWireBytes,
+    exactBodyBytes,
     signature,
   );
 });
@@ -710,11 +692,11 @@ test('Fair delivery scheduler and ACK credit RED contract — PERF-BGSTAB-010 AC
   });
   assert.equal(delayedCreditDelivery.accepted, true, signature);
   requireAccepted(scheduler.enqueue({
-    connectionEpoch: 'epoch-a', sessionId: 'overflow', kind: 'output', payload: 'x'.repeat(300),
+    connectionEpoch: 'epoch-a', sessionId: 'overflow', kind: 'output', payload: 'x'.repeat(400),
     capabilities: { ackCredit: true, legacyFallback: false },
   }), signature);
   const overflow = scheduler.enqueue({
-    connectionEpoch: 'epoch-a', sessionId: 'overflow', kind: 'output', payload: 'y'.repeat(300),
+    connectionEpoch: 'epoch-a', sessionId: 'overflow', kind: 'output', payload: 'y'.repeat(400),
     capabilities: { ackCredit: true, legacyFallback: false },
   });
   assert.deepEqual(overflow, { accepted: false, reason: 'queue-overflow' }, signature);
@@ -730,8 +712,7 @@ test('Fair delivery scheduler and ACK credit RED contract — PERF-BGSTAB-010 AC
   assert.equal(sent.some(item => item.connectionEpoch === 'epoch-a' && item.sessionId === 'slow-credit' && item.payload === 'z'.repeat(200)), false, signature);
   assert.equal(sent.some(item => item.connectionEpoch === 'epoch-a' && item.sessionId === 'slow-credit' && item.kind === 'dataGap'), false, signature);
   assert.equal(
-    scheduler.snapshot().lanes['epoch-a/slow-credit'].creditBytes
-      < encodedOutputBytes('epoch-a', 'slow-credit', delayedCreditDelivery.deliverySeq!, 'z'.repeat(200)),
+    scheduler.snapshot().lanes['epoch-a/slow-credit'].creditBytes < 200, // 'z'.repeat(200) 의 본문 바이트
     true,
     signature,
   );
@@ -823,4 +804,109 @@ test('Fair delivery scheduler and ACK credit RED contract — PERF-BGSTAB-010 AC
   assert.deepEqual(semanticStatusChanges, [], signature);
   assert.equal(scheduler.snapshot().semanticStatusMutationCount, 0, signature);
   assert.equal(scheduler.snapshot().protocolErrors.length, 0, signature);
+});
+
+test('PERF-BGSTAB-011 credit ledger floors an empty body at one budget byte', async () => {
+  const signature = 'PERF-BGSTAB-011 AC-1 empty-body delivery must spend exactly one budget byte';
+  const { scheduler, sent } = await createHarness(signature);
+  const deliverySeq = requireAccepted(scheduler.enqueue({
+    connectionEpoch: 'epoch-empty',
+    sessionId: 'session-empty',
+    kind: 'output',
+    payload: '',
+  }), signature);
+  scheduler.drain();
+  const delivery = sent.find(item => item.deliverySeq === deliverySeq);
+  assert.ok(delivery, signature);
+  // 0 이면 floor 가 붙지 않은 것이고, 119 면 도메인이 봉투로 남은 것이다.
+  // 119 = {"type":"output","sessionId":"session-empty",...} 가 아니라 SSOT 가 계산한
+  // 'session-a'/'epoch-a' 기준 값이므로 여기서는 두 오답을 값으로 열거하지 않고
+  // 정답 하나만 단정한다 — 두 오답 모두 이 단정에서 갈린다.
+  assert.equal(delivery.encodedBytes, 1, signature);
+  assert.equal(
+    scheduler.acknowledge({
+      connectionEpoch: 'epoch-empty',
+      sessionId: 'session-empty',
+      deliverySeq,
+    }).creditedBytes,
+    1,
+    signature,
+  );
+});
+
+test('PERF-BGSTAB-011 body domain keeps small-output bypass open past the socket soft gate', async () => {
+  const signature = 'PERF-BGSTAB-011 AC-1 body-domain deliveries must reach the small-output bypass';
+  // 하네스 기본 bulkSliceBytes 128 × driverWeight 2 = quantum 256 이라 아래 어느
+  // 본문 크기에서도 deficit 이 개입하지 않는다. soft gate 와 bypass 두 축만 남는다.
+  async function sentCount(options: {
+    socketSoftGateBytes: number;
+    smallOutputBypassBytes: number;
+    bodyBytes: number;
+  }): Promise<number> {
+    const { scheduler, sent } = await createHarness(signature, {
+      policy: {
+        socketSoftGateBytes: { value: options.socketSoftGateBytes, source: policySource },
+        smallOutputBypassBytes: { value: options.smallOutputBypassBytes, source: policySource },
+      },
+    });
+    for (let index = 0; index < 3; index += 1) {
+      requireAccepted(scheduler.enqueue({
+        connectionEpoch: 'epoch-gate',
+        sessionId: 'session-gate',
+        kind: 'output',
+        payload: 'g'.repeat(options.bodyBytes),
+      }), signature);
+    }
+    scheduler.drain();
+    return sent.filter(item => item.sessionId === 'session-gate').length;
+  }
+
+  // socketQueuedBytes 는 전송 뒤에 누적되므로 3번째 판정 시점에 80 ≥ 64 가 되어
+  // bypass 가지가 처음 필요해진다. 봉투 도메인이었다면 1번째 전송만으로 159 ≥ 64 이고
+  // 159 ≤ 128 이 거짓이라 2번째부터 정체했다.
+  assert.equal(await sentCount({ socketSoftGateBytes: 64, smallOutputBypassBytes: 128, bodyBytes: 40 }), 3, signature);
+  // bypass 임계에 정확히 걸치는 본문은 통과해야 한다.
+  assert.equal(await sentCount({ socketSoftGateBytes: 64, smallOutputBypassBytes: 128, bodyBytes: 128 }), 3, signature);
+  // 경계 대조군: 1 바이트만 넘기면 첫 전송으로 소켓이 게이트를 넘긴 뒤 정체한다.
+  assert.equal(await sentCount({ socketSoftGateBytes: 64, smallOutputBypassBytes: 128, bodyBytes: 129 }), 1, signature);
+  // soft gate 경계: bypass 를 닫아 두면 socketQueuedBytes 가 게이트와 같아지는 순간
+  // 멈춘다. 32 × 2 = 64 이므로 3번째에서 갈린다.
+  assert.equal(await sentCount({ socketSoftGateBytes: 64, smallOutputBypassBytes: 16, bodyBytes: 32 }), 2, signature);
+});
+
+test('PERF-BGSTAB-011 body domain charges the deficit only above the bypass threshold', async () => {
+  const signature = 'PERF-BGSTAB-011 AC-1 deficit charge must follow the body domain';
+  const deficitPolicy = {
+    bulkSliceBytes: { value: 8, source: policySource },
+    visibilityWeight: { value: 1, source: policySource },
+    driverWeight: { value: 1, source: policySource },
+    smallOutputBypassBytes: { value: 64, source: policySource },
+  };
+
+  async function firstLaneAIndex(laneABodyBytes: number): Promise<number> {
+    const { scheduler, sent } = await createHarness(signature, { policy: deficitPolicy });
+    // lane A 를 먼저 등록한다 — roundRobinCursor 초기값 0 과 등록 순서가 결과를 정한다.
+    requireAccepted(scheduler.enqueue({
+      connectionEpoch: 'epoch-drr',
+      sessionId: 'lane-a',
+      kind: 'output',
+      payload: 'a'.repeat(laneABodyBytes),
+    }), signature);
+    for (let index = 0; index < 9; index += 1) {
+      requireAccepted(scheduler.enqueue({
+        connectionEpoch: 'epoch-drr',
+        sessionId: 'lane-b',
+        kind: 'output',
+        payload: 'b'.repeat(40),
+      }), signature);
+    }
+    scheduler.drain();
+    return sent.findIndex(item => item.sessionId === 'lane-a');
+  }
+
+  // 65 > 64 라 lane A 는 quantum 8 을 아홉 번 적립해야 선택된다. 그 사이 lane B 의
+  // 40 B 는 40 ≤ 64 로 즉시 spendable 이라 8건이 먼저 나간다.
+  assert.equal(await firstLaneAIndex(65), 8, signature);
+  // 경계 대조군: 1 바이트만 낮추면 bypass 가 열려 첫 라운드에 선택된다.
+  assert.equal(await firstLaneAIndex(64), 0, signature);
 });

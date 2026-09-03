@@ -628,19 +628,12 @@ function percentileMatrix(values: readonly number[]): { p50: number; p95: number
   };
 }
 
-function fairDeliveryBytes(input: FairTerminalDeliveryInput, deliverySeq: number): number {
-  return createWsTransportMessage({
-    type: 'output',
-    sessionId: input.sessionId,
-    data: input.payload,
-    connectionEpoch: input.connectionEpoch,
-    deliverySeq,
-    deliveryKind: input.kind,
-    screenSeq: input.screenSeq,
-    authorityEpoch: input.authorityEpoch,
-    authorityRevision: input.authorityRevision,
-    chunkId: input.chunkId,
-  }).byteLength;
+function fairDeliveryBytes(input: FairTerminalDeliveryInput): number {
+  // PERF-BGSTAB-011 AC-1: the credit domain is the codec-independent body, so the
+  // envelope this used to build no longer belongs in the ledger. The floor of 1 is a
+  // budget rather than a ledger increment — it keeps a zero-body delivery from
+  // holding a lane while spending nothing against the credit window.
+  return Math.max(1, Buffer.byteLength(input.payload, 'utf8'));
 }
 
 function decisionState(input: FairTerminalDecisionArtifactInput): {
@@ -786,8 +779,7 @@ export function createFairTerminalDeliveryScheduler(options: FairTerminalDeliver
       }
       const lane = getLane(input.connectionEpoch, input.sessionId);
       if (lane.released) return { accepted: false, reason: 'lane-released' };
-      const deliverySeq = lane.nextDeliverySeq;
-      const encodedBytes = fairDeliveryBytes(input, deliverySeq);
+      const encodedBytes = fairDeliveryBytes(input);
       if (lane.queuedBytes + encodedBytes > options.policy.queueMaxBytes.value) {
         scheduleFallback(lane, 'queue-overflow');
         return { accepted: false, reason: 'queue-overflow' };

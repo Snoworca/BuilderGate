@@ -1566,17 +1566,23 @@ test('PERF-BGSTAB-010 AC-4 fair delivery policy projection is derived from typed
   });
   assert.deepEqual(
     {
+      strategy: projection.strategy.value,
       socketSoftGateBytes: projection.socketSoftGateBytes.value,
       bulkSliceBytes: projection.bulkSliceBytes.value,
       smallOutputBypassBytes: projection.smallOutputBypassBytes.value,
+      visibilityWeight: projection.visibilityWeight.value,
+      driverWeight: projection.driverWeight.value,
       creditWindowBytes: projection.creditWindowBytes.value,
       queueMaxBytes: projection.queueMaxBytes.value,
       ackTimeoutMs: projection.ackTimeoutMs.value,
     },
     {
+      strategy: 'deficit-round-robin',
       socketSoftGateBytes: 12_288,
       bulkSliceBytes: 256,
       smallOutputBypassBytes: 128,
+      visibilityWeight: 8,
+      driverWeight: 16,
       creditWindowBytes: 4_096,
       queueMaxBytes: 4_096,
       ackTimeoutMs: 5_000,
