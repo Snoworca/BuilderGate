@@ -124,3 +124,18 @@ test('a real write failure still propagates to the caller', async () => {
 
   await assert.rejects(() => service.save(true), /ENOENT/);
 });
+
+// A failed flush must not wedge the chain: without this the server would go on
+// answering every later save with the first failure and never write again.
+test('a failed flush does not wedge every later flush', async () => {
+  const { service, dataFile } = await makeService(10);
+  const brokenPath = path.join(os.tmpdir(), `ws-flush-absent-${Date.now()}`, 'workspaces.json');
+
+  (service as any).dataFilePath = brokenPath;
+  await assert.rejects(() => service.save(true), /ENOENT/);
+
+  (service as any).dataFilePath = dataFile;
+  await service.save(true);
+
+  assert.equal((await readStore(dataFile)).state.tabs.length, 10);
+});
