@@ -1641,6 +1641,7 @@ export class WorkspaceService {
 
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private isImmediateFlush = false;
+  private flushChain: Promise<void> = Promise.resolve();
 
   async save(immediate = false): Promise<void> {
     if (immediate || this.isImmediateFlush) {
@@ -1679,7 +1680,23 @@ export class WorkspaceService {
     await this.flushToDisk();
   }
 
-  private async flushToDisk(): Promise<void> {
+  /**
+   * Serializes every write to the store. Two flushes running at once share one
+   * `.tmp` path, so the first rename moves it away and the second finds no
+   * source. Each queued write snapshots state when it runs rather than when it
+   * is queued, so a caller's completion always implies its own change reached
+   * the disk (REL-BGSTAB-020).
+   */
+  private flushToDisk(): Promise<void> {
+    const run = this.flushChain.then(
+      () => this.writeStateToDisk(),
+      () => this.writeStateToDisk(),
+    );
+    this.flushChain = run.then(() => undefined, () => undefined);
+    return run;
+  }
+
+  private async writeStateToDisk(): Promise<void> {
     const file: WorkspaceFile = {
       version: 1,
       lastUpdated: new Date().toISOString(),
