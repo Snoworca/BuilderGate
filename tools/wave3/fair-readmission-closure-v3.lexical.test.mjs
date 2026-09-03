@@ -58,7 +58,7 @@ test('SDS-AC-2 treats explicit zero-edge forms separately from contained literal
   );
 });
 
-test('SDS-AC-2 admits all sixteen frozen runtime import(identifier) edges without source rewrite', async () => {
+test('SDS-AC-2 admits every frozen runtime import(identifier) edge without source rewrite', async () => {
   const { parseAdmittedImportSpecifiers } = await loadCollector();
   const expectedOccurrences = [
     {
@@ -76,8 +76,8 @@ test('SDS-AC-2 admits all sixteen frozen runtime import(identifier) edges withou
     {
       path: canarySourcePath,
       specifier: './TerminalResourcePolicyCanary.js',
-      occurrences: 14,
-      dynamicOccurrences: 14,
+      occurrences: 15,
+      dynamicOccurrences: 15,
     },
   ];
 
@@ -92,7 +92,7 @@ test('SDS-AC-2 admits all sixteen frozen runtime import(identifier) edges withou
     );
     dynamicEdges += expected.dynamicOccurrences;
   }
-  assert.equal(dynamicEdges, 16, 'the frozen roots contain exactly sixteen committee-approved runtime import(identifier) edges');
+  assert.equal(dynamicEdges, 17, 'the frozen roots contain exactly seventeen committee-approved runtime import(identifier) edges');
 });
 
 test('SDS-AC-3 fails closed for dynamic resolution outside the single immutable literal-const proof', async () => {
