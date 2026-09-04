@@ -1589,5 +1589,37 @@ test('PERF-BGSTAB-010 AC-4 fair delivery policy projection is derived from typed
     },
     signature,
   );
-  assert.equal(Object.values(projection).every(value => value.source.length > 0), true, signature);
+  // AC-4 는 아홉 키가 전부 파생될 것을 요구한다. 키가 늘거나 줄면 red 여야 한다.
+  assert.deepEqual(
+    Object.keys(projection).sort(),
+    [
+      'ackTimeoutMs',
+      'bulkSliceBytes',
+      'creditWindowBytes',
+      'driverWeight',
+      'queueMaxBytes',
+      'smallOutputBypassBytes',
+      'socketSoftGateBytes',
+      'strategy',
+      'visibilityWeight',
+    ],
+    signature,
+  );
+  // AC-4 가 요구하는 것은 source 가 빈 문자열이 아니라는 것이 아니라, 어느 필드에서
+  // 파생되었는지다. 리터럴로 대조한다.
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(projection).map(([key, value]) => [key, value.source])),
+    {
+      strategy: 'fair-scheduler-decision.json#candidate',
+      socketSoftGateBytes: 'resourceLimits.ws.serverBufferedHighWaterBytes',
+      bulkSliceBytes: 'resourceLimits.ws.perClientOutputQueueMaxBytes',
+      smallOutputBypassBytes: 'resourceLimits.ws.perClientControlQueueMaxBytes',
+      visibilityWeight: 'resourceLimits.ws.perClientControlQueueMaxBytes',
+      driverWeight: 'resourceLimits.ws.perClientOutputQueueMaxBytes',
+      creditWindowBytes: 'resourceLimits.ws.perClientOutputQueueMaxBytes',
+      ackTimeoutMs: 'ws.terminal-delivery.ack-timeout',
+      queueMaxBytes: 'resourceLimits.ws.perClientOutputQueueMaxBytes',
+    },
+    signature,
+  );
 });
