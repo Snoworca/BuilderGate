@@ -611,7 +611,27 @@ export class WorkspaceService {
     }
 
     ws.updatedAt = new Date().toISOString();
-    await this.save(true);
+    try {
+      await this.save(true);
+    } catch (error) {
+      // The PTY is already running and nothing else owns it, so a rejected
+      // store write would otherwise leave it behind (REL-BGSTAB-021). The active
+      // tab is re-chosen from what survives rather than restored from a snapshot
+      // taken before the await, which would erase a concurrent add (deleteTab
+      // picks the same way).
+      this.state.tabs = this.state.tabs.filter(t => t.id !== tab.id);
+      if (ws.activeTabId === tab.id) {
+        const remaining = this.getWorkspaceTabs(workspaceId);
+        ws.activeTabId = remaining.length > 0 ? remaining[0].id : null;
+      }
+      this.cancelPendingTerminalTitle(sessionDTO.id);
+      try {
+        await this.sessionManager.terminateSession(sessionDTO.id, { reason: 'tab-delete' });
+      } catch (cleanupError) {
+        console.warn('[WorkspaceService] Failed to terminate session after add save failure:', cleanupError);
+      }
+      throw error;
+    }
     return tab;
   }
 
