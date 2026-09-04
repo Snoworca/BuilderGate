@@ -40,8 +40,8 @@
       "frontend/src/utils/webSocketBackpressure.ts": "6b1267425a009da86ed03cccfe8caa80520dcd65b82fff63ffe5e6886e132f29",
       "server/src/schemas/config.schema.ts": "47e507ed901ed0beccc8571fef348c76162f5656f279c554f85e53dc5df82b72",
       "server/src/services/ConfigFileRepository.ts": "2091c12a9f27f5b40ba12661fa9544af9fa8ecf71d1ff99f0a9c9aafe2c55d65",
-      "server/src/services/RuntimeConfigStore.test.ts": "b4008553c828870a22c0cadfdfa5b6c8c15248f8c915e352eae8b29ed9ec1800",
-      "server/src/services/RuntimeConfigStore.ts": "1062146455f9c3cd6998a8f656cfb47f1e7baeac9ef660c4b3c64d30d812ccf0",
+      "server/src/services/RuntimeConfigStore.test.ts": "3a342e0a6f132326e98f12644df0cfd69af042e75817098290df1441f399a438",
+      "server/src/services/RuntimeConfigStore.ts": "b8760ef8a5b0220ea3132b322cefbf182253626223a17cd8b7085d5a9b1543c0",
       "server/src/services/SessionManager.ts": "e3d2ae699e182b6a667552170bc1cb9da134cc5dc37b49496ded09af86f5535a",
       "server/src/services/SettingsService.ts": "52b2775a8b3ebe5fb9f9e6beb174b29c14cdca4694e7cfa461f4f57028079b5c",
       "server/src/services/TerminalResourcePolicy.test.ts": "4715673f82514dc1db381845d65d0987aee8574ba390d57a6be33aab34ccac6a",
@@ -59,7 +59,7 @@
       "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "7621a908cf3dae8e2bc6e2551abb8bc6b530b4e807e1d769a2cfbb1289ac136d",
       "tools/wave3/terminal-resource-policy-differential.ts": "4e3037ede53b126b5c5dd117ba7d87426d9a8b81768492becf3c3f7b64d84f92"
     },
-    "sourceSetSha256": "8a77e4195ae752aae4c5e3b1e315a875a872b51d0f0376ecd6b48f6698b03a73",
+    "sourceSetSha256": "c74975bc5b5ce210530aef45c245504a44495221e890420175157c3dee189107",
     "rawGreenEvidence": {
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "a21374764b6cdafdc8d483df5b6c1c5b4bd274f415b3f282c970d0ffaffb5d10",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/focused-green-output.txt": "c10f00e503ac73eaf5296b02ecd224f81968697192991bfe5dd62bd2ebd5a23f"

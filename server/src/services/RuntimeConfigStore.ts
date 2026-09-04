@@ -2,6 +2,7 @@ import type {
   Config,
   ResourceLimitsConfig,
   StabilityModesConfig,
+  TerminalWireFormat,
   WsTransportMode,
 } from '../types/config.types.js';
 import type { InputReliabilityMode } from '../types/ws-protocol.js';
@@ -156,10 +157,12 @@ const RESERVED_WAVE6_SETTING_REASONS = new Map<EditableSettingsKey, string>(
   [...RESERVED_WAVE6_SETTING_KEYS].map((key) => [key, RESERVED_WAVE6_SETTING_REASON]),
 );
 const DEFAULT_WS_TRANSPORT_MODE: WsTransportMode = 'unified';
+const DEFAULT_TERMINAL_WIRE_FORMAT: TerminalWireFormat = 'json';
 
 export interface PublicRuntimeConfig {
   inputReliabilityMode: InputReliabilityMode;
   wsTransportMode: WsTransportMode;
+  terminalWireFormat: TerminalWireFormat;
   stabilityModes: Pick<StabilityModesConfig, 'frontendRuntimeResidency'>;
   resourceLimits: Pick<ResourceLimitsConfig, 'clientWs' | 'terminal' | 'snapshots' | 'workspaceRuntime'>;
 }
@@ -210,6 +213,7 @@ export class RuntimeConfigStore {
   private readonly excludedSections = [...EXCLUDED_SECTIONS];
   private secretState: EditableSettingsSnapshot['secretState'];
   private wsTransportMode: WsTransportMode;
+  private terminalWireFormat: TerminalWireFormat;
   private sourceConfig: Config;
   private terminalPolicyProvenance: TerminalResourceConfigProvenance;
   private readonly terminalPolicyOptions: NonNullable<RuntimeConfigStoreOptions['terminalResourcePolicy']>;
@@ -247,6 +251,7 @@ export class RuntimeConfigStore {
     });
     this.seedTerminalResourcePolicyObservations();
     this.wsTransportMode = source.realtime?.wsTransportMode ?? DEFAULT_WS_TRANSPORT_MODE;
+    this.terminalWireFormat = source.realtime?.terminalWireFormat ?? DEFAULT_TERMINAL_WIRE_FORMAT;
     this.capabilities = buildFieldCapabilities(platform);
     this.secretState = {
       authPasswordConfigured: Boolean(source.auth?.password),
@@ -275,6 +280,7 @@ export class RuntimeConfigStore {
     return {
       inputReliabilityMode,
       wsTransportMode: this.wsTransportMode,
+      terminalWireFormat: this.terminalWireFormat,
       stabilityModes: {
         frontendRuntimeResidency: this.values.stabilityModes.frontendRuntimeResidency,
       },
@@ -1255,6 +1261,7 @@ export class RuntimeConfigStore {
     this.values = buildEditableValues(config, this.platform);
     this.resetTerminalResourcePolicyObserver();
     this.wsTransportMode = config.realtime?.wsTransportMode ?? DEFAULT_WS_TRANSPORT_MODE;
+    this.terminalWireFormat = config.realtime?.terminalWireFormat ?? DEFAULT_TERMINAL_WIRE_FORMAT;
     this.secretState = {
       authPasswordConfigured: Boolean(config.auth?.password),
       smtpPasswordConfigured: false,

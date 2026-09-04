@@ -92,7 +92,7 @@ test('RuntimeConfigStore exposes Wave6 resource capabilities without leaking ser
     ...createConfigFixture(),
     realtime: {
       wsTransportMode: 'split-shadow',
-      terminalWireFormat: 'json',
+      terminalWireFormat: 'binary-shadow',
     },
     stabilityModes: {
       headlessQueueMode: 'observe',
@@ -130,6 +130,7 @@ test('RuntimeConfigStore exposes Wave6 resource capabilities without leaking ser
   assert.deepEqual(publicConfig, {
     inputReliabilityMode: 'queue',
     wsTransportMode: 'split-shadow',
+    terminalWireFormat: 'binary-shadow',
     stabilityModes: {
       frontendRuntimeResidency: 'bounded',
     },
@@ -201,4 +202,46 @@ test('RuntimeConfigStore validates Wave 0 resource limit patches after merging',
     }),
     /hardReconnectBytes/i,
   );
+});
+
+test('IR-BGSTAB-001 AC-8 publishes terminalWireFormat and nothing else beyond the existing allowlist', () => {
+  const withoutRealtime = new RuntimeConfigStore(createConfigFixture(), 'linux');
+  const published = withoutRealtime.getPublicRuntimeConfig('queue');
+  // realtime 블록이 없으면 스키마 기본값인 json 으로 수렴해야 한다.
+  assert.equal(published.terminalWireFormat, 'json');
+
+  // AC-8 은 기존 공개 값에 이 한 필드만 더하도록 규정한다. 최상위 키가 그 이상으로
+  // 늘면 비공개 값이 새어 나간 것이다.
+  assert.deepEqual(
+    Object.keys(published).sort(),
+    ['inputReliabilityMode', 'resourceLimits', 'stabilityModes', 'terminalWireFormat', 'wsTransportMode'],
+  );
+
+  // 사다리 네 값이 모두 그대로 실려야 한다.
+  for (const wireFormat of ['json', 'binary-shadow', 'binary-optin', 'binary'] as const) {
+    const store = new RuntimeConfigStore({
+      ...createConfigFixture(),
+      realtime: { wsTransportMode: 'unified', terminalWireFormat: wireFormat },
+    }, 'linux');
+    assert.equal(store.getPublicRuntimeConfig('queue').terminalWireFormat, wireFormat);
+  }
+});
+
+test('IR-BGSTAB-001 AC-8 republishes terminalWireFormat after a runtime config reload', () => {
+  const store = new RuntimeConfigStore({
+    ...createConfigFixture(),
+    realtime: { wsTransportMode: 'unified', terminalWireFormat: 'json' },
+  }, 'linux');
+  assert.equal(store.getPublicRuntimeConfig('queue').terminalWireFormat, 'json');
+
+  store.replaceFromConfig({
+    ...createConfigFixture(),
+    realtime: { wsTransportMode: 'unified', terminalWireFormat: 'binary-optin' },
+  });
+  // 재적재 경로가 이 필드를 갱신하지 않으면 프로세스가 시작할 때의 값을 계속 내보낸다.
+  assert.equal(store.getPublicRuntimeConfig('queue').terminalWireFormat, 'binary-optin');
+
+  store.replaceFromConfig(createConfigFixture());
+  // realtime 을 통째로 뺀 설정으로 재적재하면 기본값으로 돌아와야 한다.
+  assert.equal(store.getPublicRuntimeConfig('queue').terminalWireFormat, 'json');
 });
