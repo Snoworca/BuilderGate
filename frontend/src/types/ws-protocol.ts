@@ -90,6 +90,7 @@ export interface TerminalCheckpointStartMessage extends TerminalCheckpointWireId
   parserTail: TerminalCheckpointEncodedPayload;
   contentDigest?: string;
   retainedStateDigest?: string;
+  retainedStateDigestVersion?: number;
   retainedActiveBuffer?: 'normal' | 'alternate';
   retainedCursor?: { x: number; y: number };
   retainedSavedCursor?: { buffer: 'normal'; x: number; y: number } | null;
@@ -108,6 +109,7 @@ export interface TerminalCheckpointCommitMessage extends TerminalCheckpointWireI
   encodedByteTotal: number;
   digest: TerminalCheckpointDigest;
   retainedStateDigest?: string;
+  retainedStateDigestVersion?: number;
 }
 
 export interface TerminalCheckpointOutputMessage extends TerminalCheckpointWireIdentity,

@@ -2632,10 +2632,15 @@ function retainedStateDigestEvidence(
     && commitMessage?.contentDigest === startMessage.contentDigest
     && contentDigestValid;
   if (!completeEnvelope) return { parserTailEnvelopeValid, retainedStateDigestValid: false };
+  // IR-BGSTAB-002: the tail enters as a hash of the bytes it stands for, never as
+  // the base64 text carrying them, so this probe decodes before hashing.
+  const parserTailDigest = `sha256:${createHash('sha256')
+    .update(Buffer.from(parserTailRecord!.data, 'base64'))
+    .digest('hex')}`;
   const canonical = JSON.stringify({
-    version: 1,
+    version: 2,
     dataDigest: startMessage.contentDigest,
-    parserTail: parserTailRecord!.data,
+    parserTailDigest,
     cols: geometry!.cols,
     rows: geometry!.rows,
     modes,

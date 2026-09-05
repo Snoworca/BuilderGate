@@ -427,10 +427,74 @@ function digestWireValue(digest: Readonly<{ algorithm: 'sha256'; hex: string }>)
  * remain compatible; once present, every covered field is mandatory and must
  * match exactly.
  */
+export const RETAINED_STATE_DIGEST_VERSION = 2;
+
+export type RetainedStateDigestVerdict =
+  | { ok: true }
+  | { ok: false; reason: 'digest-mismatch' | 'unknown-digest-version' };
+
+/**
+ * Recover the parser tail's source bytes from its transport representation.
+ *
+ * IR-BGSTAB-002 AC-1 puts the tail into the digest as its own bytes, never as
+ * the text some encoding happened to spell them with, so a binary data plane
+ * carrying the same bytes raw produces the same value.
+ */
+function decodeParserTailBytes(encoded: string): Uint8Array {
+  const binary = atob(encoded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+/**
+ * Rebuild the server's canonical digest input from protocol fields.
+ *
+ * The field set, its order, and the cursor key set are fixed by contract; the
+ * server narrows its cursor to the same two coordinates, so a key the terminal
+ * model gains later cannot split the two sides.
+ */
+export function terminalCheckpointRetainedStateCanonicalInput(
+  message: TerminalCheckpointStartMessage,
+): Record<string, unknown> {
+  const modes = Object.fromEntries(RETAINED_STATE_MODE_NAMES.flatMap(name => (
+    typeof message.modes[name] === 'boolean' ? [[name, message.modes[name]]] : []
+  )));
+  const savedCursor = message.retainedSavedCursor === null || message.retainedSavedCursor === undefined
+    ? null
+    : { x: message.retainedSavedCursor.x, y: message.retainedSavedCursor.y };
+  return {
+    version: RETAINED_STATE_DIGEST_VERSION,
+    dataDigest: message.contentDigest,
+    parserTailDigest: digestTerminalBytes(decodeParserTailBytes(message.parserTail.data)),
+    cols: message.sourceGeometry.cols,
+    rows: message.sourceGeometry.rows,
+    modes,
+    activeBuffer: message.retainedActiveBuffer,
+    cursor: { x: message.retainedCursor?.x, y: message.retainedCursor?.y },
+    savedCursor,
+  };
+}
+
+export function terminalCheckpointRetainedStateDigest(
+  message: TerminalCheckpointStartMessage,
+): string {
+  const canonical = JSON.stringify(terminalCheckpointRetainedStateCanonicalInput(message));
+  return digestTerminalBytes(retainedStateEncoder.encode(canonical));
+}
+
 export function terminalCheckpointRetainedStateDigestMatches(
   message: TerminalCheckpointStartMessage,
-): boolean {
-  if (message.retainedStateDigest === undefined) return true;
+): RetainedStateDigestVerdict {
+  if (message.retainedStateDigest === undefined) return { ok: true };
+  // A digest whose version this build does not know must not be treated as
+  // sound. Saying that distinctly keeps a rollout mismatch from reading as
+  // corruption.
+  if (message.retainedStateDigestVersion !== RETAINED_STATE_DIGEST_VERSION) {
+    return { ok: false, reason: 'unknown-digest-version' };
+  }
   if (
     message.contentDigest === undefined
     || message.contentDigest !== digestWireValue(message.digest)
@@ -438,26 +502,11 @@ export function terminalCheckpointRetainedStateDigestMatches(
     || message.retainedCursor === undefined
     || message.retainedSavedCursor === undefined
   ) {
-    return false;
+    return { ok: false, reason: 'digest-mismatch' };
   }
-  const modes = Object.fromEntries(RETAINED_STATE_MODE_NAMES.flatMap(name => (
-    typeof message.modes[name] === 'boolean' ? [[name, message.modes[name]]] : []
-  )));
-  const savedCursor = message.retainedSavedCursor === null
-    ? null
-    : { x: message.retainedSavedCursor.x, y: message.retainedSavedCursor.y };
-  const canonical = JSON.stringify({
-    version: 1,
-    dataDigest: message.contentDigest,
-    parserTail: message.parserTail.data,
-    cols: message.sourceGeometry.cols,
-    rows: message.sourceGeometry.rows,
-    modes,
-    activeBuffer: message.retainedActiveBuffer,
-    cursor: { x: message.retainedCursor.x, y: message.retainedCursor.y },
-    savedCursor,
-  });
-  return digestTerminalBytes(retainedStateEncoder.encode(canonical)) === message.retainedStateDigest;
+  return terminalCheckpointRetainedStateDigest(message) === message.retainedStateDigest
+    ? { ok: true }
+    : { ok: false, reason: 'digest-mismatch' };
 }
 
 function identityFromStart(message: TerminalCheckpointStartMessage): RuntimeIdentity {
@@ -1159,9 +1208,12 @@ export function createTerminalCheckpointRuntime(
           return failClosed('checkpoint-unsupported-mode');
         }
         const candidateIdentity = identityFromStart(message);
-        if (!terminalCheckpointRetainedStateDigestMatches(message)) {
+        const retainedStateVerdict = terminalCheckpointRetainedStateDigestMatches(message);
+        if (!retainedStateVerdict.ok) {
           return failClosed(
-            'checkpoint-retained-state-digest-mismatch',
+            retainedStateVerdict.reason === 'unknown-digest-version'
+              ? 'checkpoint-retained-state-digest-version-unknown'
+              : 'checkpoint-retained-state-digest-mismatch',
             true,
             candidateIdentity,
           );

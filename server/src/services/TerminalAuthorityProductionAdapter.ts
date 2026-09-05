@@ -1,6 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { SessionManager } from './SessionManager.js';
 import {
+  RETAINED_STATE_DIGEST_VERSION,
+  computeRetainedStateDigest,
+} from './retainedStateDigest.js';
+import {
   createTerminalAuthorityController,
   type TerminalAuthorityController,
   type TerminalAuthorityEvent,
@@ -1745,17 +1749,17 @@ function attachProductionTerminalAuthorityInternal(
       chunkCount: encodedChunks.length,
       totalEncodedBytes,
       contentDigest,
-      retainedStateDigest: `sha256:${createHash('sha256').update(JSON.stringify({
-        version: 1,
+      retainedStateDigestVersion: RETAINED_STATE_DIGEST_VERSION,
+      retainedStateDigest: computeRetainedStateDigest({
         dataDigest: contentDigest,
-        parserTail: parserTail.data,
+        parserTailSource: retained.checkpoint.pendingEscapeTailAnsi ?? '',
         cols: retained.checkpoint.cols,
         rows: retained.checkpoint.rows,
-        modes,
+        modes: modes as Readonly<Record<string, boolean>>,
         activeBuffer: retained.checkpoint.activeBuffer,
         cursor: retained.checkpoint.cursor,
-        savedCursor: retained.checkpoint.savedCursor,
-      }), 'utf8').digest('hex')}`,
+        savedCursor: retained.checkpoint.savedCursor ?? null,
+      }),
     };
     return {
       retainedStateHash: contentDigest,

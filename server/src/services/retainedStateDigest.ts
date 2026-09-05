@@ -45,6 +45,29 @@ export interface RetainedStateDigestCanonicalInput {
   savedCursor: RetainedStateCursor | null;
 }
 
+/**
+ * The modes the canonical input carries, in the order it carries them.
+ *
+ * Leaving the order to the caller made the two sides agree by coincidence: the
+ * adapter's array and the browser's list simply happened to match.
+ */
+export const RETAINED_STATE_MODE_NAMES: readonly string[] = Object.freeze([
+  'applicationCursorKeysMode',
+  'applicationKeypadMode',
+  'bracketedPasteMode',
+  'insertMode',
+  'originMode',
+  'reverseWraparoundMode',
+  'sendFocusMode',
+  'wraparoundMode',
+]);
+
+function canonicalModes(modes: Readonly<Record<string, boolean>>): Record<string, boolean> {
+  return Object.fromEntries(
+    RETAINED_STATE_MODE_NAMES.flatMap(name => (typeof modes[name] === 'boolean' ? [[name, modes[name]]] : [])),
+  );
+}
+
 function sha256Hex(value: Buffer): string {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -80,7 +103,7 @@ export function buildRetainedStateDigestCanonicalInput(
     parserTailDigest: parserTailDigest(input.parserTailSource),
     cols: input.cols,
     rows: input.rows,
-    modes: input.modes,
+    modes: canonicalModes(input.modes),
     activeBuffer: input.activeBuffer,
     cursor: canonicalCursor(input.cursor),
     savedCursor: input.savedCursor === null ? null : canonicalCursor(input.savedCursor),

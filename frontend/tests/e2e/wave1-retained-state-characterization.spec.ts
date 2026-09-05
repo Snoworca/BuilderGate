@@ -1037,17 +1037,23 @@ async function readAuthorityRecoveryObservationRaw(
           && start.retainedCursor !== undefined
           && savedCursor !== undefined
         )
-          ? `sha256:${await sha256Hex(new TextEncoder().encode(JSON.stringify({
-            version: 1,
-            dataDigest: start.contentDigest,
-            parserTail: start.parserTailData,
-            cols: start.sourceGeometry.cols,
-            rows: start.sourceGeometry.rows,
-            modes: start.modes,
-            activeBuffer: start.retainedActiveBuffer,
-            cursor: { x: start.retainedCursor.x, y: start.retainedCursor.y },
-            savedCursor,
-          })))}`
+          // IR-BGSTAB-002: the parser tail enters as a hash of the bytes it stands for,
+          // so decode the transport representation before hashing it.
+          ? await (async () => {
+            const tailBytes = Uint8Array.from(atob(start.parserTailData), character => character.charCodeAt(0));
+            const parserTailDigest = `sha256:${await sha256Hex(tailBytes)}`;
+            return `sha256:${await sha256Hex(new TextEncoder().encode(JSON.stringify({
+              version: 2,
+              dataDigest: start.contentDigest,
+              parserTailDigest,
+              cols: start.sourceGeometry.cols,
+              rows: start.sourceGeometry.rows,
+              modes: start.modes,
+              activeBuffer: start.retainedActiveBuffer,
+              cursor: { x: start.retainedCursor.x, y: start.retainedCursor.y },
+              savedCursor,
+            })))}`;
+          })()
           : null;
         const chunks = frames.filter(frame => (
           frame.direction === 'in'

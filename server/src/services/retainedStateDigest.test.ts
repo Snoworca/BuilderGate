@@ -54,8 +54,12 @@ test('IR-BGSTAB-002 AC-1 derives the parser tail from source bytes, never from b
 
   // Distinct source bytes must stay distinct.
   assert.notEqual(computeRetainedStateDigest(withTail('a')), computeRetainedStateDigest(withTail('b')));
-  // Equal source bytes must agree regardless of how they were spelled in the caller.
-  assert.equal(computeRetainedStateDigest(withTail('\u001b[')), computeRetainedStateDigest(withTail('\x1b[')));
+  // The tail enters as a hash of its bytes, so a far longer tail still lands on a
+  // fixed-width field rather than lengthening the canonical input.
+  const long = computeRetainedStateDigest(withTail('x'.repeat(4096)));
+  const short = computeRetainedStateDigest(withTail('x'));
+  assert.notEqual(long, short);
+  assert.equal(long.length, short.length);
 });
 
 test('IR-BGSTAB-002 AC-1 keeps every transport encoding out of the canonical builder', () => {
@@ -90,6 +94,14 @@ test('IR-BGSTAB-002 AC-5 fixes the canonical field set, order, and cursor key se
   assert.equal(canonical.version, RETAINED_STATE_DIGEST_VERSION);
   assert.equal(RETAINED_STATE_DIGEST_VERSION, 2);
   assert.deepEqual(Object.keys(canonical.cursor), ['x', 'y']);
+  // The mode order belongs to the contract, not to whichever caller assembled it.
+  assert.deepEqual(
+    Object.keys(buildRetainedStateDigestCanonicalInput({
+      ...withTail('abc'),
+      modes: { wraparoundMode: true, applicationCursorKeysMode: false },
+    }).modes),
+    ['applicationCursorKeysMode', 'wraparoundMode'],
+  );
   assert.deepEqual(Object.keys(canonical.savedCursor ?? {}), ['x', 'y']);
 
   // A caller that hands over a richer cursor must not widen the canonical input.
