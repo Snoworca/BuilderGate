@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
+  RETAINED_STATE_DIGEST_VERSION,
   createTerminalCheckpointDispatcherRegistry,
   createTerminalCheckpointRegistrationReleaseScheduler,
   createTerminalCheckpointRuntime,
@@ -11,6 +12,7 @@ import {
   isGlobalTerminalCheckpointControlFailure,
   isTerminalCheckpointMutationRejection,
   resolveTerminalCheckpointInputRoute,
+  terminalCheckpointRetainedStateDigest,
 } from '../../src/utils/terminalCheckpointRuntime.ts';
 import * as terminalCheckpointRuntimeModule from '../../src/utils/terminalCheckpointRuntime.ts';
 import {
@@ -25,6 +27,7 @@ import {
 import type {
   TerminalCheckpointCapabilityMessage,
   TerminalCheckpointServerMessage,
+  TerminalCheckpointStartMessage,
   TerminalAuthorityRollbackStartMessage,
 } from '../../src/types/ws-protocol.ts';
 import * as wsProtocolModule from '../../src/types/ws-protocol.ts';
@@ -4341,4 +4344,69 @@ test('MIG-BGSTAB-002 compatibility drain coalesces concurrent cumulative waterma
     /result\.compatibilityDrainIdentity\s*\?\? compatibilityIdentity/u,
     'TerminalView must register the same latest identity that the single-flight runtime ACKed',
   );
+});
+
+function retainedStateStart(overrides = {}) {
+  const base = {
+    contentDigest: 'sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    retainedActiveBuffer: 'normal' as const,
+    retainedCursor: { x: 1, y: 2 },
+    retainedSavedCursor: null,
+    retainedStateDigestVersion: RETAINED_STATE_DIGEST_VERSION,
+    ...overrides,
+  };
+  const message = startMessage(base) as TerminalCheckpointStartMessage;
+  return startMessage({
+    ...base,
+    retainedStateDigest: terminalCheckpointRetainedStateDigest(message),
+  });
+}
+
+function routeRetainedStateStart(message: TerminalCheckpointServerMessage) {
+  const { runtime } = createHarness();
+  const registry = createTerminalCheckpointDispatcherRegistry();
+  const unregister = registry.register('session-1', runtime);
+  registry.setCapability(ACTIVE_CAPABILITY);
+  try {
+    return registry.route(message);
+  } finally {
+    unregister();
+  }
+}
+
+test('IR-BGSTAB-002 AC-6 fail-closes an unknown digest version with its own reason', () => {
+  const decision = routeRetainedStateStart(startMessage({
+    contentDigest: 'sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    retainedActiveBuffer: 'normal',
+    retainedCursor: { x: 1, y: 2 },
+    retainedSavedCursor: null,
+    retainedStateDigest: `sha256:${'0'.repeat(64)}`,
+    retainedStateDigestVersion: 99,
+  }));
+  assert.deepEqual(decision, {
+    delivered: false,
+    handled: true,
+    reason: 'checkpoint-retained-state-digest-version-unknown',
+  });
+});
+
+test('IR-BGSTAB-002 AC-6 keeps a wrong value distinct from a wrong version', () => {
+  const decision = routeRetainedStateStart(startMessage({
+    contentDigest: 'sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    retainedActiveBuffer: 'normal',
+    retainedCursor: { x: 1, y: 2 },
+    retainedSavedCursor: null,
+    retainedStateDigest: `sha256:${'0'.repeat(64)}`,
+    retainedStateDigestVersion: RETAINED_STATE_DIGEST_VERSION,
+  }));
+  assert.deepEqual(decision, {
+    delivered: false,
+    handled: true,
+    reason: 'checkpoint-retained-state-digest-mismatch',
+  });
+});
+
+test('IR-BGSTAB-002 AC-6 boundary control: a sound digest on a known version is delivered', () => {
+  // Without this the two refusals above could come from anything in the path.
+  assert.deepEqual(routeRetainedStateStart(retainedStateStart()), { delivered: true });
 });
