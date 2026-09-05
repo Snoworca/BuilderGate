@@ -1793,6 +1793,7 @@ function attachProductionTerminalAuthorityInternal(
           totalEncodedBytes,
           contentDigest,
           retainedStateDigest: metadata.retainedStateDigest,
+          retainedStateDigestVersion: metadata.retainedStateDigestVersion,
         },
       ],
       postSnapshotOutput: [] as string[],

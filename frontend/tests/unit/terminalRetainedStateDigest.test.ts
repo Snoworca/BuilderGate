@@ -164,3 +164,20 @@ test('IR-BGSTAB-002 AC-5 fixes the canonical field set and order on the browser 
   assert.deepEqual(Object.keys(reordered.modes as object), ['applicationCursorKeysMode', 'bracketedPasteMode']);
   assert.deepEqual(reordered, canonical);
 });
+
+test('IR-BGSTAB-002 AC-1 is unmoved by how the same bytes were spelled in base64', () => {
+  // 'G1s=' and 'G1s' decode to the same two bytes; only the padding differs. The
+  // digest follows the bytes, so the two spellings must agree.
+  const padded = terminalCheckpointRetainedStateDigest(startMessage({
+    parserTail: { encoding: 'base64', data: 'G1s=', encodedBytes: 2 },
+  }));
+  const unpadded = terminalCheckpointRetainedStateDigest(startMessage({
+    parserTail: { encoding: 'base64', data: 'G1s', encodedBytes: 2 },
+  }));
+  assert.equal(padded, unpadded);
+  assert.equal(padded, GOLDEN[2]!.digest);
+  // Boundary control: bytes that genuinely differ must still separate.
+  assert.notEqual(padded, terminalCheckpointRetainedStateDigest(startMessage({
+    parserTail: { encoding: 'base64', data: 'G1st', encodedBytes: 3 },
+  })));
+});
