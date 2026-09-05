@@ -36,6 +36,7 @@ export interface WsTransportMessage {
   connectionEpoch?: string;
   deliverySeq?: number;
   deliveryKind?: string;
+  sourceSeq?: string;
   outputData?: string;
   sourceSegments?: WsOutputSourceSegment[];
   policyGeneration?: number;
@@ -99,6 +100,20 @@ export interface WsTransportCodec {
 }
 
 // @req REL-BGSTAB-010
+const CANONICAL_ORDINAL64 = /^(0|[1-9][0-9]*)$/u;
+
+/**
+ * Whether a value may be promoted into the sidecar as an Ordinal64.
+ *
+ * The sidecar exists so consumers never re-parse the payload, which means the
+ * guard here has to reject exactly what the payload gate would have rejected.
+ * Anything else would let a value reach a consumer through the shortcut that
+ * could not have reached it through the long way.
+ */
+function isCanonicalOrdinal64(value: unknown): value is string {
+  return typeof value === 'string' && CANONICAL_ORDINAL64.test(value);
+}
+
 export function createWsTransportMessage(
   message: object,
   now = Date.now(),
@@ -143,6 +158,7 @@ export function createWsTransportMessage(
       ? { deliverySeq: record.deliverySeq }
       : {}),
     ...(typeof record.deliveryKind === 'string' ? { deliveryKind: record.deliveryKind } : {}),
+    ...(isCanonicalOrdinal64(record.sourceSeq) ? { sourceSeq: record.sourceSeq } : {}),
     ...(output ? { outputData: output.data } : {}),
     ...(sourceSegments && sourceSegments.length > 0 ? { sourceSegments } : {}),
     ...(metadata.policyGeneration !== undefined ? { policyGeneration: metadata.policyGeneration } : {}),
