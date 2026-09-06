@@ -1,0 +1,5 @@
+# The sha256 digests in docs/analysis/terminal-fairness-authority/current.json are computed
+# over the committed bytes. Any checkout-time line-ending conversion breaks them and fails
+# the server build at server/tools/write-fair-scheduler-evidence-bundle.mjs. Pin the whole
+# evidence tree to -text so every platform checks out the bytes that were committed.
+docs/analysis/terminal-fairness-authority/** -text

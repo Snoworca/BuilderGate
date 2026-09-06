@@ -108,12 +108,13 @@ frontend/src/
 | 스위트 | 위치 | 실행 |
 |---|---|---|
 | 모놀리식 러너 | `server/src/test-runner.ts` (자기완결형, `*.test.ts` 를 디스커버리하지 않음) | **cwd=`server/`** 에서 `npx tsx src/test-runner.ts` |
-| node:test (server) | `server/src/**/*.test.ts` (**59개**, 2026-09-03 실측) | **cwd=`server/`** 에서 `npx tsx --test src/<경로>.test.ts` — 파일별. **단 `TerminalAuthorityProductionRegression.test.ts` 는 이 커맨드로 green 이 될 수 없다** (아래 주의) |
+| node:test (server) | `server/src/**/*.test.ts` (**62개**, 2026-09-06 실측) | **cwd=`server/`** 에서 `npx tsx --test src/<경로>.test.ts` — 파일별. **단 `TerminalAuthorityProductionRegression.test.ts` 는 이 커맨드로 green 이 될 수 없다** (아래 주의) |
 | daemon | `tools/daemon/*.test.js` (**20개**, 2026-09-03 실측) | 루트 `npm run test:daemon` (server 빌드 선행) |
 | wave3 closure | `tools/wave3/fair-readmission-closure-v3*.test.mjs` (22개, node:test — 그중 게이트는 `admission-gate`·`boundary-gate` 2개) | `node --test tools/wave3/<파일>` — npm 스크립트 없음. **게이트 2개는 형제를 재실행하니 아래 주의 참조** |
 | wave3 증거 스크립트 | `tools/wave3/{authority-promotion-evidence, canary-admission-evidence, fair-scheduler-decision, retained-shadow-parity, terminal-resource-consumer-manifest}.test.mjs` (5개, **node:test 아님**) | `node tools/wave3/<파일>` (일부는 `--regenerate-green` 등 플래그를 받음) |
 | wave1 | `tools/wave1/g1-decision-gate.test.mjs` (1개) | `node --test tools/wave1/g1-decision-gate.test.mjs` — 스크립트 없음 |
-| server tools | `server/tools/*.test.{cjs,mjs}` (2개, node:test) | `node --test server/tools/<파일>` — 스크립트 없음 |
+| server tools | `server/tools/*.test.{cjs,mjs}` (3개, node:test) | `node --test server/tools/<파일>` — 스크립트 없음 |
+| 릴리즈 파이프라인 가드 | `tools/build-portable-runtime-evidence.test.mjs`, `server/tools/canonical-authority-line-endings.test.mjs`, `server/src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts` (13 케이스) | 루트 `npm run test:release-pipeline` — 셋을 한 번에 돈다. **릴리즈 빌드를 세 번 깨뜨린 것들을 지키는 가드이므로 릴리즈 전에 반드시 돌릴 것** |
 
 주의할 것:
 
