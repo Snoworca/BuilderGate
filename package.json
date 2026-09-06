@@ -1,7 +1,7 @@
 {
   "name": "buildergate",
   "private": true,
-  "version": "0.5.bb",
+  "version": "0.5.4",
   "bin": {
     "buildergate": "tools/start-runtime.js"
   },
@@ -48,6 +48,7 @@
     "build:daemon-linux-arm64": "npm run build:linux-arm64",
     "build:daemon-mac-arm64": "npm run build:macos-arm64",
     "build:daemon-macos-arm64": "npm run build:macos-arm64",
+    "test:release-pipeline": "node --test tools/build-portable-runtime-evidence.test.mjs server/tools/canonical-authority-line-endings.test.mjs && npm --prefix server run test:authority-pin",
     "test:daemon": "npm --prefix server run build && node --test tools/daemon/*.test.js",
     "test:daemon:wave5": "node --test tools/daemon/process-info.test.js tools/daemon/stop-client.test.js tools/daemon/sentinel.test.js tools/daemon/no-broad-kill.test.js tools/daemon/native-daemon.integration.test.js",
     "test:docs": "node --test tools/daemon/docs.test.js",
