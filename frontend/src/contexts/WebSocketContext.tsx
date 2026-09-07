@@ -1180,20 +1180,26 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (msg.type === 'terminal-delivery:ack-rejected') {
+      const parsedAckRejection = parseTerminalDeliveryAckRejectedMessage(rawMessage);
+      if (parsedAckRejection.ok) {
+        const rejection = parsedAckRejection.message;
+        recordTerminalDebugEvent(rejection.sessionId, 'terminal_delivery_ack_rejected', {
+          connectionEpoch: rejection.connectionEpoch,
+          ...(rejection.kind === 'sourceSeq'
+            ? { kind: rejection.kind, streamEpoch: rejection.streamEpoch, sourceSeq: rejection.sourceSeq }
+            : { ...(rejection.kind === undefined ? {} : { kind: rejection.kind }), deliverySeq: rejection.deliverySeq }),
+          reason: rejection.reason,
+        }, undefined, { includeInputReliabilityMode: false });
+      } else {
+        console.warn(`[WS] terminal delivery ACK rejection invalid: ${parsedAckRejection.reason}`);
+      }
+      return;
+    }
+
     // Session events (have sessionId field)
     if ('sessionId' in msg) {
       const sessionId = (msg as { sessionId: string }).sessionId;
-      if (msg.type === 'terminal-delivery:ack-rejected') {
-        const parsedAckRejection = parseTerminalDeliveryAckRejectedMessage(rawMessage);
-        if (parsedAckRejection.ok) {
-          recordTerminalDebugEvent(parsedAckRejection.message.sessionId, 'terminal_delivery_ack_rejected', {
-            connectionEpoch: parsedAckRejection.message.connectionEpoch,
-            deliverySeq: parsedAckRejection.message.deliverySeq,
-            reason: parsedAckRejection.message.reason,
-          }, undefined, { includeInputReliabilityMode: false });
-        }
-        return;
-      }
       if (msg.type === 'input:rejected') {
         recordTerminalDebugEvent(sessionId, 'server_input_rejected', {
           reason: msg.reason,

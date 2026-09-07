@@ -76,11 +76,15 @@ test('PERF-BGSTAB-010 AC-6 browser records ACK rejection without delivery or sta
   const sessionDispatchEnd = webSocketContextSource.indexOf('// Workspace/tab/grid events');
   const sessionDispatch = webSocketContextSource.slice(sessionDispatchStart, sessionDispatchEnd);
   const handlerLookup = sessionDispatch.indexOf('const handlers = sessionHandlersRef.current.get(sessionId);');
-  const ackRejection = sessionDispatch.indexOf("if (msg.type === 'terminal-delivery:ack-rejected') {");
+  const rejectionAnchor = "if (msg.type === 'terminal-delivery:ack-rejected') {";
+  const ackRejection = webSocketContextSource.indexOf(rejectionAnchor);
+  const ackRejectionEnd = webSocketContextSource.indexOf('// Session events (have sessionId field)', ackRejection);
 
   assert.ok(sessionDispatchStart >= 0 && sessionDispatchEnd > sessionDispatchStart, signature);
-  assert.ok(ackRejection >= 0 && handlerLookup > ackRejection, signature);
-  const ackRejectionBranch = sessionDispatch.slice(ackRejection, handlerLookup);
+  assert.ok(ackRejection >= 0 && ackRejectionEnd > ackRejection && ackRejectionEnd < sessionDispatchStart, signature);
+  assert.ok(handlerLookup >= 0, signature);
+  assert.equal(webSocketContextSource.indexOf(rejectionAnchor, ackRejection + rejectionAnchor.length), -1, signature);
+  const ackRejectionBranch = webSocketContextSource.slice(ackRejection, ackRejectionEnd);
   assert.match(
     ackRejectionBranch,
     /const parsedAckRejection = parseTerminalDeliveryAckRejectedMessage\(rawMessage\);/u,
@@ -88,13 +92,18 @@ test('PERF-BGSTAB-010 AC-6 browser records ACK rejection without delivery or sta
   );
   assert.match(
     ackRejectionBranch,
-    /if \(parsedAckRejection\.ok\) \{[\s\S]*?recordTerminalDebugEvent\(parsedAckRejection\.message\.sessionId, 'terminal_delivery_ack_rejected', \{\s*connectionEpoch: parsedAckRejection\.message\.connectionEpoch,\s*deliverySeq: parsedAckRejection\.message\.deliverySeq,\s*reason: parsedAckRejection\.message\.reason,\s*\}, undefined, \{ includeInputReliabilityMode: false \}\);[\s\S]*?\}/u,
+    /if \(parsedAckRejection\.ok\) \{\s*const rejection = parsedAckRejection\.message;[\s\S]*recordTerminalDebugEvent\(rejection\.sessionId, 'terminal_delivery_ack_rejected', \{[\s\S]*connectionEpoch: rejection\.connectionEpoch,[\s\S]*reason: rejection\.reason,[\s\S]*includeInputReliabilityMode: false/u,
     signature,
   );
-  assert.match(ackRejectionBranch, /return;/u, signature);
+  assert.match(ackRejectionBranch, /rejection\.kind === 'sourceSeq'\s*\?\s*\{ kind: rejection\.kind, streamEpoch: rejection\.streamEpoch, sourceSeq: rejection\.sourceSeq \}/u, signature);
+  assert.match(ackRejectionBranch, /rejection\.kind === undefined \? \{\} : \{ kind: rejection\.kind \}[\s\S]*deliverySeq: rejection\.deliverySeq/u, signature);
+  assert.match(ackRejectionBranch, /else \{\s*console\.warn\(`[\s\S]*\$\{parsedAckRejection\.reason\}`\);\s*\}/u, signature);
+  assert.match(ackRejectionBranch, /return;\s*\}\s*$/u, signature);
+  assert.doesNotMatch(ackRejectionBranch, /if \(['"]sessionId['"] in msg\)/u,
+    'malformed rejections lacking sessionId must still reach the parser and warning');
   assert.doesNotMatch(
     ackRejectionBranch,
-    /handlers\.|onOutput|onStatus|onSessionReady|setStatus\(|send\(|requestReconnect|bufferGraceMessage|writeOutput/u,
+    /handlers\.|onOutput|onStatus|onSessionReady|\bset[A-Z]\w*\s*\(|send\(|requestReconnect|bufferGraceMessage|writeOutput/u,
     signature,
   );
 

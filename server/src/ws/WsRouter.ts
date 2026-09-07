@@ -2028,6 +2028,14 @@ export class WsRouter {
       return;
     }
 
+    const identity = {
+      sessionId: parsed.message.sessionId,
+      connectionEpoch: parsed.message.connectionEpoch,
+      ...(parsed.message.kind === 'sourceSeq'
+        ? { kind: parsed.message.kind, streamEpoch: parsed.message.streamEpoch, sourceSeq: parsed.message.sourceSeq }
+        : { ...(parsed.message.kind === undefined ? {} : { kind: parsed.message.kind }), deliverySeq: parsed.message.deliverySeq }),
+    };
+
     const meta = this.clients.get(ws);
     if (!meta) {
       console.warn('[WS] terminal delivery ACK rejected: unknown-connection');
@@ -2037,9 +2045,7 @@ export class WsRouter {
     if (meta.channelRole === 'output' && group?.control) {
       this.sendTo(group.control, {
         type: 'terminal-delivery:ack-rejected',
-        sessionId: parsed.message.sessionId,
-        connectionEpoch: parsed.message.connectionEpoch,
-        deliverySeq: parsed.message.deliverySeq,
+        ...identity,
         reason: 'stale-output-pair',
       });
       return;
@@ -2049,9 +2055,7 @@ export class WsRouter {
     if (!active) {
       this.sendTo(control ?? ws, {
         type: 'terminal-delivery:ack-rejected',
-        sessionId: parsed.message.sessionId,
-        connectionEpoch: parsed.message.connectionEpoch,
-        deliverySeq: parsed.message.deliverySeq,
+        ...identity,
         reason: 'inactive-capability',
       });
       return;
@@ -2059,9 +2063,7 @@ export class WsRouter {
     if (parsed.message.connectionEpoch !== active.connectionEpoch) {
       this.sendTo(control!, {
         type: 'terminal-delivery:ack-rejected',
-        sessionId: parsed.message.sessionId,
-        connectionEpoch: parsed.message.connectionEpoch,
-        deliverySeq: parsed.message.deliverySeq,
+        ...identity,
         reason: 'stale-connection-epoch',
       });
       return;
@@ -2070,9 +2072,7 @@ export class WsRouter {
     if (!acknowledged.accepted) {
       this.sendTo(control!, {
         type: 'terminal-delivery:ack-rejected',
-        sessionId: parsed.message.sessionId,
-        connectionEpoch: parsed.message.connectionEpoch,
-        deliverySeq: parsed.message.deliverySeq,
+        ...identity,
         reason: ('errorCode' in acknowledged && typeof acknowledged.errorCode === 'string')
           ? acknowledged.errorCode
           : 'invalid-ack',

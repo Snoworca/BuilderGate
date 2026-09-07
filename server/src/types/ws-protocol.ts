@@ -434,12 +434,24 @@ export type InputRejectedReason =
   | 'invalid-payload'
   | 'mode-observe-only';
 
-export interface TerminalDeliveryAckMessage {
+// terminal-delivery-ack-contract:start
+export type TerminalDeliveryAckIdentity =
+  | { kind?: 'deliverySeq'; deliverySeq: number; streamEpoch?: never; sourceSeq?: never }
+  | { kind: 'sourceSeq'; streamEpoch: Ordinal64; sourceSeq: Ordinal64; deliverySeq?: never };
+
+export type TerminalDeliveryAckMessage = TerminalDeliveryAckIdentity & {
   type: 'terminal-delivery:ack';
   sessionId: string;
   connectionEpoch: string;
-  deliverySeq: number;
-}
+};
+
+export type TerminalDeliveryAckRejectedMessage = TerminalDeliveryAckIdentity & {
+  type: 'terminal-delivery:ack-rejected';
+  sessionId: string;
+  connectionEpoch: string;
+  reason: string;
+};
+// terminal-delivery-ack-contract:end
 
 export interface TerminalDeliveryCapabilityMessage {
   type: 'terminal-delivery:capability';
@@ -496,13 +508,42 @@ export function parseTerminalDeliveryAckMessage(value: unknown):
   | { ok: false; reason: string } {
   if (!isProtocolRecord(value)) return { ok: false, reason: 'invalid-message' };
   if (value.type !== 'terminal-delivery:ack') return { ok: false, reason: 'invalid-message-type' };
+  const reason = terminalDeliveryAckIdentityError(value);
+  if (reason !== undefined) return { ok: false, reason };
+  return { ok: true, message: value as unknown as TerminalDeliveryAckMessage };
+}
+
+function terminalDeliveryAckIdentityError(value: Record<string, unknown>): string | undefined {
   if (!isNonEmptyProtocolString(value.sessionId) || !isNonEmptyProtocolString(value.connectionEpoch)) {
-    return { ok: false, reason: 'invalid-identity' };
+    return 'invalid-identity';
+  }
+  const hasDelivery = value.deliverySeq !== undefined;
+  const hasSource = value.streamEpoch !== undefined || value.sourceSeq !== undefined;
+  if (hasDelivery && hasSource) return 'ACK_DOMAIN_CONFLICT';
+  if (!hasDelivery && !hasSource) return 'ACK_DOMAIN_MISSING';
+  if (value.kind === 'sourceSeq') {
+    return isCanonicalOrdinal64(value.streamEpoch) && isCanonicalOrdinal64(value.sourceSeq)
+      ? undefined
+      : 'ACK_DOMAIN_INVALID';
+  }
+  if ((value.kind !== undefined && value.kind !== 'deliverySeq') || hasSource) {
+    return 'ACK_DOMAIN_INVALID';
   }
   if (typeof value.deliverySeq !== 'number' || !Number.isSafeInteger(value.deliverySeq) || value.deliverySeq < 1) {
-    return { ok: false, reason: 'invalid-delivery-seq' };
+    return 'invalid-delivery-seq';
   }
-  return { ok: true, message: value as unknown as TerminalDeliveryAckMessage };
+  return undefined;
+}
+
+export function parseTerminalDeliveryAckRejectedMessage(value: unknown):
+  | { ok: true; message: TerminalDeliveryAckRejectedMessage }
+  | { ok: false; reason: string } {
+  if (!isProtocolRecord(value)) return { ok: false, reason: 'invalid-message' };
+  if (value.type !== 'terminal-delivery:ack-rejected') return { ok: false, reason: 'invalid-message-type' };
+  const reason = terminalDeliveryAckIdentityError(value);
+  if (reason !== undefined) return { ok: false, reason };
+  if (!isNonEmptyProtocolString(value.reason)) return { ok: false, reason: 'invalid-reason' };
+  return { ok: true, message: value as unknown as TerminalDeliveryAckRejectedMessage };
 }
 
 export function parseTerminalDeliveryVisibilityMessage(value: unknown):
@@ -758,13 +799,7 @@ export type ServerWsMessage =
       late: number;
       invalidated: number;
     }
-  | {
-      type: 'terminal-delivery:ack-rejected';
-      sessionId: string;
-      connectionEpoch: string;
-      deliverySeq: number;
-      reason: string;
-    }
+  | TerminalDeliveryAckRejectedMessage
   | {
       type: 'input:rejected';
       sessionId: string;

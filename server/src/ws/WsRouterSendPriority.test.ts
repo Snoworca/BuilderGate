@@ -272,6 +272,133 @@ test('PERF-BGSTAB-011 carries reserved source identity through fair delivery to 
   }
 });
 
+function createAckRouteHarness(admit = true) {
+  const router = createFairRouter();
+  const socket = createFakeWs();
+  const internals = router as unknown as {
+    clients: Map<typeof socket.ws, Record<string, unknown>>;
+    sessionSubscribers: Map<string, Set<typeof socket.ws>>;
+    splitSocketGroups: Map<typeof socket.ws, { control: typeof socket.ws; output: typeof socket.ws }>;
+    fairDeliverySchedulers: Map<typeof socket.ws, { connectionEpoch: string; scheduler: ReturnType<typeof createFairTerminalDeliveryScheduler> }>;
+    handleMessage(ws: typeof socket.ws, raw: string): void;
+  };
+  const meta = {
+    clientId: 'p4a-client', connectionId: 'p4a-connection', channelRole: 'control',
+    wsTransportMode: 'unified', isAlive: true, subscribedSessions: new Set(['p4a-session']),
+    replayPendingSessions: new Map(), screenRepairPendingSessions: new Map(),
+  };
+  try {
+    internals.clients.set(socket.ws, meta);
+    internals.sessionSubscribers.set('p4a-session', new Set([socket.ws]));
+    if (admit) {
+      internals.handleMessage(socket.ws, JSON.stringify({
+        type: 'terminal-delivery:capability', protocolVersion: 1, supportsHiddenDataGapRecovery: true,
+      }));
+      assert.deepEqual(socket.sent.at(-1), {
+        type: 'terminal-delivery:capability', protocolVersion: 1, accepted: true, connectionEpoch: 'p4a-connection',
+      }, 'P4a requires actual published-policy admission');
+    }
+    return { router, socket, internals, meta };
+  } catch (error) {
+    router.destroy();
+    throw error;
+  }
+}
+
+for (const reason of ['stale-output-pair', 'inactive-capability', 'stale-connection-epoch', 'ACK_OVER_ACK']) {
+  for (const domain of ['legacy', 'explicit-legacy', 'source']) {
+    test(`P4a PERF-BGSTAB-011 ${reason} preserves ${domain} rejection identity`, () => {
+      const h = createAckRouteHarness(reason !== 'inactive-capability');
+      try {
+        if (reason === 'ACK_OVER_ACK') {
+          h.router.routeSessionOutput('p4a-session', 'abc', 1, { streamEpoch: '7', sourceSeq: '100' });
+        }
+        const identity = domain === 'source'
+          ? { kind: 'sourceSeq', streamEpoch: '7', sourceSeq: '101' }
+          : { ...(domain === 'explicit-legacy' ? { kind: 'deliverySeq' } : {}), deliverySeq: 2 };
+        const message = {
+          type: 'terminal-delivery:ack', sessionId: 'p4a-session',
+          connectionEpoch: reason === 'stale-connection-epoch' ? 'p4a-stale' : 'p4a-connection',
+          ...identity,
+        };
+        let ingress = h.socket.ws;
+        if (reason === 'stale-output-pair') {
+          const output = createFakeWs();
+          h.internals.clients.set(output.ws, { ...h.meta, channelRole: 'output' });
+          h.internals.splitSocketGroups.set(output.ws, { control: h.socket.ws, output: output.ws });
+          ingress = output.ws;
+        }
+        h.internals.handleMessage(ingress, JSON.stringify(message));
+        assert.deepEqual(h.socket.sent.at(-1), {
+          type: 'terminal-delivery:ack-rejected', sessionId: message.sessionId,
+          connectionEpoch: message.connectionEpoch, ...identity, reason,
+        });
+        if (reason === 'ACK_OVER_ACK') {
+          assert.equal(h.internals.fairDeliverySchedulers.get(h.socket.ws)!.scheduler.snapshot()
+            .lanes['p4a-connection/p4a-session'].creditBytes, 0);
+        }
+      } finally {
+        h.router.destroy();
+      }
+    });
+  }
+}
+
+for (const malformed of [
+  { reason: 'ACK_DOMAIN_CONFLICT', identity: { kind: 'sourceSeq', streamEpoch: '7', sourceSeq: '100', deliverySeq: 1 } },
+  { reason: 'ACK_DOMAIN_MISSING', identity: {} },
+  { reason: 'ACK_DOMAIN_INVALID', identity: { kind: 'sourceSeq', streamEpoch: '7', sourceSeq: '01' } },
+]) {
+  test(`P4a PERF-BGSTAB-011 malformed ${malformed.reason} warns without dispatch or credit`, t => {
+    const h = createAckRouteHarness();
+    try {
+      h.router.routeSessionOutput('p4a-session', 'abc', 1, { streamEpoch: '7', sourceSeq: '100' });
+      const scheduler = h.internals.fairDeliverySchedulers.get(h.socket.ws)!.scheduler;
+      const before = scheduler.snapshot().lanes;
+      const sentBefore = h.socket.sent.length;
+      const dispatch = t.mock.method(scheduler, 'acknowledge');
+      const warnings: string[] = [];
+      t.mock.method(console, 'warn', (...args: unknown[]) => { warnings.push(args.join(' ')); });
+      h.internals.handleMessage(h.socket.ws, JSON.stringify({
+        type: 'terminal-delivery:ack', sessionId: 'p4a-session', connectionEpoch: 'p4a-connection', ...malformed.identity,
+      }));
+      assert.deepEqual(warnings, [`[WS] terminal delivery ACK rejected: ${malformed.reason}`]);
+      assert.equal(dispatch.mock.callCount(), 0, 'malformed input must never reach the scheduler');
+      assert.deepEqual(scheduler.snapshot().lanes, before);
+      assert.equal(h.socket.sent.length, sentBefore, 'do not fabricate a valid rejection identity for malformed input');
+    } finally {
+      h.router.destroy();
+    }
+  });
+}
+
+test('P4a PERF-BGSTAB-011 actual source ACK handler settles exact body bytes and duplicate zero', () => {
+  const h = createAckRouteHarness();
+  try {
+    h.router.routeSessionOutput('p4a-session', 'abc', 1, { streamEpoch: '7', sourceSeq: '100' });
+    h.router.routeSessionOutput('p4a-session', '한글', 2, { streamEpoch: '7', sourceSeq: '103' });
+    const scheduler = h.internals.fairDeliverySchedulers.get(h.socket.ws)!.scheduler;
+    const ack = (sourceSeq: string) => h.internals.handleMessage(h.socket.ws, JSON.stringify({
+      type: 'terminal-delivery:ack', sessionId: 'p4a-session', connectionEpoch: 'p4a-connection',
+      kind: 'sourceSeq', streamEpoch: '7', sourceSeq,
+    }));
+    assert.equal(scheduler.snapshot().lanes['p4a-connection/p4a-session'].socketQueuedBytes, 9);
+    ack('100');
+    assert.equal(scheduler.snapshot().lanes['p4a-connection/p4a-session'].creditBytes, 3);
+    ack('103');
+    assert.equal(scheduler.snapshot().lanes['p4a-connection/p4a-session'].creditBytes, 9);
+    assert.equal(scheduler.snapshot().lanes['p4a-connection/p4a-session'].socketQueuedBytes, 0);
+    ack('103');
+    assert.deepEqual(h.socket.sent.at(-1), {
+      type: 'terminal-delivery:ack-rejected', sessionId: 'p4a-session', connectionEpoch: 'p4a-connection',
+      kind: 'sourceSeq', streamEpoch: '7', sourceSeq: '103', reason: 'ACK_DUPLICATE',
+    });
+    assert.equal(scheduler.snapshot().lanes['p4a-connection/p4a-session'].creditBytes, 9);
+  } finally {
+    h.router.destroy();
+  }
+});
+
 test('PERF-BGSTAB-010 runtime candidate delivery uses a server ledger and control-only cumulative ACK', () => {
   const router = createFairRouter();
   const { ws, sent } = createFakeWs();
