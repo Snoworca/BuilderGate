@@ -23,6 +23,48 @@ import type { StreamEpochBumpReason } from './terminalStreamEpoch.js';
 // 1. Issue and lifetime.
 // ---------------------------------------------------------------------------
 
+test('epoch reservation shares issuance without advancing the session current value', () => {
+  const ledger = createTerminalStreamEpochLedger();
+  assert.equal(ledger.current('a'), '1');
+  assert.equal(ledger.reserve('ordinal-rollover'), '2');
+  assert.equal(ledger.current('a'), '1');
+  assert.equal(ledger.lastReason('a'), 'session-created');
+  assert.equal(ledger.current('b'), '3');
+  assert.equal(ledger.bump('b', 'codec-switch'), '4');
+  assert.equal(ledger.reserve('ordinal-rollover'), '5');
+  assert.equal(ledger.adopt('a', '2', 'ordinal-rollover'), '2');
+  assert.equal(ledger.current('b'), '4');
+});
+
+test('abandoned epoch reservations are not reused after forget or adoption', () => {
+  const ledger = createTerminalStreamEpochLedger();
+  ledger.current('a');
+  assert.equal(ledger.reserve('ordinal-rollover'), '2');
+  ledger.forget('a');
+  assert.equal(ledger.current('a'), '3');
+  ledger.adopt('b', '12', 'session-created');
+  assert.equal(ledger.reserve('ordinal-rollover'), '13');
+  assert.equal(ledger.bump('a', 'codec-switch'), '14');
+});
+
+test('epoch reservation rejects invalid reasons without consuming an issue', () => {
+  const ledger = createTerminalStreamEpochLedger();
+  assert.throws(() => ledger.reserve('invalid' as never), RangeError);
+  assert.equal(ledger.current('a'), '1');
+});
+
+test('epoch issuance refuses uint64 exhaustion for reserve current and bump', () => {
+  const maximum = '18446744073709551615';
+  const ledger = createTerminalStreamEpochLedger({ initial: maximum });
+  assert.equal(ledger.reserve('ordinal-rollover'), maximum);
+  assert.throws(() => ledger.reserve('ordinal-rollover'), /exhaust/i);
+  assert.throws(() => ledger.current('a'), /exhaust/i);
+  const existing = createTerminalStreamEpochLedger({ initial: maximum });
+  assert.equal(existing.current('a'), maximum);
+  assert.throws(() => existing.bump('a', 'ordinal-rollover'), /exhaust/i);
+  assert.equal(existing.current('a'), maximum);
+});
+
 test('a new session is issued its first epoch', () => {
   const ledger = createTerminalStreamEpochLedger();
 

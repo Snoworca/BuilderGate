@@ -244,6 +244,8 @@ interface SnapshotReplayOptions {
 interface OutputAuthorityMetadata {
   authorityEpoch?: string;
   authorityRevision?: number;
+  streamEpoch?: string;
+  sourceSeq?: string;
 }
 
 export interface TerminalAuthorityResponderIdentity {

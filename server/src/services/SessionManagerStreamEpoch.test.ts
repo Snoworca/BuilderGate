@@ -30,6 +30,7 @@ interface ManagerInternals {
     sessionId: string,
     retained: RetainedForTest,
     advanceSnapshot: boolean,
+    reservedEpoch?: string,
   ) => void;
 }
 
@@ -56,6 +57,21 @@ function internals(): ManagerInternals {
   }
   return manager;
 }
+
+test('a stale reserved rollover cannot overwrite a newer committed session epoch', () => {
+  const manager = internals();
+  const retained = manager.createRetainedTerminalSessionState('stale-reservation');
+  retained.sourceSeq = ORDINAL64_MAX;
+  retained.snapshotSeq = ORDINAL64_MAX;
+  const reservedEpoch = String(BigInt(retained.streamEpoch) + 1n);
+  manager.bumpTerminalStreamEpoch('stale-reservation', 'codec-switch');
+  const current = manager.bumpTerminalStreamEpoch('stale-reservation', 'authority-rollback');
+  const before = { ...retained };
+  assert.throws(() => manager.advanceRetainedTerminalSourceOrdinal('stale-reservation', retained, true, reservedEpoch),
+    /stale-reserved-epoch/);
+  assert.equal(manager.currentTerminalStreamEpoch('stale-reservation'), current);
+  assert.deepEqual(retained, before, 'reject stale identity before modifying retained ordinals');
+});
 
 test('a retained state is stamped with its own session epoch', () => {
   const manager = internals();

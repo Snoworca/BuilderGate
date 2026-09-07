@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import type { IPty } from 'node-pty';
-import { SessionManager, type SessionFinalizedEvent } from './SessionManager.js';
+import { SessionManager, type SessionFinalizedEvent, type TerminalAuthoritySessionRuntime } from './SessionManager.js';
 import { LEGACY_TERMINAL_RESOURCE_POLICY_ID } from './TerminalResourcePolicy.js';
 import {
   compareRetainedHeadlessCheckpointRoundTrip,
@@ -315,6 +315,7 @@ interface Delivery {
   sessionId: string;
   data: string;
   screenSeq?: number;
+  authority?: Readonly<Record<string, unknown>>;
   stateAtDelivery?: RetainedTerminalAuthorityState;
 }
 
@@ -475,6 +476,7 @@ function createHarness(options: {
   modelDegradationSessionId?: string;
   initialRetainedOrdinal?: { streamEpoch: string; sourceSeq: string };
   headlessWriteGate?: Promise<void>;
+  failFirstHeadlessWrite?: boolean;
   retainedShadowEnabled?: boolean;
   retainedComparisonGate?: Promise<void>;
   onRetainedComparisonStarted?: () => void;
@@ -485,6 +487,7 @@ function createHarness(options: {
   const titleEvents: string[] = [];
   const resizeStatesAtPty: RetainedTerminalAuthorityState[] = [];
   let headlessCreateCount = 0;
+  let failNextHeadlessWrite = options.failFirstHeadlessWrite === true;
   const resourceLimits = structuredClone(config.resourceLimits!);
   resourceLimits.terminal.scrollbackLines = options.retainedScrollbackLines ?? 8;
   const ptyConfig = {
@@ -532,10 +535,14 @@ function createHarness(options: {
           await options.retainedComparisonGate;
           return compareRetainedHeadlessCheckpointRoundTrip(...args);
         },
-    writeHeadlessTerminalFn: options.headlessWriteGate === undefined
+    writeHeadlessTerminalFn: options.headlessWriteGate === undefined && !options.failFirstHeadlessWrite
       ? undefined
       : async (state: Parameters<typeof writeHeadlessTerminal>[0], data: string) => {
           await options.headlessWriteGate;
+          if (failNextHeadlessWrite) {
+            failNextHeadlessWrite = false;
+            throw new Error('ACK-16 injected first headless write failure');
+          }
           await writeHeadlessTerminal(state, data);
         },
     createHeadlessTerminalStateFn: (createOptions: Parameters<typeof createHeadlessTerminalState>[0]) => {
@@ -560,11 +567,12 @@ function createHarness(options: {
     });
   };
   const router = {
-    routeSessionOutput(sessionId: string, data: string, screenSeq?: number) {
+    routeSessionOutput(sessionId: string, data: string, screenSeq?: number, authority?: Parameters<WsRouter['routeSessionOutput']>[3]) {
       deliveries.push({
         sessionId,
         data,
         screenSeq,
+        authority: authority === undefined ? undefined : { ...authority },
         stateAtDelivery: structuredClone(readState(sessionId)),
       });
     },
@@ -636,6 +644,259 @@ function createHarness(options: {
     },
   };
 }
+
+// Observe the existing runtime port without allocating or repairing source ordinals.
+function observeAuthorityReservations(harness: Harness) {
+  const reservations: Array<{ sessionId: string; data: string; streamEpoch?: string; sourceSeq: string }> = [];
+  harness.manager.setTerminalAuthorityRuntimeFactory(input => ({
+    controller: {
+      enqueueHeadlessOutput(output: { data: string; streamEpoch?: string; sourceSeq: string }) {
+        reservations.push({ sessionId: input.sessionId, ...output });
+        return { recordId: `${input.sessionId}/${reservations.length}`, ingestOwnerToken: 'legacy-browser' };
+      },
+      async applyEnqueuedHeadlessOutput(recordId: string) {
+        return { recordId, deliveryDisposition: 'legacy-delivered' };
+      },
+      getState: () => ({ mode: 'legacy', streamEpoch: input.initialStreamEpoch }),
+      dispose() {},
+    } as unknown as TerminalAuthoritySessionRuntime['controller'],
+    queryResponder: {
+      attachedHeadlessState: input.headlessState,
+      async captureCommittedWrite(_data: string, _options: unknown, commit: () => Promise<void>) {
+        await commit();
+        return { replies: [] };
+      },
+      detach() {},
+    } as unknown as TerminalAuthoritySessionRuntime['queryResponder'],
+    dispose() {},
+  }));
+  return reservations;
+}
+
+for (const scenario of [
+  { name: 'ordinary', initial: '40', expected: [['7', '41'], ['7', '42'], ['7', '43']] },
+  { name: 'rollover', initial: '18446744073709551614', expected: [['7', '18446744073709551615'], ['8', '0'], ['8', '1']] },
+]) {
+  test(`ACK-01 REL-BGSTAB-011 reserves ${scenario.name} source tuples before headless commit`, async () => {
+    let release!: () => void;
+    const harness = createHarness({
+      sessionId: `ack-reservation-${scenario.name}`,
+      initialRetainedOrdinal: { streamEpoch: '7', sourceSeq: scenario.initial },
+      headlessWriteGate: new Promise<void>(resolve => { release = resolve; }),
+    });
+    const reservations = observeAuthorityReservations(harness);
+    const siblingId = `${harness.sessionId}-sibling`;
+    const sibling = harness.createAdditionalSession(siblingId);
+    // Creating the sibling consumes global epoch 8 before its configured test
+    // epoch is adopted. The pending rollover must reserve the next issue, 9.
+    const expected = scenario.name === 'rollover'
+      ? [['7', '18446744073709551615'], ['9', '0'], ['9', '1']]
+      : scenario.expected;
+    try {
+      for (const data of ['first\r\n', 'second\r\n', 'third\r\n']) harness.pty.emitData(data);
+      sibling.emitData('independent\r\n');
+      assert.equal(harness.deliveries.length, 0, 'no delivery is allowed before model write completion');
+      assert.equal(harness.readState().sourceSeq, scenario.initial, 'commit must remain fenced');
+      assert.deepEqual(reservations.filter(row => row.sessionId === siblingId).map(row => [row.streamEpoch, row.sourceSeq]),
+        [scenario.expected[0]], 'another session must not inherit the first session reservation cursor');
+      assert.deepEqual(reservations.filter(row => row.sessionId === harness.sessionId).map(row => [row.streamEpoch, row.sourceSeq]),
+        expected, 'enqueue-time authority identities must be ordered even while all writes are held');
+      release();
+      assert.equal(await harness.manager.waitForTerminalResourcePolicyHeadlessDrain(harness.sessionId), true);
+      assert.equal(await harness.manager.waitForTerminalResourcePolicyHeadlessDrain(siblingId), true);
+      assert.equal(harness.readState().canary.blockers.includes('model-degradation'), false,
+        'other sessions must not change the epoch promised to pending output');
+      assert.equal(harness.deliveries.filter(row => row.sessionId === harness.sessionId).length, 3);
+      assert.deepEqual(harness.deliveries.filter(row => row.sessionId === harness.sessionId)
+        .map(row => [row.stateAtDelivery?.streamEpoch, row.stateAtDelivery?.sourceSeq]), expected);
+    } finally {
+      release();
+      await waitForHeadlessDrainBounded(harness.manager, harness.sessionId);
+      await waitForHeadlessDrainBounded(harness.manager, siblingId);
+      harness.manager.deleteSession(siblingId);
+      harness.close();
+    }
+  });
+
+  test(`ACK-01 PERF-BGSTAB-011 routes each ${scenario.name} reservation tuple unchanged after commit`, async () => {
+    let release!: () => void;
+    const harness = createHarness({
+      sessionId: `ack-route-${scenario.name}`,
+      initialRetainedOrdinal: { streamEpoch: '7', sourceSeq: scenario.initial },
+      headlessWriteGate: new Promise<void>(resolve => { release = resolve; }),
+    });
+    const reservations = observeAuthorityReservations(harness);
+    const payloads = ['route-first\r\n', 'route-second\r\n', 'route-third\r\n'];
+    try {
+      for (const data of payloads) harness.pty.emitData(data);
+      assert.equal(reservations.length, payloads.length, 'observe each actual PTY enqueue at the authority port');
+      assert.equal(harness.deliveries.length, 0, 'the write fence must precede router delivery');
+      release();
+      assert.equal(await harness.manager.waitForTerminalResourcePolicyHeadlessDrain(harness.sessionId), true);
+      assert.deepEqual(harness.deliveries.map(row => row.data), payloads, 'deliver every input once in order');
+      assert.deepEqual(harness.deliveries.map(row => [row.authority?.streamEpoch, row.authority?.sourceSeq]),
+        reservations.map(row => [row.streamEpoch, row.sourceSeq]), 'route the identity reserved for each output, not the latest session cursor');
+      assert.deepEqual(harness.deliveries.map(row => [row.authority?.streamEpoch, row.authority?.sourceSeq]),
+        scenario.expected, 'wire identity must remain valid across uint64 rollover');
+    } finally {
+      release();
+      await waitForHeadlessDrainBounded(harness.manager, harness.sessionId);
+      harness.close();
+    }
+  });
+}
+
+for (const resizeCount of [1, 2]) {
+  test(`ACK-01 REL-BGSTAB-011 keeps reservation commit and router identity equal after ${resizeCount} snapshot-only resize(s)`, async () => {
+    let release!: () => void;
+    const harness = createHarness({
+      sessionId: `ack-snapshot-rollover-${resizeCount}`,
+      initialRetainedOrdinal: { streamEpoch: '7', sourceSeq: '18446744073709551614' },
+      headlessWriteGate: new Promise<void>(resolve => { release = resolve; }),
+    });
+    const reservations = observeAuthorityReservations(harness);
+    try {
+      for (let index = 0; index < resizeCount; index += 1) {
+        assert.equal(harness.manager.resize(harness.sessionId, 30 + index, 5), true);
+      }
+      assert.equal(harness.readState().snapshotSeq, resizeCount === 1 ? '18446744073709551615' : '0');
+      for (const data of ['snapshot-first\r\n', 'snapshot-second\r\n']) harness.pty.emitData(data);
+      assert.equal(reservations.length, 2);
+      assert.equal(harness.deliveries.length, 0);
+      release();
+      assert.equal(await harness.manager.waitForTerminalResourcePolicyHeadlessDrain(harness.sessionId), true);
+      assert.equal(harness.deliveries.length, 2);
+      const committed = harness.deliveries.map(row => [row.stateAtDelivery?.streamEpoch, row.stateAtDelivery?.sourceSeq]);
+      assert.deepEqual(reservations.map(row => [row.streamEpoch, row.sourceSeq]), committed,
+        'snapshot advancement must not rename an output identity after enqueue');
+      assert.deepEqual(harness.deliveries.map(row => [row.authority?.streamEpoch, row.authority?.sourceSeq]), committed,
+        'the router must identify the committed source record');
+    } finally {
+      release();
+      await waitForHeadlessDrainBounded(harness.manager, harness.sessionId);
+      harness.close();
+    }
+  });
+}
+
+test('ACK-01 REL-BGSTAB-011 preserves pending reservations across an interleaved snapshot rollover', async () => {
+  let release!: () => void;
+  const harness = createHarness({
+    sessionId: 'ack-pending-snapshot-rollover',
+    initialRetainedOrdinal: { streamEpoch: '7', sourceSeq: '18446744073709551613' },
+    headlessWriteGate: new Promise<void>(resolve => { release = resolve; }),
+  });
+  const reservations = observeAuthorityReservations(harness);
+  try {
+    harness.pty.emitData('before-resize\r\n');
+    await new Promise<void>(resolve => setImmediate(resolve));
+    assert.equal(harness.manager.resize(harness.sessionId, 31, 6), true);
+    for (const data of ['after-resize-one\r\n', 'after-resize-two\r\n']) harness.pty.emitData(data);
+    assert.equal(reservations.length, 3);
+    assert.equal(harness.deliveries.length, 0);
+    release();
+    assert.equal(await harness.manager.waitForTerminalResourcePolicyHeadlessDrain(harness.sessionId), true);
+    assert.equal(harness.deliveries.length, 3);
+    const committed = harness.deliveries.map(row => [row.stateAtDelivery?.streamEpoch, row.stateAtDelivery?.sourceSeq]);
+    assert.deepEqual(reservations.map(row => [row.streamEpoch, row.sourceSeq]), committed,
+      'a queued resize must not invalidate already reserved output identities');
+    assert.deepEqual(harness.deliveries.map(row => [row.authority?.streamEpoch, row.authority?.sourceSeq]), committed);
+  } finally {
+    release();
+    await waitForHeadlessDrainBounded(harness.manager, harness.sessionId);
+    harness.close();
+  }
+});
+
+for (const initial of ['40', '18446744073709551613']) {
+  test(`ACK-15 resize preserves queued source identities at snapshot ${initial}`, async () => {
+    let release!: () => void;
+    const harness = createHarness({
+      initialRetainedOrdinal: { streamEpoch: '7', sourceSeq: initial },
+      headlessWriteGate: new Promise<void>(resolve => { release = resolve; }),
+    });
+    const reservations = observeAuthorityReservations(harness);
+    try {
+      harness.pty.emitData('queued-one\r\n');
+      harness.pty.emitData('queued-two\r\n');
+      assert.equal(harness.manager.resize(harness.sessionId, 37, 9), true);
+      assert.equal(harness.pty.cols, initial === '40' ? 37 : 80,
+        'ordinary resize stays immediate, but projected snapshot MAX must not overtake the admitted prefix');
+      harness.pty.emitData('after-resize\r\n');
+      release();
+      assert.equal(await harness.manager.waitForTerminalResourcePolicyHeadlessDrain(harness.sessionId), true);
+      assert.equal(harness.pty.cols, 37);
+      assert.deepEqual(harness.deliveries.map(row => [row.stateAtDelivery?.streamEpoch, row.stateAtDelivery?.sourceSeq]),
+        reservations.map(row => [row.streamEpoch, row.sourceSeq]));
+      assert.equal(harness.deliveries.at(-1)?.stateAtDelivery?.checkpoint.cols, 37,
+        'output admitted after the resize must not push resize behind itself');
+    } finally {
+      release();
+      await waitForHeadlessDrainBounded(harness.manager, harness.sessionId);
+      harness.close();
+    }
+  });
+}
+
+test('ACK-16 failed writes and headless recreation discard projected snapshot reservations', async () => {
+  let release!: () => void;
+  const harness = createHarness({
+    initialRetainedOrdinal: { streamEpoch: '7', sourceSeq: '18446744073709551613' },
+    headlessWriteGate: new Promise<void>(resolve => { release = resolve; }),
+    failFirstHeadlessWrite: true,
+  });
+  const reservations = observeAuthorityReservations(harness);
+  try {
+    harness.pty.emitData('failed-one\r\n');
+    harness.pty.emitData('failed-two\r\n');
+    release();
+    assert.equal(await harness.manager.waitForTerminalResourcePolicyHeadlessDrain(harness.sessionId), true);
+    const internal = harness.manager as unknown as {
+      sessions: Map<string, { headlessHealth: string }>;
+      initializeHeadlessState(sessionId: string, data: unknown): void;
+    };
+    assert.equal(typeof internal.initializeHeadlessState, 'function');
+    internal.initializeHeadlessState(harness.sessionId, internal.sessions.get(harness.sessionId));
+    const reservationStart = reservations.length;
+    const deliveryStart = harness.deliveries.length;
+    assert.equal(harness.manager.resize(harness.sessionId, 39, 8), true);
+    await harness.emit('recovered-one\r\n');
+    await harness.emit('recovered-two\r\n');
+    assert.equal(reservations.slice(reservationStart).length, 2, 'the recreated runtime must accept both healthy reservations');
+    assert.deepEqual(harness.deliveries.slice(deliveryStart).map(row => row.data), ['recovered-one\r\n', 'recovered-two\r\n']);
+    assert.equal(internal.sessions.get(harness.sessionId)?.headlessHealth, 'healthy',
+      'recreated model must not silently fall back to degraded delivery');
+    assert.equal(harness.readState().canary.blockers.includes('model-degradation'), true,
+      'historical degradation evidence must remain visible until separately validated');
+    assert.deepEqual(reservations.slice(reservationStart).map(row => [row.streamEpoch, row.sourceSeq]),
+      harness.deliveries.slice(deliveryStart).map(row => [row.stateAtDelivery?.streamEpoch, row.stateAtDelivery?.sourceSeq]),
+      'new healthy admission must follow committed rejection state, not discarded output snapshot reservations');
+  } finally {
+    release();
+    await waitForHeadlessDrainBounded(harness.manager, harness.sessionId);
+    harness.close();
+  }
+});
+
+test('ACK-16 enabling shadow after disabled output preserves committed source identity', async () => {
+  const harness = createHarness({ retainedShadowEnabled: false });
+  const reservations = observeAuthorityReservations(harness);
+  try {
+    await harness.emit('before-shadow\r\n');
+    assert.equal(harness.manager.setRetainedTerminalShadowEnabled(true), true);
+    await harness.emit('after-shadow\r\n');
+    assert.equal(reservations.length, 2);
+    assert.deepEqual(harness.deliveries.map(row => row.data), ['before-shadow\r\n', 'after-shadow\r\n']);
+    const after = harness.readState();
+    assert.equal(after.canary.blockers.includes('model-degradation'), false);
+    assert.deepEqual([after.streamEpoch, after.sourceSeq],
+      [reservations[1].streamEpoch, reservations[1].sourceSeq]);
+    assert.deepEqual([harness.deliveries[1].authority?.streamEpoch, harness.deliveries[1].authority?.sourceSeq],
+      [after.streamEpoch, after.sourceSeq]);
+  } finally {
+    harness.close();
+  }
+});
 
 function requireRetainedState(harness: Harness, failureSignature: string): RetainedTerminalAuthorityState {
   const state = harness.readState();

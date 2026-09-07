@@ -23,6 +23,8 @@ export const STREAM_EPOCH_BUMP_REASONS = Object.freeze([
 export type StreamEpochBumpReason = (typeof STREAM_EPOCH_BUMP_REASONS)[number];
 
 export interface TerminalStreamEpochLedger {
+  /** Reserves a globally unique issue without changing any session's current epoch. */
+  reserve(reason: StreamEpochBumpReason): string;
   /** The session's current epoch, issuing one if this is the first look. */
   current(sessionId: string): string;
   /** Raises the epoch and returns the new value. */
@@ -62,16 +64,24 @@ export function createTerminalStreamEpochLedger(input: { initial?: string } = {}
   let nextIssue = input.initial === undefined ? 1n : BigInt(input.initial);
   const sessions = new Map<string, EpochEntry>();
 
+  const issue = (): bigint => {
+    if (nextIssue > 18_446_744_073_709_551_615n) throw new RangeError('streamEpoch space is exhausted');
+    return nextIssue++;
+  };
+
   const entryFor = (sessionId: string): EpochEntry => {
     const existing = sessions.get(sessionId);
     if (existing !== undefined) return existing;
-    const created: EpochEntry = { value: nextIssue, reason: 'session-created' };
-    nextIssue += 1n;
+    const created: EpochEntry = { value: issue(), reason: 'session-created' };
     sessions.set(sessionId, created);
     return created;
   };
 
   return {
+    reserve(reason) {
+      requireReason(reason);
+      return issue().toString(10);
+    },
     current(sessionId) {
       return entryFor(sessionId).value.toString(10);
     },
@@ -81,8 +91,7 @@ export function createTerminalStreamEpochLedger(input: { initial?: string } = {}
       const entry = entryFor(sessionId);
       // Takes the next issue rather than its own successor, so a raised epoch
       // can never collide with another session's current one.
-      entry.value = nextIssue;
-      nextIssue += 1n;
+      entry.value = issue();
       entry.reason = reason;
       return entry.value.toString(10);
     },

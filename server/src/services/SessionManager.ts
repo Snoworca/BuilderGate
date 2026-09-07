@@ -399,6 +399,8 @@ interface RuntimeHeadlessQueueConfig {
 interface PendingHeadlessOutput {
   id: number;
   data: string;
+  reservedStreamEpoch?: string;
+  reservedSourceSeq?: string;
   byteLength: number;
   queuedAt: number;
   queued: boolean;
@@ -411,6 +413,38 @@ interface PendingHeadlessOutput {
   retainedSemanticData?: string;
   terminalAuthorityRecordId?: string;
   ingestOwnerToken?: TerminalAuthorityIngestOwner;
+}
+
+interface RetainedOrdinalPosition {
+  streamEpoch: string;
+  sourceSeq: string;
+  snapshotSeq: string;
+}
+
+// Reservation and model commit use the same ordinal transition. Projection has
+// no ledger/model side effects; only the eventual commit adopts a new epoch.
+function advanceRetainedOrdinalPosition(
+  position: RetainedOrdinalPosition,
+  operation: 'output' | 'resize' | 'rejection',
+): RetainedOrdinalPosition {
+  if (operation !== 'resize') {
+    const source = advanceRetainedTerminalOrdinal({
+      streamEpoch: position.streamEpoch as Ordinal64,
+      sourceSeq: position.sourceSeq as Ordinal64,
+    });
+    if (source.rolledOver) return { ...source, snapshotSeq: '0' };
+    position = { ...position, sourceSeq: source.sourceSeq };
+    if (operation === 'rejection') return position;
+  }
+  const snapshot = advanceRetainedTerminalOrdinal({
+    streamEpoch: position.streamEpoch as Ordinal64,
+    sourceSeq: position.snapshotSeq as Ordinal64,
+  });
+  return {
+    streamEpoch: snapshot.streamEpoch,
+    sourceSeq: snapshot.rolledOver ? '0' : position.sourceSeq,
+    snapshotSeq: snapshot.sourceSeq,
+  };
 }
 
 interface PendingTerminalAuthorityQueryEffect {
@@ -860,6 +894,8 @@ interface SessionData {
   maxPendingHeadlessOutputChunks: number;
   nextHeadlessOutputId: number;
   nextTerminalAuthoritySourceSeq: bigint;
+  nextTerminalAuthorityStreamEpoch?: string;
+  nextTerminalAuthoritySnapshotSeq?: string;
   terminalAuthorityRuntime?: TerminalAuthoritySessionRuntime;
   terminalAuthorityController?: TerminalAuthorityController;
   terminalQueryResponder?: TerminalQueryResponder;
@@ -3510,20 +3546,26 @@ export class SessionManager {
   }
 
   private queueRetainedTerminalResize(id: string, data: SessionData, cols: number, rows: number): void {
+    this.synchronizeTerminalAuthoritySourceOrdinal(data);
+    const retained = this.ensureRetainedTerminalSessionState(data);
+    const canOvertakeOutput = data.pendingHeadlessWrites === 0
+      || (data.nextTerminalAuthorityStreamEpoch === retained.streamEpoch
+        && data.nextTerminalAuthoritySnapshotSeq !== '18446744073709551615');
+    const reservation = this.reserveTerminalAuthorityOrdinal(data, 'resize');
     // Queued output is not a reason to wait. Resizing between writes is what
     // would have happened had the resize arrived a moment earlier, and a session
     // producing output continuously never empties the chain — the geometry would
     // land late, and until it did every screen repair would answer
     // `geometry-mismatch` and push the browser toward a reconnect.
-    if (data.headlessApplyInFlight === 0 && data.pendingRetainedResizes === 0) {
-      this.applyRetainedTerminalResize(id, data, cols, rows);
+    if (data.headlessApplyInFlight === 0 && data.pendingRetainedResizes === 0 && canOvertakeOutput) {
+      this.applyRetainedTerminalResize(id, data, cols, rows, reservation.streamEpoch);
       return;
     }
     data.pendingHeadlessWrites += 1;
     data.pendingRetainedResizes += 1;
     data.headlessWriteChain = data.headlessWriteChain
       .then(() => {
-        if (this.isActiveSession(id, data)) this.applyRetainedTerminalResize(id, data, cols, rows);
+        if (this.isActiveSession(id, data)) this.applyRetainedTerminalResize(id, data, cols, rows, reservation.streamEpoch);
       })
       .catch(error => {
         if (!this.isActiveSession(id, data)) return;
@@ -3536,7 +3578,7 @@ export class SessionManager {
       });
   }
 
-  private applyRetainedTerminalResize(id: string, data: SessionData, cols: number, rows: number): void {
+  private applyRetainedTerminalResize(id: string, data: SessionData, cols: number, rows: number, reservedEpoch?: string): void {
     if (!data.headless) return;
     resizeHeadlessTerminal(data.headless, cols, rows);
     data.cols = cols;
@@ -3544,7 +3586,7 @@ export class SessionManager {
     data.screenSeq += 1;
     data.authorityRevision += 1;
     const retained = this.ensureRetainedTerminalSessionState(data);
-    this.advanceRetainedTerminalSnapshotOrdinal(id, retained);
+    this.advanceRetainedTerminalSnapshotOrdinal(id, retained, reservedEpoch);
     this.updateRetainedTerminalEvictionFromModel(retained, data.headless);
     retained.lastCheckpoint = {
       ...serializeRetainedHeadlessCheckpoint(data.headless),
@@ -4456,11 +4498,8 @@ export class SessionManager {
     this.ensureHeadlessPolicyTracking(sessionData);
     const byteLength = Buffer.byteLength(data, 'utf8');
     const id = sessionData.nextHeadlessOutputId;
-    const reservedAuthorityOrdinal = advanceRetainedTerminalOrdinal({
-      streamEpoch: this.ensureRetainedTerminalSessionState(sessionData).streamEpoch as Ordinal64,
-      sourceSeq: sessionData.nextTerminalAuthoritySourceSeq.toString() as Ordinal64,
-    });
-    sessionData.nextTerminalAuthoritySourceSeq = BigInt(reservedAuthorityOrdinal.sourceSeq);
+    this.synchronizeTerminalAuthoritySourceOrdinal(sessionData);
+    const reservedAuthorityOrdinal = this.reserveTerminalAuthorityOrdinal(sessionData, 'output');
     let terminalAuthorityReservation: ReturnType<TerminalAuthorityController['enqueueHeadlessOutput']> | undefined;
     if (sessionData.terminalAuthorityController) {
       terminalAuthorityReservation = sessionData.terminalAuthorityController.enqueueHeadlessOutput({
@@ -4472,6 +4511,8 @@ export class SessionManager {
     const pendingOutput: PendingHeadlessOutput = {
       id,
       data,
+      reservedStreamEpoch: reservedAuthorityOrdinal.streamEpoch,
+      reservedSourceSeq: reservedAuthorityOrdinal.sourceSeq,
       byteLength,
       queuedAt: Date.now(),
       queued: true,
@@ -5003,10 +5044,32 @@ export class SessionManager {
   }
 
   private synchronizeTerminalAuthoritySourceOrdinal(data: SessionData): void {
-    const retainedSourceSeq = BigInt(this.ensureRetainedTerminalSessionState(data).sourceSeq);
-    if (data.nextTerminalAuthoritySourceSeq < retainedSourceSeq) {
+    const retained = this.ensureRetainedTerminalSessionState(data);
+    const retainedSourceSeq = BigInt(retained.sourceSeq);
+    const reservedEpoch = data.nextTerminalAuthorityStreamEpoch ?? retained.streamEpoch;
+    if (data.nextTerminalAuthoritySnapshotSeq === undefined || BigInt(reservedEpoch) < BigInt(retained.streamEpoch)
+      || (reservedEpoch === retained.streamEpoch && data.nextTerminalAuthoritySourceSeq < retainedSourceSeq)) {
+      data.nextTerminalAuthorityStreamEpoch = retained.streamEpoch;
       data.nextTerminalAuthoritySourceSeq = retainedSourceSeq;
+      data.nextTerminalAuthoritySnapshotSeq = retained.snapshotSeq;
+    } else {
+      data.nextTerminalAuthorityStreamEpoch = reservedEpoch;
     }
+  }
+
+  private reserveTerminalAuthorityOrdinal(data: SessionData, operation: 'output' | 'resize' | 'rejection'): RetainedOrdinalPosition {
+    const reserved = advanceRetainedOrdinalPosition({
+      streamEpoch: data.nextTerminalAuthorityStreamEpoch!,
+      sourceSeq: data.nextTerminalAuthoritySourceSeq.toString(),
+      snapshotSeq: data.nextTerminalAuthoritySnapshotSeq!,
+    }, operation);
+    if (reserved.streamEpoch !== data.nextTerminalAuthorityStreamEpoch) {
+      reserved.streamEpoch = this.terminalStreamEpochLedger.reserve('ordinal-rollover');
+    }
+    data.nextTerminalAuthorityStreamEpoch = reserved.streamEpoch;
+    data.nextTerminalAuthoritySourceSeq = BigInt(reserved.sourceSeq);
+    data.nextTerminalAuthoritySnapshotSeq = reserved.snapshotSeq;
+    return reserved;
   }
 
   private createTerminalAuthorityRuntime(
@@ -5819,15 +5882,13 @@ export class SessionManager {
     const restoredStreamEpoch = BigInt(liveAuthorityStreamEpoch) > BigInt(original.streamEpoch)
       ? liveAuthorityStreamEpoch
       : original.streamEpoch;
-    const liveSourceSeq = data.nextTerminalAuthoritySourceSeq > BigInt(retained.sourceSeq)
-      ? data.nextTerminalAuthoritySourceSeq
-      : BigInt(retained.sourceSeq);
-    const restoredSourceSeq = liveSourceSeq > BigInt(original.sourceSeq)
-      ? liveSourceSeq.toString()
-      : original.sourceSeq;
-    const restoredSnapshotSeq = BigInt(retained.snapshotSeq) > BigInt(original.snapshotSeq)
-      ? retained.snapshotSeq
-      : original.snapshotSeq;
+    // Pending reservations are not model commits. Compare only positions that
+    // belong to the restored epoch; an ordinal from an older epoch cannot win.
+    const committedPositions = [retained, original].filter(position => position.streamEpoch === restoredStreamEpoch);
+    const restoredSourceSeq = committedPositions.reduce((highest, position) =>
+      BigInt(position.sourceSeq) > BigInt(highest) ? position.sourceSeq : highest, '0');
+    const restoredSnapshotSeq = committedPositions.reduce((highest, position) =>
+      BigInt(position.snapshotSeq) > BigInt(highest) ? position.snapshotSeq : highest, '0');
     this.setTerminalStreamEpoch(data.session.id, retained, restoredStreamEpoch, 'authority-rollback');
     retained.sourceSeq = restoredSourceSeq;
     retained.snapshotSeq = restoredSnapshotSeq;
@@ -5851,7 +5912,11 @@ export class SessionManager {
       : null;
     retained.totalLogicalRowsObserved = original.totalLogicalRowsObserved;
     retained.eviction = structuredClone(original.eviction);
-    data.nextTerminalAuthoritySourceSeq = BigInt(restoredSourceSeq);
+    if (data.pendingHeadlessOutputs.size === 0 && data.pendingRetainedResizes === 0) {
+      data.nextTerminalAuthoritySourceSeq = BigInt(restoredSourceSeq);
+      data.nextTerminalAuthorityStreamEpoch = restoredStreamEpoch;
+      data.nextTerminalAuthoritySnapshotSeq = restoredSnapshotSeq;
+    }
   }
 
   private async recreateTerminalAuthorityDebugHeadless(
@@ -7593,6 +7658,8 @@ export class SessionManager {
       sessionData.headlessHealth = 'healthy';
       const retained = this.ensureRetainedTerminalSessionState(sessionData);
       sessionData.nextTerminalAuthoritySourceSeq = BigInt(retained.sourceSeq);
+      sessionData.nextTerminalAuthorityStreamEpoch = retained.streamEpoch;
+      sessionData.nextTerminalAuthoritySnapshotSeq = retained.snapshotSeq;
       retained.lastCheckpoint = {
         ...serializeRetainedHeadlessCheckpoint(sessionData.headless),
         pendingEscapeTailAnsi: sessionData.pendingEscapeTailAnsi,
@@ -7825,7 +7892,7 @@ export class SessionManager {
     } finally {
       sessionData.headlessApplyInFlight = Math.max(0, sessionData.headlessApplyInFlight - 1);
     }
-    if (this.ensureRetainedTerminalSessionState(sessionData).mode === 'shadow') {
+    {
       const retained = this.ensureRetainedTerminalSessionState(sessionData);
       const sourceSeqBeforeCommit = retained.sourceSeq;
       try {
@@ -7834,6 +7901,7 @@ export class SessionManager {
           sessionData,
           output.retainedSemanticData ?? flushedOutput,
           flushedOutput,
+          output,
         );
       } catch (error) {
         if (retained.sourceSeq === sourceSeqBeforeCommit) {
@@ -7883,11 +7951,15 @@ export class SessionManager {
       this.wsRouter?.routeSessionOutput(sessionId, flushedOutput, sessionData.screenSeq, {
         authorityEpoch: sessionData.authorityEpoch,
         authorityRevision: sessionData.authorityRevision,
+        streamEpoch: output.reservedStreamEpoch,
+        sourceSeq: output.reservedSourceSeq,
       });
     } else if (terminalAuthorityDeliveryDisposition === 'legacy-delivered') {
       this.wsRouter?.routeSessionOutput(sessionId, flushedOutput, sessionData.screenSeq, {
         authorityEpoch: sessionData.authorityEpoch,
         authorityRevision: sessionData.authorityRevision,
+        streamEpoch: output.reservedStreamEpoch,
+        sourceSeq: output.reservedSourceSeq,
       }, 'legacy-unnegotiated');
     }
     if (this.pendingResizeReplaySessions.has(sessionId)) {
@@ -7949,9 +8021,21 @@ export class SessionManager {
     sessionData: SessionData,
     semanticData: string,
     deliveredData: string,
+    reservation?: Pick<PendingHeadlessOutput, 'reservedStreamEpoch' | 'reservedSourceSeq'>,
   ): void {
     const retained = sessionData.retainedTerminal;
-    this.advanceRetainedTerminalSourceOrdinal(sessionId, retained, true);
+    const projected = advanceRetainedOrdinalPosition(retained, 'output');
+    if (projected.streamEpoch !== retained.streamEpoch && reservation?.reservedStreamEpoch !== undefined) {
+      projected.streamEpoch = reservation.reservedStreamEpoch;
+    }
+    if (reservation?.reservedSourceSeq !== undefined
+      && (projected.streamEpoch !== reservation.reservedStreamEpoch || projected.sourceSeq !== reservation.reservedSourceSeq)) {
+      throw new Error(`terminal-authority-reservation-commit-mismatch: reserved=${reservation.reservedStreamEpoch}/${reservation.reservedSourceSeq}, commit=${projected.streamEpoch}/${projected.sourceSeq}`);
+    }
+    this.advanceRetainedTerminalSourceOrdinal(sessionId, retained, true, reservation?.reservedStreamEpoch);
+    // Ordinals identify actual model writes even while shadow collection is
+    // disabled. Enabling shadow must not restart the committed source cursor.
+    if (retained.mode !== 'shadow') return;
     const record: RetainedTerminalOperationRecord = {
       streamEpoch: retained.streamEpoch,
       sourceSeq: retained.sourceSeq,
@@ -8004,16 +8088,32 @@ export class SessionManager {
     sessionId: string,
     retained: RetainedTerminalSessionState,
     advanceSnapshot: boolean,
+    reservedEpoch?: string,
   ): void {
-    const next = advanceRetainedTerminalOrdinal({
-      streamEpoch: retained.streamEpoch as Ordinal64,
-      sourceSeq: retained.sourceSeq as Ordinal64,
-    });
+    this.commitRetainedOrdinalPosition(sessionId, retained, advanceSnapshot ? 'output' : 'rejection', reservedEpoch);
+  }
+
+  private commitRetainedOrdinalPosition(
+    sessionId: string,
+    retained: RetainedTerminalSessionState,
+    operation: 'output' | 'resize' | 'rejection',
+    reservedEpoch?: string,
+  ): void {
+    const sourceRollover = operation !== 'resize' && retained.sourceSeq === '18446744073709551615';
+    const next = advanceRetainedOrdinalPosition(retained, operation);
+    const rolledOver = next.streamEpoch !== retained.streamEpoch;
+    if (reservedEpoch !== undefined
+      && (BigInt(reservedEpoch) < BigInt(this.currentTerminalStreamEpoch(sessionId))
+        || (rolledOver && BigInt(reservedEpoch) <= BigInt(retained.streamEpoch)))) {
+      throw new Error('terminal-authority-stale-reserved-epoch');
+    }
     retained.sourceSeq = next.sourceSeq;
-    if (next.rolledOver) {
+    retained.snapshotSeq = next.snapshotSeq;
+    if (rolledOver) {
       // `01:478` — a rollover is one of the five events that raise the epoch,
       // so it is recorded in the ledger rather than written here directly.
-      retained.streamEpoch = this.bumpTerminalStreamEpoch(sessionId, 'ordinal-rollover');
+      if (reservedEpoch === undefined) retained.streamEpoch = this.bumpTerminalStreamEpoch(sessionId, 'ordinal-rollover');
+      else this.setTerminalStreamEpoch(sessionId, retained, reservedEpoch, 'ordinal-rollover');
       retained.records = [];
       retained.facts = [];
       retained.committedFactKeys.clear();
@@ -8023,14 +8123,14 @@ export class SessionManager {
       retained.ledgerFactKeyEncodedBytes = 0;
       retained.factOrdinal = 0;
       retained.factScannerTail = '';
-      retained.evictedRecords = 0;
-      retained.evictedFacts = 0;
+      if (sourceRollover) {
+        retained.evictedRecords = 0;
+        retained.evictedFacts = 0;
+      }
       retained.oldestRetainedSeq = '0';
       retained.oldestRetainedStreamEpoch = retained.streamEpoch;
       retained.snapshotSeq = '0';
-      return;
     }
-    if (advanceSnapshot) this.advanceRetainedTerminalSnapshotOrdinal(sessionId, retained);
   }
 
   private resolveRetainedTerminalLedgerPolicy(sessionData: SessionData): {
@@ -8245,26 +8345,9 @@ export class SessionManager {
   private advanceRetainedTerminalSnapshotOrdinal(
     sessionId: string,
     retained: RetainedTerminalSessionState,
+    reservedEpoch?: string,
   ): void {
-    const next = advanceRetainedTerminalOrdinal({
-      streamEpoch: retained.streamEpoch as Ordinal64,
-      sourceSeq: retained.snapshotSeq as Ordinal64,
-    });
-    retained.snapshotSeq = next.sourceSeq;
-    if (!next.rolledOver) return;
-    retained.streamEpoch = this.bumpTerminalStreamEpoch(sessionId, 'ordinal-rollover');
-    retained.sourceSeq = '0';
-    retained.records = [];
-    retained.facts = [];
-    retained.committedFactKeys.clear();
-    retained.ledgerEncodedBytes = 4;
-    retained.ledgerRecordEncodedBytes = 0;
-    retained.ledgerFactEncodedBytes = 0;
-    retained.ledgerFactKeyEncodedBytes = 0;
-    retained.factOrdinal = 0;
-    retained.factScannerTail = '';
-    retained.oldestRetainedSeq = '0';
-    retained.oldestRetainedStreamEpoch = retained.streamEpoch;
+    this.commitRetainedOrdinalPosition(sessionId, retained, 'resize', reservedEpoch);
   }
 
   private updateRetainedTerminalEvictionFromModel(
@@ -8498,6 +8581,9 @@ export class SessionManager {
     sessionData.headlessOutputQueue.recordDegraded();
     this.settleRetainedTerminalPendingOutputsBeforeDegrade(sessionData, phase);
     const pendingOutput = this.drainHeadlessPendingOutput(sessionData);
+    sessionData.nextTerminalAuthorityStreamEpoch = retained.streamEpoch;
+    sessionData.nextTerminalAuthoritySourceSeq = BigInt(retained.sourceSeq);
+    sessionData.nextTerminalAuthoritySnapshotSeq = retained.snapshotSeq;
     if (pendingOutput.length > 0) {
       this.advanceSessionTerminalParserState(sessionData, pendingOutput);
     }

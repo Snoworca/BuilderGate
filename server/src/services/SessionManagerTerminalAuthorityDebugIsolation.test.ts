@@ -423,6 +423,8 @@ test('MIG-BGSTAB-002 cleanup serializes live PTY output after the restored headl
     authorityFence: readAuthorityFence(manager),
   });
   await restoreStarted;
+  const beforeLiveOutput = manager.getRetainedTerminalAuthorityState(SESSION_ID);
+  assert.ok(beforeLiveOutput);
   pty.emitData(liveOutput);
   await new Promise<void>(resolve => setImmediate(resolve));
   assert.equal(
@@ -442,6 +444,10 @@ test('MIG-BGSTAB-002 cleanup serializes live PTY output after the restored headl
     new RegExp(liveOutput),
     'live output accepted during cleanup must be applied after the restored checkpoint, not overwritten by it',
   );
+  assert.equal(after.canary.blockers.includes('model-degradation'), false,
+    'cleanup must retain a healthy model, not pass through degraded replay');
+  assert.equal(after.sourceSeq, String(BigInt(beforeLiveOutput.sourceSeq) + 1n),
+    'pending live output must commit once, without consuming its reservation during restoration');
 });
 
 test('MIG-BGSTAB-002 promotion claim blocks cleanup while controller promotion admission is asynchronous', async t => {

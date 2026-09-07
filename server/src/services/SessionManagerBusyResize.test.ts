@@ -47,6 +47,7 @@ function managerWithSession(overrides: Partial<ResizeSessionData>): ManagerInter
   assert.equal(typeof manager.resize, 'function', 'SessionManager.resize is gone');
 
   const data = {
+    session: { id: SESSION_ID },
     cols: 80,
     rows: 24,
     pendingHeadlessWrites: 0,
