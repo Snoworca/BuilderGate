@@ -1,0 +1,8 @@
+# These files participate in raw-byte fair scheduler provenance.
+server/src/benchmarks/terminalFairnessCharacterization.ts text eol=lf
+server/src/benchmarks/fairSchedulerAuthorityLocator.ts text eol=lf
+server/src/ws/wsSendPolicy.ts text eol=lf
+server/src/ws/WsRouter.ts text eol=lf
+server/src/services/TerminalResourcePolicy.ts text eol=lf
+server/src/services/TerminalResourcePolicyCanary.ts text eol=lf
+docs/analysis/terminal-fairness-authority/**/*.json text eol=lf

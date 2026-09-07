@@ -13,6 +13,7 @@ import {
 } from '../services/TerminalResourcePolicyCanary.js';
 import {
   createWsTransportMessage,
+  createFairTerminalDeliveryScheduler,
   getTransportMessagesInPriorityOrder,
   type WsTransportMessage,
   type WsTransportQueueState,
@@ -223,6 +224,53 @@ function subscribeForTest(
     subscribers.set(sessionId, new Set([ws]));
   }
 }
+
+test('PERF-BGSTAB-011 carries reserved source identity through fair delivery to two clients and a recreated lane', () => {
+  const router = createRouter();
+  const first = createFakeWs();
+  const second = createFakeWs();
+  const internals = router as unknown as {
+    createFairDeliveryScheduler(ws: typeof first.ws, epoch: string): ReturnType<typeof createFairTerminalDeliveryScheduler>;
+    fairDeliverySchedulers: Map<typeof first.ws, { connectionEpoch: string; scheduler: ReturnType<typeof createFairTerminalDeliveryScheduler> }>;
+    sessionSubscribers: Map<string, Set<typeof first.ws>>;
+  };
+  assert.equal(typeof internals.createFairDeliveryScheduler, 'function');
+  try {
+    subscribeForTest(router, first.ws, 'source-first');
+    subscribeForTest(router, second.ws, 'source-second');
+    internals.sessionSubscribers.get('session-1')!.add(first.ws);
+    // This fixture starts after capability admission; the existing capability
+    // tests independently retain the published-evidence fail-closed gate.
+    for (const [client, connectionEpoch] of [[first, 'source-epoch-a'], [second, 'source-epoch-b']] as const) {
+      internals.fairDeliverySchedulers.set(client.ws, {
+        connectionEpoch,
+        scheduler: internals.createFairDeliveryScheduler(client.ws, connectionEpoch),
+      });
+    }
+    router.routeSessionOutput('session-1', 'same-source', 1, { streamEpoch: '7', sourceSeq: '9007199254740993' });
+    for (const client of [first, second]) {
+      const output = client.sent.filter(row => row.type === 'output');
+      assert.equal(output.length, 1);
+      assert.equal(output[0].data, 'same-source');
+      assert.equal(output[0].streamEpoch, '7');
+      assert.equal(output[0].sourceSeq, '9007199254740993');
+      assert.equal(output[0].deliverySeq, 1);
+    }
+    internals.fairDeliverySchedulers.get(first.ws)!.scheduler.terminateSession({ connectionEpoch: 'source-epoch-a', sessionId: 'session-1' });
+    internals.fairDeliverySchedulers.set(first.ws, {
+      connectionEpoch: 'source-epoch-new',
+      scheduler: internals.createFairDeliveryScheduler(first.ws, 'source-epoch-new'),
+    });
+    router.routeSessionOutput('session-1', 'later-source', 2, { streamEpoch: '7', sourceSeq: '9007199254740995' });
+    const recreated = first.sent.filter(row => row.type === 'output').at(-1)!;
+    assert.equal(recreated.data, 'later-source');
+    assert.equal(recreated.deliverySeq, 1);
+    assert.equal(recreated.sourceSeq, '9007199254740995');
+    assert.equal(recreated.streamEpoch, '7');
+  } finally {
+    router.destroy();
+  }
+});
 
 test('PERF-BGSTAB-010 runtime candidate delivery uses a server ledger and control-only cumulative ACK', () => {
   const router = createFairRouter();

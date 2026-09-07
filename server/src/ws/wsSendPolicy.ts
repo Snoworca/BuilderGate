@@ -1,4 +1,5 @@
 import { FAIR_SCHEDULER_AUTHORITY_LOGICAL_LOCATOR } from '../benchmarks/fairSchedulerAuthorityLocator.js';
+import { isCanonicalOrdinal64 } from '../types/ws-protocol.js';
 import {
   encodeFor,
   jsonWirePayload,
@@ -37,6 +38,7 @@ export interface WsTransportMessage {
   deliverySeq?: number;
   deliveryKind?: string;
   sourceSeq?: string;
+  streamEpoch?: string;
   outputData?: string;
   sourceSegments?: WsOutputSourceSegment[];
   policyGeneration?: number;
@@ -99,21 +101,6 @@ export interface WsTransportCodec {
   encodeBinary: (message: object, opcode: number) => Uint8Array | undefined;
 }
 
-// @req REL-BGSTAB-010
-const CANONICAL_ORDINAL64 = /^(0|[1-9][0-9]*)$/u;
-
-/**
- * Whether a value may be promoted into the sidecar as an Ordinal64.
- *
- * The sidecar exists so consumers never re-parse the payload, which means the
- * guard here has to reject exactly what the payload gate would have rejected.
- * Anything else would let a value reach a consumer through the shortcut that
- * could not have reached it through the long way.
- */
-function isCanonicalOrdinal64(value: unknown): value is string {
-  return typeof value === 'string' && CANONICAL_ORDINAL64.test(value);
-}
-
 export function createWsTransportMessage(
   message: object,
   now = Date.now(),
@@ -159,6 +146,7 @@ export function createWsTransportMessage(
       : {}),
     ...(typeof record.deliveryKind === 'string' ? { deliveryKind: record.deliveryKind } : {}),
     ...(isCanonicalOrdinal64(record.sourceSeq) ? { sourceSeq: record.sourceSeq } : {}),
+    ...(isCanonicalOrdinal64(record.streamEpoch) ? { streamEpoch: record.streamEpoch } : {}),
     ...(output ? { outputData: output.data } : {}),
     ...(sourceSegments && sourceSegments.length > 0 ? { sourceSegments } : {}),
     ...(metadata.policyGeneration !== undefined ? { policyGeneration: metadata.policyGeneration } : {}),
@@ -541,6 +529,8 @@ export type FairTerminalDeliveryKind = 'output' | 'dataGap' | 'checkpoint' | 're
 export interface FairTerminalDeliveryInput {
   connectionEpoch: string;
   sessionId: string;
+  streamEpoch?: string;
+  sourceSeq?: string;
   kind: FairTerminalDeliveryKind;
   payload: string;
   // Structured source of `payload` for control-shaped deliveries. Consumers that

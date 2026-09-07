@@ -171,3 +171,45 @@ test('server RED — split surrogate chunks never produce invalid UTF-8 source o
 
   assert.equal(tryCoalesceOutputMessage(high, low, 10), null);
 });
+test('PERF-BGSTAB-011 source transport sidecars preserve canonical uint64 boundaries', () => {
+  for (const sourceSeq of ['0', '9007199254740993', '18446744073709551615']) {
+    const message = createWsTransportMessage({ type: 'output', sessionId: 'source-boundary', data: 'body', streamEpoch: '18446744073709551615', sourceSeq });
+    assert.equal(message.sourceSeq, sourceSeq);
+    assert.equal(Reflect.get(message, 'streamEpoch'), '18446744073709551615');
+  }
+});
+
+test('PERF-BGSTAB-011 source sidecar rejects noncanonical and overflowing ordinals', () => {
+  for (const value of ['01', '-1', '1.0', '', '18446744073709551616', '999999999999999999999999999999999']) {
+    const message = createWsTransportMessage({ type: 'output', sessionId: 'source-invalid', data: 'body', streamEpoch: value, sourceSeq: value });
+    assert.equal(message.sourceSeq, undefined, value);
+    assert.equal(Reflect.get(message, 'streamEpoch'), undefined, value);
+  }
+  const gap = createWsTransportMessage({ type: 'terminal-delivery:data-gap', sessionId: 'source-gap', deliverySeq: 1 });
+  assert.equal(gap.sourceSeq, undefined);
+  assert.equal(Reflect.get(gap, 'streamEpoch'), undefined);
+});
+
+test('PERF-BGSTAB-011 canonical sourceSeq survives an invalid or absent streamEpoch sidecar', () => {
+  for (const streamEpoch of ['01', '-1', '1.0', '', '18446744073709551616', '999999999999999999999999999999999', undefined]) {
+    const message = createWsTransportMessage({
+      type: 'output', sessionId: 'independent-source', data: 'body',
+      sourceSeq: '18446744073709551615',
+      ...(streamEpoch === undefined ? {} : { streamEpoch }),
+    });
+    assert.equal(message.sourceSeq, '18446744073709551615', `sourceSeq must survive epoch ${String(streamEpoch)}`);
+    assert.equal(Reflect.get(message, 'streamEpoch'), undefined, `reject only epoch ${String(streamEpoch)}`);
+  }
+});
+
+test('PERF-BGSTAB-011 canonical streamEpoch survives an invalid or absent sourceSeq sidecar', () => {
+  for (const sourceSeq of ['01', '-1', '1.0', '', '18446744073709551616', '999999999999999999999999999999999', undefined]) {
+    const message = createWsTransportMessage({
+      type: 'output', sessionId: 'independent-epoch', data: 'body',
+      streamEpoch: '18446744073709551615',
+      ...(sourceSeq === undefined ? {} : { sourceSeq }),
+    });
+    assert.equal(Reflect.get(message, 'streamEpoch'), '18446744073709551615', `epoch must survive sourceSeq ${String(sourceSeq)}`);
+    assert.equal(message.sourceSeq, undefined, `reject only sourceSeq ${String(sourceSeq)}`);
+  }
+});
