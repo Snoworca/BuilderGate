@@ -549,6 +549,50 @@ export interface FairTerminalDelivery extends FairTerminalDeliveryInput {
   encodedBytes: number;
 }
 
+interface FairSourceIdentity {
+  streamEpoch: string;
+  sourceSeq: string;
+}
+
+export type FairTerminalDeliveryAck = {
+  connectionEpoch: string;
+  sessionId: string;
+  clientBytes?: number;
+} & (
+  | { kind?: 'deliverySeq'; deliverySeq: number; streamEpoch?: never; sourceSeq?: never }
+  | { kind: 'sourceSeq'; streamEpoch: string; sourceSeq: string; deliverySeq?: never }
+);
+
+interface FairAckDiagnostic {
+  code: string;
+  connectionEpoch: string;
+  sessionId: string;
+  kind?: 'deliverySeq' | 'sourceSeq';
+  deliverySeq?: number;
+  streamEpoch?: string;
+  sourceSeq?: string;
+}
+
+function compareFairSource(left: FairSourceIdentity, right: FairSourceIdentity): number {
+  const epoch = BigInt(left.streamEpoch) - BigInt(right.streamEpoch);
+  if (epoch !== 0n) return epoch < 0n ? -1 : 1;
+  const seq = BigInt(left.sourceSeq) - BigInt(right.sourceSeq);
+  return seq < 0n ? -1 : seq > 0n ? 1 : 0;
+}
+
+function fairSourceIdentity(input: { streamEpoch?: string; sourceSeq?: string }): FairSourceIdentity | null {
+  return isCanonicalOrdinal64(input.streamEpoch) && isCanonicalOrdinal64(input.sourceSeq)
+    ? { streamEpoch: input.streamEpoch, sourceSeq: input.sourceSeq }
+    : null;
+}
+
+function previousFairSource(input: FairSourceIdentity): FairSourceIdentity | null {
+  const seq = BigInt(input.sourceSeq);
+  if (seq > 0n) return { streamEpoch: input.streamEpoch, sourceSeq: (seq - 1n).toString() };
+  const epoch = BigInt(input.streamEpoch);
+  return epoch > 0n ? { streamEpoch: (epoch - 1n).toString(), sourceSeq: '18446744073709551615' } : null;
+}
+
 export interface FairTerminalDeliveryPolicyValue<T> {
   value: T;
   source: string;
@@ -596,6 +640,8 @@ interface FairTerminalLane {
   nextDeliverySeq: number;
   lastSentSeq: number;
   lastAcknowledgedSeq: number;
+  lastAcknowledgedSource: FairSourceIdentity | null;
+  highestEnqueuedSource: FairSourceIdentity | null;
   queue: Array<FairTerminalDelivery & { queuedAt: number }>;
   sent: Array<FairTerminalDelivery & { queuedAt: number }>;
   queuedBytes: number;
@@ -658,7 +704,7 @@ export function createFairTerminalDeliveryScheduler(options: FairTerminalDeliver
   const lanes = new Map<string, FairTerminalLane>();
   const laneOrder: string[] = [];
   const retiredEpochs = new Set<string>();
-  const protocolErrors: Array<{ code: string; connectionEpoch: string; sessionId: string; deliverySeq: number }> = [];
+  const protocolErrors: FairAckDiagnostic[] = [];
   const releases: Record<string, number> = {};
   let roundRobinCursor = 0;
   let controlLatencies: number[] = [];
@@ -676,6 +722,8 @@ export function createFairTerminalDeliveryScheduler(options: FairTerminalDeliver
       nextDeliverySeq: 1,
       lastSentSeq: 0,
       lastAcknowledgedSeq: 0,
+      lastAcknowledgedSource: null,
+      highestEnqueuedSource: null,
       queue: [],
       sent: [],
       queuedBytes: 0,
@@ -696,8 +744,14 @@ export function createFairTerminalDeliveryScheduler(options: FairTerminalDeliver
     return lane;
   };
 
-  const recordError = (code: string, connectionEpoch: string, sessionId: string, deliverySeq: number) => {
-    protocolErrors.push({ code, connectionEpoch, sessionId, deliverySeq });
+  const recordError = (code: string, input: FairTerminalDeliveryAck) => {
+    protocolErrors.push({
+      code, connectionEpoch: input.connectionEpoch, sessionId: input.sessionId,
+      ...(typeof input.deliverySeq === 'number' ? { deliverySeq: input.deliverySeq } : {}),
+      ...(input.kind === 'deliverySeq' || input.kind === 'sourceSeq' ? { kind: input.kind } : {}),
+      ...(typeof input.streamEpoch === 'string' ? { streamEpoch: input.streamEpoch } : {}),
+      ...(typeof input.sourceSeq === 'string' ? { sourceSeq: input.sourceSeq } : {}),
+    });
     return { accepted: false, creditedBytes: 0, errorCode: code };
   };
 
@@ -796,6 +850,15 @@ export function createFairTerminalDeliveryScheduler(options: FairTerminalDeliver
         encodedBytes,
         queuedAt: options.now(),
       };
+      const source = fairSourceIdentity(input);
+      if (source !== null) {
+        if (lane.highestEnqueuedSource === null) {
+          lane.lastAcknowledgedSource = previousFairSource(source);
+          lane.highestEnqueuedSource = source;
+        } else if (compareFairSource(source, lane.highestEnqueuedSource) > 0) {
+          lane.highestEnqueuedSource = source;
+        }
+      }
       lane.queue.push(delivery);
       lane.queuedBytes += encodedBytes;
       lane.peakApplicationQueuedBytes = Math.max(lane.peakApplicationQueuedBytes, lane.queuedBytes);
@@ -858,19 +921,45 @@ export function createFairTerminalDeliveryScheduler(options: FairTerminalDeliver
       }
     },
 
-    acknowledge(input: { connectionEpoch: string; sessionId: string; deliverySeq: number; clientBytes?: number }) {
+    acknowledge(input: FairTerminalDeliveryAck): { accepted: boolean; creditedBytes: number; errorCode?: string } {
+      const hasDelivery = input.deliverySeq !== undefined;
+      const hasSource = input.streamEpoch !== undefined || input.sourceSeq !== undefined;
+      if (hasDelivery && hasSource) return recordError('ACK_DOMAIN_CONFLICT', input);
+      if (!hasDelivery && !hasSource) return recordError('ACK_DOMAIN_MISSING', input);
+      const source = input.kind === 'sourceSeq' ? fairSourceIdentity(input) : null;
+      if ((input.kind !== undefined && input.kind !== 'deliverySeq' && input.kind !== 'sourceSeq')
+        || (input.kind === 'sourceSeq' && source === null)
+        || (input.kind !== 'sourceSeq' && (!hasDelivery || hasSource))) {
+        return recordError('ACK_DOMAIN_INVALID', input);
+      }
       const lane = lanes.get(fairLaneKey(input.connectionEpoch, input.sessionId));
       if (!lane) {
-        return recordError(retiredEpochs.has(input.connectionEpoch) ? 'ACK_STALE_EPOCH' : 'ACK_UNKNOWN_LANE', input.connectionEpoch, input.sessionId, input.deliverySeq);
+        return recordError(retiredEpochs.has(input.connectionEpoch) ? 'ACK_STALE_EPOCH' : 'ACK_UNKNOWN_LANE', input);
       }
-      if (lane.released) return recordError('ACK_STALE_EPOCH', input.connectionEpoch, input.sessionId, input.deliverySeq);
-      if (input.deliverySeq <= lane.lastAcknowledgedSeq) return recordError('ACK_DUPLICATE', input.connectionEpoch, input.sessionId, input.deliverySeq);
-      if (input.deliverySeq > lane.nextDeliverySeq - 1) return recordError('ACK_OVER_ACK', input.connectionEpoch, input.sessionId, input.deliverySeq);
-      if (input.deliverySeq > lane.lastSentSeq) return recordError('ACK_OUT_OF_ORDER', input.connectionEpoch, input.sessionId, input.deliverySeq);
-      const acknowledged = lane.sent.filter(delivery => delivery.deliverySeq > lane.lastAcknowledgedSeq && delivery.deliverySeq <= input.deliverySeq);
+      if (lane.released) return recordError('ACK_STALE_EPOCH', input);
+      let deliverySeq: number;
+      if (source !== null) {
+        if (lane.lastAcknowledgedSource !== null && compareFairSource(source, lane.lastAcknowledgedSource) <= 0) return recordError('ACK_DUPLICATE', input);
+        if (lane.highestEnqueuedSource === null || compareFairSource(source, lane.highestEnqueuedSource) > 0) return recordError('ACK_OVER_ACK', input);
+        const target = lane.sent.find(delivery => delivery.streamEpoch === source.streamEpoch && delivery.sourceSeq === source.sourceSeq);
+        if (!target) return recordError('ACK_OUT_OF_ORDER', input);
+        deliverySeq = target.deliverySeq;
+      } else {
+        deliverySeq = input.deliverySeq!;
+        if (deliverySeq <= lane.lastAcknowledgedSeq) return recordError('ACK_DUPLICATE', input);
+        if (deliverySeq > lane.nextDeliverySeq - 1) return recordError('ACK_OVER_ACK', input);
+        if (deliverySeq > lane.lastSentSeq) return recordError('ACK_OUT_OF_ORDER', input);
+      }
+      const acknowledged = lane.sent.filter(delivery => delivery.deliverySeq > lane.lastAcknowledgedSeq && delivery.deliverySeq <= deliverySeq);
       const creditedBytes = acknowledged.reduce((total, delivery) => total + delivery.encodedBytes, 0);
-      lane.lastAcknowledgedSeq = input.deliverySeq;
-      lane.sent = lane.sent.filter(delivery => delivery.deliverySeq > input.deliverySeq);
+      for (const delivery of acknowledged) {
+        const settledSource = fairSourceIdentity(delivery);
+        if (settledSource !== null && (lane.lastAcknowledgedSource === null || compareFairSource(settledSource, lane.lastAcknowledgedSource) > 0)) {
+          lane.lastAcknowledgedSource = settledSource;
+        }
+      }
+      lane.lastAcknowledgedSeq = deliverySeq;
+      lane.sent = lane.sent.filter(delivery => delivery.deliverySeq > deliverySeq);
       lane.creditBytes += creditedBytes;
       lane.socketQueuedBytes = Math.max(0, lane.socketQueuedBytes - creditedBytes);
       return { accepted: true, creditedBytes };
