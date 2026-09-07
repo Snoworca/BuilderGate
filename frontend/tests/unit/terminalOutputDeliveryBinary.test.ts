@@ -93,10 +93,60 @@ test('no segments produces the same shape as a JSON message without sourceSegmen
   assert.equal(json.codec, 'json');
 });
 
-test('ack is always absent on the binary path', () => {
-  // deliverySeq is not in the frame header at all, and half an identity cannot
-  // be acknowledged. TerminalContainer already branches on `ack !== undefined`.
+test('ack is absent on the binary path without an explicit caller connection epoch', () => {
+  // Header source identity alone does not prove fair-ledger membership.
   assert.equal(fromBinaryOutputFrame(outputFrame()).ack, undefined);
+});
+
+for (const variant of [
+  { name: 'unsegmented', segments: [], chunks: 1 },
+  { name: 'segmented', segments: [
+    { byteStart: 0, byteEnd: 5, screenSeqDelta: 0, authorityRevisionDelta: 0, chunkIdDelta: 0 },
+    { byteStart: 5, byteEnd: 11, screenSeqDelta: 1, authorityRevisionDelta: 1, chunkIdDelta: 1 },
+  ], chunks: 2 },
+  { name: 'invalid-segment whole fallback', segments: [
+    { byteStart: 0, byteEnd: 4, screenSeqDelta: 0, authorityRevisionDelta: 0, chunkIdDelta: 0 },
+    { byteStart: 5, byteEnd: 11, screenSeqDelta: 1, authorityRevisionDelta: 1, chunkIdDelta: 1 },
+  ], chunks: null },
+]) {
+  test(`P4b explicit source ACK preserves header uint64 identity for ${variant.name}`, () => {
+    for (const [streamEpoch, sourceSeq] of [
+      ['7', '0'],
+      ['9007199254740992', '9007199254740993'],
+      ['18446744073709551615', '18446744073709551615'],
+    ]) {
+      const frame = outputFrame({ streamEpoch, sourceSeq, segments: variant.segments });
+      const delivery = fromBinaryOutputFrame(frame, { ackConnectionEpoch: 'explicit-fair-epoch' });
+      assert.deepEqual(delivery.ack, {
+        connectionEpoch: 'explicit-fair-epoch', kind: 'sourceSeq', streamEpoch, sourceSeq,
+      });
+      assert.equal(delivery.chunks === null ? null : delivery.chunks.length, variant.chunks);
+      assert.equal(delivery.whole.data, BODY, 'ACK identity must not change the byte-backed write payload');
+      assert.equal(fromBinaryOutputFrame(frame).ack, undefined, 'omitted eligibility must remain absent on every return path');
+    }
+  });
+}
+
+test('P4b binary adaptation captures the caller connection epoch before later mutation', () => {
+  const identity = { authorityEpoch: 'authority-uuid', ackConnectionEpoch: 'accepted-before-write' };
+  const delivery = fromBinaryOutputFrame(outputFrame({ sourceSeq: '9007199254740993' }), identity);
+  identity.ackConnectionEpoch = 'replacement-connection';
+  assert.deepEqual(delivery.ack, {
+    connectionEpoch: 'accepted-before-write', kind: 'sourceSeq', streamEpoch: '7', sourceSeq: '9007199254740993',
+  });
+});
+
+test('P4b JSON source sidecars neither replace the legacy ACK nor invent source eligibility', () => {
+  const message = {
+    type: 'output' as const, sessionId: 'json-session', data: 'hello world',
+    connectionEpoch: 'legacy-connection', deliverySeq: 12,
+    streamEpoch: '18446744073709551615', sourceSeq: '9007199254740993',
+  };
+  assert.deepEqual(fromJsonOutputMessage(message.data, message).ack, {
+    connectionEpoch: 'legacy-connection', deliverySeq: 12,
+  });
+  const { deliverySeq: _deliverySeq, ...sourceOnly } = message;
+  assert.equal(fromJsonOutputMessage(sourceOnly.data, sourceOnly).ack, undefined);
 });
 
 // ---------------------------------------------------------------------------

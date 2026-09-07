@@ -30,6 +30,17 @@ const visibleOutputRecoverySource = readFileSync(
   'utf8',
 );
 
+function normalOutputHandlerSource(): string {
+  const startAnchor = 'onOutput: (delivery: TerminalOutputDelivery)';
+  const endAnchor = 'onStatus: handleStatus,';
+  const start = source.indexOf(startAnchor);
+  const end = source.indexOf(endAnchor, start);
+  assert.ok(start >= 0 && end > start, 'normal output handler anchors must exist in order');
+  assert.equal(source.indexOf(startAnchor, start + startAnchor.length), -1, 'normal output handler must be unique');
+  assert.equal(source.indexOf(endAnchor, end + endAnchor.length), -1, 'normal output handler end must be unique');
+  return source.slice(start, end);
+}
+
 // `TerminalContainer.tsx` is CRLF, so an `'if (\n…'` literal needle matches at -1
 // forever. Locate the guard EOL-agnostically; it resolves to exactly one site.
 const CHECKPOINT_AUTHORITY_ACTIVE_GUARD =
@@ -815,13 +826,7 @@ test('TerminalContainer uses runtime terminal limits for transport outbox budget
 });
 
 test('TerminalContainer preserves absent normal-wire screen sequence as unknown', () => {
-  const outputIndex = source.indexOf('onOutput: (delivery: TerminalOutputDelivery)');
-  assert.notEqual(outputIndex, -1);
-  // Widened from 2600 to span the whole handler. The sequence is now forwarded in
-  // two places — the unsegmented fallback and the per-chunk loop — and a window
-  // that reaches only the first would stop covering the path that carries most
-  // deliveries.
-  const outputChunk = source.slice(outputIndex, outputIndex + 9000);
+  const outputChunk = normalOutputHandlerSource();
 
   assert.match(outputChunk, /screenSeq: delivery\.whole\.screenSeq/);
   assert.match(outputChunk, /screenSeq: chunk\.screenSeq/);
@@ -832,9 +837,7 @@ test('TerminalContainer preserves absent normal-wire screen sequence as unknown'
 });
 
 test('TerminalContainer applies visible resync output admission in the production handler', () => {
-  const outputIndex = source.indexOf('onOutput: (delivery: TerminalOutputDelivery)');
-  assert.notEqual(outputIndex, -1);
-  const outputChunk = source.slice(outputIndex, outputIndex + 9000);
+  const outputChunk = normalOutputHandlerSource();
 
   assert.match(outputChunk, /classifyVisibleResyncOutputBatch\(\{/);
   assert.match(outputChunk, /activeReplayToken: activeResync\.replayToken/);
@@ -1165,9 +1168,20 @@ test('TerminalContainer keeps restore-buffer failure non-ACKable while acknowled
     /requiresAuthoritativeMutationFence[\s\S]*failedHeldCoverage:[\s\S]*snapshotSeq: nextSnapshot\.seq[\s\S]*coversThroughSeq: nextSnapshot\.coversThroughSeq \?\? nextSnapshot\.seq[\s\S]*replayToken: nextSnapshot\.replayToken[\s\S]*supersedesReplayToken: nextSnapshot\.supersedesReplayToken[\s\S]*authorityEpoch: nextSnapshot\.authorityEpoch[\s\S]*authorityRevision: nextSnapshot\.authorityRevision/u,
     'the matching authoritative checkpoint must explicitly supersede FAILED_HELD buffer ownership',
   );
+  const outputHandler = normalOutputHandlerSource();
+  const captureIndex = outputHandler.indexOf('const deliveryConnectionGeneration = wsConnectionGenerationRef.current;');
+  const wholeWriteIndex = outputHandler.indexOf('submitOutput(delivery.whole.data, {');
+  const chunkWriteIndex = outputHandler.indexOf('submitOutput(chunk.data, {');
+  assert.ok(captureIndex >= 0 && wholeWriteIndex > captureIndex && chunkWriteIndex > captureIndex,
+    'both live write paths must capture the current connection generation before submission');
   assert.match(
-    source,
-    /for \(const chunk of liveChunks\)[\s\S]*terminalRef\.current\?\.submitOutput\(chunk\.data, \{[\s\S]*screenSeq: chunk\.screenSeq,[\s\S]*replayToken: delivery\.replayToken,[\s\S]*authorityEpoch: chunk\.authorityEpoch,[\s\S]*authorityRevision: chunk\.authorityRevision,[\s\S]*connectionGeneration: wsConnectionGenerationRef\.current/u,
+    outputHandler,
+    /submitOutput\(delivery\.whole\.data, \{\s*screenSeq: delivery\.whole\.screenSeq,\s*replayToken: delivery\.replayToken,\s*authorityEpoch: delivery\.whole\.authorityEpoch,\s*authorityRevision: delivery\.whole\.authorityRevision,\s*connectionGeneration: deliveryConnectionGeneration/u,
+    'whole fallback must preserve the admitted connection and server authority lineage',
+  );
+  assert.match(
+    outputHandler,
+    /for \(const chunk of liveChunks\)[\s\S]*terminalRef\.current\?\.submitOutput\(chunk\.data, \{\s*screenSeq: chunk\.screenSeq,\s*replayToken: delivery\.replayToken,\s*authorityEpoch: chunk\.authorityEpoch,\s*authorityRevision: chunk\.authorityRevision,\s*connectionGeneration: deliveryConnectionGeneration/u,
     'live-output ownership must carry server sequence and authority lineage into the restore buffer',
   );
   assert.match(overflowChunk, /onVisibleOutputOverflow\?\.\(\{[\s\S]*reason: 'restore-pending-output-admission-rejected'/u, signature);

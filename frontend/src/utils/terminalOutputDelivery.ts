@@ -1,4 +1,4 @@
-import type { TerminalOutputMessage } from '../types/ws-protocol.ts';
+import type { TerminalDeliveryAckIdentity, TerminalOutputMessage } from '../types/ws-protocol.ts';
 import type { OutputWireMessage } from './binaryFrameCodec.ts';
 import { getOutputUtf8ByteLength } from './terminalOutputHotPath.ts';
 import type { TerminalOutputWriteData } from './terminalOutputScheduler.ts';
@@ -44,7 +44,7 @@ export interface TerminalOutputDelivery {
   readonly hasSourceSegments: boolean;
   readonly replayToken?: string;
   readonly repairToken?: string;
-  readonly ack?: { readonly connectionEpoch: string; readonly deliverySeq: number };
+  readonly ack?: Readonly<TerminalDeliveryAckIdentity & { connectionEpoch: string }>;
   /**
    * A deferred call so a byte-backed adapter can decode on demand rather than up
    * front. Both call sites in `TerminalContainer` forward it unevaluated, so the
@@ -127,6 +127,8 @@ export interface BinaryOutputIdentity {
   readonly authorityEpoch?: string;
   readonly replayToken?: string;
   readonly repairToken?: string;
+  /** Supply only for a frame proven to belong to this validated fair ledger. */
+  readonly ackConnectionEpoch?: string;
 }
 
 /**
@@ -160,6 +162,12 @@ export function fromBinaryOutputFrame(
 ): TerminalOutputDelivery {
   const { prologue, segments, body } = message;
   const screenSeq = narrowOrdinal(prologue.screenSeq, 'screenSeq');
+  const ack = identity.ackConnectionEpoch === undefined ? undefined : {
+    connectionEpoch: identity.ackConnectionEpoch,
+    kind: 'sourceSeq' as const,
+    streamEpoch: message.streamEpoch,
+    sourceSeq: message.sourceSeq,
+  };
 
   // `chunkIdBase` 0 is the encoder's "absent" sentinel: the generator counts from
   // 1 (`WsRouter.ts:3642-3646`), so 0 is never a real chunkId and needs no extra
@@ -186,6 +194,7 @@ export function fromBinaryOutputFrame(
       hasSourceSegments: false,
       ...optional('replayToken', identity.replayToken),
       ...optional('repairToken', identity.repairToken),
+      ...(ack === undefined ? {} : { ack }),
       previewText: () => previewDecoder.decode(body),
     };
   }
@@ -223,6 +232,7 @@ export function fromBinaryOutputFrame(
     hasSourceSegments: true,
     ...optional('replayToken', identity.replayToken),
     ...optional('repairToken', identity.repairToken),
+    ...(ack === undefined ? {} : { ack }),
     previewText: () => previewDecoder.decode(body),
   };
 }

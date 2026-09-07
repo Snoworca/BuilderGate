@@ -3463,6 +3463,35 @@ export const TerminalContainer = memo(
           }
 
           const deliveryIdentity = delivery.ack;
+          const deliveryConnectionGeneration = wsConnectionGenerationRef.current;
+          const deliverySessionGeneration = sessionGenerationRef.current;
+          const acknowledgeDelivery = deliveryIdentity === undefined ? undefined : () => {
+            const diagnosticIdentity: Record<string, string | number> = {
+              connectionEpoch: deliveryIdentity.connectionEpoch,
+            };
+            if (deliveryIdentity.kind === 'sourceSeq') {
+              diagnosticIdentity.kind = deliveryIdentity.kind;
+              diagnosticIdentity.streamEpoch = deliveryIdentity.streamEpoch;
+              diagnosticIdentity.sourceSeq = deliveryIdentity.sourceSeq;
+            } else {
+              diagnosticIdentity.deliverySeq = deliveryIdentity.deliverySeq;
+              if (deliveryIdentity.kind !== undefined) diagnosticIdentity.kind = deliveryIdentity.kind;
+            }
+            if (deliveryConnectionGeneration !== wsConnectionGenerationRef.current
+              || deliverySessionGeneration !== sessionGenerationRef.current) {
+              recordTerminalDebugEvent(sessionId, 'terminal_delivery_ack_skipped', {
+                ...diagnosticIdentity,
+                reason: 'stale-generation',
+              });
+              return;
+            }
+            const result = send({ type: 'terminal-delivery:ack', sessionId, ...deliveryIdentity });
+            recordTerminalDebugEvent(sessionId, 'terminal_delivery_ack_attempted', {
+              ...diagnosticIdentity,
+              accepted: result.ok,
+              reason: result.ok ? null : result.reason,
+            });
+          };
 
           const liveChunks = delivery.chunks;
           if (liveChunks === null) {
@@ -3471,41 +3500,17 @@ export const TerminalContainer = memo(
               replayToken: delivery.replayToken,
               authorityEpoch: delivery.whole.authorityEpoch,
               authorityRevision: delivery.whole.authorityRevision,
-              connectionGeneration: wsConnectionGenerationRef.current,
-              onWritten: deliveryIdentity !== undefined
-                ? () => {
-                    const result = send({
-                      type: 'terminal-delivery:ack',
-                      sessionId,
-                      ...deliveryIdentity,
-                    });
-                    recordTerminalDebugEvent(sessionId, 'terminal_delivery_ack_attempted', {
-                      connectionEpoch: deliveryIdentity.connectionEpoch,
-                      deliverySeq: deliveryIdentity.deliverySeq,
-                      accepted: result.ok,
-                      reason: result.ok ? null : result.reason,
-                    });
-                  }
-                : undefined,
+              connectionGeneration: deliveryConnectionGeneration,
+              onWritten: acknowledgeDelivery,
             });
             return;
           }
           let remainingAcceptedChunks = liveChunks.length;
-          const acknowledgeAcceptedOutput = deliveryIdentity !== undefined
+          const acknowledgeAcceptedOutput = acknowledgeDelivery !== undefined
             ? () => {
                 remainingAcceptedChunks -= 1;
                 if (remainingAcceptedChunks === 0) {
-                  const result = send({
-                    type: 'terminal-delivery:ack',
-                    sessionId,
-                    ...deliveryIdentity,
-                  });
-                  recordTerminalDebugEvent(sessionId, 'terminal_delivery_ack_attempted', {
-                    connectionEpoch: deliveryIdentity.connectionEpoch,
-                    deliverySeq: deliveryIdentity.deliverySeq,
-                    accepted: result.ok,
-                    reason: result.ok ? null : result.reason,
-                  });
+                  acknowledgeDelivery();
                 }
               }
             : undefined;
@@ -3515,7 +3520,7 @@ export const TerminalContainer = memo(
               replayToken: delivery.replayToken,
               authorityEpoch: chunk.authorityEpoch,
               authorityRevision: chunk.authorityRevision,
-              connectionGeneration: wsConnectionGenerationRef.current,
+              connectionGeneration: deliveryConnectionGeneration,
               onWritten: acknowledgeAcceptedOutput,
             });
           }
