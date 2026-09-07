@@ -87,6 +87,13 @@ export interface WorkspaceState {
   gridLayouts: GridLayout[];
 }
 
+export interface WorkspaceLimits {
+  maxWorkspaces: number;
+  maxTabsPerWorkspace: number;
+}
+
+export type WorkspaceStateResponse = WorkspaceState & { limits: WorkspaceLimits };
+
 export interface MoveTabResult {
   tab: WorkspaceTab;
   sourceWorkspaceId: string;

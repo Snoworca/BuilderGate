@@ -33,7 +33,7 @@ export function createWorkspaceRoutes(workspaceService: WorkspaceService): Route
   router.get('/', async (_req: Request, res: Response) => {
     try {
       const state = workspaceService.getState();
-      res.json(state);
+      res.json({ ...state, limits: workspaceService.getLimits() });
     } catch (error) {
       handleError(res, error);
     }

@@ -584,6 +584,13 @@ async function main(): Promise<void> {
     { name: 'WorkspaceService debounces rapid terminal titles to the final value', run: testWorkspaceServiceTerminalTitleDebounce },
     { name: 'FR-BGSTAB-026 WorkspaceService applies parsed title timing and option precedence', run: testWorkspaceConfiguredTitleTiming },
     { name: 'FR-BGSTAB-026 WorkspaceService applies parsed restore timing and option precedence', run: testWorkspaceConfiguredRestoreTiming },
+    { name: 'FR-BGSTAB-026 capacity CAP-01 exposes detached limits without changing state', run: testWorkspaceCapacityMetadata },
+    { name: 'FR-BGSTAB-026 capacity CAP-02 GET returns service limits without persistence', run: testWorkspaceCapacityGetRoute },
+    { name: 'FR-BGSTAB-026 capacity CAP-02 retains authenticated route registration', run: testWorkspaceCapacityAuthRegistration },
+    { name: 'FR-BGSTAB-026 capacity CAP-06 enforces default limits', run: () => testWorkspaceCapacityEnforcement() },
+    { name: 'FR-BGSTAB-026 capacity CAP-06 enforces lower limits', run: () => testWorkspaceCapacityEnforcement({ maxWorkspaces: 3, maxTabsPerWorkspace: 4 }) },
+    { name: 'FR-BGSTAB-026 capacity CAP-06 enforces higher limits', run: () => testWorkspaceCapacityEnforcement({ maxWorkspaces: 20, maxTabsPerWorkspace: 12 }) },
+    { name: 'FR-BGSTAB-026 capacity CAP-06 preserves fractional limits', run: () => testWorkspaceCapacityEnforcement({ maxWorkspaces: 3.5, maxTabsPerWorkspace: 4.5 }) },
     { name: 'WorkspaceService absolute path terminal title cancels pending debounce', run: testWorkspaceServiceAbsolutePathTitleCancelsPendingDebounce },
     { name: 'WorkspaceService manual rename cancels pending terminal title updates', run: testWorkspaceServiceManualRenameCancelsPendingTitle },
     { name: 'WorkspaceService restart cancels pending old-session terminal titles', run: testWorkspaceServiceRestartCancelsPendingTitle },
@@ -14237,6 +14244,137 @@ function createWorkspaceServiceHarness(options: {
   };
 
   return { workspaceService, calls, emitCommandSubmitted };
+}
+
+type CapacityLimits = { maxWorkspaces: number; maxTabsPerWorkspace: number };
+
+function createWorkspaceCapacityHarness(limits?: CapacityLimits) {
+  const mutableConfig = runtimeConfig as Config & { workspace?: unknown };
+  const previous = mutableConfig.workspace;
+  try {
+    if (limits === undefined) delete mutableConfig.workspace;
+    else mutableConfig.workspace = workspaceSchema.parse(limits);
+    return createWorkspaceServiceHarness();
+  } finally {
+    if (previous === undefined) delete mutableConfig.workspace;
+    else mutableConfig.workspace = previous;
+  }
+}
+
+function readWorkspaceCapacity(service: WorkspaceService): CapacityLimits {
+  const getter = Reflect.get(service, 'getLimits');
+  assert.equal(typeof getter, 'function', 'FR-BGSTAB-026 capacity requires service-owned limits');
+  return getter.call(service) as CapacityLimits;
+}
+
+function testWorkspaceCapacityMetadata(): void {
+  for (const configured of [undefined, { maxWorkspaces: 3, maxTabsPerWorkspace: 4 },
+    { maxWorkspaces: 20, maxTabsPerWorkspace: 12 }, { maxWorkspaces: 3.5, maxTabsPerWorkspace: 4.5 }]) {
+    const { workspaceService, calls } = createWorkspaceCapacityHarness(configured);
+    const state = workspaceService.getState();
+    const before = JSON.stringify(state);
+    const limits = readWorkspaceCapacity(workspaceService);
+    const expected = configured ?? { maxWorkspaces: 10, maxTabsPerWorkspace: 8 };
+    assert.deepEqual(limits, expected, 'only the two configured capacity fields may be exposed');
+    Reflect.set(limits, 'maxWorkspaces', 49);
+    Reflect.set(limits, 'maxTabsPerWorkspace', 15);
+    assert.deepEqual(readWorkspaceCapacity(workspaceService), expected);
+    assert.notEqual(readWorkspaceCapacity(workspaceService), limits, 'each getter result must be detached');
+    assert.equal(workspaceService.getState(), state, 'getState identity remains unchanged');
+    assert.equal(JSON.stringify(state), before);
+    assert.equal(Object.hasOwn(state, 'limits'), false);
+    assert.equal(calls.save.length, 0, 'reading limits does not persist metadata');
+  }
+}
+
+async function testWorkspaceCapacityGetRoute(): Promise<void> {
+  const expected = { maxWorkspaces: 3.5, maxTabsPerWorkspace: 4.5 };
+  const { workspaceService, calls } = createWorkspaceCapacityHarness(expected);
+  const workspace = await workspaceService.createWorkspace('Capacity route fixture');
+  await workspaceService.addTab(workspace.id, 'bash', 'Existing tab');
+  const state = workspaceService.getState();
+  const savedBefore = calls.save.length;
+  const serializedBefore = JSON.stringify(state);
+  const router = createWorkspaceRoutes(workspaceService);
+  const matching = router.stack.filter((layer: any) => layer.route?.path === '/' && layer.route.methods.get);
+  assert.equal(matching.length, 1, 'invoke the uniquely registered GET callback without a listener');
+  const registration = matching[0];
+  assert.ok(registration, 'the registered GET route must exist');
+  const route = registration.route;
+  assert.ok(route, 'the matching layer must contain a route');
+  assert.equal(route.stack.length, 1);
+  const handler = route.stack[0];
+  assert.ok(handler, 'the GET route callback must exist');
+  assert.equal(typeof handler.handle, 'function');
+  let status = 200;
+  let body: any;
+  const request: Request = new Proxy(express.request, {
+    get() { return assert.fail('the GET state callback must not read request fields'); },
+    set() { return assert.fail('the GET state callback must not mutate request fields'); },
+  });
+  const response: express.Response = new Proxy(express.response, {
+    get(_target, key) {
+      if (key === 'status') return (value: number) => { status = value; return response; };
+      if (key === 'json') return (value: unknown) => { body = value; return response; };
+      return assert.fail(`unexpected GET response operation: ${String(key)}`);
+    },
+    set() { return assert.fail('the GET state callback must not mutate response fields'); },
+  });
+  await handler.handle(request, response, () => assert.fail('the GET callback must not delegate to next'));
+  assert.equal(status, 200);
+  assert.deepEqual(body, { ...state, limits: expected });
+  for (const key of ['workspaces', 'tabs', 'gridLayouts'] as const) assert.equal(body[key], state[key]);
+  assert.equal(calls.save.length, savedBefore);
+  assert.equal(JSON.stringify(workspaceService.getState()), serializedBefore);
+  assert.equal(Object.hasOwn(workspaceService.getState(), 'limits'), false);
+}
+
+async function testWorkspaceCapacityAuthRegistration(): Promise<void> {
+  const source = await fs.readFile(path.join(process.cwd(), 'src/index.ts'), 'utf8');
+  assert.match(source, /const workspaceRoutes = createWorkspaceRoutes\(workspaceService\);/);
+  assert.match(source, /app\.use\('\/api\/workspaces', authMiddleware, workspaceRoutes\);/,
+    'capacity metadata must retain the existing authenticated route boundary');
+}
+
+async function testWorkspaceCapacityEnforcement(configured?: CapacityLimits): Promise<void> {
+  const { workspaceService, calls } = createWorkspaceCapacityHarness(configured);
+  const limits = readWorkspaceCapacity(workspaceService);
+  assert.deepEqual(limits, configured ?? { maxWorkspaces: 10, maxTabsPerWorkspace: 8 });
+  const expected = { ...limits };
+  Reflect.set(limits, 'maxWorkspaces', 49);
+  Reflect.set(limits, 'maxTabsPerWorkspace', 15);
+  const workspaces = [];
+  for (let index = 0; index < expected.maxWorkspaces; index += 1) {
+    workspaces.push(await workspaceService.createWorkspace(`Capacity ${index}`));
+  }
+  const beforeRejectedWorkspace = JSON.stringify(workspaceService.getState());
+  await assert.rejects(() => workspaceService.createWorkspace('Beyond capacity'),
+    (error: unknown) => error instanceof AppError && error.code === ErrorCode.WORKSPACE_LIMIT_EXCEEDED);
+  assert.equal(JSON.stringify(workspaceService.getState()), beforeRejectedWorkspace);
+  const source = workspaces[0];
+  const target = workspaces[1];
+  for (let index = 0; index < Math.ceil(expected.maxTabsPerWorkspace) - 1; index += 1) {
+    await workspaceService.addTab(target.id, 'bash', `Target ${index}`);
+  }
+  const movedTab = await workspaceService.addTab(source.id, 'bash', 'Move within capacity');
+  const sessionCount = calls.createSession.length;
+  const moved = await workspaceService.moveTab(source.id, movedTab.id, target.id);
+  assert.equal(moved.tab.sessionId, movedTab.sessionId);
+  assert.equal(moved.tab.lifecycleState, 'active');
+  assert.equal(calls.createSession.length, sessionCount, 'moving reuses the existing session');
+  const extraTab = await workspaceService.addTab(source.id, 'bash', 'Rejected move');
+  const beforeRejected = JSON.stringify(workspaceService.getState());
+  const beforeSessions = calls.createSession.length;
+  await assert.rejects(() => workspaceService.addTab(target.id, 'bash', 'Beyond tab capacity'),
+    (error: unknown) => error instanceof AppError && error.code === ErrorCode.TAB_LIMIT_EXCEEDED);
+  await assert.rejects(() => workspaceService.moveTab(source.id, extraTab.id, target.id),
+    (error: unknown) => error instanceof AppError && error.code === ErrorCode.TAB_LIMIT_EXCEEDED);
+  assert.equal(calls.createSession.length, beforeSessions);
+  assert.equal(JSON.stringify(workspaceService.getState()), beforeRejected);
+  assert.equal(calls.hasSession.has(extraTab.sessionId), true);
+  assert.deepEqual(calls.deleteSession, []);
+  assert.deepEqual(calls.terminateSession, []);
+  assert.equal(Object.hasOwn(workspaceService.getState(), 'limits'), false);
 }
 
 async function createTempRecoveryOptionService(): Promise<{

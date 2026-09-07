@@ -558,7 +558,8 @@ function AppContent() {
       workspaces={wm.workspaces}
       tabs={wm.tabs}
       activeWorkspaceId={wm.activeWorkspaceId}
-      maxWorkspaces={10}
+      maxWorkspaces={wm.limits.maxWorkspaces}
+      maxTabsPerWorkspace={wm.limits.maxTabsPerWorkspace}
       availableShells={availableShells}
       onSelect={handleSelectWorkspace}
       onCreate={() => wm.createWorkspace()}
@@ -610,7 +611,7 @@ function AppContent() {
                   tabs={wm.activeWorkspaceTabs}
                   activeTabId={wm.activeWorkspace.activeTabId}
                   totalSessionCount={wm.totalSessionCount}
-                  maxTabs={8}
+                  maxTabs={wm.limits.maxTabsPerWorkspace}
                   maxSessions={32}
                   onSelectTab={handleSelectTab}
                   onCloseTab={handleCloseTab}
@@ -743,7 +744,7 @@ function AppContent() {
           workspaces={wm.workspaces}
           tabs={wm.tabs}
           sourceWorkspaceId={pendingWorkspaceMove.sourceWorkspaceId}
-          maxTabsPerWorkspace={8}
+          maxTabsPerWorkspace={wm.limits.maxTabsPerWorkspace}
           moving={workspaceMoveBusy}
           error={workspaceMoveError}
           onMove={handleMoveTabToWorkspace}

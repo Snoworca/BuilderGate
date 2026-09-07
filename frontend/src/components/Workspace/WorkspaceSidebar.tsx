@@ -11,6 +11,7 @@ interface Props {
   tabs: WorkspaceTabRuntime[];
   activeWorkspaceId: string | null;
   maxWorkspaces: number;
+  maxTabsPerWorkspace: number;
   availableShells?: ShellInfo[];
   onSelect: (id: string) => void;
   onCreate: () => void;
@@ -21,7 +22,7 @@ interface Props {
 }
 
 export function WorkspaceSidebar({
-  workspaces, tabs, activeWorkspaceId, maxWorkspaces,
+  workspaces, tabs, activeWorkspaceId, maxWorkspaces, maxTabsPerWorkspace,
   availableShells,
   onSelect, onCreate, onRename, onDelete, onAddTab, onReorder,
 }: Props) {
@@ -115,7 +116,7 @@ export function WorkspaceSidebar({
               onDelete={onDelete}
               onAddTab={(wsId, anchorPosition) => handleAddTabWithShell(wsId, anchorPosition)}
               tabCount={tabs.filter(t => t.workspaceId === ws.id).length}
-              maxTabs={8}
+              maxTabs={maxTabsPerWorkspace}
               dragHandlers={drag.getTabHandlers(index)}
               isDragTarget={drag.dropTargetIndex === index}
             />

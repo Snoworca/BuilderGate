@@ -55,7 +55,7 @@ import type {
   GridLayout,
   MoveTabResult,
   Workspace,
-  WorkspaceState,
+  WorkspaceStateResponse,
   WorkspaceTab,
 } from '../types/workspace';
 
@@ -342,10 +342,26 @@ export const fileApi = {
 // ============================================================================
 
 export const workspaceApi = {
-  getAll: async (): Promise<WorkspaceState> => {
+  getAll: async (): Promise<WorkspaceStateResponse> => {
     const res = await authFetch(`${API_BASE}/workspaces`, { headers: getAuthHeaders() });
     if (!res.ok) throw await parseError(res);
-    return res.json();
+    const state: unknown = await res.json();
+    const limits = typeof state === 'object' && state !== null && !Array.isArray(state)
+      ? (state as Record<string, unknown>).limits
+      : undefined;
+    const values = typeof limits === 'object' && limits !== null && !Array.isArray(limits)
+      ? limits as Record<string, unknown>
+      : undefined;
+    if (!values || Object.keys(values).length !== 2
+      || !Object.hasOwn(values, 'maxWorkspaces') || !Object.hasOwn(values, 'maxTabsPerWorkspace')
+      || typeof values.maxWorkspaces !== 'number' || !Number.isFinite(values.maxWorkspaces)
+      || values.maxWorkspaces < 1 || values.maxWorkspaces > 50
+      || typeof values.maxTabsPerWorkspace !== 'number' || !Number.isFinite(values.maxTabsPerWorkspace)
+      || values.maxTabsPerWorkspace < 1 || values.maxTabsPerWorkspace > 16) {
+      console.warn('[Workspace API] invalid-workspace-limits');
+      throw new Error('invalid-workspace-limits');
+    }
+    return state as WorkspaceStateResponse;
   },
 
   create: async (name?: string): Promise<Workspace> => {

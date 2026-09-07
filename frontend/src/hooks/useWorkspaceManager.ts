@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { workspaceApi } from '../services/api';
 import { useWebSocketActions, useWebSocketState } from '../contexts/WebSocketContext';
-import type { MoveTabResult, Workspace, WorkspaceTab, WorkspaceTabRuntime, GridLayout, WorkspaceState } from '../types/workspace';
+import type { MoveTabResult, Workspace, WorkspaceTab, WorkspaceTabRuntime, GridLayout, WorkspaceLimits } from '../types/workspace';
 import { markTerminalSnapshotForRemoval } from '../utils/terminalSnapshot';
 import {
   clearMosaicLayoutForWorkspace,
@@ -130,6 +130,7 @@ function getErrorMessage(error: unknown): string {
 
 export interface UseWorkspaceManagerReturn {
   // State
+  limits: WorkspaceLimits;
   workspaces: Workspace[];
   tabs: WorkspaceTabRuntime[];
   gridLayouts: GridLayout[];
@@ -171,6 +172,7 @@ export interface UseWorkspaceManagerReturn {
 // ============================================================================
 
 export function useWorkspaceManager(): UseWorkspaceManagerReturn {
+  const [limits, setLimits] = useState<WorkspaceLimits>({ maxWorkspaces: 10, maxTabsPerWorkspace: 8 });
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [tabs, setTabs] = useState<WorkspaceTabRuntime[]>([]);
   const [gridLayouts, setGridLayouts] = useState<GridLayout[]>([]);
@@ -203,9 +205,10 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
     let mounted = true;
     (async () => {
       try {
-        const state: WorkspaceState = await workspaceApi.getAll();
+        const state = await workspaceApi.getAll();
         if (!mounted) return;
 
+        setLimits(state.limits);
         setWorkspaces(state.workspaces);
         setGridLayouts(state.gridLayouts);
 
@@ -618,6 +621,7 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
 
   return {
     workspaces,
+    limits,
     tabs,
     gridLayouts,
     activeWorkspaceId,

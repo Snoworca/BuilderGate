@@ -228,6 +228,13 @@ export class WorkspaceService {
     return this.state;
   }
 
+  getLimits(): Pick<WorkspaceConfig, 'maxWorkspaces' | 'maxTabsPerWorkspace'> {
+    return {
+      maxWorkspaces: this.config.maxWorkspaces,
+      maxTabsPerWorkspace: this.config.maxTabsPerWorkspace,
+    };
+  }
+
   getDataFilePath(): string {
     return this.dataFilePath;
   }
