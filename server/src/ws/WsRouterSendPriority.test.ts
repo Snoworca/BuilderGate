@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { WsRouter } from './WsRouter.js';
+import { WsRouter, type TerminalAuthorityContinuityRecord } from './WsRouter.js';
 import type { AuthService } from '../services/AuthService.js';
 import type { SessionManager } from '../services/SessionManager.js';
 import {
@@ -272,8 +272,8 @@ test('PERF-BGSTAB-011 carries reserved source identity through fair delivery to 
   }
 });
 
-function createAckRouteHarness(admit = true) {
-  const router = createFairRouter();
+function createAckRouteHarness(admit = true, screenSnapshot: Record<string, unknown> | null = null) {
+  const router = createFairRouter(screenSnapshot);
   const socket = createFakeWs();
   const internals = router as unknown as {
     clients: Map<typeof socket.ws, Record<string, unknown>>;
@@ -281,6 +281,7 @@ function createAckRouteHarness(admit = true) {
     splitSocketGroups: Map<typeof socket.ws, { control: typeof socket.ws; output: typeof socket.ws }>;
     fairDeliverySchedulers: Map<typeof socket.ws, { connectionEpoch: string; scheduler: ReturnType<typeof createFairTerminalDeliveryScheduler> }>;
     handleMessage(ws: typeof socket.ws, raw: string): void;
+    runFairDeliveryMaintenance(ws: typeof socket.ws, now: number): void;
   };
   const meta = {
     clientId: 'p4a-client', connectionId: 'p4a-connection', channelRole: 'control',
@@ -398,6 +399,264 @@ test('P4a PERF-BGSTAB-011 actual source ACK handler settles exact body bytes and
     h.router.destroy();
   }
 });
+
+for (const trigger of ['ack-timeout', 'queue-overflow'] as const) {
+  for (const withPeer of [false, true]) {
+    test(`FRR ${trigger} snapshot-ready preserves two normal outputs ${withPeer ? 'with an active peer' : 'on the last lane'}`, t => {
+      const h = createAckRouteHarness(true, {
+        seq: 41, cols: 120, rows: 40, data: 'authoritative prefix at screen 41',
+        truncated: false, generatedAt: 1, health: 'healthy', parserComplete: true,
+        authorityEpoch: 'authority-frr', authorityRevision: 41,
+      });
+      try {
+        const sessionId = 'p4a-session';
+        const peerId = 'frr-peer';
+        const connectionEpoch = 'p4a-connection';
+        const affectedKey = `${connectionEpoch}/${sessionId}`;
+        const peerKey = `${connectionEpoch}/${peerId}`;
+        const originalScheduler = h.internals.fairDeliverySchedulers.get(h.socket.ws)!.scheduler;
+        const sessionPort = (h.router as unknown as { sessionManager: { writeInput(): boolean; resize(): boolean } }).sessionManager;
+        const writes = t.mock.method(sessionPort, 'writeInput');
+        const resizes = t.mock.method(sessionPort, 'resize');
+        if (withPeer) {
+          h.meta.subscribedSessions.add(peerId);
+          h.internals.sessionSubscribers.set(peerId, new Set([h.socket.ws]));
+          h.router.routeSessionOutput(peerId, 'peer-before', 40, { streamEpoch: '7', sourceSeq: '200' });
+          const peerOutput = h.socket.sent.filter(row => row.type === 'output' && row.sessionId === peerId).at(-1)!;
+          assert.ok(peerOutput);
+          h.internals.handleMessage(h.socket.ws, JSON.stringify({
+            type: 'terminal-delivery:ack', sessionId: peerId,
+            connectionEpoch: peerOutput.connectionEpoch, deliverySeq: peerOutput.deliverySeq,
+          }));
+          assert.equal(originalScheduler.snapshot().lanes[peerKey].creditBytes, 11);
+          assert.equal(originalScheduler.snapshot().lanes[peerKey].socketQueuedBytes, 0);
+        }
+        const peerBefore = withPeer ? originalScheduler.snapshot().lanes[peerKey] : null;
+        h.router.routeSessionOutput(sessionId, 'before-recovery', 40, { streamEpoch: '7', sourceSeq: '100' });
+        if (trigger === 'ack-timeout') {
+          h.internals.runFairDeliveryMaintenance(h.socket.ws, Date.now() + originalScheduler.snapshot().policy.ackTimeoutMs.value + 1);
+        } else {
+          const oversized = 'x'.repeat(originalScheduler.snapshot().policy.queueMaxBytes.value + 1);
+          h.router.routeSessionOutput(sessionId, oversized, 41, { streamEpoch: '7', sourceSeq: '101' });
+        }
+        assert.equal(originalScheduler.snapshot().fallback[affectedKey]?.reason, trigger,
+          'the intended fair fallback, not transport or snapshot failure, must be observed');
+        const restore = h.socket.sent.filter(row => row.type === 'screen-repair:restore-needed' && row.sessionId === sessionId).at(-1)!;
+        const snapshot = h.socket.sent.filter(row => row.type === 'screen-snapshot' && row.sessionId === sessionId).at(-1)!;
+        assert.ok(restore && snapshot);
+        assert.equal(restore.reason, 'delivery-recovery');
+        assert.equal(restore.outcome, 'fresh-snapshot-started');
+        assert.equal(snapshot.seq, 41);
+        assert.equal(snapshot.mode, 'authoritative');
+        assert.equal(typeof snapshot.replayToken, 'string');
+        assert.ok((snapshot.replayToken as string).length > 0);
+        assert.equal(restore.replayToken, snapshot.replayToken);
+        assert.equal(h.meta.replayPendingSessions.has(sessionId), true);
+        h.internals.handleMessage(h.socket.ws, JSON.stringify({
+          type: 'screen-snapshot:ready', sessionId, replayToken: snapshot.replayToken,
+        }));
+        assert.equal(h.meta.replayPendingSessions.has(sessionId), false);
+        assert.ok(h.socket.sent.some(row => row.type === 'session:ready' && row.sessionId === sessionId
+          && row.replayToken === snapshot.replayToken), 'the real recovery handler must reach ready before new output');
+
+        const outputStart = h.socket.sent.length;
+        h.router.routeSessionOutput(sessionId, 'FRR first after snapshot', 42, { streamEpoch: '7', sourceSeq: '102' });
+        h.router.routeSessionOutput(sessionId, 'FRR second after snapshot', 43, { streamEpoch: '7', sourceSeq: '103' });
+        const postOutput = h.socket.sent.slice(outputStart).filter(row => row.type === 'output' && row.sessionId === sessionId);
+        if (withPeer) {
+          assert.equal(h.internals.fairDeliverySchedulers.get(h.socket.ws)!.scheduler, originalScheduler);
+          assert.deepEqual(originalScheduler.snapshot().lanes[peerKey], peerBefore);
+          assert.equal(h.socket.sent.some(row => row.sessionId === peerId
+            && ['screen-snapshot', 'screen-repair:restore-needed', 'screen-repair:reconnect-required'].includes(String(row.type))), false);
+          h.router.routeSessionOutput(peerId, 'peer-after', 44, { streamEpoch: '7', sourceSeq: '201' });
+          const peerOutput = h.socket.sent.filter(row => row.type === 'output' && row.sessionId === peerId).at(-1)!;
+          assert.equal(peerOutput.data, 'peer-after');
+          h.internals.handleMessage(h.socket.ws, JSON.stringify({
+            type: 'terminal-delivery:ack', sessionId: peerId,
+            connectionEpoch: peerOutput.connectionEpoch, deliverySeq: peerOutput.deliverySeq,
+          }));
+          assert.equal(originalScheduler.snapshot().lanes[peerKey].creditBytes, 21);
+          assert.equal(originalScheduler.snapshot().lanes[peerKey].socketQueuedBytes, 0);
+        }
+        assert.equal(writes.mock.callCount(), 0);
+        assert.equal(resizes.mock.callCount(), 0);
+        assert.equal(h.socket.sent.some(row => row.type === 'status'), false);
+        const active = h.internals.fairDeliverySchedulers.get(h.socket.ws);
+        console.log(JSON.stringify({
+          reproduction: 'FRR', trigger, withPeer, recoveryReady: true,
+          schedulerPresent: active !== undefined, activeLane: active?.scheduler.snapshot().lanes[affectedKey] ?? null,
+          postOutput: postOutput.map(row => ({ data: row.data, screenSeq: row.screenSeq, chunkId: row.chunkId,
+            connectionEpoch: row.connectionEpoch, deliverySeq: row.deliverySeq, streamEpoch: row.streamEpoch, sourceSeq: row.sourceSeq })),
+          peerCredit: withPeer ? originalScheduler.snapshot().lanes[peerKey].creditBytes : null,
+        }));
+        assert.deepEqual(postOutput.map(row => row.data), ['FRR first after snapshot', 'FRR second after snapshot'],
+          'successful recovery must preserve the next two normal outputs, including when another fair lane remains active');
+        assert.deepEqual(postOutput.map(row => row.screenSeq), [42, 43], 'compare numeric screen coverage only with snapshot.seq=41');
+        assert.equal(new Set(postOutput.map(row => row.chunkId)).size, 2);
+        for (const [index, row] of postOutput.entries()) {
+          if (row.sourceSeq !== undefined || row.streamEpoch !== undefined) {
+            assert.equal(row.sourceSeq, ['102', '103'][index]);
+            assert.equal(row.streamEpoch, '7');
+          }
+        }
+        // JSON compatibility fallback may intentionally omit fair identity.
+        // This reproduction does not establish binary frame membership.
+      } finally {
+        h.router.destroy();
+      }
+    });
+  }
+}
+
+function createTimedOutFairPeerFixture(withPeer = true) {
+  const h = createAckRouteHarness(true, {
+    seq: 41, cols: 120, rows: 40, data: 'FRR lifecycle checkpoint', truncated: false,
+    generatedAt: 1, health: 'healthy', parserComplete: true, authorityEpoch: 'frr-lifecycle', authorityRevision: 41,
+  });
+  try {
+    const peerId = 'frr-lifecycle-peer';
+    const scheduler = h.internals.fairDeliverySchedulers.get(h.socket.ws)!.scheduler;
+    if (withPeer) {
+      h.meta.subscribedSessions.add(peerId);
+      h.internals.sessionSubscribers.set(peerId, new Set([h.socket.ws]));
+      h.router.routeSessionOutput(peerId, 'peer-before', 40, { streamEpoch: '7', sourceSeq: '200' });
+      const peer = h.socket.sent.filter(row => row.type === 'output' && row.sessionId === peerId).at(-1)!;
+      h.internals.handleMessage(h.socket.ws, JSON.stringify({
+        type: 'terminal-delivery:ack', sessionId: peerId, connectionEpoch: peer.connectionEpoch, deliverySeq: peer.deliverySeq,
+      }));
+      assert.equal(scheduler.snapshot().lanes[`p4a-connection/${peerId}`].creditBytes, 11);
+    }
+    h.router.routeSessionOutput('p4a-session', 'old', 40, { streamEpoch: '7', sourceSeq: '100' });
+    h.internals.runFairDeliveryMaintenance(h.socket.ws, Date.now() + scheduler.snapshot().policy.ackTimeoutMs.value + 1);
+    assert.equal(scheduler.snapshot().fallback['p4a-connection/p4a-session']?.reason, 'ack-timeout');
+    const snapshot = h.socket.sent.filter(row => row.type === 'screen-snapshot' && row.sessionId === 'p4a-session').at(-1)!;
+    assert.ok(snapshot && typeof snapshot.replayToken === 'string');
+    return { ...h, scheduler, peerId, replayToken: snapshot.replayToken };
+  } catch (error) {
+    h.router.destroy();
+    throw error;
+  }
+}
+
+test('FRR repeated actual maintenance fallback produces only one recovery transaction', () => {
+  const h = createTimedOutFairPeerFixture();
+  try {
+    h.internals.runFairDeliveryMaintenance(h.socket.ws, Date.now() + 20_000);
+    h.internals.handleMessage(h.socket.ws, JSON.stringify({ type: 'screen-snapshot:ready', sessionId: 'p4a-session', replayToken: h.replayToken }));
+    h.internals.runFairDeliveryMaintenance(h.socket.ws, Date.now() + 30_000);
+    for (const type of ['screen-repair:restore-needed', 'screen-snapshot', 'session:ready']) {
+      assert.equal(h.socket.sent.filter(row => row.type === type && row.sessionId === 'p4a-session').length, 1, type);
+    }
+    assert.equal(h.scheduler.snapshot().cleanup.releases['p4a-connection/p4a-session'], 1);
+  } finally { h.router.destroy(); }
+});
+
+test('FRR stale affected ACKs after recovery return zero credit and preserve the peer', t => {
+  const h = createTimedOutFairPeerFixture();
+  try {
+    h.internals.handleMessage(h.socket.ws, JSON.stringify({ type: 'screen-snapshot:ready', sessionId: 'p4a-session', replayToken: h.replayToken }));
+    const before = h.scheduler.snapshot().lanes;
+    const ack = t.mock.method(h.scheduler, 'acknowledge');
+    for (const identity of [{ deliverySeq: 1 }, { kind: 'sourceSeq', streamEpoch: '7', sourceSeq: '100' }]) {
+      h.internals.handleMessage(h.socket.ws, JSON.stringify({ type: 'terminal-delivery:ack', sessionId: 'p4a-session', connectionEpoch: 'p4a-connection', ...identity }));
+      assert.deepEqual(ack.mock.calls.at(-1)?.result, { accepted: false, creditedBytes: 0, errorCode: 'ACK_STALE_EPOCH' });
+      assert.deepEqual(h.socket.sent.at(-1), { type: 'terminal-delivery:ack-rejected', sessionId: 'p4a-session', connectionEpoch: 'p4a-connection', ...identity, reason: 'ACK_STALE_EPOCH' });
+    }
+    assert.equal(ack.mock.callCount(), 2);
+    assert.deepEqual(h.scheduler.snapshot().lanes, before);
+  } finally { h.router.destroy(); }
+});
+
+for (const lifecycle of ['unsubscribe', 'session-termination', 'disconnect'] as const) {
+  test(`FRR post-fallback ${lifecycle} prevents new output through real router lifecycle entrypoints`, () => {
+    const h = createTimedOutFairPeerFixture();
+    try {
+      h.internals.handleMessage(h.socket.ws, JSON.stringify({ type: 'screen-snapshot:ready', sessionId: 'p4a-session', replayToken: h.replayToken }));
+      if (lifecycle === 'unsubscribe') {
+        h.internals.handleMessage(h.socket.ws, JSON.stringify({ type: 'unsubscribe', sessionIds: ['p4a-session'] }));
+      } else if (lifecycle === 'session-termination') {
+        h.router.sendSessionEvent('p4a-session', 'session:exited', { exitCode: 0 });
+        h.router.clearSessionState('p4a-session');
+      } else {
+        h.socket.ws.close();
+        (h.router as unknown as { handleDisconnect(ws: typeof h.socket.ws): void }).handleDisconnect(h.socket.ws);
+      }
+      const before = h.socket.sent.length;
+      h.router.routeSessionOutput('p4a-session', 'must-not-arrive', 42, { streamEpoch: '7', sourceSeq: '102' });
+      assert.equal(h.socket.sent.length, before);
+      assert.equal(h.router.getSubscribers('p4a-session')?.has(h.socket.ws) ?? false, false);
+    } finally { h.router.destroy(); }
+  });
+}
+
+for (const withPeer of [false, true]) {
+  test(`FRR hidden-view request after actual timeout recovery preserves compatibility ${withPeer ? 'with a peer' : 'on the last lane'}`, t => {
+    const h = createTimedOutFairPeerFixture(withPeer);
+    try {
+      h.internals.handleMessage(h.socket.ws, JSON.stringify({ type: 'screen-snapshot:ready', sessionId: 'p4a-session', replayToken: h.replayToken }));
+      assert.equal(h.meta.replayPendingSessions.has('p4a-session'), false);
+      assert.ok(h.socket.sent.some(row => row.type === 'session:ready' && row.replayToken === h.replayToken));
+      const recoveryRecords: Array<{ sessionId: string; input: Record<string, unknown> }> = [];
+      Object.assign((h.router as unknown as { sessionManager: Record<string, unknown> }).sessionManager, {
+        recordTerminalAuthorityServerRecoveryApplied(sessionId: string, input: Record<string, unknown>) {
+          recoveryRecords.push({ sessionId, input });
+          return { ok: true };
+        },
+      });
+      const issued: TerminalAuthorityContinuityRecord = {
+        sessionId: 'p4a-session', connectionId: 'p4a-connection', viewGeneration: 7,
+        visibilityGeneration: '5', lastDeliveredSeq: '41', streamEpoch: '11', checkpointEpoch: '9',
+        snapshotSeq: '40', oldestRetainedSeq: '12', retentionPolicyId: 'retained-scrollback:10000', expiresAt: Date.now() + 60_000,
+      };
+      installIssuedContinuityFixture(h.router, issued);
+      h.internals.handleMessage(h.socket.ws, JSON.stringify({
+        type: 'terminal-checkpoint:negotiate', protocolVersion: 1,
+        views: [{ sessionId: issued.sessionId, viewGeneration: issued.viewGeneration,
+          queryReplyCapability: 'terminal.query-reply-input.v1', parserResponderCapability: 'terminal.parser-responder-disable.v1' }],
+      }));
+      const registered = (h.internals.clients.get(h.socket.ws)?.terminalAuthorityViewRegistrations as Map<string, Record<string, unknown>>).get(issued.sessionId);
+      assert.equal(registered?.viewGeneration, 7, 'the actual negotiated view must exist');
+      assert.equal(registered?.authorityStreamEpoch, '11');
+      assert.equal(recoveryRecords.length, 1, 'late view registration must reuse the completed real snapshot recovery evidence');
+      assert.equal(recoveryRecords[0].sessionId, issued.sessionId);
+      assert.equal(recoveryRecords[0].input.replayToken, h.replayToken);
+      assert.equal(recoveryRecords[0].input.snapshotSeq, 41);
+      h.internals.handleMessage(h.socket.ws, JSON.stringify({
+        type: 'terminal-delivery:visibility', sessionId: issued.sessionId,
+        visibilityGeneration: issued.visibilityGeneration, isVisible: false, deliveryInterestRefCount: 1,
+      }));
+      if (withPeer) {
+        const visibility = (h.router as unknown as {
+          terminalDeliveryVisibilityBySocket: Map<typeof h.socket.ws, Map<string, { isVisible: boolean }>>;
+        }).terminalDeliveryVisibilityBySocket.get(h.socket.ws)?.get(issued.sessionId);
+        assert.equal(visibility?.isVisible, false, 'a valid hidden view must reach the existing dataGap branch');
+      }
+      const enqueue = t.mock.method(h.scheduler, 'enqueue');
+      const peerBefore = withPeer ? h.scheduler.snapshot().lanes[`p4a-connection/${h.peerId}`] : null;
+      const start = h.socket.sent.length;
+      h.router.routeSessionOutput(issued.sessionId, 'hidden-after-one', 42, { streamEpoch: '11', sourceSeq: '102' });
+      h.router.routeSessionOutput(issued.sessionId, 'hidden-after-two', 43, { streamEpoch: '11', sourceSeq: '103' });
+      const gapAttempts = enqueue.mock.calls.filter(call => call.arguments[0].sessionId === issued.sessionId && call.arguments[0].kind === 'dataGap');
+      const affected = h.socket.sent.slice(start).filter(row => row.sessionId === issued.sessionId);
+      if (withPeer) {
+        assert.deepEqual(h.scheduler.snapshot().lanes[`p4a-connection/${h.peerId}`], peerBefore);
+        h.router.routeSessionOutput(h.peerId, 'peer-after', 44, { streamEpoch: '7', sourceSeq: '201' });
+        const peerOutput = h.socket.sent.filter(row => row.type === 'output' && row.sessionId === h.peerId).at(-1)!;
+        assert.equal(peerOutput.data, 'peer-after');
+        h.internals.handleMessage(h.socket.ws, JSON.stringify({
+          type: 'terminal-delivery:ack', sessionId: h.peerId, connectionEpoch: peerOutput.connectionEpoch, deliverySeq: peerOutput.deliverySeq,
+        }));
+        assert.equal(h.scheduler.snapshot().lanes[`p4a-connection/${h.peerId}`].creditBytes, 21);
+      }
+      console.log(JSON.stringify({ reproduction: 'FRR-hidden', withPeer, gapEnqueueAttempts: gapAttempts.length,
+        affectedTypes: affected.map(row => row.type), output: affected.filter(row => row.type === 'output').map(row => row.data) }));
+      assert.equal(gapAttempts.length, 0, 'a released fallback lane must not receive hidden dataGap enqueue attempts');
+      assert.deepEqual(affected.map(row => row.type), ['output', 'output']);
+      assert.deepEqual(affected.map(row => row.data), ['hidden-after-one', 'hidden-after-two']);
+      assert.deepEqual(affected.map(row => row.screenSeq), [42, 43]);
+    } finally { h.router.destroy(); }
+  });
+}
 
 test('PERF-BGSTAB-010 runtime candidate delivery uses a server ledger and control-only cumulative ACK', () => {
   const router = createFairRouter();
@@ -2422,38 +2681,7 @@ test('REL-BGSTAB-012 rejects stale visibility and latches ordered dataGap', () =
     expiresAt: Date.now() + 60_000,
   };
   try {
-    router.installTerminalAuthorityHooks({
-      queryReplyIngress: { handle: () => ({ handled: false, accepted: false }) } as never,
-      onClientFrame: () => false,
-      onTopologyChanged: () => undefined,
-      readViewAuthorityStreamEpoch: () => issued.streamEpoch,
-      readFreshAuthoritativeCheckpoint: () => ({
-        continuity: issued,
-        fullCheckpoint: {
-          streamEpoch: issued.streamEpoch,
-          checkpointEpoch: issued.checkpointEpoch,
-          snapshotSeq: issued.snapshotSeq,
-          oldestRetainedSeq: issued.oldestRetainedSeq,
-          retentionPolicyId: issued.retentionPolicyId,
-          geometry: { cols: 80, rows: 24 },
-          modes: { bracketedPasteMode: true },
-          chunks: [{
-            sequence: 0,
-            chunkIndex: 0,
-            chunkCount: 1,
-            encoding: 'base64',
-            data: 'YQ==',
-            encodedBytes: 1,
-          }],
-          digest: {
-            algorithm: 'sha256',
-            hex: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb',
-          },
-          parserTail: { encoding: 'base64', data: '', encodedBytes: 0 },
-          tailOnly: false,
-        },
-      }),
-    });
+    installIssuedContinuityFixture(router, issued);
     internals.clients.set(ws, {
       clientId: 'hidden-visibility-client',
       connectionId: issued.connectionId,
@@ -2812,6 +3040,41 @@ test('REL-BGSTAB-012 settles revoked delivery interest exactly once without paus
     router.destroy();
   }
 });
+
+function installIssuedContinuityFixture(router: WsRouter, issued: TerminalAuthorityContinuityRecord): void {
+  router.installTerminalAuthorityHooks({
+    queryReplyIngress: { handle: () => ({ handled: false, accepted: false }) } as never,
+    onClientFrame: () => false,
+    onTopologyChanged: () => undefined,
+    readViewAuthorityStreamEpoch: () => issued.streamEpoch,
+    readFreshAuthoritativeCheckpoint: () => ({
+      continuity: issued,
+      fullCheckpoint: {
+        streamEpoch: issued.streamEpoch,
+        checkpointEpoch: issued.checkpointEpoch,
+        snapshotSeq: issued.snapshotSeq,
+        oldestRetainedSeq: issued.oldestRetainedSeq,
+        retentionPolicyId: issued.retentionPolicyId,
+        geometry: { cols: 80, rows: 24 },
+        modes: { bracketedPasteMode: true },
+        chunks: [{
+          sequence: 0,
+          chunkIndex: 0,
+          chunkCount: 1,
+          encoding: 'base64',
+          data: 'YQ==',
+          encodedBytes: 1,
+        }],
+        digest: {
+          algorithm: 'sha256',
+          hex: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb',
+        },
+        parserTail: { encoding: 'base64', data: '', encodedBytes: 0 },
+        tailOnly: false,
+      },
+    }),
+  });
+}
 
 test('REL-BGSTAB-012 binds dataGap to issued continuity and current hidden view', () => {
   const signature = 'REL-BGSTAB-012 AC-3: an ordered hidden dataGap is bound to the negotiated current browser view and server-issued continuity, while an identity mismatch emits no marker and requires authoritative recovery';

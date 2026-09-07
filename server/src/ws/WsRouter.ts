@@ -5213,7 +5213,14 @@ export class WsRouter {
       }
 
       const visibility = this.terminalDeliveryVisibilityBySocket.get(ws)?.get(sessionId);
-      const fairScheduler = this.fairDeliverySchedulers.get(ws);
+      const connectionFairScheduler = this.fairDeliverySchedulers.get(ws);
+      const fairScheduler = connectionFairScheduler
+        && connectionFairScheduler.scheduler.getFallbackReason({
+          connectionEpoch: connectionFairScheduler.connectionEpoch,
+          sessionId,
+        }) === undefined
+        ? connectionFairScheduler
+        : undefined;
       if (visibility && !visibility.isVisible && fairScheduler) {
         const connectionId = meta?.connectionId ?? meta?.clientId;
         const registration = connectionId && meta

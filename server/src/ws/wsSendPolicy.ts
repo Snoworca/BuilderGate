@@ -833,6 +833,10 @@ export function createFairTerminalDeliveryScheduler(options: FairTerminalDeliver
   };
 
   return {
+    getFallbackReason(input: { connectionEpoch: string; sessionId: string }): string | undefined {
+      return lanes.get(fairLaneKey(input.connectionEpoch, input.sessionId))?.fallback?.reason;
+    },
+
     enqueue(input: FairTerminalDeliveryInput): { accepted: boolean; deliverySeq?: number; reason?: string } {
       if (retiredEpochs.has(input.connectionEpoch)) {
         return { accepted: false, reason: 'connection-epoch-retired' };

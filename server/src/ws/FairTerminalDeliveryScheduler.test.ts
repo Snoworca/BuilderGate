@@ -64,6 +64,7 @@ interface FairTerminalDeliveryScheduler {
   closeConnection(connectionEpoch: string): void;
   terminateSession(input: { connectionEpoch: string; sessionId: string }): void;
   rollbackConnection(connectionEpoch: string): void;
+  getFallbackReason(input: { connectionEpoch: string; sessionId: string }): string | undefined;
   snapshot(): SchedulerSnapshot;
   decision(): {
     artifactPath: string;
@@ -196,6 +197,55 @@ function assertPercentileMatrix(
   assert.equal(value.p95 <= value.p99, true, signature);
   assert.equal(value.p99 <= value.max, true, signature);
 }
+
+test('FRR fallback accessor does not create absent lanes or invoke snapshot', async t => {
+  const { scheduler } = await createHarness('FRR pure fallback accessor');
+  assert.equal(typeof scheduler.getFallbackReason, 'function');
+  const before = scheduler.snapshot();
+  const snapshot = t.mock.method(scheduler, 'snapshot', () => { throw new Error('fallback lookup must not compute snapshots'); });
+  try {
+    assert.equal(scheduler.getFallbackReason({ connectionEpoch: 'absent', sessionId: 'missing' }), undefined);
+    assert.equal(scheduler.getFallbackReason({ connectionEpoch: 'absent', sessionId: 'missing' }), undefined);
+  } finally { snapshot.mock.restore(); }
+  assert.deepEqual(scheduler.snapshot(), before);
+});
+
+test('FRR fallback accessor distinguishes ordinary and plain terminated or downgraded lanes', async () => {
+  const { scheduler } = await createHarness('FRR release is not fallback');
+  assert.equal(typeof scheduler.getFallbackReason, 'function');
+  const lane = { connectionEpoch: 'epoch-frr', sessionId: 'ordinary' };
+  requireAccepted(scheduler.enqueue({ ...lane, kind: 'output', payload: 'abc' }), 'ordinary admission');
+  assert.equal(scheduler.getFallbackReason(lane), undefined);
+  scheduler.terminateSession(lane);
+  assert.equal(scheduler.getFallbackReason(lane), undefined);
+  const downgraded = { ...lane, sessionId: 'downgraded' };
+  requireAccepted(scheduler.enqueue({ ...downgraded, kind: 'output', payload: 'xyz' }), 'downgrade admission');
+  scheduler.downgrade({ ...downgraded, reason: 'client-withdrew' });
+  assert.equal(scheduler.getFallbackReason(downgraded), undefined);
+});
+
+test('FRR fallback accessor returns the recorded timeout reason without repeating recovery', async () => {
+  const { scheduler, advance, fallbacks } = await createHarness('FRR timeout lookup');
+  assert.equal(typeof scheduler.getFallbackReason, 'function');
+  const lane = { connectionEpoch: 'epoch-frr', sessionId: 'timeout' };
+  requireAccepted(scheduler.enqueue({ ...lane, kind: 'output', payload: 'abc' }), 'timeout admission');
+  scheduler.drain();
+  advance(51);
+  assert.equal(scheduler.getFallbackReason(lane), 'ack-timeout');
+  assert.equal(scheduler.getFallbackReason(lane), 'ack-timeout');
+  advance(51);
+  assert.equal(fallbacks.length, 1);
+  assert.equal(scheduler.snapshot().cleanup.heldBytes, 0);
+});
+
+test('FRR fallback accessor returns overflow but not an unrelated lane reason', async () => {
+  const { scheduler } = await createHarness('FRR overflow lookup', { policy: { queueMaxBytes: { value: 4, source: policySource } } });
+  assert.equal(typeof scheduler.getFallbackReason, 'function');
+  const lane = { connectionEpoch: 'epoch-frr', sessionId: 'overflow' };
+  assert.equal(scheduler.enqueue({ ...lane, kind: 'output', payload: '12345' }).accepted, false);
+  assert.equal(scheduler.getFallbackReason(lane), 'queue-overflow');
+  assert.equal(scheduler.getFallbackReason({ ...lane, sessionId: 'other' }), undefined);
+});
 
 test('Fair delivery scheduler and ACK credit RED contract — PERF-BGSTAB-010 AC-1', async () => {
   const signature = 'PERF-BGSTAB-010 AC-1 Fair delivery scheduler and ACK credit 계약 부재 때문에 실패';
