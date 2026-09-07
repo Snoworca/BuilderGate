@@ -7,9 +7,10 @@ import http from 'node:http';
 import https from 'node:https';
 import type net from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
+import { mock } from 'node:test';
 import type { Config } from './types/config.types.js';
 import type { Session, ShellType } from './types/index.js';
-import { twoFactorSchema, authSchema } from './schemas/config.schema.js';
+import { twoFactorSchema, authSchema, workspaceSchema } from './schemas/config.schema.js';
 import {
   resourceLimitsSchema,
   sessionProcessCleanupSchema,
@@ -98,7 +99,7 @@ import {
   readProcessStartIdentity,
   type ProcessTreeTerminator,
 } from './utils/processTreeTerminator.js';
-import { getConfigPath, loadConfigFromPath } from './utils/config.js';
+import { config as runtimeConfig, getConfigPath, loadConfigFromPath } from './utils/config.js';
 import { loadConfigFromPathStrict } from './utils/configStrictLoader.js';
 import { resolveInputReliabilityMode } from './utils/inputReliabilityMode.js';
 import { validatePasswordPolicy } from './utils/passwordPolicy.js';
@@ -581,6 +582,8 @@ async function main(): Promise<void> {
     { name: 'WorkspaceService ignores absolute path terminal titles', run: testWorkspaceServiceIgnoresAbsolutePathTerminalTitle },
     { name: 'WorkspaceService preserves user tab names from terminal titles', run: testWorkspaceServiceTerminalTitleRespectsUserName },
     { name: 'WorkspaceService debounces rapid terminal titles to the final value', run: testWorkspaceServiceTerminalTitleDebounce },
+    { name: 'FR-BGSTAB-026 WorkspaceService applies parsed title timing and option precedence', run: testWorkspaceConfiguredTitleTiming },
+    { name: 'FR-BGSTAB-026 WorkspaceService applies parsed restore timing and option precedence', run: testWorkspaceConfiguredRestoreTiming },
     { name: 'WorkspaceService absolute path terminal title cancels pending debounce', run: testWorkspaceServiceAbsolutePathTitleCancelsPendingDebounce },
     { name: 'WorkspaceService manual rename cancels pending terminal title updates', run: testWorkspaceServiceManualRenameCancelsPendingTitle },
     { name: 'WorkspaceService restart cancels pending old-session terminal titles', run: testWorkspaceServiceRestartCancelsPendingTitle },
@@ -19495,6 +19498,73 @@ async function testWorkspaceServiceRestartSchedulesRecoveryRestore(): Promise<vo
     ]);
   } finally {
     await fixture.cleanup();
+  }
+}
+
+async function testWorkspaceConfiguredRestoreTiming(): Promise<void> {
+  const mutableConfig = runtimeConfig as Config & { workspace?: unknown };
+  const originalWorkspace = mutableConfig.workspace;
+  const fixture = await createTempRecoveryOptionService();
+  try {
+    const option = fixture.service.getAll().find(item => item.command === 'codex');
+    assert.ok(option);
+    for (const scenario of [
+      { input: {}, override: undefined, expected: 600 },
+      { input: { restoreInputDelayMs: 900 }, override: undefined, expected: 900 },
+      { input: { restoreInputDelayMs: 900 }, override: 0, expected: 0 },
+    ]) {
+      mutableConfig.workspace = workspaceSchema.parse(scenario.input);
+      const { workspaceService, calls } = createWorkspaceServiceHarness({
+        recoveryOptionService: fixture.service,
+        restoreInputDelayMs: scenario.override,
+      });
+      (workspaceService as any).state = createWorkspaceStateWithTab({
+        sessionId: 'old-session', shellType: 'bash', recoveryOptionId: option.id,
+        recoveryCommand: 'codex', recoveryArguments: ['resume', '--last'],
+      });
+      calls.hasSession.add('old-session');
+      const tab = await workspaceService.restartTab('ws-1', 'tab-1');
+      assert.equal(calls.scheduleRestoreInput.length, 1);
+      assert.equal(calls.scheduleRestoreInput[0].sessionId, tab.sessionId);
+      assert.equal(calls.scheduleRestoreInput[0].delayMs, scenario.expected);
+    }
+  } finally {
+    if (originalWorkspace === undefined) delete mutableConfig.workspace;
+    else mutableConfig.workspace = originalWorkspace;
+    await fixture.cleanup();
+  }
+}
+
+async function testWorkspaceConfiguredTitleTiming(): Promise<void> {
+  const mutableConfig = runtimeConfig as Config & { workspace?: unknown };
+  const originalWorkspace = mutableConfig.workspace;
+  try {
+    for (const scenario of [
+      { input: {}, override: undefined, expected: 250 },
+      { input: { terminalTitleDebounceMs: 400 }, override: undefined, expected: 400 },
+      { input: { terminalTitleDebounceMs: 400 }, override: 0, expected: 0 },
+    ]) {
+      mutableConfig.workspace = workspaceSchema.parse(scenario.input);
+      const { workspaceService } = createWorkspaceServiceHarness({ terminalTitleDebounceMs: scenario.override });
+      (workspaceService as any).state = createWorkspaceStateWithTab({
+        sessionId: 'session-1', name: 'Terminal-1', nameSource: 'default',
+      });
+      mock.timers.enable({ apis: ['setTimeout'] });
+      try {
+        await workspaceService.applyTerminalTitle('session-1', 'Configured Title');
+        if (scenario.expected > 0) {
+          mock.timers.tick(scenario.expected - 1);
+          assert.equal(workspaceService.getTab('tab-1').name, 'Terminal-1');
+          mock.timers.tick(1);
+        }
+        assert.equal(workspaceService.getTab('tab-1').name, 'Configured Title');
+      } finally {
+        mock.timers.reset();
+      }
+    }
+  } finally {
+    if (originalWorkspace === undefined) delete mutableConfig.workspace;
+    else mutableConfig.workspace = originalWorkspace;
   }
 }
 

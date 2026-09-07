@@ -22,6 +22,32 @@ function minimalConfig() {
   };
 }
 
+test('FR-BGSTAB-026 workspace timing uses defaults when omitted', () => {
+  const parsed = configSchema.parse({ ...minimalConfig(), workspace: {} });
+  assert.ok(parsed.workspace);
+  assert.equal(Reflect.get(parsed.workspace, 'terminalTitleDebounceMs'), 250);
+  assert.equal(Reflect.get(parsed.workspace, 'restoreInputDelayMs'), 600);
+});
+
+test('FR-BGSTAB-026 workspace timing preserves explicit and boundary values', () => {
+  for (const [terminalTitleDebounceMs, restoreInputDelayMs] of [[0, 0], [400, 900], [5000, 10000]]) {
+    const parsed = configSchema.parse({ ...minimalConfig(), workspace: { terminalTitleDebounceMs, restoreInputDelayMs } });
+    assert.ok(parsed.workspace);
+    assert.equal(Reflect.get(parsed.workspace, 'terminalTitleDebounceMs'), terminalTitleDebounceMs);
+    assert.equal(Reflect.get(parsed.workspace, 'restoreInputDelayMs'), restoreInputDelayMs);
+  }
+});
+
+test('FR-BGSTAB-026 workspace timing rejects invalid values instead of discarding them', () => {
+  for (const [key, maximum] of [['terminalTitleDebounceMs', 5000], ['restoreInputDelayMs', 10000]] as const) {
+    for (const value of [-1, maximum + 1, 0.5, NaN, Infinity, '400', null]) {
+      const result = configSchema.safeParse({ ...minimalConfig(), workspace: { [key]: value } });
+      assert.equal(result.success, false, `${key}=${String(value)} must be rejected`);
+      if (!result.success) assert.ok(result.error.issues.some(issue => issue.path.join('.') === `workspace.${key}`));
+    }
+  }
+});
+
 test('configSchema applies resourceLimits defaults to legacy config files', () => {
   const parsed = configSchema.parse(minimalConfig());
 
