@@ -9,6 +9,16 @@
 - Orca의 상수나 Electron 전용 전제를 맹목적으로 복사하지 않는다. BuilderGate의 WebSocket/WAN 가능 환경, 다중 client, 기존 protocol과 SRS 계약을 기준으로 이식 가능성을 검증하고 TDD·benchmark·rollback을 갖춘 단계로 적용한다.
 - `C:\Work\git-none\orca`는 명시적인 별도 승인 없이는 수정하지 않는 읽기 전용 참고 자료다.
 
+<!-- remaining-work-autonomous-execution:start -->
+## Temporary Remaining Work Execution Rule
+
+- 사용자 승인(2026-09-08): 남은 작업의 판단과 순서를 프로젝트 목적에 맞게 자동 결정하고 완료까지 진행한다.
+- 재개 순서와 진행 상태는 `docs/plan/2026-09-08.remaining-work-autonomous.plan.md`의 체크리스트를 읽는다. compact/새 turn 뒤에는 현재 Git 상태와 해당 문서의 Resume 항목부터 확인한다.
+- 작업 시작/종료 시 Resume의 현재 작업, 다음 행동, 증거 경로와 미해결 항목을 갱신한다. 테스트와 독립 리뷰로 완료가 입증된 항목만 `- [x]`로 바꾸고, 대기/차단/미검증은 `- [ ]`로 유지한다.
+- 계획은 진행 기록이며 요구사항 SSOT를 대체하지 않는다. SRS 선행, strict TDD, 독립 리뷰, provenance 위원회, Orca 읽기 전용 및 프로세스 제한은 유지한다. 실제 릴리스/soak를 가정하거나 생략하지 않는다.
+- 모든 범위의 완료 감사가 통과하면 이 start/end 마커 사이의 임시 규칙만 제거하고, 계획과 증거는 보존한다.
+<!-- remaining-work-autonomous-execution:end -->
+
 ## Work Memory
 
 - Long-lived 작업 기록과 이전 구현/검증 메모는 `docs/memory/*.md`에 남긴다.
