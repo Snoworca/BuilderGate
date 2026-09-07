@@ -9,7 +9,6 @@
 
 export interface FileManagerConfig {
   maxFileSize: number;
-  maxCodeFileSize: number;
   maxDirectoryEntries: number;
   blockedExtensions: string[];
   blockedPaths: string[];

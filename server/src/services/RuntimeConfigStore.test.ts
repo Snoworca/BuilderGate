@@ -30,12 +30,10 @@ function createConfigFixture(): Config {
     auth: {
       password: 'enc(secret)',
       durationMs: 1800000,
-      maxDurationMs: 86400000,
       jwtSecret: 'enc(jwt)',
     },
     fileManager: {
       maxFileSize: 1048576,
-      maxCodeFileSize: 524288,
       maxDirectoryEntries: 10000,
       blockedExtensions: ['.exe', '.dll'],
       blockedPaths: ['.ssh', '.aws'],
@@ -60,7 +58,33 @@ test('RuntimeConfigStore builds a redacted editable snapshot', () => {
   assert.equal(snapshot.capabilities['auth.password'].writeOnly, true);
   assert.equal(snapshot.secretState.authPasswordConfigured, true);
   assert.ok(snapshot.excludedSections.includes('ssl.*'));
-  assert.ok(snapshot.excludedSections.includes('fileManager.maxCodeFileSize'));
+  // FR-BGSTAB-025 removes retired exclusions; active secrets remain excluded.
+  assert.deepEqual([...snapshot.excludedSections].sort(), ['server.port', 'ssl.*', 'auth.jwtSecret'].sort());
+});
+
+test('FR-BGSTAB-025 runtime snapshot and capabilities contain no retired leaves', () => {
+  const fixture = createConfigFixture();
+  const original = structuredClone(fixture);
+  const store = new RuntimeConfigStore(fixture, 'linux');
+  const snapshot = store.getSnapshot();
+  assert.deepEqual(fixture, original, 'store construction must not rewrite its configuration input');
+  for (const retiredPath of [
+    'logging.level', 'logging.audit', 'logging.directory', 'logging.maxSize', 'logging.maxFiles',
+    'bruteForce.rateLimit.windowMs', 'bruteForce.rateLimit.maxRequests',
+    'bruteForce.lockout.maxAttempts', 'bruteForce.lockout.lockoutDurationMs', 'bruteForce.lockout.progressiveDelay',
+    'auth.maxDurationMs', 'fileManager.maxCodeFileSize', 'resourceLimits.telemetry.sampleIntervalMs',
+  ]) {
+    assert.equal(Reflect.get(snapshot.capabilities, retiredPath), undefined, `${retiredPath} capability`);
+    assert.equal(store.isEditable(retiredPath), false, `${retiredPath} editability`);
+    let value: unknown = snapshot.values;
+    for (const key of retiredPath.split('.')) {
+      value = value !== null && typeof value === 'object' ? Reflect.get(value, key) : undefined;
+    }
+    assert.equal(value, undefined, `${retiredPath} snapshot value`);
+  }
+  assert.equal(snapshot.values.fileManager.maxFileSize, fixture.fileManager!.maxFileSize);
+  assert.equal(snapshot.capabilities['auth.password'].writeOnly, true);
+  assert.equal(store.isEditable('auth.jwtSecret'), false);
 });
 
 test('RuntimeConfigStore marks platform-specific capabilities and merges editable patches', () => {
@@ -116,8 +140,8 @@ test('RuntimeConfigStore exposes Wave6 resource capabilities without leaking ser
   assert.equal(snapshot.capabilities['resourceLimits.ws.perClientControlQueueMaxBytes'].available, false);
   assert.match(snapshot.capabilities['resourceLimits.ws.perClientControlQueueMaxBytes'].reason ?? '', /selected Wave6 Settings field set/);
   assert.equal(snapshot.capabilities['resourceLimits.terminal.visibleOutputQueueMaxBytes'].available, false);
-  assert.equal(snapshot.capabilities['resourceLimits.telemetry.sampleIntervalMs'].available, false);
-  assert.match(snapshot.capabilities['resourceLimits.telemetry.sampleIntervalMs'].reason ?? '', /later stability wave/);
+  // FR-BGSTAB-025 retires the capability, rather than retaining it as unavailable.
+  assert.equal(Reflect.get(snapshot.capabilities, 'resourceLimits.telemetry.sampleIntervalMs'), undefined);
   assert.equal(snapshot.capabilities['stabilityModes.wsSendMode'].available, false);
   assert.equal(snapshot.capabilities['stabilityModes.frontendRuntimeResidency'].available, false);
   assert.match(snapshot.capabilities['stabilityModes.wsSendMode'].reason ?? '', /selected Wave6 Settings field set/);

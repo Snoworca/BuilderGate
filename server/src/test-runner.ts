@@ -1277,7 +1277,7 @@ function testRuntimeConfigSnapshot(): void {
   assert.equal(snapshot.capabilities['auth.password'].writeOnly, true);
   assert.equal(snapshot.secretState.authPasswordConfigured, true);
   assert.ok(snapshot.excludedSections.includes('ssl.*'));
-  assert.ok(snapshot.excludedSections.includes('fileManager.maxCodeFileSize'));
+  assert.equal(snapshot.excludedSections.includes('fileManager.maxCodeFileSize'), false);
 }
 
 function testConfigBootstrapAppliesPlatformPtyDefaults(): void {
@@ -1622,7 +1622,7 @@ function testRuntimeConfigWave6SelectedResourceCapabilities(): void {
   assert.equal(capabilities['stabilityModes.wsSendMode'].available, false);
   assert.equal(capabilities['stabilityModes.frontendRuntimeResidency'].available, false);
   assert.match(capabilities['stabilityModes.wsSendMode'].reason ?? '', /selected Wave6 Settings field set/);
-  assert.equal(capabilities['resourceLimits.telemetry.sampleIntervalMs'].available, false);
+  assert.equal(Object.hasOwn(capabilities, 'resourceLimits.telemetry.sampleIntervalMs'), false);
   assert.equal(capabilities['resourceLimits.telemetry.recentEventLimit'].available, false);
 }
 
@@ -1721,7 +1721,6 @@ function testAuthRuntimeConfig(): void {
   const service = new AuthService({
     password: 'old-password',
     durationMs: 60000,
-    maxDurationMs: 86400000,
     jwtSecret: 'jwt-secret',
   }, cryptoService);
 
@@ -20524,7 +20523,6 @@ async function testRecoveryOptionRoutesCrudAndAuth(): Promise<void> {
   const authService = new AuthService({
     password: '1234',
     durationMs: 60_000,
-    maxDurationMs: 60_000,
     jwtSecret: 'recovery-option-route-test-secret',
   }, new CryptoService('recovery-option-route-test'));
   const updatedOptions: string[] = [];
@@ -20727,7 +20725,6 @@ async function testTerminalShortcutRoutesCrudValidationAndAuth(): Promise<void> 
   const authService = new AuthService({
     password: '1234',
     durationMs: 60_000,
-    maxDurationMs: 60_000,
     jwtSecret: 'terminal-shortcut-route-test-secret',
   }, new CryptoService('terminal-shortcut-route-test'));
 
@@ -20866,7 +20863,6 @@ async function testFileServiceRuntimeConfig(): Promise<void> {
 
   const service = new FileService(sessionManager, {
     maxFileSize: 10,
-    maxCodeFileSize: 524288,
     maxDirectoryEntries: 10000,
     blockedExtensions: [],
     blockedPaths: [],
@@ -20879,7 +20875,6 @@ async function testFileServiceRuntimeConfig(): Promise<void> {
 
     service.updateConfig({
       maxFileSize: 4,
-      maxCodeFileSize: 524288,
       maxDirectoryEntries: 10000,
       blockedExtensions: [],
       blockedPaths: [],
@@ -20922,7 +20917,6 @@ function createConfigFixture(): Config {
     auth: {
       password: 'enc(secret)',
       durationMs: 1800000,
-      maxDurationMs: 86400000,
       jwtSecret: 'enc(jwt)',
     },
     bootstrap: {
@@ -20930,7 +20924,6 @@ function createConfigFixture(): Config {
     },
     fileManager: {
       maxFileSize: 1048576,
-      maxCodeFileSize: 524288,
       maxDirectoryEntries: 10000,
       blockedExtensions: ['.exe', '.dll'],
       blockedPaths: ['.ssh', '.aws'],
@@ -21312,7 +21305,7 @@ function testTOTPInvalidate(): void {
 function testAuthLocalhostPasswordOnly(): void {
   const crypto = new CryptoService('test-key-32-bytes-padded-here!!');
   const service = new AuthService(
-    { password: 'test', durationMs: 1800000, maxDurationMs: 86400000, jwtSecret: 'secret' },
+    { password: 'test', durationMs: 1800000, jwtSecret: 'secret' },
     crypto
   );
   assert.equal(service.getLocalhostPasswordOnly(), false, 'Default should be false');
@@ -21993,7 +21986,6 @@ function makeAuthHarness(opts: {
     {
       password: 'test-password',
       durationMs: 1800000,
-      maxDurationMs: 86400000,
       jwtSecret: 'test-jwt-secret',
       localhostPasswordOnly: opts.localhostPasswordOnly ?? false,
     },
@@ -22053,7 +22045,6 @@ async function makeBootstrapHarness(options: {
     {
       password: initialPassword,
       durationMs: 1800000,
-      maxDurationMs: 86400000,
       jwtSecret: 'bootstrap-jwt-secret',
     },
     cryptoService,
@@ -22274,7 +22265,7 @@ async function testAuthRoutesCombo1(): Promise<void> {
   // 2FA disabled → direct JWT
   const cryptoService = new CryptoService('phase4-test-key-32-bytes-padded!!');
   const authService = new AuthService(
-    { password: 'test-password', durationMs: 1800000, maxDurationMs: 86400000, jwtSecret: 'secret' },
+    { password: 'test-password', durationMs: 1800000, jwtSecret: 'secret' },
     cryptoService,
   );
   const accessors = {

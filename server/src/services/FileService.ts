@@ -503,7 +503,6 @@ export class FileService {
 function cloneFileManagerConfig(config: FileManagerConfig): FileManagerConfig {
   return {
     maxFileSize: config.maxFileSize,
-    maxCodeFileSize: config.maxCodeFileSize,
     maxDirectoryEntries: config.maxDirectoryEntries,
     blockedExtensions: [...config.blockedExtensions],
     blockedPaths: [...config.blockedPaths],

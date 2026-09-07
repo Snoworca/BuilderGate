@@ -8,7 +8,6 @@ test('AuthService.updateRuntimeConfig updates password validation and future tok
   const service = new AuthService({
     password: 'old-password',
     durationMs: 60000,
-    maxDurationMs: 86400000,
     jwtSecret: 'jwt-secret',
   }, cryptoService);
 

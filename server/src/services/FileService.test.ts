@@ -22,7 +22,6 @@ test('FileService.updateConfig applies new limits to later operations', async ()
 
   const service = new FileService(sessionManager, {
     maxFileSize: 10,
-    maxCodeFileSize: 524288,
     maxDirectoryEntries: 10000,
     blockedExtensions: [],
     blockedPaths: [],
@@ -35,7 +34,6 @@ test('FileService.updateConfig applies new limits to later operations', async ()
 
     service.updateConfig({
       maxFileSize: 4,
-      maxCodeFileSize: 524288,
       maxDirectoryEntries: 10000,
       blockedExtensions: [],
       blockedPaths: [],

@@ -69,6 +69,9 @@ test('SettingsService persists selected Wave6 resource settings and reports trut
     const publicConfig = runtimeConfigStore.getPublicRuntimeConfig('queue');
     const savedContent = await fs.readFile(configPath, 'utf-8');
 
+    // FR-BGSTAB-025: a current save response must not resurrect the retired default.
+    assert.equal(Reflect.get(response.values.resourceLimits.telemetry, 'sampleIntervalMs'), undefined);
+    assert.doesNotMatch(savedContent, /sampleIntervalMs\s*:/);
     assert.equal(response.values.resourceLimits.headless.pendingOutputMaxBytes, 2_097_152);
     assert.equal(response.values.resourceLimits.ws.serverBufferedHighWaterBytes, 2_000_000);
     assert.equal(response.values.resourceLimits.clientWs.inputBackpressureBytes, 2_000_000);
@@ -320,12 +323,10 @@ function createConfigFixture(): Config {
     auth: {
       password: '',
       durationMs: 1800000,
-      maxDurationMs: 86400000,
       jwtSecret: 'jwt-secret',
     },
     fileManager: {
       maxFileSize: 1048576,
-      maxCodeFileSize: 524288,
       maxDirectoryEntries: 10000,
       blockedExtensions: ['.exe', '.dll'],
       blockedPaths: ['.ssh', '.aws'],

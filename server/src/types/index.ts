@@ -45,12 +45,8 @@ export type {
   CertExpiryInfo,
   SecurityConfig,
   CORSConfig,
-  LoggingConfig,
   TwoFactorConfig,
-  AuthConfig,
-  BruteForceConfig,
-  RateLimitConfig,
-  LockoutConfig
+  AuthConfig
 } from './config.types.js';
 
 export type {

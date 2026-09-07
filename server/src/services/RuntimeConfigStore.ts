@@ -62,11 +62,7 @@ import {
 const EXCLUDED_SECTIONS = [
   'server.port',
   'ssl.*',
-  'logging.*',
-  'auth.maxDurationMs',
   'auth.jwtSecret',
-  'fileManager.maxCodeFileSize',
-  'bruteForce.*',
 ] as const;
 
 const bytes = (min: number, max: number): FieldCapability['constraints'] => ({ min, max, step: 1, unit: 'bytes' });
@@ -125,7 +121,6 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
   'resourceLimits.workspaceRuntime.maxLiveWorkspaces': { applyScope: 'immediate', writeOnly: false, constraints: count(1, 10) },
   'resourceLimits.workspaceRuntime.maxLiveTerminals': { applyScope: 'immediate', writeOnly: false, constraints: count(1, 128) },
   'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs': { applyScope: 'immediate', writeOnly: false, constraints: ms(1000, 3600000) },
-  'resourceLimits.telemetry.sampleIntervalMs': { applyScope: 'new_sessions', writeOnly: false, constraints: ms(1000, 3600000) },
   'resourceLimits.telemetry.recentEventLimit': { applyScope: 'new_sessions', writeOnly: false, constraints: count(1, 10000) },
   'stabilityModes.headlessQueueMode': { applyScope: 'new_sessions', writeOnly: false },
   'stabilityModes.wsSendMode': { applyScope: 'immediate', writeOnly: false },

@@ -2,7 +2,29 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs/promises';
 import path from 'path';
+import JSON5 from 'json5';
 import { renderBootstrapConfigTemplate } from './configTemplate.js';
+
+test('FR-BGSTAB-025 bootstrap templates omit every retired setting on both platforms', () => {
+  for (const platform of ['linux', 'win32'] as const) {
+    const rendered = renderBootstrapConfigTemplate(platform);
+    const raw = JSON5.parse(rendered);
+    for (const retiredPath of [
+      'logging.level', 'logging.audit', 'logging.directory', 'logging.maxSize', 'logging.maxFiles',
+      'bruteForce.rateLimit.windowMs', 'bruteForce.rateLimit.maxRequests',
+      'bruteForce.lockout.maxAttempts', 'bruteForce.lockout.lockoutDurationMs', 'bruteForce.lockout.progressiveDelay',
+      'auth.maxDurationMs', 'fileManager.maxCodeFileSize', 'resourceLimits.telemetry.sampleIntervalMs',
+    ]) {
+      let value: unknown = raw;
+      for (const key of retiredPath.split('.')) {
+        value = value !== null && typeof value === 'object' ? Reflect.get(value, key) : undefined;
+      }
+      assert.equal(value, undefined, `${platform}: ${retiredPath}`);
+    }
+    assert.equal(raw.fileManager.maxFileSize, 1048576);
+    assert.equal(raw.resourceLimits.telemetry.recentEventLimit, 256);
+  }
+});
 
 test('renderBootstrapConfigTemplate includes resourceLimits defaults', () => {
   const rendered = renderBootstrapConfigTemplate('linux');
@@ -44,7 +66,8 @@ test('config.json5.example documents resourceLimits defaults', async () => {
   assert.match(example, /maxLiveWorkspaces:\s*10/);
   assert.match(example, /maxLiveTerminals:\s*32/);
   assert.match(example, /hiddenRuntimeTtlMs:\s*600000/);
-  assert.match(example, /sampleIntervalMs:\s*60000/);
+  // FR-BGSTAB-025 retires this formerly documented Wave0 setting.
+  assert.doesNotMatch(example, /sampleIntervalMs\s*:/);
   assert.match(example, /stabilityModes:\s*\{/);
   assert.match(example, /headlessQueueMode:\s*"observe"/);
   assert.match(example, /wsSendMode:\s*"direct"/);

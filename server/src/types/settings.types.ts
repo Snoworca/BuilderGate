@@ -59,7 +59,6 @@ export type EditableSettingsKey =
   | 'resourceLimits.workspaceRuntime.maxLiveWorkspaces'
   | 'resourceLimits.workspaceRuntime.maxLiveTerminals'
   | 'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs'
-  | 'resourceLimits.telemetry.sampleIntervalMs'
   | 'resourceLimits.telemetry.recentEventLimit'
   | 'stabilityModes.headlessQueueMode'
   | 'stabilityModes.wsSendMode'

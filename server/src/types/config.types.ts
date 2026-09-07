@@ -46,23 +46,6 @@ export interface SecurityConfig {
 }
 
 // ============================================================================
-// Logging Configuration
-// ============================================================================
-
-export interface LoggingConfig {
-  /** Log level: error, warn, info, debug */
-  level: 'error' | 'warn' | 'info' | 'debug';
-  /** Enable audit logging */
-  audit: boolean;
-  /** Log directory path */
-  directory: string;
-  /** Max log file size (e.g., "10m", "1g") */
-  maxSize: string;
-  /** Max number of log files to keep */
-  maxFiles: number;
-}
-
-// ============================================================================
 // Server Configuration
 // ============================================================================
 
@@ -172,7 +155,6 @@ export interface WorkspaceRuntimeResourceLimitsConfig {
 }
 
 export interface TelemetryResourceLimitsConfig {
-  sampleIntervalMs: number;
   recentEventLimit: number;
 }
 
@@ -214,29 +196,8 @@ export interface BootstrapConfig {
 export interface AuthConfig {
   password: string;
   durationMs: number;
-  maxDurationMs: number;
   jwtSecret: string;
   localhostPasswordOnly?: boolean;
-}
-
-// ============================================================================
-// Rate Limiting Configuration (Phase 5)
-// ============================================================================
-
-export interface RateLimitConfig {
-  windowMs: number;
-  maxRequests: number;
-}
-
-export interface LockoutConfig {
-  maxAttempts: number;
-  lockoutDurationMs: number;
-  progressiveDelay: boolean;
-}
-
-export interface BruteForceConfig {
-  rateLimit: RateLimitConfig;
-  lockout: LockoutConfig;
 }
 
 // ============================================================================
@@ -245,7 +206,6 @@ export interface BruteForceConfig {
 
 export interface FileManagerConfig {
   maxFileSize: number;
-  maxCodeFileSize: number;
   maxDirectoryEntries: number;
   blockedExtensions: string[];
   blockedPaths: string[];
@@ -265,10 +225,8 @@ export interface Config {
   stabilityModes?: StabilityModesConfig;
   ssl?: SSLConfig;
   security?: SecurityConfig;
-  logging?: LoggingConfig;
   twoFactor?: TwoFactorConfig;
   bootstrap?: BootstrapConfig;
   auth?: AuthConfig;
-  bruteForce?: BruteForceConfig;
   fileManager?: FileManagerConfig;
 }

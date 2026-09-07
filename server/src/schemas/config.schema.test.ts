@@ -22,6 +22,55 @@ function minimalConfig() {
   };
 }
 
+const retiredConfigPaths = [
+  'logging.level', 'logging.audit', 'logging.directory', 'logging.maxSize', 'logging.maxFiles',
+  'bruteForce.rateLimit.windowMs', 'bruteForce.rateLimit.maxRequests',
+  'bruteForce.lockout.maxAttempts', 'bruteForce.lockout.lockoutDurationMs', 'bruteForce.lockout.progressiveDelay',
+  'auth.maxDurationMs', 'fileManager.maxCodeFileSize', 'resourceLimits.telemetry.sampleIntervalMs',
+];
+
+for (const retiredPath of retiredConfigPaths) {
+  test(`FR-BGSTAB-025 removes ${retiredPath} from effective legacy configuration`, () => {
+    const raw = {
+      ...minimalConfig(),
+      logging: { level: 'debug', audit: true, directory: 'logs', maxSize: '10m', maxFiles: 14 },
+      bruteForce: {
+        rateLimit: { windowMs: 60000, maxRequests: 100 },
+        lockout: { maxAttempts: 5, lockoutDurationMs: 900000, progressiveDelay: true },
+      },
+      auth: { maxDurationMs: 86400000, jwtSecret: 'preserved-secret' },
+      fileManager: { maxCodeFileSize: 524288, maxFileSize: 2097152 },
+      resourceLimits: { telemetry: { sampleIntervalMs: 60000, recentEventLimit: 321 } },
+    };
+    const original = structuredClone(raw);
+    const parsed = configSchema.parse(raw);
+    assert.deepEqual(raw, original, 'FR-BGSTAB-025 AC-5: parsing must not mutate the input');
+    assert.equal(parsed.server.port, 2002, 'fixture value only; no listener');
+    assert.equal(parsed.auth?.jwtSecret, 'preserved-secret');
+    assert.equal(parsed.fileManager?.maxFileSize, 2097152);
+    assert.equal(parsed.resourceLimits.telemetry.recentEventLimit, 321);
+    let value: unknown = parsed;
+    for (const key of retiredPath.split('.')) {
+      value = value !== null && typeof value === 'object' ? Reflect.get(value, key) : undefined;
+    }
+    assert.equal(value, undefined, `${retiredPath} must not remain an active setting`);
+  });
+}
+
+test('FR-BGSTAB-025 known retired telemetry key does not allow other unknown or invalid active keys', () => {
+  for (const resourceLimits of [
+    { telemetry: { sampleIntervalMs: 60000, misspelledIntervalMs: 60000 } },
+    { telemetry: { sampleIntervalMs: 60000, recentEventLimit: 0 } },
+    { telemetry: { sampleIntervalMs: 60000 }, unknownSection: {} },
+  ]) {
+    const raw = { ...minimalConfig(), resourceLimits };
+    const original = structuredClone(raw);
+    assert.equal(configSchema.safeParse(raw).success, false);
+    assert.deepEqual(raw, original);
+  }
+  assert.equal(configSchema.safeParse({ ...minimalConfig(), fileManager: { maxFileSize: 1023 } }).success, false);
+});
+
 test('FR-BGSTAB-026 workspace timing uses defaults when omitted', () => {
   const parsed = configSchema.parse({ ...minimalConfig(), workspace: {} });
   assert.ok(parsed.workspace);

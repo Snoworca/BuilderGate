@@ -114,7 +114,6 @@
       hiddenRuntimeTtlMs: 600000,
     },
     telemetry: {
-      sampleIntervalMs: 60000,
       recentEventLimit: 256,
     },
   },
@@ -143,15 +142,6 @@
     }
   },
 
-  // Logging settings
-  logging: {
-    level: "info",         // error, warn, info, debug
-    audit: true,           // Enable security audit logging
-    directory: "logs",
-    maxSize: "10m",
-    maxFiles: 14
-  },
-
   bootstrap: {
     // 기본값은 localhost-only bootstrap 입니다.
     // 초기 비밀번호 설정을 원격 장치에서 허용해야 할 때만 IP를 명시하십시오.
@@ -162,7 +152,6 @@
   auth: {
     password: "",                    // 빈 값: 브라우저에서 초기 관리자 비밀번호 설정
     durationMs: 1800000,             // 세션 유지 시간: 30분
-    maxDurationMs: 86400000,         // 최대 세션 시간: 24시간
     jwtSecret: "",                   // 빈 값이면 자동 생성
     localhostPasswordOnly: false,    // true: localhost 접근 시 2FA 건너뜀
   },
@@ -170,7 +159,6 @@
   // File Manager settings
   fileManager: {
     maxFileSize: 1048576,          // 1MB
-    maxCodeFileSize: 524288,       // 500KB
     maxDirectoryEntries: 10000,
     blockedExtensions: [".exe", ".dll", ".so", ".bin"],
     blockedPaths: [".ssh", ".gnupg", ".aws"],

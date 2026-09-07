@@ -46,7 +46,6 @@ async function startLocalWsHarness(): Promise<LocalWsHarness> {
   const auth = new AuthService({
     password: 'local-test-only',
     durationMs: 60_000,
-    maxDurationMs: 60_000,
     jwtSecret: `restore-secret-${randomUUID()}`,
   }, crypto);
   const manager = new SessionManager();

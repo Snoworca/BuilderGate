@@ -78,7 +78,6 @@ const resourceLimitsPatchSchema = z.object({
     hiddenRuntimeTtlMs: durationPatch(1000, 3600000),
   }).strict().optional(),
   telemetry: z.object({
-    sampleIntervalMs: durationPatch(1000, 3600000),
     recentEventLimit: countPatch(1, 10000),
   }).strict().optional(),
 }).strict();
@@ -663,7 +662,6 @@ function buildApplySummary(
 function getFileManagerConfig(config: Config): FileManagerConfig {
   return {
     maxFileSize: config.fileManager?.maxFileSize ?? 1048576,
-    maxCodeFileSize: config.fileManager?.maxCodeFileSize ?? 524288,
     maxDirectoryEntries: config.fileManager?.maxDirectoryEntries ?? 10000,
     blockedExtensions: [...(config.fileManager?.blockedExtensions ?? ['.exe', '.dll', '.so', '.bin'])],
     blockedPaths: [...(config.fileManager?.blockedPaths ?? ['.ssh', '.gnupg', '.aws'])],

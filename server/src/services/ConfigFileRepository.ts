@@ -223,7 +223,6 @@ function applyEditableValues(
   if (shouldApply('resourceLimits.workspaceRuntime.maxLiveWorkspaces')) setPath(rawConfig, ['resourceLimits', 'workspaceRuntime', 'maxLiveWorkspaces'], resourceLimits.workspaceRuntime.maxLiveWorkspaces);
   if (shouldApply('resourceLimits.workspaceRuntime.maxLiveTerminals')) setPath(rawConfig, ['resourceLimits', 'workspaceRuntime', 'maxLiveTerminals'], resourceLimits.workspaceRuntime.maxLiveTerminals);
   if (shouldApply('resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs')) setPath(rawConfig, ['resourceLimits', 'workspaceRuntime', 'hiddenRuntimeTtlMs'], resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs);
-  if (shouldApply('resourceLimits.telemetry.sampleIntervalMs')) setPath(rawConfig, ['resourceLimits', 'telemetry', 'sampleIntervalMs'], resourceLimits.telemetry.sampleIntervalMs);
   if (shouldApply('resourceLimits.telemetry.recentEventLimit')) setPath(rawConfig, ['resourceLimits', 'telemetry', 'recentEventLimit'], resourceLimits.telemetry.recentEventLimit);
   if (shouldApply('stabilityModes.headlessQueueMode')) setPath(rawConfig, ['stabilityModes', 'headlessQueueMode'], stabilityModes.headlessQueueMode);
   if (shouldApply('stabilityModes.wsSendMode')) setPath(rawConfig, ['stabilityModes', 'wsSendMode'], stabilityModes.wsSendMode);
@@ -308,7 +307,6 @@ function renderPatchedConfig(
   if (shouldRender('resourceLimits.workspaceRuntime.maxLiveWorkspaces')) replacements.set('resourceLimits.workspaceRuntime.maxLiveWorkspaces', renderJson5Value(resourceLimits.workspaceRuntime.maxLiveWorkspaces));
   if (shouldRender('resourceLimits.workspaceRuntime.maxLiveTerminals')) replacements.set('resourceLimits.workspaceRuntime.maxLiveTerminals', renderJson5Value(resourceLimits.workspaceRuntime.maxLiveTerminals));
   if (shouldRender('resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs')) replacements.set('resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs', renderJson5Value(resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs));
-  if (shouldRender('resourceLimits.telemetry.sampleIntervalMs')) replacements.set('resourceLimits.telemetry.sampleIntervalMs', renderJson5Value(resourceLimits.telemetry.sampleIntervalMs));
   if (shouldRender('resourceLimits.telemetry.recentEventLimit')) replacements.set('resourceLimits.telemetry.recentEventLimit', renderJson5Value(resourceLimits.telemetry.recentEventLimit));
   if (shouldRender('stabilityModes.headlessQueueMode')) replacements.set('stabilityModes.headlessQueueMode', renderJson5Value(stabilityModes.headlessQueueMode));
   if (shouldRender('stabilityModes.wsSendMode')) replacements.set('stabilityModes.wsSendMode', renderJson5Value(stabilityModes.wsSendMode));

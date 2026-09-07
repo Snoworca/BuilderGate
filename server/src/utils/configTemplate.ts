@@ -91,7 +91,6 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
       hiddenRuntimeTtlMs: 600000,
     },
     telemetry: {
-      sampleIntervalMs: 60000,
       recentEventLimit: 256,
     },
   },
@@ -116,14 +115,6 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
     },
   },
 
-  logging: {
-    level: "info",
-    audit: true,
-    directory: "logs",
-    maxSize: "10m",
-    maxFiles: 14,
-  },
-
   bootstrap: {
     allowedIps: ${renderArray(DEFAULT_BOOTSTRAP.allowedIps)},
   },
@@ -131,14 +122,12 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
   auth: {
     password: "",
     durationMs: 1800000,
-    maxDurationMs: 86400000,
     jwtSecret: "",
     localhostPasswordOnly: false,
   },
 
   fileManager: {
     maxFileSize: 1048576,
-    maxCodeFileSize: 524288,
     maxDirectoryEntries: 10000,
     blockedExtensions: [".exe", ".dll", ".so", ".bin"],
     blockedPaths: [".ssh", ".gnupg", ".aws"],

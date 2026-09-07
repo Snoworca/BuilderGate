@@ -30,18 +30,6 @@ export const securitySchema = z.object({
 });
 
 // ============================================================================
-// Logging Schema
-// ============================================================================
-
-export const loggingSchema = z.object({
-  level: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
-  audit: z.boolean().default(true),
-  directory: z.string().default('logs'),
-  maxSize: z.string().default('10m'),
-  maxFiles: z.number().min(1).max(100).default(14)
-});
-
-// ============================================================================
 // Server Schema
 // ============================================================================
 
@@ -185,10 +173,17 @@ export const workspaceRuntimeResourceLimitsSchema = defaultObject(z.object({
   hiddenRuntimeTtlMs: durationLimit(1000, 3600000, 600000),
 }).strict());
 
-export const telemetryResourceLimitsSchema = defaultObject(z.object({
-  sampleIntervalMs: durationLimit(1000, 3600000, 60000),
+export const telemetryResourceLimitsSchema = defaultObject(z.preprocess((value) => {
+  // FR-BGSTAB-025: retire only this known legacy key; keep all other strict validation.
+  if (value !== null && typeof value === 'object' && !Array.isArray(value)
+    && Object.hasOwn(value, 'sampleIntervalMs')) {
+    const { sampleIntervalMs: _retired, ...active } = value as Record<string, unknown>;
+    return active;
+  }
+  return value;
+}, z.object({
   recentEventLimit: countLimit(1, 10000, 256),
-}).strict());
+}).strict()));
 
 export const resourceLimitsSchema = defaultObject(z.object({
   headless: headlessResourceLimitsSchema,
@@ -233,29 +228,8 @@ export const authSchema = z.object({
     return value;
   }, z.string()).default(''),
   durationMs: z.number().min(60000).max(86400000).default(1800000),
-  maxDurationMs: z.number().min(60000).max(86400000).default(86400000),
   jwtSecret: z.string().default(''),
   localhostPasswordOnly: z.boolean().default(false),
-});
-
-// ============================================================================
-// Rate Limiting Schema (Phase 5)
-// ============================================================================
-
-export const rateLimitSchema = z.object({
-  windowMs: z.number().min(1000).max(3600000).default(60000),
-  maxRequests: z.number().min(1).max(1000).default(100)
-});
-
-export const lockoutSchema = z.object({
-  maxAttempts: z.number().min(1).max(20).default(5),
-  lockoutDurationMs: z.number().min(60000).max(86400000).default(900000),
-  progressiveDelay: z.boolean().default(true)
-});
-
-export const bruteForceSchema = z.object({
-  rateLimit: rateLimitSchema,
-  lockout: lockoutSchema
 });
 
 // ============================================================================
@@ -264,7 +238,6 @@ export const bruteForceSchema = z.object({
 
 export const fileManagerSchema = z.object({
   maxFileSize: z.number().min(1024).max(104857600).default(1048576),
-  maxCodeFileSize: z.number().min(1024).max(10485760).default(524288),
   maxDirectoryEntries: z.number().min(100).max(100000).default(10000),
   blockedExtensions: z.array(z.string()).default(['.exe', '.dll', '.so', '.bin']),
   blockedPaths: z.array(z.string()).default(['.ssh', '.gnupg', '.aws']),
@@ -298,11 +271,9 @@ export const configSchema = z.object({
   stabilityModes: stabilityModesSchema,
   ssl: sslSchema.optional(),
   security: securitySchema.optional(),
-  logging: loggingSchema.optional(),
   twoFactor: twoFactorSchema.optional(),
   bootstrap: bootstrapSchema.optional(),
   auth: authSchema.optional(),
-  bruteForce: bruteForceSchema.optional(),
   fileManager: fileManagerSchema.optional(),
   workspace: workspaceSchema.optional()
 });

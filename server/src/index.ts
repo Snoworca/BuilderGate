@@ -970,7 +970,6 @@ async function startServer(): Promise<void> {
     const authConfig = config.auth || {
       password: '',
       durationMs: 1800000,
-      maxDurationMs: 86400000,
       jwtSecret: ''
     };
     authService = new AuthService(authConfig, cryptoService);
@@ -998,7 +997,6 @@ async function startServer(): Promise<void> {
 
     const fileManagerConfig = config.fileManager || {
       maxFileSize: 1048576,
-      maxCodeFileSize: 524288,
       maxDirectoryEntries: 10000,
       blockedExtensions: ['.exe', '.dll', '.so', '.bin'],
       blockedPaths: ['.ssh', '.gnupg', '.aws'],
