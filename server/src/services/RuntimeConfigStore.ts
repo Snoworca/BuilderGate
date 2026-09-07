@@ -121,18 +121,12 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
   'resourceLimits.workspaceRuntime.maxLiveWorkspaces': { applyScope: 'immediate', writeOnly: false, constraints: count(1, 10) },
   'resourceLimits.workspaceRuntime.maxLiveTerminals': { applyScope: 'immediate', writeOnly: false, constraints: count(1, 128) },
   'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs': { applyScope: 'immediate', writeOnly: false, constraints: ms(1000, 3600000) },
-  'resourceLimits.telemetry.recentEventLimit': { applyScope: 'new_sessions', writeOnly: false, constraints: count(1, 10000) },
+  'resourceLimits.telemetry.recentEventLimit': { applyScope: 'immediate', writeOnly: false, constraints: count(1, 10000) },
   'stabilityModes.headlessQueueMode': { applyScope: 'new_sessions', writeOnly: false },
   'stabilityModes.wsSendMode': { applyScope: 'immediate', writeOnly: false },
   'stabilityModes.frontendRuntimeResidency': { applyScope: 'immediate', writeOnly: false },
 };
 
-const UNAVAILABLE_SETTING_PREFIX_REASONS = [
-  {
-    prefix: 'resourceLimits.telemetry.',
-    reason: 'Reserved for a later stability wave; not applied by the current runtime',
-  },
-] as const;
 const RESERVED_WAVE6_SETTING_REASON = 'Reserved outside the selected Wave6 Settings field set';
 const RESERVED_WAVE6_SETTING_KEYS = new Set<EditableSettingsKey>([
   'stabilityModes.headlessQueueMode',
@@ -1405,5 +1399,5 @@ function getUnavailableSettingReason(key: EditableSettingsKey): string | undefin
     return reservedReason;
   }
 
-  return UNAVAILABLE_SETTING_PREFIX_REASONS.find(({ prefix }) => key.startsWith(prefix))?.reason;
+  return undefined;
 }

@@ -1623,7 +1623,8 @@ function testRuntimeConfigWave6SelectedResourceCapabilities(): void {
   assert.equal(capabilities['stabilityModes.frontendRuntimeResidency'].available, false);
   assert.match(capabilities['stabilityModes.wsSendMode'].reason ?? '', /selected Wave6 Settings field set/);
   assert.equal(Object.hasOwn(capabilities, 'resourceLimits.telemetry.sampleIntervalMs'), false);
-  assert.equal(capabilities['resourceLimits.telemetry.recentEventLimit'].available, false);
+  assert.equal(capabilities['resourceLimits.telemetry.recentEventLimit'].available, true);
+  assert.equal(capabilities['resourceLimits.telemetry.recentEventLimit'].applyScope, 'immediate');
 }
 
 async function testServerStartupWiresTerminalWireFormatIntoWsRouter(): Promise<void> {

@@ -64,6 +64,7 @@ test('SettingsService persists selected Wave6 resource settings and reports trut
           maxLiveWorkspaces: 4,
           maxLiveTerminals: 16,
         },
+        telemetry: { recentEventLimit: 3 },
       },
     });
     const publicConfig = runtimeConfigStore.getPublicRuntimeConfig('queue');
@@ -86,6 +87,19 @@ test('SettingsService persists selected Wave6 resource settings and reports trut
     assert.ok(response.applySummary.immediate.includes('resourceLimits.clientWs.inputBackpressureBytes'));
     assert.ok(response.applySummary.immediate.includes('resourceLimits.ws.serverBufferedHighWaterBytes'));
     assert.ok(response.applySummary.new_sessions.includes('resourceLimits.headless.pendingOutputMaxBytes'));
+    assert.ok(response.changedKeys.includes('resourceLimits.telemetry.recentEventLimit'));
+    assert.ok(response.applySummary.immediate.includes('resourceLimits.telemetry.recentEventLimit'));
+    assert.equal(response.applySummary.new_sessions.includes('resourceLimits.telemetry.recentEventLimit'), false);
+    assert.equal(response.values.resourceLimits.telemetry.recentEventLimit, 3);
+    assert.match(savedContent, /recentEventLimit:\s*3/);
+    for (let index = 0; index < 6; index += 1) {
+      assert.equal(runtimeConfigStore.recordTerminalResourcePolicyDecision({
+        consumer: 'server.config.runtime-store',
+        resource: 'resourceLimits.terminal.scrollbackLines',
+        differenceReason: 'legacy-only',
+      }), true);
+    }
+    assert.equal(runtimeConfigStore.getTerminalResourcePolicyObservation().recentObservations.length, 3);
     assert.equal(publicConfig.resourceLimits.clientWs.inputBackpressureBytes, 2_000_000);
     assert.equal(publicConfig.resourceLimits.terminal.hiddenOutputPolicy, 'debug-tail');
     assert.equal(publicConfig.resourceLimits.snapshots.maxEntries, 32);

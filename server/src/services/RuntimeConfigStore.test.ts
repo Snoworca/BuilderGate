@@ -193,6 +193,48 @@ test('RuntimeConfigStore exposes Wave6 resource capabilities without leaking ser
   assert.equal('telemetry' in publicConfig.resourceLimits, false);
 });
 
+test('FR-BGSTAB-015 recentEventLimit capability is available with truthful constraints', () => {
+  const store = new RuntimeConfigStore(createConfigFixture(), 'linux');
+  const capability = store.getSnapshot().capabilities['resourceLimits.telemetry.recentEventLimit'];
+  assert.equal(capability.available, true);
+  assert.equal(capability.reason, undefined, 'an active observer setting must not claim a later stability wave');
+  assert.equal(store.isEditable('resourceLimits.telemetry.recentEventLimit'), true);
+  assert.deepEqual(capability.constraints, { min: 1, max: 10000, step: 1, unit: 'count' });
+  assert.equal(store.getSnapshot().capabilities['resourceLimits.headless.writeLagWarnMs'].available, false);
+});
+
+for (const replacement of ['replaceValues', 'replaceFromConfig'] as const) {
+  test(`FR-BGSTAB-015 ${replacement} applies recentEventLimit to the existing observer immediately`, () => {
+    const store = new RuntimeConfigStore(createConfigFixture(), 'linux');
+    for (const capacity of [2, 5, 1]) {
+      const values = store.mergeEditablePatch({ resourceLimits: { telemetry: { recentEventLimit: capacity } } });
+      if (replacement === 'replaceValues') store.replaceValues(values);
+      else store.replaceFromConfig({ ...createConfigFixture(), resourceLimits: values.resourceLimits });
+      for (let index = 0; index < 8; index += 1) {
+        assert.equal(store.recordTerminalResourcePolicyDecision({
+          consumer: 'server.config.runtime-store',
+          resource: 'resourceLimits.terminal.scrollbackLines',
+          differenceReason: 'legacy-only',
+        }), true);
+      }
+      const observations = store.getTerminalResourcePolicyObservation().recentObservations;
+      assert.equal(observations.length, capacity, 'the existing store must immediately enforce each smaller or larger capacity');
+      assert.equal(observations.every(row => row.resource === 'resourceLimits.terminal.scrollbackLines'), true);
+    }
+    assert.equal(store.getSnapshot().capabilities['resourceLimits.telemetry.recentEventLimit'].applyScope, 'immediate');
+  });
+}
+
+test('FR-BGSTAB-015 recentEventLimit rejects invalid values without clamping or changing observer state', () => {
+  const store = new RuntimeConfigStore(createConfigFixture(), 'linux');
+  const before = store.getTerminalResourcePolicyObservation().recentObservations;
+  for (const value of [0, 10001, 1.5, NaN, Infinity, '']) {
+    assert.throws(() => store.mergeEditablePatch({ resourceLimits: { telemetry: { recentEventLimit: value as never } } }));
+  }
+  assert.deepEqual(store.getTerminalResourcePolicyObservation().recentObservations, before);
+  assert.equal(store.mergeEditablePatch({ resourceLimits: { telemetry: { recentEventLimit: 10000 } } }).resourceLimits.telemetry.recentEventLimit, 10000);
+});
+
 test('RuntimeConfigStore validates Wave 0 resource limit patches after merging', () => {
   const store = new RuntimeConfigStore(createConfigFixture(), 'linux');
   const merged = store.mergeEditablePatch({
