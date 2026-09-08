@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import test from 'node:test';
 import { runSettledSubtest } from './settled-subtest.mjs';
+import { settleActorCleanup, cleanupExitedActors } from './fixture-actor-cleanup.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -788,6 +789,7 @@ function wxRaceChildEnvironment({
 }
 
 function spawnWxRaceChild({
+  ownerActors,
   harness,
   actor,
   manifestPath,
@@ -853,7 +855,7 @@ function spawnWxRaceChild({
       resolve(exitState);
     });
   });
-  return {
+  const handle = {
     actor,
     child,
     transcript,
@@ -863,6 +865,8 @@ function spawnWxRaceChild({
     get spawnError() { return spawnError; },
     released: false,
   };
+  ownerActors.add(handle);
+  return handle;
 }
 
 async function waitForWxRaceEvent(actor, event, label, timeoutMs = WX_RACE_TIMEOUT_MS) {
@@ -1027,6 +1031,8 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
   });
 
   test('SDS-AC-1 and SDS-AC-3 create an absent fixed analysis parent only after fresh native guard probes at manifest boundaries, then serially reset the fixture for junction admission', { timeout: 115_000 }, async t => {
+    const ownerActors = new Set();
+    let parentFailure;
     const fixture = await createOwnedWorkspaceWithoutAnalysisParent();
     const { ownedRoot, fixtureRoot } = fixture;
     const harness = createOwnedWxRaceHarness();
@@ -1107,9 +1113,11 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
         const timeline = [];
         let actorGuard;
         let didCapture = false;
+        let priorFailure;
         try {
           assert.equal(existsSync(fixtureAnalysisRoot), false, 'the copied workspace starts with the fixed analysis parent absent');
           actorGuard = spawnWxRaceChild({
+            ownerActors,
             harness,
             actor: 'G',
             manifestPath: firstManifestPath,
@@ -1140,9 +1148,10 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
             .filter(candidate => candidate.event === 'manifest-probe' && candidate.containsAnalysisRoot);
           assert.equal(freshProbesAfterPrivateParentBoundary.length > 0, true, 'the same-identity cached manifest parent must be native-probed again after the private parent boundary and before exclusive create');
           didCapture = true;
+        } catch (error) {
+          priorFailure = { error: error };
         } finally {
-          if (actorGuard && !actorGuard.released && !actorGuard.exitState) releaseWxRaceChild(actorGuard, 0x52);
-          await Promise.allSettled([actorGuard?.exited].filter(Boolean));
+          await settleActorCleanup([{ actor: actorGuard, releaseByte: 0x52 }], releaseWxRaceChild, priorFailure);
           if (actorGuard) assert.notEqual(actorGuard.exitState, undefined, 'the first gated child exits before the shared fixture resets');
           cleanupFixtureManifestAfterSuccessfulCapture({
             didCapture,
@@ -1209,6 +1218,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
         const manifestPath = path.join(fixtureAnalysisRoot, 'guard-before-mutation.json');
         const timeline = [];
         let actorGuard;
+        let priorFailure;
         try {
           assert.equal(existsSync(fixtureAnalysisRoot), false, 'the reset leaves the copied fixed analysis parent absent before the junction case');
           assert.equal(existsSync(firstManifestPath), false, 'the reset leaves the previous nonce-owned manifest absent before the junction case');
@@ -1219,6 +1229,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
           assertOwnedWorkspaceDescendant(externalAnalysisRoot, ownedRoot, 'observed external analysis root');
           assertRealFixtureDocs(fixtureDocs, 'fixture docs before controlled junction swap');
           actorGuard = spawnWxRaceChild({
+            ownerActors,
             harness,
             actor: 'G',
             manifestPath,
@@ -1250,9 +1261,10 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
             [false, false],
             'the reparse guard must reject before recursive parent creation can mutate the external junction target',
           );
+        } catch (error) {
+          priorFailure = { error: error };
         } finally {
-          if (actorGuard && !actorGuard.released && !actorGuard.exitState) releaseWxRaceChild(actorGuard, 0x52);
-          await Promise.allSettled([actorGuard?.exited].filter(Boolean));
+          await settleActorCleanup([{ actor: actorGuard, releaseByte: 0x52 }], releaseWxRaceChild, priorFailure);
           restoreFixtureDocsAndRemoveExternalRoot({ fixtureDocs, renamedFixtureDocs, externalDocs, ownedRoot });
         }
       });
@@ -1269,6 +1281,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
         const timeline = [];
         let actorA;
         let actorB;
+        let priorFailure;
         try {
           assert.equal(existsSync(fixtureAnalysisRoot), false, 'the serial fixture reset leaves the fixed analysis parent absent before the sibling race');
           assert.equal(existsSync(leafA), false, 'A starts with an absent nonce-owned target leaf');
@@ -1280,6 +1293,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
             assert.equal(existsSync(leaf), false, 'a same-basename sibling manifest leaf starts absent in the original workspace');
           }
           actorA = spawnWxRaceChild({
+            ownerActors,
             harness,
             actor: 'A',
             manifestPath: leafA,
@@ -1292,6 +1306,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
           await waitForWxRaceEvent(actorA, 'open', 'A retained-fd open');
           await waitForWxRaceEvent(actorA, 'fd-write', 'A retained-fd write gate');
           actorB = spawnWxRaceChild({
+            ownerActors,
             harness,
             actor: 'B',
             manifestPath: leafB,
@@ -1343,9 +1358,10 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
             );
           }
           for (const leaf of originalRootLeaves) assert.equal(existsSync(leaf), false, 'the sibling race never publishes a same-basename leaf in the original workspace');
+        } catch (error) {
+          priorFailure = { error: error };
         } finally {
-          if (actorA && !actorA.released && !actorA.exitState) releaseWxRaceChild(actorA, 0x52);
-          await Promise.allSettled([actorA?.exited, actorB?.exited].filter(Boolean));
+          await settleActorCleanup([{ actor: actorA, releaseByte: 0x52 }, { actor: actorB }], releaseWxRaceChild, priorFailure);
           for (const leaf of [leafA, leafB]) assertOwnedWorkspaceDescendant(leaf, fixtureAnalysisRoot, 'fixture sibling manifest leaf cleanup');
           removeFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, leafA);
           for (const leaf of [leafA, leafB]) assert.equal(existsSync(leaf), false, 'serial fixture reset removes every sibling-owned fixture leaf');
@@ -1361,10 +1377,12 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
         const leafA = path.join(fixtureAnalysisRoot, `${prefix}-a.json`);
         const timeline = [];
         let actorA;
+        let priorFailure;
         try {
           assert.equal(existsSync(fixtureAnalysisRoot), false, 'the serial fixture reset leaves the fixed analysis parent absent before same-byte replacement');
           assert.equal(existsSync(leafA), false, 'A starts with an absent nonce-owned target leaf');
           actorA = spawnWxRaceChild({
+            ownerActors,
             harness,
             actor: 'A',
             manifestPath: leafA,
@@ -1411,9 +1429,10 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
           }
           assert.equal(actorA.transcript.filter(candidate => candidate.event === 'close').length, 1, 'the replacement run closes its retained descriptor exactly once');
           assert.equal(actorA.transcript.some(candidate => candidate.event === 'path-write-bypass' || candidate.event === 'pathname-read-before-postflight' || candidate.event === 'target-lstat-before-fstat' || candidate.event === 'fstat-before-fd-write'), false, 'replacement handling keeps the security-sensitive write and identity sequence on the retained descriptor');
+        } catch (error) {
+          priorFailure = { error: error };
         } finally {
-          if (actorA && !actorA.released && !actorA.exitState) releaseWxRaceChild(actorA, 0x52);
-          await Promise.allSettled([actorA?.exited].filter(Boolean));
+          await settleActorCleanup([{ actor: actorA, releaseByte: 0x52 }], releaseWxRaceChild, priorFailure);
           assertOwnedWorkspaceDescendant(leafA, fixtureAnalysisRoot, 'fixture replacement manifest leaf cleanup');
           removeFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, leafA);
           assert.equal(existsSync(leafA), false, 'serial fixture reset removes the replacement-owned fixture leaf');
@@ -1430,6 +1449,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
         let actorExisting;
         let actorWrite;
         let actorPostflight;
+        let priorFailure;
         try {
           assert.equal(existsSync(fixtureAnalysisRoot), false, 'the serial fixture reset leaves the fixed analysis parent absent before retained-fd lifecycle failures');
           for (const leaf of [existingLeaf, writeLeaf, postflightLeaf]) assert.equal(existsSync(leaf), false, 'each lifecycle leaf starts absent before the controlled EEXIST setup');
@@ -1437,6 +1457,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
           const existingBytes = Buffer.from('{"already":"exists"}\n');
           writeFileSync(existingLeaf, existingBytes, { flag: 'wx' });
           actorExisting = spawnWxRaceChild({
+            ownerActors,
             harness,
             actor: 'A',
             manifestPath: existingLeaf,
@@ -1448,6 +1469,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
             timeline,
           });
           actorWrite = spawnWxRaceChild({
+            ownerActors,
             harness,
             actor: 'A',
             manifestPath: writeLeaf,
@@ -1459,6 +1481,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
             timeline,
           });
           actorPostflight = spawnWxRaceChild({
+            ownerActors,
             harness,
             actor: 'A',
             manifestPath: postflightLeaf,
@@ -1511,17 +1534,22 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
             { code: 1, signal: null },
             { code: 1, signal: null },
           ]);
+        } catch (error) {
+          priorFailure = { error: error };
         } finally {
-          if (actorPostflight && !actorPostflight.released && !actorPostflight.exitState) releaseWxRaceChild(actorPostflight, 0x52);
-          await Promise.allSettled([actorExisting?.exited, actorWrite?.exited, actorPostflight?.exited].filter(Boolean));
+          await settleActorCleanup([{ actor: actorExisting }, { actor: actorWrite }, { actor: actorPostflight, releaseByte: 0x52 }], releaseWxRaceChild, priorFailure);
           for (const leaf of [existingLeaf, writeLeaf, postflightLeaf]) assertOwnedWorkspaceDescendant(leaf, fixtureAnalysisRoot, 'fixture retained-fd lifecycle leaf cleanup');
           removeFixtureAnalysisRoot(fixtureRoot, fixtureAnalysisRoot, existingLeaf);
           for (const leaf of [existingLeaf, writeLeaf, postflightLeaf]) assert.equal(existsSync(leaf), false, 'serial fixture reset removes every retained-fd lifecycle leaf');
           assertMinimalNativeFixtureParity({ fixtureRoot, protectedFiles: fixture.protectedFiles });
         }
       });
+    } catch (error) {
+      parentFailure = { error: error };
     } finally {
-      removeOwnedWxRaceHarness(harness.ownedRoot);
-      removeOwnedWorkspace(ownedRoot);
+      await cleanupExitedActors(ownerActors, [harness.ownedRoot, ownedRoot], () => {
+        removeOwnedWxRaceHarness(harness.ownedRoot);
+        removeOwnedWorkspace(ownedRoot);
+      }, parentFailure);
     }
   });
