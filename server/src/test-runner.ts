@@ -108,6 +108,7 @@ import { mintMcpCapabilityToken, validateMcpWebhookKeyHeaderName, verifyMcpFixed
 import { sanitizeWebhookPublicRecord } from './services/WebhookInvocationService.js';
 import express from 'express';
 import type { Request } from 'express';
+import { withLocalHttpServer } from './testing/localHttpTestServer.js';
 
 async function main(): Promise<void> {
   const tests: Array<{ name: string; tags?: string[]; run: () => Promise<void> | void }> = [
@@ -6043,59 +6044,24 @@ async function invokeInternalShutdownRoute(options: {
     exit: options.onExit ?? (() => {}),
   }));
 
-  return new Promise((resolve, reject) => {
-    const server = http.createServer(app);
-    server.listen(0, () => {
-      const port = (server.address() as net.AddressInfo).port;
-      const postBody = JSON.stringify({});
-      const headers: Record<string, string | number> = {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postBody),
-      };
-      if (options.headerToken !== undefined) {
-        headers['X-BuilderGate-Shutdown-Token'] = options.headerToken;
+  return withLocalHttpServer(app, async fixture => {
+    const postBody = JSON.stringify({});
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Content-Length': String(Buffer.byteLength(postBody)),
+    };
+    if (options.headerToken !== undefined) headers['X-BuilderGate-Shutdown-Token'] = options.headerToken;
+    if (options.forwardedFor !== undefined) headers['X-Forwarded-For'] = options.forwardedFor;
+    const response = await fixture.request({ method: 'POST', path: '/api/internal/shutdown', headers, body: postBody });
+    let body: Record<string, unknown> = {};
+    if (response.body) {
+      try {
+        body = JSON.parse(response.body) as Record<string, unknown>;
+      } catch {
+        body = { raw: response.body };
       }
-      if (options.forwardedFor !== undefined) {
-        headers['X-Forwarded-For'] = options.forwardedFor;
-      }
-
-      const request = http.request({
-        hostname: '127.0.0.1',
-        port,
-        method: 'POST',
-        path: '/api/internal/shutdown',
-        headers,
-      }, (res) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
-        res.on('end', () => {
-          server.close();
-          try {
-            const payload = Buffer.concat(chunks).toString();
-            let body: Record<string, unknown> = {};
-            if (payload) {
-              try {
-                body = JSON.parse(payload) as Record<string, unknown>;
-              } catch {
-                body = { raw: payload };
-              }
-            }
-            resolve({
-              status: res.statusCode ?? 0,
-              body,
-            });
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
-      request.on('error', (error: Error) => {
-        server.close();
-        reject(error);
-      });
-      request.write(postBody);
-      request.end();
-    });
+    }
+    return { status: response.statusCode, body };
   });
 }
 
@@ -13074,42 +13040,8 @@ async function testSessionRoutesAcceptSurfacedShells(): Promise<void> {
     app.use(express.json());
     app.use('/api/sessions', sessionRoutes);
 
-    const response = await new Promise<{ status: number; body: Record<string, unknown> }>((resolve, reject) => {
-      const server = http.createServer(app);
-      server.listen(0, () => {
-        const port = (server.address() as net.AddressInfo).port;
-        const postBody = JSON.stringify({ shell: 'sh' });
-        const options = {
-          hostname: '127.0.0.1',
-          port,
-          method: 'POST',
-          path: '/api/sessions',
-          headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(postBody),
-          },
-        };
-        const request = http.request(options, (res) => {
-          const chunks: Buffer[] = [];
-          res.on('data', (chunk: Buffer) => chunks.push(chunk));
-          res.on('end', () => {
-            server.close();
-            try {
-              const payload = Buffer.concat(chunks).toString();
-              const json = payload ? JSON.parse(payload) as Record<string, unknown> : {};
-              resolve({ status: res.statusCode ?? 0, body: json });
-            } catch (error) {
-              reject(error);
-            }
-          });
-        });
-        request.on('error', (error: Error) => {
-          server.close();
-          reject(error);
-        });
-        request.write(postBody);
-        request.end();
-      });
+    const response = await invokeJsonRoute(app, {
+      method: 'POST', path: '/api/sessions', body: { shell: 'sh' },
     });
 
     assert.equal(response.status, 201);
@@ -20411,46 +20343,19 @@ async function invokeJsonRoute(
     headers?: Record<string, string>;
   },
 ): Promise<{ status: number; body: any }> {
-  return new Promise((resolve, reject) => {
-    const server = http.createServer(app);
-    server.listen(0, () => {
-      const port = (server.address() as net.AddressInfo).port;
-      const requestBody = JSON.stringify(options.body ?? {});
-      const headers: Record<string, string | number> = {
+  return withLocalHttpServer(app, async fixture => {
+    const requestBody = JSON.stringify(options.body ?? {});
+    const response = await fixture.request({
+      method: options.method,
+      path: options.path,
+      headers: {
         'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(requestBody),
+        'Content-Length': String(Buffer.byteLength(requestBody)),
         ...(options.headers ?? {}),
-      };
-      const request = http.request({
-        hostname: '127.0.0.1',
-        port,
-        method: options.method,
-        path: options.path,
-        headers,
-      }, (res) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
-        res.on('end', () => {
-          server.close();
-          try {
-            const payload = Buffer.concat(chunks).toString();
-            resolve({
-              status: res.statusCode ?? 0,
-              body: payload ? JSON.parse(payload) : {},
-            });
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
-      request.on('error', (error: Error) => {
-        server.close();
-        reject(error);
-      });
-      request.write(requestBody);
-      request.end();
+      },
+      body: requestBody,
     });
-    server.on('error', reject);
+    return { status: response.statusCode, body: response.body ? JSON.parse(response.body) : {} };
   });
 }
 
@@ -20943,46 +20848,15 @@ async function requestJson(
   body?: unknown,
   extraHeaders: Record<string, string> = {},
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  return new Promise((resolve, reject) => {
-    const server = http.createServer(app);
-    server.listen(0, () => {
-      const port = (server.address() as net.AddressInfo).port;
-      const postBody = body ? JSON.stringify(body) : '';
-      const headers: Record<string, string | number> = { ...extraHeaders };
-      if (body) {
-        headers['Content-Type'] = 'application/json';
-        headers['Content-Length'] = Buffer.byteLength(postBody);
-      }
-
-      const request = http.request({
-        hostname: '127.0.0.1',
-        port,
-        method,
-        path: requestPath,
-        headers,
-      }, (res) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
-        res.on('end', () => {
-          server.close();
-          try {
-            const payload = Buffer.concat(chunks).toString();
-            const parsed = payload ? JSON.parse(payload) as Record<string, unknown> : {};
-            resolve({ status: res.statusCode ?? 0, body: parsed });
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
-      request.on('error', (error: Error) => {
-        server.close();
-        reject(error);
-      });
-      if (body) {
-        request.write(postBody);
-      }
-      request.end();
-    });
+  return withLocalHttpServer(app, async fixture => {
+    const postBody = body ? JSON.stringify(body) : '';
+    const headers = { ...extraHeaders };
+    if (body) {
+      headers['Content-Type'] = 'application/json';
+      headers['Content-Length'] = String(Buffer.byteLength(postBody));
+    }
+    const response = await fixture.request({ method, path: requestPath, headers, body: postBody });
+    return { status: response.statusCode, body: response.body ? JSON.parse(response.body) as Record<string, unknown> : {} };
   });
 }
 
@@ -21898,14 +21772,40 @@ async function testDaemonTotpPreflightRejectsInvalidSecrets(): Promise<void> {
   }
 }
 
+function createAuthTestApp(accessors: Parameters<typeof createAuthRoutes>[0]): express.Express {
+  const app = express();
+  app.use(express.json());
+  app.use('/api/auth', createAuthRoutes(accessors));
+  return app;
+}
+
 async function invokeLogin(
   accessors: Parameters<typeof createAuthRoutes>[0],
   body: Record<string, unknown>,
   ip = '192.168.1.1',
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  const app = express();
-  app.use(express.json());
-  app.use('/api/auth', createAuthRoutes(accessors));
+  return withLocalHttpServer(createAuthTestApp(accessors), async fixture => {
+    const postBody = JSON.stringify(body);
+    const response = await fixture.request({
+      method: 'POST', path: '/api/auth/login', body: postBody,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': String(Buffer.byteLength(postBody)),
+        'x-test-remote-addr': ip,
+      },
+    });
+    return { status: response.statusCode, body: JSON.parse(response.body) as Record<string, unknown> };
+  });
+}
+
+// B1 only: preserve the real loopback peer for the three req.ip assertions.
+// This original TCP0 fixture stays excluded until B1 provides exclusive2222.
+async function invokeLoopbackLoginOverTcp(
+  accessors: Parameters<typeof createAuthRoutes>[0],
+  body: Record<string, unknown>,
+  ip = '192.168.1.1',
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const app = createAuthTestApp(accessors);
   return new Promise((resolve, reject) => {
     const server = http.createServer(app);
     server.listen(0, () => {
@@ -21944,37 +21844,13 @@ async function invokeVerify(
   accessors: Parameters<typeof createAuthRoutes>[0],
   body: Record<string, unknown>,
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  return new Promise((resolve, reject) => {
-    const app = express();
-    app.use(express.json());
-    app.use('/api/auth', createAuthRoutes(accessors));
-    const server = http.createServer(app);
-    server.listen(0, () => {
-      const port = (server.address() as net.AddressInfo).port;
-      const postBody = JSON.stringify(body);
-      const options = {
-        hostname: '127.0.0.1', port, method: 'POST',
-        path: '/api/auth/verify',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(postBody),
-        },
-      };
-      const request = http.request(options, (res) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
-        res.on('end', () => {
-          server.close();
-          try {
-            const json = JSON.parse(Buffer.concat(chunks).toString()) as Record<string, unknown>;
-            resolve({ status: res.statusCode ?? 0, body: json });
-          } catch (e) { reject(e); }
-        });
-      });
-      request.on('error', (e: Error) => { server.close(); reject(e); });
-      request.write(postBody);
-      request.end();
+  return withLocalHttpServer(createAuthTestApp(accessors), async fixture => {
+    const postBody = JSON.stringify(body);
+    const response = await fixture.request({
+      method: 'POST', path: '/api/auth/verify', body: postBody,
+      headers: { 'Content-Type': 'application/json', 'Content-Length': String(Buffer.byteLength(postBody)) },
     });
+    return { status: response.statusCode, body: JSON.parse(response.body) as Record<string, unknown> };
   });
 }
 
@@ -21982,44 +21858,8 @@ async function invokeBootstrapStatus(
   accessors: Parameters<typeof createAuthRoutes>[0],
   ip = '::ffff:127.0.0.1',
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  return new Promise((resolve, reject) => {
-    const app = express();
-    app.use(express.json());
-    app.use('/api/auth', createAuthRoutes(accessors));
-    const server = http.createServer(app);
-    server.listen(0, () => {
-      const port = (server.address() as net.AddressInfo).port;
-      const request = http.request({
-        hostname: '127.0.0.1',
-        port,
-        method: 'GET',
-        path: '/api/auth/bootstrap-status',
-        headers: {
-          'x-test-remote-addr': ip,
-        },
-      }, (res) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
-        res.on('end', () => {
-          server.close();
-          try {
-            const payload = Buffer.concat(chunks).toString();
-            resolve({
-              status: res.statusCode ?? 0,
-              body: payload ? JSON.parse(payload) as Record<string, unknown> : {},
-            });
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
-      request.on('error', (error: Error) => {
-        server.close();
-        reject(error);
-      });
-      request.end();
-    });
-  });
+  return requestJson(createAuthTestApp(accessors), 'GET', '/api/auth/bootstrap-status', undefined,
+    { 'x-test-remote-addr': ip });
 }
 
 async function invokeBootstrapPassword(
@@ -22027,91 +21867,16 @@ async function invokeBootstrapPassword(
   body: Record<string, unknown>,
   ip = '::ffff:127.0.0.1',
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  return new Promise((resolve, reject) => {
-    const app = express();
-    app.use(express.json());
-    app.use('/api/auth', createAuthRoutes(accessors));
-    const server = http.createServer(app);
-    server.listen(0, () => {
-      const port = (server.address() as net.AddressInfo).port;
-      const postBody = JSON.stringify(body);
-      const request = http.request({
-        hostname: '127.0.0.1',
-        port,
-        method: 'POST',
-        path: '/api/auth/bootstrap-password',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(postBody),
-          'x-test-remote-addr': ip,
-        },
-      }, (res) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
-        res.on('end', () => {
-          server.close();
-          try {
-            const payload = Buffer.concat(chunks).toString();
-            resolve({
-              status: res.statusCode ?? 0,
-              body: payload ? JSON.parse(payload) as Record<string, unknown> : {},
-            });
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
-      request.on('error', (error: Error) => {
-        server.close();
-        reject(error);
-      });
-      request.write(postBody);
-      request.end();
-    });
-  });
+  return requestJson(createAuthTestApp(accessors), 'POST', '/api/auth/bootstrap-password', body,
+    { 'x-test-remote-addr': ip });
 }
 
 async function invokeTotpQr(
   accessors: Parameters<typeof createAuthRoutes>[0],
   token: string,
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  return new Promise((resolve, reject) => {
-    const app = express();
-    app.use(express.json());
-    app.use('/api/auth', createAuthRoutes(accessors));
-    const server = http.createServer(app);
-    server.listen(0, () => {
-      const port = (server.address() as net.AddressInfo).port;
-      const options = {
-        hostname: '127.0.0.1',
-        port,
-        method: 'GET',
-        path: '/api/auth/totp-qr',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      };
-      const request = http.request(options, (res) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
-        res.on('end', () => {
-          server.close();
-          try {
-            const payload = Buffer.concat(chunks).toString();
-            const json = payload ? JSON.parse(payload) as Record<string, unknown> : {};
-            resolve({ status: res.statusCode ?? 0, body: json });
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
-      request.on('error', (error: Error) => {
-        server.close();
-        reject(error);
-      });
-      request.end();
-    });
-  });
+  return requestJson(createAuthTestApp(accessors), 'GET', '/api/auth/totp-qr', undefined,
+    { Authorization: `Bearer ${token}` });
 }
 
 function makeAuthHarness(opts: {
@@ -22433,7 +22198,7 @@ async function testAuthRoutesLocalhostBypass(): Promise<void> {
     withTotp: true, totpRegistered: true, localhostPasswordOnly: true
   });
   // Our HTTP helper connects to 127.0.0.1 which Express sees as ::1 or ::ffff:127.0.0.1
-  const result = await invokeLogin(accessors, { password: 'test-password' });
+  const result = await invokeLoopbackLoginOverTcp(accessors, { password: 'test-password' });
   authService.destroy();
   // Localhost bypass → direct JWT (200), no 2FA challenge
   assert.equal(result.status, 200, `Expected 200 (localhost bypass), got ${result.status}`);
@@ -22511,7 +22276,7 @@ async function testAuthRoutesExternalOnlyBypass(): Promise<void> {
   const { accessors, authService } = makeAuthHarness({
     withTotp: true, totpRegistered: true, twoFactorExternalOnly: true
   });
-  const result = await invokeLogin(accessors, { password: 'test-password' });
+  const result = await invokeLoopbackLoginOverTcp(accessors, { password: 'test-password' });
   authService.destroy();
   assert.equal(result.status, 200, `Expected 200 (externalOnly bypass), got ${result.status}`);
   assert.ok(typeof result.body.token === 'string', 'token should be present for externalOnly bypass');
@@ -22523,7 +22288,7 @@ async function testAuthRoutesExternalOnlyDisabled(): Promise<void> {
   const { accessors, authService } = makeAuthHarness({
     withTotp: true, totpRegistered: true, twoFactorExternalOnly: false
   });
-  const result = await invokeLogin(accessors, { password: 'test-password' });
+  const result = await invokeLoopbackLoginOverTcp(accessors, { password: 'test-password' });
   authService.destroy();
   assert.equal(result.status, 202, `Expected 202 (TOTP required), got ${result.status}`);
   assert.equal(result.body.requires2FA, true, 'requires2FA should be true when externalOnly=false');
