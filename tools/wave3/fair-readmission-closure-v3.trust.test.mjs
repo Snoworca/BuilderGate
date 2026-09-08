@@ -100,7 +100,7 @@ test('SDS-AC-2 uses collector-owned lexical parsing without executing TypeScript
     parseAdmittedImportSpecifiers,
   } = await loadCollector();
   const collectorSource = readFileSync(new URL('./fair-readmission-closure-v3.mjs', import.meta.url), 'utf8');
-  const inventorySource = readFileSync(inventoryPath, 'utf8');
+  const inventorySource = readFileSync(path.join(workspaceRoot, inventoryPath), 'utf8');
 
   assert.doesNotMatch(
     collectorSource,

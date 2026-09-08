@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-const workspaceRoot = 'C:/Work/git/_Snoworca/ProjectMaster';
+const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const analysisRoot = path.win32.join(
   workspaceRoot,
   'docs',

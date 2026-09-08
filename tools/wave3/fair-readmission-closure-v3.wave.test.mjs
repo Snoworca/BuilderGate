@@ -1,29 +1,14 @@
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
-import { existsSync, readFileSync, unlinkSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { createOwnedAnalysisLeaf } from './admission-fixture-ownership.mjs';
 
-const workspaceRoot = 'C:/Work/git/_Snoworca/ProjectMaster';
-const analysisRoot = path.win32.join(
-  workspaceRoot,
-  'docs',
-  'analysis',
-  'kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3',
-);
+const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 async function loadCollector() {
   return import('./fair-readmission-closure-v3.mjs');
-}
-
-function ownedManifestPath(label) {
-  return path.win32.join(analysisRoot, `.wave-${label}-${process.pid}-${randomBytes(6).toString('hex')}.json`);
-}
-
-function removeOwnedManifest(manifestPath) {
-  assert.equal(path.win32.dirname(manifestPath), analysisRoot, 'wave cleanup must stay in the capture analysis directory');
-  assert.equal(path.win32.basename(manifestPath).startsWith('.wave-'), true, 'wave cleanup must target only its own leaf');
-  if (existsSync(manifestPath)) unlinkSync(manifestPath);
 }
 
 function callerFilesystem(events) {
@@ -37,8 +22,10 @@ function callerFilesystem(events) {
 
 test('SDS-AC-1 keeps deterministic wave admission behind native capture rather than a caller-constructed snapshot', async () => {
   const collector = await loadCollector();
-  const manifestPath = ownedManifestPath('forged-wave');
+  const leaf = createOwnedAnalysisLeaf('wave-forged-wave');
+  const { manifestPath } = leaf;
   const events = [];
+  let priorFailure;
   try {
     assert.equal(Object.hasOwn(collector, 'createProtectedInputSnapshot'), false, 'callers cannot construct the wave snapshot');
     assert.throws(
@@ -52,15 +39,17 @@ test('SDS-AC-1 keeps deterministic wave admission behind native capture rather t
     );
     assert.deepEqual(events, [], 'a caller cannot read or reorder protected wave bytes');
     assert.equal(existsSync(manifestPath), false, 'a rejected caller wave cannot publish a manifest');
-  } finally {
-    removeOwnedManifest(manifestPath);
+  } catch (error) { priorFailure = { error }; } finally {
+    leaf.cleanup(priorFailure);
   }
 });
 
 test('SDS-AC-1 and SDS-AC-4 reject caller-selected frontier and reparse batching before native capture', async () => {
   const { captureFrozenProvenance } = await loadCollector();
-  const manifestPath = ownedManifestPath('forged-frontier');
+  const leaf = createOwnedAnalysisLeaf('wave-forged-frontier');
+  const { manifestPath } = leaf;
   const batches = [];
+  let priorFailure;
   const reparseGuard = {
     assertSafeMany(paths) {
       batches.push(paths);
@@ -80,14 +69,16 @@ test('SDS-AC-1 and SDS-AC-4 reject caller-selected frontier and reparse batching
     );
     assert.deepEqual(batches, [], 'caller batching cannot bless a protected frontier');
     assert.equal(existsSync(manifestPath), false, 'a rejected frontier cannot publish rows');
-  } finally {
-    removeOwnedManifest(manifestPath);
+  } catch (error) { priorFailure = { error }; } finally {
+    leaf.cleanup(priorFailure);
   }
 });
 
 test('SDS-AC-2 rejects every caller-supplied failed-wave cache, digest, row, parser, or discovery state', async () => {
   const { captureFrozenProvenance } = await loadCollector();
-  const manifestPath = ownedManifestPath('forged-cache');
+  const leaf = createOwnedAnalysisLeaf('wave-forged-cache');
+  const { manifestPath } = leaf;
+  let priorFailure;
   const snapshot = {
     readWave() {
       throw new Error('caller snapshot must not run');
@@ -99,23 +90,24 @@ test('SDS-AC-2 rejects every caller-supplied failed-wave cache, digest, row, par
       /capture options|native|authority|unsupported|forbid|reject/i,
     );
     assert.equal(existsSync(manifestPath), false, 'a caller cache cannot publish an admitted digest or row');
-  } finally {
-    removeOwnedManifest(manifestPath);
+  } catch (error) { priorFailure = { error }; } finally {
+    leaf.cleanup(priorFailure);
   }
 });
 
 test('SDS-AC-3 publishes a deterministic deduplicated source closure only after native capture succeeds', async () => {
-  const { captureFrozenProvenance } = await loadCollector();
-  const manifestPath = ownedManifestPath('native-closure');
+  const leaf = createOwnedAnalysisLeaf('wave-native-closure');
+  const { manifestPath } = leaf;
+  let priorFailure;
   try {
-    const manifest = captureFrozenProvenance({ workspaceRoot, manifestPath, phase: 'wave-native-closure' });
+    const manifest = leaf.capture('wave-native-closure');
     assert.deepEqual(JSON.parse(readFileSync(manifestPath, 'utf8')), manifest, 'only the native closure may publish its manifest');
     const rows = manifest.protectedInput.value.sourceClosureRows;
     const paths = rows.map(row => row.path);
     assert.deepEqual(paths, [...paths].sort(), 'native source closure rows must have deterministic path order');
     assert.equal(new Set(paths).size, paths.length, 'native source closure rows must be deduplicated before publication');
-  } finally {
-    removeOwnedManifest(manifestPath);
+  } catch (error) { priorFailure = { error }; } finally {
+    leaf.cleanup(priorFailure);
   }
 });
 

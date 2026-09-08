@@ -1,39 +1,27 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, unlinkSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { createOwnedAnalysisLeaf } from './admission-fixture-ownership.mjs';
 
 async function loadCollector() {
   return import('./fair-readmission-closure-v3.mjs');
 }
 
-const workspaceRoot = fileURLToPath(new URL('../..', import.meta.url));
-const analysisRoot = path.join(
-  workspaceRoot,
-  'docs',
-  'analysis',
-  'kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3',
-);
+const workspaceRoot = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 
 function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-function ownedManifestPath(label) {
-  return path.join(analysisRoot, `.snapshot-${label}-${process.pid}.json`);
-}
-
-function removeOwnedManifest(manifestPath) {
-  assert.equal(path.dirname(manifestPath), analysisRoot, 'snapshot cleanup must stay in the capture analysis directory');
-  assert.equal(path.basename(manifestPath).startsWith('.snapshot-'), true, 'snapshot cleanup must target only its own leaf');
-  if (existsSync(manifestPath)) unlinkSync(manifestPath);
-}
 
 test('SDS-AC-1 keeps the protected snapshot private and rejects a caller filesystem before native capture can read or publish', async () => {
   const collector = await loadCollector();
-  const manifestPath = ownedManifestPath('forged-filesystem');
+  const leaf = createOwnedAnalysisLeaf('snapshot-forged-filesystem');
+  const { manifestPath } = leaf;
+  let priorFailure;
   let calls = 0;
   const fs = new Proxy({}, {
     get() {
@@ -50,14 +38,16 @@ test('SDS-AC-1 keeps the protected snapshot private and rejects a caller filesys
     );
     assert.equal(calls, 0, 'native capture must reject the caller filesystem before any protected read');
     assert.equal(existsSync(manifestPath), false, 'rejected caller authority must not publish a manifest');
-  } finally {
-    removeOwnedManifest(manifestPath);
+  } catch (error) { priorFailure = { error }; } finally {
+    leaf.cleanup(priorFailure);
   }
 });
 
 test('SDS-AC-2 rejects caller reparse and snapshot state before a failed post-read claim can publish a row', async () => {
   const { captureFrozenProvenance } = await loadCollector();
-  const manifestPath = ownedManifestPath('forged-snapshot');
+  const leaf = createOwnedAnalysisLeaf('snapshot-forged-snapshot');
+  const { manifestPath } = leaf;
+  let priorFailure;
   const events = [];
   const reparseGuard = { assertSafeMany() { events.push('guard'); } };
   const snapshot = { readWave() { events.push('snapshot'); } };
@@ -69,14 +59,15 @@ test('SDS-AC-2 rejects caller reparse and snapshot state before a failed post-re
     );
     assert.deepEqual(events, [], 'native capture must reject caller state before it can claim a post-read guard result');
     assert.equal(existsSync(manifestPath), false, 'a rejected caller snapshot cannot publish a row');
-  } finally {
-    removeOwnedManifest(manifestPath);
+  } catch (error) { priorFailure = { error }; } finally {
+    leaf.cleanup(priorFailure);
   }
 });
 
 test('SDS-AC-3 publishes source, config, and fixture manifest rows whose digests match their native capture bytes', async () => {
-  const { captureFrozenProvenance } = await loadCollector();
-  const manifestPath = ownedManifestPath('native-rows');
+  const leaf = createOwnedAnalysisLeaf('snapshot-native-rows');
+  const { manifestPath } = leaf;
+  let priorFailure;
   const inputs = [
     ['source', 'server/src/ws/WsRouter.ts'],
     ['config_lock', 'server/config.json5'],
@@ -84,7 +75,7 @@ test('SDS-AC-3 publishes source, config, and fixture manifest rows whose digests
   ];
 
   try {
-    const manifest = captureFrozenProvenance({ workspaceRoot, manifestPath, phase: 'snapshot-native-rows' });
+    const manifest = leaf.capture('snapshot-native-rows');
     assert.deepEqual(JSON.parse(readFileSync(manifestPath, 'utf8')), manifest, 'native capture must persist only its canonical manifest rows');
     const protectedRows = [
       ...manifest.protectedInput.value.sourceClosureRows,
@@ -99,8 +90,8 @@ test('SDS-AC-3 publishes source, config, and fixture manifest rows whose digests
         `${kind} manifest rows must preserve the digest of their exact native capture bytes`,
       );
     }
-  } finally {
-    removeOwnedManifest(manifestPath);
+  } catch (error) { priorFailure = { error }; } finally {
+    leaf.cleanup(priorFailure);
   }
 });
 

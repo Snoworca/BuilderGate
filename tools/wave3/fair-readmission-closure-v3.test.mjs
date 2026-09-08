@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const outputDir = 'C:/Work/kiwi-run-output/2026-07-27.pm.fair-readmission-closure-v3/ac9-playwright';
-const workspaceRoot = 'C:/Work/git/_Snoworca/ProjectMaster';
+const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const browserGrep = 'PERF-BGSTAB-010 AC-9 isolated browser evidence.*visible fair-delivery ACK preserves idle through the real HTTPS WebSocket';
 
 async function loadCollector() {

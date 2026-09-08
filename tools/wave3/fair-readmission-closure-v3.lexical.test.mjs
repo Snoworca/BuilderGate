@@ -1,18 +1,13 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, unlinkSync } from 'node:fs';
-import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { createOwnedAnalysisLeaf } from './admission-fixture-ownership.mjs';
 
-const workspaceRoot = 'C:/Work/git/_Snoworca/ProjectMaster';
+const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const parserFromPath = 'server/src/ws/WsRouter.ts';
 const canarySourcePath = 'server/src/services/TerminalResourcePolicyCanary.test.ts';
-const analysisRoot = path.win32.join(
-  workspaceRoot,
-  'docs',
-  'analysis',
-  'kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3',
-);
 
 async function loadCollector() {
   return import('./fair-readmission-closure-v3.mjs');
@@ -71,16 +66,6 @@ test('PERF-BGSTAB-011 runtime identifier oracle excludes comments strings type q
     { binding: 'ACTUAL', offset: sourceText.indexOf('import(ACTUAL)') },
   ]);
 });
-
-function ownedManifestPath(prefix) {
-  return path.win32.join(analysisRoot, `${prefix}-${process.pid}-${randomBytes(8).toString('hex')}.json`);
-}
-
-function removeOwnedManifest(manifestPath, prefix) {
-  assert.equal(path.win32.dirname(manifestPath), analysisRoot, 'cleanup must remain in the frozen-capture analysis directory');
-  assert.equal(path.win32.basename(manifestPath).startsWith(`${prefix}-`), true, 'cleanup must target only this test-owned manifest leaf');
-  if (existsSync(manifestPath)) unlinkSync(manifestPath);
-}
 
 test('SDS-AC-2 treats explicit zero-edge forms separately from contained literal edges', async () => {
   const { parseAdmittedImportSpecifiers } = await loadCollector();
@@ -141,7 +126,7 @@ test('SDS-AC-2 admits every frozen runtime import(identifier) edge without sourc
 
   let dynamicEdges = 0;
   for (const expected of expectedOccurrences) {
-    const sourceText = readFileSync(expected.path, 'utf8');
+    const sourceText = readFileSync(path.join(workspaceRoot, expected.path), 'utf8');
     const parsed = parseAdmittedImportSpecifiers({ sourceText, fromPath: expected.path });
     assert.equal(
       parsed.filter(specifier => specifier === expected.specifier).length,
@@ -200,14 +185,11 @@ test('SDS-AC-1 and SDS-AC-4 retain private native capture, fixed Git, and a comp
     assert.equal(Object.hasOwn(collector, protectedName), false, `${protectedName} must remain private to native capture`);
   }
 
-  const prefix = 'lexical-default-capture';
-  const manifestPath = ownedManifestPath(prefix);
+  const leaf = createOwnedAnalysisLeaf('lexical-default-capture');
+  const { manifestPath } = leaf;
+  let priorFailure;
   try {
-    const manifest = collector.captureFrozenProvenance({
-      workspaceRoot,
-      manifestPath,
-      phase: 'lexical-default-capture',
-    });
+    const manifest = leaf.capture('lexical-default-capture');
     assert.deepEqual(JSON.parse(readFileSync(manifestPath, 'utf8')), manifest, 'native capture must persist its canonical default manifest');
     assert.equal(
       manifest.protectedInput.value.sourceClosureRows.some(row => row.path === canarySourcePath),
@@ -219,7 +201,7 @@ test('SDS-AC-1 and SDS-AC-4 retain private native capture, fixed Git, and a comp
       'C:/Program Files/Git/cmd/git.exe',
       'the default capture must retain its fixed Git provenance executable',
     );
-  } finally {
-    removeOwnedManifest(manifestPath, prefix);
+  } catch (error) { priorFailure = { error }; } finally {
+    leaf.cleanup(priorFailure);
   }
 });

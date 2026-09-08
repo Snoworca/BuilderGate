@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-const workspaceRoot = 'C:/Work/git/_Snoworca/ProjectMaster';
+const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const inventoryPath = 'server/src/services/TerminalResourcePolicyInventory.ts';
 
 async function loadCollector() {
@@ -102,7 +104,7 @@ test('SDS-AC-3 collector-owned lexical parsing retains TerminalResourcePolicyInv
   const {
     parseAdmittedImportSpecifiers,
   } = await loadCollector();
-  const inventoryText = readFileSync(inventoryPath, 'utf8');
+  const inventoryText = readFileSync(path.join(workspaceRoot, inventoryPath), 'utf8');
 
   assert.match(inventoryText, /await\s+import\(\s*['"]typescript['"]\s*\)/, 'the real inventory must retain its literal dynamic import fixture');
   assert.match(inventoryText, /(?:typeof\s+)?import\(\s*['"]typescript['"]\s*\)\./, 'the real inventory must retain its literal type-import fixture');
