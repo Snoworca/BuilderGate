@@ -52,3 +52,31 @@ test('AC5 lexical actual source reads use module checkout while parser paths rem
 });
 test('AC5 trust actual Inventory source read is module-bound without changing parser identity', () => executeReadSite('trust', 'inventorySource', 'server/src/services/TerminalResourcePolicyInventory.ts'));
 test('AC5 admission actual Inventory source read is module-bound without changing parser identity', () => executeReadSite('admission', 'inventoryText', 'server/src/services/TerminalResourcePolicyInventory.ts'));
+
+for (const [suffix, api] of [
+  ['', 'validateFrozenContract'], ['strict', 'resolveFixturePath'],
+  ['boundary', 'resolveAdmittedRelativeSpecifier'], ['ingress', 'resolveFixturePath'],
+  ['manifest-race', 'collector.captureFrozenProvenance'],
+]) {
+  test(`AC5 ${suffix || 'base'} actual root construction is module-bound for ${api}`, () => {
+    const basename = `fair-readmission-closure-v3${suffix ? '.' + suffix : ''}.test.mjs`;
+    const url = new URL('./' + basename, import.meta.url);
+    const ast = ts.createSourceFile(url.pathname, readFileSync(url, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+    const roots = all(ast, n => ts.isVariableDeclaration(n) && n.name.getText(ast) === 'workspaceRoot');
+    assert.equal(roots.length, 1, 'do not invent a missing declaration');
+    const calls = all(ast, n => ts.isCallExpression(n) && n.expression.getText(ast) === api
+      && ts.isObjectLiteralExpression(n.arguments[0]) && n.arguments[0].properties.some(p =>
+        ts.isShorthandPropertyAssignment(p) && p.name.text === 'workspaceRoot'));
+    assert.ok(calls.length > 0, 'selected root must actually reach the named public API, not only a fake corpus');
+    const transformed = ts.transform(roots[0].initializer, [context => node => {
+      function visit(n) {
+        if (ts.isPropertyAccessExpression(n) && ts.isMetaProperty(n.expression) && n.name.text === 'url') return ts.factory.createStringLiteral(`file:///C:/virtual-checkout/tools/wave3/${basename}`);
+        return ts.visitEachChild(n, visit, context);
+      }
+      return ts.visitNode(node, visit);
+    }]);
+    const expression = ts.createPrinter().printNode(ts.EmitHint.Expression, transformed.transformed[0], ast);
+    const observed = new Function('path', 'fileURLToPath', 'process', `return ${expression};`)(path.win32, fileURLToPath, { cwd: () => foreignCwd });
+    assert.equal(path.win32.resolve(observed), virtualRoot, 'real API root follows its module checkout, independent of process cwd');
+  });
+}
