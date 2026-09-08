@@ -48,6 +48,16 @@ export function admissionRecordError(record) {
   }
 }
 
+export function decodeAdmissionTranscript(text) {
+  if (typeof text !== 'string' || text.length === 0 || !text.endsWith('\n')) {
+    throw new Error('Admission transcript must be nonempty and LF-terminated');
+  }
+  return text.slice(0, -1).split('\n').map((line, index) => {
+    if (line.trim().length === 0) throw new Error(`Blank admission record at line ${index + 1}`);
+    return JSON.parse(line);
+  });
+}
+
 export function evaluateAdmissionEvents(records, expectedEntryFiles) {
   const counts = emptyCounts(), reasons = [];
   const verdict = () => ({ accepted: reasons.length === 0, reasons, counts });
