@@ -6,9 +6,10 @@ import { join } from 'node:path';
 import {
   expect,
   test,
+  deleteOwnedWorkspaceForContext,
   type Page,
   type WebSocketRoute,
-} from '@playwright/test';
+} from './workspaceOwnershipFixture';
 import type { TerminalRetainedStateEvidence } from '../../src/utils/terminalRetainedState.ts';
 import { getActiveSessionId, login, waitForTerminal } from './helpers';
 import {
@@ -17,6 +18,8 @@ import {
 } from '../support/terminalAuthorityDiagnostics.ts';
 
 const AUTHORITY_WORKSPACE_PREFIX = `PH5A-${Date.now().toString(36)}-`;
+// Reuse only this page's successful creation; cleanup authority stays in the registry.
+const ownedAuthorityWorkspaces = new WeakMap<Page, { id: string; name: string }>();
 
 type JsonFrame = Record<string, unknown> & {
   type?: string;
@@ -25,6 +28,9 @@ type JsonFrame = Record<string, unknown> & {
   replayToken?: string;
   seq?: number;
   screenSeq?: number;
+  registeredViews?: unknown[];
+  mutationLeases?: unknown[];
+  digest?: { algorithm?: unknown; hex?: unknown };
 };
 
 interface CapturedFrame {
@@ -486,7 +492,7 @@ function readLatestTerminalViewRegistration(
   harness: RoutedWebSocketHarness,
   sessionId: string,
   afterFrameIndex = -1,
-  owner?: Page,
+  owner?: Page | null,
   origin?: CapturedFrame['origin'],
 ): TerminalViewRegistration | null {
   for (let frameIndex = harness.frames.length - 1; frameIndex > afterFrameIndex; frameIndex -= 1) {
@@ -518,7 +524,7 @@ async function waitForLatestTerminalViewRegistration(
   harness: RoutedWebSocketHarness,
   sessionId: string,
   afterFrameIndex = -1,
-  owner?: Page,
+  owner?: Page | null,
 ): Promise<TerminalViewRegistration> {
   await expect.poll(() => readLatestTerminalViewRegistration(harness, sessionId, afterFrameIndex, owner), {
     message: 'E2E precondition failed: latest checkpoint view registration was not observed',
@@ -1160,7 +1166,7 @@ async function waitForVisibleTerminalInputReady(
         gate,
         helperReady: Boolean(
           textarea?.isConnected
-          && !textarea.disabled
+          && !(textarea as HTMLTextAreaElement).disabled
           && textarea === document.activeElement
         ),
       };
@@ -1244,11 +1250,11 @@ async function readSessionStatus(page: Page, sessionId: string): Promise<string 
 }
 
 async function ensureOwnedAuthorityWorkspace(page: Page): Promise<void> {
-  const owned = await page.evaluate(async ({ workspacePrefix }) => {
+  const owned = await page.evaluate(async ({ workspacePrefix, existingOwned }) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const existingId = localStorage.getItem('ph005_authority_workspace_id');
-    const existingName = localStorage.getItem('ph005_authority_workspace_name');
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    const existingId = existingOwned?.id;
+    const existingName = existingOwned?.name;
     if (existingId && existingName) {
       const stateResponse = await fetch('/api/workspaces', { headers });
       if (stateResponse.ok) {
@@ -1259,41 +1265,12 @@ async function ensureOwnedAuthorityWorkspace(page: Page): Promise<void> {
       }
     }
 
-    const stateResponse = await fetch('/api/workspaces', { headers });
-    if (!stateResponse.ok) {
-      throw new Error(`E2E precondition failed: authority workspace inventory returned ${stateResponse.status}`);
-    }
-    const state = await stateResponse.json() as {
-      workspaces?: Array<{ id: string; name: string }>;
-    };
-    for (const stale of state.workspaces?.filter(
-      workspace => workspace.name.startsWith(workspacePrefix),
-    ) ?? []) {
-      const deleteResponse = await fetch(`/api/workspaces/${stale.id}`, { method: 'DELETE', headers });
-      if (!deleteResponse.ok && deleteResponse.status !== 404) {
-        throw new Error(`E2E precondition failed: stale authority workspace delete returned ${deleteResponse.status}`);
-      }
-    }
-
     const name = `${workspacePrefix}${Date.now()}`;
-    const createWorkspace = () => fetch('/api/workspaces', {
+    const workspaceResponse = await fetch('/api/workspaces', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify({ name }),
     });
-    let workspaceResponse = await createWorkspace();
-    for (let attempt = 0; workspaceResponse.status === 409 && attempt < 20; attempt += 1) {
-      const stateResponse = await fetch('/api/workspaces', { headers });
-      if (!stateResponse.ok) break;
-      const state = await stateResponse.json() as {
-        workspaces?: Array<{ id: string; name: string }>;
-      };
-      const stale = state.workspaces?.find(workspace => workspace.name.startsWith(workspacePrefix));
-      if (!stale) break;
-      const deleteResponse = await fetch(`/api/workspaces/${stale.id}`, { method: 'DELETE', headers });
-      if (!deleteResponse.ok && deleteResponse.status !== 404) break;
-      workspaceResponse = await createWorkspace();
-    }
     if (!workspaceResponse.ok) {
       const failureBody = await workspaceResponse.text();
       throw new Error(
@@ -1310,13 +1287,13 @@ async function ensureOwnedAuthorityWorkspace(page: Page): Promise<void> {
       body: JSON.stringify({ shell: 'powershell' }),
     });
     if (!tabResponse.ok) {
-      await fetch(`/api/workspaces/${workspace.id}`, { method: 'DELETE', headers });
       throw new Error(`E2E precondition failed: authority workspace tab create returned ${tabResponse.status}`);
     }
     localStorage.setItem('ph005_authority_workspace_id', workspace.id);
     localStorage.setItem('ph005_authority_workspace_name', workspace.name);
     return { id: workspace.id, name: workspace.name };
-  }, { workspacePrefix: AUTHORITY_WORKSPACE_PREFIX });
+  }, { workspacePrefix: AUTHORITY_WORKSPACE_PREFIX, existingOwned: ownedAuthorityWorkspaces.get(page) ?? null });
+  ownedAuthorityWorkspaces.set(page, owned);
   await page.evaluate(({ id }) => localStorage.setItem('active_workspace_id', id), owned);
   await page.reload();
   await page.getByRole('option', { name: owned.name }).click();
@@ -1324,20 +1301,16 @@ async function ensureOwnedAuthorityWorkspace(page: Page): Promise<void> {
 }
 
 async function deleteOwnedAuthorityWorkspace(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    const workspaceId = localStorage.getItem('ph005_authority_workspace_id');
-    localStorage.removeItem('ph005_authority_workspace_id');
-    localStorage.removeItem('ph005_authority_workspace_name');
-    if (!workspaceId) return;
-    const token = localStorage.getItem('cws_auth_token');
-    const response = await fetch(`/api/workspaces/${workspaceId}`, {
-      method: 'DELETE',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!response.ok && response.status !== 404) {
-      throw new Error(`E2E cleanup failed: authority workspace delete returned ${response.status}`);
+  const owned = ownedAuthorityWorkspaces.get(page);
+  if (!owned) return;
+  await deleteOwnedWorkspaceForContext(page.context(), owned.id);
+  ownedAuthorityWorkspaces.delete(page);
+  await page.evaluate((workspaceId) => {
+    if (localStorage.getItem('ph005_authority_workspace_id') === workspaceId) {
+      localStorage.removeItem('ph005_authority_workspace_id');
+      localStorage.removeItem('ph005_authority_workspace_name');
     }
-  });
+  }, owned.id);
 }
 
 async function createUnselectedSession(page: Page): Promise<string> {
@@ -2578,8 +2551,8 @@ const RETAINED_STATE_MODE_NAMES = [
 ] as const;
 
 function retainedStateDigestEvidence(
-  startMessage: JsonFrame | undefined,
-  commitMessage: JsonFrame | undefined,
+  startMessage: JsonFrame | null | undefined,
+  commitMessage: JsonFrame | null | undefined,
 ): { parserTailEnvelopeValid: boolean; retainedStateDigestValid: boolean } {
   const parserTail = startMessage?.parserTail;
   const parserTailRecord = parserTail && typeof parserTail === 'object'
@@ -2635,7 +2608,7 @@ function retainedStateDigestEvidence(
   // IR-BGSTAB-002: the tail enters as a hash of the bytes it stands for, never as
   // the base64 text carrying them, so this probe decodes before hashing.
   const parserTailDigest = `sha256:${createHash('sha256')
-    .update(Buffer.from(parserTailRecord!.data, 'base64'))
+    .update(Buffer.from(parserTailRecord!.data as string, 'base64'))
     .digest('hex')}`;
   const canonical = JSON.stringify({
     version: 2,
@@ -2752,7 +2725,7 @@ function serverCheckpointEvidence(
     && identity.protocolVersion === 1
     && identity.sessionId === sessionId
     && identity.viewGeneration === viewGeneration
-    && ['streamEpoch', 'checkpointEpoch', 'sourceSeq', 'snapshotSeq', 'oldestRetainedSeq']
+    && (['streamEpoch', 'checkpointEpoch', 'sourceSeq', 'snapshotSeq', 'oldestRetainedSeq'] as const)
       .every(key => isCanonicalOrdinal(identity[key]))
     && typeof identity.retentionPolicyId === 'string'
     && identity.retentionPolicyId.length > 0;
@@ -3617,7 +3590,7 @@ async function prepareServerAuthorityTestState(
   const requestTimeoutMs = testContract?.productionConfiguredRangeProbe !== undefined
     ? 180_000
     : 30_000;
-  const request = async () => {
+  const request = async (): Promise<Record<string, unknown> & { httpStatus: number }> => {
     const response = await page.request.post(
       `/api/sessions/debug-capture/${sessionId}/terminal-authority-test-isolation`,
       {
@@ -4309,7 +4282,7 @@ test.describe('PH005 authority promotion E2E exact six-case contract and fail-cl
       first = {
         ...first,
         generation: currentMainRegistration.generation,
-        viewGeneration: Number(currentMainView.viewGeneration),
+        viewGeneration: Number(currentMainView!.viewGeneration),
       };
       let decisionFrame: CapturedFrame | null = null;
       let requestId = '';
@@ -5236,7 +5209,7 @@ test.describe('PH005 authority promotion E2E exact six-case contract and fail-cl
           seedReplyCount: 0,
           serverModeBrowserReplyCount: 0,
         },
-        serverProbes: VIEW_QUERY_CASES.map((parityCase, index) => ({
+        serverProbes: VIEW_QUERY_CASES.map((_parityCase, index) => ({
           httpStatus: 202,
           accepted: true,
           source: 'server-headless-responder-test-isolation',
@@ -6072,7 +6045,7 @@ test.describe('PH005 authority promotion E2E exact six-case contract and fail-cl
       } catch (error) {
         zeroAttachedHealthError = formatErrorForDiagnostic(error);
       }
-      let zeroAttachedInventory: Record<string, unknown> | null = null;
+      let zeroAttachedInventory = null as Record<string, unknown> | null;
       let zeroAttachedInventoryError: string | null = null;
       try {
         await expect.poll(async () => {
@@ -6131,7 +6104,7 @@ test.describe('PH005 authority promotion E2E exact six-case contract and fail-cl
         zeroAttachedProducer.retainedOutput,
         'utf8',
       );
-      let zeroAttachedAuditRecord: Record<string, unknown> | null = null;
+      let zeroAttachedAuditRecord = null as Record<string, unknown> | null;
       let zeroAttachedCountRemainedZero = true;
       await expect.poll(async () => {
         zeroAttachedInventory = await inspectDetachedServerAuthorityTestResources(
@@ -8194,7 +8167,7 @@ test.describe('PH005 authority promotion E2E exact six-case contract and fail-cl
           const lastGridRepairSettlement = events.findLastIndex(event => (
             event.kind === 'screen_repair_applied' || event.kind === 'screen_repair_request_suppressed'
           ));
-          return latestGate?.details.inputReady === true
+          return latestGate?.details?.inputReady === true
             && latestGate.details.captureState === 'open'
             && latestGate.details.barrierReason === 'none'
             && (lastGridRepairStart < 0 || lastGridRepairSettlement > lastGridRepairStart);
@@ -8384,7 +8357,7 @@ test.describe('PH005 authority promotion E2E exact six-case contract and fail-cl
     await expect.poll(async () => page.evaluate((sessionId) => {
       const events = window.__buildergateTerminalDebug?.getEvents(sessionId) ?? [];
       const latestGate = [...events].reverse().find(event => event.kind === 'input_gate_synced');
-      return latestGate?.details.inputReady === true
+      return latestGate?.details?.inputReady === true
         && latestGate.details.captureState === 'open'
         && latestGate.details.barrierReason === 'none';
     }, live.sessionId), {
@@ -8488,7 +8461,7 @@ test.describe('PH005 authority promotion E2E exact six-case contract and fail-cl
       ));
       const latestGate = [...events].reverse().find(event => event.kind === 'input_gate_synced');
       return restored
-        && latestGate?.details.inputReady === true
+        && latestGate?.details?.inputReady === true
         && latestGate.details.captureState === 'open'
         && latestGate.details.barrierReason === 'none';
     }, { sessionId: live.sessionId, boundaryEventId: clientDebugBoundaryEventId }), {
@@ -8501,7 +8474,7 @@ test.describe('PH005 authority promotion E2E exact six-case contract and fail-cl
       await input.focus();
       return input.evaluate((textarea) => (
         textarea.isConnected
-        && !textarea.disabled
+        && !(textarea as HTMLTextAreaElement).disabled
         && textarea === document.activeElement
       ));
     }, {
@@ -8510,8 +8483,8 @@ test.describe('PH005 authority promotion E2E exact six-case contract and fail-cl
     }).toBe(true);
     const inputStateBeforeType = await input.evaluate((textarea) => ({
       connected: textarea.isConnected,
-      disabled: textarea.disabled,
-      readOnly: textarea.readOnly,
+      disabled: (textarea as HTMLTextAreaElement).disabled,
+      readOnly: (textarea as HTMLTextAreaElement).readOnly,
       active: textarea === document.activeElement,
     }));
     await page.keyboard.type(marker, { delay: 0 });
@@ -8547,7 +8520,7 @@ test.describe('PH005 authority promotion E2E exact six-case contract and fail-cl
         )).slice(-80).map(event => ({
           eventId: event.eventId,
           kind: event.kind,
-          details: {
+          details: event.details ? {
             reason: event.details.reason,
             source: event.details.source,
             inputReady: event.details.inputReady,
@@ -8556,7 +8529,7 @@ test.describe('PH005 authority promotion E2E exact six-case contract and fail-cl
             activeElementIsHelper: event.details.activeElementIsHelper,
             helperDisabled: event.details.helperDisabled,
             eventKey: event.details.key,
-          },
+          } : null,
         })) ?? []
       ), { sessionId: live.sessionId, boundaryEventId: clientDebugBoundaryEventId });
       const serverEvents = await readServerDebugCapture(page, live.sessionId);
@@ -8578,13 +8551,13 @@ test.describe('PH005 authority promotion E2E exact six-case contract and fail-cl
       }));
       const conciseServerEvents = serverEvents.server.slice(-40).map(event => ({
         kind: event.kind,
-        details: {
+        details: event.details ? {
           reason: event.details.reason,
           inputClass: event.details.inputClass,
           nextStatus: event.details.nextStatus,
           source: event.details.source,
           error: event.details.error,
-        },
+        } : null,
       }));
       throw new Error(
         `${error instanceof Error ? error.message : String(error)}; `

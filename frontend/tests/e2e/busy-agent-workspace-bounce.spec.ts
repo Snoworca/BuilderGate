@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './workspaceOwnershipFixture';
 import { login, sendVisibleTerminalCommand, waitForTerminal } from './helpers';
 
 /**
@@ -126,43 +126,12 @@ async function readTabStatuses(page: Page, workspaceId: string): Promise<string[
 }
 
 
-const TEST_WORKSPACE_PREFIXES = ['BusyAgent-', 'BounceTarget-', 'Diag-', 'AuthoritySource-', 'SwitchTarget-', 'Authority', 'Test'];
-
-/**
- * Workspaces are a bounded resource: a leftover from an earlier run makes the
- * next `POST /api/workspaces` answer 409, which would surface as this test
- * failing for a reason that has nothing to do with what it checks.
- */
-async function deleteTestWorkspaces(page: Page): Promise<void> {
-  await page.evaluate(async (prefixes) => {
-    const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const res = await fetch('/api/workspaces', { headers });
-    if (!res.ok) return;
-    const state = await res.json();
-    const active = localStorage.getItem('active_workspace_id');
-    for (const workspace of state.workspaces as Array<{ id: string; name: string }>) {
-      if (workspace.id === active) continue;
-      if (!prefixes.some((prefix: string) => workspace.name.startsWith(prefix))) continue;
-      await fetch(`/api/workspaces/${workspace.id}`, { method: 'DELETE', headers });
-    }
-  }, TEST_WORKSPACE_PREFIXES);
-}
-
 test.describe('Busy agent survives workspace bounce', () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop-only regression coverage');
     await captureServerFrames(page);
     await login(page);
     await waitForTerminal(page);
-    await deleteTestWorkspaces(page);
-  });
-
-  test.afterEach(async ({ page }) => {
-    // The agent process keeps running inside its tab, so an undeleted workspace
-    // leaves a live codex behind and starves the next run of its quota.
-    await page.evaluate(() => localStorage.removeItem('active_workspace_id')).catch(() => {});
-    await deleteTestWorkspaces(page).catch(() => {});
   });
 
   test('a codex session is not reported as ended after bouncing workspaces', async ({ page }) => {

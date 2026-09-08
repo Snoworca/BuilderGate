@@ -1,4 +1,5 @@
-import { Page, expect } from '@playwright/test';
+import { type Page, expect } from '@playwright/test';
+import type { TerminalInputTransportOverride } from '../../src/types/ws-protocol';
 
 interface RecoveryOptionPayload {
   command: string;
@@ -89,7 +90,7 @@ export async function createRecoveryOptionViaApi(page: Page, input: RecoveryOpti
 export async function clearRecoveryOptionsForE2E(page: Page, prefixes = ['e2e-recovery-']): Promise<void> {
   await page.evaluate(async (commandPrefixes) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const res = await fetch('/api/recovery-options', { headers });
     if (!res.ok) return;
     const data = await res.json();
@@ -138,7 +139,7 @@ export async function clearTerminalShortcuts(page: Page): Promise<void> {
     localStorage.removeItem('buildergate.terminalShortcutManager.activeTab');
     localStorage.removeItem('buildergate.dialog.terminal-shortcut-manager.geometry');
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const res = await fetch('/api/terminal-shortcuts', { headers });
     if (!res.ok) return;
     const data = await res.json();
@@ -165,7 +166,7 @@ export async function clearCommandPresets(page: Page): Promise<void> {
     localStorage.removeItem('buildergate.commandPresetManager.activeTab');
     localStorage.removeItem('buildergate.dialog.command-preset-manager.geometry');
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const res = await fetch('/api/command-presets', { headers });
     if (!res.ok) return;
     const data = await res.json();
@@ -447,13 +448,7 @@ export async function getActiveSessionId(page: Page): Promise<string | null> {
 export async function setTerminalInputTransportOverride(
   page: Page,
   sessionId: string,
-  override: {
-    serverReady?: boolean;
-    barrierReason?: string;
-    closedReason?: string;
-    reconnectState?: string;
-    sessionGeneration?: number;
-  } | null,
+  override: TerminalInputTransportOverride | null,
 ): Promise<boolean> {
   return page.evaluate(({ targetSessionId, nextOverride }) => {
     return window.__buildergateTerminalDebug?.setInputTransportOverride(targetSessionId, nextOverride) ?? false;

@@ -1,4 +1,5 @@
-import { test, expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
+import { test, deleteOwnedWorkspaceForContext } from './workspaceOwnershipFixture';
 import { login, sendVisibleTerminalCommand, waitForTerminal } from './helpers';
 
 async function fetchWorkspaceState(page: Page) {
@@ -340,7 +341,7 @@ async function createOwnedTc7004Workspace(page: Page) {
       body: JSON.stringify({ shell: 'powershell' }),
     });
     if (!tabResponse.ok) {
-      await fetch(`/api/workspaces/${workspace.id}`, { method: 'DELETE', headers });
+      // The automatic owner fixture drains creation proof and cleans after this failure.
       throw new Error(`owned tab create failed: ${tabResponse.status}`);
     }
     const tab = await tabResponse.json();
@@ -365,9 +366,9 @@ async function createOwnedTc7004Workspace(page: Page) {
 }
 
 async function cleanupOwnedTc7004Workspace(page: Page) {
-  const cleanup = await page.evaluate(async ({ ownedKey, previousKey }) => {
+  const selected = await page.evaluate(async ({ ownedKey, previousKey }) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const rawOwnership = localStorage.getItem(ownedKey);
     const ownership = rawOwnership ? (() => {
       try {
@@ -388,7 +389,7 @@ async function cleanupOwnedTc7004Workspace(page: Page) {
     )) {
       throw new Error('owned TC-7004 workspace record is incomplete; deletion refused');
     }
-    const workspaceId = ownership?.workspaceId ?? null;
+    const workspaceId = (ownership?.workspaceId ?? null) as string | null;
     const previousWorkspaceId = localStorage.getItem(previousKey);
     if (workspaceId) {
       const ownershipStateResponse = await fetch('/api/workspaces', { headers });
@@ -406,14 +407,18 @@ async function cleanupOwnedTc7004Workspace(page: Page) {
       ) {
         throw new Error('owned TC-7004 workspace ownership proof mismatch; deletion refused');
       }
-      const response = await fetch(`/api/workspaces/${workspaceId}`, {
-        method: 'DELETE',
-        headers,
-      });
-      if (!response.ok && response.status !== 404) {
-        throw new Error(`owned TC-7004 workspace cleanup failed: ${response.status}`);
-      }
     }
+    return { workspaceId, previousWorkspaceId };
+  }, {
+    ownedKey: TC7004_OWNED_WORKSPACE_KEY,
+    previousKey: TC7004_PREVIOUS_WORKSPACE_KEY,
+  });
+  if (selected.workspaceId) {
+    await deleteOwnedWorkspaceForContext(page.context(), selected.workspaceId);
+  }
+  const cleanup = await page.evaluate(async ({ workspaceId, previousWorkspaceId, ownedKey, previousKey }) => {
+    const token = localStorage.getItem('cws_auth_token');
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const stateResponse = await fetch('/api/workspaces', { headers });
     if (!stateResponse.ok) {
       throw new Error(`post-cleanup workspace fetch failed: ${stateResponse.status}`);
@@ -438,6 +443,8 @@ async function cleanupOwnedTc7004Workspace(page: Page) {
       activeWorkspaceBeforeReload: localStorage.getItem('active_workspace_id'),
     };
   }, {
+    workspaceId: selected.workspaceId,
+    previousWorkspaceId: selected.previousWorkspaceId,
     ownedKey: TC7004_OWNED_WORKSPACE_KEY,
     previousKey: TC7004_PREVIOUS_WORKSPACE_KEY,
   });

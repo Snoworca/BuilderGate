@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { expect, test, deleteOwnedWorkspaceForContext, type Page, type TestInfo } from './workspaceOwnershipFixture';
 import {
   analyzeTerminalRetainedStateEvidence,
   type TerminalRetainedStateBoundary,
-  TerminalRetainedStateEvidence,
+  type TerminalRetainedStateEvidence,
 } from '../../src/utils/terminalRetainedState.ts';
 import { login, sendVisibleTerminalCommand, waitForTerminal } from './helpers.ts';
 
@@ -18,7 +18,7 @@ const LIVE_RESULTS_PATH = path.resolve(
 const AUTHORITY_RECOVERY_OBSERVATION_KEY = '__buildergate_authority_recovery_observation_v1';
 const AUTHORITY_RECOVERY_TRACE_SESSION_KEY = '__buildergate_authority_recovery_trace_session_v1';
 
-async function loadContract(expectedFailureSignature: string) {
+async function loadContract(expectedFailureSignature: string): Promise<typeof import('./wave1-retained-state-characterization.ts')> {
   try {
     return await import(CONTRACT_MODULE_PATH);
   } catch (error) {
@@ -290,20 +290,15 @@ async function createOwnedLiveWorkspace(
     }
     const workspace = await createResponse.json();
     const sessions: string[] = [];
-    try {
-      for (let index = 0; index < 2; index += 1) {
-        const tabResponse = await fetch(`/api/workspaces/${workspace.id}/tabs`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ shell: 'powershell' }),
-        });
-        if (!tabResponse.ok) throw new Error(`live tab create failed: ${tabResponse.status}`);
-        const tab = await tabResponse.json();
-        sessions.push(tab.sessionId);
-      }
-    } catch (error) {
-      await fetch(`/api/workspaces/${workspace.id}`, { method: 'DELETE', headers });
-      throw error;
+    for (let index = 0; index < 2; index += 1) {
+      const tabResponse = await fetch(`/api/workspaces/${workspace.id}/tabs`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ shell: 'powershell' }),
+      });
+      if (!tabResponse.ok) throw new Error(`live tab create failed: ${tabResponse.status}`);
+      const tab = await tabResponse.json();
+      sessions.push(tab.sessionId);
     }
     localStorage.setItem('active_workspace_id', workspace.id);
     localStorage.setItem(`__bg_retained_live_owner_${workspace.id}`, tokenValue);
@@ -318,20 +313,16 @@ async function createOwnedLiveWorkspace(
 }
 
 async function cleanupOwnedLiveWorkspace(page: Page, owned: OwnedLiveWorkspace): Promise<void> {
-  const result = await page.evaluate(async (input) => {
+  await page.evaluate((input) => {
     const storedOwner = localStorage.getItem(`__bg_retained_live_owner_${input.workspaceId}`);
     if (storedOwner !== input.ownerToken) {
       throw new Error('live workspace cleanup refused: owner token mismatch');
     }
+  }, owned);
+  await deleteOwnedWorkspaceForContext(page.context(), owned.workspaceId);
+  const result = await page.evaluate(async (input) => {
     const authToken = localStorage.getItem('cws_auth_token');
-    const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
-    const response = await fetch(`/api/workspaces/${input.workspaceId}`, {
-      method: 'DELETE',
-      headers,
-    });
-    if (!response.ok && response.status !== 404) {
-      throw new Error(`live workspace cleanup failed: ${response.status}`);
-    }
+    const headers: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
     const stateResponse = await fetch('/api/workspaces', { headers });
     if (!stateResponse.ok) throw new Error(`workspace verification failed: ${stateResponse.status}`);
     const state = await stateResponse.json();
@@ -1013,12 +1004,12 @@ async function readAuthorityRecoveryObservationRaw(
         && typeof frame.checkpointEpoch === 'string'
       ))
       .map(async start => {
-        const sha256Hex = async (bytes: Uint8Array): Promise<string> => (
+        const sha256Hex = async (bytes: Uint8Array<ArrayBuffer>): Promise<string> => (
           Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)))
             .map(byte => byte.toString(16).padStart(2, '0')).join('')
         );
         const parserTailBytes = typeof start.parserTailData === 'string'
-          ? Uint8Array.from(atob(start.parserTailData), character => character.charCodeAt(0))
+          ? Uint8Array.from(atob(start.parserTailData!), character => character.charCodeAt(0))
           : null;
         const parserTailSha256 = parserTailBytes === null
           ? null
@@ -1040,17 +1031,17 @@ async function readAuthorityRecoveryObservationRaw(
           // IR-BGSTAB-002: the parser tail enters as a hash of the bytes it stands for,
           // so decode the transport representation before hashing it.
           ? await (async () => {
-            const tailBytes = Uint8Array.from(atob(start.parserTailData), character => character.charCodeAt(0));
+            const tailBytes = Uint8Array.from(atob(start.parserTailData!), character => character.charCodeAt(0));
             const parserTailDigest = `sha256:${await sha256Hex(tailBytes)}`;
             return `sha256:${await sha256Hex(new TextEncoder().encode(JSON.stringify({
               version: 2,
               dataDigest: start.contentDigest,
               parserTailDigest,
-              cols: start.sourceGeometry.cols,
-              rows: start.sourceGeometry.rows,
+              cols: start.sourceGeometry!.cols,
+              rows: start.sourceGeometry!.rows,
               modes: start.modes,
               activeBuffer: start.retainedActiveBuffer,
-              cursor: { x: start.retainedCursor.x, y: start.retainedCursor.y },
+              cursor: { x: start.retainedCursor!.x, y: start.retainedCursor!.y },
               savedCursor,
             })))}`;
           })()
@@ -1774,7 +1765,7 @@ test.describe('OBS-BGSTAB-004 refresh retained-state characterization', () => {
       terminalBuffer: ['normal', 'alternate'],
     });
     expect(manifest.seedRole).toBe('current_behavior_characterization_only');
-    expect(manifest.productRetainedRange).toBeUndefined();
+    expect((manifest as typeof manifest & { productRetainedRange?: unknown }).productRetainedRange).toBeUndefined();
   });
 
   test('AC-4/6 emits same-schema pre/post hashes, field verdicts and loss classes', async ({ page }) => {
@@ -1912,7 +1903,7 @@ test.describe('OBS-BGSTAB-004 refresh retained-state characterization', () => {
       if (!response.ok) throw new Error(`runtime config failed: ${response.status}`);
       return response.json() as Promise<LiveRuntimeConfig>;
     });
-    for (const definition of definitions) {
+    for (const definition of definitions as LiveCaseDefinition[]) {
       const result = await runLiveRefreshCase(page, definition, runtimeConfig, {
         observeAuthorityRecovery: true,
       });
@@ -1993,7 +1984,7 @@ test.describe('OBS-BGSTAB-004 refresh retained-state characterization', () => {
         parseable: definition.axes.localCache === 'valid',
       });
       expect(
-        result.authorityRecoveryObservation.localCacheMutations
+        result.authorityRecoveryObservation!.localCacheMutations
           .slice(result.postReloadLocalCacheMutationStart!)
           .some(mutation => mutation.operation === 'removeItem' || mutation.operation === 'clear'),
         `${definition.axes.localCache} cache recovery must not physically delete the local snapshot key`,
@@ -2064,6 +2055,7 @@ test.describe('OBS-BGSTAB-004 refresh retained-state characterization', () => {
       ...payload,
       nonPromotionGuard: {
         ...payload.nonPromotionGuard,
+        // @ts-expect-error Deliberately invalid promotion input exercises the runtime rejection.
         promotesAuthority: true,
       },
     })).toThrow(/authority promotion is forbidden/u);

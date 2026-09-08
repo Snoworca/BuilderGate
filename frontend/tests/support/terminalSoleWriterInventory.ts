@@ -247,14 +247,14 @@ export function analyzeTerminalSoleWriterSources(
     skipLibCheck: true,
   };
   const defaultHost = ts.createCompilerHost(options, true);
-  const moduleResolutionHost: ts.ModuleResolutionHost = {
+  const moduleResolutionHost = {
     fileExists: path => sourceByPath.has(normalizePath(path)) || defaultHost.fileExists(path),
     readFile: path => sourceByPath.get(normalizePath(path)) ?? defaultHost.readFile(path),
     directoryExists: defaultHost.directoryExists?.bind(defaultHost),
     getCurrentDirectory: () => frontendRoot,
     getDirectories: defaultHost.getDirectories?.bind(defaultHost),
     realpath: defaultHost.realpath?.bind(defaultHost),
-  };
+  } satisfies ts.ModuleResolutionHost;
   const host: ts.CompilerHost = {
     ...defaultHost,
     ...moduleResolutionHost,

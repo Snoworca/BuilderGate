@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test, deleteOwnedWorkspaceForContext } from './workspaceOwnershipFixture';
 import {
   expectTerminalFocusRestored,
   login,
@@ -630,22 +631,7 @@ async function activateClipboardWorkspace(page: Page): Promise<ClipboardWorkspac
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify({ name }),
     });
-    let workspaceResponse = await createWorkspace();
-    if (workspaceResponse.status === 409) {
-      const stateResponse = await fetch('/api/workspaces', { headers });
-      if (!stateResponse.ok) throw new Error(`workspace fetch failed: ${stateResponse.status}`);
-      const state = await stateResponse.json();
-      const staleWorkspaces = (state.workspaces as Array<{ id: string; name: string }>).filter(
-        item => item.name.startsWith('E2E Clipboard '),
-      );
-      for (const stale of staleWorkspaces) {
-        const cleanup = await fetch(`/api/workspaces/${stale.id}`, { method: 'DELETE', headers });
-        if (!cleanup.ok && cleanup.status !== 404) {
-          throw new Error(`stale clipboard workspace cleanup failed: ${cleanup.status}`);
-        }
-      }
-      workspaceResponse = await createWorkspace();
-    }
+    const workspaceResponse = await createWorkspace();
     if (!workspaceResponse.ok) {
       throw new Error(`clipboard workspace create failed: ${workspaceResponse.status}`);
     }
@@ -665,7 +651,7 @@ async function activateClipboardWorkspace(page: Page): Promise<ClipboardWorkspac
         sessionId: tab.sessionId,
       };
     } catch (error) {
-      await fetch(`/api/workspaces/${workspace.id}`, { method: 'DELETE', headers }).catch(() => undefined);
+      // The automatic owner fixture drains creation proof and cleans after this failure.
       throw error;
     }
   });
@@ -676,7 +662,11 @@ async function activateClipboardWorkspace(page: Page): Promise<ClipboardWorkspac
     await focusTerminalHost(page, context.tabId);
     return context;
   } catch (error) {
-    await cleanupClipboardWorkspace(page, context).catch(() => undefined);
+    try {
+      await cleanupClipboardWorkspace(page, context);
+    } catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], 'Clipboard setup and cleanup failed');
+    }
     throw error;
   }
 }
@@ -687,7 +677,7 @@ async function restartClipboardWorkspaceTab(
 ): Promise<string> {
   return page.evaluate(async (input) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const response = await fetch(`/api/workspaces/${input.workspaceId}/tabs/${input.tabId}/restart`, {
       method: 'POST',
       headers,
@@ -704,7 +694,7 @@ async function addClipboardWorkspaceTab(
 ): Promise<{ tabId: string; sessionId: string }> {
   const tab = await page.evaluate(async (id) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const response = await fetch(`/api/workspaces/${id}/tabs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
@@ -723,16 +713,10 @@ async function cleanupClipboardWorkspace(
   page: Page,
   context: ClipboardWorkspaceContext,
 ): Promise<void> {
+  await deleteOwnedWorkspaceForContext(page.context(), context.workspaceId);
   await page.evaluate(async (input) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const response = await fetch(`/api/workspaces/${input.workspaceId}`, {
-      method: 'DELETE',
-      headers,
-    });
-    if (!response.ok && response.status !== 404) {
-      throw new Error(`E2E cleanup failed: clipboard workspace delete returned ${response.status}`);
-    }
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const verification = await fetch('/api/workspaces', { headers });
     if (!verification.ok) throw new Error(`E2E cleanup verification failed: ${verification.status}`);
     const state = await verification.json();

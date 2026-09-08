@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, deleteOwnedWorkspaceForContext, type Page } from './workspaceOwnershipFixture';
 import { login, waitForTerminal } from './helpers';
 
 declare global {
@@ -11,7 +11,7 @@ declare global {
 async function createTitleWorkspace(page: Page, name: string): Promise<{ workspace: { id: string; name: string }, tab: { id: string; sessionId: string } }> {
   return page.evaluate(async ({ workspaceName }) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const createWorkspace = async () => fetch('/api/workspaces', {
       method: 'POST',
       headers: {
@@ -21,29 +21,7 @@ async function createTitleWorkspace(page: Page, name: string): Promise<{ workspa
       body: JSON.stringify({ name: workspaceName }),
     });
 
-    let workspaceResponse = await createWorkspace();
-    for (let attempt = 0; workspaceResponse.status === 409 && attempt < 20; attempt += 1) {
-      const stateResponse = await fetch('/api/workspaces', { headers });
-      if (!stateResponse.ok) {
-        throw new Error(`workspace fetch failed: ${stateResponse.status}`);
-      }
-      const state = await stateResponse.json();
-      const staleWorkspace = state.workspaces
-        .filter((item: { name: string }) => item.name.startsWith('TitleAuto-'))
-        .sort((left: { name: string }, right: { name: string }) => left.name.localeCompare(right.name))[0] ?? null;
-      if (!staleWorkspace) {
-        break;
-      }
-      const deleteResponse = await fetch(`/api/workspaces/${staleWorkspace.id}`, {
-        method: 'DELETE',
-        headers,
-      });
-      if (!deleteResponse.ok && deleteResponse.status !== 404) {
-        throw new Error(`workspace cleanup failed: ${deleteResponse.status}`);
-      }
-      workspaceResponse = await createWorkspace();
-    }
-
+    const workspaceResponse = await createWorkspace();
     if (!workspaceResponse.ok) {
       throw new Error(`workspace create failed: ${workspaceResponse.status}`);
     }
@@ -66,14 +44,7 @@ async function createTitleWorkspace(page: Page, name: string): Promise<{ workspa
 }
 
 async function deleteWorkspace(page: Page, workspaceId: string): Promise<void> {
-  await page.evaluate(async (targetWorkspaceId) => {
-    const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    await fetch(`/api/workspaces/${targetWorkspaceId}`, {
-      method: 'DELETE',
-      headers,
-    });
-  }, workspaceId);
+  await deleteOwnedWorkspaceForContext(page.context(), workspaceId);
 }
 
 async function sendSessionInput(page: Page, sessionId: string, data: string): Promise<void> {

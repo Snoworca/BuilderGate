@@ -1,0 +1,27 @@
+{
+  // REL-BGSTAB-001: compile the live specs migrated to owned workspace cleanup.
+  // Keep the inherited src include so browser globals use production contracts.
+  "extends": "./tsconfig.test.json",
+  "compilerOptions": {
+    // Existing browser diagnostics call Array.findLastIndex; no runtime polyfill.
+    "lib": ["ES2022", "ES2023.Array", "DOM", "DOM.Iterable"],
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.e2e-ownership.tsbuildinfo"
+  },
+  "files": [
+    "playwright.ownership-validation.config.ts",
+    "tests/e2e/busy-agent-workspace-bounce.spec.ts",
+    "tests/e2e/grid-equal-mode.spec.ts",
+    "tests/e2e/terminal-authority.spec.ts",
+    "tests/e2e/terminal-keyboard-regression.spec.ts",
+    "tests/e2e/terminal-korean-ime.spec.ts",
+    "tests/e2e/terminal-mobile-scroll.spec.ts",
+    "tests/e2e/terminal-title-auto-tab-name.spec.ts",
+    "tests/e2e/terminal-clipboard.spec.ts",
+    "tests/e2e/header-context-menu-regression.spec.ts",
+    "tests/e2e/terminal-shortcut-manager.spec.ts",
+    "tests/e2e/wave1-retained-state-characterization.spec.ts",
+    "tests/e2e/wave3-terminal-authority-promotion.spec.ts",
+    "tests/e2e/wave3-terminal-authority-fairness.spec.ts",
+    "tests/e2e/workspace-ownership-validation.spec.ts"
+  ]
+}

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
-import { expect, test, type Locator, type Page, type TestInfo, type WebSocketRoute } from '@playwright/test';
+import { expect, test, deleteOwnedWorkspaceForContext, type Locator, type Page, type TestInfo, type WebSocketRoute } from './workspaceOwnershipFixture';
 import { build } from 'esbuild';
 import { getActiveSessionId, login, setTerminalInputTransportOverride, waitForTerminal } from './helpers';
 import { collectTerminalSoleWriterInventory } from '../support/terminalSoleWriterInventory.ts';
@@ -22,7 +22,7 @@ interface CapturedFrame {
 
 interface CaseRecord {
   title: string;
-  status: string;
+  status: TestInfo['status'];
   expectedStatus: string;
   durationMs: number;
   errors: string[];
@@ -242,7 +242,7 @@ async function createWave3PowerShellWorkspace(page: Page): Promise<{
 }> {
   return page.evaluate(async (name) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const workspaceResponse = await fetch('/api/workspaces', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
@@ -273,16 +273,7 @@ async function createWave3PowerShellWorkspace(page: Page): Promise<{
 }
 
 async function deleteWave3Workspace(page: Page, workspaceId: string): Promise<void> {
-  await page.evaluate(async (id) => {
-    const token = localStorage.getItem('cws_auth_token');
-    const response = await fetch(`/api/workspaces/${id}`, {
-      method: 'DELETE',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!response.ok && response.status !== 404) {
-      throw new Error(`E2E cleanup failed: workspace delete returned ${response.status}`);
-    }
-  }, workspaceId);
+  await deleteOwnedWorkspaceForContext(page.context(), workspaceId);
 }
 
 async function sendVisibleTerminalCommand(
@@ -1290,7 +1281,7 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
     const ownedWorkspace = await createWave3PowerShellWorkspace(page);
     await page.reload();
     await waitForTerminal(page);
-    const sessionId = await getActiveSessionId(page);
+    const sessionId = (await getActiveSessionId(page))!;
     expect(sessionId, 'E2E precondition failed: active terminal session is unavailable').not.toBeNull();
     expect(sessionId).toBe(ownedWorkspace.sessionId);
     const initial = await waitForSnapshot(harness, sessionId!);
@@ -1348,7 +1339,7 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
     const ownedWorkspace = await createWave3PowerShellWorkspace(page);
     await page.reload();
     await waitForTerminal(page);
-    const sessionId = await getActiveSessionId(page);
+    const sessionId = (await getActiveSessionId(page))!;
     expect(sessionId, 'E2E precondition failed: active terminal session is unavailable').not.toBeNull();
     expect(sessionId, 'E2E remount scenario did not select its isolated terminal').toBe(ownedWorkspace.sessionId);
     const old = await waitForSnapshot(harness, sessionId!);
@@ -1553,7 +1544,7 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
     ));
     await login(page);
     await waitForTerminal(page);
-    const sessionId = await getActiveSessionId(page);
+    const sessionId = (await getActiveSessionId(page))!;
     expect(sessionId, 'E2E precondition failed: active terminal session is unavailable').not.toBeNull();
     const registration = await waitForCheckpointViewRegistration(harness, sessionId!);
     const targetRuntime = await getSessionTerminalRuntime(page, sessionId!);
@@ -1776,8 +1767,8 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
         }).toEqual(['\u001bOA']);
       } catch (error) {
         const helperState = await helper.evaluate(element => ({
-          disabled: element.disabled,
-          readOnly: element.readOnly,
+          disabled: (element as HTMLTextAreaElement).disabled,
+          readOnly: (element as HTMLTextAreaElement).readOnly,
           active: document.activeElement === element,
         }));
         const recentEvents = (await readDebugEvents(page, sessionId!)).slice(-20);
@@ -1853,7 +1844,7 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
     ));
     await login(page);
     await waitForTerminal(page);
-    const sessionId = await getActiveSessionId(page);
+    const sessionId = (await getActiveSessionId(page))!;
     expect(sessionId, 'E2E precondition failed: active terminal session is unavailable').not.toBeNull();
     const registration = await waitForCheckpointViewRegistration(harness, sessionId!);
     const baseline = await waitForSnapshot(harness, sessionId!);
@@ -2103,7 +2094,7 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
       const legacyReplayToken = `w3-rollback-legacy-${Date.now()}`;
       const legacySnapshotSeq = Number(baseline.snapshot.seq ?? 0) + 1_000;
       const legacyOutputScreenSeq = legacySnapshotSeq + 1;
-      let compatibilityRegistration: { generation: number; viewGeneration: number } | null = null;
+      let compatibilityRegistration = null as { generation: number; viewGeneration: number } | null;
       let stableRegistrationKey: string | null = null;
       let stableRegistrationObservations = 0;
       await expect.poll(() => {
@@ -2134,7 +2125,7 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
       if (!compatibilityRegistration) {
         throw new Error('stable compatibility registration disappeared');
       }
-      const compatibilityGeneration = compatibilityRegistration.generation;
+      const compatibilityGeneration = compatibilityRegistration!.generation;
       const compatibilityEventBoundary = Math.max(
         0,
         ...(await readDebugEvents(page, sessionId!)).map(event => Number(event.eventId ?? 0)),
@@ -2183,7 +2174,7 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
           connectionCount: harness.connectionCount,
           initialGeneration: registration.generation,
           compatibilityGeneration,
-          compatibilityViewGeneration: compatibilityRegistration.viewGeneration,
+          compatibilityViewGeneration: compatibilityRegistration!.viewGeneration,
           compatibilityConnectionUrl: redactConnectionUrl(harness.connectionUrl(compatibilityGeneration)),
           debugEvents,
           routedFrames,
@@ -2242,7 +2233,7 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
         )).slice(-100);
         throw new Error(`post-ACK compatibility output diagnostics: ${JSON.stringify({
           compatibilityGeneration,
-          compatibilityViewGeneration: compatibilityRegistration.viewGeneration,
+          compatibilityViewGeneration: compatibilityRegistration!.viewGeneration,
           legacyReplayToken,
           legacySnapshotSeq,
           legacyOutputScreenSeq,
@@ -2316,7 +2307,7 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
           const recoveryDrains = events.filter(event => (
             Number(event.eventId ?? 0) > compatibilityEventBoundary
             && event.kind === 'terminal_compatibility_recovery_drained'
-            && event.details?.viewGeneration === compatibilityRegistration.viewGeneration
+            && event.details?.viewGeneration === compatibilityRegistration!.viewGeneration
           ));
           const postAckOutputs = events.filter(event => (
             Number(event.eventId ?? 0) > compatibilityEventBoundary
@@ -2336,7 +2327,7 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
             && event.details?.heldOutputBytes === 0
             && event.details?.heldOutputChunks === 0
             && event.details?.connectionGeneration === compatibilityGeneration
-            && event.details?.viewGeneration === compatibilityRegistration.viewGeneration
+            && event.details?.viewGeneration === compatibilityRegistration!.viewGeneration
           ));
           const compatibilityTailDrains = events.filter(event => (
             Number(event.eventId ?? 0) > compatibilityEventBoundary
@@ -2347,7 +2338,7 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
             && event.details?.heldOutputBytes === 0
             && event.details?.heldOutputChunks === 0
             && event.details?.connectionGeneration === compatibilityGeneration
-            && event.details?.viewGeneration === compatibilityRegistration.viewGeneration
+            && event.details?.viewGeneration === compatibilityRegistration!.viewGeneration
           ));
           const inputReadies = events.filter(event => (
             Number(event.eventId ?? 0) > compatibilityEventBoundary
@@ -2442,9 +2433,9 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
                 event => event?.details?.connectionGeneration === compatibilityGeneration,
               ),
             sameViewGeneration:
-              recoveryDrains[0]?.details?.viewGeneration === compatibilityRegistration.viewGeneration
+              recoveryDrains[0]?.details?.viewGeneration === compatibilityRegistration!.viewGeneration
               && [postAckOutputs[0], convergences[0], compatibilityTailDrains[0]].every(
-                event => event?.details?.viewGeneration === compatibilityRegistration.viewGeneration,
+                event => event?.details?.viewGeneration === compatibilityRegistration!.viewGeneration,
               ),
           };
           return compatibilitySnapshotAckEventCount === 1
@@ -2482,7 +2473,7 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
         }));
         throw new Error(`legacy input reopen diagnostics: ${JSON.stringify({
           compatibilityGeneration,
-          compatibilityViewGeneration: compatibilityRegistration.viewGeneration,
+          compatibilityViewGeneration: compatibilityRegistration!.viewGeneration,
           readyAcks,
           gateEvents,
         })}`, { cause: error });
@@ -2518,7 +2509,7 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
           legacyRecoveryPendingObserved: true,
           preSnapshotInputSentToServer: 0,
           compatibilitySnapshotGeneration: compatibilityGeneration,
-          compatibilitySnapshotViewGeneration: compatibilityRegistration.viewGeneration,
+          compatibilitySnapshotViewGeneration: compatibilityRegistration!.viewGeneration,
           compatibilitySnapshotSeq: legacySnapshotSeq,
           compatibilitySnapshotConnectionUrl: redactConnectionUrl(
             harness.connectionUrl(compatibilityGeneration),
@@ -2579,7 +2570,7 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
     await harness.install(page);
     await login(page);
     await waitForTerminal(page);
-    const sessionId = await getActiveSessionId(page);
+    const sessionId = (await getActiveSessionId(page))!;
     expect(sessionId, 'E2E precondition failed: active terminal session is unavailable').not.toBeNull();
     const active = await waitForSnapshot(harness, sessionId!);
     const controlGeneration = harness.latestGeneration(
@@ -2765,7 +2756,7 @@ test.describe('FR-BGSTAB-022 sole writer HTTPS authority evidence', () => {
     const ownedWorkspace = await createWave3PowerShellWorkspace(page);
     await page.reload();
     await waitForTerminal(page);
-    const sessionId = await getActiveSessionId(page);
+    const sessionId = (await getActiveSessionId(page))!;
     expect(sessionId, 'E2E precondition failed: active fair-delivery session is unavailable').not.toBeNull();
     expect(sessionId, 'E2E fair-delivery scenario did not select its isolated terminal').toBe(ownedWorkspace.sessionId);
     const snapshot = await waitForSnapshot(harness, sessionId!);
@@ -2894,7 +2885,7 @@ test('REL-BGSTAB-012 preserves AI idle and mounted renderer residency during hid
   try {
     await page.reload();
     await waitForTerminal(page);
-    const sessionId = await getActiveSessionId(page);
+    const sessionId = (await getActiveSessionId(page))!;
     expect(sessionId, 'REL-BGSTAB-012 precondition failed: active session is unavailable').toBe(ownedWorkspace.sessionId);
     const snapshot = await waitForSnapshot(harness, sessionId!);
     const runtime = await getSessionTerminalRuntime(page, sessionId!);
@@ -3025,7 +3016,7 @@ test('REL-BGSTAB-012 routes hidden dataGap to only its browser view', async ({ p
   try {
     await page.reload();
     await waitForTerminal(page);
-    const sessionId = await getActiveSessionId(page);
+    const sessionId = (await getActiveSessionId(page))!;
     expect(sessionId, 'REL-BGSTAB-012 precondition failed: source session is unavailable').toBe(ownedWorkspace.sessionId);
     const sourceRuntime = await getSessionTerminalRuntime(page, sessionId!);
     await startDebugCapture(page, sessionId!);

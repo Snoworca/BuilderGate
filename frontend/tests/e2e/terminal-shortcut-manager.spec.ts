@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, deleteOwnedWorkspaceForContext, type Page } from './workspaceOwnershipFixture';
 import {
   clearTerminalShortcuts,
   login,
@@ -109,34 +109,11 @@ async function createFreshTerminalShortcutWorkspace(page: Page, workspaceName: s
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
-    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
-
-    const createWorkspace = async () => fetch('/api/workspaces', {
+    const createWorkspaceResponse = await fetch('/api/workspaces', {
       method: 'POST',
       headers,
       body: JSON.stringify({ name }),
     });
-
-    let createWorkspaceResponse = await createWorkspace();
-    for (let attempt = 0; createWorkspaceResponse.status === 409 && attempt < 12; attempt += 1) {
-      const stateResponse = await fetch('/api/workspaces', { headers: authHeaders });
-      if (!stateResponse.ok) break;
-      const state = await stateResponse.json();
-      const oldWorkspace = state.workspaces
-        .filter((workspace: { name: string }) => workspace.name.startsWith('KBD-E2E-'))
-        .sort((left: { name: string }, right: { name: string }) => left.name.localeCompare(right.name))[0];
-      if (!oldWorkspace) break;
-      await fetch(`/api/terminal-shortcuts/reset`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ scope: 'workspace', workspaceId: oldWorkspace.id }),
-      });
-      await fetch(`/api/workspaces/${oldWorkspace.id}`, {
-        method: 'DELETE',
-        headers: authHeaders,
-      });
-      createWorkspaceResponse = await createWorkspace();
-    }
 
     if (!createWorkspaceResponse.ok) {
       throw new Error(`workspace create failed: ${createWorkspaceResponse.status}`);
@@ -170,13 +147,7 @@ async function resetWorkspaceTerminalShortcuts(page: Page, workspaceId: string):
 }
 
 async function deleteWorkspace(page: Page, workspaceId: string): Promise<void> {
-  await page.evaluate(async (targetWorkspaceId) => {
-    const token = localStorage.getItem('cws_auth_token');
-    await fetch(`/api/workspaces/${targetWorkspaceId}`, {
-      method: 'DELETE',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-  }, workspaceId);
+  await deleteOwnedWorkspaceForContext(page.context(), workspaceId);
 }
 
 async function setActiveWorkspaceTerminalShortcutProfile(page: Page, profile: 'xterm-default' | 'ai-tui-compat'): Promise<void> {

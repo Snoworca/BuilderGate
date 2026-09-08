@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './workspaceOwnershipFixture';
 import { login } from './helpers';
 
 const WORKSPACE_PREFIX = 'PW-MOBILE-SCROLL-';
@@ -22,23 +22,9 @@ async function getPreferredShell(page: Page): Promise<string | null> {
 }
 
 async function createFreshWorkspace(page: Page, shell: string, workspaceName: string) {
-  return page.evaluate(async ({ shellId, nextWorkspaceName, prefix }) => {
+  return page.evaluate(async ({ shellId, nextWorkspaceName }) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const extractWorkspaceTimestamp = (name: string) => {
-      const match = name.match(/(?:PW-(?:MOBILE-SCROLL|KEYS|IME)|SwitchTarget|E2E Equal(?: Grid| Reorder)?|REAL DND|DBG Verify|ROOTCAUSE)[ -]?(\d+)/);
-      return match ? Number.parseInt(match[1], 10) : 0;
-    };
-    const isEvictableTestWorkspace = (name: string) =>
-      name.startsWith(prefix)
-      || name.startsWith('PW-KEYS-')
-      || name.startsWith('PW-IME-')
-      || name.startsWith('E2E Equal ')
-      || name.startsWith('SwitchTarget-')
-      || name.startsWith('REAL DND ')
-      || name.startsWith('DBG Verify ')
-      || name.startsWith('ROOTCAUSE ');
-
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const createWorkspace = async () => {
       return fetch('/api/workspaces', {
         method: 'POST',
@@ -50,32 +36,7 @@ async function createFreshWorkspace(page: Page, shell: string, workspaceName: st
       });
     };
 
-    let workspaceResponse = await createWorkspace();
-    for (let attempt = 0; workspaceResponse.status === 409 && attempt < 20; attempt += 1) {
-      const stateResponse = await fetch('/api/workspaces', { headers });
-      if (!stateResponse.ok) {
-        throw new Error(`workspace fetch failed: ${stateResponse.status}`);
-      }
-
-      const state = await stateResponse.json();
-      const evictCandidate = state.workspaces
-        .filter((entry: { name: string }) => isEvictableTestWorkspace(entry.name))
-        .sort((left: { name: string }, right: { name: string }) => extractWorkspaceTimestamp(left.name) - extractWorkspaceTimestamp(right.name))[0] ?? null;
-
-      if (evictCandidate) {
-        const deleteResponse = await fetch(`/api/workspaces/${evictCandidate.id}`, {
-          method: 'DELETE',
-          headers,
-        });
-        if (!deleteResponse.ok) {
-          throw new Error(`workspace delete failed: ${deleteResponse.status}`);
-        }
-        workspaceResponse = await createWorkspace();
-      } else {
-        break;
-      }
-    }
-
+    const workspaceResponse = await createWorkspace();
     if (!workspaceResponse.ok) {
       throw new Error(`workspace create failed: ${workspaceResponse.status}`);
     }
@@ -97,7 +58,7 @@ async function createFreshWorkspace(page: Page, shell: string, workspaceName: st
     const tab = await tabResponse.json();
     localStorage.setItem('active_workspace_id', workspace.id);
     return { workspace, tab };
-  }, { shellId: shell, nextWorkspaceName: workspaceName, prefix: WORKSPACE_PREFIX });
+  }, { shellId: shell, nextWorkspaceName: workspaceName });
 }
 
 async function waitForTerminalReady(page: Page) {
@@ -335,7 +296,7 @@ test.describe('Terminal Mobile Scroll', () => {
   });
 
   test('TC-MOBILE-01: single-touch vertical drag should move terminal scrollback', async ({ page }) => {
-    const shell = await getPreferredShell(page);
+    const shell = (await getPreferredShell(page))!;
     test.skip(!shell, 'Need an available interactive shell');
 
     await activateFreshWorkspace(page, shell);
@@ -345,7 +306,7 @@ test.describe('Terminal Mobile Scroll', () => {
       });
     }, { timeout: 5000 }).toBe('none');
 
-    const sessionId = await getActiveSessionId(page);
+    const sessionId = (await getActiveSessionId(page))!;
     test.skip(!sessionId, 'Need an active session');
 
     await runScrollbackCommand(page, shell);
@@ -372,7 +333,7 @@ test.describe('Terminal Mobile Scroll', () => {
   });
 
   test('TC-MOBILE-02: two-touch pinch should keep changing terminal font size', async ({ page }) => {
-    const shell = await getPreferredShell(page);
+    const shell = (await getPreferredShell(page))!;
     test.skip(!shell, 'Need an available interactive shell');
 
     await activateFreshWorkspace(page, shell);

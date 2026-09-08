@@ -1,4 +1,6 @@
-import { test, expect, type Page } from '@playwright/test';
+import type { CapturedWsMessage } from './workspaceWsCaptureTypes';
+import { expect, type Page } from '@playwright/test';
+import { test } from './workspaceOwnershipFixture';
 import { login } from './helpers';
 
 type WorkspaceSetup = {
@@ -33,23 +35,7 @@ type DragStartOffset = {
   y: number;
 };
 
-type CapturedWsMessage = {
-  direction?: 'in' | 'out';
-  type?: string;
-  sessionId?: string;
-  repairToken?: string;
-  seq?: number;
-  cols?: number;
-  rows?: number;
-  reason?: string;
-  clientAtBottom?: boolean;
-  clientBufferType?: string;
-  bufferType?: string;
-  source?: string;
-  cursor?: { x?: number; y?: number; hidden?: boolean };
-  viewportRows?: Array<{ y?: number; text?: string; ansi?: string; wrapped?: boolean }>;
-  ansiPatch?: string;
-};
+
 
 type TerminalDebugEvent = {
   eventId: number;
@@ -58,8 +44,6 @@ type TerminalDebugEvent = {
   details?: Record<string, string | number | boolean | null>;
 };
 
-const EVICTABLE_TEST_WORKSPACE_NAME_PATTERN = /^(AuthoritySource-|DiagSource-|DiagTarget-|Hidden-|SwitchTarget-|PW-(?:IME|KEYS|MOBILE-SCROLL)-|E2E Equal |E2E Away |REAL DND |DBG Verify |DBG Equal |ROOTCAUSE )/;
-const TEST_WORKSPACE_TIMESTAMP_PATTERN = /(?:AuthoritySource-|DiagSource-|DiagTarget-|Hidden-|SwitchTarget-|PW-(?:IME|KEYS|MOBILE-SCROLL)-|E2E Equal(?: Grid| Reorder)? |E2E Away |REAL DND |DBG Verify |DBG Equal |ROOTCAUSE )(\d+)/;
 
 declare global {
   interface Window {
@@ -68,11 +52,6 @@ declare global {
     __buildergateUndecodableWsFrames?: number;
     __buildergateOriginalWebSocket?: typeof WebSocket;
     __buildergateOriginalWsSend?: WebSocket['send'];
-    __buildergateTerminalDebug?: {
-      enable: () => void;
-      clear: () => void;
-      getEvents: () => TerminalDebugEvent[];
-    };
   }
 }
 
@@ -96,11 +75,9 @@ async function setupEqualGridWorkspace(
 ): Promise<WorkspaceSetup> {
   return page.evaluate(async ({
     count,
-    evictablePatternSource,
     equalArrangement,
   }: {
     count: number;
-    evictablePatternSource: string;
     equalArrangement: EqualLayoutArrangement;
   }) => {
     type WorkspaceResponse = { id: string; name?: string };
@@ -229,26 +206,6 @@ async function setupEqualGridWorkspace(
       return res.json() as Promise<WorkspaceStateResponse>;
     };
 
-    const initialState = await loadState();
-    const activeWorkspaceId = localStorage.getItem('active_workspace_id');
-    const evictablePattern = new RegExp(evictablePatternSource);
-    for (const workspace of initialState.workspaces) {
-      if (
-        workspace.id === activeWorkspaceId
-        || !workspace.name
-        || !evictablePattern.test(workspace.name)
-      ) {
-        continue;
-      }
-
-      const deleteRes = await request(`/api/workspaces/${workspace.id}`, {
-        method: 'DELETE',
-      });
-      if (!deleteRes.ok) {
-        throw new Error(`Failed to delete stale E2E workspace ${workspace.id}: ${deleteRes.status}`);
-      }
-    }
-
     const workspaceName = `E2E Equal Reorder ${Date.now()}`;
     const createWorkspaceRes = await request('/api/workspaces', {
       method: 'POST',
@@ -300,19 +257,12 @@ async function setupEqualGridWorkspace(
     return { workspaceId: workspace.id, workspaceName: workspace.name ?? workspaceName, tabIds };
   }, {
     count: tabCount,
-    evictablePatternSource: EVICTABLE_TEST_WORKSPACE_NAME_PATTERN.source,
     equalArrangement: arrangement,
   });
 }
 
 async function createAuxWorkspace(page: Page): Promise<{ id: string; name: string }> {
-  return page.evaluate(async ({
-    evictablePatternSource,
-    timestampPatternSource,
-  }: {
-    evictablePatternSource: string;
-    timestampPatternSource: string;
-  }) => {
+  return page.evaluate(async () => {
     const token = localStorage.getItem('cws_auth_token');
     if (!token) {
       throw new Error('Missing auth token');
@@ -331,40 +281,12 @@ async function createAuxWorkspace(page: Page): Promise<{ id: string; name: strin
       body: JSON.stringify({ name: `E2E Away ${Date.now().toString().slice(-8)}` }),
     });
 
-    let res = await createWorkspace();
-    if (res.status === 409) {
-      const stateRes = await request('/api/workspaces');
-      if (!stateRes.ok) {
-        throw new Error(`Failed to load workspaces for cleanup: ${stateRes.status}`);
-      }
-      const state = await stateRes.json();
-      const activeWorkspaceId = localStorage.getItem('active_workspace_id');
-      const evictablePattern = new RegExp(evictablePatternSource);
-      const timestampPattern = new RegExp(timestampPatternSource);
-      const timestampOf = (name: string) => {
-        const match = name.match(timestampPattern);
-        return match ? Number.parseInt(match[1], 10) : 0;
-      };
-      const staleWorkspace = (state.workspaces as Array<{ id: string; name?: string }>).filter(
-        (workspace) => workspace.id !== activeWorkspaceId && workspace.name && evictablePattern.test(workspace.name),
-      ).sort((left, right) => timestampOf(left.name ?? '') - timestampOf(right.name ?? ''))[0] ?? null;
-      if (staleWorkspace) {
-        const deleteRes = await request(`/api/workspaces/${staleWorkspace.id}`, { method: 'DELETE' });
-        if (!deleteRes.ok && deleteRes.status !== 404) {
-          throw new Error(`Failed to delete stale workspace: ${deleteRes.status}`);
-        }
-        res = await createWorkspace();
-      }
-    }
-
+    const res = await createWorkspace();
     if (!res.ok) {
       throw new Error(`Failed to create auxiliary workspace: ${res.status}`);
     }
 
     return res.json() as Promise<{ id: string; name: string }>;
-  }, {
-    evictablePatternSource: EVICTABLE_TEST_WORKSPACE_NAME_PATTERN.source,
-    timestampPatternSource: TEST_WORKSPACE_TIMESTAMP_PATTERN.source,
   });
 }
 

@@ -1,25 +1,11 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './workspaceOwnershipFixture';
 import { login, waitForTerminal } from './helpers';
 import type { TerminalInputTransportOverride } from '../../src/types/ws-protocol';
 
 async function createFreshPowerShellWorkspace(page: Page, name: string) {
   return page.evaluate(async ({ workspaceName }) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const extractWorkspaceTimestamp = (name: string) => {
-      const match = name.match(/(?:PW-(?:KEYS|IME|MOBILE-SCROLL)|SwitchTarget|E2E Equal(?: Grid| Reorder)?|REAL DND|DBG Verify|ROOTCAUSE)[ -]?(\d+)/);
-      return match ? Number.parseInt(match[1], 10) : 0;
-    };
-    const isEvictableTestWorkspace = (name: string) =>
-      name.startsWith('PW-KEYS-')
-      || name.startsWith('PW-IME-')
-      || name.startsWith('PW-MOBILE-SCROLL-')
-      || name.startsWith('E2E Equal ')
-      || name.startsWith('SwitchTarget-')
-      || name.startsWith('REAL DND ')
-      || name.startsWith('DBG Verify ')
-      || name.startsWith('ROOTCAUSE ');
-
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const createWorkspace = async () => {
       const response = await fetch('/api/workspaces', {
         method: 'POST',
@@ -32,31 +18,7 @@ async function createFreshPowerShellWorkspace(page: Page, name: string) {
       return response;
     };
 
-    let createWorkspaceRes = await createWorkspace();
-    for (let attempt = 0; createWorkspaceRes.status === 409 && attempt < 20; attempt += 1) {
-      const stateRes = await fetch('/api/workspaces', { headers });
-      if (!stateRes.ok) {
-        throw new Error(`workspace fetch failed: ${stateRes.status}`);
-      }
-      const state = await stateRes.json();
-      const evictCandidate = state.workspaces
-        .filter((item: { name: string }) => isEvictableTestWorkspace(item.name))
-        .sort((left: { name: string }, right: { name: string }) => extractWorkspaceTimestamp(left.name) - extractWorkspaceTimestamp(right.name))[0] ?? null;
-
-      if (!evictCandidate) {
-        break;
-      }
-
-      const deleteRes = await fetch(`/api/workspaces/${evictCandidate.id}`, {
-        method: 'DELETE',
-        headers,
-      });
-      if (!deleteRes.ok && deleteRes.status !== 404) {
-        throw new Error(`workspace delete failed: ${deleteRes.status}`);
-      }
-      createWorkspaceRes = await createWorkspace();
-    }
-
+    const createWorkspaceRes = await createWorkspace();
     if (!createWorkspaceRes.ok) {
       throw new Error(`workspace create failed: ${createWorkspaceRes.status}`);
     }
