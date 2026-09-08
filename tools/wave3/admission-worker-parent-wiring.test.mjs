@@ -31,8 +31,7 @@ async function drainInertParent(h, result, isSettled) {
   for (const worker of h.workers) {
     worker.control[0] = h.workers.length;
     if (worker.control.length > 2) worker.control[2] = h.workers.length;
-    if (!worker.teardownCaptureReported) {
-      worker.teardownCaptureReported = true;
+    if (!worker.captureReported) {
       worker.emit('message', { phase: 'captured', index: worker.index, manifestPath: worker.manifestPath, sha256: 'a'.repeat(64) });
     }
   }
@@ -58,6 +57,10 @@ function parentHarness(suite, { constructorFails = false, readFailure } = {}) {
   const workers = [], events = [], timers = new Map(); let timerId = 0, now = 0;
   const constructionError = Error('second Worker construction failed');
   class Worker extends EventEmitter {
+    emit(event, ...args) {
+      if (event === 'message' && args[0]?.phase === 'captured') this.captureReported = true;
+      return super.emit(event, ...args);
+    }
     constructor(_url, options) {
       super(); if (constructorFails && workers.length === 1) throw constructionError;
       this.index = workers.length; this.data = options.workerData; this.closed = false;

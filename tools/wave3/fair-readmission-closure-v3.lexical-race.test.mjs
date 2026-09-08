@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, unlinkSync } from 'node:fs';
-import { randomBytes } from 'node:crypto';
+import { existsSync, readFileSync, lstatSync } from 'node:fs';
 import * as path from 'node:path';
 import test from 'node:test';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { fileURLToPath } from 'node:url';
+
+import { createOwnedAnalysisLeaf } from './admission-fixture-ownership.mjs';
+import { createSegmentReparseGuard } from './fair-readmission-closure-v3.mjs';
+import { waitForWorkerCondition, registerWorker, releaseAndAwaitWorkers, recordWorkerPhase, describeWorkerFailure } from './admission-worker-lifecycle.mjs';
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const analysisRoot = path.join(
@@ -23,31 +26,8 @@ const dynamicImportTargets = [
   'server/src/services/TerminalResourcePolicyCanary.ts',
 ];
 
-function assertOwnedLeaf(candidate, prefix) {
-  const resolvedCandidate = path.resolve(candidate);
-  const resolvedRoot = `${path.resolve(analysisRoot)}${path.sep}`;
-  assert.equal(resolvedCandidate.startsWith(resolvedRoot), true, 'cleanup must stay within the test-owned analysis directory');
-  assert.equal(path.basename(resolvedCandidate).startsWith(`${prefix}-`), true, 'cleanup must target only this native-worker test nonce');
-}
-
-function removeOwnedLeaf(candidate, prefix) {
-  assertOwnedLeaf(candidate, prefix);
-  if (existsSync(candidate)) unlinkSync(candidate);
-}
-
 function waitForMessages(messages, predicate, label, timeoutMs = 30_000) {
-  return new Promise((resolve, reject) => {
-    const deadline = setTimeout(() => reject(new Error(`timed out waiting for ${label}`)), timeoutMs);
-    const poll = () => {
-      if (predicate()) {
-        clearTimeout(deadline);
-        resolve();
-        return;
-      }
-      setTimeout(poll, 5);
-    };
-    poll();
-  });
+  return waitForWorkerCondition(predicate, { timeoutMs, pollMs: 5, label });
 }
 
 function assertDynamicClosureRows(manifest) {
@@ -62,32 +42,33 @@ function assertDynamicClosureRows(manifest) {
 }
 
 async function runNativeLexicalWorker() {
-  const { index, manifestPath, barrier, collectorUrl } = workerData;
+  const { index, barrier, collectorUrl } = workerData;
   const control = new Int32Array(barrier);
+  let leaf, priorFailure;
   try {
-    const { captureFrozenProvenance } = await import(collectorUrl);
-    Atomics.add(control, 0, 1);
-    parentPort.postMessage({ phase: 'ready', index });
-    Atomics.wait(control, 1, 0);
+    try {
+      await import(collectorUrl);
+      leaf = createOwnedAnalysisLeaf(`lexical-native-worker-${index}`);
+      Atomics.add(control, 0, 1);
+      parentPort.postMessage({ phase: 'ready', index, manifestPath: leaf.manifestPath });
+      Atomics.wait(control, 1, 0);
 
-    const manifest = captureFrozenProvenance({
-      workspaceRoot,
-      manifestPath,
-      phase: `lexical-native-worker-${index}`,
-    });
-    assertDynamicClosureRows(manifest);
-    parentPort.postMessage({
-      phase: 'captured',
-      index,
-      manifestPath,
-      sha256: manifest.protectedInput.sha256,
-    });
+      const manifest = leaf.capture(`lexical-native-worker-${index}`);
+      assertDynamicClosureRows(manifest);
+      Atomics.add(control, 2, 1);
+      parentPort.postMessage({ phase: 'captured', index, manifestPath: leaf.manifestPath, sha256: manifest.protectedInput.sha256 });
+    } catch (error) {
+      priorFailure = { error };
+      // A capture failure must wake the parent before waiting for cleanup permission.
+      if (leaf) parentPort.postMessage({ phase: 'error', index, message: describeWorkerFailure(error) });
+    } finally {
+      if (leaf) {
+        while (Atomics.load(control, 3 + index) === 0) Atomics.wait(control, 3 + index, 0);
+        leaf.cleanup(priorFailure);
+      } else if (priorFailure) throw priorFailure.error;
+    }
   } catch (error) {
-    parentPort.postMessage({
-      phase: 'error',
-      index,
-      message: error?.stack ?? error?.message ?? String(error),
-    });
+    parentPort.postMessage({ phase: 'error', index, message: describeWorkerFailure(error) });
     process.exitCode = 1;
   }
 }
@@ -96,59 +77,70 @@ if (!isMainThread && workerData?.kind === 'fair-readmission-lexical-race') {
   await runNativeLexicalWorker();
 } else {
   test('SDS-AC-4 observes a native Worker barrier and default frozen closure for all sixteen proved dynamic imports', { timeout: 115_000 }, async () => {
-    const prefix = `lexical-native-race-${process.pid}-${Date.now()}-${randomBytes(8).toString('hex')}`;
-    const leaves = [
-      path.join(analysisRoot, `${prefix}-one.json`),
-      path.join(analysisRoot, `${prefix}-two.json`),
-    ];
-    const barrier = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * 2);
+    const barrier = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * 5);
     const control = new Int32Array(barrier);
-    const messages = [];
-    const workers = leaves.map((manifestPath, index) => new Worker(new URL(import.meta.url), {
-      workerData: {
-        kind: 'fair-readmission-lexical-race',
-        index,
-        manifestPath,
-        barrier,
-        collectorUrl: new URL('./fair-readmission-closure-v3.mjs', import.meta.url).href,
-      },
-    }));
-    const exits = workers.map(worker => new Promise(resolve => {
-      worker.on('message', message => messages.push(message));
-      worker.once('error', error => messages.push({ phase: 'worker-error', message: error?.stack ?? error?.message ?? String(error) }));
-      worker.once('exit', code => resolve(code));
-    }));
-
+    const owners = new Set(), seenPaths = new Set(), messages = [];
+    let priorFailure;
     try {
-      await waitForMessages(messages, () => messages.filter(message => message.phase === 'ready').length === workers.length, 'both native Worker ready acknowledgements');
-      assert.equal(Atomics.load(control, 0), workers.length, 'each worker must reach the shared release barrier before either default capture begins');
-      assert.deepEqual(messages.filter(message => message.phase === 'captured'), [], 'neither default capture may run before the creator releases the barrier');
-
-      Atomics.store(control, 1, 1);
-      Atomics.notify(control, 1, workers.length);
-      await waitForMessages(
-        messages,
-        () => messages.filter(message => message.phase === 'captured').length === workers.length
-          || messages.some(message => message.phase === 'error' || message.phase === 'worker-error'),
-        'both native Worker default-capture acknowledgements or a surfaced worker failure',
-        100_000,
-      );
-
-      assert.deepEqual(messages.filter(message => message.phase === 'error'), [], 'the native lexical worker protocol must not hide capture errors');
-      assert.deepEqual(messages.filter(message => message.phase === 'worker-error'), [], 'the native lexical worker protocol must surface no worker runtime errors');
-      const exitCodes = await Promise.all(exits);
-      assert.deepEqual(exitCodes, [0, 0], 'both native Worker default captures must exit cleanly');
-      assert.equal(new Set(leaves.map(candidate => path.resolve(candidate))).size, leaves.length, 'each worker must own a distinct manifest leaf');
-      for (const [index, leaf] of leaves.entries()) {
-        assert.equal(existsSync(leaf), true, `worker ${index} must create its distinct owned leaf`);
-        assert.equal(JSON.parse(readFileSync(leaf, 'utf8')).phase, `lexical-native-worker-${index}`, `worker ${index} must retain its own capture phase`);
+      for (let index = 0; index < 2; index++) {
+        const entry = registerWorker(owners, () => new Worker(new URL(import.meta.url), {
+          workerData: { kind: 'fair-readmission-lexical-race', index, barrier,
+            collectorUrl: new URL('./fair-readmission-closure-v3.mjs', import.meta.url).href },
+        }), () => {
+          const failures = [];
+          // Even a failed store/notify must not skip another owned permit.
+          for (const slot of [1, 3 + index]) {
+            try { Atomics.store(control, slot, 1); } catch (error) { failures.push(error); }
+            try { Atomics.notify(control, slot, 2); } catch (error) { failures.push(error); }
+          }
+          if (failures.length) throw new AggregateError(failures, 'Worker permit release failed');
+        });
+        entry.worker.on('message', message => {
+          if (message?.phase === 'error') {
+            entry.errors.push(new Error(message.message));
+            messages.push(message);
+            return;
+          }
+          try {
+            recordWorkerPhase(entry, message, { index, analysisRoot, seenPaths });
+            messages.push(message);
+          } catch (error) { entry.errors.push(error); }
+        });
       }
-    } finally {
+      const healthy = predicate => () => {
+        const failures = [...owners].flatMap(entry => entry.errors);
+        if (failures.length) throw new AggregateError(failures, 'Worker failed before verification');
+        assert.equal([...owners].some(entry => entry.exitCode !== undefined), false, 'Worker must retain its manifest until parent verification');
+        return predicate();
+      };
+      await waitForMessages(messages, healthy(() => [...owners].every(entry => entry.ready)), 'both native Worker ready acknowledgements', 30_000);
+      assert.equal(Atomics.load(control, 0), owners.size, 'each worker must reach the shared start barrier before capture');
+      assert.deepEqual(messages.filter(message => message.phase === 'captured'), [], 'neither capture may run before the parent releases the barrier');
       Atomics.store(control, 1, 1);
-      Atomics.notify(control, 1, workers.length);
-      await Promise.allSettled(exits);
-      for (const leaf of leaves) removeOwnedLeaf(leaf, prefix);
-      for (const leaf of leaves) assert.equal(existsSync(leaf), false, 'the creator must clean every leaf it owns');
+      Atomics.notify(control, 1, owners.size);
+      await waitForMessages(messages, healthy(() => [...owners].every(entry => entry.captured)), 'both native Worker capture acknowledgements', 100_000);
+      assert.equal(Atomics.load(control, 2), owners.size, 'both workers must complete capture after the shared start barrier');
+      assert.deepEqual(messages.filter(message => message.phase === 'error'), [], 'the Worker protocol must not hide capture errors');
+      assert.equal(messages.filter(message => message.phase === 'captured').length, 2, 'both real Workers must report capture');
+      assert.equal(seenPaths.size, 2, 'each worker must own a distinct manifest leaf');
+      const guard = createSegmentReparseGuard();
+      for (const [index, entry] of [...owners].entries()) {
+        const leaf = entry.captured.manifestPath;
+        guard.assertSafeMany([workspaceRoot, path.join(workspaceRoot, 'docs'), path.join(workspaceRoot, 'docs', 'analysis'), analysisRoot, leaf], { forceFresh: true });
+        const stat = lstatSync(leaf);
+        assert.equal(stat.isFile() && !stat.isSymbolicLink() && !stat.isReparsePoint?.(), true, 'Worker manifest must remain a regular leaf');
+        assert.equal(existsSync(leaf), true, `worker ${index} must create its distinct native leaf`);
+        const manifest = JSON.parse(readFileSync(leaf, 'utf8'));
+        assert.equal(manifest.phase, `lexical-native-worker-${index}`, `worker ${index} must preserve its native capture phase`);
+        assert.match(entry.captured.sha256, /^[a-f0-9]{64}$/);
+        assert.equal(manifest.protectedInput.sha256, entry.captured.sha256, 'captured message must identify the retained manifest');
+      }
+    } catch (error) {
+      priorFailure = { error };
+    } finally {
+      await releaseAndAwaitWorkers(owners, priorFailure);
     }
+    assert.deepEqual([...owners].map(entry => entry.exitCode), [0, 0], 'both Workers must exit cleanly after verification and owner cleanup');
+    for (const entry of owners) assert.equal(existsSync(entry.ready.manifestPath), false, 'each Worker must clean its own manifest before exit');
   });
 }
