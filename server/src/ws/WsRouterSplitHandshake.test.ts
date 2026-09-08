@@ -123,7 +123,7 @@ function createRouter(options: {
   });
 }
 
-test('WsRouter split control connection returns group metadata and pair token', { todo: 'Wave-1 production unified limitation characterization' }, () => {
+test('WsRouter standalone wss.emit with injected split context returns control metadata and pair token', () => {
   const router = createRouter();
   const control = createFakeWs();
 
