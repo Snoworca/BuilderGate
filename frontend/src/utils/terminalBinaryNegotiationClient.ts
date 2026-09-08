@@ -139,8 +139,8 @@ export function applyTerminalBinaryControlMessage(
   }
 
   if (record.type === 'terminal-binary:capability') {
-    // The C→S offer shares this `type`. Only the server's acceptance carries
-    // `accepted: true`, and only that seeds anything.
+    // Only a confirmed server acceptance may seed the table. A malformed
+    // capability response without `accepted: true` establishes no channels.
     if (record.accepted !== true) return { kind: 'ignored', why: 'not-an-acceptance' };
 
     const rows = Array.isArray(record.channels) ? record.channels : [];
