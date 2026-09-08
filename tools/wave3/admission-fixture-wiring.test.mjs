@@ -11,7 +11,7 @@ function load(name) {
   const url = new URL('./fair-readmission-closure-v3.' + name + '.test.mjs', import.meta.url);
   const text = readFileSync(url, 'utf8'), ast = ts.createSourceFile(url.pathname, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
   const callbacks = new Map(), mutations = [], present = new Set(), identities = new Map(), nativeChecks = [], loadedModules = [];
-  const faults = { scenarioError: null, cleanupError: null };
+  const faults = { scenarioError: null, cleanupError: null, replaceOnManifestRead: false, invalidCapturePublishes: false };
   let identity = 9007199254740992n, nonce = 0;
   const key = p => path.win32.normalize(p);
   const put = (p, role) => { present.add(key(p)); identities.set(key(p), { dev: 1n, ino: ++identity, birthtimeNs: 10000000000000001n, role }); };
@@ -25,10 +25,14 @@ function load(name) {
     rmdirSync(p) { mutations.push(['rmdir', key(p)]); assert.ok(![...present].some(x => path.win32.dirname(x) === key(p))); present.delete(key(p)); identities.delete(key(p)); },
     unlinkSync(p) { mutations.push(['unlink', key(p)]); if (faults.cleanupError) throw faults.cleanupError; present.delete(key(p)); identities.delete(key(p)); },
     readdirSync: p => [...present].filter(x => path.win32.dirname(x) === key(p)),
-    readFileSync: p => {
+    readFileSync: (p, encoding) => {
       if (typeof p === 'string' && identities.has(key(p))) {
         if (faults.scenarioError) throw faults.scenarioError;
-        return identities.get(key(p)).bytes.toString('utf8');
+        const bytes = identities.get(key(p)).bytes;
+        if (faults.replaceOnManifestRead && path.win32.dirname(key(p)) === parent) {
+          put(p, 'file'); identities.get(key(p)).bytes = bytes;
+        }
+        return encoding ? bytes.toString(encoding) : Buffer.from(bytes);
       }
       assert.equal(new URL(p).protocol, 'file:');
       return readFileSync(new URL('./' + path.win32.basename(fileURLToPath(p)), import.meta.url), 'utf8');
@@ -37,14 +41,27 @@ function load(name) {
   const collector = {
     createSegmentReparseGuard(...args) { assert.equal(args.length, 0); return { assertSafeMany(paths, options) { assert.equal(options.forceFresh, true); nativeChecks.push(paths.map(key)); } }; },
     captureFrozenProvenance(options) {
-      if (Object.keys(options).some(k => !['workspaceRoot', 'manifestPath', 'phase'].includes(k))) throw Error('unsupported capture options native authority');
-      assert.equal(key(options.workspaceRoot), root);
+      if (Object.keys(options).some(k => !['workspaceRoot', 'manifestPath', 'phase'].includes(k))) {
+        if (faults.invalidCapturePublishes) { put(options.manifestPath, 'file'); identities.get(key(options.manifestPath)).bytes = Buffer.from('uncertain'); }
+        throw Error('unsupported capture options native authority');
+      }
+      assert.equal(path.win32.resolve(options.workspaceRoot), root);
       if (identities.get(key(options.manifestPath))?.role === 'directory') throw Error('directory role rejected');
       mutations.push(['capture', key(options.manifestPath), options]);
       const manifest = { phase: options.phase, protectedInput: { value: {
         sourceClosureRows: [{ kind: 'source', path: 'server/src/services/TerminalResourcePolicyCanary.test.ts', sha256: 'a'.repeat(64) }],
         git: { commandPrefix: ['C:/Program Files/Git/cmd/git.exe', '-c', 'core.longpaths=true'] },
       } } };
+      if (options.phase === 'snapshot-native-rows') {
+        const inputRows = [['source', 'server/src/ws/WsRouter.ts'], ['config_lock', 'server/config.json5'], ['fixture', 'docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/fair-scheduler-decision.json']].map(([kind, relative]) => {
+          const bytes = Buffer.from(`inert-${kind}-bytes`, 'utf8'); const absolute = path.win32.join(root, relative);
+          put(absolute, 'file'); identities.get(key(absolute)).bytes = bytes;
+          return { kind, path: relative, sha256: require('node:crypto').createHash('sha256').update(bytes).digest('hex') };
+        });
+        manifest.protectedInput.value.sourceClosureRows = inputRows.filter(row => row.kind === 'source');
+        manifest.protectedInput.value.configLockRows = inputRows.filter(row => row.kind === 'config_lock');
+        manifest.protectedInput.value.fixtureRows = inputRows.filter(row => row.kind === 'fixture');
+      }
       put(options.manifestPath, 'file'); identities.get(key(options.manifestPath)).bytes = Buffer.from(JSON.stringify(manifest), 'utf8');
       return manifest;
     },
@@ -152,3 +169,32 @@ test('AC5 actual remediation pre-existing regular sentinel callback preserves it
   assert.ok(h.present.has(parent), 'shared canonical analysis parent must not be removed by leaf cleanup');
   assert.equal(h.mutations.some(([operation, target]) => target === parent && ['rmdir', 'rm'].includes(operation)), false);
 });
+
+const snapshotTitle = 'SDS-AC-3 publishes source, config, and fixture manifest rows whose digests match their native capture bytes';
+test('AC5 actual snapshot normal capture preserves all three row digest assertions and helper-owned cleanup', async () => {
+  const h = load('snapshot'); await h.callbacks.get(snapshotTitle)();
+  assert.ok(h.loadedModules.includes('./admission-fixture-ownership.mjs'));
+  const captures = h.mutations.filter(([op]) => op === 'capture'); assert.equal(captures.length, 1);
+  assert.equal(h.present.has(captures[0][1]), false); assert.ok(h.present.has(parent));
+});
+test('AC5 actual snapshot cleanup cannot delete a post-capture same-byte foreign replacement', async () => {
+  const h = load('snapshot'); h.faults.replaceOnManifestRead = true;
+  await assert.rejects(h.callbacks.get(snapshotTitle)());
+  const captures = h.mutations.filter(([op]) => op === 'capture'); assert.equal(captures.length, 1);
+  assert.ok(h.present.has(captures[0][1]), 'replacement must survive cleanup');
+  assert.equal(h.mutations.some(([op, target]) => op === 'unlink' && target === captures[0][1]), false);
+});
+test('AC5 actual snapshot retains original scenario and cleanup errors together', async () => {
+  const h = load('snapshot'), scenario = Error('snapshot scenario'), cleanup = Error('snapshot cleanup');
+  h.faults.scenarioError = scenario; h.faults.cleanupError = cleanup;
+  await assert.rejects(h.callbacks.get(snapshotTitle)(), error => error instanceof AggregateError && error.errors.includes(scenario) && error.errors.includes(cleanup));
+});
+for (const prefix of ['SDS-AC-1 keeps the protected snapshot private', 'SDS-AC-2 rejects caller reparse and snapshot state']) {
+  test(`AC5 snapshot raw invalid admission preserves unconfirmed publication: ${prefix}`, async () => {
+    const h = load('snapshot'); h.faults.invalidCapturePublishes = true;
+    const callback = [...h.callbacks].find(([title]) => title.startsWith(prefix))?.[1]; assert.equal(typeof callback, 'function');
+    await assert.rejects(callback());
+    assert.equal(h.mutations.some(([op]) => ['unlink', 'rm', 'rmdir'].includes(op)), false, 'rejected raw capture never granted ownership');
+    assert.ok([...h.present].some(p => path.win32.dirname(p) === parent));
+  });
+}
