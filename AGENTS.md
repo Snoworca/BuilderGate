@@ -53,7 +53,8 @@
 
 start.bat --port 2222 를 이용하여 실행하시오.
 종료는 `stop.bat`를 우선 사용하되, 2222 포트의 검증된 BuilderGate listener가 정상 종료되지 않으면 해당 포트 소유 PID 하나만 지정하여 강제 종료할 수 있습니다.
-절대 node.exe 를 모두 종료하지 마시오.
+프로젝트 테스트를 위해 `node.exe`를 일괄 종료하면 다른 운영 중인 프로세스에 영향을 주므로 절대 모두 종료하지 마시오.
+테스트 서버 종료가 필요하면 TCP 2222 포트의 listener PID를 조회하고, 실행 파일과 명령줄이 이 ProjectMaster의 BuilderGate 서버인지 확인한 뒤 해당 PID 하나만 선택적으로 종료하시오. 다른 포트의 서버나 그 밖의 `node.exe` 프로세스는 종료하지 마시오.
 
 
 https://localhost:2222  를 통하여 플레이라이트로 테스트 가능합니다.
