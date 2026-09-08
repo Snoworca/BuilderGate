@@ -93,16 +93,37 @@ function controlledTimers(run) {
   return run({ timers, setTimeout: (callback, ms) => { const id = ++next; timers.set(id, { callback, ms }); return id; }, clearTimeout: id => timers.delete(id), fire(ms) { for (const [id, item] of [...timers]) if (item.ms === ms) { timers.delete(id); item.callback(); } } });
 }
 
-test('actual old polling helper stops scheduling after timeout rejection', async () => {
+test('actual old polling helper stops scheduling after timeout rejection', async t => {
+  const { waitForWorkerCondition } = await load();
   const file = new URL('./fair-readmission-closure-v3.seal-race.test.mjs', import.meta.url);
   const source = ts.createSourceFile('seal.mjs', readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true);
   const helper = source.statements.filter(n => ts.isFunctionDeclaration(n) && n.name?.text === 'waitForMessages');
   assert.equal(helper.length, 1);
   await controlledTimers(async clock => {
-    const wait = new Function('setTimeout', 'clearTimeout', `${helper[0].getText(source)}; return waitForMessages;`)(clock.setTimeout, clock.clearTimeout);
+    t.mock.method(globalThis, 'setTimeout', clock.setTimeout);
+    t.mock.method(globalThis, 'clearTimeout', clock.clearTimeout);
+    const wait = new Function('setTimeout', 'clearTimeout', 'waitForWorkerCondition', `${helper[0].getText(source)}; return waitForMessages;`)(clock.setTimeout, clock.clearTimeout, waitForWorkerCondition);
     const checked = assert.rejects(wait([], () => false, 'never-ready', 30), /timed out/i);
     clock.fire(30); await checked;
     assert.equal(clock.timers.size, 0, 'timeout must dispose polling too; a rejected wait cannot continue forever');
+
+    const labelled = assert.rejects(wait([], () => false, 'both native Worker capture outcomes', 30),
+      error => /both native Worker capture outcomes/.test(String(error)));
+    clock.fire(30); await labelled;
+    assert.equal(clock.timers.size, 0);
+  });
+});
+
+test('common waiter timeout preserves an optional scenario label', async t => {
+  const { waitForWorkerCondition } = await load();
+  await controlledTimers(async clock => {
+    t.mock.method(globalThis, 'setTimeout', clock.setTimeout);
+    t.mock.method(globalThis, 'clearTimeout', clock.clearTimeout);
+    const checked = assert.rejects(waitForWorkerCondition(() => false,
+      { timeoutMs: 30, pollMs: 5, label: 'worker ready barrier' }),
+    error => /worker ready barrier/.test(String(error)));
+    clock.fire(30); await checked;
+    assert.equal(clock.timers.size, 0);
   });
 });
 
