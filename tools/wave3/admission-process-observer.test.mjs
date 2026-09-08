@@ -118,3 +118,28 @@ test('AC4 synchronous spawn time consumes the initial monotonic deadline budget'
   assert.equal(observed.elapsedMs, N - 1); assert.equal(observed.deadlineExceeded, false);
   assert.equal(h.timers.size, 0);
 }, undefined, 7));
+
+test('AC4 output close without end remains an observation error and still waits for child close', async t => harness(t, async h => {
+  const result = h.observeProcessUntilClose('node.exe', [], options());
+  h.child.stdout.write('partial-output');
+  h.child.stdout.destroy();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(await pending(result), true);
+  h.at(12); h.close();
+  const observed = await result;
+  assert.equal(observed.stdout, 'partial-output');
+  assert.ok(observed.observationErrors.some(error => /premature|before.*end|without.*end/i.test(String(error))), 'premature output termination must not become complete successful evidence');
+}));
+
+test('AC4 normal end followed by close is not a stream failure or duplicate completion', async t => harness(t, async h => {
+  let completed = 0;
+  const result = h.observeProcessUntilClose('node.exe', [], options()).then(value => { completed++; return value; });
+  h.child.stdout.end('complete'); h.child.stderr.end();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(completed, 0);
+  h.at(15); h.child.emit('close', 0, null);
+  const observed = await result;
+  h.child.stdout.emit('close'); h.child.stderr.emit('close');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(completed, 1); assert.deepEqual(observed.observationErrors, []); assert.equal(observed.stdout, 'complete');
+}));
