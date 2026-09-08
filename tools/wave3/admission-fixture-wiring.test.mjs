@@ -11,6 +11,7 @@ function load(name) {
   const url = new URL('./fair-readmission-closure-v3.' + name + '.test.mjs', import.meta.url);
   const text = readFileSync(url, 'utf8'), ast = ts.createSourceFile(url.pathname, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
   const callbacks = new Map(), mutations = [], present = new Set(), identities = new Map(), nativeChecks = [], loadedModules = [];
+  const faults = { scenarioError: null, cleanupError: null };
   let identity = 9007199254740992n, nonce = 0;
   const key = p => path.win32.normalize(p);
   const put = (p, role) => { present.add(key(p)); identities.set(key(p), { dev: 1n, ino: ++identity, birthtimeNs: 10000000000000001n, role }); };
@@ -22,9 +23,13 @@ function load(name) {
     writeFileSync(p, data, options) { assert.equal(options.flag, 'wx'); assert.equal(options.encoding, 'utf8'); if (present.has(key(p))) throw Object.assign(Error('exists'), { code: 'EEXIST' }); mutations.push(['write', key(p), data]); put(p, 'file'); identities.get(key(p)).bytes = Buffer.from(data, options.encoding); },
     rmSync(p) { mutations.push(['rm', key(p)]); present.delete(key(p)); identities.delete(key(p)); },
     rmdirSync(p) { mutations.push(['rmdir', key(p)]); assert.ok(![...present].some(x => path.win32.dirname(x) === key(p))); present.delete(key(p)); identities.delete(key(p)); },
-    unlinkSync(p) { mutations.push(['unlink', key(p)]); present.delete(key(p)); identities.delete(key(p)); },
+    unlinkSync(p) { mutations.push(['unlink', key(p)]); if (faults.cleanupError) throw faults.cleanupError; present.delete(key(p)); identities.delete(key(p)); },
     readdirSync: p => [...present].filter(x => path.win32.dirname(x) === key(p)),
     readFileSync: p => {
+      if (typeof p === 'string' && identities.has(key(p))) {
+        if (faults.scenarioError) throw faults.scenarioError;
+        return identities.get(key(p)).bytes.toString('utf8');
+      }
       assert.equal(new URL(p).protocol, 'file:');
       return readFileSync(new URL('./' + path.win32.basename(fileURLToPath(p)), import.meta.url), 'utf8');
     },
@@ -35,7 +40,13 @@ function load(name) {
       if (Object.keys(options).some(k => !['workspaceRoot', 'manifestPath', 'phase'].includes(k))) throw Error('unsupported capture options native authority');
       assert.equal(key(options.workspaceRoot), root);
       if (identities.get(key(options.manifestPath))?.role === 'directory') throw Error('directory role rejected');
-      throw Error('normal capture fixture not supplied in this directory-role control');
+      mutations.push(['capture', key(options.manifestPath), options]);
+      const manifest = { phase: options.phase, protectedInput: { value: {
+        sourceClosureRows: [{ kind: 'source', path: 'server/src/services/TerminalResourcePolicyCanary.test.ts', sha256: 'a'.repeat(64) }],
+        git: { commandPrefix: ['C:/Program Files/Git/cmd/git.exe', '-c', 'core.longpaths=true'] },
+      } } };
+      put(options.manifestPath, 'file'); identities.get(key(options.manifestPath)).bytes = Buffer.from(JSON.stringify(manifest), 'utf8');
+      return manifest;
     },
   };
   const cache = new Map();
@@ -79,7 +90,7 @@ function load(name) {
   return module.exports;
   }
   executeModule(url, ast);
-  return { callbacks, mutations, present, text, ast, fs, nativeChecks, loadedModules, loadHelper() {
+  return { callbacks, mutations, present, text, ast, fs, nativeChecks, loadedModules, faults, loadHelper() {
     const helperUrl = new URL('./admission-fixture-ownership.mjs', import.meta.url);
     return executeModule(helperUrl, ts.createSourceFile(helperUrl.pathname, readFileSync(helperUrl, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.JS));
   } };
@@ -92,6 +103,30 @@ test('AC5 wiring loads the actual helper in the same inert environment with sepa
   assert.equal(h.mutations.filter(([op, target]) => op === 'mkdir' && target === parent).length, 1);
   assert.equal(h.mutations.filter(([op, target]) => op === 'rmdir' && target === leaf.manifestPath).length, 1);
 });
+
+for (const [name, title] of [
+  ['lexical', 'SDS-AC-1 and SDS-AC-4 retain private native capture, fixed Git, and a complete default frozen closure'],
+  ['wave', 'SDS-AC-3 publishes a deterministic deduplicated source closure only after native capture succeeds'],
+]) {
+  test(`AC5 actual ${name} normal capture persists manifest and cleans only helper-owned nonce`, async () => {
+    const h = load(name); const callback = h.callbacks.get(title); assert.equal(typeof callback, 'function');
+    await callback();
+    assert.ok(h.loadedModules.includes('./admission-fixture-ownership.mjs'), 'actual capability module must own capture');
+    const captures = h.mutations.filter(([operation]) => operation === 'capture'); assert.equal(captures.length, 1);
+    assert.equal(path.win32.dirname(captures[0][1]), parent);
+    assert.equal(h.present.has(captures[0][1]), false); assert.equal(h.present.has(parent), true);
+    assert.equal(h.mutations.some(([operation, target]) => ['rm', 'rmdir', 'unlink'].includes(operation) && target === parent), false);
+  });
+  test(`AC5 actual ${name} post-capture scenario and cleanup errors are both preserved`, async () => {
+    const h = load(name); const scenario = Error('scenario read failure'), cleanup = Error('cleanup failure');
+    h.faults.scenarioError = scenario; h.faults.cleanupError = cleanup;
+    await assert.rejects(h.callbacks.get(title)(), error => {
+      assert.ok(error instanceof AggregateError); assert.ok(error.errors.includes(scenario)); assert.ok(error.errors.includes(cleanup)); return true;
+    });
+    const captures = h.mutations.filter(([operation]) => operation === 'capture'); assert.equal(captures.length, 1);
+    assert.ok(h.present.has(captures[0][1]), 'failed cleanup must retain owned manifest');
+  });
+}
 for (const [name, match] of [['trust', 'rejects real directory leaves'], ['seal', 'rejects an unexpected manifest-leaf directory']]) {
   test(`AC5 actual ${name} directory-role callback never mutates original checkout paths`, async () => {
     const h = load(name); const matches = [...h.callbacks].filter(([title]) => title.includes(match)); assert.equal(matches.length, 1);
