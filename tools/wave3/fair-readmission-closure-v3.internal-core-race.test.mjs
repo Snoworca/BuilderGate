@@ -1094,7 +1094,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
         } finally {
           if (existsSync(unexpectedFixturePath)) unlinkSync(unexpectedFixturePath);
           writeFileSync(trackedFixturePath, originalTrackedBytes, { flag: 'w' });
-          if (configIndexed) runFixtureGit(fixtureRoot, ['reset', '--quiet', '--', 'server/config.json5']);
+          if (configIndexed) runFixtureGit(fixtureRoot, ['restore', '--staged', '--source=HEAD', '--', 'server/config.json5']);
           assertLightweightFixtureScenarioInvariant({
             fixtureRoot,
             fixtureAnalysisRoot,
