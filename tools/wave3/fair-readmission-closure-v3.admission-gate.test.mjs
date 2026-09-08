@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import * as path from 'node:path';
 import test from 'node:test';
+import { observeProcessUntilClose } from './admission-process-observer.mjs';
+import { decodeAdmissionTranscript, evaluateAdmissionEvents } from './admission-event-validation.mjs';
 
 const self = 'fair-readmission-closure-v3.admission-gate.test.mjs';
 const fixedClosureTests = [
@@ -40,7 +41,7 @@ test('SDS-AC-3 fixes the named admission gate limit below 118 seconds', () => {
   assert.equal(FIXED_GATE_LIMIT_MS, 118_000, 'the fixed admission gate limit must stay below 118 seconds');
 });
 
-test('SDS-AC-3 runs the fixed nonrecursive closure gate with boundary and admission suites under 118 seconds', t => {
+test('SDS-AC-3 runs the fixed nonrecursive closure gate with boundary and admission suites under 118 seconds', async t => {
   const discovered = readdirSync(testDirectory, { encoding: 'utf8' })
     .filter(name => /^fair-readmission-closure-v3(?:\.[a-z-]+)?\.test\.mjs$/.test(name))
     .filter(name => name !== self)
@@ -56,20 +57,28 @@ test('SDS-AC-3 runs the fixed nonrecursive closure gate with boundary and admiss
   }
   assert.deepEqual([...fixedClosureTests].sort(), discovered, 'every closure suite other than this combined gate must be covered');
 
-  const startedAt = Date.now();
-  const result = spawnSync(process.execPath, ['--test', ...fixedClosureTests], {
+  const result = await observeProcessUntilClose(process.execPath, ['--test', '--test-reporter=./tools/wave3/admission-event-reporter.mjs', ...fixedClosureTests], {
     cwd: workspaceRoot,
     env: Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('NODE_TEST_'))),
-    encoding: 'utf8',
-    shell: false,
-    timeout: FIXED_GATE_LIMIT_MS,
-    windowsHide: true,
+    deadlineMs: FIXED_GATE_LIMIT_MS,
+    onDeadline: () => t.diagnostic('SDS-AC-3 exceeded 118 seconds; awaiting natural child and output close'),
   });
-  const elapsedMs = Date.now() - startedAt;
-  t.diagnostic(`SDS-AC-3 combined closure gate elapsed_ms=${elapsedMs}`);
+  t.diagnostic(`SDS-AC-3 combined closure gate elapsed_ms=${result.elapsedMs} code=${result.code} signal=${result.signal}`);
 
-  assert.equal(result.error, undefined, `combined closure gate failed to launch: ${result.error?.message ?? ''}`);
-  assert.equal(result.signal, null, `combined closure gate timed out or was signaled: ${result.signal ?? ''}`);
-  assert.equal(result.status, 0, `combined closure gate exited ${result.status}\n${result.stdout ?? ''}\n${result.stderr ?? ''}`);
-  assert.ok(elapsedMs < FIXED_GATE_LIMIT_MS, `combined closure gate exceeded the 118-second contract: ${elapsedMs}ms`);
+  const failures = [];
+  if (result.spawnError !== null) failures.push(`launch failure: ${result.spawnError}`);
+  for (const error of result.observationErrors) failures.push(`observation failure: ${error}`);
+  if (result.signal !== null) failures.push(`child received signal: ${result.signal}`);
+  if (result.code !== 0) failures.push(`child exited ${result.code}`);
+  if (result.deadlineExceeded || !(result.elapsedMs < FIXED_GATE_LIMIT_MS)) {
+    failures.push(`118-second contract exceeded: ${result.elapsedMs}ms`);
+  }
+  try {
+    const records = decodeAdmissionTranscript(result.stdout);
+    const verdict = evaluateAdmissionEvents(records, fixedClosureTests.map(file => path.resolve(workspaceRoot, file)));
+    if (!verdict.accepted) failures.push(...verdict.reasons);
+  } catch (error) {
+    failures.push(`transcript decoding failed: ${error}`);
+  }
+  assert.equal(failures.length, 0, `combined closure gate failed:\n${failures.join('\n')}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
 });
