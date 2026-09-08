@@ -8014,7 +8014,7 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
       process.env.BUILDERGATE_SERVER_ROOT = tlsRoot;
       tlsHandle = await createMcpNodeHttpListener({
         bindHost: '127.0.0.1',
-        port: 0,
+        port: 2222,
         transportSecurity: 'direct_tls',
       }, async (request) => {
         tlsDispatchCount += 1;
@@ -8031,7 +8031,7 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
         };
       }, { sslConfig: { certPath: '', keyPath: '', caPath: '' } });
       const directTlsPort = Number(asRecord(tlsHandle, 'direct TLS listener handle').port);
-      assert.ok(directTlsPort > 0, 'direct TLS listener must bind an OS-assigned port');
+      assert.equal(directTlsPort, 2222, 'direct TLS listener must use the exclusive test port');
       const directTlsResponseBody = await new Promise<string>((resolve, reject) => {
         const payload = JSON.stringify({ jsonrpc: '2.0', id: 'direct-tls', method: 'ping' });
         const req = https.request({
@@ -21799,7 +21799,7 @@ async function invokeLogin(
 }
 
 // B1 only: preserve the real loopback peer for the three req.ip assertions.
-// This original TCP0 fixture stays excluded until B1 provides exclusive2222.
+// Run serially with the other B1 listeners on the exclusive test port.
 async function invokeLoopbackLoginOverTcp(
   accessors: Parameters<typeof createAuthRoutes>[0],
   body: Record<string, unknown>,
@@ -21808,7 +21808,7 @@ async function invokeLoopbackLoginOverTcp(
   const app = createAuthTestApp(accessors);
   return new Promise((resolve, reject) => {
     const server = http.createServer(app);
-    server.listen(0, () => {
+    server.listen(2222, () => {
       const port = (server.address() as net.AddressInfo).port;
       const postBody = JSON.stringify(body);
       const options = {
