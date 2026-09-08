@@ -6,6 +6,7 @@ import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import test from 'node:test';
+import { runSettledSubtest } from './settled-subtest.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -942,7 +943,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
     let secondFixture;
     let initialFailure;
     try {
-      await t.test('SDS-AC-1 and SDS-AC-2 derive one immutable manifest-bound root seed across independent minimal fixture roots', { timeout: 115_000 }, async () => {
+      await runSettledSubtest(t, 'SDS-AC-1 and SDS-AC-2 derive one immutable manifest-bound root seed across independent minimal fixture roots', { timeout: 115_000 }, async () => {
         const originalSpawnSync = childProcess.spawnSync;
         initialFailure = { faultInjected: false, nativeProbeCount: 0, publishedFixture: undefined };
         assert.equal(protectedFixtureSeedPromise, undefined, 'the controlled initial seed fault runs before any successful private seed is cached');
@@ -981,7 +982,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
         }
       });
 
-      await t.test('SDS-AC-1 rejects root source drift before a cached protected-input seed can publish a stale fixture', { timeout: 115_000 }, async () => {
+      await runSettledSubtest(t, 'SDS-AC-1 rejects root source drift before a cached protected-input seed can publish a stale fixture', { timeout: 115_000 }, async () => {
         assertMinimalNativeFixtureParity(firstFixture);
         await assert.rejects(
           () => withSyntheticRootSourceDrift('server/package.json', () => createOwnedWorkspaceWithoutAnalysisParent()),
@@ -991,7 +992,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
         assertMinimalNativeFixtureParity(firstFixture);
       });
 
-      await t.test('SDS-AC-1 rejects root source drift after byte copy and independent fixture Git setup before return', { timeout: 115_000 }, async () => {
+      await runSettledSubtest(t, 'SDS-AC-1 rejects root source drift after byte copy and independent fixture Git setup before return', { timeout: 115_000 }, async () => {
         assertMinimalNativeFixtureParity(firstFixture);
         await assert.rejects(
           () => withPostCopySyntheticRootSourceDrift('server/package.json', () => createOwnedWorkspaceWithoutAnalysisParent()),
@@ -1001,11 +1002,11 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
         assertMinimalNativeFixtureParity(firstFixture);
       });
 
-      await t.test('SDS-AC-1 requires the native race fixture to exclude copied worktree payload while preserving independent Git parity', { timeout: 115_000 }, async () => {
+      await runSettledSubtest(t, 'SDS-AC-1 requires the native race fixture to exclude copied worktree payload while preserving independent Git parity', { timeout: 115_000 }, async () => {
         assertMinimalNativeFixtureParity({ fixtureRoot: firstFixture.fixtureRoot });
       });
 
-      await t.test('SDS-AC-1 fails normal closed capture when a protected minimal-fixture input is absent instead of falling back to the worktree', { timeout: 115_000 }, async () => {
+      await runSettledSubtest(t, 'SDS-AC-1 fails normal closed capture when a protected minimal-fixture input is absent instead of falling back to the worktree', { timeout: 115_000 }, async () => {
         const { fixtureRoot } = secondFixture;
         const fixtureAnalysisRoot = path.join(fixtureRoot, analysisRootRelativePath);
         const manifestPath = path.join(fixtureAnalysisRoot, 'missing-protected-input.json');
@@ -1037,7 +1038,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
     const firstManifestPrefix = `missing-parent-first-capture-${process.pid}-${randomBytes(6).toString('hex')}`;
     const firstManifestPath = path.join(fixtureAnalysisRoot, `${firstManifestPrefix}.json`);
     try {
-      await t.test('SDS-AC-1 lightweight fixture scenario invariant rejects tracked fixture mutation after proving clean owned state', { timeout: 115_000 }, () => {
+      await runSettledSubtest(t, 'SDS-AC-1 lightweight fixture scenario invariant rejects tracked fixture mutation after proving clean owned state', { timeout: 115_000 }, () => {
         const ownedLeaf = path.join(fixtureAnalysisRoot, `lightweight-invariant-${process.pid}-${randomBytes(6).toString('hex')}.json`);
         const trackedFixtureFile = fixture.protectedFiles.find(file => file.path !== 'server/config.json5');
         assert.notEqual(trackedFixtureFile, undefined, 'the physical fixture contains a protected tracked file for lightweight invariant mutation');
@@ -1102,7 +1103,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
         }
       });
 
-      await t.test('SDS-AC-1 and SDS-AC-3 create an absent fixed analysis parent only after fresh native guard probes at manifest boundaries', async () => {
+      await runSettledSubtest(t, 'SDS-AC-1 and SDS-AC-3 create an absent fixed analysis parent only after fresh native guard probes at manifest boundaries', {}, async () => {
         const timeline = [];
         let actorGuard;
         let didCapture = false;
@@ -1152,7 +1153,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
         }
       });
 
-      await t.test('SDS-AC-3 keeps an ordinary fixture analysis parent when an owned manifest leaf is already absent', { timeout: 115_000 }, () => {
+      await runSettledSubtest(t, 'SDS-AC-3 keeps an ordinary fixture analysis parent when an owned manifest leaf is already absent', { timeout: 115_000 }, () => {
         assert.equal(existsSync(firstManifestPath), false, 'the focused cleanup input starts with its owned fixture manifest leaf already absent');
         const initialParentStat = lstatSync(fixtureAnalysisRoot);
         assert.equal(initialParentStat.isDirectory(), true, 'the focused cleanup input has an ordinary fixture analysis parent');
@@ -1178,7 +1179,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
         ownedLeaves: [firstManifestPath],
       });
 
-      await t.test('SDS-AC-3 preserves an earlier missing-parent capture failure when successful-capture cleanup is skipped', { timeout: 115_000 }, () => {
+      await runSettledSubtest(t, 'SDS-AC-3 preserves an earlier missing-parent capture failure when successful-capture cleanup is skipped', { timeout: 115_000 }, () => {
         const absentManifestPath = path.join(fixtureAnalysisRoot, `capture-failed-before-parent-${process.pid}-${randomBytes(6).toString('hex')}.json`);
         const originalCaptureError = new Error('injected earlier missing-parent capture failure');
         assert.equal(existsSync(fixtureAnalysisRoot), false, 'an earlier missing-parent failure leaves the fixture analysis parent absent');
@@ -1203,7 +1204,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
         assert.equal(existsSync(absentManifestPath), false, 'skipped successful-capture cleanup must leave the absent owned manifest leaf untouched');
       });
 
-      await t.test('SDS-AC-1 rejects a swapped docs junction before any missing analysis parent mutation', async () => {
+      await runSettledSubtest(t, 'SDS-AC-1 rejects a swapped docs junction before any missing analysis parent mutation', {}, async () => {
         const externalAnalysisRoot = path.join(externalDocs, path.relative('docs', analysisRootRelativePath));
         const manifestPath = path.join(fixtureAnalysisRoot, 'guard-before-mutation.json');
         const timeline = [];
@@ -1256,7 +1257,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
         }
       });
 
-      await t.test('SDS-AC-4 proves sibling native capture completes between A retained-fd write and postflight without a collector test mode', async () => {
+      await runSettledSubtest(t, 'SDS-AC-4 proves sibling native capture completes between A retained-fd write and postflight without a collector test mode', {}, async () => {
         const prefix = `fixture-wx-sibling-${process.pid}-${randomBytes(6).toString('hex')}`;
         const leafA = path.join(fixtureAnalysisRoot, `${prefix}-a.json`);
         const leafB = path.join(fixtureAnalysisRoot, `${prefix}-b.json`);
@@ -1355,7 +1356,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
         }
       });
 
-      await t.test('SDS-AC-3 distinguishes the guarded postwrite probe from final leaf identity observation during same-byte replacement', async () => {
+      await runSettledSubtest(t, 'SDS-AC-3 distinguishes the guarded postwrite probe from final leaf identity observation during same-byte replacement', {}, async () => {
         const prefix = `fixture-wx-replacement-${process.pid}-${randomBytes(6).toString('hex')}`;
         const leafA = path.join(fixtureAnalysisRoot, `${prefix}-a.json`);
         const timeline = [];
@@ -1420,7 +1421,7 @@ test('SDS-AC-1 and SDS-AC-2 serially reuse independent minimal fixture roots for
         }
       });
 
-      await t.test('SDS-AC-2 closes every acquired retained descriptor exactly once across write and postflight failures, and never closes an EEXIST non-descriptor', async () => {
+      await runSettledSubtest(t, 'SDS-AC-2 closes every acquired retained descriptor exactly once across write and postflight failures, and never closes an EEXIST non-descriptor', {}, async () => {
         const prefix = `fixture-fd-lifecycle-${process.pid}-${randomBytes(6).toString('hex')}`;
         const existingLeaf = path.join(fixtureAnalysisRoot, `${prefix}-eexist.json`);
         const writeLeaf = path.join(fixtureAnalysisRoot, `${prefix}-write.json`);
