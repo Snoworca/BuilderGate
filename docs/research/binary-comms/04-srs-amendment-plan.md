@@ -55,7 +55,9 @@ MCP `append_section_note` 의 스키마도 동일하고, `check_acceptance_crite
 
 ---
 
-## 1. 사전 확인된 사실 (실측)
+## 1. 사전 확인된 사실 (당시 실측 — 역사적 기준)
+
+아래 명령 결과와 당시 도구·target 전제는 원래 연구 시점의 기록이다. 현재 진단이나 도구 지원 범위로 재사용하지 않는다. 2026-09-09 관측과 현재 수동 증가 감시 기준은 §6.0 및 [기준선 보고서](../../report/2026-09-09.srs-diagnostic-baseline.md)를 따른다.
 
 ```
 $ npx speckiwi validate --json   →  summary: {"errors":1,"warnings":19,
@@ -545,7 +547,15 @@ After (추가 줄):
 
 ## 6. 연구 과제 5 — 검증 계획
 
-### 6.1 기준선 (실측)
+### 6.0 현재 수동 증가 감시 기준 (2026-09-09)
+
+MCP 3.0.0, main workspace, `sdd`, active target `wave-5`에서 `validate_spec` 결과는 **errors 0 / warnings 0 / `byCode={}`**이다. 공식 CLI `speckiwi links check --json`은 671개 검사, broken 0, 네트워크 접근 없음이다. 아래 §6.1–6.4는 당시 실행 계획과 대응 절차로 보존하며 현재 판정에는 이 절을 우선한다.
+
+다음 변경 전후에 지원되는 `validate_spec`와 링크 검사를 다시 수행하고 원시 결과를 보존한다. 현재 합격 조건은 errors 0, warnings 0, `byCode={}`, broken 0이다. 새 진단은 감소분으로 상쇄하거나 과거 허용 수치에 흡수하지 않는다. 진단이 생기면 원인을 검토하고 필요한 SRS 수정은 지원되는 MCP 절차를 따른다. 과거 “기준선과 완전 동일”은 아래 역사적 1/19 수치로 돌아가라는 뜻이 아니다. 현재 0/0 기준에서는 CLI `validate --fail-on-warning --json`도 사용할 수 있다.
+
+현재 target 관측은 total 7, in_progress 3 / planned 2 / implemented 2, evolving 7, stability blockers/warnings 0이다. 이 분포와 링크 검사 건수는 진행에 따라 변하는 관측값이며 영구 합격 상수가 아니다. §6.3의 planned 4개는 당시 개정 완료 기대값으로만 남긴다. 이 정리는 기존 수동 체크포인트의 기준 갱신이며 자동 모니터나 제품 기능을 추가하지 않는다. 관련 Requirement: `IR-BGSTAB-001`; 상태·AC 승급은 포함하지 않는다.
+
+### 6.1 기준선 (당시 실측 — 역사적 기준)
 
 ```json
 {"errors":1,"warnings":19,"byCode":{"SRS-W018":5,"SRS-W023":14,"SRS-E002":1}}

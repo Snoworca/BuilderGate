@@ -495,7 +495,7 @@ const EXCLUDED_SECTIONS = [
 | `admission-gate` 시간 예산 | closure 집합 게이트가 그 하나뿐이다. 예산을 바꾸는 것은 게이트의 의미를 바꾸는 일이다. ⚠️ 지금도 red 인지는 미검증 |
 | `lexical.test.mjs:95` 합계 단언 | `tools/wave3/fair-readmission-closure-v3.lexical.test.mjs:95` 의 `assert.equal(dynamicEdges, 17, …)` 를 실질화할지 |
 | 숨김 탭 스크롤백 유실 | ⚠️ 미검증 — frontend unit red 가 여기 묶여 있다고 알려져 있으나, 몇 건인지는 확인하지 못했다. 백로그(`plan.md:52`)는 frontend unit red 를 6건으로 적는다. 대응 관계를 확정하려면 §9.7 전량 실행이 필요하다 |
-| SRS 진단 6건 | 해소하려면 `docs/research/binary-comms/04-srs-amendment-plan.md` 의 **증가 감시 기준선**도 함께 조정해야 한다. 모르고 고치면 그 감시가 깨진다 |
+| SRS 진단 6건 — 당시 기록 | 이 수치는 역사적 관측이며 현재 잔여 진단 수가 아니다. 2026-09-09 MCP 3.0.0 재관측은 errors 0 / warnings 0 / `byCode={}`, links 671개 검사·broken 0이다. [현재 기준선](../report/2026-09-09.srs-diagnostic-baseline.md)과 `docs/research/binary-comms/04-srs-amendment-plan.md` §6의 현재 수동 증가 감시 기준을 사용한다. |
 
 ---
 
