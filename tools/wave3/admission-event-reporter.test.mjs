@@ -135,3 +135,28 @@ test('admission validator top-level suite counts once while nested ordinary test
   const result = evaluate(rows, [entries[0]]);
   assert.equal(result.accepted, true); assert.deepEqual(result.counts, counts);
 });
+
+test('admission validator rejects offsetting local outcome mismatches despite correct global sums', async () => {
+  const evaluate = await validator();
+  const records = valid().map(row => row.type === 'summary' && row.file !== null
+    ? { ...row, counts: { ...row.counts, passed: row.file === entries[0] ? 0 : 2 } } : row);
+  assert.equal(evaluate(valid(), entries).accepted, true, 'valid local summaries remain accepted');
+  const result = evaluate(records, entries);
+  assert.equal(result.accepted, false, 'each file tests must equal its own outcome sum, not merely the global sum');
+  assert.ok(result.reasons.length);
+});
+
+test('admission validator rejects offsetting local topLevel overbound despite correct global sums', async () => {
+  const evaluate = await validator();
+  const base = end([
+    event('pass', { nesting: 0, name: 'first' }), event('pass', { nesting: 0, name: 'second' }),
+    summary(entries[0], count(1, { topLevel: 1 })), summary(entries[1], count(1, { topLevel: 1 })),
+    summary(null, count(2, { topLevel: 2 })),
+  ]);
+  assert.equal(evaluate(base, entries).accepted, true);
+  const records = base.map(row => row.type === 'summary' && row.file !== null
+    ? { ...row, counts: { ...row.counts, topLevel: row.file === entries[0] ? 2 : 0 } } : row);
+  const result = evaluate(records, entries);
+  assert.equal(result.accepted, false, 'every local topLevel must be bounded by local tests plus suites');
+  assert.ok(result.reasons.length);
+});
