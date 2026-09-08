@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-const workspaceRoot = 'C:/Work/git/_Snoworca/ProjectMaster';
+const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const trustedPowerShell = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
 const fixtureRoot = 'docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness';
 
@@ -120,6 +121,11 @@ test('SDS-AC-3 rejects volume-qualified, absolute, UNC, and escaping fixture val
   assert.equal(
     resolveFixturePath({ workspaceRoot, fixtureRoot, value: 'raw/observed.json' }),
     path.win32.join(workspaceRoot, fixtureRoot, 'raw', 'observed.json'),
+  );
+  assert.throws(
+    () => resolveFixturePath({ workspaceRoot: `${workspaceRoot}-different`, fixtureRoot, value: 'raw/observed.json' }),
+    /workspace root must equal the collector-derived workspace root/i,
+    'a different checkout must not acquire fixture path authority',
   );
   for (const value of [
     'C:/outside.json',
