@@ -5,7 +5,7 @@
 | Document Type | sds |
 | Task | 2026-07-27.pm.fair-readmission-closure-v3-worker-ssot-successor |
 | Target | wave-3 |
-| Status | agreed |
+| Status | superseded |
 | Date | 2026-07-27 |
 
 ## 1. Context & Scope
