@@ -5,11 +5,13 @@ function confirmedExit(actor) {
       || (state.code === null && typeof state.signal === 'string' && state.signal.length > 0));
 }
 
-function report(failures) {
+function report(failures, message = 'Actor cleanup failed') {
   const distinct = [...new Set(failures)];
   if (distinct.length === 1) throw distinct[0];
-  if (distinct.length > 1) throw new AggregateError(distinct, 'Actor cleanup failed');
+  if (distinct.length > 1) throw new AggregateError(distinct, message);
 }
+
+export { report as reportCleanupFailures };
 
 export async function settleActorCleanup(entries, release, priorFailure) {
   const failures = priorFailure === undefined ? [] : [priorFailure.error];

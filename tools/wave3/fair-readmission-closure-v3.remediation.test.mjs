@@ -3,15 +3,11 @@ import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { createOwnedAnalysisLeaf } from './admission-fixture-ownership.mjs';
 
-const workspaceRoot = process.cwd();
+const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const outputDir = 'C:/Work/kiwi-run-output/2026-07-27.pm.fair-readmission-closure-v3/ac9-playwright';
-const analysisDirectory = path.join(
-  workspaceRoot,
-  'docs',
-  'analysis',
-  'kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3',
-);
 const fixtureEntry = path.join(
   workspaceRoot,
   'docs',
@@ -74,43 +70,23 @@ function fileSystemWith({ linkedPaths = [], missingPaths = [], reparsePaths = []
   });
 }
 
-function ownedManifestPath(label) {
-  return path.join(analysisDirectory, `.remediation-${label}-${process.pid}.json`);
-}
-
-function withOwnedManifestDirectory(callback) {
-  const existed = fs.existsSync(analysisDirectory);
-  fs.mkdirSync(analysisDirectory, { recursive: true });
+function assertFailsBeforeWriting({ captureFrozenProvenance, label, expected, options, leaf = createOwnedAnalysisLeaf(label) }) {
+  const { manifestPath } = leaf;
+  assert.equal(fs.existsSync(manifestPath), false, `${label} manifest leaf must start absent`);
+  let priorFailure;
   try {
-    return callback();
-  } finally {
-    if (!existed && fs.existsSync(analysisDirectory) && fs.readdirSync(analysisDirectory).length === 0) {
-      fs.rmdirSync(analysisDirectory);
-    }
-  }
-}
-
-function assertFailsBeforeWriting({ captureFrozenProvenance, label, expected, options }) {
-  const manifestPath = ownedManifestPath(label);
-  withOwnedManifestDirectory(() => {
-    let absencePreconditionSucceeded = false;
-    try {
-      assert.equal(fs.existsSync(manifestPath), false, `${label} manifest leaf must start absent`);
-      absencePreconditionSucceeded = true;
-      assert.throws(
-        () => captureFrozenProvenance({ workspaceRoot, manifestPath, phase: `remediation-${label}`, ...options }),
-        expected,
-      );
-      assert.equal(fs.existsSync(manifestPath), false, `${label} failure must precede manifest write`);
-    } finally {
-      if (absencePreconditionSucceeded && fs.existsSync(manifestPath)) fs.rmSync(manifestPath);
-    }
-  });
+    assert.throws(
+      () => captureFrozenProvenance({ workspaceRoot, manifestPath, phase: `remediation-${label}`, ...options }),
+      expected,
+    );
+    assert.equal(fs.existsSync(manifestPath), false, `${label} failure must precede manifest write`);
+  } catch (error) { priorFailure = { error }; } finally { leaf.cleanup(priorFailure); }
 }
 
 test('SDS-AC-2 rejects dangling output leaves and caller-supplied protected or manifest authority before writing', async () => {
   const { FROZEN_CONTRACT, captureFrozenProvenance, validateFrozenContract } = await loadCollector();
-  const manifestPath = ownedManifestPath('link');
+  const leaf = createOwnedAnalysisLeaf('link');
+  const { manifestPath } = leaf;
 
   assert.throws(
     () => validateFrozenContract({
@@ -128,7 +104,8 @@ test('SDS-AC-2 rejects dangling output leaves and caller-supplied protected or m
     }),
     /output.*(?:link|reparse)|(?:link|reparse).*output/i,
   );
-  withOwnedManifestDirectory(() => {
+  let priorFailure;
+  try {
     assert.throws(
       () => captureFrozenProvenance({
         workspaceRoot,
@@ -139,7 +116,7 @@ test('SDS-AC-2 rejects dangling output leaves and caller-supplied protected or m
       /capture options|native|authority|unsupported|forbid|reject/i,
     );
     assert.equal(fs.existsSync(manifestPath), false, 'a caller-supplied manifest authority must not write a leaf');
-  });
+  } catch (error) { priorFailure = { error }; } finally { leaf.cleanup(priorFailure); }
 });
 
 test('SDS-AC-3 writes a contract-only canonical fingerprint independently of protected input rows', async () => {
@@ -172,17 +149,14 @@ test('SDS-AC-3 writes a contract-only canonical fingerprint independently of pro
 });
 
 test('SDS-AC-4 captures the actual workspace into one disposable manifest without Playwright output', async () => {
-  const { FROZEN_CONTRACT, captureFrozenProvenance } = await loadCollector();
-  const manifestPath = ownedManifestPath('capture');
-  const analysisDirectoryExisted = fs.existsSync(analysisDirectory);
+  const { FROZEN_CONTRACT } = await loadCollector();
+  const leaf = createOwnedAnalysisLeaf('capture');
+  const { manifestPath } = leaf;
+  let priorFailure;
 
   assert.equal(fs.existsSync(outputDir), false, 'the frozen external Playwright leaf must start absent');
   try {
-    const manifest = captureFrozenProvenance({
-      workspaceRoot,
-      manifestPath,
-      phase: 'remediation-disposable-capture',
-    });
+    const manifest = leaf.capture('remediation-disposable-capture');
     const written = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     const writtenBytes = fs.readFileSync(manifestPath);
 
@@ -207,11 +181,8 @@ test('SDS-AC-4 captures the actual workspace into one disposable manifest withou
     assert.equal(written.protectedInput.value.git.protectedRepoPaths.includes('server/config.json5'), true);
     assert.match(written.protectedInput.value.nodeRuntime.sha256, /^[a-f0-9]{64}$/i);
     assert.equal(fs.existsSync(outputDir), false, 'provenance capture must not launch Playwright or create external output');
-  } finally {
-    if (fs.existsSync(manifestPath)) fs.rmSync(manifestPath);
-    if (!analysisDirectoryExisted && fs.existsSync(analysisDirectory) && fs.readdirSync(analysisDirectory).length === 0) {
-      fs.rmdirSync(analysisDirectory);
-    }
+  } catch (error) { priorFailure = { error }; } finally {
+    leaf.cleanup(priorFailure);
   }
 });
 
@@ -243,20 +214,18 @@ test('SDS-AC-5 rejects caller-injected source, fixture, and config authority bef
   process.env.PATH = path.join(workspaceRoot, '__remediation-test-no-git__');
   process.env.Path = process.env.PATH;
   try {
-    const manifestPath = ownedManifestPath('fixed-git');
-    withOwnedManifestDirectory(() => {
+    const leaf = createOwnedAnalysisLeaf('fixed-git');
+    const { manifestPath } = leaf;
+    let priorFailure;
+    {
       try {
-        const manifest = captureFrozenProvenance({
-          workspaceRoot,
-          manifestPath,
-          phase: 'remediation-fixed-git',
-        });
+        const manifest = leaf.capture('remediation-fixed-git');
         assert.equal(manifest.protectedInput.value.git.commandPrefix[0], 'C:/Program Files/Git/cmd/git.exe');
         assert.equal(fs.existsSync(manifestPath), true, 'fixed Git capture must not depend on ambient PATH');
-      } finally {
-        if (fs.existsSync(manifestPath)) fs.rmSync(manifestPath);
+      } catch (error) { priorFailure = { error }; } finally {
+        leaf.cleanup(priorFailure);
       }
-    });
+    }
   } finally {
     if (savedPath === undefined) delete process.env.PATH;
     else process.env.PATH = savedPath;
@@ -277,24 +246,25 @@ test('SDS-AC-4 rejects test-only input overrides so every capture binds the froz
 });
 
 test('test capture helper preserves a pre-existing manifest leaf when its absence precondition fails', async () => {
-  const manifestPath = ownedManifestPath('pre-existing-helper');
-  withOwnedManifestDirectory(() => {
-    fs.writeFileSync(manifestPath, '{"owned":"pre-existing"}\n', { encoding: 'utf8', flag: 'wx' });
-    try {
+  const leaf = createOwnedAnalysisLeaf('pre-existing-helper');
+  const { manifestPath } = leaf;
+  let priorFailure;
+  try {
+    leaf.createFile('{"owned":"pre-existing"}\n');
       assert.throws(
         () => assertFailsBeforeWriting({
           captureFrozenProvenance: () => {
             throw new Error('capture must not run when the leaf already exists');
           },
           label: 'pre-existing-helper',
+          leaf,
           expected: /never reached/i,
           options: {},
         }),
         /must start absent/i,
       );
       assert.equal(fs.existsSync(manifestPath), true, 'the helper must not delete a pre-existing leaf');
-    } finally {
-      if (fs.existsSync(manifestPath)) fs.rmSync(manifestPath);
-    }
-  });
+  } catch (error) { priorFailure = { error }; } finally {
+    leaf.cleanup(priorFailure);
+  }
 });

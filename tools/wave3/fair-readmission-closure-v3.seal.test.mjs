@@ -1,16 +1,11 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, rmSync, unlinkSync } from 'node:fs';
-import { randomBytes } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { createOwnedAnalysisLeaf } from './admission-fixture-ownership.mjs';
 import * as path from 'node:path';
 import test from 'node:test';
 
-const workspaceRoot = 'C:/Work/git/_Snoworca/ProjectMaster';
-const analysisRoot = path.win32.join(
-  workspaceRoot,
-  'docs',
-  'analysis',
-  'kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3',
-);
+const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const collectorUrl = new URL('./fair-readmission-closure-v3.mjs', import.meta.url);
 const publicProtectedIo = new Set([
   'createProtectedInputSnapshot',
@@ -25,24 +20,6 @@ async function loadCollector() {
   return import(collectorUrl);
 }
 
-function testOwnedLeaf(prefix) {
-  return path.win32.join(
-    analysisRoot,
-    `${prefix}-${process.pid}-${randomBytes(8).toString('hex')}.json`,
-  );
-}
-
-function assertOwnedLeaf(candidate, prefix) {
-  const normalizedRoot = `${path.win32.normalize(analysisRoot).toLowerCase()}\\`;
-  const normalizedCandidate = path.win32.normalize(candidate).toLowerCase();
-  assert.equal(normalizedCandidate.startsWith(normalizedRoot), true, 'cleanup must stay in the capture analysis root');
-  assert.equal(path.win32.basename(candidate).startsWith(`${prefix}-`), true, 'cleanup must target this test nonce only');
-}
-
-function removeOwnedLeaf(candidate, prefix) {
-  assertOwnedLeaf(candidate, prefix);
-  if (existsSync(candidate)) unlinkSync(candidate);
-}
 
 test('SDS-AC-1 keeps protected-admission minting and protected I/O private to native capture', async () => {
   const collector = await loadCollector();
@@ -55,7 +32,9 @@ test('SDS-AC-1 keeps protected-admission minting and protected I/O private to na
   }
 
   const prefix = 'seal-forged-authority';
-  const manifestPath = testOwnedLeaf(prefix);
+  const leaf = createOwnedAnalysisLeaf(prefix);
+  const { manifestPath } = leaf;
+  let priorFailure;
   const poisonFs = new Proxy({}, {
     get(_target, property) {
       throw new Error(`caller-supplied filesystem authority was observed: ${String(property)}`);
@@ -75,8 +54,8 @@ test('SDS-AC-1 keeps protected-admission minting and protected I/O private to na
       'native capture must reject every caller authority before any protected filesystem operation',
     );
     assert.equal(existsSync(manifestPath), false, 'a rejected caller authority must not mint a manifest leaf');
-  } finally {
-    removeOwnedLeaf(manifestPath, prefix);
+  } catch (error) { priorFailure = { error }; } finally {
+    leaf.cleanup(priorFailure);
   }
 });
 
@@ -132,9 +111,11 @@ test('SDS-AC-2 consumes explicit lexical zero-edge forms and fails closed for un
 test('SDS-AC-3 rejects an unexpected manifest-leaf directory role through the sole native capture entry point', async () => {
   const collector = await loadCollector();
   const prefix = 'seal-directory-role';
-  const manifestPath = testOwnedLeaf(prefix);
+  const leaf = createOwnedAnalysisLeaf(prefix);
+  const { manifestPath } = leaf;
+  let priorFailure;
   try {
-    mkdirSync(manifestPath);
+    leaf.createDirectory();
     assert.throws(
       () => collector.captureFrozenProvenance({
         workspaceRoot,
@@ -145,9 +126,8 @@ test('SDS-AC-3 rejects an unexpected manifest-leaf directory role through the so
       'a manifest leaf directory is never an admissible native-capture role',
     );
     assert.equal(existsSync(manifestPath), true, 'native capture must not replace a disallowed directory leaf');
-  } finally {
-    assertOwnedLeaf(manifestPath, prefix);
-    if (existsSync(manifestPath)) rmSync(manifestPath, { recursive: true, force: true });
+  } catch (error) { priorFailure = { error }; } finally {
+    leaf.cleanup(priorFailure);
   }
 
   const collectorSource = readFileSync(collectorUrl, 'utf8');
@@ -158,9 +138,10 @@ test('SDS-AC-3 rejects an unexpected manifest-leaf directory role through the so
 });
 
 test('SDS-AC-4 runs native capture with a fixed Git executable despite poisoned ambient Git variables', async () => {
-  const { captureFrozenProvenance } = await loadCollector();
   const prefix = 'seal-fixed-git';
-  const manifestPath = testOwnedLeaf(prefix);
+  const leaf = createOwnedAnalysisLeaf(prefix);
+  const { manifestPath } = leaf;
+  let priorFailure;
   const poisoned = {
     PATH: process.env.PATH,
     Path: process.env.Path,
@@ -175,22 +156,18 @@ test('SDS-AC-4 runs native capture with a fixed Git executable despite poisoned 
     process.env.GIT_CONFIG_NOSYSTEM = '1';
     process.env.GIT_OPTIONAL_LOCKS = '0';
 
-    const manifest = captureFrozenProvenance({
-      workspaceRoot,
-      manifestPath,
-      phase: 'seal-fixed-git',
-    });
+    const manifest = leaf.capture('seal-fixed-git');
     assert.deepEqual(JSON.parse(readFileSync(manifestPath, 'utf8')), manifest, 'the fixed-Git capture must persist the canonical native manifest');
     assert.equal(
       manifest.protectedInput.value.git.commandPrefix[0],
       'C:/Program Files/Git/cmd/git.exe',
       'Git provenance must record the fixed, verified absolute executable rather than an ambient command name',
     );
-  } finally {
+  } catch (error) { priorFailure = { error }; } finally {
     for (const [name, value] of Object.entries(poisoned)) {
       if (value === undefined) delete process.env[name];
       else process.env[name] = value;
     }
-    removeOwnedLeaf(manifestPath, prefix);
+    leaf.cleanup(priorFailure);
   }
 });

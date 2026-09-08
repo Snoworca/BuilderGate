@@ -1,17 +1,12 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, rmSync, unlinkSync } from 'node:fs';
-import { randomBytes } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { createOwnedAnalysisLeaf } from './admission-fixture-ownership.mjs';
 import * as path from 'node:path';
 import test from 'node:test';
 
-const workspaceRoot = 'C:/Work/git/_Snoworca/ProjectMaster';
+const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const inventoryPath = 'server/src/services/TerminalResourcePolicyInventory.ts';
-const analysisRoot = path.win32.join(
-  workspaceRoot,
-  'docs',
-  'analysis',
-  'kiwi-coder-2026-07-27.pm.fair-readmission-closure-v3',
-);
 
 async function loadCollector() {
   return import('./fair-readmission-closure-v3.mjs');
@@ -60,13 +55,7 @@ function noOpIngress(events) {
 }
 
 function ownedNativeCaptureManifestPath() {
-  return path.win32.join(analysisRoot, `.trust-native-capture-${process.pid}-${randomBytes(6).toString('hex')}.json`);
-}
-
-function removeOwnedNativeCaptureManifest(manifestPath) {
-  assert.equal(path.win32.dirname(manifestPath), analysisRoot, 'trust capture cleanup must stay within its analysis directory');
-  assert.equal(path.win32.basename(manifestPath).startsWith('.trust-native-capture-'), true, 'trust capture cleanup must target only its own leaf');
-  if (existsSync(manifestPath)) unlinkSync(manifestPath);
+  return createOwnedAnalysisLeaf('trust-native-capture').manifestPath;
 }
 
 test('SDS-AC-1 rejects every caller-provided protected ingress authority before native capture I/O', async () => {
@@ -81,7 +70,9 @@ test('SDS-AC-1 rejects every caller-provided protected ingress authority before 
     const fs = supplied.fs ?? noProtectedIo();
     const ingressEvents = [];
     const ingress = label === 'caller guard and snapshot' ? noOpIngress(ingressEvents) : {};
-    const manifestPath = ownedNativeCaptureManifestPath();
+    const leaf = createOwnedAnalysisLeaf('trust-forged-ingress');
+    const { manifestPath } = leaf;
+    let priorFailure;
     try {
       assert.throws(
         () => collector.captureFrozenProvenance({
@@ -95,8 +86,8 @@ test('SDS-AC-1 rejects every caller-provided protected ingress authority before 
         `${label} must be rejected before native capture can observe a caller seam`,
       );
       assert.equal(existsSync(manifestPath), false, `${label} must not mint a manifest leaf`);
-    } finally {
-      removeOwnedNativeCaptureManifest(manifestPath);
+    } catch (error) { priorFailure = { error }; } finally {
+      leaf.cleanup(priorFailure);
     }
     assert.deepEqual(fs.calls, [], `${label} must perform zero caller filesystem operations`);
     assert.deepEqual(ingressEvents, [], `${label} must not invoke a caller-supplied probe, guard, or snapshot`);
@@ -158,14 +149,12 @@ test('SDS-AC-2 uses collector-owned lexical parsing without executing TypeScript
     'a mutable dynamic import must still fail closed instead of escaping lexical provenance',
   );
 
-  const manifestPath = ownedNativeCaptureManifestPath();
+  const leaf = createOwnedAnalysisLeaf('trust-native-capture');
+  const { manifestPath } = leaf;
+  let priorFailure;
   assert.equal(existsSync(manifestPath), false, 'the test-owned native capture leaf must start absent');
   try {
-    const manifest = captureFrozenProvenance({
-      workspaceRoot,
-      manifestPath,
-      phase: 'trust-native-frozen-capture',
-    });
+    const manifest = leaf.capture('trust-native-frozen-capture');
     assert.deepEqual(JSON.parse(readFileSync(manifestPath, 'utf8')), manifest, 'the native capture must persist exactly the admitted manifest');
     const protectedInput = manifest.protectedInput.value;
     assert.equal(
@@ -178,17 +167,19 @@ test('SDS-AC-2 uses collector-owned lexical parsing without executing TypeScript
       && row.specifier === 'typescript'
       && row.resolvedOrBuiltin === 'package:typescript'
     )), true, 'the default frozen native closure must retain the Inventory TypeScript external rows');
-  } finally {
-    removeOwnedNativeCaptureManifest(manifestPath);
+  } catch (error) { priorFailure = { error }; } finally {
+    leaf.cleanup(priorFailure);
   }
 });
 
 test('SDS-AC-3 rejects real directory leaves before native probing or writing and keeps special-role simulation private', async () => {
   const { captureFrozenProvenance } = await loadCollector();
-  const directoryLeaf = ownedNativeCaptureManifestPath();
+  const leaf = createOwnedAnalysisLeaf('trust-directory-role');
+  const directoryLeaf = leaf.manifestPath;
+  let priorFailure;
   const callerFs = noProtectedIo();
   try {
-    mkdirSync(directoryLeaf);
+    leaf.createDirectory();
     assert.throws(
       () => captureFrozenProvenance({
         workspaceRoot,
@@ -210,7 +201,7 @@ test('SDS-AC-3 rejects real directory leaves before native probing or writing an
       'a caller must not simulate a special role through a public manifest-writing seam',
     );
     assert.deepEqual(callerFs.calls, [], 'the rejected caller filesystem cannot be probed or asked to write');
-  } finally {
-    if (existsSync(directoryLeaf)) rmSync(directoryLeaf, { recursive: true, force: true });
+  } catch (error) { priorFailure = { error }; } finally {
+    leaf.cleanup(priorFailure);
   }
 });
