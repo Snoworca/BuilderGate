@@ -8,6 +8,7 @@ import * as path from 'node:path';
 import test from 'node:test';
 import { runSettledSubtest } from './settled-subtest.mjs';
 import { settleActorCleanup, cleanupExitedActors } from './fixture-actor-cleanup.mjs';
+import { createOwnedAnalysisLeaf } from './admission-fixture-ownership.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -471,15 +472,10 @@ function addProtectedFixtureSeedRow(rowsByPath, row, label) {
 }
 
 async function captureProtectedFixtureSeed() {
-  const prefix = `minimal-native-fixture-seed-${process.pid}-${randomBytes(6).toString('hex')}`;
-  const manifestPath = path.join(analysisRoot, `${prefix}.json`);
+  const leaf = createOwnedAnalysisLeaf('minimal-native-fixture-seed');
+  let priorFailure;
   try {
-    const { captureFrozenProvenance } = await import(collectorUrl);
-    const manifest = captureFrozenProvenance({
-      workspaceRoot,
-      manifestPath,
-      phase: 'minimal-native-fixture-protected-input-seed',
-    });
+    const manifest = leaf.capture('minimal-native-fixture-protected-input-seed');
     const protectedValue = manifest?.protectedInput?.value;
     assert.ok(protectedValue && typeof protectedValue === 'object', 'normal seed capture returns its protected manifest value');
     const protectedRows = [
@@ -504,8 +500,8 @@ async function captureProtectedFixtureSeed() {
         assert.equal(sha256Bytes(bytes), sha256, `protected root manifest input bytes match the manifest SHA-256: ${relativePath}`);
         return Object.freeze({ path: relativePath, bytes: Buffer.from(bytes), sha256 });
       }));
-  } finally {
-    removeOwnedLeaf(manifestPath, prefix);
+  } catch (error) { priorFailure = { error }; } finally {
+    leaf.cleanup(priorFailure);
   }
 }
 

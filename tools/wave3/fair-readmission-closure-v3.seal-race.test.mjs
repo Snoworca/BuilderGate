@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import test from 'node:test';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { fileURLToPath } from 'node:url';
+import { waitForWorkerCondition } from './admission-worker-lifecycle.mjs';
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const analysisRoot = path.join(
@@ -27,18 +28,7 @@ function removeOwnedLeaf(candidate, prefix) {
 }
 
 function waitForMessages(messages, predicate, label, timeoutMs = 30_000) {
-  return new Promise((resolve, reject) => {
-    const deadline = setTimeout(() => reject(new Error(`timed out waiting for ${label}`)), timeoutMs);
-    const poll = () => {
-      if (predicate()) {
-        clearTimeout(deadline);
-        resolve();
-        return;
-      }
-      setTimeout(poll, 5);
-    };
-    poll();
-  });
+  return waitForWorkerCondition(predicate, { timeoutMs, pollMs: 5, label });
 }
 
 async function runNativeSealWorker() {
