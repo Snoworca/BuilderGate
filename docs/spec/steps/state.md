@@ -36,3 +36,4 @@ Mode: sdd
 | 2026-07-27.pm.fair-readmission-closure-v3-fd-manifest | abandoned | - | tools/wave3/fair-readmission-closure-v3.mjs, internal manifest policy, and retained-fd provenance tests | PERF-BGSTAB-010 | 2026-07-27 | 2026-07-27 |
 | 2026-07-27.pm.fair-readmission-closure-v3-minimal-native-fixture | abandoned | - | tools/wave3 native manifest race fixture and guarded provenance regression tests | PERF-BGSTAB-010 | 2026-07-27 | 2026-07-27 |
 | 2026-07-27.pm.fair-readmission-closure-v3-worker-ssot-successor | merged | - | tools/wave3 fixture Worker evidence allocation and fixed admission timing | PERF-BGSTAB-010 | 2026-07-27 | 2026-07-27 |
+| 2026-09-09.admission-lifecycle-successor | active | - | BGSTAB | PERF-BGSTAB-010 | 2026-09-09 | 2026-09-09 |
