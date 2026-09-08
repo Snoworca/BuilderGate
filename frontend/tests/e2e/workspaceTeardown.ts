@@ -1,3 +1,5 @@
 import { removeWorkspacesCreatedDuringRun } from './workspaceLeakGuard.ts';
 
-export default removeWorkspacesCreatedDuringRun;
+export default async function teardown(): Promise<void> {
+  await removeWorkspacesCreatedDuringRun();
+}

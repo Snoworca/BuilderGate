@@ -23,6 +23,8 @@
     "tests/unit/workspaceCapacityUi.test.ts",
     "tests/unit/sessionCloseClassification.test.ts",
     "tests/unit/workspaceLeakGuard.test.ts",
+    "tests/unit/workspaceOwnershipRegistry.test.ts",
+    "tests/unit/workspaceOwnershipFixture.test.ts",
     "tests/unit/binaryFrameCodec.test.ts",
     "tests/unit/binaryFrameIntake.test.ts",
     "tests/unit/binaryFrameIntakeWiring.test.ts",
