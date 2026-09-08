@@ -14,7 +14,7 @@ function harness() {
   const filename = new URL('./admission-fixture-ownership.mjs', import.meta.url);
   const text = readFileSync(filename, 'utf8'); // Missing helper is RED before any virtual mutation.
   const map = new Map(), calls = []; let serial = 10n, nonce = 0;
-  const state = { captureError: null, uncertain: false, deleteError: null, nativeError: null, invalidIdentity: false };
+  const state = { captureError: null, uncertain: false, deleteError: null, nativeError: null, invalidIdentity: false, writeError: null, partialWrite: false, invalidAfterWrite: false };
   const put = (p, role = 'file') => { const value = { role, dev: 9007199254740993n, ino: ++serial, birthtimeNs: 10000000000000001n, link: false }; map.set(key(p), value); return value; };
   for (const p of ['C:\\', root, path.win32.join(root, 'docs'), path.win32.join(root, 'docs/analysis')]) put(p, 'directory');
   const fs = {
@@ -24,6 +24,14 @@ function harness() {
       return { ...row, ...(state.invalidIdentity ? { ino: Number(row.ino) } : {}), isFile: () => row.role === 'file', isDirectory: () => row.role === 'directory', isSymbolicLink: () => row.link, isReparsePoint: () => row.link };
     },
     mkdirSync(p) { calls.push(['mkdir', key(p)]); if (map.has(key(p))) throw Object.assign(Error('exists'), { code: 'EEXIST' }); put(p, 'directory'); },
+    writeFileSync(p, data, options) {
+      calls.push(['write', key(p), data, options]);
+      assert.equal(options.flag, 'wx'); assert.equal(options.encoding, 'utf8');
+      if (map.has(key(p))) throw Object.assign(Error('exists'), { code: 'EEXIST' });
+      if (!state.writeError || state.partialWrite) put(p).bytes = Buffer.from(data, options.encoding);
+      if (state.invalidAfterWrite) state.invalidIdentity = true;
+      if (state.writeError) throw state.writeError;
+    },
     unlinkSync(p) { calls.push(['unlink', key(p)]); if (state.deleteError) throw state.deleteError; map.delete(key(p)); },
     rmdirSync(p) { calls.push(['rmdir', key(p)]); if ([...map.keys()].some(x => x.startsWith(key(p) + '\\'))) throw Object.assign(Error('not empty'), { code: 'ENOTEMPTY' }); if (state.deleteError) throw state.deleteError; map.delete(key(p)); },
     rmSync() { assert.fail('recursive cleanup is forbidden'); },
@@ -57,7 +65,7 @@ function harness() {
   }, module, module.exports);
   return { create: module.exports.createOwnedAnalysisLeaf, map, calls, put, state };
 }
-const writes = h => h.calls.filter(x => ['mkdir', 'unlink', 'rmdir', 'capture'].includes(x[0]));
+const writes = h => h.calls.filter(x => ['mkdir', 'write', 'unlink', 'rmdir', 'capture'].includes(x[0]));
 
 test('AC5 leaf allocation is immutable module-relative and rejects invalid prefixes without IO', () => {
   const h = harness();
@@ -130,4 +138,38 @@ for (const target of [root, path.win32.join(root, 'docs'), path.win32.join(root,
 test('AC5 missing checkout root cannot be created as a side effect of nonce acquisition', () => {
   const h = harness(), leaf = h.create('missing-root'); h.map.delete(root);
   assert.throws(() => leaf.capture('phase')); assert.deepEqual(writes(h), []);
+});
+
+test('AC5 createFile preserves exact UTF8 sentinel through exclusive guarded creation and owned cleanup', () => {
+  const h = harness(), leaf = h.create('sentinel'), text = '한🙂\n{"sentinel":true}';
+  assert.equal(typeof leaf.createFile, 'function'); leaf.createFile(text);
+  const call = h.calls.find(x => x[0] === 'write'); assert.ok(call);
+  assert.equal(call[2], text); assert.equal(call[3].flag, 'wx'); assert.equal(call[3].encoding, 'utf8');
+  assert.ok(h.calls.findIndex(x => x[0] === 'native') < h.calls.indexOf(call));
+  assert.deepEqual(h.map.get(key(leaf.manifestPath)).bytes, Buffer.from(text, 'utf8'));
+  assert.equal(h.calls.some(x => x[0] === 'capture'), false, 'sentinel setup must not invoke a full capture');
+  const before = writes(h).length;
+  assert.throws(() => leaf.capture('again')); assert.throws(() => leaf.createDirectory()); assert.throws(() => leaf.createFile('again'));
+  assert.equal(writes(h).length, before); leaf.cleanup(); assert.equal(h.map.has(key(leaf.manifestPath)), false); assert.ok(h.map.has(parent));
+});
+
+test('AC5 createFile rejects nonstrings collision and pre-write native errors without acquiring existing bytes', () => {
+  const h = harness(), invalid = h.create('invalid'); assert.equal(typeof invalid.createFile, 'function');
+  for (const value of [null, 1, {}, Buffer.from('bytes')]) assert.throws(() => invalid.createFile(value));
+  assert.deepEqual(writes(h), []);
+  const collision = h.create('collision-file'); h.put(collision.manifestPath).bytes = Buffer.from('previous');
+  assert.throws(() => collision.createFile('new')); assert.throws(() => collision.cleanup());
+  assert.deepEqual(h.map.get(key(collision.manifestPath)).bytes, Buffer.from('previous'));
+  const blocked = h.create('blocked'); h.state.nativeError = Error('guard');
+  const count = writes(h).length; assert.throws(() => blocked.createFile('new')); assert.equal(writes(h).length, count);
+});
+
+for (const kind of ['partial-write', 'identity-uncertain']) test(`AC5 createFile ${kind} preserves an unconfirmed leaf`, () => {
+  const h = harness(), leaf = h.create('uncertain-file'); assert.equal(typeof leaf.createFile, 'function');
+  if (kind === 'partial-write') { h.state.writeError = Error('partial write'); h.state.partialWrite = true; }
+  else h.state.invalidAfterWrite = true;
+  assert.throws(() => leaf.createFile('observed bytes')); assert.ok(h.map.has(key(leaf.manifestPath)));
+  assert.throws(() => leaf.cleanup()); const before = writes(h).length;
+  assert.throws(() => leaf.createFile('retry')); assert.equal(writes(h).length, before);
+  assert.ok(h.map.has(key(leaf.manifestPath)));
 });

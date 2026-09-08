@@ -19,6 +19,7 @@ function load(name) {
     existsSync: p => present.has(key(p)),
     lstatSync(p) { const row = identities.get(key(p)); if (!row) throw Object.assign(Error('missing'), { code: 'ENOENT' }); return { ...row, isFile: () => row.role === 'file', isDirectory: () => row.role === 'directory', isSymbolicLink: () => false, isReparsePoint: () => false }; },
     mkdirSync(p) { mutations.push(['mkdir', key(p)]); if (present.has(key(p))) throw Object.assign(Error('exists'), { code: 'EEXIST' }); put(p, 'directory'); },
+    writeFileSync(p, data, options) { assert.equal(options.flag, 'wx'); assert.equal(options.encoding, 'utf8'); if (present.has(key(p))) throw Object.assign(Error('exists'), { code: 'EEXIST' }); mutations.push(['write', key(p), data]); put(p, 'file'); identities.get(key(p)).bytes = Buffer.from(data, options.encoding); },
     rmSync(p) { mutations.push(['rm', key(p)]); present.delete(key(p)); identities.delete(key(p)); },
     rmdirSync(p) { mutations.push(['rmdir', key(p)]); assert.ok(![...present].some(x => path.win32.dirname(x) === key(p))); present.delete(key(p)); identities.delete(key(p)); },
     unlinkSync(p) { mutations.push(['unlink', key(p)]); present.delete(key(p)); identities.delete(key(p)); },
@@ -107,11 +108,12 @@ for (const [name, match] of [['trust', 'rejects real directory leaves'], ['seal'
     if (scenarioError) throw scenarioError;
   });
 }
-test('AC5 actual remediation shared-parent wrapper retains the newly created empty parent', () => {
+test('AC5 actual remediation pre-existing regular sentinel callback preserves its assertions and shared parent', async () => {
   const h = load('remediation');
-  const statement = h.ast.statements.find(n => ts.isFunctionDeclaration(n) && n.name.text === 'withOwnedManifestDirectory'); assert.ok(statement);
-  const run = new Function('fs', 'analysisDirectory', statement.getText(h.ast) + ';return withOwnedManifestDirectory;')(h.fs, parent);
-  let called = 0; run(() => { called++; }); assert.equal(called, 1);
+  const selected = [...h.callbacks].filter(([title]) => title === 'test capture helper preserves a pre-existing manifest leaf when its absence precondition fails');
+  assert.equal(selected.length, 1, 'execute the current actual callback, not a removed helper or replacement stub');
+  await selected[0][1]();
+  assert.ok(h.mutations.some(([operation, , data]) => operation === 'write' && data === '{"owned":"pre-existing"}\n'));
   assert.ok(h.present.has(parent), 'shared canonical analysis parent must not be removed by leaf cleanup');
   assert.equal(h.mutations.some(([operation, target]) => target === parent && ['rmdir', 'rm'].includes(operation)), false);
 });
