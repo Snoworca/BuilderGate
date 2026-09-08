@@ -652,7 +652,7 @@ export type ClientWsMessage =
   | TerminalDeliveryVisibilityMessage
   // In-band binary negotiation, client half (`01 §2.2`, `01:761`).
   | {
-      type: 'terminal-binary:capability';
+      type: 'terminal-binary:negotiate';
       supportedFrameVersions: readonly number[];
       acceptedFlagMask: number;
     }

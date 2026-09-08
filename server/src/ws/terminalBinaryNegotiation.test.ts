@@ -49,7 +49,7 @@ const CHANNELS = [
 
 function offer(overrides: Partial<TerminalBinaryCapabilityOffer> = {}): TerminalBinaryCapabilityOffer {
   return {
-    type: 'terminal-binary:capability',
+    type: 'terminal-binary:negotiate',
     supportedFrameVersions: [FRAME_VERSION_V1],
     acceptedFlagMask: ACTIVE_FLAG_MASK_V1,
     ...overrides,
@@ -79,6 +79,30 @@ test('a matching offer is accepted with a single frame version', () => {
   assertAccepted(result);
   assert.equal(result.frameVersion, FRAME_VERSION_V1);
 });
+
+test('IR-BGSTAB-001 AC-11 valid negotiate request returns the unchanged capability response', () => {
+  const request = offer();
+  assert.equal(request.type, 'terminal-binary:negotiate');
+  const result = resolveTerminalBinaryNegotiation(input({ offer: request }));
+  assertAccepted(result);
+  assert.equal(result.type, 'terminal-binary:capability');
+  assert.equal(result.frameVersion, FRAME_VERSION_V1);
+  assert.equal(result.activeFlagMask, ACTIVE_FLAG_MASK_V1);
+  assert.deepEqual(result.channels, CHANNELS);
+});
+
+for (const type of ['terminal-binary:capability', 'terminal-binary:unknown-channel', 'terminal-binary:rejected', '', undefined, 1]) {
+  test(`IR-BGSTAB-001 AC-11 wrong or missing request type ${String(type)} is invalid-message`, () => {
+    const raw: Record<string, unknown> = { supportedFrameVersions: [FRAME_VERSION_V1], acceptedFlagMask: ACTIVE_FLAG_MASK_V1 };
+    if (type !== undefined) raw.type = type;
+    // Deliberately untrusted wire input tests the runtime discriminator guard.
+    const result = resolveTerminalBinaryNegotiation(input({ offer: raw as unknown as TerminalBinaryCapabilityOffer }));
+    assertRejected(result);
+    assert.equal(result.reason, 'invalid-message');
+    assert.equal(result.phase, 'offer');
+    assert.deepEqual(result.supportedFrameVersions, [FRAME_VERSION_V1]);
+  });
+}
 
 test('the accepted mask is the intersection, never wider than the client accepted', () => {
   // The server may only set bits the client said it can read (01 §1.2).

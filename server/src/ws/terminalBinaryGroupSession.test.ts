@@ -41,7 +41,7 @@ function group(overrides: {
 
 function offer() {
   return {
-    type: 'terminal-binary:capability' as const,
+    type: 'terminal-binary:negotiate' as const,
     supportedFrameVersions: [FRAME_VERSION_V1],
     acceptedFlagMask: ACTIVE_FLAG_MASK_V1,
   };

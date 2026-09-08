@@ -15,7 +15,7 @@ import { MANDATORY_FLAGS } from './binaryFrameCodec.js';
 
 /** C→S. Arrives from the wire, so every field here is untrusted. */
 export interface TerminalBinaryCapabilityOffer {
-  readonly type: 'terminal-binary:capability';
+  readonly type: 'terminal-binary:negotiate';
   readonly supportedFrameVersions: readonly number[];
   readonly acceptedFlagMask: number;
   readonly maxBatchBytes?: number;
@@ -79,6 +79,7 @@ export interface TerminalBinaryNegotiationInput {
 }
 
 function isOfferWellFormed(offer: TerminalBinaryCapabilityOffer): boolean {
+  if (offer.type !== 'terminal-binary:negotiate') return false;
   const { supportedFrameVersions, acceptedFlagMask, maxBatchBytes } = offer;
   if (!Array.isArray(supportedFrameVersions) || supportedFrameVersions.length === 0) return false;
   if (!supportedFrameVersions.every(v => Number.isSafeInteger(v) && v > 0)) return false;

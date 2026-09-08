@@ -10,14 +10,14 @@ import type { RefusedChannelRebind, TerminalChannelRegistry } from './terminalCh
  */
 
 export interface TerminalBinaryOffer {
-  readonly type: 'terminal-binary:capability';
+  readonly type: 'terminal-binary:negotiate';
   readonly supportedFrameVersions: readonly number[];
   readonly acceptedFlagMask: number;
 }
 
 export function buildTerminalBinaryOffer(): TerminalBinaryOffer {
   return Object.freeze({
-    type: 'terminal-binary:capability' as const,
+    type: 'terminal-binary:negotiate' as const,
     supportedFrameVersions: Object.freeze([FRAME_VERSION_V1]),
     // Includes the mandatory bits by construction: this decoder implements the
     // full v1 mask, and an offer missing them is refused by the server.

@@ -261,7 +261,7 @@ ${realtimeBlock}}
 
       ws.on('open', () => {
         ws.send(JSON.stringify({
-          type: 'terminal-binary:capability',
+          type: 'terminal-binary:negotiate',
           supportedFrameVersions: [1],
           acceptedFlagMask: 0xff,
         }));

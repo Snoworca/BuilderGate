@@ -9,6 +9,7 @@ import {
   buildTerminalBinaryOffer,
 } from '../../src/utils/terminalBinaryNegotiationClient.ts';
 import { createTerminalChannelRegistry } from '../../src/utils/terminalChannelRegistry.ts';
+import type { ClientWsMessage } from '../../src/types/ws-protocol.ts';
 
 /**
  * The browser half of `01 §2.2`, and the fix issue #31 asks for.
@@ -54,7 +55,40 @@ test('the offer advertises the frame version this decoder implements', () => {
   const offer = buildTerminalBinaryOffer();
 
   assert.deepEqual(offer.supportedFrameVersions, [FRAME_VERSION_V1]);
-  assert.equal(offer.type, 'terminal-binary:capability');
+  assert.equal(offer.type, 'terminal-binary:negotiate');
+});
+
+test('IR-BGSTAB-001 AC-11 builder emits the distinct public client request and is not a server response', () => {
+  const request: Extract<ClientWsMessage, { type: 'terminal-binary:negotiate' }> = buildTerminalBinaryOffer();
+  assert.deepEqual(request, {
+    type: 'terminal-binary:negotiate', supportedFrameVersions: [FRAME_VERSION_V1], acceptedFlagMask: ACTIVE_FLAG_MASK_V1,
+  });
+  assert.equal(isTerminalBinaryControlMessage(request), false);
+  assert.equal(isTerminalBinaryControlMessage(buildUnknownChannelRequest([7])), false);
+});
+
+// Compile-only directional contract; this value is never transmitted.
+const legacyCapabilityRequest: {
+  type: 'terminal-binary:capability'; supportedFrameVersions: number[]; acceptedFlagMask: number;
+} = { type: 'terminal-binary:capability', supportedFrameVersions: [FRAME_VERSION_V1], acceptedFlagMask: ACTIVE_FLAG_MASK_V1 };
+// @ts-expect-error AC-11 reserves capability for server responses, not the public client request union.
+const invalidClientRequest: ClientWsMessage = legacyCapabilityRequest;
+void invalidClientRequest;
+
+test('IR-BGSTAB-001 AC-11 client request types cannot consume or mutate the server-response channel table', () => {
+  const registry = createTerminalChannelRegistry();
+  const response = accepted([seed(1, 'session-a')]);
+  assert.equal(response.type, 'terminal-binary:capability');
+  assert.equal(isTerminalBinaryControlMessage(response), true);
+  assert.equal(applyTerminalBinaryControlMessage(response, registry).kind, 'negotiated');
+  for (const message of [
+    { type: 'terminal-binary:negotiate', supportedFrameVersions: [1], acceptedFlagMask: ACTIVE_FLAG_MASK_V1 },
+    { type: 'terminal-binary:unknown-channel', channelIds: [1] },
+  ]) {
+    assert.equal(isTerminalBinaryControlMessage(message), false);
+    assert.equal(applyTerminalBinaryControlMessage(message, registry).kind, 'ignored');
+    assert.equal(registry.lookup(1)?.sessionId, 'session-a');
+  }
 });
 
 // ---------------------------------------------------------------------------

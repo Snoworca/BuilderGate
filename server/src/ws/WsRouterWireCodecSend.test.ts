@@ -80,7 +80,7 @@ function negotiatedSetup() {
     screenRepairPendingSessions: new Map(),
   });
   internals.handleTerminalBinaryCapability(ws, {
-    type: 'terminal-binary:capability',
+    type: 'terminal-binary:negotiate',
     supportedFrameVersions: [1],
     acceptedFlagMask: 0x0001 | 0x0008,
   });

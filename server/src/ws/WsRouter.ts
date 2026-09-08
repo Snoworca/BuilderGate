@@ -1878,6 +1878,8 @@ export class WsRouter {
       case 'terminal-checkpoint:failure-ack':
         this.handleTerminalCheckpointClientMessage(ws, msg);
         break;
+      case 'terminal-binary:negotiate':
+      // Legacy request types receive invalid-message; they are not aliases.
       case 'terminal-binary:capability':
         this.handleTerminalBinaryCapability(ws, msg);
         break;

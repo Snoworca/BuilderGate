@@ -53,6 +53,7 @@ function fakeSessionManager(options: { authority?: boolean } = {}): SessionManag
 }
 
 interface RouterInternals {
+  handleMessage: (ws: WebSocket, raw: string) => void;
   clients: Map<WebSocket, WsClientMeta>;
   sessionSubscribers: Map<string, Set<WebSocket>>;
   handleSubscribe: (ws: WebSocket, sessionIds: string[]) => void;
@@ -65,7 +66,7 @@ interface RouterInternals {
 }
 
 const VALID_OFFER = {
-  type: 'terminal-binary:capability',
+  type: 'terminal-binary:negotiate',
   supportedFrameVersions: [1],
   // END_OF_BATCH | PROLOGUE_PRESENT — both are mandatory (`01 §2.2`).
   acceptedFlagMask: 0x0001 | 0x0008,
@@ -199,6 +200,55 @@ test('an unknown session reports an error row with no channel', () => {
 // 4. The negotiation handler.
 // ---------------------------------------------------------------------------
 
+// IR-BGSTAB-001 AC-11: exercise JSON parsing and the actual dispatcher, not
+// only the private negotiation handler used by the older channel fixtures.
+for (const format of ['binary', 'json'] as const) {
+  test(`IR-BGSTAB-001 AC-11 dispatcher answers negotiate on ${format}`, () => {
+    const { router, socket, internals, ws } = setup(format);
+    try {
+      assert.equal(typeof internals.handleMessage, 'function');
+      internals.handleMessage(ws, JSON.stringify({ ...VALID_OFFER, type: 'terminal-binary:negotiate' }));
+      const reply = negotiationReply(socket);
+      if (format === 'binary') {
+        assert.equal(reply.type, 'terminal-binary:capability');
+        assert.equal(reply.accepted, true);
+      } else {
+        assert.equal(reply.type, 'terminal-binary:rejected');
+        assert.equal(reply.reason, 'group-not-eligible');
+      }
+      assert.equal(socket.frames.length, 1, 'one request receives exactly one response');
+    } finally { router.destroy(); }
+  });
+}
+
+test('IR-BGSTAB-001 AC-11 dispatcher rejects legacy capability without enabling a never-negotiated connection', () => {
+  const { router, socket, internals, ws } = setup('binary');
+  try {
+    assert.equal(typeof internals.handleMessage, 'function');
+    internals.handleMessage(ws, JSON.stringify({ ...VALID_OFFER, type: 'terminal-binary:capability' }));
+    const reply = negotiationReply(socket);
+    assert.equal(reply.type, 'terminal-binary:rejected');
+    assert.equal(reply.reason, 'invalid-message');
+    assert.equal(reply.phase, 'offer');
+    assert.deepEqual(reply.supportedFrameVersions, [1]);
+    socket.frames.length = 0;
+    internals.handleMessage(ws, JSON.stringify({ type: 'subscribe', sessionIds: [SESSION_ID] }));
+    assert.deepEqual(Object.keys(subscribedRow(socket)).sort(), ['cwd', 'ready', 'sessionId', 'status']);
+    assert.equal(authorityLookups.length, 0, 'rejected legacy offer must not allocate binary channel authority');
+  } finally { router.destroy(); }
+});
+
+test('IR-BGSTAB-001 AC-11 dispatcher retains the pre-negotiation JSON subscribe shape', () => {
+  const { router, socket, internals, ws } = setup('binary');
+  try {
+    assert.equal(typeof internals.handleMessage, 'function');
+    internals.handleMessage(ws, JSON.stringify({ type: 'subscribe', sessionIds: [SESSION_ID] }));
+    assert.deepEqual(Object.keys(subscribedRow(socket)).sort(), ['cwd', 'ready', 'sessionId', 'status']);
+    assert.equal(internals.terminalBinaryGroups.size, 0);
+    assert.equal(authorityLookups.length, 0);
+  } finally { router.destroy(); }
+});
+
 test('the default configuration rejects an offer as group-not-eligible', () => {
   const { socket, internals, ws } = setup('json');
 
@@ -242,7 +292,7 @@ test('an offer missing a mandatory flag is rejected by name', () => {
 test('a malformed offer is rejected as invalid-message, not ignored', () => {
   const { socket, internals, ws } = setup('binary');
 
-  internals.handleTerminalBinaryCapability(ws, { type: 'terminal-binary:capability' });
+  internals.handleTerminalBinaryCapability(ws, { type: 'terminal-binary:negotiate' });
 
   assert.equal(negotiationReply(socket).reason, 'invalid-message');
 });
