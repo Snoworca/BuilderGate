@@ -1,6 +1,12 @@
 import path from 'node:path';
 import { reportCleanupFailures } from './fixture-actor-cleanup.mjs';
 
+export function describeWorkerFailure(error) {
+  const description = error instanceof Error ? `${error.name}: ${error.message}\n${error.stack ?? ''}` : String(error);
+  if (!(error instanceof AggregateError)) return description;
+  return [description, ...error.errors.map(describeWorkerFailure)].join('\n');
+}
+
 // PERF-BGSTAB-010: test-only observation; no Worker termination or path deletion.
 export function waitForWorkerCondition(predicate, { timeoutMs, pollMs = 5, label = 'Worker condition' }) {
   return new Promise((resolve, reject) => {
