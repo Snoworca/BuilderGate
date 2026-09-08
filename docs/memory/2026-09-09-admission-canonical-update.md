@@ -184,3 +184,7 @@ All three roles independently returned CONSENT, Critical0/High0, before circulat
 ```
 
 Independent preservation read-back: No findings. Exact HEAD/tree/common-dir, clean status and all18 hashes confirmed; no user7 import. No capture or test executed at this checkpoint.
+
+## Preservation count clarification
+
+The original raw packet above is preserved unchanged. Its18 preservation rows represent17 unique paths because canonical server/config.json5 was appended a second time. See the [three-role correction decision](2026-09-09-admission-capture-count-correction.md). No original protected path was omitted, and the earlier phrase18 files must not be used as a unique-file count.
