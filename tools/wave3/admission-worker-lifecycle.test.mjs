@@ -8,6 +8,27 @@ import test from 'node:test';
 const require = createRequire(import.meta.url);
 const ts = require('../../server/node_modules/typescript/lib/typescript.js');
 const load = () => import('./admission-worker-lifecycle.mjs');
+
+test('Worker failure description includes recursively nested AggregateError details', async () => {
+  const { describeWorkerFailure } = await load();
+  assert.equal(typeof describeWorkerFailure, 'function');
+  const result = describeWorkerFailure(new AggregateError([
+    Error('original-distinct-detail'), new AggregateError([Error('cleanup-distinct-detail')], 'nested-detail'),
+  ], 'outer-detail'));
+  assert.equal(typeof result, 'string');
+  for (const value of ['outer-detail', 'original-distinct-detail', 'nested-detail', 'cleanup-distinct-detail']) assert.ok(result.includes(value));
+});
+
+test('Worker failure description retains primitive thrown values including undefined', async () => {
+  const { describeWorkerFailure } = await load();
+  assert.equal(typeof describeWorkerFailure, 'function');
+  for (const value of [undefined, null, 'primitive-detail', 42, false]) {
+    const result = describeWorkerFailure(value);
+    assert.equal(typeof result, 'string'); assert.ok(result.includes(String(value)));
+  }
+  const combined = describeWorkerFailure(new AggregateError([undefined, 'nested-primitive'], 'combined'));
+  assert.match(combined, /undefined/); assert.match(combined, /nested-primitive/);
+});
 async function pending(promise) {
   let settled = false;
   promise.then(() => { settled = true; }, () => { settled = true; });
