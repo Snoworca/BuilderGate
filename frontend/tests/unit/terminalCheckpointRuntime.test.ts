@@ -855,6 +855,184 @@ const PASSIVE_CAPABILITY: TerminalCheckpointCapabilityMessage = {
   checkpointDeliveryActive: false,
 };
 
+type GapContext = Readonly<{ sessionId: string; connectionId: string | null; viewGeneration: number | null;
+  visibility: Readonly<{ generation: bigint; isVisible: boolean; deliveryInterestRefCount: number }> | null }>;
+type GapDecision = Readonly<{ accepted: true; duplicate: boolean }> | Readonly<{ accepted: false; reason: string }>;
+function gapAdmission(target: object) {
+  const method = (target as { admitHiddenDataGap?: (message: Record<string, unknown>, context: GapContext) => GapDecision }).admitHiddenDataGap;
+  assert.equal(typeof method, 'function', 'REL-BGSTAB-012 requires actual hidden gap admission API');
+  assert.ok(method);
+  return method.bind(target);
+}
+function hiddenGap(overrides: Record<string, unknown> = {}) {
+  return { type: 'terminal-delivery:data-gap', sessionId: 'session-1', connectionId: 'control-1',
+    viewGeneration: 7, visibilityGeneration: '2', lastDeliveredSeq: '10', streamEpoch: '3', checkpointEpoch: '4',
+    snapshotSeq: '10', oldestRetainedSeq: '1', retentionPolicyId: 'policy-1', continuityAuthority: 'server-issued',
+    deliveryInterestRefCount: 0, authoritativeModelCommitted: true, terminalFactsCommitted: true, ...overrides };
+}
+function gapContext(overrides: Partial<GapContext> = {}): GapContext {
+  return { sessionId: 'session-1', connectionId: 'control-1', viewGeneration: 7,
+    visibility: { generation: 2n, isVisible: false, deliveryInterestRefCount: 0 }, ...overrides };
+}
+function gapHarness(observer: (message: Readonly<Record<string, unknown>>, context: GapContext) => void = () => {}) {
+  const harness = createHarness(true, undefined, 'session-1', observer);
+  const registry = createTerminalCheckpointDispatcherRegistry();
+  registry.register('session-1', harness.runtime);
+  registry.setCapability(ACTIVE_CAPABILITY);
+  assert.equal(registry.route(startMessage({ connectionId: 'control-1', streamEpoch: '3', checkpointEpoch: '4',
+    sourceSeq: '10', snapshotSeq: '10', oldestRetainedSeq: '1', retentionPolicyId: 'policy-1' })).delivered, true);
+  return { ...harness, registry };
+}
+
+for (const generation of [2n, 3n]) {
+  test(`REL-BGSTAB-012 gap admission preserves loss at published visibility ${generation}`, () => {
+    const notifications: unknown[] = [];
+    const h = gapHarness(message => {
+      assert.equal(h.sent.some(row => row.type === 'terminal-checkpoint:recovery-request'), false);
+      notifications.push(message);
+    });
+    const result = gapAdmission(h.registry)(hiddenGap(), gapContext({ visibility: {
+      generation, isVisible: generation === 3n, deliveryInterestRefCount: generation === 3n ? 1 : 0,
+    } }));
+    assert.deepEqual(result, { accepted: true, duplicate: false });
+    assert.deepEqual(notifications, [hiddenGap()]);
+    assert.equal(h.runtime.getState().recoveryPending, true);
+    assert.equal(h.runtime.getState().ready, false);
+    assert.equal(h.sent.filter(row => row.type === 'terminal-checkpoint:recovery-request').length, 1);
+  });
+}
+
+for (const [label, message, context] of [
+  ['session', hiddenGap({ sessionId: 'other' }), gapContext()],
+  ['connection', hiddenGap({ connectionId: 'old' }), gapContext()],
+  ['view', hiddenGap({ viewGeneration: 6 }), gapContext()],
+  ['unknown connection', hiddenGap(), gapContext({ connectionId: null })],
+  ['unknown view', hiddenGap(), gapContext({ viewGeneration: null })],
+  ['noncanonical ordinal', hiddenGap({ visibilityGeneration: '02' }), gapContext()],
+  ['stale epoch', hiddenGap({ checkpointEpoch: '3' }), gapContext()],
+] as const) {
+  test(`REL-BGSTAB-012 gap admission rejects ${label} without mutating its owner`, () => {
+    const notifications: unknown[] = [];
+    const h = gapHarness(message => notifications.push(message));
+    const before = h.runtime.getState();
+    const counts = [h.commands.length, h.sent.length, h.recovery.length];
+    const result = gapAdmission(h.runtime)(message, context);
+    assert.equal(result.accepted, false);
+    if (!result.accepted) assert.ok(result.reason.length > 0);
+    assert.deepEqual(h.runtime.getState(), before);
+    assert.deepEqual([h.commands.length, h.sent.length, h.recovery.length], counts);
+    assert.deepEqual(notifications, []);
+  });
+}
+
+for (const visibility of [null, { generation: 1n, isVisible: false, deliveryInterestRefCount: 0 }]) {
+  test(`REL-BGSTAB-012 gap admission fails closed for ${visibility ? 'future' : 'absent'} visibility`, () => {
+    const notifications: unknown[] = [];
+    const h = gapHarness(message => notifications.push(message));
+    const result = gapAdmission(h.registry)(hiddenGap({ streamEpoch: '99' }), gapContext({ visibility }));
+    assert.equal(result.accepted, false);
+    if (!result.accepted) assert.ok(result.reason.length > 0);
+    assert.deepEqual(notifications, []);
+    assert.equal(h.runtime.getState().recoveryPending, true);
+    const request = h.sent.find(row => row.type === 'terminal-checkpoint:recovery-request');
+    assert.equal(request?.failedStreamEpoch, '3');
+    assert.equal(request?.failedCheckpointEpoch, '4');
+  });
+}
+
+test('REL-BGSTAB-012 gap admission deduplicates and advances only the existing failure floor', () => {
+  const notifications: unknown[] = [];
+  const h = gapHarness(message => notifications.push(message));
+  const admit = gapAdmission(h.registry);
+  assert.deepEqual(admit(hiddenGap(), gapContext()), { accepted: true, duplicate: false });
+  const counts = [h.commands.length, h.sent.length, h.recovery.length];
+  assert.deepEqual(admit(hiddenGap(), gapContext()), { accepted: true, duplicate: true });
+  assert.deepEqual([h.commands.length, h.sent.length, h.recovery.length], counts);
+  assert.equal(notifications.length, 1);
+  assert.deepEqual(admit(hiddenGap({ checkpointEpoch: '5' }), gapContext()), { accepted: true, duplicate: false });
+  assert.equal(notifications.length, 2);
+  assert.equal(h.sent.filter(row => row.type === 'terminal-checkpoint:recovery-request').at(-1)?.failedCheckpointEpoch, '5');
+  const after = [h.commands.length, h.sent.length, h.recovery.length];
+  assert.equal(admit(hiddenGap({ checkpointEpoch: '3' }), gapContext()).accepted, false);
+  assert.deepEqual([h.commands.length, h.sent.length, h.recovery.length], after);
+});
+
+test('REL-BGSTAB-012 gap notification failure preserves its error and fail-closed barrier', () => {
+  const failure = new Error('gap-owner-notification-failed');
+  const h = gapHarness(() => { throw failure; });
+  const admit = gapAdmission(h.registry);
+  assert.throws(() => admit(hiddenGap(), gapContext()), error => error === failure);
+  assert.equal(h.runtime.getState().recoveryPending, true);
+  assert.equal(h.runtime.getState().ready, false);
+  assert.equal(h.sent.filter(row => row.type === 'terminal-checkpoint:recovery-request').length, 1);
+});
+
+test('REL-BGSTAB-012 gap without an owner notification cannot report admission success', () => {
+  const h = createHarness();
+  h.runtime.setCapability(ACTIVE_CAPABILITY);
+  assert.equal(h.runtime.handleMessage(startMessage({ connectionId: 'control-1', streamEpoch: '3', checkpointEpoch: '4' })).accepted, true);
+  const result = gapAdmission(h.runtime)(hiddenGap(), gapContext());
+  assert.equal(result.accepted, false);
+  if (!result.accepted) assert.equal(result.reason, 'hidden-gap-owner-unavailable');
+  assert.equal(h.runtime.getState().recoveryPending, true);
+});
+
+test('REL-BGSTAB-012 gap uses a pending failure floor without inventing an active checkpoint', () => {
+  const seen: unknown[] = [];
+  const h = createHarness(true, undefined, 'session-1', (message, context) => seen.push({ message, context }));
+  h.runtime.setCapability(ACTIVE_CAPABILITY);
+  assert.deepEqual(h.runtime.coordinatorRecoveryFailed('initial-failure', {
+    viewGeneration: 7, streamEpoch: '3', checkpointEpoch: '4',
+  }), { accepted: true });
+  assert.equal(h.runtime.getState().viewGeneration, 7);
+  assert.equal(h.runtime.getState().registrationViewGeneration, 8);
+  const admit = gapAdmission(h.runtime);
+  const gap = hiddenGap({ checkpointEpoch: '5' });
+  const context = gapContext();
+  assert.deepEqual(admit(gap, context), { accepted: true, duplicate: false });
+  assert.deepEqual(seen, [{ message: gap, context }]);
+  assert.equal(h.runtime.getState().ready, false);
+  assert.equal(h.sent.filter(row => row.type === 'terminal-checkpoint:recovery-request').at(-1)?.failedCheckpointEpoch, '5');
+  assert.deepEqual(admit(gap, context), { accepted: true, duplicate: true });
+  assert.equal(seen.length, 1);
+});
+
+test('REL-BGSTAB-012 admitted gap identity is stable after caller-owned input mutation', () => {
+  const seen: unknown[] = [];
+  const h = gapHarness(message => seen.push(message));
+  const admit = gapAdmission(h.registry);
+  const message = hiddenGap();
+  const visibility = { generation: 2n, isVisible: false, deliveryInterestRefCount: 0 };
+  const context = { ...gapContext(), visibility };
+  assert.deepEqual(admit(message, context), { accepted: true, duplicate: false });
+  message.checkpointEpoch = '5';
+  visibility.generation = 3n;
+  visibility.isVisible = true;
+  context.connectionId = 'caller-mutated';
+  const counts = [h.commands.length, h.sent.length, h.recovery.length];
+  assert.deepEqual(admit(hiddenGap(), gapContext()), { accepted: true, duplicate: true });
+  assert.deepEqual([h.commands.length, h.sent.length, h.recovery.length], counts);
+  assert.equal(seen.length, 1);
+  assert.deepEqual(admit(message, gapContext({ visibility })), { accepted: true, duplicate: false });
+  assert.equal(seen.length, 2);
+  assert.equal(h.sent.filter(row => row.type === 'terminal-checkpoint:recovery-request').at(-1)?.failedCheckpointEpoch, '5');
+});
+
+test('REL-BGSTAB-012 gap registry rejects unavailable ownership and preserves another session', () => {
+  const h = gapHarness();
+  const peer = createHarness(true, undefined, 'session-2');
+  h.registry.register('session-2', peer.runtime);
+  const peerBefore = peer.runtime.getState();
+  const peerCounts = [peer.commands.length, peer.sent.length, peer.recovery.length];
+  const admit = gapAdmission(h.registry);
+  assert.equal(admit(hiddenGap({ sessionId: 'missing' }), gapContext({ sessionId: 'missing' })).accepted, false);
+  assert.deepEqual(admit(hiddenGap(), gapContext()), { accepted: true, duplicate: false });
+  assert.deepEqual(peer.runtime.getState(), peerBefore);
+  assert.deepEqual([peer.commands.length, peer.sent.length, peer.recovery.length], peerCounts);
+  const empty = createTerminalCheckpointDispatcherRegistry();
+  assert.equal(gapAdmission(empty)(hiddenGap(), gapContext()).accepted, false);
+});
+
 function identity(overrides: Readonly<Record<string, unknown>> = {}) {
   return {
     protocolVersion: 1 as const,
@@ -919,6 +1097,7 @@ function createHarness(
   sendOk = true,
   dispatchResult?: (command: Readonly<Record<string, unknown>>) => Readonly<{ accepted: boolean; reason?: string }>,
   sessionId = 'session-1',
+  gapObserver?: (message: Readonly<Record<string, unknown>>, context: GapContext) => void,
 ) {
   const commands: Array<Record<string, unknown>> = [];
   const sent: Array<Record<string, unknown>> = [];
@@ -1007,6 +1186,7 @@ function createHarness(
     },
     requestFreshRecovery: reason => recovery.push(reason),
     advanceViewGeneration: generation => generations.push(generation),
+    ...(gapObserver ? { onHiddenDataGapAdmitted: gapObserver } : {}),
   });
   return {
     commands,
