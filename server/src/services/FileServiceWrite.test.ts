@@ -12,8 +12,6 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { once } from 'node:events';
-import type { AddressInfo } from 'node:net';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'node:url';
@@ -28,6 +26,7 @@ import {
   respondIfRequestEntityTooLarge,
 } from '../middleware/requestBodyLimit.js';
 import type { FileManagerConfig } from '../types/file.types.js';
+import { withLocalHttpServer, type LocalHttpTestFixture } from '../testing/localHttpTestServer.js';
 
 const SESSION_ID = 'session-write-1';
 const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf]);
@@ -45,7 +44,6 @@ interface WriteHarness {
 
 const DEFAULT_FILE_MANAGER_CONFIG: FileManagerConfig = {
   maxFileSize: 1048576,
-  maxCodeFileSize: 524288,
   maxDirectoryEntries: 10000,
   blockedExtensions: [],
   blockedPaths: [],
@@ -76,40 +74,39 @@ async function createServiceOnTempCwd(
 }
 
 interface RunningApp {
-  port: number;
+  request: LocalHttpTestFixture['request'];
   close(): Promise<void>;
 }
 
 async function listenOnEphemeralPort(app: express.Express): Promise<RunningApp> {
-  const server = app.listen(0, '127.0.0.1');
-  // Waiting on 'listening' alone would never settle if listen fails, turning a
-  // bind failure into a timeout instead of an error.
-  await Promise.race([once(server, 'listening'), once(server, 'error').then(([err]) => { throw err; })]);
-  const { port } = server.address() as AddressInfo;
-
+  let readyResolve!: (fixture: LocalHttpTestFixture) => void;
+  let readyReject!: (error: unknown) => void;
+  const ready = new Promise<LocalHttpTestFixture>((resolve, reject) => {
+    readyResolve = resolve;
+    readyReject = reject;
+  });
+  let release!: () => void;
+  const released = new Promise<void>(resolve => { release = resolve; });
+  const completion = withLocalHttpServer(app, async fixture => {
+    readyResolve(fixture);
+    await released;
+  });
+  void completion.catch(readyReject);
+  const fixture = await ready;
   return {
-    port,
-    async close(): Promise<void> {
-      // fetch keeps connections alive; dropping them first keeps close() from
-      // waiting on a socket the test is done with.
-      server.closeAllConnections();
-      await new Promise<void>((resolve, reject) => {
-        server.close((err) => (err ? reject(err) : resolve()));
-      });
-    },
+    request: input => fixture.request(input),
+    async close() { release(); await completion; },
   };
 }
 
-async function postWriteBody(port: number, sessionId: string, body: string): Promise<WriteResponse> {
-  const response = await fetch(
-    `http://127.0.0.1:${port}/api/sessions/${encodeURIComponent(sessionId)}/files/write`,
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body,
-    }
-  );
-  return { status: response.status, text: await response.text() };
+async function postWriteBody(running: RunningApp, sessionId: string, body: string): Promise<WriteResponse> {
+  const response = await running.request({
+    method: 'POST',
+    path: `/api/sessions/${encodeURIComponent(sessionId)}/files/write`,
+    headers: { 'content-type': 'application/json' },
+    body,
+  });
+  return { status: response.statusCode, text: response.body };
 }
 
 async function createWriteHarness(
@@ -126,7 +123,7 @@ async function createWriteHarness(
   return {
     cwd,
     async write(sessionId: string, filePath: string, content: string): Promise<WriteResponse> {
-      return postWriteBody(running.port, sessionId, JSON.stringify({ path: filePath, content }));
+      return postWriteBody(running, sessionId, JSON.stringify({ path: filePath, content }));
     },
     async close(): Promise<void> {
       await running.close();
@@ -431,17 +428,17 @@ async function createDeployedAssemblyHarness(
     cwd,
     service,
     async writeBody(sessionId: string, body: string): Promise<WriteResponse> {
-      return postWriteBody(running.port, sessionId, body);
+      return postWriteBody(running, sessionId, body);
     },
     async write(sessionId: string, filePath: string, content: string): Promise<WriteResponse> {
-      return postWriteBody(running.port, sessionId, JSON.stringify({ path: filePath, content }));
+      return postWriteBody(running, sessionId, JSON.stringify({ path: filePath, content }));
     },
     async read(sessionId: string, filePath: string): Promise<WriteResponse> {
-      const response = await fetch(
-        `http://127.0.0.1:${running.port}/api/sessions/${encodeURIComponent(sessionId)}` +
-          `/files/read?path=${encodeURIComponent(filePath)}`
-      );
-      return { status: response.status, text: await response.text() };
+      const response = await running.request({
+        method: 'GET',
+        path: `/api/sessions/${encodeURIComponent(sessionId)}/files/read?path=${encodeURIComponent(filePath)}`,
+      });
+      return { status: response.statusCode, text: response.body };
     },
     async close(): Promise<void> {
       await running.close();
