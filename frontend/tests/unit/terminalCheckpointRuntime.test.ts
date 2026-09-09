@@ -2463,6 +2463,7 @@ test('malformed active session frame installs fail-closed recovery instead of le
       handled: true,
       delivered: false,
       reason: 'checkpoint-invalid-frame:invalid-checkpoint-modes',
+      recoveryAccepted: true,
     },
   );
   assert.equal(commands.at(-1)?.type, 'recovery-failed');
@@ -2480,7 +2481,7 @@ test('malformed session failure is isolated to its registered active view', () =
 
   assert.deepEqual(
     registry.failSession('session-2', 'checkpoint-invalid-frame:invalid-checkpoint-modes'),
-    { delivered: false, reason: 'checkpoint-delivery-inactive' },
+    { delivered: false, reason: 'checkpoint-delivery-inactive', recoveryAccepted: false },
   );
   assert.equal(legacy.runtime.getState().recoveryPending, false);
   assert.equal(legacy.commands.length, 0);
@@ -2492,6 +2493,81 @@ test('malformed session failure is isolated to its registered active view', () =
   );
   assert.equal(active.runtime.getState().recoveryPending, true);
   assert.equal(legacy.runtime.getState().recoveryPending, false);
+});
+
+test('REL-BGSTAB-012 failure result distinguishes stale rejection from handled dispatch and preserves its peer', () => {
+  const owner = createHarness();
+  const peer = createHarness(true, undefined, 'session-2');
+  const registry = createTerminalCheckpointDispatcherRegistry();
+  registry.register('session-1', owner.runtime);
+  registry.register('session-2', peer.runtime);
+  registry.setCapability({ ...ACTIVE_CAPABILITY, registeredViews: [
+    { sessionId: 'session-1', viewGeneration: 7 },
+    { sessionId: 'session-2', viewGeneration: 7 },
+  ] });
+  const ownerBefore = owner.runtime.getState();
+  const peerBefore = peer.runtime.getState();
+  const ownerCounts = [owner.commands.length, owner.sent.length, owner.recovery.length];
+  const peerCounts = [peer.commands.length, peer.sent.length, peer.recovery.length];
+  const stale = registry.failSession('session-1', 'hidden-gap', { viewGeneration: 6 });
+  assert.deepEqual(owner.runtime.getState(), ownerBefore);
+  assert.deepEqual([owner.commands.length, owner.sent.length, owner.recovery.length], ownerCounts);
+  assert.deepEqual(stale, { delivered: false, handled: true, reason: 'stale-view-generation', recoveryAccepted: false });
+
+  const current = registry.failSession('session-1', 'hidden-gap', { viewGeneration: 7 });
+  assert.equal(owner.runtime.getState().recoveryPending, true);
+  assert.deepEqual(owner.recovery, ['hidden-gap']);
+  assert.deepEqual(peer.runtime.getState(), peerBefore);
+  assert.deepEqual([peer.commands.length, peer.sent.length, peer.recovery.length], peerCounts);
+  assert.deepEqual(current, { delivered: false, handled: true, reason: 'hidden-gap', recoveryAccepted: true });
+});
+
+test('REL-BGSTAB-012 failure result rejects a missing dispatcher without inventing handling', () => {
+  const registry = createTerminalCheckpointDispatcherRegistry();
+  registry.setCapability(ACTIVE_CAPABILITY);
+  assert.deepEqual(registry.failSession('session-1', 'hidden-gap'), {
+    delivered: false, reason: 'checkpoint-dispatcher-unavailable', recoveryAccepted: false,
+  });
+});
+
+test('REL-BGSTAB-012 failure result rejects inactive capability without touching the runtime', () => {
+  const { runtime, commands, sent, recovery } = createHarness();
+  const registry = createTerminalCheckpointDispatcherRegistry();
+  registry.register('session-1', runtime);
+  const before = runtime.getState();
+  const counts = [commands.length, sent.length, recovery.length];
+  const result = registry.failSession('session-1', 'hidden-gap');
+  assert.deepEqual(runtime.getState(), before);
+  assert.deepEqual([commands.length, sent.length, recovery.length], counts);
+  assert.deepEqual(result, { delivered: false, reason: 'checkpoint-delivery-inactive', recoveryAccepted: false });
+});
+
+test('REL-BGSTAB-012 failure result rejects inactive runtime under an active registry capability', () => {
+  const { runtime, commands, sent, recovery } = createHarness();
+  const registry = createTerminalCheckpointDispatcherRegistry();
+  registry.register('session-1', runtime);
+  registry.setCapability(ACTIVE_CAPABILITY);
+  runtime.setCapability(null);
+  assert.equal(runtime.getState().active, false);
+  assert.equal(runtime.getState().recoveryPending, false);
+  const before = runtime.getState();
+  const counts = [commands.length, sent.length, recovery.length];
+  const result = registry.failSession('session-1', 'hidden-gap');
+  assert.deepEqual(runtime.getState(), before);
+  assert.deepEqual([commands.length, sent.length, recovery.length], counts);
+  assert.deepEqual(result, { delivered: false, reason: 'checkpoint-delivery-inactive', recoveryAccepted: false });
+});
+
+test('REL-BGSTAB-012 recovery result addition does not alter ordinary route result shapes', () => {
+  const { runtime } = createHarness();
+  const registry = createTerminalCheckpointDispatcherRegistry();
+  registry.register('session-1', runtime);
+  assert.deepEqual(registry.route(startMessage()), { delivered: false, reason: 'checkpoint-delivery-inactive' });
+  registry.setCapability(ACTIVE_CAPABILITY);
+  assert.deepEqual(registry.route(startMessage()), { delivered: true });
+  assert.deepEqual(registry.route(startMessage({ viewGeneration: 6 })), {
+    delivered: false, handled: true, reason: 'stale-view-generation',
+  });
 });
 
 test('malformed start preserves parseable offending generation and epoch in the recovery fence', () => {
