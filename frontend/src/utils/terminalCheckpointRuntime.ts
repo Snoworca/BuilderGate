@@ -174,7 +174,7 @@ export interface TerminalCheckpointDispatcherRegistry {
     sessionId: string,
     reason: string,
     boundary?: TerminalCheckpointFailureBoundary,
-  ) => TerminalCheckpointRouteResult;
+  ) => TerminalCheckpointFailureResult;
   failActive: (reason: string, boundary?: TerminalCheckpointFailureBoundary) => number;
   listViews: () => readonly TerminalCheckpointViewRegistration[];
 }
@@ -183,6 +183,10 @@ export type TerminalCheckpointRouteResult =
   | Readonly<{ delivered: true }>
   | Readonly<{ delivered: false; handled?: false; reason: string }>
   | Readonly<{ delivered: false; handled: true; reason: string }>;
+
+/** Recovery request acceptance does not establish gap validity or restore completion. */
+export type TerminalCheckpointFailureResult = TerminalCheckpointRouteResult
+  & Readonly<{ recoveryAccepted: boolean }>;
 
 export function mergeTerminalCheckpointMutationLeases(
   current: ReadonlyMap<string, RetainedTerminalMutationLease>,
@@ -1781,23 +1785,24 @@ export function createTerminalCheckpointDispatcherRegistry(): TerminalCheckpoint
       sessionId: string,
       reason: string,
       boundary?: TerminalCheckpointFailureBoundary,
-    ): TerminalCheckpointRouteResult {
+    ): TerminalCheckpointFailureResult {
       if (!isActiveCapability(capabilityFor(sessionId))) {
-        return Object.freeze({ delivered: false, reason: 'checkpoint-delivery-inactive' });
+        return Object.freeze({ delivered: false, reason: 'checkpoint-delivery-inactive', recoveryAccepted: false });
       }
       const dispatcher = dispatchers.get(sessionId);
       if (!dispatcher) {
-        return Object.freeze({ delivered: false, reason: 'checkpoint-dispatcher-unavailable' });
+        return Object.freeze({ delivered: false, reason: 'checkpoint-dispatcher-unavailable', recoveryAccepted: false });
       }
       const state = dispatcher.getState();
       if (!state.active && !state.recoveryPending) {
-        return Object.freeze({ delivered: false, reason: 'checkpoint-delivery-inactive' });
+        return Object.freeze({ delivered: false, reason: 'checkpoint-delivery-inactive', recoveryAccepted: false });
       }
       const decision = dispatcher.coordinatorRecoveryFailed(reason, boundary);
       return Object.freeze({
         delivered: false,
         handled: true,
         reason: decision.reason ?? reason,
+        recoveryAccepted: decision.accepted,
       });
     },
     failActive(reason: string, boundary?: TerminalCheckpointFailureBoundary): number {
