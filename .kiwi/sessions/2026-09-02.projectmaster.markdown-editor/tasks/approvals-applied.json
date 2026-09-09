@@ -1,0 +1,125 @@
+{
+  "round": "approvals-applied",
+  "at": "2026-09-02T18:54:12Z",
+  "approvals_source": ".kiwi/sessions/2026-09-02.projectmaster.markdown-editor/APPROVALS.md",
+  "spec_fixes_applied": [
+    {
+      "id": 1,
+      "where": "markdown-editor-placement.spec.ts undersized target",
+      "what": "three neighbour tabs became five, so six tabs give the third column getResearchBaselineGrid needs and a tile near 293px"
+    },
+    {
+      "id": 2,
+      "where": "markdown-editor-placement.spec.ts selection drag",
+      "what": "the front window is minimized rather than dragged aside - a docked window is bounded by the stage it fills and moves only about the cascade offset - and the press point is located with elementFromPoint instead of arithmetic"
+    },
+    {
+      "id": 3,
+      "where": "markdown-editor-placement.spec.ts modal keeps isTopmost",
+      "what": "Escape is still pressed, and the assertion is now that the modal stays visible, which is what FR-MDE-003 AC-6 means by behaving as it does with no editor window present"
+    },
+    {
+      "id": 4,
+      "where": "markdown-editor-placement.spec.ts modal renders above",
+      "what": "the modal is closed through its close button, CON-MDE-001 AC-6 naming no way of closing"
+    },
+    {
+      "id": 5,
+      "where": "App.tsx and EditorWindow.tsx",
+      "what": "the onRaise placeholder and the prop removed together; no occurrence of onRaise remains in src"
+    },
+    {
+      "id": 6,
+      "where": "markdown-editor-lifecycle.spec.ts editorWindowFor",
+      "what": "the title regex tolerates the leading asterisk FR-MDE-006 AC-1 requires"
+    },
+    {
+      "id": 7,
+      "where": "markdown-editor-save.spec.ts shortcut writes the focused window",
+      "what": "each window is typed into while it is the one on screen: front, minimize, back, restore through the tray"
+    },
+    {
+      "id": 8,
+      "where": "markdown-editor-save.spec.ts preventDefault",
+      "what": "the observer removes itself on the press it was waiting for rather than on the first key of any kind"
+    },
+    {
+      "id": 9,
+      "where": "markdown-editor-save.spec.ts deferred docked rect",
+      "what": "the bound tab's slot is waited on before the registry is read"
+    }
+  ],
+  "product_fixes": [
+    {
+      "id": "HIGH-1",
+      "files": [
+        "EditorWindowLayer.tsx",
+        "useEditorWindows.ts",
+        "App.tsx"
+      ],
+      "what": "the layer's render-time placement override is gone; it reports onOrphan(filePath, rect) and useEditorWindows applies enterFloating, so the record and App's terminalFillDisabled and boundsElement read one answer"
+    },
+    {
+      "id": "HIGH-2",
+      "files": [
+        "editorWindowVisibility.ts"
+      ],
+      "what": "term 4 gains an orphan escape (tabClosed?: boolean, false by default) so a window whose tab is gone is not hidden when the app moves the active tab elsewhere"
+    }
+  ],
+  "test_added": {
+    "id": "TC-REQ-CON-MDE-002-AC4-02",
+    "file": "frontend/tests/e2e/markdown-editor-save.spec.ts",
+    "what": "closes the bound tab from the tab bar, which is the path that moves activeTabId; asserts the window survives with its body, shows the badge, has save disabled, and has terminal-fill enabled again",
+    "discovered": [
+      "the tab bar's close control opens a session-close confirmation, the step the API path skips",
+      "a sibling tab named after the bound tab is matched by the same locator"
+    ]
+  },
+  "mutants": [
+    {
+      "mutation": "WindowDialog Escape handler calls onClose",
+      "target": "placement modal keeps isTopmost",
+      "went_red": true
+    },
+    {
+      "mutation": "modal inert never restored",
+      "target": "placement modal renders above",
+      "went_red": true
+    },
+    {
+      "mutation": "term 4 orphan escape removed",
+      "target": "save tab bar close",
+      "went_red": true
+    },
+    {
+      "mutation": "orphanWindow made a no-op",
+      "target": "save tab bar close",
+      "went_red": true
+    }
+  ],
+  "restore_verified_sha256": {
+    "WindowDialog.tsx": "d7b25bca41d167c4ac2d9c0b4919c7272bb777ed9c6f39c709f97c87a34899ef",
+    "editorWindowVisibility.ts": "f5cce94ef85dbd69d396aba9303aaeb57b54f1c6cb4af5aed0221196ba690754",
+    "useEditorWindows.ts": "d6248f03ac91ede97dc0ec0d320553a7200c448456d7f0dbc0bbc9de62b2138f"
+  },
+  "open": [
+    {
+      "what": "markdown-editor-placement.spec.ts neighbour overlap assertion",
+      "why": "the containment assertions in the same test allow the box to exceed its tile by 1px while the overlap assertion allows none, and the tiles are adjacent, so the two cannot both hold",
+      "proposal": "give the overlap judgement the same 1px slack the containment assertions already use",
+      "status": "awaiting approval"
+    }
+  ],
+  "regression": {
+    "tests": 972,
+    "passed": 970,
+    "failed": 2,
+    "new_failures": 0
+  },
+  "server": {
+    "url": "https://localhost:2242",
+    "trust_lines_confirmed": true,
+    "runs_on_this_instance": 10
+  }
+}

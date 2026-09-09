@@ -9,7 +9,8 @@
   // in the program is a narrowed copy and the measurement becomes meaningless.
   //
   // "files" is an allowlist that grows one file at a time. Scope today: the unit
-  // tests S4 touches (they import ws-protocol / WsTransportMessage / wsCodec).
+  // tests S4 touches (they import ws-protocol / WsTransportMessage / wsCodec),
+  // plus the dialog-stack tests, which were checked by no tsconfig at all.
   "extends": "./tsconfig.app.json",
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
@@ -35,6 +36,24 @@
     "tests/unit/binaryFrameCodec.test.ts",
     "tests/unit/binaryFrameIntake.test.ts",
     "tests/unit/binaryFrameIntakeWiring.test.ts",
+    "tests/unit/dialogStack.test.ts",
+    "tests/unit/windowDialogContract.test.ts",
+    "tests/unit/windowDialogZBand.test.ts",
+    "tests/unit/windowDialogControlledRect.test.ts",
+    "tests/unit/editorPortContract.test.ts",
+    "tests/unit/editorFileMenu.test.ts",
+    "tests/unit/editorTrayModel.test.ts",
+    "tests/unit/editorWindowCascade.test.ts",
+    "tests/unit/editorWindowPlacement.test.ts",
+    "tests/unit/editorWindowRecord.test.ts",
+    "tests/unit/editorWindowClose.test.ts",
+    "tests/unit/editorWindowRect.test.ts",
+    "tests/unit/editorWindowRestore.test.ts",
+    "tests/unit/editorWindowSave.test.ts",
+    "tests/unit/editorWindowSaveShortcut.test.ts",
+    "tests/unit/editorWindowVisibility.test.ts",
+    "tests/unit/windowStateStorage.test.ts",
+    "tests/unit/fileApiWrite.test.ts",
     "tests/unit/liveOutputTokens.test.ts",
     "tests/unit/terminalAuthorityProductionWiring.test.ts",
     "tests/unit/terminalBinaryNegotiationClient.test.ts",
@@ -60,5 +79,11 @@
     "tests/unit/wsCheckpointProtocol.test.ts",
     "tests/unit/wsFrameDispatch.test.ts",
     "tests/unit/xtermDecoderInterleaving.test.ts"
-  ]
+  ],
+  // src/editor 는 tsconfig.editor.json 이 검사한다. exclude 는 tsconfig.app.json 에서
+  // extends 로 물려받지만 references 는 상속되지 않으므로 여기에 다시 적는다 — 없으면
+  // 호스트가 배럴을 import 하는 순간 편집기 소스가 이 프로그램으로 끌려와 TS1294 가 난다.
+  // 맨 위의 "Deliberately NOT listed in tsconfig.json references" 는 이 파일이 solution 에
+  // 등재되지 않는다는 뜻이지, 이 파일이 references 를 가지면 안 된다는 뜻이 아니다.
+  "references": [{ "path": "./tsconfig.editor.json" }]
 }

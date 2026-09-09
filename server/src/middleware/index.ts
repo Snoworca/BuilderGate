@@ -17,6 +17,13 @@ export {
   createOptionalAuthMiddleware
 } from './authMiddleware.js';
 
+// Request Body Size Limits
+export {
+  createJsonBodyParser,
+  requestBodyLimitBytes,
+  respondIfRequestEntityTooLarge
+} from './requestBodyLimit.js';
+
 // Future middleware exports will be added here:
 // - rateLimiter (Phase 5)
 // - corsMiddleware (Phase 6)

@@ -1,0 +1,125 @@
+{
+  "task_id": "T-PH005-02",
+  "lane": "G",
+  "started_at": "2026-09-02T12:23:09.703Z",
+  "completed_at": "2026-09-02T12:23:09.703Z",
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "frontend/src/components/editor/editorWindowVisibility.ts"
+        ]
+      },
+      {
+        "iter": 2,
+        "files_changed": [
+          "frontend/src/components/editor/editorWindowVisibility.ts",
+          "frontend/tests/unit/editorWindowVisibility.test.ts"
+        ],
+        "note": "까칠 리뷰 MEDIUM 둘 반영 — 생존 뮤턴트를 죽이는 left:0 경계 케이스 추가, viewMode 가 렌더되는 유효 모드임을 계약에 명시"
+      }
+    ],
+    "formal_reviews": [
+      {
+        "iter": 1,
+        "findings": [],
+        "detail": {
+          "mock_regex": "0건",
+          "typecheck": "npx tsc -p tsconfig.app.json --noEmit exit 0",
+          "plan_code_mapping": "변경 파일 = sidecar.files[] 와 test_files[] 뿐",
+          "test_coverage": "TC-REQ-FR-MDE-002-AC3-02 / AC4-02 / AC5-02 전부 실행되어 pass"
+        }
+      }
+    ],
+    "prickly_reviews": [
+      {
+        "iter": 1,
+        "findings_summary": {
+          "CRITICAL": 0,
+          "HIGH": 0,
+          "MEDIUM": 3,
+          "LOW": 2
+        },
+        "actioned": [
+          "생존 뮤턴트 left>0 를 죽이는 경계 케이스 추가",
+          "viewMode = 렌더되는 유효 모드 계약 명시"
+        ],
+        "deferred": [
+          "term 5 판정식이 TerminalRuntimeLayer 와 개념 중복 — plan 의 action/dod 가 그 형태를 명시적으로 지시하므로 이 Task 에서 통합하지 않고 보고",
+          "그리드 모드에서 죽은 탭에 묶인 stage/floating 창 — SRS term 4 의 빈틈이며 명세 차원 결정 필요",
+          "host 대신 hosts 맵을 받아 오용을 타입으로 막는 API — LOW, 보고만"
+        ]
+      }
+    ],
+    "green_evidence": {
+      "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowVisibility.test.ts",
+      "exit_code": 0,
+      "timestamp": "2026-09-02T12:23:09.703Z"
+    },
+    "green_evidence_meta": {
+      "passed_test_case_ids": [
+        "TC-REQ-FR-MDE-002-AC3-02",
+        "TC-REQ-FR-MDE-002-AC4-02",
+        "TC-REQ-FR-MDE-002-AC5-02"
+      ],
+      "stdout_excerpt": "tests 6 / pass 6 / fail 0",
+      "mutants": [
+        {
+          "mutation": "term 5 가 isVisible 을 읽지 않는다",
+          "went_red": true
+        },
+        {
+          "mutation": "term 1 (minimized) 삭제",
+          "went_red": true
+        },
+        {
+          "mutation": "term 5 의 docked 한정 제거",
+          "went_red": true
+        },
+        {
+          "mutation": "term 4 의 grid 예외를 OR 에서 AND 로",
+          "went_red": true
+        },
+        {
+          "mutation": "minimizeEditorWindow 가 입력을 제자리에서 변형",
+          "went_red": true
+        },
+        {
+          "mutation": "term 5 가 height 검사를 잃는다",
+          "went_red": true
+        },
+        {
+          "mutation": "term 3 (워크스페이스) 삭제",
+          "went_red": true
+        },
+        {
+          "mutation": "term 5 에 좌표 항 left>0 추가 (보강 전에는 생존)",
+          "went_red": true
+        }
+      ],
+      "restore_verified": "sha256 원복 일치 + 원복 후 baseline exit 0"
+    },
+    "dod_check": [
+      {
+        "item": "AC-3 · AC-4 · AC-5 가 green 이다.",
+        "satisfied": true
+      },
+      {
+        "item": "판정식이 TerminalRuntimeLayer.tsx:51 과 같은 형태다.",
+        "satisfied": true,
+        "evidence": "두 파일에서 Boolean(host?.isVisible && host.rect.width > 0 && host.rect.height > 0) 문자 일치"
+      }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "scope": "impacted-only",
+      "command": "editorWindowVisibility + editorWindowPlacement + editorWindowRecord + windowDialogContract",
+      "tests": 16,
+      "passed": 16,
+      "failed": 0
+    },
+    "note": "전체 회귀는 App.tsx 를 건드리는 T-PH005-03 에서 수행한다"
+  }
+}

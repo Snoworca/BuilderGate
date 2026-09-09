@@ -4,22 +4,23 @@
 
 ## 목적
 
-브라우저 하나로 다수의 셸 세션을 관리하고, 세션 간 에이전트 명령을 중계한다. 파일 탐색/편집은 목표이나 현재 UI 로는 도달할 수 없다(아래 참조). 최종 목표는 원격에서 N개 코딩 에이전트를 동시 운용하여 병렬 개발을 수행하는 것.
+브라우저 하나로 다수의 셸 세션을 관리하고, 세션 간 에이전트 명령을 중계한다. 파일 편집은 마크다운 편집기로 도달 가능하며, 파일 탐색(Mdir)은 아직 UI 로 도달할 수 없다(아래 참조). 최종 목표는 원격에서 N개 코딩 에이전트를 동시 운용하여 병렬 개발을 수행하는 것.
 
 - 웹 터미널 (다중 세션/탭, PTY 기반) — 현재 렌더 트리에 연결된 주 기능
 - MCP 통합 — 가동 중 (`McpControlDialog`, `McpControlService`)
 - 세션 간 에이전트 오케스트레이션 — 가동 중 (`AgentLifecycleService`, agent profile, webhook)
 - Mdir 스타일 파일 매니저 — 코드는 있으나 `App.tsx` 에 연결되어 있지 않음 (Project Structure 하단 주석 참조)
-- 마크다운/코드 뷰어 — 커밋 `b37728a` 에서 제거됨. 잔존 배선 있음 (`hooks/useFileContent.ts`, `utils/viewableExtensions.ts`, `MdirPanel` 의 `onOpenViewer`) + 미사용 의존성 `react-markdown`/`mermaid`/`highlight.js`/`rehype-highlight`/`remark-gfm`
+- 마크다운 편집기 — 가동 중 (`components/editor/`, CodeMirror 6 기반 `src/editor/` 벤더링). 모달리스 창으로 뜨며 세션 경로 우클릭에서 `CLAUDE.md`·`CLAUDE.local.md`·`AGENTS.md` 를 연다. 요구사항은 `docs/spec/41.markdown-editor.srs.md`
+- 구 마크다운/코드 뷰어 — 커밋 `b37728a` 에서 제거됨. 잔존 배선 있음 (`hooks/useFileContent.ts`, `utils/viewableExtensions.ts`, `MdirPanel` 의 `onOpenViewer`) + 미사용 의존성 `react-markdown`/`mermaid`/`highlight.js`/`rehype-highlight`/`remark-gfm`
 - Task 관리자 — 예정
 
 ## Quick Start
 
 ```bash
-node dev.js --port 2222   # 서버(2222) + 프론트(2223) 동시 실행
+start.bat --port 2222
 ```
 
-**dev 서버는 항상 2222 포트를 사용한다** (`--port 2222`, 프론트는 `serverPort+1`=2223). 브라우저·실측·health 체크 모두 2222 기준으로 한다.
+**검증 접속 포트는 항상 2222이다.** 아래 Rules와 현재 AGENTS의 소유권 사전검토를 따른다.
 브라우저에서 `https://localhost:2222` 접속. 서버 상태 확인: `curl -k https://localhost:2222/health`
 - 비밀번호 1234 — E2E 기본값(`frontend/tests/e2e/helpers.ts` 의 `BUILDERGATE_PASSWORD || '1234'`). `config.json5` 의 저장값은 암호화되어 있어 그 파일로는 확인할 수 없다
 - 코드 수정하면 자동으로 갱신됨
@@ -44,8 +45,12 @@ server/src/
 
 frontend/src/
   components/Terminal/          # xterm.js 래퍼
+  components/dialog/            # WindowDialog + modal/modeless 두 밴드 스택
+  components/editor/            # 편집기 창 (배치·가시성·저장·닫기 판정)
+  editor/                       # CodeMirror 6 벤더링 (atomic-editor, MIT)
   contexts/WebSocketContext.tsx # WS 연결/재연결 상태
   hooks/useWorkspaceManager.ts  # 워크스페이스·탭 상태
+  hooks/useEditorWindows.ts     # 편집기 창 목록·복원·저장
 
 # 아래는 현재 App.tsx 렌더 트리에 연결되어 있지 않다
 # (사장 코드, 2026-08-14 import 그래프 전수 — main.tsx 기점 도달 127 / 전체 152)
@@ -60,14 +65,15 @@ frontend/src/
 
 ## Rules
 
-- **dev 서버 포트는 항상 2222** — `node dev.js --port 2222`로 실행하며, health/브라우저 접속은 `https://localhost:2222`. 4242·4545·2002 등 다른 포트로 접속 시도 금지
-- **`kill {pid}`** 또는  **`taskkill /F /IM node.exe` 절대 금지** — dev.js가 hot reload로 자동 재시작함
-- **스크린샷 저장 경로**: `.playwright-mcp/` (루트에 png 파일 두지 말 것)
-- **보안**: HTTPS + JWT + 2FA(선택) + 파일 경로 보안. localhost 전용
-- **연구·계획은 항상 서브에이전트로 수행한다.** 코드베이스 조사, 근본 원인 분석, 설계/구현 계획 수립 등 연구·계획 성격의 작업은 메인 세션에서 직접 하지 않고 서브에이전트에 위임한다. 이때 모델은 opus5 를 사용한다.
-- **코드 주석(comment)은 검증(리뷰) 범위에서 제외한다.** 서브에이전트 기반 검증·리뷰는 동작·정확성·회귀에 집중하고, 주석 문구의 정확성/과장 여부는 finding으로 보고하지 않는다. 주석만 문제라면 fair-scheduler provenance-pinned 파일이라도 그것만으로 수정·republish 사이클을 돌리지 않는다.
-
+- 현재 사용자 지시와 `AGENTS.md`의 프로젝트 목표·SRS·strict TDD·독립 리뷰·provenance·보존 규칙을 따른다. 진행 상태는 `docs/plan/2026-09-08.remaining-work-autonomous.plan.md`의 Resume를 읽는다. editor branch의 과거 실행 기록은 통합 상태의 검증 증거가 아니다.
+- 실제 검증은 `start.bat --port 2222`와 `https://localhost:2222`를 사용한다. 임의 포트 병렬 레인 예외는 없다. TCP2001/2002 서버는 종료하거나 테스트에 사용하지 않는다.
+- 종료는 `stop.bat`를 우선한다. 정상 종료가 불가능한 TCP2222의 BuilderGate listener만 OS의 실제 owning PID, 실행 파일과 명령줄이 이 checkout 소유인지 검증한 후 그 PID 하나를 종료할 수 있다. 전체 Node 종료, process tree 종료, wrapper 취소/신호, 다른 node.exe 종료는 금지다. 포트가 이미 비었으면 잔여 프로세스를 종료하지 않는다.
+- 환경 변수는 실행별로 확인하고 보호 guard/소유 경로 설정을 보존한다. 상속된 설정이 설치본을 가리키는지 확인하고, 필요한 변경은 검토된 child environment에만 적용한다. `BUILDERGATE_*` 일괄 삭제나 parent 환경 변경을 기본 절차로 사용하지 않는다. 실제 설정의 load/merge와 경로를 확인하며 비밀값을 출력하지 않는다.
+- 원본 dirty/untracked/config 파일을 다른 worktree에 복사해 baseline을 만들지 않는다. 깨끗한 전용 checkout에서 검토된 소유 fixture를 만들고 정확한 입력 hash와 HEAD를 기록한다.
+- 스크린샷은 `.playwright-mcp/`에 저장한다. UI는 요구된 editor 통합 외에 개인 판단으로 바꾸지 않는다. 연구·계획과 검증의 역할 분리 및 모델 선택은 현재 사용자/AGENTS 지시를 따른다.
 ## 테스트 규칙 (필수)
+
+아래 날짜별 수치와 실패 서술은 병합 전 관찰 기록이다. 현재 통합 결과로 재라벨링하지 않는다. 현재 admission은 exact20 자식과 no-kill observer 계약이며 canonical bbf59ed에서3회 통과했다; 통합 source에는 새 검증이 필요하다. split은15 ordinary PASS/13 TODO의 기록이며 완료가 아니다. 표의 명령은 실행 surface 안내이지 안전성 검토 면제가 아니다.
 
 **모든 버그 픽스는 반드시 테스트를 작성해야 한다. 테스트 없이 버그 픽스를 완료로 간주하지 않는다.**
 
@@ -83,7 +89,8 @@ frontend/src/
 | wave3 closure | `tools/wave3/fair-readmission-closure-v3*.test.mjs` (21개, node:test — 그중 게이트는 `admission-gate` 1개) | `node --test tools/wave3/<파일>` — npm 스크립트 없음. **그 게이트는 형제 20개를 재실행하니 아래 주의 참조** |
 | wave3 증거 스크립트 | `tools/wave3/{authority-promotion-evidence, canary-admission-evidence, fair-scheduler-decision, retained-shadow-parity, terminal-resource-consumer-manifest}.test.mjs` (5개, **node:test 아님**) | `node tools/wave3/<파일>` (일부는 `--regenerate-green` 등 플래그를 받음) |
 | wave1 | `tools/wave1/g1-decision-gate.test.mjs` (1개) | `node --test tools/wave1/g1-decision-gate.test.mjs` — 스크립트 없음 |
-| server tools | `server/tools/*.test.{cjs,mjs}` (2개, node:test) | `node --test server/tools/<파일>` — 스크립트 없음 |
+| server tools | `server/tools/*.test.{cjs,mjs}` (3개, node:test) | `node --test server/tools/<파일>` — 스크립트 없음 |
+| 릴리즈 파이프라인 가드 | `tools/build-portable-runtime-evidence.test.mjs`, `server/tools/canonical-authority-line-endings.test.mjs`, `server/src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts` (13 케이스) | 루트 `npm run test:release-pipeline` — 셋을 한 번에 돈다. **릴리즈 빌드를 세 번 깨뜨린 것들을 지키는 가드이므로 릴리즈 전에 반드시 돌릴 것** |
 
 주의할 것:
 
@@ -92,8 +99,8 @@ frontend/src/
 - **서버를 실제로 띄우는 테스트가 하나 있다.** `server/src/ws/terminalWireFormatBoot.test.ts` 는 임시 설정으로 `src/index.ts` 를 자식 프로세스로 부팅해 바이너리 협상 응답을 관측한다. 설정 파일에서 `config` 객체를 거쳐 라우터까지 이어지는 구간은 이 방식으로만 실행되며(`config` 가 모듈 최상위 `export const config = loadConfig()` 이고 `index.ts` 가 부트스트랩을 export 하지 않는다), 그 구간의 회귀는 `realtimeSchema` 가 `defaultObject` 라서 **에러 없이 조용히 `json` 으로 수렴한다**. 3케이스에 약 20초가 들고 케이스마다 인접한 두 포트(`PORT` 와 `PORT-1`)를 20000~40000 에서 잡는다. 저장소에는 아무것도 쓰지 않는데, **그것을 지키는 장치가 둘로 나뉘어 있다.** `server/data/` 아래 상태 파일들은 `process.cwd()` 기준 상대 경로이므로 `spawn` 의 `cwd` 가 지키고(`CommandPresetService.ts:18` 외 7곳), `server/certs/` 는 `BUILDERGATE_SERVER_ROOT` 가 가리키는 곳을 본다. 인증서가 이미 있고 유효하면 `SSLService.ts:123-137` 이 재사용만 하므로 변수를 빠뜨려도 당장은 쓰기가 없다(2026-09-03 실측). 인증서가 없으면 그 자리에 새로 쓰며(임시 루트에서 실측), 만료 시 동작은 `SSLService.ts:141-191` 의 코드 근거일 뿐 실측하지 않았다. **둘 중 하나만 챙기면 안 된다.**
 - **스위트가 서로를 spawn 한다. 격리돼 있지 않다.** (아래는 확인된 것이며 닫힌 목록이 아니다)
   - `tools/wave3` 증거 스크립트들이 `server/src` 테스트, `frontend/tests/unit` 테스트, 다른 wave3 파일을 직접 실행한다.
-  - **재귀 게이트**: `fair-readmission-closure-v3.admission-gate.test.mjs` 가 형제 closure 스위트 **20개 전부**를 `node --test` 로 재실행한다. 이것과 형제 20개를 함께 파일별로 돌리면 **중첩 2단계로 중복 실행**된다. **그 게이트는 현재 red 다** — 내부 118초 예산을 넘겨 `ETIMEDOUT` 으로 끝난다(2026-09-03 실측, 2회). 형제 아홉만 셸에서 직접 돌려도 181.7초가 걸리고 그중 `fair-readmission-closure-v3.wave.test.mjs:107` 의 `captureFrozenProvenance` 한 호출이 88.7초를 쓴다. 종료 양상은 부하에 따라 흔들려서, 예산을 넘기기 전에 형제 단언 실패로 끝나기도 한다.
-  - ⚠️ **게이트가 형제를 재실행할 때는 `NODE_TEST_*` 를 걸러야 한다.** `node --test` 로 도는 프로세스는 `NODE_TEST_CONTEXT` 를 자식에게 물려주고, node 의 재귀 가드가 `skipping running files` 경고만 남긴 채 **0개 실행 후 exit 0** 을 낸다. 그러면 `assert.equal(status, 0)` 이 공허하게 통과하고 **stdout 이 빈 채로 남는다** — 그것이 유일한 관측 가능한 흔적이다. `admission-gate` 는 `:62` 의 `env` 필터로 이것을 막으며, 그 한 줄이 없으면 게이트가 아무것도 검증하지 않는다. 같은 결함으로 공허하던 `boundary-gate.test.mjs` 는 2026-09-03 에 제거되었고 그 계약은 `admission-gate` 가 흡수했다.
+  - **재귀 게이트**: `fair-readmission-closure-v3.admission-gate.test.mjs` 가 형제 closure 스위트 **20개 전부**를 `node --test` 로 재실행한다. 이것과 형제 20개를 함께 파일별로 돌리면 **중첩 2단계로 중복 실행**된다. **병합 전 2026-09-03 관찰에서 그 게이트는 red였다** — 내부 118초 예산을 넘겨 `ETIMEDOUT` 으로 끝난다(2026-09-03 실측, 2회). 형제 아홉만 셸에서 직접 돌려도 181.7초가 걸리고 그중 `fair-readmission-closure-v3.wave.test.mjs:107` 의 `captureFrozenProvenance` 한 호출이 88.7초를 쓴다. 종료 양상은 부하에 따라 흔들려서, 예산을 넘기기 전에 형제 단언 실패로 끝나기도 한다.
+  - ⚠️ **게이트가 형제를 재실행할 때는 `NODE_TEST_*` 를 걸러야 한다.** `node --test` 로 도는 프로세스는 `NODE_TEST_CONTEXT` 를 자식에게 물려주고, node 의 재귀 가드가 `skipping running files` 경고만 남긴 채 **0개 실행 후 exit 0** 을 낸다. 그러면 `assert.equal(status, 0)` 이 공허하게 통과하고 **stdout 이 빈 채로 남는다** — 그것이 유일한 관측 가능한 흔적이다. `admission-gate` 는 `:62` 의 `env` 필터로 이것을 막으며, 그 한 줄이 없으면 게이트가 아무것도 검증하지 않는다. 같은 결함으로 공허하던 `boundary-gate.test.mjs` 는 2026-09-03 에 제거되었고 현재의 exact20 계약은 별도 agreed successor에서 명시적으로 채택했다. 삭제 wrapper의 별도120초/경계제외 정책이 무손실로 자동 흡수됐다고 해석하지 않는다.
   - `authority-promotion-evidence.test.mjs` 는 **Playwright E2E 까지 실행**한다 (`frontend/tests/e2e/wave3-terminal-authority-promotion.spec.ts`, `PLAYWRIGHT_BASE_URL=https://localhost:2222`, headless). 2222 에 서버가 없으면 `start.bat` 이 프로덕션 서버까지 띄운다 (아래 E2E 절의 `reuseExistingServer` 주의와 연결됨).
   - `fair-scheduler-decision.test.mjs` 는 테스트가 아니라 벤치마크 소스(`server/src/benchmarks/terminalFairnessCharacterization.ts`)를 실행한다.
   - **역방향도 있다**: `server/src/services/TerminalResourcePolicy.test.ts` 가 `tools/wave3/terminal-resource-policy-differential.ts` 를 `execFileSync` 로 실행한다.
@@ -116,19 +123,12 @@ frontend/src/
   4. `makeAuthHarness` 등 기존 하네스 확장 시 모든 기존 테스트와의 호환성 유지
 
 ### E2E 테스트
-- **기존 자산**: `frontend/tests/e2e/` 에 `*.spec.ts` 30개, `frontend/tests/unit/` 56개, `frontend/tests/benchmarks/` `*.test.ts` 2개. 설정은 `frontend/playwright.config.ts`. **새로 짜기 전에 기존 spec 을 먼저 확인한다.**
-- **실행**: frontend 에서 `npx playwright test [spec]` — 수집 대상은 **30개 파일 / 465 테스트**다 (project 3종 `Desktop Chrome`·`Mobile Safari`·`Tablet` 을 전부 돌기 때문). 저장소의 `test:e2e:*` 스크립트는 전부 `--project "Desktop Chrome"` 로 고정돼 있다. MCP playwright 도구는 대화형 확인용 보조 수단.
-- **Playwright 가 안 돌리는 것** (전부 node:test 이므로 **cwd=`frontend/`** 에서 `node --experimental-strip-types --test <파일>` 로 직접 실행):
-  - `tests/unit/` 56개 — `testDir` 이 `./tests/e2e` 라 수집 대상이 아니다.
-  - `tests/benchmarks/` 2개 — 같은 이유. 이것을 도는 npm 스크립트도 없다.
-  - `tests/e2e/wave1-characterization-artifacts.test.ts` — `tests/e2e/` 안에 있지만 `node:test` 파일이라 Playwright 가 **0건 수집**한다. 이것을 도는 npm 스크립트가 없으므로 위 커맨드로 직접 돌려야 한다.
-- **주의**: `playwright.config.ts` 의 `reuseExistingServer: true` 때문에 2222 에 이미 떠 있는 서버가 있으면 그것을 그대로 쓴다. `webServer` 는 `start.bat` 으로 **프로덕션 빌드**를 띄우므로, `dev.js` 가 떠 있는 상태로 돌리면 dev 번들을 검사하게 된다.
-- **규칙**:
-  1. UI/브라우저 동작에 영향을 주는 버그 픽스는 E2E 테스트 필수
-  2. 서버 실행 상태에서 `https://localhost:2222` 대상으로 테스트
-  3. 스크린샷은 `.playwright-mcp/` 디렉토리에 저장
-  4. 테스트 시나리오는 실제 사용자 플로우를 따름 (로그인 → 기능 확인 → 로그아웃)
 
+- editor branch의 2026-09-03 관찰은 E2E37파일/651 project-expanded cases(Desktop217), unit92파일과 타입 미등재 사례를 기록했다. 이는 역사적 수치이며 현재 통합 수집 수/통과 증거가 아니다. 새 테스트는 실제 tsconfig 입력에 포함되는지 확인한다. frontend root tsc만으로 앱/테스트 타입 검증을 주장하지 않는다.
+- 기존 editor spec과 `workspace-ownership-validation.spec.ts`, `workspaceOwnershipFixture.ts`를 먼저 읽는다. 성공한 생성 응답의 ID만 소유하며 사용자/다른 테스트 workspace를 prefix나 quota 회복 목적으로 삭제하지 않는다. 시드는 각 spec의 소유권/초기상태 계약에 맞춰 만든다.
+- 실제 브라우저는 검증된 외부 `https://localhost:2222`만 사용한다. 자동 webServer가 다른 인스턴스를 재사용하거나 시작하지 않게 검토하고, 앞뒤 health와 정확한 프로세스 정체성을 확인한다. 임의 포트로 우회하지 않는다.
+- editor branch는 장시간 실행에서 서버 소실과 초기 seed 의존성을 관찰했다. 현재 실패 원인이나 고정 수명으로 단정하지 않는다. 실패 케이스가 달라진다는 이유로 제품 결함을 배제하거나 서버를 재시작하지 않는다. 실제 원시 로그·소유 상태로 원인을 조사한다.
+- UI 동작 수정의 E2E 증거와 단위 검증을 구분한다. 스크린샷은 `.playwright-mcp/`, 시나리오는 실제 로그인→기능→종료 흐름을 따른다. 실제 실행은 AGENTS의 포트/프로세스/원본 보존 사전검토 이후다.
 ## 작업 로그 및 보고서
 
 모든 작업은 완료 시 아래 두 가지를 기록한다.

@@ -1,0 +1,29 @@
+{
+  "task_id": "T-PH004-07",
+  "lane": "F",
+  "started_at": "2026-09-02T12:20:00.000Z",
+  "completed_at": "2026-09-02T12:20:00.000Z",
+  "phase1": {
+    "tdd_draft_iters": [
+      {
+        "iter": 1,
+        "file_paths": [
+          "frontend/tests/unit/editorWindowRecord.test.ts"
+        ]
+      }
+    ],
+    "red_evidence": {
+      "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowRecord.test.ts",
+      "exit_code": 1,
+      "captured_failure": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module .../src/components/editor/editorWindowRecord.ts",
+      "timestamp": "2026-09-02T12:20:00.000Z"
+    },
+    "red_evidence_meta": {
+      "test_case_ids": [
+        "TC-REQ-CON-MDE-002-AC2-01",
+        "TC-REQ-CON-MDE-002-AC6-01"
+      ],
+      "matched_signature": "editorWindowRecord 모듈이 없어 import 가 실패한다"
+    }
+  }
+}

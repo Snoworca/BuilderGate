@@ -1,0 +1,120 @@
+{
+  "task_id": "T-PH003-03",
+  "started_at": "2026-09-02T09:10:00.000Z",
+  "completed_at": "2026-09-02T09:35:00.000Z",
+  "tdd_phase": "red",
+  "phase1": {
+    "tdd_draft_iters": [
+      {
+        "iter": 1,
+        "file_paths": ["frontend/tests/unit/windowDialogZBand.test.ts"],
+        "note": "신규 파일. 사이드카가 지정한 test_symbol 네 개를 그대로 썼다. 기대값은 전부 리터럴 테이블이며 구현과 같은 공식으로 재계산하지 않는다"
+      },
+      {
+        "iter": 2,
+        "file_paths": ["frontend/tests/unit/windowDialogZBand.test.ts"],
+        "note": "검증자 S2 의 LOW-1 을 반영했다. 층 상한과 표면 상한이 다르다는 단언의 두 피연산자가 테스트 파일이 정의한 리터럴 둘이라 항상 참이었다. 두 값을 모두 함수 반환값에서 취하도록 바꿨다"
+      }
+    ],
+    "sonnet_reviews": [
+      {
+        "iter": 1,
+        "S1_intent_alignment": "CRITICAL 0 / HIGH 0 / MEDIUM 1 / LOW 1",
+        "S2_tech_quality": "CRITICAL 0 / HIGH 0 / MEDIUM 0 / LOW 2 (Mock 0건, 4회 반복 실행 동일, 단독 실행과 전체 스위트에서 동일, eslint exit 0)"
+      }
+    ],
+    "req_mapping_check": {
+      "verdict": "PASS",
+      "detail": "test_case.req_id 는 네 건 모두 CON-MDE-001 이고 task.req_ids 와 일치한다. ac_refs 는 AC-1 · AC-2 · AC-3 · AC-4 이며 CON-MDE-001 의 AC 집합(AC-1~AC-6)의 부분집합이다. test_case.id 는 TC-REQ-CON-MDE-001-AC{n}-01 형식을 따른다"
+    },
+    "red_evidence": {
+      "command": "cd frontend && node --experimental-strip-types --test tests/unit/windowDialogZBand.test.ts",
+      "exit_code": 1,
+      "captured_failure": "✖ CON-MDE-001 modeless layer is 3000 + n * 20 capped at 3980 and the surface is one greater — AssertionError: modeless layer value at stack index 0, actual 5000, expected 3000. ✖ CON-MDE-001 editor window z-index is below every modal surface — AssertionError: saturated editor window (9001) must render below WindowDialog modal layer (5000)",
+      "timestamp": "2026-09-02T09:35:00.000Z"
+    },
+    "red_evidence_meta": {
+      "test_case_ids": [
+        "TC-REQ-CON-MDE-001-AC1-01",
+        "TC-REQ-CON-MDE-001-AC2-01",
+        "TC-REQ-CON-MDE-001-AC3-01",
+        "TC-REQ-CON-MDE-001-AC4-01"
+      ],
+      "tests": 4,
+      "pass": 2,
+      "fail": 2,
+      "red_case_ids": ["TC-REQ-CON-MDE-001-AC1-01", "TC-REQ-CON-MDE-001-AC3-01"],
+      "green_on_arrival_case_ids": ["TC-REQ-CON-MDE-001-AC2-01", "TC-REQ-CON-MDE-001-AC4-01"],
+      "failure_cause": "createWindowDialogBehaviorModel 이 mode 를 받지 않고 layerZ = 5000 + layerIndex * 20 하나만 계산한다. 따라서 모달리스 요청도 5000 대역을 받고(AC-1), layerIndex 200 에서는 9000/9001 까지 올라가 모달 대역 아래에 있어야 한다는 순서가 깨진다(AC-3)",
+      "matched_expected_failure_signature": "AC-1 · AC-3 은 일치한다. AC-2 · AC-4 는 불일치이며 아래 sidecar_prediction_mismatch 에 적었다"
+    },
+    "sidecar_prediction_mismatch": [
+      {
+        "test_case_id": "TC-REQ-CON-MDE-001-AC2-01",
+        "sidecar_expected_failure_signature": "mode 필드를 아직 받지 않는다",
+        "observed": "green on arrival",
+        "why": "AC-2 는 'mode 를 생략하면 모달로 동작한다' 는 하위호환 성질이다. 오늘의 모델은 mode 를 아예 읽지 않으므로 이 성질이 정의상 참이다. 이 케이스는 red 가 될 수 없으며, 본래 역할이 회귀 핀이다 — T-PH003-04 가 기본값을 실수로 modeless 로 두면 그때 빨개진다",
+        "type_check_channel_absent": "타입 오류로 red 가 될 여지도 없다. tsconfig.test.json 은 files 허용목록 방식인데 그 목록에 windowDialogZBand.test.ts 도 windowDialogContract.test.ts 도 dialogStack.test.ts 도 없다. 즉 이 테스트 파일들을 타입 검사하는 tsconfig 가 프로젝트에 존재하지 않으며, mode 초과 속성은 어디에서도 오류로 잡히지 않는다"
+      },
+      {
+        "test_case_id": "TC-REQ-CON-MDE-001-AC4-01",
+        "sidecar_expected_failure_signature": "대역 분기가 없어 값이 정의되지 않는다",
+        "observed": "green on arrival",
+        "why": "값은 정의되어 있다 — 다만 틀린 대역(5000)일 뿐이다. AC-4 가 요구하는 하한은 최대 1000 이므로 틀린 값 5000 도 옳은 값 3001 도 똑같이 만족한다. 이 케이스는 이 결함에 대해 구조적으로 무력하며, T-PH003-04 에서 뮤턴트 대조로 판별력을 따로 확인해야 한다"
+      }
+    ]
+  },
+  "phase2": null,
+  "phase3": {
+    "regression": {
+      "scope": "impacted-only",
+      "detail": "프로덕션 코드를 바꾸지 않았다. 신규 테스트 파일 하나만 추가했다. 인접 스위트 windowDialogContract.test.ts 는 3 pass / 0 fail 로 그대로다",
+      "passed": 3,
+      "failed": 0
+    },
+    "mcp_calls": [],
+    "mcp_mutation_skip_reason": "계획 §1.3 이 이 plan 의 모든 Task 에 대해 requirement status 승급과 docs/spec 편집을 범위 밖으로 두었다. red 전용 Task 라 green evidence 도 없다"
+  },
+  "dod_check": [
+    {
+      "item": "RED 의 exit code 1 을 기록한다.",
+      "satisfied": true,
+      "detail": "exit 1, tests 4 / pass 2 / fail 2. 실패 2건은 AC-1 과 AC-3"
+    },
+    {
+      "item": "3980 과 3981 을 서로 다른 값으로 단언한다.",
+      "satisfied": true,
+      "detail": "포화 인덱스(50 · 51 · 200)에서 layerZ 를 3980 으로, dialogZ 를 3981 로 각각 단언한다. 두 값이 다르다는 것 자체도 함수 반환값 두 개를 비교해 단언한다 (saturated.dialogZ !== saturated.layerZ, 차이는 정확히 1)"
+    }
+  ],
+  "review_dispositions": [
+    {
+      "id": "S1-MEDIUM-1",
+      "finding": "AC-4 테스트가 이 Task 가 고치려는 결함이 있는 채로도 항상 통과한다",
+      "disposition": "accepted as a recorded limitation",
+      "reason": "AC-4 의 하한(최대 1000)과 두 대역(3000·5000) 사이의 여유가 커서 어떤 테스트 문구로도 이 결함을 red 로 만들 수 없다. 요구사항 자체의 성질이므로 테스트를 고치지 않는다. 대신 T-PH003-04 에서 대역 분기를 되돌리는 뮤턴트로 이 케이스의 판별력을 따로 측정한다"
+    },
+    {
+      "id": "S1-LOW-1",
+      "finding": "AC-2 도 green on arrival 이며 사이드카 예측과 다르다",
+      "disposition": "recorded, sidecar 미수정",
+      "reason": "AC-2 는 설계상 회귀 핀이라 red 가 될 수 없다. 사이드카는 네 레인이 공유하는 파일이고 이 레인의 편집 허가 범위 밖이라 고치지 않고 위 sidecar_prediction_mismatch 에 기록만 한다"
+    },
+    {
+      "id": "S2-LOW-1",
+      "finding": "assert.notEqual(MODELESS_LAYER_CAP, MODELESS_SURFACE_CAP) 가 테스트 파일 자신의 리터럴 둘을 비교해 항상 참이다",
+      "disposition": "accepted — 고쳤다",
+      "reason": "두 피연산자를 모두 함수 반환값에서 취하도록 바꿨다. 강화이지 약화가 아니며, 이 테스트는 이 Task 가 만든 것이라 §0.20 의 기존 테스트에 해당하지 않는다"
+    },
+    {
+      "id": "S2-LOW-2",
+      "finding": "신규 파일이 lint:command-management 스크립트의 파일 목록에 없다",
+      "disposition": "rejected — 보고만",
+      "reason": "frontend/package.json 은 이 Task 의 files[] 밖이고 다른 레인이 동시에 편집하는 파일이다. npx eslint 직접 실행은 exit 0 이다"
+    }
+  ],
+  "observations": [
+    "이 프로젝트에는 dialog 계열 단위 테스트를 타입 검사하는 tsconfig 가 없다. tsconfig.test.json 은 files 허용목록이고 그 목록은 terminal·ws 계열로만 채워져 있다. 따라서 이 파일들에서는 초과 속성 오류나 시그니처 불일치가 tsc 로 잡히지 않으며, 계약 위반은 오직 런타임 단언으로만 드러난다",
+    "AC-3 의 실측 실패값이 9001 인 것은 layerIndex 200 이 상한 없이 5000 + 200*20 = 9000 으로 계산되기 때문이다. 상한이 없다는 사실 자체가 AC-3 을 깨는 두 번째 이유이며, 대역 분기와 상한 포화가 함께 들어가야 닫힌다"
+  ]
+}

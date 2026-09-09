@@ -1,0 +1,54 @@
+{
+ "task_id": "T-PH008-04",
+ "lane": "lane-N-persistence",
+ "started_at": "2026-09-02T21:20:23.159Z",
+ "completed_at": "2026-09-02T21:20:23.159Z",
+ "phase2": {
+  "impl_iters": [
+   {
+    "iter": 1,
+    "note": "restoreEditorWindowStackOrder + 복원/저장 effect + 레이어 raise + App 배선"
+   },
+   {
+    "iter": 2,
+    "note": "리뷰 HIGH 1 + MEDIUM 4 반영 — pendingRestoreRef 도입, 저장 게이트 단일화, nextStackOrder 선반영, activeWorkspaceTabIds 분리, resolveTabSession ref"
+   },
+   {
+    "iter": 3,
+    "note": "리뷰 HIGH 1 + MEDIUM 2 반영 — setWindows 업데이터 밖에서 added 계산, forgetPendingRestore 전역화, ref 대입을 커밋 후 effect 로"
+   }
+  ],
+  "green_evidence": {
+   "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowRestore.test.ts",
+   "exit_code": 0,
+   "timestamp": "2026-09-02T21:20:23.159Z"
+  },
+  "green_evidence_meta": {
+   "tests": 3,
+   "passed_test_case_ids": [
+    "TC-REQ-FR-MDE-009-AC5-02",
+    "TC-REQ-FR-MDE-009-AC7-02"
+   ]
+  },
+  "dod_check": [
+   {
+    "item": "AC-5 · AC-7 green",
+    "satisfied": true
+   },
+   {
+    "item": "계단식 단계를 저장하지 않는다",
+    "satisfied": true,
+    "evidence": "저장 항목 키 집합 단언 + dockedRect 주입 뮤턴트"
+   }
+  ]
+ },
+ "open_low_findings": [
+  "pendingStackRestore 가 단일 슬롯이라 두 워크스페이스 복원이 같은 배치에 겹치면 앞 배치가 사라진다",
+  "복원은 페이지 로드당 1회뿐이고 재시도 경로가 없다 (fileApi.readFile 에 타임아웃 없음)",
+  "clearWindowStateForWorkspace 부재 — 워크스페이스 삭제 시 키가 남는다 (mosaic 선례에는 있음)",
+  "saveWindows 의 boolean 을 아무도 소비하지 않는다",
+  "탭 필터로 떨어진 레코드는 pending 에 들어가지 않아 첫 저장에서 삭제된다 (읽기 실패와 비대칭)",
+  "복원 읽기가 직렬이라 창 N개에 왕복 N회",
+  "restoreEditorWindowStackOrder 가 raiseDialogById 의 boolean 을 버린다"
+ ]
+}

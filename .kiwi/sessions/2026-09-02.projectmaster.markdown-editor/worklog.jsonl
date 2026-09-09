@@ -1,0 +1,194 @@
+{"ts":"2026-09-02T06:07:23.164Z","event":"phase_start","run_id":"2026-09-02.projectmaster.markdown-editor","plan_path":"docs/plans/2026-09-02.projectmaster.markdown-editor.plan.md","target":"markdown-editor","mode":"normal","flags":["--auto","TASK_FILTER=T-PH001-01"]}
+{"ts":"2026-09-02T06:07:23.164Z","event":"task_start","task_id":"T-PH001-01","phase_id":"PH-001"}
+{"ts":"2026-09-02T06:07:23.164Z","event":"tdd_draft_done","task_id":"T-PH001-01","iter":1,"file_paths":["server/src/services/FileServiceWrite.test.ts"]}
+{"ts":"2026-09-02T06:07:23.164Z","event":"tdd_review_done","task_id":"T-PH001-01","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":2}}
+{"ts":"2026-09-02T06:07:23.164Z","event":"tdd_red_confirmed","task_id":"T-PH001-01","exit_code":1,"test_case_ids":["TC-REQ-IR-MDE-001-AC1-01","TC-REQ-IR-MDE-001-AC2-01","TC-REQ-IR-MDE-001-AC6-01"]}
+{"ts":"2026-09-02T06:07:23.164Z","event":"regression_done","task_id":"T-PH001-01","scope":"impacted-only","passed":1,"failed":0}
+{"ts":"2026-09-02T06:07:23.164Z","event":"task_done","task_id":"T-PH001-01","green":false,"tdd_phase":"red","regression":"pass"}
+{"ts":"2026-09-02T06:46:42.206Z","event":"task_start","task_id":"T-PH001-02","phase_id":"PH-001"}
+{"ts":"2026-09-02T06:46:42.206Z","event":"impl_done","task_id":"T-PH001-02","iter":1,"files_changed":["server/src/services/FileService.ts","server/src/routes/fileRoutes.ts"]}
+{"ts":"2026-09-02T06:46:42.206Z","event":"formal_review_done","task_id":"T-PH001-02","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":0}}
+{"ts":"2026-09-02T06:46:42.206Z","event":"prickly_review_done","task_id":"T-PH001-02","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":1,"MEDIUM":1,"LOW":3}}
+{"ts":"2026-09-02T06:46:42.206Z","event":"impl_done","task_id":"T-PH001-02","iter":2,"files_changed":["server/src/routes/fileRoutes.ts"]}
+{"ts":"2026-09-02T06:46:42.206Z","event":"test_green","task_id":"T-PH001-02","exit_code":0}
+{"ts":"2026-09-02T06:46:42.206Z","event":"regression_done","task_id":"T-PH001-02","scope":"full","passed":4,"failed":0}
+{"ts":"2026-09-02T06:46:42.206Z","event":"task_done","task_id":"T-PH001-02","green":true,"tdd_phase":"green","regression":"pass"}
+{"ts":"2026-09-02T08:05:25.917Z","event":"task_start","task_id":"T-PH001-03","phase_id":"PH-001"}
+{"ts":"2026-09-02T08:05:25.917Z","event":"tdd_draft_done","task_id":"T-PH001-03","iter":1,"file_paths":["server/src/services/FileServiceWrite.test.ts"]}
+{"ts":"2026-09-02T08:05:25.917Z","event":"tdd_review_done","task_id":"T-PH001-03","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":0}}
+{"ts":"2026-09-02T08:05:25.917Z","event":"tdd_red_confirmed","task_id":"T-PH001-03","exit_code":1,"test_case_ids":["TC-REQ-IR-MDE-001-AC3-01","TC-REQ-IR-MDE-001-AC4-01","TC-REQ-IR-MDE-001-AC5-01","TC-REQ-IR-MDE-001-AC10-01"],"green_on_arrival":["TC-REQ-IR-MDE-001-AC9-01"],"ac9_mutant_proof":{"restored_identical":true,"sha256":"cb546427c4544eb12fb6a6c43db1b7e8bd165517160c4f5b72997a91914f2fae"}}
+{"ts":"2026-09-02T08:05:25.917Z","event":"regression_done","task_id":"T-PH001-03","scope":"impacted-only","passed":4,"failed":0}
+{"ts":"2026-09-02T08:05:25.917Z","event":"task_done","task_id":"T-PH001-03","green":false,"tdd_phase":"red","regression":"pass"}
+{"ts":"2026-09-02T09:54:14.890Z","event":"task_start","task_id":"T-PH003-02","phase_id":"PH-003"}
+{"ts":"2026-09-02T09:54:14.890Z","event":"impl_done","task_id":"T-PH003-02","iter":1,"files_changed":["frontend/src/components/dialog/dialogStack.ts","frontend/src/components/dialog/WindowDialog.tsx"]}
+{"ts":"2026-09-02T09:54:14.890Z","event":"formal_review_done","task_id":"T-PH003-02","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":0}}
+{"ts":"2026-09-02T09:54:14.890Z","event":"prickly_review_done","task_id":"T-PH003-02","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":1,"MEDIUM":4,"LOW":7}}
+{"ts":"2026-09-02T09:54:14.890Z","event":"impl_done","task_id":"T-PH003-02","iter":2,"files_changed":["frontend/src/components/dialog/dialogStack.ts","frontend/tests/unit/dialogStack.test.ts"]}
+{"ts":"2026-09-02T09:54:14.890Z","event":"test_green","task_id":"T-PH003-02","exit_code":0}
+{"ts":"2026-09-02T09:54:14.890Z","event":"regression_done","task_id":"T-PH003-02","scope":"frontend/tests/unit 전수","passed":908,"failed":4}
+{"ts":"2026-09-02T09:54:14.890Z","event":"task_done","task_id":"T-PH003-02"}
+{"ts":"2026-09-02T09:56:37.336Z","event":"task_start","task_id":"T-PH002-02","phase_id":"PH-002"}
+{"ts":"2026-09-02T09:56:37.336Z","event":"tdd_red_confirmed","task_id":"T-PH002-01","exit_code":1,"test_case_ids":["TC-REQ-FR-MDE-005-AC1-01","TC-REQ-FR-MDE-005-AC6-01","TC-REQ-FR-MDE-005-AC7-01"],"note":"상위 러너가 전달한 앞선 세션의 실측을 인용해 기록"}
+{"ts":"2026-09-02T09:56:37.336Z","event":"task_done","task_id":"T-PH002-01"}
+{"ts":"2026-09-02T09:56:37.336Z","event":"tdd_exempted","task_id":"T-PH002-02","reason":"의존성 선언 검증은 T-PH002-01 의 계약 테스트 AC-6 이 담당한다"}
+{"ts":"2026-09-02T09:56:37.336Z","event":"impl_done","task_id":"T-PH002-02","iter":1,"files_changed":["frontend/package.json","frontend/package-lock.json"]}
+{"ts":"2026-09-02T09:56:37.336Z","event":"formal_review_done","task_id":"T-PH002-02","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":0}}
+{"ts":"2026-09-02T09:56:37.336Z","event":"prickly_review_done","task_id":"T-PH002-02","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":3}}
+{"ts":"2026-09-02T09:56:37.336Z","event":"test_green","task_id":"T-PH002-02","exit_code":0,"note":"covers_ac AC-6 케이스 green. 파일 exit 1 은 후속 Task 소관인 AC-1 · AC-7 의 예정된 red"}
+{"ts":"2026-09-02T09:56:37.336Z","event":"regression_done","task_id":"T-PH002-02","scope":"frontend build + frontend/tests/unit 전수","passed":906,"failed":4,"new_failures":0}
+{"ts":"2026-09-02T09:56:37.336Z","event":"task_done","task_id":"T-PH002-02"}
+{"ts":"2026-09-02T10:02:05.253Z","event":"task_start","task_id":"T-PH002-03","phase_id":"PH-002"}
+{"ts":"2026-09-02T10:02:05.253Z","event":"tdd_exempted","task_id":"T-PH002-03","reason":"auto-exempt by type (file_op)"}
+{"ts":"2026-09-02T10:02:05.253Z","event":"impl_done","task_id":"T-PH002-03","iter":1,"files_changed":["frontend/src/editor/ (29파일)"]}
+{"ts":"2026-09-02T10:02:05.253Z","event":"test_green","task_id":"T-PH002-03","exit_code":0}
+{"ts":"2026-09-02T10:02:05.253Z","event":"task_done","task_id":"T-PH002-03"}
+{"ts":"2026-09-02T10:03:32.024Z","event":"task_start","task_id":"T-PH003-03","phase_id":"PH-003"}
+{"ts":"2026-09-02T10:03:32.024Z","event":"tdd_draft_done","task_id":"T-PH003-03","iter":1,"file_paths":["frontend/tests/unit/windowDialogZBand.test.ts"]}
+{"ts":"2026-09-02T10:03:32.024Z","event":"tdd_review_done","task_id":"T-PH003-03","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":1,"LOW":3}}
+{"ts":"2026-09-02T10:03:32.024Z","event":"tdd_draft_done","task_id":"T-PH003-03","iter":2,"file_paths":["frontend/tests/unit/windowDialogZBand.test.ts"]}
+{"ts":"2026-09-02T10:03:32.024Z","event":"tdd_red_confirmed","task_id":"T-PH003-03","exit_code":1,"test_case_ids":["TC-REQ-CON-MDE-001-AC1-01","TC-REQ-CON-MDE-001-AC3-01"]}
+{"ts":"2026-09-02T10:03:32.024Z","event":"task_done","task_id":"T-PH003-03"}
+{"ts":"2026-09-02T10:28:47.935Z","event":"task_start","task_id":"T-PH003-04","phase_id":"PH-003"}
+{"ts":"2026-09-02T10:28:47.935Z","event":"impl_done","task_id":"T-PH003-04","iter":1,"files_changed":["frontend/src/components/dialog/windowDialogModel.ts","frontend/src/components/dialog/WindowDialog.tsx"]}
+{"ts":"2026-09-02T10:28:47.935Z","event":"formal_review_done","task_id":"T-PH003-04","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":0}}
+{"ts":"2026-09-02T10:28:47.935Z","event":"prickly_review_done","task_id":"T-PH003-04","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":1,"LOW":7}}
+{"ts":"2026-09-02T10:28:47.935Z","event":"impl_done","task_id":"T-PH003-04","iter":2,"files_changed":["frontend/src/components/dialog/windowDialogModel.ts","frontend/tests/unit/windowDialogZBand.test.ts"]}
+{"ts":"2026-09-02T10:28:47.935Z","event":"test_green","task_id":"T-PH003-04","exit_code":0}
+{"ts":"2026-09-02T10:28:47.935Z","event":"regression_done","task_id":"T-PH003-04","scope":"frontend/tests/unit 전수","passed":915,"failed":2}
+{"ts":"2026-09-02T10:28:47.935Z","event":"task_done","task_id":"T-PH003-04"}
+{"ts":"2026-09-02T10:30:43.424Z","event":"task_start","task_id":"T-PH002-04","phase_id":"PH-002"}
+{"ts":"2026-09-02T10:30:43.424Z","event":"impl_done","task_id":"T-PH002-04","iter":1,"files_changed":["frontend/tsconfig.app.json"]}
+{"ts":"2026-09-02T10:30:43.424Z","event":"formal_review_done","task_id":"T-PH002-04","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":0}}
+{"ts":"2026-09-02T10:30:43.424Z","event":"prickly_review_done","task_id":"T-PH002-04","iter":1,"severity_summary":{"CRITICAL":1,"HIGH":2,"MEDIUM":3,"LOW":3}}
+{"ts":"2026-09-02T10:30:43.424Z","event":"test_green","task_id":"T-PH002-04","exit_code":0}
+{"ts":"2026-09-02T10:30:43.424Z","event":"regression_done","task_id":"T-PH002-04","scope":"frontend build + frontend/tests/unit 전수","passed":914,"failed":2,"new_failures":0}
+{"ts":"2026-09-02T10:30:43.424Z","event":"need_user","task_id":"T-PH002-04","reason":"zero-tolerance-plan-code-mismatch 와 H-2 배럴 충돌","options":["현 변경 유지","references 설계로 승격","배럴 확장 + AC-1 재조정"]}
+{"ts":"2026-09-02T10:30:43.424Z","event":"task_done","task_id":"T-PH002-04"}
+{"ts":"2026-09-02T10:41:07.236Z","event":"impl_done","task_id":"T-PH002-04","iter":2,"files_changed":["frontend/tsconfig.editor.json","frontend/tsconfig.app.json","frontend/tsconfig.json","frontend/package.json","frontend/tsconfig.test.json"],"note":"erasableSyntaxOnly 를 references 경계로 복원. 상위 러너가 보고한 스크립트·허용목록 구멍 둘도 닫음"}
+{"ts":"2026-09-02T10:41:07.236Z","event":"test_green","task_id":"T-PH002-04","exit_code":0,"note":"계약 3/3 · tsc -b exit 0 · typecheck:tests exit 0 · build exit 0 · 가드 양성 대조군 TS1294 검출 확인"}
+{"ts":"2026-09-02T10:41:07.236Z","event":"regression_done","task_id":"T-PH002-04","scope":"frontend build + tests/unit 전수","passed":915,"failed":2,"new_failures":0}
+{"ts":"2026-09-02T10:44:15.284Z","event":"checkpoint","task_id":"T-PH002-04","resume_hint":"phase-3.1 (regression)","note":"tsconfig 3파일 확정. 가드 위반 주입 실측 2종(파라미터 프로퍼티 · enum) 모두 TS1294 검출 후 원복 확인. package.json 과 tsconfig.test.json 은 분담 통지 이전에 이미 수정된 상태이며 상위 러너에 보고"}
+{"ts":"2026-09-02T10:50:30.467Z","event":"impl_done","task_id":"T-PH002-04","iter":3,"files_changed":["frontend/tests/unit/editorPortContract.test.ts"],"note":"AC-1 갱신 반영 — 줄 수 기준 7296, 배럴을 줄 수 집계에서 제외"}
+{"ts":"2026-09-02T10:50:30.467Z","event":"test_green","task_id":"T-PH002-04","exit_code":0,"note":"계약 3/3 · 뮤턴트 대조 2방향 확인 · 가드 주입 대조 안팎 확인"}
+{"ts":"2026-09-02T10:50:30.467Z","event":"regression_done","task_id":"T-PH002-04","scope":"build + tsc -b + typecheck:tests + tests/unit 전수","passed":915,"failed":2,"new_failures":0}
+{"ts":"2026-09-02T10:50:30.467Z","event":"task_done","task_id":"T-PH002-04"}
+{"ts":"2026-09-02T10:57:00.357Z","event":"impl_done","task_id":"T-PH002-04","iter":4,"files_changed":["frontend/tests/unit/editorPortContract.test.ts"],"note":"파일 수 단언을 배제 경로로 다시 세도록 바꿔 공허함을 닫음"}
+{"ts":"2026-09-02T10:57:00.357Z","event":"test_green","task_id":"T-PH002-04","exit_code":0,"note":"계약 3/3 · 뮤턴트 3종 확인(집계 밖 파일 추가 → 새 단언만 red / 집계 파일 제거 → 첫 단언 red / 배럴 +1줄 → green 유지)"}
+{"ts":"2026-09-02T10:57:00.357Z","event":"regression_done","task_id":"T-PH002-04","scope":"build + tsc -b + typecheck:tests + tests/unit 전수","passed":917,"failed":3,"new_failures":0}
+{"ts":"2026-09-02T11:02:08.751Z","event":"impl_done","task_id":"T-PH002-04","iter":5,"files_changed":["frontend/tsconfig.test.json"],"note":"references 누락을 닫음 — extends 는 references 를 상속하지 않는다. 검증자가 실측으로 찾은 구멍"}
+{"ts":"2026-09-02T11:02:08.751Z","event":"test_green","task_id":"T-PH002-04","exit_code":0,"note":"같은 import 프로브를 둔 채 before/after 측정 — exit 2 (TS1294 21건, 편집기 45줄 유입) → exit 0 (0건, 0개, .d.ts 21개 소비)"}
+{"ts":"2026-09-02T11:02:08.751Z","event":"regression_done","task_id":"T-PH002-04","scope":"build + tsc -b + typecheck:tests + tests/unit 전수","passed":922,"failed":2,"new_failures":0}
+{"ts":"2026-09-02T11:02:08.751Z","event":"task_done","task_id":"T-PH002-04"}
+{"ts": "2026-09-02T12:20:00.000Z", "event": "tdd_red_confirmed", "task_id": "T-PH004-07", "exit_code": 1, "test_case_ids": ["TC-REQ-CON-MDE-002-AC2-01", "TC-REQ-CON-MDE-002-AC6-01"], "lane": "F"}
+{"ts": "2026-09-02T12:20:00.000Z", "event": "test_green", "task_id": "T-PH004-08", "exit_code": 0, "note": "editorWindowRecord 모듈. 대조 뮤턴트 3종(스프레드·필터 제거·허용목록 제거) 모두 red, 해시로 원복 확인", "lane": "F"}
+{"ts": "2026-09-02T12:20:00.000Z", "event": "tdd_red_confirmed", "task_id": "T-PH004-09", "exit_code": 1, "test_case_ids": ["TC-REQ-FR-MDE-001-AC8-01"], "lane": "F"}
+{"ts": "2026-09-02T12:20:00.000Z", "event": "test_green", "task_id": "T-PH004-10", "exit_code": 0, "note": "WindowDialog optional prop 5종 + App.tsx 스테이지 식별자. 대조 뮤턴트 4종 모두 red", "lane": "F"}
+{"ts": "2026-09-02T12:20:00.000Z", "event": "regression_done", "task_id": "T-PH004-10", "scope": "frontend tests/unit 전수", "passed": 922, "failed": 2, "new_failures": 0, "lane": "F"}
+{"ts": "2026-09-02T12:20:00.000Z", "event": "task_done", "task_id": "T-PH004-07", "lane": "F"}
+{"ts": "2026-09-02T12:20:00.000Z", "event": "task_done", "task_id": "T-PH004-08", "lane": "F"}
+{"ts": "2026-09-02T12:20:00.000Z", "event": "task_done", "task_id": "T-PH004-09", "lane": "F"}
+{"ts": "2026-09-02T12:20:00.000Z", "event": "task_done", "task_id": "T-PH004-10", "lane": "F"}
+{"ts":"2026-09-02T11:09:11.897Z","event":"impl_done","task_id":"T-PH002-04","iter":6,"files_changed":["frontend/tests/unit/editorPortContract.test.ts"],"note":"배럴에 재수출 외의 코드가 들어오면 잡히도록 단언 추가 — 줄 수 면제가 통로가 되는 것을 막음"}
+{"ts":"2026-09-02T11:09:11.897Z","event":"test_green","task_id":"T-PH002-04","exit_code":0,"note":"뮤턴트 3종 — 비-재수출 함수 red · 비-재수출 const red · 재수출 green. 배럴 sha256 원복 일치"}
+{"ts":"2026-09-02T11:09:11.897Z","event":"regression_done","task_id":"T-PH002-04","scope":"build + tsc -b + typecheck:tests + tests/unit 전수","passed":922,"failed":2,"new_failures":0}
+{"ts":"2026-09-02T11:09:11.897Z","event":"task_done","task_id":"T-PH002-04"}
+{"ts":"2026-09-02T12:52:00.000Z","event":"task_start","task_id":"T-PH004-03","phase_id":"PH-004","lane":"E"}
+{"ts":"2026-09-02T12:52:00.000Z","event":"tdd_draft_done","task_id":"T-PH004-03","iter":2,"file_paths":["frontend/tests/unit/editorWindowRect.test.ts"],"lane":"E"}
+{"ts":"2026-09-02T12:52:00.000Z","event":"tdd_review_done","task_id":"T-PH004-03","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":2,"LOW":4},"lane":"E"}
+{"ts":"2026-09-02T12:52:00.000Z","event":"tdd_red_confirmed","task_id":"T-PH004-03","exit_code":1,"test_case_ids":["TC-REQ-FR-MDE-001-AC5-01","TC-REQ-FR-MDE-001-AC6-01","TC-REQ-FR-MDE-001-AC7-01"],"lane":"E"}
+{"ts":"2026-09-02T12:52:00.000Z","event":"task_done","task_id":"T-PH004-03","lane":"E"}
+{"ts":"2026-09-02T12:13:07.561Z","event":"task_start","task_id":"T-PH005-01","phase_id":"PH-005","lane":"G"}
+{"ts":"2026-09-02T12:13:07.561Z","event":"tdd_draft_done","task_id":"T-PH005-01","iter":1,"file_paths":["frontend/tests/unit/editorWindowVisibility.test.ts"]}
+{"ts":"2026-09-02T12:13:07.561Z","event":"tdd_review_done","task_id":"T-PH005-01","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":1,"LOW":1}}
+{"ts":"2026-09-02T12:13:07.561Z","event":"tdd_red_confirmed","task_id":"T-PH005-01","exit_code":1,"test_case_ids":["TC-REQ-FR-MDE-002-AC3-01","TC-REQ-FR-MDE-002-AC4-01","TC-REQ-FR-MDE-002-AC5-01"]}
+{"ts":"2026-09-02T12:13:07.561Z","event":"task_done","task_id":"T-PH005-01","lane":"G"}
+{"ts":"2026-09-02T12:23:09.703Z","event":"task_start","task_id":"T-PH005-02","phase_id":"PH-005","lane":"G"}
+{"ts":"2026-09-02T12:23:09.703Z","event":"impl_done","task_id":"T-PH005-02","iter":1,"files_changed":["frontend/src/components/editor/editorWindowVisibility.ts"]}
+{"ts":"2026-09-02T12:23:09.703Z","event":"formal_review_done","task_id":"T-PH005-02","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":0}}
+{"ts":"2026-09-02T12:23:09.703Z","event":"prickly_review_done","task_id":"T-PH005-02","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":3,"LOW":2}}
+{"ts":"2026-09-02T12:23:09.703Z","event":"test_green","task_id":"T-PH005-02","exit_code":0}
+{"ts":"2026-09-02T12:23:09.703Z","event":"regression_done","task_id":"T-PH005-02","scope":"impacted-only","passed":16,"failed":0}
+{"ts":"2026-09-02T12:23:09.703Z","event":"task_done","task_id":"T-PH005-02","lane":"G"}
+{"ts":"2026-09-02T13:40:00.000Z","event":"task_start","task_id":"T-PH004-04","phase_id":"PH-004","lane":"E"}
+{"ts":"2026-09-02T13:40:00.000Z","event":"impl_done","task_id":"T-PH004-04","iter":2,"files_changed":["frontend/src/components/editor/editorWindowRect.ts","frontend/tests/unit/editorWindowRect.test.ts"],"lane":"E"}
+{"ts":"2026-09-02T13:40:00.000Z","event":"formal_review_done","task_id":"T-PH004-04","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":0},"lane":"E"}
+{"ts":"2026-09-02T13:40:00.000Z","event":"prickly_review_done","task_id":"T-PH004-04","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":3,"LOW":2},"lane":"E"}
+{"ts":"2026-09-02T13:40:00.000Z","event":"test_green","task_id":"T-PH004-04","exit_code":0,"note":"editorWindowRect 모듈. 대조 뮤턴트 11종 모두 red, 원복 해시 일치, 타입 경계 프로브 TS2345 1건 확인","lane":"E"}
+{"ts":"2026-09-02T13:40:00.000Z","event":"regression_done","task_id":"T-PH004-04","scope":"frontend tests/unit 전수","tests":934,"passed":932,"failed":2,"new_failures":0,"lane":"E"}
+{"ts":"2026-09-02T13:40:00.000Z","event":"task_done","task_id":"T-PH004-04","lane":"E"}
+{"ts":"2026-09-02T12:44:22.342Z","event":"task_start","task_id":"T-PH005-03","phase_id":"PH-005","lane":"G"}
+{"ts":"2026-09-02T12:44:22.342Z","event":"tdd_exempted","task_id":"T-PH005-03","reason":"DOM 없는 단위 스위트에서 마운트 관측 불가. 판정은 T-PH007-09 E2E"}
+{"ts":"2026-09-02T12:44:22.342Z","event":"impl_done","task_id":"T-PH005-03","iter":1,"files_changed":["frontend/src/components/editor/EditorWindowLayer.tsx","frontend/src/App.tsx"]}
+{"ts":"2026-09-02T12:44:22.342Z","event":"prickly_review_done","task_id":"T-PH005-03","iter":1,"severity_summary":{"CRITICAL":1,"HIGH":1,"MEDIUM":5,"LOW":2}}
+{"ts":"2026-09-02T12:44:22.342Z","event":"impl_done","task_id":"T-PH005-03","iter":2,"files_changed":["frontend/src/components/editor/EditorWindowLayer.tsx","frontend/tests/unit/editorWindowVisibility.test.ts"]}
+{"ts":"2026-09-02T12:44:22.342Z","event":"formal_review_done","task_id":"T-PH005-03","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":0}}
+{"ts":"2026-09-02T12:44:22.342Z","event":"test_green","task_id":"T-PH005-03","exit_code":0}
+{"ts":"2026-09-02T12:44:22.342Z","event":"regression_done","task_id":"T-PH005-03","scope":"full","passed":941,"failed":2}
+{"ts":"2026-09-02T12:44:22.342Z","event":"task_done","task_id":"T-PH005-03","lane":"G"}
+{"ts":"2026-09-02T14:05:00.000Z","event":"task_start","task_id":"T-PH004-05","phase_id":"PH-004","lane":"E"}
+{"ts":"2026-09-02T14:05:00.000Z","event":"tdd_draft_done","task_id":"T-PH004-05","iter":2,"file_paths":["frontend/tests/unit/editorWindowCascade.test.ts"],"lane":"E"}
+{"ts":"2026-09-02T14:05:00.000Z","event":"tdd_review_done","task_id":"T-PH004-05","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":1,"MEDIUM":3,"LOW":3},"lane":"E"}
+{"ts":"2026-09-02T14:05:00.000Z","event":"tdd_red_confirmed","task_id":"T-PH004-05","exit_code":1,"test_case_ids":["TC-REQ-FR-MDE-004-AC1-01","TC-REQ-FR-MDE-004-AC2-01","TC-REQ-FR-MDE-004-AC3-01","TC-REQ-FR-MDE-004-AC4-01","TC-REQ-FR-MDE-004-AC5-01","TC-REQ-FR-MDE-004-AC6-01","TC-REQ-FR-MDE-004-AC7-01"],"lane":"E"}
+{"ts":"2026-09-02T14:05:00.000Z","event":"task_done","task_id":"T-PH004-05","lane":"E"}
+{"ts":"2026-09-02T14:55:00.000Z","event":"task_start","task_id":"T-PH004-06","phase_id":"PH-004","lane":"E"}
+{"ts":"2026-09-02T14:55:00.000Z","event":"impl_done","task_id":"T-PH004-06","iter":3,"files_changed":["frontend/src/components/editor/editorWindowCascade.ts","frontend/tests/unit/editorWindowCascade.test.ts"],"lane":"E"}
+{"ts":"2026-09-02T14:55:00.000Z","event":"formal_review_done","task_id":"T-PH004-06","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":0},"lane":"E"}
+{"ts":"2026-09-02T14:55:00.000Z","event":"prickly_review_done","task_id":"T-PH004-06","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":2,"MEDIUM":4,"LOW":2},"note":"HIGH 2건은 코드 결함이 아니라 요구사항 자기모순과 복원 경로 설계 위험이라 상위로 에스컬레이션","lane":"E"}
+{"ts":"2026-09-02T14:55:00.000Z","event":"test_green","task_id":"T-PH004-06","exit_code":0,"note":"editorWindowCascade 모듈. 대조 뮤턴트 16종 모두 red, 원복 해시 일치","lane":"E"}
+{"ts":"2026-09-02T14:55:00.000Z","event":"regression_done","task_id":"T-PH004-06","scope":"frontend tests/unit 전수","tests":945,"passed":942,"failed":3,"new_failures":0,"lane":"E"}
+{"ts":"2026-09-02T14:55:00.000Z","event":"task_done","task_id":"T-PH004-06","lane":"E"}
+{"ts": "2026-09-02T17:37:29Z", "event": "task_start", "task_id": "T-PH007-08", "phase_id": "PH-007"}
+{"ts": "2026-09-02T17:37:29Z", "event": "impl_done", "task_id": "T-PH007-08", "iter": 1, "files_changed": 4}
+{"ts": "2026-09-02T17:37:29Z", "event": "test_fail", "task_id": "T-PH007-08", "exit_code": 1, "passed": 7, "failed": 4, "reason": "four spec defects, no implementation defect"}
+{"ts": "2026-09-02T17:37:29Z", "event": "regression_done", "task_id": "T-PH007-08", "scope": "frontend-unit", "passed": 970, "failed": 2, "new_failures": 0}
+{"ts": "2026-09-02T17:37:29Z", "event": "need_user", "task_id": "T-PH007-08", "reason": "spec amendments require approval", "options": ["tab count for the undersized premise", "press point for the selection drag", "close path for the two Escape cases", "App.tsx onRaise removal"]}
+{"ts": "2026-09-02T18:14:04Z", "event": "task_start", "task_id": "T-PH007-10", "phase_id": "PH-007"}
+{"ts": "2026-09-02T18:14:04Z", "event": "impl_done", "task_id": "T-PH007-10", "iter": 1, "files_changed": 2}
+{"ts": "2026-09-02T18:14:04Z", "event": "prickly_review_done", "task_id": "T-PH007-10", "iter": 1, "severity_summary": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 3, "LOW": 6}}
+{"ts": "2026-09-02T18:14:04Z", "event": "test_fail", "task_id": "T-PH007-10", "exit_code": 1, "passed": 3, "failed": 5, "reason": "one spec helper defect blocks all five"}
+{"ts": "2026-09-02T18:14:04Z", "event": "need_user", "task_id": "T-PH007-10", "reason": "spec locator must tolerate the dirty marker", "options": ["editorWindowFor should match an optional leading * in the title"]}
+{"ts": "2026-09-02T18:32:15Z", "event": "task_start", "task_id": "T-PH007-12", "phase_id": "PH-007"}
+{"ts": "2026-09-02T18:32:15Z", "event": "impl_done", "task_id": "T-PH007-12", "iter": 1, "files_changed": 1}
+{"ts": "2026-09-02T18:32:15Z", "event": "prickly_review_done", "task_id": "T-PH007-12", "iter": 1, "severity_summary": {"CRITICAL": 0, "HIGH": 3, "MEDIUM": 3, "LOW": 3}}
+{"ts": "2026-09-02T18:32:15Z", "event": "test_fail", "task_id": "T-PH007-12", "exit_code": 1, "passed": 8, "failed": 3, "reason": "three spec defects"}
+{"ts": "2026-09-02T18:32:15Z", "event": "regression_done", "task_id": "T-PH007-12", "scope": "frontend-unit", "passed": 970, "failed": 2, "new_failures": 0}
+{"ts": "2026-09-02T18:32:15Z", "event": "need_user", "task_id": "T-PH007-12", "reason": "two HIGH findings need files outside this task's list, and three spec defects need approval", "options": ["useEditorWindows.ts + App.tsx for the placement transition", "editorWindowVisibility.ts for term 4", "spec fixes for the three E2E cases"]}
+{"ts": "2026-09-02T18:54:12Z", "event": "impl_done", "task_id": "T-PH007-08/10/12", "iter": 2, "files_changed": 9, "note": "approved spec fixes and the two HIGH product fixes"}
+{"ts": "2026-09-02T18:54:12Z", "event": "regression_done", "task_id": "T-PH007-12", "scope": "frontend-unit", "passed": 970, "failed": 2, "new_failures": 0}
+{"ts": "2026-09-02T18:54:12Z", "event": "need_user", "task_id": "T-PH007-08", "reason": "the neighbour overlap assertion and the containment assertions disagree by 1px", "options": ["give the overlap judgement the same 1px slack"]}
+{"ts": "2026-09-02T19:19:10Z", "event": "prickly_review_done", "task_id": "T-PH007-08/12", "iter": 2, "severity_summary": {"CRITICAL": 0, "HIGH": 3, "MEDIUM": 7, "LOW": 5}}
+{"ts": "2026-09-02T19:19:10Z", "event": "test_green", "task_id": "T-PH007-10", "exit_code": 0}
+{"ts": "2026-09-02T19:19:10Z", "event": "regression_done", "task_id": "final", "scope": "frontend-unit", "passed": 973, "failed": 2, "new_failures": 0}
+{"ts": "2026-09-02T19:31:11Z", "event": "test_green", "task_id": "T-PH007-08/10/12", "exit_code": 0, "note": "all four markdown-editor specs green, 38/38"}
+{"ts": "2026-09-02T19:31:11Z", "event": "regression_done", "task_id": "handoff", "scope": "frontend-unit", "passed": 973, "failed": 2, "new_failures": 0}
+{"ts": "2026-09-02T19:31:11Z", "event": "task_done", "task_id": "T-PH007-08"}
+{"ts": "2026-09-02T19:31:11Z", "event": "task_done", "task_id": "T-PH007-10"}
+{"ts": "2026-09-02T19:31:11Z", "event": "task_done", "task_id": "T-PH007-12"}
+{"ts":"2026-09-02T19:52:28.151Z","event":"task_start","task_id":"T-PH008-01","phase_id":"PH-008","lane":"lane-N-persistence"}
+{"ts":"2026-09-02T19:52:28.151Z","event":"tdd_draft_done","task_id":"T-PH008-01","iter":1,"file_paths":["frontend/tests/unit/windowStateStorage.test.ts"]}
+{"ts":"2026-09-02T19:52:28.151Z","event":"tdd_review_done","task_id":"T-PH008-01","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":2,"LOW":3},"note":"Sonnet x2 (intent-alignment / tech-quality). MEDIUM 2 + LOW 3 전부 반영"}
+{"ts":"2026-09-02T19:52:28.151Z","event":"tdd_red_confirmed","task_id":"T-PH008-01","exit_code":1,"test_case_ids":["TC-REQ-FR-MDE-009-AC1-01","TC-REQ-FR-MDE-009-AC2-01","TC-REQ-FR-MDE-009-AC3-01","TC-REQ-FR-MDE-009-AC8-01","TC-REQ-FR-MDE-009-AC9-01"],"captured_failure":"ERR_MODULE_NOT_FOUND: frontend/src/hooks/windowStateStorage.ts"}
+{"ts":"2026-09-02T19:52:28.151Z","event":"task_done","task_id":"T-PH008-01","lane":"lane-N-persistence"}
+{"ts":"2026-09-02T20:09:20.585Z","event":"task_start","task_id":"T-PH008-02","phase_id":"PH-008","lane":"lane-N-persistence"}
+{"ts":"2026-09-02T20:09:20.585Z","event":"impl_done","task_id":"T-PH008-02","iter":1,"files_changed":["frontend/src/hooks/windowStateStorage.ts","frontend/src/hooks/useWindowState.ts"]}
+{"ts":"2026-09-02T20:09:20.585Z","event":"formal_review_done","task_id":"T-PH008-02","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0},"note":"mock 0건 / tsc -p tsconfig.app.json --noEmit exit 0 / 신규 테스트 파일 임시 tsconfig 로 exit 0"}
+{"ts":"2026-09-02T20:09:20.585Z","event":"prickly_review_done","task_id":"T-PH008-02","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":7,"LOW":5},"note":"MEDIUM 3건·LOW 2건 반영, 나머지는 범위 밖 또는 요구 충돌로 보고"}
+{"ts":"2026-09-02T20:09:20.585Z","event":"test_green","task_id":"T-PH008-02","exit_code":0,"tests":7}
+{"ts":"2026-09-02T20:09:20.585Z","event":"regression_done","task_id":"T-PH008-02","scope":"frontend unit full","passed":980,"failed":2,"new_failures":0}
+{"ts":"2026-09-02T20:09:20.585Z","event":"task_done","task_id":"T-PH008-02","lane":"lane-N-persistence"}
+{"ts": "2026-09-02T20:15:02Z", "event": "impl_done", "task_id": "T-PH007-12", "iter": 3, "files_changed": 3, "note": "dirty feedback wiring, closing the vacuous FR-MDE-008 AC-4"}
+{"ts": "2026-09-02T20:15:02Z", "event": "test_green", "task_id": "T-PH007-12", "exit_code": 0, "note": "39/39 across the four markdown-editor specs"}
+{"ts":"2026-09-02T20:26:14.772Z","event":"task_start","task_id":"T-PH008-03","phase_id":"PH-008","lane":"lane-N-persistence"}
+{"ts":"2026-09-02T20:26:14.772Z","event":"tdd_draft_done","task_id":"T-PH008-03","iter":1,"file_paths":["frontend/tests/unit/editorWindowRestore.test.ts"]}
+{"ts":"2026-09-02T20:26:14.772Z","event":"tdd_review_done","task_id":"T-PH008-03","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":2,"MEDIUM":2,"LOW":1},"note":"HIGH 2건: AC-5 파생 미검증(반영: 함수 계약을 records+mapper 로 변경), AC-7 는 이미 프로덕션에서 성립(반영: 발명한 함수 제거, 보고)"}
+{"ts":"2026-09-02T20:26:14.772Z","event":"tdd_draft_done","task_id":"T-PH008-03","iter":2,"file_paths":["frontend/tests/unit/editorWindowRestore.test.ts"]}
+{"ts":"2026-09-02T20:26:14.772Z","event":"tdd_red_confirmed","task_id":"T-PH008-03","exit_code":1,"test_case_ids":["TC-REQ-FR-MDE-009-AC5-01","TC-REQ-FR-MDE-009-AC7-01"],"captured_failure":"SyntaxError: The requested module '../../src/hooks/windowStateStorage.ts' does not provide an export named 'restoreEditorWindowStackOrder'"}
+{"ts":"2026-09-02T20:26:14.772Z","event":"regression_done","task_id":"T-PH008-03","scope":"frontend unit full","passed":980,"failed":3,"new_failures":0,"note":"실패 3건 = 의도된 RED 1 + 기존 2"}
+{"ts":"2026-09-02T20:26:14.772Z","event":"task_done","task_id":"T-PH008-03","lane":"lane-N-persistence"}
+{"ts":"2026-09-02T21:20:23.159Z","event":"task_start","task_id":"T-PH008-04","phase_id":"PH-008","lane":"lane-N-persistence"}
+{"ts":"2026-09-02T21:20:23.159Z","event":"impl_done","task_id":"T-PH008-04","iter":3,"files_changed":["frontend/src/hooks/windowStateStorage.ts","frontend/src/hooks/useEditorWindows.ts","frontend/src/components/editor/EditorWindowLayer.tsx","frontend/src/App.tsx"]}
+{"ts":"2026-09-02T21:20:23.159Z","event":"formal_review_done","task_id":"T-PH008-04","iter":1,"severity_summary":{"CRITICAL":0,"HIGH":0},"note":"mock 0건 / tsc -p tsconfig.app.json --noEmit exit 0"}
+{"ts":"2026-09-02T21:20:23.159Z","event":"prickly_review_done","task_id":"T-PH008-04","iter":3,"severity_summary":{"CRITICAL":0,"HIGH":0,"MEDIUM":0,"LOW":6},"note":"3라운드. HIGH 2건(저장값 영구 삭제, setWindows 업데이터 동기 실행 가정)과 MEDIUM 6건 전부 해소"}
+{"ts":"2026-09-02T21:20:23.159Z","event":"test_green","task_id":"T-PH008-04","exit_code":0,"tests":11}
+{"ts":"2026-09-02T21:20:23.159Z","event":"regression_done","task_id":"T-PH008-04","scope":"impacted-only (6 files)","passed":6,"failed":0,"new_failures":0,"note":"전수 총계는 검증 중이라 인용하지 않음(팀 리드 지시)"}
+{"ts":"2026-09-02T21:20:23.159Z","event":"task_done","task_id":"T-PH008-04","lane":"lane-N-persistence"}

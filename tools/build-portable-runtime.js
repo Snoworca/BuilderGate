@@ -200,23 +200,41 @@ function resolvePortableFairSchedulerEvidencePath(evidenceRoot, declaredPath, la
   return resolvedPath;
 }
 
+function declaredEvidenceDirectory(declaredPath) {
+  return typeof declaredPath === 'string' && declaredPath.endsWith('/')
+    ? declaredPath.slice(0, -1)
+    : declaredPath;
+}
+
 function validatePortableFairSchedulerEvidenceBundle(outputDir) {
   const evidenceRoot = path.join(outputDir, 'server', 'dist', 'benchmarks', 'fair-scheduler-evidence');
-  const publicationPath = path.join(evidenceRoot, 'fair-scheduler-decision.json.publication.json');
+  const currentPath = path.join(evidenceRoot, 'current.json');
   const provenancePath = path.join(outputDir, 'server', 'dist', 'benchmarks', 'fair-scheduler-source-provenance.json');
   if (hasSymbolicLinkAncestor(evidenceRoot) || hasSymbolicLinkAncestor(provenancePath)) {
     throw new Error('fair-scheduler-evidence roots must not be symbolic links');
   }
-  let publication;
+  let pointer;
   try {
-    publication = JSON.parse(fs.readFileSync(publicationPath, 'utf8'));
+    pointer = JSON.parse(fs.readFileSync(currentPath, 'utf8'));
   } catch {
-    throw new Error('fair-scheduler-evidence publication is invalid');
+    throw new Error('fair-scheduler-evidence current pointer is invalid');
   }
-  const artifactPath = resolvePortableFairSchedulerEvidencePath(evidenceRoot, publication.artifactPath, 'artifact path');
-  const rawPath = resolvePortableFairSchedulerEvidencePath(evidenceRoot, publication.rawPath, 'raw path');
+  // generation_id becomes a directory name, so it must be a single benign path segment:
+  // path.resolve() silently collapses drive-relative segments such as 'C:' instead of escaping.
+  if (typeof pointer?.generation_id !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(pointer.generation_id)) {
+    throw new Error('fair-scheduler-evidence generation path is invalid');
+  }
+  const generationRoot = resolvePortableFairSchedulerEvidencePath(
+    evidenceRoot,
+    `generations/${pointer.generation_id}`,
+    'generation path',
+  );
+  const artifactPath = resolvePortableFairSchedulerEvidencePath(generationRoot, pointer.decision_artifact, 'artifact path');
+  const rawPath = resolvePortableFairSchedulerEvidencePath(generationRoot, declaredEvidenceDirectory(pointer.raw_root), 'raw path');
+  const rawManifestPath = resolvePortableFairSchedulerEvidencePath(rawPath, 'manifest.json', 'raw manifest path');
   assertPathExists(artifactPath, 'fair-scheduler-evidence artifact');
   assertPathExists(rawPath, 'fair-scheduler-evidence raw evidence');
+  assertPathExists(rawManifestPath, 'fair-scheduler-evidence raw manifest');
   let artifact;
   try {
     artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
@@ -228,7 +246,7 @@ function validatePortableFairSchedulerEvidenceBundle(outputDir) {
   }
   for (const [index, sidecarPath] of artifact.rawEvidencePaths.entries()) {
     assertPathExists(
-      resolvePortableFairSchedulerEvidencePath(evidenceRoot, sidecarPath, `sidecar ${index}`),
+      resolvePortableFairSchedulerEvidencePath(rawPath, sidecarPath, `sidecar ${index}`),
       `fair-scheduler-evidence sidecar ${index}`,
     );
   }
@@ -262,7 +280,7 @@ function validatePortableBuildOutput(outputDir, target) {
     [path.join(outputDir, 'server', 'package-lock.json'), path.join('server', 'package-lock.json')],
     [path.join(outputDir, 'server', 'dist', 'index.js'), path.join('server', 'dist', 'index.js')],
     [path.join(outputDir, 'server', 'dist', 'benchmarks', 'fair-scheduler-source-provenance.json'), path.join('server', 'dist', 'benchmarks', 'fair-scheduler-source-provenance.json')],
-    [path.join(outputDir, 'server', 'dist', 'benchmarks', 'fair-scheduler-evidence', 'fair-scheduler-decision.json.publication.json'), path.join('server', 'dist', 'benchmarks', 'fair-scheduler-evidence', 'fair-scheduler-decision.json.publication.json')],
+    [path.join(outputDir, 'server', 'dist', 'benchmarks', 'fair-scheduler-evidence', 'current.json'), path.join('server', 'dist', 'benchmarks', 'fair-scheduler-evidence', 'current.json')],
     [path.join(outputDir, 'server', 'dist', 'services', 'TerminalResourcePolicyCanary.js'), path.join('server', 'dist', 'services', 'TerminalResourcePolicyCanary.js')],
     [path.join(outputDir, 'server', 'dist', 'utils', 'configStrictLoader.js'), path.join('server', 'dist', 'utils', 'configStrictLoader.js')],
     [path.join(outputDir, 'server', 'dist', 'services', 'daemonTotpPreflight.js'), path.join('server', 'dist', 'services', 'daemonTotpPreflight.js')],
@@ -375,5 +393,6 @@ module.exports = {
   createWindowsCmdLauncher,
   createWindowsPowerShellLauncher,
   validatePortableBuildOutput,
+  validatePortableFairSchedulerEvidenceBundle,
   writePortableLaunchers,
 };

@@ -8,7 +8,7 @@
 
 import { Router, Request, Response } from 'express';
 import type { FileService } from '../services/FileService.js';
-import type { CopyRequest, MoveRequest, MkdirRequest } from '../types/file.types.js';
+import type { CopyRequest, MoveRequest, MkdirRequest, WriteRequest } from '../types/file.types.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 
 export function createFileRoutes(fileService: FileService): Router {
@@ -99,6 +99,23 @@ export function createFileRoutes(fileService: FileService): Router {
         return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'path and name are required' } });
       }
       await fileService.createDirectory(req.params.id, dirPath, name);
+      res.json({ success: true });
+    } catch (err) {
+      handleError(err, res);
+    }
+  });
+
+  // POST /api/sessions/:id/files/write
+  // @req IR-MDE-001
+  router.post('/:id/files/write', async (req: Request<{ id: string }, {}, WriteRequest>, res: Response) => {
+    try {
+      const { path: filePath, content } = req.body;
+      // content is tested by type, not truthiness: an empty string is what a
+      // document the user emptied sends, and it has to be written.
+      if (typeof filePath !== 'string' || !filePath || typeof content !== 'string') {
+        return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'path and content are required' } });
+      }
+      await fileService.writeFile(req.params.id, filePath, content);
       res.json({ success: true });
     } catch (err) {
       handleError(err, res);

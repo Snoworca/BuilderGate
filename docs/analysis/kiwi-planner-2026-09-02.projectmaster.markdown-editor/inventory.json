@@ -1,0 +1,13 @@
+[
+  { "id": "FR-MDE-001", "stability": "evolving", "status": "planned", "ac_total": 9, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9"] },
+  { "id": "FR-MDE-002", "stability": "evolving", "status": "planned", "ac_total": 7, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"] },
+  { "id": "FR-MDE-003", "stability": "evolving", "status": "planned", "ac_total": 7, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"] },
+  { "id": "FR-MDE-004", "stability": "evolving", "status": "planned", "ac_total": 8, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8"] },
+  { "id": "CON-MDE-001", "stability": "evolving", "status": "planned", "ac_total": 6, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6"] },
+  { "id": "CON-MDE-002", "stability": "evolving", "status": "planned", "ac_total": 7, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"] },
+  { "id": "FR-MDE-005", "stability": "evolving", "status": "planned", "ac_total": 7, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"] },
+  { "id": "IR-MDE-001", "stability": "evolving", "status": "planned", "ac_total": 10, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9", "AC-10"] },
+  { "id": "FR-MDE-006", "stability": "evolving", "status": "planned", "ac_total": 10, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9", "AC-10"] },
+  { "id": "FR-MDE-007", "stability": "evolving", "status": "planned", "ac_total": 8, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8"] },
+  { "id": "FR-MDE-008", "stability": "evolving", "status": "planned", "ac_total": 8, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8"] },
+  { "id": "FR-MDE-009", "stability": "evolving", "status": "planned", "ac_total": 10, "ac_ids": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9", "AC-10"] }]

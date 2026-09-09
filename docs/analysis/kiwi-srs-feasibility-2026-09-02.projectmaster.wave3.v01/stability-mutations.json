@@ -1,0 +1,46 @@
+{
+  "mode": "live",
+  "run_id": "2026-09-02.projectmaster.wave3.v01",
+  "target": "wave-3",
+  "policy_source": "project (.kiwi/feasibility-policy.yaml, created this run)",
+  "applied_count": 16,
+  "skipped_count": 0,
+  "guard_blocked_count": 0,
+  "user_rejected_count": 0,
+  "system_failed_count": 0,
+  "applied": [
+    { "req_id": "OBS-BGSTAB-007", "from": "draft", "to": "evolving", "score": 91, "label": "high" },
+    { "req_id": "FR-BGSTAB-023", "from": "draft", "to": "evolving", "score": 88, "label": "high" },
+    { "req_id": "CON-BGSTAB-001", "from": "draft", "to": "evolving", "score": 87, "label": "high" },
+    { "req_id": "REL-BGSTAB-016", "from": "draft", "to": "evolving", "score": 86, "label": "high" },
+    { "req_id": "REL-BGSTAB-017", "from": "draft", "to": "evolving", "score": 86, "label": "high" },
+    { "req_id": "REL-BGSTAB-018", "from": "draft", "to": "evolving", "score": 86, "label": "high" },
+    { "req_id": "OBS-BGSTAB-008", "from": "draft", "to": "evolving", "score": 85, "label": "high" },
+    { "req_id": "OPS-BGSTAB-002", "from": "draft", "to": "evolving", "score": 85, "label": "high" },
+    { "req_id": "OPS-BGSTAB-001", "from": "draft", "to": "evolving", "score": 84, "label": "high" },
+    { "req_id": "OPS-BGSTAB-004", "from": "draft", "to": "evolving", "score": 84, "label": "high" },
+    { "req_id": "OPS-BGSTAB-006", "from": "draft", "to": "evolving", "score": 84, "label": "high" },
+    { "req_id": "MIG-BGSTAB-003", "from": "draft", "to": "evolving", "score": 83, "label": "high" },
+    { "req_id": "OPS-BGSTAB-003", "from": "draft", "to": "evolving", "score": 83, "label": "high" },
+    { "req_id": "REL-BGSTAB-019", "from": "draft", "to": "evolving", "score": 76, "label": "medium" },
+    { "req_id": "OPS-BGSTAB-005", "from": "draft", "to": "evolving", "score": 73, "label": "medium" },
+    { "req_id": "OPS-BGSTAB-007", "from": "draft", "to": "evolving", "score": 67, "label": "medium" }
+  ],
+  "distribution": { "high": 13, "medium": 3, "low": 0, "blocked": 0 },
+  "tag_mismatch": [
+    { "req_id": "OPS-BGSTAB-005", "tagged": "high", "measured": "medium", "why": "The workflow YAML is trivial; deciding what to run is not. The root has no test script, the frontend groups only ten of its fifty-six unit tests, and the server runner does not discover *.test.ts." }
+  ],
+  "side_effects": [
+    { "what": "speckiwi also stripped the [DRAFT - pending decision] suffix from the titles of OBS-BGSTAB-008 and CON-BGSTAB-001.", "assessment": "expected - the tool keeps the draft marker consistent with the stability value" }
+  ],
+  "ac_correction": {
+    "req_id": "REL-BGSTAB-016",
+    "which": "AC-2",
+    "why": "Its 'same condition' pointed at AC-1's captureState transient-blocked, but enqueueTransportInput never reads captureState - it drops on mode === 'observe' alone. A test written to the old wording would have needed a premise nobody can set up.",
+    "now": "The premise is stated as decision.action === 'queue', which classifyTransportQueueDecision makes equivalent in meaning to transient-blocked.",
+    "other_ac_verified_unchanged": true
+  },
+  "validate_spec_after": { "errors": 0, "warnings": 0 },
+  "stability_after": { "stable": 1, "evolving": 27, "draft": 0 },
+  "stability_blockers_after": 0
+}

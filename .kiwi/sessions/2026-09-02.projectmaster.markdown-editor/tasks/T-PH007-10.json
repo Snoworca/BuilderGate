@@ -1,0 +1,87 @@
+{
+  "task_id": "T-PH007-10",
+  "started_at": "2026-09-02T18:14:04Z",
+  "completed_at": null,
+  "phase1": {
+    "note": "sidecar tdd.phase=green; spec authored by an earlier lane",
+    "red_evidence": {
+      "command": "npx playwright test tests/e2e/markdown-editor-lifecycle.spec.ts --project \"Desktop Chrome\"",
+      "exit_code": 1,
+      "captured_failure": "6 failed / 2 passed",
+      "timestamp": "2026-09-02T18:14:04Z"
+    }
+  },
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "frontend/src/components/editor/EditorWindow.tsx",
+          "frontend/src/components/editor/EditorWindowLayer.tsx"
+        ]
+      }
+    ],
+    "green_evidence": {
+      "command": "npx playwright test tests/e2e/markdown-editor-lifecycle.spec.ts --project \"Desktop Chrome\"",
+      "exit_code": 1,
+      "passed": 3,
+      "failed": 5,
+      "timestamp": "2026-09-02T18:14:04Z"
+    },
+    "closed": [
+      "FR-MDE-002 AC-2 surface display none",
+      "FR-MDE-005 AC-4 extensions token + readOnly",
+      "FR-MDE-005 AC-5 documentId normalized"
+    ],
+    "blocked_cases": [
+      {
+        "cases": [
+          ":311",
+          ":368",
+          ":412",
+          ":443",
+          ":481"
+        ],
+        "cause": "spec helper editorWindowFor matches the title with getByText(fileName, {exact:true}); FR-MDE-006 AC-1 requires the title to carry a leading * once dirty, so the locator stops matching the moment typeInto makes the window dirty",
+        "note": "all five fail at typeInto with element(s) not found; the click before typing succeeds"
+      }
+    ],
+    "mutant_checks": [
+      {
+        "mutation": "EditorWindow: editorWindowProbes.set(filePath, probe) -> void probe",
+        "went_red": true,
+        "killed": [
+          "FR-MDE-005 :500",
+          ":544"
+        ],
+        "restore_verified_sha256": "c3f8fb0bba502fb8d5e9d7edd094e99d345410e6af8bb75cdbc064934f96da62"
+      }
+    ],
+    "review": {
+      "critical": 0,
+      "high": 0,
+      "medium": 3,
+      "low": 6,
+      "medium_applied": [
+        "installer cleanup so a stale readTerminalHost cannot outlive the layer",
+        "localhost gate matched to its precedent on both axes: off-DOM guard, and the read gated too",
+        "one shared editorMountProps object for the editor and the probe"
+      ],
+      "medium_partial": "probe independence: a full witness of the handoff needs a documentId readback on the editor handle, which lives in src/editor and is outside this task's files"
+    }
+  },
+  "phase3": {
+    "regression": {
+      "scope": "frontend unit suite",
+      "tests": 972,
+      "passed": 970,
+      "failed": 2,
+      "failed_test_ids": [
+        "PERF-BGSTAB-010",
+        "REL-BGSTAB-012"
+      ],
+      "new_failures": 0
+    },
+    "typecheck": "npx tsc -p tsconfig.app.json --noEmit -> exit 0"
+  }
+}

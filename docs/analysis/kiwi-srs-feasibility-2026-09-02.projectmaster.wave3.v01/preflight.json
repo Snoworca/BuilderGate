@@ -1,0 +1,20 @@
+{
+  "mcp": true,
+  "cli": true,
+  "halted": false,
+  "mode": "live",
+  "version": "2.13.1",
+  "workspace_root": "C:\Work\git\_Snoworca\ProjectMaster-markdown-editor",
+  "target": "wave-3",
+  "target_source": "user-specified",
+  "tools_detected": {
+    "update_stability": true,
+    "get_active_target": true,
+    "list_requirements": true,
+    "get_requirement": true,
+    "validate_spec": true,
+    "summarize_target": true,
+    "tag_mutation": false
+  },
+  "validate_spec_before": { "errors": 0, "warnings": 0 }
+}

@@ -1,0 +1,85 @@
+{
+  "task_id": "T-PH007-08",
+  "started_at": "2026-09-02T17:37:29Z",
+  "completed_at": null,
+  "phase1": {
+    "note": "sidecar tdd.phase=green; the E2E spec was authored and red-confirmed by an earlier lane",
+    "red_evidence": {
+      "command": "npx playwright test tests/e2e/markdown-editor-placement.spec.ts --project \"Desktop Chrome\"",
+      "exit_code": 1,
+      "captured_failure": "8 failed / 3 passed",
+      "timestamp": "2026-09-02T17:37:29Z"
+    }
+  },
+  "phase2": {
+    "impl_iters": [
+      {
+        "iter": 1,
+        "files_changed": [
+          "frontend/src/components/dialog/dialogStack.ts",
+          "frontend/src/components/dialog/WindowDialog.tsx",
+          "frontend/src/components/editor/EditorWindow.tsx",
+          "frontend/src/components/editor/EditorWindowLayer.tsx"
+        ]
+      }
+    ],
+    "green_evidence": {
+      "command": "npx playwright test tests/e2e/markdown-editor-placement.spec.ts --project \"Desktop Chrome\"",
+      "exit_code": 1,
+      "passed": 7,
+      "failed": 4,
+      "timestamp": "2026-09-02T17:37:29Z"
+    },
+    "blocked_cases": [
+      {
+        "case": ":410 FR-MDE-004 undersized target",
+        "cause": "spec premise: 4 tabs render a 2x2 grid, so the tile is 437px and never under 320",
+        "implementation_verified": "yes - with 6 tabs the premise holds and every size assertion (446-455) passes"
+      },
+      {
+        "case": ":574 FR-MDE-003 selection drag",
+        "cause": "spec presses a covered point: .cm-content is max-width 70ch centred, so the back window's text column is fully under the front window"
+      },
+      {
+        "case": ":620 FR-MDE-003 modal isTopmost",
+        "cause": "spec asserts Escape closes the modal; FR-MDE-003 AC-7 requires Escape handling unchanged and command-management-dialog.spec.ts:40 pins that it does not close"
+      },
+      {
+        "case": ":716 CON-MDE-001 modal inert",
+        "cause": "same Escape conflict"
+      }
+    ],
+    "mutant_checks": [
+      {
+        "mutation": "dialogStack.useDialogStack: raise(token) -> void token",
+        "went_red": true,
+        "killed": [
+          "FR-MDE-003 :472",
+          ":502",
+          ":525"
+        ],
+        "restore_verified_sha256": "4e68e97fe4bf5763b4fceca550be781dfa74aea6d9a36949d03656ed88c7f785"
+      }
+    ]
+  },
+  "phase3": {
+    "regression": {
+      "scope": "frontend unit suite",
+      "tests": 972,
+      "passed": 970,
+      "failed": 2,
+      "failed_test_ids": [
+        "PERF-BGSTAB-010",
+        "REL-BGSTAB-012"
+      ],
+      "new_failures": 0
+    },
+    "typecheck": "npx tsc -p tsconfig.app.json --noEmit -> exit 0",
+    "modal_contract": {
+      "spec": "command-management-dialog.spec.ts",
+      "passed": 2,
+      "failed": 1,
+      "note": "the two stacking/Escape contracts pass; :199 fails on error-message wording in a path none of this task's files touch"
+    }
+  }
+}

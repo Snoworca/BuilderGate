@@ -5,4 +5,5 @@ server/src/ws/wsSendPolicy.ts text eol=lf
 server/src/ws/WsRouter.ts text eol=lf
 server/src/services/TerminalResourcePolicy.ts text eol=lf
 server/src/services/TerminalResourcePolicyCanary.ts text eol=lf
-docs/analysis/terminal-fairness-authority/**/*.json text eol=lf
+# Preserve committed authority bytes on every platform.
+docs/analysis/terminal-fairness-authority/** -text

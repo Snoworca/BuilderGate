@@ -6,6 +6,7 @@
 
 import { useMemo, useState } from 'react';
 import { ContextMenu } from '../ContextMenu';
+import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
 import { truncatePathLeft } from '../../utils/pathUtils';
 import './Header.css';
 
@@ -23,6 +24,10 @@ interface HeaderProps {
   onOpenTerminalShortcutManager?: () => void;
   onOpenRecoveryOptionManager?: () => void;
   onOpenMcpControlManager?: () => void;
+  /** The current workspace holds at least one editor window. @req FR-MDE-008 */
+  hasEditorWindows?: boolean;
+  /** One entry per editor window of the current workspace. @req FR-MDE-008 */
+  editorTrayItems?: ContextMenuItem[];
 }
 
 function truncateText(value: string, maxLen: number): string {
@@ -45,8 +50,11 @@ export function Header({
   onOpenTerminalShortcutManager,
   onOpenRecoveryOptionManager,
   onOpenMcpControlManager,
+  hasEditorWindows,
+  editorTrayItems,
 }: HeaderProps) {
   const [toolsMenuPosition, setToolsMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const [editorTrayPosition, setEditorTrayPosition] = useState<{ x: number; y: number } | null>(null);
   const displayWorkspaceName = activeWorkspaceName
     ? truncateText(activeWorkspaceName, isMobile ? 22 : 38)
     : null;
@@ -109,6 +117,36 @@ export function Header({
 
       {(onOpenSettings || onLogout || onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenRecoveryOptionManager || onOpenMcpControlManager) && (
         <div className="header-right">
+          {hasEditorWindows && (
+            <button
+              className="header-action-button header-editor-tray-button"
+              onClick={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect();
+                setEditorTrayPosition({ x: rect.left, y: rect.bottom + 4 });
+              }}
+              aria-haspopup="menu"
+              aria-expanded={editorTrayPosition !== null}
+              aria-label="편집기 창"
+              title="편집기 창"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ position: 'relative', top: '2px' }}
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+                <path d="M9 13h6" />
+                <path d="M9 17h4" />
+              </svg>
+            </button>
+          )}
           {onToggleViewMode && !isMobile && (
             <button
               className="header-action-button"
@@ -176,6 +214,13 @@ export function Header({
               position={toolsMenuPosition}
               items={toolsMenuItems}
               onClose={() => setToolsMenuPosition(null)}
+            />
+          )}
+          {editorTrayPosition && (editorTrayItems?.length ?? 0) > 0 && (
+            <ContextMenu
+              position={editorTrayPosition}
+              items={editorTrayItems ?? []}
+              onClose={() => setEditorTrayPosition(null)}
             />
           )}
         </div>

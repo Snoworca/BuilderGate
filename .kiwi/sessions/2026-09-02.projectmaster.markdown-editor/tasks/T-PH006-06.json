@@ -1,0 +1,19 @@
+{
+  "task_id": "T-PH006-06",
+  "started_at": "2026-09-02T13:23:48.505Z",
+  "completed_at": "2026-09-02T13:23:48.505Z",
+  "lane": "H",
+  "phase2": {
+    "green_evidence": {
+      "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowSaveShortcut.test.ts",
+      "exit_code": 0,
+      "timestamp": "2026-09-02T13:23:48.505Z"
+    },
+    "mutants": [
+      {
+        "mutation": "포커스 대신 stackOrder 최상위 선택",
+        "went_red": true
+      }
+    ]
+  }
+}

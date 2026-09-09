@@ -24,5 +24,10 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  // src/editor 는 tsconfig.editor.json 이 검사한다. 그 트리는 erasableSyntaxOnly 를
+  // 만족하지 않는 vendored 코드이고, 여기서 제외해야 이 프로젝트의 가드가 편집기
+  // 밖의 코드에 대해 살아 있다. exclude 는 tsconfig.test.json 이 extends 로 상속한다.
+  "include": ["src"],
+  "exclude": ["src/editor"],
+  "references": [{ "path": "./tsconfig.editor.json" }]
 }

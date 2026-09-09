@@ -1,0 +1,48 @@
+{
+  "round": "dirty-wiring",
+  "at": "2026-09-02T20:15:02Z",
+  "finding": "FR-MDE-008 AC-4 was vacuous. useEditorWindows hardcoded dirty: false, and nothing judged the field - the verifier flipped it to true and every suite stayed green. The unit test hands listEditorTrayEntries a record with the flag already set, so it judges the model and never the producer",
+  "my_earlier_call": "half right. I reported that editorTrayModel.test.ts covered AC-4 and was green. The model is covered; the thing that feeds it is not",
+  "wiring": {
+    "EditorWindow.tsx": "onDirtyChange reports the save controller's flag, through a ref so the inline callback at the render site does not fire it on every render",
+    "useEditorWindows.ts": "setWindowDirty updates the record, returning it unchanged when the flag already matches; updateWindow now returns the same list when no record moved, so a no-op change costs no render",
+    "App.tsx": "onDirtyChange wired to editor.setWindowDirty"
+  },
+  "test_added": {
+    "id": "TC-REQ-FR-MDE-008-AC4-03",
+    "file": "frontend/tests/e2e/markdown-editor-save.spec.ts",
+    "what": "reads the labels the tray actually renders - clean on open, starred after typing, clean again after a real save that is observed on the wire - and checks the title bar alongside, since the two draw from one value",
+    "why_e2e": "the producer is a React component plus a hook, which the DOM-free unit suite cannot reach. A unit test would have to hand in a literal record, which is what made the existing coverage vacuous"
+  },
+  "mutants": [
+    {
+      "mutation": "dirty nailed to false",
+      "went_red": true,
+      "where": "the starred assertion after typing"
+    },
+    {
+      "mutation": "dirty nailed to true (the verifier's flip)",
+      "went_red": true,
+      "where": "the clean assertion on open"
+    }
+  ],
+  "restore_verified_sha256": {
+    "useEditorWindows.ts": "b023dbcdf87c08ee46defb26db3eb44a5ed133dbe6c0dd78fdb85fb83571492e"
+  },
+  "e2e": {
+    "entry": 7,
+    "placement": 11,
+    "lifecycle": 8,
+    "save": 13,
+    "total_passed": 39,
+    "total_failed": 0
+  },
+  "regression": {
+    "tests": 983,
+    "passed": 980,
+    "failed": 3,
+    "mine": "two are the baseline PERF-BGSTAB-010 and REL-BGSTAB-012",
+    "foreign": "tests/unit/editorWindowRestore.test.ts fails on a missing export from src/hooks/windowStateStorage.ts - a red TDD test from a concurrent lane. Neither that test nor windowStateStorage.ts nor useWindowState.ts was created or touched by this lane",
+    "new_failures_in_my_scope": 0
+  }
+}

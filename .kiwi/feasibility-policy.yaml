@@ -1,0 +1,58 @@
+# feasibility -> stability mapping for this repository.
+#
+# Why this file exists: the built-in default maps medium feasibility to "keep".
+# That default assumes keeping the current value is the safe choice, which holds
+# when the current value already allows work to proceed. It does not hold here.
+# Every requirement this repository evaluates starts at draft, and draft blocks
+# implementation entry outright. Keeping a medium requirement at draft does not
+# defer the decision - it denies it permanently, and the next run reaches the
+# same wall. medium means the work is harder, not that it cannot start.
+#
+# evolving is the value that matches medium: the requirement may still change,
+# but implementation may begin. That is the whole point of the tier.
+
+rules:
+  - when:
+      feasibility: high
+      has_verification: true
+    then:
+      stability: stable
+    # Always confirmed with the user regardless of this file - see skill 0.G5.
+
+  - when:
+      feasibility: high
+    then:
+      stability: evolving
+
+  - when:
+      feasibility: medium
+    then:
+      stability: evolving
+    # Diverges from the built-in default (keep). See the note at the top.
+
+  - when:
+      feasibility: low
+    then:
+      stability: draft
+    # Low stays at draft. Here keeping the block is the correct answer: the
+    # evaluation itself says the path is unclear.
+
+  - when:
+      feasibility: blocked
+      status_in: [in_progress, implemented, verified]
+    then:
+      stability: keep
+    # Never demote something already being built on the strength of a
+    # feasibility pass. Report the conflict instead.
+
+  - when:
+      feasibility: blocked
+    then:
+      stability: deprecated
+
+gates:
+  status_conflict_policy: warn
+  require_user_confirm_for_stable: true
+  require_user_confirm_for_deprecated: true
+
+reason_template: "Feasibility={feasibility} (score {score}). {blocker_summary} Run: {run_id}"

@@ -1,0 +1,556 @@
+// The persistence criteria that only a real browser can settle.
+//
+// Three things here cannot be reached from the frontend unit suite, which has
+// no DOM environment and no renderer:
+//
+//   * FR-MDE-009 AC-4 wants the terminal host registry entry an inactive tab
+//     actually produces -- its `isVisible` flag and its measured size, not a
+//     guess derived from a bounding box. The registry is a React context value,
+//     so the page is read through `__buildergateEditorWindowDebug`, the hook
+//     the window layer already installs. Nothing here writes into the registry:
+//     a rect put there by hand would prove nothing about restoration.
+//
+//   * FR-MDE-009 AC-6 asks whether the editor is the *same instance* after a
+//     workspace round trip. Identity is read from the editor probe's
+//     `extensionsToken`, which numbers the `extensions` array object the window
+//     builds once per mount -- so an equal token means the component was never
+//     torn down. `documentId` cannot answer this: it is the file path, which a
+//     remount reproduces exactly. The round trip is watched for reads of the
+//     store's key at the same time.
+//
+//   * FR-MDE-009 AC-10 asks what one unreadable file does to the rest of a
+//     restore. It needs a file that exists when the layout is saved and is gone
+//     when it is restored, which is a filesystem fact rather than a stored one.
+
+import { mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { test, expect, type Locator, type Page } from '@playwright/test';
+
+import { login } from './helpers';
+
+declare global {
+  interface Window {
+    __buildergateEditorWindowDebug?: {
+      readTerminalHost(tabId: string): {
+        isVisible: boolean;
+        rect: { left: number; top: number; width: number; height: number };
+      } | undefined;
+      readEditorProbe(filePath: string): {
+        documentId: string;
+        markdownSource: string;
+        extensionsToken: number;
+      } | undefined;
+    };
+    /** Keys this page read from `localStorage` since the recorder was armed. */
+    __persistenceSpecReads?: string[];
+  }
+}
+
+const TAB_NAME_PREFIX = 'e2e-mde-persist';
+
+const createdDirs: string[] = [];
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * A working directory holding the three files the path menu offers, and only
+ * those: `EDITOR_INSTRUCTION_FILES` is the whole menu, so a file outside it
+ * cannot be opened through the flow these tests exercise. Their bodies differ
+ * so that a window showing the wrong one is a failed assertion rather than a
+ * coincidence.
+ */
+function makeWorkdir(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'bg-mdper-'));
+  writeFileSync(join(dir, 'CLAUDE.md'), '# alpha alpha alpha alpha alpha alpha\n', 'utf-8');
+  writeFileSync(join(dir, 'CLAUDE.local.md'), '# beta beta beta beta beta beta\n', 'utf-8');
+  writeFileSync(join(dir, 'AGENTS.md'), '# gamma gamma gamma gamma gamma gamma\n', 'utf-8');
+  createdDirs.push(dir);
+  return dir;
+}
+
+function windowStateKey(workspaceId: string): string {
+  return `window_state_${workspaceId}`;
+}
+
+async function ensureTabMode(page: Page): Promise<void> {
+  const toTabs = page.locator('button[title="Switch to Tabs"]');
+  if (await toTabs.count()) await toTabs.click();
+  await expect(page.locator('button[title="Switch to Grid"]')).toBeVisible({ timeout: 15000 });
+}
+
+async function activeWorkspaceId(page: Page): Promise<string> {
+  return page.evaluate(async () => {
+    const token = localStorage.getItem('cws_auth_token');
+    const stored = localStorage.getItem('active_workspace_id');
+    const res = await fetch('/api/workspaces', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`workspace fetch failed: ${res.status}`);
+    const state = await res.json();
+    const workspace = state.workspaces.find((item: { id: string }) => item.id === stored)
+      ?? state.workspaces[0];
+    return workspace.id as string;
+  });
+}
+
+async function addTabAt(page: Page, workspaceId: string, cwd: string, name: string): Promise<string> {
+  return page.evaluate(async ({ workspaceId, cwd, name }) => {
+    const token = localStorage.getItem('cws_auth_token');
+    const res = await fetch(`/api/workspaces/${workspaceId}/tabs`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ name, cwd }),
+    });
+    if (!res.ok) throw new Error(`tab create failed: ${res.status}`);
+    const tab = await res.json();
+    return tab.id as string;
+  }, { workspaceId, cwd, name });
+}
+
+async function createWorkspace(page: Page, name: string): Promise<string> {
+  return page.evaluate(async (name) => {
+    const token = localStorage.getItem('cws_auth_token');
+    const res = await fetch('/api/workspaces', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error(`workspace create failed: ${res.status}`);
+    const workspace = await res.json();
+    return workspace.id as string;
+  }, name);
+}
+
+async function removeOwnTabs(page: Page, workspaceId: string): Promise<void> {
+  await page.evaluate(async ({ workspaceId, prefix }) => {
+    const token = localStorage.getItem('cws_auth_token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch('/api/workspaces', { headers });
+    if (!res.ok) return;
+    const state = await res.json();
+    const owned = state.tabs.filter((tab: { id: string; name?: string; workspaceId?: string }) =>
+      typeof tab.name === 'string'
+      && tab.name.startsWith(prefix)
+      && (tab.workspaceId === undefined || tab.workspaceId === workspaceId));
+    for (const tab of owned) {
+      await fetch(`/api/workspaces/${workspaceId}/tabs/${tab.id}`, { method: 'DELETE', headers });
+    }
+  }, { workspaceId, prefix: TAB_NAME_PREFIX });
+}
+
+async function removeOwnWorkspaces(page: Page): Promise<void> {
+  await page.evaluate(async (prefix) => {
+    const token = localStorage.getItem('cws_auth_token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch('/api/workspaces', { headers });
+    if (!res.ok) return;
+    const state = await res.json();
+    const owned = state.workspaces.filter((workspace: { id: string; name?: string }) =>
+      typeof workspace.name === 'string' && workspace.name.startsWith(prefix));
+    for (const workspace of owned) {
+      await fetch(`/api/workspaces/${workspace.id}`, { method: 'DELETE', headers });
+    }
+  }, TAB_NAME_PREFIX);
+}
+
+async function selectTab(page: Page, name: string): Promise<void> {
+  await page.locator('.workspace-tabbar [role="tab"]', { hasText: name }).first().click();
+}
+
+async function selectWorkspace(page: Page, name: string): Promise<void> {
+  const option = page.locator('.sidebar [role="option"]', { hasText: name }).first();
+  await option.click();
+  await expect(option).toHaveAttribute('aria-selected', 'true', { timeout: 15000 });
+}
+
+/** The name the sidebar shows for a workspace, so no spec hardcodes one. */
+async function workspaceNameOf(page: Page, workspaceId: string): Promise<string> {
+  return page.evaluate(async (workspaceId) => {
+    const token = localStorage.getItem('cws_auth_token');
+    const res = await fetch('/api/workspaces', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`workspace fetch failed: ${res.status}`);
+    const state = await res.json();
+    const found = state.workspaces.find((item: { id: string }) => item.id === workspaceId);
+    if (!found) throw new Error(`workspace ${workspaceId} is not listed`);
+    return found.name as string;
+  }, workspaceId);
+}
+
+async function awaitReportedCwd(page: Page, expectedDir: string, scope?: Locator): Promise<string> {
+  const pathBar = (scope ?? page).locator('.metadata-cwd-path:visible').first();
+  await expect(pathBar).toHaveAttribute('title', new RegExp(escapeRegExp(expectedDir), 'i'), {
+    timeout: 30000,
+  });
+  const cwd = await pathBar.getAttribute('title');
+  if (!cwd) throw new Error('path bar reported an empty cwd');
+  return cwd;
+}
+
+async function chooseFile(page: Page, fileName: string, scope?: Locator): Promise<void> {
+  await (scope ?? page).locator('.metadata-cwd-path:visible').first().click({ button: 'right' });
+  const menu = page.locator('.context-menu[role="menu"]').first();
+  await expect(menu).toBeVisible({ timeout: 10000 });
+  await menu.locator('.context-menu-item')
+    .filter({ has: page.getByText(fileName, { exact: true }) })
+    .first()
+    .click();
+}
+
+function editorWindows(page: Page): Locator {
+  return page.locator('.window-dialog-surface.editor-window-surface');
+}
+
+/**
+ * The window whose titlebar names `fileName`.
+ *
+ * The dirty marker is absorbed by the match rather than excluded from it: an
+ * unsaved window is titled `*CLAUDE.md`, and a locator pinned to the bare name
+ * finds nothing at all from the first keystroke onwards -- which `toBeHidden`
+ * reports as a hidden window rather than as a missed one, so the assertion
+ * would pass while measuring nothing. Anchored at both ends, so the name of one
+ * file never matches the window of another.
+ */
+function editorWindowFor(page: Page, fileName: string): Locator {
+  const titled = new RegExp(`^\\*?${escapeRegExp(fileName)}$`);
+
+  return editorWindows(page).filter({
+    has: page.locator('.window-dialog-title').getByText(titled),
+  });
+}
+
+async function openWindows(page: Page, fileNames: readonly string[]): Promise<void> {
+  for (const fileName of fileNames) {
+    await chooseFile(page, fileName);
+    await expect(editorWindowFor(page, fileName)).toBeVisible({ timeout: 15000 });
+  }
+}
+
+/** The stored entries for a workspace, or null when nothing is stored. */
+async function readStoredWindows(page: Page, workspaceId: string): Promise<
+  { filePath: string; tabId: string; placement: string; stackOrder: number }[] | null
+> {
+  return page.evaluate((key) => {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return null;
+    const parsed = JSON.parse(raw) as { windows?: unknown };
+    return Array.isArray(parsed.windows) ? parsed.windows as never : null;
+  }, windowStateKey(workspaceId));
+}
+
+/**
+ * Waits until the store holds an entry for every file named, so that a reload
+ * that follows is reloading a layout that was actually written. The save runs
+ * on a React effect, so the write lands a tick after the window appears.
+ */
+async function awaitStoredWindows(
+  page: Page,
+  workspaceId: string,
+  fileNames: readonly string[],
+): Promise<void> {
+  await expect.poll(
+    async () => {
+      const stored = await readStoredWindows(page, workspaceId);
+      return (stored ?? [])
+        .map(entry => entry.filePath.split(/[\\/]/).pop())
+        .filter((name): name is string => name !== undefined)
+        .sort();
+    },
+    { timeout: 20000, message: `store did not record ${fileNames.join(', ')}` },
+  ).toEqual([...fileNames].sort());
+}
+
+/** Records every `localStorage` key this page reads from now on. */
+async function armStorageReadRecorder(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    window.__persistenceSpecReads = [];
+    const storage = window.localStorage;
+    const original = storage.getItem.bind(storage);
+    storage.getItem = (key: string) => {
+      window.__persistenceSpecReads?.push(key);
+      return original(key);
+    };
+  });
+}
+
+async function recordedReads(page: Page): Promise<string[]> {
+  return page.evaluate(() => window.__persistenceSpecReads ?? []);
+}
+
+async function readEditorProbe(page: Page, filePath: string): Promise<
+  { documentId: string; markdownSource: string; extensionsToken: number } | undefined
+> {
+  return page.evaluate(
+    (filePath) => window.__buildergateEditorWindowDebug?.readEditorProbe(filePath),
+    filePath,
+  );
+}
+
+/**
+ * The size react-rnd has written onto the window's positioned root.
+ *
+ * Read from the inline style rather than measured, because the window is asked
+ * about while it is hidden: `boundingBox()` measures layout and answers null
+ * for a `display: none` element, which cannot tell a withheld rect apart from a
+ * zero one. The computed value is the fallback for the render where react-rnd
+ * has put the size in a stylesheet rule rather than inline.
+ */
+async function editorFrameSize(page: Page, fileName: string): Promise<
+  { width: number; height: number } | null
+> {
+  return editorWindowFor(page, fileName).first().evaluate((surface) => {
+    const frame = surface.closest<HTMLElement>('.window-dialog');
+    if (frame === null) return null;
+
+    const read = (inline: string, computed: string): number => (
+      Number.parseFloat(inline !== '' ? inline : computed)
+    );
+    const style = getComputedStyle(frame);
+
+    return {
+      width: read(frame.style.width, style.width),
+      height: read(frame.style.height, style.height),
+    };
+  });
+}
+
+/**
+ * The text the editor is holding right now.
+ *
+ * Read from the document rather than from the probe: `markdownSource` reports
+ * `bodyAtOpen`, which is what the window handed the editor at mount and never
+ * moves again, so it cannot witness a keystroke. `textContent` rather than
+ * `innerText` because the window is read while it is hidden as well as while it
+ * is on screen, and `innerText` answers for the layout rather than the text.
+ */
+async function editorBodyText(page: Page, fileName: string): Promise<string> {
+  const content = editorWindowFor(page, fileName).locator('.cm-content').first();
+  return (await content.textContent()) ?? '';
+}
+
+/** Types into the window open on `fileName`, leaving the document unsaved. */
+async function typeIntoEditor(page: Page, fileName: string, text: string): Promise<void> {
+  const surface = editorWindowFor(page, fileName).first();
+  await surface.locator('.cm-content').first().click();
+  await page.keyboard.type(text);
+}
+
+test.describe('markdown editor persistence', () => {
+  let workspaceId: string | null = null;
+
+  test.beforeEach(async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop-only persistence coverage');
+    await login(page);
+    await ensureTabMode(page);
+    workspaceId = await activeWorkspaceId(page);
+    await page.evaluate((key) => localStorage.removeItem(key), windowStateKey(workspaceId));
+  });
+
+  test.afterEach(async ({ page }, testInfo) => {
+    if (testInfo.project.name !== 'Desktop Chrome' || workspaceId === null) return;
+    try {
+      await removeOwnTabs(page, workspaceId);
+      await removeOwnWorkspaces(page);
+      await page.evaluate((key) => localStorage.removeItem(key), windowStateKey(workspaceId));
+    } catch {
+      // A teardown that cannot reach the server is not a test result.
+    }
+  });
+
+  test.afterAll(() => {
+    for (const dir of createdDirs.splice(0)) {
+      try {
+        rmSync(dir, { recursive: true, force: true });
+      } catch {
+        // Reclaimed by the OS regardless.
+      }
+    }
+  });
+
+  // TC-REQ-FR-MDE-009-AC4-01
+  test('FR-MDE-009 a restored docked window waits for a usable registry entry before applying a rect', async ({ page }) => {
+    const workdir = makeWorkdir();
+    const hostTab = `${TAB_NAME_PREFIX}-ac4-host`;
+    const otherTab = `${TAB_NAME_PREFIX}-ac4-other`;
+    const hostTabId = await addTabAt(page, workspaceId!, workdir, hostTab);
+    await addTabAt(page, workspaceId!, workdir, otherTab);
+
+    await selectTab(page, hostTab);
+    await awaitReportedCwd(page, workdir);
+    await openWindows(page, ['CLAUDE.md']);
+    await awaitStoredWindows(page, workspaceId!, ['CLAUDE.md']);
+
+    // Leave the window's tab. Its slot unmounts, so the registry entry goes
+    // with it -- which is one of the four states AC-4 names.
+    await selectTab(page, otherTab);
+    await page.reload();
+    await ensureTabMode(page);
+    await selectTab(page, otherTab);
+    await awaitReportedCwd(page, workdir);
+
+    // The entry the inactive tab actually produces, read rather than assumed.
+    // AC-4 says the deferral must never be a comparison against {0,0,0,0}, and
+    // this is the measurement that shows the literal is unreachable: the
+    // registry's coordinates are stage-relative, so an inactive slot reports a
+    // negative `left` rather than a zero one.
+    const inactiveHost = await page.evaluate(
+      (tabId) => window.__buildergateEditorWindowDebug?.readTerminalHost(tabId),
+      hostTabId,
+    );
+    if (inactiveHost !== undefined) {
+      expect(
+        inactiveHost.isVisible === false
+        || inactiveHost.rect.width === 0
+        || inactiveHost.rect.height === 0,
+      ).toBe(true);
+      expect(inactiveHost.rect.left).toBeLessThan(0);
+      expect(inactiveHost.rect).not.toEqual({ left: 0, top: 0, width: 0, height: 0 });
+    }
+
+    // Restored, but withheld. The window is counted before it is judged hidden,
+    // because `toBeHidden` is satisfied just as well by a window that was never
+    // created at all.
+    await expect(editorWindowFor(page, 'CLAUDE.md')).toHaveCount(1, { timeout: 20000 });
+    await expect(editorWindowFor(page, 'CLAUDE.md')).toBeHidden({ timeout: 15000 });
+
+    // AC-4's other half: while that entry is unusable, the rect derived from it
+    // is not applied. Hiding alone does not show this -- an inactive tab's
+    // window is hidden by the tab term whether the deferral ran or not -- so
+    // what the window is holding is read instead. The inactive slot measures
+    // zero by zero, which is the size a dropped deferral would leave here.
+    const deferredSize = await editorFrameSize(page, 'CLAUDE.md');
+    expect(deferredSize).not.toBeNull();
+    expect(deferredSize!.width).toBeGreaterThan(0);
+    expect(deferredSize!.height).toBeGreaterThan(0);
+
+    // The tab comes back, the registry reports an area, and the window takes it.
+    await selectTab(page, hostTab);
+    await awaitReportedCwd(page, workdir);
+    await expect(editorWindowFor(page, 'CLAUDE.md')).toBeVisible({ timeout: 20000 });
+
+    const activeHost = await page.evaluate(
+      (tabId) => window.__buildergateEditorWindowDebug?.readTerminalHost(tabId),
+      hostTabId,
+    );
+    expect(activeHost).toBeDefined();
+    expect(activeHost!.isVisible).toBe(true);
+    expect(activeHost!.rect.width).toBeGreaterThan(0);
+    expect(activeHost!.rect.height).toBeGreaterThan(0);
+
+    // The rect on screen is the one derived from that entry, not a default.
+    const box = await editorWindowFor(page, 'CLAUDE.md').first().boundingBox();
+    expect(box).not.toBeNull();
+    expect(Math.abs(box!.width - activeHost!.rect.width)).toBeLessThanOrEqual(2);
+    expect(Math.abs(box!.height - activeHost!.rect.height)).toBeLessThanOrEqual(2);
+  });
+
+  // TC-REQ-FR-MDE-009-AC6-01
+  test('FR-MDE-009 a workspace round trip keeps the editor instance and reads no stored value', async ({ page }) => {
+    const workdir = makeWorkdir();
+    const tabName = `${TAB_NAME_PREFIX}-ac6`;
+    const otherWorkspace = `${TAB_NAME_PREFIX}-ac6-ws`;
+    const homeWorkspaceName = await workspaceNameOf(page, workspaceId!);
+    await addTabAt(page, workspaceId!, workdir, tabName);
+    const secondWorkspaceId = await createWorkspace(page, otherWorkspace);
+    await addTabAt(page, secondWorkspaceId, workdir, `${TAB_NAME_PREFIX}-ac6-other`);
+    await page.reload();
+    await ensureTabMode(page);
+
+    await selectTab(page, tabName);
+    const cwd = await awaitReportedCwd(page, workdir);
+    await openWindows(page, ['CLAUDE.md']);
+    const filePath = `${cwd.replace(/[\\/]+$/, '')}${cwd.includes('\\') ? '\\' : '/'}CLAUDE.md`;
+
+    const unsaved = 'AC6-UNSAVED-SENTINEL';
+    await typeIntoEditor(page, 'CLAUDE.md', unsaved);
+    await expect.poll(
+      async () => editorBodyText(page, 'CLAUDE.md'),
+      { timeout: 15000, message: 'the typed text never reached the editor' },
+    ).toContain(unsaved);
+
+    const before = await readEditorProbe(page, filePath);
+    expect(before).toBeDefined();
+
+    // Away and back. The recorder is armed for exactly this interval, so a read
+    // of the store during it is attributable to the round trip and to nothing
+    // else on the page.
+    await armStorageReadRecorder(page);
+    await selectWorkspace(page, otherWorkspace);
+    await expect(editorWindowFor(page, 'CLAUDE.md')).toBeHidden({ timeout: 15000 });
+    await selectWorkspace(page, homeWorkspaceName);
+    await expect(editorWindowFor(page, 'CLAUDE.md')).toBeVisible({ timeout: 20000 });
+
+    const reads = await recordedReads(page);
+    expect(reads).not.toContain(windowStateKey(workspaceId!));
+
+    const after = await readEditorProbe(page, filePath);
+    expect(after).toBeDefined();
+    // The same mount, not merely the same file: `extensions` is built once per
+    // mount, so an equal token means nothing was torn down. The typed text is
+    // asserted beside it because that is what a teardown would cost -- a
+    // remount rebuilds the document from `bodyAtOpen`, which is the disk body.
+    expect(after!.extensionsToken).toBe(before!.extensionsToken);
+    expect(await editorBodyText(page, 'CLAUDE.md')).toContain(unsaved);
+
+    // A reload is the other half: placement returns and the body comes from
+    // disk, so the unsaved text is gone by design. The disk body is asserted
+    // as well, because an editor holding nothing at all would satisfy the
+    // absence of the sentinel on its own.
+    await page.reload();
+    await ensureTabMode(page);
+    await selectTab(page, tabName);
+    await awaitReportedCwd(page, workdir);
+    await expect(editorWindowFor(page, 'CLAUDE.md')).toBeVisible({ timeout: 25000 });
+    await expect.poll(
+      async () => editorBodyText(page, 'CLAUDE.md'),
+      { timeout: 15000, message: 'the restored window never reported a body' },
+    ).toContain('alpha');
+    expect(await editorBodyText(page, 'CLAUDE.md')).not.toContain(unsaved);
+  });
+
+  // TC-REQ-FR-MDE-009-AC10-01
+  test('FR-MDE-009 a stored entry whose file is gone drops that window alone and restores the rest', async ({ page }) => {
+    const workdir = makeWorkdir();
+    const tabName = `${TAB_NAME_PREFIX}-ac10`;
+    await addTabAt(page, workspaceId!, workdir, tabName);
+    await selectTab(page, tabName);
+    await awaitReportedCwd(page, workdir);
+
+    await openWindows(page, ['CLAUDE.md', 'CLAUDE.local.md']);
+    await awaitStoredWindows(page, workspaceId!, ['CLAUDE.md', 'CLAUDE.local.md']);
+
+    // One of the two files disappears between the save and the restore. The
+    // stored value is untouched and well formed; what changed is the world it
+    // points at, which is what separates this from AC-9.
+    unlinkSync(join(workdir, 'CLAUDE.local.md'));
+
+    await page.reload();
+    await ensureTabMode(page);
+    await selectTab(page, tabName);
+    await awaitReportedCwd(page, workdir);
+
+    // The surviving window is counted directly. Asserting only that no error
+    // appeared would also pass an implementation that restored nothing at all.
+    await expect(editorWindowFor(page, 'CLAUDE.md')).toBeVisible({ timeout: 25000 });
+    await expect.poll(
+      async () => editorWindows(page).count(),
+      { timeout: 20000, message: 'the restore did not settle on one window' },
+    ).toBe(1);
+    await expect(editorWindowFor(page, 'CLAUDE.local.md')).toHaveCount(0);
+
+    // And nothing was surfaced about the file that is gone.
+    await expect(page.locator('.editor-window-error')).toHaveCount(0);
+    await expect(page.locator('[role="alertdialog"]')).toHaveCount(0);
+  });
+});

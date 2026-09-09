@@ -618,7 +618,27 @@ export class WorkspaceService {
     }
 
     ws.updatedAt = new Date().toISOString();
-    await this.save(true);
+    try {
+      await this.save(true);
+    } catch (error) {
+      // The PTY is already running and nothing else owns it, so a rejected
+      // store write would otherwise leave it behind (REL-BGSTAB-021). The active
+      // tab is re-chosen from what survives rather than restored from a snapshot
+      // taken before the await, which would erase a concurrent add (deleteTab
+      // picks the same way).
+      this.state.tabs = this.state.tabs.filter(t => t.id !== tab.id);
+      if (ws.activeTabId === tab.id) {
+        const remaining = this.getWorkspaceTabs(workspaceId);
+        ws.activeTabId = remaining.length > 0 ? remaining[0].id : null;
+      }
+      this.cancelPendingTerminalTitle(sessionDTO.id);
+      try {
+        await this.sessionManager.terminateSession(sessionDTO.id, { reason: 'tab-delete' });
+      } catch (cleanupError) {
+        console.warn('[WorkspaceService] Failed to terminate session after add save failure:', cleanupError);
+      }
+      throw error;
+    }
     return tab;
   }
 
@@ -1648,6 +1668,7 @@ export class WorkspaceService {
 
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private isImmediateFlush = false;
+  private flushChain: Promise<void> = Promise.resolve();
 
   async save(immediate = false): Promise<void> {
     if (immediate || this.isImmediateFlush) {
@@ -1686,7 +1707,23 @@ export class WorkspaceService {
     await this.flushToDisk();
   }
 
-  private async flushToDisk(): Promise<void> {
+  /**
+   * Serializes every write to the store. Two flushes running at once share one
+   * `.tmp` path, so the first rename moves it away and the second finds no
+   * source. Each queued write snapshots state when it runs rather than when it
+   * is queued, so a caller's completion always implies its own change reached
+   * the disk (REL-BGSTAB-020).
+   */
+  private flushToDisk(): Promise<void> {
+    const run = this.flushChain.then(
+      () => this.writeStateToDisk(),
+      () => this.writeStateToDisk(),
+    );
+    this.flushChain = run.then(() => undefined, () => undefined);
+    return run;
+  }
+
+  private async writeStateToDisk(): Promise<void> {
     const file: WorkspaceFile = {
       version: 1,
       lastUpdated: new Date().toISOString(),

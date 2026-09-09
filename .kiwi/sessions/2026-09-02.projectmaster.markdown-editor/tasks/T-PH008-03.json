@@ -1,0 +1,50 @@
+{
+ "task_id": "T-PH008-03",
+ "lane": "lane-N-persistence",
+ "started_at": "2026-09-02T20:26:14.772Z",
+ "completed_at": "2026-09-02T20:26:14.772Z",
+ "phase1": {
+  "tdd_draft_iters": [
+   {
+    "iter": 1
+   },
+   {
+    "iter": 2,
+    "note": "검증 HIGH 2건 반영 후 재작성"
+   }
+  ],
+  "red_evidence": {
+   "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowRestore.test.ts",
+   "exit_code": 1,
+   "captured_failure": "SyntaxError: does not provide an export named 'restoreEditorWindowStackOrder'",
+   "timestamp": "2026-09-02T20:26:14.772Z"
+  },
+  "probe_checks": [
+   {
+    "probe": "restoreEditorWindowStackOrder 최소 구현 (records+mapper, stackOrder 정렬)",
+    "result": "3/3 pass",
+    "reverted": true,
+    "hash_match": true
+   },
+   {
+    "mutation": "정렬 생략",
+    "went_red": true,
+    "killed_assertion": "복원된 창들이 저장된 스택 순서로 서지 않았다"
+   },
+   {
+    "mutation": "filePath 대신 tabId 로 dialog id 생성",
+    "went_red": true,
+    "killed_assertion": "동일"
+   },
+   {
+    "mutation": "정렬 방향 반전",
+    "went_red": true,
+    "killed_assertion": "동일"
+   }
+  ]
+ },
+ "findings_reported": [
+  "AC-7 의 단위 수준 RED 는 성립하지 않는다 — 이미 프로덕션에서 만족됨",
+  "restoreEditorWindowStackOrder 의 계약이 records + toDialogId 로 확정됨"
+ ]
+}

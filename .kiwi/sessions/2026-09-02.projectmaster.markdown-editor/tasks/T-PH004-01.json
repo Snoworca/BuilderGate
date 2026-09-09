@@ -1,0 +1,78 @@
+{
+  "task_id": "T-PH004-01",
+  "phase_id": "PH-004",
+  "lane": "E",
+  "started_at": "2026-09-02T11:05:00Z",
+  "completed_at": "2026-09-02T11:22:00Z",
+  "phase1": {
+    "tdd_draft_iters": [
+      {
+        "iter": 1,
+        "file_paths": ["frontend/tests/unit/editorWindowPlacement.test.ts"],
+        "test_count": 5
+      },
+      {
+        "iter": 2,
+        "file_paths": ["frontend/tests/unit/editorWindowPlacement.test.ts"],
+        "test_count": 4,
+        "change": "S1 의 HIGH finding 을 받아 다섯 번째 테스트(터미널 채움 / isTerminalFillDisabled)를 제거했다"
+      }
+    ],
+    "sonnet_reviews": [
+      {
+        "iter": 1,
+        "intent_alignment": {
+          "findings": [
+            {
+              "severity": "HIGH",
+              "problem": "터미널 채움 테스트가 AC-3 영역이며 T-PH004-01 의 covers_ac=[AC-1,AC-2,AC-4] 밖이다. FR-MDE-001 의 Verification Method 와 T-PH007-07 이 AC-3 을 Playwright E2E 에 배정해 두었다. 또한 그 테스트가 단언한 'fillTerminal 이 floatingRect 를 null 로 만든다' 는 어떤 AC 도 말하지 않은 제약이다",
+              "resolution": "accepted — 해당 테스트 블록과 두 import 를 제거했다"
+            },
+            {
+              "severity": "MEDIUM",
+              "problem": "계획 산문과 AC 의 불일치: T-PH004-02 의 action 은 모듈이 터미널 채움과 그 비활성 근거를 담으라고 요구하지만, 같은 Task 의 covers_ac 는 AC-3 을 포함하지 않고 Verification Method 는 AC-3 을 E2E 에 배정한다",
+              "resolution": "reported — 계약 판정은 이 레인의 권한 밖이라 보고만 한다. T-PH004-02 는 action 대로 모듈에 두 함수를 두되 단위 단언은 걸지 않는다"
+            },
+            {
+              "severity": "MEDIUM",
+              "problem": "AC-1 테스트가 floating→stage→floating 왕복과 floatingRect 보존까지 단언한다. AC-1 문면은 docked↔stage 만 말한다",
+              "resolution": "rejected — 요구사항 본문의 '최대화 는 stage 가 아니면 직전 상태를 기록하고, 이미 stage 면 기록된 상태로 돌아간다' 와 T-PH004-01 의 action('세 배치 상태의 어떤 전이 조합에서도 목적지가 정의된다')이 직접 요구하는 전이다. floatingRect 가 보존되지 않으면 돌아갈 rect 자체가 없어 전이가 성립하지 않는다"
+            },
+            {
+              "severity": "LOW",
+              "problem": "DOM 부재 테스트가 선언된 test_case 3건 밖의 네 번째 테스트다",
+              "resolution": "rejected — 이 Task 의 dod '전이 함수가 DOM 을 참조하지 않는다' 를 검사 가능한 형태로 만든 것이다. 단언 없이는 그 dod 가 아무도 측정하지 않은 환경 사실에 기대게 된다"
+            }
+          ]
+        },
+        "tech_quality": { "findings": [] }
+      }
+    ],
+    "red_evidence": {
+      "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowPlacement.test.ts",
+      "exit_code": 1,
+      "captured_failure": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'frontend\\src\\components\\editor\\editorWindowPlacement.ts' imported from 'frontend\\tests\\unit\\editorWindowPlacement.test.ts' — tests 1 / pass 0 / fail 1",
+      "timestamp": "2026-09-02T11:22:00Z"
+    },
+    "red_evidence_meta": {
+      "expected_failure_signature": "editorWindowPlacement 모듈이 없어 import 가 실패한다",
+      "signature_matched": true,
+      "test_case_ids": [
+        "TC-REQ-FR-MDE-001-AC1-01",
+        "TC-REQ-FR-MDE-001-AC2-01",
+        "TC-REQ-FR-MDE-001-AC4-01"
+      ],
+      "note": "모듈 부재는 파일 전체의 로드를 막으므로 node:test 는 파일 하나를 실패 1건으로 집계한다. 선언된 세 test_case 는 모두 이 실패에 포함된다"
+    }
+  },
+  "deviations": [
+    {
+      "kind": "sidecar-not-written",
+      "detail": "sidecar 의 tdd.red_evidence 슬롯을 채우지 않았다. 네 레인이 같은 sidecar 파일을 공유하며 동시에 작업하므로 team-lead 가 사이드카 수정을 금지했다. 증거는 본 파일이 SSOT 다"
+    },
+    {
+      "kind": "state-json-not-written",
+      "detail": "state.json 은 레인들이 공유하는 단일 파일이라 read-modify-write 가 다른 레인의 갱신을 덮어쓴다. 이 레인은 자기 task 파일만 쓴다"
+    }
+  ]
+}

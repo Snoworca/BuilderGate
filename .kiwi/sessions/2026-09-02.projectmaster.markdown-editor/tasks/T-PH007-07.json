@@ -1,0 +1,35 @@
+{
+  "task_id": "T-PH007-07",
+  "lane": "J",
+  "phase1": {
+    "tdd_draft_iters": [
+      { "iter": 1, "file_paths": ["frontend/tests/e2e/markdown-editor-placement.spec.ts"] },
+      { "iter": 2, "note": "resolved 2 CRITICAL and 3 HIGH from the two review axes" },
+      { "iter": 3, "note": "CON-MDE-001 AC-5 hit test removed: the modal marks #root inert, so the toast is deliberately not pointer-reachable while a modal is up. The assertion had invented a requirement the criterion does not state." }
+    ],
+    "sonnet_reviews": [
+      { "iter": 1, "intent_alignment": { "CRITICAL": 1, "HIGH": 1, "MEDIUM": 5, "LOW": 1 }, "tech_quality": { "CRITICAL": 1, "HIGH": 2, "MEDIUM": 0, "LOW": 2 } }
+    ],
+    "gate_after_revision": { "CRITICAL": 0, "HIGH": 0 },
+    "red_evidence": {
+      "command": "npx playwright test tests/e2e/markdown-editor-placement.spec.ts --project \"Desktop Chrome\" --retries=0 (cwd=frontend)",
+      "exit_code": 1,
+      "captured_failure": "10 failed, 1 passed (3.4m). Every failure is expect(locator).toBeVisible() on the editor window surface: no editor window can mount, so none of the placement, stacking or inert criteria has anything to observe.",
+      "timestamp": "2026-09-03T00:20:00Z"
+    },
+    "red_evidence_meta": {
+      "passing_cases": ["TC-REQ-CON-MDE-001-AC5-01"],
+      "passing_reason": "The toast criterion is judged without any editor window: it only needs the command preset modal, and it confirms the modal band is still 5000 while the toast is 5100. It serves as the control that the other ten fail for a real reason.",
+      "failing_cases": ["TC-REQ-FR-MDE-001-AC3-01", "TC-REQ-FR-MDE-001-AC8-03", "TC-REQ-FR-MDE-001-AC9-01", "TC-REQ-FR-MDE-004-AC8-01", "TC-REQ-FR-MDE-003-AC1-01", "TC-REQ-FR-MDE-003-AC2-01", "TC-REQ-FR-MDE-003-AC3-01", "TC-REQ-FR-MDE-003-AC4-01", "TC-REQ-FR-MDE-003-AC6-01", "TC-REQ-CON-MDE-001-AC6-01"],
+      "signature_correspondence": "The sidecar signatures name the specific wrong behaviour each criterion guards against. The observed failure is upstream of all ten: no window mounts at all. FR-MDE-003 AC-1's signature 'raise is not wired' is literally true -- raise() has zero production call sites.",
+      "hook_contract": "FR-MDE-001 AC-9 needs window.__buildergateEditorWindowDebug.readTerminalHost(tabId) returning the registry entry or undefined. Nothing exposes the host registry to a page today. The install site is EditorWindowLayer.tsx, which already reads hosts and is in T-PH007-08's file list. Precedent: utils/terminalDebugCapture.ts, installed in every build with only its mutating methods gated on localhost.",
+      "environment": "dev bundle, Vite proxy confirmed, 2FA disabled."
+    }
+  },
+  "phase2": { "note": "red-only task; the file list is the spec alone and no product code changed." },
+  "deferred_findings": [
+    { "severity": "LOW", "problem": "EDITOR_MIN_SIZE 320x240 is retyped in the spec because EditorWindow does not export its constant." },
+    { "severity": "LOW", "problem": "Four setup helpers are duplicated from markdown-editor-entry.spec.ts; helpers.ts is outside this task's file list." }
+  ],
+  "sidecar_not_updated": "docs/plans/* is write-forbidden for this lane; the evidence above is the record."
+}

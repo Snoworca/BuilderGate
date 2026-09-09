@@ -1,0 +1,34 @@
+{
+  "task_id": "T-PH007-07",
+  "iter": 1,
+  "pass": "tdd-review",
+  "target_file": "frontend/tests/e2e/markdown-editor-placement.spec.ts",
+  "axes": {
+    "intent-alignment": {
+      "model": "sonnet",
+      "findings": [
+        { "severity": "CRITICAL", "ac": "FR-MDE-003 AC-6", "problem": "The criterion is conditioned on a raise happening while the modal is open, and the test never raised anything. A shared modal/modeless stack -- the regression the criterion exists for -- would have passed.", "resolution": "A pointerdown is dispatched at a window's title bar while the modal is up, the raise is asserted to have taken effect, and only then are the modal's z-order, Tab containment and Escape re-checked." },
+        { "severity": "HIGH", "ac": "FR-MDE-004 AC-8", "problem": "Only the horizontal axis was asserted; the criterion names width and height.", "resolution": "Height equality and vertical containment added." },
+        { "severity": "MEDIUM", "ac": "FR-MDE-004 AC-8", "problem": "The neighbour-overlap loop skipped a null box, so finding no neighbours at all would have reported the clause as satisfied.", "resolution": "Neighbours are collected and counted before the loop runs." },
+        { "severity": "MEDIUM", "ac": "FR-MDE-001 AC-3", "problem": "Only docked and stage were exercised; the criterion names floating as well.", "resolution": "A title bar drag puts the window into floating and the control is asserted enabled there." },
+        { "severity": "MEDIUM", "ac": "FR-MDE-001 AC-8", "problem": "Only the stored size was excluded; a rect keeping the stored origin would have passed.", "resolution": "x and y are excluded too, and the box is asserted to sit inside the stage." },
+        { "severity": "MEDIUM", "ac": "FR-MDE-003 AC-3", "problem": "A dispatched event cannot show that the default action still happens, only that preventDefault was not called.", "resolution": "A real mouse press follows, and the caret is asserted to have landed inside the editor content." },
+        { "severity": "MEDIUM", "ac": "FR-MDE-001 AC-9", "problem": "Surface hiding is explained by the tab rule alone, so it cannot carry the causal clause.", "resolution": "Kept as a synchronisation wait; the substance of the assertion is the registry entry itself." },
+        { "severity": "LOW", "problem": "The debug hook's declared shape carries a rect field no assertion reads.", "resolution": "Kept deliberately: the hook returns the registry entry as it is, and a projection would misdescribe what was read." }
+      ]
+    },
+    "tech-quality": {
+      "model": "sonnet",
+      "findings": [
+        { "severity": "CRITICAL", "problem": "A command preset created by the toast test was never deleted, and the copy button was located without disambiguation, so a second run would find two rows sharing one label and fail on strict mode -- a failure the spec caused itself.", "resolution": "Presets carrying this spec's label prefix are cleared before the row is created and again in teardown, and the locator takes the first match." },
+        { "severity": "HIGH", "problem": "expect.poll compared a live value against an operand read once before the press. Raising reindexes the whole stack, so the frozen operand named a z-index the stack no longer had and the poll would have timed out on a correct implementation.", "resolution": "Both operands are now read inside the polled callback, as a single difference." },
+        { "severity": "HIGH", "problem": "The covered-window press was dispatched at the node, which bypasses the hit test and so never showed the covered window was reachable at all.", "resolution": "A real mouse click at a point computed to lie inside the back window and outside the front one, with an elementFromPoint check that the point resolves to a window surface. The nested-content case keeps the dispatch on purpose, since what it isolates is the event phase." },
+        { "severity": "LOW", "problem": "The editor minimum size is retyped rather than imported.", "resolution": "Not resolved: EditorWindow does not export the constant, and this task's file list is the spec alone. Reported." },
+        { "severity": "LOW", "problem": "Four helpers are duplicated from the sibling entry spec instead of living in helpers.ts.", "resolution": "Not resolved: helpers.ts is outside this task's file list. Reported." }
+      ]
+    },
+    "req-mapping": { "runner": "script", "result": "eleven test titles equal the eleven test_symbol values; req_id and ac_refs match the sidecar task" },
+    "red-verification": { "runner": "playwright", "result": "recorded in red_evidence" }
+  },
+  "gate": { "critical": 0, "high": 0, "note": "all CRITICAL and HIGH findings resolved in iteration 2 of the draft; two LOW deferred for scope and reported" }
+}
