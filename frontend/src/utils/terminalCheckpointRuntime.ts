@@ -11,6 +11,7 @@ import type {
   TerminalCheckpointStartMessage,
   TerminalCheckpointViewRegistration,
   TerminalCheckpointWireIdentity,
+  TerminalDeliveryDataGapMessage,
   TerminalCompatibilityDrainIdentity,
   TerminalLegacyResponderEnabledMessage,
   TerminalAuthorityRollbackStartMessage,
@@ -62,6 +63,10 @@ export interface TerminalCheckpointRuntimeOptions {
   }>) => void;
   requestFreshRecovery: (reason: string) => void;
   advanceViewGeneration: (viewGeneration: number) => void;
+  onHiddenDataGapAdmitted?: (
+    message: Readonly<TerminalDeliveryDataGapMessage>,
+    context: TerminalHiddenGapContext,
+  ) => void;
   onAuthorityStateChange?: (
     state:
       | 'legacy'
@@ -126,7 +131,19 @@ export interface TerminalCheckpointFailureBoundary {
   readonly checkpointEpoch?: string;
 }
 
+export type TerminalHiddenGapContext = Readonly<{
+  sessionId: string;
+  connectionId: string | null;
+  viewGeneration: number | null;
+  visibility: Readonly<{ generation: bigint; isVisible: boolean; deliveryInterestRefCount: number }> | null;
+}>;
+
+export type TerminalHiddenGapResult =
+  | Readonly<{ accepted: true; duplicate: boolean }>
+  | Readonly<{ accepted: false; reason: string }>;
+
 export interface TerminalCheckpointRuntime {
+  admitHiddenDataGap: (message: TerminalDeliveryDataGapMessage, context: TerminalHiddenGapContext) => TerminalHiddenGapResult;
   setCapability: (
     capability: TerminalCheckpointCapabilityMessage | null,
   ) => TerminalWriteCoordinatorResult;
@@ -158,6 +175,7 @@ export interface TerminalCheckpointRuntime {
 }
 
 export interface TerminalCheckpointDispatcherRegistry {
+  admitHiddenDataGap: (message: TerminalDeliveryDataGapMessage, context: TerminalHiddenGapContext) => TerminalHiddenGapResult;
   selectFreshCapability: (
     capability: TerminalCheckpointCapabilityMessage,
   ) => TerminalCheckpointCapabilityMessage | null;
@@ -389,7 +407,7 @@ function laterBoundary(
 
 const ACCEPTED: TerminalWriteCoordinatorResult = Object.freeze({ accepted: true });
 
-function rejected(reason: string): TerminalWriteCoordinatorResult {
+function rejected(reason: string): Readonly<{ accepted: false; reason: string }> {
   return Object.freeze({ accepted: false, reason });
 }
 
@@ -673,6 +691,7 @@ export function createTerminalCheckpointRuntime(
   const sentCheckpointDeliveryIds = new Set<string>();
   let disposed = false;
   let inputSettlementSequence = 0;
+  let lastNotifiedGap: string | null = null;
 
   const coordinator = (): TerminalWriteCoordinator | null => (
     disposed ? null : options.getCoordinator()
@@ -867,6 +886,63 @@ export function createTerminalCheckpointRuntime(
     options.onAuthorityStateChange?.('recovery-required');
     options.requestFreshRecovery(reason);
     return rejected(reason);
+  };
+
+  // REL-BGSTAB-012: admit the loss notification before requesting its recovery.
+  const admitHiddenDataGap = (
+    message: TerminalDeliveryDataGapMessage,
+    context: TerminalHiddenGapContext,
+  ): TerminalHiddenGapResult => {
+    if (disposed || !runtimeCapabilityActive()) return rejected('checkpoint-delivery-inactive');
+    if (activeIdentity === null && !recoveryPending) return rejected('hidden-gap-authority-unavailable');
+    if (message.sessionId !== options.sessionId || context.sessionId !== options.sessionId
+      || !context.connectionId || message.connectionId !== context.connectionId
+      || context.viewGeneration !== viewGeneration || message.viewGeneration !== viewGeneration) {
+      return rejected('hidden-gap-routing-identity-mismatch');
+    }
+    if (message.type !== 'terminal-delivery:data-gap'
+      || !['visibilityGeneration', 'lastDeliveredSeq', 'streamEpoch', 'checkpointEpoch', 'snapshotSeq', 'oldestRetainedSeq']
+        .every(key => canonicalOrdinal64(message[key as keyof TerminalDeliveryDataGapMessage]) !== undefined)
+      || typeof message.retentionPolicyId !== 'string' || message.retentionPolicyId.length === 0
+      || message.continuityAuthority !== 'server-issued'
+      || message.authoritativeModelCommitted !== true || message.terminalFactsCommitted !== true
+      || !Number.isSafeInteger(message.deliveryInterestRefCount) || message.deliveryInterestRefCount < 0) {
+      return rejected('invalid-hidden-gap');
+    }
+    const floor = laterBoundary(failedBoundary, activeIdentity);
+    const streamEpoch = BigInt(message.streamEpoch), checkpointEpoch = BigInt(message.checkpointEpoch);
+    if (floor && (streamEpoch < floor.streamEpoch
+      || (streamEpoch === floor.streamEpoch && checkpointEpoch < floor.checkpointEpoch))) {
+      return rejected('stale-hidden-gap-boundary');
+    }
+    if (!context.visibility || BigInt(message.visibilityGeneration) > context.visibility.generation) {
+      const reason = context.visibility ? 'hidden-gap-future-visibility' : 'hidden-gap-visibility-unavailable';
+      failClosed(reason);
+      return rejected(reason);
+    }
+    const identity = JSON.stringify([
+      message.sessionId, message.connectionId, message.viewGeneration, message.visibilityGeneration,
+      message.lastDeliveredSeq, message.streamEpoch, message.checkpointEpoch, message.snapshotSeq,
+      message.oldestRetainedSeq, message.retentionPolicyId, message.deliveryInterestRefCount,
+    ]);
+    if (recoveryPending && identity === lastNotifiedGap) return Object.freeze({ accepted: true, duplicate: true });
+    const notify = options.onHiddenDataGapAdmitted;
+    if (!notify) {
+      failClosed('hidden-gap-owner-unavailable');
+      return rejected('hidden-gap-owner-unavailable');
+    }
+    const gap = Object.freeze({ ...message });
+    const routing = Object.freeze({ ...context, visibility: Object.freeze({ ...context.visibility }) });
+    try {
+      notify(gap, routing);
+    } catch (error) {
+      try { failClosed('hidden-gap-owner-notification-failed', true, null, gap); }
+      catch (recoveryError) { throw new AggregateError([error, recoveryError], 'Hidden gap notification and recovery failed'); }
+      throw error;
+    }
+    lastNotifiedGap = identity;
+    failClosed('hidden-data-gap-authoritative-recovery-required', true, null, gap);
+    return Object.freeze({ accepted: true, duplicate: false });
   };
 
   const installFreshGeneration = (
@@ -1493,6 +1569,7 @@ export function createTerminalCheckpointRuntime(
         ].join(':'),
       });
     },
+    admitHiddenDataGap,
     checkpointApplied: (metadata: TerminalCheckpointLifecycleMetadata) => sendLifecycleAck('apply', metadata),
     checkpointDrained: (metadata: TerminalCheckpointLifecycleMetadata) => sendLifecycleAck('drain', metadata),
     coordinatorRecoveryFailed: (
@@ -1780,6 +1857,12 @@ export function createTerminalCheckpointDispatcherRegistry(): TerminalCheckpoint
             handled: true,
             reason: decision.reason ?? 'checkpoint-dispatch-rejected',
           });
+    },
+    admitHiddenDataGap(message: TerminalDeliveryDataGapMessage, context: TerminalHiddenGapContext): TerminalHiddenGapResult {
+      if (!isActiveCapability(capabilityFor(message.sessionId))) return rejected('checkpoint-delivery-inactive');
+      const dispatcher = dispatchers.get(message.sessionId);
+      if (!dispatcher) return rejected('checkpoint-dispatcher-unavailable');
+      return dispatcher.admitHiddenDataGap(message, context);
     },
     failSession(
       sessionId: string,
