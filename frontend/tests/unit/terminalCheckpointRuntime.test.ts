@@ -997,6 +997,25 @@ test('REL-BGSTAB-012 gap uses a pending failure floor without inventing an activ
   assert.equal(seen.length, 1);
 });
 
+test('REL-BGSTAB-012 cold capability without checkpoint identity cannot admit a gap', () => {
+  const notifications: unknown[] = [];
+  const h = createHarness(true, undefined, 'session-1', message => notifications.push(message));
+  const registry = createTerminalCheckpointDispatcherRegistry();
+  registry.register('session-1', h.runtime);
+  registry.setCapability(ACTIVE_CAPABILITY);
+  assert.equal(h.runtime.getState().active, true);
+  assert.equal(h.runtime.getState().recoveryPending, false);
+  assert.equal(h.runtime.getState().ready, false);
+  const before = h.runtime.getState();
+  const counts = [h.commands.length, h.sent.length, h.recovery.length];
+  assert.deepEqual(gapAdmission(registry)(hiddenGap(), gapContext()), {
+    accepted: false, reason: 'hidden-gap-authority-unavailable',
+  });
+  assert.deepEqual(notifications, []);
+  assert.deepEqual(h.runtime.getState(), before);
+  assert.deepEqual([h.commands.length, h.sent.length, h.recovery.length], counts);
+});
+
 test('REL-BGSTAB-012 admitted gap identity is stable after caller-owned input mutation', () => {
   const seen: unknown[] = [];
   const h = gapHarness(message => seen.push(message));

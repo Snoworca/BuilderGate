@@ -52,6 +52,7 @@ function dispatcher(received: Array<TerminalCheckpointCapabilityMessage | null>)
     checkpointApplied: () => ({ accepted: true }),
     checkpointDrained: () => ({ accepted: true }),
     coordinatorRecoveryFailed: () => ({ accepted: true }),
+    admitHiddenDataGap: () => ({ accepted: false, reason: 'checkpoint-delivery-inactive' }),
     rollbackToLegacy: () => ({ accepted: true }),
     beginCompatibilityRollback: () => ({ accepted: true }),
     beginLegacyRecovery: () => ({ accepted: true }),
