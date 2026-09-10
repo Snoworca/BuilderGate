@@ -2,12 +2,20 @@
 //
 // A window used to open over the terminal it was launched from, sized to that
 // terminal's own area. It holds documents opened from several terminals now, so
-// there is no single terminal to size it against and it opens against the
-// viewport instead.
+// there is no single terminal to size it against.
 //
-// Nothing here reads the DOM. The viewport is handed in, which is what lets the
-// rule be decided without a browser and keeps the measurement in one place --
-// the caller that already knows which window object it is measuring.
+// Size and position come from two different boxes, and keeping them apart is
+// the whole subject of this module. The ratio is taken against the viewport,
+// because the window is no longer sized against any one terminal's area. The
+// centring is done inside the box the window is confined to -- the stage, which
+// excludes the sidebar, the header and the tab bar -- because a rect centred in
+// the viewport and then confined to a smaller box is not centred any more: it is
+// pushed against that box's near edge, which is what the confinement does to
+// anything overhanging it.
+//
+// Nothing here reads the DOM. Both boxes are handed in, which is what lets the
+// rule be decided without a browser and keeps each measurement with the caller
+// that already knows what it is measuring.
 // @req FR-MDE-001
 
 import type { DialogRect } from '../dialog/types';
@@ -25,6 +33,18 @@ export interface EditorWindowViewport {
   height: number;
 }
 
+/**
+ * The box a window is confined to and centred in, in the shape
+ * `getBoundingClientRect()` returns: viewport coordinates, `left`/`top` rather
+ * than `x`/`y`.
+ */
+export interface EditorWindowBounds {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 /** The floor a window is not opened below, in the shape `Rnd` takes it. */
 export interface EditorWindowMinSize {
   width: number;
@@ -33,42 +53,47 @@ export interface EditorWindowMinSize {
 
 /**
  * The rect a window opens at: `INITIAL_EDITOR_WINDOW_VIEWPORT_RATIO` of the
- * viewport in each axis, centred, and never below `minSize`.
+ * viewport in each axis, confined to `bounds`, centred in it, and never below
+ * `minSize`.
  *
- * The floor wins over the centring rather than the other way round. On a
- * viewport narrower than the floor that leaves part of the window off screen,
- * which is the side this rule takes: a window shrunk under its own minimum
- * cannot show its title bar, and a window whose title bar is gone cannot be
- * moved back.
+ * The floor wins over both the ratio and the confinement. On a box smaller than
+ * the floor that leaves part of the window outside it, which is the side this
+ * rule takes: a window shrunk under its own minimum cannot show its title bar,
+ * and a window whose title bar is gone cannot be moved back.
  *
- * A viewport that is zero, negative or not a number is treated as no
- * measurement at all rather than propagated. Layout has not necessarily
- * happened when a window is created, and a rect carrying NaN never reaches the
- * screen.
+ * A measurement that is zero, negative or not a number is treated as no
+ * measurement rather than propagated. Layout has not necessarily happened when
+ * a window is created, and a rect carrying NaN never reaches the screen.
  *
  * @req FR-MDE-001
  */
 export function computeInitialEditorWindowRect(
   viewport: EditorWindowViewport,
+  bounds: EditorWindowBounds,
   minSize: EditorWindowMinSize,
 ): DialogRect {
-  const available = {
-    width: usableExtent(viewport.width),
-    height: usableExtent(viewport.height),
-  };
+  const viewportWidth = usableExtent(viewport.width);
+  const viewportHeight = usableExtent(viewport.height);
+  const boundsWidth = usableExtent(bounds.width);
+  const boundsHeight = usableExtent(bounds.height);
 
+  // Ratio first, then confinement, then the floor -- in that order, so the
+  // floor is the one that survives all three.
   const width = Math.max(
     minSize.width,
-    Math.round(available.width * INITIAL_EDITOR_WINDOW_VIEWPORT_RATIO),
+    Math.min(boundsWidth, Math.round(viewportWidth * INITIAL_EDITOR_WINDOW_VIEWPORT_RATIO)),
   );
   const height = Math.max(
     minSize.height,
-    Math.round(available.height * INITIAL_EDITOR_WINDOW_VIEWPORT_RATIO),
+    Math.min(boundsHeight, Math.round(viewportHeight * INITIAL_EDITOR_WINDOW_VIEWPORT_RATIO)),
   );
 
+  const left = usableOrigin(bounds.left);
+  const top = usableOrigin(bounds.top);
+
   return {
-    x: Math.max(0, Math.round((available.width - width) / 2)),
-    y: Math.max(0, Math.round((available.height - height) / 2)),
+    x: left + Math.max(0, Math.round((boundsWidth - width) / 2)),
+    y: top + Math.max(0, Math.round((boundsHeight - height) / 2)),
     width,
     height,
   };
@@ -76,4 +101,8 @@ export function computeInitialEditorWindowRect(
 
 function usableExtent(value: number): number {
   return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function usableOrigin(value: number): number {
+  return Number.isFinite(value) ? value : 0;
 }

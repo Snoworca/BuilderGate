@@ -38,6 +38,7 @@ import {
   editorWindowDialogId,
 } from '../components/editor/EditorWindow.tsx';
 import { computeInitialEditorWindowRect } from '../components/editor/editorWindowInitialRect.ts';
+import { EDITOR_WINDOW_BOUNDS_SELECTOR } from '../components/editor/editorWindowBounds.ts';
 import {
   minimizeEditorWindow,
   type EditorWindowScreen,
@@ -327,14 +328,30 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
       // one window per document used to avoid by covering only its own
       // terminal.
       //
-      // The viewport is measured here rather than inside the rule, so the rule
-      // stays decidable without a browser. The guard is not defensive padding:
-      // suites run this module with no DOM installed, where a bare `window` is
-      // a ReferenceError rather than an absent value.
-      const measured = typeof window === 'undefined'
+      // Two boxes are measured, not one. The size comes from the viewport; the
+      // position is centred inside the stage, because the stage is what the
+      // window layer confines a floating window to. Centring against the
+      // viewport alone put the window against the stage's left edge, the
+      // sidebar's width away from where it belonged.
+      //
+      // Measured here rather than inside the rule, so the rule stays decidable
+      // without a browser. The guard is not defensive padding: suites run this
+      // module with no DOM installed, where a bare `window` is a ReferenceError
+      // rather than an absent value.
+      const viewport = typeof window === 'undefined'
         ? { width: 0, height: 0 }
         : { width: window.innerWidth, height: window.innerHeight };
-      const initialRect = computeInitialEditorWindowRect(measured, EDITOR_WINDOW_MIN_SIZE);
+      const stage = typeof document === 'undefined'
+        ? null
+        : document.querySelector(EDITOR_WINDOW_BOUNDS_SELECTOR);
+      const bounds = stage === null
+        ? { left: 0, top: 0, ...viewport }
+        : stage.getBoundingClientRect();
+      const initialRect = computeInitialEditorWindowRect(
+        viewport,
+        bounds,
+        EDITOR_WINDOW_MIN_SIZE,
+      );
 
       return [...current, {
         ...enterFloating(createEditorWindowPlacementState(), initialRect),

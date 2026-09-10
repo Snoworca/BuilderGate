@@ -16,8 +16,7 @@ export interface EditorWindowRect {
 }
 
 /**
- * What survives a reload. It holds no session id, no cascade step -- that is
- * recomputed on every entry into `docked` -- and no body text.
+ * What survives a reload. It holds no session id and no body text.
  * @req CON-MDE-002
  */
 export interface EditorWindowRecord {

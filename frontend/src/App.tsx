@@ -29,18 +29,8 @@ import {
 import { MosaicContainer } from './components/Grid';
 import { MetadataRow } from './components/MetadataBar/MetadataRow';
 import { EditorWindowLayer, EDITOR_WINDOW_WAITING_RECT } from './components/editor/EditorWindowLayer';
+import { EDITOR_WINDOW_BOUNDS_SELECTOR } from './components/editor/editorWindowBounds';
 
-/**
- * The element an editor window is dragged and resized against.
- *
- * Constant, whatever the placement. It used to be swapped for the viewport
- * while a window was floating, and Rnd read each swap as an interaction it had
- * to settle: it emitted a rect, that rect came back in as a hand-placed one,
- * and the window returned to floating the moment 최대화 sent it to stage. The
- * window layer already clamps a floating window to the stage, so the constant
- * boundary is also the boundary that was in effect.
- */
-const EDITOR_WINDOW_BOUNDS = '.terminal-workspace-stage';
 import { EditorWindow } from './components/editor/EditorWindow';
 import { createTabSessionLookup } from './components/editor/editorWindowRecord';
 import { useEditorWindows } from './hooks/useEditorWindows';
@@ -800,7 +790,7 @@ function AppContent() {
                         bodyAtOpen={editorWindow.bodyAtOpen}
                         rect={context.rect ?? EDITOR_WINDOW_WAITING_RECT}
                         onRectChange={(rect) => editor.updateWindowRect(editorWindow.filePath, rect)}
-                        boundsElement={EDITOR_WINDOW_BOUNDS}
+                        boundsElement={EDITOR_WINDOW_BOUNDS_SELECTOR}
                         hidden={context.hidden}
                         stackOrder={editorWindow.stackOrder}
                         resolveTabSession={context.resolveTabSession}

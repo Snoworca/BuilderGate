@@ -139,8 +139,8 @@ export function readPersistedWindowState(
  * The windows to recreate for a workspace, in the order they are to be created.
  *
  * The order is the stored stack order rather than the order the records happen
- * to sit in, and it is load-bearing: the `docked` entry rule works out each
- * window's cascade step from the steps its siblings already occupy, so creating
+ * to sit in, and it is load-bearing: a restored window is raised into the
+ * modeless stack in the order it comes back, so creating
  * them in a different order hands the steps out differently and the restored
  * layout stops matching the saved one. The step itself is deliberately not
  * stored -- it is recomputed from this order, which is why there is no second

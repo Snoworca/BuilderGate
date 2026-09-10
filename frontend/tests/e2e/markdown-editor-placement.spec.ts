@@ -51,9 +51,6 @@ const TAB_NAME_PREFIX = 'e2e-mde-place';
 /** Labels this spec gives the command presets it creates, so cleanup finds them. */
 const PRESET_LABEL_PREFIX = 'e2e-mde-toast';
 
-/** The editor's own minimum, which AC-8 says the target area outranks. */
-const EDITOR_MIN_SIZE = { width: 320, height: 240 };
-
 /** A rect no computed placement can produce, so a match is unambiguous. */
 const SENTINEL_GEOMETRY = { schemaVersion: 1, x: 3, y: 3, width: 641, height: 401 };
 
@@ -86,12 +83,6 @@ async function ensureTabMode(page: Page): Promise<void> {
   const toTabs = page.locator('button[title="Switch to Tabs"]');
   if (await toTabs.count()) await toTabs.click();
   await expect(page.locator('button[title="Switch to Grid"]')).toBeVisible({ timeout: 15000 });
-}
-
-async function ensureGridMode(page: Page): Promise<void> {
-  const toGrid = page.locator('button[title="Switch to Grid"]');
-  if (await toGrid.count()) await toGrid.click();
-  await expect(page.locator('button[title="Switch to Tabs"]')).toBeVisible({ timeout: 15000 });
 }
 
 async function activeWorkspaceId(page: Page): Promise<string> {
@@ -319,11 +310,13 @@ test.describe('markdown editor placement and stacking', () => {
     // it reports which end the window is at. A window opens floating, so the
     // toggle starts unpressed and pressing it fills the stage.
     //
-    // Only the outward leg is asserted here. The return leg -- pressing it
-    // again to leave `stage` -- does not work, and it did not work before this
-    // change either: nothing pressed 최대화 twice in a row, so no test saw it.
-    // It is not the removal of `docked` and it is filed on its own; asserting
-    // it here would make this criterion fail for a defect it is not about.
+    // ⚠️ Only the outward leg is asserted. Pressing 최대화 a second time does
+    // not return the window to `floating` -- the press does not reach the
+    // toggle at all, observed by instrumenting the handler. Whether the same
+    // happened before `docked` was removed is unknown: the destination was a
+    // different placement then, and no test has ever pressed this control twice
+    // in a row. The defect is reported in the session's own summary rather than
+    // in a tracker, so do not read this comment as a filed issue.
     const maximize = surface.locator('button[aria-label="최대화"]');
     await expect(maximize).toHaveAttribute('aria-pressed', 'false');
 
@@ -332,6 +325,16 @@ test.describe('markdown editor placement and stacking', () => {
     expect(floated).not.toBeNull();
     expect(stage).not.toBeNull();
     expect(floated!.width).toBeLessThan(stage!.width - 2);
+
+    // Centred in the stage, which is the box it is confined to. Asserted on the
+    // rendered box rather than on the rule that produced it: the rule is judged
+    // by `editorWindowInitialRect.test.ts`, and a rect that never survives to
+    // the screen would leave that suite green and the window against an edge.
+    // One pixel of slack for the rounding a half-pixel margin takes.
+    const leftMargin = floated!.x - stage!.x;
+    const rightMargin = (stage!.x + stage!.width) - (floated!.x + floated!.width);
+    expect(Math.abs(leftMargin - rightMargin)).toBeLessThanOrEqual(1);
+    expect(leftMargin).toBeGreaterThan(1);
 
     await maximize.click();
     await expect(maximize).toHaveAttribute('aria-pressed', 'true');

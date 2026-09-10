@@ -82,11 +82,14 @@ test('FR-MDE-002 each of the three visibility terms alone hides the window', () 
 });
 
 test('FR-MDE-002 minimize and restore leave the placement state untouched', () => {
-  const docked = createEditorWindowPlacementState();
-  const stage = toggleMaximize(docked);
-  const floating = enterFloating(docked, { x: 320, y: 152, width: 640, height: 452 });
+  // A window is created into `stage`, so the two placements are reached from
+  // there: `floating` by a drag, and `stage` again by maximizing out of that
+  // floating state. Listing the created state as well would repeat `stage`.
+  const stage = createEditorWindowPlacementState();
+  const floating = enterFloating(stage, { x: 320, y: 152, width: 640, height: 452 });
+  const maximizedFromFloating = toggleMaximize(floating);
 
-  [docked, stage, floating].forEach((placement) => {
+  [stage, floating, maximizedFromFloating].forEach((placement) => {
     const before = hidingState(placement);
     const minimized = minimizeEditorWindow(before);
     const restored = restoreEditorWindow(minimized);

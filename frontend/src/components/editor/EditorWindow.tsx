@@ -239,7 +239,7 @@ export interface EditorWindowProps {
   bodyAtOpen: string;
   rect: DialogRect;
   onRectChange: (rect: DialogRect) => void;
-  /** Drag boundary. The stage while docked, the viewport while floating. */
+  /** Drag boundary. The stage, whatever the placement. */
   boundsElement?: string | Element;
   /** The visibility predicate said no. The surface hides; nothing unmounts. */
   hidden: boolean;

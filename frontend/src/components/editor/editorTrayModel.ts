@@ -4,7 +4,7 @@
 // Everything here is a pure transition over values the caller already holds, so
 // the two judgements that decide whether the tray works -- its scope and its
 // revival -- are readable without a DOM. What is left for the browser is where
-// the icon sits among its siblings and when the deferred `docked` measurement
+// the icon sits among its siblings and when the deferred placement
 // resolves.
 // @req FR-MDE-008
 
