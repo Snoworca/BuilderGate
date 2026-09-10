@@ -1,11 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import type { DialogRect } from '../../src/components/dialog/types.ts';
-import {
-  computeCascadeRect,
-  type CascadeWindow,
-} from '../../src/components/editor/editorWindowCascade.ts';
 import {
   getWindowStateStorageKey,
   readPersistedWindowState,
@@ -83,16 +78,6 @@ const FORBIDDEN_KEYS_ANYWHERE = [
 const U1 = '# 미저장 제목 U1-SENTINEL-a7f3';
 const U2 = 'const answer = 42; // U2-SENTINEL-b1c9';
 
-// What a docked window is cascaded against, and what the two steps come to.
-// The offsets are literals rather than a call into the cascade module: the
-// point of AC-2 is that restoration reproduces this arrangement, and deriving
-// the expectation from the same function that produces the answer would make
-// the comparison agree with itself.
-const TERMINAL_RECT: DialogRect = { x: 100, y: 50, width: 800, height: 600 };
-const CASCADE_STEP_0: DialogRect = { x: 100, y: 50, width: 800, height: 600 };
-const CASCADE_STEP_1: DialogRect = { x: 128, y: 78, width: 772, height: 572 };
-const MIN_SIZE = { width: 320, height: 240 };
-
 /**
  * A window as it lives in the app: the record's fields plus the three the
  * record must drop -- the session it is talking to now, the cascade step it was
@@ -105,7 +90,7 @@ function liveWindow(overrides: Record<string, unknown> = {}) {
   return {
     tabId: 'tab-1',
     filePath: 'C:/work/notes/one.md',
-    placement: 'docked' as const,
+    placement: 'stage' as const,
     placementBeforeStage: null,
     minimized: false,
     floatingRect: null,
@@ -186,7 +171,7 @@ test('FR-MDE-009 the serialized value carries placement only and never an unsave
 
   assert.equal(entries[0].tabId, 'tab-1');
   assert.equal(entries[0].filePath, 'C:/work/notes/one.md');
-  assert.equal(entries[0].placement, 'docked');
+  assert.equal(entries[0].placement, 'stage');
   assert.equal(entries[0].minimized, false);
   assert.equal(entries[0].stackOrder, 0);
 
@@ -252,27 +237,15 @@ test('FR-MDE-009 the serialized value has no session ID and no cascade step', ()
     '복원이 스택 순서를 따르지 않았다',
   );
 
-  // The cascade is recomputed one window at a time, each reading the steps the
-  // ones before it took -- which is why the order above has to be right. The
-  // expected rects are the literals declared at the top of this file.
-  const cascadeSoFar: CascadeWindow[] = [];
-  const rects = restored.map((record) => {
-    const rect = computeCascadeRect({
-      tabId: record.tabId,
-      target: TERMINAL_RECT,
-      alreadyDocked: cascadeSoFar,
-      minSize: MIN_SIZE,
-    });
-    cascadeSoFar.push({
-      tabId: record.tabId,
-      placement: record.placement,
-      minimized: record.minimized,
-      rect,
-    });
-    return rect;
-  });
-
-  assert.deepEqual(rects, [CASCADE_STEP_0, CASCADE_STEP_1]);
+  // The order matters beyond the list above: restoration hands the windows back
+  // in the order they are raised into the modeless stack, so a restored window
+  // that came back out of order would sit in front of one the user had put in
+  // front of it.
+  assert.deepEqual(
+    restored.map(record => record.stackOrder),
+    [3, 7],
+    '복원이 저장된 스택 순서 값을 잃었다',
+  );
 });
 
 test('FR-MDE-009 a record naming a missing tab is not restored', () => {
@@ -302,11 +275,10 @@ test('FR-MDE-009 only a floating entry carries a stored rect', () => {
   const workspaceId = 'ws-rects';
   const draggedRect = { x: 40, y: 60, width: 480, height: 360 };
   const windows = [
-    liveWindow({ filePath: 'C:/work/notes/docked.md', placement: 'docked' as const, stackOrder: 0 }),
     liveWindow({
       filePath: 'C:/work/notes/stage.md',
       placement: 'stage' as const,
-      placementBeforeStage: 'docked' as const,
+      placementBeforeStage: 'floating' as const,
       stackOrder: 1,
     }),
     liveWindow({
@@ -322,22 +294,14 @@ test('FR-MDE-009 only a floating entry carries a stored rect', () => {
   const entries = readEntries(storage, workspaceId);
   const byPath = new Map(entries.map(entry => [entry.filePath as string, entry]));
 
-  const docked = byPath.get('C:/work/notes/docked.md');
   const stage = byPath.get('C:/work/notes/stage.md');
   const floating = byPath.get('C:/work/notes/floating.md');
-  assert.notEqual(docked, undefined);
   assert.notEqual(stage, undefined);
   assert.notEqual(floating, undefined);
 
-  assert.equal((docked as Record<string, unknown>).placement, 'docked');
   assert.equal((stage as Record<string, unknown>).placement, 'stage');
   assert.equal((floating as Record<string, unknown>).placement, 'floating');
 
-  assert.equal(
-    (docked as Record<string, unknown>).floatingRect,
-    null,
-    'docked 항목이 rect 를 담았다',
-  );
   assert.equal(
     (stage as Record<string, unknown>).floatingRect,
     null,
@@ -349,9 +313,9 @@ test('FR-MDE-009 only a floating entry carries a stored rect', () => {
     'floating 항목이 rect 를 담지 않았다',
   );
 
-  // Neither the docked nor the stage entry may smuggle its measured rect in
+  // The stage entry may not smuggle its measured rect in
   // under another name. The key set is compared rather than one named field.
-  [docked, stage].forEach((entry) => {
+  [stage].forEach((entry) => {
     const keys = collectKeysDeep(entry);
     ['x', 'y', 'width', 'height', 'left', 'top', 'rect', 'dockedRect', 'stageRect']
       .forEach((forbidden) => {
@@ -364,21 +328,15 @@ test('FR-MDE-009 only a floating entry carries a stored rect', () => {
   });
 });
 
-test('FR-MDE-009 a rect the user dragged survives a later docked or stage placement', () => {
+test('FR-MDE-009 a rect the user dragged survives a later stage placement', () => {
   const storage = new MemoryStorage();
   const workspaceId = 'ws-returned-rect';
   const draggedRect = { x: 88, y: 120, width: 500, height: 380 };
-  // Both windows were dragged and then moved on: 터미널 채움 took the first to
-  // `docked` and 최대화 took the second to `stage`, and both transitions leave
-  // `floatingRect` alone on purpose because it is where the window returns to.
-  // What AC-8 forbids is a *measured* rect, and this one was placed by hand.
+  // The window was dragged and then maximized: 최대화 took it to `stage`, and
+  // that transition leaves `floatingRect` alone on purpose because it is where
+  // the window returns to. What AC-8 forbids is a *measured* rect, and this one
+  // was placed by hand.
   const windows = [
-    liveWindow({
-      filePath: 'C:/work/notes/filled.md',
-      placement: 'docked' as const,
-      floatingRect: draggedRect,
-      stackOrder: 0,
-    }),
     liveWindow({
       filePath: 'C:/work/notes/maximized.md',
       placement: 'stage' as const,
@@ -408,7 +366,7 @@ test('FR-MDE-009 a rect the user dragged survives a later docked or stage placem
   const restored = restoreWindowStateForWorkspace(workspaceId, ['tab-1'], storage);
   assert.deepEqual(
     restored.map(record => record.floatingRect),
-    [draggedRect, draggedRect],
+    [draggedRect],
     '복원이 사용자가 끌어 놓은 rect 를 잃었다',
   );
 });

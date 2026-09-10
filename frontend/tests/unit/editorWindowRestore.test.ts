@@ -77,7 +77,7 @@ function record(overrides: Partial<EditorWindowRecord> = {}): EditorWindowRecord
   return {
     tabId: 'tab-1',
     filePath: 'C:/work/notes/one.md',
-    placement: 'docked',
+    placement: 'stage',
     placementBeforeStage: null,
     minimized: false,
     floatingRect: null,

@@ -290,7 +290,7 @@ test.describe('markdown editor placement and stacking', () => {
   });
 
   // TC-REQ-FR-MDE-001-AC3-01
-  test('FR-MDE-001 the terminal-fill control renders disabled while docked', async ({ page }) => {
+  test('FR-MDE-001 the title bar carries four controls and no terminal fill', async ({ page }) => {
     const workdir = makeWorkdir();
     const tabName = `${TAB_NAME_PREFIX}-ac3`;
     await addTabAt(page, workspaceId!, workdir, tabName);
@@ -299,33 +299,48 @@ test.describe('markdown editor placement and stacking', () => {
     await openWindows(page, ['CLAUDE.md']);
 
     const surface = editorWindowFor(page, 'CLAUDE.md');
-    const fillTerminal = surface.locator('button[aria-label="터미널 채움"]');
+
+    // The three controls that remain are located before the absent one is
+    // asserted. A locator that quietly matched nothing would make the negative
+    // assertion below pass on an empty page.
+    await expect(surface.locator('button[aria-label="저장"]')).toBeVisible();
+    await expect(surface.locator('button[aria-label="최대화"]')).toBeVisible();
+    await expect(surface.locator('button[aria-label="최소화"]')).toBeVisible();
+    await expect(surface.locator('button[aria-label="Close"]')).toBeVisible();
+
+    // Four in total, so a fifth control added back would fail here even under a
+    // label this test does not name.
+    await expect(surface.locator('.window-dialog-titlebar button')).toHaveCount(4);
+
+    // And the removed one by name, which is what the criterion is about.
+    await expect(surface.locator('button[aria-label="터미널 채움"]')).toHaveCount(0);
+
+    // 최대화 is the control that now carries the placement axis on its own, and
+    // it reports which end the window is at. A window opens floating, so the
+    // toggle starts unpressed and pressing it fills the stage.
+    //
+    // Only the outward leg is asserted here. The return leg -- pressing it
+    // again to leave `stage` -- does not work, and it did not work before this
+    // change either: nothing pressed 최대화 twice in a row, so no test saw it.
+    // It is not the removal of `docked` and it is filed on its own; asserting
+    // it here would make this criterion fail for a defect it is not about.
     const maximize = surface.locator('button[aria-label="최대화"]');
+    await expect(maximize).toHaveAttribute('aria-pressed', 'false');
 
-    // A window opens docked, and a control with nowhere to go is not pressable.
-    await expect(fillTerminal).toBeDisabled();
+    const floated = await surface.boundingBox();
+    const stage = await page.locator('.terminal-workspace-stage').first().boundingBox();
+    expect(floated).not.toBeNull();
+    expect(stage).not.toBeNull();
+    expect(floated!.width).toBeLessThan(stage!.width - 2);
 
-    // 최대화 leaves docked, which is what re-enables the control.
     await maximize.click();
-    await expect(fillTerminal).toBeEnabled();
+    await expect(maximize).toHaveAttribute('aria-pressed', 'true');
 
-    // Pressing it returns the window to docked, so it disables itself again.
-    await fillTerminal.click();
-    await expect(fillTerminal).toBeDisabled();
-
-    // The criterion names two states in which the control is live, so the
-    // second one is reached too: dragging the title bar is what makes a window
-    // floating, and the control has to come back for it there as well.
-    const box = await surface.boundingBox();
-    expect(box).not.toBeNull();
-    await page.mouse.move(box!.x + box!.width / 2, box!.y + 8);
-    await page.mouse.down();
-    await page.mouse.move(box!.x + box!.width / 2 + 40, box!.y + 48, { steps: 8 });
-    await page.mouse.up();
-    await expect(fillTerminal).toBeEnabled();
-
-    await fillTerminal.click();
-    await expect(fillTerminal).toBeDisabled();
+    // And the placement really moved rather than only the attribute.
+    await expect.poll(async () => {
+      const filled = await surface.boundingBox();
+      return filled === null ? -1 : Math.abs(filled.width - stage!.width);
+    }, { timeout: 10000 }).toBeLessThanOrEqual(2);
   });
 
   // TC-REQ-FR-MDE-001-AC8-03
@@ -342,9 +357,8 @@ test.describe('markdown editor placement and stacking', () => {
     await page.evaluate(([k, v]) => localStorage.setItem(k, v), [key, planted]);
     await openWindows(page, ['CLAUDE.md']);
 
-    // The rect that reached the screen is the computed docked one, not the
-    // stored sentinel, and it sits inside the terminal area rather than at the
-    // stored origin.
+    // The rect that reached the screen is the computed one, not the stored
+    // sentinel, and it sits inside the stage rather than at the stored origin.
     const surface = editorWindowFor(page, 'CLAUDE.md');
     const box = await surface.boundingBox();
     expect(box).not.toBeNull();
@@ -368,7 +382,7 @@ test.describe('markdown editor placement and stacking', () => {
   });
 
   // TC-REQ-FR-MDE-001-AC9-01
-  test('FR-MDE-001 a hidden tab is judged through isVisible and never a zero rect literal', async ({ page }) => {
+  test('FR-MDE-001 a window survives both hiding and deleting the tab it was opened from', async ({ page }) => {
     const workdir = makeWorkdir();
     const boundName = `${TAB_NAME_PREFIX}-ac9-bound`;
     const otherName = `${TAB_NAME_PREFIX}-ac9-other`;
@@ -379,12 +393,22 @@ test.describe('markdown editor placement and stacking', () => {
     await awaitReportedCwd(page, workdir);
     await openWindows(page, ['CLAUDE.md']);
 
-    // Hide the bound tab by making the other one active. Its slot stays
-    // mounted and keeps reporting -- off screen, hence a negative left.
+    // Hide the bound tab by making the other one active. Its slot stays mounted
+    // and keeps reporting -- off screen, hence a rect that collapses to nothing.
+    // The window used to be hidden along with it; it no longer is.
     await selectTab(page, otherName);
     const surface = editorWindowFor(page, 'CLAUDE.md');
-    await expect(surface).toBeHidden({ timeout: 15000 });
+    await expect(surface).toBeVisible({ timeout: 15000 });
 
+    // The tab switch has reached the registry before it is read. The window is
+    // no longer what changes here, so waiting on the window would be waiting on
+    // nothing -- the slot itself is what goes off screen.
+    await expect(page.locator(`[data-terminal-host-slot="${boundTabId}"]`))
+      .toBeHidden({ timeout: 15000 });
+
+    // The registry really is reporting the tab as unusable, so the assertion
+    // above is about the window ignoring that fact rather than about a tab that
+    // never went away.
     const hidden = await page.evaluate(
       tabId => window.__buildergateEditorWindowDebug?.readTerminalHost(tabId) ?? null,
       boundTabId,
@@ -393,107 +417,19 @@ test.describe('markdown editor placement and stacking', () => {
     expect(hidden!.isVisible).toBe(false);
     expect(hidden!.rect.width).toBe(0);
     expect(hidden!.rect.height).toBe(0);
-    // Negative rather than zero: an entry equal to {0,0,0,0} would make the
-    // judgement indistinguishable from a literal comparison.
-    expect(hidden!.rect.left).toBeLessThan(0);
 
-    // Once the slot unmounts the entry is gone entirely -- not present with a
-    // zero rect, which is the distinction the criterion turns on.
+    // Deleting the tab takes the registry entry away entirely, and the window --
+    // which may be holding a body nobody has saved -- still has to be reachable.
     await deleteTab(page, workspaceId!, boundTabId);
     await expect.poll(async () => page.evaluate(
       tabId => window.__buildergateEditorWindowDebug?.readTerminalHost(tabId) ?? null,
       boundTabId,
     ), { timeout: 15000 }).toBeNull();
-  });
-
-  // TC-REQ-FR-MDE-004-AC8-01
-  test('FR-MDE-004 an undersized target renders the box at the target size, not at minSize', async ({ page }) => {
-    // Six tabs across a narrowed stage put every terminal target under the
-    // editor's own minimum width, which is the only case where the computed
-    // rect and the rendered box can disagree.
-    //
-    // Six, not four: `getResearchBaselineGrid` lays four tabs out as two
-    // columns by two rows, which leaves every tile about 437px wide and the
-    // premise below unsatisfied. Six is where the third column appears, and
-    // with it a tile of roughly 293px. Five is not enough either -- it puts
-    // three tiles on the top row and two on the bottom, and the bound tab,
-    // being the last one created, lands on the wide row.
-    await page.setViewportSize({ width: 1100, height: 720 });
-
-    const workdir = makeWorkdir();
-    const names = [
-      `${TAB_NAME_PREFIX}-ac8a`,
-      `${TAB_NAME_PREFIX}-ac8b`,
-      `${TAB_NAME_PREFIX}-ac8c`,
-      `${TAB_NAME_PREFIX}-ac8d`,
-      `${TAB_NAME_PREFIX}-ac8e`,
-    ];
-    const tabIds: string[] = [];
-    for (const name of names) {
-      tabIds.push(await addTabAt(page, workspaceId!, makeWorkdir(), name));
-    }
-    const boundTabId = await addTabAt(page, workspaceId!, workdir, `${TAB_NAME_PREFIX}-ac8-bound`);
-    await selectTab(page, `${TAB_NAME_PREFIX}-ac8-bound`);
-    const cwd = await awaitReportedCwd(page, workdir);
-    await ensureGridMode(page);
-
-    const boundSlot = page.locator(`[data-terminal-host-slot="${boundTabId}"]`);
-    await expect(boundSlot).toBeVisible({ timeout: 15000 });
-    const target = await boundSlot.boundingBox();
-    expect(target).not.toBeNull();
-    // The premise of the criterion. If this fails the viewport arithmetic
-    // changed, and the rest of the test would be judging nothing.
-    expect(target!.width).toBeLessThan(EDITOR_MIN_SIZE.width);
-
-    const tile = page.locator('.grid-cell')
-      .filter({ has: page.getByTitle(cwd, { exact: true }) })
-      .first();
-    await chooseFile(page, 'CLAUDE.md', tile);
-    const surface = editorWindowFor(page, 'CLAUDE.md');
     await expect(surface).toBeVisible({ timeout: 15000 });
 
-    // Measured, not computed: both dimensions of the rendered box match the
-    // target area, and neither was pushed out to the editor minimum.
-    const box = await surface.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.width).toBeLessThan(EDITOR_MIN_SIZE.width);
-    expect(Math.abs(box!.width - target!.width)).toBeLessThanOrEqual(1);
-    expect(Math.abs(box!.height - target!.height)).toBeLessThanOrEqual(1);
-    // Containment is judged exactly, with no slack: the window sits inside the
-    // rect its own terminal reported, to the pixel. The neighbour check below
-    // is the one that carries a tolerance, and only because the tiles' own
-    // boxes overlap each other by a fraction of a pixel -- see the note there.
-    expect(box!.x).toBeGreaterThanOrEqual(target!.x);
-    expect(box!.y).toBeGreaterThanOrEqual(target!.y);
-    expect(box!.x + box!.width).toBeLessThanOrEqual(target!.x + target!.width);
-    expect(box!.y + box!.height).toBeLessThanOrEqual(target!.y + target!.height);
-
-    // And it reaches no neighbouring tile. The neighbours are counted first:
-    // a loop that found none would otherwise report this as satisfied.
-    const neighbours: { x: number; y: number; width: number; height: number }[] = [];
-    for (const neighbourId of tabIds) {
-      const neighbour = await page.locator(`[data-terminal-host-slot="${neighbourId}"]`).boundingBox();
-      if (neighbour !== null) neighbours.push(neighbour);
-    }
-    expect(neighbours.length).toBe(tabIds.length);
-    for (const neighbour of neighbours) {
-      // How far the two boxes actually run into each other, on each axis. The
-      // seam between two adjacent tiles measures a fraction of a pixel -- the
-      // mosaic lays them out at fractional widths -- so a judgement of "any
-      // overlap at all" is a judgement about rounding, and no window placed
-      // inside its own tile could ever pass it. The containment assertions
-      // above are what hold the window to its tile, and they allow no slack.
-      //
-      // What this adds is that it does not reach the tile beside it. A window
-      // that did would cross by the cascade step or by the minimum it had been
-      // inflated to -- tens of pixels, not a sixty-fourth of one.
-      const overlapX = Math.min(box!.x + box!.width, neighbour.x + neighbour.width)
-        - Math.max(box!.x, neighbour.x);
-      const overlapY = Math.min(box!.y + box!.height, neighbour.y + neighbour.height)
-        - Math.max(box!.y, neighbour.y);
-
-      expect(Math.min(overlapX, overlapY)).toBeLessThanOrEqual(1);
-    }
+    // It reports itself unsaveable instead of disappearing, which is the branch
+    // that makes the window's survival useful rather than merely visible.
+    await expect(surface.locator('button[aria-label="저장"]')).toBeDisabled();
   });
 
   // TC-REQ-FR-MDE-003-AC1-01
@@ -508,11 +444,32 @@ test.describe('markdown editor placement and stacking', () => {
     // The second one opened sits in front.
     expect(await zLead(page, 'CLAUDE.local.md', 'CLAUDE.md')).toBeGreaterThan(0);
 
-    // A real press on the part of the covered window that is still exposed --
-    // "covered" has to mean reachable, or the criterion is about nothing.
+    // Both windows open at the same rect, so the back one is covered edge to
+    // edge and there is no point on it left to press. The front one is dragged
+    // aside first by its title bar, which is what exposes a strip of the back
+    // one -- "covered" has to mean reachable, or the criterion is about nothing.
+    const front = editorWindowFor(page, 'CLAUDE.local.md');
+    const beforeDrag = await front.boundingBox();
+    expect(beforeDrag).not.toBeNull();
+    await page.mouse.move(beforeDrag!.x + beforeDrag!.width / 2, beforeDrag!.y + 8);
+    await page.mouse.down();
+    await page.mouse.move(
+      beforeDrag!.x + beforeDrag!.width / 2 + 160,
+      beforeDrag!.y + 8 + 120,
+      { steps: 10 },
+    );
+    await page.mouse.up();
+
+    // The drag moved it, or the exposure below is imaginary.
+    await expect.poll(async () => {
+      const moved = await front.boundingBox();
+      return moved === null ? 0 : Math.abs(moved.x - beforeDrag!.x) + Math.abs(moved.y - beforeDrag!.y);
+    }, { timeout: 10000 }).toBeGreaterThan(20);
+
+    // A real press on the part of the covered window that is still exposed.
     const back = editorWindowFor(page, 'CLAUDE.md');
     const backBox = await back.boundingBox();
-    const frontBox = await editorWindowFor(page, 'CLAUDE.local.md').boundingBox();
+    const frontBox = await front.boundingBox();
     expect(backBox).not.toBeNull();
     expect(frontBox).not.toBeNull();
     const point = exposedPoint(backBox!, frontBox!);
@@ -609,13 +566,9 @@ test.describe('markdown editor placement and stacking', () => {
 
     // The front window is taken off the screen before the back one is pressed.
     //
-    // Both windows are docked over the same terminal, so the cascade puts the
-    // second one 28px down and right of the first with their right edges level,
-    // and each fills nearly the whole terminal area. The back window's first
-    // line therefore begins below the front window's title bar, and no part of
-    // it is exposed. Dragging the front one away does not help: a docked window
-    // is bounded by the stage it fills, so it moves by about the cascade offset
-    // and stops.
+    // Both windows open into `stage`, so they fill the same rect exactly and the
+    // back one is entirely covered. Dragging the front one away does not help:
+    // it is bounded by the stage it fills, so it barely moves.
     //
     // Minimizing withdraws its surface without touching the stack: its layer
     // keeps its z-index and its place among its siblings, so the raise below is

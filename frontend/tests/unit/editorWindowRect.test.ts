@@ -4,20 +4,17 @@ import { test } from 'node:test';
 import type { DialogRect } from '../../src/components/dialog/types.ts';
 import {
   clampToStage,
-  toDockedRect,
   toStageRect,
 } from '../../src/components/editor/editorWindowRect.ts';
 
-// FR-MDE-001 — where a window sits, for each of the three placement states
-// (AC-5, AC-6, AC-7). Which state the window is in is decided by
+// FR-MDE-001 — where a window sits, for each of the two placement states
+// (AC-6, AC-7). Which state the window is in is decided by
 // editorWindowPlacement; this module only turns measurements into a rect.
 //
-// Two coordinate frames meet here and they do not even share field names. The
-// terminal host registry stores {left, top, width, height} measured against the
-// runtime overlay that TerminalRuntimeLayer renders inside the stage, while a
+// A measured container carries `left`/`top` as the DOM hands it over, while a
 // window surface is portalled onto document.body and positioned with a
-// DialogRect {x, y, width, height} resolved against the viewport. The overlay's
-// own viewport origin is what carries a rect from the first frame to the second.
+// DialogRect `{x, y, width, height}`. Turning one into the other is what this
+// module does.
 
 // A desktop layout with the sidebar, the header and the tab bar all present, so
 // the stage origin is far from the viewport origin in both axes. Every value
@@ -29,36 +26,10 @@ const STAGE: { left: number; top: number; width: number; height: number } = {
   height: 986,
 };
 
-// The overlay is the `position:absolute; inset:0` div inside the stage, so its
-// viewport origin coincides with the stage origin. It is passed separately
-// rather than derived from STAGE because the registry's coordinates are
-// relative to the overlay, and only the overlay can answer where it is.
-const OVERLAY_ORIGIN = { left: STAGE.left, top: STAGE.top };
-
 // The same stage expressed as the window coordinates a clamp works in. It is
 // written out rather than derived from STAGE so that a fault in toStageRect
 // cannot quietly move the boundary the clamp is judged against.
 const STAGE_BOUNDS: DialogRect = { x: 220, y: 94, width: 1700, height: 986 };
-
-// The path bar sits under the terminal inside the tab, so the terminal host
-// that the registry measures is the stage minus those 28px.
-const PATH_BAR_HEIGHT = 28;
-const TAB_MODE_HOST = {
-  left: 0,
-  top: 0,
-  width: STAGE.width,
-  height: STAGE.height - PATH_BAR_HEIGHT,
-};
-
-// A tile in grid mode, offset from the overlay in both axes. Without a case
-// like this an implementation that dropped hostRect.left and hostRect.top and
-// simply returned the overlay origin would still satisfy the tab-mode case.
-const GRID_TILE_HOST = {
-  left: 852,
-  top: 141,
-  width: 848,
-  height: 817,
-};
 
 // The three constants the stage container already excludes: sidebar 220,
 // header 58, tab bar 36. Every numeric literal is read out and evaluated rather
@@ -126,49 +97,6 @@ function bottomOf(rect: DialogRect): number {
 function rightOf(rect: DialogRect): number {
   return rect.x + rect.width;
 }
-
-test('FR-MDE-001 docked rect equals the registered rect translated by the overlay origin', () => {
-  const docked = toDockedRect(TAB_MODE_HOST, OVERLAY_ORIGIN);
-
-  assert.deepEqual(docked, {
-    x: TAB_MODE_HOST.left + OVERLAY_ORIGIN.left,
-    y: TAB_MODE_HOST.top + OVERLAY_ORIGIN.top,
-    width: TAB_MODE_HOST.width,
-    height: TAB_MODE_HOST.height,
-  });
-
-  // AC-5's other half — that the docked bottom stays at or above the path bar —
-  // is not separately assertable here, and pretending otherwise would add an
-  // assertion that no mutation can reach. It holds upstream: TerminalHostSlot
-  // registers the terminal host's own rect, which excludes the bar beneath it,
-  // and the size equality above is what pins this module to carrying that rect
-  // across unchanged. What is rendered is judged by the Playwright suite.
-
-  // A tile offset in both axes. Both terms of both sums are distinct here, so
-  // adding the origin to the wrong axis, or to the size instead of the
-  // position, lands on a different number.
-  const tile = toDockedRect(GRID_TILE_HOST, OVERLAY_ORIGIN);
-  assert.deepEqual(tile, {
-    x: 1072,
-    y: 235,
-    width: 848,
-    height: 817,
-  });
-
-  // Leaving the coordinates stage-relative is the failure this translation
-  // exists to prevent, and it is invisible whenever the origin happens to be
-  // zero. It is not zero here, so the two forms are pinned apart.
-  assert.notDeepEqual(tile, {
-    x: GRID_TILE_HOST.left,
-    y: GRID_TILE_HOST.top,
-    width: GRID_TILE_HOST.width,
-    height: GRID_TILE_HOST.height,
-  });
-
-  // The registry hands out the object it stores. Writing through it here would
-  // corrupt the entry that TerminalRuntimeLayer positions the terminal with.
-  assert.deepEqual(GRID_TILE_HOST, { left: 852, top: 141, width: 848, height: 817 });
-});
 
 test('FR-MDE-001 stage rect is the measured container and follows a resize with no pixel constant', () => {
   // The measured container comes back as window coordinates, unchanged in size

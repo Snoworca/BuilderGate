@@ -29,8 +29,19 @@ import {
 import { MosaicContainer } from './components/Grid';
 import { MetadataRow } from './components/MetadataBar/MetadataRow';
 import { EditorWindowLayer, EDITOR_WINDOW_WAITING_RECT } from './components/editor/EditorWindowLayer';
+
+/**
+ * The element an editor window is dragged and resized against.
+ *
+ * Constant, whatever the placement. It used to be swapped for the viewport
+ * while a window was floating, and Rnd read each swap as an interaction it had
+ * to settle: it emitted a rect, that rect came back in as a hand-placed one,
+ * and the window returned to floating the moment 최대화 sent it to stage. The
+ * window layer already clamps a floating window to the stage, so the constant
+ * boundary is also the boundary that was in effect.
+ */
+const EDITOR_WINDOW_BOUNDS = '.terminal-workspace-stage';
 import { EditorWindow } from './components/editor/EditorWindow';
-import { isTerminalFillDisabled } from './components/editor/editorWindowPlacement';
 import { createTabSessionLookup } from './components/editor/editorWindowRecord';
 import { useEditorWindows } from './hooks/useEditorWindows';
 import { useWindowState } from './hooks/useWindowState';
@@ -789,13 +800,11 @@ function AppContent() {
                         bodyAtOpen={editorWindow.bodyAtOpen}
                         rect={context.rect ?? EDITOR_WINDOW_WAITING_RECT}
                         onRectChange={(rect) => editor.updateWindowRect(editorWindow.filePath, rect)}
-                        boundsElement={editorWindow.placement === 'floating' ? undefined : '.terminal-workspace-stage'}
+                        boundsElement={EDITOR_WINDOW_BOUNDS}
                         hidden={context.hidden}
                         stackOrder={editorWindow.stackOrder}
                         resolveTabSession={context.resolveTabSession}
                         writeFile={editor.writeFile}
-                        terminalFillDisabled={isTerminalFillDisabled(editorWindow)}
-                        onFillTerminal={() => editor.fillTerminalWindow(editorWindow.filePath)}
                         maximized={editorWindow.placement === 'stage'}
                         onToggleMaximize={() => editor.toggleMaximizeWindow(editorWindow.filePath)}
                         onMinimize={() => editor.minimizeWindow(editorWindow.filePath)}

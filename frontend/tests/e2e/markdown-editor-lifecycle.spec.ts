@@ -333,9 +333,15 @@ test.describe('markdown editor lifecycle and mount contracts', () => {
     expect(await readStamp(page, 'CLAUDE.md')).toBe('ac1');
     expect(await bodyOf(page, 'CLAUDE.md')).toBe(diverged);
 
-    // Leaving the tab and coming back is the same obligation by another route.
+    // Leaving the tab and coming back is the same obligation by another route,
+    // except that the window no longer leaves the screen for it: it is bound to
+    // the workspace rather than to the terminal tab it was opened from. What
+    // still has to hold is that the instance -- and the body in it -- came
+    // through the round trip.
     await selectTab(page, otherName);
-    await expect(surface).toBeHidden({ timeout: 10000 });
+    await expect(surface).toBeVisible({ timeout: 10000 });
+    await expect(surface).toHaveCount(1);
+    expect(await readStamp(page, 'CLAUDE.md')).toBe('ac1');
     await selectTab(page, tabName);
     await expect(surface).toBeVisible({ timeout: 10000 });
     expect(await readStamp(page, 'CLAUDE.md')).toBe('ac1');

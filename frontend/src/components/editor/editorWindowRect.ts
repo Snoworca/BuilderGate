@@ -1,25 +1,8 @@
 import type { DialogRect } from '../dialog/types';
 
 /**
- * A rect as the terminal host registry stores it: measured against the runtime
- * overlay that `TerminalRuntimeLayer` renders inside the stage, and carrying
- * `left`/`top` rather than `x`/`y`. `TerminalHostSlot` registers it through
- * `upsertHost`, subtracting the overlay origin as it measures.
- *
- * @req FR-MDE-001
- */
-export interface OverlayRelativeRect {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
-
-/**
- * A rect in viewport coordinates, the shape `getBoundingClientRect()` returns.
- * Structurally identical to `OverlayRelativeRect`, and deliberately named apart
- * from it: what separates the two is which origin they are measured against,
- * and that is the whole subject of this module.
+ * A rect in viewport coordinates, the shape `getBoundingClientRect()` returns,
+ * carrying `left`/`top` rather than `x`/`y` as the DOM hands it over.
  *
  * @req FR-MDE-001
  */
@@ -28,47 +11,6 @@ export interface ViewportRect {
   top: number;
   width: number;
   height: number;
-}
-
-/**
- * The viewport origin of the runtime overlay, read from its own
- * `getBoundingClientRect()`. Passed in rather than derived from the stage,
- * because the registry's coordinates are relative to the overlay and only the
- * overlay can say where it is.
- *
- * @req FR-MDE-001
- */
-export interface ViewportOrigin {
-  left: number;
-  top: number;
-}
-
-/**
- * The rect a `docked` window occupies: the terminal rect the registry holds for
- * that tab, carried into viewport coordinates.
- *
- * The translation is what a portal makes necessary. A window surface is
- * appended to `document.body`, so its absolute position resolves against the
- * viewport, while the registry hands out coordinates relative to the overlay.
- * Skipping the addition would offset every docked window by the stage's own
- * position, which on the desktop layout is the width of the sidebar.
- *
- * The size is carried across untouched. The registered rect is the terminal
- * area alone and already excludes the path bar below it, so a window that fits
- * that rect exactly leaves the bar reachable.
- *
- * @req FR-MDE-001
- */
-export function toDockedRect(
-  hostRect: OverlayRelativeRect,
-  overlayOrigin: ViewportOrigin,
-): DialogRect {
-  return {
-    x: hostRect.left + overlayOrigin.left,
-    y: hostRect.top + overlayOrigin.top,
-    width: hostRect.width,
-    height: hostRect.height,
-  };
 }
 
 /**
@@ -115,8 +57,8 @@ export function toStageRect(stageRect: ViewportRect): DialogRect {
  *
  * A stage measuring zero collapses the window to nothing rather than falling
  * back to a minimum size. That case belongs to the caller, which withholds
- * placement while the target has no area, and the minimum size itself belongs
- * to the cascade; taking it on here would split one rule across two modules.
+ * placement while the target has no area, and the minimum size is the window's
+ * own; taking it on here would split one rule across two modules.
  *
  * @req FR-MDE-001
  */

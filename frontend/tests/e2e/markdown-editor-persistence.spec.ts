@@ -379,11 +379,16 @@ test.describe('markdown editor persistence', () => {
   });
 
   // TC-REQ-FR-MDE-009-AC4-01
-  test('FR-MDE-009 a restored docked window waits for a usable registry entry before applying a rect', async ({ page }) => {
+  test('FR-MDE-009 a restored window is placed and shown whatever tab is active', async ({ page }) => {
+    // The rect a window opened at used to be derived from its own terminal's
+    // registry entry, and restoration had to wait for that entry to report a
+    // usable area. It is placed against the stage now, so there is nothing to
+    // wait for -- and the window is no longer scoped to the tab it came from,
+    // so it is on screen even while a different terminal tab is.
     const workdir = makeWorkdir();
     const hostTab = `${TAB_NAME_PREFIX}-ac4-host`;
     const otherTab = `${TAB_NAME_PREFIX}-ac4-other`;
-    const hostTabId = await addTabAt(page, workspaceId!, workdir, hostTab);
+    await addTabAt(page, workspaceId!, workdir, hostTab);
     await addTabAt(page, workspaceId!, workdir, otherTab);
 
     await selectTab(page, hostTab);
@@ -391,68 +396,46 @@ test.describe('markdown editor persistence', () => {
     await openWindows(page, ['CLAUDE.md']);
     await awaitStoredWindows(page, workspaceId!, ['CLAUDE.md']);
 
-    // Leave the window's tab. Its slot unmounts, so the registry entry goes
-    // with it -- which is one of the four states AC-4 names.
+    // Leave the window's tab before reloading, so the restore lands while a
+    // different tab is the active one.
     await selectTab(page, otherTab);
     await page.reload();
     await ensureTabMode(page);
     await selectTab(page, otherTab);
     await awaitReportedCwd(page, workdir);
 
-    // The entry the inactive tab actually produces, read rather than assumed.
-    // AC-4 says the deferral must never be a comparison against {0,0,0,0}, and
-    // this is the measurement that shows the literal is unreachable: the
-    // registry's coordinates are stage-relative, so an inactive slot reports a
-    // negative `left` rather than a zero one.
-    const inactiveHost = await page.evaluate(
-      (tabId) => window.__buildergateEditorWindowDebug?.readTerminalHost(tabId),
-      hostTabId,
-    );
-    if (inactiveHost !== undefined) {
-      expect(
-        inactiveHost.isVisible === false
-        || inactiveHost.rect.width === 0
-        || inactiveHost.rect.height === 0,
-      ).toBe(true);
-      expect(inactiveHost.rect.left).toBeLessThan(0);
-      expect(inactiveHost.rect).not.toEqual({ left: 0, top: 0, width: 0, height: 0 });
-    }
+    // Counted before it is judged visible: `toBeVisible` on a locator that
+    // matches nothing fails, but reading the count first names which of the two
+    // went wrong.
+    const surface = editorWindowFor(page, 'CLAUDE.md');
+    await expect(surface).toHaveCount(1, { timeout: 20000 });
+    await expect(surface).toBeVisible({ timeout: 15000 });
 
-    // Restored, but withheld. The window is counted before it is judged hidden,
-    // because `toBeHidden` is satisfied just as well by a window that was never
-    // created at all.
-    await expect(editorWindowFor(page, 'CLAUDE.md')).toHaveCount(1, { timeout: 20000 });
-    await expect(editorWindowFor(page, 'CLAUDE.md')).toBeHidden({ timeout: 15000 });
-
-    // AC-4's other half: while that entry is unusable, the rect derived from it
-    // is not applied. Hiding alone does not show this -- an inactive tab's
-    // window is hidden by the tab term whether the deferral ran or not -- so
-    // what the window is holding is read instead. The inactive slot measures
-    // zero by zero, which is the size a dropped deferral would leave here.
+    // And it carries a real rect rather than the zero-size surface a withheld
+    // placement would leave.
     const deferredSize = await editorFrameSize(page, 'CLAUDE.md');
     expect(deferredSize).not.toBeNull();
     expect(deferredSize!.width).toBeGreaterThan(0);
     expect(deferredSize!.height).toBeGreaterThan(0);
 
-    // The tab comes back, the registry reports an area, and the window takes it.
+    // And it sits inside the stage rather than overhanging it, which is the
+    // boundary a restored window is placed against.
+    const stage = await page.locator('.terminal-workspace-stage').first().boundingBox();
+    const box = await surface.first().boundingBox();
+    expect(stage).not.toBeNull();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(stage!.x - 1);
+    expect(box!.y).toBeGreaterThanOrEqual(stage!.y - 1);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(stage!.x + stage!.width + 1);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(stage!.y + stage!.height + 1);
+
+    // Switching back to the tab it was opened from changes nothing, which is
+    // what makes the visibility above a statement about the window rather than
+    // about which tab happened to be active.
     await selectTab(page, hostTab);
     await awaitReportedCwd(page, workdir);
-    await expect(editorWindowFor(page, 'CLAUDE.md')).toBeVisible({ timeout: 20000 });
-
-    const activeHost = await page.evaluate(
-      (tabId) => window.__buildergateEditorWindowDebug?.readTerminalHost(tabId),
-      hostTabId,
-    );
-    expect(activeHost).toBeDefined();
-    expect(activeHost!.isVisible).toBe(true);
-    expect(activeHost!.rect.width).toBeGreaterThan(0);
-    expect(activeHost!.rect.height).toBeGreaterThan(0);
-
-    // The rect on screen is the one derived from that entry, not a default.
-    const box = await editorWindowFor(page, 'CLAUDE.md').first().boundingBox();
-    expect(box).not.toBeNull();
-    expect(Math.abs(box!.width - activeHost!.rect.width)).toBeLessThanOrEqual(2);
-    expect(Math.abs(box!.height - activeHost!.rect.height)).toBeLessThanOrEqual(2);
+    await expect(surface).toBeVisible({ timeout: 20000 });
+    await expect(surface).toHaveCount(1);
   });
 
   // TC-REQ-FR-MDE-009-AC6-01

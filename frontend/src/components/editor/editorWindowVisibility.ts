@@ -7,18 +7,21 @@
 // into `display: none` on the window surface and leaves the tree alone.
 // @req FR-MDE-002
 
-import type { EditorWindowPlacement, EditorWindowPlacementState } from './editorWindowPlacement.ts';
+import type { EditorWindowPlacementState } from './editorWindowPlacement.ts';
 
 /** The screens `AppContent` switches between. Windows live on the workspace one. */
 export type EditorWindowScreen = 'workspace' | 'settings';
 
 /**
- * A workspace shows one tab at a time, or all of them at once. Term 4 reads the
- * mode the workspace is **rendered** in, which is not always the one stored on it:
- * the mobile layout renders tab mode whatever the stored value says, and a
- * workspace saved as grid keeps that stored value until an async update lands. The
- * caller passes what it renders, so the window agrees with the tab wrapper beside
- * it instead of with a setting nothing on screen is obeying.
+ * A workspace shows one tab at a time, or all of them at once, as the workspace is
+ * **rendered** rather than as it is stored: the mobile layout renders tab mode
+ * whatever the stored value says, and a workspace saved as grid keeps that stored
+ * value until an async update lands.
+ *
+ * The visibility predicate stopped reading this when the window stopped being
+ * scoped to one terminal tab. The type stays here because the tray model and the
+ * window hook both take it, and moving it is a rename across those callers rather
+ * than part of this change.
  */
 export type EditorWindowViewMode = 'tab' | 'grid';
 
@@ -26,6 +29,9 @@ export type EditorWindowViewMode = 'tab' | 'grid';
  * The terminal area a tab's host slot registers with the runtime, in the shape
  * `upsertHost` stores it. Coordinates are relative to the stage root, not to the
  * viewport, so they go negative for a slot that is off screen.
+ *
+ * Read by the window layer, which hands the entry to each window, rather than by
+ * the predicate below: a window is no longer placed over a terminal.
  * @req FR-MDE-002
  */
 export interface EditorWindowTerminalHost {
@@ -34,8 +40,14 @@ export interface EditorWindowTerminalHost {
 }
 
 /**
- * Everything the five terms read. The window contributes its own workspace, tab
- * and placement; the rest is the state of the app around it.
+ * Everything the three terms read. The window contributes its own workspace; the
+ * rest is the state of the app around it.
+ *
+ * The terminal tab a window was opened from is deliberately not here, and neither
+ * is the terminal area under it. A window holds documents opened from several
+ * terminals, so no single tab could gate it, and it is never placed over a
+ * terminal. Leaving the fields in as ignored inputs would let a caller believe it
+ * had asked for something.
  * @req FR-MDE-002
  */
 export interface EditorWindowVisibilityInput {
@@ -43,27 +55,6 @@ export interface EditorWindowVisibilityInput {
   screen: EditorWindowScreen;
   activeWorkspaceId: string | null;
   windowWorkspaceId: string;
-  viewMode: EditorWindowViewMode;
-  activeTabId: string | null;
-  windowTabId: string;
-  placement: EditorWindowPlacement;
-  host: EditorWindowTerminalHost | undefined;
-  /**
-   * The bound tab no longer exists.
-   *
-   * Term 4 scopes a window to its tab, and a window whose tab is gone is scoped
-   * to no tab: there is no longer a tab it could be the active one. Left to
-   * term 4, such a window disappears the moment the app moves the active tab
-   * elsewhere -- which is exactly what closing a tab does -- taking a body
-   * nobody has saved with it.
-   *
-   * Required rather than defaulted. A default would have to be `false`, which
-   * is the answer that loses the window, and a caller that had not heard of
-   * orphaned windows would get it silently. Asking makes that caller fail to
-   * compile instead.
-   * @req CON-MDE-002
-   */
-  tabClosed: boolean;
 }
 
 /**
@@ -75,44 +66,27 @@ export interface EditorWindowVisibilityInput {
 export type EditorWindowHidingState = EditorWindowPlacementState & { minimized: boolean };
 
 /**
- * Term 5's judgement, the same one `TerminalRuntimeEntry` already makes about the
- * terminal itself. `isVisible` is a field `upsertHost` registers as its own
- * argument, so it is read rather than inferred from the rect -- a hidden slot still
- * reports coordinates, and an unmounted one has been deleted from the registry
- * altogether, which is why the absent entry counts as unusable too.
- * @req FR-MDE-002
- */
-export function hasUsableTerminalArea(host: EditorWindowTerminalHost | undefined): boolean {
-  return Boolean(host?.isVisible && host.rect.width > 0 && host.rect.height > 0);
-}
-
-/**
- * The five-term conjunction. Only term 1 is the user's to set through a window
- * button; the other four are the system's, so clearing `minimized` on its own does
+ * The three-term conjunction. Only term 1 is the user's to set through a window
+ * button; the other two are the system's, so clearing `minimized` on its own does
  * not promise the window appears.
  *
- * Terms 3 and 4 together are the judgement `AppContent` already makes for a tab
- * wrapper -- workspace and tab -- with term 4 widened by the grid-mode escape,
- * because grid puts every tab on screen at once, and by the orphan escape,
- * because a window whose tab is gone is scoped to no tab at all. Term 5 asks
- * only about a `docked` window, since `stage` and `floating` are placed against
- * the stage and never read the terminal rect.
+ * The terminal tab a window was opened from is not a term. Documents opened from
+ * several terminals share one window, so a rule that showed the window only while
+ * its own tab was the active one could not hold for more than one of them at a
+ * time. The workspace stays a term because it divides whole units of work, and a
+ * document from another workspace following the user across was never asked for.
  * @req FR-MDE-002
  * @req CON-MDE-002
  */
 export function isEditorWindowVisible(input: EditorWindowVisibilityInput): boolean {
   return !input.minimized
     && input.screen === 'workspace'
-    && input.windowWorkspaceId === input.activeWorkspaceId
-    && (input.viewMode === 'grid'
-      || input.tabClosed
-      || input.windowTabId === input.activeTabId)
-    && (input.placement !== 'docked' || hasUsableTerminalArea(input.host));
+    && input.windowWorkspaceId === input.activeWorkspaceId;
 }
 
 /**
- * Hides the window. The placement rides through untouched, so 최대화 and 터미널 채움
- * still have the same destination after a restore that they had before.
+ * Hides the window. The placement rides through untouched, so 최대화 still has the
+ * same destination after a restore that it had before.
  * @req FR-MDE-002
  */
 export function minimizeEditorWindow(state: EditorWindowHidingState): EditorWindowHidingState {
@@ -121,7 +95,7 @@ export function minimizeEditorWindow(state: EditorWindowHidingState): EditorWind
 
 /**
  * Un-hides the window. This clears term 1 and nothing else -- the window reappears
- * only if the other four terms happen to hold.
+ * only if the other two terms happen to hold.
  * @req FR-MDE-002
  */
 export function restoreEditorWindow(state: EditorWindowHidingState): EditorWindowHidingState {

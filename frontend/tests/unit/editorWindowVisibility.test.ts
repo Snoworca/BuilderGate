@@ -8,44 +8,23 @@ import {
   type EditorWindowPlacementState,
 } from '../../src/components/editor/editorWindowPlacement.ts';
 import {
-  hasUsableTerminalArea,
   isEditorWindowVisible,
   minimizeEditorWindow,
   restoreEditorWindow,
   type EditorWindowHidingState,
-  type EditorWindowTerminalHost,
   type EditorWindowVisibilityInput,
 } from '../../src/components/editor/editorWindowVisibility.ts';
 
-// FR-MDE-002 — the five-term visibility conjunction and the hiding axis, as pure
-// functions. AC-3 (placement survives minimize and restore), AC-4 (each of the five
-// terms alone hides the window) and AC-5 (term 5 is scoped to `docked`) are decided
-// here; AC-1, AC-2, AC-6 and AC-7 all require a mounted editor and belong to the
-// Playwright suite, because this suite has no DOM to mount one into.
-
-// What a visible docked terminal slot registers. Coordinates are stage-relative,
-// so a slot inside the stage reports positive offsets.
-const VISIBLE_HOST: EditorWindowTerminalHost = {
-  isVisible: true,
-  rect: { left: 220, top: 96, width: 980, height: 620 },
-};
-
-// What a slot registers once its tab stops being the active one. This is the shape
-// the runtime actually produces, not an invented one: `measure` in TerminalHostSlot
-// registers `hostRect.left - rootRect.left`, so a hidden slot -- whose own
-// getBoundingClientRect collapses to the viewport origin -- reports offsets that are
-// negative by the stage's own origin, and only width and height fall to zero. An
-// all-zero rect is therefore a state production never reaches, and a term 5 written
-// against it would be vacuous exactly where it is supposed to hold.
-const HIDDEN_HOST: EditorWindowTerminalHost = {
-  isVisible: false,
-  rect: { left: -220, top: -96, width: 0, height: 0 },
-};
-
-// The second way term 5 goes false: removeHost deletes the whole entry when a slot
-// unmounts, so the lookup answers with nothing at all and there is no rect left to
-// inspect.
-const NO_HOST: EditorWindowTerminalHost | undefined = undefined;
+// FR-MDE-002 — the three-term visibility conjunction and the hiding axis, as pure
+// functions. AC-3 (placement survives minimize and restore) and AC-4 (each of the
+// three terms alone hides the window) are decided here; AC-1, AC-2, AC-6 and AC-7
+// all require a mounted editor and belong to the Playwright suite, because this
+// suite has no DOM to mount one into.
+//
+// The two terms this predicate used to carry -- the bound terminal tab, and the
+// usable terminal area a `docked` window needed -- are gone. A window is no longer
+// scoped to one terminal tab, so the cases below assert the positive form of that:
+// switching terminal tabs leaves the window on screen.
 
 // Every term holds here. Each case below falsifies exactly one field of this base,
 // which is what lets a failure name the term it came from.
@@ -57,12 +36,6 @@ function visibleInput(
     screen: 'workspace',
     activeWorkspaceId: 'ws-active',
     windowWorkspaceId: 'ws-active',
-    viewMode: 'tab',
-    activeTabId: 'tab-bound',
-    windowTabId: 'tab-bound',
-    placement: 'docked',
-    host: VISIBLE_HOST,
-    tabClosed: false,
     ...overrides,
   };
 }
@@ -78,11 +51,10 @@ test('FR-MDE-002 the visibility predicate runs with no DOM in scope', () => {
   // Every export is exercised here, so the claim covers the module rather than
   // whichever functions the cases below happen to reach.
   isEditorWindowVisible(visibleInput());
-  hasUsableTerminalArea(VISIBLE_HOST);
   restoreEditorWindow(minimizeEditorWindow(hidingState(createEditorWindowPlacementState())));
 });
 
-test('FR-MDE-002 each of the five visibility terms alone hides the window', () => {
+test('FR-MDE-002 each of the three visibility terms alone hides the window', () => {
   assert.equal(isEditorWindowVisible(visibleInput()), true);
 
   // Term 1 -- the only term a window button controls.
@@ -96,88 +68,17 @@ test('FR-MDE-002 each of the five visibility terms alone hides the window', () =
   assert.equal(isEditorWindowVisible(visibleInput({ windowWorkspaceId: 'ws-other' })), false);
   assert.equal(isEditorWindowVisible(visibleInput({ activeWorkspaceId: null })), false);
 
-  // Term 4 -- the tab half of that same judgement, widened by the grid-mode escape.
-  // In tab mode a window bound to an inactive tab is hidden; in grid mode every tab
-  // is on screen at once, so the same window stays visible.
-  assert.equal(isEditorWindowVisible(visibleInput({ activeTabId: 'tab-other' })), false);
-  assert.equal(isEditorWindowVisible(visibleInput({ activeTabId: null })), false);
-  assert.equal(
-    isEditorWindowVisible(visibleInput({ activeTabId: 'tab-other', viewMode: 'grid' })),
-    true,
-  );
-
-  // Term 5 -- a docked window has no usable terminal area to cover. Both runtime
-  // shapes count: the hidden entry the registry keeps, and the absent entry it is
-  // left with after the slot unmounts.
-  assert.equal(isEditorWindowVisible(visibleInput({ host: HIDDEN_HOST })), false);
-  assert.equal(isEditorWindowVisible(visibleInput({ host: NO_HOST })), false);
+  // And nothing else decides. The terminal tab the window was opened from, the
+  // view mode of the workspace and the terminal area a `docked` window used to
+  // cover are all gone from the input, which the source-text case at the bottom of
+  // this file pins -- a value cannot be asked which fields its own type no longer
+  // has.
 
   // The other half of AC-4 -- that a hidden window is still mounted -- needs a
   // mounted editor to observe and is judged by the Playwright suite. Nothing here
   // stands in for it: a boolean return value cannot distinguish hiding from
   // unmounting, so an assertion written against it would report coverage it does
   // not have.
-});
-
-test('FR-MDE-002 term 5 reads the registered isVisible field and both size checks', () => {
-  assert.equal(hasUsableTerminalArea(VISIBLE_HOST), true);
-  assert.equal(hasUsableTerminalArea(HIDDEN_HOST), false);
-  assert.equal(hasUsableTerminalArea(NO_HOST), false);
-
-  // isVisible is registered by upsertHost as its own argument, separate from the
-  // rect. An entry that is fully sized but marked invisible must still fail, which is
-  // what stops the judgement from being rebuilt out of coordinates.
-  assert.equal(
-    hasUsableTerminalArea({ isVisible: false, rect: { ...VISIBLE_HOST.rect } }),
-    false,
-  );
-
-  // Only the two sizes are read. A slot flush against the stage origin registers an
-  // offset of exactly zero -- the mobile layout has no sidebar, so a full-width slot
-  // subtracts the stage's own left from an identical left -- and that slot is as
-  // usable as any other. Without this case a coordinate added to the conjunction
-  // would survive, and it would hide every docked window on mobile.
-  assert.equal(
-    hasUsableTerminalArea({ isVisible: true, rect: { left: 0, top: 0, width: 980, height: 620 } }),
-    true,
-  );
-
-  // And each size check carries its own weight: either dimension alone at zero is
-  // enough, because a window placed on a zero-sized area would itself be zero-sized.
-  assert.equal(
-    hasUsableTerminalArea({ isVisible: true, rect: { left: 220, top: 96, width: 0, height: 620 } }),
-    false,
-  );
-  assert.equal(
-    hasUsableTerminalArea({ isVisible: true, rect: { left: 220, top: 96, width: 980, height: 0 } }),
-    false,
-  );
-});
-
-test('FR-MDE-002 term 5 applies to docked only', () => {
-  // A stage or floating window is placed against the stage, never against the
-  // terminal rect, so the state of its tab's slot decides nothing for it. Both
-  // runtime shapes of a hidden tab are checked, since either one reaching the
-  // predicate would hide a window that has no business being hidden.
-  (['stage', 'floating'] as const).forEach((placement) => {
-    assert.equal(isEditorWindowVisible(visibleInput({ placement, host: HIDDEN_HOST })), true);
-    assert.equal(isEditorWindowVisible(visibleInput({ placement, host: NO_HOST })), true);
-  });
-
-  // The same two shapes under `docked`, where term 5 does apply. Without this half
-  // the case above would pass against a predicate that dropped term 5 altogether.
-  assert.equal(
-    isEditorWindowVisible(visibleInput({ placement: 'docked', host: HIDDEN_HOST })),
-    false,
-  );
-  assert.equal(isEditorWindowVisible(visibleInput({ placement: 'docked', host: NO_HOST })), false);
-
-  // Term 5 is the only term placement touches: a stage window is still hidden by any
-  // of the other four.
-  assert.equal(
-    isEditorWindowVisible(visibleInput({ placement: 'stage', host: NO_HOST, minimized: true })),
-    false,
-  );
 });
 
 test('FR-MDE-002 minimize and restore leave the placement state untouched', () => {
@@ -231,38 +132,49 @@ test('FR-MDE-002 clearing minimized alone does not make the window visible', () 
   assert.equal(isEditorWindowVisible(visibleInput({ minimized: restored.minimized })), true);
 });
 
-test('CON-MDE-002 a window whose tab has closed is not hidden by the tab term', () => {
-  // Term 4 scopes a window to its tab. Closing a tab moves the active tab to a
-  // sibling, so a window bound to the closed one fails that term -- and the
-  // body it is holding has nowhere to be saved, which is exactly why it must
-  // stay on screen. The escape is asked for explicitly, so a caller that does
-  // not know about orphaned windows keeps the behaviour it had.
-  const orphaned = { windowTabId: 'tab-gone', activeTabId: 'tab-sibling' };
+test('CON-MDE-002 a window outlives the terminal tab it was opened from', () => {
+  // The window used to be scoped to one terminal tab, and closing that tab took the
+  // window -- and whatever the user had typed into it -- off the screen with it. The
+  // window is bound to the workspace now, so neither switching away from that tab nor
+  // closing it decides anything.
+  // There is no field left to say which tab the window came from, so the window
+  // survives that tab by construction. What is checkable here is that the terms
+  // which did survive still decide.
+  assert.equal(isEditorWindowVisible(visibleInput()), true);
+  assert.equal(isEditorWindowVisible(visibleInput({ windowWorkspaceId: 'ws-other' })), false);
+  assert.equal(isEditorWindowVisible(visibleInput({ minimized: true })), false);
+  assert.equal(isEditorWindowVisible(visibleInput({ screen: 'settings' })), false);
+});
 
-  assert.equal(isEditorWindowVisible(visibleInput({
-    ...orphaned, placement: 'floating', host: NO_HOST,
-  })), false);
-  assert.equal(isEditorWindowVisible(visibleInput({
-    ...orphaned, placement: 'floating', host: NO_HOST, tabClosed: true,
-  })), true);
+// The input shape is a source-text fact: a value cannot be asked which fields its
+// own type has stopped carrying. Reading the module text is what makes the removal
+// of the terminal axis checkable at all.
+const VISIBILITY_SOURCE = readFileSync(
+  new URL('../../src/components/editor/editorWindowVisibility.ts', import.meta.url),
+  'utf8',
+);
 
-  // The escape is term 4's alone. Every other term still decides.
-  assert.equal(isEditorWindowVisible(visibleInput({
-    ...orphaned, placement: 'floating', host: NO_HOST, tabClosed: true, minimized: true,
-  })), false);
-  assert.equal(isEditorWindowVisible(visibleInput({
-    ...orphaned, placement: 'floating', host: NO_HOST, tabClosed: true, screen: 'settings',
-  })), false);
-  assert.equal(isEditorWindowVisible(visibleInput({
-    ...orphaned, placement: 'floating', host: NO_HOST, tabClosed: true,
-    windowWorkspaceId: 'ws-other',
-  })), false);
+test('FR-MDE-002 the visibility input carries the three terms and nothing else', () => {
+  // The interface body is located before anything is asserted about its contents.
+  // Without this a renamed interface would leave the match empty, and a negative
+  // assertion over an empty string passes for free.
+  const declared = /export interface EditorWindowVisibilityInput \{([\s\S]*?)\n\}/
+    .exec(VISIBILITY_SOURCE);
+  assert.notEqual(declared, null, 'the visibility input is still declared here');
 
-  // Term 5 in particular: a window still recorded as docked has no registry
-  // entry once its tab is gone, and stays hidden until the placement moves.
-  assert.equal(isEditorWindowVisible(visibleInput({
-    ...orphaned, placement: 'docked', host: NO_HOST, tabClosed: true,
-  })), false);
+  const fields = Array.from(
+    (declared as RegExpExecArray)[1].matchAll(/^\s{2}(\w+)\??:/gm),
+    (match) => match[1],
+  );
+  assert.deepEqual(
+    fields.sort(),
+    ['activeWorkspaceId', 'minimized', 'screen', 'windowWorkspaceId'],
+  );
+
+  // And the helper that answered the removed term is gone with it. Left behind it
+  // would be an export nothing calls, and the next reader would take it for a term
+  // the predicate still consults.
+  assert.doesNotMatch(VISIBILITY_SOURCE, /export function hasUsableTerminalArea/);
 });
 
 // The window layer itself cannot be exercised here -- it is a React component and

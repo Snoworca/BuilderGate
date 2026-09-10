@@ -29,12 +29,15 @@ import type { UseWindowStateResult } from './useWindowState.ts';
 import {
   createEditorWindowPlacementState,
   enterFloating,
-  fillTerminal,
   toggleMaximize,
   type EditorWindowPlacement,
 } from '../components/editor/editorWindowPlacement.ts';
 import { raiseDialogById } from '../components/dialog/dialogStack.ts';
-import { editorWindowDialogId } from '../components/editor/EditorWindow.tsx';
+import {
+  EDITOR_WINDOW_MIN_SIZE,
+  editorWindowDialogId,
+} from '../components/editor/EditorWindow.tsx';
+import { computeInitialEditorWindowRect } from '../components/editor/editorWindowInitialRect.ts';
 import {
   minimizeEditorWindow,
   type EditorWindowScreen,
@@ -154,7 +157,6 @@ export interface UseEditorWindowsResult {
   closeWindow: (filePath: string) => void;
   minimizeWindow: (filePath: string) => void;
   toggleMaximizeWindow: (filePath: string) => void;
-  fillTerminalWindow: (filePath: string) => void;
   writeFile: (sessionId: string, path: string, content: string) => Promise<{ success: boolean }>;
   /**
    * The windows a restore just created, or null when none is waiting. They have
@@ -319,8 +321,23 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
       const stackOrder = nextStackOrder.current;
       nextStackOrder.current += 1;
 
+      // A window opens floating at seven tenths of the viewport rather than
+      // filling the stage. Filling it would put the window over the terminal's
+      // own path bar and over every window already open, which is exactly what
+      // one window per document used to avoid by covering only its own
+      // terminal.
+      //
+      // The viewport is measured here rather than inside the rule, so the rule
+      // stays decidable without a browser. The guard is not defensive padding:
+      // suites run this module with no DOM installed, where a bare `window` is
+      // a ReferenceError rather than an absent value.
+      const measured = typeof window === 'undefined'
+        ? { width: 0, height: 0 }
+        : { width: window.innerWidth, height: window.innerHeight };
+      const initialRect = computeInitialEditorWindowRect(measured, EDITOR_WINDOW_MIN_SIZE);
+
       return [...current, {
-        ...createEditorWindowPlacementState('docked'),
+        ...enterFloating(createEditorWindowPlacementState(), initialRect),
         filePath,
         tabId,
         workspaceId: activeWorkspaceId,
@@ -494,10 +511,9 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
   /**
    * The bound tab has gone, so the window becomes floating at the rectangle it
    * was occupying. This is a state transition rather than a way of drawing it:
-   * the record is what `App` reads to decide whether 터미널 채움 is pressable and
-   * which boundary the window drags against, so a window drawn as floating
-   * while its record still said `docked` would answer two different ways about
-   * itself.
+   * the record is what `App` reads to decide which boundary the window drags
+   * against, so a window drawn as floating while its record said otherwise
+   * would answer two different ways about itself.
    *
    * It goes through `enterFloating` like every other route into that state, so
    * there is one place that knows what entering it means.
@@ -524,10 +540,6 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
 
   const toggleMaximizeWindow = useCallback((filePath: string) => {
     updateWindow(filePath, editorWindow => ({ ...editorWindow, ...toggleMaximize(editorWindow) }));
-  }, [updateWindow]);
-
-  const fillTerminalWindow = useCallback((filePath: string) => {
-    updateWindow(filePath, editorWindow => ({ ...editorWindow, ...fillTerminal(editorWindow) }));
   }, [updateWindow]);
 
   /**
@@ -690,7 +702,6 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     closeWindow,
     minimizeWindow,
     toggleMaximizeWindow,
-    fillTerminalWindow,
     writeFile: fileApi.writeFile,
     pendingStackRestore,
     clearPendingStackRestore,

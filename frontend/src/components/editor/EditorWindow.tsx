@@ -247,8 +247,6 @@ export interface EditorWindowProps {
   stackOrder: number;
   resolveTabSession: (tabId: string) => string | undefined;
   writeFile: (sessionId: string, path: string, content: string) => Promise<{ success: boolean }>;
-  terminalFillDisabled: boolean;
-  onFillTerminal: () => void;
   /**
    * The window is filling the stage right now.
    *
@@ -303,8 +301,6 @@ export function EditorWindow({
   stackOrder,
   resolveTabSession,
   writeFile,
-  terminalFillDisabled,
-  onFillTerminal,
   maximized,
   onToggleMaximize,
   onMinimize,
@@ -587,12 +583,6 @@ export function EditorWindow({
         label="저장"
         disabled={tabClosed}
         onClick={save}
-      />
-      <IconButton
-        icon="terminal"
-        label="터미널 채움"
-        disabled={terminalFillDisabled}
-        onClick={onFillTerminal}
       />
       {/* One control for an axis with two ends, so the drawing says which end
           the window is at. Two separate buttons would have left that to the

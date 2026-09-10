@@ -348,7 +348,7 @@ test.describe('FR-MDE-007 session path context menu entry point', () => {
   });
 
   // TC-REQ-FR-MDE-007-AC3-01
-  test('FR-MDE-007 choosing an existing file opens a docked window bound to the tab', async ({ page }) => {
+  test('FR-MDE-007 choosing an existing file opens a window that outlives the tab switch', async ({ page }) => {
     const workdir = makeWorkdir();
     const tabName = `${TAB_NAME_PREFIX}-ac3`;
     const otherName = `${TAB_NAME_PREFIX}-ac3-other`;
@@ -370,8 +370,8 @@ test.describe('FR-MDE-007 session path context menu entry point', () => {
     expect(readsFor(traffic, expectedPath).some(url =>
       url.includes(`/api/sessions/${sessionId}/files/read`))).toBe(true);
 
-    // `docked` means the window is placed inside the terminal stage rather than
-    // against the viewport, so the stage is what must contain it.
+    // The window is placed inside the stage rather than against the viewport,
+    // so the stage is what must contain it.
     const stage = await page.locator('.terminal-workspace-stage').first().boundingBox();
     const box = await surface.boundingBox();
     expect(stage).not.toBeNull();
@@ -381,14 +381,24 @@ test.describe('FR-MDE-007 session path context menu entry point', () => {
     expect(box!.x + box!.width).toBeLessThanOrEqual(stage!.x + stage!.width + 1);
     expect(box!.y + box!.height).toBeLessThanOrEqual(stage!.y + stage!.height + 1);
 
-    // Bound to the tab that opened it, not to whichever tab is active: in tab
-    // mode a docked window shows only while its own tab does, so switching away
-    // hides it and switching back brings it -- the same instance -- to screen.
+    // The window is bound to the workspace, not to the terminal tab it was
+    // opened from. Switching terminal tabs leaves it on screen -- which is what
+    // lets documents opened from several terminals sit in one window together --
+    // and it is the same instance throughout, so nothing the user typed is lost
+    // on the way.
     await selectTab(page, otherName);
-    await expect(surface).toBeHidden({ timeout: 15000 });
+    await expect(surface).toBeVisible({ timeout: 15000 });
     await expect(surface).toHaveCount(1);
     await selectTab(page, tabName);
     await expect(surface).toBeVisible({ timeout: 15000 });
+    await expect(surface).toHaveCount(1);
+
+    // The visibility that did survive is the workspace one, and asserting it
+    // here is what stops the three checks above from passing against a window
+    // that is simply always visible. Minimizing is the term the user controls.
+    await surface.locator('button[aria-label="최소화"]').click();
+    await expect(surface).toBeHidden({ timeout: 15000 });
+    await expect(surface).toHaveCount(1);
   });
 
   // TC-REQ-FR-MDE-007-AC4-01

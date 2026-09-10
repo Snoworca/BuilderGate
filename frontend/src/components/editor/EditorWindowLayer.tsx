@@ -11,17 +11,15 @@
 // descendant of whatever this layer renders and a style set here would not reach it.
 // The predicate's answer therefore travels as `hidden` and the surface applies it.
 //
-// Placement is computed here rather than per window because both inputs are
-// collection-wide. The cascade has to see the rects its siblings already
-// occupy, and those rects are themselves computed in this same pass; and the
-// registry the docked rect comes from is a context value only this layer reads.
-// A per-window computation would need the registry duplicated into every window
-// and would have no way to see its siblings at all.
+// Placement is computed here rather than per window because its input is
+// collection-wide: every window is placed against the same measured overlay, and
+// that measurement is a context value only this layer reads. A per-window
+// computation would need the registry duplicated into every window.
 //
-// The layer must render inside TerminalRuntimeProvider: the host registry term 5
-// reads is that provider's context value. The consequence is that the windows and
-// their unsaved bodies are destroyed on any commit where AppContent has no active
-// workspace -- deleting the last one is the obvious way there, but so is a stored
+// The layer must render inside TerminalRuntimeProvider: the host registry it hands
+// to each window is that provider's context value. The consequence is that the
+// windows and their unsaved bodies are destroyed on any commit where AppContent has
+// no active workspace -- deleting the last one is the obvious way there, but so is a stored
 // workspace id that names a workspace the reloaded list does not contain. That is
 // left as a known constraint.
 // @req FR-MDE-002
@@ -33,9 +31,9 @@ import { useTerminalRuntimeContext } from '../Terminal/TerminalRuntimeContext';
 import { ConfirmModal } from '../Modal/ConfirmModal';
 import { MessageBox } from '../dialog/MessageBox';
 import type { DialogRect } from '../dialog/types';
-// The floor a window is not shrunk below by the cascade, taken from the window
-// that hands the same numbers to `Rnd`. One definition, so the size the layer
-// places a window at and the size the window agrees to render at cannot drift.
+// The floor a window is not shrunk below, taken from the window that hands the
+// same numbers to `Rnd`. One definition, so the size the layer places a window at
+// and the size the window agrees to render at cannot drift.
 import {
   EDITOR_WINDOW_MIN_SIZE,
   editorWindowDialogId,
@@ -44,11 +42,9 @@ import {
 } from './EditorWindow.tsx';
 import type { EditorWindowRecord } from './editorWindowRecord.ts';
 import { restoreEditorWindowStackOrder } from '../../hooks/windowStateStorage.ts';
-import { computeCascadeRect, type CascadeWindow } from './editorWindowCascade.ts';
 import type { EditorWindowPlacement } from './editorWindowPlacement.ts';
-import { clampToStage, toDockedRect, toStageRect } from './editorWindowRect.ts';
+import { clampToStage, toStageRect } from './editorWindowRect.ts';
 import {
-  hasUsableTerminalArea,
   isEditorWindowVisible,
   type EditorWindowScreen,
   type EditorWindowTerminalHost,
@@ -181,8 +177,8 @@ export interface EditorWindowLayerProps<TWindow extends EditorWindowLayerWindow>
    *
    * Reported rather than applied here: the placement is a fact about the window
    * that `App` also reads, so it belongs in the record. What only this layer
-   * knows is the rect, because a docked one is computed from a registry entry
-   * that goes when the tab does.
+   * knows is the rect, because it is computed from a measurement only this
+   * layer takes.
    * @req CON-MDE-002
    */
   onOrphan: (filePath: string, rect: DialogRect) => void;
@@ -312,9 +308,7 @@ export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
   }, [hosts]);
 
   // Where each window was last drawn, so a window whose tab closes can inherit
-  // the place it was already sitting in. A docked rect is computed from the
-  // registry entry for its tab, and that entry goes when the tab does -- this
-  // map is the only thing left that remembers where the window was.
+  // the place it was already sitting in.
   // @req CON-MDE-002
   const lastRectRef = useRef(new Map<string, DialogRect>());
 
@@ -323,60 +317,38 @@ export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
   // The report has to be once per window, not once per commit while its tab is
   // gone. `tabClosed` stays true forever, so a guard that only asked whether
   // the window is floating would fire again the moment it left that state --
-  // and 최대화 and 터미널 채움 are the two controls whose whole job is to leave
-  // it. Both would appear to do nothing: the window would be pushed straight
-  // back to floating at the rect it already had.
+  // and 최대화 is the control whose whole job is to leave it. It would appear
+  // to do nothing: the window would be pushed straight back to floating at the
+  // rect it already had.
   // @req CON-MDE-002
   const reportedOrphansRef = useRef(new Set<string>());
 
-  // One pass over the collection, in creation order. Each docked window is
-  // cascaded against the rects already settled in this same pass, so the step
-  // it takes is the lowest one no sibling over that terminal occupies.
+  // One pass over the collection, in creation order. Both placements are placed
+  // against the same measured stage, so no window's rect depends on a sibling's.
   const placed: {
     editorWindow: TWindow;
     rect: DialogRect | null;
     placement: EditorWindowPlacement;
     tabClosed: boolean;
   }[] = [];
-  const cascadeSoFar: CascadeWindow[] = [];
 
   for (const editorWindow of windows) {
-    const host = hosts.get(editorWindow.tabId);
     const stageBounds = overlayRect === null ? null : toStageRect(overlayRect);
     const tabClosed = resolveTabSession(editorWindow.tabId) === undefined;
     const placement = editorWindow.placement;
-    let rect: DialogRect | null = null;
-
-    if (placement === 'docked') {
-      if (overlayRect !== null && host !== undefined && hasUsableTerminalArea(host)) {
-        rect = computeCascadeRect({
-          tabId: editorWindow.tabId,
-          target: toDockedRect(host.rect, { left: overlayRect.left, top: overlayRect.top }),
-          alreadyDocked: cascadeSoFar,
-          minSize: EDITOR_WINDOW_MIN_SIZE,
-        });
-      }
-    } else if (placement === 'stage') {
-      rect = stageBounds;
-    } else {
-      rect = stageBounds !== null && editorWindow.floatingRect !== null
+    const rect: DialogRect | null = placement === 'stage'
+      ? stageBounds
+      : (stageBounds !== null && editorWindow.floatingRect !== null
         ? clampToStage(editorWindow.floatingRect, stageBounds)
-        : stageBounds;
-    }
+        : stageBounds);
 
     placed.push({ editorWindow, rect, placement, tabClosed });
-    cascadeSoFar.push({
-      tabId: editorWindow.tabId,
-      placement,
-      minimized: editorWindow.minimized,
-      rect,
-    });
   }
 
   // A window whose tab has gone is handed the rect it was last drawn at, once.
   // The record then moves it to `floating` carrying that rect, and from there
-  // it is an ordinary floating window: 최대화 and 터미널 채움 move it as they move
-  // any other, because this reports the orphaning rather than enforcing it.
+  // it is an ordinary floating window: 최대화 moves it as it moves any other,
+  // because this reports the orphaning rather than enforcing it.
   //
   // After the commit, not during the pass: this changes the state the pass
   // reads. `lastRectRef` still holds what the previous render drew, which is
@@ -394,10 +366,9 @@ export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
       // The stage stands in for a window that was never drawn -- opened while
       // its tab was already going, so there is no rectangle it occupied. That
       // is a placement rather than an inheritance, and it is the only way such
-      // a window reaches the screen at all: left docked it has no registry
-      // entry to be placed against, and it would stay hidden holding a body
-      // nobody can save. It is not recorded as reported, so the next commit --
-      // which has a measurement -- can still place it.
+      // a window reaches the screen at all: with no rect it would stay hidden
+      // holding a body nobody can save. It is not recorded as reported, so the
+      // next commit -- which has a measurement -- can still place it.
       const occupied = lastRectRef.current.get(editorWindow.filePath)
         ?? (overlayRect === null ? null : toStageRect(overlayRect));
       if (occupied === null) {
@@ -437,25 +408,19 @@ export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
 
   return (
     <>
-      {placed.map(({ editorWindow, rect, placement, tabClosed }) => {
+      {placed.map(({ editorWindow, rect }) => {
         const host = hosts.get(editorWindow.tabId);
         const visible = isEditorWindowVisible({
           minimized: editorWindow.minimized,
           screen,
           activeWorkspaceId,
           windowWorkspaceId: editorWindow.workspaceId,
-          viewMode,
-          activeTabId,
-          windowTabId: editorWindow.tabId,
-          placement,
-          host,
-          tabClosed,
         });
 
         return (
           <Fragment key={editorWindow.filePath}>
             {renderWindow(editorWindow, {
-              // A window with nowhere to go stays hidden even when the five
+              // A window with nowhere to go stays hidden even when the three
               // terms say otherwise: placing it at no rect would put a
               // zero-size window on screen.
               hidden: !visible || rect === null,

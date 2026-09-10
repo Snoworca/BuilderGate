@@ -351,11 +351,9 @@ test.describe('markdown editor save flow and tab binding', () => {
 
     // Each window is typed into while it is the one on screen.
     //
-    // Both are docked over the same terminal, so the cascade puts the second
-    // one 28px down and right of the first with their right edges level, and
-    // each fills nearly the whole terminal area -- the first window's text
-    // begins below the second one's title bar and no part of it is exposed.
-    // Typing into it would wait for a click that can never land.
+    // Both open into `stage`, so they fill the same rect exactly and the first
+    // window's text is entirely under the second one's surface. Typing into it
+    // would wait for a click that can never land.
     //
     // So the front one is typed into first, then minimized, then the back one,
     // then restored through the tray -- which also brings it back to the front
@@ -564,7 +562,7 @@ test.describe('markdown editor save flow and tab binding', () => {
     // The placement did not drop. Containment inside the stage could not say
     // that on its own -- a window wrongly dropped to floating is clamped and
     // would sit inside it too -- so the rect is compared with the one it had
-    // before the session died. A docked window that stayed docked has not moved.
+    // before the session died. A window that stayed where it was has not moved.
     const after = await surface.boundingBox();
     expect(after).not.toBeNull();
     expect(Math.round(after!.x)).toBe(Math.round(before!.x));
@@ -663,13 +661,11 @@ test.describe('markdown editor save flow and tab binding', () => {
     await awaitReportedCwd(page, workdir);
     // Two windows on the bound tab, and the second one is what is measured.
     //
-    // AC-4 names `floating`, not `stage`, and the rect is the only thing that
-    // tells those two apart -- `isTerminalFillDisabled` answers false for both,
-    // and `boundsElement` never reaches the DOM. A lone window docked to the
-    // only visible terminal fills the stage exactly, so its inherited rect and
-    // the stage rect coincide and a transition to `stage` would be invisible.
-    // The cascade gives the second window a rect a step smaller and offset,
-    // which is a rect the stage cannot equal.
+    // AC-4 names `floating`, not `stage`. Both placements fill the stage, so the
+    // rect cannot tell them apart; the 최대화 toggle can, because it renders
+    // `aria-pressed` from the placement itself. The second window is the one
+    // measured so that the count assertion below distinguishes "both survived"
+    // from "one did".
     await openWindow(page, 'CLAUDE.md');
     await openWindow(page, 'CLAUDE.local.md');
     await typeInto(page, 'CLAUDE.local.md', 'UI-CLOSED');
@@ -678,14 +674,17 @@ test.describe('markdown editor save flow and tab binding', () => {
     const body = await contentOf(page, 'CLAUDE.local.md').first().innerText();
     expect(body).toContain('UI-CLOSED');
 
-    // The rectangle it occupies immediately before the close, and the stage it
-    // would fill if it went to `stage` instead. They have to differ, or the
-    // comparison after the close judges nothing.
+    // The window is put into `stage` first, so that the drop to `floating`
+    // afterwards is a change rather than the state it was already in -- a
+    // window that opened floating and stayed there would satisfy every
+    // assertion below without the orphan rule ever running.
+    await surface.locator('button[aria-label="최대화"]').click();
+    await expect(surface.locator('button[aria-label="최대화"]'))
+      .toHaveAttribute('aria-pressed', 'true');
+
+    // The rectangle it occupies immediately before the close.
     const inherited = await surface.boundingBox();
-    const stageBefore = await page.locator('.terminal-workspace-stage').first().boundingBox();
     expect(inherited).not.toBeNull();
-    expect(stageBefore).not.toBeNull();
-    expect(Math.round(inherited!.width)).not.toBe(Math.round(stageBefore!.width));
 
     // The tab bar's own close control, on the tab the window is bound to.
     const boundTab = page.locator('.workspace-tabbar [role="tab"]', { hasText: boundName }).first();
@@ -715,10 +714,6 @@ test.describe('markdown editor save flow and tab binding', () => {
     // The rect it settled on is the one it occupied, exactly. AC-4: closing a
     // tab never shrinks the stage, so the inherited rectangle is still inside
     // the post-close stage and the clamp does not participate.
-    //
-    // And it is not the stage's own rect, which is what separates `floating`
-    // from `stage` -- a window sent to `stage` instead would have grown to fill
-    // it, and every other assertion here would still have held.
     const settled = await surface.boundingBox();
     expect(settled).not.toBeNull();
     expect({
@@ -729,31 +724,18 @@ test.describe('markdown editor save flow and tab binding', () => {
       width: Math.round(inherited!.width), height: Math.round(inherited!.height),
     });
 
-    const stageAfter = await page.locator('.terminal-workspace-stage').first().boundingBox();
-    expect(stageAfter).not.toBeNull();
-    expect(Math.round(settled!.width)).not.toBe(Math.round(stageAfter!.width));
+    // And it really is `floating` now rather than the `stage` it opened in. The
+    // rect cannot say so -- the orphan inherits a rect that fills the stage and
+    // the floating clamp holds it there -- but the 최대화 toggle renders the
+    // placement directly, so it can.
+    const maximize = surface.locator('button[aria-label="최대화"]');
+    await expect(maximize).toHaveAttribute('aria-pressed', 'false', { timeout: 10000 });
 
-    // And it is floating in its own right rather than pinned there.
-    //
-    // The control that only a docked window disables is pressable again, which
-    // says the record moved. Pressing 최대화 says the record still moves: a
-    // window held in place by something that re-applied the drop on every
-    // commit would answer that press by returning to the rect it already had.
-    await expect(surface.locator('button[aria-label="터미널 채움"]')).toBeEnabled();
-
-    // And the record still moves. `FR-MDE-001` AC-3 says the control is enabled
-    // for a floating window and pressing it sets the placement to `docked`,
-    // which this window reports by disabling the control again.
-    //
-    // Judged on the control rather than on the box: the orphan inherits a rect
-    // that fills the stage and the floating clamp holds it there, so 최대화 and
-    // a drag both leave it exactly where it is. A window held in floating by
-    // something that re-applied the drop on every commit would answer this
-    // press by coming straight back, and the control would stay enabled.
-    await surface.locator('button[aria-label="터미널 채움"]').click();
-    await expect(surface.locator('button[aria-label="터미널 채움"]')).toBeDisabled({
-      timeout: 10000,
-    });
+    // And the record still moves. A window held in `floating` by something that
+    // re-applied the drop on every commit would refuse this press, or answer it
+    // and come straight back.
+    await maximize.click();
+    await expect(maximize).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
   });
 
   // TC-REQ-CON-MDE-002-AC5-01
@@ -908,12 +890,12 @@ test.describe('markdown editor save flow and tab binding', () => {
     expect(adjacency.toggleIndex - adjacency.trayIndex).toBe(1);
   });
 
-  // TC-REQ-FR-MDE-008-AC8-01
-  test('FR-MDE-008 a tray revival defers the docked rect until the registry reports a usable area', async ({ page }) => {
+  // TC-REQ-FR-MDE-008-AC5-02
+  test('FR-MDE-008 choosing a tray entry brings a minimized window back to screen', async ({ page }) => {
     const workdir = makeWorkdir();
-    const boundName = `${TAB_NAME_PREFIX}-defer`;
-    const otherName = `${TAB_NAME_PREFIX}-defer-other`;
-    const boundTabId = await addTabAt(page, workspaceId!, workdir, boundName);
+    const boundName = `${TAB_NAME_PREFIX}-revive`;
+    const otherName = `${TAB_NAME_PREFIX}-revive-other`;
+    await addTabAt(page, workspaceId!, workdir, boundName);
     await addTabAt(page, workspaceId!, makeWorkdir(), otherName);
     await selectTab(page, boundName);
     await awaitReportedCwd(page, workdir);
@@ -922,89 +904,21 @@ test.describe('markdown editor save flow and tab binding', () => {
     const surface = editorWindowFor(page, 'CLAUDE.md');
     await surface.locator('button[aria-label="최소화"]').click();
     await expect(surface).toBeHidden({ timeout: 10000 });
+
+    // Switching the terminal tab no longer hides the window, so the window is
+    // hidden here for exactly one reason: it was minimized. That is what makes
+    // the revival below a statement about the tray.
     await selectTab(page, otherName);
-
-    // The tab switch has actually reached the registry before it is read. The
-    // window was already hidden by the minimize above, so its surface offers
-    // nothing to wait on and the read would otherwise race the commit that
-    // takes the bound tab off screen. The slot itself is what changes, so it is
-    // what is waited for.
-    await expect(page.locator(`[data-terminal-host-slot="${boundTabId}"]`))
-      .toBeHidden({ timeout: 15000 });
-
-    // While the bound tab is off screen its registry entry is unusable, and it
-    // says so with a negative left rather than a zero rect.
-    const hidden = await page.evaluate(
-      tabId => window.__buildergateEditorWindowDebug?.readTerminalHost(tabId) ?? null, boundTabId);
-    expect(hidden).not.toBeNull();
-    expect(hidden!.isVisible).toBe(false);
-    expect(hidden!.rect.width).toBe(0);
-    expect(hidden!.rect.height).toBe(0);
-    expect(hidden!.rect.left).toBeLessThan(0);
-    await expect(surface).toBeHidden();
-
-    // Choosing the tray entry switches to the bound tab and shows the window
-    // only once that tab reports an area it can be placed in. The end state
-    // alone cannot tell a deferral from an immediate placement that settled
-    // before anyone looked, so every frame of the transition is sampled and the
-    // question asked of the samples is whether the window was ever on screen
-    // carrying a rect no usable area could have produced.
-    await page.evaluate(() => {
-      const store = window as unknown as {
-        __mdeSamples?: { display: string; width: number; height: number; x: number }[];
-        __mdeStop?: boolean;
-      };
-      store.__mdeSamples = [];
-      store.__mdeStop = false;
-      const tick = () => {
-        if (store.__mdeStop === true) return;
-        const element = document.querySelector('.editor-window-surface');
-        if (element instanceof HTMLElement) {
-          const rect = element.getBoundingClientRect();
-          store.__mdeSamples!.push({
-            display: getComputedStyle(element).display,
-            width: rect.width,
-            height: rect.height,
-            x: rect.x,
-          });
-        }
-        requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    });
+    await expect(surface).toBeHidden({ timeout: 10000 });
 
     await page.locator('.header-editor-tray-button').click();
     await page.locator('.context-menu-item').filter({ hasText: 'CLAUDE.md' }).first().click();
     await expect(surface).toBeVisible({ timeout: 15000 });
 
-    const samples = await page.evaluate(() => {
-      const store = window as unknown as {
-        __mdeSamples?: { display: string; width: number; height: number; x: number }[];
-        __mdeStop?: boolean;
-      };
-      store.__mdeStop = true;
-      return store.__mdeSamples ?? [];
-    });
-    expect(samples.length).toBeGreaterThan(0);
-    const shownWithoutArea = samples.filter(sample =>
-      sample.display !== 'none' && (sample.width === 0 || sample.height === 0 || sample.x < 0));
-    expect(shownWithoutArea).toEqual([]);
-
-    const host = await page.evaluate(
-      tabId => window.__buildergateEditorWindowDebug?.readTerminalHost(tabId) ?? null, boundTabId);
-    expect(host).not.toBeNull();
-    expect(host!.isVisible).toBe(true);
-    expect(host!.rect.width).toBeGreaterThan(0);
-    expect(host!.rect.height).toBeGreaterThan(0);
-
-    // The rect it settled on came from that entry, not from a zero-size area.
-    const slot = await page.locator(`[data-terminal-host-slot="${boundTabId}"]`).boundingBox();
+    // It comes back with an area rather than as a zero-size surface.
     const box = await surface.boundingBox();
-    expect(slot).not.toBeNull();
     expect(box).not.toBeNull();
     expect(box!.width).toBeGreaterThan(0);
     expect(box!.height).toBeGreaterThan(0);
-    expect(box!.x).toBeGreaterThanOrEqual(slot!.x - 1);
-    expect(box!.y).toBeGreaterThanOrEqual(slot!.y - 1);
   });
 });

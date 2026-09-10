@@ -32,10 +32,9 @@ export interface EditorWindowRecord {
 }
 
 // Keyed by the placement union, so a value added to it has to be given an
-// entry here before this compiles. A plain array of the three strings would
+// entry here before this compiles. A plain array of the two strings would
 // stay assignable while silently rejecting the new one at runtime.
 const PLACEMENT_VALUES: Record<EditorWindowPlacement, true> = {
-  docked: true,
   stage: true,
   floating: true,
 };

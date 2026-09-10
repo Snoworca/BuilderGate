@@ -30,7 +30,7 @@ function liveWindow(overrides: Record<string, unknown> = {}) {
   return {
     tabId: 'tab-alive',
     filePath: 'C:/work/notes/readme.md',
-    placement: 'docked' as const,
+    placement: 'stage' as const,
     placementBeforeStage: null,
     minimized: false,
     floatingRect: null,
