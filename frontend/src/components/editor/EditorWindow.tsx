@@ -23,6 +23,7 @@ import {
 } from 'react';
 import { AtomicCodeMirrorEditor, doculightExtensions } from '../../editor';
 import type { AtomicCodeMirrorEditorHandle } from '../../editor';
+import { IconButton, IconToggleButton } from '../common';
 import { WindowDialog } from '../dialog/WindowDialog';
 import type { DialogRect, DialogSize } from '../dialog/types';
 import { ConfirmModal } from '../Modal/ConfirmModal';
@@ -34,6 +35,9 @@ import '../Modal/ConfirmModal.css';
 // the prompt's appearance does not rest on some other component still importing
 // one of them somewhere else in the graph.
 import '../Modal/RenameModal.css';
+// The window's own light surface. Imported here because the rules it sets are
+// scoped to `.editor-window-surface`, which is this component's class.
+import './EditorWindow.css';
 import {
   createEditorWindowSaveController,
   type EditorWindowSaveController,
@@ -73,9 +77,18 @@ const BODY_STYLE: CSSProperties = {
   minHeight: 0,
 };
 
+// The document sits as a page inside the window rather than filling it: 95% of
+// the body's height, with the remaining 5% falling to the auto margins as an
+// even gap above and below.
+//
+// The height is expressed as a flex basis rather than as `height: 95%` because
+// a percentage height would resolve against the body while the banner above it
+// also takes room, and the two together would overflow. As a basis it shrinks
+// when the banner appears, which is the behaviour the banner needs.
 const EDITOR_HOST_STYLE: CSSProperties = {
-  flex: '1 1 auto',
+  flex: '0 1 95%',
   minHeight: 0,
+  marginBlock: 'auto',
   overflow: 'auto',
 };
 
@@ -236,6 +249,14 @@ export interface EditorWindowProps {
   writeFile: (sessionId: string, path: string, content: string) => Promise<{ success: boolean }>;
   terminalFillDisabled: boolean;
   onFillTerminal: () => void;
+  /**
+   * The window is filling the stage right now.
+   *
+   * Passed in rather than held here: the placement is the layer's to own, and a
+   * second copy in this component would answer for whichever of the two was
+   * written last.
+   */
+  maximized: boolean;
   onToggleMaximize: () => void;
   onMinimize: () => void;
   /**
@@ -284,6 +305,7 @@ export function EditorWindow({
   writeFile,
   terminalFillDisabled,
   onFillTerminal,
+  maximized,
   onToggleMaximize,
   onMinimize,
   onClose,
@@ -560,44 +582,32 @@ export function EditorWindow({
           저장 불가
         </span>
       )}
-      <button
-        type="button"
-        className="window-dialog-close"
-        aria-label="저장"
-        title="저장"
+      <IconButton
+        icon="save"
+        label="저장"
         disabled={tabClosed}
         onClick={save}
-      >
-        S
-      </button>
-      <button
-        type="button"
-        className="window-dialog-close"
-        aria-label="터미널 채움"
-        title="터미널 채움"
+      />
+      <IconButton
+        icon="terminal"
+        label="터미널 채움"
         disabled={terminalFillDisabled}
         onClick={onFillTerminal}
-      >
-        T
-      </button>
-      <button
-        type="button"
-        className="window-dialog-close"
-        aria-label="최대화"
-        title="최대화"
-        onClick={onToggleMaximize}
-      >
-        M
-      </button>
-      <button
-        type="button"
-        className="window-dialog-close"
-        aria-label="최소화"
-        title="최소화"
+      />
+      {/* One control for an axis with two ends, so the drawing says which end
+          the window is at. Two separate buttons would have left that to the
+          user to work out from the window itself. */}
+      <IconToggleButton
+        pressed={maximized}
+        icons={{ on: 'restore', off: 'maximize' }}
+        label="최대화"
+        onToggle={onToggleMaximize}
+      />
+      <IconButton
+        icon="minimize"
+        label="최소화"
         onClick={onMinimize}
-      >
-        _
-      </button>
+      />
     </div>
   );
 
@@ -626,7 +636,11 @@ export function EditorWindow({
               {saveState.error}
             </div>
           )}
-          <div style={EDITOR_HOST_STYLE}>
+          {/* The vendor editor ships a light palette behind this opt-in
+              (`vendor/atomic-editor/styles/inline-preview.css:767`). Setting it
+              here rather than restating the palette in our own sheet keeps one
+              copy of those colours. */}
+          <div className="editor-window-host" style={EDITOR_HOST_STYLE} data-theme="light">
             <AtomicCodeMirrorEditor
               {...editorMountProps}
               editorHandleRef={editorHandleRef}

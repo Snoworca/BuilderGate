@@ -15,6 +15,14 @@ import './ContextMenu.css';
 
 export interface ContextMenuActionItem {
   label: string;
+  /**
+   * Extra classes for this row alone.
+   *
+   * A caller whose rows differ from every other menu's -- the editor tray, whose
+   * rows are absolute paths -- styles them through this rather than by reaching
+   * for `.context-menu-item`, which would repaint every menu in the application.
+   */
+  className?: string;
   icon?: string;
   onClick?: () => void;
   disabled?: boolean;
@@ -327,6 +335,7 @@ function MenuItemRow({ item, onClose, onNavigateBack }: MenuItemRowProps) {
     item.disabled ? 'disabled' : '',
     item.destructive ? 'destructive' : '',
     hasChildren ? 'has-children' : '',
+    item.className ?? '',
   ].filter(Boolean).join(' ');
 
   return (

@@ -7,7 +7,7 @@ import { createEditorWindowSaveController } from '../../src/components/editor/ed
 
 // FR-MDE-006 AC-1 / AC-5 / AC-7 — the dirty transitions and the one save path.
 //
-// The dirty flag is judged here; the leading `*` it produces on the title is
+// The dirty flag is judged here; the trailing `*` it produces on the title is
 // judged in tests/unit/windowDialogContract.test.ts, because WindowDialog is
 // what draws the marker from the `dirty` prop.
 //

@@ -1,0 +1,66 @@
+/* 편집기 창의 흰 바탕.
+ *
+ * 색은 벤더링된 편집기가 이미 갖고 있는 밝은 테마를 그대로 쓴다 —
+ * `src/editor/vendor/atomic-editor/styles/inline-preview.css:767-811` 이
+ * `[data-theme="light"] .atomic-cm-editor` 에서 `--atomic-editor-*` 를 밝은 쪽으로
+ * 다시 맵핑해 두었고, 그 주석이 "Consumers opt in by setting data-theme=light"
+ * 라고 밝히고 있다. 그 팔레트를 여기에 다시 적으면 같은 색이 두 벌이 되고,
+ * 상류를 다시 들여올 때 한쪽만 움직여 조용히 어긋난다. opt-in 은
+ * `EditorWindow.tsx` 의 편집기 호스트가 `data-theme="light"` 로 건다.
+ *
+ * 여기서 따로 정하는 것은 요구사항이 벤더 기본값과 다른 한 가지뿐이다. */
+.editor-window-surface [data-theme='light'] .atomic-cm-editor {
+  /* 벤더의 밝은 테마는 본문을 #24292f 로 둔다. 요구사항이 지정한 것은 검은색이다. */
+  --atomic-editor-fg: #000000;
+
+  /* 읽는 열의 폭. 벤더는 이 변수를 `.cm-content` 의 `max-width` 로만 쓰고
+   * `margin-inline: auto` 로 가운데 정렬까지 이미 해 둔다
+   * (`vendor/atomic-editor/styles/inline-preview.css:39-42`). 그래서 폭 규칙은
+   * 이 한 줄로 끝나고, 정렬을 위해 따로 쓸 것이 없다.
+   *
+   * 기본 95%, 상한 1200px. 벤더 기본값은 `70ch` 였는데, 그것은 창을 넓혀도
+   * 열이 따라 넓어지지 않아 좌우가 크게 비는 원인이었다. 백분율은
+   * `.cm-content` 의 포함 블록(스크롤러의 내용 폭)에 대해 풀린다. */
+  --atomic-editor-measure: min(95%, 1200px);
+}
+
+/* 편집기가 놓이는 본문. 창 테두리와 제목 표시줄은 다른 창들과 같은 어두운
+ * 계열로 남기고, 문서가 놓이는 자리만 흰 종이가 된다. */
+.editor-window-surface .window-dialog-body {
+  background: #ffffff;
+  color: #000000;
+}
+
+/* 문서의 세로 스크롤바.
+ *
+ * 기본 스크롤바는 흰 종이 위에서 거의 보이지 않는다. 손잡이를 윈도우가 선택에
+ * 쓰는 파랑으로 칠하고 트랙을 옅은 회색으로 두어, 어디쯤 있는지 눈으로 바로
+ * 잡히게 한다.
+ *
+ * `::-webkit-scrollbar` 계열로 쓴다. 표준인 `scrollbar-color` 는 손잡이와
+ * 트랙의 색만 받고 두께는 `thin`·`auto` 두 값밖에 없어서, 이 정도로 좁게
+ * 그리려면 의사요소가 필요하다. 대상 브라우저가 Chromium 계열이므로 실효
+ * 범위는 같다. */
+.editor-window-surface .cm-scroller::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.editor-window-surface .cm-scroller::-webkit-scrollbar-track {
+  background: #eeeeee;
+}
+
+.editor-window-surface .cm-scroller::-webkit-scrollbar-thumb {
+  background: #0078d4;
+  border-radius: 5px;
+}
+
+.editor-window-surface .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background: #106ebe;
+}
+
+/* 세로와 가로가 만나는 모서리. 두지 않으면 그 자리만 흰색으로 남아 트랙이
+ * 끊겨 보인다. */
+.editor-window-surface .cm-scroller::-webkit-scrollbar-corner {
+  background: #eeeeee;
+}

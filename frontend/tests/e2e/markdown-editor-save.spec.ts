@@ -269,7 +269,7 @@ async function chooseFile(page: Page, fileName: string): Promise<void> {
 function editorWindowFor(page: Page, fileName: string): Locator {
   return page.locator('.window-dialog-surface.editor-window-surface').filter({
     has: page.locator('.window-dialog-title')
-      .filter({ hasText: new RegExp(`^\\*?${escapeRegExp(fileName)}$`) }),
+      .filter({ hasText: new RegExp(`^${escapeRegExp(fileName)}\\*?$`) }),
   });
 }
 
@@ -844,11 +844,21 @@ test.describe('markdown editor save flow and tab binding', () => {
       return labels.map(label => label.trim());
     };
 
+    // The row carries the file's path rather than its bare name, so the
+    // assertions read the two parts that matter: the document it names, and
+    // whether the dirty marker leads it. Which part of a long path gets elided
+    // is the unit suite's to judge (editorTrayPresentation.test.ts).
+    const trayLabel = async () => {
+      const labels = await trayLabels();
+      expect(labels).toHaveLength(1);
+      return labels[0];
+    };
+
     // A window opens on the body it just read, so it starts clean.
-    expect(await trayLabels()).toEqual(['CLAUDE.md']);
+    expect(await trayLabel()).toMatch(/[\\/]CLAUDE\.md$/);
 
     await typeInto(page, 'CLAUDE.md', 'TRAY-DIRTY');
-    expect(await trayLabels()).toEqual(['*CLAUDE.md']);
+    expect(await trayLabel()).toMatch(/[\\/]CLAUDE\.md\*$/);
 
     // And the marker comes back off once the file matches again. The write is
     // let through to the server, so this is a real save rather than a stubbed
@@ -863,7 +873,7 @@ test.describe('markdown editor save flow and tab binding', () => {
 
     await expect.poll(async () => titleOf(page, 'CLAUDE.md'), { timeout: 10000 })
       .toBe('CLAUDE.md');
-    expect(await trayLabels()).toEqual(['CLAUDE.md']);
+    expect(await trayLabel()).toMatch(/[\\/]CLAUDE\.md$/);
   });
 
   // TC-REQ-FR-MDE-008-AC3-01

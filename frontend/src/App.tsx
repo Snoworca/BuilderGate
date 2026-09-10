@@ -633,6 +633,7 @@ function AppContent() {
         onOpenMcpControlManager={() => setShowMcpControlDialog(true)}
         hasEditorWindows={editor.hasWindows}
         editorTrayItems={editor.trayItems}
+        editorTrayMinimizedCount={editor.minimizedCount}
       />
       <div className="main">
         {/* Desktop sidebar */}
@@ -795,6 +796,7 @@ function AppContent() {
                         writeFile={editor.writeFile}
                         terminalFillDisabled={isTerminalFillDisabled(editorWindow)}
                         onFillTerminal={() => editor.fillTerminalWindow(editorWindow.filePath)}
+                        maximized={editorWindow.placement === 'stage'}
                         onToggleMaximize={() => editor.toggleMaximizeWindow(editorWindow.filePath)}
                         onMinimize={() => editor.minimizeWindow(editorWindow.filePath)}
                         onClose={() => editor.closeWindow(editorWindow.filePath)}

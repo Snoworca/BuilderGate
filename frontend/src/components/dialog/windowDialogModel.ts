@@ -15,7 +15,7 @@ const LAYER_BANDS: Record<DialogMode, { base: number; cap: number }> = {
 const LAYER_STEP = 20;
 
 /**
- * The title as it is drawn, with the leading `*` that marks unsaved content.
+ * The title as it is drawn, with the trailing `*` that marks unsaved content.
  *
  * The marker is composed here rather than by the caller so that one place turns
  * the `dirty` fact into its representation. A caller that starred its own title
@@ -25,10 +25,16 @@ const LAYER_STEP = 20;
  * It is a standalone function rather than a field of the behavior model because
  * a title belongs to the surface rather than to the behavior flags, and because
  * that model's whole shape is pinned by deep equality in its tests.
+ *
+ * The marker trails the title. It led it until the header tray began drawing
+ * absolute paths, whose heads are what get elided -- a marker at the head sits
+ * against the `...` and reads as part of it. The tail is also the end both
+ * surfaces are aligned on, so the marker lands in the same column down a list
+ * of rows of different lengths.
  * @req FR-MDE-006
  */
 export function windowDialogTitleText(title: string, dirty?: boolean): string {
-  return dirty === true ? `*${title}` : title;
+  return dirty === true ? `${title}*` : title;
 }
 
 export interface WindowDialogBehaviorModel {

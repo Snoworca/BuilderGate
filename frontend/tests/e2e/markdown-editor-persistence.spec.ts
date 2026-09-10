@@ -216,14 +216,14 @@ function editorWindows(page: Page): Locator {
  * The window whose titlebar names `fileName`.
  *
  * The dirty marker is absorbed by the match rather than excluded from it: an
- * unsaved window is titled `*CLAUDE.md`, and a locator pinned to the bare name
+ * unsaved window is titled `CLAUDE.md*`, and a locator pinned to the bare name
  * finds nothing at all from the first keystroke onwards -- which `toBeHidden`
  * reports as a hidden window rather than as a missed one, so the assertion
  * would pass while measuring nothing. Anchored at both ends, so the name of one
  * file never matches the window of another.
  */
 function editorWindowFor(page: Page, fileName: string): Locator {
-  const titled = new RegExp(`^\\*?${escapeRegExp(fileName)}$`);
+  const titled = new RegExp(`^${escapeRegExp(fileName)}\\*?$`);
 
   return editorWindows(page).filter({
     has: page.locator('.window-dialog-title').getByText(titled),

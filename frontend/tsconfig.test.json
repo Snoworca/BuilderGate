@@ -43,6 +43,8 @@
     "tests/unit/editorPortContract.test.ts",
     "tests/unit/editorFileMenu.test.ts",
     "tests/unit/editorTrayModel.test.ts",
+    "tests/unit/editorTrayPresentation.test.ts",
+    "tests/unit/iconGlyphs.test.ts",
     "tests/unit/editorWindowCascade.test.ts",
     "tests/unit/editorWindowPlacement.test.ts",
     "tests/unit/editorWindowRecord.test.ts",

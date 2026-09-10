@@ -192,3 +192,13 @@
 .context-menu-dialog-item.destructive {
   color: #ef4444;
 }
+
+/* 편집기 트레이의 행. 파일 이름이 아니라 절대 경로가 실려 길기 때문에, 다른
+ * 메뉴는 그대로 두고 이 행만 글자를 줄이고 등폭 글꼴로 세운다 — 경로는 등폭에서
+ * 구분선이 세로로 맞아 훑기 쉽다.
+ * @req FR-MDE-008 */
+.context-menu-item.editor-tray-item .context-menu-label {
+  font-family: var(--font-mono, ui-monospace, 'Cascadia Mono', Consolas, monospace);
+  font-size: 11px;
+  letter-spacing: -0.1px;
+}

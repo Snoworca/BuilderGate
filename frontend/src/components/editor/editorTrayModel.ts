@@ -8,7 +8,7 @@
 // resolves.
 // @req FR-MDE-008
 
-import { getLastSegment } from '../../utils/pathUtils.ts';
+import { truncatePathLeft } from '../../utils/pathUtils.ts';
 import { windowDialogTitleText } from '../dialog/windowDialogModel.ts';
 import type {
   EditorWindowScreen,
@@ -84,10 +84,45 @@ export function hasEditorTrayWindows(
 }
 
 /**
+ * How much of a path a row shows before its head is elided.
+ *
+ * Wider than the header's own path bar because a menu row is not competing for
+ * width with anything else on the line, and the whole point of showing the path
+ * is to tell one CLAUDE.md from another -- a bound tight enough to cut the
+ * parent directory away would defeat that.
+ * @req FR-MDE-008
+ */
+const TRAY_LABEL_MAX_LENGTH = 56;
+
+/**
+ * How many of the current workspace's windows are folded into the tray.
+ *
+ * The tray icon carries this as a badge, because a minimized window leaves no
+ * other trace on screen: without a count the user cannot tell one folded window
+ * from five, and the only way to find out is to open the list.
+ * @req FR-MDE-008
+ */
+export function countMinimizedEditorTrayWindows(
+  windows: readonly EditorTrayWindow[],
+  activeWorkspaceId: string | null,
+): number {
+  return windows.filter(
+    editorWindow => isInWorkspace(editorWindow, activeWorkspaceId) && editorWindow.minimized,
+  ).length;
+}
+
+/**
  * The list, in the order the windows are held. Minimized windows are listed --
  * the tray is how they are reached -- and windows of other workspaces are not,
  * because making one of those visible would move the user to a workspace they
  * did not ask for.
+ *
+ * The row shows the absolute path rather than the file name. Nearly every
+ * window in this product is open on a file called CLAUDE.md, so a list of file
+ * names is a list of identical rows and the only way to find the one wanted is
+ * to open each in turn. The head is what gets elided when the path is too long,
+ * which keeps the file name and its parent directories -- the part that
+ * actually differs -- and matches how the header already draws the session cwd.
  *
  * The dirty marker comes from `windowDialogTitleText`, the same function the
  * window title bar draws through, so the two never disagree about it.
@@ -102,7 +137,10 @@ export function listEditorTrayEntries(
     .map(editorWindow => ({
       filePath: editorWindow.filePath,
       tabId: editorWindow.tabId,
-      label: windowDialogTitleText(getLastSegment(editorWindow.filePath), editorWindow.dirty),
+      label: windowDialogTitleText(
+        truncatePathLeft(editorWindow.filePath, TRAY_LABEL_MAX_LENGTH),
+        editorWindow.dirty,
+      ),
     }));
 }
 

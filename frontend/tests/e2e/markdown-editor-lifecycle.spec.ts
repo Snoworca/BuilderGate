@@ -207,7 +207,7 @@ async function chooseFile(page: Page, fileName: string): Promise<void> {
 }
 
 /**
- * The title carries a leading `*` as soon as the window is dirty, which
+ * The title carries a trailing `*` as soon as the window is dirty, which
  * FR-MDE-006 AC-1 requires, so an exact match on the file name stops finding
  * the window the moment anything is typed into it. The marker is optional here
  * rather than ignored: the name still has to be the whole rest of the title.
@@ -215,7 +215,7 @@ async function chooseFile(page: Page, fileName: string): Promise<void> {
 function editorWindowFor(page: Page, fileName: string): Locator {
   return page.locator('.window-dialog-surface.editor-window-surface').filter({
     has: page.locator('.window-dialog-title')
-      .filter({ hasText: new RegExp(`^\\*?${escapeRegExp(fileName)}$`) }),
+      .filter({ hasText: new RegExp(`^${escapeRegExp(fileName)}\\*?$`) }),
   });
 }
 

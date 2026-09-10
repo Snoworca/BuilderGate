@@ -56,11 +56,11 @@ test('window dialog behavior uses deterministic z-index layers', () => {
 // The `*` is the dialog's to draw. A caller that starred its own title string
 // would leave the same fact travelling by two routes, and only one of them
 // would be corrected when the marker changed.
-test('FR-MDE-006 the dirty prop is what puts the leading marker on the title', () => {
+test('FR-MDE-006 the dirty prop is what puts the trailing marker on the title', () => {
   assert.equal(
     windowDialogTitleText('CLAUDE.md', true),
-    '*CLAUDE.md',
-    'FR-MDE-006 AC-1: dirty 인 창의 제목에는 선행 * 가 붙어야 한다',
+    'CLAUDE.md*',
+    'FR-MDE-006 AC-1: dirty 인 창의 제목에는 후행 * 가 붙어야 한다',
   );
   assert.equal(
     windowDialogTitleText('CLAUDE.md', false),

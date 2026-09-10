@@ -5,6 +5,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { Icon } from '../common';
 import { ContextMenu } from '../ContextMenu';
 import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
 import { truncatePathLeft } from '../../utils/pathUtils';
@@ -28,6 +29,15 @@ interface HeaderProps {
   hasEditorWindows?: boolean;
   /** One entry per editor window of the current workspace. @req FR-MDE-008 */
   editorTrayItems?: ContextMenuItem[];
+  /**
+   * How many of those windows are minimized.
+   *
+   * Drawn on the icon as a badge. A minimized window leaves no other trace on
+   * screen, so without the count the tray says only "something is folded away"
+   * and the user has to open the list to learn how much.
+   * @req FR-MDE-008
+   */
+  editorTrayMinimizedCount?: number;
 }
 
 function truncateText(value: string, maxLen: number): string {
@@ -52,6 +62,7 @@ export function Header({
   onOpenMcpControlManager,
   hasEditorWindows,
   editorTrayItems,
+  editorTrayMinimizedCount = 0,
 }: HeaderProps) {
   const [toolsMenuPosition, setToolsMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [editorTrayPosition, setEditorTrayPosition] = useState<{ x: number; y: number } | null>(null);
@@ -126,25 +137,23 @@ export function Header({
               }}
               aria-haspopup="menu"
               aria-expanded={editorTrayPosition !== null}
+              // The name stays put whatever the badge says. Folding the count
+              // into it would make the button a different element to anything
+              // selecting it by name, and the count is already announced by the
+              // badge below.
               aria-label="편집기 창"
               title="편집기 창"
             >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ position: 'relative', top: '2px' }}
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <path d="M14 2v6h6" />
-                <path d="M9 13h6" />
-                <path d="M9 17h4" />
-              </svg>
+              <Icon name="document" size={18} className="header-editor-tray-icon" />
+              {editorTrayMinimizedCount > 0 && (
+                <span
+                  className="header-editor-tray-badge"
+                  role="status"
+                  aria-label={`최소화 ${editorTrayMinimizedCount}개`}
+                >
+                  {editorTrayMinimizedCount}
+                </span>
+              )}
             </button>
           )}
           {onToggleViewMode && !isMobile && (

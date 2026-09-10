@@ -72,8 +72,8 @@ test('FR-MDE-008 the list is workspace scoped and marks dirty documents', () => 
   });
 
   assert.deepEqual(listEditorTrayEntries([w1, w2, w3], ACTIVE), [
-    { filePath: w1.filePath, tabId: 'tab-1', label: '*CLAUDE.md' },
-    { filePath: w2.filePath, tabId: 'tab-2', label: 'AGENTS.md' },
+    { filePath: w1.filePath, tabId: 'tab-1', label: 'C:\\Work\\proj\\CLAUDE.md*' },
+    { filePath: w2.filePath, tabId: 'tab-2', label: 'C:\\Work\\proj\\AGENTS.md' },
   ]);
 });
 
@@ -183,11 +183,12 @@ test('FR-MDE-008 the icon carries its own condition rather than the header callb
 
 const APP_SOURCE = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
 
-test('FR-MDE-008 App.tsx supplies the two props the tray icon is gated on', () => {
-  // Both are optional on Header, so dropping either compiles and every test in
-  // this repository still passes -- the icon simply never appears again. The
-  // component cannot see which of its call sites forgot, which is the same trap
-  // the MetadataRow guard in editorFileMenu.test.ts exists for.
+test('FR-MDE-008 App.tsx supplies the three props the tray icon is drawn from', () => {
+  // All three are optional on Header, so dropping any of them compiles and every
+  // test in this repository still passes -- the icon simply never appears again,
+  // or appears with no badge on it. The component cannot see which of its call
+  // sites forgot, which is the same trap the MetadataRow guard in
+  // editorFileMenu.test.ts exists for.
   const mountStart = APP_SOURCE.indexOf('<Header');
   assert.notEqual(mountStart, -1, 'App.tsx still renders Header');
 
@@ -197,4 +198,10 @@ test('FR-MDE-008 App.tsx supplies the two props the tray icon is gated on', () =
   const mount = APP_SOURCE.slice(mountStart, mountEnd);
   assert.ok(mount.includes('hasEditorWindows='), 'App.tsx passes hasEditorWindows');
   assert.ok(mount.includes('editorTrayItems='), 'App.tsx passes editorTrayItems');
+  // The badge count defaults to 0 on Header, so a forgotten prop is a tray icon
+  // that permanently claims nothing is minimized rather than a compile error.
+  assert.ok(
+    mount.includes('editorTrayMinimizedCount='),
+    'App.tsx passes editorTrayMinimizedCount',
+  );
 });

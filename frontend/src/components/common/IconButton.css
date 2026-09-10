@@ -1,0 +1,35 @@
+/* The shared look of an icon-faced button. Sized so the 16px glyph sits on a
+ * square target rather than inheriting whatever line box surrounds it. */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.icon-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.icon-button:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: 1px;
+}
+
+/* A pressed toggle reads as held down rather than merely hovered. */
+.icon-toggle-button.is-pressed {
+  background: rgba(255, 255, 255, 0.18);
+}

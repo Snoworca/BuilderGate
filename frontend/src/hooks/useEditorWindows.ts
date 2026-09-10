@@ -41,6 +41,7 @@ import {
   type EditorWindowViewMode,
 } from '../components/editor/editorWindowVisibility.ts';
 import {
+  countMinimizedEditorTrayWindows,
   hasEditorTrayWindows,
   listEditorTrayEntries,
   reviveEditorTrayWindow,
@@ -131,6 +132,8 @@ export interface UseEditorWindowsResult {
   windows: EditorWindowState[];
   /** Whether the tray icon renders. Scoped exactly as the list is. */
   hasWindows: boolean;
+  /** How many of them are minimized, which the tray icon carries as a badge. */
+  minimizedCount: number;
   trayItems: ContextMenuItem[];
   pathMenu: EditorPathMenuAnchor | null;
   pathMenuItems: ContextMenuItem[];
@@ -425,6 +428,10 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
   const trayItems = useMemo<ContextMenuItem[]>(
     () => listEditorTrayEntries(windows, activeWorkspaceId).map(entry => ({
       label: entry.label,
+      // The rows carry absolute paths, which are long. The class is what lets
+      // the menu set a smaller type for them without shrinking every other
+      // context menu in the application.
+      className: 'editor-tray-item',
       onClick: () => reviveByPath(entry.filePath),
     })),
     [activeWorkspaceId, reviveByPath, windows],
@@ -666,6 +673,7 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
   return {
     windows,
     hasWindows: hasEditorTrayWindows(windows, activeWorkspaceId),
+    minimizedCount: countMinimizedEditorTrayWindows(windows, activeWorkspaceId),
     trayItems,
     pathMenu,
     pathMenuItems,

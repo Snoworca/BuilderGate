@@ -140,3 +140,33 @@
   background: #d4d4d4;
   border-radius: 1px;
 }
+
+/* 편집기 트레이 아이콘과 그 위의 최소화 개수 배지.
+ *
+ * 배지는 버튼을 기준으로 절대 배치하므로 버튼이 위치 기준이 되어야 한다.
+ * @req FR-MDE-008 */
+.header-editor-tray-button {
+  position: relative;
+}
+
+.header-editor-tray-icon {
+  position: relative;
+  top: 2px;
+}
+
+.header-editor-tray-badge {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: #d13438;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
+}
