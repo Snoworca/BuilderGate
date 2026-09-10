@@ -310,13 +310,15 @@ test.describe('markdown editor placement and stacking', () => {
     // it reports which end the window is at. A window opens floating, so the
     // toggle starts unpressed and pressing it fills the stage.
     //
-    // ⚠️ Only the outward leg is asserted. Pressing 최대화 a second time does
-    // not return the window to `floating` -- the press does not reach the
-    // toggle at all, observed by instrumenting the handler. Whether the same
-    // happened before `docked` was removed is unknown: the destination was a
-    // different placement then, and no test has ever pressed this control twice
-    // in a row. The defect is reported in the session's own summary rather than
-    // in a tracker, so do not read this comment as a filed issue.
+    // Only the outward leg is asserted. Pressing 최대화 a second time does not
+    // return the window to `floating`: the press does not reach the toggle at
+    // all, observed by instrumenting the handler. The same happens on the
+    // commit before `docked` was removed, measured there directly, so it is not
+    // this change -- it is issue #45, and no test had ever pressed this control
+    // twice in a row for it to show up in.
+    //
+    // Restore the return leg here when #45 closes. There is no other case in
+    // this repository that presses `stage` -> `floating` through the UI.
     const maximize = surface.locator('button[aria-label="최대화"]');
     await expect(maximize).toHaveAttribute('aria-pressed', 'false');
 
