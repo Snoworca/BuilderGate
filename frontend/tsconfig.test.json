@@ -53,6 +53,7 @@
     "tests/unit/editorWindowRestore.test.ts",
     "tests/unit/editorWindowSave.test.ts",
     "tests/unit/editorWindowSaveShortcut.test.ts",
+    "tests/unit/editorWindowTabs.test.ts",
     "tests/unit/editorWindowVisibility.test.ts",
     "tests/unit/windowStateStorage.test.ts",
     "tests/unit/fileApiWrite.test.ts",
