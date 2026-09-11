@@ -498,8 +498,8 @@ test.describe('markdown editor placement and stacking', () => {
   // among the open documents. That is a tab switch, and what has to survive it
   // is the editor instance and the body in it.
 
-  // TC-REQ-FR-MDE-012-AC1-01
-  test('FR-MDE-012 switching tabs keeps every document mounted with its unsaved body', async ({ page }) => {
+  // TC-REQ-FR-MDE-010-AC1-01
+  test('FR-MDE-010 switching tabs keeps every document mounted with its unsaved body', async ({ page }) => {
     const workdir = makeWorkdir();
     const tabName = `${TAB_NAME_PREFIX}-tabswitch`;
     await addTabAt(page, workspaceId!, workdir, tabName);
@@ -539,8 +539,8 @@ test.describe('markdown editor placement and stacking', () => {
     await expect(editorPanelFor(page, 'CLAUDE.local.md')).toHaveCSS('display', 'none');
   });
 
-  // TC-REQ-FR-MDE-012-AC2-01
-  test('FR-MDE-012 closing a tab leaves the others, and the last one closes the window', async ({ page }) => {
+  // TC-REQ-FR-MDE-010-AC2-01
+  test('FR-MDE-010 closing a tab leaves the others, and the last one closes the window', async ({ page }) => {
     const workdir = makeWorkdir();
     const tabName = `${TAB_NAME_PREFIX}-tabclose`;
     await addTabAt(page, workspaceId!, workdir, tabName);
@@ -805,8 +805,8 @@ test.describe('markdown editor placement on a mobile layout', () => {
     expect(await page.evaluate(k => localStorage.getItem(k), GEOMETRY_CACHE_KEY)).toBe(planted);
   });
 
-  // TC-REQ-FR-MDE-012-AC3-01
-  test('FR-MDE-012 a mobile window still carries its tab row', async ({ page }) => {
+  // TC-REQ-FR-MDE-010-AC3-01
+  test('FR-MDE-010 a mobile window still carries its tab row', async ({ page }) => {
     // The tab row is what makes several documents reachable at all. A layout
     // that filled the screen and dropped the row would leave every document but
     // one unreachable, which the placement assertions above would not notice.

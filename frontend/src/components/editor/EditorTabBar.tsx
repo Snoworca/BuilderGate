@@ -6,7 +6,7 @@
 // are more tabs than fit. That is styling, and it lives in `EditorWindow.css`
 // beside the window's other rules.
 //
-// @req FR-MDE-012
+// @req FR-MDE-010
 
 import { useEffect, useRef } from 'react';
 import { windowDialogTitleText } from '../dialog/windowDialogModel.ts';
@@ -32,7 +32,7 @@ function fileNameOf(filePath: string): string {
 }
 
 /**
- * @req FR-MDE-012
+ * @req FR-MDE-010
  */
 export function EditorTabBar({ tabs, activeFilePath, onSelect, onClose }: EditorTabBarProps) {
   const activeRef = useRef<HTMLButtonElement>(null);

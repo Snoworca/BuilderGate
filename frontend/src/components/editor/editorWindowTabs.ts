@@ -12,7 +12,7 @@
 // this module orders and selects tabs, and has no business knowing that one
 // carries a terminal binding or an unsaved body.
 // @req FR-MDE-007
-// @req FR-MDE-012
+// @req FR-MDE-010
 
 /** The least this module needs of a tab: which document it holds. */
 export interface EditorTabIdentity {
@@ -31,7 +31,7 @@ export interface EditorTabIdentity {
  * and that state is what closes the window (D-12). It is not a separate flag:
  * two representations of "no tabs" can disagree, and a window still open with
  * no tabs has nothing to show and no title to carry.
- * @req FR-MDE-012
+ * @req FR-MDE-010
  */
 export interface EditorTabSet<TTab extends EditorTabIdentity> {
   tabs: readonly TTab[];
@@ -90,7 +90,7 @@ export function selectEditorTab<TTab extends EditorTabIdentity>(
  *
  * Closing the last tab empties the set, and an empty set is what closes the
  * window (D-12).
- * @req FR-MDE-012
+ * @req FR-MDE-010
  */
 export function closeEditorTab<TTab extends EditorTabIdentity>(
   set: EditorTabSet<TTab>,

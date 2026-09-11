@@ -15,7 +15,7 @@
 // @req FR-MDE-001
 // @req FR-MDE-002
 // @req FR-MDE-006
-// @req FR-MDE-012
+// @req FR-MDE-010
 
 import {
   useCallback,
@@ -305,7 +305,7 @@ export function EditorWindow({
    * user is answering about that document, and closing the ones behind it
    * while the question is on screen would take documents they have not been
    * asked about. The remaining tabs are closed by the next press.
-   * @req FR-MDE-012
+   * @req FR-MDE-010
    */
   const requestCloseWindow = useCallback(() => {
     const dirtyTab = tabs.find(tab => handlesRef.current.get(tab.filePath)?.isDirty() === true);

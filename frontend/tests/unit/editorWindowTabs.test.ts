@@ -7,7 +7,7 @@ import {
   type EditorTabSet,
 } from '../../src/components/editor/editorWindowTabs.ts';
 
-// FR-MDE-007 · FR-MDE-012 — the tab set of the one editor window, as a pure
+// FR-MDE-007 · FR-MDE-010 — the tab set of the one editor window, as a pure
 // function of the set and the path being acted on.
 //
 // A tab's identity is its normalized absolute path, the same value that used to
@@ -92,7 +92,7 @@ test('FR-MDE-007 selecting a tab changes only which one is active', () => {
   assert.equal(missing, three);
 });
 
-test('FR-MDE-012 closing the active tab activates the one to its right', () => {
+test('FR-MDE-010 closing the active tab activates the one to its right', () => {
   const three = set(B, A, B, C);
   const closed = closeEditorTab(three, B);
 
@@ -107,7 +107,7 @@ test('FR-MDE-012 closing the active tab activates the one to its right', () => {
   assert.equal(last.activeFilePath, B);
 });
 
-test('FR-MDE-012 closing an inactive tab leaves the active one alone', () => {
+test('FR-MDE-010 closing an inactive tab leaves the active one alone', () => {
   const three = set(B, A, B, C);
   const closed = closeEditorTab(three, C);
 
@@ -121,7 +121,7 @@ test('FR-MDE-012 closing an inactive tab leaves the active one alone', () => {
   assert.equal(left.activeFilePath, B);
 });
 
-test('FR-MDE-012 closing the last tab empties the set, which is what closes the window', () => {
+test('FR-MDE-010 closing the last tab empties the set, which is what closes the window', () => {
   const only = set(A, A);
   const closed = closeEditorTab(only, A);
 
@@ -133,7 +133,7 @@ test('FR-MDE-012 closing the last tab empties the set, which is what closes the 
   // show and no title to carry.
 });
 
-test('FR-MDE-012 closing a path no tab holds changes nothing', () => {
+test('FR-MDE-010 closing a path no tab holds changes nothing', () => {
   const two = set(A, A, B);
   const closed = closeEditorTab(two, 'C:/work/absent.md');
 

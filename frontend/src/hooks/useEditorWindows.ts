@@ -668,7 +668,7 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
   /**
    * Closes one document. The window goes with its last tab: an empty window
    * shows nothing and carries no title.
-   * @req FR-MDE-012
+   * @req FR-MDE-010
    */
   const closeDocument = useCallback((filePath: string) => {
     const workspaceId = activeWorkspaceId;
@@ -715,7 +715,7 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
   /**
    * Closes the window and every document in it. The title bar's close control
    * asks each panel first, so by the time this runs nothing is unsaved.
-   * @req FR-MDE-012
+   * @req FR-MDE-010
    */
   const closeWindow = useCallback(() => {
     const workspaceId = activeWorkspaceId;
